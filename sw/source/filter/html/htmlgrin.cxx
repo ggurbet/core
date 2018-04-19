@@ -480,8 +480,34 @@ IMAGE_SETEVENT:
         std::unique_ptr<SvMemoryStream> const pStream(aGraphicURL.getData());
         if (pStream)
         {
-            if (ERRCODE_NONE == GraphicFilter::GetGraphicFilter().ImportGraphic(aGraphic, "", *pStream))
+            GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
+            aGraphic = rFilter.ImportUnloadedGraphic(*pStream);
+            if (aGraphic)
+            {
                 sGrfNm.clear();
+
+                if (!bHeightProvided || !bWidthProvided)
+                {
+                    pStream->Seek(0);
+                    GraphicDescriptor aDescriptor(*pStream, /*pPath=*/nullptr);
+                    if (aDescriptor.Detect(/*bExtendedInfo=*/true))
+                    {
+                        nWidth = aDescriptor.GetSizePixel().getWidth();
+                        if (nWidth)
+                            bWidthProvided = true;
+
+                        nHeight = aDescriptor.GetSizePixel().getHeight();
+                        if (nHeight)
+                            bHeightProvided = true;
+                    }
+                }
+            }
+
+            if (!sGrfNm.isEmpty())
+            {
+                if (ERRCODE_NONE == rFilter.ImportGraphic(aGraphic, "", *pStream))
+                    sGrfNm.clear();
+            }
         }
     }
     else if (m_sBaseURL.isEmpty() || !aGraphicData.isEmpty())
