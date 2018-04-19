@@ -35,6 +35,7 @@
 #include <rtl/uri.hxx>
 #include <rtl/tencinfo.h>
 #include <oox/helper/graphichelper.hxx>
+#include <vcl/graphicfilter.hxx>
 #include "rtfsdrimport.hxx"
 #include "rtfreferenceproperties.hxx"
 #include "rtfskipdestination.hxx"
@@ -891,7 +892,13 @@ void RTFDocumentImpl::resolvePict(bool const bInline, uno::Reference<drawing::XS
         // provided by picw and pich.
 
         Graphic aGraphic(xGraphic);
-        Size aSize(aGraphic.GetPrefSize());
+        Size aSize;
+        pStream->Seek(0);
+        GraphicDescriptor aDescriptor(*pStream, /*pPath=*/nullptr);
+        if (aDescriptor.Detect(/*bExtendedInfo=*/true))
+            aSize = aDescriptor.GetSizePixel();
+        else
+            aSize = aGraphic.GetPrefSize();
         MapMode aMap(MapUnit::Map100thMM);
         if (aGraphic.GetPrefMapMode().GetMapUnit() == MapUnit::MapPixel)
             aSize = Application::GetDefaultDevice()->PixelToLogic(aSize, aMap);
