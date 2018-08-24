@@ -37,6 +37,7 @@
 #include <solveroptions.hxx>
 #include <solverutil.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 
 #include <optsolver.hxx>
 
@@ -76,55 +77,39 @@ void ScSolverProgressDialog::SetTimeLimit( sal_Int32 nSeconds )
     m_pFtTime->SetText( aNew );
 }
 
-ScSolverNoSolutionDialog::ScSolverNoSolutionDialog( vcl::Window* pParent, const OUString& rErrorText )
-    : ModalDialog(pParent, "NoSolutionDialog", "modules/scalc/ui/nosolutiondialog.ui")
+ScSolverNoSolutionDialog::ScSolverNoSolutionDialog(weld::Window* pParent, const OUString& rErrorText)
+    : GenericDialogController(pParent, "modules/scalc/ui/nosolutiondialog.ui", "NoSolutionDialog")
+    , m_xFtErrorText(m_xBuilder->weld_label("error"))
 {
-    get(m_pFtErrorText, "error");
-    m_pFtErrorText->SetText(rErrorText);
+    m_xFtErrorText->set_label(rErrorText);
 }
 
 ScSolverNoSolutionDialog::~ScSolverNoSolutionDialog()
 {
-    disposeOnce();
 }
 
-void ScSolverNoSolutionDialog::dispose()
+ScSolverSuccessDialog::ScSolverSuccessDialog(weld::Window* pParent, const OUString& rSolution)
+    : GenericDialogController(pParent, "modules/scalc/ui/solversuccessdialog.ui", "SolverSuccessDialog")
+    , m_xFtResult(m_xBuilder->weld_label("result"))
+    , m_xBtnOk(m_xBuilder->weld_button("ok"))
+    , m_xBtnCancel(m_xBuilder->weld_button("cancel"))
 {
-    m_pFtErrorText.clear();
-    ModalDialog::dispose();
-}
-
-ScSolverSuccessDialog::ScSolverSuccessDialog( vcl::Window* pParent, const OUString& rSolution )
-    : ModalDialog(pParent, "SolverSuccessDialog", "modules/scalc/ui/solversuccessdialog.ui")
-{
-    get(m_pFtResult, "result");
-    get(m_pBtnOk, "ok");
-    m_pBtnOk->SetClickHdl(LINK(this, ScSolverSuccessDialog, ClickHdl));
-    get(m_pBtnCancel, "cancel");
-    m_pBtnCancel->SetClickHdl(LINK(this, ScSolverSuccessDialog, ClickHdl));
-    OUString aMessage = m_pFtResult->GetText() + " " + rSolution;
-    m_pFtResult->SetText(aMessage);
+    m_xBtnOk->connect_clicked(LINK(this, ScSolverSuccessDialog, ClickHdl));
+    m_xBtnCancel->connect_clicked(LINK(this, ScSolverSuccessDialog, ClickHdl));
+    OUString aMessage = m_xFtResult->get_label() + " " + rSolution;
+    m_xFtResult->set_label(aMessage);
 }
 
 ScSolverSuccessDialog::~ScSolverSuccessDialog()
 {
-    disposeOnce();
 }
 
-void ScSolverSuccessDialog::dispose()
+IMPL_LINK(ScSolverSuccessDialog, ClickHdl, weld::Button&, rBtn, void)
 {
-    m_pFtResult.clear();
-    m_pBtnOk.clear();
-    m_pBtnCancel.clear();
-    ModalDialog::dispose();
-}
-
-IMPL_LINK( ScSolverSuccessDialog, ClickHdl, Button*, pBtn, void )
-{
-    if (pBtn == m_pBtnOk)
-        EndDialog(RET_OK);
+    if (&rBtn == m_xBtnOk.get())
+        m_xDialog->response(RET_OK);
     else
-        EndDialog();
+        m_xDialog->response(RET_CANCEL);
 }
 
 ScCursorRefEdit::ScCursorRefEdit( vcl::Window* pParent, vcl::Window *pLabel )
@@ -179,8 +164,8 @@ ScOptSolverDlg::ScOptSolverDlg( SfxBindings* pB, SfxChildWindow* pCW, vcl::Windo
                           ScDocShell* pDocSh, const ScAddress& aCursorPos )
 
     : ScAnyRefDlg(pB, pCW, pParent, "SolverDialog", "modules/scalc/ui/solverdlg.ui")
-    , maInputError(ScGlobal::GetRscString(STR_INVALIDINPUT))
-    , maConditionError(ScGlobal::GetRscString(STR_INVALIDCONDITION))
+    , maInputError(ScResId(STR_INVALIDINPUT))
+    , maConditionError(ScResId(STR_INVALIDCONDITION))
 
     , mpDocShell(pDocSh)
     , mrDoc(pDocSh->GetDocument())
@@ -600,10 +585,10 @@ IMPL_LINK( ScOptSolverDlg, BtnHdl, Button*, pBtn, void )
         {
             // Close: write dialog settings to DocShell for subsequent calls
             ReadConditions();
-            ScOptSolverSave aSave(
+            std::unique_ptr<ScOptSolverSave> pSave( new ScOptSolverSave(
                 m_pEdObjectiveCell->GetText(), m_pRbMax->IsChecked(), m_pRbMin->IsChecked(), m_pRbValue->IsChecked(),
-                m_pEdTargetValue->GetText(), m_pEdVariableCells->GetText(), maConditions, maEngine, maProperties );
-            mpDocShell->SetSolverSaveData( aSave );
+                m_pEdTargetValue->GetText(), m_pEdVariableCells->GetText(), maConditions, maEngine, maProperties ) );
+            mpDocShell->SetSolverSaveData( std::move(pSave) );
             Close();
         }
         else
@@ -1053,8 +1038,8 @@ bool ScOptSolverDlg::CallSolver()       // return true -> close dialog after cal
             static_cast<SCCOL>(aObjective.Column), static_cast<SCROW>(aObjective.Row),
             static_cast<SCTAB>(aObjective.Sheet));
 
-        ScopedVclPtrInstance< ScSolverSuccessDialog > aDialog( this, aResultStr );
-        if ( aDialog->Execute() == RET_OK )
+        ScSolverSuccessDialog aDialog(GetFrameWeld(), aResultStr);
+        if (aDialog.run() == RET_OK)
         {
             // keep results and close dialog
             bRestore = false;
@@ -1067,8 +1052,8 @@ bool ScOptSolverDlg::CallSolver()       // return true -> close dialog after cal
         uno::Reference<sheet::XSolverDescription> xDesc( xSolver, uno::UNO_QUERY );
         if ( xDesc.is() )
             aError = xDesc->getStatusDescription();         // error description from component
-        ScopedVclPtrInstance< ScSolverNoSolutionDialog > aDialog( this, aError );
-        aDialog->Execute();
+        ScSolverNoSolutionDialog aDialog(GetFrameWeld(), aError);
+        aDialog.run();
     }
 
     if ( bRestore )         // restore old values

@@ -30,7 +30,7 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdpoev.hxx>
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/e3dsceneupdater.hxx>
 #include <rtl/strbuf.hxx>
 #include <svx/svdview.hxx>
@@ -201,7 +201,7 @@ void SdrEditView::DeleteLayer(const OUString& rName)
 
         const bool bUndo = IsUndoEnabled();
         if( bUndo )
-            BegUndo(ImpGetResStr(STR_UndoDelLayer));
+            BegUndo(SvxResId(STR_UndoDelLayer));
 
         bool bMaPg(true);
 
@@ -456,9 +456,10 @@ bool SdrEditView::IsDismantlePossible(bool bMakeLines) const
 
 void SdrEditView::CheckPossibilities()
 {
-    if (mbSomeObjChgdFlag) bPossibilitiesDirty=true;
+    if (mbSomeObjChgdFlag)
+        bPossibilitiesDirty=true;
 
-    if(mbSomeObjChgdFlag)
+    if (mbSomeObjChgdFlag)
     {
         // This call IS necessary to correct the MarkList, in which
         // no longer to the model belonging objects still can reside.
@@ -466,17 +467,20 @@ void SdrEditView::CheckPossibilities()
         CheckMarked();
     }
 
-    if (bPossibilitiesDirty) {
+    if (bPossibilitiesDirty)
+    {
         ImpResetPossibilityFlags();
         SortMarkedObjects();
-        const size_t nMarkCount=GetMarkedObjectCount();
-        if (nMarkCount!=0) {
-            bReverseOrderPossible=nMarkCount>=2;
+        const size_t nMarkCount = GetMarkedObjectCount();
+        if (nMarkCount != 0)
+        {
+            bReverseOrderPossible = (nMarkCount >= 2);
 
             size_t nMovableCount=0;
             bGroupPossible=nMarkCount>=2;
             bCombinePossible=nMarkCount>=2;
-            if (nMarkCount==1) {
+            if (nMarkCount==1)
+            {
                 // check bCombinePossible more thoroughly
                 // still missing ...
                 const SdrObject* pObj=GetMarkedObjectByIndex(0);
@@ -573,7 +577,7 @@ void SdrEditView::CheckPossibilities()
                     }
                 }
 
-                // Must be resizeable to allow cropping
+                // Must be resizable to allow cropping
                 if (!aInfo.bResizeFreeAllowed && !aInfo.bResizePropAllowed)
                     bCropAllowed = false;
 
@@ -603,14 +607,18 @@ void SdrEditView::CheckPossibilities()
                 if (!bImportMtfPossible)
                 {
                     const SdrGrafObj* pSdrGrafObj = dynamic_cast< const SdrGrafObj* >(pObj);
-                    const SdrOle2Obj* pSdrOle2Obj = dynamic_cast< const SdrOle2Obj* >(pObj);
-
-                    if(pSdrGrafObj && ((pSdrGrafObj->HasGDIMetaFile() && !pSdrGrafObj->IsEPS()) || pSdrGrafObj->isEmbeddedVectorGraphicData()))
+                    if (pSdrGrafObj != nullptr)
                     {
-                        bImportMtfPossible = true;
+                        if ((pSdrGrafObj->HasGDIMetaFile() && !pSdrGrafObj->IsEPS()) ||
+                            pSdrGrafObj->isEmbeddedVectorGraphicData() ||
+                            pSdrGrafObj->isEmbeddedPdfData())
+                        {
+                            bImportMtfPossible = true;
+                        }
                     }
 
-                    if(pSdrOle2Obj)
+                    const SdrOle2Obj* pSdrOle2Obj = dynamic_cast< const SdrOle2Obj* >(pObj);
+                    if (pSdrOle2Obj)
                     {
                         bImportMtfPossible = pSdrOle2Obj->GetObjRef().is();
                     }
@@ -719,7 +727,7 @@ std::vector<SdrObject*> SdrEditView::DeleteMarkedList(SdrMarkList const& rMark)
                 --nm;
                 SdrMark* pM = rMark.GetMark(nm);
                 SdrObject* pObj = pM->GetMarkedSdrObj();
-                SdrObjList*  pOL = pObj->getParentOfSdrObject();
+                SdrObjList*  pOL = pObj->getParentSdrObjListFromSdrObject();
                 const size_t nOrdNum(pObj->GetOrdNumDirect());
 
                 bool bIs3D = dynamic_cast< E3dObject* >(pObj);
@@ -772,7 +780,7 @@ void SdrEditView::DeleteMarkedObj()
 
     // moved breaking action and undo start outside loop
     BrkAction();
-    BegUndo(ImpGetResStr(STR_EditDelete),GetDescriptionOfMarkedObjects(),SdrRepeatFunc::Delete);
+    BegUndo(SvxResId(STR_EditDelete),GetDescriptionOfMarkedObjects(),SdrRepeatFunc::Delete);
 
     std::vector<SdrObject*> lazyDeleteObjects;
     // remove as long as something is selected. This allows to schedule objects for
@@ -789,9 +797,9 @@ void SdrEditView::DeleteMarkedObj()
             for(size_t a = 0; a < nCount; ++a)
             {
                 // in the first run, add all found parents, but only once
-                SdrMark* pMark = rMarkList.GetMark(a);
-                SdrObject* pObject = pMark->GetMarkedSdrObj();
-                SdrObject* pParent = pObject->getParentOfSdrObject()->GetOwnerObj();
+                SdrMark* pMark(rMarkList.GetMark(a));
+                SdrObject* pObject(pMark->GetMarkedSdrObj());
+                SdrObject* pParent(pObject->getParentSdrObjectFromSdrObject());
 
                 if(pParent)
                 {
@@ -899,7 +907,8 @@ void SdrEditView::CopyMarkedObj()
     const size_t nMarkCount=aSourceObjectsForCopy.GetMarkCount();
     for (size_t nm=0; nm<nMarkCount; ++nm) {
         SdrMark* pM=aSourceObjectsForCopy.GetMark(nm);
-        SdrObject* pO=pM->GetMarkedSdrObj()->Clone();
+        SdrObject* pSource(pM->GetMarkedSdrObj());
+        SdrObject* pO(pSource->CloneSdrObject(pSource->getSdrModelFromSdrObject()));
         if (pO!=nullptr) {
             pM->GetPageView()->GetObjList()->InsertObject(pO, SAL_MAX_SIZE);
 
@@ -1003,7 +1012,7 @@ void SdrEditView::ReplaceObjectAtView(SdrObject* pOldObj, SdrPageView& rPV, SdrO
             pSdrView->SdrEndTextEdit();
     }
 
-    SdrObjList* pOL=pOldObj->getParentOfSdrObject();
+    SdrObjList* pOL=pOldObj->getParentSdrObjListFromSdrObject();
     const bool bUndo = IsUndoEnabled();
     if( bUndo  )
         AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoReplaceObject(*pOldObj,*pNewObj));

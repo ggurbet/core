@@ -157,7 +157,7 @@ ToxTextGenerator::GenerateTextForChapterToken(const SwFormToken& chapterToken, c
 // Add parameter <_TOXSectNdIdx> and <_pDefaultPageDesc> in order to control,
 // which page description is used, no appropriate one is found.
 void
-ToxTextGenerator::GenerateText(SwDoc* pDoc, const std::vector<SwTOXSortTabBase*> &entries,
+ToxTextGenerator::GenerateText(SwDoc* pDoc, const std::vector<std::unique_ptr<SwTOXSortTabBase>> &entries,
         sal_uInt16 indexOfEntryToProcess, sal_uInt16 numberOfEntriesToProcess)
 {
     // pTOXNd is only set at the first mark
@@ -315,10 +315,10 @@ ToxTextGenerator::HandleTextToken(const SwTOXSortTabBase& source, SwAttrPool& po
         if (attributesToClone->Count() <= 0) {
             continue;
         }
-        SwFormatAutoFormat* clone = static_cast<SwFormatAutoFormat*>(hint->GetAutoFormat().Clone());
+        std::unique_ptr<SwFormatAutoFormat> clone(static_cast<SwFormatAutoFormat*>(hint->GetAutoFormat().Clone()));
         clone->SetStyleHandle(attributesToClone);
 
-        result.autoFormats.push_back(clone);
+        result.autoFormats.push_back(std::move(clone));
 
         ModelToViewHelper aConversionMap( *pSrc, ExpandMode::ExpandFields );
         result.startPositions.push_back(
@@ -347,18 +347,18 @@ ToxTextGenerator::ApplyHandledTextToken(const HandledTextToken& htt, SwTextNode&
 /*static*/ OUString
 ToxTextGenerator::ConstructPageNumberPlaceholder(size_t numberOfToxSources)
 {
-    OUString retval;
     if (numberOfToxSources == 0) {
-        return retval;
+        return OUString();
     }
+    OUStringBuffer retval;
     // Place holder for the PageNumber; we only respect the first one
-    retval += OUStringLiteral1(C_NUM_REPL);
+    retval.append(C_NUM_REPL);
     for (size_t i = 1; i < numberOfToxSources; ++i) {
-        retval += S_PAGE_DELI;
-        retval += OUStringLiteral1(C_NUM_REPL);
+        retval.append(S_PAGE_DELI);
+        retval.append(C_NUM_REPL);
     }
-    retval += OUStringLiteral1(C_END_PAGE_NUM);
-    return retval;
+    retval.append(C_END_PAGE_NUM);
+    return retval.makeStringAndClear();
 }
 
 /*virtual*/ SwChapterField

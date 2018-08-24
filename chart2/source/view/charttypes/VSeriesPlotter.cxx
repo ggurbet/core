@@ -19,11 +19,13 @@
 
 #include <memory>
 #include <VSeriesPlotter.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <VLineProperties.hxx>
+#include <ShapeFactory.hxx>
 #include <chartview/ExplicitValueProvider.hxx>
 #include <svl/zformat.hxx>
 
 #include <CommonConverters.hxx>
+#include <ExplicitCategoriesProvider.hxx>
 #include <ViewDefines.hxx>
 #include <ObjectIdentifier.hxx>
 #include <StatisticsHelper.hxx>
@@ -52,6 +54,7 @@
 #include <unonames.hxx>
 #include <SpecialCharacters.hxx>
 
+#include <com/sun/star/chart2/DataPointLabel.hpp>
 #include <com/sun/star/chart/ErrorBarStyle.hpp>
 #include <com/sun/star/chart/TimeUnit.hpp>
 #include <com/sun/star/chart2/XDataPointCustomLabelField.hpp>
@@ -83,6 +86,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <functional>
 #include <map>
@@ -103,11 +107,20 @@ VDataSeriesGroup::CachedYValues::CachedYValues()
 {
 }
 
-VDataSeriesGroup::VDataSeriesGroup( VDataSeries* pSeries )
-        : m_aSeriesVector(1,pSeries)
+VDataSeriesGroup::VDataSeriesGroup( std::unique_ptr<VDataSeries> pSeries )
+        : m_aSeriesVector(1)
         , m_bMaxPointCountDirty(true)
         , m_nMaxPointCount(0)
         , m_aListOfCachedYValues()
+{
+    m_aSeriesVector[0] = std::move(pSeries);
+}
+
+VDataSeriesGroup::VDataSeriesGroup( VDataSeriesGroup&& other )
+        : m_aSeriesVector( std::move(other.m_aSeriesVector) )
+        , m_bMaxPointCountDirty( other.m_bMaxPointCountDirty )
+        , m_nMaxPointCount( std::move(other.m_nMaxPointCount) )
+        , m_aListOfCachedYValues( std::move(other.m_aListOfCachedYValues) )
 {
 }
 
@@ -118,16 +131,12 @@ VDataSeriesGroup::~VDataSeriesGroup()
 void VDataSeriesGroup::deleteSeries()
 {
     //delete all data series help objects:
-    for (VDataSeries* pSeries : m_aSeriesVector)
-    {
-        delete pSeries;
-    }
     m_aSeriesVector.clear();
 }
 
-void VDataSeriesGroup::addSeries( VDataSeries* pSeries )
+void VDataSeriesGroup::addSeries( std::unique_ptr<VDataSeries> pSeries )
 {
-    m_aSeriesVector.push_back(pSeries);
+    m_aSeriesVector.push_back(std::move(pSeries));
     m_bMaxPointCountDirty=true;
 }
 
@@ -166,17 +175,12 @@ VSeriesPlotter::~VSeriesPlotter()
     }
     m_aZSlots.clear();
 
-    for (auto const& elem : m_aSecondaryPosHelperMap)
-    {
-        PlottingPositionHelper* pPosHelper = elem.second;
-        delete pPosHelper;
-    }
     m_aSecondaryPosHelperMap.clear();
 
     m_aSecondaryValueScales.clear();
 }
 
-void VSeriesPlotter::addSeries( VDataSeries* pSeries, sal_Int32 zSlot, sal_Int32 xSlot, sal_Int32 ySlot )
+void VSeriesPlotter::addSeries( std::unique_ptr<VDataSeries> pSeries, sal_Int32 zSlot, sal_Int32 xSlot, sal_Int32 ySlot )
 {
     //take ownership of pSeries
 
@@ -201,8 +205,8 @@ void VSeriesPlotter::addSeries( VDataSeries* pSeries, sal_Int32 zSlot, sal_Int32
     {
         //new z slot
         std::vector< VDataSeriesGroup > aZSlot;
-        aZSlot.emplace_back(pSeries );
-        m_aZSlots.push_back( aZSlot );
+        aZSlot.emplace_back( std::move(pSeries) );
+        m_aZSlots.push_back( std::move(aZSlot) );
     }
     else
     {
@@ -212,7 +216,7 @@ void VSeriesPlotter::addSeries( VDataSeries* pSeries, sal_Int32 zSlot, sal_Int32
         if(xSlot<0 || xSlot>=static_cast<sal_Int32>(rXSlots.size()))
         {
             //append the series to already existing x series
-            rXSlots.emplace_back(pSeries );
+            rXSlots.emplace_back( std::move(pSeries) );
         }
         else
         {
@@ -231,7 +235,7 @@ void VSeriesPlotter::addSeries( VDataSeries* pSeries, sal_Int32 zSlot, sal_Int32
             else if( ySlot == -1 || ySlot >= nYSlotCount)
             {
                 //append the series to already existing y series
-                rYSlots.addSeries(pSeries);
+                rYSlots.addSeries( std::move(pSeries) );
             }
             else
             {
@@ -267,7 +271,7 @@ void VSeriesPlotter::releaseShapes()
         for (VDataSeriesGroup const & rGroup : rGroupVector)
         {
             //iterate through all series in this x slot
-            for (VDataSeries* pSeries : rGroup.m_aSeriesVector)
+            for (std::unique_ptr<VDataSeries> const & pSeries : rGroup.m_aSeriesVector)
             {
                 pSeries->releaseShapes();
             }
@@ -624,9 +628,9 @@ uno::Reference< drawing::XShape > VSeriesPlotter::createDataLabel( const uno::Re
             (*pPropValues)[ nProperties ] <<= style::ParagraphAdjust_CENTER;
 
             // create text shape
-            xTextShape = AbstractShapeFactory::getOrCreateShapeFactory( m_xShapeFactory )->
+            xTextShape = ShapeFactory::getOrCreateShapeFactory( m_xShapeFactory )->
                 createText( xTarget_, aFormattedLabels, *pPropNames, *pPropValues,
-                    AbstractShapeFactory::makeTransformation( aScreenPosition2D ) );
+                    ShapeFactory::makeTransformation( aScreenPosition2D ) );
         }
         else if( bMultiLineLabel )
         {
@@ -646,9 +650,9 @@ uno::Reference< drawing::XShape > VSeriesPlotter::createDataLabel( const uno::Re
             aParaPropValues[2][0] <<= style::ParagraphAdjust_CENTER;
 
             //create text shape
-            xTextShape = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory)->
+            xTextShape = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory)->
                 createText( xTarget_, aTextList, aParaPropNames, aParaPropValues
-                            , *pPropNames, *pPropValues, AbstractShapeFactory::makeTransformation( aScreenPosition2D ) );
+                            , *pPropNames, *pPropValues, ShapeFactory::makeTransformation( aScreenPosition2D ) );
         }
         else
         {
@@ -667,9 +671,9 @@ uno::Reference< drawing::XShape > VSeriesPlotter::createDataLabel( const uno::Re
             }
 
             //create text shape
-            xTextShape = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory)->
+            xTextShape = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory)->
                 createText( xTarget_, aText.makeStringAndClear()
-                            , *pPropNames, *pPropValues, AbstractShapeFactory::makeTransformation( aScreenPosition2D ) );
+                            , *pPropNames, *pPropValues, ShapeFactory::makeTransformation( aScreenPosition2D ) );
         }
 
         if( !xTextShape.is() )
@@ -715,10 +719,10 @@ uno::Reference< drawing::XShape > VSeriesPlotter::createDataLabel( const uno::Re
         const awt::Point aUnrotatedTextPos( xTextShape->getPosition() );
         if( fRotationDegrees != 0.0 )
         {
-            const double fDegreesPi( fRotationDegrees * ( F_PI / -180.0 ) );
+            const double fDegreesPi( -basegfx::deg2rad(fRotationDegrees) );
             uno::Reference< beans::XPropertySet > xProp( xTextShape, uno::UNO_QUERY );
             if( xProp.is() )
-                xProp->setPropertyValue( "Transformation", AbstractShapeFactory::makeTransformation( aScreenPosition2D, fDegreesPi ) );
+                xProp->setPropertyValue( "Transformation", ShapeFactory::makeTransformation( aScreenPosition2D, fDegreesPi ) );
             LabelPositionHelper::correctPositionForRotation( xTextShape, eAlignment, fRotationDegrees, true /*bRotateAroundCenter*/ );
         }
 
@@ -1253,7 +1257,7 @@ void VSeriesPlotter::createRegressionCurvesShapes( VDataSeries const & rVDataSer
                 createGroupShape( xTarget, rVDataSeries.getDataCurveCID( nN, bAverageLine ) );
             uno::Reference< drawing::XShape > xShape = m_pShapeFactory->createLine2D(
                 xRegressionGroupShapes, PolyToPointSequence( aRegressionPoly ), &aVLineProperties );
-            AbstractShapeFactory::setShapeName( xShape, "MarkHandles" );
+            ShapeFactory::setShapeName( xShape, "MarkHandles" );
             aDefaultPos = xShape->getPosition();
         }
 
@@ -1391,12 +1395,12 @@ void VSeriesPlotter::createRegressionCurveEquationShapes(
 
                 uno::Reference< drawing::XShape > xTextShape = m_pShapeFactory->createText(
                     xEquationTarget, aFormula.makeStringAndClear(),
-                    aNames, aValues, AbstractShapeFactory::makeTransformation( aScreenPosition2D ));
+                    aNames, aValues, ShapeFactory::makeTransformation( aScreenPosition2D ));
 
                 OSL_ASSERT( xTextShape.is());
                 if( xTextShape.is())
                 {
-                    AbstractShapeFactory::setShapeName( xTextShape, rEquationCID );
+                    ShapeFactory::setShapeName( xTextShape, rEquationCID );
                     awt::Size aSize( xTextShape->getSize() );
                     awt::Point aPos( RelativePositionHelper::getUpperLeftCornerOfAnchoredObject(
                         aScreenPosition2D, aSize, aRelativePosition.Anchor ) );
@@ -1697,7 +1701,7 @@ sal_Int32 VDataSeriesGroup::getPointCount() const
 
     sal_Int32 nRet = 0;
 
-    for (VDataSeries* pSeries : m_aSeriesVector)
+    for (std::unique_ptr<VDataSeries> const & pSeries : m_aSeriesVector)
     {
         sal_Int32 nPointCount = pSeries->getTotalPointCount();
         if( nPointCount>nRet )
@@ -1726,7 +1730,7 @@ void VDataSeriesGroup::getMinimumAndMaximiumX( double& rfMinimum, double& rfMaxi
     ::rtl::math::setInf(&rfMinimum, false);
     ::rtl::math::setInf(&rfMaximum, true);
 
-    for (VDataSeries* pSeries : m_aSeriesVector)
+    for (std::unique_ptr<VDataSeries> const & pSeries : m_aSeriesVector)
     {
         sal_Int32 nPointCount = pSeries->getTotalPointCount();
         for(sal_Int32 nN=0;nN<nPointCount;nN++)
@@ -1890,7 +1894,7 @@ void VDataSeriesGroup::getMinimumAndMaximiumYInContinuousXRange(
         return;
 
     PerXMinMaxCalculator aRangeCalc;
-    for (const VDataSeries* pSeries : m_aSeriesVector)
+    for (const std::unique_ptr<VDataSeries> & pSeries : m_aSeriesVector)
     {
         if (!pSeries)
             continue;
@@ -1951,7 +1955,7 @@ void VDataSeriesGroup::calculateYMinAndMaxForCategory( sal_Int32 nCategoryIndex
 
     if( bSeparateStackingForDifferentSigns )
     {
-        for (const VDataSeries* pSeries: m_aSeriesVector)
+        for (const std::unique_ptr<VDataSeries> & pSeries: m_aSeriesVector)
         {
             if( nAxisIndex != pSeries->getAttachedAxisIndex() )
                 continue;
@@ -1979,7 +1983,7 @@ void VDataSeriesGroup::calculateYMinAndMaxForCategory( sal_Int32 nCategoryIndex
     }
     else
     {
-        for (const VDataSeries* pSeries: m_aSeriesVector)
+        for (const std::unique_ptr<VDataSeries> & pSeries: m_aSeriesVector)
         {
             if( nAxisIndex != pSeries->getAttachedAxisIndex() )
                 continue;
@@ -2068,15 +2072,15 @@ PlottingPositionHelper& VSeriesPlotter::getPlottingPositionHelper( sal_Int32 nAx
         tSecondaryPosHelperMap::const_iterator aPosIt = m_aSecondaryPosHelperMap.find( nAxisIndex );
         if( aPosIt != m_aSecondaryPosHelperMap.end() )
         {
-            pRet = aPosIt->second;
+            pRet = aPosIt->second.get();
         }
         else if (m_pPosHelper)
         {
             tSecondaryValueScales::const_iterator aScaleIt = m_aSecondaryValueScales.find( nAxisIndex );
             if( aScaleIt != m_aSecondaryValueScales.end() )
             {
-                pRet = m_pPosHelper->createSecondaryPosHelper( aScaleIt->second );
-                m_aSecondaryPosHelperMap[nAxisIndex] = pRet;
+                m_aSecondaryPosHelperMap[nAxisIndex] = m_pPosHelper->createSecondaryPosHelper( aScaleIt->second );
+                pRet = m_aSecondaryPosHelperMap[nAxisIndex].get();
             }
         }
     }
@@ -2099,7 +2103,7 @@ VDataSeries* VSeriesPlotter::getFirstSeries() const
         {
             if (!rGroup[0].m_aSeriesVector.empty())
             {
-                VDataSeries* pSeries = rGroup[0].m_aSeriesVector[0];
+                VDataSeries* pSeries = rGroup[0].m_aSeriesVector[0].get();
                 if (pSeries)
                     return pSeries;
             }
@@ -2133,10 +2137,10 @@ uno::Sequence< OUString > VSeriesPlotter::getSeriesNames() const
     {
         if (!rGroup.empty())
         {
-            VDataSeriesGroup aSeriesGroup(rGroup[0]);
-            if (!aSeriesGroup.m_aSeriesVector.empty())
+            VDataSeriesGroup const & rSeriesGroup(rGroup[0]);
+            if (!rSeriesGroup.m_aSeriesVector.empty())
             {
-                VDataSeries* pSeries = aSeriesGroup.m_aSeriesVector[0];
+                VDataSeries const * pSeries = rSeriesGroup.m_aSeriesVector[0].get();
                 uno::Reference< XDataSeries > xSeries( pSeries ? pSeries->getModel() : nullptr );
                 if( xSeries.is() )
                 {
@@ -2155,14 +2159,14 @@ void VSeriesPlotter::setPageReferenceSize( const css::awt::Size & rPageRefSize )
 
     // set reference size also at all data series
 
-    std::vector<VDataSeriesGroup> aSeriesGroups(FlattenVector(m_aZSlots));
-    for (VDataSeriesGroup const & rGroup : aSeriesGroups)
-    {
-        for (VDataSeries* pSeries : rGroup.m_aSeriesVector)
+    for (auto const & outer : m_aZSlots)
+        for (VDataSeriesGroup const & rGroup : outer)
         {
-            pSeries->setPageReferenceSize(m_aPageReferenceSize);
+            for (std::unique_ptr<VDataSeries> const & pSeries : rGroup.m_aSeriesVector)
+            {
+                pSeries->setPageReferenceSize(m_aPageReferenceSize);
+            }
         }
-    }
 }
 
 //better performance for big data
@@ -2203,7 +2207,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntries(
         {
             for (VDataSeriesGroup const & rGroup : rGroupVector)
             {
-                for (VDataSeries* pSeries : rGroup.m_aSeriesVector)
+                for (std::unique_ptr<VDataSeries> const & pSeries : rGroup.m_aSeriesVector)
                 {
                     if (!pSeries)
                         continue;
@@ -2253,8 +2257,8 @@ std::vector<VDataSeries*> VSeriesPlotter::getAllSeries()
     {
         for(VDataSeriesGroup const & rGroup : rXSlot)
         {
-            std::vector<VDataSeries*> aSeriesList = rGroup.m_aSeriesVector;
-            aAllSeries.insert(aAllSeries.end(), aSeriesList.begin(), aSeriesList.end());
+            for (std::unique_ptr<VDataSeries> const & p : rGroup.m_aSeriesVector)
+                aAllSeries.push_back(p.get());
         }
     }
     return aAllSeries;
@@ -2466,7 +2470,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
             for( sal_Int32 nIdx=0; nIdx<aCategoryNames.getLength(); ++nIdx )
             {
                 // symbol
-                uno::Reference< drawing::XShapes > xSymbolGroup( AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory)->createGroup2D( xTarget ));
+                uno::Reference< drawing::XShapes > xSymbolGroup( ShapeFactory::getOrCreateShapeFactory(xShapeFactory)->createGroup2D( xTarget ));
 
                 // create the symbol
                 Reference< drawing::XShape > xShape( createLegendSymbolForPoint( rEntryKeyAspectRatio,
@@ -2480,7 +2484,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
                     OUString aChildParticle( ObjectIdentifier::createChildParticleWithIndex( OBJECTTYPE_DATA_POINT, nIdx ) );
                     aChildParticle = ObjectIdentifier::addChildParticle( aChildParticle, ObjectIdentifier::createChildParticleWithIndex( OBJECTTYPE_LEGEND_ENTRY, 0 ) );
                     OUString aCID = ObjectIdentifier::createClassifiedIdentifierForParticles( rSeries.getSeriesParticle(), aChildParticle );
-                    AbstractShapeFactory::setShapeName( xShape, aCID );
+                    ShapeFactory::setShapeName( xShape, aCID );
                 }
 
                 // label
@@ -2495,7 +2499,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
         else
         {
             // symbol
-            uno::Reference< drawing::XShapes > xSymbolGroup( AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory)->createGroup2D( xTarget ));
+            uno::Reference< drawing::XShapes > xSymbolGroup( ShapeFactory::getOrCreateShapeFactory(xShapeFactory)->createGroup2D( xTarget ));
 
             // create the symbol
             Reference< drawing::XShape > xShape( createLegendSymbolForSeries(
@@ -2508,7 +2512,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
 
                 OUString aChildParticle( ObjectIdentifier::createChildParticleWithIndex( OBJECTTYPE_LEGEND_ENTRY, 0 ) );
                 OUString aCID = ObjectIdentifier::createClassifiedIdentifierForParticles( rSeries.getSeriesParticle(), aChildParticle );
-                AbstractShapeFactory::setShapeName( xShape, aCID );
+                ShapeFactory::setShapeName( xShape, aCID );
             }
 
             // label
@@ -2538,7 +2542,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
                     aEntry.aLabel = FormattedStringHelper::createFormattedStringSequence( xContext, aResStr, xTextProperties );
 
                     // symbol
-                    uno::Reference< drawing::XShapes > xSymbolGroup( AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory)->createGroup2D( xTarget ));
+                    uno::Reference< drawing::XShapes > xSymbolGroup( ShapeFactory::getOrCreateShapeFactory(xShapeFactory)->createGroup2D( xTarget ));
 
                     // create the symbol
                     Reference< drawing::XShape > xShape( VLegendSymbolFactory::createSymbol( rEntryKeyAspectRatio,
@@ -2556,7 +2560,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
                         OUString aChildParticle( ObjectIdentifier::createChildParticleWithIndex( eObjectType, i ) );
                         aChildParticle = ObjectIdentifier::addChildParticle( aChildParticle, ObjectIdentifier::createChildParticleWithIndex( OBJECTTYPE_LEGEND_ENTRY, 0 ) );
                         OUString aCID = ObjectIdentifier::createClassifiedIdentifierForParticles( rSeries.getSeriesParticle(), aChildParticle );
-                        AbstractShapeFactory::setShapeName( xShape, aCID );
+                        ShapeFactory::setShapeName( xShape, aCID );
                     }
 
                     aResult.push_back(aEntry);
@@ -2597,9 +2601,9 @@ VSeriesPlotter* VSeriesPlotter::createSeriesPlotter(
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_PIE) )
         pRet = new PieChart(xChartTypeModel,nDimensionCount, bExcludingPositioning );
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_NET) )
-        pRet = new NetChart(xChartTypeModel,nDimensionCount,true,new PolarPlottingPositionHelper());
+        pRet = new NetChart(xChartTypeModel,nDimensionCount,true,o3tl::make_unique<PolarPlottingPositionHelper>());
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_FILLED_NET) )
-        pRet = new NetChart(xChartTypeModel,nDimensionCount,false,new PolarPlottingPositionHelper());
+        pRet = new NetChart(xChartTypeModel,nDimensionCount,false,o3tl::make_unique<PolarPlottingPositionHelper>());
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_CANDLESTICK) )
         pRet = new CandleStickChart(xChartTypeModel,nDimensionCount);
     else

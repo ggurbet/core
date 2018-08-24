@@ -24,6 +24,7 @@
 #include <headless/svpcairotextrender.hxx>
 #include <saldatabasic.hxx>
 
+#include <sal/log.hxx>
 #include <o3tl/safeint.hxx>
 #include <vcl/sysdata.hxx>
 #include <config_cairo_canvas.h>
@@ -34,8 +35,6 @@
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
-
-#include <cairo.h>
 
 #if ENABLE_CAIRO_CANVAS
 #   if defined CAIRO_VERSION && CAIRO_VERSION < CAIRO_VERSION_ENCODE(1, 10, 0)
@@ -134,7 +133,7 @@ namespace
         }
     }
 
-    BitmapBuffer* FastConvert24BitRgbTo32BitCairo(const BitmapBuffer* pSrc)
+    std::unique_ptr<BitmapBuffer> FastConvert24BitRgbTo32BitCairo(const BitmapBuffer* pSrc)
     {
         if (pSrc == nullptr)
             return nullptr;
@@ -142,7 +141,7 @@ namespace
         assert(pSrc->mnFormat == SVP_24BIT_FORMAT);
         const long nWidth = pSrc->mnWidth;
         const long nHeight = pSrc->mnHeight;
-        BitmapBuffer* pDst = new BitmapBuffer;
+        std::unique_ptr<BitmapBuffer> pDst(new BitmapBuffer);
         pDst->mnFormat = (ScanlineFormat::N32BitTcArgb | ScanlineFormat::TopDown);
         pDst->mnWidth = nWidth;
         pDst->mnHeight = nHeight;
@@ -156,7 +155,6 @@ namespace
         {
             SAL_WARN("vcl.gdi", "checked multiply failed");
             pDst->mpBits = nullptr;
-            delete pDst;
             return nullptr;
         }
 
@@ -165,7 +163,6 @@ namespace
         {
             SAL_WARN("vcl.gdi", "scanline calculation wraparound");
             pDst->mpBits = nullptr;
-            delete pDst;
             return nullptr;
         }
 
@@ -177,7 +174,6 @@ namespace
         {
             // memory exception, clean up
             pDst->mpBits = nullptr;
-            delete pDst;
             return nullptr;
         }
 
@@ -242,10 +238,10 @@ namespace
                 const BitmapBuffer* pSrc = rSrcBmp.GetBuffer();
                 const SalTwoRect aTwoRect = { 0, 0, pSrc->mnWidth, pSrc->mnHeight,
                                               0, 0, pSrc->mnWidth, pSrc->mnHeight };
-                BitmapBuffer* pTmp = (pSrc->mnFormat == SVP_24BIT_FORMAT
+                std::unique_ptr<BitmapBuffer> pTmp = (pSrc->mnFormat == SVP_24BIT_FORMAT
                                    ? FastConvert24BitRgbTo32BitCairo(pSrc)
                                    : StretchAndConvert(*pSrc, aTwoRect, SVP_CAIRO_FORMAT));
-                aTmpBmp.Create(pTmp);
+                aTmpBmp.Create(std::move(pTmp));
 
                 assert(aTmpBmp.GetBitCount() == 32);
                 source = SvpSalGraphics::createCairoSurface(aTmpBmp.GetBuffer());
@@ -492,12 +488,12 @@ bool SvpSalGraphics::drawTransformedBitmap(
     return true;
 }
 
-void SvpSalGraphics::clipRegion(cairo_t* cr)
+void SvpSalGraphics::clipRegion(cairo_t* cr, const vcl::Region& rClipRegion)
 {
     RectangleVector aRectangles;
-    if (!m_aClipRegion.IsEmpty())
+    if (!rClipRegion.IsEmpty())
     {
-        m_aClipRegion.GetRegionRectangles(aRectangles);
+        rClipRegion.GetRegionRectangles(aRectangles);
     }
     if (!aRectangles.empty())
     {
@@ -507,6 +503,11 @@ void SvpSalGraphics::clipRegion(cairo_t* cr)
         }
         cairo_clip(cr);
     }
+}
+
+void SvpSalGraphics::clipRegion(cairo_t* cr)
+{
+    SvpSalGraphics::clipRegion(cr, m_aClipRegion);
 }
 
 bool SvpSalGraphics::drawAlphaRect(long nX, long nY, long nWidth, long nHeight, sal_uInt8 nTransparency)
@@ -720,7 +721,7 @@ void SvpSalGraphics::drawPolyLine(sal_uInt32 nPoints, const SalPoint* pPtAry)
     aPoly.setClosed(false);
 
     drawPolyLine(aPoly, 0.0, basegfx::B2DVector(1.0, 1.0), basegfx::B2DLineJoin::Miter,
-                 css::drawing::LineCap_BUTT, 15.0 * F_PI180 /*default*/);
+                 css::drawing::LineCap_BUTT, basegfx::deg2rad(15.0) /*default*/);
 }
 
 void SvpSalGraphics::drawPolygon(sal_uInt32 nPoints, const SalPoint* pPtAry)
@@ -878,7 +879,10 @@ void SvpSalGraphics::drawLine( long nX1, long nY1, long nX2, long nY2 )
     releaseCairoContext(cr, false, extents);
 }
 
-bool SvpSalGraphics::drawPolyLine(
+basegfx::B2DRange SvpSalGraphics::drawPolyLine(
+    cairo_t* cr,
+    const Color& rLineColor,
+    bool bAntiAliasB2DDraw,
     const basegfx::B2DPolygon& rPolyLine,
     double fTransparency,
     const basegfx::B2DVector& rLineWidths,
@@ -886,17 +890,7 @@ bool SvpSalGraphics::drawPolyLine(
     css::drawing::LineCap eLineCap,
     double fMiterMinimumAngle)
 {
-    // short circuit if there is nothing to do
-    const int nPointCount = rPolyLine.count();
-    if (nPointCount <= 0)
-    {
-        return true;
-    }
-
     const bool bNoJoin = (basegfx::B2DLineJoin::NONE == eLineJoin && basegfx::fTools::more(rLineWidths.getX(), 0.0));
-
-    cairo_t* cr = getCairoContext(false);
-    clipRegion(cr);
 
     // setup line attributes
     cairo_line_join_t eCairoLineJoin = CAIRO_LINE_JOIN_MITER;
@@ -939,9 +933,9 @@ bool SvpSalGraphics::drawPolyLine(
         }
     }
 
-    cairo_set_source_rgba(cr, m_aLineColor.GetRed()/255.0,
-                              m_aLineColor.GetGreen()/255.0,
-                              m_aLineColor.GetBlue()/255.0,
+    cairo_set_source_rgba(cr, rLineColor.GetRed()/255.0,
+                              rLineColor.GetGreen()/255.0,
+                              rLineColor.GetBlue()/255.0,
                               1.0-fTransparency);
 
     cairo_set_line_join(cr, eCairoLineJoin);
@@ -954,12 +948,13 @@ bool SvpSalGraphics::drawPolyLine(
 
     if (!bNoJoin)
     {
-        AddPolygonToPath(cr, rPolyLine, rPolyLine.isClosed(), !getAntiAliasB2DDraw(), true);
+        AddPolygonToPath(cr, rPolyLine, rPolyLine.isClosed(), !bAntiAliasB2DDraw, true);
         extents = getClippedStrokeDamage(cr);
         cairo_stroke(cr);
     }
     else
     {
+        const int nPointCount = rPolyLine.count();
         // emulate rendering::PathJoinType::NONE by painting single edges
         const sal_uInt32 nEdgeCount(rPolyLine.isClosed() ? nPointCount : nPointCount - 1);
         basegfx::B2DPolygon aEdge;
@@ -973,7 +968,7 @@ bool SvpSalGraphics::drawPolyLine(
             aEdge.setNextControlPoint(0, rPolyLine.getNextControlPoint(i % nPointCount));
             aEdge.setPrevControlPoint(1, rPolyLine.getPrevControlPoint(nNextIndex));
 
-            AddPolygonToPath(cr, aEdge, false, !getAntiAliasB2DDraw(), true);
+            AddPolygonToPath(cr, aEdge, false, !bAntiAliasB2DDraw, true);
 
             extents.expand(getStrokeDamage(cr));
 
@@ -985,6 +980,27 @@ bool SvpSalGraphics::drawPolyLine(
 
         extents.intersect(getClipBox(cr));
     }
+
+    return extents;
+}
+
+bool SvpSalGraphics::drawPolyLine(
+    const basegfx::B2DPolygon& rPolyLine,
+    double fTransparency,
+    const basegfx::B2DVector& rLineWidths,
+    basegfx::B2DLineJoin eLineJoin,
+    css::drawing::LineCap eLineCap,
+    double fMiterMinimumAngle)
+{
+    // short circuit if there is nothing to do
+    if (rPolyLine.count() <= 0)
+        return true;
+
+    cairo_t* cr = getCairoContext(false);
+    clipRegion(cr);
+
+    basegfx::B2DRange extents = drawPolyLine(cr, m_aLineColor, getAntiAliasB2DDraw(), rPolyLine,
+                                             fTransparency, rLineWidths, eLineJoin, eLineCap, fMiterMinimumAngle);
 
     releaseCairoContext(cr, false, extents);
 
@@ -1117,8 +1133,8 @@ void SvpSalGraphics::copyArea( long nDestX,
     copyBits(aTR, this);
 }
 
-static basegfx::B2DRange renderSource(cairo_t* cr, const SalTwoRect& rTR,
-                                          cairo_surface_t* source)
+static basegfx::B2DRange renderWithOperator(cairo_t* cr, const SalTwoRect& rTR,
+                                          cairo_surface_t* source, cairo_operator_t eOperator = CAIRO_OPERATOR_SOURCE)
 {
     cairo_rectangle(cr, rTR.mnDestX, rTR.mnDestY, rTR.mnDestWidth, rTR.mnDestHeight);
 
@@ -1143,22 +1159,33 @@ static basegfx::B2DRange renderSource(cairo_t* cr, const SalTwoRect& rTR,
         cairo_pattern_set_extend(sourcepattern, CAIRO_EXTEND_REPEAT);
         cairo_pattern_set_filter(sourcepattern, CAIRO_FILTER_NEAREST);
     }
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_operator(cr, eOperator);
     cairo_paint(cr);
     cairo_restore(cr);
 
     return extents;
 }
 
-void SvpSalGraphics::copySource( const SalTwoRect& rTR,
-                                 cairo_surface_t* source )
+static basegfx::B2DRange renderSource(cairo_t* cr, const SalTwoRect& rTR,
+                                          cairo_surface_t* source)
+{
+    return renderWithOperator(cr, rTR, source, CAIRO_OPERATOR_SOURCE);
+}
+
+void SvpSalGraphics::copyWithOperator( const SalTwoRect& rTR, cairo_surface_t* source,
+                                 cairo_operator_t eOp )
 {
     cairo_t* cr = getCairoContext(false);
     clipRegion(cr);
 
-    basegfx::B2DRange extents = renderSource(cr, rTR, source);
+    basegfx::B2DRange extents = renderWithOperator(cr, rTR, source, eOp);
 
     releaseCairoContext(cr, false, extents);
+}
+
+void SvpSalGraphics::copySource( const SalTwoRect& rTR, cairo_surface_t* source )
+{
+   copyWithOperator(rTR, source, CAIRO_OPERATOR_SOURCE);
 }
 
 void SvpSalGraphics::copyBits( const SalTwoRect& rTR,
@@ -1207,6 +1234,12 @@ void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, const SalBitmap& rSourceB
     copySource(rTR, source);
 }
 
+void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, BitmapBuffer* pBuffer, cairo_operator_t eOp)
+{
+    cairo_surface_t* source = createCairoSurface( pBuffer );
+    copyWithOperator(rTR, source, eOp);
+}
+
 void SvpSalGraphics::drawBitmap( const SalTwoRect& rTR,
                                  const SalBitmap& rSourceBitmap,
                                  const SalBitmap& rTransparentBitmap )
@@ -1231,6 +1264,11 @@ void SvpSalGraphics::drawMask( const SalTwoRect& rTR,
     /** creates an image from the given rectangle, replacing all black pixels
      *  with nMaskColor and make all other full transparent */
     SourceHelper aSurface(rSalBitmap, true); // The mask is argb32
+    if (!aSurface.getSurface())
+    {
+        SAL_WARN("vcl.gdi", "unsupported SvpSalGraphics::drawMask case");
+        return;
+    }
     sal_Int32 nStride;
     unsigned char *mask_data = aSurface.getBits(nStride);
     for (sal_Int32 y = rTR.mnSrcY ; y < rTR.mnSrcY + rTR.mnSrcHeight; ++y)
@@ -1286,9 +1324,9 @@ void SvpSalGraphics::drawMask( const SalTwoRect& rTR,
     releaseCairoContext(cr, false, extents);
 }
 
-SalBitmap* SvpSalGraphics::getBitmap( long nX, long nY, long nWidth, long nHeight )
+std::shared_ptr<SalBitmap> SvpSalGraphics::getBitmap( long nX, long nY, long nWidth, long nHeight )
 {
-    SvpSalBitmap* pBitmap = new SvpSalBitmap();
+    std::shared_ptr<SvpSalBitmap> pBitmap = std::make_shared<SvpSalBitmap>();
     BitmapPalette aPal;
     if (GetBitCount() == 1)
     {
@@ -1300,11 +1338,15 @@ SalBitmap* SvpSalGraphics::getBitmap( long nX, long nY, long nWidth, long nHeigh
     if (!pBitmap->Create(Size(nWidth, nHeight), GetBitCount(), aPal))
     {
         SAL_WARN("vcl.gdi", "SvpSalGraphics::getBitmap, cannot create bitmap");
-        delete pBitmap;
         return nullptr;
     }
 
     cairo_surface_t* target = SvpSalGraphics::createCairoSurface(pBitmap->GetBuffer());
+    if (!target)
+    {
+        SAL_WARN("vcl.gdi", "SvpSalGraphics::getBitmap, cannot create cairo surface");
+        return nullptr;
+    }
     cairo_t* cr = cairo_create(target);
 
     SalTwoRect aTR(nX, nY, nWidth, nHeight, 0, 0, nWidth, nHeight);
@@ -1485,6 +1527,11 @@ cairo_surface_t* SvpSalGraphics::createCairoSurface(const BitmapBuffer *pBuffer)
                                         nFormat,
                                         pBuffer->mnWidth, pBuffer->mnHeight,
                                         pBuffer->mnScanlineSize);
+    if (cairo_surface_status(target) != CAIRO_STATUS_SUCCESS)
+    {
+        cairo_surface_destroy(target);
+        return nullptr;
+    }
     return target;
 }
 

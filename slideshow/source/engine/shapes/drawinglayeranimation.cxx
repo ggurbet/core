@@ -27,6 +27,7 @@
 #include <cppuhelper/exc_hlp.hxx>
 
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 #include <vcl/metric.hxx>
 #include <vcl/canvastools.hxx>
 #include <vcl/metaact.hxx>
@@ -648,7 +649,7 @@ void ActivityImpl::updateShapeAttributes(
         if( !::basegfx::fTools::equalZero( mfRotationAngle ))
         {
             maShapeAttrLayer.get()->setRotationAngle( mfRotationAngle );
-            double const fRotate = (mfRotationAngle * M_PI / 180.0);
+            double const fRotate = basegfx::deg2rad(mfRotationAngle);
             basegfx::B2DHomMatrix aTransform;
             // position:
             aTransform.rotate( fRotate );

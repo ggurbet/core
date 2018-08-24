@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <comphelper/string.hxx>
 #include <frmfmt.hxx>
 #include <doc.hxx>
 #include <IDocumentSettingAccess.hxx>
@@ -187,7 +186,7 @@ bool SwDDETable::NoDDETable()
     SwTableNode* pTableNd = pNd->FindTableNode();
     OSL_ENSURE( pTableNd, "Where is the table?");
 
-    SwTable* pNewTable = new SwTable( *this );
+    std::unique_ptr<SwTable> pNewTable(new SwTable( *this ));
 
     // copy the table data
     pNewTable->GetTabSortBoxes().insert( GetTabSortBoxes() ); // move content boxes
@@ -200,7 +199,7 @@ bool SwDDETable::NoDDETable()
     if( pDoc->getIDocumentLayoutAccess().GetCurrentViewShell() )
         m_pDDEType->DecRefCnt();
 
-    pTableNd->SetNewTable( pNewTable );       // replace table
+    pTableNd->SetNewTable( std::move(pNewTable) );       // replace table
 
     return true;
 }

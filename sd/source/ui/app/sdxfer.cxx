@@ -54,6 +54,7 @@
 #include <svtools/embedtransfer.hxx>
 #include <DrawDocShell.hxx>
 #include <View.hxx>
+#include <sdmod.hxx>
 #include <sdpage.hxx>
 #include <drawview.hxx>
 #include <drawdoc.hxx>
@@ -219,10 +220,8 @@ void SdTransferable::CreateObjectReplacement( SdrObject* pObj )
                 {
                     const SvxFieldData* pData = pField->GetField();
 
-                    if( pData && dynamic_cast< const SvxURLField *>( pData ) !=  nullptr )
+                    if( auto pURL = dynamic_cast< const SvxURLField *>( pData ) )
                     {
-                        const SvxURLField* pURL = static_cast<const SvxURLField*>(pData);
-
                         // #i63399# This special code identifies TextFrames which have just an URL
                         // as content and directly add this to the clipboard, probably to avoid adding
                         // an unnecessary DrawObject to the target where paste may take place. This is
@@ -303,7 +302,7 @@ void SdTransferable::CreateData()
         sal_Int32 nPos = aOldLayoutName.indexOf( SD_LT_SEPARATOR );
         if( nPos != -1 )
             aOldLayoutName = aOldLayoutName.copy( 0, nPos );
-        SdStyleSheetVector aCreatedSheets;
+        StyleSheetCopyResultVector aCreatedSheets;
         pNewStylePool->CopyLayoutSheets( aOldLayoutName, *pOldStylePool, aCreatedSheets );
     }
 
@@ -344,7 +343,7 @@ static bool lcl_HasOnlyControls( SdrModel* pModel )
         SdrPage* pPage = pModel->GetPage(0);
         if (pPage)
         {
-            SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+            SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
             SdrObject* pObj = aIter.Next();
             if ( pObj )
             {
@@ -639,12 +638,12 @@ bool SdTransferable::WriteObject( tools::SvRef<SotStorageStream>& rxOStm, void* 
                 if ( xTransact.is() )
                     xTransact->commit();
 
-                SvStream* pSrcStm = ::utl::UcbStreamHelper::CreateStream( aTempFile.GetURL(), StreamMode::READ );
+                std::unique_ptr<SvStream> pSrcStm = ::utl::UcbStreamHelper::CreateStream( aTempFile.GetURL(), StreamMode::READ );
                 if( pSrcStm )
                 {
                     rxOStm->SetBufferSize( 0xff00 );
                     rxOStm->WriteStream( *pSrcStm );
-                    delete pSrcStm;
+                    pSrcStm.reset();
                 }
 
                 bRet = true;

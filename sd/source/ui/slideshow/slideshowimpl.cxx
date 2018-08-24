@@ -33,6 +33,7 @@
 #include <com/sun/star/frame/XDispatch.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/presentation/SlideShow.hpp>
+#include <o3tl/clamp.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/urihelper.hxx>
 
@@ -67,12 +68,14 @@
 #include <comphelper/anytostring.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <rtl/ref.hxx>
+#include <sal/log.hxx>
 #include <canvas/elapsedtime.hxx>
 #include <avmedia/mediawindow.hxx>
 #include <svtools/colrdlg.hxx>
 #include <RemoteServer.hxx>
 #include <customshowlist.hxx>
 #include <unopage.hxx>
+#include <sdpage.hxx>
 
 #define CM_SLIDES       21
 
@@ -1556,8 +1559,8 @@ sal_Int32 SlideshowImpl::getSlideNumberForBookmark( const OUString& rStrBookmark
 
         if( pObj )
         {
-            nPgNum = pObj->GetPage()->GetPageNum();
-            bIsMasterPage = pObj->GetPage()->IsMasterPage();
+            nPgNum = pObj->getSdrPageFromSdrObject()->GetPageNum();
+            bIsMasterPage = pObj->getSdrPageFromSdrObject()->IsMasterPage();
         }
     }
 
@@ -1682,7 +1685,7 @@ void SlideshowImpl::updateSlideShow()
                 const static sal_Int32 nMaximumFrameCount (60);
                 const static double nMinimumTimeout (1.0 / nMaximumFrameCount);
                 const static double nMaximumTimeout (4.0);
-                fUpdate = ::basegfx::clamp(fUpdate, nMinimumTimeout, nMaximumTimeout);
+                fUpdate = o3tl::clamp(fUpdate, nMinimumTimeout, nMaximumTimeout);
 
                 // Make sure that the maximum frame count has not been set
                 // too high (only then conversion to milliseconds and long
@@ -2100,10 +2103,10 @@ IMPL_LINK( SlideshowImpl, ContextMenuSelectHdl, Menu *, pMenu, bool )
     {
         //Open a color picker based on SvColorDialog
         ::Color aColor( mnUserPaintColor );
-        SvColorDialog aColorDlg( mpShowWindow);
+        SvColorDialog aColorDlg;
         aColorDlg.SetColor( aColor );
 
-        if (aColorDlg.Execute() )
+        if (aColorDlg.Execute(mpShowWindow->GetFrameWeld()))
         {
             aColor = aColorDlg.GetColor();
             setPenColor(sal_Int32(aColor));

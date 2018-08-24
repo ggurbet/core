@@ -94,6 +94,7 @@
 #include <calbck.hxx>
 #include <o3tl/numeric.hxx>
 #include <tools/datetimeutils.hxx>
+#include <sal/log.hxx>
 
 #ifdef DBG_UTIL
 #define CHECK_TABLE(t) (t).CheckConsistency();
@@ -365,13 +366,13 @@ const SwTable* SwDoc::InsertTable( const SwInsertTableOptions& rInsTableOpts,
     SwTextFormatColl *pBodyColl = getIDocumentStylePoolAccess().GetTextCollFromPool( RES_POOLCOLL_TABLE ),
                  *pHeadColl = pBodyColl;
 
-    bool bDfltBorders = 0 != ( rInsTableOpts.mnInsMode & tabopts::DEFAULT_BORDER );
+    bool bDfltBorders( rInsTableOpts.mnInsMode & SwInsertTableFlags::DefaultBorder );
 
-    if( (rInsTableOpts.mnInsMode & tabopts::HEADLINE) && (1 != nRows || !bDfltBorders) )
+    if( (rInsTableOpts.mnInsMode & SwInsertTableFlags::Headline) && (1 != nRows || !bDfltBorders) )
         pHeadColl = getIDocumentStylePoolAccess().GetTextCollFromPool( RES_POOLCOLL_TABLE_HDLN );
 
     const sal_uInt16 nRowsToRepeat =
-            tabopts::HEADLINE == (rInsTableOpts.mnInsMode & tabopts::HEADLINE) ?
+            SwInsertTableFlags::Headline == (rInsTableOpts.mnInsMode & SwInsertTableFlags::Headline) ?
             rInsTableOpts.mnRowsToRepeat :
             0;
 
@@ -434,7 +435,7 @@ const SwTable* SwDoc::InsertTable( const SwInsertTableOptions& rInsTableOpts,
         nWidth *= nCols; // to avoid rounding problems
     }
     pTableFormat->SetFormatAttr( SwFormatFrameSize( ATT_VAR_SIZE, nWidth ));
-    if( !(rInsTableOpts.mnInsMode & tabopts::SPLIT_LAYOUT) )
+    if( !(rInsTableOpts.mnInsMode & SwInsertTableFlags::SplitLayout) )
         pTableFormat->SetFormatAttr( SwFormatLayoutSplit( false ));
 
     // Move the hard PageDesc/PageBreak Attributes if needed
@@ -491,10 +492,7 @@ const SwTable* SwDoc::InsertTable( const SwInsertTableOptions& rInsTableOpts,
             SwTableBoxFormat *pBoxF;
             if( pTAFormat )
             {
-                sal_uInt8 nId = static_cast<sal_uInt8>(!n ? 0 : (( n+1 == nRows )
-                                        ? 12 : (4 * (1 + ((n-1) & 1 )))));
-                nId = nId + static_cast<sal_uInt8>( !i ? 0 :
-                            ( i+1 == nCols ? 3 : (1 + ((i-1) & 1))));
+                sal_uInt8 nId = SwTableAutoFormat::CountPos(i, nCols, n, nRows);
                 pBoxF = ::lcl_CreateAFormatBoxFormat( *this, aBoxFormatArr, *pTAFormat,
                                                 nCols, nId );
 
@@ -702,7 +700,7 @@ const SwTable* SwDoc::TextToTable( const SwInsertTableOptions& rInsTableOpts,
     pLineFormat->SetFormatAttr( SwFormatFillOrder( ATT_LEFT_TO_RIGHT ));
     // The Table's SSize is USHRT_MAX
     pTableFormat->SetFormatAttr( SwFormatFrameSize( ATT_VAR_SIZE, USHRT_MAX ));
-    if( !(rInsTableOpts.mnInsMode & tabopts::SPLIT_LAYOUT) )
+    if( !(rInsTableOpts.mnInsMode & SwInsertTableFlags::SplitLayout) )
         pTableFormat->SetFormatAttr( SwFormatLayoutSplit( false ));
 
     /* If the first node in the selection is a context node and if it
@@ -732,7 +730,7 @@ const SwTable* SwDoc::TextToTable( const SwInsertTableOptions& rInsTableOpts,
     SwTable& rNdTable = pTableNd->GetTable();
 
     const sal_uInt16 nRowsToRepeat =
-            tabopts::HEADLINE == (rInsTableOpts.mnInsMode & tabopts::HEADLINE) ?
+            SwInsertTableFlags::Headline == (rInsTableOpts.mnInsMode & SwInsertTableFlags::Headline) ?
             rInsTableOpts.mnRowsToRepeat :
             0;
     rNdTable.SetRowsToRepeat(nRowsToRepeat);
@@ -752,7 +750,7 @@ const SwTable* SwDoc::TextToTable( const SwInsertTableOptions& rInsTableOpts,
     pTableFormat->SetFormatAttr( SwFormatHoriOrient( 0, eAdjust ) );
     rNdTable.RegisterToFormat(*pTableFormat);
 
-    if( pTAFormat || ( rInsTableOpts.mnInsMode & tabopts::DEFAULT_BORDER) )
+    if( pTAFormat || ( rInsTableOpts.mnInsMode & SwInsertTableFlags::DefaultBorder) )
     {
         sal_uInt8 nBoxArrLen = pTAFormat ? 16 : 4;
         std::unique_ptr< DfltBoxAttrList_t > aBoxFormatArr1;
@@ -1036,8 +1034,10 @@ SwTableNode* SwNodes::TextToTable( const SwNodeRange& rRange, sal_Unicode cCh,
                 {
                     if (rText[nChPos] == cCh)
                     {
+                        // sw_redlinehide: no idea if this makes any sense...
+                        TextFrameIndex const nPos(aFInfo.GetFrame()->MapModelToView(pTextNd, nChPos));
                         aPosArr.push_back( static_cast<sal_uInt16>(
-                                        aFInfo.GetCharPos( nChPos+1, false )) );
+                            aFInfo.GetCharPos(nPos+TextFrameIndex(1), false)) );
                     }
                 }
 
@@ -1449,7 +1449,7 @@ bool SwDoc::TableToText( const SwTableNode* pTableNd, sal_Unicode cCh )
         return false;
 
     // #i34471#
-    // If this is trigged by SwUndoTableToText::Repeat() nobody ever deleted
+    // If this is triggered by SwUndoTableToText::Repeat() nobody ever deleted
     // the table cursor.
     SwEditShell* pESh = GetEditShell();
     if( pESh && pESh->IsTableMode() )
@@ -2335,7 +2335,7 @@ TableMergeErr SwDoc::MergeTable( SwPaM& rPam )
 SwTableNode::SwTableNode( const SwNodeIndex& rIdx )
     : SwStartNode( rIdx, SwNodeType::Table )
 {
-    m_pTable = new SwTable;
+    m_pTable.reset(new SwTable);
 }
 
 SwTableNode::~SwTableNode()
@@ -2347,7 +2347,7 @@ SwTableNode::~SwTableNode()
     pTableFormat->ModifyNotification( &aMsgHint, &aMsgHint );
     DelFrames();
     m_pTable->SetTableNode(this); // set this so that ~SwDDETable can read it!
-    delete m_pTable;
+    m_pTable.reset();
 }
 
 SwTabFrame *SwTableNode::MakeFrame( SwFrame* pSib )
@@ -2463,12 +2463,11 @@ void SwTableNode::DelFrames()
     }
 }
 
-void SwTableNode::SetNewTable( SwTable* pNewTable, bool bNewFrames )
+void SwTableNode::SetNewTable( std::unique_ptr<SwTable> pNewTable, bool bNewFrames )
 {
     DelFrames();
     m_pTable->SetTableNode(this);
-    delete m_pTable;
-    m_pTable = pNewTable;
+    m_pTable = std::move(pNewTable);
     if( bNewFrames )
     {
         SwNodeIndex aIdx( *EndOfSectionNode());
@@ -2555,7 +2554,7 @@ void SwDoc::GetTabRows( SwTabCols &rFill, const SwCellFrame* pBoxFrame )
     const SwContentFrame* pContent = ::GetCellContent( *pBoxFrame );
     if ( pContent && pContent->IsTextFrame() )
     {
-        const SwPosition aPos( *static_cast<const SwTextFrame*>(pContent)->GetTextNode() );
+        const SwPosition aPos(*static_cast<const SwTextFrame*>(pContent)->GetTextNodeFirst());
         const SwCursor aTmpCursor( aPos, nullptr );
         ::GetTableSel( aTmpCursor, aBoxes, SwTableSearchType::Col );
     }
@@ -2835,7 +2834,7 @@ void SwDoc::SetTabRows( const SwTabCols &rNew, bool bCurColOnly,
                                         if ( ATT_VAR_SIZE == aNew.GetHeightSizeType() )
                                             aNew.SetHeightSizeType( ATT_MIN_SIZE );
                                         // This position must not be in an overlapped box
-                                        const SwPosition aPos( *static_cast<const SwTextFrame*>(pContent)->GetTextNode() );
+                                        const SwPosition aPos(*static_cast<const SwTextFrame*>(pContent)->GetTextNodeFirst());
                                         const SwCursor aTmpCursor( aPos, nullptr );
                                         SetRowHeight( aTmpCursor, aNew );
                                         // For the new table model we're done, for the old one
@@ -3133,12 +3132,12 @@ bool SwDoc::SplitTable( const SwPosition& rPos, SplitTable_HeadlineOption eHdlnM
 
     if( pNew )
     {
-        SwSaveRowSpan* pSaveRowSp = pNew->GetTable().CleanUpTopRowSpan( rTable.GetTabLines().size() );
+        std::unique_ptr<SwSaveRowSpan> pSaveRowSp = pNew->GetTable().CleanUpTopRowSpan( rTable.GetTabLines().size() );
         SwUndoSplitTable* pUndo = nullptr;
         if (GetIDocumentUndoRedo().DoesUndo())
         {
             pUndo = new SwUndoSplitTable(
-                        *pNew, pSaveRowSp, eHdlnMode, bCalcNewSize);
+                        *pNew, std::move(pSaveRowSp), eHdlnMode, bCalcNewSize);
             GetIDocumentUndoRedo().AppendUndo(pUndo);
             if( aHistory.Count() )
                 pUndo->SaveFormula( aHistory );

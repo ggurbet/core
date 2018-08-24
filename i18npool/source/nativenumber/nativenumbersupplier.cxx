@@ -17,15 +17,19 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <i18nlangtag/languagetag.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/macros.h>
 #include <nativenumbersupplier.hxx>
 #include <localedata.hxx>
 #include "data/numberchar.h"
-#include <comphelper/string.hxx>
+#include <comphelper/processfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <map>
 #include <memory>
+#include <unordered_map>
+#include <com/sun/star/linguistic2/NumberText.hpp>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::i18n;
@@ -57,6 +61,8 @@ typedef struct {
 #define NUMBER_OMIT_ZERO_ONE_67 ( NUMBER_OMIT_ZERO|NUMBER_OMIT_ONE_67 )
 
 namespace i18npool {
+
+struct theNatNumMutex : public rtl::Static<osl::Mutex, theNatNumMutex> {};
 
 OUString getHebrewNativeNumberString(const OUString& aNumberString, bool useGeresh);
 
@@ -250,7 +256,10 @@ OUString AsciiToNative( const OUString& inStr, sal_Int32 nCount,
     }
     return aRet;
 }
-static void NativeToAscii_numberMaker(sal_Int16 max, sal_Int16 prev, const sal_Unicode *str,
+
+namespace
+{
+void NativeToAscii_numberMaker(sal_Int16 max, sal_Int16 prev, const sal_Unicode *str,
         sal_Int32& i, sal_Int32 nCount, sal_Unicode *dst, sal_Int32& count, Sequence< sal_Int32 >& offset, bool useOffset,
         OUString& numberChar, OUString& multiplierChar)
 {
@@ -300,7 +309,7 @@ static void NativeToAscii_numberMaker(sal_Int16 max, sal_Int16 prev, const sal_U
 }
 
 /// @throws RuntimeException
-static OUString NativeToAscii(const OUString& inStr,
+OUString NativeToAscii(const OUString& inStr,
         sal_Int32 nCount, Sequence< sal_Int32 >& offset, bool useOffset )
 {
     OUString aRet;
@@ -374,7 +383,7 @@ static OUString NativeToAscii(const OUString& inStr,
     return aRet;
 }
 
-static const Number natnum4[4] = {
+const Number natnum4[4] = {
         { NumberChar_Lower_zh, MultiplierChar_6_CJK[Multiplier_Lower_zh], 0,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
         { NumberChar_Lower_zh, MultiplierChar_6_CJK[Multiplier_Lower_zh_TW], 0,
@@ -385,7 +394,7 @@ static const Number natnum4[4] = {
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
 };
 
-static const Number natnum5[4] = {
+const Number natnum5[4] = {
         { NumberChar_Upper_zh, MultiplierChar_6_CJK[Multiplier_Upper_zh], 0,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
         { NumberChar_Upper_zh_TW, MultiplierChar_6_CJK[Multiplier_Upper_zh_TW], 0,
@@ -396,7 +405,7 @@ static const Number natnum5[4] = {
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
 };
 
-static const Number natnum6[4] = {
+const Number natnum6[4] = {
         { NumberChar_FullWidth, MultiplierChar_6_CJK[Multiplier_Lower_zh], 0,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
         { NumberChar_FullWidth, MultiplierChar_6_CJK[Multiplier_Lower_zh_TW], 0,
@@ -407,7 +416,7 @@ static const Number natnum6[4] = {
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
 };
 
-static const Number natnum7[4] = {
+const Number natnum7[4] = {
         { NumberChar_Lower_zh, MultiplierChar_6_CJK[Multiplier_Lower_zh], NUMBER_OMIT_ALL,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
         { NumberChar_Lower_zh, MultiplierChar_6_CJK[Multiplier_Lower_zh_TW], NUMBER_OMIT_ALL,
@@ -418,7 +427,7 @@ static const Number natnum7[4] = {
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
 };
 
-static const Number natnum8[4] = {
+const Number natnum8[4] = {
         { NumberChar_Upper_zh, MultiplierChar_6_CJK[Multiplier_Upper_zh], NUMBER_OMIT_ALL,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
         { NumberChar_Upper_zh_TW, MultiplierChar_6_CJK[Multiplier_Upper_zh_TW], NUMBER_OMIT_ALL,
@@ -429,14 +438,14 @@ static const Number natnum8[4] = {
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK },
 };
 
-static const Number natnum10 = { NumberChar_Hangul_ko, MultiplierChar_6_CJK[Multiplier_Hangul_ko], NUMBER_OMIT_ZERO,
+const Number natnum10 = { NumberChar_Hangul_ko, MultiplierChar_6_CJK[Multiplier_Hangul_ko], NUMBER_OMIT_ZERO,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK };
-static const Number natnum11 = { NumberChar_Hangul_ko, MultiplierChar_6_CJK[Multiplier_Hangul_ko], NUMBER_OMIT_ALL,
+const Number natnum11 = { NumberChar_Hangul_ko, MultiplierChar_6_CJK[Multiplier_Hangul_ko], NUMBER_OMIT_ALL,
                 ExponentCount_6_CJK, MultiplierExponent_6_CJK };
 
 //! ATTENTION: Do not change order of elements!
 //! Append new languages to the end of the list!
-static const sal_Char *natnum1Locales[] = {
+const sal_Char *natnum1Locales[] = {
     "zh_CN",
     "zh_TW",
     "ja",
@@ -464,11 +473,11 @@ static const sal_Char *natnum1Locales[] = {
     "fa",
     "cu"
 };
-static sal_Int16 nbOfLocale = SAL_N_ELEMENTS(natnum1Locales);
+sal_Int16 nbOfLocale = SAL_N_ELEMENTS(natnum1Locales);
 
 //! ATTENTION: Do not change order of elements!
 //! Number and order must match elements of natnum1Locales!
-static const sal_Int16 natnum1[] = {
+const sal_Int16 natnum1[] = {
     NumberChar_Lower_zh,
     NumberChar_Lower_zh,
     NumberChar_Modern_ja,
@@ -496,20 +505,20 @@ static const sal_Int16 natnum1[] = {
     NumberChar_EastIndic_ar,
     NumberChar_cu
 };
-static const sal_Int16 sizeof_natnum1 = SAL_N_ELEMENTS(natnum1);
+const sal_Int16 sizeof_natnum1 = SAL_N_ELEMENTS(natnum1);
 
 //! ATTENTION: Do not change order of elements!
 //! Order must match first elements of natnum1Locales!
-static const sal_Int16 natnum2[] = {
+const sal_Int16 natnum2[] = {
     NumberChar_Upper_zh,
     NumberChar_Upper_zh_TW,
     NumberChar_Traditional_ja,
     NumberChar_Upper_ko,
     NumberChar_he
 };
-static const sal_Int16 sizeof_natnum2 = SAL_N_ELEMENTS(natnum2);
+const sal_Int16 sizeof_natnum2 = SAL_N_ELEMENTS(natnum2);
 
-static sal_Int16 getLanguageNumber( const Locale& rLocale)
+sal_Int16 getLanguageNumber( const Locale& rLocale)
 {
     // return zh_TW for TW, HK and MO, return zh_CN for other zh locales.
     if (rLocale.Language == "zh") return MsLangId::isTraditionalChinese(rLocale) ? 1 : 0;
@@ -521,11 +530,162 @@ static sal_Int16 getLanguageNumber( const Locale& rLocale)
     return -1;
 }
 
+struct Separators
+{
+    sal_Unicode DecimalSeparator;
+    sal_Unicode ThousandSeparator;
+    Separators(const Locale& rLocale)
+    {
+        LocaleDataItem aLocaleItem = LocaleDataImpl::get()->getLocaleItem(rLocale);
+        DecimalSeparator = aLocaleItem.decimalSeparator.toChar();
+        ThousandSeparator = aLocaleItem.thousandSeparator.toChar();
+    }
+};
+
+Separators getLocaleSeparators(const Locale& rLocale, const OUString& rLocStr)
+{
+    // Guard the static variable below.
+    osl::MutexGuard aGuard(theNatNumMutex::get());
+    // Maximum a couple hundred of pairs with 4-byte structs - so no need for smart managing
+    static std::unordered_map<OUString, Separators> aLocaleSeparatorsBuf;
+    auto it = aLocaleSeparatorsBuf.find(rLocStr);
+    if (it == aLocaleSeparatorsBuf.end())
+    {
+        it = aLocaleSeparatorsBuf.emplace(rLocStr, Separators(rLocale)).first;
+    }
+    return it->second;
+}
+
+OUString getNumberText(const Locale& rLocale, const OUString& rNumberString,
+                       const OUString& sNumberTextParams)
+{
+    sal_Int32 i, count = 0;
+    const sal_Int32 len = rNumberString.getLength();
+    const sal_Unicode* src = rNumberString.getStr();
+
+    OUString aLoc = LanguageTag::convertToBcp47(rLocale);
+    Separators aSeparators = getLocaleSeparators(rLocale, aLoc);
+
+    OUStringBuffer sBuf(len);
+    for (i = 0; i < len; i++)
+    {
+        sal_Unicode ch = src[i];
+        if (isNumber(ch))
+        {
+            ++count;
+            sBuf.append(ch);
+        }
+        else if (ch == aSeparators.DecimalSeparator)
+            // Convert any decimal separator to point - in case libnumbertext has a different one
+            // for this locale (it seems that point is supported for all locales in libnumbertext)
+            sBuf.append('.');
+        else if (ch == aSeparators.ThousandSeparator && count > 0)
+            continue;
+        else if (isMinus(ch) && count == 0)
+            sBuf.append(ch);
+        else
+            break;
+    }
+
+    // Handle also month and day names for NatNum12 date formatting
+    const OUString& rNumberStr = (count == 0) ? rNumberString : sBuf.makeStringAndClear();
+
+    // Guard the static variables below.
+    osl::MutexGuard aGuard( theNatNumMutex::get());
+
+    static auto xNumberText
+        = css::linguistic2::NumberText::create(comphelper::getProcessComponentContext());
+    OUString numbertext_prefix;
+    // default "cardinal" gets empty prefix
+    if (!sNumberTextParams.isEmpty() && sNumberTextParams != "cardinal")
+        numbertext_prefix = sNumberTextParams + " ";
+    // Several hundreds of headings could result typing lags because
+    // of the continuous update of the multiple number names during typing.
+    // We fix this by buffering the result of the conversion.
+    static std::unordered_map<OUString, std::map<OUString, OUString>> aBuff;
+    auto& rItems = aBuff[rNumberStr];
+    auto& rItem = rItems[numbertext_prefix + aLoc];
+    if (rItem.isEmpty())
+    {
+        rItem = xNumberText->getNumberText(numbertext_prefix + rNumberStr, rLocale);
+        // use number at missing number to text conversion
+        if (rItem.isEmpty())
+            rItem = rNumberStr;
+    }
+    OUString sResult = rItem;
+    if (i != 0 && i < len)
+        sResult += rNumberString.copy(i);
+    return sResult;
+}
+}
+
 OUString NativeNumberSupplierService::getNativeNumberString(const OUString& aNumberString, const Locale& rLocale,
-                sal_Int16 nNativeNumberMode, Sequence< sal_Int32 >& offset)
+                                                            sal_Int16 nNativeNumberMode,
+                                                            Sequence<sal_Int32>& offset,
+                                                            const OUString& rNativeNumberParams)
 {
     if (!isValidNatNum(rLocale, nNativeNumberMode))
         return aNumberString;
+
+    if (nNativeNumberMode == NativeNumberMode::NATNUM12)
+    {
+        // handle capitalization prefixes "capitalize", "upper" and "title"
+
+        enum WhichCasing
+        {
+            CAPITALIZE,
+            UPPER,
+            TITLE
+        };
+
+        struct CasingEntry
+        {
+            OUStringLiteral aLiteral;
+            WhichCasing     eCasing;
+        };
+
+        static const CasingEntry Casings[] =
+        {
+            { OUStringLiteral("capitalize"), CAPITALIZE },
+            { OUStringLiteral("upper"), UPPER },
+            { OUStringLiteral("title"), TITLE }
+        };
+
+        sal_Int32 nStripCase = 0;
+        size_t nCasing;
+        for (nCasing = 0; nCasing < SAL_N_ELEMENTS(Casings); ++nCasing)
+        {
+            if (rNativeNumberParams.startsWith( Casings[nCasing].aLiteral))
+            {
+                nStripCase = Casings[nCasing].aLiteral.size;
+                break;
+            }
+        }
+
+        if (nStripCase > 0 && (rNativeNumberParams.getLength() == nStripCase ||
+                    rNativeNumberParams[nStripCase++] == ' '))
+        {
+            OUString aStr = getNumberText(rLocale, aNumberString, rNativeNumberParams.copy(nStripCase));
+
+            if (!xCharClass.is())
+                xCharClass = CharacterClassification::create(comphelper::getProcessComponentContext());
+
+            switch (Casings[nCasing].eCasing)
+            {
+                case CAPITALIZE:
+                    return xCharClass->toTitle(aStr, 0, 1, aLocale) +
+                        (aStr.getLength() > 1 ? aStr.copy(1) : OUString());
+                case UPPER:
+                    return xCharClass->toUpper(aStr, 0, aStr.getLength(), aLocale);
+                case TITLE:
+                    return xCharClass->toTitle(aStr, 0, aStr.getLength(), aLocale);
+            }
+        }
+        else
+        {
+            return getNumberText(rLocale, aNumberString, rNativeNumberParams);
+        }
+    }
 
     sal_Int16 langnum = getLanguageNumber(rLocale);
     if (langnum == -1)
@@ -613,6 +773,14 @@ OUString SAL_CALL NativeNumberSupplierService::getNativeNumberString(const OUStr
     return getNativeNumberString(aNumberString, rLocale, nNativeNumberMode, offset);
 }
 
+OUString SAL_CALL NativeNumberSupplierService::getNativeNumberStringParams(
+    const OUString& rNumberString, const css::lang::Locale& rLocale, sal_Int16 nNativeNumberMode,
+    const OUString& rNativeNumberParams)
+{
+    Sequence<sal_Int32> offset;
+    return getNativeNumberString(rNumberString, rLocale, nNativeNumberMode, offset, rNativeNumberParams);
+}
+
 sal_Unicode NativeNumberSupplierService::getNativeNumberChar( const sal_Unicode inChar, const Locale& rLocale, sal_Int16 nNativeNumberMode )
 {
     if (nNativeNumberMode == NativeNumberMode::NATNUM0) { // Ascii
@@ -664,6 +832,7 @@ sal_Bool SAL_CALL NativeNumberSupplierService::isValidNatNum( const Locale& rLoc
     switch (nNativeNumberMode) {
         case NativeNumberMode::NATNUM0:     // Ascii
         case NativeNumberMode::NATNUM3:     // Char, FullWidth
+        case NativeNumberMode::NATNUM12:    // spell out numbers, dates and money amounts
             return true;
         case NativeNumberMode::NATNUM1:     // Char, Lower
             return (langnum >= 0);
@@ -903,7 +1072,7 @@ OUString getHebrewNativeNumberString(const OUString& aNumberString, bool useGere
         makeHebrewNumber(value, output, true, useGeresh);
 
         if (i < len)
-            output.append(aNumberString.copy(i));
+            output.appendCopy(aNumberString,i);
 
         return output.makeStringAndClear();
     }
@@ -1022,7 +1191,7 @@ OUString getCyrillicNativeNumberString(const OUString& aNumberString)
         makeCyrillicNumber(value, output, true);
 
         if (i < len)
-            output.append(aNumberString.copy(i));
+            output.appendCopy(aNumberString,i);
 
         return output.makeStringAndClear();
     }
@@ -1046,7 +1215,7 @@ NativeNumberSupplierService::supportsService(const OUString& rServiceName)
 Sequence< OUString > SAL_CALL
 NativeNumberSupplierService::getSupportedServiceNames()
 {
-    Sequence< OUString > aRet {implementationName};
+    Sequence< OUString > aRet {implementationName, "com.sun.star.i18n.NativeNumberSupplier2"};
     return aRet;
 }
 

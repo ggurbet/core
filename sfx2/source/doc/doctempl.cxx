@@ -22,6 +22,7 @@
 #include <com/sun/star/uno/Any.h>
 #include <osl/mutex.hxx>
 #include <osl/thread.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -90,7 +91,6 @@ using namespace ::ucbhelper;
 #include <sfx2/fcontnr.hxx>
 #include <svtools/templatefoldercache.hxx>
 
-#include <comphelper/storagehelper.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <o3tl/make_unique.hxx>
 #include <memory>

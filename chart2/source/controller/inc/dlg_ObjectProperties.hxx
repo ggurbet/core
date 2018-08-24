@@ -21,8 +21,8 @@
 
 #include <ObjectIdentifier.hxx>
 #include <sfx2/tabdlg.hxx>
-#include <svx/dlgctrl.hxx>
-#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
+
+namespace com { namespace sun { namespace star { namespace util { class XNumberFormatsSupplier; } } } }
 
 namespace chart
 {
@@ -106,15 +106,14 @@ class ViewElementListProvider;
 class SchAttribTabDlg : public SfxTabDialog
 {
 private:
-    ObjectType               eObjectType;
     sal_uInt16                   nDlgType;
 
     const ObjectPropertiesDialogParameter * const        m_pParameter;
     const ViewElementListProvider* const                 m_pViewElementListProvider;
     SvNumberFormatter* m_pNumberFormatter;
 
-    SfxItemSet*     m_pSymbolShapeProperties;
-    Graphic*        m_pAutoSymbolGraphic;
+    std::unique_ptr<SfxItemSet>     m_pSymbolShapeProperties;
+    std::unique_ptr<Graphic>        m_pAutoSymbolGraphic;
 
     double          m_fAxisMinorStepWidthForErrorBarDecimals;
     bool            m_bOKPressed;
@@ -134,8 +133,7 @@ public:
 
     //pSymbolShapeProperties: Properties to be set on the symbollist shapes
     //pAutoSymbolGraphic: Graphic to be shown if AutoSymbol gets selected
-    //this class takes ownership over both parameter
-    void setSymbolInformation( SfxItemSet* pSymbolShapeProperties, Graphic* pAutoSymbolGraphic );
+    void setSymbolInformation( std::unique_ptr<SfxItemSet> pSymbolShapeProperties, std::unique_ptr<Graphic> pAutoSymbolGraphic );
 
     void SetAxisMinorStepWidthForErrorBarDecimals( double fMinorStepWidth );
 

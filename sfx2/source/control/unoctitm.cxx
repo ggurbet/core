@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_java.h>
 #include <config_folders.h>
 
 #include <tools/debug.hxx>
@@ -43,7 +43,6 @@
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/status/Visibility.hpp>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/sequence.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <uno/current_context.hxx>
 #include <vcl/svapp.hxx>
@@ -297,21 +296,18 @@ SfxDispatchController_Impl::SfxDispatchController_Impl(
     , pDispatcher( pDispat )
     , pBindings( pBind )
     , pLastState( nullptr )
-    , nSlot( pSlot->GetSlotId() )
     , pDispatch( pDisp )
     , bMasterSlave( false )
     , bVisible( true )
-    , pUnoName( pSlot->pUnoName )
 {
-    if ( aDispatchURL.Protocol == "slot:" && pUnoName )
+    if ( aDispatchURL.Protocol == "slot:" && pSlot->pUnoName )
     {
-        OStringBuffer aTmp(".uno:");
-        aTmp.append(pUnoName);
-        aDispatchURL.Complete = OStringToOUString(aTmp.makeStringAndClear(), RTL_TEXTENCODING_ASCII_US);
+        aDispatchURL.Complete = ".uno:" + OUString::createFromAscii(pSlot->pUnoName);
         Reference< XURLTransformer > xTrans( URLTransformer::create( ::comphelper::getProcessComponentContext() ) );
         xTrans->parseStrict( aDispatchURL );
     }
 
+    sal_uInt16 nSlot = pSlot->GetSlotId();
     SetId( nSlot );
     if ( pBindings )
     {
@@ -535,13 +531,14 @@ void UsageInfo::save()
 
     if( file.open(osl_File_OpenFlag_Read | osl_File_OpenFlag_Write | osl_File_OpenFlag_Create) == osl::File::E_None )
     {
-        OString aUsageInfoMsg = "Document Type;Command;Count";
+        OStringBuffer aUsageInfoMsg("Document Type;Command;Count");
 
         for (auto const& elem : maUsage)
-            aUsageInfoMsg += "\n" + elem.first.toUtf8() + ";" + OString::number(elem.second);
+            aUsageInfoMsg.append("\n").append(elem.first.toUtf8()).append(";").append(OString::number(elem.second));
 
         sal_uInt64 written = 0;
-        file.write(aUsageInfoMsg.pData->buffer, aUsageInfoMsg.getLength(), written);
+        auto s = aUsageInfoMsg.makeStringAndClear();
+        file.write(s.getStr(), s.getLength(), written);
         file.close();
     }
 }
@@ -597,13 +594,13 @@ void collectUsageInformation(const util::URL& rURL, const uno::Sequence<beans::P
     theUsageInfo::get().increment(aCommand);
 }
 
-void collectUIInformation(const util::URL& rURL)
+void collectUIInformation(const util::URL& rURL, const css::uno::Sequence< css::beans::PropertyValue >& rArgs)
 {
     static const char* pFile = std::getenv("LO_COLLECT_UIINFO");
     if (!pFile)
         return;
 
-    UITestLogger::getInstance().logCommand(rURL.Complete);
+    UITestLogger::getInstance().logCommand("CommandSent Name:" + rURL.Complete, rArgs);
 }
 
 }
@@ -613,7 +610,7 @@ void SfxDispatchController_Impl::dispatch( const css::util::URL& aURL,
         const css::uno::Reference< css::frame::XDispatchResultListener >& rListener )
 {
     collectUsageInformation(aURL, aArgs);
-    collectUIInformation(aURL);
+    collectUIInformation(aURL,aArgs);
 
     SolarMutexGuard aGuard;
     if (

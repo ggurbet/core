@@ -28,10 +28,11 @@
 
 #include <osl/endian.h>
 #include <osl/diagnose.h>
+#include <rtl/strbuf.hxx>
+#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 
 #include <comphelper/fileformat.h>
-#include <comphelper/string.hxx>
 
 #define SWAPNIBBLES(c)      \
 unsigned char nSwapTmp=c;   \
@@ -1417,7 +1418,7 @@ bool checkSeek(SvStream &rSt, sal_uInt64 nOffset)
     return (nOffset <= nMaxSeek && rSt.Seek(nOffset) == nOffset);
 }
 
-//STREAM_SEEK_TO_END in the some of the Seek backends is special cased to be
+//STREAM_SEEK_TO_END in some of the Seek backends is special cased to be
 //efficient, in others e.g. SotStorageStream it's really horribly slow, and in
 //those this should be overridden
 sal_uInt64 SvStream::remainingSize()
@@ -1499,7 +1500,7 @@ std::size_t SvStream::CryptAndWriteBuffer( const void* pStart, std::size_t nLen)
     return nCount;
 }
 
-bool SvStream::EncryptBuffer(void* pStart, std::size_t nLen) const
+void SvStream::EncryptBuffer(void* pStart, std::size_t nLen) const
 {
     unsigned char* pTemp = static_cast<unsigned char*>(pStart);
     unsigned char nMask = m_nCryptMask;
@@ -1511,7 +1512,6 @@ bool SvStream::EncryptBuffer(void* pStart, std::size_t nLen) const
         aCh ^= nMask;
         *pTemp = aCh;
     }
-    return true;
 }
 
 static unsigned char implGetCryptMask(const sal_Char* pStr, sal_Int32 nLen, long nVersion)

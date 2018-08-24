@@ -34,7 +34,6 @@
 #include <com/sun/star/sdbc/ResultSetConcurrency.hpp>
 #include <com/sun/star/sdbc/ResultSetType.hpp>
 
-#include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -43,6 +42,7 @@
 #include <cppuhelper/typeprovider.hxx>
 #include <o3tl/make_unique.hxx>
 #include <rtl/string.hxx>
+#include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 #include <unotools/syslocale.hxx>
 #include <unotools/intlwrapper.hxx>

@@ -25,6 +25,7 @@
 #include <vcl/dllapi.h>
 #include <vcl/window.hxx>
 #include <vcl/salnativewidgets.hxx>
+#include <memory>
 
 // forward
 namespace vcl { struct ImplControlData; struct ControlLayoutData; }
@@ -34,7 +35,7 @@ class StyleSettings;
 class VCL_DLLPUBLIC Control : public vcl::Window
 {
 protected:
-    vcl::ImplControlData* mpControlData;
+    std::unique_ptr<vcl::ImplControlData> mpControlData;
 
 private:
     bool                    mbHasControlFocus;
@@ -74,6 +75,8 @@ protected:
     bool        ImplCallEventListenersAndHandler(
                     VclEventId nEvent, std::function<void()> const & callHandler
                 );
+
+    void        CallEventListeners( VclEventId nEvent, void* pData = nullptr );
 
     /** draws the given text onto the given device
 

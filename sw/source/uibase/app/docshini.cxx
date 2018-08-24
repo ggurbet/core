@@ -19,6 +19,7 @@
 
 #include <hintids.hxx>
 
+#include <sal/log.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <sot/storinfo.hxx>
 #include <sot/storage.hxx>
@@ -88,6 +89,7 @@
 #include <globals.hrc>
 #include <unochart.hxx>
 #include <drawdoc.hxx>
+#include <DocumentSettingManager.hxx>
 
 #include <svx/CommonStyleManager.hxx>
 
@@ -390,13 +392,13 @@ SwDocShell::~SwDocShell()
     }
 
     RemoveLink();
-    delete m_pFontList;
+    m_pFontList.reset();
 
     // we, as BroadCaster also become our own Listener
     // (for DocInfo/FileNames/....)
     EndListening( *this );
 
-    delete m_pOLEChildList;
+    m_pOLEChildList.reset();
 }
 
 void  SwDocShell::Init_Impl()
@@ -440,9 +442,8 @@ void SwDocShell::UpdateFontList()
         OSL_ENSURE(m_xDoc.get(), "No Doc no FontList");
         if (m_xDoc.get())
         {
-            delete m_pFontList;
-            m_pFontList = new FontList( m_xDoc->getIDocumentDeviceAccess().getReferenceDevice(true) );
-            PutItem( SvxFontListItem( m_pFontList, SID_ATTR_CHAR_FONTLIST ) );
+            m_pFontList.reset( new FontList( m_xDoc->getIDocumentDeviceAccess().getReferenceDevice(true) ) );
+            PutItem( SvxFontListItem( m_pFontList.get(), SID_ATTR_CHAR_FONTLIST ) );
         }
         m_IsInUpdateFontList = false;
     }
@@ -483,14 +484,6 @@ bool  SwDocShell::Load( SfxMedium& rMedium )
 {
     bool bRet = false;
 
-    // If this is an ODF file being loaded, then by default, use legacy processing
-    // for tdf#99729 (if required, it will be overridden in *::ReadUserDataSequence())
-    if (IsOwnStorageFormat(rMedium))
-    {
-        if (m_xDoc.get() && m_xDoc->getIDocumentDrawModelAccess().GetDrawModel())
-            m_xDoc->getIDocumentDrawModelAccess().GetDrawModel()->SetAnchoredTextOverflowLegacy(true);
-    }
-
     if (SfxObjectShell::Load(rMedium))
     {
         comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = getEmbeddedObjectContainer();
@@ -501,6 +494,19 @@ bool  SwDocShell::Load( SfxMedium& rMedium )
             RemoveLink();       // release the existing
 
         AddLink();      // set Link and update Data!!
+
+        // Define some settings for legacy ODF files that have different default values now
+        // (if required, they will be overridden later when settings will be read)
+        if (IsOwnStorageFormat(rMedium))
+        {
+            // legacy processing for tdf#99729
+            if (m_xDoc->getIDocumentDrawModelAccess().GetDrawModel())
+                m_xDoc->getIDocumentDrawModelAccess().GetDrawModel()->SetAnchoredTextOverflowLegacy(
+                    true);
+            // legacy behaviour (not hiding paragraph) for Database (MailMerge) fields
+            m_xDoc->GetDocumentSettingManager().set(DocumentSettingId::EMPTY_DB_FIELD_HIDES_PARA,
+                                                    false);
+        }
 
         // Loading
         // for MD

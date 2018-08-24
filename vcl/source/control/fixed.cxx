@@ -26,6 +26,7 @@
 #include <vcl/settings.hxx>
 
 #include <comphelper/string.hxx>
+#include <sal/log.hxx>
 #include <controldata.hxx>
 #include <window.h>
 
@@ -344,11 +345,12 @@ Size FixedText::CalcMinimumSize( long nMaxWidth ) const
 Size FixedText::GetOptimalSize() const
 {
     sal_Int32 nMaxAvailWidth = 0x7fffffff;
-    const OUString &rTxt = GetText();
-    if (m_nMaxWidthChars != -1 && m_nMaxWidthChars < rTxt.getLength())
+    if (m_nMaxWidthChars != -1)
     {
+        OUStringBuffer aBuf;
+        comphelper::string::padToLength(aBuf, m_nMaxWidthChars, 'x');
         nMaxAvailWidth = getTextDimensions(this,
-            rTxt.copy(0, m_nMaxWidthChars), 0x7fffffff).Width();
+            aBuf.makeStringAndClear(), 0x7fffffff).Width();
     }
     Size aRet = CalcMinimumSize(nMaxAvailWidth);
     if (m_nMinWidthChars != -1)
@@ -357,8 +359,7 @@ Size FixedText::GetOptimalSize() const
         comphelper::string::padToLength(aBuf, m_nMinWidthChars, 'x');
         Size aMinAllowed = getTextDimensions(this,
             aBuf.makeStringAndClear(), 0x7fffffff);
-        if (aMinAllowed.Width() > aRet.Width())
-            aRet = aMinAllowed;
+        aRet.setWidth(std::max(aMinAllowed.Width(), aRet.Width()));
     }
     return aRet;
 }
@@ -531,11 +532,11 @@ void FixedLine::ImplDraw(vcl::RenderContext& rRenderContext)
         rRenderContext.DrawText(aTextPt, aText, 0, aText.getLength());
         rRenderContext.Pop();
         if (aOutSize.Height() - aStartPt.Y() > FIXEDLINE_TEXT_BORDER)
-            aDecoView.DrawSeparator(Point(aStartPt.X(), aOutSize.Height() - 1),
-                                    Point(aStartPt.X(), aStartPt.Y() + FIXEDLINE_TEXT_BORDER));
+            aDecoView.DrawSeparator(Point(aStartPt.X(), aStartPt.Y() + FIXEDLINE_TEXT_BORDER),
+                                    Point(aStartPt.X(), aOutSize.Height() - 1));
         if (aStartPt.Y() - nWidth - FIXEDLINE_TEXT_BORDER > 0)
-            aDecoView.DrawSeparator(Point(aStartPt.X(), aStartPt.Y() - nWidth - FIXEDLINE_TEXT_BORDER),
-                                    Point(aStartPt.X(), 0));
+            aDecoView.DrawSeparator(Point(aStartPt.X(), 0),
+                                    Point(aStartPt.X(), aStartPt.Y() - nWidth - FIXEDLINE_TEXT_BORDER));
     }
     else
     {
@@ -692,17 +693,15 @@ FixedBitmap::FixedBitmap( vcl::Window* pParent, WinBits nStyle ) :
 
 void FixedBitmap::ImplDraw( OutputDevice* pDev, const Point& rPos, const Size& rSize )
 {
-    Bitmap* pBitmap = &maBitmap;
-
     // do we have a Bitmap?
-    if ( !(!(*pBitmap)) )
+    if ( !!maBitmap )
     {
         if ( GetStyle() & WB_SCALE )
-            pDev->DrawBitmap( rPos, rSize, *pBitmap );
+            pDev->DrawBitmapEx( rPos, rSize, maBitmap );
         else
         {
-            Point aPos = ImplCalcPos( GetStyle(), rPos, pBitmap->GetSizePixel(), rSize );
-            pDev->DrawBitmap( aPos, *pBitmap );
+            Point aPos = ImplCalcPos( GetStyle(), rPos, maBitmap.GetSizePixel(), rSize );
+            pDev->DrawBitmapEx( aPos, maBitmap );
         }
     }
 }
@@ -799,7 +798,7 @@ void FixedBitmap::DataChanged( const DataChangedEvent& rDCEvt )
     }
 }
 
-void FixedBitmap::SetBitmap( const Bitmap& rBitmap )
+void FixedBitmap::SetBitmap( const BitmapEx& rBitmap )
 {
     maBitmap = rBitmap;
     CompatStateChanged( StateChangedType::Data );

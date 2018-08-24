@@ -24,6 +24,7 @@ $(eval $(call gb_Library_use_custom_headers,vclplug_qt5,vcl/qt5))
 $(eval $(call gb_Library_set_include,vclplug_qt5,\
     $$(INCLUDE) \
     -I$(SRCDIR)/vcl/inc \
+    -I$(SRCDIR)/vcl/inc/qt5 \
 ))
 
 $(eval $(call gb_Library_add_defs,vclplug_qt5,\
@@ -33,7 +34,7 @@ $(eval $(call gb_Library_add_defs,vclplug_qt5,\
 $(eval $(call gb_Library_use_sdk_api,vclplug_qt5))
 
 $(eval $(call gb_Library_use_libraries,vclplug_qt5,\
-    vclplug_gen \
+    $(if $(USING_X11),vclplug_gen) \
     vcl \
     tl \
     utl \
@@ -48,6 +49,7 @@ $(eval $(call gb_Library_use_libraries,vclplug_qt5,\
         jvmaccess) \
     cppu \
     sal \
+    salhelper \
 ))
 
 $(eval $(call gb_Library_use_externals,vclplug_qt5,\
@@ -80,17 +82,22 @@ endif
 $(eval $(call gb_Library_add_exception_objects,vclplug_qt5,\
     vcl/qt5/Qt5Bitmap \
     vcl/qt5/Qt5Data \
-    vcl/qt5/Qt5Frame \
+    vcl/qt5/Qt5FilePicker \
+    vcl/qt5/Qt5Font \
     vcl/qt5/Qt5FontFace \
+    vcl/qt5/Qt5Frame \
     vcl/qt5/Qt5Graphics \
     vcl/qt5/Qt5Graphics_Controls \
     vcl/qt5/Qt5Graphics_GDI \
     vcl/qt5/Qt5Graphics_Text \
     vcl/qt5/Qt5Instance \
     vcl/qt5/Qt5Instance_Print \
+    vcl/qt5/Qt5MainWindow \
+    vcl/qt5/Qt5Menu \
     vcl/qt5/Qt5Object \
     vcl/qt5/Qt5Painter \
     vcl/qt5/Qt5Printer \
+    vcl/qt5/Qt5System \
     vcl/qt5/Qt5Timer \
     vcl/qt5/Qt5Tools \
     vcl/qt5/Qt5VirtualDevice \

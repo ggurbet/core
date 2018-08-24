@@ -11,7 +11,6 @@
 #include <test/screenshot_test.hxx>
 
 #include <com/sun/star/frame/Desktop.hpp>
-#include <comphelper/string.hxx>
 #include <editeng/editids.hrc>
 #include <editeng/editview.hxx>
 #include <editeng/outliner.hxx>
@@ -19,7 +18,9 @@
 #include <osl/conditn.hxx>
 #include <osl/file.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/sfxdlg.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <sfx2/lokhelper.hxx>
 #include <svl/srchitem.hxx>
 #include <svx/numinf.hxx>
 #include <vcl/pngwrite.hxx>
@@ -72,9 +73,15 @@ public:
     ScScreenshotTest();
 
     void testOpeningModalDialogs();
+#if 0
+    void testMultiViewCopyPaste();
+#endif
 
     CPPUNIT_TEST_SUITE(ScScreenshotTest);
     CPPUNIT_TEST(testOpeningModalDialogs);
+#if 0
+    CPPUNIT_TEST(testMultiViewCopyPaste);
+#endif
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -107,7 +114,6 @@ void ScScreenshotTest::initialize()
     CPPUNIT_ASSERT(mpViewShell != nullptr);
 
     mpFact = ScAbstractDialogFactory::Create();
-    CPPUNIT_ASSERT_MESSAGE("Failed to create dialog factory", mpFact);
 
     SvMemoryStream* pNewMemStream = new SvMemoryStream(const_cast<sal_Unicode *>(mCsv.getStr()), mCsv.getLength() * sizeof(sal_Unicode), StreamMode::READ);
     pNewMemStream->SetStreamCharSet( RTL_TEXTENCODING_UNICODE );
@@ -153,7 +159,7 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
             SCTAB nTabSelCount = rViewData.GetMarkData().GetSelectCount();
 
             pReturnDialog = mpFact->CreateScInsertTableDlg(
-                mpViewShell->GetDialogParent(), rViewData, nTabSelCount, false);
+                mpViewShell->GetFrameWeld(), rViewData, nTabSelCount, false);
 
             break;
         }
@@ -166,24 +172,24 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
 
         case 2: // "modules/scalc/ui/pastespecial.ui"
         {
-            pReturnDialog = mpFact->CreateScInsertContentsDlg(mpViewShell->GetDialogParent());
+            pReturnDialog = mpFact->CreateScInsertContentsDlg(mpViewShell->GetFrameWeld());
             break;
         }
 
         case 3: // "modules/scalc/ui/changesourcedialog.ui"
         {
-            pReturnDialog = mpFact->CreateScColRowLabelDlg(mpViewShell->GetDialogParent(), true, false);
+            pReturnDialog = mpFact->CreateScColRowLabelDlg(mpViewShell->GetFrameWeld(), true, false);
             break;
         }
 
         case 4: // "modules/scalc/ui/selectdatasource.ui"
         {
-            pReturnDialog = mpFact->CreateScDataPilotDatabaseDlg(mpViewShell->GetDialogParent());
+            pReturnDialog = mpFact->CreateScDataPilotDatabaseDlg(mpViewShell->GetFrameWeld());
             break;
         }
         case 5: // "modules/scalc/ui/selectsource.ui"
         {
-            pReturnDialog = mpFact->CreateScDataPilotSourceTypeDlg(mpViewShell->GetDialogParent(), true);
+            pReturnDialog = mpFact->CreateScDataPilotSourceTypeDlg(mpViewShell->GetFrameWeld(), true);
             break;
         }
 
@@ -214,7 +220,7 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
 
         case 9: // "modules/scalc/ui/tabcolordialog.ui"
         {
-            pReturnDialog = mpFact->CreateScTabBgColorDlg(mpViewShell->GetDialogParent(),
+            pReturnDialog = mpFact->CreateScTabBgColorDlg(mpViewShell->GetFrameWeld(),
                                 ScResId(SCSTR_SET_TAB_BG_COLOR),
                                 ScResId(SCSTR_NO_TAB_BG_COLOR), Color(0xff00ff) );
             break;
@@ -236,13 +242,13 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
 
         case 12: // "modules/scalc/ui/movecopysheet.ui"
         {
-            pReturnDialog = mpFact->CreateScMoveTableDlg(mpViewShell->GetDialogParent(), aDefaultSheetName);
+            pReturnDialog = mpFact->CreateScMoveTableDlg(mpViewShell->GetFrameWeld(), aDefaultSheetName);
             break;
         }
 
         case 13: // "modules/scalc/ui/textimportcsv.ui"
         {
-            pReturnDialog = mpFact->CreateScImportAsciiDlg(OUString(), mpStream.get(), SC_PASTETEXT);
+            pReturnDialog = mpFact->CreateScImportAsciiDlg(nullptr, OUString(), mpStream.get(), SC_PASTETEXT);
             break;
         }
         case 14: // "modules/scalc/ui/formatcellsdialog.ui"
@@ -285,6 +291,55 @@ void ScScreenshotTest::testOpeningModalDialogs()
     mxComponent->dispose();
     mxComponent.clear();
 }
+
+#if 0
+void ScScreenshotTest::testMultiViewCopyPaste()
+{
+    initialize();
+
+    ScDocument& rDoc = mxDocSh->GetDocument();
+
+    rDoc.SetString(ScAddress(0, 0, 0), "TestCopy1");
+    rDoc.SetString(ScAddress(1, 0, 0), "TestCopy2");
+
+    // view #1
+    ScTabViewShell* pView1 = dynamic_cast<ScTabViewShell*>(SfxViewShell::Current());
+    CPPUNIT_ASSERT(pView1);
+
+    // view #2
+    SfxLokHelper::createView();
+    ScTabViewShell* pView2 = dynamic_cast<ScTabViewShell*>(SfxViewShell::Current());
+    CPPUNIT_ASSERT(pView1 != pView2);
+    {
+        std::unique_ptr<SfxPoolItem> xItem1;
+        std::unique_ptr<SfxPoolItem> xItem2;
+        CPPUNIT_ASSERT(SfxItemState::DISABLED != pView1->GetViewFrame()->GetBindings().QueryState(SID_PASTE, xItem1));
+        CPPUNIT_ASSERT(SfxItemState::DISABLED != pView2->GetViewFrame()->GetBindings().QueryState(SID_PASTE, xItem2));
+    }
+
+    // copy text view 1
+    pView1->SetCursor(0, 0);
+    pView1->GetViewFrame()->GetBindings().Execute(SID_COPY);
+
+    // copy text view 2
+    pView2->SetCursor(1, 0);
+    pView2->GetViewFrame()->GetBindings().Execute(SID_COPY);
+
+     // paste text view 1
+    pView1->SetCursor(0, 1);
+    pView1->GetViewFrame()->GetBindings().Execute(SID_PASTE);
+
+    // paste text view 2
+    pView2->SetCursor(1, 1);
+    pView2->GetViewFrame()->GetBindings().Execute(SID_PASTE);
+
+    CPPUNIT_ASSERT_EQUAL(OUString("TestCopy2"), rDoc.GetString(ScAddress(0, 1, 0)));
+    CPPUNIT_ASSERT_EQUAL(OUString("TestCopy2"), rDoc.GetString(ScAddress(1, 1, 0)));
+
+    mxComponent->dispose();
+    mxComponent.clear();
+}
+#endif
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScScreenshotTest);
 

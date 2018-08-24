@@ -37,6 +37,7 @@
 #include <o3tl/make_unique.hxx>
 
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <document.hxx>
 
 /*
@@ -96,9 +97,9 @@ namespace
         // since it (naturally) doesn't have any writer-specific data to write.
         if (blobSize)
         {
-            blob.pData = new sal_uInt8[blobSize];
+            blob.pData.reset(new sal_uInt8[blobSize]);
             blob.size = static_cast<std::size_t>(blobSize);
-            stream.ReadBytes(blob.pData, blob.size);
+            stream.ReadBytes(blob.pData.get(), blob.size);
         }
 
         return stream;
@@ -110,7 +111,7 @@ namespace
         const sal_uInt64 endOfBlob = stream.Tell() + sizeof(sal_uInt64) + blob.size;
         stream.WriteUInt64( endOfBlob );
         if (blob.size)
-            stream.WriteBytes(blob.pData, blob.size);
+            stream.WriteBytes(blob.pData.get(), blob.size);
 
         return stream;
     }
@@ -851,7 +852,7 @@ ScAutoFormat::ScAutoFormat() :
 {
     //  create default autoformat
     ScAutoFormatData* pData = new ScAutoFormatData;
-    OUString aName(ScGlobal::GetRscString(STR_STYLENAME_STANDARD));
+    OUString aName(ScResId(STR_STYLENAME_STANDARD));
     pData->SetName(aName);
 
     //  default font, default height
@@ -931,7 +932,7 @@ ScAutoFormat::ScAutoFormat() :
 
 bool DefaultFirstEntry::operator() (const OUString& left, const OUString& right) const
 {
-    OUString aStrStandard(ScGlobal::GetRscString(STR_STYLENAME_STANDARD));
+    OUString aStrStandard(ScResId(STR_STYLENAME_STANDARD));
     if (ScGlobal::GetpTransliteration()->isEqual( left, right ) )
         return false;
     if ( ScGlobal::GetpTransliteration()->isEqual( left, aStrStandard ) )

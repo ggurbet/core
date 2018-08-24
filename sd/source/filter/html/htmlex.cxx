@@ -25,6 +25,8 @@
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 
 #include <rtl/uri.hxx>
+#include <sal/log.hxx>
+#include <rtl/tencinfo.h>
 #include <comphelper/processfactory.hxx>
 #include <osl/file.hxx>
 #include <unotools/pathoptions.hxx>
@@ -75,6 +77,7 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 
 #include <drawdoc.hxx>
+#include <DrawDocShell.hxx>
 #include "htmlpublishmode.hxx"
 #include <Outliner.hxx>
 #include <sdpage.hxx>
@@ -131,7 +134,7 @@ const char * const pButtonNames[] =
 class EasyFile
 {
 private:
-    SvStream*   pOStm;
+    std::unique_ptr<SvStream> pOStm;
     bool        bOpen;
 
 public:
@@ -339,6 +342,11 @@ void lclAppendStyle(OUStringBuffer& aBuffer, const OUString& aTag, const OUStrin
 
 } // anonymous namespace
 
+static const OUStringLiteral gaHTMLHeader(
+            "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"\r\n"
+            "     \"http://www.w3.org/TR/html4/transitional.dtd\">\r\n"
+            "<html>\r\n<head>\r\n" );
+
 // constructor for the html export helper classes
 HtmlExport::HtmlExport(
     const OUString& aPath,
@@ -366,10 +374,6 @@ HtmlExport::HtmlExport(
         maHTMLExtension(STR_HTMLEXP_DEFAULT_EXTENSION),
         maIndexUrl("index"),
         meScript( SCRIPT_ASP ),
-        maHTMLHeader(
-            "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"\r\n"
-            "     \"http://www.w3.org/TR/html4/transitional.dtd\">\r\n"
-            "<html>\r\n<head>\r\n" ),
         mpButtonSet( new ButtonSet() )
 {
     bool bChange = mpDoc->IsChanged();
@@ -637,7 +641,7 @@ void HtmlExport::ExportSingleDocument()
     mnPagesWritten = 0;
     InitProgress(mnSdPageCount);
 
-    OUStringBuffer aStr(maHTMLHeader);
+    OUStringBuffer aStr(gaHTMLHeader);
     aStr.append(DocumentMetadata());
     aStr.append("\r\n");
     aStr.append("</head>\r\n");
@@ -782,8 +786,7 @@ void HtmlExport::ExportHtml()
             if( !CreateContentPage() )
                 break;
 
-        if( !CreateBitmaps() )
-            break;
+        CreateBitmaps();
 
         mpDocSh->SetWaitCursor( false );
         ResetProgress();
@@ -845,13 +848,12 @@ void HtmlExport::SetDocColors( SdPage* pPage )
 
 void HtmlExport::InitProgress( sal_uInt16 nProgrCount )
 {
-    mpProgress = new SfxProgress( mpDocSh, SdResId(STR_CREATE_PAGES), nProgrCount );
+    mpProgress.reset(new SfxProgress( mpDocSh, SdResId(STR_CREATE_PAGES), nProgrCount ));
 }
 
 void HtmlExport::ResetProgress()
 {
-    delete mpProgress;
-    mpProgress = nullptr;
+    mpProgress.reset();
 }
 
 void HtmlExport::ExportKiosk()
@@ -1102,7 +1104,7 @@ bool HtmlExport::CreateHtmlTextForPresPages()
         }
 
         // HTML head
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>");
         aStr.append(StringToHTMLString(maPageNames[nSdPage]));
@@ -1294,7 +1296,7 @@ void HtmlExport::WriteTable(OUStringBuffer& aStr, SdrTableObj const * pTableObje
 void HtmlExport::WriteObjectGroup(OUStringBuffer& aStr, SdrObjGroup const * pObjectGroup, SdrOutliner* pOutliner,
                                   const Color& rBackgroundColor, bool bHeadLine)
 {
-    SdrObjListIter aGroupIterator(*pObjectGroup->GetSubList(), SdrIterMode::DeepNoGroups);
+    SdrObjListIter aGroupIterator(pObjectGroup->GetSubList(), SdrIterMode::DeepNoGroups);
     while (aGroupIterator.IsMore())
     {
         SdrObject* pCurrentObject = aGroupIterator.Next();
@@ -1560,7 +1562,7 @@ bool HtmlExport::CreateHtmlForPresPages()
         while (!bMasterDone)
         {
             // sal_True = backwards
-            SdrObjListIter aIter(*pPage, SdrIterMode::DeepWithGroups, true);
+            SdrObjListIter aIter(pPage, SdrIterMode::DeepWithGroups, true);
 
             SdrObject* pObject = aIter.Next();
             while (pObject)
@@ -1590,7 +1592,7 @@ bool HtmlExport::CreateHtmlForPresPages()
         }
 
         // HTML Head
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>" + StringToHTMLString(maPageNames[nSdPage]) + "</title>\r\n");
 
@@ -1727,7 +1729,7 @@ bool HtmlExport::CreateHtmlForPresPages()
                             // is the bookmark a object?
                             pObj = mpDoc->GetObj( aURL );
                             if (pObj)
-                                nPgNum = pObj->GetPage()->GetPageNum();
+                                nPgNum = pObj->getSdrPageFromSdrObject()->GetPageNum();
                         }
                         if (nPgNum != SDRPAGE_NOTFOUND)
                         {
@@ -1813,7 +1815,7 @@ bool HtmlExport::CreateHtmlForPresPages()
                                 // is the bookmark a object?
                                 pObj = mpDoc->GetObj(pInfo->GetBookmark());
                                 if (pObj)
-                                    nPgNum = pObj->GetPage()->GetPageNum();
+                                    nPgNum = pObj->getSdrPageFromSdrObject()->GetPageNum();
                             }
 
                             if( SDRPAGE_NOTFOUND != nPgNum )
@@ -1915,7 +1917,7 @@ bool HtmlExport::CreateContentPage()
         SetDocColors();
 
     // html head
-    OUStringBuffer aStr(maHTMLHeader);
+    OUStringBuffer aStr(gaHTMLHeader);
     aStr.append(CreateMetaCharset());
     aStr.append("  <title>");
     aStr.append(StringToHTMLString(maPageNames[0]));
@@ -2055,7 +2057,7 @@ bool HtmlExport::CreateNotesPages()
             SetDocColors( pPage );
 
         // Html head
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>");
         aStr.append(StringToHTMLString(maPageNames[0]));
@@ -2094,7 +2096,7 @@ bool HtmlExport::CreateOutlinePages()
     for (sal_Int32 nPage = 0; nPage < (mbImpress?2:1) && bOk; ++nPage)
     {
         // Html head
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>");
         aStr.append(StringToHTMLString(maPageNames[0]));
@@ -2407,7 +2409,7 @@ bool HtmlExport::CreateNavBarFrames()
 
     for( int nFile = 0; nFile < 3 && bOk; nFile++ )
     {
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>");
         aStr.append(StringToHTMLString(maPageNames[0]));
@@ -2510,7 +2512,7 @@ bool HtmlExport::CreateNavBarFrames()
     // the navigation bar outliner closed...
     if(bOk)
     {
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>");
         aStr.append(StringToHTMLString(maPageNames[0]));
@@ -2533,7 +2535,7 @@ bool HtmlExport::CreateNavBarFrames()
     // ... and the outliner open
     if( bOk )
     {
-        OUStringBuffer aStr(maHTMLHeader);
+        OUStringBuffer aStr(gaHTMLHeader);
         aStr.append(CreateMetaCharset());
         aStr.append("  <title>");
         aStr.append(StringToHTMLString(maPageNames[0]));
@@ -2659,7 +2661,7 @@ OUString HtmlExport::CreateNavBar( sal_uInt16 nSdPage, bool bIsText ) const
 }
 
 // export navigation graphics from button set
-bool HtmlExport::CreateBitmaps()
+void HtmlExport::CreateBitmaps()
 {
     if(mnButtonThema != -1 && mpButtonSet.get() )
     {
@@ -2676,7 +2678,6 @@ bool HtmlExport::CreateBitmaps()
             mpButtonSet->exportButton( mnButtonThema, aFull, GetButtonName(nButton) );
         }
     }
-    return true;
 }
 
 // creates the <body> tag, including the specified color attributes
@@ -2865,7 +2866,7 @@ bool HtmlExport::CopyScript( const OUString& rPath, const OUString& rSource, con
     meEC.SetContext( STR_HTMLEXP_ERROR_OPEN_FILE, rSource );
 
     ErrCode     nErr = ERRCODE_NONE;
-    SvStream*   pIStm = ::utl::UcbStreamHelper::CreateStream( aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), StreamMode::READ );
+    std::unique_ptr<SvStream> pIStm = ::utl::UcbStreamHelper::CreateStream( aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), StreamMode::READ );
 
     if( pIStm )
     {
@@ -2885,7 +2886,7 @@ bool HtmlExport::CopyScript( const OUString& rPath, const OUString& rSource, con
         }
 
         nErr = pIStm->GetError();
-        delete pIStm;
+        pIStm.reset();
     }
 
     if( nErr != ERRCODE_NONE )
@@ -3154,11 +3155,10 @@ ErrCode EasyFile::createStream(  const OUString& rUrl, SvStream* &rpStr )
     if( nErr != ERRCODE_NONE )
     {
         bOpen = false;
-        delete pOStm;
-        pOStm = nullptr;
+        pOStm.reset();
     }
 
-    rpStr = pOStm;
+    rpStr = pOStm.get();
 
     return nErr;
 }
@@ -3182,8 +3182,7 @@ void EasyFile::createFileName(  const OUString& rURL, OUString& rFileName )
 
 void EasyFile::close()
 {
-    delete pOStm;
-    pOStm = nullptr;
+    pOStm.reset();
     bOpen = false;
 }
 

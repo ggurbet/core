@@ -42,12 +42,14 @@
 #include <i18nlangtag/lang.h>
 #include <rtl/string.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 
 #include <runtime.hxx>
 #include <sbunoobj.hxx>
 #include <osl/file.hxx>
 #include <errobject.hxx>
 
+#include <comphelper/string.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 
@@ -55,9 +57,11 @@
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/Locale.hpp>
+#include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 #include <com/sun/star/script/XErrorQuery.hpp>
 #include <ooo/vba/XHelperInterface.hpp>
+#include <ooo/vba/VbTriState.hpp>
 #include <com/sun/star/bridge/oleautomation/XAutomationObject.hpp>
 #include <memory>
 #include <random>
@@ -1725,7 +1729,7 @@ css::util::Date SbxDateToUNODate( const SbxValue* const pVal )
 void SbxDateFromUNODate( SbxValue *pVal, const css::util::Date& aUnoDate)
 {
     double dDate;
-    if( implDateSerial( aUnoDate.Year, aUnoDate.Month, aUnoDate.Day, false, false, dDate ) )
+    if( implDateSerial( aUnoDate.Year, aUnoDate.Month, aUnoDate.Day, false, SbDateCorrection::None, dDate ) )
     {
         pVal->PutDate( dDate );
     }
@@ -1955,7 +1959,8 @@ void SbRtl_CDateFromIso(StarBASIC *, SbxArray & rPar, bool)
 
             double dDate;
             if (!implDateSerial( static_cast<sal_Int16>(nSign * aYearStr.toInt32()),
-                        static_cast<sal_Int16>(aMonthStr.toInt32()), static_cast<sal_Int16>(aDayStr.toInt32()), bUseTwoDigitYear, false, dDate ))
+                        static_cast<sal_Int16>(aMonthStr.toInt32()), static_cast<sal_Int16>(aDayStr.toInt32()),
+                        bUseTwoDigitYear, SbDateCorrection::None, dDate ))
                 break;
 
             rPar.Get(0)->PutDate( dDate );
@@ -1984,7 +1989,7 @@ void SbRtl_DateSerial(StarBASIC *, SbxArray & rPar, bool)
     sal_Int16 nDay = rPar.Get(3)->GetInteger();
 
     double dDate;
-    if( implDateSerial( nYear, nMonth, nDay, true, true, dDate ) )
+    if( implDateSerial( nYear, nMonth, nDay, true, SbDateCorrection::RollOver, dDate ) )
     {
         rPar.Get(0)->PutDate( dDate );
     }
@@ -2223,13 +2228,12 @@ void SbRtl_Second(StarBASIC *, SbxArray & rPar, bool)
 
 double Now_Impl()
 {
-    Date aDate( Date::SYSTEM );
-    tools::Time aTime( tools::Time::SYSTEM );
-    double aSerial = static_cast<double>(GetDayDiff( aDate ));
-    long nSeconds = aTime.GetHour();
+    DateTime aDateTime( DateTime::SYSTEM );
+    double aSerial = static_cast<double>(GetDayDiff( aDateTime ));
+    long nSeconds = aDateTime.GetHour();
     nSeconds *= 3600;
-    nSeconds += aTime.GetMin() * 60;
-    nSeconds += aTime.GetSec();
+    nSeconds += aDateTime.GetMin() * 60;
+    nSeconds += aDateTime.GetSec();
     double nDays = static_cast<double>(nSeconds) / (24.0*3600.0);
     aSerial += nDays;
     return aSerial;
@@ -2366,8 +2370,7 @@ void SbRtl_IsObject(StarBASIC *, SbxArray & rPar, bool)
         bool bObject = pVar->IsObject();
         SbxBase* pObj = (bObject ? pVar->GetObject() : nullptr);
 
-        SbUnoClass* pUnoClass;
-        if( pObj &&  ( pUnoClass=dynamic_cast<SbUnoClass*>( pObj) ) != nullptr  )
+        if( auto pUnoClass = dynamic_cast<SbUnoClass*>( pObj) )
         {
             bObject = pUnoClass->getUnoClass().is();
         }
@@ -3291,6 +3294,133 @@ void SbRtl_Format(StarBASIC *, SbxArray & rPar, bool)
         }
         rPar.Get(0)->PutString( aResult );
     }
+}
+
+// https://msdn.microsoft.com/en-us/vba/language-reference-vba/articles/formatnumber-function
+void SbRtl_FormatNumber(StarBASIC*, SbxArray& rPar, bool)
+{
+    const sal_uInt16 nArgCount = rPar.Count();
+    if (nArgCount < 2 || nArgCount > 6)
+    {
+        StarBASIC::Error(ERRCODE_BASIC_BAD_ARGUMENT);
+        return;
+    }
+
+    // The UI locale never changes -> we can use static value here
+    static const LocaleDataWrapper localeData(Application::GetSettings().GetUILanguageTag());
+    sal_Int16 nNumDigitsAfterDecimal = -1;
+    if (nArgCount > 2 && !rPar.Get(2)->IsEmpty())
+    {
+        nNumDigitsAfterDecimal = rPar.Get(2)->GetInteger();
+        if (nNumDigitsAfterDecimal < -1)
+        {
+            StarBASIC::Error(ERRCODE_BASIC_BAD_ARGUMENT);
+            return;
+        }
+        else if (nNumDigitsAfterDecimal > 255)
+            nNumDigitsAfterDecimal %= 256;
+    }
+    if (nNumDigitsAfterDecimal == -1)
+        nNumDigitsAfterDecimal = LocaleDataWrapper::getNumDigits();
+
+    bool bIncludeLeadingDigit = LocaleDataWrapper::isNumLeadingZero();
+    if (nArgCount > 3 && !rPar.Get(3)->IsEmpty())
+    {
+        switch (rPar.Get(3)->GetInteger())
+        {
+            case ooo::vba::VbTriState::vbFalse:
+                bIncludeLeadingDigit = false;
+                break;
+            case ooo::vba::VbTriState::vbTrue:
+                bIncludeLeadingDigit = true;
+                break;
+            case ooo::vba::VbTriState::vbUseDefault:
+                // do nothing;
+                break;
+            default:
+                StarBASIC::Error(ERRCODE_BASIC_BAD_ARGUMENT);
+                return;
+        }
+    }
+
+    bool bUseParensForNegativeNumbers = false;
+    if (nArgCount > 4 && !rPar.Get(4)->IsEmpty())
+    {
+        switch (rPar.Get(4)->GetInteger())
+        {
+            case ooo::vba::VbTriState::vbFalse:
+            case ooo::vba::VbTriState::vbUseDefault:
+                // do nothing
+                break;
+            case ooo::vba::VbTriState::vbTrue:
+                bUseParensForNegativeNumbers = true;
+                break;
+            default:
+                StarBASIC::Error(ERRCODE_BASIC_BAD_ARGUMENT);
+                return;
+        }
+    }
+
+    bool bGroupDigits = false;
+    if (nArgCount > 5 && !rPar.Get(5)->IsEmpty())
+    {
+        switch (rPar.Get(5)->GetInteger())
+        {
+            case ooo::vba::VbTriState::vbFalse:
+            case ooo::vba::VbTriState::vbUseDefault:
+                // do nothing
+                break;
+            case ooo::vba::VbTriState::vbTrue:
+                bGroupDigits = true;
+                break;
+            default:
+                StarBASIC::Error(ERRCODE_BASIC_BAD_ARGUMENT);
+                return;
+        }
+    }
+
+    double fVal = rPar.Get(1)->GetDouble();
+    const bool bNegative = fVal < 0;
+    if (bNegative)
+        fVal = fabs(fVal); // Always work with non-negatives, to easily handle leading zero
+
+    static const sal_Unicode decSep = localeData.getNumDecimalSep().toChar();
+    OUString aResult = rtl::math::doubleToUString(
+        fVal, rtl_math_StringFormat_F, nNumDigitsAfterDecimal, decSep,
+        bGroupDigits ? localeData.getDigitGrouping().getConstArray() : nullptr,
+        localeData.getNumThousandSep().toChar());
+
+    if (!bIncludeLeadingDigit && aResult.getLength() > 1 && aResult.startsWith("0"))
+        aResult = aResult.copy(1);
+
+    if (nNumDigitsAfterDecimal > 0)
+    {
+        sal_Int32 nActualDigits = nNumDigitsAfterDecimal;
+        const sal_Int32 nSepPos = aResult.indexOf(decSep);
+        if (nSepPos == -1)
+            nActualDigits = 0;
+        else
+            nActualDigits = aResult.getLength() - nSepPos - 1;
+
+        // VBA allows up to 255 digits; rtl::math::doubleToUString outputs up to 15 digits
+        // for ~small numbers, so pad them as appropriate.
+        if (nActualDigits < nNumDigitsAfterDecimal)
+        {
+            OUStringBuffer sBuf;
+            comphelper::string::padToLength(sBuf, nNumDigitsAfterDecimal - nActualDigits, '0');
+            aResult += sBuf;
+        }
+    }
+
+    if (bNegative)
+    {
+        if (bUseParensForNegativeNumbers)
+            aResult = "(" + aResult + ")";
+        else
+            aResult = "-" + aResult;
+    }
+
+    rPar.Get(0)->PutString(aResult);
 }
 
 namespace {
@@ -4462,7 +4592,7 @@ void SbRtl_Partition(StarBASIC *, SbxArray & rPar, bool)
     // of the Partition function with several values of Number, the resulting text
     // will be handled properly during any subsequent sort operation.
 
-    // calculate the  maximun number of characters before lowervalue and uppervalue
+    // calculate the maximum number of characters before lowervalue and uppervalue
     OUString aBeforeStart = OUString::number( nStart - 1 );
     OUString aAfterStop = OUString::number( nStop + 1 );
     sal_Int32 nLen1 = aBeforeStart.getLength();
@@ -4547,7 +4677,7 @@ sal_Int16 implGetDateYear( double aDate )
 }
 
 bool implDateSerial( sal_Int16 nYear, sal_Int16 nMonth, sal_Int16 nDay,
-        bool bUseTwoDigitYear, bool bRollOver, double& rdRet )
+        bool bUseTwoDigitYear, SbDateCorrection eCorr, double& rdRet )
 {
     // XXX NOTE: For VBA years<0 are invalid and years in the range 0..29 and
     // 30..99 can not be input as they are 2-digit for 2000..2029 and
@@ -4610,14 +4740,14 @@ bool implDateSerial( sal_Int16 nYear, sal_Int16 nMonth, sal_Int16 nDay,
      * documentation would need to be adapted. As is, the DateSerial() runtime
      * function works as dumb as documented.. (except that the resulting date
      * is checked for validity now and not just day<=31 and month<=12).
-     * If change wanted then simply remove overriding bRollOver here and adapt
+     * If change wanted then simply remove overriding RollOver here and adapt
      * documentation.*/
 #if HAVE_FEATURE_SCRIPTING
-    if (!SbiRuntime::isVBAEnabled())
-        bRollOver = false;
+    if (eCorr == SbDateCorrection::RollOver && !SbiRuntime::isVBAEnabled())
+        eCorr = SbDateCorrection::None;
 #endif
 
-    if (nYear == 0 || (!bRollOver && (nAddMonths || nAddDays || !aCurDate.IsValidDate())))
+    if (nYear == 0 || (eCorr == SbDateCorrection::None && (nAddMonths || nAddDays || !aCurDate.IsValidDate())))
     {
 #if HAVE_FEATURE_SCRIPTING
         StarBASIC::Error( ERRCODE_BASIC_BAD_ARGUMENT );
@@ -4625,13 +4755,29 @@ bool implDateSerial( sal_Int16 nYear, sal_Int16 nMonth, sal_Int16 nDay,
         return false;
     }
 
-    if (bRollOver)
+    if (eCorr != SbDateCorrection::None)
     {
         aCurDate.Normalize();
         if (nAddMonths)
             aCurDate.AddMonths( nAddMonths);
         if (nAddDays)
             aCurDate.AddDays( nAddDays);
+        if (eCorr == SbDateCorrection::TruncateToMonth && aCurDate.GetMonth() != nMonth)
+        {
+            if (aCurDate.GetYear() == SAL_MAX_INT16 && nMonth == 12)
+            {
+                // Roll over and back not possible, hard max.
+                aCurDate.SetMonth(12);
+                aCurDate.SetDay(31);
+            }
+            else
+            {
+                aCurDate.SetMonth(nMonth);
+                aCurDate.SetDay(1);
+                aCurDate.AddMonths(1);
+                aCurDate.AddDays(-1);
+            }
+        }
     }
 
     long nDiffDays = GetDayDiff( aCurDate );
@@ -4654,7 +4800,7 @@ bool implDateTimeSerial( sal_Int16 nYear, sal_Int16 nMonth, sal_Int16 nDay,
                          double& rdRet )
 {
     double dDate;
-    if(!implDateSerial(nYear, nMonth, nDay, false/*bUseTwoDigitYear*/, false/*bRollOver*/, dDate))
+    if(!implDateSerial(nYear, nMonth, nDay, false/*bUseTwoDigitYear*/, SbDateCorrection::None, dDate))
         return false;
     rdRet += dDate + implTimeSerial(nHour, nMinute, nSecond);
     return true;

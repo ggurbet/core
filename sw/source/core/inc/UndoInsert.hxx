@@ -25,7 +25,6 @@
 #include <undobj.hxx>
 #include <svx/svdtypes.hxx>
 #include <rtl/ustring.hxx>
-#include <tools/mempool.hxx>
 #include <swtypes.hxx>
 #include <IDocumentContentOperations.hxx>
 #include <boost/optional.hpp>
@@ -44,7 +43,7 @@ class SwUndoInsert: public SwUndo, private SwUndoSaveContent
     std::unique_ptr<SwNodeIndex> m_pUndoNodeIndex;
     boost::optional<OUString> maText;
     boost::optional<OUString> maUndoText;
-    SwRedlineData* pRedlData;
+    std::unique_ptr<SwRedlineData> pRedlData;
     sal_uLong nNode;
     sal_Int32 nContent, nLen;
     bool bIsWordDelim : 1;
@@ -87,8 +86,6 @@ public:
     virtual SwRewriter GetRewriter() const override;
 
     void SetWithRsid() { m_bWithRsid = true; }
-
-    DECL_FIXEDMEMPOOL_NEWDEL(SwUndoInsert)
 };
 
 SwRewriter

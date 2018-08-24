@@ -19,7 +19,7 @@
 
 
 #include <svx/svdopage.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/svdtrans.hxx>
 #include <svx/svdetc.hxx>
@@ -31,21 +31,22 @@
 #include <svl/itemset.hxx>
 #include <sdr/properties/pageproperties.hxx>
 #include <svx/sdr/contact/viewcontactofpageobj.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 // BaseProperties section
 
-sdr::properties::BaseProperties* SdrPageObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> SdrPageObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::PageProperties(*this);
+    return o3tl::make_unique<sdr::properties::PageProperties>(*this);
 }
 
 
 // DrawContact section
 
-sdr::contact::ViewContact* SdrPageObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrPageObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfPageObj(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfPageObj>(*this);
 }
 
 
@@ -150,9 +151,9 @@ void SdrPageObj::TakeObjInfo(SdrObjTransformInfoRec& rInfo) const
     rInfo.bCanConvToPolyLineToArea=false;
 }
 
-SdrPageObj* SdrPageObj::Clone(SdrModel* pTargetModel) const
+SdrPageObj* SdrPageObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrPageObj >(pTargetModel);
+    return CloneHelper< SdrPageObj >(rTargetModel);
 }
 
 SdrPageObj& SdrPageObj::operator=(const SdrPageObj& rObj)
@@ -166,7 +167,7 @@ SdrPageObj& SdrPageObj::operator=(const SdrPageObj& rObj)
 
 OUString SdrPageObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulPAGE));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulPAGE));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -182,7 +183,7 @@ OUString SdrPageObj::TakeObjNameSingul() const
 
 OUString SdrPageObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralPAGE);
+    return SvxResId(STR_ObjNamePluralPAGE);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

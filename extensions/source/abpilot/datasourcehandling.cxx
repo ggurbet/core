@@ -203,16 +203,13 @@ namespace abp
             // create the UNO context
             m_pImpl->xContext.set( lcl_getDataSourceContext( _rxORB ), UNO_QUERY_THROW );
 
-            if (m_pImpl->xContext.is())
-            {
-                // collect the data source names
-                Sequence< OUString > aDSNames = m_pImpl->xContext->getElementNames();
-                const OUString* pDSNames = aDSNames.getConstArray();
-                const OUString* pDSNamesEnd = pDSNames + aDSNames.getLength();
+            // collect the data source names
+            Sequence< OUString > aDSNames = m_pImpl->xContext->getElementNames();
+            const OUString* pDSNames = aDSNames.getConstArray();
+            const OUString* pDSNamesEnd = pDSNames + aDSNames.getLength();
 
-                for ( ;pDSNames != pDSNamesEnd; ++pDSNames )
-                    m_pImpl->aDataSourceNames.insert( *pDSNames );
-            }
+            for ( ;pDSNames != pDSNamesEnd; ++pDSNames )
+                m_pImpl->aDataSourceNames.insert( *pDSNames );
         }
         catch( const Exception& )
         {
@@ -232,8 +229,7 @@ namespace abp
         sal_Int32 nPostfix = 1;
         while ( ( m_pImpl->aDataSourceNames.end() != aPos ) && ( nPostfix < 65535 ) )
         {   // there already is a data source with this name
-            sCheck = _rDataSourceName;
-            sCheck += OUString::number( nPostfix++ );
+            sCheck = _rDataSourceName + OUString::number( nPostfix++ );
 
             aPos = m_pImpl->aDataSourceNames.find( sCheck );
         }

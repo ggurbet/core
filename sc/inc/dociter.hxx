@@ -22,7 +22,6 @@
 
 #include "address.hxx"
 #include "formulagroup.hxx"
-#include <tools/solar.h>
 #include "global.hxx"
 #include "scdllapi.h"
 #include "cellvalue.hxx"
@@ -37,7 +36,6 @@ class ScDocument;
 class ScPatternAttr;
 class ScAttrArray;
 class ScAttrIterator;
-class ScRange;
 class ScFlatBoolRowSegments;
 class ScMatrix;
 struct ScDBQueryParamBase;
@@ -45,6 +43,7 @@ struct ScQueryParam;
 struct ScDBQueryParamInternal;
 struct ScDBQueryParamMatrix;
 class ScFormulaCell;
+class OutputDevice;
 struct ScInterpreterContext;
 enum class SvNumFormatType : sal_Int16;
 
@@ -53,6 +52,7 @@ class ScValueIterator            // walk through all values in an area
     typedef sc::CellStoreType::const_position_type PositionType;
 
     ScDocument*     pDoc;
+    ScInterpreterContext* pContext;
     const ScAttrArray*  pAttrArray;
     sal_uInt32      nNumFormat;     // for CalcAsShown
     sal_uInt32      nNumFmtIndex;
@@ -93,6 +93,8 @@ public:
 
     /// Does NOT reset rValue if no value found!
     bool GetNext( double& rValue, FormulaError& rErr );
+
+    void SetInterpreterContext( ScInterpreterContext* context ) { pContext = context; }
 };
 
 class ScDBQueryDataIterator
@@ -174,7 +176,7 @@ private:
     ::std::unique_ptr<DataAccess>         mpData;
 
 public:
-                    ScDBQueryDataIterator(ScDocument* pDocument, const ScInterpreterContext& rContext, ScDBQueryParamBase* pParam);
+                    ScDBQueryDataIterator(ScDocument* pDocument, const ScInterpreterContext& rContext, std::unique_ptr<ScDBQueryParamBase> pParam);
     /// Does NOT reset rValue if no value found!
     bool            GetFirst(Value& rValue);
     /// Does NOT reset rValue if no value found!
@@ -238,7 +240,6 @@ public:
     const ScRefCellValue& getRefCellValue() const { return maCurCell;}
 
     bool hasString() const;
-    bool hasEmptyData() const;
     bool isEmpty() const;
     bool equalsWithoutFormat( const ScAddress& rPos ) const;
 

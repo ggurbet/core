@@ -77,10 +77,10 @@ ImplConnectMarkerOverlay::ImplConnectMarkerOverlay(const SdrCreateView& rView, S
             Size aHalfLogicSize(xTargetOverlay->getOutputDevice().PixelToLogic(Size(4 * fScalingFactor, 4 * fScalingFactor)));
 
             // object
-            sdr::overlay::OverlayPolyPolygonStripedAndFilled* pNew = new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
-                aB2DPolyPolygon);
+            std::unique_ptr<sdr::overlay::OverlayPolyPolygonStripedAndFilled> pNew(new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
+                aB2DPolyPolygon));
             xTargetOverlay->add(*pNew);
-            maObjects.append(pNew);
+            maObjects.append(std::move(pNew));
 
             // glue points
             for(sal_uInt16 i(0); i < 4; i++)
@@ -101,10 +101,10 @@ ImplConnectMarkerOverlay::ImplConnectMarkerOverlay(const SdrCreateView& rView, S
                 basegfx::B2DPolyPolygon aTempPolyPoly;
                 aTempPolyPoly.append(aTempPoly);
 
-                pNew = new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
-                    aTempPolyPoly);
-                xTargetOverlay->add(*pNew);
-                maObjects.append(pNew);
+                std::unique_ptr<sdr::overlay::OverlayPolyPolygonStripedAndFilled> pNew2(new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
+                    aTempPolyPoly));
+                xTargetOverlay->add(*pNew2);
+                maObjects.append(std::move(pNew2));
             }
         }
     }
@@ -145,18 +145,18 @@ void ImpSdrCreateViewExtraData::CreateAndShowOverlay(const SdrCreateView& rView,
             {
                 const sdr::contact::ViewContact& rVC = pObject->GetViewContact();
                 const drawinglayer::primitive2d::Primitive2DContainer aSequence = rVC.getViewIndependentPrimitive2DContainer();
-                sdr::overlay::OverlayObject* pNew = new sdr::overlay::OverlayPrimitive2DSequenceObject(aSequence);
+                std::unique_ptr<sdr::overlay::OverlayObject> pNew(new sdr::overlay::OverlayPrimitive2DSequenceObject(aSequence));
 
                 xOverlayManager->add(*pNew);
-                maObjects.append(pNew);
+                maObjects.append(std::move(pNew));
             }
 
             if(rPolyPoly.count())
             {
-                sdr::overlay::OverlayPolyPolygonStripedAndFilled* pNew = new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
-                    rPolyPoly);
+                std::unique_ptr<sdr::overlay::OverlayPolyPolygonStripedAndFilled> pNew(new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
+                    rPolyPoly));
                 xOverlayManager->add(*pNew);
-                maObjects.append(pNew);
+                maObjects.append(std::move(pNew));
             }
         }
     }
@@ -175,11 +175,7 @@ void ImpSdrCreateViewExtraData::HideOverlay()
 
 void SdrCreateView::ImpClearConnectMarker()
 {
-    if(mpCoMaOverlay)
-    {
-        delete mpCoMaOverlay;
-        mpCoMaOverlay = nullptr;
-    }
+    mpCoMaOverlay.reset();
 }
 
 void SdrCreateView::ImpClearVars()
@@ -201,7 +197,6 @@ SdrCreateView::SdrCreateView(
     SdrModel& rSdrModel,
     OutputDevice* pOut)
 :   SdrDragView(rSdrModel, pOut),
-    mpCoMaOverlay(nullptr),
     mpCreateViewExtraData(new ImpSdrCreateViewExtraData())
 {
     ImpClearVars();
@@ -295,7 +290,7 @@ void SdrCreateView::SetConnectMarker(const SdrObjConnection& rCon)
 
         if(!mpCoMaOverlay)
         {
-            mpCoMaOverlay = new ImplConnectMarkerOverlay(*this, *pTargetObject);
+            mpCoMaOverlay.reset(new ImplConnectMarkerOverlay(*this, *pTargetObject));
         }
     }
     else
@@ -407,19 +402,13 @@ bool SdrCreateView::ImpBegCreateObj(SdrInventor nInvent, sal_uInt16 nIdent, cons
             if(pPreparedFactoryObject)
             {
                 pCurrentCreate = pPreparedFactoryObject;
-
-                if(pCreatePV->GetPage())
-                {
-                    pCurrentCreate->SetPage(pCreatePV->GetPage());
-                }
             }
             else
             {
                 pCurrentCreate = SdrObjFactory::MakeNewObject(
                     *mpModel,
                     nInvent,
-                    nIdent,
-                    pCreatePV->GetPage());
+                    nIdent);
             }
 
             Point aPnt(rPnt);
@@ -732,7 +721,7 @@ void SdrCreateView::ShowCreateObj(/*OutputDevice* pOut, sal_Bool bFull*/)
 
             // #i101648# check if dragged object is a naked SdrObject (not
             // a derivation). This is e.g. used in SW Frame construction
-            // as placeholder. Do not use SolidDragging for naked SDrObjects,
+            // as placeholder. Do not use SolidDragging for naked SdrObjects,
             // they cannot have a valid optical representation
             if(bUseSolidDragging && OBJ_NONE == pCurrentCreate->GetObjIdentifier())
             {
@@ -853,16 +842,15 @@ void SdrCreateView::HideCreateObj()
 }
 
 
-bool SdrCreateView::GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const
+void SdrCreateView::GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const
 {
     if(pCurrentCreate)
     {
         rTargetSet.Put(pCurrentCreate->GetMergedItemSet());
-        return true;
     }
     else
     {
-        return SdrDragView::GetAttributes(rTargetSet, bOnlyHardAttr);
+        SdrDragView::GetAttributes(rTargetSet, bOnlyHardAttr);
     }
 }
 
@@ -892,16 +880,15 @@ SfxStyleSheet* SdrCreateView::GetStyleSheet() const
     }
 }
 
-bool SdrCreateView::SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr)
+void SdrCreateView::SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr)
 {
     if (pCurrentCreate!=nullptr)
     {
         pCurrentCreate->SetStyleSheet(pStyleSheet,bDontRemoveHardAttr);
-        return true;
     }
     else
     {
-        return SdrDragView::SetStyleSheet(pStyleSheet,bDontRemoveHardAttr);
+        SdrDragView::SetStyleSheet(pStyleSheet,bDontRemoveHardAttr);
     }
 }
 

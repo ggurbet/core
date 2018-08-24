@@ -34,6 +34,7 @@
 #include <com/sun/star/sdb/CommandType.hpp>
 #include <comphelper/sequence.hxx>
 #include <rtl/instance.hxx>
+#include <sal/log.hxx>
 #include <unotools/configitem.hxx>
 #include <mailmergehelper.hxx>
 #include <swunohelper.hxx>
@@ -363,8 +364,7 @@ static OUString lcl_CreateNodeName(Sequence<OUString>& rAssignments )
     do
     {
         bFound = false;
-        sNewName = "_";
-        sNewName += OUString::number(nStart);
+        sNewName = "_" + OUString::number(nStart);
         //search if the name exists
         for(sal_Int32 nAssign = 0; nAssign < rAssignments.getLength(); ++nAssign)
         {
@@ -400,9 +400,8 @@ static void lcl_ConvertFromNumbers(OUString& rBlock, const std::vector<std::pair
 {
     //convert the numbers used for the configuration to strings used for UI to numbers
     //doesn't use ReplaceAll to prevent expansion of numbers inside of the headers
-    OUString sBlock(rBlock.replaceAll("\\n", "\n"));
-    SwAddressIterator aGreetingIter(sBlock);
-    sBlock.clear();
+    SwAddressIterator aGreetingIter(rBlock.replaceAll("\\n", "\n"));
+    OUStringBuffer sBlock;
     while(aGreetingIter.HasMore())
     {
         SwMergeAddressItem aNext = aGreetingIter.Next();
@@ -412,11 +411,11 @@ static void lcl_ConvertFromNumbers(OUString& rBlock, const std::vector<std::pair
             sal_Unicode cChar = aNext.sText[0];
             if(cChar >= '0' && cChar <= 'c')
             {
-                sBlock += "<";
+                sBlock.append("<");
                 sal_uInt16 nHeader = cChar - '0';
                 if(nHeader < rHeaders.size())
-                    sBlock += rHeaders[nHeader].first;
-                sBlock += ">";
+                    sBlock.append(rHeaders[nHeader].first);
+                sBlock.append(">");
             }
             else
             {
@@ -424,9 +423,9 @@ static void lcl_ConvertFromNumbers(OUString& rBlock, const std::vector<std::pair
             }
         }
         else
-            sBlock += aNext.sText;
+            sBlock.append(aNext.sText);
     }
-    rBlock = sBlock;
+    rBlock = sBlock.makeStringAndClear();
 }
 
 const Sequence<OUString>& SwMailMergeConfigItem_Impl::GetPropertyNames()

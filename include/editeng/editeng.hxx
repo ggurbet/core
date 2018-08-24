@@ -41,6 +41,7 @@
 #include <o3tl/typed_flags_set.hxx>
 #include <svl/languageoptions.hxx>
 #include <vcl/errcode.hxx>
+#include <boost/optional.hpp>
 #include <functional>
 
 namespace com { namespace sun { namespace star {
@@ -61,7 +62,7 @@ struct SpellPortion;
 typedef std::vector<SpellPortion> SpellPortions;
 }
 
-namespace svl { class IUndoManager; }
+class SfxUndoManager;
 namespace basegfx { class B2DPolyPolygon; }
 namespace editeng {
     struct MisspellRanges;
@@ -336,8 +337,8 @@ public:
 
     void            ShowParagraph( sal_Int32 nParagraph, bool bShow );
 
-    ::svl::IUndoManager& GetUndoManager();
-    ::svl::IUndoManager* SetUndoManager(::svl::IUndoManager* pNew);
+    SfxUndoManager& GetUndoManager();
+    SfxUndoManager* SetUndoManager(SfxUndoManager* pNew);
     void            UndoActionStart( sal_uInt16 nId );
     void            UndoActionStart(sal_uInt16 nId, const ESelection& rSel);
     void            UndoActionEnd();
@@ -508,7 +509,7 @@ public:
     virtual OUString  GetUndoComment( sal_uInt16 nUndoId ) const;
     virtual bool    SpellNextDocument();
     virtual void    FieldClicked( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos );
-    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rTxtColor, Color*& rFldColor );
+    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rTxtColor, boost::optional<Color>& rFldColor );
 
     // override this if access to bullet information needs to be provided
     virtual const SvxNumberFormat * GetNumberFormat( sal_Int32 nPara ) const;

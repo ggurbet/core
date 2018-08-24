@@ -31,17 +31,16 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objsh.hxx>
 #include <svl/intitem.hxx>
+#include <sal/log.hxx>
 
 #include <svx/pszctrl.hxx>
 
 #define PAINT_OFFSET    5
 
 #include <editeng/sizeitem.hxx>
-#include <svx/dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include "stbctrls.h"
 
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include <bitmaps.hlst>
 #include <unotools/localedatawrapper.hxx>
@@ -276,8 +275,8 @@ void SvxPosSizeStatusBarControl::StateChanged( sal_uInt16 nSID, SfxItemState eSt
         if ( eState == SfxItemState::DEFAULT )
         {
             pImpl->bHasMenu = true;
-            if ( pState && dynamic_cast< const SfxUInt32Item* >(pState) !=  nullptr )
-                pImpl->nFunctionSet = static_cast<const SfxUInt32Item*>(pState)->GetValue();
+            if ( auto pUInt32Item = dynamic_cast< const SfxUInt32Item* >(pState) )
+                pImpl->nFunctionSet = pUInt32Item->GetValue();
         }
         else
             pImpl->bHasMenu = false;

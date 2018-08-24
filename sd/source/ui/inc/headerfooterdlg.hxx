@@ -22,7 +22,6 @@
 #include <vcl/tabdlg.hxx>
 #include <vcl/button.hxx>
 #include <vcl/tabctrl.hxx>
-#include <vcl/tabpage.hxx>
 
 #include <sdpage.hxx>
 
@@ -48,7 +47,6 @@ private:
     VclPtr<HeaderFooterTabPage>    mpNotesHandoutsTabPage;
 
     sal_uInt16 mnSlidesId;
-    sal_uInt16 mnNotesId;
 
     VclPtr<PushButton>      maPBApplyToAll;
     VclPtr<PushButton>      maPBApply;

@@ -40,7 +40,7 @@ using namespace com::sun::star;
 
 namespace
 {
-    BitmapEx BPixelRasterToBitmapEx(const basegfx::BPixelRaster& rRaster, sal_uInt16 mnAntiAlialize)
+    BitmapEx BPixelRasterToBitmapEx(const basegfx::BZPixelRaster& rRaster, sal_uInt16 mnAntiAlialize)
     {
         BitmapEx aRetval;
         const sal_uInt32 nWidth(mnAntiAlialize ? rRaster.getWidth()/mnAntiAlialize : rRaster.getWidth());
@@ -386,16 +386,16 @@ namespace drawinglayer
                         class Executor : public comphelper::ThreadTask
                         {
                         private:
-                            processor3d::ZBufferProcessor3D*            mpZBufferProcessor3D;
+                            std::unique_ptr<processor3d::ZBufferProcessor3D> mpZBufferProcessor3D;
                             const primitive3d::Primitive3DContainer&    mrChildren3D;
 
                         public:
                             explicit Executor(
                                 std::shared_ptr<comphelper::ThreadTaskTag> const & rTag,
-                                processor3d::ZBufferProcessor3D* pZBufferProcessor3D,
+                                std::unique_ptr<processor3d::ZBufferProcessor3D> pZBufferProcessor3D,
                                 const primitive3d::Primitive3DContainer& rChildren3D)
                             :   comphelper::ThreadTask(rTag),
-                                mpZBufferProcessor3D(pZBufferProcessor3D),
+                                mpZBufferProcessor3D(std::move(pZBufferProcessor3D)),
                                 mrChildren3D(rChildren3D)
                             {
                             }
@@ -404,7 +404,7 @@ namespace drawinglayer
                             {
                                 mpZBufferProcessor3D->process(mrChildren3D);
                                 mpZBufferProcessor3D->finish();
-                                delete mpZBufferProcessor3D;
+                                mpZBufferProcessor3D.reset();
                             }
                         };
 
@@ -413,7 +413,7 @@ namespace drawinglayer
 
                         for(sal_Int32 a(0); a < nThreadCount; a++)
                         {
-                            processor3d::ZBufferProcessor3D* pNewZBufferProcessor3D = new processor3d::ZBufferProcessor3D(
+                            std::unique_ptr<processor3d::ZBufferProcessor3D> pNewZBufferProcessor3D(new processor3d::ZBufferProcessor3D(
                                 aViewInformation3D,
                                 getSdrSceneAttribute(),
                                 getSdrLightingAttribute(),
@@ -423,9 +423,9 @@ namespace drawinglayer
                                 fFullViewSizeY,
                                 aBZPixelRaster,
                                 nLinesPerThread * a,
-                                a + 1 == nThreadCount ? aBZPixelRaster.getHeight() : nLinesPerThread * (a + 1));
-                            Executor* pExecutor = new Executor(aTag, pNewZBufferProcessor3D, getChildren3D());
-                            rThreadPool.pushTask(pExecutor);
+                                a + 1 == nThreadCount ? aBZPixelRaster.getHeight() : nLinesPerThread * (a + 1)));
+                            std::unique_ptr<Executor> pExecutor(new Executor(aTag, std::move(pNewZBufferProcessor3D), getChildren3D()));
+                            rThreadPool.pushTask(std::move(pExecutor));
                         }
 
                         rThreadPool.waitUntilDone(aTag);

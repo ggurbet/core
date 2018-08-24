@@ -33,6 +33,7 @@
 #include <svtools/svlbitm.hxx>
 #include <svtools/treelistentry.hxx>
 #include <stdlib.h>
+#include <sal/log.hxx>
 
 #include <content.hxx>
 #include <navipi.hxx>
@@ -123,7 +124,7 @@ ScDocShell* ScContentTree::GetManualOrCurrent()
 //          ScContentTree
 
 ScContentTree::ScContentTree(vcl::Window* pParent, ScNavigatorDlg* pNavigatorDlg)
-    : SvTreeListBox(pParent, WB_BORDER)
+    : SvTreeListBox(pParent, WB_BORDER | WB_TABSTOP)
     , pParentWindow(pNavigatorDlg)
     , nRootType(ScContentId::ROOT)
     , bHiddenDoc(false)
@@ -186,7 +187,7 @@ OUString ScContentTree::getAltLongDescText( SvTreeListEntry* pEntry, bool isAltT
                     DBG_ASSERT(pPage,"Page ?");
                     if (pPage)
                     {
-                        SdrObjListIter aIter( *pPage, eIter );
+                        SdrObjListIter aIter( pPage, eIter );
                         SdrObject* pObject = aIter.Next();
                         while (pObject)
                         {
@@ -333,7 +334,7 @@ void ScContentTree::GetEntryIndexes( ScContentId& rnRootIndex, sal_uLong& rnChil
                     rnChildIndex = nEntry;
                     bFound = true;  // exit the while loop
                 }
-                pIterEntry = NextSibling( pIterEntry );
+                pIterEntry = pIterEntry->NextSibling();
                 ++nEntry;
             }
 
@@ -438,7 +439,7 @@ IMPL_LINK_NOARG(ScContentTree, ContentDoubleClickHdl, SvTreeListBox*, bool)
         ScNavigatorDlg::ReleaseFocus();     // set focus into document
     }
 
-    return false;
+    return true;
 }
 
 void ScContentTree::MouseButtonDown( const MouseEvent& rMEvt )
@@ -668,7 +669,7 @@ void ScContentTree::Command( const CommandEvent& rCEvt )
                 aPop->SetPopupMenu( 2, aDocMenu.get() );
 
                 sal_uInt16 nSelected = aPop->Execute(this, rCEvt.GetMousePosPixel());
-                OString sIdent = aPop->GetItemIdent(nSelected);
+                OString sIdent = aPop->GetItemIdentFromSubMenu(nSelected);
 
                 if (sIdent.startsWith("document"))
                 {
@@ -985,7 +986,7 @@ void ScContentTree::GetDrawNames( ScContentId nType )
             OSL_ENSURE(pPage,"Page ?");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, eIter );
+                SdrObjListIter aIter( pPage, eIter );
                 SdrObject* pObject = aIter.Next();
                 while (pObject)
                 {
@@ -1138,7 +1139,7 @@ bool ScContentTree::NoteStringsChanged()
         if (lcl_NoteString(*pNote) != GetEntryText(pEntry))
             return true;
 
-        pEntry = NextSibling(pEntry);
+        pEntry = pEntry->NextSibling();
     }
 
     return pEntry != nullptr;
@@ -1171,7 +1172,7 @@ bool ScContentTree::DrawNamesChanged( ScContentId nType )
             OSL_ENSURE(pPage,"Page ?");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, eIter );
+                SdrObjListIter aIter( pPage, eIter );
                 SdrObject* pObject = aIter.Next();
                 while (pObject && bEqual)
                 {
@@ -1184,7 +1185,7 @@ bool ScContentTree::DrawNamesChanged( ScContentId nType )
                             if ( ScDrawLayer::GetVisibleName( pObject ) != GetEntryText(pEntry) )
                                 bEqual = false;
 
-                            pEntry = NextSibling( pEntry );
+                            pEntry = pEntry->NextSibling();
                         }
                     }
                     pObject = aIter.Next();
@@ -1282,9 +1283,9 @@ static void lcl_DoDragCells( ScDocShell* pSrcShell, const ScRange& rRange, ScDra
                                                    rRange.aEnd.Col(),   rRange.aEnd.Row(),
                                                    aMark ) )
     {
-        ScDocument* pClipDoc = new ScDocument( SCDOCMODE_CLIP );
+        ScDocumentUniquePtr pClipDoc(new ScDocument( SCDOCMODE_CLIP ));
         ScClipParam aClipParam(rRange, false);
-        rSrcDoc.CopyToClip(aClipParam, pClipDoc, &aMark, false, false);
+        rSrcDoc.CopyToClip(aClipParam, pClipDoc.get(), &aMark, false, false);
         // pClipDoc->ExtendMerge( rRange, sal_True );
 
         TransferableObjectDescriptor aObjDesc;
@@ -1292,7 +1293,7 @@ static void lcl_DoDragCells( ScDocShell* pSrcShell, const ScRange& rRange, ScDra
         aObjDesc.maDisplayName = pSrcShell->GetMedium()->GetURLObject().GetURLNoPass();
         // maSize is set in ScTransferObj ctor
 
-        rtl::Reference<ScTransferObj> pTransferObj = new ScTransferObj( pClipDoc, aObjDesc );
+        rtl::Reference<ScTransferObj> pTransferObj = new ScTransferObj( std::move(pClipDoc), aObjDesc );
 
         pTransferObj->SetDragSource( pSrcShell, aMark );
         pTransferObj->SetDragSourceFlags( nFlags );
@@ -1461,7 +1462,7 @@ IMPL_LINK_NOARG(ScContentTree, ExecDragHdl, void*, void)
     DoDrag();
 }
 
-bool ScContentTree::LoadFile( const OUString& rUrl )
+void ScContentTree::LoadFile( const OUString& rUrl )
 {
     OUString aDocName = rUrl;
     sal_Int32 nPos = aDocName.indexOf('#');
@@ -1486,8 +1487,6 @@ bool ScContentTree::LoadFile( const OUString& rUrl )
     }
 
     //  document is closed again by ScDocumentLoader in dtor
-
-    return false;
 }
 
 void ScContentTree::InitWindowBits( bool bButtons )

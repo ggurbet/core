@@ -17,7 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <cmath>
+
 #include <sal/types.h>
+#include <o3tl/temporary.hxx>
 #include <osl/thread.h>
 #include <osl/thread.hxx>
 #include <osl/time.h>
@@ -81,8 +86,7 @@ static double data(RandomData_Impl *pImpl)
               (static_cast<double>(pImpl->m_nY) / 30269.0) +
               (static_cast<double>(pImpl->m_nZ) / 30307.0)   );
 
-    random -= static_cast<double>(static_cast<sal_uInt32>(random));
-    return random;
+    return std::modf(random, &o3tl::temporary(double()));
 }
 
 static bool initPool(RandomPool_Impl *pImpl)

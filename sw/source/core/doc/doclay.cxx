@@ -71,6 +71,8 @@
 #include <rootfrm.hxx>
 #include <pagefrm.hxx>
 #include <cntfrm.hxx>
+#include <txtfrm.hxx>
+#include <notxtfrm.hxx>
 #include <flyfrm.hxx>
 #include <fesh.hxx>
 #include <docsh.hxx>
@@ -126,7 +128,7 @@ SdrObject* SwDoc::CloneSdrObj( const SdrObject& rObj, bool bMoveWithinDoc,
     }
 
     // TTTT Clone directly to target SdrModel
-    SdrObject *pObj = rObj.Clone(getIDocumentDrawModelAccess().GetDrawModel());
+    SdrObject *pObj(rObj.CloneSdrObject(*getIDocumentDrawModelAccess().GetDrawModel()));
 
     if( bMoveWithinDoc && SdrInventor::FmForm == pObj->GetObjInventor() )
     {
@@ -580,7 +582,9 @@ SwPosFlyFrames SwDoc::GetAllFlyFormats( const SwPaM* pCmpRange, bool bDrawAlso,
                     }
                     if ( pContentFrame )
                     {
-                        SwNodeIndex aIdx( *pContentFrame->GetNode() );
+                        SwNodeIndex aIdx( pContentFrame->IsTextFrame()
+                            ? *static_cast<SwTextFrame const*>(pContentFrame)->GetTextNodeFirst()
+                            : *static_cast<SwNoTextFrame const*>(pContentFrame)->GetNode() );
                         aRetval.insert(std::make_shared<SwPosFlyFrame>(aIdx, pFly, aRetval.size()));
                     }
                 }
@@ -979,7 +983,7 @@ SwDoc::InsertLabel(
                         bBefore, nId, rCharacterStyle, bCpyBrd, this );
     }
 
-    SwFlyFrameFormat *const pNewFormat = lcl_InsertLabel(*this, mpTextFormatCollTable, pUndo,
+    SwFlyFrameFormat *const pNewFormat = lcl_InsertLabel(*this, mpTextFormatCollTable.get(), pUndo,
             eType, rText, rSeparator, rNumberingSeparator, bBefore,
             nId, nNdIdx, rCharacterStyle, bCpyBrd);
 
@@ -1266,7 +1270,7 @@ SwFlyFrameFormat* SwDoc::InsertDrawLabel(
     }
 
     SwFlyFrameFormat *const pNewFormat = lcl_InsertDrawLabel(
-        *this, mpTextFormatCollTable, pUndo, pOldFormat,
+        *this, mpTextFormatCollTable.get(), pUndo, pOldFormat,
         rText, rSeparator, rNumberSeparator, nId, rCharacterStyle, rSdrObj);
 
     if (pUndo)

@@ -74,15 +74,15 @@ void SwConvertTableDlg::GetValues(  sal_Unicode& rDelim,
         }
     }
 
-    sal_uInt16 nInsMode = 0;
+    SwInsertTableFlags nInsMode = SwInsertTableFlags::NONE;
     if (m_xHeaderCB->get_active())
-        nInsMode |= tabopts::HEADLINE;
+        nInsMode |= SwInsertTableFlags::Headline;
     if (m_xRepeatHeaderCB->get_sensitive() && m_xRepeatHeaderCB->get_active())
         rInsTableOpts.mnRowsToRepeat = m_xRepeatHeaderNF->get_value();
     else
         rInsTableOpts.mnRowsToRepeat = 0;
     if (!m_xDontSplitCB->get_active())
-        nInsMode |= tabopts::SPLIT_LAYOUT;
+        nInsMode |= SwInsertTableFlags::SplitLayout;
 
     if (mxTAutoFormat)
         prTAFormat = new SwTableAutoFormat(*mxTAutoFormat);
@@ -106,7 +106,6 @@ SwConvertTableDlg::SwConvertTableDlg(SwView& rView, bool bToTable)
     , m_xRepeatHeaderNF(m_xBuilder->weld_spin_button("repeatheadersb"))
     , m_xDontSplitCB(m_xBuilder->weld_check_button("dontsplitcb"))
     , m_xAutoFormatBtn(m_xBuilder->weld_button("autofmt"))
-    , sConvertTextTable(SwResId(STR_CONVERT_TEXT_TABLE))
     , pShell(&rView.GetWrtShell())
 {
     if (nSaveButtonState > -1)
@@ -133,7 +132,7 @@ SwConvertTableDlg::SwConvertTableDlg(SwView& rView, bool bToTable)
     }
     if( bToTable )
     {
-        m_xDialog->set_title(sConvertTextTable);
+        m_xDialog->set_title(SwResId(STR_CONVERT_TEXT_TABLE));
         m_xAutoFormatBtn->connect_clicked(LINK(this, SwConvertTableDlg, AutoFormatHdl));
         m_xAutoFormatBtn->show();
         m_xKeepColumn->show();
@@ -158,11 +157,11 @@ SwConvertTableDlg::SwConvertTableDlg(SwView& rView, bool bToTable)
     bool bHTMLMode = 0 != (::GetHtmlMode(rView.GetDocShell())&HTMLMODE_ON);
 
     SwInsertTableOptions aInsOpts = pModOpt->GetInsTableFlags(bHTMLMode);
-    sal_uInt16 nInsTableFlags = aInsOpts.mnInsMode;
+    SwInsertTableFlags nInsTableFlags = aInsOpts.mnInsMode;
 
-    m_xHeaderCB->set_active(0 != (nInsTableFlags & tabopts::HEADLINE));
+    m_xHeaderCB->set_active(bool(nInsTableFlags & SwInsertTableFlags::Headline));
     m_xRepeatHeaderCB->set_active(aInsOpts.mnRowsToRepeat > 0);
-    m_xDontSplitCB->set_active(0 == (nInsTableFlags & tabopts::SPLIT_LAYOUT));
+    m_xDontSplitCB->set_active(!(nInsTableFlags & SwInsertTableFlags::SplitLayout));
 
     m_xHeaderCB->connect_clicked(LINK(this, SwConvertTableDlg, CheckBoxHdl));
     m_xRepeatHeaderCB->connect_clicked(LINK(this, SwConvertTableDlg, ReapeatHeaderCheckBoxHdl));
@@ -176,7 +175,6 @@ IMPL_LINK_NOARG(SwConvertTableDlg, AutoFormatHdl, weld::Button&, void)
     OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
 
     ScopedVclPtr<AbstractSwAutoFormatDlg> pDlg(pFact->CreateSwAutoFormatDlg(m_xDialog.get(), pShell, false, mxTAutoFormat.get()));
-    OSL_ENSURE(pDlg, "Dialog creation failed!");
     if (RET_OK == pDlg->Execute())
         mxTAutoFormat.reset(pDlg->FillAutoFormatOfIndex());
 }

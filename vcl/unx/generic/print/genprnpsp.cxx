@@ -36,6 +36,7 @@
 
 #include <comphelper/fileurl.hxx>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/idle.hxx>
 #include <vcl/print.hxx>
@@ -392,19 +393,14 @@ void SalGenericInstance::DestroyInfoPrinter( SalInfoPrinter* pPrinter )
     delete pPrinter;
 }
 
-SalPrinter* SalGenericInstance::CreatePrinter( SalInfoPrinter* pInfoPrinter )
+std::unique_ptr<SalPrinter> SalGenericInstance::CreatePrinter( SalInfoPrinter* pInfoPrinter )
 {
     mbPrinterInit = true;
     // create and initialize SalPrinter
     PspSalPrinter* pPrinter = new PspSalPrinter( pInfoPrinter );
     pPrinter->m_aJobData = static_cast<PspSalInfoPrinter*>(pInfoPrinter)->m_aJobData;
 
-    return pPrinter;
-}
-
-void SalGenericInstance::DestroyPrinter( SalPrinter* pPrinter )
-{
-    delete pPrinter;
+    return std::unique_ptr<SalPrinter>(pPrinter);
 }
 
 void SalGenericInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
@@ -429,7 +425,6 @@ void SalGenericInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
         pInfo->maDriver         = rInfo.m_aDriverName;
         pInfo->maLocation       = rInfo.m_aLocation;
         pInfo->maComment        = rInfo.m_aComment;
-        pInfo->mpSysData        = nullptr;
 
         sal_Int32 nIndex = 0;
         while( nIndex != -1 )
@@ -524,7 +519,7 @@ void PspSalInfoPrinter::ReleaseGraphics( SalGraphics* pGraphics )
     }
 }
 
-bool PspSalInfoPrinter::Setup( SalFrame* pFrame, ImplJobSetup* pJobSetup )
+bool PspSalInfoPrinter::Setup( weld::Window* pFrame, ImplJobSetup* pJobSetup )
 {
     if( ! pFrame || ! pJobSetup )
         return false;
@@ -540,7 +535,7 @@ bool PspSalInfoPrinter::Setup( SalFrame* pFrame, ImplJobSetup* pJobSetup )
     aInfo.m_bPapersizeFromSetup = pJobSetup->GetPapersizeFromSetup();
     aInfo.meSetupMode = pJobSetup->GetPrinterSetupMode();
 
-    if (SetupPrinterDriver(pFrame->GetFrameWeld(), aInfo))
+    if (SetupPrinterDriver(pFrame, aInfo))
     {
         aInfo.resolveDefaultBackend();
         rtl_freeMemory( const_cast<sal_uInt8*>(pJobSetup->GetDriverData()) );
@@ -575,8 +570,8 @@ bool PspSalInfoPrinter::SetPrinterData( ImplJobSetup* pJobSetup )
     return true;
 }
 
-// This function merges the independ driver data
-// and sets the new independ data in pJobSetup
+// This function merges the independent driver data
+// and sets the new independent data in pJobSetup
 // Only the data must be changed, where the bit
 // in nGetDataFlags is set
 bool PspSalInfoPrinter::SetData(

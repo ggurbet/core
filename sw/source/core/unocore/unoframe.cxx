@@ -111,6 +111,7 @@
 #include <ndgrf.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/GraphicLoader.hxx>
 #include <sfx2/printer.hxx>
 #include <SwStyleNameMapper.hxx>
 #include <editeng/xmlcnitm.hxx>
@@ -124,6 +125,7 @@
 #include <calbck.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <sal/log.hxx>
 
 #include <svx/unobrushitemhelper.hxx>
 #include <svx/xbtmpit.hxx>
@@ -210,11 +212,13 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
     const ::uno::Any* pGrLoc = nullptr; GetProperty(RES_BACKGROUND, MID_GRAPHIC_POSITION, pGrLoc );
     const ::uno::Any* pGraphic = nullptr; GetProperty(RES_BACKGROUND, MID_GRAPHIC, pGraphic     );
     const ::uno::Any* pGrFilter = nullptr; GetProperty(RES_BACKGROUND, MID_GRAPHIC_FILTER, pGrFilter     );
+    const ::uno::Any* pGraphicURL = nullptr; GetProperty(RES_BACKGROUND, MID_GRAPHIC_URL, pGraphicURL );
     const ::uno::Any* pGrTranparency = nullptr; GetProperty(RES_BACKGROUND, MID_GRAPHIC_TRANSPARENCY, pGrTranparency     );
     const bool bSvxBrushItemPropertiesUsed(
         pCol ||
         pTrans ||
         pGraphic ||
+        pGraphicURL ||
         pGrFilter ||
         pGrLoc ||
         pGrTranparency ||
@@ -257,9 +261,9 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
     const uno::Any* pOwnAttrFillBmpItem = nullptr; GetProperty(OWN_ATTR_FILLBMP_MODE, 0, pOwnAttrFillBmpItem);
 
     // tdf#91140: ignore SOLID fill style for determining if fill style is used
-    // but there is a GraphicURL
+    // but there is a Graphic
     const bool bFillStyleUsed(pXFillStyleItem && pXFillStyleItem->hasValue() &&
-        (pXFillStyleItem->get<drawing::FillStyle>() != drawing::FillStyle_SOLID || !pGraphic));
+        (pXFillStyleItem->get<drawing::FillStyle>() != drawing::FillStyle_SOLID || (!pGraphic || !pGraphicURL) ));
     SAL_INFO_IF(pXFillStyleItem && pXFillStyleItem->hasValue() && !bFillStyleUsed,
             "sw.uno", "FillBaseProperties: ignoring invalid FillStyle");
     const bool bXFillStyleItemUsed(
@@ -322,6 +326,11 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
         if (pGraphic)
         {
             bRet &= static_cast<SfxPoolItem&>(aBrush).PutValue(*pGraphic, MID_GRAPHIC);
+        }
+
+        if (pGraphicURL)
+        {
+            bRet &= static_cast<SfxPoolItem&>(aBrush).PutValue(*pGraphicURL, MID_GRAPHIC_URL);
         }
 
         if(pGrFilter)
@@ -1574,14 +1583,31 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
                 pFormat->GetDoc()->getIDocumentContentOperations().ReRead(aGrfPaM, sGrfName, sFltName, nullptr);
             }
         }
-        else if (FN_UNO_GRAPHIC == pEntry->nWID)
+        else if (FN_UNO_GRAPHIC == pEntry->nWID || FN_UNO_GRAPHIC_URL == pEntry->nWID)
         {
-            uno::Reference< graphic::XGraphic > xGraphic;
-            aValue >>= xGraphic;
-            if(xGraphic.is())
+            Graphic aGraphic;
+            if (aValue.has<OUString>())
+            {
+                OUString aURL = aValue.get<OUString>();
+                if (!aURL.isEmpty())
+                {
+                    aGraphic = vcl::graphic::loadFromURL(aURL);
+                }
+            }
+            else if (aValue.has<uno::Reference<graphic::XGraphic>>())
+            {
+                uno::Reference<graphic::XGraphic> xGraphic;
+                xGraphic = aValue.get<uno::Reference<graphic::XGraphic>>();
+                if (xGraphic.is())
+                {
+                    aGraphic = Graphic(xGraphic);
+                }
+            }
+
+            if (aGraphic)
             {
                 const ::SwNodeIndex* pIdx = pFormat->GetContent().GetContentIdx();
-                if(pIdx)
+                if (pIdx)
                 {
                     SwNodeIndex aIdx(*pIdx, 1);
                     SwGrfNode* pGrfNode = aIdx.GetNode().GetGrfNode();
@@ -1590,16 +1616,32 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
                         throw uno::RuntimeException();
                     }
                     SwPaM aGrfPaM(*pGrfNode);
-                    Graphic aGraphic( xGraphic );
-                    pFormat->GetDoc()->getIDocumentContentOperations().ReRead( aGrfPaM, OUString(), OUString(), &aGraphic );
+                    pFormat->GetDoc()->getIDocumentContentOperations().ReRead(aGrfPaM, OUString(), OUString(), &aGraphic);
                 }
             }
         }
-        else if (FN_UNO_REPLACEMENT_GRAPHIC == pEntry->nWID)
+        else if (FN_UNO_REPLACEMENT_GRAPHIC == pEntry->nWID || FN_UNO_REPLACEMENT_GRAPHIC_URL == pEntry->nWID)
         {
-            uno::Reference<graphic::XGraphic> xGraphic;
-            aValue >>= xGraphic;
-            if (xGraphic.is())
+            Graphic aGraphic;
+            if (aValue.has<OUString>())
+            {
+                OUString aURL = aValue.get<OUString>();
+                if (!aURL.isEmpty())
+                {
+                    aGraphic = vcl::graphic::loadFromURL(aURL);
+                }
+            }
+            else if (aValue.has<uno::Reference<graphic::XGraphic>>())
+            {
+                uno::Reference<graphic::XGraphic> xGraphic;
+                xGraphic = aValue.get<uno::Reference<graphic::XGraphic>>();
+                if (xGraphic.is())
+                {
+                    aGraphic = Graphic(xGraphic);
+                }
+            }
+
+            if (aGraphic)
             {
                 const ::SwFormatContent* pCnt = &pFormat->GetContent();
                 if ( pCnt->GetContentIdx() && pDoc->GetNodes()[ pCnt->GetContentIdx()->GetIndex() + 1 ] )
@@ -1609,7 +1651,6 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
                     if ( pOleNode )
                     {
                         svt::EmbeddedObjectRef &rEmbeddedObject = pOleNode->GetOLEObj().GetObject();
-                        Graphic aGraphic(xGraphic);
                         rEmbeddedObject.SetGraphic(aGraphic, OUString() );
                     }
                 }
@@ -2013,6 +2054,10 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
             SwDoc::GetGrfNms( *static_cast<SwFlyFrameFormat*>(pFormat), nullptr, &sFltName );
                 aAny <<= sFltName;
         }
+        else if( FN_UNO_GRAPHIC_URL == pEntry->nWID )
+        {
+            throw uno::RuntimeException("Getting from this property is not unsupported");
+        }
         else if( FN_UNO_GRAPHIC == pEntry->nWID )
         {
             const SwNodeIndex* pIdx = pFormat->GetContent().GetContentIdx();
@@ -2294,7 +2339,8 @@ uno::Sequence< beans::PropertyState > SwXFrame::getPropertyStates(
                 pEntry->nWID == FN_PARAM_LINK_DISPLAY_NAME||
                 FN_UNO_FRAME_STYLE_NAME == pEntry->nWID||
                 FN_UNO_GRAPHIC == pEntry->nWID||
-                FN_UNO_GRAPHIC_FILTER     == pEntry->nWID||
+                FN_UNO_GRAPHIC_URL == pEntry->nWID||
+                FN_UNO_GRAPHIC_FILTER == pEntry->nWID||
                 FN_UNO_ACTUAL_SIZE == pEntry->nWID||
                 FN_UNO_ALTERNATIVE_TEXT == pEntry->nWID)
             {
@@ -2702,6 +2748,23 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
     {
         UnoActionContext aActionContext(pDoc);
         Graphic aGraphic;
+
+        // Read graphic URL from the descriptor, if it has any.
+        const ::uno::Any* pGraphicURL;
+        if (m_pProps->GetProperty(FN_UNO_GRAPHIC_URL, 0, pGraphicURL))
+        {
+            OUString sGraphicURL;
+            uno::Reference<awt::XBitmap> xBitmap;
+            if (((*pGraphicURL) >>= sGraphicURL) && !sGraphicURL.isEmpty())
+                aGraphic = vcl::graphic::loadFromURL(sGraphicURL);
+            else if ((*pGraphicURL) >>= xBitmap)
+            {
+                uno::Reference<graphic::XGraphic> xGraphic(xBitmap, uno::UNO_QUERY);
+                if (xGraphic.is())
+                    aGraphic = xGraphic;
+            }
+        }
+
         const ::uno::Any* pGraphicAny;
         const bool bHasGraphic = m_pProps->GetProperty(FN_UNO_GRAPHIC, 0, pGraphicAny);
         if (bHasGraphic)
@@ -3136,12 +3199,14 @@ uno::Reference< text::XTextCursor >  SwXTextFrame::createTextCursor()
 uno::Reference< text::XTextCursor >  SwXTextFrame::createTextCursorByRange(const uno::Reference< text::XTextRange > & aTextPosition)
 {
     SolarMutexGuard aGuard;
-    uno::Reference< text::XTextCursor >  aRef;
     SwFrameFormat* pFormat = GetFrameFormat();
+    if (!pFormat)
+        throw uno::RuntimeException();
     SwUnoInternalPaM aPam(*GetDoc());
-    if (!pFormat || !::sw::XTextRangeToSwPaM(aPam, aTextPosition))
+    if (!::sw::XTextRangeToSwPaM(aPam, aTextPosition))
         throw uno::RuntimeException();
 
+    uno::Reference<text::XTextCursor>  aRef;
     SwNode& rNode = pFormat->GetContent().GetContentIdx()->GetNode();
     if(aPam.GetNode().FindFlyStartNode() == rNode.FindFlyStartNode())
     {

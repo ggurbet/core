@@ -27,7 +27,6 @@
 #include <com/sun/star/xml/dom/XNodeList.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
-#include <comphelper/sequenceashashmap.hxx>
 #include <doc.hxx>
 #include <docsh.hxx>
 #include <IDocumentStylePoolAccess.hxx>
@@ -40,6 +39,7 @@
 #include <unotools/streamwrap.hxx>
 #include <unotextrange.hxx>
 #include <sfx2/docfile.hxx>
+#include <sal/log.hxx>
 #define AUTOTEXT_GALLERY "autoTxt"
 
 using namespace css;
@@ -51,7 +51,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT Reader* ImportDOCX()
 
 ErrCode SwDOCXReader::Read(SwDoc& rDoc, const OUString& /* rBaseURL */, SwPaM& rPam, const OUString& /* FileName */ )
 {
-    if (!pMedium->GetInStream())
+    if (!m_pMedium->GetInStream())
         return ERR_SWG_READ_ERROR;
 
     // We want to work in an empty paragraph.
@@ -69,7 +69,7 @@ ErrCode SwDOCXReader::Read(SwDoc& rDoc, const OUString& /* rBaseURL */, SwPaM& r
     xImporter->setTargetDocument(xDstDoc);
 
     const uno::Reference<text::XTextRange> xInsertTextRange = SwXTextRange::CreateXTextRange(rDoc, *rPam.GetPoint(), nullptr);
-    uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(*pMedium->GetInStream()));
+    uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(*m_pMedium->GetInStream()));
 
     //SetLoading hack because the document properties will be re-initted
     //by the xml filter and during the init, while its considered uninitialized,
@@ -100,9 +100,9 @@ ErrCode SwDOCXReader::Read(SwDoc& rDoc, const OUString& /* rBaseURL */, SwPaM& r
     return ret;
 }
 
-int SwDOCXReader::GetReaderType()
+SwReaderType SwDOCXReader::GetReaderType()
 {
-    return SW_STORAGE_READER | SW_STREAM_READER;
+    return SwReaderType::Storage | SwReaderType::Stream;
 }
 
 bool SwDOCXReader::HasGlossaries() const
@@ -129,7 +129,7 @@ bool SwDOCXReader::ReadGlossaries( SwTextBlocks& rBlocks, bool /* bSaveRelFiles 
         uno::Reference<lang::XComponent> xDstDoc( xDocSh->GetModel(), uno::UNO_QUERY_THROW );
         xImporter->setTargetDocument( xDstDoc );
 
-        uno::Reference<io::XStream> xStream( new utl::OStreamWrapper( *pMedium->GetInStream() ) );
+        uno::Reference<io::XStream> xStream( new utl::OStreamWrapper( *m_pMedium->GetInStream() ) );
 
         uno::Sequence<beans::PropertyValue> aDescriptor( comphelper::InitPropertySequence({
                 { "InputStream", uno::Any(xStream) },
@@ -218,13 +218,11 @@ bool SwDOCXReader::MakeEntries( SwDoc *pD, SwTextBlocks &rBlocks )
                 // Need to check make sure the shortcut is not already being used
                 sal_Int32 nStart = 0;
                 sal_uInt16 nCurPos = rBlocks.GetIndex( sShortcut );
-                sal_Int32 nLen = sShortcut.getLength();
 
                 while( sal_uInt16(-1) != nCurPos )
                 {
-                    sShortcut = sShortcut.copy( 0, nLen );
                     // add an Number to it
-                    sShortcut += OUString::number( ++nStart );
+                    sShortcut = aLNm + OUString::number( ++nStart );
                     nCurPos = rBlocks.GetIndex( sShortcut );
                 }
 

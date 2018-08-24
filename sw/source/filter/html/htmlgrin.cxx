@@ -41,6 +41,7 @@
 #include <svtools/htmltokn.h>
 #include <svtools/htmlkywd.hxx>
 #include <unotools/eventcfg.hxx>
+#include <sal/log.hxx>
 
 #include <fmtornt.hxx>
 #include <fmturl.hxx>
@@ -299,6 +300,20 @@ void SwHTMLParser::GetDefaultScriptType( ScriptType& rType,
     rTypeStr = GetScriptTypeString( pHeaderAttrs );
 }
 
+namespace
+{
+    bool allowAccessLink(SwDoc& rDoc)
+    {
+        OUString sReferer;
+        SfxObjectShell * sh = rDoc.GetPersist();
+        if (sh != nullptr && sh->HasName())
+        {
+            sReferer = sh->GetMedium()->GetName();
+        }
+        return !SvtSecurityOptions().isUntrustedReferer(sReferer);
+    }
+}
+
 /*  */
 
 void SwHTMLParser::InsertImage()
@@ -349,7 +364,8 @@ void SwHTMLParser::InsertImage()
             case HtmlOptionId::DATA:
                 aGraphicData = rOption.GetString();
                 if (!InternalImgToPrivateURL(aGraphicData))
-                    aGraphicData = INetURLObject::GetAbsURL(m_sBaseURL, aGraphicData);
+                    aGraphicData = INetURLObject::GetAbsURL(
+                        m_sBaseURL, SwHTMLParser::StripQueryFromPath(m_sBaseURL, aGraphicData));
                 break;
             case HtmlOptionId::ALIGN:
                 eVertOri =
@@ -480,8 +496,15 @@ IMAGE_SETEVENT:
         std::unique_ptr<SvMemoryStream> const pStream(aGraphicURL.getData());
         if (pStream)
         {
-            if (ERRCODE_NONE == GraphicFilter::GetGraphicFilter().ImportGraphic(aGraphic, "", *pStream))
+            GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
+            aGraphic = rFilter.ImportUnloadedGraphic(*pStream);
                 sGrfNm.clear();
+
+            if (!sGrfNm.isEmpty())
+            {
+                if (ERRCODE_NONE == rFilter.ImportGraphic(aGraphic, "", *pStream))
+                    sGrfNm.clear();
+            }
         }
     }
     else if (m_sBaseURL.isEmpty() || !aGraphicData.isEmpty())
@@ -497,7 +520,7 @@ IMAGE_SETEVENT:
         aGraphic.SetDefaultType();
     }
 
-    if (!bHeightProvided || !bWidthProvided)
+    if (!nHeight || !nWidth)
     {
         Size aPixelSize = aGraphic.GetSizePixel(Application::GetDefaultDevice());
         if (!bWidthProvided)
@@ -620,7 +643,7 @@ IMAGE_SETEVENT:
     bool bSetScaleImageMap = false;
     sal_uInt8 nPrcWidth = 0, nPrcHeight = 0;
 
-    if (!nWidth || !nHeight)
+    if ((!nWidth || !nHeight) && allowAccessLink(*m_xDoc))
     {
         GraphicDescriptor aDescriptor(aGraphicURL);
         if (aDescriptor.Detect(/*bExtendedInfo=*/true))

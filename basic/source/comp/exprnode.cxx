@@ -21,15 +21,16 @@
 #include <math.h>
 #include <algorithm>
 
+#include <o3tl/temporary.hxx>
 #include <rtl/math.hxx>
 #include <codegen.hxx>
 #include <parser.hxx>
 #include <expr.hxx>
 
 
-SbiExprNode::SbiExprNode( SbiExprNode* l, SbiToken t, SbiExprNode* r ) :
-    pLeft(l),
-    pRight(r),
+SbiExprNode::SbiExprNode( std::unique_ptr<SbiExprNode> l, SbiToken t, std::unique_ptr<SbiExprNode> r ) :
+    pLeft(std::move(l)),
+    pRight(std::move(r)),
     pWithParent(nullptr),
     eNodeType(SbxNODE),
     eType(SbxVARIANT), // Nodes are always Variant
@@ -72,9 +73,9 @@ SbiExprNode::SbiExprNode( const SbiSymDef& r, SbxDataType t, SbiExprListPtr l ) 
 }
 
 // #120061 TypeOf
-SbiExprNode::SbiExprNode( SbiExprNode* l, sal_uInt16 nId ) :
+SbiExprNode::SbiExprNode( std::unique_ptr<SbiExprNode> l, sal_uInt16 nId ) :
     nTypeStrId(nId),
-    pLeft(l),
+    pLeft(std::move(l)),
     pWithParent(nullptr),
     eNodeType(SbxTYPEOF),
     eType(SbxBOOL),
@@ -152,10 +153,8 @@ void SbiExprNode::ConvertToIntConstIfPossible()
     {
         if( eType >= SbxINTEGER && eType <= SbxDOUBLE )
         {
-            double n;
-            if( nVal >= SbxMININT && nVal <= SbxMAXINT && modf( nVal, &n ) == 0 )
+            if( nVal >= SbxMININT && nVal <= SbxMAXINT && modf( nVal, &o3tl::temporary(double()) ) == 0 )
             {
-                nVal = static_cast<double>(static_cast<short>(nVal));
                 eType = SbxINTEGER;
             }
         }
@@ -221,9 +220,8 @@ void SbiExprNode::FoldConstants(SbiParser* pParser)
         // Potentially convolve in INTEGER (because of better opcode)?
         if( eType == SbxSINGLE || eType == SbxDOUBLE )
         {
-            double x;
             if( nVal >= SbxMINLNG && nVal <= SbxMAXLNG
-            && !modf( nVal, &x ) )
+            && !modf( nVal, &o3tl::temporary(double()) ) )
                 eType = SbxLONG;
         }
         if( eType == SbxLONG && nVal >= SbxMININT && nVal <= SbxMAXINT )
@@ -464,9 +462,8 @@ void SbiExprNode::FoldConstantsUnaryNode(SbiParser* pParser)
         // Potentially convolve in INTEGER (because of better opcode)?
         if( eType == SbxSINGLE || eType == SbxDOUBLE )
         {
-            double x;
             if( nVal >= SbxMINLNG && nVal <= SbxMAXLNG
-            && !modf( nVal, &x ) )
+            && !modf( nVal, &o3tl::temporary(double()) ) )
                 eType = SbxLONG;
         }
         if( eType == SbxLONG && nVal >= SbxMININT && nVal <= SbxMAXINT )

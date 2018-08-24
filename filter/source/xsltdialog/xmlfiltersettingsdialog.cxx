@@ -743,7 +743,7 @@ bool XMLFilterSettingsDialog::insertOrEdit( filter_info_impl* pNewInfo, const fi
         else
         {
             m_pFilterListBox->addFilterEntry( pFilterEntry );
-            maFilterVector.push_back( pFilterEntry );
+            maFilterVector.push_back( std::unique_ptr<filter_info_impl>(pFilterEntry) );
         }
     }
 
@@ -841,9 +841,9 @@ void XMLFilterSettingsDialog::onDelete()
                     m_pFilterListBox->RemoveSelection();
 
                     // and delete the filter entry
-                    maFilterVector.erase(std::find( maFilterVector.begin(), maFilterVector.end(), pInfo ));
-
-                    delete pInfo;
+                    maFilterVector.erase(std::find_if( maFilterVector.begin(), maFilterVector.end(),
+                                            [&] (std::unique_ptr<filter_info_impl> const & p)
+                                            { return p.get() == pInfo; }));
                 }
             }
             catch( const Exception& )
@@ -1002,12 +1002,7 @@ bool XMLFilterSettingsDialog::EventNotify( NotifyEvent& rNEvt )
 
 void XMLFilterSettingsDialog::disposeFilterList()
 {
-    for (auto const& filter : maFilterVector)
-    {
-        delete filter;
-    }
     maFilterVector.clear();
-
     m_pFilterListBox->Clear();
 }
 
@@ -1166,7 +1161,7 @@ void XMLFilterSettingsDialog::initFilterList()
                 }
 
                 // add entry to internal container and to ui filter list box
-                maFilterVector.push_back( pTempFilter.get() );
+                maFilterVector.push_back( std::unique_ptr<filter_info_impl>(pTempFilter.get()) );
                 m_pFilterListBox->addFilterEntry( pTempFilter.release() );
 
 
@@ -1331,8 +1326,8 @@ void SvxPathControl::Resize()
         long nFirstColumnWidth = aWidths[1];
         m_pHeaderBar->SetItemSize(ITEMID_NAME, nFirstColumnWidth);
         m_pHeaderBar->SetItemSize(ITEMID_TYPE, 0xFFFF);
-        long nTabs[] = {2, 0, nFirstColumnWidth};
-        m_pFocusCtrl->SetTabs(&nTabs[0], MapUnit::MapPixel);
+        long nTabs[] = {0, nFirstColumnWidth};
+        m_pFocusCtrl->SetTabs(SAL_N_ELEMENTS(nTabs), nTabs, MapUnit::MapPixel);
     }
 }
 
@@ -1389,10 +1384,10 @@ XMLFilterListBox::XMLFilterListBox(Window* pParent, SvxPathControl* pPathControl
     m_pHeaderBar->InsertItem( ITEMID_TYPE, aStr2, nTabSize,
                             HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
 
-    static long nTabs[] = {2, 0, nTabSize };
+    static long nTabs[] = {0, nTabSize };
 
     SetSelectionMode( SelectionMode::Multiple );
-    SetTabs( &nTabs[0], MapUnit::MapPixel );
+    SetTabs( SAL_N_ELEMENTS(nTabs), nTabs, MapUnit::MapPixel );
     SetScrolledHdl( LINK( this, XMLFilterListBox, TabBoxScrollHdl_Impl ) );
     SetHighlightRange();
     Show();

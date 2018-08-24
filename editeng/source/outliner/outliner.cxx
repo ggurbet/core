@@ -51,6 +51,7 @@
 #include <editeng/brushitem.hxx>
 #include <svl/itempool.hxx>
 #include <libxml/xmlwriter.h>
+#include <sal/log.hxx>
 
 // calculate if it's RTL or not
 #include <unicode/ubidi.h>
@@ -101,7 +102,7 @@ Paragraph* Outliner::Insert(const OUString& rText, sal_Int32 nAbsPos, sal_Int16 
         pEditEngine->SetUpdateMode( false );
         ImplBlockInsertionCallbacks( true );
         pPara = new Paragraph( nDepth );
-        pParaList->Insert( pPara, nAbsPos );
+        pParaList->Insert( std::unique_ptr<Paragraph>(pPara), nAbsPos );
         pEditEngine->InsertParagraph( nAbsPos, OUString() );
         DBG_ASSERT(pPara==pParaList->GetParagraph(nAbsPos),"Insert:Failed");
         ImplInitDepth( nAbsPos, nDepth, false );
@@ -126,7 +127,7 @@ void Outliner::ParagraphInserted( sal_Int32 nPara )
     if( bPasting || pEditEngine->IsInUndo() )
     {
         Paragraph* pPara = new Paragraph( -1 );
-        pParaList->Insert( pPara, nPara );
+        pParaList->Insert( std::unique_ptr<Paragraph>(pPara), nPara );
         if( pEditEngine->IsInUndo() )
         {
             pPara->nFlags = ParaFlag::SETBULLETTEXT;
@@ -143,7 +144,7 @@ void Outliner::ParagraphInserted( sal_Int32 nPara )
             nDepth = pParaBefore->GetDepth();
 
         Paragraph* pPara = new Paragraph( nDepth );
-        pParaList->Insert( pPara, nPara );
+        pParaList->Insert( std::unique_ptr<Paragraph>(pPara), nPara );
 
         if( !pEditEngine->IsInUndo() )
         {
@@ -171,7 +172,6 @@ void Outliner::ParagraphDeleted( sal_Int32 nPara )
     }
 
     pParaList->Remove( nPara );
-    delete pPara;
 
     if( !pEditEngine->IsInUndo() && !bPasting )
     {
@@ -370,7 +370,7 @@ void Outliner::SetHoriAlignIgnoreTrailingWhitespace(bool bEnabled)
     pEditEngine->SetHoriAlignIgnoreTrailingWhitespace( bEnabled );
 }
 
-OutlinerParaObject* Outliner::CreateParaObject( sal_Int32 nStartPara, sal_Int32 nCount ) const
+std::unique_ptr<OutlinerParaObject> Outliner::CreateParaObject( sal_Int32 nStartPara, sal_Int32 nCount ) const
 {
     if ( static_cast<sal_uLong>(nStartPara) + nCount >
             static_cast<sal_uLong>(pParaList->GetParagraphCount()) )
@@ -394,7 +394,7 @@ OutlinerParaObject* Outliner::CreateParaObject( sal_Int32 nStartPara, sal_Int32 
         aParagraphDataVector[nPara-nStartPara] = *GetParagraph(nPara);
     }
 
-    OutlinerParaObject* pPObj = new OutlinerParaObject(*pText, aParagraphDataVector, bIsEditDoc);
+    std::unique_ptr<OutlinerParaObject> pPObj(new OutlinerParaObject(*pText, aParagraphDataVector, bIsEditDoc));
     pPObj->SetOutlinerMode(GetMode());
 
     return pPObj;
@@ -402,9 +402,8 @@ OutlinerParaObject* Outliner::CreateParaObject( sal_Int32 nStartPara, sal_Int32 
 
 void Outliner::SetToEmptyText()
 {
-    OutlinerParaObject *pEmptyTxt =  GetEmptyParaObject();
+    std::unique_ptr<OutlinerParaObject> pEmptyTxt = GetEmptyParaObject();
     SetText(*pEmptyTxt);
-    delete pEmptyTxt;
 }
 
 void Outliner::SetText( const OUString& rText, Paragraph* pPara )
@@ -468,7 +467,7 @@ void Outliner::SetText( const OUString& rText, Paragraph* pPara )
             }
             if( nPos ) // not with the first paragraph
             {
-                pParaList->Insert( pPara, nInsPos );
+                pParaList->Insert( std::unique_ptr<Paragraph>(pPara), nInsPos );
                 pEditEngine->InsertParagraph( nInsPos, aStr );
                 ParagraphInsertedHdl(pPara);
             }
@@ -581,10 +580,10 @@ void Outliner::SetText( const OutlinerParaObject& rPObj )
     pParaList->Clear();
     for( sal_Int32 nCurPara = 0; nCurPara < rPObj.Count(); nCurPara++ )
     {
-        Paragraph* pPara = new Paragraph( rPObj.GetParagraphData(nCurPara));
+        std::unique_ptr<Paragraph> pPara(new Paragraph( rPObj.GetParagraphData(nCurPara)));
         ImplCheckDepth( pPara->nDepth );
 
-        pParaList->Append(pPara);
+        pParaList->Append(std::move(pPara));
         ImplCheckNumBulletItem( nCurPara );
     }
 
@@ -622,7 +621,7 @@ void Outliner::AddText( const OutlinerParaObject& rPObj )
     for( sal_Int32 n = 0; n < rPObj.Count(); n++ )
     {
         Paragraph* pPara = new Paragraph( rPObj.GetParagraphData(n) );
-        pParaList->Append(pPara);
+        pParaList->Append(std::unique_ptr<Paragraph>(pPara));
         sal_Int32 nP = nPara+n;
         DBG_ASSERT(pParaList->GetAbsPos(pPara)==nP,"AddText:Out of sync");
         ImplInitDepth( nP, pPara->GetDepth(), false );
@@ -635,7 +634,7 @@ void Outliner::AddText( const OutlinerParaObject& rPObj )
     pEditEngine->SetUpdateMode( bUpdate );
 }
 
-OUString Outliner::CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rpTxtColor, Color*& rpFldColor )
+OUString Outliner::CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rpTxtColor, boost::optional<Color>& rpFldColor )
 {
     if ( !aCalcFieldValueHdl.IsSet() )
         return OUString( ' ' );
@@ -648,12 +647,13 @@ OUString Outliner::CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, 
     aCalcFieldValueHdl.Call( &aFldInfo );
     if ( aFldInfo.GetTextColor() )
     {
-        delete rpTxtColor;
-        rpTxtColor = new Color( *aFldInfo.GetTextColor() );
+        rpTxtColor = *aFldInfo.GetTextColor();
     }
 
-    delete rpFldColor;
-    rpFldColor = aFldInfo.GetFieldColor() ? new Color( *aFldInfo.GetFieldColor() ) : nullptr;
+    if (aFldInfo.GetFieldColor())
+        rpFldColor = *aFldInfo.GetFieldColor();
+    else
+        rpFldColor.reset();
 
     return aFldInfo.GetRepresentation();
 }
@@ -1109,8 +1109,8 @@ ErrCode Outliner::Read( SvStream& rInput, const OUString& rBaseURL, EETextFormat
      pParaList->Clear();
     for ( sal_Int32 n = 0; n < nParas; n++ )
     {
-        Paragraph* pPara = new Paragraph( 0 );
-        pParaList->Append(pPara);
+        std::unique_ptr<Paragraph> pPara(new Paragraph( 0 ));
+        pParaList->Append(std::move(pPara));
     }
 
     ImpFilterIndents( 0, nParas-1 );
@@ -1152,12 +1152,12 @@ void Outliner::ImpFilterIndents( sal_Int32 nFirstPara, sal_Int32 nLastPara )
     pEditEngine->SetUpdateMode( bUpdate );
 }
 
-::svl::IUndoManager& Outliner::GetUndoManager()
+SfxUndoManager& Outliner::GetUndoManager()
 {
     return pEditEngine->GetUndoManager();
 }
 
-::svl::IUndoManager* Outliner::SetUndoManager(::svl::IUndoManager* pNew)
+SfxUndoManager* Outliner::SetUndoManager(SfxUndoManager* pNew)
 {
     return pEditEngine->SetUndoManager(pNew);
 }
@@ -1256,8 +1256,8 @@ Outliner::Outliner(SfxItemPool* pPool, OutlinerMode nMode)
 
     pParaList.reset( new ParagraphList );
     pParaList->SetVisibleStateChangedHdl( LINK( this, Outliner, ParaVisibleStateChangedHdl ) );
-    Paragraph* pPara = new Paragraph( 0 );
-    pParaList->Append(pPara);
+    std::unique_ptr<Paragraph> pPara(new Paragraph( 0 ));
+    pParaList->Append(std::move(pPara));
 
     pEditEngine.reset( new OutlinerEditEng( this, pPool ) );
     pEditEngine->SetBeginMovingParagraphsHdl( LINK( this, Outliner, BeginMovingParagraphsHdl ) );
@@ -1309,9 +1309,8 @@ void Outliner::RemoveView( OutlinerView const * pView )
     }
 }
 
-OutlinerView* Outliner::RemoveView( size_t nIndex )
+void Outliner::RemoveView( size_t nIndex )
 {
-
     EditView* pEditView = pEditEngine->GetView( nIndex );
     pEditView->HideCursor(); // HACK
 
@@ -1322,8 +1321,6 @@ OutlinerView* Outliner::RemoveView( size_t nIndex )
         advance( it, nIndex );
         aViewList.erase( it );
     }
-
-    return nullptr;    // return superfluous
 }
 
 
@@ -1515,7 +1512,7 @@ tools::Rectangle Outliner::ImpCalcBulletArea( sal_Int32 nPara, bool bAdjust, boo
         bool bOutlineMode = bool( pEditEngine->GetControlWord() & EEControlBits::OUTLINER );
 
         // the ODF attribute text:space-before which holds the spacing to add to the left of the label
-        const short nSpaceBefore = pFmt->GetAbsLSpace() + pFmt->GetFirstLineOffset();
+        const auto nSpaceBefore = pFmt->GetAbsLSpace() + pFmt->GetFirstLineOffset();
 
         const SvxLRSpaceItem& rLR = pEditEngine->GetParaAttrib( nPara, bOutlineMode ? EE_PARA_OUTLLRSPACE : EE_PARA_LRSPACE );
         aTopLeft.setX( rLR.GetTextLeft() + rLR.GetTextFirstLineOfst() + nSpaceBefore );
@@ -1639,15 +1636,15 @@ EBulletInfo Outliner::GetBulletInfo( sal_Int32 nPara )
 OUString Outliner::GetText( Paragraph const * pParagraph, sal_Int32 nCount ) const
 {
 
-    OUString aText;
+    OUStringBuffer aText;
     sal_Int32 nStartPara = pParaList->GetAbsPos( pParagraph );
     for ( sal_Int32 n = 0; n < nCount; n++ )
     {
-        aText += pEditEngine->GetText( nStartPara + n );
+        aText.append(pEditEngine->GetText( nStartPara + n ));
         if ( (n+1) < nCount )
-            aText += "\n";
+            aText.append("\n");
     }
-    return aText;
+    return aText.makeStringAndClear();
 }
 
 void Outliner::Remove( Paragraph const * pPara, sal_Int32 nParaCount )
@@ -1886,7 +1883,7 @@ void Outliner::Clear()
         ImplBlockInsertionCallbacks( true );
         pEditEngine->Clear();
         pParaList->Clear();
-        pParaList->Append( new Paragraph( nMinDepth ));
+        pParaList->Append( std::unique_ptr<Paragraph>(new Paragraph( nMinDepth )));
         bFirstParaIsEmpty = true;
         ImplBlockInsertionCallbacks( false );
     }
@@ -2115,10 +2112,10 @@ NonOverflowingText *Outliner::GetNonOverflowingText() const
     }
 }
 
-OutlinerParaObject *Outliner::GetEmptyParaObject() const
+std::unique_ptr<OutlinerParaObject> Outliner::GetEmptyParaObject() const
 {
     std::unique_ptr<EditTextObject> pEmptyText = pEditEngine->GetEmptyTextObject();
-    OutlinerParaObject* pPObj = new OutlinerParaObject( *pEmptyText );
+    std::unique_ptr<OutlinerParaObject> pPObj( new OutlinerParaObject( std::move(pEmptyText) ));
     pPObj->SetOutlinerMode(GetMode());
     return pPObj;
 }

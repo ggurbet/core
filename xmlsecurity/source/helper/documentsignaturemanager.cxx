@@ -29,13 +29,13 @@
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/xml/crypto/SEInitializer.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <comphelper/base64.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <sax/tools/converter.hxx>
-#include <tools/date.hxx>
-#include <tools/time.hxx>
+#include <sal/log.hxx>
+#include <tools/datetime.hxx>
 #include <o3tl/make_unique.hxx>
 
 #include <certificate.hxx>
@@ -46,6 +46,8 @@
 #include <pdfsignaturehelper.hxx>
 
 using namespace css;
+using namespace css::graphic;
+using namespace css::uno;
 
 DocumentSignatureManager::DocumentSignatureManager(
     const uno::Reference<uno::XComponentContext>& xContext, DocumentSignatureMode eMode)
@@ -265,7 +267,9 @@ SignatureStreamHelper DocumentSignatureManager::ImplOpenSignatureStream(sal_Int3
 bool DocumentSignatureManager::add(
     const uno::Reference<security::XCertificate>& xCert,
     const uno::Reference<xml::crypto::XXMLSecurityContext>& xSecurityContext,
-    const OUString& rDescription, sal_Int32& nSecurityId, bool bAdESCompliant)
+    const OUString& rDescription, sal_Int32& nSecurityId, bool bAdESCompliant,
+    const OUString& rSignatureLineId, const Reference<XGraphic>& xValidGraphic,
+    const Reference<XGraphic>& xInvalidGraphic)
 {
     if (!xCert.is())
     {
@@ -338,18 +342,23 @@ bool DocumentSignatureManager::add(
         comphelper::Base64::encode(aStrBuffer, xCert->getEncoded());
 
         OUString aCertDigest;
+        svl::crypto::SignatureMethodAlgorithm eAlgorithmID
+            = svl::crypto::SignatureMethodAlgorithm::RSA;
         if (auto pCertificate = dynamic_cast<xmlsecurity::Certificate*>(xCert.get()))
         {
             OUStringBuffer aBuffer;
             comphelper::Base64::encode(aBuffer, pCertificate->getSHA256Thumbprint());
             aCertDigest = aBuffer.makeStringAndClear();
+
+            eAlgorithmID = pCertificate->getSignatureMethodAlgorithm();
         }
         else
             SAL_WARN("xmlsecurity.helper",
                      "XCertificate implementation without an xmlsecurity::Certificate one");
 
         maSignatureHelper.SetX509Certificate(nSecurityId, xCert->getIssuerName(), aCertSerial,
-                                             aStrBuffer.makeStringAndClear(), aCertDigest);
+                                             aStrBuffer.makeStringAndClear(), aCertDigest,
+                                             eAlgorithmID);
     }
 
     uno::Sequence<uno::Reference<security::XCertificate>> aCertPath
@@ -375,9 +384,17 @@ bool DocumentSignatureManager::add(
         maSignatureHelper.AddForSigning(nSecurityId, aElements[n], bBinaryMode, bAdESCompliant);
     }
 
-    maSignatureHelper.SetDateTime(nSecurityId, Date(Date::SYSTEM),
-                                  tools::Time(tools::Time::SYSTEM));
+    maSignatureHelper.SetDateTime(nSecurityId, DateTime(DateTime::SYSTEM));
     maSignatureHelper.SetDescription(nSecurityId, rDescription);
+
+    if (!rSignatureLineId.isEmpty())
+        maSignatureHelper.SetSignatureLineId(nSecurityId, rSignatureLineId);
+
+    if (xValidGraphic.is())
+        maSignatureHelper.SetSignatureLineValidGraphic(nSecurityId, xValidGraphic);
+
+    if (xInvalidGraphic.is())
+        maSignatureHelper.SetSignatureLineInvalidGraphic(nSecurityId, xInvalidGraphic);
 
     // We open a signature stream in which the existing and the new
     //signature is written. ImplGetSignatureInformation (later in this function) will

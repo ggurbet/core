@@ -83,10 +83,9 @@ namespace XmlSec
     {
         vector< pair< OUString, OUString > > vecAttrValueOfDN = parseDN(rRawString);
         OUStringBuffer s1, s2;
-        typedef vector< pair < OUString, OUString > >::const_iterator CIT;
-        for (CIT i = vecAttrValueOfDN.begin(); i < vecAttrValueOfDN.end(); ++i)
+        for (auto i = vecAttrValueOfDN.cbegin(); i < vecAttrValueOfDN.cend(); ++i)
         {
-            if (i != vecAttrValueOfDN.begin())
+            if (i != vecAttrValueOfDN.cbegin())
             {
                 s1.append(',');
                 s2.append('\n');
@@ -312,15 +311,10 @@ vector< pair< OUString, OUString> > parseDN(const OUString& rRawString)
         while ( aIDs[i] )
         {
             OUString sPartId = OUString::createFromAscii( aIDs[i++] );
-            typedef vector< pair < OUString, OUString > >::const_iterator CIT;
-            for (CIT idn = vecAttrValueOfDN.begin(); idn != vecAttrValueOfDN.end(); ++idn)
-            {
-                if (idn->first == sPartId)
-                {
-                    retVal = idn->second;
-                    break;
-                }
-            }
+            auto idn = std::find_if(vecAttrValueOfDN.cbegin(), vecAttrValueOfDN.cend(),
+                [&sPartId](const pair< OUString, OUString >& dn) { return dn.first == sPartId; });
+            if (idn != vecAttrValueOfDN.cend())
+                retVal = idn->second;
             if (!retVal.isEmpty())
                 break;
         }

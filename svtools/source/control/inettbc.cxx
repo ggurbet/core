@@ -41,6 +41,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <rtl/instance.hxx>
+#include <sal/log.hxx>
 #include <salhelper/thread.hxx>
 #include <osl/file.hxx>
 #include <osl/mutex.hxx>
@@ -698,9 +699,8 @@ void MatchContext_Impl::ReadFolder( const OUString& rURL,
         try
         {
             uno::Reference< XDynamicResultSet > xDynResultSet;
-            ResultSetInclude eInclude = INCLUDE_FOLDERS_AND_DOCUMENTS;
 
-            xDynResultSet = aCnt.createDynamicCursor( aProps, eInclude );
+            xDynResultSet = aCnt.createDynamicCursor( aProps, INCLUDE_FOLDERS_AND_DOCUMENTS );
 
             uno::Reference < XAnyCompareFactory > xCompare;
             uno::Reference < XSortedDynamicResultSetFactory > xSRSFac =
@@ -2009,8 +2009,9 @@ IMPL_LINK_NOARG(URLBox, TryAutoComplete, Timer *, void)
         m_xWidget->clear();
 }
 
-URLBox::URLBox(weld::ComboBoxText* pWidget)
-    : m_xWidget(pWidget)
+URLBox::URLBox(std::unique_ptr<weld::ComboBoxText> pWidget)
+    : bHistoryDisabled(false)
+    , m_xWidget(std::move(pWidget))
 {
     Init();
 
@@ -2043,6 +2044,9 @@ URLBox::~URLBox()
 void URLBox::UpdatePicklistForSmartProtocol_Impl()
 {
     m_xWidget->clear();
+
+    if (bHistoryDisabled)
+        return;
 
     // read history pick list
     Sequence< Sequence< PropertyValue > > seqPicklist = SvtHistoryOptions().GetList( ePICKLIST );
@@ -2199,6 +2203,12 @@ void URLBox::SetBaseURL( const OUString& rURL )
     pImpl->aURLs.clear();
 
     aBaseURL = rURL;
+}
+
+void URLBox::DisableHistory()
+{
+    bHistoryDisabled = true;
+    UpdatePicklistForSmartProtocol_Impl();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

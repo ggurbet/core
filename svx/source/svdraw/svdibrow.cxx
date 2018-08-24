@@ -33,6 +33,7 @@
 #include <svl/rectitem.hxx>
 #include <svl/rngitem.hxx>
 #include <svl/whiter.hxx>
+#include <sal/log.hxx>
 
 #include <svx/sdrpaintwindow.hxx>
 #include <svx/svdattr.hxx>
@@ -220,7 +221,7 @@ void SdrItemBrowserControl::dispose()
 {
     pEditControl.disposeAndClear();
 
-    delete pCurrentChangeEntry;
+    pCurrentChangeEntry.reset();
 
     Clear();
     BrowseBox::dispose();
@@ -501,7 +502,7 @@ bool SdrItemBrowserControl::BeginChangeEntry(std::size_t nPos)
         }
         aNewName += " - Type 'del' to reset to default.";
         pParent->SetText(aNewName);
-        pCurrentChangeEntry=new ImpItemListRow(*pEntry);
+        pCurrentChangeEntry.reset(new ImpItemListRow(*pEntry));
         bRet = true;
     }
     return bRet;
@@ -520,8 +521,7 @@ void SdrItemBrowserControl::BreakChangeEntry()
 {
     if (pEditControl!=nullptr) {
         pEditControl.disposeAndClear();
-        delete pCurrentChangeEntry;
-        pCurrentChangeEntry=nullptr;
+        pCurrentChangeEntry.reset();
         vcl::Window* pParent=GetParent();
         pParent->SetText(aWNameMemorized);
         SetMode(MYBROWSEMODE);

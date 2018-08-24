@@ -36,6 +36,7 @@
 #include <comphelper/string.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/scopeguard.hxx>
+#include <comphelper/threadpool.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -48,6 +49,9 @@
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/reflection/theCoreReflection.hpp>
+#include <com/sun/star/reflection/XIdlClass.hpp>
+#include <com/sun/star/reflection/XIdlReflection.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/ucb/XContentProvider.hpp>
 #include <com/sun/star/ucb/XUniversalContentBroker.hpp>
@@ -140,6 +144,7 @@ static const ExtensionMap aWriterExtensionMap[] =
     { "odt",   "writer8" },
     { "ott",   "writer8_template" },
     { "pdf",   "writer_pdf_Export" },
+    { "epub",  "EPUB" },
     { "rtf",   "Rich Text Format" },
     { "txt",   "Text" },
     { "xhtml", "XHTML Writer File" },
@@ -230,19 +235,79 @@ static OUString getAbsoluteURL(const char* pURL)
     return OUString();
 }
 
-static std::vector<beans::PropertyValue> jsonToPropertyValuesVector(const char* pJSON)
+static uno::Any jsonToUnoAny(const boost::property_tree::ptree& aTree)
+{
+    uno::Any aAny;
+    uno::Any aValue;
+    sal_Int32 nFields;
+    uno::TypeClass aTypeClass;
+    uno::Reference< reflection::XIdlField > aField;
+    boost::property_tree::ptree aNodeNull, aNodeValue, aNodeField;
+    const std::string& rType = aTree.get<std::string>("type", "");
+    const std::string& rValue = aTree.get<std::string>("value", "");
+    uno::Sequence< uno::Reference< reflection::XIdlField > > aFields;
+    uno::Reference< reflection:: XIdlClass > xIdlClass =
+        css::reflection::theCoreReflection::get(comphelper::getProcessComponentContext())->forName(OUString::fromUtf8(rType.c_str()));
+    if (xIdlClass.is())
+    {
+        aTypeClass = xIdlClass->getTypeClass();
+        xIdlClass->createObject(aAny);
+        aFields = xIdlClass->getFields();
+        nFields = aFields.getLength();
+        aNodeValue = aTree.get_child("value", aNodeNull);
+        if (nFields > 0 && aNodeValue != aNodeNull)
+        {
+            for (sal_Int32 itField = 0; itField < nFields; ++itField)
+            {
+                aField = aFields[itField];
+                aNodeField = aNodeValue.get_child(aField->getName().toUtf8().getStr(), aNodeNull);
+                if (aNodeField != aNodeNull)
+                {
+                    aValue = jsonToUnoAny(aNodeField);
+                    aField->set(aAny, aValue);
+                }
+            }
+        }
+        else if (!rValue.empty())
+        {
+            if (aTypeClass == uno::TypeClass_VOID)
+                aAny.clear();
+            else if (aTypeClass == uno::TypeClass_BYTE)
+                aAny <<= static_cast<sal_Int8>(OString(rValue.c_str()).toInt32());
+            else if (aTypeClass == uno::TypeClass_BOOLEAN)
+                aAny <<= OString(rValue.c_str()).toBoolean();
+            else if (aTypeClass == uno::TypeClass_SHORT)
+                aAny <<= static_cast<sal_Int16>(OString(rValue.c_str()).toInt32());
+            else if (aTypeClass == uno::TypeClass_UNSIGNED_SHORT)
+                aAny <<= static_cast<sal_uInt16>(OString(rValue.c_str()).toUInt32());
+            else if (aTypeClass == uno::TypeClass_LONG)
+                aAny <<= OString(rValue.c_str()).toInt32();
+            else if (aTypeClass == uno::TypeClass_UNSIGNED_LONG)
+                aAny <<= static_cast<sal_uInt32>(OString(rValue.c_str()).toInt32());
+            else if (aTypeClass == uno::TypeClass_FLOAT)
+                aAny <<= OString(rValue.c_str()).toFloat();
+            else if (aTypeClass == uno::TypeClass_DOUBLE)
+                aAny <<= OString(rValue.c_str()).toDouble();
+            else if (aTypeClass == uno::TypeClass_STRING)
+                aAny <<= OUString::fromUtf8(rValue.c_str());
+        }
+    }
+    return aAny;
+}
+
+std::vector<beans::PropertyValue> desktop::jsonToPropertyValuesVector(const char* pJSON)
 {
     std::vector<beans::PropertyValue> aArguments;
     if (pJSON && pJSON[0] != '\0')
     {
-        boost::property_tree::ptree aTree;
+        boost::property_tree::ptree aTree, aNodeNull, aNodeValue;
         std::stringstream aStream(pJSON);
         boost::property_tree::read_json(aStream, aTree);
 
         for (const auto& rPair : aTree)
         {
-            const std::string& rType = rPair.second.get<std::string>("type");
-            const std::string& rValue = rPair.second.get<std::string>("value");
+            const std::string& rType = rPair.second.get<std::string>("type", "");
+            const std::string& rValue = rPair.second.get<std::string>("value", "");
 
             beans::PropertyValue aValue;
             aValue.Name = OUString::fromUtf8(rPair.first.c_str());
@@ -256,6 +321,18 @@ static std::vector<beans::PropertyValue> jsonToPropertyValuesVector(const char* 
                 aValue.Value <<= OString(rValue.c_str()).toInt32();
             else if (rType == "unsigned short")
                 aValue.Value <<= static_cast<sal_uInt16>(OString(rValue.c_str()).toUInt32());
+            else if (rType == "[]any")
+            {
+                aNodeValue = rPair.second.get_child("value", aNodeNull);
+                if (aNodeValue != aNodeNull && aNodeValue.size() > 0)
+                {
+                    sal_Int32 itSeq = 0;
+                    uno::Sequence< uno::Any > aSeq(aNodeValue.size());
+                    for (const auto& rSeqPair : aNodeValue)
+                        aSeq[itSeq++] = jsonToUnoAny(rSeqPair.second);
+                    aValue.Value <<= aSeq;
+                }
+            }
             else
                 SAL_WARN("desktop.lib", "jsonToPropertyValuesVector: unhandled type '"<<rType<<"'");
             aArguments.push_back(aValue);
@@ -2080,7 +2157,7 @@ static void doc_paintPartTile(LibreOfficeKitDocument* pThis,
         int nViewId = nOrigViewId;
         if (!isText)
         {
-            // Check if just switching to an other view is enough, that has
+            // Check if just switching to another view is enough, that has
             // less side-effects.
             if (nPart != doc_getPart(pThis))
             {
@@ -2916,7 +2993,7 @@ static char* getUndoOrRedo(LibreOfficeKitDocument* pThis, UndoOrRedo eCommand)
     if (!pObjectShell)
         return nullptr;
 
-    svl::IUndoManager* pUndoManager = pObjectShell->GetUndoManager();
+    SfxUndoManager* pUndoManager = pObjectShell->GetUndoManager();
     if (!pUndoManager)
         return nullptr;
 
@@ -3653,8 +3730,6 @@ static void lo_status_indicator_callback(void *data, comphelper::LibreOfficeKit:
 /// Used only by LibreOfficeKit when used by Online to pre-initialize
 static void preloadData()
 {
-    std::cerr << "Preloading dictionaries: ";
-
     // Create user profile in the temp directory for loading the dictionaries
     OUString sUserPath;
     rtl::Bootstrap::get("UserInstallation", sUserPath);
@@ -3673,6 +3748,7 @@ static void preloadData()
         css::linguistic2::LinguServiceManager::create(comphelper::getProcessComponentContext());
     css::uno::Reference<linguistic2::XSpellChecker> xSpellChecker(xLngSvcMgr->getSpellChecker());
 
+    std::cerr << "Preloading dictionaries: ";
     css::uno::Reference<linguistic2::XSupportedLocales> xSpellLocales(xSpellChecker, css::uno::UNO_QUERY_THROW);
     uno::Sequence< css::lang::Locale > aLocales = xSpellLocales->getLocales();
     for (auto &it : aLocales)
@@ -3739,9 +3815,9 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
         return 1;
 
     if (eStage == PRE_INIT)
-        rtl_alloc_preInit(rtlAllocPreInitStart);
+        rtl_alloc_preInit(true);
     else if (eStage == SECOND_INIT)
-        rtl_alloc_preInit(rtlAllocPreInitEnd);
+        rtl_alloc_preInit(false);
 
     if (eStage != SECOND_INIT)
         comphelper::LibreOfficeKit::setActive();
@@ -3893,7 +3969,9 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
     }
 
     if (eStage == PRE_INIT)
-        rtl_alloc_preInit(rtlAllocPostInit);
+    {
+        comphelper::ThreadPool::getSharedOptimalPool().shutdown();
+    }
 
     return bInitialized;
 }

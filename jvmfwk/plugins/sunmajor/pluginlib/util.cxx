@@ -31,6 +31,7 @@
 #include <rtl/byteseq.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/instance.hxx>
+#include <sal/log.hxx>
 #include <salhelper/linkhelper.hxx>
 #include <salhelper/thread.hxx>
 #include <memory>
@@ -891,9 +892,7 @@ rtl::Reference<VendorBase> getJREInfoByPath(
     static vector<OUString> vecBadPaths;
 
     static map<OUString, rtl::Reference<VendorBase> > mapJREs;
-    typedef map<OUString, rtl::Reference<VendorBase> >::const_iterator MapIt;
     OUString sFilePath;
-    typedef vector<OUString>::const_iterator cit_path;
     vector<pair<OUString, OUString> > props;
 
     OUString sResolvedDir = resolveDirPath(path);
@@ -908,7 +907,7 @@ rtl::Reference<VendorBase> getJREInfoByPath(
     //For example, a sun JDK contains <jdk>/bin/java and <jdk>/jre/bin/java.
     //When <jdk>/bin/java has been found then we need not find <jdk>/jre/bin/java.
     //Otherwise we would execute java two times for every JDK found.
-    MapIt entry2 = find_if(mapJREs.begin(), mapJREs.end(),
+    auto entry2 = find_if(mapJREs.cbegin(), mapJREs.cend(),
                            SameOrSubDirJREMap(sResolvedDir));
     if (entry2 != mapJREs.end())
     {
@@ -945,21 +944,21 @@ rtl::Reference<VendorBase> getJREInfoByPath(
             if (sFilePath.isEmpty())
             {
                 //The file path (to java exe) is not valid
-                cit_path ifull = find(vecBadPaths.begin(), vecBadPaths.end(), sFullPath);
-                if (ifull == vecBadPaths.end())
+                auto ifull = find(vecBadPaths.cbegin(), vecBadPaths.cend(), sFullPath);
+                if (ifull == vecBadPaths.cend())
                 {
                     vecBadPaths.push_back(sFullPath);
                 }
                 continue;
             }
 
-            cit_path ifile = find(vecBadPaths.begin(), vecBadPaths.end(), sFilePath);
-            if (ifile != vecBadPaths.end())
+            auto ifile = find(vecBadPaths.cbegin(), vecBadPaths.cend(), sFilePath);
+            if (ifile != vecBadPaths.cend())
             {
                 continue;
             }
 
-            MapIt entry =  mapJREs.find(sFilePath);
+            auto entry =  mapJREs.find(sFilePath);
             if (entry != mapJREs.end())
             {
                 JFW_TRACE2("JRE found again (detected before): " << sFilePath);

@@ -25,6 +25,7 @@
 #include <vcl/virdev.hxx>
 #include <tools/bigint.hxx>
 #include <unotools/syslocale.hxx>
+#include <sal/log.hxx>
 
 void MoveXPoly(XPolygon& rPoly, const Size& S)
 {
@@ -42,8 +43,8 @@ void ResizeRect(tools::Rectangle& rRect, const Point& rRef, const Fraction& rxFa
         long nWdt = rRect.Right() - rRect.Left();
         if (nWdt == 0) rRect.AdjustRight( 1 );
     }
-    rRect.SetLeft( rRef.X() + svx::Round( (rRect.Left()  - rRef.X()) * double(aXFact) ) );
-    rRect.SetRight( rRef.X() + svx::Round( (rRect.Right() - rRef.X()) * double(aXFact) ) );
+    rRect.SetLeft( rRef.X() + FRound( (rRect.Left()  - rRef.X()) * double(aXFact) ) );
+    rRect.SetRight( rRef.X() + FRound( (rRect.Right() - rRef.X()) * double(aXFact) ) );
 
     if (!aYFact.IsValid()) {
         SAL_WARN( "svx.svdraw", "invalid fraction yFract, using Fraction(1,1)" );
@@ -51,8 +52,8 @@ void ResizeRect(tools::Rectangle& rRect, const Point& rRef, const Fraction& rxFa
         long nHgt = rRect.Bottom() - rRect.Top();
         if (nHgt == 0) rRect.AdjustBottom( 1 );
     }
-    rRect.SetTop( rRef.Y() + svx::Round( (rRect.Top()    - rRef.Y()) * double(aYFact) ) );
-    rRect.SetBottom( rRef.Y() + svx::Round( (rRect.Bottom() - rRef.Y()) * double(aYFact) ) );
+    rRect.SetTop( rRef.Y() + FRound( (rRect.Top()    - rRef.Y()) * double(aYFact) ) );
+    rRect.SetBottom( rRef.Y() + FRound( (rRect.Bottom() - rRef.Y()) * double(aYFact) ) );
 
     rRect.Justify();
 }
@@ -174,7 +175,7 @@ double CrookRotateXPoint(Point& rPnt, Point* pC1, Point* pC2, const Point& rCent
             // move into the direction of the center, as a basic position for the rotation
             pC1->AdjustY( -y0 );
             // resize, account for the distance from the center
-            pC1->setY(svx::Round(static_cast<double>(pC1->Y()) /rRad.X()*(cx-pC1->X())) );
+            pC1->setY(FRound(static_cast<double>(pC1->Y()) /rRad.X()*(cx-pC1->X())) );
             pC1->AdjustY(cy );
         } else {
             // move into the direction of the center, as a basic position for the rotation
@@ -182,7 +183,7 @@ double CrookRotateXPoint(Point& rPnt, Point* pC1, Point* pC2, const Point& rCent
             // resize, account for the distance from the center
             long nPntRad=cy-pC1->Y();
             double nFact=static_cast<double>(nPntRad)/static_cast<double>(rRad.Y());
-            pC1->setX(svx::Round(static_cast<double>(pC1->X())*nFact) );
+            pC1->setX(FRound(static_cast<double>(pC1->X())*nFact) );
             pC1->AdjustX(cx );
         }
         RotatePoint(*pC1,rCenter,sn,cs);
@@ -192,7 +193,7 @@ double CrookRotateXPoint(Point& rPnt, Point* pC1, Point* pC2, const Point& rCent
             // move into the direction of the center, as a basic position for the rotation
             pC2->AdjustY( -y0 );
             // resize, account for the distance from the center
-            pC2->setY(svx::Round(static_cast<double>(pC2->Y()) /rRad.X()*(rCenter.X()-pC2->X())) );
+            pC2->setY(FRound(static_cast<double>(pC2->Y()) /rRad.X()*(rCenter.X()-pC2->X())) );
             pC2->AdjustY(cy );
         } else {
             // move into the direction of the center, as a basic position for the rotation
@@ -200,7 +201,7 @@ double CrookRotateXPoint(Point& rPnt, Point* pC1, Point* pC2, const Point& rCent
             // resize, account for the distance from the center
             long nPntRad=rCenter.Y()-pC2->Y();
             double nFact=static_cast<double>(nPntRad)/static_cast<double>(rRad.Y());
-            pC2->setX(svx::Round(static_cast<double>(pC2->X())*nFact) );
+            pC2->setX(FRound(static_cast<double>(pC2->X())*nFact) );
             pC2->AdjustX(cx );
         }
         RotatePoint(*pC2,rCenter,sn,cs);
@@ -279,7 +280,7 @@ double CrookStretchXPoint(Point& rPnt, Point* pC1, Point* pC2, const Point& rCen
         long dy=rPnt.Y()-y0;
         double a=static_cast<double>(y0-nTop)/nHgt;
         a*=dy;
-        rPnt.setY(y0+svx::Round(a) );
+        rPnt.setY(y0+FRound(a) );
     } return 0.0;
 }
 
@@ -388,19 +389,19 @@ long GetAngle(const Point& rPnt)
         if (rPnt.Y()>0) a=-9000;
         else a=9000;
     } else {
-        a=svx::Round(atan2(static_cast<double>(-rPnt.Y()),static_cast<double>(rPnt.X()))/nPi180);
+        a=FRound(atan2(static_cast<double>(-rPnt.Y()),static_cast<double>(rPnt.X()))/nPi180);
     }
     return a;
 }
 
-long NormAngle180(long a)
+long NormAngle18000(long a)
 {
-    while (a<18000) a+=36000;
+    while (a<-18000) a+=36000;
     while (a>=18000) a-=36000;
     return a;
 }
 
-long NormAngle360(long a)
+long NormAngle36000(long a)
 {
     while (a<0) a+=36000;
     while (a>=36000) a-=36000;
@@ -425,7 +426,7 @@ long GetLen(const Point& rPnt)
         x*=x;
         y*=y;
         x+=y;
-        x=svx::Round(sqrt(static_cast<double>(x)));
+        x=FRound(sqrt(static_cast<double>(x)));
         return x;
     } else {
         double nx=x;
@@ -437,7 +438,7 @@ long GetLen(const Point& rPnt)
         if (nx>0x7FFFFFFF) {
             return 0x7FFFFFFF; // we can't go any further, for fear of an overrun!
         } else {
-            return svx::Round(nx);
+            return FRound(nx);
         }
     }
 }
@@ -482,7 +483,7 @@ tools::Polygon Rect2Poly(const tools::Rectangle& rRect, const GeoStat& rGeo)
 void Poly2Rect(const tools::Polygon& rPol, tools::Rectangle& rRect, GeoStat& rGeo)
 {
     rGeo.nRotationAngle=GetAngle(rPol[1]-rPol[0]);
-    rGeo.nRotationAngle=NormAngle360(rGeo.nRotationAngle);
+    rGeo.nRotationAngle=NormAngle36000(rGeo.nRotationAngle);
     // rotation successful
     rGeo.RecalcSinCos();
 
@@ -506,9 +507,9 @@ void Poly2Rect(const tools::Polygon& rPol, tools::Rectangle& rRect, GeoStat& rGe
         nShW+=18000;
         aPt0=rPol[3];
     }
-    nShW=NormAngle180(nShW);
+    nShW=NormAngle18000(nShW);
     if (nShW<-9000 || nShW>9000) {
-        nShW=NormAngle180(nShW+18000);
+        nShW=NormAngle18000(nShW+18000);
     }
     if (nShW<-SDRMAXSHEAR) nShW=-SDRMAXSHEAR; // limit ShearWinkel (shear angle) to +/- 89.00 deg
     if (nShW>SDRMAXSHEAR)  nShW=SDRMAXSHEAR;

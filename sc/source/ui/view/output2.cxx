@@ -54,6 +54,7 @@
 #include <vcl/pdfextoutdevdata.hxx>
 #include <vcl/settings.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <output.hxx>
 #include <document.hxx>
@@ -392,6 +393,10 @@ void ScDrawStringsVars::SetPattern(
     if (pOutput->mbSyntaxMode)
         pOutput->SetSyntaxColor(&aFont, rCell);
 
+    // There is no cell attribute for kerning, default is kerning OFF, all
+    // kerning is stored at an EditText object that is drawn using EditEngine.
+    aFont.SetKerning( FontKerning::NONE);
+
     pDev->SetFont( aFont );
     if ( pFmtDevice != pDev )
         pFmtDevice->SetFont( aFont );
@@ -567,12 +572,19 @@ void ScDrawStringsVars::RepeatToFill( long nColWidth )
         return;
 
     long nCharWidth = pOutput->pFmtDevice->GetTextWidth(OUString(nRepeatChar));
-    if ( nCharWidth < 1) return;
-    if (bPixelToLogic)
-        nColWidth = pOutput->mpRefDevice->PixelToLogic(Size(nColWidth,0)).Width();
-    // Are there restrictions on the cell type we should filter out here ?
-    long nSpaceToFill = ( nColWidth - aTextSize.Width() );
 
+    if ( nCharWidth < 1 || (bPixelToLogic && nCharWidth < pOutput->mpRefDevice->PixelToLogic(Size(1,0)).Width()) )
+        return;
+
+    // Are there restrictions on the cell type we should filter out here ?
+    long nTextWidth = aTextSize.Width();
+    if ( bPixelToLogic )
+    {
+        nColWidth = pOutput->mpRefDevice->PixelToLogic(Size(nColWidth,0)).Width();
+        nTextWidth = pOutput->mpRefDevice->PixelToLogic(Size(nTextWidth,0)).Width();
+    }
+
+    long nSpaceToFill = ( nColWidth - nTextWidth );
     if ( nSpaceToFill <= nCharWidth )
         return;
 
@@ -1500,7 +1512,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                 SCCOL nCellX = nX;                  // position where the cell really starts
                 SCROW nCellY = nY;
                 bool bDoCell = false;
-                bool bNeedEdit = false;
+                bool bUseEditEngine = false;
 
                 //  Part of a merged cell?
 
@@ -1589,17 +1601,17 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                     if (aCell.isEmpty())
                         bDoCell = false;
                     else if (aCell.meType == CELLTYPE_EDIT)
-                        bNeedEdit = true;
+                        bUseEditEngine = true;
                 }
 
                 // Check if this cell is mis-spelled.
-                if (bDoCell && !bNeedEdit && aCell.meType == CELLTYPE_STRING)
+                if (bDoCell && !bUseEditEngine && aCell.meType == CELLTYPE_STRING)
                 {
                     if (mpSpellCheckCxt && mpSpellCheckCxt->isMisspelled(nCellX, nCellY))
-                        bNeedEdit = true;
+                        bUseEditEngine = true;
                 }
 
-                if (bDoCell && !bNeedEdit)
+                if (bDoCell && !bUseEditEngine)
                 {
                     if ( nCellY == nY && nCellX >= nX1 && nCellX <= nX2 )
                     {
@@ -1677,20 +1689,20 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                     //  use edit engine for rotated, stacked or mixed-script text
                     if ( aVars.GetOrient() == SvxCellOrientation::Stacked ||
                          aVars.IsRotated() || IsAmbiguousScript(nScript) )
-                        bNeedEdit = true;
+                        bUseEditEngine = true;
                 }
-                if (bDoCell && !bNeedEdit)
+                if (bDoCell && !bUseEditEngine)
                 {
                     bool bFormulaCell = (aCell.meType == CELLTYPE_FORMULA);
                     if ( bFormulaCell )
                         lcl_CreateInterpretProgress(bProgress, mpDoc, aCell.mpFormula);
                     if ( aVars.SetText(aCell) )
                         pOldPattern = nullptr;
-                    bNeedEdit = aVars.HasEditCharacters() || (bFormulaCell && aCell.mpFormula->IsMultilineResult());
+                    bUseEditEngine = aVars.HasEditCharacters() || (bFormulaCell && aCell.mpFormula->IsMultilineResult());
                 }
                 long nTotalMargin = 0;
                 SvxCellHorJustify eOutHorJust = SvxCellHorJustify::Standard;
-                if (bDoCell && !bNeedEdit)
+                if (bDoCell && !bUseEditEngine)
                 {
                     CellType eCellType = aCell.meType;
                     bCellIsValue = ( eCellType == CELLTYPE_VALUE );
@@ -1731,7 +1743,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                         {
                             // Only horizontal scaling is handled here.
                             // DrawEdit is used to vertically scale 90 deg rotated text.
-                            bNeedEdit = true;
+                            bUseEditEngine = true;
                         }
                         else if ( aAreaParam.mbLeftClip || aAreaParam.mbRightClip )     // horizontal
                         {
@@ -1784,10 +1796,10 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                             if ( nRepeatCount > 1 )
                             {
                                 OUString aCellStr = aVars.GetString();
-                                OUString aRepeated = aCellStr;
+                                OUStringBuffer aRepeated = aCellStr;
                                 for ( long nRepeat = 1; nRepeat < nRepeatCount; nRepeat++ )
-                                    aRepeated += aCellStr;
-                                aVars.SetAutoText( aRepeated );
+                                    aRepeated.append(aCellStr);
+                                aVars.SetAutoText( aRepeated.makeStringAndClear() );
                             }
                         }
                     }
@@ -1796,23 +1808,23 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                     if ( bBreak )
                     {
                         if ( aVars.GetOrient() == SvxCellOrientation::Standard )
-                            bNeedEdit = ( aAreaParam.mbLeftClip || aAreaParam.mbRightClip );
+                            bUseEditEngine = ( aAreaParam.mbLeftClip || aAreaParam.mbRightClip );
                         else
                         {
                             long nHeight = aVars.GetTextSize().Height() +
                                             static_cast<long>(aVars.GetMargin()->GetTopMargin()*mnPPTY) +
                                             static_cast<long>(aVars.GetMargin()->GetBottomMargin()*mnPPTY);
-                            bNeedEdit = ( nHeight > aAreaParam.maClipRect.GetHeight() );
+                            bUseEditEngine = ( nHeight > aAreaParam.maClipRect.GetHeight() );
                         }
                     }
-                    if (!bNeedEdit)
+                    if (!bUseEditEngine)
                     {
-                        bNeedEdit =
+                        bUseEditEngine =
                             aVars.GetHorJust() == SvxCellHorJustify::Block &&
                             aVars.GetHorJustMethod() == SvxCellJustifyMethod::Distribute;
                     }
                 }
-                if (bNeedEdit)
+                if (bUseEditEngine)
                 {
                     //  mark the cell in CellInfo to be drawn in DrawEdit:
                     //  Cells to the left are marked directly, cells to the
@@ -2954,11 +2966,11 @@ void ScOutputData::DrawEditStandard(DrawEditParam& rParam)
                     long nRepeatCount = nAvailable / nRepeatSize;
                     if ( nRepeatCount > 1 )
                     {
-                        OUString aRepeated = aCellStr;
+                        OUStringBuffer aRepeated = aCellStr;
                         for ( long nRepeat = 1; nRepeat < nRepeatCount; nRepeat++ )
-                            aRepeated += aCellStr;
+                            aRepeated.append(aCellStr);
 
-                        nEngineWidth = SetEngineTextAndGetWidth( rParam, aRepeated,
+                        nEngineWidth = SetEngineTextAndGetWidth( rParam, aRepeated.makeStringAndClear(),
                                                         nNeededPixel, (nLeftM + nRightM ) );
 
                         nEngineHeight = rParam.mpEngine->GetTextHeight();
@@ -3324,11 +3336,11 @@ void ScOutputData::DrawEditBottomTop(DrawEditParam& rParam)
                     const long nRepeatCount = nAvailable / nRepeatSize;
                     if ( nRepeatCount > 1 )
                     {
-                        OUString aRepeated = aCellStr;
+                        OUStringBuffer aRepeated = aCellStr;
                         for ( long nRepeat = 1; nRepeat < nRepeatCount; nRepeat++ )
-                            aRepeated += aCellStr;
+                            aRepeated.append(aCellStr);
 
-                        nEngineWidth = SetEngineTextAndGetWidth( rParam, aRepeated,
+                        nEngineWidth = SetEngineTextAndGetWidth( rParam, aRepeated.makeStringAndClear(),
                                                             nNeededPixel, (nLeftM + nRightM ) );
 
                         nEngineHeight = rParam.mpEngine->GetTextHeight();
@@ -3568,11 +3580,11 @@ void ScOutputData::DrawEditTopBottom(DrawEditParam& rParam)
                     const long nRepeatCount = nAvailable / nRepeatSize;
                     if ( nRepeatCount > 1 )
                     {
-                        OUString aRepeated = aCellStr;
+                        OUStringBuffer aRepeated = aCellStr;
                         for ( long nRepeat = 1; nRepeat < nRepeatCount; nRepeat++ )
-                            aRepeated += aCellStr;
+                            aRepeated.append(aCellStr);
 
-                        nEngineWidth = SetEngineTextAndGetWidth( rParam, aRepeated,
+                        nEngineWidth = SetEngineTextAndGetWidth( rParam, aRepeated.makeStringAndClear(),
                                                             nNeededPixel, (nLeftM + nRightM ) );
 
                         nEngineHeight = rParam.mpEngine->GetTextHeight();
@@ -4717,7 +4729,7 @@ void ScOutputData::DrawRotated(bool bPixelToLogic)
                                 double nAbsCos = fabs( nCos );
                                 double nAbsSin = fabs( nSin );
 
-                                // adjust witdh of papersize for height of text
+                                // adjust width of papersize for height of text
                                 int nSteps = 5;
                                 while (nSteps > 0)
                                 {

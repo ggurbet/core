@@ -20,7 +20,7 @@
 #include <o3tl/numeric.hxx>
 
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdattr.hxx>
 #include <svx/svdpage.hxx>
@@ -75,12 +75,13 @@
 #include <com/sun/star/uno/Sequence.h>
 #include <svx/sdr/contact/viewcontactofe3dscene.hxx>
 #include <svx/e3dsceneupdater.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 
-sdr::properties::BaseProperties* E3dObject::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> E3dObject::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::E3dProperties(*this);
+    return o3tl::make_unique<sdr::properties::E3dProperties>(*this);
 }
 
 E3dObject::E3dObject(SdrModel& rSdrModel)
@@ -160,10 +161,12 @@ void E3dObject::TakeObjInfo(SdrObjTransformInfoRec& rInfo) const
 void E3dObject::NbcResize(const Point& rRef, const Fraction& xFact, const Fraction& yFact)
 {
     // Movement in X, Y in the eye coordinate system
-    E3dScene* pScene = GetScene();
+    E3dScene* pScene(getRootE3dSceneFromE3dObject());
 
-    if(!pScene)
+    if(nullptr == pScene)
+    {
         return;
+    }
 
     // transform pos from 2D world to 3D eye
     const sdr::contact::ViewContactOfE3dScene& rVCScene = static_cast< sdr::contact::ViewContactOfE3dScene& >(pScene->GetViewContact());
@@ -210,18 +213,21 @@ void E3dObject::NbcResize(const Point& rRef, const Fraction& xFact, const Fracti
 void E3dObject::NbcMove(const Size& rSize)
 {
     // Movement in X, Y in the eye coordinate system
-    E3dScene* pScene = GetScene();
+    E3dScene* pScene(getRootE3dSceneFromE3dObject());
 
-    if(!pScene)
+    if(nullptr == pScene)
+    {
         return;
+    }
 
     //Dimensions of the scene in 3D and 2D for comparison
     tools::Rectangle aRect = pScene->GetSnapRect();
-
     basegfx::B3DHomMatrix aInvDispTransform;
-    if(GetParentObj())
+    E3dScene* pParent(getParentE3dSceneFromE3dObject());
+
+    if(nullptr != pParent)
     {
-        aInvDispTransform = GetParentObj()->GetFullTransform();
+        aInvDispTransform = pParent->GetFullTransform();
         aInvDispTransform.invert();
     }
 
@@ -262,43 +268,32 @@ void E3dObject::RecalcSnapRect()
     maSnapRect = tools::Rectangle();
 }
 
-// Inform the parent about insertion of a 3D object, so that the parent is able
-// treat the particular objects in a special way (eg Light / Label in E3dScene)
-void E3dObject::NewObjectInserted(const E3dObject* p3DObj)
-{
-    if(GetParentObj())
-        GetParentObj()->NewObjectInserted(p3DObj);
-}
-
 // Inform parent of changes in the structure (eg by transformation), in this
 // process the object in which the change has occurred is returned.
 void E3dObject::StructureChanged()
 {
-    if ( GetParentObj() )
+    E3dScene* pParent(getParentE3dSceneFromE3dObject());
+
+    if(nullptr != pParent)
     {
-        GetParentObj()->InvalidateBoundVolume();
-        GetParentObj()->StructureChanged();
+        pParent->InvalidateBoundVolume();
+        pParent->StructureChanged();
     }
 }
 
-E3dObject* E3dObject::GetParentObj() const
+E3dScene* E3dObject::getParentE3dSceneFromE3dObject() const
 {
-    E3dObject* pRetval = nullptr;
-
-    if(getParentOfSdrObject() && getParentOfSdrObject()->GetOwnerObj())
-    {
-        pRetval = dynamic_cast<E3dObject*>(getParentOfSdrObject()->GetOwnerObj());
-    }
-
-    return pRetval;
+    return dynamic_cast< E3dScene* >(getParentSdrObjectFromSdrObject());
 }
 
 // Determine the top-level scene object
-E3dScene* E3dObject::GetScene() const
+E3dScene* E3dObject::getRootE3dSceneFromE3dObject() const
 {
-    if(GetParentObj())
+    E3dScene* pParent(getParentE3dSceneFromE3dObject());
+
+    if(nullptr != pParent)
     {
-        return GetParentObj()->GetScene();
+        return pParent->getRootE3dSceneFromE3dObject();
     }
 
     return nullptr;
@@ -357,10 +352,11 @@ const basegfx::B3DHomMatrix& E3dObject::GetFullTransform() const
     if(mbTfHasChanged)
     {
         basegfx::B3DHomMatrix aNewFullTransformation(maTransformation);
+        E3dScene* pParent(getParentE3dSceneFromE3dObject());
 
-        if ( GetParentObj() )
+        if(nullptr != pParent)
         {
-            aNewFullTransformation = GetParentObj()->GetFullTransform() * aNewFullTransformation;
+            aNewFullTransformation = pParent->GetFullTransform() * aNewFullTransformation;
         }
 
         const_cast< E3dObject* >(this)->maFullTransform = aNewFullTransformation;
@@ -401,7 +397,7 @@ basegfx::B3DPolyPolygon E3dObject::CreateWireframe() const
 // Get the name of the object (singular)
 OUString E3dObject::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulObj3d));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulObj3d));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -417,12 +413,12 @@ OUString E3dObject::TakeObjNameSingul() const
 // Get the name of the object (plural)
 OUString E3dObject::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralObj3d);
+    return SvxResId(STR_ObjNamePluralObj3d);
 }
 
-E3dObject* E3dObject::Clone(SdrModel* pTargetModel) const
+E3dObject* E3dObject::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< E3dObject >(pTargetModel);
+    return CloneHelper< E3dObject >(rTargetModel);
 }
 
 E3dObject& E3dObject::operator=(const E3dObject& rSource)
@@ -478,7 +474,7 @@ void E3dObject::NbcRotate(const Point& rRef, long nAngle, double sn, double cs)
     // Before turning the glue points are defined relative to the page. They
     // take no part in the rotation of the scene. To ensure this, there is the
     // SetGlueReallyAbsolute(sal_True);
-    double fAngleInRad = nAngle/100.0 * F_PI180;
+    double fAngleInRad = basegfx::deg2rad(nAngle/100.0);
 
     basegfx::B3DHomMatrix aRotateZ;
     aRotateZ.rotate(0.0, 0.0, fAngleInRad);
@@ -491,9 +487,9 @@ void E3dObject::NbcRotate(const Point& rRef, long nAngle, double sn, double cs)
     SetGlueReallyAbsolute(false);       // from now they are again relative to BoundRect (that is defined as aOutRect)
 }
 
-sdr::properties::BaseProperties* E3dCompoundObject::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> E3dCompoundObject::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::E3dCompoundProperties(*this);
+    return o3tl::make_unique<sdr::properties::E3dCompoundProperties>(*this);
 }
 
 E3dCompoundObject::E3dCompoundObject(SdrModel& rSdrModel)
@@ -640,9 +636,9 @@ void E3dCompoundObject::RecalcSnapRect()
     }
 }
 
-E3dCompoundObject* E3dCompoundObject::Clone(SdrModel* pTargetModel) const
+E3dCompoundObject* E3dCompoundObject::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< E3dCompoundObject >(pTargetModel);
+    return CloneHelper< E3dCompoundObject >(rTargetModel);
 }
 
 E3dCompoundObject& E3dCompoundObject::operator=(const E3dCompoundObject& rObj)
@@ -673,19 +669,6 @@ basegfx::B2DPolyPolygon E3dCompoundObject::TransformToScreenCoor(const basegfx::
     }
 
     return aRetval;
-}
-
-bool E3dCompoundObject::IsAOrdNumRemapCandidate(E3dScene*& prScene) const
-{
-    if(getParentOfSdrObject()
-        && getParentOfSdrObject()->GetOwnerObj()
-        && dynamic_cast<const E3dObject*>(getParentOfSdrObject()->GetOwnerObj()))
-    {
-        prScene = static_cast<E3dScene*>(getParentOfSdrObject()->GetOwnerObj());
-        return true;
-    }
-
-    return false;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

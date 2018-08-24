@@ -44,6 +44,7 @@ $(eval $(call gb_Library_use_libraries,tl,\
 $(eval $(call gb_Library_add_exception_objects,tl,\
     tools/source/datetime/datetime \
     tools/source/datetime/datetimeutils \
+    tools/source/datetime/systemdatetime \
     tools/source/datetime/tdate \
     tools/source/datetime/ttime \
     tools/source/debug/debug \
@@ -64,7 +65,6 @@ $(eval $(call gb_Library_add_exception_objects,tl,\
     tools/source/inet/inetmime \
     tools/source/inet/inetmsg \
     tools/source/inet/inetstrm \
-    tools/source/memtools/mempool \
     tools/source/memtools/multisel \
     tools/source/misc/cpuid \
     tools/source/misc/extendapplicationenvironment \

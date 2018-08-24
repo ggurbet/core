@@ -39,6 +39,7 @@
 #include <framework/FrameworkHelper.hxx>
 #include <ViewShellBase.hxx>
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 #include <app.hrc>
 #include <sdattr.hrc>
 #include <AccessibleSlideSorterView.hxx>
@@ -287,13 +288,13 @@ bool SlideSorterViewShell::RelocateToParentWindow (vcl::Window* pParentWindow)
     if ( ! mpSlideSorter)
         return false;
 
-    const bool bSuccess (mpSlideSorter->RelocateToWindow(pParentWindow));
+    mpSlideSorter->RelocateToWindow(pParentWindow);
     ReadFrameViewData(mpFrameView);
 
-    return bSuccess;
+    return true;
 }
 
-::svl::IUndoManager* SlideSorterViewShell::ImpGetUndoManager() const
+SfxUndoManager* SlideSorterViewShell::ImpGetUndoManager() const
 {
     SfxShell* pObjectBar = GetViewShellBase().GetViewShellManager()->GetTopShell();
     if (pObjectBar != nullptr)
@@ -552,7 +553,7 @@ void SlideSorterViewShell::WriteFrameViewData()
                 mpFrameView->SetSelectedPage((pActualPage->GetPageNum()- 1) / 2);
             // else
             // The slide sorter is not expected to switch the current page
-            // other then by double clicks.  That is handled separately.
+            // other than by double clicks.  That is handled separately.
         }
         else
         {

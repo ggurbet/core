@@ -19,6 +19,7 @@
 
 #include <tools/debug.hxx>
 #include <tools/time.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/localedatawrapper.hxx>
 
@@ -464,7 +465,7 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
                     {
                         pMouseDownWin->ImplGetFrameData()->mbStartDragCalled  = true;
 
-                        // Check if drag source provides it's own recognizer
+                        // Check if drag source provides its own recognizer
                         if( pMouseDownWin->ImplGetFrameData()->mbInternalDragGestureRecognizer )
                         {
                             // query DropTarget from child window
@@ -1262,10 +1263,10 @@ static void ImplHandleExtTextInputPos( vcl::Window* pWindow,
             = pChild != nullptr && pChild->GetInputContext().GetFont().IsVertical();
 }
 
-static bool ImplHandleInputContextChange( vcl::Window* pWindow, LanguageType eNewLang )
+static bool ImplHandleInputContextChange( vcl::Window* pWindow )
 {
     vcl::Window* pChild = ImplGetKeyInputWindow( pWindow );
-    CommandInputContextData aData( eNewLang );
+    CommandInputContextData aData;
     return !ImplCallCommand( pChild, CommandEventId::InputContextChange, &aData );
 }
 
@@ -1508,9 +1509,9 @@ private:
     CommandSwipeData m_aSwipeData;
 public:
     HandleSwipeEvent(vcl::Window *pWindow, const SalSwipeEvent& rEvt)
-        : HandleGestureEvent(pWindow, Point(rEvt.mnX, rEvt.mnY))
+        : HandleGestureEvent(pWindow, Point(rEvt.mnX, rEvt.mnY)),
+          m_aSwipeData(rEvt.mnVelocityX)
     {
-        m_aSwipeData = CommandSwipeData(rEvt.mnVelocityX);
     }
     virtual bool CallCommand(vcl::Window *pWindow, const Point &/*rMousePos*/) override
     {
@@ -1530,9 +1531,9 @@ private:
     CommandLongPressData m_aLongPressData;
 public:
     HandleLongPressEvent(vcl::Window *pWindow, const SalLongPressEvent& rEvt)
-        : HandleGestureEvent(pWindow, Point(rEvt.mnX, rEvt.mnY))
+        : HandleGestureEvent(pWindow, Point(rEvt.mnX, rEvt.mnY)),
+          m_aLongPressData(rEvt.mnX, rEvt.mnY)
     {
-        m_aLongPressData = CommandLongPressData(rEvt.mnX, rEvt.mnY);
     }
     virtual bool CallCommand(vcl::Window *pWindow, const Point &/*rMousePos*/) override
     {
@@ -2021,10 +2022,12 @@ static bool ImplHandleMenuEvent( vcl::Window const * pWindow, SalMenuEvent* pEve
             switch( nEvent )
             {
                 case SalEvent::MenuActivate:
-                    bRet = pMenuBar->HandleMenuActivateEvent( static_cast<Menu*>(pEvent->mpMenu) );
+                    pMenuBar->HandleMenuActivateEvent( static_cast<Menu*>(pEvent->mpMenu) );
+                    bRet = true;
                     break;
                 case SalEvent::MenuDeactivate:
-                    bRet = pMenuBar->HandleMenuDeActivateEvent( static_cast<Menu*>(pEvent->mpMenu) );
+                    pMenuBar->HandleMenuDeActivateEvent( static_cast<Menu*>(pEvent->mpMenu) );
+                    bRet = true;
                     break;
                 case SalEvent::MenuHighlight:
                     bRet = pMenuBar->HandleMenuHighlightEvent( static_cast<Menu*>(pEvent->mpMenu), pEvent->mnId );
@@ -2125,6 +2128,7 @@ static void ImplHandleSalSettings( SalEvent nEvent )
         if ( nType != DataChangedEventType::NONE )
         {
             DataChangedEvent aDCEvt( nType );
+            Application::ImplCallEventListenersApplicationDataChanged(&aDCEvt);
             Application::NotifyAllWindows( aDCEvt );
         }
     }
@@ -2493,7 +2497,7 @@ bool ImplWindowFrameProc( vcl::Window* _pWindow, SalEvent nEvent, const void* pE
             ImplHandleSalExtTextInputPos( pWindow, const_cast<SalExtTextInputPosEvent *>(static_cast<SalExtTextInputPosEvent const *>(pEvent)) );
             break;
         case SalEvent::InputContextChange:
-            bRet = ImplHandleInputContextChange( pWindow, static_cast<SalInputContextChangeEvent const *>(pEvent)->meLanguage );
+            bRet = ImplHandleInputContextChange( pWindow );
             break;
         case SalEvent::ShowDialog:
             {

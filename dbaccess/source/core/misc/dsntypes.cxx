@@ -25,6 +25,7 @@
 #include <stringconstants.hxx>
 #include <comphelper/documentconstants.hxx>
 #include <comphelper/string.hxx>
+#include <svtools/miscopt.hxx>
 
 namespace dbaccess
 {
@@ -40,8 +41,9 @@ namespace dbaccess
         {
             if ( comphelper::string::getTokenCount(_sUrl, ':') >= 2 )
             {
-                _sHostname      = _sUrl.getToken(0,':');
-                _nPortNumber    = _sUrl.getToken(1,':').toInt32();
+                sal_Int32 nPos {0};
+                _sHostname   = _sUrl.getToken(0, ':', nPos);
+                _nPortNumber = _sUrl.getToken(0, ':', nPos).toInt32();
             }
         }
     }
@@ -125,7 +127,7 @@ OUString ODsnTypeCollection::getPrefix(const OUString& _sURL) const
 bool ODsnTypeCollection::hasDriver( const sal_Char* _pAsciiPattern ) const
 {
     OUString sPrefix( getPrefix( OUString::createFromAscii( _pAsciiPattern ) ) );
-    return ( sPrefix.getLength() > 0 );
+    return !sPrefix.isEmpty();
 }
 
 bool ODsnTypeCollection::isConnectionUrlRequired(const OUString& _sURL) const
@@ -141,7 +143,7 @@ bool ODsnTypeCollection::isConnectionUrlRequired(const OUString& _sURL) const
             sOldPattern = dsnPrefix;
         }
     }
-    return sRet.getLength() > 0 && sRet[sRet.getLength()-1] == '*';
+    return !sRet.isEmpty() && sRet[sRet.getLength()-1] == '*';
 }
 
 OUString ODsnTypeCollection::getMediaType(const OUString& _sURL) const
@@ -172,7 +174,7 @@ OUString ODsnTypeCollection::getDatasourcePrefixFromMediaType(const OUString& _s
         }
     }
 
-    if ( !sURL.getLength() && sFallbackURL.getLength() )
+    if ( sURL.isEmpty() && !sFallbackURL.isEmpty() )
         sURL = sFallbackURL;
 
     sURL = comphelper::string::stripEnd(sURL, '*');
@@ -199,14 +201,15 @@ void ODsnTypeCollection::extractHostNamePort(const OUString& _rDsn,OUString& _sD
     if ( _rDsn.startsWithIgnoreAsciiCase("jdbc:oracle:thin:") )
     {
         lcl_extractHostAndPort(sUrl,_rsHostname,_nPortNumber);
-        if ( !_rsHostname.getLength() && comphelper::string::getTokenCount(sUrl, ':') == 2 )
+        const sal_Int32 nUrlTokens {comphelper::string::getTokenCount(sUrl, ':')};
+        if ( _rsHostname.isEmpty() && nUrlTokens == 2 )
         {
             _nPortNumber = -1;
             _rsHostname = sUrl.getToken(0,':');
         }
-        if ( _rsHostname.getLength() )
+        if ( !_rsHostname.isEmpty() )
             _rsHostname = _rsHostname.getToken(comphelper::string::getTokenCount(_rsHostname, '@') - 1, '@');
-        _sDatabaseName = sUrl.getToken(comphelper::string::getTokenCount(sUrl, ':') - 1, ':');
+        _sDatabaseName = sUrl.getToken(nUrlTokens - 1, ':');
     }
     else if ( _rDsn.startsWithIgnoreAsciiCase("sdbc:address:ldap:") )
     {
@@ -217,9 +220,10 @@ void ODsnTypeCollection::extractHostNamePort(const OUString& _rDsn,OUString& _sD
     {
         lcl_extractHostAndPort(sUrl,_rsHostname,_nPortNumber);
 
-        if ( _nPortNumber == -1 && !_rsHostname.getLength() && comphelper::string::getTokenCount(sUrl, '/') == 2 )
+        const sal_Int32 nUrlTokens {comphelper::string::getTokenCount(sUrl, '/')};
+        if ( _nPortNumber == -1 && _rsHostname.isEmpty() && nUrlTokens == 2 )
             _rsHostname = sUrl.getToken(0,'/');
-        _sDatabaseName = sUrl.getToken(comphelper::string::getTokenCount(sUrl, '/') - 1, '/');
+        _sDatabaseName = sUrl.getToken(nUrlTokens - 1, '/');
     }
     else if ( _rDsn.startsWithIgnoreAsciiCase("sdbc:ado:access:Provider=Microsoft.ACE.OLEDB.12.0;DATA SOURCE=")
            || _rDsn.startsWithIgnoreAsciiCase("sdbc:ado:access:PROVIDER=Microsoft.Jet.OLEDB.4.0;DATA SOURCE=") )
@@ -295,7 +299,14 @@ OUString ODsnTypeCollection::getEmbeddedDatabase() const
         }
     }
     if ( sEmbeddedDatabaseURL.isEmpty() )
-        sEmbeddedDatabaseURL = "sdbc:embedded:hsqldb";
+    {
+        SvtMiscOptions aMiscOptions;
+        if( aMiscOptions.IsExperimentalMode() )
+            sEmbeddedDatabaseURL = "sdbc:embedded:firebird";
+        else
+            sEmbeddedDatabaseURL = "sdbc:embedded:hsqldb";
+
+    }
 
     return sEmbeddedDatabaseURL;
 }

@@ -43,7 +43,7 @@ namespace dmapper {
 
 using namespace ::com::sun::star;
 
-struct FormControlHelper::FormControlHelper_Impl
+struct FormControlHelper::FormControlHelper_Impl : public virtual SvRefBase
 {
     FieldId m_eFieldId;
     awt::Size aSize;
@@ -97,8 +97,7 @@ uno::Reference<form::XForm> const & FormControlHelper::FormControlHelper_Impl::g
             while (xFormsNamedContainer->hasByName(sFormName))
             {
                 ++nUnique;
-                sFormName = sDOCXForm;
-                sFormName += OUString::number(nUnique);
+                sFormName = sDOCXForm + OUString::number(nUnique);
             }
 
             uno::Reference<uno::XInterface> xForm(getServiceFactory()->createInstance("com.sun.star.form.component.Form"));

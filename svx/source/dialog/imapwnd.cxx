@@ -26,8 +26,6 @@
 #include <svl/urlbmk.hxx>
 
 #include <svx/xoutbmp.hxx>
-#include <svx/dialmgr.hxx>
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include "imapwnd.hxx"
 #include <svx/svdpage.hxx>
@@ -61,10 +59,9 @@ IMapWindow::IMapWindow( vcl::Window* pParent, WinBits nBits, const Reference< XF
 {
     SetSdrMode(true);
 
-    pItemInfo = new SfxItemInfo[ 1 ];
-    memset( pItemInfo, 0, sizeof( SfxItemInfo ) );
+    memset( maItemInfos, 0, sizeof( SfxItemInfo ) );
     pIMapPool = new SfxItemPool( "IMapItemPool",
-                                 SID_ATTR_MACROITEM, SID_ATTR_MACROITEM, pItemInfo );
+                                 SID_ATTR_MACROITEM, SID_ATTR_MACROITEM, maItemInfos );
     pIMapPool->FreezeIdRanges();
 }
 
@@ -76,7 +73,6 @@ IMapWindow::~IMapWindow()
 void IMapWindow::dispose()
 {
     SfxItemPool::Free(pIMapPool);
-    delete[] pItemInfo;
     GraphCtrl::dispose();
 }
 
@@ -103,8 +99,8 @@ void IMapWindow::ReplaceImageMap( const ImageMap& rImageMap )
 
     if(pPage)
     {
-        // clear all draw objects
-        pPage->Clear();
+        // clear SdrObjects with broadcasting
+        pPage->ClearSdrObjList();
     }
 
     if(GetSdrView())
@@ -327,7 +323,10 @@ void IMapWindow::SdrObjCreated( const SdrObject& rObj )
             SdrCircObj* pCircObj = const_cast<SdrCircObj*>( static_cast<const SdrCircObj*>(&rObj) );
             SdrPathObj* pPathObj = static_cast<SdrPathObj*>( pCircObj->ConvertToPolyObj( false, false ) );
             tools::Polygon aPoly(pPathObj->GetPathPoly().getB2DPolygon(0));
-            delete pPathObj;
+
+            // always use SdrObject::Free(...) for SdrObjects (!)
+            SdrObject* pTemp(pPathObj);
+            SdrObject::Free(pTemp);
 
             IMapPolygonObject* pObj = new IMapPolygonObject( aPoly, "", "", "", "", "", true, false );
             pObj->SetExtraEllipse( aPoly.GetBoundRect() );
@@ -398,7 +397,10 @@ void IMapWindow::SdrObjChanged( const SdrObject& rObj )
                 pObj->SetExtraEllipse( aPoly.GetBoundRect() );
 
                 // was only created by us temporarily
-                delete pPathObj;
+                // always use SdrObject::Free(...) for SdrObjects (!)
+                SdrObject* pTemp(pPathObj);
+                SdrObject::Free(pTemp);
+
                 pUserData->ReplaceObject( IMapObjectPtr(pObj) );
             }
             break;
@@ -511,7 +513,7 @@ void IMapWindow::Command(const CommandEvent& rCEvt)
                 aMenu->EnableItem(aMenu->GetItemId("url"));
                 aMenu->EnableItem(aMenu->GetItemId("active"));
                 aMenu->EnableItem(aMenu->GetItemId("macro"));
-                aMenu->CheckItem(aMenu->GetItemId("active"), GetIMapObj(pSdrObj)->IsActive());
+                aMenu->CheckItem("active", GetIMapObj(pSdrObj)->IsActive());
             }
 
             aMenu->EnableItem(aMenu->GetItemId("arrange"));
@@ -667,7 +669,7 @@ void IMapWindow::DoMacroAssign()
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
     ScopedVclPtr<SfxAbstractDialog> pMacroDlg(pFact->CreateEventConfigDialog( this, aSet, mxDocumentFrame ));
 
-    if ( pMacroDlg && pMacroDlg->Execute() == RET_OK )
+    if ( pMacroDlg->Execute() == RET_OK )
     {
         const SfxItemSet* pOutSet = pMacroDlg->GetOutputItemSet();
         pIMapObj->SetMacroTable( pOutSet->Get( SID_ATTR_MACROITEM ).GetMacroTable() );
@@ -684,31 +686,27 @@ void IMapWindow::DoPropertyDialog()
     {
         IMapObject* pIMapObj = GetIMapObj( pSdrObj );
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        if(pFact)
+        ScopedVclPtr<AbstractURLDlg> aDlg(pFact->CreateURLDialog( this, pIMapObj->GetURL(), pIMapObj->GetAltText(), pIMapObj->GetDesc(),
+                                        pIMapObj->GetTarget(), pIMapObj->GetName(), aTargetList ));
+        if ( aDlg->Execute() == RET_OK )
         {
-            ScopedVclPtr<AbstractURLDlg> aDlg(pFact->CreateURLDialog( this, pIMapObj->GetURL(), pIMapObj->GetAltText(), pIMapObj->GetDesc(),
-                                            pIMapObj->GetTarget(), pIMapObj->GetName(), aTargetList ));
-            DBG_ASSERT(aDlg, "Dialog creation failed!");
-            if ( aDlg->Execute() == RET_OK )
+            const OUString aURLText( aDlg->GetURL() );
+
+            if ( !aURLText.isEmpty() )
             {
-                const OUString aURLText( aDlg->GetURL() );
-
-                if ( !aURLText.isEmpty() )
-                {
-                    INetURLObject aObj( aURLText, INetProtocol::File );
-                    DBG_ASSERT( aObj.GetProtocol() != INetProtocol::NotValid, "Invalid URL" );
-                    pIMapObj->SetURL( aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
-                }
-                else
-                    pIMapObj->SetURL( aURLText );
-
-                pIMapObj->SetAltText( aDlg->GetAltText() );
-                pIMapObj->SetDesc( aDlg->GetDesc() );
-                pIMapObj->SetTarget( aDlg->GetTarget() );
-                pIMapObj->SetName( aDlg->GetName() );
-                pModel->SetChanged();
-                UpdateInfo( true );
+                INetURLObject aObj( aURLText, INetProtocol::File );
+                DBG_ASSERT( aObj.GetProtocol() != INetProtocol::NotValid, "Invalid URL" );
+                pIMapObj->SetURL( aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
             }
+            else
+                pIMapObj->SetURL( aURLText );
+
+            pIMapObj->SetAltText( aDlg->GetAltText() );
+            pIMapObj->SetDesc( aDlg->GetDesc() );
+            pIMapObj->SetTarget( aDlg->GetTarget() );
+            pIMapObj->SetName( aDlg->GetName() );
+            pModel->SetChanged();
+            UpdateInfo( true );
         }
     }
 }

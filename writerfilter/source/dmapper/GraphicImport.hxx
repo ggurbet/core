@@ -24,6 +24,8 @@
 
 #include "LoggedResources.hxx"
 
+#include <com/sun/star/graphic/XGraphic.hpp>
+
 namespace com { namespace sun { namespace star {
     namespace uno
     {
@@ -124,7 +126,7 @@ public:
     void handleWrapTextValue(sal_uInt32 nVal);
 };
 
-typedef std::shared_ptr<GraphicImport> GraphicImportPtr;
+typedef tools::SvRef<GraphicImport> GraphicImportPtr;
 
 }}
 

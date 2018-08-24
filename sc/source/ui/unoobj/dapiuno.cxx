@@ -22,6 +22,7 @@
 
 #include <svl/hint.hxx>
 #include <vcl/svapp.hxx>
+#include <sal/log.hxx>
 
 #include <dapiuno.hxx>
 #include <datauno.hxx>
@@ -42,11 +43,14 @@
 #include <hints.hxx>
 #include <dputil.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <generalfunction.hxx>
 
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/NullPointerException.hpp>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
+#include <com/sun/star/sheet/XDimensionsSupplier.hpp>
 #include <com/sun/star/sheet/XHierarchiesSupplier.hpp>
 #include <com/sun/star/sheet/XLevelsSupplier.hpp>
 #include <com/sun/star/sheet/XMembersSupplier.hpp>
@@ -62,6 +66,7 @@
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/servicehelper.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 
 using namespace com::sun::star;
 using namespace com::sun::star::sheet;
@@ -2608,7 +2613,7 @@ Reference< XDataPilotField > SAL_CALL ScDataPilotFieldObj::createNameGroup( cons
         }
         OUString aGroupDimName = pGroupDimension->GetGroupDimName();
 
-        OUString aGroupName = pGroupDimension->CreateGroupName( ScGlobal::GetRscString(STR_PIVOT_GROUP) );
+        OUString aGroupName = pGroupDimension->CreateGroupName( ScResId(STR_PIVOT_GROUP) );
         ScDPSaveGroupItem aGroup( aGroupName );
         for (sal_Int32 nEntry = 0; nEntry < rItems.getLength(); nEntry++)
         {
@@ -2663,9 +2668,12 @@ Reference< XDataPilotField > SAL_CALL ScDataPilotFieldObj::createNameGroup( cons
             }
             catch (const container::NoSuchElementException&)
             {
+                css::uno::Any anyEx = cppu::getCaughtException();
                 SAL_WARN("sc.ui", "Cannot find field with that name: " + sNewDim + ".");
                 // Avoid throwing exception that's not specified in the method signature.
-                throw RuntimeException("Cannot find field with name \"" + sNewDim + "\"", static_cast<cppu::OWeakObject*>(this));
+                throw css::lang::WrappedTargetRuntimeException(
+                        "Cannot find field with name \"" + sNewDim + "\"",
+                        static_cast<cppu::OWeakObject*>(this), anyEx );
             }
         }
     }

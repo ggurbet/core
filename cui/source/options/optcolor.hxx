@@ -38,8 +38,8 @@ class SvxColorOptionsTabPage : public SfxTabPage
 
     bool bFillItemSetCalled;
 
-    svtools::EditableColorConfig* pColorConfig;
-    svtools::EditableExtendedColorConfig* pExtColorConfig;
+    std::unique_ptr<svtools::EditableColorConfig> pColorConfig;
+    std::unique_ptr<svtools::EditableExtendedColorConfig> pExtColorConfig;
 
     DECL_LINK(SchemeChangedHdl_Impl, ListBox&, void);
     DECL_LINK(SaveDeleteHdl_Impl, Button*, void);
@@ -51,7 +51,7 @@ public:
     virtual ~SvxColorOptionsTabPage(  ) override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

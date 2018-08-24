@@ -10,6 +10,7 @@
 
 #include <vcl/BitmapTools.hxx>
 
+#include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/seqstream.hxx>
 #include <vcl/canvastools.hxx>
@@ -102,11 +103,7 @@ void loadFromSvg(SvStream& rStream, const OUString& sPath, BitmapEx& rBitmapEx, 
     if (xBitmap.is())
     {
         const css::uno::Reference<css::rendering::XIntegerReadOnlyBitmap> xIntBmp(xBitmap, uno::UNO_QUERY_THROW);
-
-        if (xIntBmp.is())
-        {
-            rBitmapEx = vcl::unotools::bitmapExFromXBitmap(xIntBmp);
-        }
+        rBitmapEx = vcl::unotools::bitmapExFromXBitmap(xIntBmp);
     }
 
 }
@@ -176,7 +173,7 @@ BitmapEx CreateFromData( sal_uInt8 const *pData, sal_Int32 nWidth, sal_Int32 nHe
     if (nBitCount == 32)
         return BitmapEx(aBmp, *pAlphaMask);
     else
-        return aBmp;
+        return BitmapEx(aBmp);
 }
 
 /** Copy block of image data into the bitmap.
@@ -227,7 +224,7 @@ BitmapEx CreateFromData( RawBitmap&& rawBitmap )
     if (nBitCount == 32)
         return BitmapEx(aBmp, *pAlphaMask);
     else
-        return aBmp;
+        return BitmapEx(aBmp);
 }
 
 #if ENABLE_CAIRO_CANVAS
@@ -549,7 +546,7 @@ void DrawAlphaBitmapAndAlphaGradient(BitmapEx & rBitmapEx, bool bFixedTransparen
 
 void DrawAndClipBitmap(const Point& rPos, const Size& rSize, const BitmapEx& rBitmap, BitmapEx & aBmpEx, basegfx::B2DPolyPolygon const & rClipPath)
 {
-    VclPtrInstance< VirtualDevice > pVDev;
+    ScopedVclPtrInstance< VirtualDevice > pVDev;
     MapMode aMapMode( MapUnit::Map100thMM );
     aMapMode.SetOrigin( Point( -rPos.X(), -rPos.Y() ) );
     const Size aOutputSizePixel( pVDev->LogicToPixel( rSize, aMapMode ) );
@@ -995,6 +992,71 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
             }
         }
         return aRes;
+    }
+
+    BitmapEx createHistorical8x8FromArray(std::array<sal_uInt8,64> const & pArray, Color aColorPix, Color aColorBack)
+    {
+        BitmapPalette aPalette(2);
+
+        aPalette[0] = BitmapColor(aColorBack);
+        aPalette[1] = BitmapColor(aColorPix);
+
+        Bitmap aBitmap(Size(8, 8), 1, &aPalette);
+        BitmapWriteAccess* pContent(aBitmap.AcquireWriteAccess());
+
+        for(sal_uInt16 a(0); a < 8; a++)
+        {
+            for(sal_uInt16 b(0); b < 8; b++)
+            {
+                if(pArray[(a * 8) + b])
+                {
+                    pContent->SetPixelIndex(a, b, 1);
+                }
+                else
+                {
+                    pContent->SetPixelIndex(a, b, 0);
+                }
+            }
+        }
+
+        return BitmapEx(aBitmap);
+    }
+
+    bool isHistorical8x8(const BitmapEx& rBitmapEx, BitmapColor& o_rBack, BitmapColor& o_rFront)
+    {
+        bool bRet(false);
+
+        if(!rBitmapEx.IsTransparent())
+        {
+            Bitmap aBitmap(rBitmapEx.GetBitmap());
+
+            if(8 == aBitmap.GetSizePixel().Width() && 8 == aBitmap.GetSizePixel().Height())
+            {
+                if(2 == aBitmap.GetColorCount())
+                {
+                    BitmapReadAccess* pRead = aBitmap.AcquireReadAccess();
+
+                    if(pRead)
+                    {
+                        if(pRead->HasPalette() && 2 == pRead->GetPaletteEntryCount())
+                        {
+                            const BitmapPalette& rPalette = pRead->GetPalette();
+
+                            // #i123564# background and foreground were exchanged; of course
+                            // rPalette[0] is the background color
+                            o_rFront = rPalette[1];
+                            o_rBack = rPalette[0];
+
+                            bRet = true;
+                        }
+
+                        Bitmap::ReleaseAccess(pRead);
+                    }
+                }
+            }
+        }
+
+        return bRet;
     }
 
 }} // end vcl::bitmap

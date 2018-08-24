@@ -44,7 +44,7 @@ namespace vcl
             Size                maPreviewSize;
             sal_Int32           mnDPIX;
             sal_Int32           mnDPIY;
-            Bitmap              maPreviewBitmap;
+            BitmapEx            maPreviewBitmap;
             OUString            maReplacementString;
             OUString            maToolTipString;
             bool                mbGreyscale;
@@ -168,7 +168,7 @@ namespace vcl
             void storeToSettings();
         };
 
-        VclBuilder*                             mpCustomOptionsUIBuilder;
+        std::unique_ptr<VclBuilder>             mpCustomOptionsUIBuilder;
 
         std::shared_ptr<PrinterController>      maPController;
         VclPtr<TabControl>                      mpTabCtrl;

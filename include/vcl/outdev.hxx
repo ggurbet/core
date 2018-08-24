@@ -101,6 +101,9 @@ namespace vcl
     class TextLayoutCache;
     class Window;
     class FontInfo;
+    namespace font {
+        struct Feature;
+    }
 }
 
 namespace com { namespace sun { namespace star { namespace rendering {
@@ -139,13 +142,16 @@ enum class SalLayoutFlags
     SubstituteDigits        = 0x0400,
     KashidaJustification    = 0x0800,
     ForFallback             = 0x2000,
+    GlyphItemsOnly          = 0x4000,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<SalLayoutFlags> : is_typed_flags<SalLayoutFlags, 0x2e77> {};
+    template<> struct typed_flags<SalLayoutFlags> : is_typed_flags<SalLayoutFlags, 0x6e77> {};
 }
 
 typedef std::vector< tools::Rectangle > MetricVector;
+struct GlyphItem;
+typedef std::vector<GlyphItem> SalLayoutGlyphs;
 
 // OutputDevice-Types
 
@@ -308,6 +314,8 @@ namespace vcl {
     typedef OutputDevice RenderContext;
 }
 
+VCL_DLLPUBLIC void DrawFocusRect(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect);
+
 /**
 * Some things multiple-inherit from VclAbstractDialog and OutputDevice,
 * so we need to use virtual inheritance to keep the referencing counting
@@ -330,13 +338,13 @@ private:
     mutable VclPtr<OutputDevice>    mpPrevGraphics;     ///< Previous output device in list
     mutable VclPtr<OutputDevice>    mpNextGraphics;     ///< Next output device in list
     GDIMetaFile*                    mpMetaFile;
-    mutable LogicalFontInstance*    mpFontInstance;
-    mutable ImplFontCache*          mpFontCache;
-    mutable PhysicalFontCollection* mpFontCollection;
-    mutable ImplDeviceFontList*     mpDeviceFontList;
-    mutable ImplDeviceFontSizeList* mpDeviceFontSizeList;
-    OutDevStateStack*               mpOutDevStateStack;
-    ImplOutDevData*                 mpOutDevData;
+    mutable rtl::Reference<LogicalFontInstance> mpFontInstance;
+    mutable std::shared_ptr<ImplFontCache> mxFontCache;
+    mutable std::shared_ptr<PhysicalFontCollection> mxFontCollection;
+    mutable std::unique_ptr<ImplDeviceFontList>     mpDeviceFontList;
+    mutable std::unique_ptr<ImplDeviceFontSizeList> mpDeviceFontSizeList;
+    std::unique_ptr<OutDevStateStack>               mpOutDevStateStack;
+    std::unique_ptr<ImplOutDevData>                 mpOutDevData;
     std::vector< VCLXGraphics* >*   mpUnoGraphicsList;
     vcl::PDFWriterImpl*             mpPDFWriter;
     vcl::ExtOutDevData*             mpExtOutDevData;
@@ -774,7 +782,7 @@ public:
                                     double fLineWidth = 0.0,
                                     basegfx::B2DLineJoin eLineJoin = basegfx::B2DLineJoin::Round,
                                     css::drawing::LineCap eLineCap = css::drawing::LineCap_BUTT,
-                                    double fMiterMinimumAngle = 15.0 * F_PI180);
+                                    double fMiterMinimumAngle = basegfx::deg2rad(15.0));
 
     /** Render the given polygon as a line stroke
 
@@ -797,7 +805,7 @@ public:
                                     double fTransparency = 0.0,
                                     basegfx::B2DLineJoin eLineJoin = basegfx::B2DLineJoin::NONE,
                                     css::drawing::LineCap eLineCap = css::drawing::LineCap_BUTT,
-                                    double fMiterMinimumAngle = 15.0 * F_PI180,
+                                    double fMiterMinimumAngle = basegfx::deg2rad(15.0),
                                     bool bBypassAACheck = false);
 
 private:
@@ -968,7 +976,7 @@ public:
     void                        DrawText( const Point& rStartPt, const OUString& rStr,
                                           sal_Int32 nIndex = 0, sal_Int32 nLen = -1,
                                           MetricVector* pVector = nullptr, OUString* pDisplayText = nullptr,
-                                          SalLayout* pLayoutCache = nullptr );
+                                          const SalLayoutGlyphs* pLayoutCache = nullptr );
 
     void                        DrawText( const tools::Rectangle& rRect,
                                           const OUString& rStr, DrawTextFlags nStyle = DrawTextFlags::NONE,
@@ -1130,7 +1138,7 @@ public:
     */
     long                        GetTextWidth( const OUString& rStr, sal_Int32 nIndex = 0, sal_Int32 nLen = -1,
                                   vcl::TextLayoutCache const* = nullptr,
-                                  SalLayout const*const pLayoutCache = nullptr) const;
+                                  SalLayoutGlyphs const*const pLayoutCache = nullptr) const;
 
     /** Height where any character of the current font fits; in logic coordinates.
 
@@ -1144,11 +1152,13 @@ public:
                                                const long* pDXAry,
                                                sal_Int32 nIndex = 0,
                                                sal_Int32 nLen = -1,
-                                               SalLayoutFlags flags = SalLayoutFlags::NONE);
+                                               SalLayoutFlags flags = SalLayoutFlags::NONE,
+                                               vcl::TextLayoutCache const* = nullptr,
+                                               const SalLayoutGlyphs* pLayoutCache = nullptr);
     long                        GetTextArray( const OUString& rStr, long* pDXAry,
                                               sal_Int32 nIndex = 0, sal_Int32 nLen = -1,
                                               vcl::TextLayoutCache const* = nullptr,
-                                              SalLayout const*const pLayoutCache = nullptr) const;
+                                              SalLayoutGlyphs const*const pLayoutCache = nullptr) const;
 
     void                        GetCaretPositions( const OUString&, long* pCaretXArray,
                                               sal_Int32 nIndex, sal_Int32 nLen ) const;
@@ -1215,6 +1225,9 @@ public:
 
     bool                        GetFontCharMap( FontCharMapRef& rxFontCharMap ) const;
     bool                        GetFontCapabilities( vcl::FontCapabilities& rFontCapabilities ) const;
+
+    bool GetFontFeatures(std::vector<vcl::font::Feature>& rFontFeatures) const;
+
 
     /** Retrieve detailed font information in platform independent structure
 
@@ -1313,11 +1326,12 @@ public:
     SAL_DLLPRIVATE void         ReMirror( vcl::Region &rRegion ) const;
     SAL_DLLPRIVATE bool         ImplIsRecordLayout() const;
     virtual bool                HasMirroredGraphics() const;
-    SAL_DLLPRIVATE std::unique_ptr<SalLayout>
+    std::unique_ptr<SalLayout>
                                 ImplLayout( const OUString&, sal_Int32 nIndex, sal_Int32 nLen,
                                             const Point& rLogicPos = Point(0,0), long nLogicWidth=0,
                                             const long* pLogicDXArray=nullptr, SalLayoutFlags flags = SalLayoutFlags::NONE,
-                                            vcl::TextLayoutCache const* = nullptr) const;
+                                            vcl::TextLayoutCache const* = nullptr,
+                                            const SalLayoutGlyphs* pGlyphs = nullptr) const;
     SAL_DLLPRIVATE ImplLayoutArgs ImplPrepareLayoutArgs( OUString&, const sal_Int32 nIndex, const sal_Int32 nLen,
                                                          DeviceCoordinate nPixelWidth, const DeviceCoordinate* pPixelDXArray,
                                                          SalLayoutFlags flags = SalLayoutFlags::NONE,
@@ -1327,7 +1341,7 @@ public:
     // tells whether this output device is RTL in an LTR UI or LTR in a RTL UI
     SAL_DLLPRIVATE std::unique_ptr<SalLayout>
                                 getFallbackFont(
-                                    FontSelectPattern &rFontSelData, int nFallbackLevel,
+                                    LogicalFontInstance* pLogicalFont, int nFallbackLevel,
                                     ImplLayoutArgs& rLayoutArgs) const;
 
 

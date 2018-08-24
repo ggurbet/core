@@ -13,6 +13,7 @@ $(eval $(call gb_CppunitTest_CppunitTest,sw_uiwriter))
 
 $(eval $(call gb_CppunitTest_add_exception_objects,sw_uiwriter, \
     sw/qa/extras/uiwriter/uiwriter \
+    sw/qa/extras/uiwriter/uiwriter2 \
 ))
 
 # note: this links msword only for the reason to have a order dependency,
@@ -51,7 +52,11 @@ $(eval $(call gb_CppunitTest_set_include,sw_uiwriter,\
     $$(INCLUDE) \
 ))
 
-$(eval $(call gb_CppunitTest_use_sdk_api,sw_uiwriter))
+$(eval $(call gb_CppunitTest_use_api,sw_uiwriter,\
+	udkapi \
+	offapi \
+	oovbaapi \
+))
 
 $(eval $(call gb_CppunitTest_use_ure,sw_uiwriter))
 $(eval $(call gb_CppunitTest_use_vcl,sw_uiwriter))

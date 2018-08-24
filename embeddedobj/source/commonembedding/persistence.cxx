@@ -55,6 +55,7 @@
 #include <comphelper/namedvaluecollection.hxx>
 
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <unotools/configmgr.hxx>
 #include "persistence.hxx"
 
@@ -138,12 +139,13 @@ uno::Reference< io::XInputStream > createTempInpStreamFromStor(
     try
     {
         xStorage->copyToStorage( xTempStorage );
-    } catch( const uno::Exception& e )
+    } catch( const uno::Exception& )
     {
+        css::uno::Any anyEx = cppu::getCaughtException();
         throw embed::StorageWrappedTargetException(
                     "Can't copy storage!",
                     uno::Reference< uno::XInterface >(),
-                    uno::makeAny( e ) );
+                    anyEx );
     }
 
     try {

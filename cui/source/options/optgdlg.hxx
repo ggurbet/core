@@ -41,6 +41,7 @@ class OfaMiscTabPage : public SfxTabPage
 {
     using TabPage::DeactivatePage;
 private:
+    VclPtr<CheckBox>     m_pPopUpNoHelpCB;
     VclPtr<CheckBox>     m_pExtHelpCB;
 
     VclPtr<FixedImage>   m_pFileDlgROImage;
@@ -70,7 +71,7 @@ public:
     virtual ~OfaMiscTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -111,9 +112,9 @@ private:
     sal_Int32      nNotebookbarSizeLB_InitialSelection;
     sal_Int32      nStyleLB_InitialSelection;
 
-    SvtTabAppearanceCfg*    pAppearanceCfg;
-    CanvasSettings*         pCanvasSettings;
-    SvtOptionsDrawinglayer* mpDrawinglayerOpt;
+    std::unique_ptr<SvtTabAppearanceCfg>    pAppearanceCfg;
+    std::unique_ptr<CanvasSettings>         pCanvasSettings;
+    std::unique_ptr<SvtOptionsDrawinglayer> mpDrawinglayerOpt;
     std::unique_ptr<svt::OpenGLCfg> mpOpenGLConfig;
 
     std::vector<vcl::IconThemeInfo> mInstalledIconThemes;
@@ -121,6 +122,7 @@ private:
 #if defined( UNX )
     DECL_LINK( OnAntialiasingToggled, CheckBox&, void );
 #endif
+    DECL_LINK(OnForceOpenGLToggled, CheckBox&, void);
     void UpdateOGLStatus();
 
 public:
@@ -128,7 +130,7 @@ public:
     virtual ~OfaViewTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -158,7 +160,7 @@ class OfaLanguagesTabPage : public SfxTabPage
 
     bool        m_bOldAsian;
     bool        m_bOldCtl;
-    LanguageConfig_Impl*    pLangConfig;
+    std::unique_ptr<LanguageConfig_Impl> pLangConfig;
 
     OUString        m_sUserLocaleValue;
     OUString        m_sSystemDefaultString;
@@ -174,7 +176,7 @@ public:
     virtual ~OfaLanguagesTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

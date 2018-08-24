@@ -44,7 +44,6 @@ class FontSubsetInfo;
 class OpenGLContext;
 class OutputDevice;
 class FreetypeFont;
-class CommonSalLayout;
 struct SystemGraphicsData;
 
 #if ENABLE_CAIRO_CANVAS
@@ -124,7 +123,7 @@ public:
     virtual void                SetTextColor( Color nColor ) = 0;
 
     // set the font
-    virtual void                SetFont( const FontSelectPattern*, int nFallbackLevel ) = 0;
+    virtual void                SetFont(LogicalFontInstance*, int nFallbackLevel) = 0;
 
     // release the fonts
     void                        ReleaseFonts() { SetFont( nullptr, 0 ); }
@@ -194,7 +193,7 @@ public:
 
     virtual std::unique_ptr<SalLayout>
                                 GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) = 0;
-    virtual void                DrawTextLayout( const CommonSalLayout& ) = 0;
+    virtual void                DrawTextLayout( const GenericSalLayout& ) = 0;
 
     virtual bool                supportsOperation( OutDevSupportType ) const = 0;
 
@@ -307,7 +306,7 @@ public:
                                     Color nMaskColor,
                                     const OutputDevice *pOutDev );
 
-    SalBitmap*                  GetBitmap(
+    std::shared_ptr<SalBitmap>  GetBitmap(
                                     long nX, long nY,
                                     long nWidth, long nHeight,
                                     const OutputDevice *pOutDev );
@@ -509,7 +508,7 @@ protected:
                                     const SalBitmap& rSalBitmap,
                                     Color nMaskColor ) = 0;
 
-    virtual SalBitmap*          getBitmap( long nX, long nY, long nWidth, long nHeight ) = 0;
+    virtual std::shared_ptr<SalBitmap> getBitmap( long nX, long nY, long nWidth, long nHeight ) = 0;
 
     virtual Color               getPixel( long nX, long nY ) = 0;
 

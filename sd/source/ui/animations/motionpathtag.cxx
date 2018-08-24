@@ -106,7 +106,7 @@ void PathDragMove::createSdrDragEntries()
 
     if(maPathPolyPolygon.count())
     {
-        addSdrDragEntry(new SdrDragEntryPolyPolygon(maPathPolyPolygon));
+        addSdrDragEntry(std::unique_ptr<SdrDragEntry>(new SdrDragEntryPolyPolygon(maPathPolyPolygon)));
     }
 }
 
@@ -167,7 +167,7 @@ void PathDragResize::createSdrDragEntries()
 
     if(maPathPolyPolygon.count())
     {
-        addSdrDragEntry(new SdrDragEntryPolyPolygon(maPathPolyPolygon));
+        addSdrDragEntry(std::unique_ptr<SdrDragEntry>(new SdrDragEntryPolyPolygon(maPathPolyPolygon)));
     }
 }
 
@@ -221,7 +221,7 @@ void PathDragObjOwn::createSdrDragEntries()
 
     if(maPathPolyPolygon.count())
     {
-        addSdrDragEntry(new SdrDragEntryPolyPolygon(maPathPolyPolygon));
+        addSdrDragEntry(std::unique_ptr<SdrDragEntry>(new SdrDragEntryPolyPolygon(maPathPolyPolygon)));
     }
 }
 
@@ -231,9 +231,11 @@ bool PathDragObjOwn::EndSdrDrag(bool /*bCopy*/)
 
     SdrObject* pObj = GetDragObj();
 
-    if(pObj)
+    if(pObj && pObj->applySpecialDrag(DragStat()))
     {
-        return pObj->applySpecialDrag(DragStat());
+        pObj->SetChanged();
+        pObj->BroadcastObjectChange();
+        return true;
     }
     else
     {
@@ -286,10 +288,10 @@ void SdPathHdl::CreateB2dIAObject()
                         {
                             const sdr::contact::ViewContact& rVC = mpPathObj->GetViewContact();
                             const drawinglayer::primitive2d::Primitive2DContainer aSequence = rVC.getViewIndependentPrimitive2DContainer();
-                            sdr::overlay::OverlayObject* pNew = new sdr::overlay::OverlayPrimitive2DSequenceObject(aSequence);
+                            std::unique_ptr<sdr::overlay::OverlayObject> pNew(new sdr::overlay::OverlayPrimitive2DSequenceObject(aSequence));
 
                             xManager->add(*pNew);
-                            maOverlayGroup.append(pNew);
+                            maOverlayGroup.append(std::move(pNew));
                         }
                     }
                 }
@@ -321,13 +323,6 @@ MotionPathTag::MotionPathTag( CustomAnimationPane& rPane, ::sd::View& rView, con
     if (mxOrigin.is())
         maOriginPos = mxOrigin->getPosition();
 
-    SdrPage* pPage = mrView.GetSdrPageView()->GetPage();
-    if( pPage )
-    {
-        mpPathObj->SetPage( pPage );
-        mpPathObj->setParentOfSdrObject( pPage );
-    }
-
     XDash aDash( css::drawing::DashStyle_RECT, 1, 80, 1, 80, 80);
     OUString aEmpty( "?" );
     mpPathObj->SetMergedItem( XLineDashItem( aEmpty, aDash ) );
@@ -348,7 +343,7 @@ MotionPathTag::MotionPathTag( CustomAnimationPane& rPane, ::sd::View& rView, con
 
     mpPathObj->SetMergedItem(XLineTransparenceItem(50));
 
-    mpMark = new SdrMark( mpPathObj, mrView.GetSdrPageView() );
+    mpMark.reset(new SdrMark( mpPathObj, mrView.GetSdrPageView() ));
 
     mpPathObj->AddListener( *this );
 
@@ -785,7 +780,7 @@ bool MotionPathTag::MarkPoint(SdrHdl& rHdl, bool bUnmark )
         SmartHdl* pSmartHdl = dynamic_cast< SmartHdl* >( &rHdl );
         if( pSmartHdl && pSmartHdl->getTag().get() == this )
         {
-            if (mrView.MarkPointHelper(&rHdl,mpMark,bUnmark))
+            if (mrView.MarkPointHelper(&rHdl,mpMark.get(),bUnmark))
             {
                 mrView.MarkListHasChanged();
                 bRet=true;
@@ -814,7 +809,7 @@ bool MotionPathTag::MarkPoints(const ::tools::Rectangle* pRect, bool bUnmark )
                 Point aPos(pHdl->GetPos());
                 if( pRect==nullptr || pRect->IsInside(aPos))
                 {
-                    if( mrView.MarkPointHelper(pHdl,mpMark,bUnmark) )
+                    if( mrView.MarkPointHelper(pHdl,mpMark.get(),bUnmark) )
                         bChgd=true;
                 }
             }
@@ -861,7 +856,7 @@ void MotionPathTag::CheckPossibilities()
                 bool bSegmFuz(false);
                 basegfx::B2VectorContinuity eSmooth = basegfx::B2VectorContinuity::NONE;
 
-                mrView.CheckPolyPossibilitiesHelper( mpMark, b1stSmooth, b1stSegm, bCurve, bSmoothFuz, bSegmFuz, eSmooth );
+                mrView.CheckPolyPossibilitiesHelper( mpMark.get(), b1stSmooth, b1stSegm, bCurve, bSmoothFuz, bSegmFuz, eSmooth );
             }
         }
     }
@@ -986,17 +981,15 @@ void MotionPathTag::disposing()
 
     if( mpPathObj )
     {
-        SdrPathObj* pPathObj = mpPathObj;
+        SdrObject* pTemp(mpPathObj);
         mpPathObj = nullptr;
         mrView.updateHandles();
-        delete pPathObj;
+
+        // always use SdrObject::Free(...) for SdrObjects (!)
+        SdrObject::Free(pTemp);
     }
 
-    if( mpMark )
-    {
-        delete mpMark;
-        mpMark = nullptr;
-    }
+    mpMark.reset();
 
     SmartTag::disposing();
 }

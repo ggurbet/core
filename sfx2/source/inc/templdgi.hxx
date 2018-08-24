@@ -23,6 +23,7 @@ class SfxTemplateControllerItem;
 
 #include <sal/config.h>
 
+#include <array>
 #include <memory>
 
 #include <vcl/button.hxx>
@@ -84,7 +85,6 @@ public:
     virtual bool EventNotify( NotifyEvent& rNEvt ) override;
 };
 
-typedef std::vector<OUString> ExpandedEntries_t;
 
 /** TreeListBox class for displaying the hierarchical view of the templates
 */
@@ -129,7 +129,7 @@ public:
     {
         return aStyle;
     }
-    void MakeExpanded_Impl(ExpandedEntries_t& rEntries) const;
+    void MakeExpanded_Impl(std::vector<OUString>& rEntries) const;
 
     virtual VclPtr<PopupMenu> CreateContextMenu() override;
 };
@@ -170,7 +170,7 @@ protected:
     friend class SfxTemplateControllerItem;
 
     SfxBindings* pBindings;
-    SfxTemplateControllerItem* pBoundItems[COUNT_BOUND_FUNC];
+    std::array<std::unique_ptr<SfxTemplateControllerItem>, COUNT_BOUND_FUNC> pBoundItems;
 
     VclPtr<vcl::Window> pWindow;
     std::unique_ptr<VclBuilder> mxBuilder;
@@ -179,15 +179,15 @@ protected:
     SfxModule* pModule;
     std::unique_ptr<Idle> pIdle;
 
-    SfxStyleFamilies* pStyleFamilies;
-    SfxTemplateItem* pFamilyState[MAX_FAMILIES];
+    std::unique_ptr<SfxStyleFamilies> pStyleFamilies;
+    std::array<std::unique_ptr<SfxTemplateItem>, MAX_FAMILIES> pFamilyState;
     SfxStyleSheetBasePool* pStyleSheetPool;
-    VclPtr<StyleTreeListBox_Impl> pTreeBox;
     SfxObjectShell* pCurObjShell;
     css::uno::Reference<css::frame::XModuleManager2> xModuleManager;
     DeletionWatcher* m_pDeletionWatcher;
 
     VclPtr<SfxActionListBox> aFmtLb;
+    VclPtr<StyleTreeListBox_Impl> pTreeBox;
     VclPtr<CheckBox> aPreviewCheckbox;
     VclPtr<ListBox> aFilterLb;
 

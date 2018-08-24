@@ -19,11 +19,11 @@
 namespace {
 
 class ConstantFunction:
-    public RecursiveASTVisitor<ConstantFunction>, public loplugin::Plugin
+    public loplugin::FilteringPlugin<ConstantFunction>
 {
     StringRef getFilename(const FunctionDecl* functionDecl);
 public:
-    explicit ConstantFunction(InstantiationData const & data): Plugin(data) {}
+    explicit ConstantFunction(InstantiationData const & data): FilteringRewritePlugin(data) {}
 
     void run() override
     {
@@ -107,10 +107,6 @@ bool ConstantFunction::VisitFunctionDecl(const FunctionDecl * pFunctionDecl) {
     }
     // lots of callbacks here
     if (aFileName == SRCDIR "/extensions/source/plugin/unx/npnapi.cxx") {
-        return true;
-    }
-    // template magic
-    if (aFileName == SRCDIR "/filter/source/svg/svgreader.cxx") {
         return true;
     }
     // vcl/unx/gtk3 re-using vcl/unx/gtk:

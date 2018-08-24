@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <connectivity/TTableHelper.hxx>
 #include <com/sun/star/sdbc/XRow.hpp>
@@ -29,7 +30,6 @@
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sdbc/ColumnValue.hpp>
-#include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/sdbcx/VCollection.hxx>
@@ -448,12 +448,11 @@ void OTableHelper::refreshIndexes()
         if(xResult.is())
         {
             Reference< XRow > xRow(xResult,UNO_QUERY);
-            OUString aName;
             OUString sCatalogSep = getMetaData()->getCatalogSeparator();
             OUString sPreviousRoundName;
             while( xResult->next() )
             {
-                aName = xRow->getString(5);
+                OUString aName = xRow->getString(5);
                 if(!aName.isEmpty())
                     aName += sCatalogSep;
                 aName += xRow->getString(6);

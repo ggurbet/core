@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <config_features.h>
+#include <sal/log.hxx>
 #if HAVE_FEATURE_OPENGL
 #include <openglgdiimpl.hxx>
 #include <opengl/zone.hxx>
@@ -606,7 +607,7 @@ void SalGraphics::DrawMask( const SalTwoRect& rPosAry,
         drawMask( rPosAry, rSalBitmap, nMaskColor );
 }
 
-SalBitmap* SalGraphics::GetBitmap( long nX, long nY, long nWidth, long nHeight, const OutputDevice *pOutDev )
+std::shared_ptr<SalBitmap> SalGraphics::GetBitmap( long nX, long nY, long nWidth, long nHeight, const OutputDevice *pOutDev )
 {
     if( (m_nLayout & SalLayoutFlags::BiDiRtl) || (pOutDev && pOutDev->IsRTLEnabled()) )
         mirror( nX, nWidth, pOutDev );

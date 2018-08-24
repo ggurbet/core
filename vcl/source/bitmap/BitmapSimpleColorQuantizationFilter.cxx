@@ -32,8 +32,15 @@ BitmapEx BitmapSimpleColorQuantizationFilter::execute(BitmapEx const& aBitmapEx)
     {
         Bitmap aNewBmp;
         Bitmap::ScopedReadAccess pRAcc(aBitmap);
-        const sal_uInt16 nColorCount = std::min(nColorCount, sal_uInt16(256));
+        const sal_uInt16 nColorCount = std::min(mnNewColorCount, sal_uInt16(256));
         sal_uInt16 nBitCount = 0;
+
+        if (nColorCount <= 2)
+            nBitCount = 1;
+        else if (nColorCount <= 16)
+            nBitCount = 4;
+        else
+            nBitCount = 8;
 
         if (pRAcc)
         {

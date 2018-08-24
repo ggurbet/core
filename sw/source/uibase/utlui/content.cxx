@@ -20,6 +20,7 @@
 #include <comphelper/string.hxx>
 #include <svl/urlbmk.hxx>
 #include <osl/thread.h>
+#include <sal/log.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/dispatch.hxx>
@@ -243,6 +244,29 @@ static const char* STR_CONTENT_TYPE_SINGLE_ARY[] =
     STR_CONTENT_TYPE_SINGLE_DRAWOBJECT
 };
 
+namespace
+{
+    bool checkVisibilityChanged(
+        const SwContentArr& rSwContentArrA,
+        const SwContentArr& rSwContentArrB)
+    {
+        if(rSwContentArrA.size() != rSwContentArrB.size())
+        {
+            return true;
+        }
+
+        for(size_t a(0); a < rSwContentArrA.size(); a++)
+        {
+            if(rSwContentArrA[a]->IsInvisible() != rSwContentArrB[a]->IsInvisible())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+} // end of anonymous namespace
+
 SwContentType::SwContentType(SwWrtShell* pShell, ContentTypeId nType, sal_uInt8 nLevel) :
     SwTypeNumber(CTYPE_CTT),
     pWrtShell(pShell),
@@ -323,14 +347,11 @@ void SwContentType::Init(bool* pbInvalidateWindow)
         case ContentTypeId::REGION :
         {
             SwContentArr*   pOldMember = nullptr;
-            size_t nOldRegionCount = 0;
-            bool bInvalidate = false;
             if(!pMember)
                 pMember.reset( new SwContentArr );
             else if(!pMember->empty())
             {
                 pOldMember = pMember.release();
-                nOldRegionCount = pOldMember->size();
                 pMember.reset( new SwContentArr );
             }
             const Point aNullPt;
@@ -362,12 +383,6 @@ void SwContentType::Init(bool* pbInvalidateWindow)
                         !aAskItem.pObject )     // not visible
                         pCnt->SetInvisible();
                     pMember->insert(pCnt);
-
-                    const size_t nPos = pMember->size() - 1;
-                    if(nOldRegionCount > nPos &&
-                        ((*pOldMember)[nPos])->IsInvisible()
-                                != pCnt->IsInvisible())
-                            bInvalidate = true;
                 }
             }
             nMemberCount = pMember->size();
@@ -376,10 +391,19 @@ void SwContentType::Init(bool* pbInvalidateWindow)
             bDelete = false;
             if(pOldMember)
             {
+                if(nullptr != pbInvalidateWindow)
+                {
+                    // need to check visibility (and equal entry number) after
+                    // creation due to a sorted list being used here (before,
+                    // entries with same index were compared already at creation
+                    // time what worked before a sorted list was used)
+                    *pbInvalidateWindow = checkVisibilityChanged(
+                        *pOldMember,
+                        *pMember);
+                }
+
                 pOldMember->DeleteAndDestroyAll();
                 delete pOldMember;
-                if(pbInvalidateWindow && bInvalidate)
-                    *pbInvalidateWindow = true;
             }
         }
         break;
@@ -661,12 +685,18 @@ void SwContentType::FillMemberList(bool* pbLevelOrVisibilityChanged)
                         !aAskItem.pObject )     // not visible
                         pCnt->SetInvisible();
                     pMember->insert(pCnt);
+                }
 
-                    const size_t nPos = pMember->size() - 1;
-                    if(nOldMemberCount > nPos &&
-                        (*pOldMember)[nPos]->IsInvisible()
-                                != pCnt->IsInvisible())
-                            *pbLevelOrVisibilityChanged = true;
+                if(nullptr != pbLevelOrVisibilityChanged)
+                {
+                    assert(pOldMember);
+                    // need to check visibility (and equal entry number) after
+                    // creation due to a sorted list being used here (before,
+                    // entries with same index were compared already at creation
+                    // time what worked before a sorted list was used)
+                    *pbLevelOrVisibilityChanged = checkVisibilityChanged(
+                        *pOldMember,
+                        *pMember);
                 }
             }
             nMemberCount = pMember->size();
@@ -858,7 +888,6 @@ SwContentTree::SwContentTree(vcl::Window* pParent, SwNavigationPI* pDialog)
     , m_bViewHasChanged(false)
     , m_bIsKeySpace(false)
 {
-    SetSublistDontOpenWithDoubleClick();
     SetHelpId(HID_NAVIGATOR_TREELIST);
 
     SetNodeDefaultImages();
@@ -903,7 +932,7 @@ Size SwContentTree::GetOptimalSize() const
 
 OUString SwContentTree::GetEntryAltText( SvTreeListEntry* pEntry ) const
 {
-    if( pEntry == nullptr)
+    if (pEntry == nullptr || !lcl_IsContent(pEntry))
         return OUString();
 
     assert(pEntry->GetUserData() == nullptr || dynamic_cast<SwContent*>(static_cast<SwTypeNumber*>(pEntry->GetUserData())));
@@ -1138,7 +1167,7 @@ sal_Int8 SwContentTree::ExecuteDrop( const ExecuteDropEvent& rEvt )
                     while( pChildEntry )
                     {
                         pEntry = pChildEntry;
-                        pChildEntry = NextSibling( pChildEntry );
+                        pChildEntry = pChildEntry->NextSibling();
                     }
                 }
                 pTargetEntry = pEntry;
@@ -1542,7 +1571,9 @@ IMPL_LINK_NOARG(SwContentTree, ContentDoubleClickHdl, SvTreeListBox*, bool)
     if(pEntry)
     {
         if(lcl_IsContentType(pEntry) && !pEntry->HasChildren())
+        {
             RequestingChildren(pEntry);
+        }
         else if (!lcl_IsContentType(pEntry) && (State::HIDDEN != m_eState))
         {
             if (State::CONSTANT == m_eState)
@@ -1556,7 +1587,9 @@ IMPL_LINK_NOARG(SwContentTree, ContentDoubleClickHdl, SvTreeListBox*, bool)
             GotoContent(pCnt);
             if(pCnt->GetParent()->GetType() == ContentTypeId::FRAME)
                 m_pActiveShell->EnterStdMode();
+            return false;   // treelist processing finished
         }
+        return true;        // signal more to be done, i.e. expand/collapse children
     }
     return false;
 }
@@ -1973,6 +2006,9 @@ void SwContentTree::ToggleToRoot()
             if (m_nRootType == ContentTypeId::OUTLINE)
             {
                 SetSelectionMode(SelectionMode::Multiple);
+                SetDragDropMode(DragDropMode::CTRL_MOVE |
+                    DragDropMode::CTRL_COPY |
+                    DragDropMode::ENABLE_TOP);
             }
         }
     }
@@ -2321,8 +2357,25 @@ void SwContentTree::Notify(SfxBroadcaster & rBC, SfxHint const& rHint)
     {
         SfxListener::Notify(rBC, rHint);
     }
-    if (SfxHintId::DocChanged == rHint.GetId())
-        m_bViewHasChanged = true;
+    switch (rHint.GetId())
+    {
+        case SfxHintId::DocChanged:
+            m_bViewHasChanged = true;
+            break;
+        case SfxHintId::ModeChanged:
+            if (SwWrtShell* pShell = GetWrtShell())
+            {
+                const bool bReadOnly = pShell->GetView().GetDocShell()->IsReadOnly();
+                if (bReadOnly != m_bIsLastReadOnly)
+                {
+                    m_bIsLastReadOnly = bReadOnly;
+                    Select(GetCurEntry());
+                }
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 
@@ -2705,7 +2758,15 @@ void SwContentTree::MouseButtonDown( const MouseEvent& rMEvt )
     if( !pEntry && rMEvt.IsLeft() && rMEvt.IsMod1() && (rMEvt.GetClicks() % 2) == 0)
         Control::MouseButtonDown( rMEvt );
     else
+    {
+        if( pEntry && (rMEvt.GetClicks() % 2) == 0)
+        {
+            SwContent* pCnt = static_cast<SwContent*>(pEntry->GetUserData());
+            const ContentTypeId nActType = pCnt->GetParent()->GetType();
+            SetSublistDontOpenWithDoubleClick( nActType == ContentTypeId::OUTLINE );
+        }
         SvTreeListBox::MouseButtonDown( rMEvt );
+    }
 }
 
 // Update immediately
@@ -3370,10 +3431,7 @@ void SwContentTree::EditEntry(SvTreeListEntry const * pEntry, EditEntryMode nMod
         aObj >>= xTmp;
         uno::Reference< container::XNamed >  xNamed(xTmp, uno::UNO_QUERY);
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
         ScopedVclPtr<AbstractSwRenameXNamedDlg> pDlg(pFact->CreateSwRenameXNamedDlg(GetFrameWeld(), xNamed, xNameAccess));
-        OSL_ENSURE(pDlg, "Dialog creation failed!");
         if(xSecond.is())
             pDlg->SetAlternativeAccess( xSecond, xThird);
 
@@ -3473,13 +3531,12 @@ void SwContentTree::GotoContent(SwContent* pCnt)
                         if( pPV )
                         {
                             pDrawView->MarkObj( pTemp, pPV );
-                            m_pActiveShell->EnterStdMode();
-                            bSel = true;
-                            break;
                         }
                     }
                 }
                 m_pActiveShell->GetNavigationMgr().addEntry(aPos);
+                m_pActiveShell->EnterStdMode();
+                bSel = true;
             }
         }
         break;

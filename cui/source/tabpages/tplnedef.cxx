@@ -62,8 +62,6 @@ SvxLineDefTabPage::SvxLineDefTabPage
               , &rInAttrs ),
     rOutAttrs       ( rInAttrs ),
 
-    aXDash              ( OUString(), XDash( css::drawing::DashStyle_RECT, 3, 7, 2, 40, 15 ) ),
-    aXColor             ( OUString(), COL_BLACK ),
     aXLineAttr          ( rInAttrs.GetPool() ),
     rXLSet              ( aXLineAttr.GetItemSet() ),
     pnDashListState(nullptr),
@@ -116,8 +114,8 @@ SvxLineDefTabPage::SvxLineDefTabPage
 
     rXLSet.Put( XLineStyleItem(drawing::LineStyle_DASH) );
     rXLSet.Put( XLineWidthItem(XOUT_WIDTH) );
-    rXLSet.Put( aXDash );
-    rXLSet.Put( aXColor );
+    rXLSet.Put( XLineDashItem( OUString(), XDash( css::drawing::DashStyle_RECT, 3, 7, 2, 40, 15 ) ) );
+    rXLSet.Put( XLineColorItem(OUString(), COL_BLACK) );
 
     // #i34740#
     m_pCtlPreview->SetLineAttributes(aXLineAttr.GetItemSet());
@@ -337,9 +335,9 @@ void SvxLineDefTabPage::Reset( const SfxItemSet* rAttrs )
 }
 
 
-VclPtr<SfxTabPage> SvxLineDefTabPage::Create( vcl::Window* pWindow, const SfxItemSet* rOutAttrs )
+VclPtr<SfxTabPage> SvxLineDefTabPage::Create( TabPageParent pWindow, const SfxItemSet* rOutAttrs )
 {
-    return VclPtr<SvxLineDefTabPage>::Create( pWindow, *rOutAttrs );
+    return VclPtr<SvxLineDefTabPage>::Create( pWindow.pParent, *rOutAttrs );
 }
 
 
@@ -546,9 +544,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickAddHdl_Impl, Button*, void)
     }
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    DBG_ASSERT(pFact, "Dialog creation failed!");
     ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-    DBG_ASSERT(pDlg, "Dialog creation failed!");
     bool bLoop = true;
 
     while ( bLoop && pDlg->Execute() == RET_OK )
@@ -616,9 +612,7 @@ IMPL_LINK_NOARG(SvxLineDefTabPage, ClickModifyHdl_Impl, Button*, void)
         OUString aOldName = aName;
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        DBG_ASSERT(pFact, "Dialog creation failed!");
         ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-        DBG_ASSERT(pDlg, "Dialog creation failed!");
 
         long nCount = pDashList->Count();
         bool bLoop = true;

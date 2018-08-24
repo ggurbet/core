@@ -319,7 +319,6 @@ struct TransferDataContainer_Impl
     TDataCntnrEntryList aFmtList;
     Link<sal_Int8,void> aFinshedLnk;
     std::unique_ptr<INetBookmark> pBookmk;
-    std::unique_ptr<Graphic> pGrf;
 
     TransferDataContainer_Impl()
     {
@@ -373,13 +372,6 @@ bool TransferDataContainer::GetData(
                 bFnd = SetINetBookmark( *pImpl->pBookmk, rFlavor );
             break;
 
-        case SotClipboardFormatId::SVXB:
-        case SotClipboardFormatId::PNG:
-        case SotClipboardFormatId::BITMAP:
-        case SotClipboardFormatId::GDIMETAFILE:
-            if( pImpl->pGrf )
-                bFnd = SetGraphic( *pImpl->pGrf );
-            break;
         default: break;
         }
 
@@ -424,51 +416,6 @@ void TransferDataContainer::CopyByteString( SotClipboardFormatId nFormatId,
                                             const OString& rStr )
 {
     CopyAnyData( nFormatId, rStr.getStr(), rStr.getLength() );
-}
-
-
-void TransferDataContainer::CopyINetImage( const INetImage& rINtImg )
-{
-    SvMemoryStream aMemStm( 1024, 1024 );
-    aMemStm.SetVersion( SOFFICE_FILEFORMAT_50 );
-    rINtImg.Write( aMemStm, SotClipboardFormatId::INET_IMAGE );
-    CopyAnyData( SotClipboardFormatId::INET_IMAGE, static_cast<sal_Char const *>(aMemStm.GetData()),
-                    aMemStm.Seek( STREAM_SEEK_TO_END ) );
-}
-
-
-void TransferDataContainer::CopyImageMap( const ImageMap& rImgMap )
-{
-    SvMemoryStream aMemStm( 8192, 8192 );
-    aMemStm.SetVersion( SOFFICE_FILEFORMAT_50 );
-    rImgMap.Write( aMemStm );
-    CopyAnyData( SotClipboardFormatId::SVIM, static_cast<sal_Char const *>(aMemStm.GetData()),
-                    aMemStm.Seek( STREAM_SEEK_TO_END ) );
-}
-
-
-void TransferDataContainer::CopyGraphic( const Graphic& rGrf )
-{
-    GraphicType nType = rGrf.GetType();
-    if( GraphicType::NONE == nType )
-        return;
-
-    if( !pImpl->pGrf )
-        pImpl->pGrf.reset( new Graphic( rGrf ) );
-    else
-        *pImpl->pGrf = rGrf;
-
-    AddFormat( SotClipboardFormatId::SVXB );
-
-    if( GraphicType::Bitmap == nType )
-    {
-        AddFormat( SotClipboardFormatId::PNG );
-        AddFormat( SotClipboardFormatId::BITMAP );
-    }
-    else if( GraphicType::GdiMetafile == nType )
-    {
-        AddFormat( SotClipboardFormatId::GDIMETAFILE );
-    }
 }
 
 

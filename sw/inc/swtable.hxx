@@ -19,7 +19,6 @@
 #ifndef INCLUDED_SW_INC_SWTABLE_HXX
 #define INCLUDED_SW_INC_SWTABLE_HXX
 
-#include <tools/mempool.hxx>
 #include <tools/ref.hxx>
 #include "tblenum.hxx"
 #include "swtypes.hxx"
@@ -35,10 +34,6 @@
 class SwStartNode;
 class SwFormat;
 class Color;
-class SwFrameFormat;
-class SwTableFormat;
-class SwTableLineFormat;
-class SwTableBoxFormat;
 class SwHTMLTableLayout;
 class SwTableLine;
 class SwTableBox;
@@ -221,7 +216,7 @@ public:
     // SwSavRowSpan is the structure needed by Undo to undo the split operation
     // CleanUpRowSpan corrects the (top of the) second table and delivers the structure
     // for Undo
-    SwSaveRowSpan* CleanUpTopRowSpan( sal_uInt16 nSplitLine );
+    std::unique_ptr<SwSaveRowSpan> CleanUpTopRowSpan( sal_uInt16 nSplitLine );
     // RestoreRowSpan is called by Undo to restore the old row span values
     void RestoreRowSpan( const SwSaveRowSpan& );
     // CleanUpBottomRowSpan corrects the overhanging row spans at the end of the first table
@@ -474,8 +469,6 @@ public:
 
     // Loading of a document requires an actualization of cells with values
     void ActualiseValueBox();
-
-    DECL_FIXEDMEMPOOL_NEWDEL(SwTableBox)
 
     // Access on internal data - currently used for the NumFormatter.
     inline const Color* GetSaveUserColor()  const;

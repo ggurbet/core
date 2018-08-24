@@ -43,6 +43,7 @@
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/UseBackupException.hpp>
 #include <com/sun/star/embed/XOptimizedStorage.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/ucb/InteractiveIOException.hpp>
 #include <com/sun/star/ucb/UnsupportedDataSinkException.hpp>
 #include <com/sun/star/ucb/CommandFailedException.hpp>
@@ -70,6 +71,7 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/security/DocumentSignatureInformation.hpp>
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
+#include <com/sun/star/security/XCertificate.hpp>
 #include <o3tl/make_unique.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/fileutil.hxx>
@@ -91,6 +93,7 @@
 #include <svl/intitem.hxx>
 #include <svtools/svparser.hxx>
 #include <cppuhelper/weakref.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/streamwrap.hxx>
 
@@ -132,10 +135,12 @@
 #include <memory>
 
 using namespace ::com::sun::star;
+using namespace ::com::sun::star::graphic;
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::ucb;
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::io;
+using namespace ::com::sun::star::security;
 
 namespace {
 
@@ -256,8 +261,8 @@ public:
     std::shared_ptr<const SfxFilter> m_pFilter;
     std::shared_ptr<const SfxFilter> m_pCustomFilter;
 
-    SvStream* m_pInStream;
-    SvStream* m_pOutStream;
+    std::unique_ptr<SvStream> m_pInStream;
+    std::unique_ptr<SvStream> m_pOutStream;
 
     std::shared_ptr<const SfxFilter> pOrigFilter;
     OUString    aOrigURL;
@@ -287,6 +292,8 @@ public:
     // TODO/LATER: in future the signature state should be controlled by the medium not by the document
     //             in this case the member will hold this information
     SignatureState             m_nSignatureState;
+
+    bool m_bHasEmbeddedObjects = false;
 
     util::DateTime m_aDateTime;
 
@@ -329,7 +336,7 @@ SfxMedium_Impl::SfxMedium_Impl() :
     m_pInStream(nullptr),
     m_pOutStream(nullptr),
     pOrigFilter( nullptr ),
-    aExpireTime( Date( Date::SYSTEM ) + 10, tools::Time( tools::Time::SYSTEM ) ),
+    aExpireTime( DateTime( DateTime::SYSTEM ) + static_cast<sal_Int32>(10) ),
     pTempFile( nullptr ),
     nLastStorageError( ERRCODE_NONE ),
     m_nSignatureState( SignatureState::NOSIGNATURES )
@@ -527,20 +534,14 @@ bool SfxMedium::IsSkipImages()
     return pSkipImagesItem && pSkipImagesItem->GetValue() == "SkipImages";
 }
 
-OUString SfxMedium::GetConvertImagesFilter()
-{
-    const SfxStringItem* pConvertItem = GetItemSet()->GetItem<SfxStringItem>(SID_CONVERT_IMAGES);
-    return ( pConvertItem ? pConvertItem->GetValue() : OUString() );
-}
-
 SvStream* SfxMedium::GetInStream()
 {
     if ( pImpl->m_pInStream )
-        return pImpl->m_pInStream;
+        return pImpl->m_pInStream.get();
 
     if ( pImpl->pTempFile )
     {
-        pImpl->m_pInStream = new SvFileStream(pImpl->m_aName, pImpl->m_nStorOpenMode);
+        pImpl->m_pInStream.reset( new SvFileStream(pImpl->m_aName, pImpl->m_nStorOpenMode) );
 
         pImpl->m_eError = pImpl->m_pInStream->GetError();
 
@@ -548,11 +549,10 @@ SvStream* SfxMedium::GetInStream()
                     && ! pImpl->m_pInStream->IsWritable() )
         {
             pImpl->m_eError = ERRCODE_IO_ACCESSDENIED;
-            delete pImpl->m_pInStream;
-            pImpl->m_pInStream = nullptr;
+            pImpl->m_pInStream.reset();
         }
         else
-            return pImpl->m_pInStream;
+            return pImpl->m_pInStream.get();
     }
 
     GetMedium_Impl();
@@ -560,7 +560,7 @@ SvStream* SfxMedium::GetInStream()
     if ( GetError() )
         return nullptr;
 
-    return pImpl->m_pInStream;
+    return pImpl->m_pInStream.get();
 }
 
 
@@ -586,7 +586,7 @@ void SfxMedium::CloseInStream_Impl()
         return;
     }
 
-    DELETEZ( pImpl->m_pInStream );
+    pImpl->m_pInStream.reset();
     if ( pImpl->m_pSet )
         pImpl->m_pSet->ClearItem( SID_INPUTSTREAM );
 
@@ -628,21 +628,20 @@ SvStream* SfxMedium::GetOutStream()
             {
             // On Unix don't try to re-use XOutStream from xStream if that exists;
             // it causes fdo#59022 (fails opening files via SMB on Linux)
-                pImpl->m_pOutStream = new SvFileStream(
-                            pImpl->m_aName, StreamMode::STD_READWRITE);
+                pImpl->m_pOutStream.reset( new SvFileStream(
+                            pImpl->m_aName, StreamMode::STD_READWRITE) );
             }
             CloseStorage();
         }
     }
 
-    return pImpl->m_pOutStream;
+    return pImpl->m_pOutStream.get();
 }
 
 
-bool SfxMedium::CloseOutStream()
+void SfxMedium::CloseOutStream()
 {
     CloseOutStream_Impl();
-    return true;
 }
 
 void SfxMedium::CloseOutStream_Impl()
@@ -659,8 +658,7 @@ void SfxMedium::CloseOutStream_Impl()
                 CloseStorage();
         }
 
-        delete pImpl->m_pOutStream;
-        pImpl->m_pOutStream = nullptr;
+        pImpl->m_pOutStream.reset();
     }
 
     if ( !pImpl->m_pInStream )
@@ -752,7 +750,7 @@ bool SfxMedium::IsStorage()
     }
     else if ( GetInStream() )
     {
-        pImpl->bIsStorage = SotStorage::IsStorageFile( pImpl->m_pInStream ) && !SotStorage::IsOLEStorage( pImpl->m_pInStream );
+        pImpl->bIsStorage = SotStorage::IsStorageFile( pImpl->m_pInStream.get() ) && !SotStorage::IsOLEStorage( pImpl->m_pInStream.get() );
         if ( !pImpl->m_pInStream->GetError() && !pImpl->bIsStorage )
             pImpl->m_bTriedStorage = true;
     }
@@ -2207,19 +2205,16 @@ void SfxMedium::Transfer_Impl()
                             sComment = pComments->GetValue( );
                     }
                     OUString sResultURL;
-                    bool isTransferOK = aTransferContent.transferContent(
+                    aTransferContent.transferContent(
                         aSourceContent, eOperation,
                         aFileName, nNameClash, aMimeType, bMajor, sComment,
                         &sResultURL, sObjectId );
 
-                    if ( !isTransferOK )
-                        pImpl->m_eError = ERRCODE_IO_GENERAL;
-                    else if ( !sResultURL.isEmpty( ) )  // Likely to happen only for checkin
+                    if ( !sResultURL.isEmpty( ) )  // Likely to happen only for checkin
                         SwitchDocumentToFile( sResultURL );
                     try
                     {
                         if ( GetURLObject().isAnyKnownWebDAVScheme() &&
-                             isTransferOK &&
                              eOperation == ::ucbhelper::InsertOperation::Copy )
                         {
                             // tdf#95272 try to re-issue a lock command when a new file is created.
@@ -2302,15 +2297,13 @@ void SfxMedium::DoInternalBackup_Impl( const ::ucbhelper::Content& aOriginalCont
         try
         {
             OUString sMimeType = pImpl->getFilterMimeType();
-            if( aBackupCont.transferContent( aOriginalContent,
+            aBackupCont.transferContent( aOriginalContent,
                                             ::ucbhelper::InsertOperation::Copy,
                                             aBackupName,
                                             NameClash::OVERWRITE,
-                                            sMimeType ) )
-            {
-                pImpl->m_aBackupURL = aBackObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
-                pImpl->m_bRemoveBackup = true;
-            }
+                                            sMimeType );
+            pImpl->m_aBackupURL = aBackObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
+            pImpl->m_bRemoveBackup = true;
         }
         catch( const Exception& )
         {}
@@ -2391,16 +2384,14 @@ void SfxMedium::DoBackup_Impl()
                 {
                     // do the transfer ( copy source file to backup dir )
                     OUString sMimeType = pImpl->getFilterMimeType();
-                    bSuccess = aContent.transferContent( aSourceContent,
+                    aContent.transferContent( aSourceContent,
                                                         ::ucbhelper::InsertOperation::Copy,
                                                         aFileName,
                                                         NameClash::OVERWRITE,
                                                         sMimeType );
-                    if( bSuccess )
-                    {
-                        pImpl->m_aBackupURL = aDest.GetMainURL( INetURLObject::DecodeMechanism::NONE );
-                        pImpl->m_bRemoveBackup = false;
-                    }
+                    pImpl->m_aBackupURL = aDest.GetMainURL( INetURLObject::DecodeMechanism::NONE );
+                    pImpl->m_bRemoveBackup = false;
+                    bSuccess = true;
                 }
                 catch ( const css::uno::Exception& )
                 {
@@ -2599,7 +2590,7 @@ void SfxMedium::GetMedium_Impl()
         if ( !GetError() && !pImpl->xStream.is() && !pImpl->xInputStream.is() )
             SetError(ERRCODE_IO_ACCESSDENIED);
 
-        if ( !GetError() )
+        if ( !GetError() && !pImpl->m_pInStream )
         {
             if ( pImpl->xStream.is() )
                 pImpl->m_pInStream = utl::UcbStreamHelper::CreateStream( pImpl->xStream );
@@ -3090,20 +3081,20 @@ void SfxMedium::CompleteReOpen()
     pImpl->bUseInteractionHandler = bUseInteractionHandler;
 }
 
-SfxMedium::SfxMedium(const OUString &rName, StreamMode nOpenMode, std::shared_ptr<const SfxFilter> pFilter, SfxItemSet *pInSet) :
+SfxMedium::SfxMedium(const OUString &rName, StreamMode nOpenMode, std::shared_ptr<const SfxFilter> pFilter, std::unique_ptr<SfxItemSet> pInSet) :
     pImpl(new SfxMedium_Impl)
 {
-    pImpl->m_pSet.reset( pInSet );
+    pImpl->m_pSet = std::move( pInSet );
     pImpl->m_pFilter = std::move(pFilter);
     pImpl->m_aLogicName = rName;
     pImpl->m_nStorOpenMode = nOpenMode;
     Init_Impl();
 }
 
-SfxMedium::SfxMedium(const OUString &rName, const OUString &rReferer, StreamMode nOpenMode, std::shared_ptr<const SfxFilter> pFilter, SfxItemSet *pInSet) :
+SfxMedium::SfxMedium(const OUString &rName, const OUString &rReferer, StreamMode nOpenMode, std::shared_ptr<const SfxFilter> pFilter, std::unique_ptr<SfxItemSet> pInSet) :
     pImpl(new SfxMedium_Impl)
 {
-    pImpl->m_pSet.reset( pInSet );
+    pImpl->m_pSet = std::move(pInSet);
     SfxItemSet * s = GetItemSet();
     if (s->GetItem(SID_REFERER) == nullptr) {
         s->Put(SfxStringItem(SID_REFERER, rReferer));
@@ -3525,6 +3516,10 @@ OUString GetLogicBase(std::unique_ptr<SfxMedium_Impl> const & pImpl)
             aLogicBase.clear();
     }
 
+    if (pImpl->m_bHasEmbeddedObjects)
+        // Embedded objects would mean a special base, ignore that.
+        aLogicBase.clear();
+
     return aLogicBase;
 }
 }
@@ -3572,11 +3567,9 @@ void SfxMedium::CreateTempFile( bool bReplace )
                 {
                     ::ucbhelper::Content aTargetContent( aTmpURLObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ), xComEnv, comphelper::getProcessComponentContext() );
                     OUString sMimeType = pImpl->getFilterMimeType();
-                    if ( aTargetContent.transferContent( pImpl->aContent, ::ucbhelper::InsertOperation::Copy, aFileName, NameClash::OVERWRITE, sMimeType ) )
-                    {
-                        SetWritableForUserOnly( aTmpURL );
-                        bTransferSuccess = true;
-                    }
+                    aTargetContent.transferContent( pImpl->aContent, ::ucbhelper::InsertOperation::Copy, aFileName, NameClash::OVERWRITE, sMimeType );
+                    SetWritableForUserOnly( aTmpURL );
+                    bTransferSuccess = true;
                 }
             }
             catch( const uno::Exception& )
@@ -3653,165 +3646,168 @@ void SfxMedium::CreateTempFileNoCopy()
     CloseStorage();
 }
 
-bool SfxMedium::SignContents_Impl( bool bScriptingContent, const OUString& aODFVersion, bool bHasValidDocumentSignature )
+bool SfxMedium::SignContents_Impl(bool bSignScriptingContent,
+                                  bool bHasValidDocumentSignature,
+                                  const OUString& aSignatureLineId,
+                                  const Reference<XCertificate> xCert,
+                                  const Reference<XGraphic> xValidGraphic,
+                                  const Reference<XGraphic> xInvalidGraphic,
+                                  const OUString& aComment)
 {
     bool bChanges = false;
 
-    // the medium should be closed to be able to sign, the caller is responsible to close it
-    if ( !IsOpen() && !GetError() )
+    if (IsOpen() || GetError())
     {
-        // The component should know if there was a valid document signature, since
-        // it should show a warning in this case
-        uno::Reference< security::XDocumentDigitalSignatures > xSigner(
-            security::DocumentDigitalSignatures::createWithVersionAndValidSignature(
-                comphelper::getProcessComponentContext(), aODFVersion, bHasValidDocumentSignature ) );
+        SAL_WARN("sfx.doc", "The medium must be closed by the signer!");
+        return bChanges;
+    }
 
-        uno::Reference< embed::XStorage > xWriteableZipStor;
-        // Signing is not modification of the document, as seen by the user
-        // ("only a saved document can be signed"). So allow signing in the
-        // "opened read-only, but not physically-read-only" case.
-        if (!IsOriginallyReadOnly())
+    // The component should know if there was a valid document signature, since
+    // it should show a warning in this case
+    OUString aODFVersion(comphelper::OStorageHelper::GetODFVersionFromStorage(GetStorage()));
+    uno::Reference< security::XDocumentDigitalSignatures > xSigner(
+        security::DocumentDigitalSignatures::createWithVersionAndValidSignature(
+            comphelper::getProcessComponentContext(), aODFVersion, bHasValidDocumentSignature ) );
+
+    uno::Reference< embed::XStorage > xWriteableZipStor;
+
+    // we can reuse the temporary file if there is one already
+    CreateTempFile( false );
+    GetMedium_Impl();
+
+    try
+    {
+        if ( !pImpl->xStream.is() )
+            throw uno::RuntimeException();
+
+        bool bODF = GetFilter()->IsOwnFormat();
+        try
         {
-            // we can reuse the temporary file if there is one already
-            CreateTempFile( false );
-            GetMedium_Impl();
+            xWriteableZipStor = ::comphelper::OStorageHelper::GetStorageOfFormatFromStream( ZIP_STORAGE_FORMAT_STRING, pImpl->xStream );
+        }
+        catch (const io::IOException& rException)
+        {
+            if (bODF)
+                SAL_WARN("sfx.doc", "ODF stream is not a zip storage: " << rException);
+        }
 
-            try
+        if ( !xWriteableZipStor.is() && bODF )
+            throw uno::RuntimeException();
+
+        uno::Reference< embed::XStorage > xMetaInf;
+        uno::Reference<container::XNameAccess> xNameAccess(xWriteableZipStor, uno::UNO_QUERY);
+        if (xNameAccess.is() && xNameAccess->hasByName("META-INF"))
+        {
+            xMetaInf = xWriteableZipStor->openStorageElement(
+                                            "META-INF",
+                                            embed::ElementModes::READWRITE );
+            if ( !xMetaInf.is() )
+                throw uno::RuntimeException();
+        }
+
+        if ( bSignScriptingContent )
+        {
+            // If the signature has already the document signature it will be removed
+            // after the scripting signature is inserted.
+            uno::Reference< io::XStream > xStream(
+                xMetaInf->openStreamElement( xSigner->getScriptingContentSignatureDefaultStreamName(),
+                                                embed::ElementModes::READWRITE ),
+                uno::UNO_SET_THROW );
+
+            if ( xSigner->signScriptingContent( GetZipStorageToSign_Impl(), xStream ) )
             {
-                if ( !pImpl->xStream.is() )
-                    throw uno::RuntimeException();
+                // remove the document signature if any
+                OUString aDocSigName = xSigner->getDocumentContentSignatureDefaultStreamName();
+                if ( !aDocSigName.isEmpty() && xMetaInf->hasByName( aDocSigName ) )
+                    xMetaInf->removeElement( aDocSigName );
 
-                bool bODF = GetFilter()->IsOwnFormat();
-                try
-                {
-                    xWriteableZipStor = ::comphelper::OStorageHelper::GetStorageOfFormatFromStream( ZIP_STORAGE_FORMAT_STRING, pImpl->xStream );
-                }
-                catch (const io::IOException& rException)
-                {
-                    if (bODF)
-                        SAL_WARN("sfx.doc", "ODF stream is not a zip storage: " << rException);
-                }
+                uno::Reference< embed::XTransactedObject > xTransact( xMetaInf, uno::UNO_QUERY_THROW );
+                xTransact->commit();
+                xTransact.set( xWriteableZipStor, uno::UNO_QUERY_THROW );
+                xTransact->commit();
 
-                if ( !xWriteableZipStor.is() && bODF )
-                    throw uno::RuntimeException();
-
-                uno::Reference< embed::XStorage > xMetaInf;
-                uno::Reference<container::XNameAccess> xNameAccess(xWriteableZipStor, uno::UNO_QUERY);
-                if (xNameAccess.is() && xNameAccess->hasByName("META-INF"))
-                {
-                    xMetaInf = xWriteableZipStor->openStorageElement(
-                                                    "META-INF",
-                                                    embed::ElementModes::READWRITE );
-                    if ( !xMetaInf.is() )
-                        throw uno::RuntimeException();
-                }
-
-                if ( bScriptingContent )
-                {
-                    // If the signature has already the document signature it will be removed
-                    // after the scripting signature is inserted.
-                    uno::Reference< io::XStream > xStream(
-                        xMetaInf->openStreamElement( xSigner->getScriptingContentSignatureDefaultStreamName(),
-                                                     embed::ElementModes::READWRITE ),
-                        uno::UNO_SET_THROW );
-
-                    if ( xSigner->signScriptingContent( GetZipStorageToSign_Impl(), xStream ) )
-                    {
-                        // remove the document signature if any
-                        OUString aDocSigName = xSigner->getDocumentContentSignatureDefaultStreamName();
-                        if ( !aDocSigName.isEmpty() && xMetaInf->hasByName( aDocSigName ) )
-                            xMetaInf->removeElement( aDocSigName );
-
-                        uno::Reference< embed::XTransactedObject > xTransact( xMetaInf, uno::UNO_QUERY_THROW );
-                        xTransact->commit();
-                        xTransact.set( xWriteableZipStor, uno::UNO_QUERY_THROW );
-                        xTransact->commit();
-
-                        // the temporary file has been written, commit it to the original file
-                        Commit();
-                        bChanges = true;
-                    }
-                }
-                else
-                {
-                    if (xMetaInf.is())
-                    {
-                        // ODF.
-                        uno::Reference< io::XStream > xStream;
-                        if (GetFilter() && GetFilter()->IsOwnFormat())
-                            xStream.set(xMetaInf->openStreamElement(xSigner->getDocumentContentSignatureDefaultStreamName(), embed::ElementModes::READWRITE), uno::UNO_SET_THROW);
-
-                        if ( xSigner->signDocumentContent( GetZipStorageToSign_Impl(), xStream ) )
-                        {
-                            uno::Reference< embed::XTransactedObject > xTransact( xMetaInf, uno::UNO_QUERY_THROW );
-                            xTransact->commit();
-                            xTransact.set( xWriteableZipStor, uno::UNO_QUERY_THROW );
-                            xTransact->commit();
-
-                            // the temporary file has been written, commit it to the original file
-                            Commit();
-                            bChanges = true;
-                        }
-                    }
-                    else if (xWriteableZipStor.is())
-                    {
-                        // OOXML.
-                        uno::Reference<io::XStream> xStream;
-                        // We need read-write to be able to add the signature relation.
-                        if (xSigner->signDocumentContent(GetZipStorageToSign_Impl(/*bReadOnly=*/false), xStream))
-                        {
-                            uno::Reference<embed::XTransactedObject> xTransact(xWriteableZipStor, uno::UNO_QUERY_THROW);
-                            xTransact->commit();
-
-                            // the temporary file has been written, commit it to the original file
-                            Commit();
-                            bChanges = true;
-                        }
-                    }
-                    else
-                    {
-                        // Something not ZIP based: e.g. PDF.
-                        std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(GetName(), StreamMode::READ | StreamMode::WRITE));
-                        uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(*pStream));
-                        if (xSigner->signDocumentContent(uno::Reference<embed::XStorage>(), xStream))
-                            bChanges = true;
-                    }
-                }
+                // the temporary file has been written, commit it to the original file
+                Commit();
+                bChanges = true;
             }
-            catch ( const uno::Exception& )
-            {
-                SAL_WARN( "sfx.doc", "Couldn't use signing functionality!" );
-            }
-
-            CloseAndRelease();
         }
         else
         {
-            try
+            if (xMetaInf.is())
             {
-                if ( bScriptingContent )
-                    xSigner->showScriptingContentSignatures( GetZipStorageToSign_Impl(), uno::Reference< io::XInputStream >() );
+                // ODF.
+                uno::Reference< io::XStream > xStream;
+                if (GetFilter() && GetFilter()->IsOwnFormat())
+                    xStream.set(xMetaInf->openStreamElement(xSigner->getDocumentContentSignatureDefaultStreamName(), embed::ElementModes::READWRITE), uno::UNO_SET_THROW);
+
+                bool bSuccess = false;
+                if (xCert.is())
+                    bSuccess = xSigner->signSignatureLine(
+                        GetZipStorageToSign_Impl(), xStream, aSignatureLineId, xCert,
+                        xValidGraphic, xInvalidGraphic, aComment);
                 else
+                    bSuccess = xSigner->signDocumentContent(GetZipStorageToSign_Impl(),
+                                                            xStream);
+
+                if (bSuccess)
                 {
-                    uno::Reference<embed::XStorage> xStorage = GetZipStorageToSign_Impl();
-                    if (xStorage.is())
-                        xSigner->showDocumentContentSignatures(xStorage, uno::Reference<io::XInputStream>());
-                    else
-                    {
-                        std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(GetName(), StreamMode::READ));
-                        uno::Reference<io::XInputStream> xStream(new utl::OStreamWrapper(*pStream));
-                        xSigner->showDocumentContentSignatures(uno::Reference<embed::XStorage>(), xStream);
-                    }
+                    uno::Reference< embed::XTransactedObject > xTransact( xMetaInf, uno::UNO_QUERY_THROW );
+                    xTransact->commit();
+                    xTransact.set( xWriteableZipStor, uno::UNO_QUERY_THROW );
+                    xTransact->commit();
+
+                    // the temporary file has been written, commit it to the original file
+                    Commit();
+                    bChanges = true;
                 }
             }
-            catch( const uno::Exception& )
+            else if (xWriteableZipStor.is())
             {
-                SAL_WARN( "sfx.doc", "Couldn't use signing functionality!" );
+                // OOXML.
+                uno::Reference<io::XStream> xStream;
+
+                bool bSuccess = false;
+                if (xCert.is())
+                {
+                    bSuccess = xSigner->signSignatureLine(
+                        GetZipStorageToSign_Impl(/*bReadOnly=*/false), xStream, aSignatureLineId,
+                        xCert, xValidGraphic, xInvalidGraphic, aComment);
+                }
+                else
+                {
+                    // We need read-write to be able to add the signature relation.
+                    bSuccess =xSigner->signDocumentContent(
+                        GetZipStorageToSign_Impl(/*bReadOnly=*/false), xStream);
+                }
+
+                if (bSuccess)
+                {
+                    uno::Reference<embed::XTransactedObject> xTransact(xWriteableZipStor, uno::UNO_QUERY_THROW);
+                    xTransact->commit();
+
+                    // the temporary file has been written, commit it to the original file
+                    Commit();
+                    bChanges = true;
+                }
+            }
+            else
+            {
+                // Something not ZIP based: e.g. PDF.
+                std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(GetName(), StreamMode::READ | StreamMode::WRITE));
+                uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(*pStream));
+                if (xSigner->signDocumentContent(uno::Reference<embed::XStorage>(), xStream))
+                    bChanges = true;
             }
         }
-
-        ResetError();
     }
+    catch ( const uno::Exception& )
+    {
+        SAL_WARN( "sfx.doc", "Couldn't use signing functionality!" );
+    }
+
+    CloseAndRelease();
+
+    ResetError();
 
     return bChanges;
 }
@@ -3826,6 +3822,11 @@ SignatureState SfxMedium::GetCachedSignatureState_Impl()
 void SfxMedium::SetCachedSignatureState_Impl( SignatureState nState )
 {
     pImpl->m_nSignatureState = nState;
+}
+
+void SfxMedium::SetHasEmbeddedObjects(bool bHasEmbeddedObjects)
+{
+    pImpl->m_bHasEmbeddedObjects = bHasEmbeddedObjects;
 }
 
 bool SfxMedium::HasStorage_Impl() const
@@ -3862,14 +3863,11 @@ OUString SfxMedium::CreateTempCopyWithExt( const OUString& aURL )
                     uno::Reference< css::ucb::XCommandEnvironment > xComEnv;
                     ::ucbhelper::Content aTargetContent( aDest.GetMainURL( INetURLObject::DecodeMechanism::NONE ), xComEnv, comphelper::getProcessComponentContext() );
                     ::ucbhelper::Content aSourceContent( aSource.GetMainURL( INetURLObject::DecodeMechanism::NONE ), xComEnv, comphelper::getProcessComponentContext() );
-                    if ( aTargetContent.transferContent( aSourceContent,
+                    aTargetContent.transferContent( aSourceContent,
                                                         ::ucbhelper::InsertOperation::Copy,
                                                         aFileName,
-                                                        NameClash::OVERWRITE ) )
-                    {
-                        // Success
-                        aResult = aNewTempFileURL;
-                    }
+                                                        NameClash::OVERWRITE );
+                    aResult = aNewTempFileURL;
                 }
                 catch( const uno::Exception& )
                 {}
@@ -4013,8 +4011,7 @@ bool SfxMedium::SwitchDocumentToFile( const OUString& aURL )
             try
             {
                 uno::Reference< io::XTruncate > xTruncate( pImpl->xStream, uno::UNO_QUERY_THROW );
-                if ( xTruncate.is() )
-                    xTruncate->truncate();
+                xTruncate->truncate();
                 if ( xOptStorage.is() )
                     xOptStorage->writeAndAttachToStream( pImpl->xStream );
                 pImpl->xStorage = xStorage;

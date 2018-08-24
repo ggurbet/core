@@ -84,6 +84,7 @@ $(eval $(call gb_Library_use_externals,svxcore,\
 	icuuc \
 	icu_headers \
 	libxml2 \
+	$(if $(filter PDFIUM,$(BUILD_TYPE)),pdfium) \
 ))
 ifeq ($(ENABLE_HEADLESS),)
 $(eval $(call gb_Library_use_externals,svxcore,\
@@ -104,7 +105,6 @@ $(eval $(call gb_Library_use_system_darwin_frameworks,svxcore,\
 endif
 
 $(eval $(call gb_Library_add_exception_objects,svxcore,\
-    svx/source/core/coreservices \
     svx/source/core/extedit \
     svx/source/core/graphichelper \
     svx/source/customshapes/EnhancedCustomShape2d \
@@ -338,6 +338,7 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/svdraw/svdovirt \
     svx/source/svdraw/svdpage \
     svx/source/svdraw/svdpagv \
+    svx/source/svdraw/svdpdf \
     svx/source/svdraw/svdpntv \
     svx/source/svdraw/svdpoev \
     svx/source/svdraw/svdsnpv \

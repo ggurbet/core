@@ -20,6 +20,7 @@
 #include <memory>
 #include "eschesdo.hxx"
 #include <o3tl/any.hxx>
+#include <sal/log.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/unoapi.hxx>
 #include <svx/svdoashp.hxx>
@@ -243,10 +244,7 @@ sal_uInt32 ImplEESdrWriter::ImplWriteShape( ImplEESdrObject& rObj,
             const std::unique_ptr< SvMemoryStream >& pMemStrm = pInteraction->getHyperlinkRecord();
             if ( pMemStrm.get() )
             {
-                pMemStrm->ObjectOwnsMemory( false );
-                sal_uInt8 const * pBuf = static_cast<sal_uInt8 const *>(pMemStrm->GetData());
-                sal_uInt32 nSize = pMemStrm->Seek( STREAM_SEEK_TO_END );
-                aPropOpt.AddOpt( ESCHER_Prop_pihlShape, false, nSize, const_cast<sal_uInt8 *>(pBuf), nSize );
+                aPropOpt.AddOpt(ESCHER_Prop_pihlShape, false, 0, *pMemStrm.get());
             }
             aPropOpt.AddOpt( ESCHER_Prop_fPrint, 0x00080008 );
         }
@@ -697,7 +695,7 @@ sal_uInt32 ImplEESdrWriter::ImplWriteShape( ImplEESdrObject& rObj,
         if( bAdditionalText )
         {
             mpEscherEx->EndShape( nShapeType, nShapeID );
-            ImplWriteAdditionalText( rObj, Point() );
+            ImplWriteAdditionalText( rObj );
         }
 
     } while ( false );
@@ -709,8 +707,7 @@ sal_uInt32 ImplEESdrWriter::ImplWriteShape( ImplEESdrObject& rObj,
     return nShapeID;
 }
 
-void ImplEESdrWriter::ImplWriteAdditionalText( ImplEESdrObject& rObj,
-                                                const Point& rTextRefPoint )
+void ImplEESdrWriter::ImplWriteAdditionalText( ImplEESdrObject& rObj )
 {
     sal_uInt32 nShapeID = 0;
     sal_uInt16 nShapeType = 0;
@@ -733,8 +730,8 @@ void ImplEESdrWriter::ImplWriteAdditionalText( ImplEESdrObject& rObj,
 //2do: this does not work right
             double fDist = hypot( rObj.GetRect().GetWidth(),
                                     rObj.GetRect().GetHeight() );
-            rObj.SetRect( tools::Rectangle( rTextRefPoint,
-                            Point( static_cast<sal_Int32>( rTextRefPoint.X() + fDist ), rTextRefPoint.Y() - 1 ) ) );
+            rObj.SetRect( tools::Rectangle( Point(),
+                            Point( static_cast<sal_Int32>( fDist ), -1 ) ) );
 
             mpEscherEx->OpenContainer( ESCHER_SpContainer );
             mpEscherEx->AddShape( ESCHER_ShpInst_TextBox, ShapeFlag::HaveShapeProperty | ShapeFlag::HaveAnchor );
@@ -821,11 +818,9 @@ sal_uInt32 ImplEESdrWriter::ImplEnterAdditionalTextGroup( const Reference< XShap
 }
 
 
-bool ImplEESdrWriter::ImplInitPageValues()
+void ImplEESdrWriter::ImplInitPageValues()
 {
     mbIsTitlePossible = true;       // With more than one title PowerPoint will fail.
-
-    return true;
 }
 
 void ImplEESdrWriter::ImplWritePage(
@@ -876,8 +871,7 @@ bool ImplEESdrWriter::ImplInitPage( const SdrPage& rPage )
         mXShapes.set( mXDrawPage, UNO_QUERY );
         if ( !mXShapes.is() )
             return false;
-        if ( !ImplInitPageValues() )    // ImplEESdrWriter
-            return false;
+        ImplInitPageValues();
         mpSdrPage = &rPage;
 
         mpSolverContainer.reset( new EscherSolverContainer );
@@ -900,8 +894,7 @@ bool ImplEESdrWriter::ImplInitUnoShapes( const Reference< XShapes >& rxShapes )
     mXDrawPage.clear();
     mXShapes = rxShapes;
 
-    if( !ImplInitPageValues() )    // ImplEESdrWriter
-        return false;
+    ImplInitPageValues();
 
     mpSolverContainer.reset( new EscherSolverContainer );
     return true;
@@ -1016,7 +1009,7 @@ ImplEESdrObject::ImplEESdrObject( ImplEESdrWriter& rEx,
     mbEmptyPresObj( false ),
     mbOOXML(bOOXML)
 {
-    SdrPage* pPage = rObj.GetPage();
+    SdrPage* pPage = rObj.getSdrPageFromSdrObject();
     DBG_ASSERT( pPage, "ImplEESdrObject::ImplEESdrObject: no SdrPage" );
     if( pPage && rEx.ImplInitPage( *pPage ) )
     {

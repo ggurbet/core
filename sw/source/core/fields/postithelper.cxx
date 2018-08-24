@@ -48,7 +48,7 @@ SwPostItHelper::SwLayoutStatus SwPostItHelper::getLayoutInfos(
     if ( pTextNode == nullptr )
         return aRet;
 
-    SwIterator<SwTextFrame,SwContentNode> aIter( *pTextNode );
+    SwIterator<SwTextFrame, SwContentNode, sw::IteratorMode::UnwrapMulti> aIter(*pTextNode);
     for( SwTextFrame* pTextFrame = aIter.First(); pTextFrame != nullptr; pTextFrame = aIter.Next() )
     {
         if( !pTextFrame->IsFollow() )
@@ -150,7 +150,7 @@ VclPtr<sw::annotation::SwAnnotationWin> SwAnnotationItem::GetSidebarWindow(
                                                             SwEditWin& rEditWin,
                                                             SwPostItMgr& aMgr)
 {
-    return VclPtr<sw::annotation::SwAnnotationWin>::Create( rEditWin, WB_DIALOGCONTROL,
+    return VclPtr<sw::annotation::SwAnnotationWin>::Create( rEditWin,
                                                 aMgr,
                                                 *this,
                                                 &mrFormatField );

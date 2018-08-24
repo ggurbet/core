@@ -12,9 +12,12 @@
 #include <test/sheet/xarrayformularange.hxx>
 #include <test/sheet/xcellformatrangessupplier.hxx>
 #include <test/sheet/xcellrangeaddressable.hxx>
+#include <test/sheet/xcellrangedata.hxx>
 #include <test/sheet/xcellrangeformula.hxx>
 #include <test/sheet/xcellseries.hxx>
+#include <test/sheet/xformulaquery.hxx>
 #include <test/sheet/xmultipleoperation.hxx>
+#include <test/sheet/xsheetcellcursor.hxx>
 #include <test/sheet/xsheetcellrange.hxx>
 #include <test/sheet/xsheetfilterable.hxx>
 #include <test/sheet/xsheetfilterableex.hxx>
@@ -36,9 +39,12 @@ class ScCellCursorObj : public CalcUnoApiTest, public apitest::SheetCellRange,
                                                public apitest::XArrayFormulaRange,
                                                public apitest::XCellFormatRangesSupplier,
                                                public apitest::XCellRangeAddressable,
+                                               public apitest::XCellRangeData,
                                                public apitest::XCellRangeFormula,
                                                public apitest::XCellSeries,
+                                               public apitest::XFormulaQuery,
                                                public apitest::XMultipleOperation,
+                                               public apitest::XSheetCellCursor,
                                                public apitest::XSheetCellRange,
                                                public apitest::XSheetFilterable,
                                                public apitest::XSheetFilterableEx,
@@ -53,6 +59,7 @@ public:
     virtual void setUp() override;
     virtual void tearDown() override;
     virtual uno::Reference< uno::XInterface > init() override;
+    virtual uno::Reference< uno::XInterface > getXCellRangeData() override;
     virtual uno::Reference< uno::XInterface > getXSpreadsheet() override;
 
     CPPUNIT_TEST_SUITE(ScCellCursorObj);
@@ -69,6 +76,10 @@ public:
     // XCellRangeAddressable
     CPPUNIT_TEST(testGetRangeAddress);
 
+    // XCellRangeData
+    CPPUNIT_TEST(testGetDataArray);
+    CPPUNIT_TEST(testSetDataArray);
+
     // XCellRangeFormula
     CPPUNIT_TEST(testGetSetFormulaArray);
 
@@ -76,8 +87,20 @@ public:
     CPPUNIT_TEST(testFillAuto);
     CPPUNIT_TEST(testFillSeries);
 
+    // XFormulaQuery
+    CPPUNIT_TEST(testQueryDependents);
+    CPPUNIT_TEST(testQueryPrecedents);
+
     // XMultipleOperation
     CPPUNIT_TEST(testSetTableOperation);
+
+    // XSheetCellCursor
+    CPPUNIT_TEST(testCollapseToCurrentArray);
+    CPPUNIT_TEST(testCollapseToCurrentRegion);
+    CPPUNIT_TEST(testCollapseToMergedArea);
+    CPPUNIT_TEST(testCollapseToSize);
+    CPPUNIT_TEST(testExpandToEntireColumns);
+    CPPUNIT_TEST(testExpandToEntireRows);
 
     // XSheetCellRange
     CPPUNIT_TEST(testGetSpreadsheet);
@@ -112,14 +135,14 @@ private:
 
 ScCellCursorObj::ScCellCursorObj():
     CalcUnoApiTest("/sc/qa/extras/testdocuments"),
-    apitest::XCellSeries(0, 0)
+    apitest::XCellSeries(0, 0),
+    apitest::XFormulaQuery(table::CellRangeAddress(0, 15, 15, 15, 15), table::CellRangeAddress(0, 0, 15, 0, 15))
 {
 }
 
 uno::Reference< uno::XInterface > ScCellCursorObj::init()
 {
     uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("no calc document", xDoc.is());
 
     uno::Reference<container::XIndexAccess> xIndex (xDoc->getSheets(), UNO_QUERY_THROW);
     uno::Reference<sheet::XSpreadsheet> xSheet(xIndex->getByIndex(0), UNO_QUERY_THROW);
@@ -128,16 +151,27 @@ uno::Reference< uno::XInterface > ScCellCursorObj::init()
     uno::Reference<sheet::XSheetCellRange> xSheetCellRange(xCellRange, UNO_QUERY_THROW);
     uno::Reference<table::XCellCursor> xCellCursor(xSheet->createCursorByRange(xSheetCellRange), UNO_QUERY_THROW);
 
+    xSheet->getCellByPosition(1, 1)->setValue(1);
+    xSheet->getCellByPosition(4, 5)->setValue(1);
+    xSheet->getCellByPosition(3, 2)->setFormula("xTextDoc");
+    xSheet->getCellByPosition(3, 3)->setFormula("xTextDoc");
+
     return xCellCursor;
+}
+
+uno::Reference< uno::XInterface > ScCellCursorObj::getXCellRangeData()
+{
+    return init();
 }
 
 uno::Reference< uno::XInterface > ScCellCursorObj::getXSpreadsheet()
 {
     uno::Reference< sheet::XSpreadsheetDocument > xDoc(mxComponent, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("no calc document", xDoc.is());
 
     uno::Reference< container::XIndexAccess > xIndex (xDoc->getSheets(), UNO_QUERY_THROW);
     uno::Reference< sheet::XSpreadsheet > xSheet( xIndex->getByIndex(0), UNO_QUERY_THROW);
+
+    setXCell(xSheet->getCellByPosition(15, 15));
 
     return xSheet;
 }

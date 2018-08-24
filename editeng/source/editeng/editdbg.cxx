@@ -88,9 +88,9 @@ OString DbgOutItem(const SfxItemPool& rPool, const SfxPoolItem& rItem)
                 if ( pFmt )
                 {
                     aDebStr.append('(');
-                    aDebStr.append(static_cast<sal_Int32>(pFmt->GetFirstLineOffset()));
+                    aDebStr.append(pFmt->GetFirstLineOffset());
                     aDebStr.append(',');
-                    aDebStr.append(static_cast<sal_Int32>(pFmt->GetAbsLSpace()));
+                    aDebStr.append(pFmt->GetAbsLSpace());
                     aDebStr.append(',');
                     if ( pFmt->GetNumberingType() == SVX_NUM_BITMAP )
                         aDebStr.append("Bitmap");
@@ -374,7 +374,7 @@ void EditDbg::ShowEditEngineData( EditEngine* pEE, bool bInfoBox )
 
         const sal_Int32 nTextPortions = pPPortion->GetTextPortions().Count();
         OStringBuffer aPortionStr("\nText portions: #");
-        aPortionStr.append(static_cast<sal_Int32>(nTextPortions));
+        aPortionStr.append(nTextPortions);
         aPortionStr.append(" \nA");
         aPortionStr.append(nPortion);
         aPortionStr.append(": Paragraph Length = ");

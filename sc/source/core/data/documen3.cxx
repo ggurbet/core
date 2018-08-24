@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/script/vba/XVBAEventProcessor.hpp>
+#include <com/sun/star/sheet/TableValidationVisibility.hpp>
 #include <scitems.hxx>
 #include <editeng/langitem.hxx>
 #include <svl/srchitem.hxx>
@@ -42,6 +43,7 @@
 #include <chartlock.hxx>
 #include <refupdat.hxx>
 #include <docoptio.hxx>
+#include <scmod.hxx>
 #include <clipoptions.hxx>
 #include <viewopti.hxx>
 #include <scextopt.hxx>
@@ -74,6 +76,7 @@
 #include <refupdatecontext.hxx>
 #include <scopetools.hxx>
 #include <filterentries.hxx>
+#include <docsh.hxx>
 
 #include <globalnames.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -162,8 +165,7 @@ void ScDocument::GetRangeNameMap(std::map<OUString, ScRangeName*>& aRangeNameMap
             p = new ScRangeName();
             SetRangeName(i, std::unique_ptr<ScRangeName>(p));
         }
-        OUString aTableName;
-        maTabs[i]->GetName(aTableName);
+        OUString aTableName = maTabs[i]->GetName();
         aRangeNameMap.insert(std::pair<OUString, ScRangeName*>(aTableName,p));
     }
     if (!pRangeName)
@@ -403,18 +405,17 @@ void ScDocument::StopTemporaryChartLock()
 }
 
 void ScDocument::SetChartListenerCollection(
-            ScChartListenerCollection* pNewChartListenerCollection,
+            std::unique_ptr<ScChartListenerCollection> pNewChartListenerCollection,
             bool bSetChartRangeLists )
 {
-    ScChartListenerCollection* pOld = pChartListenerCollection;
-    pChartListenerCollection = pNewChartListenerCollection;
+    std::unique_ptr<ScChartListenerCollection> pOld = std::move(pChartListenerCollection);
+    pChartListenerCollection = std::move(pNewChartListenerCollection);
     if ( pChartListenerCollection )
     {
         if ( pOld )
             pChartListenerCollection->SetDiffDirty( *pOld, bSetChartRangeLists );
         pChartListenerCollection->StartAllListeners();
     }
-    delete pOld;
 }
 
 void ScDocument::SetScenario( SCTAB nTab, bool bFlag )
@@ -794,7 +795,7 @@ void ScDocument::CopyUpdated( ScDocument* pPosDoc, ScDocument* pDestDoc )
     SCTAB nCount = static_cast<SCTAB>(maTabs.size());
     for (SCTAB nTab=0; nTab<nCount; nTab++)
         if (maTabs[nTab] && pPosDoc->maTabs[nTab] && pDestDoc->maTabs[nTab])
-            maTabs[nTab]->CopyUpdated( pPosDoc->maTabs[nTab], pDestDoc->maTabs[nTab] );
+            maTabs[nTab]->CopyUpdated( pPosDoc->maTabs[nTab].get(), pDestDoc->maTabs[nTab].get() );
 }
 
 void ScDocument::CopyScenario( SCTAB nSrcTab, SCTAB nDestTab, bool bNewScenario )
@@ -824,7 +825,7 @@ void ScDocument::CopyScenario( SCTAB nSrcTab, SCTAB nDestTab, bool bNewScenario 
                 {
                     maTabs[nTab]->SetActiveScenario(false);
                     if ( maTabs[nTab]->GetScenarioFlags() & ScScenarioFlags::TwoWay )
-                        maTabs[nTab]->CopyScenarioFrom( maTabs[nDestTab] );
+                        maTabs[nTab]->CopyScenarioFrom( maTabs[nDestTab].get() );
                 }
             }
         }
@@ -833,7 +834,7 @@ void ScDocument::CopyScenario( SCTAB nSrcTab, SCTAB nDestTab, bool bNewScenario 
         if (!bNewScenario) // Copy data from the selected scenario
         {
             sc::AutoCalcSwitch aACSwitch(*this, false);
-            maTabs[nSrcTab]->CopyScenarioTo( maTabs[nDestTab] );
+            maTabs[nSrcTab]->CopyScenarioTo( maTabs[nDestTab].get() );
 
             sc::SetFormulaDirtyContext aCxt;
             SetAllFormulasDirty(aCxt);
@@ -881,7 +882,7 @@ bool ScDocument::TestCopyScenario( SCTAB nSrcTab, SCTAB nDestTab ) const
 {
     if (ValidTab(nSrcTab) && nSrcTab < static_cast<SCTAB>(maTabs.size())
                 && nDestTab < static_cast<SCTAB>(maTabs.size())&& ValidTab(nDestTab))
-        return maTabs[nSrcTab]->TestCopyScenarioTo( maTabs[nDestTab] );
+        return maTabs[nSrcTab]->TestCopyScenarioTo( maTabs[nDestTab].get() );
 
     OSL_FAIL("wrong table at TestCopyScenario");
     return false;
@@ -1092,7 +1093,7 @@ void ScDocument::UpdateReference(
     // After moving, no clipboard move ref-updates are possible
     if (rCxt.meMode != URM_COPY && IsClipboardSource())
     {
-        ScDocument* pClipDoc = ScModule::GetClipDoc();
+        ScDocument* pClipDoc = static_cast<ScDocShell*>(mpShell)->GetClipDoc();
         if (pClipDoc)
             pClipDoc->GetClipParam().mbCutMode = false;
     }
@@ -1677,7 +1678,7 @@ tools::Rectangle ScDocument::GetEmbeddedRect() const // 1/100 mm
     tools::Rectangle aRect;
     ScTable* pTable = nullptr;
     if ( aEmbedRange.aStart.Tab() < static_cast<SCTAB>(maTabs.size()) )
-        pTable = maTabs[aEmbedRange.aStart.Tab()];
+        pTable = maTabs[aEmbedRange.aStart.Tab()].get();
     else
         OSL_FAIL("table out of range");
     if (!pTable)
@@ -1768,7 +1769,7 @@ ScRange ScDocument::GetRange( SCTAB nTab, const tools::Rectangle& rMMRect, bool 
 {
     ScTable* pTable = nullptr;
     if (nTab < static_cast<SCTAB>(maTabs.size()))
-        pTable = maTabs[nTab];
+        pTable = maTabs[nTab].get();
     else
         OSL_FAIL("table out of range");
     if (!pTable)
@@ -1982,15 +1983,14 @@ tools::Rectangle ScDocument::GetMMRect( SCCOL nStartCol, SCROW nStartRow, SCCOL 
     return aRect;
 }
 
-void ScDocument::SetExtDocOptions( ScExtDocOptions* pNewOptions )
+void ScDocument::SetExtDocOptions( std::unique_ptr<ScExtDocOptions> pNewOptions )
 {
-    delete pExtDocOptions;
-    pExtDocOptions = pNewOptions;
+    pExtDocOptions = std::move(pNewOptions);
 }
 
-void ScDocument::SetClipOptions(const ScClipOptions& rClipOptions)
+void ScDocument::SetClipOptions(std::unique_ptr<ScClipOptions> pClipOptions)
 {
-    mpClipOptions = o3tl::make_unique<ScClipOptions>(rClipOptions);
+    mpClipOptions = std::move(pClipOptions);
 }
 
 void ScDocument::DoMergeContents( SCTAB nTab, SCCOL nStartCol, SCROW nStartRow,

@@ -35,18 +35,6 @@
 class SwFieldMgr;
 class SwView;
 
-class TextFilterAutoConvert : public TextFilter
-{
-private:
-    OUString m_sLastGoodText;
-    OUString m_sNone;
-public:
-    TextFilterAutoConvert(const OUString &rNone)
-        : m_sNone(rNone)
-    {
-    }
-    virtual OUString filter(const OUString &rText) override;
-};
 
 class SwCaptionDialog : public SvxStandardDialog
 {
@@ -70,11 +58,9 @@ class SwCaptionDialog : public SvxStandardDialog
     VclPtr<SwCaptionPreview> m_pPreview;
 
     SwView       &rView; // search per active, avoid View
-    SwFieldMgr     *pMgr;      // pointer to save the include
-    SelectionType eType;
+    std::unique_ptr<SwFieldMgr> pMgr;      // pointer to save the include
 
     OUString     sCharacterStyle;
-    OUString     sObjectName;
     bool         bCopyAttributes;
     bool        bOrderNumberingFirst; //#i61007# order of captions
 

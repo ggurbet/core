@@ -212,16 +212,10 @@ SbiTokenizer::SbiTokenizer( const OUString& rSrc, StarBASIC* pb )
     , nPCol2(0)
     , bEof(false)
     , bEos(true)
-    , bKeywords(true)
     , bAs(false)
     , bErrorIsSymbol(true)
 {
 }
-
-SbiTokenizer::~SbiTokenizer()
-{
-}
-
 
 void SbiTokenizer::Push( SbiToken t )
 {
@@ -362,8 +356,7 @@ SbiToken SbiTokenizer::Next()
     }
     else
     {
-        if( eScanType != SbxVARIANT
-         || ( !bKeywords && bSymbol ) )
+        if( eScanType != SbxVARIANT )
             return eCurTok = SYMBOL;
         // valid token?
         short lb = 0;

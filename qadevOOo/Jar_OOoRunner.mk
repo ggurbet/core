@@ -565,13 +565,9 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/ifc/sheet/_SpreadsheetDocument \
     qadevOOo/tests/java/ifc/sheet/_TableAutoFormatField \
     qadevOOo/tests/java/ifc/sheet/_XCellRangeData \
-    qadevOOo/tests/java/ifc/sheet/_XCellRangeReferrer \
     qadevOOo/tests/java/ifc/sheet/_XCellRangesQuery \
-    qadevOOo/tests/java/ifc/sheet/_XDocumentAuditing \
     qadevOOo/tests/java/ifc/sheet/_XEnhancedMouseClickBroadcaster \
-    qadevOOo/tests/java/ifc/sheet/_XFormulaQuery \
     qadevOOo/tests/java/ifc/sheet/_XRangeSelection \
-    qadevOOo/tests/java/ifc/sheet/_XSheetCellCursor \
     qadevOOo/tests/java/ifc/style/_CharacterProperties \
     qadevOOo/tests/java/ifc/style/_CharacterPropertiesAsian \
     qadevOOo/tests/java/ifc/style/_CharacterPropertiesComplex \
@@ -1158,7 +1154,6 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_svx/SvxShapeDimensioning \
     qadevOOo/tests/java/mod/_svx/SvxShapeGroup \
     qadevOOo/tests/java/mod/_svx/SvxShapePolyPolygon \
-    qadevOOo/tests/java/mod/_svx/SvxShapePolyPolygonBezier \
     qadevOOo/tests/java/mod/_svx/SvxUnoNumberingRules \
     qadevOOo/tests/java/mod/_svx/SvxUnoText \
     qadevOOo/tests/java/mod/_svx/SvxUnoTextContent \

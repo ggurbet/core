@@ -406,7 +406,6 @@ void SwMacrosTest::testFdo68983()
     CPPUNIT_ASSERT_MESSAGE("Failed to load fdo68983.odt", xComponent.is());
 
     Reference< frame::XStorable > xDocStorable(xComponent, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT(xDocStorable.is());
 
     utl::TempFile aTempFile;
     aTempFile.EnableKillingFile();
@@ -459,8 +458,6 @@ void SwMacrosTest::testFdo87530()
         xBasLibPwd->changeLibraryPassword("BarLibrary", "", "foo");
 
         Reference<frame::XStorable> xDocStorable(xComponent, UNO_QUERY_THROW);
-        CPPUNIT_ASSERT(xDocStorable.is());
-
         xDocStorable->storeAsURL(aTempFile.GetURL(), desc);
     }
 
@@ -481,7 +478,7 @@ void SwMacrosTest::testFdo87530()
         CPPUNIT_ASSERT(xBasLib->isLibraryLoaded("BarLibrary"));
         Reference<container::XNameContainer> xLibrary(xBasLib->getByName("BarLibrary"), UNO_QUERY);
         Any module(xLibrary->getByName("BarModule"));
-        CPPUNIT_ASSERT_EQUAL(module.get<OUString>(), OUString("Sub Main\nEnd Sub\n"));
+        CPPUNIT_ASSERT_EQUAL(OUString("Sub Main\nEnd Sub\n"), module.get<OUString>());
 
         // add a second module now - tdf#87530 happened here
         Reference<container::XNameContainer> xFooLib(xBasLib->createLibrary("FooLibrary"));
@@ -491,8 +488,6 @@ void SwMacrosTest::testFdo87530()
 
         // store again
         Reference<frame::XStorable> xDocStorable(xComponent, UNO_QUERY_THROW);
-        CPPUNIT_ASSERT(xDocStorable.is());
-
         xDocStorable->store();
     }
 
@@ -512,7 +507,7 @@ void SwMacrosTest::testFdo87530()
     CPPUNIT_ASSERT(xBasLib->isLibraryLoaded("FooLibrary"));
     Reference<container::XNameContainer> xLibrary(xBasLib->getByName("FooLibrary"), UNO_QUERY);
     Any module(xLibrary->getByName("FooModule"));
-    CPPUNIT_ASSERT_EQUAL(module.get<OUString>(), OUString("Sub Main\nEnd Sub\n"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Sub Main\nEnd Sub\n"), module.get<OUString>());
 
     // close
     Reference<util::XCloseable>(xComponent, UNO_QUERY_THROW)->close(false);

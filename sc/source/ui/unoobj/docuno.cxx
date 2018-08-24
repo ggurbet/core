@@ -34,7 +34,6 @@
 #include <svx/unoshape.hxx>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <comphelper/lok.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <officecfg/Office/Calc.hxx>
@@ -51,6 +50,7 @@
 #include <tools/multisel.hxx>
 #include <toolkit/awt/vclxdevice.hxx>
 #include <unotools/saveopt.hxx>
+#include <sal/log.hxx>
 
 #include <float.h>
 
@@ -68,6 +68,7 @@
 #include <com/sun/star/document/IndexedPropertyValues.hpp>
 #include <com/sun/star/script/XInvocation.hpp>
 #include <com/sun/star/script/vba/XVBAEventProcessor.hpp>
+#include <com/sun/star/beans/XFastPropertySet.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/profilezone.hxx>
 #include <comphelper/servicehelper.hxx>
@@ -410,8 +411,8 @@ ScModelObj::~ScModelObj()
     if (xNumberAgg.is())
         xNumberAgg->setDelegator(uno::Reference<uno::XInterface>());
 
-    delete pPrintFuncCache;
-    delete pPrinterOptions;
+    pPrintFuncCache.reset();
+    pPrinterOptions.reset();
 }
 
 uno::Reference< uno::XAggregation> const & ScModelObj::GetFormatter()
@@ -608,14 +609,29 @@ Size ScModelObj::getDocumentSize()
 
     rDoc.GetTiledRenderingArea(nTab, nEndCol, nEndRow);
 
-    pViewData->SetMaxTiledCol(nEndCol);
-    pViewData->SetMaxTiledRow(nEndRow);
+    const ScDocument* pThisDoc = &rDoc;
 
-    if (pViewData->GetLOKDocWidthPixel() > 0 && pViewData->GetLOKDocHeightPixel() > 0)
+    auto GetColWidthPx = [pThisDoc, nTab](SCCOL nCol) {
+        const sal_uInt16 nSize = pThisDoc->GetColWidth(nCol, nTab);
+        return ScViewData::ToPixel(nSize, 1.0 / TWIPS_PER_PIXEL);
+    };
+
+    long nDocWidthPixel = pViewData->GetLOKWidthHelper().computePosition(nEndCol, GetColWidthPx);
+
+
+    auto GetRowHeightPx = [pThisDoc, nTab](SCROW nRow) {
+        const sal_uInt16 nSize = pThisDoc->GetRowHeight(nRow, nTab);
+        return ScViewData::ToPixel(nSize, 1.0 / TWIPS_PER_PIXEL);
+    };
+
+    long nDocHeightPixel = pViewData->GetLOKHeightHelper().computePosition(nEndRow, GetRowHeightPx);
+
+
+    if (nDocWidthPixel > 0 && nDocHeightPixel > 0)
     {
         // convert to twips
-        aSize.setWidth(pViewData->GetLOKDocWidthPixel() * TWIPS_PER_PIXEL);
-        aSize.setHeight(pViewData->GetLOKDocHeightPixel() * TWIPS_PER_PIXEL);
+        aSize.setWidth(nDocWidthPixel * TWIPS_PER_PIXEL);
+        aSize.setHeight(nDocHeightPixel * TWIPS_PER_PIXEL);
     }
     else
     {
@@ -1321,7 +1337,7 @@ void ScModelObj::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                 pNumFmt->SetNumberFormatter( nullptr );
         }
 
-        DELETEZ( pPrintFuncCache );     // must be deleted because it has a pointer to the DocShell
+        pPrintFuncCache.reset();     // must be deleted because it has a pointer to the DocShell
         m_pPrintState.reset();
     }
     else if ( nId == SfxHintId::DataChanged )
@@ -1329,7 +1345,7 @@ void ScModelObj::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
         //  cached data for rendering become invalid when contents change
         //  (if a broadcast is added to SetDrawModified, is has to be tested here, too)
 
-        DELETEZ( pPrintFuncCache );
+        pPrintFuncCache.reset();
         m_pPrintState.reset();
 
         // handle "OnCalculate" sheet events (search also for VBA event handlers)
@@ -1467,7 +1483,7 @@ static bool lcl_ParseTarget( const OUString& rTarget, ScRange& rTargetRange, too
                 OSL_ENSURE(pPage,"Page ?");
                 if (pPage)
                 {
-                    SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+                    SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
                     SdrObject* pObject = aIter.Next();
                     while (pObject && !bRangeValid)
                     {
@@ -1693,8 +1709,7 @@ sal_Int32 SAL_CALL ScModelObj::getRendererCount(const uno::Any& aSelection,
 
     if ( !pPrintFuncCache || !pPrintFuncCache->IsSameSelection( aStatus ) )
     {
-        delete pPrintFuncCache;
-        pPrintFuncCache = new ScPrintFuncCache( pDocShell, aMark, aStatus );
+        pPrintFuncCache.reset(new ScPrintFuncCache( pDocShell, aMark, aStatus ));
     }
     sal_Int32 nPages = pPrintFuncCache->GetPageCount();
 
@@ -1748,8 +1763,7 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
     {
         if ( !pPrintFuncCache || !pPrintFuncCache->IsSameSelection( aStatus ) )
         {
-            delete pPrintFuncCache;
-            pPrintFuncCache = new ScPrintFuncCache( pDocShell, aMark, aStatus );
+            pPrintFuncCache.reset(new ScPrintFuncCache( pDocShell, aMark, aStatus ));
         }
         nTotalPages = pPrintFuncCache->GetPageCount();
     }
@@ -1787,7 +1801,7 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
         }));
 
         if( ! pPrinterOptions )
-            pPrinterOptions = new ScPrintUIOptions;
+            pPrinterOptions.reset(new ScPrintUIOptions);
         else
             pPrinterOptions->SetDefaults();
         pPrinterOptions->appendPrintUIOptions( aSequence );
@@ -1871,7 +1885,7 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
     }
 
     if( ! pPrinterOptions )
-        pPrinterOptions = new ScPrintUIOptions;
+        pPrinterOptions.reset(new ScPrintUIOptions);
     else
         pPrinterOptions->SetDefaults();
     pPrinterOptions->appendPrintUIOptions( aSequence );
@@ -1897,8 +1911,7 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
 
     if ( !pPrintFuncCache || !pPrintFuncCache->IsSameSelection( aStatus ) )
     {
-        delete pPrintFuncCache;
-        pPrintFuncCache = new ScPrintFuncCache( pDocShell, aMark, aStatus );
+        pPrintFuncCache.reset(new ScPrintFuncCache( pDocShell, aMark, aStatus ));
     }
     long nTotalPages = pPrintFuncCache->GetPageCount();
     sal_Int32 nRenderer = lcl_GetRendererNum( nSelRenderer, aPagesStr, nTotalPages );
@@ -1942,14 +1955,14 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
 
     struct DrawViewKeeper
     {
-        FmFormView* mpDrawView;
-        DrawViewKeeper() : mpDrawView(nullptr) {}
+        std::unique_ptr<FmFormView> mpDrawView;
+        DrawViewKeeper() {}
         ~DrawViewKeeper()
         {
             if (mpDrawView)
             {
                 mpDrawView->HideSdrPage();
-                delete mpDrawView;
+                mpDrawView.reset();
             }
         }
     } aDrawViewKeeper;
@@ -1959,9 +1972,9 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
 
     if( pModel )
     {
-        aDrawViewKeeper.mpDrawView = new FmFormView(
+        aDrawViewKeeper.mpDrawView.reset( new FmFormView(
             *pModel,
-            pDev);
+            pDev) );
         aDrawViewKeeper.mpDrawView->ShowSdrPage(aDrawViewKeeper.mpDrawView->GetModel()->GetPage(nTab));
         aDrawViewKeeper.mpDrawView->SetPrintPreview();
     }
@@ -1976,7 +1989,7 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
     else
         pPrintFunc.reset(new ScPrintFunc(pDev, pDocShell, nTab, pPrintFuncCache->GetFirstAttr(nTab), nTotalPages, pSelRange, &aStatus.GetOptions()));
 
-    pPrintFunc->SetDrawView( aDrawViewKeeper.mpDrawView );
+    pPrintFunc->SetDrawView( aDrawViewKeeper.mpDrawView.get() );
     pPrintFunc->SetRenderFlag( true );
     if( aStatus.GetMode() == SC_PRINTSEL_RANGE_EXCLUSIVELY_OLE_AND_DRAW_OBJECTS )
         pPrintFunc->SetExclusivelyDrawOleAndDrawObjects();

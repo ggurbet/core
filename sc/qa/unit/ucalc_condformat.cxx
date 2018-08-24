@@ -15,6 +15,7 @@
 
 #include <clipparam.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <docfunc.hxx>
 #include <scitems.hxx>
 #include <attrib.hxx>
@@ -100,7 +101,7 @@ void Test::testCondFormatINSDEL()
     ScConditionalFormat* pFormat = new ScConditionalFormat(1, m_pDoc);
     ScRangeList aRangeList(ScRange(0,0,0,0,3,0));
     pFormat->SetRange(aRangeList);
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
 
     m_pDoc->AddCondFormatData(pFormat->GetRange(), 0, 1);
@@ -111,7 +112,7 @@ void Test::testCondFormatINSDEL()
     CPPUNIT_ASSERT_EQUAL(static_cast<const ScRangeList&>(ScRange(2,0,0,2,3,0)), rRange);
 
     OUString aExpr = pEntry->GetExpression(ScAddress(2,0,0), 0);
-    CPPUNIT_ASSERT_EQUAL(aExpr, OUString("D2"));
+    CPPUNIT_ASSERT_EQUAL(OUString("D2"), aExpr);
 
     m_pDoc->DeleteTab(0);
 }
@@ -125,7 +126,7 @@ void Test::testCondFormatInsertCol()
     ScRangeList aRangeList(ScRange(0,0,0,3,3,0));
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
 
     m_pDoc->AddCondFormatData(pFormat->GetRange(), 0, 1);
@@ -147,7 +148,7 @@ void Test::testCondFormatInsertRow()
     ScRangeList aRangeList(ScRange(0,0,0,3,3,0));
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
 
     m_pDoc->AddCondFormatData(pFormat->GetRange(), 0, 1);
@@ -172,7 +173,7 @@ void Test::testCondFormatInsertDeleteSheets()
 
     // Add condition in which if the value equals 2, set the "Result" style.
     ScCondFormatEntry* pEntry = new ScCondFormatEntry(
-        ScConditionMode::Equal, "=2", "" , m_pDoc, ScAddress(0,0,0), ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+        ScConditionMode::Equal, "=2", "" , m_pDoc, ScAddress(0,0,0), ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
 
     // Apply the format to the range.
@@ -275,7 +276,7 @@ void Test::testCondCopyPaste()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     sal_uLong nIndex = m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -314,7 +315,7 @@ void Test::testCondCopyPasteSingleCell()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     sal_uLong nIndex = m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -353,7 +354,7 @@ void Test::testCondCopyPasteSingleCellToRange()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     sal_uLong nIndex = m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -398,7 +399,7 @@ void Test::testCondCopyPasteSingleCellIntoSameFormatRange()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct, "=B2", "", m_pDoc, ScAddress(0, 0, 0), ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct, "=B2", "", m_pDoc, ScAddress(0, 0, 0), ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     sal_uLong nIndex = m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -435,7 +436,7 @@ void Test::testCondCopyPasteSingleRowToRange()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -466,7 +467,7 @@ void Test::testCondCopyPasteSingleRowToRange2()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -496,7 +497,7 @@ void Test::testCondCopyPasteSheetBetweenDoc()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -518,7 +519,7 @@ void Test::testCondCopyPasteSheet()
     ScRangeList aRangeList(aCondFormatRange);
     pFormat->SetRange(aRangeList);
 
-    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct,"=B2","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     m_pDoc->AddCondFormat(pFormat, 0);
 
@@ -1116,7 +1117,7 @@ sal_uInt32 addSingleCellCondFormat(ScDocument* pDoc, const ScAddress& rAddr, sal
     pFormat->SetRange(aRangeList);
 
     ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Direct, rCondition, "",
-            pDoc, ScAddress(0,0,0), ScGlobal::GetRscString(STR_STYLENAME_RESULT));
+            pDoc, ScAddress(0,0,0), ScResId(STR_STYLENAME_RESULT));
     pFormat->AddEntry(pEntry);
     return pDoc->AddCondFormat(pFormat, 0);
 }
@@ -1183,6 +1184,82 @@ void Test::testDeduplicateMultipleCondFormats()
             CPPUNIT_ASSERT(!pFormat);
         }
     }
+
+    m_pDoc->DeleteTab(0);
+}
+
+void Test::testCondFormatListenToOwnRange()
+{
+    m_pDoc->InsertTab(0, "Test");
+
+    ScConditionalFormatList* pList = m_pDoc->GetCondFormList(0);
+
+    ScConditionalFormat* pFormat = new ScConditionalFormat(1, m_pDoc);
+    ScRangeList aRangeList(ScRange(0,0,0,10,0,0));
+    pFormat->SetRange(aRangeList);
+
+    ScIconSetFormat* pEntry = new ScIconSetFormat(m_pDoc);
+    ScIconSetFormatData* pData = new ScIconSetFormatData;
+    pData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(0, COL_BLUE));
+    pData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(1, COL_GREEN));
+    pData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(2, COL_RED));
+    pEntry->SetIconSetData(pData);
+    pEntry->SetParent(pFormat);
+
+    m_pDoc->AddCondFormatData(pFormat->GetRange(), 0, 1);
+    pFormat->AddEntry(pEntry);
+    pList->InsertNew(pFormat);
+
+    bool bFirstCallbackCalled = false;
+    bool bSecondCallbackCalled = false;
+    bool bThirdCallbackCalled = false;
+    std::function<void()> aFirstCallback = [&]() {bFirstCallbackCalled = true;};
+    std::function<void()> aSecondCallback = [&]() {bSecondCallbackCalled = true;};
+    std::function<void()> aThirdCallback = [&]() {bThirdCallbackCalled = true;};
+    pData->m_Entries[0]->SetType(COLORSCALE_PERCENT);
+    pData->m_Entries[0]->SetRepaintCallback(aFirstCallback);
+
+    m_pDoc->SetValue(0, 0, 0, -1.0);
+
+    CPPUNIT_ASSERT(bFirstCallbackCalled);
+
+    m_pDoc->DeleteTab(0);
+}
+
+void Test::testCondFormatVolatileFunctionRecalc()
+{
+    m_pDoc->InsertTab(0, "Test");
+
+    m_pDoc->SetValue(0, 0, 0, 0.5);
+
+    ScConditionalFormatList* pList = m_pDoc->GetCondFormList(0);
+
+    ScConditionalFormat* pFormat = new ScConditionalFormat(1, m_pDoc);
+    ScRangeList aRangeList(ScRange(0,0,0,10,0,0));
+    pFormat->SetRange(aRangeList);
+
+    ScCondFormatEntry* pEntry = new ScCondFormatEntry(ScConditionMode::Greater,"RAND()","",m_pDoc,ScAddress(0,0,0),ScResId(STR_STYLENAME_RESULT));
+    pEntry->SetParent(pFormat);
+
+    m_pDoc->AddCondFormatData(pFormat->GetRange(), 0, 1);
+    pFormat->AddEntry(pEntry);
+    pList->InsertNew(pFormat);
+
+    ScRefCellValue aCell(*m_pDoc, ScAddress(0, 0, 0));
+    bool bValid = pEntry->IsCellValid(aCell, ScAddress(0, 0, 0));
+
+    bool bNewValid = bValid;
+    // chance of a random failure is 0.5^100, anyone hitting that will get a beer from me
+    for (size_t i = 0; i < 100; ++i)
+    {
+        pFormat->CalcAll();
+        bNewValid = pEntry->IsCellValid(aCell, ScAddress(0, 0, 0));
+
+        if (bValid != bNewValid)
+            break;
+    }
+
+    CPPUNIT_ASSERT(bValid != bNewValid);
 
     m_pDoc->DeleteTab(0);
 }

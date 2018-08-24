@@ -21,16 +21,12 @@
 #define INCLUDED_SC_INC_TABLE_HXX
 
 #include <vector>
-#include <utility>
 #include <tools/gen.hxx>
 #include <tools/color.hxx>
-#include <com/sun/star/uno/Sequence.hxx>
 #include "attarray.hxx"
 #include "column.hxx"
 #include "colcontainer.hxx"
 #include "sortparam.hxx"
-#include "compressedarray.hxx"
-#include "postit.hxx"
 #include "types.hxx"
 #include "cellvalue.hxx"
 #include <formula/types.hxx>
@@ -39,8 +35,10 @@
 #include "document.hxx"
 
 #include <set>
-#include <map>
 #include <memory>
+
+template <typename A, typename D> class ScBitMaskCompressedArray;
+template <typename A, typename D> class ScCompressedArray;
 
 namespace utl {
     class TextSearch;
@@ -55,7 +53,6 @@ namespace com { namespace sun { namespace star {
 namespace formula { struct VectorRefArray; }
 namespace sc {
 
-struct FormulaGroupContext;
 class StartListeningContext;
 class EndListeningContext;
 class CopyFromClipContext;
@@ -76,8 +73,6 @@ class TableValues;
 class RowHeightContext;
 class CompileFormulaContext;
 struct SetFormulaDirtyContext;
-class RefMovedHint;
-struct ReorderParam;
 class ColumnIterator;
 
 }
@@ -89,7 +84,6 @@ class SvxBoxItem;
 class SvxSearchItem;
 
 class ScAutoFormatData;
-class ScDocument;
 class ScEditDataArray;
 class ScFormulaCell;
 class ScOutlineTable;
@@ -105,7 +99,6 @@ class ScTableProtection;
 class ScUserListData;
 struct RowInfo;
 struct ScFunctionData;
-struct ScLineFlags;
 class CollatorWrapper;
 class ScFlatUInt16RowSegments;
 class ScFlatBoolRowSegments;
@@ -114,16 +107,17 @@ struct ScSetStringParam;
 struct ScColWidthParam;
 class ScRangeName;
 class ScDBData;
-class ScDocumentImport;
 class ScHint;
+class ScPostIt;
 struct ScInterpreterContext;
+
 
 class ScColumnsRange final
 {
  public:
     class Iterator final
     {
-        std::vector<ScColumn*>::const_iterator maColIter;
+        std::vector<std::unique_ptr<ScColumn>>::const_iterator maColIter;
     public:
         typedef std::input_iterator_tag iterator_category;
         typedef SCCOL value_type;
@@ -131,7 +125,7 @@ class ScColumnsRange final
         typedef const SCCOL* pointer;
         typedef SCCOL reference;
 
-        explicit Iterator(const std::vector<ScColumn*>::const_iterator& colIter) : maColIter(colIter) {}
+        explicit Iterator(const std::vector<std::unique_ptr<ScColumn>>::const_iterator& colIter) : maColIter(colIter) {}
 
         Iterator& operator++() { ++maColIter; return *this;}
         Iterator& operator--() { --maColIter; return *this;}
@@ -366,13 +360,13 @@ public:
 
     sal_Int64   GetHashCode () const;
 
-    void        GetName( OUString& rName ) const;
+    const OUString& GetName() const { return aName; }
     void        SetName( const OUString& rNewName );
 
     void        SetAnonymousDBData(std::unique_ptr<ScDBData> pDBData);
     ScDBData*   GetAnonymousDBData() { return pDBDataNoName.get();}
 
-    void        GetCodeName( OUString& rName ) const {  rName = aCodeName; }
+    const OUString& GetCodeName() const { return aCodeName; }
     void        SetCodeName( const OUString& rNewName ) { aCodeName = rNewName; }
 
     const OUString& GetUpperName() const;
@@ -440,7 +434,8 @@ public:
     bool        ReservePatternCount( SCCOL nCol, SCSIZE nReserve );
 
     void        SetRawString( SCCOL nCol, SCROW nRow, const svl::SharedString& rStr );
-    void        GetString( SCCOL nCol, SCROW nRow, OUString& rString ) const;
+    void        GetString( SCCOL nCol, SCROW nRow, OUString& rString,
+                           const ScInterpreterContext* pContext = nullptr ) const;
     double*     GetValueCell( SCCOL nCol, SCROW nRow );
     void        GetInputString( SCCOL nCol, SCROW nRow, OUString& rString ) const;
     double      GetValue( SCCOL nCol, SCROW nRow ) const;
@@ -594,7 +589,7 @@ public:
                                 bool bMarked, bool bUnprotected, const ScMarkData& rMark ) const;
 
     bool        SkipRow( const SCCOL rCol, SCROW& rRow, const SCROW nMovY, const ScMarkData& rMark,
-                         const bool bUp, const SCROW nUsedY, const bool bSheetProtected ) const;
+                         const bool bUp, const SCROW nUsedY, const bool bMarked, const bool bSheetProtected ) const;
     void        LimitChartArea( SCCOL& rStartCol, SCROW& rStartRow, SCCOL& rEndCol, SCROW& rEndRow ) const;
 
     bool        HasData( SCCOL nCol, SCROW nRow ) const;
@@ -993,7 +988,7 @@ public:
     formula::FormulaTokenRef ResolveStaticReference( SCCOL nCol, SCROW nRow );
     formula::FormulaTokenRef ResolveStaticReference( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2 );
     formula::VectorRefArray FetchVectorRefArray( SCCOL nCol, SCROW nRow1, SCROW nRow2 );
-    bool HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2 );
+    bool HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup );
 
     void SplitFormulaGroups( SCCOL nCol, std::vector<SCROW>& rRows );
     void UnshareFormulaCells( SCCOL nCol, std::vector<SCROW>& rRows );
@@ -1010,7 +1005,6 @@ public:
     void InterpretDirtyCells( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2 );
 
     void SetFormulaResults( SCCOL nCol, SCROW nRow, const double* pResults, size_t nLen );
-    void SetFormulaResults( SCCOL nCol, SCROW nRow, const formula::FormulaConstTokenRef* pResults, size_t nLen );
 
     void CalculateInColumnInThread( ScInterpreterContext& rContext, SCCOL nCol, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal);
     void HandleStuffAfterParallelCalculation( SCCOL nCol, SCROW nRow, size_t nLen);

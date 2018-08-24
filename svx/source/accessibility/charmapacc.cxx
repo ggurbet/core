@@ -116,15 +116,18 @@ void SvxShowCharSetAcc::implSelect(sal_Int32 nAccessibleChildIndex, bool bSelect
 
 css::awt::Rectangle SvxShowCharSetAcc::implGetBounds()
 {
-    const Point   aOutPos;//( m_pParent->GetPosPixel() );
-    Size          aOutSize( m_pParent->GetSize());
-
     awt::Rectangle aRet;
 
-    aRet.X = aOutPos.X();
-    aRet.Y = aOutPos.Y();
-    aRet.Width = aOutSize.Width();
-    aRet.Height = aOutSize.Height();
+    if (m_pParent)
+    {
+        const Point   aOutPos;//( m_pParent->GetPosPixel() );
+        Size          aOutSize( m_pParent->GetOutputSizePixel());
+
+        aRet.X = aOutPos.X();
+        aRet.Y = aOutPos.Y();
+        aRet.Width = aOutSize.Width();
+        aRet.Height = aOutSize.Height();
+    }
 
     return aRet;
 }
@@ -134,11 +137,6 @@ sal_Int32 SAL_CALL SvxShowCharSetAcc::getAccessibleChildCount()
     OExternalLockGuard aGuard( this );
 
     return m_pParent->getMaxCharCount();
-}
-
-sal_Int32 SAL_CALL SvxShowCharSetAcc::getAccessibleIndexInParent()
-{
-    return 0;
 }
 
 uno::Reference< css::accessibility::XAccessible > SAL_CALL SvxShowCharSetAcc::getAccessibleChild( sal_Int32 i )
@@ -162,7 +160,9 @@ uno::Reference< css::accessibility::XAccessible > SAL_CALL SvxShowCharSetAcc::ge
 {
     OExternalLockGuard aGuard( this );
 
-    return m_pParent->getAccessibleParent();
+    if (m_pParent)
+        return m_pParent->getAccessibleParent();
+    return uno::Reference<css::accessibility::XAccessible>();
 }
 
 sal_Int16 SAL_CALL SvxShowCharSetAcc::getAccessibleRole()
@@ -549,7 +549,7 @@ awt::Rectangle SvxShowCharSetItemAcc::implGetBounds(  )
     if( mpParent )
     {
         tools::Rectangle   aRect( mpParent->maRect );
-        tools::Rectangle   aParentRect(Point(), mpParent->mrParent.GetSize());
+        tools::Rectangle   aParentRect(Point(), mpParent->mrParent.GetOutputSizePixel());
 
         aRect.Intersection( aParentRect );
 

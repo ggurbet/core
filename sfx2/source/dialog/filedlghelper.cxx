@@ -91,6 +91,7 @@
 #include <helpids.h>
 #include <sfx2/strings.hrc>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <comphelper/sequence.hxx>
 
 #ifdef UNX
@@ -690,7 +691,7 @@ IMPL_LINK_NOARG(FileDialogHelper_Impl, TimeOutHdl_Impl, Timer *, void)
             // is responsible for placing it at its
             // proper position and painting a frame
 
-            Bitmap aBmp = maGraphic.GetBitmap();
+            BitmapEx aBmp = maGraphic.GetBitmapEx();
             if ( !aBmp.IsEmpty() )
             {
                 // scale the bitmap to the correct size
@@ -713,7 +714,7 @@ IMPL_LINK_NOARG(FileDialogHelper_Impl, TimeOutHdl_Impl, Timer *, void)
                 // and copy it into the Any
                 SvMemoryStream aData;
 
-                WriteDIB(aBmp, aData, false, true);
+                WriteDIB(aBmp, aData, false);
 
                 const Sequence < sal_Int8 > aBuffer(
                     static_cast< const sal_Int8* >(aData.GetData()),
@@ -765,13 +766,12 @@ ErrCode FileDialogHelper_Impl::getGraphic( const OUString& rURL,
     // non-local?
     if ( INetProtocol::File != aURLObj.GetProtocol() )
     {
-        SvStream* pStream = ::utl::UcbStreamHelper::CreateStream( rURL, StreamMode::READ );
+        std::unique_ptr<SvStream> pStream = ::utl::UcbStreamHelper::CreateStream( rURL, StreamMode::READ );
 
         if( pStream )
             nRet = mpGraphicFilter->ImportGraphic( rGraphic, rURL, *pStream, nFilter, nullptr, nFilterImportFlags );
         else
             nRet = mpGraphicFilter->ImportGraphic( rGraphic, aURLObj, nFilter, nullptr, nFilterImportFlags );
-        delete pStream;
     }
     else
     {
@@ -1863,10 +1863,9 @@ void FileDialogHelper_Impl::addGraphicFilter()
     for ( i = 0; i < nCount; i++ )
     {
         j = 0;
-        OUString sWildcard;
         while( true )
         {
-            sWildcard = mpGraphicFilter->GetImportWildcard( i, j++ );
+            OUString sWildcard = mpGraphicFilter->GetImportWildcard( i, j++ );
             if ( sWildcard.isEmpty() )
                 break;
             if ( aExtensions.indexOf( sWildcard ) == -1 )
@@ -1903,10 +1902,9 @@ void FileDialogHelper_Impl::addGraphicFilter()
         OUString aName = mpGraphicFilter->GetImportFormatName( i );
         OUString aExt;
         j = 0;
-        OUString sWildcard;
         while( true )
         {
-            sWildcard = mpGraphicFilter->GetImportWildcard( i, j++ );
+            OUString sWildcard = mpGraphicFilter->GetImportWildcard( i, j++ );
             if ( sWildcard.isEmpty() )
                 break;
             if ( aExt.indexOf( sWildcard ) == -1 )

@@ -23,6 +23,7 @@
 #include <unotools/fontcvt.hxx>
 #include <sfx2/objsh.hxx>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <editeng/editstat.hxx>
 #include <filter/msfilter/msvbahelper.hxx>
 #include <xestream.hxx>
@@ -31,6 +32,7 @@
 #include <editutil.hxx>
 #include <formula/errorcodes.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <xlstyle.hxx>
 #include <xlname.hxx>
 #include <xistream.hxx>
@@ -531,7 +533,7 @@ OUString XclTools::GetBuiltInStyleName( sal_uInt8 nStyleId, const OUString& rNam
 
     if( nStyleId == EXC_STYLE_NORMAL )  // "Normal" becomes "Default" style
     {
-        aStyleName = ScGlobal::GetRscString( STR_STYLENAME_STANDARD );
+        aStyleName = ScResId( STR_STYLENAME_STANDARD );
     }
     else
     {
@@ -555,7 +557,7 @@ OUString XclTools::GetBuiltInStyleName( sal_uInt8 nStyleId, const OUString& rNam
 bool XclTools::IsBuiltInStyleName( const OUString& rStyleName, sal_uInt8* pnStyleId, sal_Int32* pnNextChar )
 {
     // "Default" becomes "Normal"
-    if (rStyleName == ScGlobal::GetRscString(STR_STYLENAME_STANDARD))
+    if (rStyleName == ScResId(STR_STYLENAME_STANDARD))
     {
         if( pnStyleId ) *pnStyleId = EXC_STYLE_NORMAL;
         if( pnNextChar ) *pnNextChar = rStyleName.getLength();

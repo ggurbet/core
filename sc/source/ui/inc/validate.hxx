@@ -84,7 +84,7 @@ public:
     explicit                    ScTPValidationValue( vcl::Window* pParent, const SfxItemSet& rArgSet );
     virtual                     ~ScTPValidationValue() override;
     virtual void                dispose() override;
-    static VclPtr<SfxTabPage>          Create( vcl::Window* pParent, const SfxItemSet* rArgSet );
+    static VclPtr<SfxTabPage>          Create( TabPageParent pParent, const SfxItemSet* rArgSet );
     static const sal_uInt16*    GetRanges() { return pValueRanges; }
 
     virtual bool                FillItemSet( SfxItemSet* rArgSet ) override;
@@ -119,6 +119,7 @@ private:
     OUString                    maStrMin;
     OUString                    maStrMax;
     OUString                    maStrValue;
+    OUString                    maStrFormula;
     OUString                    maStrRange;
     OUString                    maStrList;
     sal_Unicode                 mcFmlaSep;      /// List separator in formulas.
@@ -271,7 +272,7 @@ public:
             virtual ~ScTPValidationHelp() override;
     virtual void dispose() override;
 
-    static  VclPtr<SfxTabPage> Create      ( vcl::Window* pParent, const SfxItemSet* rArgSet );
+    static  VclPtr<SfxTabPage> Create      ( TabPageParent pParent, const SfxItemSet* rArgSet );
     virtual bool        FillItemSet ( SfxItemSet* rArgSet ) override;
     virtual void        Reset       ( const SfxItemSet* rArgSet ) override;
 };
@@ -297,7 +298,7 @@ public:
             virtual ~ScTPValidationError() override;
     virtual void dispose() override;
 
-    static  VclPtr<SfxTabPage> Create      ( vcl::Window* pParent, const SfxItemSet* rArgSet );
+    static  VclPtr<SfxTabPage> Create      ( TabPageParent pParent, const SfxItemSet* rArgSet );
     virtual bool        FillItemSet ( SfxItemSet* rArgSet ) override;
     virtual void        Reset       ( const SfxItemSet* rArgSet ) override;
 };

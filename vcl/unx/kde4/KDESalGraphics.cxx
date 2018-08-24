@@ -408,7 +408,12 @@ bool KDESalGraphics::drawNativeControl( ControlType type, ControlPart part,
         draw( QStyle::PE_IndicatorToolBarHandle, &option, m_image.get(),
               vclStateValue2StateFlag(nControlState, value), rect );
     }
-    else if (type == ControlType::Editbox || type == ControlType::MultilineEditbox)
+    else if (type == ControlType::Editbox)
+    {
+        lcl_drawFrame( QStyle::PE_PanelLineEdit, m_image.get(),
+             vclStateValue2StateFlag(nControlState, value));
+    }
+    else if (type == ControlType::MultilineEditbox)
     {
         lcl_drawFrame( QStyle::PE_FrameLineEdit, m_image.get(),
                        vclStateValue2StateFlag(nControlState, value));
@@ -473,7 +478,7 @@ bool KDESalGraphics::drawNativeControl( ControlType type, ControlPart part,
             OSL_ASSERT( value.getType() == ControlType::Scrollbar );
             const ScrollbarValue* sbVal = static_cast<const ScrollbarValue *>(&value);
 
-            //if the scroll bar is active (aka not degenrate...allow for hover events
+            //if the scroll bar is active (aka not degenerate... allow for hover events)
             if (sbVal->mnVisibleSize < sbVal->mnMax)
                 option.state = QStyle::State_MouseOver;
 
@@ -492,7 +497,7 @@ bool KDESalGraphics::drawNativeControl( ControlType type, ControlPart part,
             if (part == ControlPart::DrawBackgroundHorz)
                 option.upsideDown = sbVal->maButton1Rect.Left() > sbVal->maButton2Rect.Left();
 
-            //setup the active control...always the slider
+            //setup the active control... always the slider
             if (sbVal->mnThumbState & ControlState::ROLLOVER)
                 option.activeSubControls = QStyle::SC_ScrollBarSlider;
 

@@ -34,6 +34,7 @@
 #include <osl/file.hxx>
 #include <rtl/bootstrap.hxx>
 #include <rtl/process.h>
+#include <sal/log.hxx>
 #include <vcl/floatwin.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
@@ -3112,7 +3113,7 @@ void GtkSalFrame::signalStyleSet( GtkWidget*, GtkStyle* pPrevious, gpointer fram
             bFontSettingsChanged = false;
         if (bFontSettingsChanged)
         {
-            pInstance->ResetLastSeenCairoFontOptions();
+            pInstance->ResetLastSeenCairoFontOptions(pCurrentCairoFontOptions);
             GtkSalFrame::getDisplay()->SendInternalEvent( pThis, nullptr, SalEvent::FontChanged );
         }
     }
@@ -3559,8 +3560,14 @@ void GtkSalFrame::IMHandler::signalIMPreeditChanged( GtkIMContext*, gpointer im_
         ExtTextInputAttr sal_attr = ExtTextInputAttr::NONE;
 
         pango_attr_iterator_range (iter, &start, &end);
-        if (end == G_MAXINT)
-            end = pText ? g_utf8_strlen(pText, -1) : 0;
+        if (start == G_MAXINT || end == G_MAXINT)
+        {
+            auto len = pText ? g_utf8_strlen(pText, -1) : 0;
+            if (end == G_MAXINT)
+                end = len;
+            if (start == G_MAXINT)
+                start = len;
+        }
         if (end == start)
             continue;
 

@@ -211,7 +211,7 @@ void OutputDevice::ImplDrawWaveTextLine( long nBaseX, long nBaseY,
                                          Color aColor,
                                          bool bIsAbove )
 {
-    LogicalFontInstance* pFontInstance = mpFontInstance;
+    LogicalFontInstance* pFontInstance = mpFontInstance.get();
     long            nLineHeight;
     long            nLinePos;
 
@@ -279,7 +279,7 @@ void OutputDevice::ImplDrawStraightTextLine( long nBaseX, long nBaseY,
                                              Color aColor,
                                              bool bIsAbove )
 {
-    LogicalFontInstance*  pFontInstance = mpFontInstance;
+    LogicalFontInstance*  pFontInstance = mpFontInstance.get();
     long            nLineHeight = 0;
     long            nLinePos  = 0;
     long            nLinePos2 = 0;
@@ -521,7 +521,7 @@ void OutputDevice::ImplDrawStrikeoutLine( long nBaseX, long nBaseY,
                                           FontStrikeout eStrikeout,
                                           Color aColor )
 {
-    LogicalFontInstance*  pFontInstance = mpFontInstance;
+    LogicalFontInstance*  pFontInstance = mpFontInstance.get();
     long            nLineHeight = 0;
     long            nLinePos  = 0;
     long            nLinePos2 = 0;
@@ -751,7 +751,7 @@ void OutputDevice::ImplDrawTextLines( SalLayout& rSalLayout, FontStrikeout eStri
         DeviceCoordinate nWidth = 0;
         const GlyphItem* pGlyph;
         int nStart = 0;
-        while (rSalLayout.GetNextGlyphs(1, &pGlyph, aPos, nStart))
+        while (rSalLayout.GetNextGlyph(&pGlyph, aPos, nStart))
         {
             // calculate the boundaries of each word
             if (!pGlyph->IsSpacing())
@@ -1030,7 +1030,7 @@ void OutputDevice::DrawWaveLine( const Point& rStartPos, const Point& rEndPos )
     }
 
     // #109280# make sure the waveline does not exceed the descent to avoid paint problems
-    LogicalFontInstance* pFontInstance = mpFontInstance;
+    LogicalFontInstance* pFontInstance = mpFontInstance.get();
     if( nWaveHeight > pFontInstance->mxFontMetric->GetWavelineUnderlineSize() )
     {
         nWaveHeight = pFontInstance->mxFontMetric->GetWavelineUnderlineSize();

@@ -50,7 +50,6 @@ class PhysicalFontCollection;
 class SalGraphicsImpl;
 class WinOpenGLSalGraphicsImpl;
 class ImplFontMetricData;
-class CommonSalLayout;
 
 #define RGB_TO_PALRGB(nRGB)         ((nRGB)|0x02000000)
 #define PALRGB_TO_RGB(nPalRGB)      ((nPalRGB)&0x00ffffff)
@@ -64,8 +63,7 @@ public:
                                 BYTE nPitchAndFamily  );
     virtual                 ~WinFontFace() override;
 
-    virtual PhysicalFontFace* Clone() const override;
-    virtual LogicalFontInstance* CreateFontInstance( const FontSelectPattern& ) const override;
+    virtual rtl::Reference<LogicalFontInstance> CreateFontInstance( const FontSelectPattern& ) const override;
     virtual sal_IntPtr      GetFontId() const override;
     void                    SetFontId( sal_IntPtr nId ) { mnId = nId; }
     void                    UpdateFromHDC( HDC ) const;
@@ -90,14 +88,9 @@ private:
     BYTE                    mnPitchAndFamily;
     bool                    mbAliasSymbolsHigh;
     bool                    mbAliasSymbolsLow;
-private:
+
     void                    ReadCmapTable( HDC ) const;
     void                    GetFontCapabilities( HDC hDC ) const;
-
-    mutable hb_font_t*      mpHbFont;
-public:
-    hb_font_t*              GetHbFont() const { return mpHbFont; }
-    void                    SetHbFont( hb_font_t* pHbFont ) const { mpHbFont = pHbFont; }
 };
 
 /** Class that creates (and destroys) a compatible Device Context.
@@ -163,9 +156,21 @@ private:
     bool                    mbScreen : 1;           // is Screen compatible
     HWND                    mhWnd;              // Window-Handle, when Window-Graphics
 
+    /** HFONT lifecycle
+     *
+     * The HFONT has to be shared between mhFonts and mpWinFontEntry.
+     * As mpWinFontEntry is reference counted and just freed in SetFont, the HFONT is
+     * transferred from mhFonts to the mpWinFontEntry.
+     *
+     * We need the mhFonts list, as embedded fonts don't have a corresponding WinFontInstance
+     * so for these there is just the mhFonts entry.
+     *
+     * The HFONT object can just be assigned to mhFonts _or_ mpWinFontEntry!
+     **/
+
     HFONT                   mhFonts[ MAX_FALLBACK ];        // Font + Fallbacks
-    const WinFontFace*  mpWinFontData[ MAX_FALLBACK ];  // pointer to the most recent font face
-    WinFontInstance*       mpWinFontEntry[ MAX_FALLBACK ]; // pointer to the most recent font instance
+    rtl::Reference<WinFontInstance>
+                            mpWinFontEntry[ MAX_FALLBACK ]; // pointer to the most recent font instance
     float                   mfFontScale[ MAX_FALLBACK ];        // allows metrics emulation of huge font sizes
     float                   mfCurrentFontScale;
     HRGN                    mhRegion;           // vcl::Region Handle
@@ -178,10 +183,9 @@ private:
     RGNDATA*                mpStdClipRgnData;   // Cache Standard-ClipRegion-Data
     int                     mnPenWidth;         // line width
 
-    LogicalFontInstance* GetWinFontEntry(int nFallbackLevel);
-
-    bool CacheGlyphs(const CommonSalLayout& rLayout);
-    bool DrawCachedGlyphs(const CommonSalLayout& rLayout);
+    bool CacheGlyphs(const GenericSalLayout& rLayout);
+    bool DrawCachedGlyphs(const GenericSalLayout& rLayout);
+    HFONT ImplDoSetFont(FontSelectPattern const & i_rFont, const PhysicalFontFace * i_pFontFace, float& o_rFontScale, HFONT& o_rOldFont);
 
 public:
     HDC getHDC() const { return mhLocalDC; }
@@ -207,7 +211,6 @@ public:
 
     HWND gethWnd();
 
-    HFONT                   ImplDoSetFont( FontSelectPattern const * i_pFont, float& o_rFontScale, HFONT& o_rOldFont );
 
 public:
     explicit WinSalGraphics(WinSalGraphics::Type eType, bool bScreen, HWND hWnd,
@@ -260,7 +263,7 @@ protected:
                                   const SalBitmap& rSalBitmap,
                                   Color nMaskColor ) override;
 
-    virtual SalBitmap*  getBitmap( long nX, long nY, long nWidth, long nHeight ) override;
+    virtual std::shared_ptr<SalBitmap> getBitmap( long nX, long nY, long nWidth, long nHeight ) override;
     virtual Color       getPixel( long nX, long nY ) override;
 
     // invert --> ClipRegion (only Windows or VirDevs)
@@ -301,7 +304,7 @@ protected:
 private:
     // local helpers
 
-    void                    DrawTextLayout(const CommonSalLayout&, HDC, bool bUseDWrite);
+    void                    DrawTextLayout(const GenericSalLayout&, HDC, bool bUseDWrite);
 
 public:
     // public SalGraphics methods, the interface to the independent vcl part
@@ -334,7 +337,7 @@ public:
     // set the text color to a specific color
     virtual void            SetTextColor( Color nColor ) override;
     // set the font
-    virtual void            SetFont( const FontSelectPattern*, int nFallbackLevel ) override;
+    virtual void            SetFont( LogicalFontInstance*, int nFallbackLevel ) override;
     // get the current font's metrics
     virtual void            GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) override;
     // get the repertoire of the current font
@@ -384,7 +387,7 @@ public:
 
     virtual std::unique_ptr<SalLayout>
                             GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
-    virtual void            DrawTextLayout( const CommonSalLayout& ) override;
+    virtual void            DrawTextLayout( const GenericSalLayout& ) override;
 
     virtual bool            supportsOperation( OutDevSupportType ) const override;
     // Query the platform layer for control support
@@ -399,8 +402,8 @@ public:
 // Init/Deinit Graphics
 void    ImplUpdateSysColorEntries();
 int     ImplIsSysColorEntry( Color nColor );
-void    ImplGetLogFontFromFontSelect( HDC, const FontSelectPattern*,
-            LOGFONTW&, bool bTestVerticalAvail );
+void    ImplGetLogFontFromFontSelect( HDC, const FontSelectPattern&,
+            const PhysicalFontFace*, LOGFONTW& );
 
 #define MAX_64KSALPOINTS    ((((sal_uInt16)0xFFFF)-8)/sizeof(POINTS))
 

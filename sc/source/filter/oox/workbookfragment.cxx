@@ -54,6 +54,8 @@
 #include <docsh.hxx>
 #include <calcconfig.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
+#include <scmod.hxx>
 
 #include <vcl/svapp.hxx>
 #include <vcl/timer.hxx>
@@ -63,6 +65,8 @@
 #include <salhelper/thread.hxx>
 #include <comphelper/threadpool.hxx>
 #include <osl/conditn.hxx>
+#include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <queue>
@@ -324,7 +328,7 @@ void importSheetFragments( WorkbookFragment& rWorkbookHandler, SheetFragmentVect
          pProgress->setCustomRowProgress(
                      aProgressUpdater.wrapProgress(
                              pProgress->getRowProgress() ) );
-         rSharedPool.pushTask( new WorkerThread( pTag, rWorkbookHandler, it->second,
+         rSharedPool.pushTask( o3tl::make_unique<WorkerThread>( pTag, rWorkbookHandler, it->second,
                                            /* ref */ nSheetsLeft ) );
          nSheetsLeft++;
      }
@@ -548,7 +552,7 @@ void WorkbookFragment::recalcFormulaCells()
             vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
 
             MessageWithCheck aQueryBox(pWin ? pWin->GetFrameWeld() : nullptr, "modules/scalc/ui/recalcquerydialog.ui", "RecalcQueryDialog");
-            aQueryBox.set_primary_text(ScGlobal::GetRscString(STR_QUERY_FORMULA_RECALC_ONLOAD_XLS));
+            aQueryBox.set_primary_text(ScResId(STR_QUERY_FORMULA_RECALC_ONLOAD_XLS));
             aQueryBox.set_default_response(RET_YES);
 
             bHardRecalc = aQueryBox.run() == RET_YES;
@@ -574,7 +578,12 @@ void WorkbookFragment::recalcFormulaCells()
     if (bHardRecalc)
         rDocSh.DoHardRecalc();
     else
-        rDoc.CalcFormulaTree(false, true, false);
+    {
+        getDocImport().broadcastRecalcAfterImport();
+        // Full ScDocument::CalcFormulaTree() of all dirty cells is not
+        // necessary here, the View will recalculate them in the visible area,
+        // or any other method accessing formula cell results.
+    }
 }
 
 // private --------------------------------------------------------------------

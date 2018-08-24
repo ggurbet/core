@@ -106,14 +106,14 @@ int SvRTFParser::GetNextToken_()
                                 aStrBuffer[nStrLen++] = nNextCh;
                                 if( MAX_TOKEN_LEN == nStrLen )
                                 {
-                                    aToken += aStrBuffer.toString();
+                                    aToken += aStrBuffer;
                                     nStrLen = 0;
                                 }
                                 nNextCh = GetNextChar();
                             } while( RTF_ISALPHA( nNextCh ) );
                             if( nStrLen )
                             {
-                                aToken += aStrBuffer.makeStringAndClear();
+                                aToken += aStrBuffer;
                             }
                         }
 
@@ -174,8 +174,13 @@ int SvRTFParser::GetNextToken_()
                             if (!_inSkipGroup) {
                             // UPR - overread the group with the ansi
                             //       information
-                            while( '{' != GetNextToken_() )
-                                ;
+                            int nNextToken;
+                            do
+                            {
+                                nNextToken = GetNextToken_();
+                            }
+                            while (nNextToken != '{' && nNextToken != sal_Unicode(EOF));
+
                             SkipGroup();
                             GetNextToken_();  // overread the last bracket
                             nRet = 0;
@@ -505,7 +510,7 @@ void SvRTFParser::ScanText()
                     if (sal_Unicode(EOF) == (nNextCh = GetNextChar()))
                     {
                         if (!aStrBuffer.isEmpty())
-                            aToken += aStrBuffer.toString();
+                            aToken += aStrBuffer;
                         return;
                     }
                 } while
@@ -522,7 +527,7 @@ void SvRTFParser::ScanText()
     }
 
     if (!aStrBuffer.isEmpty())
-        aToken += aStrBuffer.makeStringAndClear();
+        aToken += aStrBuffer;
 }
 
 

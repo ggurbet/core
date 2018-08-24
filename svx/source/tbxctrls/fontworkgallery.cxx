@@ -46,9 +46,7 @@
 
 #include <svx/gallery.hxx>
 #include <svx/dlgutil.hxx>
-
 #include <svx/fontworkgallery.hxx>
-#include <coreservices.hxx>
 
 #include <algorithm>
 #include <memory>
@@ -137,7 +135,7 @@ void FontWorkGalleryDialog::initFavorites(sal_uInt16 nThemeId)
             pVDev->DrawCheckered(aNull, aSize, nLen, aW, aG);
 
             pVDev->DrawBitmapEx(aNull, aThumb);
-            maFavoritesHorizontal.emplace_back(pVDev->GetBitmap(aNull, aSize));
+            maFavoritesHorizontal.emplace_back(pVDev->GetBitmapEx(aNull, aSize));
         }
     }
 
@@ -197,29 +195,62 @@ void FontWorkGalleryDialog::insertSelectedFontwork()
             SdrPage* pPage = pModel->GetPage(0);
             if( pPage && pPage->GetObjCount() )
             {
-                // Clone directly to target SdrModel
-                SdrObject* pNewObject(pPage->GetObj(0)->Clone(mpDestModel));
+                // tdf#116993 Calc uses a 'special' mode for this dialog in being the
+                // only caller of ::SetSdrObjectRef. Only in that case mpDestModel seems
+                // to be the correct target SdrModel.
+                // If this is not used, the correct SdrModel seems to be the one from
+                // the mpSdrView that is used to insert (InsertObjectAtView below) the
+                // cloned SdrObject.
+                const bool bUseSpecialCalcMode(nullptr != mppSdrObject && nullptr != mpDestModel);
+                const bool bSdrViewInsertMode(nullptr != mpSdrView);
 
                 // center shape on current view
-                OutputDevice* pOutDev = mpSdrView->GetFirstOutputDevice();
-                if( pOutDev )
+                OutputDevice* pOutDev(mpSdrView->GetFirstOutputDevice());
+
+                if(pOutDev && (bUseSpecialCalcMode || bSdrViewInsertMode))
                 {
+                    // Clone directly to target SdrModel (may be different due to user/caller (!))
+                    SdrObject* pNewObject(
+                        pPage->GetObj(0)->CloneSdrObject(
+                            bUseSpecialCalcMode ? *mpDestModel : mpSdrView->getSdrModelFromSdrView()));
+
+                    // tdf#117629
+                    // Since the 'old' ::CloneSdrObject also copies the SdrPage* the
+                    // SdrObject::getUnoShape() *will* create the wrong UNO API object
+                    // early. This IS one of the reasons I do change these things - this
+                    // error does not happen with my next change I am working on already
+                    // ARGH! For now, reset the SdrPage* to nullptr.
+                    // What sense does it have to copy the SdrPage* of the original SdrObject ?!?
+                    // TTTT: This also *might* be the hidden reason for the strange code at the
+                    // end of SdrObject::SetPage that tries to delete the SvxShape under some
+                    // circumstances...
+                    // pNewObject->SetPage(nullptr);
+
                     tools::Rectangle aObjRect( pNewObject->GetLogicRect() );
                     tools::Rectangle aVisArea = pOutDev->PixelToLogic(tools::Rectangle(Point(0,0), pOutDev->GetOutputSizePixel()));
                     Point aPagePos = aVisArea.Center();
                     aPagePos.AdjustX( -(aObjRect.GetWidth() / 2) );
                     aPagePos.AdjustY( -(aObjRect.GetHeight() / 2) );
                     tools::Rectangle aNewObjectRectangle(aPagePos, aObjRect.GetSize());
-                    SdrPageView* pPV = mpSdrView->GetSdrPageView();
                     pNewObject->SetLogicRect(aNewObjectRectangle);
 
-                    if ( mppSdrObject )
+                    if(bUseSpecialCalcMode)
                     {
                         *mppSdrObject = pNewObject;
                     }
-                    else if( pPV )
+                    else // bSdrViewInsertMode
                     {
-                        mpSdrView->InsertObjectAtView( pNewObject, *pPV );
+                        SdrPageView* pPV(mpSdrView->GetSdrPageView());
+
+                        if(nullptr != pPV)
+                        {
+                            mpSdrView->InsertObjectAtView( pNewObject, *pPV );
+                        }
+                        else
+                        {
+                            // tdf#116993 no target -> delete clone
+                            SdrObject::Free(pNewObject);
+                        }
                     }
                 }
             }
@@ -252,40 +283,34 @@ public:
 private:
     svt::ToolboxController& mrController;
 
-    Image maImgAlgin1;
-    Image maImgAlgin2;
-    Image maImgAlgin3;
-    Image maImgAlgin4;
-    Image maImgAlgin5;
-
-    const OUString msFontworkAlignment;
-
     DECL_LINK( SelectHdl, ToolbarMenu*, void );
 
     void    implSetAlignment( int nAlignmentMode, bool bEnabled );
 };
 
+static const OUStringLiteral gsFontworkAlignment(".uno:FontworkAlignment");
+
 FontworkAlignmentWindow::FontworkAlignmentWindow(svt::ToolboxController& rController, vcl::Window* pParentWindow)
     : ToolbarMenu(rController.getFrameInterface(), pParentWindow, WB_STDPOPUP)
     , mrController(rController)
-    , maImgAlgin1(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_LEFT))
-    , maImgAlgin2(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_CENTER))
-    , maImgAlgin3(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_RIGHT))
-    , maImgAlgin4(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_WORD))
-    , maImgAlgin5(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_STRETCH))
-    , msFontworkAlignment(".uno:FontworkAlignment")
 {
     SetSelectHdl( LINK( this, FontworkAlignmentWindow, SelectHdl ) );
 
-    appendEntry(0, SvxResId(RID_SVXSTR_ALIGN_LEFT), maImgAlgin1);
-    appendEntry(1, SvxResId(RID_SVXSTR_ALIGN_CENTER), maImgAlgin2);
-    appendEntry(2, SvxResId(RID_SVXSTR_ALIGN_RIGHT), maImgAlgin3);
-    appendEntry(3, SvxResId(RID_SVXSTR_ALIGN_WORD), maImgAlgin4);
-    appendEntry(4, SvxResId(RID_SVXSTR_ALIGN_STRETCH), maImgAlgin5);
+    Image aImgAlgin1(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_LEFT));
+    Image aImgAlgin2(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_CENTER));
+    Image aImgAlgin3(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_RIGHT));
+    Image aImgAlgin4(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_WORD));
+    Image aImgAlgin5(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_STRETCH));
+
+    appendEntry(0, SvxResId(RID_SVXSTR_ALIGN_LEFT), aImgAlgin1);
+    appendEntry(1, SvxResId(RID_SVXSTR_ALIGN_CENTER), aImgAlgin2);
+    appendEntry(2, SvxResId(RID_SVXSTR_ALIGN_RIGHT), aImgAlgin3);
+    appendEntry(3, SvxResId(RID_SVXSTR_ALIGN_WORD), aImgAlgin4);
+    appendEntry(4, SvxResId(RID_SVXSTR_ALIGN_STRETCH), aImgAlgin5);
 
     SetOutputSizePixel( getMenuSize() );
 
-    AddStatusListener( msFontworkAlignment );
+    AddStatusListener( gsFontworkAlignment );
 }
 
 void FontworkAlignmentWindow::implSetAlignment( int nSurface, bool bEnabled )
@@ -300,7 +325,7 @@ void FontworkAlignmentWindow::implSetAlignment( int nSurface, bool bEnabled )
 
 void FontworkAlignmentWindow::statusChanged( const css::frame::FeatureStateEvent& Event )
 {
-    if( Event.FeatureURL.Main == msFontworkAlignment )
+    if( Event.FeatureURL.Main == gsFontworkAlignment )
     {
         if( !Event.IsEnabled )
         {
@@ -324,10 +349,10 @@ IMPL_LINK_NOARG(FontworkAlignmentWindow, SelectHdl, ToolbarMenu*, void)
     if( nAlignment >= 0 )
     {
         Sequence< PropertyValue > aArgs( 1 );
-        aArgs[0].Name = msFontworkAlignment.copy(5);
+        aArgs[0].Name = OUString(gsFontworkAlignment).copy(5);
         aArgs[0].Value <<= nAlignment;
 
-        mrController.dispatchCommand( msFontworkAlignment, aArgs );
+        mrController.dispatchCommand( gsFontworkAlignment, aArgs );
 
         implSetAlignment( nAlignment, true );
     }
@@ -376,35 +401,27 @@ void SAL_CALL FontworkAlignmentControl::initialize( const css::uno::Sequence< cs
 // XServiceInfo
 
 
-OUString FontworkAlignmentControl_getImplementationName()
+OUString FontworkAlignmentControl::getImplementationName()
 {
     return OUString( "com.sun.star.comp.svx.FontworkAlignmentController" );
 }
 
 
-Sequence< OUString > FontworkAlignmentControl_getSupportedServiceNames()
+Sequence< OUString > FontworkAlignmentControl::getSupportedServiceNames()
 {
     Sequence<OUString> aSNS { "com.sun.star.frame.ToolbarController" };
     return aSNS;
 }
 
 
-Reference< XInterface > FontworkAlignmentControl_createInstance( const Reference< XMultiServiceFactory >& rSMgr )
+extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*
+com_sun_star_comp_svx_FontworkAlignmentControl_get_implementation(
+    css::uno::XComponentContext* xContext,
+    css::uno::Sequence<css::uno::Any> const &)
 {
-    return *new FontworkAlignmentControl( comphelper::getComponentContext(rSMgr) );
+    return cppu::acquire(new FontworkAlignmentControl(xContext));
 }
 
-
-OUString SAL_CALL FontworkAlignmentControl::getImplementationName(  )
-{
-    return FontworkAlignmentControl_getImplementationName();
-}
-
-
-Sequence< OUString > SAL_CALL FontworkAlignmentControl::getSupportedServiceNames(  )
-{
-    return FontworkAlignmentControl_getSupportedServiceNames();
-}
 
 class FontworkCharacterSpacingWindow : public ToolbarMenu
 {
@@ -415,21 +432,18 @@ public:
 private:
     svt::ToolboxController& mrController;
 
-    const OUString msFontworkCharacterSpacing;
-    const OUString msFontworkKernCharacterPairs;
-
     DECL_LINK( SelectHdl, ToolbarMenu*, void );
 
     void    implSetCharacterSpacing( sal_Int32 nCharacterSpacing, bool bEnabled );
     void    implSetKernCharacterPairs( bool bEnabled );
 
 };
+static const OUStringLiteral gsFontworkCharacterSpacing(".uno:FontworkCharacterSpacing");
+static const OUStringLiteral gsFontworkKernCharacterPairs(".uno:FontworkKernCharacterPairs");
 
 FontworkCharacterSpacingWindow::FontworkCharacterSpacingWindow(svt::ToolboxController& rController, vcl::Window* pParentWindow)
     : ToolbarMenu(rController.getFrameInterface(), pParentWindow, WB_STDPOPUP)
     , mrController(rController)
-    , msFontworkCharacterSpacing(".uno:FontworkCharacterSpacing")
-    , msFontworkKernCharacterPairs(".uno:FontworkKernCharacterPairs")
 {
     SetSelectHdl( LINK( this, FontworkCharacterSpacingWindow, SelectHdl ) );
 
@@ -444,8 +458,8 @@ FontworkCharacterSpacingWindow::FontworkCharacterSpacingWindow(svt::ToolboxContr
 
     SetOutputSizePixel( getMenuSize() );
 
-    AddStatusListener( msFontworkCharacterSpacing );
-    AddStatusListener( msFontworkKernCharacterPairs );
+    AddStatusListener( gsFontworkCharacterSpacing );
+    AddStatusListener( gsFontworkKernCharacterPairs );
 }
 
 void FontworkCharacterSpacingWindow::implSetCharacterSpacing( sal_Int32 nCharacterSpacing, bool bEnabled )
@@ -482,7 +496,7 @@ void FontworkCharacterSpacingWindow::implSetKernCharacterPairs( bool bEnabled )
 
 void FontworkCharacterSpacingWindow::statusChanged( const css::frame::FeatureStateEvent& Event )
 {
-    if( Event.FeatureURL.Main == msFontworkCharacterSpacing )
+    if( Event.FeatureURL.Main == gsFontworkCharacterSpacing )
     {
         if( !Event.IsEnabled )
         {
@@ -495,7 +509,7 @@ void FontworkCharacterSpacingWindow::statusChanged( const css::frame::FeatureSta
                 implSetCharacterSpacing( nValue, true );
         }
     }
-    else if( Event.FeatureURL.Main == msFontworkKernCharacterPairs )
+    else if( Event.FeatureURL.Main == gsFontworkKernCharacterPairs )
     {
         if( !Event.IsEnabled )
         {
@@ -530,7 +544,7 @@ IMPL_LINK_NOARG(FontworkCharacterSpacingWindow, SelectHdl,ToolbarMenu*, void)
     if ( nSelection == 5 )  // custom spacing
     {
         Sequence< PropertyValue > aArgs( 1 );
-        aArgs[0].Name = msFontworkCharacterSpacing.copy(5);
+        aArgs[0].Name = OUString(gsFontworkCharacterSpacing).copy(5);
         aArgs[0].Value <<= nCharacterSpacing;
 
         mrController.dispatchCommand( ".uno:FontworkCharacterSpacingDialog", aArgs );
@@ -538,20 +552,20 @@ IMPL_LINK_NOARG(FontworkCharacterSpacingWindow, SelectHdl,ToolbarMenu*, void)
     else if ( nSelection == 6 ) // KernCharacterPairs
     {
         Sequence< PropertyValue > aArgs( 1 );
-        aArgs[0].Name = msFontworkKernCharacterPairs.copy(5);
+        aArgs[0].Name = OUString(gsFontworkKernCharacterPairs).copy(5);
         aArgs[0].Value <<= true;
 
-        mrController.dispatchCommand( msFontworkKernCharacterPairs, aArgs );
+        mrController.dispatchCommand( gsFontworkKernCharacterPairs, aArgs );
 
         implSetKernCharacterPairs( true );
     }
     else if( nSelection >= 0 )
     {
         Sequence< PropertyValue > aArgs( 1 );
-        aArgs[0].Name = msFontworkCharacterSpacing.copy(5);
+        aArgs[0].Name = OUString(gsFontworkCharacterSpacing).copy(5);
         aArgs[0].Value <<= nCharacterSpacing;
 
-        mrController.dispatchCommand( msFontworkCharacterSpacing,  aArgs );
+        mrController.dispatchCommand( gsFontworkCharacterSpacing,  aArgs );
 
         implSetCharacterSpacing( nCharacterSpacing, true );
     }
@@ -600,35 +614,27 @@ void SAL_CALL FontworkCharacterSpacingControl::initialize( const css::uno::Seque
 // XServiceInfo
 
 
-OUString FontworkCharacterSpacingControl_getImplementationName()
+OUString FontworkCharacterSpacingControl::getImplementationName()
 {
     return OUString( "com.sun.star.comp.svx.FontworkCharacterSpacingController" );
 }
 
 
-Sequence< OUString > FontworkCharacterSpacingControl_getSupportedServiceNames()
+Sequence< OUString > FontworkCharacterSpacingControl::getSupportedServiceNames()
 {
     Sequence<OUString> aSNS { "com.sun.star.frame.ToolbarController" };
     return aSNS;
 }
 
 
-Reference< XInterface > FontworkCharacterSpacingControl_createInstance( const Reference< XMultiServiceFactory >& rSMgr )
+extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*
+com_sun_star_comp_svx_FontworkCharacterSpacingControl_get_implementation(
+    css::uno::XComponentContext* xContext,
+    css::uno::Sequence<css::uno::Any> const &)
 {
-    return *new FontworkCharacterSpacingControl( comphelper::getComponentContext(rSMgr) );
+    return cppu::acquire(new FontworkCharacterSpacingControl(xContext));
 }
 
-
-OUString SAL_CALL FontworkCharacterSpacingControl::getImplementationName(  )
-{
-    return FontworkCharacterSpacingControl_getImplementationName();
-}
-
-
-Sequence< OUString > SAL_CALL FontworkCharacterSpacingControl::getSupportedServiceNames(  )
-{
-    return FontworkCharacterSpacingControl_getSupportedServiceNames();
-}
 
 FontworkCharacterSpacingDialog::FontworkCharacterSpacingDialog( vcl::Window* pParent, sal_Int32 nScale )
 :   ModalDialog( pParent, "FontworkSpacingDialog" , "svx/ui/fontworkspacingdialog.ui" )

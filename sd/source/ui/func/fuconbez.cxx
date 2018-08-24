@@ -39,6 +39,7 @@
 #include <Window.hxx>
 #include <ToolBarManager.hxx>
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
@@ -171,7 +172,7 @@ bool FuConstructBezierPolygon::MouseButtonUp(const MouseEvent& rMEvt )
     if( bCreated && maTargets.hasValue() )
     {
         SdrPathObj* pPathObj = dynamic_cast< SdrPathObj* >( mpView->GetSdrPageView()->GetObjList()->GetObj( nCount ) );
-        SdPage* pPage = dynamic_cast< SdPage* >( pPathObj ? pPathObj->GetPage() : nullptr );
+        SdPage* pPage = dynamic_cast< SdPage* >( pPathObj ? pPathObj->getSdrPageFromSdrObject() : nullptr );
         if( pPage )
         {
             std::shared_ptr< sd::MainSequence > pMainSequence( pPage->getMainSequence() );

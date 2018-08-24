@@ -21,7 +21,7 @@
 
 #include <algorithm>
 #include <memory>
-#include <config_features.h>
+#include <config_java.h>
 
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
@@ -158,7 +158,7 @@ static HTMLOptionEnum<sal_uInt16> aHTMLSpacerTypeTable[] =
 
 HTMLReader::HTMLReader()
 {
-    bTmplBrowseMode = true;
+    m_bTemplateBrowseMode = true;
 }
 
 OUString HTMLReader::GetTemplateName(SwDoc& rDoc) const
@@ -189,11 +189,11 @@ OUString HTMLReader::GetTemplateName(SwDoc& rDoc) const
 
 bool HTMLReader::SetStrmStgPtr()
 {
-    OSL_ENSURE( pMedium, "Where is the medium??" );
+    OSL_ENSURE( m_pMedium, "Where is the medium??" );
 
-    if( pMedium->IsRemote() || !pMedium->IsStorage() )
+    if( m_pMedium->IsRemote() || !m_pMedium->IsStorage() )
     {
-        pStrm = pMedium->GetInStream();
+        m_pStream = m_pMedium->GetInStream();
         return true;
     }
     return false;
@@ -203,13 +203,13 @@ bool HTMLReader::SetStrmStgPtr()
 // Call for the general Reader-Interface
 ErrCode HTMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPam, const OUString & rName )
 {
-    if( !pStrm )
+    if( !m_pStream )
     {
-        OSL_ENSURE( pStrm, "HTML-Read without stream" );
+        OSL_ENSURE( m_pStream, "HTML-Read without stream" );
         return ERR_SWG_READ_ERROR;
     }
 
-    if( !bInsertMode )
+    if( !m_bInsertMode )
     {
         Reader::ResetFrameFormats( rDoc );
 
@@ -225,15 +225,15 @@ ErrCode HTMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPam, co
     // so nobody steals the document!
     rtl::Reference<SwDoc> aHoldRef(&rDoc);
     ErrCode nRet = ERRCODE_NONE;
-    tools::SvRef<SwHTMLParser> xParser = new SwHTMLParser( &rDoc, rPam, *pStrm,
-                                            rName, rBaseURL, !bInsertMode, pMedium,
+    tools::SvRef<SwHTMLParser> xParser = new SwHTMLParser( &rDoc, rPam, *m_pStream,
+                                            rName, rBaseURL, !m_bInsertMode, m_pMedium,
                                             IsReadUTF8(),
-                                            bIgnoreHTMLComments );
+                                            m_bIgnoreHTMLComments );
 
     SvParserState eState = xParser->CallParser();
 
     if( SvParserState::Pending == eState )
-        pStrm->ResetError();
+        m_pStream->ResetError();
     else if( SvParserState::Accepted != eState )
     {
         const OUString sErr(OUString::number(static_cast<sal_Int32>(xParser->GetLineNr()))
@@ -354,7 +354,7 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
     m_bOldIsHTMLMode = m_xDoc->getIDocumentSettingAccess().get(DocumentSettingId::HTML_MODE);
     m_xDoc->getIDocumentSettingAccess().set(DocumentSettingId::HTML_MODE, true);
 
-    m_pCSS1Parser = new SwCSS1Parser( m_xDoc.get(), m_aFontHeights, m_sBaseURL, IsNewDoc() );
+    m_pCSS1Parser.reset( new SwCSS1Parser( m_xDoc.get(), m_aFontHeights, m_sBaseURL, IsNewDoc() ) );
     m_pCSS1Parser->SetIgnoreFontFamily( rHtmlOptions.IsIgnoreFontFamily() );
 
     if( bReadUTF8 )
@@ -473,13 +473,13 @@ SwHTMLParser::~SwHTMLParser()
         m_aSetAttrTab.clear();
     }
 
-    delete m_pCSS1Parser;
-    delete m_pNumRuleInfo;
+    m_pCSS1Parser.reset();
+    m_pNumRuleInfo.reset();
     DeleteFormImpl();
     DeleteFootEndNoteImpl();
 
     OSL_ENSURE(!m_xTable.get(), "It exists still a open table");
-    delete m_pImageMaps;
+    m_pImageMaps.reset();
 
     OSL_ENSURE( !m_pPendStack,
             "SwHTMLParser::~SwHTMLParser: Here should not be Pending-Stack anymore" );
@@ -785,9 +785,7 @@ if( m_pSttNdIdx->GetIndex()+1 == m_pPam->GetBound( false ).nNode.GetIndex() )
                         pCNd->EndOfSectionIndex() && !bHasFlysOrMarks )
                     {
                         SwViewShell *pVSh = CheckActionViewShell();
-                        SwCursorShell *pCursorSh = pVSh && dynamic_cast< const SwCursorShell *>( pVSh ) !=  nullptr
-                                        ? static_cast < SwCursorShell * >( pVSh )
-                                        : nullptr;
+                        SwCursorShell *pCursorSh = dynamic_cast<SwCursorShell *>( pVSh );
                         if( pCursorSh &&
                             pCursorSh->GetCursor()->GetPoint()
                                    ->nNode.GetIndex() == nNodeIdx )
@@ -1279,9 +1277,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
     switch( nToken )
     {
     case HtmlTokenId::BODY_ON:
-        if (m_bBodySeen)
-            eState = SvParserState::Error;
-        else
+        if (!m_bBodySeen)
         {
             m_bBodySeen = true;
             if( !m_aStyleSource.isEmpty() )
@@ -2035,7 +2031,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
         if( ParseMapOptions( m_pImageMap) )
         {
             if (!m_pImageMaps)
-                m_pImageMaps = new ImageMaps;
+                m_pImageMaps.reset( new ImageMaps );
             m_pImageMaps->push_back(std::unique_ptr<ImageMap>(m_pImageMap));
         }
         else
@@ -2108,14 +2104,12 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
 }
 
 static void lcl_swhtml_getItemInfo( const HTMLAttr& rAttr,
-                                 bool& rScriptDependent, bool& rFont,
+                                 bool& rScriptDependent,
                                  sal_uInt16& rScriptType )
 {
     switch( rAttr.GetItem().Which() )
     {
     case RES_CHRATR_FONT:
-        rFont = true;
-        SAL_FALLTHROUGH;
     case RES_CHRATR_FONTSIZE:
     case RES_CHRATR_LANGUAGE:
     case RES_CHRATR_POSTURE:
@@ -2124,8 +2118,6 @@ static void lcl_swhtml_getItemInfo( const HTMLAttr& rAttr,
         rScriptDependent = true;
         break;
     case RES_CHRATR_CJK_FONT:
-        rFont = true;
-        SAL_FALLTHROUGH;
     case RES_CHRATR_CJK_FONTSIZE:
     case RES_CHRATR_CJK_LANGUAGE:
     case RES_CHRATR_CJK_POSTURE:
@@ -2134,8 +2126,6 @@ static void lcl_swhtml_getItemInfo( const HTMLAttr& rAttr,
         rScriptDependent = true;
         break;
     case RES_CHRATR_CTL_FONT:
-        rFont = true;
-        SAL_FALLTHROUGH;
     case RES_CHRATR_CTL_FONTSIZE:
     case RES_CHRATR_CTL_LANGUAGE:
     case RES_CHRATR_CTL_POSTURE:
@@ -2145,7 +2135,6 @@ static void lcl_swhtml_getItemInfo( const HTMLAttr& rAttr,
         break;
     default:
         rScriptDependent = false;
-        rFont = false;
         break;
     }
 }
@@ -2227,13 +2216,13 @@ bool SwHTMLParser::AppendTextNode( SwHTMLAppendMode eMode, bool bUpdateNum )
                         pAttr->GetSttCnt() == 0;
 
                     sal_Int32 nStt = pAttr->nSttContent;
-                    bool bScript = false, bFont = false;
+                    bool bScript = false;
                     sal_uInt16 nScriptItem;
                     bool bInsert = true;
-                       lcl_swhtml_getItemInfo( *pAttr, bScript, bFont,
+                       lcl_swhtml_getItemInfo( *pAttr, bScript,
                                             nScriptItem );
                         // set previous part
-                    if( bInsert && bScript )
+                    if( bScript )
                     {
                         const SwTextNode *pTextNd =
                             pAttr->GetSttPara().GetNode().GetTextNode();
@@ -3101,8 +3090,7 @@ bool SwHTMLParser::EndAttr( HTMLAttr* pAttr, bool bChkEmpty )
         // We do some optimization for script dependent attributes here.
         if( *pEndIdx == pAttr->GetSttPara() )
         {
-            bool bFont = false;
-            lcl_swhtml_getItemInfo( *pAttr, bScript, bFont, nScriptItem );
+            lcl_swhtml_getItemInfo( *pAttr, bScript, nScriptItem );
         }
     }
     else
@@ -3994,7 +3982,7 @@ void SwHTMLParser::EndPara( bool bReal )
             AddParSpace();
     }
 
-    // If a DD or DT was open, its an implied definition list,
+    // If a DD or DT was open, it's an implied definition list,
     // which must be closed now.
     if( (m_nOpenParaToken == HtmlTokenId::DT_ON || m_nOpenParaToken == HtmlTokenId::DD_ON) &&
         m_nDefListDeep)
@@ -5586,8 +5574,11 @@ void SwHTMLParser::SetupFilterOptions()
     const OUString aXhtmlNsKey("xhtmlns=");
     if (aFilterOptions.startsWith(aXhtmlNsKey))
     {
-        SetNamespace(aFilterOptions.copy(aXhtmlNsKey.getLength()));
+        OUString aNamespace = aFilterOptions.copy(aXhtmlNsKey.getLength());
+        SetNamespace(aNamespace);
         m_bXHTML = true;
+        if (aNamespace == "reqif-xhtml")
+            m_bReqIF = true;
     }
 }
 
@@ -5607,7 +5598,7 @@ bool TestImportHTML(SvStream &rStream)
 {
     FontCacheGuard aFontCacheGuard;
     std::unique_ptr<Reader> xReader(new HTMLReader);
-    xReader->pStrm = &rStream;
+    xReader->m_pStream = &rStream;
 
     SwGlobals::ensure();
 

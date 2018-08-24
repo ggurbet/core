@@ -11,6 +11,7 @@
 #include "xmlcondformat.hxx"
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
+#include <sal/log.hxx>
 
 #include <colorscale.hxx>
 #include <conditio.hxx>
@@ -95,11 +96,12 @@ ScXMLConditionalFormatContext::ScXMLConditionalFormatContext( ScXMLImport& rImpo
         }
     }
 
-    ScRangeStringConverter::GetRangeListFromString(maRange, sRange, GetScImport().GetDocument(),
+    ScRangeList aRangeList;
+    ScRangeStringConverter::GetRangeListFromString(aRangeList, sRange, GetScImport().GetDocument(),
             formula::FormulaGrammar::CONV_ODF);
 
     mxFormat.reset(new ScConditionalFormat(0, GetScImport().GetDocument()));
-    mxFormat->SetRange(maRange);
+    mxFormat->SetRange(aRangeList);
 }
 
 css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL ScXMLConditionalFormatContext::createFastChildContext(
@@ -396,8 +398,8 @@ ScXMLDataBarFormatContext::ScXMLDataBarFormatContext( ScXMLImport& rImport,
                         const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
                         ScConditionalFormat* pFormat):
     ScXMLImportContext( rImport ),
-    mpDataBarFormat(nullptr),
     mpFormatData(nullptr),
+    mpParent(pFormat),
     mnIndex(0)
 {
     OUString sPositiveColor;
@@ -445,9 +447,9 @@ ScXMLDataBarFormatContext::ScXMLDataBarFormatContext( ScXMLImport& rImport,
         }
     }
 
-    mpDataBarFormat = new ScDataBarFormat(rImport.GetDocument());
+    ScDataBarFormat* pDataBarFormat = new ScDataBarFormat(rImport.GetDocument());
     mpFormatData = new ScDataBarFormatData();
-    mpDataBarFormat->SetDataBarData(mpFormatData);
+    pDataBarFormat->SetDataBarData(mpFormatData);
     if(!sGradient.isEmpty())
     {
         bool bGradient = true;
@@ -504,7 +506,7 @@ ScXMLDataBarFormatContext::ScXMLDataBarFormatContext( ScXMLImport& rImport,
         mpFormatData->mnMaxLength = nVal;
     }
 
-    pFormat->AddEntry(mpDataBarFormat);
+    pFormat->AddEntry(pDataBarFormat);
 }
 
 css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL ScXMLDataBarFormatContext::createFastChildContext(
@@ -521,6 +523,7 @@ css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL ScXMLDataBarF
         {
             ScColorScaleEntry* pEntry(nullptr);
             pContext = new ScXMLFormattingEntryContext( GetScImport(), pAttribList, pEntry );
+            pEntry->SetRepaintCallback(mpParent);
             if(mnIndex == 0)
             {
                 mpFormatData->mpLowerLimit.reset(pEntry);
@@ -547,7 +550,8 @@ css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL ScXMLDataBarF
 ScXMLIconSetFormatContext::ScXMLIconSetFormatContext(ScXMLImport& rImport,
                         const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
                         ScConditionalFormat* pFormat):
-    ScXMLImportContext( rImport )
+    ScXMLImportContext( rImport ),
+    mpParent(pFormat)
 {
     OUString aIconSetType, sShowValue;
     if ( rAttrList.is() )
@@ -611,6 +615,7 @@ css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL ScXMLIconSetF
                 ScColorScaleEntry* pEntry(nullptr);
                 pContext = new ScXMLFormattingEntryContext( GetScImport(), pAttribList, pEntry );
                 mpFormatData->m_Entries.push_back(std::unique_ptr<ScColorScaleEntry>(pEntry));
+                pEntry->SetRepaintCallback(mpParent);
             }
             break;
         default:
@@ -854,8 +859,7 @@ void setColorEntryType(const OUString& rType, ScColorScaleEntry* pEntry, const O
 ScXMLColorScaleFormatEntryContext::ScXMLColorScaleFormatEntryContext( ScXMLImport& rImport,
                         const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
                         ScColorScaleFormat* pFormat):
-    ScXMLImportContext( rImport ),
-    mpFormatEntry( nullptr )
+    ScXMLImportContext( rImport )
 {
     double nVal = 0;
     Color aColor;
@@ -890,9 +894,9 @@ ScXMLColorScaleFormatEntryContext::ScXMLColorScaleFormatEntryContext( ScXMLImpor
     if(!sVal.isEmpty())
         sax::Converter::convertDouble(nVal, sVal);
 
-    mpFormatEntry = new ScColorScaleEntry(nVal, aColor);
-    setColorEntryType(sType, mpFormatEntry, sVal, GetScImport());
-    pFormat->AddEntry(mpFormatEntry);
+    auto pFormatEntry = new ScColorScaleEntry(nVal, aColor);
+    setColorEntryType(sType, pFormatEntry, sVal, GetScImport());
+    pFormat->AddEntry(pFormatEntry);
 }
 
 ScXMLFormattingEntryContext::ScXMLFormattingEntryContext( ScXMLImport& rImport,

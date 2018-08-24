@@ -9,6 +9,7 @@
 
 #include <condformatmgr.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <condformatdlg.hxx>
 #include <document.hxx>
 
@@ -18,8 +19,8 @@ ScCondFormatManagerWindow::ScCondFormatManagerWindow(SvSimpleTableContainer& rPa
     , mpDoc(pDoc)
     , mpFormatList(pFormatList)
 {
-    OUString aConditionStr(ScGlobal::GetRscString(STR_HEADER_COND));
-    OUString aRangeStr(ScGlobal::GetRscString(STR_HEADER_RANGE));
+    OUString aConditionStr(ScResId(STR_HEADER_COND));
+    OUString aRangeStr(ScResId(STR_HEADER_RANGE));
 
     OUStringBuffer sHeader;
     sHeader.append(aRangeStr).append("\t").append(aConditionStr);
@@ -95,22 +96,21 @@ void ScCondFormatManagerWindow::setColSizes()
     HeaderBar &rBar = GetTheHeaderBar();
     if (rBar.GetItemCount() < 2)
         return;
-    long aStaticTabs[]= { 2, 0, 0 };
-    aStaticTabs[2] = rBar.GetSizePixel().Width() / 2;
-    SvSimpleTable::SetTabs(aStaticTabs, MapUnit::MapPixel);
+    long aStaticTabs[]= { 0, 0 };
+    aStaticTabs[1] = rBar.GetSizePixel().Width() / 2;
+    SvSimpleTable::SetTabs(SAL_N_ELEMENTS(aStaticTabs), aStaticTabs, MapUnit::MapPixel);
 }
 
 ScCondFormatManagerDlg::ScCondFormatManagerDlg(vcl::Window* pParent, ScDocument* pDoc, const ScConditionalFormatList* pFormatList):
     ModalDialog(pParent, "CondFormatManager", "modules/scalc/ui/condformatmanager.ui"),
     mpFormatList( pFormatList ? new ScConditionalFormatList(*pFormatList) : nullptr),
-    mpDoc(pDoc),
     mbModified(false)
 {
     SvSimpleTableContainer *pContainer = get<SvSimpleTableContainer>("CONTAINER");
     Size aSize(LogicToPixel(Size(290, 220), MapMode(MapUnit::MapAppFont)));
     pContainer->set_width_request(aSize.Width());
     pContainer->set_height_request(aSize.Height());
-    m_pCtrlManager = VclPtr<ScCondFormatManagerWindow>::Create(*pContainer, mpDoc, mpFormatList);
+    m_pCtrlManager = VclPtr<ScCondFormatManagerWindow>::Create(*pContainer, pDoc, mpFormatList.get());
     get(m_pBtnAdd, "add");
     get(m_pBtnRemove, "remove");
     get(m_pBtnEdit, "edit");
@@ -128,7 +128,7 @@ ScCondFormatManagerDlg::~ScCondFormatManagerDlg()
 
 void ScCondFormatManagerDlg::dispose()
 {
-    delete mpFormatList;
+    mpFormatList.reset();
     m_pBtnAdd.clear();
     m_pBtnRemove.clear();
     m_pBtnEdit.clear();
@@ -137,11 +137,9 @@ void ScCondFormatManagerDlg::dispose()
 }
 
 
-ScConditionalFormatList* ScCondFormatManagerDlg::GetConditionalFormatList()
+std::unique_ptr<ScConditionalFormatList> ScCondFormatManagerDlg::GetConditionalFormatList()
 {
-    ScConditionalFormatList* pList = mpFormatList;
-    mpFormatList = nullptr;
-    return pList;
+    return std::move(mpFormatList);
 }
 
 // Get the current conditional format selected.

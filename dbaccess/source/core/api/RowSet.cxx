@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <map>
 #include <utility>
@@ -55,7 +56,6 @@
 #include <com/sun/star/uno/XNamingService.hpp>
 #include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 
-#include <comphelper/interaction.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/seqstream.hxx>
 #include <comphelper/sequence.hxx>
@@ -135,7 +135,6 @@ ORowSet::ORowSet( const Reference< css::uno::XComponentContext >& _rxContext )
     ,m_aRowsetListeners(*m_pMutex)
     ,m_aApproveListeners(*m_pMutex)
     ,m_aRowsChangeListener(*m_pMutex)
-    ,m_pTables(nullptr)
     ,m_nFetchDirection(FetchDirection::FORWARD)
     ,m_nFetchSize(50)
     ,m_nMaxFieldSize(0)
@@ -458,17 +457,9 @@ sal_Int64 SAL_CALL ORowSet::getSomething( const Sequence< sal_Int8 >& rId )
 
 Sequence< sal_Int8 > ORowSet::getUnoTunnelImplementationId()
 {
-    static ::cppu::OImplementationId * pId = nullptr;
-    if (! pId)
-    {
-        ::osl::MutexGuard aGuard( ::osl::Mutex::getGlobalMutex() );
-        if (! pId)
-        {
-            static ::cppu::OImplementationId aId;
-            pId = &aId;
-        }
-    }
-    return pId->getImplementationId();
+    static ::cppu::OImplementationId s_Id;
+
+    return s_Id.getImplementationId();
 }
 
 // css::XAggregation
@@ -2244,9 +2235,9 @@ Reference< XNameAccess > ORowSet::impl_getTables_throw()
     {
         xTables.set( xTablesAccess->getTables(), UNO_QUERY_THROW );
     }
-    else if ( m_pTables )
+    else if ( m_xTables )
     {
-        xTables = m_pTables;
+        xTables = m_xTables.get();
     }
     else
     {
@@ -2264,10 +2255,10 @@ Reference< XNameAccess > ORowSet::impl_getTables_throw()
             DBG_UNHANDLED_EXCEPTION("dbaccess");
         }
 
-        m_pTables = new OTableContainer(*this,m_aMutex,m_xActiveConnection,bCase,nullptr,nullptr,m_nInAppend);
-        xTables = m_pTables;
+        m_xTables = new OTableContainer(*this,m_aMutex,m_xActiveConnection,bCase,nullptr,nullptr,m_nInAppend);
+        xTables = m_xTables.get();
         Sequence<OUString> aTableFilter { "%" };
-        m_pTables->construct(aTableFilter,Sequence< OUString>());
+        m_xTables->construct(aTableFilter,Sequence< OUString>());
     }
 
     return xTables;
@@ -2275,19 +2266,19 @@ Reference< XNameAccess > ORowSet::impl_getTables_throw()
 
 void ORowSet::impl_resetTables_nothrow()
 {
-    if ( !m_pTables )
+    if ( !m_xTables )
         return;
 
     try
     {
-        m_pTables->dispose();
+        m_xTables->dispose();
     }
     catch( const Exception& )
     {
         DBG_UNHANDLED_EXCEPTION("dbaccess");
     }
 
-    DELETEZ( m_pTables );
+    m_xTables.clear();
 }
 
 void ORowSet::impl_initComposer_throw( OUString& _out_rCommandToExecute )

@@ -37,7 +37,6 @@
 #include <rptui_slotid.hrc>
 #include <comphelper/propmultiplex.hxx>
 #include <comphelper/containermultiplexer.hxx>
-#include <comphelper/types.hxx>
 #include <cppuhelper/basemutex.hxx>
 #include <comphelper/SelectionMultiplex.hxx>
 #include <svtools/treelistbox.hxx>
@@ -538,7 +537,6 @@ void NavigatorTree::traverseSection(const uno::Reference< report::XSection>& _xS
     for (sal_Int32 i = 0; i < nCount; ++i)
     {
         uno::Reference< report::XReportComponent> xElement(_xSection->getByIndex(i),uno::UNO_QUERY_THROW);
-        OSL_ENSURE(xElement.is(),"Found report element which is NULL!");
         insertEntry(lcl_getName(xElement.get()),pSection,lcl_getImageId(xElement),TREELIST_APPEND,new UserData(this,xElement));
         uno::Reference< report::XReportDefinition> xSubReport(xElement,uno::UNO_QUERY);
         if ( xSubReport.is() )
@@ -761,7 +759,7 @@ void NavigatorTree::removeEntry(SvTreeListEntry* _pEntry,bool _bRemove)
         while( pChild )
         {
             removeEntry(pChild,false);
-            pChild = NextSibling(pChild);
+            pChild = pChild->NextSibling();
         }
         delete static_cast<UserData*>(_pEntry->GetUserData());
         if ( _bRemove )

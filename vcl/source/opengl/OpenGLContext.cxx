@@ -19,6 +19,7 @@
 #include <vcl/graph.hxx>
 
 #include <osl/thread.hxx>
+#include <sal/log.hxx>
 
 #include <svdata.hxx>
 #include <salgdi.hxx>
@@ -231,22 +232,6 @@ bool OpenGLContext::init( vcl::Window* pParent )
     return ImplInit();
 }
 
-bool OpenGLContext::init(SystemChildWindow* pChildWindow)
-{
-    if(mbInitialized)
-        return true;
-
-    if( !pChildWindow )
-        return false;
-
-    OpenGLZone aZone;
-
-    mpWindow = pChildWindow->GetParent();
-    m_pChildWindow = pChildWindow;
-    initWindow();
-    return ImplInit();
-}
-
 bool OpenGLContext::ImplInit()
 {
     VCL_GL_INFO("OpenGLContext not implemented for this platform");
@@ -344,18 +329,6 @@ void OpenGLContext::adjustToNewSize()
 {
     const GLWindow& rGLWin = getOpenGLWindow();
     glViewport(0, 0, rGLWin.Width, rGLWin.Height);
-}
-
-void OpenGLContext::setWinSize(const Size& rSize)
-{
-    if(m_xWindow)
-        m_xWindow->SetSizePixel(rSize);
-    if( m_pChildWindow )
-        m_pChildWindow->SetSizePixel(rSize);
-
-    GLWindow& rGLWin = getModifiableOpenGLWindow();
-    rGLWin.Width = rSize.Width();
-    rGLWin.Height = rSize.Height();
 }
 
 void OpenGLContext::InitChildWindow(SystemChildWindow *pChildWindow)
@@ -483,8 +456,19 @@ void OpenGLContext::prepareForYield()
 
     SAL_INFO("vcl.opengl", "Unbinding contexts in preparation for yield");
 
-    if( pCurrentCtx->isCurrent() )
-        pCurrentCtx->resetCurrent();
+    // Find the first context that is current and reset it.
+    // Usually the last context is the current, but not in case a new
+    // OpenGLContext is created already but not yet initialized.
+    while (pCurrentCtx.is())
+    {
+        if (pCurrentCtx->isCurrent())
+        {
+            pCurrentCtx->resetCurrent();
+            break;
+        }
+
+        pCurrentCtx = pCurrentCtx->mpPrevContext;
+    }
 
     assert (!hasCurrent());
 }
@@ -606,7 +590,7 @@ const SystemChildWindow* OpenGLContext::getChildWindow() const
     return m_pChildWindow;
 }
 
-bool OpenGLContext::BindFramebuffer( OpenGLFramebuffer* pFramebuffer )
+void OpenGLContext::BindFramebuffer( OpenGLFramebuffer* pFramebuffer )
 {
     OpenGLZone aZone;
 
@@ -618,8 +602,6 @@ bool OpenGLContext::BindFramebuffer( OpenGLFramebuffer* pFramebuffer )
             OpenGLFramebuffer::Unbind();
         mpCurrentFramebuffer = pFramebuffer;
     }
-
-    return true;
 }
 
 void OpenGLContext::AcquireDefaultFramebuffer()
@@ -828,16 +810,6 @@ OpenGLProgram* OpenGLContext::UseProgram( const OUString& rVertexShader, const O
     mpCurrentProgram->Use();
 
     return mpCurrentProgram;
-}
-
-void OpenGLContext::UseNoProgram()
-{
-    if( mpCurrentProgram == nullptr )
-        return;
-
-    mpCurrentProgram = nullptr;
-    glUseProgram( 0 );
-    CHECK_GL_ERROR();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

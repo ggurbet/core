@@ -26,11 +26,11 @@ namespace
 {
 
 class DataMemberShadow:
-    public RecursiveASTVisitor<DataMemberShadow>, public loplugin::Plugin
+    public loplugin::FilteringPlugin<DataMemberShadow>
 {
 public:
     explicit DataMemberShadow(loplugin::InstantiationData const & data):
-        Plugin(data) {}
+        FilteringPlugin(data) {}
 
     virtual void run() override {
         TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
@@ -44,33 +44,16 @@ bool DataMemberShadow::VisitFieldDecl(FieldDecl const * fieldDecl)
     if (ignoreLocation(fieldDecl)) {
         return true;
     }
-    StringRef aFileName = compiler.getSourceManager().getFilename(
-            compiler.getSourceManager().getSpellingLoc(fieldDecl->getLocStart()));
+    StringRef aFileName = getFileNameOfSpellingLoc(
+        compiler.getSourceManager().getSpellingLoc(compat::getBeginLoc(fieldDecl)));
 
     // FIXME complex stuff to fix later
 
     if (loplugin::hasPathnamePrefix(aFileName, SRCDIR "/chart2/source/"))
         return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/cppcanvas/source/mtfrenderer/emfplus.cxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/cui/source/customize/eventdlg.hxx"))
-        return true;
     if (loplugin::isSamePathname(aFileName, SRCDIR "/include/sfx2/recentdocsview.hxx"))
         return true;
     if (loplugin::isSamePathname(aFileName, SRCDIR "/include/sfx2/templatelocalview.hxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/filter/source/graphicfilter/idxf/dxfentrd.hxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/sc/source/ui/vba/vbastyles.hxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/sd/inc/Outliner.hxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/sd/source/ui/annotations/annotationtag.cxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/sd/source/ui/inc/FrameView.hxx")
-        || loplugin::isSamePathname(aFileName, SRCDIR "/sd/source/filter/ppt/../../ui/inc/FrameView.hxx"))
-        return true;
-    if (loplugin::isSamePathname(aFileName, SRCDIR "/sd/source/ui/inc/unopage.hxx"))
         return true;
     if (loplugin::isSamePathname(aFileName, SRCDIR "/store/source/stortree.hxx")
         || loplugin::isSamePathname(aFileName, SRCDIR "/store/source/stordata.hxx"))
@@ -114,13 +97,13 @@ bool DataMemberShadow::VisitFieldDecl(FieldDecl const * fieldDecl)
             sPath += baseCXXRecordDecl->getNameAsString();
             report(DiagnosticsEngine::Warning,
                     "data member %0 is shadowing member in superclass, through inheritance path %1",
-                    fieldDecl->getLocStart())
+                    compat::getBeginLoc(fieldDecl))
                 << fieldDecl->getName()
                 << sPath
                 << fieldDecl->getSourceRange();
             report(DiagnosticsEngine::Note,
                     "superclass member here",
-                    baseFieldDecl->getLocStart())
+                    compat::getBeginLoc(baseFieldDecl))
                 << baseFieldDecl->getSourceRange();
         }
         return false;

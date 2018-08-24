@@ -46,10 +46,6 @@ SvxPageWindow::SvxPageWindow(vcl::Window* pParent)
     nLeft(0),
     nRight(0),
 
-    bResetBackground(false),
-    bFrameDirection(false),
-    nFrameDirection(SvxFrameDirection::Horizontal_LR_TB),
-
     nHdLeft(0),
     nHdRight(0),
     nHdDist(0),
@@ -66,9 +62,7 @@ SvxPageWindow::SvxPageWindow(vcl::Window* pParent)
 
     bFooter(false),
     bHeader(false),
-    bTable(false),
-    bHorz(false),
-    bVert(false),
+
     eUsage(SvxPageUsage::All)
 {
     // Count in Twips by default
@@ -85,8 +79,6 @@ SvxPageWindow::~SvxPageWindow()
 {
     disposeOnce();
 }
-
-VCL_BUILDER_FACTORY(SvxPageWindow)
 
 void SvxPageWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
@@ -142,6 +134,255 @@ void SvxPageWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Recta
 }
 
 void SvxPageWindow::DrawPage(vcl::RenderContext& rRenderContext, const Point& rOrg, const bool bSecond, const bool bEnabled)
+{
+    const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
+    const Color& rFieldColor = rStyleSettings.GetFieldColor();
+    const Color& rFieldTextColor = rStyleSettings.GetFieldTextColor();
+    const Color& rDisableColor = rStyleSettings.GetDisableColor();
+    const Color& rDlgColor = rStyleSettings.GetDialogColor();
+
+    // background
+    if (!bSecond)
+    {
+        rRenderContext.SetLineColor(COL_TRANSPARENT);
+        rRenderContext.SetFillColor(rDlgColor);
+        Size winSize(rRenderContext.GetOutputSize());
+        rRenderContext.DrawRect(tools::Rectangle(Point(0,0), winSize));
+    }
+    rRenderContext.SetLineColor(rFieldTextColor);
+
+    // Shadow
+    Size aTempSize = aSize;
+
+    // Page
+    if (!bEnabled)
+    {
+        rRenderContext.SetFillColor(rDisableColor);
+        rRenderContext.DrawRect(tools::Rectangle(rOrg, aTempSize));
+        return;
+    }
+    rRenderContext.SetFillColor(rFieldColor);
+    rRenderContext.DrawRect(tools::Rectangle(rOrg, aTempSize));
+
+    long nL = nLeft;
+    long nR = nRight;
+
+    if (eUsage == SvxPageUsage::Mirror && !bSecond)
+    {
+        // turn for mirrored
+        nL = nRight;
+        nR = nLeft;
+    }
+
+    tools::Rectangle aRect;
+
+    aRect.SetLeft( rOrg.X() + nL );
+    aRect.SetRight( rOrg.X() + aTempSize.Width() - nR );
+    aRect.SetTop( rOrg.Y() + nTop );
+    aRect.SetBottom( rOrg.Y() + aTempSize.Height() - nBottom );
+
+    tools::Rectangle aHdRect(aRect);
+    tools::Rectangle aFtRect(aRect);
+
+    if (bHeader || bFooter)
+    {
+        // Header and/or footer used
+        const Color aLineColor(rRenderContext.GetLineColor());
+
+        // draw PageFill first and on the whole page, no outline
+        rRenderContext.SetLineColor();
+        drawFillAttributes(rRenderContext, maPageFillAttributes, aRect, aRect);
+        rRenderContext.SetLineColor(aLineColor);
+
+        if (bHeader)
+        {
+            // show headers if possible
+            aHdRect.AdjustLeft(nHdLeft );
+            aHdRect.AdjustRight( -(nHdRight) );
+            aHdRect.SetBottom( aRect.Top() + nHdHeight );
+            aRect.AdjustTop(nHdHeight + nHdDist );
+
+            // draw header over PageFill, plus outline
+            drawFillAttributes(rRenderContext, maHeaderFillAttributes, aHdRect, aHdRect);
+        }
+
+        if (bFooter)
+        {
+            // show footer if possible
+            aFtRect.AdjustLeft(nFtLeft );
+            aFtRect.AdjustRight( -(nFtRight) );
+            aFtRect.SetTop( aRect.Bottom() - nFtHeight );
+            aRect.AdjustBottom( -(nFtHeight + nFtDist) );
+
+            // draw footer over PageFill, plus outline
+            drawFillAttributes(rRenderContext, maFooterFillAttributes, aFtRect, aFtRect);
+        }
+
+        // draw page's reduced outline, only outline
+        drawFillAttributes(rRenderContext, drawinglayer::attribute::SdrAllFillAttributesHelperPtr(), aRect, aRect);
+    }
+    else
+    {
+        // draw PageFill and outline
+        drawFillAttributes(rRenderContext, maPageFillAttributes, aRect, aRect);
+    }
+}
+
+void SvxPageWindow::drawFillAttributes(vcl::RenderContext& rRenderContext,
+                                       const drawinglayer::attribute::SdrAllFillAttributesHelperPtr& rFillAttributes,
+                                       const tools::Rectangle& rPaintRange,
+                                       const tools::Rectangle& rDefineRange)
+{
+    const basegfx::B2DRange aPaintRange(
+        rPaintRange.Left(),
+        rPaintRange.Top(),
+        rPaintRange.Right(),
+        rPaintRange.Bottom());
+
+    if(!aPaintRange.isEmpty() &&
+       !basegfx::fTools::equalZero(aPaintRange.getWidth()) &&
+       !basegfx::fTools::equalZero(aPaintRange.getHeight()))
+    {
+        const basegfx::B2DRange aDefineRange(
+            rDefineRange.Left(),
+            rDefineRange.Top(),
+            rDefineRange.Right(),
+            rDefineRange.Bottom());
+
+        // prepare primitive sequence
+        drawinglayer::primitive2d::Primitive2DContainer aSequence;
+
+        // create fill geometry if there is something to fill
+        if (rFillAttributes.get() && rFillAttributes->isUsed())
+        {
+            aSequence = rFillAttributes->getPrimitive2DSequence(aPaintRange, aDefineRange);
+        }
+
+        // create line geometry if a LineColor is set at the target device
+        if (rRenderContext.IsLineColor())
+        {
+            const drawinglayer::primitive2d::Primitive2DReference xOutline(
+                new drawinglayer::primitive2d::PolygonHairlinePrimitive2D(
+                    basegfx::utils::createPolygonFromRect(aPaintRange), GetLineColor().getBColor()));
+
+            aSequence.push_back(xOutline);
+        }
+
+        // draw that if we have something to draw
+        if (!aSequence.empty())
+        {
+            const drawinglayer::geometry::ViewInformation2D aViewInformation2D(
+                            basegfx::B2DHomMatrix(), GetViewTransformation(), aPaintRange, nullptr,
+                            0.0, css::uno::Sequence<css::beans::PropertyValue >());
+
+            std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor(
+                drawinglayer::processor2d::createProcessor2DFromOutputDevice(rRenderContext, aViewInformation2D));
+            if (pProcessor)
+            {
+                pProcessor->process(aSequence);
+            }
+        }
+    }
+}
+
+
+Size SvxPageWindow::GetOptimalSize() const
+{
+    return LogicToPixel(Size(75, 46), MapMode(MapUnit::MapAppFont));
+}
+
+PageWindow::PageWindow() :
+    aWinSize(),
+    aSize(),
+    nTop(0),
+    nBottom(0),
+    nLeft(0),
+    nRight(0),
+    bResetBackground(false),
+    bFrameDirection(false),
+    nFrameDirection(SvxFrameDirection::Horizontal_LR_TB),
+    nHdLeft(0),
+    nHdRight(0),
+    nHdDist(0),
+    nHdHeight(0),
+    nFtLeft(0),
+    nFtRight(0),
+    nFtDist(0),
+    nFtHeight(0),
+    maHeaderFillAttributes(),
+    maFooterFillAttributes(),
+    maPageFillAttributes(),
+    bFooter(false),
+    bHeader(false),
+    bTable(false),
+    bHorz(false),
+    bVert(false),
+    eUsage(SvxPageUsage::All)
+{
+}
+
+PageWindow::~PageWindow()
+{
+}
+
+void PageWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+{
+    rRenderContext.Push(PushFlags::MAPMODE);
+    rRenderContext.SetMapMode(MapMode(MapUnit::MapTwip));
+
+    Fraction aXScale(aWinSize.Width(), std::max(long(aSize.Width() * 2 + aSize.Width() / 8), 1L));
+    Fraction aYScale(aWinSize.Height(), std::max(aSize.Height(), 1L));
+    MapMode aMapMode(rRenderContext.GetMapMode());
+
+    if(aYScale < aXScale)
+    {
+        aMapMode.SetScaleX(aYScale);
+        aMapMode.SetScaleY(aYScale);
+    }
+    else
+    {
+        aMapMode.SetScaleX(aXScale);
+        aMapMode.SetScaleY(aXScale);
+    }
+    rRenderContext.SetMapMode(aMapMode);
+    Size aSz(rRenderContext.PixelToLogic(GetOutputSizePixel()));
+    long nYPos = (aSz.Height() - aSize.Height()) / 2;
+
+    if (eUsage == SvxPageUsage::All)
+    {
+        // all pages are equal -> draw one page
+        if (aSize.Width() > aSize.Height())
+        {
+            // Draw Landscape page of the same size
+            Fraction aX = aMapMode.GetScaleX();
+            Fraction aY = aMapMode.GetScaleY();
+            Fraction a2(1.5);
+            aX *= a2;
+            aY *= a2;
+            aMapMode.SetScaleX(aX);
+            aMapMode.SetScaleY(aY);
+            rRenderContext.SetMapMode(aMapMode);
+            aSz = rRenderContext.PixelToLogic(GetOutputSizePixel());
+            nYPos = (aSz.Height() - aSize.Height()) / 2;
+            long nXPos = (aSz.Width() - aSize.Width()) / 2;
+            DrawPage(rRenderContext, Point(nXPos,nYPos),true,true);
+        }
+        else
+            // Portrait
+            DrawPage(rRenderContext, Point((aSz.Width() - aSize.Width()) / 2,nYPos),true,true);
+    }
+    else
+    {
+        // Left and right page are different -> draw two pages if possible
+        DrawPage(rRenderContext, Point(0, nYPos), false,
+                 eUsage == SvxPageUsage::Left || eUsage == SvxPageUsage::All || eUsage == SvxPageUsage::Mirror);
+        DrawPage(rRenderContext, Point(aSize.Width() + aSize.Width() / 8, nYPos), true,
+                 eUsage == SvxPageUsage::Right || eUsage == SvxPageUsage::All || eUsage == SvxPageUsage::Mirror);
+    }
+    rRenderContext.Pop();
+}
+
+void PageWindow::DrawPage(vcl::RenderContext& rRenderContext, const Point& rOrg, const bool bSecond, const bool bEnabled)
 {
     const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
     const Color& rFieldColor = rStyleSettings.GetFieldColor();
@@ -254,7 +495,7 @@ void SvxPageWindow::DrawPage(vcl::RenderContext& rRenderContext, const Point& rO
         {
         case SvxFrameDirection::Horizontal_LR_TB:
             aPos = aRect.TopLeft();
-            aPos.AdjustX(PixelToLogic(Point(1,1)).X() );
+            aPos.AdjustX(rRenderContext.PixelToLogic(Point(1,1)).X() );
             aMove.setY( 0 );
             cArrow = 0x2192;
             break;
@@ -282,7 +523,7 @@ void SvxPageWindow::DrawPage(vcl::RenderContext& rRenderContext, const Point& rO
         {
             OUString sDraw(sText.copy(i,1));
             long nHDiff = 0;
-            long nCharWidth = GetTextWidth(sDraw);
+            long nCharWidth = rRenderContext.GetTextWidth(sDraw);
             bool bHorizontal = 0 == aMove.Y();
             if (!bHorizontal)
             {
@@ -334,7 +575,7 @@ void SvxPageWindow::DrawPage(vcl::RenderContext& rRenderContext, const Point& rO
     }
 }
 
-void SvxPageWindow::drawFillAttributes(vcl::RenderContext& rRenderContext,
+void PageWindow::drawFillAttributes(vcl::RenderContext& rRenderContext,
                                        const drawinglayer::attribute::SdrAllFillAttributesHelperPtr& rFillAttributes,
                                        const tools::Rectangle& rPaintRange,
                                        const tools::Rectangle& rDefineRange)
@@ -369,7 +610,7 @@ void SvxPageWindow::drawFillAttributes(vcl::RenderContext& rRenderContext,
         {
             const drawinglayer::primitive2d::Primitive2DReference xOutline(
                 new drawinglayer::primitive2d::PolygonHairlinePrimitive2D(
-                    basegfx::utils::createPolygonFromRect(aPaintRange), GetLineColor().getBColor()));
+                    basegfx::utils::createPolygonFromRect(aPaintRange), rRenderContext.GetLineColor().getBColor()));
 
             aSequence.push_back(xOutline);
         }
@@ -378,12 +619,11 @@ void SvxPageWindow::drawFillAttributes(vcl::RenderContext& rRenderContext,
         if (!aSequence.empty())
         {
             const drawinglayer::geometry::ViewInformation2D aViewInformation2D(
-                            basegfx::B2DHomMatrix(), GetViewTransformation(), aPaintRange, nullptr,
+                            basegfx::B2DHomMatrix(), rRenderContext.GetViewTransformation(), aPaintRange, nullptr,
                             0.0, css::uno::Sequence<css::beans::PropertyValue >());
 
-            std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor;
-            pProcessor.reset(drawinglayer::processor2d::createProcessor2DFromOutputDevice(rRenderContext, aViewInformation2D));
-
+            std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor(
+                drawinglayer::processor2d::createProcessor2DFromOutputDevice(rRenderContext, aViewInformation2D));
             if (pProcessor)
             {
                 pProcessor->process(aSequence);
@@ -393,24 +633,36 @@ void SvxPageWindow::drawFillAttributes(vcl::RenderContext& rRenderContext,
 }
 
 
-void SvxPageWindow::EnableFrameDirection(bool bEnable)
+void PageWindow::EnableFrameDirection(bool bEnable)
 {
     bFrameDirection = bEnable;
 }
 
-void SvxPageWindow::SetFrameDirection(SvxFrameDirection nDirection)
+void PageWindow::SetFrameDirection(SvxFrameDirection nDirection)
 {
     nFrameDirection = nDirection;
 }
 
-void SvxPageWindow::ResetBackground()
+void PageWindow::ResetBackground()
 {
     bResetBackground = true;
 }
 
-Size SvxPageWindow::GetOptimalSize() const
+void PageWindow::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
-    return LogicToPixel(Size(75, 46), MapMode(MapUnit::MapAppFont));
+    OutputDevice& rRefDevice = pDrawingArea->get_ref_device();
+    // Count in Twips by default
+    rRefDevice.Push(PushFlags::MAPMODE);
+    rRefDevice.SetMapMode(MapMode(MapUnit::MapTwip));
+    aWinSize = rRefDevice.LogicToPixel(Size(75, 46), MapMode(MapUnit::MapAppFont));
+    pDrawingArea->set_size_request(aWinSize.Width(), aWinSize.Height());
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
+
+    aWinSize.AdjustHeight( -4 );
+    aWinSize.AdjustWidth( -4 );
+
+    aWinSize = rRefDevice.PixelToLogic(aWinSize);
+    rRefDevice.Pop();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

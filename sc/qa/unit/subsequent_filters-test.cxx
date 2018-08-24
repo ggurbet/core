@@ -137,6 +137,7 @@ public:
     void testMergedCellsODS();
     void testRepeatedColumnsODS();
     void testDataValidityODS();
+    void testDataValidityXLSX();
     void testDataTableMortgageXLS();
     void testDataTableOneVarXLSX();
     void testDataTableMultiTableXLSX();
@@ -245,6 +246,8 @@ public:
     void testBorderColorsXLSXML();
     void testHiddenRowsColumnsXLSXML();
     void testColumnWidthRowHeightXLSXML();
+    void testTdf62268();
+    void testVBAMacroFunctionODS();
 
     CPPUNIT_TEST_SUITE(ScFiltersTest);
     CPPUNIT_TEST(testBooleanFormatXLSX);
@@ -278,6 +281,7 @@ public:
     CPPUNIT_TEST(testMergedCellsODS);
     CPPUNIT_TEST(testRepeatedColumnsODS);
     CPPUNIT_TEST(testDataValidityODS);
+    CPPUNIT_TEST(testDataValidityXLSX);
     CPPUNIT_TEST(testDataTableMortgageXLS);
     CPPUNIT_TEST(testDataTableOneVarXLSX);
     CPPUNIT_TEST(testDataTableMultiTableXLSX);
@@ -376,6 +380,8 @@ public:
     CPPUNIT_TEST(testHiddenRowsColumnsXLSXML);
     CPPUNIT_TEST(testColumnWidthRowHeightXLSXML);
     CPPUNIT_TEST(testCondFormatFormulaListenerXLSX);
+    CPPUNIT_TEST(testTdf62268);
+    CPPUNIT_TEST(testVBAMacroFunctionODS);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -698,13 +704,13 @@ void ScFiltersTest::testCachedFormulaResultsODS()
                 aIsErrorFormula.append(")");
                 OUString aFormula = aIsErrorFormula.makeStringAndClear();
                 rDoc.SetString(nCol, nRow + 2, 2, aFormula);
-                CPPUNIT_ASSERT_EQUAL_MESSAGE(OUStringToOString(aFormula, RTL_TEXTENCODING_UTF8).getStr(), rDoc.GetString(nCol, nRow +2, 2), OUString("TRUE"));
+                CPPUNIT_ASSERT_EQUAL_MESSAGE(OUStringToOString(aFormula, RTL_TEXTENCODING_UTF8).getStr(), OUString("TRUE"), rDoc.GetString(nCol, nRow +2, 2));
 
                 OUStringBuffer aIsTextFormula("=ISTEXT(");
                 aIsTextFormula.append(static_cast<char>('A'+nCol)).append(OUString::number(nRow));
                 aIsTextFormula.append(")");
                 rDoc.SetString(nCol, nRow + 4, 2, aIsTextFormula.makeStringAndClear());
-                CPPUNIT_ASSERT_EQUAL_MESSAGE("", rDoc.GetString(nCol, nRow +4, 2), OUString("FALSE"));
+                CPPUNIT_ASSERT_EQUAL(OUString("FALSE"), rDoc.GetString(nCol, nRow +4, 2));
             }
         }
 
@@ -1332,6 +1338,7 @@ void ScFiltersTest::testDataValidityODS()
 
     ScAddress aValBaseAddr1( 2,6,0 ); //sheet1
     ScAddress aValBaseAddr2( 2,3,1 ); //sheet2
+    ScAddress aValBaseAddr3( 2,2,2 ); //sheet3
 
     //sheet1's expected Data Validation Entry values
     ValDataTestParams aVDTParams1(
@@ -1347,17 +1354,27 @@ void ScFiltersTest::testDataValidityODS()
         "Must be a whole number between 1 and 10.",
         SC_VALERR_STOP, 2
     );
+    //sheet3's expected Data Validation Entry values
+    ValDataTestParams aVDTParams3(
+        SC_VALID_CUSTOM, ScConditionMode::Direct, "ISTEXT(C3)", EMPTY_OUSTRING, rDoc,
+        aValBaseAddr3, "Error sheet 3",
+        "Must not be a numerical value.",
+        SC_VALERR_STOP, 3
+    );
     //check each sheet's Data Validation Entries
     checkValiditationEntries( aVDTParams1 );
     checkValiditationEntries( aVDTParams2 );
+    checkValiditationEntries( aVDTParams3 );
 
     //expected ranges to be associated with data validity
     ScRange aRange1( 2,2,0, 2,6,0 ); //sheet1
     ScRange aRange2( 2,3,1, 6,7,1 ); //sheet2
+    ScRange aRange3( 2,2,2, 2,6,2 ); //sheet3
 
     //check each sheet's cells for data validity
     checkCellValidity( aValBaseAddr1, aRange1, rDoc );
     checkCellValidity( aValBaseAddr2, aRange2, rDoc );
+    checkCellValidity( aValBaseAddr3, aRange3, rDoc );
 
     //check each sheet's content
     OUString aCSVFileName1;
@@ -1367,6 +1384,32 @@ void ScFiltersTest::testDataValidityODS()
     OUString aCSVFileName2;
     createCSVPath("dataValidity2.", aCSVFileName2);
     testFile(aCSVFileName2, rDoc, 1);
+
+    OUString aCSVFileName3;
+    createCSVPath("dataValidity3.", aCSVFileName3);
+    testFile(aCSVFileName3, rDoc, 2);
+
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testDataValidityXLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("dataValidity.", FORMAT_XLSX);
+    ScDocument& rDoc = xDocSh->GetDocument();
+
+    ScAddress aValBaseAddr1( 2,6,0 ); //sheet1
+    ScAddress aValBaseAddr2( 2,3,1 ); //sheet2
+    ScAddress aValBaseAddr3( 2,2,2 ); //sheet3
+
+    //expected ranges to be associated with data validity
+    ScRange aRange1( 2,2,0, 2,6,0 ); //sheet1
+    ScRange aRange2( 2,3,1, 6,7,1 ); //sheet2
+    ScRange aRange3( 2,2,2, 2,6,2 ); //sheet3
+
+    //check each sheet's cells for data validity
+    checkCellValidity( aValBaseAddr1, aRange1, rDoc );
+    checkCellValidity( aValBaseAddr2, aRange2, rDoc );
+    checkCellValidity( aValBaseAddr3, aRange3, rDoc );
 
     xDocSh->DoClose();
 }
@@ -1628,7 +1671,6 @@ void ScFiltersTest::testControlImport()
     uno::Reference< container::XIndexAccess > xIA_DrawPage(xDrawPageSupplier->getDrawPage(), UNO_QUERY_THROW);
     uno::Reference< drawing::XControlShape > xControlShape(xIA_DrawPage->getByIndex(0), UNO_QUERY_THROW);
 
-    CPPUNIT_ASSERT(xControlShape.is());
     xDocSh->DoClose();
 }
 
@@ -2178,7 +2220,7 @@ void ScFiltersTest::testCondFormatThemeColorXLSX()
     ScConditionalFormat* pFormat = rDoc.GetCondFormat(0, 0, 0);
     const ScFormatEntry* pEntry = pFormat->GetEntry(0);
     CPPUNIT_ASSERT(pEntry);
-    CPPUNIT_ASSERT_EQUAL(pEntry->GetType(), ScFormatEntry::Type::Databar);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::Databar, pEntry->GetType());
     const ScDataBarFormat* pDataBar = static_cast<const ScDataBarFormat*>(pEntry);
     const ScDataBarFormatData* pDataBarFormatData = pDataBar->GetDataBarData();
 
@@ -2192,7 +2234,7 @@ void ScFiltersTest::testCondFormatThemeColorXLSX()
     CPPUNIT_ASSERT_EQUAL(size_t(1), pFormat->size());
     pEntry = pFormat->GetEntry(0);
     CPPUNIT_ASSERT(pEntry);
-    CPPUNIT_ASSERT_EQUAL(pEntry->GetType(), ScFormatEntry::Type::Colorscale);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::Colorscale, pEntry->GetType());
     const ScColorScaleFormat* pColorScale = static_cast<const ScColorScaleFormat*>(pEntry);
     CPPUNIT_ASSERT_EQUAL(size_t(2), pColorScale->size());
     const ScColorScaleEntry* pColorScaleEntry = pColorScale->GetEntry(0);
@@ -2217,7 +2259,7 @@ void ScFiltersTest::testCondFormatThemeColor2XLSX()
     CPPUNIT_ASSERT(pFormat);
     const ScFormatEntry* pEntry = pFormat->GetEntry(0);
     CPPUNIT_ASSERT(pEntry);
-    CPPUNIT_ASSERT_EQUAL(pEntry->GetType(), ScFormatEntry::Type::Databar);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::Databar, pEntry->GetType());
     const ScDataBarFormat* pDataBar = static_cast<const ScDataBarFormat*>(pEntry);
     const ScDataBarFormatData* pDataBarFormatData = pDataBar->GetDataBarData();
 
@@ -2236,7 +2278,7 @@ void checkDatabarPositiveColor(const ScConditionalFormat* pFormat, const Color& 
     CPPUNIT_ASSERT(pFormat);
     const ScFormatEntry* pEntry = pFormat->GetEntry(0);
     CPPUNIT_ASSERT(pEntry);
-    CPPUNIT_ASSERT_EQUAL(pEntry->GetType(), ScFormatEntry::Type::Databar);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::Databar, pEntry->GetType());
     const ScDataBarFormat* pDataBar = static_cast<const ScDataBarFormat*>(pEntry);
     const ScDataBarFormatData* pDataBarFormatData = pDataBar->GetDataBarData();
 
@@ -2256,7 +2298,7 @@ void ScFiltersTest::testCondFormatThemeColor3XLSX()
     CPPUNIT_ASSERT(pFormat);
     const ScFormatEntry* pEntry = pFormat->GetEntry(0);
     CPPUNIT_ASSERT(pEntry);
-    CPPUNIT_ASSERT_EQUAL(pEntry->GetType(), ScFormatEntry::Type::Colorscale);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::Colorscale, pEntry->GetType());
     const ScColorScaleFormat* pColorScale = static_cast<const ScColorScaleFormat*>(pEntry);
 
     CPPUNIT_ASSERT_EQUAL(size_t(2), pColorScale->size());
@@ -2425,10 +2467,10 @@ void ScFiltersTest::testOrcusODSStyleInterface()
     CPPUNIT_ASSERT_EQUAL(Color(255, 204, 18), pBoxItem->GetRight()->GetColor());
     CPPUNIT_ASSERT_EQUAL(Color(255, 204, 18), pBoxItem->GetTop()->GetColor());
     CPPUNIT_ASSERT_EQUAL(Color(255, 204, 18), pBoxItem->GetBottom()->GetColor());
-    CPPUNIT_ASSERT_EQUAL(pBoxItem->GetLeft()->GetBorderLineStyle(), SvxBorderLineStyle::DOTTED);
-    CPPUNIT_ASSERT_EQUAL(pBoxItem->GetRight()->GetBorderLineStyle(), SvxBorderLineStyle::DOTTED);
-    CPPUNIT_ASSERT_EQUAL(pBoxItem->GetTop()->GetBorderLineStyle(), SvxBorderLineStyle::DOTTED);
-    CPPUNIT_ASSERT_EQUAL(pBoxItem->GetBottom()->GetBorderLineStyle(), SvxBorderLineStyle::DOTTED);
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DOTTED, pBoxItem->GetLeft()->GetBorderLineStyle());
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DOTTED, pBoxItem->GetRight()->GetBorderLineStyle());
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DOTTED, pBoxItem->GetTop()->GetBorderLineStyle());
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DOTTED, pBoxItem->GetBottom()->GetBorderLineStyle());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with left width", 1, pBoxItem->GetLeft()->GetWidth());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with right width", 1, pBoxItem->GetRight()->GetWidth());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with top width", 1, pBoxItem->GetTop()->GetWidth());
@@ -2452,8 +2494,8 @@ void ScFiltersTest::testOrcusODSStyleInterface()
     pBoxItem = static_cast<const SvxBoxItem*>(pItem);
     CPPUNIT_ASSERT_EQUAL(Color(0, 0, 0), pBoxItem->GetLeft()->GetColor());
     CPPUNIT_ASSERT_EQUAL(Color(255, 0, 0), pBoxItem->GetRight()->GetColor());
-    CPPUNIT_ASSERT_EQUAL(pBoxItem->GetLeft()->GetBorderLineStyle(), SvxBorderLineStyle::SOLID);
-    CPPUNIT_ASSERT_EQUAL(pBoxItem->GetRight()->GetBorderLineStyle(), SvxBorderLineStyle::DOTTED);
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::SOLID, pBoxItem->GetLeft()->GetBorderLineStyle());
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DOTTED, pBoxItem->GetRight()->GetBorderLineStyle());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with left width", 0, pBoxItem->GetLeft()->GetWidth());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with right width", 14, pBoxItem->GetRight()->GetWidth());
 
@@ -2462,7 +2504,7 @@ void ScFiltersTest::testOrcusODSStyleInterface()
 
     const SvxLineItem* pTLBR= static_cast<const SvxLineItem*>(pItem);
     CPPUNIT_ASSERT_EQUAL(Color(18, 0, 0), pTLBR->GetLine()->GetColor());
-    CPPUNIT_ASSERT_EQUAL(pTLBR->GetLine()->GetBorderLineStyle(), SvxBorderLineStyle::DASH_DOT);
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DASH_DOT, pTLBR->GetLine()->GetBorderLineStyle());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with diagonal tl-br width", 14, pTLBR->GetLine()->GetWidth());
 
     CPPUNIT_ASSERT_MESSAGE("Style Name2 : Doesn't have Attribute diagonal(bl-tr) border, but it should have.",
@@ -2470,7 +2512,7 @@ void ScFiltersTest::testOrcusODSStyleInterface()
 
     const SvxLineItem* pBLTR= static_cast<const SvxLineItem*>(pItem);
     CPPUNIT_ASSERT_EQUAL(Color(255, 204, 238), pBLTR->GetLine()->GetColor());
-    CPPUNIT_ASSERT_EQUAL(pBLTR->GetLine()->GetBorderLineStyle(), SvxBorderLineStyle::DASHED);
+    CPPUNIT_ASSERT_EQUAL(SvxBorderLineStyle::DASHED, pBLTR->GetLine()->GetBorderLineStyle());
     ASSERT_DOUBLES_EQUAL_MESSAGE("Error with diagonal tl-br width", 34, pBLTR->GetLine()->GetWidth());
 
     CPPUNIT_ASSERT_MESSAGE("Style Name2 : Has Attribute background, but it shouldn't.",
@@ -2652,8 +2694,8 @@ void ScFiltersTest::testMiscRowHeights()
 
     TestParam::RowData MultiLineOptData[] =
     {
-        // Row 0 is 12.63 mm and optimal flag is set
-        { 0, 0, 0, 1263, CHECK_OPTIMAL, true  },
+        // Row 0 is 12.63 mm, but optimal flag is set
+        { 0, 0, 0, 1236, CHECK_OPTIMAL, true  },
         // Row 1 is 11.99 mm and optimal flag is NOT set
         { 1, 1, 0, 1199, CHECK_OPTIMAL, false  },
     };
@@ -2685,8 +2727,9 @@ void ScFiltersTest::testOptimalHeightReset()
     ScDocument& rDoc = xDocSh->GetDocument();
     // open document in read/write mode ( otherwise optimal height stuff won't
     // be triggered ) *and* you can't delete cell contents.
-    int nHeight = sc::TwipsToHMM ( rDoc.GetRowHeight(nRow, nTab, false) );
-    CPPUNIT_ASSERT_EQUAL(1263, nHeight);
+    int nHeight = rDoc.GetRowHeight(nRow, nTab, false);
+    // Due to some minor differences on Mac this comparison is made bit fuzzy
+    CPPUNIT_ASSERT_LESSEQUAL( 8, abs( nHeight - 701 ) );
 
     ScDocFunc &rFunc = xDocSh->GetDocFunc();
 
@@ -3493,7 +3536,6 @@ void ScFiltersTest::testTdf83672XLSX()
         xDoc->getDrawPages()->getByIndex(0), uno::UNO_QUERY_THROW );
     uno::Reference< drawing::XShape > xShape(
         xPage->getByIndex(0), uno::UNO_QUERY_THROW );
-    CPPUNIT_ASSERT_MESSAGE( "failed to load shape", xShape.is() );
     uno::Reference< beans::XPropertySet > xShapeProperties(
         xShape, uno::UNO_QUERY );
     sal_Int32 nRotate = 0;
@@ -3989,7 +4031,6 @@ void ScFiltersTest::testActiveXCheckboxXLSX()
     uno::Reference< drawing::XDrawPageSupplier > xDrawPageSupplier(xIA->getByIndex(0), UNO_QUERY_THROW);
     uno::Reference< container::XIndexAccess > xIA_DrawPage(xDrawPageSupplier->getDrawPage(), UNO_QUERY_THROW);
     uno::Reference< drawing::XControlShape > xControlShape(xIA_DrawPage->getByIndex(0), UNO_QUERY_THROW);
-    CPPUNIT_ASSERT(xControlShape.is());
 
     // Check control type
     uno::Reference<beans::XPropertySet> xPropertySet(xControlShape->getControl(), uno::UNO_QUERY);
@@ -4055,6 +4096,34 @@ void ScFiltersTest::testCondFormatFormulaListenerXLSX()
     rDoc.SetValue(0, 0, 0, 2.0);
 
     CPPUNIT_ASSERT(aListener.mbCalled);
+
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testTdf62268()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf62268.", FORMAT_ODS);
+    ScDocument& rDoc = xDocSh->GetDocument();
+    int nHeight;
+
+    SCTAB nTab = 0;
+    nHeight = rDoc.GetRowHeight(0, nTab, false);
+    CPPUNIT_ASSERT_LESSEQUAL( 3, abs( 256 - nHeight ) );
+    nHeight = rDoc.GetRowHeight(1, nTab, false);
+    CPPUNIT_ASSERT_LESSEQUAL( 19, abs( 1905 - nHeight ) );
+
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testVBAMacroFunctionODS()
+{
+    ScDocShellRef xDocSh = loadDoc("vba_macro_functions.", FORMAT_ODS);
+    ScDocument& rDoc = xDocSh->GetDocument();
+
+    OUString aFunction;
+    rDoc.GetFormula(2, 0, 0, aFunction);
+    std::cout << aFunction << std::endl;
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(10.0, rDoc.GetValue(2, 0, 0), 1e-6);
 
     xDocSh->DoClose();
 }

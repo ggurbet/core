@@ -42,6 +42,7 @@
 #include <layfrm.hxx>
 #include <pagefrm.hxx>
 #include <cntfrm.hxx>
+#include <txtfrm.hxx>
 #include <rootfrm.hxx>
 #include <tabfrm.hxx>
 #include <flyfrm.hxx>
@@ -151,9 +152,8 @@ SwTextNode* GetFirstTextNode( const SwDoc& rDoc, SwPosition& rPos,
     }
     else if ( !pCFrame->isFrameAreaDefinitionValid() )
     {
-        pTextNode = const_cast<SwTextNode*>(static_cast<const SwTextNode*>(pCFrame->GetNode()));
-        rPos.nNode = *pTextNode;
-        rPos.nContent.Assign( pTextNode, 0 );
+        assert(pCFrame->IsTextFrame());
+        rPos = static_cast<SwTextFrame const*>(pCFrame)->MapViewToModelPos(TextFrameIndex(0));
     }
     else
     {
@@ -240,9 +240,11 @@ const SwTextNode* GetBodyTextNode( const SwDoc& rDoc, SwPosition& rPos,
 
             if( pContentFrame )
             {
-                pTextNode = pContentFrame->GetNode()->GetTextNode();
-                rPos.nNode = *pTextNode;
-                const_cast<SwTextNode*>(pTextNode)->MakeEndIndex( &rPos.nContent );
+                assert(pContentFrame->IsTextFrame());
+                SwTextFrame const*const pFrame(static_cast<SwTextFrame const*>(pContentFrame));
+                rPos = pFrame->MapViewToModelPos(TextFrameIndex(pFrame->GetText().getLength()));
+                pTextNode = rPos.nNode.GetNode().GetTextNode();
+                assert(pTextNode);
             }
             else
             {
@@ -282,49 +284,49 @@ void SwGetExpFieldType::Modify( const SfxPoolItem*, const SfxPoolItem* pNew )
 SwGetExpField::SwGetExpField(SwGetExpFieldType* pTyp, const OUString& rFormel,
                             sal_uInt16 nSub, sal_uLong nFormat)
     : SwFormulaField( pTyp, nFormat, 0.0 ),
-    bIsInBodyText( true ),
-    nSubType(nSub),
-    bLateInitialization( false )
+    m_bIsInBodyText( true ),
+    m_nSubType(nSub),
+    m_bLateInitialization( false )
 {
     SetFormula( rFormel );
 }
 
 OUString SwGetExpField::Expand() const
 {
-    if(nSubType & nsSwExtendedSubType::SUB_CMD)
+    if(m_nSubType & nsSwExtendedSubType::SUB_CMD)
         return GetFormula();
 
-    return sExpand;
+    return m_sExpand;
 }
 
 OUString SwGetExpField::GetFieldName() const
 {
     const sal_uInt16 nType = static_cast<sal_uInt16>(
-        (nsSwGetSetExpType::GSE_FORMULA & nSubType)
+        (nsSwGetSetExpType::GSE_FORMULA & m_nSubType)
         ? TYP_FORMELFLD
         : TYP_GETFLD);
 
     return SwFieldType::GetTypeStr(nType) + " " + GetFormula();
 }
 
-SwField* SwGetExpField::Copy() const
+std::unique_ptr<SwField> SwGetExpField::Copy() const
 {
-    SwGetExpField *pTmp = new SwGetExpField(static_cast<SwGetExpFieldType*>(GetTyp()),
-                                            GetFormula(), nSubType, GetFormat());
+    std::unique_ptr<SwGetExpField> pTmp(new SwGetExpField(static_cast<SwGetExpFieldType*>(GetTyp()),
+                                            GetFormula(), m_nSubType, GetFormat()));
     pTmp->SetLanguage(GetLanguage());
     pTmp->SwValueField::SetValue(GetValue());
-    pTmp->sExpand       = sExpand;
-    pTmp->bIsInBodyText  = bIsInBodyText;
+    pTmp->m_sExpand       = m_sExpand;
+    pTmp->m_bIsInBodyText  = m_bIsInBodyText;
     pTmp->SetAutomaticLanguage(IsAutomaticLanguage());
-    if( bLateInitialization )
+    if( m_bLateInitialization )
         pTmp->SetLateInitialization();
 
-    return pTmp;
+    return std::unique_ptr<SwField>(pTmp.release());
 }
 
 void SwGetExpField::ChangeExpansion( const SwFrame& rFrame, const SwTextField& rField )
 {
-    if( bIsInBodyText ) // only fields in Footer, Header, FootNote, Flys
+    if( m_bIsInBodyText ) // only fields in Footer, Header, FootNote, Flys
         return;
 
     OSL_ENSURE( !rFrame.IsInDocBody(), "Flag incorrect, frame is in DocBody" );
@@ -342,12 +344,12 @@ void SwGetExpField::ChangeExpansion( const SwFrame& rFrame, const SwTextField& r
     if(!pTextNode)
         return;
     // #i82544#
-    if( bLateInitialization )
+    if( m_bLateInitialization )
     {
         SwFieldType* pSetExpField = rDoc.getIDocumentFieldsAccess().GetFieldType(SwFieldIds::SetExp, GetFormula(), false);
         if( pSetExpField )
         {
-            bLateInitialization = false;
+            m_bLateInitialization = false;
             if( !(GetSubType() & nsSwGetSetExpType::GSE_STRING) &&
                 static_cast< SwSetExpFieldType* >(pSetExpField)->GetType() == nsSwGetSetExpType::GSE_STRING )
             SetSubType( nsSwGetSetExpType::GSE_STRING );
@@ -359,7 +361,7 @@ void SwGetExpField::ChangeExpansion( const SwFrame& rFrame, const SwTextField& r
     {
         SwHashTable<HashStr> aHashTable(0);
         rDoc.getIDocumentFieldsAccess().FieldsToExpand( aHashTable, aEndField );
-        sExpand = LookString( aHashTable, GetFormula() );
+        m_sExpand = LookString( aHashTable, GetFormula() );
     }
     else
     {
@@ -371,7 +373,7 @@ void SwGetExpField::ChangeExpansion( const SwFrame& rFrame, const SwTextField& r
         SetValue(aCalc.Calculate(GetFormula()).GetDouble());
 
         // analyse based on format
-        sExpand = static_cast<SwValueFieldType*>(GetTyp())->ExpandValue(
+        m_sExpand = static_cast<SwValueFieldType*>(GetTyp())->ExpandValue(
                                 GetValue(), GetFormat(), GetLanguage());
     }
 }
@@ -388,17 +390,17 @@ void SwGetExpField::SetPar2(const OUString& rStr)
 
 sal_uInt16 SwGetExpField::GetSubType() const
 {
-    return nSubType;
+    return m_nSubType;
 }
 
 void SwGetExpField::SetSubType(sal_uInt16 nType)
 {
-    nSubType = nType;
+    m_nSubType = nType;
 }
 
 void SwGetExpField::SetLanguage(LanguageType nLng)
 {
-    if (nSubType & nsSwExtendedSubType::SUB_CMD)
+    if (m_nSubType & nsSwExtendedSubType::SUB_CMD)
         SwField::SetLanguage(nLng);
     else
         SwValueField::SetLanguage(nLng);
@@ -415,7 +417,7 @@ bool SwGetExpField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
         rAny <<= static_cast<sal_Int32>(GetFormat());
         break;
     case FIELD_PROP_USHORT1:
-         rAny <<= static_cast<sal_Int16>(nSubType);
+         rAny <<= static_cast<sal_Int16>(m_nSubType);
         break;
     case FIELD_PROP_PAR1:
          rAny <<= GetFormula();
@@ -427,10 +429,10 @@ bool SwGetExpField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
         }
         break;
     case FIELD_PROP_BOOL2:
-        rAny <<= 0 != (nSubType & nsSwExtendedSubType::SUB_CMD);
+        rAny <<= 0 != (m_nSubType & nsSwExtendedSubType::SUB_CMD);
         break;
     case FIELD_PROP_PAR4:
-        rAny <<= sExpand;
+        rAny <<= m_sExpand;
         break;
     default:
         return SwField::QueryValue(rAny, nWhichId);
@@ -452,7 +454,7 @@ bool SwGetExpField::PutValue( const uno::Any& rAny, sal_uInt16 nWhichId )
         break;
     case FIELD_PROP_USHORT1:
          rAny >>= nTmp;
-         nSubType = static_cast<sal_uInt16>(nTmp);
+         m_nSubType = static_cast<sal_uInt16>(nTmp);
         break;
     case FIELD_PROP_PAR1:
     {
@@ -468,9 +470,9 @@ bool SwGetExpField::PutValue( const uno::Any& rAny, sal_uInt16 nWhichId )
         break;
     case FIELD_PROP_BOOL2:
         if(*o3tl::doAccess<bool>(rAny))
-            nSubType |= nsSwExtendedSubType::SUB_CMD;
+            m_nSubType |= nsSwExtendedSubType::SUB_CMD;
         else
-            nSubType &= (~nsSwExtendedSubType::SUB_CMD);
+            m_nSubType &= (~nsSwExtendedSubType::SUB_CMD);
         break;
     case FIELD_PROP_PAR4:
     {
@@ -829,10 +831,10 @@ OUString SwSetExpField::GetFieldName() const
     return aStr;
 }
 
-SwField* SwSetExpField::Copy() const
+std::unique_ptr<SwField> SwSetExpField::Copy() const
 {
-    SwSetExpField *pTmp = new SwSetExpField(static_cast<SwSetExpFieldType*>(GetTyp()),
-                                            GetFormula(), GetFormat());
+    std::unique_ptr<SwSetExpField> pTmp(new SwSetExpField(static_cast<SwSetExpFieldType*>(GetTyp()),
+                                            GetFormula(), GetFormat()));
     pTmp->SwValueField::SetValue(GetValue());
     pTmp->sExpand       = sExpand;
     pTmp->SetAutomaticLanguage(IsAutomaticLanguage());
@@ -842,7 +844,7 @@ SwField* SwSetExpField::Copy() const
     pTmp->nSeqNo        = nSeqNo;
     pTmp->SetSubType(GetSubType());
 
-    return pTmp;
+    return std::unique_ptr<SwField>(pTmp.release());
 }
 
 void SwSetExpField::SetSubType(sal_uInt16 nSub)
@@ -863,7 +865,7 @@ void SwSetExpField::SetValue( const double& rAny )
     SwValueField::SetValue(rAny);
 
     if( IsSequenceField() )
-        sExpand = FormatNumber( GetValue(), static_cast<SvxNumType>(GetFormat()) );
+        sExpand = FormatNumber( GetValue(), static_cast<SvxNumType>(GetFormat()), GetLanguage() );
     else
         sExpand = static_cast<SwValueFieldType*>(GetTyp())->ExpandValue( rAny,
                                                 GetFormat(), GetLanguage());
@@ -872,7 +874,7 @@ void SwSetExpField::SetValue( const double& rAny )
 void SwGetExpField::SetValue( const double& rAny )
 {
     SwValueField::SetValue(rAny);
-    sExpand = static_cast<SwValueFieldType*>(GetTyp())->ExpandValue( rAny, GetFormat(),
+    m_sExpand = static_cast<SwValueFieldType*>(GetTyp())->ExpandValue( rAny, GetFormat(),
                                                             GetLanguage());
 }
 
@@ -1109,13 +1111,13 @@ bool SwSetExpField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
 
 SwInputFieldType::SwInputFieldType( SwDoc* pD )
     : SwFieldType( SwFieldIds::Input )
-    , pDoc( pD )
+    , mpDoc( pD )
 {
 }
 
 SwFieldType* SwInputFieldType::Copy() const
 {
-    SwInputFieldType* pType = new SwInputFieldType( pDoc );
+    SwInputFieldType* pType = new SwInputFieldType( mpDoc );
     return pType;
 }
 
@@ -1126,9 +1128,9 @@ SwInputField::SwInputField( SwInputFieldType* pFieldType,
                             sal_uLong nFormat,
                             bool bIsFormField )
     : SwField( pFieldType, nFormat, LANGUAGE_SYSTEM, false )
-    , aContent(rContent)
-    , aPText(rPrompt)
-    , nSubType(nSub)
+    , maContent(rContent)
+    , maPText(rPrompt)
+    , mnSubType(nSub)
     , mbIsFormField( bIsFormField )
     , mpFormatField( nullptr )
 {
@@ -1146,11 +1148,11 @@ void SwInputField::SetFormatField( SwFormatField& rFormatField )
 
 void SwInputField::applyFieldContent( const OUString& rNewFieldContent )
 {
-    if ( (nSubType & 0x00ff) == INP_TXT )
+    if ( (mnSubType & 0x00ff) == INP_TXT )
     {
-        aContent = rNewFieldContent;
+        maContent = rNewFieldContent;
     }
-    else if( (nSubType & 0x00ff) == INP_USR )
+    else if( (mnSubType & 0x00ff) == INP_USR )
     {
         SwUserFieldType* pUserTyp = static_cast<SwUserFieldType*>(
             static_cast<SwInputFieldType*>(GetTyp())->GetDoc()->getIDocumentFieldsAccess().GetFieldType( SwFieldIds::User, getContent(), false ) );
@@ -1183,39 +1185,39 @@ void SwInputField::applyFieldContent( const OUString& rNewFieldContent )
 OUString SwInputField::GetFieldName() const
 {
     OUString aStr(SwField::GetFieldName());
-    if ((nSubType & 0x00ff) == INP_USR)
+    if ((mnSubType & 0x00ff) == INP_USR)
     {
         aStr += GetTyp()->GetName() + " " + getContent();
     }
     return aStr;
 }
 
-SwField* SwInputField::Copy() const
+std::unique_ptr<SwField> SwInputField::Copy() const
 {
-    SwInputField* pField =
+    std::unique_ptr<SwInputField> pField(
         new SwInputField(
             static_cast<SwInputFieldType*>(GetTyp()),
             getContent(),
-            aPText,
+            maPText,
             GetSubType(),
             GetFormat(),
-            mbIsFormField );
+            mbIsFormField ));
 
-    pField->SetHelp( aHelp );
-    pField->SetToolTip( aToolTip );
+    pField->SetHelp( maHelp );
+    pField->SetToolTip( maToolTip );
 
     pField->SetAutomaticLanguage(IsAutomaticLanguage());
-    return pField;
+    return std::unique_ptr<SwField>(pField.release());
 }
 
 OUString SwInputField::Expand() const
 {
-    if((nSubType & 0x00ff) == INP_TXT)
+    if((mnSubType & 0x00ff) == INP_TXT)
     {
         return getContent();
     }
 
-    if( (nSubType & 0x00ff) == INP_USR )
+    if( (mnSubType & 0x00ff) == INP_USR )
     {
         SwUserFieldType* pUserTyp = static_cast<SwUserFieldType*>(
             static_cast<SwInputFieldType*>(GetTyp())->GetDoc()->getIDocumentFieldsAccess().GetFieldType( SwFieldIds::User, getContent(), false ) );
@@ -1229,8 +1231,8 @@ OUString SwInputField::Expand() const
 bool SwInputField::isFormField() const
 {
     return mbIsFormField
-           || !aHelp.isEmpty()
-           || !aToolTip.isEmpty();
+           || !maHelp.isEmpty()
+           || !maToolTip.isEmpty();
 }
 
 bool SwInputField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
@@ -1241,13 +1243,13 @@ bool SwInputField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
         rAny <<= getContent();
         break;
     case FIELD_PROP_PAR2:
-        rAny <<= aPText;
+        rAny <<= maPText;
         break;
     case FIELD_PROP_PAR3:
-        rAny <<= aHelp;
+        rAny <<= maHelp;
         break;
     case FIELD_PROP_PAR4:
-        rAny <<= aToolTip;
+        rAny <<= maToolTip;
         break;
     default:
         assert(false);
@@ -1260,16 +1262,16 @@ bool SwInputField::PutValue( const uno::Any& rAny, sal_uInt16 nWhichId )
     switch( nWhichId )
     {
     case FIELD_PROP_PAR1:
-        rAny >>= aContent;
+        rAny >>= maContent;
         break;
     case FIELD_PROP_PAR2:
-        rAny >>= aPText;
+        rAny >>= maPText;
         break;
     case FIELD_PROP_PAR3:
-        rAny >>= aHelp;
+        rAny >>= maHelp;
         break;
     case FIELD_PROP_PAR4:
-        rAny >>= aToolTip;
+        rAny >>= maToolTip;
         break;
     default:
         assert(false);
@@ -1280,7 +1282,7 @@ bool SwInputField::PutValue( const uno::Any& rAny, sal_uInt16 nWhichId )
 /// set condition
 void SwInputField::SetPar1(const OUString& rStr)
 {
-    aContent = rStr;
+    maContent = rStr;
 }
 
 OUString SwInputField::GetPar1() const
@@ -1290,42 +1292,42 @@ OUString SwInputField::GetPar1() const
 
 void SwInputField::SetPar2(const OUString& rStr)
 {
-    aPText = rStr;
+    maPText = rStr;
 }
 
 OUString SwInputField::GetPar2() const
 {
-    return aPText;
+    return maPText;
 }
 
 void SwInputField::SetHelp(const OUString & rStr)
 {
-    aHelp = rStr;
+    maHelp = rStr;
 }
 
 const OUString& SwInputField::GetHelp() const
 {
-    return aHelp;
+    return maHelp;
 }
 
 void SwInputField::SetToolTip(const OUString & rStr)
 {
-    aToolTip = rStr;
+    maToolTip = rStr;
 }
 
 const OUString& SwInputField::GetToolTip() const
 {
-    return aToolTip;
+    return maToolTip;
 }
 
 sal_uInt16 SwInputField::GetSubType() const
 {
-    return nSubType;
+    return mnSubType;
 }
 
 void SwInputField::SetSubType(sal_uInt16 nSub)
 {
-    nSubType = nSub;
+    mnSubType = nSub;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

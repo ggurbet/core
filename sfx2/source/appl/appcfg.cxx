@@ -51,6 +51,7 @@
 #include <vcl/toolbox.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/idle.hxx>
 
 #include <sfx2/app.hxx>
@@ -622,7 +623,7 @@ void SfxApplication::SetOptions_Impl( const SfxItemSet& rSet )
                   pSh;
                   ++nIdx, pSh = pDispat->GetShell(nIdx) )
             {
-                ::svl::IUndoManager *pShUndoMgr = pSh->GetUndoManager();
+                SfxUndoManager *pShUndoMgr = pSh->GetUndoManager();
                 if ( pShUndoMgr )
                     pShUndoMgr->SetMaxUndoActionCount( nUndoCount );
             }

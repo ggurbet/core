@@ -49,10 +49,10 @@
 #include <svx/svditer.hxx>
 #include <uno/mapping.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <basegfx/utils/unotools.hxx>
 #include <com/sun/star/document/XActionLockable.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -170,10 +170,15 @@ SdrObject* EnhancedCustomShapeEngine::ImplForceGroupWithText(
                     pRenderedShape = new SdrObjGroup(rSdrObjCustomShape.getSdrModelFromSdrObject());
                     static_cast<SdrObjGroup*>(pRenderedShape)->GetSubList()->NbcInsertObject( pTmp );
                 }
-                static_cast<SdrObjGroup*>(pRenderedShape)->GetSubList()->NbcInsertObject( pShadowGeometry->Clone(), 0 );
+
+                static_cast<SdrObjGroup*>(pRenderedShape)->GetSubList()->NbcInsertObject(
+                    pShadowGeometry->CloneSdrObject(pShadowGeometry->getSdrModelFromSdrObject()),
+                    0);
             }
             else
-                pRenderedShape = pShadowGeometry->Clone();
+            {
+                pRenderedShape = pShadowGeometry->CloneSdrObject(pShadowGeometry->getSdrModelFromSdrObject());
+            }
         }
 
         // apply text
@@ -189,7 +194,7 @@ SdrObject* EnhancedCustomShapeEngine::ImplForceGroupWithText(
             OutlinerParaObject* pParaObj(rSdrObjCustomShape.GetOutlinerParaObject());
 
             if( pParaObj )
-                pTextObj->NbcSetOutlinerParaObject( new OutlinerParaObject(*pParaObj) );
+                pTextObj->NbcSetOutlinerParaObject( o3tl::make_unique<OutlinerParaObject>(*pParaObj) );
 
             // copy all attributes
             SfxItemSet aTargetItemSet(rSdrObjCustomShape.GetMergedItemSet());
@@ -250,8 +255,6 @@ SdrObject* EnhancedCustomShapeEngine::ImplForceGroupWithText(
                 pRenderedShape = new SdrObjGroup(rSdrObjCustomShape.getSdrModelFromSdrObject());
                 static_cast<SdrObjGroup*>(pRenderedShape)->GetSubList()->NbcInsertObject( pTmp );
             }
-
-            pRenderedShape->SetPage(rSdrObjCustomShape.GetPage());
         }
     }
 
@@ -295,29 +298,27 @@ Reference< drawing::XShape > SAL_CALL EnhancedCustomShapeEngine::render()
     bool bFlipH = aCustomShape2d.IsFlipHorz();
     bool bLineGeometryNeededOnly = bTextPathOn;
 
-    SdrObject* pRenderedShape = aCustomShape2d.CreateObject( bLineGeometryNeededOnly );
-    if ( pRenderedShape )
+    std::unique_ptr<SdrObject, SdrObjectFreeOp> xRenderedShape(aCustomShape2d.CreateObject(bLineGeometryNeededOnly));
+    if (xRenderedShape)
     {
         if ( bTextPathOn )
         {
-            SdrObject* pRenderedFontWork(
+            std::unique_ptr<SdrObject, SdrObjectFreeOp> xRenderedFontWork(
                 EnhancedCustomShapeFontWork::CreateFontWork(
-                    pRenderedShape,
+                    xRenderedShape.get(),
                     rSdrObjCustomShape));
 
-            if ( pRenderedFontWork )
+            if (xRenderedFontWork)
             {
-                SdrObject::Free( pRenderedShape );
-                pRenderedShape = pRenderedFontWork;
+                xRenderedShape = std::move(xRenderedFontWork);
             }
         }
-        SdrObject* pRenderedShape3d = EnhancedCustomShape3d::Create3DObject(pRenderedShape, rSdrObjCustomShape);
-        if ( pRenderedShape3d )
+        std::unique_ptr<SdrObject, SdrObjectFreeOp> xRenderedShape3d(EnhancedCustomShape3d::Create3DObject(xRenderedShape.get(), rSdrObjCustomShape));
+        if (xRenderedShape3d)
         {
             bFlipV = bFlipH = false;
             nRotateAngle = 0;
-            SdrObject::Free( pRenderedShape );
-            pRenderedShape = pRenderedShape3d;
+            xRenderedShape = std::move(xRenderedShape3d);
         }
 
         tools::Rectangle aRect(rSdrObjCustomShape.GetSnapRect());
@@ -333,43 +334,44 @@ Reference< drawing::XShape > SAL_CALL EnhancedCustomShapeEngine::render()
                 nTan = -nTan;
             }
 
-            pRenderedShape->Shear(rSdrObjCustomShape.GetSnapRect().Center(), nShearAngle, nTan, false);
+            xRenderedShape->Shear(rSdrObjCustomShape.GetSnapRect().Center(), nShearAngle, nTan, false);
         }
         if(nRotateAngle )
         {
             double a = nRotateAngle * F_PI18000;
 
-            pRenderedShape->NbcRotate(rSdrObjCustomShape.GetSnapRect().Center(), nRotateAngle, sin( a ), cos( a ));
+            xRenderedShape->NbcRotate(rSdrObjCustomShape.GetSnapRect().Center(), nRotateAngle, sin( a ), cos( a ));
         }
         if ( bFlipV )
         {
             Point aLeft( aRect.Left(), ( aRect.Top() + aRect.Bottom() ) >> 1 );
             Point aRight( aLeft.X() + 1000, aLeft.Y() );
-            pRenderedShape->NbcMirror( aLeft, aRight );
+            xRenderedShape->NbcMirror( aLeft, aRight );
         }
         if ( bFlipH )
         {
             Point aTop( ( aRect.Left() + aRect.Right() ) >> 1, aRect.Top() );
             Point aBottom( aTop.X(), aTop.Y() + 1000 );
-            pRenderedShape->NbcMirror( aTop, aBottom );
+            xRenderedShape->NbcMirror( aTop, aBottom );
         }
 
-        pRenderedShape->NbcSetStyleSheet(rSdrObjCustomShape.GetStyleSheet(), true);
-        pRenderedShape->RecalcSnapRect();
+        xRenderedShape->NbcSetStyleSheet(rSdrObjCustomShape.GetStyleSheet(), true);
+        xRenderedShape->RecalcSnapRect();
     }
 
     if ( mbForceGroupWithText )
     {
-        pRenderedShape = ImplForceGroupWithText(
+        xRenderedShape.reset(ImplForceGroupWithText(
             rSdrObjCustomShape,
-            pRenderedShape);
+            xRenderedShape.release()));
     }
 
     Reference< drawing::XShape > xShape;
 
-    if ( pRenderedShape )
+    if (xRenderedShape)
     {
-        aCustomShape2d.ApplyGluePoints( pRenderedShape );
+        aCustomShape2d.ApplyGluePoints(xRenderedShape.get());
+        SdrObject* pRenderedShape = xRenderedShape.release();
         xShape = SvxDrawPage::CreateShapeByTypeAndInventor( pRenderedShape->GetObjIdentifier(),
             pRenderedShape->GetObjInventor(), pRenderedShape );
     }
@@ -480,7 +482,7 @@ drawing::PolyPolygonBezierCoords SAL_CALL EnhancedCustomShapeEngine::getLineGeom
                 SdrObject::Free( pNewObj );
             }
             SdrObject::Free( pObj );
-            basegfx::unotools::b2DPolyPolygonToPolyPolygonBezier( aPolyPolygon,
+            basegfx::utils::B2DPolyPolygonToUnoPolyPolygonBezierCoords( aPolyPolygon,
                                                                   aPolyPolygonBezierCoords );
         }
     }

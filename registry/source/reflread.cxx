@@ -60,12 +60,9 @@ public:
 
     const sal_uInt8* m_pBuffer;
     sal_uInt32      m_bufferLen;
-    bool            m_isCopied;
 
-    BlopObject(const sal_uInt8* buffer, sal_uInt32 len, bool copyBuffer);
+    BlopObject(const sal_uInt8* buffer, sal_uInt32 len);
         // throws std::bad_alloc
-
-    ~BlopObject();
 
     sal_uInt8 readBYTE(sal_uInt32 index) const
     {
@@ -152,29 +149,10 @@ public:
     }
 };
 
-BlopObject::BlopObject(const sal_uInt8* buffer, sal_uInt32 len, bool copyBuffer)
+BlopObject::BlopObject(const sal_uInt8* buffer, sal_uInt32 len)
     : m_bufferLen(len)
-    , m_isCopied(copyBuffer)
 {
-    if (m_isCopied)
-    {
-        m_pBuffer = nullptr;
-        sal_uInt8* newBuffer = new sal_uInt8[len];
-        memcpy(newBuffer, buffer, len);
-        m_pBuffer = newBuffer;
-    }
-    else
-    {
-        m_pBuffer = buffer;
-    }
-}
-
-BlopObject::~BlopObject()
-{
-    if (m_isCopied)
-    {
-        delete[] m_pBuffer;
-    }
+    m_pBuffer = buffer;
 }
 
 /**************************************************************************
@@ -241,7 +219,7 @@ public:
     std::unique_ptr<StringCache> m_pStringCache;
 
     ConstantPool(const sal_uInt8* buffer, sal_uInt32 len, sal_uInt16 numEntries)
-        : BlopObject(buffer, len, false)
+        : BlopObject(buffer, len)
         , m_numOfEntries(numEntries)
     {
     }
@@ -552,22 +530,20 @@ class FieldList : public BlopObject
 public:
 
     sal_uInt16      m_numOfEntries;
-    sal_uInt16      m_numOfFieldEntries;
     size_t          m_FIELD_ENTRY_SIZE;
     ConstantPool*   m_pCP;
 
     FieldList(const sal_uInt8* buffer, sal_uInt32 len, sal_uInt16 numEntries, ConstantPool* pCP)
-        : BlopObject(buffer, len, false)
+        : BlopObject(buffer, len)
         , m_numOfEntries(numEntries)
         , m_pCP(pCP)
     {
         if ( m_numOfEntries > 0 )
         {
-            m_numOfFieldEntries = readUINT16(0);
-            m_FIELD_ENTRY_SIZE = m_numOfFieldEntries * sizeof(sal_uInt16);
+            sal_uInt16 numOfFieldEntries = readUINT16(0);
+            m_FIELD_ENTRY_SIZE = numOfFieldEntries * sizeof(sal_uInt16);
         } else
         {
-            m_numOfFieldEntries = 0;
             m_FIELD_ENTRY_SIZE = 0;
         }
     }
@@ -738,22 +714,20 @@ class ReferenceList : public BlopObject
 public:
 
     sal_uInt16      m_numOfEntries;
-    sal_uInt16      m_numOfReferenceEntries;
     size_t          m_REFERENCE_ENTRY_SIZE;
     ConstantPool*   m_pCP;
 
     ReferenceList(const sal_uInt8* buffer, sal_uInt32 len, sal_uInt16 numEntries, ConstantPool* pCP)
-        : BlopObject(buffer, len, false)
+        : BlopObject(buffer, len)
         , m_numOfEntries(numEntries)
         , m_pCP(pCP)
     {
         if ( m_numOfEntries > 0 )
         {
-            m_numOfReferenceEntries = readUINT16(0);
-            m_REFERENCE_ENTRY_SIZE = m_numOfReferenceEntries * sizeof(sal_uInt16);
+            sal_uInt16 numOfReferenceEntries = readUINT16(0);
+            m_REFERENCE_ENTRY_SIZE = numOfReferenceEntries * sizeof(sal_uInt16);
         } else
         {
-            m_numOfReferenceEntries = 0;
             m_REFERENCE_ENTRY_SIZE = 0;
         }
     }
@@ -840,24 +814,22 @@ class MethodList : public BlopObject
 public:
 
     sal_uInt16      m_numOfEntries;
-    sal_uInt16      m_numOfParamEntries;
     size_t          m_PARAM_ENTRY_SIZE;
     std::unique_ptr<sal_uInt32[]>  m_pIndex;
     ConstantPool*   m_pCP;
 
     MethodList(const sal_uInt8* buffer, sal_uInt32 len, sal_uInt16 numEntries, ConstantPool* pCP)
-        : BlopObject(buffer, len, false)
+        : BlopObject(buffer, len)
         , m_numOfEntries(numEntries)
         , m_pCP(pCP)
     {
         if ( m_numOfEntries > 0 )
         {
             readUINT16(0) /* numOfMethodEntries */;
-            m_numOfParamEntries = readUINT16(sizeof(sal_uInt16));
-            m_PARAM_ENTRY_SIZE = m_numOfParamEntries * sizeof(sal_uInt16);
+            sal_uInt16 numOfParamEntries = readUINT16(sizeof(sal_uInt16));
+            m_PARAM_ENTRY_SIZE = numOfParamEntries * sizeof(sal_uInt16);
         } else
         {
-            m_numOfParamEntries = 0;
             m_PARAM_ENTRY_SIZE = 0;
         }
     }
@@ -1109,15 +1081,15 @@ public:
     sal_uInt32      m_offset_SUPERTYPES;
 
     TypeRegistryEntry(
-        const sal_uInt8* buffer, sal_uInt32 len, bool copyBuffer);
+        const sal_uInt8* buffer, sal_uInt32 len);
         // throws std::bad_alloc
 
     typereg_Version getVersion() const;
 };
 
 TypeRegistryEntry::TypeRegistryEntry(
-    const sal_uInt8* buffer, sal_uInt32 len, bool copyBuffer):
-    BlopObject(buffer, len, copyBuffer), m_refCount(1), m_nSuperTypes(0),
+    const sal_uInt8* buffer, sal_uInt32 len):
+    BlopObject(buffer, len), m_refCount(1), m_nSuperTypes(0),
     m_offset_SUPERTYPES(0)
 {
     std::size_t const entrySize = sizeof(sal_uInt16);
@@ -1195,7 +1167,7 @@ bool TYPEREG_CALLTYPE typereg_reader_create(
         try {
             entry.reset(
                 new TypeRegistryEntry(
-                    static_cast< sal_uInt8 const * >(buffer), length, false/*copy*/));
+                    static_cast< sal_uInt8 const * >(buffer), length));
         } catch (std::bad_alloc &) {
             return false;
         }

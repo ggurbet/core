@@ -32,11 +32,14 @@
 #include <svl/zformat.hxx>
 #include <sot/storage.hxx>
 #include <document.hxx>
+#include <dpcache.hxx>
+#include <dpgroup.hxx>
 #include <dpobject.hxx>
 #include <dpsave.hxx>
 #include <dpdimsave.hxx>
 #include <dpshttab.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <fapihelper.hxx>
 #include <xestring.hxx>
 #include <xelink.hxx>
@@ -881,7 +884,7 @@ OUString lclGetDataFieldCaption( const OUString& rFieldName, ScGeneralFunction e
         default:;
     }
     if (pResIdx)
-        aCaption = ScGlobal::GetRscString(pResIdx) + " - ";
+        aCaption = ScResId(pResIdx) + " - ";
     aCaption += rFieldName;
     return aCaption;
 }
@@ -1308,7 +1311,7 @@ void XclExpPivotTable::SetPropertiesFromDP( const ScDPSaveData& rSaveData )
     if (pDim && pDim->GetLayoutName())
         maPTInfo.maDataName = *pDim->GetLayoutName();
     else
-        maPTInfo.maDataName = ScGlobal::GetRscString(STR_PIVOT_DATA);
+        maPTInfo.maDataName = ScResId(STR_PIVOT_DATA);
 }
 
 void XclExpPivotTable::SetFieldPropertiesFromDim( const ScDPSaveDimension& rSaveDim )

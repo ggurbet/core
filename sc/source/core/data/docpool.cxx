@@ -40,7 +40,6 @@
 #include <editeng/contouritem.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/crossedoutitem.hxx>
-#include <svx/dialmgr.hxx>
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/fontitem.hxx>
@@ -73,10 +72,25 @@
 #include <attrib.hxx>
 #include <patattr.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <document.hxx>
+#include <scmod.hxx>
 #include <sc.hrc>
 
 // ATTR_FONT_TWOLINES (not used) was changed to ATTR_USERDEF (not saved in binary format) in 641c
+
+namespace {
+
+SvxFontItem* getDefaultFontItem(LanguageType eLang, DefaultFontType nFontType, sal_uInt16 nItemId)
+{
+    vcl::Font aDefFont = OutputDevice::GetDefaultFont( nFontType, eLang, GetDefaultFontFlags::OnlyOne );
+    SvxFontItem* pNewItem = new SvxFontItem( aDefFont.GetFamilyType(), aDefFont.GetFamilyName(), aDefFont.GetStyleName(),
+            aDefFont.GetPitch(), aDefFont.GetCharSet(), nItemId );
+
+    return pNewItem;
+}
+
+}
 
 static SfxItemInfo const  aItemInfos[] =
 {
@@ -179,18 +193,15 @@ ScDocumentPool::ScDocumentPool()
     mvPoolDefaults(ATTR_ENDINDEX-ATTR_STARTINDEX+1),
     mnCurrentMaxKey(0)
 {
-    //  latin font from GetDefaultFonts is not used, DEFAULTFONT_LATIN_SPREADSHEET instead
-    vcl::Font aStdFont = OutputDevice::GetDefaultFont( DefaultFontType::LATIN_SPREADSHEET, LANGUAGE_ENGLISH_US,
-                                                    GetDefaultFontFlags::OnlyOne );
-    SvxFontItem* pStdFont = new SvxFontItem( aStdFont.GetFamilyType(),
-                                            aStdFont.GetFamilyName(), aStdFont.GetStyleName(),
-                                            aStdFont.GetPitch(), aStdFont.GetCharSet(),
-                                            ATTR_FONT );
 
-    SvxFontItem* pCjkFont = new SvxFontItem( ATTR_CJK_FONT );
-    SvxFontItem* pCtlFont = new SvxFontItem( ATTR_CTL_FONT );
-    SvxFontItem aDummy( ATTR_FONT );
-    GetDefaultFonts( aDummy, *pCjkFont, *pCtlFont );
+    LanguageType nDefLang, nCjkLang, nCtlLang;
+    bool bAutoSpell;
+    ScModule::GetSpellSettings( nDefLang, nCjkLang, nCtlLang, bAutoSpell );
+
+    //  latin font from GetDefaultFonts is not used, DEFAULTFONT_LATIN_SPREADSHEET instead
+    SvxFontItem* pStdFont = getDefaultFontItem(nDefLang, DefaultFontType::LATIN_SPREADSHEET, ATTR_FONT);
+    SvxFontItem* pCjkFont = getDefaultFontItem(nCjkLang, DefaultFontType::CJK_SPREADSHEET, ATTR_CJK_FONT);
+    SvxFontItem* pCtlFont = getDefaultFontItem(nCtlLang, DefaultFontType::CTL_SPREADSHEET, ATTR_CTL_FONT);
 
     SvxBoxInfoItem* pGlobalBorderInnerAttr = new SvxBoxInfoItem( ATTR_BORDER_INNER );
     auto pSet = o3tl::make_unique<SfxItemSet>( *this, svl::Items<ATTR_PATTERN_START, ATTR_PATTERN_END>{} );
@@ -271,7 +282,7 @@ ScDocumentPool::ScDocumentPool()
     // TODO: Write additional method ScGlobal::IsInit() or somesuch
     //       or detect whether this is the Secondary Pool for a MessagePool
     if ( ScGlobal::GetEmptyBrushItem() )
-        mvPoolDefaults[ ATTR_PATTERN     - ATTR_STARTINDEX ] = new ScPatternAttr( std::move(pSet), ScGlobal::GetRscString(STR_STYLENAME_STANDARD) );
+        mvPoolDefaults[ ATTR_PATTERN     - ATTR_STARTINDEX ] = new ScPatternAttr( std::move(pSet), ScResId(STR_STYLENAME_STANDARD) );
     else
         mvPoolDefaults[ ATTR_PATTERN     - ATTR_STARTINDEX ] = new ScPatternAttr( std::move(pSet), STRING_STANDARD ); // FIXME: without name?
 
@@ -397,13 +408,12 @@ static bool lcl_HFPresentation
 
     SfxItemIter aIter( rSet );
     pItem = aIter.FirstItem();
-    OUString aText;
 
     while( pItem )
     {
         sal_uInt16 nWhich = pItem->Which();
 
-        aText.clear();
+        OUString aText;
 
         switch( nWhich )
         {
@@ -480,42 +490,42 @@ bool ScDocumentPool::GetPresentation(
     const IntlWrapper& rIntl ) const
 {
     sal_uInt16  nW = rItem.Which();
-    OUString aStrYes  ( ScGlobal::GetRscString(STR_YES) );
-    OUString aStrNo   ( ScGlobal::GetRscString(STR_NO) );
+    OUString aStrYes  ( ScResId(STR_YES) );
+    OUString aStrNo   ( ScResId(STR_NO) );
     OUString aStrSep(": ");
 
     bool ePresentationRet = true;
     switch( nW )
     {
         case ATTR_PAGE_TOPDOWN:
-            rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_PRINTDIR) + aStrSep;
+            rText = ScResId(STR_SCATTR_PAGE_PRINTDIR) + aStrSep;
             rText += static_cast<const SfxBoolItem&>(rItem).GetValue() ?
-                ScGlobal::GetRscString(STR_SCATTR_PAGE_TOPDOWN) :
-                ScGlobal::GetRscString(STR_SCATTR_PAGE_LEFTRIGHT) ;
+                ScResId(STR_SCATTR_PAGE_TOPDOWN) :
+                ScResId(STR_SCATTR_PAGE_LEFTRIGHT) ;
         break;
 
         case ATTR_PAGE_HEADERS:
-            rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_HEADERS) + aStrSep;
+            rText = ScResId(STR_SCATTR_PAGE_HEADERS) + aStrSep;
             rText += static_cast<const SfxBoolItem&>(rItem).GetValue() ? aStrYes : aStrNo ;
         break;
 
         case ATTR_PAGE_NULLVALS:
-            rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_NULLVALS) + aStrSep;
+            rText = ScResId(STR_SCATTR_PAGE_NULLVALS) + aStrSep;
             rText += static_cast<const SfxBoolItem&>(rItem).GetValue() ? aStrYes : aStrNo ;
         break;
 
         case ATTR_PAGE_FORMULAS:
-            rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_FORMULAS) + aStrSep;
+            rText = ScResId(STR_SCATTR_PAGE_FORMULAS) + aStrSep;
             rText += static_cast<const SfxBoolItem&>(rItem).GetValue() ? aStrYes : aStrNo ;
         break;
 
         case ATTR_PAGE_NOTES:
-            rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_NOTES) + aStrSep;
+            rText = ScResId(STR_SCATTR_PAGE_NOTES) + aStrSep;
             rText += static_cast<const SfxBoolItem&>(rItem).GetValue() ? aStrYes : aStrNo ;
         break;
 
         case ATTR_PAGE_GRID:
-            rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_GRID) + aStrSep;
+            rText = ScResId(STR_SCATTR_PAGE_GRID) + aStrSep;
             rText += static_cast<const SfxBoolItem&>(rItem).GetValue() ? aStrYes : aStrNo ;
         break;
 
@@ -525,8 +535,8 @@ bool ScDocumentPool::GetPresentation(
 
             if( nPagNo )
             {
-                rText = ScGlobal::GetRscString( STR_SCATTR_PAGE_SCALETOPAGES ) + aStrSep;
-                OUString aPages( ScGlobal::GetRscString( STR_SCATTR_PAGE_SCALE_PAGES ) );
+                rText = ScResId( STR_SCATTR_PAGE_SCALETOPAGES ) + aStrSep;
+                OUString aPages( ScResId( STR_SCATTR_PAGE_SCALE_PAGES ) );
                 aPages = aPages.replaceFirst( "%1", OUString::number( nPagNo ) );
                 rText += aPages;
             }
@@ -543,7 +553,7 @@ bool ScDocumentPool::GetPresentation(
 
             if( nPagNo )
             {
-                rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_FIRSTPAGENO) + aStrSep;
+                rText = ScResId(STR_SCATTR_PAGE_FIRSTPAGENO) + aStrSep;
                 rText += OUString::number( nPagNo );
             }
             else
@@ -559,7 +569,7 @@ bool ScDocumentPool::GetPresentation(
 
             if( nPercent )
             {
-                rText = ScGlobal::GetRscString(STR_SCATTR_PAGE_SCALE) + aStrSep;
+                rText = ScResId(STR_SCATTR_PAGE_SCALE) + aStrSep;
                 rText = rText + unicode::formatPercent(nPercent,
                     Application::GetSettings().GetUILanguageTag());
             }
@@ -576,7 +586,7 @@ bool ScDocumentPool::GetPresentation(
 
             if( lcl_HFPresentation( rItem, GetMetric( nW ), ePresentationMetric, aBuffer, rIntl ) )
             {
-                rText = ScGlobal::GetRscString(STR_HEADER) + " ( " + aBuffer + " ) ";
+                rText = ScResId(STR_HEADER) + " ( " + aBuffer + " ) ";
             }
         }
         break;
@@ -587,7 +597,7 @@ bool ScDocumentPool::GetPresentation(
 
             if( lcl_HFPresentation( rItem, GetMetric( nW ), ePresentationMetric, aBuffer, rIntl ) )
             {
-                rText = ScGlobal::GetRscString(STR_FOOTER) + " ( " + aBuffer + " ) ";
+                rText = ScResId(STR_FOOTER) + " ( " + aBuffer + " ) ";
             }
         }
         break;

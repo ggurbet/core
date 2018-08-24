@@ -24,6 +24,7 @@
 
 #include <list>
 #include <algorithm>
+#include <sal/log.hxx>
 #include <tools/urlobj.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/ui/dialogs/FilePickerEvent.hpp>
@@ -37,7 +38,6 @@
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <unotools/ucbhelper.hxx>
 #include <unotools/pathoptions.hxx>
-#include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <vcl/svapp.hxx>

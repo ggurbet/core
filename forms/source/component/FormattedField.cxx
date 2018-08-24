@@ -22,6 +22,7 @@
 #include <frm_resource.hxx>
 #include <strings.hrc>
 #include <propertybaghelper.hxx>
+#include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/numbers.hxx>
 #include <connectivity/dbtools.hxx>
@@ -76,7 +77,7 @@ namespace frm
 class StandardFormatsSupplier : protected SvNumberFormatsSupplierObj, public ::utl::ITerminationListener
 {
 protected:
-            SvNumberFormatter*                       m_pMyPrivateFormatter;
+            std::unique_ptr<SvNumberFormatter>       m_pMyPrivateFormatter;
     static  WeakReference< XNumberFormatsSupplier >  s_xDefaultFormatsSupplier;
 public:
     static Reference< XNumberFormatsSupplier > get( const Reference< XComponentContext >& _rxORB );
@@ -92,14 +93,13 @@ StandardFormatsSupplier::StandardFormatsSupplier(const Reference< XComponentCont
     :SvNumberFormatsSupplierObj()
     ,m_pMyPrivateFormatter(new SvNumberFormatter(_rxContext, _eSysLanguage))
 {
-    SetNumberFormatter(m_pMyPrivateFormatter);
+    SetNumberFormatter(m_pMyPrivateFormatter.get());
     // #i29147#
     ::utl::DesktopTerminationObserver::registerTerminationListener( this );
 }
 StandardFormatsSupplier::~StandardFormatsSupplier()
 {
     ::utl::DesktopTerminationObserver::revokeTerminationListener( this );
-    DELETEZ( m_pMyPrivateFormatter );
 }
 Reference< XNumberFormatsSupplier > StandardFormatsSupplier::get( const Reference< XComponentContext >& _rxORB )
 {
@@ -137,7 +137,7 @@ void StandardFormatsSupplier::notifyTermination()
     // #i29147#
     s_xDefaultFormatsSupplier = WeakReference< XNumberFormatsSupplier >( );
     SetNumberFormatter( nullptr );
-    DELETEZ( m_pMyPrivateFormatter );
+    m_pMyPrivateFormatter.reset();
 }
 Sequence<Type> OFormattedControl::_getTypes()
 {

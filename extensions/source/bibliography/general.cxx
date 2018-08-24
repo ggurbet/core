@@ -167,7 +167,6 @@ void BibPosListener::disposing(const lang::EventObject& /*Source*/)
 BibGeneralPage::BibGeneralPage(vcl::Window* pParent, BibDataManager* pMan):
     TabPage(pParent, "GeneralPage", "modules/sbibliography/ui/generalpage.ui"),
     BibShortCutHandler( this ),
-    sErrorPrefix(BibResId(ST_ERROR_PREFIX)),
     mxBibGeneralPageFocusListener(new BibGeneralPageFocusListener(this)),
     pDatMan(pMan)
 {
@@ -332,7 +331,7 @@ BibGeneralPage::BibGeneralPage(vcl::Window* pParent, BibDataManager* pMan):
     xFormCtrl->activateTabOrder();
 
     if(!sTableErrorString.isEmpty())
-        sTableErrorString = sErrorPrefix + sTableErrorString;
+        sTableErrorString = BibResId(ST_ERROR_PREFIX) + sTableErrorString;
 
     SetText(BibResId(ST_TYPE_TITLE));
 
@@ -636,12 +635,10 @@ bool BibGeneralPage::HandleShortCutKey( const KeyEvent& rKeyEvent )
 
     sal_Int16                   i;
 
-    typedef std::vector< sal_Int16 >    sal_Int16_vector;
-
-    sal_Int16_vector::size_type nFocused = 0xFFFF;  // index of focused in vector, no one focused initial
+    std::vector<sal_Int16>::size_type nFocused = 0xFFFF;  // index of focused in vector, no one focused initial
     DBG_ASSERT( nFocused > 0, "*BibGeneralPage::HandleShortCutKey(): size_type works not as expected!" );
 
-    sal_Int16_vector            aMatchList;
+    std::vector<sal_Int16>            aMatchList;
 
     for( i = 0 ; i < FIELD_COUNT ; ++i )
     {

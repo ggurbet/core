@@ -54,7 +54,7 @@ namespace connectivity
             {
                 sal_uInt32  db_rootpage;                    /* Rootpage position                */
                 sal_uInt32  db_pagecount;                   /* Page count                       */
-                sal_uInt8   db_frei[4];                     /* Reserved                         */
+                sal_uInt8   db_free[4];                     /* Reserved                         */
                 sal_uInt16  db_keylen;                      /* Key length                       */
                 sal_uInt16  db_maxkeys;                     /* Maximum number of keys per page  */
                 sal_uInt16  db_keytype;                     /* Type of key:
@@ -62,13 +62,13 @@ namespace connectivity
                                                                1 = Numerical                    */
                 sal_uInt16  db_keyrec;                      /* Length of an index record
                                                                RecordNumber + keylen            */
-                sal_uInt8   db_frei1[3];                    /* Reserved                         */
+                sal_uInt8   db_free1[3];                    /* Reserved                         */
                 sal_uInt8   db_unique;                      /* Unique                           */
                 char        db_name[488];                   /* index_name (field name)          */
             };
 
         private:
-            SvStream*       m_pFileStream;                  // Stream to read/write the index
+            std::unique_ptr<SvStream> m_pFileStream;        // Stream to read/write the index
             NDXHeader       m_aHeader;
             std::vector<ONDXPage*>
                             m_aCollector;                   // Pool of obsolete pages
@@ -116,8 +116,8 @@ namespace connectivity
             bool Find(sal_uInt32 nRec, const ORowSetValue& rValue);
 
             void createINFEntry();
-            bool CreateImpl();
-            bool DropImpl();
+            void CreateImpl();
+            void DropImpl();
 
             DECLARE_SERVICE_INFO();
         protected:

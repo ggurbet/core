@@ -665,8 +665,12 @@ bool SdrPageView::IsObjMarkable(SdrObject const * pObj) const
             return true;
         }
     }
-    if (!pObj->Is3DObj() && pObj->GetPage()!=GetPage())
-        return false; // Obj suddenly in different Page
+    if (!pObj->Is3DObj() && pObj->getSdrPageFromSdrObject() != GetPage())
+    {
+        // Obj suddenly in different Page
+        return false;
+    }
+
     // the layer has to be visible and must not be locked
     SdrLayerID nL = pObj->GetLayer();
     if (!aLayerVisi.IsSet(nL))
@@ -822,7 +826,7 @@ void SdrPageView::LeaveOneGroup()
         GetView().GlueInvalidate();
 
     SdrObject* pLastGroup = GetCurrentGroup();
-    SdrObject* pParentGroup = GetCurrentGroup()->GetUpGroup();
+    SdrObject* pParentGroup = GetCurrentGroup()->getParentSdrObjectFromSdrObject();
     SdrObjList* pParentList = GetPage();
 
     if(pParentGroup)
@@ -868,8 +872,8 @@ void SdrPageView::LeaveAllGroup()
         // find and select uppermost group
         if(pLastGroup)
         {
-            while(pLastGroup->GetUpGroup())
-                pLastGroup = pLastGroup->GetUpGroup();
+            while(pLastGroup->getParentSdrObjectFromSdrObject())
+                pLastGroup = pLastGroup->getParentSdrObjectFromSdrObject();
 
             if(GetView().GetSdrPageView())
                 GetView().MarkObj(pLastGroup, GetView().GetSdrPageView());
@@ -891,7 +895,7 @@ sal_uInt16 SdrPageView::GetEnteredLevel() const
     SdrObject* pGrp=GetCurrentGroup();
     while (pGrp!=nullptr) {
         nCount++;
-        pGrp=pGrp->GetUpGroup();
+        pGrp=pGrp->getParentSdrObjectFromSdrObject();
     }
     return nCount;
 }
@@ -901,10 +905,10 @@ void SdrPageView::CheckCurrentGroup()
     SdrObject* pGrp(GetCurrentGroup());
 
     while(nullptr != pGrp &&
-        (!pGrp->IsInserted() || nullptr == pGrp->getParentOfSdrObject() || nullptr == pGrp->GetPage()))
+        (!pGrp->IsInserted() || nullptr == pGrp->getParentSdrObjListFromSdrObject() || nullptr == pGrp->getSdrPageFromSdrObject()))
     {
         // anything outside of the borders?
-        pGrp = pGrp->GetUpGroup();
+        pGrp = pGrp->getParentSdrObjectFromSdrObject();
     }
 
     if(pGrp != GetCurrentGroup())

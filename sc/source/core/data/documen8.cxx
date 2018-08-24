@@ -42,6 +42,7 @@
 #include <sfx2/app.hxx>
 #include <unotools/transliterationwrapper.hxx>
 #include <unotools/securityoptions.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
@@ -106,15 +107,15 @@ inline sal_uInt16 getScaleValue(SfxStyleSheetBase& rStyle, sal_uInt16 nWhich)
 
 void ScDocument::ImplCreateOptions()
 {
-    pDocOptions  = new ScDocOptions();
-    pViewOptions = new ScViewOptions();
+    pDocOptions.reset( new ScDocOptions() );
+    pViewOptions.reset( new ScViewOptions() );
 }
 
 void ScDocument::ImplDeleteOptions()
 {
-    delete pDocOptions;
-    delete pViewOptions;
-    delete pExtDocOptions;
+    pDocOptions.reset();
+    pViewOptions.reset();
+    pExtDocOptions.reset();
 }
 
 SfxPrinter* ScDocument::GetPrinter(bool bCreateIfNotExist)
@@ -340,7 +341,7 @@ bool ScDocument::RemovePageStyleInUse( const OUString& rStyle )
         if ( maTabs[i]->GetPageStyle() == rStyle )
         {
             bWasInUse = true;
-            maTabs[i]->SetPageStyle( ScGlobal::GetRscString(STR_STYLENAME_STANDARD) );
+            maTabs[i]->SetPageStyle( ScResId(STR_STYLENAME_STANDARD) );
         }
 
     return bWasInUse;
@@ -417,34 +418,29 @@ void ScDocument::SetFormulaResults( const ScAddress& rTopPos, const double* pRes
     pTab->SetFormulaResults(rTopPos.Col(), rTopPos.Row(), pResults, nLen);
 }
 
-void ScDocument::SetFormulaResults(
-    const ScAddress& rTopPos, const formula::FormulaConstTokenRef* pResults, size_t nLen )
-{
-    ScTable* pTab = FetchTable(rTopPos.Tab());
-    if (!pTab)
-        return;
-
-    pTab->SetFormulaResults(rTopPos.Col(), rTopPos.Row(), pResults, nLen);
-}
-
 const ScDocumentThreadSpecific& ScDocument::CalculateInColumnInThread( ScInterpreterContext& rContext, const ScAddress& rTopPos, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal)
 {
     ScTable* pTab = FetchTable(rTopPos.Tab());
     if (!pTab)
         return maNonThreaded;
 
-    assert(mbThreadedGroupCalcInProgress);
+    assert(IsThreadedGroupCalcInProgress());
 
     maThreadSpecific.SetupFromNonThreadedData(maNonThreaded);
     pTab->CalculateInColumnInThread(rContext, rTopPos.Col(), rTopPos.Row(), nLen, nThisThread, nThreadsTotal);
 
-    assert(mbThreadedGroupCalcInProgress);
+    assert(IsThreadedGroupCalcInProgress());
 
     return maThreadSpecific;
 }
 
 void ScDocument::HandleStuffAfterParallelCalculation( const ScAddress& rTopPos, size_t nLen )
 {
+    assert(!IsThreadedGroupCalcInProgress());
+    for( DelayedSetNumberFormat& data : GetNonThreadedContext().maDelayedSetNumberFormat)
+        SetNumberFormat( ScAddress( rTopPos.Col(), data.mRow, rTopPos.Tab()), data.mnNumberFormat );
+    GetNonThreadedContext().maDelayedSetNumberFormat.clear();
+
     ScTable* pTab = FetchTable(rTopPos.Tab());
     if (!pTab)
         return;
@@ -576,7 +572,7 @@ bool ScDocument::IdleCalcTextWidth()            // true = try next again
     if (!ValidTab(aScope.Tab()) || aScope.Tab() >= static_cast<SCTAB>(maTabs.size()) || !maTabs[aScope.Tab()])
         aScope.setTab(0);
 
-    ScTable* pTab = maTabs[aScope.Tab()];
+    ScTable* pTab = maTabs[aScope.Tab()].get();
     ScStyleSheet* pStyle = static_cast<ScStyleSheet*>(aScope.getStylePool()->Find(pTab->aPageStyle, SfxStyleFamily::Page));
     OSL_ENSURE( pStyle, "Missing StyleSheet :-/" );
 
@@ -663,7 +659,7 @@ bool ScDocument::IdleCalcTextWidth()            // true = try next again
             {
                 if ( bNewTab )
                 {
-                    pTab = maTabs[aScope.Tab()];
+                    pTab = maTabs[aScope.Tab()].get();
                     pStyle = static_cast<ScStyleSheet*>(aScope.getStylePool()->Find(
                         pTab->aPageStyle, SfxStyleFamily::Page));
 

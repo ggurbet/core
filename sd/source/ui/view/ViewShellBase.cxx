@@ -36,6 +36,7 @@
 #include <ViewTabBar.hxx>
 #include <sfx2/event.hxx>
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/printer.hxx>
@@ -62,6 +63,7 @@
 #include <com/sun/star/drawing/framework/ResourceId.hpp>
 #include <framework/FrameworkHelper.hxx>
 
+#include <sal/log.hxx>
 #include <rtl/ref.hxx>
 #include <sfx2/msg.hxx>
 #include <sfx2/objface.hxx>
@@ -161,7 +163,7 @@ public:
         bool bOuterResize);
 
     /** Show or hide the specified pane.  The visibility state is taken
-        fromthe given request.
+        from the given request.
         @param rRequest
             The request determines the new visibility state.  The state can
             either be toggled or be set to a given value.
@@ -395,8 +397,7 @@ ViewShellBase* ViewShellBase::GetViewShellBase (SfxViewFrame const * pViewFrame)
         // Get the view shell for the frame and cast it to
         // sd::ViewShellBase.
         SfxViewShell* pSfxViewShell = pViewFrame->GetViewShell();
-        if (pSfxViewShell!=nullptr && dynamic_cast< ::sd::ViewShellBase *>( pSfxViewShell ) !=  nullptr)
-            pBase = static_cast<ViewShellBase*>(pSfxViewShell);
+        pBase = dynamic_cast< ::sd::ViewShellBase *>( pSfxViewShell );
     }
 
     return pBase;
@@ -691,7 +692,7 @@ void ViewShellBase::WriteUserDataSequence (
     // Forward call to main sub shell.
     ViewShell* pShell = GetMainViewShell().get();
     if (pShell != nullptr)
-        pShell->WriteUserDataSequence (rSequence, false);
+        pShell->WriteUserDataSequence (rSequence);
 }
 
 void ViewShellBase::ReadUserDataSequence (
@@ -701,7 +702,7 @@ void ViewShellBase::ReadUserDataSequence (
     ViewShell* pShell = GetMainViewShell().get();
     if (pShell != nullptr)
     {
-        pShell->ReadUserDataSequence (rSequence, true/*bBrowse*/);
+        pShell->ReadUserDataSequence (rSequence);
 
         // For certain shell types ReadUserDataSequence may have changed the
         // type to another one.  Make sure that the center pane shows the

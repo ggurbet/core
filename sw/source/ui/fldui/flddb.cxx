@@ -24,6 +24,7 @@
 #include <dbfld.hxx>
 #include <fldtdlg.hxx>
 #include <numrule.hxx>
+#include <doc.hxx>
 
 #include "flddb.hxx"
 #include <dbconfig.hxx>
@@ -78,6 +79,14 @@ SwFieldDBPage::~SwFieldDBPage()
 
 void SwFieldDBPage::dispose()
 {
+    SwWrtShell* pSh = GetWrtShell();
+    if (!pSh)
+        pSh = ::GetActiveWrtShell();
+    // This would cleanup in the case of cancelled dialog
+    SwDBManager* pDbManager = pSh->GetDoc()->GetDBManager();
+    if (pDbManager)
+        pDbManager->RevokeLastRegistrations();
+
     m_pTypeLB.clear();
     m_pDatabaseTLB.clear();
     m_pAddDBPB.clear();
@@ -208,6 +217,10 @@ bool SwFieldDBPage::FillItemSet(SfxItemSet* )
     if(!pSh)
         pSh = ::GetActiveWrtShell();
 
+    SwDBManager* pDbManager = pSh->GetDoc()->GetDBManager();
+    if (pDbManager)
+        pDbManager->CommitLastRegistrations();
+
     if (aData.sDataSource.isEmpty())
         aData = pSh->GetDBData();
 
@@ -263,10 +276,10 @@ bool SwFieldDBPage::FillItemSet(SfxItemSet* )
     return false;
 }
 
-VclPtr<SfxTabPage> SwFieldDBPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SwFieldDBPage::Create( TabPageParent pParent,
                                         const SfxItemSet *const pAttrSet )
 {
-    return VclPtr<SwFieldDBPage>::Create( pParent, pAttrSet );
+    return VclPtr<SwFieldDBPage>::Create( pParent.pParent, pAttrSet );
 }
 
 sal_uInt16 SwFieldDBPage::GetGroup()
@@ -477,7 +490,12 @@ IMPL_LINK( SwFieldDBPage, TreeSelectHdl, SvTreeListBox *, pBox, void )
 
 IMPL_LINK_NOARG(SwFieldDBPage, AddDBHdl, Button*, void)
 {
-    OUString sNewDB = SwDBManager::LoadAndRegisterDataSource(GetFrameWeld());
+    SwWrtShell* pSh = GetWrtShell();
+    if (!pSh)
+        pSh = ::GetActiveWrtShell();
+
+    OUString sNewDB
+        = SwDBManager::LoadAndRegisterDataSource(GetFrameWeld(), pSh->GetDoc()->GetDocShell());
     if(!sNewDB.isEmpty())
     {
         m_pDatabaseTLB->AddDataSource(sNewDB);

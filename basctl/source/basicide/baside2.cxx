@@ -510,13 +510,13 @@ void ModulWindow::ToggleBreakPoint( sal_uLong nLine )
         if ( pBrk ) // remove
         {
             m_xModule->ClearBP( static_cast<sal_uInt16>(nLine) );
-            delete GetBreakPoints().remove( pBrk );
+            GetBreakPoints().remove( pBrk );
         }
         else // create one
         {
             if ( m_xModule->SetBP( static_cast<sal_uInt16>(nLine)) )
             {
-                GetBreakPoints().InsertSorted( new BreakPoint( nLine ) );
+                GetBreakPoints().InsertSorted( BreakPoint( nLine ) );
                 if ( StarBASIC::IsRunning() )
                 {
                     for ( sal_uInt16 nMethod = 0; nMethod < m_xModule->GetMethods()->Count(); nMethod++ )
@@ -540,9 +540,9 @@ void ModulWindow::UpdateBreakPoint( const BreakPoint& rBrk )
         CheckCompileBasic();
 
         if ( rBrk.bEnabled )
-            m_xModule->SetBP( static_cast<sal_uInt16>(rBrk.nLine) );
+            m_xModule->SetBP( rBrk.nLine );
         else
-            m_xModule->ClearBP( static_cast<sal_uInt16>(rBrk.nLine) );
+            m_xModule->ClearBP( rBrk.nLine );
     }
 }
 
@@ -1033,7 +1033,7 @@ void ModulWindow::ExecuteGlobal (SfxRequest& rReq)
             DocumentSignature aSignature(m_aDocument);
             if (aSignature.supportsSignatures())
             {
-                aSignature.signScriptingContent();
+                aSignature.signScriptingContent(rReq.GetFrameWeld());
                 if (SfxBindings* pBindings = GetBindingsPtr())
                     pBindings->Invalidate(SID_SIGNATURE);
             }
@@ -1251,7 +1251,7 @@ sal_uInt16 ModulWindow::StartSearchAndReplace( const SvxSearchItem& rSearchItem,
     return nFound;
 }
 
-svl::IUndoManager* ModulWindow::GetUndoManager()
+SfxUndoManager* ModulWindow::GetUndoManager()
 {
     if ( GetEditEngine() )
         return &GetEditEngine()->GetUndoManager();

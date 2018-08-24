@@ -17,6 +17,7 @@
 #include <test/sheet/xcellrangeformula.hxx>
 #include <test/sheet/xcellrangesquery.hxx>
 #include <test/sheet/xcellseries.hxx>
+#include <test/sheet/xformulaquery.hxx>
 #include <test/sheet/xmultipleoperation.hxx>
 #include <test/sheet/xsheetcellrange.hxx>
 #include <test/sheet/xsheetfilterable.hxx>
@@ -58,6 +59,7 @@ class ScCellRangeObj : public CalcUnoApiTest, public apitest::CellProperties,
                                               public apitest::XCellRangeFormula,
                                               public apitest::XCellRangesQuery,
                                               public apitest::XCellSeries,
+                                              public apitest::XFormulaQuery,
                                               public apitest::XMultipleOperation,
                                               public apitest::XReplaceable,
                                               public apitest::XSearchable,
@@ -116,6 +118,10 @@ public:
     CPPUNIT_TEST(testFillAuto);
     CPPUNIT_TEST(testFillSeries);
 
+    // XFormulaQuery
+    CPPUNIT_TEST(testQueryDependents);
+    CPPUNIT_TEST(testQueryPrecedents);
+
     // XMultipleOperation
     CPPUNIT_TEST(testSetTableOperation);
 
@@ -159,6 +165,7 @@ private:
 ScCellRangeObj::ScCellRangeObj():
         CalcUnoApiTest("/sc/qa/extras/testdocuments"),
         apitest::XCellSeries(2, 1),
+        apitest::XFormulaQuery(table::CellRangeAddress(0, 15, 15, 15, 15), table::CellRangeAddress(0, 0, 15, 0, 15)),
         apitest::XReplaceable("15", "35"),
         apitest::XSearchable("15", 1)
 {
@@ -167,26 +174,23 @@ ScCellRangeObj::ScCellRangeObj():
 uno::Reference< uno::XInterface > ScCellRangeObj::init()
 {
     uno::Reference< sheet::XSpreadsheetDocument> xDoc (mxComponent, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("no calc document!", xDoc.is());
 
     uno::Reference< container::XIndexAccess > xIndex (xDoc->getSheets(), UNO_QUERY_THROW);
     uno::Reference< sheet::XSpreadsheet > xSheet( xIndex->getByIndex(0), UNO_QUERY_THROW);
 
-    CPPUNIT_ASSERT_MESSAGE("Could not create interface of type XSpreadsheet", xSheet.is());
-
     uno::Reference<table::XCellRange> xReturn(xSheet->getCellRangeByPosition(0,0,4,4), UNO_QUERY_THROW);
 
-    CPPUNIT_ASSERT_MESSAGE("Could not create object of type XCellRangesQuery", xReturn.is());
     return xReturn;
 }
 
 uno::Reference< uno::XInterface > ScCellRangeObj::getXSpreadsheet()
 {
     uno::Reference< sheet::XSpreadsheetDocument> xDoc (mxComponent, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("no calc document!", xDoc.is());
 
     uno::Reference< container::XIndexAccess > xIndex (xDoc->getSheets(), UNO_QUERY_THROW);
     uno::Reference< sheet::XSpreadsheet > xSheet(xIndex->getByIndex(0), UNO_QUERY_THROW);
+
+    setXCell(xSheet->getCellByPosition(15, 15));
 
     return xSheet;
 }
@@ -194,16 +198,12 @@ uno::Reference< uno::XInterface > ScCellRangeObj::getXSpreadsheet()
 uno::Reference< uno::XInterface > ScCellRangeObj::getXCellRangeData()
 {
     uno::Reference< sheet::XSpreadsheetDocument> xDoc (mxComponent, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("no calc document!", xDoc.is());
 
     uno::Reference< container::XIndexAccess > xIndex (xDoc->getSheets(), UNO_QUERY_THROW);
     uno::Reference< sheet::XSpreadsheet > xSheet( xIndex->getByIndex(1), UNO_QUERY_THROW);
 
-    CPPUNIT_ASSERT_MESSAGE("Could not create interface of type XSpreadsheet", xSheet.is());
-
     uno::Reference<table::XCellRange> xReturn(xSheet->getCellRangeByPosition(0,0,3,3), UNO_QUERY_THROW);
 
-    CPPUNIT_ASSERT_MESSAGE("Could not create object of type XCellRangesQuery", xReturn.is());
     return xReturn;
 }
 

@@ -31,7 +31,6 @@
 #include <dbase/DIndex.hxx>
 #include <dbase/DIndexes.hxx>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/sequence.hxx>
 #include <svl/zforlist.hxx>
 #include <unotools/syslocale.hxx>
 #include <rtl/math.hxx>
@@ -52,6 +51,7 @@
 #include <connectivity/dbconversion.hxx>
 #include <strings.hrc>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <cassert>
@@ -134,9 +134,9 @@ void lcl_CalcJulDate(sal_Int32& _nJulianDate,sal_Int32& _nJulianTime, const css:
     } // if ( rDateTime.Year <= 0 )
     else
     {
-        _nJulianDate = static_cast<sal_Int32>( ((365.25 * iy0)
+        _nJulianDate = static_cast<sal_Int32>(365.25 * iy0)
             + static_cast<sal_Int32>(30.6001 * (im0 + 1))
-            + aDateTime.Day + 1720994));
+            + aDateTime.Day + 1720994;
     }
     double JD = _nJulianDate + 0.5;
     _nJulianDate = static_cast<sal_Int32>( JD + 0.5);
@@ -306,7 +306,7 @@ void ODbaseTable::fillColumns()
         m_pFileStream->ReadUInt32(aDBFColumn.db_adr);
         m_pFileStream->ReadUChar(aDBFColumn.db_flng);
         m_pFileStream->ReadUChar(aDBFColumn.db_dez);
-        m_pFileStream->ReadBytes(aDBFColumn.db_frei2, 14);
+        m_pFileStream->ReadBytes(aDBFColumn.db_free2, 14);
         assert(m_pFileStream->GetError() || m_pFileStream->Tell() == nOldPos + sizeof(aDBFColumn));
         if (m_pFileStream->GetError())
         {
@@ -319,7 +319,7 @@ void ODbaseTable::fillColumns()
         aDBFColumn.db_fnm[sizeof(aDBFColumn.db_fnm)-1] = 0; //ensure null termination for broken input
         const OUString aColumnName(reinterpret_cast<char *>(aDBFColumn.db_fnm), strlen(reinterpret_cast<char *>(aDBFColumn.db_fnm)), m_eEncoding);
 
-        bool bIsRowVersion = bFoxPro && ( aDBFColumn.db_frei2[0] & 0x01 ) == 0x01;
+        bool bIsRowVersion = bFoxPro && ( aDBFColumn.db_free2[0] & 0x01 ) == 0x01;
 
         m_aRealFieldLengths.push_back(aDBFColumn.db_flng);
         sal_Int32 nPrecision = aDBFColumn.db_flng;
@@ -372,7 +372,7 @@ void ODbaseTable::fillColumns()
             aTypeName = "INTEGER";
             break;
         case 'M':
-            if ( bFoxPro && ( aDBFColumn.db_frei2[0] & 0x04 ) == 0x04 )
+            if ( bFoxPro && ( aDBFColumn.db_free2[0] & 0x04 ) == 0x04 )
             {
                 eType = DataType::LONGVARBINARY;
                 aTypeName = "LONGVARBINARY";
@@ -544,7 +544,7 @@ void ODbaseTable::construct()
     }
 }
 
-bool ODbaseTable::ReadMemoHeader()
+void ODbaseTable::ReadMemoHeader()
 {
     m_pMemoStream->SetEndian(SvStreamEndian::LITTLE);
     m_pMemoStream->RefreshBuffer();         // make sure that the header information is actually read again
@@ -590,7 +590,6 @@ bool ODbaseTable::ReadMemoHeader()
             SAL_WARN( "connectivity.drivers", "ODbaseTable::ReadMemoHeader: unsupported memo type!" );
             break;
     }
-    return true;
 }
 
 OUString ODbaseTable::getEntry(OConnection const * _pConnection,const OUString& _sName )
@@ -812,7 +811,7 @@ bool ODbaseTable::fetchRow(OValueRefRow& _rRow, const OSQLColumns & _rCols, bool
         if ( ( nByteOffset + nLen) > m_nBufferSize )
             break; // length doesn't match buffer size.
 
-        char *pData = reinterpret_cast<char *>(m_pBuffer + nByteOffset);
+        char *pData = reinterpret_cast<char *>(m_pBuffer.get() + nByteOffset);
 
         if (nType == DataType::CHAR || nType == DataType::VARCHAR)
         {
@@ -978,8 +977,7 @@ void ODbaseTable::FileClose()
     if (m_pMemoStream && m_pMemoStream->IsWritable())
         m_pMemoStream->Flush();
 
-    delete m_pMemoStream;
-    m_pMemoStream = nullptr;
+    m_pMemoStream.reset();
 
     ODbaseTable_BASE::FileClose();
 }
@@ -1383,8 +1381,7 @@ bool ODbaseTable::CreateMemoFile(const INetURLObject& aFile)
     (*m_pMemoStream).WriteUInt32( 1 );                  // pointer to the first free block
 
     m_pMemoStream->Flush();
-    delete m_pMemoStream;
-    m_pMemoStream = nullptr;
+    m_pMemoStream.reset();
     return true;
 }
 
@@ -1460,7 +1457,7 @@ bool ODbaseTable::InsertRow(OValueRefVector& rRow, const Reference<XIndexAccess>
     if (!AllocBuffer())
         return false;
 
-    memset(m_pBuffer, 0, m_aHeader.recordLength);
+    memset(m_pBuffer.get(), 0, m_aHeader.recordLength);
     m_pBuffer[0] = ' ';
 
     // Copy new row completely:
@@ -1520,7 +1517,7 @@ bool ODbaseTable::UpdateRow(OValueRefVector& rRow, OValueRefRow& pOrgRow, const 
     // position on desired record:
     std::size_t nPos = m_aHeader.headerLength + static_cast<long>(m_nFilePos-1) * m_aHeader.recordLength;
     m_pFileStream->Seek(nPos);
-    m_pFileStream->ReadBytes(m_pBuffer, m_aHeader.recordLength);
+    m_pFileStream->ReadBytes(m_pBuffer.get(), m_aHeader.recordLength);
 
     std::size_t nMemoFileSize( 0 );
     if (HasMemoFields() && m_pMemoStream)
@@ -1795,7 +1792,7 @@ bool ODbaseTable::UpdateBuffer(OValueRefVector& rRow, const OValueRefRow& pOrgRo
                 pIndex->Insert(m_nFilePos, thisColVal);
         }
 
-        char* pData = reinterpret_cast<char *>(m_pBuffer + nByteOffset);
+        char* pData = reinterpret_cast<char *>(m_pBuffer.get() + nByteOffset);
         if (thisColIsNull)
         {
             if ( bSetZero )
@@ -1918,8 +1915,9 @@ bool ODbaseTable::UpdateBuffer(OValueRefVector& rRow, const OValueRefRow& pOrgRo
 
                     // Next initial character restore again:
                     pData[nLen] = cNext;
-                    if (!m_pMemoStream || !WriteMemo(thisColVal, nBlockNo))
+                    if (!m_pMemoStream)
                         break;
+                    WriteMemo(thisColVal, nBlockNo);
 
                     OString aBlock(OString::number(nBlockNo));
                     //align aBlock at the right of a nLen sequence, fill to the left with '0'
@@ -1971,7 +1969,7 @@ bool ODbaseTable::UpdateBuffer(OValueRefVector& rRow, const OValueRefRow& pOrgRo
 }
 
 
-bool ODbaseTable::WriteMemo(const ORowSetValue& aVariable, std::size_t& rBlockNr)
+void ODbaseTable::WriteMemo(const ORowSetValue& aVariable, std::size_t& rBlockNr)
 {
     // if the BlockNo 0 is given, the block will be appended at the end
     std::size_t nSize = 0;
@@ -2101,7 +2099,6 @@ bool ODbaseTable::WriteMemo(const ORowSetValue& aVariable, std::size_t& rBlockNr
         (*m_pMemoStream).WriteUInt32( m_aMemoHeader.db_next );
         m_pMemoStream->Flush();
     }
-    return true;
 }
 
 
@@ -2593,7 +2590,7 @@ bool ODbaseTable::seekRow(IResultSetHelper::Movement eCursorPosition, sal_Int32 
         if (m_pFileStream->GetError() != ERRCODE_NONE)
             goto Error;
 
-        std::size_t nRead = m_pFileStream->ReadBytes(m_pBuffer, nEntryLen);
+        std::size_t nRead = m_pFileStream->ReadBytes(m_pBuffer.get(), nEntryLen);
         if (nRead != nEntryLen)
         {
             SAL_WARN("connectivity.drivers", "ODbaseTable::seekRow: short read!");
@@ -2712,15 +2709,14 @@ bool ODbaseTable::AllocBuffer()
 
     if (m_nBufferSize != nSize)
     {
-        delete m_pBuffer;
-        m_pBuffer = nullptr;
+        m_pBuffer.reset();
     }
 
     // if there is no buffer available: allocate:
-    if (m_pBuffer == nullptr && nSize > 0)
+    if (!m_pBuffer && nSize > 0)
     {
         m_nBufferSize = nSize;
-        m_pBuffer = new sal_uInt8[m_nBufferSize+1];
+        m_pBuffer.reset(new sal_uInt8[m_nBufferSize+1]);
     }
 
     return m_pBuffer != nullptr;
@@ -2733,7 +2729,7 @@ bool ODbaseTable::WriteBuffer()
     // position on desired record:
     std::size_t nPos = m_aHeader.headerLength + static_cast<long>(m_nFilePos-1) * m_aHeader.recordLength;
     m_pFileStream->Seek(nPos);
-    return m_pFileStream->WriteBytes(m_pBuffer, m_aHeader.recordLength) > 0;
+    return m_pFileStream->WriteBytes(m_pBuffer.get(), m_aHeader.recordLength) > 0;
 }
 
 sal_Int32 ODbaseTable::getCurrentLastPos() const

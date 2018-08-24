@@ -40,6 +40,7 @@
 #include <set>
 #include <osl/diagnose.h>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/sequence.hxx>
 #include <tools/diagnose_ex.h>
@@ -56,7 +57,6 @@ typedef ::std::map< OUString, OUString> StringPairMap_t;
 StyleSheetEntry::StyleSheetEntry() :
         sStyleIdentifierD()
         ,bIsDefaultStyle(false)
-        ,bIsChapterNumbering(false)
         ,bInvalidHeight(false)
         ,bHasUPE(false)
         ,nStyleTypeCode(STYLE_TYPE_UNKNOWN)
@@ -75,7 +75,6 @@ TableStyleSheetEntry::TableStyleSheetEntry( StyleSheetEntry const & rEntry ):
     StyleSheetEntry( )
 {
     bIsDefaultStyle = rEntry.bIsDefaultStyle;
-    bIsChapterNumbering = rEntry.bIsChapterNumbering;
     bInvalidHeight = rEntry.bInvalidHeight;
     bHasUPE = rEntry.bHasUPE;
     nStyleTypeCode = STYLE_TYPE_TABLE;
@@ -160,6 +159,24 @@ beans::PropertyValue StyleSheetEntry::GetInteropGrabBag()
 void StyleSheetEntry::AppendInteropGrabBag(const beans::PropertyValue& rValue)
 {
     m_aInteropGrabBag.push_back(rValue);
+}
+
+PropertyMapPtr StyleSheetEntry::GetMergedInheritedProperties(const StyleSheetTablePtr& pStyleSheetTable)
+{
+    PropertyMapPtr pRet;
+    if ( pStyleSheetTable && !sBaseStyleIdentifier.isEmpty() && sBaseStyleIdentifier != sStyleIdentifierD )
+    {
+        const StyleSheetEntryPtr pParentStyleSheet = pStyleSheetTable->FindStyleSheetByISTD(sBaseStyleIdentifier);
+        if ( pParentStyleSheet )
+            pRet = pParentStyleSheet->GetMergedInheritedProperties(pStyleSheetTable);
+    }
+
+    if ( !pRet )
+        pRet = new PropertyMap;
+
+    pRet->InsertProps(pProperties);
+
+    return pRet;
 }
 
 void lcl_mergeProps( const PropertyMapPtr& pToFill, const PropertyMapPtr& pToAdd, TblStyleType nStyleId )
@@ -259,8 +276,9 @@ struct StyleSheetTable_Impl
     StringPairMap_t                         m_aStyleNameMap;
     /// Style names which should not be used without a " (user)" suffix.
     std::set<OUString>                      m_aReservedStyleNames;
+    OUString                                m_sDefaultParaStyleName; //WW8 name
     ListCharStylePropertyVector_t           m_aListCharStylePropertyVector;
-    bool                                    m_bHasImportedDefaultParaStyle;
+    bool                                    m_bHasImportedDefaultParaProps;
     bool                                    m_bIsNewDoc;
 
     StyleSheetTable_Impl(DomainMapper& rDMapper, uno::Reference< text::XTextDocument> const& xTextDocument, bool bIsNewDoc);
@@ -283,7 +301,8 @@ StyleSheetTable_Impl::StyleSheetTable_Impl(DomainMapper& rDMapper,
             m_pCurrentEntry(),
             m_pDefaultParaProps(new PropertyMap),
             m_pDefaultCharProps(new PropertyMap),
-            m_bHasImportedDefaultParaStyle(false),
+            m_sDefaultParaStyleName("Normal"),
+            m_bHasImportedDefaultParaProps(false),
             m_bIsNewDoc(bIsNewDoc)
 {
     //set font height default to 10pt
@@ -393,6 +412,11 @@ StyleSheetTable::~StyleSheetTable()
 {
 }
 
+PropertyMapPtr const & StyleSheetTable::GetDefaultParaProps()
+{
+    return m_pImpl->m_pDefaultParaProps;
+}
+
 PropertyMapPtr const & StyleSheetTable::GetDefaultCharProps()
 {
     return m_pImpl->m_pDefaultCharProps;
@@ -445,8 +469,8 @@ void StyleSheetTable::lcl_attribute(Id Name, Value & val)
             if ( nType == STYLE_TYPE_TABLE )
             {
                 StyleSheetEntryPtr pEntry = m_pImpl->m_pCurrentEntry;
-                std::shared_ptr<TableStyleSheetEntry> pTableEntry( new TableStyleSheetEntry( *pEntry.get( ) ) );
-                m_pImpl->m_pCurrentEntry = pTableEntry;
+                tools::SvRef<TableStyleSheetEntry> pTableEntry( new TableStyleSheetEntry( *pEntry.get( ) ) );
+                m_pImpl->m_pCurrentEntry = pTableEntry.get();
             }
             else
                 m_pImpl->m_pCurrentEntry->nStyleTypeCode = nType;
@@ -454,11 +478,13 @@ void StyleSheetTable::lcl_attribute(Id Name, Value & val)
         break;
         case NS_ooxml::LN_CT_Style_default:
             m_pImpl->m_pCurrentEntry->bIsDefaultStyle = (nIntValue != 0);
-            if (m_pImpl->m_pCurrentEntry->bIsDefaultStyle && m_pImpl->m_pCurrentEntry->nStyleTypeCode == STYLE_TYPE_PARA)
-                m_pImpl->m_bHasImportedDefaultParaStyle = true;
 
             if (m_pImpl->m_pCurrentEntry->nStyleTypeCode != STYLE_TYPE_UNKNOWN)
             {
+                // "If this attribute is specified by multiple styles, then the last instance shall be used."
+                if ( m_pImpl->m_pCurrentEntry->nStyleTypeCode == STYLE_TYPE_PARA && !m_pImpl->m_pCurrentEntry->sStyleIdentifierD.isEmpty() )
+                    m_pImpl->m_sDefaultParaStyleName = m_pImpl->m_pCurrentEntry->sStyleIdentifierD;
+
                 beans::PropertyValue aValue;
                 aValue.Name = "default";
                 aValue.Value <<= m_pImpl->m_pCurrentEntry->bIsDefaultStyle;
@@ -567,7 +593,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
             writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
             if( pProperties.get() && m_pImpl->m_pCurrentEntry->nStyleTypeCode == STYLE_TYPE_TABLE)
             {
-                TblStylePrHandlerPtr pTblStylePrHandler(new TblStylePrHandler(m_pImpl->m_rDMapper));
+                std::shared_ptr<TblStylePrHandler> pTblStylePrHandler(new TblStylePrHandler(m_pImpl->m_rDMapper));
                 pProperties->resolve(*pTblStylePrHandler);
                 StyleSheetEntry* pEntry = m_pImpl->m_pCurrentEntry.get();
                 TableStyleSheetEntry& rTableEntry = dynamic_cast<TableStyleSheetEntry&>(*pEntry);
@@ -641,7 +667,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
             writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
             if( pProperties.get())
             {
-                TblStylePrHandlerPtr pTblStylePrHandler( new TblStylePrHandler( m_pImpl->m_rDMapper ) );
+                std::shared_ptr<TblStylePrHandler> pTblStylePrHandler( new TblStylePrHandler( m_pImpl->m_rDMapper ) );
                 pProperties->resolve( *pTblStylePrHandler );
 
                 // Add the properties to the table style
@@ -680,6 +706,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
             resolveSprmProps( m_pImpl->m_rDMapper, rSprm );
             m_pImpl->m_rDMapper.PopStyleSheetProperties();
             applyDefaults( true );
+            m_pImpl->m_bHasImportedDefaultParaProps = true;
         break;
         case NS_ooxml::LN_CT_RPrDefault_rPr:
         case NS_ooxml::LN_CT_DocDefaults_rPrDefault:
@@ -699,7 +726,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
             writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
             if( pProperties.get())
             {
-                BorderHandlerPtr pBorderHandler( new BorderHandler(m_pImpl->m_rDMapper.IsOOXMLImport()) );
+                std::shared_ptr<BorderHandler> pBorderHandler( new BorderHandler(m_pImpl->m_rDMapper.IsOOXMLImport()) );
                 pProperties->resolve(*pBorderHandler);
                 m_pImpl->m_pCurrentEntry->pProperties->InsertProps(
                         pBorderHandler->getProperties());
@@ -717,7 +744,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
             writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
             if (pProperties.get())
             {
-                std::shared_ptr<LatentStyleHandler> pLatentStyleHandler(new LatentStyleHandler());
+                tools::SvRef<LatentStyleHandler> pLatentStyleHandler(new LatentStyleHandler());
                 pProperties->resolve(*pLatentStyleHandler);
                 beans::PropertyValue aValue;
                 aValue.Name = "lsdException";
@@ -735,7 +762,7 @@ void StyleSheetTable::lcl_sprm(Sprm & rSprm)
                 if (!m_pImpl->m_pCurrentEntry)
                     break;
 
-                std::shared_ptr<TablePropertiesHandler> pTblHandler(new TablePropertiesHandler());
+                tools::SvRef<TablePropertiesHandler> pTblHandler(new TablePropertiesHandler());
                 pTblHandler->SetProperties( m_pImpl->m_pCurrentEntry->pProperties );
                 if ( !pTblHandler->sprm( rSprm ) )
                 {
@@ -906,6 +933,7 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
         if(xCharStyles.is() && xParaStyles.is())
         {
             std::vector< ::std::pair<OUString, uno::Reference<style::XStyle>> > aMissingParent;
+            std::vector< ::std::pair<OUString, uno::Reference<style::XStyle>> > aMissingFollow;
             std::vector<beans::PropertyValue> aTableStylesVec;
             std::vector< StyleSheetEntryPtr >::iterator aIt = m_pImpl->m_aStyleSheetEntries.begin();
             while( aIt != m_pImpl->m_aStyleSheetEntries.end() )
@@ -930,17 +958,15 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                         }
                         xStyles->getByName( sConvertedStyleName ) >>= xStyle;
 
-                        // Standard is handled already in applyDefaults().
-                        if (sConvertedStyleName != "Standard")
                         {
                             StyleSheetTable_Impl::SetPropertiesToDefault(xStyle);
 
-                            // resolve import conflicts with built-in styles (only if normal style has been defined)
-                            if( m_pImpl->m_bHasImportedDefaultParaStyle
-                                && pEntry->sBaseStyleIdentifier.isEmpty()
-                                && !xStyle->getParentStyle().isEmpty() )
+                            // resolve import conflicts with built-in styles (only if defaults have been defined)
+                            if ( m_pImpl->m_bHasImportedDefaultParaProps
+                                && pEntry->sBaseStyleIdentifier.isEmpty()   //imported style has no inheritance
+                                && !xStyle->getParentStyle().isEmpty() )    //built-in style has a default inheritance
                             {
-                                xStyle->setParentStyle( "Standard" );
+                                xStyle->setParentStyle( "" );
                             }
                         }
                     }
@@ -1026,51 +1052,21 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                                 pEntry->pProperties->Insert(PROP_CHAR_HEIGHT_COMPLEX, aTwoHundredFortyTwip, false);
                             }
                         }
-
-                        // Widow/Orphan -> set both to two if not already set
-                        uno::Any aTwo = uno::makeAny(sal_Int8(2));
-                        pEntry->pProperties->Insert(PROP_PARA_WIDOWS, aTwo, false);
-                        pEntry->pProperties->Insert(PROP_PARA_ORPHANS, aTwo, false);
-
-                        // tdf#87533 explicitly set writing mode value based on default paragraph properties
-                        // specified inside styles.xml: <w:docDefaults><w:pPrDefault><w:pPr><w:bidi>
-                        {
-                            const PropertyMapPtr & propertyMap = m_pImpl->m_pDefaultParaProps;
-
-                            boost::optional<PropertyMap::Property> writingMode;
-                            if (propertyMap && (writingMode = propertyMap->getProperty(PROP_WRITING_MODE)))
-                            {
-                                pEntry->pProperties->Insert(PROP_WRITING_MODE, writingMode->second, false);
-                            }
-                            else
-                            {
-                                // Left-to-right direction if not already set
-                                pEntry->pProperties->Insert(PROP_WRITING_MODE, uno::makeAny(sal_Int16(text::WritingMode_LR_TB)), false);
-                            }
-
-                            boost::optional<PropertyMap::Property> paraAdjust;
-                            if (propertyMap && (paraAdjust = propertyMap->getProperty(PROP_PARA_ADJUST)))
-                            {
-                                pEntry->pProperties->Insert(PROP_PARA_ADJUST, paraAdjust->second, false);
-                            }
-                            else
-                            {
-                                // Left alignment if not already set
-                                pEntry->pProperties->Insert(PROP_PARA_ADJUST, uno::makeAny(sal_Int16(style::ParagraphAdjust_LEFT)), false);
-                            }
-                        }
                     }
 
                     auto aPropValues = comphelper::sequenceToContainer< std::vector<beans::PropertyValue> >(pEntry->pProperties->GetPropertyValues());
-                    bool bAddFollowStyle = false;
-                    if(bParaStyle && !pEntry->sNextStyleIdentifier.isEmpty() )
-                    {
-                        bAddFollowStyle = true;
-                    }
 
                     // remove Left/RightMargin values from TOX heading styles
                     if( bParaStyle )
                     {
+                        // delay adding FollowStyle property: all styles need to be created first
+                        if ( !pEntry->sNextStyleIdentifier.isEmpty() )
+                        {
+                            StyleSheetEntryPtr pFollowStyle = FindStyleSheetByISTD( pEntry->sNextStyleIdentifier );
+                            if ( pFollowStyle && !pFollowStyle->sStyleName.isEmpty() )
+                                aMissingFollow.emplace_back( ConvertStyleName( pFollowStyle->sStyleName ), xStyle );
+                        }
+
                         // Set the outline levels
                         const StyleSheetPropertyMap* pStyleSheetProperties = dynamic_cast<const StyleSheetPropertyMap*>(pEntry ? pEntry->pProperties.get() : nullptr);
                         if ( pStyleSheetProperties )
@@ -1115,7 +1111,7 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                         }
                     }
 
-                    if(bAddFollowStyle || !aPropValues.empty())
+                    if ( !aPropValues.empty() )
                     {
                         PropValVector aSortedPropVals;
                         for (const beans::PropertyValue& rValue : aPropValues)
@@ -1126,22 +1122,6 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                             if ( !bIsParaStyleName && !bIsCharStyleName )
                             {
                                 aSortedPropVals.Insert(rValue);
-                            }
-                        }
-                        if(bAddFollowStyle)
-                        {
-                            //find the name of the Next style
-                            std::vector< StyleSheetEntryPtr >::iterator it = m_pImpl->m_aStyleSheetEntries.begin();
-                            for (; it != m_pImpl->m_aStyleSheetEntries.end(); ++it)
-                            {
-                                if (!(*it)->sStyleName.isEmpty() && (*it)->sStyleIdentifierD == pEntry->sNextStyleIdentifier)
-                                {
-                                    beans::PropertyValue aNew;
-                                    aNew.Name = "FollowStyle";
-                                    aNew.Value <<= ConvertStyleName((*it)->sStyleIdentifierD);
-                                    aSortedPropVals.Insert(aNew);
-                                    break;
-                                }
                             }
                         }
 
@@ -1200,8 +1180,8 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                         xPropertySet->setPropertyValue("StyleInteropGrabBag", uno::makeAny(aGrabBag));
                     }
 
-                    // List styles don't support automatic update.
-                    if (pEntry->bAutoRedefine && !bListStyle)
+                    // Only paragraph styles support automatic updates.
+                    if (pEntry->bAutoRedefine && bParaStyle)
                         xPropertySet->setPropertyValue("IsAutoUpdate", uno::makeAny(true));
                 }
                 else if(pEntry->nStyleTypeCode == STYLE_TYPE_TABLE)
@@ -1213,10 +1193,20 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                 ++aIt;
             }
 
-            // Update the styles that were created before their parents
+            // Update the styles that were created before their parents or next-styles
             for( auto const & iter : aMissingParent )
             {
                 iter.second->setParentStyle( iter.first );
+            }
+
+            for( auto const & iter : aMissingFollow )
+            {
+                try
+                {
+                    uno::Reference<beans::XPropertySet> xPropertySet(iter.second, uno::UNO_QUERY);
+                    xPropertySet->setPropertyValue( "FollowStyle", uno::makeAny(iter.first) );
+                }
+                catch( uno::Exception & ) {}
             }
 
             if (!aTableStylesVec.empty())
@@ -1272,30 +1262,12 @@ const StyleSheetEntryPtr StyleSheetTable::FindStyleSheetByConvertedStyleName(con
 
 const StyleSheetEntryPtr StyleSheetTable::FindDefaultParaStyle()
 {
-    StyleSheetEntryPtr pRet;
-    for (StyleSheetEntryPtr & pEntry : m_pImpl->m_aStyleSheetEntries)
-    {
-        if (pEntry->bIsDefaultStyle && pEntry->nStyleTypeCode == STYLE_TYPE_PARA)
-        {
-            pRet = pEntry;
-            break;
-        }
-    }
-    return pRet;
+    return FindStyleSheetByISTD( m_pImpl->m_sDefaultParaStyleName );
 }
 
-const StyleSheetEntryPtr StyleSheetTable::FindParentStyleSheet(const OUString& _sBaseStyle)
+const StyleSheetEntryPtr StyleSheetTable::GetCurrentEntry()
 {
-    if( _sBaseStyle.isEmpty() )
-    {
-        StyleSheetEntryPtr pEmptyPtr;
-        return pEmptyPtr;
-    }
-    OUString sBaseStyle = _sBaseStyle;
-    if( m_pImpl->m_pCurrentEntry)
-        sBaseStyle = m_pImpl->m_pCurrentEntry->sBaseStyleIdentifier;
-
-    return FindStyleSheetByISTD( sBaseStyle );
+    return m_pImpl->m_pCurrentEntry;
 }
 
 
@@ -1517,22 +1489,29 @@ void StyleSheetTable::applyDefaults(bool bParaProperties)
         }
         if( bParaProperties && m_pImpl->m_pDefaultParaProps.get())
         {
+            // tdf#87533 LO will have different defaults here, depending on the locale. Import with documented defaults
+            m_pImpl->m_pDefaultParaProps->Insert(PROP_WRITING_MODE, uno::makeAny(sal_Int16(text::WritingMode_LR_TB)), /*bOverwrite=*/false);
+            m_pImpl->m_pDefaultParaProps->Insert(PROP_PARA_ADJUST, uno::makeAny(sal_Int16(style::ParagraphAdjust_LEFT)), false);
+
+            // Widow/Orphan -> set both to two if not already set
+            uno::Any aTwo = uno::makeAny(sal_Int8(2));
+            m_pImpl->m_pDefaultParaProps->Insert(PROP_PARA_WIDOWS, aTwo, /*bOverwrite=*/false);
+            m_pImpl->m_pDefaultParaProps->Insert(PROP_PARA_ORPHANS, aTwo, false);
+
             uno::Reference<style::XStyleFamiliesSupplier> xStylesSupplier(m_pImpl->m_xTextDocument, uno::UNO_QUERY);
             uno::Reference<container::XNameAccess> xStyleFamilies = xStylesSupplier->getStyleFamilies();
             uno::Reference<container::XNameAccess> xParagraphStyles;
             xStyleFamilies->getByName("ParagraphStyles") >>= xParagraphStyles;
-            uno::Reference<beans::XPropertySet> xStandard;
-            xParagraphStyles->getByName("Standard") >>= xStandard;
-
-            uno::Reference<style::XStyle> xStyle(xStandard, uno::UNO_QUERY);
-            StyleSheetTable_Impl::SetPropertiesToDefault(xStyle);
+            uno::Reference<beans::XPropertySet> xDefault;
+            // This is the built-in default style that every style inherits from
+            xParagraphStyles->getByName("Paragraph style") >>= xDefault;
 
             uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultParaProps->GetPropertyValues();
             for( sal_Int32 i = 0; i < aPropValues.getLength(); ++i )
             {
                 try
                 {
-                    xStandard->setPropertyValue(aPropValues[i].Name, aPropValues[i].Value);
+                    xDefault->setPropertyValue(aPropValues[i].Name, aPropValues[i].Value);
                 }
                 catch( const uno::Exception& )
                 {

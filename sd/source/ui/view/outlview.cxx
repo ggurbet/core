@@ -58,6 +58,7 @@
 #include <OutlineViewShell.hxx>
 #include <app.hrc>
 #include <strings.hrc>
+#include <sdmod.hxx>
 #include <sdresid.hxx>
 #include <Outliner.hxx>
 #include <EventMultiplexer.hxx>
@@ -120,21 +121,6 @@ OutlineView::OutlineView( DrawDocShell& rDocSh, vcl::Window* pWindow, OutlineVie
 
     Link<tools::EventMultiplexerEvent&,void> aLink( LINK(this,OutlineView,EventMultiplexerListener) );
     mrOutlineViewShell.GetViewShellBase().GetEventMultiplexer()->AddEventListener(aLink);
-
-    LanguageType eLang = mrOutliner.GetDefaultLanguage();
-    maPageNumberFont = OutputDevice::GetDefaultFont( DefaultFontType::SANS_UNICODE, eLang, GetDefaultFontFlags::NONE );
-    maPageNumberFont.SetFontHeight( 500 );
-
-    maBulletFont.SetColor( COL_AUTO );
-    maBulletFont.SetFontHeight( 1000 );
-    maBulletFont.SetCharSet(RTL_TEXTENCODING_MS_1252);   // and replacing other values by standard
-    maBulletFont.SetFamilyName( "StarSymbol" );
-    maBulletFont.SetWeight(WEIGHT_NORMAL);
-    maBulletFont.SetUnderline(LINESTYLE_NONE);
-    maBulletFont.SetStrikeout(STRIKEOUT_NONE);
-    maBulletFont.SetItalic(ITALIC_NONE);
-    maBulletFont.SetOutline(false);
-    maBulletFont.SetShadow(false);
 
     Reference<XFrame> xFrame (mrOutlineViewShell.GetViewShellBase().GetFrame()->GetFrame().GetFrameInterface(), UNO_QUERY);
     maSlideImage = vcl::CommandInfoProvider::GetImageForCommand(".uno:ShowSlide", xFrame, vcl::ImageType::Size26);
@@ -980,7 +966,7 @@ SdrTextObj* OutlineView::CreateOutlineTextObject(SdPage* pPage)
 }
 
 /** updates draw model with all changes from outliner model */
-bool OutlineView::PrepareClose()
+void OutlineView::PrepareClose()
 {
     ::sd::UndoManager* pDocUndoMgr = dynamic_cast<sd::UndoManager*>(mpDocSh->GetUndoManager());
     if (pDocUndoMgr != nullptr)
@@ -992,7 +978,6 @@ bool OutlineView::PrepareClose()
     UpdateDocument();
     EndUndo();
     mrDoc.SetSelected(GetActualPage(), true);
-    return true;
 }
 
 /**
@@ -1353,11 +1338,10 @@ SvtScriptType OutlineView::GetScriptType() const
 {
     SvtScriptType nScriptType = ::sd::View::GetScriptType();
 
-    OutlinerParaObject* pTempOPObj = mrOutliner.CreateParaObject();
+    std::unique_ptr<OutlinerParaObject> pTempOPObj = mrOutliner.CreateParaObject();
     if(pTempOPObj)
     {
         nScriptType = pTempOPObj->GetTextObject().GetScriptType();
-        delete pTempOPObj;
     }
 
     return nScriptType;
@@ -1443,7 +1427,7 @@ void OutlineView::EndModelChange()
 {
     UpdateDocument();
 
-    ::svl::IUndoManager* pDocUndoMgr = mpDocSh->GetUndoManager();
+    SfxUndoManager* pDocUndoMgr = mpDocSh->GetUndoManager();
 
     bool bHasUndoActions = pDocUndoMgr->GetUndoActionCount() != 0;
 
@@ -1497,7 +1481,7 @@ void OutlineView::UpdateDocument()
 /** merge edit engine undo actions if possible */
 void OutlineView::TryToMergeUndoActions()
 {
-    ::svl::IUndoManager& rOutlineUndo = mrOutliner.GetUndoManager();
+    SfxUndoManager& rOutlineUndo = mrOutliner.GetUndoManager();
     if( rOutlineUndo.GetUndoActionCount() > 1 )
     {
         SfxListUndoAction* pListAction = dynamic_cast< SfxListUndoAction* >( rOutlineUndo.GetUndoAction() );

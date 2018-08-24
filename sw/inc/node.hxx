@@ -21,7 +21,6 @@
 #define INCLUDED_SW_INC_NODE_HXX
 
 #include <sal/types.h>
-#include <tools/mempool.hxx>
 
 #include "swdllapi.h"
 #include "ndarr.hxx"
@@ -87,6 +86,17 @@ class SW_DLLPUBLIC SwNode
     /// For text nodes: level of auto format. Was put here because we had still free bits.
     sal_uInt8 m_nAFormatNumLvl : 3;
     bool m_bIgnoreDontExpand : 1;     ///< for Text Attributes - ignore the flag
+
+public:
+    /// sw_redlinehide: redline node merge state
+    enum class Merge { None, First, NonFirst, Hidden };
+    bool IsCreateFrameWhenHidingRedlines() {
+        return m_eMerge == Merge::None || m_eMerge == Merge::First;
+    }
+    void SetRedlineMergeFlag(Merge const eMerge) { m_eMerge = eMerge; }
+    Merge GetRedlineMergeFlag() const { return m_eMerge; }
+private:
+    Merge m_eMerge;
 
 #ifdef DBG_UTIL
     static long s_nSerial;
@@ -247,10 +257,7 @@ public:
      */
           IStyleAccess& getIDocumentStyleAccess();
 
-    /** Provides access to the document's numbered items interface
-
-        @author OD
-    */
+    /** Provides access to the document's numbered items interface */
     IDocumentListItems& getIDocumentListItems();
 
     /// Is node in the visible area of the Shell?
@@ -310,8 +317,6 @@ protected:
                  const SwNodeType nNodeType = SwNodeType::Start,
                  SwStartNodeType = SwNormalStartNode );
 public:
-    DECL_FIXEDMEMPOOL_NEWDEL(SwStartNode)
-
     SwStartNodeType GetStartNodeType() const        { return m_eStartNodeType; }
 
     /// Call ChkCondcoll to all ContentNodes of section.
@@ -337,8 +342,6 @@ class SwEndNode : public SwNode
 protected:
     SwEndNode( const SwNodeIndex &rWhere, SwStartNode& rSttNd );
 
-    DECL_FIXEDMEMPOOL_NEWDEL(SwEndNode)
-
 private:
     SwEndNode( const SwEndNode & rNode ) = delete;
     SwEndNode & operator= ( const SwEndNode & rNode ) = delete;
@@ -349,9 +352,8 @@ private:
 class SW_DLLPUBLIC SwContentNode: public SwModify, public SwNode, public SwIndexReg
 {
 
-//FEATURE::CONDCOLL
-    std::unique_ptr<SwDepend> m_pCondColl;
-//FEATURE::CONDCOLL
+    sw::WriterMultiListener m_aCondCollListener;
+    SwFormatColl* m_pCondColl;
     mutable bool mbSetModifyAtAttr;
 
 protected:
@@ -372,7 +374,7 @@ protected:
        SwAttrSet (handle): */
     sal_uInt16 ClearItemsFromAttrSet( const std::vector<sal_uInt16>& rWhichIds );
 
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+    virtual void SwClientNotify( const SwModify&, const SfxHint& rHint) override;
 
 public:
 
@@ -475,6 +477,11 @@ public:
     // Access to DrawingLayer FillAttributes in a preprocessed form for primitive usage
     virtual drawinglayer::attribute::SdrAllFillAttributesHelperPtr getSdrAllFillAttributesHelper() const;
 
+    virtual void ModifyNotification(const SfxPoolItem* pOld, const SfxPoolItem* pNew) override
+    {
+        SwClientNotify(*this, sw::LegacyModifyHint(pOld, pNew));
+    }
+
 private:
     SwContentNode( const SwContentNode & rNode ) = delete;
     SwContentNode & operator= ( const SwContentNode & rNode ) = delete;
@@ -485,7 +492,7 @@ private:
 class SW_DLLPUBLIC SwTableNode : public SwStartNode, public SwModify
 {
     friend class SwNodes;
-    SwTable* m_pTable;
+    std::unique_ptr<SwTable> m_pTable;
 protected:
     virtual ~SwTableNode() override;
 
@@ -508,7 +515,7 @@ public:
     void MakeFrames( const SwNodeIndex & rIdx );
 
     SwTableNode* MakeCopy( SwDoc*, const SwNodeIndex& ) const;
-    void SetNewTable( SwTable* , bool bNewFrames=true );
+    void SetNewTable( std::unique_ptr<SwTable> , bool bNewFrames=true );
 
     // Removes redline objects that relate to this table from the 'Extra Redlines' table
     void RemoveRedlines();
@@ -708,14 +715,14 @@ inline const SwDoc* SwNode::GetDoc() const
 
 inline SwFormatColl* SwContentNode::GetCondFormatColl() const
 {
-    return m_pCondColl ? static_cast<SwFormatColl*>(m_pCondColl->GetRegisteredIn()) : nullptr;
+    return m_pCondColl;
 }
 
 inline SwFormatColl& SwContentNode::GetAnyFormatColl() const
 {
-    return m_pCondColl && m_pCondColl->GetRegisteredIn()
-                ? *static_cast<SwFormatColl*>(m_pCondColl->GetRegisteredIn())
-                : *const_cast<SwFormatColl*>(static_cast<const SwFormatColl*>(GetRegisteredIn()));
+    return m_pCondColl
+            ? *m_pCondColl
+            : *const_cast<SwFormatColl*>(static_cast<const SwFormatColl*>(GetRegisteredIn()));
 }
 
 inline const SwAttrSet& SwContentNode::GetSwAttrSet() const

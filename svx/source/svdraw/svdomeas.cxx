@@ -17,8 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "svdconv.hxx"
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 
 #include <basegfx/matrix/b2dhommatrix.hxx>
@@ -69,6 +68,7 @@
 #include <svx/xlnwtit.hxx>
 #include <svx/xpoly.hxx>
 #include <unotools/syslocale.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 SdrMeasureObjGeoData::SdrMeasureObjGeoData() {}
@@ -185,17 +185,17 @@ OUString SdrMeasureObj::TakeRepresentation(SdrMeasureFieldKind eMeasureFieldKind
 
 // BaseProperties section
 
-sdr::properties::BaseProperties* SdrMeasureObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> SdrMeasureObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::MeasureProperties(*this);
+    return o3tl::make_unique<sdr::properties::MeasureProperties>(*this);
 }
 
 
 // DrawContact section
 
-sdr::contact::ViewContact* SdrMeasureObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrMeasureObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfSdrMeasureObj(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfSdrMeasureObj>(*this);
 }
 
 
@@ -431,7 +431,7 @@ void SdrMeasureObj::ImpCalcGeometrics(const ImpMeasureRec& rRec, ImpMeasurePoly&
 
     rPol.bAutoUpsideDown=false;
     if (rRec.bTextAutoAngle) {
-        long nTmpAngle=NormAngle360(rPol.nTextAngle-rRec.nTextAutoAngleView);
+        long nTmpAngle=NormAngle36000(rPol.nTextAngle-rRec.nTextAutoAngleView);
         if (nTmpAngle>=18000) {
             rPol.nTextAngle+=18000;
             rPol.bAutoUpsideDown=true;
@@ -439,10 +439,10 @@ void SdrMeasureObj::ImpCalcGeometrics(const ImpMeasureRec& rRec, ImpMeasurePoly&
     }
 
     if (rRec.bTextUpsideDown) rPol.nTextAngle+=18000;
-    rPol.nTextAngle=NormAngle360(rPol.nTextAngle);
+    rPol.nTextAngle=NormAngle36000(rPol.nTextAngle);
     rPol.nHlpAngle=rPol.nLineAngle+9000;
     if (rRec.bBelowRefEdge) rPol.nHlpAngle+=18000;
-    rPol.nHlpAngle=NormAngle360(rPol.nHlpAngle);
+    rPol.nHlpAngle=NormAngle36000(rPol.nHlpAngle);
     double nHlpSin=nLineCos;
     double nHlpCos=-nLineSin;
     if (rRec.bBelowRefEdge) {
@@ -454,14 +454,14 @@ void SdrMeasureObj::ImpCalcGeometrics(const ImpMeasureRec& rRec, ImpMeasurePoly&
     long nOverhang=rRec.nHelplineOverhang;
     long nHelplineDist=rRec.nHelplineDist;
 
-    long dx= svx::Round(nLineDist*nHlpCos);
-    long dy=-svx::Round(nLineDist*nHlpSin);
-    long dxh1a= svx::Round((nHelplineDist-rRec.nHelpline1Len)*nHlpCos);
-    long dyh1a=-svx::Round((nHelplineDist-rRec.nHelpline1Len)*nHlpSin);
-    long dxh1b= svx::Round((nHelplineDist-rRec.nHelpline2Len)*nHlpCos);
-    long dyh1b=-svx::Round((nHelplineDist-rRec.nHelpline2Len)*nHlpSin);
-    long dxh2= svx::Round((nLineDist+nOverhang)*nHlpCos);
-    long dyh2=-svx::Round((nLineDist+nOverhang)*nHlpSin);
+    long dx= FRound(nLineDist*nHlpCos);
+    long dy=-FRound(nLineDist*nHlpSin);
+    long dxh1a= FRound((nHelplineDist-rRec.nHelpline1Len)*nHlpCos);
+    long dyh1a=-FRound((nHelplineDist-rRec.nHelpline1Len)*nHlpSin);
+    long dxh1b= FRound((nHelplineDist-rRec.nHelpline2Len)*nHlpCos);
+    long dyh1b=-FRound((nHelplineDist-rRec.nHelpline2Len)*nHlpSin);
+    long dxh2= FRound((nLineDist+nOverhang)*nHlpCos);
+    long dyh2=-FRound((nLineDist+nOverhang)*nHlpSin);
 
     // extension line 1
     rPol.aHelpline1.aP1=Point(aP1.X()+dxh1a,aP1.Y()+dyh1a);
@@ -549,18 +549,15 @@ basegfx::B2DPolyPolygon SdrMeasureObj::ImpCalcXPoly(const ImpMeasurePoly& rPol)
 
 bool SdrMeasureObj::CalcFieldValue(const SvxFieldItem& rField, sal_Int32 nPara, sal_uInt16 nPos,
     bool bEdit,
-    Color*& rpTxtColor, Color*& rpFldColor, OUString& rRet) const
+    boost::optional<Color>& rpTxtColor, boost::optional<Color>& rpFldColor, OUString& rRet) const
 {
     const SvxFieldData* pField=rField.GetField();
     const SdrMeasureField* pMeasureField=dynamic_cast<const SdrMeasureField*>( pField );
     if (pMeasureField!=nullptr) {
         rRet = TakeRepresentation(pMeasureField->GetMeasureFieldKind());
-        if (rpFldColor!=nullptr) {
-            if (!bEdit)
-            {
-                delete rpFldColor;
-                rpFldColor=nullptr;
-            }
+        if (rpFldColor && !bEdit)
+        {
+            rpFldColor.reset();
         }
         return true;
     } else {
@@ -701,9 +698,9 @@ void SdrMeasureObj::TakeUnrotatedSnapRect(tools::Rectangle& rRect) const
     }
 }
 
-SdrMeasureObj* SdrMeasureObj::Clone(SdrModel* pTargetModel) const
+SdrMeasureObj* SdrMeasureObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrMeasureObj >(pTargetModel);
+    return CloneHelper< SdrMeasureObj >(rTargetModel);
 }
 
 SdrMeasureObj& SdrMeasureObj::operator=(const SdrMeasureObj& rObj)
@@ -721,7 +718,7 @@ SdrMeasureObj& SdrMeasureObj::operator=(const SdrMeasureObj& rObj)
 
 OUString SdrMeasureObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulMEASURE));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulMEASURE));
 
     OUString aName( GetName() );
     if (!aName.isEmpty())
@@ -737,7 +734,7 @@ OUString SdrMeasureObj::TakeObjNameSingul() const
 
 OUString SdrMeasureObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralMEASURE);
+    return SvxResId(STR_ObjNamePluralMEASURE);
 }
 
 basegfx::B2DPolyPolygon SdrMeasureObj::TakeXorPoly() const
@@ -1289,9 +1286,9 @@ OutlinerParaObject* SdrMeasureObj::GetOutlinerParaObject() const
     return SdrTextObj::GetOutlinerParaObject();
 }
 
-void SdrMeasureObj::NbcSetOutlinerParaObject(OutlinerParaObject* pTextObject)
+void SdrMeasureObj::NbcSetOutlinerParaObject(std::unique_ptr<OutlinerParaObject> pTextObject)
 {
-    SdrTextObj::NbcSetOutlinerParaObject(pTextObject);
+    SdrTextObj::NbcSetOutlinerParaObject(std::move(pTextObject));
     if(SdrTextObj::GetOutlinerParaObject())
         SetTextDirty(); // recalculate text
 }
@@ -1392,31 +1389,6 @@ bool SdrMeasureObj::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegfx::B
         }
     }
 
-    // force MapUnit to 100th mm
-    MapUnit eMapUnit = getSdrModelFromSdrObject().GetItemPool().GetMetric(0);
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aTranslate.setX(ImplTwipsToMM(aTranslate.getX()));
-                aTranslate.setY(ImplTwipsToMM(aTranslate.getY()));
-
-                // size
-                aScale.setX(ImplTwipsToMM(aScale.getX()));
-                aScale.setY(ImplTwipsToMM(aScale.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRGetBaseGeometry: Missing unit translation to 100th mm!");
-            }
-        }
-    }
-
     // build return value matrix
     rMatrix = basegfx::utils::createScaleTranslateB2DHomMatrix(aScale, aTranslate);
 
@@ -1428,29 +1400,6 @@ void SdrMeasureObj::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, cons
     // use given transformation to derive the two defining points from unit line
     basegfx::B2DPoint aPosA(rMatrix * basegfx::B2DPoint(0.0, 0.0));
     basegfx::B2DPoint aPosB(rMatrix * basegfx::B2DPoint(1.0, 0.0));
-
-    // force metric to pool metric
-    MapUnit eMapUnit = getSdrModelFromSdrObject().GetItemPool().GetMetric(0);
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aPosA.setX(ImplMMToTwips(aPosA.getX()));
-                aPosA.setY(ImplMMToTwips(aPosA.getY()));
-                aPosB.setX(ImplMMToTwips(aPosB.getX()));
-                aPosB.setY(ImplMMToTwips(aPosB.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRSetBaseGeometry: Missing unit translation to PoolMetric!");
-            }
-        }
-    }
 
     if( getSdrModelFromSdrObject().IsWriter() )
     {

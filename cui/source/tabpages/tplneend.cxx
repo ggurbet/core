@@ -63,7 +63,6 @@ SvxLineEndDefTabPage::SvxLineEndDefTabPage
     rOutAttrs           ( rInAttrs ),
     pPolyObj            ( nullptr ),
 
-    aXColor             ( OUString(), COL_BLACK ),
     aXLineAttr          ( rInAttrs.GetPool() ),
     rXLSet              ( aXLineAttr.GetItemSet() ),
     pLineEndList        ( nullptr ),
@@ -86,7 +85,7 @@ SvxLineEndDefTabPage::SvxLineEndDefTabPage
 
     rXLSet.Put( XLineStyleItem(css::drawing::LineStyle_SOLID) );
     rXLSet.Put( XLineWidthItem(XOUT_WIDTH) );
-    rXLSet.Put( aXColor );
+    rXLSet.Put( XLineColorItem( OUString(), COL_BLACK ) );
     rXLSet.Put( XLineStartWidthItem( m_pCtlPreview->GetOutputSize().Height()  / 2 ) );
     rXLSet.Put( XLineEndWidthItem( m_pCtlPreview->GetOutputSize().Height() / 2 ) );
 
@@ -147,7 +146,7 @@ void SvxLineEndDefTabPage::Construct()
         if( aInfoRec.bCanConvToPath )
             pNewObj = pPolyObj->ConvertToPolyObj( true, false );
 
-        bCreateArrowPossible = pNewObj && nullptr != dynamic_cast<const SdrPathObj*>( pNewObj);
+        bCreateArrowPossible = nullptr != dynamic_cast<const SdrPathObj*>( pNewObj);
         SdrObject::Free( pNewObj );
     }
 
@@ -270,9 +269,9 @@ void SvxLineEndDefTabPage::Reset( const SfxItemSet* )
 }
 
 
-VclPtr<SfxTabPage> SvxLineEndDefTabPage::Create( vcl::Window* pWindow, const SfxItemSet* rSet )
+VclPtr<SfxTabPage> SvxLineEndDefTabPage::Create( TabPageParent pWindow, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxLineEndDefTabPage>::Create( pWindow, *rSet );
+    return VclPtr<SvxLineEndDefTabPage>::Create( pWindow.pParent, *rSet );
 }
 
 
@@ -325,9 +324,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickModifyHdl_Impl, Button*, void)
             xWarningBox->run();
 
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            DBG_ASSERT(pFact, "Dialog creation failed!");
             ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-            DBG_ASSERT(pDlg, "Dialog creation failed!");
             bool bLoop = true;
 
             while( !bDifferent && bLoop && pDlg->Execute() == RET_OK )
@@ -431,9 +428,7 @@ IMPL_LINK_NOARG(SvxLineEndDefTabPage, ClickAddHdl_Impl, Button*, void)
         }
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        DBG_ASSERT(pFact, "Dialog creation failed!");
         ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc ));
-        DBG_ASSERT(pDlg, "Dialog creation failed!");
         bool bLoop = true;
 
         while ( bLoop && pDlg->Execute() == RET_OK )

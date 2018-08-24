@@ -26,6 +26,7 @@
 #include <algorithm>
 
 #include <rtl/tencinfo.h>
+#include <sal/log.hxx>
 
 #include <unicode/ubidi.h>
 #include <tools/tenccvt.hxx>
@@ -305,8 +306,7 @@ namespace myImplHelpers
                     (nI < SAL_MAX_INT32)
                   )
             {
-                aName = aBaseName;
-                aName += OUString::number(nI++);
+                aName = aBaseName + OUString::number(nI++);
             }
         }
 
@@ -551,11 +551,9 @@ namespace sw
 
             typedef std::pair<int32_t, bool> DirEntry;
             typedef std::vector<DirEntry> DirChanges;
-            typedef DirChanges::const_iterator cDirIter;
 
             typedef std::pair<sal_Int32, sal_uInt16> ScriptEntry;
             typedef std::vector<ScriptEntry> ScriptChanges;
-            typedef ScriptChanges::const_iterator cScriptIter;
 
             DirChanges aDirChanges;
             ScriptChanges aScripts;
@@ -606,11 +604,11 @@ namespace sw
                 nScript = g_pBreakIt->GetBreakIter()->getScriptType(rText, nPos);
             }
 
-            cDirIter aBiDiEnd = aDirChanges.end();
-            cScriptIter aScriptEnd = aScripts.end();
+            auto aBiDiEnd = aDirChanges.cend();
+            auto aScriptEnd = aScripts.cend();
 
-            cDirIter aBiDiIter = aDirChanges.begin();
-            cScriptIter aScriptIter = aScripts.begin();
+            auto aBiDiIter = aDirChanges.cbegin();
+            auto aScriptIter = aScripts.cbegin();
 
             bool bCharIsRTL = bParaIsRTL;
 

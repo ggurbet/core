@@ -49,7 +49,7 @@ enum class SalEvent;
 
 typedef void(^RuninmainBlock)(void);
 
-class SalYieldMutex : public comphelper::GenericSolarMutex
+class SalYieldMutex : public comphelper::SolarMutex
 {
 public:
     OSX_RUNINMAIN_MEMBERS
@@ -71,10 +71,11 @@ class AquaSalInstance : public SalInstance, public SalUserEventList
 
     bool RunInMainYield( bool bHandleAllCurrentEvents );
 
-    virtual void TriggerUserEventProcessing() override;
     virtual void ProcessEvent( SalUserEvent aEvent ) override;
 
 public:
+    virtual void TriggerUserEventProcessing() override;
+
     SalYieldMutex*                          mpSalYieldMutex;        // Sal-Yield-Mutex
     OUString                                maDefaultPrinter;
     oslThreadIdentifier                     maMainThread;
@@ -96,32 +97,29 @@ public:
     virtual SalObject*      CreateObject( SalFrame* pParent, SystemWindowData* pWindowData,
                                           bool bShow ) override;
     virtual void            DestroyObject( SalObject* pObject ) override;
-    virtual SalVirtualDevice* CreateVirtualDevice( SalGraphics* pGraphics,
+    virtual std::unique_ptr<SalVirtualDevice>
+                            CreateVirtualDevice( SalGraphics* pGraphics,
                                                    long &nDX, long &nDY,
                                                    DeviceFormat eFormat,
                                                    const SystemGraphicsData *pData = nullptr ) override;
     virtual SalInfoPrinter* CreateInfoPrinter( SalPrinterQueueInfo* pQueueInfo,
                                                ImplJobSetup* pSetupData ) override;
     virtual void            DestroyInfoPrinter( SalInfoPrinter* pPrinter ) override;
-    virtual SalPrinter*     CreatePrinter( SalInfoPrinter* pInfoPrinter ) override;
-    virtual void            DestroyPrinter( SalPrinter* pPrinter ) override;
+    virtual std::unique_ptr<SalPrinter> CreatePrinter( SalInfoPrinter* pInfoPrinter ) override;
     virtual void            GetPrinterQueueInfo( ImplPrnQueueList* pList ) override;
     virtual void            GetPrinterQueueState( SalPrinterQueueInfo* pInfo ) override;
     virtual void            DeletePrinterQueueInfo( SalPrinterQueueInfo* pInfo ) override;
     virtual OUString        GetDefaultPrinter() override;
     virtual SalTimer*       CreateSalTimer() override;
     virtual SalSystem*      CreateSalSystem() override;
-    virtual SalBitmap*      CreateSalBitmap() override;
+    virtual std::shared_ptr<SalBitmap> CreateSalBitmap() override;
     virtual comphelper::SolarMutex* GetYieldMutex() override;
     virtual sal_uInt32      ReleaseYieldMutexAll() override;
     virtual void            AcquireYieldMutex( sal_uInt32 nCount = 1 ) override;
     virtual bool            DoYield(bool bWait, bool bHandleAllCurrentEvents) override;
     virtual bool            AnyInput( VclInputFlags nType ) override;
-    virtual SalMenu*        CreateMenu( bool bMenuBar, Menu* pVCLMenu ) override;
-    virtual void            DestroyMenu( SalMenu* ) override;
-    virtual SalMenuItem*    CreateMenuItem( const SalItemParams* pItemData ) override;
-    virtual void            DestroyMenuItem( SalMenuItem* ) override;
-    virtual SalSession*     CreateSalSession() override;
+    virtual std::unique_ptr<SalMenu>     CreateMenu( bool bMenuBar, Menu* pVCLMenu ) override;
+    virtual std::unique_ptr<SalMenuItem> CreateMenuItem( const SalItemParams & rItemData ) override;
     virtual OpenGLContext*  CreateOpenGLContext() override;
     virtual OUString        GetConnectionIdentifier() override;
     virtual void            AddToRecentDocumentList(const OUString& rFileUrl, const OUString& rMimeType,

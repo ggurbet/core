@@ -9,7 +9,7 @@ dnl in order to create a configure script.
 # several non-alphanumeric characters, those are split off and used only for the
 # ABOUTBOXPRODUCTVERSIONSUFFIX in openoffice.lst. Why that is necessary, no idea.
 
-AC_INIT([LibreOffice],[6.1.0.0.alpha0+],[],[],[http://documentfoundation.org/])
+AC_INIT([LibreOffice],[6.2.0.0.alpha0+],[],[],[http://documentfoundation.org/])
 
 AC_PREREQ([2.59])
 
@@ -81,6 +81,10 @@ PathFormat()
                 AC_MSG_ERROR([path conversion failed for "$1".])
             fi
         fi
+        fp_count_space=`echo "$formatted_path" | $GREP -c "[ ]"`
+        if test "$fp_count_space" != "0"; then
+            AC_MSG_ERROR([converted path "$formatted_path" still contains spaces. Short filenames (8.3 filenames) support was disabled on this system?])
+        fi
     fi
 }
 
@@ -108,7 +112,7 @@ add_warning()
     if test "$have_WARNINGS" = "no"; then
         echo "*************************************" > warn
         have_WARNINGS="yes"
-        if which tput >/dev/null 2>/dev/null && test `tput colors` -ge 8; then
+        if which tput >/dev/null && test "`tput colors 2>/dev/null || echo 0`" -ge 8; then
             dnl <esc> as actual byte (U+1b), [ escaped using quadrigraph @<:@
             COLORWARN='*@<:@1;33;40m WARNING @<:@0m:'
         else
@@ -672,7 +676,6 @@ darwin*) # Mac OS X or iOS
         INSTROOTCONTENTSUFFIX=/Contents
         SDKDIRNAME=AC_PACKAGE_NAME${PRODUCTVERSION}_SDK
     fi
-    enable_systray=no
     # See comment above the case "$host_os"
     LINKFLAGSSHL="-dynamiclib -single_module"
 
@@ -1117,6 +1120,16 @@ libo_FUZZ_ARG_ENABLE(debug,
         [Include debugging information, disable compiler optimization and inlining plus
          extra debugging code like assertions. Extra large build! (enables -g compiler flag).]))
 
+libo_FUZZ_ARG_ENABLE(split-debug,
+    AS_HELP_STRING([--enable-split-debug],
+        [Uses split debug information (-gsplit-dwarf compile flag). Saves disk space and build time,
+         but requires tools that support it (both build tools and debuggers).]))
+
+libo_FUZZ_ARG_ENABLE(gdb-index,
+    AS_HELP_STRING([--enable-gdb-index],
+        [Creates debug information in the gdb index format, which makes gdb start faster.
+         Requires the gold or lld linker.]))
+
 libo_FUZZ_ARG_ENABLE(sal-log,
     AS_HELP_STRING([--enable-sal-log],
         [Make SAL_INFO and SAL_WARN calls do something even in a non-debug build.]))
@@ -1169,6 +1182,10 @@ libo_FUZZ_ARG_ENABLE(ooenv,
     AS_HELP_STRING([--disable-ooenv],
         [Disable ooenv for the instdir installation.]))
 
+libo_FUZZ_ARG_ENABLE(libnumbertext,
+    AS_HELP_STRING([--disable-libnumbertext],
+        [Disable use of numbertext external library.]))
+
 AC_ARG_ENABLE(lto,
     AS_HELP_STRING([--enable-lto],
         [Enable link-time optimization. Suitable for (optimised) product builds. Building might take
@@ -1192,11 +1209,6 @@ libo_FUZZ_ARG_ENABLE(gtk3,
     AS_HELP_STRING([--disable-gtk3],
         [Determines whether to use Gtk+ 3.0 vclplug on platforms where Gtk+ 3.0 is available.]),
 ,test "${enable_gtk3+set}" = set || enable_gtk3=yes)
-
-libo_FUZZ_ARG_ENABLE(systray,
-    AS_HELP_STRING([--disable-systray],
-        [Determines whether to build the systray quickstarter.]),
-,test "${enable_systray+set}" = set || enable_systray=yes)
 
 AC_ARG_ENABLE(split-app-modules,
     AS_HELP_STRING([--enable-split-app-modules],
@@ -1317,6 +1329,12 @@ AC_ARG_ENABLE(build-unowinreg,
          compiler is needed on Linux.]),
 ,)
 
+AC_ARG_ENABLE(build-opensymbol,
+    AS_HELP_STRING([--enable-build-opensymbol],
+        [Do not use the prebuilt opens___.ttf. Build it instead. This needs
+         fontforge installed.]),
+,)
+
 AC_ARG_ENABLE(dependency-tracking,
     AS_HELP_STRING([--enable-dependency-tracking],
         [Do not reject slow dependency extractors.])[
@@ -1330,6 +1348,11 @@ AC_ARG_ENABLE(icecream,
         [Use the 'icecream' distributed compiling tool to speedup the compilation.
          It defaults to /opt/icecream for the location of the icecream gcc/g++
          wrappers, you can override that using --with-gcc-home=/the/path switch.]),
+,)
+
+AC_ARG_ENABLE(ld,
+    AS_HELP_STRING([--enable-ld=<linker>],
+        [Use the specified linker. Both 'gold' and 'lld' linkers generally use less memory and link faster.]),
 ,)
 
 libo_FUZZ_ARG_ENABLE(cups,
@@ -1426,8 +1449,8 @@ AC_ARG_WITH(package-version,
 libo_FUZZ_ARG_ENABLE(readonly-installset,
     AS_HELP_STRING([--enable-readonly-installset],
         [Prevents any attempts by LibreOffice to write into its installation. That means
-         at least that no "system-wide" extensions can be added. Experimental work in
-         progress.]),
+         at least that no "system-wide" extensions can be added. Partly experimental work in
+         progress, probably not fully implemented (but is useful for sandboxed macOS builds).]),
 ,)
 
 libo_FUZZ_ARG_ENABLE(postgresql-sdbc,
@@ -1456,6 +1479,11 @@ AC_ARG_ENABLE(openssl,
          components will either use GNUTLS or NSS. Work in progress,
          use only if you are hacking on it.]),
 ,enable_openssl=yes)
+
+libo_FUZZ_ARG_ENABLE(cipher-openssl-backend,
+    AS_HELP_STRING([--enable-cipher-openssl-backend],
+        [Enable using OpenSSL as the actual implementation of the rtl/cipher.h functionality.
+         Requires --enable-openssl.]))
 
 AC_ARG_ENABLE(library-bin-tar,
     AS_HELP_STRING([--enable-library-bin-tar],
@@ -1542,7 +1570,7 @@ AC_ARG_WITH(galleries,
 AC_ARG_WITH(theme,
     AS_HELP_STRING([--with-theme="theme1 theme2..."],
         [Choose which themes to include. By default those themes with an '*' are included.
-         Possible choices: *breeze, *breeze_dark, *colibre, *elementary, *galaxy, oxygen, *sifr, *sifr_dark, *tango.]),
+         Possible choices: *breeze, *breeze_dark, *colibre, *elementary, *karasa_jaga, *sifr, *sifr_dark, *tango.]),
 ,)
 
 libo_FUZZ_ARG_WITH(helppack-integration,
@@ -1939,8 +1967,6 @@ AC_ARG_WITH(help,
                                  --without-help     no local help (default)
                                  --with-help=html   build the new HTML local help
                                  --with-help=online build the new HTML online help
-                                 --with-help=common bundle common files for the local
-                                                    help but do not build the whole help
     ],
 ,)
 
@@ -2016,9 +2042,9 @@ libo_FUZZ_ARG_WITH(doxygen,
 ,with_doxygen=yes)
 
 AC_ARG_WITH(visual-studio,
-    AS_HELP_STRING([--with-visual-studio=<2015/2017>],
+    AS_HELP_STRING([--with-visual-studio=<2017>],
         [Specify which Visual Studio version to use in case several are
-         installed. If not specified, defaults to 2015.]),
+         installed. Currently only 2017 is supported.]),
 ,)
 
 AC_ARG_WITH(windows-sdk,
@@ -2167,11 +2193,6 @@ AC_ARG_WITH(build-version,
          Help/About box for QA purposes.]),
 with_build_version=$withval,
 )
-
-AC_ARG_WITH(alloc,
-    AS_HELP_STRING([--with-alloc],
-        [Define which allocator to build with (choices are internal, system).]),
-,)
 
 AC_ARG_WITH(parallelism,
     AS_HELP_STRING([--with-parallelism],
@@ -2930,7 +2951,7 @@ dnl ===================================================================
 
 if test $_os = iOS; then
     AC_MSG_CHECKING([what iOS SDK to use])
-    current_sdk_ver=11.3
+    current_sdk_ver=11.4
     if test "$enable_ios_simulator" = "yes"; then
         platform=iPhoneSimulator
         versionmin=-mios-simulator-version-min=$current_sdk_ver
@@ -3145,11 +3166,59 @@ else
 fi
 AC_SUBST(CROSS_COMPILING)
 
+USE_LD=
+if test -n "$enable_ld" -a "$enable_ld" != "no"; then
+    AC_MSG_CHECKING([for -fuse-ld=$enable_ld linker support])
+    if test "$GCC" = "yes"; then
+        ldflags_save=$LDFLAGS
+        LDFLAGS="$LDFLAGS -fuse-ld=$enable_ld"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stdio.h>
+            ],[
+printf ("hello world\n");
+            ])], USE_LD=$enable_ld, [])
+        if test -n "$USE_LD"; then
+            AC_MSG_RESULT( yes )
+            LDFLAGS="$ldflags_save -fuse-ld=$enable_ld"
+        else
+            AC_MSG_ERROR( no )
+        fi
+    else
+        AC_MSG_ERROR( not supported )
+    fi
+fi
+AC_SUBST(USE_LD)
+
+ENABLE_GDB_INDEX=
+if test "$enable_gdb_index" = "yes"; then
+    AC_MSG_CHECKING([whether $CC supports -ggnu-pubnames])
+    save_CFLAGS=$CFLAGS
+    CFLAGS="$CFLAGS -Werror -ggnu-pubnames"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ AC_MSG_RESULT( yes )],[ AC_MSG_ERROR( no )])
+
+    AC_MSG_CHECKING([whether $CC supports -Wl,--gdb-index])
+    ldflags_save=$LDFLAGS
+    LDFLAGS="$LDFLAGS -Wl,--gdb-index"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stdio.h>
+        ],[
+printf ("hello world\n");
+        ])], ENABLE_GDB_INDEX=TRUE, [])
+    if test "$ENABLE_GDB_INDEX" = "TRUE"; then
+        AC_MSG_RESULT( yes )
+    else
+        AC_MSG_ERROR( no )
+    fi
+    CFLAGS=$save_CFLAGS
+    LDFLAGS=$ldflags_save
+fi
+AC_SUBST(ENABLE_GDB_INDEX)
+
 HAVE_LD_BSYMBOLIC_FUNCTIONS=
 if test "$GCC" = "yes"; then
     AC_MSG_CHECKING([for -Bsymbolic-functions linker support])
     bsymbolic_functions_ldflags_save=$LDFLAGS
-    LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions -Wl,--dynamic-list-cpp-new -Wl,--dynamic-list-cpp-typeinfo"
+    LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions"
     AC_LINK_IFELSE([AC_LANG_PROGRAM([
 #include <stdio.h>
         ],[
@@ -3164,7 +3233,7 @@ printf ("hello world\n");
 fi
 AC_SUBST(HAVE_LD_BSYMBOLIC_FUNCTIONS)
 
-# Use -isystem (gcc) if possible, to avoid warnigs in 3rd party headers.
+# Use -isystem (gcc) if possible, to avoid warnings in 3rd party headers.
 # NOTE: must _not_ be used for bundled external libraries!
 ISYSTEM=
 if test "$GCC" = "yes"; then
@@ -3196,8 +3265,6 @@ map_vs_year_to_version()
     unset vsversion
 
     case $1 in
-    2015)
-        vsversion=14.0;;
     2017)
         vsversion=15.0;;
     *)
@@ -3216,21 +3283,17 @@ vs_versions_to_check()
         map_vs_year_to_version "$1"
         vsversions=$vsversion
     else
-        # By default we prefer 2015/2017, in this order
-        vsversions="14.0 15.0"
+        # We accept only 2017
+        vsversions="15.0"
     fi
 }
 
 win_get_env_from_vsvars32bat()
 {
     WRAPPERBATCHFILEPATH="`mktemp -t wrpXXXXXX.bat`"
-    if test $vcnum = "150"; then
-      # Also seems to be located in another directory under the same name: vsvars32.bat
-      # https://github.com/bazelbuild/bazel/blob/master/src/main/native/build_windows_jni.sh#L56-L57
-      printf '@call "%s/../Common7/Tools/VsDevCmd.bat" /no_logo\r\n' "$(cygpath -w $VC_PRODUCT_DIR)" > $WRAPPERBATCHFILEPATH
-    else
-      printf '@call "%s/../Common7/Tools/vsvars32.bat"\r\n' "$(cygpath -w $VC_PRODUCT_DIR)" > $WRAPPERBATCHFILEPATH
-    fi
+    # Also seems to be located in another directory under the same name: vsvars32.bat
+    # https://github.com/bazelbuild/bazel/blob/master/src/main/native/build_windows_jni.sh#L56-L57
+    printf '@call "%s/../Common7/Tools/VsDevCmd.bat" /no_logo\r\n' "$(cygpath -w $VC_PRODUCT_DIR)" > $WRAPPERBATCHFILEPATH
     printf '@setlocal\r\n@echo %%%s%%\r\n@endlocal\r\n' "$1" >> $WRAPPERBATCHFILEPATH
     chmod +x $WRAPPERBATCHFILEPATH
     _win_get_env_from_vsvars32bat=$("$WRAPPERBATCHFILEPATH" | tr -d '\r')
@@ -3253,11 +3316,7 @@ find_ucrt()
     fi
     if test -z "$UCRTSDKDIR"; then
         ide_env_dir="$VC_PRODUCT_DIR/../Common7/Tools/"
-        if test "$vcnum" = "150"; then
-          ide_env_file="${ide_env_dir}VsDevCmd.bat"
-        else
-          ide_env_file="${ide_env_dir}/vsvars32.bat"
-        fi
+        ide_env_file="${ide_env_dir}VsDevCmd.bat"
         if test -f "$ide_env_file"; then
             PathFormat "$(win_get_env_from_vsvars32bat UniversalCRTSdkDir)"
             UCRTSDKDIR=$formatted_path
@@ -3277,7 +3336,7 @@ find_ucrt()
 
 find_msvc()
 {
-    # Find Visual C++ 2015/2017
+    # Find Visual C++ 2017
     # Args: $1 (optional) : The VS version year
     # Return values: $vctest, $vcyear, $vcnum, $vcnumwithdot, $vcbuildnumber
 
@@ -3291,7 +3350,6 @@ find_msvc()
             vctest=$regvalue
             break
         fi
-        # As always MSVC 15.0 is special here
         reg_get_value_32 HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/VisualStudio/SxS/VS7/$ver
         if test -n "$regvalue"; then
             AC_MSG_RESULT([found: $regvalue])
@@ -3303,10 +3361,6 @@ find_msvc()
     if test -n "$vctest"; then
         vcnumwithdot=$ver
         case "$vcnumwithdot" in
-        14.0)
-            vcyear=2015
-            vcnum=140
-            ;;
         15.0)
             vcyear=2017
             vcnum=150
@@ -3327,7 +3381,7 @@ if test "$_os" = "WINNT"; then
         if test -n "$with_visual_studio"; then
             AC_MSG_ERROR([No Visual Studio $with_visual_studio installation found])
         else
-            AC_MSG_ERROR([No Visual Studio 2015/2017 installation found])
+            AC_MSG_ERROR([No Visual Studio 2017 installation found])
         fi
     fi
 
@@ -3380,16 +3434,12 @@ if test "$_os" = "WINNT"; then
         AC_MSG_RESULT([found: $regvalue])
         MSBUILD_PATH=`win_short_path_for_make "$regvalue"`
     else
-        if test $vcnum = "150"; then
-            if test "$BITNESS_OVERRIDE" = ""; then
-                regvalue="$VC_PRODUCT_DIR/../MSBuild/$vcnumwithdot/Bin"
-            else
-                regvalue="$VC_PRODUCT_DIR/../MSBuild/$vcnumwithdot/Bin/amd64"
-            fi
-            MSBUILD_PATH=`win_short_path_for_make "$regvalue"`
+        if test "$BITNESS_OVERRIDE" = ""; then
+            regvalue="$VC_PRODUCT_DIR/../MSBuild/$vcnumwithdot/Bin"
         else
-            AC_MSG_ERROR([No msbuild found, Visual Studio installation broken?])
+            regvalue="$VC_PRODUCT_DIR/../MSBuild/$vcnumwithdot/Bin/amd64"
         fi
+        MSBUILD_PATH=`win_short_path_for_make "$regvalue"`
 	AC_MSG_RESULT([$regvalue])
     fi
 
@@ -3409,29 +3459,15 @@ if test "$_os" = "WINNT"; then
     CL_LIB=
 
     if test "$BITNESS_OVERRIDE" = ""; then
-        if test "$vcnum" = "150"; then
-            MSPDB_PATH="$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86"
-            CL_DIR=Tools/MSVC/$vcbuildnumber/bin/HostX86/x86
-        else
-            MSPDB_PATH="$VC_PRODUCT_DIR/../Common7/IDE"
-            CL_DIR=bin
-        fi
+        MSPDB_PATH="$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86"
+        CL_DIR=Tools/MSVC/$vcbuildnumber/bin/HostX86/x86
     else
-        if test "$vcnum" = "150"; then
-            MSPDB_PATH="$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX64/x64"
-            CL_DIR=Tools/MSVC/$vcbuildnumber/bin/HostX64/x64
-        else
-            MSPDB_PATH="$VC_PRODUCT_DIR/bin/amd64"
-            CL_DIR=bin/amd64
-        fi
+        MSPDB_PATH="$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX64/x64"
+        CL_DIR=Tools/MSVC/$vcbuildnumber/bin/HostX64/x64
     fi
 
     # MSVC 15.0 has libraries from 14.0?
-    if test  "$vcnum" = "150"; then
-        mspdbnum="140"
-    else
-        mspdbnum=$vcnum
-    fi
+    mspdbnum="140"
 
     if test ! -e "$MSPDB_PATH/mspdb${mspdbnum}.dll"; then
         AC_MSG_ERROR([No mspdb${mspdbnum}.dll in $MSPDB_PATH, Visual Studio installation broken?])
@@ -3479,11 +3515,7 @@ if test "$_os" = "WINNT"; then
         # Remove /cl.exe from CC case insensitive
         AC_MSG_RESULT([found Visual C++ $vcyear ($CC)])
         if test "$BITNESS_OVERRIDE" = ""; then
-           if test "$vcnum" = "150"; then
-               COMPATH="$VC_PRODUCT_DIR"
-           else
-               COMPATH=`echo "$CC" | $SED -e 's@\/[[Bb]][[Ii]][[Nn]]\/[[cC]][[lL]]\.[[eE]][[xX]][[eE]].*@@' -e 's@^.* @@'`
-           fi
+           COMPATH="$VC_PRODUCT_DIR"
         else
             if test -n "$VC_PRODUCT_DIR"; then
                 COMPATH=$VC_PRODUCT_DIR
@@ -3494,9 +3526,7 @@ if test "$_os" = "WINNT"; then
             CC="$CC -arch:SSE"
         fi
 
-        if test "$vcnum" = "150"; then
-            COMPATH="$COMPATH/Tools/MSVC/$vcbuildnumber"
-        fi
+        COMPATH="$COMPATH/Tools/MSVC/$vcbuildnumber"
 
         export INCLUDE=`cygpath -d "$COMPATH\Include"`
 
@@ -3510,10 +3540,6 @@ if test "$_os" = "WINNT"; then
         # are always "better", we list them in reverse chronological order.
 
         case $vcnum in
-        140)
-            COMEX=19
-            WINDOWS_SDK_ACCEPTABLE_VERSIONS="10.0 8.1A 8.1 8.0 7.1A"
-            ;;
         150)
             COMEX=19
             WINDOWS_SDK_ACCEPTABLE_VERSIONS="10.0 8.1A 8.1 8.0 7.1A"
@@ -3811,6 +3837,21 @@ if test -n "$enable_dbgutil" -a "$enable_dbgutil" != "no"; then
     else
         with_system_gpgmepp=no
     fi
+    # As mixing system libwps and non-system libnumbertext or vice versa likely causes trouble (see
+    # 603074c5f2b84de8a24593faf807da784b040625 "Pass _GLIBCXX_DEBUG into external/libwps" and the
+    # mail thread starting at <https://gcc.gnu.org/ml/gcc/2018-05/msg00057.html> "libstdc++: ODR
+    # violation when using std::regex with and without -D_GLIBCXX_DEBUG"), simply make sure neither
+    # of those two is using the system variant:
+    if test "$with_system_libnumbertext" = "yes"; then
+        AC_MSG_ERROR([--with-system-libnumbertext conflicts with --enable-dbgutil])
+    else
+        with_system_libnumbertext=no
+    fi
+    if test "$with_system_libwps" = "yes"; then
+        AC_MSG_ERROR([--with-system-libwps conflicts with --enable-dbgutil])
+    else
+        with_system_libwps=no
+    fi
 else
     ENABLE_DBGUTIL=""
     MSVC_USE_DEBUG_RUNTIME=""
@@ -3846,6 +3887,23 @@ else
     AC_MSG_RESULT([no])
 fi
 AC_SUBST(ENABLE_DEBUG)
+
+if test "$enable_split_debug" = yes; then
+    HAVE_GSPLIT_DWARF=
+    if test "$GCC" = "yes"; then
+        AC_MSG_CHECKING([whether $CC supports -gsplit-dwarf])
+        save_CFLAGS=$CFLAGS
+        CFLAGS="$CFLAGS -Werror -gsplit-dwarf"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ HAVE_GCC_SPLIT_DWARF=TRUE ],[])
+        CFLAGS=$save_CFLAGS
+        if test "$HAVE_GCC_SPLIT_DWARF" = "TRUE"; then
+            AC_MSG_RESULT([yes])
+        else
+            AC_MSG_RESULT([no])
+        fi
+    fi
+    AC_SUBST(HAVE_GCC_SPLIT_DWARF)
+fi
 
 if test "$enable_sal_log" = yes; then
     ENABLE_SAL_LOG=TRUE
@@ -4628,6 +4686,8 @@ fi
 
 if test "$OS" = "HAIKU"; then
     enable_cairo_canvas=yes
+    test_qt5=yes
+    test_kde5=yes
 fi
 
 dnl ===================================================================
@@ -4710,11 +4770,9 @@ if test -n "$with_help" -a "$with_help" != "no" -a $_os != iOS -a $_os != Androi
     BUILD_TYPE="$BUILD_TYPE HELP"
     GIT_NEEDED_SUBMODULES="helpcontent2 $GIT_NEEDED_SUBMODULES"
     case "$with_help" in
-    "common")
-        AC_MSG_RESULT([common only])
-        ;;
     "html")
         ENABLE_HTMLHELP=TRUE
+        SCPDEFS="$SCPDEFS -DWITH_HELP"
         AC_MSG_RESULT([HTML])
         ;;
     "online")
@@ -4722,9 +4780,12 @@ if test -n "$with_help" -a "$with_help" != "no" -a $_os != iOS -a $_os != Androi
         HELP_ONLINE=TRUE
         AC_MSG_RESULT([HTML])
         ;;
-    *)
+    yes)
         SCPDEFS="$SCPDEFS -DWITH_HELP"
         AC_MSG_RESULT([yes])
+        ;;
+    *)
+        AC_MSG_ERROR([Unknown --with-help=$with_help])
         ;;
     esac
 else
@@ -5009,6 +5070,9 @@ if test "$_os" = "WINNT"; then
         done
     fi
 fi
+if test "$with_system_hsqldb" = "yes"; then
+	perl_use_string="$perl_use_string ; use Archive::Zip"
+fi
 if $PERL -e "$perl_use_string">/dev/null 2>&1; then
     AC_MSG_RESULT([all modules found])
 else
@@ -5116,7 +5180,7 @@ find_al()
     done
 
     # We need this additional check to detect 4.6.1 or above.
-    for ver in 4.7.1 4.7 4.6.2 4.6.1; do
+    for ver in 4.7.2 4.7.1 4.7 4.6.2 4.6.1; do
         reg_get_value_32 "HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Microsoft SDKs/NETFXSDK/$ver/WinSDK-NetFx40Tools/InstallationFolder"
         if test -n "$regvalue" -a \( -f "$regvalue/al.exe" -o -f "$regvalue/bin/al.exe" \); then
             altest=$regvalue
@@ -5131,26 +5195,11 @@ find_al()
     done
 }
 
-find_dotnetsdk()
-{
-    # Return value: $frametest (that's a silly name...)
-
-    unset frametest
-
-    for ver in 1.1 2.0; do
-        reg_get_value_32 HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/.NETFramework/sdkInstallRootv$ver
-        if test -n "$regvalue"; then
-            frametest=$regvalue
-            return
-        fi
-    done
-}
-
 find_dotnetsdk46()
 {
     unset frametest
 
-    for ver in 4.7.1 4.7 4.6.2 4.6.1 4.6; do
+    for ver in 4.7.2 4.7.1 4.7 4.6.2 4.6.1 4.6; do
         reg_get_value_64 "HKEY_LOCAL_MACHINE/SOFTWARE/Wow6432Node/Microsoft/Microsoft SDKs/NETFXSDK/$ver/KitsInstallationFolder"
         if test -n "$regvalue"; then
             frametest=$regvalue
@@ -5211,12 +5260,8 @@ find_winsdk_version()
                 winsdklibsubdir="10.0.16299.0"
             elif test "$regvalue" = "10.0.15063"; then
                 winsdklibsubdir="10.0.15063.0"
-                dnl Hack needed at least by tml:
-                if test ! -f "${winsdktest}/Include/10.0.15063.0/um/sqlext.h" \
-                    -a -f "${winsdktest}/Include/10.0.14393.0/um/sqlext.h"
-                then
-                    winsdklibsubdir="10.0.14393.0"
-                fi
+            elif test "$regvalue" = "10.0.17134"; then
+                winsdklibsubdir="$regvalue.0"
             fi
             return
         fi
@@ -5531,23 +5576,17 @@ if test "$build_os" = "cygwin"; then
 
     dnl Check mscoree.lib / .NET Framework dir
     AC_MSG_CHECKING(.NET Framework)
-    find_dotnetsdk
-    if test -f "$frametest/lib/mscoree.lib"; then
+    find_dotnetsdk46
+    PathFormat "$frametest"
+    frametest="$formatted_path"
+    if test -f "$frametest/Lib/um/$WINDOWS_SDK_ARCH/mscoree.lib"; then
         DOTNET_FRAMEWORK_HOME="$frametest"
     else
         find_winsdk
         if test -f "$winsdktest/lib/mscoree.lib" -o -f "$winsdktest/lib/$winsdklibsubdir/um/$WINDOWS_SDK_ARCH/mscoree.lib"; then
             DOTNET_FRAMEWORK_HOME="$winsdktest"
-        else
-            find_dotnetsdk46
-            PathFormat "$frametest"
-            frametest="$formatted_path"
-            if test -f "$frametest/Lib/um/$WINDOWS_SDK_ARCH/mscoree.lib"; then
-                 DOTNET_FRAMEWORK_HOME="$frametest"
-            fi
         fi
     fi
-
     if test ! -f "$DOTNET_FRAMEWORK_HOME/lib/mscoree.lib" -a ! -f "$DOTNET_FRAMEWORK_HOME/lib/$winsdklibsubdir/um/$WINDOWS_SDK_ARCH/mscoree.lib" -a ! -f "$DOTNET_FRAMEWORK_HOME/Lib/um/$WINDOWS_SDK_ARCH/mscoree.lib"; then
         AC_MSG_ERROR([mscoree.lib not found])
     fi
@@ -5585,31 +5624,6 @@ if test "$_os" != "WINNT"; then
 else
     if test -n "$CC" -a -z "$CXX"; then
         CXX="$CC"
-    fi
-fi
-
-dnl At least MSVC 2015 Update 1 is known to sporadically emit warning C4592
-dnl ("implementation limitation" when defining OUStringLiteral variables in
-dnl vcl/source/app/IconThemeInfo.cxx), while Update 3 is known good, and it is
-dnl probably a good idea to require that anyway.  A reliable way to check for
-dnl MSVC 2015 Update 3 appears to be to check for support of C++17 nested
-dnl namespace definitions (which requires /std:c++latest to be enabled):
-if test "$COM" = MSC -a "$VCVER" = 140; then
-    AC_MSG_CHECKING([whether MSVC 2015 compiler $MSVC_CXX is at least Update 3])
-    save_CXX=$CXX
-    save_CXXFLAGS=$CXXFLAGS
-    CXX=$MSVC_CXX
-    CXXFLAGS="$CXXFLAGS /std:c++latest"
-    AC_LANG_PUSH([C++])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-        namespace A::B {}
-    ]])], [good=yes], [good=no])
-    AC_LANG_POP([C++])
-    CXX=$save_CXX
-    CXXFLAGS=$save_CXXFLAGS
-    AC_MSG_RESULT([$good])
-    if test "$good" = no; then
-        AC_MSG_ERROR([When using MSVC 2015, at least Update 3 must be installed])
     fi
 fi
 
@@ -6019,6 +6033,17 @@ if test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
         ], [AC_MSG_RESULT([no])])
     AC_LANG_POP([C++])
 
+    AC_MSG_CHECKING([whether $CXX declares __cxa_current_exception_type in cxxabi.h])
+    AC_LANG_PUSH([C++])
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+            #include <cxxabi.h>
+            void * f() { return __cxxabiv1::__cxa_current_exception_type(); }
+        ])], [
+            AC_DEFINE([HAVE_CXXABI_H_CXA_CURRENT_EXCEPTION_TYPE],[1])
+            AC_MSG_RESULT([yes])
+        ], [AC_MSG_RESULT([no])])
+    AC_LANG_POP([C++])
+
     AC_MSG_CHECKING([whether $CXX declares __cxa_throw in cxxabi.h])
     AC_LANG_PUSH([C++])
     AC_COMPILE_IFELSE([AC_LANG_SOURCE([
@@ -6383,6 +6408,29 @@ if test "$GCC" = yes; then
 fi
 AC_SUBST([HAVE_GCC_FNO_SIZED_DEALLOCATION])
 
+HAVE_CPP_GUARANTEED_COPY_ELISION=
+AC_MSG_CHECKING([whether $CXX supports guaranteed copy elision])
+AC_LANG_PUSH([C++])
+save_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+        #if !defined __cpp_guaranteed_copy_elision
+        struct S {
+        private:
+            S(S const &);
+        public:
+            S copy() const { return *this; }
+        };
+        void f(S & s) { S c(s.copy()); }
+        #endif
+    ])], [
+        AC_DEFINE([HAVE_CPP_GUARANTEED_COPY_ELISION],[1])
+        AC_MSG_RESULT([yes])
+    ], [AC_MSG_RESULT([no])])
+CXXFLAGS=$save_CXXFLAGS
+AC_LANG_POP([C++])
+AC_SUBST([HAVE_CPP_GUARANTEED_COPY_ELISION])
+
 dnl ===================================================================
 dnl system stl sanity tests
 dnl ===================================================================
@@ -6602,20 +6650,8 @@ AC_SUBST(CLANGLIBDIR)
 # This makes --enable-lto build with clang work.
 AC_SUBST(LD_PLUGIN)
 
-dnl ===================================================================
-dnl allocator
-dnl ===================================================================
-AC_MSG_CHECKING([which memory allocator to use])
-if test "$with_alloc" = "system"; then
-    AC_MSG_RESULT([system])
-    ALLOC="SYS_ALLOC"
-fi
-if test "$with_alloc" = "internal" -o -z "$with_alloc"; then
-    AC_MSG_RESULT([internal])
-fi
 AC_CHECK_FUNCS(posix_fallocate, HAVE_POSIX_FALLOCATE=YES, [HAVE_POSIX_FALLOCATE=NO])
 AC_SUBST(HAVE_POSIX_FALLOCATE)
-AC_SUBST(ALLOC)
 
 dnl ===================================================================
 dnl Custom build version
@@ -6640,13 +6676,21 @@ fi
 AC_SUBST([JITC_PROCESSOR_TYPE])
 
 # Misc Windows Stuff
-AC_ARG_WITH(vcredist-dir,
-    AS_HELP_STRING([--with-vcredist-dir],
-        [path to the directory with the arch-specific executables (vc_redist.x64.exe, vc_redist.x86.exe)
-        for packaging into the installsets (without those the target system needs to install
-        the Visual C++ Runtimes manually)]),
+AC_ARG_WITH(ucrt-dir,
+    AS_HELP_STRING([--with-ucrt-dir],
+        [path to the directory with the arch-specific MSU packages of the Windows Universal CRT redistributables
+        (MS KB 2999226) for packaging into the installsets (without those the target system needs to install
+        the UCRT or Visual C++ Runtimes manually). The directory must contain the following 6 files:
+            Windows6.1-KB2999226-x64.msu
+            Windows6.1-KB2999226-x86.msu
+            Windows8.1-KB2999226-x64.msu
+            Windows8.1-KB2999226-x86.msu
+            Windows8-RT-KB2999226-x64.msu
+            Windows8-RT-KB2999226-x86.msu
+        A zip archive including those files is available from Microsoft site:
+        https://www.microsoft.com/en-us/download/details.aspx?id=48234]),
 ,)
-VCREDIST_DIR="$with_vcredist_dir"
+UCRT_REDISTDIR="$with_ucrt_dir"
 if test $_os = "WINNT"; then
     find_msvc_x64_dlls
     find_msms
@@ -6659,20 +6703,23 @@ if test $_os = "WINNT"; then
     else
         SCPDEFS="$SCPDEFS -DWITH_VC${VCVER}_REDIST"
     fi
-    if test "$VCREDIST_DIR" = "no"; then
+    if test "$UCRT_REDISTDIR" = "no"; then
         dnl explicitly disabled
-        VCREDIST_DIR=""
+        UCRT_REDISTDIR=""
     else
-        if test -f "$VCREDIST_DIR/vc_redist.$WINDOWS_SDK_ARCH.exe"; then
-            VCREDIST_EXE="vc_redist.$WINDOWS_SDK_ARCH.exe"
-        else
-            VCREDIST_DIR=""
+        if ! test -f "$UCRT_REDISTDIR/Windows6.1-KB2999226-x64.msu" -a \
+                  -f "$UCRT_REDISTDIR/Windows6.1-KB2999226-x86.msu" -a \
+                  -f "$UCRT_REDISTDIR/Windows8.1-KB2999226-x64.msu" -a \
+                  -f "$UCRT_REDISTDIR/Windows8.1-KB2999226-x86.msu" -a \
+                  -f "$UCRT_REDISTDIR/Windows8-RT-KB2999226-x64.msu" -a \
+                  -f "$UCRT_REDISTDIR/Windows8-RT-KB2999226-x86.msu"; then
+            UCRT_REDISTDIR=""
             if test -n "$PKGFORMAT"; then
                for i in $PKGFORMAT; do
                    case "$i" in
                    msi)
-                       AC_MSG_WARN([--without-vcredist-dir not specified or exe not found - installer will have runtime dependency])
-                       add_warning "--without-vcredist-dir not specified or exe not found - installer will have runtime dependency"
+                       AC_MSG_WARN([--without-ucrt-dir not specified or MSUs not found - installer will have runtime dependency])
+                       add_warning "--without-ucrt-dir not specified or MSUs not found - installer will have runtime dependency"
                        ;;
                    esac
                done
@@ -6681,8 +6728,7 @@ if test $_os = "WINNT"; then
     fi
 fi
 
-AC_SUBST(VCREDIST_DIR)
-AC_SUBST(VCREDIST_EXE)
+AC_SUBST(UCRT_REDISTDIR)
 AC_SUBST(MSVC_DLL_PATH)
 AC_SUBST(MSVC_DLLS)
 AC_SUBST(MSM_PATH)
@@ -6827,7 +6873,7 @@ you must use the "--with-jdk-home" configure option explicitly])
             JDK=sun
 
             dnl Sun JDK specific tests
-            _jdk=`$JAVAINTERPRETER -version 2>&1 | $AWK -F'"' '{ print \$2 }' | $SED s/[[-A-Za-z]]*//`
+            _jdk=`$JAVAINTERPRETER -version 2>&1 | $AWK -F'"' '{ print \$2 }' | $SED '/^$/d' | $SED s/[[-A-Za-z]]*//`
             _jdk_ver=`echo "$_jdk" | $AWK -F. '{ print (($1 * 100) + $2) * 100 + $3;}'`
 
             if test "$_jdk_ver" -lt 10600; then
@@ -7031,10 +7077,10 @@ _ACEOF
     if test "$JAVA_HOME_OK" = "NO"; then
         AC_MSG_WARN([JAVA_HOME was not explicitly informed with --with-jdk-home. the configure script])
         AC_MSG_WARN([attempted to find JAVA_HOME automatically, but apparently it failed])
-        AC_MSG_WARN([in case JAVA_HOME is incorrectly set, some projects with not be built correctly])
+        AC_MSG_WARN([in case JAVA_HOME is incorrectly set, some projects will not be built correctly])
         add_warning "JAVA_HOME was not explicitly informed with --with-jdk-home. the configure script"
         add_warning "attempted to find JAVA_HOME automatically, but apparently it failed"
-        add_warning "in case JAVA_HOME is incorrectly set, some projects with not be built correctly"
+        add_warning "in case JAVA_HOME is incorrectly set, some projects will not be built correctly"
     fi
     PathFormat "$JAVA_HOME"
     JAVA_HOME="$formatted_path"
@@ -7843,7 +7889,7 @@ libo_CHECK_SYSTEM_MODULE([libwpd],[WPD],[libwpd-0.10],["-I${WORKDIR}/UnpackedTar
 libo_CHECK_SYSTEM_MODULE([libwpg],[WPG],[libwpg-0.3])
 
 libo_CHECK_SYSTEM_MODULE([libwps],[WPS],[libwps-0.4])
-libo_PKG_VERSION([WPS], [libwps-0.4], [0.4.8])
+libo_PKG_VERSION([WPS], [libwps-0.4], [0.4.10])
 
 libo_CHECK_SYSTEM_MODULE([libvisio],[VISIO],[libvisio-0.1])
 
@@ -7852,10 +7898,10 @@ libo_CHECK_SYSTEM_MODULE([libcdr],[CDR],[libcdr-0.1])
 libo_CHECK_SYSTEM_MODULE([libmspub],[MSPUB],[libmspub-0.1])
 
 libo_CHECK_SYSTEM_MODULE([libmwaw],[MWAW],[libmwaw-0.3 >= 0.3.1])
-libo_PKG_VERSION([MWAW], [libmwaw-0.3], [0.3.13])
+libo_PKG_VERSION([MWAW], [libmwaw-0.3], [0.3.14])
 
 libo_CHECK_SYSTEM_MODULE([libetonyek],[ETONYEK],[libetonyek-0.1])
-libo_PKG_VERSION([ETONYEK], [libetonyek-0.1], [0.1.7])
+libo_PKG_VERSION([ETONYEK], [libetonyek-0.1], [0.1.8])
 
 libo_CHECK_SYSTEM_MODULE([libfreehand],[FREEHAND],[libfreehand-0.1])
 
@@ -7871,7 +7917,7 @@ libo_CHECK_SYSTEM_MODULE([libqxp],[QXP],[libqxp-0.0])
 libo_CHECK_SYSTEM_MODULE([libzmf],[ZMF],[libzmf-0.0])
 
 libo_CHECK_SYSTEM_MODULE([libstaroffice],[STAROFFICE],[libstaroffice-0.0])
-libo_PKG_VERSION([STAROFFICE], [libstaroffice-0.0], [0.0.4])
+libo_PKG_VERSION([STAROFFICE], [libstaroffice-0.0], [0.0.6])
 
 dnl ===================================================================
 dnl Check for system lcms2
@@ -8246,7 +8292,7 @@ internal)
     SYSTEM_PYTHON=
     PYTHON_VERSION_MAJOR=3
     PYTHON_VERSION_MINOR=5
-    PYTHON_VERSION=${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}.4
+    PYTHON_VERSION=${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}.5
     if ! grep -q -i python.*${PYTHON_VERSION} ${SRC_ROOT}/download.lst; then
         AC_MSG_ERROR([PYTHON_VERSION ${PYTHON_VERSION} but no matching file in download.lst])
     fi
@@ -8478,6 +8524,7 @@ if test "$with_java" != "no"; then
         AC_MSG_RESULT([internal])
         SYSTEM_HSQLDB=
         BUILD_TYPE="$BUILD_TYPE HSQLDB"
+        NEED_ANT=TRUE
         AC_MSG_CHECKING([whether hsqldb should be built with JDBC 4.1])
         javanumver=`$JAVAINTERPRETER -version 2>&1 | $AWK -v num=true -f $SRC_ROOT/solenv/bin/getcompver.awk`
         if expr "$javanumver" '>=' 000100060000 > /dev/null; then
@@ -8495,7 +8542,9 @@ fi
 dnl ===================================================================
 dnl Check for PostgreSQL stuff
 dnl ===================================================================
+AC_MSG_CHECKING([whether to build the PostgreSQL SDBC driver])
 if test "x$enable_postgresql_sdbc" != "xno"; then
+    AC_MSG_RESULT([yes])
     SCPDEFS="$SCPDEFS -DWITH_POSTGRESQL_SDBC"
 
     if test "$with_krb5" = "yes" -a "$enable_openssl" = "no"; then
@@ -8636,6 +8685,8 @@ if test "x$enable_postgresql_sdbc" != "xno"; then
         LIBS=$save_LIBS
     fi
     BUILD_POSTGRESQL_SDBC=TRUE
+else
+    AC_MSG_RESULT([no])
 fi
 AC_SUBST(WITH_KRB5)
 AC_SUBST(WITH_GSSAPI)
@@ -8744,6 +8795,7 @@ int fb_api_is_30(void) { return 0; }
 
         BUILD_TYPE="$BUILD_TYPE FIREBIRD"
         ENABLE_FIREBIRD_SDBC="TRUE"
+        AC_DEFINE(ENABLE_FIREBIRD_SDBC)
     fi
 fi
 AC_SUBST(ENABLE_FIREBIRD_SDBC)
@@ -8996,7 +9048,7 @@ SYSTEM_GENBRK=
 SYSTEM_GENCCODE=
 SYSTEM_GENCMN=
 
-ICU_MAJOR=61
+ICU_MAJOR=62
 ICU_MINOR=1
 ICU_RECLASSIFIED_PREPEND_SET_EMPTY="TRUE"
 ICU_RECLASSIFIED_CONDITIONAL_JAPANESE_STARTER="TRUE"
@@ -9424,6 +9476,24 @@ fi
 
 AC_SUBST([DISABLE_OPENSSL])
 
+if test "$enable_cipher_openssl_backend" = yes && test "$DISABLE_OPENSSL" = TRUE; then
+    if test "$libo_fuzzed_enable_cipher_openssl_backend" = yes; then
+        AC_MSG_NOTICE([Resetting --enable-cipher-openssl-backend=no])
+        enable_cipher_openssl_backend=no
+    else
+        AC_MSG_ERROR([--enable-cipher-openssl-backend needs OpenSSL, but --disable-openssl was given.])
+    fi
+fi
+AC_MSG_CHECKING([whether to enable the OpenSSL backend for rtl/cipher.h])
+ENABLE_CIPHER_OPENSSL_BACKEND=
+if test "$enable_cipher_openssl_backend" = yes; then
+    AC_MSG_RESULT([yes])
+    ENABLE_CIPHER_OPENSSL_BACKEND=TRUE
+else
+    AC_MSG_RESULT([no])
+fi
+AC_SUBST([ENABLE_CIPHER_OPENSSL_BACKEND])
+
 dnl ===================================================================
 dnl Check for building gnutls
 dnl ===================================================================
@@ -9639,6 +9709,45 @@ if test "$with_system_libexttextcat" = "yes"; then
     SYSTEM_LIBEXTTEXTCAT_DATA=file://`$PKG_CONFIG --variable=pkgdatadir libexttextcat`
 fi
 AC_SUBST(SYSTEM_LIBEXTTEXTCAT_DATA)
+
+dnl ===================================================================
+dnl Checking for libnumbertext
+dnl ===================================================================
+AC_MSG_CHECKING([whether to use libnumbertext])
+if test "$enable_libnumbertext" = "no"; then
+    AC_MSG_RESULT([no])
+    ENABLE_LIBNUMBERTEXT=
+    SYSTEM_LIBNUMBERTEXT=
+else
+    AC_MSG_RESULT([yes])
+    ENABLE_LIBNUMBERTEXT=TRUE
+    libo_CHECK_SYSTEM_MODULE([libnumbertext],[LIBNUMBERTEXT],[libnumbertext >= 1.0.0])
+    if test "$with_system_libnumbertext" = "yes"; then
+        SYSTEM_LIBNUMBERTEXT_DATA=file://`$PKG_CONFIG --variable=pkgdatadir libnumbertext`
+        SYSTEM_LIBNUMBERTEXT=YES
+    else
+        SYSTEM_LIBNUMBERTEXT=
+        AC_LANG_PUSH([C++])
+        save_CPPFLAGS=$CPPFLAGS
+        CPPFLAGS="$CPPFLAGS $CXXFLAGS_CXX11"
+        AC_CHECK_HEADERS([codecvt regex])
+        AS_IF([test "x$ac_cv_header_codecvt" != xyes -o "x$ac_cv_header_regex" != xyes],
+                [ ENABLE_LIBNUMBERTEXT=''
+                  LIBNUMBERTEXT_CFLAGS=''
+                  AC_MSG_WARN([No system-provided libnumbertext or codecvt/regex C++11 headers (min. libstdc++ 4.9).
+                               Enable libnumbertext fallback (missing number to number name conversion).])
+                ])
+        CPPFLAGS=$save_CPPFLAGS
+        AC_LANG_POP([C++])
+    fi
+    if test "$ENABLE_LIBNUMBERTEXT" = TRUE; then
+        AC_DEFINE(ENABLE_LIBNUMBERTEXT)
+    fi
+fi
+AC_SUBST(SYSTEM_LIBNUMBERTEXT)
+AC_SUBST(SYSTEM_LIBNUMBERTEXT_DATA)
+AC_SUBST(ENABLE_LIBNUMBERTEXT)
+AC_SUBST(LIBNUMBERTEXT_CFLAGS)
 
 dnl ***************************************
 dnl testing libc version for Linux...
@@ -9955,6 +10064,9 @@ dnl ===================================================================
 ENABLE_DBUS=""
 DBUS_CFLAGS=""
 DBUS_LIBS=""
+DBUS_GLIB_CFLAGS=""
+DBUS_GLIB_LIBS=""
+DBUS_HAVE_GLIB=""
 
 if test "$enable_dbus" = "no"; then
     test_dbus=no
@@ -9964,11 +10076,21 @@ AC_MSG_CHECKING([whether to enable DBUS support])
 if test "$test_dbus" = "yes"; then
     ENABLE_DBUS="TRUE"
     AC_MSG_RESULT([yes])
-    PKG_CHECK_MODULES(DBUS, dbus-glib-1 >= 0.70)
+    PKG_CHECK_MODULES(DBUS, dbus-1 >= 0.60)
     AC_DEFINE(ENABLE_DBUS)
     DBUS_CFLAGS=$(printf '%s' "$DBUS_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
     FilterLibs "${DBUS_LIBS}"
     DBUS_LIBS="${filteredlibs}"
+
+    # Glib is needed for BluetoothServer
+    # Sets also DBUS_GLIB_CFLAGS/DBUS_GLIB_LIBS if successful.
+    PKG_CHECK_MODULES(DBUS_GLIB,[glib-2.0 >= 2.4],
+        [
+            DBUS_HAVE_GLIB="TRUE"
+            AC_DEFINE(DBUS_HAVE_GLIB,1)
+        ],
+        AC_MSG_WARN([[No Glib found, Bluetooth support will be disabled]])
+    )
 else
     AC_MSG_RESULT([no])
 fi
@@ -9976,6 +10098,9 @@ fi
 AC_SUBST(ENABLE_DBUS)
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
+AC_SUBST(DBUS_GLIB_CFLAGS)
+AC_SUBST(DBUS_GLIB_LIBS)
+AC_SUBST(DBUS_HAVE_GLIB)
 
 AC_MSG_CHECKING([whether to enable Impress remote control])
 if test -n "$enable_sdremote" -a "$enable_sdremote" != "no"; then
@@ -10000,7 +10125,7 @@ if test -n "$enable_sdremote" -a "$enable_sdremote" != "no"; then
 
     if test "$enable_sdremote_bluetooth" != "no"; then
         if test "$OS" = "LINUX"; then
-            if test "$ENABLE_DBUS" = "TRUE"; then
+            if test "$ENABLE_DBUS" = "TRUE" -a "$DBUS_HAVE_GLIB" = "TRUE"; then
                 AC_MSG_RESULT([yes])
                 ENABLE_SDREMOTE_BLUETOOTH=TRUE
                 dnl ===================================================================
@@ -10046,7 +10171,6 @@ dnl ===================================================================
 
 GTK_CFLAGS=""
 GTK_LIBS=""
-ENABLE_SYSTRAY_GTK=""
 if test  "$test_gtk" = "yes"; then
 
     if test "$ENABLE_GTK" = "TRUE"; then
@@ -10060,10 +10184,6 @@ if test  "$test_gtk" = "yes"; then
         FilterLibs "${GTHREAD_LIBS}"
         GTHREAD_LIBS="${filteredlibs}"
 
-        if test "x$enable_systray" = "xyes"; then
-            ENABLE_SYSTRAY_GTK="TRUE"
-        fi
-
         AC_MSG_CHECKING([whether to enable Gtk print dialog support])
         PKG_CHECK_MODULES([GTK_PRINT], [gtk+-unix-print-2.0 >= 2.10.0],
                           [ENABLE_GTK_PRINT="TRUE"],
@@ -10071,7 +10191,9 @@ if test  "$test_gtk" = "yes"; then
         GTK_PRINT_CFLAGS=$(printf '%s' "$GTK_PRINT_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
         FilterLibs "${GTK_PRINT_LIBS}"
         GTK_PRINT_LIBS="${filteredlibs}"
+    fi
 
+    if test "$ENABLE_GTK" = "TRUE" || test "$ENABLE_GTK3" = "TRUE"; then
         AC_MSG_CHECKING([whether to enable GIO support])
         if test "$_os" != "WINNT" -a "$_os" != "Darwin" -a "$enable_gio" = "yes"; then
             dnl Need at least 2.26 for the dbus support.
@@ -10091,7 +10213,6 @@ fi
 AC_SUBST(ENABLE_GIO)
 AC_SUBST(GIO_CFLAGS)
 AC_SUBST(GIO_LIBS)
-AC_SUBST(ENABLE_SYSTRAY_GTK)
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LIBS)
 AC_SUBST(GTHREAD_CFLAGS)
@@ -10554,6 +10675,7 @@ if test "$enable_report_builder" != "no" -a "$with_java" != "no"; then
         AC_MSG_RESULT([internal])
         SYSTEM_JFREEREPORT=
         BUILD_TYPE="$BUILD_TYPE JFREEREPORT"
+        NEED_ANT=TRUE
     fi
 else
     AC_MSG_RESULT([no])
@@ -10597,6 +10719,7 @@ if test "$ENABLE_REPORTBUILDER" = "TRUE"; then
         AC_MSG_RESULT([internal])
         SYSTEM_APACHE_COMMONS=
         BUILD_TYPE="$BUILD_TYPE APACHE_COMMONS"
+        NEED_ANT=TRUE
     fi
 fi
 AC_SUBST(SYSTEM_APACHE_COMMONS)
@@ -10659,6 +10782,7 @@ if test "${enable_scripting_javascript}" != "no" -a "x$with_java" != "xno"; then
         AC_MSG_RESULT([internal])
         SYSTEM_RHINO=
         BUILD_TYPE="$BUILD_TYPE RHINO"
+        NEED_ANT=TRUE
     fi
 else
     AC_MSG_RESULT([no])
@@ -11043,6 +11167,7 @@ then
     fi
 
     QT5_CFLAGS="-I$qt5_incdir -DQT_CLEAN_NAMESPACE -DQT_THREAD_SUPPORT"
+    QT5_CFLAGS=$(printf '%s' "$QT5_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
     QT5_LIBS="-L$qt5_libdir -lQt5Core -lQt5Gui -lQt5Widgets -lQt5Network"
 
     dnl Check for Meta Object Compiler
@@ -11081,8 +11206,14 @@ if test \( "$test_kde5" = "yes" -a "$ENABLE_KDE5" = "TRUE" \) -o \
         \( "$test_kf5" = "yes" -a "$ENABLE_KF5" = "TRUE" \) -o \
         \( "$test_gtk3_kde5" = "yes" -a "$ENABLE_GTK3_KDE5" = "TRUE" \)
 then
-    kf5_incdirs="$KF5INC /usr/include/ $x_includes"
-    kf5_libdirs="$KF5LIB /usr/lib /usr/lib/kf5 /usr/lib/kf5/devel $x_libraries"
+    if test "$OS" = "HAIKU"; then
+        haiku_arch="`echo $RTL_ARCH | tr X x`"
+        kf5_haiku_incdirs="`findpaths -c ' ' -a $haiku_arch B_FIND_PATH_HEADERS_DIRECTORY`"
+        kf5_haiku_libdirs="`findpaths -c ' ' -a $haiku_arch B_FIND_PATH_DEVELOP_LIB_DIRECTORY`"
+    fi
+
+    kf5_incdirs="$KF5INC /usr/include/ $kf5_haiku_incdirs $x_includes"
+    kf5_libdirs="$KF5LIB /usr/lib /usr/lib/kf5 /usr/lib/kf5/devel $kf5_haiku_libdirs $x_libraries"
     if test -n "$supports_multilib"; then
         kf5_libdirs="$kf5_libdirs /usr/lib64 /usr/lib64/kf5 /usr/lib64/kf5/devel"
     fi
@@ -11130,7 +11261,7 @@ then
     PKG_CHECK_MODULES(KF5_XCB,[xcb],,[AC_MSG_ERROR([XCB not installed])])
 
     KF5_CFLAGS="-I$kf5_incdir -I$kf5_incdir/KCoreAddons -I$kf5_incdir/KI18n -I$kf5_incdir/KConfigCore -I$kf5_incdir/KWindowSystem -I$kf5_incdir/KIOCore -I$kf5_incdir/KIOWidgets -I$kf5_incdir/KIOFileWidgets -I$qt5_incdir -I$qt5_incdir/QtCore -I$qt5_incdir/QtGui -I$qt5_incdir/QtWidgets -I$qt5_incdir/QtNetwork -DQT_CLEAN_NAMESPACE -DQT_THREAD_SUPPORT $KF5_XCB_CFLAGS"
-    KF5_LIBS="-L$kf5_libdir -lKF5CoreAddons -lKF5I18n -lKF5ConfigCore -lKF5WindowSystem -lKF5KIOCore -lKF5KIOWidgets -lKF5KIOFileWidgets -L$qt5_libdir -lQt5Core -lQt5Gui -lQt5Widgets -lQt5Network -lQt5X11Extras $KF5_XCB_LIBS"
+    KF5_LIBS="-L$kf5_libdir -lKF5CoreAddons -lKF5I18n -lKF5ConfigCore -lKF5WindowSystem -lKF5KIOCore -lKF5KIOWidgets -lKF5KIOFileWidgets -L$qt5_libdir -lQt5Core -lQt5Gui -lQt5Widgets -lQt5Network $KF5_XCB_LIBS"
     KF5_CFLAGS=$(printf '%s' "$KF5_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
 
     AC_LANG_PUSH([C++])
@@ -11176,15 +11307,15 @@ dnl ===================================================================
 AC_MSG_CHECKING([which themes to include])
 # if none given use default subset of available themes
 if test "x$with_theme" = "x" -o "x$with_theme" = "xyes"; then
-    with_theme="breeze breeze_dark colibre elementary galaxy sifr sifr_dark tango"
+    with_theme="breeze breeze_dark colibre elementary karasa_jaga sifr sifr_dark tango"
 fi
 
 WITH_THEMES=""
 if test "x$with_theme" != "xno"; then
     for theme in $with_theme; do
         case $theme in
-        breeze|breeze_dark|colibre|elementary|galaxy|oxygen|sifr|sifr_dark|tango) real_theme="$theme" ;;
-        default) real_theme=galaxy ;;
+        breeze|breeze_dark|colibre|elementary|karasa_jaga|sifr|sifr_dark|tango) real_theme="$theme" ;;
+        default) real_theme=colibre ;;
         *) AC_MSG_ERROR([Unknown value for --with-theme: $theme]) ;;
         esac
         WITH_THEMES=`echo "$WITH_THEMES $real_theme"|tr '\ ' '\n'|sort|uniq|tr '\n' '\ '`
@@ -11192,10 +11323,10 @@ if test "x$with_theme" != "xno"; then
 fi
 AC_MSG_RESULT([$WITH_THEMES])
 AC_SUBST([WITH_THEMES])
-# FIXME: remove this, and the convenience default->galaxy remapping after a crace period
+# FIXME: remove this, and the convenience default->colibre remapping after a crace period
 for theme in $with_theme; do
     case $theme in
-    default) AC_MSG_WARN([--with-theme=default is deprecated and will be removed, use --with-theme=galaxy]) ;;
+    default) AC_MSG_WARN([--with-theme=default is deprecated and will be removed, use --with-theme=colibre]) ;;
     *) ;;
     esac
 done
@@ -11205,14 +11336,11 @@ dnl Test whether to integrate helppacks into the product's installer
 dnl ===================================================================
 AC_MSG_CHECKING([for helppack integration])
 if test "$with_helppack_integration" = "no"; then
-    WITH_HELPPACK_INTEGRATION=
     AC_MSG_RESULT([no integration])
 else
-    WITH_HELPPACK_INTEGRATION=TRUE
     SCPDEFS="$SCPDEFS -DWITH_HELPPACK_INTEGRATION"
     AC_MSG_RESULT([integration])
 fi
-AC_SUBST(WITH_HELPPACK_INTEGRATION)
 
 ###############################################################################
 # Extensions checking
@@ -11240,31 +11368,20 @@ if test "x$with_java" != "xno"; then
     libo_CHECK_EXTENSION([LanguageTool],[LANGUAGETOOL],[languagetool],[languagetool],[])
 fi
 
-TEST_FONTS_MISSING=0
-
-# $1  = font family
-# $2+ = accepted font mappings
-test_font_map()
-{
-    FONT="$1" ; shift
-    AC_MSG_CHECKING([font mapping for '$FONT'])
-    FONTFILE="$(basename `$FCMATCH -f '%{file}' "$FONT"`)"
-    FONTFILE_LOWER="$(echo $FONTFILE | $AWK '{print tolower($0)}')"
-
-    TESTEXPR="'${FONTFILE_LOWER}' = '$(echo $FONT | $AWK '{print tolower($0)}').ttf'"
-    while test "$#" -ge 1 ; do
-        MAPPING="$(echo $1 | $AWK '{print tolower($0)}')"; shift
-        TESTEXPR="${TESTEXPR} -o '${FONTFILE_LOWER}' = '$MAPPING-regular.ttf'"
-    done
-    if test $TESTEXPR
-    then
-        AC_MSG_RESULT([ok])
-    else
-        AC_MSG_WARN([unknown ($FONTFILE)])
-        add_warning "unknown ($FONTFILE)"
-        TEST_FONTS_MISSING=1
+AC_MSG_CHECKING([whether to build opens___.ttf])
+if test "$enable_build_opensymbol" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AC_PATH_PROG(FONTFORGE, fontforge)
+    if test -z "$FONTFORGE"; then
+	AC_MSG_ERROR([fontforge not installed])
     fi
-}
+else
+    AC_MSG_RESULT([no])
+    OPENSYMBOL_TTF=49a64f3bcf20a7909ba2751349231d6652ded9cd2840e961b5164d09de3ffa63-opens___.ttf
+    BUILD_TYPE="$BUILD_TYPE OPENSYMBOL"
+fi
+AC_SUBST(OPENSYMBOL_TTF)
+AC_SUBST(FONTFORGE)
 
 dnl ===================================================================
 dnl Test whether to include fonts
@@ -11279,26 +11396,8 @@ else
     AC_MSG_RESULT([no])
     WITH_FONTS=
     SCPDEFS="$SCPDEFS -DWITHOUT_FONTS"
-    if test "$test_fontconfig" = "yes"; then
-        AC_PATH_PROG([FCMATCH], [fc-match])
-        if test -z "$FCMATCH"; then
-            AC_MSG_WARN([Unable to query installed fonts - unit tests disabled.])
-            TEST_FONTS_MISSING=1
-        else
-            test_font_map 'Calibri' 'Carlito'
-            test_font_map 'DejaVuSans' 'DejaVuSans'
-            if test ${TEST_FONTS_MISSING} -eq 1
-            then
-                AC_MSG_WARN([Unknown font mappings - unit tests disabled.])
-                add_warning "Unknown font mappings - unit tests disabled."
-            fi
-        fi
-    else
-        TEST_FONTS_MISSING=1
-    fi
 fi
 AC_SUBST(WITH_FONTS)
-AC_DEFINE_UNQUOTED([TEST_FONTS_MISSING], $TEST_FONTS_MISSING)
 
 
 dnl ===================================================================
@@ -11575,7 +11674,7 @@ dnl ===================================================================
 dnl Test for the presence of Ant and that it works
 dnl ===================================================================
 
-if test "$ENABLE_JAVA" != ""; then
+if test "$ENABLE_JAVA" != "" -a "$NEED_ANT" = "TRUE"; then
     ANT_HOME=; export ANT_HOME
     WITH_ANT_HOME=; export WITH_ANT_HOME
     if test -z "$with_ant_home" -a -n "$LODE_HOME" ; then
@@ -11618,6 +11717,9 @@ if test "$ENABLE_JAVA" != ""; then
         done
 
         AC_MSG_CHECKING([if $ANT works])
+        mkdir -p conftest.dir
+        a_cwd=$(pwd)
+        cd conftest.dir
         cat > conftest.java << EOF
         public class conftest {
             int testmethod(int a, int b) {
@@ -11652,7 +11754,8 @@ EOF
             cat conftest.xml >&5
             AC_MSG_ERROR([Ant does not work - Some Java projects will not build!])
         fi
-        rm -f conftest* core core.* *.core
+        cd "$a_cwd"
+        rm -fr conftest.dir
     fi
     if test -z "$ANT_HOME"; then
         ANT_HOME="NO_ANT_HOME"
@@ -11868,6 +11971,13 @@ AC_MSG_CHECKING([which languages to be built])
 ALL_LANGS="en-US $completelangiso"
 # check the configured localizations
 WITH_LANG="$with_lang"
+
+# Check for --without-lang which turns up as $with_lang being "no". Luckily there is no language with code "no".
+# (Norwegian is "nb" and "nn".)
+if test "$WITH_LANG" = "no"; then
+    WITH_LANG=
+fi
+
 if test -z "$WITH_LANG" -o "$WITH_LANG" = "en-US"; then
     AC_MSG_RESULT([en-US])
 else
@@ -12135,6 +12245,9 @@ AC_SUBST(MANDIR)
 DOCDIR=[$(eval echo $(eval echo $docdir))]
 AC_SUBST(DOCDIR)
 
+BINDIR=[$(eval echo $(eval echo $bindir))]
+AC_SUBST(BINDIR)
+
 INSTALLDIR="$LIBDIR/$INSTALLDIRNAME"
 AC_SUBST(INSTALLDIR)
 
@@ -12147,59 +12260,40 @@ AC_SUBST(TESTINSTALLDIR)
 # ===================================================================
 
 AC_MSG_CHECKING([for Google Drive client id and secret])
-GDRIVE_CLIENT_ID="\"$with_gdrive_client_id\""
-GDRIVE_CLIENT_SECRET="\"$with_gdrive_client_secret\""
 if test "$with_gdrive_client_id" = "no" -o -z "$with_gdrive_client_id"; then
-    GDRIVE_CLIENT_ID="\"\""
-fi
-
-if test "$with_gdrive_client_secret" = "no" -o -z "$with_gdrive_client_secret"; then
-    GDRIVE_CLIENT_SECRET="\"\""
-fi
-
-if test -z "$GDRIVE_CLIENT_ID" -o -z "$GDRIVE_CLIENT_SECRET"; then
     AC_MSG_RESULT([not set])
+    GDRIVE_CLIENT_ID="\"\""
+    GDRIVE_CLIENT_SECRET="\"\""
 else
     AC_MSG_RESULT([set])
+    GDRIVE_CLIENT_ID="\"$with_gdrive_client_id\""
+    GDRIVE_CLIENT_SECRET="\"$with_gdrive_client_secret\""
 fi
-
 AC_DEFINE_UNQUOTED(GDRIVE_CLIENT_ID, $GDRIVE_CLIENT_ID)
 AC_DEFINE_UNQUOTED(GDRIVE_CLIENT_SECRET, $GDRIVE_CLIENT_SECRET)
 
 AC_MSG_CHECKING([for Alfresco Cloud client id and secret])
-ALFRESCO_CLOUD_CLIENT_ID="\"$with_alfresco_cloud_client_id\""
-ALFRESCO_CLOUD_CLIENT_SECRET="\"$with_alfresco_cloud_client_secret\""
 if test "$with_alfresco_cloud_client_id" = "no" -o -z "$with_alfresco_cloud_client_id"; then
-    ALFRESCO_CLOUD_CLIENT_ID="\"\""
-fi
-
-if test "$with_alfresco_cloud_client_secret" = "no" -o -z "$with_alfresco_cloud_client_secret"; then
-    ALFRESCO_CLOUD_CLIENT_SECRET="\"\""
-fi
-
-if test -z "$ALFRESCO_CLOUD_CLIENT_ID" -o -z "$ALFRESCO_CLOUD_CLIENT_SECRET"; then
     AC_MSG_RESULT([not set])
+    ALFRESCO_CLOUD_CLIENT_ID="\"\""
+    ALFRESCO_CLOUD_CLIENT_SECRET="\"\""
 else
     AC_MSG_RESULT([set])
+    ALFRESCO_CLOUD_CLIENT_ID="\"$with_alfresco_cloud_client_id\""
+    ALFRESCO_CLOUD_CLIENT_SECRET="\"$with_alfresco_cloud_client_secret\""
 fi
 AC_DEFINE_UNQUOTED(ALFRESCO_CLOUD_CLIENT_ID, $ALFRESCO_CLOUD_CLIENT_ID)
 AC_DEFINE_UNQUOTED(ALFRESCO_CLOUD_CLIENT_SECRET, $ALFRESCO_CLOUD_CLIENT_SECRET)
 
 AC_MSG_CHECKING([for OneDrive client id and secret])
-ONEDRIVE_CLIENT_ID="\"$with_onedrive_client_id\""
-ONEDRIVE_CLIENT_SECRET="\"$with_onedrive_client_secret\""
 if test "$with_onedrive_client_id" = "no" -o -z "$with_onedrive_client_id"; then
-    ONEDRIVE_CLIENT_ID="\"\""
-fi
-
-if test "$with_onedrive_client_secret" = "no" -o -z "$with_onedrive_client_secret"; then
-    ONEDRIVE_CLIENT_SECRET="\"\""
-fi
-
-if test -z "$ONEDRIVE_CLIENT_ID" -o -z "$ONEDRIVE_CLIENT_SECRET"; then
     AC_MSG_RESULT([not set])
+    ONEDRIVE_CLIENT_ID="\"\""
+    ONEDRIVE_CLIENT_SECRET="\"\""
 else
     AC_MSG_RESULT([set])
+    ONEDRIVE_CLIENT_ID="\"$with_onedrive_client_id\""
+    ONEDRIVE_CLIENT_SECRET="\"$with_onedrive_client_secret\""
 fi
 AC_DEFINE_UNQUOTED(ONEDRIVE_CLIENT_ID, $ONEDRIVE_CLIENT_ID)
 AC_DEFINE_UNQUOTED(ONEDRIVE_CLIENT_SECRET, $ONEDRIVE_CLIENT_SECRET)
@@ -12289,13 +12383,8 @@ if test "$build_os" = "cygwin"; then
     fi
     ILIB1=-link
     if test "$BITNESS_OVERRIDE" = 64; then
-        if test $vcnum = "150"; then
-            ILIB="$ILIB;$COMPATH/lib/x64"
-            ILIB1="$ILIB1 -LIBPATH:$COMPATH/lib/x64"
-        else
-            ILIB="$ILIB;$COMPATH/lib/amd64"
-            ILIB1="$ILIB1 -LIBPATH:$COMPATH/lib/amd64"
-        fi
+        ILIB="$ILIB;$COMPATH/lib/x64"
+        ILIB1="$ILIB1 -LIBPATH:$COMPATH/lib/x64"
         ILIB="$ILIB;$WINDOWS_SDK_HOME/lib/x64"
         ILIB1="$ILIB1 -LIBPATH:$WINDOWS_SDK_HOME/lib/x64"
         if test $WINDOWS_SDK_VERSION = 80 -o $WINDOWS_SDK_VERSION = 81 -o $WINDOWS_SDK_VERSION = 10; then
@@ -12307,13 +12396,8 @@ if test "$build_os" = "cygwin"; then
         ILIB="$ILIB;$ucrtlibpath_formatted"
         ILIB1="$ILIB1 -LIBPATH:$ucrtlibpath_formatted"
     else
-        if test $vcnum = "150"; then
-            ILIB="$ILIB;$COMPATH/lib/x86"
-            ILIB1="$ILIB1 -LIBPATH:$COMPATH/lib/x86"
-        else
-            ILIB="$ILIB;$COMPATH/lib"
-            ILIB1="$ILIB1 -LIBPATH:$COMPATH/lib"
-        fi
+        ILIB="$ILIB;$COMPATH/lib/x86"
+        ILIB1="$ILIB1 -LIBPATH:$COMPATH/lib/x86"
         ILIB="$ILIB;$WINDOWS_SDK_HOME/lib"
         ILIB1="$ILIB1 -LIBPATH:$WINDOWS_SDK_HOME/lib"
         if test $WINDOWS_SDK_VERSION = 80 -o $WINDOWS_SDK_VERSION = 81 -o $WINDOWS_SDK_VERSION = 10; then
@@ -12480,7 +12564,7 @@ if test "$enable_mpl_subset" = "yes"; then
     fi
     for theme in $WITH_THEMES; do
         case $theme in
-        breeze|default|oxygen|sifr)
+        breeze|breeze_dark|sifr|sifr_dark|elementary|karasa_jaga) #blacklist of icon themes under GPL or LGPL
             AC_MSG_ERROR([need to disable icon themes from '$WITH_THEMES': $theme present, use --with-theme=tango]) ;;
         *) : ;;
         esac
@@ -12679,7 +12763,7 @@ AC_CONFIG_HEADERS([config_host/config_buildid.h])
 AC_CONFIG_HEADERS([config_host/config_clang.h])
 AC_CONFIG_HEADERS([config_host/config_dconf.h])
 AC_CONFIG_HEADERS([config_host/config_eot.h])
-AC_CONFIG_HEADERS([config_host/config_extension_update.h])
+AC_CONFIG_HEADERS([config_host/config_extensions.h])
 AC_CONFIG_HEADERS([config_host/config_cairo_canvas.h])
 AC_CONFIG_HEADERS([config_host/config_cxxabi.h])
 AC_CONFIG_HEADERS([config_host/config_dbus.h])
@@ -12694,6 +12778,7 @@ AC_CONFIG_HEADERS([config_host/config_langs.h])
 AC_CONFIG_HEADERS([config_host/config_lgpl.h])
 AC_CONFIG_HEADERS([config_host/config_libcxx.h])
 AC_CONFIG_HEADERS([config_host/config_liblangtag.h])
+AC_CONFIG_HEADERS([config_host/config_libnumbertext.h])
 AC_CONFIG_HEADERS([config_host/config_locales.h])
 AC_CONFIG_HEADERS([config_host/config_mpl.h])
 AC_CONFIG_HEADERS([config_host/config_kde4.h])
@@ -12703,7 +12788,6 @@ AC_CONFIG_HEADERS([config_host/config_gtk3_kde5.h])
 AC_CONFIG_HEADERS([config_host/config_oox.h])
 AC_CONFIG_HEADERS([config_host/config_options.h])
 AC_CONFIG_HEADERS([config_host/config_options_calc.h])
-AC_CONFIG_HEADERS([config_host/config_test.h])
 AC_CONFIG_HEADERS([config_host/config_typesizes.h])
 AC_CONFIG_HEADERS([config_host/config_vendor.h])
 AC_CONFIG_HEADERS([config_host/config_vcl.h])
@@ -12759,7 +12843,7 @@ place yourself in a working directory of you choice.
 
  git clone git://git.savannah.gnu.org/make.git
 
- [go to Start menu, click "All Programs", click "Visual Studio 2015", click "Visual Studio Tools", double-click "VS2015 x86 Native Tools Command Prompt" or "VS2015 x64 Native Tools Command Prompt"]
+ [go to Start menu, open "Visual Studio 2017", click "VS2017 x86 Native Tools Command Prompt" or "VS2017 x64 Native Tools Command Prompt"]
  set PATH=%PATH%;C:\Cygwin\bin
  [or Cygwin64, if that is what you have]
  cd path-to-make-repo-you-cloned-above

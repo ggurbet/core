@@ -27,6 +27,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/salbtype.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
 #include <svl/zformat.hxx>
 #include <svl/itemiter.hxx>
@@ -208,10 +209,9 @@ bool WW8Export::CollapseScriptsforWordOk( sal_uInt16 nScript, sal_uInt16 nWhich 
 
 void MSWordExportBase::ExportPoolItemsToCHP( ww8::PoolItems &rItems, sal_uInt16 nScript, const SvxFontItem *pFont, bool bWriteCombChars )
 {
-    ww8::cPoolItemIter aEnd = rItems.end();
-    for ( ww8::cPoolItemIter aI = rItems.begin(); aI != aEnd; ++aI )
+    for ( const auto& rItem : rItems )
     {
-        const SfxPoolItem *pItem = aI->second;
+        const SfxPoolItem *pItem = rItem.second;
         sal_uInt16 nWhich = pItem->Which();
         if ( ( isCHRATR( nWhich ) || isTXTATR( nWhich ) ) && CollapseScriptsforWordOk( nScript, nWhich ) )
         {
@@ -296,10 +296,9 @@ void MSWordExportBase::OutputItemSet( const SfxItemSet& rSet, bool bPapFormat, b
             ExportPoolItemsToCHP(aItems, nScript, nullptr);
         if ( bPapFormat )
         {
-            ww8::cPoolItemIter aEnd = aItems.end();
-            for ( ww8::cPoolItemIter aI = aItems.begin(); aI != aEnd; ++aI )
+            for ( const auto& rItem : aItems )
             {
-                pItem = aI->second;
+                pItem = rItem.second;
                 sal_uInt16 nWhich = pItem->Which();
                 // Handle fill attributes just like frame attributes for now.
                 if ( (nWhich >= RES_PARATR_BEGIN && nWhich < RES_FRMATR_END && nWhich != RES_PARATR_NUMRULE ) ||
@@ -344,15 +343,8 @@ bool MSWordExportBase::ContentContainsChapterField(const SwFormatContent &rConte
         sal_uLong nStart = aIdx.GetIndex();
         sal_uLong nEnd = aEnd.GetIndex();
         //If the header/footer contains a chapter field
-        mycCFIter aIEnd = m_aChapterFieldLocs.end();
-        for ( mycCFIter aI = m_aChapterFieldLocs.begin(); aI != aIEnd; ++aI )
-        {
-            if ( ( nStart <= *aI ) && ( *aI <= nEnd ) )
-            {
-                bRet = true;
-                break;
-            }
-        }
+        bRet = std::any_of(m_aChapterFieldLocs.cbegin(), m_aChapterFieldLocs.cend(),
+            [nStart, nEnd](sal_uLong i) { return ( nStart <= i ) && ( i <= nEnd ); });
     }
     return bRet;
 }
@@ -493,7 +485,6 @@ void MSWordExportBase::OutputSectionBreaks( const SfxItemSet *pSet, const SwNode
                     }
                 }
             }
-            bNewPageDesc = false; // if next node has RES_BREAK(page break) then bNewPageDesc value should be false.
             bBreakSet = true;
 
             if ( !bRemoveHardBreakInsideTable )
@@ -643,7 +634,7 @@ void WW8Export::PrepareNewPageDesc( const SfxItemSet*pSet,
     }
 }
 
-void MSWordExportBase::CorrectTabStopInSet( SfxItemSet& rSet, short nAbsLeft )
+void MSWordExportBase::CorrectTabStopInSet( SfxItemSet& rSet, sal_Int32 nAbsLeft )
 {
     if (const SvxTabStopItem *pItem = rSet.GetItem<SvxTabStopItem>(RES_PARATR_TABSTOP))
     {
@@ -1070,7 +1061,7 @@ void WW8AttributeOutput::OutputFKP(bool bForce)
     if (!m_rWW8Export.pO->empty() || bForce)
     {
         m_rWW8Export.m_pChpPlc->AppendFkpEntry( m_rWW8Export.Strm().Tell(),
-                m_rWW8Export.pO->size(), m_rWW8Export.pO->data() );
+                m_rWW8Export.pO->size(), m_rWW8Export.pO->data(), m_rWW8Export.pO->empty() );
         m_rWW8Export.pO->clear();
     }
 }
@@ -3241,10 +3232,8 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
 
 void AttributeOutputBase::TextFlyContent( const SwFormatFlyCnt& rFlyContent )
 {
-    if ( GetExport().m_pOutFormatNode && dynamic_cast< const SwContentNode *>( GetExport().m_pOutFormatNode ) != nullptr  )
+    if ( auto pTextNd = dynamic_cast< const SwContentNode *>( GetExport().m_pOutFormatNode )  )
     {
-        const SwTextNode* pTextNd = static_cast<const SwTextNode*>(GetExport().m_pOutFormatNode);
-
         Point aLayPos;
         aLayPos = pTextNd->FindLayoutRect( false, &aLayPos ).Pos();
 
@@ -3463,9 +3452,9 @@ void WW8AttributeOutput::TextFootnote_Impl( const SwFormatFootnote& rFootnote )
 {
     WW8_WrPlcFootnoteEdn* pFootnoteEnd;
     if ( rFootnote.IsEndNote() || GetExport().m_pDoc->GetFootnoteInfo().ePos == FTNPOS_CHAPTER )
-        pFootnoteEnd = m_rWW8Export.pEdn;
+        pFootnoteEnd = m_rWW8Export.pEdn.get();
     else
-        pFootnoteEnd = m_rWW8Export.pFootnote;
+        pFootnoteEnd = m_rWW8Export.pFootnote.get();
 
     pFootnoteEnd->Append( m_rWW8Export.Fc2Cp( m_rWW8Export.Strm().Tell() ), rFootnote );
     m_rWW8Export.WriteFootnoteBegin( rFootnote, m_rWW8Export.pO );
@@ -3745,7 +3734,7 @@ void WW8AttributeOutput::TableRowEnd(sal_uInt32 nDepth)
 
 void AttributeOutputBase::FormatPageDescription( const SwFormatPageDesc& rPageDesc )
 {
-    if ( GetExport().m_bStyDef && GetExport().m_pOutFormatNode && dynamic_cast< const SwTextFormatColl *>( GetExport().m_pOutFormatNode ) != nullptr )
+    if ( GetExport().m_bStyDef && dynamic_cast< const SwTextFormatColl *>( GetExport().m_pOutFormatNode ) )
     {
         const SwTextFormatColl* pC = static_cast<const SwTextFormatColl*>(GetExport().m_pOutFormatNode);
         if ( (SfxItemState::SET != pC->GetItemState( RES_BREAK, false ) ) && rPageDesc.KnowsPageDesc() )
@@ -4656,14 +4645,12 @@ void AttributeOutputBase::ParaLineSpacing( const SvxLineSpacingItem& rSpacing )
                 sal_uInt16 nScript =
                     i18n::ScriptType::LATIN;
                 const SwAttrSet *pSet = nullptr;
-                if ( GetExport().m_pOutFormatNode && dynamic_cast< const SwFormat *>( GetExport().m_pOutFormatNode ) != nullptr  )
+                if ( auto pFormat = dynamic_cast< const SwFormat *>( GetExport().m_pOutFormatNode ) )
                 {
-                    const SwFormat *pFormat = static_cast<const SwFormat*>( GetExport().m_pOutFormatNode );
                     pSet = &pFormat->GetAttrSet();
                 }
-                else if ( GetExport().m_pOutFormatNode && dynamic_cast< const SwTextNode *>( GetExport().m_pOutFormatNode ) != nullptr  )
+                else if ( auto pNd = dynamic_cast< const SwTextNode *>( GetExport().m_pOutFormatNode )  )
                 {
-                    const SwTextNode* pNd = static_cast<const SwTextNode*>(GetExport().m_pOutFormatNode);
                     pSet = &pNd->GetSwAttrSet();
                     nScript = g_pBreakIt->GetBreakIter()->getScriptType(pNd->GetText(), 0);
                 }
@@ -4676,9 +4663,9 @@ void AttributeOutputBase::ParaLineSpacing( const SvxLineSpacingItem& rSpacing )
             }
             else // Proportional
             {
-                nSpace = static_cast<short>( ( 240L * rSpacing.GetPropLineSpace() ) / 100L );
+                if ( rSpacing.GetInterLineSpaceRule() != SvxInterLineSpaceRule::Off )
+                    nSpace = static_cast<short>( ( 240L * rSpacing.GetPropLineSpace() ) / 100L );
                 nMulti = 1;
-                break;
             }
         }
         break;

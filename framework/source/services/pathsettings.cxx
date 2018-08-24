@@ -35,6 +35,7 @@
 
 #include <tools/urlobj.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 #include <cppuhelper/basemutex.hxx>
 #include <cppuhelper/propshlp.hxx>
@@ -102,11 +103,6 @@ class PathSettings : private cppu::BaseMutex
                 , bIsReadonly   (false)
             {}
 
-            PathInfo(const PathInfo& rCopy)
-            {
-                takeOver(rCopy);
-            }
-
             void takeOver(const PathInfo& rCopy)
             {
                 sPathName      = rCopy.sPathName;
@@ -170,7 +166,7 @@ private:
     /** helper to listen for configuration changes without ownership cycle problems */
     css::uno::Reference< css::util::XChangesListener > m_xCfgNewListener;
 
-    ::cppu::OPropertyArrayHelper* m_pPropHelp;
+    std::unique_ptr<::cppu::OPropertyArrayHelper> m_pPropHelp;
 
 public:
 
@@ -396,7 +392,7 @@ private:
     void impl_rebuildPropertyDescriptor();
 
     /** provides direct access to the list of path values
-        using it's internal property id.
+        using its internal property id.
      */
     css::uno::Any impl_getPathValue(      sal_Int32      nID ) const;
     void          impl_setPathValue(      sal_Int32      nID ,
@@ -468,8 +464,7 @@ void SAL_CALL PathSettings::disposing()
     m_xCfgNew.clear();
     m_xCfgNewListener.clear();
 
-    delete m_pPropHelp;
-    m_pPropHelp = nullptr;
+    m_pPropHelp.reset();
 }
 
 css::uno::Any SAL_CALL PathSettings::queryInterface( const css::uno::Type& _rType )
@@ -1099,8 +1094,7 @@ void PathSettings::impl_rebuildPropertyDescriptor()
         ++i;
     }
 
-    delete m_pPropHelp;
-    m_pPropHelp = new ::cppu::OPropertyArrayHelper(m_lPropDesc, false); // false => not sorted ... must be done inside helper
+    m_pPropHelp.reset(new ::cppu::OPropertyArrayHelper(m_lPropDesc, false)); // false => not sorted ... must be done inside helper
 
     // <- SAFE
 }

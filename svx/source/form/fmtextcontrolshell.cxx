@@ -23,7 +23,6 @@
 #include <fmtextcontrolfeature.hxx>
 #include <fmtextcontrolshell.hxx>
 #include <editeng/crossedoutitem.hxx>
-#include <svx/dialmgr.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/eeitem.hxx>
 #include <svx/fmglob.hxx>
@@ -58,6 +57,7 @@
 #include <svl/whiter.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <vcl/outdev.hxx>
 
 #include <memory>

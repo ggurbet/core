@@ -19,6 +19,7 @@
 
 #include <rtl/uri.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <osl/file.hxx>
 
 #include <osl/diagnose.h>
@@ -456,9 +457,9 @@ BaseContent::getContentType()
         if( m_nState & JustInserted )
         {
             if ( m_bFolder )
-                return m_pMyShell->FolderContentType;
+                return TaskManager::FolderContentType;
             else
-                return m_pMyShell->FileContentType;
+                return TaskManager::FileContentType;
         }
         else
         {
@@ -476,9 +477,9 @@ BaseContent::getContentType()
                 if ( !xRow->wasNull() )
                 {
                     if ( IsDocument )
-                        return m_pMyShell->FileContentType;
+                        return TaskManager::FileContentType;
                     else
-                        return m_pMyShell->FolderContentType;
+                        return TaskManager::FolderContentType;
                 }
                 else
                 {
@@ -568,10 +569,10 @@ BaseContent::createNewContent( const ContentInfo& Info )
     if ( Info.Type.isEmpty() )
         return Reference< XContent >();
 
-    bool bFolder = Info.Type == m_pMyShell->FolderContentType;
+    bool bFolder = Info.Type == TaskManager::FolderContentType;
     if ( !bFolder )
     {
-        if ( Info.Type != m_pMyShell->FileContentType )
+        if ( Info.Type != TaskManager::FileContentType )
         {
             // Neither folder nor file to create!
             return Reference< XContent >();
@@ -732,8 +733,8 @@ BaseContent::getPropertyValues(
 
             if ( rProp.Name == "ContentType" )
             {
-                rValue <<= m_bFolder ? m_pMyShell->FolderContentType
-                    : m_pMyShell->FileContentType;
+                rValue <<= OUString(m_bFolder ? TaskManager::FolderContentType
+                    : TaskManager::FileContentType);
             }
             else if ( rProp.Name == "IsFolder" )
             {
@@ -1259,7 +1260,7 @@ BaseContent::cPCL()
 
     if( length )
     {
-        ListenerMap* listener = new ListenerMap;
+        std::unique_ptr<ListenerMap> listener(new ListenerMap);
         for( sal_Int32 i = 0; i < length; ++i )
         {
             cppu::OInterfaceContainerHelper* pContainer = m_pPropertyListener->getContainer(seqNames[i]);
@@ -1268,8 +1269,7 @@ BaseContent::cPCL()
             (*listener)[seqNames[i]] = pContainer->getElements();
         }
 
-        p.reset( new PropertyChangeNotifier( this,
-                                        listener ) );
+        p.reset( new PropertyChangeNotifier( this, std::move(listener) ) );
     }
 
     return p;

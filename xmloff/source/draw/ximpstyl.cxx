@@ -26,6 +26,7 @@
 #include <tools/debug.hxx>
 #include <o3tl/make_unique.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
@@ -381,14 +382,12 @@ SdXMLPageMasterContext::SdXMLPageMasterContext(
         OUString sAttrName = xAttrList->getNameByIndex(i);
         OUString aLocalName;
         sal_uInt16 nPrefix = GetSdImport().GetNamespaceMap().GetKeyByAttrName(sAttrName, &aLocalName);
-        OUString sValue = xAttrList->getValueByIndex(i);
         const SvXMLTokenMap& rAttrTokenMap = GetSdImport().GetPageMasterAttrTokenMap();
 
         switch(rAttrTokenMap.Get(nPrefix, aLocalName))
         {
             case XML_TOK_PAGEMASTER_NAME:
             {
-                msName = sValue;
                 break;
             }
         }
@@ -426,19 +425,6 @@ SdXMLPresentationPageLayoutContext::SdXMLPresentationPageLayoutContext(
 {
     // set family to something special at SvXMLStyleContext
     // for differences in search-methods
-
-    sal_Int16 nAttrCount = xAttrList.is() ? xAttrList->getLength() : 0;
-    for( sal_Int16 i=0; i < nAttrCount; i++ )
-    {
-        const OUString& rAttrName = xAttrList->getNameByIndex( i );
-        OUString aLocalName;
-        sal_uInt16 nPrefix = GetImport().GetNamespaceMap().GetKeyByAttrName( rAttrName, &aLocalName );
-
-        if(nPrefix == XML_NAMESPACE_STYLE && IsXMLToken( aLocalName, XML_NAME ) )
-        {
-            msName = xAttrList->getValueByIndex( i );
-        }
-    }
 }
 
 SvXMLImportContextRef SdXMLPresentationPageLayoutContext::CreateChildContext(
@@ -678,10 +664,7 @@ SdXMLPresentationPlaceholderContext::SdXMLPresentationPlaceholderContext(
     OUString& rLName,
     const uno::Reference< xml::sax::XAttributeList>& xAttrList)
 :   SvXMLImportContext( rImport, nPrfx, rLName),
-    mnX(0),
-    mnY(0),
-    mnWidth(1),
-    mnHeight(1)
+    mnX(0)
 {
     sal_Int16 nAttrCount = xAttrList.is() ? xAttrList->getLength() : 0;
     for(sal_Int16 i=0; i < nAttrCount; i++)
@@ -707,20 +690,14 @@ SdXMLPresentationPlaceholderContext::SdXMLPresentationPlaceholderContext(
             }
             case XML_TOK_PRESENTATIONPLACEHOLDER_Y:
             {
-                GetSdImport().GetMM100UnitConverter().convertMeasureToCore(
-                        mnY, sValue);
                 break;
             }
             case XML_TOK_PRESENTATIONPLACEHOLDER_WIDTH:
             {
-                GetSdImport().GetMM100UnitConverter().convertMeasureToCore(
-                        mnWidth, sValue);
                 break;
             }
             case XML_TOK_PRESENTATIONPLACEHOLDER_HEIGHT:
             {
-                GetSdImport().GetMM100UnitConverter().convertMeasureToCore(
-                        mnHeight, sValue);
                 break;
             }
         }
@@ -741,6 +718,7 @@ SdXMLMasterPageContext::SdXMLMasterPageContext(
 :   SdXMLGenericPageContext( rImport, nPrfx, rLName, xAttrList, rShapes )
 {
     const bool bHandoutMaster = IsXMLToken( rLName, XML_HANDOUT_MASTER );
+    OUString sStyleName, sPageMasterName;
 
     const sal_Int16 nAttrCount = xAttrList.is() ? xAttrList->getLength() : 0;
     for(sal_Int16 i=0; i < nAttrCount; i++)
@@ -765,12 +743,12 @@ SdXMLMasterPageContext::SdXMLMasterPageContext(
             }
             case XML_TOK_MASTERPAGE_PAGE_MASTER_NAME:
             {
-                msPageMasterName = sValue;
+                sPageMasterName = sValue;
                 break;
             }
             case XML_TOK_MASTERPAGE_STYLE_NAME:
             {
-                msStyleName = sValue;
+                sStyleName = sValue;
                 break;
             }
             case XML_TOK_MASTERPAGE_PAGE_LAYOUT_NAME:
@@ -812,12 +790,12 @@ SdXMLMasterPageContext::SdXMLMasterPageContext(
     }
 
     // set page-master?
-    if(!msPageMasterName.isEmpty())
+    if(!sPageMasterName.isEmpty())
     {
-        SetPageMaster( msPageMasterName );
+        SetPageMaster( sPageMasterName );
     }
 
-    SetStyle( msStyleName );
+    SetStyle( sStyleName );
 
     SetLayout();
 

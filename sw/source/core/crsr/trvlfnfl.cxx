@@ -34,6 +34,7 @@
 #include <ftnidx.hxx>
 #include <viscrs.hxx>
 #include "callnk.hxx"
+#include <svx/srchdlg.hxx>
 
 bool SwCursorShell::CallCursorFN( FNCursor fnCursor )
 {
@@ -99,11 +100,10 @@ bool SwCursorShell::GotoFootnoteText()
                                                         (pFrame)->ContainsContent();
                         if( pCnt )
                         {
-                            const SwContentNode* pNode = pCnt->GetNode();
-                            GetCursor_()->GetPoint()->nNode = *pNode;
-                            GetCursor_()->GetPoint()->nContent.Assign(
-                                const_cast<SwContentNode*>(pNode),
-                                static_cast<const SwTextFrame*>(pCnt)->GetOfst() );
+                            SwTextFrame const*const pTF(
+                                    static_cast<const SwTextFrame*>(pCnt));
+                            *GetCursor_()->GetPoint() =
+                                    pTF->MapViewToModelPos(pTF->GetOfst());
                             UpdateCursor( SwCursorShell::SCROLLWIN |
                                 SwCursorShell::CHKRANGE | SwCursorShell::READONLY );
                             bRet = true;
@@ -180,6 +180,12 @@ bool SwCursor::GotoNextFootnoteAnchor()
     const SwTextFootnote* pTextFootnote = nullptr;
     size_t nPos = 0;
 
+    if( !rFootnoteArr.size() )
+    {
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
+        return false;
+    }
+
     if( rFootnoteArr.SeekEntry( GetPoint()->nNode, &nPos ))
     {
         // there is a footnote with this index, so search also for the next one
@@ -220,6 +226,14 @@ bool SwCursor::GotoNextFootnoteAnchor()
     else if( nPos < rFootnoteArr.size() )
         pTextFootnote = rFootnoteArr[ nPos ];
 
+    if (pTextFootnote == nullptr)
+    {
+        pTextFootnote = rFootnoteArr[ 0 ];
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::EndWrapped );
+    }
+    else
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+
     bool bRet = nullptr != pTextFootnote;
     if( bRet )
     {
@@ -238,6 +252,12 @@ bool SwCursor::GotoPrevFootnoteAnchor()
     const SwFootnoteIdxs& rFootnoteArr = GetDoc()->GetFootnoteIdxs();
     const SwTextFootnote* pTextFootnote = nullptr;
     size_t nPos = 0;
+
+    if( !rFootnoteArr.size() )
+    {
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
+        return false;
+    }
 
     if( rFootnoteArr.SeekEntry( GetPoint()->nNode, &nPos ) )
     {
@@ -276,6 +296,14 @@ bool SwCursor::GotoPrevFootnoteAnchor()
     }
     else if( nPos )
         pTextFootnote = rFootnoteArr[ nPos-1 ];
+
+    if( pTextFootnote == nullptr )
+    {
+        pTextFootnote = rFootnoteArr[ rFootnoteArr.size() - 1 ];
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::StartWrapped );
+    }
+    else
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
 
     bool bRet = nullptr != pTextFootnote;
     if( bRet )

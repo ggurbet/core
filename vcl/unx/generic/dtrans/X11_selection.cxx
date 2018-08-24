@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cstdlib>
 
@@ -521,7 +522,7 @@ SelectionAdaptor* SelectionManager::getAdaptor( Atom selection )
 OUString SelectionManager::convertFromCompound( const char* pText, int nLen )
 {
     osl::MutexGuard aGuard( m_aMutex );
-    OUString aRet;
+    OUStringBuffer aRet;
     if( nLen < 0 )
         nLen = strlen( pText );
 
@@ -539,12 +540,12 @@ OUString SelectionManager::convertFromCompound( const char* pText, int nLen )
                                &nTexts );
     rtl_TextEncoding aEncoding = osl_getThreadTextEncoding();
     for( int i = 0; i < nTexts; i++ )
-        aRet += OStringToOUString( pTextList[i], aEncoding );
+        aRet.append(OStringToOUString( pTextList[i], aEncoding ));
 
     if( pTextList )
         XFreeStringList( pTextList );
 
-    return aRet;
+    return aRet.makeStringAndClear();
 }
 
 OString SelectionManager::convertToCompound( const OUString& rText )
@@ -943,11 +944,8 @@ bool SelectionManager::getPasteData( Atom selection, Atom type, Sequence< sal_In
             }
             else
             {
-                TimeValue aTVal;
-                aTVal.Seconds = 0;
-                aTVal.Nanosec = 100000000;
                 aGuard.clear();
-                osl_waitThread( &aTVal );
+                osl::Thread::wait(std::chrono::milliseconds(100));
                 aGuard.reset();
             }
             if( bHandle )
@@ -3369,15 +3367,12 @@ void SelectionManager::dragDoDispatch()
 #if OSL_DEBUG_LEVEL > 1
     fprintf( stderr, "begin executeDrag dispatching\n" );
 #endif
-    TimeValue aTVal;
-    aTVal.Seconds = 0;
-    aTVal.Nanosec = 200000000;
     oslThread aThread = m_aDragExecuteThread;
     while( m_xDragSourceListener.is() && ( ! m_bDropSent || time(nullptr)-m_nDropTimeout < 5 ) && osl_scheduleThread( aThread ) )
     {
         // let the thread in the run method do the dispatching
         // just look occasionally here whether drop timed out or is completed
-        osl_waitThread( &aTVal );
+        osl::Thread::wait(std::chrono::milliseconds(200));
     }
 #if OSL_DEBUG_LEVEL > 1
     fprintf( stderr, "end executeDrag dispatching\n" );

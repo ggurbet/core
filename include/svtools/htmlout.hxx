@@ -66,13 +66,13 @@ struct HTMLOutFuncs
                         rtl_TextEncoding eDestEnc,
                         OUString *pNonConvertableChars = nullptr );
     SVT_DLLPUBLIC static SvStream& Out_Hex( SvStream&, sal_uLong nHex, sal_uInt8 nLen );
-    SVT_DLLPUBLIC static SvStream& Out_Color( SvStream&, const Color& );
+    SVT_DLLPUBLIC static SvStream& Out_Color( SvStream&, const Color&, bool bXHTML = false );
     SVT_DLLPUBLIC static SvStream& Out_ImageMap( SvStream&, const OUString&, const ImageMap&, const OUString&,
                                    const HTMLOutEvent *pEventTable,
                                    bool bOutStarBasic,
                                    const sal_Char *pDelim,
                                    const sal_Char *pIndentArea,
-                                   const sal_Char *pIndentMap = nullptr,
+                                   const sal_Char *pIndentMap,
                                    rtl_TextEncoding eDestEnc = RTL_TEXTENCODING_MS_1252,
                                    OUString *pNonConvertableChars = nullptr );
     SVT_DLLPUBLIC static SvStream& FlushToAscii( SvStream&, HTMLOutContext& rContext );

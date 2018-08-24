@@ -19,7 +19,7 @@
 #ifndef INCLUDED_SW_SOURCE_FILTER_HTML_SWHTML_HXX
 #define INCLUDED_SW_SOURCE_FILTER_HTML_SWHTML_HXX
 
-#include <config_features.h>
+#include <config_java.h>
 
 #include <sfx2/sfxhtml.hxx>
 #include <svl/macitem.hxx>
@@ -207,7 +207,7 @@ class HTMLAttrContext
 
     OUString    m_aClass;          // context class
 
-    HTMLAttrContext_SaveDoc *m_pSaveDocContext;
+    std::unique_ptr<HTMLAttrContext_SaveDoc> m_pSaveDocContext;
     std::unique_ptr<SfxItemSet> m_pFrameItemSet;
 
     HtmlTokenId m_nToken;         // the token of the context
@@ -238,52 +238,9 @@ public:
     void ClearSaveDocContext();
 
     HTMLAttrContext( HtmlTokenId nTokn, sal_uInt16 nPoolId, const OUString& rClass,
-                      bool bDfltColl=false ) :
-        m_aClass( rClass ),
-        m_pSaveDocContext( nullptr ),
-        m_nToken( nTokn ),
-        m_nTextFormatColl( nPoolId ),
-        m_nLeftMargin( 0 ),
-        m_nRightMargin( 0 ),
-        m_nFirstLineIndent( 0 ),
-        m_nUpperSpace( 0 ),
-        m_nLowerSpace( 0 ),
-        m_eAppend( AM_NONE ),
-        m_bLRSpaceChanged( false ),
-        m_bULSpaceChanged( false ),
-        m_bDefaultTextFormatColl( bDfltColl ),
-        m_bSpansSection( false ),
-        m_bPopStack( false ),
-        m_bFinishPREListingXMP( false ),
-        m_bRestartPRE( false ),
-        m_bRestartXMP( false ),
-        m_bRestartListing( false ),
-        m_bHeaderOrFooter( false )
-    {}
-
-    explicit HTMLAttrContext( HtmlTokenId nTokn ) :
-        m_pSaveDocContext( nullptr ),
-        m_nToken( nTokn ),
-        m_nTextFormatColl( 0 ),
-        m_nLeftMargin( 0 ),
-        m_nRightMargin( 0 ),
-        m_nFirstLineIndent( 0 ),
-        m_nUpperSpace( 0 ),
-        m_nLowerSpace( 0 ),
-        m_eAppend( AM_NONE ),
-        m_bLRSpaceChanged( false ),
-        m_bULSpaceChanged( false ),
-        m_bDefaultTextFormatColl( false ),
-        m_bSpansSection( false ),
-        m_bPopStack( false ),
-        m_bFinishPREListingXMP( false ),
-        m_bRestartPRE( false ),
-        m_bRestartXMP( false ),
-        m_bRestartListing( false ),
-        m_bHeaderOrFooter( false )
-    {}
-
-    ~HTMLAttrContext() { ClearSaveDocContext(); }
+                      bool bDfltColl=false );
+    explicit HTMLAttrContext( HtmlTokenId nTokn );
+    ~HTMLAttrContext();
 
     HtmlTokenId GetToken() const { return m_nToken; }
 
@@ -411,10 +368,10 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     //onto them until parsing is done
     std::vector<std::unique_ptr<SwTableBox>> m_aOrphanedTableBoxes;
 
-    SwApplet_Impl *m_pAppletImpl; // current applet
+    std::unique_ptr<SwApplet_Impl> m_pAppletImpl; // current applet
 
-    SwCSS1Parser    *m_pCSS1Parser;   // Style-Sheet-Parser
-    SwHTMLNumRuleInfo *m_pNumRuleInfo;
+    std::unique_ptr<SwCSS1Parser> m_pCSS1Parser;   // Style-Sheet-Parser
+    std::unique_ptr<SwHTMLNumRuleInfo> m_pNumRuleInfo;
     SwPendingStack  *m_pPendStack;
 
     rtl::Reference<SwDoc> m_xDoc;
@@ -424,12 +381,12 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
 
     std::vector<HTMLTable*> m_aTables;
     std::shared_ptr<HTMLTable> m_xTable; // current "outermost" table
-    SwHTMLForm_Impl *m_pFormImpl;   // current form
+    SwHTMLForm_Impl* m_pFormImpl;   // current form
     SdrObject       *m_pMarquee;    // current marquee
     std::unique_ptr<SwField> m_xField; // current field
     ImageMap        *m_pImageMap;   // current image map
-    ImageMaps       *m_pImageMaps;  ///< all Image-Maps that have been read
-    SwHTMLFootEndNote_Impl *m_pFootEndNoteImpl;
+    std::unique_ptr<ImageMaps> m_pImageMaps;  ///< all Image-Maps that have been read
+    std::unique_ptr<SwHTMLFootEndNote_Impl> m_pFootEndNoteImpl;
 
     Size    m_aHTMLPageSize;      // page size of HTML template
 
@@ -506,6 +463,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     SfxViewFrame* m_pTempViewFrame;
 
     bool m_bXHTML = false;
+    bool m_bReqIF = false;
 
     /**
      * Non-owning pointers to already inserted OLE nodes, matching opened
@@ -676,7 +634,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     // tags realized via character styles
     void NewCharFormat( HtmlTokenId nToken );
 
-    void ClearFootnotesInRange(const SwNodeIndex& rSttIdx, const SwNodeIndex& rEndIdx);
+    void ClearFootnotesMarksInRange(const SwNodeIndex& rSttIdx, const SwNodeIndex& rEndIdx);
 
     void DeleteSection(SwStartNode* pSttNd);
 
@@ -963,6 +921,13 @@ public:
     }
 
     void DeregisterHTMLTable(HTMLTable* pOld);
+
+    SwDoc* GetDoc() const;
+
+    bool IsReqIF() const;
+
+    /// Strips query and fragment from a URL path if base URL is a file:// one.
+    static OUString StripQueryFromPath(const OUString& rBase, const OUString& rPath);
 };
 
 struct SwPendingStackData

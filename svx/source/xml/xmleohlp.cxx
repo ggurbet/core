@@ -32,6 +32,7 @@
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <sot/storage.hxx>
 #include <tools/debug.hxx>
+#include <sal/log.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/tempfile.hxx>
 
@@ -42,6 +43,7 @@
 
 #include <comphelper/fileformat.h>
 #include <comphelper/classids.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <svx/xmleohlp.hxx>
 #include <map>
@@ -118,10 +120,11 @@ void SAL_CALL OutputStorageWrapper_Impl::closeOutput()
     bStreamClosed = true;
 }
 
+static const OUStringLiteral gaReplacementGraphicsContainerStorageName( XML_CONTAINERSTORAGE_NAME );
+static const OUStringLiteral gaReplacementGraphicsContainerStorageName60( XML_CONTAINERSTORAGE_NAME_60 );
+
 SvXMLEmbeddedObjectHelper::SvXMLEmbeddedObjectHelper() :
     WeakComponentImplHelper< XEmbeddedObjectResolver, XNameAccess >( maMutex ),
-    maReplacementGraphicsContainerStorageName( XML_CONTAINERSTORAGE_NAME ),
-    maReplacementGraphicsContainerStorageName60( XML_CONTAINERSTORAGE_NAME_60 ),
     mpDocPersist( nullptr ),
     meCreateMode( SvXMLEmbeddedObjectHelperMode::Read ),
     mpStreamMap( nullptr )
@@ -130,8 +133,6 @@ SvXMLEmbeddedObjectHelper::SvXMLEmbeddedObjectHelper() :
 
 SvXMLEmbeddedObjectHelper::SvXMLEmbeddedObjectHelper( ::comphelper::IEmbeddedHelper& rDocPersist, SvXMLEmbeddedObjectHelperMode eCreateMode ) :
     WeakComponentImplHelper< XEmbeddedObjectResolver, XNameAccess >( maMutex ),
-    maReplacementGraphicsContainerStorageName( XML_CONTAINERSTORAGE_NAME ),
-    maReplacementGraphicsContainerStorageName60( XML_CONTAINERSTORAGE_NAME_60 ),
     mpDocPersist( nullptr ),
     meCreateMode( SvXMLEmbeddedObjectHelperMode::Read ),
     mpStreamMap( nullptr )
@@ -280,8 +281,8 @@ bool SvXMLEmbeddedObjectHelper::ImplGetStorageNames(
             bool bOASIS = mxRootStorage.is() &&
                 ( SotStorage::GetVersion( mxRootStorage ) > SOFFICE_FILEFORMAT_60 );
             rContainerStorageName = bOASIS
-                    ? maReplacementGraphicsContainerStorageName
-                    : maReplacementGraphicsContainerStorageName60;
+                    ? gaReplacementGraphicsContainerStorageName
+                    : gaReplacementGraphicsContainerStorageName60;
 
             if( pGraphicRepl )
                 *pGraphicRepl = true;
@@ -551,7 +552,6 @@ rtl::Reference<SvXMLEmbeddedObjectHelper> SvXMLEmbeddedObjectHelper::Create(
     return pThis;
 }
 
-// XGraphicObjectResolver: alien objects!
 OUString SAL_CALL SvXMLEmbeddedObjectHelper::resolveEmbeddedObjectURL(const OUString& rURL)
 {
     MutexGuard          aGuard( maMutex );
@@ -565,11 +565,12 @@ OUString SAL_CALL SvXMLEmbeddedObjectHelper::resolveEmbeddedObjectURL(const OUSt
     {
         throw;
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
+        css::uno::Any anyEx = cppu::getCaughtException();
         throw WrappedTargetRuntimeException(
             "SvXMLEmbeddedObjectHelper::resolveEmbeddedObjectURL non-RuntimeException",
-            static_cast<uno::XWeak*>(this), uno::makeAny(e));
+            static_cast<uno::XWeak*>(this), anyEx);
     }
     return sRet;
 }

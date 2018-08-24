@@ -10,15 +10,15 @@
 #ifndef INCLUDED_SC_INC_EXTERNALDATAMAPPER_HXX
 #define INCLUDED_SC_INC_EXTERNALDATAMAPPER_HXX
 
-#include <memory>
 #include <vector>
 
 #include "scdllapi.h"
 
 #include <rtl/ustring.hxx>
 
+#include "orcusxml.hxx"
+
 class ScDocument;
-class ScDBData;
 
 namespace sc {
 
@@ -63,6 +63,8 @@ private:
      */
     OUString maID;
 
+    ScOrcusImportXMLParam maParam;
+
     double mnUpdateFrequency;
 
     std::shared_ptr<DataProvider> mpDataProvider;
@@ -77,20 +79,20 @@ public:
     ExternalDataSource(const OUString& rURL,
             const OUString& rProvider, ScDocument* pDoc);
 
-    ~ExternalDataSource();
-
     void setUpdateFrequency(double nUpdateFrequency);
 
     void setID(const OUString& rID);
     void setURL(const OUString& rURL);
     void setProvider(const OUString& rProvider);
+    void setXMLImportParam(const ScOrcusImportXMLParam& rParam);
 
     const OUString& getURL() const;
     const OUString& getProvider() const;
     const OUString& getID() const;
+    const ScOrcusImportXMLParam& getXMLImportParam() const;
     double getUpdateFrequency() const;
     OUString getDBName() const;
-    void setDBData(const ScDBData* pDBData);
+    void setDBData(const OUString& rDBName);
     ScDBDataManager* getDBManager();
 
     void refresh(ScDocument* pDoc, bool bDeterministic = false);

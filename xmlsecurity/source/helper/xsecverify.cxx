@@ -42,7 +42,6 @@
 #include <unotools/datetime.hxx>
 #include <comphelper/base64.hxx>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/sequence.hxx>
 #include <comphelper/seqstream.hxx>
 
 using namespace css;
@@ -116,6 +115,14 @@ void XSecController::addSignature()
 
     InternalSignatureInformation isi( nSignatureId, xReferenceResolvedListener );
     m_vInternalSignatureInformations.push_back( isi );
+}
+
+void XSecController::setSignatureMethod(svl::crypto::SignatureMethodAlgorithm eAlgorithmID)
+{
+    if (m_vInternalSignatureInformations.empty())
+        return;
+
+    m_vInternalSignatureInformations.back().signatureInfor.eAlgorithmID = eAlgorithmID;
 }
 
 void XSecController::switchGpgSignature()

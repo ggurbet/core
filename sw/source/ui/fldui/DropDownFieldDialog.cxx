@@ -70,7 +70,7 @@ sw::DropDownFieldDialog::DropDownFieldDialog(weld::Window *pParent, SwWrtShell &
         const OUString* pArray = aItems.getConstArray();
         for (sal_Int32 i = 0; i < aItems.getLength(); ++i)
             m_xListItemsLB->append_text(pArray[i]);
-        m_xListItemsLB->select(m_pDropField->GetSelectedItem());
+        m_xListItemsLB->select_text(m_pDropField->GetSelectedItem());
     }
 
     bool bEnable = !m_rSh.IsCursorReadonly();
@@ -87,13 +87,13 @@ void sw::DropDownFieldDialog::Apply()
 {
     if (m_pDropField)
     {
-        OUString sSelect = m_xListItemsLB->get_selected();
+        OUString sSelect = m_xListItemsLB->get_selected_text();
         if (m_pDropField->GetPar1() != sSelect)
         {
             m_rSh.StartAllAction();
 
             std::unique_ptr<SwDropDownField> const pCopy(
-                static_cast<SwDropDownField*>(m_pDropField->CopyField()));
+                static_cast<SwDropDownField*>(m_pDropField->CopyField().release()));
 
             pCopy->SetPar1(sSelect);
             m_rSh.SwEditShell::UpdateFields(*pCopy);
@@ -117,7 +117,7 @@ bool sw::DropDownFieldDialog::NextButtonPressed() const
 IMPL_LINK_NOARG(sw::DropDownFieldDialog, EditHdl, weld::Button&, void)
 {
     m_pPressedButton = m_xEditPB.get();
-    m_xDialog->response(RET_OK);
+    m_xDialog->response(RET_YES);
 }
 
 IMPL_LINK_NOARG(sw::DropDownFieldDialog, PrevHdl, weld::Button&, void)

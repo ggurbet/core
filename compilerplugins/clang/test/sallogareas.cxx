@@ -8,6 +8,7 @@
  */
 
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 void func1();
 
@@ -44,14 +45,6 @@ int main()
     catch (std::exception const&)
     {
         DBG_UNHANDLED_EXCEPTION("xmloff");
-    }
-    try
-    {
-        func1();
-    }
-    catch (std::exception const&)
-    {
-        DBG_UNHANDLED_EXCEPTION(); // expected-error {{missing log area [loplugin:sallogareas]}}
     }
 }
 

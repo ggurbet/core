@@ -101,7 +101,7 @@ public:
     sal_Int32 mnEndCP;
     bool bIsParaEnd;
 
-    SW_DLLPUBLIC SwFltStackEntry(const SwPosition & rStartPos, SfxPoolItem* pHt );
+    SW_DLLPUBLIC SwFltStackEntry(const SwPosition & rStartPos, std::unique_ptr<SfxPoolItem> pHt );
     SW_DLLPUBLIC ~SwFltStackEntry();
 
     SW_DLLPUBLIC void SetEndPos(  const SwPosition & rEndPos);
@@ -124,8 +124,7 @@ private:
     SwFltControlStack(SwFltControlStack const&) = delete;
     SwFltControlStack& operator=(SwFltControlStack const&) = delete;
 
-    typedef std::deque<std::unique_ptr<SwFltStackEntry>> Entries;
-    typedef Entries::iterator myEIter;
+    typedef std::vector<std::unique_ptr<SwFltStackEntry>> Entries;
     Entries m_Entries;
 
     sal_uLong nFieldFlags;

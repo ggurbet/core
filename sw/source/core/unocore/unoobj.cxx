@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/table/TableSortField.hpp>
-#include <comphelper/string.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <o3tl/any.hxx>
@@ -748,7 +747,7 @@ void SwXTextCursor::DeleteAndInsert(const OUString& rText,
                 SwUnoCursorHelper::SelectPam(*pUnoCursor, true);
                 pCurrent->Left(rText.getLength());
             }
-            pCurrent = static_cast<SwCursor*>(pCurrent->GetNext());
+            pCurrent = pCurrent->GetNext();
         } while (pCurrent != pUnoCursor);
         pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT, nullptr);
     }
@@ -1752,12 +1751,13 @@ uno::Any SwUnoCursorHelper::GetPropertyValue(
 void SwUnoCursorHelper::SetPropertyValue(
     SwPaM& rPaM, const SfxItemPropertySet& rPropSet,
     const OUString& rPropertyName,
-    const uno::Any& rValue)
+    const uno::Any& rValue,
+    const SetAttrMode nAttrMode)
 {
     uno::Sequence< beans::PropertyValue > aValues(1);
     aValues[0].Name = rPropertyName;
     aValues[0].Value = rValue;
-    SetPropertyValues(rPaM, rPropSet, aValues, SetAttrMode::DEFAULT);
+    SetPropertyValues(rPaM, rPropSet, aValues, nAttrMode);
 }
 
 // FN_UNO_PARA_STYLE is known to set attributes for nodes, inside

@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <comphelper/string.hxx>
 #include <unotools/charclass.hxx>
 #include <editeng/unolingu.hxx>
 #include <wrtsh.hxx>
@@ -104,6 +103,10 @@ SwFieldInputDlg::SwFieldInputDlg(weld::Window *pParent, SwWrtShell &rS,
     if( !aStr.isEmpty() )
         m_xEditED->set_text(convertLineEnd(aStr, GetSystemLineEnd()));
     m_xEditED->grab_focus();
+
+    // preselect all text to allow quickly changing the content
+    if (bEnable)
+        m_xEditED->select_region(0, -1);
 }
 
 SwFieldInputDlg::~SwFieldInputDlg()

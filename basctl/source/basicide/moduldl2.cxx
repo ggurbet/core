@@ -151,9 +151,9 @@ CheckBox::CheckBox(vcl::Window* pParent, WinBits nStyle)
     , eMode(ObjectMode::Module)
     , m_aDocument(ScriptDocument::getApplicationScriptDocument())
 {
-    long const aTabs_[] = { 1, 12 };  // TabPos needs at least one...
-                                      // 12 because of the CheckBox
-    SetTabs( aTabs_ );
+    long const aTabPositions[] = { 12 };  // TabPos needs at least one...
+                                          // 12 because of the CheckBox
+    SetTabs( SAL_N_ELEMENTS(aTabPositions), aTabPositions );
     Init();
 }
 
@@ -166,8 +166,7 @@ CheckBox::~CheckBox()
 
 void CheckBox::dispose()
 {
-    delete pCheckButton;
-    pCheckButton = nullptr;
+    pCheckButton.reset();
 
     // delete user data
     SvTreeListEntry* pEntry = First();
@@ -182,10 +181,10 @@ void CheckBox::dispose()
 
 void CheckBox::Init()
 {
-    pCheckButton = new SvLBoxButtonData(this);
+    pCheckButton.reset(new SvLBoxButtonData(this));
 
     if (eMode == ObjectMode::Library)
-        EnableCheckButton( pCheckButton );
+        EnableCheckButton( pCheckButton.get() );
     else
         EnableCheckButton( nullptr );
 
@@ -197,7 +196,7 @@ void CheckBox::SetMode (ObjectMode e)
     eMode = e;
 
     if (eMode == ObjectMode::Library)
-        EnableCheckButton( pCheckButton );
+        EnableCheckButton( pCheckButton.get() );
     else
         EnableCheckButton( nullptr );
 }
@@ -419,34 +418,24 @@ IMPL_LINK_NOARG(GotoLineDialog, OkButtonHandler, weld::Button&, void)
 }
 
 // ExportDialog
-IMPL_LINK_NOARG(ExportDialog, OkButtonHandler, Button*, void)
+IMPL_LINK_NOARG(ExportDialog, OkButtonHandler, weld::Button&, void)
 {
-    mbExportAsPackage = m_pExportAsPackageButton->IsChecked();
-    EndDialog(1);
+    m_bExportAsPackage = m_xExportAsPackageButton->get_active();
+    m_xDialog->response(RET_OK);
 }
 
-ExportDialog::ExportDialog(vcl::Window * pParent)
-    : ModalDialog(pParent, "ExportDialog",
-        "modules/BasicIDE/ui/exportdialog.ui")
-    , mbExportAsPackage(false)
+ExportDialog::ExportDialog(weld::Window * pParent)
+    : GenericDialogController(pParent, "modules/BasicIDE/ui/exportdialog.ui", "ExportDialog")
+    , m_bExportAsPackage(false)
+    , m_xExportAsPackageButton(m_xBuilder->weld_radio_button("extension"))
+    , m_xOKButton(m_xBuilder->weld_button("ok"))
 {
-    get(m_pExportAsPackageButton, "extension");
-    get(m_pOKButton, "ok");
-
-    m_pExportAsPackageButton->Check();
-    m_pOKButton->SetClickHdl(LINK(this, ExportDialog, OkButtonHandler));
+    m_xExportAsPackageButton->set_active(true);
+    m_xOKButton->connect_clicked(LINK(this, ExportDialog, OkButtonHandler));
 }
 
 ExportDialog::~ExportDialog()
 {
-    disposeOnce();
-}
-
-void ExportDialog::dispose()
-{
-    m_pExportAsPackageButton.clear();
-    m_pOKButton.clear();
-    ModalDialog::dispose();
 }
 
 // LibPage
@@ -484,8 +473,8 @@ LibPage::LibPage(vcl::Window * pParent)
     m_pLibBox->EnableInplaceEditing(true);
     m_pLibBox->SetStyle( WB_HSCROLL | WB_BORDER | WB_TABSTOP );
 
-    long const aTabs[] = { 2, 30, 120 };
-    m_pLibBox->SetTabs( aTabs, MapUnit::MapPixel );
+    long const aTabPositions[] = { 30, 120 };
+    m_pLibBox->SetTabs( SAL_N_ELEMENTS(aTabPositions), aTabPositions, MapUnit::MapPixel );
 
     FillListBox();
     m_pBasicsBox->SelectEntryPos( 0 );
@@ -1103,15 +1092,15 @@ void LibPage::Export()
             return;
     }
 
-    ScopedVclPtrInstance<ExportDialog> aNewDlg(this);
-    if (aNewDlg->Execute() == RET_OK)
+    std::unique_ptr<ExportDialog> xNewDlg(new ExportDialog(GetFrameWeld()));
+    if (xNewDlg->run() == RET_OK)
     {
         try
         {
-            bool bExportAsPackage = aNewDlg->isExportAsPackage();
-            //tdf#112063 ensure closing aNewDlg is not selected as
+            bool bExportAsPackage = xNewDlg->isExportAsPackage();
+            //tdf#112063 ensure closing xNewDlg is not selected as
             //parent of file dialog from ExportAs...
-            aNewDlg.disposeAndClear();
+            xNewDlg.reset();
             if (bExportAsPackage)
                 ExportAsPackage( aLibName );
             else

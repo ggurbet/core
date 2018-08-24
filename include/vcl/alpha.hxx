@@ -34,10 +34,10 @@ class VCL_DLLPUBLIC AlphaMask : private Bitmap
 public:
 
                 AlphaMask();
-                AlphaMask( const Bitmap& rBitmap );
+    explicit    AlphaMask( const Bitmap& rBitmap );
                 AlphaMask( const AlphaMask& rAlphaMask );
                 AlphaMask( AlphaMask&& rAlphaMask );
-                AlphaMask( const Size& rSizePixel, const sal_uInt8* pEraseTransparency = nullptr );
+    explicit    AlphaMask( const Size& rSizePixel, const sal_uInt8* pEraseTransparency = nullptr );
     virtual     ~AlphaMask() override;
 
     AlphaMask&  operator=( const Bitmap& rBitmap );
@@ -58,7 +58,7 @@ public:
     Bitmap const & GetBitmap() const;
 
     void        Erase( sal_uInt8 cTransparency );
-    bool        Replace( const Bitmap& rMask, sal_uInt8 rReplaceTransparency );
+    void        Replace( const Bitmap& rMask, sal_uInt8 rReplaceTransparency );
     void        Replace( sal_uInt8 cSearchTransparency, sal_uInt8 cReplaceTransparency );
 
     BitmapReadAccess*  AcquireReadAccess() { return Bitmap::AcquireReadAccess(); }
@@ -72,7 +72,7 @@ public:
 private:
     friend class BitmapEx;
     friend class ::OutputDevice;
-    friend bool VCL_DLLPUBLIC ReadDIBBitmapEx(BitmapEx& rTarget, SvStream& rIStm);
+    friend bool VCL_DLLPUBLIC ReadDIBBitmapEx(BitmapEx& rTarget, SvStream& rIStm, bool bFileHeader, bool bMSOFormat);
 
     SAL_DLLPRIVATE const Bitmap&    ImplGetBitmap() const;
     SAL_DLLPRIVATE void             ImplSetBitmap( const Bitmap& rBitmap );

@@ -82,6 +82,10 @@ public:
     void testDataLabelDoughnutChartDOCX();
     void testDataLabelAreaChartDOCX();
     void testDataLabelDefaultLineChartDOCX();
+    void testChartTitlePropertiesColorFillDOCX();
+    void testChartTitlePropertiesGradientFillDOCX();
+    void testChartTitlePropertiesBitmapFillDOCX();
+    void testBarChartDataPointPropDOCX();
     void testFdo83058dlblPos();
     void testAutoTitleDelXLSX();
     void testDispBlanksAsXLSX();
@@ -96,6 +100,11 @@ public:
     void testTitleManualLayoutXLSX();
     void testPlotAreaManualLayoutXLSX();
     void testLegendManualLayoutXLSX();
+    void testChartTitlePropertiesColorFillXLSX();
+    void testChartTitlePropertiesGradientFillXLSX();
+    void testChartTitlePropertiesBitmapFillXLSX();
+    void testBarChartDataPointPropXLSX();
+    void testDataseriesOverlapStackedChartXLSX();
     void testAxisCharacterPropertiesXLSX();
     void testTitleCharacterPropertiesXLSX();
     void testPlotVisOnlyXLSX();
@@ -107,7 +116,11 @@ public:
     void testCustomDataLabel();
     void testCustomDataLabelMultipleSeries();
     void testNumberFormatExportPPTX();
+    void testChartTitlePropertiesColorFillPPTX();
+    void testChartTitlePropertiesGradientFillPPTX();
+    void testChartTitlePropertiesBitmapFillPPTX();
     void testTdf116163();
+    void testTdf119029();
 
     CPPUNIT_TEST_SUITE(Chart2ExportTest);
     CPPUNIT_TEST(testErrorBarXLSX);
@@ -152,6 +165,10 @@ public:
     CPPUNIT_TEST(testDataLabelDoughnutChartDOCX);
     CPPUNIT_TEST(testDataLabelAreaChartDOCX);
     CPPUNIT_TEST(testDataLabelDefaultLineChartDOCX);
+    CPPUNIT_TEST(testChartTitlePropertiesColorFillDOCX);
+    CPPUNIT_TEST(testChartTitlePropertiesGradientFillDOCX);
+    CPPUNIT_TEST(testChartTitlePropertiesBitmapFillDOCX);
+    CPPUNIT_TEST(testBarChartDataPointPropDOCX);
     CPPUNIT_TEST(testFdo83058dlblPos);
     CPPUNIT_TEST(testAutoTitleDelXLSX);
     CPPUNIT_TEST(testDispBlanksAsXLSX);
@@ -166,6 +183,11 @@ public:
     CPPUNIT_TEST(testTitleManualLayoutXLSX);
     CPPUNIT_TEST(testPlotAreaManualLayoutXLSX);
     CPPUNIT_TEST(testLegendManualLayoutXLSX);
+    CPPUNIT_TEST(testChartTitlePropertiesColorFillXLSX);
+    CPPUNIT_TEST(testChartTitlePropertiesGradientFillXLSX);
+    CPPUNIT_TEST(testChartTitlePropertiesBitmapFillXLSX);
+    CPPUNIT_TEST(testBarChartDataPointPropXLSX);
+    CPPUNIT_TEST(testDataseriesOverlapStackedChartXLSX);
     CPPUNIT_TEST(testAxisCharacterPropertiesXLSX);
     CPPUNIT_TEST(testTitleCharacterPropertiesXLSX);
     CPPUNIT_TEST(testPlotVisOnlyXLSX);
@@ -177,7 +199,11 @@ public:
     CPPUNIT_TEST(testCustomDataLabel);
     CPPUNIT_TEST(testCustomDataLabelMultipleSeries);
     CPPUNIT_TEST(testNumberFormatExportPPTX);
+    CPPUNIT_TEST(testChartTitlePropertiesColorFillPPTX);
+    CPPUNIT_TEST(testChartTitlePropertiesGradientFillPPTX);
+    CPPUNIT_TEST(testChartTitlePropertiesBitmapFillPPTX);
     CPPUNIT_TEST(testTdf116163);
+    CPPUNIT_TEST(testTdf119029);
     CPPUNIT_TEST_SUITE_END();
 
 protected:
@@ -271,7 +297,7 @@ void testErrorBar( Reference< XPropertySet > const & xErrorBar )
     sal_Int32 nErrorBarStyle;
     CPPUNIT_ASSERT(
         xErrorBar->getPropertyValue("ErrorBarStyle") >>= nErrorBarStyle);
-    CPPUNIT_ASSERT_EQUAL(nErrorBarStyle, chart::ErrorBarStyle::RELATIVE);
+    CPPUNIT_ASSERT_EQUAL(chart::ErrorBarStyle::RELATIVE, nErrorBarStyle);
     bool bShowPositive = bool(), bShowNegative = bool();
     CPPUNIT_ASSERT(
         xErrorBar->getPropertyValue("ShowPositiveError") >>= bShowPositive);
@@ -432,7 +458,6 @@ void Chart2ExportTest::testErrorBarXLSX()
         CPPUNIT_ASSERT( xDataSeries.is() );
 
         Reference< beans::XPropertySet > xPropSet( xDataSeries, UNO_QUERY_THROW );
-        CPPUNIT_ASSERT( xPropSet.is() );
 
         // test that y error bars are there
         Reference< beans::XPropertySet > xErrorBarYProps;
@@ -449,7 +474,6 @@ void Chart2ExportTest::testErrorBarXLSX()
         CPPUNIT_ASSERT( xDataSeries.is() );
 
         Reference< beans::XPropertySet > xPropSet( xDataSeries, UNO_QUERY_THROW );
-        CPPUNIT_ASSERT( xPropSet.is() );
 
         // test that y error bars are there
         Reference< beans::XPropertySet > xErrorBarYProps;
@@ -1053,6 +1077,52 @@ void Chart2ExportTest::testDataLabelDefaultLineChartDOCX()
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Line chart's default label placement should be 'right'.", chart::DataLabelPlacement::RIGHT, nLabelPlacement );
 }
 
+void Chart2ExportTest::testChartTitlePropertiesColorFillDOCX()
+{
+    load("/chart2/qa/extras/data/docx/", "testChartTitlePropertiesColorFill.docx");
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart","Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:solidFill/a:srgbClr", "val", "ff0000");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testChartTitlePropertiesGradientFillDOCX()
+{
+    load("/chart2/qa/extras/data/docx/", "testChartTitlePropertiesGradientFill.docx");
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart","Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:gradFill/a:gsLst/a:gs[1]/a:srgbClr", "val", "cccccc");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:gradFill/a:gsLst/a:gs[2]/a:srgbClr", "val", "666666");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testChartTitlePropertiesBitmapFillDOCX()
+{
+    load("/chart2/qa/extras/data/docx/", "testChartTitlePropertiesBitmapFill.docx");
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart","Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:blipFill/a:blip", "embed", "rId1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testBarChartDataPointPropDOCX()
+{
+    load("/chart2/qa/extras/data/docx/", "testBarChartDataPointPropDOCX.docx");
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart", "Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:varyColors", "val", "0");
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:idx", "val", "1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:spPr/a:gradFill/a:gsLst/a:gs[1]/a:srgbClr", "val", "f6f8fc");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:spPr/a:gradFill/a:gsLst/a:gs[2]/a:srgbClr", "val", "c7d5ed");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:spPr/a:ln/a:solidFill/a:srgbClr", "val", "70ad47");
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:idx", "val", "2");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:spPr/a:solidFill/a:srgbClr", "val", "ff0000");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:spPr/a:ln/a:solidFill/a:srgbClr", "val", "000000");
+}
+
 void Chart2ExportTest::testBarChartRotation()
 {
     load ("/chart2/qa/extras/data/docx/", "barChartRotation.docx");
@@ -1143,7 +1213,6 @@ void Chart2ExportTest::testErrorBarDataRangeODS()
     CPPUNIT_ASSERT( xDataSeries.is() );
 
     Reference< beans::XPropertySet > xPropSet( xDataSeries, UNO_QUERY_THROW );
-    CPPUNIT_ASSERT( xPropSet.is() );
 
     // test that y error bars are there
     Reference< beans::XPropertySet > xErrorBarYProps;
@@ -1490,6 +1559,73 @@ void Chart2ExportTest::testLegendManualLayoutXLSX()
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:legend/c:txPr/a:p/a:pPr/a:defRPr", "sz", "900");
 }
 
+void Chart2ExportTest::testChartTitlePropertiesColorFillXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "testChartTitlePropertiesColorFill.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:solidFill/a:srgbClr", "val", "ff0000");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testChartTitlePropertiesGradientFillXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "testChartTitlePropertiesGradientFill.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:gradFill/a:gsLst/a:gs[1]/a:srgbClr", "val", "cccccc");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:gradFill/a:gsLst/a:gs[2]/a:srgbClr", "val", "666666");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testChartTitlePropertiesBitmapFillXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "testChartTitlePropertiesBitmapFill.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:blipFill/a:blip", "embed", "rId1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testBarChartDataPointPropXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "testBarChartDataPointPropXLSX.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:varyColors", "val", "0");
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:idx", "val", "1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:spPr/a:solidFill/a:srgbClr", "val", "ff0000");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[1]/c:spPr/a:ln/a:solidFill/a:srgbClr", "val", "000000");
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:idx", "val", "2");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:spPr/a:gradFill/a:gsLst/a:gs[1]/a:srgbClr", "val", "f6f8fc");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:spPr/a:gradFill/a:gsLst/a:gs[2]/a:srgbClr", "val", "c7d5ed");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dPt[2]/c:spPr/a:ln/a:solidFill/a:srgbClr", "val", "70ad47");
+}
+
+void Chart2ExportTest::testDataseriesOverlapStackedChartXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "testDataseriesOverlapStackedChart.xlsx");
+
+    // test the overlap value of a simple Stacked Column Chart
+    uno::Reference< chart2::XChartDocument > xChartDoc = getChartDocFromSheet( 0, mxComponent );
+    checkSheetForGapWidthAndOverlap(xChartDoc, 100, 0);
+
+    // test the overlap value of a Percent Stacked Bar Chart
+    xChartDoc = getChartDocFromSheet( 1, mxComponent );
+    checkSheetForGapWidthAndOverlap(xChartDoc, 100, 35);
+
+    reload("Calc Office Open XML");
+
+    xChartDoc = getChartDocFromSheet( 0, mxComponent );
+    checkSheetForGapWidthAndOverlap(xChartDoc, 100, 100);
+
+    xChartDoc = getChartDocFromSheet( 1, mxComponent );
+    checkSheetForGapWidthAndOverlap(xChartDoc, 100, 100);
+}
+
 void Chart2ExportTest::testAxisCharacterPropertiesXLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "axis_character_properties.xlsx");
@@ -1583,6 +1719,7 @@ void Chart2ExportTest::testCustomDataLabel()
     load("/chart2/qa/extras/data/pptx/", "tdf115107.pptx");
     xmlDocPtr pXmlDoc = parseExport("ppt/charts/chart1", "Impress MS PowerPoint 2007 XML");
     CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dLbls/c:dLbl[1]/c:txPr/a:p/a:pPr/a:defRPr/a:solidFill/a:srgbClr", "val", "404040");
 
     Reference<chart2::XChartDocument> xChartDoc(getChartDocFromDrawImpress(0, 0), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xChartDoc.is());
@@ -1741,6 +1878,34 @@ void Chart2ExportTest::testNumberFormatExportPPTX()
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dLbls/c:numFmt", "sourceLinked", "0");
 }
 
+void Chart2ExportTest::testChartTitlePropertiesColorFillPPTX()
+{
+    load("/chart2/qa/extras/data/pptx/", "testChartTitlePropertiesColorFill.pptx");
+    xmlDocPtr pXmlDoc = parseExport("ppt/charts/chart", "Impress MS PowerPoint 2007 XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:solidFill/a:srgbClr", "val", "ff0000");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testChartTitlePropertiesGradientFillPPTX()
+{
+    load("/chart2/qa/extras/data/pptx/", "testChartTitlePropertiesGradientFill.pptx");
+    xmlDocPtr pXmlDoc = parseExport("ppt/charts/chart", "Impress MS PowerPoint 2007 XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:gradFill/a:gsLst/a:gs[1]/a:srgbClr", "val", "f6f8fc");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:gradFill/a:gsLst/a:gs[2]/a:srgbClr", "val", "c7d5ed");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
+void Chart2ExportTest::testChartTitlePropertiesBitmapFillPPTX()
+{
+    load("/chart2/qa/extras/data/pptx/", "testChartTitlePropertiesBitmapFill.pptx");
+    xmlDocPtr pXmlDoc = parseExport("ppt/charts/chart", "Impress MS PowerPoint 2007 XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:blipFill/a:blip", "embed", "rId1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
+}
+
 void Chart2ExportTest::testTdf116163()
 {
     load("/chart2/qa/extras/data/pptx/", "tdf116163.pptx");
@@ -1748,6 +1913,18 @@ void Chart2ExportTest::testTdf116163()
     CPPUNIT_ASSERT(pXmlDoc);
 
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx/c:txPr/a:bodyPr", "rot", "-5400000");
+}
+
+void Chart2ExportTest::testTdf119029()
+{
+    load("/chart2/qa/extras/data/odp/", "tdf119029.odp");
+    // Only use "chart", without number, because the number depends on the previous tests
+    xmlDocPtr pXmlDoc = parseExport("ppt/charts/chart", "Impress MS PowerPoint 2007 XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc,
+                "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dLbls/c:txPr/a:bodyPr", "rot",
+                "-5400000");
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(Chart2ExportTest);

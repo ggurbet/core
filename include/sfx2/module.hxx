@@ -25,6 +25,7 @@
 #include <sfx2/dllapi.h>
 #include <sfx2/shell.hxx>
 #include <sfx2/styfitem.hxx>
+#include <sfx2/tabdlg.hxx>
 #include <svtools/imgdef.hxx>
 #include <sal/types.h>
 #include <tools/fldunit.hxx>
@@ -78,11 +79,11 @@ public:
     void                        RegisterStatusBarControl(const SfxStbCtrlFactory&);
 
     virtual VclPtr<SfxTabPage>  CreateTabPage( sal_uInt16 nId,
-                                               vcl::Window* pParent,
+                                               TabPageParent pParent,
                                                const SfxItemSet& rSet );
     virtual void                Invalidate(sal_uInt16 nId = 0) override;
 
-    virtual SfxStyleFamilies*   CreateStyleFamilies() { return nullptr; }
+    virtual std::unique_ptr<SfxStyleFamilies> CreateStyleFamilies() { return nullptr; }
 
     static SfxModule*           GetActiveModule( SfxViewFrame* pFrame=nullptr );
     static FieldUnit            GetCurrentFieldUnit();

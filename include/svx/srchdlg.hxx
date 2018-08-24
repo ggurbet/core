@@ -50,8 +50,6 @@ struct SearchAttrItem
     SfxPoolItem*    pItem;
 };
 
-// class SearchAttrItemList ----------------------------------------------
-
 typedef std::vector<SearchAttrItem> SrchAttrItemList;
 
 class SVX_DLLPUBLIC SearchAttrItemList : private SrchAttrItemList
@@ -76,9 +74,6 @@ public:
     // deletes the pointer to the items
     void Remove(size_t nPos);
 };
-
-
-// class SvxSearchDialogWrapper ------------------------------------------
 
 enum class SearchLabel
 {
@@ -108,16 +103,12 @@ public:
     SFX_DECL_CHILDWINDOW_WITHID(SvxSearchDialogWrapper);
 };
 
-// class SvxSearchDialog -------------------------------------------------
-/*
-    [Description]
+/**
     In this modeless dialog the attributes for a search are configured
     and a search is started from it. Several search types
     (search, search all, replace, replace all) are possible.
 
-    [Items]
-    <SvxSearchItem><SID_ATTR_SEARCH>
-*/
+ */
 
 class SvxSearchDialog : public SfxModelessDialog
 {
@@ -136,9 +127,9 @@ public:
     virtual void    Activate() override;
 
     const SearchAttrItemList*   GetSearchItemList() const
-                                    { return pSearchList; }
+                                    { return pSearchList.get(); }
     const SearchAttrItemList*   GetReplaceItemList() const
-                                    { return pReplaceList; }
+                                    { return pReplaceList.get(); }
 
     TransliterationFlags        GetTransliterationFlags() const;
 
@@ -185,6 +176,7 @@ private:
     VclPtr<PushButton>     m_pCloseBtn;
     VclPtr<CheckBox>       m_pIncludeDiacritics;
     VclPtr<CheckBox>       m_pIncludeKashida;
+    VclPtr<VclExpander>    m_pOtherOptionsExpander;
     VclPtr<CheckBox>       m_pSelectionBtn;
     VclPtr<CheckBox>       m_pRegExpBtn;
     VclPtr<CheckBox>       m_pWildcardBtn;
@@ -227,14 +219,14 @@ private:
     std::vector<OUString> aSearchStrings;
     std::vector<OUString> aReplaceStrings;
 
-    std::unique_ptr<SearchDlg_Impl>         pImpl;
-    SearchAttrItemList*     pSearchList;
-    SearchAttrItemList*     pReplaceList;
-    SvxSearchItem*          pSearchItem;
+    std::unique_ptr<SearchDlg_Impl>      pImpl;
+    std::unique_ptr<SearchAttrItemList>  pSearchList;
+    std::unique_ptr<SearchAttrItemList>  pReplaceList;
+    std::unique_ptr<SvxSearchItem>       pSearchItem;
 
-    SvxSearchController*    pSearchController;
-    SvxSearchController*    pOptionsController;
-    SvxSearchController*    pFamilyController;
+    std::unique_ptr<SvxSearchController> pSearchController;
+    std::unique_ptr<SvxSearchController> pOptionsController;
+    std::unique_ptr<SvxSearchController> pFamilyController;
 
     mutable TransliterationFlags
                             nTransliterationFlags;
@@ -271,6 +263,7 @@ private:
     void            SaveToModule_Impl();
 
     void            ApplyTransliterationFlags_Impl( TransliterationFlags nSettings );
+    bool            IsOtherOptionsExpanded();
 };
 
 #endif

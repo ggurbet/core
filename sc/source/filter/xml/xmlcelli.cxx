@@ -100,6 +100,7 @@
 #include <com/sun/star/sheet/ValidationAlertStyle.hpp>
 
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <tools/date.hxx>
 #include <i18nlangtag/lang.h>
 #include <o3tl/make_unique.hxx>
@@ -110,7 +111,7 @@ using namespace xmloff::token;
 ScXMLTableRowCellContext::ParaFormat::ParaFormat(ScEditEngineDefaulter& rEditEngine) :
     maItemSet(rEditEngine.GetEmptyItemSet()) {}
 
-ScXMLTableRowCellContext::Field::Field(SvxFieldData* pData) : mpData(pData) {}
+ScXMLTableRowCellContext::Field::Field(std::unique_ptr<SvxFieldData> pData) : mpData(std::move(pData)) {}
 
 ScXMLTableRowCellContext::Field::~Field()
 {
@@ -325,10 +326,10 @@ void ScXMLTableRowCellContext::PushParagraphSpan(const OUString& rSpan, const OU
     PushFormat(nBegin, nEnd, rStyleName);
 }
 
-void ScXMLTableRowCellContext::PushParagraphField(SvxFieldData* pData, const OUString& rStyleName)
+void ScXMLTableRowCellContext::PushParagraphField(std::unique_ptr<SvxFieldData> pData, const OUString& rStyleName)
 {
     mbHasFormatRuns = true;
-    maFields.push_back(o3tl::make_unique<Field>(pData));
+    maFields.push_back(o3tl::make_unique<Field>(std::move(pData)));
     Field& rField = *maFields.back().get();
 
     sal_Int32 nPos = maParagraph.getLength();
@@ -583,27 +584,27 @@ OUString ScXMLTableRowCellContext::GetFirstParagraph() const
 
 void ScXMLTableRowCellContext::PushParagraphFieldDate(const OUString& rStyleName)
 {
-    PushParagraphField(new SvxDateField, rStyleName);
+    PushParagraphField(o3tl::make_unique<SvxDateField>(), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphFieldSheetName(const OUString& rStyleName)
 {
     SCTAB nTab = GetScImport().GetTables().GetCurrentCellPos().Tab();
-    PushParagraphField(new SvxTableField(nTab), rStyleName);
+    PushParagraphField(o3tl::make_unique<SvxTableField>(nTab), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphFieldDocTitle(const OUString& rStyleName)
 {
-    PushParagraphField(new SvxFileField, rStyleName);
+    PushParagraphField(o3tl::make_unique<SvxFileField>(), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphFieldURL(
     const OUString& rURL, const OUString& rRep, const OUString& rStyleName, const OUString& rTargetFrame)
 {
     OUString aAbsURL = GetScImport().GetAbsoluteReference(rURL);
-    SvxURLField* pURLField = new SvxURLField(aAbsURL, rRep, SvxURLFormat::Repr);
+    std::unique_ptr<SvxURLField> pURLField(new SvxURLField(aAbsURL, rRep, SvxURLFormat::Repr));
     pURLField->SetTargetFrame(rTargetFrame);
-    PushParagraphField(pURLField, rStyleName);
+    PushParagraphField(std::move(pURLField), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphEnd()
@@ -910,7 +911,7 @@ void ScXMLTableRowCellContext::SetAnnotation(const ScAddress& rPos)
                 // create cell note with all data from drawing object
                 pNote = ScNoteUtil::CreateNoteFromObjectData( *pDoc, rPos,
                     std::move(xItemSet), xOutlinerObj.release(),
-                    aCaptionRect, mxAnnotationData->mbShown, false );
+                    aCaptionRect, mxAnnotationData->mbShown );
             }
         }
     }
@@ -1009,6 +1010,8 @@ void ScXMLTableRowCellContext::SetFormulaCell(ScFormulaCell* pFCell) const
 {
     if(pFCell)
     {
+        bool bMayForceNumberformat = true;
+
         if(mbErrorValue)
         {
             // don't do anything here
@@ -1021,6 +1024,9 @@ void ScXMLTableRowCellContext::SetFormulaCell(ScFormulaCell* pFCell) const
                 ScDocument* pDoc = rXMLImport.GetDocument();
                 pFCell->SetHybridString(pDoc->GetSharedStringPool().intern(*maStringValue));
                 pFCell->ResetDirty();
+                // A General format doesn't force any other format for a string
+                // result, don't attempt to recalculate this later.
+                bMayForceNumberformat = false;
             }
         }
         else if (rtl::math::isFinite(fValue))
@@ -1035,6 +1041,10 @@ void ScXMLTableRowCellContext::SetFormulaCell(ScFormulaCell* pFCell) const
             else
                 pFCell->ResetDirty();
         }
+
+        if (bMayForceNumberformat)
+            // Re-calculate to get number format only when style is not set.
+            pFCell->SetNeedNumberFormat(!mbHasStyle);
     }
 }
 
@@ -1398,9 +1408,6 @@ void ScXMLTableRowCellContext::PutFormulaCell( const ScAddress& rCellPos )
         ScFormulaCell* pNewCell = new ScFormulaCell(pDoc, rCellPos, pCode, eGrammar, ScMatrixMode::NONE);
         SetFormulaCell(pNewCell);
         rDoc.setFormulaCell(rCellPos, pNewCell);
-
-        // Re-calculate to get number format only when style is not set.
-        pNewCell->SetNeedNumberFormat(!mbHasStyle);
     }
 }
 

@@ -22,6 +22,7 @@
 
 #include <set>
 #include <algorithm>
+#include <sal/log.hxx>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/UnknownModuleException.hpp>
@@ -39,7 +40,6 @@
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/system/SystemShellExecute.hpp>
 #include <com/sun/star/system/SystemShellExecuteFlags.hpp>
-#include <com/sun/star/deployment/PackageInformationProvider.hpp>
 #include <unotools/configmgr.hxx>
 #include <unotools/configitem.hxx>
 #include <svtools/helpopt.hxx>
@@ -83,10 +83,6 @@ using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::util;
 using namespace ::com::sun::star::lang;
 using namespace ::com::sun::star::system;
-using ::com::sun::star::deployment::PackageInformationProvider;
-using ::com::sun::star::deployment::XPackageInformationProvider;
-
-namespace uno = css::uno ;
 
 class NoHelpErrorBox
 {
@@ -119,7 +115,7 @@ static OUString HelpLocaleString();
 namespace {
 
 /// Root path of the help.
-OUString getHelpRootURL()
+OUString const & getHelpRootURL()
 {
     static OUString s_instURL;
     if (!s_instURL.isEmpty())
@@ -205,78 +201,6 @@ bool impl_hasHTMLHelpInstalled()
     return bOK;
 }
 
-// Root path of the HTML help extension
-OUString getExtensionHTMLHelpRootURL()
-{
-    static OUString s_instURL;
-    if (!s_instURL.isEmpty())
-        return s_instURL;
-
-    static OUString aLocaleStr;
-
-    if (aLocaleStr.isEmpty())
-    {
-        // detect installed locale
-        aLocaleStr = HelpLocaleString();
-    }
-
-    Reference< XComponentContext > m_xContext( comphelper::getProcessComponentContext() );
-    const Reference< XPackageInformationProvider > xPackageInfo = PackageInformationProvider::get(m_xContext);
-
-    s_instURL = xPackageInfo->getPackageLocation(aLocaleStr + ".help.libreoffice.org");
-
-    return s_instURL;
-}
-
-/// Check if HTML help extension is installed
-/// verify extension installed and correct version
-bool impl_hasHTMLHelpExtensionInstalled()
-{
-    if (comphelper::LibreOfficeKit::isActive())
-        return false;
-
-    static OUString aLocaleStr;
-    static OUString aRootURL;
-    static OUString aVersion;
-
-    if (aLocaleStr.isEmpty())
-    {
-        // detect installed locale
-        aLocaleStr = HelpLocaleString();
-    }
-
-    OUString aIdentifier(aLocaleStr + ".help.libreoffice.org");
-
-    if (aRootURL.isEmpty())
-    {
-        Reference< XComponentContext > m_xContext( comphelper::getProcessComponentContext() );
-        const Reference< XPackageInformationProvider > xPackageInfo = PackageInformationProvider::get(m_xContext);
-        aRootURL = xPackageInfo->getPackageLocation(aIdentifier);
-        if(aRootURL.isEmpty())
-        {
-            return false;
-        }
-        uno::Sequence< uno::Sequence< OUString > > aExtensionList (xPackageInfo->getExtensionList());
-
-        if(aExtensionList.hasElements())
-        {
-            for (long i = aExtensionList.getLength() - 1; i >= 0; i--)
-            {
-                SAL_INFO("sfx.appl", aExtensionList[i][0] + " - " + aExtensionList[i][1]) ;
-                if (aExtensionList[i][0] == aIdentifier)
-                {
-                    aVersion = aExtensionList[i][1];
-                    break;
-                }
-            }
-        }
-    }
-
-    bool bOK(!aRootURL.isEmpty() && (aVersion.startsWith(utl::ConfigManager::getProductVersion())));
-
-    return bOK;
-}
-
 } // namespace
 
 /// Return the locale we prefer for displaying help
@@ -328,7 +252,7 @@ static OUString  HelpLocaleString()
                 return aLocaleStr;
             }
 
-            sHelpPath = sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + aEnglish;
+            sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + aEnglish;
             if (impl_checkHelpLocalePath(sHelpPath))
             {
                 return aEnglish;
@@ -349,11 +273,9 @@ static OUString  HelpLocaleString()
 
 
 
-void AppendConfigToken( OUStringBuffer& rURL, bool bQuestionMark, const OUString &rLang )
+void AppendConfigToken( OUStringBuffer& rURL, bool bQuestionMark )
 {
-    OUString aLocaleStr( rLang );
-    if ( aLocaleStr.isEmpty() )
-        aLocaleStr = HelpLocaleString();
+    OUString aLocaleStr = HelpLocaleString();
 
     // query part exists?
     if ( bQuestionMark )
@@ -736,9 +658,9 @@ static bool impl_showOnlineHelp( const OUString& rURL )
 
     OUString aHelpLink( "https://help.libreoffice.org/help.html?"  );
 
-    aHelpLink += rURL.copy( aInternal.getLength() );
-    aHelpLink = aHelpLink.replaceAll("%2F","/");
-
+    OUString aTarget = "Target=" + rURL.copy(aInternal.getLength());
+    aTarget = aTarget.replaceAll("%2F", "/").replaceAll("?", "&");
+    aHelpLink += aTarget;
 
     if (comphelper::LibreOfficeKit::isActive())
     {
@@ -767,14 +689,15 @@ static bool impl_showOnlineHelp( const OUString& rURL )
 #define SHTML3 "\"><script type=\"text/javascript\"> window.location.href = \""
 #define SHTML4 "\";</script><title>Help Page Redirection</title></head><body></body></html>"
 
-
-static bool impl_showOfflineHelp( const OUString& rURL, const OUString& rBaseInstallPath)
+static bool impl_showOfflineHelp( const OUString& rURL )
 {
+    OUString aBaseInstallPath = getHelpRootURL();
     OUString const aInternal( "vnd.sun.star.help://"  );
 
-    OUString aHelpLink( rBaseInstallPath + "/index.html?" );
-    aHelpLink += rURL.copy( aInternal.getLength() );
-    aHelpLink = aHelpLink.replaceAll("%2F","/").replaceAll("%3A",":");
+    OUString aHelpLink( aBaseInstallPath + "/index.html?" );
+    OUString aTarget = "Target=" + rURL.copy(aInternal.getLength());
+    aTarget = aTarget.replaceAll("%2F","/").replaceAll("?","&");
+    aHelpLink += aTarget;
 
     // get a html tempfile
     OUString const aExtension(".html");
@@ -890,45 +813,55 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
         impl_showOnlineHelp( aHelpURL );
         return true;
     }
-    if ( impl_hasHTMLHelpExtensionInstalled() )
-    {
-        impl_showOfflineHelp( aHelpURL, getExtensionHTMLHelpRootURL() );
-        return true;
-    }
-    if ( impl_hasHTMLHelpInstalled() )
-    {
-        impl_showOfflineHelp(aHelpURL, getHelpRootURL());
-        return true;
-    }
 
-    if ( !impl_hasHelpInstalled() )
+    // If the HTML or no help is installed, but aHelpURL nevertheless references valid help content,
+    // that implies that this help content belongs to an extension (and thus would not be available
+    // in neither the offline nor online HTML help); in that case, fall through to the "old-help to
+    // display" code below:
+    if (SfxContentHelper::IsHelpErrorDocument(aHelpURL))
     {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWindow ? pWindow->GetFrameWeld() : nullptr, "sfx/ui/helpmanual.ui"));
-        std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
-
-        LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
-        OUString sLocaleString = SvtLanguageTable::GetLanguageString( aLangTag.getLanguageType() );
-        OUString sPrimText = xQueryBox->get_primary_text();
-        xQueryBox->set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
-        short OnlineHelpBox = xQueryBox->run();
-
-        if(OnlineHelpBox == RET_OK)
+        if ( impl_hasHTMLHelpInstalled() )
         {
-            if ( impl_showOnlineHelp( aHelpURL ) )
-                return true;
+            impl_showOfflineHelp(aHelpURL);
+            return true;
+        }
+
+        if ( !impl_hasHelpInstalled() )
+        {
+            SvtHelpOptions aHelpOptions;
+            bool bShowOfflineHelpPopUp = aHelpOptions.IsOfflineHelpPopUp();
+
+            if(bShowOfflineHelpPopUp)
+            {
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWindow ? pWindow->GetFrameWeld() : nullptr, "sfx/ui/helpmanual.ui"));
+                std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
+                std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB(xBuilder->weld_check_button("hidedialog"));
+                LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
+                OUString sLocaleString = SvtLanguageTable::GetLanguageString( aLangTag.getLanguageType() );
+                OUString sPrimText = xQueryBox->get_primary_text();
+                xQueryBox->set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
+                short OnlineHelpBox = xQueryBox->run();
+                bShowOfflineHelpPopUp = OnlineHelpBox != RET_OK;
+                aHelpOptions.SetOfflineHelpPopUp(!m_xHideOfflineHelpCB->get_state());
+            }
+            if(!bShowOfflineHelpPopUp)
+            {
+                if ( impl_showOnlineHelp( aHelpURL ) )
+                    return true;
+                else
+                {
+                    NoHelpErrorBox aErrBox(pWindow ? pWindow->GetFrameWeld() : nullptr);
+                    aErrBox.run();
+                    return false;
+                }
+            }
             else
             {
-                NoHelpErrorBox aErrBox(pWindow ? pWindow->GetFrameWeld() : nullptr);
-                aErrBox.run();
                 return false;
             }
         }
-        else
-        {
-            return false;
-        }
-
     }
+
     // old-help to display
     Reference < XDesktop2 > xDesktop = Desktop::create( ::comphelper::getProcessComponentContext() );
 
@@ -1037,44 +970,53 @@ bool SfxHelp::Start_Impl(const OUString& rURL, weld::Widget* pWidget, const OUSt
         return true;
     }
 
-    if ( impl_hasHTMLHelpExtensionInstalled() )
+    // If the HTML or no help is installed, but aHelpURL nevertheless references valid help content,
+    // that implies that that help content belongs to an extension (and thus would not be available
+    // in neither the offline nor online HTML help); in that case, fall through to the "old-help to
+    // display" code below:
+    if (SfxContentHelper::IsHelpErrorDocument(aHelpURL))
     {
-        impl_showOfflineHelp( aHelpURL, getExtensionHTMLHelpRootURL() );
-        return true;
-    }
-    if ( impl_hasHTMLHelpInstalled() )
-    {
-        impl_showOfflineHelp(aHelpURL, getHelpRootURL());
-        return true;
-    }
-    if ( !impl_hasHelpInstalled() )
-    {
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWidget, "sfx/ui/helpmanual.ui"));
-        std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
-
-        LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
-        OUString sLocaleString = SvtLanguageTable::GetLanguageString( aLangTag.getLanguageType() );
-        OUString sPrimText = xQueryBox->get_primary_text();
-        xQueryBox->set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
-        xQueryBox->connect_help(LINK(nullptr, NoHelpErrorBox, HelpRequestHdl));
-        short OnlineHelpBox = xQueryBox->run();
-        xQueryBox->hide();
-        if (OnlineHelpBox == RET_OK)
+        if ( impl_hasHTMLHelpInstalled() )
         {
-            if (impl_showOnlineHelp( aHelpURL ) )
-                return true;
+            impl_showOfflineHelp(aHelpURL);
+            return true;
+        }
+
+        if ( !impl_hasHelpInstalled() )
+        {
+            SvtHelpOptions aHelpOptions;
+            bool bShowOfflineHelpPopUp = aHelpOptions.IsOfflineHelpPopUp();
+
+            if(bShowOfflineHelpPopUp)
+            {
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWidget, "sfx/ui/helpmanual.ui"));
+                std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
+                std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB(xBuilder->weld_check_button("hidedialog"));
+                LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
+                OUString sLocaleString = SvtLanguageTable::GetLanguageString( aLangTag.getLanguageType() );
+                OUString sPrimText = xQueryBox->get_primary_text();
+                xQueryBox->set_primary_text(sPrimText.replaceAll("$UILOCALE", sLocaleString));
+                short OnlineHelpBox = xQueryBox->run();
+                bShowOfflineHelpPopUp = OnlineHelpBox != RET_OK;
+                aHelpOptions.SetOfflineHelpPopUp(!m_xHideOfflineHelpCB->get_state());
+            }
+            if(!bShowOfflineHelpPopUp)
+            {
+                if ( impl_showOnlineHelp( aHelpURL ) )
+                    return true;
+                else
+                {
+                    NoHelpErrorBox aErrBox(pWidget);
+                    aErrBox.run();
+                    return false;
+                }
+            }
             else
             {
-                NoHelpErrorBox aErrBox(pWidget);
-                aErrBox.run();
                 return false;
             }
-        }
-        else
-        {
-            return false;
-        }
 
+        }
     }
 
     // old-help to display

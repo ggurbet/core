@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <vcl/opengl/OpenGLHelper.hxx>
 
@@ -115,8 +116,9 @@ OpenGLSalBitmap::~OpenGLSalBitmap()
     VCL_GL_INFO( "~OpenGLSalBitmap" );
 }
 
-bool OpenGLSalBitmap::Create( const OpenGLTexture& rTex, long nX, long nY, long nWidth, long nHeight )
+void OpenGLSalBitmap::Create( const OpenGLTexture& rTex, long nX, long nY, long nWidth, long nHeight )
 {
+    DBG_TESTSOLARMUTEX();
     static const BitmapPalette aEmptyPalette;
     OpenGLVCLContextZone aContextZone;
 
@@ -154,12 +156,11 @@ bool OpenGLSalBitmap::Create( const OpenGLTexture& rTex, long nX, long nY, long 
 
     assert(mnWidth == maTexture.GetWidth() &&
            mnHeight == maTexture.GetHeight());
-
-    return true;
 }
 
 bool OpenGLSalBitmap::Create( const Size& rSize, sal_uInt16 nBits, const BitmapPalette& rBitmapPalette )
 {
+    DBG_TESTSOLARMUTEX();
     OpenGLVCLContextZone aContextZone;
 
     Destroy();
@@ -171,21 +172,33 @@ bool OpenGLSalBitmap::Create( const Size& rSize, sal_uInt16 nBits, const BitmapP
     mnBits = nBits;
     mnWidth = rSize.Width();
     mnHeight = rSize.Height();
+
+    // Limit size to what GL allows, so later glTexImage2D() won't fail.
+    GLint nMaxTextureSize;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &nMaxTextureSize);
+    if (mnWidth > nMaxTextureSize)
+        mnWidth = nMaxTextureSize;
+    if (mnHeight > nMaxTextureSize)
+        mnHeight = nMaxTextureSize;
+
     return false;
 }
 
 bool OpenGLSalBitmap::Create( const SalBitmap& rSalBmp )
 {
+    DBG_TESTSOLARMUTEX();
     return Create( rSalBmp, rSalBmp.GetBitCount() );
 }
 
 bool OpenGLSalBitmap::Create( const SalBitmap& rSalBmp, SalGraphics* pGraphics )
 {
+    DBG_TESTSOLARMUTEX();
     return Create( rSalBmp, pGraphics ? pGraphics->GetBitCount() : rSalBmp.GetBitCount() );
 }
 
 bool OpenGLSalBitmap::Create( const SalBitmap& rSalBmp, sal_uInt16 nNewBitCount )
 {
+    DBG_TESTSOLARMUTEX();
     OpenGLZone aZone;
 
     // check that carefully only in the debug mode
@@ -224,6 +237,7 @@ bool OpenGLSalBitmap::Create( const SalBitmap& rSalBmp, sal_uInt16 nNewBitCount 
 
 bool OpenGLSalBitmap::Create( const css::uno::Reference< css::rendering::XBitmapCanvas >& /*xBitmapCanvas*/, Size& /*rSize*/, bool /*bMask*/ )
 {
+    DBG_TESTSOLARMUTEX();
     // TODO Is this method needed?
     return false;
 }

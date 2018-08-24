@@ -99,11 +99,12 @@ private:
     using SwCursorShell::GotoMark;
 
     typedef long (SwWrtShell::*SELECTFUNC)(const Point *, bool bProp );
+    typedef void (SwWrtShell::*SELECTFUNC2)(const Point *, bool bProp );
 
-    SELECTFUNC  m_fnDrag;
-    SELECTFUNC  m_fnSetCursor;
-    SELECTFUNC  m_fnEndDrag;
-    SELECTFUNC  m_fnKillSel;
+    SELECTFUNC2  m_fnDrag;
+    SELECTFUNC   m_fnSetCursor;
+    SELECTFUNC2  m_fnEndDrag;
+    SELECTFUNC   m_fnKillSel;
 
 public:
 
@@ -187,7 +188,7 @@ public:
     // #i32329# Enhanced selection
     void    SelSentence (const Point *);
     void    SelPara     (const Point *);
-    long    SelAll();
+    void    SelAll();
 
     // basecursortravelling
 typedef bool (SwWrtShell:: *FNSimpleMove)();
@@ -268,13 +269,13 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
     void    DelToEndOfLine();
     void    DelToStartOfLine();
     void    DelLine();
-    long    DelLeft();
+    bool    DelLeft();
 
     // also deletes the frame or sets the cursor in the frame when bDelFrame == false
-    long    DelRight();
+    bool    DelRight();
     void    DelToEndOfPara();
     void    DelToStartOfPara();
-    long    DelToEndOfSentence();
+    bool    DelToEndOfSentence();
     void    DelToStartOfSentence();
     void    DelNxtWord();
     void    DelPrvWord();
@@ -309,7 +310,7 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
 
     // indexes
     void    InsertTableOf(const SwTOXBase& rTOX, const SfxItemSet* pSet = nullptr);
-    bool    UpdateTableOf(const SwTOXBase& rTOX, const SfxItemSet* pSet = nullptr);
+    void    UpdateTableOf(const SwTOXBase& rTOX, const SfxItemSet* pSet = nullptr);
 
     // numbering and bullets
     /**
@@ -510,23 +511,23 @@ private:
     struct CursorStack
     {
         Point aDocPos;
-        CursorStack *pNext;
+        std::unique_ptr<CursorStack> pNext;
         bool bValidCurPos : 1;
         bool bIsFrameSel : 1;
         SwTwips lOffset;
 
         CursorStack( bool bValid, bool bFrameSel, const Point &rDocPos,
-                    SwTwips lOff, CursorStack *pN )
+                    SwTwips lOff, std::unique_ptr<CursorStack> pN )
             : aDocPos(rDocPos),
-            pNext(pN),
+            pNext(std::move(pN)),
             bValidCurPos( bValid ),
             bIsFrameSel( bFrameSel ),
             lOffset(lOff)
         {
-
         }
 
-    } *m_pCursorStack;
+    };
+    std::unique_ptr<CursorStack> m_pCursorStack;
 
     SwView  &m_rView;
     SwNavigationMgr m_aNavigationMgr;
@@ -538,8 +539,8 @@ private:
     SAL_DLLPRIVATE bool  PopCursor(bool bUpdate, bool bSelect = false);
 
     // take END cursor along when PageUp / -Down
-    SAL_DLLPRIVATE bool SttWrd();
-    SAL_DLLPRIVATE bool EndWrd();
+    SAL_DLLPRIVATE void SttWrd();
+    SAL_DLLPRIVATE void EndWrd();
     SAL_DLLPRIVATE bool NxtWrd_();
     SAL_DLLPRIVATE bool PrvWrd_();
     // #i92468#
@@ -574,17 +575,17 @@ private:
 
     SAL_DLLPRIVATE long  SetCursorKillSel(const Point *, bool bProp );
 
-    SAL_DLLPRIVATE long  BeginDrag(const Point *, bool bProp );
-    SAL_DLLPRIVATE long  DefaultDrag(const Point *, bool bProp );
-    SAL_DLLPRIVATE long  DefaultEndDrag(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  BeginDrag(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  DefaultDrag(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  DefaultEndDrag(const Point *, bool bProp );
 
-    SAL_DLLPRIVATE long  ExtSelWrd(const Point *, bool bProp );
-    SAL_DLLPRIVATE long  ExtSelLn(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  ExtSelWrd(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  ExtSelLn(const Point *, bool bProp );
 
-    SAL_DLLPRIVATE long  BeginFrameDrag(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  BeginFrameDrag(const Point *, bool bProp );
 
     // after SSize/Move of a frame update; Point is destination.
-    SAL_DLLPRIVATE long  UpdateLayoutFrame(const Point *, bool bProp );
+    SAL_DLLPRIVATE void  UpdateLayoutFrame(const Point *, bool bProp );
 
     SAL_DLLPRIVATE void  SttLeaveSelect();
     SAL_DLLPRIVATE void  AddLeaveSelect();
@@ -593,7 +594,7 @@ private:
     SAL_DLLPRIVATE void  LeaveExtSel() { m_bSelWrd = m_bSelLn = false;}
 
     SAL_DLLPRIVATE bool  GoStart(bool KeepArea, bool *,
-            bool bSelect = false, bool bDontMoveRegion = false);
+            bool bSelect, bool bDontMoveRegion = false);
     SAL_DLLPRIVATE bool  GoEnd(bool KeepArea = false, const bool * = nullptr);
 
     enum BookMarkMove
@@ -629,7 +630,7 @@ inline bool SwWrtShell::IsInClickToEdit() const { return m_bIsInClickToEdit; }
 inline bool SwWrtShell::Is_FnDragEQBeginDrag() const
 {
 #ifdef __GNUC__
-    SELECTFUNC  fnTmp = &SwWrtShell::BeginDrag;
+    SELECTFUNC2 fnTmp = &SwWrtShell::BeginDrag;
     return m_fnDrag == fnTmp;
 #else
     return m_fnDrag == &SwWrtShell::BeginDrag;

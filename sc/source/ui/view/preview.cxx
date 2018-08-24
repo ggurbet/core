@@ -47,6 +47,7 @@
 #include <scmod.hxx>
 #include <markdata.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <sc.hrc>
 #include <helpids.h>
 #include <AccessibleDocumentPagePreview.hxx>
@@ -95,8 +96,7 @@ ScPreview::ScPreview( vcl::Window* pParent, ScDocShell* pDocSh, ScPreviewShell* 
     nTabPage( 0 ),
     nTabStart( 0 ),
     nDisplayStart( 0 ),
-    aDate( Date::SYSTEM ),
-    aTime( tools::Time::SYSTEM ),
+    aDateTime( DateTime::SYSTEM ),
     nTotalPages( 0 ),
     pLocationData( nullptr ),
     pDrawView( nullptr ),
@@ -144,8 +144,8 @@ ScPreview::~ScPreview()
 
 void ScPreview::dispose()
 {
-    delete pDrawView;
-    delete pLocationData;
+    pDrawView.reset();
+    pLocationData.reset();
     vcl::Window::dispose();
 }
 
@@ -160,15 +160,12 @@ void ScPreview::UpdateDrawView()        // nTab must be right
         if ( pDrawView && ( !pDrawView->GetSdrPageView() || pDrawView->GetSdrPageView()->GetPage() != pPage ) )
         {
             // convert the displayed Page of drawView (see below) does not work?!?
-            delete pDrawView;
-            pDrawView = nullptr;
+            pDrawView.reset();
         }
 
         if ( !pDrawView )                                   // New Drawing?
         {
-            pDrawView = new FmFormView(
-                *pModel,
-                this);
+            pDrawView.reset( new FmFormView( *pModel, this) );
 
             // The DrawView takes over the Design-Mode from the Model
             // (Settings "In opening Draftmode"), therefore to restore here
@@ -179,8 +176,7 @@ void ScPreview::UpdateDrawView()        // nTab must be right
     }
     else if ( pDrawView )
     {
-        delete pDrawView;           // for this Chart is not needed
-        pDrawView = nullptr;
+        pDrawView.reset();   // for this Chart is not needed
     }
 }
 
@@ -400,11 +396,11 @@ void ScPreview::DoPrint( ScPreviewLocationData* pFillLocation )
 
         pPrintFunc->SetOffset(aOffset);
         pPrintFunc->SetManualZoom(nZoom);
-        pPrintFunc->SetDateTime(aDate,aTime);
+        pPrintFunc->SetDateTime(aDateTime);
         pPrintFunc->SetClearFlag(true);
         pPrintFunc->SetUseStyleColor( pScMod->GetAccessOptions().GetIsForPagePreviews() );
 
-        pPrintFunc->SetDrawView( pDrawView );
+        pPrintFunc->SetDrawView( pDrawView.get() );
 
         // MultiSelection for the one Page must produce something inconvenient
         Range aPageRange( nPageNo+1, nPageNo+1 );
@@ -521,9 +517,9 @@ void ScPreview::DoPrint( ScPreviewLocationData* pFillLocation )
 
             OUString aEmptyMsg;
             if (mbHasEmptyRangeTable)
-                aEmptyMsg = ScGlobal::GetRscString(STR_PRINT_PREVIEW_EMPTY_RANGE);
+                aEmptyMsg = ScResId(STR_PRINT_PREVIEW_EMPTY_RANGE);
             else
-                aEmptyMsg = ScGlobal::GetRscString(STR_PRINT_PREVIEW_NODATA);
+                aEmptyMsg = ScResId(STR_PRINT_PREVIEW_NODATA);
 
             long nHeight = 3000;
             pEditEng->SetDefaultItem(SvxFontHeightItem(nHeight, 100, EE_CHAR_FONTHEIGHT));
@@ -685,13 +681,13 @@ const ScPreviewLocationData& ScPreview::GetLocationData()
 {
     if ( !pLocationData )
     {
-        pLocationData = new ScPreviewLocationData( &pDocShell->GetDocument(), this );
+        pLocationData.reset( new ScPreviewLocationData( &pDocShell->GetDocument(), this ) );
         bLocationValid = false;
     }
     if ( !bLocationValid )
     {
         pLocationData->Clear();
-        DoPrint( pLocationData );
+        DoPrint( pLocationData.get() );
         bLocationValid = true;
     }
     return *pLocationData;
@@ -700,10 +696,7 @@ const ScPreviewLocationData& ScPreview::GetLocationData()
 void ScPreview::DataChanged(bool bNewTime)
 {
     if (bNewTime)
-    {
-        aDate = Date( Date::SYSTEM );
-        aTime = tools::Time( tools::Time::SYSTEM );
-    }
+        aDateTime = DateTime( DateTime::SYSTEM );
 
     bValid = false;
     InvalidateLocationData( SfxHintId::ScDataChanged );
@@ -718,7 +711,7 @@ OUString ScPreview::GetPosString()
         UpdateDrawView();       // The table eventually changes
     }
 
-    OUString aString = ScGlobal::GetRscString( STR_PAGE ) +
+    OUString aString = ScResId( STR_PAGE ) +
                        " " + OUString::number(nPageNo+1);
 
     if (nTabsTested >= nTabCount)

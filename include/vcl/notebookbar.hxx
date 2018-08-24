@@ -37,14 +37,26 @@ public:
 
     const css::uno::Reference<css::ui::XContextChangeEventListener>& getContextChangeEventListener() const { return m_pEventListener; }
 
+    void StateChanged(const StateChangedType nStateChange ) override;
+
     void DataChanged(const DataChangedEvent& rDCEvt) override;
+
+    void ControlListener(bool bListen);
 
 private:
     VclPtr<SystemWindow> m_pSystemWindow;
     css::uno::Reference<css::ui::XContextChangeEventListener> m_pEventListener;
     std::vector<NotebookbarContextControl*> m_pContextContainers;
+    css::uno::Reference<css::frame::XFrame> mxFrame;
+
+    AllSettings DefaultSettings;
+    AllSettings PersonaSettings;
 
     void UpdateBackground();
+
+    void UpdateDefaultSettings();
+    void UpdatePersonaSettings();
+
 };
 
 

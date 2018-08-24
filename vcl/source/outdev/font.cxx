@@ -18,12 +18,15 @@
  */
 
 #include <i18nlangtag/mslangid.hxx>
+#include <i18nlangtag/lang.h>
 
 #include <unotools/configmgr.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/print.hxx>
 #include <vcl/sysdata.hxx>
 #include <vcl/fontcharmap.hxx>
+#include <font/FeatureCollector.hxx>
+#include <sal/log.hxx>
 
 #include <sallayout.hxx>
 #include <salgdi.hxx>
@@ -66,18 +69,16 @@ int OutputDevice::GetDevFontCount() const
 {
     if( !mpDeviceFontList )
     {
-        if (!mpFontCollection)
+        if (!mxFontCollection)
         {
             return 0;
         }
 
-        mpDeviceFontList = mpFontCollection->GetDeviceFontList();
+        mpDeviceFontList = mxFontCollection->GetDeviceFontList();
 
         if (!mpDeviceFontList->Count())
         {
-            delete mpDeviceFontList;
-            mpDeviceFontList = nullptr;
-
+            mpDeviceFontList.reset();
             return 0;
         }
     }
@@ -86,16 +87,16 @@ int OutputDevice::GetDevFontCount() const
 
 bool OutputDevice::IsFontAvailable( const OUString& rFontName ) const
 {
-    PhysicalFontFamily* pFound = mpFontCollection->FindFontFamily( rFontName );
+    PhysicalFontFamily* pFound = mxFontCollection->FindFontFamily( rFontName );
     return (pFound != nullptr);
 }
 
 int OutputDevice::GetDevFontSizeCount( const vcl::Font& rFont ) const
 {
-    delete mpDeviceFontSizeList;
+    mpDeviceFontSizeList.reset();
 
     ImplInitFontList();
-    mpDeviceFontSizeList = mpFontCollection->GetDeviceFontSizeList( rFont.GetFamilyName() );
+    mpDeviceFontSizeList = mxFontCollection->GetDeviceFontSizeList( rFont.GetFamilyName() );
     return mpDeviceFontSizeList->Count();
 }
 
@@ -154,12 +155,46 @@ bool OutputDevice::AddTempDevFont( const OUString& rFileURL, const OUString& rFo
     if( !mpGraphics && !AcquireGraphics() )
         return false;
 
-    bool bRC = mpGraphics->AddTempDevFont( mpFontCollection, rFileURL, rFontName );
+    bool bRC = mpGraphics->AddTempDevFont( mxFontCollection.get(), rFileURL, rFontName );
     if( !bRC )
         return false;
 
     if( mpAlphaVDev )
         mpAlphaVDev->AddTempDevFont( rFileURL, rFontName );
+
+    return true;
+}
+
+bool OutputDevice::GetFontFeatures(std::vector<vcl::font::Feature>& rFontFeatures) const
+{
+    if (mbNewFont)
+        ImplNewFont();
+
+    if (mbInitFont)
+        InitFont();
+
+    if (!mpFontInstance)
+        return false;
+
+    LogicalFontInstance* pFontInstance = mpFontInstance.get();
+
+    if (!pFontInstance)
+        return false;
+
+    hb_font_t* pHbFont = pFontInstance->GetHbFont();
+
+    if (!pHbFont)
+        return false;
+
+    hb_face_t* pHbFace = hb_font_get_face(pHbFont);
+
+    if (!pHbFace)
+        return false;
+
+    const LanguageType eOfficeLanguage = Application::GetSettings().GetLanguageTag().getLanguageType();
+
+    vcl::font::FeatureCollector aFeatureCollector(pHbFace, rFontFeatures, eOfficeLanguage);
+    aFeatureCollector.collect();
 
     return true;
 }
@@ -170,7 +205,7 @@ FontMetric OutputDevice::GetFontMetric() const
     if( mbNewFont && !ImplNewFont() )
         return aMetric;
 
-    LogicalFontInstance* pFontInstance = mpFontInstance;
+    LogicalFontInstance* pFontInstance = mpFontInstance.get();
     ImplFontMetricDataRef xFontMetric = pFontInstance->mxFontMetric;
 
     // prepare metric
@@ -477,27 +512,15 @@ long OutputDevice::GetFontExtLeading() const
 void OutputDevice::ImplClearFontData( const bool bNewFontLists )
 {
     // the currently selected logical font is no longer needed
-    if ( mpFontInstance )
-    {
-        mpFontInstance->Release();
-        mpFontInstance = nullptr;
-    }
+    mpFontInstance.clear();
 
     mbInitFont = true;
     mbNewFont = true;
 
     if ( bNewFontLists )
     {
-        if ( mpDeviceFontList )
-        {
-            delete mpDeviceFontList;
-            mpDeviceFontList = nullptr;
-        }
-        if ( mpDeviceFontSizeList )
-        {
-            delete mpDeviceFontSizeList;
-            mpDeviceFontSizeList = nullptr;
-        }
+        mpDeviceFontList.reset();
+        mpDeviceFontSizeList.reset();
 
         // release all physically selected fonts on this device
         if( AcquireGraphics() )
@@ -508,25 +531,21 @@ void OutputDevice::ImplClearFontData( const bool bNewFontLists )
     {
         ImplSVData* pSVData = ImplGetSVData();
 
-        if( mpFontCache && mpFontCache != pSVData->maGDIData.mpScreenFontCache )
-            mpFontCache->Invalidate();
+        if (mxFontCache && mxFontCache != pSVData->maGDIData.mxScreenFontCache)
+            mxFontCache->Invalidate();
 
         if ( bNewFontLists )
         {
             // we need a graphics
             if ( AcquireGraphics() )
             {
-                if( mpFontCollection && mpFontCollection != pSVData->maGDIData.mpScreenFontList )
-                    mpFontCollection->Clear();
+                if (mxFontCollection && mxFontCollection != pSVData->maGDIData.mxScreenFontList)
+                    mxFontCollection->Clear();
 
                 if( mpPDFWriter )
                 {
-                    if( mpFontCollection && mpFontCollection != pSVData->maGDIData.mpScreenFontList )
-                        delete mpFontCollection;
-                    if( mpFontCache && mpFontCache != pSVData->maGDIData.mpScreenFontCache )
-                        delete mpFontCache;
-                    mpFontCollection = nullptr;
-                    mpFontCache = nullptr;
+                    mxFontCollection.reset();
+                    mxFontCache.reset();
                 }
             }
         }
@@ -562,12 +581,12 @@ void OutputDevice::ImplRefreshFontData( const bool bNewFontLists )
             {
                 if( mpPDFWriter )
                 {
-                    mpFontCollection = pSVData->maGDIData.mpScreenFontList->Clone();
-                    mpFontCache = new ImplFontCache();
+                    mxFontCollection = pSVData->maGDIData.mxScreenFontList->Clone();
+                    mxFontCache.reset(new ImplFontCache);
                 }
                 else
                 {
-                    mpGraphics->GetDevFontList( mpFontCollection );
+                    mpGraphics->GetDevFontList( mxFontCollection.get() );
                 }
             }
         }
@@ -598,10 +617,10 @@ void OutputDevice::ImplClearAllFontData(bool bNewFontLists)
     ImplUpdateFontDataForAllFrames( &OutputDevice::ImplClearFontData, bNewFontLists );
 
     // clear global font lists to have them updated
-    pSVData->maGDIData.mpScreenFontCache->Invalidate();
+    pSVData->maGDIData.mxScreenFontCache->Invalidate();
     if ( bNewFontLists )
     {
-        pSVData->maGDIData.mpScreenFontList->Clear();
+        pSVData->maGDIData.mxScreenFontList->Clear();
         vcl::Window * pFrame = pSVData->maWinData.mpFirstFrame;
         if ( pFrame )
         {
@@ -609,7 +628,7 @@ void OutputDevice::ImplClearAllFontData(bool bNewFontLists)
             {
                 OutputDevice *pDevice = pFrame;
                 pDevice->mpGraphics->ClearDevFontCache();
-                pDevice->mpGraphics->GetDevFontList(pFrame->mpWindowImpl->mpFrameData->mpFontCollection);
+                pDevice->mpGraphics->GetDevFontList(pFrame->mpWindowImpl->mpFrameData->mxFontCollection.get());
             }
         }
     }
@@ -677,6 +696,7 @@ void OutputDevice::EndFontSubstitution()
         ImplUpdateAllFontData( false );
 
         DataChangedEvent aDCEvt( DataChangedEventType::FONTSUBSTITUTION );
+        Application::ImplCallEventListenersApplicationDataChanged(&aDCEvt);
         Application::NotifyAllWindows( aDCEvt );
         pSVData->maGDIData.mbFontSubChanged = false;
     }
@@ -847,7 +867,7 @@ vcl::Font OutputDevice::GetDefaultFont( DefaultFontType nType, LanguageType eLan
             sal_Int32     nIndex = 0;
             do
             {
-                PhysicalFontFamily* pFontFamily = pOutDev->mpFontCollection->FindFontFamily( GetNextFontToken( aSearch, nIndex ) );
+                PhysicalFontFamily* pFontFamily = pOutDev->mxFontCollection->FindFontFamily( GetNextFontToken( aSearch, nIndex ) );
                 if( pFontFamily )
                 {
                     AddTokenFontName( aName, pFontFamily->GetFamilyName() );
@@ -893,14 +913,11 @@ vcl::Font OutputDevice::GetDefaultFont( DefaultFontType nType, LanguageType eLan
 
                     // get the name of the first available font
                     float fExactHeight = static_cast<float>(aSize.Height());
-                    LogicalFontInstance* pFontInstance = pOutDev->mpFontCache->GetFontInstance( pOutDev->mpFontCollection, aFont, aSize, fExactHeight );
+                    rtl::Reference<LogicalFontInstance> pFontInstance = pOutDev->mxFontCache->GetFontInstance( pOutDev->mxFontCollection.get(), aFont, aSize, fExactHeight );
                     if (pFontInstance)
                     {
-                        if( pFontInstance->maFontSelData.mpFontData )
-                            aFont.SetFamilyName( pFontInstance->maFontSelData.mpFontData->GetFamilyName() );
-                        else
-                            aFont.SetFamilyName( pFontInstance->maFontSelData.maTargetName );
-                        pFontInstance->Release();
+                        assert(pFontInstance->GetFontFace());
+                        aFont.SetFamilyName(pFontInstance->GetFontFace()->GetFamilyName());
                     }
                 }
             }
@@ -955,15 +972,15 @@ vcl::Font OutputDevice::GetDefaultFont( DefaultFontType nType, LanguageType eLan
 
 void OutputDevice::ImplInitFontList() const
 {
-    if( !mpFontCollection->Count() )
+    if( !mxFontCollection->Count() )
     {
         if( mpGraphics || AcquireGraphics() )
         {
             SAL_INFO( "vcl.gdi", "OutputDevice::ImplInitFontList()" );
-            mpGraphics->GetDevFontList( mpFontCollection );
+            mpGraphics->GetDevFontList(mxFontCollection.get());
 
             // There is absolutely no way there should be no fonts available on the device
-            if( !mpFontCollection->Count() )
+            if( !mxFontCollection->Count() )
             {
                 OUString aError( "Application error: no fonts and no vcl resource found on your system" );
                 OUString aResStr(VclResId(SV_ACCESSERROR_NO_FONTS));
@@ -990,12 +1007,11 @@ void OutputDevice::InitFont() const
         {
             const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
             bNonAntialiased |= bool(rStyleSettings.GetDisplayOptions() & DisplayOptions::AADisable);
-            bNonAntialiased |= (int(rStyleSettings.GetAntialiasingMinPixelHeight()) > mpFontInstance->maFontSelData.mnHeight);
+            bNonAntialiased |= (int(rStyleSettings.GetAntialiasingMinPixelHeight()) > mpFontInstance->GetFontSelectPattern().mnHeight);
         }
-        mpFontInstance->maFontSelData.mbNonAntialiased = bNonAntialiased;
-
+        mpFontInstance->SetNonAntialiased(bNonAntialiased);
         // select font in the device layers
-        mpGraphics->SetFont( &(mpFontInstance->maFontSelData), 0 );
+        mpGraphics->SetFont(mpFontInstance.get(), 0);
         mbInitFont = false;
     }
 }
@@ -1008,8 +1024,8 @@ bool OutputDevice::ImplNewFont() const
     if( mpPDFWriter )
     {
         const ImplSVData* pSVData = ImplGetSVData();
-        if( mpFontCollection == pSVData->maGDIData.mpScreenFontList
-        ||  mpFontCache == pSVData->maGDIData.mpScreenFontCache )
+        if( mxFontCollection == pSVData->maGDIData.mxScreenFontList
+        ||  mxFontCache == pSVData->maGDIData.mxScreenFontCache )
             const_cast<OutputDevice&>(*this).ImplUpdateFontData();
     }
 
@@ -1044,12 +1060,12 @@ bool OutputDevice::ImplNewFont() const
         aSize.setWidth( 1 );
 
     // get font entry
-    LogicalFontInstance* pOldFontInstance = mpFontInstance;
-    mpFontInstance = mpFontCache->GetFontInstance( mpFontCollection, maFont, aSize, fExactHeight );
-    if( pOldFontInstance )
-        pOldFontInstance->Release();
+    rtl::Reference<LogicalFontInstance> pOldFontInstance = mpFontInstance;
+    mpFontInstance = mxFontCache->GetFontInstance( mxFontCollection.get(), maFont, aSize, fExactHeight );
+    bool bNewFontInstance = pOldFontInstance.get() != mpFontInstance.get();
+    pOldFontInstance.clear();
 
-    LogicalFontInstance* pFontInstance = mpFontInstance;
+    LogicalFontInstance* pFontInstance = mpFontInstance.get();
 
     if (!pFontInstance)
     {
@@ -1059,7 +1075,7 @@ bool OutputDevice::ImplNewFont() const
 
     // mark when lower layers need to get involved
     mbNewFont = false;
-    if( pFontInstance != pOldFontInstance )
+    if( bNewFontInstance )
         mbInitFont = true;
 
     // select font when it has not been initialized yet
@@ -1072,7 +1088,7 @@ bool OutputDevice::ImplNewFont() const
         {
             pFontInstance->mbInit = true;
 
-            pFontInstance->mxFontMetric->SetOrientation( sal::static_int_cast<short>(pFontInstance->maFontSelData.mnOrientation) );
+            pFontInstance->mxFontMetric->SetOrientation( sal::static_int_cast<short>(mpFontInstance->GetFontSelectPattern().mnOrientation) );
             pGraphics->GetFontMetric( pFontInstance->mxFontMetric, 0 );
 
             pFontInstance->mxFontMetric->ImplInitTextLineSize( this );
@@ -1159,9 +1175,9 @@ bool OutputDevice::ImplNewFont() const
 
 void OutputDevice::SetFontOrientation( LogicalFontInstance* const pFontInstance ) const
 {
-    if( pFontInstance->maFontSelData.mnOrientation && !pFontInstance->mxFontMetric->GetOrientation() )
+    if( pFontInstance->GetFontSelectPattern().mnOrientation && !pFontInstance->mxFontMetric->GetOrientation() )
     {
-        pFontInstance->mnOwnOrientation = sal::static_int_cast<short>(pFontInstance->maFontSelData.mnOrientation);
+        pFontInstance->mnOwnOrientation = sal::static_int_cast<short>(pFontInstance->GetFontSelectPattern().mnOrientation);
         pFontInstance->mnOrientation = pFontInstance->mnOwnOrientation;
     }
     else
@@ -1267,7 +1283,7 @@ void OutputDevice::ImplDrawEmphasisMarks( SalLayout& rSalLayout )
     tools::Rectangle aRectangle;
     const GlyphItem* pGlyph;
     int nStart = 0;
-    while (rSalLayout.GetNextGlyphs(1, &pGlyph, aOutPoint, nStart))
+    while (rSalLayout.GetNextGlyph(&pGlyph, aOutPoint, nStart))
     {
         if (!mpGraphics->GetGlyphBoundRect(*pGlyph, aRectangle ) )
             continue;
@@ -1296,7 +1312,7 @@ void OutputDevice::ImplDrawEmphasisMarks( SalLayout& rSalLayout )
 }
 
 std::unique_ptr<SalLayout> OutputDevice::getFallbackFont(
-    FontSelectPattern &rFontSelData, int nFallbackLevel,
+    LogicalFontInstance* pLogicalFont, int nFallbackLevel,
     ImplLayoutArgs& rLayoutArgs) const
 {
     // we need a graphics
@@ -1304,7 +1320,7 @@ std::unique_ptr<SalLayout> OutputDevice::getFallbackFont(
         return nullptr;
 
     assert(mpGraphics != nullptr);
-    mpGraphics->SetFont( &rFontSelData, nFallbackLevel );
+    mpGraphics->SetFont( pLogicalFont, nFallbackLevel );
 
     rLayoutArgs.ResetPos();
     std::unique_ptr<SalLayout> pFallback = mpGraphics->GetTextLayout( rLayoutArgs, nFallbackLevel );
@@ -1312,7 +1328,7 @@ std::unique_ptr<SalLayout> OutputDevice::getFallbackFont(
     if (!pFallback)
         return nullptr;
 
-    if (!pFallback->LayoutText(rLayoutArgs))
+    if (!pFallback->LayoutText(rLayoutArgs, nullptr))
     {
         // there is no need for a font that couldn't resolve anything
         return nullptr;
@@ -1350,57 +1366,50 @@ std::unique_ptr<SalLayout> OutputDevice::ImplGlyphFallbackLayout( std::unique_pt
     rLayoutArgs.ResetPos();
     OUString aMissingCodes = aMissingCodeBuf.makeStringAndClear();
 
-    FontSelectPattern aFontSelData = mpFontInstance->maFontSelData;
+    FontSelectPattern aFontSelData(mpFontInstance->GetFontSelectPattern());
 
     // try if fallback fonts support the missing code units
     for( int nFallbackLevel = 1; nFallbackLevel < MAX_FALLBACK; ++nFallbackLevel )
     {
         // find a font family suited for glyph fallback
-        // GetGlyphFallbackFont() needs a valid aFontSelData.mpFontInstance
+        // GetGlyphFallbackFont() needs a valid FontInstance
         // if the system-specific glyph fallback is active
-        aFontSelData.mpFontInstance = mpFontInstance; // reset the fontinstance to base-level
-
-        LogicalFontInstance* pFallbackFont = mpFontCache->GetGlyphFallbackFont( mpFontCollection,
-            aFontSelData, nFallbackLevel, aMissingCodes );
+        rtl::Reference<LogicalFontInstance> pFallbackFont = mxFontCache->GetGlyphFallbackFont( mxFontCollection.get(),
+            aFontSelData, mpFontInstance.get(), nFallbackLevel, aMissingCodes );
         if( !pFallbackFont )
             break;
 
-        aFontSelData.mpFontInstance = pFallbackFont;
-        aFontSelData.mpFontData = pFallbackFont->maFontSelData.mpFontData;
         if( nFallbackLevel < MAX_FALLBACK-1)
         {
             // ignore fallback font if it is the same as the original font
             // unless we are looking for a substitution for 0x202F, in which
             // case we'll just use a normal space
-            if( mpFontInstance->maFontSelData.mpFontData == aFontSelData.mpFontData &&
+            if( mpFontInstance->GetFontFace() == pFallbackFont->GetFontFace() &&
                 aMissingCodes.indexOf(0x202F) == -1 )
             {
-                pFallbackFont->Release();
                 continue;
             }
         }
 
         // create and add glyph fallback layout to multilayout
-        std::unique_ptr<SalLayout> pFallback = getFallbackFont(aFontSelData,
+        std::unique_ptr<SalLayout> pFallback = getFallbackFont(pFallbackFont.get(),
             nFallbackLevel, rLayoutArgs);
         if (pFallback)
         {
             if( !pMultiSalLayout )
                 pMultiSalLayout.reset( new MultiSalLayout( std::move(pSalLayout) ) );
             pMultiSalLayout->AddFallback( std::move(pFallback),
-                rLayoutArgs.maRuns, aFontSelData.mpFontData );
+                rLayoutArgs.maRuns, pFallbackFont->GetFontFace() );
             if (nFallbackLevel == MAX_FALLBACK-1)
                 pMultiSalLayout->SetIncomplete(true);
         }
-
-        pFallbackFont->Release();
 
         // break when this fallback was sufficient
         if( !rLayoutArgs.PrepareFallback() )
             break;
     }
 
-    if( pMultiSalLayout && pMultiSalLayout->LayoutText( rLayoutArgs ) )
+    if( pMultiSalLayout && pMultiSalLayout->LayoutText( rLayoutArgs, nullptr ) )
         pSalLayout = std::move(pMultiSalLayout);
 
     // restore orig font settings

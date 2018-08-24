@@ -140,14 +140,14 @@ void Entry_Impl::checkDependencies()
         deployment::DependencyException depExc;
         if ( e.Cause >>= depExc )
         {
-            OUString aMissingDep( DpResId( RID_STR_ERROR_MISSING_DEPENDENCIES ) );
+            OUStringBuffer aMissingDep( DpResId( RID_STR_ERROR_MISSING_DEPENDENCIES ) );
             for ( sal_Int32 i = 0; i < depExc.UnsatisfiedDependencies.getLength(); ++i )
             {
-                aMissingDep += "\n";
-                aMissingDep += dp_misc::Dependencies::getErrorText( depExc.UnsatisfiedDependencies[i]);
+                aMissingDep.append("\n");
+                aMissingDep.append(dp_misc::Dependencies::getErrorText( depExc.UnsatisfiedDependencies[i]));
             }
-            aMissingDep += "\n";
-            m_sErrorText = aMissingDep;
+            aMissingDep.append("\n");
+            m_sErrorText = aMissingDep.makeStringAndClear();
             m_bMissingDeps = true;
         }
     }
@@ -224,8 +224,8 @@ void ExtensionBox_Impl::Init()
 
     m_xRemoveListener = new ExtensionRemovedListener( this );
 
-    m_pLocale = new lang::Locale( Application::GetSettings().GetLanguageTag().getLocale() );
-    m_pCollator = new CollatorWrapper( ::comphelper::getProcessComponentContext() );
+    m_pLocale.reset( new lang::Locale( Application::GetSettings().GetLanguageTag().getLocale() ) );
+    m_pCollator.reset( new CollatorWrapper( ::comphelper::getProcessComponentContext() ) );
     m_pCollator->loadDefaultCollator( *m_pLocale, i18n::CollatorOptions::CollatorOptions_IGNORE_CASE );
 
     Show();
@@ -256,8 +256,8 @@ void ExtensionBox_Impl::dispose()
 
     m_xRemoveListener.clear();
 
-    delete m_pLocale;
-    delete m_pCollator;
+    m_pLocale.reset();
+    m_pCollator.reset();
     ::svt::IExtensionListBox::dispose();
 }
 
@@ -841,7 +841,7 @@ bool ExtensionBox_Impl::FindEntryPos( const TEntry_Impl& rEntry, const long nSta
 
     if ( nStart == nEnd )
     {
-        eCompare = rEntry->CompareTo( m_pCollator, m_vEntries[ nStart ] );
+        eCompare = rEntry->CompareTo( m_pCollator.get(), m_vEntries[ nStart ] );
         if ( eCompare < 0 )
             return false;
         else if ( eCompare == 0 )
@@ -862,7 +862,7 @@ bool ExtensionBox_Impl::FindEntryPos( const TEntry_Impl& rEntry, const long nSta
     }
 
     const long nMid = nStart + ( ( nEnd - nStart ) / 2 );
-    eCompare = rEntry->CompareTo( m_pCollator, m_vEntries[ nMid ] );
+    eCompare = rEntry->CompareTo( m_pCollator.get(), m_vEntries[ nMid ] );
 
     if ( eCompare < 0 )
         return FindEntryPos( rEntry, nStart, nMid-1, nPos );

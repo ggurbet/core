@@ -83,7 +83,7 @@ static const DrawModeFlags OUTPUT_DRAWMODE_CONTRAST
 
     <p>Despite its name this class is not a descendant of SfxViewShell
     but of SfxShell.  Its name expresses the fact that it acts like a
-    view shell.  Being a stacked shell rather then being an actual view shell
+    view shell.  Being a stacked shell rather than being an actual view shell
     there can be several instances of this class that
     <ul>
     <li>all are based on the same view shell and thus show the same
@@ -285,8 +285,8 @@ public:
     virtual sal_Int8 ExecuteDrop( const ExecuteDropEvent& rEvt, DropTargetHelper& rTargetHelper,
                                   ::sd::Window* pTargetWindow, sal_uInt16 nPage, SdrLayerID nLayer );
 
-    virtual void WriteUserDataSequence ( css::uno::Sequence < css::beans::PropertyValue >&, bool bBrowse );
-    virtual void ReadUserDataSequence ( const css::uno::Sequence < css::beans::PropertyValue >&, bool bBrowse );
+    virtual void WriteUserDataSequence ( css::uno::Sequence < css::beans::PropertyValue >& );
+    virtual void ReadUserDataSequence ( const css::uno::Sequence < css::beans::PropertyValue >& );
 
     /** this method is called when the visible area of the view from this viewshell is changed */
     virtual void VisAreaChanged(const ::tools::Rectangle& rRect);
@@ -492,7 +492,7 @@ protected:
     std::unique_ptr<Implementation, o3tl::default_delete<Implementation>> mpImpl;
 
     // Support methods for centralized UNDO/REDO
-    virtual ::svl::IUndoManager* ImpGetUndoManager() const;
+    virtual SfxUndoManager* ImpGetUndoManager() const;
     void ImpGetUndoStrings(SfxItemSet &rSet) const;
     void ImpGetRedoStrings(SfxItemSet &rSet) const;
     void ImpSidUndo(SfxRequest& rReq);

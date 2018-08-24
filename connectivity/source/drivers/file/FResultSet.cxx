@@ -36,6 +36,7 @@
 #include <connectivity/dbconversion.hxx>
 #include <connectivity/dbtools.hxx>
 #include <cppuhelper/propshlp.hxx>
+#include <sal/log.hxx>
 #include <iterator>
 #include <com/sun/star/sdbc/ResultSetType.hpp>
 #include <com/sun/star/sdbc/FetchDirection.hpp>
@@ -149,7 +150,7 @@ void OResultSet::disposing()
     m_pTable.clear();
 
     m_pFileSet = nullptr;
-    DELETEZ(m_pSortIndex);
+    m_pSortIndex.reset();
 
     if(m_aInsertRow.is())
         m_aInsertRow->get().clear();
@@ -843,8 +844,8 @@ again:
     {
         if (m_pSortIndex)
         {
-            OKeyValue* pKeyValue = GetOrderbyKeyValue( m_aSelectRow );
-            m_pSortIndex->AddKeyValue(pKeyValue);
+            std::unique_ptr<OKeyValue> pKeyValue = GetOrderbyKeyValue( m_aSelectRow );
+            m_pSortIndex->AddKeyValue(std::move(pKeyValue));
         }
         else if (m_pFileSet.is())
         {
@@ -1147,7 +1148,7 @@ void OResultSet::sortRows()
         ++i;
     }
 
-    m_pSortIndex = new OSortIndex(eKeyType,m_aOrderbyAscending);
+    m_pSortIndex.reset(new OSortIndex(eKeyType,m_aOrderbyAscending));
 
     while ( ExecuteRow( IResultSetHelper::NEXT, 1, false ) )
     {
@@ -1161,7 +1162,7 @@ void OResultSet::sortRows()
     // create sorted Keyset
     m_pFileSet = nullptr;
     m_pFileSet = m_pSortIndex->CreateKeySet();
-    DELETEZ(m_pSortIndex);
+    m_pSortIndex.reset();
     // now access to a sorted set is possible via Index
 }
 

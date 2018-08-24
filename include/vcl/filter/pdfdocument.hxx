@@ -15,11 +15,25 @@
 #include <map>
 #include <vector>
 
-#include <com/sun/star/security/XCertificate.hpp>
+#include <com/sun/star/uno/Reference.h>
 
 #include <tools/stream.hxx>
 
 #include <vcl/dllapi.h>
+
+namespace com
+{
+namespace sun
+{
+namespace star
+{
+namespace security
+{
+class XCertificate;
+}
+}
+}
+}
 
 namespace vcl
 {
@@ -37,9 +51,21 @@ class PDFNumberElement;
 /// A byte range in a PDF file.
 class VCL_DLLPUBLIC PDFElement
 {
+    bool m_bVisiting;
+    bool m_bParsing;
+
 public:
+    PDFElement()
+        : m_bVisiting(false)
+        , m_bParsing(false)
+    {
+    }
     virtual bool Read(SvStream& rStream) = 0;
     virtual ~PDFElement() = default;
+    void setVisiting(bool bVisiting) { m_bVisiting = bVisiting; }
+    bool alreadyVisiting() const { return m_bVisiting; }
+    void setParsing(bool bParsing) { m_bParsing = bParsing; }
+    bool alreadyParsing() const { return m_bParsing; }
 };
 
 /// Indirect object: something with a unique ID.

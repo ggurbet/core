@@ -61,8 +61,7 @@ class SwAccessiblePortionData : public SwPortionHandler
     Positions_t m_aFieldPosition;
     Positions_t m_aAttrFieldType;
 
-    typedef std::vector<sal_uInt8> PortionAttrs_t;
-    PortionAttrs_t m_aPortionAttrs;   /// additional portion attributes
+    std::vector<sal_uInt8> m_aPortionAttrs;   /// additional portion attributes
 
     std::unique_ptr<Positions_t> m_pSentences;    /// positions of sentence breaks
 
@@ -96,10 +95,10 @@ public:
     virtual ~SwAccessiblePortionData() override;
 
     // SwPortionHandler methods
-    virtual void Text(sal_Int32 nLength, sal_uInt16 nType, sal_Int32 nHeight = 0, sal_Int32 nWidth = 0) override;
-    virtual void Special(sal_Int32 nLength, const OUString& rText, sal_uInt16 nType, sal_Int32 nHeight = 0, sal_Int32 nWidth = 0, const SwFont* pFont = nullptr) override;
+    virtual void Text(TextFrameIndex nLength, sal_uInt16 nType, sal_Int32 nHeight = 0, sal_Int32 nWidth = 0) override;
+    virtual void Special(TextFrameIndex nLength, const OUString& rText, sal_uInt16 nType, sal_Int32 nHeight = 0, sal_Int32 nWidth = 0, const SwFont* pFont = nullptr) override;
     virtual void LineBreak(sal_Int32 nWidth) override;
-    virtual void Skip(sal_Int32 nLength) override;
+    virtual void Skip(TextFrameIndex nLength) override;
     virtual void Finish() override;
 
     virtual void SetAttrFieldType( sal_uInt16 nAttrFieldType ) override;
@@ -168,9 +167,7 @@ public:
     bool GetEditableRange( sal_Int32 nStart, sal_Int32 nEnd,
                                sal_Int32& nCoreStart, sal_Int32& nCoreEnd ) const;
 private:
-    typedef std::pair<sal_Int32,sal_Int32> PAIR_POS;
-    typedef std::vector<PAIR_POS> VEC_PAIR_POS;
-    VEC_PAIR_POS m_vecPairPos;
+    std::vector< std::pair<sal_Int32,sal_Int32> > m_vecPairPos;
 };
 
 #endif

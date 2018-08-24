@@ -29,7 +29,6 @@
 
 #include <i18nlangtag/mslangid.hxx>
 #include <hintids.hxx>
-#include <comphelper/string.hxx>
 #include <tools/urlobj.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/cmapitem.hxx>
@@ -86,11 +85,13 @@
 #include <fmtsrnd.hxx>
 #include <fmtrowsplt.hxx>
 #include <com/sun/star/drawing/XShape.hpp>
+#include <com/sun/star/i18n/BreakIterator.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
 #include <com/sun/star/text/RubyPosition.hpp>
 #include <oox/export/vmlexport.hxx>
 #include <sfx2/docfile.hxx>
+#include <sal/log.hxx>
 
 #include "sprmids.hxx"
 
@@ -495,11 +496,10 @@ void SwWW8AttrIter::OutAttr( sal_Int32 nSwPos, bool bRuby , bool bWriteCombChars
     if( rNd.GetpSwpHints() == nullptr )
         m_rExport.SetCurItemSet(&aExportSet);
 
-    ww8::cPoolItemIter aEnd = aRangeItems.end();
-    for ( ww8::cPoolItemIter aI = aRangeItems.begin(); aI != aEnd; ++aI )
+    for ( const auto& aRangeItem : aRangeItems )
     {
-        if ( !bRuby || !lcl_isFontsizeItem( *aI->second ) )
-            aExportItems[aI->first] = aI->second;
+        if ( !bRuby || !lcl_isFontsizeItem( *(aRangeItem.second) ) )
+            aExportItems[aRangeItem.first] = aRangeItem.second;
     }
 
     if ( !aExportItems.empty() )
@@ -2723,7 +2723,7 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
                                             SvxNumberFormat::LABEL_WIDTH_AND_POSITION )
                     {
                         if (bParaRTL)
-                            aLR.SetTextFirstLineOfstValue(pFormat->GetAbsLSpace() - pFormat->GetFirstLineOffset());
+                            aLR.SetTextFirstLineOfstValue(pFormat->GetAbsLSpace() - pFormat->GetFirstLineOffset()); //TODO: overflow
                         else
                             aLR.SetTextFirstLineOfst(GetWordFirstLineOffset(*pFormat));
                     }

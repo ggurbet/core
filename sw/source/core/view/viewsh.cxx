@@ -26,6 +26,7 @@
 #include <svx/svdobj.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/ipclient.hxx>
+#include <sal/log.hxx>
 #include <drawdoc.hxx>
 #include <swwait.hxx>
 #include <swmodule.hxx>
@@ -83,6 +84,7 @@
 #include <svx/sdr/overlay/overlaymanager.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
+#include <prevwpage.hxx>
 
 #if !HAVE_FEATURE_DESKTOP
 #include <vcl/sysdata.hxx>
@@ -922,6 +924,26 @@ void SwViewShell::SetSubtractFlysAnchoredAtFlys(bool bSubtractFlysAnchoredAtFlys
 {
     IDocumentSettingAccess& rIDSA = getIDocumentSettingAccess();
     rIDSA.set(DocumentSettingId::SUBTRACT_FLYS, bSubtractFlysAnchoredAtFlys);
+}
+
+void SwViewShell::SetEmptyDbFieldHidesPara(bool bEmptyDbFieldHidesPara)
+{
+    IDocumentSettingAccess& rIDSA = getIDocumentSettingAccess();
+    if (rIDSA.get(DocumentSettingId::EMPTY_DB_FIELD_HIDES_PARA) != bEmptyDbFieldHidesPara)
+    {
+        SwWait aWait(*GetDoc()->GetDocShell(), true);
+        rIDSA.set(DocumentSettingId::EMPTY_DB_FIELD_HIDES_PARA, bEmptyDbFieldHidesPara);
+        StartAction();
+        GetDoc()->getIDocumentState().SetModified();
+        for (auto* pFieldType : *GetDoc()->getIDocumentFieldsAccess().GetFieldTypes())
+        {
+            if (pFieldType->Which() == SwFieldIds::Database)
+            {
+                pFieldType->ModifyNotification(nullptr, nullptr);
+            }
+        }
+        EndAction();
+    }
 }
 
 void SwViewShell::Reformat()

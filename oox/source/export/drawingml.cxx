@@ -21,6 +21,7 @@
 
 #include <config_folders.h>
 #include <rtl/bootstrap.hxx>
+#include <sal/log.hxx>
 #include <oox/core/xmlfilterbase.hxx>
 #include <oox/export/drawingml.hxx>
 #include <oox/export/utils.hxx>
@@ -699,14 +700,34 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet )
 
     if( bDashSet && aStyleLineStyle != drawing::LineStyle_DASH )
     {
-        // line style is a dash and it was not set by the shape style
-
-        if (aLineDash.Dashes == 1 && aLineDash.DashLen == 564 && aLineDash.Distance == 423)
+        // keep default preset linestyles (instead of custdash)
+        if (aLineDash.Dots == 1 && aLineDash.DotLen == 141 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 141)
         {
-            // That's exactly the predefined "dash" value.
-            mpFS->singleElementNS(XML_a, XML_prstDash,
-                                  XML_val, "dash",
-                                  FSEND);
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDot", FSEND);
+        }
+        else if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 423 && aLineDash.Distance == 141)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDash", FSEND);
+        }
+        else if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 564 && aLineDash.Distance == 423)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dash", FSEND);
+        }
+        else if (aLineDash.Dots == 1 && aLineDash.DotLen == 141 && aLineDash.Dashes == 1 && aLineDash.DashLen == 564 && aLineDash.Distance == 423)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dashDot", FSEND);
+        }
+        else if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 1128 && aLineDash.Distance == 423)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "lgDash", FSEND);
+        }
+        else if (aLineDash.Dots == 1 && aLineDash.DotLen == 141 && aLineDash.Dashes == 1 && aLineDash.DashLen == 1128 && aLineDash.Distance == 423)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "lgDashDot", FSEND);
+        }
+        else if (aLineDash.Dots == 2 && aLineDash.DotLen == 141 && aLineDash.Dashes == 1 && aLineDash.DashLen == 1128 && aLineDash.Distance == 423)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "lgDashDotDot", FSEND);
         }
         else
         {
@@ -717,23 +738,26 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet )
             {
                 // Write 'dashes' first, and then 'dots'
                 int i;
+                sal_Int32 nSp = aLineDash.Distance * 100 / nLineWidth;
                 if ( aLineDash.Dashes > 0 )
                 {
+                    sal_Int32 nD = aLineDash.DashLen * 100 / nLineWidth;
                     for( i = 0; i < aLineDash.Dashes; i ++ )
                     {
                         mpFS->singleElementNS( XML_a , XML_ds,
-                                               XML_d , write1000thOfAPercent( aLineDash.DashLen  > 0 ? aLineDash.DashLen  / nLineWidth * 100 : 100 ),
-                                               XML_sp, write1000thOfAPercent( aLineDash.Distance > 0 ? aLineDash.Distance / nLineWidth * 100 : 100 ),
+                                               XML_d , write1000thOfAPercent(nD),
+                                               XML_sp, write1000thOfAPercent(nSp),
                                                FSEND );
                     }
                 }
                 if ( aLineDash.Dots > 0 )
                 {
+                    sal_Int32 nD = aLineDash.DotLen * 100 / nLineWidth;
                     for( i = 0; i < aLineDash.Dots; i ++ )
                     {
                         mpFS->singleElementNS( XML_a, XML_ds,
-                                               XML_d , write1000thOfAPercent( aLineDash.DotLen   > 0 ? aLineDash.DotLen   / nLineWidth * 100 : 100 ),
-                                               XML_sp, write1000thOfAPercent( aLineDash.Distance > 0 ? aLineDash.Distance / nLineWidth * 100 : 100 ),
+                                               XML_d , write1000thOfAPercent(nD),
+                                               XML_sp, write1000thOfAPercent(nSp),
                                                FSEND );
                     }
                 }
@@ -891,7 +915,7 @@ OUString DrawingML::WriteImage( const Graphic& rGraphic , bool bRelPathToMedia )
             }
             else
             {
-                SAL_WARN("oox.shape", "unhandled graphic type" );
+                SAL_WARN("oox.shape", "unhandled graphic type " << static_cast<int>(aType) );
                 /*Earlier, even in case of unhandled graphic types we were
                   proceeding to write the image, which would eventually
                   write an empty image with a zero size, and return a valid
@@ -916,13 +940,16 @@ OUString DrawingML::WriteImage( const Graphic& rGraphic , bool bRelPathToMedia )
     xOutStream->writeBytes( Sequence< sal_Int8 >( static_cast<const sal_Int8*>(aData), nDataSize ) );
     xOutStream->closeOutput();
 
-    OString sRelPathToMedia = "media/image";
+    const OString sRelPathToMedia = "media/image";
+    OString sRelationCompPrefix;
     if ( bRelPathToMedia )
-        sRelPathToMedia = "../" + sRelPathToMedia;
+        sRelationCompPrefix = "../";
+    else
+        sRelationCompPrefix = GetRelationCompPrefix();
     sRelId = mpFB->addRelation( mpFS->getOutputStream(),
                                 oox::getRelationship(Relationship::IMAGE),
                                 OUStringBuffer()
-                                .appendAscii( GetRelationCompPrefix() )
+                                .appendAscii( sRelationCompPrefix.getStr() )
                                 .appendAscii( sRelPathToMedia.getStr() )
                                 .append( static_cast<sal_Int32>(mnImageCounter ++) )
                                 .appendAscii( pExtension )
@@ -1341,17 +1368,11 @@ void DrawingML::WriteShapeTransformation( const Reference< XShape >& rXShape, sa
     bFlipH = bFlipH && !bFlippedBeforeRotation;
     bFlipV = bFlipV && !bFlippedBeforeRotation;
 
-    bool bPositiveY = true;
-    bool bPositiveX = true;
-
     if (GetDocumentType() == DOCUMENT_DOCX && m_xParent.is())
     {
         awt::Point aParentPos = m_xParent->getPosition();
         aPos.X -= aParentPos.X;
         aPos.Y -= aParentPos.Y;
-
-        bPositiveX = aParentPos.X >= 0;
-        bPositiveY = aParentPos.Y >= 0;
     }
 
     if ( aSize.Width < 0 )
@@ -1362,23 +1383,12 @@ void DrawingML::WriteShapeTransformation( const Reference< XShape >& rXShape, sa
     {
         SdrObject* pShape = GetSdrObjectFromXShape( rXShape );
         nRotation = pShape ? pShape->GetRotateAngle() : 0;
-        if (nRotation != 0 && nRotation != 18000)
+        if ( nRotation != 0 && GetDocumentType() != DOCUMENT_DOCX )
         {
             int faccos=bFlipV ? -1 : 1;
             int facsin=bFlipH ? -1 : 1;
             aPos.X-=(1-faccos*cos(nRotation*F_PI18000))*aSize.Width/2-facsin*sin(nRotation*F_PI18000)*aSize.Height/2;
             aPos.Y-=(1-faccos*cos(nRotation*F_PI18000))*aSize.Height/2+facsin*sin(nRotation*F_PI18000)*aSize.Width/2;
-        }
-        else if(nRotation == 18000)
-        {
-            if (!bFlipV && bPositiveX)
-            {
-                aPos.X -= aSize.Width;
-            }
-            if (!bFlipH && bPositiveY)
-            {
-                aPos.Y -= aSize.Height;
-            }
         }
 
         // The RotateAngle property's value is independent from any flipping, and that's exactly what we need here.
@@ -1392,11 +1402,8 @@ void DrawingML::WriteShapeTransformation( const Reference< XShape >& rXShape, sa
     if(bFlipH != bFlipV)
         nRotation = nRotation * -1 + 36000;
 
-    uno::Reference<lang::XServiceInfo> xServiceInfo(rXShape, uno::UNO_QUERY_THROW);
-    bool bIsGroupShape = (xServiceInfo.is() && xServiceInfo->supportsService("com.sun.star.drawing.GroupShape"));
-
     WriteTransformation(tools::Rectangle(Point(aPos.X, aPos.Y), Size(aSize.Width, aSize.Height)), nXmlNamespace,
-            bFlipHWrite, bFlipVWrite, OOX_DRAWINGML_EXPORT_ROTATE_CLOCKWISIFY(nRotation), bIsGroupShape);
+            bFlipHWrite, bFlipVWrite, OOX_DRAWINGML_EXPORT_ROTATE_CLOCKWISIFY(nRotation), IsGroupShape( rXShape ));
 }
 
 void DrawingML::WriteRunProperties( const Reference< XPropertySet >& rRun, bool bIsField, sal_Int32 nElement, bool bCheckDirect,
@@ -2079,6 +2086,17 @@ void DrawingML::WriteParagraphNumbering(const Reference< XPropertySet >& rXPropS
     }
 }
 
+bool DrawingML::IsGroupShape( const Reference< XShape >& rXShape ) const
+{
+    bool bRet = false;
+    if ( rXShape.is() )
+    {
+        uno::Reference<lang::XServiceInfo> xServiceInfo(rXShape, uno::UNO_QUERY_THROW);
+        bRet = xServiceInfo->supportsService("com.sun.star.drawing.GroupShape");
+    }
+    return bRet;
+}
+
 sal_Int32 DrawingML::getBulletMarginIndentation (const Reference< XPropertySet >& rXPropSet,sal_Int16 nLevel, const OUString& propName)
 {
     if( nLevel < 0 || !GETA( NumberingRules ) )
@@ -2462,7 +2480,7 @@ void DrawingML::WriteText( const Reference< XInterface >& rXIface, const OUStrin
         */
         if (pTxtObj->IsTextEditActive())
         {
-            pParaObj = pTxtObj->GetEditOutlinerParaObject();
+            pParaObj = pTxtObj->GetEditOutlinerParaObject().release();
             bOwnParaObj = true;
         }
         else
@@ -2722,41 +2740,57 @@ bool DrawingML::WriteCustomGeometry(
 
 
                 int nPairIndex = 0;
-                for( int j = 0; j < aSegments.getLength(); ++j )
+                bool bOK = true;
+                for (int j = 0; j < aSegments.getLength() && bOK; ++j)
                 {
                     if ( aSegments[ j ].Command == drawing::EnhancedCustomShapeSegmentCommand::CLOSESUBPATH )
                     {
                         mpFS->singleElementNS( XML_a, XML_close, FSEND );
                     }
-                    for ( int k = 0; k < aSegments[j].Count; ++k )
+                    for (int k = 0; k < aSegments[j].Count && bOK; ++k)
                     {
                         switch( aSegments[ j ].Command )
                         {
                             case drawing::EnhancedCustomShapeSegmentCommand::MOVETO :
                             {
-                                mpFS->startElementNS( XML_a, XML_moveTo, FSEND );
-                                WriteCustomGeometryPoint(aPairs[nPairIndex], rSdrObjCustomShape);
-                                mpFS->endElementNS( XML_a, XML_moveTo );
-                                nPairIndex++;
+                                if (nPairIndex >= aPairs.getLength())
+                                    bOK = false;
+                                else
+                                {
+                                    mpFS->startElementNS( XML_a, XML_moveTo, FSEND );
+                                    WriteCustomGeometryPoint(aPairs[nPairIndex], rSdrObjCustomShape);
+                                    mpFS->endElementNS( XML_a, XML_moveTo );
+                                    nPairIndex++;
+                                }
                                 break;
                             }
                             case drawing::EnhancedCustomShapeSegmentCommand::LINETO :
                             {
-                                mpFS->startElementNS( XML_a, XML_lnTo, FSEND );
-                                WriteCustomGeometryPoint(aPairs[nPairIndex], rSdrObjCustomShape);
-                                mpFS->endElementNS( XML_a, XML_lnTo );
-                                nPairIndex++;
+                                if (nPairIndex >= aPairs.getLength())
+                                    bOK = false;
+                                else
+                                {
+                                    mpFS->startElementNS( XML_a, XML_lnTo, FSEND );
+                                    WriteCustomGeometryPoint(aPairs[nPairIndex], rSdrObjCustomShape);
+                                    mpFS->endElementNS( XML_a, XML_lnTo );
+                                    nPairIndex++;
+                                }
                                 break;
                             }
                             case drawing::EnhancedCustomShapeSegmentCommand::CURVETO :
                             {
-                                mpFS->startElementNS( XML_a, XML_cubicBezTo, FSEND );
-                                for( sal_uInt8 l = 0; l <= 2; ++l )
+                                if (nPairIndex + 2 >= aPairs.getLength())
+                                    bOK = false;
+                                else
                                 {
-                                    WriteCustomGeometryPoint(aPairs[nPairIndex+l], rSdrObjCustomShape);
+                                    mpFS->startElementNS( XML_a, XML_cubicBezTo, FSEND );
+                                    for( sal_uInt8 l = 0; l <= 2; ++l )
+                                    {
+                                        WriteCustomGeometryPoint(aPairs[nPairIndex+l], rSdrObjCustomShape);
+                                    }
+                                    mpFS->endElementNS( XML_a, XML_cubicBezTo );
+                                    nPairIndex += 3;
                                 }
-                                mpFS->endElementNS( XML_a, XML_cubicBezTo );
-                                nPairIndex += 3;
                                 break;
                             }
                             case drawing::EnhancedCustomShapeSegmentCommand::ANGLEELLIPSETO :
@@ -2781,13 +2815,18 @@ bool DrawingML::WriteCustomGeometry(
                             }
                             case drawing::EnhancedCustomShapeSegmentCommand::QUADRATICCURVETO :
                             {
-                                mpFS->startElementNS( XML_a, XML_quadBezTo, FSEND );
-                                for( sal_uInt8 l = 0; l < 2; ++l )
+                                if (nPairIndex + 1 >= aPairs.getLength())
+                                    bOK = false;
+                                else
                                 {
-                                    WriteCustomGeometryPoint(aPairs[nPairIndex+l], rSdrObjCustomShape);
+                                    mpFS->startElementNS( XML_a, XML_quadBezTo, FSEND );
+                                    for( sal_uInt8 l = 0; l < 2; ++l )
+                                    {
+                                        WriteCustomGeometryPoint(aPairs[nPairIndex+l], rSdrObjCustomShape);
+                                    }
+                                    mpFS->endElementNS( XML_a, XML_quadBezTo );
+                                    nPairIndex += 2;
                                 }
-                                mpFS->endElementNS( XML_a, XML_quadBezTo );
-                                nPairIndex += 2;
                                 break;
                             }
                             case drawing::EnhancedCustomShapeSegmentCommand::ARCANGLETO :
@@ -2804,7 +2843,7 @@ bool DrawingML::WriteCustomGeometry(
                 mpFS->endElementNS( XML_a, XML_path );
                 mpFS->endElementNS( XML_a, XML_pathLst );
                 mpFS->endElementNS( XML_a, XML_custGeom );
-                return true;
+                return bOK;
             }
         }
     }
@@ -3254,7 +3293,7 @@ sal_Int32 lcl_CalculateDist(const double dX, const double dY)
 
 sal_Int32 lcl_CalculateDir(const double dX, const double dY)
 {
-    return (static_cast< sal_Int32 >(atan2(dY,dX) * 180 * 60000 / M_PI) + 21600000) % 21600000;
+    return (static_cast< sal_Int32 >(basegfx::rad2deg(atan2(dY,dX)) * 60000) + 21600000) % 21600000;
 }
 
 void DrawingML::WriteShapeEffects( const Reference< XPropertySet >& rXPropSet )

@@ -17,13 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-
-/*
- * and turn off the additional virtual methods which are part of some interfaces when compiled
- * with debug
- */
-#undef DEBUG
-
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/mozilla/XMozillaBootstrap.hpp>
 #include <com/sun/star/xml/crypto/DigestID.hpp>
@@ -58,8 +51,6 @@ namespace cssu = css::uno;
 namespace cssl = css::lang;
 
 using namespace com::sun::star;
-
-#define IMPLEMENTATION_NAME "com.sun.star.xml.security.bridge.xmlsec.NSSInitializer_NssImpl"
 
 #define ROOT_CERTS "Root Certs for OpenOffice.org"
 
@@ -222,9 +213,9 @@ OString getMozillaCurrentProfile( const css::uno::Reference< css::uno::XComponen
 //used on a different platform.
 //
 //Then one needs to add the roots module oneself. This should be done with
-//SECMOD_LoadUserModule rather then SECMOD_AddNewModule. The latter would write
+//SECMOD_LoadUserModule rather than SECMOD_AddNewModule. The latter would write
 //the location of the roots module to the profile, which makes FF2 and TB2 use
-//it instead of there own module.
+//it instead of their own module.
 //
 //When using SYSTEM_NSS then the libnss3.so lib is typically found in /usr/lib.
 //This folder may, however, NOT contain the roots certificate module. That is,
@@ -253,6 +244,20 @@ bool nsscrypto_initialize( const css::uno::Reference< css::uno::XComponentContex
     // there might be no profile
     if ( !sCertDir.isEmpty() )
     {
+        if (sCertDir.indexOf(':') == -1) //might be env var with explicit prefix
+        {
+            OUString sCertDirURL;
+            osl::FileBase::getFileURLFromSystemPath(
+                OStringToOUString(sCertDir, osl_getThreadTextEncoding()),
+                sCertDirURL);
+            osl::DirectoryItem item;
+            if (osl::FileBase::E_NOENT != osl::DirectoryItem::get(sCertDirURL + "/cert8.db", item) &&
+                osl::FileBase::E_NOENT == osl::DirectoryItem::get(sCertDirURL + "/cert9.db", item))
+            {
+                SAL_INFO("xmlsecurity.xmlsec", "nsscrypto_initialize: trying to avoid profile migration");
+                sCertDir = "dbm:" + sCertDir;
+            }
+        }
         if( NSS_InitReadWrite( sCertDir.getStr() ) != SECSuccess )
         {
             SAL_INFO("xmlsecurity.xmlsec", "Initializing NSS with profile failed.");
@@ -463,27 +468,10 @@ css::uno::Reference< css::xml::crypto::XCipherContext > SAL_CALL ONSSInitializer
     return xResult;
 }
 
-OUString ONSSInitializer_getImplementationName ()
-{
-
-    return OUString ( IMPLEMENTATION_NAME );
-}
-
-cssu::Sequence< OUString > ONSSInitializer_getSupportedServiceNames(  )
-{
-    cssu::Sequence<OUString> aRet { NSS_SERVICE_NAME };
-    return aRet;
-}
-
-cssu::Reference< cssu::XInterface > ONSSInitializer_createInstance( const cssu::Reference< cssl::XMultiServiceFactory > & rSMgr)
-{
-    return static_cast<cppu::OWeakObject*>(new ONSSInitializer( comphelper::getComponentContext(rSMgr) ));
-}
-
 /* XServiceInfo */
 OUString SAL_CALL ONSSInitializer::getImplementationName()
 {
-    return ONSSInitializer_getImplementationName();
+    return OUString("com.sun.star.xml.crypto.NSSInitializer");
 }
 
 sal_Bool SAL_CALL ONSSInitializer::supportsService( const OUString& rServiceName )
@@ -493,7 +481,17 @@ sal_Bool SAL_CALL ONSSInitializer::supportsService( const OUString& rServiceName
 
 cssu::Sequence< OUString > SAL_CALL ONSSInitializer::getSupportedServiceNames(  )
 {
-    return ONSSInitializer_getSupportedServiceNames();
+    cssu::Sequence<OUString> aRet { NSS_SERVICE_NAME };
+    return aRet;
 }
+
+#ifndef XMLSEC_CRYPTO_NSS
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_xml_crypto_NSSInitializer_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new ONSSInitializer(pCtx));
+}
+#endif
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

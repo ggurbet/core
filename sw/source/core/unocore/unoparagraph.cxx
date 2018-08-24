@@ -20,6 +20,7 @@
 #include <unoparagraph.hxx>
 
 #include <comphelper/interfacecontainer2.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 #include <cmdid.h>
@@ -37,21 +38,23 @@
 #include <osl/mutex.hxx>
 #include <vcl/svapp.hxx>
 #include <docsh.hxx>
+#include <swunohelper.hxx>
 
 #include <com/sun/star/beans/SetPropertyTolerantFailed.hpp>
 #include <com/sun/star/beans/GetPropertyTolerantResult.hpp>
 #include <com/sun/star/beans/TolerantPropertySetResultType.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/text/WrapTextMode.hpp>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
-#include <comphelper/servicehelper.hxx>
 
-#include <swunohelper.hxx>
-#include <svx/unobrushitemhelper.hxx>
-#include <editeng/unoipset.hxx>
-#include <svx/xflbstit.hxx>
-#include <svx/xflbmtit.hxx>
 #include <com/sun/star/drawing/BitmapMode.hpp>
+#include <comphelper/servicehelper.hxx>
+#include <editeng/unoipset.hxx>
+#include <svl/listener.hxx>
+#include <svx/unobrushitemhelper.hxx>
+#include <svx/xflbmtit.hxx>
+#include <svx/xflbstit.hxx>
 
 using namespace ::com::sun::star;
 
@@ -102,47 +105,47 @@ static beans::PropertyState lcl_SwXParagraph_getPropertyState(
                             bool &rAttrSetFetched );
 
 class SwXParagraph::Impl
-    : public SwClient
+    : public SvtListener
 {
 private:
     ::osl::Mutex m_Mutex; // just for OInterfaceContainerHelper2
 
 public:
-    SwXParagraph &              m_rThis;
+    SwXParagraph& m_rThis;
     uno::WeakReference<uno::XInterface> m_wThis;
     ::comphelper::OInterfaceContainerHelper2 m_EventListeners;
-    SfxItemPropertySet const&   m_rPropSet;
-    bool                        m_bIsDescriptor;
-    sal_Int32                   m_nSelectionStartPos;
-    sal_Int32                   m_nSelectionEndPos;
-    OUString             m_sText;
+    SfxItemPropertySet const& m_rPropSet;
+    bool m_bIsDescriptor;
+    sal_Int32 m_nSelectionStartPos;
+    sal_Int32 m_nSelectionEndPos;
+    OUString m_sText;
     uno::Reference<text::XText> m_xParentText;
+    SwTextNode* m_pTextNode;
 
-    Impl(   SwXParagraph & rThis,
-            SwTextNode *const pTextNode = nullptr,
-            uno::Reference< text::XText > const & xParent = nullptr,
+    Impl(SwXParagraph& rThis,
+            SwTextNode* const pTextNode = nullptr, uno::Reference<text::XText> const& xParent = nullptr,
             const sal_Int32 nSelStart = -1, const sal_Int32 nSelEnd = -1)
-        : SwClient(pTextNode)
-        , m_rThis(rThis)
+        : m_rThis(rThis)
         , m_EventListeners(m_Mutex)
         , m_rPropSet(*aSwMapProvider.GetPropertySet(PROPERTY_MAP_PARAGRAPH))
         , m_bIsDescriptor(nullptr == pTextNode)
         , m_nSelectionStartPos(nSelStart)
         , m_nSelectionEndPos(nSelEnd)
         , m_xParentText(xParent)
+        , m_pTextNode(pTextNode)
     {
+        m_pTextNode && StartListening(m_pTextNode->GetNotifier());
     }
 
     SwTextNode* GetTextNode() {
-        return static_cast<SwTextNode*>(GetRegisteredInNonConst());
+        return m_pTextNode;
     }
 
-    SwTextNode & GetTextNodeOrThrow() {
-        SwTextNode *const pTextNode( GetTextNode() );
-        if (!pTextNode) {
+    SwTextNode& GetTextNodeOrThrow() {
+        if (!m_pTextNode) {
             throw uno::RuntimeException("SwXParagraph: disposed or invalid", nullptr);
         }
-        return *pTextNode;
+        return *m_pTextNode;
     }
 
     bool IsDescriptor() const { return m_bIsDescriptor; }
@@ -175,26 +178,23 @@ public:
             const uno::Sequence< OUString >& rPropertyNames,
             bool bDirectValuesOnly);
 protected:
-    // SwClient
-    virtual void Modify(const SfxPoolItem *pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint& rHint) override;
 
 };
 
-void SwXParagraph::Impl::Modify( const SfxPoolItem *pOld, const SfxPoolItem *pNew )
+void SwXParagraph::Impl::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if (GetRegisteredIn())
+    if(rHint.GetId() == SfxHintId::Dying)
     {
-        return; // core object still alive
+        m_pTextNode = nullptr;
+        uno::Reference<uno::XInterface> const xThis(m_wThis);
+        if (!xThis.is())
+        {   // fdo#72695: if UNO object is already dead, don't revive it with event
+            return;
+        }
+        lang::EventObject const ev(xThis);
+        m_EventListeners.disposeAndClear(ev);
     }
-
-    uno::Reference<uno::XInterface> const xThis(m_wThis);
-    if (!xThis.is())
-    {   // fdo#72695: if UNO object is already dead, don't revive it with event
-        return;
-    }
-    lang::EventObject const ev(xThis);
-    m_EventListeners.disposeAndClear(ev);
 }
 
 SwXParagraph::SwXParagraph()
@@ -336,7 +336,8 @@ SwXParagraph::attachToText(SwXText & rParent, SwTextNode & rTextNode)
     if (m_pImpl->m_bIsDescriptor)
     {
         m_pImpl->m_bIsDescriptor = false;
-        rTextNode.Add(m_pImpl.get());
+        m_pImpl->EndListeningAll();
+        m_pImpl->StartListening(rTextNode.GetNotifier());
         rTextNode.SetXParagraph(uno::Reference<text::XTextContent>(this));
         m_pImpl->m_xParentText = &rParent;
         if (!m_pImpl->m_sText.isEmpty())
@@ -578,13 +579,15 @@ SwXParagraph::getPropertyValues(const uno::Sequence< OUString >& rPropertyNames)
     }
     catch (beans::UnknownPropertyException &)
     {
-        throw uno::RuntimeException("Unknown property exception caught",
-            static_cast<cppu::OWeakObject *>(this));
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException("Unknown property exception caught",
+                static_cast < cppu::OWeakObject * > ( this ), anyEx );
     }
     catch (lang::WrappedTargetException &)
     {
-        throw uno::RuntimeException("WrappedTargetException caught",
-            static_cast<cppu::OWeakObject *>(this));
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException("WrappedTargetException caught",
+                static_cast < cppu::OWeakObject * > ( this ), anyEx );
     }
 
     return aValues;

@@ -32,6 +32,7 @@
 #include <crdlg.hxx>
 #include <sc.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <tpusrlst.hxx>
 
 #define CR  u'\x000D'
@@ -47,12 +48,11 @@ ScTpUserLists::ScTpUserLists( vcl::Window*               pParent,
     :   SfxTabPage      ( pParent,
                           "OptSortLists", "modules/scalc/ui/optsortlists.ui",
                           &rCoreAttrs ),
-        aStrQueryRemove ( ScGlobal::GetRscString( STR_QUERYREMOVE ) ),
-        aStrCopyList    ( ScGlobal::GetRscString( STR_COPYLIST ) ),
-        aStrCopyFrom    ( ScGlobal::GetRscString( STR_COPYFROM ) ),
-        aStrCopyErr     ( ScGlobal::GetRscString( STR_COPYERR ) ),
+        aStrQueryRemove ( ScResId( STR_QUERYREMOVE ) ),
+        aStrCopyList    ( ScResId( STR_COPYLIST ) ),
+        aStrCopyFrom    ( ScResId( STR_COPYFROM ) ),
+        aStrCopyErr     ( ScResId( STR_COPYERR ) ),
         nWhichUserLists ( GetWhich( SID_SCUSERLISTS ) ),
-        pUserLists      ( nullptr ),
         pDoc            ( nullptr ),
         pViewData       ( nullptr ),
         bModifyMode     ( false ),
@@ -85,7 +85,7 @@ ScTpUserLists::~ScTpUserLists()
 
 void ScTpUserLists::dispose()
 {
-    delete pUserLists;
+    pUserLists.reset();
     mpFtLists.clear();
     mpLbLists.clear();
     mpFtEntries.clear();
@@ -148,9 +148,9 @@ void ScTpUserLists::Init()
 
 }
 
-VclPtr<SfxTabPage> ScTpUserLists::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> ScTpUserLists::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<ScTpUserLists>::Create( pParent, *rAttrSet );
+    return VclPtr<ScTpUserLists>::Create( pParent.pParent, *rAttrSet );
 }
 
 void ScTpUserLists::Reset( const SfxItemSet* rCoreAttrs )
@@ -164,7 +164,7 @@ void ScTpUserLists::Reset( const SfxItemSet* rCoreAttrs )
     if ( pCoreList )
     {
         if ( !pUserLists )
-            pUserLists = new ScUserList( *pCoreList );
+            pUserLists.reset( new ScUserList( *pCoreList ) );
         else
             *pUserLists = *pCoreList;
 
@@ -175,7 +175,7 @@ void ScTpUserLists::Reset( const SfxItemSet* rCoreAttrs )
         }
     }
     else if ( !pUserLists )
-        pUserLists = new ScUserList;
+        pUserLists.reset( new ScUserList );
 
     mpEdCopyFrom->SetText( aStrSelectedArea );
 
@@ -277,16 +277,16 @@ void ScTpUserLists::UpdateEntries( size_t nList )
     {
         const ScUserListData& rList = (*pUserLists)[nList];
         std::size_t nSubCount = rList.GetSubCount();
-        OUString          aEntryListStr;
+        OUStringBuffer aEntryListStr;
 
         for ( size_t i=0; i<nSubCount; i++ )
         {
             if ( i!=0 )
-                aEntryListStr += OUStringLiteral1(CR);
-            aEntryListStr += rList.GetSubStr(i);
+                aEntryListStr.append(CR);
+            aEntryListStr.append(rList.GetSubStr(i));
         }
 
-        mpEdEntries->SetText(convertLineEnd(aEntryListStr, GetSystemLineEnd()));
+        mpEdEntries->SetText(convertLineEnd(aEntryListStr.makeStringAndClear(), GetSystemLineEnd()));
     }
     else
     {
@@ -296,18 +296,18 @@ void ScTpUserLists::UpdateEntries( size_t nList )
 
 void ScTpUserLists::MakeListStr( OUString& rListStr )
 {
-    OUString  aStr;
+    OUStringBuffer aStr;
 
     sal_Int32 nToken = comphelper::string::getTokenCount(rListStr, LF);
 
     for(sal_Int32 i=0; i<nToken; i++)
     {
         OUString aString = comphelper::string::strip(rListStr.getToken(i, LF), ' ');
-        aStr += aString;
-        aStr += OUStringLiteral1(cDelimiter);
+        aStr.append(aString);
+        aStr.append(cDelimiter);
     }
 
-    aStr = comphelper::string::strip(aStr, cDelimiter);
+    aStr.strip(cDelimiter);
     sal_Int32 nLen = aStr.getLength();
 
     rListStr.clear();
@@ -335,7 +335,7 @@ void ScTpUserLists::AddNewList( const OUString& rEntriesStr )
     OUString theEntriesStr( rEntriesStr );
 
     if ( !pUserLists )
-        pUserLists = new ScUserList;
+        pUserLists.reset( new ScUserList );
 
     MakeListStr( theEntriesStr );
 
@@ -356,7 +356,8 @@ void ScTpUserLists::CopyListFromArea( const ScRefAddress& rStartPos,
 
     if ( (nStartCol != nEndCol) && (nStartRow != nEndRow) )
     {
-        nCellDir = ScopedVclPtrInstance<ScColOrRowDlg>(this, aStrCopyList, aStrCopyFrom)->Execute();
+        ScColOrRowDlg aDialog(GetFrameWeld(), aStrCopyList, aStrCopyFrom);
+        nCellDir = aDialog.run();
     }
     else if ( nStartCol != nEndCol )
         nCellDir = SCRET_ROWS;
@@ -366,53 +367,51 @@ void ScTpUserLists::CopyListFromArea( const ScRefAddress& rStartPos,
     if ( nCellDir != RET_CANCEL )
     {
         bool bValueIgnored = false;
-        OUString  aStrList;
-        OUString  aStrField;
 
         if ( nCellDir == SCRET_COLS )
         {
             for ( SCCOL col=nStartCol; col<=nEndCol; col++ )
             {
+                OUStringBuffer aStrList;
                 for ( SCROW row=nStartRow; row<=nEndRow; row++ )
                 {
                     if ( pDoc->HasStringData( col, row, nTab ) )
                     {
-                        aStrField = pDoc->GetString(col, row, nTab);
+                        OUString aStrField = pDoc->GetString(col, row, nTab);
 
                         if ( !aStrField.isEmpty() )
                         {
-                            aStrList += aStrField + "\n";
+                            aStrList.append(aStrField).append("\n");
                         }
                     }
                     else
                         bValueIgnored = true;
                 }
                 if ( !aStrList.isEmpty() )
-                    AddNewList( aStrList );
-                aStrList.clear();
+                    AddNewList( aStrList.makeStringAndClear() );
             }
         }
         else
         {
             for ( SCROW row=nStartRow; row<=nEndRow; row++ )
             {
+                OUStringBuffer aStrList;
                 for ( SCCOL col=nStartCol; col<=nEndCol; col++ )
                 {
                     if ( pDoc->HasStringData( col, row, nTab ) )
                     {
-                        aStrField = pDoc->GetString(col, row, nTab);
+                        OUString aStrField = pDoc->GetString(col, row, nTab);
 
                         if ( !aStrField.isEmpty() )
                         {
-                            aStrList += aStrField + "\n";
+                            aStrList.append(aStrField).append("\n");
                         }
                     }
                     else
                         bValueIgnored = true;
                 }
                 if ( !aStrList.isEmpty() )
-                    AddNewList( aStrList );
-                aStrList.clear();
+                    AddNewList( aStrList.makeStringAndClear() );
             }
         }
 
@@ -698,7 +697,7 @@ IMPL_LINK( ScTpUserLists, BtnClickHdl, Button*, pBtn, void )
         {
             std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetFrameWeld(),
                         VclMessageType::Warning, VclButtonsType::Ok,
-                        ScGlobal::GetRscString(STR_INVALID_TABREF)));
+                        ScResId(STR_INVALID_TABREF)));
 
             xBox->run();
             mpEdCopyFrom->GrabFocus();

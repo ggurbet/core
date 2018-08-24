@@ -18,6 +18,7 @@
  */
 
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <list>
@@ -50,7 +51,6 @@
 #include <swatrset.hxx>
 #include <frmatr.hxx>
 
-#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 using namespace ::com::sun::star;
@@ -479,7 +479,7 @@ void SwAccessibleTableData_Impl::GetRowColumnAndExtent(
 
 class SwAccSingleTableSelHander_Impl : public SwAccTableSelHander_Impl
 {
-    bool bSelected;
+    bool m_bSelected;
 
 public:
 
@@ -487,19 +487,19 @@ public:
 
     virtual ~SwAccSingleTableSelHander_Impl() {}
 
-    bool IsSelected() const { return bSelected; }
+    bool IsSelected() const { return m_bSelected; }
 
     virtual void Unselect( sal_Int32, sal_Int32 ) override;
 };
 
 inline SwAccSingleTableSelHander_Impl::SwAccSingleTableSelHander_Impl() :
-    bSelected( true )
+    m_bSelected( true )
 {
 }
 
 void SwAccSingleTableSelHander_Impl::Unselect( sal_Int32, sal_Int32 )
 {
-    bSelected = false;
+    m_bSelected = false;
 }
 
 class SwAccAllTableSelHander_Impl : public SwAccTableSelHander_Impl

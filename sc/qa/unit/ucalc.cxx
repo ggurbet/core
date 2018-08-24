@@ -1,3 +1,4 @@
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -68,6 +69,7 @@
 #include <bcaslot.hxx>
 #include <sharedformula.hxx>
 #include <tabprotection.hxx>
+#include <scmod.hxx>
 
 #include <formula/IFunctionDescription.hxx>
 
@@ -436,6 +438,23 @@ void Test::testInput()
     m_pDoc->SetString(0, 0, 0, "000123", &aParam);
     test = m_pDoc->GetString(0, 0, 0);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Text content should have been treated as string, not number.", OUString("000123"), test);
+
+    m_pDoc->DeleteTab(0);
+}
+
+void Test::testColumnIterator() // tdf#118620
+{
+    CPPUNIT_ASSERT_MESSAGE ("failed to insert sheet",
+                            m_pDoc->InsertTab (0, "foo"));
+
+    m_pDoc->SetString(0, 0, 0, "'10.5");
+    m_pDoc->SetString(0, MAXROW-5, 0, "42.0");
+    std::unique_ptr<sc::ColumnIterator> it = m_pDoc->GetColumnIterator(0, 0, MAXROW - 10, MAXROW);
+    while (it->hasCell())
+    {
+        it->getCell();
+        it->next();
+    }
 
     m_pDoc->DeleteTab(0);
 }
@@ -1547,7 +1566,7 @@ void Test::testNamedRange()
         CPPUNIT_ASSERT_MESSAGE("wrong range name is retrieved with the copied instance.", aName.equalsAscii(aNames[i].mpName));
     }
 
-    // Test using an other-sheet-local name, scope Sheet1.
+    // Test using another-sheet-local name, scope Sheet1.
     ScRangeData* pLocal1 = new ScRangeData( m_pDoc, "local1", ScAddress(0,0,0));
     ScRangeData* pLocal2 = new ScRangeData( m_pDoc, "local2", "$Sheet1.$A$1");
     ScRangeData* pLocal3 = new ScRangeData( m_pDoc, "local3", "Sheet1.$A$1");
@@ -4648,7 +4667,7 @@ void Test::testJumpToPrecedentsDependents()
         ScRangeList aRange(aC2);
         rDocFunc.DetectiveCollectAllPreds(aRange, aRefTokens);
         CPPUNIT_ASSERT_EQUAL_MESSAGE("there should only be one reference token.",
-                               aRefTokens.size(), static_cast<size_t>(1));
+                               static_cast<size_t>(1), aRefTokens.size());
         CPPUNIT_ASSERT_MESSAGE("A1 should be a precedent of C1.",
                                hasRange(aRefTokens, ScRange(0, 0, 0), aC2));
     }
@@ -4718,9 +4737,9 @@ void Test::testAutoFill()
     m_pDoc->SetString( 0, 100, 0, "January" );
     m_pDoc->Fill( 0, 100, 0, 100, nullptr, aMarkData, 2, FILL_TO_BOTTOM, FILL_AUTO );
     OUString aTestValue = m_pDoc->GetString( 0, 101, 0 );
-    CPPUNIT_ASSERT_EQUAL( aTestValue, OUString("February") );
+    CPPUNIT_ASSERT_EQUAL( OUString("February"), aTestValue );
     aTestValue = m_pDoc->GetString( 0, 102, 0 );
-    CPPUNIT_ASSERT_EQUAL( aTestValue, OUString("March") );
+    CPPUNIT_ASSERT_EQUAL( OUString("March"), aTestValue );
 
     // test that two same user data list entries will not result in incremental fill
     m_pDoc->SetString( 0, 101, 0, "January" );
@@ -4728,7 +4747,7 @@ void Test::testAutoFill()
     for ( SCROW i = 102; i <= 103; ++i )
     {
         aTestValue = m_pDoc->GetString( 0, i, 0 );
-        CPPUNIT_ASSERT_EQUAL( aTestValue, OUString("January") );
+        CPPUNIT_ASSERT_EQUAL( OUString("January"), aTestValue );
     }
 
     // Clear column A for a new test.
@@ -4837,15 +4856,15 @@ void Test::testCopyPasteFormulas()
     ASSERT_DOUBLES_EQUAL(m_pDoc->GetValue(10,11,0), 1.0);
     OUString aFormula;
     m_pDoc->GetFormula(10,10,0, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=COLUMN($A$1)"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=COLUMN($A$1)"), aFormula);
     m_pDoc->GetFormula(10,11,0, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=$A$1+L12"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=$A$1+L12"), aFormula);
     m_pDoc->GetFormula(10,12,0, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=$Sheet2.K11"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=$Sheet2.K11"), aFormula);
     m_pDoc->GetFormula(10,13,0, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=$Sheet2.$A$1"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=$Sheet2.$A$1"), aFormula);
     m_pDoc->GetFormula(10,14,0, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=$Sheet2.K$1"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=$Sheet2.K$1"), aFormula);
 }
 
 void Test::testCopyPasteFormulasExternalDoc()
@@ -4894,19 +4913,19 @@ void Test::testCopyPasteFormulasExternalDoc()
     OUString aFormula;
     rExtDoc.GetFormula(1,1,1, aFormula);
     //adjust absolute refs pointing to the copy area
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=COLUMN($B$2)"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=COLUMN($B$2)"), aFormula);
     rExtDoc.GetFormula(1,2,1, aFormula);
     //adjust absolute refs and keep relative refs
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=$B$2+C3"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=$B$2+C3"), aFormula);
     rExtDoc.GetFormula(1,3,1, aFormula);
     // make absolute sheet refs external refs
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("='file:///source.fake'#$Sheet2.B2"));
+    CPPUNIT_ASSERT_EQUAL(OUString("='file:///source.fake'#$Sheet2.B2"), aFormula);
     rExtDoc.GetFormula(1,4,1, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("='file:///source.fake'#$Sheet2.$A$1"));
+    CPPUNIT_ASSERT_EQUAL(OUString("='file:///source.fake'#$Sheet2.$A$1"), aFormula);
     rExtDoc.GetFormula(1,5,1, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("='file:///source.fake'#$Sheet2.B$1"));
+    CPPUNIT_ASSERT_EQUAL(OUString("='file:///source.fake'#$Sheet2.B$1"), aFormula);
     rExtDoc.GetFormula(1,6,1, aFormula);
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=$ExtSheet2.$B$2"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=$ExtSheet2.$B$2"), aFormula);
 
     xExtDocSh->DoClose();
 }
@@ -4949,7 +4968,7 @@ void Test::testCopyPasteReferencesExternalDoc()
     OUString aFormula;
     rExtDoc.GetFormula(0,3,0, aFormula);
     //adjust absolute refs pointing to the copy area
-    CPPUNIT_ASSERT_EQUAL(aFormula, OUString("=SUM('file:///source.fake'#$Sheet1.A#REF!:A3)"));
+    CPPUNIT_ASSERT_EQUAL(OUString("=SUM('file:///source.fake'#$Sheet1.A#REF!:A3)"), aFormula);
 
     xExtDocSh->DoClose();
 }
@@ -5000,7 +5019,7 @@ void Test::testFindAreaPosVertical()
 
     m_pDoc->FindAreaPos(nCol, nRow, 0, SC_MOVE_DOWN);
 
-    CPPUNIT_ASSERT_EQUAL(static_cast<SCROW>(MAXROW), nRow);
+    CPPUNIT_ASSERT_EQUAL(MAXROW, nRow);
     CPPUNIT_ASSERT_EQUAL(static_cast<SCCOL>(0), nCol);
 
     nCol = 1;
@@ -5067,7 +5086,7 @@ void Test::testFindAreaPosColRight()
     m_pDoc->FindAreaPos(nCol, nRow, 0, SC_MOVE_RIGHT);
 
     CPPUNIT_ASSERT_EQUAL(static_cast<SCROW>(0), nRow);
-    CPPUNIT_ASSERT_EQUAL(static_cast<SCCOL>(MAXCOL), nCol);
+    CPPUNIT_ASSERT_EQUAL(MAXCOL, nCol);
 
     nCol = 2;
     nRow = 1;
@@ -5338,7 +5357,7 @@ void Test::testNoteLifeCycle()
 
     // Re-insert the note back to the same place.
     m_pDoc->SetNote(aPos, pNote);
-    SdrCaptionObj* pCaption = pNote->GetOrCreateCaption(aPos);
+    SdrCaptionObj* pCaption = pNote->GetOrCreateCaption(aPos).get();
     CPPUNIT_ASSERT_MESSAGE("Failed to create a caption object.", pCaption);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("This caption should belong to the drawing layer of the document.",
                            m_pDoc->GetDrawLayer(), static_cast<ScDrawLayer*>(&pCaption->getSdrModelFromSdrObject()));
@@ -5354,7 +5373,7 @@ void Test::testNoteLifeCycle()
     ScPostIt* pClipNote = aClipDoc.GetNote(aPos);
     CPPUNIT_ASSERT_MESSAGE("Failed to copy note to the clipboard.", pClipNote);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Note on the clipboard should share the same caption object from the original.",
-                           pCaption, pClipNote->GetCaption());
+                           pCaption, pClipNote->GetCaption().get());
 
 
     // Move B2 to B3 with note, which creates an ScUndoDragDrop, and Undo.
@@ -5362,7 +5381,7 @@ void Test::testNoteLifeCycle()
     ScAddress aOrigPos(aPos);
     ScAddress aMovePos(1,2,0);
     ScPostIt* pOrigNote = m_pDoc->GetNote(aOrigPos);
-    const SdrCaptionObj* pOrigCaption = pOrigNote->GetOrCreateCaption(aOrigPos);
+    const SdrCaptionObj* pOrigCaption = pOrigNote->GetOrCreateCaption(aOrigPos).get();
     bool const bCut = true;       // like Drag&Drop
     bool bRecord = true;    // record Undo
     bool const bPaint = false;    // don't care about
@@ -5380,7 +5399,7 @@ void Test::testNoteLifeCycle()
     // The caption object should not be identical, it was newly created upon
     // Drop from clipboard.
     // pOrigCaption is a dangling pointer.
-    const SdrCaptionObj* pMoveCaption = pMoveNote->GetOrCreateCaption(aMovePos);
+    const SdrCaptionObj* pMoveCaption = pMoveNote->GetOrCreateCaption(aMovePos).get();
     CPPUNIT_ASSERT_MESSAGE("Captions identical after move.", pOrigCaption != pMoveCaption);
 
     SfxUndoManager* pUndoMgr = m_pDoc->GetUndoManager();
@@ -5395,7 +5414,7 @@ void Test::testNoteLifeCycle()
 
     // The caption object still should not be identical.
     // pMoveCaption is a dangling pointer.
-    pOrigCaption = pOrigNote->GetOrCreateCaption(aOrigPos);
+    pOrigCaption = pOrigNote->GetOrCreateCaption(aOrigPos).get();
     CPPUNIT_ASSERT_MESSAGE("Captions identical after move undo.", pOrigCaption != pMoveCaption);
 
 
@@ -5404,7 +5423,7 @@ void Test::testNoteLifeCycle()
     ScAddress aPosB4(1,3,0);
     ScPostIt* pNoteB4 = m_pDoc->GetOrCreateNote(aPosB4);
     CPPUNIT_ASSERT_MESSAGE("Failed to insert cell comment at B4.", pNoteB4);
-    const SdrCaptionObj* pCaptionB4 = pNoteB4->GetOrCreateCaption(aPosB4);
+    const SdrCaptionObj* pCaptionB4 = pNoteB4->GetOrCreateCaption(aPosB4).get();
     ScCellMergeOption aCellMergeOption(1,3,2,3);
     rDocFunc.MergeCells( aCellMergeOption, true /*bContents*/, bRecord, bApi, false /*bEmptyMergedCells*/ );
 
@@ -5416,7 +5435,7 @@ void Test::testNoteLifeCycle()
     // at B4 after the merge and not cloned nor recreated during Undo.
     ScPostIt* pUndoNoteB4 = m_pDoc->GetNote(aPosB4);
     CPPUNIT_ASSERT_MESSAGE("No cell comment at B4 after Undo.", pUndoNoteB4);
-    const SdrCaptionObj* pUndoCaptionB4 = pUndoNoteB4->GetCaption();
+    const SdrCaptionObj* pUndoCaptionB4 = pUndoNoteB4->GetCaption().get();
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Captions not identical after Merge Undo.", pCaptionB4, pUndoCaptionB4);
 
 
@@ -5432,7 +5451,7 @@ void Test::testNoteLifeCycle()
         ScAddress aPosB5(1,4,0);
         ScPostIt* pOtherNoteB5 = pDoc2->GetOrCreateNote(aPosB5);
         CPPUNIT_ASSERT_MESSAGE("Failed to insert cell comment at B5.", pOtherNoteB5);
-        const SdrCaptionObj* pOtherCaptionB5 = pOtherNoteB5->GetOrCreateCaption(aPosB5);
+        const SdrCaptionObj* pOtherCaptionB5 = pOtherNoteB5->GetOrCreateCaption(aPosB5).get();
         CPPUNIT_ASSERT_MESSAGE("No caption at B5.", pOtherCaptionB5);
 
         ScDocument aClipDoc2(SCDOCMODE_CLIP);
@@ -5450,7 +5469,7 @@ void Test::testNoteLifeCycle()
         pasteFromClip( m_pDoc, aPosB5, &aClipDoc2); // should not crash... tdf#104967
         ScPostIt* pNoteB5 = m_pDoc->GetNote(aPosB5);
         CPPUNIT_ASSERT_MESSAGE("Failed to paste cell comment at B5.", pNoteB5);
-        const SdrCaptionObj* pCaptionB5 = pNoteB5->GetOrCreateCaption(aPosB5);
+        const SdrCaptionObj* pCaptionB5 = pNoteB5->GetOrCreateCaption(aPosB5).get();
         CPPUNIT_ASSERT_MESSAGE("No caption at pasted B5.", pCaptionB5);
         // Do not test if  pCaptionB5 != pOtherCaptionB5  because since pDoc2
         // has been closed and the caption been deleted objects *may* be
@@ -6520,7 +6539,11 @@ void Test::testEmptyCalcDocDefaults()
     CPPUNIT_ASSERT_EQUAL( false, m_pDoc->HasNotes() );
     CPPUNIT_ASSERT_EQUAL( false, m_pDoc->IsCutMode() );
 
-    CPPUNIT_ASSERT_EQUAL( false, m_pDoc->IsUsingEmbededFonts() );
+    CPPUNIT_ASSERT_EQUAL( false, m_pDoc->IsEmbedFonts() );
+    CPPUNIT_ASSERT_EQUAL( false, m_pDoc->IsEmbedUsedFontsOnly() );
+    CPPUNIT_ASSERT_EQUAL( true, m_pDoc->IsEmbedFontScriptLatin() );
+    CPPUNIT_ASSERT_EQUAL( true, m_pDoc->IsEmbedFontScriptAsian() );
+    CPPUNIT_ASSERT_EQUAL( true, m_pDoc->IsEmbedFontScriptComplex() );
     CPPUNIT_ASSERT_EQUAL( false, m_pDoc->IsEmbedded() );
 
     CPPUNIT_ASSERT_EQUAL( true, m_pDoc->IsDocEditable() );
@@ -6748,7 +6771,7 @@ void Test::checkPrecisionAsShown( OUString& rCode, double fValue, double fExpect
         sal_Int32 nCheckPos = 0;
         SvNumFormatType nType;
         pFormatter->PutEntry( rCode, nCheckPos, nType, nFormat );
-        CPPUNIT_ASSERT_EQUAL( nCheckPos, sal_Int32(0) );
+        CPPUNIT_ASSERT_EQUAL( sal_Int32(0), nCheckPos );
     }
     double fRoundValue = m_pDoc->RoundValueAsShown( fValue, nFormat );
     rtl::OString aMessage = "Format \"";

@@ -17,11 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "Qt5Timer.hxx"
+#include <Qt5Timer.hxx>
 #include <Qt5Timer.moc>
 
 #include <QtWidgets/QApplication>
 #include <QtCore/QThread>
+
+#include <vcl/svapp.hxx>
 
 Qt5Timer::Qt5Timer()
 {
@@ -34,7 +36,11 @@ Qt5Timer::Qt5Timer()
 
 Qt5Timer::~Qt5Timer() {}
 
-void Qt5Timer::timeoutActivated() { CallCallback(); }
+void Qt5Timer::timeoutActivated()
+{
+    SolarMutexGuard aGuard;
+    CallCallback();
+}
 
 void Qt5Timer::startTimer() { m_aTimer.start(); }
 

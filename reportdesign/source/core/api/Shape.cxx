@@ -22,7 +22,6 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/text/ParagraphVertAlign.hpp>
-#include <comphelper/property.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
@@ -313,7 +312,7 @@ uno::Reference< util::XCloneable > SAL_CALL OShape::createClone(  )
             SdrObject* pObject = pShape->GetSdrObject();
             if ( pObject )
             {
-                SdrObject* pClone = pObject->Clone();
+                SdrObject* pClone(pObject->CloneSdrObject(pObject->getSdrModelFromSdrObject()));
                 if ( pClone )
                 {
                     xSet.set(pClone->getUnoShape(),uno::UNO_QUERY_THROW );

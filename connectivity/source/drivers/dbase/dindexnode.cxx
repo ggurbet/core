@@ -23,6 +23,7 @@
 #include <dbase/DIndex.hxx>
 #include <tools/debug.hxx>
 #include <tools/stream.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <memory>
@@ -374,7 +375,7 @@ void ONDXPage::ReleaseFull()
     }
 }
 
-bool ONDXPage::Delete(sal_uInt16 nNodePos)
+void ONDXPage::Delete(sal_uInt16 nNodePos)
 {
     if (IsLeaf())
     {
@@ -420,7 +421,6 @@ bool ONDXPage::Delete(sal_uInt16 nNodePos)
     else if (IsRoot())
         // make sure that the position of the root is kept
         rIndex.SetRootPos(nPagePos);
-    return true;
 }
 
 
@@ -480,7 +480,6 @@ void ONDXPage::Merge(sal_uInt16 nParentNodePos, const ONDXPagePtr& xPage)
     DBG_ASSERT(nParentNodePos != NODE_NOTFOUND, "Wrong index setup");
 
     /*  Merge 2 pages   */
-    ONDXNode aResultNode;
     sal_uInt16 nMaxNodes = rIndex.GetMaxNodes(),
            nMaxNodes_2 = nMaxNodes / 2;
 

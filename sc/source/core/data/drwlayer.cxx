@@ -19,6 +19,7 @@
 
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/chart/XChartDocument.hpp>
+#include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/embed/XClassifiedObject.hpp>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
@@ -38,6 +39,7 @@
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdundo.hxx>
+#include <svx/svxids.hrc>
 #include <i18nlangtag/mslangid.hxx>
 #include <editeng/unolingu.hxx>
 #include <svx/drawitem.hxx>
@@ -46,6 +48,7 @@
 #include <svx/shapepropertynotifier.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/objsh.hxx>
 #include <sot/storage.hxx>
 #include <svl/itempool.hxx>
 #include <vcl/virdev.hxx>
@@ -65,6 +68,7 @@
 #include <userdat.hxx>
 #include <markdata.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <scmod.hxx>
 #include <chartarr.hxx>
 #include <postit.hxx>
@@ -155,7 +159,7 @@ ScUndoAnchorData::~ScUndoAnchorData()
 void ScUndoAnchorData::Undo()
 {
     // Trigger Object Change
-    if (pObj->IsInserted() && pObj->GetPage())
+    if (pObj->IsInserted() && pObj->getSdrPageFromSdrObject())
     {
         SdrHint aHint(SdrHintKind::ObjectChange, *pObj);
         pObj->getSdrModelFromSdrObject().Broadcast(aHint);
@@ -175,7 +179,7 @@ void ScUndoAnchorData::Redo()
         ScDrawLayer::SetCellAnchoredFromPosition(*pObj, *mpDoc, mnTab, mbWasResizeWithCell);
 
     // Trigger Object Change
-    if (pObj->IsInserted() && pObj->GetPage())
+    if (pObj->IsInserted() && pObj->getSdrPageFromSdrObject())
     {
         SdrHint aHint(SdrHintKind::ObjectChange, *pObj);
         pObj->getSdrModelFromSdrObject().Broadcast(aHint);
@@ -240,12 +244,9 @@ static ScRange lcl_getClipRangeFromClipDoc(ScDocument* pClipDoc, SCTAB nClipTab)
 }
 
 ScDrawLayer::ScDrawLayer( ScDocument* pDocument, const OUString& rName ) :
-    FmFormModel( !utl::ConfigManager::IsFuzzing() ? SvtPathOptions().GetPalettePath() : OUString(),
-                 nullptr,                          // SfxItemPool* Pool
-                 pGlobalDrawPersist ?
-                     pGlobalDrawPersist :
-                     ( pDocument ? pDocument->GetDocumentShell() : nullptr ),
-                 true ),        // bUseExtColorTable (is set below)
+    FmFormModel(
+        nullptr,
+        pGlobalDrawPersist ? pGlobalDrawPersist : (pDocument ? pDocument->GetDocumentShell() : nullptr)),
     aName( rName ),
     pDoc( pDocument ),
     bRecording( false ),
@@ -448,15 +449,10 @@ void ScDrawLayer::ScCopyPage( sal_uInt16 nOldPos, sal_uInt16 nNewPos )
         SCTAB nOldTab = static_cast<SCTAB>(nOldPos);
         SCTAB nNewTab = static_cast<SCTAB>(nNewPos);
 
-        SdrObjListIter aIter( *pOldPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pOldPage, SdrIterMode::Flat );
         SdrObject* pOldObject = aIter.Next();
         while (pOldObject)
         {
-            if ( IsNoteCaption( pOldObject ) )
-            {
-                pOldObject = aIter.Next();
-                continue;
-            }
             ScDrawObjData* pOldData = GetObjData(pOldObject);
             if (pOldData)
             {
@@ -465,8 +461,7 @@ void ScDrawLayer::ScCopyPage( sal_uInt16 nOldPos, sal_uInt16 nNewPos )
             }
 
             // Clone to target SdrModel
-            SdrObject* pNewObject = pOldObject->Clone(this);
-            pNewObject->SetPage(pNewPage);
+            SdrObject* pNewObject(pOldObject->CloneSdrObject(*this));
             pNewObject->NbcMove(Size(0,0));
             pNewPage->InsertObject( pNewObject );
             ScDrawObjData* pNewData = GetObjData(pNewObject);
@@ -503,7 +498,7 @@ void ScDrawLayer::ResetTab( SCTAB nStart, SCTAB nEnd )
         if (!pPage)
             continue;
 
-        SdrObjListIter aIter(*pPage, SdrIterMode::Flat);
+        SdrObjListIter aIter(pPage, SdrIterMode::Flat);
         for (SdrObject* pObj = aIter.Next(); pObj; pObj = aIter.Next())
         {
             ScDrawObjData* pData = GetObjData(pObj);
@@ -901,8 +896,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
     else
     {
         // Prevent multiple broadcasts during the series of changes.
-        SdrDelayBroadcastObjectChange aDelayBroadcastObjectChange(*pObj);
-
+        pObj->getSdrModelFromSdrObject().setLock(true);
         bool bCanResize = bValid2 && !pObj->IsResizeProtect() && rData.mbResizeWithCell;
 
         //First time positioning, must be able to at least move it
@@ -913,33 +907,17 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
             ScAnchorType aAnchorType = ScDrawLayer::GetAnchorType(*pObj);
             if (aAnchorType == SCA_CELL || aAnchorType == SCA_CELL_RESIZE)
             {
-                double fRotate(0.0);
-                double fShearX(0.0);
-
-                Point aPoint;
-                tools::Rectangle aRect;
-
-                basegfx::B2DTuple aScale;
-                basegfx::B2DTuple aTranslate;
+                // tdf#117145 All that TR*etBaseGeometry does here is to translate
+                // the existing transformation. This can simply be applied to the existing
+                // matrix, no need to decompose as done before. Also doing this from
+                // Calc did not change metrics in any way.
+                const tools::Rectangle aRect(pDoc->GetMMRect(nCol1, nRow1, nCol1 , nRow1, nTab1));
+                const Point aPoint(bNegativePage ? aRect.Right() : aRect.Left(), aRect.Top());
                 basegfx::B2DPolyPolygon aPolyPolygon;
                 basegfx::B2DHomMatrix aOriginalMatrix;
 
-                aRect = pDoc->GetMMRect(nCol1, nRow1, nCol1 , nRow1, nTab1);
-
-                if (bNegativePage)
-                    aPoint.setX( aRect.Right() );
-                else
-                    aPoint.setX( aRect.Left() );
-                aPoint.setY( aRect.Top() );
-
                 pObj->TRGetBaseGeometry(aOriginalMatrix, aPolyPolygon);
-                aOriginalMatrix.decompose(aScale, aTranslate, fRotate, fShearX);
-                aTranslate += ::basegfx::B2DTuple(aPoint.X(), aPoint.Y());
-                aOriginalMatrix = basegfx::utils::createScaleShearXRotateTranslateB2DHomMatrix(
-                    aScale,
-                    fShearX,
-                    fRotate,
-                    aTranslate);
+                aOriginalMatrix.translate(aPoint.X(), aPoint.Y());
                 pObj->TRSetBaseGeometry(aOriginalMatrix, aPolyPolygon);
             }
 
@@ -1040,6 +1018,10 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
             // update 'unrotated' anchor
             ScDrawLayer::UpdateCellAnchorFromPositionEnd(*pObj, rNoRotatedAnchor, *pDoc, nTab1 );
         }
+
+        // End prevent multiple broadcasts during the series of changes.
+        pObj->getSdrModelFromSdrObject().setLock(false);
+        pObj->BroadcastObjectChange();
     }
 }
 
@@ -1096,7 +1078,7 @@ bool ScDrawLayer::GetPrintArea( ScRange& rRange, bool bSetHor, bool bSetVer ) co
     OSL_ENSURE(pPage,"Page not found");
     if (pPage)
     {
-        SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while (pObject)
         {
@@ -1317,7 +1299,7 @@ bool ScDrawLayer::HasObjectsInRows( SCTAB nTab, SCROW nStartRow, SCROW nEndRow )
     bool bFound = false;
 
     tools::Rectangle aObjRect;
-    SdrObjListIter aIter( *pPage );
+    SdrObjListIter aIter( pPage );
     SdrObject* pObject = aIter.Next();
     while ( pObject && !bFound )
     {
@@ -1353,7 +1335,7 @@ void ScDrawLayer::DeleteObjectsInArea( SCTAB nTab, SCCOL nCol1,SCROW nRow1,
 
         std::unique_ptr<SdrObject*[]> ppObj(new SdrObject*[nObjCount]);
 
-        SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while (pObject)
         {
@@ -1410,7 +1392,7 @@ void ScDrawLayer::DeleteObjectsInSelection( const ScMarkData& rMark )
 
                 std::unique_ptr<SdrObject*[]> ppObj(new SdrObject*[nObjCount]);
 
-                SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+                SdrObjListIter aIter( pPage, SdrIterMode::Flat );
                 SdrObject* pObject = aIter.Next();
                 while (pObject)
                 {
@@ -1457,7 +1439,7 @@ void ScDrawLayer::CopyToClip( ScDocument* pClipDoc, SCTAB nTab, const tools::Rec
         ScDrawLayer* pDestModel = nullptr;
         SdrPage* pDestPage = nullptr;
 
-        SdrObjListIter aIter( *pSrcPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pSrcPage, SdrIterMode::Flat );
         SdrObject* pOldObject = aIter.Next();
         while (pOldObject)
         {
@@ -1493,8 +1475,7 @@ void ScDrawLayer::CopyToClip( ScDocument* pClipDoc, SCTAB nTab, const tools::Rec
                 if (pDestPage)
                 {
                     // Clone to target SdrModel
-                    SdrObject* pNewObject = pOldObject->Clone(pDestModel);
-                    pNewObject->SetPage(pDestPage);
+                    SdrObject* pNewObject(pOldObject->CloneSdrObject(*pDestModel));
 
                     uno::Reference< chart2::XChartDocument > xOldChart( ScChartHelper::GetChartFromSdrObject( pOldObject ) );
                     if(!xOldChart.is())//#i110034# do not move charts as they lose all their data references otherwise
@@ -1593,7 +1574,7 @@ void ScDrawLayer::CopyFromClip( ScDrawLayer* pClipModel, SCTAB nSourceTab, const
     if ( !pSrcPage || !pDestPage )
         return;
 
-    SdrObjListIter aIter( *pSrcPage, SdrIterMode::Flat );
+    SdrObjListIter aIter( pSrcPage, SdrIterMode::Flat );
     SdrObject* pOldObject = aIter.Next();
 
     ScDocument* pClipDoc = pClipModel->GetDocument();
@@ -1668,8 +1649,7 @@ void ScDrawLayer::CopyFromClip( ScDrawLayer* pClipModel, SCTAB nSourceTab, const
             && !IsNoteCaption(pOldObject))
         {
             // Clone to target SdrModel
-            SdrObject* pNewObject = pOldObject->Clone(this);
-            pNewObject->SetPage(pDestPage);
+            SdrObject* pNewObject(pOldObject->CloneSdrObject(*this));
 
             if ( bMirrorObj )
                 MirrorRTL( pNewObject );        // first mirror, then move
@@ -1876,7 +1856,7 @@ SdrObject* ScDrawLayer::GetNamedObject( const OUString& rName, sal_uInt16 nId, S
         OSL_ENSURE(pPage,"Page ?");
         if (pPage)
         {
-            SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+            SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
             SdrObject* pObject = aIter.Next();
             while (pObject)
             {
@@ -1897,7 +1877,7 @@ SdrObject* ScDrawLayer::GetNamedObject( const OUString& rName, sal_uInt16 nId, S
 
 OUString ScDrawLayer::GetNewGraphicName( long* pnCounter ) const
 {
-    OUString aBase = ScGlobal::GetRscString(STR_GRAPHICNAME) + " ";
+    OUString aBase = ScResId(STR_GRAPHICNAME) + " ";
 
     bool bThere = true;
     OUString aGraphicName;
@@ -1906,8 +1886,7 @@ OUString ScDrawLayer::GetNewGraphicName( long* pnCounter ) const
     while (bThere)
     {
         ++nId;
-        aGraphicName = aBase;
-        aGraphicName += OUString::number( nId );
+        aGraphicName = aBase + OUString::number( nId );
         bThere = ( GetNamedObject( aGraphicName, 0, nDummy ) != nullptr );
     }
 
@@ -1928,7 +1907,7 @@ void ScDrawLayer::EnsureGraphicNames()
         OSL_ENSURE(pPage,"Page ?");
         if (pPage)
         {
-            SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+            SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
             SdrObject* pObject = aIter.Next();
 
             /* The index passed to GetNewGraphicName() will be set to
@@ -2110,7 +2089,7 @@ ScDrawLayer::GetObjectsAnchoredToRows(SCTAB nTab, SCROW nStartRow, SCROW nEndRow
         return std::vector<SdrObject*>();
 
     std::vector<SdrObject*> aObjects;
-    SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+    SdrObjListIter aIter( pPage, SdrIterMode::Flat );
     SdrObject* pObject = aIter.Next();
     ScRange aRange( 0, nStartRow, nTab, MAXCOL, nEndRow, nTab);
     while (pObject)
@@ -2134,7 +2113,7 @@ ScDrawLayer::GetObjectsAnchoredToRange(SCTAB nTab, SCCOL nCol, SCROW nStartRow, 
         return std::map<SCROW, std::vector<SdrObject*>>();
 
     std::map<SCROW, std::vector<SdrObject*>> aRowObjects;
-    SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+    SdrObjListIter aIter( pPage, SdrIterMode::Flat );
     SdrObject* pObject = aIter.Next();
     ScRange aRange( nCol, nStartRow, nTab, nCol, nEndRow, nTab);
     while (pObject)
@@ -2159,7 +2138,7 @@ bool ScDrawLayer::HasObjectsAnchoredInRange(const ScRange& rRange)
     if (!pPage || pPage->GetObjCount() < 1)
         return false;
 
-    SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+    SdrObjListIter aIter( pPage, SdrIterMode::Flat );
     SdrObject* pObject = aIter.Next();
     while (pObject)
     {

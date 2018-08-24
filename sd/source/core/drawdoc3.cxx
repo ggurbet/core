@@ -41,6 +41,7 @@
 
 #include <strings.hrc>
 #include <drawdoc.hxx>
+#include <sdmod.hxx>
 #include <sdpage.hxx>
 #include <stlpool.hxx>
 #include <sdresid.hxx>
@@ -336,26 +337,26 @@ namespace
 {
 
 void
-lcl_removeUnusedStyles(SfxStyleSheetBasePool* const pStyleSheetPool, SdStyleSheetVector& rStyles)
+lcl_removeUnusedStyles(SfxStyleSheetBasePool* const pStyleSheetPool, StyleSheetCopyResultVector& rStyles)
 {
-    SdStyleSheetVector aUsedStyles;
+    StyleSheetCopyResultVector aUsedStyles;
     aUsedStyles.reserve(rStyles.size());
-    for (SdStyleSheetVector::const_iterator aIt(rStyles.begin()), aLast(rStyles.end()); aIt != aLast; ++aIt)
+    for (const auto& a : rStyles)
     {
-        if ((*aIt)->IsUsed())
-            aUsedStyles.push_back(*aIt);
+        if (a.m_xStyleSheet->IsUsed())
+            aUsedStyles.push_back(a);
         else
-            pStyleSheetPool->Remove((*aIt).get());
+            pStyleSheetPool->Remove(a.m_xStyleSheet.get());
     }
     rStyles = aUsedStyles;
 }
 
-SfxStyleSheet *lcl_findStyle(SdStyleSheetVector& rStyles, const OUString& aStyleName)
+SfxStyleSheet *lcl_findStyle(StyleSheetCopyResultVector& rStyles, const OUString& aStyleName)
 {
-    for(SdStyleSheetVector::const_iterator aIt(rStyles.begin()), aLast(rStyles.end()); aIt != aLast; ++aIt)
+    for (const auto& a : rStyles)
     {
-        if((*aIt)->GetName().startsWith(aStyleName))
-            return (*aIt).get();
+        if (a.m_xStyleSheet->GetName().startsWith(aStyleName))
+            return a.m_xStyleSheet.get();
     }
     return nullptr;
 }
@@ -477,7 +478,7 @@ bool SdDrawDocument::InsertBookmarkAsPage(
 
     // Get the necessary presentation stylesheets and transfer them before
     // the pages, else, the text objects won't reference their styles anymore.
-    ::svl::IUndoManager* pUndoMgr = nullptr;
+    SfxUndoManager* pUndoMgr = nullptr;
     if( mpDocSh )
     {
         pUndoMgr = mpDocSh->GetUndoManager();
@@ -504,7 +505,7 @@ bool SdDrawDocument::InsertBookmarkAsPage(
     std::vector<OUString>::const_iterator pIter;
     for ( pIter = aLayoutsToTransfer.begin(); pIter != aLayoutsToTransfer.end(); ++pIter )
     {
-        SdStyleSheetVector aCreatedStyles;
+        StyleSheetCopyResultVector aCreatedStyles;
         OUString layoutName = *pIter;
 
         rStyleSheetPool.CopyLayoutSheets(layoutName, rBookmarkStyleSheetPool,aCreatedStyles);
@@ -523,12 +524,12 @@ bool SdDrawDocument::InsertBookmarkAsPage(
     // that are not used in any of the inserted pages. The unused styles
     // are then removed at the end of the function, where we also create
     // undo records for the inserted styles.
-    SdStyleSheetVector aNewGraphicStyles;
+    StyleSheetCopyResultVector aNewGraphicStyles;
     OUString aRenameStr;
     if(!bReplace && !bNoDialogs)
         aRenameStr = "_";
     rStyleSheetPool.RenameAndCopyGraphicSheets(rBookmarkStyleSheetPool, aNewGraphicStyles, aRenameStr);
-    SdStyleSheetVector aNewCellStyles;
+    StyleSheetCopyResultVector aNewCellStyles;
     rStyleSheetPool.CopyCellSheets(rBookmarkStyleSheetPool, aNewCellStyles);
 
     // TODO handle undo of table styles too
@@ -1027,7 +1028,7 @@ bool SdDrawDocument::InsertBookmarkAsObject(
                     pBMView->EndListening(*pBookmarkDoc);
                 }
 
-                pPage = pObj->GetPage();
+                pPage = pObj->getSdrPageFromSdrObject();
 
                 if (pPage->IsMasterPage())
                 {
@@ -1182,7 +1183,7 @@ SdCustomShowList* SdDrawDocument::GetCustomShowList(bool bCreate)
 void SdDrawDocument::RemoveUnnecessaryMasterPages(SdPage* pMasterPage, bool bOnlyDuplicatePages, bool bUndo)
 {
     ::sd::View* pView = nullptr;
-    ::svl::IUndoManager* pUndoMgr = nullptr;
+    SfxUndoManager* pUndoMgr = nullptr;
 
     if( bUndo && !IsUndoEnabled() )
         bUndo = false;
@@ -1304,8 +1305,12 @@ void SdDrawDocument::RemoveUnnecessaryMasterPages(SdPage* pMasterPage, bool bOnl
 
                     if( bUndo )
                     {
+                        StyleSheetCopyResultVector aUndoRemove;
+                        aUndoRemove.reserve(aRemove.size());
+                        for (const auto& a : aRemove)
+                            aUndoRemove.emplace_back(a.get(), true);
                         // This list belongs to UndoAction
-                        SdMoveStyleSheetsUndoAction* pMovStyles = new SdMoveStyleSheetsUndoAction( this, aRemove, false );
+                        SdMoveStyleSheetsUndoAction* pMovStyles = new SdMoveStyleSheetsUndoAction(this, aUndoRemove, false);
 
                         if (pUndoMgr)
                             pUndoMgr->AddUndoAction(pMovStyles);
@@ -1367,27 +1372,18 @@ bool isMasterPageLayoutNameUnique(const SdDrawDocument& rDoc, const OUString& rC
 OUString createNewMasterPageLayoutName(const SdDrawDocument& rDoc)
 {
     const OUString aBaseName(SdResId(STR_LAYOUT_DEFAULT_NAME));
-    OUString aRetval;
     sal_uInt16 nCount(0);
-
-    while (aRetval.isEmpty())
+    for (;;)
     {
-        aRetval = aBaseName;
-
+        OUString aRetval = aBaseName;
         if(nCount)
         {
             aRetval += OUString::number(nCount);
         }
-
+        if (isMasterPageLayoutNameUnique(rDoc, aRetval))
+            return aRetval;
         nCount++;
-
-        if(!isMasterPageLayoutNameUnique(rDoc, aRetval))
-        {
-            aRetval.clear();
-        }
     }
-
-    return aRetval;
 }
 
 void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
@@ -1396,7 +1392,7 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
                                    bool bMaster,
                                    bool bCheckMasters)
 {
-    ::svl::IUndoManager* pUndoMgr = nullptr;
+    SfxUndoManager* pUndoMgr = nullptr;
 
     if( mpDocSh )
     {
@@ -1488,8 +1484,8 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
         if (pSourceDoc != this)
         {
             // #i121863# clone masterpages, they are from another model (!)
-            SdPage* pNewNotesMaster = dynamic_cast< SdPage* >(pNotesMaster->Clone(this));
-            SdPage* pNewMaster = dynamic_cast< SdPage* >(pMaster->Clone(this));
+            SdPage* pNewNotesMaster = dynamic_cast< SdPage* >(pNotesMaster->CloneSdrPage(*this));
+            SdPage* pNewMaster = dynamic_cast< SdPage* >(pMaster->CloneSdrPage(*this));
 
             if(!pNewNotesMaster || !pNewMaster)
             {
@@ -1544,7 +1540,7 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
             pSourceStyleSheetPool->SetSearchMask(SfxStyleFamily::Page);
             static_cast<SdStyleSheetPool*>( mxStyleSheetPool.get())->SetSearchMask(SfxStyleFamily::Page);
 
-            SdStyleSheetVector aCreatedStyles;          // List of created stylesheets
+            StyleSheetCopyResultVector aCreatedStyles;          // List of created stylesheets
             SfxStyleSheetBase* pHisSheet = pSourceStyleSheetPool->First();
 
             while (pHisSheet)
@@ -1589,7 +1585,7 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
                         pMySheet->GetItemSet().ClearItem();  // Delete all
                         pMySheet->GetItemSet().Put(pHisSheet->GetItemSet());
 
-                        aCreatedStyles.emplace_back( static_cast< SdStyleSheet* >( pMySheet ) );
+                        aCreatedStyles.emplace_back(static_cast<SdStyleSheet*>(pMySheet), true);
                     }
 
                     StyleReplaceData aReplData;
@@ -1801,7 +1797,11 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
 
         if( bUndo )
         {
-            SdMoveStyleSheetsUndoAction* pMovStyles = new SdMoveStyleSheetsUndoAction(this, aCreatedStyles, true);
+            StyleSheetCopyResultVector aUndoInsert;
+            aUndoInsert.reserve(aCreatedStyles.size());
+            for (const auto& a : aCreatedStyles)
+                aUndoInsert.emplace_back(a.get(), true);
+            SdMoveStyleSheetsUndoAction* pMovStyles = new SdMoveStyleSheetsUndoAction(this, aUndoInsert, true);
             pUndoMgr->AddUndoAction(pMovStyles);
         }
 

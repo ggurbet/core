@@ -662,8 +662,7 @@ void SvxGrafAttrHelper::ExecuteGrafAttr( SfxRequest& rReq, SdrView& rView )
             {
                 SdrGrafObj* pObj = static_cast<SdrGrafObj*>( rMarkList.GetMark( 0 )->GetMarkedSdrObj() );
 
-                if( pObj && dynamic_cast<const SdrGrafObj*>( pObj) !=  nullptr &&
-                    ( pObj->GetGraphicType() != GraphicType::NONE ) &&
+                if( ( pObj->GetGraphicType() != GraphicType::NONE ) &&
                     ( pObj->GetGraphicType() != GraphicType::Default ) )
                 {
                     SfxItemSet          aGrfAttr( rPool, svl::Items<SDRATTR_GRAFCROP, SDRATTR_GRAFCROP>{} );
@@ -704,9 +703,7 @@ void SvxGrafAttrHelper::ExecuteGrafAttr( SfxRequest& rReq, SdrView& rView )
                     const OUString aCropStr(SvxResId(RID_SVXSTR_GRAFCROP));
 
                     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-                    assert(pFact && "Dialog creation failed!");
                     ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc( RID_SVXPAGE_GRFCROP );
-                    assert(fnCreatePage && "Dialog creation failed!");
                     VclPtr<SfxTabPage> pTabPage = (*fnCreatePage)( aCropDialog->get_content_area(), &aCropDlgAttr );
 
                     pTabPage->SetText( aCropStr );

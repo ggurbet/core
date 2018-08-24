@@ -998,8 +998,9 @@ bool SwFrame::IsCollapse() const
         return false;
 
     const SwTextFrame *pTextFrame = static_cast<const SwTextFrame*>(this);
-    const SwTextNode *pTextNode = pTextFrame->GetTextNode();
-    return pTextNode && pTextNode->IsCollapse();
+    const SwTextNode *pTextNode = pTextFrame->GetTextNodeForParaProps();
+    // TODO this SwTextNode function is pointless and should be merged in here
+    return pTextFrame->GetText().isEmpty() && pTextNode && pTextNode->IsCollapse();
 }
 
 void SwContentFrame::MakePrtArea( const SwBorderAttrs &rAttrs )
@@ -1170,8 +1171,7 @@ void SwContentFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
         return;
     }
 
-    bool const bDeleteForbidden(IsDeleteForbidden());
-    ForbidDelete();
+    auto xDeleteGuard = o3tl::make_unique<SwFrameDeleteGuard>(this);
     LockJoin();
     long nFormatCount = 0;
     // - loop prevention
@@ -1214,7 +1214,7 @@ void SwContentFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
         pNotify->SetBordersJoinedWithPrev();
     }
 
-    const bool bKeep = IsKeep( rAttrs.GetAttrSet() );
+    const bool bKeep = IsKeep(rAttrs.GetAttrSet().GetKeep(), GetBreakItem());
 
     SwSaveFootnoteHeight *pSaveFootnote = nullptr;
     if ( bFootnote )
@@ -1404,7 +1404,8 @@ void SwContentFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
                 const SwTwips nHDiff = nOldH - aRectFnSet.GetHeight(getFrameArea());
                 const bool bNoPrepAdjustFrame =
                     nHDiff > 0 && IsInTab() && GetFollow() &&
-                    ( 1 == static_cast<SwTextFrame*>(GetFollow())->GetLineCount( COMPLETE_STRING ) || aRectFnSet.GetWidth(static_cast<SwTextFrame*>(GetFollow())->getFrameArea()) < 0 ) &&
+                    (1 == static_cast<SwTextFrame*>(GetFollow())->GetLineCount(TextFrameIndex(COMPLETE_STRING))
+                     || aRectFnSet.GetWidth(static_cast<SwTextFrame*>(GetFollow())->getFrameArea()) < 0) &&
                     GetFollow()->CalcAddLowerSpaceAsLastInTableCell() == nHDiff;
                 if ( !bNoPrepAdjustFrame )
                 {
@@ -1835,8 +1836,7 @@ void SwContentFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
     delete pSaveFootnote;
 
     UnlockJoin();
-    if (!bDeleteForbidden)
-        AllowDelete();
+    xDeleteGuard.reset();
     if ( bMovedFwd || bMovedBwd )
         pNotify->SetInvaKeep();
     if ( bMovedFwd )
@@ -2092,7 +2092,7 @@ bool SwContentFrame::WouldFit_( SwTwips nSpace,
             }
         }
 
-        if ( bRet && !bSplit && pFrame->IsKeep( rAttrs.GetAttrSet() ) )
+        if (bRet && !bSplit && pFrame->IsKeep(rAttrs.GetAttrSet().GetKeep(), GetBreakItem()))
         {
             if( bTstMove )
             {

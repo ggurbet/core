@@ -43,6 +43,7 @@
 #include <window.h>
 #include <controldata.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <comphelper/dispatchcommand.hxx>
 
@@ -151,7 +152,7 @@ OUString Button::GetStandardText(StandardButtonType eButton)
     return VclResId(aResIdAry[static_cast<sal_uInt16>(eButton)]);
 }
 
-bool Button::SetModeImage( const Image& rImage )
+void Button::SetModeImage( const Image& rImage )
 {
     if ( rImage != mpButtonData->maImage )
     {
@@ -159,7 +160,6 @@ bool Button::SetModeImage( const Image& rImage )
         StateChanged( StateChangedType::Data );
         queue_resize();
     }
-    return true;
 }
 
 Image const & Button::GetModeImage( ) const
@@ -817,7 +817,8 @@ static void ImplDrawBtnDropDownArrow( OutputDevice* pDev,
 }
 
 void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFlags,
-                                           const tools::Rectangle& rRect, bool bMenuBtnSep)
+                                           const tools::Rectangle& rRect, bool bMenuBtnSep,
+                                           DrawButtonFlags nButtonFlags)
 {
     const StyleSettings&    rStyleSettings = GetSettings().GetStyleSettings();
     tools::Rectangle               aInRect = rRect;
@@ -834,12 +835,22 @@ void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFl
 
     if ( nDrawFlags & DrawFlags::Mono )
         aColor = COL_BLACK;
-    else if( (nDrawFlags & DrawFlags::NoRollover) && IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Entire) )
-        aColor = rStyleSettings.GetButtonRolloverTextColor();
+    else if( (nButtonFlags & DrawButtonFlags::Highlight) && IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Entire) )
+    {
+        if (nButtonFlags & DrawButtonFlags::Pressed)
+            aColor = rStyleSettings.GetButtonPressedRolloverTextColor();
+        else
+            aColor = rStyleSettings.GetButtonRolloverTextColor();
+    }
     else if ( IsControlForeground() )
         aColor = GetControlForeground();
-    else if( nDrawFlags & DrawFlags::NoRollover )
-        aColor = rStyleSettings.GetButtonRolloverTextColor();
+    else if( nButtonFlags & DrawButtonFlags::Highlight )
+    {
+        if (nButtonFlags & DrawButtonFlags::Pressed)
+            aColor = rStyleSettings.GetButtonPressedRolloverTextColor();
+        else
+            aColor = rStyleSettings.GetButtonRolloverTextColor();
+    }
     else
         aColor = rStyleSettings.GetButtonTextColor();
 
@@ -1022,6 +1033,8 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
         return;
 
     bool bRollOver = (IsMouseOver() && aInRect.IsInside(GetPointerPosPixel()));
+    if (bRollOver)
+        nButtonStyle |= DrawButtonFlags::Highlight;
     bool bDrawMenuSep = mnDDStyle == PushButtonDropdownStyle::SplitMenuButton;
     if (GetStyle() & WB_FLATBUTTON)
     {
@@ -1036,7 +1049,10 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
         ControlState nState = ControlState::NONE;
 
         if (mbPressed || IsChecked() || mbIsActive)
+        {
             nState |= ControlState::PRESSED;
+            nButtonStyle |= DrawButtonFlags::Pressed;
+        }
         if (ImplGetButtonState() & DrawButtonFlags::Pressed)
             nState |= ControlState::PRESSED;
         if (HasFocus())
@@ -1047,10 +1063,16 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
             nState |= ControlState::ENABLED;
 
         if (bRollOver || mbIsActive)
+        {
+            nButtonStyle |= DrawButtonFlags::Highlight;
             nState |= ControlState::ROLLOVER;
+        }
 
         if (mbIsActive && bRollOver)
+        {
             nState &= ~ControlState::PRESSED;
+            nButtonStyle &= ~DrawButtonFlags::Pressed;
+        }
 
         if (GetStyle() & WB_BEVELBUTTON)
             aControlValue.mbBevelButton = true;
@@ -1085,8 +1107,8 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
         }
 
         // draw content using the same aInRect as non-native VCL would do
-        ImplDrawPushButtonContent(&rRenderContext, (nState&ControlState::ROLLOVER) ? DrawFlags::NoRollover : DrawFlags::NONE,
-                                  aInRect, bDrawMenuSep);
+        ImplDrawPushButtonContent(&rRenderContext, DrawFlags::NONE,
+                                  aInRect, bDrawMenuSep, nButtonStyle);
 
         if (HasFocus())
             ShowFocus(ImplGetFocusRect());
@@ -1111,7 +1133,7 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
         }
 
         // draw content
-        ImplDrawPushButtonContent(&rRenderContext, DrawFlags::NONE, aInRect, bDrawMenuSep);
+        ImplDrawPushButtonContent(&rRenderContext, DrawFlags::NONE, aInRect, bDrawMenuSep, nButtonStyle);
 
         if (HasFocus())
         {
@@ -1387,7 +1409,7 @@ void PushButton::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize,
         nButtonStyle |= DrawButtonFlags::Checked;
     aRect = aDecoView.DrawButton( aRect, nButtonStyle );
 
-    ImplDrawPushButtonContent( pDev, nFlags, aRect, true );
+    ImplDrawPushButtonContent( pDev, nFlags, aRect, true, nButtonStyle );
     pDev->Pop();
 }
 
@@ -2595,7 +2617,7 @@ void RadioButton::Toggle()
     ImplCallEventListenersAndHandler( VclEventId::RadiobuttonToggle, [this] () { maToggleHdl.Call(*this); } );
 }
 
-bool RadioButton::SetModeRadioImage( const Image& rImage )
+void RadioButton::SetModeRadioImage( const Image& rImage )
 {
     if ( rImage != maImage )
     {
@@ -2603,7 +2625,6 @@ bool RadioButton::SetModeRadioImage( const Image& rImage )
         CompatStateChanged( StateChangedType::Data );
         queue_resize();
     }
-    return true;
 }
 
 
@@ -2896,12 +2917,6 @@ void RadioButton::ShowFocus(const tools::Rectangle& rRect)
 
         aInRect.SetLeft( rRect.Left() );  // exclude the radio element itself from the focusrect
 
-        //to-do, figure out a better solution here
-        aInRect.AdjustLeft( -2 );
-        aInRect.AdjustRight(2 );
-        aInRect.AdjustTop( -2 );
-        aInRect.AdjustBottom(2 );
-
         DrawNativeControl(ControlType::Radiobutton, ControlPart::Focus, aInRect,
                           ControlState::FOCUSED, aControlValue, OUString());
     }
@@ -3138,12 +3153,9 @@ void CheckBox::ImplCheck()
     meState = eNewState;
 
     VclPtr<vcl::Window> xWindow = this;
-    if( GetStyle() & WB_EARLYTOGGLE )
-        Toggle();
     Invalidate();
     Update();
-    if( ! (GetStyle() & WB_EARLYTOGGLE) )
-        Toggle();
+    Toggle();
     if ( xWindow->IsDisposed() )
         return;
     Click();
@@ -3723,12 +3735,6 @@ void CheckBox::ShowFocus(const tools::Rectangle& rRect)
         tools::Rectangle aInRect(Point(0, 0), GetSizePixel());
 
         aInRect.SetLeft( rRect.Left() );  // exclude the checkbox itself from the focusrect
-
-        //to-do, figure out a better solution here
-        aInRect.AdjustLeft( -2 );
-        aInRect.AdjustRight(2 );
-        aInRect.AdjustTop( -2 );
-        aInRect.AdjustBottom(2 );
 
         DrawNativeControl(ControlType::Checkbox, ControlPart::Focus, aInRect,
                           ControlState::FOCUSED, aControlValue, OUString());

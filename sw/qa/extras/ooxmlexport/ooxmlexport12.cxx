@@ -9,7 +9,6 @@
 
 #include <memory>
 #include <sstream>
-#include <config_test.h>
 
 #include <swmodeltestbase.hxx>
 
@@ -55,7 +54,6 @@
 #include <vcl/bitmapaccess.hxx>
 #include <unotest/assertion_traits.hxx>
 #include <unotools/fltrcfg.hxx>
-#include <comphelper/sequenceashashmap.hxx>
 #include <swtypes.hxx>
 #include <drawdoc.hxx>
 #include <oox/drawingml/drawingmltypes.hxx>
@@ -725,6 +723,18 @@ DECLARE_OOXMLEXPORT_TEST(testObjectCrossReference, "object_cross_reference.odt")
     CPPUNIT_ASSERT_EQUAL(sal_uInt16(21), nIndex);
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf117504_numberingIndent, "tdf117504_numberingIndent.docx")
+{
+    OUString sName = getProperty<OUString>(getParagraph(1), "NumberingStyleName");
+    CPPUNIT_ASSERT_MESSAGE("Paragraph has numbering style", !sName.isEmpty());
+
+    uno::Reference<beans::XPropertySet> xPropertySet(
+        getStyles("ParagraphStyles")->getByName("Revision"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(353), getProperty<sal_Int32>(xPropertySet, "ParaBottomMargin"));
+    xPropertySet.set(getStyles("ParagraphStyles")->getByName("Body Note"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(xPropertySet, "ParaBottomMargin"));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testWatermark, "watermark.docx")
 {
     uno::Reference<drawing::XShape> xShape(getShape(1), uno::UNO_QUERY);
@@ -754,6 +764,17 @@ DECLARE_OOXMLEXPORT_TEST(testWatermarkTrim, "tdf114308.docx")
     ss << "Difference: " << nDifference << " TotalHeight: " << nHeight;
     CPPUNIT_ASSERT_MESSAGE(ss.str(), nDifference <= 4);
     CPPUNIT_ASSERT_MESSAGE(ss.str(), nDifference >= -4);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf73547, "tdf73547-dash.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    double nD = getXPath(pXmlDoc, "//a:custDash/a:ds[1]", "d").toDouble();
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(105000.0, nD, 5000.0); // was 100000
+    double nSp = getXPath(pXmlDoc, "//a:custDash/a:ds[1]", "sp").toDouble();
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(35000.0, nSp, 5000.0); // was 100000
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

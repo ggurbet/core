@@ -97,7 +97,6 @@ SwHTMLWriter::SwHTMLWriter( const OUString& rBaseURL )
     , m_eCSS1Unit(FUNIT_NONE)
     , m_pFootEndNotes(nullptr)
     , mxFormComps()
-    , m_pDfltColor(nullptr)
     , m_pStartNdIdx(nullptr)
     , m_pCurrPageDesc(nullptr)
     , m_pFormatFootnote(nullptr)
@@ -169,6 +168,11 @@ SwHTMLWriter::SwHTMLWriter( const OUString& rBaseURL )
 
 SwHTMLWriter::~SwHTMLWriter()
 {
+}
+
+std::unique_ptr<SwHTMLNumRuleInfo> SwHTMLWriter::ReleaseNextNumInfo()
+{
+    return std::move(m_pNextNumRuleInfo);
 }
 
 void SwHTMLWriter::SetupFilterOptions(SfxMedium& rMedium)
@@ -319,7 +323,7 @@ ErrCode SwHTMLWriter::WriteStream()
         ::StartProgress( STR_STATSTR_W4WWRITE, 0, m_pDoc->GetNodes().Count(),
                          m_pDoc->GetDocShell());
 
-    m_pDfltColor = nullptr;
+    m_xDfltColor.reset();
     m_pFootEndNotes = nullptr;
     m_pFormatFootnote = nullptr;
     m_bOutTable = m_bOutHeader = m_bOutFooter = m_bOutFlyFrame = false;
@@ -482,8 +486,7 @@ ErrCode SwHTMLWriter::WriteStream()
     if( m_pHTMLPosFlyFrames )
     {
         m_pHTMLPosFlyFrames->DeleteAndDestroyAll();
-        delete m_pHTMLPosFlyFrames;
-        m_pHTMLPosFlyFrames = nullptr;
+        m_pHTMLPosFlyFrames.reset();
     }
 
     m_aHTMLControls.DeleteAndDestroyAll();
@@ -508,8 +511,7 @@ ErrCode SwHTMLWriter::WriteStream()
     m_aScriptParaStyles.clear();
     m_aScriptTextStyles.clear();
 
-    delete m_pDfltColor;
-    m_pDfltColor = nullptr;
+    m_xDfltColor.reset();
 
     delete m_pStartNdIdx;
     m_pStartNdIdx = nullptr;
@@ -923,7 +925,7 @@ static void OutBodyColor( const sal_Char* pTag, const SwFormat *pFormat,
             aColor = COL_BLACK;
         HTMLOutFuncs::Out_Color( rHWrt.Strm(), aColor );
         if( RES_POOLCOLL_STANDARD==pFormat->GetPoolFormatId() )
-            rHWrt.m_pDfltColor = new Color( aColor );
+            rHWrt.m_xDfltColor = aColor;
     }
 }
 
@@ -1092,7 +1094,7 @@ const SwPageDesc *SwHTMLWriter::MakeHeader( sal_uInt16 &rHeaderAttrs )
 
         if( m_bCfgOutStyles )
         {
-            OutCSS1_BodyTagStyleOpt( *this, rItemSet, OUString() );
+            OutCSS1_BodyTagStyleOpt( *this, rItemSet );
         }
         // append events
         if( m_pDoc->GetDocShell() )   // only with DocShell BASIC is possible
@@ -1110,9 +1112,21 @@ const SwPageDesc *SwHTMLWriter::MakeHeader( sal_uInt16 &rHeaderAttrs )
 void SwHTMLWriter::OutAnchor( const OUString& rName )
 {
     OStringBuffer sOut;
-    sOut.append("<" OOO_STRING_SVTOOLS_HTML_anchor " " OOO_STRING_SVTOOLS_HTML_O_name "=\"");
-    Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
-    HTMLOutFuncs::Out_String( Strm(), rName, m_eDestEnc, &m_aNonConvertableCharacters ).WriteCharPtr( "\">" );
+    sOut.append("<" + GetNamespace() + OOO_STRING_SVTOOLS_HTML_anchor " ");
+    if (!mbXHTML)
+    {
+        sOut.append(OOO_STRING_SVTOOLS_HTML_O_name "=\"");
+        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        HTMLOutFuncs::Out_String( Strm(), rName, m_eDestEnc, &m_aNonConvertableCharacters ).WriteCharPtr( "\">" );
+    }
+    else
+    {
+        // XHTML wants 'id' instead of 'name', also the value can't contain
+        // spaces.
+        sOut.append(OOO_STRING_SVTOOLS_HTML_O_id "=\"");
+        Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
+        HTMLOutFuncs::Out_String( Strm(), rName.replace(' ', '_'), m_eDestEnc, &m_aNonConvertableCharacters ).WriteCharPtr( "\">" );
+    }
     HTMLOutFuncs::Out_AsciiTag( Strm(), GetNamespace() + OOO_STRING_SVTOOLS_HTML_anchor, false );
 }
 
@@ -1506,9 +1520,8 @@ HTMLSaveData::HTMLSaveData(SwHTMLWriter& rWriter, sal_uLong nStt,
     // Only then also the numbering information of the next paragraph will be valid.
     if( bSaveNum )
     {
-        pOldNumRuleInfo = new SwHTMLNumRuleInfo( rWrt.GetNumInfo() );
-        pOldNextNumRuleInfo = rWrt.GetNextNumInfo();
-        rWrt.SetNextNumInfo( nullptr );
+        pOldNumRuleInfo.reset( new SwHTMLNumRuleInfo( rWrt.GetNumInfo() ) );
+        pOldNextNumRuleInfo = rWrt.ReleaseNextNumInfo();
     }
     else
     {
@@ -1542,8 +1555,8 @@ HTMLSaveData::~HTMLSaveData()
     if( pOldNumRuleInfo )
     {
         rWrt.GetNumInfo().Set( *pOldNumRuleInfo );
-        delete pOldNumRuleInfo;
-        rWrt.SetNextNumInfo( pOldNextNumRuleInfo );
+        pOldNumRuleInfo.reset();
+        rWrt.SetNextNumInfo( std::move(pOldNextNumRuleInfo) );
     }
     else
     {

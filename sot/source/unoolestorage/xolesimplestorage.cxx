@@ -22,6 +22,7 @@
 #include <com/sun/star/embed/OLESimpleStorage.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/io/XStream.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
@@ -306,11 +307,12 @@ void SAL_CALL OLESimpleStorage::insertByName( const OUString& aName, const uno::
     {
         throw;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
+        css::uno::Any anyEx = cppu::getCaughtException();
         throw lang::WrappedTargetException("Insert has failed!",
                                             uno::Reference< uno::XInterface >(),
-                                            uno::makeAny( e ) );
+                                            anyEx );
     }
 }
 
@@ -395,7 +397,7 @@ uno::Any SAL_CALL OLESimpleStorage::getByName( const OUString& aName )
         if ( !pStrg )
             throw lang::WrappedTargetException(); // io::IOException(); // TODO
 
-        SvStream* pStream = ::utl::UcbStreamHelper::CreateStream( xTempFile, false ); // do not close the original stream
+        std::unique_ptr<SvStream> pStream = ::utl::UcbStreamHelper::CreateStream( xTempFile, false ); // do not close the original stream
         if ( !pStream )
             throw uno::RuntimeException();
 
@@ -405,7 +407,7 @@ uno::Any SAL_CALL OLESimpleStorage::getByName( const OUString& aName )
 
         DELETEZ( pNewStor );
         DELETEZ( pStrg );
-        DELETEZ( pStream );
+        pStream.reset();
 
         if ( !bSuccess )
             throw uno::RuntimeException();
@@ -453,10 +455,12 @@ uno::Any SAL_CALL OLESimpleStorage::getByName( const OUString& aName )
             DELETEZ( pStream );
             throw;
         }
-        catch (const uno::Exception&)
+        catch (const uno::Exception& ex)
         {
+            css::uno::Any anyEx = cppu::getCaughtException();
             DELETEZ( pStream );
-            throw lang::WrappedTargetException(); // TODO:
+            throw css::lang::WrappedTargetException( ex.Message,
+                    nullptr, anyEx );
         }
 
         DELETEZ( pStream );
@@ -568,7 +572,7 @@ void SAL_CALL OLESimpleStorage::dispose()
     }
 
     DELETEZ( m_pStorage );
-    DELETEZ( m_pStream );
+    m_pStream.reset();
 
     m_xStream.clear();
     m_xTempStream.clear();

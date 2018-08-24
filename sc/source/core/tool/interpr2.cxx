@@ -112,9 +112,8 @@ void ScInterpreter::ScGetActDate()
 void ScInterpreter::ScGetActTime()
 {
     nFuncFmtType = SvNumFormatType::DATETIME;
-    Date aActDate( Date::SYSTEM );
-    long nDiff = aActDate - pFormatter->GetNullDate();
-    tools::Time aActTime( tools::Time::SYSTEM );
+    DateTime aActTime( DateTime::SYSTEM );
+    long nDiff = aActTime - pFormatter->GetNullDate();
     double fTime = aActTime.GetHour()    / static_cast<double>(::tools::Time::hourPerDay)   +
                    aActTime.GetMin()     / static_cast<double>(::tools::Time::minutePerDay) +
                    aActTime.GetSec()     / static_cast<double>(::tools::Time::secondPerDay) +
@@ -147,7 +146,7 @@ void ScInterpreter::ScGetMin()
 {
     double fTime = GetDouble();
     fTime -= ::rtl::math::approxFloor(fTime);       // date part absent
-    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR+0.5)) % ::tools::Time::secondPerHour;
+    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR)) % ::tools::Time::secondPerHour;
     PushDouble( static_cast<double>(nVal / ::tools::Time::secondPerMinute) );
 }
 
@@ -155,7 +154,7 @@ void ScInterpreter::ScGetSec()
 {
     double fTime = GetDouble();
     fTime -= ::rtl::math::approxFloor(fTime);       // date part absent
-    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR+0.5)) % ::tools::Time::secondPerMinute;
+    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR)) % ::tools::Time::secondPerMinute;
     PushDouble( static_cast<double>(nVal) );
 }
 
@@ -163,7 +162,7 @@ void ScInterpreter::ScGetHour()
 {
     double fTime = GetDouble();
     fTime -= ::rtl::math::approxFloor(fTime);       // date part absent
-    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR+0.5)) / ::tools::Time::secondPerHour;
+    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR)) / ::tools::Time::secondPerHour;
     PushDouble(static_cast<double>(nVal));
 }
 
@@ -1782,11 +1781,6 @@ double ScInterpreter::ScInterVDB(double fCost, double fSalvage, double fLife,
     return fVdb;
 }
 
-inline double DblMin( double a, double b )
-{
-    return (a < b) ? a : b;
-}
-
 void ScInterpreter::ScVDB()
 {
     nFuncFmtType = SvNumFormatType::CURRENCY;
@@ -1827,7 +1821,7 @@ void ScInterpreter::ScVDB()
 
                     //respect partial period in the Beginning/ End:
                     if ( i == nLoopStart+1 )
-                        fTerm *= ( DblMin( fEnd, fIntStart + 1.0 ) - fStart );
+                        fTerm *= ( std::min( fEnd, fIntStart + 1.0 ) - fStart );
                     else if ( i == nLoopEnd )
                         fTerm *= ( fEnd + 1.0 - fIntEnd );
 
@@ -2374,7 +2368,7 @@ void ScInterpreter::ScMod()
         double fDenom   = GetDouble();   // Denominator
         if ( fDenom == 0.0 )
         {
-            PushIllegalArgument();
+            PushError(FormulaError::DivisionByZero);
             return;
         }
         double fNum = GetDouble();   // Numerator
@@ -2749,10 +2743,8 @@ void ScInterpreter::ScDde()
             return;
         }
 
-            // Need to reinterpret after loading (build links)
-
-        if ( rArr.IsRecalcModeNormal() )
-            rArr.SetExclusiveRecalcModeOnLoad();
+        // Need to reinterpret after loading (build links)
+        rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
 
             //  while the link is not evaluated, idle must be disabled (to avoid circular references)
 
@@ -3050,7 +3042,7 @@ void ScInterpreter::ScRoman()
             static const sal_uInt16 pValues[] = { 1000, 500, 100, 50, 10, 5, 1 };
             static const sal_uInt16 nMaxIndex = sal_uInt16(SAL_N_ELEMENTS(pValues) - 1);
 
-            OUString aRoman;
+            OUStringBuffer aRoman;
             sal_uInt16 nVal = static_cast<sal_uInt16>(fVal);
             sal_uInt16 nMode = static_cast<sal_uInt16>(fMode);
 
@@ -3074,8 +3066,7 @@ void ScInterpreter::ScRoman()
                         else
                             nSteps = nMode;
                     }
-                    aRoman += OUStringLiteral1( pChars[ nIndex ] )
-                        + OUStringLiteral1( pChars[ nIndex2 ] );
+                    aRoman.append( pChars[ nIndex ] ).append( pChars[ nIndex2 ] );
                     nVal = sal::static_int_cast<sal_uInt16>( nVal + pValues[ nIndex ] );
                     nVal = sal::static_int_cast<sal_uInt16>( nVal - pValues[ nIndex2 ] );
                 }
@@ -3085,7 +3076,7 @@ void ScInterpreter::ScRoman()
                     {
                         // assert can't happen with nVal<4000 precondition
                         assert( nIndex >= 1 );
-                        aRoman += OUStringLiteral1( pChars[ nIndex - 1 ] );
+                        aRoman.append( pChars[ nIndex - 1 ] );
                     }
                     sal_Int32 nPad = nDigit % 5;
                     if (nPad)
@@ -3099,7 +3090,7 @@ void ScInterpreter::ScRoman()
                 }
             }
 
-            PushString( aRoman );
+            PushString( aRoman.makeStringAndClear() );
         }
         else
             PushIllegalArgument();

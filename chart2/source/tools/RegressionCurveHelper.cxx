@@ -33,8 +33,10 @@
 #include <ResId.hxx>
 #include <strings.hrc>
 #include <DiagramHelper.hxx>
+#include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <tools/diagnose_ex.h>
+#include <comphelper/property.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::chart2;

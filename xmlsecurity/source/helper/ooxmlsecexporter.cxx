@@ -18,13 +18,17 @@
 #include <comphelper/ofopxmlhelper.hxx>
 #include <o3tl/make_unique.hxx>
 #include <rtl/ref.hxx>
+#include <sal/log.hxx>
+#include <svx/xoutbmp.hxx>
 #include <unotools/datetime.hxx>
+#include <vcl/salctype.hxx>
 #include <xmloff/attrlist.hxx>
 
 #include <documentsignaturehelper.hxx>
 #include <xsecctl.hxx>
 
 using namespace com::sun::star;
+using namespace css::xml::sax;
 
 struct OOXMLSecExporter::Impl
 {
@@ -68,6 +72,7 @@ struct OOXMLSecExporter::Impl
     /// Writes <SignatureInfoV1>.
     void writeSignatureInfo();
     void writePackageSignature();
+    void writeSignatureLineImages();
 };
 
 bool OOXMLSecExporter::Impl::isOOXMLBlacklist(const OUString& rStreamName)
@@ -130,7 +135,12 @@ void OOXMLSecExporter::Impl::writeCanonicalizationTransform()
 void OOXMLSecExporter::Impl::writeSignatureMethod()
 {
     rtl::Reference<SvXMLAttributeList> pAttributeList(new SvXMLAttributeList());
-    pAttributeList->AddAttribute("Algorithm", ALGO_RSASHA256);
+
+    if (m_rInformation.eAlgorithmID == svl::crypto::SignatureMethodAlgorithm::ECDSA)
+        pAttributeList->AddAttribute("Algorithm", ALGO_ECDSASHA256);
+    else
+        pAttributeList->AddAttribute("Algorithm", ALGO_RSASHA256);
+
     m_xDocumentHandler->startElement("SignatureMethod", uno::Reference<xml::sax::XAttributeList>(pAttributeList.get()));
     m_xDocumentHandler->endElement("SignatureMethod");
 }
@@ -350,6 +360,7 @@ void OOXMLSecExporter::Impl::writeSignatureInfo()
     m_xDocumentHandler->startElement("SignatureInfoV1", uno::Reference<xml::sax::XAttributeList>(pAttributeList.get()));
 
     m_xDocumentHandler->startElement("SetupId", uno::Reference<xml::sax::XAttributeList>(new SvXMLAttributeList()));
+    m_xDocumentHandler->characters(m_rInformation.ouSignatureLineId);
     m_xDocumentHandler->endElement("SetupId");
     m_xDocumentHandler->startElement("SignatureText", uno::Reference<xml::sax::XAttributeList>(new SvXMLAttributeList()));
     m_xDocumentHandler->endElement("SignatureText");
@@ -411,6 +422,36 @@ void OOXMLSecExporter::Impl::writePackageSignature()
     m_xDocumentHandler->endElement("Object");
 }
 
+void OOXMLSecExporter::Impl::writeSignatureLineImages()
+{
+    if (m_rInformation.aValidSignatureImage.is())
+    {
+        rtl::Reference<SvXMLAttributeList> pAttributeList(new SvXMLAttributeList());
+        pAttributeList->AddAttribute("Id", "idValidSigLnImg");
+        m_xDocumentHandler->startElement(
+            "Object", uno::Reference<xml::sax::XAttributeList>(pAttributeList.get()));
+        OUString aGraphicInBase64;
+        Graphic aGraphic(m_rInformation.aValidSignatureImage);
+        if (!XOutBitmap::GraphicToBase64(aGraphic, aGraphicInBase64, false, ConvertDataFormat::EMF))
+            SAL_WARN("xmlsecurity.helper", "could not convert graphic to base64");
+        m_xDocumentHandler->characters(aGraphicInBase64);
+        m_xDocumentHandler->endElement("Object");
+    }
+    if (m_rInformation.aInvalidSignatureImage.is())
+    {
+        rtl::Reference<SvXMLAttributeList> pAttributeList(new SvXMLAttributeList());
+        pAttributeList->AddAttribute("Id", "idInvalidSigLnImg");
+        m_xDocumentHandler->startElement(
+            "Object", uno::Reference<xml::sax::XAttributeList>(pAttributeList.get()));
+        OUString aGraphicInBase64;
+        Graphic aGraphic(m_rInformation.aInvalidSignatureImage);
+        if (!XOutBitmap::GraphicToBase64(aGraphic, aGraphicInBase64, false, ConvertDataFormat::EMF))
+            SAL_WARN("xmlsecurity.helper", "could not convert graphic to base64");
+        m_xDocumentHandler->characters(aGraphicInBase64);
+        m_xDocumentHandler->endElement("Object");
+    }
+}
+
 OOXMLSecExporter::OOXMLSecExporter(const uno::Reference<uno::XComponentContext>& xComponentContext,
                                    const uno::Reference<embed::XStorage>& xRootStorage,
                                    const uno::Reference<xml::sax::XDocumentHandler>& xDocumentHandler,
@@ -434,6 +475,7 @@ void OOXMLSecExporter::writeSignature()
     m_pImpl->writePackageObject();
     m_pImpl->writeOfficeObject();
     m_pImpl->writePackageSignature();
+    m_pImpl->writeSignatureLineImages();
 
     m_pImpl->m_xDocumentHandler->endElement("Signature");
 }

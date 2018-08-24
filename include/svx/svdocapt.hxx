@@ -46,23 +46,34 @@ private:
     friend class sdr::properties::CaptionProperties;
     friend class                SdrTextObj; // for ImpRecalcTail() during AutoGrow
 
+    // tdf#118662 exclusive friend function and setter for SuppressGetBitmap
+    friend void setSuppressGetBitmapFromXclObjComment(SdrCaptionObj* pSdrCaptionObj, bool bValue);
+    void setSuppressGetBitmap(bool bNew)
+    {
+        mbSuppressGetBitmap = bNew;
+    }
+
 protected:
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
 
 private:
-    tools::Polygon aTailPoly;  // the whole tail polygon
-    bool                        mbSpecialTextBoxShadow; // for calc special shadow, default FALSE
-    bool                        mbFixedTail; // for calc note box fixed tail, default FALSE
-    Point                       maFixedTailPos; // for calc note box fixed tail position.
+    tools::Polygon  aTailPoly;              // the whole tail polygon
+    bool            mbSpecialTextBoxShadow; // for calc special shadow, default FALSE
+    bool            mbFixedTail;            // for calc note box fixed tail, default FALSE
+    bool            mbSuppressGetBitmap;    // tdf#118662
+    Point           maFixedTailPos;         // for calc note box fixed tail position.
 
-private:
     SVX_DLLPRIVATE void ImpGetCaptParams(ImpCaptParams& rPara) const;
     SVX_DLLPRIVATE static void ImpCalcTail1(const ImpCaptParams& rPara, tools::Polygon& rPoly, tools::Rectangle const & rRect);
     SVX_DLLPRIVATE static void ImpCalcTail2(const ImpCaptParams& rPara, tools::Polygon& rPoly, tools::Rectangle const & rRect);
     SVX_DLLPRIVATE static void ImpCalcTail3(const ImpCaptParams& rPara, tools::Polygon& rPoly, tools::Rectangle const & rRect);
     SVX_DLLPRIVATE static void ImpCalcTail (const ImpCaptParams& rPara, tools::Polygon& rPoly, tools::Rectangle const & rRect);
     SVX_DLLPRIVATE void ImpRecalcTail();
+
+protected:
+    // protected destructor
+    virtual ~SdrCaptionObj() override;
 
 public:
     SdrCaptionObj(SdrModel& rSdrModel);
@@ -71,11 +82,12 @@ public:
         const tools::Rectangle& rRect,
         const Point& rTail);
 
-    virtual ~SdrCaptionObj() override;
+    // tdf#118662 getter for SuppressGetBitmap
+    bool isSuppressGetBitmap() const { return mbSuppressGetBitmap; }
 
     virtual void TakeObjInfo(SdrObjTransformInfoRec& rInfo) const override;
     virtual sal_uInt16 GetObjIdentifier() const override;
-    virtual SdrCaptionObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrCaptionObj* CloneSdrObject(SdrModel& rTargetModel) const override;
 
     // implemented mainly for the purposes of Clone()
     SdrCaptionObj& operator=(const SdrCaptionObj& rObj);

@@ -360,7 +360,7 @@ static IsoLanguageCountryEntry const aImplIsoLangEntries[] =
     { LANGUAGE_PUNJABI_PAKISTAN,           "lah", "PK", kSAME },    // macrolanguage code, earlier preferred 'lah' over 'pa' for Western Panjabi, now there is 'pnb'
     { LANGUAGE_PUNJABI_PAKISTAN,            "pa", "PK", kSAME },    // MS maps this to 'pa-Arab-PK', but 'pa'='pan' Eastern Panjabi is not used in PK, only in
     { LANGUAGE_SINDHI_PAKISTAN,             "sd", "PK", kSAME },    // Arabic script
-    { LANGUAGE_SINDHI,                      "sd", "IN", k0    },    // TODO: there's Deva(nagari) and Arab(ic) script, MS maps this to 'sd-Deva-IN'
+    { LANGUAGE_SINDHI,                      "sd", "IN", kSAME },    // Devanagari script
     { LANGUAGE_BELARUSIAN,                  "be", "BY", k0    },
     { LANGUAGE_CATALAN,                     "ca", "ES", k0    },    // Spain (default)
     { LANGUAGE_CATALAN,                     "ca", "AD", k0    },    // Andorra
@@ -674,6 +674,9 @@ static IsoLanguageCountryEntry const aImplIsoLangEntries[] =
     { LANGUAGE_USER_PLAUTDIETSCH,          "pdt", "CA", k0    },
     { LANGUAGE_USER_ARMENIAN_WESTERN,      "hyw", "AM", k0    },
     { LANGUAGE_USER_ARMENIAN_CLASSIC,      "xcl", "AM", k0    },
+    { LANGUAGE_USER_JUHOAN,                "ktz", "NA", k0    },
+    { LANGUAGE_USER_NARO,                  "nhr", "BW", k0    },
+    { LANGUAGE_USER_ILOKO,                 "ilo", "PH", k0    },
     { LANGUAGE_MULTIPLE,                   "mul", ""  , k0    },    // multiple languages, many languages are used
     { LANGUAGE_UNDETERMINED,               "und", ""  , k0    },    // undetermined language, language cannot be identified
     { LANGUAGE_NONE,                       "zxx", ""  , k0    },    // added to ISO 639-2 on 2006-01-11: Used to declare the absence of linguistic information
@@ -718,7 +721,7 @@ static IsoLanguageScriptCountryEntry const aImplIsoLangScriptEntries[] =
     { LANGUAGE_YIDDISH,                             "yi-Hebr", "IL", kSAME },   // macrolanguage code; MS, Hebr is suppress-script
     { LANGUAGE_UZBEK_LATIN,                         "uz-Latn", "UZ", k0    },   // macrolanguage code
     { LANGUAGE_UZBEK_LATIN_LSO,                     "uz-Latn", ""  , k0    },
-//  { LANGUAGE_SINDHI,                              "sd-Deva", "IN", k0    },   // MS, TODO: see comment above in aImplIsoLangEntries
+    { LANGUAGE_SINDHI,                              "sd-Deva", "IN", k0    },   // MS
     { LANGUAGE_SINDHI_PAKISTAN,                     "sd-Arab", "PK", k0    },   // MS
     { LANGUAGE_SINDHI_ARABIC_LSO,                   "sd-Arab", ""  , k0    },
     { LANGUAGE_CHEROKEE_UNITED_STATES,             "chr-Cher", "US", k0    },   // MS
@@ -758,6 +761,8 @@ static IsoLanguageScriptCountryEntry const aImplIsoLangScriptEntries[] =
     { LANGUAGE_USER_CREE_PLAINS_LATIN,             "crk-Latn", "CN", kSAME },   // erroneous tdf#73973
     { LANGUAGE_USER_CREE_PLAINS_SYLLABICS,         "crk-Cans", "CN", kSAME },   // erroneous tdf#73973
     { LANGUAGE_USER_HUNGARIAN_ROVAS,                "hu-Hung", "HU", k0    },
+    { LANGUAGE_USER_MALAY_ARABIC_MALAYSIA,          "ms-Arab", "MY", k0    },
+    { LANGUAGE_USER_MALAY_ARABIC_BRUNEI,            "ms-Arab", "BN", k0    },
     { LANGUAGE_DONTKNOW,                            "",        ""  , k0    }    // marks end of table
 };
 

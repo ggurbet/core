@@ -18,14 +18,15 @@
  */
 
 #include <sal/types.h>
+#include <unotools/configmgr.hxx>
 #include <vcl/fontcharmap.hxx>
 #include <basegfx/range/b2ibox.hxx>
 #include <headless/svpgdi.hxx>
 #include <config_cairo_canvas.h>
 #include <impfontmetricdata.hxx>
-#include <CommonSalLayout.hxx>
+#include <sallayout.hxx>
 
-void SvpSalGraphics::SetFont( const FontSelectPattern* pIFSD, int nFallbackLevel )
+void SvpSalGraphics::SetFont(LogicalFontInstance* pIFSD, int nFallbackLevel)
 {
     m_aTextRenderImpl.SetFont(pIFSD, nFallbackLevel);
 }
@@ -103,12 +104,14 @@ bool SvpSalGraphics::GetGlyphOutline(const GlyphItem& rGlyph, basegfx::B2DPolyPo
 
 std::unique_ptr<SalLayout> SvpSalGraphics::GetTextLayout( ImplLayoutArgs& rArgs, int nFallbackLevel )
 {
+    if (utl::ConfigManager::IsFuzzing())
+        return nullptr;
     return m_aTextRenderImpl.GetTextLayout(rArgs, nFallbackLevel);
 }
 
-void SvpSalGraphics::DrawTextLayout(const CommonSalLayout& rLayout)
+void SvpSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
 {
-    m_aTextRenderImpl.DrawTextLayout(rLayout);
+    m_aTextRenderImpl.DrawTextLayout(rLayout, *this);
 }
 
 void SvpSalGraphics::SetTextColor( Color nColor )

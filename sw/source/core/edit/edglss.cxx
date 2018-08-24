@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <comphelper/string.hxx>
 #include <osl/endian.h>
 #include <hintids.hxx>
 #include <svl/urihelper.hxx>
@@ -117,7 +116,7 @@ sal_uInt16 SwEditShell::SaveGlossaryDoc( SwTextBlocks& rBlock,
             pCursor->GetPoint()->nContent.Assign( pContentNd, pContentNd->Len() );
 
         OUString sBuf;
-        if( GetSelectedText( sBuf, GETSELTXT_PARABRK_TO_ONLYCR ) && !sBuf.isEmpty() )
+        if( GetSelectedText( sBuf, ParaBreakType::ToOnlyCR ) && !sBuf.isEmpty() )
             nRet = rBlock.PutText( rShortName, rName, sBuf );
     }
     else
@@ -251,18 +250,18 @@ bool SwEditShell::CopySelToDoc( SwDoc* pInsDoc )
  *
  * @return false if the selected area is too big for being copied into the string buffer
  */
-bool SwEditShell::GetSelectedText( OUString &rBuf, int nHndlParaBrk )
+bool SwEditShell::GetSelectedText( OUString &rBuf, ParaBreakType nHndlParaBrk )
 {
     GetCursor();  // creates all cursors if needed
     if( IsSelOnePara() )
     {
         rBuf = GetSelText();
-        if( GETSELTXT_PARABRK_TO_BLANK == nHndlParaBrk )
+        if( ParaBreakType::ToBlank == nHndlParaBrk )
         {
             rBuf = rBuf.replaceAll("\x0a", " ");
         }
         else if( IsSelFullPara() &&
-            GETSELTXT_PARABRK_TO_ONLYCR != nHndlParaBrk )
+            ParaBreakType::ToOnlyCR != nHndlParaBrk )
         {
 #ifdef _WIN32
                 rBuf += "\015\012";
@@ -289,12 +288,12 @@ bool SwEditShell::GetSelectedText( OUString &rBuf, int nHndlParaBrk )
 
             switch( nHndlParaBrk )
             {
-            case GETSELTXT_PARABRK_TO_BLANK:
+            case ParaBreakType::ToBlank:
                 xWrt->m_bASCII_ParaAsBlank = true;
                 xWrt->m_bASCII_NoLastLineEnd = true;
                 break;
 
-            case GETSELTXT_PARABRK_TO_ONLYCR:
+            case ParaBreakType::ToOnlyCR:
                 xWrt->m_bASCII_ParaAsCR = true;
                 xWrt->m_bASCII_NoLastLineEnd = true;
                 break;

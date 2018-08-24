@@ -30,6 +30,7 @@
 #include <rtl/math.hxx>
 #include <stdexcept>
 #include <vector>
+#include <float.h>
 
 using namespace com::sun::star;
 
@@ -62,6 +63,7 @@ void SAL_CALL CoinMPSolver::solve()
     // collect variables in vector (?)
 
     std::vector<table::CellAddress> aVariableCells;
+    aVariableCells.reserve(maVariables.getLength());
     for (sal_Int32 nPos=0; nPos<maVariables.getLength(); nPos++)
         aVariableCells.push_back( maVariables[nPos] );
     size_t nVariables = aVariableCells.size();

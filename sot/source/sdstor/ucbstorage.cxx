@@ -47,6 +47,7 @@
 #include <rtl/digest.h>
 #include <osl/diagnose.h>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 #include <tools/ref.hxx>
 #include <tools/debug.hxx>
 #include <unotools/streamhelper.hxx>
@@ -86,7 +87,7 @@ class FileStreamWrapper_Impl : public FileInputStreamWrapper_Base
 protected:
     ::osl::Mutex    m_aMutex;
     OUString        m_aURL;
-    SvStream*       m_pSvStream;
+    std::unique_ptr<SvStream> m_pSvStream;
 
 public:
     explicit FileStreamWrapper_Impl(const OUString& rName);
@@ -119,7 +120,7 @@ FileStreamWrapper_Impl::~FileStreamWrapper_Impl()
 {
     if ( m_pSvStream )
     {
-        delete m_pSvStream;
+        m_pSvStream.reset();
 #if OSL_DEBUG_LEVEL > 0
         --nOpenFiles;
 #endif
@@ -203,17 +204,10 @@ sal_Int32 SAL_CALL FileStreamWrapper_Impl::available()
     ::osl::MutexGuard aGuard( m_aMutex );
     checkConnected();
 
-    sal_uInt32 nPos = m_pSvStream->Tell();
+    sal_Int64 nAvailable = m_pSvStream->remainingSize();
     checkError();
 
-    m_pSvStream->Seek(STREAM_SEEK_TO_END);
-    checkError();
-
-    sal_Int32 nAvailable = static_cast<sal_Int32>(m_pSvStream->Tell()) - nPos;
-    m_pSvStream->Seek(nPos);
-    checkError();
-
-    return nAvailable;
+    return std::min<sal_Int64>(SAL_MAX_INT32, nAvailable);
 }
 
 
@@ -224,7 +218,7 @@ void SAL_CALL FileStreamWrapper_Impl::closeInput()
 
     ::osl::MutexGuard aGuard( m_aMutex );
     checkConnected();
-    DELETEZ( m_pSvStream );
+    m_pSvStream.reset();
 #if OSL_DEBUG_LEVEL > 0
     --nOpenFiles;
 #endif
@@ -414,7 +408,7 @@ public:
     OString                     m_aKey;
     ::ucbhelper::Content*       m_pContent;     // the content that provides the data
     Reference<XInputStream>     m_rSource;      // the stream covering the original data of the content
-    SvStream*                   m_pStream;      // the stream worked on; for readonly streams it is the original stream of the content
+    std::unique_ptr<SvStream>   m_pStream;      // the stream worked on; for readonly streams it is the original stream of the content
                                                 // for read/write streams it's a copy into a temporary file
     OUString                    m_aTempURL;     // URL of this temporary stream
     ErrCode                     m_nError;
@@ -494,7 +488,7 @@ public:
                                 UCBStorage_Impl( SvStream&, UCBStorage*, bool );
     void                        Init();
     sal_Int16                   Commit();
-    bool                        Revert();
+    void                        Revert();
     bool                        Insert( ::ucbhelper::Content *pContent );
     UCBStorage_Impl*            OpenStorage( UCBStorageElement_Impl* pElement, StreamMode nMode, bool bDirect );
     void                        OpenStream( UCBStorageElement_Impl*, StreamMode, bool );
@@ -672,7 +666,7 @@ UCBStorageStream_Impl::~UCBStorageStream_Impl()
     if( m_rSource.is() )
         m_rSource.clear();
 
-    delete m_pStream;
+    m_pStream.reset();
 
     if (!m_aTempURL.isEmpty())
         osl::File::remove(m_aTempURL);
@@ -1175,7 +1169,7 @@ void UCBStorageStream_Impl::Free()
 #endif
 
     m_rSource.clear();
-    DELETEZ( m_pStream );
+    m_pStream.reset();
 }
 
 void UCBStorageStream_Impl::PrepareCachedForReopen( StreamMode nMode )
@@ -1520,8 +1514,7 @@ UCBStorage_Impl::UCBStorage_Impl( const OUString& rName, StreamMode nMode, UCBSt
         if ( m_nMode & StreamMode::WRITE )
         {
             // the root storage opens the package, so make sure that there is any
-            SvStream* pStream = ::utl::UcbStreamHelper::CreateStream( aName, StreamMode::STD_READWRITE, m_pTempFile != nullptr /* bFileExists */ );
-            delete pStream;
+            ::utl::UcbStreamHelper::CreateStream( aName, StreamMode::STD_READWRITE, m_pTempFile != nullptr /* bFileExists */ );
         }
     }
     else
@@ -2211,7 +2204,7 @@ sal_Int16 UCBStorage_Impl::Commit()
                 catch (const CommandAbortedException&)
                 {
                     // how to tell the content : forget all changes ?!
-                    // or should we assume that the content does it by itself because he throwed an exception ?!
+                    // or should we assume that the content does it by itself because he threw an exception ?!
                     // any command wasn't executed successfully - not specified
                     SetError( ERRCODE_IO_GENERAL );
                     return COMMIT_RESULT_FAILURE;
@@ -2219,7 +2212,7 @@ sal_Int16 UCBStorage_Impl::Commit()
                 catch (const RuntimeException&)
                 {
                     // how to tell the content : forget all changes ?!
-                    // or should we assume that the content does it by itself because he throwed an exception ?!
+                    // or should we assume that the content does it by itself because he threw an exception ?!
                     // any other error - not specified
                     SetError( ERRCODE_IO_GENERAL );
                     return COMMIT_RESULT_FAILURE;
@@ -2242,7 +2235,7 @@ sal_Int16 UCBStorage_Impl::Commit()
                 catch (const Exception&)
                 {
                     // how to tell the content : forget all changes ?!
-                    // or should we assume that the content does it by itself because he throwed an exception ?!
+                    // or should we assume that the content does it by itself because he threw an exception ?!
                     // any other error - not specified
                     SetError( ERRCODE_IO_GENERAL );
                     return COMMIT_RESULT_FAILURE;
@@ -2277,7 +2270,7 @@ sal_Int16 UCBStorage_Impl::Commit()
     return nRet;
 }
 
-bool UCBStorage_Impl::Revert()
+void UCBStorage_Impl::Revert()
 {
     for ( size_t i = 0; i < m_aChildrenList.size(); )
     {
@@ -2303,7 +2296,6 @@ bool UCBStorage_Impl::Revert()
             ++i;
         }
     }
-    return true;
 }
 
 const OUString& UCBStorage::GetName() const
@@ -2549,7 +2541,8 @@ bool UCBStorage::Commit()
 
 bool UCBStorage::Revert()
 {
-    return pImp->Revert();
+    pImp->Revert();
+    return true;
 }
 
 BaseStorageStream* UCBStorage::OpenStream( const OUString& rEleName, StreamMode nMode, bool bDirect )

@@ -31,6 +31,7 @@
 #include <comphelper/processfactory.hxx>
 #include <vcl/svapp.hxx>
 #include <osl/mutex.hxx>
+#include <sal/log.hxx>
 
 namespace svt
 {
@@ -194,7 +195,6 @@ namespace svt
 
                 try
                 {
-                    SortingData_Impl* pData;
                     DateTime aDT;
 
                     bool bCancelled = false;
@@ -204,8 +204,6 @@ namespace svt
                         // don't show hidden files
                         if ( !bIsHidden || xRow->wasNull() )
                         {
-                            pData = nullptr;
-
                             aDT = xRow->getTimestamp( ROW_DATE_MOD );
                             bool bContainsDate = !xRow->wasNull();
                             if ( !bContainsDate )
@@ -227,7 +225,7 @@ namespace svt
                                     continue;
                             }
 
-                            pData = new SortingData_Impl;
+                            std::unique_ptr<SortingData_Impl> pData(new SortingData_Impl);
                             pData->maTargetURL = sRealURL;
 
                             pData->mbIsFolder = xRow->getBoolean( ROW_IS_FOLDER ) && !xRow->wasNull();
@@ -288,7 +286,7 @@ namespace svt
 
                             {
                                 ::osl::MutexGuard aGuard( m_rContentMutex );
-                                m_rContent.push_back( pData );
+                                m_rContent.push_back( std::move(pData) );
                             }
                         }
 

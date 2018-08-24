@@ -22,7 +22,6 @@
 
 #include <undobj.hxx>
 #include <rtl/ustring.hxx>
-#include <tools/mempool.hxx>
 #include <memory>
 #include <boost/optional.hpp>
 
@@ -38,9 +37,9 @@ class SwUndoDelete
     , private SwUndRng
     , private SwUndoSaveContent
 {
-    SwNodeIndex* m_pMvStt;            // Position of Nodes in UndoNodes-Array
+    std::unique_ptr<SwNodeIndex> m_pMvStt;            // Position of Nodes in UndoNodes-Array
     boost::optional<OUString> m_aSttStr, m_aEndStr;
-    SwRedlineSaveDatas* m_pRedlSaveData;
+    std::unique_ptr<SwRedlineSaveDatas> m_pRedlSaveData;
     std::shared_ptr< ::sfx2::MetadatableUndo > m_pMetadataUndoStart;
     std::shared_ptr< ::sfx2::MetadatableUndo > m_pMetadataUndoEnd;
 
@@ -99,8 +98,6 @@ public:
 
     // SwUndoTableCpyTable needs this information:
     bool IsDelFullPara() const { return m_bDelFullPara; }
-
-    DECL_FIXEDMEMPOOL_NEWDEL(SwUndoDelete)
 };
 
 #endif // INCLUDED_SW_SOURCE_CORE_INC_UNDODELETE_HXX

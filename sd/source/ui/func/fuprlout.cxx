@@ -170,9 +170,9 @@ void FuPresentationLayout::DoExecute( SfxRequest& rReq )
     else
     {
         SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractSdPresLayoutDlg> pDlg(pFact ? pFact->CreateSdPresLayoutDlg(mpDocSh, aSet ) : nullptr);
+        ScopedVclPtr<AbstractSdPresLayoutDlg> pDlg( pFact->CreateSdPresLayoutDlg(mpDocSh, aSet ) );
 
-        sal_uInt16 nResult = pDlg ? pDlg->Execute() : static_cast<short>(RET_CANCEL);
+        sal_uInt16 nResult = pDlg->Execute();
 
         switch (nResult)
         {
@@ -271,10 +271,8 @@ void FuPresentationLayout::DoExecute( SfxRequest& rReq )
 
 
         // fake a mode change to repaint the page tab bar
-        if( mpViewShell && dynamic_cast< const DrawViewShell *>( mpViewShell ) !=  nullptr )
+        if( auto pDrawViewSh = dynamic_cast<DrawViewShell *>( mpViewShell ) )
         {
-            DrawViewShell* pDrawViewSh =
-                static_cast<DrawViewShell*>(mpViewShell);
             EditMode eMode = pDrawViewSh->GetEditMode();
             bool bLayer = pDrawViewSh->IsLayerModeActive();
             pDrawViewSh->ChangeEditMode( eMode, !bLayer );

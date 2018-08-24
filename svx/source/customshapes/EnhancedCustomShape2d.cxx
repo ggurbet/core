@@ -17,6 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <o3tl/clamp.hxx>
 #include <svx/EnhancedCustomShape2d.hxx>
 #include <svx/EnhancedCustomShapeGeometry.hxx>
 #include <svx/EnhancedCustomShapeTypeNames.hxx>
@@ -52,6 +55,7 @@
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <math.h>
 
 using namespace ::com::sun::star;
@@ -1049,15 +1053,15 @@ Color EnhancedCustomShape2d::GetColorData( const Color& rFillColor, sal_uInt32 n
         {
             if (dBrightness >=0.0)
             { //lighten, blending with white
-                return Color( static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(rFillColor.GetRed() * (1.0-dBrightness) + dBrightness * 255.0, 0.0, 255.0)  )),
-                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(rFillColor.GetGreen() * (1.0-dBrightness) + dBrightness * 255.0, 0.0, 255.0) )),
-                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(rFillColor.GetBlue() * (1.0-dBrightness) + dBrightness * 255.0, 0.0, 255.0) ))  );
+                return Color( static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(rFillColor.GetRed() * (1.0-dBrightness) + dBrightness * 255.0, 0.0, 255.0)  )),
+                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(rFillColor.GetGreen() * (1.0-dBrightness) + dBrightness * 255.0, 0.0, 255.0) )),
+                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(rFillColor.GetBlue() * (1.0-dBrightness) + dBrightness * 255.0, 0.0, 255.0) ))  );
             }
             else
             { //darken (indicated by negative sign), blending with black
-                return Color( static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(rFillColor.GetRed() * (1.0+dBrightness), 0.0, 255.0)  )),
-                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(rFillColor.GetGreen() * (1.0+dBrightness), 0.0, 255.0) )),
-                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(rFillColor.GetBlue() * (1.0+dBrightness), 0.0, 255.0) ))  );
+                return Color( static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(rFillColor.GetRed() * (1.0+dBrightness), 0.0, 255.0)  )),
+                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(rFillColor.GetGreen() * (1.0+dBrightness), 0.0, 255.0) )),
+                              static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(rFillColor.GetBlue() * (1.0+dBrightness), 0.0, 255.0) ))  );
             }
         }
     }
@@ -1088,9 +1092,9 @@ Color EnhancedCustomShape2d::GetColorData( const Color& rFillColor, sal_uInt32 n
         }
 
         aHSVColor = basegfx::utils::hsv2rgb(aHSVColor);
-        return Color( static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(aHSVColor.getRed(),0.0,1.0) * 255.0 + 0.5 )),
-                    static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(aHSVColor.getGreen(),0.0,1.0) * 255.0 + 0.5 )),
-                    static_cast<sal_uInt8>(static_cast< sal_Int32 >( basegfx::clamp(aHSVColor.getBlue(),0.0,1.0) * 255.0 + 0.5 )) );
+        return Color( static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(aHSVColor.getRed(),0.0,1.0) * 255.0 + 0.5 )),
+                    static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(aHSVColor.getGreen(),0.0,1.0) * 255.0 + 0.5 )),
+                    static_cast<sal_uInt8>(static_cast< sal_Int32 >( o3tl::clamp(aHSVColor.getBlue(),0.0,1.0) * 255.0 + 0.5 )) );
     }
 }
 
@@ -1143,15 +1147,15 @@ bool EnhancedCustomShape2d::GetHandlePosition( const sal_uInt32 nIndex, Point& r
                 GetParameter( fRadius, aHandle.aPosition.First, false, false );
                 GetParameter( fAngle,  aHandle.aPosition.Second, false, false );
 
-                double a = ( 360.0 - fAngle ) * F_PI180;
+                double a = basegfx::deg2rad(360.0 - fAngle);
                 double dx = fRadius * fXScale;
                 double fX = dx * cos( a );
                 double fY =-dx * sin( a );
                 rReturnPosition =
                     Point(
-                        svx::Round( fX + aReferencePoint.X() ),
+                        FRound( fX + aReferencePoint.X() ),
                         basegfx::fTools::equalZero(fXScale) ? aReferencePoint.Y() :
-                        svx::Round( ( fY * fYScale ) / fXScale + aReferencePoint.Y() ) );
+                        FRound( ( fY * fYScale ) / fXScale + aReferencePoint.Y() ) );
             }
             else
             {
@@ -1279,7 +1283,7 @@ bool EnhancedCustomShape2d::SetHandleControllerPosition( const sal_uInt32 nIndex
                     fYRef = fHeight / 2;
                 }
                 const double fDX = fPos1 - fXRef;
-                fAngle = -( atan2( -fPos2 + fYRef, ( ( fDX == 0.0L ) ? 0.000000001 : fDX ) ) / F_PI180 );
+                fAngle = -basegfx::rad2deg(atan2(-fPos2 + fYRef, (fDX == 0.0) ? 0.000000001 : fDX));
                 double fX = ( fPos1 - fXRef );
                 double fY = ( fPos2 - fYRef );
                 double fRadius = sqrt( fX * fX + fY * fY );
@@ -1673,10 +1677,14 @@ void EnhancedCustomShape2d::CreateSubPath(
                                 }
                                 double fCenterX = aRect.Center().X();
                                 double fCenterY = aRect.Center().Y();
-                                double fx1 = ( cos( fStartAngle * F_PI180 ) * 65536.0 * fXScale ) + fCenterX;
-                                double fy1 = ( -sin( fStartAngle * F_PI180 ) * 65536.0 * fYScale ) + fCenterY;
-                                double fx2 = ( cos( fEndAngle * F_PI180 ) * 65536.0 * fXScale ) + fCenterX;
-                                double fy2 = ( -sin( fEndAngle * F_PI180 ) * 65536.0 * fYScale ) + fCenterY;
+                                double fx1 = cos(basegfx::deg2rad(fStartAngle)) * 65536.0 * fXScale
+                                             + fCenterX;
+                                double fy1 = -sin(basegfx::deg2rad(fStartAngle)) * 65536.0 * fYScale
+                                             + fCenterY;
+                                double fx2 = cos(basegfx::deg2rad(fEndAngle)) * 65536.0 * fXScale
+                                             + fCenterX;
+                                double fy2 = -sin(basegfx::deg2rad(fEndAngle)) * 65536.0 * fYScale
+                                             + fCenterY;
                                 aNewB2DPolygon.append(CreateArc( aRect, Point( static_cast<sal_Int32>(fx1), static_cast<sal_Int32>(fy1) ), Point( static_cast<sal_Int32>(fx2), static_cast<sal_Int32>(fy2) ), false));
                             }
                             else
@@ -1790,13 +1798,8 @@ void EnhancedCustomShape2d::CreateSubPath(
                         tools::Rectangle aRect( GetPoint( seqCoordinates[ rSrcPt ], true, true ), GetPoint( seqCoordinates[ rSrcPt + 1 ], true, true ) );
                         if ( aRect.GetWidth() && aRect.GetHeight() )
                         {
-                            Point aCenter( aRect.Center() );
                             Point aStart( GetPoint( seqCoordinates[ static_cast<sal_uInt16>( rSrcPt + nXor ) ], true, true ) );
                             Point aEnd( GetPoint( seqCoordinates[ static_cast<sal_uInt16>( rSrcPt + ( nXor ^ 1 ) ) ], true, true ) );
-                            aStart.setX( static_cast<sal_Int32>( static_cast<double>( aStart.X() - aCenter.X() ) ) + aCenter.X() );
-                            aStart.setY( static_cast<sal_Int32>( static_cast<double>( aStart.Y() - aCenter.Y() ) ) + aCenter.Y() );
-                            aEnd.setX( static_cast<sal_Int32>( static_cast<double>( aEnd.X()   - aCenter.X() ) ) + aCenter.X() );
-                            aEnd.setY( static_cast<sal_Int32>( static_cast<double>( aEnd.Y()   - aCenter.Y() ) ) + aCenter.Y() );
                             aNewB2DPolygon.append(CreateArc( aRect, aStart, aEnd, bClockwise));
                         }
                         rSrcPt += 4;
@@ -1818,8 +1821,8 @@ void EnhancedCustomShape2d::CreateSubPath(
 
                         // Convert angles to radians, but don't do any scaling / translation yet.
 
-                        fStartAngle *= F_PI180;
-                        fSwingAngle *= F_PI180;
+                        fStartAngle = basegfx::deg2rad(fStartAngle);
+                        fSwingAngle = basegfx::deg2rad(fSwingAngle);
 
                         SAL_INFO("svx", "ARCANGLETO scale: " << fWR << "x" << fHR << " angles: " << fStartAngle << "," << fSwingAngle);
 
@@ -2277,7 +2280,9 @@ SdrObject* EnhancedCustomShape2d::CreatePathObj( bool bLineGeometryNeededOnly )
             // #i40600# if bLineGeometryNeededOnly is set, linestyle does not matter
             if(!bLineGeometryNeededOnly && (drawing::LineStyle_NONE == eLineStyle) && (drawing::FillStyle_NONE == eFillStyle))
             {
-                delete pObj;
+                // always use SdrObject::Free(...) for SdrObjects (!)
+                SdrObject* pTemp(pObj);
+                SdrObject::Free(pTemp);
             }
             else
             {

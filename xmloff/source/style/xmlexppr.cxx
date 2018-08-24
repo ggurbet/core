@@ -179,7 +179,6 @@ class FilterPropertiesInfo_Impl
 {
     sal_uInt32                              nCount;
     FilterPropertyInfoList_Impl             aPropInfos;
-    FilterPropertyInfoList_Impl::iterator   aLastItr;
 
     std::unique_ptr<Sequence<OUString>>     pApiNames;
 
@@ -201,7 +200,6 @@ FilterPropertiesInfo_Impl::FilterPropertiesInfo_Impl() :
     aPropInfos(),
     pApiNames( nullptr )
 {
-    aLastItr = aPropInfos.begin();
 }
 
 void FilterPropertiesInfo_Impl::AddProperty(
@@ -489,19 +487,13 @@ void FilterPropertiesInfo_Impl::FillPropertyStateArray(
 
 struct SvXMLExportPropertyMapper::Impl
 {
-    typedef std::map<css::uno::Reference<css::beans::XPropertySetInfo>, FilterPropertiesInfo_Impl*> CacheType;
+    typedef std::map<css::uno::Reference<css::beans::XPropertySetInfo>, std::unique_ptr<FilterPropertiesInfo_Impl>> CacheType;
     CacheType maCache;
 
     rtl::Reference<SvXMLExportPropertyMapper> mxNextMapper;
     rtl::Reference<XMLPropertySetMapper> mxPropMapper;
 
     OUString maStyleName;
-
-    ~Impl()
-    {
-        for (auto const& itemCache : maCache)
-            delete itemCache.second;
-    }
 };
 
 // ctor/dtor , class SvXMLExportPropertyMapper
@@ -575,7 +567,7 @@ vector<XMLPropertyState> SvXMLExportPropertyMapper::Filter_(
 
     Impl::CacheType::iterator aIter = mpImpl->maCache.find(xInfo);
     if (aIter != mpImpl->maCache.end())
-        pFilterInfo = (*aIter).second;
+        pFilterInfo = (*aIter).second.get();
 
     bool bDelInfo = false;
     if( !pFilterInfo )
@@ -610,7 +602,7 @@ vector<XMLPropertyState> SvXMLExportPropertyMapper::Filter_(
         xInfo = xWeakInfo;
         if( xInfo.is() )
         {
-            mpImpl->maCache.emplace(xInfo, pFilterInfo);
+            mpImpl->maCache.emplace(xInfo, std::unique_ptr<FilterPropertiesInfo_Impl>(pFilterInfo));
         }
         else
             bDelInfo = true;
@@ -945,7 +937,7 @@ void SvXMLExportPropertyMapper::_exportXML(
                                 sPrefix = pNamespaceMap->GetPrefixByKey( nKey );
                             }
                             // In any case, the attribute name has to be adapted.
-                            sNameBuffer.append( sPrefix + ":" + pAttribName->copy( nColonPos+1 ) );
+                            sNameBuffer.append(sPrefix).append(":").appendCopy(*pAttribName, nColonPos+1 );
                             sAttribName = sNameBuffer.makeStringAndClear();
                         }
 

@@ -51,9 +51,6 @@ class AquaSalFrame;
 class FontAttributes;
 class CoreTextStyle;
 class XorEmulation;
-class CommonSalLayout;
-
-typedef sal_uInt32 sal_GlyphId;
 
 // CoreText-specific physically available font face
 class CoreTextFontFace : public PhysicalFontFace
@@ -62,17 +59,16 @@ public:
                                     CoreTextFontFace( const FontAttributes&, sal_IntPtr nFontID );
     virtual                         ~CoreTextFontFace() override;
 
-    PhysicalFontFace*               Clone() const override;
     sal_IntPtr                      GetFontId() const override;
 
+    int                             GetFontTable( uint32_t nTagCode, unsigned char* ) const;
     int                             GetFontTable( const char pTagName[5], unsigned char* ) const;
 
     const FontCharMapRef            GetFontCharMap() const;
     bool                            GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const;
     bool                            HasChar( sal_uInt32 cChar ) const;
 
-protected:
-                                    CoreTextFontFace( const CoreTextFontFace& );
+    rtl::Reference<LogicalFontInstance> CreateFontInstance(const FontSelectPattern&) const override;
 
 private:
     const sal_IntPtr                mnFontId;
@@ -81,31 +77,31 @@ private:
     mutable bool                    mbFontCapabilitiesRead;
 };
 
-class CoreTextStyle
+class CoreTextStyle : public LogicalFontInstance
 {
-public:
-    CoreTextStyle( const FontSelectPattern& );
-    ~CoreTextStyle( void );
+    friend rtl::Reference<LogicalFontInstance> CoreTextFontFace::CreateFontInstance(const FontSelectPattern&) const;
 
-    void       GetFontMetric( ImplFontMetricDataRef const & ) const;
+public:
+    ~CoreTextStyle() override;
+
+    void       GetFontMetric( ImplFontMetricDataRef const & );
     bool       GetGlyphBoundRect(const GlyphItem&, tools::Rectangle&) const;
     bool       GetGlyphOutline(const GlyphItem&, basegfx::B2DPolyPolygon&) const;
-    hb_font_t* GetHbFont() const { return mpHbFont; }
-    void       SetHbFont(hb_font_t* pHbFont) const { mpHbFont = pHbFont; }
 
     CFMutableDictionaryRef  GetStyleDict( void ) const { return mpStyleDict; }
 
-    const CoreTextFontFace*  mpFontData;
     /// <1.0: font is squeezed, >1.0 font is stretched, else 1.0
     float               mfFontStretch;
     /// text rotation in radian
     float               mfFontRotation;
-    FontSelectPattern   maFontSelData;
 
 private:
+    explicit CoreTextStyle(const PhysicalFontFace&, const FontSelectPattern&);
+
+    virtual hb_font_t* ImplInitHbFont() override;
+
     /// CoreText text style object
     CFMutableDictionaryRef  mpStyleDict;
-    mutable hb_font_t*      mpHbFont;
 };
 
 // TODO: move into cross-platform headers
@@ -126,7 +122,7 @@ private:
     CTFontCollectionRef mpCTFontCollection;
     CFArrayRef mpCTFontArray;
 
-    std::unordered_map<sal_IntPtr,CoreTextFontFace*> maFontContainer;
+    std::unordered_map<sal_IntPtr, rtl::Reference<CoreTextFontFace>> maFontContainer;
 };
 
 
@@ -157,8 +153,7 @@ class AquaSalGraphics : public SalGraphics
     RGBAColor                               maFillColor;
 
     // Device Font settings
-    const CoreTextFontFace*                 mpFontData[MAX_FALLBACK];
-    CoreTextStyle*                          mpTextStyle[MAX_FALLBACK];
+    rtl::Reference<CoreTextStyle>           mpTextStyle[MAX_FALLBACK];
     RGBAColor                               maTextColor;
     /// allows text to be rendered without antialiasing
     bool                                    mbNonAntialiasedText;
@@ -257,7 +252,7 @@ public:
                                       const SalBitmap& rSalBitmap,
                                       Color nMaskColor ) override;
 
-    virtual SalBitmap*      getBitmap( long nX, long nY, long nWidth, long nHeight ) override;
+    virtual std::shared_ptr<SalBitmap> getBitmap( long nX, long nY, long nWidth, long nHeight ) override;
     virtual Color           getPixel( long nX, long nY ) override;
 
     // invert --> ClipRegion (only Windows or VirDevs)
@@ -328,7 +323,7 @@ public:
     // set the text color to a specific color
     virtual void            SetTextColor( Color nColor ) override;
     // set the font
-    virtual void            SetFont( const FontSelectPattern*, int nFallbackLevel ) override;
+    virtual void            SetFont( LogicalFontInstance*, int nFallbackLevel ) override;
     // get the current font's metrics
     virtual void            GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) override;
     // get the repertoire of the current font
@@ -378,7 +373,7 @@ public:
 
     virtual std::unique_ptr<SalLayout>
                             GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
-    virtual void            DrawTextLayout( const CommonSalLayout& ) override;
+    virtual void            DrawTextLayout( const GenericSalLayout& ) override;
     virtual bool            supportsOperation( OutDevSupportType ) const override;
 
 #ifdef MACOSX

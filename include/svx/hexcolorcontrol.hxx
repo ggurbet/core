@@ -32,21 +32,6 @@
 #include <svx/svxdllapi.h>
 #include <tools/color.hxx>
 
-class SVX_DLLPUBLIC HexColorControl : public Edit
-{
-public:
-    HexColorControl( vcl::Window* pParent, WinBits nStyle );
-
-    virtual bool PreNotify( NotifyEvent& rNEvt ) override;
-    virtual void Paste() override;
-
-    void SetColor( ::Color nColor );
-    ::Color GetColor();
-
-private:
-    static bool ImplProcessKeyInput( const KeyEvent& rKEv );
-};
-
 namespace weld {
 
 class SVX_DLLPUBLIC HexColorControl
@@ -56,7 +41,7 @@ private:
 
     DECL_LINK(ImplProcessInputHdl, OUString&, bool);
 public:
-    HexColorControl(weld::Entry* pEdit);
+    HexColorControl(std::unique_ptr<weld::Entry> pEdit);
 
     void connect_changed(const Link<Entry&, void>& rLink) { m_xEntry->connect_changed(rLink); }
 

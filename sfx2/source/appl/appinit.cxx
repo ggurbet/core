@@ -141,7 +141,7 @@ Sequence< OUString > SAL_CALL SfxTerminateListener_Impl::getSupportedServiceName
 }
 
 
-typedef bool ( *PFunc_getSpecialCharsForEdit)( vcl::Window* const i_pParent, const vcl::Font& i_rFont, OUString& o_rOutString );
+typedef bool ( *PFunc_getSpecialCharsForEdit)( vcl::Window const * i_pParent, const vcl::Font& i_rFont, OUString& o_rOutString );
 
 
 // Lazy binding of the GetSpecialCharsForEdit function as it resides in
@@ -158,7 +158,7 @@ extern "C" bool GetSpecialCharsForEdit( vcl::Window const * i_pParent, const vcl
 
 #endif
 
-OUString GetSpecialCharsForEdit(vcl::Window* pParent, const vcl::Font& rFont)
+OUString SfxGetSpecialCharsForEdit(vcl::Window* pParent, const vcl::Font& rFont)
 {
     static bool bDetermineFunction = false;
     static PFunc_getSpecialCharsForEdit pfunc_getSpecialCharsForEdit = nullptr;
@@ -218,7 +218,7 @@ void SfxApplication::Initialize_Impl()
         SolarMutexGuard aGuard;
         //ensure instantiation of listener that manages the internal recently-used
         //list
-        SfxPickList::ensure();
+        pImpl->mxAppPickList.reset(new SfxPickList(*this));
     }
 
     DBG_ASSERT( !pImpl->pAppDispat, "AppDispatcher already exists" );
@@ -250,7 +250,7 @@ void SfxApplication::Initialize_Impl()
     {
         SolarMutexGuard aGuard;
         // Set special characters callback on vcl edit control
-        Edit::SetGetSpecialCharsFunction(&GetSpecialCharsForEdit);
+        Edit::SetGetSpecialCharsFunction(&SfxGetSpecialCharsForEdit);
     }
 }
 

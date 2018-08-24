@@ -61,6 +61,7 @@
 #include <com/sun/star/loader/CannotActivateFactoryException.hpp>
 
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <osl/conditn.hxx>
 #include <unotools/resmgr.hxx>
 #include <vcl/errinf.hxx>
@@ -72,7 +73,6 @@
 #include <comphelper/propertysequence.hxx>
 #include <svtools/sfxecode.hxx>
 #include <unotools/configmgr.hxx>
-#include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <typelib/typedescription.hxx>
 #include <unotools/confignode.hxx>
@@ -414,15 +414,14 @@ UUIInteractionHelper::handleRequest_impl(
                 = aModSizeException.Names;
             if ( sModules.getLength() )
             {
-                OUString aName;
+                OUStringBuffer aName;
                 for ( sal_Int32 index=0; index< sModules.getLength(); ++index )
                 {
                     if ( index )
-                        aName += "," + sModules[index];
-                    else
-                        aName = sModules[index]; // 1st name
+                        aName.append(",");
+                    aName.append(sModules[index]);
                 }
-                aArguments.push_back( aName );
+                aArguments.push_back( aName.makeStringAndClear() );
             }
             handleErrorHandlerRequest( task::InteractionClassification_WARNING,
                                        ERRCODE_UUI_IO_MODULESIZEEXCEEDED,
@@ -957,16 +956,6 @@ UUIInteractionHelper::getInteractionHandlerList(
     }
 }
 
-vcl::Window *
-UUIInteractionHelper::getParentProperty()
-{
-    uno::Reference< awt::XWindow > xWindow = getParentXWindow();
-    if ( xWindow.is() )
-        return VCLUnoHelper::GetWindow(xWindow);
-
-    return nullptr;
-}
-
 const uno::Reference< awt::XWindow>&
 UUIInteractionHelper::getParentXWindow() const
 {
@@ -1019,18 +1008,18 @@ executeMessageBox(
     return aResult;
 }
 
-NameClashResolveDialogResult executeSimpleNameClashResolveDialog( vcl::Window *pParent,
-                                                                  OUString const & rTargetFolderURL,
-                                                                  OUString const & rClashingName,
-                                                                  OUString & rProposedNewName,
-                                                                  bool bAllowOverwrite )
+NameClashResolveDialogResult executeSimpleNameClashResolveDialog(weld::Window *pParent,
+                                                                 OUString const & rTargetFolderURL,
+                                                                 OUString const & rClashingName,
+                                                                 OUString & rProposedNewName,
+                                                                 bool bAllowOverwrite)
 {
     std::locale aResLocale = Translate::Create("uui");
-    ScopedVclPtrInstance<NameClashDialog> aDialog(pParent, aResLocale, rTargetFolderURL,
-                                                  rClashingName, rProposedNewName, bAllowOverwrite);
+    NameClashDialog aDialog(pParent, aResLocale, rTargetFolderURL,
+                            rClashingName, rProposedNewName, bAllowOverwrite);
 
-    NameClashResolveDialogResult eResult = static_cast<NameClashResolveDialogResult>(aDialog->Execute());
-    rProposedNewName = aDialog->getNewName();
+    NameClashResolveDialogResult eResult = static_cast<NameClashResolveDialogResult>(aDialog.run());
+    rProposedNewName = aDialog.getNewName();
     return eResult;
 }
 
@@ -1063,11 +1052,12 @@ UUIInteractionHelper::handleNameClashResolveRequest(
     NameClashResolveDialogResult eResult = ABORT;
     OUString aProposedNewName( rRequest.ProposedNewName );
 
-    eResult = executeSimpleNameClashResolveDialog( getParentProperty(),
+    uno::Reference<awt::XWindow> xParent = getParentXWindow();
+    eResult = executeSimpleNameClashResolveDialog(Application::GetFrameWeld(xParent),
                     rRequest.TargetFolderURL,
                     rRequest.ClashingName,
                     aProposedNewName,
-                    xReplaceExistingData.is() );
+                    xReplaceExistingData.is());
 
     switch ( eResult )
     {
@@ -1136,13 +1126,13 @@ UUIInteractionHelper::handleGenericErrorRequest(
                 aTitle += " - " ;
             aTitle += aErrTitle;
 
-            vcl::Window* pWin = getParentProperty();
-            executeMessageBox(pWin ? pWin->GetFrameWeld() : nullptr, aTitle, aErrorString, VclMessageType::Error);
+            uno::Reference<awt::XWindow> xParent = getParentXWindow();
+            executeMessageBox(Application::GetFrameWeld(xParent), aTitle, aErrorString, VclMessageType::Error);
         }
         else
         {
-            vcl::Window* pParent = getParentProperty();
-            ErrorHandler::HandleError(nErrorCode, pParent ? pParent->GetFrameWeld() : nullptr);
+            uno::Reference<awt::XWindow> xParent = getParentXWindow();
+            ErrorHandler::HandleError(nErrorCode, Application::GetFrameWeld(xParent));
         }
 
         if (xApprove.is() && bWarning)
@@ -1168,8 +1158,8 @@ UUIInteractionHelper::handleMacroConfirmRequest(
     bool bApprove = false;
 
     bool bShowSignatures = aSignInfo.getLength() > 0;
-    vcl::Window* pWin = getParentProperty();
-    MacroWarning aWarning(pWin ? pWin->GetFrameWeld() : nullptr, bShowSignatures);
+    uno::Reference<awt::XWindow> xParent = getParentXWindow();
+    MacroWarning aWarning(Application::GetFrameWeld(xParent), bShowSignatures);
 
     aWarning.SetDocumentURL(aDocumentURL);
     if ( aSignInfo.getLength() > 1 )
@@ -1251,8 +1241,8 @@ UUIInteractionHelper::handleBrokenPackageRequest(
         " " +
         utl::ConfigManager::getProductVersion() );
 
-    vcl::Window* pWin = getParentProperty();
-    switch (executeMessageBox(pWin ? pWin->GetFrameWeld() : nullptr, title, aMessage, eMessageType))
+    uno::Reference<awt::XWindow> xParent = getParentXWindow();
+    switch (executeMessageBox(Application::GetFrameWeld(xParent), title, aMessage, eMessageType))
     {
     case DialogMask::ButtonsOk:
         OSL_ENSURE( xAbort.is(), "unexpected situation" );

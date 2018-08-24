@@ -15,9 +15,6 @@
 #include <vector>
 #include <boost/optional.hpp>
 
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/text/WrapTextMode.hpp>
 #include <oox/mathml/importutils.hxx>
 #include <rtl/strbuf.hxx>
@@ -33,6 +30,27 @@ class SvStream;
 namespace oox
 {
 class GraphicHelper;
+}
+namespace com
+{
+namespace sun
+{
+namespace star
+{
+namespace beans
+{
+class XPropertySet;
+}
+namespace document
+{
+class XDocumentProperties;
+}
+namespace lang
+{
+class XMultiServiceFactory;
+}
+}
+}
 }
 
 namespace writerfilter
@@ -100,11 +118,11 @@ enum class RTFFieldStatus
 };
 
 /// A buffer storing dmapper calls.
-using Buf_t = std::tuple<RTFBufferTypes, RTFValue::Pointer_t, std::shared_ptr<TableRowBuffer>>;
+using Buf_t = std::tuple<RTFBufferTypes, RTFValue::Pointer_t, tools::SvRef<TableRowBuffer>>;
 using RTFBuffer_t = std::deque<Buf_t>;
 
 /// holds one nested table row
-struct TableRowBuffer
+struct TableRowBuffer : public virtual SvRefBase
 {
     RTFBuffer_t buffer;
     ::std::deque<RTFSprms> cellsSprms;
@@ -153,7 +171,7 @@ private:
 };
 
 /// Stores the properties of a shape.
-class RTFShape
+class RTFShape : public virtual SvRefBase
 {
 public:
     RTFShape();
@@ -176,6 +194,8 @@ public:
     RTFSprms aWrapPolygonSprms;
     /// Anchor attributes like wrap distance, written by RTFSdrImport::resolve(), read by RTFDocumentImpl::resolvePict().
     RTFSprms aAnchorAttributes;
+    /// Wrap type, written by RTFDocumentImpl::popState(), read by RTFDocumentImpl::resolvePict().
+    std::pair<Id, RTFValue::Pointer_t> aWrapSprm{ 0, nullptr };
 };
 
 /// Stores the properties of a drawing object.
@@ -202,14 +222,14 @@ public:
 };
 
 /// Stores the properties of a picture.
-class RTFPicture
+class RTFPicture : public virtual SvRefBase
 {
 public:
     RTFPicture();
-    sal_uInt16 nWidth = 0;
-    sal_uInt16 nHeight = 0;
-    sal_uInt16 nGoalWidth = 0;
-    sal_uInt16 nGoalHeight = 0;
+    sal_Int32 nWidth = 0;
+    sal_Int32 nHeight = 0;
+    sal_Int32 nGoalWidth = 0;
+    sal_Int32 nGoalHeight = 0;
     sal_uInt16 nScaleX = 100;
     sal_uInt16 nScaleY = 100;
     short nCropT = 0;
@@ -414,7 +434,7 @@ OString DTTM22OString(long nDTTM);
 class RTFDocumentImpl : public RTFDocument, public RTFListener
 {
 public:
-    using Pointer_t = std::shared_ptr<RTFDocumentImpl>;
+    using Pointer_t = tools::SvRef<RTFDocumentImpl>;
     RTFDocumentImpl(css::uno::Reference<css::uno::XComponentContext> const& xContext,
                     css::uno::Reference<css::io::XInputStream> const& xInputStream,
                     css::uno::Reference<css::lang::XComponent> const& xDstDoc,
@@ -533,8 +553,8 @@ private:
     css::uno::Reference<css::document::XDocumentProperties> m_xDocumentProperties;
     std::shared_ptr<SvStream> m_pInStream;
     Stream* m_pMapperStream;
-    std::shared_ptr<RTFSdrImport> m_pSdrImport;
-    std::shared_ptr<RTFTokenizer> m_pTokenizer;
+    tools::SvRef<RTFSdrImport> m_pSdrImport;
+    tools::SvRef<RTFTokenizer> m_pTokenizer;
     RTFStack m_aStates;
     /// Read by RTF_PARD.
     RTFParserState m_aDefaultState;

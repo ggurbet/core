@@ -57,9 +57,11 @@
 #include <com/sun/star/frame/XController2.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/embed/XEmbeddedClient.hpp>
+#include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/util/XModeChangeBroadcaster.hpp>
 #include <com/sun/star/util/XModifyBroadcaster.hpp>
 #include <com/sun/star/frame/LayoutManagerEvents.hpp>
+#include <com/sun/star/frame/XLayoutManagerEventBroadcaster.hpp>
 #include <com/sun/star/document/XUndoManagerSupplier.hpp>
 #include <com/sun/star/document/XUndoAction.hpp>
 #include <com/sun/star/ui/XSidebar.hpp>
@@ -68,6 +70,7 @@
 #include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/chart2/XDataProviderAccess.hpp>
 
+#include <sal/log.hxx>
 #include <svx/sidebar/SelectionChangeHandler.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -266,6 +269,9 @@ css::uno::Reference<css::chart2::XChartType> getChartType(
     Reference< chart2::XCoordinateSystemContainer > xCooSysContainer( xDiagram, uno::UNO_QUERY_THROW );
 
     Sequence< Reference< chart2::XCoordinateSystem > > xCooSysSequence( xCooSysContainer->getCoordinateSystems());
+    if (!xCooSysSequence.getLength()) {
+        return css::uno::Reference<css::chart2::XChartType>();
+    }
 
     Reference< chart2::XChartTypeContainer > xChartTypeContainer( xCooSysSequence[0], uno::UNO_QUERY_THROW );
 
@@ -727,7 +733,7 @@ void ChartController::impl_createDrawViewController()
     {
         if( m_pDrawModelWrapper )
         {
-            m_pDrawViewWrapper = new DrawViewWrapper(m_pDrawModelWrapper->getSdrModel(),GetChartWindow());
+            m_pDrawViewWrapper.reset( new DrawViewWrapper(m_pDrawModelWrapper->getSdrModel(),GetChartWindow()) );
             m_pDrawViewWrapper->attachParentReferenceDevice( getModel() );
         }
     }
@@ -740,7 +746,7 @@ void ChartController::impl_deleteDrawViewController()
         SolarMutexGuard aGuard;
         if( m_pDrawViewWrapper->IsTextEdit() )
             this->EndTextEdit();
-        DELETEZ( m_pDrawViewWrapper );
+        m_pDrawViewWrapper.reset();
     }
 }
 
@@ -794,10 +800,6 @@ void SAL_CALL ChartController::dispose()
 
         //--release all resources and references
         {
-            uno::Reference< chart2::X3DChartWindowProvider > x3DWindowProvider(getModel(), uno::UNO_QUERY);
-            if(x3DWindowProvider.is())
-                x3DWindowProvider->setWindow(0);
-
             uno::Reference< util::XModeChangeBroadcaster > xViewBroadcaster( m_xChartView, uno::UNO_QUERY );
             if( xViewBroadcaster.is() )
                 xViewBroadcaster->removeModeChangeListener(this);
@@ -1472,7 +1474,7 @@ DrawViewWrapper* ChartController::GetDrawViewWrapper()
     {
         impl_createDrawViewController();
     }
-    return m_pDrawViewWrapper;
+    return m_pDrawViewWrapper.get();
 }
 
 
@@ -1485,6 +1487,15 @@ VclPtr<ChartWindow> ChartController::GetChartWindow()
     if(!m_xViewWindow.is())
         return nullptr;
     return dynamic_cast<ChartWindow*>(VCLUnoHelper::GetWindow(m_xViewWindow).get());
+}
+
+weld::Window* ChartController::GetChartFrame()
+{
+    // clients getting the naked VCL Window from UNO should always have the
+    // solar mutex (and keep it over the lifetime of this ptr), as VCL might
+    // might deinit otherwise
+    DBG_TESTSOLARMUTEX();
+    return Application::GetFrameWeld(m_xViewWindow);
 }
 
 bool ChartController::isAdditionalShapeSelected()

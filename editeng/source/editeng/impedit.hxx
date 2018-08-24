@@ -230,7 +230,7 @@ private:
     std::unique_ptr<Color>    pBackgroundColor;
     /// Containing view shell, if any.
     OutlinerViewShell*        mpViewShell;
-    /// An other shell, just listening to our state, if any.
+    /// Another shell, just listening to our state, if any.
     OutlinerViewShell*        mpOtherShell;
     EditEngine*               pEditEngine;
     VclPtr<vcl::Window>       pOutWin;
@@ -657,7 +657,7 @@ private:
     EditPaM             ReadHTML( SvStream& rInput, const OUString& rBaseURL, EditSelection aSel, SvKeyValueIterator* pHTTPHeaderAttrs );
     ErrCode             WriteText( SvStream& rOutput, EditSelection aSel );
     ErrCode             WriteRTF( SvStream& rOutput, EditSelection aSel );
-    sal_uInt32          WriteXML(SvStream& rOutput, const EditSelection& rSel);
+    void                WriteXML(SvStream& rOutput, const EditSelection& rSel);
 
     void                WriteItemAsRTF( const SfxPoolItem& rItem, SvStream& rOutput, sal_Int32 nPara, sal_Int32 nPos,
                             std::vector<SvxFontItem*>& rFontTable, SvxColorList& rColorList );
@@ -732,7 +732,7 @@ public:
     ImpEditEngine&          operator=(const ImpEditEngine&) = delete;
 
     inline EditUndoManager& GetUndoManager();
-    inline ::svl::IUndoManager* SetUndoManager(::svl::IUndoManager* pNew);
+    inline SfxUndoManager* SetUndoManager(SfxUndoManager* pNew);
 
     void                    SetUpdateMode( bool bUp, EditView* pCurView = nullptr, bool bForceUpdate = false );
     bool                    GetUpdateMode() const   { return bUpdate; }
@@ -1145,9 +1145,9 @@ inline EditUndoManager& ImpEditEngine::GetUndoManager()
     return *pUndoManager;
 }
 
-inline ::svl::IUndoManager* ImpEditEngine::SetUndoManager(::svl::IUndoManager* pNew)
+inline SfxUndoManager* ImpEditEngine::SetUndoManager(SfxUndoManager* pNew)
 {
-    ::svl::IUndoManager* pRetval = pUndoManager;
+    SfxUndoManager* pRetval = pUndoManager;
 
     if(pUndoManager)
     {

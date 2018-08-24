@@ -225,15 +225,15 @@ void SwEditShell::InsertDDETable( const SwInsertTableOptions& rInsTableOpts,
         GetDoc()->getIDocumentContentOperations().SplitNode( *pPos, false );
     }
 
-    const SwInsertTableOptions aInsTableOpts( rInsTableOpts.mnInsMode | tabopts::DEFAULT_BORDER,
+    const SwInsertTableOptions aInsTableOpts( rInsTableOpts.mnInsMode | SwInsertTableFlags::DefaultBorder,
                                             rInsTableOpts.mnRowsToRepeat );
     SwTable* pTable = const_cast<SwTable*>(GetDoc()->InsertTable( aInsTableOpts, *pPos,
                                                      nRows, nCols, css::text::HoriOrientation::FULL ));
 
     SwTableNode* pTableNode = const_cast<SwTableNode*>(pTable->GetTabSortBoxes()[ 0 ]->
                                                 GetSttNd()->FindTableNode());
-    SwDDETable* pDDETable = new SwDDETable( *pTable, pDDEType );
-    pTableNode->SetNewTable( pDDETable );       // set the DDE table
+    std::unique_ptr<SwDDETable> pDDETable(new SwDDETable( *pTable, pDDEType ));
+    pTableNode->SetNewTable( std::move(pDDETable) );   // set the DDE table
 
     if( bEndUndo )
         EndUndo( SwUndoId::END );

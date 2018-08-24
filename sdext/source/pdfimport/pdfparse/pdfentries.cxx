@@ -28,6 +28,7 @@
 #include <rtl/alloc.h>
 #include <rtl/digest.h>
 #include <rtl/cipher.h>
+#include <sal/log.hxx>
 
 #include <zlib.h>
 
@@ -1156,9 +1157,13 @@ static bool check_user_password( const OString& rPwd, PDFFileImplData* pData )
         memset( nEncryptedEntry, 0, sizeof(nEncryptedEntry) );
         // see PDF reference 1.4 Algorithm 3.4
         // encrypt pad string
-        rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
-                                aKey, nKeyLen,
-                                nullptr, 0 );
+        if (rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
+                                    aKey, nKeyLen,
+                                    nullptr, 0 )
+            != rtl_Cipher_E_None)
+        {
+            return false; //TODO: differentiate "failed to decrypt" from "wrong password"
+        }
         rtl_cipher_encodeARCFOUR( pData->m_aCipher, nPadString, sizeof( nPadString ),
                                   nEncryptedEntry, sizeof( nEncryptedEntry ) );
         bValid = (memcmp( nEncryptedEntry, pData->m_aUEntry, 32 ) == 0);
@@ -1170,8 +1175,12 @@ static bool check_user_password( const OString& rPwd, PDFFileImplData* pData )
         aDigest.update(nPadString, sizeof(nPadString));
         aDigest.update(reinterpret_cast<unsigned char const*>(pData->m_aDocID.getStr()), pData->m_aDocID.getLength());
         ::std::vector<unsigned char> nEncryptedEntry(aDigest.finalize());
-        rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
-                                aKey, sizeof(aKey), nullptr, 0 );
+        if (rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
+                                    aKey, sizeof(aKey), nullptr, 0 )
+            != rtl_Cipher_E_None)
+        {
+            return false; //TODO: differentiate "failed to decrypt" from "wrong password"
+        }
         rtl_cipher_encodeARCFOUR( pData->m_aCipher,
                                   nEncryptedEntry.data(), 16,
                                   nEncryptedEntry.data(), 16 ); // encrypt in place
@@ -1181,8 +1190,12 @@ static bool check_user_password( const OString& rPwd, PDFFileImplData* pData )
             for( sal_uInt32 j = 0; j < sizeof(aTempKey); j++ )
                 aTempKey[j] = static_cast<sal_uInt8>( aKey[j] ^ i );
 
-            rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
-                                    aTempKey, sizeof(aTempKey), nullptr, 0 );
+            if (rtl_cipher_initARCFOUR( pData->m_aCipher, rtl_Cipher_DirectionEncode,
+                                        aTempKey, sizeof(aTempKey), nullptr, 0 )
+                != rtl_Cipher_E_None)
+            {
+                return false; //TODO: differentiate "failed to decrypt" from "wrong password"
+            }
             rtl_cipher_encodeARCFOUR( pData->m_aCipher,
                                       nEncryptedEntry.data(), 16,
                                       nEncryptedEntry.data(), 16 ); // encrypt in place
@@ -1226,8 +1239,12 @@ bool PDFFile::setupDecryptionData( const OString& rPwd ) const
         sal_uInt32 nKeyLen = password_to_key( rPwd, aKey, m_pData.get(), true );
         if( m_pData->m_nStandardRevision == 2 )
         {
-            rtl_cipher_initARCFOUR( m_pData->m_aCipher, rtl_Cipher_DirectionDecode,
-                                    aKey, nKeyLen, nullptr, 0 );
+            if (rtl_cipher_initARCFOUR( m_pData->m_aCipher, rtl_Cipher_DirectionDecode,
+                                        aKey, nKeyLen, nullptr, 0 )
+                != rtl_Cipher_E_None)
+            {
+                return false; //TODO: differentiate "failed to decrypt" from "wrong password"
+            }
             rtl_cipher_decodeARCFOUR( m_pData->m_aCipher,
                                       m_pData->m_aOEntry, 32,
                                       nPwd, 32 );
@@ -1240,8 +1257,12 @@ bool PDFFile::setupDecryptionData( const OString& rPwd ) const
                 sal_uInt8 nTempKey[ENCRYPTION_KEY_LEN];
                 for( unsigned int j = 0; j < sizeof(nTempKey); j++ )
                     nTempKey[j] = sal_uInt8(aKey[j] ^ i);
-                rtl_cipher_initARCFOUR( m_pData->m_aCipher, rtl_Cipher_DirectionDecode,
-                                        nTempKey, nKeyLen, nullptr, 0 );
+                if (rtl_cipher_initARCFOUR( m_pData->m_aCipher, rtl_Cipher_DirectionDecode,
+                                            nTempKey, nKeyLen, nullptr, 0 )
+                    != rtl_Cipher_E_None)
+                {
+                    return false; //TODO: differentiate "failed to decrypt" from "wrong password"
+                }
                 rtl_cipher_decodeARCFOUR( m_pData->m_aCipher,
                                           nPwd, 32,
                                           nPwd, 32 ); // decrypt inplace
@@ -1276,10 +1297,10 @@ PDFFileImplData* PDFFile::impl_getData() const
                     if( pStr )
                         m_pData->m_aDocID = pStr->getFilteredString();
 #if OSL_DEBUG_LEVEL > 0
-                    OUString aTmp;
+                    OUStringBuffer aTmp;
                     for( int i = 0; i < m_pData->m_aDocID.getLength(); i++ )
-                        aTmp += OUString::number(static_cast<unsigned int>(sal_uInt8(m_pData->m_aDocID[i])), 16);
-                    SAL_INFO("sdext.pdfimport.pdfparse", "DocId is <" << aTmp << ">");
+                        aTmp.append(OUString::number(static_cast<unsigned int>(sal_uInt8(m_pData->m_aDocID[i])), 16));
+                    SAL_INFO("sdext.pdfimport.pdfparse", "DocId is <" << aTmp.makeStringAndClear() << ">");
 #endif
                 }
             }
@@ -1340,11 +1361,11 @@ PDFFileImplData* PDFFile::impl_getData() const
 #if OSL_DEBUG_LEVEL > 0
                                 else
                                 {
-                                    OUString aTmp;
+                                    OUStringBuffer aTmp;
                                     for( int i = 0; i < aEnt.getLength(); i++ )
-                                        aTmp += " " + OUString::number(static_cast<unsigned int>(sal_uInt8(aEnt[i])), 16);
+                                        aTmp.append(" ").append(OUString::number(static_cast<unsigned int>(sal_uInt8(aEnt[i])), 16));
                                     SAL_WARN("sdext.pdfimport.pdfparse",
-                                             "O entry has length " << static_cast<int>(aEnt.getLength()) << ", should be 32 <" << aTmp << ">" );
+                                             "O entry has length " << static_cast<int>(aEnt.getLength()) << ", should be 32 <" << aTmp.makeStringAndClear() << ">" );
                                 }
 #endif
                             }
@@ -1360,11 +1381,11 @@ PDFFileImplData* PDFFile::impl_getData() const
 #if OSL_DEBUG_LEVEL > 0
                                 else
                                 {
-                                    OUString aTmp;
+                                    OUStringBuffer aTmp;
                                     for( int i = 0; i < aEnt.getLength(); i++ )
-                                        aTmp += " " + OUString::number(static_cast<unsigned int>(sal_uInt8(aEnt[i])), 16);
+                                        aTmp.append(" ").append(OUString::number(static_cast<unsigned int>(sal_uInt8(aEnt[i])), 16));
                                     SAL_WARN("sdext.pdfimport.pdfparse",
-                                             "U entry has length " << static_cast<int>(aEnt.getLength()) << ", should be 32 <" << aTmp << ">" );
+                                             "U entry has length " << static_cast<int>(aEnt.getLength()) << ", should be 32 <" << aTmp.makeStringAndClear() << ">" );
                                 }
 #endif
                             }

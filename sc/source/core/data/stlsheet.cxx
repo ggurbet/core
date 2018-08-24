@@ -41,6 +41,7 @@
 #include <vcl/svapp.hxx>
 
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <sc.hrc>
 #include <helpids.h>
 
@@ -96,7 +97,7 @@ bool ScStyleSheet::SetParent( const OUString& rParentName )
     SfxStyleSheetBase* pStyle = m_pPool->Find( aEffName, nFamily );
     if (!pStyle)
     {
-        std::shared_ptr<SfxStyleSheetIterator> pIter = m_pPool->CreateIterator( nFamily, SfxStyleSearchBits::All );
+        std::unique_ptr<SfxStyleSheetIterator> pIter = m_pPool->CreateIterator( nFamily, SfxStyleSearchBits::All );
         pStyle = pIter->First();
         if (pStyle)
             aEffName = pStyle->GetName();
@@ -285,7 +286,7 @@ void ScStyleSheet::Notify( SfxBroadcaster&, const SfxHint& rHint )
 bool ScStyleSheet::SetName(const OUString& rNew, bool bReindexNow)
 {
     OUString aFileStdName = STRING_STANDARD;
-    if ( rNew == aFileStdName && aFileStdName != ScGlobal::GetRscString(STR_STYLENAME_STANDARD) )
+    if ( rNew == aFileStdName && aFileStdName != ScResId(STR_STYLENAME_STANDARD) )
         return false;
     else
         return SfxStyleSheet::SetName(rNew, bReindexNow);

@@ -22,6 +22,7 @@
 
 #include <global.hxx>
 #include <address.hxx>
+#include <tools/solar.h>
 #include <typedstrdata.hxx>
 
 #include <tools/fract.hxx>
@@ -33,6 +34,7 @@
 
 #include <set>
 #include <memory>
+#include <vector>
 
 class ScDocument;
 class ScTabViewShell;

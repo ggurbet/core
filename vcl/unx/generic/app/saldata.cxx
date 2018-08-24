@@ -58,6 +58,7 @@
 #include <osl/thread.h>
 #include <rtl/strbuf.hxx>
 #include <rtl/bootstrap.hxx>
+#include <sal/log.hxx>
 
 #include <tools/debug.hxx>
 #include <vcl/svapp.hxx>
@@ -270,13 +271,12 @@ void X11SalData::DeleteDisplay()
 {
     delete GetDisplay();
     SetDisplay( nullptr );
-    delete pXLib_;
-    pXLib_ = nullptr;
+    pXLib_.reset();
 }
 
 void X11SalData::Init()
 {
-    pXLib_ = new SalXLib();
+    pXLib_.reset(new SalXLib());
     pXLib_->Init();
 }
 

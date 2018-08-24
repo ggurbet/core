@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <sal/log.hxx>
 #include <composertools.hxx>
 #include <strings.hrc>
 #include <core_resource.hxx>
@@ -44,7 +45,6 @@
 #include <com/sun/star/uno/XAggregation.hpp>
 #include <com/sun/star/util/NumberFormatter.hpp>
 
-#include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/typeprovider.hxx>
@@ -1730,7 +1730,7 @@ void OSingleSelectQueryComposer::setConditionByColumn( const Reference< XPropert
             sTemp += andCriteria ? OUString(STR_AND) : OUString(STR_OR);
             sFilter = sTemp;
         }
-        sFilter += aSQL.makeStringAndClear();
+        sFilter += aSQL;
 
         // add the filter and the sort order
         _aSetFunctor(this,sFilter);

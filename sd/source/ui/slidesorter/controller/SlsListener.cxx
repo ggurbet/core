@@ -33,6 +33,7 @@
 #include <cache/SlsPageCache.hxx>
 #include <cache/SlsPageCacheManager.hxx>
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 #include <DrawDocShell.hxx>
 
 #include <ViewShellBase.hxx>
@@ -380,7 +381,7 @@ IMPL_LINK(Listener, EventMultiplexerCallback, ::sd::tools::EventMultiplexerEvent
             if (rEvent.mpUserData != nullptr)
             {
                 const SdrObject* pObject = static_cast<const SdrObject*>(rEvent.mpUserData);
-                HandleShapeModification(pObject->GetPage());
+                HandleShapeModification(pObject->getSdrPageFromSdrObject());
             }
             break;
 

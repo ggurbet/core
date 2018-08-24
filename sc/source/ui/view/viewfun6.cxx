@@ -24,6 +24,7 @@
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <editeng/editview.hxx>
+#include <sal/log.hxx>
 
 #include <viewfunc.hxx>
 #include <detfunc.hxx>
@@ -44,6 +45,7 @@
 #include <globalnames.hxx>
 #include <inputhdl.hxx>
 #include <tabvwsh.hxx>
+#include <scmod.hxx>
 
 #include <vector>
 
@@ -439,7 +441,7 @@ void ScViewFunc::InsertCurrentTime(SvNumFormatType nReqFmt, const OUString& rUnd
 
         }
 
-        ::svl::IUndoManager* pUndoMgr = pDocSh->GetUndoManager();
+        SfxUndoManager* pUndoMgr = pDocSh->GetUndoManager();
         pUndoMgr->EnterListAction(rUndoStr, rUndoStr, 0, rViewData.GetViewShell()->GetViewShellId());
 
         pDocSh->GetDocFunc().SetValueCell(aCurPos, fVal, true);
@@ -494,7 +496,7 @@ void ScViewFunc::EditNote()
         /*  Drawing object has been created in ScDocument::GetOrCreateNote() or
             in ScPostIt::ShowCaptionTemp(), so ScPostIt::GetCaption() should
             return a caption object. */
-        if( SdrCaptionObj* pCaption = pNote->GetCaption() )
+        if( SdrCaptionObj* pCaption = pNote->GetCaption().get() )
         {
             if ( ScDrawView* pScDrawView = GetScDrawView() )
                pScDrawView->SyncForGrid( pCaption );

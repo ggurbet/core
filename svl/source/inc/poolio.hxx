@@ -30,10 +30,6 @@
 class SfxPoolItem;
 class SfxItemPoolUser;
 
-#ifndef DELETEZ
-#define DELETEZ(pPtr) { delete pPtr; pPtr = 0; }
-#endif
-
 static const sal_uInt32 SFX_ITEMS_DEFAULT = 0xfffffffe;
 
 /**
@@ -44,13 +40,12 @@ static const sal_uInt32 SFX_ITEMS_DEFAULT = 0xfffffffe;
  */
 struct SfxPoolItemArray_Impl
 {
-    typedef std::vector<sal_uInt32> FreeList;
     typedef std::unordered_map<SfxPoolItem*,sal_uInt32> PoolItemPtrToIndexMap;
 private:
     std::vector<SfxPoolItem*> maPoolItemVector;
 public:
     /// Track list of indices into our array that contain an empty slot
-    FreeList maFree;
+    std::vector<sal_uInt32> maFree;
     /// Hash of SfxPoolItem pointer to index into our array that contains that slot
     PoolItemPtrToIndexMap     maPtrToIndex;
 

@@ -66,19 +66,19 @@ struct FileFormat
 Taken from filter/source/config/fragments/filters/ too:
 pName: The file extension.
 pFilterName: <node oor:Name="...">
-pTypeName: <prop oor:Name="UIName">...</prop>
+pTypeName: <prop oor:Name="Type">...</prop>
 nFormatType: <prop oor:name="Flags">...</prop>
 */
 FileFormat aFileFormats[] =
 {
     { "odp",  "impress8", "impress8", "", ODP_FORMAT_TYPE },
-    { "ppt",  "MS PowerPoint 97", "Microsoft PowerPoint 97/2000/XP/2003", "sdfilt", PPT_FORMAT_TYPE },
+    { "ppt",  "MS PowerPoint 97", "impress_MS_PowerPoint_97", "sdfilt", PPT_FORMAT_TYPE },
     { "pptx", "Impress Office Open XML", "Office Open XML Presentation", "", PPTX_FORMAT_TYPE },
     { "html", "graphic_HTML", "graphic_HTML", "", HTML_FORMAT_TYPE },
     { "pdf",  "draw_pdf_import", "pdf_Portable_Document_Format", "", PDF_FORMAT_TYPE },
-    { "fodg", "OpenDocument Drawing Flat XML", "Flat XML ODF Drawing", "", FODG_FORMAT_TYPE },
-    { "fodp", "OpenDocument Presentation Flat XML", "Flat XML ODF Presentation", "", FODP_FORMAT_TYPE },
-    { "sxi",  "StarOffice XML (Impress)", "OpenOffice.org 1.0 Presentation", "", SXI_FORMAT_TYPE },
+    { "fodg", "OpenDocument Drawing Flat XML", "draw_ODG_FlatXML", "", FODG_FORMAT_TYPE },
+    { "fodp", "OpenDocument Presentation Flat XML", "impress_ODP_FlatXML", "", FODP_FORMAT_TYPE },
+    { "sxi",  "StarOffice XML (Impress)", "impress_StarOffice_XML_Impress", "", SXI_FORMAT_TYPE },
     { "odg",  "draw8", "draw8", "", ODP_FORMAT_TYPE },
     { "pptm", "Impress MS PowerPoint 2007 XML VBA", "MS PowerPoint 2007 XML VBA", "", PPTM_FORMAT_TYPE },
     { nullptr, nullptr, nullptr, nullptr, SfxFilterFlags::NONE }
@@ -123,7 +123,7 @@ public:
 
 protected:
     /// Load the document.
-    sd::DrawDocShellRef loadURL( const OUString &rURL, sal_Int32 nFormat, SfxAllItemSet *pParams = nullptr )
+    sd::DrawDocShellRef loadURL( const OUString &rURL, sal_Int32 nFormat, std::unique_ptr<SfxAllItemSet> pParams = nullptr )
     {
         FileFormat *pFmt = getFormat(nFormat);
         CPPUNIT_ASSERT_MESSAGE( "missing filter info", pFmt->pName != nullptr );
@@ -142,7 +142,7 @@ protected:
         std::shared_ptr<const SfxFilter> pFilt(pFilter);
 
         ::sd::DrawDocShellRef xDocShRef = new ::sd::DrawDocShell(SfxObjectCreateMode::EMBEDDED, false, DocumentType::Impress);
-        SfxMedium* pSrcMed = new SfxMedium(rURL, StreamMode::STD_READ, pFilt, pParams);
+        SfxMedium* pSrcMed = new SfxMedium(rURL, StreamMode::STD_READ, pFilt, std::move(pParams));
         if ( !xDocShRef->DoLoad(pSrcMed) || !xDocShRef.is() )
         {
             if (xDocShRef.is())
@@ -213,7 +213,7 @@ protected:
         save(pShell, pFormat, *pTempFile);
         if (nExportType == ODP || nExportType == ODG)
         {
-            // BootstrapFixture::validate(pTempFile->GetFileName(), test::ODF);
+            BootstrapFixture::validate(pTempFile->GetFileName(), test::ODF);
         }
         else if(nExportType == PPTX)
         {
@@ -237,9 +237,7 @@ protected:
         CPPUNIT_ASSERT_MESSAGE( "not in destruction", !xDocShRef->IsInDestruction() );
 
         uno::Reference<frame::XModel> xTempModel(xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY_THROW);
-        CPPUNIT_ASSERT(xTempModel.is());
         uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier (xTempModel, uno::UNO_QUERY_THROW);
-        CPPUNIT_ASSERT(xDrawPagesSupplier.is());
         uno::Reference< drawing::XDrawPages > xDrawPages = xDrawPagesSupplier->getDrawPages();
         CPPUNIT_ASSERT(xDrawPages.is());
 
@@ -282,7 +280,6 @@ protected:
     {
         uno::Reference< drawing::XDrawPagesSupplier > xDoc (
             xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY_THROW );
-        CPPUNIT_ASSERT_MESSAGE( "no document", xDoc.is() );
         return xDoc;
     }
 
@@ -290,7 +287,6 @@ protected:
     {
         uno::Reference< drawing::XDrawPagesSupplier > xDoc( getDoc( xDocShRef ) );
         uno::Reference< drawing::XDrawPage > xPage( xDoc->getDrawPages()->getByIndex( nPage ), uno::UNO_QUERY_THROW );
-        CPPUNIT_ASSERT_MESSAGE( "no page", xPage.is() );
         return xPage;
     }
 

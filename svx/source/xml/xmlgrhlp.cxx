@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <comphelper/string.hxx>
 #include <sal/macros.h>
@@ -111,7 +112,7 @@ GraphicInputStream::GraphicInputStream(GraphicObject const & raGraphicObject, co
 
     if (aGraphicObject.GetType() != GraphicType::NONE)
     {
-        SvStream* pStream = ::utl::UcbStreamHelper::CreateStream(maTempFile.GetURL(), StreamMode::WRITE | StreamMode::TRUNC);
+        std::unique_ptr<SvStream> pStream = ::utl::UcbStreamHelper::CreateStream(maTempFile.GetURL(), StreamMode::WRITE | StreamMode::TRUNC);
 
         if (pStream)
         {
@@ -163,10 +164,8 @@ GraphicInputStream::GraphicInputStream(GraphicObject const & raGraphicObject, co
             if (bRet)
             {
                 pStream->Seek( 0 );
-                mxStreamWrapper = new ::utl::OInputStreamWrapper(pStream, true);
+                mxStreamWrapper = new ::utl::OInputStreamWrapper(std::move(pStream));
             }
-            else
-                delete pStream;
         }
     }
 }
@@ -250,7 +249,7 @@ SvXMLGraphicOutputStream::SvXMLGraphicOutputStream()
 {
     mpTmp->EnableKillingFile();
 
-    mpOStm.reset( ::utl::UcbStreamHelper::CreateStream( mpTmp->GetURL(), StreamMode::WRITE | StreamMode::TRUNC ) );
+    mpOStm = ::utl::UcbStreamHelper::CreateStream( mpTmp->GetURL(), StreamMode::WRITE | StreamMode::TRUNC );
 
     if( mpOStm )
         mxStmWrapper = new ::utl::OOutputStreamWrapper( *mpOStm );
@@ -397,28 +396,22 @@ bool SvXMLGraphicHelper::ImplGetStreamNames( const OUString& rURLStr,
                                                  OUString& rPictureStorageName,
                                                  OUString& rPictureStreamName )
 {
-    OUString      aURLStr( rURLStr );
-    bool    bRet = false;
+    if (rURLStr.isEmpty())
+        return false;
 
-    if( !aURLStr.isEmpty() )
+    const OUString aURLStr {rURLStr.copy(rURLStr.lastIndexOf(':')+1)};
+
+    if( comphelper::string::getTokenCount(aURLStr, '/') == 1 )
     {
-        aURLStr = aURLStr.getToken( comphelper::string::getTokenCount(aURLStr, ':') - 1, ':' );
-
-        const sal_uInt32 nTokenCount = comphelper::string::getTokenCount(aURLStr, '/');
-
-        if( 1 == nTokenCount )
-        {
-            rPictureStorageName = XML_GRAPHICSTORAGE_NAME;
-            rPictureStreamName = aURLStr;
-        }
-        else
-            SvXMLEmbeddedObjectHelper::splitObjectURL(aURLStr, rPictureStorageName, rPictureStreamName);
-
-        bRet = !rPictureStreamName.isEmpty();
-        SAL_WARN_IF(!bRet, "svx", "SvXMLGraphicHelper::ImplInsertGraphicURL: invalid scheme: " << rURLStr);
+        rPictureStorageName = XML_GRAPHICSTORAGE_NAME;
+        rPictureStreamName = aURLStr;
     }
+    else
+        SvXMLEmbeddedObjectHelper::splitObjectURL(aURLStr, rPictureStorageName, rPictureStreamName);
 
-    return bRet;
+    SAL_WARN_IF(rPictureStreamName.isEmpty(), "svx", "SvXMLGraphicHelper::ImplInsertGraphicURL: invalid scheme: " << rURLStr);
+
+    return !rPictureStreamName.isEmpty();
 }
 
 uno::Reference < embed::XStorage > SvXMLGraphicHelper::ImplGetGraphicStorage( const OUString& rStorageName )
@@ -519,11 +512,10 @@ void SvXMLGraphicHelper::Init( const uno::Reference < embed::XStorage >& rXMLSto
 }
 
 rtl::Reference<SvXMLGraphicHelper> SvXMLGraphicHelper::Create( const uno::Reference < embed::XStorage >& rXMLStorage,
-                                                SvXMLGraphicHelperMode eCreateMode,
-                                                const OUString& rGraphicMimeType )
+                                                SvXMLGraphicHelperMode eCreateMode )
 {
     rtl::Reference<SvXMLGraphicHelper> pThis = new SvXMLGraphicHelper;
-    pThis->Init( rXMLStorage, eCreateMode, rGraphicMimeType );
+    pThis->Init( rXMLStorage, eCreateMode, OUString() );
 
     return pThis;
 }
@@ -561,8 +553,7 @@ void splitUserDataFromURL(OUString const & rWholeURL, OUString & rJustURL, OUStr
 // XGraphicObjectResolver
 OUString SAL_CALL SvXMLGraphicHelper::resolveGraphicObjectURL( const OUString& /*rURL*/ )
 {
-    osl::MutexGuard aGuard( maMutex );
-    return OUString();
+    throw uno::RuntimeException("XGraphicObjectResolver has been removed in LibreOffice 6.1");
 }
 
 // XGraphicStorageHandler
@@ -660,7 +651,12 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
                 case GfxLinkType::NativeJpg: aExtension = ".jpg"; break;
                 case GfxLinkType::NativePng: aExtension = ".png"; break;
                 case GfxLinkType::NativeTif: aExtension = ".tif"; break;
-                case GfxLinkType::NativeWmf: aExtension = ".wmf"; break;
+                case GfxLinkType::NativeWmf:
+                    if (aGfxLink.IsEMF())
+                        aExtension = ".emf";
+                    else
+                        aExtension = ".wmf";
+                    break;
                 case GfxLinkType::NativeMet: aExtension = ".met"; break;
                 case GfxLinkType::NativePct: aExtension = ".pct"; break;
                 case GfxLinkType::NativeSvg:
@@ -765,19 +761,29 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
             std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(aStream.xStream));
             if (bUseGfxLink && aGfxLink.GetDataSize() && aGfxLink.GetData())
             {
-                const uno::Sequence<sal_Int8>& rPdfData = aGraphic.getPdfData();
-                if (rPdfData.hasElements())
+                const std::shared_ptr<uno::Sequence<sal_Int8>>& rPdfData = aGraphic.getPdfData();
+                if (rPdfData && rPdfData->hasElements())
                 {
+                    // See if we have this PDF already, and avoid duplicate storage.
+                    auto aIt = maExportPdf.find(rPdfData.get());
+                    if (aIt != maExportPdf.end())
+                    {
+                        auto const& aURLAndMimePair = aIt->second;
+                        rOutSavedMimeType = aURLAndMimePair.second;
+                        return aURLAndMimePair.first;
+                    }
+
                     // The graphic has PDF data attached to it, use that.
                     // vcl::ImportPDF() possibly downgraded the PDF data from a
                     // higher PDF version, while aGfxLink still contains the
                     // original data provided by the user.
-                    pStream->WriteBytes(rPdfData.getConstArray(), rPdfData.getLength());
+                    pStream->WriteBytes(rPdfData->getConstArray(), rPdfData->getLength());
                 }
                 else
                 {
                     pStream->WriteBytes(aGfxLink.GetData(), aGfxLink.GetDataSize());
                 }
+
                 rOutSavedMimeType = aMimeType;
                 bSuccess = (pStream->GetError() == ERRCODE_NONE);
             }
@@ -844,6 +850,8 @@ OUString SvXMLGraphicHelper::implSaveGraphic(css::uno::Reference<css::graphic::X
 
             // put into cache
             maExportGraphics[aGraphic] = std::make_pair(aStoragePath, rOutSavedMimeType);
+            if (aGraphic.hasPdfData())
+                maExportPdf[aGraphic.getPdfData().get()] = std::make_pair(aStoragePath, rOutSavedMimeType);
 
             return aStoragePath;
         }

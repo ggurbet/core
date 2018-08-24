@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/packages/zip/ZipIOException.hpp>
@@ -26,6 +27,7 @@
 #include <com/sun/star/sdb/XOfficeDatabaseDocument.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
+#include <com/sun/star/document/GraphicStorageHandler.hpp>
 #include "xmlfilter.hxx"
 #include "xmlGroup.hxx"
 #include "xmlReport.hxx"
@@ -180,7 +182,7 @@ ErrCode ReadThroughComponent(
     const sal_Char* pStreamName,
     const sal_Char* pCompatibilityStreamName,
     const uno::Reference<XComponentContext> & rxContext,
-    const Reference< document::XGraphicObjectResolver > & _xGraphicObjectResolver,
+    const Reference<document::XGraphicStorageHandler> & rxGraphicStorageHandler,
     const Reference<document::XEmbeddedObjectResolver>& _xEmbeddedObjectResolver,
     const OUString& _sFilterName
     ,const uno::Reference<beans::XPropertySet>& _xProp)
@@ -224,7 +226,7 @@ ErrCode ReadThroughComponent(
         }
 
         sal_Int32 nArgs = 0;
-        if( _xGraphicObjectResolver.is())
+        if (rxGraphicStorageHandler.is())
             nArgs++;
         if( _xEmbeddedObjectResolver.is())
             nArgs++;
@@ -234,8 +236,8 @@ ErrCode ReadThroughComponent(
         uno::Sequence< uno::Any > aFilterCompArgs( nArgs );
 
         nArgs = 0;
-        if( _xGraphicObjectResolver.is())
-            aFilterCompArgs[nArgs++] <<= _xGraphicObjectResolver;
+        if (rxGraphicStorageHandler.is())
+            aFilterCompArgs[nArgs++] <<= rxGraphicStorageHandler;
         if( _xEmbeddedObjectResolver.is())
             aFilterCompArgs[ nArgs++ ] <<= _xEmbeddedObjectResolver;
         if ( _xProp.is() )
@@ -442,9 +444,6 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
     if ( bRet )
     {
         m_xReportDefinition.set(GetModel(),UNO_QUERY_THROW);
-        OSL_ENSURE(m_xReportDefinition.is(),"ReportDefinition is NULL!");
-        if ( !m_xReportDefinition.is() )
-            return false;
 
 #if OSL_DEBUG_LEVEL > 1
         uno::Reference < container::XNameAccess > xAccess( xStorage, uno::UNO_QUERY );
@@ -457,15 +456,15 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
         }
 #endif
 
-        Reference< document::XGraphicObjectResolver > xGraphicObjectResolver;
+        uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
         uno::Reference<document::XEmbeddedObjectResolver> xEmbeddedObjectResolver;
         uno::Reference< uno::XComponentContext > xContext = GetComponentContext();
 
-        uno::Sequence< uno::Any > aArgs(1);
+        uno::Sequence<uno::Any> aArgs(1);
         aArgs[0] <<= xStorage;
-        xGraphicObjectResolver.set(
+        xGraphicStorageHandler.set(
                 xContext->getServiceManager()->createInstanceWithArgumentsAndContext("com.sun.star.comp.Svx.GraphicImportHelper", aArgs, xContext),
-                uno::UNO_QUERY );
+                uno::UNO_QUERY);
 
         uno::Reference< lang::XMultiServiceFactory > xReportServiceFactory( m_xReportDefinition, uno::UNO_QUERY);
         aArgs[0] <<= beans::NamedValue("Storage",uno::makeAny(xStorage));
@@ -498,7 +497,7 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
                                     ,"meta.xml"
                                     ,"Meta.xml"
                                     ,GetComponentContext()
-                                    ,xGraphicObjectResolver
+                                    ,xGraphicStorageHandler
                                     ,xEmbeddedObjectResolver
                                     ,SERVICE_METAIMPORTER
                                     ,xProp
@@ -522,7 +521,7 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
                                     ,"settings.xml"
                                     ,"Settings.xml"
                                     ,GetComponentContext()
-                                    ,xGraphicObjectResolver
+                                    ,xGraphicStorageHandler
                                     ,xEmbeddedObjectResolver
                                     ,SERVICE_SETTINGSIMPORTER
                                     ,xProp
@@ -536,7 +535,7 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
                                     ,"styles.xml"
                                     ,"Styles.xml"
                                     ,GetComponentContext()
-                                    ,xGraphicObjectResolver
+                                    ,xGraphicStorageHandler
                                     ,xEmbeddedObjectResolver
                                     ,SERVICE_STYLESIMPORTER
                                     ,xProp);
@@ -550,7 +549,7 @@ bool ORptFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
                                     ,"content.xml"
                                     ,"Content.xml"
                                     ,GetComponentContext()
-                                    ,xGraphicObjectResolver
+                                    ,xGraphicStorageHandler
                                     ,xEmbeddedObjectResolver
                                     ,SERVICE_CONTENTIMPORTER
                                     ,xProp
@@ -1076,14 +1075,10 @@ const OUString& ORptFilter::convertFormula(const OUString& _sFormula)
 void SAL_CALL ORptFilter::startDocument()
 {
     m_xReportDefinition.set(GetModel(),UNO_QUERY_THROW);
-    OSL_ENSURE(m_xReportDefinition.is(),"ReportDefinition is NULL!");
-    if ( m_xReportDefinition.is() )
-    {
-        m_pReportModel = reportdesign::OReportDefinition::getSdrModel(m_xReportDefinition);
-        OSL_ENSURE(m_pReportModel,"Report model is NULL!");
+    m_pReportModel = reportdesign::OReportDefinition::getSdrModel(m_xReportDefinition);
+    OSL_ENSURE(m_pReportModel,"Report model is NULL!");
 
-        SvXMLImport::startDocument();
-    }
+    SvXMLImport::startDocument();
 }
 
 void ORptFilter::endDocument()

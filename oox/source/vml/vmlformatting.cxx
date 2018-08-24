@@ -25,6 +25,7 @@
 #include <com/sun/star/table/ShadowFormat.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <oox/drawingml/color.hxx>
 #include <oox/drawingml/drawingmltypes.hxx>
@@ -134,7 +135,7 @@ sal_Int32 ConversionHelper::decodeRotation( const OUString& rValue )
         return 0;
     }
 
-    return NormAngle360(fRotation * -100);
+    return NormAngle36000(fRotation * -100);
 }
 
 sal_Int64 ConversionHelper::decodeMeasureToEmu( const GraphicHelper& rGraphicHelper,
@@ -960,7 +961,7 @@ void TextpathModel::pushToPropMap(ShapePropertyMap& rPropMap, const uno::Referen
     if (!moTrim.has() || !moTrim.get())
     {
         OUString sText = moString.get();
-        VclPtr<VirtualDevice> pDevice = VclPtr<VirtualDevice>::Create();
+        ScopedVclPtrInstance<VirtualDevice> pDevice;
         vcl::Font aFont = pDevice->GetFont();
         aFont.SetFamilyName(sFont);
         aFont.SetFontSize(Size(0, 96));

@@ -31,6 +31,7 @@
 #include <app.hrc>
 #include <ViewShell.hxx>
 #include <DrawViewShell.hxx>
+#include <PresentationViewShell.hxx>
 #include <View.hxx>
 #include <FrameView.hxx>
 #include <OutlineViewShell.hxx>
@@ -40,6 +41,7 @@
 #include <ViewShellBase.hxx>
 #include <uiobject.hxx>
 
+#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -351,9 +353,8 @@ long Window::SetZoomFactor(long nZoom)
     UpdateMapOrigin();
 
     // Update the view's snapping to the new zoom factor.
-    if ( mpViewShell && dynamic_cast< DrawViewShell *>( mpViewShell ) !=  nullptr )
-        static_cast<DrawViewShell*>(mpViewShell)->GetView()->
-                                        RecalcLogicSnapMagnetic(*this);
+    if ( auto pDrawViewShell = dynamic_cast< DrawViewShell *>( mpViewShell ) )
+        pDrawViewShell->GetView()->RecalcLogicSnapMagnetic(*this);
 
     // Return the zoom factor just in case it has been changed above to lie
     // inside the valid range.
@@ -421,7 +422,7 @@ long Window::GetZoomForRect( const ::tools::Rectangle& rZoomRect )
         // Calculate the new origin.
         if ( nFact == 0 )
         {
-            // Don't change anything if the scale factor is degenrate.
+            // Don't change anything if the scale factor is degenerate.
             nRetZoom = GetZoom();
         }
         else
@@ -494,7 +495,7 @@ long Window::SetZoomRect (const ::tools::Rectangle& rZoomRect)
         // Calculate the new origin.
         if ( nFact == 0 )
         {
-            // Don't change anything if the scale factor is degenrate.
+            // Don't change anything if the scale factor is degenerate.
             nNewZoom = GetZoom();
         }
         else
@@ -590,7 +591,7 @@ void Window::UpdateMapMode()
     // removed old stuff here which still forced zoom to be
     // %BRUSH_SIZE which is outdated now
 
-    if (mpViewShell && dynamic_cast< DrawViewShell *>( mpViewShell ) !=  nullptr)
+    if (dynamic_cast< DrawViewShell *>( mpViewShell ))
     {
         // page should not "stick" to the window border
         if (aPix.Width() == 0)
@@ -957,7 +958,7 @@ css::uno::Reference<css::accessibility::XAccessible>
     Window::CreateAccessible()
 {
     // If current viewshell is PresentationViewShell, just return empty because the correct ShowWin will be created later.
-    if (mpViewShell && dynamic_cast< PresentationViewShell *>( mpViewShell ) !=  nullptr)
+    if (dynamic_cast< PresentationViewShell *>( mpViewShell ))
     {
         return vcl::Window::CreateAccessible ();
     }
@@ -1011,7 +1012,7 @@ Selection Window::GetSurroundingTextSelection() const
 void Window::LogicInvalidate(const ::tools::Rectangle* pRectangle)
 {
     DrawViewShell* pDrawViewShell = dynamic_cast<DrawViewShell*>(mpViewShell);
-    if (pDrawViewShell && pDrawViewShell->IsInSwitchPage())
+    if (!pDrawViewShell || pDrawViewShell->IsInSwitchPage())
         return;
 
     OString sRectangle;
@@ -1024,7 +1025,7 @@ void Window::LogicInvalidate(const ::tools::Rectangle* pRectangle)
             aRectangle = OutputDevice::LogicToLogic(aRectangle, MapMode(MapUnit::Map100thMM), MapMode(MapUnit::MapTwip));
         sRectangle = aRectangle.toString();
     }
-    SfxViewShell& rSfxViewShell = mpViewShell->GetViewShellBase();
+    SfxViewShell& rSfxViewShell = pDrawViewShell->GetViewShellBase();
     SfxLokHelper::notifyInvalidation(&rSfxViewShell, sRectangle);
 }
 

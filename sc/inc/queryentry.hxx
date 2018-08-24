@@ -20,11 +20,11 @@
 #ifndef INCLUDED_SC_INC_QUERYENTRY_HXX
 #define INCLUDED_SC_INC_QUERYENTRY_HXX
 
-#include "address.hxx"
 #include "global.hxx"
 #include <svl/sharedstring.hxx>
 #include <unotools/textsearch.hxx>
 
+#include <memory>
 #include <vector>
 
 /**

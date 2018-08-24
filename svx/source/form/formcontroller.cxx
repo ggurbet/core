@@ -68,7 +68,6 @@
 #include <comphelper/enumhelper.hxx>
 #include <comphelper/interaction.hxx>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/propagg.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/flagguard.hxx>
@@ -85,6 +84,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <osl/mutex.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <iterator>
@@ -4204,7 +4204,8 @@ bool FormController::ensureInteractionHandler()
         return false;
     m_bAttemptedHandlerCreation = true;
 
-    m_xInteractionHandler = InteractionHandler::createWithParent(m_xComponentContext, nullptr);
+    m_xInteractionHandler = InteractionHandler::createWithParent(m_xComponentContext,
+                                                                 VCLUnoHelper::GetInterface(getDialogParentWindow()));
     return m_xInteractionHandler.is();
 }
 

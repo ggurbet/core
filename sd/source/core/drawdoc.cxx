@@ -96,7 +96,8 @@
 #include <optsitem.hxx>
 #include <FrameView.hxx>
 #include <undo/undomanager.hxx>
-
+#include <sdundogr.hxx>
+#include <undopage.hxx>
 #include <tools/tenccvt.hxx>
 #include <vcl/settings.hxx>
 
@@ -130,7 +131,9 @@ PresentationSettings::PresentationSettings()
 }
 
 SdDrawDocument::SdDrawDocument(DocumentType eType, SfxObjectShell* pDrDocSh)
-: FmFormModel( !utl::ConfigManager::IsFuzzing() ? SvtPathOptions().GetPalettePath() : OUString(), nullptr, pDrDocSh )
+:   FmFormModel(
+        nullptr,
+        pDrDocSh)
 , mpOutliner(nullptr)
 , mpInternalOutliner(nullptr)
 , mpWorkStartupTimer(nullptr)
@@ -153,7 +156,11 @@ SdDrawDocument::SdDrawDocument(DocumentType eType, SfxObjectShell* pDrDocSh)
 , mbAllocDocSh(false)
 , meDocType(eType)
 , mpCharClass(nullptr)
-, mbUseEmbedFonts(false)
+, mbEmbedFonts(false)
+, mbEmbedUsedFontsOnly(false)
+, mbEmbedFontScriptLatin(true)
+, mbEmbedFontScriptAsian(true)
+, mbEmbedFontScriptComplex(true)
 {
     mpDrawPageListWatcher.reset(new ImpDrawPageListWatcher(*this));
     mpMasterPageListWatcher.reset(new ImpMasterPageListWatcher(*this));
@@ -392,6 +399,179 @@ SdDrawDocument::~SdDrawDocument()
     mpCharClass.reset();
 }
 
+void SdDrawDocument::adaptSizeAndBorderForAllPages(
+    const Size& rNewSize,
+    long nLeft,
+    long nRight,
+    long nUpper,
+    long nLower)
+{
+    const sal_uInt16 nMasterPageCnt(GetMasterSdPageCount(PageKind::Standard));
+    const sal_uInt16 nPageCnt(GetSdPageCount(PageKind::Standard));
+
+    if(0 == nMasterPageCnt && 0 == nPageCnt)
+    {
+        return;
+    }
+
+    SdPage* pPage(0 != nPageCnt ? GetSdPage(0, PageKind::Standard) : GetMasterSdPage(0, PageKind::Standard));
+
+    // call fully implemented local version, including getting
+    // some more information from one of the Pages (1st one)
+    AdaptPageSizeForAllPages(
+        rNewSize,
+        PageKind::Standard,
+        nullptr,
+        nLeft,
+        nRight,
+        nUpper,
+        nLower,
+        true,
+        pPage->GetOrientation(),
+        pPage->GetPaperBin(),
+        pPage->IsBackgroundFullSize());
+
+    // adjust handout page to new format of the standard page
+    if(0 != nPageCnt)
+    {
+        GetSdPage(0, PageKind::Handout)->CreateTitleAndLayout(true);
+    }
+}
+
+void SdDrawDocument::AdaptPageSizeForAllPages(
+    const Size& rNewSize,
+    PageKind ePageKind,
+    SdUndoGroup* pUndoGroup,
+    long nLeft,
+    long nRight,
+    long nUpper,
+    long nLower,
+    bool bScaleAll,
+    Orientation eOrientation,
+    sal_uInt16 nPaperBin,
+    bool bBackgroundFullSize)
+{
+    sal_uInt16 i;
+    const sal_uInt16 nMasterPageCnt(GetMasterSdPageCount(ePageKind));
+    const sal_uInt16 nPageCnt(GetSdPageCount(ePageKind));
+
+    if(0 == nMasterPageCnt && 0 == nPageCnt)
+    {
+        return;
+    }
+
+    for (i = 0; i < nMasterPageCnt; i++)
+    {
+        // first, handle all master pages
+        SdPage* pPage(GetMasterSdPage(i, ePageKind));
+
+        if(pUndoGroup)
+        {
+            SdUndoAction* pUndo(
+                new SdPageFormatUndoAction(
+                    this,
+                    pPage,
+                    pPage->GetSize(),
+                    pPage->GetLeftBorder(), pPage->GetRightBorder(),
+                    pPage->GetUpperBorder(), pPage->GetLowerBorder(),
+                    pPage->GetOrientation(),
+                    pPage->GetPaperBin(),
+                    pPage->IsBackgroundFullSize(),
+                    rNewSize,
+                    nLeft, nRight,
+                    nUpper, nLower,
+                    bScaleAll,
+                    eOrientation,
+                    nPaperBin,
+                    bBackgroundFullSize));
+            pUndoGroup->AddAction(pUndo);
+        }
+
+        if (rNewSize.Width() > 0 || nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0)
+        {
+            ::tools::Rectangle aNewBorderRect(nLeft, nUpper, nRight, nLower);
+            pPage->ScaleObjects(rNewSize, aNewBorderRect, bScaleAll);
+
+            if (rNewSize.Width() > 0)
+            {
+                pPage->SetSize(rNewSize);
+            }
+        }
+
+        if( nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0 )
+        {
+            pPage->SetBorder(nLeft, nUpper, nRight, nLower);
+        }
+
+        pPage->SetOrientation(eOrientation);
+        pPage->SetPaperBin( nPaperBin );
+        pPage->SetBackgroundFullSize( bBackgroundFullSize );
+
+        if ( ePageKind == PageKind::Standard )
+        {
+            GetMasterSdPage(i, PageKind::Notes)->CreateTitleAndLayout();
+        }
+
+        pPage->CreateTitleAndLayout();
+    }
+
+    for (i = 0; i < nPageCnt; i++)
+    {
+        // then, handle all pages
+        SdPage* pPage(GetSdPage(i, ePageKind));
+
+        if(pUndoGroup)
+        {
+            SdUndoAction* pUndo(
+                new SdPageFormatUndoAction(
+                    this,
+                    pPage,
+                    pPage->GetSize(),
+                    pPage->GetLeftBorder(), pPage->GetRightBorder(),
+                    pPage->GetUpperBorder(), pPage->GetLowerBorder(),
+                    pPage->GetOrientation(),
+                    pPage->GetPaperBin(),
+                    pPage->IsBackgroundFullSize(),
+                    rNewSize,
+                    nLeft, nRight,
+                    nUpper, nLower,
+                    bScaleAll,
+                    eOrientation,
+                    nPaperBin,
+                    bBackgroundFullSize));
+            pUndoGroup->AddAction(pUndo);
+        }
+
+        if (rNewSize.Width() > 0 || nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0)
+        {
+            ::tools::Rectangle aNewBorderRect(nLeft, nUpper, nRight, nLower);
+            pPage->ScaleObjects(rNewSize, aNewBorderRect, bScaleAll);
+
+            if (rNewSize.Width() > 0)
+            {
+                pPage->SetSize(rNewSize);
+            }
+        }
+
+        if( nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0 )
+        {
+            pPage->SetBorder(nLeft, nUpper, nRight, nLower);
+        }
+
+        pPage->SetOrientation(eOrientation);
+        pPage->SetPaperBin( nPaperBin );
+        pPage->SetBackgroundFullSize( bBackgroundFullSize );
+
+        if ( ePageKind == PageKind::Standard )
+        {
+            SdPage* pNotesPage = GetSdPage(i, PageKind::Notes);
+            pNotesPage->SetAutoLayout( pNotesPage->GetAutoLayout() );
+        }
+
+        pPage->SetAutoLayout( pPage->GetAutoLayout() );
+    }
+}
+
 SdrModel* SdDrawDocument::AllocModel() const
 {
     return AllocSdDrawDocument();
@@ -463,7 +643,7 @@ SdDrawDocument* SdDrawDocument::AllocSdDrawDocument() const
             // Move with all of the master page's layouts
             OUString aOldLayoutName(const_cast<SdDrawDocument*>(this)->GetMasterSdPage(i, PageKind::Standard)->GetLayoutName());
             aOldLayoutName = aOldLayoutName.copy( 0, aOldLayoutName.indexOf( SD_LT_SEPARATOR ) );
-            SdStyleSheetVector aCreatedSheets;
+            StyleSheetCopyResultVector aCreatedSheets;
             pNewStylePool->CopyLayoutSheets(aOldLayoutName, *pOldStylePool, aCreatedSheets );
         }
 
@@ -631,7 +811,7 @@ void SdDrawDocument::NewOrLoadCompleted(DocCreationMode eMode)
         sal_uInt16 nPage, nPageCount;
 
         // create missing layout style sheets for broken documents
-        //         that where created with the 5.2
+        //         that were created with the 5.2
         nPageCount = GetMasterSdPageCount( PageKind::Standard );
         for (nPage = 0; nPage < nPageCount; nPage++)
         {

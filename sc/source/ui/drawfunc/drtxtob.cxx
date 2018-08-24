@@ -63,6 +63,7 @@
 
 #include <sc.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <scmod.hxx>
 #include <drtxtob.hxx>
 #include <fudraw.hxx>
@@ -116,7 +117,7 @@ ScDrawTextObjectBar::ScDrawTextObjectBar(ScViewData* pData) :
     SetPool( pViewData->GetScDrawView()->GetDefaultAttr().GetPool() );
 
     //  At the switching-over the UndoManager is changed to edit mode
-    ::svl::IUndoManager* pMgr = pViewData->GetSfxDocShell()->GetUndoManager();
+    SfxUndoManager* pMgr = pViewData->GetSfxDocShell()->GetUndoManager();
     SetUndoManager( pMgr );
     if ( !pViewData->GetDocument()->IsUndoEnabled() )
     {
@@ -270,7 +271,7 @@ void ScDrawTextObjectBar::Execute( SfxRequest &rReq )
                         if (pFieldItem)
                         {
                             const SvxFieldData* pField = pFieldItem->GetField();
-                            if ( pField && dynamic_cast<const SvxURLField*>( pField) !=  nullptr )
+                            if ( dynamic_cast<const SvxURLField*>( pField) )
                             {
                                 //  select old field
 
@@ -417,7 +418,7 @@ void ScDrawTextObjectBar::GetState( SfxItemSet& rSet )
             if ( pFieldItem )
             {
                 const SvxFieldData* pField = pFieldItem->GetField();
-                bEnable = pField && dynamic_cast<const SvxURLField*>( pField) !=  nullptr;
+                bEnable = dynamic_cast<const SvxURLField*>( pField) !=  nullptr;
             }
         }
         if( !bEnable )
@@ -625,7 +626,7 @@ static void lcl_RemoveFields( OutlinerView& rOutView )
                         {
                             if (bUpdate)
                                 pOutliner->SetUpdateMode( false );
-                            OUString aName = ScGlobal::GetRscString( STR_UNDO_DELETECONTENTS );
+                            OUString aName = ScResId( STR_UNDO_DELETECONTENTS );
                             ViewShellId nViewShellId(-1);
                             if (ScTabViewShell* pViewSh = ScTabViewShell::GetActiveViewShell())
                                 nViewShellId = pViewSh->GetViewShellId();
@@ -874,7 +875,8 @@ void ScDrawTextObjectBar::ExecuteAttr( SfxRequest &rReq )
             case SID_DRAWTEXT_ATTR_DLG:
                 {
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog( pViewData->GetDialogParent(), &aEditAttr, pView ));
+                    vcl::Window* pWin = pViewData->GetDialogParent();
+                    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog( pWin ? pWin->GetFrameWeld() : nullptr, &aEditAttr, pView ));
 
                     bDone = ( RET_OK == pDlg->Execute() );
 

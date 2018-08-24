@@ -48,7 +48,7 @@ class SwMailConfigPage : public SfxTabPage
     VclPtr<PushButton>      m_pServerAuthenticationPB;
     VclPtr<PushButton>      m_pTestPB;
 
-    SwMailMergeConfigItem*  m_pConfigItem;
+    std::unique_ptr<SwMailMergeConfigItem>  m_pConfigItem;
 
     DECL_LINK(ReplyToHdl, Button*, void);
     DECL_LINK(AuthenticationHdl, Button*, void);
@@ -60,7 +60,7 @@ public:
     virtual ~SwMailConfigPage() override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage> Create( TabPageParent pParent,
                                       const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;

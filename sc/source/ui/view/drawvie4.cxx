@@ -26,6 +26,7 @@
 #include <sfx2/docfile.hxx>
 #include <tools/urlobj.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <sal/log.hxx>
 
 #include <drawview.hxx>
 #include <global.hxx>
@@ -38,9 +39,11 @@
 #include <drawutil.hxx>
 #include <scmod.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <chartarr.hxx>
 #include <gridwin.hxx>
 #include <userdat.hxx>
+#include <tabvwsh.hxx>
 
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
@@ -49,6 +52,7 @@
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
 #include <com/sun/star/chart2/XDataSeriesContainer.hpp>
+#include <com/sun/star/chart2/XChartDocument.hpp>
 
 using namespace com::sun::star;
 
@@ -369,7 +373,8 @@ void ScDrawView::DoCopy()
     aObjDesc.maDisplayName = pDocSh->GetMedium()->GetURLObject().GetURLNoPass();
     // maSize is set in ScDrawTransferObj ctor
 
-    rtl::Reference<ScDrawTransferObj> pTransferObj = new ScDrawTransferObj( pModel, pDocSh, aObjDesc );
+    ScDrawTransferObj* pTransferObj = new ScDrawTransferObj( pModel, pDocSh, aObjDesc );
+    uno::Reference<css::datatransfer::XTransferable2> xTransferObj = pTransferObj;
 
     if ( ScGlobal::xDrawClipDocShellRef.is() )
     {
@@ -522,7 +527,7 @@ void ScDrawView::SetMarkedOriginalSize()
 
     if (nDone && pViewData)
     {
-        pUndoGroup->SetComment(ScGlobal::GetRscString( STR_UNDO_ORIGINALSIZE ));
+        pUndoGroup->SetComment(ScResId( STR_UNDO_ORIGINALSIZE ));
         ScDocShell* pDocSh = pViewData->GetDocShell();
         pDocSh->GetUndoManager()->AddUndoAction(pUndoGroup);
         pDocSh->SetDrawModified();
@@ -580,7 +585,7 @@ void ScDrawView::FitToCellSize()
 
     pObj->SetSnapRect(aCellRect);
 
-    pUndoGroup->SetComment(ScGlobal::GetRscString( STR_UNDO_FITCELLSIZE ));
+    pUndoGroup->SetComment(ScResId( STR_UNDO_FITCELLSIZE ));
     ScDocShell* pDocSh = pViewData->GetDocShell();
     pDocSh->GetUndoManager()->AddUndoAction(pUndoGroup);
 

@@ -110,8 +110,10 @@ namespace sw {
     class UndoRedoContext;
 }
 
-#define GETSELTXT_PARABRK_TO_BLANK      0
-#define GETSELTXT_PARABRK_TO_ONLYCR     2
+enum class ParaBreakType {
+    ToBlank = 0,
+    ToOnlyCR = 2
+};
 
  /// For querying the INet-attributes for Navigator.
 struct SwGetINetAttr
@@ -172,7 +174,7 @@ public:
 
     /** Delete content of all ranges.
      If whole nodes are selected, these nodes get deleted. */
-    long Delete();
+    bool Delete();
 
     /// Remove a complete paragraph.
     bool DelFullPara();
@@ -202,7 +204,7 @@ public:
        Copy all selections to the document. */
     bool CopySelToDoc( SwDoc* pInsDoc );
 
-    long SplitNode( bool bAutoFormat = false, bool bCheckTableStart = true );
+    void SplitNode( bool bAutoFormat = false, bool bCheckTableStart = true );
     bool AppendTextNode();
     void AutoFormatBySplitNode();
 
@@ -451,7 +453,7 @@ public:
     /// Insert content table. Renew if required.
     void                InsertTableOf(const SwTOXBase& rTOX,
                                         const SfxItemSet* pSet = nullptr);
-    bool                UpdateTableOf(const SwTOXBase& rTOX,
+    void                UpdateTableOf(const SwTOXBase& rTOX,
                                         const SfxItemSet* pSet = nullptr);
     const SwTOXBase*    GetCurTOX() const;
     const SwTOXBase*    GetDefaultTOXBase( TOXTypes eTyp, bool bCreate = false );
@@ -527,7 +529,7 @@ public:
     // #i90078#
     /// Remove unused default parameter <nLevel> and <bRelative>.
     // Adjust method name and parameter name
-    void ChangeIndentOfAllListLevels( short nDiff );
+    void ChangeIndentOfAllListLevels( sal_Int32 nDiff );
     // Adjust method name
     void SetIndent(short nIndent, const SwPosition & rPos);
     bool IsFirstOfNumRuleAtCursorPos() const;
@@ -623,7 +625,7 @@ public:
      @returns FALSE, if selected range is too large to be copied
      into string buffer or if other errors occur. */
     bool GetSelectedText( OUString &rBuf,
-                        int nHndlParaBreak = GETSELTXT_PARABRK_TO_BLANK );
+                        ParaBreakType nHndlParaBreak = ParaBreakType::ToBlank );
 
     /** @return graphic, if CurrentCursor->Point() points to a SwGrfNode
      (and mark is not set or points to the same graphic). */
@@ -709,11 +711,11 @@ public:
     /// For Inserting SoftHyphen. Position is offset within the syllabificated word.
     static void InsertSoftHyph( const sal_Int32 nHyphPos );
 
-    const SwTable& InsertTable( const SwInsertTableOptions& rInsTableOpts,  ///< ALL_TBL_INS_ATTR
+    const SwTable& InsertTable( const SwInsertTableOptions& rInsTableOpts,  ///< All
                                 sal_uInt16 nRows, sal_uInt16 nCols,
                                 const SwTableAutoFormat* pTAFormat = nullptr );
 
-    void InsertDDETable( const SwInsertTableOptions& rInsTableOpts,  ///< HEADLINE_NO_BORDER
+    void InsertDDETable( const SwInsertTableOptions& rInsTableOpts,  ///< HeadlineNoBorder
                          SwDDEFieldType* pDDEType,
                          sal_uInt16 nRows, sal_uInt16 nCols  );
 
@@ -721,7 +723,7 @@ public:
     void SetTableName( SwFrameFormat& rTableFormat, const OUString &rNewName );
 
     SwFrameFormat *GetTableFormat();
-    bool TextToTable( const SwInsertTableOptions& rInsTableOpts,  ///< ALL_TBL_INS_ATTR
+    bool TextToTable( const SwInsertTableOptions& rInsTableOpts,  ///< All
                       sal_Unicode cCh,
                       const SwTableAutoFormat* pTAFormat = nullptr );
     bool TableToText( sal_Unicode cCh );

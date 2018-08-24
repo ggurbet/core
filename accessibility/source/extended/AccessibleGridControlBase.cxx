@@ -19,7 +19,6 @@
 
 #include <extended/AccessibleGridControlBase.hxx>
 #include <svtools/accessibletable.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <sal/types.h>
 
@@ -27,6 +26,7 @@
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/IllegalAccessibleComponentStateException.hpp>
 #include <unotools/accessiblerelationsethelper.hxx>
+#include <sal/log.hxx>
 
 using ::com::sun::star::uno::Sequence;
 using ::com::sun::star::uno::Any;

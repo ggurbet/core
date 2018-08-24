@@ -32,7 +32,6 @@
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
 
-#include <comphelper/lok.hxx>
 #include <rtl/bootstrap.hxx>
 #include <svtools/miscopt.hxx>
 #include <svx/unopage.hxx>
@@ -101,6 +100,11 @@ class TextField
 protected:
     SVGFilter::ObjectSet mMasterPageSet;
 public:
+    TextField() = default;
+    TextField(TextField const &) = default;
+    TextField(TextField &&) = default;
+    TextField & operator =(TextField const &) = default;
+    TextField & operator =(TextField &&) = default;
 
     virtual OUString getClassName() const
     {
@@ -518,7 +522,7 @@ bool SVGFilter::implExport( const Sequence< PropertyValue >& rDescriptor )
             OUString aFileName;
 
             pValue[ i ].Value >>= aFileName;
-            pOStm.reset(::utl::UcbStreamHelper::CreateStream( aFileName, StreamMode::WRITE | StreamMode::TRUNC ));
+            pOStm = ::utl::UcbStreamHelper::CreateStream( aFileName, StreamMode::WRITE | StreamMode::TRUNC );
 
             if( pOStm )
                 xOStm.set( new ::utl::OOutputStreamWrapper ( *pOStm ) );
@@ -2119,12 +2123,11 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
     if( pInfo && mbPresentation )
     {
         bFieldProcessed = true;
-        OUString   aRepresentation;
         if( mpSVGExport->IsEmbedFonts() && mpSVGExport->IsUsePositionedCharacters() )
         {
             // to notify to the SVGActionWriter::ImplWriteText method
             // that we are dealing with a placeholder shape
-            aRepresentation = sPlaceholderTag;
+            OUStringBuffer aRepresentation = sPlaceholderTag;
 
             if( !mCreateOjectsCurrentMasterPage.is() )
             {
@@ -2204,17 +2207,17 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                     }
                     // Independently of the date format, we always put all these characters by default.
                     // They should be enough to cover every time format.
-                    aRepresentation += "0123456789.:/-APM";
+                    aRepresentation.append( "0123456789.:/-APM" );
 
                     if( eDateFormat != SvxDateFormat::AppDefault )
                     {
-                        OUString sDate;
+                        OUStringBuffer sDate;
                         LanguageType eLang = pInfo->GetOutliner()->GetLanguage( pInfo->GetPara(), pInfo->GetPos() );
                         SvNumberFormatter * pNumberFormatter = new SvNumberFormatter( ::comphelper::getProcessComponentContext(), LANGUAGE_SYSTEM );
                         // We always collect the characters obtained by using the SvxDateFormat::B (as: 13.02.1996)
                         // so we are sure to include any unusual day|month|year separator.
                         Date aDate( 1, 1, 1996 );
-                        sDate += SvxDateField::GetFormatted( aDate, SvxDateFormat::B, *pNumberFormatter, eLang );
+                        sDate.append( SvxDateField::GetFormatted( aDate, SvxDateFormat::B, *pNumberFormatter, eLang ) );
                         switch( eDateFormat )
                         {
                             case SvxDateFormat::E:       // Tue, 13.February 1996
@@ -2223,7 +2226,7 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                                 for( sal_uInt16 i = 1; i <= 7; ++i )  // we get all days in a week
                                 {
                                     aDate.SetDay( i );
-                                    sDate += SvxDateField::GetFormatted( aDate, eDateFormat, *pNumberFormatter, eLang );
+                                    sDate.append( SvxDateField::GetFormatted( aDate, eDateFormat, *pNumberFormatter, eLang ) );
                                 }
                                 SAL_FALLTHROUGH; // We need months too!
                             case SvxDateFormat::C:       // 13.Feb 1996
@@ -2231,7 +2234,7 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                                 for( sal_uInt16 i = 1; i <= 12; ++i ) // we get all months in a year
                                 {
                                     aDate.SetMonth( i );
-                                    sDate += SvxDateField::GetFormatted( aDate, eDateFormat, *pNumberFormatter, eLang );
+                                    sDate.append( SvxDateField::GetFormatted( aDate, eDateFormat, *pNumberFormatter, eLang ) );
                                 }
                                 break;
                             // coverity[dead_error_begin] - following conditions exist to avoid compiler warning
@@ -2242,7 +2245,7 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                                 // nothing to do here, we always collect the characters needed for these cases.
                                 break;
                         }
-                        aRepresentation += sDate;
+                        aRepresentation.append( sDate.makeStringAndClear() );
                     }
                 }
             }
@@ -2251,22 +2254,22 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                 switch( mVisiblePagePropSet.nPageNumberingType )
                 {
                     case css::style::NumberingType::CHARS_UPPER_LETTER:
-                        aRepresentation += "QWERTYUIOPASDFGHJKLZXCVBNM";
+                        aRepresentation.append( "QWERTYUIOPASDFGHJKLZXCVBNM" );
                         break;
                     case css::style::NumberingType::CHARS_LOWER_LETTER:
-                        aRepresentation += "qwertyuiopasdfghjklzxcvbnm";
+                        aRepresentation.append( "qwertyuiopasdfghjklzxcvbnm" );
                         break;
                     case css::style::NumberingType::ROMAN_UPPER:
-                        aRepresentation += "IVXLCDM";
+                        aRepresentation.append( "IVXLCDM" );
                         break;
                     case css::style::NumberingType::ROMAN_LOWER:
-                        aRepresentation += "ivxlcdm";
+                        aRepresentation.append( "ivxlcdm" );
                         break;
                     // arabic numbering type is the default
                     case css::style::NumberingType::ARABIC:
                     // in case the numbering type is not handled we fall back on arabic numbering
                     default:
-                        aRepresentation += "0123456789";
+                        aRepresentation.append( "0123456789" );
                         break;
                 }
             }
@@ -2280,10 +2283,10 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                 {
                     for (auto const& elem : *pCharSet)
                     {
-                        aRepresentation += OUStringLiteral1(elem);
+                        aRepresentation.append(elem);
                     }
                 }
-                pInfo->SetRepresentation( aRepresentation );
+                pInfo->SetRepresentation( aRepresentation.makeStringAndClear() );
             }
         }
         else

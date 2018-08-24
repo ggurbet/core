@@ -56,7 +56,6 @@
 #include <sfx2/objsh.hxx>
 
 #include <svx/svxids.hrc>
-#include <svx/dialmgr.hxx>
 #include <editeng/flstitem.hxx>
 #include <svx/drawitem.hxx>
 
@@ -142,18 +141,16 @@ void PresetPropertyBox::setValue( const Any& rValue, const OUString& rPresetId )
             OUString aPropertyValue;
             rValue >>= aPropertyValue;
 
-            UStringList aSubTypes( pDescriptor->getSubTypes() );
-            UStringList::iterator aIter( aSubTypes.begin() );
-            const UStringList::iterator aEnd( aSubTypes.end() );
+            std::vector<OUString> aSubTypes( pDescriptor->getSubTypes() );
 
-            mpControl->Enable( aIter != aEnd );
+            mpControl->Enable( !aSubTypes.empty() );
 
-            while( aIter != aEnd )
+            for( auto& aSubType : aSubTypes )
             {
-                sal_Int32 nPos = mpControl->InsertEntry( rPresets.getUINameForProperty( *aIter ) );
-                if( (*aIter) == aPropertyValue )
+                sal_Int32 nPos = mpControl->InsertEntry( rPresets.getUINameForProperty( aSubType ) );
+                if( aSubType == aPropertyValue )
                     mpControl->SelectEntryPos( nPos );
-                maPropertyValues[nPos] = (*aIter++);
+                maPropertyValues[nPos] = aSubType;
             }
         }
         else
@@ -1336,7 +1333,7 @@ void CustomAnimationEffectTabPage::update( STLPropertySet* pSet )
 
     if( mpCBSmoothStart->IsVisible() )
     {
-        // set selected value for accelerate if different then in original set
+        // set selected value for accelerate if different than in original set
 
         double fTemp = mpCBSmoothStart->IsChecked() ? 0.5 : 0.0;
 
@@ -1349,7 +1346,7 @@ void CustomAnimationEffectTabPage::update( STLPropertySet* pSet )
         if( fOldTemp != fTemp )
             pSet->setPropertyValue( nHandleAccelerate, makeAny( fTemp ) );
 
-        // set selected value for decelerate if different then in original set
+        // set selected value for decelerate if different than in original set
         fTemp = mpCBSmoothEnd->IsChecked() ? 0.5 : 0.0;
 
         if(mpSet->getPropertyState( nHandleDecelerate ) != STLPropertyState::Ambiguous)
@@ -2157,9 +2154,9 @@ IMPL_LINK_NOARG(CustomAnimationTextAnimTabPage, implSelectHdl, ListBox&, void)
     updateControlStates();
 }
 
-CustomAnimationDialog::CustomAnimationDialog(vcl::Window* pParent, STLPropertySet* pSet, const OString& sPage)
+CustomAnimationDialog::CustomAnimationDialog(vcl::Window* pParent, std::unique_ptr<STLPropertySet> pSet, const OString& sPage)
 : TabDialog( pParent, "CustomAnimationProperties", "modules/simpress/ui/customanimationproperties.ui")
-, mpSet( pSet )
+, mpSet( std::move(pSet) )
 , mpResultSet( nullptr )
 {
     get(mpTabControl, "tabs");
@@ -2168,18 +2165,18 @@ CustomAnimationDialog::CustomAnimationDialog(vcl::Window* pParent, STLPropertySe
     sal_uInt16 nTimingId = mpTabControl->GetPageId("timing");
     sal_uInt16 nTextAnimId = mpTabControl->GetPageId("textanim");
 
-    mpEffectTabPage = VclPtr<CustomAnimationEffectTabPage>::Create( mpTabControl, mpSet );
+    mpEffectTabPage = VclPtr<CustomAnimationEffectTabPage>::Create( mpTabControl, mpSet.get() );
     mpTabControl->SetTabPage( nEffectId, mpEffectTabPage );
-    mpDurationTabPage = VclPtr<CustomAnimationDurationTabPage>::Create( mpTabControl, mpSet );
+    mpDurationTabPage = VclPtr<CustomAnimationDurationTabPage>::Create( mpTabControl, mpSet.get() );
     mpTabControl->SetTabPage( nTimingId, mpDurationTabPage );
 
     bool bHasText = false;
-    if( pSet->getPropertyState( nHandleHasText ) != STLPropertyState::Ambiguous )
-        pSet->getPropertyValue( nHandleHasText ) >>= bHasText;
+    if( mpSet->getPropertyState( nHandleHasText ) != STLPropertyState::Ambiguous )
+        mpSet->getPropertyValue( nHandleHasText ) >>= bHasText;
 
     if( bHasText )
     {
-        mpTextAnimTabPage = VclPtr<CustomAnimationTextAnimTabPage>::Create( mpTabControl, mpSet );
+        mpTextAnimTabPage = VclPtr<CustomAnimationTextAnimTabPage>::Create( mpTabControl, mpSet.get() );
         mpTabControl->SetTabPage( nTextAnimId, mpTextAnimTabPage );
     }
     else
@@ -2203,8 +2200,8 @@ void CustomAnimationDialog::dispose()
     mpDurationTabPage.disposeAndClear();
     mpTextAnimTabPage.disposeAndClear();
 
-    delete mpSet;
-    delete mpResultSet;
+    mpSet.reset();
+    mpResultSet.reset();
 
     mpTabControl.clear();
     TabDialog::dispose();
@@ -2212,23 +2209,21 @@ void CustomAnimationDialog::dispose()
 
 STLPropertySet* CustomAnimationDialog::getResultSet()
 {
-    delete mpResultSet;
-
     mpResultSet = createDefaultSet();
 
-    mpEffectTabPage->update( mpResultSet );
-    mpDurationTabPage->update( mpResultSet );
+    mpEffectTabPage->update( mpResultSet.get() );
+    mpDurationTabPage->update( mpResultSet.get() );
     if( mpTextAnimTabPage )
-        mpTextAnimTabPage->update( mpResultSet );
+        mpTextAnimTabPage->update( mpResultSet.get() );
 
-    return mpResultSet;
+    return mpResultSet.get();
 }
 
-STLPropertySet* CustomAnimationDialog::createDefaultSet()
+std::unique_ptr<STLPropertySet> CustomAnimationDialog::createDefaultSet()
 {
     Any aEmpty;
 
-    STLPropertySet* pSet = new STLPropertySet();
+    std::unique_ptr<STLPropertySet> pSet(new STLPropertySet());
     pSet->setPropertyDefaultValue( nHandleMaxParaDepth, makeAny( sal_Int32(-1) ) );
 
     pSet->setPropertyDefaultValue( nHandleHasAfterEffect, makeAny( false ) );
@@ -2286,18 +2281,15 @@ PropertyControl::~PropertyControl()
 
 void PropertyControl::dispose()
 {
-    delete mpSubControl;
+    mpSubControl.reset();
     ListBox::dispose();
 }
 
-void PropertyControl::setSubControl( PropertySubControl* pSubControl )
+void PropertyControl::setSubControl( std::unique_ptr<PropertySubControl> pSubControl )
 {
-    if( mpSubControl && mpSubControl != pSubControl )
-        delete mpSubControl;
+    mpSubControl = std::move(pSubControl);
 
-    mpSubControl = pSubControl;
-
-    Control* pControl = pSubControl ? pSubControl->getControl() : nullptr;
+    Control* pControl = mpSubControl ? mpSubControl->getControl() : nullptr;
 
     if( pControl )
     {
@@ -2324,15 +2316,15 @@ PropertySubControl::~PropertySubControl()
 {
 }
 
-PropertySubControl* PropertySubControl::create( sal_Int32 nType, vcl::Window* pParent, const Any& rValue, const OUString& rPresetId, const Link<LinkParamNone*,void>& rModifyHdl )
+std::unique_ptr<PropertySubControl> PropertySubControl::create( sal_Int32 nType, vcl::Window* pParent, const Any& rValue, const OUString& rPresetId, const Link<LinkParamNone*,void>& rModifyHdl )
 {
-    PropertySubControl* pSubControl = nullptr;
+    std::unique_ptr<PropertySubControl> pSubControl;
     switch( nType )
     {
     case nPropertyTypeDirection:
     case nPropertyTypeSpokes:
     case nPropertyTypeZoom:
-        pSubControl = new PresetPropertyBox( nType, pParent, rValue, rPresetId, rModifyHdl );
+        pSubControl.reset( new PresetPropertyBox( nType, pParent, rValue, rPresetId, rModifyHdl ) );
         break;
 
     case nPropertyTypeColor:
@@ -2340,31 +2332,31 @@ PropertySubControl* PropertySubControl::create( sal_Int32 nType, vcl::Window* pP
     case nPropertyTypeFirstColor:
     case nPropertyTypeCharColor:
     case nPropertyTypeLineColor:
-        pSubControl = new ColorPropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new ColorPropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeFont:
-        pSubControl = new FontPropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new FontPropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeCharHeight:
-        pSubControl = new CharHeightPropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new CharHeightPropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeRotate:
-        pSubControl = new RotationPropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new RotationPropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeTransparency:
-        pSubControl = new TransparencyPropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new TransparencyPropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeScale:
-        pSubControl = new ScalePropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new ScalePropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeCharDecoration:
-        pSubControl = new FontStylePropertyBox( nType, pParent, rValue, rModifyHdl );
+        pSubControl.reset( new FontStylePropertyBox( nType, pParent, rValue, rModifyHdl ) );
         break;
     }
 

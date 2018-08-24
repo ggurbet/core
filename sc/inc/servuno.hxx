@@ -20,8 +20,10 @@
 #ifndef INCLUDED_SC_INC_SERVUNO_HXX
 #define INCLUDED_SC_INC_SERVUNO_HXX
 
-#include <com/sun/star/uno/XInterface.hpp>
-#include <com/sun/star/uno/Sequence.hxx>
+#include <com/sun/star/uno/Sequence.h>
+#include <com/sun/star/uno/Reference.h>
+
+namespace com { namespace sun { namespace star { namespace uno { class XInterface; } } } }
 
 class ScDocShell;
 
@@ -43,8 +45,8 @@ public:
         DOCSPRSETT , DOCCONF ,
 
         IMAP_RECT , IMAP_CIRC , IMAP_POLY ,
-        // Support creation of GraphicObjectResolver and EmbeddedObjectResolver
-        EXPORT_GOR , IMPORT_GOR , EXPORT_EOR , IMPORT_EOR ,
+        // Support creation of GraphicStorageHandler and EmbeddedObjectResolver
+        EXPORT_GRAPHIC_STORAGE_HANDLER , IMPORT_GRAPHIC_STORAGE_HANDLER , EXPORT_EOR , IMPORT_EOR ,
 
         VALBIND , LISTCELLBIND , LISTSOURCE ,
 

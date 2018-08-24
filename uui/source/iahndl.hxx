@@ -122,9 +122,6 @@ private:
 
     static void getstringfromrequest(void* pHandleData, void* pInteractionHandler);
 
-    vcl::Window *
-    getParentProperty();
-
     const css::uno::Reference< css::awt::XWindow>&
     getParentXWindow() const;
 
@@ -238,7 +235,7 @@ private:
                 const OUString& i_rServiceName
             ) const;
 
-    bool
+    void
     handleAuthFallbackRequest(
             OUString & instructions,
             OUString & url,

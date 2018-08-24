@@ -1222,10 +1222,10 @@ IMPL_LINK_NOARG(SwAuthorMarkPane, InsertHdl, Button*, void)
         }
 
         SwFieldMgr aMgr(pSh);
-        OUString sFields;
+        OUStringBuffer sFields;
         for(OUString & s : m_sFields)
         {
-            sFields += s + OUStringLiteral1(TOX_STYLE_DELIMITER);
+            sFields.append(s).append(TOX_STYLE_DELIMITER);
         }
         if(bNewEntry)
         {
@@ -1236,12 +1236,12 @@ IMPL_LINK_NOARG(SwAuthorMarkPane, InsertHdl, Button*, void)
                     aNewData.SetAuthorField(static_cast<ToxAuthorityField>(i), m_sFields[i]);
                 pSh->ChangeAuthorityData(&aNewData);
             }
-            SwInsertField_Data aData(TYP_AUTHORITY, 0, sFields, OUString(), 0 );
+            SwInsertField_Data aData(TYP_AUTHORITY, 0, sFields.makeStringAndClear(), OUString(), 0 );
             aMgr.InsertField( aData );
         }
         else if(aMgr.GetCurField())
         {
-            aMgr.UpdateCurField(0, sFields, OUString());
+            aMgr.UpdateCurField(0, sFields.makeStringAndClear(), OUString());
         }
     }
     if(!bNewEntry)
@@ -1517,7 +1517,7 @@ SwCreateAuthEntryDlg_Impl::SwCreateAuthEntryDlg_Impl(weld::Window* pParent,
         m_aFixedTexts.back()->show();
         if( AUTH_FIELD_AUTHORITY_TYPE == aCurInfo.nToxField )
         {
-            m_xTypeListBox.reset(m_aBuilders.back()->weld_combo_box_text("listbox"));
+            m_xTypeListBox = m_aBuilders.back()->weld_combo_box_text("listbox");
             if (bLeft)
                 m_aOrigContainers.back()->move(m_xTypeListBox.get(), m_xLeft.get());
             else
@@ -1539,7 +1539,7 @@ SwCreateAuthEntryDlg_Impl::SwCreateAuthEntryDlg_Impl(weld::Window* pParent,
         }
         else if(AUTH_FIELD_IDENTIFIER == aCurInfo.nToxField && !m_bNewEntryMode)
         {
-            m_xIdentifierBox.reset(m_aBuilders.back()->weld_combo_box_text("combobox"));
+            m_xIdentifierBox = m_aBuilders.back()->weld_combo_box_text("combobox");
             if (bLeft)
                 m_aOrigContainers.back()->move(m_xIdentifierBox.get(), m_xLeft.get());
             else
@@ -1567,7 +1567,7 @@ SwCreateAuthEntryDlg_Impl::SwCreateAuthEntryDlg_Impl(weld::Window* pParent,
         }
         else
         {
-            pEdits[nIndex].reset(m_aBuilders.back()->weld_entry("entry"));
+            pEdits[nIndex] = m_aBuilders.back()->weld_entry("entry");
             if (bLeft)
                 m_aOrigContainers.back()->move(pEdits[nIndex].get(), m_xLeft.get());
             else
@@ -1642,7 +1642,7 @@ IMPL_LINK(SwCreateAuthEntryDlg_Impl, IdentifierHdl, weld::ComboBoxText&, rBox, v
                 if(AUTH_FIELD_IDENTIFIER == aCurInfo.nToxField)
                     continue;
                 if(AUTH_FIELD_AUTHORITY_TYPE == aCurInfo.nToxField)
-                    m_xTypeListBox->set_active(
+                    m_xTypeListBox->set_active_text(
                                 pEntry->GetAuthorField(aCurInfo.nToxField));
                 else
                     pEdits[i]->set_text(

@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 
@@ -158,16 +159,18 @@ oslSignalAction VCLExceptionSignal_impl( void* /*pData*/, oslSignalInfo* pInfo)
     {
         bIn = true;
 
-        SolarMutexGuard aLock;
-
-        // do not stop timer because otherwise the UAE-Box will not be painted as well
-        ImplSVData* pSVData = ImplGetSVData();
-        if ( pSVData->mpApp )
+        vcl::SolarMutexTryAndBuyGuard aLock;
+        if( aLock.isAcquired())
         {
-            SystemWindowFlags nOldMode = Application::GetSystemWindowMode();
-            Application::SetSystemWindowMode( nOldMode & ~SystemWindowFlags::NOAUTOMODE );
-            pSVData->mpApp->Exception( nVCLException );
-            Application::SetSystemWindowMode( nOldMode );
+            // do not stop timer because otherwise the UAE-Box will not be painted as well
+            ImplSVData* pSVData = ImplGetSVData();
+            if ( pSVData->mpApp )
+            {
+                SystemWindowFlags nOldMode = Application::GetSystemWindowMode();
+                Application::SetSystemWindowMode( nOldMode & ~SystemWindowFlags::NOAUTOMODE );
+                pSVData->mpApp->Exception( nVCLException );
+                Application::SetSystemWindowMode( nOldMode );
+            }
         }
         bIn = false;
     }
@@ -357,15 +360,15 @@ bool InitVCL()
     pSVData->maAppData.mpAppFileName = new OUString( aNativeFileName );
 
     // Initialize global data
-    pSVData->maGDIData.mpScreenFontList     = new PhysicalFontCollection;
-    pSVData->maGDIData.mpScreenFontCache    = new ImplFontCache;
+    pSVData->maGDIData.mxScreenFontList.reset(new PhysicalFontCollection);
+    pSVData->maGDIData.mxScreenFontCache.reset(new ImplFontCache);
     pSVData->maGDIData.mpGrfConverter       = new GraphicConverter;
 
     g_bIsLeanException = getenv("LO_LEAN_EXCEPTION") != nullptr;
     // Set exception handler
     pExceptionHandler = osl_addSignalHandler(VCLExceptionSignal_impl, nullptr);
 
-#ifdef DBG_UTIL
+#ifndef NDEBUG
     DbgGUIInitSolarMutexCheck();
 #endif
 
@@ -431,8 +434,7 @@ void DeInitVCL()
     vcl::DeleteOnDeinitBase::ImplDeleteOnDeInit();
 
     // give ime status a chance to destroy its own windows
-    delete pSVData->mpImeStatus;
-    pSVData->mpImeStatus = nullptr;
+    pSVData->mpImeStatus.reset();
 
 #if OSL_DEBUG_LEVEL > 0
     OStringBuffer aBuf( 256 );
@@ -491,7 +493,7 @@ void DeInitVCL()
     }
     pSVData->mpDefaultWin.disposeAndClear();
 
-#ifdef DBG_UTIL
+#ifndef NDEBUG
     DbgGUIDeInitSolarMutexCheck();
 #endif
 
@@ -613,10 +615,8 @@ void DeInitVCL()
     pSVData->maWinData.mpAutoScrollWin = nullptr;
     pSVData->maWinData.mpLastWheelWindow = nullptr;
 
-    delete pSVData->maGDIData.mpScreenFontList;
-    pSVData->maGDIData.mpScreenFontList = nullptr;
-    delete pSVData->maGDIData.mpScreenFontCache;
-    pSVData->maGDIData.mpScreenFontCache = nullptr;
+    pSVData->maGDIData.mxScreenFontList.reset();
+    pSVData->maGDIData.mxScreenFontCache.reset();
 
     // Deinit Sal
     if (pSVData->mpDefInst)

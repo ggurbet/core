@@ -76,8 +76,8 @@
 #include <drawdoc.hxx>
 #include <app.hrc>
 
-#include <svx/svdetc.hxx>
 #include <svx/strings.hrc>
+#include <svx/dialmgr.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/range/b2drange.hxx>
@@ -291,7 +291,7 @@ void CustomAnimationPane::dispose()
 
 void CustomAnimationPane::addUndo()
 {
-    ::svl::IUndoManager* pManager = mrBase.GetDocShell()->GetUndoManager();
+    SfxUndoManager* pManager = mrBase.GetDocShell()->GetUndoManager();
     if( pManager )
     {
         SdPage* pPage = SdPage::getImplementation( mxCurrentPage );
@@ -575,7 +575,7 @@ void CustomAnimationPane::updateControls()
 
             Any aValue;
 
-            UStringList aProperties( pDescriptor->getProperties() );
+            std::vector<OUString> aProperties( pDescriptor->getProperties() );
             if( aProperties.size() >= 1 )
             {
                 mnPropertyType = getPropertyType( aProperties.front() );
@@ -590,8 +590,9 @@ void CustomAnimationPane::updateControls()
                 pSubControl = mpLBProperty->getSubControl();
                 if( !pSubControl || (pSubControl->getControlType() != mnPropertyType) )
                 {
-                    pSubControl = PropertySubControl::create( mnPropertyType, mpPlaceholderBox, aValue, pEffect->getPresetId(), LINK( this, CustomAnimationPane, implPropertyHdl ) );
-                    mpLBProperty->setSubControl( pSubControl );
+                    auto pNewControl = PropertySubControl::create( mnPropertyType, mpPlaceholderBox, aValue, pEffect->getPresetId(), LINK( this, CustomAnimationPane, implPropertyHdl ) );
+                    pSubControl = pNewControl.get();
+                    mpLBProperty->setSubControl( std::move(pNewControl) );
                 }
                 else
                 {
@@ -859,12 +860,9 @@ void CustomAnimationPane::onSelectionChanged()
         if( mxView.is() ) try
         {
             Reference< XSelectionSupplier >  xSel( mxView, UNO_QUERY_THROW );
-            if (xSel.is())
-            {
-                maViewSelection = xSel->getSelection();
-                mpCustomAnimationList->onSelectionChanged( maViewSelection );
-                updateControls();
-            }
+            maViewSelection = xSel->getSelection();
+            mpCustomAnimationList->onSelectionChanged( maViewSelection );
+            updateControls();
         }
         catch( Exception& )
         {
@@ -919,7 +917,7 @@ void CustomAnimationPane::UpdateLook()
     }
 }
 
-void addValue( STLPropertySet* pSet, sal_Int32 nHandle, const Any& rValue )
+void addValue( std::unique_ptr<STLPropertySet>& pSet, sal_Int32 nHandle, const Any& rValue )
 {
     switch( pSet->getPropertyState( nHandle ) )
     {
@@ -1124,9 +1122,9 @@ static bool hasVisibleShape( const Reference< XShape >& xShape )
     return true;
 }
 
-STLPropertySet* CustomAnimationPane::createSelectionSet()
+std::unique_ptr<STLPropertySet> CustomAnimationPane::createSelectionSet()
 {
-    STLPropertySet* pSet = CustomAnimationDialog::createDefaultSet();
+    std::unique_ptr<STLPropertySet> pSet = CustomAnimationDialog::createDefaultSet();
 
     pSet->setPropertyValue( nHandleCurrentPage, makeAny( mxCurrentPage ) );
 
@@ -1212,7 +1210,7 @@ STLPropertySet* CustomAnimationPane::createSelectionSet()
         {
             sal_Int32 nType = nPropertyTypeNone;
 
-            UStringList aProperties( pDescriptor->getProperties() );
+            std::vector<OUString> aProperties( pDescriptor->getProperties() );
             if( aProperties.size() >= 1 )
                 nType = getPropertyType( aProperties.front() );
 
@@ -1503,15 +1501,23 @@ void CustomAnimationPane::changeSelection( STLPropertySet const * pResultSet, ST
 
         if( bHasTextGrouping )
             pResultSet->getPropertyValue(nHandleTextGrouping) >>= nTextGrouping;
+        else
+            pOldSet->getPropertyValue(nHandleTextGrouping) >>= nTextGrouping;
 
         if( bHasAnimateForm )
             pResultSet->getPropertyValue(nHandleAnimateForm) >>= bAnimateForm;
+        else
+            pOldSet->getPropertyValue(nHandleAnimateForm) >>= bAnimateForm;
 
         if( bHasTextGroupingAuto )
             pResultSet->getPropertyValue(nHandleTextGroupingAuto) >>= fTextGroupingAuto;
+        else
+            pOldSet->getPropertyValue(nHandleTextGroupingAuto) >>= fTextGroupingAuto;
 
         if( bHasTextReverse )
             pResultSet->getPropertyValue(nHandleTextReverse) >>= bTextReverse;
+        else
+            pOldSet->getPropertyValue(nHandleTextReverse) >>= bTextReverse;
 
         EffectSequence const aSelectedEffects( maListSelection );
         EffectSequence::const_iterator iter( aSelectedEffects.begin() );
@@ -1606,6 +1612,17 @@ void CustomAnimationPane::changeSelection( STLPropertySet const * pResultSet, ST
                 if( pTextGroup.get() && pTextGroup->getTextGrouping() != nTextGrouping )
                 {
                     pEffectSequence->setTextGrouping( pTextGroup, nTextGrouping );
+
+                    // All the effects of the outline object is removed so we need to
+                    // put it back. OTOH, the shape object that still has effects
+                    // in the text group is fine.
+                    if (nTextGrouping == -1 && pTextGroup->getEffects().size() == 0)
+                    {
+                        pEffect->setTarget(makeAny(pEffect->getTargetShape()));
+                        pEffect->setGroupId(-1);
+                        mpMainSequence->append(pEffect);
+                    }
+
                     bChanged = true;
                 }
             }
@@ -1649,15 +1666,18 @@ void CustomAnimationPane::changeSelection( STLPropertySet const * pResultSet, ST
 
 void CustomAnimationPane::showOptions(const OString& sPage)
 {
-    STLPropertySet* pSet = createSelectionSet();
+    std::unique_ptr<STLPropertySet> pSet = createSelectionSet();
 
-    VclPtrInstance< CustomAnimationDialog > pDlg(this, pSet, sPage);
-    if( pDlg->Execute() )
-    {
-        addUndo();
-        changeSelection( pDlg->getResultSet(), pSet );
-        updateControls();
-    }
+    auto pDlg = VclPtr<CustomAnimationDialog>::Create(this, std::move(pSet), sPage);
+
+    pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                if (nResult )
+                {
+                    addUndo();
+                    changeSelection( pDlg->getResultSet(), pDlg->getPropertySet() );
+                    updateControls();
+                }
+            });
 }
 
 void CustomAnimationPane::onChangeCurrentPage()
@@ -1761,8 +1781,8 @@ void CustomAnimationPane::onAdd()
         maViewSelection >>= xShapes;
 
         sal_Int32 nCount = xShapes->getCount();
-        sal_Int32 nIndex;
-        for( nIndex = 0; nIndex < nCount; nIndex++ )
+        aTargets.reserve( nCount );
+        for( sal_Int32 nIndex = 0; nIndex < nCount; nIndex++ )
         {
             Any aTarget( xShapes->getByIndex( nIndex ) );
             aTargets.push_back( aTarget );
@@ -2155,6 +2175,16 @@ IMPL_LINK_NOARG(CustomAnimationPane, AnimationSelectHdl, ListBox&, void)
         {
             CustomAnimationEffectPtr pEffect = (*aIter++);
 
+            // Dispose the deprecated motion path tag. It will be rebuilt later.
+            if (pEffect->getPresetClass() == css::presentation::EffectPresetClass::MOTIONPATH)
+            {
+                for (auto const& xTag: maMotionPathTags)
+                {
+                    if(xTag->getEffect() == pEffect && !xTag->isDisposed())
+                        xTag->Dispose();
+                }
+            }
+
             EffectSequenceHelper* pEffectSequence = pEffect->getEffectSequence();
             if( !pEffectSequence )
                 pEffectSequence = mpMainSequence.get();
@@ -2211,9 +2241,9 @@ sal_uInt32 CustomAnimationPane::fillAnimationLB( bool bHasText )
     {
         OUString sMotionPathLabel( SdResId( STR_CUSTOMANIMATION_USERPATH ) );
         mpLBAnimation->InsertCategory( sMotionPathLabel );
-        mnCurvePathPos = mpLBAnimation->InsertEntry( sdr::GetResourceString(STR_ObjNameSingulCOMBLINE) );
-        mnPolygonPathPos = mpLBAnimation->InsertEntry( sdr::GetResourceString(STR_ObjNameSingulPOLY) );
-        mnFreeformPathPos = mpLBAnimation->InsertEntry( sdr::GetResourceString(STR_ObjNameSingulFREELINE) );
+        mnCurvePathPos = mpLBAnimation->InsertEntry( SvxResId(STR_ObjNameSingulCOMBLINE) );
+        mnPolygonPathPos = mpLBAnimation->InsertEntry( SvxResId(STR_ObjNameSingulPOLY) );
+        mnFreeformPathPos = mpLBAnimation->InsertEntry( SvxResId(STR_ObjNameSingulFREELINE) );
     }
 
     while(aCategoryIter != aCategoryEnd)
@@ -2316,6 +2346,7 @@ void CustomAnimationPane::moveSelection( bool bUp )
             CustomAnimationEffectPtr pEffect = (*aIter++);
 
             EffectSequence::iterator aUpEffectPos( pSequence->find( pEffect ) );
+            // coverity[copy_paste_error : FALSE] - this is correct, checking if it exists
             if( aUpEffectPos != rEffectSequence.end() )
             {
                 EffectSequence::iterator aInsertPos( rEffectSequence.erase( aUpEffectPos ) );
@@ -2346,6 +2377,7 @@ void CustomAnimationPane::moveSelection( bool bUp )
             CustomAnimationEffectPtr pEffect = (*aIter++);
 
             EffectSequence::iterator aDownEffectPos( pSequence->find( pEffect ) );
+            // coverity[copy_paste_error : FALSE] - this is correct, checking if it exists
             if( aDownEffectPos != rEffectSequence.end() )
             {
                 EffectSequence::iterator aInsertPos( rEffectSequence.erase( aDownEffectPos ) );
@@ -2484,7 +2516,7 @@ void CustomAnimationPane::updatePathFromMotionPathTag( const rtl::Reference< Mot
         CustomAnimationEffectPtr pEffect = xTag->getEffect();
         if( (pPathObj != nullptr) && pEffect.get() != nullptr )
         {
-            ::svl::IUndoManager* pManager = mrBase.GetDocShell()->GetUndoManager();
+            SfxUndoManager* pManager = mrBase.GetDocShell()->GetUndoManager();
             if( pManager )
             {
                 SdPage* pPage = SdPage::getImplementation( mxCurrentPage );

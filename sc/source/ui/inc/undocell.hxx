@@ -24,13 +24,13 @@
 #include <postit.hxx>
 #include <cellvalue.hxx>
 #include <cellvalues.hxx>
+#include <svx/svdundo.hxx>
 
 #include <memory>
 
 class ScDocShell;
 class ScPatternAttr;
 class EditTextObject;
-class SdrUndoAction;
 class ScDetOpList;
 class ScDetOpData;
 class ScRangeName;
@@ -41,6 +41,51 @@ namespace sc {
 class CellValues;
 
 }
+
+class ScUndoSdrCaptionObj: public SdrUndoAction
+{
+protected:
+    SdrObjList* m_pObjList;
+    sal_uInt32  m_nOrdNum;
+    std::shared_ptr< SdrCaptionObj > m_pCaptionObj;
+
+    void UnmarkObject();
+    void BroadcastSwitchToPage();
+    OUString GetDescriptionString( const char* pStrCacheID, bool bRepeat = false ) const;
+
+public:
+    ScUndoSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >&);
+    virtual ~ScUndoSdrCaptionObj() override;
+};
+
+class ScUndoDelSdrCaptionObj: public ScUndoSdrCaptionObj
+{
+public:
+    ScUndoDelSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj);
+    virtual ~ScUndoDelSdrCaptionObj() override;
+
+    virtual void    Undo() override;
+    virtual void    Redo() override;
+
+    virtual OUString GetComment() const override;
+    virtual OUString GetSdrRepeatComment(SdrView& rView) const override;
+
+    virtual void SdrRepeat(SdrView& rView) override;
+    virtual bool CanSdrRepeat(SdrView& rView) const override;
+};
+
+
+class ScUndoNewSdrCaptionObj: public ScUndoSdrCaptionObj
+{
+public:
+    ScUndoNewSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj);
+    virtual ~ScUndoNewSdrCaptionObj() override;
+
+    virtual void    Undo() override;
+    virtual void    Redo() override;
+
+    virtual OUString GetComment() const override;
+};
 
 class ScUndoCursorAttr: public ScSimpleUndo
 {
@@ -280,7 +325,7 @@ private:
     ScAddress       maPos;
     ScNoteData      maOldData;
     ScNoteData      maNewData;
-    SdrUndoAction*  mpDrawUndo;
+    std::unique_ptr<SdrUndoAction> mpDrawUndo;
 };
 
 /** Undo action for showing or hiding a cell note caption. */
@@ -319,10 +364,10 @@ public:
 
 private:
     bool            bIsDelete;
-    ScDetOpList*    pOldList;
+    std::unique_ptr<ScDetOpList> pOldList;
     sal_uInt16      nAction;
     ScAddress       aPos;
-    SdrUndoAction*  pDrawUndo;
+    std::unique_ptr<SdrUndoAction> pDrawUndo;
 };
 
 class ScUndoRangeNames: public ScSimpleUndo
@@ -341,8 +386,8 @@ public:
     virtual OUString GetComment() const override;
 
 private:
-    ScRangeName*    pOldRanges;
-    ScRangeName*    pNewRanges;
+    std::unique_ptr<ScRangeName> pOldRanges;
+    std::unique_ptr<ScRangeName> pNewRanges;
     SCTAB           mnTab;
 
     void            DoChange( bool bUndo );

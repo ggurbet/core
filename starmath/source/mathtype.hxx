@@ -21,6 +21,7 @@
 #define INCLUDED_STARMATH_SOURCE_MATHTYPE_HXX
 
 #include <rtl/ustring.hxx>
+#include <rtl/ustrbuf.hxx>
 
 #include <set>
 #include <vector>
@@ -55,7 +56,7 @@ typedef ::std::set< MathTypeFont, LessMathTypeFont > MathTypeFontSet;
 class MathType
 {
 public:
-    explicit MathType(OUString &rIn)
+    explicit MathType(OUStringBuffer &rIn)
         : nVersion(0)
         , pS(nullptr)
         , rRet(rIn)
@@ -76,7 +77,7 @@ public:
         Init();
     }
 
-    MathType(OUString &rIn,SmNode *pIn)
+    MathType(OUStringBuffer &rIn,SmNode *pIn)
         : nVersion(0)
         , pS(nullptr)
         , rRet(rIn)
@@ -149,7 +150,7 @@ private:
     void HandleAttributes(SmNode *pNode,int nLevel);
     void TypeFaceToString(OUString &rRet,sal_uInt8 nFace);
 
-    OUString &rRet;
+    OUStringBuffer &rRet;
     SmNode *pTree;
 
     sal_uInt8 nHAlign;
@@ -164,7 +165,7 @@ private:
     sal_Int16 nLastSize;
     sal_uInt8 nSpec;
     bool  bIsReInterpBrace;
-    OUString  sPost;
+    OUStringBuffer sPost;
     sal_Int32 nPostSup;
     sal_Int32 nPostlSup;
     sal_uInt8 nTypeFace;
@@ -182,7 +183,7 @@ private:
         tmOARC
     };
 public:
-    static bool LookupChar(sal_Unicode nChar,OUString &rRet,
+    static bool LookupChar(sal_Unicode nChar,OUStringBuffer &rRet,
         sal_uInt8 nVersion,sal_uInt8 nTypeFace=0);
 };
 

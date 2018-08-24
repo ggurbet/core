@@ -20,6 +20,7 @@
 #define INCLUDED_SVX_FNTCTRL_HXX
 
 #include <memory>
+#include <vcl/customweld.hxx>
 #include <vcl/window.hxx>
 #include <editeng/svxfont.hxx>
 #include <svx/svxdllapi.h>
@@ -66,9 +67,6 @@ public:
     void                Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& ) override;
 
     bool                IsTwoLines() const;
-    void                SetTwoLines(bool bSet);
-
-    void                SetBrackets(sal_Unicode cStart, sal_Unicode cEnd);
 
     void                SetFontWidthScale( sal_uInt16 nScaleInPercent );
 
@@ -86,6 +84,49 @@ public:
                                         bool bPreviewBackgroundToCharacter );
 
     virtual Size GetOptimalSize() const override;
+};
+
+class SAL_WARN_UNUSED SVX_DLLPUBLIC FontPrevWindow : public weld::CustomWidgetController
+{
+private:
+    std::unique_ptr<FontPrevWin_Impl> pImpl;
+    bool mbResetForeground : 1;
+    bool mbResetBackground : 1;
+
+    SVX_DLLPRIVATE void ResetSettings();
+    SVX_DLLPRIVATE void ApplySettings(vcl::RenderContext& rRenderContext);
+    virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
+    SVX_DLLPRIVATE static void SetFontSize(const SfxItemSet& rSet, sal_uInt16 nSlot, SvxFont& rFont);
+    SVX_DLLPRIVATE static void SetFontLang(const SfxItemSet& rSet, sal_uInt16 nSlot, SvxFont& rFont);
+
+public:
+                        FontPrevWindow();
+    virtual             ~FontPrevWindow() override;
+
+    virtual void        StyleUpdated() override;
+
+    // for reasons of efficiency not const
+    SvxFont&            GetFont();
+    const SvxFont&      GetFont() const;
+    SvxFont&            GetCJKFont();
+    SvxFont&            GetCTLFont();
+    void                SetBackColor( const Color& rColor );
+    void                Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& ) override;
+
+    bool                IsTwoLines() const;
+    void                SetTwoLines(bool bSet);
+
+    void                SetBrackets(sal_Unicode cStart, sal_Unicode cEnd);
+
+    void                SetFontWidthScale( sal_uInt16 nScaleInPercent );
+
+    void                AutoCorrectFontColor();
+
+    void                SetPreviewText( const OUString& rString );
+    void                SetFontNameAsPreviewText();
+
+    void                SetFromItemSet( const SfxItemSet &rSet,
+                                        bool bPreviewBackgroundToCharacter );
 };
 
 #endif // INCLUDED_SVX_FNTCTRL_HXX

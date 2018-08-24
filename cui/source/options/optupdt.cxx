@@ -39,6 +39,7 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <osl/file.hxx>
 #include <osl/security.hxx>
+#include <sal/log.hxx>
 
 using namespace ::css;
 
@@ -198,9 +199,9 @@ void SvxOnlineUpdateTabPage::UpdateUserAgent()
 }
 
 VclPtr<SfxTabPage>
-SvxOnlineUpdateTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+SvxOnlineUpdateTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxOnlineUpdateTabPage>::Create( pParent, *rAttrSet );
+    return VclPtr<SvxOnlineUpdateTabPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 bool SvxOnlineUpdateTabPage::FillItemSet( SfxItemSet* )

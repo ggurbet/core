@@ -19,7 +19,6 @@
 
 #include <com/sun/star/util/SearchAlgorithms2.hpp>
 #include <com/sun/star/util/SearchFlags.hpp>
-#include <comphelper/string.hxx>
 #include <i18nutil/transliteration.hxx>
 #include <i18nutil/searchopt.hxx>
 #include <svl/fstathelper.hxx>
@@ -155,7 +154,7 @@ void SwEditShell::InsertTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
 }
 
 /// update tables of content
-bool SwEditShell::UpdateTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
+void SwEditShell::UpdateTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
 {
     OSL_ENSURE( dynamic_cast<const SwTOXBaseSection*>( &rTOX) !=  nullptr,  "no TOXBaseSection!" );
     SwTOXBaseSection* pTOX = const_cast<SwTOXBaseSection*>(static_cast<const SwTOXBaseSection*>(&rTOX));
@@ -192,7 +191,6 @@ bool SwEditShell::UpdateTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
         ::EndProgress( pDocSh );
         EndAllAction();
     }
-    return false;
 }
 
 /// Get current listing before or at the Cursor

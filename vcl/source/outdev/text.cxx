@@ -26,6 +26,7 @@
 
 #include <comphelper/processfactory.hxx>
 #include <osl/file.h>
+#include <sal/log.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/textrectinfo.hxx>
@@ -217,9 +218,10 @@ bool OutputDevice::ImplDrawRotateText( SalLayout& rSalLayout )
     if( !pVDev->SetOutputSizePixel( aBoundRect.GetSize() ) )
         return false;
 
+    const FontSelectPattern& rPattern = mpFontInstance->GetFontSelectPattern();
     vcl::Font aFont( GetFont() );
     aFont.SetOrientation( 0 );
-    aFont.SetFontSize( Size( mpFontInstance->maFontSelData.mnWidth, mpFontInstance->maFontSelData.mnHeight ) );
+    aFont.SetFontSize( Size( rPattern.mnWidth, rPattern.mnHeight ) );
     pVDev->SetFont( aFont );
     pVDev->SetTextColor( COL_BLACK );
     pVDev->SetTextFillColor();
@@ -712,7 +714,6 @@ void OutputDevice::SetTextFillColor()
 
 void OutputDevice::SetTextFillColor( const Color& rColor )
 {
-
     Color aColor( rColor );
     bool bTransFill = ImplIsColorTransparent( aColor );
 
@@ -787,7 +788,7 @@ void OutputDevice::SetTextAlign( TextAlign eAlign )
 void OutputDevice::DrawText( const Point& rStartPt, const OUString& rStr,
                              sal_Int32 nIndex, sal_Int32 nLen,
                              MetricVector* pVector, OUString* pDisplayText,
-                             SalLayout* pLayoutCache
+                             const SalLayoutGlyphs* pLayoutCache
                              )
 {
     assert(!is_double_buffered_window());
@@ -872,32 +873,10 @@ void OutputDevice::DrawText( const Point& rStartPt, const OUString& rStr,
             pLayoutCache = nullptr;
     #endif
 
-    // without cache
-    if(!pLayoutCache)
+    std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen, rStartPt, 0, nullptr, SalLayoutFlags::NONE, nullptr, pLayoutCache);
+    if(pSalLayout)
     {
-        std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen, rStartPt);
-        if(pSalLayout)
-        {
-            ImplDrawText( *pSalLayout );
-        }
-    }
-    else
-    {
-        // initialize font if needed
-        if( mbNewFont )
-            if( !ImplNewFont() )
-                return;
-        if( mbInitFont )
-            InitFont();
-
-
-        OUString aStrModifiable = rStr;
-        ImplLayoutArgs aLayoutArgs = ImplPrepareLayoutArgs( aStrModifiable, nIndex, nLen,
-                0, nullptr);
-
-        pLayoutCache->DrawBase() = ImplLogicToDevicePixel( rStartPt );
-
-        ImplDrawText( *pLayoutCache );
+        ImplDrawText( *pSalLayout );
     }
 
     if( mpAlphaVDev )
@@ -906,7 +885,7 @@ void OutputDevice::DrawText( const Point& rStartPt, const OUString& rStr,
 
 long OutputDevice::GetTextWidth( const OUString& rStr, sal_Int32 nIndex, sal_Int32 nLen,
      vcl::TextLayoutCache const*const pLayoutCache,
-     SalLayout const*const pSalLayoutCache) const
+     SalLayoutGlyphs const*const pSalLayoutCache) const
 {
 
     long nWidth = GetTextArray( rStr, nullptr, nIndex,
@@ -948,7 +927,9 @@ float OutputDevice::approximate_digit_width() const
 
 void OutputDevice::DrawTextArray( const Point& rStartPt, const OUString& rStr,
                                   const long* pDXAry,
-                                  sal_Int32 nIndex, sal_Int32 nLen, SalLayoutFlags flags )
+                                  sal_Int32 nIndex, sal_Int32 nLen, SalLayoutFlags flags,
+                                  vcl::TextLayoutCache const*const pLayoutCache,
+                                  const SalLayoutGlyphs* pSalLayoutCache )
 {
     assert(!is_double_buffered_window());
 
@@ -968,7 +949,7 @@ void OutputDevice::DrawTextArray( const Point& rStartPt, const OUString& rStr,
     if( mbOutputClipped )
         return;
 
-    std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen, rStartPt, 0, pDXAry, flags);
+    std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen, rStartPt, 0, pDXAry, flags, pLayoutCache, pSalLayoutCache);
     if( pSalLayout )
     {
         ImplDrawText( *pSalLayout );
@@ -981,7 +962,7 @@ void OutputDevice::DrawTextArray( const Point& rStartPt, const OUString& rStr,
 long OutputDevice::GetTextArray( const OUString& rStr, long* pDXAry,
                                  sal_Int32 nIndex, sal_Int32 nLen,
                                  vcl::TextLayoutCache const*const pLayoutCache,
-                                 SalLayout const*const pSalLayoutCache) const
+                                 SalLayoutGlyphs const*const pSalLayoutCache) const
 {
     if( nIndex >= rStr.getLength() )
         return 0; // TODO: this looks like a buggy caller?
@@ -991,29 +972,22 @@ long OutputDevice::GetTextArray( const OUString& rStr, long* pDXAry,
         nLen = rStr.getLength() - nIndex;
     }
 
-    std::unique_ptr<SalLayout> xSalLayout;
-    const SalLayout*  pSalLayout = pSalLayoutCache;
-
-    if(!pSalLayoutCache)
+    // do layout
+    std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen,
+            Point(0,0), 0, nullptr, SalLayoutFlags::NONE, pLayoutCache, pSalLayoutCache);
+    if( !pSalLayout )
     {
-        // do layout
-        xSalLayout = ImplLayout(rStr, nIndex, nLen,
-                Point(0,0), 0, nullptr, SalLayoutFlags::NONE, pLayoutCache);
-        pSalLayout = xSalLayout.get();
-        if( !pSalLayout )
+        // The caller expects this to init the elements of pDXAry.
+        // Adapting all the callers to check that GetTextArray succeeded seems
+        // too much work.
+        // Init here to 0 only in the (rare) error case, so that any missing
+        // element init in the happy case will still be found by tools,
+        // and hope that is sufficient.
+        if (pDXAry)
         {
-            // The caller expects this to init the elements of pDXAry.
-            // Adapting all the callers to check that GetTextArray succeeded seems
-            // too much work.
-            // Init here to 0 only in the (rare) error case, so that any missing
-            // element init in the happy case will still be found by tools,
-            // and hope that is sufficient.
-            if (pDXAry)
-            {
-                memset(pDXAry, 0, nLen * sizeof(*pDXAry));
-            }
-            return 0;
+            memset(pDXAry, 0, nLen * sizeof(*pDXAry));
         }
+        return 0;
     }
 
 #if VCL_FLOAT_DEVICE_PIXEL
@@ -1273,7 +1247,8 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
                                     sal_Int32 nMinIndex, sal_Int32 nLen,
                                     const Point& rLogicalPos, long nLogicalWidth,
                                     const long* pDXArray, SalLayoutFlags flags,
-         vcl::TextLayoutCache const* pLayoutCache) const
+         vcl::TextLayoutCache const* pLayoutCache,
+         const SalLayoutGlyphs* pGlyphs) const
 {
     // we need a graphics
     if( !mpGraphics )
@@ -1303,6 +1278,7 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
     if( mpFontInstance->mpConversion ) {
         mpFontInstance->mpConversion->RecodeString( aStr, 0, aStr.getLength() );
         pLayoutCache = nullptr; // don't use cache with modified string!
+        pGlyphs = nullptr;
     }
     DeviceCoordinate nPixelWidth = static_cast<DeviceCoordinate>(nLogicalWidth);
     std::unique_ptr<DeviceCoordinate[]> xDXPixelArray;
@@ -1348,7 +1324,7 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
     std::unique_ptr<SalLayout> pSalLayout = mpGraphics->GetTextLayout( aLayoutArgs, 0 );
 
     // layout text
-    if( pSalLayout && !pSalLayout->LayoutText( aLayoutArgs ) )
+    if( pSalLayout && !pSalLayout->LayoutText( aLayoutArgs, pGlyphs ) )
     {
         pSalLayout.reset();
     }
@@ -1356,9 +1332,12 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
     if( !pSalLayout )
         return nullptr;
 
+    if (flags & SalLayoutFlags::GlyphItemsOnly)
+        return pSalLayout;
+
     // do glyph fallback if needed
     // #105768# avoid fallback for very small font sizes
-    if (aLayoutArgs.NeedFallback() && mpFontInstance->maFontSelData.mnHeight >= 3)
+    if (aLayoutArgs.NeedFallback() && mpFontInstance->GetFontSelectPattern().mnHeight >= 3)
         pSalLayout = ImplGlyphFallbackLayout(std::move(pSalLayout), aLayoutArgs);
 
     // position, justify, etc. the layout
@@ -2340,7 +2319,7 @@ SystemTextLayoutData OutputDevice::GetSysTextLayoutData(const Point& rStartPt, c
     Point aPos;
     const GlyphItem* pGlyph;
     int nStart = 0;
-    while (pLayout->GetNextGlyphs(1, &pGlyph, aPos, nStart))
+    while (pLayout->GetNextGlyph(&pGlyph, aPos, nStart))
     {
         SystemGlyphData aSystemGlyph;
         aSystemGlyph.index = pGlyph->maGlyphId;

@@ -131,7 +131,7 @@ public:
 };
 
 /// field stack element
-class FieldContext
+class FieldContext : public virtual SvRefBase
 {
     bool m_bFieldCommandCompleted;
     css::uno::Reference<css::text::XTextRange> m_xStartRange;
@@ -159,7 +159,7 @@ class FieldContext
 
 public:
     explicit FieldContext(css::uno::Reference<css::text::XTextRange> const& xStart);
-    ~FieldContext();
+    ~FieldContext() override;
 
     const css::uno::Reference<css::text::XTextRange>& GetStartRange() const { return m_xStartRange; }
 
@@ -240,7 +240,7 @@ struct AnchoredContext
     }
 };
 
-typedef std::shared_ptr<FieldContext>  FieldContextPtr;
+typedef tools::SvRef<FieldContext>  FieldContextPtr;
 
 /*-------------------------------------------------------------------------
     extended tab stop struct
@@ -454,8 +454,8 @@ private:
     SymbolData                                                                      m_aSymbolData;
 
     // TableManagers are stacked: one for each stream to avoid any confusion
-    std::stack< std::shared_ptr< DomainMapperTableManager > > m_aTableManagers;
-    std::shared_ptr<DomainMapperTableHandler> m_pTableHandler;
+    std::stack< tools::SvRef< DomainMapperTableManager > > m_aTableManagers;
+    tools::SvRef<DomainMapperTableHandler> m_pTableHandler;
 
     //each context needs a stack of currently used attributes
     std::stack<PropertyMapPtr>  m_aPropertyStacks[NUMBER_OF_CONTEXTS];
@@ -474,7 +474,8 @@ private:
     PropertyMapPtr           m_pLastCharacterContext;
 
     ::std::vector<DeletableTabStop> m_aCurrentTabStops;
-    OUString                 m_sCurrentParaStyleId;
+    OUString                        m_sCurrentParaStyleName; //highly inaccurate. Overwritten by "overlapping" paragraphs like comments, flys.
+    OUString                        m_sDefaultParaStyleName; //caches the ConvertedStyleName of the default paragraph style
     bool                            m_bInStyleSheetImport; //in import of fonts, styles, lists or lfos
     bool                            m_bInAnyTableImport; //in import of fonts, styles, lists or lfos
     bool                            m_bInHeaderFooterImport;
@@ -625,10 +626,10 @@ public:
     void setParaSdtEndDeferred(bool bParaSdtEndDeferred);
     bool isParaSdtEndDeferred();
 
-    void finishParagraph( const PropertyMapPtr& pPropertyMap );
+    void finishParagraph( const PropertyMapPtr& pPropertyMap, const bool bRemove = false);
     void appendTextPortion( const OUString& rString, const PropertyMapPtr& pPropertyMap );
     void appendTextContent(const css::uno::Reference<css::text::XTextContent>&, const css::uno::Sequence<css::beans::PropertyValue>&);
-    void appendOLE( const OUString& rStreamName, const OLEHandlerPtr& pOleHandler );
+    void appendOLE( const OUString& rStreamName, const std::shared_ptr<OLEHandler>& pOleHandler );
     void appendStarMath( const Value& v );
     css::uno::Reference<css::beans::XPropertySet> appendTextSectionAfter(css::uno::Reference<css::text::XTextRange> const & xBefore);
 
@@ -659,27 +660,27 @@ public:
     FontTablePtr const & GetFontTable()
     {
         if(!m_pFontTable)
-            m_pFontTable.reset(new FontTable());
+            m_pFontTable = new FontTable();
          return m_pFontTable;
     }
     StyleSheetTablePtr const & GetStyleSheetTable()
     {
         if(!m_pStyleSheetTable)
-            m_pStyleSheetTable.reset(new StyleSheetTable( m_rDMapper, m_xTextDocument, m_bIsNewDoc ));
+            m_pStyleSheetTable = new StyleSheetTable( m_rDMapper, m_xTextDocument, m_bIsNewDoc );
         return m_pStyleSheetTable;
     }
     ListsManager::Pointer const & GetListTable();
     ThemeTablePtr const & GetThemeTable()
     {
         if(!m_pThemeTable)
-            m_pThemeTable.reset( new ThemeTable );
+            m_pThemeTable = new ThemeTable;
         return m_pThemeTable;
     }
 
     SettingsTablePtr const & GetSettingsTable()
     {
         if( !m_pSettingsTable )
-            m_pSettingsTable.reset(new SettingsTable(m_rDMapper));
+            m_pSettingsTable = new SettingsTable(m_rDMapper);
         return m_pSettingsTable;
     }
 
@@ -692,10 +693,13 @@ public:
     void    IncorporateTabStop( const DeletableTabStop &aTabStop );
     css::uno::Sequence<css::style::TabStop> GetCurrentTabStopAndClear();
 
-    void        SetCurrentParaStyleId(const OUString& sStringValue) {m_sCurrentParaStyleId = sStringValue;}
-    const OUString& GetCurrentParaStyleId() const {return m_sCurrentParaStyleId;}
+    void            SetCurrentParaStyleName(const OUString& sStringValue) {m_sCurrentParaStyleName = sStringValue;}
+    const OUString  GetCurrentParaStyleName();
+    const OUString  GetDefaultParaStyleName();
 
     css::uno::Any GetPropertyFromStyleSheet(PropertyIds eId);
+    // get property first from the given context, or secondly from its stylesheet
+    css::uno::Any GetAnyProperty(PropertyIds eId, const PropertyMapPtr& rContext);
     void        SetStyleSheetImport( bool bSet ) { m_bInStyleSheetImport = bSet;}
     bool        IsStyleSheetImport()const { return m_bInStyleSheetImport;}
     void        SetAnyTableImport( bool bSet ) { m_bInAnyTableImport = bSet;}
@@ -800,13 +804,13 @@ public:
 
     DomainMapperTableManager& getTableManager()
     {
-        std::shared_ptr< DomainMapperTableManager > pMngr = m_aTableManagers.top();
+        tools::SvRef< DomainMapperTableManager > pMngr = m_aTableManagers.top();
         return *pMngr.get( );
     }
 
     void appendTableManager( )
     {
-        std::shared_ptr<DomainMapperTableManager> pMngr(new DomainMapperTableManager());
+        tools::SvRef<DomainMapperTableManager> pMngr(new DomainMapperTableManager());
         m_aTableManagers.push( pMngr );
     }
 
@@ -877,7 +881,7 @@ public:
     /// If the current paragraph has a numbering style associated, this method returns its character style (part of the numbering rules)
     css::uno::Reference<css::beans::XPropertySet> GetCurrentNumberingCharStyle();
     /// If the current paragraph has a numbering style associated, this method returns its numbering rules
-    css::uno::Reference<css::container::XIndexAccess> GetCurrentNumberingRules(sal_Int32* pListLevel = nullptr);
+    css::uno::Reference<css::container::XIndexAccess> GetCurrentNumberingRules(sal_Int32* pListLevel);
 
     /**
      Used for attributes/sprms which cannot be evaluated immediately (e.g. they depend
@@ -901,7 +905,7 @@ public:
     /// If we're inside <w:rPr>, inside <w:style w:type="table">
     bool m_bInTableStyleRunProps;
 
-    std::shared_ptr<SdtHelper> m_pSdtHelper;
+    tools::SvRef<SdtHelper> m_pSdtHelper;
 
     /// Document background color, applied to every page style.
     boost::optional<sal_Int32> m_oBackgroundColor;
@@ -927,6 +931,7 @@ public:
     /// If the next newline should be ignored, used by the special footnote separator paragraph.
     bool m_bIgnoreNextPara;
     /// If the next tab should be ignored, used for footnotes.
+    bool m_bCheckFirstFootnoteTab;
     bool m_bIgnoreNextTab;
     bool m_bFrameBtLr; ///< Bottom to top, left to right text frame direction is requested for the current text frame.
     /// Pending floating tables: they may be converted to text frames at the section end.
@@ -974,6 +979,7 @@ public:
     bool IsDiscardHeaderFooter();
 
     void SetParaAutoBefore(bool bParaAutoBefore) { m_bParaAutoBefore = bParaAutoBefore; }
+    void SetParaAutoAfter(bool bParaAutoAfter) { m_bParaAutoAfter = bParaAutoAfter; }
 
     /// Forget about the previous paragraph, as it's not inside the same
     /// start/end node.
@@ -987,6 +993,14 @@ private:
     css::uno::Reference<css::beans::XPropertySet> m_xPreviousParagraph;
     /// Current paragraph has automatic before spacing.
     bool m_bParaAutoBefore;
+    /// Current paragraph has automatic after spacing.
+    bool m_bParaAutoAfter;
+    /// Paragraph has direct top or bottom margin formattings
+    bool m_bPrevParaAutoAfter;
+    bool m_bParaChangedBottomMargin;
+    /// Current paragraph in a table is first paragraph of a cell
+    bool m_bFirstParagraphInCell;
+    bool m_bSaveFirstParagraphInCell;
 };
 
 } //namespace dmapper

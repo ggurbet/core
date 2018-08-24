@@ -27,6 +27,7 @@
 
 #include <vcl/timer.hxx>
 #include <vcl/event.hxx>
+#include <sal/log.hxx>
 
 #include <math.h>
 
@@ -71,7 +72,7 @@ ImplWheelWindow::ImplWheelWindow( vcl::Window* pParent ) :
         ImplSetWheelMode( WheelMode::V );
 
     // init timer
-    mpTimer = new Timer("WheelWindowTimer");
+    mpTimer.reset(new Timer("WheelWindowTimer"));
     mpTimer->SetInvokeHandler( LINK( this, ImplWheelWindow, ImplScrollHdl ) );
     mpTimer->SetTimeout( mnTimeout );
     mpTimer->Start();
@@ -87,9 +88,7 @@ ImplWheelWindow::~ImplWheelWindow()
 void ImplWheelWindow::dispose()
 {
     ImplStop();
-    delete mpTimer;
-    mpTimer = nullptr;
-
+    mpTimer.reset();
     FloatingWindow::dispose();
 }
 
@@ -252,7 +251,7 @@ PointerStyle ImplWheelWindow::ImplGetMousePointer( long nDistX, long nDistY )
         }
         else
         {
-            double fAngle = atan2( static_cast<double>(-nDistY), nDistX ) / F_PI180;
+            double fAngle = basegfx::rad2deg(atan2(static_cast<double>(-nDistY), nDistX));
 
             if( fAngle < 0.0 )
                 fAngle += 360.;

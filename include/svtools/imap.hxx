@@ -46,8 +46,8 @@ private:
     // Import/Export
     void                ImpWriteCERN( SvStream& rOStm ) const;
     void                ImpWriteNCSA( SvStream& rOStm ) const;
-    sal_uLong           ImpReadCERN( SvStream& rOStm );
-    sal_uLong           ImpReadNCSA( SvStream& rOStm );
+    void                ImpReadCERN( SvStream& rOStm );
+    void                ImpReadNCSA( SvStream& rOStm );
 
     void                ImpReadCERNLine( const OString& rLine );
     static Point        ImpReadCERNCoords( const char** ppStr );
@@ -77,6 +77,7 @@ public:
 
     // a new IMap object is inserted at the end of the Map
     void                InsertIMapObject( const IMapObject& rIMapObject );
+    void                InsertIMapObject( std::unique_ptr<IMapObject> rIMapObject );
 
     // access to the single ImapObjects; the objects may
     // not be destroyed from outside

@@ -56,6 +56,7 @@
 #include <tablefunction.hxx>
 #include <DrawViewShell.hxx>
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 #include <DrawDocShell.hxx>
 #include <Window.hxx>
 #include <drawview.hxx>
@@ -124,9 +125,9 @@ void DrawViewShell::FuTable(SfxRequest& rReq)
         if( (nColumns == 0) || (nRows == 0) )
         {
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            ScopedVclPtr<SvxAbstractNewTableDialog> pDlg( pFact ? pFact->CreateSvxNewTableDialog() : nullptr);
+            ScopedVclPtr<SvxAbstractNewTableDialog> pDlg( pFact->CreateSvxNewTableDialog(rReq.GetFrameWeld()) );
 
-            if( !pDlg.get() || (pDlg->Execute() != RET_OK) )
+            if( pDlg->Execute() != RET_OK )
                 break;
 
             nColumns = pDlg->getColumns();
@@ -204,7 +205,7 @@ void DrawViewShell::FuTable(SfxRequest& rReq)
         // if we have a pick obj we need to make this new ole a pres obj replacing the current pick obj
         if( pPickObj )
         {
-            SdPage* pPage = static_cast< SdPage* >(pPickObj->GetPage());
+            SdPage* pPage = static_cast< SdPage* >(pPickObj->getSdrPageFromSdrObject());
             if(pPage && pPage->IsPresObj(pPickObj))
             {
                 pObj->SetUserCall( pPickObj->GetUserCall() );
@@ -227,19 +228,11 @@ void DrawViewShell::FuTable(SfxRequest& rReq)
     }
     case SID_TABLEDESIGN:
     {
-        if( GetDoc() && (GetDoc()->GetDocumentType() == DocumentType::Draw) )
-        {
-            // in draw open a modal dialog since we have no tool pane yet
-            showTableDesignDialog( GetActiveWindow(), GetViewShellBase() );
-        }
-        else
-        {
-            // First make sure that the sidebar is visible
-            GetViewFrame()->ShowChildWindow(SID_SIDEBAR);
-            ::sfx2::sidebar::Sidebar::ShowPanel(
-                "SdTableDesignPanel",
-                GetViewFrame()->GetFrame().GetFrameInterface());
-        }
+        // First make sure that the sidebar is visible
+        GetViewFrame()->ShowChildWindow(SID_SIDEBAR);
+        ::sfx2::sidebar::Sidebar::ShowPanel(
+            "SdTableDesignPanel",
+            GetViewFrame()->GetFrame().GetFrameInterface());
 
         Cancel();
         rReq.Done ();

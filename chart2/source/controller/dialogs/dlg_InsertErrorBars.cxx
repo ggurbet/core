@@ -19,6 +19,7 @@
 
 #include <dlg_InsertErrorBars.hxx>
 #include <res_ErrorBar.hxx>
+#include <chartview/ExplicitScaleValues.hxx>
 #include <chartview/ExplicitValueProvider.hxx>
 #include <ChartModelHelper.hxx>
 #include <ObjectIdentifier.hxx>
@@ -44,9 +45,8 @@ InsertErrorBarsDialog::InsertErrorBarsDialog(
         ModalDialog( pParent
         ,"dlg_InsertErrorBars"
         ,"modules/schart/ui/dlg_InsertErrorBars.ui"),
-        rInAttrs( rMyAttrs ),
         m_apErrorBarResources( new ErrorBarResources(
-                                   this, this, rInAttrs,
+                                   this, this, rMyAttrs,
                                    /* bNoneAvailable = */ true, eType ))
 {
     ObjectType objType = eType == ErrorBarResources::ERROR_BAR_Y ? OBJECTTYPE_DATA_ERRORS_Y : OBJECTTYPE_DATA_ERRORS_X;

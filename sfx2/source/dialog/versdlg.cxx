@@ -19,6 +19,8 @@
 
 #include <sal/config.h>
 
+#include <com/sun/star/document/XCmisDocument.hpp>
+
 #include <unotools/localedatawrapper.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
@@ -171,10 +173,8 @@ void SfxVersionsTabListBox_Impl::setColSizes()
         }
     }
 
-    long aStaticTabs[] = { 3, 0, 0, 0 };
-    aStaticTabs[2] = nMax;
-    aStaticTabs[3] = nMax + nMaxAuthorWidth;
-    SvSimpleTable::SetTabs(aStaticTabs, MapUnit::MapPixel);
+    long aTabPositions[] = { 0, nMax, nMax + nMaxAuthorWidth };
+    SvSimpleTable::SetTabs(SAL_N_ELEMENTS(aTabPositions), aTabPositions, MapUnit::MapPixel);
 }
 
 SfxVersionDialog::SfxVersionDialog ( SfxViewFrame* pVwFrame, bool bIsSaveVersionOnClose )
@@ -215,10 +215,8 @@ SfxVersionDialog::SfxVersionDialog ( SfxViewFrame* pVwFrame, bool bIsSaveVersion
     m_pVersionBox->SetStyle( m_pVersionBox->GetStyle() | WB_HSCROLL | WB_CLIPCHILDREN );
     m_pVersionBox->SetSelectionMode( SelectionMode::Single );
 
-    long nTabs_Impl[] = { 3, 0, 0, 0 };
-
-
-    m_pVersionBox->SvSimpleTable::SetTabs(&nTabs_Impl[0]);
+    long aTabPositions[] = { 0, 0, 0 };
+    m_pVersionBox->SvSimpleTable::SetTabs(SAL_N_ELEMENTS(aTabPositions), aTabPositions);
     OUString sHeader1(get<FixedText>("datetime")->GetText());
     OUString sHeader2(get<FixedText>("savedby")->GetText());
     OUString sHeader3(get<FixedText>("comments")->GetText());
@@ -274,20 +272,17 @@ void SfxVersionDialog::Init_Impl()
     SfxObjectShell *pObjShell = pViewFrame->GetObjectShell();
     SfxMedium* pMedium = pObjShell->GetMedium();
     uno::Sequence < util::RevisionTag > aVersions = pMedium->GetVersionList( true );
-    delete m_pTable;
-    m_pTable = new SfxVersionTableDtor( aVersions );
+    m_pTable.reset(new SfxVersionTableDtor( aVersions ));
+    for ( size_t n = 0; n < m_pTable->size(); ++n )
     {
-        for ( size_t n = 0; n < m_pTable->size(); ++n )
-        {
-            SfxVersionInfo *pInfo = m_pTable->at( n );
-            OUString aEntry = formatTime(pInfo->aCreationDate, Application::GetSettings().GetLocaleDataWrapper());
-            aEntry += "\t";
-            aEntry += pInfo->aAuthor;
-            aEntry += "\t";
-            aEntry += ConvertWhiteSpaces_Impl( pInfo->aComment );
-            SvTreeListEntry *pEntry = m_pVersionBox->InsertEntry( aEntry );
-            pEntry->SetUserData( pInfo );
-        }
+        SfxVersionInfo *pInfo = m_pTable->at( n );
+        OUString aEntry = formatTime(pInfo->aCreationDate, Application::GetSettings().GetLocaleDataWrapper());
+        aEntry += "\t";
+        aEntry += pInfo->aAuthor;
+        aEntry += "\t";
+        aEntry += ConvertWhiteSpaces_Impl( pInfo->aComment );
+        SvTreeListEntry *pEntry = m_pVersionBox->InsertEntry( aEntry );
+        pEntry->SetUserData( pInfo );
     }
 
     m_pSaveCheckBox->Check( m_bIsSaveVersionOnClose );
@@ -304,7 +299,11 @@ void SfxVersionDialog::Init_Impl()
     SvtMiscOptions miscOptions;
     if ( !miscOptions.IsExperimentalMode() )
         m_pCmisButton->Hide( );
-    m_pCmisButton->Enable();
+    uno::Reference<document::XCmisDocument> xCmisDoc(pObjShell->GetModel(), uno::UNO_QUERY);
+    if (xCmisDoc && xCmisDoc->isVersionable())
+        m_pCmisButton->Enable();
+    else
+        m_pCmisButton->Disable();
 
     SelectHdl_Impl(m_pVersionBox);
 }
@@ -316,7 +315,7 @@ SfxVersionDialog::~SfxVersionDialog()
 
 void SfxVersionDialog::dispose()
 {
-    delete m_pTable;
+    m_pTable.reset();
     m_pVersionBox.disposeAndClear();
     m_pSaveButton.clear();
     m_pSaveCheckBox.clear();
@@ -517,9 +516,8 @@ SfxCmisVersionsDialog::SfxCmisVersionsDialog ( SfxViewFrame* pVwFrame )
     m_pVersionBox->SetStyle( m_pVersionBox->GetStyle() | WB_HSCROLL | WB_CLIPCHILDREN );
     m_pVersionBox->SetSelectionMode( SelectionMode::Single );
 
-    long nTabs_Impl[] = { 3, 0, 0, 0 };
-
-    m_pVersionBox->SvSimpleTable::SetTabs(&nTabs_Impl[0]);
+    long aTabPositions[] = { 0, 0, 0 };
+    m_pVersionBox->SvSimpleTable::SetTabs(SAL_N_ELEMENTS(aTabPositions), aTabPositions);
     OUString sHeader1(get<FixedText>("datetime")->GetText());
     OUString sHeader2(get<FixedText>("savedby")->GetText());
     OUString sHeader3(get<FixedText>("comments")->GetText());
@@ -552,7 +550,7 @@ SfxCmisVersionsDialog::~SfxCmisVersionsDialog()
 
 void SfxCmisVersionsDialog::dispose()
 {
-    delete m_pTable;
+    m_pTable.reset();
     m_pVersionBox.disposeAndClear();
     m_pOpenButton.clear();
     m_pViewButton.clear();
@@ -565,20 +563,17 @@ void SfxCmisVersionsDialog::LoadVersions()
 {
     SfxObjectShell *pObjShell = pViewFrame->GetObjectShell();
     uno::Sequence < document::CmisVersion > aVersions = pObjShell->GetCmisVersions( );
-    delete m_pTable;
-    m_pTable = new SfxVersionTableDtor( aVersions );
+    m_pTable.reset(new SfxVersionTableDtor( aVersions ));
+    for ( size_t n = 0; n < m_pTable->size(); ++n )
     {
-        for ( size_t n = 0; n < m_pTable->size(); ++n )
-        {
-            SfxVersionInfo *pInfo = m_pTable->at( n );
-            OUString aEntry = formatTime(pInfo->aCreationDate, Application::GetSettings().GetLocaleDataWrapper());
-            aEntry += "\t";
-            aEntry += pInfo->aAuthor;
-            aEntry += "\t";
-            aEntry += ConvertWhiteSpaces_Impl( pInfo->aComment );
-            SvTreeListEntry *pEntry = m_pVersionBox->InsertEntry( aEntry );
-            pEntry->SetUserData( pInfo );
-        }
+        SfxVersionInfo *pInfo = m_pTable->at( n );
+        OUString aEntry = formatTime(pInfo->aCreationDate, Application::GetSettings().GetLocaleDataWrapper());
+        aEntry += "\t";
+        aEntry += pInfo->aAuthor;
+        aEntry += "\t";
+        aEntry += ConvertWhiteSpaces_Impl( pInfo->aComment );
+        SvTreeListEntry *pEntry = m_pVersionBox->InsertEntry( aEntry );
+        pEntry->SetUserData( pInfo );
     }
 
 }

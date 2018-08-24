@@ -42,6 +42,7 @@
 #include <swtblfmt.hxx>
 #include <calbck.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #ifdef DBG_UTIL
 #define CHECK_TABLE(t) (t).CheckConsistency();
@@ -1020,7 +1021,7 @@ void SwTable::FindSuperfluousRows_( SwSelBoxes& rBoxes,
     }
 }
 
-/** SwTableBox::FindStartOfRowSpan(..) retruns the "master" cell, the cell which
+/** SwTableBox::FindStartOfRowSpan(..) returns the "master" cell, the cell which
     overlaps the given cell, it maybe the cell itself.
 */
 
@@ -1200,7 +1201,7 @@ void SwTable::InsertSpannedRow( SwDoc* pDoc, sal_uInt16 nRowIdx, sal_uInt16 nCnt
 }
 
 typedef std::pair< sal_uInt16, sal_uInt16 > SwLineOffset;
-typedef std::list< SwLineOffset > SwLineOffsetArray;
+typedef std::vector< SwLineOffset > SwLineOffsetArray;
 
 /*
 * When a couple of table boxes has to be split,
@@ -1259,8 +1260,7 @@ static void lcl_SophisticatedFillLineIndices( SwLineOffsetArray &rArr,
         }
         OSL_ENSURE( aLnOfs.second < nCnt, "Clean-up failed" );
         aLnOfs.second = nCnt - aLnOfs.second; // the number of rows to insert
-        rArr.insert( rArr.end(),
-            SwLineOffset( aLnOfs.first - nSum, aLnOfs.second ) );
+        rArr.emplace_back( aLnOfs.first - nSum, aLnOfs.second );
         // the correction has to be incremented because in the following
         // loops the line ends were manipulated
         nSum = nSum + aLnOfs.second;
@@ -1301,7 +1301,7 @@ static void lcl_SophisticatedFillLineIndices( SwLineOffsetArray &rArr,
 typedef std::set< SwTwips > SwSplitLines;
 
 /** lcl_CalculateSplitLineHeights(..) delivers all y-positions where table rows have
-    to be splitted to fulfill the requested "split same height"
+    to be split to fulfill the requested "split same height"
 */
 
 static sal_uInt16 lcl_CalculateSplitLineHeights( SwSplitLines &rCurr, SwSplitLines &rNew,
@@ -1309,7 +1309,7 @@ static sal_uInt16 lcl_CalculateSplitLineHeights( SwSplitLines &rCurr, SwSplitLin
 {
     if( nCnt < 2 )
         return 0;
-    std::list< SwLineOffset > aBoxes;
+    std::vector< SwLineOffset > aBoxes;
     SwLineOffset aLnOfs( USHRT_MAX, USHRT_MAX );
     sal_uInt16 nFirst = USHRT_MAX; // becomes the index of the first line
     sal_uInt16 nLast = 0; // becomes the index of the last line of the splitting
@@ -1325,7 +1325,7 @@ static sal_uInt16 lcl_CalculateSplitLineHeights( SwSplitLines &rCurr, SwSplitLin
         {
             aLnOfs.first = nStart;
             aLnOfs.second = nEnd;
-            aBoxes.insert( aBoxes.end(), aLnOfs );
+            aBoxes.push_back( aLnOfs );
             if( nStart < nFirst )
                 nFirst = nStart;
             if( nEnd > nLast )
@@ -1348,7 +1348,7 @@ static sal_uInt16 lcl_CalculateSplitLineHeights( SwSplitLines &rCurr, SwSplitLin
         rCurr.insert( rCurr.end(), nHeight );
         pLines[ i - nFirst ] = nHeight;
     }
-    std::list< SwLineOffset >::iterator pSplit = aBoxes.begin();
+    auto pSplit = aBoxes.begin();
     while( pSplit != aBoxes.end() )
     {
         SwTwips nBase = pSplit->first <= nFirst ? 0 :
@@ -2062,17 +2062,13 @@ void SwTable::RestoreRowSpan( const SwSaveRowSpan& rSave )
     }
 }
 
-SwSaveRowSpan* SwTable::CleanUpTopRowSpan( sal_uInt16 nSplitLine )
+std::unique_ptr<SwSaveRowSpan> SwTable::CleanUpTopRowSpan( sal_uInt16 nSplitLine )
 {
-    SwSaveRowSpan* pRet = nullptr;
     if( !IsNewModel() )
-        return pRet;
-    pRet = new SwSaveRowSpan( GetTabLines()[0]->GetTabBoxes(), nSplitLine );
+        return nullptr;
+    std::unique_ptr<SwSaveRowSpan> pRet(new SwSaveRowSpan( GetTabLines()[0]->GetTabBoxes(), nSplitLine ));
     if( pRet->mnRowSpans.empty() )
-    {
-        delete pRet;
-        pRet = nullptr;
-    }
+        return nullptr;
     return pRet;
 }
 

@@ -49,7 +49,7 @@ class SvxBackgroundTabPage : public SvxTabPage
     friend class VclPtr<SvxBackgroundTabPage>;
     static const sal_uInt16 pPageRanges[];
 public:
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
     // returns the area of the which-values
     static const sal_uInt16* GetRanges() { return pPageRanges; }
 
@@ -57,6 +57,7 @@ public:
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        FillUserData() override;
     virtual void        PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void        PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     /// Shift-ListBox activation
     void                ShowSelector();
@@ -114,10 +115,10 @@ private:
     OUString    aBgdGraphicPath;
     OUString    aBgdGraphicFilter;
 
-    SvxBackgroundPage_Impl* pPageImpl;
-    SvxOpenGraphicDialog* pImportDlg;
+    std::unique_ptr<SvxBackgroundPage_Impl> pPageImpl;
+    std::unique_ptr<SvxOpenGraphicDialog> pImportDlg;
 
-    SvxBackgroundTable_Impl*    pTableBck_Impl;///< Items for Sw-Table must be corrected
+    std::unique_ptr<SvxBackgroundTable_Impl> pTableBck_Impl;///< Items for Sw-Table must be corrected
     std::unique_ptr<SvxBrushItem> pHighlighting;
 
     void                FillColorValueSets_Impl();
@@ -152,7 +153,7 @@ public:
     virtual ~SvxBkgTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
     virtual void PageCreated( const SfxAllItemSet& aSet ) override;

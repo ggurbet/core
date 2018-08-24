@@ -20,17 +20,12 @@
 #ifndef INCLUDED_SC_INC_DPTABDAT_HXX
 #define INCLUDED_SC_INC_DPTABDAT_HXX
 
-#include "address.hxx"
-#include "dpoutput.hxx"
 #include "dpfilteredcache.hxx"
-#include "dpcache.hxx"
 #include "calcmacros.hxx"
 
 #include <svl/zforlist.hxx>
 
-#include <set>
 #include <unordered_set>
-#include <unordered_map>
 #include <vector>
 
 namespace com { namespace sun { namespace star { namespace sheet {
@@ -56,7 +51,6 @@ class ScDPResultMember;
 class ScDPDimension;
 class ScDPLevel;
 class ScDPInitState;
-class ScDPResultMember;
 class ScDocument;
 
 /**

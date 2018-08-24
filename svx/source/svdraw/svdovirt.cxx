@@ -28,6 +28,7 @@
 #include <svx/svdograf.hxx>
 #include <svx/svddrgv.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 sdr::properties::BaseProperties& SdrVirtObj::GetProperties() const
@@ -37,9 +38,9 @@ sdr::properties::BaseProperties& SdrVirtObj::GetProperties() const
 
 
 // #i27224#
-sdr::contact::ViewContact* SdrVirtObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrVirtObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfVirtObj(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfVirtObj>(*this);
 }
 
 SdrVirtObj::SdrVirtObj(
@@ -122,11 +123,11 @@ void SdrVirtObj::RecalcBoundRect()
     aOutRect+=aAnchor;
 }
 
-SdrVirtObj* SdrVirtObj::Clone(SdrModel* pTargetModel) const
+SdrVirtObj* SdrVirtObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrVirtObj >(pTargetModel);
+    return CloneHelper< SdrVirtObj >(rTargetModel);
     // TTTT not sure if the above works - how could SdrObjFactory::MakeNewObject
-    // create an object wit correct rRefObj (?) OTOH VirtObj probably needs not
+    // create an object with correct rRefObj (?) OTOH VirtObj probably needs not
     // to be cloned ever - only used in Writer for multiple instances e.g. Header/Footer
     // return new SdrVirtObj(
     //     getSdrModelFromSdrObject(),

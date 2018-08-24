@@ -29,6 +29,7 @@
 #include <com/sun/star/script/XLibraryContainer.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/security/DocumentSignatureInformation.hpp>
 #include <com/sun/star/security/XDocumentDigitalSignatures.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
@@ -338,7 +339,7 @@ public:
     // called for a few slots like SID_SAVE[AS]DOC, SID_PRINTDOC[DIRECT], derived classes may abort the action
     virtual bool                QuerySlotExecutable( sal_uInt16 nSlotId );
 
-    bool                        SaveChildren(bool bObjectsOnly=false);
+    void                        SaveChildren(bool bObjectsOnly=false);
     bool                        SaveAsChildren( SfxMedium &rMedium );
     bool                        SwitchChildrenPersistance(
                                     const css::uno::Reference< css::embed::XStorage >& xStorage,
@@ -353,11 +354,20 @@ public:
             css::uno::Reference<css::text::XTextRange> const& xInsertPosition);
     bool                        ExportTo( SfxMedium &rMedium );
 
-    // xmlsec05, check with SFX team
+    /** Returns to if preparing was successful, else false. */
+    bool PrepareForSigning(weld::Window* pDialogParent);
+    bool CheckIsReadonly(bool bSignScriptingContent);
+    void AfterSigning(bool bSignSuccess, bool bSignScriptingContent);
+    bool HasValidSignatures();
     SignatureState              GetDocumentSignatureState();
-    void                        SignDocumentContent();
+    void                        SignDocumentContent(weld::Window* pDialogParent);
+    void SignSignatureLine(weld::Window* pDialogParent, const OUString& aSignatureLineId,
+                           const css::uno::Reference<css::security::XCertificate> xCert,
+                           const css::uno::Reference<css::graphic::XGraphic> xValidGraphic,
+                           const css::uno::Reference<css::graphic::XGraphic> xInvalidGraphic,
+                           const OUString& aComment);
     SignatureState              GetScriptingSignatureState();
-    void                        SignScriptingContent();
+    void                        SignScriptingContent(weld::Window* pDialogParent);
     DECL_LINK(SignDocumentHandler, Button*, void);
 
     virtual VclPtr<SfxDocumentInfoDialog> CreateDocumentInfoDialog( const SfxItemSet& );
@@ -574,7 +584,8 @@ public:
 
     static bool                 CopyStoragesOfUnknownMediaType(
                                     const css::uno::Reference< css::embed::XStorage >& xSource,
-                                    const css::uno::Reference< css::embed::XStorage >& xTarget );
+                                    const css::uno::Reference<css::embed::XStorage>& xTarget,
+                                    const css::uno::Sequence<OUString>& rExceptions = css::uno::Sequence<OUString>());
 
     // The functions from SvPersist
     void            EnableSetModified( bool bEnable = true );
@@ -630,7 +641,7 @@ public:
                             const JobSetup & rSetup,
                             sal_uInt16 nAspect = ASPECT_CONTENT );
     virtual void    Draw( OutputDevice *, const JobSetup & rSetup,
-                          sal_uInt16 nAspect = ASPECT_CONTENT ) = 0;
+                          sal_uInt16 nAspect ) = 0;
 
 
     virtual void    FillClass( SvGlobalName * pClassName,
@@ -738,7 +749,6 @@ public:
             const css::uno::Reference< css::security::XDocumentDigitalSignatures >& xSigner
                 = css::uno::Reference< css::security::XDocumentDigitalSignatures >() );
 
-    SAL_DLLPRIVATE void ImplSign( bool bScriptingContent = false );
     SAL_DLLPRIVATE bool QuerySaveSizeExceededModules_Impl( const css::uno::Reference< css::task::XInteractionHandler >& xHandler );
     SAL_DLLPRIVATE bool QueryAllowExoticFormat_Impl( const css::uno::Reference< css::task::XInteractionHandler >& xHandler,
                                                      const OUString& rURL,

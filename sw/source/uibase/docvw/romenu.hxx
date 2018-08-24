@@ -52,7 +52,6 @@ class SwReadOnlyPopup
     sal_uInt16 m_nReadonlyBackgroundTogallerylink;
     sal_uInt16 m_nReadonlyBackgroundTogallerycopy;
     sal_uInt16 m_nReadonlyCopylink;
-    sal_uInt16 m_nReadonlyCopyGraphic;
     sal_uInt16 m_nReadonlyLoadGraphic;
     sal_uInt16 m_nReadonlyGraphicoff;
     sal_uInt16 m_nReadonlyFullscreen;
@@ -60,16 +59,12 @@ class SwReadOnlyPopup
 
     SwView &m_rView;
     SvxBrushItem m_aBrushItem;
-    const Point &m_rDocPos;
                 Graphic m_aGraphic;
     OUString    m_sURL,
-                m_sTargetFrameName,
-                m_sDescription;
+                m_sTargetFrameName;
     OUString    m_sGrfName;
     std::vector<OUString> m_aThemeList;
     bool        m_bGrfToGalleryAsLnk;
-    ImageMap*   m_pImageMap;
-    INetImage*  m_pTargetURL;
 
     void Check( sal_uInt16 nMID, sal_uInt16 nSID, SfxDispatcher const &rDis );
     OUString SaveGraphic( sal_uInt16 nId );

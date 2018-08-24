@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <comphelper/string.hxx>
 #include <tools/urlobj.hxx>
 #include <hintids.hxx>
 #include <hints.hxx>
@@ -38,6 +37,7 @@
 #include <sfx2/docfile.hxx>
 #include <docsh.hxx>
 
+#include <cassert>
 #include <vector>
 
 class SwAutoCompleteClient : public SwClient
@@ -347,24 +347,13 @@ void SwAutoCompleteWord::SetMinWordLen( sal_uInt16 n )
 /** Return all words matching a given prefix
  *
  *  @param aMatch the prefix to search for
- *  @param aWords the words to search in
+ *  @param rWords the words found matching
  */
-bool SwAutoCompleteWord::GetWordsMatching(const OUString& aMatch, std::vector<OUString>& aWords) const
+bool SwAutoCompleteWord::GetWordsMatching(const OUString& aMatch, std::vector<OUString>& rWords) const
 {
-    std::vector<OUString> suggestions;
-    m_LookupTree.findSuggestions(aMatch, suggestions);
-
-    if (suggestions.empty())
-    {
-        return false;
-    }
-
-    for (const OUString & suggestion : suggestions)
-    {
-        aWords.push_back( suggestion );
-    }
-
-    return true;
+    assert(rWords.empty());
+    m_LookupTree.findSuggestions(aMatch, rWords);
+    return !rWords.empty();
 }
 
 void SwAutoCompleteWord::CheckChangedList(

@@ -52,17 +52,9 @@ public:
         return OString(filename).endsWith(".odt");
     }
 
-    bool mustValidate(const char* filename) const override
+    bool mustValidate(const char* /*filename*/) const override
     {
-        std::vector<const char*> aBlacklist = {
-            // These are known problems, they should be fixed one by one.
-            "fdo86963.odt",
-            "shape-relsize.odt",
-            "fdo60769.odt",
-            "fdo38244.odt"
-        };
-
-        return std::find(aBlacklist.begin(), aBlacklist.end(), filename) == aBlacklist.end();
+        return true;
     }
 
     virtual std::unique_ptr<Resetter> preTest(const char* pFilename) override
@@ -460,6 +452,26 @@ DECLARE_ODFEXPORT_TEST(testFdo38244, "fdo38244.odt")
     xPropertySet.set(xFields->nextElement(), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("__Fieldmark__4_1833023242"), getProperty<OUString>(xPropertySet, "Name"));
     CPPUNIT_ASSERT_EQUAL(OUString("M"), getProperty<OUString>(xPropertySet, "Initials"));
+}
+
+DECLARE_ODFEXPORT_TEST(testSenderInitials, "sender-initials.fodt")
+{
+    // Test sender-initial properties (both annotation metadata and text field)
+    uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
+    uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
+    // first 3 are annotations, last 2 are text fields
+    for (unsigned i = 0; i < 3; ++i)
+    {
+        uno::Reference<beans::XPropertySet> xPropertySet(xFields->nextElement(), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(OUString("I"), getProperty<OUString>(xPropertySet, "Initials"));
+    }
+    for (unsigned i = 0; i < 2; ++i)
+    {
+        uno::Reference<beans::XPropertySet> xPropertySet(xFields->nextElement(), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xPropertySet, "IsFixed"));
+        CPPUNIT_ASSERT_EQUAL(OUString("I"), getProperty<OUString>(xPropertySet, "Content"));
+    }
 }
 
 DECLARE_ODFEXPORT_TEST(testTdf92379, "tdf92379.fodt")
@@ -1927,23 +1939,6 @@ DECLARE_ODFEXPORT_TEST(testRubyPosition, "ruby-position.odt")
     }
 }
 
-DECLARE_ODFEXPORT_TEST(testBulletAsImage, "BulletAsImage.odt")
-{
-    uno::Reference<text::XTextRange> xPara(getParagraph(1));
-    uno::Reference<beans::XPropertySet> xPropertySet(xPara, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xLevels;
-    xLevels.set(xPropertySet->getPropertyValue("NumberingRules"), uno::UNO_QUERY);
-    uno::Sequence<beans::PropertyValue> aProperties;
-    xLevels->getByIndex(0) >>= aProperties;
-    uno::Reference<awt::XBitmap> xBitmap;
-    for (int i = 0; i < aProperties.getLength(); ++i)
-    {
-        if (aProperties[i].Name == "GraphicBitmap")
-            xBitmap = aProperties[i].Value.get<uno::Reference<awt::XBitmap>>();
-    }
-    CPPUNIT_ASSERT(xBitmap.is());
-}
-
 DECLARE_ODFEXPORT_TEST(testSignatureLineProperties, "signatureline-properties.fodt")
 {
     uno::Reference<drawing::XShape> xShape = getShape(1);
@@ -1973,6 +1968,78 @@ DECLARE_ODFEXPORT_TEST(testChapterNumberingNewLine, "chapter-number-new-line.odt
     //This failed Actual Value was LISTTAB instead of NEWLINE
     CPPUNIT_ASSERT_EQUAL(
         sal_Int16(SvxNumberFormat::NEWLINE), hashMap["LabelFollowedBy"].get<sal_Int16>());
+}
+
+DECLARE_ODFEXPORT_TEST(testSpellOutNumberingTypes, "spellout-numberingtypes.odt")
+{
+    // ordinal indicator, ordinal and cardinal number numbering styles (from LibreOffice 6.1)
+    const char* aFieldTexts[] = { "1st", "Erste", "Eins",  "1.", "Premier", "Un", "1ᵉʳ", "First", "One" };
+    // fallback for old platforms without std::codecvt and std::regex supports
+    const char* aFieldTextFallbacks[] = { "Ordinal-number 1", "Ordinal 1", "1" };
+    uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
+    // update text field content
+    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
+
+    uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
+    uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
+
+    for (sal_uInt32 i = 0; i < SAL_N_ELEMENTS(aFieldTexts); i++)
+    {
+        uno::Any aField = xFields->nextElement();
+        uno::Reference<lang::XServiceInfo> xServiceInfo(aField, uno::UNO_QUERY);
+        if (xServiceInfo->supportsService("com.sun.star.text.textfield.PageNumber"))
+        {
+            uno::Reference<text::XTextContent> xField(aField, uno::UNO_QUERY);
+            CPPUNIT_ASSERT_EQUAL(true, OUString::fromUtf8(aFieldTexts[i]).equals(xField->getAnchor()->getString()) ||
+                           OUString::fromUtf8(aFieldTextFallbacks[i%3]).equals(xField->getAnchor()->getString()));
+        }
+    }
+}
+
+// MAILMERGE Add conditional to expand / collapse bookmarks
+DECLARE_ODFEXPORT_TEST(tdf101856, "tdf101856.odt")
+{
+    // get bookmark interface
+    uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+
+    // check: we have 2 bookmarks
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(5), xBookmarksByIdx->getCount());
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkVisible"));
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkHidden"));
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkVisibleWithCondition"));
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkNotHiddenWithCondition"));
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkHiddenWithCondition"));
+
+    // <text:bookmark-start text:name="BookmarkVisible"/>
+    uno::Reference<beans::XPropertySet> xBookmark1(xBookmarksByName->getByName("BookmarkVisible"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), getProperty<OUString>(xBookmark1, UNO_NAME_BOOKMARK_CONDITION));
+    CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xBookmark1, UNO_NAME_BOOKMARK_HIDDEN));
+
+    // <text:bookmark-start text:name="BookmarkHidden" loext:condition="" loext:hidden="true"/>
+    uno::Reference<beans::XPropertySet> xBookmark2(xBookmarksByName->getByName("BookmarkHidden"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), getProperty<OUString>(xBookmark2, UNO_NAME_BOOKMARK_CONDITION));
+    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xBookmark2, UNO_NAME_BOOKMARK_HIDDEN));
+
+    // <text:bookmark-start text:name="BookmarkVisibleWithCondition" loext:condition="0==1" loext:hidden="true"/>
+    uno::Reference<beans::XPropertySet> xBookmark3(xBookmarksByName->getByName("BookmarkVisibleWithCondition"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("0==1"), getProperty<OUString>(xBookmark3, UNO_NAME_BOOKMARK_CONDITION));
+    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xBookmark3, UNO_NAME_BOOKMARK_HIDDEN));
+
+    // <text:bookmark-start text:name="BookmarkNotHiddenWithCondition" loext:condition="1==1" loext:hidden="false"/>
+    //
+    // The following test doesn't work, while during output in the case of loext:hidden="false".
+    // no additional parameters are written. Implementation should be reviewed.
+    //
+//    uno::Reference<beans::XPropertySet> xBookmark4(xBookmarksByName->getByName("BookmarkNotHiddenWithCondition"), uno::UNO_QUERY);
+//    CPPUNIT_ASSERT_EQUAL(OUString("1==1"), getProperty<OUString>(xBookmark4, UNO_NAME_BOOKMARK_CONDITION));
+//    CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xBookmark4, UNO_NAME_BOOKMARK_HIDDEN));
+
+    // <text:bookmark-start text:name="BookmarkHiddenWithCondition" loext:condition="1==1" loext:hidden="true"/>
+    uno::Reference<beans::XPropertySet> xBookmark5(xBookmarksByName->getByName("BookmarkHiddenWithCondition"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("1==1"), getProperty<OUString>(xBookmark5, UNO_NAME_BOOKMARK_CONDITION));
+    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xBookmark5, UNO_NAME_BOOKMARK_HIDDEN));
 }
 
 #endif

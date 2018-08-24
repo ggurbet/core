@@ -19,12 +19,12 @@
 
 
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <svx/fmtools.hxx>
 #include <svx/fmsrccfg.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <tools/wldcrd.hxx>
-#include <svx/dialmgr.hxx>
 #include <vcl/svapp.hxx>
 #include <unotools/textsearch.hxx>
 #include <com/sun/star/util/SearchAlgorithms2.hpp>
@@ -643,7 +643,7 @@ void FmSearchEngine::Init(const OUString& sVisibleFields)
 {
     // analyze the fields
     // additionally, create the mapping: because the list of used columns can be shorter than the list
-    // of columns of the cursor, we need a mapping: "used column numer n" -> "cursor column m"
+    // of columns of the cursor, we need a mapping: "used column number n" -> "cursor column m"
     m_arrFieldMapping.clear();
 
     // important: The case of the columns does not need to be exact - for instance:

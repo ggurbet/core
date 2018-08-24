@@ -24,6 +24,7 @@
 #include <rtl/ref.hxx>
 #include <rtl/ustring.hxx>
 #include <svl/lstner.hxx>
+#include <svl/svdde.hxx>
 #include <svtools/ehdl.hxx>
 #include <vcl/timer.hxx>
 #include <sfx2/app.hxx>
@@ -34,6 +35,7 @@
 #include <vector>
 
 class SfxApplication;
+class SfxPickList;
 class SfxProgress;
 class SfxDdeDocTopic_Impl;
 class DdeService;
@@ -70,10 +72,10 @@ public:
     OUString                            aLastDir;               // for IO dialog
 
     // DDE stuff
-    DdeService*                         pDdeService;
-    SfxDdeDocTopics_Impl*               pDocTopics;
-    SfxDdeTriggerTopic_Impl*            pTriggerTopic;
-    DdeService*                         pDdeService2;
+    std::unique_ptr<DdeService>              pDdeService;
+    std::unique_ptr<SfxDdeDocTopics_Impl>    pDocTopics;
+    std::unique_ptr<SfxDdeTriggerTopic_Impl> pTriggerTopic;
+    std::unique_ptr<DdeService>              pDdeService2;
 
     // single instance classes
     SfxChildWinFactArr_Impl*            pFactArr;
@@ -87,6 +89,7 @@ public:
     SfxErrorHandler *m_pSbxErrorHdl;
 #endif
     rtl::Reference<SfxStatusDispatcher> mxAppDispatch;
+    std::unique_ptr<SfxPickList>        mxAppPickList;
     SfxDocumentTemplates*               pTemplates;
 
     // global pointers
@@ -131,6 +134,18 @@ public:
         BasicManager is created before the application's BasicManager exists.
     */
     void                        OnApplicationBasicManagerCreated( BasicManager& _rManager );
+};
+
+class SfxDdeTriggerTopic_Impl : public DdeTopic
+{
+#if defined(_WIN32)
+public:
+    SfxDdeTriggerTopic_Impl()
+        : DdeTopic( "TRIGGER" )
+        {}
+
+    virtual bool Execute( const OUString* ) override { return true; }
+#endif
 };
 
 #endif // INCLUDED_SFX2_SOURCE_INC_APPDATA_HXX

@@ -21,14 +21,15 @@
 #define INCLUDED_VCL_INC_SALWTYPE_HXX
 
 #include <i18nlangtag/lang.h>
+#include <rtl/ref.hxx>
 #include <rtl/ustring.hxx>
 #include <tools/solar.h>
 
+class LogicalFontInstance;
 class SalGraphics;
 class SalFrame;
 class SalObject;
 namespace vcl { class Window; }
-class FontSelectPattern;
 enum class InputContextFlags;
 enum class WindowStateMask;
 enum class WindowStateState;
@@ -186,7 +187,6 @@ struct SalExtTextInputPosEvent
 
 struct SalInputContextChangeEvent
 {
-    LanguageType    meLanguage;     // new language
 };
 
 struct SalSurroundingTextRequestEvent
@@ -221,8 +221,6 @@ enum class SalObjEvent {
     ToTop              = 3
 };
 
-typedef long (*SALOBJECTPROC)( void* pInst, SalObjEvent nEvent );
-
 struct SalFrameState
 {
     WindowStateMask mnMask;
@@ -239,7 +237,7 @@ struct SalFrameState
 
 struct SalInputContext
 {
-    FontSelectPattern*     mpFont;
+    rtl::Reference<LogicalFontInstance> mpFont;
     LanguageType           meLanguage;
     InputContextFlags      mnOptions;
 };

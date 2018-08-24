@@ -82,7 +82,7 @@ class DocxExport : public MSWordExportBase
     std::unique_ptr<DocxAttributeOutput> m_pAttrOutput;
 
     /// Sections/headers/footers
-    MSWordSections *m_pSections;
+    std::unique_ptr<MSWordSections> m_pSections;
 
     /// Header counter.
     sal_Int32 m_nHeaders;
@@ -191,7 +191,7 @@ public:
 
 protected:
     /// Format-dependent part of the actual export.
-    virtual void ExportDocument_Impl() override;
+    virtual ErrCode ExportDocument_Impl() override;
 
     /// Output SwEndNode
     virtual void OutputEndNode( const SwEndNode& ) override;

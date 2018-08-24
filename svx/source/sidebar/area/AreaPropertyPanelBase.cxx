@@ -20,9 +20,7 @@
 #include <sfx2/sidebar/SidebarController.hxx>
 #include <sfx2/sidebar/ControlFactory.hxx>
 #include <svx/sidebar/AreaPropertyPanelBase.hxx>
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
-#include <svx/dialmgr.hxx>
 #include <sfx2/objsh.hxx>
 #include <svx/xfltrit.hxx>
 #include <svx/xflftrit.hxx>
@@ -420,7 +418,7 @@ IMPL_LINK_NOARG(AreaPropertyPanelBase, SelectFillTypeHdl, ListBox&, void)
                         {
                             const XBitmapEntry* pXPatternEntry = pXPatternList->GetBitmap(mnLastPosPattern);
                             aBitmap = pXPatternEntry->GetGraphicObject();
-                            aName = mpLbFillAttr->GetSelectedEntry();
+                            aName = pXPatternEntry->GetName();
                             mpLbFillAttr->SelectEntryPos(mnLastPosPattern);
                         }
                     }

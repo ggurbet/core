@@ -48,6 +48,7 @@
 #include <formulacell.hxx>
 #include <scmod.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <transobj.hxx>
 #include <drwtrans.hxx>
 #include <scabstdlg.hxx>
@@ -446,7 +447,7 @@ static bool lcl_TestFormat( SvxClipboardFormatItem& rFormats, const Transferable
 void ScCellShell::GetPossibleClipboardFormats( SvxClipboardFormatItem& rFormats )
 {
     vcl::Window* pWin = GetViewData()->GetActiveWin();
-    bool bDraw = ScDrawTransferObj::GetOwnClipboard( pWin ) != nullptr;
+    bool bDraw = ScDrawTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(pWin)) != nullptr;
 
     TransferableDataHelper aDataHelper( TransferableDataHelper::CreateFromSystemClipboard( pWin ) );
 
@@ -477,10 +478,11 @@ void ScCellShell::GetPossibleClipboardFormats( SvxClipboardFormatItem& rFormats 
 
 //  insert, insert contents
 
-static bool lcl_IsCellPastePossible( const TransferableDataHelper& rData, vcl::Window* pWin )
+static bool lcl_IsCellPastePossible( const TransferableDataHelper& rData )
 {
     bool bPossible = false;
-    if ( ScTransferObj::GetOwnClipboard( pWin ) || ScDrawTransferObj::GetOwnClipboard( pWin ) )
+    css::uno::Reference< css::datatransfer::XTransferable2 > xTransferable(rData.GetXTransferable(), css::uno::UNO_QUERY);
+    if ( ScTransferObj::GetOwnClipboard(xTransferable) || ScDrawTransferObj::GetOwnClipboard(xTransferable) )
         bPossible = true;
     else
     {
@@ -519,7 +521,7 @@ bool ScCellShell::HasClipboardFormat( SotClipboardFormatId nFormatId )
 
 IMPL_LINK( ScCellShell, ClipboardChanged, TransferableDataHelper*, pDataHelper, void )
 {
-    bPastePossible = lcl_IsCellPastePossible( *pDataHelper, GetViewData()->GetActiveWin() );
+    bPastePossible = lcl_IsCellPastePossible( *pDataHelper );
 
     SfxBindings& rBindings = GetViewData()->GetBindings();
     rBindings.Invalidate( SID_PASTE );
@@ -554,7 +556,7 @@ bool checkDestRanges(ScViewData& rViewData)
     if (!pWin)
         return false;
 
-    ScTransferObj* pOwnClip = ScTransferObj::GetOwnClipboard(pWin);
+    const ScTransferObj* pOwnClip = ScTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(pWin));
     if (!pOwnClip)
         // If it's not a Calc document, we won't be picky.
         return true;
@@ -593,7 +595,7 @@ void ScCellShell::GetClipState( SfxItemSet& rSet )
 
         // get initial state
         TransferableDataHelper aDataHelper( TransferableDataHelper::CreateFromSystemClipboard( pWin ) );
-        bPastePossible = lcl_IsCellPastePossible( aDataHelper, pWin );
+        bPastePossible = lcl_IsCellPastePossible( aDataHelper );
     }
 
     bool bDisable = !bPastePossible;
@@ -755,7 +757,7 @@ void ScCellShell::GetState(SfxItemSet &rSet)
 
             case SID_STATUS_DOCPOS:
                 {
-                    OUString aStr = ScGlobal::GetRscString( STR_TABLE_COUNT );
+                    OUString aStr = ScResId( STR_TABLE_COUNT );
 
                     aStr = aStr.replaceFirst("%1", OUString::number( nTab + 1  ) );
                     aStr = aStr.replaceFirst("%2", OUString::number( nTabCount ) );
@@ -775,7 +777,7 @@ void ScCellShell::GetState(SfxItemSet &rSet)
                     nRow2 = aMarkRange.aEnd.Row();
                     if( nCol2 != nCol1 || nRow1 != nRow2 )
                     {
-                        OUString aStr = ScGlobal::GetRscString( STR_ROWCOL_SELCOUNT );
+                        OUString aStr = ScResId( STR_ROWCOL_SELCOUNT );
                         aStr = aStr.replaceAll( "$1", OUString::number( nRow2 - nRow1 + 1 ));
                         aStr = aStr.replaceAll( "$2", OUString::number( nCol2 - nCol1 + 1 ));
                         rSet.Put( SfxStringItem( nWhich, aStr ) );
@@ -786,7 +788,7 @@ void ScCellShell::GetState(SfxItemSet &rSet)
                         pDoc->GetFilterSelCount( nPosX, nPosY, nTab, nSelected, nTotal );
                         if( nTotal )
                         {
-                            OUString aStr = ScGlobal::GetRscString( STR_FILTER_SELCOUNT );
+                            OUString aStr = ScResId( STR_FILTER_SELCOUNT );
                             aStr = aStr.replaceAll( "$1", OUString::number( nSelected ) );
                             aStr = aStr.replaceAll( "$2", OUString::number( nTotal ) );
                             rSet.Put( SfxStringItem( nWhich, aStr ) );

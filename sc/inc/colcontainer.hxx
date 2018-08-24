@@ -21,16 +21,15 @@
 #define INCLUDED_SC_INC_COLCONTAINER_HXX
 
 #include "types.hxx"
-#include "address.hxx"
 
+#include <memory>
 #include <vector>
 
 class ScColumn;
-class ScDocument;
 
 class ScColContainer
 {
-    typedef std::vector<ScColumn*> ScColumnVector;
+    typedef std::vector<std::unique_ptr<ScColumn>> ScColumnVector;
     ScColumnVector    aCols;
 
 public:

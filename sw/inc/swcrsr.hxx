@@ -95,6 +95,8 @@ public:
     SwCursor( const SwPosition &rPos, SwPaM* pRing );
     virtual ~SwCursor() override;
 
+    SwCursor & operator =(SwCursor const &) = default;
+
     /// this takes a second parameter, which indicates the Ring that
     /// the new cursor should be part of (may be null)
     SwCursor(SwCursor const& rCursor, SwPaM* pRing);
@@ -120,12 +122,12 @@ public:
                 SwDocPositions nStart, SwDocPositions nEnde,
                 bool& bCancel,
                 FindRanges,
-                const SwTextFormatColl* pReplFormat = nullptr );
+                const SwTextFormatColl* pReplFormat );
     sal_uLong Find( const SfxItemSet& rSet, bool bNoCollections,
                 SwDocPositions nStart, SwDocPositions nEnde,
                 bool& bCancel,
                 FindRanges,
-                const i18nutil::SearchOptions2* pSearchOpt = nullptr,
+                const i18nutil::SearchOptions2* pSearchOpt,
                 const SfxItemSet* rReplSet = nullptr );
 
     // UI versions
@@ -218,7 +220,10 @@ public:
 
     long GetCursorRowSpanOffset() const { return m_nRowSpanOffset; }
 
-    DECL_FIXEDMEMPOOL_NEWDEL( SwCursor )
+    SwCursor* GetNext()             { return dynamic_cast<SwCursor *>(GetNextInRing()); }
+    const SwCursor* GetNext() const { return dynamic_cast<SwCursor const *>(GetNextInRing()); }
+    SwCursor* GetPrev()             { return dynamic_cast<SwCursor *>(GetPrevInRing()); }
+    const SwCursor* GetPrev() const { return dynamic_cast<SwCursor const *>(GetPrevInRing()); }
 };
 
 /**
@@ -301,6 +306,11 @@ public:
 
     bool NewTableSelection();
     void ActualizeSelection( const SwSelBoxes &rBoxes );
+
+    SwTableCursor* GetNext()             { return dynamic_cast<SwTableCursor *>(GetNextInRing()); }
+    const SwTableCursor* GetNext() const { return dynamic_cast<SwTableCursor const *>(GetNextInRing()); }
+    SwTableCursor* GetPrev()             { return dynamic_cast<SwTableCursor *>(GetPrevInRing()); }
+    const SwTableCursor* GetPrev() const { return dynamic_cast<SwTableCursor const *>(GetPrevInRing()); }
 };
 
 #endif

@@ -27,6 +27,7 @@
 #include <o3tl/any.hxx>
 #include <osl/diagnose.h>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 #include <svl/itemprop.hxx>
 #include <svl/intitem.hxx>
 #include <vcl/svapp.hxx>
@@ -37,6 +38,7 @@
 #include <patattr.hxx>
 #include <formulacell.hxx>
 
+#include <dpcache.hxx>
 #include <dptabres.hxx>
 #include <dptabdat.hxx>
 #include <global.hxx>
@@ -57,7 +59,6 @@
 #include <com/sun/star/sheet/DataPilotFieldAutoShowInfo.hpp>
 #include <com/sun/star/sheet/GeneralFunction2.hpp>
 
-#include <comphelper/string.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <unotools/calendarwrapper.hxx>
 #include <com/sun/star/i18n/CalendarDisplayIndex.hpp>

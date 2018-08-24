@@ -23,6 +23,7 @@
 #include <vcl/settings.hxx>
 
 #include "impedit.hxx"
+#include <sal/log.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/outliner.hxx>
@@ -450,7 +451,7 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
 
             if (mpOtherShell)
             {
-                // An other shell wants to know about our existing selection.
+                // Another shell wants to know about our existing selection.
                 if (mpViewShell != mpOtherShell)
                     mpViewShell->NotifyOtherView(mpOtherShell, LOK_CALLBACK_TEXT_VIEW_SELECTION, "selection", sRectangle);
             }
@@ -1107,7 +1108,7 @@ void ImpEditView::ShowCursor( bool bGotoCursor, bool bForceVisCursor )
             OString sRect = aRect.toString();
             if (mpOtherShell)
             {
-                // An other shell wants to know about our existing cursor.
+                // Another shell wants to know about our existing cursor.
                 if (mpViewShell != mpOtherShell)
                     mpViewShell->NotifyOtherView(mpOtherShell, LOK_CALLBACK_INVALIDATE_VIEW_CURSOR, "rectangle", sRect);
             }

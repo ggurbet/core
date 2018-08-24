@@ -30,6 +30,7 @@
 #include <svl/poolcach.hxx>
 #include <editeng/fontitem.hxx>
 #include <unotools/fontcvt.hxx>
+#include <sal/log.hxx>
 
 #include <global.hxx>
 #include <document.hxx>
@@ -40,6 +41,7 @@
 #include <markarr.hxx>
 #include <rechead.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <segmenttree.hxx>
 #include <editdataarray.hxx>
 #include <formulacell.hxx>
@@ -1808,7 +1810,7 @@ void ScAttrArray::FindStyleSheet( const SfxStyleSheetBase* pStyleSheet, ScFlatBo
                 pDocument->GetPool()->Remove(*mvData[nPos].pPattern);
                 pNewPattern->SetStyleSheet( static_cast<ScStyleSheet*>(
                     pDocument->GetStyleSheetPool()->
-                        Find( ScGlobal::GetRscString(STR_STYLENAME_STANDARD),
+                        Find( ScResId(STR_STYLENAME_STANDARD),
                               SfxStyleFamily::Para,
                               SfxStyleSearchBits::Auto | SfxStyleSearchBits::ScStandard ) ) );
                 mvData[nPos].pPattern = static_cast<const ScPatternAttr*>(

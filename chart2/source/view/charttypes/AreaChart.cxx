@@ -19,8 +19,9 @@
 
 #include "AreaChart.hxx"
 #include <PlottingPositionHelper.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <CommonConverters.hxx>
+#include <ExplicitCategoriesProvider.hxx>
 #include <ViewDefines.hxx>
 #include <ObjectIdentifier.hxx>
 #include "Splines.hxx"
@@ -37,9 +38,11 @@
 
 #include <editeng/unoprnms.hxx>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/drawing/DoubleSequence.hpp>
 #include <com/sun/star/drawing/NormalsKind.hpp>
+#include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/lang/XServiceName.hpp>
 
 namespace chart
@@ -142,7 +145,7 @@ drawing::Direction3D AreaChart::getPreferredDiagramAspectRatio() const
     return aRet;
 }
 
-void AreaChart::addSeries( VDataSeries* pSeries, sal_Int32 zSlot, sal_Int32 xSlot, sal_Int32 ySlot )
+void AreaChart::addSeries( std::unique_ptr<VDataSeries> pSeries, sal_Int32 zSlot, sal_Int32 xSlot, sal_Int32 ySlot )
 {
     if( m_bArea && pSeries )
     {
@@ -158,7 +161,7 @@ void AreaChart::addSeries( VDataSeries* pSeries, sal_Int32 zSlot, sal_Int32 xSlo
         xSlot=0;
         ySlot=0;
     }
-    VSeriesPlotter::addSeries( pSeries, zSlot, xSlot, ySlot );
+    VSeriesPlotter::addSeries( std::move(pSeries), zSlot, xSlot, ySlot );
 }
 
 void lcl_removeDuplicatePoints( drawing::PolyPolygonShape3D& rPolyPoly, PlottingPositionHelper& rPosHelper )
@@ -403,7 +406,7 @@ bool AreaChart::impl_createLine( VDataSeries* pSeries
         Clipping::clipPolygonAtRectangle( *pSeriesPoly, pPosHelper->getScaledLogicClipDoubleRect(), aPoly );
     }
 
-    if(!AbstractShapeFactory::hasPolygonAnyLines(aPoly))
+    if(!ShapeFactory::hasPolygonAnyLines(aPoly))
         return false;
 
     //transformation 3) -> 4)
@@ -445,7 +448,7 @@ bool AreaChart::impl_createLine( VDataSeries* pSeries
                 , pSeries->getPropertiesOfSeries()
                 , PropertyMapper::getPropertyNameMapForLineSeriesProperties() );
         //because of this name this line will be used for marking
-        ::chart::AbstractShapeFactory::setShapeName(xShape, "MarkHandles");
+        ::chart::ShapeFactory::setShapeName(xShape, "MarkHandles");
     }
     return true;
 }
@@ -489,17 +492,17 @@ bool AreaChart::impl_createArea( VDataSeries* pSeries
     {
         appendPoly( aPoly, *pPreviousSeriesPoly );
     }
-    AbstractShapeFactory::closePolygon(aPoly);
+    ShapeFactory::closePolygon(aPoly);
 
     //apply clipping
     {
         drawing::PolyPolygonShape3D aClippedPoly;
         Clipping::clipPolygonAtRectangle( aPoly, pPosHelper->getScaledLogicClipDoubleRect(), aClippedPoly, false );
-        AbstractShapeFactory::closePolygon(aClippedPoly); //again necessary after clipping
+        ShapeFactory::closePolygon(aClippedPoly); //again necessary after clipping
         aPoly = aClippedPoly;
     }
 
-    if(!AbstractShapeFactory::hasPolygonAnyLines(aPoly))
+    if(!ShapeFactory::hasPolygonAnyLines(aPoly))
         return false;
 
     //transformation 3) -> 4)
@@ -521,7 +524,7 @@ bool AreaChart::impl_createArea( VDataSeries* pSeries
                 , pSeries->getPropertiesOfSeries()
                 , PropertyMapper::getPropertyNameMapForFilledSeriesProperties() );
     //because of this name this line will be used for marking
-    ::chart::AbstractShapeFactory::setShapeName(xShape, "MarkHandles");
+    ::chart::ShapeFactory::setShapeName(xShape, "MarkHandles");
     return true;
 }
 
@@ -538,7 +541,7 @@ void AreaChart::impl_createSeriesShapes()
             drawing::PolyPolygonShape3D* pSeriesPoly = nullptr;
 
             //iterate through all series
-            for( VDataSeries* pSeries : rXSlot.m_aSeriesVector )
+            for( std::unique_ptr<VDataSeries> const & pSeries : rXSlot.m_aSeriesVector )
             {
                 sal_Int32 nAttachedAxisIndex = pSeries->getAttachedAxisIndex();
                 PlottingPositionHelper* pPosHelper = &(getPlottingPositionHelper( nAttachedAxisIndex ));
@@ -552,12 +555,12 @@ void AreaChart::impl_createSeriesShapes()
                 pSeriesPoly = &pSeries->m_aPolyPolygonShape3D;
                 if( m_bArea )
                 {
-                    if( !impl_createArea( pSeries, pSeriesPoly, aPreviousSeriesPolyMap[nAttachedAxisIndex], pPosHelper ) )
+                    if( !impl_createArea( pSeries.get(), pSeriesPoly, aPreviousSeriesPolyMap[nAttachedAxisIndex], pPosHelper ) )
                         continue;
                 }
                 if( m_bLine )
                 {
-                    if( !impl_createLine( pSeries, pSeriesPoly, pPosHelper ) )
+                    if( !impl_createLine( pSeries.get(), pSeriesPoly, pPosHelper ) )
                         continue;
                 }
                 aPreviousSeriesPolyMap[nAttachedAxisIndex] = pSeriesPoly;
@@ -584,13 +587,12 @@ void lcl_reorderSeries( std::vector< std::vector< VDataSeriesGroup > >&  rZSlots
         std::vector< VDataSeriesGroup >::reverse_iterator aXIt( aZIt->rbegin() );
         std::vector< VDataSeriesGroup >::reverse_iterator aXEnd( aZIt->rend() );
         for( ; aXIt != aXEnd; ++aXIt )
-            aXSlot.push_back(*aXIt);
+            aXSlot.push_back(std::move(*aXIt));
 
-        aRet.push_back(aXSlot);
+        aRet.push_back(std::move(aXSlot));
     }
 
-    rZSlots.clear();
-    rZSlots = aRet;
+    rZSlots = std::move(aRet);
 }
 
 }//anonymous namespace
@@ -662,7 +664,7 @@ void AreaChart::createShapes()
         //iterate through all x slots in this category to get 100percent sum
         for( auto const& rXSlot : rZSlot )
         {
-            for( VDataSeries* pSeries : rXSlot.m_aSeriesVector )
+            for( std::unique_ptr<VDataSeries> const & pSeries : rXSlot.m_aSeriesVector )
             {
                 if(!pSeries)
                     continue;
@@ -699,12 +701,12 @@ void AreaChart::createShapes()
         {
             std::vector<std::map< sal_Int32, double > > aLogicYForNextSeriesMapByX(nEndIndex); //one for each different nAttachedAxisIndex
             //iterate through all series
-            for( VDataSeries* pSeries : rXSlot.m_aSeriesVector )
+            for( std::unique_ptr<VDataSeries> const & pSeries : rXSlot.m_aSeriesVector )
             {
                 if(!pSeries)
                     continue;
 
-                uno::Reference< drawing::XShapes > xSeriesGroupShape_Shapes = getSeriesGroupShapeFrontChild(pSeries, m_xSeriesTarget);
+                uno::Reference< drawing::XShapes > xSeriesGroupShape_Shapes = getSeriesGroupShapeFrontChild(pSeries.get(), m_xSeriesTarget);
 
                 sal_Int32 nAttachedAxisIndex = pSeries->getAttachedAxisIndex();
                 PlottingPositionHelper* pPosHelper = &(getPlottingPositionHelper( nAttachedAxisIndex ));
@@ -787,7 +789,7 @@ void AreaChart::createShapes()
                     drawing::Position3D aScenePosition( pPosHelper->transformLogicToScene( fLogicX,fLogicY,fLogicZ, false ) );
 
                     //better performance for big data
-                    FormerPoint aFormerPoint( aSeriesFormerPointMap[pSeries] );
+                    FormerPoint aFormerPoint( aSeriesFormerPointMap[pSeries.get()] );
                     pPosHelper->setCoordinateSystemResolution( m_aCoordinateSystemResolution );
                     if( !pSeries->isAttributedDataPoint(nIndex)
                             &&
@@ -798,7 +800,7 @@ void AreaChart::createShapes()
                         m_bPointsWereSkipped = true;
                         continue;
                     }
-                    aSeriesFormerPointMap[pSeries] = FormerPoint(aScaledLogicPosition.PositionX, aScaledLogicPosition.PositionY, aScaledLogicPosition.PositionZ);
+                    aSeriesFormerPointMap[pSeries.get()] = FormerPoint(aScaledLogicPosition.PositionX, aScaledLogicPosition.PositionY, aScaledLogicPosition.PositionZ);
 
                     //store point information for series polygon
                     //for area and/or line (symbols only do not need this)

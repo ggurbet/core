@@ -20,8 +20,10 @@
 #include <cppuhelper/implementationentry.hxx>
 #include <cppuhelper/factory.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include "ProviderCache.hxx"
 
 using namespace com::sun::star;
@@ -168,10 +170,11 @@ ProviderCache::populateCache()
     }
     catch ( const Exception &e )
     {
-        OUString temp =
-            "ProviderCache::populateCache: couldn't obtain XSingleComponentFactory for "
-            + serviceName;
-        throw RuntimeException( temp.concat( e.Message ) );
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
+                "ProviderCache::populateCache: couldn't obtain XSingleComponentFactory for " + serviceName
+                + " " + e.Message,
+                nullptr, anyEx );
     }
 }
 
@@ -185,7 +188,10 @@ ProviderCache::createProvider( ProviderDetails& details )
     }
     catch ( const Exception& e )
     {
-        throw RuntimeException( "ProviderCache::createProvider() Error creating provider from factory. " + e.Message );
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
+                "ProviderCache::createProvider() Error creating provider from factory. " + e.Message,
+                nullptr, anyEx );
     }
 
     return details.provider;

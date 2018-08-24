@@ -279,15 +279,17 @@ SwFieldType* DocumentFieldsManager::GetFieldType(
     {
         SwFieldType* pFieldType = (*mpFieldTypes)[i];
 
-        OUString aFieldName( pFieldType->GetName() );
-        if (bDbFieldMatching && nResId == SwFieldIds::Database)    // #i51815#
-            aFieldName = aFieldName.replace(DB_DELIM, '.');
-
-        if( nResId == pFieldType->Which() &&
-            rSCmp.isEqual( rName, aFieldName ))
+        if (nResId == pFieldType->Which())
         {
-            pRet = pFieldType;
-            break;
+            OUString aFieldName( pFieldType->GetName() );
+            if (bDbFieldMatching && nResId == SwFieldIds::Database)    // #i51815#
+                aFieldName = aFieldName.replace(DB_DELIM, '.');
+
+            if (rSCmp.isEqual( rName, aFieldName ))
+            {
+                pRet = pFieldType;
+                break;
+            }
         }
     }
     return pRet;
@@ -493,8 +495,8 @@ bool DocumentFieldsManager::UpdateField(SwTextField * pDstTextField, SwField & r
             m_rDoc.GetIDocumentUndoRedo().AppendUndo(pUndo);
         }
 
-        SwField * pNewField = rSrcField.CopyField();
-        pDstFormatField->SetField(pNewField);
+        pDstFormatField->SetField(rSrcField.CopyField());
+        SwField* pNewField = pDstFormatField->GetField();
 
         switch( nFieldWhich )
         {
@@ -908,14 +910,19 @@ void DocumentFieldsManager::UpdateExpFields( SwTextField* pUpdateField, bool bUp
 
     // Make sure we don't hide all sections, which would lead to a crash. First, count how many of them do we have.
     int nShownSections = 0;
-    for( SetGetExpFields::const_iterator it = mpUpdateFields->GetSortLst()->begin(); it != mpUpdateFields->GetSortLst()->end(); ++it )
     {
-        SwSection* pSect = const_cast<SwSection*>((*it)->GetSection());
-        if ( pSect && !pSect->IsCondHidden())
-            nShownSections++;
+        SwSectionFormats& rSectFormats = m_rDoc.GetSections();
+        for( SwSectionFormats::size_type n = 0; n<rSectFormats.size(); ++n )
+        {
+            SwSectionFormat* pSectFormat = rSectFormats[ n ];
+            SwSection* pSect = pSectFormat->GetSection();
+
+            // count only visible sections
+            if ( pSect && !pSect->CalcHiddenFlag())
+                nShownSections++;
+        }
     }
 
-    OUString aNew;
     for( SetGetExpFields::const_iterator it = mpUpdateFields->GetSortLst()->begin(); it != mpUpdateFields->GetSortLst()->end(); ++it )
     {
         SwSection* pSect = const_cast<SwSection*>((*it)->GetSection());
@@ -1046,7 +1053,7 @@ void DocumentFieldsManager::UpdateExpFields( SwTextField* pUpdateField, bool bUp
                     if( (!pUpdateField || pUpdateField == pTextField )
                         && pGField->IsInBodyText() )
                     {
-                        aNew = LookString( aHashStrTable, pGField->GetFormula() );
+                        OUString aNew = LookString( aHashStrTable, pGField->GetFormula() );
                         pGField->ChgExpStr( aNew );
                     }
                 }
@@ -1054,7 +1061,7 @@ void DocumentFieldsManager::UpdateExpFields( SwTextField* pUpdateField, bool bUp
                 {
                     SwSetExpField* pSField = const_cast<SwSetExpField*>(static_cast<const SwSetExpField*>(pField));
                     // is the "formula" a field?
-                    aNew = LookString( aHashStrTable, pSField->GetFormula() );
+                    OUString aNew = LookString( aHashStrTable, pSField->GetFormula() );
 
                     if( aNew.isEmpty() )               // nothing found then the formula is the new value
                         aNew = pSField->GetFormula();
@@ -1105,7 +1112,7 @@ void DocumentFieldsManager::UpdateExpFields( SwTextField* pUpdateField, bool bUp
                 {
                     SwSetExpField* pSField = const_cast<SwSetExpField*>(static_cast<const SwSetExpField*>(pField));
                     SwSetExpFieldType* pSFieldTyp = static_cast<SwSetExpFieldType*>(pField->GetTyp());
-                    aNew = pSFieldTyp->GetName();
+                    OUString aNew = pSFieldTyp->GetName();
 
                     SwNode* pSeqNd = nullptr;
 
@@ -1328,8 +1335,9 @@ void DocumentFieldsManager::SetFixFields( const DateTime* pNewDateTime )
     }
     else
     {
-        nDate = Date( Date::SYSTEM ).GetDate();
-        nTime = tools::Time( tools::Time::SYSTEM ).GetTime();
+        DateTime aDateTime( DateTime::SYSTEM );
+        nDate = aDateTime.GetDate();
+        nTime = aDateTime.GetTime();
     }
 
     SwFieldIds const aTypes[] {

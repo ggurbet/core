@@ -26,6 +26,7 @@
 #include <vcl/field.hxx>
 #include <vcl/settings.hxx>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <unotools/charclass.hxx>
@@ -406,7 +407,7 @@ void DrawLine( OutputDevice& rDev, const basegfx::B2DPoint& rP1, const basegfx::
 
 void LineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
                             Color aColor1, Color aColor2, Color aColorDist,
-                            SvxBorderLineStyle nStyle, Bitmap& rBmp )
+                            SvxBorderLineStyle nStyle, BitmapEx& rBmp )
 {
     //TODO, rather than including the " " text to force
     //the line height, better would be do drop
@@ -467,7 +468,7 @@ void LineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
         aVirDev->SetFillColor( aColor2 );
         svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y2 ), basegfx::B2DPoint( aSize.Width(), y2 ), n2, SvxBorderLineStyle::SOLID );
     }
-    rBmp = aVirDev->GetBitmap( Point(), Size( aSize.Width(), n1+nDist+n2 ) );
+    rBmp = aVirDev->GetBitmapEx( Point(), Size( aSize.Width(), n1+nDist+n2 ) );
 }
 
 LineListBox::LineListBox( vcl::Window* pParent, WinBits nWinStyle ) :
@@ -608,7 +609,7 @@ void LineListBox::UpdateEntries( long nOldWidth )
         auto& pData = m_vLineList[ n ];
         if ( pData->GetMinWidth() <= m_nWidth )
         {
-            Bitmap      aBmp;
+            BitmapEx aBmp;
             ImpGetLine( pData->GetLine1ForWidth( m_nWidth ),
                     pData->GetLine2ForWidth( m_nWidth ),
                     pData->GetDistForWidth( m_nWidth ),
@@ -669,7 +670,7 @@ void LineListBox::DataChanged( const DataChangedEvent& rDCEvt )
 FontNameBox::FontNameBox( vcl::Window* pParent, WinBits nWinStyle ) :
     ComboBox( pParent, nWinStyle )
 {
-    mpFontList = nullptr;
+    EnableSelectAll();
     mbWYSIWYG = false;
     InitFontMRUEntriesFile();
 }
@@ -759,8 +760,7 @@ void FontNameBox::InitFontMRUEntriesFile()
 
 void FontNameBox::ImplDestroyFontList()
 {
-    delete mpFontList;
-    mpFontList = nullptr;
+    mpFontList.reset();
 }
 
 void FontNameBox::Fill( const FontList* pList )
@@ -772,7 +772,7 @@ void FontNameBox::Fill( const FontList* pList )
     Clear();
 
     ImplDestroyFontList();
-    mpFontList = new ImplFontList;
+    mpFontList.reset(new ImplFontList);
 
     // insert fonts
     sal_uInt16 nFontCount = pList->GetFontNameCount();

@@ -61,7 +61,6 @@
 #include <tools/diagnose_ex.h>
 #include <svx/svdpage.hxx>
 #include <svx/fmmodel.hxx>
-#include <svx/dialmgr.hxx>
 #include <fmshimp.hxx>
 #include <svx/svdpagv.hxx>
 #include <sfx2/objitem.hxx>
@@ -75,7 +74,6 @@
 #include <formtoolbars.hxx>
 
 #include <svx/svxdlg.hxx>
-#include <svx/strings.hrc>
 
 #include <svx/sdrobjectfilter.hxx>
 
@@ -83,7 +81,6 @@
 #include <svxslots.hxx>
 
 #include <tbxform.hxx>
-#include <comphelper/property.hxx>
 #include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <memory>
@@ -731,17 +728,12 @@ void FmFormShell::Execute(SfxRequest &rReq)
             else
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                DBG_ASSERT( pFact, "no dialog factory!" );
-                if ( pFact )
-                {
-                    ScopedVclPtr< AbstractFmInputRecordNoDialog > dlg( pFact->CreateFmInputRecordNoDialog() );
-                    DBG_ASSERT( dlg.get(), "Dialog creation failed!" );
-                    dlg->SetValue( rController->getCursor()->getRow() );
-                    if ( dlg->Execute() == RET_OK )
-                        nRecord = dlg->GetValue();
+                ScopedVclPtr<AbstractFmInputRecordNoDialog> dlg(pFact->CreateFmInputRecordNoDialog(rReq.GetFrameWeld()));
+                dlg->SetValue( rController->getCursor()->getRow() );
+                if ( dlg->Execute() == RET_OK )
+                    nRecord = dlg->GetValue();
 
-                    rReq.AppendItem( SfxInt32Item( FN_PARAM_1, nRecord ) );
-                }
+                rReq.AppendItem( SfxInt32Item( FN_PARAM_1, nRecord ) );
             }
 
             if ( nRecord != -1 )
@@ -1276,11 +1268,11 @@ namespace
 {
     SdrUnoObj* lcl_findUnoObject( const SdrObjList& _rObjList, const Reference< XControlModel >& _rxModel )
     {
-        SdrObjListIter aIter( _rObjList );
+        SdrObjListIter aIter( &_rObjList );
         while ( aIter.IsMore() )
         {
             SdrObject* pObject = aIter.Next();
-            SdrUnoObj* pUnoObject = pObject ? dynamic_cast<SdrUnoObj*>( pObject  ) : nullptr;
+            SdrUnoObj* pUnoObject = dynamic_cast<SdrUnoObj*>( pObject  );
             if ( !pUnoObject )
                 continue;
 

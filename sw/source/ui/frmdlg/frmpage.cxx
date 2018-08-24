@@ -867,9 +867,9 @@ void SwFramePage::setOptimalRelWidth()
     m_pHoriRelationLB->Clear();
 }
 
-VclPtr<SfxTabPage> SwFramePage::Create(vcl::Window *pParent, const SfxItemSet *rSet)
+VclPtr<SfxTabPage> SwFramePage::Create(TabPageParent pParent, const SfxItemSet *rSet)
 {
-    return VclPtr<SwFramePage>::Create( pParent, *rSet );
+    return VclPtr<SwFramePage>::Create( pParent.pParent, *rSet );
 }
 
 void SwFramePage::EnableGraficMode()
@@ -1261,7 +1261,7 @@ bool SwFramePage::FillItemSet(SfxItemSet *rSet)
     return bRet;
 }
 
-// initialise horizonal and vertical Pos
+// initialise horizontal and vertical Pos
 void SwFramePage::InitPos(RndStdIds eId,
                                 sal_Int16 nH,
                                 sal_Int16 nHRel,
@@ -1822,7 +1822,7 @@ void SwFramePage::RangeModifyHdl()
 
     if ( m_pHMap )
     {
-        // alignment horizonal
+        // alignment horizontal
         const sal_Int32 nMapPos = GetMapPos(m_pHMap, *m_pHorizontalDLB);
         aVal.nHoriOrient = GetAlignment(m_pHMap, nMapPos, *m_pHoriRelationLB);
         aVal.nHRelOrient = GetRelation(*m_pHoriRelationLB);
@@ -1993,7 +1993,7 @@ IMPL_LINK( SwFramePage, PosHdl, ListBox&, rLB, void )
     else
         m_bAtVertPosModified = true;
 
-    // special treatment for HTML-Mode with horizonal-vertical-dependencies
+    // special treatment for HTML-Mode with horizontal-vertical-dependencies
     if(m_bHtmlMode && (RndStdIds::FLY_AT_CHAR == GetAnchor()))
     {
         bool bSet = false;
@@ -2406,7 +2406,7 @@ SwGrfExtPage::~SwGrfExtPage()
 
 void SwGrfExtPage::dispose()
 {
-    delete pGrfDlg;
+    pGrfDlg.reset();
     m_pMirror.clear();
     m_pMirrorVertBox.clear();
     m_pMirrorHorzBox.clear();
@@ -2425,9 +2425,9 @@ void SwGrfExtPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SwGrfExtPage::Create( vcl::Window *pParent, const SfxItemSet *rSet )
+VclPtr<SfxTabPage> SwGrfExtPage::Create( TabPageParent pParent, const SfxItemSet *rSet )
 {
-    return VclPtr<SwGrfExtPage>::Create( pParent, *rSet );
+    return VclPtr<SwGrfExtPage>::Create( pParent.pParent, *rSet );
 }
 
 void SwGrfExtPage::Reset(const SfxItemSet *rSet)
@@ -2603,9 +2603,9 @@ IMPL_LINK_NOARG(SwGrfExtPage, BrowseHdl, Button*, void)
 {
     if(!pGrfDlg)
     {
-        pGrfDlg = new FileDialogHelper(
+        pGrfDlg.reset(new FileDialogHelper(
                 ui::dialogs::TemplateDescription::FILEOPEN_LINK_PREVIEW,
-                FileDialogFlags::Graphic, GetFrameWeld());
+                FileDialogFlags::Graphic, GetFrameWeld()));
         pGrfDlg->SetTitle(get<VclFrame>("linkframe")->get_label());
     }
     pGrfDlg->SetDisplayDirectory( m_pConnectED->GetText() );
@@ -2866,9 +2866,9 @@ bool SwFrameURLPage::FillItemSet(SfxItemSet *rSet)
     return bModified;
 }
 
-VclPtr<SfxTabPage> SwFrameURLPage::Create(vcl::Window *pParent, const SfxItemSet *rSet)
+VclPtr<SfxTabPage> SwFrameURLPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
 {
-    return VclPtr<SwFrameURLPage>::Create( pParent, *rSet );
+    return VclPtr<SwFrameURLPage>::Create( pParent.pParent, *rSet );
 }
 
 IMPL_LINK_NOARG(SwFrameURLPage, InsertFileHdl, Button*, void)
@@ -2965,9 +2965,9 @@ void SwFrameAddPage::dispose()
 }
 
 
-VclPtr<SfxTabPage> SwFrameAddPage::Create(vcl::Window *pParent, const SfxItemSet *rSet)
+VclPtr<SfxTabPage> SwFrameAddPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
 {
-    return VclPtr<SwFrameAddPage>::Create(pParent, *rSet);
+    return VclPtr<SwFrameAddPage>::Create(pParent.pParent, *rSet);
 }
 
 void SwFrameAddPage::Reset(const SfxItemSet *rSet )

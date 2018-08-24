@@ -38,6 +38,7 @@
 #include <com/sun/star/awt/XItemList.hpp>
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/processfactory.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/button.hxx>
 #include <vcl/graph.hxx>
@@ -1319,7 +1320,7 @@ void VCLXRadioButton::ProcessWindowEvent( const VclWindowEvent& rVclWindowEvent 
 
 void VCLXRadioButton::ImplClickedOrToggled( bool bToggled )
 {
-    // In the formulars, RadioChecked is not enabled, call itemStateChanged only for click
+    // In the forms, RadioChecked is not enabled, call itemStateChanged only for click
     // In the dialog editor, RadioChecked is enabled, call itemStateChanged only for bToggled
     VclPtr< RadioButton > pRadioButton = GetAs< RadioButton >();
     if ( pRadioButton && ( pRadioButton->IsRadioCheckEnabled() == bToggled ) && ( bToggled || pRadioButton->IsStateChanged() ) && maItemListeners.getLength() )

@@ -43,6 +43,7 @@
 #include <sfx2/viewsh.hxx>
 #include <sfx2/dialoghelper.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 using namespace com::sun::star;
 
@@ -77,7 +78,6 @@ SvxBitmapTabPage::SvxBitmapTabPage( vcl::Window* pParent, const SfxItemSet& rInA
     m_pBitmapList( nullptr ),
 
     m_pnBitmapListState( nullptr ),
-    m_aXBitmapItem( OUString(), Graphic() ),
     m_fObjectWidth(0.0),
     m_fObjectHeight(0.0),
     m_bLogicalSize(false),
@@ -104,7 +104,7 @@ SvxBitmapTabPage::SvxBitmapTabPage( vcl::Window* pParent, const SfxItemSet& rInA
 
     // setting the output device
     m_rXFSet.Put( XFillStyleItem(drawing::FillStyle_BITMAP) );
-    m_rXFSet.Put( m_aXBitmapItem );
+    m_rXFSet.Put( XFillBitmapItem(OUString(), Graphic()) );
     m_pCtlBitmapPreview->SetAttributes( m_aXFillAttr.GetItemSet() );
 
     m_pBitmapLB->SetSelectHdl( LINK(this, SvxBitmapTabPage, ModifyBitmapHdl) );
@@ -439,10 +439,10 @@ void SvxBitmapTabPage::Reset( const SfxItemSet* rAttrs )
 }
 
 
-VclPtr<SfxTabPage> SvxBitmapTabPage::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SvxBitmapTabPage::Create( TabPageParent pWindow,
                                            const SfxItemSet* rAttrs )
 {
-    return VclPtr<SvxBitmapTabPage>::Create( pWindow, *rAttrs );
+    return VclPtr<SvxBitmapTabPage>::Create( pWindow.pParent, *rAttrs );
 }
 
 
@@ -525,6 +525,8 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ModifyBitmapHdl, ValueSet*, void)
         ModifyBitmapStyleHdl( *m_pBitmapStyleLB );
         ModifyBitmapPositionHdl( *m_pPositionLB );
 
+        m_rXFSet.ClearItem();
+
         m_rXFSet.Put(XFillStyleItem(drawing::FillStyle_BITMAP));
         m_rXFSet.Put(XFillBitmapItem(OUString(), *pGraphicObject));
 
@@ -549,9 +551,7 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ClickRenameHdl, SvxPresetListBox*, void)
         OUString aName( m_pBitmapList->GetBitmap( nPos )->GetName() );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        assert(pFact && "Dialog creation failed!");
         ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-        assert(pDlg && "Dialog creation failed!");
 
         bool bLoop = true;
         while( bLoop && pDlg->Execute() == RET_OK )
@@ -762,9 +762,7 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ClickImportHdl, Button*, void)
             OUString        aName;
             INetURLObject   aURL( aDlg.GetPath() );
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            DBG_ASSERT(pFact, "Dialog creation failed!");
             ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aURL.GetName().getToken(0, '.'), aDesc));
-            DBG_ASSERT(pDlg, "Dialog creation failed!");
             nError = ErrCode(1);
 
             while( pDlg->Execute() == RET_OK )
@@ -795,7 +793,7 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ClickImportHdl, Button*, void)
                 m_pBitmapList->Insert(o3tl::make_unique<XBitmapEntry>(aGraphic, aName), nCount);
 
                 sal_Int32 nId = m_pBitmapLB->GetItemId( nCount - 1 );
-                Bitmap aBitmap = m_pBitmapList->GetBitmapForPreview( nCount, m_pBitmapLB->GetIconSize() );
+                BitmapEx aBitmap = m_pBitmapList->GetBitmapForPreview( nCount, m_pBitmapLB->GetIconSize() );
 
                 m_pBitmapLB->InsertItem( nId + 1, Image(aBitmap), aName );
                 m_pBitmapLB->SelectItem( nId + 1 );
@@ -832,6 +830,10 @@ sal_Int32 SvxBitmapTabPage::SearchBitmapList(const OUString& rBitmapName)
 }
 
 void SvxBitmapTabPage::PointChanged( vcl::Window* , RectPoint )
+{
+}
+
+void SvxBitmapTabPage::PointChanged( weld::DrawingArea*, RectPoint )
 {
 }
 

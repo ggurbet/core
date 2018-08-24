@@ -46,6 +46,7 @@
 #include <drawutil.hxx>
 #include <futext.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <tabvwsh.hxx>
 #include <client.hxx>
 #include <scmod.hxx>
@@ -122,11 +123,7 @@ void ScDrawView::Construct()
 
 void ScDrawView::ImplClearCalcDropMarker()
 {
-    if(pDropMarker)
-    {
-        delete pDropMarker;
-        pDropMarker = nullptr;
-    }
+    pDropMarker.reset();
 }
 
 ScDrawView::~ScDrawView()
@@ -214,7 +211,7 @@ void ScDrawView::SetMarkedToLayer( SdrLayerID nLayerNo )
     {
         //  #i11702# use SdrUndoObjectLayerChange for undo
         //  STR_UNDO_SELATTR is "Attributes" - should use a different text later
-        BegUndo( ScGlobal::GetRscString( STR_UNDO_SELATTR ) );
+        BegUndo( ScResId( STR_UNDO_SELATTR ) );
 
         const SdrMarkList& rMark = GetMarkedObjectList();
         const size_t nCount = rMark.GetMarkCount();
@@ -283,7 +280,7 @@ void ScDrawView::UpdateWorkArea()
 void ScDrawView::DoCut()
 {
     DoCopy();
-    BegUndo( ScGlobal::GetRscString( STR_UNDO_CUT ) );
+    BegUndo( ScResId( STR_UNDO_CUT ) );
     DeleteMarked();     // In this View - not affected by 505f change
     EndUndo();
 }
@@ -654,7 +651,7 @@ SdrObject* ScDrawView::GetObjectByName(const OUString& rName)
             DBG_ASSERT(pPage,"Page ?");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
                 SdrObject* pObject = aIter.Next();
                 while (pObject)
                 {
@@ -688,7 +685,7 @@ void ScDrawView::SelectCurrentViewObject( const OUString& rName )
             DBG_ASSERT(pPage,"Page ?");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
                 SdrObject* pObject = aIter.Next();
                 while (pObject && !pFound)
                 {
@@ -742,7 +739,7 @@ bool ScDrawView::SelectObject( const OUString& rName )
             OSL_ENSURE(pPage,"Page ?");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
                 SdrObject* pObject = aIter.Next();
                 while (pObject && !pFound)
                 {
@@ -856,7 +853,7 @@ void ScDrawView::DeleteMarked()
     {
         ScDrawLayer* pDrawLayer = pDoc->GetDrawLayer();
         ScDocShell* pDocShell = pViewData ? pViewData->GetDocShell() : nullptr;
-        ::svl::IUndoManager* pUndoMgr = pDocShell ? pDocShell->GetUndoManager() : nullptr;
+        SfxUndoManager* pUndoMgr = pDocShell ? pDocShell->GetUndoManager() : nullptr;
         bool bUndo = pDrawLayer && pDocShell && pUndoMgr && pDoc->IsUndoEnabled();
 
         // remove the cell note from document, we are its owner now
@@ -866,7 +863,7 @@ void ScDrawView::DeleteMarked()
         {
             // rescue note data for undo (with pointer to caption object)
             ScNoteData aNoteData = pNote->GetNoteData();
-            OSL_ENSURE( aNoteData.mxCaption.get() == pCaptObj, "ScDrawView::DeleteMarked - caption object does not match" );
+            OSL_ENSURE( aNoteData.m_pCaption.get() == pCaptObj, "ScDrawView::DeleteMarked - caption object does not match" );
             // collect the drawing undo action created while deleting the note
             if( bUndo )
                 pDrawLayer->BeginCalcUndo(false);
@@ -906,7 +903,7 @@ void ScDrawView::MarkDropObj( SdrObject* pObj )
 
         if(pDropMarkObj)
         {
-            pDropMarker = new SdrDropMarkerOverlay(*this, *pDropMarkObj);
+            pDropMarker.reset( new SdrDropMarkerOverlay(*this, *pDropMarkObj) );
         }
     }
 }
@@ -978,7 +975,7 @@ SdrObject* ScDrawView::ApplyGraphicToObject(
 {
     if(dynamic_cast< SdrGrafObj* >(&rHitObject))
     {
-        SdrGrafObj* pNewGrafObj = static_cast<SdrGrafObj*>(rHitObject.Clone());
+        SdrGrafObj* pNewGrafObj(static_cast<SdrGrafObj*>(rHitObject.CloneSdrObject(rHitObject.getSdrModelFromSdrObject())));
 
         pNewGrafObj->SetGraphic(rGraphic);
         BegUndo(rBeginUndoText);

@@ -77,7 +77,7 @@ public:
 
 private:
     FT_FaceRec_*    maFaceFT;
-    FreetypeFontFile*     mpFontFile;
+    FreetypeFontFile* const mpFontFile;
     const int       mnFaceNum;
     int             mnRefCount;
     sal_IntPtr      mnFontId;
@@ -97,10 +97,10 @@ public:
     void                AnnounceFonts( PhysicalFontCollection* ) const;
     void                ClearFontList();
 
-    FreetypeFont* CreateFont( const FontSelectPattern& );
+    FreetypeFont* CreateFont(LogicalFontInstance* pLogicalFont);
 
 private:
-    typedef std::unordered_map<sal_IntPtr,FreetypeFontInfo*> FontList;
+    typedef std::unordered_map<sal_IntPtr, std::unique_ptr<FreetypeFontInfo>> FontList;
     FontList            maFontList;
 
     sal_IntPtr          mnMaxFontId;
@@ -114,25 +114,27 @@ private:
 public:
                             FreetypeFontFace( FreetypeFontInfo*, const FontAttributes& );
 
-    virtual LogicalFontInstance* CreateFontInstance( const FontSelectPattern& ) const override;
-    virtual PhysicalFontFace* Clone() const override   { return new FreetypeFontFace( *this ); }
+    virtual rtl::Reference<LogicalFontInstance> CreateFontInstance( const FontSelectPattern& ) const override;
     virtual sal_IntPtr      GetFontId() const override { return mpFreetypeFontInfo->GetFontId(); }
 };
 
 // a class for cache entries for physical font instances that are based on serverfonts
 class VCL_DLLPUBLIC FreetypeFontInstance : public LogicalFontInstance
 {
-    friend LogicalFontInstance* FreetypeFontFace::CreateFontInstance(const FontSelectPattern&) const;
+    friend rtl::Reference<LogicalFontInstance> FreetypeFontFace::CreateFontInstance(const FontSelectPattern&) const;
 
     FreetypeFont* mpFreetypeFont;
 
+    virtual hb_font_t* ImplInitHbFont() override;
+
 protected:
-    explicit FreetypeFontInstance(const FontSelectPattern&);
+    explicit FreetypeFontInstance(const PhysicalFontFace& rPFF, const FontSelectPattern& rFSP);
 
 public:
     virtual ~FreetypeFontInstance() override;
 
     void SetFreetypeFont(FreetypeFont* p);
+    FreetypeFont* GetFreetypeFont() const { return mpFreetypeFont; }
 };
 
 #endif // INCLUDED_VCL_GENERIC_GLYPHS_GCACH_FTYP_HXX

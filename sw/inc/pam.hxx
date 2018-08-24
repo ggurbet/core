@@ -20,7 +20,6 @@
 #define INCLUDED_SW_INC_PAM_HXX
 
 #include <sal/types.h>
-#include <tools/mempool.hxx>
 #include "ring.hxx"
 #include "index.hxx"
 #include "ndindex.hxx"
@@ -32,8 +31,6 @@ class SwFormat;
 class SfxPoolItem;
 class SfxItemSet;
 class SwDoc;
-class SwNode;
-class SwContentNode;
 class SwPaM;
 class Point;
 namespace i18nutil {
@@ -187,13 +184,13 @@ public:
                 bool bSearchInNotes,
                 utl::TextSearch& rSText,
                 SwMoveFnCollection const & fnMove,
-                const SwPaM *pPam =nullptr, bool bInReadOnly = false);
+                const SwPaM *pPam, bool bInReadOnly = false);
     bool Find(  const SwFormat& rFormat,
                 SwMoveFnCollection const & fnMove,
-                const SwPaM *pPam =nullptr, bool bInReadOnly = false);
+                const SwPaM *pPam, bool bInReadOnly = false);
     bool Find(  const SfxPoolItem& rAttr, bool bValue,
                 SwMoveFnCollection const & fnMove,
-                const SwPaM *pPam =nullptr, bool bInReadOnly = false );
+                const SwPaM *pPam, bool bInReadOnly = false );
     bool Find(  const SfxItemSet& rAttr, bool bNoColls,
                 SwMoveFnCollection const & fnMove,
                 const SwPaM *pPam, bool bInReadOnly, bool bMoveFirst );
@@ -292,8 +289,6 @@ public:
     {
         return *Start() <= rPos && rPos <= *End();
     }
-
-    DECL_FIXEDMEMPOOL_NEWDEL(SwPaM);
 
     OUString GetText() const;
     void InvalidatePaM();

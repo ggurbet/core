@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_java.h>
 
 #include <rtl/process.h>
 #include <rtl/ref.hxx>
@@ -42,7 +42,7 @@
 
 using namespace ::com::sun::star;
 
-long ImplSysChildProc( void* pInst, SalObjEvent nEvent )
+void ImplSysChildProc( void* pInst, SalObjEvent nEvent )
 {
     VclPtr<SystemChildWindow> pWindow = static_cast<SystemChildWindow*>(pInst);
 
@@ -92,8 +92,6 @@ long ImplSysChildProc( void* pInst, SalObjEvent nEvent )
 
         default: break;
     }
-
-    return 0;
 }
 
 void SystemChildWindow::ImplInitSysChild( vcl::Window* pParent, WinBits nStyle, SystemWindowData *pData, bool bShow )

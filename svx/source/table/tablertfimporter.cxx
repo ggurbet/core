@@ -40,6 +40,7 @@
 #include <editeng/editdata.hxx>
 #include <svx/svdmodel.hxx>
 #include <editeng/svxrtf.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::table;
@@ -384,7 +385,7 @@ void SdrTableRTFParser::ProcToken( RtfImportInfo* pInfo )
 {
     switch ( pInfo->nToken )
     {
-        case RTF_TROWD:         // denotes table row defauls, before RTF_CELLX
+        case RTF_TROWD:         // denotes table row default, before RTF_CELLX
         {
             maDefaultList.clear();
             mpDefMerge = nullptr;

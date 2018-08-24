@@ -21,6 +21,7 @@
 #include <editeng/memberids.h>
 #include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/lineitem.hxx>
@@ -45,6 +46,7 @@
 #include <com/sun/star/table/BorderLine.hpp>
 #include <com/sun/star/table/CellVertJustify2.hpp>
 #include <com/sun/star/table/TableBorder.hpp>
+#include <com/sun/star/table/TableBorder2.hpp>
 #include <com/sun/star/table/ShadowFormat.hpp>
 #include <com/sun/star/table/CellHoriJustify.hpp>
 #include <com/sun/star/table/CellOrientation.hpp>
@@ -71,6 +73,7 @@
 #include <unonames.hxx>
 #include <unowids.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <cellsuno.hxx>
 #include <stylehelper.hxx>
 
@@ -183,6 +186,7 @@ static const SfxItemPropertySet * lcl_GetPageStyleSet()
         {OUString(SC_UNO_PAGE_BACKCOLOR),   ATTR_BACKGROUND,    ::cppu::UnoType<sal_Int32>::get(),            0, MID_BACK_COLOR },
         {OUString(SC_UNO_PAGE_GRAPHICFILT), ATTR_BACKGROUND,    ::cppu::UnoType<OUString>::get(),          0, MID_GRAPHIC_FILTER },
         {OUString(SC_UNO_PAGE_GRAPHICLOC),  ATTR_BACKGROUND,    ::cppu::UnoType<style::GraphicLocation>::get(),   0, MID_GRAPHIC_POSITION },
+        {OUString(SC_UNO_PAGE_GRAPHICURL),  ATTR_BACKGROUND,    ::cppu::UnoType<OUString>::get(),          0, MID_GRAPHIC_URL },
         {OUString(SC_UNO_PAGE_GRAPHIC),     ATTR_BACKGROUND,    ::cppu::UnoType<graphic::XGraphic>::get(), 0, MID_GRAPHIC },
         {OUString(SC_UNO_PAGE_BACKTRANS),   ATTR_BACKGROUND,    cppu::UnoType<bool>::get(),            0, MID_GRAPHIC_TRANSPARENT },
         {OUString(OLD_UNO_PAGE_BACKCOLOR),  ATTR_BACKGROUND,    ::cppu::UnoType<sal_Int32>::get(),            0, MID_BACK_COLOR },
@@ -198,6 +202,7 @@ static const SfxItemPropertySet * lcl_GetPageStyleSet()
         {OUString(SC_UNO_PAGE_FTRBACKCOL),  SC_WID_UNO_FOOTERSET,::cppu::UnoType<sal_Int32>::get(),           0, 0 },
         {OUString(SC_UNO_PAGE_FTRGRFFILT),  SC_WID_UNO_FOOTERSET,::cppu::UnoType<OUString>::get(),     0, 0 },
         {OUString(SC_UNO_PAGE_FTRGRFLOC),   SC_WID_UNO_FOOTERSET,::cppu::UnoType<style::GraphicLocation>::get(), 0, 0 },
+        {OUString(SC_UNO_PAGE_FTRGRFURL),   SC_WID_UNO_FOOTERSET,::cppu::UnoType<OUString>::get(),            0, 0 },
         {OUString(SC_UNO_PAGE_FTRGRF),      SC_WID_UNO_FOOTERSET,::cppu::UnoType<graphic::XGraphic>::get(),     0, 0 },
         {OUString(SC_UNO_PAGE_FTRBACKTRAN), SC_WID_UNO_FOOTERSET,cppu::UnoType<bool>::get(),                       0, 0 },
         {OUString(OLD_UNO_PAGE_FTRBACKCOL), SC_WID_UNO_FOOTERSET,::cppu::UnoType<sal_Int32>::get(),           0, 0 },
@@ -225,6 +230,7 @@ static const SfxItemPropertySet * lcl_GetPageStyleSet()
         {OUString(SC_UNO_PAGE_HDRBACKCOL),  SC_WID_UNO_HEADERSET,::cppu::UnoType<sal_Int32>::get(),           0, 0 },
         {OUString(SC_UNO_PAGE_HDRGRFFILT),  SC_WID_UNO_HEADERSET,::cppu::UnoType<OUString>::get(),     0, 0 },
         {OUString(SC_UNO_PAGE_HDRGRFLOC),   SC_WID_UNO_HEADERSET,::cppu::UnoType<style::GraphicLocation>::get(), 0, 0 },
+        {OUString(SC_UNO_PAGE_HDRGRFURL),   SC_WID_UNO_HEADERSET,::cppu::UnoType<OUString>::get(),            0, 0 },
         {OUString(SC_UNO_PAGE_HDRGRF),      SC_WID_UNO_HEADERSET,::cppu::UnoType<graphic::XGraphic>::get(),     0, 0 },
         {OUString(SC_UNO_PAGE_HDRBACKTRAN), SC_WID_UNO_HEADERSET,cppu::UnoType<bool>::get(),                       0, 0 },
         {OUString(OLD_UNO_PAGE_HDRBACKCOL), SC_WID_UNO_HEADERSET,::cppu::UnoType<sal_Int32>::get(),           0, 0 },
@@ -304,6 +310,7 @@ static const SfxItemPropertyMap* lcl_GetHeaderStyleMap()
         {OUString(SC_UNO_PAGE_HDRBACKCOL),  ATTR_BACKGROUND,    ::cppu::UnoType<sal_Int32>::get(),            0, MID_BACK_COLOR },
         {OUString(SC_UNO_PAGE_HDRGRFFILT),  ATTR_BACKGROUND,    ::cppu::UnoType<OUString>::get(),          0, MID_GRAPHIC_FILTER },
         {OUString(SC_UNO_PAGE_HDRGRFLOC),   ATTR_BACKGROUND,    ::cppu::UnoType<style::GraphicLocation>::get(),   0, MID_GRAPHIC_POSITION },
+        {OUString(SC_UNO_PAGE_HDRGRFURL),   ATTR_BACKGROUND,    ::cppu::UnoType<OUString>::get(),          0, MID_GRAPHIC_URL },
         {OUString(SC_UNO_PAGE_HDRGRF),      ATTR_BACKGROUND,    ::cppu::UnoType<graphic::XGraphic>::get(),          0, MID_GRAPHIC },
         {OUString(SC_UNO_PAGE_HDRBACKTRAN), ATTR_BACKGROUND,    cppu::UnoType<bool>::get(),            0, MID_GRAPHIC_TRANSPARENT },
         {OUString(OLD_UNO_PAGE_HDRBACKCOL), ATTR_BACKGROUND,    ::cppu::UnoType<sal_Int32>::get(),            0, MID_BACK_COLOR },
@@ -343,6 +350,7 @@ static const SfxItemPropertyMap* lcl_GetFooterStyleMap()
         {OUString(SC_UNO_PAGE_FTRBACKCOL),  ATTR_BACKGROUND,    ::cppu::UnoType<sal_Int32>::get(),            0, MID_BACK_COLOR },
         {OUString(SC_UNO_PAGE_FTRGRFFILT),  ATTR_BACKGROUND,    ::cppu::UnoType<OUString>::get(),          0, MID_GRAPHIC_FILTER },
         {OUString(SC_UNO_PAGE_FTRGRFLOC),   ATTR_BACKGROUND,    ::cppu::UnoType<style::GraphicLocation>::get(),   0, MID_GRAPHIC_POSITION },
+        {OUString(SC_UNO_PAGE_FTRGRFURL),   ATTR_BACKGROUND,    ::cppu::UnoType<OUString>::get(),          0, MID_GRAPHIC_URL },
         {OUString(SC_UNO_PAGE_FTRGRF),      ATTR_BACKGROUND,    ::cppu::UnoType<graphic::XGraphic>::get(),          0, MID_GRAPHIC },
         {OUString(SC_UNO_PAGE_FTRBACKTRAN), ATTR_BACKGROUND,    cppu::UnoType<bool>::get(),            0, MID_GRAPHIC_TRANSPARENT },
         {OUString(OLD_UNO_PAGE_FTRBACKCOL), ATTR_BACKGROUND,    ::cppu::UnoType<sal_Int32>::get(),            0, MID_BACK_COLOR },
@@ -737,7 +745,7 @@ void SAL_CALL ScStyleFamilyObj::removeByName( const OUString& aName )
             else
             {
                 if ( rDoc.RemovePageStyleInUse( aString ) )
-                    pDocShell->PageStyleModified( ScGlobal::GetRscString(STR_STYLENAME_STANDARD), true );
+                    pDocShell->PageStyleModified( ScResId(STR_STYLENAME_STANDARD), true );
 
                 pStylePool->Remove( pStyle );
 
@@ -882,7 +890,7 @@ uno::Any SAL_CALL ScStyleFamilyObj::getPropertyValue( const OUString& sPropertyN
     }
     if (pResId)
     {
-        OUString sDisplayName(ScGlobal::GetRscString(pResId));
+        OUString sDisplayName(ScResId(pResId));
         aRet <<= sDisplayName;
     }
 

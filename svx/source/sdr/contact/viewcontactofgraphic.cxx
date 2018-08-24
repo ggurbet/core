@@ -29,8 +29,6 @@
 #include <svx/sdr/contact/objectcontact.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <sdr/primitive2d/sdrgrafprimitive2d.hxx>
-#include <svx/strings.hrc>
-#include <svdglob.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
@@ -242,13 +240,13 @@ namespace sdr
                 // needed and can be deleted.
 
                 // create temp RectObj as TextObj and set needed attributes
-                SdrRectObj aRectObj(GetGrafObject().getSdrModelFromSdrObject(), OBJ_TEXT);
-                aRectObj.NbcSetText(aDraftText);
-                aRectObj.SetMergedItem(SvxColorItem(COL_LIGHTRED, EE_CHAR_COLOR));
+                SdrRectObj* pRectObj(new SdrRectObj(GetGrafObject().getSdrModelFromSdrObject(), OBJ_TEXT));
+                pRectObj->NbcSetText(aDraftText);
+                pRectObj->SetMergedItem(SvxColorItem(COL_LIGHTRED, EE_CHAR_COLOR));
 
                 // get SdrText and OPO
-                SdrText* pSdrText = aRectObj.getText(0);
-                OutlinerParaObject* pOPO = aRectObj.GetOutlinerParaObject();
+                SdrText* pSdrText(pRectObj->getText(0));
+                OutlinerParaObject* pOPO(pRectObj->GetOutlinerParaObject());
 
                 if(pSdrText && pOPO)
                 {
@@ -274,6 +272,10 @@ namespace sdr
                     const drawinglayer::geometry::ViewInformation2D aViewInformation2D;
                     xBlockTextPrimitive->get2DDecomposition(xRetval, aViewInformation2D);
                 }
+
+                // always use SdrObject::Free(...) for SdrObjects (!)
+                SdrObject* pTemp(pRectObj);
+                SdrObject::Free(pTemp);
             }
 
             return xRetval;
@@ -365,7 +367,7 @@ namespace sdr
             else if(visualisationUsesDraft())
             {
                 // #i102380# The graphic is swapped out. To not force a swap-in here, there is a mechanism
-                // which shows a swapped-out-visualisation (which gets created here now) and an asynchronious
+                // which shows a swapped-out-visualisation (which gets created here now) and an asynchronous
                 // visual update mechanism for swapped-out graphics when they were loaded (see AsynchGraphicLoadingEvent
                 // and ViewObjectContactOfGraphic implementation). Not forcing the swap-in here allows faster
                 // (non-blocking) processing here and thus in the effect e.g. fast scrolling through pages

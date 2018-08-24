@@ -31,19 +31,19 @@ void SwInsTableDlg::GetValues( OUString& rName, sal_uInt16& rRow, sal_uInt16& rC
                                 SwInsertTableOptions& rInsTableOpts, OUString& rAutoName,
                                 SwTableAutoFormat *& prTAFormat )
 {
-    sal_uInt16 nInsMode = 0;
+    SwInsertTableFlags nInsMode = SwInsertTableFlags::NONE;
     rName = m_xNameEdit->get_text();
     rRow = m_xRowNF->get_value();
     rCol = m_xColNF->get_value();
 
     if (m_xHeaderCB->get_active())
-        nInsMode |= tabopts::HEADLINE;
+        nInsMode |= SwInsertTableFlags::Headline;
     if (m_xRepeatHeaderCB->get_sensitive() && m_xRepeatHeaderCB->get_active())
         rInsTableOpts.mnRowsToRepeat = m_xRepeatHeaderNF->get_value();
     else
         rInsTableOpts.mnRowsToRepeat = 0;
     if (!m_xDontSplitCB->get_active())
-        nInsMode |= tabopts::SPLIT_LAYOUT;
+        nInsMode |= SwInsertTableFlags::SplitLayout;
     if( pTAutoFormat )
     {
         prTAFormat = new SwTableAutoFormat( *pTAutoFormat );
@@ -61,6 +61,10 @@ IMPL_LINK(SwInsTableDlg, TextFilterHdl, OUString&, rTest, bool)
 
 SwInsTableDlg::SwInsTableDlg(SwView& rView)
     : weld::GenericDialogController(rView.GetFrameWeld(), "modules/swriter/ui/inserttable.ui", "InsertTableDialog")
+    , m_aTextFilter(" .<>")
+    , pShell(&rView.GetWrtShell())
+    , pTAutoFormat(nullptr)
+    , nEnteredValRepeatHeaderNF(-1)
     , m_xNameEdit(m_xBuilder->weld_entry("nameedit"))
     , m_xColNF(m_xBuilder->weld_spin_button("colspin"))
     , m_xRowNF(m_xBuilder->weld_spin_button("rowspin"))
@@ -71,11 +75,7 @@ SwInsTableDlg::SwInsTableDlg(SwView& rView)
     , m_xDontSplitCB(m_xBuilder->weld_check_button("dontsplitcb"))
     , m_xInsertBtn(m_xBuilder->weld_button("ok"))
     , m_xLbFormat(m_xBuilder->weld_tree_view("formatlbinstable"))
-    , m_xWndPreview(new AutoFormatPreview(m_xBuilder->weld_drawing_area("previewinstable")))
-    , m_aTextFilter(" .<>")
-    , pShell(&rView.GetWrtShell())
-    , pTAutoFormat(nullptr)
-    , nEnteredValRepeatHeaderNF(-1)
+    , m_xWndPreview(new weld::CustomWeld(*m_xBuilder, "previewinstable", m_aWndPreview))
 {
     const int nWidth = m_xLbFormat->get_approximate_digit_width() * 32;
     const int nHeight = m_xLbFormat->get_height_rows(8);
@@ -97,14 +97,14 @@ SwInsTableDlg::SwInsTableDlg(SwView& rView)
     const SwModuleOptions* pModOpt = SW_MOD()->GetModuleConfig();
 
     SwInsertTableOptions aInsOpts = pModOpt->GetInsTableFlags(bHTMLMode);
-    sal_uInt16 nInsTableFlags = aInsOpts.mnInsMode;
+    SwInsertTableFlags nInsTableFlags = aInsOpts.mnInsMode;
 
-    m_xHeaderCB->set_active(0 != (nInsTableFlags & tabopts::HEADLINE));
+    m_xHeaderCB->set_active(bool(nInsTableFlags & SwInsertTableFlags::Headline));
     m_xRepeatHeaderCB->set_active(aInsOpts.mnRowsToRepeat > 0);
     if (bHTMLMode)
         m_xDontSplitCB->hide();
     else
-        m_xDontSplitCB->set_active(0 == (nInsTableFlags & tabopts::SPLIT_LAYOUT));
+        m_xDontSplitCB->set_active(!(nInsTableFlags & SwInsertTableFlags::SplitLayout));
 
     m_xRepeatHeaderNF->connect_value_changed( LINK( this, SwInsTableDlg, ModifyRepeatHeaderNF_Hdl ) );
     m_xHeaderCB->connect_toggled( LINK( this, SwInsTableDlg, CheckBoxHdl ) );
@@ -124,7 +124,7 @@ SwInsTableDlg::SwInsTableDlg(SwView& rView)
 
 void SwInsTableDlg::InitAutoTableFormat()
 {
-    m_xWndPreview->DetectRTL(pShell);
+    m_aWndPreview.DetectRTL(pShell);
 
     m_xLbFormat->connect_changed(LINK(this, SwInsTableDlg, SelFormatHdl));
 
@@ -182,16 +182,16 @@ IMPL_LINK_NOARG(SwInsTableDlg, SelFormatHdl, weld::TreeView&, void)
     lbIndex = static_cast<sal_uInt8>(m_xLbFormat->get_selected_index());
     tbIndex = lbIndexToTableIndex( lbIndex );
 
-    // To understand this index maping, look InitAutoTableFormat function to
+    // To understand this index mapping, look InitAutoTableFormat function to
     // see how listbox item is implemented.
     if( tbIndex < 255 )
-        m_xWndPreview->NotifyChange( (*pTableTable)[tbIndex] );
+        m_aWndPreview.NotifyChange( (*pTableTable)[tbIndex] );
     else
     {
         SwTableAutoFormat aTmp( SwViewShell::GetShellRes()->aStrNone );
         lcl_SetProperties( &aTmp, false );
 
-        m_xWndPreview->NotifyChange( aTmp );
+        m_aWndPreview.NotifyChange( aTmp );
     }
 }
 

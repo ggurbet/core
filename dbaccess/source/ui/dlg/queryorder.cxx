@@ -49,7 +49,6 @@ DlgOrderCrit::DlgOrderCrit(vcl::Window * pParent,
     const Reference< XSingleSelectQueryComposer >& _rxComposer,
     const Reference< XNameAccess>& _rxCols)
     : ModalDialog(pParent, "SortDialog", "dbaccess/ui/sortdialog.ui")
-    , aSTR_NOENTRY(DBA_RES(STR_VALUE_NONE))
     , m_xQueryComposer(_rxComposer)
     , m_xColumns(_rxCols)
     , m_xConnection(_rxConnection)
@@ -76,6 +75,7 @@ DlgOrderCrit::DlgOrderCrit(vcl::Window * pParent,
     m_aValueList[1] = m_pLB_ORDERVALUE2;
     m_aValueList[2] = m_pLB_ORDERVALUE3;
 
+    OUString aSTR_NOENTRY(DBA_RES(STR_VALUE_NONE));
     for (VclPtr<ListBox> & j : m_aColumnList)
     {
         j->InsertEntry( aSTR_NOENTRY );
@@ -219,23 +219,23 @@ OUString DlgOrderCrit::GetOrderList( ) const
 
     Reference< XNameAccess> xColumns = Reference< XColumnsSupplier >(m_xQueryComposer,UNO_QUERY)->getColumns();
 
-    OUString sOrder;
+    OUStringBuffer sOrder;
     for( sal_uInt16 i=0 ; i<DOG_ROWS; i++ )
     {
         if(m_aColumnList[i]->GetSelectedEntryPos() != 0)
         {
             if(!sOrder.isEmpty())
-                sOrder += ",";
+                sOrder.append(",");
 
             OUString sName = m_aColumnList[i]->GetSelectedEntry();
-            sOrder += ::dbtools::quoteName(sQuote,sName);
+            sOrder.append(::dbtools::quoteName(sQuote,sName));
             if(m_aValueList[i]->GetSelectedEntryPos())
-                sOrder += " DESC ";
+                sOrder.append(" DESC ");
             else
-                sOrder += " ASC ";
+                sOrder.append(" ASC ");
         }
     }
-    return sOrder;
+    return sOrder.makeStringAndClear();
 }
 
 void DlgOrderCrit::BuildOrderPart()

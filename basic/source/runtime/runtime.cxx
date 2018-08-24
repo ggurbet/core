@@ -231,11 +231,11 @@ SbiRuntime::pStep2 SbiRuntime::aStep2[] = {// all opcodes with two operands
     &SbiRuntime::StepFIND,      // load (+StringID+Typ)
     &SbiRuntime::StepELEM,          // load element (+StringID+Typ)
     &SbiRuntime::StepPARAM,     // Parameter (+Offset+Typ)
-    // Verzweigen
+    // branches
     &SbiRuntime::StepCALL,      // Declare-Call (+StringID+Typ)
     &SbiRuntime::StepCALLC,     // CDecl-Declare-Call (+StringID+Typ)
     &SbiRuntime::StepCASEIS,        // Case-Test (+Test-Opcode+False-Target)
-    // Verwaltung
+    // management
     &SbiRuntime::StepSTMNT,         // beginning of a statement (+Line+Col)
     // E/A
     &SbiRuntime::StepOPEN,          // (+StreamMode+Flags)
@@ -407,6 +407,15 @@ std::shared_ptr<SvNumberFormatter> SbiInstance::PrepareNumberFormatter( sal_uInt
     std::shared_ptr<SvNumberFormatter> pNumberFormatter(
             new SvNumberFormatter( comphelper::getProcessComponentContext(), eLangType ));
 
+    // Several parser methods pass SvNumberFormatter::IsNumberFormat() a number
+    // format index to parse against. Tell the formatter the proper date
+    // evaluation order, which also determines the date acceptance patterns to
+    // use if a format was passed. NF_EVALDATEFORMAT_FORMAT restricts to the
+    // format's locale's date patterns/order (no init/system locale match
+    // tried) and falls back to NF_EVALDATEFORMAT_INTL if no specific (i.e. 0)
+    // (or an unknown) format index was passed.
+    pNumberFormatter->SetEvalDateFormat( NF_EVALDATEFORMAT_FORMAT);
+
     sal_Int32 nCheckPos = 0;
     SvNumFormatType nType;
     rnStdTimeIdx = pNumberFormatter->GetStandardFormat( SvNumFormatType::TIME, eLangType );
@@ -429,12 +438,12 @@ std::shared_ptr<SvNumberFormatter> SbiInstance::PrepareNumberFormatter( sal_uInt
     }
     OUString aStr( aDateStr );      // PutandConvertEntry() modifies string!
     pNumberFormatter->PutandConvertEntry( aStr, nCheckPos, nType,
-        rnStdDateIdx, LANGUAGE_ENGLISH_US, eLangType );
+        rnStdDateIdx, LANGUAGE_ENGLISH_US, eLangType, true);
     nCheckPos = 0;
     aDateStr += " HH:MM:SS";
     aStr = aDateStr;
     pNumberFormatter->PutandConvertEntry( aStr, nCheckPos, nType,
-        rnStdDateTimeIdx, LANGUAGE_ENGLISH_US, eLangType );
+        rnStdDateTimeIdx, LANGUAGE_ENGLISH_US, eLangType, true);
     return pNumberFormatter;
 }
 
@@ -1809,7 +1818,7 @@ void SbiRuntime::StepSET_Impl( SbxVariableRef& refVal, SbxVariableRef& refVar, b
             // LHS try determine if a default prop exists
             // again like in StepPUT (see there too ) we are tweaking the
             // heuristics again for when to assign an object reference or
-            // use default memebers if they exists
+            // use default members if they exist
             // #FIXME we really need to get to the bottom of this mess
             bool bObjAssign = false;
             if ( refVar->GetType() == SbxOBJECT )
@@ -2042,7 +2051,7 @@ void SbiRuntime::StepRSET()
         }
         else
         {
-            aNewStr.append(aRefValString.copy(0, nVarStrLen));
+            aNewStr.appendCopy(aRefValString, 0, nVarStrLen);
         }
         refVar->PutString(aNewStr.makeStringAndClear());
 
@@ -2875,7 +2884,7 @@ void SbiRuntime::StepPAD( sal_uInt32 nOp1 )
 void SbiRuntime::StepJUMP( sal_uInt32 nOp1 )
 {
 #ifdef DBG_UTIL
-    // #QUESTION shouln't this be
+    // #QUESTION shouldn't this be
     // if( (sal_uInt8*)( nOp1+pImagGetCode() ) >= pImg->GetCodeSize() )
     if( nOp1 >= pImg->GetCodeSize() )
         StarBASIC::FatalError( ERRCODE_BASIC_INTERNAL_ERROR );

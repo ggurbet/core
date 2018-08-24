@@ -51,6 +51,7 @@ namespace vcl {
     class PrintDialog;
 }
 
+namespace weld { class Window; }
 
 enum class PrinterSupport
 {
@@ -75,8 +76,6 @@ private:
 
 public:
                                QueueInfo();
-                               QueueInfo( const QueueInfo& rInfo );
-                               ~QueueInfo();
 
     const OUString&            GetPrinterName() const { return maPrinterName; }
     const OUString&            GetDriver() const { return maDriver; }
@@ -127,7 +126,6 @@ private:
 
 public:
                                 PrinterOptions();
-                                ~PrinterOptions();
 
     bool                        IsReduceTransparency() const { return mbReduceTransparency; }
     void                        SetReduceTransparency( bool bSet ) { mbReduceTransparency = bSet; }
@@ -181,12 +179,12 @@ class VCL_DLLPUBLIC Printer : public OutputDevice
 
 private:
     SalInfoPrinter*             mpInfoPrinter;
-    SalPrinter*                 mpPrinter;
+    std::unique_ptr<SalPrinter> mpPrinter;
     SalGraphics*                mpJobGraphics;
     VclPtr<Printer>             mpPrev;
     VclPtr<Printer>             mpNext;
     VclPtr<VirtualDevice>       mpDisplayDev;
-    PrinterOptions*             mpPrinterOptions;
+    std::unique_ptr<PrinterOptions> mpPrinterOptions;
     OUString                    maPrinterName;
     OUString                    maDriver;
     OUString                    maPrintFile;
@@ -291,8 +289,8 @@ public:
     bool                        SetJobSetup( const JobSetup& rSetup );
     const JobSetup&             GetJobSetup() const { return maJobSetup; }
 
-    bool                        Setup( vcl::Window* pWindow,
-                                       PrinterSetupMode eMode = PrinterSetupMode::DocumentGlobal );
+    bool                        Setup(weld::Window* pWindow,
+                                      PrinterSetupMode eMode = PrinterSetupMode::DocumentGlobal);
     bool                        SetPrinterProps( const Printer* pPrinter );
 
     /** SetPrinterOptions is used internally only now
@@ -559,7 +557,7 @@ public:
     SAL_DLLPRIVATE    void              pushPropertiesToPrinter();
     SAL_DLLPRIVATE    void              resetPaperToLastConfigured();
     VCL_PLUGIN_PUBLIC void              setJobState( css::view::PrintableState );
-    SAL_DLLPRIVATE    void              setupPrinter( vcl::Window* i_pDlgParent );
+    SAL_DLLPRIVATE    void              setupPrinter( weld::Window* i_pDlgParent );
 
     SAL_DLLPRIVATE    int               getPageCountProtected() const;
     SAL_DLLPRIVATE    css::uno::Sequence< css::beans::PropertyValue >

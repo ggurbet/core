@@ -24,6 +24,7 @@
 #endif
 #include <osl/mutex.hxx>
 #include <rtl/uri.hxx>
+#include <sal/log.hxx>
 #include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <unotools/ucbstreamhelper.hxx>
@@ -991,7 +992,6 @@ void TransferableHelper::StartDrag( vcl::Window* pWindow, sal_Int8 nDnDSourceAct
     }
 }
 
-
 void TransferableHelper::ClearSelection( vcl::Window *pWindow )
 {
     DBG_ASSERT( pWindow, "Window pointer is NULL" );
@@ -999,17 +999,6 @@ void TransferableHelper::ClearSelection( vcl::Window *pWindow )
 
     if( xSelection.is() )
         xSelection->setContents( nullptr, nullptr );
-}
-
-
-Reference< XClipboard> TransferableHelper::GetSystemClipboard()
-{
-    vcl::Window *pFocusWindow = Application::GetFocusWindow();
-
-    if( pFocusWindow )
-        return pFocusWindow->GetClipboard();
-
-    return  Reference< XClipboard > ();
 }
 
 namespace
@@ -1021,7 +1010,6 @@ const Sequence< sal_Int8 >& TransferableHelper::getUnoTunnelId()
 {
     return theTransferableHelperUnoTunnelId::get().getSeq();
 }
-
 
 class TransferableClipboardNotifier : public ::cppu::WeakImplHelper< XClipboardListener >
 {

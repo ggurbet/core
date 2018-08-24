@@ -28,9 +28,7 @@
 #include <svtools/miscopt.hxx>
 #include <unotools/localedatawrapper.hxx>
 
-#include <svx/dialmgr.hxx>
 #include <svx/xoutbmp.hxx>
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include <svx/contdlg.hxx>
 #include "contimp.hxx"
@@ -142,7 +140,7 @@ tools::PolyPolygon SvxContourDlg::CreateAutoContour( const Graphic& rGraphic,
             aBmp = rGraphic.GetBitmapEx().GetMask();
         else
         {
-            aBmp = rGraphic.GetBitmap();
+            aBmp = rGraphic.GetBitmapEx().GetBitmap();
             nContourFlags |= XOutFlags::ContourEdgeDetect;
         }
     }
@@ -181,7 +179,7 @@ tools::PolyPolygon SvxContourDlg::CreateAutoContour( const Graphic& rGraphic,
     aBmp.SetPrefSize( rGraphic.GetPrefSize() );
     aBmp.SetPrefMapMode( rGraphic.GetPrefMapMode() );
 
-    return tools::PolyPolygon( XOutBitmap::GetContour( aBmp, nContourFlags, 128, pRect ) );
+    return tools::PolyPolygon( XOutBitmap::GetContour( aBmp, nContourFlags, pRect ) );
 }
 
 // Loop through to super class, no virtual Methods to not become incompatible
@@ -281,7 +279,7 @@ SvxSuperContourDlg::SvxSuperContourDlg(SfxBindings *_pBindings, SfxChildWindow *
     m_pMtfTolerance->SetPosPixel( aPos );
     m_pMtfTolerance->SetValue( 10 );
 
-    SetMinOutputSizePixel( aLastSize = GetOutputSizePixel() );
+    SetMinOutputSizePixel( GetOutputSizePixel() );
 
     m_pStbStatus->InsertItem( 1, 130, StatusBarItemBits::Left | StatusBarItemBits::In | StatusBarItemBits::AutoSize );
     m_pStbStatus->InsertItem( 2, 10 + GetTextWidth( " 9999,99 cm / 9999,99 cm " ) );
@@ -691,7 +689,7 @@ IMPL_LINK( SvxSuperContourDlg, PipetteClickHdl, ContourWindow&, rWnd, void )
 
         if( aGraphic.GetType() == GraphicType::Bitmap )
         {
-            Bitmap      aBmp( aGraphic.GetBitmap() );
+            Bitmap      aBmp( aGraphic.GetBitmapEx().GetBitmap() );
             const long  nTol = static_cast<long>(m_pMtfTolerance->GetValue() * 255L / 100L);
 
             aMask = aBmp.CreateMask( rColor, nTol );

@@ -54,7 +54,6 @@ struct SwTOXSortKey
         bSortAscending(true){}
 };
 
-class SwAuthorityField;
 typedef std::vector<SwTOXSortKey> SortKeyArr;
 typedef std::vector<std::unique_ptr<SwAuthEntry>> SwAuthDataArr;
 
@@ -149,7 +148,7 @@ class SwAuthorityField : public SwField
     mutable sal_IntPtr  m_nTempSequencePos;
 
     virtual OUString    Expand() const override;
-    virtual SwField*    Copy() const override;
+    virtual std::unique_ptr<SwField> Copy() const override;
 
 public:
     /// For internal use only, in general continue using ExpandField() instead.

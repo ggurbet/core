@@ -25,6 +25,7 @@
 #include <oox/token/relationship.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <svl/zforlist.hxx>
+#include <sal/log.hxx>
 #include <document.hxx>
 #include <formulacell.hxx>
 #include <scextopt.hxx>
@@ -1924,7 +1925,7 @@ void XclExpSupbookBuffer::StoreCellRange( sal_uInt16 nFileId, const OUString& rT
 
     if (aMatrixListSize != nTabCount)
     {
-        // matrix size mis-match !
+        // matrix size mismatch!
         return;
     }
 

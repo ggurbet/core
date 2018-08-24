@@ -18,6 +18,7 @@
  */
 
 #include <sal/types.h>
+#include <sal/log.hxx>
 
 #include <services/desktop.hxx>
 #include <protocols.h>
@@ -63,8 +64,6 @@ namespace {
             can be used to get more information about this format. Further this
             class provides full access to the configuration data and following
             implementations will support some special query modes.
-
-    @author     as96863
 
     @docdate    10.03.2003 by as96863
 

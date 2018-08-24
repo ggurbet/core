@@ -31,13 +31,16 @@
 #include <tabvwsh.hxx>
 #include <sc.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <cellvalue.hxx>
 #include <defaultsoptions.hxx>
+#include <scmod.hxx>
 
 #include <osl/file.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/event.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/objsh.hxx>
@@ -58,6 +61,8 @@
 #include <columnspanset.hxx>
 #include <column.hxx>
 #include <com/sun/star/document/MacroExecMode.hpp>
+#include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <memory>
 #include <algorithm>
@@ -2497,7 +2502,7 @@ SfxObjectShellRef ScExternalRefManager::loadSrcDocument(sal_uInt16 nFileId, OUSt
         setRelativeFileName(nFileId, aStr);
     }
 
-    SfxItemSet* pSet = new SfxAllItemSet(SfxGetpApp()->GetPool());
+    std::unique_ptr<SfxItemSet> pSet(new SfxAllItemSet(SfxGetpApp()->GetPool()));
     if (!aOptions.isEmpty())
         pSet->Put(SfxStringItem(SID_FILE_FILTEROPTIONS, aOptions));
 
@@ -2519,7 +2524,7 @@ SfxObjectShellRef ScExternalRefManager::loadSrcDocument(sal_uInt16 nFileId, OUSt
         }
     }
 
-    unique_ptr<SfxMedium> pMedium(new SfxMedium(aFile, StreamMode::STD_READ, pFilter, pSet));
+    unique_ptr<SfxMedium> pMedium(new SfxMedium(aFile, StreamMode::STD_READ, pFilter, std::move(pSet)));
     if (pMedium->GetError() != ERRCODE_NONE)
         return nullptr;
 
@@ -2541,8 +2546,8 @@ SfxObjectShellRef ScExternalRefManager::loadSrcDocument(sal_uInt16 nFileId, OUSt
     ScExtDocOptions* pExtOptNew = rSrcDoc.GetExtDocOptions();
     if (!pExtOptNew)
     {
-        pExtOptNew = new ScExtDocOptions;
-        rSrcDoc.SetExtDocOptions(pExtOptNew);
+        rSrcDoc.SetExtDocOptions(o3tl::make_unique<ScExtDocOptions>());
+        pExtOptNew = rSrcDoc.GetExtDocOptions();
     }
     pExtOptNew->GetDocSettings().mnLinkCnt = nLinkCount + 1;
 
@@ -3196,7 +3201,7 @@ void ScExternalRefManager::Notify( SfxBroadcaster&, const SfxHint& rHint )
                     vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
                     std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                                VclMessageType::Warning, VclButtonsType::Ok,
-                                                               ScGlobal::GetRscString(STR_CLOSE_WITH_UNSAVED_REFS)));
+                                                               ScResId(STR_CLOSE_WITH_UNSAVED_REFS)));
                     xWarn->run();
                 }
                 break;

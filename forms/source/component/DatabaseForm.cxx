@@ -55,6 +55,7 @@
 #include <com/sun/star/util/XModifiable2.hpp>
 
 #include <comphelper/basicio.hxx>
+#include <comphelper/property.hxx>
 #include <comphelper/seqstream.hxx>
 #include <comphelper/sequence.hxx>
 #include <connectivity/dbtools.hxx>
@@ -957,12 +958,12 @@ void ODatabaseForm::InsertTextPart( INetMIMEMessage& rParent, const OUString& rN
 }
 
 
-bool ODatabaseForm::InsertFilePart( INetMIMEMessage& rParent, const OUString& rName,
+void ODatabaseForm::InsertFilePart( INetMIMEMessage& rParent, const OUString& rName,
     const OUString& rFileName )
 {
     OUString aFileName(rFileName);
     OUString aContentType(CONTENT_TYPE_STR_TEXT_PLAIN);
-    SvStream *pStream = nullptr;
+    std::unique_ptr<SvStream> pStream;
 
     if (!aFileName.isEmpty())
     {
@@ -976,8 +977,7 @@ bool ODatabaseForm::InsertFilePart( INetMIMEMessage& rParent, const OUString& rN
             pStream = ::utl::UcbStreamHelper::CreateStream(aFileName, StreamMode::READ);
             if (!pStream || (pStream->GetError() != ERRCODE_NONE))
             {
-                delete pStream;
-                pStream = nullptr;
+                pStream.reset();
             }
             sal_Int32 nSepInd = aFileName.lastIndexOf('.');
             OUString aExtension = aFileName.copy( nSepInd + 1 );
@@ -989,7 +989,7 @@ bool ODatabaseForm::InsertFilePart( INetMIMEMessage& rParent, const OUString& rN
 
     // If something didn't work, we create an empty MemoryStream
     if( !pStream )
-        pStream = new SvMemoryStream;
+        pStream.reset( new SvMemoryStream );
 
 
     // Create part as MessageChild
@@ -1012,10 +1012,8 @@ bool ODatabaseForm::InsertFilePart( INetMIMEMessage& rParent, const OUString& rN
 
 
     // Body
-    pChild->SetDocumentLB( new SvLockBytes(pStream, true) );
+    pChild->SetDocumentLB( new SvLockBytes(pStream.release(), true) );
     rParent.AttachChild( std::move(pChild) );
-
-    return true;
 }
 
 
@@ -1503,7 +1501,7 @@ void ODatabaseForm::getFastPropertyValue( Any& rValue, sal_Int32 nHandle ) const
             rValue <<= m_bAllowDelete;
             break;
         case PROPERTY_ID_PRIVILEGES:
-            rValue <<= static_cast<sal_Int32>(m_nPrivileges);
+            rValue <<= m_nPrivileges;
             break;
         case PROPERTY_ID_DYNAMIC_CONTROL_BORDER:
             rValue = m_aDynamicControlBorder;
@@ -2527,7 +2525,7 @@ void SAL_CALL ODatabaseForm::disposing(const EventObject& Source)
 void ODatabaseForm::impl_createLoadTimer()
 {
     OSL_PRECOND( m_pLoadTimer == nullptr, "ODatabaseForm::impl_createLoadTimer: timer already exists!" );
-    m_pLoadTimer = new Timer("DatabaseFormLoadTimer");
+    m_pLoadTimer.reset(new Timer("DatabaseFormLoadTimer"));
     m_pLoadTimer->SetTimeout(100);
     m_pLoadTimer->SetInvokeHandler(LINK(this,ODatabaseForm,OnTimeout));
 }
@@ -2557,7 +2555,7 @@ void SAL_CALL ODatabaseForm::unloading(const EventObject& /*aEvent*/)
 
         if ( m_pLoadTimer && m_pLoadTimer->IsActive() )
             m_pLoadTimer->Stop();
-        DELETEZ( m_pLoadTimer );
+        m_pLoadTimer.reset();
 
         Reference< XRowSet > xParentRowSet( m_xParent, UNO_QUERY_THROW );
         xParentRowSet->removeRowSetListener( this );
@@ -2848,7 +2846,7 @@ void SAL_CALL ODatabaseForm::unload()
     if (!isLoaded())
         return;
 
-    DELETEZ(m_pLoadTimer);
+    m_pLoadTimer.reset();
 
     aGuard.clear();
     EventObject aEvt(static_cast<XWeak*>(this));
@@ -2903,13 +2901,13 @@ void ODatabaseForm::reload_impl(bool bMoveToFirst, const Reference< XInteraction
 
     DocumentModifyGuard aModifyGuard( *this );
         // ensures the document is not marked as "modified" just because we change some control's content during
-        // reloading ...
+        // reloading...
 
     EventObject aEvent(static_cast<XWeak*>(this));
     {
         // only if there is no approve listener we can post the event at this time
         // otherwise see approveRowsetChange
-        // the approvement is done by the aggregate
+        // the approval is done by the aggregate
         if (!m_aRowSetApproveListeners.getLength())
         {
             ::comphelper::OInterfaceIteratorHelper2 aIter(m_aLoadListeners);

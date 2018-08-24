@@ -21,6 +21,7 @@
 
 #include <comphelper/fileurl.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 #include <osl/file.h>
 
@@ -92,6 +93,9 @@ AquaSalFrame::AquaSalFrame( SalFrame* pParent, SalFrameStyleFlags salFrameStyle 
 
 AquaSalFrame::~AquaSalFrame()
 {
+    if (mbFullScreen)
+        ShowFullScreen(false, maGeometry.nDisplayScreenNumber);
+
     assert( GetSalData()->mpInstance->IsMainThread() );
 
     // if the frame is destroyed and has the current menubar

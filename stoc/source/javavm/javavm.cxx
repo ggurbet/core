@@ -69,6 +69,7 @@
 #include <rtl/ustring.hxx>
 #include <rtl/uri.hxx>
 #include <sal/types.h>
+#include <sal/log.hxx>
 #include <uno/current_context.hxx>
 #include <uno/environment.h>
 #include <jvmfwk/framework.hxx>
@@ -642,9 +643,10 @@ JavaVirtualMachine::initialize(css::uno::Sequence< css::uno::Any > const &
             try {
                 m_xUnoVirtualMachine = new jvmaccess::UnoVirtualMachine(vm, nullptr);
             } catch (jvmaccess::UnoVirtualMachine::CreationException &) {
-                throw css::uno::RuntimeException(
+                css::uno::Any anyEx = cppu::getCaughtException();
+                throw css::lang::WrappedTargetRuntimeException(
                     "jvmaccess::UnoVirtualMachine::CreationException",
-                    static_cast< cppu::OWeakObject * >(this));
+                    static_cast< cppu::OWeakObject * >(this), anyEx );
             }
         }
     }
@@ -870,9 +872,10 @@ JavaVirtualMachine::getJavaVM(css::uno::Sequence< sal_Int8 > const & rProcessId)
             jvmaccess::VirtualMachine::AttachGuard guard(m_xVirtualMachine);
             setUpUnoVirtualMachine(guard.getEnvironment());
         } catch (jvmaccess::VirtualMachine::AttachGuard::CreationException &) {
-            throw css::uno::RuntimeException(
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
                 "jvmaccess::VirtualMachine::AttachGuard::CreationException occurred",
-                static_cast< cppu::OWeakObject * >(this));
+                static_cast< cppu::OWeakObject * >(this), anyEx );
         }
     }
     switch (returnType) {
@@ -961,10 +964,11 @@ void SAL_CALL JavaVirtualMachine::registerThread()
     }
     catch (jvmaccess::VirtualMachine::AttachGuard::CreationException &)
     {
-        throw css::uno::RuntimeException(
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
             "JavaVirtualMachine::registerThread: jvmaccess::"
             "VirtualMachine::AttachGuard::CreationException",
-            static_cast< cppu::OWeakObject * >(this));
+            static_cast< cppu::OWeakObject * >(this), anyEx );
     }
 }
 
@@ -1234,9 +1238,10 @@ void SAL_CALL JavaVirtualMachine::elementReplaced(
         }
         catch (jvmaccess::VirtualMachine::AttachGuard::CreationException &)
         {
-            throw css::uno::RuntimeException(
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
                 "jvmaccess::VirtualMachine::AttachGuard::CreationException",
-                nullptr);
+                static_cast< cppu::OWeakObject * >(this), anyEx );
         }
     }
 }
@@ -1393,11 +1398,9 @@ void JavaVirtualMachine::setINetSettingsInVM(bool set_reset)
                 JVM jvm;
                 getINetPropsFromConfig( &jvm, m_xContext->getServiceManager(), m_xContext);
                 const ::std::vector< OUString> & Props = jvm.getProperties();
-                typedef ::std::vector< OUString >::const_iterator C_IT;
 
-                for( C_IT i= Props.begin(); i != Props.end(); ++i)
+                for( auto& prop : Props)
                 {
-                    OUString prop= *i;
                     sal_Int32 index= prop.indexOf( '=');
                     OUString propName= prop.copy( 0, index);
                     OUString propValue= prop.copy( index + 1);
@@ -1476,9 +1479,10 @@ void JavaVirtualMachine::setUpUnoVirtualMachine(JNIEnv * environment) {
     try {
         baseUrl = exp->expandMacros("$URE_INTERNAL_JAVA_DIR/");
     } catch (css::lang::IllegalArgumentException &) {
-        throw css::uno::RuntimeException(
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
             "css::lang::IllegalArgumentException",
-            static_cast< cppu::OWeakObject * >(this));
+            static_cast< cppu::OWeakObject * >(this), anyEx );
     }
     OUString classPath;
     try {
@@ -1576,9 +1580,10 @@ void JavaVirtualMachine::setUpUnoVirtualMachine(JNIEnv * environment) {
         m_xUnoVirtualMachine = new jvmaccess::UnoVirtualMachine(
             m_xVirtualMachine, cl2);
     } catch (jvmaccess::UnoVirtualMachine::CreationException &) {
-        throw css::uno::RuntimeException(
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
             "jvmaccess::UnoVirtualMachine::CreationException",
-            static_cast< cppu::OWeakObject * >(this));
+            static_cast< cppu::OWeakObject * >(this), anyEx );
     }
 }
 

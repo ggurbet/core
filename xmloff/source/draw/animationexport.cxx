@@ -42,6 +42,7 @@
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
+#include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/presentation/EffectNodeType.hpp>
 #include <com/sun/star/presentation/EffectPresetClass.hpp>
@@ -52,6 +53,7 @@
 #include <com/sun/star/drawing/XShape.hpp>
 #include <o3tl/any.hxx>
 #include <sax/tools/converter.hxx>
+#include <sal/log.hxx>
 
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
 #include "sdxmlexp_impl.hxx"
@@ -67,8 +69,6 @@
 
 #include <animations.hxx>
 #include <xmloff/animationexport.hxx>
-#include <comphelper/storagehelper.hxx>
-
 
 using namespace css;
 using namespace ::std;

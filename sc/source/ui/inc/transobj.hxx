@@ -23,6 +23,7 @@
 #include <svtools/transfer.hxx>
 #include <global.hxx>
 #include <address.hxx>
+#include <document.hxx>
 #include <sfx2/objsh.hxx>
 
 
@@ -40,23 +41,23 @@ namespace com { namespace sun { namespace star {
 class ScTransferObj : public TransferableHelper
 {
 private:
-    ScDocument*                     pDoc;
-    ScRange                         aBlock;
-    SCROW                           nNonFiltered;       // non-filtered rows
-    TransferableObjectDescriptor    aObjDesc;
-    SfxObjectShellRef               aDocShellRef;
-    SfxObjectShellRef               aDrawPersistRef;
-    css::uno::Reference<css::sheet::XSheetCellRanges> xDragSourceRanges;
-    SCCOL                           nDragHandleX;
-    SCROW                           nDragHandleY;
-    SCCOL                           nSourceCursorX;
-    SCROW                           nSourceCursorY;
-    SCTAB                           nVisibleTab;
-    ScDragSrc                       nDragSourceFlags;
-    bool                            bDragWasInternal;
-    bool                            bUsedForLink;
-    bool                            bHasFiltered;       // if has filtered rows
-    bool                            bUseInApi;          // to recognize clipboard content copied from API
+    ScDocumentUniquePtr             m_pDoc;
+    ScRange                         m_aBlock;
+    SCROW                           m_nNonFiltered;       // non-filtered rows
+    TransferableObjectDescriptor    m_aObjDesc;
+    SfxObjectShellRef               m_aDocShellRef;
+    SfxObjectShellRef               m_aDrawPersistRef;
+    css::uno::Reference<css::sheet::XSheetCellRanges> m_xDragSourceRanges;
+    SCCOL                           m_nDragHandleX;
+    SCROW                           m_nDragHandleY;
+    SCCOL                           m_nSourceCursorX;
+    SCROW                           m_nSourceCursorY;
+    SCTAB                           m_nVisibleTab;
+    ScDragSrc                       m_nDragSourceFlags;
+    bool                            m_bDragWasInternal;
+    bool                            m_bUsedForLink;
+    bool                            m_bHasFiltered;       // if has filtered rows
+    bool                            m_bUseInApi;          // to recognize clipboard content copied from API
 
     // #i123405# added parameter to allow size calculation without limitation
     // to PageSize, e.g. used for Metafile creation for clipboard.
@@ -69,7 +70,7 @@ private:
     static void GetAreaSize( const ScDocument* pDoc, SCTAB nTab1, SCTAB nTab2, SCROW& nRow, SCCOL& nCol );
 
 public:
-            ScTransferObj( ScDocument* pClipDoc, const TransferableObjectDescriptor& rDesc );
+            ScTransferObj( ScDocumentUniquePtr pClipDoc, const TransferableObjectDescriptor& rDesc );
     virtual ~ScTransferObj() override;
 
     virtual void        AddSupportedFormats() override;
@@ -78,18 +79,18 @@ public:
                                         const css::datatransfer::DataFlavor& rFlavor ) override;
     virtual void        DragFinished( sal_Int8 nDropAction ) override;
 
-    ScDocument*         GetDocument()           { return pDoc; }        // owned by ScTransferObj
-    const ScRange&      GetRange() const        { return aBlock; }
-    SCROW               GetNonFilteredRows() const { return nNonFiltered; }
-    SCCOL               GetDragHandleX() const  { return nDragHandleX; }
-    SCROW               GetDragHandleY() const  { return nDragHandleY; }
+    ScDocument*         GetDocument() const     { return m_pDoc.get(); }        // owned by ScTransferObj
+    const ScRange&      GetRange() const        { return m_aBlock; }
+    SCROW               GetNonFilteredRows() const { return m_nNonFiltered; }
+    SCCOL               GetDragHandleX() const  { return m_nDragHandleX; }
+    SCROW               GetDragHandleY() const  { return m_nDragHandleY; }
     bool                WasSourceCursorInSelection() const;
-    SCCOL               GetSourceCursorX() const  { return nSourceCursorX; }
-    SCROW               GetSourceCursorY() const  { return nSourceCursorY; }
-    SCTAB               GetVisibleTab() const   { return nVisibleTab; }
-    ScDragSrc           GetDragSourceFlags() const  { return nDragSourceFlags; }
-    bool                HasFilteredRows() const { return bHasFiltered; }
-    bool                GetUseInApi() const     { return bUseInApi; }
+    SCCOL               GetSourceCursorX() const  { return m_nSourceCursorX; }
+    SCROW               GetSourceCursorY() const  { return m_nSourceCursorY; }
+    SCTAB               GetVisibleTab() const   { return m_nVisibleTab; }
+    ScDragSrc           GetDragSourceFlags() const  { return m_nDragSourceFlags; }
+    bool                HasFilteredRows() const { return m_bHasFiltered; }
+    bool                GetUseInApi() const     { return m_bUseInApi; }
     ScDocShell*         GetSourceDocShell();
     ScDocument*         GetSourceDocument();
     ScMarkData          GetSourceMarkData();
@@ -103,7 +104,7 @@ public:
     void                SetDragWasInternal();
     SC_DLLPUBLIC void   SetUseInApi( bool bSet );
 
-    static SC_DLLPUBLIC ScTransferObj* GetOwnClipboard( vcl::Window* pUIWin );
+    static  SC_DLLPUBLIC ScTransferObj* GetOwnClipboard(const css::uno::Reference<css::datatransfer::XTransferable2>&);
 
     static SfxObjectShell*  SetDrawClipDoc( bool bAnyOle );     // update ScGlobal::xDrawClipDocShellRef
     virtual sal_Int64 SAL_CALL getSomething( const com::sun::star::uno::Sequence< sal_Int8 >& rId ) override;

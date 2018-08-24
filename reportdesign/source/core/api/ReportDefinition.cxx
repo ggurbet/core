@@ -88,12 +88,10 @@
 #include <comphelper/documentconstants.hxx>
 #include <comphelper/genericpropertyset.hxx>
 #include <unotools/mediadescriptor.hxx>
-#include <comphelper/mimeconfighelper.hxx>
 #include <comphelper/namecontainer.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/numberedcollection.hxx>
 #include <comphelper/proparrhlp.hxx>
-#include <comphelper/property.hxx>
 #include <comphelper/propertysetinfo.hxx>
 #include <comphelper/propertystatecontainer.hxx>
 #include <comphelper/seqstream.hxx>
@@ -188,7 +186,6 @@
 namespace reportdesign
 {
     using namespace com::sun::star;
-    using namespace comphelper;
     using namespace rptui;
 
 void lcl_setModelReadOnly(const uno::Reference< embed::XStorage >& _xStorage,std::shared_ptr<rptui::OReportModel> const & _rModel)
@@ -1340,14 +1337,14 @@ void SAL_CALL OReportDefinition::storeToStorage( const uno::Reference< embed::XS
     aDelegatorArguments[nArgsLen++] <<= xInfoSet;
 
     uno::Reference< document::XEmbeddedObjectResolver > xObjectResolver;
-    uno::Reference< document::XGraphicObjectResolver >  xGrfResolver;
+    uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
     rtl::Reference<SvXMLGraphicHelper> xGraphicHelper = SvXMLGraphicHelper::Create(_xStorageToSaveTo,SvXMLGraphicHelperMode::Write);
-    xGrfResolver = xGraphicHelper.get();
+    xGraphicStorageHandler = xGraphicHelper.get();
     xGraphicHelper.clear();
     xObjectResolver = SvXMLEmbeddedObjectHelper::Create( _xStorageToSaveTo,*this, SvXMLEmbeddedObjectHelperMode::Write ).get();
 
     aDelegatorArguments.realloc(nArgsLen+2);
-    aDelegatorArguments[nArgsLen++] <<= xGrfResolver;
+    aDelegatorArguments[nArgsLen++] <<= xGraphicStorageHandler;
     aDelegatorArguments[nArgsLen++] <<= xObjectResolver;
 
     uno::Reference<XComponent> xCom(static_cast<OWeakObject*>(this),uno::UNO_QUERY);
@@ -1647,12 +1644,15 @@ void SAL_CALL OReportDefinition::load( const uno::Sequence< beans::PropertyValue
         catch (const uno::Exception&)
         {
             if ( i == nLastOpenMode )
+            {
+                css::uno::Any anyEx = cppu::getCaughtException();
                 throw lang::WrappedTargetException(
                     "An error occurred while creating the document storage.",
                         // TODO: resource
                     *this,
-                    ::cppu::getCaughtException()
+                    anyEx
                 );
+            }
         }
     }
 
@@ -2133,13 +2133,13 @@ uno::Reference< uno::XInterface > SAL_CALL OReportDefinition::createInstance( co
         return static_cast< ::cppu::OWeakObject* >(SvXMLEmbeddedObjectHelper::Create( m_pImpl->m_xStorage,*this, SvXMLEmbeddedObjectHelperMode::Read ).get());
     else if ( aServiceSpecifier == "com.sun.star.document.ExportEmbeddedObjectResolver" )
         return static_cast< ::cppu::OWeakObject* >(SvXMLEmbeddedObjectHelper::Create( m_pImpl->m_xStorage,*this, SvXMLEmbeddedObjectHelperMode::Write ).get());
-    else if ( aServiceSpecifier == "com.sun.star.document.ImportGraphicObjectResolver" )
+    else if (aServiceSpecifier == "com.sun.star.document.ImportGraphicStorageHandler")
     {
         rtl::Reference<SvXMLGraphicHelper> xGraphicHelper = SvXMLGraphicHelper::Create(m_pImpl->m_xStorage,SvXMLGraphicHelperMode::Write);
         uno::Reference< uno::XInterface> xRet(static_cast< ::cppu::OWeakObject* >(xGraphicHelper.get()));
         return xRet;
     }
-    else if ( aServiceSpecifier == "com.sun.star.document.ExportGraphicObjectResolver" )
+    else if (aServiceSpecifier == "com.sun.star.document.ExportGraphicStorageHandler")
     {
         rtl::Reference<SvXMLGraphicHelper> xGraphicHelper = SvXMLGraphicHelper::Create(m_pImpl->m_xStorage,SvXMLGraphicHelperMode::Write);
         uno::Reference< uno::XInterface> xRet(static_cast< ::cppu::OWeakObject* >(xGraphicHelper.get()));
@@ -2178,8 +2178,8 @@ uno::Sequence< OUString > SAL_CALL OReportDefinition::getAvailableServiceNames()
         "com.sun.star.drawing.Defaults",
         "com.sun.star.document.ImportEmbeddedObjectResolver",
         "com.sun.star.document.ExportEmbeddedObjectResolver",
-        "com.sun.star.document.ImportGraphicObjectResolver",
-        "com.sun.star.document.ExportGraphicObjectResolver",
+        "com.sun.star.document.ImportGraphicStorageHandler",
+        "com.sun.star.document.ExportGraphicStorageHandler",
         "com.sun.star.chart2.data.DataProvider",
         "com.sun.star.xml.NamespaceMap",
         "com.sun.star.document.Settings",

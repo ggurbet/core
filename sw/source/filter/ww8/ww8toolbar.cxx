@@ -205,7 +205,7 @@ bool SwCTBWrapper::ImportCustomToolBar( SfxObjectShell& rDocSh )
             continue;
         }
     }
-    return false;
+    return true;
 }
 
 Customization::Customization( SwCTBWrapper* wrapper )
@@ -564,8 +564,7 @@ SwTBC::ImportToolBarControl( SwCTBWrapper& rWrapper, const css::uno::Reference< 
             }
         }
         bool bBeginGroup = false;
-        if ( ! tbcd->ImportToolBarControl( helper, props, bBeginGroup, bIsMenuBar ) )
-            return false;
+        tbcd->ImportToolBarControl( helper, props, bBeginGroup, bIsMenuBar );
 
         TBCMenuSpecific* pMenu = tbcd->getMenuSpecific();
         if ( pMenu )
@@ -655,9 +654,6 @@ Tcg255::Tcg255()
 
 Tcg255::~Tcg255()
 {
-    std::vector< Tcg255SubStruct* >::iterator it = rgtcgData.begin();
-    for ( ; it != rgtcgData.end(); ++it )
-        delete *it;
 }
 
 bool Tcg255::processSubStruct( sal_uInt8 nId, SvStream &rS )
@@ -703,19 +699,19 @@ bool Tcg255::processSubStruct( sal_uInt8 nId, SvStream &rS )
     xSubStruct->ch = nId;
     if (!xSubStruct->Read(rS))
         return false;
-    rgtcgData.push_back(xSubStruct.release());
+    rgtcgData.push_back(std::move(xSubStruct));
     return true;
 }
 
 bool Tcg255::ImportCustomToolBar( SfxObjectShell& rDocSh )
 {
     // Find the SwCTBWrapper
-    for ( std::vector< Tcg255SubStruct* >::const_iterator it = rgtcgData.begin(); it != rgtcgData.end(); ++it )
+    for ( auto & rSubStruct : rgtcgData )
     {
-        if ( (*it)->id() == 0x12 )
+        if ( rSubStruct->id() == 0x12 )
         {
             // not so great, shouldn't really have to do a horror casting
-            SwCTBWrapper* pCTBWrapper =  dynamic_cast< SwCTBWrapper* > ( *it );
+            SwCTBWrapper* pCTBWrapper =  dynamic_cast< SwCTBWrapper* > ( rSubStruct.get() );
             if ( pCTBWrapper )
             {
                 if ( !pCTBWrapper->ImportCustomToolBar( rDocSh ) )

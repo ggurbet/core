@@ -38,6 +38,7 @@
 #include <unx/geninst.h>
 #include <osl/thread.h>
 #include <osl/process.h>
+#include <sal/log.hxx>
 
 #include <unx/i18n_im.hxx>
 #include <unx/i18n_xkb.hxx>
@@ -244,6 +245,9 @@ GdkCursor* GtkSalDisplay::getFromXBM( const unsigned char *pBitmap,
             ( pBitmapPix, pMaskPix,
               &aBlack, &aWhite, nXHot, nYHot);
 }
+
+static unsigned char nullmask_bits[] = { 0x00, 0x00, 0x00, 0x00 };
+static unsigned char nullcurs_bits[] = { 0x00, 0x00, 0x00, 0x00 };
 
 #define MAKE_CURSOR( vcl_name, name ) \
     case vcl_name: \

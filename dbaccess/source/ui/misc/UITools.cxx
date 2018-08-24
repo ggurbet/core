@@ -69,10 +69,12 @@
 #include <TypeInfo.hxx>
 #include <FieldDescriptions.hxx>
 #include <comphelper/stl_types.hxx>
+#include <comphelper/types.hxx>
 #include <comphelper/propertysequence.hxx>
 
 #include <svx/svxids.hrc>
 
+#include <sal/log.hxx>
 #include <svl/itempool.hxx>
 #include <helpids.h>
 #include <svl/itemset.hxx>
@@ -871,12 +873,10 @@ bool callColumnFormatDialog(vcl::Window* _pParent,
         {
             const SfxPoolItem* pItem = pResult->GetItem( SID_ATTR_NUMBERFORMAT_INFO );
             const SvxNumberInfoItem* pInfoItem = static_cast<const SvxNumberInfoItem*>(pItem);
-            if (pInfoItem && pInfoItem->GetDelCount())
+            if (pInfoItem)
             {
-                const sal_uInt32* pDeletedKeys = pInfoItem->GetDelArray();
-
-                for (sal_uInt32 i=0; i< pInfoItem->GetDelCount(); ++i)
-                    _pFormatter->DeleteEntry(pDeletedKeys[i]);
+                for (sal_uInt32 key : pInfoItem->GetDelFormats())
+                    _pFormatter->DeleteEntry(key);
             }
         }
     }

@@ -25,9 +25,9 @@
 #include <core_resource.hxx>
 #include <strings.hrc>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 
 #include <cppuhelper/typeprovider.hxx>
-#include <comphelper/sequence.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/types.hxx>
 #include <com/sun/star/util/XRefreshListener.hpp>
@@ -374,7 +374,7 @@ Any SAL_CALL ODBTableDecorator::queryInterface( const Type & rType )
 Sequence< Type > SAL_CALL ODBTableDecorator::getTypes(  )
 {
     Reference<XTypeProvider> xTypes(m_xTable,UNO_QUERY);
-    OSL_ENSURE(xTypes.is(),"Table must be a TypePropvider!");
+    OSL_ENSURE(xTypes.is(),"Table must be a TypeProvider!");
     return xTypes->getTypes();
 }
 

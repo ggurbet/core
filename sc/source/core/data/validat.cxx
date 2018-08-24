@@ -20,6 +20,7 @@
 #include <config_features.h>
 
 #include <validat.hxx>
+#include <com/sun/star/sheet/TableValidationVisibility.hpp>
 
 #include <sfx2/app.hxx>
 #include <sfx2/docfile.hxx>
@@ -41,6 +42,7 @@
 #include <patattr.hxx>
 #include <rechead.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <rangenam.hxx>
 #include <dbdata.hxx>
 #include <typedstrdata.hxx>
@@ -252,7 +254,7 @@ bool ScValidationData::DoScript( const ScAddress& rPos, const OUString& rInput,
         //TODO: different error message, if found, but not bAllowed ??
         std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pParent,
                                                   VclMessageType::Warning, VclButtonsType::Ok,
-                                                  ScGlobal::GetRscString(STR_VALID_MACRONOTFOUND)));
+                                                  ScResId(STR_VALID_MACRONOTFOUND)));
         xBox->run();
     }
 
@@ -358,7 +360,7 @@ bool ScValidationData::DoMacro( const ScAddress& rPos, const OUString& rInput,
         //TODO: different error message, if found, but not bAllowed ??
         std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pParent,
                                                   VclMessageType::Warning, VclButtonsType::Ok,
-                                                  ScGlobal::GetRscString(STR_VALID_MACRONOTFOUND)));
+                                                  ScResId(STR_VALID_MACRONOTFOUND)));
         xBox->run();
     }
 
@@ -383,10 +385,10 @@ bool ScValidationData::DoError(weld::Window* pParent, const OUString& rInput,
 
     OUString aTitle = aErrorTitle;
     if (aTitle.isEmpty())
-        aTitle = ScGlobal::GetRscString( STR_MSSG_DOSUBTOTALS_0 );  // application title
+        aTitle = ScResId( STR_MSSG_DOSUBTOTALS_0 );  // application title
     OUString aMessage = aErrorMessage;
     if (aMessage.isEmpty())
-        aMessage = ScGlobal::GetRscString( STR_VALID_DEFERROR );
+        aMessage = ScResId( STR_VALID_DEFERROR );
 
     VclButtonsType eStyle = VclButtonsType::Ok;
     VclMessageType eType = VclMessageType::Error;
@@ -423,6 +425,51 @@ bool ScValidationData::DoError(weld::Window* pParent, const OUString& rInput,
     short nRet = xBox->run();
 
     return ( eErrorStyle == SC_VALERR_STOP || nRet == RET_CANCEL );
+}
+
+bool ScValidationData::IsDataValidCustom(
+        const OUString& rTest,
+        const ScPatternAttr& rPattern,
+        const ScAddress& rPos,
+        const CustomValidationPrivateAccess& ) const
+{
+    OSL_ENSURE(GetDataMode() == SC_VALID_CUSTOM,
+            "ScValidationData::IsDataValidCustom invoked for a non-custom validation");
+
+    if (rTest.isEmpty())              // check whether empty cells are allowed
+        return IsIgnoreBlank();
+
+    if (rTest[0] == '=')   // formulas do not pass the validity test
+        return false;
+
+    SvNumberFormatter* pFormatter = GetDocument()->GetFormatTable();
+
+    // get the value if any
+    sal_uInt32 nFormat = rPattern.GetNumberFormat( pFormatter );
+    double nVal;
+    bool bIsVal = pFormatter->IsNumberFormat( rTest, nFormat, nVal );
+
+    ScRefCellValue aTmpCell;
+    svl::SharedString aSS;
+    if (bIsVal)
+    {
+        aTmpCell.meType = CELLTYPE_VALUE;
+        aTmpCell.mfValue = nVal;
+    }
+    else
+    {
+        aTmpCell.meType = CELLTYPE_STRING;
+        aSS = mpDoc->GetSharedStringPool().intern(rTest);
+        aTmpCell.mpString = &aSS;
+    }
+
+    ScCellValue aOriginalCellValue(ScRefCellValue(*GetDocument(), rPos));
+
+    aTmpCell.commit(*GetDocument(), rPos);
+    bool bRet = IsCellValid(aTmpCell, rPos);
+    aOriginalCellValue.commit(*GetDocument(), rPos);
+
+    return bRet;
 }
 
 bool ScValidationData::IsDataValid(
@@ -486,6 +533,9 @@ bool ScValidationData::IsDataValid( ScRefCellValue& rCell, const ScAddress& rPos
     if( eDataMode == SC_VALID_LIST )
         return IsListValid(rCell, rPos);
 
+    if ( eDataMode == SC_VALID_CUSTOM )
+        return IsCellValid(rCell, rPos);
+
     double nVal = 0.0;
     OUString aString;
     bool bIsVal = true;
@@ -532,12 +582,6 @@ bool ScValidationData::IsDataValid( ScRefCellValue& rCell, const ScAddress& rPos
                 bOk = ::rtl::math::approxEqual( nVal, floor(nVal+0.5) );        // integers
             if ( bOk )
                 bOk = IsCellValid(rCell, rPos);
-            break;
-
-        case SC_VALID_CUSTOM:
-            //  for Custom, it must be eOp == ScConditionMode::Direct
-            //TODO: the value must be in the document !!!
-            bOk = IsCellValid(rCell, rPos);
             break;
 
         case SC_VALID_TEXTLEN:
@@ -922,7 +966,7 @@ ScValidationDataList::ScValidationDataList(const ScValidationDataList& rList)
 
     for (const_iterator it = rList.begin(); it != rList.end(); ++it)
     {
-        InsertNew( (*it)->Clone() );
+        InsertNew( std::unique_ptr<ScValidationData>((*it)->Clone()) );
     }
 
     //TODO: faster insert for sorted entries from rList ???
@@ -935,7 +979,7 @@ ScValidationDataList::ScValidationDataList(ScDocument* pNewDoc,
 
     for (const_iterator it = rList.begin(); it != rList.end(); ++it)
     {
-        InsertNew( (*it)->Clone(pNewDoc) );
+        InsertNew( std::unique_ptr<ScValidationData>((*it)->Clone(pNewDoc)) );
     }
 
     //TODO: faster insert for sorted entries from rList ???
@@ -947,7 +991,7 @@ ScValidationData* ScValidationDataList::GetData( sal_uInt32 nKey )
 
     for( iterator it = begin(); it != end(); ++it )
         if( (*it)->GetKey() == nKey )
-            return *it;
+            return it->get();
 
     OSL_FAIL("ScValidationDataList: Entry not found");
     return nullptr;
@@ -1001,11 +1045,6 @@ ScValidationDataList::iterator ScValidationDataList::end()
 ScValidationDataList::const_iterator ScValidationDataList::end() const
 {
     return maData.end();
-}
-
-void ScValidationDataList::clear()
-{
-    maData.clear();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

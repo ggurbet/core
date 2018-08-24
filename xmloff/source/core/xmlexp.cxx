@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <stack>
 #include <string.h>
@@ -282,17 +283,14 @@ public:
 };
 
 SvXMLExport_Impl::SvXMLExport_Impl()
+:    mxUriReferenceFactory( uri::UriReferenceFactory::create(comphelper::getProcessComponentContext()) ),
     // Written OpenDocument file format doesn't fit to the created text document (#i69627#)
-    : mbOutlineStyleAsNormalListStyle( false )
-        ,mbSaveBackwardCompatibleODF( true )
-        ,mStreamName()
-        ,mNamespaceMaps()
-        ,mDepth(0)
-        ,mpRDFaHelper() // lazy
-        ,mbExportTextNumberElement( false )
-        ,mbNullDateInitialized( false )
+    mbOutlineStyleAsNormalListStyle( false ),
+    mbSaveBackwardCompatibleODF( true ),
+    mDepth( 0 ),
+    mbExportTextNumberElement( false ),
+    mbNullDateInitialized( false )
 {
-    mxUriReferenceFactory = uri::UriReferenceFactory::create( comphelper::getProcessComponentContext() );
 }
 
 void SvXMLExport::SetDocHandler( const uno::Reference< xml::sax::XDocumentHandler > &rHandler )
@@ -447,7 +445,8 @@ SvXMLExport::SvXMLExport(
     mnExportFlags( nExportFlags ),
     mnErrorFlags( SvXMLErrorFlags::NO ),
     msWS( GetXMLToken(XML_WS) ),
-    mbSaveLinkedSections(true)
+    mbSaveLinkedSections(true),
+    mbAutoStylesCollected(false)
 {
     SAL_WARN_IF( !xContext.is(), "xmloff.core", "got no service manager" );
     InitCtor_();
@@ -476,7 +475,8 @@ SvXMLExport::SvXMLExport(
     mnExportFlags( SvXMLExportFlags::NONE ),
     mnErrorFlags( SvXMLErrorFlags::NO ),
     msWS( GetXMLToken(XML_WS) ),
-    mbSaveLinkedSections(true)
+    mbSaveLinkedSections(true),
+    mbAutoStylesCollected(false)
 {
     SAL_WARN_IF( !xContext.is(), "xmloff.core", "got no service manager" );
     mpImpl->SetSchemeOf( msOrigFileName );
@@ -515,7 +515,8 @@ SvXMLExport::SvXMLExport(
     mnExportFlags( nExportFlag ),
     mnErrorFlags( SvXMLErrorFlags::NO ),
     msWS( GetXMLToken(XML_WS) ),
-    mbSaveLinkedSections(true)
+    mbSaveLinkedSections(true),
+    mbAutoStylesCollected(false)
 {
     SAL_WARN_IF(!xContext.is(), "xmloff.core", "got no service manager" );
     mpImpl->SetSchemeOf( msOrigFileName );
@@ -674,11 +675,10 @@ void SAL_CALL SvXMLExport::initialize( const uno::Sequence< uno::Any >& aArgumen
         if ( xTmpStatus.is() )
             mxStatusIndicator = xTmpStatus;
 
-        // graphic resolver
-        uno::Reference<document::XGraphicObjectResolver> xTmpGraphic(
-            xValue, UNO_QUERY );
-        if ( xTmpGraphic.is() )
-            mxGraphicResolver = xTmpGraphic;
+        // graphic storage handler
+        uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler(xValue, UNO_QUERY);
+        if (xGraphicStorageHandler.is())
+            mxGraphicStorageHandler = xGraphicStorageHandler;
 
         // object resolver
         uno::Reference<document::XEmbeddedObjectResolver> xTmpObjectResolver(
@@ -1254,18 +1254,17 @@ ErrCode SvXMLExport::exportDoc( enum ::xmloff::token::XMLTokenEnum eClass )
     bool bOwnGraphicResolver = false;
     bool bOwnEmbeddedResolver = false;
 
-    if( !mxGraphicResolver.is() || !mxEmbeddedResolver.is() )
+    if (!mxGraphicStorageHandler.is() || !mxEmbeddedResolver.is())
     {
         Reference< XMultiServiceFactory > xFactory( mxModel,    UNO_QUERY );
         if( xFactory.is() )
         {
             try
             {
-                if( !mxGraphicResolver.is() )
+                if (!mxGraphicStorageHandler.is())
                 {
-                    mxGraphicResolver.set(
-                        xFactory->createInstance( "com.sun.star.document.ExportGraphicObjectResolver" ), UNO_QUERY);
-                    bOwnGraphicResolver = mxGraphicResolver.is();
+                    mxGraphicStorageHandler.set(xFactory->createInstance( "com.sun.star.document.ExportGraphicStorageHandler"), UNO_QUERY);
+                    bOwnGraphicResolver = mxGraphicStorageHandler.is();
                 }
 
                 if( !mxEmbeddedResolver.is() )
@@ -1441,7 +1440,7 @@ ErrCode SvXMLExport::exportDoc( enum ::xmloff::token::XMLTokenEnum eClass )
 
     if( bOwnGraphicResolver )
     {
-        Reference< XComponent > xComp( mxGraphicResolver, UNO_QUERY );
+        uno::Reference<XComponent> xComp(mxGraphicStorageHandler, UNO_QUERY);
         xComp->dispose();
     }
 
@@ -1754,6 +1753,10 @@ SvXMLAutoStylePoolP* SvXMLExport::CreateAutoStylePool()
     return new SvXMLAutoStylePoolP(*this);
 }
 
+void SvXMLExport::collectAutoStyles()
+{
+}
+
 XMLPageExport* SvXMLExport::CreatePageExport()
 {
     return new XMLPageExport( *this );
@@ -1880,11 +1883,10 @@ OUString SvXMLExport::AddEmbeddedXGraphic(uno::Reference<graphic::XGraphic> cons
     }
     else
     {
-        uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler(mxGraphicResolver, uno::UNO_QUERY);
-        if (mxGraphicResolver.is() && xGraphicStorageHandler.is())
+        if (mxGraphicStorageHandler.is())
         {
             if (!(getExportFlags() & SvXMLExportFlags::EMBEDDED))
-                sURL = xGraphicStorageHandler->saveGraphicByName(rxGraphic, rOutMimeType, rRequestedName);
+                sURL = mxGraphicStorageHandler->saveGraphicByName(rxGraphic, rOutMimeType, rRequestedName);
         }
     }
     return sURL;
@@ -1892,18 +1894,13 @@ OUString SvXMLExport::AddEmbeddedXGraphic(uno::Reference<graphic::XGraphic> cons
 
 bool SvXMLExport::GetGraphicMimeTypeFromStream(uno::Reference<graphic::XGraphic> const & rxGraphic, OUString & rOutMimeType)
 {
-    if (mxGraphicResolver.is())
+    if (mxGraphicStorageHandler.is())
     {
-        uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler(mxGraphicResolver, uno::UNO_QUERY);
-
-        if (xGraphicStorageHandler.is())
+        Reference<XInputStream> xInputStream(mxGraphicStorageHandler->createInputStream(rxGraphic));
+        if (xInputStream.is())
         {
-            Reference<XInputStream> xInputStream(xGraphicStorageHandler->createInputStream(rxGraphic));
-            if (xInputStream.is())
-            {
-                rOutMimeType = comphelper::GraphicMimeTypeHelper::GetMimeTypeForImageStream(xInputStream);
-                return true;
-            }
+            rOutMimeType = comphelper::GraphicMimeTypeHelper::GetMimeTypeForImageStream(xInputStream);
+            return true;
         }
     }
 
@@ -1913,18 +1910,13 @@ bool SvXMLExport::GetGraphicMimeTypeFromStream(uno::Reference<graphic::XGraphic>
 bool SvXMLExport::AddEmbeddedXGraphicAsBase64(uno::Reference<graphic::XGraphic> const & rxGraphic)
 {
     if ((getExportFlags() & SvXMLExportFlags::EMBEDDED) &&
-        mxGraphicResolver.is())
+        mxGraphicStorageHandler.is())
     {
-        uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler(mxGraphicResolver, uno::UNO_QUERY);
-
-        if (xGraphicStorageHandler.is())
+        Reference<XInputStream> xInputStream(mxGraphicStorageHandler->createInputStream(rxGraphic));
+        if (xInputStream.is())
         {
-            Reference<XInputStream> xInputStream(xGraphicStorageHandler->createInputStream(rxGraphic));
-            if (xInputStream.is())
-            {
-                XMLBase64Export aBase64Exp(*this);
-                return aBase64Exp.exportOfficeBinaryDataElement(xInputStream);
-            }
+            XMLBase64Export aBase64Exp(*this);
+            return aBase64Exp.exportOfficeBinaryDataElement(xInputStream);
         }
     }
 

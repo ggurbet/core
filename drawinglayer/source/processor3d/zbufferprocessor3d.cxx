@@ -18,9 +18,8 @@
  */
 
 #include <drawinglayer/processor3d/zbufferprocessor3d.hxx>
-#include <basegfx/raster/bpixelraster.hxx>
-#include <basegfx/raster/rasterconvert3d.hxx>
 #include <basegfx/raster/bzpixelraster.hxx>
+#include <basegfx/raster/rasterconvert3d.hxx>
 #include <drawinglayer/attribute/materialattribute3d.hxx>
 #include <drawinglayer/texture/texture.hxx>
 #include <drawinglayer/primitive3d/drawinglayer_primitivetypes3d.hxx>
@@ -526,7 +525,6 @@ namespace drawinglayer
             sal_uInt32 nStartLine,
             sal_uInt32 nStopLine)
         :   DefaultProcessor3D(rViewInformation3D, rSdrSceneAttribute, rSdrLightingAttribute),
-            mrBZPixelRaster(rBZPixelRaster),
             maInvEyeToView(),
             mpZBufferRasterConverter3D(nullptr),
             mnAntiAlialize(nAntiAlialize),
@@ -595,10 +593,10 @@ namespace drawinglayer
             // prepare maRasterRange
             maRasterRange.reset();
             maRasterRange.expand(basegfx::B2DPoint(0.0, nStartLine));
-            maRasterRange.expand(basegfx::B2DPoint(mrBZPixelRaster.getWidth(), nStopLine));
+            maRasterRange.expand(basegfx::B2DPoint(rBZPixelRaster.getWidth(), nStopLine));
 
             // create the raster converter
-            mpZBufferRasterConverter3D.reset( new ZBufferRasterConverter3D(mrBZPixelRaster, *this) );
+            mpZBufferRasterConverter3D.reset( new ZBufferRasterConverter3D(rBZPixelRaster, *this) );
         }
 
         ZBufferProcessor3D::~ZBufferProcessor3D()

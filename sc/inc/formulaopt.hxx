@@ -13,10 +13,8 @@
 #include <map>
 #include <svl/poolitem.hxx>
 #include <unotools/configitem.hxx>
-#include <unotools/localedatawrapper.hxx>
 #include <formula/grammar.hxx>
 #include "scdllapi.h"
-#include "global.hxx"
 #include "calcconfig.hxx"
 
 class SC_DLLPUBLIC ScFormulaOptions
@@ -82,6 +80,11 @@ class SC_DLLPUBLIC ScTpFormulaItem : public SfxPoolItem
 public:
     ScTpFormulaItem( const ScFormulaOptions& rOpt );
     virtual ~ScTpFormulaItem() override;
+
+    ScTpFormulaItem(ScTpFormulaItem const &) = default;
+    ScTpFormulaItem(ScTpFormulaItem &&) = default;
+    ScTpFormulaItem & operator =(ScTpFormulaItem const &) = default;
+    ScTpFormulaItem & operator =(ScTpFormulaItem &&) = default;
 
     virtual bool            operator==( const SfxPoolItem& ) const override;
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;

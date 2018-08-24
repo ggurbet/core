@@ -69,7 +69,7 @@ SwTOXInternational::SwTOXInternational( const SwTOXInternational& rIntl ) :
 
 void SwTOXInternational::Init()
 {
-    m_pIndexWrapper = new IndexEntrySupplierWrapper();
+    m_pIndexWrapper.reset( new IndexEntrySupplierWrapper() );
 
     const lang::Locale aLcl( LanguageTag::convertToLocale( m_eLang ) );
     m_pIndexWrapper->SetLocale( aLcl );
@@ -86,14 +86,14 @@ void SwTOXInternational::Init()
     else
         m_pIndexWrapper->LoadAlgorithm( aLcl, m_sSortAlgorithm, SW_COLLATOR_IGNORES );
 
-    m_pCharClass = new CharClass( LanguageTag( aLcl ));
+    m_pCharClass.reset( new CharClass( LanguageTag( aLcl )) );
 
 }
 
 SwTOXInternational::~SwTOXInternational()
 {
-    delete m_pCharClass;
-    delete m_pIndexWrapper;
+    m_pCharClass.reset();
+    m_pIndexWrapper.reset();
 }
 
 OUString SwTOXInternational::ToUpper( const OUString& rStr, sal_Int32 nPos ) const
@@ -673,7 +673,7 @@ sal_uInt16 SwTOXAuthority::GetLevel() const
     sal_uInt16 nRet = 1;
     if( pTOXIntl->IsNumeric( sText ) )
     {
-        nRet = static_cast<sal_uInt16>(sText.toInt32());
+        nRet = sText.toUInt32();
         nRet++;
     }
     //illegal values are also set to 'ARTICLE' as non-numeric values are

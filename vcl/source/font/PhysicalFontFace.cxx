@@ -37,9 +37,9 @@ PhysicalFontFace::PhysicalFontFace( const FontAttributes& rDFA )
             SetSymbolFlag( true );
 }
 
-LogicalFontInstance* PhysicalFontFace::CreateFontInstance(const FontSelectPattern& rFSD) const
+rtl::Reference<LogicalFontInstance> PhysicalFontFace::CreateFontInstance(const FontSelectPattern& rFSD) const
 {
-    return new LogicalFontInstance(rFSD);
+    return new LogicalFontInstance(*this, rFSD);
 }
 
 sal_Int32 PhysicalFontFace::CompareIgnoreSize( const PhysicalFontFace& rOther ) const

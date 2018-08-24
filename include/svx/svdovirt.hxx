@@ -34,7 +34,7 @@ public:
     virtual sdr::properties::BaseProperties& GetProperties() const override;
 
 protected:
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
 
     SdrObject&                  rRefObj; // Referenced drawing object
     tools::Rectangle            aSnapRect;
@@ -46,11 +46,13 @@ protected:
     virtual void SaveGeoData(SdrObjGeoData& rGeo) const override;
     virtual void RestGeoData(const SdrObjGeoData& rGeo) override;
 
+    // protected destructor
+    virtual ~SdrVirtObj() override;
+
 public:
     SdrVirtObj(
         SdrModel& rSdrModel,
         SdrObject& rNewObj);
-    virtual ~SdrVirtObj() override;
 
     SdrObject& ReferencedObj();
     const SdrObject& GetReferencedObj() const;
@@ -64,7 +66,7 @@ public:
     virtual const tools::Rectangle& GetCurrentBoundRect() const override;
     virtual const tools::Rectangle& GetLastBoundRect() const override;
     virtual void RecalcBoundRect() override;
-    virtual SdrVirtObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrVirtObj* CloneSdrObject(SdrModel& rTargetModel) const override;
     SdrVirtObj& operator=(const SdrVirtObj& rObj);
 
     virtual OUString TakeObjNameSingul() const override;

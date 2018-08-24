@@ -29,6 +29,7 @@
 
 #include <math.h>
 #include <comphelper/string.hxx>
+#include <sal/log.hxx>
 #include <memory>
 
 static const sal_Char*      GetAddInName( const sal_uInt8 nIndex );
@@ -287,7 +288,7 @@ void LotusToSc::LotusRelToScRel( sal_uInt16 nCol, sal_uInt16 nRow, ScSingleRefDa
                     nRow &= 0x1FFF;
                 break;
             default:
-                SAL_WARN( "sc.filter", "*LotusToSc::LotusRelToScRel(): unhandeled case?" );
+                SAL_WARN( "sc.filter", "*LotusToSc::LotusRelToScRel(): unhandled case? " << m_rContext.eTyp );
         }
     }
     else
@@ -307,7 +308,7 @@ void LotusToSc::LotusRelToScRel( sal_uInt16 nCol, sal_uInt16 nRow, ScSingleRefDa
                 nRow &= 0x3FFF;
                 break;
             default:
-                SAL_WARN( "sc.filter", "*LotusToSc::LotusRelToScRel(): unhandeled case?" );
+                SAL_WARN( "sc.filter", "*LotusToSc::LotusRelToScRel(): unhandled case? " << m_rContext.eTyp );
         }
     }
 

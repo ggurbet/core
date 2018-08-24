@@ -38,6 +38,7 @@
 #include <basegfx/polygon/b2dpolygonclipper.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
+#include <sal/log.hxx>
 #include <o3tl/make_unique.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -389,7 +390,7 @@ namespace emfplushelper
 
     void EmfPlusHelperData::EMFPPlusDrawPolygon(const ::basegfx::B2DPolyPolygon& polygon, sal_uInt32 penIndex)
     {
-        const EMFPPen* pen = static_cast<EMFPPen*>(maEMFPObjects[penIndex & 0xff].get());
+        const EMFPPen* pen = dynamic_cast<EMFPPen*>(maEMFPObjects[penIndex & 0xff].get());
         SAL_WARN_IF(!pen, "drawinglayer", "emf+ missing pen");
 
         if (pen && polygon.count())
@@ -830,12 +831,21 @@ namespace emfplushelper
             next = rMS.Tell() + (size - 12);
 
             if (size < 12)
+            {
                 SAL_WARN("drawinglayer", "Size field is less than 12 bytes");
+                break;
+            }
             else if (size > length)
+            {
                 SAL_WARN("drawinglayer", "Size field is greater than bytes left");
+                break;
+            }
 
             if (dataSize > (size - 12))
+            {
                 SAL_WARN("drawinglayer", "DataSize field is greater than Size-12");
+                break;
+            }
 
             SAL_INFO("drawinglayer", "EMF+ record size: " << size << " type: " << emfTypeToName(type) << " flags: " << flags << " data size: " << dataSize);
 
@@ -956,8 +966,8 @@ namespace emfplushelper
                         float dx, dy, dw, dh;
                         ReadRectangle(rMS, dx, dy, dw, dh, bool(flags & 0x4000));
                         SAL_INFO("drawinglayer", "EMF+\t RectData: " << dx << "," << dy << " " << dw << "x" << dh);
-                        startAngle = 2 * M_PI*startAngle / 360;
-                        sweepAngle = 2 * M_PI*sweepAngle / 360;
+                        startAngle = basegfx::deg2rad(startAngle);
+                        sweepAngle = basegfx::deg2rad(sweepAngle);
                         ::basegfx::B2DPoint mappedCenter(Map(dx + dw / 2, dy + dh / 2));
                         ::basegfx::B2DSize mappedSize(MapSize(dw / 2, dh / 2));
                         float endAngle = startAngle + sweepAngle;
@@ -981,7 +991,7 @@ namespace emfplushelper
                         }
 
                         SAL_INFO("drawinglayer", "EMF+\t adjusted angles: start " <<
-                            (360.0*startAngle / M_PI) << ", end: " << (360.0*endAngle / M_PI) <<
+                            basegfx::rad2deg(startAngle) << ", end: " << basegfx::rad2deg(endAngle) <<
                             " startAngle: " << startAngle << " sweepAngle: " << sweepAngle);
 
                         ::basegfx::B2DPolygon polygon = basegfx::utils::createPolygonFromEllipseSegment(
@@ -1609,7 +1619,7 @@ namespace emfplushelper
                                  ", post multiply: " << (flags & 0x2000));
                         // Skipping flags & 0x2000
                         // For rotation transformation there is no difference between post and pre multiply
-                        maWorldTransform.rotate(eAngle * F_PI180);
+                        maWorldTransform.rotate(basegfx::deg2rad(eAngle));
                         mappingChanged();
 
                         SAL_INFO("drawinglayer",
@@ -1656,8 +1666,13 @@ namespace emfplushelper
                         SAL_INFO("drawinglayer", "EMF+ SetClipPath combine mode: " << combineMode);
                         SAL_INFO("drawinglayer", "EMF+\tpath in slot: " << (flags & 0xff));
 
-                        EMFPPath& path = *static_cast<EMFPPath*>(maEMFPObjects[flags & 0xff].get());
-                        ::basegfx::B2DPolyPolygon& clipPoly(path.GetPolygon(*this));
+                        EMFPPath *path = static_cast<EMFPPath*>(maEMFPObjects[flags & 0xff].get());
+                        if (!path)
+                        {
+                            break;
+                        }
+
+                        ::basegfx::B2DPolyPolygon& clipPoly(path->GetPolygon(*this));
                         // clipPoly.transform(rState.mapModeTransform);
 
                         HandleNewClipRegion( combineClip(mrPropertyHolders.Current().getClipPolyPolygon(), combineMode, clipPoly), mrTargetHolders, mrPropertyHolders);
@@ -1669,6 +1684,10 @@ namespace emfplushelper
                         SAL_INFO("drawinglayer", "EMF+ SetClipRegion");
                         SAL_INFO("drawinglayer", "EMF+\tregion in slot: " << (flags & 0xff) << " combine mode: " << combineMode);
                         EMFPRegion *region = static_cast<EMFPRegion*>(maEMFPObjects[flags & 0xff].get());
+                        if (!region)
+                        {
+                            break;
+                        }
 
                         HandleNewClipRegion(combineClip(mrPropertyHolders.Current().getClipPolyPolygon(), combineMode, region->regionPolyPolygon), mrTargetHolders, mrPropertyHolders);
                         break;

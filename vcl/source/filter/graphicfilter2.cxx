@@ -28,7 +28,7 @@
 #define DATA_SIZE           640
 
 GraphicDescriptor::GraphicDescriptor( const INetURLObject& rPath ) :
-    pFileStm( ::utl::UcbStreamHelper::CreateStream( rPath.GetMainURL( INetURLObject::DecodeMechanism::NONE ), StreamMode::READ ) ),
+    pFileStm( ::utl::UcbStreamHelper::CreateStream( rPath.GetMainURL( INetURLObject::DecodeMechanism::NONE ), StreamMode::READ ).release() ),
     aPathExt( rPath.GetFileExtension().toAsciiLowerCase() ),
     bOwnStream( true )
 {
@@ -96,6 +96,7 @@ void GraphicDescriptor::ImpConstruct()
     nFormat = GraphicFileFormat::NOT;
     nBitsPerPixel = 0;
     nPlanes = 0;
+    mnNumberOfImageComponents = 0;
 }
 
 bool GraphicDescriptor::ImpDetectBMP( SvStream& rStm, bool bExtendedInfo )
@@ -371,6 +372,7 @@ bool GraphicDescriptor::ImpDetectJPG( SvStream& rStm,  bool bExtendedInfo )
                                         .ReadUChar( nComponentsIdentifier )
                                         .ReadUChar( nSamplingFactor )
                                         .ReadUChar( nQuantizationTableDestinationSelector );
+                                    mnNumberOfImageComponents = nNumberOfImageComponents;
 
                                     // nSamplingFactor (lower nibble: vertical,
                                     // upper nibble: horizontal) is unused

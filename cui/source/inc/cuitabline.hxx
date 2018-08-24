@@ -78,7 +78,11 @@ public:
 
 /*************************************************************************/
 
-struct SvxBmpItemInfo;
+struct SvxBmpItemInfo
+{
+    std::unique_ptr<SvxBrushItem> pBrushItem;
+    sal_uInt16          nItemId;
+};
 
 class SvxLineTabPage : public SvxTabPage
 {
@@ -132,7 +136,7 @@ private:
     VclPtr<MetricField>        m_pSymbolHeightMF;
     VclPtr<CheckBox>           m_pSymbolRatioCB;
     std::vector<OUString>      m_aGrfNames;
-    std::vector< SvxBmpItemInfo* >
+    std::vector< std::unique_ptr<SvxBmpItemInfo> >
                                m_aGrfBrushItems;
     bool                m_bLastWidthModified;
     Size                m_aSymbolLastSize;
@@ -202,7 +206,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pLineRanges; }
 
     virtual bool FillItemSet( SfxItemSet* ) override;
@@ -212,6 +216,7 @@ public:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
     virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     virtual void FillUserData() override;
 
@@ -259,8 +264,6 @@ private:
     const SfxItemSet&   rOutAttrs;
     XDash               aDash;
 
-    XLineDashItem       aXDash;
-    XLineColorItem      aXColor;
     XLineAttrSetItem    aXLineAttr;
     SfxItemSet&         rXLSet;
 
@@ -300,7 +303,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -338,7 +341,6 @@ private:
     const SfxItemSet&   rOutAttrs;
     const SdrObject*    pPolyObj;
 
-    XLineColorItem      aXColor;
     XLineAttrSetItem    aXLineAttr;
     SfxItemSet&         rXLSet;
 
@@ -365,7 +367,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 

@@ -51,12 +51,14 @@
 
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/sequence.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/interfacecontainer.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <vcl/svapp.hxx>
 #include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <memory>
 
@@ -210,7 +212,6 @@ private:
     OUString                                                  m_aPropUIName;
     OUString                                                  m_aPropResourceURL;
     OUString                                                  m_aModuleIdentifier;
-    OUString                                                  m_aModuleShortName;
     css::uno::Reference< css::embed::XTransactedObject >      m_xUserRootCommit;
     css::uno::Reference< css::uno::XComponentContext >        m_xContext;
     osl::Mutex                                                m_mutex;
@@ -846,13 +847,14 @@ ModuleUIConfigurationManager::ModuleUIConfigurationManager(
 
     SolarMutexGuard g;
 
-    if( aArguments.getLength() == 2 && (aArguments[0] >>= m_aModuleShortName) && (aArguments[1] >>= m_aModuleIdentifier))
+    OUString aModuleShortName;
+    if( aArguments.getLength() == 2 && (aArguments[0] >>= aModuleShortName) && (aArguments[1] >>= m_aModuleIdentifier))
     {
     }
     else
     {
         ::comphelper::SequenceAsHashMap lArgs(aArguments);
-        m_aModuleShortName  = lArgs.getUnpackedValueOrDefault("ModuleShortName", OUString());
+        aModuleShortName  = lArgs.getUnpackedValueOrDefault("ModuleShortName", OUString());
         m_aModuleIdentifier = lArgs.getUnpackedValueOrDefault("ModuleIdentifier", OUString());
     }
 
@@ -873,7 +875,7 @@ ModuleUIConfigurationManager::ModuleUIConfigurationManager(
             m_pStorageHandler[i].reset( new PresetHandler( m_xContext ) );
             m_pStorageHandler[i]->connectToResource( PresetHandler::E_MODULES,
                                                      aResourceType, // this path won't be used later... see next lines!
-                                                     m_aModuleShortName,
+                                                     aModuleShortName,
                                                      css::uno::Reference< css::embed::XStorage >()); // no document root used here!
         }
     }
@@ -1022,12 +1024,12 @@ void SAL_CALL ModuleUIConfigurationManager::reset()
                     impl_resetElementTypeData( rUserElementType, rDefaultElementType, aRemoveEventNotifyContainer, aReplaceEventNotifyContainer );
                     rUserElementType.bModified = false;
                 }
-                catch (const Exception& e)
+                catch (const Exception&)
                 {
-                    css::uno::Any a(e);
+                    css::uno::Any anyEx = cppu::getCaughtException();
                     throw css::lang::WrappedTargetRuntimeException(
                             "ModuleUIConfigurationManager::reset exception",
-                            css::uno::Reference<css::uno::XInterface>(*this), a);
+                            css::uno::Reference<css::uno::XInterface>(*this), anyEx);
                 }
             }
 

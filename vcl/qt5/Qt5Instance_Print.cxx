@@ -17,8 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "Qt5Instance.hxx"
-#include "Qt5Printer.hxx"
+#include <Qt5Instance.hxx>
+#include <Qt5Printer.hxx>
 
 #include <vcl/svapp.hxx>
 #include <vcl/timer.hxx>
@@ -186,16 +186,14 @@ SalInfoPrinter* Qt5Instance::CreateInfoPrinter(SalPrinterQueueInfo* pQueueInfo,
 
 void Qt5Instance::DestroyInfoPrinter(SalInfoPrinter* pPrinter) { delete pPrinter; }
 
-SalPrinter* Qt5Instance::CreatePrinter(SalInfoPrinter* pInfoPrinter)
+std::unique_ptr<SalPrinter> Qt5Instance::CreatePrinter(SalInfoPrinter* pInfoPrinter)
 {
     // create and initialize SalPrinter
     Qt5Printer* pPrinter = new Qt5Printer(pInfoPrinter);
     pPrinter->m_aJobData = static_cast<Qt5InfoPrinter*>(pInfoPrinter)->m_aJobData;
 
-    return pPrinter;
+    return std::unique_ptr<SalPrinter>(pPrinter);
 }
-
-void Qt5Instance::DestroyPrinter(SalPrinter* pPrinter) { delete pPrinter; }
 
 void Qt5Instance::GetPrinterQueueInfo(ImplPrnQueueList* pList)
 {
@@ -218,7 +216,6 @@ void Qt5Instance::GetPrinterQueueInfo(ImplPrnQueueList* pList)
         pInfo->maDriver = rInfo.m_aDriverName;
         pInfo->maLocation = rInfo.m_aLocation;
         pInfo->maComment = rInfo.m_aComment;
-        pInfo->mpSysData = nullptr;
 
         sal_Int32 nIndex = 0;
         while (nIndex != -1)

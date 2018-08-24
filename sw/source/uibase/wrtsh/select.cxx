@@ -40,6 +40,8 @@
 #include <doc.hxx>
 #include <wordcountdialog.hxx>
 #include <memory>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 namespace com { namespace sun { namespace star { namespace util {
     struct SearchOptions2;
@@ -120,7 +122,7 @@ void SwWrtShell::SelPara(const Point *pPt )
     m_bSelWrd = false;  // disable SelWord, otherwise no SelLine goes on
 }
 
-long SwWrtShell::SelAll()
+void SwWrtShell::SelAll()
 {
     const bool bLockedView = IsViewLocked();
     LockView( true );
@@ -205,7 +207,6 @@ long SwWrtShell::SelAll()
     }
     EndSelect();
     LockView( bLockedView );
-    return 1;
 }
 
 // Description: Text search
@@ -295,9 +296,7 @@ void SwWrtShell::PopMode()
         LeaveBlockMode();
     m_bIns = m_pModeStack->bIns;
 
-    ModeStack *pTmp = m_pModeStack->pNext;
-    delete m_pModeStack;
-    m_pModeStack = pTmp;
+    m_pModeStack = std::move(m_pModeStack->pNext);
 }
 
 // Two methods for setting cursors: the first maps at the
@@ -391,6 +390,25 @@ void SwWrtShell::SttSelect()
     SwTransferable::CreateSelection( *this );
 }
 
+namespace {
+
+void collectUIInformation(SwShellCursor* pCursor)
+{
+    EventDescription aDescription;
+    OUString aSelStart = OUString::number(pCursor->Start()->nContent.GetIndex());
+    OUString aSelEnd = OUString::number(pCursor->End()->nContent.GetIndex());
+
+    aDescription.aParameters = {{"START_POS", aSelStart}, {"END_POS", aSelEnd}};
+    aDescription.aAction = "SELECT";
+    aDescription.aID = "writer_edit";
+    aDescription.aKeyWord = "SwEditWinUIObject";
+    aDescription.aParent = "MainWindow";
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
+
 // End of a selection process.
 
 void SwWrtShell::EndSelect()
@@ -412,13 +430,15 @@ void SwWrtShell::EndSelect()
     SwWordCountWrapper *pWrdCnt = static_cast<SwWordCountWrapper*>(GetView().GetViewFrame()->GetChildWindow(SwWordCountWrapper::GetChildWindowId()));
     if (pWrdCnt)
         pWrdCnt->UpdateCounts();
+
+    collectUIInformation(GetCursor_());
 }
 
-long SwWrtShell::ExtSelWrd(const Point *pPt, bool )
+void SwWrtShell::ExtSelWrd(const Point *pPt, bool )
 {
     SwMvContext aMvContext(this);
     if( IsTableMode() )
-        return 1;
+        return;
 
     // Bug 66823: actual crsr has in additional mode no selection?
     // Then destroy the actual an go to prev, this will be expand
@@ -434,7 +454,7 @@ long SwWrtShell::ExtSelWrd(const Point *pPt, bool )
     }
 
     // check the direction of the selection with the new point
-    bool bRet = false, bMoveCursor = true, bToTop = false;
+    bool bMoveCursor = true, bToTop = false;
     SwCursorShell::SelectWord( &m_aStart );     // select the startword
     SwCursorShell::Push();                    // save the cursor
     SwCursorShell::SetCursor( *pPt );           // and check the direction
@@ -461,7 +481,6 @@ long SwWrtShell::ExtSelWrd(const Point *pPt, bool )
             if( bToTop )
                 SwapPam();
             Combine();
-            bRet = true;
         }
         else
         {
@@ -470,17 +489,14 @@ long SwWrtShell::ExtSelWrd(const Point *pPt, bool )
                 SwapPam();
         }
     }
-    else
-        bRet = true;
-    return bRet ? 1 : 0;
 }
 
-long SwWrtShell::ExtSelLn(const Point *pPt, bool )
+void SwWrtShell::ExtSelLn(const Point *pPt, bool )
 {
     SwMvContext aMvContext(this);
     SwCursorShell::SetCursor(*pPt);
     if( IsTableMode() )
-        return 1;
+        return;
 
     // Bug 66823: actual crsr has in additional mode no selection?
     // Then destroy the actual an go to prev, this will be expand
@@ -513,7 +529,10 @@ long SwWrtShell::ExtSelLn(const Point *pPt, bool )
     }
     SwapPam();
 
-    return (bToTop ? SwCursorShell::GoStartSentence() : SwCursorShell::GoEndSentence()) ? 1 : 0;
+    if (bToTop)
+        SwCursorShell::GoStartSentence();
+    else
+        SwCursorShell::GoEndSentence();
 }
 
 // Back into the standard mode: no mode, no selections.
@@ -657,7 +676,7 @@ void SwWrtShell::SetRedlineFlagsAndCheckInsMode( RedlineFlags eMode )
 
 // Edit frame
 
-long SwWrtShell::BeginFrameDrag(const Point *pPt, bool bIsShift)
+void SwWrtShell::BeginFrameDrag(const Point *pPt, bool bIsShift)
 {
     m_fnDrag = &SwFEShell::Drag;
     if(bStartDrag)
@@ -667,7 +686,6 @@ long SwWrtShell::BeginFrameDrag(const Point *pPt, bool bIsShift)
     }
     else
         SwFEShell::BeginDrag( pPt, bIsShift );
-    return 1;
 }
 
 void SwWrtShell::EnterSelFrameMode(const Point *pPos)
@@ -717,12 +735,11 @@ IMPL_LINK( SwWrtShell, ExecFlyMac, const SwFlyFrameFormat*, pFlyFormat, void )
     }
 }
 
-long SwWrtShell::UpdateLayoutFrame(const Point *, bool )
+void SwWrtShell::UpdateLayoutFrame(const Point *, bool )
 {
         // still a dummy
     SwFEShell::EndDrag();
     m_fnDrag = &SwWrtShell::BeginFrameDrag;
-    return 1;
 }
 
 // Handler for toggling the modes. Returns back the old mode.
@@ -749,7 +766,7 @@ bool SwWrtShell::ToggleExtMode()
 
 // Dragging in standard mode (Selecting of content)
 
-long SwWrtShell::BeginDrag(const Point * /*pPt*/, bool )
+void SwWrtShell::BeginDrag(const Point * /*pPt*/, bool )
 {
     if(m_bSelWrd)
     {
@@ -771,19 +788,15 @@ long SwWrtShell::BeginDrag(const Point * /*pPt*/, bool )
         m_fnDrag = &SwWrtShell::DefaultDrag;
         SttSelect();
     }
-
-    return 1;
 }
 
-long SwWrtShell::DefaultDrag(const Point *, bool )
+void SwWrtShell::DefaultDrag(const Point *, bool )
 {
     if( IsSelTableCells() )
         m_aSelTableLink.Call(*this);
-
-    return 1;
 }
 
-long SwWrtShell::DefaultEndDrag(const Point * /*pPt*/, bool )
+void SwWrtShell::DefaultEndDrag(const Point * /*pPt*/, bool )
 {
     m_fnDrag = &SwWrtShell::BeginDrag;
     if( IsExtSel() )
@@ -792,7 +805,6 @@ long SwWrtShell::DefaultEndDrag(const Point * /*pPt*/, bool )
     if( IsSelTableCells() )
         m_aSelTableLink.Call(*this);
     EndSelect();
-    return 1;
 }
 
 // #i32329# Enhanced table selection

@@ -48,6 +48,7 @@
 #include <scmatrix.hxx>
 #include <rowheightcontext.hxx>
 #include <tokenstringcontext.hxx>
+#include <recursionhelper.hxx>
 
 #include <editeng/eeitem.hxx>
 
@@ -1506,6 +1507,11 @@ SCROW ScColumn::FindNextVisibleRowWithContent(
 
 void ScColumn::CellStorageModified()
 {
+    // Remove cached values. Given how often this function is called and how (not that) often
+    // the cached values are used, it should be more efficient to just discard everything
+    // instead of trying to figure out each time exactly what to discard.
+    GetDoc()->DiscardFormulaGroupContext();
+
     // TODO: Update column's "last updated" timestamp here.
 
 #if DEBUG_COLUMN_STORAGE
@@ -1563,8 +1569,6 @@ void ScColumn::CellStorageModified()
         while (itAttr != maCellTextAttrs.end() && itAttr->type != sc::element_type_empty)
             ++itAttr;
     }
-#else
-    (void) this; // Avoid "this member function can be declared static [loplugin:staticmethods]"
 #endif
 }
 
@@ -2635,6 +2639,15 @@ bool hasNonEmpty( const sc::FormulaGroupContext::StrArrayType& rArray, SCROW nRo
     return std::any_of(it, itEnd, NonNullStringFinder());
 }
 
+struct ProtectFormulaGroupContext
+{
+    ProtectFormulaGroupContext( ScDocument* d )
+        : doc( d ) { doc->BlockFormulaGroupContextDiscard( true ); }
+    ~ProtectFormulaGroupContext()
+        { doc->BlockFormulaGroupContextDiscard( false ); }
+    ScDocument* doc;
+};
+
 }
 
 formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 )
@@ -2658,6 +2671,12 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
 
         return formula::VectorRefArray(pNum, pStr);
     }
+
+    // ScColumn::CellStorageModified() simply discards the entire cache (FormulaGroupContext)
+    // on any modification. However getting cell values may cause this to be called
+    // if interpreting a cell results in a change to it (not just its result though).
+    // So temporarily block the discarding.
+    ProtectFormulaGroupContext protectContext( GetDoc());
 
     double fNan;
     rtl::math::setNan(&fNan);
@@ -2692,7 +2711,10 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
             size_t nPos = itBlk->size;
             ++itBlk;
             if (!appendToBlock(pDocument, rCxt, *pColArray, nPos, nRow2+1, itBlk, maCells.end()))
+            {
+                rCxt.discardCachedColArray(nTab, nCol);
                 return formula::VectorRefArray(formula::VectorRefArray::Invalid);
+            }
 
             rtl_uString** pStr = nullptr;
             if (pColArray->mpStrArray && hasNonEmpty(*pColArray->mpStrArray, nRow1, nRow2))
@@ -2725,7 +2747,10 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
             size_t nPos = itBlk->size;
             ++itBlk;
             if (!appendToBlock(pDocument, rCxt, *pColArray, nPos, nRow2+1, itBlk, maCells.end()))
+            {
+                rCxt.discardCachedColArray(nTab, nCol);
                 return formula::VectorRefArray(formula::VectorRefArray::Invalid);
+            }
 
             assert(pColArray->mpStrArray);
 
@@ -2762,13 +2787,18 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
 
             pColArray = copyFirstFormulaBlock(rCxt, itBlk, nRow2+1, nTab, nCol);
             if (!pColArray)
+            {
                 // Failed to insert a new cached column array.
                 return formula::VectorRefArray(formula::VectorRefArray::Invalid);
+            }
 
             size_t nPos = itBlk->size;
             ++itBlk;
             if (!appendToBlock(pDocument, rCxt, *pColArray, nPos, nRow2+1, itBlk, maCells.end()))
+            {
+                rCxt.discardCachedColArray(nTab, nCol);
                 return formula::VectorRefArray(formula::VectorRefArray::Invalid);
+            }
 
             const double* pNum = nullptr;
             rtl_uString** pStr = nullptr;
@@ -2798,7 +2828,10 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
             size_t nPos = itBlk->size;
             ++itBlk;
             if (!appendToBlock(pDocument, rCxt, *pColArray, nPos, nRow2+1, itBlk, maCells.end()))
+            {
+                rCxt.discardCachedColArray(nTab, nCol);
                 return formula::VectorRefArray(formula::VectorRefArray::Invalid);
+            }
 
             if (pColArray->mpStrArray && hasNonEmpty(*pColArray->mpStrArray, nRow1, nRow2))
                 return formula::VectorRefArray(&(*pColArray->mpNumArray)[nRow1], &(*pColArray->mpStrArray)[nRow1]);
@@ -2813,16 +2846,64 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
     return formula::VectorRefArray(formula::VectorRefArray::Invalid);
 }
 
-bool ScColumn::HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2 )
+bool ScColumn::HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup )
 {
     if (nRow1 > nRow2)
         return false;
 
-    for (auto i = nRow1; i <= nRow2; ++i)
+    std::pair<sc::CellStoreType::const_iterator,size_t> aPos = maCells.position(nRow1);
+    sc::CellStoreType::const_iterator it = aPos.first;
+    size_t nOffset = aPos.second;
+    SCROW nRow = nRow1;
+    for (;it != maCells.end() && nRow <= nRow2; ++it, nOffset = 0)
     {
-        auto aCell = GetCellValue(i);
-        if (aCell.meType == CELLTYPE_FORMULA)
-            aCell.mpFormula->MaybeInterpret();
+        switch( it->type )
+        {
+            case sc::element_type_edittext:
+                // These require EditEngine (in ScEditUtils::GetString()), which is probably
+                // too complex for use in threads.
+                return false;
+            case sc::element_type_formula:
+            {
+                size_t nRowsToRead = nRow2 - nRow + 1;
+                size_t nEnd = std::min(it->size, nOffset+nRowsToRead); // last row + 1
+                sc::formula_block::const_iterator itCell = sc::formula_block::begin(*it->data);
+                std::advance(itCell, nOffset);
+                // Loop inside the formula block.
+                for (size_t i = nOffset; i < nEnd; ++itCell, ++i)
+                {
+                    // Check if itCell is already in path.
+                    // If yes use a cycle guard to mark all elements of the cycle
+                    // and return false
+                    const ScFormulaCellGroupRef& mxGroupChild = (*itCell)->GetCellGroup();
+                    ScFormulaCell* pChildTopCell = mxGroupChild ? mxGroupChild->mpTopCell : *itCell;
+                    if (pChildTopCell->GetSeenInPath())
+                    {
+                        ScRecursionHelper& rRecursionHelper = GetDoc()->GetRecursionHelper();
+                        ScFormulaGroupCycleCheckGuard aCycleCheckGuard(rRecursionHelper, pChildTopCell);
+                        return false;
+                    }
+
+                    (*itCell)->MaybeInterpret();
+
+                    // child cell's Interpret could result in calling dependency calc
+                    // and that could detect a cycle involving mxGroup
+                    // and do early exit in that case.
+                    if (mxGroup->mbPartOfCycle)
+                    {
+                        // Set itCell as dirty as itCell may be interpreted in InterpretTail()
+                        (*itCell)->SetDirtyVar();
+                        return false;
+                    }
+                }
+                nRow += nEnd - nOffset;
+                break;
+            }
+            default:
+                // Skip this block.
+                nRow += it->size - nOffset;
+                continue;
+        }
     }
 
     return true;
@@ -2858,35 +2939,9 @@ void ScColumn::SetFormulaResults( SCROW nRow, const double* pResults, size_t nLe
     }
 }
 
-void ScColumn::SetFormulaResults( SCROW nRow, const formula::FormulaConstTokenRef* pResults, size_t nLen )
-{
-    sc::CellStoreType::position_type aPos = maCells.position(nRow);
-    sc::CellStoreType::iterator it = aPos.first;
-    if (it->type != sc::element_type_formula)
-        // This is not a formula block.
-        return;
-
-    size_t nBlockLen = it->size - aPos.second;
-    if (nBlockLen < nLen)
-        // Result array is longer than the length of formula cells. Not good.
-        return;
-
-    sc::formula_block::iterator itCell = sc::formula_block::begin(*it->data);
-    std::advance(itCell, aPos.second);
-
-    const formula::FormulaConstTokenRef* pResEnd = pResults + nLen;
-    for (; pResults != pResEnd; ++pResults, ++itCell)
-    {
-        ScFormulaCell& rCell = **itCell;
-        rCell.SetResultToken(pResults->get());
-        rCell.ResetDirty();
-        rCell.SetChanged(true);
-    }
-}
-
 void ScColumn::CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal)
 {
-    assert(GetDoc()->mbThreadedGroupCalcInProgress);
+    assert(GetDoc()->IsThreadedGroupCalcInProgress());
 
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
     sc::CellStoreType::iterator it = aPos.first;

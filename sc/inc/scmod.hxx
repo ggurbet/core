@@ -21,19 +21,18 @@
 #define INCLUDED_SC_INC_SCMOD_HXX
 
 #include "scdllapi.h"
-#include "scdll.hxx"
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
 #include <svl/lstner.hxx>
+#include <sfx2/module.hxx>
 #include "global.hxx"
 #include "shellids.hxx"
 #include <unotools/options.hxx>
+#include <com/sun/star/uno/Reference.h>
 
-#include <algorithm>
 #include <vector>
 #include <map>
 #include <memory>
-#include <stack>
 
 class KeyEvent;
 class EditView;
@@ -43,6 +42,9 @@ class SvtCTLOptions;
 class SvtUserOptions;
 
 namespace svtools { class ColorConfig; }
+namespace ooo { namespace vba { class XSinkCaller; } }
+namespace com { namespace sun { namespace star { namespace uno { class Any; } } } }
+namespace com { namespace sun { namespace star { namespace uno { template <typename > class Sequence; } } } }
 
 class ScRange;
 class ScDocument;
@@ -75,36 +77,39 @@ struct ScDragData;
 
 class ScModule: public SfxModule, public SfxListener, public utl::ConfigurationListener
 {
-    Timer               aIdleTimer;
-    Idle                aSpellIdle;
-    ScDragData*         mpDragData;
-    ScSelectionTransferObj* pSelTransfer;
-    ScMessagePool*      pMessagePool;
-    // there is no global InputHandler anymore, each View has it's own
-    ScInputHandler*     pRefInputHandler;
-    ScViewCfg*          pViewCfg;
-    ScDocCfg*           pDocCfg;
-    ScAppCfg*           pAppCfg;
-    ScDefaultsCfg*      pDefaultsCfg;
-    ScFormulaCfg*       pFormulaCfg;
-    ScInputCfg*         pInputCfg;
-    ScPrintCfg*         pPrintCfg;
-    ScNavipiCfg*        pNavipiCfg;
-    ScAddInCfg*         pAddInCfg;
-    svtools::ColorConfig*   pColorConfig;
-    SvtAccessibilityOptions* pAccessOptions;
-    SvtCTLOptions*      pCTLOptions;
-    SvtUserOptions*     pUserOptions;
-    SfxErrorHandler*    pErrorHdl;
-    ScFormEditData*     pFormEditData;
-    sal_uInt16          nCurRefDlgId;
-    bool                bIsWaterCan:1;
-    bool                bIsInEditCommand:1;
-    bool                bIsInExecuteDrop:1;
-    bool                mbIsInSharedDocLoading:1;
-    bool                mbIsInSharedDocSaving:1;
+    Timer               m_aIdleTimer;
+    Idle                m_aSpellIdle;
+    std::unique_ptr<ScDragData> m_pDragData;
+    ScSelectionTransferObj* m_pSelTransfer;
+    ScMessagePool*      m_pMessagePool;
+    // there is no global InputHandler anymore, each View has its own
+    ScInputHandler*     m_pRefInputHandler;
+    std::unique_ptr<ScViewCfg>        m_pViewCfg;
+    std::unique_ptr<ScDocCfg>         m_pDocCfg;
+    std::unique_ptr<ScAppCfg>         m_pAppCfg;
+    std::unique_ptr<ScDefaultsCfg>    m_pDefaultsCfg;
+    std::unique_ptr<ScFormulaCfg>     m_pFormulaCfg;
+    std::unique_ptr<ScInputCfg>       m_pInputCfg;
+    std::unique_ptr<ScPrintCfg>       m_pPrintCfg;
+    std::unique_ptr<ScNavipiCfg>      m_pNavipiCfg;
+    std::unique_ptr<ScAddInCfg>       m_pAddInCfg;
+    std::unique_ptr<svtools::ColorConfig>    m_pColorConfig;
+    std::unique_ptr<SvtAccessibilityOptions> m_pAccessOptions;
+    std::unique_ptr<SvtCTLOptions>           m_pCTLOptions;
+    std::unique_ptr<SvtUserOptions>          m_pUserOptions;
+    std::unique_ptr<SfxErrorHandler>  m_pErrorHdl;
+    std::unique_ptr<ScFormEditData>   m_pFormEditData;
+    sal_uInt16          m_nCurRefDlgId;
+    bool                m_bIsWaterCan:1;
+    bool                m_bIsInEditCommand:1;
+    bool                m_bIsInExecuteDrop:1;
+    bool                m_bIsInSharedDocLoading:1;
+    bool                m_bIsInSharedDocSaving:1;
 
     std::map<sal_uInt16, std::vector<VclPtr<vcl::Window> > > m_mapRefWindow;
+
+    css::uno::Reference< ooo::vba::XSinkCaller > mxAutomationApplicationEventsCaller;
+
 public:
                     SFX_DECL_INTERFACE(SCID_APP)
 
@@ -133,7 +138,7 @@ public:
     void                AnythingChanged();
 
     //  Drag & Drop:
-    const ScDragData&   GetDragData() const { return *mpDragData;}
+    const ScDragData&   GetDragData() const { return *m_pDragData;}
     void                SetDragObject( ScTransferObj* pCellObj, ScDrawTransferObj* pDrawObj );
     void                ResetDragObject();
     void                SetDragLink(
@@ -141,19 +146,17 @@ public:
     void                SetDragJump(
         ScDocument* pLocalDoc, const OUString& rTarget, const OUString& rText );
 
-    static ScDocument*  GetClipDoc();       // called from document - should be removed later
-
     //  X selection:
-    ScSelectionTransferObj* GetSelectionTransfer() const    { return pSelTransfer; }
+    ScSelectionTransferObj* GetSelectionTransfer() const    { return m_pSelTransfer; }
     void                SetSelectionTransfer( ScSelectionTransferObj* pNew );
 
-    void                SetWaterCan( bool bNew )    { bIsWaterCan = bNew; }
-    bool                GetIsWaterCan() const       { return bIsWaterCan; }
+    void                SetWaterCan( bool bNew )    { m_bIsWaterCan = bNew; }
+    bool                GetIsWaterCan() const       { return m_bIsWaterCan; }
 
-    void                SetInEditCommand( bool bNew )   { bIsInEditCommand = bNew; }
+    void                SetInEditCommand( bool bNew )   { m_bIsInEditCommand = bNew; }
 
-    void                SetInExecuteDrop( bool bNew )   { bIsInExecuteDrop = bNew; }
-    bool                IsInExecuteDrop() const         { return bIsInExecuteDrop; }
+    void                SetInExecuteDrop( bool bNew )   { m_bIsInExecuteDrop = bNew; }
+    bool                IsInExecuteDrop() const         { return m_bIsInExecuteDrop; }
 
     // Options:
     const ScViewOptions&    GetViewOptions  ();
@@ -200,7 +203,7 @@ public:
     ScInputHandler*     GetInputHdl( ScTabViewShell* pViewSh = nullptr, bool bUseRef = true );
 
     void                SetRefInputHdl( ScInputHandler* pNew );
-    ScInputHandler*     GetRefInputHdl() { return pRefInputHandler;}
+    ScInputHandler*     GetRefInputHdl() { return m_pRefInputHandler;}
 
     void                ViewShellGone(const ScTabViewShell* pViewSh);
     void                ViewShellChanged(bool bStopEditing);
@@ -215,7 +218,7 @@ public:
 
     void                InitFormEditData();
     void                ClearFormEditData();
-    ScFormEditData*     GetFormEditData()       { return pFormEditData; }
+    ScFormEditData*     GetFormEditData()       { return m_pFormEditData.get(); }
 
     // input of reference:
     SC_DLLPUBLIC void   SetRefDialog( sal_uInt16 nId, bool bVis, SfxViewFrame* pViewFrm = nullptr );
@@ -227,22 +230,25 @@ public:
                                         const ScMarkData* pMarkData = nullptr );
     void                AddRefEntry();
     void                EndReference();
-    sal_uInt16          GetCurRefDlgId() const                  { return nCurRefDlgId; }
+    sal_uInt16          GetCurRefDlgId() const                  { return m_nCurRefDlgId; }
 
     // virtual methods for the options dialog
     virtual std::unique_ptr<SfxItemSet> CreateItemSet( sal_uInt16 nId ) override;
     virtual void         ApplyItemSet( sal_uInt16 nId, const SfxItemSet& rSet ) override;
-    virtual VclPtr<SfxTabPage> CreateTabPage( sal_uInt16 nId, vcl::Window* pParent, const SfxItemSet& rSet ) override;
-    virtual SfxStyleFamilies* CreateStyleFamilies() override;
+    virtual VclPtr<SfxTabPage> CreateTabPage( sal_uInt16 nId, TabPageParent pParent, const SfxItemSet& rSet ) override;
+    virtual std::unique_ptr<SfxStyleFamilies> CreateStyleFamilies() override;
 
-    void                SetInSharedDocLoading( bool bNew )  { mbIsInSharedDocLoading = bNew; }
-    bool                IsInSharedDocLoading() const        { return mbIsInSharedDocLoading; }
-    void                SetInSharedDocSaving( bool bNew )   { mbIsInSharedDocSaving = bNew; }
-    bool                IsInSharedDocSaving() const         { return mbIsInSharedDocSaving; }
+    void                SetInSharedDocLoading( bool bNew )  { m_bIsInSharedDocLoading = bNew; }
+    bool                IsInSharedDocLoading() const        { return m_bIsInSharedDocLoading; }
+    void                SetInSharedDocSaving( bool bNew )   { m_bIsInSharedDocSaving = bNew; }
+    bool                IsInSharedDocSaving() const         { return m_bIsInSharedDocSaving; }
 
     SC_DLLPUBLIC void   RegisterRefWindow( sal_uInt16 nSlotId, vcl::Window *pWnd );
     SC_DLLPUBLIC void   UnregisterRefWindow( sal_uInt16 nSlotId, vcl::Window *pWnd );
     SC_DLLPUBLIC vcl::Window * Find1RefWindow( sal_uInt16 nSlotId, vcl::Window *pWndAncestor );
+
+    SC_DLLPUBLIC void RegisterAutomationApplicationEventsCaller(css::uno::Reference< ooo::vba::XSinkCaller > const& xCaller);
+    SC_DLLPUBLIC void CallAutomationApplicationEventSinks(const OUString& Method, css::uno::Sequence< css::uno::Any >& Arguments);
 };
 
 #define SC_MOD() ( static_cast<ScModule*>(SfxApplication::GetModule(SfxToolsModule::Calc)) )

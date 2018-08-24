@@ -42,7 +42,7 @@ class FuPoor
 {
 protected:
     ScDrawView*     pView;
-    ScTabViewShell* pViewShell;
+    ScTabViewShell& rViewShell;
     VclPtr<vcl::Window>     pWindow;
     SdrModel*       pDrDoc;
 
@@ -65,7 +65,7 @@ private:
     sal_uInt16      mnCode;
 
 public:
-    FuPoor(ScTabViewShell* pViewSh, vcl::Window* pWin, ScDrawView* pView,
+    FuPoor(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView* pView,
            SdrModel* pDoc, const SfxRequest& rReq);
     virtual ~FuPoor();
 

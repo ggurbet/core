@@ -28,6 +28,7 @@
 #include <comphelper/processfactory.hxx>
 #include <tools/urlobj.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/request.hxx>
@@ -277,8 +278,7 @@ ScfPropSetHelper::ScfPropSetHelper( const sal_Char* const* ppcPropNames ) :
 
     // create OUStrings from ASCII property names
     typedef ::std::pair< OUString, size_t >     IndexedOUString;
-    typedef ::std::vector< IndexedOUString >    IndexedOUStringVec;
-    IndexedOUStringVec aPropNameVec;
+    std::vector<IndexedOUString> aPropNameVec;
     for( size_t nVecIdx = 0; *ppcPropNames; ++ppcPropNames, ++nVecIdx )
     {
         OUString aPropName = OUString::createFromAscii( *ppcPropNames );
@@ -296,11 +296,11 @@ ScfPropSetHelper::ScfPropSetHelper( const sal_Char* const* ppcPropNames ) :
 
     // fill the property name sequence and store original sort order
     sal_Int32 nSeqIdx = 0;
-    for( IndexedOUStringVec::const_iterator aIt = aPropNameVec.begin(),
-            aEnd = aPropNameVec.end(); aIt != aEnd; ++aIt, ++nSeqIdx )
+    for( auto& aPropName : aPropNameVec )
     {
-        maNameSeq[ nSeqIdx ] = aIt->first;
-        maNameOrder[ aIt->second ] = nSeqIdx;
+        maNameSeq[ nSeqIdx ] = aPropName.first;
+        maNameOrder[ aPropName.second ] = nSeqIdx;
+        ++nSeqIdx;
     }
 }
 

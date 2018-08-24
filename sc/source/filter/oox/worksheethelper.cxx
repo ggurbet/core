@@ -25,6 +25,7 @@
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
+#include <com/sun/star/sheet/ConditionOperator2.hpp>
 #include <com/sun/star/sheet/TableValidationVisibility.hpp>
 #include <com/sun/star/sheet/ValidationType.hpp>
 #include <com/sun/star/sheet/ValidationAlertStyle.hpp>
@@ -361,7 +362,6 @@ private:
 private:
     typedef ::std::unique_ptr< VmlDrawing >       VmlDrawingPtr;
 
-    const OUString      maSheetCellRanges;  /// Service name for a SheetCellRanges object.
     const ScAddress&    mrMaxApiPos;        /// Reference to maximum Calc cell address from address converter.
     ScRange             maUsedArea;         /// Used area of the sheet, and sheet index of the sheet.
     ColumnModel         maDefColModel;      /// Default column formatting.
@@ -393,9 +393,10 @@ private:
     bool                mbHasDefWidth;      /// True = default column width is set from defaultColWidth attribute.
 };
 
+static const OUStringLiteral gaSheetCellRanges( "com.sun.star.sheet.SheetCellRanges" ); /// Service name for a SheetCellRanges object.
+
 WorksheetGlobals::WorksheetGlobals( const WorkbookHelper& rHelper, const ISegmentProgressBarRef& rxProgressBar, WorksheetType eSheetType, SCTAB nSheet ) :
     WorkbookHelper( rHelper ),
-    maSheetCellRanges( "com.sun.star.sheet.SheetCellRanges" ),
     mrMaxApiPos( rHelper.getAddressConverter().getMaxApiAddress() ),
     maUsedArea( SCCOL_MAX, SCROW_MAX, nSheet, -1, -1, nSheet ), // Set start address to largest possible value, and end address to smallest
     maSheetData( *this ),
@@ -474,7 +475,7 @@ Reference< XSheetCellRanges > WorksheetGlobals::getCellRangeList( const ScRangeL
     Reference< XSheetCellRanges > xRanges;
     if( mxSheet.is() && !rRanges.empty() ) try
     {
-        xRanges.set( getBaseFilter().getModelFactory()->createInstance( maSheetCellRanges ), UNO_QUERY_THROW );
+        xRanges.set( getBaseFilter().getModelFactory()->createInstance( gaSheetCellRanges ), UNO_QUERY_THROW );
         Reference< XSheetCellRangeContainer > xRangeCont( xRanges, UNO_QUERY_THROW );
         xRangeCont->addRangeAddresses( AddressConverter::toApiSequence(rRanges), false );
     }
@@ -770,7 +771,23 @@ void WorksheetGlobals::setColumnModel( const ColumnModel& rModel )
         // checkCol(). Cater for this oddity.
         if (nLastCol == mrMaxApiPos.Col() + 1)
             --nLastCol;
-        else if( !getAddressConverter().checkCol( nLastCol, true ) )
+        // This is totally fouled up. If we saved 1025 and the file is saved
+        // with Excel again, it increments the value to 1026.
+        else if (nLastCol == mrMaxApiPos.Col() + 2)
+            nLastCol -= 2;
+        // Excel may add a column range for the remaining columns (with
+        // <cols><col .../></cols>), even if not used or only used to grey out
+        // columns in page break view. Don't let that trigger overflow warning,
+        // so check for the last possible column. If there really is content in
+        // the range that should be caught anyway.
+        else if (nLastCol == getAddressConverter().getMaxXlsAddress().Col())
+            nLastCol = mrMaxApiPos.Col();
+        // User may have applied custom column widths to arbitrary excess
+        // columns. Ignore those and don't track as overflow columns (false).
+        // Effectively this does the same as the above cases, just keep them
+        // for explanation.
+        // Actual data present should trigger the overflow detection later.
+        else if( !getAddressConverter().checkCol( nLastCol, false ) )
             nLastCol = mrMaxApiPos.Col();
         // try to find entry in column model map that is able to merge with the passed model
         bool bInsertModel = true;
@@ -1108,7 +1125,10 @@ void WorksheetGlobals::finalizeValidationRanges() const
             {
                 // condition operator
                 Reference< XSheetCondition2 > xSheetCond( xValidation, UNO_QUERY_THROW );
-                xSheetCond->setConditionOperator( CondFormatBuffer::convertToApiOperator( validation.mnOperator ) );
+                if( eType == ValidationType_CUSTOM )
+                    xSheetCond->setConditionOperator( ConditionOperator2::FORMULA );
+                else
+                    xSheetCond->setConditionOperator( CondFormatBuffer::convertToApiOperator( validation.mnOperator ) );
 
                 // condition formulas
                 Reference< XMultiFormulaTokens > xTokens( xValidation, UNO_QUERY_THROW );

@@ -46,6 +46,7 @@
 
 #include <rtl/strbuf.hxx>
 #include <rtl/character.hxx>
+#include <sal/log.hxx>
 #include <svl/zforlist.hxx>
 
 #include <o3tl/make_unique.hxx>
@@ -120,6 +121,8 @@ ErrCode ImpScan( const OUString& rWSrc, double& nVal, SbxDataType& rType,
                     (cIntntlDecSep && *p == cIntntlGrpSep) || (cIntntlDecSepAlt && *p == cIntntlDecSepAlt)) &&
                 rtl::isAsciiDigit( *(p+1) )))
     {
+        // tdf#118442: Whitespace and minus are skipped; store the position to calculate index
+        const sal_Unicode* const pDigitsStart = p;
         short exp = 0;
         short decsep = 0;
         short ndig = 0;
@@ -145,7 +148,7 @@ ErrCode ImpScan( const OUString& rWSrc, double& nVal, SbxDataType& rType,
             if( *p == cNonIntntlDecSep || *p == cIntntlDecSep || (cIntntlDecSepAlt && *p == cIntntlDecSepAlt) )
             {
                 // Use the separator that is passed to stringToDouble()
-                aBuf[ p - pStart ] = cIntntlDecSep;
+                aBuf[p - pDigitsStart] = cIntntlDecSep;
                 p++;
                 if( ++decsep > 1 )
                     continue;
@@ -159,7 +162,7 @@ ErrCode ImpScan( const OUString& rWSrc, double& nVal, SbxDataType& rType,
                 }
                 if( *p == 'D' || *p == 'd' )
                     eScanType = SbxDOUBLE;
-                aBuf[ p - pStart ] = 'E';
+                aBuf[p - pDigitsStart] = 'E';
                 p++;
                 if (*p == '+')
                     ++p;
@@ -717,7 +720,7 @@ void SbxValue::Format( OUString& rRes, const OUString* pFmt ) const
                 else
                 {
                     aFmtStr = OUString::createFromAscii(pInfo->mpOOoFormat);
-                    pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType );
+                    pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType, true);
                 }
                 pFormatter->GetOutputString( nNumber, nIndex, rRes, &pCol );
             }
@@ -734,7 +737,7 @@ void SbxValue::Format( OUString& rRes, const OUString* pFmt ) const
                     if( floor( nNumber ) != nNumber )
                     {
                         aFmtStr = "H:MM:SS AM/PM";
-                        pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType );
+                        pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType, true);
                         OUString aTime;
                         pFormatter->GetOutputString( nNumber, nIndex, aTime, &pCol );
                         rRes += " " + aTime;
@@ -744,7 +747,7 @@ void SbxValue::Format( OUString& rRes, const OUString* pFmt ) const
                 {
                     // long time only
                     aFmtStr = "H:MM:SS AM/PM";
-                    pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType );
+                    pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType, true);
                     pFormatter->GetOutputString( nNumber, nIndex, rRes, &pCol );
                 }
             }
@@ -774,13 +777,13 @@ void SbxValue::Format( OUString& rRes, const OUString* pFmt ) const
             {
                 sal_Int16 nYear = implGetDateYear( nNumber );
                 double dBaseDate;
-                implDateSerial( nYear, 1, 1, true, false, dBaseDate );
+                implDateSerial( nYear, 1, 1, true, SbDateCorrection::None, dBaseDate );
                 sal_Int32 nYear32 = 1 + sal_Int32( nNumber - dBaseDate );
                 rRes = OUString::number(nYear32);
             }
             else
             {
-                pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType );
+                pFormatter->PutandConvertEntry( aFmtStr, nCheckPos, nType, nIndex, LANGUAGE_ENGLISH, eLangType, true);
                 pFormatter->GetOutputString( nNumber, nIndex, rRes, &pCol );
             }
 

@@ -157,7 +157,8 @@ void SlidePersist::createXShapes( XmlFilterBase& rFilterBase )
             TimeNodePtr pNode(maTimeNodeList.front());
             OSL_ENSURE( pNode, "pNode" );
 
-            pNode->setNode( rFilterBase, xNode, pSlidePtr );
+            Reference<XAnimationNode> xDummy;
+            pNode->setNode(rFilterBase, xNode, pSlidePtr, xDummy);
         }
     }
 }
@@ -205,7 +206,7 @@ void SlidePersist::applyTextStyles( const XmlFilterBase& rFilterBase )
             Reference< container::XNameAccess > aXNameAccess( aXStyleFamiliesSupplier->getStyleFamilies() );
             Reference< container::XNamed > aXNamed( mxPage, UNO_QUERY_THROW );
 
-            if ( aXNameAccess.is() && aXNamed.is() )
+            if ( aXNameAccess.is() )
             {
                 oox::drawingml::TextListStylePtr pTextListStylePtr;
                 OUString aStyle;

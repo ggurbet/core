@@ -39,6 +39,7 @@
 #include <svx/svdocapt.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/editobj.hxx>
+#include <o3tl/make_unique.hxx>
 #include <unotools/tempfile.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <svtools/embedhlp.hxx>
@@ -401,7 +402,7 @@ XclExpImgData::XclExpImgData( const Graphic& rGraphic, sal_uInt16 nRecId ) :
 
 void XclExpImgData::Save( XclExpStream& rStrm )
 {
-    Bitmap aBmp = maGraphic.GetBitmap();
+    Bitmap aBmp = maGraphic.GetBitmapEx().GetBitmap();
     if( aBmp.GetBitCount() != 24 )
         aBmp.Convert( BmpConversion::N24Bit );
 
@@ -742,7 +743,7 @@ XclExpTbxControlObj::XclExpTbxControlObj( XclExpObjectManager& rRoot, Reference<
         /*  Be sure to construct the MSODRAWING record containing the
             ClientTextbox atom after the base OBJ's MSODRAWING record data is
             completed. */
-        pClientTextbox = new XclExpMsoDrawing( mrEscherEx );
+        pClientTextbox.reset( new XclExpMsoDrawing( mrEscherEx ) );
         mrEscherEx.AddAtom( 0, ESCHER_ClientTextbox );  // TXO record
         mrEscherEx.UpdateDffFragmentEnd();
 
@@ -755,7 +756,7 @@ XclExpTbxControlObj::XclExpTbxControlObj( XclExpObjectManager& rRoot, Reference<
                 nXclFont = GetFontBuffer().Insert( aFontData, EXC_COLOR_CTRLTEXT );
         }
 
-        pTxo = new XclTxo( aString, nXclFont );
+        pTxo.reset( new XclTxo( aString, nXclFont ) );
         pTxo->SetHorAlign( (mnObjType == EXC_OBJTYPE_BUTTON) ? EXC_OBJ_HOR_CENTER : EXC_OBJ_HOR_LEFT );
         pTxo->SetVerAlign( EXC_OBJ_VER_CENTER );
     }
@@ -1183,7 +1184,6 @@ XclExpNote::XclExpNote(const XclExpRoot& rRoot, const ScAddress& rScPos,
     }
     // append additional text
     aNoteText = ScGlobal::addToken( aNoteText, rAddText, '\n', 2 );
-    maOrigNoteText = aNoteText;
 
     // initialize record dependent on BIFF type
     switch( rRoot.GetBiff() )
@@ -1197,11 +1197,11 @@ XclExpNote::XclExpNote(const XclExpRoot& rRoot, const ScAddress& rScPos,
             // TODO: additional text
             if( pScNote )
             {
-                if( SdrCaptionObj* pCaption = pScNote->GetOrCreateCaption( maScPos ) )
+                if( SdrCaptionObj* pCaption = pScNote->GetOrCreateCaption( maScPos ).get() )
                 {
                     lcl_GetFromTo( rRoot, pCaption->GetLogicRect(), maScPos.Tab(), maCommentFrom, maCommentTo );
                     if( const OutlinerParaObject* pOPO = pCaption->GetOutlinerParaObject() )
-                        mnObjId = rRoot.GetObjectManager().AddObj( new XclObjComment( rRoot.GetObjectManager(), pCaption->GetLogicRect(), pOPO->GetTextObject(), pCaption, mbVisible, maScPos, maCommentFrom, maCommentTo ) );
+                        mnObjId = rRoot.GetObjectManager().AddObj( o3tl::make_unique<XclObjComment>( rRoot.GetObjectManager(), pCaption->GetLogicRect(), pOPO->GetTextObject(), pCaption, mbVisible, maScPos, maCommentFrom, maCommentTo ) );
 
                     SfxItemSet aItemSet = pCaption->GetMergedItemSet();
                     meTVA       = pCaption->GetTextVerticalAdjust();
@@ -1557,16 +1557,14 @@ bool XclExpObjectManager::HasObj() const
     return !mxObjList->empty();
 }
 
-sal_uInt16 XclExpObjectManager::AddObj( XclObj* pObjRec )
+sal_uInt16 XclExpObjectManager::AddObj( std::unique_ptr<XclObj> pObjRec )
 {
-    return mxObjList->Add( pObjRec );
+    return mxObjList->Add( std::move(pObjRec) );
 }
 
-XclObj* XclExpObjectManager::RemoveLastObj()
+std::unique_ptr<XclObj> XclExpObjectManager::RemoveLastObj()
 {
-    XclObj* pLastObj = mxObjList->back();
-    mxObjList->pop_back();
-    return pLastObj;
+    return mxObjList->pop_back();
 }
 
 void XclExpObjectManager::InitStream( bool bTempFile )
@@ -1577,7 +1575,7 @@ void XclExpObjectManager::InitStream( bool bTempFile )
         if( mxTempFile->IsValid() )
         {
             mxTempFile->EnableKillingFile();
-            mxDffStrm.reset( ::utl::UcbStreamHelper::CreateStream( mxTempFile->GetURL(), StreamMode::STD_READWRITE ) );
+            mxDffStrm = ::utl::UcbStreamHelper::CreateStream( mxTempFile->GetURL(), StreamMode::STD_READWRITE );
         }
     }
 

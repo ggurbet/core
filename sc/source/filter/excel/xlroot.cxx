@@ -20,6 +20,7 @@
 #include <memory>
 #include <xlroot.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
@@ -31,6 +32,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <vcl/font.hxx>
 #include <vcl/settings.hxx>
 
@@ -74,6 +76,8 @@ XclDebugObjCounter::~XclDebugObjCounter()
 }
 #endif
 
+const OUStringLiteral XclRootData::gaDefPassword( "VelvetSweatshop" );
+
 XclRootData::XclRootData( XclBiff eBiff, SfxMedium& rMedium,
         tools::SvRef<SotStorage> const & xRootStrg, ScDocument& rDoc, rtl_TextEncoding eTextEnc, bool bExport ) :
     meBiff( eBiff ),
@@ -81,7 +85,6 @@ XclRootData::XclRootData( XclBiff eBiff, SfxMedium& rMedium,
     mrMedium( rMedium ),
     mxRootStrg( xRootStrg ),
     mrDoc( rDoc ),
-    maDefPassword( "VelvetSweatshop" ),
     meTextEnc( eTextEnc ),
     meSysLang( Application::GetSettings().GetLanguageTag().getLanguageType() ),
     meDocLang( Application::GetSettings().GetLanguageTag().getLanguageType() ),
@@ -235,7 +238,7 @@ sal_Int32 XclRoot::GetHmmFromPixelY( double fPixelY ) const
 uno::Sequence< beans::NamedValue > XclRoot::RequestEncryptionData( ::comphelper::IDocPasswordVerifier& rVerifier ) const
 {
     ::std::vector< OUString > aDefaultPasswords;
-    aDefaultPasswords.push_back( mrData.maDefPassword );
+    aDefaultPasswords.push_back( XclRootData::gaDefPassword );
     return ScfApiHelper::QueryEncryptionDataForMedium( mrData.mrMedium, rVerifier, &aDefaultPasswords );
 }
 

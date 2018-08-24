@@ -31,8 +31,7 @@
 #include <tools/bigint.hxx>
 #include <tools/helpers.hxx>
 
-#include "svdconv.hxx"
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 
 #include <sdr/contact/viewcontactofsdrcaptionobj.hxx>
@@ -59,6 +58,7 @@
 #include <svx/xlnwtit.hxx>
 #include <svx/xpoly.hxx>
 #include <svx/xpool.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 enum EscDir {LKS,RTS,OBN,UNT};
@@ -175,17 +175,17 @@ void ImpCaptParams::CalcEscPos(const Point& rTailPt, const tools::Rectangle& rRe
 
 // BaseProperties section
 
-sdr::properties::BaseProperties* SdrCaptionObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> SdrCaptionObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::CaptionProperties(*this);
+    return o3tl::make_unique<sdr::properties::CaptionProperties>(*this);
 }
 
 
 // DrawContact section
 
-sdr::contact::ViewContact* SdrCaptionObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrCaptionObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfSdrCaptionObj(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfSdrCaptionObj>(*this);
 }
 
 
@@ -193,7 +193,9 @@ SdrCaptionObj::SdrCaptionObj(SdrModel& rSdrModel)
 :   SdrRectObj(rSdrModel, OBJ_TEXT),
     aTailPoly(3),  // default size: 3 points = 2 lines
     mbSpecialTextBoxShadow(false),
-    mbFixedTail(false)
+    mbFixedTail(false),
+    mbSuppressGetBitmap(false),
+    maFixedTailPos()
 {
 }
 
@@ -204,7 +206,9 @@ SdrCaptionObj::SdrCaptionObj(
 :   SdrRectObj(rSdrModel, OBJ_TEXT,rRect),
     aTailPoly(3),  // default size: 3 points = 2 lines
     mbSpecialTextBoxShadow(false),
-    mbFixedTail(false)
+    mbFixedTail(false),
+    mbSuppressGetBitmap(false),
+    maFixedTailPos()
 {
     aTailPoly[0]=maFixedTailPos=rTail;
 }
@@ -235,9 +239,9 @@ sal_uInt16 SdrCaptionObj::GetObjIdentifier() const
     return sal_uInt16(OBJ_CAPTION);
 }
 
-SdrCaptionObj* SdrCaptionObj::Clone(SdrModel* pTargetModel) const
+SdrCaptionObj* SdrCaptionObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrCaptionObj >(pTargetModel);
+    return CloneHelper< SdrCaptionObj >(rTargetModel);
 }
 
 SdrCaptionObj& SdrCaptionObj::operator=(const SdrCaptionObj& rObj)
@@ -256,7 +260,7 @@ SdrCaptionObj& SdrCaptionObj::operator=(const SdrCaptionObj& rObj)
 
 OUString SdrCaptionObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulCAPTION));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulCAPTION));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -272,7 +276,7 @@ OUString SdrCaptionObj::TakeObjNameSingul() const
 
 OUString SdrCaptionObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralCAPTION);
+    return SvxResId(STR_ObjNamePluralCAPTION);
 }
 
 basegfx::B2DPolyPolygon SdrCaptionObj::TakeXorPoly() const
@@ -757,32 +761,6 @@ void SdrCaptionObj::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, cons
     rMatrix.decompose(aScale, aTranslate, fRotate, fShearX);
 
     handleNegativeScale(aScale, &fRotate);
-
-    // force metric to pool metric
-    MapUnit eMapUnit(getSdrModelFromSdrObject().GetItemPool().GetMetric(0));
-
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aTranslate.setX(ImplMMToTwips(aTranslate.getX()));
-                aTranslate.setY(ImplMMToTwips(aTranslate.getY()));
-
-                // size
-                aScale.setX(ImplMMToTwips(aScale.getX()));
-                aScale.setY(ImplMMToTwips(aScale.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRSetBaseGeometry: Missing unit translation to PoolMetric!");
-            }
-        }
-    }
 
     // if anchor is used, make position relative to it
     if(getSdrModelFromSdrObject().IsWriter())

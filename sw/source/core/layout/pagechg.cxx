@@ -19,6 +19,7 @@
 
 #include <comphelper/lok.hxx>
 #include <ndole.hxx>
+#include <sal/log.hxx>
 #include <svl/itemiter.hxx>
 #include <fmtfsize.hxx>
 #include <fmthdft.hxx>
@@ -49,6 +50,7 @@
 #include <ftnfrm.hxx>
 #include <tabfrm.hxx>
 #include <txtfrm.hxx>
+#include <notxtfrm.hxx>
 #include <layact.hxx>
 #include <flyfrms.hxx>
 #include <htmltbl.hxx>
@@ -271,25 +273,22 @@ void SwPageFrame::DestroyImpl()
         m_pSortedObjs.reset(); // reset to zero to prevent problems when detaching the Flys
     }
 
-    if ( !IsEmptyPage() ) //#59184# unnecessary for empty pages
+    // prevent access to destroyed pages
+    SwDoc *pDoc = GetFormat() ? GetFormat()->GetDoc() : nullptr;
+    if( pDoc && !pDoc->IsInDtor() )
     {
-        // prevent access to destroyed pages
-        SwDoc *pDoc = GetFormat() ? GetFormat()->GetDoc() : nullptr;
-        if( pDoc && !pDoc->IsInDtor() )
+        if ( pSh )
         {
-            if ( pSh )
-            {
-                SwViewShellImp *pImp = pSh->Imp();
-                pImp->SetFirstVisPageInvalid();
-                if ( pImp->IsAction() )
-                    pImp->GetLayAction().SetAgain();
-                // #i9719# - retouche area of page
-                // including border and shadow area.
-                const bool bRightSidebar = (SidebarPosition() == sw::sidebarwindows::SidebarPosition::RIGHT);
-                SwRect aRetoucheRect;
-                SwPageFrame::GetBorderAndShadowBoundRect( getFrameArea(), pSh, pSh->GetOut(), aRetoucheRect, IsLeftShadowNeeded(), IsRightShadowNeeded(), bRightSidebar );
-                pSh->AddPaintRect( aRetoucheRect );
-            }
+            SwViewShellImp *pImp = pSh->Imp();
+            pImp->SetFirstVisPageInvalid();
+            if ( pImp->IsAction() )
+                pImp->GetLayAction().SetAgain();
+            // #i9719# - retouche area of page
+            // including border and shadow area.
+            const bool bRightSidebar = (SidebarPosition() == sw::sidebarwindows::SidebarPosition::RIGHT);
+            SwRect aRetoucheRect;
+            SwPageFrame::GetBorderAndShadowBoundRect( getFrameArea(), pSh, pSh->GetOut(), aRetoucheRect, IsLeftShadowNeeded(), IsRightShadowNeeded(), bRightSidebar );
+            pSh->AddPaintRect( aRetoucheRect );
         }
     }
 
@@ -769,7 +768,7 @@ SwPageDesc *SwPageFrame::FindPageDesc()
             SwFrame *pFlow = pFrame;
             if ( pFlow->IsInTab() )
                 pFlow = pFlow->FindTabFrame();
-            pRet = const_cast<SwPageDesc*>(pFlow->GetAttrSet()->GetPageDesc().GetPageDesc());
+            pRet = const_cast<SwPageDesc*>(pFlow->GetPageDescItem().GetPageDesc());
         }
         if ( !pRet )
             pRet = &GetFormat()->GetDoc()->GetPageDesc( 0 );
@@ -785,7 +784,7 @@ SwPageDesc *SwPageFrame::FindPageDesc()
     {
         SwFlowFrame *pTmp = SwFlowFrame::CastFlowFrame( pFlow );
         if ( !pTmp->IsFollow() )
-            pRet = const_cast<SwPageDesc*>(pFlow->GetAttrSet()->GetPageDesc().GetPageDesc());
+            pRet = const_cast<SwPageDesc*>(pFlow->GetPageDescItem().GetPageDesc());
     }
 
     //3. and 3.1
@@ -1237,6 +1236,8 @@ namespace
 {
     bool isDeleteForbidden(const SwPageFrame *pDel)
     {
+        if (pDel->IsDeleteForbidden())
+            return true;
         const SwLayoutFrame* pBody = pDel->FindBodyCont();
         const SwFrame* pBodyContent = pBody ? pBody->Lower() : nullptr;
         return pBodyContent && pBodyContent->IsDeleteForbidden();
@@ -1285,7 +1286,8 @@ SwPageFrame *SwFrame::InsertPage( SwPageFrame *pPrevPage, bool bFootnote )
     // For ContentFrame take the one from format if provided,
     // otherwise from the Follow of the PrevPage
     if ( IsFlowFrame() && !SwFlowFrame::CastFlowFrame( this )->IsFollow() )
-    {   SwFormatPageDesc &rDesc = const_cast<SwFormatPageDesc&>(GetAttrSet()->GetPageDesc());
+    {
+        SwFormatPageDesc &rDesc = const_cast<SwFormatPageDesc&>(GetPageDescItem());
         pDesc = rDesc.GetPageDesc();
         if ( rDesc.GetNumOffset() )
         {
@@ -1760,10 +1762,10 @@ void SwRootFrame::ImplCalcBrowseWidth()
             SwBorderAttrAccess aAccess( SwFrame::GetCache(), pFrame );
             const SwBorderAttrs &rAttrs = *aAccess.Get();
             const SwFormatHoriOrient &rHori = rAttrs.GetAttrSet().GetHoriOrient();
-            if ( text::HoriOrientation::FULL != rHori.GetHoriOrient() )
+            long nWidth = rAttrs.GetSize().Width();
+            if ( nWidth < int(USHRT_MAX)-2000 && //-2k, because USHRT_MAX gets missing while trying to resize!  (and cast to int to avoid -Wsign-compare due to broken USHRT_MAX on Android)
+                 text::HoriOrientation::FULL != rHori.GetHoriOrient() )
             {
-                long nWidth = rAttrs.GetSize().Width();
-
                 const SwHTMLTableLayout *pLayoutInfo =
                     static_cast<const SwTabFrame *>(pFrame)->GetTable()
                                             ->GetHTMLTableLayout();
@@ -1973,7 +1975,7 @@ static void lcl_MoveAllLowerObjs( SwFrame* pFrame, const Point& rOffset )
                     SwViewShell *pSh = pRoot ? pRoot->GetCurrShell() : nullptr;
                     if ( pSh )
                     {
-                        SwContentFrame* pContentFrame = static_cast<SwContentFrame*>(pLower);
+                        SwNoTextFrame *const pContentFrame = static_cast<SwNoTextFrame*>(pLower);
                         SwOLENode* pNode = pContentFrame->GetNode()->GetOLENode();
                         if ( pNode )
                         {
@@ -2448,7 +2450,7 @@ bool SwPageFrame::IsOverHeaderFooterArea( const Point& rPt, FrameControlType &rC
     const bool bHideWhitespaceMode = pViewShell->GetViewOptions()->IsHideWhitespaceMode();
     if ( aHeaderArea.IsInside( rPt ) )
     {
-        if (!bHideWhitespaceMode || static_cast<const SwFrameFormat*>(GetRegisteredIn())->GetHeader().IsActive())
+        if (!bHideWhitespaceMode || static_cast<const SwFrameFormat*>(GetDep())->GetHeader().IsActive())
         {
             rControl = Header;
             return true;
@@ -2460,7 +2462,7 @@ bool SwPageFrame::IsOverHeaderFooterArea( const Point& rPt, FrameControlType &rC
                 Size( getFrameArea().Width(), getFrameArea().Bottom() - nLowerLimit ) );
 
         if ( aFooterArea.IsInside( rPt ) &&
-             (!bHideWhitespaceMode || static_cast<const SwFrameFormat*>(GetRegisteredIn())->GetFooter().IsActive()) )
+             (!bHideWhitespaceMode || static_cast<const SwFrameFormat*>(GetDep())->GetFooter().IsActive()) )
         {
             rControl = Footer;
             return true;
@@ -2485,7 +2487,7 @@ bool SwPageFrame::CheckPageHeightValidForHideWhitespace(SwTwips nDiff)
         if (nDiff < 0)
         {
             // Content frame doesn't fit the actual size, check if it fits the nominal one.
-            const SwFrameFormat* pPageFormat = static_cast<const SwFrameFormat*>(GetRegisteredIn());
+            const SwFrameFormat* pPageFormat = static_cast<const SwFrameFormat*>(GetDep());
             const Size& rPageSize = pPageFormat->GetFrameSize().GetSize();
             long nWhitespace = rPageSize.getHeight() - getFrameArea().Height();
             if (nWhitespace > -nDiff)

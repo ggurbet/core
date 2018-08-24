@@ -21,6 +21,7 @@
 
 #include <cppuhelper/weakref.hxx>
 
+#include "doc.hxx"
 #include "swdllapi.h"
 #include "node.hxx"
 #include "hintids.hxx"
@@ -37,7 +38,6 @@
 class SfxHint;
 class SwNumRule;
 class SwNodeNum;
-class SwList;
 class SvxLRSpaceItem;
 
 namespace utl {
@@ -48,7 +48,6 @@ namespace vcl
 class Font;
 }
 
-class SwTextFormatColl;
 class SwContentFrame;
 class SwTextField;
 class SwTextInputField;
@@ -59,8 +58,6 @@ struct SwConversionArgs;
 class SwInterHyphInfo;
 class SwWrongList;
 class SwGrammarMarkUp;
-class OutputDevice;
-class SwScriptInfo;
 struct SwDocStat;
 struct SwParaIdleData_Impl;
 
@@ -74,7 +71,10 @@ namespace com { namespace sun { namespace star {
 typedef std::set< sal_Int32 > SwSoftPageBreakList;
 
 /// SwTextNode is a paragraph in the document model.
-class SW_DLLPUBLIC SwTextNode: public SwContentNode, public ::sfx2::Metadatable
+class SW_DLLPUBLIC SwTextNode
+    : public SwContentNode
+    , public ::sfx2::Metadatable
+    , public sw::BroadcasterMixin
 {
     friend class SwContentNode;
     /// For creating the first TextNode.
@@ -194,15 +194,17 @@ public:
     const SwWrongList* GetWrong() const;
     void SetGrammarCheck( SwGrammarMarkUp* pNew, bool bDelete = true );
     SwGrammarMarkUp* GetGrammarCheck();
+    // return SwWrongList because *function pointer* return values aren't covariant
+    SwWrongList const* GetGrammarCheck() const;
     void SetSmartTags( SwWrongList* pNew, bool bDelete = true );
     SwWrongList* GetSmartTags();
+    SwWrongList const* GetSmartTags() const;
     void TryCharSetExpandToNum(const SfxItemSet& pCharSet);
 
     /// End: Data collected during idle time
 
 protected:
     /// for hanging TextFormatCollections somewhere else (Outline-Numbering!)
-    virtual void Modify( const SfxPoolItem*, const SfxPoolItem* ) override;
     virtual void SwClientNotify( const SwModify&, const SfxHint& ) override;
 
 public:
@@ -662,7 +664,7 @@ public:
                     sal_uInt16 nScript = 0 ) const;
 
     /// in ndcopy.cxx
-    bool IsSymbol( const sal_Int32 nBegin ) const; // In itratr.cxx.
+    bool IsSymbolAt(sal_Int32 nBegin) const; // In itratr.cxx.
     virtual SwContentNode* MakeCopy( SwDoc*, const SwNodeIndex& ) const override;
 
     /// Interactive hyphenation: we find TextFrame and call its CalcHyph.
@@ -703,8 +705,13 @@ public:
         { if (m_pSwpHints) m_pSwpHints->SetCalcHiddenParaField(); }
 
     /// is the paragraph visible?
-    bool HasHiddenParaField() const
-        { return m_pSwpHints && m_pSwpHints->HasHiddenParaField(); }
+    bool IsHiddenByParaField() const
+        { return m_pSwpHints && m_pSwpHints->IsHiddenByParaField(); }
+
+    bool FieldCanHidePara(SwFieldIds eFieldId) const
+        { return GetDoc()->FieldCanHidePara(eFieldId); }
+    bool FieldHidesPara(const SwField& rField) const
+        { return GetDoc()->FieldHidesPara(rField); }
 
     /// Hidden Paragraph Field:
 
@@ -789,8 +796,6 @@ public:
     bool CompareRsid( const SwTextNode &rTextNode, sal_Int32 nStt1, sal_Int32 nStt2 ) const;
     bool CompareParRsid( const SwTextNode &rTextNode ) const;
 
-    DECL_FIXEDMEMPOOL_NEWDEL(SwTextNode)
-
     // Access to DrawingLayer FillAttributes in a preprocessed form for primitive usage
     virtual drawinglayer::attribute::SdrAllFillAttributesHelperPtr getSdrAllFillAttributesHelper() const override;
 
@@ -813,7 +818,7 @@ inline SwpHints& SwTextNode::GetOrCreateSwpHints()
 {
     if ( !m_pSwpHints )
     {
-        m_pSwpHints.reset(new SwpHints);
+        m_pSwpHints.reset(new SwpHints(*this));
     }
     return *m_pSwpHints;
 }

@@ -57,6 +57,9 @@
 #include <editeng/outlobj.hxx>
 #include <editeng/editobj.hxx>
 #include "pptexanimations.hxx"
+#include "pptexsoundcollection.hxx"
+#include "../ppt/pptanimations.hxx"
+#include <filter/msfilter/escherex.hxx>
 #include <osl/endian.h>
 
 #include <algorithm>
@@ -1272,7 +1275,7 @@ void AnimationExporter::exportAnimEvent( SvStream& rStrm, const Reference< XAnim
                         // taking the first child
                         Reference< XEnumerationAccess > xEA( xNode, UNO_QUERY_THROW );
                         Reference< XEnumeration > xE( xEA->createEnumeration(), UNO_QUERY_THROW );
-                        if ( xE.is() && xE->hasMoreElements() )
+                        if ( xE->hasMoreElements() )
                         {
                             Reference< XAnimationNode > xClickNode( xE->nextElement(), UNO_QUERY );
                             aAny = xClickNode->getBegin();
@@ -1398,6 +1401,7 @@ Any AnimationExporter::convertAnimateValue( const Any& rSourceValue, const OUStr
     else if ( rAttributeName == "Rotate"         // "r" or "style.rotation" ?
             || rAttributeName == "Opacity"
             || rAttributeName == "CharHeight"
+            || rAttributeName == "SkewX"
         )
     {
         double fNumber = 0.0;

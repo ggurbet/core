@@ -47,6 +47,7 @@
 #include <cellfrm.hxx>
 #include <flyfrms.hxx>
 #include <txtfrm.hxx>
+#include <notxtfrm.hxx>
 #include <htmltbl.hxx>
 #include <sectfrm.hxx>
 #include <fmtfollowtextflow.hxx>
@@ -57,6 +58,7 @@
 #include <DocumentSettingManager.hxx>
 #include <docary.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 
@@ -163,7 +165,7 @@ void SwTabFrame::RegistFlys()
 }
 
 void SwInvalidateAll( SwFrame *pFrame, long nBottom );
-static bool lcl_RecalcRow( SwRowFrame* pRow, long nBottom );
+static void lcl_RecalcRow( SwRowFrame* pRow, long nBottom );
 static bool lcl_ArrangeLowers( SwLayoutFrame *pLay, long lYStart, bool bInva );
 // #i26945# - add parameter <_bOnlyRowsAndCells> to control
 // that only row and cell frames are formatted.
@@ -1178,7 +1180,11 @@ bool SwTabFrame::Split( const SwTwips nCutPos, bool bTryToSplit, bool bTableRowK
                 SwContentFrame* pFrame = pHeadline->ContainsContent();
                 while( pFrame )
                 {
-                    nIndex = pFrame->GetNode()->GetIndex();
+                    // sw_redlinehide: the implementation of AppendObjs
+                    // takes care of iterating merged SwTextFrame
+                    nIndex = pFrame->IsTextFrame()
+                        ? static_cast<SwTextFrame*>(pFrame)->GetTextNodeFirst()->GetIndex()
+                        : static_cast<SwNoTextFrame*>(pFrame)->GetNode()->GetIndex();
                     AppendObjs( pTable, nIndex, pFrame, pPage, GetFormat()->GetDoc());
                     pFrame = pFrame->GetNextContentFrame();
                     if( !pHeadline->IsAnLower( pFrame ) )
@@ -1295,7 +1301,7 @@ bool SwTabFrame::Split( const SwTwips nCutPos, bool bTryToSplit, bool bTableRowK
     return bRet;
 }
 
-bool SwTabFrame::Join()
+void SwTabFrame::Join()
 {
     OSL_ENSURE( !HasFollowFlowLine(), "Joining follow flow line" );
 
@@ -1331,8 +1337,6 @@ bool SwTabFrame::Join()
 
         Grow( nHeight );
     }
-
-    return true;
 }
 
 void SwInvalidatePositions( SwFrame *pFrame, long nBottom )
@@ -1480,12 +1484,14 @@ bool SwContentFrame::CalcLowers( SwLayoutFrame* pLay, const SwLayoutFrame* pDont
                 if ( !SwObjectFormatter::FormatObjsAtFrame( *pCnt,
                                                           *(pCnt->FindPageFrame()) ) )
                 {
-                    if ( pCnt->GetRegisteredIn() == pLoopControlCond )
+                    SwTextNode const*const pTextNode(
+                        static_cast<SwTextFrame*>(pCnt)->GetTextNodeFirst());
+                    if (pTextNode == pLoopControlCond)
                         ++nLoopControlRuns;
                     else
                     {
                         nLoopControlRuns = 0;
-                        pLoopControlCond = pCnt->GetRegisteredIn();
+                        pLoopControlCond = pTextNode;
                     }
 
                     if ( nLoopControlRuns < nLoopControlMax )
@@ -1555,8 +1561,7 @@ static bool lcl_InnerCalcLayout( SwFrame *pFrame,
     return bRet;
 }
 
-// returns false if pRow is invalid
-static bool lcl_RecalcRow( SwRowFrame* pRow, long nBottom )
+static void lcl_RecalcRow( SwRowFrame* pRow, long nBottom )
 {
     // FME 2007-08-30 #i81146# new loop control
     int nLoopControlRuns_1 = 0;
@@ -1614,7 +1619,7 @@ static bool lcl_RecalcRow( SwRowFrame* pRow, long nBottom )
             if (!bRowStillExists)
             {
                 SAL_WARN("sw.layout", "no row anymore at " << pRow);
-                return false;
+                return;
             }
 
             // NEW TABLES
@@ -1658,8 +1663,7 @@ static bool lcl_RecalcRow( SwRowFrame* pRow, long nBottom )
             }
         }
         break;
-    } while (true);
-    return true;
+    } while( true );
 }
 
 static void lcl_RecalcTable( SwTabFrame& rTab,
@@ -1770,16 +1774,16 @@ SwFrame* sw_FormatNextContentForKeep( SwTabFrame* pTabFrame )
 }
 
 namespace {
-    bool AreAllRowsKeepWithNext( const SwRowFrame* pFirstRowFrame )
+    bool AreAllRowsKeepWithNext( const SwRowFrame* pFirstRowFrame, const bool bCheckParents = true  )
     {
         bool bRet = pFirstRowFrame != nullptr &&
-                    pFirstRowFrame->ShouldRowKeepWithNext();
+                    pFirstRowFrame->ShouldRowKeepWithNext( bCheckParents );
 
         while ( bRet && pFirstRowFrame->GetNext() != nullptr )
         {
             pFirstRowFrame = dynamic_cast<const SwRowFrame*>(pFirstRowFrame->GetNext());
             bRet = pFirstRowFrame != nullptr &&
-                   pFirstRowFrame->ShouldRowKeepWithNext();
+                   pFirstRowFrame->ShouldRowKeepWithNext( bCheckParents );
         }
 
         return bRet;
@@ -1855,9 +1859,10 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
     auto pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
     const SwBorderAttrs *pAttrs = pAccess->Get();
 
+    const bool bLargeTable = GetTable()->GetTabLines().size() > 64;  //arbitrary value, virtually guaranteed to be larger than one page.
+    const bool bEmulateTableKeep = !bLargeTable && AreAllRowsKeepWithNext( GetFirstNonHeadlineRow(), /*bCheckParents=*/false );
     // The beloved keep attribute
-    const bool bEmulateTableKeep = AreAllRowsKeepWithNext( GetFirstNonHeadlineRow() );
-    const bool bKeep = IsKeep( pAttrs->GetAttrSet(), bEmulateTableKeep );
+    const bool bKeep = IsKeep(pAttrs->GetAttrSet().GetKeep(), GetBreakItem(), bEmulateTableKeep);
 
     // All rows should keep together
     const bool bDontSplit = !IsFollow() &&
@@ -2223,9 +2228,12 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                     // 6. There is no section change behind the table (see IsKeep)
                     // 7. The last table row wants to keep with its next.
                     const SwRowFrame* pLastRow = static_cast<const SwRowFrame*>(GetLastLower());
-                    if ( pLastRow && IsKeep( pAttrs->GetAttrSet(), true ) &&
-                         pLastRow->ShouldRowKeepWithNext() )
+                    if (pLastRow
+                        && IsKeep(pAttrs->GetAttrSet().GetKeep(), GetBreakItem(), true)
+                        && pLastRow->ShouldRowKeepWithNext())
+                    {
                         bFormat = true;
+                    }
                 }
 
                 if ( bFormat )
@@ -2342,7 +2350,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
 
             // 1. Try: bTryToSplit = true  => Try to split the row.
             // 2. Try: bTryToSplit = false => Split the table between the rows.
-            if ((pFirstNonHeadlineRow && pFirstNonHeadlineRow->GetNext()) || bTryToSplit )
+            if ( pFirstNonHeadlineRow->GetNext() || bTryToSplit )
             {
                 SwTwips nDeadLine = aRectFnSet.GetPrtBottom(*GetUpper());
                 if( IsInSct() || GetUpper()->IsInTab() ) // TABLE IN TABLE)
@@ -2351,11 +2359,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
 
                 {
                     SetInRecalcLowerRow( true );
-                    SwRowFrame* pRow = static_cast<SwRowFrame*>(Lower());
-                    if (!lcl_RecalcRow(pRow, nDeadLine))
-                    {
-                        pFirstNonHeadlineRow = GetFirstNonHeadlineRow();
-                    }
+                    ::lcl_RecalcRow( static_cast<SwRowFrame*>(Lower()), nDeadLine );
                     SetInRecalcLowerRow( false );
                 }
                 m_bLowersFormatted = true;
@@ -2389,7 +2393,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
 
                 if ( bTableRowKeep )
                 {
-                    const SwRowFrame* pTmpRow = pFirstNonHeadlineRow;
+                    const SwRowFrame* pTmpRow = GetFirstNonHeadlineRow();
                     while ( pTmpRow && pTmpRow->ShouldRowKeepWithNext() )
                     {
                         ++nMinNumOfLines;
@@ -2856,7 +2860,7 @@ void SwTabFrame::Format( vcl::RenderContext* /*pRenderContext*/, const SwBorderA
                     if ( nRightOffset > 0 )
                     {
                         // surrounding fly frames on the right
-                        // -> right indent is maximun of given right offset
+                        // -> right indent is maximum of given right offset
                         //    and wished right offset.
                         nRightSpacing = nRightLine + std::max( nRightOffset, nWishRight );
                     }
@@ -2887,7 +2891,7 @@ void SwTabFrame::Format( vcl::RenderContext* /*pRenderContext*/, const SwBorderA
                     if ( nLeftOffset > 0 )
                     {
                         // surrounding fly frames on the left
-                        // -> right indent is maximun of given left offset
+                        // -> right indent is maximum of given left offset
                         //    and wished left offset.
                         nLeftSpacing = nLeftLine + std::max( nLeftOffset, nWishLeft );
                     }
@@ -2937,7 +2941,7 @@ void SwTabFrame::Format( vcl::RenderContext* /*pRenderContext*/, const SwBorderA
                     {
                         // OD 07.03.2003 #i9040# - surround fly frames only, if
                         // they overlap with the table.
-                        // Thus, take maximun of left spacing and left offset.
+                        // Thus, take maximum of left spacing and left offset.
                         // OD 10.03.2003 #i9040# - consider left line attribute.
                         nLeftSpacing = std::max( nLeftSpacing, ( nLeftOffset + nLeftLine ) );
                     }
@@ -2947,7 +2951,7 @@ void SwTabFrame::Format( vcl::RenderContext* /*pRenderContext*/, const SwBorderA
                     {
                         // OD 07.03.2003 #i9040# - surround fly frames only, if
                         // they overlap with the table.
-                        // Thus, take maximun of right spacing and right offset.
+                        // Thus, take maximum of right spacing and right offset.
                         // OD 10.03.2003 #i9040# - consider right line attribute.
                         nRightSpacing = std::max( nRightSpacing, ( nRightOffset + nRightLine ) );
                     }
@@ -2963,7 +2967,7 @@ void SwTabFrame::Format( vcl::RenderContext* /*pRenderContext*/, const SwBorderA
                     {
                         // OD 10.03.2003 #i9040# - surround fly frames only, if
                         // they overlap with the table.
-                        // Thus, take maximun of right spacing and right offset.
+                        // Thus, take maximum of right spacing and right offset.
                         // OD 10.03.2003 #i9040# - consider left line attribute.
                         nLeftSpacing = std::max( nLeftSpacing, ( pAttrs->CalcLeftLine() + nLeftOffset ) );
                     }
@@ -4602,7 +4606,7 @@ bool SwRowFrame::IsRowSplitAllowed() const
     return rLP.GetValue();
 }
 
-bool SwRowFrame::ShouldRowKeepWithNext() const
+bool SwRowFrame::ShouldRowKeepWithNext( const bool bCheckParents ) const
 {
     // No KeepWithNext if nested in another table
     if ( GetUpper()->GetUpper()->IsCellFrame() )
@@ -4612,7 +4616,7 @@ bool SwRowFrame::ShouldRowKeepWithNext() const
     const SwFrame* pText = pCell->Lower();
 
     return pText && pText->IsTextFrame() &&
-           static_cast<const SwTextFrame*>(pText)->GetTextNode()->GetSwAttrSet().GetKeep().GetValue();
+           static_cast<const SwTextFrame*>(pText)->GetTextNodeForParaProps()->GetSwAttrSet().GetKeep(bCheckParents).GetValue();
 }
 
 SwCellFrame::SwCellFrame(const SwTableBox &rBox, SwFrame* pSib, bool bInsertContent)
@@ -5461,7 +5465,7 @@ static SwTwips lcl_CalcHeightOfFirstContentLine( const SwRowFrame& rSourceLine )
                     // would have no follow and thus would add this space.
                     if ( pTmp->IsTextFrame() &&
                          const_cast<SwTextFrame*>(static_cast<const SwTextFrame*>(pTmp))
-                                            ->GetLineCount( COMPLETE_STRING ) == 1 )
+                            ->GetLineCount(TextFrameIndex(COMPLETE_STRING)) == 1)
                     {
                         nTmpHeight += SwFlowFrame::CastFlowFrame(pTmp)
                                         ->CalcAddLowerSpaceAsLastInTableCell();

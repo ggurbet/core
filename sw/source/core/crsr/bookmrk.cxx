@@ -36,6 +36,7 @@
 #include <libxml/xmlwriter.h>
 #include <comphelper/random.hxx>
 #include <comphelper/anytostring.hxx>
+#include <sal/log.hxx>
 
 using namespace ::sw::mark;
 using namespace ::com::sun::star;
@@ -287,6 +288,7 @@ namespace sw { namespace mark
         : DdeBookmark(aPaM)
         , ::sfx2::Metadatable()
         , m_aCode(rCode)
+        , m_bHidden(false)
     {
         m_aName = rName;
     }

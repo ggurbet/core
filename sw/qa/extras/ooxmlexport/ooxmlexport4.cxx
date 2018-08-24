@@ -41,7 +41,6 @@
 #include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/style/BreakType.hpp>
 #include <unotools/tempfile.hxx>
-#include <comphelper/sequenceashashmap.hxx>
 #include <com/sun/star/text/XDocumentIndex.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
@@ -76,7 +75,7 @@ DECLARE_OOXMLEXPORT_TEST(testRelorientation, "relorientation.docx")
 {
     uno::Reference<drawing::XShape> xShape = getShape(1);
     // This was text::RelOrientation::FRAME, when handling relativeFrom=page, align=right
-    CPPUNIT_ASSERT_EQUAL(text::RelOrientation::PAGE_RIGHT, getProperty<sal_Int16>(xShape, "HoriOrientRelation"));
+    CPPUNIT_ASSERT_EQUAL(text::RelOrientation::PAGE_FRAME, getProperty<sal_Int16>(xShape, "HoriOrientRelation"));
 
     uno::Reference<drawing::XShapes> xGroup(xShape, uno::UNO_QUERY);
     // This resulted in lang::IndexOutOfBoundsException, as nested groupshapes weren't handled.
@@ -183,6 +182,9 @@ DECLARE_OOXMLEXPORT_TEST(testTextBoxPictureFill, "textbox_picturefill.docx")
     CPPUNIT_ASSERT(xGraphic.is());
     Graphic aGraphic(xGraphic);
     CPPUNIT_ASSERT(aGraphic);
+    CPPUNIT_ASSERT(aGraphic.GetSizeBytes() > 0L);
+    CPPUNIT_ASSERT_EQUAL(447L, aGraphic.GetSizePixel().Width());
+    CPPUNIT_ASSERT_EQUAL(528L, aGraphic.GetSizePixel().Height());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFDO73034, "FDO73034.docx")
@@ -297,6 +299,9 @@ DECLARE_OOXMLEXPORT_TEST(testSegFaultWhileSave, "test_segfault_while_save.docx")
     if (!pXmlDoc)
         return;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(6137), getXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblGrid/w:gridCol[2]", "w").toInt32());
+
+    // tdf#106572 - preventative test matching danger conditions, but imported OK anyway
+    CPPUNIT_ASSERT_EQUAL(OUString("First Page"), getProperty<OUString>(getParagraphOrTable(1), "PageDescName"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(fdo69656, "Table_cell_auto_width_fdo69656.docx")
@@ -363,7 +368,15 @@ DECLARE_OOXMLEXPORT_TEST(testFDO74215, "FDO74215.docx")
     if (!pXmlDoc)
         return;
     // tdf#106849 NumPicBullet xShape should not to be resized.
-    assertXPath(pXmlDoc, "/w:numbering/w:numPicBullet[2]/w:pict/v:shape", "style", "width:6.4pt;height:6.4pt");
+
+// Seems this is dependent on the running system, which is - unfortunate
+// see: MSWordExportBase::BulletDefinitions
+// FIXME: the size of a bullet is defined by GraphicSize property
+// (stored in SvxNumberFormat::aGraphicSize) so use that for the size
+// (properly convert from 100mm to pt (1 inch is 72 pt, 1 pt is 20 twips).
+#if !defined(MACOSX)
+    assertXPath(pXmlDoc, "/w:numbering/w:numPicBullet[2]/w:pict/v:shape", "style", "width:11.25pt;height:11.25pt");
+#endif
 }
 
 DECLARE_OOXMLEXPORT_TEST(testColumnBreak_ColumnCountIsZero,"fdo74153.docx")
@@ -650,6 +663,11 @@ DECLARE_OOXMLEXPORT_TEST(testTableCurruption, "tableCurrupt.docx")
         return;
     CPPUNIT_ASSERT(pXmlDoc) ;
     assertXPath(pXmlDoc, "/w:hdr/w:tbl[1]/w:tr[1]/w:tc[1]",1);
+
+    // tdf#116549: header paragraph should not have a bottom border.
+    uno::Reference<text::XText> xHeaderText = getProperty< uno::Reference<text::XText> >(getStyles("PageStyles")->getByName("First Page"), "HeaderText");
+    table::BorderLine2 aHeaderBottomBorder = getProperty<table::BorderLine2>( getParagraphOfText( 1, xHeaderText ), "BottomBorder");
+    CPPUNIT_ASSERT_EQUAL(sal_uInt32(0), aHeaderBottomBorder.LineWidth);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testDateControl, "date-control.docx")
@@ -1052,6 +1070,13 @@ DECLARE_OOXMLEXPORT_TEST(testTdf92521, "tdf92521.odt")
 DECLARE_OOXMLEXPORT_TEST(testTdf102466, "tdf102466.docx")
 {
     // the problem was: file is truncated: the first page is missing.
+    // More precisely, the table in the first page was clipped.
+    {
+        xmlDocPtr pXmlDoc = parseLayoutDump();
+        sal_Int32 nFlyPrtHeight = getXPath(pXmlDoc, "(/root/page[1]//fly)[1]/infos/prtBounds", "height").toInt32();
+        sal_Int32 nTableHeight = getXPath(pXmlDoc, "(/root/page[1]//fly)[1]/tab/infos/bounds", "height").toInt32();
+        CPPUNIT_ASSERT_MESSAGE("The table is clipped in a fly frame.", nFlyPrtHeight >= nTableHeight);
+    }
 
     // check how much pages we have
     CPPUNIT_ASSERT_EQUAL(10, getPages());
@@ -1141,7 +1166,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf90697_continuousBreaksComplex2,"tdf92724_continu
         CPPUNIT_ASSERT( xHeaderText->getString() != "Third section - First page header. No follow defined" );
 // Same test stated differently: Pages 4 and 5 OUGHT to use "Second section header", but currently don't.  Page 6 does.
         if( nPages <= 3 )
-            CPPUNIT_ASSERT_EQUAL( xHeaderText->getString(), OUString("First section header") );
+            CPPUNIT_ASSERT_EQUAL( OUString("First section header"), xHeaderText->getString() );
         else
             CPPUNIT_ASSERT( xHeaderText->getString() == "First section header" || xHeaderText->getString() == "Second section header" );
 

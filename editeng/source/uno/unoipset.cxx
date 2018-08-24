@@ -27,6 +27,7 @@
 #include <svl/itempool.hxx>
 #include <o3tl/any.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 #include <algorithm>
 
 using namespace ::com::sun::star;
@@ -54,7 +55,7 @@ SvxItemPropertySet::~SvxItemPropertySet()
 
 uno::Any* SvxItemPropertySet::GetUsrAnyForID(sal_uInt16 nWID) const
 {
-    for (SvxIDPropertyCombine* pActual : aCombineList)
+    for (auto const & pActual : aCombineList)
     {
         if( pActual->nWID == nWID )
             return &pActual->aAny;
@@ -65,17 +66,15 @@ uno::Any* SvxItemPropertySet::GetUsrAnyForID(sal_uInt16 nWID) const
 
 void SvxItemPropertySet::AddUsrAnyForID(const uno::Any& rAny, sal_uInt16 nWID)
 {
-    SvxIDPropertyCombine* pNew = new SvxIDPropertyCombine;
+    std::unique_ptr<SvxIDPropertyCombine> pNew(new SvxIDPropertyCombine);
     pNew->nWID = nWID;
     pNew->aAny = rAny;
-    aCombineList.push_back( pNew );
+    aCombineList.push_back( std::move(pNew) );
 }
 
 
 void SvxItemPropertySet::ClearAllUsrAny()
 {
-    for (SvxIDPropertyCombine* i : aCombineList)
-        delete i;
     aCombineList.clear();
 }
 
@@ -102,7 +101,7 @@ uno::Any SvxItemPropertySet::getPropertyValue( const SfxItemPropertySimpleEntry*
     if( nullptr == pItem && pPool )
         pItem = &(pPool->GetDefaultItem( pMap->nWID ));
 
-    const MapUnit eMapUnit = pPool ? pPool->GetMetric(static_cast<sal_uInt16>(pMap->nWID)) : MapUnit::Map100thMM;
+    const MapUnit eMapUnit = pPool ? pPool->GetMetric(pMap->nWID) : MapUnit::Map100thMM;
     sal_uInt8 nMemberId = pMap->nMemberId;
     if( eMapUnit == MapUnit::Map100thMM )
         nMemberId &= (~CONVERT_TWIPS);
@@ -163,7 +162,7 @@ void SvxItemPropertySet::setPropertyValue( const SfxItemPropertySimpleEntry* pMa
     {
         uno::Any aValue( rVal );
 
-        const MapUnit eMapUnit = pPool ? pPool->GetMetric(static_cast<sal_uInt16>(pMap->nWID)) : MapUnit::Map100thMM;
+        const MapUnit eMapUnit = pPool ? pPool->GetMetric(pMap->nWID) : MapUnit::Map100thMM;
 
         // check for needed metric translation
         if( (pMap->nMoreFlags & PropertyMoreFlags::METRIC_ITEM) && eMapUnit != MapUnit::Map100thMM )
@@ -197,7 +196,7 @@ uno::Any SvxItemPropertySet::getPropertyValue( const SfxItemPropertySimpleEntry*
         return *pUsrAny;
 
     // No UsrAny detected yet, generate Default entry and return this
-    const MapUnit eMapUnit = mrItemPool.GetMetric(static_cast<sal_uInt16>(pMap->nWID));
+    const MapUnit eMapUnit = mrItemPool.GetMetric(pMap->nWID);
     sal_uInt8 nMemberId = pMap->nMemberId;
     if( eMapUnit == MapUnit::Map100thMM )
         nMemberId &= (~CONVERT_TWIPS);

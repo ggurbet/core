@@ -40,19 +40,11 @@
 
 class SwRangeRedline;
 class SwExtraRedline;
-class SwUnoCursor;
 class SwOLENode;
 class SwTable;
 class SwTableLine;
 class SwTableBox;
 struct SwPosition;
-class SwContentNode;
-class SwTextNode;
-
-namespace com { namespace sun { namespace star { namespace i18n {
-    struct ForbiddenCharacters;    ///< comes from the I18N UNO interface
-}}}}
-
 
 /** provides some methods for generic operations on lists that contain SwFormat* subclasses. */
 class SwFormatsBase
@@ -61,6 +53,12 @@ public:
     virtual size_t GetFormatCount() const = 0;
     virtual SwFormat* GetFormat(size_t idx) const = 0;
     virtual ~SwFormatsBase() {};
+
+    SwFormatsBase() = default;
+    SwFormatsBase(SwFormatsBase const &) = default;
+    SwFormatsBase(SwFormatsBase &&) = default;
+    SwFormatsBase & operator =(SwFormatsBase const &) = default;
+    SwFormatsBase & operator =(SwFormatsBase &&) = default;
 };
 
 template<typename Value>
@@ -117,6 +115,14 @@ public:
             for(const_iterator it = begin(); it != end(); ++it)
                 delete *it;
     }
+
+    //TODO: These functions are apparently brittle (but the copy functions are actually used by the
+    // code; the move functions will be implicitly-defined as deleted anyway) and should probably
+    // only be used with DestructorPolicy::KeepELements:
+    SwVectorModifyBase(SwVectorModifyBase const &) = default;
+    SwVectorModifyBase(SwVectorModifyBase &&) = default;
+    SwVectorModifyBase & operator =(SwVectorModifyBase const &) = default;
+    SwVectorModifyBase & operator =(SwVectorModifyBase &&) = default;
 
     void DeleteAndDestroy(int aStartIdx, int aEndIdx)
     {

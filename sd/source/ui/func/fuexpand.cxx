@@ -27,6 +27,7 @@
 #include <editeng/outlobj.hxx>
 #include <svx/svdetc.hxx>
 #include <xmloff/autolayout.hxx>
+#include <sal/log.hxx>
 
 #include <app.hrc>
 #include <strings.hrc>
@@ -185,24 +186,23 @@ void FuExpandPage::DoExecute( SfxRequest& )
                     if (!pTextObj)
                         continue;
 
-                    OutlinerParaObject* pOutlinerParaObject = pOutl->CreateParaObject( nParaPos, 1);
+                    std::unique_ptr<OutlinerParaObject> pOutlinerParaObject = pOutl->CreateParaObject( nParaPos, 1);
                     pOutlinerParaObject->SetOutlinerMode(OutlinerMode::TitleObject);
 
                     if( pOutlinerParaObject->GetDepth(0) != -1 )
                     {
-                        SdrOutliner* pTempOutl = SdrMakeOutliner(OutlinerMode::TitleObject, *mpDoc);
+                        std::unique_ptr<SdrOutliner> pTempOutl = SdrMakeOutliner(OutlinerMode::TitleObject, *mpDoc);
 
                         pTempOutl->SetText( *pOutlinerParaObject );
 
-                        delete pOutlinerParaObject;
+                        pOutlinerParaObject.reset();
 
                         pTempOutl->SetDepth( pTempOutl->GetParagraph( 0 ), -1 );
 
                         pOutlinerParaObject = pTempOutl->CreateParaObject();
-                        delete pTempOutl;
                     }
 
-                    pTextObj->SetOutlinerParaObject(pOutlinerParaObject);
+                    pTextObj->SetOutlinerParaObject(std::move(pOutlinerParaObject));
 
                     pTextObj->SetEmptyPresObj(false);
 
@@ -216,9 +216,9 @@ void FuExpandPage::DoExecute( SfxRequest& )
                     if (pOutlineObj)
                     {
                         // create structuring text objects
-                        OutlinerParaObject* pOPO = pOutl->CreateParaObject(++nParaPos, nChildCount);
+                        std::unique_ptr<OutlinerParaObject> pOPO = pOutl->CreateParaObject(++nParaPos, nChildCount);
 
-                        SdrOutliner* pTempOutl = SdrMakeOutliner(OutlinerMode::OutlineObject, *mpDoc);
+                        std::unique_ptr<SdrOutliner> pTempOutl = SdrMakeOutliner(OutlinerMode::OutlineObject, *mpDoc);
                         pTempOutl->SetText( *pOPO );
 
                         sal_Int32 nParaCount2 = pTempOutl->GetParagraphCount();
@@ -230,11 +230,10 @@ void FuExpandPage::DoExecute( SfxRequest& )
                                 pTempOutl->GetDepth( nPara ) - 1);
                         }
 
-                        delete pOPO;
                         pOPO = pTempOutl->CreateParaObject();
-                        delete pTempOutl;
+                        pTempOutl.reset();
 
-                        pOutlineObj->SetOutlinerParaObject( pOPO );
+                        pOutlineObj->SetOutlinerParaObject( std::move(pOPO) );
                         pOutlineObj->SetEmptyPresObj(false);
 
                         // remove hard attributes (Flag to sal_True)

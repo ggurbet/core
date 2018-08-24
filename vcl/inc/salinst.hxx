@@ -33,6 +33,7 @@
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/ui/dialogs/XFilePicker2.hpp>
 #include <com/sun/star/ui/dialogs/XFolderPicker2.hpp>
+#include <memory>
 
 namespace com {
 namespace sun {
@@ -104,7 +105,7 @@ public:
     // pData allows for using a system dependent graphics or device context,
     // if a system context is passed in nDX and nDY are updated to reflect
     // its size; otherwise these remain unchanged.
-    virtual SalVirtualDevice*
+    virtual std::unique_ptr<SalVirtualDevice>
                             CreateVirtualDevice( SalGraphics* pGraphics,
                                                  long &rDX, long &rDY,
                                                  DeviceFormat eFormat, const SystemGraphicsData *pData = nullptr ) = 0;
@@ -116,8 +117,7 @@ public:
     virtual SalInfoPrinter* CreateInfoPrinter( SalPrinterQueueInfo* pQueueInfo,
                                                ImplJobSetup* pSetupData ) = 0;
     virtual void            DestroyInfoPrinter( SalInfoPrinter* pPrinter ) = 0;
-    virtual SalPrinter*     CreatePrinter( SalInfoPrinter* pInfoPrinter ) = 0;
-    virtual void            DestroyPrinter( SalPrinter* pPrinter ) = 0;
+    virtual std::unique_ptr<SalPrinter> CreatePrinter( SalInfoPrinter* pInfoPrinter ) = 0;
 
     virtual void            GetPrinterQueueInfo( ImplPrnQueueList* pList ) = 0;
     virtual void            GetPrinterQueueState( SalPrinterQueueInfo* pInfo ) = 0;
@@ -126,13 +126,13 @@ public:
 
     // SalTimer
     virtual SalTimer*       CreateSalTimer() = 0;
-    // SalI18NImeStatus
-    virtual SalI18NImeStatus*
+    // interface to ime status window, only used by the X11 backend
+    virtual std::unique_ptr<SalI18NImeStatus>
                             CreateI18NImeStatus();
     // SalSystem
     virtual SalSystem*      CreateSalSystem() = 0;
     // SalBitmap
-    virtual SalBitmap*      CreateSalBitmap() = 0;
+    virtual std::shared_ptr<SalBitmap> CreateSalBitmap() = 0;
 
     // YieldMutex
     virtual comphelper::SolarMutex*
@@ -152,17 +152,16 @@ public:
     virtual bool           AnyInput( VclInputFlags nType ) = 0;
 
     // menus
-    virtual SalMenu*        CreateMenu( bool bMenuBar, Menu* pMenu );
-    virtual void            DestroyMenu( SalMenu* pMenu);
-    virtual SalMenuItem*    CreateMenuItem( const SalItemParams* pItemData );
-    virtual void            DestroyMenuItem( SalMenuItem* pItem );
+    virtual std::unique_ptr<SalMenu>     CreateMenu( bool bMenuBar, Menu* pMenu );
+    virtual std::unique_ptr<SalMenuItem> CreateMenuItem( const SalItemParams& pItemData );
 
-    // may return NULL to disable session management
-    virtual SalSession*     CreateSalSession() = 0;
+    // may return NULL to disable session management, only used by X11 backend
+    virtual std::unique_ptr<SalSession> CreateSalSession();
 
     virtual OpenGLContext*  CreateOpenGLContext() = 0;
 
     virtual weld::Builder* CreateBuilder(weld::Widget* pParent, const OUString& rUIRoot, const OUString& rUIFile);
+            weld::Builder* CreateInterimBuilder(vcl::Window* pParent, const OUString& rUIRoot, const OUString& rUIFile);
     virtual weld::MessageDialog* CreateMessageDialog(weld::Widget* pParent, VclMessageType eMessageType,
                                                      VclButtonsType eButtonType, const OUString& rPrimaryMessage);
     virtual weld::Window* GetFrameWeld(const css::uno::Reference<css::awt::XWindow>& rWindow);

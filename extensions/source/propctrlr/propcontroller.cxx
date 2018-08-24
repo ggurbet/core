@@ -53,6 +53,7 @@
 #include <algorithm>
 #include <functional>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 
 
 // !!! outside the namespace !!!
@@ -360,16 +361,14 @@ namespace pcr
         if (!pParentWin)
             throw RuntimeException("The frame is invalid. Unable to extract the container window.",*this);
 
-        if ( Construct( pParentWin ) )
+        Construct( pParentWin );
+        try
         {
-            try
-            {
-                m_xFrame->setComponent( VCLUnoHelper::GetInterface( m_pView ), this );
-            }
-            catch( const Exception& )
-            {
-                OSL_FAIL( "OPropertyBrowserController::attachFrame: caught an exception!" );
-            }
+            m_xFrame->setComponent( VCLUnoHelper::GetInterface( m_pView ), this );
+        }
+        catch( const Exception& )
+        {
+            OSL_FAIL( "OPropertyBrowserController::attachFrame: caught an exception!" );
         }
 
         startContainerWindowListening();
@@ -668,7 +667,7 @@ namespace pcr
     }
 
 
-    bool OPropertyBrowserController::Construct(vcl::Window* _pParentWin)
+    void OPropertyBrowserController::Construct(vcl::Window* _pParentWin)
     {
         DBG_ASSERT(!haveView(), "OPropertyBrowserController::Construct: already have a view!");
         DBG_ASSERT(_pParentWin, "OPropertyBrowserController::Construct: invalid parent window!");
@@ -689,8 +688,6 @@ namespace pcr
         impl_initializeView_nothrow();
 
         m_pView->Show();
-
-        return true;
     }
 
 

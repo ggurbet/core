@@ -40,7 +40,11 @@ $(eval $(call gb_Library_use_custom_headers,sc,\
     officecfg/registry \
 ))
 
-$(eval $(call gb_Library_use_sdk_api,sc))
+$(eval $(call gb_Library_use_api,sc,\
+	udkapi \
+	offapi \
+	oovbaapi \
+))
 
 $(eval $(call gb_Library_use_externals,sc,\
     boost_headers \
@@ -342,6 +346,7 @@ $(eval $(call gb_Library_add_exception_objects,sc,\
     sc/source/filter/xml/xmlstyli \
     sc/source/filter/xml/xmlsubti \
     sc/source/filter/xml/xmltabi \
+    sc/source/filter/xml/xmltransformationi \
     sc/source/filter/xml/xmlwrap \
     sc/source/filter/chart/chart_imp \
     sc/source/filter/importfilterdata \
@@ -395,6 +400,7 @@ $(eval $(call gb_Library_add_exception_objects,sc,\
     sc/source/ui/dataprovider/dataprovider \
     sc/source/ui/dataprovider/datatransformation \
     sc/source/ui/dataprovider/htmldataprovider \
+    sc/source/ui/dataprovider/xmldataprovider \
     sc/source/ui/dbgui/asciiopt \
     sc/source/ui/dbgui/consdlg \
     sc/source/ui/dbgui/csvcontrol \

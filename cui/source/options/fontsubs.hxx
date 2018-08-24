@@ -75,7 +75,7 @@ class SvxFontSubstTabPage : public SfxTabPage
 
     OUString                    m_sAutomatic;
 
-    SvtFontSubstConfig*         pConfig;
+    std::unique_ptr<SvtFontSubstConfig> pConfig;
 
     Color           aTextColor;
 
@@ -97,7 +97,7 @@ class SvxFontSubstTabPage : public SfxTabPage
 
 public:
     SvxFontSubstTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
-    static VclPtr<SfxTabPage> Create( vcl::Window* pParent, const SfxItemSet* rAttrSet);
+    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
 };

@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <unotools/pathoptions.hxx>
 #include <svl/lngmisc.hxx>
 #include <ucbhelper/content.hxx>
@@ -38,6 +39,8 @@
 #include <comphelper/processfactory.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/syslocale.hxx>
+#include <svtools/strings.hrc>
+#include <unotools/resmgr.hxx>
 
 #include <rtl/instance.hxx>
 
@@ -741,7 +744,10 @@ uno::Reference< XDictionary > GetIgnoreAllList()
     uno::Reference< XDictionary > xRes;
     uno::Reference< XSearchableDictionaryList > xDL( GetDictionaryList() );
     if (xDL.is())
-        xRes = xDL->getDictionaryByName( "IgnoreAllList" );
+    {
+        std::locale loc(Translate::Create("svt"));
+        xRes = xDL->getDictionaryByName( Translate::get(STR_DESCRIPTION_IGNOREALLLIST, loc) );
+    }
     return xRes;
 }
 

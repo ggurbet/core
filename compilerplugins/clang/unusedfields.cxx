@@ -67,8 +67,10 @@ bool operator < (const MyFieldInfo &lhs, const MyFieldInfo &rhs)
 // try to limit the voluminous output a little
 static std::set<MyFieldInfo> touchedFromInsideSet;
 static std::set<MyFieldInfo> touchedFromOutsideSet;
+static std::set<MyFieldInfo> touchedFromOutsideConstructorSet;
 static std::set<MyFieldInfo> readFromSet;
 static std::set<MyFieldInfo> writeToSet;
+static std::set<MyFieldInfo> writeToOutsideConstructorSet;
 static std::set<MyFieldInfo> definitionSet;
 
 /**
@@ -134,11 +136,11 @@ public:
 };
 
 class UnusedFields:
-    public RecursiveASTVisitor<UnusedFields>, public loplugin::Plugin
+    public loplugin::FilteringPlugin<UnusedFields>
 {
 public:
     explicit UnusedFields(loplugin::InstantiationData const & data):
-        Plugin(data) {}
+        FilteringPlugin(data) {}
 
     virtual void run() override;
 
@@ -158,6 +160,7 @@ public:
 private:
     MyFieldInfo niceName(const FieldDecl*);
     void checkTouchedFromOutside(const FieldDecl* fieldDecl, const Expr* memberExpr);
+    void checkWriteFromOutsideConstructor(const FieldDecl* fieldDecl, const Expr* memberExpr);
     void checkWriteOnly(const FieldDecl* fieldDecl, const Expr* memberExpr);
     void checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberExpr);
     bool isSomeKindOfZero(const Expr* arg);
@@ -186,10 +189,14 @@ void UnusedFields::run()
             output += "inside:\t" + s.parentClass + "\t" + s.fieldName + "\n";
         for (const MyFieldInfo & s : touchedFromOutsideSet)
             output += "outside:\t" + s.parentClass + "\t" + s.fieldName + "\n";
+        for (const MyFieldInfo & s : touchedFromOutsideConstructorSet)
+            output += "outside-constructor:\t" + s.parentClass + "\t" + s.fieldName + "\n";
         for (const MyFieldInfo & s : readFromSet)
             output += "read:\t" + s.parentClass + "\t" + s.fieldName + "\n";
         for (const MyFieldInfo & s : writeToSet)
             output += "write:\t" + s.parentClass + "\t" + s.fieldName + "\n";
+        for (const MyFieldInfo & s : writeToOutsideConstructorSet)
+            output += "write-outside-constructor:\t" + s.parentClass + "\t" + s.fieldName + "\n";
         for (const MyFieldInfo & s : definitionSet)
             output += "definition:\t" + s.access + "\t" + s.parentClass + "\t" + s.fieldName + "\t" + s.fieldType + "\t" + s.sourceLocation + "\n";
         std::ofstream myfile;
@@ -203,13 +210,13 @@ void UnusedFields::run()
             report(
                 DiagnosticsEngine::Warning,
                 "read %0",
-                s.parentRecord->getLocStart())
+                compat::getBeginLoc(s.parentRecord))
                 << s.fieldName;
         for (const MyFieldInfo & s : writeToSet)
             report(
                 DiagnosticsEngine::Warning,
                 "write %0",
-                s.parentRecord->getLocStart())
+                compat::getBeginLoc(s.parentRecord))
                 << s.fieldName;
     }
 }
@@ -326,8 +333,8 @@ bool UnusedFields::isSomeKindOfZero(const Expr* arg)
     // Get the expression contents.
     // This helps us find params which are always initialised with something like "OUString()".
     SourceManager& SM = compiler.getSourceManager();
-    SourceLocation startLoc = arg->getLocStart();
-    SourceLocation endLoc = arg->getLocEnd();
+    SourceLocation startLoc = compat::getBeginLoc(arg);
+    SourceLocation endLoc = compat::getEndLoc(arg);
     const char *p1 = SM.getCharacterData( startLoc );
     const char *p2 = SM.getCharacterData( endLoc );
     if (!p1 || !p2 || (p2 - p1) < 0 || (p2 - p1) > 40) {
@@ -521,13 +528,16 @@ void UnusedFields::checkWriteOnly(const FieldDecl* fieldDecl, const Expr* member
             }
             else if (op == UO_AddrOf || op == UO_Deref
                 || op == UO_Plus || op == UO_Minus
-                || op == UO_Not || op == UO_LNot
-                || op == UO_PreInc || op == UO_PostInc
-                || op == UO_PreDec || op == UO_PostDec)
+                || op == UO_Not || op == UO_LNot)
             {
                 bPotentiallyReadFrom = true;
                 break;
             }
+            /* The following are technically reads, but from a code-sense they're more of a write/modify, so
+                ignore them to find interesting fields that only modified, not usefully read:
+                UO_PreInc / UO_PostInc / UO_PreDec / UO_PostDec
+                But we still walk up in case the result of the expression is used in a read sense.
+            */
             walkupUp();
         }
         else if (auto caseStmt = dyn_cast<CaseStmt>(parent))
@@ -635,12 +645,12 @@ void UnusedFields::checkWriteOnly(const FieldDecl* fieldDecl, const Expr* member
         report(
              DiagnosticsEngine::Warning,
              "oh dear, what can the matter be?",
-              memberExpr->getLocStart())
+              compat::getBeginLoc(memberExpr))
               << memberExpr->getSourceRange();
         report(
              DiagnosticsEngine::Note,
              "parent over here",
-              parent->getLocStart())
+              compat::getBeginLoc(parent))
               << parent->getSourceRange();
         parent->dump();
         memberExpr->dump();
@@ -648,7 +658,14 @@ void UnusedFields::checkWriteOnly(const FieldDecl* fieldDecl, const Expr* member
 
     MyFieldInfo fieldInfo = niceName(fieldDecl);
     if (bPotentiallyReadFrom)
+    {
         readFromSet.insert(fieldInfo);
+        if (fieldInfo.fieldName == "nNextElementNumber")
+        {
+            parent->dump();
+            memberExpr->dump();
+        }
+    }
 }
 
 void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberExpr)
@@ -658,7 +675,11 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
         RecordDecl const * cxxRecordDecl1 = fieldDecl->getParent();
         // we don't care about writes to a field when inside the copy/move constructor/operator= for that field
         if (cxxRecordDecl1 && (cxxRecordDecl1 == insideMoveOrCopyOrCloneDeclParent))
+        {
+            // ... but they matter to tbe can-be-const analysis
+            checkWriteFromOutsideConstructor(fieldDecl, memberExpr);
             return;
+        }
     }
 
     // if we're inside a block that looks like
@@ -850,7 +871,7 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
         report(
              DiagnosticsEngine::Warning,
              "oh dear, what can the matter be? writtenTo=%0",
-              memberExpr->getLocStart())
+              compat::getBeginLoc(memberExpr))
               << bPotentiallyWrittenTo
               << memberExpr->getSourceRange();
         if (parent)
@@ -858,7 +879,7 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
             report(
                  DiagnosticsEngine::Note,
                  "parent over here",
-                  parent->getLocStart())
+                  compat::getBeginLoc(parent))
                   << parent->getSourceRange();
             parent->dump();
         }
@@ -868,7 +889,10 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
 
     MyFieldInfo fieldInfo = niceName(fieldDecl);
     if (bPotentiallyWrittenTo)
+    {
         writeToSet.insert(fieldInfo);
+        checkWriteFromOutsideConstructor(fieldDecl, memberExpr);
+    }
 }
 
 bool UnusedFields::IsPassedByNonConst(const FieldDecl* fieldDecl, const Stmt * child, CallerWrapper callExpr,
@@ -989,10 +1013,33 @@ void UnusedFields::checkTouchedFromOutside(const FieldDecl* fieldDecl, const Exp
     } else {
         if (memberExprParentFunction->getParent() == fieldDecl->getParent()) {
             touchedFromInsideSet.insert(fieldInfo);
+            if (!constructorDecl)
+                touchedFromOutsideConstructorSet.insert(fieldInfo);
         } else {
             touchedFromOutsideSet.insert(fieldInfo);
         }
     }
+}
+
+// For the const-field analysis.
+// Called when we have a write to a field, and we want to record that write only if it's writing from
+// outside the constructor.
+void UnusedFields::checkWriteFromOutsideConstructor(const FieldDecl* fieldDecl, const Expr* memberExpr) {
+    const FunctionDecl* memberExprParentFunction = getParentFunctionDecl(memberExpr);
+    bool doWrite = false;
+
+    if (!memberExprParentFunction)
+        // If we are not inside a function
+        doWrite = true;
+    else if (memberExprParentFunction->getParent() != fieldDecl->getParent())
+        // or we are inside a method from another class (than the one the field belongs to)
+        doWrite = true;
+    else if (!isa<CXXConstructorDecl>(memberExprParentFunction))
+        // or we are not inside constructor
+        doWrite = true;
+
+    if (doWrite)
+        writeToOutsideConstructorSet.insert(niceName(fieldDecl));
 }
 
 llvm::Optional<CalleeWrapper> UnusedFields::getCallee(CallExpr const * callExpr)

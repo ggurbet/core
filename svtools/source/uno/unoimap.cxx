@@ -78,7 +78,7 @@ public:
 
     UNO3_GETIMPLEMENTATION_DECL( SvUnoImageMapObject )
 
-    IMapObject* createIMapObject() const;
+    std::unique_ptr<IMapObject> createIMapObject() const;
 
     rtl::Reference<SvMacroTableEventDescriptor> mxEvents;
 
@@ -246,7 +246,7 @@ SvUnoImageMapObject::SvUnoImageMapObject( const IMapObject& rMapObject, const Sv
     mxEvents = new SvMacroTableEventDescriptor( rMapObject.GetMacroTable(), pSupportedMacroItems );
 }
 
-IMapObject* SvUnoImageMapObject::createIMapObject() const
+std::unique_ptr<IMapObject> SvUnoImageMapObject::createIMapObject() const
 {
     const OUString aURL( maURL );
     const OUString aAltText( maAltText );
@@ -254,21 +254,21 @@ IMapObject* SvUnoImageMapObject::createIMapObject() const
     const OUString aTarget( maTarget );
     const OUString aName( maName );
 
-    IMapObject* pNewIMapObject;
+    std::unique_ptr<IMapObject> pNewIMapObject;
 
     switch( mnType )
     {
     case IMAP_OBJ_RECTANGLE:
         {
             const tools::Rectangle aRect( maBoundary.X, maBoundary.Y, maBoundary.X + maBoundary.Width - 1, maBoundary.Y + maBoundary.Height - 1 );
-            pNewIMapObject = new IMapRectangleObject( aRect, aURL, aAltText, aDesc, aTarget, aName, mbIsActive, false );
+            pNewIMapObject.reset(new IMapRectangleObject( aRect, aURL, aAltText, aDesc, aTarget, aName, mbIsActive, false ));
         }
         break;
 
     case IMAP_OBJ_CIRCLE:
         {
             const Point aCenter( maCenter.X, maCenter.Y );
-            pNewIMapObject = new IMapCircleObject( aCenter, mnRadius, aURL, aAltText, aDesc, aTarget, aName, mbIsActive, false );
+            pNewIMapObject.reset(new IMapCircleObject( aCenter, mnRadius, aURL, aAltText, aDesc, aTarget, aName, mbIsActive, false ));
         }
         break;
 
@@ -285,7 +285,7 @@ IMapObject* SvUnoImageMapObject::createIMapObject() const
             }
 
             aPoly.Optimize( PolyOptimizeFlags::CLOSE );
-            pNewIMapObject = new IMapPolygonObject( aPoly, aURL, aAltText, aDesc, aTarget, aName, mbIsActive, false );
+            pNewIMapObject.reset(new IMapPolygonObject( aPoly, aURL, aAltText, aDesc, aTarget, aName, mbIsActive, false ));
         }
         break;
     }
@@ -508,7 +508,7 @@ public:
     explicit SvUnoImageMap();
     SvUnoImageMap( const ImageMap& rMap, const SvEventDescription* pSupportedMacroItems );
 
-    bool fillImageMap( ImageMap& rMap ) const;
+    void fillImageMap( ImageMap& rMap ) const;
     /// @throws IllegalArgumentException
     static SvUnoImageMapObject* getObject( const Any& aElement );
 
@@ -667,7 +667,7 @@ Sequence< OUString > SAL_CALL SvUnoImageMap::getSupportedServiceNames(  )
     return Sequence< OUString >( &aSN, 1 );
 }
 
-bool SvUnoImageMap::fillImageMap( ImageMap& rMap ) const
+void SvUnoImageMap::fillImageMap( ImageMap& rMap ) const
 {
     rMap.ClearImageMap();
 
@@ -675,12 +675,9 @@ bool SvUnoImageMap::fillImageMap( ImageMap& rMap ) const
 
     for (auto const& elem : maObjectList)
     {
-        IMapObject* pNewMapObject = elem->createIMapObject();
-        rMap.InsertIMapObject( *pNewMapObject );
-        delete pNewMapObject;
+        std::unique_ptr<IMapObject> pNewMapObject = elem->createIMapObject();
+        rMap.InsertIMapObject( std::move(pNewMapObject) );
     }
-
-    return true;
 }
 
 
@@ -718,7 +715,8 @@ bool SvUnoImageMap_fillImageMap( const Reference< XInterface >& xImageMap, Image
     if( nullptr == pUnoImageMap )
         return false;
 
-    return pUnoImageMap->fillImageMap( rMap );
+    pUnoImageMap->fillImageMap( rMap );
+    return true;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

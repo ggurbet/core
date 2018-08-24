@@ -239,7 +239,6 @@
 #define STR_LONG_ERR_NO_CONV                    NC_("STR_LONG_ERR_NO_CONV", "Error: Calculation does not converge")
 /* END error constants and error strings. */
 
-#define STR_GRIDCOLOR                           NC_("STR_GRIDCOLOR", "Grid color")
 #define STR_CELL_FILTER                         NC_("STR_CELL_FILTER", "Filter")
 #define STR_TARGETNOTFOUND                      NC_("STR_TARGETNOTFOUND", "The target database range does not exist.")
 #define STR_INVALID_EPS                         NC_("STR_INVALID_EPS", "Invalid increment")
@@ -387,6 +386,7 @@
 #define STR_RECALC_MANUAL                       NC_("STR_RECALC_MANUAL", "Manual")
 #define STR_RECALC_AUTO                         NC_("STR_RECALC_AUTO", "Automatic")
 #define STR_ERR_LONG_NESTED_ARRAY               NC_("STR_ERR_LONG_NESTED_ARRAY", "Nested arrays are not supported.")
+#define STR_ERR_LONG_BAD_ARRAY_CONTENT          NC_("STR_ERR_LONG_BAD_ARRAY_CONTENT", "Unsupported inline array content.")
 #define STR_UNDO_TEXTTOCOLUMNS                  NC_("STR_UNDO_TEXTTOCOLUMNS", "Text to Columns")
 #define STR_DOC_UPDATED                         NC_("STR_DOC_UPDATED", "Your spreadsheet has been updated with changes saved by other users.")
 #define STR_DOC_WILLBESAVED                     NC_("STR_DOC_WILLBESAVED", "The spreadsheet must be saved now to activate sharing mode.\n\nDo you want to continue?")
@@ -510,6 +510,7 @@
 #define STR_TEXT                                NC_("STR_TEXT", "Text")
 #define STR_QUERY_PIVOTTABLE_DELTAB             NC_("STR_QUERY_PIVOTTABLE_DELTAB", "The selected sheet(s) contain source data of related pivot tables that will be lost. Are you sure you want to delete the selected sheet(s)?")
 #define STR_ERR_NAME_INVALID_CELL_REF           NC_("STR_ERR_NAME_INVALID_CELL_REF", "Invalid name. Reference to a cell, or a range of cells not allowed.")
+#define STR_ERR_LONG_LINK_FORMULA_NEEDING_CHECK NC_("STR_ERR_LONG_LINK_FORMULA_NEEDING_CHECK", "External content disabled.")
 
 #endif
 

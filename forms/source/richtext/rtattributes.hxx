@@ -43,7 +43,7 @@ namespace frm
     struct AttributeState
     {
     private:
-        SfxPoolItem     *pItemHandleItem;
+        std::unique_ptr<SfxPoolItem>  pItemHandleItem;
 
     public:
         AttributeCheckState eSimpleState;
@@ -91,17 +91,15 @@ namespace frm
 
     inline const SfxPoolItem* AttributeState::getItem() const
     {
-        return pItemHandleItem;
+        return pItemHandleItem.get();
     }
 
     inline void AttributeState::setItem( const SfxPoolItem* _pItem )
     {
-        if ( pItemHandleItem )
-            delete pItemHandleItem;
         if ( _pItem )
-            pItemHandleItem = _pItem->Clone();
+            pItemHandleItem.reset(_pItem->Clone());
         else
-            pItemHandleItem = nullptr;
+            pItemHandleItem.reset();
     }
 
     inline bool AttributeState::operator==( const AttributeState& _rRHS )
@@ -115,10 +113,10 @@ namespace frm
         if ( !pItemHandleItem && _rRHS.pItemHandleItem )
             return false;
 
-        if ( !pItemHandleItem && !_rRHS.pItemHandleItem )
+        if ( pItemHandleItem == _rRHS.pItemHandleItem )
             return true;
 
-        return pItemHandleItem == _rRHS.pItemHandleItem;
+        return *pItemHandleItem == *_rRHS.pItemHandleItem;
     }
 
     class IMultiAttributeDispatcher

@@ -20,6 +20,7 @@
 #include <reffact.hxx>
 #include <document.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <docsh.hxx>
 #include <crnrdlg.hxx>
 #include <vcl/weld.hxx>
@@ -378,13 +379,12 @@ void ScColRowNameRangesDlg::UpdateNames()
     SCROW nRow2;
     SCTAB nTab2;
     OUString rString;
-    OUString strShow;
     const ScAddress::Details aDetails(pDoc->GetAddressConvention());
 
     OUString aString;
     OUString strDelim(" --- ");
     aString = strDelim;
-    aString += ScGlobal::GetRscString( STR_COLUMN );
+    aString += ScResId( STR_COLUMN );
     aString += strDelim;
     sal_Int32 nPos = pLbRange->InsertEntry( aString );
     pLbRange->SetEntryData( nPos, reinterpret_cast<void*>(nEntryDataDelim) );
@@ -404,31 +404,30 @@ void ScColRowNameRangesDlg::UpdateNames()
             SCCOL q=nCol1+3;
             if(q>nCol2) q=nCol2;
             //@008 construct string
-            strShow = " [";
+            OUStringBuffer strShow = " [";
             rString = pDoc->GetString(nCol1, nRow1, nTab1);
-            strShow += rString;
+            strShow.append(rString);
             for(SCCOL i=nCol1+1;i<=q;i++)
             {
-                strShow += ", ";
+                strShow.append(", ");
                 rString = pDoc->GetString(i, nRow1, nTab1);
-                strShow += rString;
+                strShow.append(rString);
             }
             if(q<nCol2) // Too long? Add ",..."
             {
-                strShow += ", ...";
+                strShow.append(", ...");
             }
-            strShow += "]";
+            strShow.append("]");
 
             //@008 Add string to listbox
-            OUString aInsStr = aString;
-            aInsStr += strShow;
+            OUString aInsStr = aString + strShow.makeStringAndClear();
             nPos = pLbRange->InsertEntry( aInsStr );
             aRangeMap.emplace( aInsStr, aRange );
             pLbRange->SetEntryData( nPos, reinterpret_cast<void*>(nEntryDataCol) );
         }
     }
     aString = strDelim;
-    aString += ScGlobal::GetRscString( STR_ROW );
+    aString += ScResId( STR_ROW );
     aString += strDelim;
     nPos = pLbRange->InsertEntry( aString );
     pLbRange->SetEntryData( nPos, reinterpret_cast<void*>(nEntryDataDelim) );
@@ -447,23 +446,22 @@ void ScColRowNameRangesDlg::UpdateNames()
                                             nCol2, nRow2, nTab2 );
             SCROW q=nRow1+3;
             if(q>nRow2) q=nRow2;
-            strShow = " [";
+            OUStringBuffer strShow = " [";
             rString = pDoc->GetString(nCol1, nRow1, nTab1);
-            strShow += rString;
+            strShow.append(rString);
             for(SCROW i=nRow1+1;i<=q;i++)
             {
-                strShow += ", ";
+                strShow.append(", ");
                 rString = pDoc->GetString(nCol1, i, nTab1);
-                strShow += rString;
+                strShow.append(rString);
             }
             if(q<nRow2)
             {
-                strShow += ", ...";
+                strShow.append(", ...");
             }
-            strShow += "]";
+            strShow.append("]");
 
-            OUString aInsStr = aString;
-            aInsStr += strShow;
+            OUString aInsStr = aString + strShow.makeStringAndClear();
             nPos = pLbRange->InsertEntry( aInsStr );
             aRangeMap.emplace( aInsStr, aRange );
             pLbRange->SetEntryData( nPos, reinterpret_cast<void*>(nEntryDataRow) );
@@ -582,7 +580,7 @@ IMPL_LINK_NOARG(ScColRowNameRangesDlg, AddBtnHdl, Button*, void)
         }
         else
         {
-            ERRORBOX(GetFrameWeld(), ScGlobal::GetRscString(STR_INVALIDTABNAME));
+            ERRORBOX(GetFrameWeld(), ScResId(STR_INVALIDTABNAME));
             if ( !bOk1 )
                 pEdAssign->GrabFocus();
             else
@@ -610,7 +608,7 @@ IMPL_LINK_NOARG(ScColRowNameRangesDlg, RemoveBtnHdl, Button*, void)
         bFound = true;
     if ( bFound )
     {
-        OUString aStrDelMsg = ScGlobal::GetRscString( STR_QUERY_DELENTRY );
+        OUString aStrDelMsg = ScResId( STR_QUERY_DELENTRY );
         OUString aMsg       = aStrDelMsg.getToken( 0, '#' )
                             + aRangeStr
                             + aStrDelMsg.getToken( 1, '#' );

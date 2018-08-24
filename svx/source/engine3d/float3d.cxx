@@ -212,9 +212,9 @@ Svx3DWin::Svx3DWin(SfxBindings* pInBindings, SfxChildWindow *pCW, vcl::Window* p
     m_pMtrDistance->SetUnit( eFUnit );
     m_pMtrFocalLength->SetUnit( eFUnit );
 
-    pControllerItem = new Svx3DCtrlItem(SID_3D_STATE, pBindings);
-    pConvertTo3DItem = new SvxConvertTo3DItem(SID_CONVERT_TO_3D, pBindings);
-    pConvertTo3DLatheItem = new SvxConvertTo3DItem(SID_CONVERT_TO_3D_LATHE_FAST, pBindings);
+    pControllerItem.reset( new Svx3DCtrlItem(SID_3D_STATE, pBindings) );
+    pConvertTo3DItem.reset( new SvxConvertTo3DItem(SID_CONVERT_TO_3D, pBindings) );
+    pConvertTo3DLatheItem.reset( new SvxConvertTo3DItem(SID_CONVERT_TO_3D_LATHE_FAST, pBindings) );
 
     m_pBtnAssign->SetClickHdl( LINK( this, Svx3DWin, ClickAssignHdl ) );
     m_pBtnUpdate->SetClickHdl( LINK( this, Svx3DWin, ClickUpdateHdl ) );
@@ -330,11 +330,11 @@ Svx3DWin::~Svx3DWin()
 void Svx3DWin::dispose()
 {
     pVDev.disposeAndClear();
-    delete pModel;
+    pModel.reset();
 
-    DELETEZ( pControllerItem );
-    DELETEZ( pConvertTo3DItem );
-    DELETEZ( pConvertTo3DLatheItem );
+    pControllerItem.reset();
+    pConvertTo3DItem.reset();
+    pConvertTo3DLatheItem.reset();
 
     mpImpl.reset();
 
@@ -2506,10 +2506,9 @@ IMPL_LINK( Svx3DWin, ClickHdl, Button *, pButton, void )
     }
 }
 
-
 IMPL_LINK( Svx3DWin, ClickColorHdl, Button *, pBtn, void)
 {
-    SvColorDialog aColorDlg( this );
+    SvColorDialog aColorDlg;
     SvxColorListBox* pLb;
 
     if( pBtn == m_pBtnLightColor )
@@ -2526,7 +2525,7 @@ IMPL_LINK( Svx3DWin, ClickColorHdl, Button *, pBtn, void)
     Color aColor = pLb->GetSelectEntryColor();
 
     aColorDlg.SetColor( aColor );
-    if( aColorDlg.Execute() == RET_OK )
+    if( aColorDlg.Execute(GetFrameWeld()) == RET_OK )
     {
         aColor = aColorDlg.GetColor();
         LBSelectColor(pLb, aColor);
@@ -2786,8 +2785,10 @@ void Svx3DWin::LBSelectColor( SvxColorListBox* pLb, const Color& rColor )
 
 void Svx3DWin::UpdatePreview()
 {
-    if( pModel == nullptr )
-        pModel = new FmFormModel();
+    if(!pModel)
+    {
+        pModel.reset(new FmFormModel());
+    }
 
     // Get Itemset
     SfxItemSet aSet( pModel->GetItemPool(), svl::Items<SDRATTR_START, SDRATTR_END>{});

@@ -9,11 +9,15 @@
  */
 
 #include <ChartTools.hxx>
+#include <docsh.hxx>
+#include <drwlayer.hxx>
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/chart2/data/XPivotTableDataProvider.hpp>
-
+#include <com/sun/star/chart2/XChartDocument.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <svx/svditer.hxx>
+#include <svx/svdoole2.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdundo.hxx>
 #include <sfx2/app.hxx>
@@ -72,7 +76,7 @@ ChartIterator::ChartIterator(ScDocShell* pDocShell, SCTAB nTab, ChartSourceType 
     SdrPage* pPage = pDrawLayer->GetPage(sal_uInt16(nTab));
     if (!pPage)
         return;
-    m_pIterator.reset(new SdrObjListIter(*pPage, SdrIterMode::DeepNoGroups));
+    m_pIterator.reset(new SdrObjListIter(pPage, SdrIterMode::DeepNoGroups));
 }
 
 SdrOle2Obj* ChartIterator::next()

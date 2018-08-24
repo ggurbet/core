@@ -19,7 +19,7 @@
 
 
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <tools/poly.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/globl3d.hxx>
@@ -34,17 +34,18 @@
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 // DrawContact section
-sdr::contact::ViewContact* E3dLatheObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> E3dLatheObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfE3dLathe(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfE3dLathe>(*this);
 }
 
-sdr::properties::BaseProperties* E3dLatheObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> E3dLatheObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::E3dLatheProperties(*this);
+    return o3tl::make_unique<sdr::properties::E3dLatheProperties>(*this);
 }
 
 // Constructor from 3D polygon, scale is the conversion factor for the coordinates
@@ -90,6 +91,10 @@ E3dLatheObj::E3dLatheObj(SdrModel& rSdrModel)
     SetDefaultAttributes(aDefault);
 }
 
+E3dLatheObj::~E3dLatheObj()
+{
+}
+
 void E3dLatheObj::SetDefaultAttributes(const E3dDefaultAttributes& rDefault)
 {
     GetProperties().SetObjectItemDirect(Svx3DSmoothNormalsItem(rDefault.GetDefaultLatheSmoothed()));
@@ -104,9 +109,9 @@ sal_uInt16 E3dLatheObj::GetObjIdentifier() const
     return E3D_LATHEOBJ_ID;
 }
 
-E3dLatheObj* E3dLatheObj::Clone(SdrModel* pTargetModel) const
+E3dLatheObj* E3dLatheObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< E3dLatheObj >(pTargetModel);
+    return CloneHelper< E3dLatheObj >(rTargetModel);
 }
 
 E3dLatheObj& E3dLatheObj::operator=(const E3dLatheObj& rObj)
@@ -157,7 +162,7 @@ void E3dLatheObj::SetPolyPoly2D(const basegfx::B2DPolyPolygon& rNew)
 
 OUString E3dLatheObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulLathe3d));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulLathe3d));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -174,7 +179,7 @@ OUString E3dLatheObj::TakeObjNameSingul() const
 
 OUString E3dLatheObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralLathe3d);
+    return SvxResId(STR_ObjNamePluralLathe3d);
 }
 
 bool E3dLatheObj::IsBreakObjPossible()

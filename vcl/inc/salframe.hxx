@@ -159,6 +159,7 @@ public:
     SAL_WARN_UNUSED_RESULT
     virtual bool            GetWindowState( SalFrameState* pState ) = 0;
     virtual void            ShowFullScreen( bool bFullScreen, sal_Int32 nDisplay ) = 0;
+    virtual void            PositionByToolkit( const tools::Rectangle&, FloatWinPopupFlags ) {};
 
     // Enable/Disable ScreenSaver, SystemAgents, ...
     virtual void            StartPresentation( bool bStart ) = 0;
@@ -246,13 +247,13 @@ public:
     }
 
     // return !0 to indicate popovers are shown natively, 0 otherwise
-    virtual void*           ShowPopover(const OUString& /*rHelpText*/, const tools::Rectangle& /*rHelpArea*/, QuickHelpFlags /*nFlags*/)
+    virtual void*           ShowPopover(const OUString& /*rHelpText*/, vcl::Window* /*pParent*/, const tools::Rectangle& /*rHelpArea*/, QuickHelpFlags /*nFlags*/)
     {
         return nullptr;
     }
 
     // return true to indicate popovers are shown natively, false otherwise
-    virtual bool            UpdatePopover(void* /*nId*/, const OUString& /*rHelpText*/, const tools::Rectangle& /*rHelpArea*/)
+    virtual bool            UpdatePopover(void* /*nId*/, const OUString& /*rHelpText*/, vcl::Window* /*pParent*/, const tools::Rectangle& /*rHelpArea*/)
     {
         return false;
     }

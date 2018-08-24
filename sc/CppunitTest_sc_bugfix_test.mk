@@ -61,7 +61,11 @@ $(eval $(call gb_CppunitTest_set_include,sc_bugfix_test,\
     $$(INCLUDE) \
 ))
 
-$(eval $(call gb_CppunitTest_use_sdk_api,sc_bugfix_test))
+$(eval $(call gb_CppunitTest_use_api,sc_bugfix_test,\
+	udkapi \
+	offapi \
+	oovbaapi \
+))
 
 $(eval $(call gb_CppunitTest_use_ure,sc_bugfix_test))
 $(eval $(call gb_CppunitTest_use_vcl,sc_bugfix_test))
@@ -108,15 +112,9 @@ $(eval $(call gb_CppunitTest_use_components,sc_bugfix_test,\
     xmlsecurity/util/xmlsecurity \
 ))
 
-ifeq ($(OS),WNT)
-$(eval $(call gb_CppunitTest_use_components,sc_bugfix_test,\
-    xmlsecurity/util/xsec_xmlsec.windows \
-))
-else
 $(eval $(call gb_CppunitTest_use_components,sc_bugfix_test,\
     xmlsecurity/util/xsec_xmlsec \
 ))
-endif
 
 $(eval $(call gb_CppunitTest_use_configuration,sc_bugfix_test))
 

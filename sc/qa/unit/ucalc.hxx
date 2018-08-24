@@ -117,6 +117,7 @@ public:
     void testRangeList();
     void testMarkData();
     void testInput();
+    void testColumnIterator();
     void testDocStatistics();
     void testRowForHeight();
 
@@ -143,6 +144,11 @@ public:
     void testFormulaRefData();
     void testFormulaCompiler();
     void testFormulaCompilerJumpReordering();
+    void testFormulaCompilerImplicitIntersection2Param();
+    void testFormulaCompilerImplicitIntersection1ParamNoChange();
+    void testFormulaCompilerImplicitIntersection1ParamWithChange();
+    void testFormulaCompilerImplicitIntersection1NoGroup();
+    void testFormulaCompilerImplicitIntersectionOperators();
     void testFormulaRefUpdate();
     void testFormulaRefUpdateRange();
     void testFormulaRefUpdateSheets();
@@ -517,6 +523,8 @@ public:
     void testCondFormatUndoList();
     void testMultipleSingleCellCondFormatCopyPaste();
     void testDeduplicateMultipleCondFormats();
+    void testCondFormatListenToOwnRange();
+    void testCondFormatVolatileFunctionRecalc();
 
     void testImportStream();
     void testDeleteContents();
@@ -553,6 +561,7 @@ public:
     CPPUNIT_TEST(testRangeList);
     CPPUNIT_TEST(testMarkData);
     CPPUNIT_TEST(testInput);
+    CPPUNIT_TEST(testColumnIterator);
     CPPUNIT_TEST(testDocStatistics);
     CPPUNIT_TEST(testRowForHeight);
     CPPUNIT_TEST(testDataEntries);
@@ -567,6 +576,11 @@ public:
     CPPUNIT_TEST(testFormulaRefData);
     CPPUNIT_TEST(testFormulaCompiler);
     CPPUNIT_TEST(testFormulaCompilerJumpReordering);
+    CPPUNIT_TEST(testFormulaCompilerImplicitIntersection2Param);
+    CPPUNIT_TEST(testFormulaCompilerImplicitIntersection1ParamNoChange);
+    CPPUNIT_TEST(testFormulaCompilerImplicitIntersection1ParamWithChange);
+    CPPUNIT_TEST(testFormulaCompilerImplicitIntersection1NoGroup);
+    CPPUNIT_TEST(testFormulaCompilerImplicitIntersectionOperators);
     CPPUNIT_TEST(testFormulaRefUpdate);
     CPPUNIT_TEST(testFormulaRefUpdateRange);
     CPPUNIT_TEST(testFormulaRefUpdateSheets);
@@ -801,6 +815,7 @@ public:
     CPPUNIT_TEST(testCondFormatUndoList);
     CPPUNIT_TEST(testMultipleSingleCellCondFormatCopyPaste);
     CPPUNIT_TEST(testDeduplicateMultipleCondFormats);
+    CPPUNIT_TEST(testCondFormatVolatileFunctionRecalc);
     CPPUNIT_TEST(testIconSet);
     CPPUNIT_TEST(testDataBarLengthAutomaticAxis);
     CPPUNIT_TEST(testDataBarLengthMiddleAxis);

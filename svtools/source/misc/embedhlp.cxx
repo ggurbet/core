@@ -22,9 +22,9 @@
 #include <vcl/graphicfilter.hxx>
 #include <bitmaps.hlst>
 
+#include <sal/log.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/embeddedobjectcontainer.hxx>
-#include <comphelper/seqstream.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/streamwrap.hxx>
@@ -228,6 +228,7 @@ struct EmbeddedObjectRef_Impl
     sal_Int64                                   nViewAspect;
     bool                                        bIsLocked:1;
     bool                                        bNeedUpdate:1;
+    bool                                        bUpdating:1;
 
     // #i104867#
     sal_uInt32                                  mnGraphicVersion;
@@ -239,6 +240,7 @@ struct EmbeddedObjectRef_Impl
         nViewAspect(embed::Aspects::MSOLE_CONTENT),
         bIsLocked(false),
         bNeedUpdate(false),
+        bUpdating(false),
         mnGraphicVersion(0),
         aDefaultSizeForChart_In_100TH_MM(awt::Size(8000,7000))
     {}
@@ -252,6 +254,7 @@ struct EmbeddedObjectRef_Impl
         nViewAspect(r.nViewAspect),
         bIsLocked(r.bIsLocked),
         bNeedUpdate(r.bNeedUpdate),
+        bUpdating(r.bUpdating),
         mnGraphicVersion(0),
         aDefaultSizeForChart_In_100TH_MM(r.aDefaultSizeForChart_In_100TH_MM)
     {
@@ -543,7 +546,7 @@ void EmbeddedObjectRef::SetGraphic( const Graphic& rGraphic, const OUString& rMe
     mpImpl->bNeedUpdate = false;
 }
 
-SvStream* EmbeddedObjectRef::GetGraphicStream( bool bUpdate ) const
+std::unique_ptr<SvStream> EmbeddedObjectRef::GetGraphicStream( bool bUpdate ) const
 {
     DBG_ASSERT( bUpdate || mpImpl->pContainer, "Can't retrieve current graphic!" );
     uno::Reference < io::XInputStream > xStream;
@@ -555,7 +558,7 @@ SvStream* EmbeddedObjectRef::GetGraphicStream( bool bUpdate ) const
         if ( xStream.is() )
         {
             const sal_Int32 nConstBufferSize = 32000;
-            SvStream *pStream = new SvMemoryStream( 32000, 32000 );
+            std::unique_ptr<SvStream> pStream(new SvMemoryStream( 32000, 32000 ));
             try
             {
                 sal_Int32 nRead=0;
@@ -572,7 +575,6 @@ SvStream* EmbeddedObjectRef::GetGraphicStream( bool bUpdate ) const
             catch (const uno::Exception&)
             {
                 DBG_UNHANDLED_EXCEPTION("svtools.misc", "discarding broken embedded object preview");
-                delete pStream;
                 xStream.clear();
             }
         }
@@ -605,7 +607,7 @@ SvStream* EmbeddedObjectRef::GetGraphicStream( bool bUpdate ) const
                 if (mpImpl->pContainer)
                     mpImpl->pContainer->InsertGraphicStream(xStream,mpImpl->aPersistName,mpImpl->aMediaType);
 
-                SvStream* pResult = ::utl::UcbStreamHelper::CreateStream( xStream );
+                std::unique_ptr<SvStream> pResult = ::utl::UcbStreamHelper::CreateStream( xStream );
                 if (pResult && bUpdate)
                     mpImpl->bNeedUpdate = false;
 
@@ -786,26 +788,16 @@ bool EmbeddedObjectRef::IsChart(const css::uno::Reference < css::embed::XEmbedde
         || SvGlobalName(SO3_SCH_CLASSID_60) == aObjClsId;
 }
 
-bool EmbeddedObjectRef::IsGLChart(const css::uno::Reference < css::embed::XEmbeddedObject >& xObj)
-{
-    static const char* env = getenv("CHART_DUMMY_FACTORY");
-    if (IsChart(xObj))
-    {
-        if (env)
-            return true;
-
-        uno::Reference< chart2::XChartDocument > xChartDoc(xObj->getComponent(), uno::UNO_QUERY);
-        if (!xChartDoc.is())
-            return false;
-
-        return xChartDoc->isOpenGLChart();
-    }
-    return false;
-}
-
 void EmbeddedObjectRef::UpdateReplacement()
 {
-    GetReplacement( true );
+    if (mpImpl->bUpdating)
+    {
+        SAL_WARN("svtools.misc", "UpdateReplacement called while UpdateReplacement already underway");
+        return;
+    }
+    mpImpl->bUpdating = true;
+    GetReplacement(true);
+    mpImpl->bUpdating = false;
 }
 
 void EmbeddedObjectRef::UpdateReplacementOnDemand()
@@ -834,14 +826,6 @@ bool EmbeddedObjectRef::IsChart() const
         return false;
 
     return EmbeddedObjectRef::IsChart(mpImpl->mxObj);
-}
-
-bool EmbeddedObjectRef::IsGLChart() const
-{
-    if (!mpImpl->mxObj.is())
-        return false;
-
-    return EmbeddedObjectRef::IsGLChart(mpImpl->mxObj);
 }
 
 // MT: Only used for getting accessible attributes, which are not localized

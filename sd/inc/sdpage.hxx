@@ -24,15 +24,12 @@
 #include <com/sun/star/presentation/FadeEffect.hpp>
 #include <com/sun/star/office/XAnnotation.hpp>
 
-#include <functional>
-#include <list>
 #include <memory>
 #include <vector>
 #include <editeng/flditem.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/fmpage.hxx>
 #include <xmloff/autolayout.hxx>
-#include "fadedef.h"
 #include "diadef.h"
 #include "pres.hxx"
 #include "shapelist.hxx"
@@ -155,7 +152,7 @@ public:
     SdPage(SdDrawDocument& rNewDoc, bool bMasterPage);
     virtual ~SdPage() override;
 
-    virtual SdrPage* Clone(SdrModel* pNewModel = nullptr) const override;
+    virtual SdrPage* CloneSdrPage(SdrModel& rTargetModel) const override;
 
     virtual void    SetSize(const Size& aSize) override;
     virtual void    SetBorder(sal_Int32 nLft, sal_Int32 nUpp, sal_Int32 nRgt, sal_Int32 Lwr) override;
@@ -316,6 +313,9 @@ public:
 
     /** removes all custom animations for the given shape */
     void removeAnimations( const SdrObject* pObj );
+
+    /** Notify that the object has been renamed and the animation effects has to update. */
+    void notifyObjectRenamed(const SdrObject* pObj);
 
     /** Set the name of the page and broadcast a model change.
     */

@@ -36,12 +36,9 @@ class SwContentNode;
 class SwDoc;
 class SwForm;
 struct SwFormToken;
-class SwPageDesc;
-class SwRootFrame;
 class SwTextAttr;
 class SwTextNode;
 struct SwTOXSortTabBase;
-class SvxTabStop;
 class ToxTextGeneratorTest;
 
 namespace sw {
@@ -66,7 +63,7 @@ public:
      * process @p numberOfEntriesToProcess entries.
      */
     void
-    GenerateText(SwDoc *doc, const std::vector<SwTOXSortTabBase*>& entries,
+    GenerateText(SwDoc *doc, const std::vector<std::unique_ptr<SwTOXSortTabBase>>& entries,
                       sal_uInt16 indexOfEntryToProcess, sal_uInt16 numberOfEntriesToProcess);
 
 private:
@@ -79,7 +76,7 @@ private:
      */
     struct HandledTextToken {
         OUString text;
-        std::vector<SwFormatAutoFormat*> autoFormats;
+        std::vector<std::unique_ptr<SwFormatAutoFormat>> autoFormats;
         std::vector<sal_Int32> startPositions;
         std::vector<sal_Int32> endPositions;
     };

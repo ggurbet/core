@@ -23,6 +23,7 @@
 #include <officecfg/Inet.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <officecfg/Office/Security.hxx>
+#include <toolkit/helper/vclunohelper.hxx>
 #include <tools/config.hxx>
 #include <vcl/weld.hxx>
 #include <svl/intitem.hxx>
@@ -56,6 +57,7 @@
 #include <strings.hrc>
 
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
+#include <com/sun/star/task/InteractionHandler.hpp>
 
 #ifdef UNX
 #include <sys/stat.h>
@@ -70,6 +72,7 @@
 #endif
 #include <sal/types.h>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <rtl/ustring.hxx>
 #include <osl/file.hxx>
 #include <osl/process.h>
@@ -253,9 +256,9 @@ void SvxProxyTabPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxProxyTabPage::Create(vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> SvxProxyTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxProxyTabPage>::Create(pParent, *rAttrSet);
+    return VclPtr<SvxProxyTabPage>::Create(pParent.pParent, *rAttrSet);
 }
 
 void SvxProxyTabPage::ReadConfigData_Impl()
@@ -619,8 +622,7 @@ SvxSecurityTabPage::~SvxSecurityTabPage()
 
 void SvxSecurityTabPage::dispose()
 {
-    delete mpSecOptions;
-    mpSecOptions = nullptr;
+    mpSecOptions.reset();
     mpCertPathDlg.disposeAndClear();
     m_xSecOptDlg.reset();
     m_pSecurityOptionsPB.clear();
@@ -642,7 +644,7 @@ void SvxSecurityTabPage::dispose()
 IMPL_LINK_NOARG(SvxSecurityTabPage, SecurityOptionsHdl, Button*, void)
 {
     if (!m_xSecOptDlg)
-        m_xSecOptDlg.reset(new svx::SecurityOptionsDialog(GetFrameWeld(), mpSecOptions));
+        m_xSecOptDlg.reset(new svx::SecurityOptionsDialog(GetFrameWeld(), mpSecOptions.get()));
     (void)m_xSecOptDlg->run();
 }
 
@@ -657,7 +659,11 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, SavePasswordHdl, Button*, void)
         {
             bool bOldValue = xMasterPasswd->allowPersistentStoring( true );
             xMasterPasswd->removeMasterPassword();
-            if ( xMasterPasswd->changeMasterPassword( Reference< task::XInteractionHandler >() ) )
+
+            uno::Reference<task::XInteractionHandler> xTmpHandler(task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(),
+                                                                  VCLUnoHelper::GetInterface(GetParentDialog())));
+
+            if ( xMasterPasswd->changeMasterPassword(xTmpHandler) )
             {
                 m_pMasterPasswordPB->Enable();
                 m_pMasterPasswordCB->Check();
@@ -703,7 +709,7 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, SavePasswordHdl, Button*, void)
     }
 }
 
-IMPL_STATIC_LINK_NOARG(SvxSecurityTabPage, MasterPasswordHdl, Button*, void)
+IMPL_LINK_NOARG(SvxSecurityTabPage, MasterPasswordHdl, Button*, void)
 {
     try
     {
@@ -711,7 +717,11 @@ IMPL_STATIC_LINK_NOARG(SvxSecurityTabPage, MasterPasswordHdl, Button*, void)
             task::PasswordContainer::create(comphelper::getProcessComponentContext()));
 
         if ( xMasterPasswd->isPersistentStoringAllowed() )
-            xMasterPasswd->changeMasterPassword( Reference< task::XInteractionHandler >() );
+        {
+            uno::Reference<task::XInteractionHandler> xTmpHandler(task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(),
+                                                                  VCLUnoHelper::GetInterface(GetParentDialog())));
+            xMasterPasswd->changeMasterPassword(xTmpHandler);
+        }
     }
     catch (const Exception&)
     {}
@@ -724,9 +734,12 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, MasterPasswordCBHdl, Button*, void)
         Reference< task::XPasswordContainer2 > xMasterPasswd(
             task::PasswordContainer::create(comphelper::getProcessComponentContext()));
 
+        uno::Reference<task::XInteractionHandler> xTmpHandler(task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(),
+                                                              VCLUnoHelper::GetInterface(GetParentDialog())));
+
         if ( m_pMasterPasswordCB->IsChecked() )
         {
-            if ( xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->changeMasterPassword( Reference< task::XInteractionHandler >() ) )
+            if (xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->changeMasterPassword(xTmpHandler))
             {
                 m_pMasterPasswordPB->Enable();
                 m_pMasterPasswordFT->Enable();
@@ -740,7 +753,7 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, MasterPasswordCBHdl, Button*, void)
         }
         else
         {
-            if ( xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->useDefaultMasterPassword( Reference< task::XInteractionHandler >() ) )
+            if ( xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->useDefaultMasterPassword(xTmpHandler) )
             {
                 m_pMasterPasswordPB->Enable( false );
                 m_pMasterPasswordFT->Enable( false );
@@ -766,7 +779,10 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, ShowPasswordsHdl, Button*, void)
         Reference< task::XPasswordContainer2 > xMasterPasswd(
             task::PasswordContainer::create(comphelper::getProcessComponentContext()));
 
-        if ( xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->authorizateWithMasterPassword( Reference< task::XInteractionHandler>() ) )
+        uno::Reference<task::XInteractionHandler> xTmpHandler(task::InteractionHandler::createWithParent(comphelper::getProcessComponentContext(),
+                                                              VCLUnoHelper::GetInterface(GetParentDialog())));
+
+        if ( xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->authorizateWithMasterPassword(xTmpHandler) )
         {
             ScopedVclPtrInstance< svx::WebConnectionInfoDialog > aDlg(this);
             aDlg->Execute();
@@ -870,9 +886,9 @@ void SvxSecurityTabPage::InitControls()
     }
 }
 
-VclPtr<SfxTabPage> SvxSecurityTabPage::Create(vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> SvxSecurityTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxSecurityTabPage>::Create(pParent, *rAttrSet);
+    return VclPtr<SvxSecurityTabPage>::Create(pParent.pParent, *rAttrSet);
 }
 
 void SvxSecurityTabPage::ActivatePage( const SfxItemSet& )
@@ -985,9 +1001,9 @@ void SvxEMailTabPage::dispose()
 
 /* -------------------------------------------------------------------------*/
 
-VclPtr<SfxTabPage>  SvxEMailTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage>  SvxEMailTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxEMailTabPage>::Create(pParent, *rAttrSet);
+    return VclPtr<SvxEMailTabPage>::Create(pParent.pParent, *rAttrSet);
 }
 
 /* -------------------------------------------------------------------------*/

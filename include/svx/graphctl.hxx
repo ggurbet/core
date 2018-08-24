@@ -21,12 +21,28 @@
 
 #include <vcl/ctrl.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/customweld.hxx>
+#include <vcl/weld.hxx>
 #include <svx/svxdllapi.h>
 
 #include <svx/svdview.hxx>
 #include <svx/svdobj.hxx>
 
-class GraphCtrlUserCall;
+class GraphCtrl;
+
+class GraphCtrlUserCall : public SdrObjUserCall
+{
+    GraphCtrl& rWin;
+
+public:
+
+    GraphCtrlUserCall(GraphCtrl& rGraphWin)
+        : rWin(rGraphWin)
+    {}
+
+    virtual void Changed(const SdrObject& rObj, SdrUserCallType eType, const tools::Rectangle& rOldBoundRect) override;
+};
+
 class SvxGraphCtrlAccessibleContext;
 
 class SVX_DLLPUBLIC GraphCtrl : public Control
@@ -42,7 +58,7 @@ class SVX_DLLPUBLIC GraphCtrl : public Control
     MapMode             aMap100;
     Size                aGraphSize;
     Point               aMousePos;
-    GraphCtrlUserCall*  pUserCall;
+    std::unique_ptr<GraphCtrlUserCall> pUserCall;
     SdrObjKind          eObjKind;
     sal_uInt16          nPolyEdit;
     bool                bEditMode;
@@ -55,8 +71,8 @@ class SVX_DLLPUBLIC GraphCtrl : public Control
 
 protected:
 
-    SdrModel*           pModel;
-    SdrView*            pView;
+    std::unique_ptr<SdrModel>  pModel;
+    std::unique_ptr<SdrView>   pView;
 
     virtual void        Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
     virtual void        Resize() override;
@@ -71,7 +87,7 @@ protected:
     virtual void        SdrObjChanged( const SdrObject& rObj );
     virtual void        MarkListHasChanged();
 
-    inline SdrObjUserCall* GetSdrUserCall();
+    SdrObjUserCall* GetSdrUserCall() { return pUserCall.get(); }
 
 public:
 
@@ -92,8 +108,8 @@ public:
 
     void                SetObjKind( const SdrObjKind eObjKind );
 
-    SdrModel*           GetSdrModel() const { return pModel; }
-    SdrView*            GetSdrView() const { return pView; }
+    SdrModel*           GetSdrModel() const { return pModel.get(); }
+    SdrView*            GetSdrView() const { return pView.get(); }
     SdrObject*          GetSelectedSdrObject() const;
     bool                IsChanged() const { return mbSdrMode && pModel->IsChanged(); }
 
@@ -109,24 +125,20 @@ public:
     virtual css::uno::Reference< css::accessibility::XAccessible > CreateAccessible() override;
 };
 
-
-class GraphCtrlUserCall : public SdrObjUserCall
+class SVX_DLLPUBLIC SvxGraphCtrl : public weld::CustomWidgetController
 {
-    GraphCtrl& rWin;
+    MapMode             aMap100;
+    Graphic             aGraphic;
+    Size                aGraphSize;
+
+    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
 
 public:
 
-    GraphCtrlUserCall(GraphCtrl& rGraphWin)
-        : rWin(rGraphWin)
-    {}
-
-    virtual void Changed(const SdrObject& rObj, SdrUserCallType eType, const tools::Rectangle& rOldBoundRect) override;
+    SvxGraphCtrl();
+    virtual ~SvxGraphCtrl() override;
+    void                SetGraphic( const Graphic& rGraphic );
 };
-
-SdrObjUserCall* GraphCtrl::GetSdrUserCall()
-{
-    return pUserCall;
-}
 
 class GraphCtrlView : public SdrView
 {

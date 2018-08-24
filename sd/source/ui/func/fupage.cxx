@@ -23,6 +23,7 @@
 
 // arrange Tab-Page
 
+#include <sfx2/sfxdlg.hxx>
 #include <svx/svxids.hrc>
 #include <svx/dialogs.hrc>
 #include <svl/itempool.hxx>
@@ -49,6 +50,7 @@
 #include <editeng/pbinitem.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/opengrf.hxx>
+#include <rtl/ustring.hxx>
 
 #include <strings.hrc>
 #include <sdpage.hxx>
@@ -329,8 +331,8 @@ const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent)
     {
         // create the dialog
         SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractTabDialog> pDlg( pFact ? pFact->CreateSdTabPageDialog(mpViewShell->GetActiveWindow(), &aMergedAttr, mpDocSh, mbDisplayBackgroundTabPage) : nullptr );
-        if( pDlg.get() && pDlg->Execute() == RET_OK )
+        ScopedVclPtr<SfxAbstractTabDialog> pDlg( pFact->CreateSdTabPageDialog(mpViewShell->GetActiveWindow(), &aMergedAttr, mpDocSh, mbDisplayBackgroundTabPage) );
+        if( pDlg->Execute() == RET_OK )
             pTempSet.reset( new SfxItemSet(*pDlg->GetOutputItemSet()) );
     }
 

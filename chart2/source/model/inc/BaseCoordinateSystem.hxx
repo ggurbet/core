@@ -24,7 +24,6 @@
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/uno3.hxx>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/chart2/XCoordinateSystem.hpp>
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
@@ -119,7 +118,6 @@ private:
     sal_Int32                                             m_nDimensionCount;
     typedef std::vector< std::vector< css::uno::Reference< css::chart2::XAxis > > > tAxisVecVecType;
     tAxisVecVecType m_aAllAxis; //outer sequence is the dimension; inner sequence is the axis index that indicates main or secondary axis
-    css::uno::Sequence< css::uno::Any >                  m_aOrigin;
     std::vector< css::uno::Reference< css::chart2::XChartType > >          m_aChartTypes;
 };
 

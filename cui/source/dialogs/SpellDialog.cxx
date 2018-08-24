@@ -54,6 +54,7 @@
 #include <treeopt.hxx>
 #include <svtools/langtab.hxx>
 #include <cppuhelper/exc_hlp.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -1033,14 +1034,14 @@ bool SpellDialog::GetNextSentence_Impl(bool bUseSavedSentence, bool bRecheck)
 
     if(!aSentence.empty())
     {
-        OUString sText;
+        OUStringBuffer sText;
         for (auto const& elem : aSentence)
         {
             // hidden text has to be ignored
             if(!elem.bIsHidden)
-                sText += elem.sText;
+                sText.append(elem.sText);
         }
-        m_pSentenceED->SetText(sText);
+        m_pSentenceED->SetText(sText.makeStringAndClear());
         sal_Int32 nStartPosition = 0;
         sal_Int32 nEndPosition = 0;
 
@@ -1881,17 +1882,17 @@ svx::SpellPortions SentenceEditWindow_Impl::CreateSpellPortions() const
         const sal_uInt32 nPara = pTextEngine->GetParagraphCount();
         if (nPara > 1)
         {
-            OUString aLeftOverText;
+            OUStringBuffer aLeftOverText;
             for (sal_uInt32 i = 1; i < nPara; ++i)
             {
-                aLeftOverText += "\x0a";    // the manual line break...
-                aLeftOverText += pTextEngine->GetText(i);
+                aLeftOverText.append("\x0a");    // the manual line break...
+                aLeftOverText.append(pTextEngine->GetText(i));
             }
             if (pError)
             {   // we need to add a new portion containing the left-over text
                 svx::SpellPortion aPortion2;
                 aPortion2.eLanguage = eLang;
-                aPortion2.sText = aLeftOverText;
+                aPortion2.sText = aLeftOverText.makeStringAndClear();
                 aRet.push_back( aPortion2 );
             }
             else
@@ -1906,7 +1907,7 @@ svx::SpellPortions SentenceEditWindow_Impl::CreateSpellPortions() const
 
 void SentenceEditWindow_Impl::Undo()
 {
-    ::svl::IUndoManager& rUndoMgr = GetTextEngine()->GetUndoManager();
+    SfxUndoManager& rUndoMgr = GetTextEngine()->GetUndoManager();
     DBG_ASSERT(GetUndoActionCount(), "no undo actions available" );
     if(!GetUndoActionCount())
         return;
@@ -1932,7 +1933,7 @@ void SentenceEditWindow_Impl::ResetUndo()
 
 void SentenceEditWindow_Impl::AddUndoAction( SfxUndoAction *pAction )
 {
-    ::svl::IUndoManager& rUndoMgr = GetTextEngine()->GetUndoManager();
+    SfxUndoManager& rUndoMgr = GetTextEngine()->GetUndoManager();
     rUndoMgr.AddUndoAction(pAction);
     GetSpellDialog()->m_pUndoPB->Enable();
 }

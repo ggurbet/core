@@ -30,6 +30,7 @@
 #include "xelink.hxx"
 #include "ftools.hxx"
 #include "excrecds.hxx"
+#include <o3tl/deleter.hxx>
 
 class ExcXmlRecord : public ExcRecord
 {
@@ -318,10 +319,10 @@ public:
 class XclExpChTrTabId : public ExcRecord
 {
 private:
-    sal_uInt16*                 pBuffer;
+    std::unique_ptr<sal_uInt16[]> pBuffer;
     sal_uInt16                  nTabCount;
 
-    void                 Clear() { delete[] pBuffer; pBuffer = nullptr; }
+    void                 Clear() { pBuffer.reset(); }
 
     virtual void                SaveCont( XclExpStream& rStrm ) override;
 
@@ -437,7 +438,7 @@ inline void XclExpChTrAction::WriteTabId( XclExpStream& rStrm, SCTAB nTab ) cons
 
 struct XclExpChTrData
 {
-    XclExpString*               pString;
+    std::unique_ptr<XclExpString> pString;
     XclExpStringRef             mpFormattedString;
     const ScFormulaCell*        mpFormulaCell;
     XclTokenArrayRef            mxTokArr;
@@ -463,15 +464,15 @@ struct XclExpChTrData
 
 class XclExpChTrCellContent final : public XclExpChTrAction, protected XclExpRoot
 {
-    XclExpChTrData*             pOldData;
-    XclExpChTrData*             pNewData;
+    std::unique_ptr<XclExpChTrData> pOldData;
+    std::unique_ptr<XclExpChTrData> pNewData;
     sal_uInt16                  nOldLength;     // this is not the record size
     ScAddress                   aPosition;
 
-    static void                 MakeEmptyChTrData( XclExpChTrData*& rpData );
+    static void                 MakeEmptyChTrData( std::unique_ptr<XclExpChTrData>& rpData );
 
     void GetCellData(
-        const XclExpRoot& rRoot, const ScCellValue& rScCell, XclExpChTrData*& rpData,
+        const XclExpRoot& rRoot, const ScCellValue& rScCell, std::unique_ptr<XclExpChTrData>& rpData,
         sal_uInt32& rXclLength1, sal_uInt16& rXclLength2 );
 
     virtual void                SaveActionData( XclExpStream& rStrm ) const override;
@@ -595,10 +596,6 @@ class XclExpChangeTrack : protected XclExpRoot
     TabIdBufferType maBuffers;
 
     ScDocumentUniquePtr         xTempDoc;           // empty document
-
-    XclExpChTrHeader*           pHeader;            // header record for last GUID
-    sal_uInt8                   aGUID[ 16 ];        // GUID for action info records
-    bool                        bValidGUID;
 
     ScChangeTrack*              CreateTempChangeTrack();
     void                        PushActionRecord( const ScChangeAction& rAction );

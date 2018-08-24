@@ -20,10 +20,8 @@
 #ifndef INCLUDED_SC_INC_COLUMN_HXX
 #define INCLUDED_SC_INC_COLUMN_HXX
 
-#include "markarr.hxx"
 #include "global.hxx"
 #include "address.hxx"
-#include "rangenam.hxx"
 #include "rangelst.hxx"
 #include "types.hxx"
 #include "mtvelements.hxx"
@@ -35,7 +33,6 @@
 #include <set>
 #include <vector>
 
-#include <boost/intrusive_ptr.hpp>
 #include <mdds/flat_segment_tree.hpp>
 
 namespace editeng { class SvxBorderLine; }
@@ -82,9 +79,6 @@ class SfxStyleSheetBase;
 class SvxBoxInfoItem;
 class SvxBoxItem;
 
-class ScAttrIterator;
-class ScAttrArray;
-struct ScAttrEntry;
 class ScDocument;
 class ScEditDataArray;
 class ScFormulaCell;
@@ -95,16 +89,11 @@ class SvtBroadcaster;
 class ScTypedStrData;
 class ScProgress;
 struct ScFunctionData;
-struct ScLineFlags;
-struct ScMergePatternState;
 class ScFlatBoolRowSegments;
 struct ScSetStringParam;
 struct ScColWidthParam;
-class ScColumnTextWidthIterator;
-struct ScFormulaCellGroup;
 struct ScRefCellValue;
 struct ScCellValue;
-class ScDocumentImport;
 class ScHint;
 enum class ScMF;
 struct ScFilterEntries;
@@ -276,7 +265,7 @@ public:
         SCROW nRow1, SCROW nRow2, const SvNumberFormatterMergeMap& rMap, ScColumn& rDestCol );
 
     void CopyCellToDocument( SCROW nSrcRow, SCROW nDestRow, ScColumn& rDestCol );
-    bool InitBlockPosition( sc::ColumnBlockPosition& rBlockPos );
+    void InitBlockPosition( sc::ColumnBlockPosition& rBlockPos );
     void InitBlockPosition( sc::ColumnBlockConstPosition& rBlockPos ) const;
 
     void DeleteBeforeCopyFromClip(
@@ -342,10 +331,12 @@ public:
      */
     ScFormulaCell* SetFormulaCell(
         SCROW nRow, ScFormulaCell* pCell,
-        sc::StartListeningType eListenType = sc::SingleCellListening );
+        sc::StartListeningType eListenType = sc::SingleCellListening,
+        bool bInheritNumFormatIfNeeded = true);
     void SetFormulaCell(
         sc::ColumnBlockPosition& rBlockPos, SCROW nRow, ScFormulaCell* pCell,
-        sc::StartListeningType eListenType = sc::SingleCellListening );
+        sc::StartListeningType eListenType = sc::SingleCellListening,
+        bool bInheritNumFormatIfNeeded = true);
 
     bool SetFormulaCells( SCROW nRow, std::vector<ScFormulaCell*>& rCells );
 
@@ -366,7 +357,7 @@ public:
     void SetValue( sc::ColumnBlockPosition& rBlockPos, SCROW nRow, double fVal, bool bBroadcast = true );
     void        SetError( SCROW nRow, const FormulaError nError);
 
-    void        GetString( SCROW nRow, OUString& rString ) const;
+    void        GetString( SCROW nRow, OUString& rString, const ScInterpreterContext* pContext = nullptr ) const;
     double* GetValueCell( SCROW nRow );
     void        GetInputString( SCROW nRow, OUString& rString ) const;
     double      GetValue( SCROW nRow ) const;
@@ -585,9 +576,8 @@ public:
     bool ResolveStaticReference( ScMatrix& rMat, SCCOL nMatCol, SCROW nRow1, SCROW nRow2 );
     void FillMatrix( ScMatrix& rMat, size_t nMatCol, SCROW nRow1, SCROW nRow2, svl::SharedStringPool* pPool ) const;
     formula::VectorRefArray FetchVectorRefArray( SCROW nRow1, SCROW nRow2 );
-    bool HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2 );
+    bool HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup );
     void SetFormulaResults( SCROW nRow, const double* pResults, size_t nLen );
-    void SetFormulaResults( SCROW nRow, const formula::FormulaConstTokenRef* pResults, size_t nLen );
 
     void CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal );
     void HandleStuffAfterParallelCalculation( SCROW nRow, size_t nLen );

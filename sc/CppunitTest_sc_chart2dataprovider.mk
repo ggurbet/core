@@ -62,7 +62,11 @@ $(eval $(call gb_CppunitTest_set_include,sc_chart2dataprovider,\
     $$(INCLUDE) \
 ))
 
-$(eval $(call gb_CppunitTest_use_sdk_api,sc_chart2dataprovider))
+$(eval $(call gb_CppunitTest_use_api,sc_chart2dataprovider,\
+	udkapi \
+	offapi \
+	oovbaapi \
+))
 
 $(eval $(call gb_CppunitTest_use_ure,sc_chart2dataprovider))
 $(eval $(call gb_CppunitTest_use_vcl,sc_chart2dataprovider))
@@ -108,15 +112,9 @@ $(eval $(call gb_CppunitTest_use_components,sc_chart2dataprovider,\
     xmlsecurity/util/xmlsecurity \
 ))
 
-ifeq ($(OS),WNT)
-$(eval $(call gb_CppunitTest_use_components,sc_chart2dataprovider,\
-    xmlsecurity/util/xsec_xmlsec.windows \
-))
-else
 $(eval $(call gb_CppunitTest_use_components,sc_chart2dataprovider,\
     xmlsecurity/util/xsec_xmlsec \
 ))
-endif
 
 $(eval $(call gb_CppunitTest_use_configuration,sc_chart2dataprovider))
 

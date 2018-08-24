@@ -81,18 +81,16 @@ struct ScDPOutLevelData
     uno::Sequence<sheet::MemberResult>  maResult;
     OUString                            maName;     /// Name is the internal field name.
     OUString                            maCaption;  /// Caption is the name visible in the output table.
-    double                              mfValue;    /// Value is the underlying numeric value, if any, or NaN
     bool                                mbHasHiddenMember:1;
     bool                                mbDataLayout:1;
     bool                                mbPageDim:1;
 
     ScDPOutLevelData(long nDim, long nHier, long nLevel, long nDimPos, sal_uInt32 nSrcNumFmt, const uno::Sequence<sheet::MemberResult>  &aResult,
-                       const OUString &aName, const OUString &aCaption, double fValue, bool bHasHiddenMember, bool bDataLayout, bool bPageDim) :
+                       const OUString &aName, const OUString &aCaption, bool bHasHiddenMember, bool bDataLayout, bool bPageDim) :
         mnDim(nDim), mnHier(nHier), mnLevel(nLevel), mnDimPos(nDimPos), mnSrcNumFmt(nSrcNumFmt), maResult(aResult),
-        maName(aName), maCaption(aCaption), mfValue(fValue), mbHasHiddenMember(bHasHiddenMember), mbDataLayout(bDataLayout),
+        maName(aName), maCaption(aCaption), mbHasHiddenMember(bHasHiddenMember), mbDataLayout(bDataLayout),
         mbPageDim(bPageDim)
     {
-        rtl::math::setNan(&mfValue);
     }
 
     // bug (73840) in uno::Sequence - copy and then assign doesn't work!
@@ -289,7 +287,7 @@ void lcl_SetStyleById(ScDocument* pDoc, SCTAB nTab,
         return;
     }
 
-    OUString aStyleName = ScGlobal::GetRscString(pStrId);
+    OUString aStyleName = ScResId(pStrId);
     ScStyleSheetPool* pStlPool = pDoc->GetStyleSheetPool();
     ScStyleSheet* pStyle = static_cast<ScStyleSheet*>( pStlPool->Find( aStyleName, SfxStyleFamily::Para ) );
     if (!pStyle)
@@ -298,7 +296,7 @@ void lcl_SetStyleById(ScDocument* pDoc, SCTAB nTab,
 
         pStyle = static_cast<ScStyleSheet*>( &pStlPool->Make( aStyleName, SfxStyleFamily::Para,
                                                     SfxStyleSearchBits::UserDefined ) );
-        pStyle->SetParent( ScGlobal::GetRscString(STR_STYLENAME_STANDARD) );
+        pStyle->SetParent( ScResId(STR_STYLENAME_STANDARD) );
         SfxItemSet& rSet = pStyle->GetItemSet();
         if (strcmp(pStrId, STR_PIVOT_STYLENAME_RESULT) == 0 || strcmp(pStrId, STR_PIVOT_STYLENAME_TITLE) == 0){
             rSet.Put( SvxWeightItem( WEIGHT_BOLD, ATTR_FONT_WEIGHT ) );
@@ -595,10 +593,6 @@ ScDPOutput::ScDPOutput( ScDocument* pD, const uno::Reference<sheet::XDimensionsS
                                 OUString aCaption = ScUnoHelpFunctions::GetStringProperty( xPropSet,
                                     SC_UNO_DP_LAYOUTNAME, aName );
 
-                                /* TODO: any numeric value to obtain? */
-                                double fValue;
-                                rtl::math::setNan(&fValue);
-
                                 switch ( eDimOrient )
                                 {
                                     case sheet::DataPilotFieldOrientation_COLUMN:
@@ -607,7 +601,7 @@ ScDPOutput::ScDPOutput( ScDocument* pD, const uno::Reference<sheet::XDimensionsS
                                         if (!lcl_MemberEmpty(aResult))
                                         {
                                             ScDPOutLevelData tmp(nDim, nHierarchy, nLev, nDimPos, nNumFmt, aResult, aName,
-                                                                   aCaption, fValue, bHasHiddenMember, bIsDataLayout, false);
+                                                                   aCaption, bHasHiddenMember, bIsDataLayout, false);
                                             pColFields.push_back(tmp);
                                         }
                                     }
@@ -618,7 +612,7 @@ ScDPOutput::ScDPOutput( ScDocument* pD, const uno::Reference<sheet::XDimensionsS
                                         if (!lcl_MemberEmpty(aResult))
                                         {
                                             ScDPOutLevelData tmp(nDim, nHierarchy, nLev, nDimPos, nNumFmt, aResult, aName,
-                                                                   aCaption, fValue, bHasHiddenMember, bIsDataLayout, false);
+                                                                   aCaption, bHasHiddenMember, bIsDataLayout, false);
                                             pRowFields.push_back(tmp);
                                         }
                                     }
@@ -628,7 +622,7 @@ ScDPOutput::ScDPOutput( ScDocument* pD, const uno::Reference<sheet::XDimensionsS
                                         uno::Sequence<sheet::MemberResult> aResult = getVisiblePageMembersAsResults(xLevel);
                                         // no check on results for page fields
                                         ScDPOutLevelData tmp(nDim, nHierarchy, nLev, nDimPos, nNumFmt, aResult, aName,
-                                                               aCaption, fValue, bHasHiddenMember, false, true);
+                                                               aCaption, bHasHiddenMember, false, true);
                                         pPageFields.push_back(tmp);
                                     }
                                     break;
@@ -843,7 +837,7 @@ void ScDPOutput::FieldCell(
 
 static void lcl_DoFilterButton( ScDocument* pDoc, SCCOL nCol, SCROW nRow, SCTAB nTab )
 {
-    pDoc->SetString( nCol, nRow, nTab, ScGlobal::GetRscString(STR_CELL_FILTER) );
+    pDoc->SetString( nCol, nRow, nTab, ScResId(STR_CELL_FILTER) );
     pDoc->ApplyFlagsTab(nCol, nRow, nCol, nRow, nTab, ScMF::Button);
 }
 
@@ -978,7 +972,7 @@ void ScDPOutput::Output()
         if (n == 1)
         {
             if (rRes[0].Caption.isEmpty())
-                aPageValue = ScGlobal::GetRscString(STR_EMPTYDATA);
+                aPageValue = ScResId(STR_EMPTYDATA);
             else
                 aPageValue = rRes[0].Caption;
         }
@@ -1530,7 +1524,7 @@ OUString lcl_GetDataFieldName( const OUString& rSourceName, sal_Int16 eFunc )
     if (!pStrId)
         return OUString();
 
-    OUStringBuffer aRet(ScGlobal::GetRscString(pStrId));
+    OUStringBuffer aRet(ScResId(pStrId));
     aRet.append(" - ");
     aRet.append(rSourceName);
     return aRet.makeStringAndClear();

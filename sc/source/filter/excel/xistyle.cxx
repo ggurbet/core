@@ -43,7 +43,9 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/flstitem.hxx>
 #include <editeng/justifyitem.hxx>
+#include <editeng/editids.hrc>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <vcl/fontcharmap.hxx>
 #include <document.hxx>
 #include <docpool.hxx>
@@ -52,6 +54,7 @@
 #include <stlsheet.hxx>
 #include <formulacell.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <attarray.hxx>
 #include <xltracer.hxx>
 #include <xistream.hxx>
@@ -699,7 +702,7 @@ void XclImpNumFmtBuffer::CreateScFormats()
         {
             OUString aFormat( rNumFmt.maFormat );
             rFormatter.PutandConvertEntry( aFormat, nCheckPos,
-                                           nType, nKey, LANGUAGE_ENGLISH_US, rNumFmt.meLanguage );
+                                           nType, nKey, LANGUAGE_ENGLISH_US, rNumFmt.meLanguage, false);
         }
         else
             nKey = rFormatter.GetFormatIndex( rNumFmt.meOffset, rNumFmt.meLanguage );
@@ -1351,7 +1354,7 @@ void XclImpXF::ApplyPatternToAttrVector(
             {
                 ScStyleSheet* pStyleSheet = static_cast<ScStyleSheet*>(
                     pStylePool->Find(
-                        ScGlobal::GetRscString(STR_STYLENAME_STANDARD), SfxStyleFamily::Para));
+                        ScResId(STR_STYLENAME_STANDARD), SfxStyleFamily::Para));
 
                 if (pStyleSheet)
                     rPat.SetStyleSheet(pStyleSheet, false);
@@ -1513,7 +1516,7 @@ ScStyleSheet* XclImpStyle::CreateStyleSheet()
             if( pXF ) pXF->SetAllUsedFlags( true );
             // use existing "Default" style sheet
             mpStyleSheet = static_cast< ScStyleSheet* >( GetStyleSheetPool().Find(
-                ScGlobal::GetRscString( STR_STYLENAME_STANDARD ), SfxStyleFamily::Para ) );
+                ScResId( STR_STYLENAME_STANDARD ), SfxStyleFamily::Para ) );
             OSL_ENSURE( mpStyleSheet, "XclImpStyle::CreateStyleSheet - Default style not found" );
             bCreatePattern = true;
         }
@@ -1614,7 +1617,7 @@ void XclImpXFBuffer::CreateUserStyles()
         BIFF4W import filter is never used to import from clipboard... */
     bool bReserveAll = (GetBiff() == EXC_BIFF4) && (GetCurrScTab() > 0);
     SfxStyleSheetIterator aStyleIter( GetDoc().GetStyleSheetPool(), SfxStyleFamily::Para );
-    OUString aStandardName = ScGlobal::GetRscString( STR_STYLENAME_STANDARD );
+    OUString aStandardName = ScResId( STR_STYLENAME_STANDARD );
     for( SfxStyleSheetBase* pStyleSheet = aStyleIter.First(); pStyleSheet; pStyleSheet = aStyleIter.Next() )
         if( (pStyleSheet->GetName() != aStandardName) && (bReserveAll || !pStyleSheet->IsUserDefined()) )
             if( aCellStyles.count( pStyleSheet->GetName() ) == 0 )
@@ -1674,8 +1677,6 @@ ScStyleSheet* XclImpXFBuffer::CreateStyleSheet( sal_uInt16 nXFIndex )
 }
 
 // Buffer for XF indexes in cells =============================================
-
-IMPL_FIXEDMEMPOOL_NEWDEL( XclImpXFRange )
 
 bool XclImpXFRange::Expand( SCROW nScRow, const XclImpXFIndex& rXFIndex )
 {

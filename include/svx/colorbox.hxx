@@ -12,10 +12,12 @@
 
 #include <memory>
 #include <vcl/menubtn.hxx>
+#include <vcl/weld.hxx>
 #include <svx/colorwindow.hxx>
 #include <sfx2/controlwrapper.hxx>
 
 class SvxColorListBox;
+class ColorListBox;
 
 class SvxListBoxColorWrapper
 {
@@ -76,6 +78,57 @@ public:
     bool IsValueChangedFromSaved() const { return m_aSaveColor != GetSelectEntryColor(); }
 
     DECL_LINK(WindowEventListener, VclWindowEvent&, void);
+};
+
+class ListBoxColorWrapper
+{
+public:
+    ListBoxColorWrapper(ColorListBox* pControl);
+    void operator()(const OUString& rCommand, const NamedColor& rColor);
+private:
+    ColorListBox* mpControl;
+};
+
+class SVX_DLLPUBLIC ColorListBox
+{
+private:
+    friend class ListBoxColorWrapper;
+    std::unique_ptr<ColorWindow> m_xColorWindow;
+    std::unique_ptr<weld::MenuButton> m_xButton;
+    weld::Window* m_pTopLevel;
+    Link<ColorListBox&, void> m_aSelectedLink;
+    ListBoxColorWrapper m_aColorWrapper;
+    Color m_aAutoDisplayColor;
+    Color m_aSaveColor;
+    NamedColor m_aSelectedColor;
+    bool m_bInterimBuilder;
+    std::shared_ptr<PaletteManager> m_xPaletteManager;
+    BorderColorStatus m_aBorderColorStatus;
+
+    void Selected(const NamedColor& rNamedColor);
+    void createColorWindow();
+    void LockWidthRequest();
+    ColorWindow* getColorWindow() const;
+public:
+    ColorListBox(std::unique_ptr<weld::MenuButton> pControl, weld::Window* pWindow, bool bInterimBuilder = false);
+    ~ColorListBox();
+
+    void SetSelectHdl(const Link<ColorListBox&, void>& rLink)
+    {
+        m_aSelectedLink = rLink;
+    }
+
+    Color const & GetSelectEntryColor() const { return m_aSelectedColor.first; }
+
+    void SelectEntry(const Color& rColor);
+
+    void SetNoSelection() { getColorWindow()->SetNoSelection(); }
+
+    void ShowPreview(const NamedColor &rColor);
+    void EnsurePaletteManager();
+
+    void SaveValue() { m_aSaveColor = GetSelectEntryColor(); }
+    bool IsValueChangedFromSaved() const { return m_aSaveColor != GetSelectEntryColor(); }
 };
 
 /** A wrapper for SvxColorListBox. */

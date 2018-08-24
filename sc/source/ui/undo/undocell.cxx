@@ -25,6 +25,12 @@
 #include <editeng/justifyitem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/sharedstringpool.hxx>
+#include <svx/dialmgr.hxx>
+#include <svx/e3dsceneupdater.hxx>
+#include <svx/svdocapt.hxx>
+#include <svx/svdogrp.hxx>
+#include <svx/svdviter.hxx>
+#include <svx/strings.hrc>
 #include <sfx2/app.hxx>
 
 #include <attrib.hxx>
@@ -34,6 +40,7 @@
 #include <docsh.hxx>
 #include <tabvwsh.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <global.hxx>
 #include <formulacell.hxx>
 #include <target.hxx>
@@ -97,7 +104,7 @@ ScUndoCursorAttr::~ScUndoCursorAttr()
 OUString ScUndoCursorAttr::GetComment() const
 {
     //! own text for automatic attribution
-    return ScGlobal::GetRscString( STR_UNDO_CURSORATTR ); // "Attribute"
+    return ScResId( STR_UNDO_CURSORATTR ); // "Attribute"
 }
 
 void ScUndoCursorAttr::SetEditData( std::unique_ptr<EditTextObject> pOld, std::unique_ptr<EditTextObject> pNew )
@@ -179,7 +186,7 @@ ScUndoEnterData::ScUndoEnterData(
 
 OUString ScUndoEnterData::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_ENTERDATA ); // "Input"
+    return ScResId( STR_UNDO_ENTERDATA ); // "Input"
 }
 
 void ScUndoEnterData::DoChange() const
@@ -316,7 +323,7 @@ ScUndoEnterValue::~ScUndoEnterValue()
 
 OUString ScUndoEnterValue::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_ENTERDATA ); // "Input"
+    return ScResId( STR_UNDO_ENTERDATA ); // "Input"
 }
 
 void ScUndoEnterValue::SetChangeTrack()
@@ -420,7 +427,7 @@ bool ScUndoSetCell::CanRepeat( SfxRepeatTarget& /*rTarget*/ ) const
 
 OUString ScUndoSetCell::GetComment() const
 {
-    return ScGlobal::GetRscString(STR_UNDO_ENTERDATA); // "Input"
+    return ScResId(STR_UNDO_ENTERDATA); // "Input"
 }
 
 void ScUndoSetCell::SetChangeTrack()
@@ -504,12 +511,12 @@ OUString ScUndoPageBreak::GetComment() const
     //"Column break" | "Row break"  "insert" | "delete"
     return bColumn ?
         ( bInsert ?
-            ScGlobal::GetRscString( STR_UNDO_INSCOLBREAK ) :
-            ScGlobal::GetRscString( STR_UNDO_DELCOLBREAK )
+            ScResId( STR_UNDO_INSCOLBREAK ) :
+            ScResId( STR_UNDO_DELCOLBREAK )
         ) :
         ( bInsert ?
-            ScGlobal::GetRscString( STR_UNDO_INSROWBREAK ) :
-            ScGlobal::GetRscString( STR_UNDO_DELROWBREAK )
+            ScResId( STR_UNDO_INSROWBREAK ) :
+            ScResId( STR_UNDO_DELROWBREAK )
         );
 }
 
@@ -580,7 +587,7 @@ ScUndoPrintZoom::~ScUndoPrintZoom()
 
 OUString ScUndoPrintZoom::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_PRINTSCALE );
+    return ScResId( STR_UNDO_PRINTSCALE );
 }
 
 void ScUndoPrintZoom::DoChange( bool bUndo )
@@ -650,7 +657,7 @@ ScUndoThesaurus::~ScUndoThesaurus() {}
 
 OUString ScUndoThesaurus::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_THESAURUS );    // "Thesaurus"
+    return ScResId( STR_UNDO_THESAURUS );    // "Thesaurus"
 }
 
 void ScUndoThesaurus::SetChangeTrack( const ScCellValue& rOldCell )
@@ -714,22 +721,183 @@ bool ScUndoThesaurus::CanRepeat(SfxRepeatTarget& rTarget) const
     return dynamic_cast<const ScTabViewTarget*>( &rTarget) !=  nullptr;
 }
 
+
+ScUndoSdrCaptionObj::ScUndoSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj)
+    : SdrUndoAction(pCaptionObj->getSdrModelFromSdrObject())
+    , m_pObjList(pCaptionObj->getParentSdrObjListFromSdrObject())
+    , m_nOrdNum(pCaptionObj->GetOrdNum())
+    , m_pCaptionObj(pCaptionObj)
+{
+}
+
+ScUndoSdrCaptionObj::~ScUndoSdrCaptionObj()
+{
+}
+
+void ScUndoSdrCaptionObj::BroadcastSwitchToPage()
+{
+    if (m_pCaptionObj && m_pCaptionObj->IsInserted() && m_pCaptionObj->getSdrPageFromSdrObject())
+    {
+        SdrHint aHint(SdrHintKind::SwitchToPage, *m_pCaptionObj, m_pCaptionObj->getSdrPageFromSdrObject());
+        rMod.Broadcast(aHint);
+    }
+}
+
+void ScUndoSdrCaptionObj::UnmarkObject()
+{
+    SdrViewIter aIter( m_pCaptionObj.get() );
+    for ( SdrView* pView = aIter.FirstView(); pView; pView = aIter.NextView() )
+    {
+        pView->MarkObj( m_pCaptionObj.get(), pView->GetSdrPageView(), true );
+    }
+}
+
+OUString ScUndoSdrCaptionObj::GetDescriptionString(const char* pStrCacheID, bool bRepeat ) const
+{
+    const OUString rStr {SvxResId(pStrCacheID)};
+
+    const sal_Int32 nPos = rStr.indexOf("%1");
+    if (nPos < 0)
+        return rStr;
+
+    if (bRepeat)
+        return rStr.replaceAt(nPos, 2, SvxResId(STR_ObjNameSingulPlural));
+
+    return rStr.replaceAt(nPos, 2, m_pCaptionObj->TakeObjNameSingul());
+}
+
+ScUndoDelSdrCaptionObj::ScUndoDelSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj)
+    : ScUndoSdrCaptionObj(pCaptionObj)
+{
+}
+
+ScUndoDelSdrCaptionObj::~ScUndoDelSdrCaptionObj()
+{
+
+}
+
+void ScUndoDelSdrCaptionObj::Undo()
+{
+    // Trigger PageChangeCall
+    BroadcastSwitchToPage();
+
+    if (!m_pCaptionObj->IsInserted())
+    {
+        Point aOwnerAnchorPos(0, 0);
+
+        if (dynamic_cast< const SdrObjGroup* >(m_pObjList->getSdrObjectFromSdrObjList()) != nullptr)
+        {
+            aOwnerAnchorPos = m_pObjList->getSdrObjectFromSdrObjList()->GetAnchorPos();
+        }
+
+        E3DModifySceneSnapRectUpdater aUpdater(m_pObjList->getSdrObjectFromSdrObjList());
+        m_pObjList->InsertObject(m_pCaptionObj.get(), m_nOrdNum);
+
+        if(aOwnerAnchorPos.X() || aOwnerAnchorPos.Y())
+        {
+            m_pCaptionObj->NbcSetAnchorPos(aOwnerAnchorPos);
+        }
+    }
+
+}
+
+void ScUndoDelSdrCaptionObj::Redo()
+{
+    if (m_pCaptionObj->IsInserted())
+    {
+        UnmarkObject();
+        E3DModifySceneSnapRectUpdater aUpdater(m_pCaptionObj.get());
+        m_pObjList->RemoveObject(m_nOrdNum);
+    }
+
+    // Trigger PageChangeCall
+    BroadcastSwitchToPage();
+}
+
+OUString ScUndoDelSdrCaptionObj::GetComment() const
+{
+    return GetDescriptionString(STR_EditDelete);
+}
+
+void ScUndoDelSdrCaptionObj::SdrRepeat(SdrView& rView)
+{
+    rView.DeleteMarked();
+}
+
+bool ScUndoDelSdrCaptionObj::CanSdrRepeat(SdrView& rView) const
+{
+    return rView.AreObjectsMarked();
+}
+
+OUString ScUndoDelSdrCaptionObj::GetSdrRepeatComment(SdrView& /*rView*/) const
+{
+    return GetDescriptionString(STR_EditDelete, true);
+}
+
+ScUndoNewSdrCaptionObj::ScUndoNewSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj)
+    : ScUndoSdrCaptionObj(pCaptionObj)
+{
+}
+
+ScUndoNewSdrCaptionObj::~ScUndoNewSdrCaptionObj()
+{
+}
+
+void ScUndoNewSdrCaptionObj::Undo()
+{
+    // Trigger PageChangeCall
+    BroadcastSwitchToPage();
+
+    if (m_pCaptionObj->IsInserted())
+    {
+        UnmarkObject();
+        m_pObjList->RemoveObject(m_nOrdNum);
+    }
+}
+
+void ScUndoNewSdrCaptionObj::Redo()
+{
+    if (!m_pCaptionObj->IsInserted())
+    {
+        Point aAnchorPos( 0, 0 );
+
+        if (dynamic_cast<const SdrObjGroup*>(m_pObjList->getSdrObjectFromSdrObjList()) != nullptr)
+        {
+            aAnchorPos = m_pCaptionObj->GetAnchorPos();
+        }
+
+        m_pObjList->InsertObject(m_pCaptionObj.get(), m_nOrdNum);
+
+        // Arcs lose position when grouped (#i45952#)
+        if ( aAnchorPos.X() || aAnchorPos.Y() )
+        {
+            m_pCaptionObj->NbcSetAnchorPos( aAnchorPos );
+        }
+    }
+
+    // Trigger PageChangeCall
+    BroadcastSwitchToPage();
+}
+
+OUString ScUndoNewSdrCaptionObj::GetComment() const
+{
+    return GetDescriptionString(STR_UndoInsertObj);
+}
+
 ScUndoReplaceNote::ScUndoReplaceNote( ScDocShell& rDocShell, const ScAddress& rPos,
         const ScNoteData& rNoteData, bool bInsert, SdrUndoAction* pDrawUndo ) :
     ScSimpleUndo( &rDocShell ),
     maPos( rPos ),
     mpDrawUndo( pDrawUndo )
 {
-    OSL_ENSURE( rNoteData.mxCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note caption" );
+    OSL_ENSURE( rNoteData.m_pCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note caption" );
     if (bInsert)
     {
         maNewData = rNoteData;
-        maNewData.mxCaption.setNotOwner();
     }
     else
     {
         maOldData = rNoteData;
-        maOldData.mxCaption.setNotOwner();
     }
 }
 
@@ -741,21 +909,19 @@ ScUndoReplaceNote::ScUndoReplaceNote( ScDocShell& rDocShell, const ScAddress& rP
     maNewData( rNewData ),
     mpDrawUndo( pDrawUndo )
 {
-    OSL_ENSURE( maOldData.mxCaption || maNewData.mxCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note captions" );
+    OSL_ENSURE( maOldData.m_pCaption || maNewData.m_pCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note captions" );
     OSL_ENSURE( !maOldData.mxInitData.get() && !maNewData.mxInitData.get(), "ScUndoReplaceNote::ScUndoReplaceNote - unexpected uninitialized note" );
-    maOldData.mxCaption.setNotOwner();
-    maNewData.mxCaption.setNotOwner();
 }
 
 ScUndoReplaceNote::~ScUndoReplaceNote()
 {
-    DeleteSdrUndoAction( mpDrawUndo );
+    mpDrawUndo.reset();
 }
 
 void ScUndoReplaceNote::Undo()
 {
     BeginUndo();
-    DoSdrUndoAction( mpDrawUndo, &pDocShell->GetDocument() );
+    DoSdrUndoAction( mpDrawUndo.get(), &pDocShell->GetDocument() );
     /*  Undo insert -> remove new note.
         Undo remove -> insert old note.
         Undo replace -> remove new note, insert old note. */
@@ -768,7 +934,7 @@ void ScUndoReplaceNote::Undo()
 void ScUndoReplaceNote::Redo()
 {
     BeginRedo();
-    RedoSdrUndoAction( mpDrawUndo );
+    RedoSdrUndoAction( mpDrawUndo.get() );
     /*  Redo insert -> insert new note.
         Redo remove -> remove old note.
         Redo replace -> remove old note, insert new note. */
@@ -789,13 +955,13 @@ bool ScUndoReplaceNote::CanRepeat( SfxRepeatTarget& /*rTarget*/ ) const
 
 OUString ScUndoReplaceNote::GetComment() const
 {
-    return ScGlobal::GetRscString( maNewData.mxCaption ?
-        (maOldData.mxCaption ? STR_UNDO_EDITNOTE : STR_UNDO_INSERTNOTE) : STR_UNDO_DELETENOTE );
+    return ScResId( maNewData.m_pCaption ?
+        (maOldData.m_pCaption ? STR_UNDO_EDITNOTE : STR_UNDO_INSERTNOTE) : STR_UNDO_DELETENOTE );
 }
 
 void ScUndoReplaceNote::DoInsertNote( const ScNoteData& rNoteData )
 {
-    if( rNoteData.mxCaption )
+    if( rNoteData.m_pCaption )
     {
         ScDocument& rDoc = pDocShell->GetDocument();
         OSL_ENSURE( !rDoc.GetNote(maPos), "ScUndoReplaceNote::DoInsertNote - unexpected cell note" );
@@ -807,7 +973,7 @@ void ScUndoReplaceNote::DoInsertNote( const ScNoteData& rNoteData )
 
 void ScUndoReplaceNote::DoRemoveNote( const ScNoteData& rNoteData )
 {
-    if( rNoteData.mxCaption )
+    if( rNoteData.m_pCaption )
     {
         ScDocument& rDoc = pDocShell->GetDocument();
         OSL_ENSURE( rDoc.GetNote(maPos), "ScUndoReplaceNote::DoRemoveNote - missing cell note" );
@@ -861,7 +1027,7 @@ bool ScUndoShowHideNote::CanRepeat( SfxRepeatTarget& /*rTarget*/ ) const
 
 OUString ScUndoShowHideNote::GetComment() const
 {
-    return ScGlobal::GetRscString( mbShown ? STR_UNDO_SHOWNOTE : STR_UNDO_HIDENOTE );
+    return ScResId( mbShown ? STR_UNDO_SHOWNOTE : STR_UNDO_HIDENOTE );
 }
 
 ScUndoDetective::ScUndoDetective( ScDocShell* pNewDocShell,
@@ -882,8 +1048,8 @@ ScUndoDetective::ScUndoDetective( ScDocShell* pNewDocShell,
 
 ScUndoDetective::~ScUndoDetective()
 {
-    DeleteSdrUndoAction( pDrawUndo );
-    delete pOldList;
+    pDrawUndo.reset();
+    pOldList.reset();
 }
 
 OUString ScUndoDetective::GetComment() const
@@ -899,7 +1065,7 @@ OUString ScUndoDetective::GetComment() const
             case SCDETOP_ADDERROR:  pId = STR_UNDO_DETADDERROR; break;
         }
 
-    return ScGlobal::GetRscString(pId);
+    return ScResId(pId);
 }
 
 void ScUndoDetective::Undo()
@@ -907,7 +1073,7 @@ void ScUndoDetective::Undo()
     BeginUndo();
 
     ScDocument& rDoc = pDocShell->GetDocument();
-    DoSdrUndoAction(pDrawUndo, &rDoc);
+    DoSdrUndoAction(pDrawUndo.get(), &rDoc);
 
     if (bIsDelete)
     {
@@ -943,7 +1109,7 @@ void ScUndoDetective::Redo()
 {
     BeginRedo();
 
-    RedoSdrUndoAction(pDrawUndo);
+    RedoSdrUndoAction(pDrawUndo.get());
 
     ScDocument& rDoc = pDocShell->GetDocument();
 
@@ -980,13 +1146,13 @@ ScUndoRangeNames::ScUndoRangeNames( ScDocShell* pNewDocShell,
 
 ScUndoRangeNames::~ScUndoRangeNames()
 {
-    delete pOldRanges;
-    delete pNewRanges;
+    pOldRanges.reset();
+    pNewRanges.reset();
 }
 
 OUString ScUndoRangeNames::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_RANGENAMES );
+    return ScResId( STR_UNDO_RANGENAMES );
 }
 
 void ScUndoRangeNames::DoChange( bool bUndo )

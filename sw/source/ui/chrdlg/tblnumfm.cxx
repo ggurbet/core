@@ -33,12 +33,11 @@ SwNumFormatDlg::SwNumFormatDlg(vcl::Window* pParent, const SfxItemSet& rSet)
 {
     // Create TabPage
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
     ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc( RID_SVXPAGE_NUMBERFORMAT );
 
     if ( fnCreatePage )
     {
-        VclPtr<SfxTabPage> pNewPage = (*fnCreatePage)( get_content_area(), &rSet );
+        VclPtr<SfxTabPage> pNewPage = (*fnCreatePage)( TabPageParent(get_content_area()), &rSet );
         SfxAllItemSet aSet(*(rSet.GetPool()));
         aSet.Put ( SvxNumberInfoItem( pNewPage->GetItemSet().Get( SID_ATTR_NUMBERFORMAT_INFO ) ));
         pNewPage->PageCreated(aSet);

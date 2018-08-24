@@ -28,6 +28,7 @@
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/uitest/uiobject.hxx>
+#include <sal/log.hxx>
 
 #include <svdata.hxx>
 #include <listbox.hxx>
@@ -89,14 +90,15 @@ struct ComboBox::Impl
 
 static void lcl_GetSelectedEntries( ::std::set< sal_Int32 >& rSelectedPos, const OUString& rText, sal_Unicode cTokenSep, const ImplEntryList* pEntryList )
 {
-    for (sal_Int32 n = comphelper::string::getTokenCount(rText, cTokenSep); n;)
-    {
-        OUString aToken = rText.getToken( --n, cTokenSep );
-        aToken = comphelper::string::strip(aToken, ' ');
-        sal_Int32 nPos = pEntryList->FindEntry( aToken );
+    if (rText.isEmpty())
+        return;
+
+    sal_Int32 nIdx{0};
+    do {
+        const sal_Int32 nPos = pEntryList->FindEntry(comphelper::string::strip(rText.getToken(0, cTokenSep, nIdx), ' '));
         if ( nPos != LISTBOX_ENTRY_NOTFOUND )
             rSelectedPos.insert( nPos );
-    }
+    } while (nIdx>=0);
 }
 
 ComboBox::ComboBox(vcl::Window *const pParent, WinBits const nStyle)
@@ -506,7 +508,10 @@ void ComboBox::EnableAutoSize( bool bAuto )
         }
     }
 }
-
+void ComboBox::EnableSelectAll()
+{
+    m_pImpl->m_pSubEdit->SetSelectAllSingleClick(true);
+}
 void ComboBox::EnableDDAutoWidth( bool b )
 {
     if (m_pImpl->m_pFloatWin)
@@ -916,6 +921,8 @@ void ComboBox::RemoveEntryAt(sal_Int32 const nPos)
 
 void ComboBox::Clear()
 {
+    if (!m_pImpl->m_pImplLB)
+        return;
     m_pImpl->m_pImplLB->Clear();
     CallEventListeners( VclEventId::ComboboxItemRemoved, reinterpret_cast<void*>(-1) );
 }
@@ -954,6 +961,8 @@ OUString ComboBox::GetEntry( sal_Int32 nPos ) const
 
 sal_Int32 ComboBox::GetEntryCount() const
 {
+    if (!m_pImpl->m_pImplLB)
+        return 0;
     return m_pImpl->m_pImplLB->GetEntryList()->GetEntryCount() - m_pImpl->m_pImplLB->GetEntryList()->GetMRUCount();
 }
 
@@ -986,7 +995,12 @@ void ComboBox::SetDoubleClickHdl(const Link<ComboBox&,void>& rLink) { m_pImpl->m
 
 const Link<ComboBox&,void>& ComboBox::GetDoubleClickHdl() const { return m_pImpl->m_DoubleClickHdl; }
 
-void ComboBox::SetEntryActivateHdl(const Link<Edit&,void>& rLink) { m_pImpl->m_pSubEdit->SetActivateHdl(rLink); }
+void ComboBox::SetEntryActivateHdl(const Link<Edit&,void>& rLink)
+{
+    if (!m_pImpl->m_pSubEdit)
+        return;
+    m_pImpl->m_pSubEdit->SetActivateHdl(rLink);
+}
 
 long ComboBox::CalcWindowSizePixel(sal_uInt16 nLines) const
 {

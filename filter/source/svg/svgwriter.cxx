@@ -23,6 +23,7 @@
 
 #include <comphelper/base64.hxx>
 #include <rtl/crc.h>
+#include <sal/log.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/settings.hxx>
@@ -948,143 +949,140 @@ bool SVGTextWriter::nextParagraph()
         if( xTextContent.is() )
         {
             Reference< XServiceInfo > xServiceInfo( xTextContent, UNO_QUERY_THROW );
-            if( xServiceInfo.is() )
+#if OSL_DEBUG_LEVEL > 0
+            OUString sInfo;
+#endif
+            if( xServiceInfo->supportsService( "com.sun.star.text.Paragraph" ) )
             {
-#if OSL_DEBUG_LEVEL > 0
-                OUString sInfo;
-#endif
-                if( xServiceInfo->supportsService( "com.sun.star.text.Paragraph" ) )
+                mrCurrentTextParagraph.set( xTextContent );
+                Reference< XPropertySet > xPropSet( xTextContent, UNO_QUERY_THROW );
+                Reference< XPropertySetInfo > xPropSetInfo = xPropSet->getPropertySetInfo();
+                if( xPropSetInfo->hasPropertyByName( "NumberingLevel" ) )
                 {
-                    mrCurrentTextParagraph.set( xTextContent );
-                    Reference< XPropertySet > xPropSet( xTextContent, UNO_QUERY_THROW );
-                    Reference< XPropertySetInfo > xPropSetInfo = xPropSet->getPropertySetInfo();
-                    if( xPropSetInfo->hasPropertyByName( "NumberingLevel" ) )
+                    sal_Int16 nListLevel = 0;
+                    if( xPropSet->getPropertyValue( "NumberingLevel" ) >>= nListLevel )
                     {
-                        sal_Int16 nListLevel = 0;
-                        if( xPropSet->getPropertyValue( "NumberingLevel" ) >>= nListLevel )
+                        mbIsNewListItem = true;
+#if OSL_DEBUG_LEVEL > 0
+                        sInfo = "NumberingLevel: " + OUString::number( nListLevel );
+                        mrExport.AddAttribute( XML_NAMESPACE_NONE, "style", sInfo );
+#endif
+                        Reference< XIndexReplace > xNumRules;
+                        if( xPropSetInfo->hasPropertyByName( "NumberingRules" ) )
                         {
-                            mbIsNewListItem = true;
-#if OSL_DEBUG_LEVEL > 0
-                            sInfo = "NumberingLevel: " + OUString::number( nListLevel );
-                            mrExport.AddAttribute( XML_NAMESPACE_NONE, "style", sInfo );
-#endif
-                            Reference< XIndexReplace > xNumRules;
-                            if( xPropSetInfo->hasPropertyByName( "NumberingRules" ) )
+                            xPropSet->getPropertyValue( "NumberingRules" ) >>= xNumRules;
+                        }
+                        if( xNumRules.is() && ( nListLevel < xNumRules->getCount() ) )
+                        {
+                            bool bIsNumbered = true;
+                            OUString sNumberingIsNumber("NumberingIsNumber");
+                            if( xPropSetInfo->hasPropertyByName( sNumberingIsNumber ) )
                             {
-                                xPropSet->getPropertyValue( "NumberingRules" ) >>= xNumRules;
-                            }
-                            if( xNumRules.is() && ( nListLevel < xNumRules->getCount() ) )
-                            {
-                                bool bIsNumbered = true;
-                                OUString sNumberingIsNumber("NumberingIsNumber");
-                                if( xPropSetInfo->hasPropertyByName( sNumberingIsNumber ) )
+                                if( !(xPropSet->getPropertyValue( sNumberingIsNumber ) >>= bIsNumbered ) )
                                 {
-                                    if( !(xPropSet->getPropertyValue( sNumberingIsNumber ) >>= bIsNumbered ) )
-                                    {
-                                        OSL_FAIL( "numbered paragraph without number info" );
-                                        bIsNumbered = false;
-                                    }
-#if OSL_DEBUG_LEVEL > 0
-                                    if( bIsNumbered )
-                                    {
-                                        sInfo = "true";
-                                        mrExport.AddAttribute( XML_NAMESPACE_NONE, "is-numbered", sInfo );
-                                    }
-#endif
+                                    OSL_FAIL( "numbered paragraph without number info" );
+                                    bIsNumbered = false;
                                 }
-                                mbIsNewListItem = bIsNumbered;
-
+#if OSL_DEBUG_LEVEL > 0
                                 if( bIsNumbered )
                                 {
-                                    Sequence<PropertyValue> aProps;
-                                    if( xNumRules->getByIndex( nListLevel ) >>= aProps )
-                                    {
-                                        sal_Int16 eType = NumberingType::CHAR_SPECIAL;
-                                        sal_Unicode cBullet = 0xf095;
-                                        const sal_Int32 nCount = aProps.getLength();
-                                        const PropertyValue* pPropArray = aProps.getConstArray();
-                                        for( sal_Int32 i = 0; i < nCount; ++i )
-                                        {
-                                            const PropertyValue& rProp = pPropArray[i];
-                                            if( rProp.Name == "NumberingType" )
-                                            {
-                                                rProp.Value >>= eType;
-                                            }
-                                            else if( rProp.Name == "BulletChar" )
-                                            {
-                                                OUString sValue;
-                                                rProp.Value >>= sValue;
-                                                if( !sValue.isEmpty() )
-                                                {
-                                                    cBullet = sValue[0];
-                                                }
-                                            }
-                                        }
-                                        meNumberingType = eType;
-                                        mbIsListLevelStyleImage = ( NumberingType::BITMAP == meNumberingType );
-                                        if( NumberingType::CHAR_SPECIAL == meNumberingType )
-                                        {
-                                            if( cBullet )
-                                            {
-                                                if( cBullet < ' ' )
-                                                {
-                                                    cBullet = 0xF000 + 149;
-                                                }
-                                                mcBulletChar = cBullet;
-#if OSL_DEBUG_LEVEL > 0
-                                                sInfo = OUString::number( static_cast<sal_Int32>(cBullet) );
-                                                mrExport.AddAttribute( XML_NAMESPACE_NONE, "bullet-char", sInfo );
+                                    sInfo = "true";
+                                    mrExport.AddAttribute( XML_NAMESPACE_NONE, "is-numbered", sInfo );
+                                }
 #endif
-                                            }
+                            }
+                            mbIsNewListItem = bIsNumbered;
 
+                            if( bIsNumbered )
+                            {
+                                Sequence<PropertyValue> aProps;
+                                if( xNumRules->getByIndex( nListLevel ) >>= aProps )
+                                {
+                                    sal_Int16 eType = NumberingType::CHAR_SPECIAL;
+                                    sal_Unicode cBullet = 0xf095;
+                                    const sal_Int32 nCount = aProps.getLength();
+                                    const PropertyValue* pPropArray = aProps.getConstArray();
+                                    for( sal_Int32 i = 0; i < nCount; ++i )
+                                    {
+                                        const PropertyValue& rProp = pPropArray[i];
+                                        if( rProp.Name == "NumberingType" )
+                                        {
+                                            rProp.Value >>= eType;
                                         }
+                                        else if( rProp.Name == "BulletChar" )
+                                        {
+                                            OUString sValue;
+                                            rProp.Value >>= sValue;
+                                            if( !sValue.isEmpty() )
+                                            {
+                                                cBullet = sValue[0];
+                                            }
+                                        }
+                                    }
+                                    meNumberingType = eType;
+                                    mbIsListLevelStyleImage = ( NumberingType::BITMAP == meNumberingType );
+                                    if( NumberingType::CHAR_SPECIAL == meNumberingType )
+                                    {
+                                        if( cBullet )
+                                        {
+                                            if( cBullet < ' ' )
+                                            {
+                                                cBullet = 0xF000 + 149;
+                                            }
+                                            mcBulletChar = cBullet;
+#if OSL_DEBUG_LEVEL > 0
+                                            sInfo = OUString::number( static_cast<sal_Int32>(cBullet) );
+                                            mrExport.AddAttribute( XML_NAMESPACE_NONE, "bullet-char", sInfo );
+#endif
+                                        }
+
                                     }
                                 }
                             }
-
                         }
-                    }
 
-                    Reference< XEnumerationAccess > xEnumerationAccess( xTextContent, UNO_QUERY_THROW );
-                    Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
-                    if( xEnumeration.is() && xEnumeration->hasMoreElements() )
-                    {
-                        mrTextPortionEnumeration.set( xEnumeration );
                     }
-#if OSL_DEBUG_LEVEL > 0
-                    sInfo = "Paragraph";
-#endif
                 }
-                else if( xServiceInfo->supportsService( "com.sun.star.text.Table" ) )
+
+                Reference< XEnumerationAccess > xEnumerationAccess( xTextContent, UNO_QUERY_THROW );
+                Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+                if( xEnumeration.is() && xEnumeration->hasMoreElements() )
                 {
-                    OSL_FAIL( "SVGTextWriter::nextParagraph: text tables are not handled." );
+                    mrTextPortionEnumeration.set( xEnumeration );
+                }
 #if OSL_DEBUG_LEVEL > 0
-                    sInfo = "Table";
+                sInfo = "Paragraph";
 #endif
-                }
-                else
-                {
-                    OSL_FAIL( "SVGTextWriter::nextParagraph: Unknown text content." );
-                    return false;
-                }
+            }
+            else if( xServiceInfo->supportsService( "com.sun.star.text.Table" ) )
+            {
+                OSL_FAIL( "SVGTextWriter::nextParagraph: text tables are not handled." );
 #if OSL_DEBUG_LEVEL > 0
-                mrExport.AddAttribute( XML_NAMESPACE_NONE, "class", sInfo );
-                SvXMLElementExport aParaElem( mrExport, XML_NAMESPACE_NONE, "desc", mbIWS, mbIWS );
+                sInfo = "Table";
 #endif
             }
             else
             {
-                OSL_FAIL( "SVGTextWriter::nextParagraph: no XServiceInfo interface available for text content." );
+                OSL_FAIL( "SVGTextWriter::nextParagraph: Unknown text content." );
                 return false;
             }
-
-            const OUString& rParagraphId = implGetValidIDFromInterface( Reference<XInterface>(xTextContent, UNO_QUERY) );
-            if( !rParagraphId.isEmpty() )
-            {
-                mrExport.AddAttribute( XML_NAMESPACE_NONE, "id", rParagraphId );
-            }
-            return true;
+#if OSL_DEBUG_LEVEL > 0
+            mrExport.AddAttribute( XML_NAMESPACE_NONE, "class", sInfo );
+            SvXMLElementExport aParaElem( mrExport, XML_NAMESPACE_NONE, "desc", mbIWS, mbIWS );
+#endif
         }
+        else
+        {
+            OSL_FAIL( "SVGTextWriter::nextParagraph: no XServiceInfo interface available for text content." );
+            return false;
+        }
+
+        const OUString& rParagraphId = implGetValidIDFromInterface( Reference<XInterface>(xTextContent, UNO_QUERY) );
+        if( !rParagraphId.isEmpty() )
+        {
+            mrExport.AddAttribute( XML_NAMESPACE_NONE, "id", rParagraphId );
+        }
+        return true;
     }
 
     return false;
@@ -1236,7 +1234,7 @@ void SVGTextWriter::startTextShape()
                 mrExport.AddAttribute( XML_NAMESPACE_NONE, aXMLAttrTransform, aTransform );
             }
 
-        mpTextShapeElem = new SvXMLElementExport( mrExport, XML_NAMESPACE_NONE, aXMLElemText, true, mbIWS );
+        mpTextShapeElem.reset(new SvXMLElementExport( mrExport, XML_NAMESPACE_NONE, aXMLElemText, true, mbIWS ));
         startTextParagraph();
     }
 }
@@ -1245,17 +1243,10 @@ void SVGTextWriter::startTextShape()
 void SVGTextWriter::endTextShape()
 {
     endTextParagraph();
-    if( mrTextShape.is() )
-        mrTextShape.clear();
-    if( mrParagraphEnumeration.is() )
-        mrParagraphEnumeration.clear();
-    if( mrCurrentTextParagraph.is() )
-        mrCurrentTextParagraph.clear();
-    if( mpTextShapeElem )
-    {
-        delete mpTextShapeElem;
-        mpTextShapeElem = nullptr;
-    }
+    mrTextShape.clear();
+    mrParagraphEnumeration.clear();
+    mrCurrentTextParagraph.clear();
+    mpTextShapeElem.reset();
     mbIsTextShapeStarted = false;
     // these need to be invoked after the <text> element has been closed
     implExportHyperlinkIds();
@@ -1293,7 +1284,7 @@ void SVGTextWriter::startTextParagraph()
     }
     maParentFont = vcl::Font();
     addFontAttributes( /* isTexTContainer: */ true );
-    mpTextParagraphElem = new SvXMLElementExport( mrExport, XML_NAMESPACE_NONE, aXMLElemTspan, mbIWS, mbIWS );
+    mpTextParagraphElem.reset(new SvXMLElementExport( mrExport, XML_NAMESPACE_NONE, aXMLElemTspan, mbIWS, mbIWS ));
 
     if( !mbIsListLevelStyleImage )
     {
@@ -1309,13 +1300,7 @@ void SVGTextWriter::endTextParagraph()
     mbIsNewListItem = false;
     mbIsListLevelStyleImage = false;
     mbPositioningNeeded = false;
-
-    if( mpTextParagraphElem )
-    {
-        delete mpTextParagraphElem;
-        mpTextParagraphElem = nullptr;
-    }
-
+    mpTextParagraphElem.reset();
 }
 
 
@@ -1329,17 +1314,13 @@ void SVGTextWriter::startTextPosition( bool bExportX, bool bExportY )
     if( bExportY )
         mrExport.AddAttribute( XML_NAMESPACE_NONE, aXMLAttrY, OUString::number( maTextPos.Y() ) );
 
-    mpTextPositionElem = new SvXMLElementExport( mrExport, XML_NAMESPACE_NONE, aXMLElemTspan, mbIWS, mbIWS );
+    mpTextPositionElem.reset( new SvXMLElementExport( mrExport, XML_NAMESPACE_NONE, aXMLElemTspan, mbIWS, mbIWS ) );
 }
 
 
 void SVGTextWriter::endTextPosition()
 {
-    if( mpTextPositionElem )
-    {
-        delete mpTextPositionElem;
-        mpTextPositionElem = nullptr;
-    }
+    mpTextPositionElem.reset();
 }
 
 
@@ -1447,7 +1428,6 @@ void SVGTextWriter::implWriteEmbeddedBitmaps()
 
         const GDIMetaFile& rMtf = *mpTextEmbeddedBitmapMtf;
 
-        OUString sId, sRefId;
         BitmapChecksum nId, nChecksum = 0;
         Point aPt;
         Size  aSz;
@@ -1483,11 +1463,7 @@ void SVGTextWriter::implWriteEmbeddedBitmaps()
             {
                 // embedded bitmap id
                 nId = SVGActionWriter::GetChecksum( pAction );
-                sId = "embedded-bitmap(";
-                sId += msShapeId;
-                sId += ".";
-                sId += OUString::number( nId );
-                sId += ")";
+                OUString sId = "embedded-bitmap(" + msShapeId + "." + OUString::number( nId ) + ")";
                 mrExport.AddAttribute( XML_NAMESPACE_NONE, "id", sId );
                 mrExport.AddAttribute( XML_NAMESPACE_NONE, "class", "EmbeddedBitmap" );
 
@@ -1496,9 +1472,7 @@ void SVGTextWriter::implWriteEmbeddedBitmaps()
                 // <use x="?" y="?" xlink:ref="?" >
                 {
                     // referenced bitmap template
-                    sRefId = "#bitmap(";
-                    sRefId += OUString::number( nChecksum );
-                    sRefId += ")";
+                    OUString sRefId = "#bitmap(" + OUString::number( nChecksum ) + ")";
 
                     Point aPoint;
                     Size  aSize;
@@ -1798,7 +1772,7 @@ tools::PolyPolygon& SVGActionWriter::ImplMap( const tools::PolyPolygon& rPolyPol
 
 OUString SVGActionWriter::GetPathString( const tools::PolyPolygon& rPolyPoly, bool bLine )
 {
-    OUString         aPathData;
+    OUStringBuffer   aPathData;
     const OUString   aBlank( " " );
     const OUString   aComma( "," );
     Point                      aPolyPoint;
@@ -1811,33 +1785,33 @@ OUString SVGActionWriter::GetPathString( const tools::PolyPolygon& rPolyPoly, bo
         if( nSize > 1 )
         {
             aPolyPoint = rPoly[ 0 ];
-            aPathData += "M "
-                        + OUString::number( aPolyPoint.X() )
-                        + aComma
-                        + OUString::number( aPolyPoint.Y() );
+            aPathData.append("M ")
+                     .append(OUString::number( aPolyPoint.X() ))
+                     .append(aComma)
+                     .append(OUString::number( aPolyPoint.Y() ));
 
             sal_Char nCurrentMode = 0;
             const bool bClose(!bLine || rPoly[0] == rPoly[nSize - 1]);
             while( n < nSize )
             {
-                aPathData += aBlank;
+                aPathData.append(aBlank);
 
                 if ( ( rPoly.GetFlags( n ) == PolyFlags::Control ) && ( ( n + 2 ) < nSize ) )
                 {
                     if ( nCurrentMode != 'C' )
                     {
                         nCurrentMode = 'C';
-                        aPathData += "C ";
+                        aPathData.append("C ");
                     }
                     for ( int j = 0; j < 3; j++ )
                     {
                         if ( j )
-                            aPathData += aBlank;
+                            aPathData.append(aBlank);
 
                         aPolyPoint = rPoly[ n++ ];
-                        aPathData += OUString::number( aPolyPoint.X() )
-                                    + aComma
-                                    + OUString::number( aPolyPoint.Y() );
+                        aPathData.append(OUString::number( aPolyPoint.X() ))
+                                 .append(aComma)
+                                 .append(OUString::number( aPolyPoint.Y() ));
                     }
                 }
                 else
@@ -1845,25 +1819,25 @@ OUString SVGActionWriter::GetPathString( const tools::PolyPolygon& rPolyPoly, bo
                     if ( nCurrentMode != 'L' )
                     {
                         nCurrentMode = 'L';
-                        aPathData += "L ";
+                        aPathData.append("L ");
                     }
 
                     aPolyPoint = rPoly[ n++ ];
-                    aPathData += OUString::number( aPolyPoint.X() )
-                                + aComma
-                                + OUString::number( aPolyPoint.Y() );
+                    aPathData.append(OUString::number( aPolyPoint.X() ))
+                             .append(aComma)
+                             .append(OUString::number( aPolyPoint.Y() ));
                 }
             }
 
             if(bClose)
-                aPathData += " Z";
+                aPathData.append(" Z");
 
             if( i < ( nCount - 1 ) )
-                aPathData += aBlank;
+                aPathData.append(aBlank);
         }
     }
 
-     return aPathData;
+     return aPathData.makeStringAndClear();
 }
 
 
@@ -2081,20 +2055,19 @@ void SVGActionWriter::ImplWriteShape( const SVGShapeDescriptor& rShape )
 
     if( rShape.maDashArray.size() )
     {
-        const OUString   aComma( "," );
-        OUString         aDashArrayStr;
+        OUStringBuffer   aDashArrayStr;
 
         for( size_t k = 0; k < rShape.maDashArray.size(); ++k )
         {
             const sal_Int32 nDash = ImplMap( FRound( rShape.maDashArray[ k ] ) );
 
             if( k )
-                aDashArrayStr += aComma;
+                aDashArrayStr.append(",");
 
-            aDashArrayStr += OUString::number( nDash );
+            aDashArrayStr.append(OUString::number( nDash ));
         }
 
-        mrExport.AddAttribute( XML_NAMESPACE_NONE, "stroke-dasharray", aDashArrayStr );
+        mrExport.AddAttribute( XML_NAMESPACE_NONE, "stroke-dasharray", aDashArrayStr.makeStringAndClear() );
     }
 
     ImplWritePolyPolygon( aPolyPoly, bLineOnly, false );
@@ -3066,7 +3039,7 @@ void SVGActionWriter::ImplWriteActions( const GDIMetaFile& rMtf,
                         {
                             bFound = true;
                             const MetaBmpScaleAction* pBmpScaleAction = static_cast<const MetaBmpScaleAction*>(pSubstAct);
-                            ImplWriteBmp( pBmpScaleAction->GetBitmap(),
+                            ImplWriteBmp( BitmapEx(pBmpScaleAction->GetBitmap()),
                                           pA->GetPoint(), pA->GetSize(),
                                           Point(), pBmpScaleAction->GetBitmap().GetSizePixel() );
                         }
@@ -3448,7 +3421,7 @@ void SVGActionWriter::ImplWriteActions( const GDIMetaFile& rMtf,
                 {
                     const MetaBmpAction* pA = static_cast<const MetaBmpAction*>(pAction);
 
-                    ImplWriteBmp( pA->GetBitmap(),
+                    ImplWriteBmp( BitmapEx(pA->GetBitmap()),
                                   pA->GetPoint(), mpVDev->PixelToLogic( pA->GetBitmap().GetSizePixel() ),
                                   Point(), pA->GetBitmap().GetSizePixel() );
                 }
@@ -3468,7 +3441,7 @@ void SVGActionWriter::ImplWriteActions( const GDIMetaFile& rMtf,
                     }
                     else
                     {
-                        ImplWriteBmp( pA->GetBitmap(),
+                        ImplWriteBmp( BitmapEx(pA->GetBitmap()),
                                       pA->GetPoint(), pA->GetSize(),
                                       Point(), pA->GetBitmap().GetSizePixel() );
                     }
@@ -3482,7 +3455,7 @@ void SVGActionWriter::ImplWriteActions( const GDIMetaFile& rMtf,
                 {
                     const MetaBmpScalePartAction* pA = static_cast<const MetaBmpScalePartAction*>(pAction);
 
-                    ImplWriteBmp( pA->GetBitmap(),
+                    ImplWriteBmp( BitmapEx(pA->GetBitmap()),
                                   pA->GetDestPoint(), pA->GetDestSize(),
                                   pA->GetSrcPoint(), pA->GetSrcSize() );
                 }

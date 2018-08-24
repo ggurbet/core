@@ -146,42 +146,48 @@ class SvxTransparenceTabPage : public SvxTabPage
     PageType               nPageType;
     sal_uInt16             nDlgType;
 
-    // main selection
-    VclPtr<RadioButton>        m_pRbtTransOff;
-    VclPtr<RadioButton>        m_pRbtTransLinear;
-    VclPtr<RadioButton>        m_pRbtTransGradient;
-
-    /// linear transparency
-    VclPtr<MetricField>        m_pMtrTransparent;
-
-    // gradient transparency
-    VclPtr<VclGrid>            m_pGridGradient;
-    VclPtr<ListBox>            m_pLbTrgrGradientType;
-    VclPtr<FixedText>          m_pFtTrgrCenterX;
-    VclPtr<MetricField>        m_pMtrTrgrCenterX;
-    VclPtr<FixedText>          m_pFtTrgrCenterY;
-    VclPtr<MetricField>        m_pMtrTrgrCenterY;
-    VclPtr<FixedText>          m_pFtTrgrAngle;
-    VclPtr<MetricField>        m_pMtrTrgrAngle;
-    VclPtr<MetricField>        m_pMtrTrgrBorder;
-    VclPtr<MetricField>        m_pMtrTrgrStartValue;
-    VclPtr<MetricField>        m_pMtrTrgrEndValue;
-
-    // preview
-    VclPtr<SvxXRectPreview>    m_pCtlBitmapPreview;
-    VclPtr<SvxXRectPreview>    m_pCtlXRectPreview;
     bool                bBitmap;
 
     XFillAttrSetItem    aXFillAttr;
     SfxItemSet&         rXFSet;
 
-    DECL_LINK(ClickTransOffHdl_Impl, Button*, void );
-    DECL_LINK(ClickTransLinearHdl_Impl, Button*, void );
-    DECL_LINK(ClickTransGradientHdl_Impl, Button*, void );
-    DECL_LINK(ModifyTransparentHdl_Impl, Edit&, void);
-    DECL_LINK(ModifiedTrgrEditHdl_Impl, Edit&, void);
-    DECL_LINK(ModifiedTrgrListBoxHdl_Impl, ListBox&, void);
-    void ModifiedTrgrHdl_Impl(void const *);
+    XRectPreview     m_aCtlBitmapPreview;
+    XRectPreview     m_aCtlXRectPreview;
+
+    // main selection
+    std::unique_ptr<weld::RadioButton> m_xRbtTransOff;
+    std::unique_ptr<weld::RadioButton> m_xRbtTransLinear;
+    std::unique_ptr<weld::RadioButton> m_xRbtTransGradient;
+
+    /// linear transparency
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTransparent;
+
+    // gradient transparency
+    std::unique_ptr<weld::Widget> m_xGridGradient;
+    std::unique_ptr<weld::ComboBoxText> m_xLbTrgrGradientType;
+    std::unique_ptr<weld::Label> m_xFtTrgrCenterX;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTrgrCenterX;
+    std::unique_ptr<weld::Label> m_xFtTrgrCenterY;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTrgrCenterY;
+    std::unique_ptr<weld::Label> m_xFtTrgrAngle;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTrgrAngle;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTrgrBorder;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTrgrStartValue;
+    std::unique_ptr<weld::MetricSpinButton> m_xMtrTrgrEndValue;
+    std::unique_ptr<weld::Widget> m_xCtlBitmapBorder;
+    std::unique_ptr<weld::Widget> m_xCtlXRectBorder;
+
+    // preview
+    std::unique_ptr<weld::CustomWeld> m_xCtlBitmapPreview;
+    std::unique_ptr<weld::CustomWeld> m_xCtlXRectPreview;
+
+    DECL_LINK(ClickTransOffHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(ClickTransLinearHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(ClickTransGradientHdl_Impl, weld::ToggleButton&, void );
+    DECL_LINK(ModifyTransparentHdl_Impl, weld::MetricSpinButton&, void);
+    DECL_LINK(ModifiedTrgrEditHdl_Impl, weld::MetricSpinButton&, void);
+    DECL_LINK(ModifiedTrgrListBoxHdl_Impl, weld::ComboBoxText&, void);
+    void ModifiedTrgrHdl_Impl(const weld::ComboBoxText*);
 
     void ActivateLinear(bool bActivate);
     void ActivateGradient(bool bActivate);
@@ -191,11 +197,10 @@ class SvxTransparenceTabPage : public SvxTabPage
     void InvalidatePreview (bool bEnable = true );
 
 public:
-    SvxTransparenceTabPage(vcl::Window* pParent, const SfxItemSet& rInAttrs);
+    SvxTransparenceTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
     virtual ~SvxTransparenceTabPage() override;
-    virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(vcl::Window*, const SfxItemSet*);
+    static VclPtr<SfxTabPage> Create(TabPageParent, const SfxItemSet*);
     static const sal_uInt16* GetRanges() { return pTransparenceRanges; }
 
     virtual bool FillItemSet(SfxItemSet*) override;
@@ -204,6 +209,7 @@ public:
     virtual void ActivatePage(const SfxItemSet& rSet) override;
     virtual DeactivateRC DeactivatePage(SfxItemSet* pSet) override;
     virtual void PointChanged(vcl::Window* pWindow, RectPoint eRP) override;
+    virtual void PointChanged(weld::DrawingArea* pWindow, RectPoint eRP) override;
 
     void SetPageType(PageType nInType) { nPageType = nInType; }
     void SetDlgType(sal_uInt16 nInType) { nDlgType = nInType; }
@@ -263,7 +269,7 @@ public:
     virtual ~SvxAreaTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pAreaRanges; }
 
     virtual bool FillItemSet( SfxItemSet* ) override;
@@ -271,6 +277,7 @@ public:
     virtual void ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
     virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     void    SetColorList( XColorListRef const & pColorList ) { m_pColorList = pColorList; }
     void    SetGradientList( XGradientListRef const & pGrdLst)
@@ -324,7 +331,7 @@ public:
     virtual ~SvxShadowTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     static const sal_uInt16* GetRanges() { return pShadowRanges; }
 
     virtual bool FillItemSet( SfxItemSet* ) override;
@@ -332,6 +339,7 @@ public:
     virtual void ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
     virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     void    SetColorList( XColorListRef const & pColorList ) { m_pColorList = pColorList; }
     void    SetPageType( PageType nInType ) { m_nPageType = nInType; }
@@ -375,7 +383,6 @@ private:
     ChangeType*         m_pnGradientListState;
     ChangeType*         m_pnColorListState;
 
-    XFillGradientItem   m_aXGradientItem;
     XFillAttrSetItem    m_aXFillAttr;
     SfxItemSet&         m_rXFSet;
 
@@ -402,7 +409,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -444,7 +451,6 @@ private:
     ChangeType*         m_pnHatchingListState;
     ChangeType*         m_pnColorListState;
 
-    XFillHatchItem      m_aXHatchItem;
     XFillAttrSetItem    m_aXFillAttr;
     SfxItemSet&         m_rXFSet;
 
@@ -473,7 +479,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -481,6 +487,7 @@ public:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
     virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     void    SetColorList( XColorListRef const & pColorList ) { m_pColorList = pColorList; }
     void    SetHatchingList( XHatchListRef const & pHtchLst)
@@ -522,7 +529,6 @@ private:
 
     XBitmapListRef             m_pBitmapList;
     ChangeType*                m_pnBitmapListState;
-    XFillBitmapItem            m_aXBitmapItem;
 
     double                     m_fObjectWidth;
     double                     m_fObjectHeight;
@@ -557,13 +563,14 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
 
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
     virtual void ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
     virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged( weld::DrawingArea*, RectPoint eRP ) override;
 
     void    SetBitmapList( const XBitmapListRef& pBmpLst) { m_pBitmapList = pBmpLst; }
     void    SetBmpChgd( ChangeType* pIn ) { m_pnBitmapListState = pIn; }
@@ -585,7 +592,7 @@ private:
     VclPtr<PushButton>         m_pBtnAdd;
     VclPtr<PushButton>         m_pBtnModify;
 
-    SvxBitmapCtl*       m_pBitmapCtl;
+    std::unique_ptr<SvxBitmapCtl> m_pBitmapCtl;
 
     const SfxItemSet&   m_rOutAttrs;
 
@@ -595,7 +602,6 @@ private:
     ChangeType*         m_pnPatternListState;
     ChangeType*         m_pnColorListState;
 
-    XFillBitmapItem     m_aXPatternItem;
     XFillAttrSetItem    m_aXFillAttr;
     SfxItemSet&         m_rXFSet;
 
@@ -615,7 +621,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 
@@ -623,6 +629,7 @@ public:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
     virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged( weld::DrawingArea*, RectPoint eRP ) override;
 
     void    SetColorList( XColorListRef const & pColorList ) { m_pColorList = pColorList; }
     void    SetPatternList( XPatternListRef const & pPatternList) { m_pPatternList = pPatternList; }
@@ -647,50 +654,12 @@ class SvxColorTabPage : public SfxTabPage
 private:
     VclPtr<Window>             mpTopDlg;
 
-    PaletteManager             maPaletteManager;
-    VclPtr<ListBox>            m_pSelectPalette;
-    VclPtr<SvxColorValueSet>   m_pValSetColorList;
-    VclPtr<SvxColorValueSet>   m_pValSetRecentList;
-
-    VclPtr<SvxXRectPreview>    m_pCtlPreviewOld;
-    VclPtr<SvxXRectPreview>    m_pCtlPreviewNew;
-
-    VclPtr<RadioButton>        m_pRbRGB;
-    VclPtr<RadioButton>        m_pRbCMYK;
-
-    VclPtr<VclContainer>       m_pRGBcustom;
-    VclPtr<VclContainer>       m_pRGBpreset;
-    VclPtr<NumericField>       m_pRcustom;
-    VclPtr<NumericField>       m_pRpreset;
-    VclPtr<NumericField>       m_pGcustom;
-    VclPtr<NumericField>       m_pGpreset;
-    VclPtr<NumericField>       m_pBcustom;
-    VclPtr<NumericField>       m_pBpreset;
-    VclPtr<HexColorControl>    m_pHexpreset;
-    VclPtr<HexColorControl>    m_pHexcustom;
-
-    VclPtr<VclContainer>       m_pCMYKcustom;
-    VclPtr<VclContainer>       m_pCMYKpreset;
-    VclPtr<MetricField>        m_pCcustom;
-    VclPtr<MetricField>        m_pCpreset;
-    VclPtr<MetricField>        m_pYcustom;
-    VclPtr<MetricField>        m_pYpreset;
-    VclPtr<MetricField>        m_pMcustom;
-    VclPtr<MetricField>        m_pMpreset;
-    VclPtr<MetricField>        m_pKcustom;
-    VclPtr<MetricField>        m_pKpreset;
-
-    VclPtr<PushButton>         m_pBtnAdd;
-    VclPtr<PushButton>         m_pBtnDelete;
-    VclPtr<PushButton>         m_pBtnWorkOn;
-
     const SfxItemSet&   rOutAttrs;
 
     XColorListRef         pColorList;
 
     ChangeType*         pnColorListState;
 
-    XFillColorItem      aXFillColorItem;
     XFillAttrSetItem    aXFillAttr;
     SfxItemSet&         rXFSet;
 
@@ -698,6 +667,44 @@ private:
 
     Color               aPreviousColor;
     Color               aCurrentColor;
+
+    css::uno::Reference< css::uno::XComponentContext > m_context;
+
+    PaletteManager maPaletteManager;
+    XRectPreview m_aCtlPreviewOld;
+    XRectPreview m_aCtlPreviewNew;
+    std::unique_ptr<ColorValueSet> m_xValSetColorList;
+    std::unique_ptr<ColorValueSet> m_xValSetRecentList;
+    std::unique_ptr<weld::ComboBoxText> m_xSelectPalette;
+    std::unique_ptr<weld::RadioButton> m_xRbRGB;
+    std::unique_ptr<weld::RadioButton> m_xRbCMYK;
+    std::unique_ptr<weld::Widget> m_xRGBcustom;
+    std::unique_ptr<weld::Widget> m_xRGBpreset;
+    std::unique_ptr<weld::Entry> m_xRpreset;
+    std::unique_ptr<weld::Entry> m_xGpreset;
+    std::unique_ptr<weld::Entry> m_xBpreset;
+    std::unique_ptr<weld::SpinButton> m_xRcustom;
+    std::unique_ptr<weld::SpinButton> m_xGcustom;
+    std::unique_ptr<weld::SpinButton> m_xBcustom;
+    std::unique_ptr<weld::HexColorControl> m_xHexpreset;
+    std::unique_ptr<weld::HexColorControl> m_xHexcustom;
+    std::unique_ptr<weld::Widget> m_xCMYKcustom;
+    std::unique_ptr<weld::Widget> m_xCMYKpreset;
+    std::unique_ptr<weld::Entry> m_xCpreset;
+    std::unique_ptr<weld::Entry> m_xYpreset;
+    std::unique_ptr<weld::Entry> m_xMpreset;
+    std::unique_ptr<weld::Entry> m_xKpreset;
+    std::unique_ptr<weld::MetricSpinButton> m_xCcustom;
+    std::unique_ptr<weld::MetricSpinButton> m_xYcustom;
+    std::unique_ptr<weld::MetricSpinButton> m_xMcustom;
+    std::unique_ptr<weld::MetricSpinButton> m_xKcustom;
+    std::unique_ptr<weld::Button> m_xBtnAdd;
+    std::unique_ptr<weld::Button> m_xBtnDelete;
+    std::unique_ptr<weld::Button> m_xBtnWorkOn;
+    std::unique_ptr<weld::CustomWeld> m_xCtlPreviewOld;
+    std::unique_ptr<weld::CustomWeld> m_xCtlPreviewNew;
+    std::unique_ptr<weld::CustomWeld> m_xValSetColorListWin;
+    std::unique_ptr<weld::CustomWeld> m_xValSetRecentListWin;
 
     static void    ConvertColorValues (Color& rColor, ColorModel eModell);
     static void    RgbToCmyk_Impl( Color& rColor, sal_uInt16& rK );
@@ -708,33 +715,34 @@ private:
     void ImpColorCountChanged();
     void FillPaletteLB();
 
-    DECL_LINK( ClickAddHdl_Impl, Button*, void );
-    DECL_LINK( ClickWorkOnHdl_Impl, Button*, void );
-    DECL_LINK( ClickDeleteHdl_Impl, Button*, void );
+    DECL_LINK(ClickAddHdl_Impl, weld::Button&, void);
+    DECL_LINK(ClickWorkOnHdl_Impl, weld::Button&, void);
+    DECL_LINK(ClickDeleteHdl_Impl, weld::Button&, void);
 
-    DECL_LINK( SelectPaletteLBHdl, ListBox&, void );
-    DECL_LINK( SelectValSetHdl_Impl, ValueSet*, void );
-    DECL_LINK( SelectColorModeHdl_Impl, RadioButton&, void );
+    DECL_LINK(SelectPaletteLBHdl, weld::ComboBoxText&, void);
+    DECL_LINK( SelectValSetHdl_Impl, SvtValueSet*, void );
+    DECL_LINK( SelectColorModeHdl_Impl, weld::ToggleButton&, void );
     void ChangeColor(const Color &rNewColor, bool bUpdatePreset = true);
     void SetColorModel(ColorModel eModel);
     void ChangeColorModel();
     void UpdateColorValues( bool bUpdatePreset = true );
-    DECL_LINK( ModifiedHdl_Impl, Edit&, void );
+    DECL_LINK(SpinValueHdl_Impl, weld::SpinButton&, void);
+    DECL_LINK(MetricSpinValueHdl_Impl, weld::MetricSpinButton&, void);
+    DECL_LINK(ModifiedHdl_Impl, weld::Entry&, void);
 
     void UpdateModified();
-    css::uno::Reference< css::uno::XComponentContext > m_context;
 
     static sal_Int32 FindInCustomColors( OUString const & aColorName );
     sal_Int32 FindInPalette( const Color& rColor );
 
 public:
-    SvxColorTabPage( vcl::Window* pParent, const SfxItemSet& rInAttrs );
+    SvxColorTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
     virtual ~SvxColorTabPage() override;
     virtual void dispose() override;
 
     void    Construct();
 
-    static VclPtr<SfxTabPage> Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage> Create( TabPageParent, const SfxItemSet* );
     virtual bool FillItemSet( SfxItemSet* ) override;
     virtual void Reset( const SfxItemSet * ) override;
 

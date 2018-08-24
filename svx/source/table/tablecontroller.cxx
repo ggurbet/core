@@ -30,6 +30,7 @@
 #include <com/sun/star/table/XMergeableCell.hpp>
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -60,7 +61,7 @@
 #include <editeng/colritem.hxx>
 #include <editeng/lineitem.hxx>
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/svdpage.hxx>
 #include "tableundo.hxx"
 #include "tablelayouter.hxx"
@@ -172,6 +173,7 @@ SvxTableController::SvxTableController(
     SdrView& rView,
     const SdrTableObj& rObj)
 :   mbCellSelectionMode(false)
+    ,mbHasJustMerged(false)
     ,mbLeftButtonDown(false)
     ,mpSelectionOverlay(nullptr)
     ,mrView(rView)
@@ -565,7 +567,7 @@ void SvxTableController::onInsert( sal_uInt16 nSId, const SfxItemSet* pArgs )
 
         if( bUndo )
         {
-            rModel.BegUndo( ImpGetResStr(STR_TABLE_INSCOL) );
+            rModel.BegUndo( SvxResId(STR_TABLE_INSCOL) );
             rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoGeoObject(rTableObj));
         }
 
@@ -674,7 +676,7 @@ void SvxTableController::onInsert( sal_uInt16 nSId, const SfxItemSet* pArgs )
 
         if( bUndo )
         {
-            rModel.BegUndo( ImpGetResStr(STR_TABLE_INSROW ) );
+            rModel.BegUndo( SvxResId(STR_TABLE_INSROW ) );
             rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoGeoObject(rTableObj));
         }
 
@@ -910,13 +912,13 @@ void SvxTableController::onFormatTable( SfxRequest const & rReq )
         aNewAttr.Put( aBoxInfoItem );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractTabDialog> xDlg( pFact ? pFact->CreateSvxFormatCellsDialog(
+        ScopedVclPtr<SfxAbstractTabDialog> xDlg( pFact->CreateSvxFormatCellsDialog(
             &aNewAttr,
             rModel,
-            &rTableObj) : nullptr );
+            &rTableObj) );
 
         // Even Cancel Button is returning positive(101) value,
-        if (xDlg.get() && xDlg->Execute() == RET_OK)
+        if (xDlg->Execute() == RET_OK)
         {
             SfxItemSet aNewSet(*(xDlg->GetOutputItemSet()));
 
@@ -1059,7 +1061,7 @@ void SvxTableController::SetTableStyle( const SfxItemSet* pArgs )
 
             if( bUndo )
             {
-                rModel.BegUndo(ImpGetResStr(STR_TABLE_STYLE));
+                rModel.BegUndo(SvxResId(STR_TABLE_STYLE));
                 rModel.AddUndo(new TableStyleUndo(rTableObj));
             }
 
@@ -1153,7 +1155,7 @@ void SvxTableController::SetTableStyleSettings( const SfxItemSet* pArgs )
 
     if( bUndo )
     {
-        rModel.BegUndo( ImpGetResStr(STR_TABLE_STYLE_SETTINGS) );
+        rModel.BegUndo( SvxResId(STR_TABLE_STYLE_SETTINGS) );
         rModel.AddUndo(new TableStyleUndo(rTableObj));
     }
 
@@ -1176,7 +1178,7 @@ void SvxTableController::SetVertical( sal_uInt16 nSId )
 
     if (bUndo)
     {
-        rModel.BegUndo(ImpGetResStr(STR_TABLE_NUMFORMAT));
+        rModel.BegUndo(SvxResId(STR_TABLE_NUMFORMAT));
         rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoAttrObject(rTableObj));
     }
 
@@ -1243,9 +1245,9 @@ void SvxTableController::SplitMarkedCells()
         return;
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr< SvxAbstractSplitTableDialog > xDlg( pFact ? pFact->CreateSvxSplitTableDialog( nullptr, false, 99 ) : nullptr );
+    ScopedVclPtr< SvxAbstractSplitTableDialog > xDlg( pFact->CreateSvxSplitTableDialog( nullptr, false, 99 ) );
 
-    if( xDlg.get() && xDlg->Execute() )
+    if( xDlg->Execute() )
     {
         const sal_Int32 nCount = xDlg->GetCount() - 1;
 
@@ -1268,7 +1270,7 @@ void SvxTableController::SplitMarkedCells()
 
         if( bUndo )
         {
-            rModel.BegUndo( ImpGetResStr(STR_TABLE_SPLIT) );
+            rModel.BegUndo( SvxResId(STR_TABLE_SPLIT) );
             rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoGeoObject(rTableObj));
         }
 
@@ -1302,7 +1304,7 @@ void SvxTableController::DistributeColumns()
 
     if( bUndo )
     {
-        rModel.BegUndo( ImpGetResStr(STR_TABLE_DISTRIBUTE_COLUMNS) );
+        rModel.BegUndo( SvxResId(STR_TABLE_DISTRIBUTE_COLUMNS) );
         rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoGeoObject(rTableObj));
     }
 
@@ -1325,7 +1327,7 @@ void SvxTableController::DistributeRows()
 
     if( bUndo )
     {
-        rModel.BegUndo( ImpGetResStr(STR_TABLE_DISTRIBUTE_ROWS) );
+        rModel.BegUndo( SvxResId(STR_TABLE_DISTRIBUTE_ROWS) );
         rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoGeoObject(rTableObj));
     }
 
@@ -1352,7 +1354,7 @@ bool SvxTableController::DeleteMarked()
     const bool bUndo(rModel.IsUndoEnabled());
 
     if (bUndo)
-        rModel.BegUndo(ImpGetResStr(STR_TABLE_DELETE_CELL_CONTENTS));
+        rModel.BegUndo(SvxResId(STR_TABLE_DELETE_CELL_CONTENTS));
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
@@ -1815,11 +1817,14 @@ void SvxTableController::MergeRange( sal_Int32 nFirstCol, sal_Int32 nFirstRow, s
 
             if( bUndo )
             {
-                rModel.BegUndo( ImpGetResStr(STR_TABLE_MERGE) );
+                rModel.BegUndo( SvxResId(STR_TABLE_MERGE) );
                 rModel.AddUndo(rModel.GetSdrUndoFactory().CreateUndoGeoObject(rTableObj));
             }
 
             xRange->merge();
+            mxTable->optimize();
+            mbHasJustMerged = true;
+            setSelectedCells( maCursorFirstPos, maCursorFirstPos );
 
             if( bUndo )
                 rModel.EndUndo();
@@ -1854,7 +1859,7 @@ void SvxTableController::findMergeOrigin( CellPos& rPos )
     if( mxTable.is() ) try
     {
         Reference< XMergeableCell > xCell( mxTable->getCellByPosition( rPos.mnCol, rPos.mnRow ), UNO_QUERY_THROW );
-        if( xCell.is() && xCell->isMerged() )
+        if( xCell->isMerged() )
         {
             ::findMergeOrigin( mxTable, rPos.mnCol, rPos.mnRow, rPos.mnCol, rPos.mnRow );
         }
@@ -1875,7 +1880,7 @@ void SvxTableController::EditCell(const CellPos& rPos, vcl::Window* pWindow, Tbl
 
     SdrTableObj& rTableObj(*mxTableObj.get());
 
-    if(rTableObj.GetPage() == pPV->GetPage())
+    if(rTableObj.getSdrPageFromSdrObject() == pPV->GetPage())
     {
         bool bEmptyOutliner = false;
 
@@ -1907,12 +1912,12 @@ void SvxTableController::EditCell(const CellPos& rPos, vcl::Window* pWindow, Tbl
 
             // create new outliner, owner will be the SdrObjEditView
             SdrModel& rModel(rTableObj.getSdrModelFromSdrObject());
-            SdrOutliner* pOutl(SdrMakeOutliner(OutlinerMode::OutlineObject, rModel));
+            std::unique_ptr<SdrOutliner> pOutl(SdrMakeOutliner(OutlinerMode::OutlineObject, rModel));
 
             if (pOutl && rTableObj.IsVerticalWriting())
                 pOutl->SetVertical( true );
 
-            if (mrView.SdrBeginTextEdit(&rTableObj, pPV, pWindow, true, pOutl))
+            if (mrView.SdrBeginTextEdit(&rTableObj, pPV, pWindow, true, pOutl.release()))
             {
                 maCursorLastPos = maCursorFirstPos = rPos;
 
@@ -2144,6 +2149,11 @@ void SvxTableController::onTableModified()
 
 void SvxTableController::updateSelectionOverlay()
 {
+    // There is no need to update selection overlay after merging cells
+    // since the selection overlay should remain the same
+    if ( mbHasJustMerged )
+        return;
+
     destroySelectionOverlay();
     if( mbCellSelectionMode )
     {
@@ -2180,11 +2190,11 @@ void SvxTableController::updateSelectionOverlay()
                     rtl::Reference < sdr::overlay::OverlayManager > xOverlayManager = pPaintWindow->GetOverlayManager();
                     if( xOverlayManager.is() )
                     {
-                        sdr::overlay::OverlayObjectCell* pOverlay = new sdr::overlay::OverlayObjectCell( aHighlight, aRanges );
+                        std::unique_ptr<sdr::overlay::OverlayObjectCell> pOverlay(new sdr::overlay::OverlayObjectCell( aHighlight, aRanges ));
 
                         xOverlayManager->add(*pOverlay);
-                        mpSelectionOverlay = new sdr::overlay::OverlayObjectList;
-                        mpSelectionOverlay->append(pOverlay);
+                        mpSelectionOverlay.reset(new sdr::overlay::OverlayObjectList);
+                        mpSelectionOverlay->append(std::move(pOverlay));
                     }
                 }
             }
@@ -2221,8 +2231,7 @@ void SvxTableController::destroySelectionOverlay()
 {
     if( mpSelectionOverlay )
     {
-        delete mpSelectionOverlay;
-        mpSelectionOverlay = nullptr;
+        mpSelectionOverlay.reset();
 
         if (comphelper::LibreOfficeKit::isActive())
         {
@@ -2302,7 +2311,7 @@ void ImplApplyBoxItem( CellPosFlag nCellPosFlags, const SvxBoxItem* pBoxItem, co
     {
         // current cell is outside the selection
 
-        if (!(nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After))) // check if its not any corner
+        if (!(nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After))) // check if it's not any corner
         {
             if (nCellPosFlags & CellPosFlag::Upper)
             {
@@ -2315,7 +2324,7 @@ void ImplApplyBoxItem( CellPosFlag nCellPosFlags, const SvxBoxItem* pBoxItem, co
                     rNewFrame.SetLine( nullptr, SvxBoxItemLine::TOP );
             }
         }
-        else if (!(nCellPosFlags & (CellPosFlag::Upper|CellPosFlag::Lower))) // check if its not any corner
+        else if (!(nCellPosFlags & (CellPosFlag::Upper|CellPosFlag::Lower))) // check if it's not any corner
         {
             if (nCellPosFlags & CellPosFlag::Before)
             {
@@ -2388,7 +2397,7 @@ static void ImplApplyBorderLineItem( CellPosFlag nCellPosFlags, const SvxBorderL
 {
     if (nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After|CellPosFlag::Upper|CellPosFlag::Lower))
     {
-        if (!(nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After))) // check if its not any corner
+        if (!(nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After))) // check if it's not any corner
         {
             if (nCellPosFlags & CellPosFlag::Upper)
             {
@@ -2401,7 +2410,7 @@ static void ImplApplyBorderLineItem( CellPosFlag nCellPosFlags, const SvxBorderL
                     ImplSetLinePreserveColor( rNewFrame, pBorderLineItem, SvxBoxItemLine::TOP );
             }
         }
-        else if (!(nCellPosFlags & (CellPosFlag::Upper|CellPosFlag::Lower))) // check if its not any corner
+        else if (!(nCellPosFlags & (CellPosFlag::Upper|CellPosFlag::Lower))) // check if it's not any corner
         {
             if (nCellPosFlags & CellPosFlag::Before)
             {
@@ -2539,7 +2548,7 @@ void SvxTableController::SetAttrToSelectedCells(const SfxItemSet& rAttr, bool bR
     const bool bUndo(rModel.IsUndoEnabled());
 
     if( bUndo )
-        rModel.BegUndo( ImpGetResStr(STR_TABLE_NUMFORMAT) );
+        rModel.BegUndo( SvxResId(STR_TABLE_NUMFORMAT) );
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
@@ -2616,34 +2625,39 @@ bool SvxTableController::SetAttributes(const SfxItemSet& rSet, bool bReplaceAll)
     return false;
 }
 
-
-bool SvxTableController::GetMarkedObjModel( SdrPage* pNewPage )
+SdrObject* SvxTableController::GetMarkedSdrObjClone(SdrModel& rTargetModel)
 {
-    if( mxTableObj.is() && mbCellSelectionMode && pNewPage ) try
-    {
-        sdr::table::SdrTableObj& rTableObj(*mxTableObj.get());
-        CellPos aStart, aEnd;
-        getSelectedCells(aStart, aEnd);
+    SdrTableObj* pRetval(nullptr);
+    sdr::table::SdrTableObj* pCurrentSdrTableObj(GetTableObj());
 
-        // Clone to new SdrModel
-        SdrTableObj* pNewTableObj(
-            rTableObj.CloneRange(
-                aStart,
-                aEnd,
-                pNewPage->getSdrModelFromSdrPage()));
-        pNewTableObj->SetPage(pNewPage);
-        pNewPage->InsertObject(pNewTableObj, SAL_MAX_SIZE);
-
-        return true;
-    }
-    catch( Exception& )
+    if(nullptr == pCurrentSdrTableObj)
     {
-        OSL_FAIL( "svx::SvxTableController::GetMarkedObjModel(), exception caught!" );
+        return pRetval;
     }
 
-    return false;
+    if(!mxTableObj.is())
+    {
+        return pRetval;
+    }
+
+    // get selection and create full selection
+    CellPos aStart, aEnd;
+    const CellPos aFullStart, aFullEnd(mxTable->getColumnCount()-1, mxTable->getRowCount()-1);
+
+    getSelectedCells(aStart, aEnd);
+
+    // compare to see if we have a partial selection
+    if(aStart != aFullStart || aEnd != aFullEnd)
+    {
+        // create full clone
+        pRetval = pCurrentSdrTableObj->CloneSdrObject(rTargetModel);
+
+        // limit SdrObject's TableModel to partial selection
+        pRetval->CropTableModelToSelection(aStart, aEnd);
+    }
+
+    return pRetval;
 }
-
 
 bool SvxTableController::PasteObjModel( const SdrModel& rModel )
 {
@@ -2740,7 +2754,7 @@ bool SvxTableController::ApplyFormatPaintBrush( SfxItemSet& rFormatSet, bool bNo
     const bool bUndo(rModel.IsUndoEnabled());
 
     if( bUndo )
-        rModel.BegUndo(ImpGetResStr(STR_TABLE_NUMFORMAT));
+        rModel.BegUndo(SvxResId(STR_TABLE_NUMFORMAT));
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
@@ -2788,9 +2802,11 @@ IMPL_LINK_NOARG(SvxTableController, UpdateHdl, void*, void)
         if( aStart != maCursorFirstPos || aEnd != maCursorLastPos )
         {
             setSelectedCells( aStart, aEnd );
-            updateSelectionOverlay();
         }
     }
+
+    updateSelectionOverlay();
+    mbHasJustMerged = false;
 }
 
 namespace
@@ -2927,14 +2943,14 @@ void lcl_MergeCommonBorderAttr(LinesState& rLinesState, const SvxBoxItem& rCellB
     {
         // current cell is outside the selection
 
-        if (!(nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After))) // check if its not any corner
+        if (!(nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After))) // check if it's not any corner
         {
             if (nCellPosFlags & CellPosFlag::Upper)
                 lcl_MergeBorderLine(rLinesState, rCellBoxItem.GetBottom(), SvxBoxItemLine::TOP, SvxBoxInfoItemValidFlags::TOP);
             else if (nCellPosFlags & CellPosFlag::Lower)
                 lcl_MergeBorderLine(rLinesState, rCellBoxItem.GetTop(), SvxBoxItemLine::BOTTOM, SvxBoxInfoItemValidFlags::BOTTOM);
         }
-        else if (!(nCellPosFlags & (CellPosFlag::Upper|CellPosFlag::Lower))) // check if its not any corner
+        else if (!(nCellPosFlags & (CellPosFlag::Upper|CellPosFlag::Lower))) // check if it's not any corner
         {
             if (nCellPosFlags & CellPosFlag::Before)
                 lcl_MergeBorderLine(rLinesState, rCellBoxItem.GetRight(), SvxBoxItemLine::LEFT, SvxBoxInfoItemValidFlags::LEFT);

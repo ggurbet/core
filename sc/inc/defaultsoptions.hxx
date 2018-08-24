@@ -12,9 +12,8 @@
 
 #include <svl/poolitem.hxx>
 #include <unotools/configitem.hxx>
-#include <formula/grammar.hxx>
 #include "scdllapi.h"
-#include "global.hxx"
+#include "types.hxx"
 
 class SC_DLLPUBLIC ScDefaultsOptions
 {
@@ -43,6 +42,11 @@ class SC_DLLPUBLIC ScTpDefaultsItem : public SfxPoolItem
 public:
     ScTpDefaultsItem( const ScDefaultsOptions& rOpt );
     virtual ~ScTpDefaultsItem() override;
+
+    ScTpDefaultsItem(ScTpDefaultsItem const &) = default;
+    ScTpDefaultsItem(ScTpDefaultsItem &&) = default;
+    ScTpDefaultsItem & operator =(ScTpDefaultsItem const &) = default;
+    ScTpDefaultsItem & operator =(ScTpDefaultsItem &&) = default;
 
     virtual bool            operator==( const SfxPoolItem& ) const override;
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;

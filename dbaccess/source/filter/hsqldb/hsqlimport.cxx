@@ -19,6 +19,7 @@
 
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/uno/Exception.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/io/WrongFormatException.hpp>
@@ -27,8 +28,13 @@
 #include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdbc/XParameters.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
+#include <connectivity/dbtools.hxx>
+#include <connectivity/dbexception.hxx>
+#include <comphelper/processfactory.hxx>
 
 #include "hsqlimport.hxx"
 #include "parseschema.hxx"
@@ -133,7 +139,7 @@ void lcl_setParams(const RowVector& row, Reference<XParameters> const& xParam,
                 css::util::Time time;
                 if (row.at(i) >>= time)
                 {
-                    xParam->setTime(nColIndex, time);
+                    xParam->setTime(nColIndex + 1, time);
                 }
             }
             break;
@@ -229,23 +235,24 @@ void HsqlImporter::insertRow(const RowVector& xRows, const OUString& sTableName,
 }
 
 void HsqlImporter::processTree(HsqlBinaryNode& rNode, HsqlRowInputStream& rStream,
-                               const ColumnTypeVector& rColTypes, const OUString& sTableName)
+                               const ColumnTypeVector& rColTypes, const OUString& sTableName,
+                               sal_Int32 nIndexCount)
 {
     rNode.readChildren(rStream);
     sal_Int32 nNext = rNode.getLeft();
     if (nNext > 0)
     {
         HsqlBinaryNode aLeft{ nNext };
-        processTree(aLeft, rStream, rColTypes, sTableName);
+        processTree(aLeft, rStream, rColTypes, sTableName, nIndexCount);
     }
-    std::vector<Any> row = rNode.readRow(rStream, rColTypes);
+    std::vector<Any> row = rNode.readRow(rStream, rColTypes, nIndexCount);
     insertRow(row, sTableName, rColTypes);
 
     nNext = rNode.getRight();
     if (nNext > 0)
     {
         HsqlBinaryNode aRight{ nNext };
-        processTree(aRight, rStream, rColTypes, sTableName);
+        processTree(aRight, rStream, rColTypes, sTableName, nIndexCount);
     }
 }
 
@@ -278,11 +285,12 @@ void HsqlImporter::parseTableRows(const IndexVector& rIndexes,
     Reference<XInputStream> xInput = xStream->getInputStream();
     rowInput.setInputStream(xInput);
 
-    for (const auto& rIndex : rIndexes)
+    if (rIndexes.size() > 0)
     {
-        HsqlBinaryNode aNode{ rIndex };
-        processTree(aNode, rowInput, rColTypes, sTableName);
+        HsqlBinaryNode aPrimaryNode{ rIndexes.at(0) };
+        processTree(aPrimaryNode, rowInput, rColTypes, sTableName, rIndexes.size());
     }
+
     xInput->closeInput();
 }
 
@@ -291,9 +299,22 @@ void HsqlImporter::importHsqlDatabase()
     assert(m_xStorage);
 
     SchemaParser parser(m_xStorage);
-    SqlStatementVector statements = parser.parseSchema();
+    std::unique_ptr<SQLException> pException;
+    try
+    {
+        parser.parseSchema();
+    }
+    catch (SQLException& ex)
+    {
+        // chain errors and keep going
+        if (pException)
+            ex.NextException <<= *pException;
+        pException.reset(new SQLException{ std::move(ex) });
+    }
 
-    if (statements.size() < 1)
+    auto statements = parser.getCreateStatements();
+
+    if (statements.size() < 1 && !pException)
     {
         SAL_WARN("dbaccess", "dbashql: there is nothing to import");
         return; // there is nothing to import
@@ -303,14 +324,55 @@ void HsqlImporter::importHsqlDatabase()
     for (auto& sSql : statements)
     {
         Reference<XStatement> statement = m_rConnection->createStatement();
-        statement->executeQuery(sSql);
+        try
+        {
+            statement->executeQuery(sSql);
+        }
+        catch (SQLException& ex)
+        {
+            if (pException)
+                ex.NextException <<= *pException;
+            pException.reset(new SQLException{ std::move(ex) });
+        }
     }
 
     // data
     for (const auto& tableIndex : parser.getTableIndexes())
     {
         std::vector<ColumnDefinition> aColTypes = parser.getTableColumnTypes(tableIndex.first);
-        parseTableRows(tableIndex.second, aColTypes, tableIndex.first);
+        try
+        {
+            parseTableRows(tableIndex.second, aColTypes, tableIndex.first);
+        }
+        catch (SQLException& ex)
+        {
+            if (pException)
+                ex.NextException <<= *pException;
+            pException.reset(new SQLException{ std::move(ex) });
+        }
+    }
+
+    // alter stmts
+    for (const auto& sSql : parser.getAlterStatements())
+    {
+        Reference<XStatement> statement = m_rConnection->createStatement();
+        try
+        {
+            statement->executeQuery(sSql);
+        }
+        catch (SQLException& ex)
+        {
+            if (pException)
+                ex.NextException <<= *pException;
+            pException.reset(new SQLException{ std::move(ex) });
+        }
+    }
+
+    if (pException)
+    {
+        SAL_WARN("dbaccess", "Error during migration");
+        dbtools::showError(dbtools::SQLExceptionInfo{ *pException }, nullptr,
+                           ::comphelper::getProcessComponentContext());
     }
 }
 }

@@ -65,10 +65,12 @@
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
 #include <sfx2/lokhelper.hxx>
-#include <comphelper/string.hxx>
 #include <editeng/editview.hxx>
+#include <sal/log.hxx>
 #include <PostItMgr.hxx>
 #include <DocumentSettingManager.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 using namespace com::sun::star;
 using namespace util;
@@ -294,7 +296,7 @@ void SwCursorShell::EndAction( const bool bIdleEnd, const bool DoSetPosX )
 void SwCursorShell::SttCursorMove()
 {
 #ifdef DBG_UTIL
-    OSL_ENSURE( m_nCursorMove < USHRT_MAX, "To many nested CursorMoves." );
+    OSL_ENSURE( m_nCursorMove < USHRT_MAX, "Too many nested CursorMoves." );
 #endif
     ++m_nCursorMove;
     StartAction();
@@ -959,14 +961,12 @@ bool SwCursorShell::TestCurrPam(
 
     // search in all selections for this position
     SwShellCursor* pCmp = m_pCurrentCursor; // keep the pointer on cursor
-    do {
-        if( pCmp && pCmp->HasMark() &&
-            *pCmp->Start() <= aPtPos && *pCmp->End() > aPtPos )
-        {
+    do
+    {
+        if (pCmp->HasMark() && *pCmp->Start() <= aPtPos && *pCmp->End() > aPtPos)
             return true;               // return without update
-        }
-    } while( m_pCurrentCursor !=
-        ( pCmp = dynamic_cast<SwShellCursor*>(pCmp->GetNext()) ) );
+        pCmp = pCmp->GetNext();
+    } while (m_pCurrentCursor != pCmp);
     return false;
 }
 
@@ -1070,6 +1070,21 @@ bool SwCursorShell::SetInFrontOfLabel( bool bNew )
     return false;
 }
 
+namespace {
+
+void collectUIInformation(const OUString& aPage)
+{
+    EventDescription aDescription;
+    aDescription.aAction = "GOTO";
+    aDescription.aParameters = {{"PAGE", aPage}};
+    aDescription.aID = "writer_edit";
+    aDescription.aKeyWord = "SwEditWinUIObject";
+    aDescription.aParent = "MainWindow";
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
+
 bool SwCursorShell::GotoPage( sal_uInt16 nPage )
 {
     SET_CURR_SHELL( this );
@@ -1080,6 +1095,8 @@ bool SwCursorShell::GotoPage( sal_uInt16 nPage )
                                          SwCursorSelOverFlags::ChangePos );
     if( bRet )
         UpdateCursor(SwCursorShell::SCROLLWIN|SwCursorShell::CHKRANGE|SwCursorShell::READONLY);
+
+    collectUIInformation(OUString::number(nPage));
     return bRet;
 }
 
@@ -1107,6 +1124,30 @@ void SwCursorShell::GetPageNum( sal_uInt16 &rnPhyNum, sal_uInt16 &rnVirtNum,
     // pPg has to exist with a default of 1 for the special case "Writerstart"
     rnPhyNum  = pPg? pPg->GetPhyPageNum() : 1;
     rnVirtNum = pPg? pPg->GetVirtPageNum() : 1;
+}
+
+sal_uInt16 SwCursorShell::GetPageNumSeqNonEmpty(bool bAtCursorPos, bool bCalcFrame)
+{
+    SET_CURR_SHELL(this);
+    // page number: first visible page or the one at the cursor
+    const SwContentFrame* pCFrame = GetCurrFrame(bCalcFrame);
+    const SwPageFrame* pPg = nullptr;
+
+    if (!bAtCursorPos || !pCFrame || nullptr == (pPg = pCFrame->FindPageFrame()))
+    {
+        pPg = Imp()->GetFirstVisPage(GetOut());
+        while (pPg && pPg->IsEmptyPage())
+            pPg = static_cast<const SwPageFrame*>(pPg->GetNext());
+    }
+
+    sal_uInt16 nPageNo = 0;
+    while (pPg)
+    {
+        if (!pPg->IsEmptyPage())
+            ++nPageNo;
+        pPg = static_cast<const SwPageFrame*>(pPg->GetPrev());
+    }
+    return nPageNo;
 }
 
 sal_uInt16 SwCursorShell::GetNextPrevPageNum( bool bNext )
@@ -1220,7 +1261,7 @@ bool SwCursorShell::GoNextCursor()
 
     SET_CURR_SHELL( this );
     SwCallLink aLk( *this ); // watch Cursor-Moves; call Link if needed
-    m_pCurrentCursor = dynamic_cast<SwShellCursor*>(m_pCurrentCursor->GetNext());
+    m_pCurrentCursor = m_pCurrentCursor->GetNext();
 
     // #i24086#: show also all others
     if( !ActionPend() )
@@ -1239,7 +1280,7 @@ bool SwCursorShell::GoPrevCursor()
 
     SET_CURR_SHELL( this );
     SwCallLink aLk( *this ); // watch Cursor-Moves; call Link if needed
-    m_pCurrentCursor = dynamic_cast<SwShellCursor*>(m_pCurrentCursor->GetPrev());
+    m_pCurrentCursor = m_pCurrentCursor->GetPrev();
 
     // #i24086#: show also all others
     if( !ActionPend() )
@@ -1840,11 +1881,11 @@ void SwCursorShell::UpdateCursor( sal_uInt16 eFlags, bool bIdleEnd )
             m_pCurrentCursor->SwSelPaintRects::Show();
             if( m_pBlockCursor )
             {
-                SwShellCursor* pNxt = dynamic_cast<SwShellCursor*>(m_pCurrentCursor->GetNext());
+                SwShellCursor* pNxt = m_pCurrentCursor->GetNext();
                 while( pNxt && pNxt != m_pCurrentCursor )
                 {
                     pNxt->SwSelPaintRects::Show();
-                    pNxt = dynamic_cast<SwShellCursor*>(pNxt->GetNext());
+                    pNxt = pNxt->GetNext();
                 }
             }
         }
@@ -2024,7 +2065,7 @@ bool SwCursorShell::Pop(PopMode const eDelete)
     // the successor becomes the current one
     if (m_pStackCursor->GetNext() != m_pStackCursor)
     {
-        pTmp = dynamic_cast<SwShellCursor*>(m_pStackCursor->GetNext());
+        pTmp = m_pStackCursor->GetNext();
     }
 
     if (PopMode::DeleteStack == eDelete)
@@ -2096,7 +2137,7 @@ void SwCursorShell::Combine()
     SwShellCursor * pTmp = nullptr;
     if (m_pStackCursor->GetNext() != m_pStackCursor)
     {
-        pTmp = dynamic_cast<SwShellCursor*>(m_pStackCursor->GetNext());
+        pTmp = m_pStackCursor->GetNext();
     }
     delete m_pCurrentCursor;
     m_pCurrentCursor = m_pStackCursor;
@@ -3433,7 +3474,7 @@ void SwCursorShell::GetSmartTagTerm( std::vector< OUString >& rSmartTagTypes,
             sal_Int32 nBegin = nCurrent;
             sal_Int32 nLen = 1;
 
-            if( pSmartTagList->InWrongWord( nBegin, nLen ) && !pNode->IsSymbol(nBegin) )
+            if (pSmartTagList->InWrongWord(nBegin, nLen) && !pNode->IsSymbolAt(nBegin))
             {
                 const sal_uInt16 nIndex = pSmartTagList->GetWrongPos( nBegin );
                 const SwWrongList* pSubList = pSmartTagList->SubList( nIndex );
@@ -3470,7 +3511,7 @@ void SwCursorShell::GetSmartTagRect( const Point& rPt, SwRect& rSelectRect )
         sal_Int32 nBegin = aPos.nContent.GetIndex();
         sal_Int32 nLen = 1;
 
-        if( pSmartTagList->InWrongWord( nBegin, nLen ) && !pNode->IsSymbol(nBegin) )
+        if (pSmartTagList->InWrongWord(nBegin, nLen) && !pNode->IsSymbolAt(nBegin))
         {
             // get smarttag word
             OUString aText( pNode->GetText().copy(nBegin, nLen) );

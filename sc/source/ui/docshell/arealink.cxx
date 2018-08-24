@@ -34,6 +34,7 @@
 #include <dbdata.hxx>
 #include <undoblk.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <markdata.hxx>
 #include <hints.hxx>
 #include <filter.hxx>
@@ -77,10 +78,8 @@ void ScAreaLink::Edit(weld::Window* pParent, const Link<SvBaseLink&,void>& /* rE
 {
     //  use own dialog instead of SvBaseLink::Edit...
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
     ScopedVclPtr<AbstractScLinkedAreaDlg> pDlg(pFact->CreateScLinkedAreaDlg(pParent));
-    OSL_ENSURE(pDlg, "Dialog create fail!");
     pDlg->InitFromOldLink( aFileName, aFilterName, aOptions, aSourceArea, GetRefreshDelay() );
     if ( pDlg->Execute() == RET_OK )
     {
@@ -334,10 +333,10 @@ bool ScAreaLink::Refresh( const OUString& rNewFile, const OUString& rNewFilter,
 
         //  initialise Undo
 
-        ScDocument* pUndoDoc = nullptr;
+        ScDocumentUniquePtr pUndoDoc;
         if ( bAddUndo && bUndo )
         {
-            pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+            pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
             if ( bDoInsert )
             {
                 if ( nNewEndX != nOldEndX || nNewEndY != nOldEndY )             // range changed?
@@ -404,7 +403,7 @@ bool ScAreaLink::Refresh( const OUString& rNewFile, const OUString& rNewFilter,
         }
         else
         {
-            OUString aErr = ScGlobal::GetRscString(STR_LINKERROR);
+            OUString aErr = ScResId(STR_LINKERROR);
             rDoc.SetString( aDestPos.Col(), aDestPos.Row(), aDestPos.Tab(), aErr );
         }
 
@@ -412,7 +411,7 @@ bool ScAreaLink::Refresh( const OUString& rNewFile, const OUString& rNewFilter,
 
         if ( bAddUndo && bUndo)
         {
-            ScDocument* pRedoDoc = new ScDocument( SCDOCMODE_UNDO );
+            ScDocumentUniquePtr pRedoDoc(new ScDocument( SCDOCMODE_UNDO ));
             pRedoDoc->InitUndo( &rDoc, nDestTab, nDestTab );
             rDoc.CopyToDocument(aNewRange, InsertDeleteFlags::ALL & ~InsertDeleteFlags::NOTE, false, *pRedoDoc);
 
@@ -422,7 +421,7 @@ bool ScAreaLink::Refresh( const OUString& rNewFile, const OUString& rNewFilter,
                                             aSourceArea, aOldRange, GetRefreshDelay(),
                                             aNewUrl, rNewFilter, aNewOpt,
                                             rNewArea, aNewRange, nNewRefresh,
-                                            pUndoDoc, pRedoDoc, bDoInsert ) );
+                                            std::move(pUndoDoc), std::move(pRedoDoc), bDoInsert ) );
         }
 
         //  remember new settings
@@ -466,7 +465,7 @@ bool ScAreaLink::Refresh( const OUString& rNewFile, const OUString& rNewFilter,
         vcl::Window* pWin = Application::GetDefDialogParent();
         std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                       VclMessageType::Info, VclButtonsType::Ok,
-                                                      ScGlobal::GetRscString(STR_MSSG_DOSUBTOTALS_2)));
+                                                      ScResId(STR_MSSG_DOSUBTOTALS_2)));
         xInfoBox->run();
     }
 

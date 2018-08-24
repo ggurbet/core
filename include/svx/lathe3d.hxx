@@ -37,9 +37,13 @@ class SVX_DLLPUBLIC E3dLatheObj final : public E3dCompoundObject
 {
     basegfx::B2DPolyPolygon maPolyPoly2D;
 
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
     void SetDefaultAttributes(const E3dDefaultAttributes& rDefault);
+
+private:
+    // protected destructor - due to final, make private
+    virtual ~E3dLatheObj() override;
 
 public:
     E3dLatheObj(
@@ -90,7 +94,7 @@ public:
 
     virtual sal_uInt16 GetObjIdentifier() const override;
 
-    virtual E3dLatheObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual E3dLatheObj* CloneSdrObject(SdrModel& rTargetModel) const override;
 
     // implemented mainly for the purposes of Clone()
     E3dLatheObj& operator=(const E3dLatheObj& rObj);

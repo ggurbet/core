@@ -39,6 +39,7 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/util/XCloseBroadcaster.hpp>
 #include <com/sun/star/util/XCloseListener.hpp>
+#include <sal/log.hxx>
 #include <errobject.hxx>
 #include <memory>
 #include <unordered_map>
@@ -680,7 +681,7 @@ SbClassModuleObject::SbClassModuleObject( SbModule* pClassModule )
 
             // Search for own copy of ImplMethod
             SbxVariable* p = pMethods->Find( pImplMethod->GetName(), SbxClassType::Method );
-            SbMethod* pImplMethodCopy = p ? dynamic_cast<SbMethod*>( p ) : nullptr;
+            SbMethod* pImplMethodCopy = dynamic_cast<SbMethod*>( p );
             if( !pImplMethodCopy )
             {
                 OSL_FAIL( "Found no ImplMethod copy" );

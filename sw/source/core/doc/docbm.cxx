@@ -45,6 +45,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
+#include <sal/log.hxx>
 #include <sortedobjs.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <swserv.hxx>
@@ -225,6 +226,13 @@ namespace
         return false;
     }
 
+    bool lcl_MarkEqualByStart(const IDocumentMarkAccess::pMark_t& rpFirst,
+                              const IDocumentMarkAccess::pMark_t& rpSecond)
+    {
+        return !lcl_MarkOrderingByStart(rpFirst, rpSecond) &&
+               !lcl_MarkOrderingByStart(rpSecond, rpFirst);
+    }
+
     IDocumentMarkAccess::iterator_t lcl_FindMark(
         IDocumentMarkAccess::container_t& rMarks,
         const IDocumentMarkAccess::pMark_t& rpMarkToFind)
@@ -235,7 +243,7 @@ namespace
         // since there are usually not too many marks on the same start
         // position, we are not doing a bisect search for the upper bound
         // but instead start to iterate from pMarkLow directly
-        while(ppCurrentMark != rMarks.end() && **ppCurrentMark == *rpMarkToFind)
+        while (ppCurrentMark != rMarks.end() && lcl_MarkEqualByStart(*ppCurrentMark, rpMarkToFind))
         {
             if(ppCurrentMark->get() == rpMarkToFind.get())
             {
@@ -1126,7 +1134,7 @@ namespace sw { namespace mark
         OUString sTmp;
 
         // try the name "<rName>XXX" (where XXX is a number starting from 1) unless there is
-        // a unused name. Due to performance-reasons (especially in mailmerge-Szenarios) there
+        // a unused name. Due to performance-reasons (especially in mailmerge-scenarios) there
         // is a map m_aMarkBasenameMapUniqueOffset which holds the next possible offset (XXX) for
         // rName (so there is no need to test for nCnt-values smaller than the offset).
         sal_Int32 nCnt = 1;

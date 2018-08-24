@@ -11,6 +11,7 @@
 
 #include <math.h>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/random.hxx>
@@ -45,6 +46,7 @@
 #include <vcl/help.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/ImageTree.hxx>
+#include <vcl/BitmapEmbossGreyFilter.hxx>
 #include <bitmapwriteaccess.hxx>
 
 #include <basegfx/numeric/ftools.hxx>
@@ -144,7 +146,10 @@ public:
             Application::Abort("Failed to load intro image");
 
         maIntroBW = maIntro.GetBitmap();
-        maIntroBW.Filter(BmpFilter::EmbossGrey);
+
+        BitmapEx aTmpBmpEx(maIntroBW);
+        BitmapFilter::Filter(aTmpBmpEx, BitmapEmbossGreyFilter(0, 0));
+        maIntroBW = aTmpBmpEx.GetBitmap();
 
         InitRenderers();
         mnSegmentsY = rtl::math::round(std::sqrt(maRenderers.size()), 0,
@@ -1712,14 +1717,13 @@ class DemoWin : public WorkWindow
 
     class RenderThread : public salhelper::Thread {
         DemoWin  &mrWin;
-        TimeValue maDelay;
+        sal_uInt32 mnDelaySecs = 0;
     public:
         RenderThread(DemoWin &rWin, sal_uInt32 nDelaySecs)
             : Thread("vcldemo render thread")
             , mrWin(rWin)
+            , mnDelaySecs(nDelaySecs)
         {
-            maDelay.Seconds = nDelaySecs;
-            maDelay.Nanosec = 0;
             launch();
         }
         virtual ~RenderThread() override
@@ -1728,7 +1732,7 @@ class DemoWin : public WorkWindow
         }
         virtual void execute() override
         {
-            osl_waitThread(&maDelay);
+            wait(std::chrono::seconds(mnDelaySecs));
 
             SolarMutexGuard aGuard;
             fprintf (stderr, "render from a different thread\n");
@@ -1929,20 +1933,18 @@ public:
 IMPL_LINK_NOARG(DemoWidgets, GLTestClick, Button*, void)
 {
     sal_Int32 nSelected = mpGLCombo->GetSelectedEntryPos();
+    sal_uInt32 nDelaySeconds = 0;
 
-    TimeValue aDelay;
-    aDelay.Seconds = 0;
-    aDelay.Nanosec = 0;
     switch (nSelected)
     {
     case 0:
-        aDelay.Seconds = 1;
+        nDelaySeconds = 1;
         break;
     case 1:
-        aDelay.Seconds = 3;
+        nDelaySeconds = 3;
         break;
     case 2:
-        aDelay.Seconds = 7;
+        nDelaySeconds = 7;
         break;
     default:
         break;
@@ -1952,7 +1954,7 @@ IMPL_LINK_NOARG(DemoWidgets, GLTestClick, Button*, void)
     if (bEnterLeave)
         OpenGLZoneTest::enter();
 
-    osl_waitThread(&aDelay);
+    osl::Thread::wait(std::chrono::seconds(nDelaySeconds));
 
     if (bEnterLeave)
         OpenGLZoneTest::leave();
@@ -2006,8 +2008,6 @@ class OpenGLTests
 {
     VclPtr<WorkWindow> mxWinA;
     VclPtr<WorkWindow> mxWinB;
-    OpenGLSalGraphicsImpl *mpImplA;
-    OpenGLSalGraphicsImpl *mpImplB;
     rtl::Reference<OpenGLContext> mpA;
     rtl::Reference<OpenGLContext> mpB;
 
@@ -2021,18 +2021,20 @@ public:
         mxWinA(VclPtr<WorkWindow>::Create(nullptr, WB_APP | WB_STDWORK)),
         mxWinB(VclPtr<WorkWindow>::Create(nullptr, WB_APP | WB_STDWORK))
     {
+        OpenGLSalGraphicsImpl *pImplA;
+        OpenGLSalGraphicsImpl *pImplB;
         if (!OpenGLHelper::isVCLOpenGLEnabled())
         {
-            mpImplA = mpImplB = nullptr;
+            pImplA = pImplB = nullptr;
             fprintf (stderr, "OpenGL is not enabled: try SAL_FORCEGL=1\n");
             return;
         }
 
-        mpImplA = getImpl(mxWinA);
-        mpImplB = getImpl(mxWinB);
-        assert (mpImplA && mpImplB);
-        mpA = mpImplA->GetOpenGLContext();
-        mpB = mpImplB->GetOpenGLContext();
+        pImplA = getImpl(mxWinA);
+        pImplB = getImpl(mxWinB);
+        assert (pImplA && pImplB);
+        mpA = pImplA->GetOpenGLContext();
+        mpB = pImplB->GetOpenGLContext();
 
         assert (mpA.is() && mpB.is());
         assert (mpA != mpB);

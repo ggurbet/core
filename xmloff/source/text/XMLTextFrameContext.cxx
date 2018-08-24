@@ -19,6 +19,7 @@
 
 #include <o3tl/make_unique.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 #include <comphelper/base64.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
@@ -339,8 +340,6 @@ class XMLTextFrameContext_Impl : public SvXMLImportContext
     OUString sHRef;
     OUString sFilterName;
     OUString sCode;
-    OUString sObject;
-    OUString sArchive;
     OUString sMimeType;
     OUString sFrameName;
     OUString sAppletName;
@@ -548,8 +547,7 @@ void XMLTextFrameContext_Impl::Create()
             sal_Int32 i = 0;
             while( xTextImportHelper->HasFrameByName( sName ) )
             {
-                sName = sOldName;
-                sName += OUString::number( ++i );
+                sName = sOldName + OUString::number( ++i );
             }
             xNamed->setName( sName );
             if( sName != sOldName )
@@ -1069,10 +1067,8 @@ XMLTextFrameContext_Impl::XMLTextFrameContext_Impl(
             sCode = rValue;
             break;
         case XML_TOK_TEXT_FRAME_OBJECT:
-            sObject = rValue;
             break;
         case XML_TOK_TEXT_FRAME_ARCHIVE:
-            sArchive = rValue;
             break;
         case XML_TOK_TEXT_FRAME_MAY_SCRIPT:
             bMayScript = IsXMLToken( rValue, XML_TRUE );

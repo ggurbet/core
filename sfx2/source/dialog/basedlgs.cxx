@@ -138,7 +138,7 @@ SfxModalDialog::~SfxModalDialog()
 void SfxModalDialog::dispose()
 {
     SetDialogData_Impl();
-    delete pOutputSet;
+    pOutputSet.reset();
 
     ModalDialog::dispose();
 }
@@ -148,7 +148,7 @@ void SfxModalDialog::CreateOutputItemSet( const SfxItemSet& rSet )
     DBG_ASSERT( !pOutputSet, "Double creation of OutputSet!" );
     if (!pOutputSet)
     {
-        pOutputSet = new SfxItemSet( rSet );
+        pOutputSet.reset(new SfxItemSet( rSet ));
         pOutputSet->ClearItem();
     }
 }
@@ -170,13 +170,6 @@ void SfxModalDialog::StateChanged( StateChangedType nType )
             if (!GetText().isEmpty())
                 aItems.emplace_back("title", GetText().toUtf8());
             SfxViewShell::Current()->notifyWindow(GetLOKWindowId(), "created", aItems);
-        }
-        else if (nType == StateChangedType::Visible &&
-                 !IsVisible() &&
-                 GetLOKNotifier())
-        {
-            SfxViewShell::Current()->notifyWindow(GetLOKWindowId(), "close");
-            ReleaseLOKNotifier();
         }
     }
 

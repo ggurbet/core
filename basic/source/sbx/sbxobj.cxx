@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <iomanip>
 
@@ -289,7 +290,7 @@ SbxVariable* SbxObject::Find( const OUString& rName, SbxClassType t )
 bool SbxObject::Call( const OUString& rName, SbxArray* pParam )
 {
     SbxVariable* pMeth = FindQualified( rName, SbxClassType::DontCare);
-    if( pMeth && dynamic_cast<const SbxMethod*>( pMeth) != nullptr )
+    if( dynamic_cast<const SbxMethod*>( pMeth) )
     {
         // FindQualified() might have struck already!
         if( pParam )

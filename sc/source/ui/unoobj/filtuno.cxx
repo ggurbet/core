@@ -31,6 +31,7 @@
 #include <asciiopt.hxx>
 #include <docsh.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 
 #include <sc.hrc>
 #include <scabstdlg.hxx>
@@ -178,7 +179,6 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
     OUString aFilterString( aFilterName );
 
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
     if ( !bExport && aFilterString == ScDocShell::GetAsciiFilterName() )
     {
@@ -188,10 +188,9 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
         OUString aPrivDatName(aURL.getName());
         std::unique_ptr<SvStream> pInStream;
         if ( xInputStream.is() )
-            pInStream.reset(utl::UcbStreamHelper::CreateStream( xInputStream ));
+            pInStream = utl::UcbStreamHelper::CreateStream( xInputStream );
 
-        ScopedVclPtr<AbstractScImportAsciiDlg> pDlg(pFact->CreateScImportAsciiDlg( aPrivDatName, pInStream.get(), SC_IMPORTFILE));
-        OSL_ENSURE(pDlg, "Dialog create fail!");
+        ScopedVclPtr<AbstractScImportAsciiDlg> pDlg(pFact->CreateScImportAsciiDlg(nullptr, aPrivDatName, pInStream.get(), SC_IMPORTFILE));
         if ( pDlg->Execute() == RET_OK )
         {
             ScAsciiOptions aOptions;
@@ -247,7 +246,7 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
             else
                 cAsciiDel = '\t';
 
-            aTitle = ScGlobal::GetRscString( STR_EXPORT_ASCII );
+            aTitle = ScResId( STR_EXPORT_ASCII );
             bAscii = true;
         }
         else if ( aFilterString == ScDocShell::GetLotusFilterName() )
@@ -255,7 +254,7 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
             //  lotus is only imported
             OSL_ENSURE( !bExport, "Filter Options for Lotus Export is not implemented" );
 
-            aTitle = ScGlobal::GetRscString( STR_IMPORT_LOTUS );
+            aTitle = ScResId( STR_IMPORT_LOTUS );
             eEncoding = RTL_TEXTENCODING_IBM_437;
         }
         else if ( aFilterString == ScDocShell::GetDBaseFilterName() )
@@ -263,17 +262,17 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
             if ( bExport )
             {
                 //  dBase export
-                aTitle = ScGlobal::GetRscString( STR_EXPORT_DBF );
+                aTitle = ScResId( STR_EXPORT_DBF );
             }
             else
             {
                 //  dBase import
-                aTitle = ScGlobal::GetRscString( STR_IMPORT_DBF );
+                aTitle = ScResId( STR_IMPORT_DBF );
             }
 
             std::unique_ptr<SvStream> pInStream;
             if ( xInputStream.is() )
-                pInStream.reset(utl::UcbStreamHelper::CreateStream( xInputStream ));
+                pInStream = utl::UcbStreamHelper::CreateStream( xInputStream );
             switch(load_CharSet( eEncoding, bExport, pInStream.get()))
             {
                 case charsetSource::charset_from_file:
@@ -291,12 +290,12 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
             if ( bExport )
             {
                 //  DIF export
-                aTitle = ScGlobal::GetRscString( STR_EXPORT_DIF );
+                aTitle = ScResId( STR_EXPORT_DIF );
             }
             else
             {
                 //  DIF import
-                aTitle = ScGlobal::GetRscString( STR_IMPORT_DIF );
+                aTitle = ScResId( STR_IMPORT_DIF );
             }
             // common for DIF import/export
             eEncoding = RTL_TEXTENCODING_MS_1252;
@@ -319,7 +318,6 @@ sal_Int16 SAL_CALL ScFilterOptionsObj::execute()
             ScopedVclPtr<AbstractScImportOptionsDlg> pDlg(pFact->CreateScImportOptionsDlg(
                                                                             bAscii, &aOptions, &aTitle,
                                                                             bDBEnc, !bExport));
-            OSL_ENSURE(pDlg, "Dialog create fail!");
             if ( pDlg->Execute() == RET_OK )
             {
                 pDlg->SaveImportOptions();

@@ -46,6 +46,7 @@
 #include <sdpage.hxx>
 #include <Window.hxx>
 
+#include <sal/log.hxx>
 #include <svl/itempool.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdopage.hxx>
@@ -611,11 +612,9 @@ void SlideSorterView::CompleteRedraw (
 
     if (mnLockRedrawSmph == 0)
     {
-        mrSlideSorter.GetContentWindow()->IncrementLockCount();
         if (mpLayeredDevice->HandleMapModeChange())
             DeterminePageObjectVisibilities();
         mpLayeredDevice->Repaint(rPaintArea);
-        mrSlideSorter.GetContentWindow()->DecrementLockCount();
     }
     else
     {

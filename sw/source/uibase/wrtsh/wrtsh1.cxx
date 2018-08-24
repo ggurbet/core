@@ -87,7 +87,6 @@
 #include <editeng/acorrcfg.hxx>
 #include <IMark.hxx>
 #include <sfx2/bindings.hxx>
-#include <svx/dialmgr.hxx>
 
 // -> #111827#
 #include <SwRewriter.hxx>
@@ -101,7 +100,6 @@
 #include <FrameControlsManager.hxx>
 
 #include <sfx2/msgpool.hxx>
-#include <comphelper/lok.hxx>
 #include <svtools/embedhlp.hxx>
 #include <memory>
 
@@ -136,9 +134,9 @@ using namespace com::sun::star;
 static SvxAutoCorrect* lcl_IsAutoCorr()
 {
     SvxAutoCorrect* pACorr = SvxAutoCorrCfg::Get().GetAutoCorrect();
-    if( pACorr && !pACorr->IsAutoCorrFlag( CapitalStartSentence | CapitalStartWord |
-                            AddNonBrkSpace | ChgOrdinalNumber |
-                            ChgToEnEmDash | SetINetAttr | Autocorrect ))
+    if( pACorr && !pACorr->IsAutoCorrFlag( ACFlags::CapitalStartSentence | ACFlags::CapitalStartWord |
+                            ACFlags::AddNonBrkSpace | ACFlags::ChgOrdinalNumber |
+                            ACFlags::ChgToEnEmDash | ACFlags::SetINetAttr | ACFlags::Autocorrect ))
         pACorr = nullptr;
     return pACorr;
 }
@@ -219,7 +217,7 @@ void SwWrtShell::Insert( const OUString &rStr )
 
         StartUndo(SwUndoId::REPLACE, &aRewriter);
         bStarted = true;
-        bDeleted = DelRight() != 0;
+        bDeleted = DelRight();
     }
 
     bCallIns ?
@@ -471,7 +469,7 @@ bool SwWrtShell::InsertOleObject( const svt::EmbeddedObjectRef& xRef, SwFlyFrame
         if( bStarMath )
         {
             OUString aMathData;
-            GetSelectedText( aMathData, GETSELTXT_PARABRK_TO_ONLYCR );
+            GetSelectedText( aMathData, ParaBreakType::ToOnlyCR );
 
             if( !aMathData.isEmpty() && svt::EmbeddedObjectRef::TryRunningState( xRef.GetObject() ) )
             {

@@ -23,18 +23,21 @@
 #include "address.hxx"
 #include <i18nlangtag/lang.h>
 #include <svx/svdtypes.hxx>
-#include <tools/stream.hxx>
+#include <tools/ref.hxx>
+#include <sal/types.h>
 #include <com/sun/star/uno/Reference.hxx>
 #include "scdllapi.h"
 #include <rtl/ustring.hxx>
 
+#include <atomic>
+// HACK: <atomic> includes <stdbool.h>, which in some Clang versions does '#define bool bool',
+// which confuses clang plugins.
+#undef bool
 #include <map>
-#include <vector>
+#include <memory>
 
-class Bitmap;
 class SfxItemSet;
 class SfxViewShell;
-class Color;
 struct ScCalcConfig;
 enum class SvtScriptType;
 enum class FormulaError : sal_uInt16;
@@ -272,10 +275,6 @@ namespace o3tl
     template<> struct typed_flags<ScCloneFlags> : is_typed_flags<ScCloneFlags, 0x0007> {};
 }
 
-#ifndef DELETEZ
-#define DELETEZ(pPtr) { delete pPtr; pPtr = 0; }
-#endif
-
 enum CellType
     {
         CELLTYPE_NONE,
@@ -464,7 +463,6 @@ struct ScImportParam
     bool            operator==  ( const ScImportParam& r ) const;
 };
 
-class ScDocument;
 class ScDocShell;
 class SvxSearchItem;
 class ScAutoFormat;
@@ -475,7 +473,6 @@ class SvxBrushItem;
 class ScFunctionList;
 class ScFunctionMgr;
 class SfxItemPool;
-class SdrModel;
 class EditTextObject;
 class SfxObjectShell;
 class SvNumberFormatter;
@@ -486,7 +483,6 @@ class SvtSysLocale;
 class CalendarWrapper;
 class CollatorWrapper;
 class IntlWrapper;
-class OutputDevice;
 class ScFieldEditEngine;
 
 namespace com { namespace sun { namespace star {
@@ -505,8 +501,8 @@ class ScGlobal
 {
     static SvxSearchItem*   pSearchItem;
     static ScAutoFormat*    pAutoFormat;
-    static LegacyFuncCollection* pLegacyFuncCollection;
-    static ScUnoAddInCollection* pAddInCollection;
+    static std::atomic<LegacyFuncCollection*> pLegacyFuncCollection;
+    static std::atomic<ScUnoAddInCollection*> pAddInCollection;
     static ScUserList*      pUserList;
     static std::map<const char*, OUString>* pRscString;
     static OUString*        pStrScDoc;
@@ -525,12 +521,12 @@ class ScGlobal
 
     static css::uno::Reference< css::i18n::XOrdinalSuffix> xOrdinalSuffix;
     static CalendarWrapper*     pCalendar;
-    static CollatorWrapper*     pCaseCollator;
-    static CollatorWrapper*     pCollator;
-    static ::utl::TransliterationWrapper* pTransliteration;
-    static ::utl::TransliterationWrapper* pCaseTransliteration;
+    static std::atomic<CollatorWrapper*>     pCaseCollator;
+    static std::atomic<CollatorWrapper*>     pCollator;
+    static std::atomic<::utl::TransliterationWrapper*> pTransliteration;
+    static std::atomic<::utl::TransliterationWrapper*> pCaseTransliteration;
     static IntlWrapper*         pScIntlWrapper;
-    static css::lang::Locale*   pLocale;
+    static std::atomic<css::lang::Locale*>   pLocale;
 
     static ScFieldEditEngine*   pFieldEditEngine;
 
@@ -566,7 +562,6 @@ public:
     SC_DLLPUBLIC static ScUnoAddInCollection* GetAddInCollection();
     SC_DLLPUBLIC static ScUserList*         GetUserList();
     static void                 SetUserList( const ScUserList* pNewList );
-    SC_DLLPUBLIC static const OUString&       GetRscString(const char* pResId);
     /// Open the specified URL.
     static void                 OpenURL(const OUString& rURL, const OUString& rTarget);
     SC_DLLPUBLIC static OUString            GetAbsDocName( const OUString& rFileName,
@@ -811,6 +806,8 @@ public:
             FormulaError & rError, FormulaError nStringNoValueError,
             SvNumberFormatter* pFormatter, SvNumFormatType & rCurFmtType );
 
+    /// Calc's threaded group calculation is in progress.
+    static bool bThreadedGroupCalcInProgress;
 };
 
 // maybe move to dbdata.hxx (?):
@@ -891,7 +888,7 @@ struct ScConsolidateParam
     SCTAB           nTab;
     ScSubTotalFunc  eFunction;
     sal_uInt16      nDataAreaCount;         // number of data areas
-    ScArea**        ppDataAreas;            // array of pointers into data areas
+    std::unique_ptr<ScArea[]> pDataAreas; // array of pointers into data areas
     bool            bByCol;
     bool            bByRow;
     bool            bReferenceData;         // reference source data
@@ -904,7 +901,7 @@ struct ScConsolidateParam
     bool                operator==      ( const ScConsolidateParam& r ) const;
     void                Clear           (); // = ClearDataAreas()+Members
     void                ClearDataAreas  ();
-    void                SetAreas        ( ScArea* const* ppAreas, sal_uInt16 nCount );
+    void                SetAreas        ( std::unique_ptr<ScArea[]> pAreas, sal_uInt16 nCount );
 };
 
 extern SfxViewShell* pScActiveViewShell;

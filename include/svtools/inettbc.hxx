@@ -100,6 +100,7 @@ class SVT_DLLPUBLIC URLBox
     OUString                        aBaseURL;
     rtl::Reference< MatchContext_Impl > pCtx;
     std::unique_ptr<SvtURLBox_Impl> pImpl;
+    bool                            bHistoryDisabled    : 1;
 
     std::unique_ptr<weld::ComboBoxText> m_xWidget;
 
@@ -111,18 +112,20 @@ class SVT_DLLPUBLIC URLBox
     SVT_DLLPRIVATE void             Init();
 
 public:
-    URLBox(weld::ComboBoxText* pWidget);
+    URLBox(std::unique_ptr<weld::ComboBoxText> pWidget);
     ~URLBox();
 
     void                            SetText(const OUString& rStr) { m_xWidget->set_entry_text(rStr); }
     void                            Clear() { m_xWidget->clear(); }
     void connect_entry_activate(const Link<weld::ComboBoxText&, void>& rLink) { m_xWidget->connect_entry_activate(rLink); }
+    void connect_changed(const Link<weld::ComboBoxText&, void>& rLink) { m_xWidget->connect_changed(rLink); }
     void                            append_text(const OUString& rStr) { m_xWidget->append_text(rStr); }
     OUString                        get_active_text() const { return m_xWidget->get_active_text(); }
     void                            EnableAutocomplete() { m_xWidget->set_entry_completion(true); }
 
     void                            SetBaseURL( const OUString& rURL );
     OUString                        GetURL();
+    void                            DisableHistory();
 
     weld::Widget*                   getWidget() { return m_xWidget.get(); }
 

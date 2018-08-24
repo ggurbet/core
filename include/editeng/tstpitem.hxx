@@ -77,14 +77,7 @@ public:
     bool            operator <( const SvxTabStop& rTS ) const
                         { return nTabPos < rTS.nTabPos; }
 
-    SvxTabStop&     operator=( const SvxTabStop& rTS )
-                        {
-                            nTabPos = rTS.nTabPos;
-                            eAdjustment = rTS.eAdjustment;
-                            m_cDecimal = rTS.m_cDecimal;
-                            cFill = rTS.cFill;
-                            return *this;
-                        }
+    void dumpAsXml(struct _xmlTextWriter* pWriter) const;
 };
 
 // class SvxTabStopItem --------------------------------------------------
@@ -124,6 +117,7 @@ public:
 
     // Assignment operator, equality operator (caution: expensive!)
     SvxTabStopItem& operator=( const SvxTabStopItem& rTSI );
+    SvxTabStopItem(SvxTabStopItem const &) = default; // SfxPoolItem copy function dichotomy
 
     // this is already included in SfxPoolItem declaration
     //int             operator!=( const SvxTabStopItem& rTSI ) const
@@ -149,6 +143,7 @@ public:
 
     virtual SfxPoolItem*     Clone( SfxItemPool *pPool = nullptr ) const override;
 
+    void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
 };
 
 #endif

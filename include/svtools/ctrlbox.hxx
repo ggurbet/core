@@ -230,7 +230,7 @@ private:
 
     SVT_DLLPRIVATE void         ImpGetLine( long nLine1, long nLine2, long nDistance,
                                     Color nColor1, Color nColor2, Color nColorDist,
-                                    SvxBorderLineStyle nStyle, Bitmap& rBmp );
+                                    SvxBorderLineStyle nStyle, BitmapEx& rBmp );
     using Window::ImplInit;
     void            UpdatePaintLineColor();       // returns sal_True if maPaintCol has changed
     virtual void    DataChanged( const DataChangedEvent& rDCEvt ) override;
@@ -283,7 +283,7 @@ inline void LineListBox::SetNone( const OUString& sNone )
 class SVT_DLLPUBLIC FontNameBox : public ComboBox
 {
 private:
-    ImplFontList*   mpFontList;
+    std::unique_ptr<ImplFontList> mpFontList;
     bool            mbWYSIWYG;
     OUString        maFontMRUEntriesFile;
 

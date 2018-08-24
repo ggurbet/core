@@ -1228,7 +1228,7 @@ IMPL_LINK_NOARG(ScCheckListMenuWindow, EdModifyHdl, Edit&, void)
 
         aLabelDisp = maMembers[i].maName;
         if ( aLabelDisp.isEmpty() )
-            aLabelDisp = ScGlobal::GetRscString( STR_EMPTYDATA );
+            aLabelDisp = ScResId( STR_EMPTYDATA );
 
         if ( !bSearchTextEmpty )
         {
@@ -1625,15 +1625,15 @@ SvTreeListEntry* ScCheckListBox::FindEntry( SvTreeListEntry* pParent, const OUSt
         if ( sNode == GetEntryText( pEntry ) )
             return pEntry;
 
-        pEntry = pParent ? NextSibling( pEntry ) : GetEntry( ++nRootPos );
+        pEntry = pParent ? pEntry->NextSibling() : GetEntry( ++nRootPos );
     }
     return nullptr;
 }
 
 void ScCheckListBox::Init()
 {
-    mpCheckButton = new SvLBoxButtonData( this );
-    EnableCheckButton( mpCheckButton );
+    mpCheckButton.reset( new SvLBoxButtonData( this ) );
+    EnableCheckButton( mpCheckButton.get() );
     SetNodeDefaultImages();
 }
 
@@ -1711,7 +1711,7 @@ void ScCheckListBox::CheckAllChildren( SvTreeListEntry* pParent, bool bCheck )
     while ( pEntry )
     {
         CheckAllChildren( pEntry, bCheck );
-        pEntry = NextSibling( pEntry );
+        pEntry = pEntry->NextSibling();
     }
 }
 
@@ -1739,7 +1739,7 @@ void ScCheckListBox::CheckEntry( SvTreeListEntry* pParent, bool bCheck )
                     bChildChecked = true;
                     break;
                 }
-                pChild = NextSibling( pChild );
+                pChild = pChild->NextSibling();
             }
             SetCheckButtonState( pAncestor, bChildChecked ? SvButtonState::Checked : SvButtonState::Unchecked );
             pAncestor = GetParent(pAncestor);
@@ -1807,7 +1807,7 @@ void ScCheckListBox::CountCheckedEntries( SvTreeListEntry* pParent, sal_uLong& n
     while ( pEntry )
     {
         CountCheckedEntries( pEntry, nCount );
-        pEntry = NextSibling( pEntry );
+        pEntry = pEntry->NextSibling();
     }
 }
 
@@ -1896,7 +1896,7 @@ void ScCheckListMenuWindow::initMembers()
         {
             OUString aLabel = maMembers[i].maName;
             if (aLabel.isEmpty())
-                aLabel = ScGlobal::GetRscString(STR_EMPTYDATA);
+                aLabel = ScResId(STR_EMPTYDATA);
             SvTreeListEntry* pEntry = maChecks->InsertEntry(
                 aLabel);
 
@@ -1948,9 +1948,9 @@ void ScCheckListMenuWindow::getResult(ResultType& rResult)
     {
         if ( maMembers[i].mbLeaf )
         {
-            OUString aLabel = maMembers[i].maName;
+            OUStringBuffer aLabel = maMembers[i].maName;
             if (aLabel.isEmpty())
-                aLabel = ScGlobal::GetRscString(STR_EMPTYDATA);
+                aLabel = ScResId(STR_EMPTYDATA);
 
             /* TODO: performance-wise this looks suspicious, concatenating to
              * do the lookup for each leaf item seems wasteful. */
@@ -1959,9 +1959,9 @@ void ScCheckListMenuWindow::getResult(ResultType& rResult)
                     pParent && pParent->GetFirstItem( SvLBoxItemType::String);
                     pParent = pParent->GetParent())
             {
-                aLabel += ";" + maChecks->GetEntryText( pParent);
+                aLabel.append(";").append(maChecks->GetEntryText( pParent));
             }
-            bool bState = vCheckeds.find(aLabel) != vCheckeds.end();
+            bool bState = vCheckeds.find(aLabel.makeStringAndClear()) != vCheckeds.end();
 
             ResultEntry aResultEntry;
             aResultEntry.bValid = bState;

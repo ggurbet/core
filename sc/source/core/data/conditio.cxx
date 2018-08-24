@@ -22,8 +22,8 @@
 #include <svl/itemset.hxx>
 #include <svl/zforlist.hxx>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 #include <unotools/collatorwrapper.hxx>
-#include <comphelper/stl_types.hxx>
 
 #include <com/sun/star/sheet/ConditionOperator2.hpp>
 
@@ -1242,6 +1242,9 @@ bool ScConditionEntry::IsCellValid( ScRefCellValue& rCell, const ScAddress& rPos
 {
     const_cast<ScConditionEntry*>(this)->Interpret(rPos); // Evaluate formula
 
+    if ( eOp == ScConditionMode::Direct )
+        return nVal1 != 0.0;
+
     double nArg = 0.0;
     OUString aArgStr;
     bool bVal = lcl_GetCellContent( rCell, bIsStr1, nArg, aArgStr, mpDoc );
@@ -1530,6 +1533,18 @@ ScFormatEntry* ScCondFormatEntry::Clone( ScDocument* pDoc ) const
     return new ScCondFormatEntry( pDoc, *this );
 }
 
+void ScConditionEntry::CalcAll()
+{
+    if (pFCell1 || pFCell2)
+    {
+        if (pFCell1)
+            pFCell1->SetDirty();
+        if (pFCell2)
+            pFCell2->SetDirty();
+        pCondFormat->DoRepaint();
+    }
+}
+
 ScCondDateFormatEntry::ScCondDateFormatEntry( ScDocument* pDoc )
     : ScFormatEntry( pDoc )
     , meType(condformat::TODAY)
@@ -1604,7 +1619,7 @@ bool ScCondDateFormatEntry::IsValid( const ScAddress& rPos ) const
                 if( eDay != SUNDAY )
                 {
                     Date aBegin(rActDate - (1 + static_cast<sal_Int32>(eDay)));
-                    Date aEnd(rActDate + (5 + static_cast<sal_Int32>(eDay)));
+                    Date aEnd(rActDate + (5 - static_cast<sal_Int32>(eDay)));
                     return aCellDate.IsBetween( aBegin, aEnd );
                 }
                 else
@@ -1774,6 +1789,11 @@ bool ScConditionalFormat::IsEmpty() const
 size_t ScConditionalFormat::size() const
 {
     return maEntries.size();
+}
+
+ScDocument* ScConditionalFormat::GetDocument()
+{
+    return pDoc;
 }
 
 ScConditionalFormat::~ScConditionalFormat()
@@ -2018,6 +2038,18 @@ void ScConditionalFormat::endRendering()
     for(auto itr = maEntries.cbegin(); itr != maEntries.cend(); ++itr)
     {
         (*itr)->endRendering();
+    }
+}
+
+void ScConditionalFormat::CalcAll()
+{
+    for(auto itr = maEntries.cbegin(); itr != maEntries.cend(); ++itr)
+    {
+        if ((*itr)->GetType() == ScFormatEntry::Type::Condition)
+        {
+            ScCondFormatEntry& rFormat = static_cast<ScCondFormatEntry&>(**itr);
+            rFormat.CalcAll();
+        }
     }
 }
 
@@ -2272,6 +2304,15 @@ sal_uInt32 ScConditionalFormatList::getMaxKey() const
     }
 
     return nMax;
+}
+
+void ScConditionalFormatList::CalcAll()
+{
+    for (const auto& aEntry : m_ConditionalFormats)
+    {
+        aEntry->CalcAll();
+    }
+
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

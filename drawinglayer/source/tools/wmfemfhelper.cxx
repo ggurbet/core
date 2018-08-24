@@ -44,6 +44,7 @@
 #include <drawinglayer/primitive2d/textstrikeoutprimitive2d.hxx>
 #include <drawinglayer/primitive2d/epsprimitive2d.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 #include <tools/fract.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/hatch.hxx>
@@ -2001,7 +2002,7 @@ namespace wmfemfhelper
                 {
                     /** CHECKED, WORKS WELL */
                     const MetaBmpScaleAction* pA = static_cast<const MetaBmpScaleAction*>(pAction);
-                    const Bitmap aBitmapEx(pA->GetBitmap());
+                    const BitmapEx aBitmapEx(pA->GetBitmap());
 
                     createBitmapExPrimitive(aBitmapEx, pA->GetPoint(), pA->GetSize(), rTargetHolders.Current(), rPropertyHolders.Current());
 

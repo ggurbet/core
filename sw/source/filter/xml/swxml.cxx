@@ -48,6 +48,7 @@
 #include <comphelper/fileformat.h>
 #include <comphelper/genericpropertyset.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <sfx2/frame.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <swerror.h>
@@ -121,9 +122,9 @@ XMLReader::XMLReader()
 {
 }
 
-int XMLReader::GetReaderType()
+SwReaderType XMLReader::GetReaderType()
 {
-    return SW_STORAGE_READER;
+    return SwReaderType::Storage;
 }
 
 namespace
@@ -440,14 +441,14 @@ static void lcl_ConvertSdrOle2ObjsToSdrGrafObjs(SwDoc& _rDoc)
         const SdrPage& rSdrPage( *(_rDoc.getIDocumentDrawModelAccess().GetDrawModel()->GetPage( 0 )) );
 
         // iterate recursive with group objects over all shapes on the draw page
-        SdrObjListIter aIter( rSdrPage );
+        SdrObjListIter aIter( &rSdrPage );
         while( aIter.IsMore() )
         {
             SdrOle2Obj* pOle2Obj = dynamic_cast< SdrOle2Obj* >( aIter.Next() );
             if( pOle2Obj )
             {
                 // found an ole2 shape
-                SdrObjList* pObjList = pOle2Obj->getParentOfSdrObject();
+                SdrObjList* pObjList = pOle2Obj->getParentSdrObjListFromSdrObject();
 
                 // get its graphic
                 Graphic aGraphic;
@@ -484,24 +485,24 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
     uno::Reference< uno::XComponentContext > xContext =
             comphelper::getProcessComponentContext();
 
-    uno::Reference< document::XGraphicObjectResolver > xGraphicResolver;
+    uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
     rtl::Reference<SvXMLGraphicHelper> xGraphicHelper;
     uno::Reference< document::XEmbeddedObjectResolver > xObjectResolver;
     rtl::Reference<SvXMLEmbeddedObjectHelper> xObjectHelper;
 
     // get the input stream (storage or stream)
     uno::Reference<embed::XStorage> xStorage;
-    if( pMedium )
-        xStorage = pMedium->GetStorage();
+    if( m_pMedium )
+        xStorage = m_pMedium->GetStorage();
     else
-        xStorage = xStg;
+        xStorage = m_xStorage;
 
     if( !xStorage.is() )
         return ERR_SWG_READ_ERROR;
 
     xGraphicHelper = SvXMLGraphicHelper::Create( xStorage,
                                                  SvXMLGraphicHelperMode::Read );
-    xGraphicResolver = xGraphicHelper.get();
+    xGraphicStorageHandler = xGraphicHelper.get();
     SfxObjectShell *pPersist = rDoc.GetPersist();
     if( pPersist )
     {
@@ -658,7 +659,7 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
     // prepare filter arguments, WARNING: the order is important!
     Sequence<Any> aFilterArgs{  Any(xInfoSet),
                                 Any(xStatusIndicator),
-                                Any(xGraphicResolver),
+                                Any(xGraphicStorageHandler),
                                 Any(xObjectResolver),
                                 Any(aLateInitSettings) };
 
@@ -666,38 +667,38 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
                                 Any(xStatusIndicator) };
 
     // prepare for special modes
-    if( aOpt.IsFormatsOnly() )
+    if( m_aOption.IsFormatsOnly() )
     {
         sal_Int32 nCount =
-            (aOpt.IsFrameFormats() ? 1 : 0) +
-            (aOpt.IsPageDescs() ? 1 : 0) +
-            (aOpt.IsTextFormats() ? 2 : 0) +
-            (aOpt.IsNumRules() ? 1 : 0);
+            (m_aOption.IsFrameFormats() ? 1 : 0) +
+            (m_aOption.IsPageDescs() ? 1 : 0) +
+            (m_aOption.IsTextFormats() ? 2 : 0) +
+            (m_aOption.IsNumRules() ? 1 : 0);
 
         Sequence< OUString> aFamiliesSeq( nCount );
         OUString *pSeq = aFamiliesSeq.getArray();
-        if( aOpt.IsFrameFormats() )
+        if( m_aOption.IsFrameFormats() )
             // SfxStyleFamily::Frame;
             *pSeq++ = "FrameStyles";
-        if( aOpt.IsPageDescs() )
+        if( m_aOption.IsPageDescs() )
             // SfxStyleFamily::Page;
             *pSeq++ = "PageStyles";
-        if( aOpt.IsTextFormats() )
+        if( m_aOption.IsTextFormats() )
         {
             // (SfxStyleFamily::Char|SfxStyleFamily::Para);
             *pSeq++ = "CharacterStyles";
             *pSeq++ = "ParagraphStyles";
         }
-        if( aOpt.IsNumRules() )
+        if( m_aOption.IsNumRules() )
             // SfxStyleFamily::Pseudo;
             *pSeq++ = "NumberingStyles";
 
         xInfoSet->setPropertyValue( "StyleInsertModeFamilies",
                                     makeAny(aFamiliesSeq) );
 
-        xInfoSet->setPropertyValue( "StyleInsertModeOverwrite", makeAny(!aOpt.IsMerge()) );
+        xInfoSet->setPropertyValue( "StyleInsertModeOverwrite", makeAny(!m_aOption.IsMerge()) );
     }
-    else if( bInsertMode )
+    else if( m_bInsertMode )
     {
         const uno::Reference<text::XTextRange> xInsertTextRange =
             SwXTextRange::CreateXTextRange(rDoc, *rPaM.GetPoint(), nullptr);
@@ -722,7 +723,7 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
     // Set base URI
     // there is ambiguity which medium should be used here
     // for now the own medium has a preference
-    SfxMedium* pMedDescrMedium = pMedium ? pMedium : pDocSh->GetMedium();
+    SfxMedium* pMedDescrMedium = m_pMedium ? m_pMedium : pDocSh->GetMedium();
     OSL_ENSURE( pMedDescrMedium, "There is no medium to get MediaDescriptor from!" );
 
     xInfoSet->setPropertyValue( "BaseURI", makeAny( rBaseURL ) );
@@ -782,8 +783,8 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
     }
 
     ErrCode nWarnRDF = ERRCODE_NONE;
-    if ( !(IsOrganizerMode() || IsBlockMode() || aOpt.IsFormatsOnly() ||
-           bInsertMode) )
+    if ( !(IsOrganizerMode() || IsBlockMode() || m_aOption.IsFormatsOnly() ||
+           m_bInsertMode) )
     {
         // RDF metadata - must be read before styles/content
         // N.B.: embedded documents have their own manifest.rdf!
@@ -826,8 +827,8 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
         aEmptyArgs, rName, false );
 
     ErrCode nWarn2 = ERRCODE_NONE;
-    if( !(IsOrganizerMode() || IsBlockMode() || aOpt.IsFormatsOnly() ||
-          bInsertMode) )
+    if( !(IsOrganizerMode() || IsBlockMode() || m_aOption.IsFormatsOnly() ||
+          m_bInsertMode) )
     {
         nWarn2 = ReadThroughComponent(
             xStorage, xModelComp, "settings.xml", nullptr, xContext,
@@ -842,23 +843,22 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
                 : "com.sun.star.comp.Writer.XMLStylesImporter"),
         aFilterArgs, rName, true );
 
-    if( !nRet && !(IsOrganizerMode() || aOpt.IsFormatsOnly()) )
+    if( !nRet && !(IsOrganizerMode() || m_aOption.IsFormatsOnly()) )
         nRet = ReadThroughComponent(
            xStorage, xModelComp, "content.xml", "Content.xml", xContext,
             (bOASIS ? "com.sun.star.comp.Writer.XMLOasisContentImporter"
                     : "com.sun.star.comp.Writer.XMLContentImporter"),
            aFilterArgs, rName, true );
 
-    if( !(IsOrganizerMode() || IsBlockMode() || bInsertMode ||
-          aOpt.IsFormatsOnly() ) )
+    if( !(IsOrganizerMode() || IsBlockMode() || m_bInsertMode ||
+          m_aOption.IsFormatsOnly() ) )
     {
         try
         {
             uno::Reference < io::XStream > xStm = xStorage->openStreamElement( "layout-cache", embed::ElementModes::READ );
-            SvStream* pStrm2 = utl::UcbStreamHelper::CreateStream( xStm );
+            std::unique_ptr<SvStream> pStrm2 = utl::UcbStreamHelper::CreateStream( xStm );
             if( !pStrm2->GetError() )
                 rDoc.ReadLayoutCache( *pStrm2 );
-            delete pStrm2;
         }
         catch (const uno::Exception&)
         {
@@ -866,14 +866,14 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
     }
 
     // Notify math objects
-    if( bInsertMode )
+    if( m_bInsertMode )
         rDoc.PrtOLENotify( false );
     else if ( rDoc.IsOLEPrtNotifyPending() )
         rDoc.PrtOLENotify( true );
 
     nRet = nRet ? nRet : (nWarn ? nWarn : (nWarn2 ? nWarn2 : nWarnRDF ) );
 
-    aOpt.ResetAllFormatsOnly();
+    m_aOption.ResetAllFormatsOnly();
 
     // redline password
     Any aAny = xInfoSet->getPropertyValue( sRedlineProtectionKey );
@@ -906,7 +906,7 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
     if( xGraphicHelper )
         xGraphicHelper->dispose();
     xGraphicHelper.clear();
-    xGraphicResolver = nullptr;
+    xGraphicStorageHandler = nullptr;
     if( xObjectHelper )
         xObjectHelper->dispose();
     xObjectHelper.clear();
@@ -923,8 +923,8 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
         //       has lost the information, that this certain style is related to
         //       the outline numbering rule.
         // #i70748# - only for templates
-        if ( pMedium && pMedium->GetFilter() &&
-             pMedium->GetFilter()->IsOwnTemplateFormat() )
+        if ( m_pMedium && m_pMedium->GetFilter() &&
+             m_pMedium->GetFilter()->IsOwnTemplateFormat() )
         {
             lcl_AdjustOutlineStylesForOOo( rDoc );
         }

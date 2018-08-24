@@ -11,6 +11,7 @@
 #include <thread>
 #include <opengl/win/gdiimpl.hxx>
 
+#include <sal/log.hxx>
 #include <comphelper/windowserrorstring.hxx>
 #include <opengl/zone.hxx>
 #include <win/wincomp.hxx>
@@ -114,7 +115,9 @@ void WinOpenGLContext::makeCurrent()
     if (!wglMakeCurrent(m_aGLWin.hDC, m_aGLWin.hRC))
     {
         g_bAnyCurrent = false;
-        SAL_WARN("vcl.opengl", "wglMakeCurrent failed: " << WindowsErrorString(GetLastError()));
+        DWORD nLastError = GetLastError();
+        if (nLastError != ERROR_SUCCESS)
+            SAL_WARN("vcl.opengl", "wglMakeCurrent failed: " << WindowsErrorString(nLastError));
         return;
     }
 
@@ -421,6 +424,10 @@ bool tryShaders(const OUString& rVertexShader, const OUString& rFragmentShader, 
     }
     if (!nId)
         return false;
+
+    // We're interested in the error returned by glDeleteProgram().
+    glGetError();
+
     glDeleteProgram(nId);
     return glGetError() == GL_NO_ERROR;
 }

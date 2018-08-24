@@ -56,6 +56,7 @@
 #include <com/sun/star/xml/dom/XNodeList.hpp>
 #include <com/sun/star/xml/dom/XNamedNodeMap.hpp>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 #include <basegfx/utils/tools.hxx>
 #include <o3tl/enumarray.hxx>
 #include <xmloff/autolayout.hxx>
@@ -175,7 +176,8 @@ SdPage::~SdPage()
 
     clearChildNodes(mxAnimationNode);
 
-    Clear();
+    // clear SdrObjects with broadcasting
+    ClearSdrObjList();
 }
 
 struct OrdNumSorter
@@ -270,7 +272,7 @@ void SdPage::EnsureMasterPageDefaultBackground()
 */
 SdrObject* SdPage::CreatePresObj(PresObjKind eObjKind, bool bVertical, const ::tools::Rectangle& rRect )
 {
-    ::svl::IUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
+    SfxUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
     const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
     SdrObject* pSdrObj = nullptr;
@@ -663,7 +665,7 @@ SfxStyleSheet* SdPage::GetStyleSheetForPresObj(PresObjKind eObjKind) const
     slides masterpage */
 SdStyleSheet* SdPage::getPresentationStyle( sal_uInt32 nHelpId ) const
 {
-    OUString aStyleName( mpPage->GetLayoutName() );
+    OUString aStyleName( GetLayoutName() );
     const OUString aSep( SD_LT_SEPARATOR );
     sal_Int32 nIndex = aStyleName.indexOf(aSep);
     if( nIndex != -1 )
@@ -732,7 +734,7 @@ void SdPage::Changed(const SdrObject& rObj, SdrUserCallType eType, const ::tools
                     {
                         if( pObj->GetUserCall() )
                         {
-                            ::svl::IUndoManager* pUndoManager = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager();
+                            SfxUndoManager* pUndoManager = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager();
                             const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
                             if( bUndo )
@@ -780,7 +782,7 @@ void SdPage::Changed(const SdrObject& rObj, SdrUserCallType eType, const ::tools
 
 void SdPage::CreateTitleAndLayout(bool bInit, bool bCreate )
 {
-    ::svl::IUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
+    SfxUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
     const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
     SdPage* pMasterPage = this;
@@ -1054,7 +1056,7 @@ void SdPage::DestroyDefaultPresObj(PresObjKind eObjKind)
         const bool bUndo = pDoc->IsUndoEnabled();
         if( bUndo )
             pDoc->AddUndo(pDoc->GetSdrUndoFactory().CreateUndoDeleteObject(*pObject));
-        SdrObjList* pOL = pObject->getParentOfSdrObject();
+        SdrObjList* pOL = pObject->getParentSdrObjListFromSdrObject();
         pOL->RemoveObject(pObject->GetOrdNumDirect());
 
         if( !bUndo )
@@ -1600,7 +1602,7 @@ void SdPage::SetAutoLayout(AutoLayout eLayout, bool bInit, bool bCreate )
 
     const bool bSwitchLayout = eLayout != GetAutoLayout();
 
-    ::svl::IUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
+    SfxUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
     const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
     meAutoLayout = eLayout;
@@ -2079,7 +2081,7 @@ SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourceObj, P
     if( !pSourceObj )
         return pSourceObj;
 
-    ::svl::IUndoManager* pUndoManager = rModel.GetUndoManager();
+    SfxUndoManager* pUndoManager = rModel.GetUndoManager();
     const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && rPage.IsInserted();
 
     SdrObject* pNewObj = pSourceObj;
@@ -2096,8 +2098,9 @@ SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourceObj, P
             SdOutliner* pOutl = rModel.GetInternalOutliner();
             pOutl->Clear();
             pOutl->SetText( *pOutlParaObj );
-            pOutlParaObj = pOutl->CreateParaObject();
-            pNewObj->SetOutlinerParaObject( pOutlParaObj );
+            std::unique_ptr<OutlinerParaObject> pNew = pOutl->CreateParaObject();
+            pOutlParaObj = pNew.get();
+            pNewObj->SetOutlinerParaObject( std::move(pNew) );
             pOutl->Clear();
             pNewObj->SetEmptyPresObj(false);
 
@@ -2154,8 +2157,7 @@ SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourceObj, P
             SdOutliner* pOutl = rModel.GetInternalOutliner();
             pOutl->Clear();
             pOutl->SetText( *pOutlParaObj );
-            pOutlParaObj = pOutl->CreateParaObject();
-            pNewObj->SetOutlinerParaObject( pOutlParaObj );
+            pNewObj->SetOutlinerParaObject( pOutl->CreateParaObject() );
             pOutl->Clear();
             pNewObj->SetEmptyPresObj(false);
 
@@ -2217,7 +2219,7 @@ SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourceObj, P
 */
 SdrObject* SdPage::InsertAutoLayoutShape(SdrObject* pObj, PresObjKind eObjKind, bool bVertical, const ::tools::Rectangle& rRect, bool bInit)
 {
-    ::svl::IUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
+    SfxUndoManager* pUndoManager(static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager());
     const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
     if (!pObj && bInit)
@@ -2502,7 +2504,7 @@ void SdPage::SetObjText(SdrTextObj* pObj, SdrOutliner* pOutliner, PresObjKind eO
         }
         else
         {
-            // Outliner restaurieren
+            // restore the outliner
             pOutl->Init( nOutlMode );
             pOutl->SetParaAttribs( 0, pOutl->GetEmptyItemSet() );
             pOutl->SetUpdateMode( bUpdateMode );
@@ -2825,7 +2827,7 @@ bool SdPage::checkVisibility(
 
     if( ( pObj->GetObjInventor() == SdrInventor::Default ) && ( pObj->GetObjIdentifier() == OBJ_TEXT ) )
     {
-           const SdPage* pCheckPage = dynamic_cast< const SdPage* >(pObj->GetPage());
+           const SdPage* pCheckPage = dynamic_cast< const SdPage* >(pObj->getSdrPageFromSdrObject());
 
         if( pCheckPage )
         {
@@ -2872,7 +2874,7 @@ bool SdPage::checkVisibility(
     // i63977, do not print SdrpageObjs from master pages
     if( ( pObj->GetObjInventor() == SdrInventor::Default ) && ( pObj->GetObjIdentifier() == OBJ_PAGE ) )
     {
-        if( pObj->GetPage() && pObj->GetPage()->IsMasterPage() )
+        if( pObj->getSdrPageFromSdrObject() && pObj->getSdrPageFromSdrObject()->IsMasterPage() )
             return false;
     }
 
@@ -2935,21 +2937,67 @@ void SdPage::CalculateHandoutAreas( SdDrawDocument& rModel, AutoLayout eLayout, 
 {
     SdPage& rHandoutMaster = *rModel.GetMasterSdPage( 0, PageKind::Handout );
 
+    static const sal_uInt16 aOffsets[5][9] =
+    {
+        { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, // AUTOLAYOUT_HANDOUT9, Portrait, Horizontal order
+        { 0, 2, 4, 1, 3, 5, 0, 0, 0 }, // AUTOLAYOUT_HANDOUT3, Landscape, Vertical
+        { 0, 2, 1, 3, 0, 0, 0, 0, 0 }, // AUTOLAYOUT_HANDOUT4, Landscape, Vertical
+        { 0, 3, 1, 4, 2, 5, 0, 0, 0 }, // AUTOLAYOUT_HANDOUT4, Portrait, Vertical
+        { 0, 3, 6, 1, 4, 7, 2, 5, 8 }, // AUTOLAYOUT_HANDOUT9, Landscape, Vertical
+    };
+
+    const sal_uInt16* pOffsets = aOffsets[0];
+
+    Size aArea = rHandoutMaster.GetSize();
+    const bool bLandscape = aArea.Width() > aArea.Height();
+
     if( eLayout == AUTOLAYOUT_NONE )
     {
         // use layout from handout master
-        SdrObjListIter aShapeIter (rHandoutMaster);
-        while (aShapeIter.IsMore())
+        SdrObjListIter aShapeIter(&rHandoutMaster);
+
+        std::vector< ::tools::Rectangle > vSlidesAreas;
+        while ( aShapeIter.IsMore() )
         {
-            SdrPageObj* pPageObj = dynamic_cast<SdrPageObj*>(aShapeIter.Next());
+            SdrPageObj* pPageObj = dynamic_cast<SdrPageObj*>( aShapeIter.Next() );
+            // get slide rectangles
             if (pPageObj)
-                rAreas.push_back( pPageObj->GetCurrentBoundRect() );
+                vSlidesAreas.push_back( pPageObj->GetCurrentBoundRect() );
+        }
+
+        if ( !bHorizontal || vSlidesAreas.size() < 4 )
+        { // top to bottom, then right
+            rAreas.swap( vSlidesAreas );
+        }
+        else
+        { // left to right, then down
+            switch ( vSlidesAreas.size() )
+            {
+                case 4:
+                    pOffsets = aOffsets[2];
+                    break;
+
+                default:
+                    SAL_FALLTHROUGH;
+                case 6:
+                    pOffsets = aOffsets[ bLandscape ? 3 : 1 ];
+                    break;
+
+                case 9:
+                    pOffsets = aOffsets[4];
+                    break;
+            }
+
+            rAreas.resize( static_cast<size_t>(vSlidesAreas.size()) );
+
+            for( const tools::Rectangle& rRect : vSlidesAreas )
+            {
+                rAreas[*pOffsets++] = rRect;
+            }
         }
     }
     else
     {
-        Size    aArea = rHandoutMaster.GetSize();
-
         const long nGapW = 1000; // gap is 1cm
         const long nGapH = 1000;
 
@@ -2969,18 +3017,6 @@ void SdPage::CalculateHandoutAreas( SdDrawDocument& rModel, AutoLayout eLayout, 
         aArea.AdjustWidth( -(nGapW * 2 + nLeftBorder + nRightBorder) );
         aArea.AdjustHeight( -(nGapH * 2 + nTopBorder + nBottomBorder) );
 
-        const bool bLandscape = aArea.Width() > aArea.Height();
-
-        static const sal_uInt16 aOffsets[5][9] =
-        {
-            { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, // AUTOLAYOUT_HANDOUT9, Portrait, Horizontal order
-            { 0, 2, 4, 1, 3, 5, 0, 0, 0 }, // AUTOLAYOUT_HANDOUT3, Landscape, Vertical
-            { 0, 2, 1, 3, 0, 0, 0, 0, 0 }, // AUTOLAYOUT_HANDOUT4, Landscape, Vertical
-            { 0, 3, 1, 4, 2, 5, 0, 0, 0 }, // AUTOLAYOUT_HANDOUT4, Portrait, Vertical
-            { 0, 3, 6, 1, 4, 7, 2, 5, 8 }, // AUTOLAYOUT_HANDOUT9, Landscape, Vertical
-        };
-
-        const sal_uInt16* pOffsets = aOffsets[0];
         sal_uInt16  nColCnt = 0, nRowCnt = 0;
         switch ( eLayout )
         {

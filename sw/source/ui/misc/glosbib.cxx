@@ -63,12 +63,9 @@ SwGlossaryGroupDlg::SwGlossaryGroupDlg(vcl::Window * pParent,
     m_pGroupTLB->set_width_request(nWidth);
     m_pGroupTLB->set_height_request(GetTextHeight() * 10);
 
-    long nTabs[] =
-    {   2, // Number of Tabs
-        0, nAppFontUnits
-    };
+    long nTabs[] = {  0, nAppFontUnits };
 
-    m_pGroupTLB->SetTabs( &nTabs[0] );
+    m_pGroupTLB->SetTabs( SAL_N_ELEMENTS(nTabs), nTabs );
     m_pGroupTLB->SetSelectHdl(LINK(this, SwGlossaryGroupDlg, SelectHdl));
     m_pGroupTLB->GetModel()->SetSortMode(SortAscending);
     m_pNewPB->SetClickHdl(LINK(this, SwGlossaryGroupDlg, NewHdl));
@@ -141,10 +138,9 @@ void SwGlossaryGroupDlg::Apply()
 
     OUString aActGroup = SwGlossaryDlg::GetCurrGroup();
 
-    for (OUVector_t::const_iterator it(m_RemovedArr.begin());
-            it != m_RemovedArr.end(); ++it)
+    for (const auto& removedStr : m_RemovedArr)
     {
-        const OUString sDelGroup = it->getToken(0, '\t');
+        const OUString sDelGroup = removedStr.getToken(0, '\t');
         if( sDelGroup == aActGroup )
         {
             //when the current group is deleted, the current group has to be relocated
@@ -155,7 +151,7 @@ void SwGlossaryGroupDlg::Apply()
                 pGlosHdl->SetCurGroup(pUserData->sGroupName);
             }
         }
-        OUString sTitle( it->getToken(1, '\t') );
+        OUString sTitle( removedStr.getToken(1, '\t') );
         const OUString sMsg(SwResId(STR_QUERY_DELETE_GROUP1)
                             + sTitle
                             + SwResId(STR_QUERY_DELETE_GROUP2));
@@ -169,8 +165,7 @@ void SwGlossaryGroupDlg::Apply()
     }
 
     //don't rename before there was one
-    for (OUVector_t::const_iterator it(m_RenamedArr.begin());
-            it != m_RenamedArr.end(); ++it)
+    for (auto it(m_RenamedArr.cbegin()); it != m_RenamedArr.cend(); ++it)
     {
         OUString const sOld(it->getToken(0, RENAME_TOKEN_DELIM));
         OUString sNew(it->getToken(1, RENAME_TOKEN_DELIM));
@@ -181,10 +176,8 @@ void SwGlossaryGroupDlg::Apply()
             sCreatedGroup = sNew;
         }
     }
-    for (OUVector_t::const_iterator it(m_InsertedArr.begin());
-            it != m_InsertedArr.end(); ++it)
+    for (auto& sNewGroup : m_InsertedArr)
     {
-        OUString sNewGroup = *it;
         OUString sNewTitle = sNewGroup.getToken(0, GLOS_DELIM);
         if( sNewGroup != aActGroup )
         {
@@ -249,29 +242,21 @@ IMPL_LINK( SwGlossaryGroupDlg, DeleteHdl, Button*, pButton, void )
     OUString const sEntry(pUserData->sGroupName);
     // if the name to be deleted is among the new ones - get rid of it
     bool bDelete = true;
-    for (OUVector_t::iterator it(m_InsertedArr.begin());
-            it != m_InsertedArr.end(); ++it)
+    auto it = std::find(m_InsertedArr.begin(), m_InsertedArr.end(), sEntry);
+    if (it != m_InsertedArr.end())
     {
-        if (*it == sEntry)
-        {
-            m_InsertedArr.erase(it);
-            bDelete = false;
-            break;
-        }
-
+        m_InsertedArr.erase(it);
+        bDelete = false;
     }
     // it should probably be renamed?
     if(bDelete)
     {
-        for (OUVector_t::iterator it(m_RenamedArr.begin());
-                it != m_RenamedArr.end(); ++it)
+        it = std::find_if(m_RenamedArr.begin(), m_RenamedArr.end(),
+            [&sEntry](OUString& s) { return s.getToken(0, RENAME_TOKEN_DELIM) == sEntry; });
+        if (it != m_RenamedArr.end())
         {
-            if (it->getToken(0, RENAME_TOKEN_DELIM) == sEntry)
-            {
-                m_RenamedArr.erase(it);
-                bDelete = false;
-                break;
-            }
+            m_RenamedArr.erase(it);
+            bDelete = false;
         }
     }
     if(bDelete)
@@ -300,16 +285,12 @@ IMPL_LINK_NOARG(SwGlossaryGroupDlg, RenameHdl, Button*, void)
 
     // if the name to be renamed is among the new ones - replace
     bool bDone = false;
-    for (OUVector_t::iterator it(m_InsertedArr.begin());
-            it != m_InsertedArr.end(); ++it)
+    auto it = std::find(m_InsertedArr.begin(), m_InsertedArr.end(), sEntry);
+    if (it != m_InsertedArr.end())
     {
-        if (*it == sEntry)
-        {
-            m_InsertedArr.erase(it);
-            m_InsertedArr.push_back(sNewName);
-            bDone = true;
-            break;
-        }
+        m_InsertedArr.erase(it);
+        m_InsertedArr.push_back(sNewName);
+        bDone = true;
     }
     if(!bDone)
     {
@@ -394,15 +375,9 @@ bool SwGlossaryGroupDlg::IsDeleteAllowed(const OUString &rGroup)
     // as well! Because for non existing region names ReadOnly issues
     // true.
 
-    for (OUVector_t::const_iterator it(m_InsertedArr.begin());
-            it != m_InsertedArr.end(); ++it)
-    {
-        if (*it == rGroup)
-        {
-            bDel = true;
-            break;
-        }
-    }
+    auto it = std::find(m_InsertedArr.cbegin(), m_InsertedArr.cend(), rGroup);
+    if (it != m_InsertedArr.cend())
+        bDel = true;
 
     return bDel;
 }

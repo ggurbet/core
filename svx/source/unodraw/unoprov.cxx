@@ -175,30 +175,6 @@ SfxItemPropertyMapEntry const * ImplGetSvxPolyPolygonPropertyMap()
         { OUString("Geometry"), OWN_ATTR_BASE_GEOMETRY, cppu::UnoType<css::drawing::PointSequenceSequence>::get(), 0, 0 },
         SPECIAL_POLYGON_PROPERTIES
         SPECIAL_POLYPOLYGON_PROPERTIES
-        FILL_PROPERTIES
-        LINE_PROPERTIES
-        LINE_PROPERTIES_START_END
-        SHAPE_DESCRIPTOR_PROPERTIES
-        MISC_OBJ_PROPERTIES
-        LINKTARGET_PROPERTIES
-        SHADOW_PROPERTIES
-        TEXT_PROPERTIES
-        // #FontWork#
-        FONTWORK_PROPERTIES
-        { OUString("UserDefinedAttributes"), SDRATTR_XMLATTRIBUTES, cppu::UnoType<css::container::XNameContainer>::get(),        0,     0},
-        { OUString("ParaUserDefinedAttributes"), EE_PARA_XMLATTRIBS, cppu::UnoType<css::container::XNameContainer>::get(),        0,     0},
-        { OUString(), 0, css::uno::Type(), 0, 0 }
-    };
-
-    return aPolyPolygonPropertyMap_Impl;
-}
-
-SfxItemPropertyMapEntry const * ImplGetSvxPolyPolygonBezierPropertyMap()
-{
-    static SfxItemPropertyMapEntry const aPolyPolygonBezierPropertyMap_Impl[] =
-    {
-        { OUString("Geometry"), OWN_ATTR_BASE_GEOMETRY, cppu::UnoType<css::drawing::PolyPolygonBezierCoords>::get(), 0, 0 },
-        SPECIAL_POLYGON_PROPERTIES
         SPECIAL_POLYPOLYGONBEZIER_PROPERTIES
         FILL_PROPERTIES
         LINE_PROPERTIES
@@ -215,7 +191,7 @@ SfxItemPropertyMapEntry const * ImplGetSvxPolyPolygonBezierPropertyMap()
         { OUString(), 0, css::uno::Type(), 0, 0 }
     };
 
-    return aPolyPolygonBezierPropertyMap_Impl;
+    return aPolyPolygonPropertyMap_Impl;
 }
 
 SfxItemPropertyMapEntry const * ImplGetSvxGraphicObjectPropertyMap()
@@ -759,7 +735,7 @@ SfxItemPropertyMapEntry const * ImplGetSvxTableShapePropertyMap()
         { OUString("UseLastColumnStyle"),           OWN_ATTR_TABLETEMPLATE_LASTCOLUMN, cppu::UnoType<bool>::get(),0, 0},
         { OUString("UseBandingRowStyle"),           OWN_ATTR_TABLETEMPLATE_BANDINGROWS, cppu::UnoType<bool>::get(),0, 0},
         { OUString("UseBandingColumnStyle"),        OWN_ATTR_TABLETEMPLATE_BANDINGCOULUMNS, cppu::UnoType<bool>::get(),0, 0},
-        { OUString("ReplacementGraphic"),           OWN_ATTR_BITMAP, cppu::UnoType<css::graphic::XGraphic>::get(), css::beans::PropertyAttribute::READONLY, 0},
+        { OUString("ReplacementGraphic"),           OWN_ATTR_REPLACEMENT_GRAPHIC, cppu::UnoType<css::graphic::XGraphic>::get(), css::beans::PropertyAttribute::READONLY, 0},
         { OUString(), 0, css::uno::Type(), 0, 0 }
     };
 
@@ -916,7 +892,6 @@ const SfxItemPropertyMapEntry* SvxUnoPropertyMapProvider::GetMap(sal_uInt16 nPro
             case SVXMAP_DIMENSIONING: aMapArr[SVXMAP_DIMENSIONING]=ImplGetSvxDimensioningPropertyMap(); break;
             case SVXMAP_CIRCLE: aMapArr[SVXMAP_CIRCLE]=ImplGetSvxCirclePropertyMap(); break;
             case SVXMAP_POLYPOLYGON: aMapArr[SVXMAP_POLYPOLYGON]=ImplGetSvxPolyPolygonPropertyMap(); break;
-            case SVXMAP_POLYPOLYGONBEZIER: aMapArr[SVXMAP_POLYPOLYGONBEZIER]=ImplGetSvxPolyPolygonBezierPropertyMap(); break;
             case SVXMAP_GRAPHICOBJECT: aMapArr[SVXMAP_GRAPHICOBJECT]=ImplGetSvxGraphicObjectPropertyMap(); break;
             case SVXMAP_3DSCENEOBJECT: aMapArr[SVXMAP_3DSCENEOBJECT]=ImplGetSvx3DSceneObjectPropertyMap(); break;
             case SVXMAP_3DCUBEOBJECT: aMapArr[SVXMAP_3DCUBEOBJECT]=ImplGetSvx3DCubeObjectPropertyMap(); break;
@@ -1360,10 +1335,7 @@ static const char* RID_SVXSTR_GRDT_DEF[] =
     RID_SVXSTR_GRDT81_DEF,
     RID_SVXSTR_GRDT82_DEF,
     RID_SVXSTR_GRDT83_DEF,
-    RID_SVXSTR_GRDT84_DEF,
-    RID_SVXSTR_GRDT85_DEF,
-    RID_SVXSTR_GRDT86_DEF,
-    RID_SVXSTR_GRDT87_DEF
+    RID_SVXSTR_GRDT84_DEF
 };
 
 static const char* RID_SVXSTR_GRDT[] =
@@ -1452,10 +1424,7 @@ static const char* RID_SVXSTR_GRDT[] =
     RID_SVXSTR_GRDT81,
     RID_SVXSTR_GRDT82,
     RID_SVXSTR_GRDT83,
-    RID_SVXSTR_GRDT84,
-    RID_SVXSTR_GRDT85,
-    RID_SVXSTR_GRDT86,
-    RID_SVXSTR_GRDT87
+    RID_SVXSTR_GRDT84
 };
 
 static const char* RID_SVXSTR_HATCHS_DEF[] =
@@ -1611,12 +1580,12 @@ static const char* SvxUnoColorNameDefResId[] =
     RID_SVXSTR_COLOR_BLUE_DEF,
     RID_SVXSTR_COLOR_GREEN_DEF,
     RID_SVXSTR_COLOR_RED_DEF,
+    RID_SVXSTR_COLOR_MAGENTA_DEF,
     RID_SVXSTR_COLOR_GREY_DEF,
     RID_SVXSTR_COLOR_YELLOWGREEN_DEF,
     RID_SVXSTR_COLOR_YELLOW_DEF,
     RID_SVXSTR_COLOR_WHITE_DEF,
     RID_SVXSTR_COLOR_ORANGE_DEF,
-    RID_SVXSTR_COLOR_VIOLET_DEF,
     RID_SVXSTR_COLOR_BORDEAUX_DEF,
     RID_SVXSTR_COLOR_PALE_YELLOW_DEF,
     RID_SVXSTR_COLOR_PALE_GREEN_DEF,
@@ -1639,7 +1608,7 @@ static const char* SvxUnoColorNameDefResId[] =
     RID_SVXSTR_COLOR_LIGHTORANGE_DEF,
     RID_SVXSTR_COLOR_LIGHTBRICK_DEF,
     RID_SVXSTR_COLOR_LIGHTRED_DEF,
-    RID_SVXSTR_COLOR_LIGHTVIOLET_DEF,
+    RID_SVXSTR_COLOR_LIGHTMAGENTA_DEF,
     RID_SVXSTR_COLOR_LIGHTPURPLE_DEF,
     RID_SVXSTR_COLOR_LIGHTINDIGO_DEF,
     RID_SVXSTR_COLOR_LIGHTBLUE_DEF,
@@ -1652,13 +1621,14 @@ static const char* SvxUnoColorNameDefResId[] =
     RID_SVXSTR_COLOR_DARKORANGE_DEF,
     RID_SVXSTR_COLOR_DARKBRICK_DEF,
     RID_SVXSTR_COLOR_DARKRED_DEF,
-    RID_SVXSTR_COLOR_DARKVIOLET1_DEF,
+    RID_SVXSTR_COLOR_DARKMAGENTA_DEF,
     RID_SVXSTR_COLOR_DARKPURPLE_DEF,
     RID_SVXSTR_COLOR_DARKINDIGO_DEF,
     RID_SVXSTR_COLOR_DARKBLUE_DEF,
     RID_SVXSTR_COLOR_DARKTEAL_DEF,
     RID_SVXSTR_COLOR_DARKGREEN_DEF,
     RID_SVXSTR_COLOR_DARKLIME_DEF,
+    RID_SVXSTR_COLOR_VIOLET_DEF,
     RID_SVXSTR_COLOR_VIOLET_OUG_DEF,
     RID_SVXSTR_COLOR_BLUE_OUG_DEF,
     RID_SVXSTR_COLOR_AZURE_OUG_DEF,
@@ -1668,7 +1638,6 @@ static const char* SvxUnoColorNameDefResId[] =
     RID_SVXSTR_COLOR_ORANGE_OUG_DEF,
     RID_SVXSTR_COLOR_RED_OUG_DEF,
     RID_SVXSTR_COLOR_ROSE_OUG_DEF,
-    RID_SVXSTR_COLOR_MAGENTA_DEF,
     RID_SVXSTR_COLOR_AZURE_DEF,
     RID_SVXSTR_COLOR_CYAN_DEF,
     RID_SVXSTR_COLOR_SPRINGGREEN_DEF,
@@ -1699,12 +1668,12 @@ static const char* SvxUnoColorNameResId[] =
     RID_SVXSTR_COLOR_BLUE,
     RID_SVXSTR_COLOR_GREEN,
     RID_SVXSTR_COLOR_RED,
+    RID_SVXSTR_COLOR_MAGENTA,
     RID_SVXSTR_COLOR_GREY,
     RID_SVXSTR_COLOR_YELLOWGREEN,
     RID_SVXSTR_COLOR_YELLOW,
     RID_SVXSTR_COLOR_WHITE,
     RID_SVXSTR_COLOR_ORANGE,
-    RID_SVXSTR_COLOR_VIOLET,
     RID_SVXSTR_COLOR_BORDEAUX,
     RID_SVXSTR_COLOR_PALE_YELLOW,
     RID_SVXSTR_COLOR_PALE_GREEN,
@@ -1727,7 +1696,7 @@ static const char* SvxUnoColorNameResId[] =
     RID_SVXSTR_COLOR_LIGHTORANGE,
     RID_SVXSTR_COLOR_LIGHTBRICK,
     RID_SVXSTR_COLOR_LIGHTRED,
-    RID_SVXSTR_COLOR_LIGHTVIOLET,
+    RID_SVXSTR_COLOR_LIGHTMAGENTA,
     RID_SVXSTR_COLOR_LIGHTPURPLE,
     RID_SVXSTR_COLOR_LIGHTINDIGO,
     RID_SVXSTR_COLOR_LIGHTBLUE,
@@ -1740,13 +1709,14 @@ static const char* SvxUnoColorNameResId[] =
     RID_SVXSTR_COLOR_DARKORANGE,
     RID_SVXSTR_COLOR_DARKBRICK,
     RID_SVXSTR_COLOR_DARKRED,
-    RID_SVXSTR_COLOR_DARKVIOLET1,
+    RID_SVXSTR_COLOR_DARKMAGENTA,
     RID_SVXSTR_COLOR_DARKPURPLE,
     RID_SVXSTR_COLOR_DARKINDIGO,
     RID_SVXSTR_COLOR_DARKBLUE,
     RID_SVXSTR_COLOR_DARKTEAL,
     RID_SVXSTR_COLOR_DARKGREEN,
     RID_SVXSTR_COLOR_DARKLIME,
+    RID_SVXSTR_COLOR_VIOLET,
     RID_SVXSTR_COLOR_VIOLET_OUG,
     RID_SVXSTR_COLOR_BLUE_OUG,
     RID_SVXSTR_COLOR_AZURE_OUG,
@@ -1756,7 +1726,6 @@ static const char* SvxUnoColorNameResId[] =
     RID_SVXSTR_COLOR_ORANGE_OUG,
     RID_SVXSTR_COLOR_RED_OUG,
     RID_SVXSTR_COLOR_ROSE_OUG,
-    RID_SVXSTR_COLOR_MAGENTA,
     RID_SVXSTR_COLOR_AZURE,
     RID_SVXSTR_COLOR_CYAN,
     RID_SVXSTR_COLOR_SPRINGGREEN,

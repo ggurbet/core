@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 
@@ -59,6 +60,7 @@
 #include <strings.hrc>
 #include <svl/stritem.hxx>
 #include "xmlimp.hxx"
+#include "xmlimpit.hxx"
 #include "xmltexti.hxx"
 #include <list.hxx>
 #include <swdll.hxx>
@@ -358,7 +360,7 @@ void SwXMLDocStylesContext_Impl::EndElement()
 const SvXMLTokenMap& SwXMLImport::GetDocElemTokenMap()
 {
     if( !m_pDocElemTokenMap )
-        m_pDocElemTokenMap = new SvXMLTokenMap( aDocTokenMap );
+        m_pDocElemTokenMap.reset( new SvXMLTokenMap( aDocTokenMap ) );
 
     return *m_pDocElemTokenMap;
 }
@@ -436,9 +438,9 @@ SwXMLImport::~SwXMLImport() throw ()
         SAL_WARN("sw", "endDocument skipped, dropping shapes now to avoid dangling SvTextShapeImportHelper pointing to this");
         ClearShapeImport();
     }
-    delete m_pDocElemTokenMap;
-    delete m_pTableElemTokenMap;
-    delete m_pTableCellAttrTokenMap;
+    m_pDocElemTokenMap.reset();
+    m_pTableElemTokenMap.reset();
+    m_pTableCellAttrTokenMap.reset();
     FinitItemImport();
 }
 
@@ -588,6 +590,32 @@ void SwXMLImport::startDocument()
                     m_bOrganizerMode = true;
             }
         }
+
+        // default document properties
+        const OUString sDefSettings("DefaultDocumentSettings");
+        if (xPropertySetInfo->hasPropertyByName(sDefSettings))
+        {
+            aAny = xImportInfo->getPropertyValue(sDefSettings);
+            Sequence<PropertyValue> aProps;
+            if (aAny >>= aProps)
+            {
+                Reference<lang::XMultiServiceFactory> xFac(GetModel(), UNO_QUERY);
+                Reference<XPropertySet> xProps(
+                    xFac->createInstance("com.sun.star.document.Settings"), UNO_QUERY);
+                Reference<XPropertySetInfo> xInfo(xProps->getPropertySetInfo());
+
+                if (xProps.is() && xInfo.is())
+                {
+                    for (const auto& rProp : aProps)
+                    {
+                        if (xInfo->hasPropertyByName(rProp.Name))
+                        {
+                            xProps->setPropertyValue(rProp.Name, rProp.Value);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // There only is a text cursor by now if we are in insert mode. In any
@@ -688,10 +716,10 @@ void SwXMLImport::startDocument()
     if ( pDrawModel )
         pDrawModel->setLock(true);
 
-    if( !GetGraphicResolver().is() )
+    if (!GetGraphicStorageHandler().is())
     {
-        m_xGraphicResolver = SvXMLGraphicHelper::Create( SvXMLGraphicHelperMode::Read );
-        SetGraphicResolver( m_xGraphicResolver.get() );
+        m_xGraphicStorageHandler = SvXMLGraphicHelper::Create(SvXMLGraphicHelperMode::Read);
+        SetGraphicStorageHandler(m_xGraphicStorageHandler.get());
     }
 
     if( !GetEmbeddedResolver().is() )
@@ -717,9 +745,10 @@ void SwXMLImport::endDocument()
     // this method will modify the document directly -> lock SolarMutex
     SolarMutexGuard aGuard;
 
-    if( m_xGraphicResolver )
-        m_xGraphicResolver->dispose();
-    m_xGraphicResolver.clear();
+    if (m_xGraphicStorageHandler)
+        m_xGraphicStorageHandler->dispose();
+    m_xGraphicStorageHandler.clear();
+
     if( m_xEmbeddedResolver )
         m_xEmbeddedResolver->dispose();
     m_xEmbeddedResolver.clear();
@@ -1865,16 +1894,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportDOCX(SvStream &rStream)
     {
         ret = xFilter->filter(aArgs);
     }
-    catch (const css::io::IOException&)
-    {
-    }
-    catch (const css::lang::IllegalArgumentException&)
-    {
-    }
-    catch (const css::lang::WrappedTargetRuntimeException&)
-    {
-    }
-    catch (const std::exception&)
+    catch (...)
     {
     }
     xDocSh->SetLoading(SfxLoadedFlags::ALL);

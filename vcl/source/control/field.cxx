@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <comphelper/string.hxx>
 
@@ -111,23 +112,23 @@ bool ImplNumericGetValue( const OUString& rStr, sal_Int64& rValue,
         // If in "a b/c" format.
         if(nFracNumPos != -1 )
         {
-            aStr1.append(aStr.getStr(), nFracNumPos);
-            aStrNum.append(aStr.getStr()+nFracNumPos+1, nFracDivPos-nFracNumPos-1);
-            aStrDenom.append(aStr.getStr()+nFracDivPos+1);
+            aStr1.appendCopy(aStr, 0, nFracNumPos);
+            aStrNum.appendCopy(aStr, nFracNumPos+1, nFracDivPos-nFracNumPos-1);
+            aStrDenom.appendCopy(aStr, nFracDivPos+1);
         }
         // "a/b" format, or not a fraction at all
         else
         {
-            aStrNum.append(aStr.getStr(), nFracDivPos);
-            aStrDenom.append(aStr.getStr()+nFracDivPos+1);
+            aStrNum.appendCopy(aStr, 0, nFracDivPos);
+            aStrDenom.appendCopy(aStr, nFracDivPos+1);
         }
 
     }
     // parse decimal strings
     else if ( nDecPos >= 0)
     {
-        aStr1.append(aStr.getStr(), nDecPos);
-        aStr2.append(aStr.getStr()+nDecPos+1);
+        aStr1.appendCopy(aStr, 0, nDecPos);
+        aStr2.appendCopy(aStr, nDecPos+1);
     }
     else
         aStr1 = aStr;
@@ -452,13 +453,6 @@ void FormatterBase::ImplSetText( const OUString& rText, Selection const * pNewSe
             aSel.Min() = aSel.Max();
             mpField->SetText(rText, aSel);
         }
-        if (maOutputHdl.IsSet())
-        {
-            OUString sText(mpField->GetText());
-            mpField->SetText(OUString());
-            if (!maOutputHdl.Call(*mpField))
-                mpField->SetText(sText);
-        }
         MarkToBeReformatted( false );
     }
 }
@@ -475,18 +469,18 @@ bool FormatterBase::IsEmptyFieldValue() const
     return (!mpField || mpField->GetText().isEmpty());
 }
 
-bool NumericFormatter::ImplNumericReformat( const OUString& rStr, sal_Int64& rValue,
-                                                OUString& rOutStr )
+void NumericFormatter::FormatValue(Selection const * pNewSelection)
 {
-    if ( !ImplNumericGetValue( rStr, rValue, GetDecimalDigits(), ImplGetLocaleDataWrapper() ) )
-        return true;
-    else
-    {
-        sal_Int64 nTempVal = ClipAgainstMinMax(rValue);
+    mbFormatting = true;
+    if (!m_aOutputHdl.IsSet() || !m_aOutputHdl.Call(*GetField()))
+        ImplSetText(CreateFieldText(mnLastValue), pNewSelection);
+    mbFormatting = false;
+}
 
-        rOutStr = CreateFieldText( nTempVal );
-        return true;
-    }
+void NumericFormatter::ImplNumericReformat()
+{
+    mnLastValue = GetValue();
+    FormatValue();
 }
 
 void NumericFormatter::ImplInit()
@@ -501,6 +495,8 @@ void NumericFormatter::ImplInit()
     mbThousandSep       = true;
     mbShowTrailingZeros = true;
     mbWrapOnLimits      = false;
+    mbFormatting       = false;
+    mbDisableRemainderFactor = false;
 
     // for fields
     mnSpinSize          = 1;
@@ -573,7 +569,7 @@ void NumericFormatter::ImplSetUserValue( sal_Int64 nNewValue, Selection const * 
     mnLastValue = nNewValue;
 
     if ( GetField() )
-        ImplSetText( CreateFieldText( nNewValue ), pNewSelection );
+        FormatValue(pNewSelection);
 }
 
 void NumericFormatter::SetUserValue( sal_Int64 nNewValue )
@@ -596,6 +592,22 @@ sal_Int64 NumericFormatter::GetValueFromString(const OUString& rStr) const
 
 sal_Int64 NumericFormatter::GetValue() const
 {
+    if (mbFormatting) //don't parse the entry if we're currently formatting what to put in it
+        return mnLastValue;
+
+    if (m_aInputHdl.IsSet())
+    {
+        sal_Int64 nResult;
+        TriState eState = m_aInputHdl.Call(&nResult);
+        if (eState != TRISTATE_INDET)
+        {
+            if (eState == TRISTATE_TRUE)
+                return ClipAgainstMinMax(nResult);
+            else
+                return mnLastValue;
+        }
+    }
+
     return GetField() ? GetValueFromString(GetField()->GetText()) : 0;
 }
 
@@ -649,23 +661,18 @@ void NumericFormatter::Reformat()
     if ( GetField()->GetText().isEmpty() && ImplGetEmptyFieldValue() )
         return;
 
-    OUString aStr;
-    sal_Int64 nTemp = mnLastValue;
-    bool bOK = ImplNumericReformat( GetField()->GetText(), nTemp, aStr );
-    mnLastValue = nTemp;
-    if ( !bOK )
-        return;
+    ImplNumericReformat();
+}
 
-    if ( !aStr.isEmpty() )
-        ImplSetText( aStr );
-    else
-        SetValue( mnLastValue );
+void NumericFormatter::DisableRemainderFactor()
+{
+    mbDisableRemainderFactor = true;
 }
 
 void NumericFormatter::FieldUp()
 {
     sal_Int64 nValue = GetValue();
-    sal_Int64 nRemainder = nValue % mnSpinSize;
+    sal_Int64 nRemainder = mbDisableRemainderFactor ? 0 : (nValue % mnSpinSize);
     if (nValue >= 0)
         nValue = (nRemainder == 0) ? nValue + mnSpinSize : nValue + mnSpinSize - nRemainder;
     else
@@ -679,7 +686,7 @@ void NumericFormatter::FieldUp()
 void NumericFormatter::FieldDown()
 {
     sal_Int64 nValue = GetValue();
-    sal_Int64 nRemainder = nValue % mnSpinSize;
+    sal_Int64 nRemainder = mbDisableRemainderFactor ? 0 : (nValue % mnSpinSize);
     if (nValue >= 0)
         nValue = (nRemainder == 0) ? nValue - mnSpinSize : nValue - nRemainder;
     else
@@ -954,6 +961,16 @@ void NumericBox::Modify()
 {
     MarkToBeReformatted( true );
     ComboBox::Modify();
+}
+
+void NumericBox::ImplNumericReformat( const OUString& rStr, sal_Int64& rValue,
+                                                OUString& rOutStr )
+{
+    if (ImplNumericGetValue(rStr, rValue, GetDecimalDigits(), ImplGetLocaleDataWrapper()))
+    {
+        sal_Int64 nTempVal = ClipAgainstMinMax(rValue);
+        rOutStr = CreateFieldText( nTempVal );
+    }
 }
 
 void NumericBox::ReformatAll()
@@ -1298,8 +1315,8 @@ double MetricField::ConvertDoubleValue( double nValue, sal_uInt16 nDigits,
     return nValue;
 }
 
-static bool ImplMetricGetValue( const OUString& rStr, double& rValue, sal_Int64 nBaseValue,
-                                sal_uInt16 nDecDigits, const LocaleDataWrapper& rLocaleDataWrapper, FieldUnit eUnit )
+bool MetricFormatter::TextToValue(const OUString& rStr, double& rValue, sal_Int64 nBaseValue,
+                                  sal_uInt16 nDecDigits, const LocaleDataWrapper& rLocaleDataWrapper, FieldUnit eUnit)
 {
     // Get value
     sal_Int64 nValue;
@@ -1316,22 +1333,18 @@ static bool ImplMetricGetValue( const OUString& rStr, double& rValue, sal_Int64 
     return true;
 }
 
-bool MetricFormatter::ImplMetricReformat( const OUString& rStr, double& rValue, OUString& rOutStr )
+void MetricFormatter::ImplMetricReformat( const OUString& rStr, double& rValue, OUString& rOutStr )
 {
-    if ( !ImplMetricGetValue( rStr, rValue, mnBaseValue, GetDecimalDigits(), ImplGetLocaleDataWrapper(), meUnit ) )
-        return true;
-    else
-    {
-        double nTempVal = rValue;
-        // caution: precision loss in double cast
-        if ( nTempVal > GetMax() )
-            nTempVal = static_cast<double>(GetMax());
-        else if ( nTempVal < GetMin())
-            nTempVal = static_cast<double>(GetMin());
+    if ( !TextToValue( rStr, rValue, mnBaseValue, GetDecimalDigits(), ImplGetLocaleDataWrapper(), meUnit ) )
+        return;
 
-        rOutStr = CreateFieldText( static_cast<sal_Int64>(nTempVal) );
-        return true;
-    }
+    double nTempVal = rValue;
+    // caution: precision loss in double cast
+    if ( nTempVal > GetMax() )
+        nTempVal = static_cast<double>(GetMax());
+    else if ( nTempVal < GetMin())
+        nTempVal = static_cast<double>(GetMin());
+    rOutStr = CreateFieldText( static_cast<sal_Int64>(nTempVal) );
 }
 
 inline void MetricFormatter::ImplInit()
@@ -1409,7 +1422,7 @@ sal_Int64 MetricFormatter::GetValueFromStringUnit(const OUString& rStr, FieldUni
 {
     double nTempValue;
     // caution: precision loss in double cast
-    if (!ImplMetricGetValue(rStr, nTempValue, mnBaseValue, GetDecimalDigits(), ImplGetLocaleDataWrapper(), meUnit))
+    if (!TextToValue(rStr, nTempValue, mnBaseValue, GetDecimalDigits(), ImplGetLocaleDataWrapper(), meUnit))
         nTempValue = static_cast<double>(mnLastValue);
 
     // caution: precision loss in double cast
@@ -1491,11 +1504,8 @@ void MetricFormatter::Reformat()
     OUString aStr;
     // caution: precision loss in double cast
     double nTemp = static_cast<double>(mnLastValue);
-    bool bOK = ImplMetricReformat( aText, nTemp, aStr );
+    ImplMetricReformat( aText, nTemp, aStr );
     mnLastValue = static_cast<sal_Int64>(nTemp);
-
-    if ( !bOK )
-        return;
 
     if ( !aStr.isEmpty() )
     {
@@ -1772,7 +1782,7 @@ void MetricBox::InsertValue( sal_Int64 nValue, FieldUnit eInUnit, sal_Int32 nPos
 sal_Int64 MetricBox::GetValue( sal_Int32 nPos ) const
 {
     double nValue = 0;
-    ImplMetricGetValue( ComboBox::GetEntry( nPos ), nValue, mnBaseValue,
+    TextToValue( ComboBox::GetEntry( nPos ), nValue, mnBaseValue,
                         GetDecimalDigits(), ImplGetLocaleDataWrapper(), meUnit );
 
     // convert to previously configured units
@@ -1804,22 +1814,18 @@ inline bool ImplCurrencyGetValue( const OUString& rStr, sal_Int64& rValue,
     return ImplNumericGetValue( rStr, rValue, nDecDigits, rWrapper, true );
 }
 
-bool CurrencyFormatter::ImplCurrencyReformat( const OUString& rStr, OUString& rOutStr )
+void CurrencyFormatter::ImplCurrencyReformat( const OUString& rStr, OUString& rOutStr )
 {
     sal_Int64 nValue;
     if ( !ImplNumericGetValue( rStr, nValue, GetDecimalDigits(), ImplGetLocaleDataWrapper(), true ) )
-        return true;
-    else
-    {
-        sal_Int64 nTempVal = nValue;
-        if ( nTempVal > GetMax() )
-            nTempVal = GetMax();
-        else if ( nTempVal < GetMin())
-            nTempVal = GetMin();
+        return;
 
-        rOutStr = CreateFieldText( nTempVal );
-        return true;
-    }
+    sal_Int64 nTempVal = nValue;
+    if ( nTempVal > GetMax() )
+        nTempVal = GetMax();
+    else if ( nTempVal < GetMin())
+        nTempVal = GetMin();
+    rOutStr = CreateFieldText( nTempVal );
 }
 
 CurrencyFormatter::CurrencyFormatter()
@@ -1861,9 +1867,7 @@ void CurrencyFormatter::Reformat()
         return;
 
     OUString aStr;
-    bool bOK = ImplCurrencyReformat( GetField()->GetText(), aStr );
-    if ( !bOK )
-        return;
+    ImplCurrencyReformat( GetField()->GetText(), aStr );
 
     if ( !aStr.isEmpty() )
     {

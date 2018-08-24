@@ -41,7 +41,6 @@ namespace comphelper
     {
     private:
         Reference< XComponentContext >  m_aContext;
-        OUString                 m_sLoggerName;
         Reference< XLogger >            m_xLogger;
 
     public:
@@ -53,13 +52,12 @@ namespace comphelper
 
     EventLogger_Impl::EventLogger_Impl( const Reference< XComponentContext >& _rxContext, const OUString& _rLoggerName )
         :m_aContext( _rxContext )
-        ,m_sLoggerName( _rLoggerName )
     {
         try
         {
             Reference< XLoggerPool > xPool( LoggerPool::get( m_aContext ) );
-            if ( !m_sLoggerName.isEmpty() )
-                m_xLogger = xPool->getNamedLogger( m_sLoggerName );
+            if ( !_rLoggerName.isEmpty() )
+                m_xLogger = xPool->getNamedLogger( _rLoggerName );
             else
                 m_xLogger = xPool->getDefaultLogger();
         }
@@ -73,12 +71,6 @@ namespace comphelper
         :m_pImpl( new EventLogger_Impl( _rxContext, OUString::createFromAscii( _pAsciiLoggerName ) ) )
     {
     }
-
-
-    EventLogger::~EventLogger()
-    {
-    }
-
 
     bool EventLogger::isLoggable( const sal_Int32 _nLogLevel ) const
     {
@@ -112,7 +104,7 @@ namespace comphelper
     }
 
 
-    bool EventLogger::impl_log( const sal_Int32 _nLogLevel,
+    void EventLogger::impl_log( const sal_Int32 _nLogLevel,
         const sal_Char* _pSourceClass, const sal_Char* _pSourceMethod, const OUString& _rMessage,
         const OptionalString& _rArgument1, const OptionalString& _rArgument2,
         const OptionalString& _rArgument3, const OptionalString& _rArgument4,
@@ -159,8 +151,6 @@ namespace comphelper
         {
             OSL_FAIL( "EventLogger::impl_log: caught an exception!" );
         }
-
-        return false;
     }
 } // namespace comphelper
 

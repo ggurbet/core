@@ -24,7 +24,6 @@
 class SwFrame;
 class SwContentNode;
 class SwTextNode;
-class ToxTextGeneratorTest;
 
 enum SwChapterFormat
 {
@@ -56,7 +55,7 @@ class SW_DLLPUBLIC SwChapterField : public SwField
     OUString sPost;
 
     virtual OUString Expand() const override;
-    virtual SwField* Copy() const override;
+    virtual std::unique_ptr<SwField> Copy() const override;
 
 public:
     SwChapterField(SwChapterFieldType*, sal_uInt32 nFormat = 0);

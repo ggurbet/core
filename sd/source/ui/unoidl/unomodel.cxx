@@ -39,6 +39,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/profilezone.hxx>
 
+#include <sal/log.hxx>
 #include <editeng/unofield.hxx>
 #include <notifydocumentevent.hxx>
 #include <unomodel.hxx>
@@ -57,6 +58,7 @@
 #include <svx/UnoNamespaceMap.hxx>
 #include <svx/svdlayer.hxx>
 #include <svx/svdsob.hxx>
+#include <svx/svdundo.hxx>
 #include <svx/unoapi.hxx>
 #include <svx/unofill.hxx>
 #include <svx/unopool.hxx>
@@ -75,7 +77,7 @@
 #include <unotools/saveopt.hxx>
 #include <xmloff/autolayout.hxx>
 
-// Support creation of GraphicObjectResolver and EmbeddedObjectResolver
+// Support creation of GraphicStorageHandler and EmbeddedObjectResolver
 #include <svx/xmleohlp.hxx>
 #include <svx/xmlgrhlp.hxx>
 #include <DrawDocShell.hxx>
@@ -84,6 +86,7 @@
 
 #include <Annotation.hxx>
 #include <drawdoc.hxx>
+#include <sdmod.hxx>
 #include <sdresid.hxx>
 #include <sdpage.hxx>
 
@@ -505,7 +508,7 @@ SdPage* SdXImpressDocument::InsertSdPage( sal_uInt16 nPage, bool bDuplicate )
         * standard page
         **************************************************************/
         if( bDuplicate )
-            pStandardPage = static_cast<SdPage*>( pPreviousStandardPage->Clone() );
+            pStandardPage = static_cast<SdPage*>( pPreviousStandardPage->CloneSdrPage(*mpDoc) );
         else
             pStandardPage = mpDoc->AllocSdPage(false);
 
@@ -540,7 +543,7 @@ SdPage* SdXImpressDocument::InsertSdPage( sal_uInt16 nPage, bool bDuplicate )
         SdPage* pNotesPage = nullptr;
 
         if( bDuplicate )
-            pNotesPage = static_cast<SdPage*>( pPreviousNotesPage->Clone() );
+            pNotesPage = static_cast<SdPage*>( pPreviousNotesPage->CloneSdrPage(*mpDoc) );
         else
             pNotesPage = mpDoc->AllocSdPage(false);
 
@@ -940,13 +943,13 @@ css::uno::Reference<css::uno::XInterface> SdXImpressDocument::create(
         return svx::NamespaceMap_createInstance( aWhichIds, &mpDoc->GetItemPool() );
     }
 
-    // Support creation of GraphicObjectResolver and EmbeddedObjectResolver
-    if( aServiceSpecifier == "com.sun.star.document.ExportGraphicObjectResolver" )
+    // Support creation of GraphicStorageHandler and EmbeddedObjectResolver
+    if (aServiceSpecifier == "com.sun.star.document.ExportGraphicStorageHandler")
     {
         return static_cast<cppu::OWeakObject *>(new SvXMLGraphicHelper( SvXMLGraphicHelperMode::Write ));
     }
 
-    if( aServiceSpecifier == "com.sun.star.document.ImportGraphicObjectResolver" )
+    if (aServiceSpecifier == "com.sun.star.document.ImportGraphicStorageHandler")
     {
         return static_cast<cppu::OWeakObject *>(new SvXMLGraphicHelper( SvXMLGraphicHelperMode::Read ));
     }
@@ -1135,9 +1138,9 @@ uno::Sequence< OUString > SAL_CALL SdXImpressDocument::getAvailableServiceNames(
     aSNS[i++] = sUNO_Service_ImageMapPolygonObject;
     aSNS[i++] = "com.sun.star.xml.NamespaceMap";
 
-    // Support creation of GraphicObjectResolver and EmbeddedObjectResolver
-    aSNS[i++] = "com.sun.star.document.ExportGraphicObjectResolver";
-    aSNS[i++] = "com.sun.star.document.ImportGraphicObjectResolver";
+    // Support creation of GraphicStorageHandler and EmbeddedObjectResolver
+    aSNS[i++] = "com.sun.star.document.ExportGraphicStorageHandler";
+    aSNS[i++] = "com.sun.star.document.ImportGraphicStorageHandler";
     aSNS[i++] = "com.sun.star.document.ExportEmbeddedObjectResolver";
     aSNS[i++] = "com.sun.star.document.ImportEmbeddedObjectResolver";
     aSNS[i++] = "com.sun.star.drawing.TableShape";
@@ -1571,7 +1574,7 @@ sal_Int32 ImplPDFGetBookmarkPage( const OUString& rBookmark, SdDrawDocument cons
         // is the bookmark a object ?
         pObj = rDoc.GetObj( aBookmark );
         if (pObj)
-            nPgNum = pObj->GetPage()->GetPageNum();
+            nPgNum = pObj->getSdrPageFromSdrObject()->GetPageNum();
     }
     if ( nPgNum != SDRPAGE_NOTFOUND )
         nPage = ( nPgNum - 1 ) / 2;
@@ -1791,9 +1794,9 @@ drawinglayer::primitive2d::Primitive2DContainer ImplRenderPaintProc::createRedir
     {
         drawinglayer::primitive2d::Primitive2DContainer xRetval;
 
-        if(pObject->GetPage())
+        if(pObject->getSdrPageFromSdrObject())
         {
-            if(pObject->GetPage()->checkVisibility(rOriginal, rDisplayInfo, false))
+            if(pObject->getSdrPageFromSdrObject()->checkVisibility(rOriginal, rDisplayInfo, false))
             {
                 if(IsVisible(pObject) && IsPrintable(pObject))
                 {
@@ -2207,12 +2210,12 @@ void SAL_CALL SdXImpressDocument::render( sal_Int32 nRenderer, const uno::Any& r
                                     if( pShape )
                                     {
                                         SdrObject* pObj = pShape->GetSdrObject();
-                                        if( pObj && pObj->GetPage()
+                                        if( pObj && pObj->getSdrPageFromSdrObject()
                                             && aImplRenderPaintProc.IsVisible( pObj )
                                                 && aImplRenderPaintProc.IsPrintable( pObj ) )
                                         {
                                             if( !pPV )
-                                                pPV = pView->ShowSdrPage( pObj->GetPage() );
+                                                pPV = pView->ShowSdrPage( pObj->getSdrPageFromSdrObject() );
 
                                             if( pPV )
                                                 pView->MarkObj( pObj, pPV );

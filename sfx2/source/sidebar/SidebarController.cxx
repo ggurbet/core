@@ -37,12 +37,15 @@
 #include <framework/ContextChangeEventMultiplexerTunnel.hxx>
 #include <vcl/floatwin.hxx>
 #include <vcl/fixed.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 #include <splitwin.hxx>
 #include <tools/link.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/ui/ContextChangeEventMultiplexer.hpp>
@@ -514,6 +517,21 @@ void SidebarController::UpdateConfigurations()
     }
 }
 
+namespace {
+
+void collectUIInformation(const OUString& rDeckId)
+{
+    EventDescription aDescription;
+    aDescription.aAction = "SIDEBAR";
+    aDescription.aParent = "MainWindow";
+    aDescription.aParameters = {{"PANEL", rDeckId}};
+    aDescription.aKeyWord = "CurrentApp";
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
+
 void SidebarController::OpenThenToggleDeck (
     const OUString& rsDeckId)
 {
@@ -540,6 +558,7 @@ void SidebarController::OpenThenToggleDeck (
     SwitchToDeck(rsDeckId);
     mpTabBar->Invalidate();
     mpTabBar->HighlightDeck(rsDeckId);
+    collectUIInformation(rsDeckId);
 }
 
 void SidebarController::OpenThenSwitchToDeck (
@@ -1338,6 +1357,23 @@ void SidebarController::FadeIn()
 {
     if (mpSplitWindow)
         mpSplitWindow->FadeIn();
+}
+
+tools::Rectangle SidebarController::GetDeckDragArea() const
+{
+    tools::Rectangle aRect;
+
+    if(mpCurrentDeck)
+    {
+        VclPtr<DeckTitleBar> pTitleBar(mpCurrentDeck->GetTitleBar());
+
+        if(pTitleBar)
+        {
+            aRect = pTitleBar->GetDragArea();
+        }
+    }
+
+    return aRect;
 }
 
 void SidebarController::frameAction(const css::frame::FrameActionEvent& rEvent)

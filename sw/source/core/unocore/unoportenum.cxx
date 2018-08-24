@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <utility>
 
@@ -286,25 +287,27 @@ namespace
             ::sw::mark::AnnotationMark* const pAnnotationMark =
                 dynamic_cast< ::sw::mark::AnnotationMark* >(ppMark->get());
 
-            if ( pAnnotationMark == nullptr )
+            if (!pAnnotationMark)
+                continue;
+
+            const SwPosition& rStartPos = pAnnotationMark->GetMarkStart();
+            if (rStartPos.nNode != nOwnNode)
+                continue;
+
+            const SwFormatField* pAnnotationFormatField = pAnnotationMark->GetAnnotationFormatField();
+            if (!pAnnotationFormatField)
             {
+                SAL_WARN("sw.core", "missing annotation format field");
                 continue;
             }
 
-            const SwPosition& rStartPos = pAnnotationMark->GetMarkStart();
-            if ( rStartPos.nNode == nOwnNode )
-            {
-                const SwFormatField* pAnnotationFormatField = pAnnotationMark->GetAnnotationFormatField();
-                assert(pAnnotationFormatField != nullptr);
-                rAnnotationStartArr.insert(
-                    std::make_shared<SwAnnotationStartPortion_Impl>(
-                            SwXTextField::CreateXTextField(&rDoc,
-                                pAnnotationFormatField),
-                            rStartPos));
-            }
+            rAnnotationStartArr.insert(
+                std::make_shared<SwAnnotationStartPortion_Impl>(
+                        SwXTextField::CreateXTextField(&rDoc,
+                            pAnnotationFormatField),
+                        rStartPos));
         }
     }
-
 }
 
 const uno::Sequence< sal_Int8 > & SwXTextPortionEnumeration::getUnoTunnelId()
@@ -394,10 +397,8 @@ uno::Any SwXTextPortionEnumeration::nextElement()
     return any;
 }
 
-typedef std::deque< sal_Int32 > FieldMarks_t;
-
 static void
-lcl_FillFieldMarkArray(FieldMarks_t & rFieldMarks, SwUnoCursor const & rUnoCursor,
+lcl_FillFieldMarkArray(std::deque<sal_Int32> & rFieldMarks, SwUnoCursor const & rUnoCursor,
         const sal_Int32 i_nStartPos)
 {
     const SwTextNode * const pTextNode =
@@ -1309,12 +1310,12 @@ static void lcl_CreatePortions(
             (i_nStartPos <= pUnoCursor->Start()->nNode.GetNode().GetTextNode()->
                         GetText().getLength()), "Incorrect start position" );
         // ??? should this be i_nStartPos - current position ?
-        pUnoCursor->Right(static_cast<sal_Int32>(i_nStartPos));
+        pUnoCursor->Right(i_nStartPos);
     }
 
     SwDoc * const pDoc = pUnoCursor->GetDoc();
 
-    FieldMarks_t FieldMarks;
+    std::deque<sal_Int32> FieldMarks;
     lcl_FillFieldMarkArray(FieldMarks, *pUnoCursor, i_nStartPos);
 
     SwXBookmarkPortion_ImplList Bookmarks;

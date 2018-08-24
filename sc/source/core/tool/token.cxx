@@ -22,8 +22,8 @@
 #include <functional>
 
 #include <string.h>
-#include <tools/mempool.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 #include <sfx2/docfile.hxx>
 #include <officecfg/Office/Calc.hxx>
 
@@ -51,6 +51,7 @@
 #include <dbdata.hxx>
 #include <reordermap.hxx>
 #include <svl/sharedstring.hxx>
+#include <scmatrix.hxx>
 
 using ::std::vector;
 
@@ -204,25 +205,8 @@ namespace
 
 } // namespace
 
-// ScRawToken size is OpCode + StackVar + MAXSTRLEN+1 + ~20 ~= 1049
-IMPL_FIXEDMEMPOOL_NEWDEL( ScRawToken )
-
-// Need a whole bunch of ScSingleRefToken
-IMPL_FIXEDMEMPOOL_NEWDEL( ScSingleRefToken )
-// Need quite a lot of ScDoubleRefToken
-IMPL_FIXEDMEMPOOL_NEWDEL( ScDoubleRefToken )
 
 // --- class ScRawToken -----------------------------------------------------
-
-sal_Int32 ScRawToken::GetStrLen( const sal_Unicode* pStr )
-{
-    if ( !pStr )
-        return 0;
-    const sal_Unicode* p = pStr;
-    while ( *p )
-        p++;
-    return sal::static_int_cast<sal_Int32>( p - pStr );
-}
 
 void ScRawToken::SetOpCode( OpCode e )
 {
@@ -318,10 +302,7 @@ void ScRawToken::SetExternalSingleRef( sal_uInt16 nFileId, const OUString& rTabN
     extref.nFileId = nFileId;
     extref.aRef.Ref1 =
     extref.aRef.Ref2 = rRef;
-
-    sal_Int32 n = rTabName.getLength();
-    memcpy(extref.cTabName, rTabName.getStr(), n*sizeof(sal_Unicode));
-    extref.cTabName[n] = 0;
+    maExternalName = rTabName;
 }
 
 void ScRawToken::SetExternalDoubleRef( sal_uInt16 nFileId, const OUString& rTabName, const ScComplexRefData& rRef )
@@ -331,10 +312,7 @@ void ScRawToken::SetExternalDoubleRef( sal_uInt16 nFileId, const OUString& rTabN
 
     extref.nFileId = nFileId;
     extref.aRef = rRef;
-
-    sal_Int32 n = rTabName.getLength();
-    memcpy(extref.cTabName, rTabName.getStr(), n*sizeof(sal_Unicode));
-    extref.cTabName[n] = 0;
+    maExternalName = rTabName;
 }
 
 void ScRawToken::SetExternalName( sal_uInt16 nFileId, const OUString& rName )
@@ -343,22 +321,14 @@ void ScRawToken::SetExternalName( sal_uInt16 nFileId, const OUString& rName )
     eType = svExternalName;
 
     extname.nFileId = nFileId;
-
-    sal_Int32 n = rName.getLength();
-    memcpy(extname.cName, rName.getStr(), n*sizeof(sal_Unicode));
-    extname.cName[n] = 0;
+    maExternalName = rName;
 }
 
-void ScRawToken::SetExternal( const sal_Unicode* pStr )
+void ScRawToken::SetExternal( const OUString& rStr )
 {
     eOp   = ocExternal;
     eType = svExternal;
-    sal_Int32 nLen = GetStrLen( pStr ) + 1;
-    if( nLen > MAXSTRLEN )
-        nLen = MAXSTRLEN;
-    // Leave space for byte parameter!
-    memcpy( cStr+1, pStr, nLen * sizeof(sal_Unicode) );
-    cStr[ nLen+1 ] = 0;
+    maExternalName = rStr;
 }
 
 bool ScRawToken::IsValidReference() const
@@ -416,23 +386,23 @@ FormulaToken* ScRawToken::CreateToken() const
                 return new FormulaIndexToken( eOp, name.nIndex, name.nSheet);
         case svExternalSingleRef:
             {
-                svl::SharedString aTabName( OUString( extref.cTabName));    // string not interned
+                svl::SharedString aTabName(maExternalName);    // string not interned
                 return new ScExternalSingleRefToken(extref.nFileId, aTabName, extref.aRef.Ref1);
             }
         case svExternalDoubleRef:
             {
-                svl::SharedString aTabName( OUString( extref.cTabName));    // string not interned
+                svl::SharedString aTabName(maExternalName);    // string not interned
                 return new ScExternalDoubleRefToken(extref.nFileId, aTabName, extref.aRef);
             }
         case svExternalName:
             {
-                svl::SharedString aName( OUString( extname.cName));         // string not interned
+                svl::SharedString aName(maExternalName);         // string not interned
                 return new ScExternalNameToken( extname.nFileId, aName );
             }
         case svJump :
             return new FormulaJumpToken( eOp, nJump );
         case svExternal :
-            return new FormulaExternalToken( eOp, sbyte.cByte, OUString( cStr+1 ) );
+            return new FormulaExternalToken( eOp, sbyte.cByte, maExternalName );
         case svFAP :
             return new FormulaFAPToken( eOp, sbyte.cByte, nullptr );
         case svMissing :
@@ -506,7 +476,7 @@ void DumpToken(formula::FormulaToken const & rToken)
         break;
     default:
         cout << "-- FormulaToken" << endl;
-        cout << "  opcode: " << rToken.GetOpCode() << " " <<
+        cout << "  opcode: " << int(rToken.GetOpCode()) << " " <<
             formula::FormulaCompiler::GetNativeSymbol( rToken.GetOpCode()).toUtf8().getStr() << endl;
         cout << "  type: " << static_cast<int>(rToken.GetType()) << endl;
         switch (rToken.GetType())
@@ -702,9 +672,6 @@ bool ScMatrixToken::operator==( const FormulaToken& r ) const
 {
     return FormulaToken::operator==( r ) && pMatrix == r.GetMatrix();
 }
-
-ScMatrixRangeToken::ScMatrixRangeToken( const ScMatrixRef& p, const ScComplexRefData& rRef ) :
-    FormulaToken(formula::svMatrix), mpMatrix(p), maRef(rRef) {}
 
 ScMatrixRangeToken::ScMatrixRangeToken( const sc::RangeMatrix& rMat ) :
     FormulaToken(formula::svMatrix), mpMatrix(rMat.mpMat)
@@ -1307,7 +1274,7 @@ bool ScTokenArray::AddFormulaToken(
     return bError;
 }
 
-void ScTokenArray::CheckForThreading( OpCode eOp  )
+void ScTokenArray::CheckForThreading( const FormulaToken& r )
 {
     static const std::set<OpCode> aThreadedCalcBlackList({
         ocIndirect,
@@ -1318,11 +1285,15 @@ void ScTokenArray::CheckForThreading( OpCode eOp  )
         ocHLookup,
         ocMatch,
         ocCell,
-        ocInfo
+        ocInfo,
+        ocStyle,
+        ocDBSum,
+        ocText,
+        ocExternal,
+        ocDde,
+        ocWebservice,
+        ocGetPivotData
     });
-
-    // We only call this if it was already disabled
-    assert(IsFormulaVectorDisabled());
 
     // Don't enable threading once we decided to disable it.
     if (!mbThreadingEnabled)
@@ -1330,30 +1301,45 @@ void ScTokenArray::CheckForThreading( OpCode eOp  )
 
     static const bool bThreadingProhibited = std::getenv("SC_NO_THREADED_CALCULATION");
 
-    if (!bThreadingProhibited)
+    if (bThreadingProhibited)
     {
-        if (aThreadedCalcBlackList.count(eOp))
-        {
-            SAL_INFO("sc.core.formulagroup", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables threaded calculation of formula group");
-            mbThreadingEnabled = false;
-        }
-        else
-            SAL_INFO("sc.core.formulagroup", "but enabling for threading instead");
-
-    }
-    else
         mbThreadingEnabled = false;
+        return;
+    }
+
+    OpCode eOp = r.GetOpCode();
+
+    if (aThreadedCalcBlackList.count(eOp))
+    {
+        SAL_INFO("sc.core.formulagroup", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp)
+            << "(" << int(eOp) << ") disables threaded calculation of formula group");
+        mbThreadingEnabled = false;
+        return;
+    }
+
+    if (eOp == ocPush)
+    {
+        switch (r.GetType())
+        {
+            case svExternalDoubleRef:
+            case svExternalSingleRef:
+                SAL_INFO("sc.core.formulagroup", "opcode ocPush: variable type " << StackVarEnumToString(r.GetType())
+                    << " disables threaded calculation of formula group");
+                mbThreadingEnabled = false;
+                return;
+            default:
+                break;
+        }
+    }
 }
 
 void ScTokenArray::CheckToken( const FormulaToken& r )
 {
+    if (mbThreadingEnabled)
+        CheckForThreading(r);
+
     if (IsFormulaVectorDisabled())
-    {
-        if (mbThreadingEnabled)
-            CheckForThreading(r.GetOpCode());
-        // It's already disabled.  No more checking needed.
-        return;
-    }
+        return; // It's already disabled.  No more checking needed.
 
     OpCode eOp = r.GetOpCode();
 
@@ -1362,35 +1348,16 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
         if (ScInterpreter::GetGlobalConfig().mbOpenCLSubsetOnly &&
             ScInterpreter::GetGlobalConfig().mpOpenCLSubsetOpCodes->find(eOp) == ScInterpreter::GetGlobalConfig().mpOpenCLSubsetOpCodes->end())
         {
-            SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables vectorisation for formula group");
+            SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp)
+                << "(" << int(eOp) << ") disables vectorisation for formula group");
             meVectorState = FormulaVectorDisabledNotInSubSet;
             mbOpenCLEnabled = false;
-            CheckForThreading(eOp);
-            return;
-        }
-
-        // test for OpenCL interpreter first - the assumption is that S/W
-        // interpreter blacklist is more strict than the OpenCL one
-        if (ScCalcConfig::isSwInterpreterEnabled() &&
-            (dynamic_cast<sc::FormulaGroupInterpreterSoftware*>(sc::FormulaGroupInterpreter::getStatic()) != nullptr) &&
-            ScInterpreter::GetGlobalConfig().mpSwInterpreterSubsetOpCodes->find(eOp) == ScInterpreter::GetGlobalConfig().mpSwInterpreterSubsetOpCodes->end())
-        {
-            SAL_INFO("sc.core.formulagroup", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables S/W interpreter for formula group");
-            meVectorState = FormulaVectorDisabledNotInSoftwareSubset;
-            mbOpenCLEnabled = false;
-            CheckForThreading(eOp);
             return;
         }
 
         // We support vectorization for the following opcodes.
         switch (eOp)
         {
-            case ocIf:
-            case ocIfError:
-            case ocIfNA:
-            case ocChoose:
-                // Jump commands are now supported.
-            break;
             case ocAverage:
             case ocMin:
             case ocMinA:
@@ -1566,9 +1533,11 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
             // Don't change the state.
             break;
             default:
-                SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables vectorisation for formula group");
+                SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp)
+                    << "(" << int(eOp) << ") disables vectorisation for formula group");
                 meVectorState = FormulaVectorDisabledByOpCode;
                 mbOpenCLEnabled = false;
+                return;
         }
     }
     else if (eOp == ocPush)
@@ -1583,11 +1552,10 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
                 // Don't change the state.
             break;
             case svSingleRef:
+            case svDoubleRef:
                 // Depends on the reference state.
                 meVectorState = FormulaVectorCheckReference;
             break;
-            case svDoubleRef:
-                // Does not work yet, see ScGroupTokenConverter::convert()
             case svError:
             case svEmptyCell:
             case svExternal:
@@ -1609,32 +1577,22 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
                 SAL_INFO("sc.opencl", "opcode ocPush: variable type " << StackVarEnumToString(r.GetType()) << " disables vectorisation for formula group");
                 meVectorState = FormulaVectorDisabledByStackVariable;
                 mbOpenCLEnabled = false;
-                CheckForThreading(eOp);
-            break;
+                return;
             default:
                 ;
         }
     }
-    else if (SC_OPCODE_START_BIN_OP <= eOp && eOp < SC_OPCODE_STOP_UN_OP &&
-        ScInterpreter::GetGlobalConfig().mbOpenCLSubsetOnly &&
-        ScInterpreter::GetGlobalConfig().mpOpenCLSubsetOpCodes->find(eOp) == ScInterpreter::GetGlobalConfig().mpOpenCLSubsetOpCodes->end())
+    else if (SC_OPCODE_START_BIN_OP <= eOp && eOp < SC_OPCODE_STOP_UN_OP)
     {
-        SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables vectorisation for formula group");
-        meVectorState = FormulaVectorDisabledNotInSubSet;
-        mbOpenCLEnabled = false;
-        CheckForThreading(eOp);
-    }
-    // only when openCL interpreter is not enabled - the assumption is that
-    // the S/W interpreter blacklist is more strict
-    else if (SC_OPCODE_START_BIN_OP <= eOp && eOp < SC_OPCODE_STOP_UN_OP &&
-        ScCalcConfig::isSwInterpreterEnabled() &&
-        (dynamic_cast<sc::FormulaGroupInterpreterSoftware*>(sc::FormulaGroupInterpreter::getStatic()) != nullptr) &&
-        ScInterpreter::GetGlobalConfig().mpSwInterpreterSubsetOpCodes->find(eOp) == ScInterpreter::GetGlobalConfig().mpSwInterpreterSubsetOpCodes->end())
-    {
-        SAL_INFO("sc.core.formulagroup", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables S/W interpreter for formula group");
-        meVectorState = FormulaVectorDisabledNotInSoftwareSubset;
-        mbOpenCLEnabled = false;
-        CheckForThreading(eOp);
+        if (ScInterpreter::GetGlobalConfig().mbOpenCLSubsetOnly &&
+            ScInterpreter::GetGlobalConfig().mpOpenCLSubsetOpCodes->find(eOp) == ScInterpreter::GetGlobalConfig().mpOpenCLSubsetOpCodes->end())
+        {
+            SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp)
+                << "(" << int(eOp) << ") disables vectorisation for formula group");
+            meVectorState = FormulaVectorDisabledNotInSubSet;
+            mbOpenCLEnabled = false;
+            return;
+        }
     }
     else
     {
@@ -1665,11 +1623,11 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
                 // Auto column/row names lead to references computed in
                 // interpreter.
 
-                SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp) << " disables vectorisation for formula group");
+                SAL_INFO("sc.opencl", "opcode " << formula::FormulaCompiler().GetOpCodeMap(sheet::FormulaLanguage::ENGLISH)->getSymbol(eOp)
+                    << "(" << int(eOp) << ") disables vectorisation for formula group");
                 meVectorState = FormulaVectorDisabledByOpCode;
                 mbOpenCLEnabled = false;
-                CheckForThreading(eOp);
-            break;
+                return;
 
             // Known good, don't change state.
             case ocStop:
@@ -1693,6 +1651,12 @@ void ScTokenArray::CheckToken( const FormulaToken& r )
             case ocErrName:
             case ocErrNum:
             case ocErrNA:
+            break;
+            case ocIf:
+            case ocIfError:
+            case ocIfNA:
+            case ocChoose:
+                // Jump commands are now supported.
             break;
         }
     }
@@ -1815,9 +1779,9 @@ void ScTokenArray::GenHash()
 
 void ScTokenArray::ResetVectorState()
 {
-    meVectorState = FormulaVectorEnabled;
-    mbOpenCLEnabled = true;
-    mbThreadingEnabled = !ScCalcConfig::isOpenCLEnabled() && ScCalcConfig::isThreadingEnabled();
+    mbOpenCLEnabled = ScCalcConfig::isOpenCLEnabled();
+    meVectorState = mbOpenCLEnabled ? FormulaVectorEnabled : FormulaVectorDisabled;
+    mbThreadingEnabled = ScCalcConfig::isThreadingEnabled();
 }
 
 bool ScTokenArray::IsFormulaVectorDisabled() const
@@ -1839,7 +1803,7 @@ bool ScTokenArray::IsFormulaVectorDisabled() const
 
 bool ScTokenArray::IsInvariant() const
 {
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -1883,11 +1847,9 @@ bool ScTokenArray::IsValidReference( ScRange& rRange, const ScAddress& rPos ) co
 
 ScTokenArray::ScTokenArray() :
     FormulaTokenArray(),
-    mnHashValue(0),
-    meVectorState(FormulaVectorEnabled),
-    mbOpenCLEnabled(true),
-    mbThreadingEnabled(!ScCalcConfig::isOpenCLEnabled() && ScCalcConfig::isThreadingEnabled())
+    mnHashValue(0)
 {
+    ResetVectorState();
 }
 
 ScTokenArray::~ScTokenArray()
@@ -1925,9 +1887,7 @@ bool ScTokenArray::EqualTokens( const ScTokenArray* pArr2) const
 void ScTokenArray::Clear()
 {
     mnHashValue = 0;
-    meVectorState = FormulaVectorEnabled;
-    mbOpenCLEnabled = true;
-    mbThreadingEnabled = !ScCalcConfig::isOpenCLEnabled() && ScCalcConfig::isThreadingEnabled();
+    ResetVectorState();
     FormulaTokenArray::Clear();
 }
 
@@ -1949,8 +1909,9 @@ ScTokenArray* ScTokenArray::Clone() const
     FormulaToken** pp;
     if( nLen )
     {
-        pp = p->pCode = new FormulaToken*[ nLen ];
-        memcpy( pp, pCode, nLen * sizeof( formula::FormulaToken* ) );
+        p->pCode.reset(new FormulaToken*[ nLen ]);
+        pp = p->pCode.get();
+        memcpy( pp, pCode.get(), nLen * sizeof( formula::FormulaToken* ) );
         for( sal_uInt16 i = 0; i < nLen; i++, pp++ )
         {
             *pp = (*pp)->Clone();
@@ -1966,7 +1927,7 @@ ScTokenArray* ScTokenArray::Clone() const
             FormulaToken* t = *pp;
             if( t->GetRef() > 1 )
             {
-                FormulaToken** p2 = pCode;
+                FormulaToken** p2 = pCode.get();
                 sal_uInt16 nIdx = 0xFFFF;
                 for( sal_uInt16 j = 0; j < nLen; j++, p2++ )
                 {
@@ -2536,7 +2497,7 @@ void ScTokenArray::ReadjustAbsolute3DReferences( const ScDocument* pOldDoc, ScDo
 void ScTokenArray::AdjustAbsoluteRefs( const ScDocument* pOldDoc, const ScAddress& rOldPos, const ScAddress& rNewPos,
         bool bCheckCopyRange)
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN, true);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN, true);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -2583,7 +2544,7 @@ void ScTokenArray::AdjustAbsoluteRefs( const ScDocument* pOldDoc, const ScAddres
 
 void ScTokenArray::AdjustSheetLocalNameReferences( SCTAB nOldTab, SCTAB nNewTab )
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN, false);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN, false);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -2631,7 +2592,7 @@ void ScTokenArray::AdjustSheetLocalNameReferences( SCTAB nOldTab, SCTAB nNewTab 
 
 bool ScTokenArray::ReferencesSheet( SCTAB nTab, SCTAB nPosTab ) const
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN, false);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN, false);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken* const * pp = aPtrs.maPointerRange[j].mpStart;
@@ -3082,7 +3043,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceOnShift( const sc::RefUpdateCon
         }
     }
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -3314,7 +3275,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceOnMove(
         assert(!"can't move");
     }
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -3437,7 +3398,7 @@ sc::RefUpdateResult ScTokenArray::MoveReference( const ScAddress& rPos, const sc
         assert(!"can't move");
     }
 
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -3513,7 +3474,7 @@ sc::RefUpdateResult ScTokenArray::MoveReference( const ScAddress& rPos, const sc
 void ScTokenArray::MoveReferenceColReorder(
     const ScAddress& rPos, SCTAB nTab, SCROW nRow1, SCROW nRow2, const sc::ColRowReorderMapType& rColMap )
 {
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -3576,7 +3537,7 @@ void ScTokenArray::MoveReferenceColReorder(
 
 void ScTokenArray::MoveReferenceRowReorder( const ScAddress& rPos, SCTAB nTab, SCCOL nCol1, SCCOL nCol2, const sc::ColRowReorderMapType& rRowMap )
 {
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -3796,7 +3757,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceInName(
         // Copying cells does not modify named expressions.
         return aRes;
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -3879,6 +3840,11 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceInName(
                     {
                         ScComplexRefData& rRef = *p->GetDoubleRef();
                         ScRange aAbs = rRef.toAbs(rPos);
+
+                        if (aAbs.aStart.Tab() > rCxt.maRange.aEnd.Tab() || aAbs.aEnd.Tab() < rCxt.maRange.aStart.Tab())
+                            // Sheet references not affected.
+                            break;
+
                         if (rCxt.maRange.In(aAbs))
                         {
                             // This range is entirely within the shifted region.
@@ -3899,10 +3865,6 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceInName(
 
                             if (aAbs.aStart.Col() < rCxt.maRange.aStart.Col() || rCxt.maRange.aEnd.Col() < aAbs.aEnd.Col())
                                 // column range of the reference is not entirely in the deleted column range.
-                                break;
-
-                            if (aAbs.aStart.Tab() > rCxt.maRange.aEnd.Tab() || aAbs.aEnd.Tab() < rCxt.maRange.aStart.Tab())
-                                // wrong tables
                                 break;
 
                             ScRange aDeleted = rCxt.maRange;
@@ -3959,10 +3921,6 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceInName(
 
                             if (aAbs.aStart.Row() < rCxt.maRange.aStart.Row() || rCxt.maRange.aEnd.Row() < aAbs.aEnd.Row())
                                 // row range of the reference is not entirely in the deleted row range.
-                                break;
-
-                            if (aAbs.aStart.Tab() > rCxt.maRange.aEnd.Tab() || aAbs.aEnd.Tab() < rCxt.maRange.aStart.Tab())
-                                // wrong tables
                                 break;
 
                             ScRange aDeleted = rCxt.maRange;
@@ -4074,7 +4032,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceInMovedName( const sc::RefUpdat
 
     sc::RefUpdateResult aRes;
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4226,7 +4184,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceOnDeletedTab( const sc::RefUpda
     if (rCxt.mnDeletePos < rOldPos.Tab())
         aNewPos.IncTab(-1*rCxt.mnSheets);
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4299,7 +4257,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceOnInsertedTab( const sc::RefUpd
     if (rCxt.mnInsertPos <= rOldPos.Tab())
         aNewPos.IncTab(rCxt.mnSheets);
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4388,7 +4346,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceOnMovedTab( const sc::RefUpdate
     if (adjustTabOnMove(aNewPos, rCxt))
         aRes.mbReferenceModified = true;
 
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4461,7 +4419,7 @@ sc::RefUpdateResult ScTokenArray::AdjustReferenceOnMovedTab( const sc::RefUpdate
 
 void ScTokenArray::AdjustReferenceOnMovedOrigin( const ScAddress& rOldPos, const ScAddress& rNewPos )
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4499,7 +4457,7 @@ void ScTokenArray::AdjustReferenceOnMovedOrigin( const ScAddress& rOldPos, const
 
 void ScTokenArray::AdjustReferenceOnMovedOriginIfOtherSheet( const ScAddress& rOldPos, const ScAddress& rNewPos )
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4548,7 +4506,7 @@ void ScTokenArray::AdjustReferenceOnMovedOriginIfOtherSheet( const ScAddress& rO
 
 void ScTokenArray::AdjustReferenceOnCopy( const ScAddress& rNewPos )
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN, false);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN, false);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4593,7 +4551,7 @@ void ScTokenArray::ClearTabDeleted( const ScAddress& rPos, SCTAB nStartTab, SCTA
     if (nEndTab < nStartTab)
         return;
 
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -4729,7 +4687,7 @@ void checkBounds(
 void ScTokenArray::CheckRelativeReferenceBounds(
     const sc::RefUpdateContext& rCxt, const ScAddress& rPos, SCROW nGroupLen, std::vector<SCROW>& rBounds ) const
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4764,7 +4722,7 @@ void ScTokenArray::CheckRelativeReferenceBounds(
 void ScTokenArray::CheckRelativeReferenceBounds(
     const ScAddress& rPos, SCROW nGroupLen, const ScRange& rRange, std::vector<SCROW>& rBounds ) const
 {
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken** pp = aPtrs.maPointerRange[j].mpStart;
@@ -4801,7 +4759,7 @@ void ScTokenArray::CheckExpandReferenceBounds(
     const sc::RefUpdateContext& rCxt, const ScAddress& rPos, SCROW nGroupLen, std::vector<SCROW>& rBounds ) const
 {
     const SCROW nInsRow = rCxt.maRange.aStart.Row();
-    TokenPointers aPtrs( pCode, nLen, pRPN, nRPN);
+    TokenPointers aPtrs( pCode.get(), nLen, pRPN, nRPN);
     for (size_t j=0; j<2; ++j)
     {
         FormulaToken* const * pp = aPtrs.maPointerRange[j].mpStart;
@@ -5208,7 +5166,7 @@ OUString ScTokenArray::CreateString( sc::TokenStringContext& rCxt, const ScAddre
 
     OUStringBuffer aBuf;
 
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -5275,7 +5233,7 @@ void wrapRowRange( ScRange& rRange, SCROW nMaxRow )
 
 void ScTokenArray::WrapReference( const ScAddress& rPos, SCCOL nMaxCol, SCROW nMaxRow )
 {
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {
@@ -5318,7 +5276,7 @@ void ScTokenArray::WrapReference( const ScAddress& rPos, SCCOL nMaxCol, SCROW nM
 
 bool ScTokenArray::NeedsWrapReference( const ScAddress& rPos, SCCOL nMaxCol, SCROW nMaxRow ) const
 {
-    FormulaToken** p = pCode;
+    FormulaToken** p = pCode.get();
     FormulaToken** pEnd = p + static_cast<size_t>(nLen);
     for (; p != pEnd; ++p)
     {

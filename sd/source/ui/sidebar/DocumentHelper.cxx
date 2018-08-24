@@ -34,8 +34,10 @@
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <stlpool.hxx>
 #include <svx/xfillit0.hxx>
+#include <svx/svdundo.hxx>
 #include <tools/diagnose_ex.h>
 #include <xmloff/autolayout.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 
@@ -209,7 +211,7 @@ SdPage* DocumentHelper::AddMasterPage (
         try
         {
             // Duplicate the master page.
-            pClonedMasterPage = static_cast<SdPage*>(pMasterPage->Clone());
+            pClonedMasterPage = static_cast<SdPage*>(pMasterPage->CloneSdrPage(rTargetDocument));
 
             // Copy the necessary styles.
             SdDrawDocument& rSourceDocument(static_cast< SdDrawDocument& >(pMasterPage->getSdrModelFromSdrPage()));
@@ -258,7 +260,7 @@ void DocumentHelper::ProvideStyles (
         static_cast<SdStyleSheetPool*>(rSourceDocument.GetStyleSheetPool());
     SdStyleSheetPool* pTargetStyleSheetPool =
         static_cast<SdStyleSheetPool*>(rTargetDocument.GetStyleSheetPool());
-    SdStyleSheetVector aCreatedStyles;
+    StyleSheetCopyResultVector aCreatedStyles;
     pTargetStyleSheetPool->CopyLayoutSheets (
         sLayoutName,
         *pSourceStyleSheetPool,
@@ -267,7 +269,7 @@ void DocumentHelper::ProvideStyles (
     // Add an undo action for the copied style sheets.
     if( !aCreatedStyles.empty() )
     {
-        ::svl::IUndoManager* pUndoManager = rTargetDocument.GetDocSh()->GetUndoManager();
+        SfxUndoManager* pUndoManager = rTargetDocument.GetDocSh()->GetUndoManager();
        if (pUndoManager != nullptr)
        {
            SdMoveStyleSheetsUndoAction* pMovStyles =
@@ -314,7 +316,7 @@ void DocumentHelper::AssignMasterPageToPageList (
         if (aCleanedList.empty() )
         return;
 
-    ::svl::IUndoManager* pUndoMgr = rTargetDocument.GetDocSh()->GetUndoManager();
+    SfxUndoManager* pUndoMgr = rTargetDocument.GetDocSh()->GetUndoManager();
     if( pUndoMgr )
         pUndoMgr->EnterListAction(SdResId(STR_UNDO_SET_PRESLAYOUT), OUString(), 0, rTargetDocument.GetDocSh()->GetViewShell()->GetViewShellBase().GetViewShellId());
 
@@ -347,7 +349,7 @@ SdPage* DocumentHelper::AddMasterPage (
     if (pMasterPage!=nullptr)
     {
         // Duplicate the master page.
-        pClonedMasterPage = static_cast<SdPage*>(pMasterPage->Clone());
+        pClonedMasterPage = static_cast<SdPage*>(pMasterPage->CloneSdrPage(rTargetDocument));
 
         // Copy the precious flag.
         pClonedMasterPage->SetPrecious(pMasterPage->IsPrecious());

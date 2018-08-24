@@ -17,18 +17,16 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "Qt5Graphics.hxx"
+#include <Qt5Graphics.hxx>
 
-#include "Qt5Frame.hxx"
-#include "Qt5Painter.hxx"
-
-#include <qt5/Qt5Font.hxx>
-
-#include <QtWidgets/QWidget>
-
-#include <QtGui/QPainter>
+#include <Qt5Font.hxx>
+#include <Qt5Frame.hxx>
+#include <Qt5Painter.hxx>
 
 #include <QtGui/QImage>
+#include <QtGui/QPainter>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QWidget>
 
 Qt5Graphics::Qt5Graphics( Qt5Frame *pFrame, QImage *pQImage )
     : m_pFrame( pFrame )
@@ -37,14 +35,22 @@ Qt5Graphics::Qt5Graphics( Qt5Frame *pFrame, QImage *pQImage )
     , m_aFillColor( 0xFF, 0xFF, 0XFF )
     , m_eCompositionMode( QPainter::CompositionMode_SourceOver )
     , m_pFontCollection( nullptr )
-    , m_pFontData{ nullptr, }
     , m_pTextStyle{ nullptr, }
     , m_aTextColor( 0x00, 0x00, 0x00 )
 {
     ResetClipRegion();
 }
 
-Qt5Graphics::~Qt5Graphics() {}
+Qt5Graphics::~Qt5Graphics()
+{
+    // release the text styles
+    for (int i = 0; i < MAX_FALLBACK; ++i)
+    {
+        if (!m_pTextStyle[i])
+            break;
+        m_pTextStyle[i].clear();
+    }
+}
 
 void Qt5Graphics::ChangeQImage(QImage* pQImage)
 {
@@ -103,5 +109,21 @@ SystemFontData Qt5Graphics::GetSysFontData(int /*nFallbacklevel*/) const
 }
 
 #endif
+
+bool Qt5Graphics::drawNativeControl(ControlType nType, ControlPart nPart,
+                                    const tools::Rectangle& rControlRegion, ControlState nState,
+                                    const ImplControlValue& aValue, const OUString& aCaption)
+{
+    bool bHandled
+        = m_aControl.drawNativeControl(nType, nPart, rControlRegion, nState, aValue, aCaption);
+    if (bHandled)
+    {
+        Qt5Painter aPainter(*this);
+        aPainter.drawImage(QPoint(rControlRegion.getX(), rControlRegion.getY()),
+                           m_aControl.getImage());
+        aPainter.update(toQRect(rControlRegion));
+    }
+    return bHandled;
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

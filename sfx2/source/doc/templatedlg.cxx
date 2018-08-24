@@ -673,7 +673,7 @@ IMPL_LINK(SfxTemplateManagerDlg, CreateContextMenuHdl, ThumbnailViewItem*, pItem
 
 IMPL_LINK(SfxTemplateManagerDlg, OpenTemplateHdl, ThumbnailViewItem*, pItem, void)
 {
-    uno::Sequence< PropertyValue > aArgs(4);
+    uno::Sequence< PropertyValue > aArgs(5);
     aArgs[0].Name = "AsTemplate";
     aArgs[0].Value <<= true;
     aArgs[1].Name = "MacroExecutionMode";
@@ -682,6 +682,8 @@ IMPL_LINK(SfxTemplateManagerDlg, OpenTemplateHdl, ThumbnailViewItem*, pItem, voi
     aArgs[2].Value <<= UpdateDocMode::ACCORDING_TO_CONFIG;
     aArgs[3].Name = "InteractionHandler";
     aArgs[3].Value <<= task::InteractionHandler::createWithParent( ::comphelper::getProcessComponentContext(), nullptr );
+    aArgs[4].Name = "ReadOnly";
+    aArgs[4].Value <<= true;
 
     TemplateViewItem *pTemplateItem = static_cast<TemplateViewItem*>(pItem);
 
@@ -902,14 +904,14 @@ void SfxTemplateManagerDlg::OnTemplateImportCategory(const OUString& sCategory)
     // add filters of modules which are installed
     SvtModuleOptions aModuleOpt;
     if ( aModuleOpt.IsModuleInstalled( SvtModuleOptions::EModule::WRITER ) )
-        sFilterExt += "*.ott;*.stw;*.oth";
+        sFilterExt += "*.ott;*.stw;*.oth;*.dotx;*.dot";
 
     if ( aModuleOpt.IsModuleInstalled( SvtModuleOptions::EModule::CALC ) )
     {
         if ( !sFilterExt.isEmpty() )
             sFilterExt += ";";
 
-        sFilterExt += "*.ots;*.stc";
+        sFilterExt += "*.ots;*.stc;*.xltx;*.xlt";
     }
 
     if ( aModuleOpt.IsModuleInstalled( SvtModuleOptions::EModule::IMPRESS ) )
@@ -917,7 +919,7 @@ void SfxTemplateManagerDlg::OnTemplateImportCategory(const OUString& sCategory)
         if ( !sFilterExt.isEmpty() )
             sFilterExt += ";";
 
-        sFilterExt += "*.otp;*.sti";
+        sFilterExt += "*.otp;*.sti;*.pot;*.potx";
     }
 
     if ( aModuleOpt.IsModuleInstalled( SvtModuleOptions::EModule::DRAW ) )
@@ -1364,7 +1366,7 @@ IMPL_LINK_NOARG(SfxTemplateCategoryDialog, SelectCategoryHdl, weld::TreeView&, v
     }
     else
     {
-        msSelectedCategory = mxLBCategory->get_selected();
+        msSelectedCategory = mxLBCategory->get_selected_text();
         mxNewCategoryEdit->set_sensitive(false);
         mxOKButton->set_sensitive(true);
     }

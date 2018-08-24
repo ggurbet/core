@@ -21,6 +21,7 @@
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <osl/file.hxx>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 #include <sot/stg.hxx>
 #include <sfx2/docfile.hxx>
 #include <tools/urlobj.hxx>
@@ -238,7 +239,8 @@ ErrCode SwXMLTextBlocks::CopyBlock( SwImpBlocks& rDestImp, OUString& rShort,
     const OUString aGroup( rShort );
     bool bTextOnly = IsOnlyTextBlock ( rShort ) ;//pImp->pBlkRoot->IsStream( aGroup );
     sal_uInt16 nIndex = GetIndex ( rShort );
-    OUString sDestShortName( GetPackageName (nIndex) );
+    OUString sPackageName( GetPackageName (nIndex) );
+    OUString sDestShortName( sPackageName );
     sal_uInt16 nIdx = 0;
 
     OSL_ENSURE( xBlkRoot.is(), "No storage set" );
@@ -256,7 +258,7 @@ ErrCode SwXMLTextBlocks::CopyBlock( SwImpBlocks& rDestImp, OUString& rShort,
             rDestImp.CloseFile();
             return ERR_SWG_WRITE_ERROR;
         }
-        sDestShortName += OUString::number( nIdx );
+        sDestShortName = sPackageName + OUString::number( nIdx );
     }
 
     try
@@ -505,9 +507,8 @@ bool SwXMLTextBlocks::IsFileUCBStorage( const OUString & rFileName)
         aName = aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
     }
 
-    SvStream * pStm = ::utl::UcbStreamHelper::CreateStream( aName, StreamMode::STD_READ );
-    bool bRet = UCBStorage::IsStorageFile( pStm );
-    delete pStm;
+    std::unique_ptr<SvStream> pStm = ::utl::UcbStreamHelper::CreateStream( aName, StreamMode::STD_READ );
+    bool bRet = UCBStorage::IsStorageFile( pStm.get() );
     return bRet;
 }
 

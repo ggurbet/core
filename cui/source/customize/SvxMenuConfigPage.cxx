@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 #include <stdlib.h>
@@ -58,11 +59,9 @@
 #include <cfg.hxx>
 #include <SvxMenuConfigPage.hxx>
 #include <SvxConfigPageHelper.hxx>
-#include "eventdlg.hxx"
 #include <dialmgr.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <comphelper/random.hxx>
 #include <unotools/configmgr.hxx>
 #include <o3tl/make_unique.hxx>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -74,7 +73,6 @@
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/frame/theUICommandDescription.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/lang/IllegalAccessException.hpp>
@@ -320,13 +318,13 @@ IMPL_LINK( SvxMenuConfigPage, GearHdl, MenuButton *, pButton, void )
 
     if (sIdent == "gear_add")
     {
-        VclPtrInstance<SvxMainMenuOrganizerDialog> pDialog(
-            nullptr, GetSaveInData()->GetEntries(), nullptr, true );
+        SvxMainMenuOrganizerDialog aDialog(GetFrameWeld(),
+            GetSaveInData()->GetEntries(), nullptr, true );
 
-        if ( pDialog->Execute() == RET_OK )
+        if (aDialog.run() == RET_OK)
         {
-            GetSaveInData()->SetEntries( pDialog->ReleaseEntries() );
-            ReloadTopLevelListBox( pDialog->GetSelectedEntry() );
+            GetSaveInData()->SetEntries(aDialog.ReleaseEntries());
+            ReloadTopLevelListBox(aDialog.GetSelectedEntry());
             GetSaveInData()->SetModified();
         }
     }
@@ -363,12 +361,11 @@ IMPL_LINK( SvxMenuConfigPage, GearHdl, MenuButton *, pButton, void )
     {
         SvxConfigEntry* pMenuData = GetTopLevelSelection();
 
-        VclPtrInstance<SvxMainMenuOrganizerDialog> pDialog(
-            this, GetSaveInData()->GetEntries(), pMenuData, false );
-
-        if ( pDialog->Execute() == RET_OK )
+        SvxMainMenuOrganizerDialog aDialog(GetFrameWeld(), GetSaveInData()->GetEntries(),
+                pMenuData, false );
+        if (aDialog.run() == RET_OK)
         {
-            GetSaveInData()->SetEntries( pDialog->ReleaseEntries() );
+            GetSaveInData()->SetEntries(aDialog.ReleaseEntries());
 
             ReloadTopLevelListBox();
 

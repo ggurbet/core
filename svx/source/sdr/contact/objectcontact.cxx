@@ -34,7 +34,6 @@ namespace sdr { namespace contact {
 ObjectContact::ObjectContact()
 :   maViewObjectContactVector(),
     maPrimitiveAnimator(),
-    mpEventHandler(nullptr),
     mpViewObjectContactRedirector(nullptr),
     maViewInformation2D(uno::Sequence< beans::PropertyValue >()),
     mbIsPreviewRenderer(false)
@@ -64,10 +63,6 @@ ObjectContact::~ObjectContact() COVERITY_NOEXCEPT_FALSE
 
     // assert when there were new entries added during deletion
     DBG_ASSERT(maViewObjectContactVector.empty(), "Corrupted ViewObjectContactList (!)");
-
-    // delete the EventHandler. This will destroy all still contained events.
-    mpEventHandler.reset();
-    // If there are still Events registered, something has went wrong
 }
 
 // LazyInvalidate request. Default implementation directly handles
@@ -139,25 +134,6 @@ bool ObjectContact::AreGluePointsVisible() const
     return false;
 }
 
-// method to get the primitiveAnimator
-
-// method to get the EventHandler. It will
-// return a existing one or create a new one using CreateEventHandler().
-sdr::event::TimerEventHandler& ObjectContact::GetEventHandler() const
-{
-    if(!HasEventHandler())
-    {
-        const_cast< ObjectContact* >(this)->mpEventHandler.reset( new sdr::event::TimerEventHandler() );
-    }
-    return *mpEventHandler;
-}
-
-// test if there is an EventHandler without creating one on demand
-bool ObjectContact::HasEventHandler() const
-{
-    return (nullptr != mpEventHandler);
-}
-
 // check if text animation is allowed. Default is sal_true.
 bool ObjectContact::IsTextAnimationAllowed() const
 {
@@ -168,12 +144,6 @@ bool ObjectContact::IsTextAnimationAllowed() const
 bool ObjectContact::IsGraphicAnimationAllowed() const
 {
     return true;
-}
-
-// check if asynchronous graphics loading is allowed. Default is false.
-bool ObjectContact::IsAsynchronGraphicsLoadingAllowed() const
-{
-    return false;
 }
 
 void ObjectContact::SetViewObjectContactRedirector(ViewObjectContactRedirector* pNew)

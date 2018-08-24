@@ -6,6 +6,7 @@ import android.graphics.RectF;
 import android.net.Uri;
 import android.util.Log;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -131,6 +132,28 @@ public class InvalidationHandler implements Document.MessageCallback, Office.Mes
                 if (payloadObject.getString("success").equals("true")) {
                     mContext.saveFilesToCloud();
                 }
+            }else if(payloadObject.getString("commandName").equals(".uno:Name")){
+                //success returns false even though its true for some reason,
+                LOKitShell.getMainHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mContext.getTileProvider().resetParts();
+                        mContext.getDocumentPartViewListAdapter().notifyDataSetChanged();
+                        LibreOfficeMainActivity.setDocumentChanged(true);
+                        Toast.makeText(mContext, mContext.getString(R.string.part_name_changed), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else if(payloadObject.getString("commandName").equals(".uno:Remove") ||
+                    payloadObject.getString("commandName").equals(".uno:DeletePage")  ) {
+                LOKitShell.getMainHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mContext.getTileProvider().resetParts();
+                        mContext.getDocumentPartViewListAdapter().notifyDataSetChanged();
+                        LibreOfficeMainActivity.setDocumentChanged(true);
+                        Toast.makeText(mContext, mContext.getString(R.string.part_deleted), Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
         }catch(JSONException e){
             e.printStackTrace();
@@ -467,7 +490,7 @@ public class InvalidationHandler implements Document.MessageCallback, Office.Mes
             if (mState == OverlayState.SELECTION) {
                 changeStateTo(OverlayState.TRANSITION);
             }
-            mDocumentOverlay.changeSelections(Collections.EMPTY_LIST);
+            mDocumentOverlay.changeSelections(Collections.<RectF>emptyList());
             if (mContext.isSpreadsheet()) {
                 mDocumentOverlay.showHeaderSelection(null);
             }
@@ -616,14 +639,18 @@ public class InvalidationHandler implements Document.MessageCallback, Office.Mes
      * Handle a transition to OverlayState.TRANSITION state.
      */
     private void handleTransitionState(OverlayState previous) {
-        if (previous == OverlayState.SELECTION) {
-            mDocumentOverlay.hideHandle(SelectionHandle.HandleType.START);
-            mDocumentOverlay.hideHandle(SelectionHandle.HandleType.END);
-            mDocumentOverlay.hideSelections();
-        } else if (previous == OverlayState.CURSOR) {
-            mDocumentOverlay.hideHandle(SelectionHandle.HandleType.MIDDLE);
-        } else if (previous == OverlayState.GRAPHIC_SELECTION) {
-            mDocumentOverlay.hideGraphicSelection();
+        switch (previous) {
+            case SELECTION:
+                mDocumentOverlay.hideHandle(SelectionHandle.HandleType.START);
+                mDocumentOverlay.hideHandle(SelectionHandle.HandleType.END);
+                mDocumentOverlay.hideSelections();
+                break;
+            case CURSOR:
+                mDocumentOverlay.hideHandle(SelectionHandle.HandleType.MIDDLE);
+                break;
+            case GRAPHIC_SELECTION:
+                mDocumentOverlay.hideGraphicSelection();
+                break;
         }
     }
 

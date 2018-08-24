@@ -19,6 +19,7 @@
 
 #include <editeng/outliner.hxx>
 
+#include <sal/log.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/svxdlg.hxx>
 #include <editeng/flstitem.hxx>
@@ -90,7 +91,7 @@ SdPresLayoutTemplateDlg::SdPresLayoutTemplateDlg( SfxObjectShell const * pDocSh,
         if( pParentItemSet )
             aInputSet.SetParent( pParentItemSet );
 
-        pOutSet = new SfxItemSet( rStyleBase.GetItemSet() );
+        pOutSet.reset( new SfxItemSet( rStyleBase.GetItemSet() ) );
         pOutSet->ClearItem();
 
         // If there is no bullet item in this stylesheet, we get it
@@ -132,7 +133,6 @@ SdPresLayoutTemplateDlg::SdPresLayoutTemplateDlg( SfxObjectShell const * pDocSh,
     pPatternList = pPatternListItem->GetPatternList();
 
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
 
     mnLine = AddTabPage( "RID_SVXPAGE_LINE", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_LINE ), nullptr );
     mnArea = AddTabPage( "RID_SVXPAGE_AREA", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_AREA ), nullptr );
@@ -223,7 +223,7 @@ SdPresLayoutTemplateDlg::~SdPresLayoutTemplateDlg()
 
 void SdPresLayoutTemplateDlg::dispose()
 {
-    delete pOutSet;
+    pOutSet.reset();
     SfxTabDialog::dispose();
 }
 
@@ -295,7 +295,7 @@ const SfxItemSet* SdPresLayoutTemplateDlg::GetOutputItemSet() const
         const SvxNumBulletItem *pSvxNumBulletItem = nullptr;
         if( SfxItemState::SET == pOutSet->GetItemState(EE_PARA_NUMBULLET, false, reinterpret_cast<const SfxPoolItem**>(&pSvxNumBulletItem) ))
             SdBulletMapper::MapFontsInNumRule( *pSvxNumBulletItem->GetNumRule(), *pOutSet );
-        return pOutSet;
+        return pOutSet.get();
     }
     else
         return SfxTabDialog::GetOutputItemSet();

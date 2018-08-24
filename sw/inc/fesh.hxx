@@ -338,7 +338,7 @@ public:
     void SetObjRect( const SwRect& rRect );
 
     long BeginDrag( const Point *pPt, bool bProp );
-    long Drag     ( const Point *pPt, bool bProp );
+    void Drag     ( const Point *pPt, bool bProp );
     void EndDrag  ();
     void BreakDrag();
 
@@ -385,7 +385,7 @@ public:
     Point FindAnchorPos( const Point &rAbsPos, bool bMoveIt = false );
 
     /** Determines whether a frame or its environment is vertically formatted and right-to-left.
-     also determines, if frame or its environment is in mongolianlayout (vertical left-to-right)
+     also determines, if frame or its environment is in Mongolian layout (vertical left-to-right)
      - add output parameter <bVertL2R> */
     bool IsFrameVertical(const bool bEnvironment, bool& bRightToLeft, bool& bVertL2R) const;
 
@@ -643,7 +643,7 @@ public:
 
     /// Split cell vertically or horizontally.
     void SplitTab( bool bVert, sal_uInt16 nCnt, bool bSameHeight );
-    bool Sort(const SwSortOptions&);    //Sortieren.
+    bool Sort(const SwSortOptions&);    // sorting
 
     void SetRowHeight( const SwFormatFrameSize &rSz );
 
@@ -779,8 +779,6 @@ public:
         color COL_BLACK (default color on constructing object of class Color)
         is returned.
 
-        @author OD
-
         @returns an object of class Color
     */
     const Color GetShapeBackgrd() const;
@@ -790,8 +788,6 @@ public:
         Because drawing objects only painted for each page only, the default
         horizontal text direction of a drawing object is given by the corresponding
         page property.
-
-        @author OD
 
         @returns boolean, indicating, if the horizontal text direction of the
         page, the selected drawing object is on, is right-to-left.

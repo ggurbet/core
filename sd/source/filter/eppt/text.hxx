@@ -21,9 +21,7 @@
 #define INCLUDED_SD_SOURCE_FILTER_EPPT_TEXT_HXX
 
 #include "epptbase.hxx"
-#include "epptdef.hxx"
 
-#include <rtl/textenc.h>
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/lang/Locale.hpp>
 #include <editeng/svxenum.hxx>
@@ -146,8 +144,8 @@ class PortionObj final : public PropStateValue
         sal_uInt32      mnTextSize;
         bool        mbLastPortion;
 
-        sal_uInt16*     mpText;
-        FieldEntry*     mpFieldEntry;
+        std::unique_ptr<sal_uInt16[]> mpText;
+        std::unique_ptr<FieldEntry> mpFieldEntry;
 
                         PortionObj( css::uno::Reference< css::text::XTextRange > & rXTextRangeRef,
                                         bool bLast, FontCollection& rFontCollection );

@@ -31,7 +31,6 @@
 #include <com/sun/star/i18n/XCharacterClassification.hpp>
 
 #include "vcleventlisteners.hxx"
-#include "impfontcache.hxx"
 #include "salwtype.hxx"
 #include "displayconnectiondispatch.hxx"
 
@@ -185,8 +184,8 @@ struct ImplSVGDIData
     VclPtr<Printer>         mpFirstPrinter;                 // First Printer
     VclPtr<Printer>         mpLastPrinter;                  // Last Printer
     ImplPrnQueueList*       mpPrinterQueueList = nullptr;   // List of all printer queue
-    PhysicalFontCollection* mpScreenFontList = nullptr;     // Screen-Font-List
-    ImplFontCache*          mpScreenFontCache = nullptr;    // Screen-Font-Cache
+    std::shared_ptr<PhysicalFontCollection> mxScreenFontList; // Screen-Font-List
+    std::shared_ptr<ImplFontCache> mxScreenFontCache;       // Screen-Font-Cache
     ImplDirectFontSubstitution* mpDirectFontSubst = nullptr; // Font-Substitutions defined in Tools->Options->Fonts
     GraphicConverter*       mpGrfConverter = nullptr;       // Converter for graphics
     long                    mnAppFontX = 0;                 // AppFont X-Numenator for 40/tel Width
@@ -211,7 +210,7 @@ struct ImplSVWinData
     std::vector<Image>      maMsgBoxImgList;                // ImageList for MessageBox
     VclPtr<vcl::Window>     mpAutoScrollWin;                // window, that is in AutoScrollMode mode
     VclPtr<vcl::Window>     mpLastWheelWindow;              // window, that last received a mouse wheel event
-    SalWheelMouseEvent      maLastWheelEvent;               // the last received mouse whell event
+    SalWheelMouseEvent      maLastWheelEvent;               // the last received mouse wheel event
 
     StartTrackingFlags      mnTrackFlags = StartTrackingFlags::NONE; // tracking flags
     StartAutoScrollFlags    mnAutoScrollFlags = StartAutoScrollFlags::NONE; // auto scroll flags
@@ -341,7 +340,7 @@ struct ImplSVData
     Application*            mpApp = nullptr;                // pApp
     VclPtr<WorkWindow>      mpDefaultWin;                   // Default-Window
     bool                    mbDeInit = false;               // Is VCL deinitializing
-    SalI18NImeStatus*       mpImeStatus = nullptr;          // interface to ime status window
+    std::unique_ptr<SalI18NImeStatus> mpImeStatus;          // interface to ime status window, only used by the X11 backend
     SalSystem*              mpSalSystem = nullptr;          // SalSystem interface
     bool                    mbResLocaleSet = false;         // SV-Resource-Manager
     std::locale             maResLocale;                    // Resource locale

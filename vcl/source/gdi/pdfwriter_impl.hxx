@@ -146,7 +146,6 @@ public:
         std::vector<sal_Int32>      m_aMCIDParents;
         PDFWriter::PageTransition   m_eTransition;
         sal_uInt32                  m_nTransTime;
-        sal_uInt32                  m_nDuration;
 
         PDFPage( PDFWriterImpl* pWriter, double nPageWidth, double nPageHeight, PDFWriter::Orientation eOrientation );
         ~PDFPage();
@@ -283,11 +282,10 @@ public:
         Size                        m_aCellSize;
         SvtGraphicFill::Transform   m_aTransform;
         ResourceDict                m_aResources;
-        SvMemoryStream*             m_pTilingStream;
+        std::unique_ptr<SvMemoryStream> m_pTilingStream;
 
         TilingEmit()
-                : m_nObject( 0 ),
-                  m_pTilingStream( nullptr )
+                : m_nObject( 0 )
         {}
     };
 
@@ -328,6 +326,7 @@ public:
             m_CodeUnits.push_back(i_cCode);
         }
         sal_Int32 countCodes() const { return m_CodeUnits.size(); }
+        const std::vector<sal_Ucs>& codes() const { return m_CodeUnits; }
         sal_Ucs getCode( sal_Int32 i_nIndex ) const
         {
             sal_Ucs nRet = 0;
@@ -586,21 +585,21 @@ public:
     struct PDFGlyph
     {
         Point       m_aPos;
+        const GlyphItem* m_pGlyph;
         sal_Int32   m_nNativeWidth;
-        sal_Int32   m_nGlyphId;
         sal_Int32   m_nMappedFontId;
         sal_uInt8   m_nMappedGlyphId;
-        bool        m_bVertical;
+        int         m_nCharPos;
 
         PDFGlyph( const Point& rPos,
+                  const GlyphItem* pGlyph,
                   sal_Int32 nNativeWidth,
-                  sal_Int32 nGlyphId,
                   sal_Int32 nFontId,
                   sal_uInt8 nMappedGlyphId,
-                  bool bVertical )
-        : m_aPos( rPos ), m_nNativeWidth( nNativeWidth ), m_nGlyphId( nGlyphId ),
+                  int nCharPos )
+        : m_aPos( rPos ), m_pGlyph(pGlyph), m_nNativeWidth( nNativeWidth ),
           m_nMappedFontId( nFontId ), m_nMappedGlyphId( nMappedGlyphId ),
-          m_bVertical(bVertical)
+          m_nCharPos(nCharPos)
         {}
     };
 
@@ -810,12 +809,12 @@ i12626
     void appendLiteralStringEncrypt( OStringBuffer const & rInString, const sal_Int32 nInObjectNumber, OStringBuffer& rOutBuffer );
 
     /* creates fonts and subsets that will be emitted later */
-    void registerGlyphs(int nGlyphs, const GlyphItem** pGlyphs, sal_Int32* pGlpyhWidths, sal_Ucs* pCodeUnits, sal_Int32 const * pCodeUnitsPerGlyph, sal_uInt8* pMappedGlyphs, sal_Int32* pMappedFontObjects, const PhysicalFontFace* pFallbackFonts[]);
+    void registerGlyph(const GlyphItem* pGlyph, const PhysicalFontFace* pFont, const std::vector<sal_Ucs>& rCodeUnits, sal_uInt8& nMappedGlyph, sal_Int32& nMappedFontObject);
 
     /*  emits a text object according to the passed layout */
     /* TODO: remove rText as soon as SalLayout will change so that rText is not necessary anymore */
     void drawVerticalGlyphs( const std::vector<PDFGlyph>& rGlyphs, OStringBuffer& rLine, const Point& rAlignOffset, const Matrix3& rRotScale, double fAngle, double fXScale, double fSkew, sal_Int32 nFontHeight );
-    void drawHorizontalGlyphs( const std::vector<PDFGlyph>& rGlyphs, OStringBuffer& rLine, const Point& rAlignOffset, double fAngle, double fXScale, double fSkew, sal_Int32 nFontHeight, sal_Int32 nPixelFontHeight );
+    void drawHorizontalGlyphs( const std::vector<PDFGlyph>& rGlyphs, OStringBuffer& rLine, const Point& rAlignOffset, bool bFirst, double fAngle, double fXScale, double fSkew, sal_Int32 nFontHeight, sal_Int32 nPixelFontHeight );
     void drawLayout( SalLayout& rLayout, const OUString& rText, bool bTextLines );
     void drawRelief( SalLayout& rLayout, const OUString& rText, bool bTextLines );
     void drawShadow( SalLayout& rLayout, const OUString& rText, bool bTextLines );
@@ -1059,8 +1058,7 @@ public:
 
     static css::uno::Reference< css::beans::XMaterialHolder >
            initEncryption( const OUString& i_rOwnerPassword,
-                           const OUString& i_rUserPassword,
-                           bool b128Bit );
+                           const OUString& i_rUserPassword );
 
     /* for documentation of public functions please see pdfwriter.hxx */
 
@@ -1267,7 +1265,6 @@ public:
     void setAlternateText( const OUString& rText );
 
     // transitional effects
-    void setAutoAdvanceTime( sal_uInt32 nSeconds, sal_Int32 nPageNr );
     void setPageTransition( PDFWriter::PageTransition eType, sal_uInt32 nMilliSec, sal_Int32 nPageNr );
 
     // controls
@@ -1290,7 +1287,6 @@ public:
     explicit                            PdfBuiltinFontFace( const PDFWriterImpl::BuiltinFont& );
     const PDFWriterImpl::BuiltinFont&   GetBuiltinFont() const  { return mrBuiltin; }
 
-    virtual PhysicalFontFace*           Clone() const override { return new PdfBuiltinFontFace(*this); }
     virtual sal_IntPtr                  GetFontId() const override { return reinterpret_cast<sal_IntPtr>(&mrBuiltin); }
 };
 

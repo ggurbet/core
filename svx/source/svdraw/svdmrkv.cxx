@@ -21,7 +21,6 @@
 #include <svx/svdmrkv.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdoedge.hxx>
-#include <svdglob.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdpage.hxx>
@@ -49,6 +48,8 @@
 #include <svx/sdrhittesthelper.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/svdograf.hxx>
+#include <vcl/uitest/logger.hxx>
+#include <vcl/uitest/eventdescription.hxx>
 
 #include <editeng/editdata.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -93,10 +94,10 @@ ImplMarkingOverlay::ImplMarkingOverlay(const SdrPaintView& rView, const basegfx:
 
         if (xTargetOverlay.is())
         {
-            sdr::overlay::OverlayRollingRectangleStriped* pNew = new sdr::overlay::OverlayRollingRectangleStriped(
-                rStartPos, rStartPos, false);
+            std::unique_ptr<sdr::overlay::OverlayRollingRectangleStriped> pNew(new sdr::overlay::OverlayRollingRectangleStriped(
+                rStartPos, rStartPos, false));
             xTargetOverlay->add(*pNew);
-            maObjects.append(pNew);
+            maObjects.append(std::move(pNew));
         }
     }
 }
@@ -343,7 +344,7 @@ void SdrMarkView::HideSdrPage()
 }
 
 
-bool SdrMarkView::BegMarkObj(const Point& rPnt, bool bUnmark)
+void SdrMarkView::BegMarkObj(const Point& rPnt, bool bUnmark)
 {
     BrkAction();
 
@@ -354,8 +355,6 @@ bool SdrMarkView::BegMarkObj(const Point& rPnt, bool bUnmark)
     maDragStat.Reset(rPnt);
     maDragStat.NextPoint();
     maDragStat.SetMinMove(mnMinMovLog);
-
-    return true;
 }
 
 void SdrMarkView::MovMarkObj(const Point& rPnt)
@@ -1512,7 +1511,7 @@ bool SdrMarkView::MarkNextObj(const Point& rPnt, short nTol, bool bPrev)
     if (pTopMarkHit==nullptr) return MarkObj(rPnt,sal_uInt16(nTol));
 
     SdrObject* pTopObjHit=pTopMarkHit->GetMarkedSdrObj();
-    SdrObjList* pObjList=pTopObjHit->getParentOfSdrObject();
+    SdrObjList* pObjList=pTopObjHit->getParentSdrObjListFromSdrObject();
     SdrPageView* pPV=pTopMarkHit->GetPageView();
     // find lowermost of the selected objects that is hit by rPnt
     // and is placed on the same PageView as pTopMarkHit
@@ -1529,11 +1528,12 @@ bool SdrMarkView::MarkNextObj(const Point& rPnt, short nTol, bool bPrev)
     SdrObject* pBtmObjHit=pBtmMarkHit->GetMarkedSdrObj();
     const size_t nObjCount = pObjList->GetObjCount();
 
-    size_t nSearchBeg = 0;
-    E3dScene* pScene = nullptr;
-    SdrObject* pObjHit = bPrev ? pBtmObjHit : pTopObjHit;
-    bool bRemap = dynamic_cast< const E3dCompoundObject* >(pObjHit) !=  nullptr
-        && static_cast<E3dCompoundObject*>(pObjHit)->IsAOrdNumRemapCandidate(pScene);
+    size_t nSearchBeg(0);
+    E3dScene* pScene(nullptr);
+    SdrObject* pObjHit(bPrev ? pBtmObjHit : pTopObjHit);
+    const bool bRemap(
+        nullptr != dynamic_cast< const E3dCompoundObject* >(pObjHit)
+        && nullptr != (pScene = dynamic_cast< E3dScene* >(pObjHit->getParentSdrObjectFromSdrObject())));
 
     if(bPrev)
     {
@@ -1634,6 +1634,25 @@ void SdrMarkView::MarkObj(const tools::Rectangle& rRect, bool bUnmark)
     }
 }
 
+namespace {
+
+void collectUIInformation(SdrObject* pObj)
+{
+    EventDescription aDescription;
+    aDescription.aAction = "SELECT";
+    aDescription.aParent = "MainWindow";
+    aDescription.aKeyWord = "CurrentApp";
+
+    if (!pObj->GetName().isEmpty())
+        aDescription.aParameters = {{"OBJECT", pObj->GetName()}};
+    else
+        aDescription.aParameters = {{"OBJECT", "Unnamed_Obj_" + OUString::number(pObj->GetOrdNum())}};
+
+    UITestLogger::getInstance().logEvent(aDescription);
+}
+
+}
+
 void SdrMarkView::MarkObj(SdrObject* pObj, SdrPageView* pPV, bool bUnmark, bool bImpNoSetMarkHdl)
 {
     if (pObj!=nullptr && pPV!=nullptr && IsObjMarkable(pObj, pPV)) {
@@ -1641,6 +1660,7 @@ void SdrMarkView::MarkObj(SdrObject* pObj, SdrPageView* pPV, bool bUnmark, bool 
         if (!bUnmark)
         {
             GetMarkedObjectListWriteAccess().InsertEntry(SdrMark(pObj,pPV));
+            collectUIInformation(pObj);
         }
         else
         {
@@ -1753,13 +1773,16 @@ SdrObject* SdrMarkView::CheckSingleSdrObjectHit(const Point& rPnt, sal_uInt16 nT
     rpRootObj=nullptr;
     if (pOL!=nullptr)
     {
-        bool bBack(nOptions & SdrSearchOptions::BACKWARD);
-        bool bRemap(pOL->GetOwnerObj() && dynamic_cast< const E3dScene* >(pOL->GetOwnerObj()) != nullptr);
-        E3dScene* pRemapScene = (bRemap ? static_cast<E3dScene*>(pOL->GetOwnerObj()) : nullptr);
+        const bool bBack(nOptions & SdrSearchOptions::BACKWARD);
+        const bool bRemap(
+            nullptr != pOL->getSdrObjectFromSdrObjList()
+            && nullptr != dynamic_cast< const E3dScene* >(pOL->getSdrObjectFromSdrObjList()));
+        const E3dScene* pRemapScene(bRemap ? static_cast< E3dScene* >(pOL->getSdrObjectFromSdrObjList()) : nullptr);
+        const size_t nObjCount(pOL->GetObjCount());
+        size_t nObjNum(bBack ? 0 : nObjCount);
 
-        const size_t nObjCount=pOL->GetObjCount();
-        size_t nObjNum=bBack ? 0 : nObjCount;
-        while (pRet==nullptr && (bBack ? nObjNum<nObjCount : nObjNum>0)) {
+        while (pRet==nullptr && (bBack ? nObjNum<nObjCount : nObjNum>0))
+        {
             if (!bBack) nObjNum--;
             SdrObject* pObj;
 
@@ -2079,7 +2102,7 @@ const tools::Rectangle& SdrMarkView::GetMarkedObjRect() const
 
 OUString SdrMarkView::ImpGetDescriptionString(const char* pStrCacheID, ImpGetDescriptionOptions nOpt) const
 {
-    OUString sStr = ImpGetResStr(pStrCacheID);
+    OUString sStr = SvxResId(pStrCacheID);
     const sal_Int32 nPos = sStr.indexOf("%1");
 
     if(nPos != -1)

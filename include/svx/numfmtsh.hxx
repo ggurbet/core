@@ -109,7 +109,7 @@ public:
                                    short&                rFmtSelPos,
                                    std::vector<OUString>& rFmtEntries );
 
-    bool                RemoveFormat( const OUString&       rFormat,
+    void                RemoveFormat( const OUString&       rFormat,
                                       sal_uInt16&           rCatLbSelPos,
                                       short&                rFmtSelPos,
                                       std::vector<OUString>& rFmtEntries );
@@ -144,8 +144,7 @@ public:
     bool                FindEntry( const OUString& rFmtString, sal_uInt32* pAt = nullptr );
 
     void                ValidateNewEntries() { bUndoAddList = false; }
-    size_t              GetUpdateDataCount() const;
-    void                GetUpdateData( sal_uInt32* pDelArray, const sal_uInt32 nSize );
+    std::vector<sal_uInt32> const & GetUpdateData() const;
 
     void                SetCurNumFmtKey( sal_uInt32 nNew )  { nCurFormatKey = nNew; }
     sal_uInt32          GetCurNumFmtKey() const             { return nCurFormatKey; }

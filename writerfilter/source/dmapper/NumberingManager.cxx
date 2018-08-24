@@ -34,9 +34,11 @@
 #include <com/sun/star/text/PositionAndSpaceMode.hpp>
 #include <com/sun/star/text/XChapterNumberingSupplier.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
+#include <com/sun/star/awt/XBitmap.hpp>
 
 #include <osl/diagnose.h>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/propertyvalue.hxx>
 
@@ -128,7 +130,7 @@ bool ListLevel::HasValues() const
     return m_bHasValues;
 }
 
-void ListLevel::SetParaStyle( const std::shared_ptr< StyleSheetEntry >& pStyle )
+void ListLevel::SetParaStyle( const tools::SvRef< StyleSheetEntry >& pStyle )
 {
     if (!pStyle)
         return;
@@ -218,7 +220,7 @@ uno::Sequence< beans::PropertyValue > ListLevel::GetCharStyleProperties( )
     {
         if (IgnoreForCharStyle(aValIter->Name))
             continue;
-        else
+        else if ( aValIter->Name != "CharInteropGrabBag" && aValIter->Name != "ParaInteropGrabBag" )
             rProperties.emplace_back(aValIter->Name, 0, aValIter->Value, beans::PropertyState_DIRECT_VALUE);
     }
 
@@ -242,7 +244,7 @@ uno::Sequence<beans::PropertyValue> ListLevel::GetLevelProperties(bool bDefaults
     sal_Int16 nNumberFormat = ConversionHelper::ConvertNumberingType(m_nNFC);
     if( m_nNFC >= 0)
     {
-        if (m_sGraphicBitmap.is())
+        if (m_xGraphicBitmap.is())
             nNumberFormat = style::NumberingType::BITMAP;
         else if (m_sBulletChar.isEmpty() && nNumberFormat != style::NumberingType::CHAR_SPECIAL)
             // w:lvlText is empty, that means no numbering in Word.
@@ -269,9 +271,9 @@ uno::Sequence<beans::PropertyValue> ListLevel::GetLevelProperties(bool bDefaults
                 aNumberingProperties.push_back(lcl_makePropVal<sal_Unicode>(PROP_BULLET_CHAR, 0));
             }
         }
-        if (m_sGraphicBitmap.is())
+        if (m_xGraphicBitmap.is())
         {
-            aNumberingProperties.push_back(lcl_makePropVal(PROP_GRAPHIC_BITMAP, m_sGraphicBitmap));
+            aNumberingProperties.push_back(lcl_makePropVal(PROP_GRAPHIC_BITMAP, m_xGraphicBitmap));
             aNumberingProperties.push_back(lcl_makePropVal(PROP_GRAPHIC_SIZE, m_aGraphicSize));
         }
     }
@@ -305,6 +307,11 @@ uno::Sequence<beans::PropertyValue> ListLevel::GetLevelProperties(bool bDefaults
         else if (rReadId == PROP_FIRST_LINE_INDENT && bDefaults)
             // Writer default is -360 twips, Word default seems to be 0.
             aNumberingProperties.emplace_back("FirstLineIndent", 0, uno::makeAny(static_cast<sal_Int32>(0)), beans::PropertyState_DIRECT_VALUE);
+        else if (rReadId == PROP_INDENT_AT && bDefaults)
+            // Writer default is 720 twips, Word default seems to be 0.
+            aNumberingProperties.emplace_back("IndentAt", 0,
+                                              uno::makeAny(static_cast<sal_Int32>(0)),
+                                              beans::PropertyState_DIRECT_VALUE);
     }
 
     boost::optional<PropertyMap::Property> aPropFont = getProperty(PROP_CHAR_FONT_NAME);
@@ -537,9 +544,9 @@ void ListDef::CreateNumberingRules( DomainMapper& rDMapper,
 
                 // Get the char style
                 uno::Sequence< beans::PropertyValue > aAbsCharStyleProps = pAbsLevel->GetCharStyleProperties( );
-                uno::Sequence< beans::PropertyValue >& rAbsCharStyleProps = aAbsCharStyleProps;
                 if ( pLevel.get( ) )
                 {
+                    uno::Sequence< beans::PropertyValue >& rAbsCharStyleProps = aAbsCharStyleProps;
                     uno::Sequence< beans::PropertyValue > aCharStyleProps =
                         pLevel->GetCharStyleProperties( );
                     uno::Sequence< beans::PropertyValue >& rCharStyleProps = aCharStyleProps;
@@ -619,7 +626,6 @@ void ListDef::CreateNumberingRules( DomainMapper& rDMapper,
                         xOutlines->getChapterNumberingRules( );
 
                     StyleSheetEntryPtr pParaStyle = pAbsLevel->GetParaStyle( );
-                    pParaStyle->bIsChapterNumbering = true;
                     aLvlProps.push_back(comphelper::makePropertyValue(getPropertyName(PROP_HEADING_STYLE_NAME), pParaStyle->sConvertedStyleName));
 
                     xOutlineRules->replaceByIndex(nLevel, uno::makeAny(comphelper::containerToSequence(aLvlProps)));
@@ -816,7 +822,7 @@ void ListsManager::lcl_sprm( Sprm& rSprm )
                 {
                     //create a new Abstract list entry
                     OSL_ENSURE( !m_pCurrentDefinition.get(), "current entry has to be NULL here");
-                    m_pCurrentDefinition.reset( new AbstractListDef );
+                    m_pCurrentDefinition = new AbstractListDef;
                     pProperties->resolve( *this );
                     //append it to the table
                     m_aAbstractLists.push_back( m_pCurrentDefinition );
@@ -832,7 +838,7 @@ void ListsManager::lcl_sprm( Sprm& rSprm )
                     // Create a new list entry
                     OSL_ENSURE( !m_pCurrentDefinition.get(), "current entry has to be NULL here");
                     ListDef::Pointer listDef( new ListDef );
-                    m_pCurrentDefinition = listDef;
+                    m_pCurrentDefinition = listDef.get();
                     pProperties->resolve( *this );
                     //append it to the table
                     m_aLists.push_back( listDef );
@@ -878,19 +884,16 @@ void ListsManager::lcl_sprm( Sprm& rSprm )
                     uno::Reference<beans::XPropertySet> xPropertySet(xShape, uno::UNO_QUERY);
                     try
                     {
-                        uno::Any aAny = xPropertySet->getPropertyValue("GraphicBitmap");
+                        uno::Any aAny = xPropertySet->getPropertyValue("Graphic");
                         if (aAny.has<uno::Reference<graphic::XGraphic>>() && pCurrentLevel)
-                            pCurrentLevel->SetGraphicBitmap(aAny.get<uno::Reference<graphic::XGraphic>>());
-                    }
-                    catch (const beans::UnknownPropertyException&)
-                    {}
-
-                    try
-                    {
-                        uno::Any aAny = xPropertySet->getPropertyValue("Bitmap");
-                        if (aAny.has<uno::Reference<graphic::XGraphic>>() && pCurrentLevel)
-                            pCurrentLevel->SetGraphicBitmap(aAny.get<uno::Reference<graphic::XGraphic>>());
-
+                        {
+                            auto xGraphic = aAny.get<uno::Reference<graphic::XGraphic>>();
+                            if (xGraphic.is())
+                            {
+                                uno::Reference<awt::XBitmap> xBitmap(xGraphic, uno::UNO_QUERY);
+                                pCurrentLevel->SetGraphicBitmap(xBitmap);
+                            }
+                        }
                     }
                     catch (const beans::UnknownPropertyException&)
                     {}
@@ -1086,7 +1089,7 @@ void ListsManager::lcl_sprm( Sprm& rSprm )
             default:
                 if (ListLevel::Pointer pCurrentLevel = m_pCurrentDefinition->GetCurrentLevel())
                 {
-                    m_rDMapper.PushListProperties(pCurrentLevel);
+                    m_rDMapper.PushListProperties(pCurrentLevel.get());
                     m_rDMapper.sprm( rSprm );
                     m_rDMapper.PopListProperties();
                 }
@@ -1105,7 +1108,7 @@ void ListsManager::lcl_entry( int /* pos */,
     {
         // Create AbstractListDef's
         OSL_ENSURE( !m_pCurrentDefinition.get(), "current entry has to be NULL here");
-        m_pCurrentDefinition.reset( new AbstractListDef( ) );
+        m_pCurrentDefinition = new AbstractListDef( );
         ref->resolve(*this);
         //append it to the table
         m_aAbstractLists.push_back( m_pCurrentDefinition );

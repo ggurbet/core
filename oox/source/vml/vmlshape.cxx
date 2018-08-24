@@ -22,6 +22,7 @@
 
 #include <boost/optional.hpp>
 
+#include <o3tl/safeint.hxx>
 #include <oox/vml/vmlshape.hxx>
 #include <vcl/wmf.hxx>
 #include <vcl/virdev.hxx>
@@ -52,6 +53,7 @@
 #include <com/sun/star/security/XDocumentDigitalSignatures.hpp>
 #include <rtl/math.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <svx/svdtrans.hxx>
 #include <oox/drawingml/shapepropertymap.hxx>
 #include <oox/helper/graphichelper.hxx>
@@ -201,8 +203,14 @@ awt::Rectangle ShapeType::getAbsRectangle() const
     if ( nHeight == 0 )
         nHeight = 1;
 
-    sal_Int32 nLeft = ConversionHelper::decodeMeasureToHmm( rGraphicHelper, maTypeModel.maLeft, 0, true, true )
-        + ConversionHelper::decodeMeasureToHmm( rGraphicHelper, maTypeModel.maMarginLeft, 0, true, true );
+    sal_Int32 nLeft;
+    if (o3tl::checked_add<sal_Int32>(ConversionHelper::decodeMeasureToHmm(rGraphicHelper, maTypeModel.maLeft, 0, true, true),
+                                     ConversionHelper::decodeMeasureToHmm(rGraphicHelper, maTypeModel.maMarginLeft, 0, true, true),
+                                     nLeft))
+    {
+        SAL_WARN("oox", "overflow in addition");
+        nLeft = 0;
+    }
     if (nLeft == 0 && maTypeModel.maPosition == "absolute")
         nLeft = 1;
 
@@ -1015,7 +1023,7 @@ Reference< XShape > BezierShape::implConvertAndInsert( const Reference< XShapes 
 {
     // If we have an 'x' in the last part of the path it means it is closed...
     sal_Int32 nPos = maShapeModel.maVmlPath.lastIndexOf(',');
-    if ( nPos != -1 && maShapeModel.maVmlPath.indexOf(nPos, 'x') != -1 )
+    if ( nPos != -1 && maShapeModel.maVmlPath.indexOf('x', nPos) != -1 )
     {
         const_cast<BezierShape*>( this )->setService( "com.sun.star.drawing.ClosedBezierShape" );
     }

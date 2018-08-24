@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/beans/Optional.hpp>
 #include <com/sun/star/beans/PropertyVetoException.hpp>
@@ -43,6 +44,7 @@
 #include <cppuhelper/weak.hxx>
 #include <osl/file.hxx>
 #include <osl/security.hxx>
+#include <rtl/byteseq.hxx>
 #include <rtl/string.h>
 #include <rtl/textenc.h>
 #include <rtl/ustring.h>

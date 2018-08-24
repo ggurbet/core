@@ -823,13 +823,13 @@ void SwBaseShell::Execute(SfxRequest &rReq)
             if( nSlot == FN_CONVERT_TEXT_TO_TABLE ||
                 ( nSlot == FN_CONVERT_TEXT_TABLE && nullptr == rSh.GetTableFormat() ))
                 bToTable = true;
-            SwInsertTableOptions aInsTableOpts( tabopts::ALL_TBL_INS_ATTR, 1 );
+            SwInsertTableOptions aInsTableOpts( SwInsertTableFlags::All, 1 );
             SwTableAutoFormat const* pTAFormat = nullptr;
             std::unique_ptr<SwTableAutoFormatTable> pAutoFormatTable;
             bool bDeleteFormat = true;
             if(pArgs && SfxItemState::SET == pArgs->GetItemState( FN_PARAM_1, true, &pItem))
             {
-                aInsTableOpts.mnInsMode = 0;
+                aInsTableOpts.mnInsMode = SwInsertTableFlags::NONE;
                 // Delimiter
                 OUString sDelim = static_cast< const SfxStringItem* >(pItem)->GetValue();
                 if(!sDelim.isEmpty())
@@ -856,7 +856,7 @@ void SwBaseShell::Execute(SfxRequest &rReq)
                 //WithHeader
                 if(SfxItemState::SET == pArgs->GetItemState( FN_PARAM_3, true, &pItem) &&
                             static_cast< const SfxBoolItem* >(pItem)->GetValue())
-                    aInsTableOpts.mnInsMode |= tabopts::HEADLINE;
+                    aInsTableOpts.mnInsMode |= SwInsertTableFlags::Headline;
                 // RepeatHeaderLines
                 if(SfxItemState::SET == pArgs->GetItemState( FN_PARAM_4, true, &pItem))
                    aInsTableOpts.mnRowsToRepeat =
@@ -864,19 +864,16 @@ void SwBaseShell::Execute(SfxRequest &rReq)
                 //WithBorder
                 if(SfxItemState::SET == pArgs->GetItemState( FN_PARAM_5, true, &pItem) &&
                     static_cast< const SfxBoolItem* >(pItem)->GetValue())
-                    aInsTableOpts.mnInsMode |= tabopts::DEFAULT_BORDER;
+                    aInsTableOpts.mnInsMode |= SwInsertTableFlags::DefaultBorder;
                 //DontSplitTable
                 if(SfxItemState::SET == pArgs->GetItemState( FN_PARAM_6, true, &pItem) &&
                     !static_cast< const SfxBoolItem* >(pItem)->GetValue() )
-                    aInsTableOpts.mnInsMode |= tabopts::SPLIT_LAYOUT;
+                    aInsTableOpts.mnInsMode |= SwInsertTableFlags::SplitLayout;
             }
             else
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
                 ScopedVclPtr<AbstractSwConvertTableDlg> pDlg(pFact->CreateSwConvertTableDlg(GetView(), bToTable));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
                 if( RET_OK == pDlg->Execute() )
                 {
                     pDlg->GetValues( cDelim, aInsTableOpts, pTAFormat );
@@ -899,10 +896,10 @@ void SwBaseShell::Execute(SfxRequest &rReq)
                     {
                         if(pTAFormat)
                             aReq.AppendItem( SfxStringItem( FN_PARAM_2, pTAFormat->GetName()));
-                        aReq.AppendItem( SfxBoolItem ( FN_PARAM_3, 0 != (aInsTableOpts.mnInsMode & tabopts::HEADLINE)));
+                        aReq.AppendItem( SfxBoolItem ( FN_PARAM_3, bool(aInsTableOpts.mnInsMode & SwInsertTableFlags::Headline)));
                         aReq.AppendItem( SfxInt16Item( FN_PARAM_4, static_cast<short>(aInsTableOpts.mnRowsToRepeat) ));
-                        aReq.AppendItem( SfxBoolItem ( FN_PARAM_5, 0 != (aInsTableOpts.mnInsMode & tabopts::DEFAULT_BORDER) ));
-                        aReq.AppendItem( SfxBoolItem ( FN_PARAM_6, !(aInsTableOpts.mnInsMode & tabopts::SPLIT_LAYOUT)));
+                        aReq.AppendItem( SfxBoolItem ( FN_PARAM_5, bool(aInsTableOpts.mnInsMode & SwInsertTableFlags::DefaultBorder) ));
+                        aReq.AppendItem( SfxBoolItem ( FN_PARAM_6, !(aInsTableOpts.mnInsMode & SwInsertTableFlags::SplitLayout)));
                     }
                     aReq.Done();
                 }
@@ -2403,7 +2400,7 @@ void SwBaseShell::GetBorderState(SfxItemSet &rSet)
 void SwBaseShell::ExecDlg(SfxRequest &rReq)
 {
     SwWrtShell &rSh = GetShell();
-    vcl::Window *pMDI = &GetView().GetViewFrame()->GetWindow();
+    vcl::Window& rMDI = GetView().GetViewFrame()->GetWindow();
     // So that from the basic no dialogues for the background views are called:
     bool bBackground = (&GetView() != GetActiveView());
     const SfxPoolItem* pItem = nullptr;
@@ -2420,7 +2417,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
         case FN_FORMAT_TITLEPAGE_DLG:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateTitlePageDlg( pMDI ));
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateTitlePageDlg(rMDI.GetFrameWeld()));
             pDlg->Execute();
         }
         break;
@@ -2470,10 +2467,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
                 ::PrepareBoxInfo( aSet, rSh );
                 rSh.GetTabBorders( aSet );
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
-                pDlg.disposeAndReset(pFact->CreateSwBorderDlg( pMDI, aSet, SwBorderModes::TABLE ));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
+                pDlg.disposeAndReset(pFact->CreateSwBorderDlg( &rMDI, aSet, SwBorderModes::TABLE ));
                 if ( pDlg->Execute() == RET_OK )
                 {
                     rSh.SetTabBorders( *pDlg->GetOutputItemSet() );
@@ -2487,10 +2481,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
                 aSet.Put( aMgr.GetAttrSet() );
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
-                pDlg.disposeAndReset(pFact->CreateSwBorderDlg( pMDI, aSet, SwBorderModes::FRAME ));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
+                pDlg.disposeAndReset(pFact->CreateSwBorderDlg( &rMDI, aSet, SwBorderModes::FRAME ));
                 if ( pDlg->Execute() == RET_OK )
                 {
                     aMgr.SetAttrSet( *pDlg->GetOutputItemSet() );
@@ -2505,10 +2496,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
                 ::PrepareBoxInfo( aSet, rSh );
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
-                pDlg.disposeAndReset(pFact->CreateSwBorderDlg( pMDI, aSet, SwBorderModes::PARA ));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
+                pDlg.disposeAndReset(pFact->CreateSwBorderDlg( &rMDI, aSet, SwBorderModes::PARA ));
                 if ( pDlg->Execute() == RET_OK )
                 {
                     rSh.SetAttrSet( *pDlg->GetOutputItemSet() );
@@ -2529,7 +2517,6 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
 
             ScopedVclPtr<SfxAbstractDialog> pDlg;
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            assert(pFact && "SwAbstractDialogFactory fail!");
 
             // Table cell(s) selected?
             if ( rSh.IsTableMode() )
@@ -2537,8 +2524,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
                 // Get background attributes of the table and put it in the set
                 SvxBrushItem aBrush(RES_BACKGROUND);
                 rSh.GetBoxBackground( aBrush );
-                pDlg.disposeAndReset(pFact->CreateSwBackgroundDialog(pMDI, aSet));
-                assert(pDlg && "Dialog creation failed!");
+                pDlg.disposeAndReset(pFact->CreateSwBackgroundDialog(&rMDI, aSet));
                 aSet.Put( aBrush );
                 if ( pDlg->Execute() == RET_OK )
                 {
@@ -2552,8 +2538,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
 
                 rSh.GetFlyFrameAttr( aSet );
 
-                pDlg.disposeAndReset(pFact->CreateSwBackgroundDialog(pMDI, aSet));
-                assert(pDlg && "Dialog creation failed!");
+                pDlg.disposeAndReset(pFact->CreateSwBackgroundDialog(&rMDI, aSet));
                 if ( pDlg->Execute() == RET_OK )
                 {
                     rSh.SetFlyFrameAttr(const_cast<SfxItemSet &>(*pDlg->GetOutputItemSet()) );
@@ -2565,8 +2550,7 @@ void SwBaseShell::ExecDlg(SfxRequest &rReq)
                 // Set border attributes Umrandungsattribute with the shell quite normal.
                 rSh.GetCurAttr( aSet );
 
-                pDlg.disposeAndReset(pFact->CreateSwBackgroundDialog(pMDI, aSet));
-                assert(pDlg && "Dialog creation failed!");
+                pDlg.disposeAndReset(pFact->CreateSwBackgroundDialog(&rMDI, aSet));
                 if ( pDlg->Execute() == RET_OK )
                 {
                     rSh.SetAttrSet( *pDlg->GetOutputItemSet() );
@@ -2626,7 +2610,7 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
         {
             sal_uInt16 nCols = 0;
             sal_uInt16 nRows = 0;
-            SwInsertTableOptions aInsTableOpts( tabopts::ALL_TBL_INS_ATTR, 1 );
+            SwInsertTableOptions aInsTableOpts( SwInsertTableFlags::All, 1 );
             OUString aTableName;
             OUString aAutoName;
             SwTableAutoFormat* pTAFormat = nullptr;
@@ -2664,7 +2648,7 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
                 }
 
                 if ( pFlags )
-                    aInsTableOpts.mnInsMode = static_cast<sal_uInt16>(pFlags->GetValue());
+                    aInsTableOpts.mnInsMode = static_cast<SwInsertTableFlags>(pFlags->GetValue());
                 else
                 {
                     const SwModuleOptions* pModOpt = SW_MOD()->GetModuleConfig();
@@ -2675,9 +2659,7 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
             if( !nCols || !nRows )
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "Dialog creation failed!");
                 ScopedVclPtr<AbstractInsTableDlg> pDlg(pFact->CreateInsTableDlg(rTempView));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
                 if( RET_OK == pDlg->Execute() )
                 {
                     pDlg->GetValues( aTableName, nRows, nCols, aInsTableOpts, aAutoName, pTAFormat );
@@ -2891,10 +2873,7 @@ void SwBaseShell::ExecField( SfxRequest const & rReq )
         case FN_CHANGE_DBFIELD:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
             ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSwChangeDBDlg(GetView()));
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
             pDlg->Execute();
         }
         break;

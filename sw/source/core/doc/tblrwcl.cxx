@@ -634,7 +634,7 @@ bool SwTable::InsertRow_( SwDoc* pDoc, const SwSelBoxes& rBoxes,
         pPCD->AddRowCols( *this, rBoxes, nCnt, bBehind );
     pDoc->UpdateCharts( GetFrameFormat()->GetName() );
 
-    pDoc->GetDocShell()->GetFEShell()->UpdateTableStyleFormatting();
+    pDoc->GetDocShell()->GetFEShell()->UpdateTableStyleFormatting( pTableNd );
 
     return true;
 }
@@ -2061,7 +2061,7 @@ bool SwTable::MakeCopy( SwDoc* pInsDoc, const SwPosition& rPos,
     }
 
     SwTable* pNewTable = const_cast<SwTable*>(pInsDoc->InsertTable(
-            SwInsertTableOptions( tabopts::HEADLINE_NO_BORDER, 1 ),
+            SwInsertTableOptions( SwInsertTableFlags::HeadlineNoBorder, 1 ),
             rPos, 1, 1, GetFrameFormat()->GetHoriOrient().GetHoriOrient(),
             nullptr, nullptr, false, IsNewModel() ));
     if( !pNewTable )
@@ -2087,7 +2087,7 @@ bool SwTable::MakeCopy( SwDoc* pInsDoc, const SwPosition& rPos,
         // Change the Table Pointer at the Node
         pNewTable = new SwDDETable( *pNewTable,
                                  static_cast<SwDDEFieldType*>(pFieldType) );
-        pTableNd->SetNewTable( pNewTable, false );
+        pTableNd->SetNewTable( std::unique_ptr<SwTable>(pNewTable), false );
     }
 
     pNewTable->GetFrameFormat()->CopyAttrs( *GetFrameFormat() );

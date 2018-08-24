@@ -221,13 +221,13 @@ enum SwDateTimeSubType {
 };
 
 /// General tools.
-OUString  FormatNumber(sal_uInt32 nNum, SvxNumType nFormat);
+OUString  FormatNumber(sal_uInt32 nNum, SvxNumType nFormat, LanguageType nLang = LANGUAGE_NONE);
 
 /** Instances of SwFields and those derived from it occur 0 to n times.
  For each class there is one instance of the associated type class.
  Base class of all field types is SwFieldType. */
 
-class SW_DLLPUBLIC SwFieldType : public SwModify
+class SW_DLLPUBLIC SwFieldType : public SwModify, public sw::BroadcasterMixin
 {
     css::uno::WeakReference<css::beans::XPropertySet> m_wXFieldMaster;
 
@@ -262,6 +262,7 @@ public:
     SwFieldIds              Which() const { return m_nWhich; }
 
     inline  void            UpdateFields() const;
+    virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const;
 };
 
 inline void SwFieldType::UpdateFields() const
@@ -283,7 +284,7 @@ private:
     SwFieldType*        m_pType;
 
     virtual OUString    Expand() const = 0;
-    virtual SwField*    Copy() const = 0;
+    virtual std::unique_ptr<SwField> Copy() const = 0;
 
 protected:
     void                SetFormat(sal_uInt32 const nSet) {
@@ -297,6 +298,11 @@ protected:
 
 public:
     virtual             ~SwField();
+
+    SwField(SwField const &) = default;
+    SwField(SwField &&) = default;
+    SwField & operator =(SwField const &) = default;
+    SwField & operator =(SwField &&) = default;
 
     inline SwFieldType* GetTyp() const;
 
@@ -316,7 +322,7 @@ public:
     /// @return name or content.
     virtual OUString    GetFieldName() const;
 
-    SwField *           CopyField() const;
+    std::unique_ptr<SwField> CopyField() const;
 
     /// ResId
     SwFieldIds          Which() const
@@ -441,6 +447,7 @@ public:
     }
 
     static sal_uInt32       GetSystemFormat(SvNumberFormatter* pFormatter, sal_uInt32 nFormat);
+    void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
 };
 
 class SW_DLLPUBLIC SwFormulaField : public SwValueField

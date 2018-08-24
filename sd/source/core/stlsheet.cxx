@@ -19,10 +19,13 @@
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/style/XStyle.hpp>
 
 #include <osl/mutex.hxx>
+#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/interfacecontainer.hxx>
 
@@ -580,55 +583,77 @@ bool SdStyleSheet::HasClearParentSupport() const
     return true;
 }
 
+namespace
+{
+struct ApiNameMap
+{
+    OUStringLiteral mpApiName;
+    sal_uInt32 mnHelpId;
+} const pApiNameMap[]
+    = { { OUStringLiteral("title"), HID_PSEUDOSHEET_TITLE },
+        { OUStringLiteral("subtitle"), HID_PSEUDOSHEET_SUBTITLE },
+        { OUStringLiteral("background"), HID_PSEUDOSHEET_BACKGROUND },
+        { OUStringLiteral("backgroundobjects"), HID_PSEUDOSHEET_BACKGROUNDOBJECTS },
+        { OUStringLiteral("notes"), HID_PSEUDOSHEET_NOTES },
+        { OUStringLiteral("standard"), HID_STANDARD_STYLESHEET_NAME },
+        { OUStringLiteral("objectwithoutfill"), HID_POOLSHEET_OBJWITHOUTFILL },
+        { OUStringLiteral("text"), HID_POOLSHEET_TEXT },
+        { OUStringLiteral("title"), HID_POOLSHEET_TITLE },
+        { OUStringLiteral("headline"), HID_POOLSHEET_HEADLINE },
+        { OUStringLiteral("measure"), HID_POOLSHEET_MEASURE },
+        { OUStringLiteral("Filled"), HID_POOLSHEET_FILLED },
+        { OUStringLiteral("Filled Blue"), HID_POOLSHEET_FILLED_BLUE },
+        { OUStringLiteral("Filled Green"), HID_POOLSHEET_FILLED_GREEN },
+        { OUStringLiteral("Filled Red"), HID_POOLSHEET_FILLED_RED },
+        { OUStringLiteral("Filled Yellow"), HID_POOLSHEET_FILLED_YELLOW },
+        { OUStringLiteral("Outlined"), HID_POOLSHEET_OUTLINE },
+        { OUStringLiteral("Outlined Blue"), HID_POOLSHEET_OUTLINE_BLUE },
+        { OUStringLiteral("Outlined Green"), HID_POOLSHEET_OUTLINE_GREEN },
+        { OUStringLiteral("Outlined Red"), HID_POOLSHEET_OUTLINE_RED },
+        { OUStringLiteral("Outlined Yellow"), HID_POOLSHEET_OUTLINE_YELLOW } };
+
+OUString GetApiNameForHelpId(sal_uLong nId)
+{
+    if ((nId >= HID_PSEUDOSHEET_OUTLINE1) && (nId <= HID_PSEUDOSHEET_OUTLINE9))
+        return "outline" + OUStringLiteral1('1' + (nId - HID_PSEUDOSHEET_OUTLINE1));
+
+    for (const auto& i : pApiNameMap)
+        if (nId == i.mnHelpId)
+            return i.mpApiName;
+
+    return OUString();
+}
+
+sal_uInt32 GetHelpIdForApiName(const OUString& sName)
+{
+    OUString sRest;
+    if (sName.startsWith("outline", &sRest))
+    {
+        if (sRest.getLength() == 1)
+        {
+            sal_Unicode ch = sRest.toChar();
+            if ('1' <= ch && ch <= '9')
+                return HID_PSEUDOSHEET_OUTLINE1 + ch - '1';
+        }
+        // No other pre-defined names start with "outline"
+        return 0;
+    }
+
+    for (const auto& i : pApiNameMap)
+        if (sName == i.mpApiName)
+            return i.mnHelpId;
+
+    return 0;
+}
+}
+
 void SdStyleSheet::SetHelpId( const OUString& r, sal_uLong nId )
 {
     SfxStyleSheet::SetHelpId( r, nId );
 
-    if( (nId >= HID_PSEUDOSHEET_OUTLINE1) && ( nId <= HID_PSEUDOSHEET_OUTLINE9 ) )
-    {
-        msApiName = "outline";
-        msApiName += OUStringLiteral1( '1' + (nId - HID_PSEUDOSHEET_OUTLINE1) );
-    }
-    else
-    {
-        static struct ApiNameMap
-        {
-            OUStringLiteral mpApiName;
-            sal_uInt32      mnHelpId;
-        }
-        const pApiNameMap[] =
-        {
-            { OUStringLiteral("title"),            HID_PSEUDOSHEET_TITLE },
-            { OUStringLiteral("subtitle"),         HID_PSEUDOSHEET_SUBTITLE },
-            { OUStringLiteral("background"),       HID_PSEUDOSHEET_BACKGROUND },
-            { OUStringLiteral("backgroundobjects"),HID_PSEUDOSHEET_BACKGROUNDOBJECTS },
-            { OUStringLiteral("notes"),            HID_PSEUDOSHEET_NOTES },
-            { OUStringLiteral("standard"),         HID_STANDARD_STYLESHEET_NAME },
-            { OUStringLiteral("objectwitharrow"),  HID_POOLSHEET_OBJWITHARROW },
-            { OUStringLiteral("objectwithshadow"), HID_POOLSHEET_OBJWITHSHADOW },
-            { OUStringLiteral("objectwithoutfill"),HID_POOLSHEET_OBJWITHOUTFILL },
-            { OUStringLiteral("text"),             HID_POOLSHEET_TEXT },
-            { OUStringLiteral("textbody"),         HID_POOLSHEET_TEXTBODY },
-            { OUStringLiteral("textbodyjustfied"), HID_POOLSHEET_TEXTBODY_JUSTIFY },
-            { OUStringLiteral("textbodyindent"),   HID_POOLSHEET_TEXTBODY_INDENT },
-            { OUStringLiteral("title"),            HID_POOLSHEET_TITLE },
-            { OUStringLiteral("title1"),           HID_POOLSHEET_TITLE1 },
-            { OUStringLiteral("title2"),           HID_POOLSHEET_TITLE2 },
-            { OUStringLiteral("headline"),         HID_POOLSHEET_HEADLINE },
-            { OUStringLiteral("headline1"),        HID_POOLSHEET_HEADLINE1 },
-            { OUStringLiteral("headline2"),        HID_POOLSHEET_HEADLINE2 },
-            { OUStringLiteral("measure"),          HID_POOLSHEET_MEASURE }
-        };
-
-        for (std::size_t i = 0; i != SAL_N_ELEMENTS(pApiNameMap); ++i)
-        {
-            if( nId == pApiNameMap[i].mnHelpId )
-            {
-                msApiName = pApiNameMap[i].mpApiName;
-                break;
-            }
-        }
-    }
+    const OUString sNewApiName = GetApiNameForHelpId(nId);
+    if (!sNewApiName.isEmpty())
+        msApiName = sNewApiName;
 }
 
 OUString SdStyleSheet::GetFamilyString( SfxStyleFamily eFamily )
@@ -722,7 +747,10 @@ void SAL_CALL SdStyleSheet::dispose(  )
         }
         catch (const Exception & exc)
         {
-            throw RuntimeException( "unexpected UNO exception caught: " + exc.Message );
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected UNO exception caught: " + exc.Message ,
+                nullptr, anyEx );
         }
     }
 }
@@ -828,6 +856,18 @@ Sequence< OUString > SAL_CALL SdStyleSheet::getSupportedServiceNames()
     return aNameSequence;
 }
 
+bool SdStyleSheet::SetName(const OUString& rNewName, bool bReindexNow)
+{
+    const bool bResult = SfxUnoStyleSheet::SetName(rNewName, bReindexNow);
+    // Don't overwrite predefined API names
+    if (bResult && GetHelpIdForApiName(msApiName) == 0)
+    {
+        msApiName = rNewName;
+        Broadcast(SfxHint(SfxHintId::DataChanged));
+    }
+    return bResult;
+}
+
 // XNamed
 OUString SAL_CALL SdStyleSheet::getName()
 {
@@ -840,12 +880,7 @@ void SAL_CALL SdStyleSheet::setName( const OUString& rName  )
 {
     SolarMutexGuard aGuard;
     throwIfDisposed();
-
-    if( SetName( rName ) )
-    {
-        msApiName = rName;
-        Broadcast(SfxHint(SfxHintId::DataChanged));
-    }
+    SetName(rName);
 }
 
 // XStyle
@@ -1190,7 +1225,7 @@ PropertyState SAL_CALL SdStyleSheet::getPropertyState( const OUString& PropertyN
             case XATTR_LINESTART:
             case XATTR_LINEDASH:
                 {
-                    const NameOrIndex* pItem = rStyleSet.GetItem<NameOrIndex>(static_cast<sal_uInt16>(pEntry->nWID));
+                    const NameOrIndex* pItem = rStyleSet.GetItem<NameOrIndex>(pEntry->nWID);
                     if( ( pItem == nullptr ) || pItem->GetName().isEmpty() )
                         eState = PropertyState_DEFAULT_VALUE;
                 }

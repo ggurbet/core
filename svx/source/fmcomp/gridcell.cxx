@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <fmprop.hxx>
 #include <svx/strings.hrc>
 #include <svx/fmtools.hxx>
@@ -178,26 +179,26 @@ void DbGridColumn::CreateControl(sal_Int32 _nFieldPos, const Reference< css::bea
         }
     }
 
-    DbCellControl* pCellControl = nullptr;
+    std::unique_ptr<DbCellControl> pCellControl;
     if (m_rParent.IsFilterMode())
     {
-        pCellControl = new DbFilterField(m_rParent.getContext(),*this);
+        pCellControl.reset(new DbFilterField(m_rParent.getContext(),*this));
     }
     else
     {
 
         switch (nTypeId)
         {
-            case TYPE_CHECKBOX: pCellControl = new DbCheckBox(*this);   break;
-            case TYPE_COMBOBOX: pCellControl = new DbComboBox(*this); break;
-            case TYPE_CURRENCYFIELD: pCellControl = new DbCurrencyField(*this); break;
-            case TYPE_DATEFIELD: pCellControl = new DbDateField(*this); break;
-            case TYPE_LISTBOX: pCellControl = new DbListBox(*this); break;
-            case TYPE_NUMERICFIELD: pCellControl = new DbNumericField(*this); break;
-            case TYPE_PATTERNFIELD: pCellControl = new DbPatternField( *this, m_rParent.getContext() ); break;
-            case TYPE_TEXTFIELD: pCellControl = new DbTextField(*this); break;
-            case TYPE_TIMEFIELD: pCellControl = new DbTimeField(*this); break;
-            case TYPE_FORMATTEDFIELD: pCellControl = new DbFormattedField(*this); break;
+            case TYPE_CHECKBOX: pCellControl.reset(new DbCheckBox(*this));   break;
+            case TYPE_COMBOBOX: pCellControl.reset(new DbComboBox(*this)); break;
+            case TYPE_CURRENCYFIELD: pCellControl.reset(new DbCurrencyField(*this)); break;
+            case TYPE_DATEFIELD: pCellControl.reset(new DbDateField(*this)); break;
+            case TYPE_LISTBOX: pCellControl.reset(new DbListBox(*this)); break;
+            case TYPE_NUMERICFIELD: pCellControl.reset(new DbNumericField(*this)); break;
+            case TYPE_PATTERNFIELD: pCellControl.reset(new DbPatternField( *this, m_rParent.getContext() )); break;
+            case TYPE_TEXTFIELD: pCellControl.reset(new DbTextField(*this)); break;
+            case TYPE_TIMEFIELD: pCellControl.reset(new DbTimeField(*this)); break;
+            case TYPE_FORMATTEDFIELD: pCellControl.reset(new DbFormattedField(*this)); break;
             default:
                 OSL_FAIL("DbGridColumn::CreateControl: Unknown Column");
                 return;
@@ -212,17 +213,18 @@ void DbGridColumn::CreateControl(sal_Int32 _nFieldPos, const Reference< css::bea
     pCellControl->Init( m_rParent.GetDataWindow(), xCur );
 
     // now create the control wrapper
+    auto pTempCellControl = pCellControl.get();
     if (m_rParent.IsFilterMode())
-        m_pCell = new FmXFilterCell(this, pCellControl);
+        m_pCell = new FmXFilterCell(this, std::unique_ptr<DbFilterField>(static_cast<DbFilterField*>(pCellControl.release())));
     else
     {
         switch (nTypeId)
         {
-            case TYPE_CHECKBOX: m_pCell = new FmXCheckBoxCell( this, *pCellControl );  break;
-            case TYPE_LISTBOX: m_pCell = new FmXListBoxCell( this, *pCellControl );    break;
-            case TYPE_COMBOBOX: m_pCell = new FmXComboBoxCell( this, *pCellControl );    break;
+            case TYPE_CHECKBOX: m_pCell = new FmXCheckBoxCell( this, std::move(pCellControl) );  break;
+            case TYPE_LISTBOX: m_pCell = new FmXListBoxCell( this, std::move(pCellControl) );    break;
+            case TYPE_COMBOBOX: m_pCell = new FmXComboBoxCell( this, std::move(pCellControl) );    break;
             default:
-                m_pCell = new FmXEditCell( this, *pCellControl );
+                m_pCell = new FmXEditCell( this, std::move(pCellControl) );
         }
     }
     m_pCell->init();
@@ -232,7 +234,7 @@ void DbGridColumn::CreateControl(sal_Int32 _nFieldPos, const Reference< css::bea
     // only if we use have a bound field, we use a controller for displaying the
     // window in the grid
     if (m_xField.is())
-        m_xController = pCellControl->CreateController();
+        m_xController = pTempCellControl->CreateController();
 }
 
 
@@ -1060,8 +1062,8 @@ DbTextField::DbTextField(DbGridColumn& _rColumn)
 
 DbTextField::~DbTextField( )
 {
-    DELETEZ( m_pPainterImplementation );
-    DELETEZ( m_pEdit );
+    m_pPainterImplementation.reset();
+    m_pEdit.reset();
 }
 
 
@@ -1102,18 +1104,18 @@ void DbTextField::Init( vcl::Window& rParent, const Reference< XRowSet >& xCurso
     if ( bIsMultiLine )
     {
         m_pWindow = VclPtr<MultiLineTextCell>::Create( &rParent, nStyle );
-        m_pEdit = new MultiLineEditImplementation( *static_cast< MultiLineTextCell* >( m_pWindow.get() ) );
+        m_pEdit.reset(new MultiLineEditImplementation( *static_cast< MultiLineTextCell* >( m_pWindow.get() ) ));
 
         m_pPainter = VclPtr<MultiLineTextCell>::Create( &rParent, nStyle );
-        m_pPainterImplementation = new MultiLineEditImplementation( *static_cast< MultiLineTextCell* >( m_pPainter.get() ) );
+        m_pPainterImplementation.reset(new MultiLineEditImplementation( *static_cast< MultiLineTextCell* >( m_pPainter.get() ) ));
     }
     else
     {
         m_pWindow = VclPtr<Edit>::Create( &rParent, nStyle );
-        m_pEdit = new EditImplementation( *static_cast< Edit* >( m_pWindow.get() ) );
+        m_pEdit.reset(new EditImplementation( *static_cast< Edit* >( m_pWindow.get() ) ));
 
         m_pPainter = VclPtr<Edit>::Create( &rParent, nStyle );
-        m_pPainterImplementation = new EditImplementation( *static_cast< Edit* >( m_pPainter.get() ) );
+        m_pPainterImplementation.reset(new EditImplementation( *static_cast< Edit* >( m_pPainter.get() ) ));
     }
 
     if ( WB_LEFT == nStyle )
@@ -1135,7 +1137,7 @@ void DbTextField::Init( vcl::Window& rParent, const Reference< XRowSet >& xCurso
 
 CellControllerRef DbTextField::CreateController() const
 {
-    return new EditCellController( m_pEdit );
+    return new EditCellController( m_pEdit.get() );
 }
 
 
@@ -1150,10 +1152,22 @@ void DbTextField::PaintFieldToCell( OutputDevice& _rDev, const tools::Rectangle&
 
 OUString DbTextField::GetFormatText(const Reference< XColumn >& _rxField, const Reference< XNumberFormatter >& xFormatter, Color** /*ppColor*/)
 {
+    if (!_rxField.is())
+        return OUString();
+
     const css::uno::Reference<css::beans::XPropertySet> xPS(_rxField, UNO_QUERY);
     FormattedColumnValue fmter( xFormatter, xPS );
 
-    return fmter.getFormattedValue();
+    try
+    {
+        return fmter.getFormattedValue();
+    }
+    catch( const Exception& )
+    {
+        DBG_UNHANDLED_EXCEPTION("svx");
+    }
+    return OUString();
+
 }
 
 
@@ -3109,10 +3123,10 @@ IMPL_LINK_NOARG(DbFilterField, OnClick, VclPtr<CheckBox>, void)
 }
 
 
-FmXGridCell::FmXGridCell( DbGridColumn* pColumn, DbCellControl* _pControl )
+FmXGridCell::FmXGridCell( DbGridColumn* pColumn, std::unique_ptr<DbCellControl> _pControl )
             :OComponentHelper(m_aMutex)
             ,m_pColumn(pColumn)
-            ,m_pCellControl( _pControl )
+            ,m_pCellControl( std::move(_pControl) )
             ,m_aWindowListeners( m_aMutex )
             ,m_aFocusListeners( m_aMutex )
             ,m_aKeyListeners( m_aMutex )
@@ -3194,7 +3208,7 @@ void FmXGridCell::disposing()
 
     OComponentHelper::disposing();
     m_pColumn = nullptr;
-    DELETEZ(m_pCellControl);
+    m_pCellControl.reset();
 }
 
 
@@ -3490,8 +3504,8 @@ void FmXDataCell::UpdateFromColumn()
 }
 
 
-FmXTextCell::FmXTextCell( DbGridColumn* pColumn, DbCellControl& _rControl )
-    :FmXDataCell( pColumn, _rControl )
+FmXTextCell::FmXTextCell( DbGridColumn* pColumn, std::unique_ptr<DbCellControl> pControl )
+    :FmXDataCell( pColumn, std::move(pControl) )
     ,m_bFastPaint( true )
 {
 }
@@ -3544,15 +3558,15 @@ void FmXTextCell::PaintFieldToCell(OutputDevice& rDev,
     }
 }
 
-FmXEditCell::FmXEditCell( DbGridColumn* pColumn, DbCellControl& _rControl )
-            :FmXTextCell( pColumn, _rControl )
+FmXEditCell::FmXEditCell( DbGridColumn* pColumn, std::unique_ptr<DbCellControl> pControl )
+            :FmXTextCell( pColumn, std::move(pControl) )
             ,m_aTextListeners(m_aMutex)
             ,m_aChangeListeners( m_aMutex )
             ,m_pEditImplementation( nullptr )
             ,m_bOwnEditImplementation( false )
 {
 
-    DbTextField* pTextField = dynamic_cast<DbTextField*>( &_rControl  );
+    DbTextField* pTextField = dynamic_cast<DbTextField*>( m_pCellControl.get()  );
     if ( pTextField )
     {
 
@@ -3562,7 +3576,7 @@ FmXEditCell::FmXEditCell( DbGridColumn* pColumn, DbCellControl& _rControl )
     }
     else
     {
-        m_pEditImplementation = new EditImplementation( static_cast< Edit& >( _rControl.GetWindow() ) );
+        m_pEditImplementation = new EditImplementation( static_cast< Edit& >( m_pCellControl->GetWindow() ) );
         m_bOwnEditImplementation = true;
     }
 }
@@ -3807,11 +3821,11 @@ void FmXEditCell::onWindowEvent( const VclEventId _nEventId, const vcl::Window& 
     FmXTextCell::onWindowEvent( _nEventId, _rWindow, _pEventData );
 }
 
-FmXCheckBoxCell::FmXCheckBoxCell( DbGridColumn* pColumn, DbCellControl& _rControl )
-                :FmXDataCell( pColumn, _rControl )
+FmXCheckBoxCell::FmXCheckBoxCell( DbGridColumn* pColumn, std::unique_ptr<DbCellControl> pControl )
+                :FmXDataCell( pColumn, std::move(pControl) )
                 ,m_aItemListeners(m_aMutex)
                 ,m_aActionListeners( m_aMutex )
-                ,m_pBox( & static_cast< CheckBoxControl& >( _rControl.GetWindow() ).GetBox() )
+                ,m_pBox( & static_cast< CheckBoxControl& >( m_pCellControl->GetWindow() ).GetBox() )
 {
 }
 
@@ -3981,11 +3995,11 @@ void FmXCheckBoxCell::onWindowEvent( const VclEventId _nEventId, const vcl::Wind
     }
 }
 
-FmXListBoxCell::FmXListBoxCell(DbGridColumn* pColumn, DbCellControl& _rControl)
-               :FmXTextCell( pColumn, _rControl )
+FmXListBoxCell::FmXListBoxCell(DbGridColumn* pColumn, std::unique_ptr<DbCellControl> pControl)
+               :FmXTextCell( pColumn, std::move(pControl) )
                ,m_aItemListeners(m_aMutex)
                ,m_aActionListeners(m_aMutex)
-               ,m_pBox( &static_cast< ListBox& >( _rControl.GetWindow() ) )
+               ,m_pBox( &static_cast< ListBox& >( m_pCellControl->GetWindow() ) )
 {
 
     m_pBox->SetDoubleClickHdl( LINK( this, FmXListBoxCell, OnDoubleClick ) );
@@ -4316,11 +4330,11 @@ IMPL_LINK_NOARG(FmXListBoxCell, OnDoubleClick, ListBox&, void)
     }
 }
 
-FmXComboBoxCell::FmXComboBoxCell( DbGridColumn* pColumn, DbCellControl& _rControl )
-    :FmXTextCell( pColumn, _rControl )
+FmXComboBoxCell::FmXComboBoxCell( DbGridColumn* pColumn, std::unique_ptr<DbCellControl> pControl )
+    :FmXTextCell( pColumn, std::move(pControl) )
     ,m_aItemListeners( m_aMutex )
     ,m_aActionListeners( m_aMutex )
-    ,m_pComboBox( &static_cast< ComboBox& >( _rControl.GetWindow() ) )
+    ,m_pComboBox( &static_cast< ComboBox& >( m_pCellControl->GetWindow() ) )
 {
 }
 
@@ -4504,13 +4518,11 @@ void FmXComboBoxCell::onWindowEvent( const VclEventId _nEventId, const vcl::Wind
 }
 
 
-FmXFilterCell::FmXFilterCell(DbGridColumn* pColumn, DbCellControl* pControl )
-              :FmXGridCell( pColumn, pControl )
+FmXFilterCell::FmXFilterCell(DbGridColumn* pColumn, std::unique_ptr<DbFilterField> pControl )
+              :FmXGridCell( pColumn, std::move(pControl) )
               ,m_aTextListeners(m_aMutex)
 {
-
-    DBG_ASSERT( dynamic_cast<const DbFilterField*>( m_pCellControl) !=  nullptr, "FmXFilterCell::FmXFilterCell: invalid cell control!" );
-    static_cast< DbFilterField* >( m_pCellControl )->SetCommitHdl( LINK( this, FmXFilterCell, OnCommit ) );
+    pControl->SetCommitHdl( LINK( this, FmXFilterCell, OnCommit ) );
 }
 
 
@@ -4553,7 +4565,7 @@ const Sequence<sal_Int8>& FmXFilterCell::getUnoTunnelId()
 
 void FmXFilterCell::PaintCell( OutputDevice& rDev, const tools::Rectangle& rRect )
 {
-    static_cast< DbFilterField* >( m_pCellControl )->PaintCell( rDev, rRect );
+    static_cast< DbFilterField* >( m_pCellControl.get() )->PaintCell( rDev, rRect );
 }
 
 // OComponentHelper
@@ -4563,7 +4575,7 @@ void FmXFilterCell::disposing()
     css::lang::EventObject aEvt(*this);
     m_aTextListeners.disposeAndClear(aEvt);
 
-    static_cast<DbFilterField*>(m_pCellControl)->SetCommitHdl(Link<DbFilterField&,void>());
+    static_cast<DbFilterField*>(m_pCellControl.get())->SetCommitHdl(Link<DbFilterField&,void>());
 
     FmXGridCell::disposing();
 }
@@ -4608,7 +4620,7 @@ void SAL_CALL FmXFilterCell::removeTextListener(const Reference< css::awt::XText
 void SAL_CALL FmXFilterCell::setText( const OUString& aText )
 {
     ::osl::MutexGuard aGuard( m_aMutex );
-    static_cast<DbFilterField*>(m_pCellControl)->SetText(aText);
+    static_cast<DbFilterField*>(m_pCellControl.get())->SetText(aText);
 }
 
 
@@ -4620,7 +4632,7 @@ void SAL_CALL FmXFilterCell::insertText( const css::awt::Selection& /*rSel*/, co
 OUString SAL_CALL FmXFilterCell::getText()
 {
     ::osl::MutexGuard aGuard( m_aMutex );
-    return static_cast<DbFilterField*>(m_pCellControl)->GetText();
+    return static_cast<DbFilterField*>(m_pCellControl.get())->GetText();
 }
 
 

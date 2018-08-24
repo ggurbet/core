@@ -35,6 +35,7 @@
 #include <osl/time.h>
 #include <rtl/bootstrap.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
+#include <sal/log.hxx>
 
 #include <expat.h>
 #include <memory>
@@ -130,7 +131,6 @@ void IndexerPreProcessor::processDocument
 struct Data
 {
     std::vector<std::string> _idList;
-    typedef std::vector<std::string>::const_iterator cIter;
 
     void append(const std::string &id)
     {
@@ -348,20 +348,8 @@ void HelpLinker::link()
                 compactStylesheet, embeddStylesheet, module, lang, bExtensionMode );
 
             HCDBG(std::cerr << "before compile of " << xhpFileName << std::endl);
-            bool success = hc.compile();
+            hc.compile();
             HCDBG(std::cerr << "after compile of " << xhpFileName << std::endl);
-
-            if (!success && !bExtensionMode)
-            {
-                std::stringstream aStrStream;
-                aStrStream <<
-                    "\nERROR: compiling help particle '"
-                        << xhpFileName
-                        << "' for language '"
-                        << lang
-                        << "' failed!";
-                throw HelpProcessingException( HelpProcessingErrorClass::General, aStrStream.str() );
-            }
 
             if (!m_bCreateIndex)
                 continue;
@@ -383,7 +371,7 @@ void HelpLinker::link()
             // add once this as its own id.
             addBookmark( pFileDbBase_DBHelp, documentPath, fileB, std::string(), jarfileB, titleB);
 
-            const HashSet *hidlist = streamTable.appl_hidlist.get();
+            const std::vector<std::string> *hidlist = streamTable.appl_hidlist.get();
             if (hidlist && !hidlist->empty())
             {
                 // now iterate over all elements of the hidlist

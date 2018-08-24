@@ -19,33 +19,31 @@
 
 #pragma once
 
-#include <headless/svpinst.hxx>
+#include <sal/config.h>
+
+#include <memory>
+
+#include <qt5/Qt5Instance.hxx>
+#include "KDE5SalFrame.hxx"
 
 class SalYieldMutex;
 class SalFrame;
-class KDE5XLib;
 
-class KDE5SalInstance : public SvpSalInstance
+class KDE5SalInstance : public Qt5Instance
 {
-
-protected:
-    //SalX11Display* CreateDisplay() const;
-
 public:
-    explicit KDE5SalInstance(SalYieldMutex* pMutex);
-    virtual SalFrame* CreateFrame( SalFrame* pParent, SalFrameStyleFlags nStyle ) override;
+    explicit KDE5SalInstance(std::unique_ptr<SalYieldMutex> pMutex);
+    virtual SalFrame* CreateFrame(SalFrame* pParent, SalFrameStyleFlags nStyle) override;
 
     virtual bool hasNativeFileSelection() const override { return true; }
 
-    virtual css::uno::Reference< css::ui::dialogs::XFilePicker2 >
-        createFilePicker( const css::uno::Reference<
-                              css::uno::XComponentContext >& ) override;
+    virtual css::uno::Reference<css::ui::dialogs::XFilePicker2>
+    createFilePicker(const css::uno::Reference<css::uno::XComponentContext>&) override;
+
+    virtual css::uno::Reference<css::ui::dialogs::XFolderPicker2>
+    createFolderPicker(const css::uno::Reference<css::uno::XComponentContext>&) override;
 
     virtual bool IsMainThread() const override;
-    void SetLib( KDE5XLib *pXLib ) { m_pXLib = pXLib; }
-
-private:
-    KDE5XLib *m_pXLib;
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

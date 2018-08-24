@@ -21,6 +21,7 @@
 #include <algorithm>
 
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <tools/solar.h>
 #include <xmloff/PageMasterStyleMap.hxx>
 #include <xmloff/attrlist.hxx>
@@ -589,6 +590,35 @@ OUString SvXMLAutoStylePoolP_Impl::Find( sal_Int32 nFamily,
     }
 
     return sName;
+}
+
+std::vector<xmloff::AutoStyleEntry> SvXMLAutoStylePoolP_Impl::GetAutoStyleEntries() const
+{
+    std::vector<xmloff::AutoStyleEntry> rReturnVector;
+
+    for (std::unique_ptr<XMLAutoStyleFamily> const & rFamily : m_FamilySet)
+    {
+        rtl::Reference<XMLPropertySetMapper> aPropertyMapper = rFamily->mxMapper->getPropertySetMapper();
+        for (auto const & rParent : rFamily->m_ParentSet)
+        {
+            for (auto const & rProperty : rParent->GetPropertiesList())
+            {
+                rReturnVector.emplace_back();
+                xmloff::AutoStyleEntry & rEntry = rReturnVector.back();
+                rEntry.m_aParentName = rParent->GetParent();
+                rEntry.m_aName = rProperty->GetName();
+                for (XMLPropertyState const & rPropertyState : rProperty->GetProperties())
+                {
+                    if (rPropertyState.mnIndex >= 0)
+                    {
+                        OUString sXmlName = aPropertyMapper->GetEntryXMLName(rPropertyState.mnIndex);
+                        rEntry.m_aXmlProperties.emplace_back(sXmlName, rPropertyState.maValue);
+                    }
+                }
+            }
+        }
+    }
+    return rReturnVector;
 }
 
 namespace {

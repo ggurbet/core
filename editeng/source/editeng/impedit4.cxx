@@ -34,6 +34,7 @@
 #include "eehtml.hxx"
 #include "editobj2.hxx"
 #include <i18nlangtag/lang.h>
+#include <sal/log.hxx>
 
 #include <editxml.hxx>
 
@@ -221,7 +222,7 @@ ErrCode ImpEditEngine::WriteText( SvStream& rOutput, EditSelection aSel )
     for ( sal_Int32 nNode = nStartNode; nNode <= nEndNode; nNode++  )
     {
         ContentNode* pNode = aEditDoc.GetObject( nNode );
-        DBG_ASSERT( pNode, "Node not founden: Search&Replace" );
+        DBG_ASSERT( pNode, "Node not found: Search&Replace" );
 
         sal_Int32 nStartPos = 0;
         sal_Int32 nEndPos = pNode->Len();
@@ -268,13 +269,11 @@ static void lcl_FindValidAttribs( ItemList& rLst, ContentNode* pNode, sal_Int32 
     }
 }
 
-sal_uInt32 ImpEditEngine::WriteXML(SvStream& rOutput, const EditSelection& rSel)
+void ImpEditEngine::WriteXML(SvStream& rOutput, const EditSelection& rSel)
 {
     ESelection aESel = CreateESel(rSel);
 
     SvxWriteXML( *GetEditEnginePtr(), rOutput, aESel );
-
-    return 0;
 }
 
 ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
@@ -1061,7 +1060,7 @@ std::unique_ptr<EditTextObject> ImpEditEngine::CreateTextObject( EditSelection a
             if ( bEmptyPara ||
                  ( ( pAttr->GetEnd() > nStartPos ) && ( pAttr->GetStart() < nEndPos ) ) )
             {
-                XEditAttribute* pX = pTxtObj->mpImpl->CreateAttrib(*pAttr->GetItem(), pAttr->GetStart(), pAttr->GetEnd());
+                std::unique_ptr<XEditAttribute> pX = pTxtObj->mpImpl->CreateAttrib(*pAttr->GetItem(), pAttr->GetStart(), pAttr->GetEnd());
                 // Possibly Correct ...
                 if ( ( nNode == nStartNode ) && ( nStartPos != 0 ) )
                 {
@@ -1076,9 +1075,9 @@ std::unique_ptr<EditTextObject> ImpEditEngine::CreateTextObject( EditSelection a
                 }
                 DBG_ASSERT( pX->GetEnd() <= (nEndPos-nStartPos), "CreateBinTextObject: Attribute too long!" );
                 if ( !pX->GetLen() && !bEmptyPara )
-                    pTxtObj->mpImpl->DestroyAttrib(pX);
+                    pTxtObj->mpImpl->DestroyAttrib(std::move(pX));
                 else
-                    pC->GetCharAttribs().push_back(std::unique_ptr<XEditAttribute>(pX));
+                    pC->GetCharAttribs().push_back(std::move(pX));
             }
             nAttr++;
             pAttr = GetAttrib( pNode->GetCharAttribs().GetAttribs(), nAttr );
@@ -1095,7 +1094,7 @@ std::unique_ptr<EditTextObject> ImpEditEngine::CreateTextObject( EditSelection a
     if ( bAllowBigObjects && bOnlyFullParagraphs && IsFormatted() && GetUpdateMode() && ( nTextPortions >= nBigObjectStart ) )
     {
         XParaPortionList* pXList = new XParaPortionList( GetRefDevice(), aPaperSize.Width(), nStretchX, nStretchY );
-        pTxtObj->mpImpl->SetPortionInfo(pXList);
+        pTxtObj->mpImpl->SetPortionInfo(std::unique_ptr<XParaPortionList>(pXList));
         for ( nNode = nStartNode; nNode <= nEndNode; nNode++  )
         {
             const ParaPortion* pParaPortion = GetParaPortions()[nNode];
@@ -1812,7 +1811,6 @@ Reference< XSpellAlternatives > ImpEditEngine::ImpSpell( EditView* pEditView )
     EditSelection aCurSel( pEditView->pImpEditView->GetEditSelection() );
     aCurSel.Min() = aCurSel.Max();
 
-    OUString aWord;
     Reference< XSpellAlternatives > xSpellAlt;
     Sequence< PropertyValue > aEmptySeq;
     while (!xSpellAlt.is())
@@ -1836,7 +1834,7 @@ Reference< XSpellAlternatives > ImpEditEngine::ImpSpell( EditView* pEditView )
         }
 
         aCurSel = SelectWord( aCurSel, css::i18n::WordType::DICTIONARY_WORD );
-        aWord = GetSelected( aCurSel );
+        OUString aWord = GetSelected( aCurSel );
 
         // If afterwards a dot, this must be handed over!
         // If an abbreviation ...
@@ -1874,7 +1872,6 @@ Reference< XSpellAlternatives > ImpEditEngine::ImpFindNextError(EditSelection& r
 {
     EditSelection aCurSel( rSelection.Min() );
 
-    OUString aWord;
     Reference< XSpellAlternatives > xSpellAlt;
     Sequence< PropertyValue > aEmptySeq;
     while (!xSpellAlt.is())
@@ -1887,7 +1884,7 @@ Reference< XSpellAlternatives > ImpEditEngine::ImpFindNextError(EditSelection& r
         }
 
         aCurSel = SelectWord( aCurSel, css::i18n::WordType::DICTIONARY_WORD );
-        aWord = GetSelected( aCurSel );
+        OUString aWord = GetSelected( aCurSel );
 
         // If afterwards a dot, this must be handed over!
         // If an abbreviation ...
@@ -2759,7 +2756,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
             }
 
             i18n::Boundary aCurWordBndry( aSttBndry );
-            while (aCurWordBndry.startPos <= aEndBndry.startPos)
+            while (aCurWordBndry.endPos && aCurWordBndry.startPos <= aEndBndry.startPos)
             {
                 nCurrentStart = aCurWordBndry.startPos;
                 nCurrentEnd   = aCurWordBndry.endPos;

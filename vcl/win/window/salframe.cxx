@@ -35,6 +35,7 @@
 
 #include <rtl/string.h>
 #include <rtl/ustring.h>
+#include <sal/log.hxx>
 
 #include <osl/module.h>
 
@@ -916,13 +917,8 @@ bool WinSalFrame::ReleaseFrameGraphicsDC( WinSalGraphics* pGraphics )
     if ( pGraphics->getDefPal() )
         SelectPalette( hDC, pGraphics->getDefPal(), TRUE );
     pGraphics->DeInitGraphics();
-    // we don't want to run the WinProc in the main thread directly
-    // so we don't hit the mbNoYieldLock assert
-    if ( !pSalData->mpInstance->IsMainThread() )
-        SendMessageW( pSalData->mpInstance->mhComWnd, SAL_MSG_RELEASEDC,
-            reinterpret_cast<WPARAM>(mhWnd), reinterpret_cast<LPARAM>(hDC) );
-    else
-        ReleaseDC( mhWnd, hDC );
+    SendMessageW( pSalData->mpInstance->mhComWnd, SAL_MSG_RELEASEDC,
+        reinterpret_cast<WPARAM>(mhWnd), reinterpret_cast<LPARAM>(hDC) );
     if ( pGraphics == mpThreadGraphics )
         pSalData->mnCacheDCInUse--;
     pGraphics->setHDC(nullptr);
@@ -2184,8 +2180,8 @@ static void ImplSalFrameSetInputContext( HWND hWnd, const SalInputContext* pCont
                 // specified by this font name; but it seems to decide whether
                 // to use that font's horizontal or vertical variant based on a
                 // '@' in front of this font name.
-                ImplGetLogFontFromFontSelect( hDC, pContext->mpFont, aLogFont,
-                                              false );
+                ImplGetLogFontFromFontSelect(hDC, pContext->mpFont->GetFontSelectPattern(),
+                                             nullptr, aLogFont);
                 ReleaseDC( pFrame->mhWnd, hDC );
                 ImmSetCompositionFontW( hIMC, &aLogFont );
                 ImmReleaseContext( pFrame->mhWnd, hIMC );
@@ -2607,6 +2603,7 @@ void WinSalFrame::UpdateSettings( AllSettings& rSettings )
     aStyleSettings.SetDialogTextColor( aStyleSettings.GetButtonTextColor() );
     aStyleSettings.SetButtonTextColor( ImplWinColorToSal( GetSysColor( COLOR_BTNTEXT ) ) );
     aStyleSettings.SetButtonRolloverTextColor( aStyleSettings.GetButtonTextColor() );
+    aStyleSettings.SetButtonPressedRolloverTextColor( aStyleSettings.GetButtonTextColor() );
     aStyleSettings.SetTabTextColor( aStyleSettings.GetButtonTextColor() );
     aStyleSettings.SetTabRolloverTextColor( aStyleSettings.GetButtonTextColor() );
     aStyleSettings.SetTabHighlightTextColor( aStyleSettings.GetButtonTextColor() );
@@ -5258,12 +5255,15 @@ ImplHandleGetObject(HWND hWnd, LPARAM lParam, WPARAM wParam, LRESULT & nRet)
     uno::Reference< accessibility::XMSAAService > xMSAA( pSVData->mxAccessBridge, uno::UNO_QUERY );
     if ( xMSAA.is() )
     {
+        sal_Int32 lParam32 = static_cast<sal_Int32>(lParam);
+        sal_uInt32 wParam32 = static_cast<sal_uInt32>(wParam);
+
         // mhOnSetTitleWnd not set to reasonable value anywhere...
-        if ( lParam == OBJID_CLIENT )
+        if ( lParam32 == OBJID_CLIENT )
         {
             nRet = xMSAA->getAccObjectPtr(
-                    reinterpret_cast<sal_Int64>(hWnd), lParam, wParam);
-            if( nRet != 0 )
+                    reinterpret_cast<sal_Int64>(hWnd), lParam32, wParam32);
+            if (nRet != 0)
                 return true;
         }
     }
@@ -5435,6 +5435,8 @@ LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
     LRESULT     nRet = 0;
     static bool  bInWheelMsg = false;
     static bool  bInQueryEnd = false;
+
+    SAL_INFO("vcl.gdi.wndproc", "SalFrameWndProc(nMsg=" << nMsg << ", wParam=" << wParam << ", lParam=" << lParam << ")");
 
     // By WM_CREATE we connect the frame with the window handle
     if ( nMsg == WM_CREATE )

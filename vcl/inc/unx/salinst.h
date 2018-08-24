@@ -47,7 +47,7 @@ protected:
     virtual SalX11Display* CreateDisplay() const;
 
 public:
-    explicit X11SalInstance(SalYieldMutex* pMutex);
+    explicit X11SalInstance(std::unique_ptr<SalYieldMutex> pMutex);
     virtual ~X11SalInstance() override;
 
     virtual SalFrame*           CreateChildFrame( SystemParentData* pParent, SalFrameStyleFlags nStyle ) override;
@@ -58,20 +58,21 @@ public:
     virtual void                DestroyObject( SalObject* pObject ) override;
 
     /// Gtk vclplug needs to pass GtkSalGraphics to X11SalVirtualDevice, so create it, and pass as pNewGraphics.
-    static SalVirtualDevice* CreateX11VirtualDevice(SalGraphics const * pGraphics, long &nDX, long &nDY,
-            DeviceFormat eFormat, const SystemGraphicsData* pData, X11SalGraphics* pNewGraphics);
+    static std::unique_ptr<SalVirtualDevice> CreateX11VirtualDevice(SalGraphics const * pGraphics, long &nDX, long &nDY,
+            DeviceFormat eFormat, const SystemGraphicsData* pData, std::unique_ptr<X11SalGraphics> pNewGraphics);
 
-    virtual SalVirtualDevice*   CreateVirtualDevice( SalGraphics* pGraphics,
+    virtual std::unique_ptr<SalVirtualDevice>
+                                CreateVirtualDevice( SalGraphics* pGraphics,
                                                      long &nDX, long &nDY,
                                                      DeviceFormat eFormat, const SystemGraphicsData *pData = nullptr ) override;
     virtual void                PostPrintersChanged() override;
     virtual GenPspGraphics     *CreatePrintGraphics() override;
 
     virtual SalTimer*           CreateSalTimer() override;
-    virtual SalI18NImeStatus*   CreateI18NImeStatus() override;
+    virtual std::unique_ptr<SalI18NImeStatus> CreateI18NImeStatus() override;
     virtual SalSystem*          CreateSalSystem() override;
-    virtual SalBitmap*          CreateSalBitmap() override;
-    virtual SalSession*         CreateSalSession() override;
+    virtual std::shared_ptr<SalBitmap>  CreateSalBitmap() override;
+    virtual std::unique_ptr<SalSession> CreateSalSession() override;
     virtual OpenGLContext*      CreateOpenGLContext() override;
 
     virtual bool                DoYield(bool bWait, bool bHandleAllCurrentEvents) override;

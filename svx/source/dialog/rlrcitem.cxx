@@ -18,9 +18,8 @@
  */
 
 #include <svl/rectitem.hxx>
+#include <sal/log.hxx>
 
-
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 
 #include <svx/ruler.hxx>

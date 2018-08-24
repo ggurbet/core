@@ -12,7 +12,6 @@
 
 #include <formula/grammar.hxx>
 #include <tools/color.hxx>
-#include "rangelst.hxx"
 #include "conditio.hxx"
 #include "document.hxx"
 
@@ -21,7 +20,6 @@
 
 //TODO: merge this with conditio.hxx
 
-class ScDocument;
 class ScFormulaCell;
 class ScTokenArray;
 struct ScDataBarInfo;
@@ -51,6 +49,8 @@ private:
     ScColorScaleEntryType meType;
     ScConditionalFormat* mpFormat;
 
+    void setListener();
+
 public:
     ScColorScaleEntry(double nVal, const Color& rCol);
     ScColorScaleEntry();
@@ -77,6 +77,7 @@ public:
     void SetType( ScColorScaleEntryType eType );
 
     void SetRepaintCallback(ScConditionalFormat* pParent);
+    void SetRepaintCallback(std::function<void()> func);
 };
 
 namespace databar

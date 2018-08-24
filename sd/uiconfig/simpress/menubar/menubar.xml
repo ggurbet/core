@@ -143,7 +143,6 @@
                 </menu:menupopup>
             </menu:menu>
             <menu:menuitem menu:id=".uno:ShowAnnotations"/>
-            <menu:menuitem menu:id=".uno:ShowImeStatusWindow"/>
             <menu:menuseparator/>
             <menu:menuitem menu:id=".uno:Sidebar"/>
             <menu:menuitem menu:id=".uno:ModifyPage"/>
@@ -240,7 +239,7 @@
                 </menu:menupopup>
             </menu:menu>
             <menu:menuseparator/>
-            <menu:menuitem menu:id=".uno:InsertSlideNumber"/>
+            <menu:menuitem menu:id=".uno:InsertSlideField"/>
             <menu:menu menu:id=".uno:FieldMenu">
                 <menu:menupopup>
                     <menu:menuitem menu:id=".uno:InsertDateFieldFix"/>

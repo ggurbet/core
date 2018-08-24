@@ -21,8 +21,10 @@
 
 #include <DocumentRenderer.hxx>
 #include <DocumentRenderer.hrc>
+#include <ViewShellBase.hxx>
 
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 #include <optsitem.hxx>
 #include <sdresid.hxx>
 #include <strings.hrc>
@@ -952,7 +954,7 @@ namespace {
 
             // Collect the page objects of the handout master.
             std::vector<SdrPageObj*> aHandoutPageObjects;
-            SdrObjListIter aShapeIter (rHandoutPage);
+            SdrObjListIter aShapeIter (&rHandoutPage);
             while (aShapeIter.IsMore())
             {
                 SdrPageObj* pPageObj = dynamic_cast<SdrPageObj*>(aShapeIter.Next());
@@ -1064,7 +1066,7 @@ namespace {
     {
     public:
         OutlinerPrinterPage (
-            OutlinerParaObject* pParaObject,
+            std::unique_ptr<OutlinerParaObject> pParaObject,
             const MapMode& rMapMode,
             const OUString& rsPageString,
             const Point& rPageStringOffset,
@@ -1073,13 +1075,8 @@ namespace {
             const sal_uInt16 nPaperTray)
             : PrinterPage(PageKind::Handout, rMapMode, false, rsPageString,
                 rPageStringOffset, nDrawMode, eOrientation, nPaperTray),
-              mpParaObject(pParaObject)
+              mpParaObject(std::move(pParaObject))
         {
-        }
-
-        virtual ~OutlinerPrinterPage() override
-        {
-            mpParaObject.reset();
         }
 
         virtual void Print (
@@ -1338,7 +1335,7 @@ private:
 
     /** Determine and set the paper orientation.
     */
-    bool SetupPaperOrientation (
+    void SetupPaperOrientation (
         const PageKind ePageKind,
         PrintInfo& rInfo)
     {
@@ -1379,8 +1376,6 @@ private:
                 maPrintSize = awt::Size(aPaperSize.Height(), aPaperSize.Width());
             }
         }
-
-        return true;
     }
 
     /** Top most method for preparing printer pages.  In this and the other
@@ -1604,10 +1599,12 @@ private:
             Size aPaperSize( rInfo.mpPrinter->PixelToLogic( rInfo.mpPrinter->GetPaperSizePixel(), MapMode( MapUnit::Map100thMM ) ) );
             maPrintSize.Width  = aPaperSize.Height();
             maPrintSize.Height = aPaperSize.Width();
-            const long nRotatedWidth = aOutRect.GetHeight();
-            const long nRotatedHeight = aOutRect.GetWidth();
-            aOutRect = ::tools::Rectangle( Point( aPageOfs.Y(), aPageOfs.X() ),
-                                  Size( nRotatedWidth, nRotatedHeight ) );
+            const auto nRotatedWidth = aOutRect.GetHeight();
+            const auto nRotatedHeight = aOutRect.GetWidth();
+            const auto nRotatedX = aPageOfs.Y();
+            const auto nRotatedY = aPageOfs.X();
+            aOutRect = ::tools::Rectangle(Point( nRotatedX, nRotatedY),
+                                  Size(nRotatedWidth, nRotatedHeight));
         }
 
         Outliner* pOutliner = mrBase.GetDocument()->GetInternalOutliner();
@@ -1803,7 +1800,7 @@ private:
 
         // Count page shapes.
         sal_uInt32 nShapeCount (0);
-        SdrObjListIter aShapeIter (rHandoutPage);
+        SdrObjListIter aShapeIter (&rHandoutPage);
         while (aShapeIter.IsMore())
         {
             SdrPageObj* pPageObj = dynamic_cast<SdrPageObj*>(aShapeIter.Next());
@@ -1870,8 +1867,7 @@ private:
         SdPage* pRefPage = pDocument->GetSdPage(0, ePageKind);
         rInfo.maPageSize = pRefPage->GetSize();
 
-        if ( ! SetupPaperOrientation(ePageKind, rInfo))
-            return;
+        SetupPaperOrientation(ePageKind, rInfo);
 
         MapMode aMap (rInfo.maMap);
         rInfo.maMap = aMap;
@@ -1928,8 +1924,7 @@ private:
 
             if (mpOptions->IsPrintPageName())
             {
-                rInfo.msPageString = pPage->GetName();
-                rInfo.msPageString += " ";
+                rInfo.msPageString = pPage->GetName() + " ";
             }
             else
                 rInfo.msPageString.clear();

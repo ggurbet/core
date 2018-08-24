@@ -17,6 +17,7 @@
 #include <globalnames.hxx>
 #include <docoptio.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <compiler.hxx>
 #include <dbdata.hxx>
 #include <stlpool.hxx>
@@ -51,6 +52,7 @@
 #include <i18nlangtag/lang.h>
 #include <vcl/outdev.hxx>
 #include <tools/fontenum.hxx>
+#include <sal/log.hxx>
 
 #include <stylesbuffer.hxx>
 
@@ -223,13 +225,12 @@ ScOrcusFactory::CellStoreToken::CellStoreToken(const ScAddress& rPos, const OUSt
     rtl::math::setNan(&mfValue);
 }
 
-ScOrcusFactory::ScOrcusFactory(ScDocument& rDoc) :
+ScOrcusFactory::ScOrcusFactory(ScDocument& rDoc, bool bSkipDefaultStyles) :
     maDoc(rDoc),
     maGlobalSettings(maDoc),
-    maRefResolver(maGlobalSettings),
     maSharedStrings(*this),
     maNamedExpressions(maDoc, maGlobalSettings),
-    maStyles(rDoc),
+    maStyles(rDoc, bSkipDefaultStyles),
     mnProgress(0) {}
 
 orcus::spreadsheet::iface::import_sheet* ScOrcusFactory::append_sheet(
@@ -564,7 +565,7 @@ void ScOrcusFactory::incrementProgress()
     // in all cases.
 
     if (!mnProgress)
-        mxStatusIndicator->start(ScGlobal::GetRscString(STR_LOAD_DOC), 100);
+        mxStatusIndicator->start(ScResId(STR_LOAD_DOC), 100);
 
     if (mnProgress == 99)
         return;
@@ -1064,10 +1065,10 @@ size_t ScOrcusSharedStrings::commit_segments()
     return mrFactory.addString(OStringToOUString(aStr, RTL_TEXTENCODING_UTF8));
 }
 
-ScOrcusStyles::ScOrcusStyles(ScDocument& rDoc):
+ScOrcusStyles::ScOrcusStyles(ScDocument& rDoc, bool bSkipDefaultStyles):
     mrDoc(rDoc)
 {
-    if (!mrDoc.GetStyleSheetPool()->HasStandardStyles())
+    if (!bSkipDefaultStyles && !mrDoc.GetStyleSheetPool()->HasStandardStyles())
         mrDoc.GetStyleSheetPool()->CreateStandardStyles();
 }
 

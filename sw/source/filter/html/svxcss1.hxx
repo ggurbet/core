@@ -25,9 +25,10 @@
 #include "parcss1.hxx"
 #include <o3tl/typed_flags_set.hxx>
 
+#include <array>
+#include <map>
 #include <memory>
 #include <vector>
-#include <map>
 
 class SfxItemPool;
 class SvxBoxItem;
@@ -96,7 +97,7 @@ namespace editeng { class SvxBorderLine; }
 struct SvxCSS1BorderInfo;
 class SvxCSS1PropertyInfo
 {
-    SvxCSS1BorderInfo *m_aBorderInfos[4];
+    std::array<std::unique_ptr<SvxCSS1BorderInfo>,4> m_aBorderInfos;
 
     void DestroyBorderInfos();
 
@@ -192,10 +193,10 @@ class SvxCSS1Parser : public CSS1Parser
 
     OUString sBaseURL;
 
-    SfxItemSet *pSheetItemSet;  // item set of Style-Sheet
+    std::unique_ptr<SfxItemSet> pSheetItemSet;  // item set of Style-Sheet
     SfxItemSet *pItemSet;       // current item set
 
-    SvxCSS1PropertyInfo *pSheetPropInfo;
+    std::unique_ptr<SvxCSS1PropertyInfo> pSheetPropInfo;
     SvxCSS1PropertyInfo *pPropInfo;
 
     sal_uInt16 nMinFixLineSpace;    // minimum spacing for fixed line spacing
@@ -240,7 +241,7 @@ public:
 
     SvxCSS1Parser( SfxItemPool& rPool,
                     const OUString& rBaseURL,
-                   sal_uInt16 *pWhichIds, sal_uInt16 nWhichIds=0 );
+                   sal_uInt16 *pWhichIds, sal_uInt16 nWhichIds );
     virtual ~SvxCSS1Parser() override;
 
     bool IsIgnoreFontFamily() const { return bIgnoreFontFamily; }

@@ -56,6 +56,7 @@
 #include <vcl/unohelp.hxx>
 #include <rtl/tencinfo.h>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <oox/core/filterbase.hxx>
 #include <oox/helper/attributelist.hxx>
 #include <oox/helper/containerhelper.hxx>
@@ -75,6 +76,7 @@
 #include <scitems.hxx>
 #include <attrib.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <xlconst.hxx>
 #include <documentimport.hxx>
 #include <numformat.hxx>
@@ -1934,7 +1936,7 @@ void Xf::importXf( const AttributeList& rAttribs, bool bCellXf )
     // tdf#70565 Set proper default value to "0" of xfId attribute
     // When xfId is not exist during .xlsx import
     // it must have values set to "0".
-    // Is is not impacts spreadsheets created with MS Excel,
+    // This doesn't impact spreadsheets created with MS Excel,
     // as xfId attribute is always created during export to .xlsx
     // Not setting "0" value is causing wrong .xlsx import by LibreOffice,
     // for spreadsheets created by external applications (ex. SAP BI).
@@ -2028,7 +2030,7 @@ void Xf::applyPatternToAttrList( AttrList& rAttrs, SCROW nRow1, SCROW nRow2, sal
             {
                 ScStyleSheet* pStyleSheet = static_cast<ScStyleSheet*>(
                     pStylePool->Find(
-                        ScGlobal::GetRscString(STR_STYLENAME_STANDARD), SfxStyleFamily::Para));
+                        ScResId(STR_STYLENAME_STANDARD), SfxStyleFamily::Para));
 
                 if (pStyleSheet)
                     rPat.SetStyleSheet( pStyleSheet, false );
@@ -2462,7 +2464,7 @@ void CellStyle::createCellStyle()
     if( !mbCreated )
     {
         if ( bDefStyle && maFinalName.isEmpty() )
-            maFinalName = ScGlobal::GetRscString( STR_STYLENAME_STANDARD );
+            maFinalName = ScResId( STR_STYLENAME_STANDARD );
         mbCreated = maFinalName.isEmpty();
     }
 
@@ -2476,7 +2478,7 @@ void CellStyle::createCellStyle()
         {
             // use existing "Default" style sheet
             mpStyleSheet = static_cast< ScStyleSheet* >( rDoc.GetStyleSheetPool()->Find(
-                ScGlobal::GetRscString( STR_STYLENAME_STANDARD ), SfxStyleFamily::Para ) );
+                ScResId( STR_STYLENAME_STANDARD ), SfxStyleFamily::Para ) );
             OSL_ENSURE( mpStyleSheet, "CellStyle::createStyle - Default style not found" );
             bCreatePattern = true;
         }

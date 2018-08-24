@@ -26,7 +26,7 @@
 #include <VDiagram.hxx>
 #include "VTitle.hxx"
 #include "VButton.hxx"
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <VCoordinateSystem.hxx>
 #include <VSeriesPlotter.hxx>
 #include <CommonConverters.hxx>
@@ -48,11 +48,9 @@
 #include <BaseGFXHelper.hxx>
 #include <DataSeriesHelper.hxx>
 #include <DateHelper.hxx>
+#include <ExplicitCategoriesProvider.hxx>
 #include <defines.hxx>
 #include <unonames.hxx>
-#if HAVE_FEATURE_OPENGL
-#include <GL3DBarChart.hxx>
-#endif
 #include <editeng/frmdiritem.hxx>
 #include <rtl/uuid.h>
 #include <tools/globname.hxx>
@@ -69,10 +67,6 @@
 #include <vcl/svapp.hxx>
 #include <osl/mutex.hxx>
 #include <svx/unofill.hxx>
-#include <vcl/openglwin.hxx>
-#if HAVE_FEATURE_OPENGL
-#include <vcl/opengl/OpenGLContext.hxx>
-#endif
 #include <drawinglayer/XShapeDumper.hxx>
 
 #include <time.h>
@@ -81,7 +75,9 @@
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/chart/ChartAxisPosition.hpp>
 #include <com/sun/star/chart/DataLabelPlacement.hpp>
+#include <com/sun/star/chart/TimeUnit.hpp>
 #include <com/sun/star/chart/MissingValueTreatment.hpp>
+#include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/chart2/StackingDirection.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
@@ -119,6 +115,7 @@
 
 #include <rtl/strbuf.hxx>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 
 #include <osl/conditn.hxx>
 #include <o3tl/make_unique.hxx>
@@ -564,7 +561,7 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
                 if( !bIncludeHiddenCells && !DataSeriesHelper::hasUnhiddenData(xDataSeries) )
                     continue;
 
-                VDataSeries* pSeries = new VDataSeries( xDataSeries );
+                std::unique_ptr<VDataSeries> pSeries(new VDataSeries( xDataSeries ));
 
                 pSeries->setGlobalSeriesIndex(nGlobalSeriesIndex);
                 nGlobalSeriesIndex++;
@@ -613,7 +610,7 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
                         // UNO enums have one additional auto-generated case
                         break;
                 }
-                pPlotter->addSeries( pSeries, zSlot, xSlot, ySlot );
+                pPlotter->addSeries( std::move(pSeries), zSlot, xSlot, ySlot );
             }
         }
     }
@@ -1054,102 +1051,6 @@ struct CreateShapeParam2D
         mbUseFixedInnerSize(false) {}
 };
 
-class GL2DRenderer : public IRenderer
-{
-public:
-    explicit GL2DRenderer(ChartView* pView);
-    virtual ~GL2DRenderer() override;
-
-    virtual void update() override;
-    virtual void clickedAt(const Point& rPos, sal_uInt16 nButton) override;
-    virtual void mouseDragMove(const Point& rBegin, const Point& rEnd, sal_uInt16 nButton) override;
-    virtual void scroll(long nDelta) override;
-    virtual void contextDestroyed() override;
-
-#if HAVE_FEATURE_OPENGL
-    const OpenGLWindow* getOpenGLWindow() const;
-    void updateOpenGLWindow();
-#endif
-private:
-    ChartView* mpView;
-    bool mbContextDestroyed;
-#if HAVE_FEATURE_OPENGL
-    VclPtr<OpenGLWindow> mpWindow;
-#endif
-};
-
-GL2DRenderer::GL2DRenderer(ChartView* pView)
-    : mpView(pView)
-    , mbContextDestroyed(false)
-#if HAVE_FEATURE_OPENGL
-    , mpWindow(mpView->mrChartModel.getOpenGLWindow())
-#endif
-{
-}
-
-GL2DRenderer::~GL2DRenderer()
-{
-#if HAVE_FEATURE_OPENGL
-    SolarMutexGuard g;
-    if(!mbContextDestroyed && mpWindow)
-        mpWindow->setRenderer(nullptr);
-    mpWindow.reset();
-#endif
-}
-
-void GL2DRenderer::update()
-{
-    mpView->update();
-    mpView->render();
-}
-
-void GL2DRenderer::clickedAt(const Point&, sal_uInt16 )
-{
-}
-
-void GL2DRenderer::mouseDragMove(const Point& , const Point& , sal_uInt16 )
-{
-}
-
-void GL2DRenderer::scroll(long )
-{
-}
-
-void GL2DRenderer::contextDestroyed()
-{
-    mbContextDestroyed = true;
-}
-
-#if HAVE_FEATURE_OPENGL
-
-const OpenGLWindow* GL2DRenderer::getOpenGLWindow() const
-{
-    return mpWindow;
-}
-
-void GL2DRenderer::updateOpenGLWindow()
-{
-    if(mbContextDestroyed)
-        return;
-
-    OpenGLWindow* pWindow = mpView->mrChartModel.getOpenGLWindow();
-    if(pWindow != mpWindow)
-    {
-        if(mpWindow)
-        {
-            mpWindow->setRenderer(nullptr);
-        }
-
-        if(pWindow)
-        {
-            pWindow->setRenderer(this);
-        }
-    }
-    mpWindow = pWindow;
-}
-
-#endif
-
 const uno::Sequence<sal_Int8>& ExplicitValueProvider::getUnoTunnelId()
 {
     return theExplicitValueProviderUnoTunnelId::get().getSeq();
@@ -1191,7 +1092,6 @@ ChartView::ChartView(
     , m_nScaleYDenominator(1)
     , m_bSdrViewIsInEditMode(false)
     , m_aResultingDiagramRectangleExcludingAxes(0,0,0,0)
-    , mp2DRenderer(new GL2DRenderer(this))
 {
     init();
 }
@@ -1621,7 +1521,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     }
 
     uno::Reference< drawing::XShapes > xTextTargetShapes =
-        AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory)->createGroup2D(rParam.mxDiagramWithAxesShapes);
+        ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory)->createGroup2D(rParam.mxDiagramWithAxesShapes);
 
     // - create axis and grids for all coordinate systems
 
@@ -1649,7 +1549,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
         VCoordinateSystem* pVCooSys = rVCooSysList[0];
         pVCooSys->createMaximumAxesLabels();
 
-        aConsumedOuterRect = AbstractShapeFactory::getRectangleOfShape(xBoundingShape);
+        aConsumedOuterRect = ShapeFactory::getRectangleOfShape(xBoundingShape);
         ::basegfx::B2IRectangle aNewInnerRect( aVDiagram.getCurrentRectangle() );
         if (!rParam.mbUseFixedInnerSize)
             aNewInnerRect = aVDiagram.adjustInnerSize( aConsumedOuterRect );
@@ -1666,7 +1566,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
 
         bool bLessSpaceConsumedThanExpected = false;
         {
-            aConsumedOuterRect = AbstractShapeFactory::getRectangleOfShape(xBoundingShape);
+            aConsumedOuterRect = ShapeFactory::getRectangleOfShape(xBoundingShape);
             if( aConsumedOuterRect.getMinX() > aAvailableOuterRect.getMinX()
                 || aConsumedOuterRect.getMaxX() < aAvailableOuterRect.getMaxX()
                 || aConsumedOuterRect.getMinY() > aAvailableOuterRect.getMinY()
@@ -1729,7 +1629,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     {
         m_bPointsWereSkipped = false;
 
-        aConsumedOuterRect = ::basegfx::B2IRectangle( AbstractShapeFactory::getRectangleOfShape(xBoundingShape) );
+        aConsumedOuterRect = ::basegfx::B2IRectangle( ShapeFactory::getRectangleOfShape(xBoundingShape) );
         ::basegfx::B2IRectangle aNewInnerRect( aVDiagram.getCurrentRectangle() );
         if (!rParam.mbUseFixedInnerSize)
             aNewInnerRect = aVDiagram.adjustInnerSize( aConsumedOuterRect );
@@ -1740,9 +1640,9 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
         }
 
         //clear and recreate
-        AbstractShapeFactory::removeSubShapes( xSeriesTargetInFrontOfAxis ); //xSeriesTargetBehindAxis is a sub shape of xSeriesTargetInFrontOfAxis and will be removed here
+        ShapeFactory::removeSubShapes( xSeriesTargetInFrontOfAxis ); //xSeriesTargetBehindAxis is a sub shape of xSeriesTargetInFrontOfAxis and will be removed here
         xSeriesTargetBehindAxis.clear();
-        AbstractShapeFactory::removeSubShapes( xTextTargetShapes );
+        ShapeFactory::removeSubShapes( xTextTargetShapes );
 
         //set new transformation
         for( nC=0; nC < rVCooSysList.size(); nC++)
@@ -1808,8 +1708,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
 
         bool bPosSizeExcludeAxesProperty = true;
         uno::Reference< beans::XPropertySet > xDiaProps( xDiagram, uno::UNO_QUERY_THROW );
-        if( xDiaProps.is() )
-            xDiaProps->getPropertyValue("PosSizeExcludeAxes") >>= bPosSizeExcludeAxesProperty;
+        xDiaProps->getPropertyValue("PosSizeExcludeAxes") >>= bPosSizeExcludeAxesProperty;
         if (rParam.mbUseFixedInnerSize || bPosSizeExcludeAxesProperty)
         {
             aPos = awt::Point( m_aResultingDiagramRectangleExcludingAxes.X, m_aResultingDiagramRectangleExcludingAxes.Y );
@@ -2510,7 +2409,7 @@ void formatPage(
         tAnySequence aValues;
         PropertyMapper::getMultiPropertyListsFromValueMap( aNames, aValues, aNameValueMap );
 
-        AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory);
+        ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(xShapeFactory);
         pShapeFactory->createRectangle(
             xTarget, rPageSize, awt::Point(0, 0), aNames, aValues);
     }
@@ -2576,19 +2475,6 @@ void ChartView::impl_refreshAddIn()
     }
 }
 
-/**
- * Is it a real 3D chart with a true 3D scene or a 3D chart in a 2D scene.
- */
-bool ChartView::isReal3DChart()
-{
-    uno::Reference< XDiagram > xDiagram( mrChartModel.getFirstDiagram() );
-#if HAVE_FEATURE_OPENGL
-    return ChartHelper::isGL3DDiagram(xDiagram);
-#else
-    return false;
-#endif
-}
-
 static const char* envChartDummyFactory = getenv("CHART_DUMMY_FACTORY");
 
 void ChartView::createShapes()
@@ -2616,7 +2502,7 @@ void ChartView::createShapes()
 
     awt::Size aPageSize = mrChartModel.getVisualAreaSize( embed::Aspects::MSOLE_CONTENT );
 
-    AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
+    ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
     if(!mxRootShape.is())
         mxRootShape = pShapeFactory->getOrCreateChartRootShape( m_xDrawPage );
 
@@ -2628,25 +2514,6 @@ void ChartView::createShapes()
         OSL_FAIL("could not set page size correctly");
     }
     pShapeFactory->setPageSize(mxRootShape, aPageSize);
-    pShapeFactory->clearPage(mxRootShape);
-#if HAVE_FEATURE_OPENGL
-#if HAVE_FEATURE_DESKTOP
-    if(isReal3DChart())
-    {
-        createShapes3D();
-        return;
-    }
-    else
-    {
-        m_pGL3DPlotter.reset();
-
-        // hide OpenGL window for now in normal charts
-        OpenGLWindow* pWindow = mrChartModel.getOpenGLWindow();
-        if(pWindow && !envChartDummyFactory)
-            pWindow->Show(false);
-    }
-#endif
-#endif
 
     createShapes2D(aPageSize);
 
@@ -2661,27 +2528,6 @@ void ChartView::createShapes()
     {
         maTimeBased.nFrame++;
     }
-}
-
-void ChartView::render()
-{
-#if HAVE_FEATURE_OPENGL
-    if(!isReal3DChart())
-    {
-        AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
-        OpenGLWindow* pWindow = mrChartModel.getOpenGLWindow();
-        if(pWindow)
-            pWindow->setRenderer(mp2DRenderer.get());
-        bool bRender = pShapeFactory->preRender(mxRootShape, pWindow);
-        if(bRender)
-        {
-            pShapeFactory->render(mxRootShape, pWindow != mp2DRenderer->getOpenGLWindow());
-            pShapeFactory->postRender(pWindow);
-        }
-    }
-#else
-    (void) this;
-#endif
 }
 
 // util::XEventListener (base of XCloseListener)
@@ -2720,11 +2566,6 @@ void ChartView::impl_updateView( bool bCheckLockedCtrler )
 
             //create chart view
             {
-#if HAVE_FEATURE_OPENGL
-                OpenGLWindow* pWindow = mrChartModel.getOpenGLWindow();
-                if (pWindow && ChartHelper::isGL3DDiagram(mrChartModel.getFirstDiagram()))
-                    pWindow->Initialize();
-#endif
                 m_bViewDirty = false;
                 m_bViewUpdatePending = false;
                 createShapes();
@@ -3126,7 +2967,7 @@ IMPL_LINK_NOARG(ChartView, UpdateTimeBased, Timer *, void)
 
 void ChartView::createShapes2D( const awt::Size& rPageSize )
 {
-    AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
+    ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
 
     SolarMutexGuard aSolarGuard;
 
@@ -3148,11 +2989,11 @@ void ChartView::createShapes2D( const awt::Size& rPageSize )
 
     aParam.mxMarkHandles = pShapeFactory->createInvisibleRectangle(
         xDiagramPlusAxesPlusMarkHandlesGroup_Shapes, awt::Size(0,0));
-    AbstractShapeFactory::setShapeName(aParam.mxMarkHandles, "MarkHandles");
+    ShapeFactory::setShapeName(aParam.mxMarkHandles, "MarkHandles");
 
     aParam.mxPlotAreaWithAxes = pShapeFactory->createInvisibleRectangle(
         xDiagramPlusAxesPlusMarkHandlesGroup_Shapes, awt::Size(0, 0));
-    AbstractShapeFactory::setShapeName(aParam.mxPlotAreaWithAxes, "PlotAreaIncludingAxes");
+    ShapeFactory::setShapeName(aParam.mxPlotAreaWithAxes, "PlotAreaIncludingAxes");
 
     aParam.mxDiagramWithAxesShapes = pShapeFactory->createGroup2D(xDiagramPlusAxesPlusMarkHandlesGroup_Shapes);
 
@@ -3233,8 +3074,6 @@ void ChartView::createShapes2D( const awt::Size& rPageSize )
     //cleanup: remove all empty group shapes to avoid grey border lines:
     lcl_removeEmptyGroupShapes( mxRootShape );
 
-    render();
-
     if(maTimeBased.bTimeBased && maTimeBased.nFrame % 60 == 0)
     {
         // create copy of the data for next frame
@@ -3307,93 +3146,6 @@ bool ChartView::createAxisTitleShapes2D( CreateShapeParam2D& rParam, const css::
 
     return true;
 }
-
-void ChartView::createShapes3D()
-{
-#if HAVE_FEATURE_OPENGL
-    OpenGLWindow* pWindow = mrChartModel.getOpenGLWindow();
-    if(!pWindow)
-        return;
-
-    if( pWindow->GetSizePixel().Width() == 0 || pWindow->GetSizePixel().Height() == 0 )
-    {
-        awt::Size aPageSize = mrChartModel.getVisualAreaSize( embed::Aspects::MSOLE_CONTENT );
-        Size aSize = pWindow->LogicToPixel(Size(aPageSize.Width, aPageSize.Height), MapMode(MapUnit::Map100thMM));
-        pWindow->SetSizePixel(aSize);
-    }
-    pWindow->Show();
-    uno::Reference< XDiagram > xDiagram( mrChartModel.getFirstDiagram() );
-    uno::Reference< XCoordinateSystemContainer > xCooSysContainer( xDiagram, uno::UNO_QUERY );
-    if( !xCooSysContainer.is())
-        return;
-
-    uno::Sequence< uno::Reference< XCoordinateSystem > > aCooSysList( xCooSysContainer->getCoordinateSystems() );
-
-    if (aCooSysList.getLength() != 1)
-        // Supporting multiple coordinates in a truly 3D chart (which implies
-        // it's a Cartesian coordinate system) is a bit of a challenge, if not
-        // impossible.
-        return;
-
-    uno::Reference<XCoordinateSystem> xCooSys( aCooSysList[0] );
-
-    //iterate through all chart types in the current coordinate system
-    uno::Reference< XChartTypeContainer > xChartTypeContainer( xCooSys, uno::UNO_QUERY );
-    OSL_ASSERT( xChartTypeContainer.is());
-    if( !xChartTypeContainer.is() )
-        return;
-
-    uno::Sequence< uno::Reference< XChartType > > aChartTypeList( xChartTypeContainer->getChartTypes() );
-    if (aChartTypeList.getLength() != 1)
-        // Likewise, we can't really support multiple chart types here.
-        return;
-
-    uno::Reference< XChartType > xChartType( aChartTypeList[0] );
-
-    if (!m_pGL3DPlotter)
-    {
-        m_pGL3DPlotter.reset(new GL3DBarChart(xChartType, pWindow));
-    }
-    else
-    {
-        GL3DBarChart* pChart = dynamic_cast<GL3DBarChart*>(m_pGL3DPlotter.get());
-        if (pChart)
-            pChart->setOpenGLWindow(pWindow);
-    }
-
-    uno::Reference< XDataSeriesContainer > xDataSeriesContainer( xChartType, uno::UNO_QUERY );
-    OSL_ASSERT( xDataSeriesContainer.is());
-    if( !xDataSeriesContainer.is() )
-        return;
-
-    std::vector<std::unique_ptr<VDataSeries> > aDataSeries;
-    uno::Sequence< uno::Reference< XDataSeries > > aSeriesList( xDataSeriesContainer->getDataSeries() );
-    for( sal_Int32 nS = 0; nS < aSeriesList.getLength(); ++nS )
-    {
-        uno::Reference< XDataSeries > xDataSeries( aSeriesList[nS], uno::UNO_QUERY );
-        if(!xDataSeries.is())
-            continue;
-
-        aDataSeries.push_back(o3tl::make_unique<VDataSeries>(xDataSeries));
-    }
-
-    std::unique_ptr<ExplicitCategoriesProvider> pCatProvider(new ExplicitCategoriesProvider(xCooSys, mrChartModel));
-
-    m_pGL3DPlotter->create3DShapes(aDataSeries, *pCatProvider);
-
-    m_pGL3DPlotter->render();
-#endif
-}
-
-#if HAVE_FEATURE_OPENGL
-
-void ChartView::updateOpenGLWindow()
-{
-    if(!isReal3DChart())
-        mp2DRenderer->updateOpenGLWindow();
-}
-
-#endif
 
 } //namespace chart
 

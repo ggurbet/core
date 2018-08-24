@@ -43,6 +43,7 @@
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
+#include <sal/log.hxx>
 
 #include <o3tl/make_unique.hxx>
 
@@ -59,11 +60,8 @@ SvxHatchTabPage::SvxHatchTabPage
     m_rOutAttrs           ( rInAttrs ),
     m_pnHatchingListState ( nullptr ),
     m_pnColorListState    ( nullptr ),
-
-    m_aXHatchItem         ( OUString(), XHatch() ),
     m_aXFillAttr          ( rInAttrs.GetPool() ),
     m_rXFSet              ( m_aXFillAttr.GetItemSet() )
-
 {
     get(m_pMtrDistance, "distancemtr");
     get(m_pMtrAngle, "anglemtr");
@@ -105,7 +103,7 @@ SvxHatchTabPage::SvxHatchTabPage
 
     // setting the output device
     m_rXFSet.Put( XFillStyleItem(drawing::FillStyle_HATCH) );
-    m_rXFSet.Put( m_aXHatchItem );
+    m_rXFSet.Put( XFillHatchItem(OUString(), XHatch()) );
     m_pCtlPreview->SetAttributes( m_aXFillAttr.GetItemSet() );
     m_pHatchLB->SetSelectHdl( LINK( this, SvxHatchTabPage, ChangeHatchHdl ) );
     m_pHatchLB->SetRenameHdl( LINK( this, SvxHatchTabPage, ClickRenameHdl_Impl ) );
@@ -297,10 +295,10 @@ void SvxHatchTabPage::Reset( const SfxItemSet* rSet )
 }
 
 
-VclPtr<SfxTabPage> SvxHatchTabPage::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SvxHatchTabPage::Create( TabPageParent pWindow,
                                             const SfxItemSet* rSet )
 {
-    return VclPtr<SvxHatchTabPage>::Create( pWindow, *rSet );
+    return VclPtr<SvxHatchTabPage>::Create( pWindow.pParent, *rSet );
 }
 
 IMPL_LINK( SvxHatchTabPage, ModifiedListBoxHdl_Impl, ListBox&, rListBox, void )
@@ -444,9 +442,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickAddHdl_Impl, Button*, void)
     }
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    assert(pFact && "Dialog creation failed!");
     ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-    assert(pDlg && "Dialog creation failed!");
     sal_uInt16         nError   = 1;
 
     while( pDlg->Execute() == RET_OK )
@@ -477,7 +473,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickAddHdl_Impl, Button*, void)
         m_pHatchingList->Insert(o3tl::make_unique<XHatchEntry>(aXHatch, aName), nCount);
 
         sal_Int32 nId = m_pHatchLB->GetItemId(nCount - 1); // calculate the last ID
-        Bitmap aBitmap = m_pHatchingList->GetBitmapForPreview( nCount, m_pHatchLB->GetIconSize() );
+        BitmapEx aBitmap = m_pHatchingList->GetBitmapForPreview( nCount, m_pHatchLB->GetIconSize() );
         // Insert the new entry at the next ID
         m_pHatchLB->InsertItem( nId + 1, Image(aBitmap), aName );
         m_pHatchLB->SelectItem( nId + 1 );
@@ -505,7 +501,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickModifyHdl_Impl, Button*, void)
 
         m_pHatchingList->Replace(o3tl::make_unique<XHatchEntry>(aXHatch, aName), nPos);
 
-        Bitmap aBitmap = m_pHatchingList->GetBitmapForPreview( static_cast<sal_uInt16>(nPos), m_pHatchLB->GetIconSize() );
+        BitmapEx aBitmap = m_pHatchingList->GetBitmapForPreview( static_cast<sal_uInt16>(nPos), m_pHatchLB->GetIconSize() );
         m_pHatchLB->RemoveItem( nId );
         m_pHatchLB->InsertItem( nId, Image(aBitmap), aName, static_cast<sal_uInt16>(nPos) );
         m_pHatchLB->SelectItem( nId );
@@ -558,9 +554,7 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void )
         OUString aName( m_pHatchingList->GetHatch( nPos )->GetName() );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        assert(pFact && "Dialog creation failed!");
         ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-        assert(pDlg && "Dialog creation failed!");
 
         bool bLoop = true;
         while( bLoop && pDlg->Execute() == RET_OK )
@@ -591,6 +585,10 @@ IMPL_LINK_NOARG(SvxHatchTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void )
 }
 
 void SvxHatchTabPage::PointChanged( vcl::Window*, RectPoint )
+{
+}
+
+void SvxHatchTabPage::PointChanged( weld::DrawingArea*, RectPoint )
 {
 }
 

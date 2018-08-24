@@ -155,9 +155,9 @@ void SwAddrSourceLB::setColSizes()
 
     long nWidth = rHB.GetSizePixel().Width();
 
-    long nTabs[] = { 2, 0, nWidth/2 };
+    long nTabs[] = { 0, nWidth/2 };
 
-    SvSimpleTable::SetTabs(&nTabs[0], MapUnit::MapPixel);
+    SvSimpleTable::SetTabs(SAL_N_ELEMENTS(nTabs), nTabs, MapUnit::MapPixel);
 }
 
 SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
@@ -178,8 +178,8 @@ SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
     get(m_pTablePB, "changetable");
     get(m_pOK, "ok");
 
-    m_sName = get<FixedText>("name")->GetText();
-    m_sTable = get<FixedText>("table")->GetText();
+    OUString sName = get<FixedText>("name")->GetText();
+    OUString sTable = get<FixedText>("table")->GetText();
     m_sConnecting = get<FixedText>("connecting")->GetText();
 
     const OUString sTemp(m_pDescriptionFI->GetText()
@@ -198,7 +198,7 @@ SwAddressListDialog::SwAddressListDialog(SwMailMergeAddressBlockPage* pParent)
     pHeaderTreeContainer->set_height_request(aSize.Height());
     m_pListLB = VclPtr<SwAddrSourceLB>::Create(*pHeaderTreeContainer);
 
-    m_pListLB->InsertHeaderEntry(m_sName + "\t" + m_sTable);
+    m_pListLB->InsertHeaderEntry(sName + "\t" + sTable);
     m_pListLB->setColSizes();
 
     m_pListLB->SetStyle( m_pListLB->GetStyle() | WB_SORT | WB_HSCROLL | WB_CLIPCHILDREN | WB_TABSTOP );

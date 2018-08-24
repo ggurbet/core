@@ -12,6 +12,7 @@
 #include <rtl/character.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/string.hxx>
+#include <sal/log.hxx>
 #include <tools/datetime.hxx>
 #include <tools/stream.hxx>
 #include <comphelper/base64.hxx>
@@ -1401,14 +1402,16 @@ bool Signing::Sign(OStringBuffer& rCMSHexBuffer)
     aPara.cMsgCert = 1;
     aPara.rgpMsgCert = &pCertContext;
 
-    HCRYPTPROV hCryptProv;
+    NCRYPT_KEY_HANDLE hCryptKey = 0;
+    DWORD dwFlags = CRYPT_ACQUIRE_CACHE_FLAG | CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG;
+    HCRYPTPROV_OR_NCRYPT_KEY_HANDLE* phCryptProvOrNCryptKey = &hCryptKey;
     DWORD nKeySpec;
     BOOL bFreeNeeded;
 
     if (!CryptAcquireCertificatePrivateKey(pCertContext,
-                                           CRYPT_ACQUIRE_CACHE_FLAG,
+                                           dwFlags,
                                            nullptr,
-                                           &hCryptProv,
+                                           phCryptProvOrNCryptKey,
                                            &nKeySpec,
                                            &bFreeNeeded))
     {
@@ -1423,7 +1426,7 @@ bool Signing::Sign(OStringBuffer& rCMSHexBuffer)
     memset(&aSignerInfo, 0, sizeof(aSignerInfo));
     aSignerInfo.cbSize = sizeof(aSignerInfo);
     aSignerInfo.pCertInfo = pCertContext->pCertInfo;
-    aSignerInfo.hCryptProv = hCryptProv;
+    aSignerInfo.hNCryptKey = hCryptKey;
     aSignerInfo.dwKeySpec = nKeySpec;
     aSignerInfo.HashAlgorithm.pszObjId = const_cast<LPSTR>(szOID_NIST_sha256);
     aSignerInfo.HashAlgorithm.Parameters.cbData = 0;

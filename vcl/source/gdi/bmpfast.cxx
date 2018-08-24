@@ -24,6 +24,7 @@
 #define FAST_ARGB_BGRA
 
 #include <stdlib.h>
+#include <sal/log.hxx>
 
 typedef unsigned char PIXBYTE;
 
@@ -439,7 +440,7 @@ bool ImplFastBitmapConversion( BitmapBuffer& rDst, const BitmapBuffer& rSrc,
         // TODO: rDst.mnFormat ^= ScanlineFormat::TopDown;
         return false;
 
-    // offseted conversion is not implemented yet
+    // offsetted conversion is not implemented yet
     if( rTR.mnSrcX || rTR.mnSrcY )
         return false;
     if( rTR.mnDestX || rTR.mnDestY )
@@ -679,7 +680,7 @@ bool ImplFastBitmapBlending( BitmapWriteAccess const & rDstWA,
         // TODO: rDst.mnFormat ^= ScanlineFormat::TopDown;
         return false;
 
-    // offseted blending is not implemented yet
+    // offsetted blending is not implemented yet
     if( rTR.mnSrcX || rTR.mnSrcY )
         return false;
     if( rTR.mnDestX || rTR.mnDestY )

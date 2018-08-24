@@ -73,6 +73,40 @@ void MenuButton::ExecuteMenu()
     }
 }
 
+void MenuButton::CancelMenu()
+{
+    if (!mpMenu && !mpFloatingWindow)
+        return;
+
+    if (mpMenu)
+    {
+        mpMenu->EndExecute();
+    }
+    else
+    {
+        if (mpFloatingWindow->GetType() == WindowType::FLOATINGWINDOW)
+            static_cast<FloatingWindow*>(mpFloatingWindow.get())->EndPopupMode();
+        else
+            vcl::Window::GetDockingManager()->EndPopupMode(mpFloatingWindow);
+    }
+}
+
+bool MenuButton::MenuShown() const
+{
+    if (!mpMenu && !mpFloatingWindow)
+        return false;
+
+    if (mpMenu)
+       return PopupMenu::GetActivePopupMenu() == mpMenu;
+    else
+    {
+        if (mpFloatingWindow->GetType() == WindowType::FLOATINGWINDOW)
+            return static_cast<const FloatingWindow*>(mpFloatingWindow.get())->IsInPopupMode();
+        else
+            return vcl::Window::GetDockingManager()->IsInPopupMode(mpFloatingWindow);
+    }
+}
+
 OString MenuButton::GetCurItemIdent() const
 {
     return (mnCurItemId && mpMenu) ?
@@ -96,7 +130,7 @@ MenuButton::~MenuButton()
 
 void MenuButton::dispose()
 {
-    delete mpMenuTimer;
+    mpMenuTimer.reset();
     mpFloatingWindow.clear();
     mpMenu.clear();
     PushButton::dispose();
@@ -124,7 +158,7 @@ void MenuButton::MouseButtonDown( const MouseEvent& rMEvt )
         {
             if ( !mpMenuTimer )
             {
-                mpMenuTimer = new Timer("MenuTimer");
+                mpMenuTimer.reset(new Timer("MenuTimer"));
                 mpMenuTimer->SetInvokeHandler( LINK( this, MenuButton, ImplMenuTimeoutHdl ) );
             }
 

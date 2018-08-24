@@ -20,11 +20,10 @@
 #include <DrawDocShell.hxx>
 
 #include <officecfg/Office/Common.hxx>
-
+#include <unotools/moduleoptions.hxx>
 #include <unotools/configmgr.hxx>
 
 #include <vcl/svapp.hxx>
-
 #include <sfx2/docfac.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/request.hxx>
@@ -48,7 +47,6 @@
 #include <svtools/langtab.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <comphelper/classids.hxx>
-#include <comphelper/lok.hxx>
 #include <svl/cjkoptions.hxx>
 #include <svl/visitem.hxx>
 #include <o3tl/make_unique.hxx>
@@ -283,7 +281,7 @@ void DrawDocShell::GetState(SfxItemSet &rSet)
                 sal_uInt16 nCount = mpDoc->GetPageCount();
                 for ( sal_uInt16 itPage = 0; itPage < nCount && !bLanguageFound; itPage++ )
                 {
-                    SdrObjListIter aListIter(*mpDoc->GetPage(itPage), SdrIterMode::DeepWithGroups);
+                    SdrObjListIter aListIter(mpDoc->GetPage(itPage), SdrIterMode::DeepWithGroups);
                     while ( aListIter.IsMore() && !bLanguageFound )
                     {
                         pObj = aListIter.Next();
@@ -314,8 +312,18 @@ void DrawDocShell::GetState(SfxItemSet &rSet)
             {
                 if (mpViewShell)
                 {
-                    bool bVisible = sfx2::SfxNotebookBar::StateMethod(mpViewShell->GetFrame()->GetBindings(),
+                    bool bImpress = mpDoc->GetDocumentType() == DocumentType::Impress;
+                    bool bVisible = false;
+                    if(bImpress)
+                    {
+                        bVisible = sfx2::SfxNotebookBar::StateMethod(mpViewShell->GetFrame()->GetBindings(),
                                                                       "modules/simpress/ui/");
+                    }
+                    else
+                    {
+                        bVisible = sfx2::SfxNotebookBar::StateMethod(mpViewShell->GetFrame()->GetBindings(),
+                                                                      "modules/sdraw/ui/");
+                    }
                     rSet.Put( SfxBoolItem( SID_NOTEBOOKBAR, bVisible ) );
                 }
             }
@@ -397,7 +405,7 @@ void DrawDocShell::Deactivate( bool )
 {
 }
 
-::svl::IUndoManager* DrawDocShell::GetUndoManager()
+SfxUndoManager* DrawDocShell::GetUndoManager()
 {
     return mpUndoManager.get();
 }
@@ -513,7 +521,7 @@ void DrawDocShell::ClearUndoBuffer()
         pSfxViewFrame = SfxViewFrame::GetNext(*pSfxViewFrame, this, false);
     }
 
-    ::svl::IUndoManager* pUndoManager = GetUndoManager();
+    SfxUndoManager* pUndoManager = GetUndoManager();
     if(pUndoManager && pUndoManager->GetUndoActionCount())
         pUndoManager->Clear();
 }

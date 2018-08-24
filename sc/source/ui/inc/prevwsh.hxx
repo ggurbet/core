@@ -46,12 +46,11 @@ class SC_DLLPUBLIC ScPreviewShell: public SfxViewShell
     VclPtr<ScrollBar>      pVerScroll;
     VclPtr<vcl::Window>    pCorner;
 
-    css::uno::Sequence< css::beans::PropertyValue > aSourceData;  // ViewData
     TriState        nSourceDesignMode;      // form design mode from TabView
     SvxZoomType     eZoom;
     long            nMaxVertPos;
 
-    SfxBroadcaster* pAccessibilityBroadcaster;
+    std::unique_ptr<SfxBroadcaster> pAccessibilityBroadcaster;
     bool            GetPageSize( Size& aPageSize );
 private:
     void            Construct( vcl::Window* pParent );
@@ -105,7 +104,7 @@ public:
     virtual SfxPrinter*     GetPrinter( bool bCreate = false ) override;
     virtual sal_uInt16      SetPrinter( SfxPrinter* pNewPrinter, SfxPrinterChangeFlags nDiffFlags = SFX_PRINTER_ALL ) override;
     virtual bool            HasPrintOptionsPage() const override;
-    virtual VclPtr<SfxTabPage> CreatePrintOptionsPage( vcl::Window *pParent, const SfxItemSet &rOptions ) override;
+    virtual VclPtr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, const SfxItemSet &rOptions) override;
 
     void            AddAccessibilityObject( SfxListener& rObject );
     void            RemoveAccessibilityObject( SfxListener& rObject );

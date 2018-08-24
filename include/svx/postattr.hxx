@@ -23,12 +23,8 @@
 #include <svl/stritem.hxx>
 #include <svx/svxdllapi.h>
 
-// class SvxPostItAuthorItem ---------------------------------------------
-
-
-/*
-The author shorthand symbol of a note
-*/
+/** The author shorthand symbol of a note
+ */
 
 class SVX_DLLPUBLIC SvxPostItAuthorItem: public SfxStringItem
 {
@@ -44,21 +40,11 @@ public:
                                   OUString &rText, const IntlWrapper& ) const override;
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
-
-    SvxPostItAuthorItem& operator=( const SvxPostItAuthorItem& rAuthor )
-    {
-        SetValue( rAuthor.GetValue() );
-        return *this;
-    }
 };
 
 
-// class SvxPostItDateItem -----------------------------------------------
-
-
-/*
-The date of a note
-*/
+/** The date of a note
+ */
 
 class SVX_DLLPUBLIC SvxPostItDateItem: public SfxStringItem
 {
@@ -74,21 +60,10 @@ public:
                                   OUString &rText, const IntlWrapper& ) const override;
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
-
-    SvxPostItDateItem& operator=( const SvxPostItDateItem& rDate )
-    {
-        SetValue( rDate.GetValue() );
-        return *this;
-    }
 };
 
-
-// class SvxPostItTextItem -----------------------------------------------
-
-
-/*
-The text of a note
-*/
+/** The text of a note
+ */
 
 class SVX_DLLPUBLIC SvxPostItTextItem: public SfxStringItem
 {
@@ -105,20 +80,11 @@ public:
                                   OUString &rText, const IntlWrapper& ) const override;
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
-
-    SvxPostItTextItem& operator=( const SvxPostItTextItem& rText )
-    {
-        SetValue( rText.GetValue() );
-        return *this;
-    }
 };
 
-// class SvxPostItIdItem -----------------------------------------------
 
-
-/*
-The internal id of a note
-*/
+/** The internal id of a note
+ */
 
 class SVX_DLLPUBLIC SvxPostItIdItem: public SfxStringItem
 {
@@ -128,14 +94,7 @@ public:
     SvxPostItIdItem( sal_uInt16 nWhich );
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
-
-    SvxPostItIdItem& operator=( const SvxPostItIdItem& rId )
-    {
-        SetValue( rId.GetValue() );
-        return *this;
-    }
 };
-
 
 #endif
 

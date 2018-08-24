@@ -29,6 +29,7 @@
 #include <svx/svdpage.hxx>
 #include <svtools/embedhlp.hxx>
 
+#include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 
@@ -52,7 +53,7 @@ sal_uInt16 lcl_DoUpdateCharts( ScDocument* pDoc )
         SdrPage* pPage = pModel->GetPage(nPageNo);
         OSL_ENSURE(pPage,"Page ?");
 
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
         SdrObject* pObject = aIter.Next();
         while (pObject)
         {
@@ -118,7 +119,7 @@ void ScChartHelper::AdjustRangesOfChartsOnDestinationPage( const ScDocument* pSr
     SdrPage* pDestPage = pDrawLayer->GetPage(static_cast<sal_uInt16>(nDestTab));
     if( pDestPage )
     {
-        SdrObjListIter aIter( *pDestPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pDestPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while( pObject )
         {
@@ -158,7 +159,7 @@ void ScChartHelper::UpdateChartsOnDestinationPage( ScDocument* pDestDoc, const S
     SdrPage* pDestPage = pDrawLayer->GetPage(static_cast<sal_uInt16>(nDestTab));
     if( pDestPage )
     {
-        SdrObjListIter aIter( *pDestPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pDestPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while( pObject )
         {
@@ -329,7 +330,7 @@ void ScChartHelper::FillProtectedChartRangesVector( ScRangeListVector& rRangesVe
 {
     if ( pDocument && pPage )
     {
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
         SdrObject* pObject = aIter.Next();
         while ( pObject )
         {
@@ -343,7 +344,7 @@ void ScChartHelper::GetChartNames( ::std::vector< OUString >& rChartNames, const
 {
     if ( pPage )
     {
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
         SdrObject* pObject = aIter.Next();
         while ( pObject )
         {
@@ -367,7 +368,7 @@ void ScChartHelper::CreateProtectedChartListenersAndNotify( ScDocument* pDoc, co
     {
         size_t nRangeListCount = rRangesVector.size();
         size_t nRangeList = 0;
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
         SdrObject* pObject = aIter.Next();
         while ( pObject )
         {

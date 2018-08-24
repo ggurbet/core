@@ -49,7 +49,7 @@ private:
     VclPtr<FixedText>           m_pFtRotate;
     VclPtr<NumericField>        m_pNfRotate;
     VclPtr<TriStateBox>         m_pCbStacked;
-    svx::OrientationHelper* m_pOrientHlp;
+    std::unique_ptr<svx::OrientationHelper> m_pOrientHlp;
 
     VclPtr<FixedText>               m_pFtTextDirection;
     VclPtr<TextDirectionListBox>    m_pLbTextDirection;
@@ -69,7 +69,7 @@ public:
     virtual ~SchAxisLabelTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window* pParent, const SfxItemSet* rInAttrs );
+    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rInAttrs );
     virtual bool FillItemSet( SfxItemSet* rOutAttrs ) override;
     virtual void Reset( const SfxItemSet* rInAttrs ) override;
 

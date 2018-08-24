@@ -25,12 +25,12 @@
 
 #include <sft.hxx>
 #include <sallayout.hxx>
-#include <CommonSalLayout.hxx>
 
 #include <shlwapi.h>
 #include <winver.h>
 
 #include <comphelper/windowserrorstring.hxx>
+#include <sal/log.hxx>
 
 HINSTANCE D2DWriteTextOutRenderer::mmD2d1 = nullptr,
           D2DWriteTextOutRenderer::mmDWrite = nullptr;
@@ -233,7 +233,7 @@ HRESULT D2DWriteTextOutRenderer::BindDC(HDC hDC, tools::Rectangle const & rRect)
     return CHECKHR(mpRT->BindDC(hDC, &rc));
 }
 
-bool D2DWriteTextOutRenderer::operator ()(CommonSalLayout const & rLayout, SalGraphics& rGraphics, HDC hDC)
+bool D2DWriteTextOutRenderer::operator ()(GenericSalLayout const & rLayout, SalGraphics& rGraphics, HDC hDC)
 {
     bool bRetry = false;
     bool bResult = false;
@@ -247,7 +247,7 @@ bool D2DWriteTextOutRenderer::operator ()(CommonSalLayout const & rLayout, SalGr
     return bResult;
 }
 
-bool D2DWriteTextOutRenderer::performRender(CommonSalLayout const & rLayout, SalGraphics& rGraphics, HDC hDC, bool& bRetry)
+bool D2DWriteTextOutRenderer::performRender(GenericSalLayout const & rLayout, SalGraphics& rGraphics, HDC hDC, bool& bRetry)
 {
     if (!Ready())
         return false;
@@ -294,12 +294,12 @@ bool D2DWriteTextOutRenderer::performRender(CommonSalLayout const & rLayout, Sal
         int nStart = 0;
         Point aPos(0, 0);
         const GlyphItem* pGlyph;
-        while (rLayout.GetNextGlyphs(1, &pGlyph, aPos, nStart))
+        while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
         {
             UINT16 glyphIndices[] = { pGlyph->maGlyphId };
-            FLOAT glyphAdvances[] = { pGlyph->mnNewWidth };
+            FLOAT glyphAdvances[] = { static_cast<FLOAT>(pGlyph->mnNewWidth) };
             DWRITE_GLYPH_OFFSET glyphOffsets[] = { { 0.0f, 0.0f }, };
-            D2D1_POINT_2F baseline = { aPos.X() - bounds.Left(), aPos.Y() - bounds.Top() };
+            D2D1_POINT_2F baseline = { static_cast<FLOAT>(aPos.X() - bounds.Left()), static_cast<FLOAT>(aPos.Y() - bounds.Top()) };
             DWRITE_GLYPH_RUN glyphs = {
                 mpFontFace,
                 mlfEmHeight,

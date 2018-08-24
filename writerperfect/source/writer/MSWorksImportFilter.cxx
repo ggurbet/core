@@ -10,6 +10,7 @@
  */
 
 #include <cppuhelper/supportsservice.hxx>
+#include <sal/log.hxx>
 
 #include <libwps/libwps.h>
 
@@ -32,7 +33,8 @@ static bool handleEmbeddedWKSObject(const librevenge::RVNGBinaryData& data,
     return libwps::WPSDocument::parse(data.getDataStream(), &exporter) == libwps::WPS_OK;
 }
 
-bool MSWorksImportFilter::doImportDocument(librevenge::RVNGInputStream& rInput,
+bool MSWorksImportFilter::doImportDocument(weld::Window* pParent,
+                                           librevenge::RVNGInputStream& rInput,
                                            OdtGenerator& rGenerator, utl::MediaDescriptor&)
 {
     libwps::WPSKind kind = libwps::WPS_TEXT;
@@ -69,14 +71,14 @@ bool MSWorksImportFilter::doImportDocument(librevenge::RVNGInputStream& rInput,
                     break;
             }
 
-            const ScopedVclPtrInstance<writerperfect::WPFTEncodingDialog> pDlg(title, encoding);
-            if (pDlg->Execute() == RET_OK)
+            writerperfect::WPFTEncodingDialog aDlg(pParent, title, encoding);
+            if (aDlg.run() == RET_OK)
             {
-                if (!pDlg->GetEncoding().isEmpty())
-                    fileEncoding = pDlg->GetEncoding().toUtf8().getStr();
+                if (!aDlg.GetEncoding().isEmpty())
+                    fileEncoding = aDlg.GetEncoding().toUtf8().getStr();
             }
             // we can fail because we are in headless mode, the user has cancelled conversion, ...
-            else if (pDlg->hasUserCalledCancel())
+            else if (aDlg.hasUserCalledCancel())
                 return false;
         }
     }
@@ -98,23 +100,23 @@ bool MSWorksImportFilter::doDetectFormat(librevenge::RVNGInputStream& rInput, OU
 
     if ((kind == libwps::WPS_TEXT) && (confidence == libwps::WPS_CONFIDENCE_EXCELLENT))
     {
-        if (creator == libwps::WPS_MSWORKS)
+        switch (creator)
         {
-            rTypeName = "writer_MS_Works_Document";
+            case libwps::WPS_MSWORKS:
+                rTypeName = "writer_MS_Works_Document";
+                break;
+            case libwps::WPS_RESERVED_0:
+                rTypeName = "writer_MS_Write";
+                break;
+            case libwps::WPS_RESERVED_1:
+                rTypeName = "writer_DosWord";
+                break;
+            default:
+                break;
         }
-        else if (creator == libwps::WPS_RESERVED_0)
-        {
-            rTypeName = "writer_MS_Write";
-        }
-        else
-        {
-            rTypeName = "writer_DosWord";
-        }
-
-        return true;
     }
 
-    return false;
+    return !rTypeName.isEmpty();
 }
 
 void MSWorksImportFilter::doRegisterHandlers(OdtGenerator& rGenerator)

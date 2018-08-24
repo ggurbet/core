@@ -34,6 +34,7 @@
 
 #include <tools/poly.hxx>
 #include <svl/imageitm.hxx>
+#include <sal/log.hxx>
 
 #include <svdata.hxx>
 #include <window.h>
@@ -373,7 +374,7 @@ void ToolBox::ImplDrawGradientBackground(vcl::RenderContext& rRenderContext)
         }
     }
 
-    if (mnWinStyle & WB_LINESPACING)
+    if (mbLineSpacing)
     {
         if (mbHorz)
         {
@@ -691,7 +692,7 @@ Size ToolBox::ImplCalcSize( ImplToolItems::size_type nCalcLines, sal_uInt16 nCal
             else
                 aSize.setHeight( nCalcLines * mnMaxItemHeight );
 
-            if ( mnWinStyle & WB_LINESPACING )
+            if ( mbLineSpacing )
                 aSize.AdjustHeight((nCalcLines-1)*TB_LINESPACING );
 
             if ( mnWinStyle & WB_BORDER )
@@ -709,7 +710,7 @@ Size ToolBox::ImplCalcSize( ImplToolItems::size_type nCalcLines, sal_uInt16 nCal
         {
             aSize.setWidth( nCalcLines * mnMaxItemWidth );
 
-            if ( mnWinStyle & WB_LINESPACING )
+            if ( mbLineSpacing )
                 aSize.AdjustWidth((nCalcLines-1)*TB_LINESPACING );
 
             if ( mnWinStyle & WB_BORDER )
@@ -882,7 +883,7 @@ ToolBox::ImplToolItems::size_type ToolBox::ImplCalcLines( long nToolSize ) const
     if ( mnWinStyle & WB_BORDER )
         nToolSize -= TB_BORDER_OFFSET2*2;
 
-    if ( mnWinStyle & WB_LINESPACING )
+    if ( mbLineSpacing )
     {
         nLineHeight += TB_LINESPACING;
         nToolSize += TB_LINESPACING;
@@ -1043,7 +1044,7 @@ void ImplTBDragMgr::StartDragging( ToolBox* pToolBox,
     mnLineMode = nDragLineMode;
     mnStartLines = pToolBox->mnDockLines;
 
-    // MouseOffset berechnen
+    // calculate MouseOffset
     maMouseOff.setX( rRect.Left() - rPos.X() );
     maMouseOff.setY( rRect.Top() - rPos.Y() );
     maRect = rRect;
@@ -1093,7 +1094,7 @@ void ToolBox::ImplInitToolBoxData()
 {
     // initialize variables
     ImplGetWindowImpl()->mbToolBox  = true;
-    mpData = new ImplToolBoxPrivateData;
+    mpData.reset(new ImplToolBoxPrivateData);
     mpFloatWin        = nullptr;
     mnDX              = 0;
     mnDY              = 0;
@@ -1133,6 +1134,7 @@ void ToolBox::ImplInitToolBoxData()
     mbIsKeyEvent = false;
     mbChangingHighlight = false;
     mbImagesMirrored  = false;
+    mbLineSpacing     = false;
     meButtonType      = ButtonType::SYMBOLONLY;
     meAlign           = WindowAlign::Top;
     meDockAlign       = WindowAlign::Top;
@@ -1147,7 +1149,7 @@ void ToolBox::ImplInitToolBoxData()
     mpStatusListener  = new VclStatusListener<ToolBox>(this, ".uno:ImageOrientation");
     mpStatusListener->startListening();
 
-    mpIdle = new Idle("vcl::ToolBox maIdle update");
+    mpIdle.reset(new Idle("vcl::ToolBox maIdle update"));
     mpIdle->SetPriority( TaskPriority::RESIZE );
     mpIdle->SetInvokeHandler( LINK( this, ToolBox, ImplUpdateHdl ) );
 
@@ -1340,10 +1342,6 @@ ToolBox::~ToolBox()
 
 void ToolBox::dispose()
 {
-    // custom menu event still running?
-    if( mpData && mpData->mnEventId )
-        Application::RemoveUserEvent( mpData->mnEventId );
-
     // #103005# make sure our activate/deactivate balance is right
     while( mnActivateCount > 0 )
         Deactivate();
@@ -1355,8 +1353,7 @@ void ToolBox::dispose()
     mpFloatWin = nullptr;
 
     // delete private data
-    delete mpData;
-    mpData = nullptr;
+    mpData.reset();
 
     ImplSVData* pSVData = ImplGetSVData();
     delete pSVData->maCtrlData.mpTBDragMgr;
@@ -1367,8 +1364,7 @@ void ToolBox::dispose()
 
     mpFloatWin.clear();
 
-    delete mpIdle;
-    mpIdle = nullptr;
+    mpIdle.reset();
 
     DockingWindow::dispose();
 }
@@ -1877,7 +1873,7 @@ Size ToolBox::ImplGetOptimalFloatingSize()
 
     aSz.setHeight( nBorderY + nLineHeight * nLines );
     // line space when more than one line
-    if ( mnWinStyle & WB_LINESPACING )
+    if ( mbLineSpacing )
         aSz.AdjustHeight((nLines-1)*TB_LINESPACING );
 
     aSz.setWidth( nBorderX + maxX );
@@ -2212,7 +2208,7 @@ void ToolBox::ImplFormat( bool bResize )
                         if ( mbHorz )
                         {
                             nX = nLeft;
-                            if ( mnWinStyle & WB_LINESPACING )
+                            if ( mbLineSpacing )
                                 nY += nLineSize+TB_LINESPACING;
                             else
                                 nY += nLineSize;
@@ -2220,7 +2216,7 @@ void ToolBox::ImplFormat( bool bResize )
                         else
                         {
                             nY = nTop;
-                            if ( mnWinStyle & WB_LINESPACING )
+                            if ( mbLineSpacing )
                                 nX += nLineSize+TB_LINESPACING;
                             else
                                 nX += nLineSize;
@@ -4876,9 +4872,9 @@ static bool ImplIsValidItem( const ImplToolItem* pItem, bool bNotClipped )
     return bValid;
 }
 
-bool ToolBox::ChangeHighlightUpDn( bool bUp, bool bNoCyle )
+bool ToolBox::ChangeHighlightUpDn( bool bUp )
 {
-    return ImplChangeHighlightUpDn(bUp, bNoCyle);
+    return ImplChangeHighlightUpDn(bUp, /*bNoCycle*/ false);
 }
 
 bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )

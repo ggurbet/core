@@ -20,6 +20,7 @@
 #include <cassert>
 
 #include <tools/debug.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/container/XNameReplace.hpp>
 #include <com/sun/star/presentation/ClickAction.hpp>
@@ -619,7 +620,7 @@ void SdXMLShapeContext::SetStyle( bool bSupportsStyle /* = true */)
             OUString aStyleName = maDrawStyleName;
             uno::Reference< style::XStyle > xStyle;
 
-            if( pStyle && dynamic_cast<const XMLShapeStyleContext*>( pStyle ) !=  nullptr)
+            if( dynamic_cast<const XMLShapeStyleContext*>( pStyle ) )
             {
                 pDocStyle = const_cast<XMLShapeStyleContext*>(dynamic_cast<const XMLShapeStyleContext*>( pStyle ) );
 
@@ -3331,23 +3332,17 @@ void SdXMLFrameShapeContext::removeGraphicFromImportContext(const SvXMLImportCon
         {
             uno::Reference< container::XChild > xChild(pSdXMLGraphicObjectShapeContext->getShape(), uno::UNO_QUERY_THROW);
 
-            if(xChild.is())
+            uno::Reference< drawing::XShapes > xParent(xChild->getParent(), uno::UNO_QUERY_THROW);
+
+            // remove from parent
+            xParent->remove(pSdXMLGraphicObjectShapeContext->getShape());
+
+            // dispose
+            uno::Reference< lang::XComponent > xComp(pSdXMLGraphicObjectShapeContext->getShape(), UNO_QUERY);
+
+            if(xComp.is())
             {
-                uno::Reference< drawing::XShapes > xParent(xChild->getParent(), uno::UNO_QUERY_THROW);
-
-                if(xParent.is())
-                {
-                    // remove from parent
-                    xParent->remove(pSdXMLGraphicObjectShapeContext->getShape());
-
-                    // dispose
-                    uno::Reference< lang::XComponent > xComp(pSdXMLGraphicObjectShapeContext->getShape(), UNO_QUERY);
-
-                    if(xComp.is())
-                    {
-                        xComp->dispose();
-                    }
-                }
+                xComp->dispose();
             }
         }
         catch( uno::Exception& )
@@ -3403,10 +3398,7 @@ OUString SdXMLFrameShapeContext::getGraphicPackageURLFromImportContext(const SvX
         {
             const uno::Reference< beans::XPropertySet > xPropSet(pSdXMLGraphicObjectShapeContext->getShape(), uno::UNO_QUERY_THROW);
 
-            if (xPropSet.is())
-            {
-                xPropSet->getPropertyValue("GraphicStreamURL") >>= aRetval;
-            }
+            xPropSet->getPropertyValue("GraphicStreamURL") >>= aRetval;
         }
         catch( uno::Exception& )
         {
@@ -3516,6 +3508,19 @@ SvXMLImportContextRef SdXMLFrameShapeContext::CreateChildContext( sal_uInt16 nPr
             if (xPropSet.is())
             {
                 xContext = new XMLImageMapContext(GetImport(), nPrefix, rLocalName, xPropSet);
+            }
+        }
+    }
+    else if ((XML_NAMESPACE_LO_EXT == nPrefix) && IsXMLToken(rLocalName, XML_SIGNATURELINE))
+    {
+        SdXMLShapeContext* pSContext = dynamic_cast<SdXMLShapeContext*>(mxImplContext.get());
+        if (pSContext)
+        {
+            uno::Reference<beans::XPropertySet> xPropSet(pSContext->getShape(), uno::UNO_QUERY);
+            if (xPropSet.is())
+            {
+                xContext = new SignatureLineContext(GetImport(), nPrefix, rLocalName, xAttrList,
+                                                    pSContext->getShape());
             }
         }
     }

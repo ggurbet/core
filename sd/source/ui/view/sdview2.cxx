@@ -61,7 +61,6 @@
 #include <drawview.hxx>
 #include <helpids.h>
 #include <vcl/svapp.hxx>
-#include <comphelper/lok.hxx>
 
 #include <slideshow.hxx>
 #include <memory>
@@ -115,7 +114,7 @@ css::uno::Reference< css::datatransfer::XTransferable > View::CreateClipboardDat
     {
         SdrObject* pObj = GetMarkedObjectByIndex(0);
 
-        if( pObj && dynamic_cast< const SdrOle2Obj *>( pObj ) !=  nullptr && static_cast<SdrOle2Obj*>(pObj)->GetObjRef().is() )
+        if( dynamic_cast< const SdrOle2Obj *>( pObj ) && static_cast<SdrOle2Obj*>(pObj)->GetObjRef().is() )
         {
             // If object has no persistence it must be copied as part of the document
             try
@@ -161,7 +160,7 @@ css::uno::Reference< css::datatransfer::XTransferable > View::CreateDragDataObje
     {
         SdrObject* pObj = GetMarkedObjectByIndex( 0 );
 
-        if( pObj && dynamic_cast< const SdrOle2Obj *>( pObj ) !=  nullptr && static_cast<SdrOle2Obj*>(pObj)->GetObjRef().is() )
+        if( dynamic_cast< const SdrOle2Obj *>( pObj ) && static_cast<SdrOle2Obj*>(pObj)->GetObjRef().is() )
         {
             // If object has no persistence it must be copied as part of the document
             try
@@ -275,7 +274,7 @@ void View::DoPaste (::sd::Window* pWindow)
         const_cast< OutlinerView* >(pOLV)->PasteSpecial();
 
         SdrObject*  pObj = GetTextEditObject();
-        SdPage*     pPage = static_cast<SdPage*>( pObj ? pObj->GetPage() : nullptr );
+        SdPage*     pPage = static_cast<SdPage*>( pObj ? pObj->getSdrPageFromSdrObject() : nullptr );
         ::Outliner* pOutliner = pOLV->GetOutliner();
 
         if( pOutliner)
@@ -356,7 +355,7 @@ void View::StartDrag( const Point& rStartPos, vcl::Window* pWindow )
                 static_cast<FuDraw*>(xFunction.get())->ForcePointer();
         }
 
-        mpDragSrcMarkList = new SdrMarkList(GetMarkedObjectList());
+        mpDragSrcMarkList.reset( new SdrMarkList(GetMarkedObjectList()) );
         mnDragSrcPgNum = GetSdrPageView()->GetPage()->GetPageNum();
 
         if( IsUndoEnabled() )
@@ -405,10 +404,10 @@ void View::DragFinished( sal_Int8 nDropAction )
             SdrMark* pM=mpDragSrcMarkList->GetMark(nm);
             SdrObject* pObj=pM->GetMarkedSdrObj();
 
-            if( pObj && pObj->GetPage() )
+            if( pObj && pObj->getSdrPageFromSdrObject() )
             {
                 const size_t nOrdNum = pObj->GetOrdNumDirect();
-                SdrObject* pChkObj = pObj->GetPage()->RemoveObject(nOrdNum);
+                SdrObject* pChkObj = pObj->getSdrPageFromSdrObject()->RemoveObject(nOrdNum);
                 DBG_ASSERT(pChkObj==pObj,"pChkObj!=pObj in RemoveObject()");
             }
         }
@@ -427,8 +426,7 @@ void View::DragFinished( sal_Int8 nDropAction )
     if (bUndo && mpDragSrcMarkList)
         EndUndo();
     mnDragSrcPgNum = SDRPAGE_NOTFOUND;
-    delete mpDragSrcMarkList;
-    mpDragSrcMarkList = nullptr;
+    mpDragSrcMarkList.reset();
 }
 
 sal_Int8 View::AcceptDrop( const AcceptDropEvent& rEvt, DropTargetHelper& rTargetHelper,
@@ -538,7 +536,7 @@ sal_Int8 View::AcceptDrop( const AcceptDropEvent& rEvt, DropTargetHelper& rTarge
 
                     if (pPickObj && (pPickObj->IsEmptyPresObj() || pPickObj->GetUserCall()))
                     {
-                        SdPage* pPage = static_cast<SdPage*>( pPickObj->GetPage() );
+                        SdPage* pPage = static_cast<SdPage*>( pPickObj->getSdrPageFromSdrObject() );
 
                         if( pPage && pPage->IsMasterPage() )
                             bIsPresTarget = pPage->IsPresObj( pPickObj );
@@ -553,7 +551,7 @@ sal_Int8 View::AcceptDrop( const AcceptDropEvent& rEvt, DropTargetHelper& rTarge
 
                             if(mpDropMarkerObj)
                             {
-                                mpDropMarker = new SdrDropMarkerOverlay(*this, *mpDropMarkerObj);
+                                mpDropMarker.reset( new SdrDropMarkerOverlay(*this, *mpDropMarkerObj) );
                             }
                         }
 
@@ -871,20 +869,17 @@ bool View::GetExchangeList (std::vector<OUString> &rExchangeList,
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                 ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact ? pFact->CreateSvxNameDialog(mpViewSh->GetFrameWeld(), aNewName, aDesc) : nullptr);
 
-                if (pDlg)
+                pDlg->SetEditHelpId( HID_SD_NAMEDIALOG_OBJECT );
+
+                bNameOK = false;
+                pDlg->SetText( aTitle );
+
+                while( !bNameOK && pDlg->Execute() == RET_OK )
                 {
-                    pDlg->SetEditHelpId( HID_SD_NAMEDIALOG_OBJECT );
+                    pDlg->GetName( aNewName );
 
-                    bNameOK = false;
-                    pDlg->SetText( aTitle );
-
-                    while( !bNameOK && pDlg->Execute() == RET_OK )
-                    {
-                        pDlg->GetName( aNewName );
-
-                        if( !mrDoc.GetObj( aNewName ) )
-                            bNameOK = true;
-                    }
+                    if( !mrDoc.GetObj( aNewName ) )
+                        bNameOK = true;
                 }
             }
         }

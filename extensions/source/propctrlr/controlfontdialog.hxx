@@ -20,6 +20,7 @@
 #ifndef INCLUDED_EXTENSIONS_SOURCE_PROPCTRLR_CONTROLFONTDIALOG_HXX
 #define INCLUDED_EXTENSIONS_SOURCE_PROPCTRLR_CONTROLFONTDIALOG_HXX
 
+#include <comphelper/proparrhlp.hxx>
 #include <svtools/genericunodialog.hxx>
 #include "modulepcr.hxx"
 
@@ -44,7 +45,7 @@ namespace pcr
                                 m_xControlModel;
         // </properties>
 
-        SfxItemSet*             m_pFontItems;           // item set for the dialog
+        std::unique_ptr<SfxItemSet> m_pFontItems;       // item set for the dialog
         SfxItemPool*            m_pItemPool;            // item pool for the item set for the dialog
         std::vector<SfxPoolItem*>*
                                 m_pItemPoolDefaults;    // pool defaults

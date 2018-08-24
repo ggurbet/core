@@ -259,9 +259,9 @@ bool SvxTabulatorTabPage::FillItemSet(SfxItemSet* rSet)
     return bModified;
 }
 
-VclPtr<SfxTabPage> SvxTabulatorTabPage::Create(vcl::Window* pParent, const SfxItemSet* rSet)
+VclPtr<SfxTabPage> SvxTabulatorTabPage::Create(TabPageParent pParent, const SfxItemSet* rSet)
 {
-    return VclPtr<SvxTabulatorTabPage>::Create(pParent, *rSet);
+    return VclPtr<SvxTabulatorTabPage>::Create(pParent.pParent, *rSet);
 }
 
 void SvxTabulatorTabPage::Reset(const SfxItemSet* rSet)
@@ -292,7 +292,7 @@ void SvxTabulatorTabPage::Reset(const SfxItemSet* rSet)
     else
         aNewTabs.Remove(0, aNewTabs.Count());
 
-    // Defaul tab distance
+    // Default tab distance
     nDefDist = SVX_TAB_DEFDIST;
     pItem = GetItem(*rSet, SID_ATTR_TABSTOP_DEFAULTS);
 

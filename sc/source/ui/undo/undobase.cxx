@@ -18,6 +18,7 @@
  */
 
 #include <vcl/virdev.hxx>
+#include <svx/svdundo.hxx>
 
 #include <undobase.hxx>
 #include <refundo.hxx>
@@ -244,12 +245,12 @@ ScBlockUndo::ScBlockUndo( ScDocShell* pDocSh, const ScRange& rRange,
     aBlockRange( rRange ),
     eMode( eBlockMode )
 {
-    pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() ).release();
+    pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() );
 }
 
 ScBlockUndo::~ScBlockUndo()
 {
-    DeleteSdrUndoAction( pDrawUndo );
+    pDrawUndo.reset();
 }
 
 void ScBlockUndo::BeginUndo()
@@ -264,7 +265,7 @@ void ScBlockUndo::EndUndo()
         AdjustHeight();
 
     EnableDrawAdjust( &pDocShell->GetDocument(), true );
-    DoSdrUndoAction( pDrawUndo, &pDocShell->GetDocument() );
+    DoSdrUndoAction( pDrawUndo.get(), &pDocShell->GetDocument() );
 
     ShowBlock();
     ScSimpleUndo::EndUndo();
@@ -345,12 +346,12 @@ ScMultiBlockUndo::ScMultiBlockUndo(
     ScSimpleUndo(pDocSh),
     maBlockRanges(rRanges)
 {
-    mpDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() ).release();
+    mpDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() );
 }
 
 ScMultiBlockUndo::~ScMultiBlockUndo()
 {
-    DeleteSdrUndoAction( mpDrawUndo );
+    mpDrawUndo.reset();
 }
 
 void ScMultiBlockUndo::BeginUndo()
@@ -362,7 +363,7 @@ void ScMultiBlockUndo::BeginUndo()
 void ScMultiBlockUndo::EndUndo()
 {
     EnableDrawAdjust(&pDocShell->GetDocument(), true);
-    DoSdrUndoAction(mpDrawUndo, &pDocShell->GetDocument());
+    DoSdrUndoAction(mpDrawUndo.get(), &pDocShell->GetDocument());
 
     ShowBlock();
     ScSimpleUndo::EndUndo();
@@ -415,14 +416,14 @@ ScMoveUndo::ScMoveUndo( ScDocShell* pDocSh, ScDocument* pRefDoc, ScRefUndoData* 
     ScDocument& rDoc = pDocShell->GetDocument();
     if (pRefUndoData)
         pRefUndoData->DeleteUnchanged(&rDoc);
-    pDrawUndo = GetSdrUndoAction( &rDoc ).release();
+    pDrawUndo = GetSdrUndoAction( &rDoc );
 }
 
 ScMoveUndo::~ScMoveUndo()
 {
-    delete pRefUndoData;
-    delete pRefUndoDoc;
-    DeleteSdrUndoAction( pDrawUndo );
+    pRefUndoData.reset();
+    pRefUndoDoc.reset();
+    pDrawUndo.reset();
 }
 
 void ScMoveUndo::UndoRef()
@@ -449,7 +450,7 @@ void ScMoveUndo::BeginUndo()
 
 void ScMoveUndo::EndUndo()
 {
-    DoSdrUndoAction( pDrawUndo, &pDocShell->GetDocument() );     // must also be called when pointer is null
+    DoSdrUndoAction( pDrawUndo.get(), &pDocShell->GetDocument() );     // must also be called when pointer is null
 
     if (pRefUndoDoc && eMode == SC_UNDO_REFLAST)
         UndoRef();
@@ -468,8 +469,7 @@ ScDBFuncUndo::ScDBFuncUndo( ScDocShell* pDocSh, const ScRange& rOriginal ) :
 
 ScDBFuncUndo::~ScDBFuncUndo()
 {
-    DeleteSdrUndoAction( nullptr );
-    delete pAutoDBRange;
+    pAutoDBRange.reset();
 }
 
 void ScDBFuncUndo::BeginUndo()

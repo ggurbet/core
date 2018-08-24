@@ -55,6 +55,8 @@
 #include <rowheightcontext.hxx>
 #include <refhint.hxx>
 #include <listenercontext.hxx>
+#include <token.hxx>
+#include <compressedarray.hxx>
 
 #include <scitems.hxx>
 #include <editeng/boxitem.hxx>
@@ -277,6 +279,9 @@ void ScTable::InsertCol(
         if (mpColWidth && mpColFlags)
         {
             mpColWidth->InsertPreservingSize(nStartCol, nSize, STD_COL_WIDTH);
+            // The inserted columns have the same widths as the columns, which were selected for insert.
+            for (SCSIZE i=0; i < std::min(MAXCOL-nSize-nStartCol, nSize); ++i)
+                mpColWidth->SetValue(nStartCol + i, mpColWidth->GetValue(nStartCol+i+nSize));
             mpColFlags->InsertPreservingSize(nStartCol, nSize, CRFlags::NONE);
         }
         if (pOutlineTable)
@@ -671,7 +676,8 @@ bool ScTable::InitColumnBlockPosition( sc::ColumnBlockPosition& rBlockPos, SCCOL
     if (!ValidCol(nCol))
         return false;
 
-    return aCol[nCol].InitBlockPosition(rBlockPos);
+    aCol[nCol].InitBlockPosition(rBlockPos);
+    return true;
 }
 
 void ScTable::CopyFromClip(
@@ -1124,19 +1130,20 @@ void ScTable::CopyToTable(
     if (!ValidColRow(nCol1, nRow1) || !ValidColRow(nCol2, nRow2))
         return;
 
+    bool bIsUndoDoc = pDestTab->pDocument->IsUndo();
     if (nFlags != InsertDeleteFlags::NONE)
     {
         InsertDeleteFlags nTempFlags( nFlags &
                 ~InsertDeleteFlags( InsertDeleteFlags::NOTE | InsertDeleteFlags::ADDNOTES));
         for (SCCOL i = nCol1; i <= nCol2; i++)
-            aCol[i].CopyToColumn(rCxt, nRow1, nRow2, nTempFlags, bMarked,
+            aCol[i].CopyToColumn(rCxt, nRow1, nRow2, bIsUndoDoc ? nFlags : nTempFlags, bMarked,
                                 pDestTab->aCol[i], pMarkData, bAsLink, bGlobalNamesToLocal);
     }
 
     if (!bColRowFlags)      // Column widths/Row heights/Flags
         return;
 
-    if(pDestTab->pDocument->IsUndo() && (nFlags & InsertDeleteFlags::ATTRIB))
+    if(bIsUndoDoc && (nFlags & InsertDeleteFlags::ATTRIB))
     {
         pDestTab->mpCondFormatList.reset(new ScConditionalFormatList(pDestTab->pDocument, *mpCondFormatList));
     }
@@ -1244,7 +1251,7 @@ void ScTable::CopyToTable(
     if(nFlags & InsertDeleteFlags::OUTLINE) // also only when bColRowFlags
         pDestTab->SetOutlineTable( pOutlineTable.get() );
 
-    if (bCopyCaptions && (nFlags & (InsertDeleteFlags::NOTE | InsertDeleteFlags::ADDNOTES)))
+    if (!bIsUndoDoc && bCopyCaptions && (nFlags & (InsertDeleteFlags::NOTE | InsertDeleteFlags::ADDNOTES)))
     {
         bool bCloneCaption = (nFlags & InsertDeleteFlags::NOCAPTIONS) == InsertDeleteFlags::NONE;
         CopyCaptionsToTable( nCol1, nRow1, nCol2, nRow2, pDestTab, bCloneCaption);
@@ -1518,10 +1525,10 @@ void ScTable::SetRawString( SCCOL nCol, SCROW nRow, const svl::SharedString& rSt
         aCol[nCol].SetRawString(nRow, rStr);
 }
 
-void ScTable::GetString( SCCOL nCol, SCROW nRow, OUString& rString ) const
+void ScTable::GetString( SCCOL nCol, SCROW nRow, OUString& rString, const ScInterpreterContext* pContext ) const
 {
     if (ValidColRow(nCol,nRow))
-        aCol[nCol].GetString( nRow, rString );
+        aCol[nCol].GetString( nRow, rString, pContext );
     else
         rString.clear();
 }
@@ -1679,7 +1686,7 @@ CommentCaptionState ScTable::GetAllNoteCaptionsState(const ScRange& rRange, std:
 
 void ScTable::GetUnprotectedCells( ScRangeList& rRangeList ) const
 {
-    for (auto pCol : aCol)
+    for (auto const & pCol : aCol)
         pCol->GetUnprotectedCells(0, MAXROW, rRangeList);
 }
 
@@ -1871,6 +1878,8 @@ void ScTable::CalcAll()
 {
     for (SCCOL i=0; i < aCol.size(); i++)
         aCol[i].CalcAll();
+
+    mpCondFormatList->CalcAll();
 }
 
 void ScTable::CompileAll( sc::CompileFormulaContext& rCxt )

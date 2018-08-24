@@ -32,6 +32,7 @@
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <com/sun/star/util/XURLTransformer.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/scanner/XScannerManager2.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/scopeguard.hxx>
@@ -45,6 +46,7 @@
 #include <editeng/CustomPropertyField.hxx>
 
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
@@ -357,7 +359,7 @@ public:
 class ClassificationInserter : public ClassificationCommon
 {
 private:
-    /// Delete the previous existing classification object(s) - if they exists
+    /// Delete the previous existing classification object(s) - if they exist
     void deleteExistingObjects()
     {
         OUString sKey = m_aKeyCreator.makeCategoryNameKey();
@@ -462,7 +464,7 @@ public:
     {
     }
 
-    bool insert(std::vector<svx::ClassificationResult> const & rResults)
+    void insert(std::vector<svx::ClassificationResult> const & rResults)
     {
         // Set to MASTER mode
         EditMode eOldMode = m_rDrawViewShell.GetEditMode();
@@ -536,8 +538,6 @@ public:
 
             pObject->SetLogicRect(::tools::Rectangle(aPosition, aTextSize));
         }
-
-        return true;
     }
 };
 
@@ -565,7 +565,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
     {
         case SID_OUTLINE_TEXT_AUTOFIT:
         {
-            ::svl::IUndoManager* pUndoManager = GetDocSh()->GetUndoManager();
+            SfxUndoManager* pUndoManager = GetDocSh()->GetUndoManager();
             const SdrMarkList& rMarkList = mpDrawView->GetMarkedObjectList();
             if( rMarkList.GetMarkCount() == 1 )
             {
@@ -787,9 +787,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 OUString aPageName = pCurrentPage->GetName();
 
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                DBG_ASSERT(pFact, "Dialog creation failed!");
                 ScopedVclPtr<AbstractSvxNameDialog> aNameDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aPageName, aDescr));
-                DBG_ASSERT(aNameDlg, "Dialog creation failed!");
                 aNameDlg->SetText( aTitle );
                 aNameDlg->SetCheckNameHdl( LINK( this, DrawViewShell, RenameSlideHdl ), true );
                 aNameDlg->SetEditHelpId( HID_SD_NAMEDIALOG_PAGE );
@@ -1327,7 +1325,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
             if( rMarkList.GetMarkCount() == 1 )
             {
                 SdrObject* pObj = rMarkList.GetMark( 0 )->GetMarkedSdrObj();
-                if( pObj && dynamic_cast< const SdrGrafObj *>( pObj ) !=  nullptr && static_cast<SdrGrafObj*>(pObj)->GetGraphicType() == GraphicType::Bitmap )
+                if( dynamic_cast< const SdrGrafObj *>( pObj ) && static_cast<SdrGrafObj*>(pObj)->GetGraphicType() == GraphicType::Bitmap )
                 {
                     GraphicObject aGraphicObject( static_cast<SdrGrafObj*>(pObj)->GetGraphicObject() );
                     m_ExternalEdits.push_back(
@@ -1348,7 +1346,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
             {
                 SdrObject* pObj = rMarkList.GetMark( 0 )->GetMarkedSdrObj();
 
-                if( pObj && dynamic_cast< const SdrGrafObj *>( pObj ) !=  nullptr && static_cast<SdrGrafObj*>(pObj)->GetGraphicType() == GraphicType::Bitmap )
+                if( dynamic_cast< const SdrGrafObj *>( pObj ) && static_cast<SdrGrafObj*>(pObj)->GetGraphicType() == GraphicType::Bitmap )
                 {
                     SdrGrafObj* pGraphicObj = static_cast<SdrGrafObj*>(pObj);
                     CompressGraphicsDialog dialog(GetFrameWeld(), pGraphicObj, GetViewFrame()->GetBindings() );
@@ -1657,6 +1655,8 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
 
         case SID_TEXTATTR_DLG:
         {
+            if (mpDrawView->IsTextEdit())
+                mpDrawView->SdrEndTextEdit();
             SetCurrentFunction( FuTextAttrDlg::Create( this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq ) );
             Cancel();
             rReq.Ignore ();
@@ -1798,45 +1798,43 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 aNewAttr.Put( makeSdAttrLayerThisPage() );
 
                 SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-                ScopedVclPtr<AbstractSdInsertLayerDlg> pDlg(pFact ? pFact->CreateSdInsertLayerDlg(GetActiveWindow(), aNewAttr, true, SdResId(STR_INSERTLAYER)) : nullptr);
-                if( pDlg )
+                vcl::Window* pWin = GetActiveWindow();
+                ScopedVclPtr<AbstractSdInsertLayerDlg> pDlg( pFact->CreateSdInsertLayerDlg(pWin ? pWin->GetFrameWeld() : nullptr, aNewAttr, true, SdResId(STR_INSERTLAYER)) );
+                pDlg->SetHelpId( SD_MOD()->GetSlotPool()->GetSlot( SID_INSERTLAYER )->GetCommand() );
+
+                // test for already existing names
+                bool bLoop = true;
+                while( bLoop && pDlg->Execute() == RET_OK )
                 {
-                    pDlg->SetHelpId( SD_MOD()->GetSlotPool()->GetSlot( SID_INSERTLAYER )->GetCommand() );
+                    pDlg->GetAttr( aNewAttr );
+                    aLayerName   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_NAME)).GetValue ();
 
-                    // test for already existing names
-                    bool bLoop = true;
-                    while( bLoop && pDlg->Execute() == RET_OK )
+                    if( rLayerAdmin.GetLayer( aLayerName )
+                        || aLayerName.isEmpty() )
                     {
-                        pDlg->GetAttr( aNewAttr );
-                        aLayerName   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_NAME)).GetValue ();
-
-                        if( rLayerAdmin.GetLayer( aLayerName )
-                            || aLayerName.isEmpty() )
-                        {
-                            // name already exists
-                            std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(GetFrameWeld(),
-                                                                       VclMessageType::Warning, VclButtonsType::Ok,
-                                                                       SdResId(STR_WARN_NAME_DUPLICATE)));
-                            xWarn->run();
-                        }
-                        else
-                            bLoop = false;
-                    }
-                    if( bLoop ) // was canceled
-                    {
-                        pDlg.disposeAndClear();
-                        Cancel();
-                        rReq.Ignore ();
-                        break;
+                        // name already exists
+                        std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(GetFrameWeld(),
+                                                                   VclMessageType::Warning, VclButtonsType::Ok,
+                                                                   SdResId(STR_WARN_NAME_DUPLICATE)));
+                        xWarn->run();
                     }
                     else
-                    {
-                        aLayerTitle  = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_TITLE)).GetValue ();
-                        aLayerDesc   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_DESC)).GetValue ();
-                        bIsVisible   = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_VISIBLE)).GetValue ();
-                        bIsLocked    = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_LOCKED)).GetValue () ;
-                        bIsPrintable = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_PRINTABLE)).GetValue () ;
-                    }
+                        bLoop = false;
+                }
+                if( bLoop ) // was canceled
+                {
+                    pDlg.disposeAndClear();
+                    Cancel();
+                    rReq.Ignore ();
+                    break;
+                }
+                else
+                {
+                    aLayerTitle  = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_TITLE)).GetValue ();
+                    aLayerDesc   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_DESC)).GetValue ();
+                    bIsVisible   = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_VISIBLE)).GetValue ();
+                    bIsLocked    = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_LOCKED)).GetValue () ;
+                    bIsPrintable = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_PRINTABLE)).GetValue () ;
                 }
             }
             else if (pArgs->Count () != 4)
@@ -1965,47 +1963,45 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 aNewAttr.Put( makeSdAttrLayerThisPage() );
 
                 SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-                ScopedVclPtr<AbstractSdInsertLayerDlg> pDlg(pFact ? pFact->CreateSdInsertLayerDlg(GetActiveWindow(), aNewAttr, bDelete, SdResId(STR_MODIFYLAYER)) : nullptr);
-                if( pDlg )
+                vcl::Window* pWin = GetActiveWindow();
+                ScopedVclPtr<AbstractSdInsertLayerDlg> pDlg( pFact->CreateSdInsertLayerDlg(pWin ? pWin->GetFrameWeld() : nullptr, aNewAttr, bDelete, SdResId(STR_MODIFYLAYER)) );
+                pDlg->SetHelpId( SD_MOD()->GetSlotPool()->GetSlot( SID_MODIFYLAYER )->GetCommand() );
+
+                // test for already existing names
+                bool    bLoop = true;
+                sal_uInt16  nRet = 0;
+                while( bLoop && ( (nRet = pDlg->Execute()) == RET_OK ) )
                 {
-                    pDlg->SetHelpId( SD_MOD()->GetSlotPool()->GetSlot( SID_MODIFYLAYER )->GetCommand() );
+                    pDlg->GetAttr( aNewAttr );
+                    aLayerName   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_NAME)).GetValue ();
 
-                    // test for already existing names
-                    bool    bLoop = true;
-                    sal_uInt16  nRet = 0;
-                    while( bLoop && ( (nRet = pDlg->Execute()) == RET_OK ) )
+                    if( (rLayerAdmin.GetLayer( aLayerName ) &&
+                         aLayerName != aOldLayerName) || aLayerName.isEmpty() )
                     {
-                        pDlg->GetAttr( aNewAttr );
-                        aLayerName   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_NAME)).GetValue ();
-
-                        if( (rLayerAdmin.GetLayer( aLayerName ) &&
-                             aLayerName != aOldLayerName) || aLayerName.isEmpty() )
-                        {
-                            // name already exists
-                            std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(GetFrameWeld(),
-                                                                       VclMessageType::Warning, VclButtonsType::Ok,
-                                                                       SdResId(STR_WARN_NAME_DUPLICATE)));
-                            xWarn->run();
-                        }
-                        else
-                            bLoop = false;
+                        // name already exists
+                        std::unique_ptr<weld::MessageDialog> xWarn(Application::CreateMessageDialog(GetFrameWeld(),
+                                                                   VclMessageType::Warning, VclButtonsType::Ok,
+                                                                   SdResId(STR_WARN_NAME_DUPLICATE)));
+                        xWarn->run();
                     }
-                    switch (nRet)
-                    {
-                        case RET_OK :
-                            aLayerTitle  = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_TITLE)).GetValue ();
-                            aLayerDesc   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_DESC)).GetValue ();
-                            bIsVisible   = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_VISIBLE)).GetValue ();
-                            bIsLocked    = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_LOCKED)).GetValue ();
-                            bIsPrintable = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_PRINTABLE)).GetValue ();
-                            break;
+                    else
+                        bLoop = false;
+                }
+                switch (nRet)
+                {
+                    case RET_OK :
+                        aLayerTitle  = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_TITLE)).GetValue ();
+                        aLayerDesc   = static_cast<const SfxStringItem &>( aNewAttr.Get (ATTR_LAYER_DESC)).GetValue ();
+                        bIsVisible   = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_VISIBLE)).GetValue ();
+                        bIsLocked    = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_LOCKED)).GetValue ();
+                        bIsPrintable = static_cast<const SfxBoolItem &>( aNewAttr.Get (ATTR_LAYER_PRINTABLE)).GetValue ();
+                        break;
 
-                        default :
-                            pDlg.disposeAndClear();
-                            rReq.Ignore ();
-                            Cancel ();
-                            return;
-                    }
+                    default :
+                        pDlg.disposeAndClear();
+                        rReq.Ignore ();
+                        Cancel ();
+                        return;
                 }
             }
             else if (pArgs->Count () == 4)
@@ -2030,7 +2026,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 break;
             }
 
-            ::svl::IUndoManager* pManager = GetDoc()->GetDocSh()->GetUndoManager();
+            SfxUndoManager* pManager = GetDoc()->GetDocSh()->GetUndoManager();
             SdLayerModifyUndoAction* pAction = new SdLayerModifyUndoAction(
                 GetDoc(),
                 pLayer,
@@ -2097,10 +2093,8 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 if ( pFieldItem )
                 {
                     const SvxFieldData* pField = pFieldItem->GetField();
-                    if( pField && dynamic_cast< const SvxURLField *>( pField ) !=  nullptr )
+                    if( auto pURLField = dynamic_cast< const SvxURLField *>( pField ) )
                     {
-                        const SvxURLField* pURLField = static_cast< const SvxURLField* >( pField );
-
                         SfxStringItem aUrl( SID_FILE_NAME, pURLField->GetURL() );
                         SfxStringItem aTarget( SID_TARGETNAME, pURLField->GetTargetFrame() );
 
@@ -2341,7 +2335,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 OutlinerMode nOutlMode = pOutl->GetMode();
                 pOutl->SetStyleSheet( 0, nullptr );
                 pOutl->QuickInsertField( *pFieldItem, ESelection() );
-                OutlinerParaObject* pOutlParaObject = pOutl->CreateParaObject();
+                std::unique_ptr<OutlinerParaObject> pOutlParaObject = pOutl->CreateParaObject();
 
                 SdrRectObj* pRectObj = new SdrRectObj(
                     *GetDoc(),
@@ -2363,7 +2357,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
 
                 ::tools::Rectangle aLogicRect(aPos, aSize);
                 pRectObj->SetLogicRect(aLogicRect);
-                pRectObj->SetOutlinerParaObject( pOutlParaObject );
+                pRectObj->SetOutlinerParaObject( std::move(pOutlParaObject) );
                 mpDrawView->InsertObjectAtView(pRectObj, *mpDrawView->GetSdrPageView());
                 pOutl->Init( nOutlMode );
             }
@@ -2390,8 +2384,9 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 {
                     // Dialog...
                     SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-                    ScopedVclPtr<AbstractSdModifyFieldDlg> pDlg(pFact ? pFact->CreateSdModifyFieldDlg(GetActiveWindow(), pFldItem->GetField(), pOLV->GetAttribs() ) : nullptr);
-                    if( pDlg && pDlg->Execute() == RET_OK )
+                    vcl::Window* pWin = GetActiveWindow();
+                    ScopedVclPtr<AbstractSdModifyFieldDlg> pDlg( pFact->CreateSdModifyFieldDlg(pWin ? pWin->GetFrameWeld() : nullptr, pFldItem->GetField(), pOLV->GetAttribs() ) );
+                    if( pDlg->Execute() == RET_OK )
                     {
                         // To make a correct SetAttribs() call at the utlinerView
                         // it is necessary to split the actions here
@@ -2500,9 +2495,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 OUString aName(pSelected->GetName());
 
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "Dialog creation failed!");
                 ScopedVclPtr<AbstractSvxObjectNameDialog> pDlg(pFact->CreateSvxObjectNameDialog(GetFrameWeld(), aName));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
 
                 pDlg->SetCheckNameHdl(LINK(this, DrawViewShell, NameObjectHdl));
 
@@ -2510,6 +2503,10 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 {
                     pDlg->GetName(aName);
                     pSelected->SetName(aName);
+
+                    SdPage* pPage = GetActualPage();
+                    if (pPage)
+                        pPage->notifyObjectRenamed(pSelected);
                 }
             }
 
@@ -2533,10 +2530,8 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 OUString aDescription(pSelected->GetDescription());
 
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "Dialog creation failed!");
                 ScopedVclPtr<AbstractSvxObjectTitleDescDialog> pDlg(pFact->CreateSvxObjectTitleDescDialog(
                             GetFrameWeld(), aTitle, aDescription));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
 
                 if(RET_OK == pDlg->Execute())
                 {
@@ -2766,13 +2761,13 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                     SdrGrafObj*  pGraf= dynamic_cast< SdrGrafObj *>( pObj );
                     SdrOle2Obj*  pOle2= dynamic_cast< SdrOle2Obj *>( pObj );
 
-                    if(pGraf)
+                    if (pGraf != nullptr)
                     {
-                        if(pGraf->HasGDIMetaFile())
+                        if (pGraf->HasGDIMetaFile())
                         {
                             nCount += pGraf->GetGraphic().GetGDIMetaFile().GetActionSize();
                         }
-                        else if(pGraf->isEmbeddedVectorGraphicData())
+                        else if (pGraf->isEmbeddedVectorGraphicData())
                         {
                             nCount += pGraf->getMetafileFromEmbeddedVectorGraphicData().GetActionSize();
                         }
@@ -2793,14 +2788,8 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 else
                 {
                     SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-                    if( pFact )
-                    {
-                        ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateBreakDlg(GetFrameWeld(), mpDrawView.get(), GetDocSh(), nCount, static_cast<sal_uLong>(nCnt) ));
-                        if( pDlg )
-                        {
-                            pDlg->Execute();
-                        }
-                    }
+                    ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateBreakDlg(GetFrameWeld(), mpDrawView.get(), GetDocSh(), nCount, static_cast<sal_uLong>(nCnt) ));
+                    pDlg->Execute();
                 }
             }
 
@@ -3225,12 +3214,8 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         {
 #ifdef ENABLE_SDREMOTE
              SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-             if (pFact)
-             {
-                 ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateRemoteDialog(GetActiveWindow()));
-                 if (pDlg)
-                     pDlg->Execute();
-             }
+             ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateRemoteDialog(GetActiveWindow()));
+             pDlg->Execute();
 #endif
         }
         break;
@@ -3316,14 +3301,12 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
        case SID_PHOTOALBUM:
        {
             SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-            if (pFact)
-            {
-                ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSdPhotoAlbumDialog(
-                    GetActiveWindow(),
-                    GetDoc()));
+            vcl::Window* pWin = GetActiveWindow();
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSdPhotoAlbumDialog(
+                pWin ? pWin->GetFrameWeld() : nullptr,
+                GetDoc()));
 
-                pDlg->Execute();
-            }
+            pDlg->Execute();
             Cancel();
             rReq.Ignore ();
         }

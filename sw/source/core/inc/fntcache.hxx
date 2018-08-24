@@ -22,9 +22,9 @@
 
 #include <vcl/font.hxx>
 #include <vcl/vclptr.hxx>
-#include <tools/mempool.hxx>
 #include <swtypes.hxx>
 #include "swcache.hxx"
+#include "TextFrameIndex.hxx"
 
 class OutputDevice;
 class FontMetric;
@@ -80,8 +80,6 @@ class SwFntObj : public SwCacheObj
     static MapMode *pPixMap;
 
 public:
-    DECL_FIXEDMEMPOOL_NEWDEL(SwFntObj)
-
     SwFntObj( const SwSubFont &rFont, const void* pOwner,
               SwViewShell const *pSh );
 
@@ -109,7 +107,7 @@ public:
     void   DrawText( SwDrawTextInfo &rInf );
     /// determine the TextSize (of the printer)
     Size  GetTextSize( SwDrawTextInfo &rInf );
-    sal_Int32 GetCursorOfst( SwDrawTextInfo &rInf );
+    TextFrameIndex GetCursorOfst(SwDrawTextInfo &rInf);
 
     void CreateScrFont( const SwViewShell& rSh, const OutputDevice& rOut );
     void CreatePrtFont( const OutputDevice& rOut );

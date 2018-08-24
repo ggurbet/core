@@ -20,6 +20,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <svl/style.hxx>
 #include <svtools/unitconv.hxx>
+#include <sal/log.hxx>
 #include <view.hxx>
 #include <wrtsh.hxx>
 #include <docsh.hxx>
@@ -72,7 +73,7 @@ SwLineNumberingDlg::SwLineNumberingDlg(const SwView& rVw)
     , m_xDivRowsFT(m_xBuilder->weld_widget("lines"))
     , m_xNumIntervalNF(m_xBuilder->weld_spin_button("intervalspin"))
     , m_xCharStyleLB(m_xBuilder->weld_combo_box_text("styledropdown"))
-    , m_xFormatLB(new NumberingTypeListBox(m_xBuilder->weld_combo_box_text("formatdropdown")))
+    , m_xFormatLB(new SwNumberingTypeListBox(m_xBuilder->weld_combo_box_text("formatdropdown")))
     , m_xPosLB(m_xBuilder->weld_combo_box_text("positiondropdown"))
     , m_xOffsetMF(m_xBuilder->weld_metric_spin_button("spacingspin", FUNIT_CM))
     , m_xDivisorED(m_xBuilder->weld_entry("textentry"))
@@ -115,7 +116,7 @@ SwLineNumberingDlg::SwLineNumberingDlg(const SwView& rVw)
         if (!sStyleName.isEmpty())
         {
             m_xCharStyleLB->append_text(sStyleName);
-            m_xCharStyleLB->set_active(sStyleName);
+            m_xCharStyleLB->set_active_text(sStyleName);
         }
     }
 

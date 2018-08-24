@@ -40,21 +40,20 @@ class SvxCaptionTabPage : public SfxTabPage
 private:
     static const sal_uInt16 pCaptionRanges[];
     VclPtr<ValueSet>       m_pCT_CAPTTYPE;
-    VclPtr<MetricField>    m_pMF_ABSTAND;
-    VclPtr<ListBox>        m_pLB_ANSATZ;
-    VclPtr<FixedText>      m_pFT_UM;
-    VclPtr<MetricField>    m_pMF_ANSATZ;
-    VclPtr<FixedText>      m_pFT_ANSATZ_REL;
-    VclPtr<ListBox>        m_pLB_ANSATZ_REL;
-    VclPtr<FixedText>      m_pFT_LAENGE;
-    VclPtr<MetricField>    m_pMF_LAENGE;
-    VclPtr<CheckBox>       m_pCB_LAENGE;
+    VclPtr<MetricField>    m_pMF_SPACING;
+    VclPtr<ListBox>        m_pLB_EXTENSION;
+    VclPtr<FixedText>      m_pFT_BYFT;
+    VclPtr<MetricField>    m_pMF_BY;
+    VclPtr<FixedText>      m_pFT_POSITIONFT;
+    VclPtr<ListBox>        m_pLB_POSITION;
+    VclPtr<FixedText>      m_pFT_LENGTHFT;
+    VclPtr<MetricField>    m_pMF_LENGTH;
+    VclPtr<CheckBox>       m_pCB_OPTIMAL;
 
     Image           m_aBmpCapTypes[CAPTYPE_BITMAPS_COUNT];
 
     std::vector<OUString> m_aStrHorzList;
     std::vector<OUString> m_aStrVertList;
-    std::vector<OUString> m_aLineTypes;
 
     SdrCaptionType      nCaptionType;
     sal_Int32           nGap;
@@ -65,13 +64,13 @@ private:
     sal_Int32           nLineLen;
     bool                bFitLineLen;
 
-    sal_uInt16          nAnsatzRelPos;
-    sal_uInt16          nAnsatzTypePos;
+    sal_uInt16          nPosition;
+    sal_uInt16          nExtension;
 
-    void            SetupAnsatz_Impl( sal_uInt16 nType );
+    void            SetupExtension_Impl( sal_uInt16 nType );
     void            SetupType_Impl( SdrCaptionType nType );
-    DECL_LINK( AnsatzSelectHdl_Impl, ListBox&, void );
-    DECL_LINK( AnsatzRelSelectHdl_Impl, ListBox&, void );
+    DECL_LINK( ExtensionSelectHdl_Impl, ListBox&, void );
+    DECL_LINK( PositionSelectHdl_Impl, ListBox&, void );
     DECL_LINK( LineOptHdl_Impl, Button *, void );
     DECL_LINK( SelectCaptTypeHdl_Impl, ValueSet*, void );
 
@@ -83,7 +82,7 @@ public:
     virtual ~SvxCaptionTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window*, const SfxItemSet* );
+    static VclPtr<SfxTabPage>  Create( TabPageParent, const SfxItemSet* );
     static const sal_uInt16*  GetRanges() { return pCaptionRanges; }
 
     virtual bool        FillItemSet( SfxItemSet* ) override;

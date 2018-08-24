@@ -7,7 +7,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <pdfread.hxx>
+#include <vcl/pdfread.hxx>
 
 #include <config_features.h>
 
@@ -17,9 +17,9 @@
 #include <fpdf_save.h>
 #endif
 
-#include <vcl/bitmapaccess.hxx>
 #include <vcl/graph.hxx>
 #include <bitmapwriteaccess.hxx>
+#include <unotools/ucbstreamhelper.hxx>
 
 using namespace com::sun::star;
 
@@ -53,11 +53,15 @@ int CompatibleWriter::WriteBlockCallback(FPDF_FILEWRITE* pFileWrite, const void*
 }
 
 /// Convert to inch, then assume 96 DPI.
-double pointToPixel(double fPoint) { return fPoint / 72 * 96; }
+inline double pointToPixel(const double fPoint, const double fResolutionDPI)
+{
+    return fPoint * fResolutionDPI / 72.;
+}
 
 /// Does PDF to bitmap conversion using pdfium.
 size_t generatePreview(SvStream& rStream, std::vector<Bitmap>& rBitmaps, sal_uInt64 nPos,
-                       sal_uInt64 nSize, const size_t nFirstPage, int nPages)
+                       sal_uInt64 nSize, const size_t nFirstPage, int nPages,
+                       const double fResolutionDPI = 96.)
 {
     FPDF_LIBRARY_CONFIG aConfig;
     aConfig.version = 2;
@@ -89,8 +93,8 @@ size_t generatePreview(SvStream& rStream, std::vector<Bitmap>& rBitmaps, sal_uIn
             break;
 
         // Returned unit is points, convert that to pixel.
-        const size_t nPageWidth = pointToPixel(FPDF_GetPageWidth(pPdfPage));
-        const size_t nPageHeight = pointToPixel(FPDF_GetPageHeight(pPdfPage));
+        const size_t nPageWidth = pointToPixel(FPDF_GetPageWidth(pPdfPage), fResolutionDPI);
+        const size_t nPageHeight = pointToPixel(FPDF_GetPageHeight(pPdfPage), fResolutionDPI);
         FPDF_BITMAP pPdfBitmap = FPDFBitmap_Create(nPageWidth, nPageHeight, /*alpha=*/1);
         if (!pPdfBitmap)
             break;
@@ -144,7 +148,7 @@ bool isCompatible(SvStream& rInStream, sal_uInt64 nPos, sal_uInt64 nSize)
 
     sal_Int32 nMajor = OString(aFirstBytes[5]).toInt32();
     sal_Int32 nMinor = OString(aFirstBytes[7]).toInt32();
-    return !(nMajor > 1 || (nMajor == 1 && nMinor > 4));
+    return !(nMajor > 1 || (nMajor == 1 && nMinor > 5));
 }
 
 /// Takes care of transparently downgrading the version of the PDF stream in
@@ -159,7 +163,7 @@ bool getCompatibleStream(SvStream& rInStream, SvStream& rOutStream, sal_uInt64 n
         rOutStream.WriteStream(rInStream, nSize);
     else
     {
-        // Downconvert to PDF-1.4.
+        // Downconvert to PDF-1.5.
         FPDF_LIBRARY_CONFIG aConfig;
         aConfig.version = 2;
         aConfig.m_pUserFontPaths = nullptr;
@@ -178,8 +182,8 @@ bool getCompatibleStream(SvStream& rInStream, SvStream& rOutStream, sal_uInt64 n
             return false;
 
         CompatibleWriter aWriter;
-        // 14 means PDF-1.4.
-        if (!FPDF_SaveWithVersion(pPdfDocument, &aWriter, 0, 14))
+        // 15 means PDF-1.5.
+        if (!FPDF_SaveWithVersion(pPdfDocument, &aWriter, 0, 15))
             return false;
 
         FPDF_CloseDocument(pPdfDocument);
@@ -192,7 +196,8 @@ bool getCompatibleStream(SvStream& rInStream, SvStream& rOutStream, sal_uInt64 n
     return rOutStream.good();
 }
 #else
-size_t generatePreview(SvStream&, std::vector<Bitmap>&, sal_uInt64, sal_uInt64, size_t, int)
+size_t generatePreview(SvStream&, std::vector<Bitmap>&, sal_uInt64, sal_uInt64, size_t, int,
+                       const double)
 {
     return 0;
 }
@@ -209,12 +214,14 @@ bool getCompatibleStream(SvStream& rInStream, SvStream& rOutStream, sal_uInt64 n
 
 namespace vcl
 {
-bool ImportPDF(SvStream& rStream, Bitmap& rBitmap, css::uno::Sequence<sal_Int8>& rPdfData,
-               sal_uInt64 nPos, sal_uInt64 nSize)
+bool ImportPDF(SvStream& rStream, Bitmap& rBitmap, size_t nPageIndex,
+               css::uno::Sequence<sal_Int8>& rPdfData, sal_uInt64 nPos, sal_uInt64 nSize,
+               const double fResolutionDPI)
 {
     // Get the preview of the first page.
     std::vector<Bitmap> aBitmaps;
-    if (generatePreview(rStream, aBitmaps, nPos, nSize, 0, 1) != 1)
+    if (generatePreview(rStream, aBitmaps, nPos, nSize, nPageIndex, 1, fResolutionDPI) != 1
+        || aBitmaps.empty())
         return false;
 
     rBitmap = aBitmaps[0];
@@ -232,14 +239,40 @@ bool ImportPDF(SvStream& rStream, Bitmap& rBitmap, css::uno::Sequence<sal_Int8>&
     return true;
 }
 
-bool ImportPDF(SvStream& rStream, Graphic& rGraphic)
+bool ImportPDF(SvStream& rStream, Graphic& rGraphic, const double fResolutionDPI)
 {
     uno::Sequence<sal_Int8> aPdfData;
     Bitmap aBitmap;
-    const bool bRet = ImportPDF(rStream, aBitmap, aPdfData);
+    const bool bRet = ImportPDF(rStream, aBitmap, 0, aPdfData, STREAM_SEEK_TO_BEGIN,
+                                STREAM_SEEK_TO_END, fResolutionDPI);
     rGraphic = aBitmap;
-    rGraphic.setPdfData(aPdfData);
+    rGraphic.setPdfData(std::make_shared<css::uno::Sequence<sal_Int8>>(aPdfData));
+    rGraphic.setPageNumber(0); // We currently import only the first page.
     return bRet;
+}
+
+size_t ImportPDF(const OUString& rURL, std::vector<Bitmap>& rBitmaps,
+                 css::uno::Sequence<sal_Int8>& rPdfData, const double fResolutionDPI)
+{
+    std::unique_ptr<SvStream> xStream(
+        ::utl::UcbStreamHelper::CreateStream(rURL, StreamMode::READ | StreamMode::SHARE_DENYNONE));
+
+    if (generatePreview(*xStream, rBitmaps, STREAM_SEEK_TO_BEGIN, STREAM_SEEK_TO_END, 0, -1,
+                        fResolutionDPI)
+        == 0)
+        return 0;
+
+    // Save the original PDF stream for later use.
+    SvMemoryStream aMemoryStream;
+    if (!getCompatibleStream(*xStream, aMemoryStream, STREAM_SEEK_TO_BEGIN, STREAM_SEEK_TO_END))
+        return 0;
+
+    aMemoryStream.Seek(STREAM_SEEK_TO_END);
+    rPdfData = css::uno::Sequence<sal_Int8>(aMemoryStream.Tell());
+    aMemoryStream.Seek(STREAM_SEEK_TO_BEGIN);
+    aMemoryStream.ReadBytes(rPdfData.getArray(), rPdfData.getLength());
+
+    return rBitmaps.size();
 }
 }
 

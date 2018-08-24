@@ -24,6 +24,7 @@
 #include <com/sun/star/util/Date.hpp>
 #include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 #include <xmloff/xmlement.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <rtl/math.hxx>
@@ -421,7 +422,7 @@ void SvXMLUnitConverter::convertDateTime( OUStringBuffer& rBuffer,
             if ( a100th.getLength() > 2 )
             {
                 rBuffer.append( '.');
-                rBuffer.append( a100th.copy( 2 ) );     // strip 0.
+                rBuffer.appendCopy( a100th, 2 );     // strip 0.
             }
         }
     }

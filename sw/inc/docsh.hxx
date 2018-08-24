@@ -22,6 +22,8 @@
 #include <memory>
 #include <rtl/ref.hxx>
 #include <com/sun/star/uno/Sequence.h>
+#include <ooo/vba/XSinkCaller.hpp>
+#include <ooo/vba/word/XDocument.hpp>
 #include <sfx2/docfac.hxx>
 #include <sfx2/objsh.hxx>
 #include "swdllapi.h"
@@ -49,6 +51,7 @@ class IDocumentDeviceAccess;
 class IDocumentChartDataProviderAccess;
 class SwDocShell;
 class SwDrawModel;
+class SwViewShell;
 namespace svt
 {
 class EmbeddedObjectRef;
@@ -65,7 +68,7 @@ class SW_DLLPUBLIC SwDocShell
 {
     rtl::Reference< SwDoc >                 m_xDoc;      ///< Document.
     rtl::Reference< SfxStyleSheetBasePool > m_xBasePool; ///< Passing through for formats.
-    FontList*   m_pFontList;          ///< Current Fontlist.
+    std::unique_ptr<FontList> m_pFontList;          ///< Current Fontlist.
     bool        m_IsInUpdateFontList; ///< prevent nested calls of UpdateFontList
 
     std::unique_ptr<sfx2::StyleManager> m_pStyleManager;
@@ -78,13 +81,16 @@ class SW_DLLPUBLIC SwDocShell
     SwView*     m_pView;
     SwWrtShell* m_pWrtShell;
 
-    comphelper::EmbeddedObjectContainer* m_pOLEChildList;
+    std::unique_ptr<comphelper::EmbeddedObjectContainer> m_pOLEChildList;
     sal_Int16   m_nUpdateDocMode;   ///< contains the css::document::UpdateDocMode
     bool        m_IsATemplate;      ///< prevent nested calls of UpdateFontList
 
     bool m_IsRemovedInvisibleContent;
         ///< whether SID_MAIL_PREPAREEXPORT removed content that
         ///< SID_MAIL_EXPORT_FINISHED needs to restore
+
+    css::uno::Reference< ooo::vba::XSinkCaller > mxAutomationDocumentEventsCaller;
+    css::uno::Reference< ooo::vba::word::XDocument> mxAutomationDocumentObject;
 
     /// Methods for access to doc.
     SAL_DLLPRIVATE void                  AddLink();
@@ -111,7 +117,7 @@ class SW_DLLPUBLIC SwDocShell
     /// Make DocInfo known to the Doc.
     SAL_DLLPRIVATE virtual VclPtr<SfxDocumentInfoDialog> CreateDocumentInfoDialog(const SfxItemSet &) override;
     /// OLE-stuff
-    SAL_DLLPRIVATE virtual void          Draw( OutputDevice*, const JobSetup&, sal_uInt16 = ASPECT_CONTENT) override;
+    SAL_DLLPRIVATE virtual void          Draw( OutputDevice*, const JobSetup&, sal_uInt16 nAspect) override;
 
     /// Methods for StyleSheets
 
@@ -309,6 +315,21 @@ public:
     virtual void    SetChangeRecording( bool bActivate ) override;
     virtual void    SetProtectionPassword( const OUString &rPassword ) override;
     virtual bool    GetProtectionHash( /*out*/ css::uno::Sequence< sal_Int8 > &rPasswordHash ) override;
+
+    void RegisterAutomationDocumentEventsCaller(css::uno::Reference< ooo::vba::XSinkCaller > const& xCaller);
+    void CallAutomationDocumentEventSinks(const OUString& Method, css::uno::Sequence< css::uno::Any >& Arguments);
+    void RegisterAutomationDocumentObject(css::uno::Reference< ooo::vba::word::XDocument > const& xDocument);
+
+    class LockAllViewsGuard
+    {
+        std::vector<SwViewShell*> m_aViewWasUnLocked;
+
+    public:
+        explicit LockAllViewsGuard(SwViewShell* pViewShell);
+        ~LockAllViewsGuard();
+    };
+    // Lock all unlocked views, and returns a guard object which unlocks those views when destructed
+    std::unique_ptr<LockAllViewsGuard> LockAllViews();
 };
 
 /** Find the right DocShell and create a new one:

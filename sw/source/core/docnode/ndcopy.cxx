@@ -180,7 +180,7 @@ static void lcl_CopyTableBox( SwTableBox* pBox, CopyTable* pCT )
     else
     {
         SwNodeIndex aNewIdx(*pCT->m_pTableNd, pBox->GetSttIdx() - pCT->m_nOldTableSttIdx);
-        OSL_ENSURE( aNewIdx.GetNode().IsStartNode(), "Index is not on the start node" );
+        assert(aNewIdx.GetNode().IsStartNode() && "Index is not on the start node");
 
         pNewBox = new SwTableBox(pBoxFormat, aNewIdx, pCT->m_pInsLine);
         pNewBox->setRowSpan( pBox->getRowSpan() );
@@ -283,8 +283,8 @@ SwTableNode* SwTableNode::MakeCopy( SwDoc* pDoc, const SwNodeIndex& rIdx ) const
         OSL_ENSURE( pDDEType, "unknown FieldType" );
 
         // Swap the table pointers in the node
-        SwDDETable* pNewTable = new SwDDETable( pTableNd->GetTable(), pDDEType );
-        pTableNd->SetNewTable( pNewTable, false );
+        std::unique_ptr<SwDDETable> pNewTable(new SwDDETable( pTableNd->GetTable(), pDDEType ));
+        pTableNd->SetNewTable( std::move(pNewTable), false );
     }
     // First copy the content of the tables, we will later assign the
     // boxes/lines and create the frames

@@ -369,14 +369,12 @@ uno::Reference< io::XStream > SAL_CALL FSStorage::openStreamElement(
             else
             {
                 // TODO: test whether it really works for http and fwp
-                SvStream* pStream = ::utl::UcbStreamHelper::CreateStream( aFileURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ),
+                std::unique_ptr<SvStream> pStream = ::utl::UcbStreamHelper::CreateStream( aFileURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ),
                                                                           StreamMode::STD_WRITE );
                 if ( pStream )
                 {
                     if ( !pStream->GetError() )
-                        xResult.set( new ::utl::OStreamWrapper( *pStream ) );
-                    else
-                        delete pStream;
+                        xResult.set( new ::utl::OStreamWrapper( std::move(pStream) ) );
                 }
             }
 
@@ -702,11 +700,10 @@ void SAL_CALL FSStorage::renameElement( const OUString& aElementName, const OUSt
         uno::Reference< ucb::XCommandEnvironment > xDummyEnv;
         ::ucbhelper::Content aSourceContent( aOldURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), xDummyEnv, comphelper::getProcessComponentContext() );
 
-        if ( !GetContent()->transferContent( aSourceContent,
+        GetContent()->transferContent( aSourceContent,
                                             ::ucbhelper::InsertOperation::Move,
                                             aNewName,
-                                            ucb::NameClash::ERROR ) )
-            throw io::IOException(); // TODO: error handling
+                                            ucb::NameClash::ERROR );
     }
     catch( embed::InvalidStorageException& )
     {
@@ -1015,9 +1012,11 @@ sal_Bool SAL_CALL FSStorage::hasElements()
     {
         throw;
     }
-    catch (const uno::Exception&)
+    catch (const uno::Exception& ex)
     {
-        throw uno::RuntimeException();
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw lang::WrappedTargetRuntimeException( ex.Message,
+                        nullptr, anyEx );
     }
 }
 
@@ -1206,18 +1205,16 @@ uno::Reference< embed::XExtendedStorageStream > SAL_CALL FSStorage::openStreamEl
             else
             {
                 // TODO: test whether it really works for http and fwp
-                SvStream* pStream = ::utl::UcbStreamHelper::CreateStream( aFileURL,
+                std::unique_ptr<SvStream> pStream = ::utl::UcbStreamHelper::CreateStream( aFileURL,
                                                                           StreamMode::STD_WRITE );
                 if ( pStream )
                 {
                     if ( !pStream->GetError() )
                     {
                         uno::Reference< io::XStream > xStream =
-                            uno::Reference < io::XStream >( new ::utl::OStreamWrapper( *pStream ) );
+                            uno::Reference < io::XStream >( new ::utl::OStreamWrapper( std::move(pStream) ) );
                         xResult = static_cast< io::XStream* >( new OFSStreamContainer( xStream ) );
                     }
-                    else
-                        delete pStream;
                 }
             }
 

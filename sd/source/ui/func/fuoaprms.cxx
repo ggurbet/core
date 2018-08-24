@@ -28,6 +28,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <sfx2/sfxdlg.hxx>
 #include <svl/aeitem.hxx>
 #include <svx/xtable.hxx>
 
@@ -74,7 +75,7 @@ rtl::Reference<FuPoor> FuObjectAnimationParameters::Create( ViewShell* pViewSh, 
 
 void FuObjectAnimationParameters::DoExecute( SfxRequest& rReq )
 {
-    ::svl::IUndoManager* pUndoMgr = mpViewShell->GetViewFrame()->GetObjectShell()->GetUndoManager();
+    SfxUndoManager* pUndoMgr = mpViewShell->GetViewFrame()->GetObjectShell()->GetUndoManager();
 
     const SdrMarkList& rMarkList  = mpView->GetMarkedObjectList();
     const size_t nCount = rMarkList.GetMarkCount();
@@ -445,18 +446,15 @@ void FuObjectAnimationParameters::DoExecute( SfxRequest& rReq )
             aSet.Put(SfxBoolItem(ATTR_ACTION_PLAYFULL, false));
 
         SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractDialog> pDlg(pFact ? pFact->CreatSdActionDialog(mpViewShell->GetActiveWindow(), &aSet, mpView) : nullptr);
+        ScopedVclPtr<SfxAbstractDialog> pDlg( pFact->CreatSdActionDialog(mpViewShell->GetActiveWindow(), &aSet, mpView) );
 
-        short nResult = pDlg ? pDlg->Execute() : static_cast<short>(RET_CANCEL);
-
-        if( nResult == RET_OK )
-        {
-            rReq.Done( *( pDlg->GetOutputItemSet() ) );
-            pArgs = rReq.GetArgs();
-        }
+        short nResult = pDlg->Execute();
 
         if( nResult != RET_OK )
             return;
+
+        rReq.Done( *( pDlg->GetOutputItemSet() ) );
+        pArgs = rReq.GetArgs();
     }
 
     // evaluation of the ItemSets

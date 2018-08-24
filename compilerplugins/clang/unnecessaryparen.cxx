@@ -59,16 +59,15 @@ Expr const * ignoreAllImplicit(Expr const * expr) {
 }
 
 class UnnecessaryParen:
-    public RecursiveASTVisitor<UnnecessaryParen>, public loplugin::RewritePlugin
+    public loplugin::FilteringRewritePlugin<UnnecessaryParen>
 {
 public:
     explicit UnnecessaryParen(loplugin::InstantiationData const & data):
-        RewritePlugin(data) {}
+        FilteringRewritePlugin(data) {}
 
     virtual void run() override
     {
-        StringRef fn( compiler.getSourceManager().getFileEntryForID(
-                          compiler.getSourceManager().getMainFileID())->getName() );
+        StringRef fn(handler.getMainFileName());
         // fixing this, makes the source in the .y files look horrible
         if (loplugin::isSamePathname(fn, WORKDIR "/YaccTarget/unoidl/source/sourceprovider-parser.cxx"))
              return;
@@ -135,7 +134,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
 {
     if (ignoreLocation(parenExpr))
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
     if (handled_.find(parenExpr) != handled_.end())
         return true;
@@ -144,11 +143,11 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
 
     if (auto subParenExpr = dyn_cast<ParenExpr>(subExpr))
     {
-        if (subParenExpr->getLocStart().isMacroID())
+        if (compat::getBeginLoc(subParenExpr).isMacroID())
             return true;
         report(
             DiagnosticsEngine::Warning, "parentheses around parentheses",
-            parenExpr->getLocStart())
+            compat::getBeginLoc(parenExpr))
             << parenExpr->getSourceRange();
         handled_.insert(subParenExpr);
     }
@@ -161,7 +160,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
         if (!isPrecededBy_BAD_CAST(parenExpr)) {
             report(
                 DiagnosticsEngine::Warning, "unnecessary parentheses around identifier",
-                parenExpr->getLocStart())
+                compat::getBeginLoc(parenExpr))
                 << parenExpr->getSourceRange();
             handled_.insert(parenExpr);
         }
@@ -170,7 +169,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
                || isa<CXXBoolLiteralExpr>(subExpr) || isa<CXXNullPtrLiteralExpr>(subExpr)
                || isa<ObjCBoolLiteralExpr>(subExpr))
     {
-        auto const loc = subExpr->getLocStart();
+        auto const loc = compat::getBeginLoc(subExpr);
         if (loc.isMacroID() && compiler.getSourceManager().isAtStartOfImmediateMacroExpansion(loc))
         {
             // just in case the macro could also expand to something that /would/ require
@@ -179,7 +178,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
         }
         report(
             DiagnosticsEngine::Warning, "unnecessary parentheses around literal",
-            parenExpr->getLocStart())
+            compat::getBeginLoc(parenExpr))
             << parenExpr->getSourceRange();
         handled_.insert(parenExpr);
     } else if (auto const e = dyn_cast<clang::StringLiteral>(subExpr)) {
@@ -187,7 +186,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
             report(
                 DiagnosticsEngine::Warning,
                 "unnecessary parentheses around single-token string literal",
-                parenExpr->getLocStart())
+                compat::getBeginLoc(parenExpr))
                 << parenExpr->getSourceRange();
             handled_.insert(parenExpr);
         }
@@ -199,7 +198,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
                 report(
                     DiagnosticsEngine::Warning,
                     "unnecessary parentheses around signed numeric literal",
-                    parenExpr->getLocStart())
+                    compat::getBeginLoc(parenExpr))
                     << parenExpr->getSourceRange();
                 handled_.insert(parenExpr);
             }
@@ -208,7 +207,7 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
         if (!removeParens(parenExpr)) {
             report(
                 DiagnosticsEngine::Warning, "unnecessary parentheses around cast",
-                parenExpr->getLocStart())
+                compat::getBeginLoc(parenExpr))
                 << parenExpr->getSourceRange();
         }
         handled_.insert(parenExpr);
@@ -266,7 +265,7 @@ bool UnnecessaryParen::VisitReturnStmt(const ReturnStmt* returnStmt)
     auto parenExpr = dyn_cast<ParenExpr>(ignoreAllImplicit(returnStmt->getRetValue()));
     if (!parenExpr)
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
     // assignments need extra parentheses or they generate a compiler warning
     auto binaryOp = dyn_cast<BinaryOperator>(parenExpr->getSubExpr());
@@ -279,7 +278,7 @@ bool UnnecessaryParen::VisitReturnStmt(const ReturnStmt* returnStmt)
     {
         report(
             DiagnosticsEngine::Warning, "parentheses immediately inside return statement",
-            parenExpr->getLocStart())
+            compat::getBeginLoc(parenExpr))
             << parenExpr->getSourceRange();
         handled_.insert(parenExpr);
     }
@@ -296,7 +295,7 @@ void UnnecessaryParen::VisitSomeStmt(const Stmt * stmt, const Expr* cond, String
         if (handled_.find(parenExpr) != handled_.end()) {
             return;
         }
-        if (parenExpr->getLocStart().isMacroID())
+        if (compat::getBeginLoc(parenExpr).isMacroID())
             return;
         // assignments need extra parentheses or they generate a compiler warning
         auto binaryOp = dyn_cast<BinaryOperator>(parenExpr->getSubExpr());
@@ -309,7 +308,7 @@ void UnnecessaryParen::VisitSomeStmt(const Stmt * stmt, const Expr* cond, String
         }
         report(
             DiagnosticsEngine::Warning, "parentheses immediately inside %0 statement",
-            parenExpr->getLocStart())
+            compat::getBeginLoc(parenExpr))
             << stmtName
             << parenExpr->getSourceRange();
         handled_.insert(parenExpr);
@@ -326,7 +325,7 @@ bool UnnecessaryParen::VisitCallExpr(const CallExpr* callExpr)
     auto parenExpr = dyn_cast<ParenExpr>(ignoreAllImplicit(callExpr->getArg(0)));
     if (!parenExpr)
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
     // assignments need extra parentheses or they generate a compiler warning
     auto binaryOp = dyn_cast<BinaryOperator>(parenExpr->getSubExpr());
@@ -334,7 +333,7 @@ bool UnnecessaryParen::VisitCallExpr(const CallExpr* callExpr)
         return true;
     report(
         DiagnosticsEngine::Warning, "parentheses immediately inside single-arg call",
-        parenExpr->getLocStart())
+        compat::getBeginLoc(parenExpr))
         << parenExpr->getSourceRange();
     handled_.insert(parenExpr);
     return true;
@@ -348,7 +347,7 @@ bool UnnecessaryParen::VisitCXXDeleteExpr(const CXXDeleteExpr* deleteExpr)
     auto parenExpr = dyn_cast<ParenExpr>(ignoreAllImplicit(deleteExpr->getArgument()));
     if (!parenExpr)
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
     // assignments need extra parentheses or they generate a compiler warning
     auto binaryOp = dyn_cast<BinaryOperator>(parenExpr->getSubExpr());
@@ -356,7 +355,7 @@ bool UnnecessaryParen::VisitCXXDeleteExpr(const CXXDeleteExpr* deleteExpr)
         return true;
     report(
         DiagnosticsEngine::Warning, "parentheses immediately inside delete expr",
-        parenExpr->getLocStart())
+        compat::getBeginLoc(parenExpr))
         << parenExpr->getSourceRange();
     handled_.insert(parenExpr);
     return true;
@@ -383,7 +382,7 @@ bool UnnecessaryParen::VisitCXXOperatorCallExpr(const CXXOperatorCallExpr* callE
     auto parenExpr = dyn_cast<ParenExpr>(ignoreAllImplicit(callExpr->getArg(1)));
     if (!parenExpr)
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
     // Sometimes parentheses make the RHS of an assignment easier to read by
     // visually disambiguating the = from a call to ==
@@ -395,7 +394,7 @@ bool UnnecessaryParen::VisitCXXOperatorCallExpr(const CXXOperatorCallExpr* callE
 
     report(
         DiagnosticsEngine::Warning, "parentheses immediately inside assignment",
-        parenExpr->getLocStart())
+        compat::getBeginLoc(parenExpr))
         << parenExpr->getSourceRange();
     handled_.insert(parenExpr);
     return true;
@@ -411,7 +410,7 @@ bool UnnecessaryParen::VisitVarDecl(const VarDecl* varDecl)
     auto parenExpr = dyn_cast<ParenExpr>(ignoreAllImplicit(varDecl->getInit()));
     if (!parenExpr)
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
     auto sub = parenExpr->getSubExpr();
     if (isa<BinaryOperator>(sub)
@@ -424,7 +423,7 @@ bool UnnecessaryParen::VisitVarDecl(const VarDecl* varDecl)
 
     report(
         DiagnosticsEngine::Warning, "parentheses immediately inside vardecl statement",
-        parenExpr->getLocStart())
+        compat::getBeginLoc(parenExpr))
         << parenExpr->getSourceRange();
     handled_.insert(parenExpr);
     return true;
@@ -440,7 +439,7 @@ bool UnnecessaryParen::VisitMemberExpr(const MemberExpr* memberExpr)
         return true;
     if (handled_.find(parenExpr) != handled_.end())
         return true;
-    if (parenExpr->getLocStart().isMacroID())
+    if (compat::getBeginLoc(parenExpr).isMacroID())
         return true;
 
     auto sub = parenExpr->getSubExpr();
@@ -458,7 +457,7 @@ bool UnnecessaryParen::VisitMemberExpr(const MemberExpr* memberExpr)
 
     report(
         DiagnosticsEngine::Warning, "unnecessary parentheses around member expr",
-        parenExpr->getLocStart())
+        compat::getBeginLoc(parenExpr))
         << parenExpr->getSourceRange();
     handled_.insert(parenExpr);
     return true;
@@ -493,12 +492,12 @@ void UnnecessaryParen::handleUnreachableCodeConditionParens(Expr const * expr) {
 }
 
 bool UnnecessaryParen::isPrecededBy_BAD_CAST(Expr const * expr) {
-    if (expr->getLocStart().isMacroID()) {
+    if (compat::getBeginLoc(expr).isMacroID()) {
         return false;
     }
     SourceManager& SM = compiler.getSourceManager();
-    const char *p1 = SM.getCharacterData( expr->getLocStart().getLocWithOffset(-10) );
-    const char *p2 = SM.getCharacterData( expr->getLocStart() );
+    const char *p1 = SM.getCharacterData( compat::getBeginLoc(expr).getLocWithOffset(-10) );
+    const char *p2 = SM.getCharacterData( compat::getBeginLoc(expr) );
     return std::string(p1, p2 - p1).find("BAD_CAST") != std::string::npos;
 }
 
@@ -527,8 +526,8 @@ bool UnnecessaryParen::removeParens(ParenExpr const * expr) {
     if (rewriter == nullptr) {
         return false;
     }
-    auto const firstBegin = expr->getLocStart();
-    auto secondBegin = expr->getLocEnd();
+    auto const firstBegin = compat::getBeginLoc(expr);
+    auto secondBegin = compat::getEndLoc(expr);
     if (firstBegin.isMacroID() || secondBegin.isMacroID()) {
         return false;
     }

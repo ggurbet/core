@@ -24,7 +24,6 @@
 #include "mutexhlp.hxx"
 
 #include <svl/lstner.hxx>
-#include <svl/itemprop.hxx>
 #include <editeng/editdata.hxx>
 #include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
@@ -37,17 +36,18 @@
 #include <com/sun/star/util/DateTime.hpp>
 #include <cppuhelper/component.hxx>
 #include <cppuhelper/implbase.hxx>
-#include <comphelper/interfacecontainer2.hxx>
 #include <osl/mutex.hxx>
 
 #include <memory>
 
+namespace comphelper { class OInterfaceContainerHelper2; }
+
 class ScEditSource;
 class SvxFieldItem;
 class SvxFieldData;
-class ScEditFieldObj;
 class ScDocShell;
 class ScHeaderFooterTextData;
+class SfxItemPropertySet;
 
 class ScCellFieldsObj : public cppu::WeakImplHelper<
                             css::container::XEnumerationAccess,
@@ -61,7 +61,7 @@ private:
     css::uno::Reference<css::text::XTextRange> mxContent;
     ScDocShell*             pDocShell;
     ScAddress               aCellPos;
-    ScEditSource* mpEditSource;
+    std::unique_ptr<ScEditSource> mpEditSource;
     /// List of refresh listeners.
     comphelper::OInterfaceContainerHelper2* mpRefreshListeners;
     /// mutex to lock the InterfaceContainerHelper
@@ -114,7 +114,7 @@ class ScHeaderFieldsObj : public cppu::WeakImplHelper<
 {
 private:
     ScHeaderFooterTextData& mrData;
-    ScEditSource* mpEditSource;
+    std::unique_ptr<ScEditSource> mpEditSource;
 
     /// List of refresh listeners.
     comphelper::OInterfaceContainerHelper2* mpRefreshListeners;
@@ -204,7 +204,7 @@ public:
 
     ScEditFieldObj(
         const css::uno::Reference<css::text::XTextRange>& rContent,
-        ScEditSource* pEditSrc, sal_Int32 eType, const ESelection& rSel);
+        std::unique_ptr<ScEditSource> pEditSrc, sal_Int32 eType, const ESelection& rSel);
     virtual ~ScEditFieldObj() override;
 
     sal_Int32 GetFieldType() const { return meType;}
@@ -213,7 +213,7 @@ public:
     SvxFieldItem CreateFieldItem();
     void InitDoc(
         const css::uno::Reference<css::text::XTextRange>& rContent,
-        ScEditSource* pEditSrc, const ESelection& rSel);
+        std::unique_ptr<ScEditSource> pEditSrc, const ESelection& rSel);
 
                             // XTextField
     virtual OUString SAL_CALL getPresentation( sal_Bool bShowCommand ) override;

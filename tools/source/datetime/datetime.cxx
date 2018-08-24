@@ -18,6 +18,24 @@
  */
 #include <tools/datetime.hxx>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
+
+#include <systemdatetime.hxx>
+
+DateTime::DateTime(DateTimeInitSystem)
+    : Date( Date::EMPTY )
+    , Time( Time::EMPTY )
+{
+    sal_Int32 nD = 0;
+    sal_Int64 nT = 0;
+    if ( GetSystemDateTime( &nD, &nT ) )
+    {
+        Date::operator=( Date( nD ) );
+        SetTime( nT );
+    }
+    else
+        Date::operator=( Date( 1, 1, 1900 ) ); // Time::nTime is already 0
+}
 
 DateTime::DateTime( const css::util::DateTime& rDateTime )
   : Date( rDateTime.Day, rDateTime.Month, rDateTime.Year ),
@@ -287,7 +305,7 @@ DateTime DateTime::CreateFromUnixTime(const double fSecondsSinceEpoch)
 
     Date aDate (1, 1, 1970);
     aDate.AddDays(nDays);
-    SAL_WARN_IF(aDate - Date(1, 1, 1970) != static_cast<sal_Int32>(nDays), "tools.datetime",
+    SAL_WARN_IF(aDate - Date(1, 1, 1970) != nDays, "tools.datetime",
                 "DateTime::CreateFromUnixTime - date truncated to max");
 
     fValue -= nDays;

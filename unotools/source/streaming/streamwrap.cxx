@@ -43,6 +43,12 @@ OInputStreamWrapper::OInputStreamWrapper( SvStream* pStream, bool bOwner )
 {
 }
 
+OInputStreamWrapper::OInputStreamWrapper( std::unique_ptr<SvStream> pStream )
+                 :m_pSvStream( pStream.release() )
+                 ,m_bSvStreamOwner( true )
+{
+}
+
 OInputStreamWrapper::~OInputStreamWrapper()
 {
     if( m_bSvStreamOwner )
@@ -101,17 +107,10 @@ sal_Int32 SAL_CALL OInputStreamWrapper::available()
     ::osl::MutexGuard aGuard( m_aMutex );
     checkConnected();
 
-    sal_uInt32 nPos = m_pSvStream->Tell();
+    sal_Int64 nAvailable = m_pSvStream->remainingSize();
     checkError();
 
-    m_pSvStream->Seek(STREAM_SEEK_TO_END);
-    checkError();
-
-    sal_Int32 nAvailable = static_cast<sal_Int32>(m_pSvStream->Tell()) - nPos;
-    m_pSvStream->Seek(nPos);
-    checkError();
-
-    return nAvailable;
+    return std::min<sal_Int64>(SAL_MAX_INT32, nAvailable);
 }
 
 void SAL_CALL OInputStreamWrapper::closeInput()
@@ -286,6 +285,11 @@ OStreamWrapper::~OStreamWrapper() = default;
 OStreamWrapper::OStreamWrapper(SvStream& _rStream)
 {
     SetStream( &_rStream, false );
+}
+
+OStreamWrapper::OStreamWrapper(std::unique_ptr<SvStream> pStream)
+{
+    SetStream( pStream.release(), true );
 }
 
 css::uno::Reference< css::io::XInputStream > SAL_CALL OStreamWrapper::getInputStream(  )

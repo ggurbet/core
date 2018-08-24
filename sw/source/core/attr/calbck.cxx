@@ -23,12 +23,40 @@
 #include <swcache.hxx>
 #include <swfntcch.hxx>
 #include <tools/debug.hxx>
+#include <sal/log.hxx>
 #include <algorithm>
+
+namespace sw
+{
+    bool ListenerEntry::GetInfo(SfxPoolItem& rInfo) const
+        { return m_pToTell == nullptr || m_pToTell->GetInfo( rInfo ); }
+    void ListenerEntry::Modify(const SfxPoolItem *const pOldValue,
+                               const SfxPoolItem *const pNewValue)
+    {
+        SwClientNotify(*GetRegisteredIn(), sw::LegacyModifyHint(pOldValue, pNewValue));
+    }
+    void ListenerEntry::SwClientNotify(const SwModify& rModify, const SfxHint& rHint)
+    {
+        if (auto pLegacyHint = dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
+        {
+            if (pLegacyHint->m_pNew && pLegacyHint->m_pNew->Which() == RES_OBJECTDYING)
+            {
+                auto pModifyChanged = CheckRegistration(pLegacyHint->m_pOld);
+                if (pModifyChanged)
+                    m_pToTell->SwClientNotify(rModify, *pModifyChanged);
+            }
+            else if (m_pToTell)
+                m_pToTell->SwClientNotifyCall(rModify, rHint);
+        }
+        else if (m_pToTell)
+            m_pToTell->SwClientNotifyCall(rModify, rHint);
+    }
+}
 
 sw::LegacyModifyHint::~LegacyModifyHint() {}
 sw::ModifyChangedHint::~ModifyChangedHint() {}
 
-SwClient::SwClient(SwClient&& o)
+SwClient::SwClient(SwClient&& o) noexcept
     : m_pRegisteredIn(nullptr)
 {
     if(o.m_pRegisteredIn)
@@ -193,9 +221,9 @@ void SwModify::Add( SwClient* pDepend )
     if(pDepend->m_pRegisteredIn != this )
     {
 #if OSL_DEBUG_LEVEL > 0
-        if(sw::ClientIteratorBase::our_pClientIters)
+        if(sw::ClientIteratorBase::s_pClientIters)
         {
-            for(auto& rIter : sw::ClientIteratorBase::our_pClientIters->GetRingContainer())
+            for(auto& rIter : sw::ClientIteratorBase::s_pClientIters->GetRingContainer())
             {
                 SAL_WARN_IF(&rIter.m_rRoot == m_pWriterListeners, "sw.core", "a " << typeid(*pDepend).name() << " client added as listener to a " << typeid(*this).name() << " during client iteration.");
             }
@@ -245,9 +273,9 @@ SwClient* SwModify::Remove( SwClient* pDepend )
         pR->m_pLeft = pL;
 
     // update ClientIterators
-    if(sw::ClientIteratorBase::our_pClientIters)
+    if(sw::ClientIteratorBase::s_pClientIters)
     {
-        for(auto& rIter : sw::ClientIteratorBase::our_pClientIters->GetRingContainer())
+        for(auto& rIter : sw::ClientIteratorBase::s_pClientIters->GetRingContainer())
         {
             if (&rIter.m_rRoot == this &&
                 (rIter.m_pCurrent == pDepend || rIter.m_pPosition == pDepend))
@@ -296,19 +324,26 @@ void SwModify::CheckCaching( const sal_uInt16 nWhich )
     }
 }
 
+sw::WriterMultiListener::WriterMultiListener(SwClient& rToTell)
+    : m_rToTell(rToTell)
+{}
+
+sw::WriterMultiListener::~WriterMultiListener()
+{}
+
 void sw::WriterMultiListener::StartListening(SwModify* pDepend)
 {
     EndListening(nullptr);
-    m_vDepends.emplace_back(pointer_t( new SwDepend(&m_rToTell, pDepend)));
+    m_vDepends.emplace_back(ListenerEntry(&m_rToTell, pDepend));
 }
 
 
 bool sw::WriterMultiListener::IsListeningTo(const SwModify* const pBroadcaster)
 {
     return std::any_of(m_vDepends.begin(), m_vDepends.end(),
-        [&pBroadcaster](const pointer_t& pListener)
+        [&pBroadcaster](const ListenerEntry& aListener)
         {
-            return pListener->GetRegisteredIn() == pBroadcaster;
+            return aListener.GetRegisteredIn() == pBroadcaster;
         });
 }
 
@@ -316,9 +351,9 @@ void sw::WriterMultiListener::EndListening(SwModify* pBroadcaster)
 {
     m_vDepends.erase(
         std::remove_if( m_vDepends.begin(), m_vDepends.end(),
-            [&pBroadcaster](const pointer_t& pListener)
+            [&pBroadcaster](const ListenerEntry& aListener)
             {
-                return pListener->GetRegisteredIn() == nullptr || pListener->GetRegisteredIn() == pBroadcaster;
+                return aListener.GetRegisteredIn() == nullptr || aListener.GetRegisteredIn() == pBroadcaster;
             }),
         m_vDepends.end());
 }
@@ -328,5 +363,5 @@ void sw::WriterMultiListener::EndListeningAll()
     m_vDepends.clear();
 }
 
-sw::ClientIteratorBase* sw::ClientIteratorBase::our_pClientIters = nullptr;
+sw::ClientIteratorBase* sw::ClientIteratorBase::s_pClientIters = nullptr;
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

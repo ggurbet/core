@@ -21,7 +21,9 @@
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/text/TextGridMode.hpp>
+#include <sal/log.hxx>
 #include <o3tl/any.hxx>
+#include <o3tl/safeint.hxx>
 #include <svtools/unoimap.hxx>
 #include <svtools/imap.hxx>
 #include <svtools/imapobj.hxx>
@@ -54,6 +56,7 @@
 #include <pagefrm.hxx>
 #include <rootfrm.hxx>
 #include <cntfrm.hxx>
+#include <notxtfrm.hxx>
 #include <crsrsh.hxx>
 #include <dflyobj.hxx>
 #include <dcontact.hxx>
@@ -121,7 +124,7 @@ static void lcl_DelHFFormat( SwClient *pToRemove, SwFrameFormat *pFormat )
         // It's suboptimal if the format is deleted beforehand.
         SwIterator<SwClient,SwFrameFormat> aIter(*pFormat);
         for(SwClient* pLast = aIter.First(); bDel && pLast; pLast = aIter.Next())
-            if (dynamic_cast<const SwFrame*>(pLast) == nullptr && !SwXHeadFootText::IsXHeadFootText(pLast))
+            if (dynamic_cast<const SwFrame*>(pLast) == nullptr)
                 bDel = false;
     }
 
@@ -193,18 +196,6 @@ SwFormatFrameSize::SwFormatFrameSize( SwFrameSize eSize, SwTwips nWidth, SwTwips
     m_eFrameWidthType( ATT_FIX_SIZE )
 {
     m_nWidthPercent = m_eWidthPercentRelation = m_nHeightPercent = m_eHeightPercentRelation = 0;
-}
-
-SwFormatFrameSize& SwFormatFrameSize::operator=( const SwFormatFrameSize& rCpy )
-{
-    SvxSizeItem::operator=(rCpy);
-    m_eFrameHeightType = rCpy.GetHeightSizeType();
-    m_eFrameWidthType = rCpy.GetWidthSizeType();
-    m_nHeightPercent = rCpy.GetHeightPercent();
-    m_eHeightPercentRelation  = rCpy.GetHeightPercentRelation();
-    m_nWidthPercent  = rCpy.GetWidthPercent();
-    m_eWidthPercentRelation  = rCpy.GetWidthPercentRelation();
-    return *this;
 }
 
 bool SwFormatFrameSize::operator==( const SfxPoolItem& rAttr ) const
@@ -994,16 +985,23 @@ sal_uInt16 SwFormatCol::CalcPrtColWidth( sal_uInt16 nCol, sal_uInt16 nAct ) cons
 
 void SwFormatCol::Calc( sal_uInt16 nGutterWidth, sal_uInt16 nAct )
 {
-    if(!GetNumCols())
+    if (!GetNumCols())
         return;
+
     //First set the column widths with the current width, then calculate the
     //column's requested width using the requested total width.
-
     const sal_uInt16 nGutterHalf = nGutterWidth ? nGutterWidth / 2 : 0;
 
     //Width of PrtAreas is totalwidth - spacings / count
-    const sal_uInt16 nPrtWidth =
-                (nAct - ((GetNumCols()-1) * nGutterWidth)) / GetNumCols();
+    sal_uInt16 nSpacings;
+    bool bFail = o3tl::checked_multiply<sal_uInt16>(GetNumCols() - 1, nGutterWidth, nSpacings);
+    if (bFail)
+    {
+        SAL_WARN("sw.core", "SwFormatVertOrient::Calc: overflow");
+        return;
+    }
+
+    const sal_uInt16 nPrtWidth = (nAct - nSpacings) / GetNumCols();
     sal_uInt16 nAvail = nAct;
 
     //The first column is PrtWidth + (gap width / 2)
@@ -1333,11 +1331,11 @@ bool SwFormatVertOrient::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
     {
         case MID_VERTORIENT_ORIENT:
         {
-            rVal <<= static_cast<sal_Int16>(m_eOrient);
+            rVal <<= m_eOrient;
         }
         break;
         case MID_VERTORIENT_RELATION:
-                rVal <<= static_cast<sal_Int16>(m_eRelation);
+                rVal <<= m_eRelation;
         break;
         case MID_VERTORIENT_POSITION:
                 rVal <<= static_cast<sal_Int32>(convertTwipToMm100(GetPos()));
@@ -1427,11 +1425,11 @@ bool SwFormatHoriOrient::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
     {
         case MID_HORIORIENT_ORIENT:
         {
-            rVal <<= static_cast<sal_Int16>(m_eOrient);
+            rVal <<= m_eOrient;
         }
         break;
         case MID_HORIORIENT_RELATION:
-            rVal <<= static_cast<sal_Int16>(m_eRelation);
+            rVal <<= m_eRelation;
         break;
         case MID_HORIORIENT_POSITION:
                 rVal <<= static_cast<sal_Int32>(convertTwipToMm100(GetPos()));
@@ -2209,23 +2207,6 @@ SfxPoolItem* SwTextGridItem::Clone( SfxItemPool* ) const
     return new SwTextGridItem( *this );
 }
 
-SwTextGridItem& SwTextGridItem::operator=( const SwTextGridItem& rCpy )
-{
-    m_aColor = rCpy.GetColor();
-    m_nLines = rCpy.GetLines();
-    m_nBaseHeight = rCpy.GetBaseHeight();
-    m_nRubyHeight = rCpy.GetRubyHeight();
-    m_eGridType = rCpy.GetGridType();
-    m_bRubyTextBelow = rCpy.GetRubyTextBelow();
-    m_bPrintGrid = rCpy.GetPrintGrid();
-    m_bDisplayGrid = rCpy.GetDisplayGrid();
-    m_nBaseWidth = rCpy.GetBaseWidth();
-    m_bSnapToChars = rCpy.GetSnapToChars();
-    m_bSquaredMode = rCpy.GetSquaredMode();
-
-    return *this;
-}
-
 bool SwTextGridItem::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
 {
     bool bRet = true;
@@ -2466,8 +2447,6 @@ SfxPoolItem* SwHeaderAndFooterEatSpacingItem::Clone( SfxItemPool* ) const
     return new SwHeaderAndFooterEatSpacingItem( Which(), GetValue() );
 }
 
-// Partially implemented inline in hxx
-IMPL_FIXEDMEMPOOL_NEWDEL_DLL( SwFrameFormat )
 
 SwFrameFormat::SwFrameFormat(
     SwAttrPool& rPool,
@@ -2859,12 +2838,6 @@ void SwFrameFormats::dumpAsXml(xmlTextWriterPtr pWriter, const char* pName) cons
     xmlTextWriterEndElement(pWriter);
 }
 
-//  class SwFlyFrameFormat
-//  Partially implemented inline in hxx
-
-IMPL_FIXEDMEMPOOL_NEWDEL( SwFlyFrameFormat )
-
-
 
 SwFlyFrameFormat::SwFlyFrameFormat( SwAttrPool& rPool, const OUString &rFormatNm, SwFrameFormat *pDrvdFrame )
     : SwFrameFormat( rPool, rFormatNm, pDrvdFrame, RES_FLYFRMFMT )
@@ -2933,7 +2906,7 @@ void SwFlyFrameFormat::MakeFrames()
             }
             if ( pCNd )
             {
-                if( SwIterator<SwFrame,SwContentNode>( *pCNd ).First() )
+                if (SwIterator<SwFrame, SwContentNode, sw::IteratorMode::UnwrapMulti>(*pCNd).First())
                 {
                     pModify = pCNd;
                 }
@@ -2964,7 +2937,7 @@ void SwFlyFrameFormat::MakeFrames()
             if( nPgNum == 0 && aAnchorAttr.GetContentAnchor() )
             {
                 SwContentNode *pCNd = aAnchorAttr.GetContentAnchor()->nNode.GetNode().GetContentNode();
-                SwIterator<SwFrame,SwContentNode> aIter( *pCNd );
+                SwIterator<SwFrame, SwContentNode, sw::IteratorMode::UnwrapMulti> aIter(*pCNd);
                 for ( SwFrame* pFrame = aIter.First(); pFrame != nullptr; pFrame = aIter.Next() )
                 {
                     pPage = pFrame->FindPageFrame();
@@ -2996,7 +2969,7 @@ void SwFlyFrameFormat::MakeFrames()
 
     if( pModify )
     {
-        SwIterator<SwFrame,SwModify> aIter( *pModify );
+        SwIterator<SwFrame, SwModify, sw::IteratorMode::UnwrapMulti> aIter(*pModify);
         for( SwFrame *pFrame = aIter.First(); pFrame; pFrame = aIter.Next() )
         {
             bool bAdd = !pFrame->IsContentFrame() ||
@@ -3270,14 +3243,16 @@ SwHandleAnchorNodeChg::SwHandleAnchorNodeChg( SwFlyFrameFormat& _rFlyFrameFormat
         {
             // determine 'old' number of anchor frames
             sal_uInt32 nOldNumOfAnchFrame( 0 );
-            SwIterator<SwFrame,SwContentNode> aOldIter( *(aOldAnchorFormat.GetContentAnchor()->nNode.GetNode().GetContentNode()) );
+            SwIterator<SwFrame, SwContentNode, sw::IteratorMode::UnwrapMulti> aOldIter(
+                *(aOldAnchorFormat.GetContentAnchor()->nNode.GetNode().GetContentNode()) );
             for( SwFrame* pOld = aOldIter.First(); pOld; pOld = aOldIter.Next() )
             {
                 ++nOldNumOfAnchFrame;
             }
             // determine 'new' number of anchor frames
             sal_uInt32 nNewNumOfAnchFrame( 0 );
-            SwIterator<SwFrame,SwContentNode> aNewIter( *(_rNewAnchorFormat.GetContentAnchor()->nNode.GetNode().GetContentNode()) );
+            SwIterator<SwFrame, SwContentNode, sw::IteratorMode::UnwrapMulti> aNewIter(
+                *(_rNewAnchorFormat.GetContentAnchor()->nNode.GetNode().GetContentNode()) );
             for( SwFrame* pNew = aNewIter.First(); pNew; pNew = aNewIter.Next() )
             {
                 ++nNewNumOfAnchFrame;
@@ -3311,11 +3286,6 @@ SwHandleAnchorNodeChg::~SwHandleAnchorNodeChg()
         mrFlyFrameFormat.MakeFrames();
     }
 }
-
-//  class SwDrawFrameFormat
-//  Partially implemented inline in hxx
-
-IMPL_FIXEDMEMPOOL_NEWDEL( SwDrawFrameFormat )
 
 namespace sw
 {
@@ -3389,7 +3359,7 @@ OUString SwDrawFrameFormat::GetDescription() const
     {
         if (pSdrObj != m_pSdrObjectCached)
         {
-            SdrObject * pSdrObjCopy = pSdrObj->Clone();
+            SdrObject * pSdrObjCopy(pSdrObj->CloneSdrObject(pSdrObj->getSdrModelFromSdrObject()));
             SdrUndoNewObj * pSdrUndo = new SdrUndoNewObj(*pSdrObjCopy);
             m_sSdrObjectCachedComment = pSdrUndo->GetComment();
 
@@ -3428,7 +3398,7 @@ IMapObject* SwFrameFormat::GetIMapObject( const Point& rPoint,
     if( pFly->Lower() && pFly->Lower()->IsNoTextFrame() )
     {
         pRef = pFly->Lower();
-        pNd = static_cast<const SwContentFrame*>(pRef)->GetNode()->GetNoTextNode();
+        pNd = static_cast<const SwNoTextFrame*>(pRef)->GetNode()->GetNoTextNode();
         aOrigSz = pNd->GetTwipSize();
     }
     else

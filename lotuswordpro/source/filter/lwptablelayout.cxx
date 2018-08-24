@@ -83,6 +83,7 @@
 #include <xfilter/xfparastyle.hxx>
 #include <memory>
 #include <set>
+#include <sal/log.hxx>
 
 LwpSuperTableLayout::LwpSuperTableLayout(LwpObjectHeader const &objHdr, LwpSvStream* pStrm)
     : LwpPlacableLayout(objHdr, pStrm)
@@ -1361,7 +1362,7 @@ void LwpTableLayout::ConvertDefaultRow(rtl::Reference<XFTable> const & pXFTable,
         rtl::Reference<XFCell> xCell;
         if (m_pDefaultCellLayout)
         {
-            xCell = m_pDefaultCellLayout->ConvertCell(
+            xCell = m_pDefaultCellLayout->DoConvertCell(
                 GetTable()->GetObjectID(),nRowID,j+nStartCol);
         }
         else

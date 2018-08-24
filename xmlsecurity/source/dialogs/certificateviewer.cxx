@@ -43,11 +43,11 @@ CertificateViewer::CertificateViewer(
         vcl::Window* _pParent,
         const css::uno::Reference< css::xml::crypto::XSecurityEnvironment >& _rxSecurityEnvironment,
         const css::uno::Reference< css::security::XCertificate >& _rXCert, bool bCheckForPrivateKey )
-    : TabDialog(_pParent, "ViewCertDialog", "xmlsec/ui/viewcertdialog.ui" )
+    : TabDialog(_pParent, "ViewCertDialog", "xmlsec/ui/viewcertdialog.ui" ),
+    mbCheckForPrivateKey(bCheckForPrivateKey)
 {
     get(mpTabCtrl, "tabcontrol");
 
-    mbCheckForPrivateKey = bCheckForPrivateKey;
 
     mxSecurityEnvironment = _rxSecurityEnvironment;
     mxCert = _rXCert;
@@ -193,8 +193,8 @@ void CertificateViewerGeneralTP::ActivatePage()
 
 struct Details_UserDatat
 {
-    OUString        maTxt;
-    bool            mbFixedWidthFont;
+    OUString const  maTxt;
+    bool const      mbFixedWidthFont;
 
     inline          Details_UserDatat( const OUString& _rTxt, bool _bFixedWidthFont );
 };
@@ -249,8 +249,8 @@ CertificateViewerDetailsTP::CertificateViewerDetailsTP( vcl::Window* _pParent, C
 
     constexpr int DLGS_WIDTH = 287;
     constexpr int CS_LB_WIDTH = (DLGS_WIDTH - RSC_SP_DLG_INNERBORDER_RIGHT) - RSC_SP_DLG_INNERBORDER_LEFT;
-    static long nTabs[] = { 2, 0, 30*CS_LB_WIDTH/100 };
-    m_pElementsLB->SetTabs( &nTabs[ 0 ] );
+    static long nTabs[] = { 0, 30*CS_LB_WIDTH/100 };
+    m_pElementsLB->SetTabs( SAL_N_ELEMENTS(nTabs), nTabs );
     m_pElementsLB->InsertHeaderEntry( XsResId( STR_HEADERBAR ) );
 
     // fill list box
@@ -361,7 +361,7 @@ IMPL_LINK_NOARG(CertificateViewerDetailsTP, ElementSelectHdl, SvTreeListBox*, vo
 struct CertPath_UserData
 {
     css::uno::Reference< css::security::XCertificate > mxCert;
-    bool mbValid;
+    bool const mbValid;
 
     CertPath_UserData( css::uno::Reference< css::security::XCertificate > const & xCert, bool bValid):
         mxCert(xCert),

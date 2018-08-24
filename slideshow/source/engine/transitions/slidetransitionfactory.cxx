@@ -18,6 +18,7 @@
  */
 
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/utils/canvastools.hxx>
@@ -25,8 +26,6 @@
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 
 #include <cppcanvas/basegfxfactory.hxx>
-
-#include <comphelper/make_shared_from_uno.hxx>
 
 #include <com/sun/star/rendering/XIntegerBitmap.hpp>
 #include <com/sun/star/rendering/IntegerBitmapLayout.hpp>

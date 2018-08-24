@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 #include <stdlib.h>
@@ -58,11 +59,9 @@
 #include <cfg.hxx>
 #include <SvxToolbarConfigPage.hxx>
 #include <SvxConfigPageHelper.hxx>
-#include "eventdlg.hxx"
 #include <dialmgr.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <comphelper/random.hxx>
 #include <unotools/configmgr.hxx>
 #include <o3tl/make_unique.hxx>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -74,7 +73,6 @@
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/frame/theUICommandDescription.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/lang/IllegalAccessException.hpp>
@@ -350,33 +348,24 @@ IMPL_LINK( SvxToolbarConfigPage, GearHdl, MenuButton *, pButton, void )
         OUString aNewURL =
             SvxConfigPageHelper::generateCustomURL( GetSaveInData()->GetEntries() );
 
-        VclPtrInstance< SvxNewToolbarDialog > pNameDialog( nullptr, aNewName );
+        SvxNewToolbarDialog aNameDialog(GetFrameWeld(), aNewName);
 
         // Reflect the actual m_pSaveInListBox into the new toolbar dialog
-        for ( sal_Int32 i = 0; i < m_pSaveInListBox->GetEntryCount(); ++i )
+        for (sal_Int32 i = 0; i < m_pSaveInListBox->GetEntryCount(); ++i)
+            aNameDialog.m_xSaveInListBox->append_text(m_pSaveInListBox->GetEntry(i));
+
+        aNameDialog.m_xSaveInListBox->set_active(m_pSaveInListBox->GetSelectedEntryPos());
+
+        if (aNameDialog.run() == RET_OK)
         {
-            SaveInData* pData =
-                static_cast<SaveInData*>(m_pSaveInListBox->GetEntryData( i ));
-
-            const sal_Int32 nInsertPos =
-                pNameDialog->m_pSaveInListBox->InsertEntry( m_pSaveInListBox->GetEntry( i ) );
-
-            pNameDialog->m_pSaveInListBox->SetEntryData( nInsertPos, pData );
-        }
-
-        pNameDialog->m_pSaveInListBox->SelectEntryPos(
-            m_pSaveInListBox->GetSelectedEntryPos() );
-
-        if ( pNameDialog->Execute() == RET_OK )
-        {
-            aNewName = pNameDialog->GetName();
+            aNewName = aNameDialog.GetName();
 
             // Where to save the new toolbar? (i.e. Modulewise or documentwise)
-            sal_Int32 nInsertPos = pNameDialog->m_pSaveInListBox->GetSelectedEntryPos();
+            int nInsertPos = aNameDialog.m_xSaveInListBox->get_active();
 
             ToolbarSaveInData* pData =
                 static_cast<ToolbarSaveInData*>(
-                    pNameDialog->m_pSaveInListBox->GetEntryData( nInsertPos ) );
+                    m_pSaveInListBox->GetEntryData( nInsertPos ) );
 
             if ( GetSaveInData() != pData )
             {
@@ -900,9 +889,9 @@ SvxToolbarEntriesListBox::SvxToolbarEntriesListBox(vcl::Window* pParent, SvxTool
     : SvxMenuEntriesListBox(pParent, pPg)
     , pPage(pPg)
 {
-    m_pButtonData = new SvLBoxButtonData( this );
-    BuildCheckBoxButtonImages( m_pButtonData );
-    EnableCheckButton( m_pButtonData );
+    m_pButtonData.reset(new SvLBoxButtonData( this ));
+    BuildCheckBoxButtonImages( m_pButtonData.get() );
+    EnableCheckButton( m_pButtonData.get() );
 }
 
 SvxToolbarEntriesListBox::~SvxToolbarEntriesListBox()
@@ -912,8 +901,7 @@ SvxToolbarEntriesListBox::~SvxToolbarEntriesListBox()
 
 void SvxToolbarEntriesListBox::dispose()
 {
-    delete m_pButtonData;
-    m_pButtonData = nullptr;
+    m_pButtonData.reset();
 
     pPage.clear();
     SvxMenuEntriesListBox::dispose();
@@ -972,7 +960,7 @@ Image SvxToolbarEntriesListBox::GetSizedImage(
     rVDev.DrawLine( Point( aNewSize.Width()-3, 0 ), Point( aNewSize.Width()-3, aNewSize.Height()-1 ));
 
     // Create new image that uses the fillcolor as transparent
-    return Image(BitmapEx(rVDev.GetBitmap(Point(), aNewSize), aFillColor));
+    return Image(BitmapEx(rVDev.GetBitmapEx(Point(), aNewSize).GetBitmap(), aFillColor));
 }
 
 void SvxToolbarEntriesListBox::DataChanged( const DataChangedEvent& rDCEvt )
@@ -982,7 +970,7 @@ void SvxToolbarEntriesListBox::DataChanged( const DataChangedEvent& rDCEvt )
     if (( rDCEvt.GetType() == DataChangedEventType::SETTINGS ) &&
         ( rDCEvt.GetFlags() & AllSettingsFlags::STYLE ))
     {
-        BuildCheckBoxButtonImages( m_pButtonData );
+        BuildCheckBoxButtonImages( m_pButtonData.get() );
         Invalidate();
     }
 }

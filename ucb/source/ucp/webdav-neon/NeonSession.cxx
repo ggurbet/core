@@ -30,6 +30,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string.h>
+#include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <osl/time.h>
 #include <rtl/string.h>
@@ -1696,7 +1697,7 @@ void NeonSession::abort()
     SAL_INFO( "ucb.ucp.webdav", "neon commands cannot be aborted" );
 }
 
-const ucbhelper::InternetProxyServer & NeonSession::getProxySettings() const
+ucbhelper::InternetProxyServer NeonSession::getProxySettings() const
 {
     if ( m_aScheme == "http" || m_aScheme == "https" )
     {

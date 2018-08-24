@@ -22,7 +22,6 @@
 #include <unotools/ucbstreamhelper.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <svl/itemprop.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 #include <com/sun/star/beans/PropertyState.hpp>
@@ -34,7 +33,6 @@
 #include <vcl/svapp.hxx>
 #include <memory>
 
-
 enum class UnoGraphicProperty
 {
       GraphicType = 1
@@ -45,6 +43,8 @@ enum class UnoGraphicProperty
     , Transparent = 6
     , Alpha = 7
     , Animated = 8
+    , Linked = 9
+    , OriginURL = 10
 };
 
 
@@ -241,6 +241,9 @@ rtl::Reference<::comphelper::PropertySetInfo> GraphicDescriptor::createPropertyS
         { OUString( "Transparent" ), static_cast< sal_Int32 >( UnoGraphicProperty::Transparent ), cppu::UnoType< sal_Bool >::get(), beans::PropertyAttribute::READONLY, 0 },
         { OUString( "Alpha" ), static_cast< sal_Int32 >( UnoGraphicProperty::Alpha ), cppu::UnoType< sal_Bool >::get(), beans::PropertyAttribute::READONLY, 0 },
         { OUString( "Animated" ), static_cast< sal_Int32 >( UnoGraphicProperty::Animated ), cppu::UnoType< sal_Bool >::get(), beans::PropertyAttribute::READONLY, 0 },
+        { OUString("Linked"), sal_Int32(UnoGraphicProperty::Linked), cppu::UnoType<sal_Bool>::get(), beans::PropertyAttribute::READONLY, 0 },
+        { OUString("OriginURL"), sal_Int32(UnoGraphicProperty::OriginURL), cppu::UnoType<OUString>::get(), beans::PropertyAttribute::READONLY, 0 },
+
         { OUString(), 0, css::uno::Type(), 0, 0 }
     };
 
@@ -327,7 +330,7 @@ void GraphicDescriptor::_getPropertyValues( const comphelper::PropertyMapEntry**
                 {
                     if( mpGraphic->GetType() == GraphicType::Bitmap )
                     {
-                        const Size aSizePix( mpGraphic->GetBitmapEx().GetSizePixel() );
+                        const Size aSizePix( mpGraphic->GetSizePixel() );
                         aAWTSize = awt::Size( aSizePix.Width(), aSizePix.Height() );
                     }
                 }
@@ -391,6 +394,22 @@ void GraphicDescriptor::_getPropertyValues( const comphelper::PropertyMapEntry**
             case UnoGraphicProperty::Animated:
             {
                 *pValues <<= mpGraphic && mpGraphic->IsAnimated();
+            }
+            break;
+
+            case UnoGraphicProperty::Linked:
+            {
+                *pValues <<= mpGraphic && !mpGraphic->getOriginURL().isEmpty();
+            }
+            break;
+
+            case UnoGraphicProperty::OriginURL:
+            {
+                OUString aOriginURL;
+                if (mpGraphic)
+                    aOriginURL = mpGraphic->getOriginURL();
+
+                *pValues <<= aOriginURL;
             }
             break;
         }

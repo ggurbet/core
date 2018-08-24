@@ -75,9 +75,7 @@ struct TextBlockInfo_Impl
 void SwGlossaryHdl::GlossaryDlg()
 {
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    assert(pFact && "Dialog creation failed!");
     ScopedVclPtr<AbstractGlossaryDlg> pDlg(pFact->CreateGlossaryDlg(pViewFrame, this, pWrtShell));
-    assert(pDlg && "Dialog creation failed!");
     OUString sName;
     OUString sShortName;
 
@@ -311,7 +309,7 @@ bool SwGlossaryHdl::NewGlossary(const OUString& rName, const OUString& rShortNam
     OUString* pOnlyText = nullptr;
     if( bNoAttr )
     {
-        if( !pWrtShell->GetSelectedText( sOnlyText, GETSELTXT_PARABRK_TO_ONLYCR ))
+        if( !pWrtShell->GetSelectedText( sOnlyText, ParaBreakType::ToOnlyCR ))
             return false;
         pOnlyText = &sOnlyText;
     }
@@ -354,9 +352,7 @@ bool SwGlossaryHdl::ExpandGlossary()
     OSL_ENSURE(pWrtShell->CanInsert(), "illegal");
     SwTextBlocks *pGlossary;
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    assert(pFact && "Dialog creation failed!");
     ::GlossaryGetCurrGroup fnGetCurrGroup = pFact->GetGlossaryCurrGroupFunc();
-    assert(fnGetCurrGroup && "Dialog creation failed!");
     OUString sGroupName( (*fnGetCurrGroup)() );
     if (sGroupName.indexOf(GLOS_DELIM)<0)
         FindGroupName(sGroupName);
@@ -436,10 +432,7 @@ bool SwGlossaryHdl::Expand( const OUString& rShortName,
             else
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                assert(pFact && "SwAbstractDialogFactory fail!");
-
                 ScopedVclPtr<AbstractSwSelGlossaryDlg> pDlg(pFact->CreateSwSelGlossaryDlg(aShortName));
-                assert(pDlg && "Dialog creation failed!");
                 for(TextBlockInfo_Impl & i : aFoundArr)
                 {
                     pDlg->InsertGlos(i.sTitle, i.sLongName);
@@ -696,10 +689,10 @@ bool SwGlossaryHdl::CopyToClipboard(SwWrtShell& rSh, const OUString& rShortName)
 
     rtl::Reference<SwTransferable> pTransfer = new SwTransferable( rSh );
 
-    int nRet = pTransfer->CopyGlossary( *pGlossary, rShortName );
+    bool bRet = pTransfer->CopyGlossary( *pGlossary, rShortName );
     if( !pCurGrp )
         delete pGlossary;
-    return 0 != nRet;
+    return bRet;
 }
 
 bool SwGlossaryHdl::ImportGlossaries( const OUString& rName )

@@ -96,7 +96,7 @@ static void lcl_notifyRow(const SwContentNode* pNode, SwCursorShell const & rShe
     }
 }
 
-SwCallLink::~SwCallLink()
+SwCallLink::~SwCallLink() COVERITY_NOEXCEPT_FALSE
 {
     if( nNdTyp == SwNodeType::NONE || !rShell.m_bCallChgLnk ) // see ctor
         return ;
@@ -227,9 +227,12 @@ long SwCallLink::getLayoutFrame( const SwRootFrame* pRoot, SwTextNode const & rN
     if ( pFrame && !pFrame->IsHiddenNow() )
     {
         if( pFrame->HasFollow() )
+        {
+            TextFrameIndex const nPos(pFrame->MapModelToView(&rNd, nCntPos));
             while( nullptr != ( pNext = pFrame->GetFollow() ) &&
-                    nCntPos >= pNext->GetOfst() )
+                    nPos >= pNext->GetOfst())
                 pFrame = pNext;
+        }
 
         return pFrame->getFrameArea().Left();
     }

@@ -24,7 +24,6 @@
 #include "swdllapi.h"
 
 #include <cstddef>
-#include <list>
 #include <memory>
 #include <vector>
 #include <rtl/ustring.hxx>
@@ -39,19 +38,15 @@
 
 class OutputDevice;
 class SwWrtShell;
-class SwDoc;
 class SwView;
 class SwPostItField;
 class SwFormatField;
-class SwField;
 class SfxBroadcaster;
 class SfxHint;
 class SwEditWin;
 class Color;
-class SfxItemPool;
 class SfxItemSet;
 class SvxSearchItem;
-class SvxLanguageItem;
 namespace sw { namespace annotation {
     class SwAnnotationWin;
 }}
@@ -62,7 +57,6 @@ class SwSidebarItem;
 class SwFrame;
 namespace vcl { class Window; }
 struct ImplSVEvent;
-class OutlinerSearchable;
 class OutlinerParaObject;
 namespace i18nutil { struct SearchOptions2; }
 
@@ -137,7 +131,7 @@ class SwPostItMgr: public SfxListener
         SwWrtShell*                     mpWrtShell;
         VclPtr<SwEditWin>               mpEditWin;
         std::vector<SwSidebarItem*>     mvPostItFields;
-        std::vector<SwPostItPageItem*>  mPages;
+        std::vector<std::unique_ptr<SwPostItPageItem>>  mPages;
         ImplSVEvent *                   mnEventId;
         bool                            mbWaitingForCalcRects;
         VclPtr<sw::annotation::SwAnnotationWin> mpActivePostIt;
@@ -160,7 +154,7 @@ class SwPostItMgr: public SfxListener
         void            Scroll(const long lScroll,const unsigned long aPage );
         void            AutoScroll(const sw::annotation::SwAnnotationWin* pPostIt,const unsigned long aPage );
         bool            ScrollbarHit(const unsigned long aPage,const Point &aPoint);
-        bool            LayoutByPage( std::list<sw::annotation::SwAnnotationWin*> &aVisiblePostItList,
+        bool            LayoutByPage( std::vector<sw::annotation::SwAnnotationWin*> &aVisiblePostItList,
                                       const tools::Rectangle& rBorder,
                                       long lNeededHeight);
         void            CheckForRemovedPostIts();

@@ -20,6 +20,7 @@
 #include <memory>
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <utility>
 
@@ -79,6 +80,7 @@
 #include <Outliner.hxx>
 #include <drawdoc.hxx>
 #include <DrawViewShell.hxx>
+#include <sdmod.hxx>
 #include <sdresid.hxx>
 #include <sdpage.hxx>
 #include <Client.hxx>
@@ -378,10 +380,9 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
                         SdrTextObj* pTextObj = dynamic_cast< SdrTextObj* >( pObj );
                         if( pTextObj )
                         {
-                            OutlinerParaObject* pParaObj = pTextObj->GetEditOutlinerParaObject();
+                            std::unique_ptr<OutlinerParaObject> pParaObj = pTextObj->GetEditOutlinerParaObject();
                             if( pParaObj )
                             {
-                                delete pParaObj;
                                 bDisable = false;
                             }
                         }

@@ -19,6 +19,7 @@
 
 #include <limits.h>
 #include <tools/poly.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/bitmap.hxx>
 #include <vcl/dialog.hxx>
@@ -33,6 +34,7 @@
 #include <vcl/dockwin.hxx>
 #include <vcl/tabctrl.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/builder.hxx>
 
 #include <window.h>
 #include <fontinstance.hxx>
@@ -42,6 +44,8 @@
 #include <salgdi.hxx>
 #include <salframe.hxx>
 #include <scrwnd.hxx>
+
+#include <com/sun/star/accessibility/AccessibleRole.hpp>
 
 using namespace com::sun::star;
 
@@ -979,19 +983,6 @@ void Window::SetCompoundControl( bool bCompound )
         mpWindowImpl->mbCompoundControl = bCompound;
 }
 
-void Window::IncrementLockCount()
-{
-    assert( mpWindowImpl != nullptr );
-    mpWindowImpl->mnLockCount++;
-}
-
-void Window::DecrementLockCount()
-{
-    assert( mpWindowImpl != nullptr );
-    if (mpWindowImpl)
-        mpWindowImpl->mnLockCount--;
-}
-
 WinBits Window::GetStyle() const
 {
     return mpWindowImpl ? mpWindowImpl->mnStyle : 0;
@@ -1388,7 +1379,7 @@ void Window::queue_resize(StateChangedType eReason)
 
     if (VclPtr<vcl::Window> pParent = GetParentWithLOKNotifier())
     {
-        if (GetParentDialog())
+        if (!pParent->IsInInitShow())
             LogicInvalidate(nullptr);
     }
 }
@@ -1594,6 +1585,12 @@ bool Window::set_property(const OString &rKey, const OUString &rValue)
     {
         SetAccessibleDescription(rValue);
     }
+    else if (rKey == "accessible-role")
+    {
+        sal_Int16 role = BuilderUtils::getRoleFromName(rValue.toUtf8());
+        if (role != com::sun::star::accessibility::AccessibleRole::UNKNOWN)
+            SetAccessibleRole(role);
+    }
     else if (rKey == "use-markup")
     {
         //https://live.gnome.org/GnomeGoals/RemoveMarkupInMessages
@@ -1603,6 +1600,14 @@ bool Window::set_property(const OString &rKey, const OUString &rValue)
     {
         if (toBool(rValue))
             GrabFocus();
+    }
+    else if (rKey == "can-focus")
+    {
+        WinBits nBits = GetStyle();
+        nBits &= ~WB_TABSTOP;
+        if (toBool(rValue))
+            nBits |= WB_TABSTOP;
+        SetStyle(nBits);
     }
     else
     {
@@ -1998,5 +2003,13 @@ const std::vector<VclPtr<FixedText> >& Window::list_mnemonic_labels() const
 
 } /* namespace vcl */
 
+void DrawFocusRect(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect)
+{
+    const int nBorder = 1;
+    rRenderContext.Invert(tools::Rectangle(Point(rRect.Left(), rRect.Top()), Size(rRect.GetWidth(), nBorder)), InvertFlags::N50);
+    rRenderContext.Invert(tools::Rectangle(Point(rRect.Left(), rRect.Bottom()-nBorder+1), Size(rRect.GetWidth(), nBorder)), InvertFlags::N50);
+    rRenderContext.Invert(tools::Rectangle(Point(rRect.Left(), rRect.Top()+nBorder), Size(nBorder, rRect.GetHeight()-(nBorder*2))), InvertFlags::N50);
+    rRenderContext.Invert(tools::Rectangle(Point(rRect.Right()-nBorder+1, rRect.Top()+nBorder), Size(nBorder, rRect.GetHeight()-(nBorder*2))), InvertFlags::N50);
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

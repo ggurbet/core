@@ -22,6 +22,7 @@
 #include <DiagramHelper.hxx>
 #include <ChartModelHelper.hxx>
 #include <ControllerLockGuard.hxx>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <tools/diagnose_ex.h>
@@ -257,11 +258,11 @@ void WrappedStockProperties::addProperties( std::vector< Property > & rOutProper
                   | beans::PropertyAttribute::MAYBEVOID );
 }
 
-void WrappedStockProperties::addWrappedProperties( std::vector< WrappedProperty* >& rList
+void WrappedStockProperties::addWrappedProperties( std::vector< std::unique_ptr<WrappedProperty> >& rList
                                     , const std::shared_ptr< Chart2ModelContact >& spChart2ModelContact )
 {
-    rList.push_back( new WrappedVolumeProperty( spChart2ModelContact ) );
-    rList.push_back( new WrappedUpDownProperty( spChart2ModelContact ) );
+    rList.emplace_back( new WrappedVolumeProperty( spChart2ModelContact ) );
+    rList.emplace_back( new WrappedUpDownProperty( spChart2ModelContact ) );
 }
 
 } //namespace wrapper

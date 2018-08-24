@@ -25,20 +25,21 @@
 #include <tabvwsh.hxx>
 #include <olinetab.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <global.hxx>
 #include <target.hxx>
 
 #include <undoolk.hxx>
 
-#include <comphelper/lok.hxx>
 #include <sfx2/lokhelper.hxx>
+#include <svx/svdundo.hxx>
 
 /** Change column widths or row heights */
 ScUndoWidthOrHeight::ScUndoWidthOrHeight( ScDocShell* pNewDocShell,
                 const ScMarkData& rMark,
                 SCCOLROW nNewStart, SCTAB nNewStartTab, SCCOLROW nNewEnd, SCTAB nNewEndTab,
                 ScDocument* pNewUndoDoc, const std::vector<sc::ColRowSpan>& rRanges,
-                ScOutlineTable* pNewUndoTab,
+                std::unique_ptr<ScOutlineTable> pNewUndoTab,
                 ScSizeMode eNewMode, sal_uInt16 nNewSizeTwips, bool bNewWidth ) :
     ScSimpleUndo( pNewDocShell ),
     aMarkData( rMark ),
@@ -47,21 +48,20 @@ ScUndoWidthOrHeight::ScUndoWidthOrHeight( ScDocShell* pNewDocShell,
     nStartTab( nNewStartTab ),
     nEndTab( nNewEndTab ),
     pUndoDoc( pNewUndoDoc ),
-    pUndoTab( pNewUndoTab ),
+    pUndoTab( std::move(pNewUndoTab) ),
     maRanges(rRanges),
     nNewSize( nNewSizeTwips ),
     bWidth( bNewWidth ),
-    eMode( eNewMode ),
-    pDrawUndo( nullptr )
+    eMode( eNewMode )
 {
-    pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() ).release();
+    pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() );
 }
 
 ScUndoWidthOrHeight::~ScUndoWidthOrHeight()
 {
-    delete pUndoDoc;
-    delete pUndoTab;
-    DeleteSdrUndoAction( pDrawUndo );
+    pUndoDoc.reset();
+    pUndoTab.reset();
+    pDrawUndo.reset();
 }
 
 OUString ScUndoWidthOrHeight::GetComment() const
@@ -69,12 +69,12 @@ OUString ScUndoWidthOrHeight::GetComment() const
     // [ "optimal " ] "Column width" | "row height"
     return ( bWidth ?
         ( ( eMode == SC_SIZE_OPTIMAL )?
-        ScGlobal::GetRscString( STR_UNDO_OPTCOLWIDTH ) :
-        ScGlobal::GetRscString( STR_UNDO_COLWIDTH )
+        ScResId( STR_UNDO_OPTCOLWIDTH ) :
+        ScResId( STR_UNDO_COLWIDTH )
         ) :
         ( ( eMode == SC_SIZE_OPTIMAL )?
-        ScGlobal::GetRscString( STR_UNDO_OPTROWHEIGHT ) :
-        ScGlobal::GetRscString( STR_UNDO_ROWHEIGHT )
+        ScResId( STR_UNDO_OPTROWHEIGHT ) :
+        ScResId( STR_UNDO_ROWHEIGHT )
         ) );
 }
 
@@ -94,7 +94,7 @@ void ScUndoWidthOrHeight::Undo()
 
     //! outlines from all tables?
     if (pUndoTab)                                           // Outlines are included when saving ?
-        rDoc.SetOutlineTable( nStartTab, pUndoTab );
+        rDoc.SetOutlineTable( nStartTab, pUndoTab.get() );
 
     ScTabViewShell* pViewShell = ScTabViewShell::GetActiveViewShell();
     SCTAB nTabCount = rDoc.GetTableCount();
@@ -121,7 +121,7 @@ void ScUndoWidthOrHeight::Undo()
         }
     }
 
-    DoSdrUndoAction( pDrawUndo, &rDoc );
+    DoSdrUndoAction( pDrawUndo.get(), &rDoc );
 
     if (pViewShell)
     {

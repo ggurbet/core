@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column:100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -39,6 +39,7 @@
 
 #include <ooo/vba/msforms/XShape.hpp>
 
+#include <comphelper/automationinvokedzone.hxx>
 #include <comphelper/processfactory.hxx>
 
 #include <sfx2/objsh.hxx>
@@ -62,6 +63,7 @@
 #include <sfx2/viewsh.hxx>
 #include <math.h>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/window.hxx>
@@ -262,7 +264,13 @@ getCurrentExcelDoc( const uno::Reference< uno::XComponentContext >& xContext )
     }
     catch (const uno::Exception&)
     {
-        xModel = getThisExcelDoc( xContext );
+        try
+        {
+            xModel = getThisExcelDoc( xContext );
+        }
+        catch (const uno::Exception&)
+        {
+        }
     }
     return xModel;
 }
@@ -1116,6 +1124,12 @@ uno::Reference< XHelperInterface > getUnoDocModule( const OUString& aModName, Sf
     if ( pShell )
     {
         OUString sProj( "Standard" );
+        // GetBasicManager() causes a SolarMutex assertion failure in some use cases from
+        // Automation, at least when opening a Calc Document through ooo::vba::excel::
+        // XWorkbooks::Open(). Let's see if this check is a good way around that. It does seem that
+        // callers are prepared for this to return null?
+        if (comphelper::Automation::AutomationInvokedZone::isActive())
+            return xIf;
         BasicManager* pBasMgr = pShell->GetBasicManager();
         if ( pBasMgr && !pBasMgr->GetName().isEmpty() )
             sProj = pBasMgr->GetName();

@@ -390,7 +390,7 @@ bool ScDetectiveFunc::HasArrow( const ScAddress& rStart,
     OSL_ENSURE(pPage,"Page ?");
 
     bool bFound = false;
-    SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+    SdrObjListIter aIter( pPage, SdrIterMode::Flat );
     SdrObject* pObject = aIter.Next();
     while (pObject && !bFound)
     {
@@ -438,7 +438,7 @@ bool ScDetectiveFunc::IsNonAlienArrow( const SdrObject* pObject )
 
 //  InsertXXX: called from DrawEntry/DrawAlienEntry and InsertObject
 
-bool ScDetectiveFunc::InsertArrow( SCCOL nCol, SCROW nRow,
+void ScDetectiveFunc::InsertArrow( SCCOL nCol, SCROW nRow,
                                 SCCOL nRefStartCol, SCROW nRefStartRow,
                                 SCCOL nRefEndCol, SCROW nRefEndRow,
                                 bool bFromOtherTab, bool bRed,
@@ -517,10 +517,9 @@ bool ScDetectiveFunc::InsertArrow( SCCOL nCol, SCROW nRow,
     pData->meType = ScDrawObjData::DetectiveArrow;
 
     Modified();
-    return true;
 }
 
-bool ScDetectiveFunc::InsertToOtherTab( SCCOL nStartCol, SCROW nStartRow,
+void ScDetectiveFunc::InsertToOtherTab( SCCOL nStartCol, SCROW nStartRow,
                                 SCCOL nEndCol, SCROW nEndRow, bool bRed,
                                 ScDetectiveData& rData )
 {
@@ -583,7 +582,6 @@ bool ScDetectiveFunc::InsertToOtherTab( SCCOL nStartCol, SCROW nStartRow,
     pData->maEnd.SetInvalid();
 
     Modified();
-    return true;
 }
 
 //  DrawEntry:      formula from this spreadsheet,
@@ -604,10 +602,11 @@ bool ScDetectiveFunc::DrawEntry( SCCOL nCol, SCROW nRow,
     bool bError = HasError( rRef, aErrorPos );
     bool bAlien = ( rRef.aEnd.Tab() < nTab || rRef.aStart.Tab() > nTab );
 
-    return InsertArrow( nCol, nRow,
-                        rRef.aStart.Col(), rRef.aStart.Row(),
-                        rRef.aEnd.Col(), rRef.aEnd.Row(),
-                        bAlien, bError, rData );
+    InsertArrow( nCol, nRow,
+                 rRef.aStart.Col(), rRef.aStart.Row(),
+                 rRef.aEnd.Col(), rRef.aEnd.Row(),
+                 bAlien, bError, rData );
+    return true;
 }
 
 bool ScDetectiveFunc::DrawAlienEntry( const ScRange& rRef,
@@ -619,9 +618,10 @@ bool ScDetectiveFunc::DrawAlienEntry( const ScRange& rRef,
     ScAddress aErrorPos;
     bool bError = HasError( rRef, aErrorPos );
 
-    return InsertToOtherTab( rRef.aStart.Col(), rRef.aStart.Row(),
-                                rRef.aEnd.Col(), rRef.aEnd.Row(),
-                                bError, rData );
+    InsertToOtherTab( rRef.aStart.Col(), rRef.aStart.Row(),
+                      rRef.aEnd.Col(), rRef.aEnd.Row(),
+                      bError, rData );
+    return true;
 }
 
 void ScDetectiveFunc::DrawCircle( SCCOL nCol, SCROW nRow, ScDetectiveData& rData )
@@ -671,7 +671,7 @@ void ScDetectiveFunc::DeleteArrowsAt( SCCOL nCol, SCROW nRow, bool bDestPnt )
         size_t nDelCount = 0;
         std::unique_ptr<SdrObject*[]> ppObj(new SdrObject*[nObjCount]);
 
-        SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while (pObject)
         {
@@ -744,7 +744,7 @@ void ScDetectiveFunc::DeleteBox( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nR
         size_t nDelCount = 0;
         std::unique_ptr<SdrObject*[]> ppObj(new SdrObject*[nObjCount]);
 
-        SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while (pObject)
         {
@@ -1246,7 +1246,7 @@ bool ScDetectiveFunc::DeleteAll( ScDetectiveDelete eWhat )
     {
         std::unique_ptr<SdrObject*[]> ppObj(new SdrObject*[nObjCount]);
 
-        SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pPage, SdrIterMode::Flat );
         SdrObject* pObject = aIter.Next();
         while (pObject)
         {
@@ -1418,14 +1418,14 @@ void ScDetectiveFunc::UpdateAllComments( ScDocument& rDoc )
         OSL_ENSURE( pPage, "Page ?" );
         if( pPage )
         {
-            SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+            SdrObjListIter aIter( pPage, SdrIterMode::Flat );
             for( SdrObject* pObject = aIter.Next(); pObject; pObject = aIter.Next() )
             {
                 if ( ScDrawObjData* pData = ScDrawLayer::GetNoteCaptionData( pObject, nObjTab ) )
                 {
                     ScPostIt* pNote = rDoc.GetNote( pData->maStart );
                     // caption should exist, we iterate over drawing objects...
-                    OSL_ENSURE( pNote && (pNote->GetCaption() == pObject), "ScDetectiveFunc::UpdateAllComments - invalid cell note" );
+                    OSL_ENSURE( pNote && (pNote->GetCaption().get() == pObject), "ScDetectiveFunc::UpdateAllComments - invalid cell note" );
                     if( pNote )
                     {
                         ScCommentData aData( rDoc, pModel );
@@ -1459,7 +1459,7 @@ void ScDetectiveFunc::UpdateAllArrowColors()
         OSL_ENSURE( pPage, "Page ?" );
         if( pPage )
         {
-            SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+            SdrObjListIter aIter( pPage, SdrIterMode::Flat );
             for( SdrObject* pObject = aIter.Next(); pObject; pObject = aIter.Next() )
             {
                 if ( pObject->GetLayer() == SC_LAYER_INTERN )
@@ -1536,7 +1536,7 @@ void ScDetectiveFunc::FindFrameForObject( const SdrObject* pObject, ScRange& rRa
     if (!pPage) return;
 
     // test if the object is a direct page member
-    if( pObject && pObject->GetPage() && (pObject->GetPage() == pObject->getParentOfSdrObject()) )
+    if( pObject && pObject->getSdrPageFromSdrObject() && (pObject->getSdrPageFromSdrObject() == pObject->getParentSdrObjListFromSdrObject()->getSdrPageFromSdrObjList()) )
     {
         // Is there a previous object?
         const size_t nOrdNum = pObject->GetOrdNum();

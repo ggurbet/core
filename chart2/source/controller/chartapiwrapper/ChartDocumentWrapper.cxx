@@ -91,7 +91,6 @@ enum eServiceType
     SERVICE_NAME_STOCK_DIAGRAM,
     SERVICE_NAME_XY_DIAGRAM,
     SERVICE_NAME_BUBBLE_DIAGRAM,
-    SERVICE_NAME_GL3DBAR_DIAGRAM,
 
     SERVICE_NAME_DASH_TABLE,
     SERVICE_NAME_GARDIENT_TABLE,
@@ -101,15 +100,15 @@ enum eServiceType
     SERVICE_NAME_MARKER_TABLE,
 
     SERVICE_NAME_NAMESPACE_MAP,
-    SERVICE_NAME_EXPORT_GRAPHIC_RESOLVER,
-    SERVICE_NAME_IMPORT_GRAPHIC_RESOLVER
+    SERVICE_NAME_EXPORT_GRAPHIC_STORAGE_RESOLVER,
+    SERVICE_NAME_IMPORT_GRAPHIC_STORAGE_RESOLVER
 };
 
 typedef std::map< OUString, enum eServiceType > tServiceNameMap;
 
 tServiceNameMap & lcl_getStaticServiceNameMap()
 {
-    static tServiceNameMap aServiceNameMap{
+    static tServiceNameMap aServiceNameMap {
         {"com.sun.star.chart.AreaDiagram",                    SERVICE_NAME_AREA_DIAGRAM},
         {"com.sun.star.chart.BarDiagram",                     SERVICE_NAME_BAR_DIAGRAM},
         {"com.sun.star.chart.DonutDiagram",                   SERVICE_NAME_DONUT_DIAGRAM},
@@ -120,7 +119,6 @@ tServiceNameMap & lcl_getStaticServiceNameMap()
         {"com.sun.star.chart.StockDiagram",                   SERVICE_NAME_STOCK_DIAGRAM},
         {"com.sun.star.chart.XYDiagram",                      SERVICE_NAME_XY_DIAGRAM},
         {"com.sun.star.chart.BubbleDiagram",                  SERVICE_NAME_BUBBLE_DIAGRAM},
-        {"com.sun.star.chart.GL3DBarDiagram",                 SERVICE_NAME_GL3DBAR_DIAGRAM},
 
         {"com.sun.star.drawing.DashTable",                    SERVICE_NAME_DASH_TABLE},
         {"com.sun.star.drawing.GradientTable",                SERVICE_NAME_GARDIENT_TABLE},
@@ -130,8 +128,9 @@ tServiceNameMap & lcl_getStaticServiceNameMap()
         {"com.sun.star.drawing.MarkerTable",                  SERVICE_NAME_MARKER_TABLE},
 
         {"com.sun.star.xml.NamespaceMap",                     SERVICE_NAME_NAMESPACE_MAP},
-        {"com.sun.star.document.ExportGraphicObjectResolver", SERVICE_NAME_EXPORT_GRAPHIC_RESOLVER},
-        {"com.sun.star.document.ImportGraphicObjectResolver", SERVICE_NAME_IMPORT_GRAPHIC_RESOLVER}};
+        {"com.sun.star.document.ExportGraphicStoreageHandler", SERVICE_NAME_EXPORT_GRAPHIC_STORAGE_RESOLVER},
+        {"com.sun.star.document.ImportGraphicStoreageHandler", SERVICE_NAME_IMPORT_GRAPHIC_STORAGE_RESOLVER}
+    };
 
     return aServiceNameMap;
 }
@@ -1166,15 +1165,6 @@ uno::Reference< uno::XInterface > SAL_CALL ChartDocumentWrapper::createInstance(
                     bCreateDiagram = true;
                 }
                 break;
-            case SERVICE_NAME_GL3DBAR_DIAGRAM:
-                if( xManagerFact.is())
-                {
-                    xTemplate.set(
-                        xManagerFact->createInstance("com.sun.star.chart2.template.GL3DBar"),
-                                uno::UNO_QUERY );
-                    bCreateDiagram = true;
-                }
-                break;
 
             case SERVICE_NAME_DASH_TABLE:
             case SERVICE_NAME_GARDIENT_TABLE:
@@ -1192,9 +1182,9 @@ uno::Reference< uno::XInterface > SAL_CALL ChartDocumentWrapper::createInstance(
 
             case SERVICE_NAME_NAMESPACE_MAP:
                 break;
-            case SERVICE_NAME_EXPORT_GRAPHIC_RESOLVER:
+            case SERVICE_NAME_EXPORT_GRAPHIC_STORAGE_RESOLVER:
                 break;
-            case SERVICE_NAME_IMPORT_GRAPHIC_RESOLVER:
+            case SERVICE_NAME_IMPORT_GRAPHIC_STORAGE_RESOLVER:
                 break;
         }
 
@@ -1252,25 +1242,22 @@ uno::Reference< uno::XInterface > SAL_CALL ChartDocumentWrapper::createInstance(
         {
             Reference< lang::XMultiServiceFactory > xFact(
                 m_spChart2ModelContact->m_xContext->getServiceManager(), uno::UNO_QUERY_THROW );
-            if( xFact.is() )
+            Reference< lang::XInitialization > xViewInit( xFact->createInstance(
+                    CHART_VIEW_SERVICE_NAME ), uno::UNO_QUERY );
+            if(xViewInit.is())
             {
-                Reference< lang::XInitialization > xViewInit( xFact->createInstance(
-                        CHART_VIEW_SERVICE_NAME ), uno::UNO_QUERY );
-                if(xViewInit.is())
+                try
                 {
-                    try
-                    {
-                        m_xChartView = xViewInit;
+                    m_xChartView = xViewInit;
 
-                        Sequence< Any > aArguments(2);
-                        aArguments[0] <<= Reference<frame::XModel>(this);
-                        aArguments[1] <<= true; // bRefreshAddIn
-                        xViewInit->initialize(aArguments);
-                    }
-                    catch (const uno::Exception&)
-                    {
-                        DBG_UNHANDLED_EXCEPTION("chart2");
-                    }
+                    Sequence< Any > aArguments(2);
+                    aArguments[0] <<= Reference<frame::XModel>(this);
+                    aArguments[1] <<= true; // bRefreshAddIn
+                    xViewInit->initialize(aArguments);
+                }
+                catch (const uno::Exception&)
+                {
+                    DBG_UNHANDLED_EXCEPTION("chart2");
                 }
             }
         }
@@ -1315,14 +1302,11 @@ uno::Reference< uno::XInterface > SAL_CALL ChartDocumentWrapper::createInstance(
         {
             Reference< lang::XMultiServiceFactory > xFact(
                 m_spChart2ModelContact->m_xContext->getServiceManager(), uno::UNO_QUERY_THROW );
-            if( xFact.is() )
+            uno::Reference< util::XRefreshable > xAddIn(
+                xFact->createInstance( aServiceSpecifier ), uno::UNO_QUERY );
+            if( xAddIn.is() )
             {
-                uno::Reference< util::XRefreshable > xAddIn(
-                    xFact->createInstance( aServiceSpecifier ), uno::UNO_QUERY );
-                if( xAddIn.is() )
-                {
-                    xResult = xAddIn;
-                }
+                xResult = xAddIn;
             }
         }
         catch (const uno::Exception&)
@@ -1415,21 +1399,21 @@ const Sequence< beans::Property >& ChartDocumentWrapper::getPropertySequence()
     return *StaticChartDocumentWrapperPropertyArray::get();
 }
 
-const std::vector< WrappedProperty* > ChartDocumentWrapper::createWrappedProperties()
+std::vector< std::unique_ptr<WrappedProperty> > ChartDocumentWrapper::createWrappedProperties()
 {
-    std::vector< ::chart::WrappedProperty* > aWrappedProperties;
-    aWrappedProperties.push_back( new WrappedDataSourceLabelsInFirstRowProperty( m_spChart2ModelContact ) );
-    aWrappedProperties.push_back( new WrappedDataSourceLabelsInFirstColumnProperty( m_spChart2ModelContact ) );
-    aWrappedProperties.push_back( new WrappedHasLegendProperty( m_spChart2ModelContact ) );
-    aWrappedProperties.push_back( new WrappedHasMainTitleProperty( m_spChart2ModelContact ) );
-    aWrappedProperties.push_back( new WrappedHasSubTitleProperty( m_spChart2ModelContact ) );
-    aWrappedProperties.push_back( new WrappedAddInProperty( *this ) );
-    aWrappedProperties.push_back( new WrappedBaseDiagramProperty( *this ) );
-    aWrappedProperties.push_back( new WrappedAdditionalShapesProperty( *this ) );
-    aWrappedProperties.push_back( new WrappedRefreshAddInAllowedProperty( *this ) );
-    aWrappedProperties.push_back( new WrappedIgnoreProperty("NullDate",Any() ) ); // i99104
-    aWrappedProperties.push_back( new WrappedIgnoreProperty("EnableComplexChartTypes", uno::Any(true) ) );
-    aWrappedProperties.push_back( new WrappedIgnoreProperty("EnableDataTableDialog", uno::Any(true) ) );
+    std::vector< std::unique_ptr<WrappedProperty> > aWrappedProperties;
+    aWrappedProperties.emplace_back( new WrappedDataSourceLabelsInFirstRowProperty( m_spChart2ModelContact ) );
+    aWrappedProperties.emplace_back( new WrappedDataSourceLabelsInFirstColumnProperty( m_spChart2ModelContact ) );
+    aWrappedProperties.emplace_back( new WrappedHasLegendProperty( m_spChart2ModelContact ) );
+    aWrappedProperties.emplace_back( new WrappedHasMainTitleProperty( m_spChart2ModelContact ) );
+    aWrappedProperties.emplace_back( new WrappedHasSubTitleProperty( m_spChart2ModelContact ) );
+    aWrappedProperties.emplace_back( new WrappedAddInProperty( *this ) );
+    aWrappedProperties.emplace_back( new WrappedBaseDiagramProperty( *this ) );
+    aWrappedProperties.emplace_back( new WrappedAdditionalShapesProperty( *this ) );
+    aWrappedProperties.emplace_back( new WrappedRefreshAddInAllowedProperty( *this ) );
+    aWrappedProperties.emplace_back( new WrappedIgnoreProperty("NullDate",Any() ) ); // i99104
+    aWrappedProperties.emplace_back( new WrappedIgnoreProperty("EnableComplexChartTypes", uno::Any(true) ) );
+    aWrappedProperties.emplace_back( new WrappedIgnoreProperty("EnableDataTableDialog", uno::Any(true) ) );
 
     return aWrappedProperties;
 }

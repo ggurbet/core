@@ -17,22 +17,17 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-
 #include <svx/svdmodel.hxx>
-
 #include <cassert>
 #include <math.h>
-
 #include <osl/endian.h>
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
-
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
-
 #include <unotools/configmgr.hxx>
-
+#include <unotools/pathoptions.hxx>
 #include <svl/whiter.hxx>
 #include <svl/asiancfg.hxx>
 #include <svx/xit.hxx>
@@ -43,12 +38,9 @@
 #include <svx/xflftrit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xlnstit.hxx>
-
 #include <editeng/editdata.hxx>
 #include <editeng/editeng.hxx>
-
 #include <svx/xtable.hxx>
-
 #include <svx/svditer.hxx>
 #include <svx/svdtrans.hxx>
 #include <svx/svdpage.hxx>
@@ -61,13 +53,11 @@
 #include <svx/svdetc.hxx>
 #include <svx/svdoutl.hxx>
 #include <svx/svdoole2.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svdoutlinercache.hxx>
-
 #include <svx/xflclit.hxx>
 #include <svx/xlnclit.hxx>
-
 #include <officecfg/Office/Common.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/colritem.hxx>
@@ -80,10 +70,8 @@
 #include <svl/zforlist.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <comphelper/storagehelper.hxx>
-
 #include <tools/tenccvt.hxx>
 #include <unotools/syslocale.hxx>
-
 #include <svx/sdr/properties/properties.hxx>
 #include <editeng/eeitem.hxx>
 #include <svl/itemset.hxx>
@@ -92,7 +80,6 @@
 #include <memory>
 #include <libxml/xmlwriter.h>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <comphelper/lok.hxx>
 #include <sfx2/viewsh.hxx>
 #include <o3tl/enumrange.hxx>
 
@@ -111,8 +98,10 @@ struct SdrModelImpl
 };
 
 
-void SdrModel::ImpCtor(SfxItemPool* pPool, ::comphelper::IEmbeddedHelper* _pEmbeddedHelper,
-    bool bUseExtColorTable)
+void SdrModel::ImpCtor(
+    SfxItemPool* pPool,
+    ::comphelper::IEmbeddedHelper* _pEmbeddedHelper,
+    bool bDisablePropertyFiles)
 {
     mpImpl.reset(new SdrModelImpl);
     mpImpl->mpUndoManager=nullptr;
@@ -141,7 +130,6 @@ void SdrModel::ImpCtor(SfxItemPool* pPool, ::comphelper::IEmbeddedHelper* _pEmbe
     pCurrentUndoGroup=nullptr;
     nUndoLevel=0;
     mbUndoEnabled=true;
-    bExtColorTable=false;
     mbChanged = false;
     bPagNumsDirty=false;
     bMPgNumsDirty=false;
@@ -167,8 +155,6 @@ void SdrModel::ImpCtor(SfxItemPool* pPool, ::comphelper::IEmbeddedHelper* _pEmbe
             get());
     else
         mnCharCompressType = CharCompressType::NONE;
-
-    bExtColorTable=bUseExtColorTable;
 
     if ( pPool == nullptr )
     {
@@ -198,44 +184,37 @@ void SdrModel::ImpCtor(SfxItemPool* pPool, ::comphelper::IEmbeddedHelper* _pEmbe
 
     // can't create DrawOutliner OnDemand, because I can't get the Pool,
     // then (only from 302 onwards!)
-    pDrawOutliner.reset(SdrMakeOutliner(OutlinerMode::TextObject, *this));
+    pDrawOutliner = SdrMakeOutliner(OutlinerMode::TextObject, *this);
     ImpSetOutlinerDefaults(pDrawOutliner.get(), true);
 
-    pHitTestOutliner.reset(SdrMakeOutliner(OutlinerMode::TextObject, *this));
+    pHitTestOutliner = SdrMakeOutliner(OutlinerMode::TextObject, *this);
     ImpSetOutlinerDefaults(pHitTestOutliner.get(), true);
 
     /* Start Text Chaining related code */
     // Initialize Chaining Outliner
-    pChainingOutliner.reset(SdrMakeOutliner( OutlinerMode::TextObject, *this ));
+    pChainingOutliner = SdrMakeOutliner( OutlinerMode::TextObject, *this );
     ImpSetOutlinerDefaults(pChainingOutliner.get(), true);
 
     // Make a TextChain
     pTextChain.reset(new TextChain);
     /* End Text Chaining related code */
 
-    ImpCreateTables();
+    ImpCreateTables(bDisablePropertyFiles || utl::ConfigManager::IsFuzzing());
 }
 
-SdrModel::SdrModel():
+SdrModel::SdrModel(
+    SfxItemPool* pPool,
+    ::comphelper::IEmbeddedHelper* pPers,
+    bool bDisablePropertyFiles)
+:
+#ifdef DBG_UTIL
+    // SdrObjectLifetimeWatchDog:
+    maAllIncarnatedObjects(),
+#endif
     maMaPag(),
     maPages()
 {
-    ImpCtor(nullptr, nullptr, false);
-}
-
-SdrModel::SdrModel(SfxItemPool* pPool, ::comphelper::IEmbeddedHelper* pPers):
-    maMaPag(),
-    maPages()
-{
-    ImpCtor(pPool,pPers,false/*bUseExtColorTable*/);
-}
-
-SdrModel::SdrModel(const OUString& rPath, SfxItemPool* pPool, ::comphelper::IEmbeddedHelper* pPers, bool bUseExtColorTable):
-    maMaPag(),
-    maPages(),
-    aTablePath(rPath)
-{
-    ImpCtor(pPool,pPers,bUseExtColorTable);
+    ImpCtor(pPool,pPers,bDisablePropertyFiles);
 }
 
 SdrModel::~SdrModel()
@@ -255,6 +234,21 @@ SdrModel::~SdrModel()
     pCurrentUndoGroup.reset();
 
     ClearModel(true);
+
+#ifdef DBG_UTIL
+    // SdrObjectLifetimeWatchDog:
+    if(!maAllIncarnatedObjects.empty())
+    {
+        SAL_WARN("svx","SdrModel::~SdrModel: Not all incarnations of SdrObjects deleted, possible memory leak (!)");
+        // copy to std::vector - calling SdrObject::Free will change maAllIncarnatedObjects
+        const std::vector< const SdrObject* > maRemainingObjects(maAllIncarnatedObjects.begin(), maAllIncarnatedObjects.end());
+        for(auto pSdrObject : maRemainingObjects)
+        {
+            SdrObject* pCandidate(const_cast<SdrObject*>(pSdrObject));
+            SdrObject::Free(pCandidate);
+        }
+    }
+#endif
 
     pLayerAdmin.reset();
 
@@ -614,13 +608,14 @@ bool SdrModel::IsUndoEnabled() const
     }
 }
 
-void SdrModel::ImpCreateTables()
+void SdrModel::ImpCreateTables(bool bDisablePropertyFiles)
 {
+    // use standard path for initial construction
+    const OUString aTablePath(!bDisablePropertyFiles ? SvtPathOptions().GetPalettePath() : "");
+
     for( auto i : o3tl::enumrange<XPropertyListType>() )
     {
-        if( !bExtColorTable || i != XPropertyListType::Color )
-            maProperties[i] = XPropertyList::CreatePropertyList (
-                i, aTablePath, ""/*TODO?*/ );
+        maProperties[i] = XPropertyList::CreatePropertyList(i, aTablePath, ""/*TODO?*/ );
     }
 }
 
@@ -655,7 +650,7 @@ void SdrModel::ClearModel(bool bCalledFromDestructor)
 
 SdrModel* SdrModel::AllocModel() const
 {
-    SdrModel* pModel=new SdrModel;
+    SdrModel* pModel=new SdrModel();
     pModel->SetScaleUnit(eObjUnit,aObjUnit);
     return pModel;
 }
@@ -1439,7 +1434,7 @@ void SdrModel::CopyPages(sal_uInt16 nFirstPageNum, sal_uInt16 nLastPageNum,
         bUndo = false;
 
     if( bUndo )
-        BegUndo(ImpGetResStr(STR_UndoMergeModel));
+        BegUndo(SvxResId(STR_UndoMergeModel));
 
     sal_uInt16 nPageCnt=GetPageCount();
     sal_uInt16 nMaxPage=nPageCnt;
@@ -1479,7 +1474,7 @@ void SdrModel::CopyPages(sal_uInt16 nFirstPageNum, sal_uInt16 nLastPageNum,
             const SdrPage* pPg1=GetPage(nPageNum2);
 
             // Clone to local model
-            pPg=pPg1->Clone();
+            pPg = pPg1->CloneSdrPage(*this);
 
             InsertPage(pPg,nDestNum);
             if (bUndo)
@@ -1527,7 +1522,7 @@ void SdrModel::Merge(SdrModel& rSourceModel,
         bUndo = false;
 
     if (bUndo)
-        BegUndo(ImpGetResStr(STR_UndoMergeModel));
+        BegUndo(SvxResId(STR_UndoMergeModel));
 
     sal_uInt16 nSrcPageCnt=rSourceModel.GetPageCount();
     sal_uInt16 nSrcMasterPageCnt=rSourceModel.GetMasterPageCount();
@@ -1585,7 +1580,7 @@ void SdrModel::Merge(SdrModel& rSourceModel,
             {
                 // Always Clone to new model
                 const SdrPage* pPg1(rSourceModel.GetMasterPage(i));
-                SdrPage* pPg(pPg1->Clone(this));
+                SdrPage* pPg(pPg1->CloneSdrPage(*this));
 
                 if(!bTreadSourceAsConst)
                 {
@@ -1618,7 +1613,7 @@ void SdrModel::Merge(SdrModel& rSourceModel,
         {
             // Always Clone to new model
             const SdrPage* pPg1(rSourceModel.GetPage(nSourcePos));
-            SdrPage* pPg(pPg1->Clone(this));
+            SdrPage* pPg(pPg1->CloneSdrPage(*this));
 
             if(!bTreadSourceAsConst)
             {
@@ -1716,6 +1711,18 @@ uno::Reference< uno::XInterface > const & SdrModel::getUnoModel()
 void SdrModel::setUnoModel( const css::uno::Reference< css::uno::XInterface >& xModel )
 {
     mxUnoModel = xModel;
+}
+
+void SdrModel::adaptSizeAndBorderForAllPages(
+    const Size& /*rNewSize*/,
+    long /*nLeft*/,
+    long /*nRight*/,
+    long /*nUpper*/,
+    long /*nLower*/)
+{
+    // base implementation does currently nothing. It may be added if needed,
+    // but we are on SdrModel level here, thus probably have not enough information
+    // to do this for higher-level (derived) Models (e.g. Draw/Impress)
 }
 
 uno::Reference< uno::XInterface > SdrModel::createUnoModel()
@@ -1861,7 +1868,7 @@ void SdrModel::ReformatAllTextObjects()
     ImpReformatAllTextObjects();
 }
 
-SdrOutliner* SdrModel::createOutliner( OutlinerMode nOutlinerMode )
+std::unique_ptr<SdrOutliner> SdrModel::createOutliner( OutlinerMode nOutlinerMode )
 {
     if( !mpOutlinerCache )
         mpOutlinerCache.reset(new SdrOutlinerCache(this));
@@ -1878,16 +1885,10 @@ std::vector<SdrOutliner*> SdrModel::GetActiveOutliners() const
     return aRet;
 }
 
-void SdrModel::disposeOutliner( SdrOutliner* pOutliner )
+void SdrModel::disposeOutliner( std::unique_ptr<SdrOutliner> pOutliner )
 {
     if( mpOutlinerCache )
-    {
-        mpOutlinerCache->disposeOutliner( pOutliner );
-    }
-    else
-    {
-        delete pOutliner;
-    }
+        mpOutlinerCache->disposeOutliner( std::move(pOutliner) );
 }
 
 SvxNumType SdrModel::GetPageNumType() const
@@ -2049,7 +2050,7 @@ SdrHint::SdrHint(SdrHintKind eNewHint)
 SdrHint::SdrHint(SdrHintKind eNewHint, const SdrObject& rNewObj)
 :   meHint(eNewHint),
     mpObj(&rNewObj),
-    mpPage(rNewObj.GetPage())
+    mpPage(rNewObj.getSdrPageFromSdrObject())
 {
 }
 

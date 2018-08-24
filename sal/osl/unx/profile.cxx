@@ -181,6 +181,7 @@ static oslProfile osl_psz_openProfile(const sal_Char *pszProfileName, oslProfile
     if (pProfile->m_pFile == nullptr)
         closeFileImpl(pFile,pProfile->m_Flags);
 
+    // coverity[leaked_storage] - pFile is not leaked
     return pProfile;
 }
 
@@ -948,7 +949,7 @@ static osl_TFile* openFileImpl(const sal_Char* pszFilename, oslProfileOption Pro
     if (! bWriteable)
     {
         pFile->m_Handle = open(pszFilename, O_RDONLY);
-        /* mfe: argghh!!! do not check if the file could be openend */
+        /* mfe: argghh!!! do not check if the file could be opened */
         /*      default mode expects it that way!!!                 */
     }
     else

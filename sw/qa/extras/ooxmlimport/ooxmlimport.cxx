@@ -8,7 +8,7 @@
  */
 
 #include <memory>
-#include <config_test.h>
+#include <config_features.h>
 
 #ifdef MACOSX
 #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
@@ -334,7 +334,7 @@ DECLARE_OOXMLIMPORT_TEST(testN758883, "n758883.docx")
     xPropertySet.set(getShape(1), uno::UNO_QUERY);
     text::WrapTextMode eValue;
     xPropertySet->getPropertyValue("Surround") >>= eValue;
-    CPPUNIT_ASSERT_EQUAL(eValue, text::WrapTextMode_THROUGH);
+    CPPUNIT_ASSERT_EQUAL(text::WrapTextMode_THROUGH, eValue);
 
     /*
      * 5th problem: anchor type of the second textbox was wrong.
@@ -400,7 +400,7 @@ DECLARE_OOXMLIMPORT_TEST(testN777345, "n777345.docx")
     Graphic aGraphic(xGraphic);
     // If this changes later, feel free to update it, but make sure it's not
     // the checksum of a white/transparent placeholder rectangle.
-    CPPUNIT_ASSERT_EQUAL(BitmapChecksum(SAL_CONST_UINT64(18203404956065762943)), aGraphic.GetChecksum());
+    CPPUNIT_ASSERT_EQUAL(BitmapChecksum(SAL_CONST_UINT64(12796261976794711810)), aGraphic.GetChecksum());
 #endif
 #endif
 }
@@ -486,10 +486,10 @@ DECLARE_OOXMLIMPORT_TEST(testN773061, "n773061.docx")
     uno::Reference<text::XTextFramesSupplier> xTextFramesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xIndexAccess(xTextFramesSupplier->getTextFrames(), uno::UNO_QUERY);
     uno::Reference<beans::XPropertySet> xFrame(xIndexAccess->getByIndex(0), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL( getProperty< sal_Int32 >( xFrame, "LeftBorderDistance" ), sal_Int32( 0 ));
-    CPPUNIT_ASSERT_EQUAL( getProperty< sal_Int32 >( xFrame, "TopBorderDistance" ), sal_Int32( 0 ));
-    CPPUNIT_ASSERT_EQUAL( getProperty< sal_Int32 >( xFrame, "RightBorderDistance" ), sal_Int32( 0 ));
-    CPPUNIT_ASSERT_EQUAL( getProperty< sal_Int32 >( xFrame, "BottomBorderDistance" ), sal_Int32( 0 ));
+    CPPUNIT_ASSERT_EQUAL( sal_Int32( 0 ), getProperty< sal_Int32 >( xFrame, "LeftBorderDistance" ) );
+    CPPUNIT_ASSERT_EQUAL( sal_Int32( 0 ), getProperty< sal_Int32 >( xFrame, "TopBorderDistance" ) );
+    CPPUNIT_ASSERT_EQUAL( sal_Int32( 0 ), getProperty< sal_Int32 >( xFrame, "RightBorderDistance" ) );
+    CPPUNIT_ASSERT_EQUAL( sal_Int32( 0 ), getProperty< sal_Int32 >( xFrame, "BottomBorderDistance" ) );
 }
 
 DECLARE_OOXMLIMPORT_TEST(testN780645, "n780645.docx")
@@ -559,7 +559,7 @@ DECLARE_OOXMLIMPORT_TEST(testGroupshapeChildRotation, "groupshape-child-rotation
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0), xShape->getPosition().X);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(-5741), xShape->getPosition().Y);
 
-#if ! TEST_FONTS_MISSING
+#if HAVE_MORE_FONTS
     xShape.set(xGroupShape->getByIndex(4), uno::UNO_QUERY);
     // This was 887, i.e. border distances were included in the height.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(686), xShape->getSize().Height);
@@ -645,8 +645,12 @@ DECLARE_OOXMLIMPORT_TEST(testBnc779620, "bnc779620.docx")
 DECLARE_OOXMLIMPORT_TEST(testTdf105127, "tdf105127.docx")
 {
     auto aPolyPolygon = getProperty<drawing::PolyPolygonBezierCoords>(getShape(1), "PolyPolygonBezier");
-    // This was 1910, the shape was rendered upside down.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3257), aPolyPolygon.Coordinates[0][0].Y);
+    // tdf#106792 These values were wrong all the time due to a missing
+    // conversion in SvxShapePolyPolygon::getPropertyValueImpl. There was no
+    // ForceMetricTo100th_mm -> the old results were in twips due to the
+    // object residing in Writer. The UNO API by definition is in 100thmm,
+    // thus I will correct the value here.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(5744), aPolyPolygon.Coordinates[0][0].Y); // was: 3257
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf105143, "tdf105143.docx")
@@ -1063,8 +1067,17 @@ DECLARE_OOXMLIMPORT_TEST(testTdf85232, "tdf85232.docx")
     uno::Reference<drawing::XShapeDescriptor> xShapeDescriptor(xShape, uno::UNO_QUERY);
     // Make sure we're not testing the ellipse child.
     CPPUNIT_ASSERT_EQUAL(OUString("com.sun.star.drawing.LineShape"), xShapeDescriptor->getShapeType());
-    // This was 2900: horizontal position of the line was incorrect, the 3 children were not connected visually.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2267), xShape->getPosition().X);
+
+    // tdf#106792 checked that during load of tdf85232.docx the method
+    // SvxShapePolyPolygon::setPropertyValueImpl is used three times. In
+    // that method, a call to ForceMetricToItemPoolMetric was missing so
+    // that the import did not convert the input values from 100thmm
+    // to twips what is needed due to the object residing in Writer. The
+    // UNO API by definition is in 100thmm. Result is that in SwXShape::getPosition
+    // the offset (aOffset) now is (0, 0) instead of an existing offset in
+    // the load of the document before (what is plausible for a GroupObject).
+    // Thus, I will adapt the result value here to the now (hopefully) correct one.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1630), xShape->getPosition().X); // was: 2267
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf95755, "tdf95755.docx")
@@ -1438,166 +1451,6 @@ DECLARE_OOXMLIMPORT_TEST(testTdf108995, "xml_space.docx")
     CPPUNIT_ASSERT_EQUAL(OUString("\tA\t\tline  with\txml:space=\"preserve\" \n"
                                   "A  line  without xml:space"),
                          paragraph->getString());
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf108545_embeddedDocxIcon, "tdf108545_embeddedDocxIcon.docx")
-{
-    uno::Reference<document::XEmbeddedObjectSupplier2> xSupplier(getShape(1), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(embed::Aspects::MSOLE_ICON, xSupplier->getAspect());
-}
-
-
-DECLARE_OOXMLIMPORT_TEST(testTdf109053, "tdf109053.docx")
-{
-    // Table was imported into a text frame which led to a one page document
-    // Originally the table takes two pages, so Writer should import it accordingly.
-    CPPUNIT_ASSERT_EQUAL(getPages(), 2);
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf108849, "tdf108849.docx")
-{
-    // sectPr element that is child element of body must be the last child. However, Word accepts it
-    // in wrong places, and we should do the same (bug-to-bug compatibility) without creating extra sections.
-    CPPUNIT_ASSERT_EQUAL(2, getParagraphs());
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Misplaced body-level sectPr's create extra sections!", 2, getPages());
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf109524, "tdf109524.docx")
-{
-    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
-    // The table should have a small width (just to hold the short text in its single cell).
-    // Until it's correctly implemented, we assign it 100% relative width.
-    // Previously, the table (without explicitly set width) had huge actual width
-    // and extended far outside of page's right border.
-    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xTables->getByIndex(0), "IsWidthRelative"));
-    CPPUNIT_ASSERT_EQUAL(sal_Int16(100), getProperty<sal_Int16>(xTables->getByIndex(0), "RelativeWidth"));
-}
-
-DECLARE_OOXMLIMPORT_TEST(testGroupShapeFontName, "groupshape-fontname.docx")
-{
-    // Font names inside a group shape were not imported
-    uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY)->getText();
-
-    CPPUNIT_ASSERT_EQUAL(OUString("Calibri"), getProperty<OUString>(getRun(getParagraphOfText(1, xText), 1), "CharFontName"));
-    CPPUNIT_ASSERT_EQUAL(OUString("Calibri"), getProperty<OUString>(getRun(getParagraphOfText(1, xText), 1), "CharFontNameComplex"));
-    CPPUNIT_ASSERT_EQUAL(OUString(""), getProperty<OUString>(getRun(getParagraphOfText(1, xText), 1), "CharFontNameAsian"));
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf111550, "tdf111550.docx")
-{
-    // The test document has following ill-formed structure:
-    //
-    //    <w:tbl>
-    //        ...
-    //        <w:tr>
-    //            <w:tc>
-    //                <w:p>
-    //                    <w:r>
-    //                        <w:t>[outer:A2]</w:t>
-    //                        <w:br w:type="textWrapping"/>
-    //                    </w:r>
-    //                    <w:tbl>
-    //                        <w:tr>
-    //                            <w:tc>
-    //                                <w:p>
-    //                                    <w:r>
-    //                                        <w:t>[inner:A1]</w:t>
-    //                                    </w:r>
-    //                                </w:p>
-    //                            </w:tc>
-    //                        </w:tr>
-    //                    </w:tbl>
-    //                </w:p>
-    //            </w:tc>
-    //        </w:tr>
-    //    </w:tbl>
-    //
-    // i.e., a <w:tbl> as direct child of <w:p> inside another table.
-    // Word accepts that illegal OOXML, and treats it as equal to
-    //
-    //    <w:tbl>
-    //        ...
-    //        <w:tr>
-    //            <w:tc>
-    //                <w:tbl>
-    //                    <w:tr>
-    //                        <w:tc>
-    //                            <w:p>
-    //                                <w:r>
-    //                                    <w:t>[outer:A2]</w:t>
-    //                                    <w:br w:type="textWrapping"/>
-    //                                </w:r>
-    //                                <w:r>
-    //                                    <w:t>[inner:A1]</w:t>
-    //                                </w:r>
-    //                            </w:p>
-    //                        </w:tc>
-    //                    </w:tr>
-    //                </w:tbl>
-    //            </w:tc>
-    //        </w:tr>
-    //    </w:tbl>
-    //
-    // i.e., moves all contents of the outer paragraph into the inner table's first paragraph.
-
-    CPPUNIT_ASSERT_EQUAL(2, getParagraphs());
-
-    uno::Reference<text::XTextContent> outerTable = getParagraphOrTable(1);
-    getCell(outerTable, "A1", "[outer:A1]");
-    uno::Reference<text::XText> cellA2(getCell(outerTable, "A2"), uno::UNO_QUERY_THROW);
-    uno::Reference<text::XTextContent> innerTable = getParagraphOrTable(1, cellA2);
-    getCell(innerTable, "A1", "[outer:A2]\n[inner:A1]");
-}
-
-
-DECLARE_OOXMLIMPORT_TEST(testTdf43017, "tdf43017.docx")
-{
-    uno::Reference<text::XTextRange> xParagraph = getParagraph(1);
-    uno::Reference<text::XTextRange> xText = getRun(xParagraph, 2, "kick the bucket");
-
-    // Ensure that hyperlink text color is not blue (0x0000ff), but default (-1)
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Hyperlink color should be black!",
-        sal_Int32(-1), getProperty<sal_Int32>(xText, "CharColor"));
-}
-
-
-DECLARE_OOXMLIMPORT_TEST(testTdf112443, "tdf112443.docx")
-{
-    // the position of the flying text frame should be off page
-    // 30624 below its anchor
-    OUString aTop = parseDump("//fly[1]/infos/bounds", "top");
-    CPPUNIT_ASSERT_EQUAL( OUString("30624"), aTop );
-
-}
-
-// DOCX: Textbox wrap differs in MSO and LO
-// Both should layout text regardless of existing text box
-// and as result only one page should be generated.
-DECLARE_OOXMLIMPORT_TEST(testTdf113182, "tdf113182.docx")
-{
-    CPPUNIT_ASSERT_EQUAL(getPages(), 1);
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf113946, "tdf113946.docx")
-{
-    OUString aTop = parseDump("/root/page/body/txt/anchored/SwAnchoredDrawObject/bounds", "top");
-    CPPUNIT_ASSERT_EQUAL( OUString("1696"), aTop );
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf114217, "tdf114217.docx")
-{
-    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<drawing::XDrawPage> xDrawPage = xDrawPageSupplier->getDrawPage();
-    // This was 1, multi-page table was imported as a floating one.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), xDrawPage->getCount());
-}
-
-DECLARE_OOXMLIMPORT_TEST(testTdf116486, "tdf116486.docx")
-{
-    OUString aTop = parseDump("/root/page/body/txt/Special", "nHeight");
-    CPPUNIT_ASSERT_EQUAL( OUString("4006"), aTop );
 }
 
 // tests should only be added to ooxmlIMPORT *if* they fail round-tripping in ooxmlEXPORT

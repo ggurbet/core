@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <sax/tools/converter.hxx>
 
@@ -447,8 +448,7 @@ bool lcl_isSeriesAttachedToFirstAxis(
     {
         sal_Int32 nAxisIndex = 0;
         Reference< beans::XPropertySet > xProp( xDataSeries, uno::UNO_QUERY_THROW );
-        if( xProp.is() )
-            xProp->getPropertyValue("AttachedAxisIndex") >>= nAxisIndex;
+        xProp->getPropertyValue("AttachedAxisIndex") >>= nAxisIndex;
         bResult = (0==nAxisIndex);
     }
     catch( const uno::Exception & )
@@ -1017,16 +1017,13 @@ SchXMLExportHelper_Impl::SchXMLExportHelper_Impl(
     SvXMLAutoStylePoolP& rASPool ) :
         mrExport( rExport ),
         mrAutoStylePool( rASPool ),
+        mxPropertySetMapper( new XMLChartPropertySetMapper( true ) ),
+        mxExpPropMapper( new XMLChartExportPropertyMapper( mxPropertySetMapper, rExport ) ),
+        msTableName("local-table"),
         mbHasCategoryLabels( false ),
         mbRowSourceColumns( true ),
         msCLSID( SvGlobalName( SO3_SCH_CLASSID ).GetHexName() )
 {
-    msTableName = "local-table";
-
-    // create property set mapper
-    mxPropertySetMapper = new XMLChartPropertySetMapper( true);
-    mxExpPropMapper = new XMLChartExportPropertyMapper( mxPropertySetMapper, rExport );
-
     // register chart auto-style family
     mrAutoStylePool.AddFamily(
         XML_STYLE_FAMILY_SCH_CHART_ID,
@@ -2885,9 +2882,6 @@ void SchXMLExportHelper_Impl::exportRegressionCurve(
 {
     OSL_ASSERT( mxExpPropMapper.is());
 
-    std::vector< XMLPropertyState > aPropertyStates;
-    std::vector< XMLPropertyState > aEquationPropertyStates;
-
     Reference< chart2::XRegressionCurveContainer > xRegressionCurveContainer( xSeries, uno::UNO_QUERY );
     if( xRegressionCurveContainer.is() )
     {
@@ -2899,6 +2893,7 @@ void SchXMLExportHelper_Impl::exportRegressionCurve(
 
         for( pIt = pBeg; pIt != pEnd; pIt++ )
         {
+            std::vector< XMLPropertyState > aEquationPropertyStates;
             Reference< chart2::XRegressionCurve > xRegCurve = *pIt;
             if (!xRegCurve.is())
                 continue;
@@ -2918,7 +2913,7 @@ void SchXMLExportHelper_Impl::exportRegressionCurve(
             OUString aService;
             aService = xServiceName->getServiceName();
 
-            aPropertyStates = mxExpPropMapper->Filter( xProperties );
+            std::vector< XMLPropertyState > aPropertyStates = mxExpPropMapper->Filter( xProperties );
 
             // Add service name (which is regression type)
             sal_Int32 nIndex = GetPropertySetMapper()->FindEntryIndex(XML_SCH_CONTEXT_SPECIAL_REGRESSION_TYPE);
@@ -3533,8 +3528,13 @@ void SchXMLExport::ExportMasterStyles_()
     SAL_INFO("xmloff.chart", "Master Style Export requested. Not available for Chart" );
 }
 
-void SchXMLExport::ExportAutoStyles_()
+void SchXMLExport::collectAutoStyles()
 {
+    SvXMLExport::collectAutoStyles();
+
+    if (mbAutoStylesCollected)
+        return;
+
     // there are no styles that require their own autostyles
     if( getExportFlags() & SvXMLExportFlags::CONTENT )
     {
@@ -3542,6 +3542,24 @@ void SchXMLExport::ExportAutoStyles_()
         if( xChartDoc.is())
         {
             maExportHelper->m_pImpl->collectAutoStyles( xChartDoc );
+        }
+        else
+        {
+            SAL_WARN("xmloff.chart", "Couldn't export chart due to wrong XModel (must be XChartDocument)" );
+        }
+    }
+    mbAutoStylesCollected = true;
+}
+
+void SchXMLExport::ExportAutoStyles_()
+{
+    collectAutoStyles();
+
+    if( getExportFlags() & SvXMLExportFlags::CONTENT )
+    {
+        Reference< chart::XChartDocument > xChartDoc( GetModel(), uno::UNO_QUERY );
+        if( xChartDoc.is())
+        {
             maExportHelper->m_pImpl->exportAutoStyles();
         }
         else

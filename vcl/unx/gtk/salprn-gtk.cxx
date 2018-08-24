@@ -37,6 +37,7 @@
 #include <officecfg/Office/Common.hxx>
 
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/streamwrap.hxx>
 
@@ -224,8 +225,6 @@ GtkSalPrinter::StartJob(
     m_xImpl->m_pPrinter = aDialog.getPrinter();
     m_xImpl->m_pSettings = aDialog.getSettings();
 
-    bool bCollate = false;
-
     //To-Do proper name, watch for encodings
     sFileName = OString("/tmp/hacking.ps");
     m_xImpl->m_sSpoolFile = sFileName;
@@ -234,7 +233,7 @@ GtkSalPrinter::StartJob(
 
     //To-Do, swap ps/pdf for gtk_printer_accepts_ps()/gtk_printer_accepts_pdf() ?
 
-    return impl_doJob(&aFileName, i_rJobName, i_rAppName, io_pSetupData, bCollate, io_rController);
+    return impl_doJob(&aFileName, i_rJobName, i_rAppName, io_pSetupData, /*bCollate*/false, io_rController);
 }
 
 bool

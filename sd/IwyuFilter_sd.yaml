@@ -1,0 +1,123 @@
+---
+assumeFilename: sd/source/core/drawdoc.cxx
+blacklist:
+    sd/inc/createpresentation.hxx:
+    # base class has to be a complete type
+    - com/sun/star/uno/Reference.hxx
+    sd/inc/createunopageimpl.hxx:
+    # base class has to be a complete type
+    - com/sun/star/uno/Reference.hxx
+    sd/inc/createunocustomshow.hxx:
+    # base class has to be a complete type
+    - com/sun/star/uno/Reference.hxx
+    sd/inc/CustomAnimationCloner.hxx:
+    # base class has to be a complete type
+    - com/sun/star/animations/XAnimationNode.hpp
+    sd/inc/CustomAnimationPreset.hxx:
+    # base class has to be a complete type
+    - com/sun/star/lang/XMultiServiceFactory.hpp
+    sd/inc/CustomAnimationEffect.hxx:
+    # base class has to be a complete type
+    - com/sun/star/animations/XAnimationNode.hpp
+    - com/sun/star/animations/XAudio.hpp
+    - com/sun/star/animations/XTimeContainer.hpp
+    - com/sun/star/drawing/XShape.hpp
+    - com/sun/star/util/XChangesListener.hpp
+    sd/inc/OutlinerIterator.hxx:
+    # base class has to be a complete type
+    - svx/svdobj.hxx
+    sd/inc/sderror.hxx:
+    # needed for defines
+    - vcl/errcode.hxx
+    sd/inc/sdfilter.hxx:
+    # base class has to be a complete type
+    - com/sun/star/frame/XModel.hpp
+    - com/sun/star/task/XStatusIndicator.hpp
+    sd/inc/sdmod.hxx:
+    # base class has to be a complete type
+    - com/sun/star/beans/XPropertySetInfo.hpp
+    - sot/storage.hxx
+    sd/inc/sdpage.hxx:
+    # base class has to be a complete type
+    - com/sun/star/drawing/XDrawPage.hpp
+    - com/sun/star/office/XAnnotation.hpp
+    sd/inc/stlfamily.hxx:
+    # base class has to be a complete type
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XIndexAccess.hpp
+    - com/sun/star/container/XNameContainer.hpp
+    - com/sun/star/lang/XComponent.hpp
+    - com/sun/star/container/XNamed.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XSingleServiceFactory.hpp
+    - com/sun/star/uno/Any.hxx
+    sd/inc/stlpool.hxx:
+    # base class has to be a complete type
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/container/XIndexAccess.hpp
+    - com/sun/star/lang/XComponent.hpp
+    sd/inc/stlsheet.hxx:
+    # base class has to be a complete type
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/beans/XPropertyState.hpp
+    - com/sun/star/lang/XComponent.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/style/XStyle.hpp
+    - com/sun/star/util/XModifyBroadcaster.hpp
+    sd/inc/textapi.hxx:
+    # base class has to be a complete type
+    - editeng/outliner.hxx
+    sd/inc/TransitionPreset.hxx:
+    # base class has to be a complete type
+    - com/sun/star/lang/XMultiServiceFactory.hpp
+    sd/inc/undoanim.hxx:
+    # base class has to be a complete type
+    - com/sun/star/animations/XAnimationNode.hpp
+    sd/inc/undo/undoobjects.hxx:
+    # base class has to be a complete type
+    - tools/weakbase.hxx
+    sd/source/filter/eppt/eppt.hxx:
+    # base class has to be a complete type
+    - escherex.hxx
+    sd/source/ui/inc/AccessibleDocumentViewBase.hxx:
+    # base class has to be a complete type
+    - com/sun/star/accessibility/XAccessibleExtendedAttributes.hpp
+    - com/sun/star/accessibility/XAccessibleGetAccFlowTo.hpp
+    - com/sun/star/awt/XFocusListener.hpp
+    - com/sun/star/awt/XWindowListener.hpp
+    - com/sun/star/beans/XPropertyChangeListener.hpp
+    sd/source/ui/inc/AccessibleDrawDocumentView.hxx:
+    # base class has to be a complete type
+    - com/sun/star/accessibility/XAccessibleGroupPosition.hpp
+    sd/source/ui/inc/AccessibleSlideSorterObject.hxx:
+    # base class has to be a complete type
+    - com/sun/star/accessibility/XAccessible.hpp
+    - com/sun/star/accessibility/XAccessibleComponent.hpp
+    - com/sun/star/accessibility/XAccessibleContext.hpp
+    - com/sun/star/accessibility/XAccessibleEventBroadcaster.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    sd/source/ui/inc/AccessibleSlideSorterView.hxx:
+    # base class has to be a complete type
+    - com/sun/star/accessibility/XAccessible.hpp
+    - com/sun/star/accessibility/XAccessibleComponent.hpp
+    - com/sun/star/accessibility/XAccessibleContext.hpp
+    - com/sun/star/accessibility/XAccessibleEventBroadcaster.hpp
+    - com/sun/star/accessibility/XAccessibleSelection.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    sd/source/ui/inc/DrawDocShell.hxx:
+    # base class has to be a complete type
+    - fupoor.hxx
+    sd/source/ui/inc/DocumentRenderer.hxx:
+    # base class has to be a complete type
+    - com/sun/star/view/XRenderable.hpp
+    sd/source/ui/inc/DrawController.hxx:
+    # base class has to be a complete type
+    - com/sun/star/drawing/XDrawView.hpp
+    - com/sun/star/drawing/framework/XControllerManager.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/view/XFormLayerAccess.hpp
+    - com/sun/star/view/XSelectionSupplier.hpp
+    - sfx2/sfxbasecontroller.hxx
+    sd/source/ui/inc/fupage.hxx:
+    # base class has to be a complete type
+    - vcl/weld.hxx

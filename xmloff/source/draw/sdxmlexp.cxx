@@ -52,6 +52,7 @@
 #include <com/sun/star/util/Duration.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <tools/gen.hxx>
 #include <sax/tools/converter.hxx>
 #include <xmloff/xmlaustp.hxx>
@@ -382,6 +383,8 @@ ImpXMLAutoLayoutInfo::ImpXMLAutoLayoutInfo(sal_uInt16 nTyp, ImpXMLEXPPageMasterI
     maPresRect.SetSize(aLayoutSize);
 }
 
+static const OUStringLiteral gsPageLayoutNames( "PageLayoutNames" );
+
 SdXMLExport::SdXMLExport(
     const css::uno::Reference< css::uno::XComponentContext >& xContext,
     OUString const & implementationName,
@@ -392,8 +395,7 @@ SdXMLExport::SdXMLExport(
     mnDocDrawPageCount(0),
     mnObjectCount(0),
     mpHandoutPageMaster(nullptr),
-    mbIsDraw(bIsDraw),
-    msPageLayoutNames( "PageLayoutNames" )
+    mbIsDraw(bIsDraw)
 {
 
 }
@@ -2077,23 +2079,27 @@ void SdXMLExport::ExportStyles_(bool bUsed)
     {
         Reference< beans::XPropertySetInfo > xInfoSetInfo( xInfoSet->getPropertySetInfo() );
 
-        if( xInfoSetInfo->hasPropertyByName( msPageLayoutNames ) )
+        if( xInfoSetInfo->hasPropertyByName( gsPageLayoutNames ) )
         {
-            xInfoSet->setPropertyValue( msPageLayoutNames, Any(maDrawPagesAutoLayoutNames) );
+            xInfoSet->setPropertyValue( gsPageLayoutNames, Any(maDrawPagesAutoLayoutNames) );
         }
     }
 }
 
-void SdXMLExport::ExportAutoStyles_()
+void SdXMLExport::collectAutoStyles()
 {
+    SvXMLExport::collectAutoStyles();
+    if (mbAutoStylesCollected)
+        return;
+
     Reference< beans::XPropertySet > xInfoSet( getExportInfo() );
     if( xInfoSet.is() )
     {
         Reference< beans::XPropertySetInfo > xInfoSetInfo( xInfoSet->getPropertySetInfo() );
 
-        if( xInfoSetInfo->hasPropertyByName( msPageLayoutNames ) )
+        if( xInfoSetInfo->hasPropertyByName( gsPageLayoutNames ) )
         {
-            xInfoSet->getPropertyValue( msPageLayoutNames ) >>= maDrawPagesAutoLayoutNames;
+            xInfoSet->getPropertyValue( gsPageLayoutNames ) >>= maDrawPagesAutoLayoutNames;
         }
     }
 
@@ -2105,9 +2111,6 @@ void SdXMLExport::ExportAutoStyles_()
         // prepare page-master infos
         ImpPrepPageMasterInfos();
 
-        // write page-master infos
-        ImpWritePageMasterInfos();
-
         // prepare draw:style-name for master page export
         ImpPrepMasterPageInfos();
     }
@@ -2117,9 +2120,6 @@ void SdXMLExport::ExportAutoStyles_()
         // prepare draw:style-name for page export
         ImpPrepDrawPageInfos();
     }
-
-    // export draw-page styles
-    GetAutoStylePool()->exportXML( XML_STYLE_FAMILY_SD_DRAWINGPAGE_ID );
 
     if( getExportFlags() & SvXMLExportFlags::STYLES )
     {
@@ -2255,12 +2255,28 @@ void SdXMLExport::ExportAutoStyles_()
                 collectAnnotationAutoStyles( xDrawPage );
             }
         }
-        if(IsImpress())
+        if (IsImpress())
         {
             rtl::Reference< XMLAnimationsExporter > xAnimExport;
             GetShapeExport()->setAnimationsExporter( xAnimExport );
         }
     }
+
+    mbAutoStylesCollected = true;
+}
+
+void SdXMLExport::ExportAutoStyles_()
+{
+    collectAutoStyles();
+
+    if( getExportFlags() & SvXMLExportFlags::STYLES )
+    {
+        // write page-master infos
+        ImpWritePageMasterInfos();
+    }
+
+    // export draw-page styles
+    GetAutoStylePool()->exportXML( XML_STYLE_FAMILY_SD_DRAWINGPAGE_ID );
 
     exportAutoDataStyles();
 
@@ -2623,6 +2639,7 @@ void SdXMLExport::exportAnnotations( const Reference<XDrawPage>& xDrawPage )
                 OUString aInitials( xAnnotation->getInitials() );
                 if( !aInitials.isEmpty() )
                 {
+                    // TODO: see OFFICE-3776 export meta:creator-initials for ODF 1.3
                     SvXMLElementExport aInitialsElem( *this, XML_NAMESPACE_LO_EXT,
                             XML_SENDER_INITIALS, true, false );
                     Characters(aInitials);
@@ -2693,26 +2710,46 @@ SERVICE( XMLImpressClipboardExport, "com.sun.star.comp.Impress.XMLClipboardExpor
 XMLFontAutoStylePool* SdXMLExport::CreateFontAutoStylePool()
 {
     bool bEmbedFonts = false;
+    bool bEmbedUsedOnly = false;
+    bool bEmbedLatinScript = true;
+    bool bEmbedAsianScript = true;
+    bool bEmbedComplexScript = true;
+
     if (getExportFlags() & SvXMLExportFlags::CONTENT)
     {
-        Reference< lang::XMultiServiceFactory > xFac( GetModel(), UNO_QUERY );
-        if( xFac.is() )
+        try
         {
-            try
+            Reference<lang::XMultiServiceFactory> xFactory(GetModel(), UNO_QUERY);
+            Reference<beans::XPropertySet> xProps;
+            Reference<beans::XPropertySetInfo> xInfo;
+
+            if (xFactory.is())
+                xProps.set(xFactory->createInstance("com.sun.star.document.Settings"), UNO_QUERY);
+            if (xProps.is())
+                xInfo.set(xProps->getPropertySetInfo(), uno::UNO_QUERY);
+            if (xInfo.is() && xProps.is())
             {
-                Reference<beans::XPropertySet> const xProps( xFac->createInstance(
-                             "com.sun.star.document.Settings"), UNO_QUERY_THROW );
-                xProps->getPropertyValue("EmbedFonts") >>= bEmbedFonts;
+                if (xInfo->hasPropertyByName("EmbedFonts"))
+                    xProps->getPropertyValue("EmbedFonts") >>= bEmbedFonts;
+                if (xInfo->hasPropertyByName("EmbedOnlyUsedFonts"))
+                    xProps->getPropertyValue("EmbedOnlyUsedFonts") >>= bEmbedUsedOnly;
+                if (xInfo->hasPropertyByName("EmbedLatinScriptFonts"))
+                    xProps->getPropertyValue("EmbedLatinScriptFonts") >>= bEmbedLatinScript;
+                if (xInfo->hasPropertyByName("EmbedAsianScriptFonts"))
+                    xProps->getPropertyValue("EmbedAsianScriptFonts") >>= bEmbedAsianScript;
+                if (xInfo->hasPropertyByName("EmbedComplexScriptFonts"))
+                    xProps->getPropertyValue("EmbedComplexScriptFonts") >>= bEmbedComplexScript;
             }
-            catch (...)
-            {
-                // clipboard document doesn't have shell so throws from getPropertyValue
-                // gallery elements may not support com.sun.star.document.Settings so throws from createInstance
-            }
+        } catch(...)
+        {
+            // clipboard document doesn't have shell so throws from getPropertyValue
+            // gallery elements may not support com.sun.star.document.Settings so throws from createInstance
         }
     }
 
     XMLFontAutoStylePool *pPool = new XMLFontAutoStylePool( *this, bEmbedFonts );
+    pPool->setEmbedOnlyUsedFonts(bEmbedUsedOnly);
+    pPool->setEmbedFontScripts(bEmbedLatinScript, bEmbedAsianScript, bEmbedComplexScript);
 
     Reference< beans::XPropertySet > xProps( GetModel(), UNO_QUERY );
     if ( xProps.is() ) {

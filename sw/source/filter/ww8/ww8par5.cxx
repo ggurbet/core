@@ -22,7 +22,6 @@
 #include <sal/types.h>
 #include <tools/solar.h>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/storagehelper.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/simplefileaccessinteraction.hxx>
 #include <sot/storinfo.hxx>
@@ -82,6 +81,7 @@
 #include "ww8par2.hxx"
 #include "writerhelper.hxx"
 #include "fields.hxx"
+#include <o3tl/safeint.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <xmloff/odffields.hxx>
 
@@ -477,7 +477,7 @@ SvNumFormatType SwWW8ImplReader::GetTimeDatePara(OUString const & rStr, sal_uInt
 
         OUString sTemp(sParams);
         pFormatter->PutandConvertEntry(sTemp, nCheckPos, nType, rFormat,
-                                       LANGUAGE_ENGLISH_US, rLang);
+                                       LANGUAGE_ENGLISH_US, rLang, false);
         sParams = sTemp;
 
         return bHasTime ? SvNumFormatType::DATETIME : SvNumFormatType::DATE;
@@ -568,8 +568,7 @@ sal_uInt16 SwWW8ImplReader::End_Field()
                         if (m_pPosAfterTOC)
                         {
                             *m_pPaM = *m_pPosAfterTOC;
-                            delete m_pPosAfterTOC;
-                            m_pPosAfterTOC = nullptr;
+                            m_pPosAfterTOC.reset();
                         }
                     }
                 }
@@ -871,13 +870,8 @@ long SwWW8ImplReader::Read_Field(WW8PLCFManResult* pRes)
     bool bNested = false;
     if (!m_aFieldStack.empty())
     {
-        mycFieldIter aEnd = m_aFieldStack.end();
-        for(mycFieldIter aIter = m_aFieldStack.begin(); aIter != aEnd; ++aIter)
-        {
-            bNested = !AcceptableNestedField(aIter->mnFieldId);
-            if (bNested)
-                break;
-        }
+        bNested = std::any_of(m_aFieldStack.cbegin(), m_aFieldStack.cend(),
+            [](const WW8FieldEntry& aField) { return !AcceptableNestedField(aField.mnFieldId); });
     }
 
     WW8FieldDesc aF;
@@ -1895,8 +1889,12 @@ eF_ResT SwWW8ImplReader::Read_F_Symbol( WW8FieldDesc*, OUString& rStr )
             if ( aReadParam.GoToTokenParam() )
             {
                 const OUString aSiz = aReadParam.GetResult();
-                if ( !aSiz.isEmpty() )
-                    nSize = aSiz.toInt32() * 20; // pT -> twip
+                if (!aSiz.isEmpty())
+                {
+                    bool bFail = o3tl::checked_multiply<sal_Int32>(aSiz.toInt32(), 20, nSize); // pT -> twip
+                    if (bFail)
+                        nSize = -1;
+                }
             }
             break;
         }
@@ -2289,7 +2287,7 @@ eF_ResT SwWW8ImplReader::Read_F_Macro( WW8FieldDesc*, OUString& rStr)
         aPaM.Move(fnMoveBackward);
         aPaM.Exchange();
 
-        m_pPostProcessAttrsInfo = new WW8PostProcessAttrsInfo(nCp, nCp, aPaM);
+        m_pPostProcessAttrsInfo.reset(new WW8PostProcessAttrsInfo(nCp, nCp, aPaM));
     }
     else
     {
@@ -3405,8 +3403,7 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
 
     //The TOC field representation contents should be inserted into TOC section, but not after TOC section.
     //So we need update the document position when loading TOC representation and after loading TOC;
-    delete m_pPosAfterTOC;
-    m_pPosAfterTOC = new SwPaM(*m_pPaM, m_pPaM);
+    m_pPosAfterTOC.reset(new SwPaM(*m_pPaM, m_pPaM));
     (*m_pPaM).Move(fnMoveBackward);
     SwPaM aRegion(*m_pPaM, m_pPaM);
 

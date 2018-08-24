@@ -26,7 +26,7 @@
 #include <vector>
 
 class SdrPage;
-class Bitmap;
+class BitmapEx;
 
 namespace sd { namespace slidesorter { namespace cache {
 
@@ -44,12 +44,8 @@ public:
         has been finished.
         @param aKey
             The key of the page for which the preview has been created.
-        @param aPreview
-            The newly created preview.
     */
-    virtual void NotifyPreviewCreation (
-        CacheKey aKey,
-        const Bitmap& rPreview) = 0;
+    virtual void NotifyPreviewCreation (CacheKey aKey) = 0;
 
     /** Called to determine whether the system is idle and a preview can be
         created without annoying the user.

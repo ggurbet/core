@@ -111,7 +111,7 @@ public:
 
     sal_uLong         GetPaperWidth() { return mnPaperWidth;}
 
-    bool          PrepareClose();
+    void              PrepareClose();
 
     virtual void    GetAttributes( SfxItemSet& rTargetSet, bool bOnlyHardAttr = false ) const override;
     virtual bool    SetAttributes(const SfxItemSet& rSet, bool bReplaceAll = false) override;
@@ -206,9 +206,6 @@ private:
 
     /** holds a model guard during drag and drop between BeginMovingHdl and EndMovingHdl */
     std::unique_ptr<OutlineViewModelChangeGuard, o3tl::default_delete<OutlineViewModelChangeGuard>> maDragAndDropModelGuard;
-
-    vcl::Font maPageNumberFont;
-    vcl::Font maBulletFont;
 
     SvxLRSpaceItem maLRSpaceItem;
     Image maSlideImage;

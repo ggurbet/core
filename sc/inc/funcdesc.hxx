@@ -27,16 +27,12 @@
 #include <formula/IFunctionDescription.hxx>
 #include <sal/types.h>
 #include <rtl/ustring.hxx>
+#include <boost/optional.hpp>
 #include <map>
 #include <memory>
 
 #define MAX_FUNCCAT 12  /* maximum number of categories for functions */
 #define LRU_MAX 10 /* maximal number of last recently used functions */
-
-class ScFuncDesc;
-class ScFunctionList;
-class ScFunctionCategory;
-class ScFunctionMgr;
 
 /**
   Stores and generates human readable descriptions for spreadsheet-functions,
@@ -211,8 +207,8 @@ public:
         ParameterFlags() : bOptional(false) {}
     };
 
-    OUString      *pFuncName;              /**< Function name */
-    OUString      *pFuncDesc;              /**< Description of function */
+    boost::optional<OUString> mxFuncName;         /**< Function name */
+    boost::optional<OUString> mxFuncDesc;         /**< Description of function */
     std::vector<OUString> maDefArgNames;          /**< Parameter name(s) */
     std::vector<OUString> maDefArgDescs;          /**< Description(s) of parameter(s) */
     ParameterFlags       *pDefArgFlags;           /**< Flags for each parameter */
@@ -254,7 +250,6 @@ public:
 private:
     ::std::vector<const ScFuncDesc*> aFunctionList; /**< List of functions */
     ::std::vector<const ScFuncDesc*>::iterator aFunctionListIter; /**< position in function list */
-    sal_Int32  nMaxFuncNameLen; /**< Length of longest function name */
 };
 
 /**

@@ -25,6 +25,7 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <comphelper/getexpandeduri.hxx>
 #include <comphelper/processfactory.hxx>
 #include <vcl/dibtools.hxx>
@@ -71,7 +72,8 @@ using namespace ::com::sun::star;
 #define INDEX_ALIGN             8
 #define INDEX_AUTOSIZE          9
 #define INDEX_OWNERDRAW         10
-#define PROPERTYCOUNT_INDEX     11
+#define INDEX_MANDATORY         11
+#define PROPERTYCOUNT_INDEX     12
 
 // The following order is mandatory. Please add properties at the end!
 #define PROPERTYCOUNT_MENUITEM                          6
@@ -100,14 +102,15 @@ using namespace ::com::sun::star;
 #define OFFSET_TOOLBARITEM_WIDTH                        6
 
 // The following order is mandatory. Please add properties at the end!
-#define PROPERTYCOUNT_STATUSBARITEM                     7
+#define PROPERTYCOUNT_STATUSBARITEM                     8
 #define OFFSET_STATUSBARITEM_URL                        0
 #define OFFSET_STATUSBARITEM_TITLE                      1
 #define OFFSET_STATUSBARITEM_CONTEXT                    2
 #define OFFSET_STATUSBARITEM_ALIGN                      3
 #define OFFSET_STATUSBARITEM_AUTOSIZE                   4
 #define OFFSET_STATUSBARITEM_OWNERDRAW                  5
-#define OFFSET_STATUSBARITEM_WIDTH                      6
+#define OFFSET_STATUSBARITEM_MANDATORY                  6
+#define OFFSET_STATUSBARITEM_WIDTH                      7
 
 // The following order is mandatory. Please add properties at the end!
 #define PROPERTYCOUNT_IMAGES                            8
@@ -331,6 +334,7 @@ AddonsOptions_Impl::AddonsOptions_Impl()
     m_aPropNames[ INDEX_ALIGN           ] = "Alignment";
     m_aPropNames[ INDEX_AUTOSIZE        ] = "AutoSize";
     m_aPropNames[ INDEX_OWNERDRAW       ] = "OwnerDraw";
+    m_aPropNames[ INDEX_MANDATORY       ] = "Mandatory";
 
     // initialize array with fixed images property names
     m_aPropImagesNames[ OFFSET_IMAGES_SMALL         ] = "ImageSmall";
@@ -487,7 +491,7 @@ Image AddonsOptions_Impl::GetImageFromURL( const OUString& aURL, bool bBig, bool
     Image aImage;
 
     SAL_INFO("fwk", "Expensive: Addons GetImageFromURL " << aURL <<
-             " big " << (bBig?"big":"litte") <<
+             " big " << (bBig?"big":"little") <<
              " scale " << (bNoScale ? "noscale" : "scale"));
 
     ImageManager::iterator pIter = m_aImageManager.find(aURL);
@@ -1001,6 +1005,7 @@ bool AddonsOptions_Impl::ReadMergeStatusbarData(
     aStatusbarItem[ OFFSET_STATUSBARITEM_ALIGN     ].Name = m_aPropNames[ INDEX_ALIGN     ];
     aStatusbarItem[ OFFSET_STATUSBARITEM_AUTOSIZE  ].Name = m_aPropNames[ INDEX_AUTOSIZE  ];
     aStatusbarItem[ OFFSET_STATUSBARITEM_OWNERDRAW ].Name = m_aPropNames[ INDEX_OWNERDRAW ];
+    aStatusbarItem[ OFFSET_STATUSBARITEM_MANDATORY ].Name = m_aPropNames[ INDEX_MANDATORY ];
     aStatusbarItem[ OFFSET_STATUSBARITEM_WIDTH     ].Name = m_aPropNames[ INDEX_WIDTH     ];
 
     sal_uInt32 nCount = aAddonStatusbarItemSetNodeSeq.getLength();
@@ -1039,6 +1044,7 @@ bool AddonsOptions_Impl::ReadStatusBarItem(
         aStatusbarItem[ OFFSET_STATUSBARITEM_ALIGN      ].Value = aStatusbarItemNodePropValues[ OFFSET_STATUSBARITEM_ALIGN     ];
         aStatusbarItem[ OFFSET_STATUSBARITEM_AUTOSIZE   ].Value = aStatusbarItemNodePropValues[ OFFSET_STATUSBARITEM_AUTOSIZE  ];
         aStatusbarItem[ OFFSET_STATUSBARITEM_OWNERDRAW  ].Value = aStatusbarItemNodePropValues[ OFFSET_STATUSBARITEM_OWNERDRAW ];
+        aStatusbarItem[ OFFSET_STATUSBARITEM_MANDATORY  ].Value = aStatusbarItemNodePropValues[ OFFSET_STATUSBARITEM_MANDATORY ];
 
         // Configuration uses hyper for long. Therefore transform into sal_Int32
         sal_Int64 nValue( 0 );
@@ -1272,7 +1278,7 @@ Image AddonsOptions_Impl::ReadImageFromURL(const OUString& aImageURL)
 {
     Image aImage;
 
-    SvStream* pStream = UcbStreamHelper::CreateStream( aImageURL, StreamMode::STD_READ );
+    std::unique_ptr<SvStream> pStream = UcbStreamHelper::CreateStream( aImageURL, StreamMode::STD_READ );
     if ( pStream && ( pStream->GetErrorCode() == ERRCODE_NONE ))
     {
         // Use graphic class to also support more graphic formats (bmp,png,...)
@@ -1293,8 +1299,6 @@ Image AddonsOptions_Impl::ReadImageFromURL(const OUString& aImageURL)
             aImage = Image(aBitmapEx);
         }
     }
-
-    delete pStream;
 
     return aImage;
 }
@@ -1448,7 +1452,8 @@ Sequence< ::rtl::OUString > AddonsOptions_Impl::GetPropertyNamesStatusbarItem(
     lResult[3] = ::rtl::OUString( aPropertyRootNode + m_aPropNames[ INDEX_ALIGN     ] );
     lResult[4] = ::rtl::OUString( aPropertyRootNode + m_aPropNames[ INDEX_AUTOSIZE  ] );
     lResult[5] = ::rtl::OUString( aPropertyRootNode + m_aPropNames[ INDEX_OWNERDRAW ] );
-    lResult[6] = ::rtl::OUString( aPropertyRootNode + m_aPropNames[ INDEX_WIDTH     ] );
+    lResult[6] = ::rtl::OUString( aPropertyRootNode + m_aPropNames[ INDEX_MANDATORY ] );
+    lResult[7] = ::rtl::OUString( aPropertyRootNode + m_aPropNames[ INDEX_WIDTH     ] );
 
     return lResult;
 }

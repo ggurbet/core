@@ -30,6 +30,7 @@
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/frame/XComponentLoader.hpp>
 #include <officecfg/Office/Common.hxx>
+#include <officecfg/Setup.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/splitwin.hxx>
 #include <unotools/moduleoptions.hxx>
@@ -65,6 +66,7 @@
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/ucbhelper.hxx>
 #include <comphelper/lok.hxx>
@@ -80,7 +82,6 @@
 #include <basic/sbmod.hxx>
 #include <basic/sbmeth.hxx>
 #include <basic/sbx.hxx>
-#include <comphelper/storagehelper.hxx>
 #include <svtools/asynclink.hxx>
 #include <svl/sharecontrolfile.hxx>
 #include <svtools/strings.hrc>
@@ -106,6 +107,7 @@ using ::com::sun::star::container::XIndexContainer;
 #include <sfx2/objface.hxx>
 #include <openflag.hxx>
 #include <objshimp.hxx>
+#include <openuriexternally.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/bindings.hxx>
@@ -693,7 +695,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                     pNewSet->Put( SfxUInt16Item(SID_UPDATEDOCMODE,css::document::UpdateDocMode::ACCORDING_TO_CONFIG) );
 
                 xOldObj->SetModified( false );
-                // Do not chache the old Document! Is invalid when loading
+                // Do not cache the old Document! Is invalid when loading
                 // another document.
 
                 const SfxStringItem* pSavedOptions = SfxItemSet::GetItem<SfxStringItem>(pMedium->GetItemSet(), SID_FILE_FILTEROPTIONS, false);
@@ -897,7 +899,7 @@ void SfxViewFrame::ExecHistory_Impl( SfxRequest &rReq )
 {
     // Is there an Undo-Manager on the top Shell?
     SfxShell *pSh = GetDispatcher()->GetShell(0);
-    ::svl::IUndoManager* pShUndoMgr = pSh->GetUndoManager();
+    SfxUndoManager* pShUndoMgr = pSh->GetUndoManager();
     bool bOK = false;
     if ( pShUndoMgr )
     {
@@ -947,7 +949,7 @@ void SfxViewFrame::StateHistory_Impl( SfxItemSet &rSet )
         // I'm just on reload and am yielding myself ...
         return;
 
-    ::svl::IUndoManager *pShUndoMgr = pSh->GetUndoManager();
+    SfxUndoManager *pShUndoMgr = pSh->GetUndoManager();
     if ( !pShUndoMgr )
     {
         // The SW has its own undo in the View
@@ -1088,7 +1090,7 @@ void SfxViewFrame::ReleaseObjectShell_Impl()
     GetDispatcher()->SetDisableFlags( SfxDisableFlags::NONE );
 }
 
-bool SfxViewFrame::Close()
+void SfxViewFrame::Close()
 {
 
     DBG_ASSERT( GetFrame().IsClosing_Impl() || !GetFrame().GetFrameInterface().is(), "ViewFrame closed too early!" );
@@ -1106,8 +1108,6 @@ bool SfxViewFrame::Close()
     // manner, thus it is better to let the dispatcher be.
     GetDispatcher()->Lock(true);
     delete this;
-
-    return true;
 }
 
 void SfxViewFrame::DoActivate( bool bUI )
@@ -1214,6 +1214,35 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                 rBind.Invalidate( SID_RELOAD );
                 rBind.Invalidate( SID_EDITDOC );
 
+                // inform about the community involvement
+                const sal_Int64 nLastShown = officecfg::Setup::Product::LastTimeGetInvolvedShown::get();
+                const sal_Int64 nNow = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+                const sal_Int64 nPeriodSec(60 * 60 * 24 * 30); // 30 days in seconds
+                bool bUpdateLastTimeGetInvolvedShown = false;
+
+                if (nLastShown == 0)
+                    bUpdateLastTimeGetInvolvedShown = true;
+                else if (nPeriodSec < nNow && nLastShown < nNow - nPeriodSec)
+                {
+                    bUpdateLastTimeGetInvolvedShown = true;
+
+                    VclPtr<SfxInfoBarWindow> pInfoBar = AppendInfoBar("getinvolved", SfxResId(STR_GET_INVOLVED_TEXT), InfoBarType::Info);
+
+                    VclPtrInstance<PushButton> xGetInvolvedButton(&GetWindow());
+                    xGetInvolvedButton->SetText(SfxResId(STR_GET_INVOLVED_BUTTON));
+                    xGetInvolvedButton->SetSizePixel(xGetInvolvedButton->GetOptimalSize());
+                    xGetInvolvedButton->SetClickHdl(LINK(this, SfxViewFrame, GetInvolvedHandler));
+                    pInfoBar->addButton(xGetInvolvedButton);
+                }
+
+                if (bUpdateLastTimeGetInvolvedShown)
+                {
+                    std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
+                    officecfg::Setup::Product::LastTimeGetInvolvedShown::set(nNow, batch);
+                    batch->commit();
+                }
+
+                // read-only infobar if necessary
                 const SfxViewShell *pVSh;
                 const SfxShell *pFSh;
                 if ( m_xObjSh->IsReadOnly() &&
@@ -1336,6 +1365,17 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
     }
 }
 
+IMPL_LINK_NOARG(SfxViewFrame, GetInvolvedHandler, Button*, void)
+{
+    try
+    {
+        sfx2::openUriExternally("https://hub.libreoffice.org/joinus", false);
+    }
+    catch (const Exception&)
+    {
+    }
+}
+
 IMPL_LINK(SfxViewFrame, SwitchReadOnlyHandler, Button*, pButton, void)
 {
     if (m_xObjSh.is() && IsSignPDF(m_xObjSh))
@@ -1367,9 +1407,9 @@ void SfxViewFrame::Construct_Impl( SfxObjectShell *pObjSh )
     m_pImpl->pWindow = nullptr;
 
     SetPool( &SfxGetpApp()->GetPool() );
-    m_pDispatcher = new SfxDispatcher(this);
+    m_pDispatcher.reset( new SfxDispatcher(this) );
     if ( !GetBindings().GetDispatcher() )
-        GetBindings().SetDispatcher( m_pDispatcher );
+        GetBindings().SetDispatcher( m_pDispatcher.get() );
 
     m_xObjSh = pObjSh;
     if ( m_xObjSh.is() && m_xObjSh->IsPreview() )
@@ -1472,7 +1512,7 @@ void SfxViewFrame::KillDispatcher_Impl()
             m_pDispatcher->Pop( *pModule, SfxDispatcherPopFlags::POP_UNTIL );
         else
             m_pDispatcher->Pop( *this );
-        DELETEZ(m_pDispatcher);
+        m_pDispatcher.reset();
     }
 }
 
@@ -2932,8 +2972,8 @@ void SfxViewFrame::ChildWindowExecute( SfxRequest &rReq )
         // First make sure that the sidebar is visible
         ShowChildWindow(SID_SIDEBAR);
 
-        ::sfx2::sidebar::Sidebar::TogglePanel("StyleListPanel",
-                                              GetFrame().GetFrameInterface());
+        ::sfx2::sidebar::Sidebar::ShowPanel("StyleListPanel",
+                                            GetFrame().GetFrameInterface(), true);
         rReq.Done();
         return;
     }
@@ -3093,6 +3133,27 @@ VclPtr<SfxInfoBarWindow> SfxViewFrame::AppendInfoBar(const OUString& sId,
     auto pInfoBar = pInfoBarContainer->appendInfoBar(sId, sMessage, aInfoBarType, WB_LEFT | WB_VCENTER);
     ShowChildWindow(SfxInfoBarContainerChild::GetChildWindowId());
     return pInfoBar;
+}
+
+void SfxViewFrame::UpdateInfoBar( const OUString& sId,
+                           const OUString& sMessage,
+                           InfoBarType eType )
+{
+    const sal_uInt16 nId = SfxInfoBarContainerChild::GetChildWindowId();
+
+    // Make sure the InfoBar container is visible
+    if (!HasChildWindow(nId))
+        ToggleChildWindow(nId);
+
+    SfxChildWindow* pChild = GetChildWindow(nId);
+    if (pChild)
+    {
+        SfxInfoBarContainerWindow* pInfoBarContainer = static_cast<SfxInfoBarContainerWindow*>(pChild->GetWindow());
+        auto pInfoBar = pInfoBarContainer->getInfoBar(sId);
+
+        if (pInfoBar)
+             pInfoBar->Update(sMessage, eType);
+    }
 }
 
 void SfxViewFrame::RemoveInfoBar( const OUString& sId )

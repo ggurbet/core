@@ -18,6 +18,7 @@
  */
 
 #include <rtl/random.h>
+#include <sal/log.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/frame.hxx>
@@ -352,11 +353,7 @@ uno::Sequence< beans::NamedValue > XclExpRoot::GetEncryptionData() const
 
 uno::Sequence< beans::NamedValue > XclExpRoot::GenerateDefaultEncryptionData() const
 {
-    uno::Sequence< beans::NamedValue > aEncryptionData;
-    if ( !GetDefaultPassword().isEmpty() )
-        aEncryptionData = GenerateEncryptionData( GetDefaultPassword() );
-
-    return aEncryptionData;
+    return GenerateEncryptionData( GetDefaultPassword() );
 }
 
 XclExpRootData::XclExpLinkMgrRef const & XclExpRoot::GetLocalLinkMgrRef() const

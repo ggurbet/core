@@ -44,6 +44,7 @@
 #include <osl/file.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/uri.hxx>
+#include <sal/log.hxx>
 
 #include <tools/date.hxx>
 #include <tools/time.hxx>
@@ -54,7 +55,6 @@
 
 #include <vcl/weld.hxx>
 #include <unotools/configitem.hxx>
-#include <comphelper/storagehelper.hxx>
 
 using namespace css::security;
 using namespace css::uno;
@@ -141,8 +141,8 @@ DigitalSignaturesDialog::DigitalSignaturesDialog(
 
     m_pSignaturesLB = VclPtr<SvSimpleTable>::Create(*pSignatures);
     // Give the first column 6 percent, try to distribute the rest equally.
-    static long aTabs[] = { 6, 0, 6*nControlWidth/100, 25*nControlWidth/100, 44*nControlWidth/100, 62*nControlWidth/100, 81*nControlWidth/100 };
-    m_pSignaturesLB->SetTabs(aTabs);
+    static long aTabs[] = { 0, 6*nControlWidth/100, 25*nControlWidth/100, 44*nControlWidth/100, 62*nControlWidth/100, 81*nControlWidth/100 };
+    m_pSignaturesLB->SetTabs(SAL_N_ELEMENTS(aTabs), aTabs);
 
     m_pSignaturesLB->InsertHeaderEntry("\t" + get<FixedText>("signed")->GetText() + "\t"
                + get<FixedText>("issued")->GetText() + "\t" + get<FixedText>("date")->GetText() + "\t"
@@ -229,6 +229,14 @@ bool DigitalSignaturesDialog::Init()
 
 void DigitalSignaturesDialog::SetStorage( const css::uno::Reference < css::embed::XStorage >& rxStore )
 {
+    if (!rxStore.is())
+    {
+        // PDF supports AdES.
+        m_bAdESCompliant = true;
+        m_pAdESCompliantCB->Check(m_bAdESCompliant);
+        return;
+    }
+
     maSignatureManager.mxStore = rxStore;
     maSignatureManager.maSignatureHelper.SetStorage( maSignatureManager.mxStore, m_sODFVersion);
 
@@ -263,6 +271,11 @@ bool DigitalSignaturesDialog::canAddRemove()
     //FIXME: this func needs some cleanup, such as real split between
     //'canAdd' and 'canRemove' case
     bool ret = true;
+
+    uno::Reference<container::XNameAccess> xNameAccess(maSignatureManager.mxStore, uno::UNO_QUERY);
+    if (xNameAccess.is() && xNameAccess->hasByName("[Content_Types].xml"))
+        // It's always possible to append an OOXML signature.
+        return ret;
 
     if (!maSignatureManager.mxStore.is())
         // It's always possible to append a PDF signature.

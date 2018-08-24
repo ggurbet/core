@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <vcl/gdimtf.hxx>
 #include <vcl/metaact.hxx>
@@ -25,7 +26,6 @@
 #include <vcl/outdev.hxx>
 #include <vcl/unowrap.hxx>
 #include <vcl/sysdata.hxx>
-#include <comphelper/lok.hxx>
 
 #include <salgdi.hxx>
 #include <svdata.hxx>
@@ -58,11 +58,9 @@ OutputDevice::OutputDevice() :
     mpNextGraphics                  = nullptr;
     mpMetaFile                      = nullptr;
     mpFontInstance                     = nullptr;
-    mpFontCache                     = nullptr;
-    mpFontCollection                = nullptr;
     mpDeviceFontList                = nullptr;
     mpDeviceFontSizeList            = nullptr;
-    mpOutDevStateStack              = new OutDevStateStack;
+    mpOutDevStateStack.reset(new OutDevStateStack);
     mpPDFWriter                     = nullptr;
     mpAlphaVDev                     = nullptr;
     mpExtOutDevData                 = nullptr;
@@ -128,7 +126,7 @@ OutputDevice::OutputDevice() :
     maThresRes.mnThresPixToLogY     = 0;
 
     // struct ImplOutDevData- see #i82615#
-    mpOutDevData                    = new ImplOutDevData;
+    mpOutDevData.reset(new ImplOutDevData);
     mpOutDevData->mpRotateDev       = nullptr;
     mpOutDevData->mpRecordLayout    = nullptr;
 
@@ -158,8 +156,7 @@ void OutputDevice::dispose()
     // #i75163#
     ImplInvalidateViewTransform();
 
-    delete mpOutDevData;
-    mpOutDevData = nullptr;
+    mpOutDevData.reset();
 
     // for some reason, we haven't removed state from the stack properly
     if ( !mpOutDevStateStack->empty() )
@@ -170,41 +167,20 @@ void OutputDevice::dispose()
             mpOutDevStateStack->pop_back();
         }
     }
-    delete mpOutDevStateStack;
-    mpOutDevStateStack = nullptr;
+    mpOutDevStateStack.reset();
 
     // release the active font instance
-    if( mpFontInstance )
-        mpFontInstance->Release();
+    mpFontInstance.clear();
 
     // remove cached results of GetDevFontList/GetDevSizeList
-    // TODO: use smart pointers for them
-    delete mpDeviceFontList;
-    mpDeviceFontList = nullptr;
-
-    delete mpDeviceFontSizeList;
-    mpDeviceFontSizeList = nullptr;
+    mpDeviceFontList.reset();
+    mpDeviceFontSizeList.reset();
 
     // release ImplFontCache specific to this OutputDevice
-    // TODO: refcount ImplFontCache
-    if( mpFontCache
-    && (mpFontCache != ImplGetSVData()->maGDIData.mpScreenFontCache)
-    && (ImplGetSVData()->maGDIData.mpScreenFontCache != nullptr) )
-    {
-        delete mpFontCache;
-        mpFontCache = nullptr;
-    }
+    mxFontCache.reset();
 
     // release ImplFontList specific to this OutputDevice
-    // TODO: refcount ImplFontList
-    if( mpFontCollection
-    && (mpFontCollection != ImplGetSVData()->maGDIData.mpScreenFontList)
-    && (ImplGetSVData()->maGDIData.mpScreenFontList != nullptr) )
-    {
-        mpFontCollection->Clear();
-        delete mpFontCollection;
-        mpFontCollection = nullptr;
-    }
+    mxFontCollection.reset();
 
     mpAlphaVDev.disposeAndClear();
     mpPrevGraphics.clear();

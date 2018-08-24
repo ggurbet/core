@@ -65,12 +65,24 @@ char const * printExprValueKind(ExprValueKind k) {
     llvm_unreachable("unknown ExprValueKind");
 }
 
+enum class AlgebraicType { None, Integer, FloatingPoint };
+
+AlgebraicType algebraicType(clang::Type const & type) {
+    if (type.isIntegralOrEnumerationType()) {
+        return AlgebraicType::Integer;
+    } else if (type.isRealFloatingType()) {
+        return AlgebraicType::FloatingPoint;
+    } else {
+        return AlgebraicType::None;
+    }
+}
+
 class RedundantCast:
-    public RecursiveASTVisitor<RedundantCast>, public loplugin::RewritePlugin
+    public loplugin::FilteringRewritePlugin<RedundantCast>
 {
 public:
     explicit RedundantCast(loplugin::InstantiationData const & data):
-        RewritePlugin(data)
+        FilteringRewritePlugin(data)
     {}
 
     virtual void run() override {
@@ -195,7 +207,7 @@ bool RedundantCast::VisitImplicitCastExpr(const ImplicitCastExpr * expr) {
                            dyn_cast<CXXStaticCastExpr>(e)->getSubExpr()
                            ->IgnoreParenImpCasts()->getType())
                        && !compiler.getSourceManager().isMacroBodyExpansion(
-                           e->getLocStart()))
+                           compat::getBeginLoc(e)))
             {
                 report(
                     DiagnosticsEngine::Warning,
@@ -248,6 +260,23 @@ bool RedundantCast::VisitImplicitCastExpr(const ImplicitCastExpr * expr) {
             }
         }
         break;
+    case CK_FloatingToIntegral:
+    case CK_IntegralToFloating:
+        if (auto e = dyn_cast<ExplicitCastExpr>(expr->getSubExpr()->IgnoreParenImpCasts())) {
+            if ((isa<CXXStaticCastExpr>(e) || isa<CXXFunctionalCastExpr>(e))
+                && (algebraicType(*e->getSubExprAsWritten()->getType())
+                    == algebraicType(*expr->getType())))
+            {
+                report(
+                    DiagnosticsEngine::Warning,
+                    ("suspicious %select{static_cast|functional cast}0 from %1 to %2, result is"
+                     " implicitly cast to %3"),
+                    e->getExprLoc())
+                    << isa<CXXFunctionalCastExpr>(e) << e->getSubExprAsWritten()->getType()
+                    << e->getTypeAsWritten() << expr->getType() << expr->getSourceRange();
+            }
+        }
+        break;
     default:
         break;
     }
@@ -258,7 +287,7 @@ bool RedundantCast::VisitCStyleCastExpr(CStyleCastExpr const * expr) {
     if (ignoreLocation(expr)) {
         return true;
     }
-    if (isInUnoIncludeFile(compiler.getSourceManager().getSpellingLoc(expr->getLocStart()))) {
+    if (isInUnoIncludeFile(compiler.getSourceManager().getSpellingLoc(compat::getBeginLoc(expr)))) {
         return true;
     }
     auto t1 = compat::getSubExprAsWritten(expr)->getType();
@@ -279,7 +308,7 @@ bool RedundantCast::VisitCStyleCastExpr(CStyleCastExpr const * expr) {
     // Ignore FD_ISSET expanding to "...(SOCKET)(fd)..." in some Microsoft
     // winsock2.h (TODO: improve heuristic of determining that the whole
     // expr is part of a single macro body expansion):
-    auto l1 = expr->getLocStart();
+    auto l1 = compat::getBeginLoc(expr);
     while (compiler.getSourceManager().isMacroArgExpansion(l1)) {
         l1 = compiler.getSourceManager().getImmediateMacroCallerLoc(l1);
     }
@@ -287,7 +316,7 @@ bool RedundantCast::VisitCStyleCastExpr(CStyleCastExpr const * expr) {
     while (compiler.getSourceManager().isMacroArgExpansion(l2)) {
         l2 = compiler.getSourceManager().getImmediateMacroCallerLoc(l2);
     }
-    auto l3 = expr->getLocEnd();
+    auto l3 = compat::getEndLoc(expr);
     while (compiler.getSourceManager().isMacroArgExpansion(l3)) {
          l3 = compiler.getSourceManager().getImmediateMacroCallerLoc(l3);
     }
@@ -416,7 +445,7 @@ bool RedundantCast::VisitCXXStaticCastExpr(CXXStaticCastExpr const * expr) {
     // h=b5889d25e9bf944a89fdd7bcabf3b6c6f6bb6f7c> "assert: Support types
     // without operator== (int) [BZ #21972]":
     if (t1->isBooleanType() && t2->isBooleanType()) {
-        auto loc = expr->getLocStart();
+        auto loc = compat::getBeginLoc(expr);
         if (compiler.getSourceManager().isMacroBodyExpansion(loc)
             && (Lexer::getImmediateMacroName(
                     loc, compiler.getSourceManager(), compiler.getLangOpts())
@@ -448,13 +477,13 @@ bool RedundantCast::VisitCXXReinterpretCastExpr(
             return true;
         }
         if (rewriter != nullptr) {
-            auto loc = expr->getLocStart();
+            auto loc = compat::getBeginLoc(expr);
             while (compiler.getSourceManager().isMacroArgExpansion(loc)) {
                 loc = compiler.getSourceManager().getImmediateMacroCallerLoc(
                     loc);
             }
             if (compiler.getSourceManager().isMacroBodyExpansion(loc)) {
-                auto loc2 = expr->getLocEnd();
+                auto loc2 = compat::getEndLoc(expr);
                 while (compiler.getSourceManager().isMacroArgExpansion(loc2)) {
                     loc2 = compiler.getSourceManager()
                         .getImmediateMacroCallerLoc(loc2);
@@ -636,8 +665,8 @@ bool RedundantCast::VisitCXXFunctionalCastExpr(CXXFunctionalCastExpr const * exp
     //
     // in sal/osl/unx/socket.cxx:
     //TODO: Better check that sub is exactly an expansion of FD_ISSET:
-    if (sub->getLocEnd().isMacroID()) {
-        for (auto loc = sub->getLocStart();
+    if (compat::getEndLoc(sub).isMacroID()) {
+        for (auto loc = compat::getBeginLoc(sub);
              loc.isMacroID()
                  && (compiler.getSourceManager()
                      .isAtStartOfImmediateMacroExpansion(loc));

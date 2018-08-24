@@ -198,13 +198,10 @@ void SwMailDispatcherListener_Impl::DeleteAttachments( uno::Reference< mail::XMa
         try
         {
             uno::Reference< beans::XPropertySet > xTransferableProperties( aAttachments[nFile].Data, uno::UNO_QUERY_THROW);
-            if( xTransferableProperties.is() )
-            {
-                OUString sURL;
-                xTransferableProperties->getPropertyValue("URL") >>= sURL;
-                if(!sURL.isEmpty())
-                    SWUnoHelper::UCB_DeleteFile( sURL );
-            }
+            OUString sURL;
+            xTransferableProperties->getPropertyValue("URL") >>= sURL;
+            if(!sURL.isEmpty())
+                SWUnoHelper::UCB_DeleteFile( sURL );
         }
         catch (const uno::Exception&)
         {
@@ -274,10 +271,10 @@ SwSendMailDialog::SwSendMailDialog(vcl::Window *pParent, SwMailMergeConfigItem& 
                             nPos2,
                             HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
 
-    static long nTabs[] = {2, 0, nPos1};
+    static long nTabs[] = {0, nPos1};
     m_pStatus->SetStyle( m_pStatus->GetStyle() | WB_SORT | WB_HSCROLL | WB_CLIPCHILDREN | WB_TABSTOP );
     m_pStatus->SetSelectionMode( SelectionMode::Single );
-    m_pStatus->SetTabs(&nTabs[0], MapUnit::MapPixel);
+    m_pStatus->SetTabs(SAL_N_ELEMENTS(nTabs), nTabs, MapUnit::MapPixel);
     m_pStatus->SetSpaceBetweenEntries(3);
 
     m_pPaused->Show(false);
@@ -312,7 +309,7 @@ void SwSendMailDialog::dispose()
         {
         }
     }
-    delete m_pImpl;
+    m_pImpl.reset();
     m_pStatus.disposeAndClear();
     m_pTransferStatus.clear();
     m_pPaused.clear();

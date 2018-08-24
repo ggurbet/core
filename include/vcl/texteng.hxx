@@ -54,12 +54,7 @@ class OutputDevice;
 class SfxUndoAction;
 class KeyEvent;
 class Timer;
-
-namespace svl
-{
-    class IUndoManager;
-}
-
+class SfxUndoManager;
 class TextLine;
 class TETextPortion;
 struct TEIMEInfos;
@@ -205,7 +200,7 @@ class VCL_DLLPUBLIC TextEngine : public SfxBroadcaster
     Range               GetInvalidYOffsets( sal_uInt32 nPortion );
 
     // for Undo/Redo
-    void                InsertContent( TextNode* pNode, sal_uInt32 nPara );
+    void                InsertContent( std::unique_ptr<TextNode> pNode, sal_uInt32 nPara );
     TextPaM             SplitContent( sal_uInt32 nNode, sal_Int32 nSepPos );
     TextPaM             ConnectContents( sal_uInt32 nLeftNode );
 
@@ -267,8 +262,7 @@ public:
     bool                IsRightToLeft() const { return mbRightToLeft; }
 
     bool                HasUndoManager() const { return mpUndoManager != nullptr; }
-    ::svl::IUndoManager&
-                        GetUndoManager();
+    SfxUndoManager&     GetUndoManager();
     void                UndoActionStart( sal_uInt16 nId = 0 );
     void                UndoActionEnd();
     void                InsertUndo( TextUndo* pUndo, bool bTryMerge = false );

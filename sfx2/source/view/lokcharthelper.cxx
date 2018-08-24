@@ -9,6 +9,7 @@
 
 #include <sfx2/lokcharthelper.hxx>
 
+#include <comphelper/lok.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <sfx2/ipclient.hxx>
 #include <sfx2/lokhelper.hxx>
@@ -177,12 +178,17 @@ bool LokChartHelper::Hit(const Point& aPos)
 
 bool LokChartHelper::HitAny(const Point& aPos)
 {
+    SfxViewShell* pCurView = SfxViewShell::Current();
+    int nPartForCurView = pCurView ? pCurView->getPart() : -1;
     SfxViewShell* pViewShell = SfxViewShell::GetFirst();
     while (pViewShell)
     {
-        LokChartHelper aChartHelper(pViewShell);
-        if (aChartHelper.Hit(aPos))
-            return true;
+        if (pViewShell->getPart() == nPartForCurView)
+        {
+            LokChartHelper aChartHelper(pViewShell);
+            if (aChartHelper.Hit(aPos))
+                return true;
+        }
         pViewShell = SfxViewShell::GetNext(*pViewShell);
     }
     return false;
@@ -253,12 +259,17 @@ void LokChartHelper::PaintAllChartsOnTile(VirtualDevice& rDevice,
         aMapMode.SetScaleY(scaleY);
         rDevice.SetMapMode(aMapMode);
 
+        SfxViewShell* pCurView = SfxViewShell::Current();
+        int nPartForCurView = pCurView ? pCurView->getPart() : -1;
         tools::Rectangle aTileRect(Point(nTilePosX, nTilePosY), Size(nTileWidth, nTileHeight));
         SfxViewShell* pViewShell = SfxViewShell::GetFirst();
         while (pViewShell)
         {
-            LokChartHelper aChartHelper(pViewShell);
-            aChartHelper.PaintTile(rDevice, aTileRect);
+            if (pViewShell->getPart() == nPartForCurView)
+            {
+                LokChartHelper aChartHelper(pViewShell);
+                aChartHelper.PaintTile(rDevice, aTileRect);
+            }
             pViewShell = SfxViewShell::GetNext(*pViewShell);
         }
         rDevice.Pop();

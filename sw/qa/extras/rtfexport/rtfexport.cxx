@@ -10,6 +10,7 @@
 #include <swmodeltestbase.hxx>
 
 #include <com/sun/star/awt/Gradient.hpp>
+#include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
@@ -52,30 +53,6 @@ public:
         // If the testcase is stored in some other format, it's pointless to test.
         return (OString(filename).endsWith(".rtf")
                 && std::find(vBlacklist.begin(), vBlacklist.end(), filename) == vBlacklist.end());
-    }
-
-    bool CjkNumberedListTestHelper(sal_Int16& rValue)
-    {
-        bool isNumber = false;
-        uno::Reference<text::XTextRange> xPara(getParagraph(1));
-        uno::Reference<beans::XPropertySet> properties(xPara, uno::UNO_QUERY);
-        properties->getPropertyValue("NumberingIsNumber") >>= isNumber;
-        if (!isNumber)
-            return false;
-        uno::Reference<container::XIndexAccess> xLevels(
-            properties->getPropertyValue("NumberingRules"), uno::UNO_QUERY);
-        uno::Sequence<beans::PropertyValue> aPropertyValue;
-        xLevels->getByIndex(0) >>= aPropertyValue;
-        for (int j = 0; j < aPropertyValue.getLength(); ++j)
-        {
-            beans::PropertyValue aProp = aPropertyValue[j];
-            if (aProp.Name == "NumberingType")
-            {
-                rValue = aProp.Value.get<sal_Int16>();
-                return true;
-            }
-        }
-        return false;
     }
 
     virtual void postLoad(const char* pFilename) override
@@ -552,7 +529,7 @@ DECLARE_RTFEXPORT_TEST(testI120928, "i120928.rtf")
     uno::Sequence<beans::PropertyValue> aProps;
     xLevels->getByIndex(0) >>= aProps; // 1st level
 
-    uno::Reference<graphic::XGraphic> xGraphic;
+    uno::Reference<awt::XBitmap> xBitmap;
     sal_Int16 nNumberingType = -1;
 
     for (int i = 0; i < aProps.getLength(); ++i)
@@ -561,11 +538,11 @@ DECLARE_RTFEXPORT_TEST(testI120928, "i120928.rtf")
 
         if (rProp.Name == "NumberingType")
             nNumberingType = rProp.Value.get<sal_Int16>();
-        else if (rProp.Name == "Graphic")
-            xGraphic = rProp.Value.get<uno::Reference<graphic::XGraphic>>();
+        else if (rProp.Name == "GraphicBitmap")
+            xBitmap = rProp.Value.get<uno::Reference<awt::XBitmap>>();
     }
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::BITMAP, nNumberingType);
-    CPPUNIT_ASSERT(xGraphic.is());
+    CPPUNIT_ASSERT(xBitmap.is());
 }
 
 DECLARE_RTFEXPORT_TEST(testBookmark, "bookmark.rtf")
@@ -903,78 +880,67 @@ DECLARE_RTFEXPORT_TEST(testFdo82858, "fdo82858.docx")
 
 DECLARE_RTFEXPORT_TEST(testCjklist12, "cjklist12.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::AIU_HALFWIDTH_JA, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist13, "cjklist13.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::IROHA_HALFWIDTH_JA, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist16, "cjklist16.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_TRADITIONAL_JA, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist20, "cjklist20.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::AIU_FULLWIDTH_JA, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist21, "cjklist21.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::IROHA_FULLWIDTH_JA, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist24, "cjklist24.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::HANGUL_SYLLABLE_KO, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist25, "cjklist25.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::HANGUL_JAMO_KO, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist30, "cjklist30.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::TIAN_GAN_ZH, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist31, "cjklist31.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::DI_ZI_ZH, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist34, "cjklist34.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_UPPER_ZH_TW, numFormat);
 }
 
 DECLARE_RTFEXPORT_TEST(testCjklist38, "cjklist38.rtf")
 {
-    sal_Int16 numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_UPPER_ZH, numFormat);
 }
 
@@ -1016,10 +982,15 @@ DECLARE_RTFEXPORT_TEST(testNumOverrideStart, "num-override-start.rtf")
 DECLARE_RTFEXPORT_TEST(testFdo82006, "fdo82006.rtf")
 {
     // These were 176 (100 twips), as \sbauto and \sbbefore were ignored.
+    // FIXME Exception: first paragraph gets zero top margin, see tdf#118533.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
                          getProperty<sal_Int32>(getParagraph(1), "ParaTopMargin"));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
                          getProperty<sal_Int32>(getParagraph(1), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
+                         getProperty<sal_Int32>(getParagraph(2), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
+                         getProperty<sal_Int32>(getParagraph(2), "ParaBottomMargin"));
 }
 
 DECLARE_RTFEXPORT_TEST(testTdf104081, "tdf104081.rtf")
@@ -1454,10 +1425,15 @@ DECLARE_RTFEXPORT_TEST(testTdf112507, "tdf112507.rtf")
 DECLARE_RTFEXPORT_TEST(testTdf107480, "tdf107480.rtf")
 {
     // These were 176 (100 twips), as \htmautsp was parsed too late.
+    // FIXME Exception: first paragraph gets zero top margin, see tdf#118533.
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
                          getProperty<sal_Int32>(getParagraph(1), "ParaTopMargin"));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
                          getProperty<sal_Int32>(getParagraph(1), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
+                         getProperty<sal_Int32>(getParagraph(2), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(convertTwipToMm100(280)),
+                         getProperty<sal_Int32>(getParagraph(2), "ParaBottomMargin"));
 }
 
 DECLARE_RTFEXPORT_TEST(testWatermark, "watermark.rtf")

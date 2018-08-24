@@ -32,7 +32,6 @@
 #include <svtools/svmedit2.hxx>
 #include <svtools/svmedit.hxx>
 
-#include <comphelper/random.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -123,7 +122,7 @@ protected:
         css::uno::Reference< css::lang::XSingleComponentFactory >& rFactory,
         SvxConfigEntry *pMenuData );
 
-    bool LoadSubMenus(
+    void LoadSubMenus(
         const css::uno::Reference< css::container::XIndexAccess >& xMenuSettings,
         const OUString& rBaseTitle, SvxConfigEntry const * pParentData, bool bContextMenu );
 
@@ -491,30 +490,28 @@ public:
     OUString    GetSelectedDisplayName();
 };
 
-class SvxMainMenuOrganizerDialog : public ModalDialog
+class SvxMainMenuOrganizerDialog : public weld::GenericDialogController
 {
-    VclPtr<VclContainer>   m_pMenuBox;
-    VclPtr<Edit>           m_pMenuNameEdit;
-    VclPtr<SvTreeListBox>  m_pMenuListBox;
-    VclPtr<PushButton>     m_pMoveUpButton;
-    VclPtr<PushButton>     m_pMoveDownButton;
-
     std::unique_ptr<SvxEntries> mpEntries;
-    SvTreeListEntry*    pNewMenuEntry;
-    bool            bModified;
+    OUString m_sNewMenuEntryId;
+
+    std::unique_ptr<weld::Widget> m_xMenuBox;
+    std::unique_ptr<weld::Entry> m_xMenuNameEdit;
+    std::unique_ptr<weld::TreeView> m_xMenuListBox;
+    std::unique_ptr<weld::Button> m_xMoveUpButton;
+    std::unique_ptr<weld::Button> m_xMoveDownButton;
 
     void UpdateButtonStates();
 
-    DECL_LINK( MoveHdl, Button *, void );
-    DECL_LINK( ModifyHdl, Edit&, void );
-    DECL_LINK( SelectHdl, SvTreeListBox*, void );
+    DECL_LINK(MoveHdl, weld::Button&, void);
+    DECL_LINK(ModifyHdl, weld::Entry&, void);
+    DECL_LINK(SelectHdl, weld::TreeView&, void);
 
 public:
-    SvxMainMenuOrganizerDialog (
-        vcl::Window*, SvxEntries*,
-        SvxConfigEntry const *, bool bCreateMenu );
+    SvxMainMenuOrganizerDialog(
+        weld::Window*, SvxEntries*,
+        SvxConfigEntry const *, bool bCreateMenu);
     virtual ~SvxMainMenuOrganizerDialog() override;
-    virtual void dispose() override;
 
     std::unique_ptr<SvxEntries> ReleaseEntries() { return std::move(mpEntries);}
     SvxConfigEntry* GetSelectedEntry();
@@ -572,22 +569,20 @@ public:
     bool            Apply() override;
 };
 
-class SvxNewToolbarDialog : public ModalDialog
+class SvxNewToolbarDialog : public weld::GenericDialogController
 {
 private:
-    VclPtr<Edit>           m_pEdtName;
-    VclPtr<OKButton>       m_pBtnOK;
-
+    std::unique_ptr<weld::Entry> m_xEdtName;
+    std::unique_ptr<weld::Button> m_xBtnOK;
 public:
-    SvxNewToolbarDialog(vcl::Window* pWindow, const OUString& rName);
-    virtual ~SvxNewToolbarDialog() override;
-    virtual void dispose() override;
+    std::unique_ptr<weld::ComboBoxText> m_xSaveInListBox;
 
-    VclPtr<ListBox>        m_pSaveInListBox;
+    SvxNewToolbarDialog(weld::Window* pWindow, const OUString& rName);
+    virtual ~SvxNewToolbarDialog() override;
 
     OUString GetName()
     {
-        return m_pEdtName->GetText();
+        return m_xEdtName->get_text();
     }
 };
 
@@ -598,7 +593,6 @@ private:
     VclPtr<FixedText>      pFtNote;
     VclPtr<PushButton>     pBtnImport;
     VclPtr<PushButton>     pBtnDelete;
-    Size            aTbSize;
     sal_uInt16      m_nNextId;
 
     sal_Int32       m_nExpectedSize;

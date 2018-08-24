@@ -20,6 +20,7 @@
 #include <config_features.h>
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -40,8 +41,8 @@
 
 #include <comphelper/docpasswordrequest.hxx>
 #include <comphelper/propertysequence.hxx>
-#include <comphelper/string.hxx>
 
+#include <editeng/outlobj.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/tstpitem.hxx>
 #include <editeng/ulspitem.hxx>
@@ -140,6 +141,7 @@ using namespace sw::util;
 using namespace sw::types;
 using namespace nsHdFtFlags;
 
+#include <com/sun/star/i18n/BreakIterator.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <unotools/pathoptions.hxx>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
@@ -176,33 +178,32 @@ static SwMacroInfo* GetMacroInfo( SdrObject* pObj )
 
 void lclGetAbsPath(OUString& rPath, sal_uInt16 nLevel, SwDocShell const * pDocShell)
 {
-    OUString aTmpStr;
+    OUStringBuffer aTmpStr;
     while( nLevel )
     {
-        aTmpStr += "../";
+        aTmpStr.append("../");
         --nLevel;
     }
     if (!aTmpStr.isEmpty())
-        aTmpStr += rPath;
+        aTmpStr.append(rPath);
     else
         aTmpStr = rPath;
 
     if (!aTmpStr.isEmpty())
     {
         bool bWasAbs = false;
-        rPath = pDocShell->GetMedium()->GetURLObject().smartRel2Abs( aTmpStr, bWasAbs ).GetMainURL( INetURLObject::DecodeMechanism::NONE );
+        rPath = pDocShell->GetMedium()->GetURLObject().smartRel2Abs( aTmpStr.makeStringAndClear(), bWasAbs ).GetMainURL( INetURLObject::DecodeMechanism::NONE );
         // full path as stored in SvxURLField must be encoded
     }
 }
 
 namespace
 {
-    void lclIgnoreString32(SvStream& rStrm, bool b16Bit)
+    void lclIgnoreUString32(SvStream& rStrm)
     {
         sal_uInt32 nChars(0);
         rStrm.ReadUInt32(nChars);
-        if (b16Bit)
-            nChars *= 2;
+        nChars *= 2;
         rStrm.SeekRel(nChars);
     }
 }
@@ -241,7 +242,7 @@ void SwWW8ImplReader::ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocS
 
     // description (ignore)
     if( ::get_flag( nFlags, WW8_HLINK_DESCR ) )
-        lclIgnoreString32( rStrm, true );
+        lclIgnoreUString32( rStrm );
 
     // target frame
     if( ::get_flag( nFlags, WW8_HLINK_FRAME ) )
@@ -557,14 +558,14 @@ void SwWW8ImplReader::SetToggleBiDiAttrFlags(sal_uInt16 nFlags)
 
 SdrObject* SwMSDffManager::ProcessObj(SvStream& rSt,
                                        DffObjData& rObjData,
-                                       void* pData,
+                                       SvxMSDffClientData& rData,
                                        tools::Rectangle& rTextRect,
                                        SdrObject* pObj
                                        )
 {
     if( !rTextRect.IsEmpty() )
     {
-        SvxMSDffImportData& rImportData = *static_cast<SvxMSDffImportData*>(pData);
+        SvxMSDffImportData& rImportData = static_cast<SvxMSDffImportData&>(rData);
         SvxMSDffImportRec* pImpRec = new SvxMSDffImportRec;
 
         // fill Import Record with data
@@ -1199,7 +1200,7 @@ static long lcl_GetTrueMargin(const SvxLRSpaceItem &rLR, const SwNumFormat &rFor
     const long nFirstLineDiff = rLR.GetTextFirstLineOfst();
     rFirstLinePos = nBodyIndent + nFirstLineDiff;
 
-    const long nPseudoListBodyIndent = rFormat.GetAbsLSpace();
+    const auto nPseudoListBodyIndent = rFormat.GetAbsLSpace();
     const long nReverseListIndented = GetListFirstLineIndent(rFormat);
     long nExtraListIndent = nPseudoListBodyIndent + nReverseListIndented;
 
@@ -1794,6 +1795,9 @@ void SwWW8ImplReader::ImportDop()
     m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::TAB_COMPAT, true);
     // #i24363# tab stops relative to indent
     m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::TABS_RELATIVE_TO_INDENT, false);
+    // tdf#117923
+    m_rDoc.getIDocumentSettingAccess().set(
+        DocumentSettingId::APPLY_PARAGRAPH_MARK_FORMAT_TO_NUMBERING, true);
 
     // Import Default Tabs
     long nDefTabSiz = m_xWDop->dxaTab;
@@ -2028,6 +2032,7 @@ void WW8ReaderSave::Restore( SwWW8ImplReader* pRdr )
     pRdr->m_xCtrlStck = std::move(mxOldStck);
 
     pRdr->m_xRedlineStack->closeall(*pRdr->m_pPaM->GetPoint());
+    pRdr->m_aFrameRedlines.emplace(std::move(pRdr->m_xRedlineStack));
     pRdr->m_xRedlineStack = std::move(mxOldRedlines);
 
     pRdr->DeleteAnchorStack();
@@ -2119,14 +2124,14 @@ long SwWW8ImplReader::Read_And(WW8PLCFManResult* pRes)
     DateTime aDate = msfilter::util::DTTM2DateTime(nDateTime);
 
     OUString sText;
-    OutlinerParaObject *pOutliner = ImportAsOutliner( sText, pRes->nCp2OrIdx,
+    std::unique_ptr<OutlinerParaObject> pOutliner = ImportAsOutliner( sText, pRes->nCp2OrIdx,
         pRes->nCp2OrIdx + pRes->nMemLen, MAN_AND );
 
     m_pFormatOfJustInsertedApo = nullptr;
     SwPostItField aPostIt(
         static_cast<SwPostItFieldType*>(m_rDoc.getIDocumentFieldsAccess().GetSysFieldType(SwFieldIds::Postit)), sAuthor,
         sText, sInitials, OUString(), aDate );
-    aPostIt.SetTextObject(pOutliner);
+    aPostIt.SetTextObject(std::move(pOutliner));
 
     SwPaM aEnd(*m_pPaM->End(), *m_pPaM->End());
     m_xCtrlStck->NewAttr(*aEnd.GetPoint(), SvxCharHiddenItem(false, RES_CHRATR_HIDDEN));
@@ -2835,8 +2840,7 @@ void SwWW8ImplReader::PostProcessAttrs()
             while (!aIter.IsAtEnd() && nullptr != (pItem = aIter.NextItem()));
         }
 
-        delete m_pPostProcessAttrsInfo;
-        m_pPostProcessAttrsInfo = nullptr;
+        m_pPostProcessAttrsInfo.reset();
     }
 }
 
@@ -4277,13 +4281,12 @@ SwWW8ImplReader::~SwWW8ImplReader()
 {
 }
 
-void SwWW8ImplReader::DeleteStack(SwFltControlStack* pStck)
+void SwWW8ImplReader::DeleteStack(std::unique_ptr<SwFltControlStack> pStck)
 {
     if( pStck )
     {
         pStck->SetAttr( *m_pPaM->GetPoint(), 0, false);
         pStck->SetAttr( *m_pPaM->GetPoint(), 0, false);
-        delete pStck;
     }
     else
     {
@@ -4449,7 +4452,7 @@ void wwSectionManager::InsertSegments()
         mySegIter aNext = aIter+1;
         mySegIter aPrev = (aIter == aStart) ? aIter : aIter-1;
 
-        // If two following sections are different in following properties, Word will interprete a continuous
+        // If two following sections are different in following properties, Word will interpret a continuous
         // section break between them as if it was a section break next page.
         bool bThisAndPreviousAreCompatible = ((aIter->GetPageWidth() == aPrev->GetPageWidth()) &&
             (aIter->GetPageHeight() == aPrev->GetPageHeight()) && (aIter->IsLandScape() == aPrev->IsLandScape()));
@@ -5282,7 +5285,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
     m_xSBase.reset();
     m_xWDop.reset();
     m_xFonts.reset();
-    delete m_pAtnNames;
+    m_pAtnNames.reset();
     m_xSprmParser.reset();
     m_xProgress.reset();
 
@@ -5298,6 +5301,8 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
     // are updated
     m_aExtraneousParas.delete_all_from_doc();
     m_xRedlineStack->closeall(*m_pPaM->GetPoint());
+    while (!m_aFrameRedlines.empty())
+        m_aFrameRedlines.pop();
     m_xRedlineStack.reset();
 
     // For i120928,achieve the graphics from the special bookmark with is for graphic bullet
@@ -5382,6 +5387,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
         m_xLstManager.reset();
     }
 
+    m_pPosAfterTOC.reset();
     mpCursor.reset();
     m_pPaM = nullptr;
 
@@ -6013,7 +6019,7 @@ const OUString* SwWW8ImplReader::GetAnnotationAuthor(sal_uInt16 nIdx)
     if (!m_pAtnNames && m_xWwFib->m_lcbGrpStAtnOwners)
     {
         // Determine authors: can be found in the TableStream
-        m_pAtnNames = new std::vector<OUString>;
+        m_pAtnNames.reset(new std::vector<OUString>);
         SvStream& rStrm = *m_pTableStream;
 
         long nOldPos = rStrm.Tell();
@@ -6195,7 +6201,7 @@ bool TestImportDOC(SvStream &rStream, const OUString &rFltName)
     std::unique_ptr<Reader> xReader(ImportDOC());
 
     tools::SvRef<SotStorage> xStorage;
-    xReader->pStrm = &rStream;
+    xReader->m_pStream = &rStream;
     if (rFltName != "WW6")
     {
         try
@@ -6208,7 +6214,7 @@ bool TestImportDOC(SvStream &rStream, const OUString &rFltName)
         {
             return false;
         }
-        xReader->pStg = xStorage.get();
+        xReader->m_pStorage = xStorage.get();
     }
     xReader->SetFltName(rFltName);
 
@@ -6246,8 +6252,8 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportWW2(SvStream &rStream)
 ErrCode WW8Reader::OpenMainStream( tools::SvRef<SotStorageStream>& rRef, sal_uInt16& rBuffSize )
 {
     ErrCode nRet = ERR_SWG_READ_ERROR;
-    OSL_ENSURE( pStg.get(), "Where is my Storage?" );
-    rRef = pStg->OpenSotStream( "WordDocument", StreamMode::READ | StreamMode::SHARE_DENYALL);
+    OSL_ENSURE( m_pStorage.get(), "Where is my Storage?" );
+    rRef = m_pStorage->OpenSotStream( "WordDocument", StreamMode::READ | StreamMode::SHARE_DENYALL);
 
     if( rRef.is() )
     {
@@ -6267,10 +6273,10 @@ ErrCode WW8Reader::OpenMainStream( tools::SvRef<SotStorageStream>& rRef, sal_uIn
 ErrCode WW8Reader::Read(SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, const OUString & /* FileName */)
 {
     sal_uInt16 nOldBuffSize = 32768;
-    bool bNew = !bInsertMode; // New Doc (no inserting)
+    bool bNew = !m_bInsertMode; // New Doc (no inserting)
 
     tools::SvRef<SotStorageStream> refStrm; // So that no one else can steal the Stream
-    SvStream* pIn = pStrm;
+    SvStream* pIn = m_pStream;
 
     ErrCode nRet = ERRCODE_NONE;
     sal_uInt8 nVersion = 8;
@@ -6278,7 +6284,7 @@ ErrCode WW8Reader::Read(SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, cons
     const OUString sFltName = GetFltName();
     if ( sFltName=="WW6" )
     {
-        if (pStrm)
+        if (m_pStream)
             nVersion = 6;
         else
         {
@@ -6293,7 +6299,7 @@ ErrCode WW8Reader::Read(SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, cons
         else if ( sFltName=="CWW7" )
             nVersion = 7;
 
-        if( pStg.is() )
+        if( m_pStorage.is() )
         {
             nRet = OpenMainStream( refStrm, nOldBuffSize );
             pIn = refStrm.get();
@@ -6307,8 +6313,8 @@ ErrCode WW8Reader::Read(SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, cons
 
     if( !nRet )
     {
-        std::unique_ptr<SwWW8ImplReader> pRdr(new SwWW8ImplReader(nVersion, pStg.get(), pIn, rDoc,
-            rBaseURL, bNew, bSkipImages, *rPaM.GetPoint()));
+        std::unique_ptr<SwWW8ImplReader> pRdr(new SwWW8ImplReader(nVersion, m_pStorage.get(), pIn, rDoc,
+            rBaseURL, bNew, m_bSkipImages, *rPaM.GetPoint()));
         if (bNew)
         {
             // Remove Frame and offsets from Frame Template
@@ -6341,9 +6347,9 @@ ErrCode WW8Reader::Read(SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, cons
     return nRet;
 }
 
-int WW8Reader::GetReaderType()
+SwReaderType WW8Reader::GetReaderType()
 {
-    return SW_STORAGE_READER | SW_STREAM_READER;
+    return SwReaderType::Storage | SwReaderType::Stream;
 }
 
 bool WW8Reader::HasGlossaries() const
@@ -6361,7 +6367,7 @@ bool WW8Reader::ReadGlossaries(SwTextBlocks& rBlocks, bool bSaveRelFiles) const
     tools::SvRef<SotStorageStream> refStrm;
     if (!pThis->OpenMainStream(refStrm, nOldBuffSize))
     {
-        WW8Glossary aGloss( refStrm, 8, pStg.get() );
+        WW8Glossary aGloss( refStrm, 8, m_pStorage.get() );
         bRet = aGloss.Load( rBlocks, bSaveRelFiles );
     }
     return bRet;

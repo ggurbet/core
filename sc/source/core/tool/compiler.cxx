@@ -28,6 +28,7 @@
 #include <svl/zforlist.hxx>
 #include <svl/sharedstringpool.hxx>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <tools/solar.h>
 #include <unotools/charclass.hxx>
 #include <unotools/configmgr.hxx>
@@ -52,6 +53,7 @@
 #include <refupdat.hxx>
 #include <sc.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <formulacell.hxx>
 #include <dociter.hxx>
 #include <docoptio.hxx>
@@ -478,7 +480,8 @@ static bool lcl_parseExternalName(
     const sal_Unicode* const pStart = rSymbol.getStr();
     const sal_Unicode* p = pStart;
     sal_Int32 nLen = rSymbol.getLength();
-    OUString aTmpFile, aTmpName;
+    OUString aTmpFile;
+    OUStringBuffer aTmpName;
     sal_Int32 i = 0;
     bool bInName = false;
     if (cSep == '!')
@@ -541,7 +544,7 @@ static bool lcl_parseExternalName(
 
                         i = j;
                         bInName = true;
-                        aTmpName += OUStringLiteral1(c); // Keep the separator as part of the name.
+                        aTmpName.append(c); // Keep the separator as part of the name.
                         break;
                     }
                     aTmpFile += OUStringLiteral1(c);
@@ -571,14 +574,14 @@ static bool lcl_parseExternalName(
                 // A second separator ?  Not a valid external name.
                 return false;
             }
-            aTmpName += OUStringLiteral1(c);
+            aTmpName.append(c);
         }
         else
         {
             if (c == cSep)
             {
                 bInName = true;
-                aTmpName += OUStringLiteral1(c); // Keep the separator as part of the name.
+                aTmpName.append(c); // Keep the separator as part of the name.
             }
             else
             {
@@ -635,12 +638,12 @@ static bool lcl_parseExternalName(
     if (aTmpName[nNameLen-1] == '!')
     {
         // Check against #REF!.
-        if (aTmpName.equalsIgnoreAsciiCase("#REF!"))
+        if (aTmpName.toString().equalsIgnoreAsciiCase("#REF!"))
             return false;
     }
 
     rFile = aTmpFile;
-    rName = aTmpName.copy(1); // Skip the first char as it is always the separator.
+    rName = aTmpName.makeStringAndClear().copy(1); // Skip the first char as it is always the separator.
     return true;
 }
 
@@ -675,14 +678,14 @@ static bool lcl_getLastTabName( OUString& rTabName2, const OUString& rTabName1,
         vector<OUString>::const_iterator itr = ::std::find(itrBeg, itrEnd, rTabName1);
         if (itr == rTabNames.end())
         {
-            rTabName2 = ScGlobal::GetRscString(STR_NO_REF_TABLE);
+            rTabName2 = ScResId(STR_NO_REF_TABLE);
             return false;
         }
 
         size_t nDist = ::std::distance(itrBeg, itr);
         if (nDist + static_cast<size_t>(nTabSpan) >= nCount)
         {
-            rTabName2 = ScGlobal::GetRscString(STR_NO_REF_TABLE);
+            rTabName2 = ScResId(STR_NO_REF_TABLE);
             return false;
         }
 
@@ -726,7 +729,7 @@ struct Convention_A1 : public ScCompiler::Convention
 void Convention_A1::MakeColStr( OUStringBuffer& rBuffer, SCCOL nCol )
 {
     if ( !ValidCol( nCol) )
-        rBuffer.append(ScGlobal::GetRscString(STR_NO_REF_TABLE));
+        rBuffer.append(ScResId(STR_NO_REF_TABLE));
     else
         ::ScColToAlpha( rBuffer, nCol);
 }
@@ -734,7 +737,7 @@ void Convention_A1::MakeColStr( OUStringBuffer& rBuffer, SCCOL nCol )
 void Convention_A1::MakeRowStr( OUStringBuffer& rBuffer, SCROW nRow )
 {
     if ( !ValidRow(nRow) )
-        rBuffer.append(ScGlobal::GetRscString(STR_NO_REF_TABLE));
+        rBuffer.append(ScResId(STR_NO_REF_TABLE));
     else
         rBuffer.append(sal_Int32(nRow + 1));
 }
@@ -747,7 +750,7 @@ struct ConventionOOO_A1 : public Convention_A1
     static void MakeTabStr( OUStringBuffer &rBuf, const std::vector<OUString>& rTabNames, SCTAB nTab )
     {
         if (static_cast<size_t>(nTab) >= rTabNames.size())
-            rBuf.append(ScGlobal::GetRscString(STR_NO_REF_TABLE));
+            rBuf.append(ScResId(STR_NO_REF_TABLE));
         else
             rBuf.append(rTabNames[nTab]);
         rBuf.append('.');
@@ -1072,7 +1075,7 @@ struct ConventionXL
         ScAddress aAbs = rRef.toAbs(rPos);
         if (rRef.IsTabDeleted() || static_cast<size_t>(aAbs.Tab()) >= rTabNames.size())
         {
-            rTabName = ScGlobal::GetRscString( STR_NO_REF_TABLE );
+            rTabName = ScResId( STR_NO_REF_TABLE );
             return;
         }
         rTabName = rTabNames[aAbs.Tab()];
@@ -1688,7 +1691,7 @@ struct ConventionXL_R1C1 : public ScCompiler::Convention, public ConventionXL
 
         if (!ValidCol(aAbsRef.aEnd.Col()) || !ValidRow(aAbsRef.aEnd.Row()))
         {
-            rBuffer.append(ScGlobal::GetRscString(STR_NO_REF_TABLE));
+            rBuffer.append(ScResId(STR_NO_REF_TABLE));
             return;
         }
 
@@ -1731,11 +1734,13 @@ struct ConventionXL_R1C1 : public ScCompiler::Convention, public ConventionXL
     }
 };
 
-ScCompiler::ScCompiler( sc::CompileFormulaContext& rCxt, const ScAddress& rPos, ScTokenArray& rArr ) :
-    FormulaCompiler(rArr),
+ScCompiler::ScCompiler( sc::CompileFormulaContext& rCxt, const ScAddress& rPos, ScTokenArray& rArr,
+                        bool bComputeII, bool bMatrixFlag, const ScInterpreterContext* pContext )
+    : FormulaCompiler(rArr, bComputeII, bMatrixFlag),
     pDoc(rCxt.getDoc()),
     aPos(rPos),
-    mpFormatter(pDoc->GetFormatTable()),
+    mpFormatter(pContext? pContext->GetFormatTable() : pDoc->GetFormatTable()),
+    mpInterpreterContext(pContext),
     mnCurrentSheetTab(-1),
     mnCurrentSheetEndPos(0),
     pCharClass(ScGlobal::pCharClass),
@@ -1751,11 +1756,13 @@ ScCompiler::ScCompiler( sc::CompileFormulaContext& rCxt, const ScAddress& rPos, 
 }
 
 ScCompiler::ScCompiler( ScDocument* pDocument, const ScAddress& rPos, ScTokenArray& rArr,
-            formula::FormulaGrammar::Grammar eGrammar )
-        : FormulaCompiler(rArr),
+                        formula::FormulaGrammar::Grammar eGrammar,
+                        bool bComputeII, bool bMatrixFlag, const ScInterpreterContext* pContext )
+    : FormulaCompiler(rArr, bComputeII, bMatrixFlag),
         pDoc( pDocument ),
         aPos( rPos ),
-        mpFormatter(pDoc->GetFormatTable()),
+        mpFormatter(pContext ? pContext->GetFormatTable() : pDoc->GetFormatTable()),
+        mpInterpreterContext(pContext),
         mnCurrentSheetTab(-1),
         mnCurrentSheetEndPos(0),
         nSrcPos(0),
@@ -1772,10 +1779,13 @@ ScCompiler::ScCompiler( ScDocument* pDocument, const ScAddress& rPos, ScTokenArr
                 eGrammar );
 }
 
-ScCompiler::ScCompiler( sc::CompileFormulaContext& rCxt, const ScAddress& rPos ) :
+ScCompiler::ScCompiler( sc::CompileFormulaContext& rCxt, const ScAddress& rPos,
+                        bool bComputeII, bool bMatrixFlag, const ScInterpreterContext* pContext )
+    : FormulaCompiler(bComputeII, bMatrixFlag),
     pDoc(rCxt.getDoc()),
     aPos(rPos),
-    mpFormatter(pDoc ? pDoc->GetFormatTable() : nullptr),
+    mpFormatter(pContext ? pContext->GetFormatTable() : pDoc ? pDoc->GetFormatTable() : nullptr),
+    mpInterpreterContext(pContext),
     mnCurrentSheetTab(-1),
     mnCurrentSheetEndPos(0),
     pCharClass(ScGlobal::pCharClass),
@@ -1791,11 +1801,13 @@ ScCompiler::ScCompiler( sc::CompileFormulaContext& rCxt, const ScAddress& rPos )
 }
 
 ScCompiler::ScCompiler( ScDocument* pDocument, const ScAddress& rPos,
-            formula::FormulaGrammar::Grammar eGrammar )
-        :
+                        formula::FormulaGrammar::Grammar eGrammar,
+                        bool bComputeII, bool bMatrixFlag, const ScInterpreterContext* pContext )
+        : FormulaCompiler(bComputeII, bMatrixFlag),
         pDoc( pDocument ),
         aPos( rPos ),
-        mpFormatter(pDoc ? pDoc->GetFormatTable() : nullptr),
+        mpFormatter(pContext ? pContext->GetFormatTable() : pDoc ? pDoc->GetFormatTable() : nullptr),
+        mpInterpreterContext(pContext),
         mnCurrentSheetTab(-1),
         mnCurrentSheetEndPos(0),
         nSrcPos(0),
@@ -2691,7 +2703,7 @@ Label_MaskStateMachine:
         --nSrcPos;
     }
     if ( bAutoCorrect )
-        aCorrectedSymbol = cSymbol;
+        aCorrectedSymbol = OUString(cSymbol, pSym - cSymbol);
     if (bAutoIntersection && nSpaces > 1)
         --nSpaces;  // replace '!!' with only one space
     return nSpaces;
@@ -2871,7 +2883,7 @@ bool ScCompiler::IsOpCode( const OUString& rName, bool bInArray )
         }
         if (!aIntName.isEmpty())
         {
-            maRawToken.SetExternal( aIntName.getStr() );     // international name
+            maRawToken.SetExternal( aIntName );     // international name
             bFound = true;
         }
     }
@@ -2984,25 +2996,17 @@ bool ScCompiler::IsValue( const OUString& rSym )
 
 bool ScCompiler::IsString()
 {
-    const sal_Unicode* p = cSymbol;
+    if ( cSymbol[0] != '"' )
+        return false;
+    const sal_Unicode* p = cSymbol+1;
     while ( *p )
         p++;
     sal_Int32 nLen = sal::static_int_cast<sal_Int32>( p - cSymbol - 1 );
-    bool bQuote = ((cSymbol[0] == '"') && (cSymbol[nLen] == '"'));
-    if ((bQuote ? nLen-2 : nLen) > MAXSTRLEN)
-    {
-        SetError(FormulaError::StringOverflow);
+    if (!nLen || cSymbol[nLen] != '"')
         return false;
-    }
-    if ( bQuote )
-    {
-        cSymbol[nLen] = '\0';
-        const sal_Unicode* pStr = cSymbol+1;
-        svl::SharedString aSS = pDoc->GetSharedStringPool().intern(OUString(pStr));
-        maRawToken.SetString(aSS.getData(), aSS.getDataIgnoreCase());
-        return true;
-    }
-    return false;
+    svl::SharedString aSS = pDoc->GetSharedStringPool().intern(OUString(cSymbol+1, nLen-1));
+    maRawToken.SetString(aSS.getData(), aSS.getDataIgnoreCase());
+    return true;
 }
 
 bool ScCompiler::IsPredetectedErrRefReference( const OUString& rName, const OUString* pErrRef )
@@ -3362,7 +3366,7 @@ bool ScCompiler::IsMacro( const OUString& rName )
     {
         return false;
     }
-    maRawToken.SetExternal( aName.getStr() );
+    maRawToken.SetExternal( aName );
     maRawToken.eOp = ocMacro;
     return true;
 #endif
@@ -3970,7 +3974,8 @@ void ScCompiler::AutoCorrectParsedSymbol()
                 sal_Int32 nIndex = 0;
                 OUString aTmp1( aSymbol.getToken( 0, ':', nIndex ) );
                 sal_Int32 nLen1 = aTmp1.getLength();
-                OUString aSym, aTmp2;
+                OUStringBuffer aSym;
+                OUString aTmp2;
                 bool bLastAlp, bNextNum;
                 bLastAlp = bNextNum = true;
                 sal_Int32 nStrip = 0;
@@ -3983,7 +3988,7 @@ void ScCompiler::AutoCorrectParsedSymbol()
                     {
                         if ( nLen1 )
                         {
-                            aSym += aTmp1;
+                            aSym.append(aTmp1);
                             bLastAlp = CharClass::isAsciiAlpha( aTmp1 );
                         }
                         if ( nLen2 )
@@ -3998,8 +4003,8 @@ void ScCompiler::AutoCorrectParsedSymbol()
                             }
                             else
                             {
-                                if ( !aSym.isEmpty() && !aSym.endsWith(":"))
-                                    aSym += ":";
+                                if ( !aSym.isEmpty() && aSym[aSym.getLength()-1] != ':')
+                                    aSym.append(":");
                                 nStrip = 0;
                             }
                             bLastAlp = !bNextNum;
@@ -4019,7 +4024,7 @@ void ScCompiler::AutoCorrectParsedSymbol()
                     else
                         nRefs--;
                 }
-                aSymbol = aSym;
+                aSymbol = aSym.makeStringAndClear();
                 aSymbol += aTmp1;
             }
             else
@@ -4051,12 +4056,12 @@ void ScCompiler::AutoCorrectParsedSymbol()
                         aRef[j] = aRef[j].copy( nDotPos + 1 );
                     }
                     OUString aOld( aRef[j] );
-                    OUString aStr2;
+                    OUStringBuffer aStr2;
                     const sal_Unicode* p = aRef[j].getStr();
                     while ( *p && rtl::isAsciiDigit( *p ) )
-                        aStr2 += OUStringLiteral1(*p++);
+                        aStr2.append(*p++);
                     aRef[j] = OUString( p );
-                    aRef[j] += aStr2;
+                    aRef[j] += aStr2.makeStringAndClear();
                     if ( bColons || aRef[j] != aOld )
                     {
                         bChanged = true;
@@ -4577,7 +4582,14 @@ ScTokenArray* ScCompiler::CompileString( const OUString& rFormula )
             }
         }
         FormulaToken* pNewToken = static_cast<ScTokenArray*>(pArr)->Add( maRawToken.CreateToken());
-        if (!pNewToken)
+        if (!pNewToken && eOp == ocArrayClose && pArr->OpCodeBefore( pArr->GetLen()) == ocArrayClose)
+        {
+            // Nested inline array or non-value/non-string in array. The
+            // original tokens are still in the ScTokenArray and not merged
+            // into an ScMatrixToken. Set error but keep on tokenizing.
+            SetError( FormulaError::BadArrayContent);
+        }
+        else if (!pNewToken)
         {
             SetError(FormulaError::CodeOverflow);
             break;
@@ -5030,7 +5042,7 @@ void ScCompiler::CreateStringFromSingleRef( OUStringBuffer& rBuffer, const Formu
         ScAddress aAbs = rRef.toAbs(aPos);
         if (pDoc->HasStringData(aAbs.Col(), aAbs.Row(), aAbs.Tab()))
         {
-            OUString aStr = pDoc->GetString(aAbs);
+            OUString aStr = pDoc->GetString(aAbs, mpInterpreterContext);
             EnQuote( aStr );
             rBuffer.append(aStr);
         }
@@ -5056,7 +5068,7 @@ void ScCompiler::CreateStringFromSingleRef( OUStringBuffer& rBuffer, const Formu
             {
                 SAL_WARN("sc.core", "ScCompiler::CreateStringFromSingleRef - TableRef falling back to cell: " <<
                         aAbs.Format( ScRefFlags::VALID | ScRefFlags::TAB_3D, pDoc));
-                aStr = pDoc->GetString(aAbs);
+                aStr = pDoc->GetString(aAbs, mpInterpreterContext);
             }
             else
             {
@@ -5690,6 +5702,7 @@ bool ScCompiler::HandleTableRef()
                     default:
                         ;   // nothing
                 }
+                // coverity[copy_paste_error : FALSE] - this is correct, aStart in both aDBRange uses
                 if (aColRange.aStart.Row() != aDBRange.aStart.Row() || aColRange.aEnd.Row() != aDBRange.aStart.Row())
                     aRange = ScRange( ScAddress::INITIALIZE_INVALID);
                 else
@@ -5778,6 +5791,367 @@ bool ScCompiler::HandleTableRef()
 formula::ParamClass ScCompiler::GetForceArrayParameter( const formula::FormulaToken* pToken, sal_uInt16 nParam ) const
 {
     return ScParameterClassification::GetParameterType( pToken, nParam);
+}
+
+bool ScCompiler::ParameterMayBeImplicitIntersection(const FormulaToken* token, int parameter)
+{
+    formula::ParamClass param = ScParameterClassification::GetParameterType( token, parameter );
+    return param == Value || param == Array;
+}
+
+bool ScCompiler::SkipImplicitIntersectionOptimization(const FormulaToken* token) const
+{
+    if (mbMatrixFlag)
+        return true;
+    formula::ParamClass paramClass = token->GetInForceArray();
+    if (paramClass == formula::ForceArray
+        || paramClass == formula::ReferenceOrForceArray
+        || paramClass == formula::SuppressedReferenceOrForceArray)
+    {
+        return true;
+    }
+    formula::ParamClass returnType = ScParameterClassification::GetParameterType( token, SAL_MAX_UINT16 );
+    if( returnType == formula::Reference )
+        return true;
+    return false;
+}
+
+void ScCompiler::HandleIIOpCode(FormulaToken* token, FormulaToken*** pppToken, sal_uInt8 nNumParams)
+{
+    if (!mbComputeII)
+        return;
+#ifdef DBG_UTIL
+    if(!HandleIIOpCodeInternal(token, pppToken, nNumParams))
+        mUnhandledPossibleImplicitIntersectionsOpCodes.insert(token->GetOpCode());
+#else
+    HandleIIOpCodeInternal(token, pppToken, nNumParams);
+#endif
+}
+
+// return true if opcode is handled
+bool ScCompiler::HandleIIOpCodeInternal(FormulaToken* token, FormulaToken*** pppToken, sal_uInt8 nNumParams)
+{
+    if (nNumParams > 0 && *pppToken[0] == nullptr)
+        return false; // Bad expression (see the dummy creation in FormulaCompiler::CompileTokenArray())
+
+    const OpCode nOpCode = token->GetOpCode();
+
+    if (nOpCode == ocPush)
+    {
+        if(token->GetType() == svDoubleRef)
+            mUnhandledPossibleImplicitIntersections.insert( token );
+        return true;
+    }
+    else if (nOpCode == ocSumIf || nOpCode == ocAverageIf)
+    {
+        if (nNumParams != 3)
+            return false;
+
+        if (!(pppToken[0] && pppToken[2] && *pppToken[0] && *pppToken[2]))
+            return false;
+
+        if ((*pppToken[0])->GetType() != svDoubleRef)
+            return false;
+
+        const StackVar eSumRangeType = (*pppToken[2])->GetType();
+
+        if ( eSumRangeType != svSingleRef && eSumRangeType != svDoubleRef )
+            return false;
+
+        const ScComplexRefData& rBaseRange = *(*pppToken[0])->GetDoubleRef();
+
+        ScComplexRefData aSumRange;
+        if (eSumRangeType == svSingleRef)
+        {
+            aSumRange.Ref1 = *(*pppToken[2])->GetSingleRef();
+            aSumRange.Ref2 = aSumRange.Ref1;
+        }
+        else
+            aSumRange = *(*pppToken[2])->GetDoubleRef();
+
+        CorrectSumRange(rBaseRange, aSumRange, pppToken[2]);
+        // TODO mark parameters as handled
+        return true;
+    }
+    else if (nOpCode >= SC_OPCODE_START_1_PAR && nOpCode < SC_OPCODE_STOP_1_PAR)
+    {
+        if (nNumParams != 1)
+            return false;
+
+        if( !ParameterMayBeImplicitIntersection( token, 0 ))
+            return false;
+        if (SkipImplicitIntersectionOptimization(token))
+            return false;
+
+        if ((*pppToken[0])->GetType() != svDoubleRef)
+            return false;
+
+        mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[0], token );
+        return true;
+    }
+    else if ((nOpCode >= SC_OPCODE_START_BIN_OP && nOpCode < SC_OPCODE_STOP_BIN_OP)
+              || nOpCode == ocRound || nOpCode == ocRoundUp || nOpCode == ocRoundDown)
+    {
+        if (nNumParams != 2)
+            return false;
+
+        if( !ParameterMayBeImplicitIntersection( token, 0 ) || !ParameterMayBeImplicitIntersection( token, 1 ))
+            return false;
+        if (SkipImplicitIntersectionOptimization(token))
+            return false;
+
+        // Convert only if the other parameter is not a matrix (which would force the result to be a matrix).
+        if ((*pppToken[0])->GetType() == svDoubleRef && (*pppToken[1])->GetType() != svMatrix)
+            mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[0], token );
+        if ((*pppToken[1])->GetType() == svDoubleRef && (*pppToken[0])->GetType() != svMatrix)
+            mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[1], token );
+        return true;
+    }
+    else if ((nOpCode >= SC_OPCODE_START_UN_OP && nOpCode < SC_OPCODE_STOP_UN_OP)
+              || nOpCode == ocPercentSign)
+    {
+        if (nNumParams != 1)
+            return false;
+
+        if( !ParameterMayBeImplicitIntersection( token, 0 ))
+            return false;
+        if (SkipImplicitIntersectionOptimization(token))
+            return false;
+
+        if ((*pppToken[0])->GetType() == svDoubleRef)
+            mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[0], token );
+        return true;
+    }
+    else if (nOpCode == ocVLookup)
+    {
+        if (nNumParams != 3 && nNumParams != 4)
+            return false;
+
+        if (SkipImplicitIntersectionOptimization(token))
+            return false;
+
+        assert( ParameterMayBeImplicitIntersection( token, 0 ));
+        assert( !ParameterMayBeImplicitIntersection( token, 1 ));
+        assert( ParameterMayBeImplicitIntersection( token, 2 ));
+        assert( ParameterMayBeImplicitIntersection( token, 3 ));
+        if ((*pppToken[2])->GetType() == svDoubleRef)
+            mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[2], token );
+        if ((*pppToken[0])->GetType() == svDoubleRef)
+            mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[0], token );
+        if (nNumParams == 4 && (*pppToken[3])->GetType() == svDoubleRef)
+            mPendingImplicitIntersectionOptimizations.emplace_back( pppToken[3], token );
+        // a range for the second parameters is not an implicit intersection
+        mUnhandledPossibleImplicitIntersections.erase( *pppToken[ 1 ] );
+        return true;
+    }
+    else
+    {
+        bool possibleII = false;
+        for( int i = 0; i < nNumParams; ++i )
+        {
+            if( ParameterMayBeImplicitIntersection( token, i ))
+            {
+                possibleII = true;
+                break;
+            }
+        }
+        if( !possibleII )
+        {
+            // all parameters have been handled, they are not implicit intersections
+            for( int i = 0; i < nNumParams; ++i )
+                mUnhandledPossibleImplicitIntersections.erase( *pppToken[ i ] );
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void ScCompiler::PostProcessCode()
+{
+    for( const PendingImplicitIntersectionOptimization& item : mPendingImplicitIntersectionOptimizations )
+    {
+        if( *item.parameterLocation != item.parameter ) // the parameter has been changed somehow
+            continue;
+        if( item.parameterLocation >= pCode ) // the location is not inside the code (pCode points after the end)
+            continue;
+        // E.g. "SUMPRODUCT(I5:I6+1)" shouldn't do implicit intersection.
+        if( item.operation->IsInForceArray())
+            continue;
+        ReplaceDoubleRefII( item.parameterLocation );
+    }
+    mPendingImplicitIntersectionOptimizations.clear();
+}
+
+void ScCompiler::ReplaceDoubleRefII(FormulaToken** ppDoubleRefTok)
+{
+    const ScComplexRefData* pRange = (*ppDoubleRefTok)->GetDoubleRef();
+    if (!pRange)
+        return;
+
+    const ScComplexRefData& rRange = *pRange;
+
+    // Can't do optimization reliably in this case (when row references are absolute).
+    // Example : =SIN(A$1:A$10) filled in a formula group starting at B5 and of length 100.
+    // If we just optimize the argument $A$1:$A$10 to singleref "A5" for the top cell in the fg, then
+    // the results in cells B11:B104 will be incorrect (sin(0) = 0, assuming empty cells in A11:A104)
+    // instead of the #VALUE! errors we would expect. We need to know the formula-group length to
+    // fix this, but that is unknown at this stage, so skip such cases.
+    if (!rRange.Ref1.IsRowRel() && !rRange.Ref2.IsRowRel())
+        return;
+
+    ScRange aAbsRange = rRange.toAbs(aPos);
+    if (aAbsRange.aStart == aAbsRange.aEnd)
+        return; // Nothing to do (trivial case).
+
+    ScAddress aAddr;
+
+    if (!DoubleRefToPosSingleRefScalarCase(aAbsRange, aAddr, aPos))
+        return;
+
+    ScSingleRefData aSingleRef;
+    aSingleRef.InitFlags();
+    aSingleRef.SetColRel(rRange.Ref1.IsColRel());
+    aSingleRef.SetRowRel(true);
+    aSingleRef.SetTabRel(rRange.Ref1.IsTabRel());
+    aSingleRef.SetAddress(aAddr, aPos);
+
+    // Replace the original doubleref token with computed singleref token
+    FormulaToken* pNewSingleRefTok = new ScSingleRefToken(aSingleRef);
+    (*ppDoubleRefTok)->DecRef();
+    *ppDoubleRefTok = pNewSingleRefTok;
+    pNewSingleRefTok->IncRef();
+}
+
+bool ScCompiler::DoubleRefToPosSingleRefScalarCase(const ScRange& rRange, ScAddress& rAdr, const ScAddress& rFormulaPos)
+{
+    assert(rRange.aStart != rRange.aEnd);
+
+    bool bOk = false;
+    SCCOL nMyCol = rFormulaPos.Col();
+    SCROW nMyRow = rFormulaPos.Row();
+    SCTAB nMyTab = rFormulaPos.Tab();
+    SCCOL nCol = 0;
+    SCROW nRow = 0;
+    SCTAB nTab;
+    nTab = rRange.aStart.Tab();
+    if ( rRange.aStart.Col() <= nMyCol && nMyCol <= rRange.aEnd.Col() )
+    {
+        nRow = rRange.aStart.Row();
+        if ( nRow == rRange.aEnd.Row() )
+        {
+            bOk = true;
+            nCol = nMyCol;
+        }
+        else if ( nTab != nMyTab && nTab == rRange.aEnd.Tab()
+                && rRange.aStart.Row() <= nMyRow && nMyRow <= rRange.aEnd.Row() )
+        {
+            bOk = true;
+            nCol = nMyCol;
+            nRow = nMyRow;
+        }
+    }
+    else if ( rRange.aStart.Row() <= nMyRow && nMyRow <= rRange.aEnd.Row() )
+    {
+        nCol = rRange.aStart.Col();
+        if ( nCol == rRange.aEnd.Col() )
+        {
+            bOk = true;
+            nRow = nMyRow;
+        }
+        else if ( nTab != nMyTab && nTab == rRange.aEnd.Tab()
+                && rRange.aStart.Col() <= nMyCol && nMyCol <= rRange.aEnd.Col() )
+        {
+            bOk = true;
+            nCol = nMyCol;
+            nRow = nMyRow;
+        }
+    }
+    if ( bOk )
+    {
+        if ( nTab == rRange.aEnd.Tab() )
+            ;   // all done
+        else if ( nTab <= nMyTab && nMyTab <= rRange.aEnd.Tab() )
+            nTab = nMyTab;
+        else
+            bOk = false;
+        if ( bOk )
+            rAdr.Set( nCol, nRow, nTab );
+    }
+
+    return bOk;
+}
+
+static void lcl_GetColRowDeltas(const ScRange& rRange, SCCOL& rXDelta, SCROW& rYDelta)
+{
+    rXDelta = rRange.aEnd.Col() - rRange.aStart.Col();
+    rYDelta = rRange.aEnd.Row() - rRange.aStart.Row();
+}
+
+bool ScCompiler::AdjustSumRangeShape(const ScComplexRefData& rBaseRange, ScComplexRefData& rSumRange)
+{
+    ScRange aAbs = rSumRange.toAbs(aPos);
+
+    // Current sum-range end col/row
+    SCCOL nEndCol = aAbs.aEnd.Col();
+    SCROW nEndRow = aAbs.aEnd.Row();
+
+    // Current behaviour is, we will get a #NAME? for the below case, so bail out.
+    // Note that sum-range's End[Col,Row] are same as Start[Col,Row] if the original formula
+    // has a single-ref as the sum-range.
+    if (!ValidCol(nEndCol) || !ValidRow(nEndRow))
+        return false;
+
+    SCCOL nXDeltaSum = 0;
+    SCROW nYDeltaSum = 0;
+
+    lcl_GetColRowDeltas(aAbs, nXDeltaSum, nYDeltaSum);
+
+    aAbs = rBaseRange.toAbs(aPos);
+    SCCOL nXDelta = 0;
+    SCROW nYDelta = 0;
+
+    lcl_GetColRowDeltas(aAbs, nXDelta, nYDelta);
+
+    if (nXDelta == nXDeltaSum &&
+        nYDelta == nYDeltaSum)
+        return false;  // shapes of base-range match current sum-range
+
+    // Try to make the sum-range to take the same shape as base-range,
+    // by adjusting Ref2 member of rSumRange if the resultant sum-range don't
+    // go out-of-bounds.
+
+    SCCOL nXInc = nXDelta - nXDeltaSum;
+    SCROW nYInc = nYDelta - nYDeltaSum;
+
+    // Don't let a valid End[Col,Row] go beyond (MAXCOL,MAXROW) to match
+    // what happens in ScInterpreter::IterateParametersIf(), but there it also shrinks
+    // the base-range by the (out-of-bound)amount clipped off the sum-range.
+    // TODO: Probably we can optimize (from threading perspective) rBaseRange
+    //       by shrinking it here correspondingly (?)
+    if (nEndCol + nXInc > MAXCOL)
+        nXInc = MAXCOL - nEndCol;
+    if (nEndRow + nYInc > MAXROW)
+        nYInc = MAXROW - nEndRow;
+
+    rSumRange.Ref2.IncCol(nXInc);
+    rSumRange.Ref2.IncRow(nYInc);
+
+    return true;
+}
+
+void ScCompiler::CorrectSumRange(const ScComplexRefData& rBaseRange,
+                                 ScComplexRefData& rSumRange,
+                                 FormulaToken** ppSumRangeToken)
+{
+    if (!AdjustSumRangeShape(rBaseRange, rSumRange))
+        return;
+
+    // Replace sum-range token
+    FormulaToken* pNewSumRangeTok = new ScDoubleRefToken(rSumRange);
+    (*ppSumRangeToken)->DecRef();
+    *ppSumRangeToken = pNewSumRangeTok;
+    pNewSumRangeTok->IncRef();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

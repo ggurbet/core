@@ -103,30 +103,28 @@ OSortIndex::~OSortIndex()
 {
 }
 
-void OSortIndex::AddKeyValue(OKeyValue * pKeyValue)
+void OSortIndex::AddKeyValue(std::unique_ptr<OKeyValue> pKeyValue)
 {
     assert(pKeyValue && "Can not be null here!");
     if(m_bFrozen)
     {
-        m_aKeyValues.push_back(TIntValuePairVector::value_type(pKeyValue->getValue(),nullptr));
-        delete pKeyValue;
+        m_aKeyValues.push_back({pKeyValue->getValue(),nullptr});
     }
     else
-        m_aKeyValues.push_back(TIntValuePairVector::value_type(pKeyValue->getValue(),pKeyValue));
+        m_aKeyValues.push_back({pKeyValue->getValue(),std::move(pKeyValue)});
 }
 
 void OSortIndex::Freeze()
 {
     OSL_ENSURE(! m_bFrozen,"OSortIndex::Freeze: already frozen!");
-    // Sortierung:
+    // sorting:
     if (m_aKeyType[0] != OKeyType::NONE)
         // we will sort ourself when the first keyType say so
         std::sort(m_aKeyValues.begin(),m_aKeyValues.end(),TKeyValueFunc(this));
 
     for (auto & keyValue : m_aKeyValues)
     {
-        delete keyValue.second;
-        keyValue.second = nullptr;
+        keyValue.second.reset();
     }
 
     m_bFrozen = true;
@@ -142,9 +140,9 @@ OKeyValue::~OKeyValue()
 {
 }
 
-OKeyValue* OKeyValue::createKeyValue(sal_Int32 _nVal)
+std::unique_ptr<OKeyValue> OKeyValue::createKeyValue(sal_Int32 _nVal)
 {
-    return new OKeyValue(_nVal);
+    return std::unique_ptr<OKeyValue>(new OKeyValue(_nVal));
 }
 
 

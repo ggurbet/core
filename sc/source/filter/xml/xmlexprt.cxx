@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <appluno.hxx>
 #include "xmlexprt.hxx"
@@ -158,6 +159,8 @@
 #include <memory>
 #include <vector>
 #include <vbahelper/vbaaccesshelper.hxx>
+
+
 
 //! not found in unonames.hxx
 #define SC_LAYERID "LayerID"
@@ -330,6 +333,8 @@ sal_Int16 ScXMLExport::GetMeasureUnit()
     return xProperties->getMetric();
 }
 
+static const OUStringLiteral gsLayerID( SC_LAYERID );
+
 ScXMLExport::ScXMLExport(
     const css::uno::Reference< css::uno::XComponentContext >& rContext,
     OUString const & implementationName, SvXMLExportFlags nExportFlag)
@@ -351,7 +356,6 @@ ScXMLExport::ScXMLExport(
     pMergedRangesContainer(nullptr),
     pValidationsContainer(nullptr),
     pChangeTrackingExportHelper(nullptr),
-    sLayerID( SC_LAYERID ),
     nOpenRow(-1),
     nProgressCount(0),
     nCurrentTable(0),
@@ -527,7 +531,7 @@ void ScXMLExport::CollectSharedData(SCTAB& nTableCount, sal_Int32& nShapesCount)
                 continue;
 
             sal_Int16 nLayerID = 0;
-            bool bExtracted = xShapeProp->getPropertyValue(sLayerID) >>= nLayerID;
+            bool bExtracted = xShapeProp->getPropertyValue(gsLayerID) >>= nLayerID;
             if (!bExtracted)
                 continue;
 
@@ -744,7 +748,7 @@ void ScXMLExport::WriteSingleColumn(const sal_Int32 nRepeatColumns, const sal_In
     const sal_Int32 nIndex, const bool bIsAutoStyle, const bool bIsVisible)
 {
     CheckAttrList();
-    AddAttribute(sAttrStyleName, *pColumnStyles->GetStyleNameByIndex(nStyleIndex));
+    AddAttribute(sAttrStyleName, pColumnStyles->GetStyleNameByIndex(nStyleIndex));
     if (!bIsVisible)
         AddAttribute(XML_NAMESPACE_TABLE, XML_VISIBILITY, XML_COLLAPSE);
     if (nRepeatColumns > 1)
@@ -753,7 +757,7 @@ void ScXMLExport::WriteSingleColumn(const sal_Int32 nRepeatColumns, const sal_In
         AddAttribute(sAttrColumnsRepeated, sOUEndCol);
     }
     if (nIndex != -1)
-        AddAttribute(XML_NAMESPACE_TABLE, XML_DEFAULT_CELL_STYLE_NAME, *pCellStyles->GetStyleNameByIndex(nIndex, bIsAutoStyle));
+        AddAttribute(XML_NAMESPACE_TABLE, XML_DEFAULT_CELL_STYLE_NAME, pCellStyles->GetStyleNameByIndex(nIndex, bIsAutoStyle));
     SvXMLElementExport aElemC(*this, sElemCol, true, true);
 }
 
@@ -877,6 +881,7 @@ void ScXMLExport::ExportColumns(const sal_Int32 nTable, const ScRange& aColumnHe
             nColsRepeated = 1;
         }
     }
+    assert(nPrevIndex >= 0 && "coverity#1438402");
     WriteColumn(nPrevColumn, nColsRepeated, nPrevIndex, bPrevIsVisible);
     if (!bIsClosed)
         CloseHeaderColumn();
@@ -919,9 +924,7 @@ void ScXMLExport::ExportExternalRefCacheStyles()
         sal_Int32 nIndex;
         if (GetAutoStylePool()->Add(aName, XML_STYLE_FAMILY_TABLE_CELL, aDefaultStyle, aProps))
         {
-            OUString* pTemp(new OUString(aName));
-            if (!pCellStyles->AddStyleName(pTemp, nIndex))
-                delete pTemp;
+            pCellStyles->AddStyleName(aName, nIndex);
         }
         else
         {
@@ -1326,7 +1329,7 @@ void ScXMLExport::WriteRowContent()
             else
             {
                 if (nIndex != -1)
-                    AddAttribute(sAttrStyleName, *pCellStyles->GetStyleNameByIndex(nIndex, bIsAutoStyle));
+                    AddAttribute(sAttrStyleName, pCellStyles->GetStyleNameByIndex(nIndex, bIsAutoStyle));
                 if (nPrevValidationIndex > -1)
                     AddAttribute(XML_NAMESPACE_TABLE, XML_CONTENT_VALIDATION_NAME, pValidationsContainer->GetValidationName(nPrevValidationIndex));
                 if (nCols > 1)
@@ -1347,7 +1350,7 @@ void ScXMLExport::WriteRowContent()
     if (!bIsFirst)
     {
         if (nIndex != -1)
-            AddAttribute(sAttrStyleName, *pCellStyles->GetStyleNameByIndex(nIndex, bIsAutoStyle));
+            AddAttribute(sAttrStyleName, pCellStyles->GetStyleNameByIndex(nIndex, bIsAutoStyle));
         if (nPrevValidationIndex > -1)
             AddAttribute(XML_NAMESPACE_TABLE, XML_CONTENT_VALIDATION_NAME, pValidationsContainer->GetValidationName(nPrevValidationIndex));
         if (nCols > 1)
@@ -1362,7 +1365,7 @@ void ScXMLExport::WriteRowStartTag(
     const sal_Int32 nIndex, const sal_Int32 nEqualRows,
     bool bHidden, bool bFiltered)
 {
-    AddAttribute(sAttrStyleName, *pRowStyles->GetStyleNameByIndex(nIndex));
+    AddAttribute(sAttrStyleName, pRowStyles->GetStyleNameByIndex(nIndex));
     if (bHidden)
     {
         if (bFiltered)
@@ -1485,6 +1488,7 @@ void ScXMLExport::OpenRow(const sal_Int32 nTable, const sal_Int32 nStartRow, con
                     ++nEqualRows;
                 else
                 {
+                    assert(nPrevIndex >= 0 && "coverity#1438402");
                     if (nRow < nEndRow)
                     {
                         ScRowFormatRanges* pTempRowFormatRanges = new ScRowFormatRanges(pRowFormatRanges.get());
@@ -1500,6 +1504,7 @@ void ScXMLExport::OpenRow(const sal_Int32 nTable, const sal_Int32 nStartRow, con
                 }
             }
         }
+        assert(nPrevIndex >= 0 && "coverity#1438402");
         OpenNewRow(nPrevIndex, nRow - nEqualRows, nEqualRows, bPrevHidden, bPrevFiltered);
     }
     else
@@ -1514,6 +1519,7 @@ void ScXMLExport::OpenRow(const sal_Int32 nTable, const sal_Int32 nStartRow, con
             bHidden = rRowAttr.rowHidden(nTable, nStartRow, nEndRowHidden);
             bFiltered = rRowAttr.rowFiltered(nTable, nStartRow, nEndRowFiltered);
         }
+        assert(nIndex >= 0 && "coverity#1438402");
         OpenNewRow(nIndex, nStartRow, 1, bHidden, bFiltered);
     }
     nOpenRow = nStartRow + nRepeatRow - 1;
@@ -2101,9 +2107,7 @@ void ScXMLExport::AddStyleFromCells(const uno::Reference<beans::XPropertySet>& x
                 {
                     GetAutoStylePool()->RegisterName(XML_STYLE_FAMILY_TABLE_CELL, *pOldName);
                     // add to pCellStyles, so the name is found for normal sheets
-                    OUString* pTemp(new OUString(*pOldName));
-                    if (!pCellStyles->AddStyleName(pTemp, nIndex))
-                        delete pTemp;
+                    pCellStyles->AddStyleName(*pOldName, nIndex);
                 }
             }
             else
@@ -2126,9 +2130,7 @@ void ScXMLExport::AddStyleFromCells(const uno::Reference<beans::XPropertySet>& x
                 bool bIsAutoStyle(true);
                 if (bAdded || GetAutoStylePool()->Add(sName, XML_STYLE_FAMILY_TABLE_CELL, sStyleName, aPropStates))
                 {
-                    OUString* pTemp(new OUString(sName));
-                    if (!pCellStyles->AddStyleName(pTemp, nIndex))
-                        delete pTemp;
+                    pCellStyles->AddStyleName(sName, nIndex);
                 }
                 else
                     nIndex = pCellStyles->GetIndexOfStyleName(sName, XML_STYLE_FAMILY_TABLE_CELL_STYLES_PREFIX, bIsAutoStyle);
@@ -2147,13 +2149,9 @@ void ScXMLExport::AddStyleFromCells(const uno::Reference<beans::XPropertySet>& x
         }
         else
         {
-            OUString* pTemp(new OUString(EncodeStyleName(sStyleName)));
+            OUString sEncodedStyleName(EncodeStyleName(sStyleName));
             sal_Int32 nIndex(0);
-            if (!pCellStyles->AddStyleName(pTemp, nIndex, false))
-            {
-                delete pTemp;
-                pTemp = nullptr;
-            }
+            pCellStyles->AddStyleName(sEncodedStyleName, nIndex, false);
             if ( !pOldName )
             {
                 uno::Sequence<table::CellRangeAddress> aAddresses(xCellRanges->getRangeAddresses());
@@ -2199,8 +2197,7 @@ void ScXMLExport::AddStyleFromColumn(const uno::Reference<beans::XPropertySet>& 
             {
                 GetAutoStylePool()->RegisterName(XML_STYLE_FAMILY_TABLE_COLUMN, *pOldName);
                 // add to pColumnStyles, so the name is found for normal sheets
-                OUString* pTemp(new OUString(*pOldName));
-                rIndex = pColumnStyles->AddStyleName(pTemp);
+                rIndex = pColumnStyles->AddStyleName(*pOldName);
             }
         }
         else
@@ -2208,8 +2205,7 @@ void ScXMLExport::AddStyleFromColumn(const uno::Reference<beans::XPropertySet>& 
             OUString sName;
             if (GetAutoStylePool()->Add(sName, XML_STYLE_FAMILY_TABLE_COLUMN, sParent, aPropStates))
             {
-                OUString* pTemp(new OUString(sName));
-                rIndex = pColumnStyles->AddStyleName(pTemp);
+                rIndex = pColumnStyles->AddStyleName(sName);
             }
             else
                 rIndex = pColumnStyles->GetIndexOfStyleName(sName, XML_STYLE_FAMILY_TABLE_COLUMN_STYLES_PREFIX);
@@ -2230,8 +2226,7 @@ void ScXMLExport::AddStyleFromRow(const uno::Reference<beans::XPropertySet>& xRo
             {
                 GetAutoStylePool()->RegisterName(XML_STYLE_FAMILY_TABLE_ROW, *pOldName);
                 // add to pRowStyles, so the name is found for normal sheets
-                OUString* pTemp(new OUString(*pOldName));
-                rIndex = pRowStyles->AddStyleName(pTemp);
+                rIndex = pRowStyles->AddStyleName(*pOldName);
             }
         }
         else
@@ -2239,8 +2234,7 @@ void ScXMLExport::AddStyleFromRow(const uno::Reference<beans::XPropertySet>& xRo
             OUString sName;
             if (GetAutoStylePool()->Add(sName, XML_STYLE_FAMILY_TABLE_ROW, sParent, aPropStates))
             {
-                OUString* pTemp(new OUString(sName));
-                rIndex = pRowStyles->AddStyleName(pTemp);
+                rIndex = pRowStyles->AddStyleName(sName);
             }
             else
                 rIndex = pRowStyles->GetIndexOfStyleName(sName, XML_STYLE_FAMILY_TABLE_ROW_STYLES_PREFIX);
@@ -2269,8 +2263,13 @@ static uno::Any lcl_GetEnumerated( uno::Reference<container::XEnumerationAccess>
     return aRet;
 }
 
-void ScXMLExport::ExportAutoStyles_()
+void ScXMLExport::collectAutoStyles()
 {
+    SvXMLExport::collectAutoStyles();
+
+    if (mbAutoStylesCollected)
+        return;
+
     if (!GetModel().is())
         return;
 
@@ -2406,7 +2405,7 @@ void ScXMLExport::ExportAutoStyles_()
                     OSL_ENSURE( pNote, "note not found" );
                     if (pNote)
                     {
-                        SdrCaptionObj* pDrawObj = pNote->GetOrCreateCaption( aPos );
+                        std::shared_ptr< SdrCaptionObj > pDrawObj = pNote->GetOrCreateCaption( aPos );
                         // all uno shapes are created anyway in CollectSharedData
                         uno::Reference<beans::XPropertySet> xShapeProperties( pDrawObj->getUnoShape(), uno::UNO_QUERY );
                         if (xShapeProperties.is())
@@ -2450,7 +2449,7 @@ void ScXMLExport::ExportAutoStyles_()
                     OSL_ENSURE( pNote, "note not found" );
                     if (pNote)
                     {
-                        SdrCaptionObj* pDrawObj = pNote->GetOrCreateCaption( aPos );
+                        std::shared_ptr< SdrCaptionObj > pDrawObj = pNote->GetOrCreateCaption( aPos );
                         uno::Reference<container::XEnumerationAccess> xCellText(pDrawObj->getUnoShape(), uno::UNO_QUERY);
                         uno::Reference<beans::XPropertySet> xParaProp(
                             lcl_GetEnumerated( xCellText, aNoteParaIter->maSelection.nStartPara ), uno::UNO_QUERY );
@@ -2484,7 +2483,7 @@ void ScXMLExport::ExportAutoStyles_()
                     OSL_ENSURE( pNote, "note not found" );
                     if (pNote)
                     {
-                        SdrCaptionObj* pDrawObj = pNote->GetOrCreateCaption( aPos );
+                        std::shared_ptr< SdrCaptionObj > pDrawObj = pNote->GetOrCreateCaption( aPos );
                         uno::Reference<text::XSimpleText> xCellText(pDrawObj->getUnoShape(), uno::UNO_QUERY);
                         uno::Reference<beans::XPropertySet> xCursorProp(xCellText->createTextCursor(), uno::UNO_QUERY);
                         ScDrawTextCursor* pCursor = ScDrawTextCursor::getImplementation( xCursorProp );
@@ -2662,7 +2661,31 @@ void ScXMLExport::ExportAutoStyles_()
         }
 
         pChangeTrackingExportHelper->CollectAutoStyles();
+    }
 
+    if (getExportFlags() & SvXMLExportFlags::MASTERSTYLES)
+        GetPageExport()->collectAutoStyles(true);
+
+    mbAutoStylesCollected = true;
+}
+
+void ScXMLExport::ExportAutoStyles_()
+{
+    if (!GetModel().is())
+        return;
+
+    uno::Reference <sheet::XSpreadsheetDocument> xSpreadDoc( GetModel(), uno::UNO_QUERY );
+    if (!xSpreadDoc.is())
+        return;
+
+    uno::Reference<container::XIndexAccess> xIndex( xSpreadDoc->getSheets(), uno::UNO_QUERY );
+    if (!xIndex.is())
+        return;
+
+    collectAutoStyles();
+
+    if (getExportFlags() & SvXMLExportFlags::CONTENT)
+    {
         GetAutoStylePool()->exportXML(XML_STYLE_FAMILY_TABLE_COLUMN);
         GetAutoStylePool()->exportXML(XML_STYLE_FAMILY_TABLE_ROW);
         GetAutoStylePool()->exportXML(XML_STYLE_FAMILY_TABLE_TABLE);
@@ -2691,7 +2714,6 @@ void ScXMLExport::ExportAutoStyles_()
 
     if (getExportFlags() & SvXMLExportFlags::MASTERSTYLES)
     {
-        GetPageExport()->collectAutoStyles(true);
         GetPageExport()->exportAutoStyles();
     }
 
@@ -3160,7 +3182,7 @@ void ScXMLExport::WriteCell(ScMyCell& aCell, sal_Int32 nEqualCellCount)
     SetRepeatAttribute(nEqualCellCount, (aCell.nType != table::CellContentType_EMPTY));
 
     if (aCell.nStyleIndex != -1)
-        AddAttribute(sAttrStyleName, *pCellStyles->GetStyleNameByIndex(aCell.nStyleIndex, aCell.bIsAutoStyle));
+        AddAttribute(sAttrStyleName, pCellStyles->GetStyleNameByIndex(aCell.nStyleIndex, aCell.bIsAutoStyle));
     if (aCell.nValidationIndex > -1)
         AddAttribute(XML_NAMESPACE_TABLE, XML_CONTENT_VALIDATION_NAME, pValidationsContainer->GetValidationName(aCell.nValidationIndex));
     bool bIsMatrix(aCell.bIsMatrixBase || aCell.bIsMatrixCovered);
@@ -3617,7 +3639,7 @@ void ScXMLExport::exportAnnotationMeta( const uno::Reference < drawing::XShape >
         // TODO : notes
         //is it still useful, as this call back is only called from ScXMLExport::WriteAnnotation
         // and should be in sync with pCurrentCell
-        SdrCaptionObj* pNoteCaption = pNote->GetOrCreateCaption(pCurrentCell->maCellAddress);
+        std::shared_ptr< SdrCaptionObj > pNoteCaption = pNote->GetOrCreateCaption(pCurrentCell->maCellAddress);
         uno::Reference<drawing::XShape> xCurrentShape( pNoteCaption->getUnoShape(), uno::UNO_QUERY );
         if (xCurrentShape.get()!=xShape.get())
             return;
@@ -3674,7 +3696,7 @@ void ScXMLExport::WriteAnnotation(ScMyCell& rMyCell)
 
         pCurrentCell = &rMyCell;
 
-        SdrCaptionObj* pNoteCaption = pNote->GetOrCreateCaption(rMyCell.maCellAddress);
+        std::shared_ptr< SdrCaptionObj > pNoteCaption = pNote->GetOrCreateCaption(rMyCell.maCellAddress);
         if (pNoteCaption)
         {
             uno::Reference<drawing::XShape> xShape( pNoteCaption->getUnoShape(), uno::UNO_QUERY );
@@ -4061,6 +4083,7 @@ void ScXMLExport::WriteExternalDataMapping()
 
     sc::ExternalDataMapper& rDataMapper = pDoc->GetExternalDataMapper();
     auto& rDataSources = rDataMapper.getDataSources();
+
     if (!rDataSources.empty())
     {
         SvXMLElementExport aMappings(*this, XML_NAMESPACE_CALC_EXT, XML_DATA_MAPPINGS, true, true);
@@ -4071,7 +4094,308 @@ void ScXMLExport::WriteExternalDataMapping()
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_DATA_FREQUENCY, OUString::number(itr.getUpdateFrequency()));
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_ID, itr.getID());
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_DATABASE_NAME, itr.getDBName());
+
             SvXMLElementExport aMapping(*this, XML_NAMESPACE_CALC_EXT, XML_DATA_MAPPING, true, true);
+            // Add the data transformations
+            WriteExternalDataTransformations(itr.getDataTransformation());
+        }
+    }
+}
+
+void ScXMLExport::WriteExternalDataTransformations(const std::vector<std::shared_ptr<sc::DataTransformation>>& aDataTransformations)
+{
+    SvXMLElementExport aTransformations(*this, XML_NAMESPACE_CALC_EXT, XML_DATA_TRANSFORMATIONS, true, true);
+    for (auto& itr : aDataTransformations)
+    {
+        sc::TransformationType aTransformationType = itr->getTransformationType();
+
+        switch(aTransformationType)
+        {
+            case sc::TransformationType::DELETE_TRANSFORMATION:
+            {
+                // Delete Columns Transformation
+                std::shared_ptr<sc::ColumnRemoveTransformation> aDeleteTransformation = std::dynamic_pointer_cast<sc::ColumnRemoveTransformation>(itr);
+                std::set<SCCOL> aColumns = aDeleteTransformation->getColumns();
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_REMOVE_TRANSFORMATION, true, true);
+                for(auto& col : aColumns)
+                {
+                    // Add Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            case sc::TransformationType::SPLIT_TRANSFORMATION:
+            {
+                std::shared_ptr<sc::SplitColumnTransformation> aSplitTransformation = std::dynamic_pointer_cast<sc::SplitColumnTransformation>(itr);
+
+                AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(aSplitTransformation->getColumn()));
+                AddAttribute(XML_NAMESPACE_CALC_EXT, XML_SEPARATOR, OUString::number(aSplitTransformation->getSeparator()));
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_SPLIT_TRANSFORMATION, true, true);
+            }
+            break;
+            case sc::TransformationType::MERGE_TRANSFORMATION:
+            {
+                // Merge Transformation
+                std::shared_ptr<sc::MergeColumnTransformation> aMergeTransformation = std::dynamic_pointer_cast<sc::MergeColumnTransformation>(itr);
+                std::set<SCCOL> aColumns = aMergeTransformation->getColumns();
+
+                AddAttribute(XML_NAMESPACE_CALC_EXT, XML_MERGE_STRING, aMergeTransformation->getMergeString());
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_MERGE_TRANSFORMATION, true, true);
+
+                for(auto& col : aColumns)
+                {
+                    // Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            case sc::TransformationType::SORT_TRANSFORMATION:
+            {
+                // Sort Transformation
+                std::shared_ptr<sc::SortTransformation> aSortTransformation = std::dynamic_pointer_cast<sc::SortTransformation>(itr);
+                ScSortParam aSortParam = aSortTransformation->getSortParam();
+                const sc::DocumentLinkManager& rMgr = pDoc->GetDocLinkManager();
+                const sc::DataStream* pStrm = rMgr.getDataStream();
+                if (!pStrm)
+                    // No data stream.
+                    return;
+
+                // Streamed range
+                ScRange aRange = pStrm->GetRange();
+
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_SORT_TRANSFORMATION, true, true);
+
+                writeSort(*this, aSortParam, aRange, pDoc);
+            }
+            break;
+            case sc::TransformationType::TEXT_TRANSFORMATION:
+            {
+                // Text Transformation
+                std::shared_ptr<sc::TextTransformation> aTextTransformation = std::dynamic_pointer_cast<sc::TextTransformation>(itr);
+
+                sc::TEXT_TRANSFORM_TYPE aTextTransformType = aTextTransformation->getTextTransformationType();
+
+                switch ( aTextTransformType )
+                {
+                    case sc::TEXT_TRANSFORM_TYPE::TO_LOWER:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_CASEMAP_LOWERCASE);
+                    break;
+                    case sc::TEXT_TRANSFORM_TYPE::TO_UPPER:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_CASEMAP_UPPERCASE);
+                    break;
+                    case sc::TEXT_TRANSFORM_TYPE::CAPITALIZE:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_CASEMAP_CAPITALIZE);
+                    break;
+                    case sc::TEXT_TRANSFORM_TYPE::TRIM:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_TRIM);
+                    break;
+                }
+
+                std::set<SCCOL> aColumns = aTextTransformation->getColumns();
+
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_TEXT_TRANSFORMATION, true, true);
+
+                for(auto& col : aColumns)
+                {
+                    // Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            case sc::TransformationType::AGGREGATE_FUNCTION:
+            {
+                // Aggregate Transformation
+                std::shared_ptr<sc::AggregateFunction> aAggregateFunction = std::dynamic_pointer_cast<sc::AggregateFunction>(itr);
+                std::set<SCCOL> aColumns = aAggregateFunction->getColumns();
+
+                sc::AGGREGATE_FUNCTION aAggregateType = aAggregateFunction->getAggregateType();
+
+                switch (aAggregateType)
+                {
+                    case sc::AGGREGATE_FUNCTION::SUM:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_SUM);
+                    break;
+                    case sc::AGGREGATE_FUNCTION::AVERAGE:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_AVERAGE);
+                    break;
+                    case sc::AGGREGATE_FUNCTION::MIN:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_MIN);
+                    break;
+                    case sc::AGGREGATE_FUNCTION::MAX:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_MAX);
+                    break;
+                }
+
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT,XML_COLUMN_AGGREGATE_TRANSFORMATION, true, true);
+
+                for(auto& col : aColumns)
+                {
+                    // Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            case sc::TransformationType::NUMBER_TRANSFORMATION:
+            {
+                // Number Transformation
+                std::shared_ptr<sc::NumberTransformation> aNumberTransformation = std::dynamic_pointer_cast<sc::NumberTransformation>(itr);
+
+                sc::NUMBER_TRANSFORM_TYPE aNumberTransformType = aNumberTransformation->getNumberTransfromationType();
+
+                switch ( aNumberTransformType )
+                {
+                    case sc::NUMBER_TRANSFORM_TYPE::ROUND:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_ROUND);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::ROUND_UP:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_ROUND_UP);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::ROUND_DOWN:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_ROUND_DOWN);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::ABSOLUTE:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_ABS);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::LOG_E:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_LOG);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::LOG_10:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_LOG_10);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::CUBE:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_CUBE);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::SQUARE:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_SQUARE);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::SQUARE_ROOT:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_SQUARE_ROOT);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::EXPONENT:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_EXPONENTIAL);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::IS_EVEN:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_EVEN);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::IS_ODD:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_ODD);
+                    break;
+                    case sc::NUMBER_TRANSFORM_TYPE::SIGN:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_SIGN);
+                    break;
+                }
+
+                AddAttribute(XML_NAMESPACE_CALC_EXT, XML_PRECISION, OUString::number(aNumberTransformation->getPrecision()));
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_NUMBER_TRANSFORMATION, true, true);
+
+                std::set<SCCOL> aColumns = aNumberTransformation->getColumn();
+                for(auto& col : aColumns)
+                {
+                    // Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            case sc::TransformationType::REMOVE_NULL_TRANSFORMATION:
+            {
+                // Replace Null Transformation
+                std::shared_ptr<sc::ReplaceNullTransformation> aReplaceNullTransformation = std::dynamic_pointer_cast<sc::ReplaceNullTransformation>(itr);
+                std::set<SCCOL> aColumns = aReplaceNullTransformation->getColumn();
+
+                AddAttribute(XML_NAMESPACE_CALC_EXT, XML_REPLACE_STRING, aReplaceNullTransformation->getReplaceString());
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_REPLACENULL_TRANSFORMATION, true, true);
+
+                for(auto& col : aColumns)
+                {
+                    // Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            case sc::TransformationType::DATETIME_TRANSFORMATION:
+            {
+                // Number Transformation
+                std::shared_ptr<sc::DateTimeTransformation> aDateTimeTransformation = std::dynamic_pointer_cast<sc::DateTimeTransformation>(itr);
+
+                sc::DATETIME_TRANSFORMATION_TYPE aDateTimeTransformationType = aDateTimeTransformation->getDateTimeTransfromationType();
+
+                switch ( aDateTimeTransformationType )
+                {
+                    case sc::DATETIME_TRANSFORMATION_TYPE::DATE_STRING:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_DATE_STRING);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::YEAR:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_YEAR);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::START_OF_YEAR:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_START_OF_YEAR);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::END_OF_YEAR:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_END_OF_YEAR);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::MONTH:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_MONTH);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::MONTH_NAME:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_MONTH_NAME);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::START_OF_MONTH:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_START_OF_MONTH);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::END_OF_MONTH:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_END_OF_MONTH);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::DAY:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_DAY);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::DAY_OF_WEEK:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_DAY_OF_WEEK);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::DAY_OF_YEAR:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_DAY_OF_YEAR);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::QUARTER:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_QUARTER);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::START_OF_QUARTER:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_START_OF_QUARTER);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::END_OF_QUARTER:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_END_OF_QUARTER);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::TIME:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_TIME);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::HOUR:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_HOUR);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::MINUTE:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_MINUTE);
+                    break;
+                    case sc::DATETIME_TRANSFORMATION_TYPE::SECOND:
+                        AddAttribute(XML_NAMESPACE_CALC_EXT, XML_TYPE, XML_SECONDS);
+                    break;
+                }
+
+                SvXMLElementExport aTransformation(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN_DATETIME_TRANSFORMATION, true, true);
+
+                std::set<SCCOL> aColumns = aDateTimeTransformation->getColumn();
+                for(auto& col : aColumns)
+                {
+                    // Columns
+                    AddAttribute(XML_NAMESPACE_CALC_EXT, XML_COLUMN, OUString::number(col));
+                    SvXMLElementExport aCol(*this, XML_NAMESPACE_CALC_EXT, XML_COLUMN, true, true);
+                }
+            }
+            break;
+            default:
+            break;
         }
     }
 }
@@ -4729,7 +5053,7 @@ void ScXMLExport::WriteExternalRefCaches()
                         sal_Int32 nIndex = GetNumberFormatStyleIndex(nNumFmt);
                         if (nIndex >= 0)
                         {
-                            const OUString aStyleName = *pCellStyles->GetStyleNameByIndex(nIndex, true);
+                            const OUString & aStyleName = pCellStyles->GetStyleNameByIndex(nIndex, true);
                             AddAttribute(XML_NAMESPACE_TABLE, XML_STYLE_NAME, aStyleName);
                         }
 
@@ -4783,7 +5107,7 @@ void ScXMLExport::WriteConsolidation()
 
             sStrData.clear();
             for( sal_Int32 nIndex = 0; nIndex < pCons->nDataAreaCount; ++nIndex )
-                ScRangeStringConverter::GetStringFromArea( sStrData, *pCons->ppDataAreas[ nIndex ], pDoc, FormulaGrammar::CONV_OOO, ' ', true );
+                ScRangeStringConverter::GetStringFromArea( sStrData, pCons->pDataAreas[ nIndex ], pDoc, FormulaGrammar::CONV_OOO, ' ', true );
             AddAttribute( XML_NAMESPACE_TABLE, XML_SOURCE_CELL_RANGE_ADDRESSES, sStrData );
 
             ScRangeStringConverter::GetStringFromAddress( sStrData, ScAddress( pCons->nCol, pCons->nRow, pCons->nTab ), pDoc, FormulaGrammar::CONV_OOO );

@@ -21,7 +21,7 @@
 #include <editeng/outlobj.hxx>
 
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdmrkv.hxx>
 #include <svx/svdedxv.hxx>
@@ -51,6 +51,7 @@
 #include <svx/sdr/contact/viewcontact.hxx>
 #include <drawinglayer/processor2d/contourextractor2d.hxx>
 #include <drawinglayer/primitive2d/texthierarchyprimitive2d.hxx>
+#include <sal/log.hxx>
 
 
 SdrViewEvent::SdrViewEvent()
@@ -95,11 +96,11 @@ void SdrDropMarkerOverlay::ImplCreateOverlays(
 
         if (xTargetOverlay.is())
         {
-            sdr::overlay::OverlayPolyPolygonStripedAndFilled* pNew = new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
-                rLinePolyPolygon);
+            std::unique_ptr<sdr::overlay::OverlayPolyPolygonStripedAndFilled> pNew(new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
+                rLinePolyPolygon));
 
             xTargetOverlay->add(*pNew);
-            maObjects.append(pNew);
+            maObjects.append(std::move(pNew));
         }
     }
 }
@@ -248,14 +249,9 @@ bool SdrView::Command(const CommandEvent& rCEvt, vcl::Window* pWin)
     return bRet;
 }
 
-bool SdrView::GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const
+void SdrView::GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const
 {
-    return SdrCreateView::GetAttributes(rTargetSet, bOnlyHardAttr);
-}
-
-SfxStyleSheet* SdrView::GetStyleSheet() const
-{
-    return SdrCreateView::GetStyleSheet();
+    SdrCreateView::GetAttributes(rTargetSet, bOnlyHardAttr);
 }
 
 SdrHitKind SdrView::PickAnything(const MouseEvent& rMEvt, SdrMouseEventKind nEventKind, SdrViewEvent& rVEvt) const
@@ -405,7 +401,7 @@ SdrHitKind SdrView::PickAnything(const Point& rLogicPos, SdrViewEvent& rVEvt) co
         if (pObj!=pHitObj)
         {
             SdrObject* pObjTmp=nullptr;
-            pObjTmp=pHitObj->GetUpGroup();
+            pObjTmp=pHitObj->getParentSdrObjectFromSdrObject();
             if (pObjTmp==pObj) pObjTmp=nullptr;
             while (pObjTmp!=nullptr)
             {
@@ -414,7 +410,7 @@ SdrHitKind SdrView::PickAnything(const Point& rLogicPos, SdrViewEvent& rVEvt) co
                     bMid=true;
                     pMidObj=pObjTmp;
                 }
-                pObjTmp=pObjTmp->GetUpGroup();
+                pObjTmp=pObjTmp->getParentSdrObjectFromSdrObject();
                 if (pObjTmp==pObj) pObjTmp=nullptr;
             }
         }
@@ -743,8 +739,8 @@ SdrHitKind SdrView::PickAnything(const Point& rLogicPos, SdrViewEvent& rVEvt) co
     rVEvt.eEvent=eEvent;
 #ifdef DGB_UTIL
     if (rVEvt.pRootObj!=NULL) {
-        if (rVEvt.pRootObj->getParentOfSdrObject()!=rVEvt.pPV->GetObjList()) {
-            OSL_FAIL("SdrView::PickAnything(): pRootObj->getParentOfSdrObject()!=pPV->GetObjList() !");
+        if (rVEvt.pRootObj->getParentSdrObjListFromSdrObject()!=rVEvt.pPV->GetObjList()) {
+            OSL_FAIL("SdrView::PickAnything(): pRootObj->getParentSdrObjListFromSdrObject()!=pPV->GetObjList() !");
         }
     }
 #endif
@@ -864,7 +860,8 @@ bool SdrView::DoMouseEvent(const SdrViewEvent& rVEvt)
         case SdrEventKind::MarkPoint: { // + (if applicable) BegDrag
             if (!rVEvt.bAddMark) UnmarkAllPoints();
             if (rVEvt.bPrevNextMark) {
-                bRet=MarkNextPoint();
+                MarkNextPoint();
+                bRet=false;
             } else {
                 bRet=MarkPoint(*rVEvt.pHdl,rVEvt.bUnmark);
             }
@@ -876,7 +873,8 @@ bool SdrView::DoMouseEvent(const SdrViewEvent& rVEvt)
         case SdrEventKind::MarkGluePoint: { // + (if applicable) BegDrag
             if (!rVEvt.bAddMark) UnmarkAllGluePoints();
             if (rVEvt.bPrevNextMark) {
-                bRet=MarkNextGluePoint();
+                MarkNextGluePoint();
+                bRet=false;
             } else {
                 bRet=MarkGluePoint(rVEvt.pObj,rVEvt.nGlueId,rVEvt.bUnmark);
             }
@@ -905,7 +903,8 @@ bool SdrView::DoMouseEvent(const SdrViewEvent& rVEvt)
             } else bRet=BegCreateObj(aLogicPos);
         } break;
         case SdrEventKind::BeginMacroObj: {
-            bRet=BegMacroObj(aLogicPos,mnHitTolLog,rVEvt.pObj,rVEvt.pPV,static_cast<vcl::Window*>(mpActualOutDev.get()));
+            BegMacroObj(aLogicPos,mnHitTolLog,rVEvt.pObj,rVEvt.pPV,static_cast<vcl::Window*>(mpActualOutDev.get()));
+            bRet=false;
         } break;
         case SdrEventKind::BeginTextEdit: {
             if (!IsObjMarked(rVEvt.pObj)) {
@@ -1177,7 +1176,7 @@ OUString SdrView::GetStatusText()
         if(aStr.isEmpty())
         {
             aName = pCurrentCreate->TakeObjNameSingul();
-            aStr = ImpGetResStr(STR_ViewCreateObj);
+            aStr = SvxResId(STR_ViewCreateObj);
         }
     }
     else if (mpCurrentSdrDragMethod)
@@ -1192,7 +1191,7 @@ OUString SdrView::GetStatusText()
             {
                 SAL_INFO(
                     "svx.svdraw",
-                    "(" << this << ") " << mpCurrentSdrDragMethod);
+                    "(" << this << ") " << mpCurrentSdrDragMethod.get());
                 mpCurrentSdrDragMethod->TakeSdrDragComment(aStr);
             }
         }
@@ -1201,36 +1200,36 @@ OUString SdrView::GetStatusText()
     {
         if(AreObjectsMarked())
         {
-            aStr = ImpGetResStr(STR_ViewMarkMoreObjs);
+            aStr = SvxResId(STR_ViewMarkMoreObjs);
         }
         else
         {
-            aStr = ImpGetResStr(STR_ViewMarkObjs);
+            aStr = SvxResId(STR_ViewMarkObjs);
         }
     }
     else if(IsMarkPoints())
     {
         if(HasMarkedPoints())
         {
-            aStr = ImpGetResStr(STR_ViewMarkMorePoints);
+            aStr = SvxResId(STR_ViewMarkMorePoints);
         }
         else
         {
-            aStr = ImpGetResStr(STR_ViewMarkPoints);
+            aStr = SvxResId(STR_ViewMarkPoints);
         }
     } else if (IsMarkGluePoints())
     {
         if(HasMarkedGluePoints())
         {
-            aStr = ImpGetResStr(STR_ViewMarkMoreGluePoints);
+            aStr = SvxResId(STR_ViewMarkMoreGluePoints);
         }
         else
         {
-            aStr = ImpGetResStr(STR_ViewMarkGluePoints);
+            aStr = SvxResId(STR_ViewMarkGluePoints);
         }
     }
     else if (IsTextEdit() && pTextEditOutlinerView!=nullptr) {
-        aStr=ImpGetResStr(STR_ViewTextEdit); // "TextEdit - Row y, Column x";
+        aStr=SvxResId(STR_ViewTextEdit); // "TextEdit - Row y, Column x";
         ESelection aSel(pTextEditOutlinerView->GetSelection());
         long nPar=aSel.nEndPara,nLin=0,nCol=aSel.nEndPos;
         if (aSel.nEndPara>0) {
@@ -1428,7 +1427,8 @@ bool SdrView::BegMark(const Point& rPnt, bool bAddMark, bool bUnmark)
         return BegMarkPoints(rPnt,bUnmark);
     } else {
         if (!bAddMark) UnmarkAllObj();
-        return BegMarkObj(rPnt,bUnmark);
+        BegMarkObj(rPnt,bUnmark);
+        return true;
     }
 }
 

@@ -1236,19 +1236,19 @@ void lcl_ApplyParagraphClassification(SwDoc* pDoc,
 
     // Correct the order
     std::reverse(aFieldNames.begin(), aFieldNames.end());
-    OUString sFieldNames;
+    OUStringBuffer sFieldNames;
     bool first = true;
     for (const OUString& rFieldName : aFieldNames)
     {
         if (!first)
-            sFieldNames += "/";
-        sFieldNames += rFieldName;
+            sFieldNames.append("/");
+        sFieldNames.append(rFieldName);
         first = false;
     }
 
     const OUString sOldFieldNames = lcl_getRDF(xModel, xNodeSubject, ParagraphClassificationFieldNamesRDFName).second;
     SwRDFHelper::removeStatement(xModel, MetaNS, xNodeSubject, ParagraphClassificationFieldNamesRDFName, sOldFieldNames);
-    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xNodeSubject, ParagraphClassificationFieldNamesRDFName, sFieldNames);
+    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xNodeSubject, ParagraphClassificationFieldNamesRDFName, sFieldNames.makeStringAndClear());
 }
 
 void SwEditShell::ApplyParagraphClassification(std::vector<svx::ClassificationResult> aResults)
@@ -1483,7 +1483,7 @@ void lcl_placeWatermarkInHeader(const SfxWatermarkItem& rWatermark,
     // Calc the ratio.
     double fRatio = 0;
 
-    VclPtr<VirtualDevice> pDevice = VclPtr<VirtualDevice>::Create();
+    ScopedVclPtrInstance<VirtualDevice> pDevice;
     vcl::Font aFont = pDevice->GetFont();
     aFont.SetFamilyName(sFont);
     aFont.SetFontSize(Size(0, 96));
@@ -1525,7 +1525,7 @@ void lcl_placeWatermarkInHeader(const SfxWatermarkItem& rWatermark,
     basegfx::B2DHomMatrix aTransformation;
     aTransformation.identity();
     aTransformation.scale(nWidth, nHeight);
-    aTransformation.rotate(F_PI180 * -1 * nAngle);
+    aTransformation.rotate(-basegfx::deg2rad(nAngle));
     drawing::HomogenMatrix3 aMatrix;
     aMatrix.Line1.Column1 = aTransformation.get(0, 0);
     aMatrix.Line1.Column2 = aTransformation.get(0, 1);

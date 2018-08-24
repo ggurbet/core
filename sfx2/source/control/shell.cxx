@@ -201,12 +201,12 @@ SfxInterface* SfxShell::GetInterface() const
     return GetStaticInterface();
 }
 
-::svl::IUndoManager* SfxShell::GetUndoManager()
+SfxUndoManager* SfxShell::GetUndoManager()
 {
     return pUndoMgr;
 }
 
-void SfxShell::SetUndoManager( ::svl::IUndoManager *pNewUndoMgr )
+void SfxShell::SetUndoManager( SfxUndoManager *pNewUndoMgr )
 {
     OSL_ENSURE( ( pUndoMgr == nullptr ) || ( pNewUndoMgr == nullptr ) || ( pUndoMgr == pNewUndoMgr ),
         "SfxShell::SetUndoManager: exchanging one non-NULL manager with another non-NULL manager? Suspicious!" );
@@ -326,7 +326,7 @@ void SfxShell::DoDeactivate_Impl( SfxViewFrame const *pFrame, bool bMDI )
             << " bMDI " << (bMDI ? "MDI" : ""));
 
     // Only when it comes from a Frame
-    // (not when for instance by poping BASIC-IDE from AppDisp)
+    // (not when for instance by popping BASIC-IDE from AppDisp)
     if ( bMDI && pImpl->pFrame == pFrame )
     {
         // deliver
@@ -491,7 +491,7 @@ const SfxPoolItem* SfxShell::GetSlotState
         eState = SfxItemState::UNKNOWN;
 
     // Evaluate Item and item status and possibly maintain them in pStateSet
-    SfxPoolItem *pRetItem = nullptr;
+    std::unique_ptr<SfxPoolItem> pRetItem;
     if ( eState <= SfxItemState::DISABLED )
     {
         if ( pStateSet )
@@ -502,17 +502,18 @@ const SfxPoolItem* SfxShell::GetSlotState
     {
         if ( pStateSet )
             pStateSet->ClearItem(nSlotId);
-        pRetItem = new SfxVoidItem(0);
+        pRetItem.reset( new SfxVoidItem(0) );
     }
     else
     {
         if ( pStateSet && pStateSet->Put( *pItem ) )
             return &pStateSet->Get( pItem->Which() );
-        pRetItem = pItem->Clone();
+        pRetItem.reset(pItem->Clone());
     }
-    DeleteItemOnIdle(pRetItem);
+    auto pTemp = pRetItem.get();
+    DeleteItemOnIdle(std::move(pRetItem));
 
-    return pRetItem;
+    return pTemp;
 }
 
 SFX_EXEC_STUB(SfxShell, VerbExec)
@@ -546,7 +547,7 @@ void SfxShell::SetVerbs(const css::uno::Sequence < css::embed::VerbDescriptor >&
     for (sal_Int32 n=0; n<aVerbs.getLength(); n++)
     {
         sal_uInt16 nSlotId = SID_VERB_START + nr++;
-        DBG_ASSERT(nSlotId <= SID_VERB_END, "To many Verbs!");
+        DBG_ASSERT(nSlotId <= SID_VERB_END, "Too many Verbs!");
         if (nSlotId > SID_VERB_END)
             break;
 

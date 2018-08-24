@@ -23,7 +23,6 @@
 #include <com/sun/star/chart2/data/LabelOrigin.hpp>
 #include <cppuhelper/interfacecontainer.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <comphelper/sequence.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/svapp.hxx>
 #include <svl/zforlist.hxx>
@@ -118,43 +117,30 @@ void SwChartLockController_Helper::LockUnlockAllCharts( bool bLock )
     if (!pDoc)
         return;
 
-    const SwFrameFormats& rTableFormats = *pDoc->GetTableFrameFormats();
-    for( size_t n = 0; n < rTableFormats.size(); ++n )
+    uno::Reference< frame::XModel > xRes;
+    SwOLENode *pONd;
+    SwStartNode *pStNd;
+    SwNodeIndex aIdx( *pDoc->GetNodes().GetEndOfAutotext().StartOfSectionNode(), 1 );
+    while( nullptr != (pStNd = aIdx.GetNode().GetStartNode()) )
     {
-        SwTable* pTmpTable;
-        const SwTableNode* pTableNd;
-        const SwFrameFormat* pFormat = rTableFormats[ n ];
-
-        if( nullptr != ( pTmpTable = SwTable::FindTable( pFormat ) ) &&
-            nullptr != ( pTableNd = pTmpTable->GetTableNode() ) &&
-            pTableNd->GetNodes().IsDocNodes() )
+        ++aIdx;
+        if (nullptr != ( pONd = aIdx.GetNode().GetOLENode() ) &&
+            !pONd->GetChartTableName().isEmpty() /* is chart object? */)
         {
-            uno::Reference< frame::XModel > xRes;
-            SwOLENode *pONd;
-            SwStartNode *pStNd;
-            SwNodeIndex aIdx( *pDoc->GetNodes().GetEndOfAutotext().StartOfSectionNode(), 1 );
-            while( nullptr != (pStNd = aIdx.GetNode().GetStartNode()) )
+            uno::Reference < embed::XEmbeddedObject > xIP = pONd->GetOLEObj().GetOleRef();
+            if ( svt::EmbeddedObjectRef::TryRunningState( xIP ) )
             {
-                ++aIdx;
-                if (nullptr != ( pONd = aIdx.GetNode().GetOLENode() ) &&
-                    !pONd->GetChartTableName().isEmpty() /* is chart object? */)
+                xRes.set( xIP->getComponent(), uno::UNO_QUERY );
+                if (xRes.is())
                 {
-                    uno::Reference < embed::XEmbeddedObject > xIP = pONd->GetOLEObj().GetOleRef();
-                    if ( svt::EmbeddedObjectRef::TryRunningState( xIP ) )
-                    {
-                        xRes.set( xIP->getComponent(), uno::UNO_QUERY );
-                        if (xRes.is())
-                        {
-                            if (bLock)
-                                xRes->lockControllers();
-                            else
-                                xRes->unlockControllers();
-                        }
-                    }
+                    if (bLock)
+                        xRes->lockControllers();
+                    else
+                        xRes->unlockControllers();
                 }
-                aIdx.Assign( *pStNd->EndOfSectionNode(), + 1 );
             }
         }
+        aIdx.Assign( *pStNd->EndOfSectionNode(), + 1 );
     }
 
     bIsLocked = bLock;
@@ -420,11 +406,11 @@ static void GetFormatAndCreateCursorFromRangeRep(
                 pUnoCursor->SetMark();
                 pUnoCursor->GetPoint()->nNode = *pBRBox->GetSttNd();
                 pUnoCursor->Move( fnMoveForward, GoInNode );
-                SwUnoTableCursor* pCursor =
-                    dynamic_cast<SwUnoTableCursor*>(pUnoCursor.get());
+                SwUnoTableCursor& rCursor =
+                    dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
                 // HACK: remove pending actions for old style tables
-                UnoActionRemoveContext aRemoveContext(*pCursor);
-                pCursor->MakeBoxSels();
+                UnoActionRemoveContext aRemoveContext(rCursor);
+                rCursor.MakeBoxSels();
                 rpUnoCursor = pUnoCursor;
             }
         }
@@ -435,7 +421,7 @@ static bool GetSubranges( const OUString &rRangeRepresentation,
         uno::Sequence< OUString > &rSubRanges, bool bNormalize )
 {
     bool bRes = true;
-    sal_Int32 nLen = comphelper::string::getTokenCount(rRangeRepresentation, ';');
+    const sal_Int32 nLen = comphelper::string::getTokenCount(rRangeRepresentation, ';');
     uno::Sequence< OUString > aRanges( nLen );
 
     sal_Int32 nCnt = 0;
@@ -1455,12 +1441,6 @@ uno::Sequence< OUString > SAL_CALL SwChartDataProvider::getSupportedServiceNames
     return { "com.sun.star.chart2.data.DataProvider"};
 }
 
-void SwChartDataProvider::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
-{
-    // actually this function should be superfluous (need to check later)
-    ClientModify(this, pOld, pNew );
-}
-
 void SwChartDataProvider::AddDataSequence( const SwTable &rTable, uno::Reference< chart2::data::XDataSequence > const &rxDataSequence )
 {
     aDataSequences[ &rTable ].insert( rxDataSequence );
@@ -1495,7 +1475,7 @@ void SwChartDataProvider::InvalidateTable( const SwTable *pTable )
     }
 }
 
-bool SwChartDataProvider::DeleteBox( const SwTable *pTable, const SwTableBox &rBox )
+void SwChartDataProvider::DeleteBox( const SwTable *pTable, const SwTableBox &rBox )
 {
     OSL_ENSURE( pTable, "table pointer is NULL" );
     if (pTable)
@@ -1548,7 +1528,6 @@ bool SwChartDataProvider::DeleteBox( const SwTable *pTable, const SwTableBox &rB
             }
         }
     }
-    return false;
 }
 
 void SwChartDataProvider::DisposeAllDataSequences( const SwTable *pTable )
@@ -1692,15 +1671,16 @@ OUString SAL_CALL SwChartDataProvider::convertRangeToXML( const OUString& rRange
     if (bDisposed)
         throw lang::DisposedException();
 
-    OUString aRes;
+    if (rRangeRepresentation.isEmpty())
+        return OUString();
+
+    OUStringBuffer aRes;
 
     // multiple ranges are delimited by a ';' like in
     // "Table1.A1:A4;Table1.C2:C5" the same table must be used in all ranges!
-    sal_Int32 nNumRanges = comphelper::string::getTokenCount(rRangeRepresentation, ';');
     SwTable* pFirstFoundTable = nullptr;  // to check that only one table will be used
     sal_Int32 nPos = 0;
-    for (sal_Int32 i = 0;  i < nNumRanges;  ++i)
-    {
+    do {
         const OUString aRange( rRangeRepresentation.getToken(0, ';', nPos) );
         SwFrameFormat    *pTableFormat  = nullptr; // pointer to table format
         std::shared_ptr<SwUnoCursor> pCursor;
@@ -1747,11 +1727,12 @@ OUString SAL_CALL SwChartDataProvider::convertRangeToXML( const OUString& rRange
         }
         OUString aTmp( XMLRangeHelper::getXMLStringFromCellRange( aCellRange ) );
         if (!aRes.isEmpty()) // in case of multiple ranges add delimiter
-            aRes += " ";
-        aRes += aTmp;
+            aRes.append(" ");
+        aRes.append(aTmp);
     }
+    while (nPos>0);
 
-    return aRes;
+    return aRes.makeStringAndClear();
 }
 
 OUString SAL_CALL SwChartDataProvider::convertRangeFromXML( const OUString& rXMLRange )
@@ -1760,14 +1741,16 @@ OUString SAL_CALL SwChartDataProvider::convertRangeFromXML( const OUString& rXML
     if (bDisposed)
         throw lang::DisposedException();
 
-    OUString aRes;
+    if (rXMLRange.isEmpty())
+        return OUString();
+
+    OUStringBuffer aRes;
 
     // multiple ranges are delimited by a ' ' like in
     // "Table1.$A$1:.$A$4 Table1.$C$2:.$C$5" the same table must be used in all ranges!
-    sal_Int32 nNumRanges = comphelper::string::getTokenCount(rXMLRange, ' ');
     OUString aFirstFoundTable; // to check that only one table will be used
     sal_Int32 nPos = 0;
-    for (sal_Int32 i = 0;  i < nNumRanges;  ++i)
+    do
     {
         OUString aRange( rXMLRange.getToken(0, ' ', nPos) );
 
@@ -1793,11 +1776,12 @@ OUString SAL_CALL SwChartDataProvider::convertRangeFromXML( const OUString& rXML
         }
 
         if (!aRes.isEmpty()) // in case of multiple ranges add delimiter
-            aRes += ";";
-        aRes += aTmp;
+            aRes.append(";");
+        aRes.append(aTmp);
     }
+    while (nPos>0);
 
-    return aRes;
+    return aRes.makeStringAndClear();
 }
 
 SwChartDataSource::SwChartDataSource(

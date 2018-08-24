@@ -105,13 +105,10 @@ public:
 };
 
 ImpVclMEdit::ImpVclMEdit( VclMultiLineEdit* pEdt, WinBits nWinStyle )
-    :mpHScrollBar(nullptr)
-    ,mpVScrollBar(nullptr)
-    ,mpScrollBox(nullptr)
+    : pVclMultiLineEdit(pEdt)
+    , mpTextWindow(VclPtr<TextWindow>::Create(pEdt))
+    , mnTextWidth(0)
 {
-    pVclMultiLineEdit = pEdt;
-    mnTextWidth = 0;
-    mpTextWindow = VclPtr<TextWindow>::Create( pEdt );
     mpTextWindow->Show();
     InitFromStyle( nWinStyle );
     StartListening( *mpTextWindow->GetTextEngine() );
@@ -672,13 +669,13 @@ TextWindow::TextWindow(Edit* pParent)
 
     SetPointer( Pointer( PointerStyle::Text ) );
 
-    mpExtTextEngine = new ExtTextEngine;
+    mpExtTextEngine.reset(new ExtTextEngine);
     mpExtTextEngine->SetMaxTextLen(EDIT_NOLIMIT);
     if( pParent->GetStyle() & WB_BORDER )
         mpExtTextEngine->SetLeftMargin( 2 );
     mpExtTextEngine->SetLocale( GetSettings().GetLanguageTag().getLocale() );
-    mpExtTextView = new TextView( mpExtTextEngine, this );
-    mpExtTextEngine->InsertView( mpExtTextView );
+    mpExtTextView.reset(new TextView( mpExtTextEngine.get(), this ));
+    mpExtTextEngine->InsertView( mpExtTextView.get() );
     mpExtTextEngine->EnableUndo( true );
     mpExtTextView->ShowCursor();
 
@@ -695,10 +692,8 @@ TextWindow::~TextWindow()
 void TextWindow::dispose()
 {
     mxParent.clear();
-    delete mpExtTextView;
-    mpExtTextView = nullptr;
-    delete mpExtTextEngine;
-    mpExtTextEngine = nullptr;
+    mpExtTextView.reset();
+    mpExtTextEngine.reset();
     Window::dispose();
 }
 

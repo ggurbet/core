@@ -28,6 +28,7 @@
 #include <DrawController.hxx>
 #include <LayerTabBar.hxx>
 
+#include <sal/log.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
@@ -87,6 +88,7 @@
 #include <editeng/editeng.hxx>
 #include <svl/poolitem.hxx>
 #include <strings.hxx>
+#include <sdmod.hxx>
 #include <AccessibleDocumentViewBase.hxx>
 
 using namespace ::com::sun::star;
@@ -1122,7 +1124,7 @@ void ViewShell::UpdatePreview (SdPage*, bool )
     // useful is still done.
 }
 
-::svl::IUndoManager* ViewShell::ImpGetUndoManager() const
+SfxUndoManager* ViewShell::ImpGetUndoManager() const
 {
     const ViewShell* pMainViewShell = GetViewShellBase().GetMainViewShell().get();
 
@@ -1159,7 +1161,7 @@ void ViewShell::UpdatePreview (SdPage*, bool )
 
 void ViewShell::ImpGetUndoStrings(SfxItemSet &rSet) const
 {
-    ::svl::IUndoManager* pUndoManager = ImpGetUndoManager();
+    SfxUndoManager* pUndoManager = ImpGetUndoManager();
     if(pUndoManager)
     {
         sal_uInt16 nCount(pUndoManager->GetUndoActionCount());
@@ -1167,7 +1169,7 @@ void ViewShell::ImpGetUndoStrings(SfxItemSet &rSet) const
         {
             // prepare list
             std::vector<OUString> aStringList;
-
+            aStringList.reserve(nCount);
             for (sal_uInt16 a = 0; a < nCount; ++a)
             {
                 // generate one String in list per undo step
@@ -1186,7 +1188,7 @@ void ViewShell::ImpGetUndoStrings(SfxItemSet &rSet) const
 
 void ViewShell::ImpGetRedoStrings(SfxItemSet &rSet) const
 {
-    ::svl::IUndoManager* pUndoManager = ImpGetUndoManager();
+    SfxUndoManager* pUndoManager = ImpGetUndoManager();
     if(pUndoManager)
     {
         sal_uInt16 nCount(pUndoManager->GetRedoActionCount());
@@ -1194,9 +1196,8 @@ void ViewShell::ImpGetRedoStrings(SfxItemSet &rSet) const
         {
             // prepare list
             ::std::vector< OUString > aStringList;
-            sal_uInt16 a;
-
-            for( a = 0; a < nCount; a++)
+            aStringList.reserve(nCount);
+            for(sal_uInt16 a = 0; a < nCount; a++)
                 // generate one String in list per undo step
                 aStringList.push_back( pUndoManager->GetRedoActionComment(a) );
 
@@ -1237,7 +1238,7 @@ void ViewShell::ImpSidUndo(SfxRequest& rReq)
     if (pSlideSorterViewShell)
         xWatcher.reset(new KeepSlideSorterInSyncWithPageChanges(pSlideSorterViewShell->GetSlideSorter()));
 
-    ::svl::IUndoManager* pUndoManager = ImpGetUndoManager();
+    SfxUndoManager* pUndoManager = ImpGetUndoManager();
     sal_uInt16 nNumber(1);
     const SfxItemSet* pReqArgs = rReq.GetArgs();
     bool bRepair = false;
@@ -1306,7 +1307,7 @@ void ViewShell::ImpSidRedo(SfxRequest& rReq)
     if (pSlideSorterViewShell)
         xWatcher.reset(new KeepSlideSorterInSyncWithPageChanges(pSlideSorterViewShell->GetSlideSorter()));
 
-    ::svl::IUndoManager* pUndoManager = ImpGetUndoManager();
+    SfxUndoManager* pUndoManager = ImpGetUndoManager();
     sal_uInt16 nNumber(1);
     const SfxItemSet* pReqArgs = rReq.GetArgs();
     bool bRepair = false;

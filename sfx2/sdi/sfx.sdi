@@ -3244,7 +3244,7 @@ SfxBoolItem PrintPreview SID_PRINTPREVIEW
 
 
 SfxVoidItem SetDocumentProperties SID_DOCINFO
-(SfxDocumentInfoItem Properties SID_DOCINFO)
+(SfxDocumentInfoItem Properties SID_DOCINFO,SfxUnoAnyItem AsyncFunc FN_PARAM_2)
 [
     AutoUpdate = FALSE,
     FastCall = FALSE,
@@ -4844,9 +4844,9 @@ SfxBoolItem ShowImeStatusWindow SID_SHOW_IME_STATUS_WINDOW
     RecordPerSet;
 
 
-    AccelConfig = TRUE,
-    MenuConfig = TRUE,
-    ToolBoxConfig = TRUE,
+    AccelConfig = FALSE,
+    MenuConfig = FALSE,
+    ToolBoxConfig = FALSE,
     GroupId = SfxGroupId::View;
 ]
 

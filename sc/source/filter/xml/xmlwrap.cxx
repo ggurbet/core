@@ -56,6 +56,7 @@
 #include <comphelper/documentconstants.hxx>
 #include <svx/xmleohlp.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <unotools/saveopt.hxx>
 
 #include <document.hxx>
@@ -64,9 +65,11 @@
 #include "xmlexprt.hxx"
 #include <global.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <scerrors.hxx>
 #include "XMLExportSharedData.hxx"
 #include <docuno.hxx>
+#include <drwlayer.hxx>
 #include <sheetdata.hxx>
 #include "XMLCodeNameProvider.hxx"
 #include <docsh.hxx>
@@ -435,7 +438,7 @@ bool ScXMLImportWrapper::Import( ImportFlags nMode, ErrCode& rError )
     }
 
     rtl::Reference<SvXMLGraphicHelper> xGraphicHelper;
-    uno::Reference< document::XGraphicObjectResolver > xGrfContainer;
+    uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
 
     uno::Reference< document::XEmbeddedObjectResolver > xObjectResolver;
     rtl::Reference<SvXMLEmbeddedObjectHelper> xObjectHelper;
@@ -443,7 +446,7 @@ bool ScXMLImportWrapper::Import( ImportFlags nMode, ErrCode& rError )
     if( xStorage.is() )
     {
         xGraphicHelper = SvXMLGraphicHelper::Create( xStorage, SvXMLGraphicHelperMode::Read );
-        xGrfContainer = xGraphicHelper.get();
+        xGraphicStorageHandler = xGraphicHelper.get();
 
         xObjectHelper = SvXMLEmbeddedObjectHelper::Create(xStorage, mrDocShell, SvXMLEmbeddedObjectHelperMode::Read);
         xObjectResolver = xObjectHelper.get();
@@ -451,7 +454,7 @@ bool ScXMLImportWrapper::Import( ImportFlags nMode, ErrCode& rError )
     uno::Sequence<uno::Any> aStylesArgs(4);
     uno::Any* pStylesArgs = aStylesArgs.getArray();
     pStylesArgs[0] <<= xInfoSet;
-    pStylesArgs[1] <<= xGrfContainer;
+    pStylesArgs[1] <<= xGraphicStorageHandler;
     pStylesArgs[2] <<= xStatusIndicator;
     pStylesArgs[3] <<= xObjectResolver;
 
@@ -500,7 +503,7 @@ bool ScXMLImportWrapper::Import( ImportFlags nMode, ErrCode& rError )
         uno::Sequence<uno::Any> aDocArgs(4);
         uno::Any* pDocArgs = aDocArgs.getArray();
         pDocArgs[0] <<= xInfoSet;
-        pDocArgs[1] <<= xGrfContainer;
+        pDocArgs[1] <<= xGraphicStorageHandler;
         pDocArgs[2] <<= xStatusIndicator;
         pDocArgs[3] <<= xObjectResolver;
 
@@ -776,7 +779,7 @@ bool ScXMLImportWrapper::Export(bool bStylesOnly)
         uno::Reference<task::XStatusIndicator> xStatusIndicator(GetStatusIndicator());
         sal_Int32 nProgressRange(1000000);
         if(xStatusIndicator.is())
-            xStatusIndicator->start(ScGlobal::GetRscString(STR_SAVE_DOC), nProgressRange);
+            xStatusIndicator->start(ScResId(STR_SAVE_DOC), nProgressRange);
         xInfoSet->setPropertyValue("ProgressRange", uno::makeAny(nProgressRange));
 
         SvtSaveOptions aSaveOpt;
@@ -866,13 +869,13 @@ bool ScXMLImportWrapper::Export(bool bStylesOnly)
         uno::Reference< document::XEmbeddedObjectResolver > xObjectResolver;
         rtl::Reference<SvXMLEmbeddedObjectHelper> xObjectHelper;
 
-        uno::Reference< document::XGraphicObjectResolver > xGrfContainer;
+        uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
         rtl::Reference<SvXMLGraphicHelper> xGraphicHelper;
 
         if( xStorage.is() )
         {
             xGraphicHelper = SvXMLGraphicHelper::Create( xStorage, SvXMLGraphicHelperMode::Write );
-            xGrfContainer = xGraphicHelper.get();
+            xGraphicStorageHandler = xGraphicHelper.get();
         }
 
         if( pObjSh )
@@ -887,7 +890,7 @@ bool ScXMLImportWrapper::Export(bool bStylesOnly)
             uno::Sequence<uno::Any> aStylesArgs(5);
             uno::Any* pStylesArgs = aStylesArgs.getArray();
             pStylesArgs[0] <<= xInfoSet;
-            pStylesArgs[1] <<= xGrfContainer;
+            pStylesArgs[1] <<= xGraphicStorageHandler;
             pStylesArgs[2] <<= xStatusIndicator;
             pStylesArgs[3] <<= xWriter;
             pStylesArgs[4] <<= xObjectResolver;
@@ -911,7 +914,7 @@ bool ScXMLImportWrapper::Export(bool bStylesOnly)
             uno::Sequence<uno::Any> aDocArgs(5);
             uno::Any* pDocArgs = aDocArgs.getArray();
             pDocArgs[0] <<= xInfoSet;
-            pDocArgs[1] <<= xGrfContainer;
+            pDocArgs[1] <<= xGraphicStorageHandler;
             pDocArgs[2] <<= xStatusIndicator;
             pDocArgs[3] <<= xWriter;
             pDocArgs[4] <<= xObjectResolver;

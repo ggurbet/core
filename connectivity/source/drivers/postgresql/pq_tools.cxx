@@ -39,6 +39,7 @@
 #include <o3tl/any.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
@@ -857,7 +858,7 @@ css::uno::Sequence< sal_Int32 > string2intarray( const OUString & str )
         std::vector< sal_Int32 > vec;
         do
         {
-            OUString digits;
+            OUStringBuffer digits;
             do
             {
                 if(!iswspace(c))
@@ -872,10 +873,10 @@ css::uno::Sequence< sal_Int32 > string2intarray( const OUString & str )
                     break;
                 if ( start == strlen)
                     return ret;
-                digits += OUString(&c, 1);
+                digits.append(OUString(&c, 1));
                 c = str.iterateCodePoints(&start);
             } while ( c );
-            vec.push_back( digits.toInt32() );
+            vec.push_back( digits.makeStringAndClear().toInt32() );
             do
             {
                 if(!iswspace(c))
@@ -1107,9 +1108,12 @@ void extractNameValuePairsFromInsert( String2StringMap & map, const OString & la
             {
                 n +=2;
 //                 printf( "3\n" );
-                for (std::vector< OString >::size_type i = 0 ; i < names.size() && nSize > n ; i ++ )
+                for (auto& name : names)
                 {
-                    map[names[i]] = vec[n];
+                    if (n >= nSize)
+                        break;
+
+                    map[name] = vec[n];
                     if( nSize > n+1 && vec[n+1].equalsIgnoreAsciiCase(",") )
                     {
                         n ++;

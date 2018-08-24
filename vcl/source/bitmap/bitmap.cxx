@@ -41,7 +41,7 @@ Bitmap::Bitmap(const Bitmap& rBitmap)
 {
 }
 
-Bitmap::Bitmap(SalBitmap* pSalBitmap)
+Bitmap::Bitmap(std::shared_ptr<SalBitmap> const & pSalBitmap)
     : mxSalBmp(pSalBitmap)
     , maPrefMapMode(MapMode(MapUnit::MapPixel))
     , maPrefSize(mxSalBmp->GetSize())
@@ -104,7 +104,7 @@ Bitmap::Bitmap( const Size& rSizePixel, sal_uInt16 nBitCount, const BitmapPalett
                 pRealPal = const_cast<BitmapPalette*>(pPal);
         }
 
-        mxSalBmp.reset(ImplGetSVData()->mpDefInst->CreateSalBitmap());
+        mxSalBmp = ImplGetSVData()->mpDefInst->CreateSalBitmap();
         mxSalBmp->Create( rSizePixel, nBitCount, pRealPal ? *pRealPal : aPal );
     }
 }
@@ -311,7 +311,7 @@ void Bitmap::ImplMakeUnique()
     if (mxSalBmp && mxSalBmp.use_count() > 1)
     {
         std::shared_ptr<SalBitmap> xOldImpBmp = mxSalBmp;
-        mxSalBmp.reset(ImplGetSVData()->mpDefInst->CreateSalBitmap());
+        mxSalBmp = ImplGetSVData()->mpDefInst->CreateSalBitmap();
         mxSalBmp->Create(*xOldImpBmp);
     }
 }
@@ -848,82 +848,6 @@ Bitmap Bitmap::CreateDisplayBitmap( OutputDevice* pDisplay )
     }
 
     return aDispBmp;
-}
-
-bool Bitmap::MakeMonochrome(sal_uInt8 cThreshold)
-{
-    ScopedReadAccess pReadAcc(*this);
-    bool bRet = false;
-
-    if( pReadAcc )
-    {
-        Bitmap aNewBmp( GetSizePixel(), 1 );
-        BitmapScopedWriteAccess pWriteAcc(aNewBmp);
-
-        if( pWriteAcc )
-        {
-            const BitmapColor aBlack( pWriteAcc->GetBestMatchingColor( COL_BLACK ) );
-            const BitmapColor aWhite( pWriteAcc->GetBestMatchingColor( COL_WHITE ) );
-            const long nWidth = pWriteAcc->Width();
-            const long nHeight = pWriteAcc->Height();
-
-            if( pReadAcc->HasPalette() )
-            {
-                for( long nY = 0; nY < nHeight; nY++ )
-                {
-                    Scanline pScanline = pWriteAcc->GetScanline(nY);
-                    Scanline pScanlineRead = pReadAcc->GetScanline(nY);
-                    for( long nX = 0; nX < nWidth; nX++ )
-                    {
-                        const sal_uInt8 cIndex = pReadAcc->GetIndexFromData( pScanlineRead, nX );
-                        if( pReadAcc->GetPaletteColor( cIndex ).GetLuminance() >=
-                            cThreshold )
-                        {
-                            pWriteAcc->SetPixelOnData( pScanline, nX, aWhite );
-                        }
-                        else
-                            pWriteAcc->SetPixelOnData( pScanline, nX, aBlack );
-                    }
-                }
-            }
-            else
-            {
-                for( long nY = 0; nY < nHeight; nY++ )
-                {
-                    Scanline pScanline = pWriteAcc->GetScanline(nY);
-                    Scanline pScanlineRead = pReadAcc->GetScanline(nY);
-                    for( long nX = 0; nX < nWidth; nX++ )
-                    {
-                        if( pReadAcc->GetPixelFromData( pScanlineRead, nX ).GetLuminance() >=
-                            cThreshold )
-                        {
-                            pWriteAcc->SetPixelOnData( pScanline, nX, aWhite );
-                        }
-                        else
-                            pWriteAcc->SetPixelOnData( pScanline, nX, aBlack );
-                    }
-                }
-            }
-
-            pWriteAcc.reset();
-            bRet = true;
-        }
-
-        pReadAcc.reset();
-
-        if( bRet )
-        {
-            const MapMode aMap( maPrefMapMode );
-            const Size aSize( maPrefSize );
-
-            *this = aNewBmp;
-
-            maPrefMapMode = aMap;
-            maPrefSize = aSize;
-        }
-    }
-
-    return bRet;
 }
 
 bool Bitmap::GetSystemData( BitmapSystemData& rData ) const

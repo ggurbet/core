@@ -20,17 +20,14 @@
 #ifndef INCLUDED_SC_INC_FORMULACELL_HXX
 #define INCLUDED_SC_INC_FORMULACELL_HXX
 
-#include <set>
 #include <memory>
 
 #include <formula/tokenarray.hxx>
-#include <osl/conditn.hxx>
-#include <osl/mutex.hxx>
-#include <rtl/ref.hxx>
 #include <svl/listener.hxx>
 
 #include "types.hxx"
 #include "interpretercontext.hxx"
+#include "formulalogger.hxx"
 #include "formularesult.hxx"
 
 namespace sc {
@@ -70,6 +67,7 @@ public:
     SvNumFormatType mnFormatType;
     bool mbInvariant:1;
     bool mbSubTotal:1;
+    bool mbPartOfCycle:1; // To flag FG's part of a cycle
 
     sal_uInt8 meCalcState;
 
@@ -135,6 +133,7 @@ private:
                                                       number formats as hard number format */
     bool            mbPostponedDirty : 1;   // if cell needs to be set dirty later
     bool            mbIsExtRef       : 1; // has references in ScExternalRefManager; never cleared after set
+    bool            mbSeenInPath     : 1; // For detecting cycle involving formula groups and singleton formulacells
 
     /**
      * Update reference in response to cell copy-n-paste.
@@ -143,6 +142,16 @@ private:
         const sc::RefUpdateContext& rCxt, ScDocument* pUndoDoc, const ScAddress* pUndoCellPos );
 
     ScFormulaCell( const ScFormulaCell& ) = delete;
+
+    bool CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope);
+    bool InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope& aScope,
+                                        bool& bDependencyComputed,
+                                        bool& bDependencyCheckFailed);
+    bool InterpretFormulaGroupOpenCL(sc::FormulaLogger::GroupScope& aScope,
+                                     bool& bDependencyComputed,
+                                     bool& bDependencyCheckFailed);
+    bool InterpretInvariantFormulaGroup();
+
 public:
 
 
@@ -157,8 +166,6 @@ public:
     void            HandleStuffAfterParallelCalculation();
 
     enum CompareState { NotEqual = 0, EqualInvariant, EqualRelativeRef };
-
-    DECL_FIXEDMEMPOOL_NEWDEL( ScFormulaCell )
 
     ScAddress       aPos;
 
@@ -202,11 +209,13 @@ public:
     ScFormulaVectorState GetVectorState() const;
 
     void            GetFormula( OUString& rFormula,
-                                const formula::FormulaGrammar::Grammar = formula::FormulaGrammar::GRAM_DEFAULT ) const;
+                                const formula::FormulaGrammar::Grammar = formula::FormulaGrammar::GRAM_DEFAULT,
+                                const ScInterpreterContext* pContext = nullptr ) const;
     void            GetFormula( OUStringBuffer& rBuffer,
-                                const formula::FormulaGrammar::Grammar = formula::FormulaGrammar::GRAM_DEFAULT ) const;
+                                const formula::FormulaGrammar::Grammar = formula::FormulaGrammar::GRAM_DEFAULT,
+                                const ScInterpreterContext* pContext = nullptr ) const;
 
-    OUString GetFormula( sc::CompileFormulaContext& rCxt ) const;
+    OUString GetFormula( sc::CompileFormulaContext& rCxt, const ScInterpreterContext* pContext = nullptr ) const;
 
     void            SetDirty( bool bDirtyFlag=true );
     void            SetDirtyVar();
@@ -391,6 +400,8 @@ public:
 
     svl::SharedString GetResultString() const;
 
+    bool HasHybridStringResult() const;
+
     /* Sets the shared code array to error state in addition to the cell result */
     void SetErrCode( FormulaError n );
 
@@ -418,7 +429,6 @@ public:
     CompareState CompareByTokenArray( const ScFormulaCell& rOther ) const;
 
     bool InterpretFormulaGroup();
-    bool InterpretInvariantFormulaGroup();
 
     // nOnlyNames may be one or more of SC_LISTENING_NAMES_*
     void StartListeningTo( ScDocument* pDoc );
@@ -443,6 +453,8 @@ public:
     bool IsPostponedDirty() const { return mbPostponedDirty;}
 
     void SetIsExtRef() { mbIsExtRef = true; }
+    bool GetSeenInPath() { return mbSeenInPath; }
+    void SetSeenInPath(bool bSet) { mbSeenInPath = bSet; }
 
 #if DUMP_COLUMN_STORAGE
     void Dump() const;

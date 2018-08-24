@@ -46,6 +46,7 @@
 #include <CommonConverters.hxx>
 #include <RegressionCalculationHelper.hxx>
 
+#include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/chart2/XAxis.hpp>
 #include <com/sun/star/chart2/XChartType.hpp>
 #include <com/sun/star/chart2/XDataSeries.hpp>
@@ -306,11 +307,11 @@ void ObjectPropertiesDialogParameter::init( const uno::Reference< frame::XModel 
 
 const sal_uInt16 nNoArrowNoShadowDlg    = 1101;
 
-void SchAttribTabDlg::setSymbolInformation( SfxItemSet* pSymbolShapeProperties,
-                Graphic* pAutoSymbolGraphic )
+void SchAttribTabDlg::setSymbolInformation( std::unique_ptr<SfxItemSet> pSymbolShapeProperties,
+                std::unique_ptr<Graphic> pAutoSymbolGraphic )
 {
-    m_pSymbolShapeProperties = pSymbolShapeProperties;
-    m_pAutoSymbolGraphic = pAutoSymbolGraphic;
+    m_pSymbolShapeProperties = std::move(pSymbolShapeProperties);
+    m_pAutoSymbolGraphic = std::move(pAutoSymbolGraphic);
 }
 
 void SchAttribTabDlg::SetAxisMinorStepWidthForErrorBarDecimals( double fMinorStepWidth )
@@ -325,7 +326,6 @@ SchAttribTabDlg::SchAttribTabDlg(vcl::Window* pParent,
                                  const uno::Reference< util::XNumberFormatsSupplier >& xNumberFormatsSupplier
                                  )
     : SfxTabDialog(pParent, "AttributeDialog", "modules/schart/ui/attributedialog.ui", pAttr)
-    , eObjectType(pDialogParameter->getObjectType())
     , nDlgType(nNoArrowNoShadowDlg)
     , m_pParameter( pDialogParameter )
     , m_pViewElementListProvider( pViewElementListProvider )
@@ -342,7 +342,7 @@ SchAttribTabDlg::SchAttribTabDlg(vcl::Window* pParent,
 
     SvtCJKOptions aCJKOptions;
 
-    switch (eObjectType)
+    switch (pDialogParameter->getObjectType())
     {
         case OBJECTTYPE_TITLE:
             AddTabPage(RID_SVXPAGE_LINE, SchResId(STR_PAGE_BORDER));
@@ -485,10 +485,8 @@ SchAttribTabDlg::~SchAttribTabDlg()
 
 void SchAttribTabDlg::dispose()
 {
-    delete m_pSymbolShapeProperties;
-    m_pSymbolShapeProperties = nullptr;
-    delete m_pAutoSymbolGraphic;
-    m_pAutoSymbolGraphic = nullptr;
+    m_pSymbolShapeProperties.reset();
+    m_pAutoSymbolGraphic.reset();
     SfxTabDialog::dispose();
 }
 

@@ -40,8 +40,7 @@
 
 ScTpContentOptions::ScTpContentOptions( vcl::Window*         pParent,
                              const SfxItemSet&  rArgSet ) :
-    SfxTabPage(pParent, "TpViewPage", "modules/scalc/ui/tpviewpage.ui", &rArgSet),
-    pLocalOptions(nullptr)
+    SfxTabPage(pParent, "TpViewPage", "modules/scalc/ui/tpviewpage.ui", &rArgSet)
 {
     get(pGridLB,"grid");
     get(pColorFT,"color_label");
@@ -92,6 +91,8 @@ ScTpContentOptions::ScTpContentOptions( vcl::Window*         pParent,
     pGuideLineCB->SetClickHdl(aCBHdl);
     pRowColHeaderCB->SetClickHdl(aCBHdl);
 
+    pColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
+    pColorLB->SetAutoDisplayColor(SC_STD_GRIDCOLOR);
 }
 
 ScTpContentOptions::~ScTpContentOptions()
@@ -101,7 +102,7 @@ ScTpContentOptions::~ScTpContentOptions()
 
 void ScTpContentOptions::dispose()
 {
-    delete pLocalOptions;
+    pLocalOptions.reset();
     pGridLB.clear();
     pColorFT.clear();
     pColorLB.clear();
@@ -126,10 +127,10 @@ void ScTpContentOptions::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> ScTpContentOptions::Create( vcl::Window*     pParent,
+VclPtr<SfxTabPage> ScTpContentOptions::Create( TabPageParent pParent,
                                                const SfxItemSet*     rCoreSet )
 {
-    return VclPtr<ScTpContentOptions>::Create(pParent, *rCoreSet);
+    return VclPtr<ScTpContentOptions>::Create(pParent.pParent, *rCoreSet);
 }
 
 bool    ScTpContentOptions::FillItemSet( SfxItemSet* rCoreSet )
@@ -155,6 +156,11 @@ bool    ScTpContentOptions::FillItemSet( SfxItemSet* rCoreSet )
         pGuideLineCB   ->IsValueChangedFromSaved())
     {
         NamedColor aNamedColor = pColorLB->GetSelectedEntry();
+        if (aNamedColor.first == COL_AUTO)
+        {
+            aNamedColor.first = SC_STD_GRIDCOLOR;
+            aNamedColor.second.clear();
+        }
         pLocalOptions->SetGridColor(aNamedColor.first, aNamedColor.second);
         rCoreSet->Put(ScTpViewItem(*pLocalOptions));
         bRet = true;
@@ -177,10 +183,10 @@ void    ScTpContentOptions::Reset( const SfxItemSet* rCoreSet )
 {
     const SfxPoolItem* pItem;
     if(SfxItemState::SET == rCoreSet->GetItemState(SID_SCVIEWOPTIONS, false , &pItem))
-        pLocalOptions  = new ScViewOptions(
-                            static_cast<const ScTpViewItem*>(pItem)->GetViewOptions() );
+        pLocalOptions.reset( new ScViewOptions(
+                            static_cast<const ScTpViewItem*>(pItem)->GetViewOptions() ) );
     else
-        pLocalOptions = new ScViewOptions;
+        pLocalOptions.reset( new ScViewOptions );
     pFormulaCB ->Check(pLocalOptions->GetOption(VOPT_FORMULAS));
     pNilCB     ->Check(pLocalOptions->GetOption(VOPT_NULLVALS));
     pAnnotCB   ->Check(pLocalOptions->GetOption(VOPT_NOTES));
@@ -310,7 +316,7 @@ void ScTpContentOptions::InitGridOpt()
     Color     aCol    = pLocalOptions->GetGridColor( &aName );
 
     if (aName.trim().isEmpty() && aCol == SC_STD_GRIDCOLOR)
-        aName = ScGlobal::GetRscString(STR_GRIDCOLOR);
+        aCol = COL_AUTO;
 
     pColorLB->SelectEntry(std::make_pair(aCol, aName));
 }
@@ -409,10 +415,10 @@ void ScTpLayoutOptions::dispose()
 }
 
 
-VclPtr<SfxTabPage> ScTpLayoutOptions::Create( vcl::Window*          pParent,
+VclPtr<SfxTabPage> ScTpLayoutOptions::Create( TabPageParent pParent,
                                               const SfxItemSet*   rCoreSet )
 {
-    VclPtrInstance<ScTpLayoutOptions> pNew( pParent, *rCoreSet );
+    VclPtrInstance<ScTpLayoutOptions> pNew( pParent.pParent, *rCoreSet );
     ScDocShell* pDocSh = dynamic_cast< ScDocShell *>( SfxObjectShell::Current() );
 
     if(pDocSh!=nullptr)

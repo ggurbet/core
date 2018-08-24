@@ -11,7 +11,10 @@ xmlsec_patches :=
 xmlsec_patches += xmlsec1-configure.patch.1
 xmlsec_patches += xmlsec1-vc.patch.1
 xmlsec_patches += xmlsec1-1.2.14_fix_extern_c.patch.1
-xmlsec_patches += xmlsec1-customkeymanage.patch.1
+# Backport of <https://github.com/lsh123/xmlsec/pull/192>.
+xmlsec_patches += mscng-fixes.patch.1
+# Backport of <https://github.com/lsh123/xmlsec/pull/197>.
+xmlsec_patches += xmlsec1-macos.patch.1
 
 $(eval $(call gb_UnpackedTarball_UnpackedTarball,xmlsec))
 

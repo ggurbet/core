@@ -42,8 +42,6 @@
 #include <unotools/syslocaleoptions.hxx>
 #include <unotools/configitem.hxx>
 #include <sfx2/objsh.hxx>
-#include <comphelper/string.hxx>
-#include <comphelper/types.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <svtools/langtab.hxx>
 #include <unotools/localfilehelper.hxx>
@@ -66,6 +64,7 @@
 #include <unotools/saveopt.hxx>
 #include <unotools/searchopt.hxx>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <officecfg/Setup.hxx>
 #include <comphelper/configuration.hxx>
@@ -260,6 +259,7 @@ OfaMiscTabPage::OfaMiscTabPage(vcl::Window* pParent, const SfxItemSet& rSet)
     : SfxTabPage(pParent, "OptGeneralPage", "cui/ui/optgeneralpage.ui", &rSet)
 {
     get(m_pExtHelpCB, "exthelp");
+    get(m_pPopUpNoHelpCB,"popupnohelp");
     if (!lcl_HasSystemFilePicker())
         get<VclContainer>("filedlgframe")->Hide();
 #if ! ENABLE_GTK
@@ -324,12 +324,13 @@ void OfaMiscTabPage::dispose()
     m_pCollectUsageInfo.clear();
     m_pQuickStarterFrame.clear();
     m_pQuickLaunchCB.clear();
+    m_pPopUpNoHelpCB.clear();
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> OfaMiscTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> OfaMiscTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<OfaMiscTabPage>::Create( pParent, *rAttrSet );
+    return VclPtr<OfaMiscTabPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 bool OfaMiscTabPage::FillItemSet( SfxItemSet* rSet )
@@ -338,7 +339,10 @@ bool OfaMiscTabPage::FillItemSet( SfxItemSet* rSet )
     std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
 
     SvtHelpOptions aHelpOptions;
-    if ( m_pExtHelpCB->IsChecked() != (m_pExtHelpCB->GetSavedValue() == TRISTATE_TRUE) )
+    if ( m_pPopUpNoHelpCB->IsValueChangedFromSaved() )
+        aHelpOptions.SetOfflineHelpPopUp( m_pPopUpNoHelpCB->IsChecked() );
+
+    if ( m_pExtHelpCB->IsValueChangedFromSaved() )
         aHelpOptions.SetExtendedHelp( m_pExtHelpCB->IsChecked() );
 
     if ( m_pFileDlgCB->IsValueChangedFromSaved() )
@@ -392,7 +396,8 @@ void OfaMiscTabPage::Reset( const SfxItemSet* rSet )
     SvtHelpOptions aHelpOptions;
     m_pExtHelpCB->Check( aHelpOptions.IsHelpTips() && aHelpOptions.IsExtendedHelp() );
     m_pExtHelpCB->SaveValue();
-
+    m_pPopUpNoHelpCB->Check( aHelpOptions.IsOfflineHelpPopUp() );
+    m_pPopUpNoHelpCB->SaveValue();
     SvtMiscOptions aMiscOpt;
     m_pFileDlgCB->Check( !aMiscOpt.UseSystemFileDialog() );
     m_pFileDlgCB->SaveValue();
@@ -659,6 +664,8 @@ OfaViewTabPage::OfaViewTabPage(vcl::Window* pParent, const SfxItemSet& rSet)
 
 #endif
 
+    m_pForceOpenGL->SetToggleHdl(LINK(this, OfaViewTabPage, OnForceOpenGLToggled));
+
     // Set known icon themes
     OUString sAutoStr( m_pIconStyleLB->GetEntry( 0 ) );
     m_pIconStyleLB->Clear();
@@ -699,12 +706,9 @@ OfaViewTabPage::~OfaViewTabPage()
 
 void OfaViewTabPage::dispose()
 {
-    delete mpDrawinglayerOpt;
-    mpDrawinglayerOpt = nullptr;
-    delete pCanvasSettings;
-    pCanvasSettings = nullptr;
-    delete pAppearanceCfg;
-    pAppearanceCfg = nullptr;
+    mpDrawinglayerOpt.reset();
+    pCanvasSettings.reset();
+    pAppearanceCfg.reset();
     m_pIconSizeLB.clear();
     m_pSidebarIconSizeLB.clear();
     m_pNotebookbarIconSizeLB.clear();
@@ -736,9 +740,16 @@ IMPL_LINK_NOARG( OfaViewTabPage, OnAntialiasingToggled, CheckBox&, void )
 }
 #endif
 
-VclPtr<SfxTabPage> OfaViewTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+IMPL_LINK_NOARG(OfaViewTabPage, OnForceOpenGLToggled, CheckBox&, void)
 {
-    return VclPtr<OfaViewTabPage>::Create(pParent, *rAttrSet);
+    if (m_pForceOpenGL->IsChecked())
+        // Ignoring the opengl blacklist implies that opengl is on.
+        m_pUseOpenGL->Check();
+}
+
+VclPtr<SfxTabPage> OfaViewTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
+{
+    return VclPtr<OfaViewTabPage>::Create(pParent.pParent, *rAttrSet);
 }
 
 bool OfaViewTabPage::FillItemSet( SfxItemSet* )
@@ -1277,8 +1288,7 @@ OfaLanguagesTabPage::~OfaLanguagesTabPage()
 
 void OfaLanguagesTabPage::dispose()
 {
-    delete pLangConfig;
-    pLangConfig = nullptr;
+    pLangConfig.reset();
     m_pUserInterfaceLB.clear();
     m_pLocaleSettingFT.clear();
     m_pLocaleSettingLB.clear();
@@ -1298,9 +1308,9 @@ void OfaLanguagesTabPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> OfaLanguagesTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> OfaLanguagesTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<OfaLanguagesTabPage>::Create(pParent, *rAttrSet);
+    return VclPtr<OfaLanguagesTabPage>::Create(pParent.pParent, *rAttrSet);
 }
 
 static void lcl_UpdateAndDelete(SfxVoidItem* pInvalidItems[], SfxBoolItem* pBoolItems[], sal_uInt16 nCount)

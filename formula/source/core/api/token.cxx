@@ -25,6 +25,7 @@
 #include <string.h>
 #include <limits.h>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/sheet/FormulaToken.hpp>
 #include <formula/errorcodes.hxx>
@@ -38,17 +39,6 @@
 namespace formula
 {
     using namespace com::sun::star;
-
-// Align MemPools on 4k boundaries - 64 bytes (4k is a MUST for OS/2)
-
-// Need a lot of FormulaDoubleToken
-IMPL_FIXEDMEMPOOL_NEWDEL_DLL( FormulaDoubleToken )
-// Need quite some FormulaTypedDoubleToken
-IMPL_FIXEDMEMPOOL_NEWDEL_DLL( FormulaTypedDoubleToken )
-// Need a lot of FormulaByteToken
-IMPL_FIXEDMEMPOOL_NEWDEL_DLL( FormulaByteToken )
-// Need several FormulaStringToken
-IMPL_FIXEDMEMPOOL_NEWDEL_DLL( FormulaStringToken )
 
 
 // --- helpers --------------------------------------------------------------
@@ -71,7 +61,7 @@ FormulaToken::FormulaToken( StackVar eTypeP, OpCode e ) :
 }
 
 FormulaToken::FormulaToken( const FormulaToken& r ) :
-    IFormulaToken(), eOp(r.eOp), eType( r.eType ), mnRefCnt(0)
+    eOp(r.eOp), eType( r.eType ), mnRefCnt(0)
 {
 }
 
@@ -605,8 +595,9 @@ void FormulaTokenArray::Assign( const FormulaTokenArray& r )
     FormulaToken** pp;
     if( nLen )
     {
-        pp = pCode = new FormulaToken*[ nLen ];
-        memcpy( pp, r.pCode, nLen * sizeof( FormulaToken* ) );
+        pCode.reset(new FormulaToken*[ nLen ]);
+        pp = pCode.get();
+        memcpy( pp, r.pCode.get(), nLen * sizeof( FormulaToken* ) );
         for( sal_uInt16 i = 0; i < nLen; i++ )
             (*pp++)->IncRef();
         mbFinalized = true;
@@ -627,7 +618,7 @@ void FormulaTokenArray::Assign( sal_uInt16 nCode, FormulaToken **pTokens )
     assert( pCode == nullptr );
 
     nLen = nCode;
-    pCode = new FormulaToken*[ nLen ];
+    pCode.reset(new FormulaToken*[ nLen ]);
     mbFinalized = true;
 
     for( sal_uInt16 i = 0; i < nLen; i++ )
@@ -651,14 +642,14 @@ void FormulaTokenArray::Clear()
     if( nRPN ) DelRPN();
     if( pCode )
     {
-        FormulaToken** p = pCode;
+        FormulaToken** p = pCode.get();
         for( sal_uInt16 i = 0; i < nLen; i++ )
         {
             (*p++)->DecRef();
         }
-        delete [] pCode;
+        pCode.reset();
     }
-    pCode = nullptr; pRPN = nullptr;
+    pRPN = nullptr;
     nError = FormulaError::NONE;
     nLen = nRPN = 0;
     bHyperLink = false;
@@ -671,6 +662,18 @@ void FormulaTokenArray::Clear()
 void FormulaTokenArray::CheckToken( const FormulaToken& /*r*/ )
 {
     // Do nothing.
+}
+
+void FormulaTokenArray::CheckAllRPNTokens()
+{
+    if( nRPN )
+    {
+        FormulaToken** p = pRPN;
+        for( sal_uInt16 i = 0; i < nRPN; i++ )
+        {
+            CheckToken( *p[ i ] );
+        }
+    }
 }
 
 FormulaToken* FormulaTokenArray::AddToken( const FormulaToken& r )
@@ -775,7 +778,7 @@ FormulaToken* FormulaTokenArray::Add( FormulaToken* t )
     }
 
     if( !pCode )
-        pCode = new FormulaToken*[ FORMULA_MAXTOKENS ];
+        pCode.reset(new FormulaToken*[ FORMULA_MAXTOKENS ]);
     if( nLen < FORMULA_MAXTOKENS - 1 )
     {
         CheckToken(*t);
@@ -832,15 +835,27 @@ FormulaToken* FormulaTokenArray::AddStringXML( const OUString& rStr )
 
 void FormulaTokenArray::AddRecalcMode( ScRecalcMode nBits )
 {
-    //! Order is important.
-    if ( nBits & ScRecalcMode::ALWAYS )
-        SetExclusiveRecalcModeAlways();
-    else if ( !IsRecalcModeAlways() )
+    const unsigned nExclusive = static_cast<sal_uInt8>(nBits & ScRecalcMode::EMask);
+    if (nExclusive)
     {
-        if ( nBits & ScRecalcMode::ONLOAD )
-            SetExclusiveRecalcModeOnLoad();
-        else if ( nBits & ScRecalcMode::ONLOAD_ONCE && !IsRecalcModeOnLoad() )
-            SetExclusiveRecalcModeOnLoadOnce();
+        unsigned nExBit;
+        if (nExclusive & (nExclusive - 1))
+        {
+            // More than one bit set, use highest priority.
+            for (nExBit = 1; (nExBit & static_cast<sal_uInt8>(ScRecalcMode::EMask)) != 0; nExBit <<= 1)
+            {
+                if (nExclusive & nExBit)
+                    break;
+            }
+        }
+        else
+        {
+            // Only one bit is set.
+            nExBit = nExclusive;
+        }
+        // Set exclusive bit if priority is higher than existing.
+        if (nExBit < static_cast<sal_uInt8>(nMode & ScRecalcMode::EMask))
+            SetMaskedRecalcMode( static_cast<ScRecalcMode>(nExBit));
     }
     SetCombinedBitsRecalcMode( nBits );
 }

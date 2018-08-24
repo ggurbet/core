@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_java.h>
 
 #include <connectivity/CommonTools.hxx>
 #include <connectivity/dbtools.hxx>
@@ -28,7 +28,6 @@
 #include <com/sun/star/lang/XComponent.hpp>
 #include <cppuhelper/interfacecontainer.h>
 #include <TConnection.hxx>
-#include <comphelper/types.hxx>
 #include <com/sun/star/java/JavaVirtualMachine.hpp>
 #if HAVE_FEATURE_JAVA
 #include <jvmaccess/virtualmachine.hxx>

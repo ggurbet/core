@@ -161,7 +161,6 @@ void XDataPilotTable2::testInsertDrillDownSheet()
         {
             CPPUNIT_ASSERT(aData.getLength() >= 2);
             uno::Reference< sheet::XSpreadsheet > xSheet(xIA->getByIndex(aAddr.Sheet),UNO_QUERY_THROW);
-            CPPUNIT_ASSERT(xSheet.is());
 
             checkDrillDownSheetContent(xSheet, aData);
 
@@ -249,7 +248,7 @@ table::CellAddress getLastUsedCellAddress( uno::Reference< sheet::XSpreadsheet >
 
 }
 
-bool XDataPilotTable2::checkDrillDownSheetContent(uno::Reference< sheet::XSpreadsheet > const & xSheet, const uno::Sequence< uno::Sequence< Any > >& aData)
+void XDataPilotTable2::checkDrillDownSheetContent(uno::Reference< sheet::XSpreadsheet > const & xSheet, const uno::Sequence< uno::Sequence< Any > >& aData)
 {
     table::CellAddress aLastCell = getLastUsedCellAddress(xSheet, 0, 0);
     CPPUNIT_ASSERT(aData.getLength() > 0);
@@ -272,7 +271,6 @@ bool XDataPilotTable2::checkDrillDownSheetContent(uno::Reference< sheet::XSpread
             CPPUNIT_ASSERT_EQUAL(aCell2, aCell1);
         }
     }
-    return true;
 }
 
 }

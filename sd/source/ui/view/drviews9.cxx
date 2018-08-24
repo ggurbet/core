@@ -20,6 +20,7 @@
 #include <config_features.h>
 
 #include <DrawViewShell.hxx>
+#include <editeng/outlobj.hxx>
 #include <vcl/wrkwin.hxx>
 #include <svx/xgrad.hxx>
 #include <svx/svdpagv.hxx>
@@ -151,7 +152,7 @@ void DrawViewShell::ExecGallery(SfxRequest const & rReq)
                         // the empty graphic object gets a new graphic
                         bInsertNewObject = false;
 
-                        SdrGrafObj* pNewGrafObj = pGrafObj->Clone();
+                        SdrGrafObj* pNewGrafObj(pGrafObj->CloneSdrObject(pGrafObj->getSdrModelFromSdrObject()));
                         pNewGrafObj->SetEmptyPresObj(false);
                         pNewGrafObj->SetOutlinerParaObject(nullptr);
                         pNewGrafObj->SetGraphic(aGraphic);

@@ -863,8 +863,6 @@ chart2/inc/pch/precompiled_chartcontroller.cxx
 chart2/inc/pch/precompiled_chartcontroller.hxx
 chart2/inc/pch/precompiled_chartcore.cxx
 chart2/inc/pch/precompiled_chartcore.hxx
-chart2/inc/pch/precompiled_chartopengl.cxx
-chart2/inc/pch/precompiled_chartopengl.hxx
 chart2/inc/unonames.hxx
 chart2/qa/extras/PivotChartTest.cxx
 chart2/qa/extras/chart2_trendcalculators.cxx
@@ -922,8 +920,6 @@ chart2/source/controller/chartapiwrapper/WrappedCharacterHeightProperty.cxx
 chart2/source/controller/chartapiwrapper/WrappedCharacterHeightProperty.hxx
 chart2/source/controller/chartapiwrapper/WrappedDataCaptionProperties.cxx
 chart2/source/controller/chartapiwrapper/WrappedDataCaptionProperties.hxx
-chart2/source/controller/chartapiwrapper/WrappedGL3DProperties.cxx
-chart2/source/controller/chartapiwrapper/WrappedGL3DProperties.hxx
 chart2/source/controller/chartapiwrapper/WrappedGapwidthProperty.cxx
 chart2/source/controller/chartapiwrapper/WrappedGapwidthProperty.hxx
 chart2/source/controller/chartapiwrapper/WrappedNumberFormatProperty.cxx
@@ -958,8 +954,6 @@ chart2/source/controller/dialogs/DataBrowserModel.cxx
 chart2/source/controller/dialogs/DataBrowserModel.hxx
 chart2/source/controller/dialogs/DialogModel.cxx
 chart2/source/controller/dialogs/DialogModel.hxx
-chart2/source/controller/dialogs/GL3DBarChartDialogController.cxx
-chart2/source/controller/dialogs/GL3DBarChartDialogController.hxx
 chart2/source/controller/dialogs/ObjectNameProvider.cxx
 chart2/source/controller/dialogs/RangeSelectionHelper.cxx
 chart2/source/controller/dialogs/RangeSelectionListener.cxx
@@ -1331,10 +1325,6 @@ chart2/source/model/template/DataInterpreter.cxx
 chart2/source/model/template/DataInterpreter.hxx
 chart2/source/model/template/FilledNetChartType.cxx
 chart2/source/model/template/FilledNetChartType.hxx
-chart2/source/model/template/GL3DBarChartType.cxx
-chart2/source/model/template/GL3DBarChartType.hxx
-chart2/source/model/template/GL3DBarChartTypeTemplate.cxx
-chart2/source/model/template/GL3DBarChartTypeTemplate.hxx
 chart2/source/model/template/LineChartType.cxx
 chart2/source/model/template/LineChartType.hxx
 chart2/source/model/template/LineChartTypeTemplate.cxx
@@ -1473,7 +1463,6 @@ chart2/source/view/charttypes/CandleStickChart.cxx
 chart2/source/view/charttypes/CandleStickChart.hxx
 chart2/source/view/charttypes/CategoryPositionHelper.cxx
 chart2/source/view/charttypes/CategoryPositionHelper.hxx
-chart2/source/view/charttypes/GL3DBarChart.cxx
 chart2/source/view/charttypes/NetChart.cxx
 chart2/source/view/charttypes/NetChart.hxx
 chart2/source/view/charttypes/PieChart.cxx
@@ -1482,19 +1471,14 @@ chart2/source/view/charttypes/Splines.cxx
 chart2/source/view/charttypes/Splines.hxx
 chart2/source/view/charttypes/VSeriesPlotter.cxx
 chart2/source/view/diagram/VDiagram.cxx
-chart2/source/view/inc/3DChartObjects.hxx
 chart2/source/view/inc/AbstractShapeFactory.hxx
 chart2/source/view/inc/Clipping.hxx
 chart2/source/view/inc/DateHelper.hxx
-chart2/source/view/inc/GL3DBarChart.hxx
-chart2/source/view/inc/GL3DPlotterBase.hxx
-chart2/source/view/inc/GL3DRenderer.hxx
 chart2/source/view/inc/LabelAlignment.hxx
 chart2/source/view/inc/LabelPositionHelper.hxx
 chart2/source/view/inc/LegendEntryProvider.hxx
 chart2/source/view/inc/Linear3DTransformation.hxx
 chart2/source/view/inc/MinimumAndMaximumSupplier.hxx
-chart2/source/view/inc/OpenglShapeFactory.hxx
 chart2/source/view/inc/PlotterBase.hxx
 chart2/source/view/inc/PlottingPositionHelper.hxx
 chart2/source/view/inc/PolarLabelPositionHelper.hxx
@@ -1511,7 +1495,6 @@ chart2/source/view/inc/VLineProperties.hxx
 chart2/source/view/inc/VPolarTransformation.hxx
 chart2/source/view/inc/VSeriesPlotter.hxx
 chart2/source/view/inc/ViewDefines.hxx
-chart2/source/view/main/3DChartObjects.cxx
 chart2/source/view/main/AbstractShapeFactory.cxx
 chart2/source/view/main/ChartItemPool.cxx
 chart2/source/view/main/ChartItemPool.hxx
@@ -1519,15 +1502,8 @@ chart2/source/view/main/ChartView.cxx
 chart2/source/view/main/Clipping.cxx
 chart2/source/view/main/DataPointSymbolSupplier.cxx
 chart2/source/view/main/DrawModelWrapper.cxx
-chart2/source/view/main/DummyXShape.cxx
-chart2/source/view/main/DummyXShape.hxx
-chart2/source/view/main/GL3DPlotterBase.cxx
-chart2/source/view/main/GL3DRenderer.cxx
 chart2/source/view/main/LabelPositionHelper.cxx
 chart2/source/view/main/Linear3DTransformation.cxx
-chart2/source/view/main/OpenGLRender.cxx
-chart2/source/view/main/OpenGLRender.hxx
-chart2/source/view/main/OpenglShapeFactory.cxx
 chart2/source/view/main/PlotterBase.cxx
 chart2/source/view/main/PlottingPositionHelper.cxx
 chart2/source/view/main/PolarLabelPositionHelper.cxx
@@ -1996,7 +1972,7 @@ connectivity/source/commontools/DriversConfig.cxx
 connectivity/source/commontools/FDatabaseMetaDataResultSet.cxx
 connectivity/source/commontools/FDatabaseMetaDataResultSetMetaData.cxx
 connectivity/source/commontools/FValue.cxx
-connectivity/source/commontools/ParamterSubstitution.cxx
+connectivity/source/commontools/ParameterSubstitution.cxx
 connectivity/source/commontools/RowFunctionParser.cxx
 connectivity/source/commontools/TColumnsHelper.cxx
 connectivity/source/commontools/TConnection.cxx
@@ -2412,13 +2388,6 @@ connectivity/source/drivers/postgresql/pq_xview.cxx
 connectivity/source/drivers/postgresql/pq_xview.hxx
 connectivity/source/drivers/postgresql/pq_xviews.cxx
 connectivity/source/drivers/postgresql/pq_xviews.hxx
-connectivity/source/drivers/writer/WCatalog.cxx
-connectivity/source/drivers/writer/WConnection.cxx
-connectivity/source/drivers/writer/WDatabaseMetaData.cxx
-connectivity/source/drivers/writer/WDriver.cxx
-connectivity/source/drivers/writer/WTable.cxx
-connectivity/source/drivers/writer/WTables.cxx
-connectivity/source/drivers/writer/Wservices.cxx
 connectivity/source/inc/AutoRetrievingBase.hxx
 connectivity/source/inc/FDatabaseMetaDataResultSet.hxx
 connectivity/source/inc/FDatabaseMetaDataResultSetMetaData.hxx
@@ -2592,12 +2561,6 @@ connectivity/source/inc/odbc/OTools.hxx
 connectivity/source/inc/odbc/odbcbasedllapi.hxx
 connectivity/source/inc/propertyids.hxx
 connectivity/source/inc/resource/sharedresources.hxx
-connectivity/source/inc/writer/WCatalog.hxx
-connectivity/source/inc/writer/WConnection.hxx
-connectivity/source/inc/writer/WDatabaseMetaData.hxx
-connectivity/source/inc/writer/WDriver.hxx
-connectivity/source/inc/writer/WTable.hxx
-connectivity/source/inc/writer/WTables.hxx
 connectivity/source/manager/mdrivermanager.cxx
 connectivity/source/manager/mdrivermanager.hxx
 connectivity/source/manager/mregistration.cxx
@@ -3941,6 +3904,7 @@ drawinglayer/source/primitive2d/textdecoratedprimitive2d.cxx
 drawinglayer/source/primitive2d/texteffectprimitive2d.cxx
 drawinglayer/source/primitive2d/textenumsprimitive2d.cxx
 drawinglayer/source/primitive2d/texthierarchyprimitive2d.cxx
+drawinglayer/source/primitive2d/pagehierarchyprimitive2d.cxx
 drawinglayer/source/primitive2d/textlayoutdevice.cxx
 drawinglayer/source/primitive2d/textlineprimitive2d.cxx
 drawinglayer/source/primitive2d/textprimitive2d.cxx
@@ -5590,7 +5554,6 @@ i18nlangtag/source/languagetag/languagetag.cxx
 i18nlangtag/source/languagetag/languagetagicu.cxx
 i18npool/inc/breakiteratorImpl.hxx
 i18npool/inc/breakiterator_cjk.hxx
-i18npool/inc/breakiterator_ctl.hxx
 i18npool/inc/breakiterator_th.hxx
 i18npool/inc/breakiterator_unicode.hxx
 i18npool/inc/bullet.h
@@ -5640,7 +5603,6 @@ i18npool/qa/cppunit/test_ordinalsuffix.cxx
 i18npool/qa/cppunit/test_textsearch.cxx
 i18npool/source/breakiterator/breakiteratorImpl.cxx
 i18npool/source/breakiterator/breakiterator_cjk.cxx
-i18npool/source/breakiterator/breakiterator_ctl.cxx
 i18npool/source/breakiterator/breakiterator_th.cxx
 i18npool/source/breakiterator/breakiterator_unicode.cxx
 i18npool/source/breakiterator/gendict.cxx
@@ -5866,7 +5828,6 @@ include/basegfx/range/b2irectangle.hxx
 include/basegfx/range/b3drange.hxx
 include/basegfx/range/basicbox.hxx
 include/basegfx/range/basicrange.hxx
-include/basegfx/raster/bpixelraster.hxx
 include/basegfx/raster/bzpixelraster.hxx
 include/basegfx/raster/rasterconvert3d.hxx
 include/basegfx/tuple/b2dtuple.hxx
@@ -5882,7 +5843,6 @@ include/basegfx/utils/lerp.hxx
 include/basegfx/utils/rectcliptools.hxx
 include/basegfx/utils/tools.hxx
 include/basegfx/utils/unopolypolygon.hxx
-include/basegfx/utils/unotools.hxx
 include/basegfx/utils/zoomtools.hxx
 include/basegfx/vector/b2dsize.hxx
 include/basegfx/vector/b2dvector.hxx
@@ -6283,6 +6243,7 @@ include/drawinglayer/primitive2d/textdecoratedprimitive2d.hxx
 include/drawinglayer/primitive2d/texteffectprimitive2d.hxx
 include/drawinglayer/primitive2d/textenumsprimitive2d.hxx
 include/drawinglayer/primitive2d/texthierarchyprimitive2d.hxx
+include/drawinglayer/primitive2d/pagehierarchyprimitive2d.hxx
 include/drawinglayer/primitive2d/textlayoutdevice.hxx
 include/drawinglayer/primitive2d/textlineprimitive2d.hxx
 include/drawinglayer/primitive2d/textprimitive2d.hxx
@@ -6352,7 +6313,6 @@ include/editeng/charhiddenitem.hxx
 include/editeng/charreliefitem.hxx
 include/editeng/charrotateitem.hxx
 include/editeng/charscaleitem.hxx
-include/editeng/charsetcoloritem.hxx
 include/editeng/cmapitem.hxx
 include/editeng/colritem.hxx
 include/editeng/contouritem.hxx
@@ -6998,7 +6958,6 @@ include/svl/filenotation.hxx
 include/svl/flagitem.hxx
 include/svl/fstathelper.hxx
 include/svl/globalnameitem.hxx
-include/svl/grabbagitem.hxx
 include/svl/gridprinter.hxx
 include/svl/hint.hxx
 include/svl/ilstitem.hxx
@@ -7786,11 +7745,9 @@ include/tools/line.hxx
 include/tools/lineend.hxx
 include/tools/link.hxx
 include/tools/mapunit.hxx
-include/tools/mempool.hxx
 include/tools/multisel.hxx
 include/tools/pathutils.hxx
 include/tools/poly.hxx
-include/tools/pstm.hxx
 include/tools/ref.hxx
 include/tools/resary.hxx
 include/tools/solar.h
@@ -8058,7 +8015,6 @@ include/vcl/opengl/GLMHelper.hxx
 include/vcl/opengl/OpenGLContext.hxx
 include/vcl/opengl/OpenGLHelper.hxx
 include/vcl/opengl/OpenGLWrapper.hxx
-include/vcl/openglwin.hxx
 include/vcl/outdev.hxx
 include/vcl/outdevmap.hxx
 include/vcl/outdevstate.hxx
@@ -8121,6 +8077,7 @@ include/vcl/unohelp2.hxx
 include/vcl/unowrap.hxx
 include/vcl/vclenum.hxx
 include/vcl/vclevent.hxx
+include/vcl/vcllayout.hxx
 include/vcl/vclmain.hxx
 include/vcl/vclmedit.hxx
 include/vcl/vclptr.hxx
@@ -12072,8 +12029,6 @@ sd/source/ui/framework/module/DrawModule.cxx
 sd/source/ui/framework/module/ImpressModule.cxx
 sd/source/ui/framework/module/ModuleController.cxx
 sd/source/ui/framework/module/PresentationModule.cxx
-sd/source/ui/framework/module/ResourceManager.cxx
-sd/source/ui/framework/module/ResourceManager.hxx
 sd/source/ui/framework/module/ShellStackGuard.cxx
 sd/source/ui/framework/module/ShellStackGuard.hxx
 sd/source/ui/framework/module/SlideSorterModule.cxx
@@ -13173,7 +13128,6 @@ shell/source/sessioninstall/SyncDbusSessionHelper.hxx
 shell/source/sessioninstall/services.cxx
 shell/source/tools/lngconvex/cmdline.cxx
 shell/source/tools/lngconvex/cmdline.hxx
-shell/source/tools/lngconvex/defs.hxx
 shell/source/tools/lngconvex/lngconvex.cxx
 shell/source/tools/regsvrex/regsvrex.cxx
 shell/source/unix/exec/shellexec.cxx
@@ -13816,7 +13770,6 @@ svl/source/items/cintitem.cxx
 svl/source/items/custritm.cxx
 svl/source/items/flagitem.cxx
 svl/source/items/globalnameitem.cxx
-svl/source/items/grabbagitem.cxx
 svl/source/items/ilstitem.cxx
 svl/source/items/imageitm.cxx
 svl/source/items/int64item.cxx
@@ -14175,7 +14128,6 @@ svx/inc/sdr/properties/pageproperties.hxx
 svx/inc/sdr/properties/rectangleproperties.hxx
 svx/inc/sdr/properties/textproperties.hxx
 svx/inc/strings.hxx
-svx/inc/svdglob.hxx
 svx/inc/svdibrow.hxx
 svx/inc/sxallitm.hxx
 svx/inc/sxcikitm.hxx
@@ -14227,7 +14179,6 @@ svx/source/accessibility/lookupcolorname.cxx
 svx/source/accessibility/lookupcolorname.hxx
 svx/source/accessibility/svxpixelctlaccessiblecontext.cxx
 svx/source/accessibility/svxrectctaccessiblecontext.cxx
-svx/source/core/coreservices.cxx
 svx/source/core/extedit.cxx
 svx/source/core/graphichelper.cxx
 svx/source/customshapes/EnhancedCustomShape2d.cxx
@@ -14421,7 +14372,6 @@ svx/source/inc/cell.hxx
 svx/source/inc/celltypes.hxx
 svx/source/inc/charmapacc.hxx
 svx/source/inc/clonelist.hxx
-svx/source/inc/coreservices.hxx
 svx/source/inc/datalistener.hxx
 svx/source/inc/datanavi.hxx
 svx/source/inc/delayedevent.hxx
@@ -14680,7 +14630,6 @@ svx/source/svdraw/sdrpaintwindow.cxx
 svx/source/svdraw/sdrundomanager.cxx
 svx/source/svdraw/selectioncontroller.cxx
 svx/source/svdraw/svdattr.cxx
-svx/source/svdraw/svdconv.hxx
 svx/source/svdraw/svdcrtv.cxx
 svx/source/svdraw/svddrag.cxx
 svx/source/svdraw/svddrgm1.hxx
@@ -16842,7 +16791,6 @@ tools/source/generic/svborder.cxx
 tools/source/inet/inetmime.cxx
 tools/source/inet/inetmsg.cxx
 tools/source/inet/inetstrm.cxx
-tools/source/memtools/mempool.cxx
 tools/source/memtools/multisel.cxx
 tools/source/misc/cpuid.cxx
 tools/source/misc/extendapplicationenvironment.cxx
@@ -17548,7 +17496,6 @@ vcl/inc/BitmapProcessor.hxx
 vcl/inc/BitmapScaleConvolutionFilter.hxx
 vcl/inc/BitmapScaleSuperFilter.hxx
 vcl/inc/BitmapSymmetryCheck.hxx
-vcl/inc/CommonSalLayout.hxx
 vcl/inc/ControlCacheKey.hxx
 vcl/inc/PhysicalFontCollection.hxx
 vcl/inc/PhysicalFontFace.hxx
@@ -18507,24 +18454,6 @@ vcl/unx/kde4/VCLKDEApplication.hxx
 vcl/unx/kde4/main.cxx
 vcl/unx/kde4/tst_exclude_posted_events.hxx
 vcl/unx/kde4/tst_exclude_socket_notifiers.hxx
-vcl/unx/kde5/FPServiceInfo.hxx
-vcl/unx/kde5/KDE5Data.cxx
-vcl/unx/kde5/KDE5Data.hxx
-vcl/unx/kde5/KDE5SalDisplay.cxx
-vcl/unx/kde5/KDE5SalDisplay.hxx
-vcl/unx/kde5/KDE5SalFrame.cxx
-vcl/unx/kde5/KDE5SalFrame.hxx
-vcl/unx/kde5/KDE5SalGraphics.cxx
-vcl/unx/kde5/KDE5SalGraphics.hxx
-vcl/unx/kde5/KDE5SalInstance.cxx
-vcl/unx/kde5/KDE5SalInstance.hxx
-vcl/unx/kde5/KDE5XLib.cxx
-vcl/unx/kde5/KDE5XLib.hxx
-vcl/unx/kde5/VCLKDE5Application.cxx
-vcl/unx/kde5/VCLKDE5Application.hxx
-vcl/unx/kde5/main.cxx
-vcl/unx/kde5/tst_exclude_posted_events.hxx
-vcl/unx/kde5/tst_exclude_socket_notifiers.hxx
 vcl/unx/x11/x11sys.cxx
 vcl/unx/x11/xlimits.cxx
 vcl/win/app/saldata.cxx

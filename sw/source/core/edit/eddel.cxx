@@ -33,7 +33,7 @@
 #include <globals.hrc>
 
 #include <strings.hrc>
-#include <list>
+#include <vector>
 
 void SwEditShell::DeleteSel( SwPaM& rPam, bool* pUndo )
 {
@@ -112,10 +112,10 @@ void SwEditShell::DeleteSel( SwPaM& rPam, bool* pUndo )
     rPam.DeleteMark();
 }
 
-long SwEditShell::Delete()
+bool SwEditShell::Delete()
 {
     SET_CURR_SHELL( this );
-    long nRet = 0;
+    bool bRet = false;
     if ( !HasReadonlySel() || CursorInsideInputField() )
     {
         StartAllAction();
@@ -140,14 +140,14 @@ long SwEditShell::Delete()
             GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::END, nullptr);
         }
         EndAllAction();
-        nRet = 1;
+        bRet = true;
     }
     else
     {
-        nRet = RemoveParagraphMetadataFieldAtCursor() ? 1 : 0;
+        bRet = RemoveParagraphMetadataFieldAtCursor();
     }
 
-    return nRet;
+    return bRet;
 }
 
 bool SwEditShell::Copy( SwEditShell* pDestShell )
@@ -158,7 +158,7 @@ bool SwEditShell::Copy( SwEditShell* pDestShell )
     SET_CURR_SHELL( pDestShell );
 
     // List of insert positions for smart insert of block selections
-    std::list< std::shared_ptr<SwPosition> > aInsertList;
+    std::vector< std::shared_ptr<SwPosition> > aInsertList;
 
     // Fill list of insert positions
     {
@@ -210,7 +210,7 @@ bool SwEditShell::Copy( SwEditShell* pDestShell )
     SwNodeIndex aSttNdIdx( pDestShell->GetDoc()->GetNodes() );
     sal_Int32 nSttCntIdx = 0;
     // For block selection this list is filled with the insert positions
-    std::list< std::shared_ptr<SwPosition> >::iterator pNextInsert = aInsertList.begin();
+    auto pNextInsert = aInsertList.begin();
 
     pDestShell->GetDoc()->GetIDocumentUndoRedo().StartUndo( SwUndoId::START, nullptr );
     for(SwPaM& rPaM : GetCursor()->GetRingContainer())

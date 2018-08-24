@@ -40,7 +40,6 @@ class VCL_DLLPUBLIC FormatterBase
 {
 private:
     VclPtr<Edit>            mpField;
-    Link<Edit&, bool>       maOutputHdl;
     std::unique_ptr<LocaleDataWrapper>
                             mpLocaleDataWrapper;
     bool                    mbReformat;
@@ -85,8 +84,6 @@ public:
 
     void                    EnableEmptyFieldValue( bool bEnable )   { mbEmptyFieldValueEnabled = bEnable; }
     bool                    IsEmptyFieldValueEnabled() const        { return mbEmptyFieldValueEnabled; }
-
-    void                    SetOutputHdl(const Link<Edit&, bool>& rLink) { maOutputHdl = rLink; }
 };
 
 #define PATTERN_FORMAT_EMPTYLITERALS    (sal_uInt16(0x0001))
@@ -152,6 +149,7 @@ public:
     void                    SetShowTrailingZeros( bool bShowTrailingZeros );
     bool                    IsShowTrailingZeros() const { return mbShowTrailingZeros; }
 
+    void                    DisableRemainderFactor();
 
     void                    SetUserValue( sal_Int64 nNewValue );
     virtual void            SetValue( sal_Int64 nNewValue );
@@ -163,12 +161,16 @@ public:
     sal_Int64               Normalize( sal_Int64 nValue ) const;
     sal_Int64               Denormalize( sal_Int64 nValue ) const;
 
+    void  SetInputHdl(const Link<sal_Int64*,TriState>& rLink) { m_aInputHdl = rLink; }
+    void  SetOutputHdl(const Link<Edit&, bool>& rLink) { m_aOutputHdl = rLink; }
 protected:
     sal_Int64               mnFieldValue;
     sal_Int64               mnLastValue;
     sal_Int64               mnMin;
     sal_Int64               mnMax;
     bool                    mbWrapOnLimits;
+    bool                    mbFormatting;
+    bool                    mbDisableRemainderFactor;
 
     // the members below are used in all derivatives of NumericFormatter
     // not in NumericFormatter itself.
@@ -182,8 +184,9 @@ protected:
     void                    FieldDown();
     void                    FieldFirst();
     void                    FieldLast();
+    void                    FormatValue(Selection const * pNewSelection = nullptr);
 
-    SAL_DLLPRIVATE bool     ImplNumericReformat( const OUString& rStr, sal_Int64& rValue, OUString& rOutStr );
+    SAL_DLLPRIVATE void     ImplNumericReformat();
     SAL_DLLPRIVATE void     ImplNewFieldValue( sal_Int64 nNewValue );
     SAL_DLLPRIVATE void     ImplSetUserValue( sal_Int64 nNewValue, Selection const * pNewSelection = nullptr );
 
@@ -192,6 +195,8 @@ protected:
 private:
     SAL_DLLPRIVATE void     ImplInit();
 
+    Link<sal_Int64*, TriState> m_aInputHdl;
+    Link<Edit&, bool>       m_aOutputHdl;
     sal_uInt16              mnDecimalDigits;
     bool                    mbThousandSep;
     bool                    mbShowTrailingZeros;
@@ -236,6 +241,8 @@ public:
     void                    SetCustomConvertHdl( const Link<MetricFormatter&,void>& rLink ) { maCustomConvertLink = rLink; }
 
     static FieldUnit        StringToMetric(const OUString &rMetricString);
+    static bool             TextToValue(const OUString& rStr, double& rValue, sal_Int64 nBaseValue, sal_uInt16 nDecDigits, const LocaleDataWrapper& rLocaleDataWrapper, FieldUnit eUnit);
+
 protected:
     sal_Int64               mnBaseValue;
     FieldUnit               meUnit;
@@ -243,7 +250,7 @@ protected:
 
                             MetricFormatter();
 
-    SAL_DLLPRIVATE bool     ImplMetricReformat( const OUString& rStr, double& rValue, OUString& rOutStr );
+    SAL_DLLPRIVATE void     ImplMetricReformat( const OUString& rStr, double& rValue, OUString& rOutStr );
 
     virtual sal_Int64       GetValueFromString(const OUString& rStr) const override;
     virtual sal_Int64       GetValueFromStringUnit(const OUString& rStr, FieldUnit eOutUnit) const;
@@ -260,7 +267,7 @@ class VCL_DLLPUBLIC CurrencyFormatter : public NumericFormatter
 {
 protected:
                             CurrencyFormatter();
-    SAL_DLLPRIVATE bool     ImplCurrencyReformat( const OUString& rStr, OUString& rOutStr );
+    SAL_DLLPRIVATE void     ImplCurrencyReformat( const OUString& rStr, OUString& rOutStr );
     virtual sal_Int64       GetValueFromString(const OUString& rStr) const override;
 
 public:
@@ -292,7 +299,7 @@ protected:
                             DateFormatter();
 
     SAL_DLLPRIVATE const Date& ImplGetFieldDate() const    { return maFieldDate; }
-    SAL_DLLPRIVATE bool     ImplDateReformat( const OUString& rStr, OUString& rOutStr );
+    SAL_DLLPRIVATE void     ImplDateReformat( const OUString& rStr, OUString& rOutStr );
     SAL_DLLPRIVATE void     ImplSetUserDate( const Date& rNewDate,
                                              Selection const * pNewSelection = nullptr );
     SAL_DLLPRIVATE OUString ImplGetDateAsText( const Date& rDate ) const;
@@ -358,12 +365,6 @@ public:
 
 class VCL_DLLPUBLIC TimeFormatter : public FormatterBase
 {
-public:
-                            enum class TimeFormat {
-                                Hour12,
-                                Hour24
-                            };
-
 private:
     tools::Time             maLastTime;
     tools::Time             maMin;
@@ -380,12 +381,19 @@ protected:
 
                             TimeFormatter();
 
-    SAL_DLLPRIVATE bool     ImplTimeReformat( const OUString& rStr, OUString& rOutStr );
+    SAL_DLLPRIVATE void     ImplTimeReformat( const OUString& rStr, OUString& rOutStr );
     SAL_DLLPRIVATE void     ImplNewFieldValue( const tools::Time& rTime );
     SAL_DLLPRIVATE void     ImplSetUserTime( const tools::Time& rNewTime, Selection const * pNewSelection = nullptr );
     SAL_DLLPRIVATE bool     ImplAllowMalformedInput() const;
 
 public:
+    static OUString         FormatTime(const tools::Time& rNewTime, TimeFieldFormat eFormat, TimeFormat eHourFormat, bool bDuration, const LocaleDataWrapper& rLocaleData);
+    static bool             TextToTime(const OUString& rStr, tools::Time& rTime, TimeFieldFormat eFormat, bool bDuration, const LocaleDataWrapper& rLocaleDataWrapper, bool _bSkipInvalidCharacters = true);
+    static int              GetTimeArea(TimeFieldFormat eFormat, const OUString& rText, int nCursor,
+                                        const LocaleDataWrapper& rLocaleDataWrapper);
+    static tools::Time      SpinTime(bool bUp, const tools::Time& rTime, TimeFieldFormat eFormat,
+                                     bool bDuration, const OUString& rText, int nCursor,
+                                     const LocaleDataWrapper& rLocaleDataWrapper);
 
     virtual                 ~TimeFormatter() override;
 
@@ -487,11 +495,9 @@ public:
     void                    SetFirst( sal_Int64 nNewFirst, FieldUnit eInUnit );
     void             SetFirst(sal_Int64 first) { SetFirst(first, FUNIT_NONE); }
     sal_Int64               GetFirst( FieldUnit eOutUnit ) const;
-    sal_Int64        GetFirst() const { return GetFirst(FUNIT_NONE); }
     void                    SetLast( sal_Int64 nNewLast, FieldUnit eInUnit );
     void             SetLast(sal_Int64 last) { SetLast(last, FUNIT_NONE); }
     sal_Int64               GetLast( FieldUnit eOutUnit ) const;
-    sal_Int64        GetLast() const { return GetLast(FUNIT_NONE); }
 
     static void             SetDefaultUnit( FieldUnit eDefaultUnit );
     static FieldUnit        GetDefaultUnit();
@@ -626,6 +632,7 @@ public:
 
 class VCL_DLLPUBLIC NumericBox : public ComboBox, public NumericFormatter
 {
+    SAL_DLLPRIVATE void     ImplNumericReformat( const OUString& rStr, sal_Int64& rValue, OUString& rOutStr );
 public:
     explicit                NumericBox( vcl::Window* pParent, WinBits nWinStyle );
 

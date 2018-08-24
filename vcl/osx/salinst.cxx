@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <condition_variable>
 #include <mutex>
@@ -318,7 +319,7 @@ void SalYieldMutex::doAcquire( sal_uInt32 nLockCount )
     ++m_nCount;
     --nLockCount;
 
-    comphelper::GenericSolarMutex::doAcquire( nLockCount );
+    comphelper::SolarMutex::doAcquire( nLockCount );
 }
 
 sal_uInt32 SalYieldMutex::doRelease( const bool bUnlockAll )
@@ -331,7 +332,7 @@ sal_uInt32 SalYieldMutex::doRelease( const bool bUnlockAll )
         std::unique_lock<std::mutex> g(m_runInMainMutex);
         // read m_nCount before doRelease
         bool const isReleased(bUnlockAll || m_nCount == 1);
-        nCount = comphelper::GenericSolarMutex::doRelease( bUnlockAll );
+        nCount = comphelper::SolarMutex::doRelease( bUnlockAll );
         if (isReleased && !pInst->IsMainThread()) {
             m_wakeUpMain = true;
             m_aInMainCondition.notify_all();
@@ -343,7 +344,7 @@ sal_uInt32 SalYieldMutex::doRelease( const bool bUnlockAll )
 bool SalYieldMutex::IsCurrentThread() const
 {
     if ( !GetSalData()->mpInstance->mbNoYieldLock )
-        return comphelper::GenericSolarMutex::IsCurrentThread();
+        return comphelper::SolarMutex::IsCurrentThread();
     else
         return GetSalData()->mpInstance->IsMainThread();
 }
@@ -795,14 +796,9 @@ void AquaSalInstance::DestroyObject( SalObject* pObject )
     delete pObject;
 }
 
-SalPrinter* AquaSalInstance::CreatePrinter( SalInfoPrinter* pInfoPrinter )
+std::unique_ptr<SalPrinter> AquaSalInstance::CreatePrinter( SalInfoPrinter* pInfoPrinter )
 {
-    return new AquaSalPrinter( dynamic_cast<AquaSalInfoPrinter*>(pInfoPrinter) );
-}
-
-void AquaSalInstance::DestroyPrinter( SalPrinter* pPrinter )
-{
-    delete pPrinter;
+    return std::unique_ptr<SalPrinter>(new AquaSalPrinter( dynamic_cast<AquaSalInfoPrinter*>(pInfoPrinter) ));
 }
 
 void AquaSalInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
@@ -824,7 +820,6 @@ void AquaSalInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
                 pInfo->maDriver     = GetOUString( pType );
             pInfo->mnStatus         = PrintQueueFlags::NONE;
             pInfo->mnJobs           = 0;
-            pInfo->mpSysData        = nullptr;
 
             pList->Add( pInfo );
         }
@@ -966,14 +961,9 @@ SalSystem* AquaSalInstance::CreateSalSystem()
     return new AquaSalSystem();
 }
 
-SalBitmap* AquaSalInstance::CreateSalBitmap()
+std::shared_ptr<SalBitmap> AquaSalInstance::CreateSalBitmap()
 {
-    return new QuartzSalBitmap();
-}
-
-SalSession* AquaSalInstance::CreateSalSession()
-{
-    return nullptr;
+    return std::make_shared<QuartzSalBitmap>();
 }
 
 OUString AquaSalInstance::getOSVersion()

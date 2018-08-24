@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -110,17 +110,111 @@ Sequence< Locale > SAL_CALL MacSpellChecker::getLocales()
         // TODO How on Mac OS X?
 
         // invoke a second  dictionary manager to get the shared dictionary list
-        NSArray *aLocales = [NSLocale availableLocaleIdentifiers];
+        NSArray *aSpellCheckLanguages = [[NSSpellChecker sharedSpellChecker] availableLanguages];
 
-        //Test for existence of the dictionaries
-        for (NSUInteger i = 0; i < [aLocales count]; i++)
+        for (NSUInteger i = 0; i < [aSpellCheckLanguages count]; i++)
         {
-            NSString* pLangStr = static_cast<NSString*>([aLocales objectAtIndex:i]);
-            if( [[NSSpellChecker sharedSpellChecker] setLanguage:pLangStr ] )
+            NSString* pLangStr = static_cast<NSString*>([aSpellCheckLanguages objectAtIndex:i]);
+
+            // Fix up generic languages (without territory code) and odd combinations that LO
+            // doesn't handle.
+            if ([pLangStr isEqualToString:@"da"])
             {
-                postspdict.push_back( pLangStr );
+                postspdict.push_back( @"da_DK" );
             }
+            else if ([pLangStr isEqualToString:@"de"])
+            {
+                const std::vector<NSString*> aDE
+                    { @"AT", @"BE", @"CH", @"DE", @"LI", @"LU" };
+                for (auto c: aDE)
+                {
+                    pLangStr = [@"de_" stringByAppendingString: c];
+                    postspdict.push_back( pLangStr );
+                }
+            }
+            else if ([pLangStr isEqualToString:@"en"])
+            {
+                // System has en_AU, en_CA, en_GB, and en_IN. Add the rest.
+                const std::vector<NSString*> aEN
+                    { @"BW", @"BZ", @"GH", @"GM", @"IE", @"JM", @"MU", @"MW", @"MY", @"NA",
+                      @"NZ", @"PH", @"TT", @"US", @"ZA", @"ZW" };
+                for (auto c: aEN)
+                {
+                    pLangStr = [@"en_" stringByAppendingString: c];
+                    postspdict.push_back( pLangStr );
+                }
+            }
+            else if ([pLangStr isEqualToString:@"en_JP"]
+                     || [pLangStr isEqualToString:@"en_SG"])
+            {
+                // Just skip, LO doesn't have those yet in this context.
+            }
+            else if ([pLangStr isEqualToString:@"es"])
+            {
+                const std::vector<NSString*> aES
+                    { @"AR", @"BO", @"CL", @"CO", @"CR", @"CU", @"DO", @"EC", @"ES", @"GT",
+                      @"HN", @"MX", @"NI", @"PA", @"PE", @"PR", @"PY", @"SV", @"UY", @"VE" };
+                for (auto c: aES)
+                {
+                    pLangStr = [@"es_" stringByAppendingString: c];
+                    postspdict.push_back( pLangStr );
+                }
+            }
+            else if ([pLangStr isEqualToString:@"fi"])
+            {
+                postspdict.push_back( @"fi_FI" );
+            }
+            else if ([pLangStr isEqualToString:@"fr"])
+            {
+                const std::vector<NSString*> aFR
+                    { @"BE", @"BF", @"BJ", @"CA", @"CH", @"CI", @"FR", @"LU", @"MC", @"ML",
+                      @"MU", @"NE", @"SN", @"TG" };
+                for (auto c: aFR)
+                {
+                    pLangStr = [@"fr_" stringByAppendingString: c];
+                    postspdict.push_back( pLangStr );
+                }
+            }
+            else if ([pLangStr isEqualToString:@"it"])
+            {
+                postspdict.push_back( @"it_CH" );
+                postspdict.push_back( @"it_IT" );
+            }
+            else if ([pLangStr isEqualToString:@"ko"])
+            {
+                postspdict.push_back( @"ko_KR" );
+            }
+            else if ([pLangStr isEqualToString:@"nl"])
+            {
+                postspdict.push_back( @"nl_BE" );
+                postspdict.push_back( @"nl_NL" );
+            }
+            else if ([pLangStr isEqualToString:@"nb"])
+            {
+                postspdict.push_back( @"nb_NO" );
+            }
+            else if ([pLangStr isEqualToString:@"pl"])
+            {
+                postspdict.push_back( @"pl_PL" );
+            }
+            else if ([pLangStr isEqualToString:@"ru"])
+            {
+                postspdict.push_back( @"ru_RU" );
+            }
+            else if ([pLangStr isEqualToString:@"sv"])
+            {
+                postspdict.push_back( @"sv_FI" );
+                postspdict.push_back( @"sv_SE" );
+            }
+            else if ([pLangStr isEqualToString:@"tr"])
+            {
+                postspdict.push_back( @"tr_TR" );
+            }
+            else
+                postspdict.push_back( pLangStr );
         }
+        // System has pt_BR and pt_PT, add pt_AO.
+        postspdict.push_back( @"pt_AO" );
 
         numshr = postspdict.size();
 

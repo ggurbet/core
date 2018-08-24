@@ -115,7 +115,7 @@ IMPL_LINK_NOARG(SvxPathSelectDialog, AddHdl_Impl, weld::Button&, void)
         OUString sInsPath;
         osl::FileBase::getSystemPathFromFileURL(aURL, sInsPath);
 
-        if (m_xPathLB->find(sInsPath) != -1)
+        if (m_xPathLB->find_text(sInsPath) != -1)
         {
             OUString sMsg( CuiResId( RID_MULTIPATH_DBL_ERR ) );
             sMsg = sMsg.replaceFirst( "%1", sInsPath );
@@ -188,8 +188,8 @@ SvxMultiPathDialog::SvxMultiPathDialog(vcl::Window* pParent)
     pRadioLBContainer->set_height_request(aSize.Height());
     m_pRadioLB = VclPtr<svx::SvxRadioButtonListBox>::Create(*pRadioLBContainer, 0);
 
-    static long aStaticTabs[]= { 2, 0, 12 };
-    m_pRadioLB->SvSimpleTable::SetTabs( aStaticTabs );
+    static long aStaticTabs[]= { 0, 12 };
+    m_pRadioLB->SvSimpleTable::SetTabs( SAL_N_ELEMENTS(aStaticTabs), aStaticTabs );
     OUString sHeader(get<FixedText>("pathlist")->GetText());
     m_pRadioLB->SetQuickHelpText( sHeader );
     sHeader = "\t" + sHeader;
@@ -246,7 +246,7 @@ void SvxMultiPathDialog::dispose()
 
 OUString SvxMultiPathDialog::GetPath() const
 {
-    OUString sNewPath;
+    OUStringBuffer sNewPath;
     sal_Unicode cDelim = SVT_SEARCHPATH_DELIMITER;
 
     OUString sWritable;
@@ -258,29 +258,29 @@ OUString SvxMultiPathDialog::GetPath() const
         else
         {
             if ( !sNewPath.isEmpty() )
-                sNewPath += OUStringLiteral1(cDelim);
-            sNewPath += *static_cast<OUString*>(pEntry->GetUserData());
+                sNewPath.append(cDelim);
+            sNewPath.append( *static_cast<OUString*>(pEntry->GetUserData()) );
         }
     }
     if ( !sNewPath.isEmpty() )
-        sNewPath += OUStringLiteral1(cDelim);
-    sNewPath += sWritable;
+        sNewPath.append(cDelim);
+    sNewPath.append(sWritable);
 
-    return sNewPath;
+    return sNewPath.makeStringAndClear();
 }
 
 OUString SvxPathSelectDialog::GetPath() const
 {
-    OUString sNewPath;
+    OUStringBuffer sNewPath;
 
     for (int i = 0; i < m_xPathLB->n_children(); ++i)
     {
         if ( !sNewPath.isEmpty() )
-            sNewPath += OUStringLiteral1(SVT_SEARCHPATH_DELIMITER);
-        sNewPath += m_xPathLB->get_id(i);
+            sNewPath.append(SVT_SEARCHPATH_DELIMITER);
+        sNewPath.append( m_xPathLB->get_id(i));
     }
 
-    return sNewPath;
+    return sNewPath.makeStringAndClear();
 }
 
 void SvxMultiPathDialog::SetPath( const OUString& rPath )

@@ -34,13 +34,8 @@ class SwDoc;
 class SwDocShell;
 class SetGetExpFields;
 class SwViewOption;
-class OutputDevice;
 class SwViewOptionAdjust_Impl;
 class SwViewShell;
-class SfxViewShell;
-
-// forward declarations
-class SwPrintUIOptions;
 class SwRenderData;
 
 /** this must match the definitions in css::text::NotePrintMode */
@@ -103,6 +98,11 @@ public:
     }
 
     virtual ~SwPrintData() {}
+
+    SwPrintData(SwPrintData const &) = default;
+    SwPrintData(SwPrintData &&) = default;
+    SwPrintData & operator =(SwPrintData const &) = default;
+    SwPrintData & operator =(SwPrintData &&) = default;
 
     bool operator==(const SwPrintData& rData)const
     {

@@ -22,11 +22,10 @@
 
 #include <memory>
 #include "scdllapi.h"
-#include "address.hxx"
+#include "types.hxx"
 #include <editeng/editeng.hxx>
 #include <svx/pageitem.hxx>
-#include <tools/date.hxx>
-#include <tools/time.hxx>
+#include <tools/datetime.hxx>
 #include <tools/gen.hxx>
 #include <tools/fract.hxx>
 #include <vcl/outdev.hxx>
@@ -75,7 +74,7 @@ public:
     static std::unique_ptr<EditTextObject> Clone( const EditTextObject& rSrc, ScDocument& rDestDoc );
 
     static OUString GetCellFieldValue(
-        const SvxFieldData& rFieldData, const ScDocument* pDoc, Color** ppTextColor );
+        const SvxFieldData& rFieldData, const ScDocument* pDoc, boost::optional<Color>* ppTextColor );
 
 public:
                 ScEditUtil( ScDocument* pDocument, SCCOL nX, SCROW nY, SCTAB nZ,
@@ -190,8 +189,7 @@ struct ScHeaderFieldData
     OUString    aLongDocName;       // path and file name
     OUString    aShortDocName;      // pure file name
     OUString    aTabName;
-    Date        aDate;
-    tools::Time aTime;
+    DateTime    aDateTime;
     long        nPageNo;
     long        nTotalPages;
     SvxNumType  eNumType;
@@ -214,7 +212,7 @@ public:
     void SetExecuteURL(bool bSet)    { bExecuteURL = bSet; }
 
     virtual void    FieldClicked( const SvxFieldItem& rField, sal_Int32, sal_Int32 ) override;
-    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rTxtColor, Color*& rFldColor ) override;
+    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rTxtColor, boost::optional<Color>& rFldColor ) override;
 };
 
 // for headers/footers with fields
@@ -225,7 +223,7 @@ private:
 
 public:
     ScHeaderEditEngine( SfxItemPool* pEnginePool );
-    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rTxtColor, Color*& rFldColor ) override;
+    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rTxtColor, boost::optional<Color>& rFldColor ) override;
 
     void SetNumType(SvxNumType eNew)                { aData.eNumType = eNew; }
     void SetData(const ScHeaderFieldData& rNew)     { aData = rNew; }

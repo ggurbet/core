@@ -20,14 +20,12 @@
 #ifndef INCLUDED_SC_INC_DPTABSRC_HXX
 #define INCLUDED_SC_INC_DPTABSRC_HXX
 
-#include "global.hxx"
 #include <com/sun/star/sheet/XDimensionsSupplier.hpp>
 #include <com/sun/star/sheet/XHierarchiesSupplier.hpp>
 #include <com/sun/star/sheet/XLevelsSupplier.hpp>
 #include <com/sun/star/sheet/XMembersSupplier.hpp>
 #include <com/sun/star/sheet/XDataPilotResults.hpp>
 #include <com/sun/star/sheet/XDataPilotMemberResults.hpp>
-#include <com/sun/star/sheet/MemberResult.hpp>
 #include <com/sun/star/sheet/DataPilotFieldAutoShowInfo.hpp>
 #include <com/sun/star/sheet/DataPilotFieldLayoutInfo.hpp>
 #include <com/sun/star/sheet/DataPilotFieldLayoutMode.hpp>
@@ -44,10 +42,8 @@
 #include <rtl/ref.hxx>
 
 #include "dptabdat.hxx"
-#include "dpglobal.hxx"
 #include "dpresfilter.hxx"
 
-#include <list>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -57,6 +53,7 @@
 namespace com { namespace sun { namespace star {
     namespace sheet {
         struct DataPilotFieldFilter;
+        struct MemberResult;
     }
     namespace table {
         struct CellAddress;
@@ -66,7 +63,6 @@ namespace com { namespace sun { namespace star {
 class ScDPResultMember;
 class ScDPResultData;
 class ScDPItemData;
-class ScDPTableData;
 class ScDPDimensions;
 class ScDPDimension;
 class ScDPHierarchies;

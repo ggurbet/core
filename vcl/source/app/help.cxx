@@ -18,6 +18,7 @@
  */
 
 #include <comphelper/string.hxx>
+#include <sal/log.hxx>
 
 #include <tools/diagnose_ex.h>
 #include <tools/time.hxx>
@@ -150,14 +151,12 @@ bool Help::IsBalloonHelpEnabled()
     return ImplGetSVData()->maHelpData.mbBalloonHelp;
 }
 
-bool Help::ShowBalloon( vcl::Window* pParent,
+void Help::ShowBalloon( vcl::Window* pParent,
                         const Point& rScreenPos, const tools::Rectangle& rRect,
                         const OUString& rHelpText )
 {
     ImplShowHelpWindow( pParent, HELPWINSTYLE_BALLOON, QuickHelpFlags::NONE,
                         rHelpText, OUString(), rScreenPos, rRect );
-
-    return true;
 }
 
 void Help::EnableQuickHelp()
@@ -175,7 +174,7 @@ bool Help::IsQuickHelpEnabled()
     return ImplGetSVData()->maHelpData.mbQuickHelp;
 }
 
-bool Help::ShowQuickHelp( vcl::Window* pParent,
+void Help::ShowQuickHelp( vcl::Window* pParent,
                           const tools::Rectangle& rScreenRect,
                           const OUString& rHelpText,
                           const OUString& rLongHelpText,
@@ -185,7 +184,6 @@ bool Help::ShowQuickHelp( vcl::Window* pParent,
     ImplShowHelpWindow( pParent, nHelpWinStyle, nStyle,
                         rHelpText, rLongHelpText,
                         pParent->OutputToScreenPixel( pParent->GetPointerPosPixel() ), rScreenRect );
-    return true;
 }
 
 void Help::HideBalloonAndQuickHelp()
@@ -198,7 +196,7 @@ void Help::HideBalloonAndQuickHelp()
 void* Help::ShowPopover(vcl::Window* pParent, const tools::Rectangle& rScreenRect,
                               const OUString& rText, QuickHelpFlags nStyle)
 {
-    void* nId = pParent->ImplGetFrame()->ShowPopover(rText, rScreenRect, nStyle);
+    void* nId = pParent->ImplGetFrame()->ShowPopover(rText, pParent, rScreenRect, nStyle);
     if (nId)
     {
         //popovers are handled natively, return early
@@ -218,7 +216,7 @@ void* Help::ShowPopover(vcl::Window* pParent, const tools::Rectangle& rScreenRec
 void Help::UpdatePopover(void* nId, vcl::Window* pParent, const tools::Rectangle& rScreenRect,
                          const OUString& rText)
 {
-    if (pParent->ImplGetFrame()->UpdatePopover(nId, rText, rScreenRect))
+    if (pParent->ImplGetFrame()->UpdatePopover(nId, rText, pParent, rScreenRect))
     {
         //popovers are handled natively, return early
         return;

@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 
@@ -151,99 +152,78 @@ void SetFontStyle(const OUString &rStyleName, vcl::Font &rFont)
     rFont.SetWeight((nIndex & 0x2) ? WEIGHT_BOLD : WEIGHT_NORMAL);
 }
 
-IMPL_LINK_NOARG( SmPrintOptionsTabPage, SizeButtonClickHdl, Button *, void )
+IMPL_LINK_NOARG(SmPrintOptionsTabPage, SizeButtonClickHdl, weld::ToggleButton&, void)
 {
-    m_pZoom->Enable(m_pSizeZoomed->IsChecked());
+    m_xZoom->set_sensitive(m_xSizeZoomed->get_active());
 }
 
-SmPrintOptionsTabPage::SmPrintOptionsTabPage(vcl::Window* pParent, const SfxItemSet& rOptions)
-    : SfxTabPage(pParent, "SmathSettings", "modules/smath/ui/smathsettings.ui", &rOptions)
+SmPrintOptionsTabPage::SmPrintOptionsTabPage(TabPageParent pPage, const SfxItemSet& rOptions)
+    : SfxTabPage(pPage, "modules/smath/ui/smathsettings.ui", "SmathSettings", &rOptions)
+    , m_xTitle(m_xBuilder->weld_check_button("title"))
+    , m_xText(m_xBuilder->weld_check_button("text"))
+    , m_xFrame(m_xBuilder->weld_check_button("frame"))
+    , m_xSizeNormal(m_xBuilder->weld_radio_button("sizenormal"))
+    , m_xSizeScaled(m_xBuilder->weld_radio_button("sizescaled"))
+    , m_xSizeZoomed(m_xBuilder->weld_radio_button("sizezoomed"))
+    , m_xZoom(m_xBuilder->weld_metric_spin_button("zoom", FUNIT_PERCENT))
+    , m_xNoRightSpaces(m_xBuilder->weld_check_button("norightspaces"))
+    , m_xSaveOnlyUsedSymbols(m_xBuilder->weld_check_button("saveonlyusedsymbols"))
+    , m_xAutoCloseBrackets(m_xBuilder->weld_check_button("autoclosebrackets"))
 {
-    get( m_pTitle,               "title");
-    get( m_pText,                "text");
-    get( m_pFrame,               "frame");
-    get( m_pSizeNormal,          "sizenormal");
-    get( m_pSizeScaled,          "sizescaled");
-    get( m_pSizeZoomed,          "sizezoomed");
-    get( m_pZoom,                "zoom");
-    get( m_pNoRightSpaces,       "norightspaces");
-    get( m_pSaveOnlyUsedSymbols, "saveonlyusedsymbols");
-    get( m_pAutoCloseBrackets,   "autoclosebrackets");
-
-    m_pSizeNormal->SetClickHdl(LINK(this, SmPrintOptionsTabPage, SizeButtonClickHdl));
-    m_pSizeScaled->SetClickHdl(LINK(this, SmPrintOptionsTabPage, SizeButtonClickHdl));
-    m_pSizeZoomed->SetClickHdl(LINK(this, SmPrintOptionsTabPage, SizeButtonClickHdl));
+    m_xSizeNormal->connect_toggled(LINK(this, SmPrintOptionsTabPage, SizeButtonClickHdl));
+    m_xSizeScaled->connect_toggled(LINK(this, SmPrintOptionsTabPage, SizeButtonClickHdl));
+    m_xSizeZoomed->connect_toggled(LINK(this, SmPrintOptionsTabPage, SizeButtonClickHdl));
 
     Reset(&rOptions);
 }
 
 SmPrintOptionsTabPage::~SmPrintOptionsTabPage()
 {
-    disposeOnce();
 }
-
-void SmPrintOptionsTabPage::dispose()
-{
-    m_pTitle.clear();
-    m_pText.clear();
-    m_pFrame.clear();
-    m_pSizeNormal.clear();
-    m_pSizeScaled.clear();
-    m_pSizeZoomed.clear();
-    m_pZoom.clear();
-    m_pNoRightSpaces.clear();
-    m_pSaveOnlyUsedSymbols.clear();
-    m_pAutoCloseBrackets.clear();
-    SfxTabPage::dispose();
-}
-
 
 bool SmPrintOptionsTabPage::FillItemSet(SfxItemSet* rSet)
 {
     sal_uInt16  nPrintSize;
-    if (m_pSizeNormal->IsChecked())
+    if (m_xSizeNormal->get_active())
         nPrintSize = PRINT_SIZE_NORMAL;
-    else if (m_pSizeScaled->IsChecked())
+    else if (m_xSizeScaled->get_active())
         nPrintSize = PRINT_SIZE_SCALED;
     else
         nPrintSize = PRINT_SIZE_ZOOMED;
 
     rSet->Put(SfxUInt16Item(GetWhich(SID_PRINTSIZE), nPrintSize));
-    rSet->Put(SfxUInt16Item(GetWhich(SID_PRINTZOOM), sal::static_int_cast<sal_uInt16>(m_pZoom->GetValue())));
-    rSet->Put(SfxBoolItem(GetWhich(SID_PRINTTITLE), m_pTitle->IsChecked()));
-    rSet->Put(SfxBoolItem(GetWhich(SID_PRINTTEXT), m_pText->IsChecked()));
-    rSet->Put(SfxBoolItem(GetWhich(SID_PRINTFRAME), m_pFrame->IsChecked()));
-    rSet->Put(SfxBoolItem(GetWhich(SID_NO_RIGHT_SPACES), m_pNoRightSpaces->IsChecked()));
-    rSet->Put(SfxBoolItem(GetWhich(SID_SAVE_ONLY_USED_SYMBOLS), m_pSaveOnlyUsedSymbols->IsChecked()));
-    rSet->Put(SfxBoolItem(GetWhich(SID_AUTO_CLOSE_BRACKETS), m_pAutoCloseBrackets->IsChecked()));
+    rSet->Put(SfxUInt16Item(GetWhich(SID_PRINTZOOM), sal::static_int_cast<sal_uInt16>(m_xZoom->get_value(FUNIT_PERCENT))));
+    rSet->Put(SfxBoolItem(GetWhich(SID_PRINTTITLE), m_xTitle->get_active()));
+    rSet->Put(SfxBoolItem(GetWhich(SID_PRINTTEXT), m_xText->get_active()));
+    rSet->Put(SfxBoolItem(GetWhich(SID_PRINTFRAME), m_xFrame->get_active()));
+    rSet->Put(SfxBoolItem(GetWhich(SID_NO_RIGHT_SPACES), m_xNoRightSpaces->get_active()));
+    rSet->Put(SfxBoolItem(GetWhich(SID_SAVE_ONLY_USED_SYMBOLS), m_xSaveOnlyUsedSymbols->get_active()));
+    rSet->Put(SfxBoolItem(GetWhich(SID_AUTO_CLOSE_BRACKETS), m_xAutoCloseBrackets->get_active()));
 
     return true;
 }
-
 
 void SmPrintOptionsTabPage::Reset(const SfxItemSet* rSet)
 {
     SmPrintSize ePrintSize = static_cast<SmPrintSize>(static_cast<const SfxUInt16Item &>(rSet->Get(GetWhich(SID_PRINTSIZE))).GetValue());
 
-    m_pSizeNormal->Check(ePrintSize == PRINT_SIZE_NORMAL);
-    m_pSizeScaled->Check(ePrintSize == PRINT_SIZE_SCALED);
-    m_pSizeZoomed->Check(ePrintSize == PRINT_SIZE_ZOOMED);
+    m_xSizeNormal->set_active(ePrintSize == PRINT_SIZE_NORMAL);
+    m_xSizeScaled->set_active(ePrintSize == PRINT_SIZE_SCALED);
+    m_xSizeZoomed->set_active(ePrintSize == PRINT_SIZE_ZOOMED);
 
-    m_pZoom->Enable(m_pSizeZoomed->IsChecked());
+    m_xZoom->set_sensitive(m_xSizeZoomed->get_active());
 
-    m_pZoom->SetValue(static_cast<const SfxUInt16Item &>(rSet->Get(GetWhich(SID_PRINTZOOM))).GetValue());
+    m_xZoom->set_value(static_cast<const SfxUInt16Item &>(rSet->Get(GetWhich(SID_PRINTZOOM))).GetValue(), FUNIT_PERCENT);
 
-    m_pTitle->Check(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_PRINTTITLE))).GetValue());
-    m_pText->Check(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_PRINTTEXT))).GetValue());
-    m_pFrame->Check(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_PRINTFRAME))).GetValue());
-    m_pNoRightSpaces->Check(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_NO_RIGHT_SPACES))).GetValue());
-    m_pSaveOnlyUsedSymbols->Check(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_SAVE_ONLY_USED_SYMBOLS))).GetValue());
-    m_pAutoCloseBrackets->Check(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_AUTO_CLOSE_BRACKETS))).GetValue());
+    m_xTitle->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_PRINTTITLE))).GetValue());
+    m_xNoRightSpaces->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_NO_RIGHT_SPACES))).GetValue());
+    m_xSaveOnlyUsedSymbols->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_SAVE_ONLY_USED_SYMBOLS))).GetValue());
+    m_xAutoCloseBrackets->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_AUTO_CLOSE_BRACKETS))).GetValue());
 }
 
-VclPtr<SfxTabPage> SmPrintOptionsTabPage::Create(vcl::Window* pWindow, const SfxItemSet& rSet)
+VclPtr<SfxTabPage> SmPrintOptionsTabPage::Create(TabPageParent pParent, const SfxItemSet& rSet)
 {
-    return VclPtr<SmPrintOptionsTabPage>::Create(pWindow, rSet).get();
+    return VclPtr<SmPrintOptionsTabPage>::Create(pParent, rSet).get();
 }
 
 void SmShowFont::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect)
@@ -463,37 +443,50 @@ void SmFontSizeDialog::WriteTo(SmFormat &rFormat) const
     rFormat.RequestApplyChanges();
 }
 
-IMPL_LINK( SmFontTypeDialog, MenuSelectHdl, Menu *, pMenu, bool )
+IMPL_LINK(SmFontTypeDialog, MenuSelectHdl, const OString&, rIdent, void)
 {
     SmFontPickListBox *pActiveListBox;
 
     bool bHideCheckboxes = false;
-    switch (pMenu->GetCurItemId())
+    if (rIdent == "variables")
+        pActiveListBox = m_xVariableFont.get();
+    else if (rIdent == "functions")
+        pActiveListBox = m_xFunctionFont.get();
+    else if (rIdent == "numbers")
+        pActiveListBox = m_xNumberFont.get();
+    else if (rIdent == "text")
+        pActiveListBox = m_xTextFont.get();
+    else if (rIdent == "serif")
     {
-        case 1: pActiveListBox = m_pVariableFont; break;
-        case 2: pActiveListBox = m_pFunctionFont; break;
-        case 3: pActiveListBox = m_pNumberFont;   break;
-        case 4: pActiveListBox = m_pTextFont;     break;
-        case 5: pActiveListBox = m_pSerifFont; bHideCheckboxes = true;   break;
-        case 6: pActiveListBox = m_pSansFont;  bHideCheckboxes = true;   break;
-        case 7: pActiveListBox = m_pFixedFont; bHideCheckboxes = true;   break;
-        default:pActiveListBox = nullptr;
+        pActiveListBox = m_xSerifFont.get();
+        bHideCheckboxes = true;
     }
+    else if (rIdent == "sansserif")
+    {
+        pActiveListBox = m_xSansFont.get();
+        bHideCheckboxes = true;
+    }
+    else if (rIdent == "fixedwidth")
+    {
+        pActiveListBox = m_xFixedFont.get();
+        bHideCheckboxes = true;
+    }
+    else
+        pActiveListBox = nullptr;
 
     if (pActiveListBox)
     {
-        ScopedVclPtrInstance<SmFontDialog> pFontDialog(this, pFontListDev, bHideCheckboxes);
+        ScopedVclPtrInstance<SmFontDialog> pFontDialog(nullptr /*TODO*/, pFontListDev, bHideCheckboxes);
 
         pActiveListBox->WriteTo(*pFontDialog);
         if (pFontDialog->Execute() == RET_OK)
             pActiveListBox->ReadFrom(*pFontDialog);
     }
-    return false;
 }
 
-IMPL_LINK_NOARG( SmFontTypeDialog, DefaultButtonClickHdl, Button *, void )
+IMPL_LINK_NOARG(SmFontTypeDialog, DefaultButtonClickHdl, weld::Button&, void)
 {
-    SaveDefaultsQuery aQuery(GetFrameWeld());
+    SaveDefaultsQuery aQuery(m_xDialog.get());
     if (aQuery.run() == RET_YES)
     {
         SmModule *pp = SM_MOD();
@@ -503,64 +496,46 @@ IMPL_LINK_NOARG( SmFontTypeDialog, DefaultButtonClickHdl, Button *, void )
     }
 }
 
-SmFontTypeDialog::SmFontTypeDialog(vcl::Window * pParent, OutputDevice *pFntListDevice)
-    : ModalDialog(pParent, "FontsDialog", "modules/smath/ui/fonttypedialog.ui"),
-    pFontListDev    (pFntListDevice)
+SmFontTypeDialog::SmFontTypeDialog(weld::Window* pParent, OutputDevice *pFntListDevice)
+    : GenericDialogController(pParent, "modules/smath/ui/fonttypedialog.ui", "FontsDialog")
+    , pFontListDev(pFntListDevice)
+    , m_xVariableFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("variableCB")))
+    , m_xFunctionFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("functionCB")))
+    , m_xNumberFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("numberCB")))
+    , m_xTextFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("textCB")))
+    , m_xSerifFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("serifCB")))
+    , m_xSansFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("sansCB")))
+    , m_xFixedFont(new SmFontPickListBox(m_xBuilder->weld_combo_box_text("fixedCB")))
+    , m_xMenuButton(m_xBuilder->weld_menu_button("modify"))
+    , m_xDefaultButton(m_xBuilder->weld_button("default"))
 {
-    get(m_pVariableFont, "variableCB");
-    get(m_pFunctionFont, "functionCB");
-    get(m_pNumberFont, "numberCB");
-    get(m_pTextFont, "textCB");
-    get(m_pSerifFont, "serifCB");
-    get(m_pSansFont, "sansCB");
-    get(m_pFixedFont, "fixedCB");
-    get(m_pMenuButton, "modify");
-    get(m_pDefaultButton, "default");
-
-    m_pDefaultButton->SetClickHdl(LINK(this, SmFontTypeDialog, DefaultButtonClickHdl));
-
-    m_pMenuButton->GetPopupMenu()->SetSelectHdl(LINK(this, SmFontTypeDialog, MenuSelectHdl));
+    m_xDefaultButton->connect_clicked(LINK(this, SmFontTypeDialog, DefaultButtonClickHdl));
+    m_xMenuButton->connect_selected(LINK(this, SmFontTypeDialog, MenuSelectHdl));
 }
 
 SmFontTypeDialog::~SmFontTypeDialog()
 {
-    disposeOnce();
-}
-
-void SmFontTypeDialog::dispose()
-{
-    m_pVariableFont.clear();
-    m_pFunctionFont.clear();
-    m_pNumberFont.clear();
-    m_pTextFont.clear();
-    m_pSerifFont.clear();
-    m_pSansFont.clear();
-    m_pFixedFont.clear();
-    m_pMenuButton.clear();
-    m_pDefaultButton.clear();
-    pFontListDev.clear();
-    ModalDialog::dispose();
 }
 
 void SmFontTypeDialog::ReadFrom(const SmFormat &rFormat)
 {
     SmModule *pp = SM_MOD();
 
-    *m_pVariableFont = pp->GetConfig()->GetFontPickList(FNT_VARIABLE);
-    *m_pFunctionFont = pp->GetConfig()->GetFontPickList(FNT_FUNCTION);
-    *m_pNumberFont   = pp->GetConfig()->GetFontPickList(FNT_NUMBER);
-    *m_pTextFont     = pp->GetConfig()->GetFontPickList(FNT_TEXT);
-    *m_pSerifFont    = pp->GetConfig()->GetFontPickList(FNT_SERIF);
-    *m_pSansFont     = pp->GetConfig()->GetFontPickList(FNT_SANS);
-    *m_pFixedFont    = pp->GetConfig()->GetFontPickList(FNT_FIXED);
+    *m_xVariableFont = pp->GetConfig()->GetFontPickList(FNT_VARIABLE);
+    *m_xFunctionFont = pp->GetConfig()->GetFontPickList(FNT_FUNCTION);
+    *m_xNumberFont   = pp->GetConfig()->GetFontPickList(FNT_NUMBER);
+    *m_xTextFont     = pp->GetConfig()->GetFontPickList(FNT_TEXT);
+    *m_xSerifFont    = pp->GetConfig()->GetFontPickList(FNT_SERIF);
+    *m_xSansFont     = pp->GetConfig()->GetFontPickList(FNT_SANS);
+    *m_xFixedFont    = pp->GetConfig()->GetFontPickList(FNT_FIXED);
 
-    m_pVariableFont->Insert( rFormat.GetFont(FNT_VARIABLE) );
-    m_pFunctionFont->Insert( rFormat.GetFont(FNT_FUNCTION) );
-    m_pNumberFont->Insert( rFormat.GetFont(FNT_NUMBER) );
-    m_pTextFont->Insert( rFormat.GetFont(FNT_TEXT) );
-    m_pSerifFont->Insert( rFormat.GetFont(FNT_SERIF) );
-    m_pSansFont->Insert( rFormat.GetFont(FNT_SANS) );
-    m_pFixedFont->Insert( rFormat.GetFont(FNT_FIXED) );
+    m_xVariableFont->Insert( rFormat.GetFont(FNT_VARIABLE) );
+    m_xFunctionFont->Insert( rFormat.GetFont(FNT_FUNCTION) );
+    m_xNumberFont->Insert( rFormat.GetFont(FNT_NUMBER) );
+    m_xTextFont->Insert( rFormat.GetFont(FNT_TEXT) );
+    m_xSerifFont->Insert( rFormat.GetFont(FNT_SERIF) );
+    m_xSansFont->Insert( rFormat.GetFont(FNT_SANS) );
+    m_xFixedFont->Insert( rFormat.GetFont(FNT_FIXED) );
 }
 
 
@@ -568,21 +543,21 @@ void SmFontTypeDialog::WriteTo(SmFormat &rFormat) const
 {
     SmModule *pp = SM_MOD();
 
-    pp->GetConfig()->GetFontPickList(FNT_VARIABLE) = *m_pVariableFont;
-    pp->GetConfig()->GetFontPickList(FNT_FUNCTION) = *m_pFunctionFont;
-    pp->GetConfig()->GetFontPickList(FNT_NUMBER)   = *m_pNumberFont;
-    pp->GetConfig()->GetFontPickList(FNT_TEXT)     = *m_pTextFont;
-    pp->GetConfig()->GetFontPickList(FNT_SERIF)    = *m_pSerifFont;
-    pp->GetConfig()->GetFontPickList(FNT_SANS)     = *m_pSansFont;
-    pp->GetConfig()->GetFontPickList(FNT_FIXED)    = *m_pFixedFont;
+    pp->GetConfig()->GetFontPickList(FNT_VARIABLE) = *m_xVariableFont;
+    pp->GetConfig()->GetFontPickList(FNT_FUNCTION) = *m_xFunctionFont;
+    pp->GetConfig()->GetFontPickList(FNT_NUMBER)   = *m_xNumberFont;
+    pp->GetConfig()->GetFontPickList(FNT_TEXT)     = *m_xTextFont;
+    pp->GetConfig()->GetFontPickList(FNT_SERIF)    = *m_xSerifFont;
+    pp->GetConfig()->GetFontPickList(FNT_SANS)     = *m_xSansFont;
+    pp->GetConfig()->GetFontPickList(FNT_FIXED)    = *m_xFixedFont;
 
-    rFormat.SetFont( FNT_VARIABLE, m_pVariableFont->Get() );
-    rFormat.SetFont( FNT_FUNCTION, m_pFunctionFont->Get() );
-    rFormat.SetFont( FNT_NUMBER,   m_pNumberFont->Get() );
-    rFormat.SetFont( FNT_TEXT,     m_pTextFont->Get() );
-    rFormat.SetFont( FNT_SERIF,    m_pSerifFont->Get() );
-    rFormat.SetFont( FNT_SANS,     m_pSansFont->Get() );
-    rFormat.SetFont( FNT_FIXED,    m_pFixedFont->Get() );
+    rFormat.SetFont( FNT_VARIABLE, m_xVariableFont->Get() );
+    rFormat.SetFont( FNT_FUNCTION, m_xFunctionFont->Get() );
+    rFormat.SetFont( FNT_NUMBER,   m_xNumberFont->Get() );
+    rFormat.SetFont( FNT_TEXT,     m_xTextFont->Get() );
+    rFormat.SetFont( FNT_SERIF,    m_xSerifFont->Get() );
+    rFormat.SetFont( FNT_SANS,     m_xSansFont->Get() );
+    rFormat.SetFont( FNT_FIXED,    m_xFixedFont->Get() );
 
     rFormat.RequestApplyChanges();
 }
@@ -635,7 +610,7 @@ SmCategoryDesc::SmCategoryDesc(weld::Builder& rBuilder, sal_uInt16 nCategoryIdx)
         if (xLabel)
         {
             Strings[i] = xLabel->get_label();
-            Graphics[i].reset(rBuilder.weld_widget(OString::number(nCategoryIdx)+"image"+OString::number(i+1)));
+            Graphics[i] = rBuilder.weld_widget(OString::number(nCategoryIdx)+"image"+OString::number(i+1));
         }
         else
         {
@@ -661,13 +636,13 @@ IMPL_LINK( SmDistanceDialog, GetFocusHdl, weld::Widget&, rControl, void )
     {
         sal_uInt16  i;
 
-        if (&rControl == m_xMetricField1->get_widget())
+        if (&rControl == &m_xMetricField1->get_widget())
             i = 0;
-        else if (&rControl == m_xMetricField2->get_widget())
+        else if (&rControl == &m_xMetricField2->get_widget())
             i = 1;
-        else if (&rControl == m_xMetricField3->get_widget())
+        else if (&rControl == &m_xMetricField3->get_widget())
             i = 2;
-        else if (&rControl == m_xMetricField4->get_widget())
+        else if (&rControl == &m_xMetricField4->get_widget())
             i = 3;
         else
             return;
@@ -751,7 +726,7 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
         if (nActiveCategory == 5)
             bScaleAllBrackets = m_xCheckBox1->get_active();
 
-        m_xMenuButton->set_active("menuitem" + OString::number(nActiveCategory + 1), false);
+        m_xMenuButton->set_item_active("menuitem" + OString::number(nActiveCategory + 1), false);
     }
 
     // activation/deactivation of the associated controls depending on the chosen category
@@ -810,7 +785,7 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
         m_xMetricField4->set_sensitive( bChecked );
     }
 
-    m_xMenuButton->set_active("menuitem" + OString::number(nCategory + 1), true);
+    m_xMenuButton->set_item_active("menuitem" + OString::number(nCategory + 1), true);
     m_xFrame->set_label(Categories[nCategory]->GetName());
 
     nActiveCategory = nCategory;
@@ -984,36 +959,33 @@ void SmAlignDialog::WriteTo(SmFormat &rFormat) const
     rFormat.RequestApplyChanges();
 }
 
-SmShowSymbolSetWindow::SmShowSymbolSetWindow(vcl::Window *pParent, WinBits nStyle)
-    : Control(pParent, nStyle)
-    , m_pVScrollBar(nullptr)
-    , nLen(0)
+SmShowSymbolSet::SmShowSymbolSet(std::unique_ptr<weld::ScrolledWindow> pScrolledWindow)
+    : nLen(0)
     , nRows(0)
     , nColumns(0)
     , nXOffset(0)
     , nYOffset(0)
     , nSelectSymbol(SYMBOL_NONE)
+    , m_xScrolledWindow(std::move(pScrolledWindow))
 {
+    m_xScrolledWindow->set_user_managed_scrolling();
+    m_xScrolledWindow->connect_vadjustment_changed(LINK(this, SmShowSymbolSet, ScrollHdl));
 }
 
-SmShowSymbolSetWindow::~SmShowSymbolSetWindow()
-{
-    disposeOnce();
-}
-
-void SmShowSymbolSetWindow::dispose()
-{
-    m_pVScrollBar.clear();
-    Control::dispose();
-}
-
-Point SmShowSymbolSetWindow::OffsetPoint(const Point &rPoint) const
+Point SmShowSymbolSet::OffsetPoint(const Point &rPoint) const
 {
     return Point(rPoint.X() + nXOffset, rPoint.Y() + nYOffset);
 }
 
-void SmShowSymbolSetWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+void SmShowSymbolSet::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
+    Size aWinSize(GetOutputSizePixel());
+    if (aWinSize != m_aOldSize)
+    {
+        calccols(rRenderContext);
+        m_aOldSize = aWinSize;
+    }
+
     Color aBackgroundColor;
     Color aTextColor;
     lclGetSettingColors(aBackgroundColor, aTextColor);
@@ -1026,7 +998,7 @@ void SmShowSymbolSetWindow::Paint(vcl::RenderContext& rRenderContext, const tool
     // set MapUnit for which 'nLen' has been calculated
     rRenderContext.SetMapMode(MapMode(MapUnit::MapPixel));
 
-    sal_uInt16 v = sal::static_int_cast< sal_uInt16 >(m_pVScrollBar->GetThumbPos() * nColumns);
+    sal_uInt16 v = sal::static_int_cast< sal_uInt16 >(m_xScrolledWindow->vadjustment_get_value() * nColumns);
     size_t nSymbols = aSymbolSet.size();
 
     Color aTxtColor(rRenderContext.GetTextColor());
@@ -1059,15 +1031,14 @@ void SmShowSymbolSetWindow::Paint(vcl::RenderContext& rRenderContext, const tool
         Point aPoint(((nSelectSymbol - v) % nColumns) * nLen,
                                  ((nSelectSymbol - v) / nColumns) * nLen);
 
-        Invert(tools::Rectangle(OffsetPoint(aPoint), Size(nLen, nLen)));
+        rRenderContext.Invert(tools::Rectangle(OffsetPoint(aPoint), Size(nLen, nLen)));
 
     }
 
     rRenderContext.Pop();
 }
 
-
-void SmShowSymbolSetWindow::MouseButtonDown(const MouseEvent& rMEvt)
+void SmShowSymbolSet::MouseButtonDown(const MouseEvent& rMEvt)
 {
     GrabFocus();
 
@@ -1081,7 +1052,7 @@ void SmShowSymbolSetWindow::MouseButtonDown(const MouseEvent& rMEvt)
     if (rMEvt.IsLeft() && tools::Rectangle(Point(0, 0), aOutputSize).IsInside(rMEvt.GetPosPixel()))
     {
         long nPos = (aPoint.Y() / nLen) * nColumns + (aPoint.X() / nLen) +
-                      m_pVScrollBar->GetThumbPos() * nColumns;
+                      m_xScrolledWindow->vadjustment_get_value() * nColumns;
         SelectSymbol( sal::static_int_cast< sal_uInt16 >(nPos) );
 
         aSelectHdlLink.Call(*this);
@@ -1091,8 +1062,7 @@ void SmShowSymbolSetWindow::MouseButtonDown(const MouseEvent& rMEvt)
     }
 }
 
-
-void SmShowSymbolSetWindow::KeyInput(const KeyEvent& rKEvt)
+bool SmShowSymbolSet::KeyInput(const KeyEvent& rKEvt)
 {
     sal_uInt16 n = nSelectSymbol;
 
@@ -1108,10 +1078,8 @@ void SmShowSymbolSetWindow::KeyInput(const KeyEvent& rKEvt)
             case KEY_END:       n  = static_cast< sal_uInt16 >(aSymbolSet.size() - 1);   break;
             case KEY_PAGEUP:    n -= nColumns * nRows;  break;
             case KEY_PAGEDOWN:  n += nColumns * nRows;  break;
-
             default:
-                Control::KeyInput(rKEvt);
-                return;
+                return false;
         }
     }
     else
@@ -1121,58 +1089,25 @@ void SmShowSymbolSetWindow::KeyInput(const KeyEvent& rKEvt)
         n = nSelectSymbol;
 
     // adjust scrollbar
-    if ((n < sal::static_int_cast<sal_uInt16>(m_pVScrollBar->GetThumbPos() * nColumns)) ||
-        (n >= sal::static_int_cast<sal_uInt16>((m_pVScrollBar->GetThumbPos() + nRows) * nColumns)))
+    if ((n < sal::static_int_cast<sal_uInt16>(m_xScrolledWindow->vadjustment_get_value() * nColumns)) ||
+        (n >= sal::static_int_cast<sal_uInt16>((m_xScrolledWindow->vadjustment_get_value() + nRows) * nColumns)))
     {
-        m_pVScrollBar->SetThumbPos(n / nColumns);
+        m_xScrolledWindow->vadjustment_set_value(n / nColumns);
         Invalidate();
-        Update();
     }
 
     SelectSymbol(n);
     aSelectHdlLink.Call(*this);
+
+    return true;
 }
 
-void SmShowSymbolSetWindow::setScrollbar(ScrollBar *pVScrollBar)
-{
-    m_pVScrollBar = pVScrollBar;
-    m_pVScrollBar->Enable(false);
-    m_pVScrollBar->Show();
-    m_pVScrollBar->SetScrollHdl(LINK(this, SmShowSymbolSetWindow, ScrollHdl));
-}
-
-SmShowSymbolSet::SmShowSymbolSet(vcl::Window *pParent)
-    : VclHBox(pParent, false, 6)
-    , aSymbolWindow(VclPtr<SmShowSymbolSetWindow>::Create(this, WB_TABSTOP))
-    , aVScrollBar(VclPtr<ScrollBar>::Create(this, WinBits(WB_VSCROLL)))
-{
-    aSymbolWindow->set_hexpand(true);
-    aSymbolWindow->set_vexpand(true);
-    aSymbolWindow->setScrollbar(aVScrollBar.get());
-    aSymbolWindow->calccols();
-    aSymbolWindow->Show();
-}
-
-SmShowSymbolSet::~SmShowSymbolSet()
-{
-    disposeOnce();
-}
-
-void SmShowSymbolSet::dispose()
-{
-    aSymbolWindow.disposeAndClear();
-    aVScrollBar.disposeAndClear();
-    VclHBox::dispose();
-}
-
-VCL_BUILDER_FACTORY(SmShowSymbolSet)
-
-void SmShowSymbolSetWindow::calccols()
+void SmShowSymbolSet::calccols(vcl::RenderContext& rRenderContext)
 {
     // Height of 16pt in pixels (matching 'aOutputSize')
-    nLen = LogicToPixel(Size(0, 16), MapMode(MapUnit::MapPoint)).Height();
+    nLen = rRenderContext.LogicToPixel(Size(0, 16), MapMode(MapUnit::MapPoint)).Height();
 
-    Size aOutputSize = GetOutputSizePixel();
+    Size aOutputSize(GetOutputSizePixel());
 
     nColumns = aOutputSize.Width() / nLen;
     nRows = aOutputSize.Height() / nLen;
@@ -1185,43 +1120,29 @@ void SmShowSymbolSetWindow::calccols()
     SetScrollBarRange();
 }
 
-Size SmShowSymbolSetWindow::GetOptimalSize() const
-{
-    vcl::Window *pParent = GetParent();
-    return Size(pParent->approximate_char_width() * 24, pParent->GetTextHeight() * 8);
-}
-
-void SmShowSymbolSetWindow::SetSymbolSet(const SymbolPtrVec_t& rSymbolSet)
+void SmShowSymbolSet::SetSymbolSet(const SymbolPtrVec_t& rSymbolSet)
 {
     aSymbolSet = rSymbolSet;
-
-    SetScrollBarRange();
-}
-
-void SmShowSymbolSetWindow::SetScrollBarRange()
-{
-    if (aSymbolSet.size() > static_cast<size_t>(nColumns * nRows))
-    {
-        m_pVScrollBar->SetRange(Range(0, ((aSymbolSet.size() + (nColumns - 1)) / nColumns) - nRows));
-        m_pVScrollBar->Enable();
-    }
-    else
-    {
-        m_pVScrollBar->SetRange(Range(0,0));
-        m_pVScrollBar->Enable (false);
-    }
-
     Invalidate();
 }
 
-void SmShowSymbolSetWindow::SelectSymbol(sal_uInt16 nSymbol)
+void SmShowSymbolSet::SetScrollBarRange()
 {
-    int v = static_cast<int>(m_pVScrollBar->GetThumbPos() * nColumns);
+    const int nLastRow = (aSymbolSet.size() - 1 + nColumns) / nColumns;
+    m_xScrolledWindow->vadjustment_configure(m_xScrolledWindow->vadjustment_get_value(), 0, nLastRow, 1, nRows - 1, nRows);
+    Invalidate();
+}
 
-    if (nSelectSymbol != SYMBOL_NONE)
-        Invalidate(tools::Rectangle(OffsetPoint(Point(((nSelectSymbol - v) % nColumns) * nLen,
-                                   ((nSelectSymbol - v) / nColumns) * nLen)),
-                             Size(nLen, nLen)));
+void SmShowSymbolSet::SelectSymbol(sal_uInt16 nSymbol)
+{
+    int v = m_xScrolledWindow->vadjustment_get_value() * nColumns;
+
+    if (nSelectSymbol != SYMBOL_NONE && nColumns)
+    {
+        Point aPoint(OffsetPoint(Point(((nSelectSymbol - v) % nColumns) * nLen,
+                                       ((nSelectSymbol - v) / nColumns) * nLen)));
+        Invalidate(tools::Rectangle(aPoint, Size(nLen, nLen)));
+    }
 
     if (nSymbol < aSymbolSet.size())
         nSelectSymbol = nSymbol;
@@ -1229,53 +1150,42 @@ void SmShowSymbolSetWindow::SelectSymbol(sal_uInt16 nSymbol)
     if (aSymbolSet.empty())
         nSelectSymbol = SYMBOL_NONE;
 
-    if (nSelectSymbol != SYMBOL_NONE)
-        Invalidate(tools::Rectangle(OffsetPoint(Point(((nSelectSymbol - v) % nColumns) * nLen,
-                                   ((nSelectSymbol - v) / nColumns) * nLen)),
-                             Size(nLen, nLen)));
+    if (nSelectSymbol != SYMBOL_NONE && nColumns)
+    {
+        Point aPoint(OffsetPoint(Point(((nSelectSymbol - v) % nColumns) * nLen,
+                                       ((nSelectSymbol - v) / nColumns) * nLen)));
+        Invalidate(tools::Rectangle(aPoint, Size(nLen, nLen)));
+    }
 
-    Update();
+    if (!nColumns)
+        Invalidate();
 }
 
-void SmShowSymbolSetWindow::Resize()
-{
-    Control::Resize();
-    calccols();
-}
-
-IMPL_LINK( SmShowSymbolSetWindow, ScrollHdl, ScrollBar*, /*pScrollBar*/, void)
+IMPL_LINK_NOARG(SmShowSymbolSet, ScrollHdl, weld::ScrolledWindow&, void)
 {
     Invalidate();
 }
 
-VCL_BUILDER_FACTORY_CONSTRUCTOR(SmShowSymbol, 0)
-
-void SmShowSymbol::Resize()
-{
-    Control::Resize();
-    Invalidate();
-}
-
-void SmShowSymbol::ApplySettings(vcl::RenderContext& /*rRenderContext*/ )
+SmShowSymbol::SmShowSymbol()
 {
 }
 
 void SmShowSymbol::setFontSize(vcl::Font &rFont) const
 {
-    rFont.SetFontSize(Size(0, GetOutputSize().Height() - GetOutputSize().Height() / 3));
+    Size aSize(GetOutputSizePixel());
+    rFont.SetFontSize(Size(0, aSize.Height() - aSize.Height() / 3));
 }
 
-void SmShowSymbol::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle &rRect)
+void SmShowSymbol::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
-    Control::Paint(rRenderContext, rRect);
-
     Color aBackgroundColor;
     Color aTextColor;
     lclGetSettingColors(aBackgroundColor, aTextColor);
-    SetBackground(Wallpaper(aBackgroundColor));
-    SetTextColor(aTextColor);
+    rRenderContext.SetBackground(Wallpaper(aBackgroundColor));
+    rRenderContext.SetTextColor(aTextColor);
+    rRenderContext.Erase();
 
-    vcl::Font aFont(rRenderContext.GetFont());
+    vcl::Font aFont(GetFont());
     setFontSize(aFont);
     rRenderContext.SetFont(aFont);
 
@@ -1290,16 +1200,13 @@ void SmShowSymbol::MouseButtonDown(const MouseEvent& rMEvt)
 {
     if (rMEvt.GetClicks() > 1)
         aDblClickHdlLink.Call(*this);
-    else
-        Control::MouseButtonDown (rMEvt);
 }
 
 void SmShowSymbol::SetSymbol(const SmSym *pSymbol)
 {
     if (pSymbol)
     {
-        vcl::Font aFont (pSymbol->GetFace());
-        setFontSize(aFont);
+        vcl::Font aFont(pSymbol->GetFace());
         aFont.SetAlignment(ALIGN_BASELINE);
         SetFont(aFont);
 
@@ -1308,70 +1215,65 @@ void SmShowSymbol::SetSymbol(const SmSym *pSymbol)
         SetText( aText );
     }
 
-    // 'Invalidate' fills the background with the background color.
-    // If a NULL pointer has been passed that's already enough to clear the display
     Invalidate();
 }
-
 
 void SmSymbolDialog::FillSymbolSets()
     // populate the entries of possible SymbolsSets in the dialog with
     // current values of the SymbolSet manager but selects none of those
 {
-    m_pSymbolSets->Clear();
-    m_pSymbolSets->SetNoSelection();
+    m_xSymbolSets->clear();
+    m_xSymbolSets->set_active(-1);
 
     std::set< OUString >  aSybolSetNames( rSymbolMgr.GetSymbolSetNames() );
     std::set< OUString >::const_iterator aIt( aSybolSetNames.begin() );
     for ( ; aIt != aSybolSetNames.end(); ++aIt)
-        m_pSymbolSets->InsertEntry( *aIt );
+        m_xSymbolSets->append_text(*aIt);
 }
 
-
-IMPL_LINK_NOARG( SmSymbolDialog, SymbolSetChangeHdl, ListBox&, void )
+IMPL_LINK_NOARG( SmSymbolDialog, SymbolSetChangeHdl, weld::ComboBoxText&, void )
 {
-    SelectSymbolSet(m_pSymbolSets->GetSelectedEntry());
+    SelectSymbolSet(m_xSymbolSets->get_active_text());
 }
 
-
-IMPL_LINK_NOARG( SmSymbolDialog, SymbolChangeHdl, SmShowSymbolSetWindow&, void )
+IMPL_LINK_NOARG( SmSymbolDialog, SymbolChangeHdl, SmShowSymbolSet&, void )
 {
-    SelectSymbol(m_pSymbolSetDisplay->GetSelectSymbol());
+    SelectSymbol(m_xSymbolSetDisplay->GetSelectSymbol());
 }
 
-IMPL_LINK_NOARG(SmSymbolDialog, EditClickHdl, Button*, void)
+IMPL_LINK_NOARG(SmSymbolDialog, EditClickHdl, weld::Button&, void)
 {
-    SmSymDefineDialog aDialog(GetFrameWeld(), pFontListDev, rSymbolMgr);
+    SmSymDefineDialog aDialog(m_xDialog.get(), pFontListDev, rSymbolMgr);
 
     // set current symbol and SymbolSet for the new dialog
-    const OUString  aSymSetName (m_pSymbolSets->GetSelectedEntry()),
-                    aSymName    (m_pSymbolName->GetText());
+    const OUString  aSymSetName (m_xSymbolSets->get_active_text()),
+                    aSymName    (m_xSymbolName->get_label());
     aDialog.SelectOldSymbolSet(aSymSetName);
     aDialog.SelectOldSymbol(aSymName);
     aDialog.SelectSymbolSet(aSymSetName);
     aDialog.SelectSymbol(aSymName);
 
     // remember old SymbolSet
-    OUString  aOldSymbolSet (m_pSymbolSets->GetSelectedEntry());
+    OUString  aOldSymbolSet (m_xSymbolSets->get_active_text());
 
-    sal_uInt16 nSymPos = m_pSymbolSetDisplay->GetSelectSymbol();
+    sal_uInt16 nSymPos = m_xSymbolSetDisplay->GetSelectSymbol();
 
     // adapt dialog to data of the SymbolSet manager, which might have changed
-    if (aDialog.execute() == RET_OK  &&  rSymbolMgr.IsModified())
+    if (aDialog.execute() == RET_OK && rSymbolMgr.IsModified())
     {
         rSymbolMgr.Save();
         FillSymbolSets();
     }
 
     // if the old SymbolSet doesn't exist anymore, go to the first one SymbolSet (if one exists)
-    if (!SelectSymbolSet(aOldSymbolSet) && m_pSymbolSets->GetEntryCount() > 0)
-        SelectSymbolSet(m_pSymbolSets->GetEntry(0));
+    if (!SelectSymbolSet(aOldSymbolSet) && m_xSymbolSets->get_count() > 0)
+        SelectSymbolSet(m_xSymbolSets->get_text(0));
     else
     {
         // just update display of current symbol set
         assert(aSymSetName == aSymSetName); //unexpected change in symbol set name
         aSymbolSet = rSymbolMgr.GetSymbolSet( aSymbolSetName );
-        m_pSymbolSetDisplay->SetSymbolSet( aSymbolSet );
+        m_xSymbolSetDisplay->SetSymbolSet( aSymbolSet );
     }
 
     if (nSymPos >= aSymbolSet.size())
@@ -1379,23 +1281,23 @@ IMPL_LINK_NOARG(SmSymbolDialog, EditClickHdl, Button*, void)
     SelectSymbol( nSymPos );
 }
 
-
-IMPL_LINK_NOARG( SmSymbolDialog, SymbolDblClickHdl2, SmShowSymbolSetWindow&, void )
+IMPL_LINK_NOARG( SmSymbolDialog, SymbolDblClickHdl2, SmShowSymbolSet&, void )
 {
     SymbolDblClickHdl();
 }
+
 IMPL_LINK_NOARG( SmSymbolDialog, SymbolDblClickHdl, SmShowSymbol&, void )
 {
     SymbolDblClickHdl();
 }
+
 void SmSymbolDialog::SymbolDblClickHdl()
 {
-    GetClickHdl(m_pGetBtn);
-    EndDialog(RET_OK);
+    GetClickHdl(*m_xGetBtn);
+    m_xDialog->response(RET_OK);
 }
 
-
-IMPL_LINK_NOARG( SmSymbolDialog, GetClickHdl, Button*, void )
+IMPL_LINK_NOARG(SmSymbolDialog, GetClickHdl, weld::Button&, void)
 {
     const SmSym *pSym = GetSymbol();
     if (pSym)
@@ -1408,81 +1310,50 @@ IMPL_LINK_NOARG( SmSymbolDialog, GetClickHdl, Button*, void )
     }
 }
 
-
-SmSymbolDialog::SmSymbolDialog(vcl::Window *pParent, OutputDevice *pFntListDevice,
-        SmSymbolManager &rMgr, SmViewShell &rViewShell)
-    : ModalDialog(pParent, "CatalogDialog",
-        "modules/smath/ui/catalogdialog.ui")
-
-    ,
-
-    rViewSh             (rViewShell),
-    rSymbolMgr          (rMgr),
-    pFontListDev        (pFntListDevice)
+SmSymbolDialog::SmSymbolDialog(weld::Window *pParent, OutputDevice *pFntListDevice,
+                               SmSymbolManager &rMgr, SmViewShell &rViewShell)
+    : GenericDialogController(pParent, "modules/smath/ui/catalogdialog.ui", "CatalogDialog")
+    , rViewSh(rViewShell)
+    , rSymbolMgr(rMgr)
+    , pFontListDev(pFntListDevice)
+    , m_xSymbolSets(m_xBuilder->weld_combo_box_text("symbolset"))
+    , m_xSymbolSetDisplay(new SmShowSymbolSet(m_xBuilder->weld_scrolled_window("scrolledwindow")))
+    , m_xSymbolSetDisplayArea(new weld::CustomWeld(*m_xBuilder, "symbolsetdisplay", *m_xSymbolSetDisplay))
+    , m_xSymbolName(m_xBuilder->weld_label("symbolname"))
+    , m_xSymbolDisplay(new weld::CustomWeld(*m_xBuilder, "preview", m_aSymbolDisplay))
+    , m_xGetBtn(m_xBuilder->weld_button("ok"))
+    , m_xEditBtn(m_xBuilder->weld_button("edit"))
 {
-    get(m_pSymbolSets, "symbolset");
-    m_pSymbolSets->SetStyle(m_pSymbolSets->GetStyle()|WB_SORT);
-    get(m_pSymbolName, "symbolname");
-    get(m_pGetBtn, "insert");
-    get(m_pEditBtn, "edit");
-    get(m_pSymbolSetDisplay, "symbolsetdisplay");
-    get(m_pSymbolDisplay, "preview");
+    m_xSymbolSets->make_sorted();
 
     aSymbolSetName.clear();
     aSymbolSet.clear();
     FillSymbolSets();
-    if (m_pSymbolSets->GetEntryCount() > 0)
-        SelectSymbolSet(m_pSymbolSets->GetEntry(0));
+    if (m_xSymbolSets->get_count() > 0)
+        SelectSymbolSet(m_xSymbolSets->get_text(0));
 
-    // preview like controls should have a 2D look
-    m_pSymbolDisplay->SetBorderStyle( WindowBorderStyle::MONO );
-
-    m_pSymbolSets->SetSelectHdl(LINK(this, SmSymbolDialog, SymbolSetChangeHdl));
-    m_pSymbolSetDisplay->SetSelectHdl(LINK(this, SmSymbolDialog, SymbolChangeHdl));
-    m_pSymbolSetDisplay->SetDblClickHdl(LINK(this, SmSymbolDialog, SymbolDblClickHdl2));
-    m_pSymbolDisplay->SetDblClickHdl(LINK(this, SmSymbolDialog, SymbolDblClickHdl));
-    m_pEditBtn->SetClickHdl(LINK(this, SmSymbolDialog, EditClickHdl));
-    m_pGetBtn->SetClickHdl(LINK(this, SmSymbolDialog, GetClickHdl));
+    m_xSymbolSets->connect_changed(LINK(this, SmSymbolDialog, SymbolSetChangeHdl));
+    m_xSymbolSetDisplay->SetSelectHdl(LINK(this, SmSymbolDialog, SymbolChangeHdl));
+    m_xSymbolSetDisplay->SetDblClickHdl(LINK(this, SmSymbolDialog, SymbolDblClickHdl2));
+    m_aSymbolDisplay.SetDblClickHdl(LINK(this, SmSymbolDialog, SymbolDblClickHdl));
+    m_xEditBtn->connect_clicked(LINK(this, SmSymbolDialog, EditClickHdl));
+    m_xGetBtn->connect_clicked(LINK(this, SmSymbolDialog, GetClickHdl));
 }
 
 SmSymbolDialog::~SmSymbolDialog()
 {
-    disposeOnce();
-}
-
-void SmSymbolDialog::dispose()
-{
-    m_pSymbolSets.clear();
-    m_pSymbolSetDisplay.clear();
-    m_pSymbolName.clear();
-    m_pSymbolDisplay.clear();
-    m_pGetBtn.clear();
-    m_pEditBtn.clear();
-    pFontListDev.clear();
-    ModalDialog::dispose();
-}
-
-void SmSymbolDialog::DataChanged( const DataChangedEvent& rDCEvt )
-{
-    if (rDCEvt.GetType() == DataChangedEventType::SETTINGS  && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE))
-    {
-        m_pSymbolDisplay->Invalidate();
-        m_pSymbolSetDisplay->Invalidate();
-    }
-
-    ModalDialog::DataChanged( rDCEvt );
 }
 
 bool SmSymbolDialog::SelectSymbolSet(const OUString &rSymbolSetName)
 {
     bool bRet = false;
-    sal_Int32 nPos = m_pSymbolSets->GetEntryPos(rSymbolSetName);
+    sal_Int32 nPos = m_xSymbolSets->find_text(rSymbolSetName);
 
     aSymbolSetName.clear();
     aSymbolSet.clear();
-    if (nPos != LISTBOX_ENTRY_NOTFOUND)
+    if (nPos != -1)
     {
-        m_pSymbolSets->SelectEntryPos(nPos);
+        m_xSymbolSets->set_active(nPos);
 
         aSymbolSetName  = rSymbolSetName;
         aSymbolSet      = rSymbolMgr.GetSymbolSet( aSymbolSetName );
@@ -1494,14 +1365,14 @@ bool SmSymbolDialog::SelectSymbolSet(const OUString &rSymbolSetName)
                        return pSym1->GetCharacter() < pSym2->GetCharacter();
                    } );
 
-        m_pSymbolSetDisplay->SetSymbolSet( aSymbolSet );
+        m_xSymbolSetDisplay->SetSymbolSet( aSymbolSet );
         if (!aSymbolSet.empty())
             SelectSymbol(0);
 
         bRet = true;
     }
     else
-        m_pSymbolSets->SetNoSelection();
+        m_xSymbolSets->set_active(-1);
 
     return bRet;
 }
@@ -1512,22 +1383,20 @@ void SmSymbolDialog::SelectSymbol(sal_uInt16 nSymbolNo)
     if (!aSymbolSetName.isEmpty()  &&  nSymbolNo < static_cast< sal_uInt16 >(aSymbolSet.size()))
         pSym = aSymbolSet[ nSymbolNo ];
 
-    m_pSymbolSetDisplay->SelectSymbol(nSymbolNo);
-    m_pSymbolDisplay->SetSymbol(pSym);
-    m_pSymbolName->SetText(pSym ? pSym->GetName() : OUString());
+    m_xSymbolSetDisplay->SelectSymbol(nSymbolNo);
+    m_aSymbolDisplay.SetSymbol(pSym);
+    m_xSymbolName->set_label(pSym ? pSym->GetName() : OUString());
 }
 
 const SmSym* SmSymbolDialog::GetSymbol() const
 {
-    sal_uInt16 nSymbolNo = m_pSymbolSetDisplay->GetSelectSymbol();
+    sal_uInt16 nSymbolNo = m_xSymbolSetDisplay->GetSelectSymbol();
     bool bValid = !aSymbolSetName.isEmpty()  &&  nSymbolNo < static_cast< sal_uInt16 >(aSymbolSet.size());
     return bValid ? aSymbolSet[ nSymbolNo ] : nullptr;
 }
 
-IMPL_LINK(SmShowChar, DoResize, const Size&, rSize, void)
+void SmShowChar::Resize()
 {
-    m_aSize = rSize;
-
     const OUString &rText = GetText();
     if (rText.isEmpty())
         return;
@@ -1536,10 +1405,8 @@ IMPL_LINK(SmShowChar, DoResize, const Size&, rSize, void)
     SetSymbol(cChar, GetFont()); //force recalculation of size
 }
 
-IMPL_LINK(SmShowChar, DoPaint, weld::DrawingArea::draw_args, aPayload, void)
+void SmShowChar::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
-    vcl::RenderContext& rRenderContext = aPayload.first;
-
     Color aTextCol = rRenderContext.GetTextColor();
     Color aFillCol = rRenderContext.GetFillColor();
 
@@ -1549,7 +1416,8 @@ IMPL_LINK(SmShowChar, DoPaint, weld::DrawingArea::draw_args, aPayload, void)
     rRenderContext.SetTextColor(aWindowTextColor);
     rRenderContext.SetFillColor(aWindowColor);
 
-    rRenderContext.DrawRect(tools::Rectangle(Point(0, 0), m_aSize));
+    Size aSize(GetOutputSizePixel());
+    rRenderContext.DrawRect(tools::Rectangle(Point(0, 0), aSize));
 
     OUString aText(GetText());
     if (!aText.isEmpty())
@@ -1560,8 +1428,8 @@ IMPL_LINK(SmShowChar, DoPaint, weld::DrawingArea::draw_args, aPayload, void)
 
         Size aTextSize(rRenderContext.GetTextWidth(aText), rRenderContext.GetTextHeight());
 
-        rRenderContext.DrawText(Point((m_aSize.Width()  - aTextSize.Width()) / 2,
-                                      (m_aSize.Height() - aTextSize.Height()) / 2), aText);
+        rRenderContext.DrawText(Point((aSize.Width()  - aTextSize.Width()) / 2,
+                                      (aSize.Height() - aTextSize.Height()) / 2), aText);
     }
 
     rRenderContext.SetTextColor(aTextCol);
@@ -1578,14 +1446,15 @@ void SmShowChar::SetSymbol( const SmSym *pSym )
 void SmShowChar::SetSymbol( sal_UCS4 cChar, const vcl::Font &rFont )
 {
     vcl::Font aFont( rFont );
-    aFont.SetFontSize(Size(0, m_aSize.Height() - m_aSize.Height() / 3));
+    Size aSize(GetOutputSizePixel());
+    aFont.SetFontSize(Size(0, aSize.Height() - aSize.Height() / 3));
     aFont.SetAlignment(ALIGN_BASELINE);
     SetFont(aFont);
 
     OUString aText(&cChar, 1);
     SetText( aText );
 
-    m_xDrawingArea->queue_draw();
+    Invalidate();
 }
 
 void SmSymDefineDialog::FillSymbols(weld::ComboBoxText& rComboBox, bool bDeleteText)
@@ -1734,12 +1603,12 @@ IMPL_LINK_NOARG(SmSymDefineDialog, CharHighlightHdl, SvxShowCharSet*, void)
     {
         const Subset* pSubset = m_xSubsetMap->GetSubsetByUnicode(cChar);
         if (pSubset)
-            m_xFontsSubsetLB->set_active(pSubset->GetName());
+            m_xFontsSubsetLB->set_active_text(pSubset->GetName());
         else
             m_xFontsSubsetLB->set_active(-1);
     }
 
-    m_xSymbolDisplay->SetSymbol(cChar, m_xCharsetDisplay->GetFont());
+    m_aSymbolDisplay.SetSymbol(cChar, m_xCharsetDisplay->GetFont());
 
     UpdateButtons();
 
@@ -1765,7 +1634,7 @@ IMPL_LINK( SmSymDefineDialog, AddClickHdl, weld::Button&, rButton, void )
     m_aSymbolMgrCopy.AddOrReplaceSymbol( aNewSymbol );
 
     // update display of new symbol
-    m_xSymbolDisplay->SetSymbol( &aNewSymbol );
+    m_aSymbolDisplay.SetSymbol( &aNewSymbol );
     m_xSymbolName->set_label(aNewSymbol.GetName());
     m_xSymbolSetName->set_label(aNewSymbol.GetSymbolSetName());
 
@@ -1801,7 +1670,7 @@ IMPL_LINK( SmSymDefineDialog, ChangeClickHdl, weld::Button&, rButton, void )
         SetOrigSymbol(nullptr, OUString());
 
     // update display of new symbol
-    m_xSymbolDisplay->SetSymbol(&aNewSymbol);
+    m_aSymbolDisplay.SetSymbol(&aNewSymbol);
     m_xSymbolName->set_label(aNewSymbol.GetName());
     m_xSymbolSetName->set_label(aNewSymbol.GetSymbolSetName());
 
@@ -1892,9 +1761,10 @@ SmSymDefineDialog::SmSymDefineDialog(weld::Window* pParent, OutputDevice *pFntLi
     , m_xAddBtn(m_xBuilder->weld_button("add"))
     , m_xChangeBtn(m_xBuilder->weld_button("modify"))
     , m_xDeleteBtn(m_xBuilder->weld_button("delete"))
-    , m_xOldSymbolDisplay(new SmShowChar(m_xBuilder->weld_drawing_area("oldSymbolDisplay")))
-    , m_xSymbolDisplay(new SmShowChar(m_xBuilder->weld_drawing_area("symbolDisplay")))
-    , m_xCharsetDisplay(new SvxShowCharSet(*m_xBuilder, "charsetDisplay", "showscroll", m_xVirDev))
+    , m_xOldSymbolDisplay(new weld::CustomWeld(*m_xBuilder, "oldSymbolDisplay", m_aOldSymbolDisplay))
+    , m_xSymbolDisplay(new weld::CustomWeld(*m_xBuilder, "symbolDisplay", m_aSymbolDisplay))
+    , m_xCharsetDisplay(new SvxShowCharSet(m_xBuilder->weld_scrolled_window("showscroll"), m_xVirDev))
+    , m_xCharsetDisplayArea(new weld::CustomWeld(*m_xBuilder, "charsetDisplay", *m_xCharsetDisplay))
 {
     // auto completion is troublesome since that symbols character also gets automatically selected in the
     // display and if the user previously selected a character to define/redefine that one this is bad
@@ -2024,12 +1894,12 @@ void SmSymDefineDialog::SetOrigSymbol(const SmSym *pSymbol,
 
         aSymName    = pSymbol->GetName();
         aSymSetName = rSymbolSetName;
-        m_xOldSymbolDisplay->SetSymbol( pSymbol );
+        m_aOldSymbolDisplay.SetSymbol( pSymbol );
     }
     else
     {   // delete displayed symbols
-        m_xOldSymbolDisplay->SetText(OUString());
-        m_xOldSymbolDisplay->queue_draw();
+        m_aOldSymbolDisplay.SetText(OUString());
+        m_aOldSymbolDisplay.Invalidate();
     }
     m_xOldSymbolName->set_label(aSymName);
     m_xOldSymbolSetName->set_label(aSymSetName);
@@ -2069,7 +1939,7 @@ bool SmSymDefineDialog::SelectSymbol(weld::ComboBoxText& rComboBox,
                 // work really well (e.g. it can be empty even though the font itself is
                 // bold or italic) we're manually setting the Font with respect to the Symbol
                 m_xCharsetDisplay->SetFont(rFont);
-                m_xSymbolDisplay->SetFont(rFont);
+                m_aSymbolDisplay.SetFont(rFont);
 
                 // select associated character
                 SelectChar(pSymbol->GetCharacter());
@@ -2115,11 +1985,10 @@ void SmSymDefineDialog::SetFont(const OUString &rFontName, const OUString &rStyl
     SetFontStyle(rStyleName, aFontMetric);
 
     m_xCharsetDisplay->SetFont(aFontMetric);
-    m_xSymbolDisplay->SetFont(aFontMetric);
+    m_aSymbolDisplay.SetFont(aFontMetric);
 
     // update subset listbox for new font's unicode subsets
-    FontCharMapRef xFontCharMap;
-    m_xCharsetDisplay->GetFontCharMap( xFontCharMap );
+    FontCharMapRef xFontCharMap = m_xCharsetDisplay->GetFontCharMap();
     m_xSubsetMap.reset(new SubsetMap( xFontCharMap ));
 
     m_xFontsSubsetLB->clear();
@@ -2150,7 +2019,7 @@ bool SmSymDefineDialog::SelectFont(const OUString &rFontName, bool bApplyFont)
         if (bApplyFont)
         {
             SetFont(m_xFonts->get_active_text(), m_xStyles->get_active_text());
-            m_xSymbolDisplay->SetSymbol(m_xCharsetDisplay->GetSelectCharacter(), m_xCharsetDisplay->GetFont());
+            m_aSymbolDisplay.SetSymbol(m_xCharsetDisplay->GetSelectCharacter(), m_xCharsetDisplay->GetFont());
         }
         bRet = true;
     }
@@ -2179,7 +2048,7 @@ bool SmSymDefineDialog::SelectStyle(const OUString &rStyleName, bool bApplyFont)
         if (bApplyFont)
         {
             SetFont(m_xFonts->get_active_text(), m_xStyles->get_active_text());
-            m_xSymbolDisplay->SetSymbol(m_xCharsetDisplay->GetSelectCharacter(), m_xCharsetDisplay->GetFont());
+            m_aSymbolDisplay.SetSymbol(m_xCharsetDisplay->GetSelectCharacter(), m_xCharsetDisplay->GetFont());
         }
         bRet = true;
     }
@@ -2194,7 +2063,7 @@ bool SmSymDefineDialog::SelectStyle(const OUString &rStyleName, bool bApplyFont)
 void SmSymDefineDialog::SelectChar(sal_Unicode cChar)
 {
     m_xCharsetDisplay->SelectCharacter( cChar );
-    m_xSymbolDisplay->SetSymbol(cChar, m_xCharsetDisplay->GetFont());
+    m_aSymbolDisplay.SetSymbol(cChar, m_xCharsetDisplay->GetFont());
 
     UpdateButtons();
 }

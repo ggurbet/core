@@ -24,9 +24,11 @@
 #include <vcl/bitmapex.hxx>
 #include <vcl/bitmap.hxx>
 #include <config_features.h>
+#include <sal/log.hxx>
 #if HAVE_FEATURE_OPENGL
 #include <vcl/opengl/OpenGLHelper.hxx>
 #endif
+#include <vcl/BitmapMonochromeFilter.hxx>
 
 #include <impoctree.hxx>
 #include <BitmapScaleSuperFilter.hxx>
@@ -245,7 +247,11 @@ bool Bitmap::Convert( BmpConversion eConversion )
     switch( eConversion )
     {
         case BmpConversion::N1BitThreshold:
-            bRet = MakeMonochrome(128);
+        {
+            BitmapEx aBmpEx(*this);
+            bRet = BitmapFilter::Filter(aBmpEx, BitmapMonochromeFilter(128));
+            *this = aBmpEx.GetBitmap();
+        }
         break;
 
         case BmpConversion::N4BitGreys:

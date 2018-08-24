@@ -109,8 +109,7 @@ SfxItemSet SvxOutlinerForwarder::GetAttribs( const ESelection& rSel, EditEngineA
         else
         {
             // no, we need delete the old cache
-            delete mpAttribsCache;
-            mpAttribsCache = nullptr;
+            mpAttribsCache.reset();
         }
     }
 
@@ -122,7 +121,7 @@ SfxItemSet SvxOutlinerForwarder::GetAttribs( const ESelection& rSel, EditEngineA
 
     if( EditEngineAttribs::All == nOnlyHardAttrib )
     {
-        mpAttribsCache = new SfxItemSet( aSet );
+        mpAttribsCache.reset(new SfxItemSet( aSet ));
         maAttribCacheSelection = rSel;
     }
 
@@ -146,12 +145,11 @@ SfxItemSet SvxOutlinerForwarder::GetParaAttribs( sal_Int32 nPara ) const
         else
         {
             // no, we need delete the old cache
-            delete mpParaAttribsCache;
-            mpParaAttribsCache = nullptr;
+            mpParaAttribsCache.reset();
         }
     }
 
-    mpParaAttribsCache = new SfxItemSet( rOutliner.GetParaAttribs( nPara ) );
+    mpParaAttribsCache.reset(new SfxItemSet( rOutliner.GetParaAttribs( nPara ) ));
     mnParaAttribsCache = nPara;
 
     EditEngine& rEditEngine = const_cast<EditEngine&>(rOutliner.GetEditEngine());
@@ -223,7 +221,7 @@ void SvxOutlinerForwarder::QuickSetAttribs( const SfxItemSet& rSet, const ESelec
     rOutliner.QuickSetAttribs( rSet, rSel );
 }
 
-OUString SvxOutlinerForwarder::CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rpTxtColor, Color*& rpFldColor )
+OUString SvxOutlinerForwarder::CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rpTxtColor, boost::optional<Color>& rpFldColor )
 {
     return rOutliner.CalcFieldValue( rField, nPara, nPos, rpTxtColor, rpFldColor );
 }
@@ -253,17 +251,8 @@ SfxItemState SvxOutlinerForwarder::GetItemState( sal_Int32 nPara, sal_uInt16 nWh
 
 void SvxOutlinerForwarder::flushCache()
 {
-    if( mpAttribsCache )
-    {
-        delete mpAttribsCache;
-        mpAttribsCache = nullptr;
-    }
-
-    if( mpParaAttribsCache )
-    {
-        delete mpParaAttribsCache;
-        mpParaAttribsCache = nullptr;
-    }
+    mpAttribsCache.reset();
+    mpParaAttribsCache.reset();
 }
 
 LanguageType SvxOutlinerForwarder::GetLanguage( sal_Int32 nPara, sal_Int32 nIndex ) const
@@ -388,7 +377,8 @@ bool SvxOutlinerForwarder::GetWordIndices( sal_Int32 nPara, sal_Int32 nIndex, sa
 
 bool SvxOutlinerForwarder::GetAttributeRun( sal_Int32& nStartIndex, sal_Int32& nEndIndex, sal_Int32 nPara, sal_Int32 nIndex, bool bInCell ) const
 {
-    return SvxEditSourceHelper::GetAttributeRun( nStartIndex, nEndIndex, rOutliner.GetEditEngine(), nPara, nIndex, bInCell );
+    SvxEditSourceHelper::GetAttributeRun( nStartIndex, nEndIndex, rOutliner.GetEditEngine(), nPara, nIndex, bInCell );
+    return true;
 }
 
 sal_Int32 SvxOutlinerForwarder::GetLineCount( sal_Int32 nPara ) const
@@ -555,9 +545,8 @@ void  SvxOutlinerForwarder::CopyText(const SvxTextForwarder& rSource)
     const SvxOutlinerForwarder* pSourceForwarder = dynamic_cast< const SvxOutlinerForwarder* >( &rSource );
     if( !pSourceForwarder )
         return;
-    OutlinerParaObject* pNewOutlinerParaObject = pSourceForwarder->rOutliner.CreateParaObject();
+    std::unique_ptr<OutlinerParaObject> pNewOutlinerParaObject = pSourceForwarder->rOutliner.CreateParaObject();
     rOutliner.SetText( *pNewOutlinerParaObject );
-    delete pNewOutlinerParaObject;
 }
 
 

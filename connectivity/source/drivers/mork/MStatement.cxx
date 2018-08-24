@@ -19,6 +19,7 @@
 
 
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <comphelper/processfactory.hxx>
 #include <connectivity/dbexception.hxx>
@@ -79,7 +80,7 @@ void OCommonStatement::disposing()
     m_pConnection.clear();
 
     m_pSQLIterator->dispose();
-    delete m_pParseTree;
+    m_pParseTree.reset();
 
     OCommonStatement_IBASE::disposing();
 }
@@ -114,11 +115,11 @@ OCommonStatement::StatementType OCommonStatement::parseSql( const OUString& sql 
 {
     OUString aErr;
 
-    m_pParseTree = m_aParser.parseTree(aErr,sql);
+    m_pParseTree.reset( m_aParser.parseTree(aErr,sql) );
 
     if(m_pParseTree)
     {
-        m_pSQLIterator->setParseTree(m_pParseTree);
+        m_pSQLIterator->setParseTree(m_pParseTree.get());
         m_pSQLIterator->traverseAll();
         const OSQLTables& rTabs = m_pSQLIterator->getTables();
 

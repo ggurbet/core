@@ -35,6 +35,7 @@
 
 #include <sdabstdlg.hxx>
 
+#include <sal/log.hxx>
 #include <fupoor.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svx/svdopage.hxx>
@@ -43,6 +44,7 @@
 #include <sfx2/bindings.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdetc.hxx>
+#include <svx/svdundo.hxx>
 #include <editeng/outliner.hxx>
 #include <editeng/editstat.hxx>
 #include <tools/multisel.hxx>
@@ -121,7 +123,7 @@ void  ViewShell::GetMenuState( SfxItemSet &rSet )
 
     if(SfxItemState::DEFAULT == rSet.GetItemState(SID_UNDO))
     {
-        ::svl::IUndoManager* pUndoManager = ImpGetUndoManager();
+        SfxUndoManager* pUndoManager = ImpGetUndoManager();
         if(pUndoManager)
         {
             if(pUndoManager->GetUndoActionCount() != 0)
@@ -150,7 +152,7 @@ void  ViewShell::GetMenuState( SfxItemSet &rSet )
 
     if(SfxItemState::DEFAULT == rSet.GetItemState(SID_REDO))
     {
-        ::svl::IUndoManager* pUndoManager = ImpGetUndoManager();
+        SfxUndoManager* pUndoManager = ImpGetUndoManager();
         if(pUndoManager)
         {
             if(pUndoManager->GetRedoActionCount() != 0)

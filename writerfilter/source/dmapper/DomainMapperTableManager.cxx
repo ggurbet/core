@@ -33,6 +33,7 @@
 #include <ooxml/resourceids.hxx>
 #include "DomainMapper.hxx"
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 
 namespace writerfilter {
 namespace dmapper {
@@ -338,7 +339,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
                         if ( !pHandler )
                         {
                             m_aTmpPosition.pop_back();
-                            pHandler.reset( new TablePositionHandler );
+                            pHandler = new TablePositionHandler;
                             m_aTmpPosition.push_back( pHandler );
                         }
                         pProperties->resolve(*m_aTmpPosition.back());
@@ -486,7 +487,7 @@ void DomainMapperTableManager::endLevel( )
     TableManager::endLevel( );
 #ifdef DEBUG_WRITERFILTER
     TagLogger::getInstance().startElement("dmappertablemanager.endLevel");
-    PropertyMapPtr pProps = getTableProps();
+    PropertyMapPtr pProps = getTableProps().get();
     if (pProps.get() != nullptr)
         getTableProps()->dumpXml();
 
@@ -553,7 +554,7 @@ void DomainMapperTableManager::endOfRowAction()
     // Push the tmp position now that we compared it
     m_aTablePositions.pop_back();
     m_aTablePositions.push_back( pTmpPosition );
-    m_aTmpPosition.back().reset( );
+    m_aTmpPosition.back().clear( );
 
 
     IntVectorPtr pTableGrid = getCurrentGrid( );
@@ -760,7 +761,6 @@ void DomainMapperTableManager::clearData()
 {
     m_nRow = m_nHeaderRepeat = m_nTableWidth = m_nLayoutType = 0;
     m_sTableStyleName.clear();
-    m_pTableStyleTextProperies.reset();
 }
 
 }}

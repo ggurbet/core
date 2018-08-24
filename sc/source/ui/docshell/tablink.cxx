@@ -43,6 +43,7 @@
 #include <document.hxx>
 #include <docsh.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <undoblk.hxx>
 #include <undotab.hxx>
 #include <global.hxx>
@@ -186,11 +187,11 @@ bool ScTableLink::Refresh(const OUString& rNewFile, const OUString& rNewFilter,
         aOptions = *pNewOptions;
 
     //  always create ItemSet, so that DocShell can set the options
-    SfxItemSet* pSet = new SfxAllItemSet( SfxGetpApp()->GetPool() );
+    std::unique_ptr<SfxItemSet> pSet(new SfxAllItemSet( SfxGetpApp()->GetPool() ));
     if (!aOptions.isEmpty())
         pSet->Put( SfxStringItem( SID_FILE_FILTEROPTIONS, aOptions ) );
 
-    SfxMedium* pMed = new SfxMedium(aNewUrl, StreamMode::STD_READ, pFilter, pSet);
+    SfxMedium* pMed = new SfxMedium(aNewUrl, StreamMode::STD_READ, pFilter, std::move(pSet));
 
     if ( bInEdit )                              // only if using the edit dialog,
         pMed->UseInteractionHandler(true);    // enable the filter options dialog
@@ -207,10 +208,10 @@ bool ScTableLink::Refresh(const OUString& rNewFile, const OUString& rNewFilter,
 
     //  Undo...
 
-    ScDocument* pUndoDoc = nullptr;
+    ScDocumentUniquePtr pUndoDoc;
     bool bFirst = true;
     if (bAddUndo && bUndo)
-        pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+        pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
 
     //  copy tables
 
@@ -348,10 +349,10 @@ bool ScTableLink::Refresh(const OUString& rNewFile, const OUString& rNewFilter,
                 {
                     //  Normal link or no references: put error message on sheet.
 
-                    rDoc.SetString( 0,0,nTab, ScGlobal::GetRscString(STR_LINKERROR) );
-                    rDoc.SetString( 0,1,nTab, ScGlobal::GetRscString(STR_LINKERRORFILE) );
+                    rDoc.SetString( 0,0,nTab, ScResId(STR_LINKERROR) );
+                    rDoc.SetString( 0,1,nTab, ScResId(STR_LINKERRORFILE) );
                     rDoc.SetString( 1,1,nTab, aNewUrl );
-                    rDoc.SetString( 0,2,nTab, ScGlobal::GetRscString(STR_LINKERRORTAB) );
+                    rDoc.SetString( 0,2,nTab, ScResId(STR_LINKERRORTAB) );
                     rDoc.SetString( 1,2,nTab, aTabName );
                 }
 
@@ -383,7 +384,7 @@ bool ScTableLink::Refresh(const OUString& rNewFile, const OUString& rNewFilter,
 
     if (bAddUndo && bUndo)
         pImpl->m_pDocSh->GetUndoManager()->AddUndoAction(
-                    new ScUndoRefreshLink( pImpl->m_pDocSh, pUndoDoc ) );
+                    new ScUndoRefreshLink( pImpl->m_pDocSh, std::move(pUndoDoc) ) );
 
     //  Paint (may be several tables)
 
@@ -495,7 +496,7 @@ SfxMedium* ScDocumentLoader::CreateMedium( const OUString& rFileName, std::share
         const OUString& rOptions, weld::Window* pInteractionParent )
 {
     // Always create SfxItemSet so ScDocShell can set options.
-    SfxItemSet* pSet = new SfxAllItemSet( SfxGetpApp()->GetPool() );
+    std::unique_ptr<SfxItemSet> pSet(new SfxAllItemSet( SfxGetpApp()->GetPool() ));
     if ( !rOptions.isEmpty() )
         pSet->Put( SfxStringItem( SID_FILE_FILTEROPTIONS, rOptions ) );
 
@@ -507,7 +508,7 @@ SfxMedium* ScDocumentLoader::CreateMedium( const OUString& rFileName, std::share
         pSet->Put(SfxUnoAnyItem(SID_INTERACTIONHANDLER, makeAny(xIHdl)));
     }
 
-    SfxMedium *pRet = new SfxMedium( rFileName, StreamMode::STD_READ, pFilter, pSet );
+    SfxMedium *pRet = new SfxMedium( rFileName, StreamMode::STD_READ, pFilter, std::move(pSet) );
     if (pInteractionParent)
         pRet->UseInteractionHandler(true); // to enable the filter options dialog
     return pRet;
@@ -535,8 +536,8 @@ ScDocumentLoader::ScDocumentLoader(const OUString& rFileName,
     ScExtDocOptions*    pExtDocOpt = rDoc.GetExtDocOptions();
     if( !pExtDocOpt )
     {
-        pExtDocOpt = new ScExtDocOptions;
-        rDoc.SetExtDocOptions( pExtDocOpt );
+        rDoc.SetExtDocOptions( o3tl::make_unique<ScExtDocOptions>() );
+        pExtDocOpt = rDoc.GetExtDocOptions();
     }
     pExtDocOpt->GetDocSettings().mnLinkCnt = nRekCnt;
 

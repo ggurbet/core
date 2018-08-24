@@ -35,6 +35,8 @@
 #include <osl/process.h>
 #include <osl/file.hxx>
 #include <osl/thread.h>
+#include <rtl/byteseq.hxx>
+#include <sal/log.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
 #include <o3tl/safeint.hxx>
 #include <memory>
@@ -130,19 +132,18 @@ static void MakeAsMeta(Graphic &rGraphic)
 {
     ScopedVclPtrInstance< VirtualDevice > pVDev;
     GDIMetaFile     aMtf;
-    Bitmap          aBmp( rGraphic.GetBitmap() );
-    Size            aSize = aBmp.GetPrefSize();
+    Size            aSize = rGraphic.GetPrefSize();
 
     if( !aSize.Width() || !aSize.Height() )
         aSize = Application::GetDefaultDevice()->PixelToLogic(
-            aBmp.GetSizePixel(), MapMode(MapUnit::Map100thMM));
+            rGraphic.GetSizePixel(), MapMode(MapUnit::Map100thMM));
     else
         aSize = OutputDevice::LogicToLogic( aSize,
-            aBmp.GetPrefMapMode(), MapMode(MapUnit::Map100thMM));
+            rGraphic.GetPrefMapMode(), MapMode(MapUnit::Map100thMM));
 
     pVDev->EnableOutput( false );
     aMtf.Record( pVDev );
-    pVDev->DrawBitmap( Point(), aSize, rGraphic.GetBitmap() );
+    pVDev->DrawBitmapEx( Point(), aSize, rGraphic.GetBitmapEx() );
     aMtf.Stop();
     aMtf.WindStart();
     aMtf.SetPrefMapMode(MapMode(MapUnit::Map100thMM));

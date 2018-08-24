@@ -65,6 +65,7 @@
 #include <doubleref.hxx>
 #include <queryparam.hxx>
 #include <tokenarray.hxx>
+#include <compiler.hxx>
 
 #include <math.h>
 #include <float.h>
@@ -129,7 +130,7 @@ sal_uInt32 ScInterpreter::GetCellNumberFormat( const ScAddress& rPos, ScRefCellV
     FormulaError nErr;
     if (rCell.isEmpty())
     {
-        nFormat = pDok->GetNumberFormat( rPos );
+        nFormat = pDok->GetNumberFormat( mrContext, rPos );
         nErr = FormulaError::NONE;
     }
     else
@@ -138,7 +139,7 @@ sal_uInt32 ScInterpreter::GetCellNumberFormat( const ScAddress& rPos, ScRefCellV
             nErr = rCell.mpFormula->GetErrCode();
         else
             nErr = FormulaError::NONE;
-        nFormat = pDok->GetNumberFormat( rPos );
+        nFormat = pDok->GetNumberFormat( mrContext, rPos );
     }
 
     SetError(nErr);
@@ -150,8 +151,8 @@ double ScInterpreter::GetValueCellValue( const ScAddress& rPos, double fOrig )
 {
     if ( bCalcAsShown && fOrig != 0.0 )
     {
-        sal_uInt32 nFormat = pDok->GetNumberFormat( rPos );
-        fOrig = pDok->RoundValueAsShown( fOrig, nFormat );
+        sal_uInt32 nFormat = pDok->GetNumberFormat( mrContext, rPos );
+        fOrig = pDok->RoundValueAsShown( fOrig, nFormat, &mrContext );
     }
     return fOrig;
 }
@@ -223,7 +224,7 @@ double ScInterpreter::GetCellValueOrZero( const ScAddress& rPos, ScRefCellValue&
             nCurFmtIndex = pDok->GetNumberFormat( mrContext, rPos );
             nCurFmtType = pFormatter->GetType( nCurFmtIndex );
             if ( bCalcAsShown && fValue != 0.0 )
-                fValue = pDok->RoundValueAsShown( fValue, nCurFmtIndex );
+                fValue = pDok->RoundValueAsShown( fValue, nCurFmtIndex, &mrContext );
         }
         break;
         case  CELLTYPE_STRING:
@@ -948,6 +949,12 @@ void ScInterpreter::DoubleRefToVars( const formula::FormulaToken* p,
     const ScComplexRefData& rCRef = *p->GetDoubleRef();
     SingleRefToVars( rCRef.Ref1, rCol1, rRow1, rTab1);
     SingleRefToVars( rCRef.Ref2, rCol2, rRow2, rTab2);
+    if (rCol2 < rCol1)
+        std::swap( rCol2, rCol1);
+    if (rRow2 < rRow1)
+        std::swap( rRow2, rRow1);
+    if (rTab2 < rTab1)
+        std::swap( rTab2, rTab1);
     if (!pDok->m_TableOpList.empty())
     {
         ScRange aRange( rCol1, rRow1, rTab1, rCol2, rRow2, rTab2 );
@@ -1488,7 +1495,7 @@ bool ScInterpreter::ConvertMatrixParameters()
                             // has ForceArray or ReferenceOrForceArray
                             // parameter *somewhere else*) pick a normal
                             // position dependent implicit intersection later.
-                            (eType != formula::ParamClass::Value || bMatrixFormula || pCur->IsInForceArray()))
+                            (eType != formula::ParamClass::Value || IsInArrayContext()))
                     {
                         SCCOL nCol1, nCol2;
                         SCROW nRow1, nRow2;
@@ -2004,56 +2011,8 @@ bool ScInterpreter::DoubleRefToPosSingleRef( const ScRange& rRange, ScAddress& r
         return bOk;
     }
 
-    SCCOL nMyCol = aPos.Col();
-    SCROW nMyRow = aPos.Row();
-    SCTAB nMyTab = aPos.Tab();
-    SCCOL nCol = 0;
-    SCROW nRow = 0;
-    SCTAB nTab;
-    nTab = rRange.aStart.Tab();
-    if ( rRange.aStart.Col() <= nMyCol && nMyCol <= rRange.aEnd.Col() )
-    {
-        nRow = rRange.aStart.Row();
-        if ( nRow == rRange.aEnd.Row() )
-        {
-            bOk = true;
-            nCol = nMyCol;
-        }
-        else if ( nTab != nMyTab && nTab == rRange.aEnd.Tab()
-                && rRange.aStart.Row() <= nMyRow && nMyRow <= rRange.aEnd.Row() )
-        {
-            bOk = true;
-            nCol = nMyCol;
-            nRow = nMyRow;
-        }
-    }
-    else if ( rRange.aStart.Row() <= nMyRow && nMyRow <= rRange.aEnd.Row() )
-    {
-        nCol = rRange.aStart.Col();
-        if ( nCol == rRange.aEnd.Col() )
-        {
-            bOk = true;
-            nRow = nMyRow;
-        }
-        else if ( nTab != nMyTab && nTab == rRange.aEnd.Tab()
-                && rRange.aStart.Col() <= nMyCol && nMyCol <= rRange.aEnd.Col() )
-        {
-            bOk = true;
-            nCol = nMyCol;
-            nRow = nMyRow;
-        }
-    }
-    if ( bOk )
-    {
-        if ( nTab == rRange.aEnd.Tab() )
-            ;   // all done
-        else if ( nTab <= nMyTab && nMyTab <= rRange.aEnd.Tab() )
-            nTab = nMyTab;
-        else
-            bOk = false;
-        if ( bOk )
-            rAdr.Set( nCol, nRow, nTab );
-    }
+    bOk = ScCompiler::DoubleRefToPosSingleRefScalarCase(rRange, rAdr, aPos);
+
     if ( !bOk )
         SetError( FormulaError::NoValue );
     return bOk;
@@ -2521,7 +2480,7 @@ void ScInterpreter::ScDBGet()
     }
 
     pQueryParam->mbSkipString = false;
-    ScDBQueryDataIterator aValIter(pDok, mrContext, pQueryParam.release());
+    ScDBQueryDataIterator aValIter(pDok, mrContext, std::move(pQueryParam));
     ScDBQueryDataIterator::Value aValue;
     if (!aValIter.GetFirst(aValue) || aValue.mnError != FormulaError::NONE)
     {
@@ -2692,8 +2651,7 @@ void ScInterpreter::ScExternal()
                 else
                 {
                     // enable asyncs after loading
-                    if ( rArr.IsRecalcModeNormal() )
-                        rArr.SetExclusiveRecalcModeOnLoad();
+                    rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
                     // assure identical handler with identical call?
                     double nErg = 0.0;
                     ppParam[0] = &nErg;
@@ -3053,10 +3011,7 @@ void ScInterpreter::ScExternal()
 
             if ( aCall.HasVarRes() )                        // handle async functions
             {
-                if ( rArr.IsRecalcModeNormal() )
-                {
-                    rArr.SetExclusiveRecalcModeOnLoad();
-                }
+                rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
                 uno::Reference<sheet::XVolatileResult> xRes = aCall.GetVarRes();
                 ScAddInListener* pLis = ScAddInListener::Get( xRes );
                 if ( !pLis )
@@ -3260,6 +3215,11 @@ void ScInterpreter::ScMacro()
     OSL_ENSURE(dynamic_cast<const StarBASIC *>(pObject) != nullptr, "No Basic found!");
     OUString aMacroStr = pObject->GetName() + "." + pModule->GetName() + "." + pMethod->GetName();
     OUString aBasicStr;
+    if (pRoot && bUseVBAObjects)
+    {
+        // just here to make sure the VBA objects when we run the macro during ODF import
+        pRoot->getVBAGlobals();
+    }
     if (pObject->GetParent())
     {
         aBasicStr = pObject->GetParent()->GetName();    // document BASIC

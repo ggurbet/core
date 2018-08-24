@@ -65,7 +65,7 @@ class SwMultiTOXTabDialog : public SfxTabDialog
 {
     VclPtr<vcl::Window>     m_pExampleContainerWIN;
     VclPtr<CheckBox>        m_pShowExampleCB;
-    SwTOXMgr*               m_pMgr;
+    std::unique_ptr<SwTOXMgr> m_pMgr;
     SwWrtShell&             m_rWrtShell;
 
     sal_uInt16              m_nSelectId;
@@ -73,18 +73,21 @@ class SwMultiTOXTabDialog : public SfxTabDialog
     sal_uInt16              m_nBackGroundId;
     sal_uInt16              m_nEntriesId;
 
-    SwOneExampleFrame*      m_pExampleFrame;
+    std::unique_ptr<SwOneExampleFrame> m_pExampleFrame;
 
-    SwTOXDescription**      m_pDescriptionArray;
-    SwForm**                m_pFormArray;
-    SwIndexSections_Impl**  m_pxIndexSectionsArray;
+    struct TypeData
+    {
+        std::unique_ptr<SwForm> m_pForm;
+        std::unique_ptr<SwTOXDescription> m_pDescription;
+        std::unique_ptr<SwIndexSections_Impl> m_pxIndexSections;
+    };
+    std::vector<TypeData>   m_vTypeData;
 
     SwTOXBase*              m_pParamTOXBase;
 
     CurTOXType              m_eCurrentTOXType;
 
     OUString                m_sUserDefinedIndex;
-    sal_uInt16              m_nTypeCount;
     sal_uInt16              m_nInitialTOXType;
 
     bool                m_bEditTOX;
@@ -92,7 +95,7 @@ class SwMultiTOXTabDialog : public SfxTabDialog
     bool                m_bGlobalFlag;
 
     virtual short       Ok() override;
-    SwTOXDescription*   CreateTOXDescFromTOXBase(const SwTOXBase*pCurTOX);
+    std::unique_ptr<SwTOXDescription> CreateTOXDescFromTOXBase(const SwTOXBase*pCurTOX);
 
     DECL_LINK(CreateExample_Hdl, SwOneExampleFrame&, void);
     DECL_LINK(ShowPreviewHdl, Button*, void);
@@ -187,7 +190,7 @@ class SwTOXSelectTabPage : public SfxTabPage
     VclPtr<SvxLanguageBox> m_pLanguageLB;
     VclPtr<ListBox>        m_pSortAlgorithmLB;
 
-    IndexEntryResource* pIndexRes;
+    std::unique_ptr<IndexEntryResource> pIndexRes;
 
     OUString        aStyleArr[MAXLEVEL];
     OUString        sAutoMarkURL;
@@ -195,7 +198,7 @@ class SwTOXSelectTabPage : public SfxTabPage
     OUString        sAddStyleUser;
     OUString        sAddStyleContent;
 
-    const IndexEntrySupplierWrapper* pIndexEntryWrapper;
+    std::unique_ptr<const IndexEntrySupplierWrapper> pIndexEntryWrapper;
 
     bool            m_bWaitingInitialSettings;
 
@@ -227,7 +230,7 @@ public:
     virtual void        ActivatePage( const SfxItemSet& ) override;
     virtual DeactivateRC   DeactivatePage( SfxItemSet* pSet ) override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                 const SfxItemSet* rAttrSet);
 
     void                SelectType(TOXTypes eSet);  //preset TOXType, GlobalDoc
@@ -236,11 +239,6 @@ public:
 
 class SwTokenWindow : public VclHBox, public VclBuilderContainer
 {
-    typedef std::vector<VclPtr<Control> >::iterator ctrl_iterator;
-    typedef std::vector<VclPtr<Control> >::const_iterator ctrl_const_iterator;
-    typedef std::vector<VclPtr<Control> >::reverse_iterator ctrl_reverse_iterator;
-    typedef std::vector<VclPtr<Control> >::const_reverse_iterator ctrl_const_reverse_iterator;
-
     VclPtr<Button> m_pLeftScrollWin;
     VclPtr<vcl::Window> m_pCtrlParentWin;
     VclPtr<Button> m_pRightScrollWin;
@@ -436,7 +434,7 @@ public:
     virtual void        ActivatePage( const SfxItemSet& ) override;
     virtual DeactivateRC   DeactivatePage( SfxItemSet* pSet ) override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                        const SfxItemSet* rAttrSet);
     void                SetWrtShell(SwWrtShell& rSh);
 
@@ -455,7 +453,7 @@ class SwTOXStylesTabPage : public SfxTabPage
     VclPtr<PushButton>     m_pStdBT;
     VclPtr<PushButton>     m_pEditStyleBT;
 
-    SwForm*         m_pCurrentForm;
+    std::unique_ptr<SwForm> m_pCurrentForm;
 
     DECL_LINK( EditStyleHdl, Button *, void );
     DECL_LINK( StdHdl, Button*, void );
@@ -484,7 +482,7 @@ public:
     virtual void        ActivatePage( const SfxItemSet& ) override;
     virtual DeactivateRC   DeactivatePage( SfxItemSet* pSet ) override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                        const SfxItemSet* rAttrSet);
 
 };

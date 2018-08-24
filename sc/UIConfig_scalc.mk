@@ -26,6 +26,7 @@ $(eval $(call gb_UIConfig_add_popupmenufiles,modules/scalc,\
 	sc/uiconfig/scalc/popupmenu/drawtext \
 	sc/uiconfig/scalc/popupmenu/form \
 	sc/uiconfig/scalc/popupmenu/formrichtext \
+	sc/uiconfig/scalc/popupmenu/formulabar \
 	sc/uiconfig/scalc/popupmenu/freezepanes \
 	sc/uiconfig/scalc/popupmenu/graphic \
 	sc/uiconfig/scalc/popupmenu/media \
@@ -155,6 +156,10 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/scalc,\
 	sc/uiconfig/scalc/ui/managenamesdialog \
 	sc/uiconfig/scalc/ui/mergecellsdialog \
 	sc/uiconfig/scalc/ui/mergecolumnentry \
+	sc/uiconfig/scalc/ui/texttransformationentry \
+	sc/uiconfig/scalc/ui/sorttransformationentry \
+	sc/uiconfig/scalc/ui/aggregatefunctionentry \
+	sc/uiconfig/scalc/ui/numbertransformationentry \
 	sc/uiconfig/scalc/ui/movecopysheet \
 	sc/uiconfig/scalc/ui/movingaveragedialog \
 	sc/uiconfig/scalc/ui/multipleoperationsdialog \

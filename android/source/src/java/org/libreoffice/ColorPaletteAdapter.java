@@ -28,8 +28,7 @@ public class ColorPaletteAdapter extends RecyclerView.Adapter<ColorPaletteAdapte
     @Override
     public ColorPaletteViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View item = LayoutInflater.from(mContext).inflate(R.layout.colorbox, parent, false);
-        ColorPaletteViewHolder holder = new ColorPaletteViewHolder(item);
-        return holder;
+        return new ColorPaletteViewHolder(item);
     }
 
 
@@ -50,6 +49,7 @@ public class ColorPaletteAdapter extends RecyclerView.Adapter<ColorPaletteAdapte
         holder.colorBox.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                LibreOfficeMainActivity.setDocumentChanged(true);
                 setPosition(holder.getAdapterPosition());
             }
         });

@@ -578,26 +578,18 @@ static void ImplDeleteConfigData( ImplConfigData* pData )
     pData->mpFirstGroup = nullptr;
 }
 
-static ImplConfigData* ImplGetConfigData( const OUString& rFileName )
+static std::unique_ptr<ImplConfigData> ImplGetConfigData( const OUString& rFileName )
 {
-    ImplConfigData* pData;
-
-    pData                   = new ImplConfigData;
+    std::unique_ptr<ImplConfigData> pData(new ImplConfigData);
     pData->maFileName       = rFileName;
     pData->mpFirstGroup     = nullptr;
     pData->mnDataUpdateId   = 0;
     pData->meLineEnd        = LINEEND_CRLF;
     pData->mbRead           = false;
     pData->mbIsUTF8BOM      = false;
-    ImplReadConfig( pData );
+    ImplReadConfig( pData.get() );
 
     return pData;
-}
-
-static void ImplFreeConfigData( ImplConfigData* pDelData )
-{
-    ImplDeleteConfigData( pDelData );
-    delete pDelData;
 }
 
 bool Config::ImplUpdateConfig() const
@@ -605,8 +597,8 @@ bool Config::ImplUpdateConfig() const
     // Re-read file if timestamp differs
     if ( mpData->mnTimeStamp != ImplSysGetConfigTimeStamp( maFileName ) )
     {
-        ImplDeleteConfigData( mpData );
-        ImplReadConfig( mpData );
+        ImplDeleteConfigData( mpData.get() );
+        ImplReadConfig( mpData.get() );
         mpData->mnDataUpdateId++;
         return true;
     }
@@ -658,7 +650,6 @@ Config::Config( const OUString& rFileName )
     mpData          = ImplGetConfigData( maFileName );
     mpActGroup      = nullptr;
     mnDataUpdateId  = 0;
-    mnLockCount     = 1;
 
     SAL_INFO("tools.generic", "Config::Config( " << maFileName << " )");
 }
@@ -668,7 +659,7 @@ Config::~Config()
     SAL_INFO("tools.generic", "Config::~Config()" );
 
     Flush();
-    ImplFreeConfigData( mpData );
+    ImplDeleteConfigData( mpData.get() );
 }
 
 void Config::SetGroup(const OString& rGroup)
@@ -684,7 +675,7 @@ void Config::SetGroup(const OString& rGroup)
 void Config::DeleteGroup(const OString& rGroup)
 {
     // Update config data if necessary
-    if ( !mnLockCount || !mpData->mbRead )
+    if ( !mpData->mbRead )
     {
         ImplUpdateConfig();
         mpData->mbRead = true;
@@ -721,12 +712,7 @@ void Config::DeleteGroup(const OString& rGroup)
         delete pGroup;
 
         // Rewrite config data
-        if ( !mnLockCount )
-            ImplWriteConfig( mpData );
-        else
-        {
-            mpData->mbModified = true;
-        }
+        mpData->mbModified = true;
 
         mnDataUpdateId = mpData->mnDataUpdateId;
         mpData->mnDataUpdateId++;
@@ -735,10 +721,6 @@ void Config::DeleteGroup(const OString& rGroup)
 
 OString Config::GetGroupName(sal_uInt16 nGroup) const
 {
-    // Update config data if necessary
-    if ( !mnLockCount )
-        ImplUpdateConfig();
-
     ImplGroupData*  pGroup = mpData->mpFirstGroup;
     sal_uInt16          nGroupCount = 0;
     OString aGroupName;
@@ -759,10 +741,6 @@ OString Config::GetGroupName(sal_uInt16 nGroup) const
 
 sal_uInt16 Config::GetGroupCount() const
 {
-    // Update config data if necessary
-    if ( !mnLockCount )
-        ImplUpdateConfig();
-
     ImplGroupData*  pGroup = mpData->mpFirstGroup;
     sal_uInt16          nGroupCount = 0;
     while ( pGroup )
@@ -776,10 +754,6 @@ sal_uInt16 Config::GetGroupCount() const
 
 bool Config::HasGroup(const OString& rGroup) const
 {
-    // Update config data if necessary
-    if ( !mnLockCount )
-        ImplUpdateConfig();
-
     ImplGroupData*  pGroup = mpData->mpFirstGroup;
     bool            bRet = false;
 
@@ -807,10 +781,6 @@ OString Config::ReadKey(const OString& rKey, const OString& rDefault) const
     SAL_INFO("tools.generic", "Config::ReadKey( " << rKey << " ) from " << GetGroup()
                       << " in " << maFileName);
 
-    // Update config data if necessary
-    if ( !mnLockCount )
-        ImplUpdateConfig();
-
     // Search key, return value if found
     ImplGroupData* pGroup = ImplGetGroup();
     if ( pGroup )
@@ -834,7 +804,7 @@ void Config::WriteKey(const OString& rKey, const OString& rStr)
                        << GetGroup() << " in " << maFileName);
 
     // Update config data if necessary
-    if ( !mnLockCount || !mpData->mbRead )
+    if ( !mpData->mbRead )
     {
         ImplUpdateConfig();
         mpData->mbRead = true;
@@ -875,12 +845,7 @@ void Config::WriteKey(const OString& rKey, const OString& rStr)
         {
             pKey->maValue = rStr;
 
-            if ( !mnLockCount )
-                ImplWriteConfig( mpData );
-            else
-            {
-                mpData->mbModified = true;
-            }
+            mpData->mbModified = true;
         }
     }
 }
@@ -888,7 +853,7 @@ void Config::WriteKey(const OString& rKey, const OString& rStr)
 void Config::DeleteKey(const OString& rKey)
 {
     // Update config data if necessary
-    if ( !mnLockCount || !mpData->mbRead )
+    if ( !mpData->mbRead )
     {
         ImplUpdateConfig();
         mpData->mbRead = true;
@@ -918,13 +883,7 @@ void Config::DeleteKey(const OString& rKey)
                 pGroup->mpFirstKey = pKey->mpNext;
             delete pKey;
 
-            // Rewrite config file
-            if ( !mnLockCount )
-                ImplWriteConfig( mpData );
-            else
-            {
-                mpData->mbModified = true;
-            }
+            mpData->mbModified = true;
         }
     }
 }
@@ -932,10 +891,6 @@ void Config::DeleteKey(const OString& rKey)
 sal_uInt16 Config::GetKeyCount() const
 {
     SAL_INFO("tools.generic", "Config::GetKeyCount() from " << GetGroup() << " in " << maFileName);
-
-    // Update config data if necessary
-    if ( !mnLockCount )
-        ImplUpdateConfig();
 
     // Search key and update value
     sal_uInt16 nCount = 0;
@@ -1010,7 +965,7 @@ OString Config::ReadKey(sal_uInt16 nKey) const
 void Config::Flush()
 {
     if ( mpData->mbModified )
-        ImplWriteConfig( mpData );
+        ImplWriteConfig( mpData.get() );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

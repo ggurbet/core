@@ -21,6 +21,7 @@
 #include <svtools/treelistentry.hxx>
 #include <svtools/viewdataentry.hxx>
 #include <osl/diagnose.h>
+#include <o3tl/make_unique.hxx>
 
 #include <memory>
 #include <map>
@@ -805,44 +806,6 @@ SvTreeListEntry* SvTreeList::FirstChild( SvTreeListEntry* pParent ) const
     return pResult;
 }
 
-SvTreeListEntry* SvTreeList::NextSibling( SvTreeListEntry* pEntry )
-{
-    DBG_ASSERT(pEntry,"Entry?");
-    if( !pEntry )
-        return nullptr;
-
-    SvTreeListEntries& rList = pEntry->pParent->m_Children;
-    sal_uLong nPos = pEntry->GetChildListPos();
-    nPos++;
-    return (nPos < rList.size()) ? rList[nPos].get() : nullptr;
-}
-
-SvTreeListEntry* SvTreeList::PrevSibling( SvTreeListEntry* pEntry )
-{
-    DBG_ASSERT(pEntry,"Entry?");
-    if( !pEntry )
-        return nullptr;
-
-    SvTreeListEntries& rList = pEntry->pParent->m_Children;
-    sal_uLong nPos = pEntry->GetChildListPos();
-    if ( nPos == 0 )
-        return nullptr;
-    nPos--;
-    pEntry = rList[nPos].get();
-    return pEntry;
-}
-
-
-SvTreeListEntry* SvTreeList::LastSibling( SvTreeListEntry* pEntry )
-{
-    DBG_ASSERT(pEntry,"LastSibling:Entry?");
-    if( !pEntry )
-        return nullptr;
-
-    SvTreeListEntries& rChildren = pEntry->pParent->m_Children;
-    return (rChildren.empty()) ? nullptr : rChildren.back().get();
-}
-
 SvTreeListEntry* SvTreeList::NextSelected( const SvListView* pView, SvTreeListEntry* pEntry ) const
 {
     DBG_ASSERT(pView&&pEntry,"NextSel:View/Entry?");
@@ -1177,7 +1140,7 @@ void SvListView::Impl::InitTable()
     pEntry = m_rThis.pModel->First();
     while( pEntry )
     {
-        pViewData.reset(m_rThis.CreateViewData( pEntry ));
+        pViewData = m_rThis.CreateViewData( pEntry );
         DBG_ASSERT(pViewData,"InitTable:No ViewData");
         m_rThis.InitViewData( pViewData.get(), pEntry );
         m_DataTable.insert(std::make_pair(pEntry, std::move(pViewData)));
@@ -1185,9 +1148,9 @@ void SvListView::Impl::InitTable()
     }
 }
 
-SvViewDataEntry* SvListView::CreateViewData( SvTreeListEntry* )
+std::unique_ptr<SvViewDataEntry> SvListView::CreateViewData( SvTreeListEntry* )
 {
-    return new SvViewDataEntry;
+    return o3tl::make_unique<SvViewDataEntry>();
 }
 
 void SvListView::Clear()

@@ -32,6 +32,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleTextType.hpp>
@@ -83,7 +84,6 @@
 #include "textmarkuphelper.hxx"
 #include "parachangetrackinginfo.hxx"
 #include <com/sun/star/text/TextMarkupType.hpp>
-#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <svx/colorwindow.hxx>
 #include <editeng/editids.hrc>
@@ -681,7 +681,7 @@ SwTOXSortTabBase* SwAccessibleParagraph::GetTOXSortTabBase()
 
                 for(size_t nIndex = 0; nIndex<nSize; nIndex++ )
                 {
-                    pSortBase = pTOXBaseSect->GetTOXSortTabBases()[nIndex];
+                    pSortBase = pTOXBaseSect->GetTOXSortTabBases()[nIndex].get();
                     if( pSortBase->pTOXNd == pTextNd )
                         break;
                 }
@@ -961,12 +961,10 @@ void SAL_CALL SwAccessibleParagraph::grabFocus()
     if( pCursorSh != nullptr && pTextNd != nullptr &&
         ( pCursor == nullptr ||
            pCursor->GetPoint()->nNode.GetIndex() != pTextNd->GetIndex() ||
-          !pTextFrame->IsInside( pCursor->GetPoint()->nContent.GetIndex()) ) )
+          !pTextFrame->IsInside(pTextFrame->MapModelToViewPos(*pCursor->GetPoint()))))
     {
         // create pam for selection
-        SwIndex aIndex( const_cast< SwTextNode * >( pTextNd ),
-                        pTextFrame->GetOfst() );
-        SwPosition aStartPos( *pTextNd, aIndex );
+        SwPosition const aStartPos(pTextFrame->MapViewToModelPos(pTextFrame->GetOfst()));
         SwPaM aPaM( aStartPos );
 
         // set PaM at cursor shell
@@ -2197,7 +2195,7 @@ void SwAccessibleParagraph::_correctValues( const sal_Int32 nIndex,
                 {
                     sal_Int32 nBegin = nIndex;
                     sal_Int32 nLen = 1;
-                    if( pWrongList->InWrongWord(nBegin,nLen) && !pTextNode->IsSymbol(nBegin) )
+                    if (pWrongList->InWrongWord(nBegin, nLen) && !pTextNode->IsSymbolAt(nBegin))
                     {
                         rValue.Value <<= sal_uInt16(LINESTYLE_WAVE);
                     }
@@ -2218,7 +2216,7 @@ void SwAccessibleParagraph::_correctValues( const sal_Int32 nIndex,
                 {
                     sal_Int32 nBegin = nIndex;
                     sal_Int32 nLen = 1;
-                    if( pWrongList->InWrongWord(nBegin,nLen) && !pTextNode->IsSymbol(nBegin) )
+                    if (pWrongList->InWrongWord(nBegin, nLen) && !pTextNode->IsSymbolAt(nBegin))
                     {
                         rValue.Value <<= sal_Int32(0x00ff0000);
                         continue;
@@ -2946,49 +2944,49 @@ void SwAccessibleParagraph::deselectAccessibleChild(
 
 class SwHyperlinkIter_Impl
 {
-    const SwpHints *pHints;
-    sal_Int32 nStt;
-    sal_Int32 nEnd;
-    size_t nPos;
+    const SwpHints *m_pHints;
+    sal_Int32 m_nStt;
+    sal_Int32 m_nEnd;
+    size_t m_nPos;
 
 public:
     explicit SwHyperlinkIter_Impl( const SwTextFrame *pTextFrame );
     const SwTextAttr *next();
-    size_t getCurrHintPos() const { return nPos-1; }
+    size_t getCurrHintPos() const { return m_nPos-1; }
 
-    sal_Int32 startIdx() const { return nStt; }
-    sal_Int32 endIdx() const { return nEnd; }
+    sal_Int32 startIdx() const { return m_nStt; }
+    sal_Int32 endIdx() const { return m_nEnd; }
 };
 
 SwHyperlinkIter_Impl::SwHyperlinkIter_Impl( const SwTextFrame *pTextFrame ) :
-    pHints( pTextFrame->GetTextNode()->GetpSwpHints() ),
-    nStt( pTextFrame->GetOfst() ),
-    nPos( 0 )
+    m_pHints( pTextFrame->GetTextNode()->GetpSwpHints() ),
+    m_nStt( pTextFrame->GetOfst() ),
+    m_nPos( 0 )
 {
     const SwTextFrame *pFollFrame = pTextFrame->GetFollow();
-    nEnd = pFollFrame ? pFollFrame->GetOfst() : pTextFrame->GetTextNode()->Len();
+    m_nEnd = pFollFrame ? pFollFrame->GetOfst() : TextFrameIndex(pTextFrame->GetText().getLength());
 }
 
 const SwTextAttr *SwHyperlinkIter_Impl::next()
 {
     const SwTextAttr *pAttr = nullptr;
-    if( pHints )
+    if( m_pHints )
     {
-        while( !pAttr && nPos < pHints->Count() )
+        while( !pAttr && m_nPos < m_pHints->Count() )
         {
-            const SwTextAttr *pHt = pHints->Get(nPos);
+            const SwTextAttr *pHt = m_pHints->Get(m_nPos);
             if( RES_TXTATR_INETFMT == pHt->Which() )
             {
                 const sal_Int32 nHtStt = pHt->GetStart();
                 const sal_Int32 nHtEnd = *pHt->GetAnyEnd();
                 if( nHtEnd > nHtStt &&
-                    ( (nHtStt >= nStt && nHtStt < nEnd) ||
-                      (nHtEnd > nStt && nHtEnd <= nEnd) ) )
+                    ( (nHtStt >= m_nStt && nHtStt < m_nEnd) ||
+                      (nHtEnd > m_nStt && nHtEnd <= m_nEnd) ) )
                 {
                     pAttr = pHt;
                 }
             }
-            ++nPos;
+            ++m_nPos;
         }
     }
 

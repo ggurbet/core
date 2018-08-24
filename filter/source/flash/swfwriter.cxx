@@ -63,7 +63,7 @@ Writer::Writer( sal_Int32 nTWIPWidthOutput, sal_Int32 nTWIPHeightOutput, sal_Int
     tools::Rectangle aRect( 0, 0, static_cast<long>( mnDocWidth * mnDocXScale ), static_cast<long>( mnDocHeight * mnDocYScale ) );
     tools::Polygon aPoly( aRect );
     FillStyle aFill = FillStyle( COL_WHITE );
-    mnWhiteBackgroundShapeId = defineShape( aPoly, aFill );
+    sal_uInt16 nWhiteBackgroundShapeId = defineShape( aPoly, aFill );
 
     ::basegfx::B2DHomMatrix m; // #i73264#
     mnPageButtonId = createID();
@@ -72,7 +72,7 @@ Writer::Writer( sal_Int32 nTWIPWidthOutput, sal_Int32 nTWIPHeightOutput, sal_Int
 
     // button records
     mpTag->addUI8( 0x08 );                      // only hit state
-    mpTag->addUI16( mnWhiteBackgroundShapeId ); // shape id of background rectangle
+    mpTag->addUI16( nWhiteBackgroundShapeId );  // shape id of background rectangle
     mpTag->addUI16( 0 );                        // depth for button DANGER!
     mpTag->addMatrix( m );                      // identity matrix
     mpTag->addUI8( 0 );                         // empty color transform
@@ -128,11 +128,12 @@ void ImplCopySvStreamToXOutputStream( SvStream& rIn, Reference< XOutputStream > 
 
 void Writer::storeTo( Reference< XOutputStream > const &xOutStream )
 {
-    for (auto const& font : maFonts)
+    for (auto & font : maFonts)
     {
         font->write( *mpFontsStream );
-        delete font;
+        font.reset();
     }
+    maFonts.clear();
 
     // Endtag
     mpMovieStream->WriteUInt16( 0 );

@@ -113,9 +113,9 @@ SecurityEnvironment_NssImpl::~SecurityEnvironment_NssImpl() {
 
     PK11_SetPasswordFunc( nullptr ) ;
 
-    for (CIT_SLOTS i = m_Slots.begin(); i != m_Slots.end(); i++)
+    for (auto& slot : m_Slots)
     {
-        PK11_FreeSlot(*i);
+        PK11_FreeSlot(slot);
     }
 
     if( !m_tSymKeyList.empty()  ) {
@@ -185,9 +185,9 @@ const Sequence< sal_Int8>& SecurityEnvironment_NssImpl::getUnoTunnelId() {
 OUString SecurityEnvironment_NssImpl::getSecurityEnvironmentInformation()
 {
     OUStringBuffer buff;
-    for (CIT_SLOTS is = m_Slots.begin(); is != m_Slots.end(); ++is)
+    for (auto& slot : m_Slots)
     {
-        buff.append(OUString::createFromAscii(PK11_GetTokenName(*is)));
+        buff.append(OUString::createFromAscii(PK11_GetTokenName(slot)));
         buff.append("\n");
     }
     return buff.makeStringAndClear();
@@ -225,48 +225,6 @@ void SecurityEnvironment_NssImpl::adoptSymKey( PK11SymKey* aSymKey ) {
             PK11_FreeSymKey( symkey ) ;
         }
     }
-}
-
-PK11SymKey* SecurityEnvironment_NssImpl::getSymKey( unsigned int position ) {
-    PK11SymKey* symkey ;
-    std::list< PK11SymKey* >::iterator keyIt ;
-    unsigned int pos ;
-
-    symkey = nullptr ;
-    for( pos = 0, keyIt = m_tSymKeyList.begin() ; pos < position && keyIt != m_tSymKeyList.end() ; pos ++ , ++keyIt ) ;
-
-    if( pos == position && keyIt != m_tSymKeyList.end() )
-        symkey = *keyIt ;
-
-    return symkey ;
-}
-
-SECKEYPublicKey* SecurityEnvironment_NssImpl::getPubKey( unsigned int position ) {
-    SECKEYPublicKey* pubkey ;
-    std::list< SECKEYPublicKey* >::iterator keyIt ;
-    unsigned int pos ;
-
-    pubkey = nullptr ;
-    for( pos = 0, keyIt = m_tPubKeyList.begin() ; pos < position && keyIt != m_tPubKeyList.end() ; pos ++ , ++keyIt ) ;
-
-    if( pos == position && keyIt != m_tPubKeyList.end() )
-        pubkey = *keyIt ;
-
-    return pubkey ;
-}
-
-SECKEYPrivateKey* SecurityEnvironment_NssImpl::getPriKey( unsigned int position )  {
-    SECKEYPrivateKey* prikey ;
-    std::list< SECKEYPrivateKey* >::iterator keyIt ;
-    unsigned int pos ;
-
-    prikey = nullptr ;
-    for( pos = 0, keyIt = m_tPriKeyList.begin() ; pos < position && keyIt != m_tPriKeyList.end() ; pos ++ , ++keyIt ) ;
-
-    if( pos == position && keyIt != m_tPriKeyList.end() )
-        prikey = *keyIt ;
-
-    return prikey ;
 }
 
 void SecurityEnvironment_NssImpl::updateSlots()
@@ -333,9 +291,8 @@ SecurityEnvironment_NssImpl::getPersonalCertificates()
 
     updateSlots();
     //firstly, we try to find private keys in slot
-    for (CIT_SLOTS is = m_Slots.begin(); is != m_Slots.end(); ++is)
+    for (auto& slot : m_Slots)
     {
-        PK11SlotInfo *slot = *is;
         SECKEYPrivateKeyList* priKeyList ;
 
         if( PK11_NeedLogin(slot ) ) {
@@ -807,9 +764,9 @@ sal_Int32 SecurityEnvironment_NssImpl::getCertificateCharacters(
     }
     if(priKey == nullptr)
     {
-        for (CIT_SLOTS is = m_Slots.begin(); is != m_Slots.end(); ++is)
+        for (auto& slot : m_Slots)
         {
-            priKey = PK11_FindPrivateKeyFromCert(*is, const_cast<CERTCertificate*>(cert), nullptr);
+            priKey = PK11_FindPrivateKeyFromCert(slot, const_cast<CERTCertificate*>(cert), nullptr);
             if (priKey)
                 break;
         }
@@ -874,51 +831,18 @@ xmlSecKeysMngrPtr SecurityEnvironment_NssImpl::createKeysManager() {
     std::unique_ptr<PK11SlotInfo*[]> sarSlots(new PK11SlotInfo*[cSlots]);
     PK11SlotInfo**  slots = sarSlots.get();
     int count = 0;
-    for (CIT_SLOTS islots = m_Slots.begin();islots != m_Slots.end(); ++islots, ++count)
-        slots[count] = *islots;
-
-#ifndef SYSTEM_XMLSEC
-    xmlSecKeysMngrPtr pKeysMngr = xmlSecNssAppliedKeysMngrCreate(slots, cSlots, m_pHandler ) ;
-    if( pKeysMngr == nullptr )
-        throw RuntimeException() ;
-
-    /*-
-     * Adopt symmetric key into keys manager
-     */
-    PK11SymKey* symKey = nullptr ;
-    for( unsigned int i = 0 ; ( symKey = getSymKey( i ) ) != nullptr ; i ++ ) {
-        if( xmlSecNssAppliedKeysMngrSymKeyLoad( pKeysMngr, symKey ) < 0 ) {
-            throw RuntimeException() ;
-        }
+    for (auto& slot : m_Slots)
+    {
+        slots[count] = slot;
+        ++count;
     }
 
-    /*-
-     * Adopt asymmetric public key into keys manager
-     */
-    SECKEYPublicKey* pubKey = nullptr ;
-    for( unsigned int i = 0 ; ( pubKey = getPubKey( i ) ) != nullptr ; i ++ ) {
-        if( xmlSecNssAppliedKeysMngrPubKeyLoad( pKeysMngr, pubKey ) < 0 ) {
-            throw RuntimeException() ;
-        }
-    }
-
-    /*-
-     * Adopt asymmetric private key into keys manager
-     */
-    SECKEYPrivateKey* priKey = nullptr ;
-    for( unsigned int i = 0 ; ( priKey = getPriKey( i ) ) != nullptr ; i ++ ) {
-        if( xmlSecNssAppliedKeysMngrPriKeyLoad( pKeysMngr, priKey ) < 0 ) {
-            throw RuntimeException() ;
-        }
-    }
-#else // SYSTEM_XMLSEC
     xmlSecKeysMngrPtr pKeysMngr = xmlSecKeysMngrCreate();
     if (!pKeysMngr)
         throw RuntimeException();
 
     if (xmlSecNssAppDefaultKeysMngrInit(pKeysMngr) < 0)
         throw RuntimeException();
-#endif // SYSTEM_XMLSEC
 
     // Adopt the private key of the signing certificate, if it has any.
     if (auto pCertificate = dynamic_cast<X509Certificate_NssImpl*>(m_xSigningCertificate.get()))

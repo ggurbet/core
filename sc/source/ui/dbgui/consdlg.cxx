@@ -41,7 +41,7 @@ namespace
     {
         std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWindow,
                                                       VclMessageType::Info, VclButtonsType::Ok,
-                                                      ScGlobal::GetRscString(id)));
+                                                      ScResId(id)));
         xInfoBox->run();
     }
 }
@@ -115,8 +115,8 @@ ScConsolidateDlg::~ScConsolidateDlg()
 
 void ScConsolidateDlg::dispose()
 {
-    delete [] pAreaData;
-    delete pRangeUtil;
+    pAreaData.reset();
+    pRangeUtil.reset();
     pLbFunc.clear();
     pLbConsAreas.clear();
     pLbDataArea.clear();
@@ -184,7 +184,7 @@ void ScConsolidateDlg::Init()
     const formula::FormulaGrammar::AddressConvention eConv = pDoc->GetAddressConvention();
     for ( i=0; i<theConsData.nDataAreaCount; i++ )
     {
-        const ScArea& rArea = *(theConsData.ppDataAreas[i] );
+        const ScArea& rArea = theConsData.pDataAreas[i];
         if ( rArea.nTab < pDoc->GetTableCount() )
         {
             aStr = ScRange( rArea.nColStart, rArea.nRowStart, rArea.nTab,
@@ -216,7 +216,7 @@ void ScConsolidateDlg::Init()
 
     if ( nAreaDataCount > 0 )
     {
-        pAreaData = new ScAreaData[nAreaDataCount];
+        pAreaData.reset( new ScAreaData[nAreaDataCount] );
 
         OUString aStrName;
         sal_uInt16 nAt = 0;
@@ -381,15 +381,12 @@ IMPL_LINK_NOARG(ScConsolidateDlg, OkHdl, Button*, void)
         if ( ScRangeUtil::IsAbsPos( aDestPosStr, pDoc, nTab, nullptr, &aDestAddress, eConv ) )
         {
             ScConsolidateParam  theOutParam( theConsData );
-            ScArea**            ppDataAreas = new ScArea*[nDataAreaCount];
-            ScArea*             pArea;
+            std::unique_ptr<ScArea[]> pDataAreas(new ScArea[nDataAreaCount]);
 
             for ( sal_Int32 i=0; i<nDataAreaCount; ++i )
             {
-                pArea = new ScArea;
                 ScRangeUtil::MakeArea( pLbConsAreas->GetEntry( i ),
-                                      *pArea, pDoc, nTab, eConv );
-                ppDataAreas[i] = pArea;
+                                      pDataAreas[i], pDoc, nTab, eConv );
             }
 
             theOutParam.nCol            = aDestAddress.Col();
@@ -399,11 +396,7 @@ IMPL_LINK_NOARG(ScConsolidateDlg, OkHdl, Button*, void)
             theOutParam.bByCol          = pBtnByCol->IsChecked();
             theOutParam.bByRow          = pBtnByRow->IsChecked();
             theOutParam.bReferenceData  = pBtnRefs->IsChecked();
-            theOutParam.SetAreas( ppDataAreas, nDataAreaCount );
-
-            for ( sal_Int32 i=0; i<nDataAreaCount; ++i )
-                delete ppDataAreas[i];
-            delete [] ppDataAreas;
+            theOutParam.SetAreas( std::move(pDataAreas), nDataAreaCount );
 
             ScConsolidateItem aOutItem( nWhichCons, &theOutParam );
 

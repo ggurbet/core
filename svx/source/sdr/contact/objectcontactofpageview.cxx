@@ -126,19 +126,6 @@ namespace sdr
                     DoProcessDisplay(rDisplayInfo);
                 }
             }
-
-            // after paint take care of the evtl. scheduled asynchronious commands.
-            // Do this by resetting the timer contained there. Thus, after the paint
-            // that timer will be triggered and the events will be executed.
-            if(HasEventHandler())
-            {
-                sdr::event::TimerEventHandler& rEventHandler = GetEventHandler();
-
-                if(!rEventHandler.IsEmpty())
-                {
-                    rEventHandler.Restart();
-                }
-            }
         }
 
         // Process the whole displaying. Only use given DisplayInfo, do not access other
@@ -339,15 +326,15 @@ namespace sdr
 
             if(pActiveGroupList)
             {
-                if(dynamic_cast<const SdrPage*>( pActiveGroupList) !=  nullptr)
+                if(nullptr != pActiveGroupList->getSdrPageFromSdrObjList())
                 {
                     // It's a Page itself
-                    return &(static_cast<SdrPage*>(pActiveGroupList)->GetViewContact());
+                    return &(pActiveGroupList->getSdrPageFromSdrObjList()->GetViewContact());
                 }
-                else if(pActiveGroupList->GetOwnerObj())
+                else if(pActiveGroupList->getSdrObjectFromSdrObjList())
                 {
                     // Group object
-                    return &(pActiveGroupList->GetOwnerObj()->GetViewContact());
+                    return &(pActiveGroupList->getSdrObjectFromSdrObjList()->GetViewContact());
                 }
             }
             else if(GetSdrPage())
@@ -418,13 +405,6 @@ namespace sdr
             SdrView& rView = GetPageWindow().GetPageView().GetView();
             const SvtAccessibilityOptions& rOpt = rView.getAccessibilityOptions();
             return rOpt.GetIsAllowAnimatedGraphics();
-        }
-
-        // check if asynchronious graphis loading is allowed. Default is sal_False.
-        bool ObjectContactOfPageView::IsAsynchronGraphicsLoadingAllowed() const
-        {
-            SdrView& rView = GetPageWindow().GetPageView().GetView();
-            return rView.IsSwapAsynchron();
         }
 
         // print?

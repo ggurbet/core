@@ -337,9 +337,9 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
                         if (bMarkChanges)
                             mpView->MarkObj(aVEvt.pRootObj, pPV);
 
-                        if (aVEvt.pObj && dynamic_cast< const SdrTextObj *>( aVEvt.pObj ) !=  nullptr)
+                        if (auto pSdrTextObj = dynamic_cast<SdrTextObj *>( aVEvt.pObj ))
                         {
-                            mxTextObj.reset( static_cast<SdrTextObj*>(aVEvt.pObj) );
+                            mxTextObj.reset( pSdrTextObj );
                         }
 
                         SetInEditMode(rMEvt, true);
@@ -1017,7 +1017,7 @@ void FuText::Deactivate()
 void FuText::SetInEditMode(const MouseEvent& rMEvt, bool bQuickDrag)
 {
     SdrPageView* pPV = mpView->GetSdrPageView();
-    if( mxTextObj.is() && (mxTextObj->GetPage() == pPV->GetPage()) )
+    if( mxTextObj.is() && (mxTextObj->getSdrPageFromSdrObject() == pPV->GetPage()) )
     {
         mpView->SetCurrentObj(OBJ_TEXT);
 
@@ -1055,7 +1055,7 @@ void FuText::SetInEditMode(const MouseEvent& rMEvt, bool bQuickDrag)
                  nSdrObjKind == OBJ_OUTLINETEXT || !mxTextObj->IsEmptyPresObj() ) )
             {
                 // create new outliner (owned by SdrObjEditView)
-                SdrOutliner* pOutl = SdrMakeOutliner(OutlinerMode::OutlineObject, *mpDoc);
+                std::unique_ptr<SdrOutliner> pOutl = SdrMakeOutliner(OutlinerMode::OutlineObject, *mpDoc);
 
                 if (bEmptyOutliner)
                     mpView->SdrEndTextEdit(true);
@@ -1076,7 +1076,7 @@ void FuText::SetInEditMode(const MouseEvent& rMEvt, bool bQuickDrag)
                         pTextObj->setActiveText( pTextObj->CheckTextHit(aPnt ) );
                     }
 
-                    if (mpView->SdrBeginTextEdit(pTextObj, pPV, mpWindow, true, pOutl) && mxTextObj->GetObjInventor() == SdrInventor::Default)
+                    if (mpView->SdrBeginTextEdit(pTextObj, pPV, mpWindow, true, pOutl.release()) && mxTextObj->GetObjInventor() == SdrInventor::Default)
                     {
                         //tdf#102293 flush overlay before going on to pass clicks down to
                         //the outline view which will want to paint selections
@@ -1150,7 +1150,7 @@ void FuText::DeleteDefaultText()
 {
     if ( mxTextObj.is() && mxTextObj->IsEmptyPresObj() )
     {
-        SdPage* pPage = static_cast<SdPage*>( mxTextObj->GetPage() );
+        SdPage* pPage = static_cast<SdPage*>( mxTextObj->getSdrPageFromSdrObject() );
 
         if (pPage)
         {
@@ -1196,10 +1196,10 @@ bool FuText::RequestHelp(const HelpEvent& rHEvt)
         const SvxFieldItem* pFieldItem = pOLV->GetFieldUnderMousePointer();
         const SvxFieldData* pField = pFieldItem->GetField();
 
-        if (pField && dynamic_cast< const SvxURLField *>( pField ) !=  nullptr)
+        if (auto pURLField = dynamic_cast< const SvxURLField *>( pField ))
         {
             // URL-Field
-            aHelpText = INetURLObject::decode( static_cast<const SvxURLField*>(pField)->GetURL(), INetURLObject::DecodeMechanism::WithCharset );
+            aHelpText = INetURLObject::decode( pURLField->GetURL(), INetURLObject::DecodeMechanism::WithCharset );
         }
         if (!aHelpText.isEmpty())
         {
@@ -1209,11 +1209,13 @@ bool FuText::RequestHelp(const HelpEvent& rHEvt)
 
             if (Help::IsBalloonHelpEnabled())
             {
-                bReturn = Help::ShowBalloon( static_cast<vcl::Window*>(mpWindow), rHEvt.GetMousePosPixel(), aScreenRect, aHelpText);
+                Help::ShowBalloon( static_cast<vcl::Window*>(mpWindow), rHEvt.GetMousePosPixel(), aScreenRect, aHelpText);
+                bReturn = true;
             }
             else if (Help::IsQuickHelpEnabled())
             {
-                bReturn = Help::ShowQuickHelp( static_cast<vcl::Window*>(mpWindow), aScreenRect, aHelpText);
+                Help::ShowQuickHelp( static_cast<vcl::Window*>(mpWindow), aScreenRect, aHelpText);
+                bReturn = true;
             }
         }
     }
@@ -1253,9 +1255,9 @@ void FuText::ReceiveRequest(SfxRequest& rReq)
                 mpView->PickAnything(aMEvt, SdrMouseEventKind::BUTTONDOWN, aVEvt);
                 mpView->MarkObj(aVEvt.pRootObj, pPV);
 
-                if (aVEvt.pObj && dynamic_cast< SdrTextObj *>( aVEvt.pObj ) !=  nullptr)
+                if (auto pSdrTextObj = dynamic_cast< SdrTextObj *>( aVEvt.pObj ))
                 {
-                    mxTextObj.reset( static_cast< SdrTextObj* >( aVEvt.pObj ) );
+                    mxTextObj.reset( pSdrTextObj );
                 }
             }
         }

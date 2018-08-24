@@ -27,6 +27,7 @@
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <comphelper/propertysequence.hxx>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -150,7 +151,6 @@ ConfigurationAccess::ConfigurationAccess( const Reference< uno::XComponentContex
     maSettings.emplace_back( );
     maSettings.back().maName = "LastUsedSettings";
     LoadConfiguration();
-    maInitialSettings = maSettings;
 };
 
 ConfigurationAccess::~ConfigurationAccess()

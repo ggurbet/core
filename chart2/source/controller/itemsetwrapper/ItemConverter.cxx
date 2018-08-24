@@ -19,6 +19,7 @@
 
 #include <ItemConverter.hxx>
 #include <com/sun/star/lang/XComponent.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <osl/diagnose.h>
 #include <svl/itempool.hxx>
 #include <svl/itemprop.hxx>
@@ -26,6 +27,7 @@
 #include <svl/whiter.hxx>
 #include <svx/svxids.hrc>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 

@@ -25,6 +25,7 @@
 #include <sfx2/sfxresid.hxx>
 #include <osl/thread.h>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/ui/dialogs/XFilterGroupManager.hpp>
 #include <com/sun/star/beans/StringPair.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -96,14 +97,14 @@ namespace sfx2
     single filters.</p>
 
     <p>Ehm - it was a lie. Not really at the top. Before this group, there is this single "All files" entry. It forms
-    it's own group. But this is uninteresting here.</p>
+    its own group. But this is uninteresting here.</p>
 
     <p>Local classes must consist of filters which - without the classification - would all belong to the same group.
     Then, they're combined to one entry (in the example above: "Microsoft Word 6.0 / 95"), and this entry is inserted
     into the file picker filter list, instead of the single filters which form the class.</p>
 
     <p>This is an interesting difference between local and global classes: Filters which are part of a global class
-    are listed in there own group, too. Filters in local classes aren't listed a second time - neither directly (as
+    are listed in their own group, too. Filters in local classes aren't listed a second time - neither directly (as
     the filter itself) nor indirectly (as part of another local group).</p>
 
     <p>The only exception are filters which are part of a global class <em>and</em> a local class. This is allowed.
@@ -140,8 +141,6 @@ namespace sfx2
 
     typedef ::std::list< FilterClass >                                  FilterClassList;
     typedef ::std::map< OUString, FilterClassList::iterator >    FilterClassReferrer;
-
-    typedef ::std::vector< OUString >                            StringArray;
 
 
 // = reading of configuration data
@@ -219,7 +218,7 @@ namespace sfx2
     };
 
 
-    void lcl_ReadGlobalFilters( const OConfigurationNode& _rFilterClassification, FilterClassList& _rGlobalClasses, StringArray& _rGlobalClassNames )
+    void lcl_ReadGlobalFilters( const OConfigurationNode& _rFilterClassification, FilterClassList& _rGlobalClasses, std::vector<OUString>& _rGlobalClassNames )
     {
         _rGlobalClasses.clear();
         _rGlobalClassNames.clear();
@@ -306,7 +305,7 @@ namespace sfx2
     }
 
 
-    void lcl_ReadClassification( FilterClassList& _rGlobalClasses, StringArray& _rGlobalClassNames, FilterClassList& _rLocalClasses )
+    void lcl_ReadClassification( FilterClassList& _rGlobalClasses, std::vector<OUString>& _rGlobalClassNames, FilterClassList& _rLocalClasses )
     {
 
         // open our config node
@@ -464,7 +463,7 @@ namespace sfx2
     {
         DBG_ASSERT( !_rWildCard.isEmpty(),
             "AppendWildcardToDescriptor::AppendWildcardToDescriptor: invalid wildcard!" );
-        DBG_ASSERT( _rWildCard[0] != s_cWildcardSeparator,
+        DBG_ASSERT( _rWildCard.isEmpty() || _rWildCard[0] != s_cWildcardSeparator,
             "AppendWildcardToDescriptor::AppendWildcardToDescriptor: wildcard already separated!" );
 
         aWildCards.reserve( comphelper::string::getTokenCount(_rWildCard, s_cWildcardSeparator) );
@@ -563,7 +562,7 @@ namespace sfx2
 
         // read the classification of filters
         FilterClassList aGlobalClasses, aLocalClasses;
-        StringArray aGlobalClassNames;
+        std::vector<OUString> aGlobalClassNames;
         lcl_ReadClassification( aGlobalClasses, aGlobalClassNames, aLocalClasses );
 
 
@@ -624,7 +623,7 @@ namespace sfx2
                     "sfx2::lcl_GroupAndClassify: invalid all-filters array here!" );
                     // the loop below will work on invalid objects else ...
                 ++aGroupPos;
-                StringArray::iterator aGlobalIter = aGlobalClassNames.begin();
+                auto aGlobalIter = aGlobalClassNames.begin();
                 while   (   ( aGroupPos != _rAllFilters.end() )
                         &&  ( aGlobalIter != aGlobalClassNames.end() )
                         &&  ( *aGlobalIter != aServiceName )

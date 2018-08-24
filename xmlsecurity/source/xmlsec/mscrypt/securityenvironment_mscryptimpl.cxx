@@ -45,6 +45,7 @@
 #include <osl/nlsupport.h>
 #include <osl/process.h>
 #include <o3tl/char16_t2wchar_t.hxx>
+#include <svl/cryptosign.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang ;
@@ -343,7 +344,7 @@ uno::Sequence< uno::Reference < XCertificate > > SecurityEnvironment_MSCryptImpl
     if( m_bEnableDefault ) {
         HCERTSTORE hSystemKeyStore ;
         DWORD      dwKeySpec;
-        HCRYPTPROV hCryptProv;
+        NCRYPT_KEY_HANDLE hCryptKey;
 
 #ifdef SAL_LOG_INFO
         CertEnumSystemStore(CERT_SYSTEM_STORE_CURRENT_USER, nullptr, nullptr, cert_enum_system_store_callback);
@@ -355,10 +356,12 @@ uno::Sequence< uno::Reference < XCertificate > > SecurityEnvironment_MSCryptImpl
             while (pCertContext)
             {
                 // for checking whether the certificate is a personal certificate or not.
+                DWORD dwFlags = CRYPT_ACQUIRE_COMPARE_KEY_FLAG | CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG;
+                HCRYPTPROV_OR_NCRYPT_KEY_HANDLE* phCryptProvOrNCryptKey = &hCryptKey;
                 if(!(CryptAcquireCertificatePrivateKey(pCertContext,
-                        CRYPT_ACQUIRE_COMPARE_KEY_FLAG,
+                        dwFlags,
                         nullptr,
-                        &hCryptProv,
+                        phCryptProvOrNCryptKey,
                         &dwKeySpec,
                         nullptr)))
                 {
@@ -968,18 +971,20 @@ sal_Int32 SecurityEnvironment_MSCryptImpl::getCertificateCharacters( const css::
     {
         BOOL    fCallerFreeProv ;
         DWORD   dwKeySpec ;
-        HCRYPTPROV  hProv ;
+        NCRYPT_KEY_HANDLE hKey = 0;
+        DWORD dwFlags = CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG;
+        HCRYPTPROV_OR_NCRYPT_KEY_HANDLE* phCryptProvOrNCryptKey = &hKey;
         if( CryptAcquireCertificatePrivateKey( pCertContext ,
-                   0 ,
+                   dwFlags,
                    nullptr ,
-                   &hProv,
+                   phCryptProvOrNCryptKey,
                    &dwKeySpec,
                    &fCallerFreeProv )
         ) {
             characters |=  css::security::CertificateCharacters::HAS_PRIVATE_KEY ;
 
-            if( hProv != NULL && fCallerFreeProv )
-                CryptReleaseContext( hProv, 0 ) ;
+            if (hKey && fCallerFreeProv)
+                NCryptFreeObject(hKey);
         } else {
             characters &= ~ css::security::CertificateCharacters::HAS_PRIVATE_KEY ;
         }
@@ -1021,7 +1026,7 @@ xmlSecKeysMngrPtr SecurityEnvironment_MSCryptImpl::createKeysManager() {
     /*-
      * The following lines is based on the of xmlsec-mscrypto crypto engine
      */
-    pKeysMngr = xmlSecMSCryptoAppliedKeysMngrCreate() ;
+    pKeysMngr = xmlsecurity::MSCryptoAppliedKeysMngrCreate() ;
     if( pKeysMngr == nullptr )
         throw uno::RuntimeException() ;
 
@@ -1032,41 +1037,45 @@ xmlSecKeysMngrPtr SecurityEnvironment_MSCryptImpl::createKeysManager() {
         //Add system key store into the keys manager.
         m_hMySystemStore = CertOpenSystemStoreW( 0, L"MY" ) ;
         if( m_hMySystemStore != nullptr ) {
-            if( xmlSecMSCryptoAppliedKeysMngrAdoptKeyStore( pKeysMngr, m_hMySystemStore ) < 0 ) {
+            if( xmlsecurity::MSCryptoAppliedKeysMngrAdoptKeyStore( pKeysMngr, m_hMySystemStore ) < 0 ) {
                 CertCloseStore( m_hMySystemStore, CERT_CLOSE_STORE_CHECK_FLAG ) ;
                 m_hMySystemStore = nullptr;
                 throw uno::RuntimeException() ;
             }
+            m_hMySystemStore = nullptr;
         }
 
         //Add system root store into the keys manager.
         m_hRootSystemStore = CertOpenSystemStoreW( 0, L"Root" ) ;
         if( m_hRootSystemStore != nullptr ) {
-            if( xmlSecMSCryptoAppliedKeysMngrAdoptTrustedStore( pKeysMngr, m_hRootSystemStore ) < 0 ) {
+            if( xmlsecurity::MSCryptoAppliedKeysMngrAdoptTrustedStore( pKeysMngr, m_hRootSystemStore ) < 0 ) {
                 CertCloseStore( m_hRootSystemStore, CERT_CLOSE_STORE_CHECK_FLAG ) ;
                 m_hRootSystemStore = nullptr;
                 throw uno::RuntimeException() ;
             }
+            m_hRootSystemStore = nullptr;
         }
 
         //Add system trusted store into the keys manager.
         m_hTrustSystemStore = CertOpenSystemStoreW( 0, L"Trust" ) ;
         if( m_hTrustSystemStore != nullptr ) {
-            if( xmlSecMSCryptoAppliedKeysMngrAdoptUntrustedStore( pKeysMngr, m_hTrustSystemStore ) < 0 ) {
+            if( xmlsecurity::MSCryptoAppliedKeysMngrAdoptUntrustedStore( pKeysMngr, m_hTrustSystemStore ) < 0 ) {
                 CertCloseStore( m_hTrustSystemStore, CERT_CLOSE_STORE_CHECK_FLAG ) ;
                 m_hTrustSystemStore = nullptr;
                 throw uno::RuntimeException() ;
             }
+            m_hTrustSystemStore = nullptr;
         }
 
         //Add system CA store into the keys manager.
         m_hCaSystemStore = CertOpenSystemStoreW( 0, L"CA" ) ;
         if( m_hCaSystemStore != nullptr ) {
-            if( xmlSecMSCryptoAppliedKeysMngrAdoptUntrustedStore( pKeysMngr, m_hCaSystemStore ) < 0 ) {
+            if( xmlsecurity::MSCryptoAppliedKeysMngrAdoptUntrustedStore( pKeysMngr, m_hCaSystemStore ) < 0 ) {
                 CertCloseStore( m_hCaSystemStore, CERT_CLOSE_STORE_CHECK_FLAG ) ;
                 m_hCaSystemStore = nullptr;
                 throw uno::RuntimeException() ;
             }
+            m_hCaSystemStore = nullptr;
         }
     }
 

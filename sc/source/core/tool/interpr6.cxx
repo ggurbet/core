@@ -464,7 +464,7 @@ void IterateMatrix(
 size_t ScInterpreter::GetRefListArrayMaxSize( short nParamCount )
 {
     size_t nSize = 0;
-    if (bMatrixFormula || pCur->IsInForceArray())
+    if (IsInArrayContext())
     {
         for (short i=1; i <= nParamCount; ++i)
         {
@@ -548,6 +548,7 @@ void ScInterpreter::IterateParameters( ScIterFunc eFunc, bool bTextAsZero )
                 }
                 else
                 {
+                    Pop();
                     switch ( eFunc )
                     {
                         case ifAVERAGE:
@@ -557,7 +558,6 @@ void ScInterpreter::IterateParameters( ScIterFunc eFunc, bool bTextAsZero )
                         {
                             if ( bTextAsZero )
                             {
-                                Pop();
                                 nCount++;
                                 if ( eFunc == ifPRODUCT )
                                     fRes = 0.0;
@@ -571,7 +571,6 @@ void ScInterpreter::IterateParameters( ScIterFunc eFunc, bool bTextAsZero )
                         }
                         break;
                         default:
-                            Pop();
                             nCount++;
                     }
                 }
@@ -670,19 +669,19 @@ void ScInterpreter::IterateParameters( ScIterFunc eFunc, bool bTextAsZero )
                     return;
                 }
 
+                if ( ( ( mnSubTotalFlags & SubtotalFlags::IgnoreFiltered ) &&
+                     pDok->RowFiltered( aAdr.Row(), aAdr.Tab() ) ) ||
+                     ( ( mnSubTotalFlags & SubtotalFlags::IgnoreHidden ) &&
+                       pDok->RowHidden( aAdr.Row(), aAdr.Tab() ) ) )
+                {
+                    break;
+                }
                 if ( nGlobalError != FormulaError::NONE && ( eFunc == ifCOUNT2 || eFunc == ifCOUNT ||
                      ( mnSubTotalFlags & SubtotalFlags::IgnoreErrVal ) ) )
                 {
                     nGlobalError = FormulaError::NONE;
                     if ( eFunc == ifCOUNT2 && !( mnSubTotalFlags & SubtotalFlags::IgnoreErrVal ) )
                         ++nCount;
-                    break;
-                }
-                if ( ( ( mnSubTotalFlags & SubtotalFlags::IgnoreFiltered ) &&
-                     pDok->RowFiltered( aAdr.Row(), aAdr.Tab() ) ) ||
-                     ( ( mnSubTotalFlags & SubtotalFlags::IgnoreHidden ) &&
-                       pDok->RowHidden( aAdr.Row(), aAdr.Tab() ) ) )
-                {
                     break;
                 }
                 ScRefCellValue aCell(*pDok, aAdr);
@@ -809,7 +808,7 @@ void ScInterpreter::IterateParameters( ScIterFunc eFunc, bool bTextAsZero )
                     ScCellIterator aIter( pDok, aRange, mnSubTotalFlags );
                     for (bool bHas = aIter.first(); bHas; bHas = aIter.next())
                     {
-                        if ( !aIter.hasEmptyData() )
+                        if ( !aIter.isEmpty() )
                         {
                             ++nCount;
                         }
@@ -853,6 +852,7 @@ void ScInterpreter::IterateParameters( ScIterFunc eFunc, bool bTextAsZero )
                 else
                 {
                     ScValueIterator aValIter( pDok, aRange, mnSubTotalFlags, bTextAsZero );
+                    aValIter.SetInterpreterContext( &mrContext );
                     FormulaError nErr = FormulaError::NONE;
                     if (aValIter.GetFirst(fVal, nErr))
                     {

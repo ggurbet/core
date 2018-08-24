@@ -120,7 +120,29 @@
 #include <iodetect.hxx>
 #include <wrthtml.hxx>
 
-static char const DATA_DIRECTORY[] = "/sw/qa/extras/uiwriter/data/";
+namespace
+{
+char const DATA_DIRECTORY[] = "/sw/qa/extras/uiwriter/data/";
+
+int CountFilesInDirectory(const OUString &rURL)
+{
+    int nRet = 0;
+
+    osl::Directory aDir(rURL);
+    CPPUNIT_ASSERT_EQUAL(osl::FileBase::E_None, aDir.open());
+
+    osl::DirectoryItem aItem;
+    osl::FileStatus aFileStatus(osl_FileStatus_Mask_FileURL|osl_FileStatus_Mask_Type);
+    while (aDir.getNextItem(aItem) == osl::FileBase::E_None)
+    {
+        aItem.getFileStatus(aFileStatus);
+        if (aFileStatus.getFileType() != osl::FileStatus::Directory)
+            ++nRet;
+    }
+
+    return nRet;
+}
+}
 
 class SwUiWriterTest : public SwModelTestBase, public HtmlTestTools
 {
@@ -280,6 +302,8 @@ public:
     void testTdf72942();
     void testTdf113877();
     void testTdf113877NoMerge();
+    void testTdf113877_default_style();
+    void testTdf113877_Standard_style();
     void testMsWordCompTrailingBlanks();
     void testCreateDocxAnnotation();
     void testTdf107976();
@@ -300,6 +324,7 @@ public:
     void testTdf113445();
     void testTdf113686();
 #endif
+    void testFontEmbedding();
     void testLinesInSectionInTable();
     void testParagraphOfTextRange();
     void testTdf99689TableOfContents();
@@ -319,6 +344,9 @@ public:
     void testTdf116403();
     void testHtmlCopyImages();
     void testTdf116789();
+    void testTdf117225();
+    void testTdf91801();
+    void testTdf51223();
 
     CPPUNIT_TEST_SUITE(SwUiWriterTest);
     CPPUNIT_TEST(testReplaceForward);
@@ -472,6 +500,8 @@ public:
     CPPUNIT_TEST(testTdf72942);
     CPPUNIT_TEST(testTdf113877);
     CPPUNIT_TEST(testTdf113877NoMerge);
+    CPPUNIT_TEST(testTdf113877_default_style);
+    CPPUNIT_TEST(testTdf113877_Standard_style);
     CPPUNIT_TEST(testMsWordCompTrailingBlanks);
     CPPUNIT_TEST(testCreateDocxAnnotation);
     CPPUNIT_TEST(testTdf107976);
@@ -491,6 +521,7 @@ public:
     CPPUNIT_TEST(testTdf113287);
     CPPUNIT_TEST(testTdf113445);
     CPPUNIT_TEST(testTdf113686);
+    CPPUNIT_TEST(testFontEmbedding);
 #endif
     CPPUNIT_TEST(testLinesInSectionInTable);
     CPPUNIT_TEST(testParagraphOfTextRange);
@@ -511,6 +542,9 @@ public:
     CPPUNIT_TEST(testTdf116403);
     CPPUNIT_TEST(testHtmlCopyImages);
     CPPUNIT_TEST(testTdf116789);
+    CPPUNIT_TEST(testTdf117225);
+    CPPUNIT_TEST(testTdf91801);
+    CPPUNIT_TEST(testTdf51223);
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -710,7 +744,7 @@ void SwUiWriterTest::testTdf67238()
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
     sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
     //insert a 3X3 table in the newly created document
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     const SwTable& rTable = pWrtShell->InsertTable(TableOpt, 3, 3);
     //checking for the rows and columns
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1), uno::UNO_QUERY);
@@ -1854,7 +1888,7 @@ void SwUiWriterTest::testDeleteTableRedlines()
 {
     SwDoc* pDoc = createDoc();
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     const SwTable& rTable = pWrtShell->InsertTable(TableOpt, 1, 3);
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xTable->getRows()->getCount());
@@ -2369,7 +2403,7 @@ void SwUiWriterTest::testTdf72788()
     pCursor->GetNode().GetTextNode()->GetAttr(aSet, 5, 12);
     SfxPoolItem const * pPoolItem = aSet.GetItem(RES_CHRATR_WEIGHT);
     //Check that bold is active on the selection and it's in aSet
-    CPPUNIT_ASSERT_EQUAL((*pPoolItem == aWeightItem), true);
+    CPPUNIT_ASSERT_EQUAL(true, (*pPoolItem == aWeightItem));
     //Make selection to remove formatting in first paragraph
     //[this is text
     //]more text
@@ -2388,7 +2422,7 @@ void SwUiWriterTest::testTdf72788()
     //Check that bold is removed in first paragraph
     pTextNode->GetAttr(aSet, 5, 12);
     SfxPoolItem const * pPoolItem2 = aSet.GetItem(RES_CHRATR_WEIGHT);
-    CPPUNIT_ASSERT_EQUAL((*pPoolItem2 != aWeightItem), true);
+    CPPUNIT_ASSERT_EQUAL(true, (*pPoolItem2 != aWeightItem));
 }
 
 void SwUiWriterTest::testTdf60967()
@@ -2399,7 +2433,7 @@ void SwUiWriterTest::testTdf60967()
     sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
     pWrtShell->ChangeHeaderOrFooter("Default Style", true, true, true);
     //Inserting table
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     pWrtShell->InsertTable(TableOpt, 2, 2);
     //getting the cursor's position just after the table insert
     SwPosition aPosAfterTable(*(pCursor->GetPoint()));
@@ -2407,8 +2441,8 @@ void SwUiWriterTest::testTdf60967()
     pCursor->Move(fnMoveBackward);
     SwPosition aPosInTable(*(pCursor->GetPoint()));
     //deleting paragraph following table with Ctrl+Shift+Del
-    sal_Int32 val = pWrtShell->DelToEndOfSentence();
-    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), val);
+    bool val = pWrtShell->DelToEndOfSentence();
+    CPPUNIT_ASSERT_EQUAL(true, val);
     //getting the cursor's position just after the paragraph deletion
     SwPosition aPosAfterDel(*(pCursor->GetPoint()));
     //moving cursor forward to check whether there is any node following the table, BTW there should not be any such node
@@ -3072,7 +3106,7 @@ void SwUiWriterTest::testTdf80663()
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
     //Inserting 2x2 Table
     sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     pWrtShell->InsertTable(TableOpt, 2, 2);
     //Checking for the number of rows and columns
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1), uno::UNO_QUERY);
@@ -3159,7 +3193,7 @@ void SwUiWriterTest::testTdf57197()
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
     //Inserting 1x1 Table
     sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     pWrtShell->InsertTable(TableOpt, 1, 1);
     //Checking for the number of rows and columns
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1), uno::UNO_QUERY);
@@ -3515,7 +3549,7 @@ void SwUiWriterTest::testTableBackgroundColor()
 {
     SwDoc* pDoc = createDoc();
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     pWrtShell->InsertTable(TableOpt, 3, 3); //Inserting Table
     //Checking Rows and Columns of Inserted Table
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1), uno::UNO_QUERY);
@@ -3742,14 +3776,14 @@ void SwUiWriterTest::testUndoCharAttribute()
     pCursor->GetNode().GetTextNode()->GetAttr(aSet, 10, 19);
     SfxPoolItem const * pPoolItem = aSet.GetItem(RES_CHRATR_WEIGHT);
     // Check that bold is active on the selection; checks if it's in aSet
-    CPPUNIT_ASSERT_EQUAL((*pPoolItem == aWeightItem), true);
+    CPPUNIT_ASSERT_EQUAL(true, (*pPoolItem == aWeightItem));
     // Invoke Undo
     rUndoManager.Undo();
     // Check that bold is no longer active
     aSet.ClearItem(RES_CHRATR_WEIGHT);
     pCursor->GetNode().GetTextNode()->GetAttr(aSet, 10, 19);
     pPoolItem = aSet.GetItem(RES_CHRATR_WEIGHT);
-    CPPUNIT_ASSERT_EQUAL((*pPoolItem == aWeightItem), false);
+    CPPUNIT_ASSERT_EQUAL(false, (*pPoolItem == aWeightItem));
 }
 
 void SwUiWriterTest::testUndoDelAsChar()
@@ -5551,6 +5585,70 @@ void SwUiWriterTest::testTdf113877NoMerge()
     CPPUNIT_ASSERT(listId6 != listId7);
 }
 
+// Related test to testTdf113877(): Inserting into empty document a new document with list.
+// Insert position has NO its own paragraph style ("Standard" will be used).
+//
+// Resulting document should be the same for following tests:
+// - testTdf113877_default_style()
+// - testTdf113877_Standard_style()
+//
+void SwUiWriterTest::testTdf113877_default_style()
+{
+    load(DATA_DIRECTORY, "tdf113877_blank.odt");
+
+    // set a page cursor into the end of the document
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    uno::Reference<text::XTextViewCursorSupplier> xTextViewCursorSupplier(xModel->getCurrentController(), uno::UNO_QUERY);
+    uno::Reference<text::XPageCursor> xCursor(xTextViewCursorSupplier->getViewCursor(), uno::UNO_QUERY);
+    xCursor->jumpToEndOfPage();
+
+    // insert the same document at current cursor position
+    {
+        const OUString insertFileid = m_directories.getURLFromSrc(DATA_DIRECTORY) + "tdf113877_insert_numbered_list_abcd.odt";
+        uno::Sequence<beans::PropertyValue> aPropertyValues(comphelper::InitPropertySequence({ { "Name", uno::makeAny(insertFileid) } }));
+        lcl_dispatchCommand(mxComponent, ".uno:InsertDoc", aPropertyValues);
+    }
+
+    const OUString listId1 = getProperty<OUString>(getParagraph(1), "ListId");
+    const OUString listId2 = getProperty<OUString>(getParagraph(2), "ListId");
+    const OUString listId3 = getProperty<OUString>(getParagraph(3), "ListId");
+
+    CPPUNIT_ASSERT_EQUAL(listId1, listId2);
+    CPPUNIT_ASSERT_EQUAL(listId1, listId3);
+}
+
+// Related test to testTdf113877(): Inserting into empty document a new document with list.
+// Insert position has its own paragraph style derived from "Standard", but this style is the same as "Standard".
+//
+// Resulting document should be the same for following tests:
+// - testTdf113877_default_style()
+// - testTdf113877_Standard_style()
+//
+void SwUiWriterTest::testTdf113877_Standard_style()
+{
+    load(DATA_DIRECTORY, "tdf113877_blank_ownStandard.odt");
+
+    // set a page cursor into the end of the document
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    uno::Reference<text::XTextViewCursorSupplier> xTextViewCursorSupplier(xModel->getCurrentController(), uno::UNO_QUERY);
+    uno::Reference<text::XPageCursor> xCursor(xTextViewCursorSupplier->getViewCursor(), uno::UNO_QUERY);
+    xCursor->jumpToEndOfPage();
+
+    // insert the same document at current cursor position
+    {
+        const OUString insertFileid = m_directories.getURLFromSrc(DATA_DIRECTORY) + "tdf113877_insert_numbered_list_abcd.odt";
+        uno::Sequence<beans::PropertyValue> aPropertyValues(comphelper::InitPropertySequence({ { "Name", uno::makeAny(insertFileid) } }));
+        lcl_dispatchCommand(mxComponent, ".uno:InsertDoc", aPropertyValues);
+    }
+
+    const OUString listId1 = getProperty<OUString>(getParagraph(1), "ListId");
+    const OUString listId2 = getProperty<OUString>(getParagraph(2), "ListId");
+    const OUString listId3 = getProperty<OUString>(getParagraph(3), "ListId");
+
+    CPPUNIT_ASSERT_EQUAL(listId1, listId2);
+    CPPUNIT_ASSERT_EQUAL(listId1, listId3);
+}
+
 void SwUiWriterTest::testTdf108524()
 {
     createDoc("tdf108524.odt");
@@ -6057,7 +6155,7 @@ void SwUiWriterTest::testTdf115132()
     pWrtShell->SplitNode();
     pWrtShell->SttDoc();
     // Create a table at the start of document body
-    SwInsertTableOptions TableOpt(tabopts::DEFAULT_BORDER, 0);
+    SwInsertTableOptions TableOpt(SwInsertTableFlags::DefaultBorder, 0);
     const SwTable* pTable = &pWrtShell->InsertTable(TableOpt, 2, 3);
     const SwTableFormat* pFormat = pTable->GetFrameFormat();
     CPPUNIT_ASSERT(pFormat);
@@ -6189,6 +6287,189 @@ void SwUiWriterTest::testTdf116789()
     }
     // This failed, we got two different SwXCell for the same bookmark anchor text.
     CPPUNIT_ASSERT_EQUAL(xText1, xText2);
+}
+
+void SwUiWriterTest::testTdf117225()
+{
+    // Test that saving a document with an embedded object does not leak
+    // tempfiles in the directory of the target file.
+    OUString aTargetDirectory = m_directories.getURLFromWorkdir("/CppunitTest/sw_uiwriter.test.user/");
+    OUString aTargetFile = aTargetDirectory + "tdf117225.odt";
+    OUString aSourceFile = m_directories.getURLFromSrc(DATA_DIRECTORY) + "tdf117225.odt";
+    osl::File::copy(aSourceFile, aTargetFile);
+    mxComponent = loadFromDesktop(aTargetFile);
+    uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+    int nExpected = CountFilesInDirectory(aTargetDirectory);
+    xStorable->store();
+    int nActual = CountFilesInDirectory(aTargetDirectory);
+    // nActual was nExpected + 1, i.e. we leaked a tempfile.
+    CPPUNIT_ASSERT_EQUAL(nExpected, nActual);
+
+    OUString aTargetFileSaveAs = aTargetDirectory + "tdf117225-save-as.odt";
+    xStorable->storeAsURL(aTargetFileSaveAs, {});
+    ++nExpected;
+    nActual = CountFilesInDirectory(aTargetDirectory);
+    // nActual was nExpected + 1, i.e. we leaked a tempfile.
+    CPPUNIT_ASSERT_EQUAL(nExpected, nActual);
+}
+
+void SwUiWriterTest::testTdf91801()
+{
+    // Tests calculation with several user field variables without prior user fields
+    createDoc("tdf91801.fodt");
+    uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1), uno::UNO_QUERY);
+    uno::Reference<table::XCell> xCell(xTable->getCellByName("A1"));
+    CPPUNIT_ASSERT_EQUAL(555.0, xCell->getValue());
+}
+
+void SwUiWriterTest::testTdf51223()
+{
+    SwDoc* pDoc = createDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
+    sal_uLong nIndex = pWrtShell->GetCursor()->GetNode().GetIndex();
+    pWrtShell->Insert("i");
+    pWrtShell->SplitNode(true);
+    CPPUNIT_ASSERT_EQUAL(OUString("I"), static_cast<SwTextNode*>(pDoc->GetNodes()[nIndex])->GetText());
+    rUndoManager.Undo();
+    CPPUNIT_ASSERT_EQUAL(OUString("i"), static_cast<SwTextNode*>(pDoc->GetNodes()[nIndex])->GetText());
+
+}
+
+void SwUiWriterTest::testFontEmbedding()
+{
+#if HAVE_MORE_FONTS && !defined(MACOSX)
+    createDoc("testFontEmbedding.odt");
+
+    OString aContentBaseXpath("/office:document-content/office:font-face-decls");
+    OString aSettingsBaseXpath("/office:document-settings/office:settings/config:config-item-set");
+
+    xmlDocPtr pXmlDoc = nullptr;
+    uno::Sequence<beans::PropertyValue> aDescriptor;
+    utl::TempFile aTempFile;
+    aTempFile.EnableKillingFile();
+
+    // Get document settings
+    uno::Reference<lang::XMultiServiceFactory> xFactory(mxComponent, uno::UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xProps(xFactory->createInstance("com.sun.star.document.Settings"), uno::UNO_QUERY_THROW);
+
+    // Check font embedding state
+    CPPUNIT_ASSERT_EQUAL(false, xProps->getPropertyValue("EmbedFonts").get<bool>());
+    CPPUNIT_ASSERT_EQUAL(false, xProps->getPropertyValue("EmbedOnlyUsedFonts").get<bool>());
+    // Font scripts should be enabled by default, however this has no effect unless "EmbedOnlyUsedFonts" is enabled
+    CPPUNIT_ASSERT_EQUAL(true, xProps->getPropertyValue("EmbedLatinScriptFonts").get<bool>());
+    CPPUNIT_ASSERT_EQUAL(true, xProps->getPropertyValue("EmbedAsianScriptFonts").get<bool>());
+    CPPUNIT_ASSERT_EQUAL(true, xProps->getPropertyValue("EmbedComplexScriptFonts").get<bool>());
+
+    // CASE 1 - no font embedding enabled
+
+    // Save the document
+    uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+    xStorable->storeToURL(aTempFile.GetURL(), aDescriptor);
+    CPPUNIT_ASSERT(aTempFile.IsValid());
+
+    // Check setting - No font embedding should be enabled
+    pXmlDoc = parseExportInternal(aTempFile.GetURL(),"settings.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedFonts']", "false");
+
+    // Check content - No font-face-src nodes should be present
+    pXmlDoc = parseExportInternal(aTempFile.GetURL(),"content.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face", 6);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans1']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans1']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif1']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif1']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Carlito']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Carlito']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Caladea']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Caladea']/svg:font-face-src", 0);
+
+    // CASE 2 - font embedding enabled, but embed used fonts disabled
+
+    // Enable font embedding, disable embedding used font only
+    xProps->setPropertyValue("EmbedFonts", uno::makeAny(true));
+    xProps->setPropertyValue("EmbedOnlyUsedFonts", uno::makeAny(false));
+
+    // Save the document again
+    xStorable->storeToURL(aTempFile.GetURL(), aDescriptor);
+    CPPUNIT_ASSERT(aTempFile.IsValid());
+
+    // Check setting - font embedding should be enabled + embed only used fonts and scripts
+    pXmlDoc = parseExportInternal(aTempFile.GetURL(),"settings.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedOnlyUsedFonts']", "false");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedLatinScriptFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedAsianScriptFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedComplexScriptFonts']", "true");
+
+    // Check content - font-face-src should be present only for "Liberation Sans" fonts
+
+    pXmlDoc = parseExportInternal(aTempFile.GetURL(),"content.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face", 6);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans1']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans1']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif1']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif1']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Carlito']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Carlito']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Caladea']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Caladea']/svg:font-face-src", 1);
+
+    // CASE 3 - font embedding enabled, embed only used fonts enabled
+
+    // Enable font embedding and setting to embed used fonts only
+    xProps->setPropertyValue("EmbedFonts", uno::makeAny(true));
+    xProps->setPropertyValue("EmbedOnlyUsedFonts", uno::makeAny(true));
+    xProps->setPropertyValue("EmbedLatinScriptFonts", uno::makeAny(true));
+    xProps->setPropertyValue("EmbedAsianScriptFonts", uno::makeAny(true));
+    xProps->setPropertyValue("EmbedComplexScriptFonts", uno::makeAny(true));
+
+    // Save the document again
+    xStorable->storeToURL(aTempFile.GetURL(), aDescriptor);
+    CPPUNIT_ASSERT(aTempFile.IsValid());
+
+    // Check setting - font embedding should be enabled + embed only used fonts and scripts
+    pXmlDoc = parseExportInternal(aTempFile.GetURL(),"settings.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedOnlyUsedFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedLatinScriptFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedAsianScriptFonts']", "true");
+    assertXPathContent(pXmlDoc, aSettingsBaseXpath + "/config:config-item[@config:name='EmbedComplexScriptFonts']", "true");
+
+    // Check content - font-face-src should be present only for "Liberation Sans" fonts
+
+    pXmlDoc = parseExportInternal(aTempFile.GetURL(),"content.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face", 6);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans1']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Sans1']/svg:font-face-src", 0);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif1']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Liberation Serif1']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Carlito']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Carlito']/svg:font-face-src", 1);
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Caladea']");
+    assertXPath(pXmlDoc, aContentBaseXpath + "/style:font-face[@style:name='Caladea']/svg:font-face-src", 0);
+#endif
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SwUiWriterTest);

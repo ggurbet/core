@@ -39,7 +39,6 @@
 #include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/style/BreakType.hpp>
 #include <unotools/tempfile.hxx>
-#include <comphelper/sequenceashashmap.hxx>
 #include <com/sun/star/text/XDocumentIndex.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
@@ -603,7 +602,7 @@ DECLARE_OOXMLEXPORT_TEST(testI120928, "i120928.docx")
     uno::Sequence<beans::PropertyValue> aProps;
     xLevels->getByIndex(0) >>= aProps; // 1st level
 
-    uno::Reference<graphic::XGraphic> xGraphic;
+    uno::Reference<awt::XBitmap> xBitmap;
     sal_Int16 nNumberingType = -1;
 
     for (int i = 0; i < aProps.getLength(); ++i)
@@ -612,11 +611,11 @@ DECLARE_OOXMLEXPORT_TEST(testI120928, "i120928.docx")
 
         if (rProp.Name == "NumberingType")
             nNumberingType = rProp.Value.get<sal_Int16>();
-        else if (rProp.Name == "Graphic")
-            xGraphic = rProp.Value.get<uno::Reference<graphic::XGraphic>>();
+        else if (rProp.Name == "GraphicBitmap")
+            xBitmap = rProp.Value.get<uno::Reference<awt::XBitmap>>();
     }
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::BITMAP, nNumberingType);
-    CPPUNIT_ASSERT(xGraphic.is());
+    CPPUNIT_ASSERT(xBitmap.is());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo64826, "fdo64826.docx")

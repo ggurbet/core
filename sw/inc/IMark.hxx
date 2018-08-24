@@ -27,8 +27,6 @@
 #include <memory>
 #include "swdllapi.h"
 
-struct SwPosition;
-
 namespace sw { namespace mark
 {
     enum class InsertMode
@@ -40,6 +38,7 @@ namespace sw { namespace mark
     class SW_DLLPUBLIC IMark
         : virtual public SwModify // inherited as interface
         , public ::boost::totally_ordered<IMark>
+        , virtual public sw::BroadcasterMixin
     {
         protected:
             IMark() = default;
@@ -91,6 +90,10 @@ namespace sw { namespace mark
             virtual const vcl::KeyCode& GetKeyCode() const =0;
             virtual void SetShortName(const OUString&) =0;
             virtual void SetKeyCode(const vcl::KeyCode&) =0;
+            virtual bool IsHidden() const =0;
+            virtual const OUString& GetHideCondition() const =0;
+            virtual void Hide(bool hide) =0;
+            virtual void SetHideCondition(const OUString&) =0;
         private:
             IBookmark(IBookmark&) = delete;
             IBookmark &operator =(IBookmark const&) = delete;

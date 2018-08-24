@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -25,6 +25,7 @@
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 
+#include <sal/log.hxx>
 #include <edtwin.hxx>
 #include <hintids.hxx>
 #include <tools/urlobj.hxx>
@@ -145,7 +146,9 @@ using namespace ::sfx2;
 // create DocInfo (virtual)
 VclPtr<SfxDocumentInfoDialog> SwDocShell::CreateDocumentInfoDialog(const SfxItemSet &rSet)
 {
-    VclPtr<SfxDocumentInfoDialog> pDlg = VclPtr<SfxDocumentInfoDialog>::Create(&GetView()->GetViewFrame()->GetWindow(), rSet);
+    SfxViewShell* pViewShell = GetView() ? GetView() : SfxViewShell::Current();
+    vcl::Window* pWindow = pViewShell ? &pViewShell->GetViewFrame()->GetWindow() : nullptr;
+    VclPtr<SfxDocumentInfoDialog> pDlg = VclPtr<SfxDocumentInfoDialog>::Create(pWindow, rSet);
     //only with statistics, when this document is being shown, not
     //from within the Doc-Manager
     SwDocShell* pDocSh = static_cast<SwDocShell*>( SfxObjectShell::Current());
@@ -156,7 +159,6 @@ VclPtr<SfxDocumentInfoDialog> SwDocShell::CreateDocumentInfoDialog(const SfxItem
         if ( pVSh && dynamic_cast< const SwSrcView *>( pVSh ) ==  nullptr )
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
             pDlg->AddFontTabPage();
             pDlg->AddTabPage(RID_SW_TP_DOC_STAT, SwResId(STR_DOC_STAT), pFact->GetTabPageCreatorFunc(RID_SW_TP_DOC_STAT), nullptr);
         }
@@ -254,6 +256,47 @@ void SwDocShell::Notify( SfxBroadcaster&, const SfxHint& rHint )
     if( xVbaEvents.is() )
         lcl_processCompatibleSfxHint( xVbaEvents, rHint );
 
+    if ( const SfxEventHint* pSfxEventHint = dynamic_cast<const SfxEventHint*>(&rHint) )
+    {
+        switch( pSfxEventHint->GetEventId() )
+        {
+            case SfxEventHintId::ActivateDoc:
+            case SfxEventHintId::CreateDoc:
+            case SfxEventHintId::OpenDoc:
+            {
+                uno::Sequence< css::uno::Any > aArgs;
+                SW_MOD()->CallAutomationApplicationEventSinks( "DocumentChange", aArgs );
+                break;
+            }
+            default:
+                break;
+        }
+
+        switch( pSfxEventHint->GetEventId() )
+        {
+            case SfxEventHintId::CreateDoc:
+                {
+                    uno::Any aDocument;
+                    aDocument <<= mxAutomationDocumentObject;
+                    uno::Sequence< uno::Any > aArgs(1);
+                    aArgs[0] = aDocument;
+                    SW_MOD()->CallAutomationApplicationEventSinks( "NewDocument", aArgs );
+                }
+                break;
+            case SfxEventHintId::OpenDoc:
+                {
+                    uno::Any aDocument;
+                    aDocument <<= mxAutomationDocumentObject;
+                    uno::Sequence< uno::Any > aArgs(1);
+                    aArgs[0] = aDocument;
+                    SW_MOD()->CallAutomationApplicationEventSinks( "DocumentOpen", aArgs );
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
     sal_uInt16 nAction = 0;
     auto pEventHint = dynamic_cast<const SfxEventHint*>(&rHint);
     if( pEventHint && pEventHint->GetEventId() == SfxEventHintId::LoadFinished )
@@ -324,6 +367,28 @@ bool SwDocShell::PrepareClose( bool bUI )
 {
     bool bRet = SfxObjectShell::PrepareClose( bUI );
 
+    // If we are going to close it at this point, let potential DocumentBeforeClose event handlers
+    // in Automation clients veto it.
+    if (bRet && m_xDoc && IsInPrepareClose())
+    {
+        uno::Any aDocument;
+        aDocument <<= mxAutomationDocumentObject;
+
+        uno::Sequence< uno::Any > aArgs(2);
+        // Arg 0: Document
+        aArgs[0] = aDocument;
+        // Arg 1: Cancel
+        aArgs[1] <<= false;
+
+        SW_MOD()->CallAutomationApplicationEventSinks( "DocumentBeforeClose", aArgs );
+
+        // If the Cancel argument was set to True by an event handler, return false.
+        bool bCancel(false);
+        aArgs[1] >>= bCancel;
+        if (bCancel)
+            bRet = false;
+    }
+
     if( bRet )
         EndListening( *this );
 
@@ -334,8 +399,8 @@ bool SwDocShell::PrepareClose( bool bUI )
         if( xVbaEvents.is() )
         {
             using namespace com::sun::star::script::vba::VBAEventId;
-            uno::Sequence< uno::Any > aArgs;
-            xVbaEvents->processVbaEvent( DOCUMENT_CLOSE, aArgs );
+            uno::Sequence< uno::Any > aNoArgs;
+            xVbaEvents->processVbaEvent( DOCUMENT_CLOSE, aNoArgs );
         }
     }
     return bRet;
@@ -359,7 +424,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
 
             rACW.SetLockWordLstLocked( true );
 
-            editeng::SortedAutoCompleteStrings aTmpLst( rACW.GetWordList() );
+            editeng::SortedAutoCompleteStrings aTmpLst( rACW.GetWordList().createNonOwningCopy() );
             pAFlags->m_pAutoCompleteList = &aTmpLst;
 
             SfxApplication* pApp = SfxGetpApp();
@@ -393,8 +458,6 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 // clear the temp WordList pointer
                 pAFlags->m_pAutoCompleteList = nullptr;
             }
-            // remove all pointer we never delete the strings
-            aTmpLst.clear();
 
             if( !bOldAutoCmpltCollectWords && bOldAutoCmpltCollectWords !=
                 pAFlags->bAutoCmpltCollectWords )
@@ -699,10 +762,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
         case FN_ABSTRACT_NEWDOC:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
             ScopedVclPtr<AbstractSwInsertAbstractDlg> pDlg(pFact->CreateSwInsertAbstractDlg());
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
             if(RET_OK == pDlg->Execute())
             {
                 sal_uInt8 nLevel = pDlg->GetLevel();
@@ -1225,10 +1285,11 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 }
                 else
                 {
-                    SfxViewShell* pViewShell = GetView()? GetView(): SfxViewShell::Current();
+                    SfxViewShell* pViewShell = GetView() ? GetView() : SfxViewShell::Current();
                     SfxBindings& rBindings( pViewShell->GetViewFrame()->GetBindings() );
-                    VclPtr<SwWatermarkDialog> pDlg(VclPtr<SwWatermarkDialog>::Create(&GetView()->GetViewFrame()->GetWindow(), rBindings));
-                    pDlg->StartExecuteAsync([](sal_Int32 /*nResult*/){});
+                    std::shared_ptr<SwWatermarkDialog> xDlg(new SwWatermarkDialog(pViewShell->GetViewFrame()->GetWindow().GetFrameWeld(),
+                                                                                  rBindings));
+                    weld::DialogController::runAsync(xDlg, [](sal_Int32 /*nResult*/){});
                 }
             }
         }

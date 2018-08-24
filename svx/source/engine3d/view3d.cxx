@@ -200,10 +200,10 @@ void Impl3DMirrorConstructOverlay::SetMirrorAxis(Point aMirrorAxisA, Point aMirr
                     drawinglayer::primitive2d::Primitive2DReference aUnifiedTransparencePrimitive2D(new drawinglayer::primitive2d::UnifiedTransparencePrimitive2D(aContent, 0.5));
                     aContent = drawinglayer::primitive2d::Primitive2DContainer { aUnifiedTransparencePrimitive2D };
 
-                    sdr::overlay::OverlayPrimitive2DSequenceObject* pNew = new sdr::overlay::OverlayPrimitive2DSequenceObject(aContent);
+                    std::unique_ptr<sdr::overlay::OverlayPrimitive2DSequenceObject> pNew(new sdr::overlay::OverlayPrimitive2DSequenceObject(aContent));
 
                     xTargetOverlay->add(*pNew);
-                    maObjects.append(pNew);
+                    maObjects.append(std::move(pNew));
                 }
             }
             else
@@ -214,10 +214,10 @@ void Impl3DMirrorConstructOverlay::SetMirrorAxis(Point aMirrorAxisA, Point aMirr
                     basegfx::B2DPolyPolygon aPolyPolygon(mpPolygons[b]);
                     aPolyPolygon.transform(aMatrixTransform);
 
-                    sdr::overlay::OverlayPolyPolygonStripedAndFilled* pNew = new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
-                        aPolyPolygon);
+                    std::unique_ptr<sdr::overlay::OverlayPolyPolygonStripedAndFilled> pNew(new sdr::overlay::OverlayPolyPolygonStripedAndFilled(
+                        aPolyPolygon));
                     xTargetOverlay->add(*pNew);
-                    maObjects.append(pNew);
+                    maObjects.append(std::move(pNew));
                 }
             }
         }
@@ -245,19 +245,25 @@ void E3dView::DrawMarkedObj(OutputDevice& rOut) const
     for(size_t nObjs = 0; nObjs < nCnt; ++nObjs)
     {
         SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
-        if(pObj && dynamic_cast< const E3dCompoundObject*>(pObj) !=  nullptr)
+        if(auto pCompoundObject = dynamic_cast<E3dCompoundObject*>(pObj))
         {
             // related scene
-            pScene = static_cast<E3dCompoundObject*>(pObj)->GetScene();
-            if(pScene && !IsObjMarked(pScene))
+            pScene = pCompoundObject->getRootE3dSceneFromE3dObject();
+
+            if(nullptr != pScene && !IsObjMarked(pScene))
+            {
                 bSpecialHandling = true;
+            }
         }
         // Reset all selection flags
-        if(pObj && dynamic_cast< const E3dObject*>(pObj) !=  nullptr)
+        if(auto p3dObject = dynamic_cast< const E3dObject*>(pObj))
         {
-            pScene = static_cast<E3dObject*>(pObj)->GetScene();
-            if(pScene)
+            pScene = p3dObject->getRootE3dSceneFromE3dObject();
+
+            if(nullptr != pScene)
+            {
                 pScene->SetSelected(false);
+            }
         }
     }
 
@@ -268,28 +274,30 @@ void E3dView::DrawMarkedObj(OutputDevice& rOut) const
         for(size_t nObjs = 0; nObjs < nCnt; ++nObjs)
         {
             SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
-            if(pObj && dynamic_cast< const E3dCompoundObject*>(pObj) !=  nullptr)
+            if(auto pCompoundObject = dynamic_cast<E3dCompoundObject*>(pObj))
             {
                 // related scene
-                pScene = static_cast<E3dCompoundObject*>(pObj)->GetScene();
-                if(pScene)
+                pScene = pCompoundObject->getRootE3dSceneFromE3dObject();
+
+                if(nullptr != pScene)
+                {
                     pScene->SetSelected(false);
+                }
             }
         }
 
         for(size_t nObjs = 0; nObjs < nCnt; ++nObjs)
         {
             SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
-            if(pObj && dynamic_cast< const E3dObject*>(pObj) !=  nullptr)
+            if(auto p3DObj = dynamic_cast<E3dObject*>(pObj))
             {
                 // Select object
-                E3dObject* p3DObj = static_cast<E3dObject*>(pObj);
                 p3DObj->SetSelected(true);
-                pScene = p3DObj->GetScene();
+                pScene = p3DObj->getRootE3dSceneFromE3dObject();
             }
         }
 
-        if(pScene)
+        if(nullptr != pScene)
         {
             // code from parent
             SortMarkedObjects();
@@ -303,12 +311,15 @@ void E3dView::DrawMarkedObj(OutputDevice& rOut) const
         for(size_t nObjs = 0; nObjs < nCnt; ++nObjs)
         {
             SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
-            if(pObj && dynamic_cast< const E3dCompoundObject*>(pObj) !=  nullptr)
+            if(auto pCompoundObject = dynamic_cast<E3dCompoundObject*>(pObj))
             {
                 // related scene
-                pScene = static_cast<E3dCompoundObject*>(pObj)->GetScene();
-                if(pScene)
+                pScene = pCompoundObject->getRootE3dSceneFromE3dObject();
+
+                if(nullptr != pScene)
+                {
                     pScene->SetSelected(false);
+                }
             }
         }
     }
@@ -333,24 +344,24 @@ SdrModel* E3dView::GetMarkedObjModel() const
     {
         const SdrObject* pObj = GetMarkedObjectByIndex(nObjs);
 
-        if(!bSpecialHandling && pObj && dynamic_cast< const E3dCompoundObject*>(pObj) !=  nullptr)
+        if(!bSpecialHandling && dynamic_cast< const E3dCompoundObject*>(pObj))
         {
             // if the object is selected, but it's scene not,
             // we need special handling
-            pScene = static_cast<const E3dCompoundObject*>(pObj)->GetScene();
+            pScene = static_cast<const E3dCompoundObject*>(pObj)->getRootE3dSceneFromE3dObject();
 
-            if(pScene && !IsObjMarked(pScene))
+            if(nullptr != pScene && !IsObjMarked(pScene))
             {
                 bSpecialHandling = true;
             }
         }
 
-        if(pObj && dynamic_cast< const E3dObject*>(pObj) !=  nullptr)
+        if(auto p3dObject = dynamic_cast< const E3dObject*>(pObj))
         {
             // reset all selection flags at 3D objects
-            pScene = static_cast<const E3dObject*>(pObj)->GetScene();
+            pScene = p3dObject->getRootE3dSceneFromE3dObject();
 
-            if(pScene)
+            if(nullptr != pScene)
             {
                 pScene->SetSelected(false);
             }
@@ -372,10 +383,9 @@ SdrModel* E3dView::GetMarkedObjModel() const
     {
         SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
 
-        if(pObj && dynamic_cast< const E3dCompoundObject*>(pObj) !=  nullptr)
+        if(auto p3DObj = dynamic_cast<E3dCompoundObject*>(pObj))
         {
             // mark object, but not scenes
-            E3dCompoundObject* p3DObj = static_cast<E3dCompoundObject*>(pObj);
             p3DObj->SetSelected(true);
             aSelectedSnapRect.Union(p3DObj->GetSnapRect());
         }
@@ -392,11 +402,11 @@ SdrModel* E3dView::GetMarkedObjModel() const
     {
         SdrObject *pObj = aOldML.GetMark(nObjs)->GetMarkedSdrObj();
 
-        if(pObj && dynamic_cast< const E3dObject* >(pObj) !=  nullptr)
+        if(auto p3dObject = dynamic_cast< E3dObject* >(pObj))
         {
-            pScene = static_cast<E3dObject*>(pObj)->GetScene();
+            pScene = p3dObject->getRootE3dSceneFromE3dObject();
 
-            if(pScene && !IsObjMarked(pScene) && GetSdrPageView())
+            if(nullptr != pScene && !IsObjMarked(pScene) && GetSdrPageView())
             {
                 const_cast<E3dView*>(this)->MarkObj(pScene, GetSdrPageView(), false, true);
             }
@@ -456,10 +466,10 @@ bool E3dView::Paste(
         return false;
 
     // Get owner of the list
-    SdrObject* pOwner = pDstList->GetOwnerObj();
-    if(pOwner && dynamic_cast< const E3dScene* >(pOwner) !=  nullptr)
+    E3dScene* pDstScene(dynamic_cast< E3dScene* >(pDstList->getSdrObjectFromSdrObjList()));
+
+    if(nullptr != pDstScene)
     {
-        E3dScene* pDstScene = static_cast<E3dScene*>(pOwner);
         BegUndo(SvxResId(RID_SVX_3D_UNDO_EXCHANGE_PASTE));
 
         // Copy all objects from E3dScenes and insert them directly
@@ -507,7 +517,7 @@ bool E3dView::ImpCloneAll3DObjectsToDestScene(E3dScene const * pSrcScene, E3dSce
 
             if(pCompoundObj)
             {
-                E3dCompoundObject* pNewCompoundObj = pCompoundObj->Clone();
+                E3dCompoundObject* pNewCompoundObj(pCompoundObj->CloneSdrObject(pDstScene->getSdrModelFromSdrObject()));
 
                 if(pNewCompoundObj)
                 {
@@ -581,10 +591,9 @@ bool E3dView::ImpCloneAll3DObjectsToDestScene(E3dScene const * pSrcScene, E3dSce
                     pNewCompoundObj->SetTransform(aModifyingTransform * aNewObjectTrans);
 
                     // fill and insert new object
-                    pNewCompoundObj->SetPage(pDstScene->E3dObject::GetPage());
                     pNewCompoundObj->NbcSetLayer(pCompoundObj->GetLayer());
                     pNewCompoundObj->NbcSetStyleSheet(pCompoundObj->GetStyleSheet(), true);
-                    pDstScene->Insert3DObj(pNewCompoundObj);
+                    pDstScene->InsertObject(pNewCompoundObj);
                     bRetval = true;
 
                     // Create undo
@@ -655,7 +664,7 @@ void E3dView::ImpChangeSomeAttributesFor3DConversion(SdrObject* pObj)
         if(rTextColorItem.GetValue() == COL_BLACK)
         {
             //For black text objects, the color set to gray
-            if(pObj->GetPage())
+            if(pObj->getSdrPageFromSdrObject())
             {
                 // if black is only default attribute from
                 // pattern set it hard so that it is used in undo.
@@ -685,8 +694,11 @@ void E3dView::ImpChangeSomeAttributesFor3DConversion2(SdrObject* pObj)
             && !nLineWidth
             && eFillStyle != drawing::FillStyle_NONE)
         {
-            if(pObj->GetPage() && GetModel()->IsUndoEnabled() )
+            if(pObj->getSdrPageFromSdrObject() && GetModel()->IsUndoEnabled() )
+            {
                 AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoAttrObject(*pObj));
+            }
+
             pObj->SetMergedItem(XLineStyleItem(drawing::LineStyle_NONE));
             pObj->SetMergedItem(XLineWidthItem(0));
         }
@@ -761,7 +773,7 @@ void E3dView::ImpCreateSingle3DObjectFlat(E3dScene* pScene, SdrObject* pObj, boo
             p3DObj->NbcSetStyleSheet(pObj->GetStyleSheet(), true);
 
             // Insert a new extrude object
-            pScene->Insert3DObj(p3DObj);
+            pScene->InsertObject(p3DObj);
         }
     }
 }
@@ -997,7 +1009,9 @@ void E3dView::ConvertMarkedObjTo3D(bool bExtrude, const basegfx::B2DPoint& rPnt1
     else
     {
         // No 3D object was created, throw away everything
-        delete pScene;
+        // always use SdrObject::Free(...) for SdrObjects (!)
+        SdrObject* pTemp(pScene);
+        SdrObject::Free(pTemp);
     }
 
     EndUndo();
@@ -1033,7 +1047,7 @@ void E3dView::DoDepthArrange(E3dScene const * pScene, double fDepth)
     if(pScene && pScene->GetSubList() && pScene->GetSubList()->GetObjCount() > 1)
     {
         SdrObjList* pSubList = pScene->GetSubList();
-        SdrObjListIter aIter(*pSubList, SdrIterMode::Flat);
+        SdrObjListIter aIter(pSubList, SdrIterMode::Flat);
         E3dDepthLayer* pBaseLayer = nullptr;
         E3dDepthLayer* pLayer = nullptr;
         sal_Int32 nNumLayers = 0;
@@ -1197,10 +1211,15 @@ bool E3dView::BegDragObj(const Point& rPnt, OutputDevice* pOut,
                 SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
                 if(pObj)
                 {
-                    if(dynamic_cast< const E3dScene*>(pObj) != nullptr && static_cast<E3dScene*>(pObj)->GetScene() == pObj)
+                    if(nullptr != dynamic_cast< const E3dScene* >(pObj) && static_cast< E3dScene* >(pObj)->getRootE3dSceneFromE3dObject() == pObj)
+                    {
                         bThereAreRootScenes = true;
+                    }
+
                     if(dynamic_cast< const E3dObject* >(pObj) !=  nullptr)
+                    {
                         bThereAre3DObjects = true;
+                    }
                 }
             }
             if( bThereAre3DObjects )
@@ -1286,7 +1305,7 @@ E3dScene* E3dView::SetCurrent3DObj(E3dObject* p3DObj)
 
     InitScene(pScene, fW, fH, aVolume.getMaxZ() + ((fW + fH) / 4.0));
 
-    pScene->Insert3DObj(p3DObj);
+    pScene->InsertObject(p3DObj);
     pScene->NbcSetSnapRect(aRect);
 
     return pScene;
@@ -1395,7 +1414,7 @@ void E3dView::Start3DCreation()
 
     // Show mirror polygon IMMEDIATELY
     const SdrHdlList &aHdlList = GetHdlList();
-    mpMirrorOverlay = new Impl3DMirrorConstructOverlay(*this);
+    mpMirrorOverlay.reset(new Impl3DMirrorConstructOverlay(*this));
     mpMirrorOverlay->SetMirrorAxis(aHdlList.GetHdl(SdrHdlKind::Ref1)->GetPos(), aHdlList.GetHdl(SdrHdlKind::Ref2)->GetPos());
 }
 
@@ -1485,11 +1504,7 @@ E3dView::~E3dView ()
 
 void E3dView::ResetCreationActive ()
 {
-    if(mpMirrorOverlay)
-    {
-        delete mpMirrorOverlay;
-        mpMirrorOverlay = nullptr;
-    }
+    mpMirrorOverlay.reset();
 }
 
 void E3dView::InitView ()
@@ -1510,9 +1525,9 @@ bool E3dView::IsBreak3DObjPossible() const
         {
             SdrObject* pObj = GetMarkedObjectByIndex(i);
 
-            if (pObj && dynamic_cast< const E3dObject* >(pObj) !=  nullptr)
+            if (auto p3dObject = dynamic_cast< E3dObject* >(pObj))
             {
-                if(!(static_cast<E3dObject*>(pObj)->IsBreakObjPossible()))
+                if(!p3dObject->IsBreakObjPossible())
                     return false;
             }
             else
@@ -1552,7 +1567,7 @@ void E3dView::BreakSingle3DObj(E3dObject* pObj)
     if(dynamic_cast< const E3dScene* >(pObj) !=  nullptr)
     {
         SdrObjList* pSubList = pObj->GetSubList();
-        SdrObjListIter aIter(*pSubList, SdrIterMode::Flat);
+        SdrObjListIter aIter(pSubList, SdrIterMode::Flat);
 
         while(aIter.IsMore())
         {
@@ -1586,9 +1601,9 @@ void E3dView::CheckPossibilities()
         for(size_t nObjs = 0; (nObjs < nMarkCnt) && !bCoumpound; ++nObjs)
         {
             SdrObject *pObj = GetMarkedObjectByIndex(nObjs);
-            if(pObj && dynamic_cast< const E3dCompoundObject* >(pObj) !=  nullptr)
+            if(dynamic_cast< const E3dCompoundObject* >(pObj))
                 bCoumpound = true;
-            if(pObj && dynamic_cast< const E3dObject* >(pObj) !=  nullptr)
+            if(dynamic_cast< const E3dObject* >(pObj))
                 b3DObject = true;
         }
 

@@ -531,7 +531,7 @@ void SwFieldVarPage::SubTypeHdl(ListBox const * pBox)
                 if (IsFieldEdit() || pBox)    // only when interacting via mouse
                     m_pNameED->SetText(OUString());
 
-                if (nSelPos != 0 && nSelPos != LISTBOX_ENTRY_NOTFOUND)
+                if (nSelData != 0 && nSelData != SIZE_MAX)
                 {
                     bValue = true;      // SubType OFF - knows no Offset
                     if (GetCurField() && IsFieldEdit())
@@ -1240,10 +1240,10 @@ bool SwFieldVarPage::FillItemSet(SfxItemSet* )
     return false;
 }
 
-VclPtr<SfxTabPage> SwFieldVarPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SwFieldVarPage::Create( TabPageParent pParent,
                                          const SfxItemSet *const pAttrSet)
 {
-    return VclPtr<SwFieldVarPage>::Create( pParent, pAttrSet );
+    return VclPtr<SwFieldVarPage>::Create( pParent.pParent, pAttrSet );
 }
 
 sal_uInt16 SwFieldVarPage::GetGroup()

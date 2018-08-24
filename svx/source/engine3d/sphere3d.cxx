@@ -19,7 +19,7 @@
 
 
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/globl3d.hxx>
@@ -32,16 +32,17 @@
 #include <basegfx/point/b3dpoint.hxx>
 #include <sdr/contact/viewcontactofe3dsphere.hxx>
 #include <basegfx/polygon/b3dpolygon.hxx>
+#include <o3tl/make_unique.hxx>
 
 // DrawContact section
-sdr::contact::ViewContact* E3dSphereObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> E3dSphereObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfE3dSphere(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfE3dSphere>(*this);
 }
 
-sdr::properties::BaseProperties* E3dSphereObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> E3dSphereObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::E3dSphereProperties(*this);
+    return o3tl::make_unique<sdr::properties::E3dSphereProperties>(*this);
 }
 
 // Build Sphere from polygon facets in latitude and longitude
@@ -68,6 +69,10 @@ E3dSphereObj::E3dSphereObj(SdrModel& rSdrModel)
     SetDefaultAttributes(aDefault);
 }
 
+E3dSphereObj::~E3dSphereObj()
+{
+}
+
 void E3dSphereObj::SetDefaultAttributes(const E3dDefaultAttributes& rDefault)
 {
     // Set defaults
@@ -87,9 +92,9 @@ SdrObject *E3dSphereObj::DoConvertToPolyObj(bool /*bBezier*/, bool /*bAddText*/)
     return nullptr;
 }
 
-E3dSphereObj* E3dSphereObj::Clone(SdrModel* pTargetModel) const
+E3dSphereObj* E3dSphereObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< E3dSphereObj >(pTargetModel);
+    return CloneHelper< E3dSphereObj >(rTargetModel);
 }
 
 E3dSphereObj& E3dSphereObj::operator=(const E3dSphereObj& rObj)
@@ -128,7 +133,7 @@ void E3dSphereObj::SetSize(const basegfx::B3DVector& rNew)
 
 OUString E3dSphereObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulSphere3d));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulSphere3d));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -145,7 +150,7 @@ OUString E3dSphereObj::TakeObjNameSingul() const
 
 OUString E3dSphereObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralSphere3d);
+    return SvxResId(STR_ObjNamePluralSphere3d);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

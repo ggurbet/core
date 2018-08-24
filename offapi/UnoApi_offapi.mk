@@ -128,7 +128,7 @@ $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/document,\
 	DocumentRevisionListPersistence \
 	IndexedPropertyValues \
 	FilterConfigRefresh \
-	GraphicObjectResolver \
+	GraphicStorageHandler \
 	NamedPropertyValues \
 	OleEmbeddedServerRegistration \
 	OOXMLDocumentPropertiesImporter \
@@ -232,6 +232,7 @@ $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/i18n,\
 	LocaleData \
 	LocaleData2 \
 	NativeNumberSupplier \
+	NativeNumberSupplier2 \
 	NumberFormatMapper \
 	OrdinalSuffix \
 	TextConversion \
@@ -245,6 +246,7 @@ $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/linguistic2,\
 	LinguServiceManager \
 	Proofreader \
 	ProofreadingIterator \
+	NumberText \
 ))
 $(eval $(call gb_UnoApi_add_idlfiles_nohdl,offapi,com/sun/star/logging,\
 	ConsoleHandler \
@@ -2011,7 +2013,6 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/chart2,\
 	SymbolStyle \
 	TickmarkStyle \
 	TransparencyStyle \
-	X3DChartWindowProvider \
 	XAnyDescriptionAccess \
 	XAxis \
 	XChartDocument \
@@ -2751,6 +2752,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/i18n,\
 	MultipleCharsOutputException \
 	NativeNumberMode \
 	NativeNumberXmlAttributes \
+	NativeNumberXmlAttributes2 \
 	NumberFormatCode \
 	NumberFormatIndex \
 	ParseResult \
@@ -2787,6 +2789,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/i18n,\
 	XLocaleData4 \
 	XLocaleData5 \
 	XNativeNumberSupplier \
+	XNativeNumberSupplier2 \
 	XNumberFormatCode \
 	XOrdinalSuffix \
 	XScriptTypeDetector \
@@ -2850,6 +2853,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/linguistic2,\
 	XLinguServiceManager \
 	XLinguServiceManager2 \
 	XMeaning \
+	XNumberText \
 	XPossibleHyphens \
 	XProofreader \
 	XProofreadingIterator \

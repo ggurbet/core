@@ -13,6 +13,7 @@
 
 #include <osl/file.hxx>
 #include <rtl/bootstrap.hxx>
+#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/embeddedfontshelper.hxx>
 
@@ -189,7 +190,7 @@ void EmbeddedFontsHelper::activateFont( const OUString& fontName, const OUString
 bool EmbeddedFontsHelper::sufficientTTFRights( const void* data, long size, FontRights rights )
 {
     TrueTypeFont* font;
-    if( OpenTTFontBuffer( data, size, 0 /*TODO*/, &font ) == SF_OK )
+    if( OpenTTFontBuffer( data, size, 0 /*TODO*/, &font ) == SFErrCodes::Ok )
     {
         TTGlobalFontInfo info;
         GetTTGlobalFontInfo( font, &info );

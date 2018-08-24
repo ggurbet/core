@@ -101,9 +101,9 @@ static void lcl_UpdateHyphenator( Outliner& rOutliner, const SdrObject* pObj )
     }
 }
 
-FuText::FuText(ScTabViewShell* pViewSh, vcl::Window* pWin, ScDrawView* pViewP,
-                   SdrModel* pDoc, const SfxRequest& rReq) :
-    FuConstruct(pViewSh, pWin, pViewP, pDoc, rReq)
+FuText::FuText(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView* pViewP,
+               SdrModel* pDoc, const SfxRequest& rReq)
+    : FuConstruct(rViewSh, pWin, pViewP, pDoc, rReq)
 {
 }
 
@@ -184,7 +184,7 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
                 nullptr;
             if (pObj)
             {
-                SdrOutliner* pO = MakeOutliner();
+                std::unique_ptr<SdrOutliner> pO = MakeOutliner();
                 lcl_UpdateHyphenator( *pO, pObj );
 
                 //  vertical flag:
@@ -197,10 +197,11 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
                 pO->SetVertical( bVertical );
 
                 //!?? the default values are not correct when result is without outliner ???!?
-                if ( pView->SdrBeginTextEdit(pObj, pPV, pWindow, true, pO) )
+                auto pUndoManager = &pO->GetUndoManager();
+                if ( pView->SdrBeginTextEdit(pObj, pPV, pWindow, true, pO.release()) )
                 {
                     // subscribe EditEngine-UndoManager
-                    pViewShell->SetDrawTextUndo( &pO->GetUndoManager() );
+                    rViewShell.SetDrawTextUndo( pUndoManager );
 
                     OutlinerView* pOLV = pView->GetTextEditOutlinerView();
                     if ( pOLV->MouseButtonDown(rMEvt) )
@@ -251,7 +252,7 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
                     }
 
                     pView->SetDragMode(SdrDragMode::Move);
-                    SfxBindings& rBindings = pViewShell->GetViewFrame()->GetBindings();
+                    SfxBindings& rBindings = rViewShell.GetViewFrame()->GetBindings();
                     rBindings.Invalidate( SID_OBJECT_ROTATE );
                     rBindings.Invalidate( SID_OBJECT_MIRROR );
                 }
@@ -286,7 +287,7 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
             {
                 //  Edit notes -> create no new text objects
                 //  and leave text mode
-                pViewShell->GetViewData().GetDispatcher().
+                rViewShell.GetViewData().GetDispatcher().
                     Execute(aSfxRequest.GetSlot(), SfxCallMode::SLOT | SfxCallMode::RECORD);
             }
             else
@@ -307,7 +308,7 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
                 else if (SdrObject* pObj = pView->PickObj(aMDPos, pView->getHitTolLog(), pPV, SdrSearchOptions::ALSOONMASTER | SdrSearchOptions::BEFOREMARK))
                 {
                     pView->UnmarkAllObj();
-                    ScViewData& rViewData = pViewShell->GetViewData();
+                    ScViewData& rViewData = rViewShell.GetViewData();
                     rViewData.GetDispatcher().Execute(aSfxRequest.GetSlot(), SfxCallMode::SLOT | SfxCallMode::RECORD);
                     pView->MarkObj(pObj,pPV);
 
@@ -323,15 +324,15 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
     {
         pWindow->CaptureMouse();
 //      ForcePointer(&rMEvt);
-        lcl_InvalidateAttribs( pViewShell->GetViewFrame()->GetBindings() );
+        lcl_InvalidateAttribs( rViewShell.GetViewFrame()->GetBindings() );
     }
 
-    pViewShell->SetActivePointer(pView->GetPreferredPointer(
+    rViewShell.SetActivePointer(pView->GetPreferredPointer(
                     pWindow->PixelToLogic(rMEvt.GetPosPixel()), pWindow ));
     if (!bStraightEnter)
     {
             pView->UnmarkAll();
-            ScViewData& rViewData = pViewShell->GetViewData();
+            ScViewData& rViewData = rViewShell.GetViewData();
             rViewData.GetDispatcher().Execute(aSfxRequest.GetSlot(), SfxCallMode::SLOT | SfxCallMode::RECORD);
     }
 
@@ -340,7 +341,7 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
 
 bool FuText::MouseMove(const MouseEvent& rMEvt)
 {
-    pViewShell->SetActivePointer(pView->GetPreferredPointer(
+    rViewShell.SetActivePointer(pView->GetPreferredPointer(
                     pWindow->PixelToLogic(rMEvt.GetPosPixel()), pWindow ));
 
     if (aDragTimer.IsActive() )
@@ -382,7 +383,7 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
         aDragTimer.Stop();
     }
 
-    lcl_InvalidateAttribs( pViewShell->GetViewFrame()->GetBindings() );
+    lcl_InvalidateAttribs( rViewShell.GetViewFrame()->GetBindings() );
 
     Point aPnt( pWindow->PixelToLogic( rMEvt.GetPosPixel() ) );
 
@@ -431,9 +432,8 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
                 if(rMarkList.GetMark(0))
                 {
                     SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
-                    if(pObj && dynamic_cast<const SdrTextObj*>( pObj) !=  nullptr)
+                    if(auto pText = dynamic_cast<SdrTextObj*>( pObj))
                     {
-                        SdrTextObj* pText = static_cast<SdrTextObj*>(pObj);
                         SfxItemSet aSet(pDrDoc->GetItemPool());
 
                         pText->SetVerticalWriting(true);
@@ -455,7 +455,7 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
             {
                 pView->MarkObj(aPnt, -2, false, rMEvt.IsMod1());
 
-                SfxDispatcher& rDisp = pViewShell->GetViewData().GetDispatcher();
+                SfxDispatcher& rDisp = rViewShell.GetViewData().GetDispatcher();
                 if ( pView->AreObjectsMarked() )
                     rDisp.Execute(SID_OBJECT_SELECT, SfxCallMode::SLOT | SfxCallMode::RECORD);
                 else
@@ -475,7 +475,7 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
         {
             pView->MarkObj(aPnt, -2, false, rMEvt.IsMod1());
 
-            SfxDispatcher& rDisp = pViewShell->GetViewData().GetDispatcher();
+            SfxDispatcher& rDisp = rViewShell.GetViewData().GetDispatcher();
             if ( pView->AreObjectsMarked() )
                 rDisp.Execute(SID_OBJECT_SELECT, SfxCallMode::SLOT | SfxCallMode::RECORD);
             else
@@ -489,7 +489,7 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
 // switch mouse-pointer
 void FuText::ForcePointer(const MouseEvent* /* pMEvt */)
 {
-    pViewShell->SetActivePointer( aNewPointer );
+    rViewShell.SetActivePointer( aNewPointer );
 }
 
 // modify keyboard events
@@ -501,7 +501,7 @@ bool FuText::KeyInput(const KeyEvent& rKEvt)
     if ( pView->KeyInput(rKEvt, pWindow) )
     {
         bReturn = true;
-        lcl_InvalidateAttribs( pViewShell->GetViewFrame()->GetBindings() );
+        lcl_InvalidateAttribs( rViewShell.GetViewFrame()->GetBindings() );
     }
     else
     {
@@ -514,7 +514,7 @@ bool FuText::KeyInput(const KeyEvent& rKEvt)
 void FuText::Activate()
 {
     pView->SetDragMode(SdrDragMode::Move);
-    SfxBindings& rBindings = pViewShell->GetViewFrame()->GetBindings();
+    SfxBindings& rBindings = rViewShell.GetViewFrame()->GetBindings();
     rBindings.Invalidate( SID_OBJECT_ROTATE );
     rBindings.Invalidate( SID_OBJECT_MIRROR );
 
@@ -533,7 +533,7 @@ void FuText::Activate()
     aNewPointer = Pointer(PointerStyle::Text);
 
     aOldPointer = pWindow->GetPointer();
-    pViewShell->SetActivePointer( aNewPointer );
+    rViewShell.SetActivePointer( aNewPointer );
 
     FuConstruct::Activate();
 }
@@ -541,7 +541,7 @@ void FuText::Activate()
 void FuText::Deactivate()
 {
     FuConstruct::Deactivate();
-    pViewShell->SetActivePointer( aOldPointer );
+    rViewShell.SetActivePointer( aOldPointer );
     StopEditMode();
 }
 
@@ -578,7 +578,7 @@ void FuText::SetInEditMode(SdrObject* pObj, const Point* pMousePixel,
 
             if ( pObj->HasTextEdit() )
             {
-                SdrOutliner* pO = MakeOutliner();
+                std::unique_ptr<SdrOutliner> pO = MakeOutliner();
                 lcl_UpdateHyphenator( *pO, pObj );
 
                 //  vertical flag:
@@ -592,16 +592,17 @@ void FuText::SetInEditMode(SdrObject* pObj, const Point* pMousePixel,
                 pO->SetVertical( bVertical );
 
                 //!??  without returned Outliner the defaults are not correct ???!?
-                if ( pView->SdrBeginTextEdit(pObj, pPV, pWindow, true, pO) )
+                auto pUndoManager = &pO->GetUndoManager();
+                if ( pView->SdrBeginTextEdit(pObj, pPV, pWindow, true, pO.release()) )
                 {
                     //  Toggle out of paste mode if we are in it, otherwise
                     //  pressing return in this object will instead go to the
                     //  sheet and be considered an overwrite-cell instruction
-                    pViewShell->GetViewData().SetPasteMode(ScPasteFlags::NONE);
-                    pViewShell->UpdateCopySourceOverlay();
+                    rViewShell.GetViewData().SetPasteMode(ScPasteFlags::NONE);
+                    rViewShell.UpdateCopySourceOverlay();
 
                     //  EditEngine-UndoManager anmelden
-                    pViewShell->SetDrawTextUndo( &pO->GetUndoManager() );
+                    rViewShell.SetDrawTextUndo( pUndoManager );
 
                     pView->SetEditMode();
 

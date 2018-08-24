@@ -35,6 +35,7 @@
 #include <queryparam.hxx>
 #include <queryentry.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <editutil.hxx>
 #include <cellvalue.hxx>
 #include <scmatrix.hxx>
@@ -76,7 +77,7 @@ void decBlock(std::pair<Iter, size_t>& rPos)
 
 void ScAttrArray_IterGetNumberFormat( sal_uInt32& nFormat, const ScAttrArray*& rpArr,
         SCROW& nAttrEndRow, const ScAttrArray* pNewArr, SCROW nRow,
-        const ScDocument* pDoc )
+        const ScDocument* pDoc, ScInterpreterContext* pContext = nullptr )
 {
     if ( rpArr != pNewArr || nAttrEndRow < nRow )
     {
@@ -89,7 +90,7 @@ void ScAttrArray_IterGetNumberFormat( sal_uInt32& nFormat, const ScAttrArray*& r
             nRowEnd = MAXROW;
         }
 
-        nFormat = pPattern->GetNumberFormat( pDoc->GetFormatTable() );
+        nFormat = pPattern->GetNumberFormat( pContext ? pContext->GetFormatTable() : pDoc->GetFormatTable() );
         rpArr = pNewArr;
         nAttrEndRow = nRowEnd;
     }
@@ -98,6 +99,7 @@ void ScAttrArray_IterGetNumberFormat( sal_uInt32& nFormat, const ScAttrArray*& r
 ScValueIterator::ScValueIterator( ScDocument* pDocument, const ScRange& rRange,
             SubtotalFlags nSubTotalFlags, bool bTextZero )
     : pDoc(pDocument)
+    , pContext(nullptr)
     , pAttrArray(nullptr)
     , nNumFormat(0) // Initialized in GetNumberFormat
     , nNumFmtIndex(0)
@@ -204,8 +206,8 @@ bool ScValueIterator::GetThis(double& rValue, FormulaError& rErr)
                 if (bCalcAsShown)
                 {
                     ScAttrArray_IterGetNumberFormat(nNumFormat, pAttrArray,
-                        nAttrEndRow, pCol->pAttrArray.get(), nCurRow, pDoc);
-                    rValue = pDoc->RoundValueAsShown(rValue, nNumFormat);
+                        nAttrEndRow, pCol->pAttrArray.get(), nCurRow, pDoc, pContext);
+                    rValue = pDoc->RoundValueAsShown(rValue, nNumFormat, pContext);
                 }
                 return true; // Found it!
             }
@@ -745,20 +747,20 @@ ScDBQueryDataIterator::Value::Value() :
     ::rtl::math::setNan(&mfValue);
 }
 
-ScDBQueryDataIterator::ScDBQueryDataIterator(ScDocument* pDocument, const ScInterpreterContext& rContext, ScDBQueryParamBase* pParam) :
-    mpParam (pParam)
+ScDBQueryDataIterator::ScDBQueryDataIterator(ScDocument* pDocument, const ScInterpreterContext& rContext, std::unique_ptr<ScDBQueryParamBase> pParam) :
+    mpParam (std::move(pParam))
 {
     switch (mpParam->GetType())
     {
         case ScDBQueryParamBase::INTERNAL:
         {
-            ScDBQueryParamInternal* p = static_cast<ScDBQueryParamInternal*>(pParam);
+            ScDBQueryParamInternal* p = static_cast<ScDBQueryParamInternal*>(mpParam.get());
             mpData.reset(new DataAccessInternal(p, pDocument, rContext));
         }
         break;
         case ScDBQueryParamBase::MATRIX:
         {
-            ScDBQueryParamMatrix* p = static_cast<ScDBQueryParamMatrix*>(pParam);
+            ScDBQueryParamMatrix* p = static_cast<ScDBQueryParamMatrix*>(mpParam.get());
             mpData.reset(new DataAccessMatrix(p));
         }
     }
@@ -1007,17 +1009,6 @@ bool ScCellIterator::hasString() const
     return maCurCell.hasString();
 }
 
-bool ScCellIterator::hasEmptyData() const
-{
-    if (maCurCell.isEmpty())
-        return true;
-
-    if (maCurCell.meType == CELLTYPE_FORMULA)
-        return maCurCell.mpFormula->IsEmpty();
-
-    return false;
-}
-
 bool ScCellIterator::isEmpty() const
 {
     return maCurCell.isEmpty();
@@ -1069,7 +1060,7 @@ ScQueryCellIterator::ScQueryCellIterator(ScDocument* pDocument, const ScInterpre
             ScQueryEntry& rEntry = mpParam->GetEntry(i);
             ScQueryEntry::Item& rItem = rEntry.GetQueryItem();
             sal_uInt32 nIndex = 0;
-            bool bNumber = pDoc->GetFormatTable()->IsNumberFormat(
+            bool bNumber = mrContext.GetFormatTable()->IsNumberFormat(
                 rItem.maString.getString(), nIndex, rItem.mfVal);
             rItem.meType = bNumber ? ScQueryEntry::ByValue : ScQueryEntry::ByString;
         }
@@ -1144,7 +1135,7 @@ bool ScQueryCellIterator::GetThis()
                 }
                 pCol = &(pDoc->maTabs[nTab])->aCol[nCol];
             }
-            while (pCol->IsEmptyData());
+            while (!rItem.mbMatchEmpty && pCol->IsEmptyData());
 
             InitPos();
 
@@ -1665,7 +1656,7 @@ bool ScQueryCellIterator::BinarySearch()
 
     CollatorWrapper* pCollator = (mpParam->bCaseSens ? ScGlobal::GetCaseCollator() :
         ScGlobal::GetCollator());
-    SvNumberFormatter& rFormatter = *(pDoc->GetFormatTable());
+    SvNumberFormatter& rFormatter = *(mrContext.GetFormatTable());
     const ScQueryEntry& rEntry = mpParam->GetEntry(0);
     const ScQueryEntry::Item& rItem = rEntry.GetQueryItem();
     bool bLessEqual = rEntry.eOp == SC_LESS_EQUAL;
@@ -2569,18 +2560,18 @@ void ScDocRowHeightUpdater::update()
         }
     }
 
-    ScProgress aProgress(mrDoc.GetDocumentShell(), ScGlobal::GetRscString(STR_PROGRESS_HEIGHTING), nCellCount, true);
+    ScProgress aProgress(mrDoc.GetDocumentShell(), ScResId(STR_PROGRESS_HEIGHTING), nCellCount, true);
 
     Fraction aZoom(1, 1);
     itr = mpTabRangesArray->begin();
     sal_uInt32 nProgressStart = 0;
-    sc::RowHeightContext aCxt(mfPPTX, mfPPTY, aZoom, aZoom, mpOutDev);
     for (; itr != itrEnd; ++itr)
     {
         SCTAB nTab = itr->mnTab;
         if (!ValidTab(nTab) || nTab >= mrDoc.GetTableCount() || !mrDoc.maTabs[nTab])
             continue;
 
+        sc::RowHeightContext aCxt(mfPPTX, mfPPTY, aZoom, aZoom, mpOutDev);
         ScFlatBoolRowSegments::RangeData aData;
         ScFlatBoolRowSegments::RangeIterator aRangeItr(*itr->mpRanges);
         for (bool bFound = aRangeItr.getFirst(aData); bFound; bFound = aRangeItr.getNext(aData))
@@ -2607,7 +2598,7 @@ void ScDocRowHeightUpdater::updateAll()
         nCellCount += mrDoc.maTabs[nTab]->GetWeightedCount();
     }
 
-    ScProgress aProgress(mrDoc.GetDocumentShell(), ScGlobal::GetRscString(STR_PROGRESS_HEIGHTING), nCellCount, true);
+    ScProgress aProgress(mrDoc.GetDocumentShell(), ScResId(STR_PROGRESS_HEIGHTING), nCellCount, true);
 
     Fraction aZoom(1, 1);
     sc::RowHeightContext aCxt(mfPPTX, mfPPTY, aZoom, aZoom, mpOutDev);

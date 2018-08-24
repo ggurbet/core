@@ -296,7 +296,7 @@ void SdOOXMLExportTest1::testN828390_5()
         const EditTextObject& aEdit = pTxtObj->GetOutlinerParaObject()->GetTextObject();
         const SvxNumBulletItem *pNumFmt = aEdit.GetPool()->GetItem2(EE_PARA_NUMBULLET, 5);
         CPPUNIT_ASSERT( pNumFmt );
-        CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's relative size is wrong!", pNumFmt->GetNumRule()->GetLevel(1).GetBulletRelSize(), sal_uInt16(75) ); // != 25
+        CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's relative size is wrong!", sal_uInt16(75), pNumFmt->GetNumRule()->GetLevel(1).GetBulletRelSize() ); // != 25
     }
 
     xDocShRef->DoClose();
@@ -538,7 +538,7 @@ void SdOOXMLExportTest1::testBulletStartNumber()
     const EditTextObject& aEdit = pTxtObj->GetOutlinerParaObject()->GetTextObject();
     const SvxNumBulletItem *pNumFmt = aEdit.GetParaAttribs(0).GetItem(EE_PARA_NUMBULLET);
     CPPUNIT_ASSERT(pNumFmt);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's start number is wrong!", sal_Int16(pNumFmt->GetNumRule()->GetLevel(0).GetStart()), sal_Int16(3) );
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's start number is wrong!", sal_Int16(3), sal_Int16(pNumFmt->GetNumRule()->GetLevel(0).GetStart()) );
     xDocShRef->DoClose();
 }
 
@@ -663,8 +663,8 @@ void SdOOXMLExportTest1::testBulletMarginAndIndentation()
     const SvxNumBulletItem *pNumFmt = aEdit.GetParaAttribs(0).GetItem(EE_PARA_NUMBULLET);
     CPPUNIT_ASSERT(pNumFmt);
 
-    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's left margin is wrong!", short(1000),pNumFmt->GetNumRule()->GetLevel(0).GetAbsLSpace() ); // left margin is 0.79 cm
-    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's indentation is wrong!", sal_Int32(-998),sal_Int32(pNumFmt->GetNumRule()->GetLevel(0). GetFirstLineOffset()));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's left margin is wrong!", sal_Int32(1000),pNumFmt->GetNumRule()->GetLevel(0).GetAbsLSpace() ); // left margin is 0.79 cm
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's indentation is wrong!", sal_Int32(-998),pNumFmt->GetNumRule()->GetLevel(0). GetFirstLineOffset());
 
     xDocShRef->DoClose();
 }

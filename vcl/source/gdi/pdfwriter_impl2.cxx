@@ -45,6 +45,7 @@
 #include <cppuhelper/implbase.hxx>
 
 #include <rtl/digest.h>
+#include <sal/log.hxx>
 #include <memory>
 
 using namespace vcl;
@@ -269,7 +270,7 @@ void PDFWriterImpl::playMetafile( const GDIMetaFile& i_rMtf, vcl::PDFExtOutDevDa
 
     for( sal_uInt32 i = 0, nCount = aMtf.GetActionSize(); i < nCount; )
     {
-        if ( !i_pOutDevData || !i_pOutDevData->PlaySyncPageAct( m_rOuterFace, i ) )
+        if ( !i_pOutDevData || !i_pOutDevData->PlaySyncPageAct( m_rOuterFace, i, aMtf ) )
         {
             const MetaAction*    pAction = aMtf.GetAction( i );
             const MetaActionType nType = pAction->GetType();
@@ -1208,8 +1209,7 @@ void PDFWriterImpl::enableStringEncryption( sal_Int32 nObject )
 2. build the encryption key following algorithms described in the PDF specification
  */
 uno::Reference< beans::XMaterialHolder > PDFWriterImpl::initEncryption( const OUString& i_rOwnerPassword,
-                                                                        const OUString& i_rUserPassword,
-                                                                        bool b128Bit
+                                                                        const OUString& i_rUserPassword
                                                                         )
 {
     uno::Reference< beans::XMaterialHolder > xResult;
@@ -1222,11 +1222,8 @@ uno::Reference< beans::XMaterialHolder > PDFWriterImpl::initEncryption( const OU
         sal_uInt8 aPadUPW[ENCRYPTED_PWD_SIZE], aPadOPW[ENCRYPTED_PWD_SIZE];
         padPassword( i_rOwnerPassword.isEmpty() ? i_rUserPassword : i_rOwnerPassword, aPadOPW );
         padPassword( i_rUserPassword, aPadUPW );
-        sal_Int32 nKeyLength = SECUR_40BIT_KEY;
-        if( b128Bit )
-            nKeyLength = SECUR_128BIT_KEY;
 
-        if( computeODictionaryValue( aPadOPW, aPadUPW, pTransporter->getOValue(), nKeyLength ) )
+        if( computeODictionaryValue( aPadOPW, aPadUPW, pTransporter->getOValue(), SECUR_128BIT_KEY ) )
         {
             pTransporter->getUDigest()->update(aPadUPW, ENCRYPTED_PWD_SIZE);
         }
@@ -1410,29 +1407,39 @@ bool PDFWriterImpl::computeODictionaryValue( const sal_uInt8* i_pPaddedOwnerPass
         //Step 4, the key is in nMD5Sum
         //step 5 already done, data is in i_pPaddedUserPassword
         //step 6
-        rtl_cipher_initARCFOUR( aCipher, rtl_Cipher_DirectionEncode,
-                                 nMD5Sum.data(), i_nKeyLength , nullptr, 0 );
-        // encrypt the user password using the key set above
-        rtl_cipher_encodeARCFOUR( aCipher, i_pPaddedUserPassword, ENCRYPTED_PWD_SIZE, // the data to be encrypted
-                                  &io_rOValue[0], sal_Int32(io_rOValue.size()) ); //encrypted data
-        //Step 7, only if 128 bit
-        if( i_nKeyLength == SECUR_128BIT_KEY )
+        if (rtl_cipher_initARCFOUR( aCipher, rtl_Cipher_DirectionEncode,
+                                    nMD5Sum.data(), i_nKeyLength , nullptr, 0 )
+            == rtl_Cipher_E_None)
         {
-            sal_uInt32 i, y;
-            sal_uInt8 nLocalKey[ SECUR_128BIT_KEY ]; // 16 = 128 bit key
-
-            for( i = 1; i <= 19; i++ ) // do it 19 times, start with 1
+            // encrypt the user password using the key set above
+            rtl_cipher_encodeARCFOUR( aCipher, i_pPaddedUserPassword, ENCRYPTED_PWD_SIZE, // the data to be encrypted
+                                      &io_rOValue[0], sal_Int32(io_rOValue.size()) ); //encrypted data
+            //Step 7, only if 128 bit
+            if( i_nKeyLength == SECUR_128BIT_KEY )
             {
-                for( y = 0; y < sizeof( nLocalKey ); y++ )
-                    nLocalKey[y] = static_cast<sal_uInt8>( nMD5Sum[y] ^ i );
+                sal_uInt32 i, y;
+                sal_uInt8 nLocalKey[ SECUR_128BIT_KEY ]; // 16 = 128 bit key
 
-                rtl_cipher_initARCFOUR( aCipher, rtl_Cipher_DirectionEncode,
-                                        nLocalKey, SECUR_128BIT_KEY, nullptr, 0 ); //destination data area, on init can be NULL
-                rtl_cipher_encodeARCFOUR( aCipher, &io_rOValue[0], sal_Int32(io_rOValue.size()), // the data to be encrypted
-                                          &io_rOValue[0], sal_Int32(io_rOValue.size()) ); // encrypted data, can be the same as the input, encrypt "in place"
-                //step 8, store in class data member
+                for( i = 1; i <= 19; i++ ) // do it 19 times, start with 1
+                {
+                    for( y = 0; y < sizeof( nLocalKey ); y++ )
+                        nLocalKey[y] = static_cast<sal_uInt8>( nMD5Sum[y] ^ i );
+
+                    if (rtl_cipher_initARCFOUR( aCipher, rtl_Cipher_DirectionEncode,
+                                                nLocalKey, SECUR_128BIT_KEY, nullptr, 0 ) //destination data area, on init can be NULL
+                        != rtl_Cipher_E_None)
+                    {
+                        bSuccess = false;
+                        break;
+                    }
+                    rtl_cipher_encodeARCFOUR( aCipher, &io_rOValue[0], sal_Int32(io_rOValue.size()), // the data to be encrypted
+                                              &io_rOValue[0], sal_Int32(io_rOValue.size()) ); // encrypted data, can be the same as the input, encrypt "in place"
+                    //step 8, store in class data member
+                }
             }
         }
+        else
+            bSuccess = false;
     }
     else
         bSuccess = false;

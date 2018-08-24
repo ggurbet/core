@@ -21,10 +21,9 @@
 #define INCLUDED_SC_INC_CHARTPOS_HXX
 
 #include "rangelst.hxx"
+#include <tools/solar.h>
 #include <memory>
 #include <map>
-
-class ScAddress;
 
 // map of row number to ScAddress*
 typedef std::map<sal_uLong, ScAddress*> RowMap;

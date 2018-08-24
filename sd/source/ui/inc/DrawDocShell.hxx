@@ -24,14 +24,11 @@
 #include <sfx2/docfac.hxx>
 #include <sfx2/objsh.hxx>
 
-#include <vcl/jobset.hxx>
 #include <glob.hxx>
-#include <sdmod.hxx>
 #include <pres.hxx>
 #include <sddllapi.h>
 #include "fupoor.hxx"
 
-class SfxStyleSheetBasePool;
 class FontList;
 class SdDrawDocument;
 class SdPage;
@@ -93,9 +90,8 @@ public:
     virtual bool            SaveAs( SfxMedium &rMedium  ) override;
 
     virtual ::tools::Rectangle       GetVisArea(sal_uInt16 nAspect) const override;
-    virtual void            Draw(OutputDevice*, const JobSetup& rSetup, sal_uInt16 nAspect = ASPECT_CONTENT) override;
-    virtual ::svl::IUndoManager*
-                            GetUndoManager() override;
+    virtual void            Draw(OutputDevice*, const JobSetup& rSetup, sal_uInt16 nAspect) override;
+    virtual SfxUndoManager* GetUndoManager() override;
     virtual Printer*        GetDocumentPrinter() override;
     virtual void            OnDocumentPrinterChanged(Printer* pNewPrinter) override;
     virtual SfxStyleSheetBasePool* GetStyleSheetPool() override;
@@ -131,7 +127,7 @@ public:
 
     void                    GotoBookmark(const OUString& rBookmark);
 
-    Bitmap                  GetPagePreviewBitmap(SdPage* pPage);
+    BitmapEx                GetPagePreviewBitmap(SdPage* pPage);
 
     /** checks, if the given name is a valid new name for a slide
 

@@ -19,6 +19,8 @@
 
 #include "eppt.hxx"
 #include "epptdef.hxx"
+#include "pptexanimations.hxx"
+#include "../ppt/pptanimations.hxx"
 
 #include <o3tl/any.hxx>
 #include <tools/globname.hxx>
@@ -31,6 +33,7 @@
 #include <vcl/virdev.hxx>
 #include <rtl/ustring.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/fltcall.hxx>
 #include <vcl/wmf.hxx>
 #include <sfx2/docfile.hxx>
@@ -43,6 +46,10 @@
 #include <com/sun/star/view/PaperOrientation.hpp>
 #include <com/sun/star/view/PaperFormat.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
+#include <com/sun/star/drawing/XMasterPageTarget.hpp>
+#include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
+#include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
+#include <com/sun/star/drawing/XDrawPages.hpp>
 #include <com/sun/star/office/XAnnotation.hpp>
 #include <com/sun/star/office/XAnnotationAccess.hpp>
 #include <com/sun/star/office/XAnnotationEnumeration.hpp>
@@ -210,14 +217,6 @@ void PPTWriterBase::exportPPT( const std::vector< css::beans::PropertyValue >& r
          return;
 
     sal_uInt32 i;
-
-    for ( i = 0; i < mnPages; i++ )
-    {
-    if ( GetPageByIndex( i, NORMAL ) ) {
-        sal_uInt32 nMasterNum = GetMasterIndex( NORMAL );
-        ImplWriteLayout( GetLayoutOffset( mXPagePropSet ), nMasterNum );
-    }
-    }
 
     for ( i = 0; i < mnMasterPages; i++ )
     {

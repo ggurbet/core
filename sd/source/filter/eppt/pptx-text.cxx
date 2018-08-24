@@ -23,7 +23,9 @@
 #include <com/sun/star/awt/CharSet.hpp>
 #include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/awt/FontUnderline.hpp>
+#include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/container/XIndexReplace.hpp>
 #include <com/sun/star/i18n/BreakIterator.hpp>
@@ -36,6 +38,7 @@
 #include <com/sun/star/style/LineSpacingMode.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/style/TabStop.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <editeng/svxenum.hxx>
@@ -117,7 +120,7 @@ PortionObj::PortionObj(css::uno::Reference< css::text::XTextRange > & rXTextRang
             nFieldType = ImplGetTextField( rXTextRange, mXPropSet, aURL );
         if ( nFieldType )
         {
-            mpFieldEntry = new FieldEntry( nFieldType, 0, mnTextSize );
+            mpFieldEntry.reset( new FieldEntry( nFieldType, 0, mnTextSize ) );
             if ( nFieldType >> 28 == 4 )
             {
                 mpFieldEntry->aRepresentation = aString;
@@ -138,7 +141,7 @@ PortionObj::PortionObj(css::uno::Reference< css::text::XTextRange > & rXTextRang
             mnTextSize = 1;
             if ( bLast )
                 mnTextSize++;
-            mpText = new sal_uInt16[ mnTextSize ];
+            mpText.reset( new sal_uInt16[ mnTextSize ] );
             mpText[ 0 ] = 0x2a;
         }
         else
@@ -152,7 +155,7 @@ PortionObj::PortionObj(css::uno::Reference< css::text::XTextRange > & rXTextRang
                 mnTextSize++;
                 bRTL_endingParen = true;
             }
-            mpText = new sal_uInt16[ mnTextSize ];
+            mpText.reset( new sal_uInt16[ mnTextSize ] );
             sal_uInt16 nChar;
             for ( sal_Int32 i = 0; i < aString.getLength(); i++ )
             {
@@ -258,7 +261,7 @@ void PortionObj::ImplGetPortionValues( FontCollection& rFontCollection, bool bGe
     sal_Int16 nScriptType = SvtLanguageOptions::FromSvtScriptTypeToI18N( SvtLanguageOptions::GetScriptTypeOfLanguage( Application::GetSettings().GetLanguageTag().getLanguageType() ) );
     if ( mpText && mnTextSize && xPPTBreakIter.is() )
     {
-        OUString sT( reinterpret_cast<sal_Unicode *>(mpText), mnTextSize );
+        OUString sT( reinterpret_cast<sal_Unicode *>(mpText.get()), mnTextSize );
         nScriptType = xPPTBreakIter->getScriptType( sT, 0 );
     }
     if ( nScriptType != css::i18n::ScriptType::COMPLEX )
@@ -437,8 +440,8 @@ void PortionObj::ImplGetPortionValues( FontCollection& rFontCollection, bool bGe
 
 void PortionObj::ImplClear()
 {
-    delete mpFieldEntry;
-    delete[] mpText;
+    mpFieldEntry.reset();
+    mpText.reset();
 }
 
 void PortionObj::ImplConstruct( const PortionObj& rPortionObj )
@@ -462,16 +465,12 @@ void PortionObj::ImplConstruct( const PortionObj& rPortionObj )
 
     if ( rPortionObj.mpText )
     {
-        mpText = new sal_uInt16[ mnTextSize ];
-        memcpy( mpText, rPortionObj.mpText, mnTextSize << 1 );
+        mpText.reset( new sal_uInt16[ mnTextSize ] );
+        memcpy( mpText.get(), rPortionObj.mpText.get(), mnTextSize << 1 );
     }
-    else
-        mpText = nullptr;
 
     if ( rPortionObj.mpFieldEntry )
-        mpFieldEntry = new FieldEntry( *( rPortionObj.mpFieldEntry ) );
-    else
-        mpFieldEntry = nullptr;
+        mpFieldEntry.reset( new FieldEntry( *( rPortionObj.mpFieldEntry ) ) );
 }
 
 sal_uInt32 PortionObj::ImplCalculateTextPositions( sal_uInt32 nCurrentTextPosition )
@@ -845,8 +844,11 @@ void ParagraphObj::ImplGetNumberingLevel( PPTExBulletProvider* pBuProv, sal_Int1
                             aFontDesc.CharSet = RTL_TEXTENCODING_MS_1252;
 
                     }
-                    else if ( aPropName == "Graphic" )
-                        xGraphic = pPropValue[i].Value.get<uno::Reference<graphic::XGraphic>>();
+                    else if ( aPropName == "GraphicBitmap" )
+                    {
+                        auto xBitmap = pPropValue[i].Value.get<uno::Reference<awt::XBitmap>>();
+                        xGraphic.set(xBitmap, uno::UNO_QUERY);
+                    }
                     else if ( aPropName == "GraphicSize" )
                     {
                         if (auto aSize = o3tl::tryAccess<css::awt::Size>(pPropValue[i].Value))
@@ -882,7 +884,7 @@ void ParagraphObj::ImplGetNumberingLevel( PPTExBulletProvider* pBuProv, sal_Int1
 #ifdef DBG_UTIL
                     else if ( ! (
                             ( aPropName == "SymbolTextDistance" )
-                        ||  ( aPropName == "Graphic" ) ) )
+                        ||  ( aPropName == "GraphicBitmap" ) ) )
                     {
                         OSL_FAIL( "Unknown Property" );
                     }

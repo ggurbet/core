@@ -24,7 +24,6 @@
 
 #include <unotools/tempfile.hxx>
 #include <comphelper/fileformat.h>
-#include <comphelper/storagehelper.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/docfile.hxx>
 #include <svl/stritem.hxx>
@@ -140,7 +139,7 @@ SCQAHELPER_DLLPUBLIC bool checkFormulaPositions(
     ScDocument& rDoc, SCTAB nTab, SCCOL nCol, const SCROW* pRows, size_t nRowCount);
 
 SCQAHELPER_DLLPUBLIC ScTokenArray* compileFormula(
-    ScDocument* pDoc, const OUString& rFormula, const ScAddress* pPos = nullptr,
+    ScDocument* pDoc, const OUString& rFormula,
     formula::FormulaGrammar::Grammar eGram = formula::FormulaGrammar::GRAM_NATIVE );
 
 SCQAHELPER_DLLPUBLIC bool checkOutput(
@@ -204,7 +203,7 @@ public:
 
     ScDocShellRef saveAndReload( ScDocShell* pShell, sal_Int32 nFormat );
 
-    static std::shared_ptr<utl::TempFile> exportTo( ScDocShell* pShell, sal_Int32 nFormat );
+    std::shared_ptr<utl::TempFile> exportTo(ScDocShell* pShell, sal_Int32 nFormat);
 
     void miscRowHeightsTest( TestParam const * aTestValues, unsigned int numElems );
 };

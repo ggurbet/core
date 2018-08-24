@@ -279,7 +279,8 @@ void DrawViewShell::ExecBmpMask( SfxRequest const & rReq )
 
             if ( pObj && !mpDrawView->IsTextEdit() )
             {
-                std::unique_ptr<SdrGrafObj> xNewObj(pObj->Clone());
+                typedef std::unique_ptr< SdrGrafObj, SdrObjectFreeOp > SdrGrafObjPtr;
+                SdrGrafObjPtr xNewObj(pObj->CloneSdrObject(pObj->getSdrModelFromSdrObject()));
                 bool bCont = true;
 
                 if (xNewObj->IsLinkedGraphic())
@@ -336,7 +337,7 @@ void DrawViewShell::GetBmpMaskState( SfxItemSet& rSet )
         pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
 
     // valid graphic object?
-    if( pObj && dynamic_cast< const SdrGrafObj *>( pObj ) !=  nullptr &&
+    if( dynamic_cast< const SdrGrafObj *>( pObj ) &&
         !static_cast<const SdrGrafObj*>(pObj)->IsEPS() &&
         !mpDrawView->IsTextEdit() )
     {

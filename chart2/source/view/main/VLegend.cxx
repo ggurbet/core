@@ -23,7 +23,7 @@
 #include <CommonConverters.hxx>
 #include <ObjectIdentifier.hxx>
 #include <RelativePositionHelper.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <RelativeSizeHelper.hxx>
 #include <LegendEntryProvider.hxx>
 #include <chartview/DrawModelWrapper.hxx>
@@ -36,6 +36,7 @@
 #include <com/sun/star/chart/ChartLegendExpansion.hpp>
 #include <com/sun/star/chart2/LegendPosition.hpp>
 #include <com/sun/star/chart2/RelativePosition.hpp>
+#include <com/sun/star/chart2/XFormattedString2.hpp>
 #include <com/sun/star/chart2/data/XPivotTableDataProvider.hpp>
 #include <com/sun/star/chart2/data/PivotTableFieldEntry.hpp>
 #include <rtl/ustrbuf.hxx>
@@ -153,7 +154,7 @@ awt::Size lcl_createTextShapes(
     const tPropertyValues & rTextProperties )
 {
     awt::Size aResult;
-    AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory);
+    ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(xShapeFactory);
 
     for (ViewLegendEntry const & rEntry : rEntries)
     {
@@ -242,6 +243,8 @@ void lcl_collectRowHeighs( std::vector< sal_Int32 >& rRowHeights, const sal_Int3
 sal_Int32 lcl_getTextLineHeight( const std::vector< sal_Int32 >& aRowHeights, const sal_Int32 nNumberOfRows, double fViewFontSize )
 {
     const sal_Int32 nFontHeight = static_cast< sal_Int32 >( fViewFontSize );
+    if (!nFontHeight)
+        return 0;
     sal_Int32 nTextLineHeight = nFontHeight;
     for (sal_Int32 nRow = 0; nRow < nNumberOfRows; ++nRow)
     {
@@ -877,7 +880,7 @@ void VLegend::createShapes(
     try
     {
         //create shape and add to page
-        AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
+        ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
         OUString aLegendParticle( ObjectIdentifier::createParticleForLegend( mrModel ) );
         m_xShape.set( pShapeFactory->createGroup2D( m_xTarget,
                     ObjectIdentifier::createClassifiedIdentifierForParticle( aLegendParticle )),
@@ -996,10 +999,10 @@ void VLegend::createShapes(
                         aLegendSize,
                         awt::Point(0,0),
                         aLineFillProperties.first,
-                        aLineFillProperties.second, AbstractShapeFactory::Bottom );
+                        aLineFillProperties.second, ShapeFactory::Bottom );
 
             //because of this name this border will be used for marking the legend
-            AbstractShapeFactory::setShapeName( xBorder, "MarkHandles" );
+            ShapeFactory::setShapeName( xBorder, "MarkHandles" );
         }
     }
     catch( const uno::Exception & )

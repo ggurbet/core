@@ -112,7 +112,7 @@ public:
     virtual ~OfaAutocorrOptionsPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                 const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -172,7 +172,7 @@ class OfaSwAutoFmtOptionsPage : public SfxTabPage
     virtual void dispose() override;
 
 public:
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                             const SfxItemSet* rAttrSet);
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -254,8 +254,8 @@ private:
         std::set<OUString>      aFormatText;
         std::map<LanguageType, DoubleStringArray>
                                 aDoubleStringTable;
-        CollatorWrapper*        pCompareClass;
-        CharClass*              pCharClass;
+        std::unique_ptr<CollatorWrapper>  pCompareClass;
+        std::unique_ptr<CharClass>        pCharClass;
         LanguageType            eLang;
 
         bool bHasSelectionText;
@@ -278,7 +278,7 @@ public:
                         virtual ~OfaAutocorrReplacePage() override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet);
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -320,7 +320,7 @@ private:
     VclPtr<CheckBox>       m_pAutoCapsCB;
 
     StringsTable    aStringsTable;
-    CollatorWrapper* pCompareClass;
+    std::unique_ptr<CollatorWrapper> pCompareClass;
     LanguageType    eLang;
 
     DECL_LINK(NewDelButtonHdl, Button*, void);
@@ -337,7 +337,7 @@ public:
                         virtual ~OfaAutocorrExceptPage() override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                 const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -402,7 +402,7 @@ public:
                         virtual ~OfaQuoteTabPage() override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                 const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -455,7 +455,7 @@ private:
 public:
     virtual ~OfaAutoCompleteTabPage() override;
     virtual void dispose() override;
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                 const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -521,7 +521,7 @@ public:
     virtual ~OfaSmartTagOptionsTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rAttrSet);
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

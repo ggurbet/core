@@ -117,9 +117,6 @@ LwpColor LwpNumericFormatSubset::GetColor()
 LwpNumericFormatSubset::LwpNumericFormatSubset():cSubFlags(0)
 {
 }
-LwpNumericFormatSubset::~LwpNumericFormatSubset()
-{
-}
 
 LwpNumericFormat::LwpNumericFormat(LwpObjectStream * pStrm)
     : m_pObjStrm(pStrm)
@@ -356,7 +353,7 @@ XFStyle* LwpNumericFormat::Convert()
                                    static_cast<sal_uInt8>(aColor.GetGreen()),
                                    static_cast<sal_uInt8>(aColor.GetBlue())) );
     }
-    {//Negtive
+    {//Negative
         pStyle->SetNegativeStyle( aNegPrefix, aNegSuffix, XFColor(static_cast<sal_uInt8>(aNegativeColor.GetRed()),
                                                                     static_cast<sal_uInt8>(aNegativeColor.GetGreen()),
                                                                     static_cast<sal_uInt8>(aNegativeColor.GetBlue())) );

@@ -22,6 +22,7 @@
 #include <connectivity/sdbcx/VCollection.hxx>
 #include "RowSetCache.hxx"
 #include <stringconstants.hxx>
+#include <sal/log.hxx>
 #include <core_resource.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
@@ -1232,11 +1233,13 @@ void ORowSetBase::positionCache( CursorMoveDirection _ePrepareForDirection )
     {
         if ( m_bBeforeFirst )
         {
-            bSuccess = m_pCache->beforeFirst();
+            m_pCache->beforeFirst();
+            bSuccess = true;
         }
         else if ( m_bAfterLast )
         {
-            bSuccess = m_pCache->afterLast();
+            m_pCache->afterLast();
+            bSuccess = true;
         }
         else
         {

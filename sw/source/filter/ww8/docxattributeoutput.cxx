@@ -97,6 +97,8 @@
 #include <sfx2/sfxbasemodel.hxx>
 #include <tools/datetimeutils.hxx>
 #include <svl/whiter.hxx>
+#include <rtl/tencinfo.h>
+#include <sal/log.hxx>
 
 #include <docufld.hxx>
 #include <authfld.hxx>
@@ -1788,11 +1790,10 @@ void DocxAttributeOutput::CmdField_Impl( const SwTextNode* pNode, sal_Int32 nPos
             DoWriteFieldRunProperties( pNode, nPos, bWriteCombChars );
         }
 
-        sal_Int32 nNbToken = comphelper::string::getTokenCount(rInfos.sCmd, '\t');
-
-        for ( sal_Int32 i = 0; i < nNbToken; i++ )
+        sal_Int32 nIdx { rInfos.sCmd.isEmpty() ? -1 : 0 };
+        while ( nIdx >= 0 )
         {
-            OUString sToken = rInfos.sCmd.getToken( i, '\t' );
+            OUString sToken = rInfos.sCmd.getToken( 0, '\t', nIdx );
             if ( rInfos.eType ==  ww::eCREATEDATE
               || rInfos.eType ==  ww::eSAVEDATE
               || rInfos.eType ==  ww::ePRINTDATE
@@ -1807,7 +1808,7 @@ void DocxAttributeOutput::CmdField_Impl( const SwTextNode* pNode, sal_Int32 nPos
             DoWriteCmd( sToken );
 
             // Replace tabs by </instrText><tab/><instrText>
-            if ( i < ( nNbToken - 1 ) )
+            if ( nIdx > 0 ) // Is another token expected?
                 RunText( "\t" );
         }
 
@@ -2351,30 +2352,26 @@ void DocxAttributeOutput::GetSdtEndBefore(const SdrObject* pSdrObj)
     if (pSdrObj)
     {
         uno::Reference<drawing::XShape> xShape(const_cast<SdrObject*>(pSdrObj)->getUnoShape(), uno::UNO_QUERY_THROW);
-        if( xShape.is() )
+        uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_QUERY );
+        if( xPropSet.is() )
         {
-            uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_QUERY );
-            uno::Reference< beans::XPropertySetInfo > xPropSetInfo;
-            if( xPropSet.is() )
+            uno::Reference< beans::XPropertySetInfo > xPropSetInfo = xPropSet->getPropertySetInfo();
+            uno::Sequence< beans::PropertyValue > aGrabBag;
+            if (xPropSetInfo.is() && xPropSetInfo->hasPropertyByName("FrameInteropGrabBag"))
             {
-                xPropSetInfo = xPropSet->getPropertySetInfo();
-                uno::Sequence< beans::PropertyValue > aGrabBag;
-                if (xPropSetInfo.is() && xPropSetInfo->hasPropertyByName("FrameInteropGrabBag"))
-                {
-                    xPropSet->getPropertyValue("FrameInteropGrabBag") >>= aGrabBag;
-                }
-                else if(xPropSetInfo.is() && xPropSetInfo->hasPropertyByName("InteropGrabBag"))
-                {
-                    xPropSet->getPropertyValue("InteropGrabBag") >>= aGrabBag;
-                }
+                xPropSet->getPropertyValue("FrameInteropGrabBag") >>= aGrabBag;
+            }
+            else if(xPropSetInfo.is() && xPropSetInfo->hasPropertyByName("InteropGrabBag"))
+            {
+                xPropSet->getPropertyValue("InteropGrabBag") >>= aGrabBag;
+            }
 
-                for (sal_Int32 nProp=0; nProp < aGrabBag.getLength(); ++nProp)
+            for (sal_Int32 nProp=0; nProp < aGrabBag.getLength(); ++nProp)
+            {
+                if ("SdtEndBefore" == aGrabBag[nProp].Name && m_bStartedCharSdt && !m_bEndCharSdt)
                 {
-                    if ("SdtEndBefore" == aGrabBag[nProp].Name && m_bStartedCharSdt && !m_bEndCharSdt)
-                    {
-                        aGrabBag[nProp].Value >>= m_bEndCharSdt;
-                        break;
-                    }
+                    aGrabBag[nProp].Value >>= m_bEndCharSdt;
+                    break;
                 }
             }
         }
@@ -2515,7 +2512,6 @@ void DocxAttributeOutput::RunText( const OUString& rText, rtl_TextEncoding /*eCh
 
 void DocxAttributeOutput::RawText(const OUString& rText, rtl_TextEncoding /*eCharSet*/)
 {
-    assert ( (m_pHyperlinkAttrList.is() || m_rExport.SdrExporter().IsDMLAndVMLDrawingOpen() /* || m_rExport.SdrExporter().IsDrawingOpen() */) && "jluth is at mail dot com-and wants example documents that use RawText/EEField");
     m_sRawText = rText;
 }
 
@@ -2656,7 +2652,7 @@ bool DocxAttributeOutput::StartURL( const OUString& rUrl, const OUString& rTarge
                     // Extract <seqname>, the field instruction text has the name quoted.
                     OUString aSequenceName = sMark.copy(0, nPos);
                     // Extract <index>.
-                    sal_uInt32 nIndex = sMark.copy(nPos + 1, sMark.getLength() - nPos - sizeof("|sequence")).toInt32();
+                    sal_uInt32 nIndex = sMark.copy(nPos + 1, sMark.getLength() - nPos - sizeof("|sequence")).toUInt32();
                     std::map<OUString, std::vector<OString> >::iterator it = m_aSeqBookmarksNames.find(aSequenceName);
                     if (it != m_aSeqBookmarksNames.end())
                     {
@@ -2975,7 +2971,7 @@ static void impl_borderLine( FSHelperPtr const & pSerializer, sal_Int32 elementT
                 break;
         }
     }
-    else if( rStyleProps == nullptr )
+    else if ( !rStyleProps || !rStyleProps->LineWidth )
         // no line, and no line set by the style either:
         // there is no need to write the property
         return;
@@ -3753,6 +3749,18 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
             FSNS( XML_w, XML_val ), pJcVal,
             FSEND );
 
+    // Output the table background color (although cell value still needs to be specified)
+    const SvxBrushItem *pColorProp = pTableFormat->GetAttrSet().GetItem<SvxBrushItem>(RES_BACKGROUND);
+    Color aColor = pColorProp ? pColorProp->GetColor() : COL_AUTO;
+    if ( aColor != COL_AUTO )
+    {
+        OString sColor = msfilter::util::ConvertColor( aColor );
+        m_pSerializer->singleElementNS( XML_w, XML_shd,
+                FSNS( XML_w, XML_fill ), sColor.getStr( ),
+                FSNS( XML_w, XML_val ), "clear",
+                FSEND );
+    }
+
     // Output the table borders
     TableDefaultBorders( pTableTextNodeInfoInner );
 
@@ -3815,12 +3823,25 @@ void DocxAttributeOutput::TableDefaultCellMargins( ww8::WW8TableNodeInfoInner::P
 
 void DocxAttributeOutput::TableBackgrounds( ww8::WW8TableNodeInfoInner::Pointer_t pTableTextNodeInfoInner )
 {
+    const SwTable *pTable = pTableTextNodeInfoInner->getTable();
     const SwTableBox *pTableBox = pTableTextNodeInfoInner->getTableBox( );
+    const SwTableLine *pTableRow = pTableBox->GetUpper();
     const SwFrameFormat *pFormat = pTableBox->GetFrameFormat( );
 
     const SvxBrushItem *pColorProp = pFormat->GetAttrSet().GetItem<SvxBrushItem>(RES_BACKGROUND);
     Color aColor = pColorProp ? pColorProp->GetColor() : COL_AUTO;
-    OString sColor = msfilter::util::ConvertColor( aColor );
+
+    const SwFrameFormat *pRowFormat = pTableRow->GetFrameFormat( );
+    const SvxBrushItem *pRowColorProp = pRowFormat->GetAttrSet().GetItem<SvxBrushItem>(RES_BACKGROUND);
+    if ( pRowColorProp && aColor == COL_AUTO)
+        aColor = pRowColorProp->GetColor();
+
+    const SwFrameFormat *pTableFormat = pTable->GetFrameFormat( );
+    const SvxBrushItem *pTableColorProp = pTableFormat->GetAttrSet().GetItem<SvxBrushItem>(RES_BACKGROUND);
+    if ( pTableColorProp && aColor == COL_AUTO )
+        aColor = pTableColorProp->GetColor();
+
+    const OString sColor = msfilter::util::ConvertColor( aColor );
 
     std::map<OUString, css::uno::Any> aGrabBag =
             pFormat->GetAttrSet().GetItem<SfxGrabBagItem>(RES_FRMATR_GRABBAG)->GetGrabBag();
@@ -4760,14 +4781,7 @@ void DocxAttributeOutput::WriteOLE2Obj( const SdrObject* pSdrObj, SwOLENode& rOL
         return;
     if( WriteOLEMath( rOLENode ))
         return;
-    if( PostponeOLE( rOLENode, rSize, pFlyFrameFormat ))
-        return;
-    // Then we fall back to just export the object as a graphic.
-    if( !m_pPostponedGraphic )
-        FlyFrameGraphic( nullptr, rSize, pFlyFrameFormat, &rOLENode );
-    else
-        // w:drawing should not be inside w:rPr, so write it out later
-        m_pPostponedGraphic->push_back(PostponedGraphic(nullptr, rSize, pFlyFrameFormat, &rOLENode, nullptr));
+    PostponeOLE( rOLENode, rSize, pFlyFrameFormat );
 }
 
 bool DocxAttributeOutput::WriteOLEChart( const SdrObject* pSdrObj, const Size& rSize )
@@ -5187,14 +5201,13 @@ bool DocxAttributeOutput::ExportAsActiveXControl(const SdrObject* pObject) const
     return true;
 }
 
-bool DocxAttributeOutput::PostponeOLE( SwOLENode& rNode, const Size& rSize, const SwFlyFrameFormat* pFlyFrameFormat )
+void DocxAttributeOutput::PostponeOLE( SwOLENode& rNode, const Size& rSize, const SwFlyFrameFormat* pFlyFrameFormat )
 {
     if( !m_pPostponedOLEs )
         //cannot be postponed, try to write now
         WriteOLE( rNode, rSize, pFlyFrameFormat );
     else
         m_pPostponedOLEs->push_back( PostponedOLE( &rNode, rSize, pFlyFrameFormat ) );
-    return true;
 }
 
 /*
@@ -5551,7 +5564,6 @@ void DocxAttributeOutput::WriteOutliner(const OutlinerParaObject& rParaObj)
 
             if ( !m_sRawText.isEmpty() )
             {
-                assert (bTextAtr && "jluth is at mail dot com-and is looking for sample documents");
                 RunText( m_sRawText );
                 m_sRawText.clear();
             }
@@ -6158,6 +6170,9 @@ static OString impl_LevelNFC( sal_uInt16 nNumberingType , const SfxItemSet *pOut
         case style::NumberingType::CHARS_ARABIC: aType="arabicAlpha"; break;
         case style::NumberingType::CHARS_THAI: aType="thaiLetters"; break;
         case style::NumberingType::CHARS_PERSIAN: aType="hindiVowels"; break;
+        case style::NumberingType::TEXT_NUMBER: aType="ordinal"; break;
+        case style::NumberingType::TEXT_CARDINAL: aType="cardinalText"; break;
+        case style::NumberingType::TEXT_ORDINAL: aType="ordinalText"; break;
 /*
         Fallback the rest to decimal.
         case style::NumberingType::NATIVE_NUMBERING:
@@ -6620,9 +6635,10 @@ void DocxAttributeOutput::NumberingLevel( sal_uInt8 nLevel,
     }
 
     sal_Int32 nToken = ecmaDialect ? XML_left : XML_start;
+    sal_Int32 nIndentToken = nFirstLineIndex > 0 ? XML_firstLine : XML_hanging;
     m_pSerializer->singleElementNS( XML_w, XML_ind,
             FSNS( XML_w, nToken ), OString::number( nIndentAt ).getStr(),
-            FSNS( XML_w, XML_hanging ), OString::number( -nFirstLineIndex ).getStr(),
+            FSNS( XML_w, nIndentToken ), OString::number( abs(nFirstLineIndex) ).getStr(),
             FSEND );
     m_pSerializer->endElementNS( XML_w, XML_pPr );
 
@@ -7258,7 +7274,7 @@ void DocxAttributeOutput::WriteField_Impl( const SwField* pField, ww::eField eTy
 
     struct FieldInfos infos;
     if (pField)
-        infos.pField.reset(pField->CopyField());
+        infos.pField = pField->CopyField();
     infos.sCmd = rFieldCmd;
     infos.eType = eType;
     infos.bClose = bool(FieldFlags::Close & nMode);
@@ -7710,31 +7726,17 @@ static void impl_WriteTabElement( FSHelperPtr const & pSerializer,
 
 void DocxAttributeOutput::ParaTabStop( const SvxTabStopItem& rTabStop )
 {
-    sal_uInt16 nCount = rTabStop.Count();
+    const SvxTabStopItem* pInheritedTabs = nullptr;
+    if ( GetExport().m_pStyAttr )
+        pInheritedTabs = GetExport().m_pStyAttr->GetItem<SvxTabStopItem>(RES_PARATR_TABSTOP);
+    else if ( GetExport().m_pCurrentStyle && GetExport().m_pCurrentStyle->DerivedFrom() )
+        pInheritedTabs = GetExport().m_pCurrentStyle->DerivedFrom()->GetAttrSet().GetItem<SvxTabStopItem>(RES_PARATR_TABSTOP);
+    const sal_uInt16 nInheritedTabCount = pInheritedTabs ? pInheritedTabs->Count() : 0;
+    const sal_uInt16 nCount = rTabStop.Count();
 
     // <w:tabs> must contain at least one <w:tab>, so don't write it empty
-    if( nCount == 0 )
-    {
-        // clear style tabs - otherwise style will override...
-        if( GetExport().m_pStyAttr )
-        {
-            const SvxTabStopItem* pStyleTabs = GetExport().m_pStyAttr->GetItem<SvxTabStopItem>(RES_PARATR_TABSTOP);
-            if( pStyleTabs && pStyleTabs->Count() )
-            {
-                m_pSerializer->startElementNS( XML_w, XML_tabs, FSEND );
-                for( int i = 0; i < pStyleTabs->Count(); ++i )
-                {
-                    m_pSerializer->singleElementNS( XML_w, XML_tab,
-                        FSNS( XML_w, XML_val ), OString("clear"),
-                        FSNS( XML_w, XML_pos ), OString::number(pStyleTabs->At(i).GetTabPos()),
-                        FSEND );
-                }
-                m_pSerializer->endElementNS( XML_w, XML_tabs );
-            }
-        }
-
+    if ( !nCount && !nInheritedTabCount )
         return;
-    }
     if( nCount == 1 && rTabStop[ 0 ].GetAdjustment() == SvxTabAdjust::Default )
     {
         GetExport().setDefaultTabStop( rTabStop[ 0 ].GetTabPos());
@@ -7742,6 +7744,22 @@ void DocxAttributeOutput::ParaTabStop( const SvxTabStopItem& rTabStop )
     }
 
     m_pSerializer->startElementNS( XML_w, XML_tabs, FSEND );
+
+    // clear unused inherited tabs - otherwise the style will add them back in
+    sal_Int32 nCurrTab = 0;
+    for ( sal_uInt16 i = 0; i < nInheritedTabCount; ++i )
+    {
+        while ( nCurrTab < nCount && rTabStop[nCurrTab] < pInheritedTabs->At(i) )
+            ++nCurrTab;
+
+        if ( nCurrTab == nCount || pInheritedTabs->At(i) < rTabStop[nCurrTab] )
+        {
+            m_pSerializer->singleElementNS( XML_w, XML_tab,
+                FSNS( XML_w, XML_val ), OString("clear"),
+                FSNS( XML_w, XML_pos ), OString::number(pInheritedTabs->At(i).GetTabPos()),
+                FSEND );
+        }
+    }
 
     for (sal_uInt16 i = 0; i < nCount; i++ )
     {
@@ -8330,7 +8348,7 @@ void DocxAttributeOutput::FormatFillStyle( const XFillStyleItem& rFillStyle )
         m_bIgnoreNextFill = false;
 
     // Don't round-trip grabbag OriginalBackground if the background has been cleared.
-    if ( m_pBackgroundAttrList.is() && rFillStyle.GetValue() == drawing::FillStyle_NONE )
+    if ( m_pBackgroundAttrList.is() && m_sOriginalBackgroundColor != "auto" && rFillStyle.GetValue() == drawing::FillStyle_NONE )
         m_pBackgroundAttrList.clear();
 }
 
@@ -8528,8 +8546,22 @@ void DocxAttributeOutput::FormatBox( const SvxBoxItem& rBox )
         // Open the paragraph's borders tag
         m_pSerializer->startElementNS( XML_w, XML_pBdr, FSEND );
 
-        std::map<SvxBoxItemLine, css::table::BorderLine2> aEmptyMap; // empty styles map
-        impl_borders( m_pSerializer, rBox, aOutputBorderOptions, aEmptyMap );
+        std::map<SvxBoxItemLine, css::table::BorderLine2> aStyleBorders;
+        const SvxBoxItem* pInherited = nullptr;
+        if ( GetExport().m_pStyAttr )
+            pInherited = GetExport().m_pStyAttr->GetItem<SvxBoxItem>(RES_BOX);
+        else if ( GetExport().m_pCurrentStyle && GetExport().m_pCurrentStyle->DerivedFrom() )
+            pInherited = GetExport().m_pCurrentStyle->DerivedFrom()->GetAttrSet().GetItem<SvxBoxItem>(RES_BOX);
+
+        if ( pInherited )
+        {
+            aStyleBorders[ SvxBoxItemLine::TOP ] = SvxBoxItem::SvxLineToLine(pInherited->GetTop(), /*bConvert=*/false);
+            aStyleBorders[ SvxBoxItemLine::BOTTOM ] = SvxBoxItem::SvxLineToLine(pInherited->GetBottom(), false);
+            aStyleBorders[ SvxBoxItemLine::LEFT ] = SvxBoxItem::SvxLineToLine(pInherited->GetLeft(), false);
+            aStyleBorders[ SvxBoxItemLine::RIGHT ] = SvxBoxItem::SvxLineToLine(pInherited->GetRight(), false);
+        }
+
+        impl_borders( m_pSerializer, rBox, aOutputBorderOptions, aStyleBorders );
 
         // Close the paragraph's borders tag
         m_pSerializer->endElementNS( XML_w, XML_pBdr );

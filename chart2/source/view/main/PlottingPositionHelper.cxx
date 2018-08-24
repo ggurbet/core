@@ -22,7 +22,7 @@
 #include <ViewDefines.hxx>
 #include <Linear3DTransformation.hxx>
 #include <VPolarTransformation.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <PropertyMapper.hxx>
 #include <DateHelper.hxx>
 #include <defines.hxx>
@@ -31,8 +31,11 @@
 #include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/drawing/DoubleSequence.hpp>
 #include <com/sun/star/drawing/Position3D.hpp>
+#include <com/sun/star/drawing/XShapes.hpp>
 
+#include <o3tl/make_unique.hxx>
 #include <rtl/math.hxx>
+#include <tools/helpers.hxx>
 
 namespace chart
 {
@@ -79,15 +82,14 @@ PlottingPositionHelper::~PlottingPositionHelper()
 
 }
 
-PlottingPositionHelper* PlottingPositionHelper::clone() const
+std::unique_ptr<PlottingPositionHelper> PlottingPositionHelper::clone() const
 {
-    PlottingPositionHelper* pRet = new PlottingPositionHelper(*this);
-    return pRet;
+    return o3tl::make_unique<PlottingPositionHelper>(*this);
 }
 
-PlottingPositionHelper* PlottingPositionHelper::createSecondaryPosHelper( const ExplicitScaleData& rSecondaryScale )
+std::unique_ptr<PlottingPositionHelper> PlottingPositionHelper::createSecondaryPosHelper( const ExplicitScaleData& rSecondaryScale )
 {
-    PlottingPositionHelper* pRet = clone();
+    auto pRet = clone();
     pRet->m_aScales[1]=rSecondaryScale;
     return pRet;
 }
@@ -199,7 +201,7 @@ drawing::Position3D PlottingPositionHelper::transformScaledLogicToScene(
 
 awt::Point PlottingPositionHelper::transformSceneToScreenPosition( const drawing::Position3D& rScenePosition3D
                 , const uno::Reference< drawing::XShapes >& xSceneTarget
-                , AbstractShapeFactory* pShapeFactory
+                , ShapeFactory* pShapeFactory
                 , sal_Int32 nDimensionCount )
 {
     //@todo would like to have a cheaper method to do this transformation
@@ -336,10 +338,9 @@ PolarPlottingPositionHelper::~PolarPlottingPositionHelper()
 {
 }
 
-PlottingPositionHelper* PolarPlottingPositionHelper::clone() const
+std::unique_ptr<PlottingPositionHelper> PolarPlottingPositionHelper::clone() const
 {
-    PolarPlottingPositionHelper* pRet = new PolarPlottingPositionHelper(*this);
-    return pRet;
+    return o3tl::make_unique<PolarPlottingPositionHelper>(*this);
 }
 
 void PolarPlottingPositionHelper::setTransformationSceneToScreen( const drawing::HomogenMatrix& rMatrix)
@@ -476,11 +477,7 @@ double PolarPlottingPositionHelper::transformToAngleDegree( double fLogicValueOn
     fRet = m_fAngleDegreeOffset
                   + fAxisAngleScaleDirection*(fScaledLogicAngleValue-MinAngleValue)*360.0
                     /fabs(MaxAngleValue-MinAngleValue);
-    while(fRet>360.0)
-        fRet-=360.0;
-    while(fRet<0)
-        fRet+=360.0;
-    return fRet;
+    return NormAngle360(fRet);
 }
 
 /**
@@ -615,7 +612,7 @@ drawing::Position3D PolarPlottingPositionHelper::transformScaledLogicToScene( do
 drawing::Position3D PolarPlottingPositionHelper::transformUnitCircleToScene( double fUnitAngleDegree, double fUnitRadius
                                                                             , double fLogicZ ) const
 {
-    double fAnglePi = fUnitAngleDegree*F_PI/180.0;
+    double fAnglePi = basegfx::deg2rad(fUnitAngleDegree);
 
     double fX=fUnitRadius*rtl::math::cos(fAnglePi);
     double fY=fUnitRadius*rtl::math::sin(fAnglePi);

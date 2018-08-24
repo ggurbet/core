@@ -99,7 +99,7 @@ public:
     PDFExtOutDevData( const OutputDevice& rOutDev );
     virtual ~PDFExtOutDevData() override;
 
-    bool PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAction );
+    bool PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAction, const GDIMetaFile& rMtf );
     void ResetSyncData();
 
     void PlayGlobalActions( PDFWriter& rWriter );
@@ -183,7 +183,9 @@ public:
                           const tools::Rectangle&  rVisibleOutputRect );
 
     /// Detect if stream is compressed enough to avoid de-compress / scale & re-compress
-    bool        HasAdequateCompression( const Graphic &rGraphic ) const;
+    bool        HasAdequateCompression( const Graphic &rGraphic,
+                                        const tools::Rectangle &rOutputRect,
+                                        const tools::Rectangle &rVisibleOutputRect ) const;
 
 //--->i56629
     /** Create a new named destination to be used in a link to this document from another PDF document
@@ -268,12 +270,8 @@ public:
 
         @param nDestId
         the dest the link shall point to
-        @returns
-        0 for success
-        -1 in case the link id does not exist
-        -2 in case the dest id does not exist
     */
-    sal_Int32 SetLinkDest( sal_Int32 nLinkId, sal_Int32 nDestId );
+    void SetLinkDest( sal_Int32 nLinkId, sal_Int32 nDestId );
     /** Set the URL for a link
         <p>will change a dest type link to an URL type link if necessary</p>
         @param nLinkId
@@ -285,12 +283,8 @@ public:
         conversion done to this parameter execept this:
         it will be output as 7bit Ascii. The URL
         will appear literally in the PDF file produced
-
-        @returns
-        0 for success
-        -1 in case the link id does not exist
     */
-    sal_Int32 SetLinkURL( sal_Int32 nLinkId, const OUString& rURL );
+    void SetLinkURL( sal_Int32 nLinkId, const OUString& rURL );
 
     /// Set URL for a linked Screen annotation.
     void SetScreenURL(sal_Int32 nScreenId, const OUString& rURL);
@@ -410,12 +404,8 @@ public:
 
     @param eVal
     the value to set the attribute to
-
-    @returns
-    True if the value was valid and the change has been performed,
-    False if the attribute or value was invalid; attribute remains unchanged
      */
-    bool SetStructureAttribute( PDFWriter::StructAttribute eAttr, PDFWriter::StructAttributeValue eVal );
+    void SetStructureAttribute( PDFWriter::StructAttribute eAttr, PDFWriter::StructAttributeValue eVal );
     /** set a structure attribute on the current structural element
 
     SetStructureAttributeNumerical sets an attribute of the current structural element
@@ -428,12 +418,8 @@ public:
 
     @param nValue
     the value to set the attribute to
-
-    @returns
-    True if the value was valid and the change has been performed,
-    False if the attribute or value was invalid; attribute remains unchanged
      */
-    bool SetStructureAttributeNumerical( PDFWriter::StructAttribute eAttr, sal_Int32 nValue );
+    void SetStructureAttributeNumerical( PDFWriter::StructAttribute eAttr, sal_Int32 nValue );
     /** set the bounding box of a structural element
 
     SetStructureBoundingBox sets the BBox attribute to a new value. Since the BBox

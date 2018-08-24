@@ -47,7 +47,7 @@ void SvxDefaultColorOptPage::InsertColorEntry(const XColorEntry& rEntry, sal_Int
     xDevice->SetFillColor(rColor);
     xDevice->SetLineColor(rStyleSettings.GetDisableColor());
     xDevice->DrawRect(aRect);
-    Bitmap aBitmap(xDevice->GetBitmap(Point(0, 0), xDevice->GetOutputSize()));
+    BitmapEx aBitmap(xDevice->GetBitmapEx(Point(0, 0), xDevice->GetOutputSize()));
 
     nPos = m_pLbChartColors->InsertEntry(rStr, Image(aBitmap), nPos);
 
@@ -135,20 +135,20 @@ SvxDefaultColorOptPage::SvxDefaultColorOptPage(vcl::Window* pParent, const SfxIt
     m_pValSetColorBox->SetExtraSpacing( 0 );
     m_pValSetColorBox->Show();
 
-    pChartOptions = new SvxChartOptions;
+    pChartOptions.reset(new SvxChartOptions);
     pColorList = XColorList::CreateStdColorList();
 
     const SfxPoolItem* pItem = nullptr;
     if ( rInAttrs.GetItemState( SID_SCH_EDITOPTIONS, false, &pItem ) == SfxItemState::SET )
     {
-        pColorConfig = static_cast< SvxChartColorTableItem* >(pItem->Clone());
+        pColorConfig.reset(static_cast< SvxChartColorTableItem* >(pItem->Clone()));
     }
     else
     {
         SvxChartColorTable aTable;
         aTable.useDefault();
-        pColorConfig = new SvxChartColorTableItem( SID_SCH_EDITOPTIONS, aTable );
-        pColorConfig->SetOptions( pChartOptions );
+        pColorConfig.reset(new SvxChartColorTableItem( SID_SCH_EDITOPTIONS, aTable ));
+        pColorConfig->SetOptions( pChartOptions.get() );
     }
 
     Construct();
@@ -167,10 +167,8 @@ void SvxDefaultColorOptPage::dispose()
         pChartOptions->SetDefaultColors( pColorConfig->GetColorList() );
         pChartOptions->Commit();
 
-        delete pColorConfig;
-        pColorConfig = nullptr;
-        delete pChartOptions;
-        pChartOptions = nullptr;
+        pColorConfig.reset();
+        pChartOptions.reset();
     }
     m_pLbChartColors.clear();
     m_pValSetColorBox.clear();
@@ -190,15 +188,15 @@ void SvxDefaultColorOptPage::Construct()
 }
 
 
-VclPtr<SfxTabPage> SvxDefaultColorOptPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrs )
+VclPtr<SfxTabPage> SvxDefaultColorOptPage::Create( TabPageParent pParent, const SfxItemSet* rAttrs )
 {
-    return VclPtr<SvxDefaultColorOptPage>::Create( pParent, *rAttrs );
+    return VclPtr<SvxDefaultColorOptPage>::Create( pParent.pParent, *rAttrs );
 }
 
 bool SvxDefaultColorOptPage::FillItemSet( SfxItemSet* rOutAttrs )
 {
     if( pColorConfig )
-        rOutAttrs->Put( *static_cast< SfxPoolItem* >(pColorConfig) );
+        rOutAttrs->Put( *pColorConfig );
 
     return true;
 }

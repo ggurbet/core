@@ -24,6 +24,7 @@
 #include <vcl/dllapi.h>
 #include <vcl/window.hxx>
 #include <o3tl/typed_flags_set.hxx>
+#include <memory>
 #include <vector>
 
 struct ImplStatusItem;
@@ -44,10 +45,11 @@ enum class StatusBarItemBits {
     Flat            = 0x0020,
     AutoSize        = 0x0040,
     UserDraw        = 0x0080,
+    Mandatory       = 0x0100,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<StatusBarItemBits> : is_typed_flags<StatusBarItemBits, 0x00ff> {};
+    template<> struct typed_flags<StatusBarItemBits> : is_typed_flags<StatusBarItemBits, 0x01ff> {};
 }
 
 #define STATUSBAR_APPEND            (sal_uInt16(0xFFFF))
@@ -59,8 +61,8 @@ class VCL_DLLPUBLIC StatusBar : public vcl::Window
 {
     class   ImplData;
 private:
-    std::vector<ImplStatusItem *> mpItemList;
-    ImplData*           mpImplData;
+    std::vector<std::unique_ptr<ImplStatusItem>> mvItemList;
+    std::unique_ptr<ImplData> mpImplData;
     OUString            maPrgsTxt;
     Point               maPrgsTxtPos;
     tools::Rectangle           maPrgsFrameRect;

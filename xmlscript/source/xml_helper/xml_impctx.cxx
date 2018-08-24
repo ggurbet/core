@@ -105,9 +105,6 @@ class DocumentHandlerImpl :
     t_OUString2LongMap m_URI2Uid;
     sal_Int32 m_uid_count;
 
-    OUString m_sXMLNS_PREFIX_UNKNOWN;
-    OUString m_sXMLNS;
-
     sal_Int32 m_nLastURI_lookup;
     OUString m_aLastURI_lookup;
 
@@ -169,13 +166,15 @@ public:
     virtual OUString SAL_CALL getUriByUid( sal_Int32 Uid ) override;
 };
 
+static OUString const g_sXMLNS_PREFIX_UNKNOWN( "<<< unknown prefix >>>" );
+static OUString const g_sXMLNS( "xmlns" );
+
+
 DocumentHandlerImpl::DocumentHandlerImpl(
     Reference< xml::input::XRoot > const & xRoot,
     bool bSingleThreadedUse )
     : m_xRoot( xRoot ),
       m_uid_count( 0 ),
-      m_sXMLNS_PREFIX_UNKNOWN( "<<< unknown prefix >>>" ),
-      m_sXMLNS( "xmlns" ),
       m_nLastURI_lookup( UID_UNKNOWN ),
       m_aLastURI_lookup( "<<< unknown URI >>>" ),
       m_nLastPrefix_lookup( UID_UNKNOWN ),
@@ -240,7 +239,7 @@ inline sal_Int32 DocumentHandlerImpl::getUidByPrefix(
         else
         {
             m_nLastPrefix_lookup = UID_UNKNOWN;
-            m_aLastPrefix_lookup = m_sXMLNS_PREFIX_UNKNOWN;
+            m_aLastPrefix_lookup = g_sXMLNS_PREFIX_UNKNOWN;
         }
     }
     return m_nLastPrefix_lookup;
@@ -286,7 +285,7 @@ inline void DocumentHandlerImpl::popPrefix(
     }
 
     m_nLastPrefix_lookup = UID_UNKNOWN;
-    m_aLastPrefix_lookup = m_sXMLNS_PREFIX_UNKNOWN;
+    m_aLastPrefix_lookup = g_sXMLNS_PREFIX_UNKNOWN;
 }
 
 inline void DocumentHandlerImpl::getElementName(
@@ -301,7 +300,7 @@ inline void DocumentHandlerImpl::getElementName(
 class ExtendedAttributes :
     public ::cppu::WeakImplHelper< xml::input::XAttributes >
 {
-    sal_Int32 m_nAttributes;
+    sal_Int32 const m_nAttributes;
     std::unique_ptr<sal_Int32[]> m_pUids;
     std::unique_ptr<OUString[]>  m_pLocalNames;
     std::unique_ptr<OUString[]>  m_pQNames;
@@ -310,8 +309,9 @@ class ExtendedAttributes :
 public:
     inline ExtendedAttributes(
         sal_Int32 nAttributes,
-        sal_Int32 * pUids,
-        OUString * pLocalNames, OUString * pQNames,
+        std::unique_ptr<sal_Int32[]> pUids,
+        std::unique_ptr<OUString[]> pLocalNames,
+        std::unique_ptr<OUString[]> pQNames,
         Reference< xml::sax::XAttributeList > const & xAttributeList );
 
     // XAttributes
@@ -336,13 +336,13 @@ public:
 
 inline ExtendedAttributes::ExtendedAttributes(
     sal_Int32 nAttributes,
-    sal_Int32 * pUids,
-    OUString * pLocalNames, OUString * pQNames,
+    std::unique_ptr<sal_Int32[]> pUids,
+    std::unique_ptr<OUString[]> pLocalNames, std::unique_ptr<OUString[]> pQNames,
     Reference< xml::sax::XAttributeList > const & xAttributeList )
     : m_nAttributes( nAttributes )
-    , m_pUids( pUids )
-    , m_pLocalNames( pLocalNames )
-    , m_pQNames( pQNames )
+    , m_pUids( std::move(pUids) )
+    , m_pLocalNames( std::move(pLocalNames) )
+    , m_pQNames( std::move(pQNames) )
     , m_pValues( new OUString[ nAttributes ] )
 {
     for ( sal_Int32 nPos = 0; nPos < nAttributes; ++nPos )
@@ -441,10 +441,10 @@ void DocumentHandlerImpl::startElement(
     sal_Int16 nAttribs = xAttribs->getLength();
 
     // save all namespace ids
-    sal_Int32 * pUids = new sal_Int32[ nAttribs ];
+    std::unique_ptr<sal_Int32[]> pUids(new sal_Int32[ nAttribs ]);
     OUString * pPrefixes = new OUString[ nAttribs ];
-    OUString * pLocalNames = new OUString[ nAttribs ];
-    OUString * pQNames = new OUString[ nAttribs ];
+    std::unique_ptr<OUString[]> pLocalNames(new OUString[ nAttribs ]);
+    std::unique_ptr<OUString[]> pQNames(new OUString[ nAttribs ]);
 
     // first recognize all xmlns attributes
     sal_Int16 nPos;
@@ -457,7 +457,7 @@ void DocumentHandlerImpl::startElement(
         pQNames[ nPos ] = xAttribs->getNameByIndex( nPos );
         OUString const & rQAttributeName = pQNames[ nPos ];
 
-        if (rQAttributeName.startsWith( m_sXMLNS ))
+        if (rQAttributeName.startsWith( g_sXMLNS ))
         {
             if (rQAttributeName.getLength() == 5) // set default namespace
             {
@@ -467,7 +467,7 @@ void DocumentHandlerImpl::startElement(
                     xAttribs->getValueByIndex( nPos ) );
                 elementEntry->m_prefixes.push_back( aDefNamespacePrefix );
                 pUids[ nPos ]          = UID_UNKNOWN;
-                pPrefixes[ nPos ]      = m_sXMLNS;
+                pPrefixes[ nPos ]      = g_sXMLNS;
                 pLocalNames[ nPos ]    = aDefNamespacePrefix;
             }
             else if (':' == rQAttributeName[ 5 ]) // set prefix
@@ -476,7 +476,7 @@ void DocumentHandlerImpl::startElement(
                 pushPrefix( aPrefix, xAttribs->getValueByIndex( nPos ) );
                 elementEntry->m_prefixes.push_back( aPrefix );
                 pUids[ nPos ]          = UID_UNKNOWN;
-                pPrefixes[ nPos ]      = m_sXMLNS;
+                pPrefixes[ nPos ]      = g_sXMLNS;
                 pLocalNames[ nPos ]    = aPrefix;
             }
             // else just a name starting with xmlns, but no prefix
@@ -511,7 +511,7 @@ void DocumentHandlerImpl::startElement(
     // ownership of arrays belongs to attribute list
     xAttributes = static_cast< xml::input::XAttributes * >(
         new ExtendedAttributes(
-            nAttribs, pUids, pLocalNames, pQNames,
+            nAttribs, std::move(pUids), std::move(pLocalNames), std::move(pQNames),
             xAttribs ) );
 
     getElementName( rQElementName, &nUid, &aLocalName );

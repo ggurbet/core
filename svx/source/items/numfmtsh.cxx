@@ -177,21 +177,9 @@ SvxNumberFormatShell::~SvxNumberFormatShell()
 }
 
 
-size_t SvxNumberFormatShell::GetUpdateDataCount() const
+std::vector<sal_uInt32> const & SvxNumberFormatShell::GetUpdateData() const
 {
-    return aDelList.size();
-}
-
-
-void SvxNumberFormatShell::GetUpdateData( sal_uInt32* pDelArray, const sal_uInt32 nSize )
-{
-    const size_t nListSize = aDelList.size();
-
-    DBG_ASSERT( pDelArray && ( nSize == nListSize ), "Array not initialised!" );
-
-    if ( pDelArray && ( nSize == nListSize ) )
-        for (std::vector<sal_uInt32>::const_iterator it(aDelList.begin()); it != aDelList.end(); ++it )
-            *pDelArray++ = *it;
+    return aDelList;
 }
 
 
@@ -318,7 +306,7 @@ bool SvxNumberFormatShell::AddFormat( OUString& rFormat, sal_Int32& rErrPos,
 }
 
 
-bool SvxNumberFormatShell::RemoveFormat( const OUString& rFormat,
+void SvxNumberFormatShell::RemoveFormat( const OUString& rFormat,
                                          sal_uInt16& rCatLbSelPos,
                                          short& rFmtSelPos,
                                          std::vector<OUString>& rFmtEntries )
@@ -349,7 +337,6 @@ bool SvxNumberFormatShell::RemoveFormat( const OUString& rFormat,
         CategoryToPos_Impl( nCurCategory, rCatLbSelPos );
         rFmtSelPos = FillEntryList_Impl( rFmtEntries );
     }
-    return true;
 }
 
 

@@ -32,7 +32,6 @@
 #include <basegfx/numeric/ftools.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <basegfx/utils/unotools.hxx>
 #include <basegfx/matrix/b3dhommatrixtools.hxx>
 
 using namespace ::com::sun::star;
@@ -146,10 +145,10 @@ void Imp_PutDoubleChar(OUString& rStr, double fValue)
 {
     OUStringBuffer sStringBuffer;
     ::sax::Converter::convertDouble(sStringBuffer, fValue);
-    rStr += sStringBuffer.makeStringAndClear();
+    rStr += sStringBuffer;
 }
 
-void Imp_PutDoubleChar(OUString& rStr, const SvXMLUnitConverter& rConv, double fValue,
+void Imp_PutDoubleChar(OUStringBuffer& rStr, const SvXMLUnitConverter& rConv, double fValue,
     bool bConvertUnits = false)
 {
     OUStringBuffer sStringBuffer;
@@ -161,7 +160,7 @@ void Imp_PutDoubleChar(OUString& rStr, const SvXMLUnitConverter& rConv, double f
         ::sax::Converter::convertDouble(sStringBuffer, fValue);
     }
 
-    rStr += sStringBuffer.makeStringAndClear();
+    rStr.append(sStringBuffer);
 }
 
 // base class of all 2D transform objects
@@ -244,7 +243,7 @@ void SdXMLImExTransform2D::AddSkewX(double fNew)
 // gen string for export
 const OUString& SdXMLImExTransform2D::GetExportString(const SvXMLUnitConverter& rConv)
 {
-    OUString aNewString;
+    OUStringBuffer aNewString;
     OUString aClosingBrace(")");
     OUString aEmptySpace(" ");
 
@@ -256,71 +255,71 @@ const OUString& SdXMLImExTransform2D::GetExportString(const SvXMLUnitConverter& 
         {
             case IMP_SDXMLEXP_TRANSOBJ2D_ROTATE :
             {
-                aNewString += "rotate (";
+                aNewString.append("rotate (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DRotate*>(pObj)->mfRotate);
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ2D_SCALE      :
             {
-                aNewString += "scale (";
+                aNewString.append("scale (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DScale*>(pObj)->maScale.getX());
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DScale*>(pObj)->maScale.getY());
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ2D_TRANSLATE  :
             {
-                aNewString += "translate (";
+                aNewString.append("translate (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DTranslate*>(pObj)->maTranslate.getX(), true);
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DTranslate*>(pObj)->maTranslate.getY(), true);
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ2D_SKEWX      :
             {
-                aNewString += "skewX (";
+                aNewString.append("skewX (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DSkewX*>(pObj)->mfSkewX);
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ2D_SKEWY      :
             {
-                aNewString += "skewY (";
+                aNewString.append("skewY (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DSkewY*>(pObj)->mfSkewY);
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ2D_MATRIX :
             {
-                aNewString += "matrix (";
+                aNewString.append("matrix (");
 
                 // a
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DMatrix*>(pObj)->maMatrix.get(0, 0));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // b
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DMatrix*>(pObj)->maMatrix.get(1, 0));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // c
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DMatrix*>(pObj)->maMatrix.get(0, 1));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // d
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DMatrix*>(pObj)->maMatrix.get(1, 1));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // e
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DMatrix*>(pObj)->maMatrix.get(0, 2), true);
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // f
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj2DMatrix*>(pObj)->maMatrix.get(1, 2), true);
 
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             default :
@@ -333,12 +332,12 @@ const OUString& SdXMLImExTransform2D::GetExportString(const SvXMLUnitConverter& 
         // if not the last entry, add one space to next tag
         if(a + 1 != maList.size())
         {
-            aNewString += aEmptySpace;
+            aNewString.append(aEmptySpace);
         }
     }
 
     // fill string form OUString
-    msString = aNewString;
+    msString = aNewString.makeStringAndClear();
 
     return msString;
 }
@@ -607,7 +606,7 @@ void SdXMLImExTransform3D::AddHomogenMatrix(const drawing::HomogenMatrix& xHomMa
 // gen string for export
 const OUString& SdXMLImExTransform3D::GetExportString(const SvXMLUnitConverter& rConv)
 {
-    OUString aNewString;
+    OUStringBuffer aNewString;
     OUString aClosingBrace(")");
     OUString aEmptySpace(" ");
 
@@ -619,99 +618,99 @@ const OUString& SdXMLImExTransform3D::GetExportString(const SvXMLUnitConverter& 
         {
             case IMP_SDXMLEXP_TRANSOBJ3D_ROTATE_X   :
             {
-                aNewString += "rotatex (";
+                aNewString.append("rotatex (");
                 Imp_PutDoubleChar(aNewString, rConv, basegfx::rad2deg( static_cast<ImpSdXMLExpTransObj3DRotateX*>(pObj)->mfRotateX) );
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ3D_ROTATE_Y   :
             {
-                aNewString += "rotatey (";
+                aNewString.append("rotatey (");
                 Imp_PutDoubleChar(aNewString, rConv, basegfx::rad2deg( static_cast<ImpSdXMLExpTransObj3DRotateY*>(pObj)->mfRotateY) );
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ3D_ROTATE_Z   :
             {
-                aNewString += "rotatez (";
+                aNewString.append("rotatez (");
                 Imp_PutDoubleChar(aNewString, rConv, basegfx::rad2deg( static_cast<ImpSdXMLExpTransObj3DRotateZ*>(pObj)->mfRotateZ) );
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ3D_SCALE      :
             {
-                aNewString += "scale (";
+                aNewString.append("scale (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DScale*>(pObj)->maScale.getX());
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DScale*>(pObj)->maScale.getY());
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DScale*>(pObj)->maScale.getZ());
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ3D_TRANSLATE  :
             {
-                aNewString += "translate (";
+                aNewString.append("translate (");
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DTranslate*>(pObj)->maTranslate.getX(), true);
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DTranslate*>(pObj)->maTranslate.getY(), true);
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DTranslate*>(pObj)->maTranslate.getZ(), true);
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             case IMP_SDXMLEXP_TRANSOBJ3D_MATRIX :
             {
-                aNewString += "matrix (";
+                aNewString.append("matrix (");
 
                 // a
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(0, 0));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // b
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(1, 0));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // c
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(2, 0));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // d
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(0, 1));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // e
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(1, 1));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // f
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(2, 1));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // g
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(0, 2));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // h
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(1, 2));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // i
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(2, 2));
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // j
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(0, 3), true);
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // k
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(1, 3), true);
-                aNewString += aEmptySpace;
+                aNewString.append(aEmptySpace);
 
                 // l
                 Imp_PutDoubleChar(aNewString, rConv, static_cast<ImpSdXMLExpTransObj3DMatrix*>(pObj)->maMatrix.get(2, 3), true);
 
-                aNewString += aClosingBrace;
+                aNewString.append(aClosingBrace);
                 break;
             }
             default :
@@ -724,12 +723,12 @@ const OUString& SdXMLImExTransform3D::GetExportString(const SvXMLUnitConverter& 
         // if not the last entry, add one space to next tag
         if(a + 1 != maList.size())
         {
-            aNewString += aEmptySpace;
+            aNewString.append(aEmptySpace);
         }
     }
 
     // fill string form OUString
-    msString = aNewString;
+    msString = aNewString.makeStringAndClear();
 
     return msString;
 }

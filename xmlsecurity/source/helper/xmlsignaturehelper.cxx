@@ -44,11 +44,10 @@
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
 
-#include <tools/date.hxx>
-#include <tools/time.hxx>
 #include <comphelper/ofopxmlhelper.hxx>
 #include <comphelper/sequence.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #define NS_DOCUMENTSIGNATURES   "http://openoffice.org/2004/documentsignatures"
 #define NS_DOCUMENTSIGNATURES_ODF_1_2 "urn:oasis:names:tc:opendocument:xmlns:digitalsignature:1.0"
@@ -56,6 +55,7 @@
 #define OOXML_SIGNATURE_SIGNATURE "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/signature"
 
 using namespace ::com::sun::star;
+using namespace ::com::sun::star::graphic;
 using namespace ::com::sun::star::uno;
 
 XMLSignatureHelper::XMLSignatureHelper( const uno::Reference< uno::XComponentContext >& rxCtx)
@@ -109,14 +109,16 @@ void XMLSignatureHelper::SetX509Certificate(
         const OUString& ouX509IssuerName,
         const OUString& ouX509SerialNumber,
         const OUString& ouX509Cert,
-        const OUString& ouX509CertDigest)
+        const OUString& ouX509CertDigest,
+        svl::crypto::SignatureMethodAlgorithm eAlgorithmID)
 {
     mpXSecController->setX509Certificate(
         nSecurityId,
         ouX509IssuerName,
         ouX509SerialNumber,
         ouX509Cert,
-        ouX509CertDigest);
+        ouX509CertDigest,
+        eAlgorithmID);
 }
 
 void XMLSignatureHelper::AddEncapsulatedX509Certificate(const OUString& ouEncapsulatedX509Certificate)
@@ -136,15 +138,32 @@ void XMLSignatureHelper::SetGpgCertificate(sal_Int32 nSecurityId,
         ouGpgOwner);
 }
 
-void XMLSignatureHelper::SetDateTime( sal_Int32 nSecurityId, const ::Date& rDate, const tools::Time& rTime )
+void XMLSignatureHelper::SetDateTime( sal_Int32 nSecurityId, const ::DateTime& rDateTime )
 {
-    css::util::DateTime stDateTime = ::DateTime(rDate, rTime).GetUNODateTime();
+    css::util::DateTime stDateTime = rDateTime.GetUNODateTime();
     mpXSecController->setDate( nSecurityId, stDateTime );
 }
 
 void XMLSignatureHelper::SetDescription(sal_Int32 nSecurityId, const OUString& rDescription)
 {
     mpXSecController->setDescription(nSecurityId, rDescription);
+}
+
+void XMLSignatureHelper::SetSignatureLineId(sal_Int32 nSecurityId, const OUString& rSignatureLineId)
+{
+    mpXSecController->setSignatureLineId(nSecurityId, rSignatureLineId);
+}
+
+void XMLSignatureHelper::SetSignatureLineValidGraphic(
+    sal_Int32 nSecurityId, const css::uno::Reference<XGraphic>& xValidGraphic)
+{
+    mpXSecController->setSignatureLineValidGraphic(nSecurityId, xValidGraphic);
+}
+
+void XMLSignatureHelper::SetSignatureLineInvalidGraphic(
+    sal_Int32 nSecurityId, const css::uno::Reference<XGraphic>& xInvalidGraphic)
+{
+    mpXSecController->setSignatureLineInvalidGraphic(nSecurityId, xInvalidGraphic);
 }
 
 void XMLSignatureHelper::AddForSigning( sal_Int32 nSecurityId, const OUString& uri, bool bBinary, bool bXAdESCompliantIfODF )
@@ -351,21 +370,25 @@ bool XMLSignatureHelper::ReadAndVerifySignatureStorage(const uno::Reference<embe
                 if (!bCacheLastSignature && i == aRelationsInfo.getLength() - 1)
                     bCache = false;
 
-                if (bCache)
+                if (!bCache)
+                    continue;
+                // Store the contents of the stream as is, in case we need to write it back later.
+                xInputStream.clear();
+                xInputStream.set(xStorage->openStreamElement(it->Second, nOpenMode), uno::UNO_QUERY);
+                uno::Reference<beans::XPropertySet> xPropertySet(xInputStream, uno::UNO_QUERY);
+                if (!xPropertySet.is())
+                    continue;
+
+                sal_Int64 nSize = 0;
+                xPropertySet->getPropertyValue("Size") >>= nSize;
+                if (nSize < 0 || nSize > SAL_MAX_INT32)
                 {
-                    // Store the contents of the stream as is, in case we need to write it back later.
-                    xInputStream.clear();
-                    xInputStream.set(xStorage->openStreamElement(it->Second, nOpenMode), uno::UNO_QUERY);
-                    uno::Reference<beans::XPropertySet> xPropertySet(xInputStream, uno::UNO_QUERY);
-                    if (xPropertySet.is())
-                    {
-                        sal_Int64 nSize = 0;
-                        xPropertySet->getPropertyValue("Size") >>= nSize;
-                        uno::Sequence<sal_Int8> aData;
-                        xInputStream->readBytes(aData, nSize);
-                        mpXSecController->setSignatureBytes(aData);
-                    }
+                    SAL_WARN("xmlsecurity.helper", "bogus signature size: " << nSize);
+                    continue;
                 }
+                uno::Sequence<sal_Int8> aData;
+                xInputStream->readBytes(aData, nSize);
+                mpXSecController->setSignatureBytes(aData);
             }
         }
     }

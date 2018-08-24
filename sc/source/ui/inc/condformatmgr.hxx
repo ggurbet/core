@@ -51,7 +51,7 @@ public:
     virtual ~ScCondFormatManagerDlg() override;
     virtual void dispose() override;
 
-    ScConditionalFormatList* GetConditionalFormatList();
+    std::unique_ptr<ScConditionalFormatList> GetConditionalFormatList();
 
     bool CondFormatsChanged() const;
     void SetModified();
@@ -62,10 +62,8 @@ private:
     VclPtr<PushButton> m_pBtnAdd;
     VclPtr<PushButton> m_pBtnRemove;
     VclPtr<PushButton> m_pBtnEdit;
-    ScConditionalFormatList* mpFormatList;
+    std::unique_ptr<ScConditionalFormatList> mpFormatList;
     VclPtr<ScCondFormatManagerWindow> m_pCtrlManager;
-
-    ScDocument* mpDoc;
 
     DECL_LINK(RemoveBtnHdl, Button*, void);
     DECL_LINK(EditBtnClickHdl, Button*, void);

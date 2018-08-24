@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
@@ -416,7 +417,7 @@ namespace sw
         const SfxPoolItem *SearchPoolItems(const ww8::PoolItems &rItems,
             sal_uInt16 eType)
         {
-            ww8::cPoolItemIter aIter = rItems.find(eType);
+            auto aIter = rItems.find(eType);
             if (aIter != rItems.end())
                 return aIter->second;
             return nullptr;
@@ -681,7 +682,7 @@ namespace sw
         void RedlineStack::open(const SwPosition& rPos, const SfxPoolItem& rAttr)
         {
             OSL_ENSURE(rAttr.Which() == RES_FLTR_REDLINE, "not a redline");
-            maStack.push_back(new SwFltStackEntry(rPos,rAttr.Clone()));
+            maStack.emplace_back(new SwFltStackEntry(rPos, std::unique_ptr<SfxPoolItem>(rAttr.Clone())));
         }
 
         class SameOpenRedlineType
@@ -690,7 +691,7 @@ namespace sw
             RedlineType_t meType;
         public:
             explicit SameOpenRedlineType(RedlineType_t eType) : meType(eType) {}
-            bool operator()(const SwFltStackEntry *pEntry) const
+            bool operator()(const std::unique_ptr<SwFltStackEntry> & pEntry) const
             {
                 const SwFltRedline *pTest = static_cast<const SwFltRedline *>
                     (pEntry->pAttr.get());
@@ -770,7 +771,7 @@ namespace sw
             }
         }
 
-        void SetInDocAndDelete::operator()(SwFltStackEntry *pEntry)
+        void SetInDocAndDelete::operator()(std::unique_ptr<SwFltStackEntry>& pEntry)
         {
             SwPaM aRegion(pEntry->m_aMkPos.m_nNode);
             if (
@@ -804,11 +805,11 @@ namespace sw
                 mrDoc.getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::NONE | RedlineFlags::ShowInsert |
                      RedlineFlags::ShowDelete );
             }
-            delete pEntry;
+            pEntry.reset();
         }
 
-        bool CompareRedlines::operator()(const SwFltStackEntry *pOneE,
-            const SwFltStackEntry *pTwoE) const
+        bool CompareRedlines::operator()(const std::unique_ptr<SwFltStackEntry> & pOneE,
+            const std::unique_ptr<SwFltStackEntry> & pTwoE) const
         {
             const SwFltRedline *pOne= static_cast<const SwFltRedline*>
                 (pOneE->pAttr.get());
@@ -832,8 +833,7 @@ namespace sw
         sal_uInt16 WrtRedlineAuthor::AddName( const OUString& rNm )
         {
             sal_uInt16 nRet;
-            typedef std::vector<OUString>::iterator myiter;
-            myiter aIter = std::find(maAuthors.begin(), maAuthors.end(), rNm);
+            auto aIter = std::find(maAuthors.begin(), maAuthors.end(), rNm);
             if (aIter != maAuthors.end())
                 nRet = static_cast< sal_uInt16 >(aIter - maAuthors.begin());
             else
@@ -866,11 +866,10 @@ namespace sw
         {
             if (!mbHasRoot)
                 return;
-            TableMapIter aEnd = maTables.end();
-            for (TableMapIter aIter = maTables.begin(); aIter != aEnd; ++aIter)
+            for (auto& aTable : maTables)
             {
                 // If already a layout exists, then the BoxFrames must recreated at this table
-                SwTableNode *pTable = aIter->first->GetTableNode();
+                SwTableNode *pTable = aTable.first->GetTableNode();
                 OSL_ENSURE(pTable, "Why no expected table");
                 if (pTable)
                 {
@@ -878,7 +877,7 @@ namespace sw
 
                     if (pFrameFormat != nullptr)
                     {
-                        SwNodeIndex *pIndex = aIter->second;
+                        SwNodeIndex *pIndex = aTable.second;
                         pTable->DelFrames();
                         pTable->MakeFrames(pIndex);
                     }

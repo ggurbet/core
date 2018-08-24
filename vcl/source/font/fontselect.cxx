@@ -20,23 +20,17 @@
 #include <sal/config.h>
 #include <o3tl/safeint.hxx>
 
+#include <fontselect.hxx>
+#include <fontinstance.hxx>
+
 #include <PhysicalFontFace.hxx>
 #include <svdata.hxx>
 
 // These mustn't conflict with font name lists which use ; and ,
-const char FontSelectPatternAttributes::FEAT_PREFIX = ':';
-const char FontSelectPatternAttributes::FEAT_SEPARATOR = '&';
+const char FontSelectPattern::FEAT_PREFIX = ':';
+const char FontSelectPattern::FEAT_SEPARATOR = '&';
 
 FontSelectPattern::FontSelectPattern( const vcl::Font& rFont,
-    const OUString& rSearchName, const Size& rSize, float fExactHeight)
-    : FontSelectPatternAttributes(rFont, rSearchName, rSize, fExactHeight)
-    , mpFontData( nullptr )
-    , mpFontInstance( nullptr )
-{
-}
-
-
-FontSelectPatternAttributes::FontSelectPatternAttributes( const vcl::Font& rFont,
     const OUString& rSearchName, const Size& rSize, float fExactHeight )
     : maSearchName( rSearchName )
     , mnWidth( rSize.Width() )
@@ -71,7 +65,7 @@ FontSelectPatternAttributes::FontSelectPatternAttributes( const vcl::Font& rFont
 
 // NOTE: this ctor is still used on Windows. Do not remove.
 #ifdef _WIN32
-FontSelectPatternAttributes::FontSelectPatternAttributes( const PhysicalFontFace& rFontData,
+FontSelectPattern::FontSelectPattern( const PhysicalFontFace& rFontData,
     const Size& rSize, float fExactHeight, int nOrientation, bool bVertical )
     : FontAttributes( rFontData )
     , mnWidth( rSize.Width() )
@@ -87,26 +81,14 @@ FontSelectPatternAttributes::FontSelectPatternAttributes( const PhysicalFontFace
     // NOTE: no normalization for width/height/orientation
 }
 
-FontSelectPattern::FontSelectPattern( const PhysicalFontFace& rFontData,
-    const Size& rSize, float fExactHeight, int nOrientation, bool bVertical )
-    : FontSelectPatternAttributes(rFontData, rSize, fExactHeight, nOrientation, bVertical)
-    , mpFontData( &rFontData )
-    , mpFontInstance( nullptr )
-{
-}
 #endif
 
-void FontSelectPattern::copyAttributes(const FontSelectPatternAttributes &rAttributes)
-{
-    static_cast<FontSelectPatternAttributes&>(*this) = rAttributes;
-}
-
-size_t FontSelectPatternAttributes::hashCode() const
+size_t FontSelectPattern::hashCode() const
 {
     // TODO: does it pay off to improve this hash function?
     size_t nHash;
     // check for features and generate a unique hash if necessary
-    if (maTargetName.indexOf(FontSelectPatternAttributes::FEAT_PREFIX)
+    if (maTargetName.indexOf(FontSelectPattern::FEAT_PREFIX)
         != -1)
     {
         nHash = maTargetName.hashCode();
@@ -125,7 +107,7 @@ size_t FontSelectPatternAttributes::hashCode() const
     return nHash;
 }
 
-bool FontSelectPatternAttributes::operator==(const FontSelectPatternAttributes& rOther) const
+bool FontSelectPattern::operator==(const FontSelectPattern& rOther) const
 {
     if (!CompareDeviceIndependentFontAttributes(rOther))
         return false;

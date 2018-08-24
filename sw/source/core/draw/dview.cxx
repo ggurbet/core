@@ -31,6 +31,7 @@
 #include <pagefrm.hxx>
 #include <rootfrm.hxx>
 #include <cntfrm.hxx>
+#include <notxtfrm.hxx>
 #include <flyfrm.hxx>
 #include <frmfmt.hxx>
 #include <dflyobj.hxx>
@@ -315,7 +316,7 @@ sal_uInt32 SwDrawView::GetMaxChildOrdNum( const SwFlyFrame& _rParentObj,
 {
     sal_uInt32 nMaxChildOrdNum = _rParentObj.GetDrawObj()->GetOrdNum();
 
-    const SdrPage* pDrawPage = _rParentObj.GetDrawObj()->GetPage();
+    const SdrPage* pDrawPage = _rParentObj.GetDrawObj()->getSdrPageFromSdrObject();
     OSL_ENSURE( pDrawPage,
             "<SwDrawView::GetMaxChildOrdNum(..) - missing drawing page at parent object - crash!" );
 
@@ -428,7 +429,7 @@ void SwDrawView::ObjOrderChanged( SdrObject* pObj, size_t nOldPos,
                                           size_t nNewPos )
 {
     // nothing to do for group members
-    if ( pObj->GetUpGroup() )
+    if ( pObj->getParentSdrObjectFromSdrObject() )
     {
         return;
     }
@@ -832,9 +833,9 @@ void SwDrawView::CheckPossibilities()
                 pFrame = pFly->GetAnchorFrame();
                 if ( pFly->Lower() && pFly->Lower()->IsNoTextFrame() )
                 {
-                    const SwContentFrame* pCntFr(static_cast<const SwContentFrame*>(pFly->Lower()));
-                    const SwOLENode* pOLENd = pCntFr->GetNode()->GetOLENode();
-                    const SwGrfNode* pGrfNd = pCntFr->GetNode()->GetGrfNode();
+                    const SwNoTextFrame *const pNTF(static_cast<const SwNoTextFrame*>(pFly->Lower()));
+                    const SwOLENode *const pOLENd = pNTF->GetNode()->GetOLENode();
+                    const SwGrfNode *const pGrfNd = pNTF->GetNode()->GetGrfNode();
 
                     if ( pOLENd )
                     {

@@ -51,6 +51,8 @@
     <string name="pref_experimental_editing_summary">Enable the experimental editing mode. Use at your own risk.</string>
     <string name="pref_show_hidden_files">Hidden Files/Folders</string>
     <string name="pref_show_hidden_files_summary">Enable to show hidden files/folders</string>
+    <string name="pref_developer_mode">Developer Mode</string>
+    <string name="pref_developer_mode_summary">Enable developer mode where you can send UNO commands within app. Use at your own risk.</string>
 
     <string name="action_about">About</string>
     <string name="action_parts">Parts</string>
@@ -93,6 +95,7 @@
     <string name="action_save">Save</string>
     <string name="action_fromat">Enable Format</string>
     <string name="action_search">Search</string>
+    <string name="action_UNO_commands">Send UNO Cmd</string>
 
     <!-- Feedback messages -->
     <string name="message_saved">Save complete</string>
@@ -179,5 +182,33 @@
     <string name="action_cut">Cut</string>
     <string name="action_back">Back</string>
     <string name="action_text_copied">Text copied to the clipboard</string>
+    <string name="insert_table">Insert table</string>
+    <string name="select_insert_options">Select insert options:</string>
+    <string name="select_delete_options">Select delete options:</string>
+    <string name="action_rename_worksheet">Rename worksheet</string>
+    <string name="action_delete_worksheet">Delete worksheet</string>
+    <string name="action_delete_slide">Delete slide</string>
+    <string name="name_already_used">Given name is already being used.</string>
+    <string name="part_name_changed">Part name has been changed.</string>
+    <string name="part_deleted">Part has been deleted.</string>
+    <string-array name="insertrowscolumns">
+        <item>Insert Rows Before</item>
+        <item>Insert Rows After</item>
+        <item>Insert Columns Before</item>
+        <item>Insert Columns After</item>
+        <item>Insert Table</item>
+    </string-array>
+    <string-array name="deleterowcolumns">
+        <item>Delete Rows</item>
+        <item>Delete Columns</item>
+        <item>Delete Table</item>
+    </string-array>
 
+    <!-- UNO cmd controller Strings -->
+    <string name="UNO_commands_string_hint">UNO Command</string>
+    <string name="UNO_commands_string_type_hint">Type</string>
+    <string name="UNO_commands_string_value_hint">Value</string>
+    <string name="UNO_commands_string_parent_value_hint">Parent Value</string>
+    <string name="action_exportToPDF">Export To PDF</string>
+    <string name="action_print">Print</string>
 </resources>

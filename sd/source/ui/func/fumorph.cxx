@@ -25,6 +25,7 @@
 #include <svx/svdopath.hxx>
 #include <svx/svdogrp.hxx>
 #include <editeng/eeitem.hxx>
+#include <editeng/outlobj.hxx>
 
 #include <View.hxx>
 #include <ViewShell.hxx>
@@ -81,8 +82,8 @@ void FuMorph::DoExecute( SfxRequest& )
         // create clones
         SdrObject*  pObj1 = rMarkList.GetMark(0)->GetMarkedSdrObj();
         SdrObject*  pObj2 = rMarkList.GetMark(1)->GetMarkedSdrObj();
-        SdrObject*  pCloneObj1 = pObj1->Clone();
-        SdrObject*  pCloneObj2 = pObj2->Clone();
+        SdrObject*  pCloneObj1(pObj1->CloneSdrObject(pObj1->getSdrModelFromSdrObject()));
+        SdrObject*  pCloneObj2(pObj2->CloneSdrObject(pObj2->getSdrModelFromSdrObject()));
 
         // delete text at clone, otherwise we do net get a correct PathObj
         pCloneObj1->SetOutlinerParaObject(nullptr);
@@ -92,8 +93,8 @@ void FuMorph::DoExecute( SfxRequest& )
         SdrObject*  pPolyObj1 = pCloneObj1->ConvertToPolyObj(false, false);
         SdrObject*  pPolyObj2 = pCloneObj2->ConvertToPolyObj(false, false);
         SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractMorphDlg> pDlg(pFact ? pFact->CreateMorphDlg( static_cast< vcl::Window*>(mpWindow), pObj1, pObj2 ) : nullptr);
-        if(pPolyObj1 && pPolyObj2 && pDlg && (pDlg->Execute() == RET_OK))
+        ScopedVclPtr<AbstractMorphDlg> pDlg( pFact->CreateMorphDlg(mpWindow ? mpWindow->GetFrameWeld() : nullptr, pObj1, pObj2) );
+        if(pPolyObj1 && pPolyObj2 && (pDlg->Execute() == RET_OK))
         {
             B2DPolyPolygonList_impl aPolyPolyList;
             ::basegfx::B2DPolyPolygon aPolyPoly1;
@@ -109,15 +110,15 @@ void FuMorph::DoExecute( SfxRequest& )
             while(aIter1.IsMore())
             {
                 SdrObject* pObj = aIter1.Next();
-                if(pObj && dynamic_cast< SdrPathObj *>( pObj ) !=  nullptr)
-                    aPolyPoly1.append(static_cast<SdrPathObj*>(pObj)->GetPathPoly());
+                if(auto pPathObj = dynamic_cast< SdrPathObj *>( pObj ))
+                    aPolyPoly1.append(pPathObj->GetPathPoly());
             }
 
             while(aIter2.IsMore())
             {
                 SdrObject* pObj = aIter2.Next();
-                if(pObj && dynamic_cast< SdrPathObj *>( pObj ) !=  nullptr)
-                    aPolyPoly2.append(static_cast<SdrPathObj*>(pObj)->GetPathPoly());
+                if(auto pPathObj = dynamic_cast< SdrPathObj *>( pObj ))
+                    aPolyPoly2.append(pPathObj->GetPathPoly());
             }
 
             // perform morphing
@@ -160,15 +161,14 @@ void FuMorph::DoExecute( SfxRequest& )
                     aPolyPoly2.setB2DPolygon(a, aSub2);
                 }
 
-                if(ImpMorphPolygons(aPolyPoly1, aPolyPoly2, pDlg->GetFadeSteps(), aPolyPolyList))
-                {
-                    OUString aString(mpView->GetDescriptionOfMarkedObjects());
-                    aString += " " + SdResId(STR_UNDO_MORPHING);
+                ImpMorphPolygons(aPolyPoly1, aPolyPoly2, pDlg->GetFadeSteps(), aPolyPolyList);
 
-                    mpView->BegUndo(aString);
-                    ImpInsertPolygons(aPolyPolyList, pDlg->IsAttributeFade(), pObj1, pObj2);
-                    mpView->EndUndo();
-                }
+                OUString aString(mpView->GetDescriptionOfMarkedObjects());
+                aString += " " + SdResId(STR_UNDO_MORPHING);
+
+                mpView->BegUndo(aString);
+                ImpInsertPolygons(aPolyPolyList, pDlg->IsAttributeFade(), pObj1, pObj2);
+                mpView->EndUndo();
 
                 for(basegfx::B2DPolyPolygon * p : aPolyPolyList) {
                     delete p;
@@ -431,8 +431,12 @@ void FuMorph::ImpInsertPolygons(
 
         if ( nCount )
         {
-            pObjList->InsertObject( pObj1->Clone(), 0 );
-            pObjList->InsertObject( pObj2->Clone() );
+            pObjList->InsertObject(
+                pObj1->CloneSdrObject(pObj1->getSdrModelFromSdrObject()),
+                0 );
+            pObjList->InsertObject(
+                pObj2->CloneSdrObject(pObj2->getSdrModelFromSdrObject()) );
+
             mpView->DeleteMarked();
             mpView->InsertObjectAtView( pObjGroup, *pPageView, SdrInsertFlags:: SETDEFLAYER );
         }
@@ -475,7 +479,7 @@ void FuMorph::ImpInsertPolygons(
 /**
  * create morphed PolyPolygons
  */
-bool FuMorph::ImpMorphPolygons(
+void FuMorph::ImpMorphPolygons(
     const ::basegfx::B2DPolyPolygon& rPolyPoly1,
     const ::basegfx::B2DPolyPolygon& rPolyPoly2,
     const sal_uInt16 nSteps,
@@ -506,7 +510,6 @@ bool FuMorph::ImpMorphPolygons(
             rPolyPolyList3D.push_back( pNewPolyPoly2D );
         }
     }
-    return true;
 }
 
 } // end of namespace sd

@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_java.h>
 
 #include "DBSetupConnectionPages.hxx"
 #include <core_resource.hxx>
@@ -41,7 +41,6 @@
 #include <connectivity/CommonTools.hxx>
 #include "DriverSettings.hxx"
 #include <dbadmin.hxx>
-#include <comphelper/types.hxx>
 
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <com/sun/star/sdbc/XDriverAccess.hpp>

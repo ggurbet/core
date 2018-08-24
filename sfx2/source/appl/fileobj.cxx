@@ -21,6 +21,7 @@
 #include <tools/urlobj.hxx>
 #include <tools/stream.hxx>
 #include <sot/formats.hxx>
+#include <sal/log.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <sfx2/lnkbase.hxx>
 #include <sfx2/app.hxx>
@@ -33,7 +34,6 @@
 #include <sfx2/docfac.hxx>
 #include <com/sun/star/document/XTypeDetection.hpp>
 #include <unotools/mediadescriptor.hxx>
-#include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/opengrf.hxx>

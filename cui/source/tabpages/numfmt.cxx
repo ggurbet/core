@@ -286,10 +286,8 @@ SvxNumberFormatTabPage::~SvxNumberFormatTabPage()
 
 void SvxNumberFormatTabPage::dispose()
 {
-    delete pNumFmtShell;
-    pNumFmtShell = nullptr;
-    delete pNumItem;
-    pNumItem = nullptr;
+    pNumFmtShell.reset();
+    pNumItem.reset();
     m_pFtCategory.clear();
     m_pLbCategory.clear();
     m_pFtFormat.clear();
@@ -372,10 +370,10 @@ void SvxNumberFormatTabPage::Init_Impl()
     m_pLbLanguage->InsertLanguage( LANGUAGE_SYSTEM );
 }
 
-VclPtr<SfxTabPage> SvxNumberFormatTabPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SvxNumberFormatTabPage::Create( TabPageParent pParent,
                                                    const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxNumberFormatTabPage>::Create( pParent, *rAttrSet );
+    return VclPtr<SvxNumberFormatTabPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 
@@ -430,7 +428,7 @@ void SvxNumberFormatTabPage::Reset( const SfxItemSet* rSet )
         if(pNumItem==nullptr)
         {
             bNumItemFlag=true;
-            pNumItem= static_cast<SvxNumberInfoItem *>(pItem->Clone());
+            pNumItem.reset( static_cast<SvxNumberInfoItem *>(pItem->Clone()) );
         }
         else
         {
@@ -502,7 +500,7 @@ void SvxNumberFormatTabPage::Reset( const SfxItemSet* rSet )
             break;
     }
 
-    delete pNumFmtShell;   // delete old shell if applicable (== reset)
+    pNumFmtShell.reset();   // delete old shell if applicable (== reset)
 
     nInitFormat = pValFmtAttr                   // memorize init key
                     ? pValFmtAttr->GetValue()   // (for FillItemSet())
@@ -510,18 +508,18 @@ void SvxNumberFormatTabPage::Reset( const SfxItemSet* rSet )
 
 
     if ( eValType == SvxNumberValueType::String )
-        pNumFmtShell =SvxNumberFormatShell::Create(
+        pNumFmtShell.reset( SvxNumberFormatShell::Create(
                                 pNumItem->GetNumberFormatter(),
                                 pValFmtAttr ? nInitFormat : 0,
                                 eValType,
-                                aValString );
+                                aValString ) );
     else
-        pNumFmtShell =SvxNumberFormatShell::Create(
+        pNumFmtShell.reset( SvxNumberFormatShell::Create(
                                 pNumItem->GetNumberFormatter(),
                                 pValFmtAttr ? nInitFormat : 0,
                                 eValType,
                                 nValDouble,
-                                &aValString );
+                                &aValString ) );
 
 
     bool bUseStarFormat = false;
@@ -759,14 +757,12 @@ bool SvxNumberFormatTabPage::FillItemSet( SfxItemSet* rCoreAttrs )
 
         // List of changed user defined formats:
 
-        const size_t nDelCount = pNumFmtShell->GetUpdateDataCount();
+        std::vector<sal_uInt32> const & aDelFormats = pNumFmtShell->GetUpdateData();
 
-        if ( nDelCount > 0 )
+        if ( !aDelFormats.empty() )
         {
-            std::unique_ptr<sal_uInt32[]> pDelArr(new sal_uInt32[nDelCount]);
 
-            pNumFmtShell->GetUpdateData( pDelArr.get(), nDelCount );
-            pNumItem->SetDelFormatArray( pDelArr.get(), nDelCount );
+            pNumItem->SetDelFormats( aDelFormats );
 
             if(bNumItemFlag)
             {
@@ -1344,7 +1340,6 @@ IMPL_LINK( SvxNumberFormatTabPage, ClickHdl_Impl, Button*, pIB, void)
 }
 bool SvxNumberFormatTabPage::Click_Impl(PushButton* pIB)
 {
-    bool            bDeleted = false;
     sal_uLong       nReturn = 0;
     const sal_uLong nReturnChanged  = 0x1;  // THE boolean return value
     const sal_uLong nReturnAdded    = 0x2;  // temp: format added
@@ -1389,11 +1384,11 @@ bool SvxNumberFormatTabPage::Click_Impl(PushButton* pIB)
             if(bOneAreaFlag && (nFixedCategory!=nCatLbSelPos))
             {
                 if(bAdded) aEntryList.clear();
-                bDeleted = pNumFmtShell->RemoveFormat( aFormat,
-                                               nCatLbSelPos,
-                                               nFmtLbSelPos,
-                                               a2EntryList);
-                if(bDeleted) a2EntryList.clear();
+                pNumFmtShell->RemoveFormat( aFormat,
+                                            nCatLbSelPos,
+                                            nFmtLbSelPos,
+                                            a2EntryList);
+                a2EntryList.clear();
                 m_pEdFormat->GrabFocus();
                 m_pEdFormat->SetSelection( Selection( 0, SELECTION_MAX ) );
                 nReturn |= nReturnOneArea;
@@ -1446,39 +1441,38 @@ bool SvxNumberFormatTabPage::Click_Impl(PushButton* pIB)
         sal_uInt16           nCatLbSelPos = 0;
         short                nFmtLbSelPos = SELPOS_NONE;
 
-        bDeleted = pNumFmtShell->RemoveFormat( aFormat,
-                                               nCatLbSelPos,
-                                               nFmtLbSelPos,
-                                               aEntryList );
+        pNumFmtShell->RemoveFormat( aFormat,
+                                    nCatLbSelPos,
+                                    nFmtLbSelPos,
+                                    aEntryList );
 
         m_pEdComment->SetText(m_pLbCategory->GetEntry(1));
-        if ( bDeleted )
+
+        if( nFmtLbSelPos>=0 && static_cast<size_t>(nFmtLbSelPos)<aEntryList.size() )
         {
-            if( nFmtLbSelPos>=0 && static_cast<size_t>(nFmtLbSelPos)<aEntryList.size() )
-            {
-                aFormat = aEntryList[nFmtLbSelPos];
-            }
-
-            FillFormatListBox_Impl( aEntryList );
-
-            if ( nFmtLbSelPos != SELPOS_NONE )
-            {
-                if(bOneAreaFlag)                  //@@ ???
-                        SetCategory(0);
-                    else
-                        SetCategory(nCatLbSelPos );
-
-                m_pLbFormat->SelectEntryPos( static_cast<sal_uInt16>(nFmtLbSelPos) );
-                m_pEdFormat->SetText( aFormat );
-                ChangePreviewText( static_cast<sal_uInt16>(nFmtLbSelPos) );
-            }
-            else
-            {
-                // set to "all/standard"
-                SetCategory(0);
-                SelFormatHdl_Impl(m_pLbCategory);
-            }
+            aFormat = aEntryList[nFmtLbSelPos];
         }
+
+        FillFormatListBox_Impl( aEntryList );
+
+        if ( nFmtLbSelPos != SELPOS_NONE )
+        {
+            if(bOneAreaFlag)                  //@@ ???
+                    SetCategory(0);
+                else
+                    SetCategory(nCatLbSelPos );
+
+            m_pLbFormat->SelectEntryPos( static_cast<sal_uInt16>(nFmtLbSelPos) );
+            m_pEdFormat->SetText( aFormat );
+            ChangePreviewText( static_cast<sal_uInt16>(nFmtLbSelPos) );
+        }
+        else
+        {
+            // set to "all/standard"
+            SetCategory(0);
+            SelFormatHdl_Impl(m_pLbCategory);
+        }
+
         EditHdl_Impl(m_pEdFormat);
 
         aEntryList.clear();
@@ -1822,7 +1816,7 @@ void SvxNumberFormatTabPage::PageCreated(const SfxAllItemSet& aSet)
     const SvxNumberInfoItem* pNumberInfoItem = aSet.GetItem<SvxNumberInfoItem>(SID_ATTR_NUMBERFORMAT_INFO, false);
     const SfxLinkItem* pLinkItem = aSet.GetItem<SfxLinkItem>(SID_LINK_TYPE, false);
     if (pNumberInfoItem && !pNumItem)
-        pNumItem = static_cast<SvxNumberInfoItem*>(pNumberInfoItem->Clone());
+        pNumItem.reset( static_cast<SvxNumberInfoItem*>(pNumberInfoItem->Clone()) );
     if (pLinkItem)
         fnOkHdl = pLinkItem->GetValue();
 }

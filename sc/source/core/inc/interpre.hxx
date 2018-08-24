@@ -101,7 +101,6 @@ class SharedStringPool;
 class ScTokenStack
 {
 public:
-    DECL_FIXEDMEMPOOL_NEWDEL( ScTokenStack )
     const formula::FormulaToken* pPointer[ MAXSTACK ];
 };
 
@@ -151,8 +150,6 @@ class ScInterpreter
     friend class ScChiSqDistFunction;
 
 public:
-    DECL_FIXEDMEMPOOL_NEWDEL( ScInterpreter )
-
     static SC_DLLPUBLIC void SetGlobalConfig(const ScCalcConfig& rConfig);
     static SC_DLLPUBLIC const ScCalcConfig& GetGlobalConfig();
 
@@ -391,6 +388,10 @@ private:
     void ConvertMatrixJumpConditionToMatrix();
     // If MatrixFormula or ForceArray: ConvertMatrixParameters()
     inline bool MatrixParameterConversion();
+    // If MatrixFormula or ForceArray. Can be used within spreadsheet functions
+    // that do not depend on the formula cell's matrix size, for which only
+    // bMatrixFormula can be used.
+    inline bool IsInArrayContext() const;
     ScMatrixRef PopMatrix();
     sc::RangeMatrix PopRangeMatrix();
     void QueryMatrixType(const ScMatrixRef& xMat, SvNumFormatType& rRetTypeExpr, sal_uInt32& rRetIndexExpr);
@@ -1013,15 +1014,20 @@ public:
     sal_uLong                   GetRetFormatIndex() const   { return nRetFmtIndex; }
 };
 
+inline bool ScInterpreter::IsInArrayContext() const
+{
+    return bMatrixFormula || pCur->IsInForceArray();
+}
+
 inline void ScInterpreter::MatrixJumpConditionToMatrix()
 {
-    if (bMatrixFormula || pCur->IsInForceArray())
+    if (IsInArrayContext())
         ConvertMatrixJumpConditionToMatrix();
 }
 
 inline bool ScInterpreter::MatrixParameterConversion()
 {
-    if ( (bMatrixFormula || pCur->IsInForceArray() || ScParameterClassification::HasForceArray( pCur->GetOpCode())) &&
+    if ( (IsInArrayContext() || ScParameterClassification::HasForceArray( pCur->GetOpCode())) &&
             !pJumpMatrix && sp > 0 )
         return ConvertMatrixParameters();
     return false;

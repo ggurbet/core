@@ -122,7 +122,6 @@
 #include <ndtxt.hxx>
 
 #include <comphelper/processfactory.hxx>
-#include <comphelper/string.hxx>
 
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
@@ -140,6 +139,7 @@
 #include <vcl/settings.hxx>
 #include <i18nutil/searchopt.hxx>
 #include <paratr.hxx>
+#include <rootfrm.hxx>
 
 #include <memory>
 
@@ -520,9 +520,7 @@ void SwView::Execute(SfxRequest &rReq)
         case FN_LINE_NUMBERING_DLG:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "Dialog creation failed!");
             ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateVclSwViewDialog(*this));
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
             pDlg->Execute();
             break;
         }
@@ -639,7 +637,15 @@ void SwView::Execute(SfxRequest &rReq)
                 if( static_cast<const SfxBoolItem*>(pItem)->GetValue() )
                     nMode |= RedlineFlags::ShowDelete;
 
-                m_pWrtShell->SetRedlineFlagsAndCheckInsMode( nMode );
+                if (getenv("SW_REDLINEHIDE")) // TODO...
+                {
+                    m_pWrtShell->GetLayout()->SetHideRedlines(
+                        !static_cast<const SfxBoolItem*>(pItem)->GetValue());
+                    if (m_pWrtShell->IsRedlineOn())
+                        m_pWrtShell->SetInsMode();
+                }
+                else
+                    m_pWrtShell->SetRedlineFlagsAndCheckInsMode( nMode );
             }
             break;
         case FN_MAILMERGE_SENDMAIL_CHILDWINDOW:
@@ -803,7 +809,7 @@ void SwView::Execute(SfxRequest &rReq)
             else if ( m_pWrtShell->IsDrawCreate() )
             {
                 GetDrawFuncPtr()->BreakCreate();
-                AttrChangedNotify(m_pWrtShell); // shell change if needed
+                AttrChangedNotify(m_pWrtShell.get()); // shell change if needed
             }
             else if ( m_pWrtShell->HasSelection() || IsDrawMode() )
             {
@@ -825,7 +831,7 @@ void SwView::Execute(SfxRequest &rReq)
                         rBind.Invalidate( SID_ATTR_SIZE );
                     }
                     m_pWrtShell->EnterStdMode();
-                    AttrChangedNotify(m_pWrtShell); // shell change if necessary
+                    AttrChangedNotify(m_pWrtShell.get()); // shell change if necessary
                 }
             }
             else if ( GetEditWin().GetApplyTemplate() )
@@ -900,11 +906,16 @@ void SwView::Execute(SfxRequest &rReq)
             const SwTOXBase* pBase = m_pWrtShell->GetCurTOX();
             if(pBase)
             {
+                // tdf#106374: don't jump view on the update
+                const bool bWasLocked = m_pWrtShell->IsViewLocked();
+                m_pWrtShell->LockView(true);
                 m_pWrtShell->StartAction();
                 if(TOX_INDEX == pBase->GetType())
                     m_pWrtShell->ApplyAutoMark();
                 m_pWrtShell->UpdateTableOf( *pBase );
                 m_pWrtShell->EndAction();
+                if (!bWasLocked)
+                    m_pWrtShell->LockView(false);
             }
         }
         break;
@@ -1102,9 +1113,7 @@ void SwView::Execute(SfxRequest &rReq)
             {
                 SfxViewFrame* pTmpFrame = GetViewFrame();
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "Dialog creation failed!");
                 ScopedVclPtr<AbstractMailMergeCreateFromDlg> pDlg( pFact->CreateMailMergeCreateFromDlg(&pTmpFrame->GetWindow()) );
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
                 if(RET_OK == pDlg->Execute())
                     bUseCurrentDocument = pDlg->IsThisDocument();
                 else
@@ -1674,17 +1683,10 @@ void SwView::ExecuteStatusLine(SfxRequest &rReq)
                     }
 
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    if(pFact)
-                    {
-                        pDlg.disposeAndReset(pFact->CreateSvxZoomDialog(GetViewFrame()->GetWindow().GetFrameWeld(), aCoreSet));
-                        OSL_ENSURE(pDlg, "Zooming fail!");
-                        if (pDlg)
-                        {
-                            pDlg->SetLimits( MINZOOM, MAXZOOM );
-                            if( pDlg->Execute() != RET_CANCEL )
-                                pSet = pDlg->GetOutputItemSet();
-                        }
-                    }
+                    pDlg.disposeAndReset(pFact->CreateSvxZoomDialog(GetViewFrame()->GetWindow().GetFrameWeld(), aCoreSet));
+                    pDlg->SetLimits( MINZOOM, MAXZOOM );
+                    if( pDlg->Execute() != RET_CANCEL )
+                        pSet = pDlg->GetOutputItemSet();
                 }
 
                 const SfxPoolItem* pViewLayoutItem = nullptr;
@@ -1854,7 +1856,7 @@ void SwView::InsFrameMode(sal_uInt16 nCols)
 {
     if ( m_pWrtShell->HasWholeTabSelection() )
     {
-        SwFlyFrameAttrMgr aMgr( true, m_pWrtShell, Frmmgr_Type::TEXT );
+        SwFlyFrameAttrMgr aMgr( true, m_pWrtShell.get(), Frmmgr_Type::TEXT );
 
         const SwFrameFormat &rPageFormat =
                 m_pWrtShell->GetPageDesc(m_pWrtShell->GetCurPageDesc()).GetMaster();
@@ -1880,10 +1882,7 @@ void SwView::EditLinkDlg()
     bool bWeb = dynamic_cast<SwWebView*>( this ) !=  nullptr;
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
     ScopedVclPtr<SfxAbstractLinksDialog> pDlg(pFact->CreateLinksDialog( &GetViewFrame()->GetWindow(), &GetWrtShell().GetLinkManager(), bWeb ));
-    if ( pDlg )
-    {
-        pDlg->Execute();
-    }
+    pDlg->Execute();
 }
 
 bool SwView::JumpToSwMark( const OUString& rMark )
@@ -2075,7 +2074,7 @@ void SwView::ExecuteInsertDoc( SfxRequest& rRequest, const SfxPoolItem* pItem )
 
 long SwView::InsertDoc( sal_uInt16 nSlotId, const OUString& rFileName, const OUString& rFilterName, sal_Int16 nVersion )
 {
-    SfxMedium* pMed = nullptr;
+    std::unique_ptr<SfxMedium> pMed;
     SwDocShell* pDocSh = GetDocShell();
 
     if( !rFileName.isEmpty() )
@@ -2084,22 +2083,23 @@ long SwView::InsertDoc( sal_uInt16 nSlotId, const OUString& rFileName, const OUS
         std::shared_ptr<const SfxFilter> pFilter = rFact.GetFilterContainer()->GetFilter4FilterName( rFilterName );
         if ( !pFilter )
         {
-            pMed = new SfxMedium(rFileName, StreamMode::READ, nullptr, nullptr );
+            pMed.reset(new SfxMedium(rFileName, StreamMode::READ, nullptr, nullptr ));
             SfxFilterMatcher aMatcher( rFact.GetFilterContainer()->GetName() );
             pMed->UseInteractionHandler( true );
             ErrCode nErr = aMatcher.GuessFilter(*pMed, pFilter, SfxFilterFlags::NONE);
             if ( nErr )
-                DELETEZ(pMed);
+                pMed.reset();
             else
                 pMed->SetFilter( pFilter );
         }
         else
-            pMed = new SfxMedium(rFileName, StreamMode::READ, pFilter, nullptr);
+            pMed.reset(new SfxMedium(rFileName, StreamMode::READ, pFilter, nullptr));
     }
     else
     {
         m_pViewImpl->StartDocumentInserter(
-            pDocSh->GetFactory().GetFactoryName(),
+            // tdf#118578 allow inserting any Writer document except GlobalDoc
+            SwDocShell::Factory().GetFactoryName(),
             LINK( this, SwView, DialogClosedHdl ),
             nSlotId
         );
@@ -2109,10 +2109,10 @@ long SwView::InsertDoc( sal_uInt16 nSlotId, const OUString& rFileName, const OUS
     if( !pMed )
         return -1;
 
-    return InsertMedium( nSlotId, pMed, nVersion );
+    return InsertMedium( nSlotId, std::move(pMed), nVersion );
 }
 
-long SwView::InsertMedium( sal_uInt16 nSlotId, SfxMedium* pMedium, sal_Int16 nVersion )
+long SwView::InsertMedium( sal_uInt16 nSlotId, std::unique_ptr<SfxMedium> pMedium, sal_Int16 nVersion )
 {
     bool bInsert = false, bCompare = false;
     long nFound = 0;
@@ -2145,11 +2145,10 @@ long SwView::InsertMedium( sal_uInt16 nSlotId, SfxMedium* pMedium, sal_Int16 nVe
 
         SfxObjectShellRef aRef( pDocSh );
 
-        ErrCode nError = SfxObjectShell::HandleFilter( pMedium, pDocSh );
+        ErrCode nError = SfxObjectShell::HandleFilter( pMedium.get(), pDocSh );
         // #i16722# aborted?
         if(nError != ERRCODE_NONE)
         {
-            delete pMedium;
             return -1;
         }
 
@@ -2157,7 +2156,7 @@ long SwView::InsertMedium( sal_uInt16 nSlotId, SfxMedium* pMedium, sal_Int16 nVe
         if( aRef.is() && 1 < aRef->GetRefCount() )  // still a valid ref?
         {
             SwReader* pRdr;
-            Reader *pRead = pDocSh->StartConvertFrom( *pMedium, &pRdr, m_pWrtShell );
+            Reader *pRead = pDocSh->StartConvertFrom(*pMedium, &pRdr, m_pWrtShell.get());
             if( pRead ||
                 (pMedium->GetFilter()->GetFilterFlags() & SfxFilterFlags::STARONEFILTER) )
             {
@@ -2250,7 +2249,6 @@ long SwView::InsertMedium( sal_uInt16 nSlotId, SfxMedium* pMedium, sal_Int16 nVe
         }
     }
 
-    delete pMedium;
     return nFound;
 }
 
@@ -2307,9 +2305,7 @@ void SwView::GenerateFormLetter(bool bUseCurrentDocument)
             {
                 //take an existing data source or create a new one?
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "Dialog creation failed!");
                 ScopedVclPtr<AbstractMailMergeFieldConnectionsDlg> pConnectionsDlg( pFact->CreateMailMergeFieldConnectionsDlg(&GetViewFrame()->GetWindow()) );
-                OSL_ENSURE(pConnectionsDlg, "Dialog creation failed!");
                 if(RET_OK == pConnectionsDlg->Execute())
                     bCallAddressPilot = !pConnectionsDlg->IsUseExistingConnections();
                 else
@@ -2351,11 +2347,8 @@ void SwView::GenerateFormLetter(bool bUseCurrentDocument)
                 if (RET_OK == xWarning->run())
                 {
                     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-                    if ( pFact )
-                    {
-                        ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateVclDialog( nullptr, SID_OPTIONS_DATABASES ));
-                        pDlg->Execute();
-                    }
+                    ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateVclDialog( nullptr, SID_OPTIONS_DATABASES ));
+                    pDlg->Execute();
                 }
                 return ;
             }
@@ -2423,12 +2416,12 @@ IMPL_LINK( SwView, DialogClosedHdl, sfx2::FileDialogHelper*, _pFileDlg, void )
     if ( ERRCODE_NONE != _pFileDlg->GetError() )
         return;
 
-    SfxMedium* pMed = m_pViewImpl->CreateMedium();
+    std::unique_ptr<SfxMedium> pMed = m_pViewImpl->CreateMedium();
     if ( !pMed )
         return;
 
     const sal_uInt16 nSlot = m_pViewImpl->GetRequest()->GetSlot();
-    long nFound = InsertMedium( nSlot, pMed, m_pViewImpl->GetParam() );
+    long nFound = InsertMedium( nSlot, std::move(pMed), m_pViewImpl->GetParam() );
 
     if ( SID_INSERTDOC == nSlot )
     {

@@ -91,14 +91,14 @@ class SwAccessibleMap : public ::accessibility::IAccessibleViewForwarder,
 {
     mutable ::osl::Mutex maMutex;
     ::osl::Mutex maEventMutex;
-    SwAccessibleContextMap_Impl *mpFrameMap;
-    SwAccessibleShapeMap_Impl *mpShapeMap;
+    std::unique_ptr<SwAccessibleContextMap_Impl> mpFrameMap;
+    std::unique_ptr<SwAccessibleShapeMap_Impl> mpShapeMap;
     SwShapeList_Impl mvShapes;
-    SwAccessibleEventList_Impl *mpEvents;
-    SwAccessibleEventMap_Impl *mpEventMap;
+    std::unique_ptr<SwAccessibleEventList_Impl> mpEvents;
+    std::unique_ptr<SwAccessibleEventMap_Impl> mpEventMap;
     // #i27301 data structure to keep information about
     // accessible paragraph, which have a selection.
-    SwAccessibleSelectedParas_Impl* mpSelectedParas;
+    std::unique_ptr<SwAccessibleSelectedParas_Impl> mpSelectedParas;
     SwViewShell *mpVSh;
     /// for page preview: store preview data, VisArea, and mapping of
     /// preview-to-display coordinates
@@ -134,10 +134,8 @@ class SwAccessibleMap : public ::accessibility::IAccessibleViewForwarder,
         which have a selection
 
         Important note: method has to used inside a mutual exclusive section
-
-        @author OD
     */
-    SwAccessibleSelectedParas_Impl* BuildSelectedParas();
+    std::unique_ptr<SwAccessibleSelectedParas_Impl> BuildSelectedParas();
 
 public:
 
@@ -147,7 +145,7 @@ public:
     css::uno::Reference<css::accessibility::XAccessible> GetDocumentView();
 
     css::uno::Reference<css::accessibility::XAccessible> GetDocumentPreview(
-                            const std::vector<PreviewPage*>& _rPreviewPages,
+                            const std::vector<std::unique_ptr<PreviewPage>>& _rPreviewPages,
                             const Fraction&  _rScale,
                             const SwPageFrame* _pSelectedPageFrame,
                             const Size&      _rPreviewWinSize );
@@ -183,8 +181,6 @@ public:
     const SwRect& GetVisArea() const;
 
     /** get size of a dedicated preview page
-
-        @author OD
 
         @param _nPreviewPageNum
         input parameter - physical page number of page visible in the page preview
@@ -225,8 +221,6 @@ public:
 
     /** invalidation CONTENT_FLOWS_FROM/_TO relation of a paragraph
 
-        @author OD
-
         @param _rTextFrame
         input parameter - reference to paragraph, whose CONTENT_FLOWS_FROM/_TO
         has to be invalidated.
@@ -238,23 +232,17 @@ public:
     void InvalidateParaFlowRelation( const SwTextFrame& _rTextFrame,
                                      const bool _bFrom );
 
-    /** invalidation of text selection of a paragraph
-
-        @author OD
-    */
+    /** invalidation of text selection of a paragraph */
     void InvalidateParaTextSelection( const SwTextFrame& _rTextFrame );
 
-    /** invalidation of text selection of all paragraphs
-
-        @author OD
-    */
+    /** invalidation of text selection of all paragraphs */
     void InvalidateTextSelectionOfAllParas();
 
     sal_Int32 GetChildIndex( const SwFrame& rParentFrame,
                              vcl::Window& rChild ) const;
 
     // update preview data (and fire events if necessary)
-    void UpdatePreview( const std::vector<PreviewPage*>& _rPreviewPages,
+    void UpdatePreview( const std::vector<std::unique_ptr<PreviewPage>>& _rPreviewPages,
                         const Fraction&  _rScale,
                         const SwPageFrame* _pSelectedPageFrame,
                         const Size&      _rPreviewWinSize );
@@ -289,6 +277,9 @@ public:
     Point PixelToCore (const Point& rPoint) const;
     tools::Rectangle CoreToPixel (const tools::Rectangle& rRect) const;
 
+    // is there a known accessibility impl cached for the frame
+    bool Contains(const SwFrame *pFrame) const;
+
 private:
     /** get mapping mode for LogicToPixel and PixelToLogic conversions
 
@@ -298,8 +289,6 @@ private:
         Necessary, because <PreviewAdjust(..)> changes mapping mode at current
         output device for mapping logic document positions to page preview window
         positions and vice versa and doesn't take care to recover its changes.
-
-        @author OD
 
         @param _rPoint
         input parameter - constant reference to point to determine the mapping

@@ -27,6 +27,7 @@
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <o3tl/any.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <comphelper/classids.hxx>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <xmloff/prstylei.hxx>
@@ -572,16 +573,21 @@ uno::Reference< XPropertySet > SwXMLTextImportHelper::createAndInsertOOoLink(
         uno::Sequence< beans::PropertyValue > aMediaDescriptor( 1 );
         aMediaDescriptor[0].Name = "URL";
         aMediaDescriptor[0].Value <<= aURLObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
-        if ( pDoc->GetDocShell() && pDoc->GetDocShell()->GetMedium() )
+
+        if (SfxMedium* pMedium = pDoc->GetDocShell() ? pDoc->GetDocShell()->GetMedium() : nullptr)
         {
-            uno::Reference< task::XInteractionHandler > xInteraction =
-                                        pDoc->GetDocShell()->GetMedium()->GetInteractionHandler();
+            uno::Reference< task::XInteractionHandler > xInteraction = pMedium->GetInteractionHandler();
             if ( xInteraction.is() )
             {
                 aMediaDescriptor.realloc( 2 );
                 aMediaDescriptor[1].Name = "InteractionHandler";
                 aMediaDescriptor[1].Value <<= xInteraction;
             }
+
+            const auto nLen = aMediaDescriptor.getLength() + 1;
+            aMediaDescriptor.realloc(nLen);
+            aMediaDescriptor[nLen - 1].Name = "Referer";
+            aMediaDescriptor[nLen - 1].Value <<= pMedium->GetName();
         }
 
         uno::Reference < embed::XEmbeddedObject > xObj(

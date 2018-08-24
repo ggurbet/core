@@ -30,6 +30,7 @@
 #include <sfx2/objsh.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/useroptions.hxx>
 
@@ -231,8 +232,8 @@ void ScHFEditPage::InitPreDefinedList()
 {
     SvtUserOptions aUserOpt;
 
-    Color* pTxtColour = nullptr;
-    Color* pFldColour = nullptr;
+    boost::optional<Color> pTxtColour;
+    boost::optional<Color> pFldColour;
 
     // Get the all field values at the outset.
     OUString aPageFieldValue(m_pWndLeft->GetEditEngine()->CalcFieldValue(SvxFieldItem(SvxPageField(), EE_FEATURE_FIELD), 0,0, pTxtColour, pFldColour));
@@ -369,7 +370,7 @@ void ScHFEditPage::SetSelectDefinedList()
                         if(pFieldItem)
                         {
                             const SvxFieldData* pField = pFieldItem->GetField();
-                            if(pField && dynamic_cast<const SvxTableField*>( pField) !=  nullptr)
+                            if(dynamic_cast<const SvxTableField*>( pField))
                             {
                                 eSelectEntry = eSheetEntry;
                                 bFound = true;
@@ -507,7 +508,7 @@ bool ScHFEditPage::IsPageEntry(EditEngine*pEngine, const EditTextObject* pTextOb
                     if(pFieldItem)
                     {
                         const SvxFieldData* pField = pFieldItem->GetField();
-                        if(pField && dynamic_cast<const SvxPageField*>( pField) !=  nullptr)
+                        if(dynamic_cast<const SvxPageField*>( pField))
                             bReturn = true;
                     }
                 }
@@ -529,7 +530,7 @@ bool ScHFEditPage::IsDateEntry(const EditTextObject* pTextObj)
         if(pFieldItem)
         {
             const SvxFieldData* pField = pFieldItem->GetField();
-            if(pField && dynamic_cast<const SvxDateField*>( pField) !=  nullptr)
+            if(dynamic_cast<const SvxDateField*>( pField))
                 bReturn = true;
         }
     }
@@ -545,9 +546,9 @@ bool ScHFEditPage::IsExtFileNameEntry(const EditTextObject* pTextObj)
     {
         const SvxFieldItem* pFieldItem = pTextObj->GetField();
         if(pFieldItem)
-    {
+        {
             const SvxFieldData* pField = pFieldItem->GetField();
-            if(pField && dynamic_cast<const SvxExtFileField*>( pField) !=  nullptr)
+            if(dynamic_cast<const SvxExtFileField*>( pField))
                 bReturn = true;
         }
     }
@@ -831,9 +832,9 @@ ScRightHeaderEditPage::ScRightHeaderEditPage( vcl::Window* pParent, const SfxIte
                     true )
     {}
 
-VclPtr<SfxTabPage> ScRightHeaderEditPage::Create( vcl::Window* pParent, const SfxItemSet* rCoreSet )
+VclPtr<SfxTabPage> ScRightHeaderEditPage::Create( TabPageParent pParent, const SfxItemSet* rCoreSet )
 {
-    return VclPtr<ScRightHeaderEditPage>::Create( pParent, *rCoreSet );
+    return VclPtr<ScRightHeaderEditPage>::Create( pParent.pParent, *rCoreSet );
 }
 
 // class ScLeftHeaderEditPage
@@ -845,9 +846,9 @@ ScLeftHeaderEditPage::ScLeftHeaderEditPage( vcl::Window* pParent, const SfxItemS
                     true )
     {}
 
-VclPtr<SfxTabPage> ScLeftHeaderEditPage::Create( vcl::Window* pParent, const SfxItemSet* rCoreSet )
+VclPtr<SfxTabPage> ScLeftHeaderEditPage::Create( TabPageParent pParent, const SfxItemSet* rCoreSet )
 {
-    return VclPtr<ScLeftHeaderEditPage>::Create( pParent, *rCoreSet );
+    return VclPtr<ScLeftHeaderEditPage>::Create( pParent.pParent, *rCoreSet );
 }
 
 // class ScRightFooterEditPage
@@ -859,9 +860,9 @@ ScRightFooterEditPage::ScRightFooterEditPage( vcl::Window* pParent, const SfxIte
                     false )
     {}
 
-VclPtr<SfxTabPage> ScRightFooterEditPage::Create( vcl::Window* pParent, const SfxItemSet* rCoreSet )
+VclPtr<SfxTabPage> ScRightFooterEditPage::Create( TabPageParent pParent, const SfxItemSet* rCoreSet )
 {
-    return VclPtr<ScRightFooterEditPage>::Create( pParent, *rCoreSet );
+    return VclPtr<ScRightFooterEditPage>::Create( pParent.pParent, *rCoreSet );
 }
 
 // class ScLeftFooterEditPage
@@ -873,9 +874,9 @@ ScLeftFooterEditPage::ScLeftFooterEditPage( vcl::Window* pParent, const SfxItemS
                     false )
     {}
 
-VclPtr<SfxTabPage> ScLeftFooterEditPage::Create( vcl::Window* pParent, const SfxItemSet* rCoreSet )
+VclPtr<SfxTabPage> ScLeftFooterEditPage::Create( TabPageParent pParent, const SfxItemSet* rCoreSet )
 {
-    return VclPtr<ScLeftFooterEditPage>::Create( pParent, *rCoreSet );
+    return VclPtr<ScLeftFooterEditPage>::Create( pParent.pParent, *rCoreSet );
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

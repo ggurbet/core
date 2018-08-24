@@ -394,8 +394,10 @@ void SwCursorShell::GotoTOXMarkBase()
                 {
                     SwCallLink aLk( *this ); // watch Cursor-Moves
                     SwCursorSaveState aSaveState( *m_pCurrentCursor );
-                    m_pCurrentCursor->GetPoint()->nNode = *pCNd;
-                    m_pCurrentCursor->GetPoint()->nContent.Assign( pCNd, 0 );
+                    assert(pCFrame->IsTextFrame());
+                    *m_pCurrentCursor->GetPoint() =
+                        static_cast<SwTextFrame const*>(pCFrame)
+                            ->MapViewToModelPos(TextFrameIndex(0));
                     bRet = !m_pCurrentCursor->IsInProtectTable() &&
                             !m_pCurrentCursor->IsSelOvr();
                     if( bRet )
@@ -411,10 +413,13 @@ void SwCursorShell::GotoTOXMarkBase()
 /// Optionally it is possible to also jump to broken formulas
 bool SwCursorShell::GotoNxtPrvTableFormula( bool bNext, bool bOnlyErrors )
 {
+    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+
     if( IsTableMode() )
         return false;
 
     bool bFnd = false;
+    SwPosition aOldPos = *m_pCurrentCursor->GetPoint();
     SwPosition& rPos = *m_pCurrentCursor->GetPoint();
 
     Point aPt;
@@ -441,35 +446,56 @@ bool SwCursorShell::GotoNxtPrvTableFormula( bool bNext, bool bOnlyErrors )
     {
         sal_uInt32 n, nMaxItems = GetDoc()->GetAttrPool().GetItemCount2( RES_BOXATR_FORMULA );
 
-        for( n = 0; n < nMaxItems; ++n )
+        if( nMaxItems > 0 )
         {
-            const SwTableBox* pTBox;
-            const SfxPoolItem* pItem;
-            if( nullptr != (pItem = GetDoc()->GetAttrPool().GetItem2(
-                                        RES_BOXATR_FORMULA, n ) ) &&
-                nullptr != (pTBox = static_cast<const SwTableBoxFormula*>(pItem)->GetTableBox() ) &&
-                pTBox->GetSttNd() &&
-                pTBox->GetSttNd()->GetNodes().IsDocNodes() &&
-                ( !bOnlyErrors ||
-                  !static_cast<const SwTableBoxFormula*>(pItem)->HasValidBoxes() ) )
-            {
-                const SwContentFrame* pCFrame;
-                SwNodeIndex aIdx( *pTBox->GetSttNd() );
-                const SwContentNode* pCNd = GetDoc()->GetNodes().GoNext( &aIdx );
-                if( pCNd && nullptr != ( pCFrame = pCNd->getLayoutFrame( GetLayout(), &aPt, nullptr, false ) ) &&
-                    (IsReadOnlyAvailable() || !pCFrame->IsProtected() ))
+            sal_uInt8 nMaxDo = 2;
+            do {
+                for( n = 0; n < nMaxItems; ++n )
                 {
-                    SetGetExpField aCmp( *pTBox );
-                    aCmp.SetBodyPos( *pCFrame );
-
-                    if( bNext ? ( aCurGEF < aCmp && aCmp < aFndGEF )
-                              : ( aCmp < aCurGEF && aFndGEF < aCmp ))
+                    const SwTableBox* pTBox;
+                    const SfxPoolItem* pItem;
+                    if( nullptr != (pItem = GetDoc()->GetAttrPool().GetItem2(
+                                        RES_BOXATR_FORMULA, n ) ) &&
+                            nullptr != (pTBox = static_cast<const SwTableBoxFormula*>(pItem)->GetTableBox() ) &&
+                            pTBox->GetSttNd() &&
+                            pTBox->GetSttNd()->GetNodes().IsDocNodes() &&
+                            ( !bOnlyErrors ||
+                              !static_cast<const SwTableBoxFormula*>(pItem)->HasValidBoxes() ) )
                     {
-                        aFndGEF = aCmp;
-                        bFnd = true;
+                        const SwContentFrame* pCFrame;
+                        SwNodeIndex aIdx( *pTBox->GetSttNd() );
+                        const SwContentNode* pCNd = GetDoc()->GetNodes().GoNext( &aIdx );
+                        if( pCNd && nullptr != ( pCFrame = pCNd->getLayoutFrame( GetLayout(), &aPt, nullptr, false ) ) &&
+                                (IsReadOnlyAvailable() || !pCFrame->IsProtected() ))
+                        {
+                            SetGetExpField aCmp( *pTBox );
+                            aCmp.SetBodyPos( *pCFrame );
+
+                            if( bNext ? ( aCurGEF < aCmp && aCmp < aFndGEF )
+                                    : ( aCmp < aCurGEF && aFndGEF < aCmp ))
+                            {
+                                aFndGEF = aCmp;
+                                bFnd = true;
+                            }
+                        }
                     }
                 }
-            }
+                if( !bFnd )
+                {
+                    if( bNext )
+                    {
+                        rPos.nNode = 0;
+                        rPos.nContent = 0;
+                        aCurGEF = SetGetExpField( rPos );
+                        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::EndWrapped );
+                    }
+                    else
+                    {
+                        aCurGEF = SetGetExpField( SwPosition( GetDoc()->GetNodes().GetEndOfContent() ) );
+                        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::StartWrapped );
+                    }
+                }
+            } while( !bFnd && --nMaxDo );
         }
     }
 
@@ -487,12 +513,20 @@ bool SwCursorShell::GotoNxtPrvTableFormula( bool bNext, bool bOnlyErrors )
             UpdateCursor( SwCursorShell::SCROLLWIN | SwCursorShell::CHKRANGE |
                         SwCursorShell::READONLY );
     }
+    else
+    {
+        rPos = aOldPos;
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
+    }
+
     return bFnd;
 }
 
 /// jump to next/previous index marker
 bool SwCursorShell::GotoNxtPrvTOXMark( bool bNext )
 {
+    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+
     if( IsTableMode() )
         return false;
 
@@ -515,30 +549,52 @@ bool SwCursorShell::GotoNxtPrvTOXMark( bool bNext )
         const SwTextTOXMark* pTextTOX;
         sal_uInt32 n, nMaxItems = GetDoc()->GetAttrPool().GetItemCount2( RES_TXTATR_TOXMARK );
 
-        for( n = 0; n < nMaxItems; ++n )
+        if( nMaxItems > 0 )
         {
-            const SfxPoolItem* pItem;
-            const SwContentFrame* pCFrame;
-
-            if( nullptr != (pItem = GetDoc()->GetAttrPool().GetItem2(
-                                        RES_TXTATR_TOXMARK, n ) ) &&
-                nullptr != (pTextTOX = static_cast<const SwTOXMark*>(pItem)->GetTextTOXMark() ) &&
-                ( pTextNd = &pTextTOX->GetTextNode())->GetNodes().IsDocNodes() &&
-                nullptr != ( pCFrame = pTextNd->getLayoutFrame( GetLayout(), &aPt, nullptr, false )) &&
-                ( IsReadOnlyAvailable() || !pCFrame->IsProtected() ))
-            {
-                SwNodeIndex aNdIndex( *pTextNd ); // UNIX needs this object
-                SetGetExpField aCmp( aNdIndex, *pTextTOX );
-                aCmp.SetBodyPos( *pCFrame );
-
-                if( bNext ? ( aCurGEF < aCmp && aCmp < aFndGEF )
-                          : ( aCmp < aCurGEF && aFndGEF < aCmp ))
+            do {
+                for( n = 0; n < nMaxItems; ++n )
                 {
-                    aFndGEF = aCmp;
-                    bFnd = true;
+                    const SfxPoolItem* pItem;
+                    const SwContentFrame* pCFrame;
+
+                    if( nullptr != (pItem = GetDoc()->GetAttrPool().GetItem2(
+                                                RES_TXTATR_TOXMARK, n ) ) &&
+                        nullptr != (pTextTOX = static_cast<const SwTOXMark*>(pItem)->GetTextTOXMark() ) &&
+                        ( pTextNd = &pTextTOX->GetTextNode())->GetNodes().IsDocNodes() &&
+                        nullptr != ( pCFrame = pTextNd->getLayoutFrame( GetLayout(), &aPt, nullptr, false )) &&
+                        ( IsReadOnlyAvailable() || !pCFrame->IsProtected() ))
+                    {
+                        SwNodeIndex aNdIndex( *pTextNd ); // UNIX needs this object
+                        SetGetExpField aCmp( aNdIndex, *pTextTOX );
+                        aCmp.SetBodyPos( *pCFrame );
+
+                        if( bNext ? ( aCurGEF < aCmp && aCmp < aFndGEF )
+                                  : ( aCmp < aCurGEF && aFndGEF < aCmp ))
+                        {
+                            aFndGEF = aCmp;
+                            bFnd = true;
+                        }
+                    }
                 }
-            }
+                if( !bFnd )
+                {
+                    if ( bNext )
+                    {
+                        rPos.nNode = 0;
+                        rPos.nContent = 0;
+                        aCurGEF = SetGetExpField( rPos );
+                        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::EndWrapped );
+                    }
+                    else
+                    {
+                        aCurGEF = SetGetExpField( SwPosition( GetDoc()->GetNodes().GetEndOfContent() ) );
+                        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::StartWrapped );
+                    }
+                }
+            } while ( !bFnd );
         }
+        else
+            SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
     }
 
     if( bFnd )
@@ -945,7 +1001,7 @@ bool SwCursorShell::GotoNextOutline()
 
     if ( rNds.GetOutLineNds().size() == 0 )
     {
-        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
         return false;
     }
 
@@ -984,7 +1040,7 @@ bool SwCursorShell::GotoPrevOutline()
 
     if ( rNds.GetOutLineNds().size() == 0 )
     {
-        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+        SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::NavElementNotFound );
         return false;
     }
 
@@ -992,7 +1048,8 @@ bool SwCursorShell::GotoPrevOutline()
     SwNode* pNd = &(pCursor->GetNode());
     SwOutlineNodes::size_type nPos;
     bool bRet = false;
-    if ( rNds.GetOutLineNds().Seek_Entry(pNd, &nPos) && nPos == 0 )
+    (void)rNds.GetOutLineNds().Seek_Entry(pNd, &nPos);
+    if ( nPos == 0 )
     {
         nPos = rNds.GetOutLineNds().size();
         SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::StartWrapped );
@@ -1199,7 +1256,7 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
                     const sal_Int32 nBegin = nCurrent;
                     sal_Int32 nLen = 1;
 
-                    if ( pSmartTagList && pSmartTagList->InWrongWord( nCurrent, nLen ) && !pTextNd->IsSymbol(nBegin) )
+                    if (pSmartTagList && pSmartTagList->InWrongWord(nCurrent, nLen) && !pTextNd->IsSymbolAt(nBegin))
                     {
                         const sal_uInt16 nIndex = pSmartTagList->GetWrongPos( nBegin );
                         const SwWrongList* pSubList = pSmartTagList->SubList( nIndex );
@@ -1493,11 +1550,28 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
 
                         if( pFieldRect && nullptr != ( pFrame = pTextNd->getLayoutFrame( GetLayout(), &aPt ) ) )
                         {
+                            // not sure if this should be limited to one
+                            // paragraph, or mark the entire redline; let's
+                            // leave it limited to one for now...
+                            sal_Int32 nStart;
+                            sal_Int32 nEnd;
+                            pRedl->CalcStartEnd(pTextNd->GetIndex(), nStart, nEnd);
+                            if (nStart == COMPLETE_STRING)
+                            {
+                                // consistency: found pRedl, so there must be
+                                // something in pTextNd
+                                assert(nEnd != COMPLETE_STRING);
+                                nStart = 0;
+                            }
+                            if (nEnd == COMPLETE_STRING)
+                            {
+                                nEnd = pTextNd->Len();
+                            }
                             //get bounding box of range
                             SwRect aStart;
-                            pFrame->GetCharRect(aStart, *pRedl->Start(), &aTmpState);
+                            pFrame->GetCharRect(aStart, SwPosition(*pTextNd, nStart), &aTmpState);
                             SwRect aEnd;
-                            pFrame->GetCharRect(aEnd, *pRedl->End(), &aTmpState);
+                            pFrame->GetCharRect(aEnd, SwPosition(*pTextNd, nEnd), &aTmpState);
                             if (aStart.Top() != aEnd.Top() || aStart.Bottom() != aEnd.Bottom())
                             {
                                 aStart.Left(pFrame->getFrameArea().Left());
@@ -1642,7 +1716,7 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
 
                 if( aSet.Count() )
                 {
-                    OUString sAttrs;
+                    OUStringBuffer sAttrs;
                     SfxItemIter aIter( aSet );
                     const SfxPoolItem* pItem = aIter.FirstItem();
                     const IntlWrapper aInt(SvtSysLocale().GetUILanguageTag());
@@ -1654,8 +1728,8 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
                             GetDoc()->GetAttrPool().GetPresentation(*pItem,
                                 MapUnit::MapCM, aStr, aInt);
                             if (!sAttrs.isEmpty())
-                                sAttrs += ", ";
-                            sAttrs += aStr;
+                                sAttrs.append(", ");
+                            sAttrs.append(aStr);
                         }
                         if( aIter.IsAtEnd() )
                             break;
@@ -1665,7 +1739,7 @@ bool SwCursorShell::GetContentAtPos( const Point& rPt,
                     {
                         if( !rContentAtPos.sStr.isEmpty() )
                             rContentAtPos.sStr += "\n";
-                        rContentAtPos.sStr += "Attr: " + sAttrs;
+                        rContentAtPos.sStr += "Attr: " + sAttrs.toString();
                     }
                 }
                 bRet = true;
@@ -1757,7 +1831,7 @@ bool SwContentAtPos::IsInRTLText()const
     }
     if(pNd)
     {
-        SwIterator<SwTextFrame,SwTextNode> aIter(*pNd);
+        SwIterator<SwTextFrame, SwTextNode, sw::IteratorMode::UnwrapMulti> aIter(*pNd);
         SwTextFrame* pTmpFrame = aIter.First();
         while( pTmpFrame )
         {

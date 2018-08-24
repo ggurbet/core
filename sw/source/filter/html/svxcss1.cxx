@@ -51,6 +51,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include "css1kywd.hxx"
 #include "svxcss1.hxx"
@@ -362,9 +363,6 @@ constexpr sal_uInt16 SvxCSS1PropertyInfo::UNSET_BORDER_DISTANCE;
 
 SvxCSS1PropertyInfo::SvxCSS1PropertyInfo()
 {
-    for(SvxCSS1BorderInfo* & rp : m_aBorderInfos)
-        rp = nullptr;
-
     Clear();
 }
 
@@ -400,24 +398,19 @@ SvxCSS1PropertyInfo::SvxCSS1PropertyInfo( const SvxCSS1PropertyInfo& rProp ) :
     m_ePageBreakBefore( rProp.m_ePageBreakBefore ),
     m_ePageBreakAfter( rProp.m_ePageBreakAfter )
 {
-    for( size_t i=0; i<SAL_N_ELEMENTS(m_aBorderInfos); ++i )
-        m_aBorderInfos[i] = rProp.m_aBorderInfos[i]
-                            ? new SvxCSS1BorderInfo( *rProp.m_aBorderInfos[i] )
-                            : nullptr;
+    for( size_t i=0; i<m_aBorderInfos.size(); ++i )
+        if (rProp.m_aBorderInfos[i])
+            m_aBorderInfos[i].reset( new SvxCSS1BorderInfo( *rProp.m_aBorderInfos[i] ) );
 }
 
 SvxCSS1PropertyInfo::~SvxCSS1PropertyInfo()
 {
-    DestroyBorderInfos();
 }
 
 void SvxCSS1PropertyInfo::DestroyBorderInfos()
 {
-    for(SvxCSS1BorderInfo* & rp : m_aBorderInfos)
-    {
-        delete rp;
-        rp = nullptr;
-    }
+    for(auto & rp : m_aBorderInfos)
+        rp.reset();
 }
 
 void SvxCSS1PropertyInfo::Clear()
@@ -469,15 +462,10 @@ void SvxCSS1PropertyInfo::Merge( const SvxCSS1PropertyInfo& rProp )
     if( rProp.m_bTextIndent )
         m_bTextIndent = true;
 
-    for( size_t i=0; i<SAL_N_ELEMENTS(m_aBorderInfos); ++i )
+    for( size_t i=0; i<m_aBorderInfos.size(); ++i )
     {
         if( rProp.m_aBorderInfos[i] )
-        {
-            if( m_aBorderInfos[i] )
-                delete m_aBorderInfos[i];
-
-            m_aBorderInfos[i] = new SvxCSS1BorderInfo( *rProp.m_aBorderInfos[i] );
-        }
+            m_aBorderInfos[i].reset( new SvxCSS1BorderInfo( *rProp.m_aBorderInfos[i] ) );
     }
 
     if( UNSET_BORDER_DISTANCE != rProp.m_nTopBorderDistance )
@@ -548,9 +536,9 @@ SvxCSS1BorderInfo *SvxCSS1PropertyInfo::GetBorderInfo( SvxBoxItemLine nLine, boo
     }
 
     if( !m_aBorderInfos[nPos] && bCreate )
-        m_aBorderInfos[nPos] = new SvxCSS1BorderInfo;
+        m_aBorderInfos[nPos].reset( new SvxCSS1BorderInfo );
 
-    return m_aBorderInfos[nPos];
+    return m_aBorderInfos[nPos].get();
 }
 
 void SvxCSS1PropertyInfo::CopyBorderInfo( SvxBoxItemLine nSrcLine, SvxBoxItemLine nDstLine,
@@ -596,7 +584,7 @@ void SvxCSS1PropertyInfo::SetBoxItem( SfxItemSet& rItemSet,
                 m_nLeftBorderDistance != UNSET_BORDER_DISTANCE ||
                 m_nRightBorderDistance != UNSET_BORDER_DISTANCE;
 
-    for( size_t i=0; !bChg && i<SAL_N_ELEMENTS(m_aBorderInfos); ++i )
+    for( size_t i=0; !bChg && i<m_aBorderInfos.size(); ++i )
         bChg = m_aBorderInfos[i]!=nullptr;
 
     if( !bChg )
@@ -622,7 +610,7 @@ void SvxCSS1PropertyInfo::SetBoxItem( SfxItemSet& rItemSet,
     if( pInfo )
         pInfo->SetBorderLine( SvxBoxItemLine::RIGHT, aBoxItem );
 
-    for( size_t i=0; i<SAL_N_ELEMENTS(m_aBorderInfos); ++i )
+    for( size_t i=0; i<m_aBorderInfos.size(); ++i )
     {
         SvxBoxItemLine nLine = SvxBoxItemLine::TOP;
         sal_uInt16 nDist = 0;
@@ -769,14 +757,14 @@ SvxCSS1Parser::SvxCSS1Parser( SfxItemPool& rPool, const OUString& rBaseURL,
     if( pWhichIds && nWhichIds )
         BuildWhichTable( aWhichMap, pWhichIds, nWhichIds );
 
-    pSheetItemSet = new SfxItemSet( rPool, &aWhichMap[0] );
-    pSheetPropInfo = new SvxCSS1PropertyInfo;
+    pSheetItemSet.reset( new SfxItemSet( rPool, &aWhichMap[0] ) );
+    pSheetPropInfo.reset( new SvxCSS1PropertyInfo );
 }
 
 SvxCSS1Parser::~SvxCSS1Parser()
 {
-    delete pSheetItemSet;
-    delete pSheetPropInfo;
+    pSheetItemSet.reset();
+    pSheetPropInfo.reset();
 }
 
 void SvxCSS1Parser::InsertId( const OUString& rId,
@@ -841,10 +829,10 @@ SvxCSS1MapEntry* SvxCSS1Parser::GetTag( const OUString& rTag )
 
 bool SvxCSS1Parser::ParseStyleSheet( const OUString& rIn )
 {
-    pItemSet = pSheetItemSet;
-    pPropInfo = pSheetPropInfo;
+    pItemSet = pSheetItemSet.get();
+    pPropInfo = pSheetPropInfo.get();
 
-    bool bSuccess = CSS1Parser::ParseStyleSheet( rIn );
+    CSS1Parser::ParseStyleSheet( rIn );
 
     for (std::unique_ptr<CSS1Selector> & rpSelector : m_Selectors)
     {
@@ -859,7 +847,7 @@ bool SvxCSS1Parser::ParseStyleSheet( const OUString& rIn )
     pItemSet = nullptr;
     pPropInfo = nullptr;
 
-    return bSuccess;
+    return true;
 }
 
 void SvxCSS1Parser::ParseStyleOption( const OUString& rIn,
@@ -1073,7 +1061,7 @@ static void ParseCSS1_font_family( const CSS1Expression *pExpr,
 {
     OSL_ENSURE( pExpr, "no expression" );
 
-    OUString aName;
+    OUStringBuffer aName;
     rtl_TextEncoding eEnc = rParser.GetDfltEncoding();
     const FontList *pFList = rParser.GetFontList();
     bool bFirst = true;
@@ -1114,8 +1102,8 @@ static void ParseCSS1_font_family( const CSS1Expression *pExpr,
                     }
                 }
                 if( !bFirst )
-                    aName += ";";
-                aName += aIdent;
+                    aName.append(";");
+                aName.append(aIdent);
             }
         }
 
@@ -1125,7 +1113,7 @@ static void ParseCSS1_font_family( const CSS1Expression *pExpr,
 
     if( !aName.isEmpty() && !rParser.IsIgnoreFontFamily() )
     {
-        SvxFontItem aFont( FAMILY_DONTKNOW, aName, OUString(), PITCH_DONTKNOW,
+        SvxFontItem aFont( FAMILY_DONTKNOW, aName.makeStringAndClear(), OUString(), PITCH_DONTKNOW,
                             eEnc, aItemIds.nFont );
         rItemSet.Put( aFont );
         aFont.SetWhich( aItemIds.nFontCJK );

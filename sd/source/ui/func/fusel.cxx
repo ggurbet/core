@@ -19,6 +19,7 @@
 
 #include <config_features.h>
 
+#include <com/sun/star/media/XPlayer.hpp>
 #include <fusel.hxx>
 #include <basic/sbstar.hxx>
 #include <svx/svddrgmt.hxx>
@@ -177,7 +178,7 @@ bool FuSelection::MouseButtonDown(const MouseEvent& rMEvt)
 
         long nAngle0  = GetAngle(aMDPos - mpView->GetRef1());
         nAngle0 -= 27000;
-        nAngle0 = NormAngle360(nAngle0);
+        nAngle0 = NormAngle36000(nAngle0);
         bMirrorSide0 = nAngle0 < 18000;
 
         if (!pHdl && mpView->Is3DRotationCreationActive())
@@ -331,7 +332,7 @@ bool FuSelection::MouseButtonDown(const MouseEvent& rMEvt)
                             // New: double click on selected Group object
                             // enter group
                             if ( ! bSelectionOnly
-                                && pObj->GetPage() == pPV->GetPage())
+                                && pObj->getSdrPageFromSdrObject() == pPV->GetPage())
                                 bReturn = pPV->EnterGroup(pObj);
                         }
                     }
@@ -339,7 +340,7 @@ bool FuSelection::MouseButtonDown(const MouseEvent& rMEvt)
 
                 // #i71727# replaced else here with two possibilities, once the original else (!pObj)
                 // and also ignoring the found object when it's on a masterpage
-                if(!pObj || (pObj->GetPage() && pObj->GetPage()->IsMasterPage()))
+                if(!pObj || (pObj->getSdrPageFromSdrObject() && pObj->getSdrPageFromSdrObject()->IsMasterPage()))
                 {
                     if(mpView->IsGroupEntered() && 2 == rMEvt.GetClicks())
                     {
@@ -739,7 +740,7 @@ bool FuSelection::MouseButtonUp(const MouseEvent& rMEvt)
                     **********************************************************/
                      long nAngle1  = GetAngle(aPnt - mpView->GetRef1());
                      nAngle1 -= 27000;
-                     nAngle1 = NormAngle360(nAngle1);
+                     nAngle1 = NormAngle36000(nAngle1);
                      bool bMirrorSide1 = nAngle1 < 18000;
 
                      if (bMirrorSide0 != bMirrorSide1)

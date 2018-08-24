@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 
@@ -1727,10 +1728,12 @@ bool ReadDIB(
 
 bool ReadDIBBitmapEx(
     BitmapEx& rTarget,
-    SvStream& rIStm)
+    SvStream& rIStm,
+    bool bFileHeader,
+    bool bMSOFormat)
 {
     Bitmap aBmp;
-    bool bRetval(ImplReadDIB(aBmp, nullptr, rIStm, true) && !rIStm.GetError());
+    bool bRetval(ImplReadDIB(aBmp, nullptr, rIStm, bFileHeader, /*bMask*/false, bMSOFormat) && !rIStm.GetError());
 
     if(bRetval)
     {
@@ -1819,6 +1822,22 @@ bool ReadDIBV5(
     return ImplReadDIB(rTarget, &rTargetAlpha, rIStm, true);
 }
 
+bool ReadRawDIB(
+    Bitmap& rTarget,
+    const unsigned char* pBuf,
+    const ScanlineFormat nFormat,
+    const int nHeight,
+    const int nStride)
+{
+    BitmapScopedWriteAccess pWriteAccess(rTarget.AcquireWriteAccess(), rTarget);
+    for (int nRow = 0; nRow < nHeight; ++nRow)
+    {
+        pWriteAccess->CopyScanline(nRow, pBuf + (nStride * nRow), nFormat, nStride);
+    }
+
+    return true;
+}
+
 bool WriteDIB(
     const Bitmap& rSource,
     SvStream& rOStm,
@@ -1830,9 +1849,10 @@ bool WriteDIB(
 
 bool WriteDIB(
     const BitmapEx& rSource,
-    SvStream& rOStm)
+    SvStream& rOStm,
+    bool bCompressed)
 {
-    return ImplWriteDIB(rSource.GetBitmapRef(), rOStm, /*bCompressed*/true, /*bFileHeader*/true);
+    return ImplWriteDIB(rSource.GetBitmapRef(), rOStm, bCompressed, /*bFileHeader*/true);
 }
 
 bool WriteDIBBitmapEx(

@@ -20,23 +20,20 @@
 #ifndef INCLUDED_SD_SOURCE_FILTER_HTML_HTMLEX_HXX
 #define INCLUDED_SD_SOURCE_FILTER_HTML_HTMLEX_HXX
 
-#include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/ucb/XSimpleFileAccess3.hpp>
-#include <vcl/gdimtf.hxx>
-#include <svl/itemset.hxx>
 #include <resltn.hxx>
-#include <svtools/colrdlg.hxx>
-#include <svtools/ehdl.hxx>
-
-#include <DrawDocShell.hxx>
-#include <Window.hxx>
-#include <ViewShell.hxx>
-#include <assclass.hxx>
+#include <tools/color.hxx>
+#include <vcl/errinf.hxx>
 
 #include "htmlpublishmode.hxx"
 
 #include <memory>
 #include <vector>
+
+namespace basegfx { class B2DPolyPolygon; }
+namespace com { namespace sun { namespace star { namespace beans { struct PropertyValue; } } } }
+namespace com { namespace sun { namespace star { namespace ucb { class XSimpleFileAccess3; } } } }
+namespace sd { class DrawDocShell; }
+namespace tools { class Rectangle; }
 
 #define PUB_LOWRES_WIDTH    640
 #define PUB_MEDRES_WIDTH    800
@@ -45,6 +42,10 @@
 #define PUB_THUMBNAIL_WIDTH  256
 #define PUB_THUMBNAIL_HEIGHT 192
 
+class ErrCode;
+class OutlinerParaObject;
+class SfxItemSet;
+class Size;
 class SfxProgress;
 class SdrOutliner;
 class SdPage;
@@ -86,7 +87,7 @@ class HtmlExport final
     HtmlErrorContext meEC;
 
     HtmlPublishMode meMode;
-    SfxProgress* mpProgress;
+    std::unique_ptr<SfxProgress> mpProgress;
     bool mbImpress;
     sal_uInt16 mnSdPageCount;
     sal_uInt16 mnPagesWritten;
@@ -137,8 +138,6 @@ class HtmlExport final
     OUString maCGIPath;
     PublishingScript meScript;
 
-    const OUString maHTMLHeader;
-
     std::unique_ptr< ButtonSet > mpButtonSet;
 
     static SdrTextObj* GetLayoutTextObject(SdrPage const * pPage);
@@ -150,7 +149,7 @@ class HtmlExport final
     bool    CreateHtmlForPresPages();
     bool    CreateContentPage();
     void    CreateFileNames();
-    bool    CreateBitmaps();
+    void    CreateBitmaps();
     bool    CreateOutlinePages();
     bool    CreateFrames();
     bool    CreateNotesPages();

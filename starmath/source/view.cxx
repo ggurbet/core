@@ -53,6 +53,7 @@
 #include <vcl/decoview.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/streamwrap.hxx>
 
@@ -1260,10 +1261,10 @@ bool SmViewShell::HasPrintOptionsPage() const
     return true;
 }
 
-VclPtr<SfxTabPage> SmViewShell::CreatePrintOptionsPage(vcl::Window *pParent,
+VclPtr<SfxTabPage> SmViewShell::CreatePrintOptionsPage(weld::Container* pPage,
                                                        const SfxItemSet &rOptions)
 {
-    return SmPrintOptionsTabPage::Create(pParent, rOptions);
+    return SmPrintOptionsTabPage::Create(pPage, rOptions);
 }
 
 SmEditWindow *SmViewShell::GetEditWindow()
@@ -1707,14 +1708,10 @@ void SmViewShell::Execute(SfxRequest& rReq)
                     SfxItemSet aSet( SmDocShell::GetPool(), svl::Items<SID_ATTR_ZOOM, SID_ATTR_ZOOM>{});
                     aSet.Put( SvxZoomItem( SvxZoomType::PERCENT, mpGraphic->GetZoom()));
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    if(pFact)
-                    {
-                        ScopedVclPtr<AbstractSvxZoomDialog> xDlg(pFact->CreateSvxZoomDialog(GetViewFrame()->GetWindow().GetFrameWeld(), aSet));
-                        assert(xDlg);
-                        xDlg->SetLimits( MINZOOM, MAXZOOM );
-                        if (xDlg->Execute() != RET_CANCEL)
-                            ZoomByItemSet(xDlg->GetOutputItemSet());
-                    }
+                    ScopedVclPtr<AbstractSvxZoomDialog> xDlg(pFact->CreateSvxZoomDialog(GetViewFrame()->GetWindow().GetFrameWeld(), aSet));
+                    xDlg->SetLimits( MINZOOM, MAXZOOM );
+                    if (xDlg->Execute() != RET_CANCEL)
+                        ZoomByItemSet(xDlg->GetOutputItemSet());
                 }
             }
         }
@@ -1798,7 +1795,8 @@ void SmViewShell::Execute(SfxRequest& rReq)
             SAL_WARN_IF( !pDev, "starmath", "device for font list missing" );
 
             SmModule *pp = SM_MOD();
-            ScopedVclPtrInstance<SmSymbolDialog>( nullptr, pDev, pp->GetSymbolManager(), *this )->Execute();
+            SmSymbolDialog aDialog(pWin ? pWin->GetFrameWeld() : nullptr, pDev, pp->GetSymbolManager(), *this);
+            aDialog.run();
         }
         break;
     }
@@ -1955,15 +1953,15 @@ IMPL_LINK( SmViewShell, DialogClosedHdl, sfx2::FileDialogHelper*, _pFileDlg, voi
 
     if ( ERRCODE_NONE == _pFileDlg->GetError() )
     {
-        SfxMedium* pMedium = mpImpl->pDocInserter->CreateMedium();
+        std::unique_ptr<SfxMedium> pMedium = mpImpl->pDocInserter->CreateMedium();
 
-        if ( pMedium != nullptr )
+        if ( pMedium )
         {
             if ( pMedium->IsStorage() )
                 Insert( *pMedium );
             else
                 InsertFrom( *pMedium );
-            delete pMedium;
+            pMedium.reset();
 
             SmDocShell* pDoc = GetDoc();
             pDoc->UpdateText();

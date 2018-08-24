@@ -54,30 +54,6 @@ protected:
 
         return std::find(vWhitelist.begin(), vWhitelist.end(), filename) != vWhitelist.end();
     }
-protected:
-    bool CjkNumberedListTestHelper(sal_Int16 &nValue)
-    {
-        bool isNumber = false;
-        uno::Reference<text::XTextRange> xPara(getParagraph(1));
-        uno::Reference< beans::XPropertySet > properties( xPara, uno::UNO_QUERY);
-        properties->getPropertyValue("NumberingIsNumber") >>= isNumber;
-        if (!isNumber)
-            return false;
-        uno::Reference<container::XIndexAccess> xLevels( properties->getPropertyValue("NumberingRules"), uno::UNO_QUERY);
-        uno::Sequence< beans::PropertyValue > aPropertyValue;
-        xLevels->getByIndex(0) >>= aPropertyValue;
-        for( int j = 0 ; j< aPropertyValue.getLength() ; ++j)
-        {
-            beans::PropertyValue aProp= aPropertyValue[j];
-            if (aProp.Name == "NumberingType")
-            {
-                nValue = aProp.Value.get<sal_Int16>();
-                return true;
-            }
-        }
-        return false;
-
-    }
 };
 
 DECLARE_OOXMLEXPORT_TEST(testfdo81381, "fdo81381.docx")
@@ -348,10 +324,13 @@ DECLARE_OOXMLEXPORT_TEST(testNumberingFont, "numbering-font.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testTdf106541_noinheritChapterNumbering, "tdf106541_noinheritChapterNumbering.odt")
 {
-    // in LO, it appears that styles based on the Chapter Numbering style explicitly sets the
-    // numbering style/outline level to 0 by default, and prevents inheriting directly from "Outline" style.
+    // in LO, it appears that styles based on the Chapter Numbering style explicitly set the
+    // numbering style/outline level to 0 by default, and that LO prevents inheriting directly from "Outline" style.
     // Adding this preventative unit test to ensure that any fix for tdf106541 doesn't make incorrect assumptions.
-    CPPUNIT_ASSERT_EQUAL(OUString("Outline"), getProperty<OUString>(getParagraph(1), "NumberingStyleName"));
+
+//reverting tdf#76817 hard-codes the numbering style on the paragraph, preventing RT of "Outline" style
+//    CPPUNIT_ASSERT_EQUAL(OUString("Outline"), getProperty<OUString>(getParagraph(1), "NumberingStyleName"));
+
     OUString sPara3NumberingStyle = getProperty<OUString>(getParagraph(3), "NumberingStyleName");
     CPPUNIT_ASSERT_EQUAL(sPara3NumberingStyle, getProperty<OUString>(getParagraph(4), "NumberingStyleName"));
 
@@ -558,6 +537,20 @@ DECLARE_OOXMLEXPORT_TEST(testEffectExtent, "effect-extent.docx")
         assertXPath(pXmlDoc, "//wp:effectExtent", "l", "114300");
 }
 
+DECLARE_OOXMLEXPORT_TEST(testEffectExtentInline, "effect-extent-inline.docx")
+{
+    // The problem was that in case there was inline rotated picture, we
+    // wrote a <wp:effectExtent> full or zeros.
+    if (xmlDocPtr pXmlDoc = parseExport("word/document.xml"))
+    {
+        // E.g. this was 0.
+        assertXPath(pXmlDoc, "//wp:effectExtent", "l", "609600");
+        assertXPath(pXmlDoc, "//wp:effectExtent", "r", "590550");
+        assertXPath(pXmlDoc, "//wp:effectExtent", "t", "590550");
+        assertXPath(pXmlDoc, "//wp:effectExtent", "b", "571500");
+    }
+}
+
 DECLARE_OOXMLEXPORT_TEST(testEm, "em.docx")
 {
     // Test all possible <w:em> arguments.
@@ -618,37 +611,50 @@ DECLARE_OOXMLEXPORT_TEST(testTableRtl, "table-rtl.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testOoxmlCjklist30, "cjklist30.docx")
 {
-    sal_Int16   numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::TIAN_GAN_ZH, numFormat);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testOoxmlCjklist31, "cjklist31.docx")
 {
-    sal_Int16   numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::DI_ZI_ZH, numFormat);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testOoxmlCjklist34, "cjklist34.docx")
 {
-    sal_Int16   numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_UPPER_ZH_TW, numFormat);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testOoxmlCjklist35, "cjklist35.docx")
 {
-    sal_Int16   numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_LOWER_ZH, numFormat);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testOoxmlCjklist44, "cjklist44.docx")
 {
-    sal_Int16   numFormat;
-    CPPUNIT_ASSERT(CjkNumberedListTestHelper(numFormat));
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_HANGUL_KO, numFormat);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testOoxmlTextNumberList, "text_number_list.docx")
+{
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(style::NumberingType::TEXT_NUMBER, numFormat);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testOoxmlTextCardinalList, "text_cardinal_list.docx")
+{
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(style::NumberingType::TEXT_CARDINAL, numFormat);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testOoxmlTextOrdinalList, "text_ordinal_list.docx")
+{
+    sal_Int16   numFormat = getNumberingTypeOfParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(style::NumberingType::TEXT_ORDINAL, numFormat);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testOoxmlNumListZHTW, "numlist-zhtw.odt")
@@ -705,7 +711,9 @@ DECLARE_OOXMLEXPORT_TEST(testOOxmlOutlineNumberTypes, "outline-number-types.odt"
 
 DECLARE_OOXMLEXPORT_TEST(testNumParentStyle, "num-parent-style.docx")
 {
-    CPPUNIT_ASSERT_EQUAL(OUString("Outline"), getProperty<OUString>(getParagraph(4), "NumberingStyleName"));
+//reverting tdf#76817 hard-codes the numbering style on the paragraph, preventing RT of "Outline" style
+//I think this unit test is wrong, but I will revert to its original claim.
+    CPPUNIT_ASSERT(getProperty<OUString>(getParagraph(4), "NumberingStyleName").startsWith("WWNum"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testNumOverrideLvltext, "num-override-lvltext.docx")
@@ -778,6 +786,10 @@ DECLARE_OOXMLEXPORT_TEST(testTdf89791, "tdf89791.docx")
         uno::Reference<packages::zip::XZipFileAccess2> xNameAccess = packages::zip::ZipFileAccess::createWithURL(comphelper::getComponentContext(m_xSFactory), maTempFile.GetURL());
         CPPUNIT_ASSERT_EQUAL(false, bool(xNameAccess->hasByName("docProps/custom.xml")));
     }
+
+    //tdf#102619 - setting FollowStyle with a not-yet-created style was failing. (Titre is created before Corps de texte).
+    uno::Reference< beans::XPropertySet > properties(getStyles("ParagraphStyles")->getByName("Titre"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("Corps de texte"), getProperty<OUString>(properties, "FollowStyle"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf91261, "tdf91261.docx")

@@ -55,6 +55,7 @@
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/asyncquithandler.hxx>
 #include <map>
 #include <com/sun/star/reflection/ProxyFactory.hpp>
 #include <com/sun/star/uno/XAggregation.hpp>
@@ -417,32 +418,6 @@ bool getDefaultVBAMode( StarBASIC* pb )
     return xVBACompat.is() && xVBACompat->getVBACompatibilityMode();
 }
 
-class AsyncQuitHandler
-{
-    AsyncQuitHandler() {}
-
-public:
-    AsyncQuitHandler(const AsyncQuitHandler&) = delete;
-    const AsyncQuitHandler& operator=(const AsyncQuitHandler&) = delete;
-    static AsyncQuitHandler& instance()
-    {
-        static AsyncQuitHandler dInst;
-        return dInst;
-    }
-
-    static void QuitApplication()
-    {
-        uno::Reference< frame::XDesktop2 > xDeskTop = frame::Desktop::create( comphelper::getProcessComponentContext() );
-        xDeskTop->terminate();
-    }
-    DECL_STATIC_LINK( AsyncQuitHandler, OnAsyncQuit, void*, void );
-};
-
-IMPL_STATIC_LINK_NOARG( AsyncQuitHandler, OnAsyncQuit, void*, void )
-{
-    QuitApplication();
-}
-
 // A Basic module has set EXTSEARCH, so that the elements, that the module contains,
 // could be found from other module.
 
@@ -524,7 +499,7 @@ void SbModule::StartDefinitions()
 SbMethod* SbModule::GetMethod( const OUString& rName, SbxDataType t )
 {
     SbxVariable* p = pMethods->Find( rName, SbxClassType::Method );
-    SbMethod* pMeth = p ? dynamic_cast<SbMethod*>( p ) : nullptr;
+    SbMethod* pMeth = dynamic_cast<SbMethod*>( p );
     if( p && !pMeth )
     {
         pMethods->Remove( p );
@@ -562,7 +537,7 @@ SbMethod* SbModule::FindMethod( const OUString& rName, SbxClassType t )
 SbProperty* SbModule::GetProperty( const OUString& rName, SbxDataType t )
 {
     SbxVariable* p = pProps->Find( rName, SbxClassType::Property );
-    SbProperty* pProp = p ? dynamic_cast<SbProperty*>( p ) : nullptr;
+    SbProperty* pProp = dynamic_cast<SbProperty*>( p );
     if( p && !pProp )
     {
         pProps->Remove( p );
@@ -581,7 +556,7 @@ SbProperty* SbModule::GetProperty( const OUString& rName, SbxDataType t )
 void SbModule::GetProcedureProperty( const OUString& rName, SbxDataType t )
 {
     SbxVariable* p = pProps->Find( rName, SbxClassType::Property );
-    SbProcedureProperty* pProp = p ? dynamic_cast<SbProcedureProperty*>( p ) : nullptr;
+    SbProcedureProperty* pProp = dynamic_cast<SbProcedureProperty*>( p );
     if( p && !pProp )
     {
         pProps->Remove( p );
@@ -599,7 +574,7 @@ void SbModule::GetProcedureProperty( const OUString& rName, SbxDataType t )
 void SbModule::GetIfaceMapperMethod( const OUString& rName, SbMethod* pImplMeth )
 {
     SbxVariable* p = pMethods->Find( rName, SbxClassType::Method );
-    SbIfaceMapperMethod* pMapperMethod = p ? dynamic_cast<SbIfaceMapperMethod*>( p ) : nullptr;
+    SbIfaceMapperMethod* pMapperMethod = dynamic_cast<SbIfaceMapperMethod*>( p );
     if( p && !pMapperMethod )
     {
         pMethods->Remove( p );
@@ -1243,7 +1218,7 @@ void SbModule::RunInit()
      && !pImage->bInit
      && pImage->IsFlag( SbiImageFlags::INITCODE ) )
     {
-        // Set flag, so that RunInit get activ (Testtool)
+        // Set flag, so that RunInit get active (Testtool)
         GetSbData()->bRunInit = true;
 
         SbModule* pOldMod = GetSbData()->pMod;
@@ -1261,7 +1236,7 @@ void SbModule::RunInit()
         pImage->bInit = true;
         pImage->bFirstInit = false;
 
-        // RunInit is not activ anymore
+        // RunInit is not active anymore
         GetSbData()->bRunInit = false;
     }
 }

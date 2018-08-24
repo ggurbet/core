@@ -89,7 +89,7 @@
 #include <strings.hrc>
 #include <swerror.h>
 #include <unochart.hxx>
-
+#include <tgrditem.hxx>
 #include <chartins.hxx>
 
 #define ShellClass_SwTextShell
@@ -161,7 +161,9 @@ void SwTextShell::ExecInsert(SfxRequest &rReq)
             SvxAutoCorrect* pACorr = rACfg.GetAutoCorrect();
             if( pACorr && rACfg.IsAutoFormatByInput()
                 && pACorr->IsAutoCorrFlag(
-                    CapitalStartSentence | CapitalStartWord | AddNonBrkSpace | ChgOrdinalNumber | ChgToEnEmDash | SetINetAttr | Autocorrect ) )
+                    ACFlags::CapitalStartSentence | ACFlags::CapitalStartWord |
+                    ACFlags::AddNonBrkSpace | ACFlags::ChgOrdinalNumber |
+                    ACFlags::ChgToEnEmDash | ACFlags::SetINetAttr | ACFlags::Autocorrect ) )
             {
                 rSh.AutoCorrect( *pACorr, cIns );
             }
@@ -471,12 +473,10 @@ void SwTextShell::ExecInsert(SfxRequest &rReq)
             FieldUnit eMetric = ::GetDfltMetric(dynamic_cast<SwWebDocShell*>( GetView().GetDocShell()) != nullptr );
             SW_MOD()->PutItem(SfxUInt16Item(SID_ATTR_METRIC, static_cast< sal_uInt16 >(eMetric)));
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "Dialog creation failed!");
             ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateFrameTabDialog("FrameDialog",
                                                   GetView().GetViewFrame(),
                                                   &GetView().GetViewFrame()->GetWindow(),
                                                   aSet));
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
             if(pDlg->Execute() == RET_OK && pDlg->GetOutputItemSet())
             {
                 //local variable necessary at least after call of .AutoCaption() because this could be deleted at this point
@@ -524,10 +524,8 @@ void SwTextShell::ExecInsert(SfxRequest &rReq)
     case FN_FORMAT_COLUMN :
     {
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        assert(pFact && "Dialog creation failed!");
-        ScopedVclPtr<VclAbstractDialog> pColDlg(pFact->CreateSwColumnDialog(GetView().GetWindow(), rSh));
-        assert(pColDlg && "Dialog creation failed!");
-        pColDlg->Execute();
+        VclPtr<VclAbstractDialog> pColDlg(pFact->CreateSwColumnDialog(GetView().GetWindow(), rSh));
+        pColDlg->StartExecuteAsync([](sal_Int32 /*nResult*/){});
     }
     break;
 

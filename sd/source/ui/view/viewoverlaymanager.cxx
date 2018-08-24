@@ -19,6 +19,7 @@
 
 #include <sddll.hxx>
 
+#include <o3tl/make_unique.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/app.hxx>
@@ -94,8 +95,8 @@ static BitmapEx* getButtonImage( int index, bool large )
     {
         for (sal_uInt16 i = 0; i < SAL_N_ELEMENTS(aSmallPlaceHolders); i++ )
         {
-            gSmallButtonImages[i].set(new BitmapEx(aSmallPlaceHolders[i]));
-            gLargeButtonImages[i].set(new BitmapEx(aBigPlaceHolders[i]));
+            gSmallButtonImages[i].set(o3tl::make_unique<BitmapEx>(aSmallPlaceHolders[i]));
+            gLargeButtonImages[i].set(o3tl::make_unique<BitmapEx>(aBigPlaceHolders[i]));
         }
     }
 
@@ -244,11 +245,10 @@ void ImageButtonHdl::CreateB2dIAObject()
                     rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
                     if(rPaintWindow.OutputToWindow() && xManager.is() )
                     {
-                        sdr::overlay::OverlayObject* pOverlayObject = nullptr;
-
-                        pOverlayObject = new sdr::overlay::OverlayBitmapEx( aPosition, aBitmapEx, 0, 0 );
+                        std::unique_ptr<sdr::overlay::OverlayObject> pOverlayObject(
+                            new sdr::overlay::OverlayBitmapEx( aPosition, aBitmapEx, 0, 0 ));
                         xManager->add(*pOverlayObject);
-                        maOverlayGroup.append(pOverlayObject);
+                        maOverlayGroup.append(std::move(pOverlayObject));
                     }
                 }
             }

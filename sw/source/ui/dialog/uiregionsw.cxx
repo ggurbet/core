@@ -36,7 +36,6 @@
 #include <svtools/htmlcfg.hxx>
 #include <svtools/treelistentry.hxx>
 
-#include <comphelper/storagehelper.hxx>
 #include <uitool.hxx>
 #include <IMark.hxx>
 #include <section.hxx>
@@ -63,6 +62,8 @@
 #include <svx/svxdlg.hxx>
 #include <svx/flagsdef.hxx>
 #include <memory>
+
+#include <svx/unobrushitemhelper.hxx>
 
 using namespace ::com::sun::star;
 
@@ -348,7 +349,7 @@ SwEditRegionDlg::SwEditRegionDlg( vcl::Window* pParent, SwWrtShell& rWrtSh )
     get(m_pDismiss, "remove");
     get(m_pOK, "ok");
 
-    bWeb = dynamic_cast<SwWebDocShell*>( rSh.GetView().GetDocShell() ) != nullptr;
+    bool bWeb = dynamic_cast<SwWebDocShell*>( rSh.GetView().GetDocShell() ) != nullptr;
 
     m_pTree->SetSelectHdl(LINK(this, SwEditRegionDlg, GetFirstEntryHdl));
     m_pTree->SetDeselectHdl(LINK(this, SwEditRegionDlg, DeselectHdl));
@@ -534,7 +535,7 @@ void SwEditRegionDlg::dispose()
         pEntry = m_pTree->Next( pEntry );
     }
 
-    delete m_pDocInserter;
+    m_pDocInserter.reset();
     m_pCurName.clear();
     m_pTree.clear();
     m_pFileCB.clear();
@@ -1039,8 +1040,7 @@ IMPL_LINK_NOARG(SwEditRegionDlg, FileSearchHdl, Button*, void)
 {
     if(!CheckPasswd())
         return;
-    delete m_pDocInserter;
-    m_pDocInserter = new ::sfx2::DocumentInserter(GetFrameWeld(), "swriter");
+    m_pDocInserter.reset(new ::sfx2::DocumentInserter(GetFrameWeld(), "swriter"));
     m_pDocInserter->StartExecuteModal( LINK( this, SwEditRegionDlg, DlgClosedHdl ) );
 }
 
@@ -1062,6 +1062,7 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OptionsHdl, Button*, void)
             RES_BACKGROUND, RES_BACKGROUND,
             RES_COL, RES_COL,
             RES_FTN_AT_TXTEND, RES_FRAMEDIR,
+            XATTR_FILL_FIRST, XATTR_FILL_LAST,
             SID_ATTR_PAGE_SIZE, SID_ATTR_PAGE_SIZE>{});
 
     aSet.Put( pSectRepr->GetCol() );
@@ -1071,6 +1072,8 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OptionsHdl, Button*, void)
     aSet.Put( pSectRepr->GetBalance() );
     aSet.Put( pSectRepr->GetFrameDir() );
     aSet.Put( pSectRepr->GetLRSpace() );
+
+    setSvxBrushItemAsFillAttributesToTargetSet(pSectRepr->GetBackground(), aSet);
 
     const SwSectionFormats& rDocFormats = rSh.GetDoc()->GetSections();
     SwSectionFormats aOrigArray(rDocFormats);
@@ -1414,10 +1417,9 @@ SwInsertSectionTabDialog::SwInsertSectionTabDialog(
     , rWrtSh(rSh)
 {
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
     m_nSectionPageId = AddTabPage("section", SwInsertSectionTabPage::Create, nullptr);
     m_nColumnPageId = AddTabPage("columns",   SwColumnPage::Create,    nullptr);
-    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BACKGROUND ), nullptr);
+    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ), nullptr);
     m_nNotePageId = AddTabPage("notes", SwSectionFootnoteEndTabPage::Create, nullptr);
     m_nIndentPage = AddTabPage("indents", SwSectionIndentTabPage::Create, nullptr);
 
@@ -1553,7 +1555,7 @@ SwInsertSectionTabPage::~SwInsertSectionTabPage()
 
 void SwInsertSectionTabPage::dispose()
 {
-    delete m_pDocInserter;
+    m_pDocInserter.reset();
     m_pCurName.clear();
     m_pFileCB.clear();
     m_pDDECB.clear();
@@ -1672,10 +1674,10 @@ void SwInsertSectionTabPage::Reset( const SfxItemSet* )
 {
 }
 
-VclPtr<SfxTabPage> SwInsertSectionTabPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SwInsertSectionTabPage::Create( TabPageParent pParent,
                                                    const SfxItemSet* rAttrSet)
 {
-    return VclPtr<SwInsertSectionTabPage>::Create(pParent, *rAttrSet);
+    return VclPtr<SwInsertSectionTabPage>::Create(pParent.pParent, *rAttrSet);
 }
 
 IMPL_LINK( SwInsertSectionTabPage, ChangeHideHdl, Button *, pBox, void )
@@ -1769,8 +1771,7 @@ IMPL_LINK( SwInsertSectionTabPage, UseFileHdl, Button *, pButton, void )
 
 IMPL_LINK_NOARG(SwInsertSectionTabPage, FileSearchHdl, Button*, void)
 {
-    delete m_pDocInserter;
-    m_pDocInserter = new ::sfx2::DocumentInserter(GetFrameWeld(), "swriter");
+    m_pDocInserter.reset(new ::sfx2::DocumentInserter(GetFrameWeld(), "swriter"));
     m_pDocInserter->StartExecuteModal( LINK( this, SwInsertSectionTabPage, DlgClosedHdl ) );
 }
 
@@ -1822,81 +1823,50 @@ IMPL_LINK( SwInsertSectionTabPage, DlgClosedHdl, sfx2::FileDialogHelper *, _pFil
         m_sFilterName = m_sFilePasswd = aEmptyOUStr;
 }
 
-SwSectionFootnoteEndTabPage::SwSectionFootnoteEndTabPage( vcl::Window *pParent,
-                                                const SfxItemSet &rAttrSet)
-    : SfxTabPage( pParent, "FootnotesEndnotesTabPage", "modules/swriter/ui/footnotesendnotestabpage.ui", &rAttrSet )
-
+SwSectionFootnoteEndTabPage::SwSectionFootnoteEndTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
+    : SfxTabPage(pParent, "modules/swriter/ui/footnotesendnotestabpage.ui", "FootnotesEndnotesTabPage", &rAttrSet)
+    , m_xFootnoteNtAtTextEndCB(m_xBuilder->weld_check_button("ftnntattextend"))
+    , m_xFootnoteNtNumCB(m_xBuilder->weld_check_button("ftnntnum"))
+    , m_xFootnoteOffsetLbl(m_xBuilder->weld_label("ftnoffset_label"))
+    , m_xFootnoteOffsetField(m_xBuilder->weld_spin_button("ftnoffset"))
+    , m_xFootnoteNtNumFormatCB(m_xBuilder->weld_check_button("ftnntnumfmt"))
+    , m_xFootnotePrefixFT(m_xBuilder->weld_label("ftnprefix_label"))
+    , m_xFootnotePrefixED(m_xBuilder->weld_entry("ftnprefix"))
+    , m_xFootnoteNumViewBox(new SwNumberingTypeListBox(m_xBuilder->weld_combo_box_text("ftnnumviewbox")))
+    , m_xFootnoteSuffixFT(m_xBuilder->weld_label("ftnsuffix_label"))
+    , m_xFootnoteSuffixED(m_xBuilder->weld_entry("ftnsuffix"))
+    , m_xEndNtAtTextEndCB(m_xBuilder->weld_check_button("endntattextend"))
+    , m_xEndNtNumCB(m_xBuilder->weld_check_button("endntnum"))
+    , m_xEndOffsetLbl(m_xBuilder->weld_label("endoffset_label"))
+    , m_xEndOffsetField(m_xBuilder->weld_spin_button("endoffset"))
+    , m_xEndNtNumFormatCB(m_xBuilder->weld_check_button("endntnumfmt"))
+    , m_xEndPrefixFT(m_xBuilder->weld_label("endprefix_label"))
+    , m_xEndPrefixED(m_xBuilder->weld_entry("endprefix"))
+    , m_xEndNumViewBox(new SwNumberingTypeListBox(m_xBuilder->weld_combo_box_text("endnumviewbox")))
+    , m_xEndSuffixFT(m_xBuilder->weld_label("endsuffix_label"))
+    , m_xEndSuffixED(m_xBuilder->weld_entry("endsuffix"))
 {
-    get(m_pFootnoteNtAtTextEndCB,"ftnntattextend");
+    m_xFootnoteNumViewBox->Reload(SwInsertNumTypes::Extended);
+    m_xEndNumViewBox->Reload(SwInsertNumTypes::Extended);
 
-    get(m_pFootnoteNtNumCB,"ftnntnum");
-    get(m_pFootnoteOffsetLbl,"ftnoffset_label");
-    get(m_pFootnoteOffsetField,"ftnoffset");
-
-    get(m_pFootnoteNtNumFormatCB,"ftnntnumfmt");
-    get(m_pFootnotePrefixFT,"ftnprefix_label");
-    get(m_pFootnotePrefixED,"ftnprefix");
-    get(m_pFootnoteNumViewBox,"ftnnumviewbox");
-    get(m_pFootnoteSuffixFT,"ftnsuffix_label");
-    get(m_pFootnoteSuffixED,"ftnsuffix");
-
-    get(m_pEndNtAtTextEndCB,"endntattextend");
-
-    get(m_pEndNtNumCB,"endntnum");
-    get(m_pEndOffsetLbl,"endoffset_label");
-    get(m_pEndOffsetField,"endoffset");
-
-    get(m_pEndNtNumFormatCB,"endntnumfmt");
-    get(m_pEndPrefixFT,"endprefix_label");
-    get(m_pEndPrefixED,"endprefix");
-    get(m_pEndNumViewBox,"endnumviewbox");
-    get(m_pEndSuffixFT,"endsuffix_label");
-    get(m_pEndSuffixED,"endsuffix");
-
-    Link<Button*,void> aLk( LINK( this, SwSectionFootnoteEndTabPage, FootEndHdl));
-    m_pFootnoteNtAtTextEndCB->SetClickHdl( aLk );
-    m_pFootnoteNtNumCB->SetClickHdl( aLk );
-    m_pEndNtAtTextEndCB->SetClickHdl( aLk );
-    m_pEndNtNumCB->SetClickHdl( aLk );
-    m_pFootnoteNtNumFormatCB->SetClickHdl( aLk );
-    m_pEndNtNumFormatCB->SetClickHdl( aLk );
+    Link<weld::ToggleButton&,void> aLk( LINK( this, SwSectionFootnoteEndTabPage, FootEndHdl));
+    m_xFootnoteNtAtTextEndCB->connect_toggled( aLk );
+    m_xFootnoteNtNumCB->connect_toggled( aLk );
+    m_xEndNtAtTextEndCB->connect_toggled( aLk );
+    m_xEndNtNumCB->connect_toggled( aLk );
+    m_xFootnoteNtNumFormatCB->connect_toggled( aLk );
+    m_xEndNtNumFormatCB->connect_toggled( aLk );
 }
 
 SwSectionFootnoteEndTabPage::~SwSectionFootnoteEndTabPage()
 {
-    disposeOnce();
-}
-
-void SwSectionFootnoteEndTabPage::dispose()
-{
-    m_pFootnoteNtAtTextEndCB.clear();
-    m_pFootnoteNtNumCB.clear();
-    m_pFootnoteOffsetLbl.clear();
-    m_pFootnoteOffsetField.clear();
-    m_pFootnoteNtNumFormatCB.clear();
-    m_pFootnotePrefixFT.clear();
-    m_pFootnotePrefixED.clear();
-    m_pFootnoteNumViewBox.clear();
-    m_pFootnoteSuffixFT.clear();
-    m_pFootnoteSuffixED.clear();
-    m_pEndNtAtTextEndCB.clear();
-    m_pEndNtNumCB.clear();
-    m_pEndOffsetLbl.clear();
-    m_pEndOffsetField.clear();
-    m_pEndNtNumFormatCB.clear();
-    m_pEndPrefixFT.clear();
-    m_pEndPrefixED.clear();
-    m_pEndNumViewBox.clear();
-    m_pEndSuffixFT.clear();
-    m_pEndSuffixED.clear();
-    SfxTabPage::dispose();
 }
 
 bool SwSectionFootnoteEndTabPage::FillItemSet( SfxItemSet* rSet )
 {
-    SwFormatFootnoteAtTextEnd aFootnote( m_pFootnoteNtAtTextEndCB->IsChecked()
-                            ? ( m_pFootnoteNtNumCB->IsChecked()
-                                ? ( m_pFootnoteNtNumFormatCB->IsChecked()
+    SwFormatFootnoteAtTextEnd aFootnote( m_xFootnoteNtAtTextEndCB->get_active()
+                            ? ( m_xFootnoteNtNumCB->get_active()
+                                ? ( m_xFootnoteNtNumFormatCB->get_active()
                                     ? FTNEND_ATTXTEND_OWNNUMANDFMT
                                     : FTNEND_ATTXTEND_OWNNUMSEQ )
                                 : FTNEND_ATTXTEND )
@@ -1905,20 +1875,20 @@ bool SwSectionFootnoteEndTabPage::FillItemSet( SfxItemSet* rSet )
     switch( aFootnote.GetValue() )
     {
     case FTNEND_ATTXTEND_OWNNUMANDFMT:
-        aFootnote.SetNumType( m_pFootnoteNumViewBox->GetSelectedNumberingType() );
-        aFootnote.SetPrefix( m_pFootnotePrefixED->GetText().replaceAll("\\t", "\t") ); // fdo#65666
-        aFootnote.SetSuffix( m_pFootnoteSuffixED->GetText().replaceAll("\\t", "\t") );
+        aFootnote.SetNumType( m_xFootnoteNumViewBox->GetSelectedNumberingType() );
+        aFootnote.SetPrefix( m_xFootnotePrefixED->get_text().replaceAll("\\t", "\t") ); // fdo#65666
+        aFootnote.SetSuffix( m_xFootnoteSuffixED->get_text().replaceAll("\\t", "\t") );
         SAL_FALLTHROUGH;
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
-        aFootnote.SetOffset( static_cast< sal_uInt16 >( m_pFootnoteOffsetField->GetValue()-1 ) );
+        aFootnote.SetOffset( static_cast< sal_uInt16 >( m_xFootnoteOffsetField->get_value()-1 ) );
         break;
     default: break;
     }
 
-    SwFormatEndAtTextEnd aEnd( m_pEndNtAtTextEndCB->IsChecked()
-                            ? ( m_pEndNtNumCB->IsChecked()
-                                ? ( m_pEndNtNumFormatCB->IsChecked()
+    SwFormatEndAtTextEnd aEnd( m_xEndNtAtTextEndCB->get_active()
+                            ? ( m_xEndNtNumCB->get_active()
+                                ? ( m_xEndNtNumFormatCB->get_active()
                                     ? FTNEND_ATTXTEND_OWNNUMANDFMT
                                     : FTNEND_ATTXTEND_OWNNUMSEQ )
                                 : FTNEND_ATTXTEND )
@@ -1927,13 +1897,13 @@ bool SwSectionFootnoteEndTabPage::FillItemSet( SfxItemSet* rSet )
     switch( aEnd.GetValue() )
     {
     case FTNEND_ATTXTEND_OWNNUMANDFMT:
-        aEnd.SetNumType( m_pEndNumViewBox->GetSelectedNumberingType() );
-        aEnd.SetPrefix( m_pEndPrefixED->GetText().replaceAll("\\t", "\t") );
-        aEnd.SetSuffix( m_pEndSuffixED->GetText().replaceAll("\\t", "\t") );
+        aEnd.SetNumType( m_xEndNumViewBox->GetSelectedNumberingType() );
+        aEnd.SetPrefix( m_xEndPrefixED->get_text().replaceAll("\\t", "\t") );
+        aEnd.SetSuffix( m_xEndSuffixED->get_text().replaceAll("\\t", "\t") );
         SAL_FALLTHROUGH;
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
-        aEnd.SetOffset( static_cast< sal_uInt16 >( m_pEndOffsetField->GetValue()-1 ) );
+        aEnd.SetOffset( static_cast< sal_uInt16 >( m_xEndOffsetField->get_value()-1 ) );
         break;
     default: break;
     }
@@ -1947,79 +1917,79 @@ bool SwSectionFootnoteEndTabPage::FillItemSet( SfxItemSet* rSet )
 void SwSectionFootnoteEndTabPage::ResetState( bool bFootnote,
                                          const SwFormatFootnoteEndAtTextEnd& rAttr )
 {
-    CheckBox *pNtAtTextEndCB, *pNtNumCB, *pNtNumFormatCB;
-    FixedText*pPrefixFT, *pSuffixFT;
-    Edit *pPrefixED, *pSuffixED;
+    weld::CheckButton *pNtAtTextEndCB, *pNtNumCB, *pNtNumFormatCB;
+    weld::Label *pPrefixFT, *pSuffixFT;
+    weld::Entry *pPrefixED, *pSuffixED;
     SwNumberingTypeListBox *pNumViewBox;
-    FixedText* pOffsetText;
-    NumericField *pOffsetField;
+    weld::Label *pOffsetText;
+    weld::SpinButton *pOffsetField;
 
     if( bFootnote )
     {
-        pNtAtTextEndCB = m_pFootnoteNtAtTextEndCB;
-        pNtNumCB = m_pFootnoteNtNumCB;
-        pNtNumFormatCB = m_pFootnoteNtNumFormatCB;
-        pPrefixFT = m_pFootnotePrefixFT;
-        pPrefixED = m_pFootnotePrefixED;
-        pSuffixFT = m_pFootnoteSuffixFT;
-        pSuffixED = m_pFootnoteSuffixED;
-        pNumViewBox = m_pFootnoteNumViewBox;
-        pOffsetText = m_pFootnoteOffsetLbl;
-        pOffsetField = m_pFootnoteOffsetField;
+        pNtAtTextEndCB = m_xFootnoteNtAtTextEndCB.get();
+        pNtNumCB = m_xFootnoteNtNumCB.get();
+        pNtNumFormatCB = m_xFootnoteNtNumFormatCB.get();
+        pPrefixFT = m_xFootnotePrefixFT.get();
+        pPrefixED = m_xFootnotePrefixED.get();
+        pSuffixFT = m_xFootnoteSuffixFT.get();
+        pSuffixED = m_xFootnoteSuffixED.get();
+        pNumViewBox = m_xFootnoteNumViewBox.get();
+        pOffsetText = m_xFootnoteOffsetLbl.get();
+        pOffsetField = m_xFootnoteOffsetField.get();
     }
     else
     {
-        pNtAtTextEndCB = m_pEndNtAtTextEndCB;
-        pNtNumCB = m_pEndNtNumCB;
-        pNtNumFormatCB = m_pEndNtNumFormatCB;
-        pPrefixFT = m_pEndPrefixFT;
-        pPrefixED = m_pEndPrefixED;
-        pSuffixFT = m_pEndSuffixFT;
-        pSuffixED = m_pEndSuffixED;
-        pNumViewBox = m_pEndNumViewBox;
-        pOffsetText = m_pEndOffsetLbl;
-        pOffsetField = m_pEndOffsetField;
+        pNtAtTextEndCB = m_xEndNtAtTextEndCB.get();
+        pNtNumCB = m_xEndNtNumCB.get();
+        pNtNumFormatCB = m_xEndNtNumFormatCB.get();
+        pPrefixFT = m_xEndPrefixFT.get();
+        pPrefixED = m_xEndPrefixED.get();
+        pSuffixFT = m_xEndSuffixFT.get();
+        pSuffixED = m_xEndSuffixED.get();
+        pNumViewBox = m_xEndNumViewBox.get();
+        pOffsetText = m_xEndOffsetLbl.get();
+        pOffsetField = m_xEndOffsetField.get();
     }
 
     const sal_uInt16 eState = rAttr.GetValue();
     switch( eState )
     {
     case FTNEND_ATTXTEND_OWNNUMANDFMT:
-        pNtNumFormatCB->SetState( TRISTATE_TRUE );
+        pNtNumFormatCB->set_state( TRISTATE_TRUE );
         SAL_FALLTHROUGH;
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
-        pNtNumCB->SetState( TRISTATE_TRUE );
+        pNtNumCB->set_state( TRISTATE_TRUE );
         SAL_FALLTHROUGH;
 
     case FTNEND_ATTXTEND:
-        pNtAtTextEndCB->SetState( TRISTATE_TRUE );
+        pNtAtTextEndCB->set_state( TRISTATE_TRUE );
         // no break;
     }
 
     pNumViewBox->SelectNumberingType( rAttr.GetNumType() );
-    pOffsetField->SetValue( rAttr.GetOffset() + 1 );
-    pPrefixED->SetText( rAttr.GetPrefix().replaceAll("\t", "\\t") );
-    pSuffixED->SetText( rAttr.GetSuffix().replaceAll("\t", "\\t") );
+    pOffsetField->set_value( rAttr.GetOffset() + 1 );
+    pPrefixED->set_text( rAttr.GetPrefix().replaceAll("\t", "\\t") );
+    pSuffixED->set_text( rAttr.GetSuffix().replaceAll("\t", "\\t") );
 
     switch( eState )
     {
     case FTNEND_ATPGORDOCEND:
-        pNtNumCB->Enable( false );
+        pNtNumCB->set_sensitive( false );
         SAL_FALLTHROUGH;
 
     case FTNEND_ATTXTEND:
-        pNtNumFormatCB->Enable( false );
-        pOffsetField->Enable( false );
-        pOffsetText->Enable( false );
+        pNtNumFormatCB->set_sensitive( false );
+        pOffsetField->set_sensitive( false );
+        pOffsetText->set_sensitive( false );
         SAL_FALLTHROUGH;
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
         pNumViewBox->Enable( false );
-        pPrefixFT->Enable( false );
-        pPrefixED->Enable( false );
-        pSuffixFT->Enable( false );
-        pSuffixED->Enable( false );
+        pPrefixFT->set_sensitive( false );
+        pPrefixED->set_sensitive( false );
+        pSuffixFT->set_sensitive( false );
+        pSuffixED->set_sensitive( false );
         // no break;
     }
 }
@@ -2030,64 +2000,64 @@ void SwSectionFootnoteEndTabPage::Reset( const SfxItemSet* rSet )
     ResetState( false, rSet->Get( RES_END_AT_TXTEND, false ));
 }
 
-VclPtr<SfxTabPage> SwSectionFootnoteEndTabPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SwSectionFootnoteEndTabPage::Create( TabPageParent pParent,
                                                    const SfxItemSet* rAttrSet)
 {
     return VclPtr<SwSectionFootnoteEndTabPage>::Create(pParent, *rAttrSet);
 }
 
-IMPL_LINK( SwSectionFootnoteEndTabPage, FootEndHdl, Button *, pBox, void )
+IMPL_LINK( SwSectionFootnoteEndTabPage, FootEndHdl, weld::ToggleButton&, rBox, void )
 {
-    bool bFoot = m_pFootnoteNtAtTextEndCB == pBox || m_pFootnoteNtNumCB == pBox ||
-                    m_pFootnoteNtNumFormatCB == pBox ;
+    bool bFoot = m_xFootnoteNtAtTextEndCB.get() == &rBox || m_xFootnoteNtNumCB.get() == &rBox ||
+                    m_xFootnoteNtNumFormatCB.get() == &rBox ;
 
-    CheckBox *pNumBox, *pNumFormatBox, *pEndBox;
+    weld::CheckButton *pNumBox, *pNumFormatBox, *pEndBox;
     SwNumberingTypeListBox* pNumViewBox;
-    FixedText* pOffsetText;
-    NumericField *pOffsetField;
-    FixedText*pPrefixFT, *pSuffixFT;
-    Edit *pPrefixED, *pSuffixED;
+    weld::Label *pOffsetText;
+    weld::SpinButton *pOffsetField;
+    weld::Label *pPrefixFT, *pSuffixFT;
+    weld::Entry *pPrefixED, *pSuffixED;
 
     if( bFoot )
     {
-        pEndBox = m_pFootnoteNtAtTextEndCB;
-        pNumBox = m_pFootnoteNtNumCB;
-        pNumFormatBox = m_pFootnoteNtNumFormatCB;
-        pNumViewBox = m_pFootnoteNumViewBox;
-        pOffsetText = m_pFootnoteOffsetLbl;
-        pOffsetField = m_pFootnoteOffsetField;
-        pPrefixFT = m_pFootnotePrefixFT;
-        pSuffixFT = m_pFootnoteSuffixFT;
-        pPrefixED = m_pFootnotePrefixED;
-        pSuffixED = m_pFootnoteSuffixED;
+        pEndBox = m_xFootnoteNtAtTextEndCB.get();
+        pNumBox = m_xFootnoteNtNumCB.get();
+        pNumFormatBox = m_xFootnoteNtNumFormatCB.get();
+        pNumViewBox = m_xFootnoteNumViewBox.get();
+        pOffsetText = m_xFootnoteOffsetLbl.get();
+        pOffsetField = m_xFootnoteOffsetField.get();
+        pPrefixFT = m_xFootnotePrefixFT.get();
+        pSuffixFT = m_xFootnoteSuffixFT.get();
+        pPrefixED = m_xFootnotePrefixED.get();
+        pSuffixED = m_xFootnoteSuffixED.get();
     }
     else
     {
-        pEndBox = m_pEndNtAtTextEndCB;
-        pNumBox = m_pEndNtNumCB;
-        pNumFormatBox = m_pEndNtNumFormatCB;
-        pNumViewBox = m_pEndNumViewBox;
-        pOffsetText = m_pEndOffsetLbl;
-        pOffsetField = m_pEndOffsetField;
-        pPrefixFT = m_pEndPrefixFT;
-        pSuffixFT = m_pEndSuffixFT;
-        pPrefixED = m_pEndPrefixED;
-        pSuffixED = m_pEndSuffixED;
+        pEndBox = m_xEndNtAtTextEndCB.get();
+        pNumBox = m_xEndNtNumCB.get();
+        pNumFormatBox = m_xEndNtNumFormatCB.get();
+        pNumViewBox = m_xEndNumViewBox.get();
+        pOffsetText = m_xEndOffsetLbl.get();
+        pOffsetField = m_xEndOffsetField.get();
+        pPrefixFT = m_xEndPrefixFT.get();
+        pSuffixFT = m_xEndSuffixFT.get();
+        pPrefixED = m_xEndPrefixED.get();
+        pSuffixED = m_xEndSuffixED.get();
     }
 
-    bool bEnableAtEnd = TRISTATE_TRUE == pEndBox->GetState();
-    bool bEnableNum = bEnableAtEnd && TRISTATE_TRUE == pNumBox->GetState();
-    bool bEnableNumFormat = bEnableNum && TRISTATE_TRUE == pNumFormatBox->GetState();
+    bool bEnableAtEnd = TRISTATE_TRUE == pEndBox->get_state();
+    bool bEnableNum = bEnableAtEnd && TRISTATE_TRUE == pNumBox->get_state();
+    bool bEnableNumFormat = bEnableNum && TRISTATE_TRUE == pNumFormatBox->get_state();
 
-    pNumBox->Enable( bEnableAtEnd );
-    pOffsetText->Enable( bEnableNum );
-    pOffsetField->Enable( bEnableNum );
-    pNumFormatBox->Enable( bEnableNum );
+    pNumBox->set_sensitive( bEnableAtEnd );
+    pOffsetText->set_sensitive( bEnableNum );
+    pOffsetField->set_sensitive( bEnableNum );
+    pNumFormatBox->set_sensitive( bEnableNum );
     pNumViewBox->Enable( bEnableNumFormat );
-    pPrefixED->Enable( bEnableNumFormat );
-    pSuffixED->Enable( bEnableNumFormat );
-    pPrefixFT->Enable( bEnableNumFormat );
-    pSuffixFT->Enable( bEnableNumFormat );
+    pPrefixED->set_sensitive( bEnableNumFormat );
+    pSuffixED->set_sensitive( bEnableNumFormat );
+    pPrefixFT->set_sensitive( bEnableNumFormat );
+    pSuffixFT->set_sensitive( bEnableNumFormat );
 }
 
 SwSectionPropertyTabDialog::SwSectionPropertyTabDialog(
@@ -2097,9 +2067,8 @@ SwSectionPropertyTabDialog::SwSectionPropertyTabDialog(
     , rWrtSh(rSh)
 {
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
     m_nColumnPageId = AddTabPage("columns",   SwColumnPage::Create,    nullptr);
-    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BACKGROUND ), nullptr );
+    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ), nullptr );
     m_nNotePageId = AddTabPage("notes", SwSectionFootnoteEndTabPage::Create, nullptr);
     m_nIndentPage = AddTabPage("indents", SwSectionIndentTabPage::Create, nullptr);
 
@@ -2136,38 +2105,28 @@ void SwSectionPropertyTabDialog::PageCreated( sal_uInt16 nId, SfxTabPage &rPage 
         static_cast<SwSectionIndentTabPage&>(rPage).SetWrtShell(rWrtSh);
 }
 
-SwSectionIndentTabPage::SwSectionIndentTabPage(vcl::Window *pParent, const SfxItemSet &rAttrSet)
-    : SfxTabPage(pParent, "IndentPage", "modules/swriter/ui/indentpage.ui", &rAttrSet)
+SwSectionIndentTabPage::SwSectionIndentTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
+    : SfxTabPage(pParent, "modules/swriter/ui/indentpage.ui", "IndentPage", &rAttrSet)
+    , m_xBeforeMF(m_xBuilder->weld_metric_spin_button("before", FUNIT_CM))
+    , m_xAfterMF(m_xBuilder->weld_metric_spin_button("after", FUNIT_CM))
+    , m_xPreviewWin(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin))
 {
-    get(m_pBeforeMF, "before");
-    get(m_pAfterMF, "after");
-    get(m_pPreviewWin, "preview");
-    Link<Edit&,void> aLk = LINK(this, SwSectionIndentTabPage, IndentModifyHdl);
-    m_pBeforeMF->SetModifyHdl(aLk);
-    m_pAfterMF->SetModifyHdl(aLk);
+    Link<weld::MetricSpinButton&,void> aLk = LINK(this, SwSectionIndentTabPage, IndentModifyHdl);
+    m_xBeforeMF->connect_value_changed(aLk);
+    m_xAfterMF->connect_value_changed(aLk);
 }
 
 SwSectionIndentTabPage::~SwSectionIndentTabPage()
 {
-    disposeOnce();
 }
 
-void SwSectionIndentTabPage::dispose()
+bool SwSectionIndentTabPage::FillItemSet(SfxItemSet* rSet)
 {
-    m_pBeforeMF.clear();
-    m_pAfterMF.clear();
-    m_pPreviewWin.clear();
-    SfxTabPage::dispose();
-}
-
-bool SwSectionIndentTabPage::FillItemSet( SfxItemSet* rSet)
-{
-    if(m_pBeforeMF->IsValueModified() ||
-            m_pAfterMF->IsValueModified())
+    if (m_xBeforeMF->get_value_changed_from_saved() || m_xAfterMF->get_value_changed_from_saved())
     {
         SvxLRSpaceItem aLRSpace(
-                static_cast< long >(m_pBeforeMF->Denormalize(m_pBeforeMF->GetValue(FUNIT_TWIP))) ,
-                static_cast< long >(m_pAfterMF->Denormalize(m_pAfterMF->GetValue(FUNIT_TWIP))), 0, 0, RES_LR_SPACE);
+                m_xBeforeMF->denormalize(m_xBeforeMF->get_value(FUNIT_TWIP)) ,
+                m_xAfterMF->denormalize(m_xAfterMF->get_value(FUNIT_TWIP)), 0, 0, RES_LR_SPACE);
         rSet->Put(aLRSpace);
     }
     return true;
@@ -2177,8 +2136,8 @@ void SwSectionIndentTabPage::Reset( const SfxItemSet* rSet)
 {
     //this page doesn't show up in HTML mode
     FieldUnit aMetric = ::GetDfltMetric(false);
-    SetMetric(*m_pBeforeMF, aMetric);
-    SetMetric(*m_pAfterMF , aMetric);
+    SetFieldUnit(*m_xBeforeMF, aMetric);
+    SetFieldUnit(*m_xAfterMF , aMetric);
 
     SfxItemState eItemState = rSet->GetItemState( RES_LR_SPACE );
     if ( eItemState >= SfxItemState::DEFAULT )
@@ -2186,20 +2145,20 @@ void SwSectionIndentTabPage::Reset( const SfxItemSet* rSet)
         const SvxLRSpaceItem& rSpace =
             rSet->Get( RES_LR_SPACE );
 
-        m_pBeforeMF->SetValue( m_pBeforeMF->Normalize(rSpace.GetLeft()), FUNIT_TWIP );
-        m_pAfterMF->SetValue( m_pAfterMF->Normalize(rSpace.GetRight()), FUNIT_TWIP );
+        m_xBeforeMF->set_value(m_xBeforeMF->normalize(rSpace.GetLeft()), FUNIT_TWIP);
+        m_xAfterMF->set_value(m_xAfterMF->normalize(rSpace.GetRight()), FUNIT_TWIP);
     }
     else
     {
-        m_pBeforeMF->SetEmptyFieldValue();
-        m_pAfterMF->SetEmptyFieldValue();
+        m_xBeforeMF->set_text("");
+        m_xAfterMF->set_text("");
     }
-    m_pBeforeMF->SaveValue();
-    m_pAfterMF->SaveValue();
-    IndentModifyHdl(*m_pBeforeMF);
+    m_xBeforeMF->save_value();
+    m_xAfterMF->save_value();
+    IndentModifyHdl(*m_xBeforeMF);
 }
 
-VclPtr<SfxTabPage> SwSectionIndentTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet)
+VclPtr<SfxTabPage> SwSectionIndentTabPage::Create(TabPageParent pParent, const SfxItemSet* rAttrSet)
 {
     return VclPtr<SwSectionIndentTabPage>::Create(pParent, *rAttrSet);
 }
@@ -2207,18 +2166,18 @@ VclPtr<SfxTabPage> SwSectionIndentTabPage::Create( vcl::Window* pParent, const S
 void SwSectionIndentTabPage::SetWrtShell(SwWrtShell const & rSh)
 {
     //set sensible values at the preview
-    m_pPreviewWin->SetAdjust(SvxAdjust::Block);
-    m_pPreviewWin->SetLastLine(SvxAdjust::Block);
+    m_aPreviewWin.SetAdjust(SvxAdjust::Block);
+    m_aPreviewWin.SetLastLine(SvxAdjust::Block);
     const SwRect& rPageRect = rSh.GetAnyCurRect( CurRectType::Page );
     Size aPageSize(rPageRect.Width(), rPageRect.Height());
-    m_pPreviewWin->SetSize(aPageSize);
+    m_aPreviewWin.SetSize(aPageSize);
 }
 
-IMPL_LINK_NOARG(SwSectionIndentTabPage, IndentModifyHdl, Edit&, void)
+IMPL_LINK_NOARG(SwSectionIndentTabPage, IndentModifyHdl, weld::MetricSpinButton&, void)
 {
-    m_pPreviewWin->SetLeftMargin( static_cast< long >(m_pBeforeMF->Denormalize(m_pBeforeMF->GetValue(FUNIT_TWIP))) );
-    m_pPreviewWin->SetRightMargin( static_cast< long >(m_pAfterMF->Denormalize(m_pAfterMF->GetValue(FUNIT_TWIP))) );
-    m_pPreviewWin->Invalidate();
+    m_aPreviewWin.SetLeftMargin(m_xBeforeMF->denormalize(m_xBeforeMF->get_value(FUNIT_TWIP)));
+    m_aPreviewWin.SetRightMargin(m_xAfterMF->denormalize(m_xAfterMF->get_value(FUNIT_TWIP)));
+    m_aPreviewWin.Invalidate();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

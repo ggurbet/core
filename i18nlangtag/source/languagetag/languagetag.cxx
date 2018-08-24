@@ -15,6 +15,7 @@
 #include <i18nlangtag/mslangid.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/bootstrap.hxx>
+#include <sal/log.hxx>
 #include <osl/file.hxx>
 #include <osl/mutex.hxx>
 #include <rtl/instance.hxx>
@@ -558,12 +559,6 @@ LanguageTag::LanguageTag( const rtl_Locale & rLocale )
 {
     convertFromRtlLocale();
 }
-
-
-LanguageTag::~LanguageTag()
-{
-}
-
 
 LanguageTag::ImplPtr LanguageTagImpl::registerOnTheFly( LanguageType nRegisterID )
 {
@@ -1642,10 +1637,10 @@ OUString LanguageTagImpl::getRegionFromLangtag()
 
 OUString LanguageTagImpl::getVariantsFromLangtag()
 {
-    OUString aVariants;
+    OUStringBuffer aVariants;
     synCanonicalize();
     if (maBcp47.isEmpty())
-        return aVariants;
+        return OUString();
     if (mpImplLangtag)
     {
         const lt_list_t* pVariantsT = lt_tag_get_variants( mpImplLangtag);
@@ -1657,10 +1652,9 @@ OUString LanguageTagImpl::getVariantsFromLangtag()
                 const char* p = lt_variant_get_tag( pVariantT);
                 if (p)
                 {
-                    if (aVariants.isEmpty())
-                        aVariants = OUString::createFromAscii( p);
-                    else
-                        aVariants += "-" + OUString::createFromAscii( p);
+                    if (!aVariants.isEmpty())
+                        aVariants.append("-");
+                    aVariants.appendAscii(p);
                 }
             }
         }
@@ -1670,7 +1664,7 @@ OUString LanguageTagImpl::getVariantsFromLangtag()
         if (mbCachedVariants || cacheSimpleLSCV())
             aVariants = maCachedVariants;
     }
-    return aVariants;
+    return aVariants.makeStringAndClear();
 }
 
 
@@ -3117,7 +3111,7 @@ LanguageTag makeLanguageTagFromAppleLanguageId(AppleLanguageId nLanguage)
             nLang = LANGUAGE_MALAY_MALAYSIA;
             break;
         case AppleLanguageId::MALAY_ARABIC:
-            return LanguageTag("ms-Arab");
+            nLang = LANGUAGE_USER_MALAY_ARABIC_MALAYSIA;
             break;
         case AppleLanguageId::AMHARIC:
             nLang = LANGUAGE_AMHARIC_ETHIOPIA;

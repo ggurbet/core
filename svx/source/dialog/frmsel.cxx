@@ -19,18 +19,17 @@
 
 #include <svx/frmsel.hxx>
 #include <vcl/builderfactory.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <math.h>
 #include <frmselimpl.hxx>
 #include <AccessibleFrameSelector.hxx>
-#include <svx/dialmgr.hxx>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <vcl/settings.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 
-#include <svx/strings.hrc>
 #include <bitmaps.hlst>
 
 using namespace ::com::sun::star;
@@ -468,7 +467,7 @@ void FrameSelectorImpl::InitBorderGeometry()
         {
             for( nRow = 0, nRows = maArray.GetRowCount(); nRow < nRows; ++nRow )
             {
-                // the usable area between horizonal/vertical frame borders of current quadrant
+                // the usable area between horizontal/vertical frame borders of current quadrant
                 const basegfx::B2DRange aCellRange(maArray.GetCellRange( nCol, nRow, true ));
                 const tools::Rectangle aRect(
                     basegfx::fround(aCellRange.getMinX()) + nClV + 1, basegfx::fround(aCellRange.getMinY()) + nClH + 1,
@@ -707,7 +706,7 @@ void FrameSelectorImpl::CopyVirDevToControl(vcl::RenderContext& rRenderContext)
 {
     if (mbFullRepaint)
         DrawVirtualDevice();
-    rRenderContext.DrawBitmap(maVirDevPos, mpVirDev->GetBitmap(Point(0, 0), mpVirDev->GetOutputSizePixel()));
+    rRenderContext.DrawBitmapEx(maVirDevPos, mpVirDev->GetBitmapEx(Point(0, 0), mpVirDev->GetOutputSizePixel()));
 }
 
 void FrameSelectorImpl::DrawAllTrackingRects()
@@ -1025,8 +1024,7 @@ void FrameSelector::SetColorToSelection( const Color& rColor )
 Reference< XAccessible > FrameSelector::CreateAccessible()
 {
     if( !mxImpl->mxAccess.is() )
-        mxImpl->mxAccess = mxImpl->mxAccess =
-            new a11y::AccFrameSelector( *this, FrameBorderType::NONE );
+        mxImpl->mxAccess = new a11y::AccFrameSelector( *this, FrameBorderType::NONE );
     return mxImpl->mxAccess.get();
 }
 

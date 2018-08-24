@@ -44,12 +44,14 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/escapementitem.hxx>
 #include <editeng/justifyitem.hxx>
+#include <editeng/langitem.hxx>
 #include <document.hxx>
 #include <stlpool.hxx>
 #include <stlsheet.hxx>
 #include <patattr.hxx>
 #include <attrib.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <xestring.hxx>
 #include <conditio.hxx>
 
@@ -132,8 +134,6 @@ namespace {
  */
 class XclListColor
 {
-    DECL_FIXEDMEMPOOL_NEWDEL( XclListColor )
-
 private:
     Color               maColor;        /// The color value of this palette entry.
     sal_uInt32          mnColorId;      /// Unique color ID for color reduction.
@@ -157,8 +157,6 @@ public:
     /** Merges this color with rColor, regarding weighting settings. */
     void                Merge( const XclListColor& rColor );
 };
-
-IMPL_FIXEDMEMPOOL_NEWDEL( XclListColor )
 
 XclListColor::XclListColor( const Color& rColor, sal_uInt32 nColorId ) :
     maColor( rColor ),
@@ -1159,6 +1157,13 @@ void XclExpDxfFont::SaveXml(XclExpXmlStream& rStrm)
                 FSEND);
     }
 
+    if (maDxfData.nFontHeight)
+    {
+        rStyleSheet->singleElement(XML_sz,
+                XML_val, OString::number(*maDxfData.nFontHeight/20).getStr(),
+                FSEND);
+    }
+
     if (maDxfData.eUnder)
     {
         const char* pVal = getUnderlineOOXValue(maDxfData.eUnder.get());
@@ -2057,7 +2062,7 @@ XclExpXF::XclExpXF( const XclExpRoot& rRoot, const SfxStyleSheetBase& rStyleShee
     XclExpRoot( rRoot ),
     mnParentXFId( XclExpXFBuffer::GetXFIdFromIndex( EXC_XF_STYLEPARENT ) )
 {
-    bool bDefStyle = (rStyleSheet.GetName() == ScGlobal::GetRscString( STR_STYLENAME_STANDARD ));
+    bool bDefStyle = (rStyleSheet.GetName() == ScResId( STR_STYLENAME_STANDARD ));
     sal_Int16 nScript = bDefStyle ? GetDefApiScript() : css::i18n::ScriptType::WEAK;
     Init( const_cast< SfxStyleSheetBase& >( rStyleSheet ).GetItemSet(), nScript,
         NUMBERFORMAT_ENTRY_NOT_FOUND, EXC_FONT_NOTFOUND, false, bDefStyle );
@@ -2131,10 +2136,21 @@ void XclExpXF::Init( const SfxItemSet& rItemSet, sal_Int16 nScript,
     }
 
     // number format
-    mnScNumFmt = (nForceScNumFmt == NUMBERFORMAT_ENTRY_NOT_FOUND) ?
-        rItemSet.Get( ATTR_VALUE_FORMAT ).GetValue() : nForceScNumFmt;
+    if (nForceScNumFmt != NUMBERFORMAT_ENTRY_NOT_FOUND)
+        mnXclNumFmt = nForceScNumFmt;
+    else
+    {
+        // Built-in formats of dedicated languages may be attributed using the
+        // system language (or even other?) format with a language attribute,
+        // obtain the "real" format key.
+        mnScNumFmt = rItemSet.Get( ATTR_VALUE_FORMAT ).GetValue();
+        LanguageType nLang = rItemSet.Get( ATTR_LANGUAGE_FORMAT).GetLanguage();
+        if (mnScNumFmt >= SV_COUNTRY_LANGUAGE_OFFSET || nLang != LANGUAGE_SYSTEM)
+            mnScNumFmt = GetFormatter().GetFormatForLanguageIfBuiltIn( mnScNumFmt, nLang);
+    }
     mnXclNumFmt = GetNumFmtBuffer().Insert( mnScNumFmt );
     mbFmtUsed = ScfTools::CheckItem( rItemSet, ATTR_VALUE_FORMAT, IsStyleXF() );
+
     // alignment
     mbAlignUsed = maAlignment.FillFromItemSet( rItemSet, bForceLineBreak, GetBiff(), IsStyleXF() );
 
@@ -2334,13 +2350,19 @@ static const char* lcl_StyleNameFromId( sal_Int32 nStyleId )
 
 void XclExpStyle::SaveXml( XclExpXmlStream& rStrm )
 {
+    constexpr sal_Int32 CELL_STYLE_MAX_BUILTIN_ID = 54;
     OString sName;
+    OString sBuiltinId;
+    const char* pBuiltinId = nullptr;
     if( IsBuiltIn() )
     {
         sName = OString( lcl_StyleNameFromId( mnStyleId ) );
+        sBuiltinId = OString::number( std::min( static_cast<sal_Int32>( CELL_STYLE_MAX_BUILTIN_ID - 1 ), static_cast <sal_Int32>( mnStyleId ) ) );
+        pBuiltinId = sBuiltinId.getStr();
     }
     else
         sName = XclXmlUtils::ToOString( maName );
+
     // get the index in sortedlist associated with the mnXId
     sal_Int32 nXFId = rStrm.GetRoot().GetXFBuffer().GetXFIndex( maXFId.mnXFId );
     // get the style index associated with index into sortedlist
@@ -2349,11 +2371,10 @@ void XclExpStyle::SaveXml( XclExpXmlStream& rStrm )
             XML_name,           sName.getStr(),
             XML_xfId,           OString::number( nXFId ).getStr(),
 // builtinId of 54 or above is invalid according to OpenXML SDK validator.
-#define CELL_STYLE_MAX_BUILTIN_ID 54
-                                             XML_builtinId, OString::number( std::min( static_cast<sal_Int32>( CELL_STYLE_MAX_BUILTIN_ID - 1 ), static_cast <sal_Int32>( mnStyleId ) ) ).getStr(),
+            XML_builtinId, pBuiltinId,
             // OOXTODO: XML_iLevel,
             // OOXTODO: XML_hidden,
-            XML_customBuiltin,  ToPsz( ! IsBuiltIn() ),
+            // XML_customBuiltin,  ToPsz( ! IsBuiltIn() ),
             FSEND );
     // OOXTODO: XML_extLst
 }
@@ -2890,7 +2911,7 @@ void XclExpXFBuffer::InsertDefaultRecords()
     maFills.push_back( lcl_GetPatternFill_Gray125() );
 
     // index 0: default style
-    if( SfxStyleSheetBase* pDefStyleSheet = GetStyleSheetPool().Find( ScGlobal::GetRscString( STR_STYLENAME_STANDARD ), SfxStyleFamily::Para ) )
+    if( SfxStyleSheetBase* pDefStyleSheet = GetStyleSheetPool().Find( ScResId( STR_STYLENAME_STANDARD ), SfxStyleFamily::Para ) )
     {
         XclExpXFRef xDefStyle( new XclExpXF( GetRoot(), *pDefStyleSheet ) );
         sal_uInt32 nXFId = AppendBuiltInXFWithStyle( xDefStyle, EXC_STYLE_NORMAL );
@@ -2973,18 +2994,19 @@ void XclExpXFBuffer::AddBorderAndFill( const XclExpXF& rXF )
 
 XclExpDxfs::XclExpDxfs( const XclExpRoot& rRoot )
     : XclExpRoot( rRoot ),
-    mxFormatter( new SvNumberFormatter( comphelper::getProcessComponentContext(), LANGUAGE_ENGLISH_US ) ),
     mpKeywordTable( new NfKeywordTable )
 {
-    mxFormatter->FillKeywordTableForExcel( *mpKeywordTable );
+    // Special number formatter for conversion.
+    SvNumberFormatterPtr xFormatter(new SvNumberFormatter( comphelper::getProcessComponentContext(), LANGUAGE_ENGLISH_US ));
+    xFormatter->FillKeywordTableForExcel( *mpKeywordTable );
 
     SCTAB nTables = rRoot.GetDoc().GetTableCount();
+    sal_Int32 nIndex = 0;
     for(SCTAB nTab = 0; nTab < nTables; ++nTab)
     {
         ScConditionalFormatList* pList = rRoot.GetDoc().GetCondFormList(nTab);
         if (pList)
         {
-            sal_Int32 nIndex = 0;
             for (ScConditionalFormatList::const_iterator itr = pList->begin();
                     itr != pList->end(); ++itr)
             {
@@ -3054,7 +3076,7 @@ XclExpDxfs::XclExpDxfs( const XclExpRoot& rRoot )
                         {
                             sal_uInt32 nScNumFmt = static_cast< const SfxUInt32Item* >(pPoolItem)->GetValue();
                             sal_Int32 nXclNumFmt = GetRoot().GetNumFmtBuffer().Insert(nScNumFmt);
-                            pNumFormat = new XclExpNumFmt( nScNumFmt, nXclNumFmt, GetNumberFormatCode( *this, nScNumFmt, mxFormatter.get(), mpKeywordTable.get() ));
+                            pNumFormat = new XclExpNumFmt( nScNumFmt, nXclNumFmt, GetNumberFormatCode( *this, nScNumFmt, xFormatter.get(), mpKeywordTable.get() ));
                         }
 
                         maDxf.push_back(o3tl::make_unique<XclExpDxf>( rRoot, pAlign, pBorder, pFont, pNumFormat, pCellProt, pColor ));

@@ -24,6 +24,7 @@
 #include "linedescriptor.hxx"
 #include "inspectorhelpwindow.hxx"
 
+#include <sal/log.hxx>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/inspection/PropertyControlType.hpp>
@@ -638,7 +639,6 @@ namespace pcr
 
     sal_uInt16 OBrowserListBox::GetPropertyPos( const OUString& _rEntryName ) const
     {
-        sal_uInt16 nRet = EDITOR_LIST_ENTRY_NOTFOUND;
         sal_uInt16 nPos = 0;
         for (auto const& line : m_aLines)
         {
@@ -649,7 +649,7 @@ namespace pcr
             ++nPos;
         }
 
-        return nRet;
+        return EDITOR_LIST_ENTRY_NOTFOUND;
     }
 
 

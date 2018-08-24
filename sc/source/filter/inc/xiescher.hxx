@@ -48,11 +48,7 @@ class XclImpDrawing;
 
 // Drawing objects ============================================================
 
-struct SdrObjectFree {
-    void operator ()(SdrObject * obj) { SdrObject::Free(obj); }
-};
-typedef std::unique_ptr<SdrObject, SdrObjectFree> SdrObjectPtr;
-
+typedef std::unique_ptr< SdrObject, SdrObjectFreeOp > SdrObjectPtr;
 class XclImpDrawObjBase;
 typedef std::shared_ptr< XclImpDrawObjBase > XclImpDrawObjRef;
 
@@ -958,13 +954,13 @@ private:
     virtual void        ProcessClientAnchor2(
                             SvStream& rDffStrm,
                             DffRecordHeader& rHeader,
-                            void* pClientData,
+                            SvxMSDffClientData& rClientData,
                             DffObjData& rObjData ) override;
     /** Processes an DFF object, reads properties from DFF stream. */
     virtual SdrObject*  ProcessObj(
                             SvStream& rDffStrm,
                             DffObjData& rDffObjData,
-                            void* pClientData,
+                            SvxMSDffClientData& rClientData,
                             tools::Rectangle& rTextRect,
                             SdrObject* pOldSdrObj ) override;
 
@@ -1028,7 +1024,6 @@ private:
     typedef std::shared_ptr< XclImpDffConvData >  XclImpDffConvDataRef;
     typedef std::vector< XclImpDffConvDataRef >   XclImpDffConvDataStack;
 
-    const OUString maStdFormName;    /// Standard name of control forms.
     tools::SvRef<SotStorageStream> mxCtlsStrm;         /// The 'Ctls' stream for OCX form controls.
     ScfProgressBarRef   mxProgress;         /// The progress bar used in ProcessObj().
     XclImpDffConvDataStack maDataStack;     /// Stack for registered drawing managers.

@@ -428,10 +428,10 @@ void SvxShadowTabPage::Reset( const SfxItemSet* rAttrs )
 }
 
 
-VclPtr<SfxTabPage> SvxShadowTabPage::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SvxShadowTabPage::Create( TabPageParent pWindow,
                                              const SfxItemSet* rAttrs )
 {
-    return VclPtr<SvxShadowTabPage>::Create( pWindow, *rAttrs );
+    return VclPtr<SvxShadowTabPage>::Create( pWindow.pParent, *rAttrs );
 }
 
 
@@ -491,6 +491,12 @@ IMPL_LINK_NOARG(SvxShadowTabPage, ModifyShadowHdl_Impl, Edit&, void)
 
 
 void SvxShadowTabPage::PointChanged( vcl::Window*, RectPoint )
+{
+    // repaint shadow
+    ModifyShadowHdl_Impl( *m_pMtrTransparent );
+}
+
+void SvxShadowTabPage::PointChanged( weld::DrawingArea*, RectPoint )
 {
     // repaint shadow
     ModifyShadowHdl_Impl( *m_pMtrTransparent );

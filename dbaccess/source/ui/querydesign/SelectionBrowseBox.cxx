@@ -27,7 +27,6 @@
 #include <browserids.hxx>
 #include <comphelper/stl_types.hxx>
 #include <comphelper/string.hxx>
-#include <comphelper/types.hxx>
 #include "TableFieldInfo.hxx"
 #include <core_resource.hxx>
 #include <strings.hrc>
@@ -57,7 +56,7 @@ using namespace ::com::sun::star::accessibility;
 #define DEFAULT_QUERY_COLS  20
 #define DEFAULT_SIZE        GetTextWidth("0") * 30
 #define HANDLE_ID            0
-#define HANDLE_COLUMN_WITDH 70
+#define HANDLE_COLUMN_WIDTH 70
 #define SORT_COLUMN_NONE    0xFFFFFFFF
 
 namespace
@@ -393,7 +392,7 @@ void OSelectionBrowseBox::PreFill()
     DeactivateCell();
 
     RemoveColumns();
-    InsertHandleColumn( HANDLE_COLUMN_WITDH );
+    InsertHandleColumn( HANDLE_COLUMN_WIDTH );
     SetUpdateMode(true);
 }
 
@@ -679,7 +678,7 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
 
     OSQLParseNode* pParseNode = nullptr;
     {
-        // 4 passes in trying to interprete the field name
+        // 4 passes in trying to interpret the field name
         // - don't quote the field name, parse internationally
         // - don't quote the field name, parse en-US
         // - quote the field name, parse internationally
@@ -1626,7 +1625,7 @@ void OSelectionBrowseBox::CheckFreeColumns(sal_uInt16& _rColumnPosition)
 {
     if (FindFirstFreeCol(_rColumnPosition) == nullptr)
     {
-        // it is full, append a Packen column
+        // it is full, so append a pack of columns
         AppendNewCol(DEFAULT_QUERY_COLS);
         OSL_VERIFY(FindFirstFreeCol(_rColumnPosition).is());
     }

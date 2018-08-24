@@ -227,11 +227,6 @@ SvxLineTabPage::~SvxLineTabPage()
 
 void SvxLineTabPage::dispose()
 {
-    for (SvxBmpItemInfo* pInfo : m_aGrfBrushItems)
-    {
-        delete pInfo->pBrushItem;
-        delete pInfo;
-    }
     m_aGrfBrushItems.clear();
 
     m_pBoxColor.clear();
@@ -294,23 +289,21 @@ void SvxLineTabPage::InitSymbols(MenuButton const * pButton)
                 pUIName = &aPhysicalName;
             }
 
-            SvxBrushItem* pBrushItem = new SvxBrushItem(grfName, "", GPOS_AREA, SID_ATTR_BRUSH);
-
             SvxBmpItemInfo* pInfo = new SvxBmpItemInfo;
-            pInfo->pBrushItem = pBrushItem;
+            pInfo->pBrushItem.reset(new SvxBrushItem(grfName, "", GPOS_AREA, SID_ATTR_BRUSH));
             pInfo->nItemId = static_cast<sal_uInt16>(MN_GALLERY_ENTRY + i);
             if ( i < m_aGrfBrushItems.size() )
             {
-                m_aGrfBrushItems.insert( m_aGrfBrushItems.begin() + i, pInfo );
+                m_aGrfBrushItems.insert( m_aGrfBrushItems.begin() + i, std::unique_ptr<SvxBmpItemInfo>(pInfo) );
             } else
             {
-                m_aGrfBrushItems.push_back( pInfo );
+                m_aGrfBrushItems.emplace_back( pInfo );
             }
-            const Graphic* pGraphic = pBrushItem->GetGraphic();
+            const Graphic* pGraphic = pInfo->pBrushItem->GetGraphic();
 
             if(pGraphic)
             {
-                Bitmap aBitmap(pGraphic->GetBitmap());
+                BitmapEx aBitmap(pGraphic->GetBitmapEx());
                 Size aSize(aBitmap.GetSizePixel());
                 if(aSize.Width()  > MAX_BMP_WIDTH || aSize.Height() > MAX_BMP_HEIGHT)
                 {
@@ -341,7 +334,8 @@ void SvxLineTabPage::InitSymbols(MenuButton const * pButton)
     {
         ScopedVclPtrInstance< VirtualDevice > pVDev;
         pVDev->SetMapMode(MapMode(MapUnit::Map100thMM));
-        std::unique_ptr<SdrModel> pModel(new SdrModel);
+        std::unique_ptr<SdrModel> pModel(
+            new SdrModel(nullptr, nullptr, true));
         pModel->GetItemPool().FreezeIdRanges();
         // Page
         SdrPage* pPage = new SdrPage( *pModel, false );
@@ -358,7 +352,10 @@ void SvxLineTabPage::InitSymbols(MenuButton const * pButton)
         // Generate invisible square to give all symbols a
         // bitmap size, which is independent from specific glyph
         SdrObject *pInvisibleSquare=m_pSymbolList->GetObj(0);
-        pInvisibleSquare=pInvisibleSquare->Clone();
+
+        // directly clone to target SdrModel
+        pInvisibleSquare = pInvisibleSquare->CloneSdrObject(*pModel);
+
         pPage->NbcInsertObject(pInvisibleSquare);
         pInvisibleSquare->SetMergedItem(XFillTransparenceItem(100));
         pInvisibleSquare->SetMergedItem(XLineTransparenceItem(100));
@@ -368,7 +365,10 @@ void SvxLineTabPage::InitSymbols(MenuButton const * pButton)
             SdrObject *pObj=m_pSymbolList->GetObj(i);
             if(pObj==nullptr)
                 break;
-            pObj=pObj->Clone();
+
+            // directly clone to target SdrModel
+            pObj = pObj->CloneSdrObject(*pModel);
+
             m_aGrfNames.emplace_back("");
             pPage->NbcInsertObject(pObj);
             if(m_pSymbolAttr)
@@ -386,15 +386,13 @@ void SvxLineTabPage::InitSymbols(MenuButton const * pButton)
             pObj=pPage->RemoveObject(1);
             SdrObject::Free(pObj);
 
-            SvxBrushItem* pBrushItem = new SvxBrushItem(Graphic(aMeta), GPOS_AREA, SID_ATTR_BRUSH);
-
             SvxBmpItemInfo* pInfo = new SvxBmpItemInfo;
-            pInfo->pBrushItem = pBrushItem;
+            pInfo->pBrushItem.reset(new SvxBrushItem(Graphic(aMeta), GPOS_AREA, SID_ATTR_BRUSH));
             pInfo->nItemId = static_cast<sal_uInt16>(MN_GALLERY_ENTRY + i + m_nNumMenuGalleryItems);
             if ( static_cast<size_t>(m_nNumMenuGalleryItems + i) < m_aGrfBrushItems.size() ) {
-                m_aGrfBrushItems.insert( m_aGrfBrushItems.begin() + m_nNumMenuGalleryItems + i, pInfo );
+                m_aGrfBrushItems.insert( m_aGrfBrushItems.begin() + m_nNumMenuGalleryItems + i, std::unique_ptr<SvxBmpItemInfo>(pInfo) );
             } else {
-                m_aGrfBrushItems.push_back( pInfo );
+                m_aGrfBrushItems.emplace_back( pInfo );
             }
 
             Size aSize(aBitmapEx.GetSizePixel());
@@ -441,7 +439,7 @@ void SvxLineTabPage::SymbolSelected(MenuButton const * pButton)
             m_nSymbolType=SVX_SYMBOLTYPE_BRUSHITEM;
             bResetSize = true;
         }
-        SvxBmpItemInfo* pInfo = m_aGrfBrushItems[ nItemId - MN_GALLERY_ENTRY ];
+        SvxBmpItemInfo* pInfo = m_aGrfBrushItems[ nItemId - MN_GALLERY_ENTRY ].get();
         pGraphic = pInfo->pBrushItem->GetGraphic();
     }
     else switch(nItemId)
@@ -1113,7 +1111,8 @@ void SvxLineTabPage::Reset( const SfxItemSet* rAttrs )
         ScopedVclPtrInstance< VirtualDevice > pVDev;
         pVDev->SetMapMode(MapMode(MapUnit::Map100thMM));
 
-        std::unique_ptr<SdrModel> pModel(new SdrModel);
+        std::unique_ptr<SdrModel> pModel(
+            new SdrModel(nullptr, nullptr, true));
         pModel->GetItemPool().FreezeIdRanges();
         SdrPage* pPage = new SdrPage( *pModel, false );
         pPage->SetSize(Size(1000,1000));
@@ -1132,7 +1131,9 @@ void SvxLineTabPage::Reset( const SfxItemSet* rAttrs )
                 pObj=m_pSymbolList->GetObj(nSymTmp);
                 if(pObj)
                 {
-                    pObj=pObj->Clone();
+                    // directly clone to target SdrModel
+                    pObj = pObj->CloneSdrObject(*pModel);
+
                     if(m_pSymbolAttr)
                     {
                         pObj->SetMergedItemSet(*m_pSymbolAttr);
@@ -1146,8 +1147,11 @@ void SvxLineTabPage::Reset( const SfxItemSet* rAttrs )
 
                     // Generate invisible square to give all symbol types a
                     // bitmap size, which is independent from specific glyph
-                    SdrObject *pInvisibleSquare=m_pSymbolList->GetObj(0);
-                    pInvisibleSquare=pInvisibleSquare->Clone();
+                    SdrObject* pInvisibleSquare(m_pSymbolList->GetObj(0));
+
+                    // directly clone to target SdrModel
+                    pInvisibleSquare = pInvisibleSquare->CloneSdrObject(*pModel);
+
                     pPage->NbcInsertObject(pInvisibleSquare);
                     pInvisibleSquare->SetMergedItem(XFillTransparenceItem(100));
                     pInvisibleSquare->SetMergedItem(XLineTransparenceItem(100));
@@ -1476,10 +1480,10 @@ void SvxLineTabPage::Reset( const SfxItemSet* rAttrs )
 }
 
 
-VclPtr<SfxTabPage> SvxLineTabPage::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SvxLineTabPage::Create( TabPageParent pWindow,
                                            const SfxItemSet* rAttrs )
 {
-    return VclPtr<SvxLineTabPage>::Create( pWindow, *rAttrs );
+    return VclPtr<SvxLineTabPage>::Create( pWindow.pParent, *rAttrs );
 }
 
 IMPL_LINK( SvxLineTabPage, ChangePreviewListBoxHdl_Impl, SvxColorListBox&, rListBox, void )
@@ -1665,11 +1669,13 @@ IMPL_LINK_NOARG(SvxLineTabPage, ChangeTransparentHdl_Impl, Edit&, void)
     m_pCtlPreview->Invalidate();
 }
 
-
 void SvxLineTabPage::PointChanged( vcl::Window*, RectPoint )
 {
 }
 
+void SvxLineTabPage::PointChanged( weld::DrawingArea*, RectPoint )
+{
+}
 
 void SvxLineTabPage::FillUserData()
 {

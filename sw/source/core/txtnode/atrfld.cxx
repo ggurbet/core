@@ -40,6 +40,7 @@
 #include <IDocumentFieldsAccess.hxx>
 #include <IDocumentMarkAccess.hxx>
 #include <fieldhint.hxx>
+#include <sal/log.hxx>
 
 
 // constructor for default item in attribute-pool
@@ -63,12 +64,12 @@ SwFormatField::SwFormatField( const SwField &rField )
     {
         // input field in-place editing
         SetWhich( RES_TXTATR_INPUTFIELD );
-        static_cast<SwInputField*>(mpField)->SetFormatField( *this );
+        static_cast<SwInputField*>(mpField.get())->SetFormatField( *this );
     }
     else if (mpField->GetTyp()->Which() == SwFieldIds::SetExp)
     {
         // see SwWrtShell::StartInputFieldDlg
-        static_cast<SwSetExpField *>(mpField)->SetFormatField(*this);
+        static_cast<SwSetExpField *>(mpField.get())->SetFormatField(*this);
     }
     else if ( mpField->GetTyp()->Which() == SwFieldIds::Postit )
     {
@@ -96,7 +97,7 @@ SwFormatField::SwFormatField( const SwFormatField& rAttr )
         {
             // input field in-place editing
             SetWhich( RES_TXTATR_INPUTFIELD );
-            SwInputField *pField = dynamic_cast<SwInputField*>(mpField);
+            SwInputField *pField = dynamic_cast<SwInputField*>(mpField.get());
             assert(pField);
             if (pField)
                 pField->SetFormatField( *this );
@@ -104,7 +105,7 @@ SwFormatField::SwFormatField( const SwFormatField& rAttr )
         else if (mpField->GetTyp()->Which() == SwFieldIds::SetExp)
         {
             // see SwWrtShell::StartInputFieldDlg
-            static_cast<SwSetExpField *>(mpField)->SetFormatField(*this);
+            static_cast<SwSetExpField *>(mpField.get())->SetFormatField(*this);
         }
         else if ( mpField->GetTyp()->Which() == SwFieldIds::Postit )
         {
@@ -122,7 +123,7 @@ SwFormatField::~SwFormatField()
         pType = nullptr;  // DB field types destroy themselves
 
     Broadcast( SwFormatFieldHint( this, SwFormatFieldHintWhich::REMOVED ) );
-    delete mpField;
+    mpField.reset();
 
     // some fields need to delete their field type
     if( pType && pType->HasOnlyOneListener() )
@@ -158,19 +159,17 @@ void SwFormatField::RegisterToFieldType( SwFieldType& rType )
     rType.Add(this);
 }
 
-void SwFormatField::SetField(SwField * _pField)
+void SwFormatField::SetField(std::unique_ptr<SwField> _pField)
 {
-    delete mpField;
-
-    mpField = _pField;
+    mpField = std::move(_pField);
     if ( mpField->GetTyp()->Which() == SwFieldIds::Input )
     {
-        static_cast<SwInputField* >(mpField)->SetFormatField( *this );
+        static_cast<SwInputField* >(mpField.get())->SetFormatField( *this );
     }
     else if (mpField->GetTyp()->Which() == SwFieldIds::SetExp)
     {
         // see SwWrtShell::StartInputFieldDlg
-        static_cast<SwSetExpField *>(mpField)->SetFormatField(*this);
+        static_cast<SwSetExpField *>(mpField.get())->SetFormatField(*this);
     }
     Broadcast( SwFormatFieldHint( this, SwFormatFieldHintWhich::CHANGED ) );
 }
@@ -260,7 +259,7 @@ void SwFormatField::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
                 if( SwFieldIds::GetRef == mpField->GetTyp()->Which() )
                 {
                     // #i81002#
-                    static_cast<SwGetRefField*>(mpField)->UpdateField( mpTextField );
+                    static_cast<SwGetRefField*>(mpField.get())->UpdateField( mpTextField );
                 }
                 break;
         case RES_DOCPOS_UPDATE:
@@ -380,18 +379,26 @@ void SwTextField::ExpandTextField(const bool bForceNotify) const
     const SwField* pField = GetFormatField().GetField();
     const OUString aNewExpand( pField->ExpandField(m_pTextNode->GetDoc()->IsClipBoard()) );
 
+    const SwFieldIds nWhich = pField->GetTyp()->Which();
+    const bool bSameExpandSimpleNotification
+        = SwFieldIds::Chapter != nWhich && SwFieldIds::PageNumber != nWhich
+          && SwFieldIds::RefPageGet != nWhich
+          // Page count fields to not use aExpand during formatting,
+          // therefore an invalidation of the text frame has to be triggered even if aNewExpand == aExpand:
+          && (SwFieldIds::DocStat != nWhich
+              || DS_PAGE != static_cast<const SwDocStatField*>(pField)->GetSubType())
+          && (SwFieldIds::GetExp != nWhich
+              || static_cast<const SwGetExpField*>(pField)->IsInBodyText());
+
+    bool bHiddenParaChanged = false;
+    if (aNewExpand != m_aExpand || bSameExpandSimpleNotification)
+        bHiddenParaChanged = m_pTextNode->CalcHiddenParaField();
+
     if (aNewExpand == m_aExpand)
     {
-        const SwFieldIds nWhich = pField->GetTyp()->Which();
-        if ( SwFieldIds::Chapter != nWhich
-             && SwFieldIds::PageNumber != nWhich
-             && SwFieldIds::RefPageGet != nWhich
-             // Page count fields to not use aExpand during formatting,
-             // therefore an invalidation of the text frame has to be triggered even if aNewExpand == aExpand:
-             && ( SwFieldIds::DocStat != nWhich || DS_PAGE != static_cast<const SwDocStatField*>(pField)->GetSubType() )
-             && ( SwFieldIds::GetExp != nWhich || static_cast<const SwGetExpField*>(pField)->IsInBodyText() ) )
+        if ( bSameExpandSimpleNotification )
         {
-            if( m_pTextNode->CalcHiddenParaField() )
+            if( bHiddenParaChanged )
             {
                 m_pTextNode->ModifyNotification( nullptr, nullptr );
             }

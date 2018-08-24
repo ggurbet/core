@@ -72,7 +72,7 @@ SwFrameDlg::SwFrameDlg( SfxViewFrame const * pViewFrame,
     , m_nBorderId(0)
 {
     sal_uInt16 nHtmlMode = ::GetHtmlMode(m_pWrtShell->GetView().GetDocShell());
-    m_bHTMLMode = (nHtmlMode & HTMLMODE_ON) != 0;
+    bool bHTMLMode = (nHtmlMode & HTMLMODE_ON) != 0;
 
     // example font for both example TabPages
 
@@ -95,7 +95,6 @@ SwFrameDlg::SwFrameDlg( SfxViewFrame const * pViewFrame,
         m_nColumnId = AddTabPage("columns", SwColumnPage::Create, nullptr);
     }
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
 
     // remove?
     // m_nBackgroundId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BACKGROUND ), 0);
@@ -107,7 +106,7 @@ SwFrameDlg::SwFrameDlg( SfxViewFrame const * pViewFrame,
     m_nMacroId = AddTabPage("macro", pFact->GetTabPageCreatorFunc(RID_SVXPAGE_MACROASSIGN), nullptr);
     m_nBorderId = AddTabPage("borders", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BORDER ), nullptr);
 
-    if(m_bHTMLMode)
+    if(bHTMLMode)
     {
         if (m_sDlgType == "FrameDialog" || m_sDlgType == "ObjectDialog")
         {

@@ -33,17 +33,18 @@ const sal_uInt16 SwFlyDrawObjIdentifier = 0x0001;
 class SwFlyDrawObj : public SdrObject
 {
 private:
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
 
 protected:
     // #i95264# SwFlyDrawObj needs an own VC since createViewIndependentPrimitive2DSequence()
     // is called when RecalcBoundRect() is used
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+
+    // protected destructor
+    virtual ~SwFlyDrawObj() override;
 
 public:
-
     SwFlyDrawObj(SdrModel& rSdrModel);
-    virtual ~SwFlyDrawObj() override;
 
     // for instantiation of this class while loading (via factory)
     virtual SdrInventor GetObjInventor()     const override;
@@ -66,7 +67,10 @@ protected:
     // AW: Need own sdr::contact::ViewContact since AnchorPos from parent is
     // not used but something own (top left of new SnapRect minus top left
     // of original SnapRect)
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+
+    // protected destructor
+    virtual ~SwVirtFlyDrawObj() override;
 
 public:
     // for paints triggered form ExecutePrimitive
@@ -84,7 +88,6 @@ public:
         SdrModel& rSdrModel,
         SdrObject& rNew,
         SwFlyFrame* pFly);
-    virtual ~SwVirtFlyDrawObj() override;
 
     // override method of base class SdrVirtObj
     virtual void     TakeObjInfo( SdrObjTransformInfoRec& rInfo ) const override;

@@ -23,7 +23,6 @@
 #include <comphelper/processfactory.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <unotools/saveopt.hxx>
-#include <comphelper/sequence.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
@@ -36,6 +35,7 @@
 #include <vcl/fixed.hxx>
 #include <unotools/configitem.hxx>
 #include <unotools/optionsdlg.hxx>
+#include <sal/log.hxx>
 
 #include <sfx2/fcontnr.hxx>
 
@@ -211,10 +211,10 @@ void SvxSaveTabPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxSaveTabPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SvxSaveTabPage::Create( TabPageParent pParent,
                                            const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxSaveTabPage>::Create( pParent, *rAttrSet );
+    return VclPtr<SvxSaveTabPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 void SvxSaveTabPage::DetectHiddenControls()

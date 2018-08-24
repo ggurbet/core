@@ -53,7 +53,6 @@ $(eval $(call gb_Helper_register_executables,NONE, \
 	regsvrex \
 	saxparser \
 	sp2bv \
-	svg2odf \
 	svidl \
 	$(if $(ENABLE_ONLINE_UPDATE_MAR),\
 		test_updater_dialog \
@@ -290,7 +289,6 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,gnome, \
 	$(if $(ENABLE_EVOAB2),evoab) \
 	$(if $(ENABLE_GTK),vclplug_gtk) \
 	$(if $(ENABLE_GTK3),vclplug_gtk3) \
-	$(if $(ENABLE_SYSTRAY_GTK),qstart_gtk) \
 	$(if $(ENABLE_GIO),losessioninstall) \
 	$(if $(ENABLE_GIO),ucpgio1) \
 ))
@@ -308,6 +306,13 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,kde, \
 ifneq ($(ENABLE_GTK3_KDE5),)
 $(eval $(call gb_Helper_register_executables_for_install,OOO,kde, \
 	lo_kde5filepicker \
+))
+endif
+
+ifeq ($(OS),HAIKU)
+$(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,haiku, \
+    $(if $(ENABLE_QT5),vclplug_qt5) \
+    $(if $(ENABLE_KDE5),vclplug_kde5) \
 ))
 endif
 
@@ -340,9 +345,6 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	canvastools \
 	chartcore \
 	chartcontroller \
-	$(if $(ENABLE_HEADLESS),, \
-		chartopengl \
-	) \
 	$(call gb_Helper_optional,OPENCL,clew) \
 	$(if $(filter $(OS),WNT),,cmdmail) \
 	cppcanvas \
@@ -391,6 +393,7 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
     icg \
 	$(if $(ENABLE_JAVA),jdbc) \
 	ldapbe2 \
+	$(if $(filter WNT,$(OS)),WinUserInfoBe) \
 	localebe1 \
 	log \
 	lng \
@@ -403,6 +406,7 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	$(call gb_Helper_optional,SCRIPTING,msforms) \
 	mtfrenderer \
 	$(call gb_Helper_optional,DBCONNECTIVITY,mysql) \
+	numbertext \
 	odbc \
 	odfflatxml \
 	offacc \
@@ -672,6 +676,7 @@ endif
 $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooobinarytable, \
 	$(if $(WINDOWS_SDK_HOME),\
 		instooofiltmsi \
+		inst_msu_msi \
 		qslnkmsi \
 		reg4allmsdoc \
 		sdqsmsi \
@@ -802,10 +807,6 @@ $(eval $(call gb_Helper_register_packages, \
 	test_unittest \
 	cli_basetypes_copy \
 	extras_wordbook \
-	$(if $(ENABLE_HTMLHELP),\
-		helpcontent2_html_static \
-		helpcontent2_html \
-	) \
 	instsetoo_native_setup \
 	$(if $(ENABLE_OOENV),instsetoo_native_ooenv) \
 	postprocess_registry \
@@ -937,9 +938,6 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 	wizards_basicusr \
 	wizards_properties \
 	wizards_wizardshare \
-	$(if $(ENABLE_HEADLESS),, \
-		chart2_opengl_shader \
-	) \
 	vcl_opengl_shader \
 	$(if $(filter WNT,$(OS)), \
 		vcl_opengl_blacklist \
@@ -955,6 +953,12 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 	sfx2_classification \
     $(if $(filter OPENCL,$(BUILD_TYPE)),sc_opencl_runtimetest) \
     $(if $(and $(filter WNT,$(OS)), $(filter X86_64,$(CPUNAME))),twain_dsm) \
+	$(if $(ENABLE_HTMLHELP),\
+		helpcontent2_html_dynamic \
+		helpcontent2_html_media \
+		helpcontent2_html_icon-themes \
+		helpcontent2_html_static \
+	) \
 ))
 
 $(eval $(call gb_Helper_register_packages_for_install,ooo_fonts,\
@@ -1127,6 +1131,7 @@ $(eval $(call gb_Helper_register_uiconfigs,\
 	filter \
 	formula \
 	fps \
+	libreofficekit \
 	$(call gb_Helper_optional,SCRIPTING,modules/BasicIDE) \
 	$(call gb_Helper_optional,DBCONNECTIVITY,\
 		modules/dbapp \

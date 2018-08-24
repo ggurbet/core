@@ -38,6 +38,7 @@
 #include <scmatrix.hxx>
 #include <documentimport.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 // Excel->Calc cell address/range conversion ==================================
 
@@ -283,9 +284,9 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
     meCurrObj = EXC_HF_CENTER;
 
     // parser temporaries
-    maCurrText.clear();
-    OUString aReadFont;           // current font name
-    OUString aReadStyle;          // current font style
+    maCurrText.truncate();
+    OUStringBuffer aReadFont;   // current font name
+    OUStringBuffer aReadStyle;  // current font style
     sal_uInt16 nReadHeight = 0; // current font height
     ResetFontData();
 
@@ -321,7 +322,7 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
                         InsertLineBreak();
                     break;
                     default:
-                        maCurrText += OUStringLiteral1(*pChar);
+                        maCurrText.append(OUStringLiteral1(*pChar));
                 }
             }
             break;
@@ -333,7 +334,7 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
                 eState = xlPSText;
                 switch( *pChar )
                 {
-                    case '&':   maCurrText += "&";  break;  // the '&' character
+                    case '&':   maCurrText.append("&");  break;  // the '&' character
 
                     case 'L':   SetNewPortion( EXC_HF_LEFT );   break;  // Left portion
                     case 'C':   SetNewPortion( EXC_HF_CENTER ); break;  // Center portion
@@ -383,8 +384,8 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
                     break;
 
                     case '\"':          // font name
-                        aReadFont.clear();
-                        aReadStyle.clear();
+                        aReadFont.setLength(0);
+                        aReadStyle.setLength(0);
                         eState = xlPSFont;
                     break;
                     default:
@@ -410,7 +411,7 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
                         eState = xlPSFontStyle;
                     break;
                     default:
-                        aReadFont += OUStringLiteral1(*pChar);
+                        aReadFont.append(*pChar);
                 }
             }
             break;
@@ -424,12 +425,12 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
                     case '\"':
                         SetAttribs();
                         if( !aReadFont.isEmpty() )
-                            mxFontData->maName = aReadFont;
-                        mxFontData->maStyle = aReadStyle;
+                            mxFontData->maName = aReadFont.toString();
+                        mxFontData->maStyle = aReadStyle.toString();
                         eState = xlPSText;
                     break;
                     default:
-                        aReadStyle += OUStringLiteral1(*pChar);
+                        aReadStyle.append(*pChar);
                 }
             }
             break;
@@ -538,9 +539,9 @@ void XclImpHFConverter::InsertText()
     if( !maCurrText.isEmpty() )
     {
         ESelection& rSel = GetCurrSel();
-        mrEE.QuickInsertText( maCurrText, ESelection( rSel.nEndPara, rSel.nEndPos, rSel.nEndPara, rSel.nEndPos ) );
-        rSel.nEndPos = rSel.nEndPos + maCurrText.getLength();
-        maCurrText.clear();
+        OUString sString(maCurrText.makeStringAndClear());
+        mrEE.QuickInsertText( sString, ESelection( rSel.nEndPara, rSel.nEndPos, rSel.nEndPara, rSel.nEndPos ) );
+        rSel.nEndPos = rSel.nEndPos + sString.getLength();
         UpdateCurrMaxLineHeight();
     }
 }
@@ -834,7 +835,7 @@ XclImpCachedMatrix::XclImpCachedMatrix( XclImpStream& rStrm ) :
         ++mnScRows;
     }
 
-    //assuming worse case scenario of unknown types
+    //assuming worst case scenario of unknown types
     const size_t nMinRecordSize = 1;
     const size_t nMaxRows = rStrm.GetRecLeft() / (nMinRecordSize * mnScCols);
     if (mnScRows > nMaxRows)

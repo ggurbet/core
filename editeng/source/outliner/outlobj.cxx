@@ -30,6 +30,7 @@
 #include <editeng/editobj.hxx>
 #include <vcl/bitmap.hxx>
 #include <tools/stream.hxx>
+#include <sal/log.hxx>
 
 #include <o3tl/cow_wrapper.hxx>
 #include <libxml/xmlwriter.h>
@@ -74,6 +75,11 @@ OutlinerParaObject::OutlinerParaObject(
 
 OutlinerParaObject::OutlinerParaObject( const EditTextObject& rTextObj ) :
     mpImpl(OutlinerParaObjData(rTextObj.Clone(), ParagraphDataVector(), true))
+{
+}
+
+OutlinerParaObject::OutlinerParaObject( std::unique_ptr<EditTextObject> pTextObj ) :
+    mpImpl(OutlinerParaObjData(std::move(pTextObj), ParagraphDataVector(), true))
 {
 }
 
@@ -170,11 +176,6 @@ sal_Int16 OutlinerParaObject::GetDepth(sal_Int32 nPara) const
 const EditTextObject& OutlinerParaObject::GetTextObject() const
 {
     return *mpImpl->mpEditTextObject;
-}
-
-bool OutlinerParaObject::IsEditDoc() const
-{
-    return mpImpl->mbIsEditDoc;
 }
 
 const ParagraphData& OutlinerParaObject::GetParagraphData(sal_Int32 nIndex) const

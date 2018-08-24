@@ -21,6 +21,7 @@
 #include <svl/itemiter.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/outdev.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/unohelp.hxx>
 #include <com/sun/star/form/XForm.hpp>
@@ -450,18 +451,18 @@ private:
     sal_uInt32 mnIdLst;
 public:
     explicit ListWithId(sal_uInt32 nIdLst) : mnIdLst(nIdLst) {}
-    bool operator() (const WW8LSTInfo *pEntry) const
+    bool operator() (const std::unique_ptr<WW8LSTInfo>& pEntry) const
         { return (pEntry->nIdLst == mnIdLst); }
 };
 
 // Access via List-Id of LST Entry
 WW8LSTInfo* WW8ListManager::GetLSTByListId( sal_uInt32 nIdLst ) const
 {
-    std::vector<WW8LSTInfo *>::const_iterator aResult =
+    auto aResult =
         std::find_if(maLSTInfos.begin(),maLSTInfos.end(),ListWithId(nIdLst));
     if (aResult == maLSTInfos.end())
         return nullptr;
-    return *aResult;
+    return aResult->get();
 }
 
 static void lcl_CopyGreaterEight(OUString &rDest, OUString const &rSrc,
@@ -761,11 +762,11 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
         case 35:
         case 36:
         case 37:
+        case 11:
         case 39:nType = SVX_NUM_NUMBER_LOWER_ZH; break;
         case 34:nType = SVX_NUM_NUMBER_UPPER_ZH_TW; break;
         case 38:nType = SVX_NUM_NUMBER_UPPER_ZH; break;
-        case 10:
-        case 11:nType = SVX_NUM_NUMBER_TRADITIONAL_JA; break;
+        case 10:nType = SVX_NUM_NUMBER_TRADITIONAL_JA; break;
         case 20:nType = SVX_NUM_AIU_FULLWIDTH_JA; break;
         case 12:nType = SVX_NUM_AIU_HALFWIDTH_JA; break;
         case 21:nType = SVX_NUM_IROHA_FULLWIDTH_JA; break;
@@ -791,7 +792,6 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
      from a copy of the aOfsNumsXCH.
     */
     std::vector<sal_uInt8> aOfsNumsXCH;
-    typedef std::vector<sal_uInt8>::iterator myIter;
     aOfsNumsXCH.reserve(nMaxLevel);
 
     for(sal_uInt8 nLevelB = 0; nLevelB < nMaxLevel; ++nLevelB)
@@ -814,8 +814,8 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
             }
         }
     }
-    myIter aIter = std::remove(aOfsNumsXCH.begin(), aOfsNumsXCH.end(), 0);
-    myIter aEnd = aOfsNumsXCH.end();
+    auto aIter = std::remove(aOfsNumsXCH.begin(), aOfsNumsXCH.end(), 0);
+    auto aEnd = aOfsNumsXCH.end();
     // #i60633# - suppress access on <aOfsNumsXCH.end()>
     if ( aIter != aEnd )
     {
@@ -1216,7 +1216,7 @@ WW8ListManager::WW8ListManager(SvStream& rSt_, SwWW8ImplReader& rReader_)
             aLST.bSimpleList || (aBits1 & 0x10));
 
         WW8LSTInfo* pLSTInfo = new WW8LSTInfo(pMyNumRule, aLST);
-        maLSTInfos.push_back(pLSTInfo);
+        maLSTInfos.emplace_back(pLSTInfo);
 
         nRemainingPlcfLst -= cbLSTF;
     }
@@ -1228,7 +1228,7 @@ WW8ListManager::WW8ListManager(SvStream& rSt_, SwWW8ImplReader& rReader_)
     {
         WW8aISet aItemSet;        // Character attributes from GrpprlChpx
 
-        WW8LSTInfo* pListInfo = maLSTInfos[nList];
+        WW8LSTInfo* pListInfo = maLSTInfos[nList].get();
         if( !pListInfo || !pListInfo->pNumRule ) break;
         SwNumRule& rMyNumRule = *pListInfo->pNumRule;
 
@@ -1474,15 +1474,14 @@ WW8ListManager::~WW8ListManager() COVERITY_NOEXCEPT_FALSE
      named lists remain in document
      unused automatic lists are removed from document (DelNumRule)
     */
-    for(std::vector<WW8LSTInfo *>::iterator aIter = maLSTInfos.begin();
-        aIter != maLSTInfos.end(); ++aIter)
+    for(auto & rpInfo : maLSTInfos)
     {
-        if ((*aIter)->pNumRule && !(*aIter)->bUsedInDoc &&
-            (*aIter)->pNumRule->IsAutoRule())
+        if (rpInfo->pNumRule && !rpInfo->bUsedInDoc &&
+            rpInfo->pNumRule->IsAutoRule())
         {
-            rDoc.DelNumRule((*aIter)->pNumRule->GetName());
+            rDoc.DelNumRule(rpInfo->pNumRule->GetName());
         }
-        delete *aIter;
+        rpInfo.reset();
     }
     for (auto aIter = m_LFOInfos.rbegin(); aIter != m_LFOInfos.rend(); ++aIter)
     {
@@ -1684,7 +1683,7 @@ void UseListIndent(SwWW8StyInf &rStyle, const SwNumFormat &rFormat)
     // #i86652#
     if ( rFormat.GetPositionAndSpaceMode() == SvxNumberFormat::LABEL_WIDTH_AND_POSITION )
     {
-        const long nAbsLSpace = rFormat.GetAbsLSpace();
+        const auto nAbsLSpace = rFormat.GetAbsLSpace();
         const long nListFirstLineIndent = GetListFirstLineIndent(rFormat);
         SvxLRSpaceItem aLR(ItemGet<SvxLRSpaceItem>(*rStyle.m_pFormat, RES_LR_SPACE));
         aLR.SetTextLeft(nAbsLSpace);
@@ -1912,7 +1911,7 @@ void SwWW8ImplReader::Read_ListLevel(sal_uInt16, const sal_uInt8* pData,
         // the current level is finished, what should we do ?
         m_nListLevel = WW8ListManager::nMaxLevel;
         if (m_xStyles && !m_bVer67)
-            m_xStyles->nWwNumLevel = 0;
+            m_xStyles->mnWwNumLevel = 0;
     }
     else
     {
@@ -1931,7 +1930,7 @@ void SwWW8ImplReader::Read_ListLevel(sal_uInt16, const sal_uInt8* pData,
             to set the ww6 list level information which we will need when we
             reach the true ww6 list def.  So set it now
             */
-            m_xStyles->nWwNumLevel = m_nListLevel;
+            m_xStyles->mnWwNumLevel = m_nListLevel;
         }
 
         if (WW8ListManager::nMaxLevel <= m_nListLevel )

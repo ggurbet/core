@@ -52,6 +52,7 @@
 #include <docpool.hxx>
 #include <globstr.hrc>
 #include <global.hxx>
+#include <scresid.hxx>
 #include <undoblk.hxx>
 #include <undocell.hxx>
 #include <formulacell.hxx>
@@ -208,10 +209,10 @@ void ScViewFunc::DoRefConversion()
     ScDocShell* pDocSh = GetViewData().GetDocShell();
     bool bOk = false;
 
-    ScDocument* pUndoDoc = nullptr;
+    ScDocumentUniquePtr pUndoDoc;
     if (bRecord)
     {
-        pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+        pUndoDoc.reset( new ScDocument( SCDOCMODE_UNDO ) );
         SCTAB nTab = aMarkRange.aStart.Tab();
         pUndoDoc->InitUndo( pDoc, nTab, nTab );
 
@@ -281,7 +282,7 @@ void ScViewFunc::DoRefConversion()
     }
     if (bRecord)
     {
-        ScDocument* pRedoDoc = new ScDocument( SCDOCMODE_UNDO );
+        ScDocumentUniquePtr pRedoDoc(new ScDocument( SCDOCMODE_UNDO ));
         SCTAB nTab = aMarkRange.aStart.Tab();
         pRedoDoc->InitUndo( pDoc, nTab, nTab );
 
@@ -299,7 +300,7 @@ void ScViewFunc::DoRefConversion()
 
         pDocSh->GetUndoManager()->AddUndoAction(
             new ScUndoRefConversion( pDocSh,
-                                    aMarkRange, rMark, pUndoDoc, pRedoDoc, bMulti) );
+                                    aMarkRange, rMark, std::move(pUndoDoc), std::move(pRedoDoc), bMulti) );
     }
 
     pDocSh->PostPaint( aMarkRange, PaintPartFlags::Grid );
@@ -397,7 +398,7 @@ void ScViewFunc::DoThesaurus()
     {
         LanguageType eLnge = ScViewUtil::GetEffLanguage( &rDoc, ScAddress( nCol, nRow, nTab ) );
         OUString aErr = SvtLanguageTable::GetLanguageString(eLnge);
-        aErr += ScGlobal::GetRscString( STR_SPELLING_NO_LANG );
+        aErr += ScResId( STR_SPELLING_NO_LANG );
 
         vcl::Window* pWin = GetViewData().GetDialogParent();
         std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
@@ -484,13 +485,13 @@ void ScViewFunc::DoSheetConversion( const ScConversionParam& rConvParam )
         }
     }
 
-    ScDocument* pUndoDoc = nullptr;
-    ScDocument* pRedoDoc = nullptr;
+    ScDocumentUniquePtr pUndoDoc;
+    ScDocumentUniquePtr pRedoDoc;
     if (bRecord)
     {
-        pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+        pUndoDoc.reset( new ScDocument( SCDOCMODE_UNDO ) );
         pUndoDoc->InitUndo( &rDoc, nTab, nTab );
-        pRedoDoc = new ScDocument( SCDOCMODE_UNDO );
+        pRedoDoc.reset( new ScDocument( SCDOCMODE_UNDO ) );
         pRedoDoc->InitUndo( &rDoc, nTab, nTab );
 
         if ( rMark.GetSelectCount() > 1 )
@@ -517,12 +518,12 @@ void ScViewFunc::DoSheetConversion( const ScConversionParam& rConvParam )
     {
         case SC_CONVERSION_SPELLCHECK:
             pEngine.reset(new ScSpellingEngine(
-                rDoc.GetEnginePool(), rViewData, pUndoDoc, pRedoDoc, LinguMgr::GetSpellChecker() ));
+                rDoc.GetEnginePool(), rViewData, pUndoDoc.get(), pRedoDoc.get(), LinguMgr::GetSpellChecker() ));
         break;
         case SC_CONVERSION_HANGULHANJA:
         case SC_CONVERSION_CHINESE_TRANSL:
             pEngine.reset(new ScTextConversionEngine(
-                rDoc.GetEnginePool(), rViewData, rConvParam, pUndoDoc, pRedoDoc ));
+                rDoc.GetEnginePool(), rViewData, rConvParam, pUndoDoc.get(), pRedoDoc.get() ));
         break;
         default:
             OSL_FAIL( "ScViewFunc::DoSheetConversion - unknown conversion type" );
@@ -556,8 +557,8 @@ void ScViewFunc::DoSheetConversion( const ScConversionParam& rConvParam )
             rViewData.GetDocShell()->GetUndoManager()->AddUndoAction(
                 new ScUndoConversion(
                         pDocSh, rMark,
-                        nCol, nRow, nTab, pUndoDoc,
-                        nNewCol, nNewRow, nTab, pRedoDoc, rConvParam ) );
+                        nCol, nRow, nTab, std::move(pUndoDoc),
+                        nNewCol, nNewRow, nTab, std::move(pRedoDoc), rConvParam ) );
         }
 
         sc::SetFormulaDirtyContext aCxt;
@@ -567,8 +568,8 @@ void ScViewFunc::DoSheetConversion( const ScConversionParam& rConvParam )
     }
     else
     {
-        delete pUndoDoc;
-        delete pRedoDoc;
+        pUndoDoc.reset();
+        pRedoDoc.reset();
     }
 
     // *** final cleanup *** --------------------------------------------------

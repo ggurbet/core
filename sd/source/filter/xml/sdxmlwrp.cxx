@@ -19,16 +19,20 @@
 
 #include <vcl/errinf.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <editeng/outlobj.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <sot/storage.hxx>
 #include <drawdoc.hxx>
+#include <sdpage.hxx>
 #include <Outliner.hxx>
 #include <unotools/streamwrap.hxx>
 #include <svx/dialmgr.hxx>
@@ -48,7 +52,7 @@
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
-#include <com/sun/star/document/XGraphicObjectResolver.hpp>
+#include <com/sun/star/document/XGraphicStorageHandler.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/packages/WrongPasswordException.hpp>
@@ -515,7 +519,7 @@ bool SdXMLFilter::Import( ErrCode& nError )
         }
     }
 
-    Reference< document::XGraphicObjectResolver > xGraphicResolver;
+    uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
     rtl::Reference<SvXMLGraphicHelper> xGraphicHelper;
     Reference< document::XEmbeddedObjectResolver > xObjectResolver;
     rtl::Reference<SvXMLEmbeddedObjectHelper> xObjectHelper;
@@ -567,7 +571,7 @@ bool SdXMLFilter::Import( ErrCode& nError )
     {
         xGraphicHelper = SvXMLGraphicHelper::Create( xStorage,
                                                      SvXMLGraphicHelperMode::Read );
-        xGraphicResolver = xGraphicHelper.get();
+        xGraphicStorageHandler = xGraphicHelper.get();
         xObjectHelper = SvXMLEmbeddedObjectHelper::Create(
                                     xStorage, *pDoc->GetPersist(),
                                     SvXMLEmbeddedObjectHelperMode::Read );
@@ -607,7 +611,7 @@ bool SdXMLFilter::Import( ErrCode& nError )
         Sequence<Any> aFilterArgs( 4 );
         Any *pArgs = aFilterArgs.getArray();
         *pArgs++ <<= xInfoSet;
-        *pArgs++ <<= xGraphicResolver;
+        *pArgs++ <<= xGraphicStorageHandler;
         *pArgs++ <<= xObjectResolver;
         *pArgs++ <<= mxStatusIndicator;
 
@@ -660,7 +664,7 @@ bool SdXMLFilter::Import( ErrCode& nError )
     if( xGraphicHelper )
         xGraphicHelper->dispose();
     xGraphicHelper.clear();
-    xGraphicResolver = nullptr;
+    xGraphicStorageHandler = nullptr;
     if( xObjectHelper.is() )
         xObjectHelper->dispose();
     xObjectHelper.clear();
@@ -879,7 +883,7 @@ bool SdXMLFilter::Export()
 
         {
             uno::Reference< document::XEmbeddedObjectResolver > xObjectResolver;
-            uno::Reference< document::XGraphicObjectResolver >  xGrfResolver;
+            uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
 
             // create helper for graphic and ole export if we have a storage
             if( xStorage.is() )
@@ -888,7 +892,7 @@ bool SdXMLFilter::Export()
                 xObjectResolver = xObjectHelper.get();
 
                 xGraphicHelper = SvXMLGraphicHelper::Create( xStorage, SvXMLGraphicHelperMode::Write );
-                xGrfResolver = xGraphicHelper.get();
+                xGraphicStorageHandler = xGraphicHelper.get();
             }
 
             CreateStatusIndicator();
@@ -969,12 +973,15 @@ bool SdXMLFilter::Export()
                 uno::Reference< io::XActiveDataSource > xDocSrc( xWriter, uno::UNO_QUERY );
                 xDocSrc->setOutputStream( xDocOut );
 
-                uno::Sequence< uno::Any > aArgs( 2 + ( mxStatusIndicator.is() ? 1 : 0 ) + ( xGrfResolver.is() ? 1 : 0 ) + ( xObjectResolver.is() ? 1 : 0 ) );
+                uno::Sequence< uno::Any > aArgs( 2 + ( mxStatusIndicator.is() ? 1 : 0 ) + ( xGraphicStorageHandler.is() ? 1 : 0 ) + ( xObjectResolver.is() ? 1 : 0 ) );
                 uno::Any* pArgs = aArgs.getArray();
                 *pArgs++ <<= xInfoSet;
-                if( xGrfResolver.is() )         *pArgs++ <<= xGrfResolver;
-                if( xObjectResolver.is() )      *pArgs++ <<= xObjectResolver;
-                if( mxStatusIndicator.is() )    *pArgs++ <<= mxStatusIndicator;
+                if (xGraphicStorageHandler.is())
+                    *pArgs++ <<= xGraphicStorageHandler;
+                if (xObjectResolver.is())
+                    *pArgs++ <<= xObjectResolver;
+                if (mxStatusIndicator.is())
+                    *pArgs++ <<= mxStatusIndicator;
 
                 *pArgs   <<= xWriter;
 
@@ -1097,16 +1104,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportPPTX(SvStream &rStream)
     {
         ret = xFilter->filter(aArgs);
     }
-    catch (const css::io::IOException&)
-    {
-    }
-    catch (const css::xml::sax::SAXException&)
-    {
-    }
-    catch (const css::lang::IllegalArgumentException&)
-    {
-    }
-    catch (const css::lang::WrappedTargetRuntimeException&)
+    catch (...)
     {
     }
     xDocSh->SetLoading(SfxLoadedFlags::ALL);

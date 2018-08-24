@@ -26,6 +26,7 @@
 
 #include <hintids.hxx>
 
+#include <sal/log.hxx>
 #include <svl/cjkoptions.hxx>
 #include <svl/ctloptions.hxx>
 #include <svx/pageitem.hxx>
@@ -39,7 +40,6 @@
 #include <sal/macros.h>
 #include <sfx2/request.hxx>
 #include <svx/srchdlg.hxx>
-#include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
 #include <vcl/layout.hxx>
 #include <vcl/wrkwin.hxx>
@@ -243,7 +243,7 @@ void SwView::ExecSearch(SfxRequest& rReq)
                 {
                     Scroll(m_pWrtShell->GetCharRect().SVRect());
                     if (comphelper::LibreOfficeKit::isActive())
-                        lcl_emitSearchResultCallbacks(m_pSrchItem, m_pWrtShell, /* bHighlightAll = */ false);
+                        lcl_emitSearchResultCallbacks(m_pSrchItem, m_pWrtShell.get(), /* bHighlightAll = */ false);
                 }
                 rReq.SetReturnValue(SfxBoolItem(nSlot, bRet));
 #if HAVE_FEATURE_DESKTOP
@@ -277,7 +277,7 @@ void SwView::ExecSearch(SfxRequest& rReq)
                     m_bFound = false;
                 }
                 else if (comphelper::LibreOfficeKit::isActive())
-                    lcl_emitSearchResultCallbacks(m_pSrchItem, m_pWrtShell, /* bHighlightAll = */ true);
+                    lcl_emitSearchResultCallbacks(m_pSrchItem, m_pWrtShell.get(), /* bHighlightAll = */ true);
                 rReq.SetReturnValue(SfxBoolItem(nSlot, bRet));
 #if HAVE_FEATURE_DESKTOP
                 {
@@ -351,7 +351,7 @@ void SwView::ExecSearch(SfxRequest& rReq)
 
             case SvxSearchCmd::REPLACE_ALL:
                 {
-                    SwSearchOptions aOpts( m_pWrtShell, m_pSrchItem->GetBackward() );
+                    SwSearchOptions aOpts( m_pWrtShell.get(), m_pSrchItem->GetBackward() );
                     m_bExtra = false;
                     sal_uLong nFound;
 
@@ -506,7 +506,7 @@ void SwView::ExecSearch(SfxRequest& rReq)
 
 bool SwView::SearchAndWrap(bool bApi)
 {
-    SwSearchOptions aOpts( m_pWrtShell, m_pSrchItem->GetBackward() );
+    SwSearchOptions aOpts( m_pWrtShell.get(), m_pSrchItem->GetBackward() );
 
         // Remember starting position of the search for wraparound
         // Start- / EndAction perhaps because existing selections of 'search all'
@@ -649,7 +649,7 @@ bool SwView::SearchAll()
     SwWait aWait( *GetDocShell(), true );
     m_pWrtShell->StartAllAction();
 
-    SwSearchOptions aOpts( m_pWrtShell, m_pSrchItem->GetBackward() );
+    SwSearchOptions aOpts( m_pWrtShell.get(), m_pSrchItem->GetBackward() );
 
     if (!m_pSrchItem->GetSelection())
     {
@@ -711,7 +711,7 @@ void SwView::Replace()
             m_pSrchItem->SetSelection(true);
 
             //check if it matches
-            SwSearchOptions aOpts( m_pWrtShell, m_pSrchItem->GetBackward() );
+            SwSearchOptions aOpts( m_pWrtShell.get(), m_pSrchItem->GetBackward() );
             if( ! FUNC_Search(aOpts) )
             {
 

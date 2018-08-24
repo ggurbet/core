@@ -10,6 +10,7 @@
 #include <sal/config.h>
 #include <rtl/ustring.hxx>
 #include <rtl/bootstrap.hxx>
+#include <sal/log.hxx>
 #include <comphelper/backupfilehelper.hxx>
 #include <rtl/crc.h>
 #include <algorithm>
@@ -19,6 +20,7 @@
 #include <zlib.h>
 
 #include <comphelper/processfactory.hxx>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/ucb/CommandFailedException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -38,6 +40,7 @@
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <cppuhelper/exc_hlp.hxx>
 
 using namespace css;
 using namespace css::xml::dom;
@@ -542,16 +545,16 @@ namespace
 
     typedef std::vector< ExtensionInfoEntry > ExtensionInfoEntryVector;
 
+    static const OUStringLiteral gaRegPath { "/registry/com.sun.star.comp.deployment.bundle.PackageRegistryBackend/backenddb.xml" };
+
     class ExtensionInfo
     {
     private:
         ExtensionInfoEntryVector    maEntries;
-        OUString maRegPath;
 
     public:
         ExtensionInfo()
-            : maEntries(),
-              maRegPath("/registry/com.sun.star.comp.deployment.bundle.PackageRegistryBackend/backenddb.xml")
+            : maEntries()
         {
         }
 
@@ -595,7 +598,9 @@ namespace
             }
             catch (const lang::IllegalArgumentException & e)
             {
-                throw uno::RuntimeException(e.Message, e.Context);
+                css::uno::Any anyEx = cppu::getCaughtException();
+                throw css::lang::WrappedTargetRuntimeException( e.Message,
+                                e.Context, anyEx );
             }
 
             for (sal_Int32 i = 0; i < xAllPackages.getLength(); ++i)
@@ -672,19 +677,19 @@ namespace
     public:
         void createUserExtensionRegistryEntriesFromXML(const OUString& rUserConfigWorkURL)
         {
-            const OUString aPath(rUserConfigWorkURL + "/uno_packages/cache" + maRegPath);
+            const OUString aPath(rUserConfigWorkURL + "/uno_packages/cache" + gaRegPath);
             createExtensionRegistryEntriesFromXML(aPath);
         }
 
         void createSharedExtensionRegistryEntriesFromXML(const OUString& rUserConfigWorkURL)
         {
-            const OUString aPath(rUserConfigWorkURL + "/extensions/shared" + maRegPath);
+            const OUString aPath(rUserConfigWorkURL + "/extensions/shared" + gaRegPath);
             createExtensionRegistryEntriesFromXML(aPath);
         }
 
         void createBundledExtensionRegistryEntriesFromXML(const OUString& rUserConfigWorkURL)
         {
-            const OUString aPath(rUserConfigWorkURL + "/extensions/bundled" + maRegPath);
+            const OUString aPath(rUserConfigWorkURL + "/extensions/bundled" + gaRegPath);
             createExtensionRegistryEntriesFromXML(aPath);
         }
 
@@ -993,7 +998,7 @@ namespace
         sal_uInt32          mnOffset;           // offset in File (zero identifies new file)
         sal_uInt32          mnCrc32;            // checksum
         FileSharedPtr       maFile;             // file where to find the data (at offset)
-        bool                mbDoCompress;       // flag if this file is scheduled to be compressed when written
+        bool const          mbDoCompress;       // flag if this file is scheduled to be compressed when written
 
         bool copy_content_straight(oslFileHandle& rTargetHandle)
         {
@@ -2107,8 +2112,6 @@ namespace comphelper
                                                        "ForceOpenGL", "false"));
         xRootElement->appendChild(lcl_getConfigElement(xDocument, "/org.openoffice.Office.Common/Misc",
                                                        "UseOpenCL", "false"));
-        xRootElement->appendChild(lcl_getConfigElement(xDocument, "/org.openoffice.Office.Common/Misc",
-                                                       "UseSwInterpreter", "false"));
 
         // write back
         uno::Reference< xml::sax::XSAXSerializable > xSerializer(xDocument, uno::UNO_QUERY);

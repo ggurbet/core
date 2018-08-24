@@ -22,6 +22,7 @@
 #include <unotools/configitem.hxx>
 #include <unotools/syslocale.hxx>
 #include <tools/debug.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 
@@ -62,12 +63,9 @@ SvtCompatibilityEntry::SvtCompatibilityEntry()
     setValue<bool>( Index::ProtectForm, false );
     setValue<bool>( Index::MsWordTrailingBlanks, false );
     setValue<bool>( Index::SubtractFlysAnchoredAtFlys, false );
+    setValue<bool>( Index::EmptyDbFieldHidesPara, true );
 
     setDefaultEntry( false );
-}
-
-SvtCompatibilityEntry::~SvtCompatibilityEntry()
-{
 }
 
 OUString SvtCompatibilityEntry::getName( const Index rIdx )
@@ -92,7 +90,8 @@ OUString SvtCompatibilityEntry::getName( const Index rIdx )
         "ExpandWordSpace",
         "ProtectForm",
         "MsWordCompTrailingBlanks",
-        "SubtractFlysAnchoredAtFlys"
+        "SubtractFlysAnchoredAtFlys",
+        "EmptyDbFieldHidesPara",
     };
 
     /* Size of sPropertyName array not equal size of the SvtCompatibilityEntry::Index enum class */

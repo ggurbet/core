@@ -136,7 +136,7 @@ struct XclFontData;
 /** Converts an Excel header/footer string into three edit engine text objects.
     @descr  Header/footer content is divided into three parts: Left, center and
     right portion. All formatting information is encoded in the Excel string
-    using special character seuences. A control sequence starts with the ampersand
+    using special character sequences. A control sequence starts with the ampersand
     character.
 
     Supported control sequences:
@@ -240,7 +240,7 @@ private:
 private:
     EditEngine&         mrEE;               /// The header/footer edit engine.
     XclImpHFPortionInfoVec maInfos;         /// Edit engine text objects for all portions.
-    OUString            maCurrText;         /// Current text to insert into edit engine.
+    OUStringBuffer      maCurrText;         /// Current text to insert into edit engine.
     XclFontDataPtr      mxFontData;         /// Font data of current text.
     XclImpHFPortion     meCurrObj;          /// The current portion.
 };

@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 
@@ -41,6 +42,7 @@
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/script/XScriptEventsSupplier.hpp>
 #include <com/sun/star/table/CellAddress.hpp>
+#include <cppuhelper/exc_hlp.hxx>
 #include <o3tl/functional.hxx>
 #include <unotools/sharedunocomponent.hxx>
 #include <vcl/svapp.hxx>
@@ -886,9 +888,9 @@ void DlgEdObj::clonedFrom(const DlgEdObj* _pSource)
     StartListening();
 }
 
-DlgEdObj* DlgEdObj::Clone(SdrModel* pTargetModel) const
+DlgEdObj* DlgEdObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    DlgEdObj* pDlgEdObj = CloneHelper< DlgEdObj >(pTargetModel);
+    DlgEdObj* pDlgEdObj = CloneHelper< DlgEdObj >(rTargetModel);
     DBG_ASSERT( pDlgEdObj != nullptr, "DlgEdObj::Clone: invalid clone!" );
     if ( pDlgEdObj )
         pDlgEdObj->clonedFrom( this );
@@ -955,7 +957,7 @@ bool DlgEdObj::EndCreate(SdrDragStat& rStat, SdrCreateCmd eCmd)
 void DlgEdObj::SetDefaults()
 {
     // set parent form
-    pDlgEdForm = static_cast<DlgEdPage*>(GetPage())->GetDlgEdForm();
+    pDlgEdForm = static_cast<DlgEdPage*>(getSdrPageFromSdrObject())->GetDlgEdForm();
 
     if ( pDlgEdForm )
     {
@@ -1136,10 +1138,11 @@ void DlgEdObj::_propertyChange( const  css::beans::PropertyChangeEvent& evt )
                 {
                     NameChange(evt);
                 }
-                catch (container::NoSuchElementException const& e)
+                catch (container::NoSuchElementException const&)
                 {
+                    css::uno::Any anyEx = cppu::getCaughtException();
                     throw lang::WrappedTargetRuntimeException("", nullptr,
-                            uno::Any(e));
+                            anyEx);
                 }
             }
         }
@@ -1379,7 +1382,7 @@ void DlgEdForm::PositionAndSizeChange( const beans::PropertyChangeEvent& evt )
 
 void DlgEdForm::UpdateStep()
 {
-    SdrPage* pSdrPage = GetPage();
+    SdrPage* pSdrPage = getSdrPageFromSdrObject();
 
     if ( pSdrPage )
     {

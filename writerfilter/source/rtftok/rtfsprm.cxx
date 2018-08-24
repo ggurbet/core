@@ -147,7 +147,7 @@ static RTFValue::Pointer_t getDefaultSPRM(Id const id)
         case NS_ooxml::LN_CT_Ind_left:
         case NS_ooxml::LN_CT_Ind_right:
         case NS_ooxml::LN_CT_Ind_firstLine:
-            return std::make_shared<RTFValue>(0);
+            return new RTFValue(0);
 
         default:
             return RTFValue::Pointer_t();
@@ -235,14 +235,14 @@ static void cloneAndDeduplicateSprm(std::pair<Id, RTFValue::Pointer_t> const& rS
                 RTFSprms().cloneAndDeduplicate(rSprm.second->getAttributes()));
             if (!sprms.empty() || !attributes.empty())
             {
-                ret.set(rSprm.first, std::make_shared<RTFValue>(attributes, sprms));
+                ret.set(rSprm.first, new RTFValue(attributes, sprms));
             }
         }
     }
 }
 
 /// Extracts the list level matching nLevel from pAbstract.
-static RTFValue::Pointer_t getListLevel(RTFValue::Pointer_t pAbstract, int nLevel)
+static RTFValue::Pointer_t getListLevel(const RTFValue::Pointer_t& pAbstract, int nLevel)
 {
     for (const auto& rPair : pAbstract->getSprms())
     {
@@ -287,7 +287,7 @@ void RTFSprms::deduplicateList(const std::map<int, int>& rInvalidListLevelFirstI
         eraseNestedAttribute(*this, NS_ooxml::LN_CT_PPrBase_ind, NS_ooxml::LN_CT_Ind_firstLine);
 }
 
-void RTFSprms::duplicateList(RTFValue::Pointer_t pAbstract)
+void RTFSprms::duplicateList(const RTFValue::Pointer_t& pAbstract)
 {
     int nLevel = 0;
     RTFValue::Pointer_t pLevelId
@@ -371,8 +371,6 @@ RTFSprms::RTFSprms()
 }
 
 RTFSprms::~RTFSprms() = default;
-
-RTFSprms::RTFSprms(const RTFSprms& rSprms) { *this = rSprms; }
 
 void RTFSprms::clear()
 {

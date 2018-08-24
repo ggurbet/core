@@ -31,6 +31,7 @@
 #include <sfx2/newstyle.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxdlg.hxx>
 #include <svl/whiter.hxx>
 
 #include <svl/stritem.hxx>
@@ -56,11 +57,13 @@
 #include <editeng/shaditem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <editeng/fhgtitem.hxx>
+#include <sal/log.hxx>
 
 #include <formatsh.hxx>
 #include <sc.hrc>
 #include <scres.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <docsh.hxx>
 #include <patattr.hxx>
 #include <scmod.hxx>
@@ -137,7 +140,7 @@ ScFormatShell::ScFormatShell(ScViewData* pData) :
     ScTabViewShell* pTabViewShell = GetViewData()->GetViewShell();
 
     SetPool( &pTabViewShell->GetPool() );
-    ::svl::IUndoManager* pMgr = pViewData->GetSfxDocShell()->GetUndoManager();
+    SfxUndoManager* pMgr = pViewData->GetSfxDocShell()->GetUndoManager();
     SetUndoManager( pMgr );
     if ( !pViewData->GetDocument()->IsUndoEnabled() )
     {
@@ -571,7 +574,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                         {
                             if ( bUndo )
                             {
-                                OUString aUndo = ScGlobal::GetRscString( STR_UNDO_EDITCELLSTYLE );
+                                OUString aUndo = ScResId( STR_UNDO_EDITCELLSTYLE );
                                 pDocSh->GetUndoManager()->EnterListAction( aUndo, aUndo, 0, pTabViewShell->GetViewShellId() );
                                 bListAction = true;
                             }
@@ -629,7 +632,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
 
                                 if ( bUndo )
                                 {
-                                    OUString aUndo = ScGlobal::GetRscString( STR_UNDO_EDITCELLSTYLE );
+                                    OUString aUndo = ScResId( STR_UNDO_EDITCELLSTYLE );
                                     pDocSh->GetUndoManager()->EnterListAction( aUndo, aUndo, 0, pTabViewShell->GetViewShellId() );
                                     bListAction = true;
                                 }
@@ -857,10 +860,8 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                 pTabViewShell->SetInFormatDialog(true);
 
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
                 pDlg.disposeAndReset(pFact->CreateScStyleDlg( pParent, *pStyleSheet, nRsc, nRsc ));
-                OSL_ENSURE(pDlg, "Dialog create fail!");
                 short nResult = pDlg->Execute();
                 pTabViewShell->SetInFormatDialog(false);
 
@@ -1199,7 +1200,7 @@ void ScFormatShell::ExecuteNumFormat( SfxRequest& rReq )
                     OUString aCode = static_cast<const SfxStringItem*>(pItem)->GetValue();
                     sal_uInt16 aLen = aCode.getLength();
                     std::unique_ptr<OUString[]> sFormat( new OUString[4] );
-                    OUString sTmpStr = "";
+                    OUStringBuffer sTmpStr;
                     sal_uInt16 nCount(0);
                     sal_uInt16 nStrCount(0);
 
@@ -1209,13 +1210,12 @@ void ScFormatShell::ExecuteNumFormat( SfxRequest& rReq )
 
                         if(cChar == ',')
                         {
-                            sFormat[nStrCount] = sTmpStr;
-                            sTmpStr.clear();
+                            sFormat[nStrCount] = sTmpStr.makeStringAndClear();
                             nStrCount++;
                         }
                         else
                         {
-                            sTmpStr += OUStringLiteral1(cChar);
+                            sTmpStr.append(cChar);
                         }
 
                         nCount++;
@@ -2797,9 +2797,9 @@ void ScFormatShell::ExecFormatPaintbrush( const SfxRequest& rReq )
         if ( pViewData->GetSimpleArea(aDummy) != SC_MARK_SIMPLE )
             pView->Unmark();
 
-        ScDocument* pBrushDoc = new ScDocument( SCDOCMODE_CLIP );
-        pView->CopyToClip( pBrushDoc, false, true );
-        pView->SetBrushDocument( pBrushDoc, bLock );
+        std::unique_ptr<ScDocument> pBrushDoc(new ScDocument( SCDOCMODE_CLIP ));
+        pView->CopyToClip( pBrushDoc.get(), false, true );
+        pView->SetBrushDocument( std::move(pBrushDoc), bLock );
     }
 }
 

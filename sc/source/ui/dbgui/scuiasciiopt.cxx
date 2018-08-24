@@ -285,11 +285,11 @@ ScImportAsciiDlg::ScImportAsciiDlg( vcl::Window* pParent, const OUString& aDatNa
         mpRowPosArray( nullptr ),
         mnRowPosCount(0),
 
-        aCharSetUser( ScResId( SCSTR_CHARSET_USER ) ),
         aColumnUser ( ScResId( SCSTR_COLUMN_USER ) ),
         aTextSepList(SCSTR_TEXTSEP),
         mcTextSep   ( ScAsciiOptions::cDefaultTextSep ),
-        meCall(eCall)
+        meCall(eCall),
+        mbDetectSpaceSep(eCall != SC_TEXTTOCOLUMNS)
 {
     get(pFtCharSet, "textcharset");
     get(pLbCharSet, "charset");
@@ -447,7 +447,7 @@ ScImportAsciiDlg::ScImportAsciiDlg( vcl::Window* pParent, const OUString& aDatNa
     pLbCharSet->FillFromTextEncodingTable( true );
     // Insert one "SYSTEM" entry for compatibility in AsciiOptions and system
     // independent document linkage.
-    pLbCharSet->InsertTextEncoding( RTL_TEXTENCODING_DONTKNOW, aCharSetUser );
+    pLbCharSet->InsertTextEncoding( RTL_TEXTENCODING_DONTKNOW, ScResId( SCSTR_CHARSET_USER ) );
     if ( ePreselectUnicode == RTL_TEXTENCODING_DONTKNOW )
     {
         rtl_TextEncoding eSystemEncoding = osl_getThreadTextEncoding();
@@ -531,7 +531,7 @@ ScImportAsciiDlg::~ScImportAsciiDlg()
 
 void ScImportAsciiDlg::dispose()
 {
-    delete[] mpRowPosArray;
+    mpRowPosArray.reset();
     pFtCharSet.clear();
     pLbCharSet.clear();
     pFtCustomLang.clear();
@@ -559,7 +559,7 @@ void ScImportAsciiDlg::dispose()
     ModalDialog::dispose();
 }
 
-bool ScImportAsciiDlg::GetLine( sal_uLong nLine, OUString &rText )
+bool ScImportAsciiDlg::GetLine( sal_uLong nLine, OUString &rText, sal_Unicode& rcDetectSep )
 {
     if (nLine >= ASCIIDLG_MAXROWS || !mpDatStream)
         return false;
@@ -568,11 +568,11 @@ bool ScImportAsciiDlg::GetLine( sal_uLong nLine, OUString &rText )
     bool bFixed = pRbFixed->IsChecked();
 
     if (!mpRowPosArray)
-        mpRowPosArray = new sal_uLong[ASCIIDLG_MAXROWS + 2];
+        mpRowPosArray.reset( new sal_uLong[ASCIIDLG_MAXROWS + 2] );
 
     if (!mnRowPosCount) // complete re-fresh
     {
-        memset( mpRowPosArray, 0, sizeof(mpRowPosArray[0]) * (ASCIIDLG_MAXROWS+2));
+        memset( mpRowPosArray.get(), 0, sizeof(mpRowPosArray[0]) * (ASCIIDLG_MAXROWS+2));
 
         Seek(0);
         mpDatStream->StartReadingUnicodeText( mpDatStream->GetStreamCharSet() );
@@ -592,7 +592,7 @@ bool ScImportAsciiDlg::GetLine( sal_uLong nLine, OUString &rText )
                 break;
             }
             rText = ReadCsvLine(*mpDatStream, !bFixed, maFieldSeparators,
-                    mcTextSep);
+                    mcTextSep, rcDetectSep);
             mnStreamPos = mpDatStream->Tell();
             mpRowPosArray[++mnRowPosCount] = mnStreamPos;
         } while (nLine >= mnRowPosCount && mpDatStream->good());
@@ -607,7 +607,7 @@ bool ScImportAsciiDlg::GetLine( sal_uLong nLine, OUString &rText )
     else
     {
         Seek( mpRowPosArray[nLine]);
-        rText = ReadCsvLine(*mpDatStream, !bFixed, maFieldSeparators, mcTextSep);
+        rText = ReadCsvLine(*mpDatStream, !bFixed, maFieldSeparators, mcTextSep, rcDetectSep);
         mnStreamPos = mpDatStream->Tell();
     }
 
@@ -806,6 +806,12 @@ IMPL_LINK( ScImportAsciiDlg, LbColTypeHdl, ListBox&, rListBox, void )
 
 IMPL_LINK_NOARG(ScImportAsciiDlg, UpdateTextHdl, ScCsvTableBox&, void)
 {
+    // Checking the separator can only be done once for the very first time
+    // when the dialog wasn't already presented to the user.
+    // As a side effect this has the benefit that the check is only done on the
+    // first set of visible lines.
+    sal_Unicode cDetectSep = (mbDetectSpaceSep && !pRbFixed->IsChecked() && !pCkbSpace->IsChecked() ? 0 : 0xffff);
+
     sal_Int32 nBaseLine = mpTableBox->GetFirstVisLine();
     sal_Int32 nRead = mpTableBox->GetVisLineCount();
     // If mnRowPosCount==0, this is an initializing call, read ahead for row
@@ -818,11 +824,24 @@ IMPL_LINK_NOARG(ScImportAsciiDlg, UpdateTextHdl, ScCsvTableBox&, void)
     sal_Int32 i;
     for (i = 0; i < nRead; i++)
     {
-        if (!GetLine( nBaseLine + i, maPreviewLine[i]))
+        if (!GetLine( nBaseLine + i, maPreviewLine[i], cDetectSep))
             break;
     }
     for (; i < CSV_PREVIEW_LINES; i++)
         maPreviewLine[i].clear();
+
+    if (mbDetectSpaceSep)
+    {
+        mbDetectSpaceSep = false;
+        if (cDetectSep == ' ')
+        {
+            // Expect space to be appended by now so all subsequent
+            // GetLine()/ReadCsvLine() actually used it.
+            assert(maFieldSeparators.endsWith(" "));
+            // Preselect Space in UI.
+            pCkbSpace->Check();
+        }
+    }
 
     mpTableBox->Execute( CSVCMD_SETLINECOUNT, mnRowPosCount);
     bool bMergeSep = pCkbAsOnce->IsChecked();

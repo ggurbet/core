@@ -291,13 +291,13 @@ protected:
     virtual sal_uLong Insert( SvTreeListEntry* pEntry,sal_uLong nRootPos = TREELIST_APPEND );
 
     // In-place editing
-    SvInplaceEdit2*  pEdCtrl;
+    std::unique_ptr<SvInplaceEdit2>  pEdCtrl;
     void            EditText( const OUString&, const tools::Rectangle&,const Selection&);
     void            CancelTextEditing();
     bool            EditingCanceled() const;
 
     // Return value must be derived from SvViewDataEntry!
-    virtual SvViewDataEntry* CreateViewData( SvTreeListEntry* ) override;
+    virtual std::unique_ptr<SvViewDataEntry> CreateViewData( SvTreeListEntry* ) override;
     // InitViewData is called right after CreateViewData
     // The Entry is has not yet been added to the View in InitViewData!
     virtual void InitViewData( SvViewDataEntry*, SvTreeListEntry* pEntry ) override;
@@ -365,8 +365,6 @@ public:
     }
 
     SvTreeListEntry* FirstChild( SvTreeListEntry* pParent ) const;
-    static SvTreeListEntry* NextSibling( SvTreeListEntry* pEntry );
-    static SvTreeListEntry* PrevSibling( SvTreeListEntry* pEntry );
 
     bool            CopySelection( SvTreeListBox* pSource, SvTreeListEntry* pTarget );
     bool            MoveSelectionCopyFallbackPossible( SvTreeListBox* pSource, SvTreeListEntry* pTarget, bool bAllowCopyFallback );
@@ -584,8 +582,6 @@ public:
 
     void            SetNoAutoCurEntry( bool b );
 
-    void            DisconnectFromModel();
-
     void            EnableCheckButton( SvLBoxButtonData* );
     void            SetCheckButtonData( SvLBoxButtonData* );
     void            SetNodeBitmaps( const Image& rCollapsedNodeBmp, const Image& rExpandedNodeBmp );
@@ -647,7 +643,7 @@ public:
 
     void            SetSublistOpenWithReturn();      // open/close sublist with return/enter
     void            SetSublistOpenWithLeftRight();   // open/close sublist with cursor left/right
-    void            SetSublistDontOpenWithDoubleClick(); // do not open/close sublist with mouse double click on entry
+    void            SetSublistDontOpenWithDoubleClick( bool bDontOpen ); // set mouse double click open/close sublist behavior
 
     void            EnableInplaceEditing( bool bEnable );
     // Edits the Entry's first StringItem, 0 == Cursor
@@ -719,7 +715,7 @@ public:
     virtual bool    Collapse( SvTreeListEntry* pParent );
     virtual bool    Select( SvTreeListEntry* pEntry, bool bSelect=true );
     sal_uLong       SelectChildren( SvTreeListEntry* pParent, bool bSelect );
-    virtual void    SelectAll( bool bSelect, bool bPaint = true );
+    void            SelectAll( bool bSelect, bool bPaint = true );
 
     void SetCurEntry( SvTreeListEntry* _pEntry );
     SvTreeListEntry* GetCurEntry() const;

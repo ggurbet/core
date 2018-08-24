@@ -21,6 +21,7 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
 #include <editeng/langitem.hxx>
+#include <editeng/outlobj.hxx>
 #include <svx/langbox.hxx>
 #include <svx/svdotext.hxx>
 #include <editeng/editeng.hxx>
@@ -37,6 +38,7 @@
 #include <DrawDocShell.hxx>
 #include <drawdoc.hxx>
 #include <ViewShell.hxx>
+#include <sdmod.hxx>
 
 // preview control for presentation layout
 #include <vcl/ctrl.hxx>
@@ -210,9 +212,9 @@ HeaderFooterDialog::HeaderFooterDialog( ViewShell* pViewShell, vcl::Window* pPar
         aCtrlSiz = aSiz;
     }
 
-    mnNotesId = mpTabCtrl->GetPageId("notes");
+    sal_uInt16 nNotesId = mpTabCtrl->GetPageId("notes");
     mpNotesHandoutsTabPage = VclPtr<HeaderFooterTabPage>::Create( mpTabCtrl, pDoc, pNotes, true );
-    mpTabCtrl->SetTabPage( mnNotesId, mpNotesHandoutsTabPage );
+    mpTabCtrl->SetTabPage( nNotesId, mpNotesHandoutsTabPage );
 
     get(maPBApplyToAll, "apply_all" );
     get(maPBApply, "apply" );
@@ -481,13 +483,12 @@ void HeaderFooterTabPage::FillFormatList( sal_Int32 nSelectedPos )
 
     mpCBDateTimeFormat->Clear();
 
-    Date aDate( Date::SYSTEM );
-    tools::Time aTime( tools::Time::SYSTEM );
+    DateTime aDateTime( DateTime::SYSTEM );
 
     for( int nFormat = 0; nFormat < nDateTimeFormatsCount; nFormat++ )
     {
         OUString aStr( SvxDateTimeField::GetFormatted(
-                aDate, aTime,
+                aDateTime, aDateTime,
                 nDateTimeFormats[nFormat].meDateFormat, nDateTimeFormats[nFormat].meTimeFormat,
                 *(SD_MOD()->GetNumberFormatter()), eLanguage ) );
         const sal_Int32 nEntry = mpCBDateTimeFormat->InsertEntry( aStr );

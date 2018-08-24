@@ -10,7 +10,8 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/lang/Locale.hpp>
 #include <osl/diagnose.h>
-
+#include <sal/log.hxx>
+#include <unotools/localedatawrapper.hxx>
 #include <formulaopt.hxx>
 #include <miscuno.hxx>
 #include <global.hxx>

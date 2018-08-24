@@ -20,7 +20,6 @@
 #define INCLUDED_CHART2_SOURCE_CONTROLLER_INC_DLG_INSERTDATALABEL_HXX
 
 #include <vcl/dialog.hxx>
-#include <vcl/button.hxx>
 #include <svl/itemset.hxx>
 #include <memory>
 
@@ -37,8 +36,6 @@ private:
 //     CancelButton        m_aBtnCancel;
 //     HelpButton          m_aBtnHelp;
     std::unique_ptr < DataLabelResources >    m_apDataLabelResources;
-
-    const SfxItemSet&   m_rInAttrs;
 
 public:
     DataLabelsDialog(vcl::Window* pParent, const SfxItemSet& rInAttrs, SvNumberFormatter* pFormatter);

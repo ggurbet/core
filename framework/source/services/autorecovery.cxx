@@ -90,6 +90,7 @@
 #include <osl/time.h>
 #include <vcl/weld.hxx>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 #include <unotools/bootstrap.hxx>
 #include <unotools/configmgr.hxx>
 #include <svl/documentlockfile.hxx>
@@ -390,7 +391,7 @@ private:
     Timer m_aTimer;
 
     /** @short  make our dispatch asynchronous ... if required to do so! */
-    vcl::EventPoster m_aAsyncDispatcher;
+    std::unique_ptr<vcl::EventPoster> m_xAsyncDispatcher;
 
     /** @see    DispatchParams
      */
@@ -937,7 +938,7 @@ private:
                 b) We must create our own progress e.g. for an AutoSave
                 c) Sometimes our application filters don't use the progress
                    provided by the MediaDescriptor. They use the Frame every time to create
-                   it's own progress. So we implemented a HACK for these and now we set
+                   its own progress. So we implemented a HACK for these and now we set
                    an InterceptedProgress there for the time WE use this frame for loading/storing documents .-)
 
         @param  xNewFrame
@@ -1208,7 +1209,7 @@ AutoRecovery::AutoRecovery(const css::uno::Reference< css::uno::XComponentContex
     , m_nAutoSaveTimeIntervall  (0                                                  )
     , m_eJob                    (AutoRecovery::E_NO_JOB                             )
     , m_aTimer                  ( "Auto save timer" )
-    , m_aAsyncDispatcher        ( LINK( this, AutoRecovery, implts_asyncDispatch )  )
+    , m_xAsyncDispatcher        (new vcl::EventPoster( LINK( this, AutoRecovery, implts_asyncDispatch )  ))
     , m_eTimerType              (E_DONT_START_TIMER                                 )
     , m_nIdPool                 (0                                                  )
     , m_lListener               (cppu::WeakComponentImplHelperBase::rBHelper.rMutex)
@@ -1240,6 +1241,8 @@ AutoRecovery::~AutoRecovery()
 void AutoRecovery::disposing()
 {
     implts_stopTimer();
+    SolarMutexGuard g;
+    m_xAsyncDispatcher.reset();
 }
 
 Any SAL_CALL AutoRecovery::queryInterface( const css::uno::Type& _rType )
@@ -1334,7 +1337,7 @@ void SAL_CALL AutoRecovery::dispatch(const css::util::URL&                      
     } /* SAFE */
 
     if (bAsync)
-        m_aAsyncDispatcher.Post();
+        m_xAsyncDispatcher->Post();
     else
         implts_dispatch(aParams);
 }
@@ -2000,7 +2003,7 @@ void AutoRecovery::implts_flushConfigItem(const AutoRecovery::TDocumentInfo& rIn
 
         OUStringBuffer sIDBuf;
         sIDBuf.append(RECOVERY_ITEM_BASE_IDENTIFIER);
-        sIDBuf.append(static_cast<sal_Int32>(rInfo.ID));
+        sIDBuf.append(rInfo.ID);
         OUString sID = sIDBuf.makeStringAndClear();
 
         // remove
@@ -3623,7 +3626,7 @@ void AutoRecovery::implts_doEmergencySave(const DispatchParams& aParams)
     officecfg::Office::Recovery::RecoveryInfo::Crashed::set(true, batch);
     batch->commit();
 
-    // for all docs, store their current view/names in the configurtion
+    // for all docs, store their current view/names in the configuration
     implts_persistAllActiveViewNames();
 
     // The called method for saving documents runs
@@ -3688,7 +3691,7 @@ void AutoRecovery::implts_doSessionSave(const DispatchParams& aParams)
     // Be sure to know all open documents really .-)
     implts_verifyCacheAgainstDesktopDocumentList();
 
-    // for all docs, store their current view/names in the configurtion
+    // for all docs, store their current view/names in the configuration
     implts_persistAllActiveViewNames();
 
     // The called method for saving documents runs
@@ -4102,7 +4105,7 @@ void AutoRecovery::impl_establishProgress(const AutoRecovery::TDocumentInfo&    
 
     // HACK
     // An external provided progress (most given by the CrashSave/Recovery dialog)
-    // must be preferred. But we know that some application filters query it's own progress instance
+    // must be preferred. But we know that some application filters query its own progress instance
     // at the frame method Frame::createStatusIndicator().
     // So we use a two step mechanism:
     // 1) we set the progress inside the MediaDescriptor, which will be provided to the filter

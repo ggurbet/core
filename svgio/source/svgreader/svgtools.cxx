@@ -18,6 +18,7 @@
  */
 
 #include <svgtools.hxx>
+#include <sal/log.hxx>
 #include <osl/thread.h>
 #include <tools/color.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
@@ -594,7 +595,7 @@ namespace svgio
                 // convert to radians
                 if(deg == aType)
                 {
-                    fAngle *= F_PI / 180.0;
+                    fAngle = basegfx::deg2rad(fAngle);
                 }
                 else if(grad == aType)
                 {

@@ -26,7 +26,7 @@
 #include <svx/svdetc.hxx>
 #include <svx/svdoutl.hxx>
 #include <svx/svdmodel.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <editeng/writingmodeitem.hxx>
 #include <svx/sdtfchim.hxx>
@@ -60,20 +60,21 @@
 #include <drawinglayer/geometry/viewinformation2d.hxx>
 #include <vcl/virdev.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
-#include "svdconv.hxx"
+#include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 using namespace com::sun::star;
 
 // BaseProperties section
-sdr::properties::BaseProperties* SdrTextObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> SdrTextObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::TextProperties(*this);
+    return o3tl::make_unique<sdr::properties::TextProperties>(*this);
 }
 
 // DrawContact section
-sdr::contact::ViewContact* SdrTextObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrTextObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfTextObj(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfTextObj>(*this);
 }
 
 SdrTextObj::SdrTextObj(SdrModel& rSdrModel)
@@ -85,7 +86,6 @@ SdrTextObj::SdrTextObj(SdrModel& rSdrModel)
     bTextSizeDirty=false;
     bTextFrame=false;
     bNoShear=false;
-    bNoMirror=false;
     bDisableAutoWidthOnDragging=false;
 
     mbInEditMode = false;
@@ -109,7 +109,6 @@ SdrTextObj::SdrTextObj(
     bTextSizeDirty=false;
     bTextFrame=false;
     bNoShear=false;
-    bNoMirror=false;
     bDisableAutoWidthOnDragging=false;
     ImpJustifyRect(maRect);
 
@@ -133,7 +132,6 @@ SdrTextObj::SdrTextObj(
     bTextSizeDirty=false;
     bTextFrame=true;
     bNoShear=true;
-    bNoMirror=true;
     bDisableAutoWidthOnDragging=false;
 
     mbInEditMode = false;
@@ -158,7 +156,6 @@ SdrTextObj::SdrTextObj(
     bTextSizeDirty=false;
     bTextFrame=true;
     bNoShear=true;
-    bNoMirror=true;
     bDisableAutoWidthOnDragging=false;
     ImpJustifyRect(maRect);
 
@@ -211,10 +208,10 @@ void SdrTextObj::NbcSetText(const OUString& rStr)
     rOutliner.SetStyleSheet( 0, GetStyleSheet());
     rOutliner.SetUpdateMode(true);
     rOutliner.SetText(rStr,rOutliner.GetParagraph( 0 ));
-    OutlinerParaObject* pNewText=rOutliner.CreateParaObject();
+    std::unique_ptr<OutlinerParaObject> pNewText=rOutliner.CreateParaObject();
     Size aSiz(rOutliner.CalcTextSize());
     rOutliner.Clear();
-    NbcSetOutlinerParaObject(pNewText);
+    NbcSetOutlinerParaObject(std::move(pNewText));
     aTextSize=aSiz;
     bTextSizeDirty=false;
 }
@@ -233,11 +230,11 @@ void SdrTextObj::NbcSetText(SvStream& rInput, const OUString& rBaseURL, EETextFo
     SdrOutliner& rOutliner=ImpGetDrawOutliner();
     rOutliner.SetStyleSheet( 0, GetStyleSheet());
     rOutliner.Read(rInput,rBaseURL,eFormat);
-    OutlinerParaObject* pNewText=rOutliner.CreateParaObject();
+    std::unique_ptr<OutlinerParaObject> pNewText=rOutliner.CreateParaObject();
     rOutliner.SetUpdateMode(true);
     Size aSiz(rOutliner.CalcTextSize());
     rOutliner.Clear();
-    NbcSetOutlinerParaObject(pNewText);
+    NbcSetOutlinerParaObject(std::move(pNewText));
     aTextSize=aSiz;
     bTextSizeDirty=false;
 }
@@ -457,19 +454,22 @@ bool SdrTextObj::HasTextImpl( SdrOutliner const * pOutliner )
     return bRet;
 }
 
-void SdrTextObj::SetPage(SdrPage* pNewPage)
+void SdrTextObj::handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage)
 {
-    bool bRemove=pNewPage==nullptr && pPage!=nullptr;
-    bool bInsert=pNewPage!=nullptr && pPage==nullptr;
-    bool bLinked=IsLinkedText();
+    const bool bRemove(pNewPage == nullptr && pOldPage != nullptr);
+    const bool bInsert(pNewPage != nullptr && pOldPage == nullptr);
+    const bool bLinked(IsLinkedText());
 
-    if (bLinked && bRemove) {
+    if (bLinked && bRemove)
+    {
         ImpDeregisterLink();
     }
 
-    SdrAttrObj::SetPage(pNewPage);
+    // call parent
+    SdrAttrObj::handlePageChange(pOldPage, pNewPage);
 
-    if (bLinked && bInsert) {
+    if (bLinked && bInsert)
+    {
         ImpRegisterLink();
     }
 }
@@ -570,7 +570,7 @@ void SdrTextObj::ImpSetContourPolygon( SdrOutliner& rOutliner, tools::Rectangle 
         if(bShadowOn)
         {
             // force shadow off
-            SdrObject* pCopy = Clone();
+            SdrObject* pCopy(CloneSdrObject(getSdrModelFromSdrObject()));
             pCopy->SetMergedItem(makeSdrShadowItem(false));
             *pContourPolyPolygon = pCopy->TakeContour();
             SdrObject::Free( pCopy );
@@ -713,7 +713,7 @@ void SdrTextObj::TakeTextRect( SdrOutliner& rOutliner, tools::Rectangle& rTextRe
     // put text into the outliner, if available from the edit outliner
     SdrText* pText = getActiveText();
     OutlinerParaObject* pOutlinerParaObject = pText ? pText->GetOutlinerParaObject() : nullptr;
-    OutlinerParaObject* pPara = (pEdtOutl && !bNoEditText) ? pEdtOutl->CreateParaObject() : pOutlinerParaObject;
+    OutlinerParaObject* pPara = (pEdtOutl && !bNoEditText) ? pEdtOutl->CreateParaObject().release() : pOutlinerParaObject;
 
     if (pPara)
     {
@@ -804,9 +804,9 @@ void SdrTextObj::TakeTextRect( SdrOutliner& rOutliner, tools::Rectangle& rTextRe
         rTextRect=aAnkRect;
 }
 
-OutlinerParaObject* SdrTextObj::GetEditOutlinerParaObject() const
+std::unique_ptr<OutlinerParaObject> SdrTextObj::GetEditOutlinerParaObject() const
 {
-    OutlinerParaObject* pPara=nullptr;
+    std::unique_ptr<OutlinerParaObject> pPara;
     if( HasTextImpl( pEdtOutl ) )
     {
         sal_Int32 nParaCount = pEdtOutl->GetParagraphCount();
@@ -933,22 +933,22 @@ OUString SdrTextObj::TakeObjNameSingul() const
     {
         case OBJ_OUTLINETEXT:
         {
-            aStr = ImpGetResStr(STR_ObjNameSingulOUTLINETEXT);
+            aStr = SvxResId(STR_ObjNameSingulOUTLINETEXT);
             break;
         }
 
         case OBJ_TITLETEXT  :
         {
-            aStr = ImpGetResStr(STR_ObjNameSingulTITLETEXT);
+            aStr = SvxResId(STR_ObjNameSingulTITLETEXT);
             break;
         }
 
         default:
         {
             if(IsLinkedText())
-                aStr = ImpGetResStr(STR_ObjNameSingulTEXTLNK);
+                aStr = SvxResId(STR_ObjNameSingulTEXTLNK);
             else
-                aStr = ImpGetResStr(STR_ObjNameSingulTEXT);
+                aStr = SvxResId(STR_ObjNameSingulTEXT);
             break;
         }
     }
@@ -997,30 +997,31 @@ OUString SdrTextObj::TakeObjNamePlural() const
 {
     OUString sName;
     switch (eTextKind) {
-        case OBJ_OUTLINETEXT: sName=ImpGetResStr(STR_ObjNamePluralOUTLINETEXT); break;
-        case OBJ_TITLETEXT  : sName=ImpGetResStr(STR_ObjNamePluralTITLETEXT);   break;
+        case OBJ_OUTLINETEXT: sName=SvxResId(STR_ObjNamePluralOUTLINETEXT); break;
+        case OBJ_TITLETEXT  : sName=SvxResId(STR_ObjNamePluralTITLETEXT);   break;
         default: {
             if (IsLinkedText()) {
-                sName=ImpGetResStr(STR_ObjNamePluralTEXTLNK);
+                sName=SvxResId(STR_ObjNamePluralTEXTLNK);
             } else {
-                sName=ImpGetResStr(STR_ObjNamePluralTEXT);
+                sName=SvxResId(STR_ObjNamePluralTEXT);
             }
         } break;
     } // switch
     return sName;
 }
 
-SdrTextObj* SdrTextObj::Clone(SdrModel* pTargetModel) const
+SdrTextObj* SdrTextObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrTextObj >(pTargetModel);
+    return CloneHelper< SdrTextObj >(rTargetModel);
 }
 
 SdrTextObj& SdrTextObj::operator=(const SdrTextObj& rObj)
 {
     if( this == &rObj )
         return *this;
-    // call parent
-    SdrObject::operator=(rObj);
+
+    // call parent. tdf#116979: use the correct parent class
+    SdrAttrObj::operator=(rObj);
 
     maRect = rObj.maRect;
     aGeo      =rObj.aGeo;
@@ -1031,27 +1032,31 @@ SdrTextObj& SdrTextObj::operator=(const SdrTextObj& rObj)
 
     // Not all of the necessary parameters were copied yet.
     bNoShear = rObj.bNoShear;
-    bNoMirror = rObj.bNoMirror;
     bDisableAutoWidthOnDragging = rObj.bDisableAutoWidthOnDragging;
-
-    OutlinerParaObject* pNewOutlinerParaObject = nullptr;
-
     SdrText* pText = getActiveText();
 
     if( pText && rObj.HasText() )
     {
+        // before pNewOutlinerParaObject was created the same, but
+        // set at mpText (outside this scope), but mpText might be
+        // empty (this operator== seems not prepared for MultiText
+        // objects). In the current form it makes only sense to
+        // create locally and use locally on a known existing SdrText
         const Outliner* pEO=rObj.pEdtOutl;
+        std::unique_ptr<OutlinerParaObject> pNewOutlinerParaObject;
+
         if (pEO!=nullptr)
         {
             pNewOutlinerParaObject = pEO->CreateParaObject();
         }
         else
         {
-            pNewOutlinerParaObject = new OutlinerParaObject(*rObj.getActiveText()->GetOutlinerParaObject());
+            pNewOutlinerParaObject.reset( new OutlinerParaObject(*rObj.getActiveText()->GetOutlinerParaObject()) );
         }
+
+        pText->SetOutlinerParaObject( std::move(pNewOutlinerParaObject) );
     }
 
-    mpText->SetOutlinerParaObject( pNewOutlinerParaObject );
     ImpSetTextStyleSheetListeners();
     return *this;
 }
@@ -1125,31 +1130,6 @@ Point SdrTextObj::GetSnapPoint(sal_uInt32 i) const
     if (aGeo.nShearAngle!=0) ShearPoint(aP,maRect.TopLeft(),aGeo.nTan);
     if (aGeo.nRotationAngle!=0) RotatePoint(aP,maRect.TopLeft(),aGeo.nSin,aGeo.nCos);
     return aP;
-}
-
-void SdrTextObj::ImpCheckMasterCachable()
-{
-    bNotMasterCachable=false;
-
-    OutlinerParaObject* pOutlinerParaObject = GetOutlinerParaObject();
-
-    if(!bNotVisibleAsMaster && pOutlinerParaObject && pOutlinerParaObject->IsEditDoc() )
-    {
-        const EditTextObject& rText= pOutlinerParaObject->GetTextObject();
-        bNotMasterCachable=rText.HasField(SvxPageField::StaticClassId());
-        if( !bNotMasterCachable )
-        {
-            bNotMasterCachable=rText.HasField(SvxHeaderField::StaticClassId());
-            if( !bNotMasterCachable )
-            {
-                bNotMasterCachable=rText.HasField(SvxFooterField::StaticClassId());
-                if( !bNotMasterCachable )
-                {
-                    bNotMasterCachable=rText.HasField(SvxDateTimeField::StaticClassId());
-                }
-            }
-        }
-    }
 }
 
 // Extracted from ImpGetDrawOutliner()
@@ -1391,15 +1371,15 @@ OutlinerParaObject* SdrTextObj::GetOutlinerParaObject() const
         return nullptr;
 }
 
-void SdrTextObj::NbcSetOutlinerParaObject(OutlinerParaObject* pTextObject)
+void SdrTextObj::NbcSetOutlinerParaObject(std::unique_ptr<OutlinerParaObject> pTextObject)
 {
-    NbcSetOutlinerParaObjectForText( pTextObject, getActiveText() );
+    NbcSetOutlinerParaObjectForText( std::move(pTextObject), getActiveText() );
 }
 
-void SdrTextObj::NbcSetOutlinerParaObjectForText( OutlinerParaObject* pTextObject, SdrText* pText )
+void SdrTextObj::NbcSetOutlinerParaObjectForText( std::unique_ptr<OutlinerParaObject> pTextObject, SdrText* pText )
 {
     if( pText )
-        pText->SetOutlinerParaObject( pTextObject );
+        pText->SetOutlinerParaObject( std::move(pTextObject) );
 
     if (pText && pText->GetOutlinerParaObject())
     {
@@ -1426,7 +1406,6 @@ void SdrTextObj::NbcSetOutlinerParaObjectForText( OutlinerParaObject* pTextObjec
     ActionChanged();
 
     ImpSetTextStyleSheetListeners();
-    ImpCheckMasterCachable();
 }
 
 void SdrTextObj::NbcReformatText()
@@ -1624,8 +1603,8 @@ void SdrTextObj::SetVerticalWriting(bool bVertical)
 bool SdrTextObj::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegfx::B2DPolyPolygon& /*rPolyPolygon*/) const
 {
     // get turn and shear
-    double fRotate = (aGeo.nRotationAngle / 100.0) * F_PI180;
-    double fShearX = (aGeo.nShearAngle / 100.0) * F_PI180;
+    double fRotate = basegfx::deg2rad(aGeo.nRotationAngle / 100.0);
+    double fShearX = basegfx::deg2rad(aGeo.nShearAngle / 100.0);
 
     // get aRect, this is the unrotated snaprect
     tools::Rectangle aRectangle(maRect);
@@ -1640,31 +1619,6 @@ bool SdrTextObj::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegfx::B2DP
         if(GetAnchorPos().X() || GetAnchorPos().Y())
         {
             aTranslate -= basegfx::B2DTuple(GetAnchorPos().X(), GetAnchorPos().Y());
-        }
-    }
-
-    // force MapUnit to 100th mm
-    const MapUnit eMapUnit(GetObjectMapUnit());
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aTranslate.setX(ImplTwipsToMM(aTranslate.getX()));
-                aTranslate.setY(ImplTwipsToMM(aTranslate.getY()));
-
-                // size
-                aScale.setX(ImplTwipsToMM(aScale.getX()));
-                aScale.setY(ImplTwipsToMM(aScale.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRGetBaseGeometry: Missing unit translation to 100th mm!");
-            }
         }
     }
 
@@ -1708,31 +1662,6 @@ void SdrTextObj::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, const b
     aGeo.nShearAngle = 0;
     aGeo.RecalcTan();
 
-    // force metric to pool metric
-    const MapUnit eMapUnit(GetObjectMapUnit());
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aTranslate.setX(ImplMMToTwips(aTranslate.getX()));
-                aTranslate.setY(ImplMMToTwips(aTranslate.getY()));
-
-                // size
-                aScale.setX(ImplMMToTwips(aScale.getX()));
-                aScale.setY(ImplMMToTwips(aScale.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRSetBaseGeometry: Missing unit translation to PoolMetric!");
-            }
-        }
-    }
-
     // if anchor is used, make position relative to it
     if( getSdrModelFromSdrObject().IsWriter() )
     {
@@ -1743,9 +1672,8 @@ void SdrTextObj::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, const b
     }
 
     // build and set BaseRect (use scale)
-    Point aPoint = Point();
     Size aSize(FRound(aScale.getX()), FRound(aScale.getY()));
-    tools::Rectangle aBaseRect(aPoint, aSize);
+    tools::Rectangle aBaseRect(Point(), aSize);
     SetSnapRect(aBaseRect);
 
     // flip?
@@ -1762,7 +1690,7 @@ void SdrTextObj::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, const b
     if(!basegfx::fTools::equalZero(fShearX))
     {
         GeoStat aGeoStat;
-        aGeoStat.nShearAngle = FRound((atan(fShearX) / F_PI180) * 100.0);
+        aGeoStat.nShearAngle = FRound(basegfx::rad2deg(atan(fShearX)) * 100.0);
         aGeoStat.RecalcTan();
         Shear(Point(), aGeoStat.nShearAngle, aGeoStat.nTan, false);
     }
@@ -1775,7 +1703,7 @@ void SdrTextObj::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, const b
         // #i78696#
         // fRotate is matematically correct, but aGeoStat.nRotationAngle is
         // mirrored -> mirror value here
-        aGeoStat.nRotationAngle = NormAngle360(FRound(-fRotate / F_PI18000));
+        aGeoStat.nRotationAngle = NormAngle36000(FRound(-fRotate / F_PI18000));
         aGeoStat.RecalcSinCos();
         Rotate(Point(), aGeoStat.nRotationAngle, aGeoStat.nSin, aGeoStat.nCos);
     }
@@ -1999,7 +1927,7 @@ void ImpUpdateChainLinks(SdrTextObj *pTextObj, OUString const& aNextLinkName)
         return;
     }
 
-    SdrPage *pPage = pTextObj->GetPage();
+    SdrPage *pPage(pTextObj->getSdrPageFromSdrObject());
     assert(pPage);
     SdrTextObj *pNextTextObj = dynamic_cast< SdrTextObj * >
                                 (ImpGetObjByName(pPage, aNextLinkName));

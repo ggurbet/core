@@ -49,31 +49,12 @@ struct FmFormModelImplData
     }
 };
 
-FmFormModel::FmFormModel(SfxItemPool* pPool, SfxObjectShell* pPers)
-    : SdrModel(pPool, pPers)
-    , m_pImpl(nullptr)
-    , m_pObjShell(nullptr)
-    , m_bOpenInDesignMode(false)
-    , m_bAutoControlFocus(false)
-{
-    m_pImpl.reset( new FmFormModelImplData );
-    m_pImpl->mxUndoEnv = new FmXUndoEnvironment(*this);
-}
-
-FmFormModel::FmFormModel(const OUString& rPath, SfxItemPool* pPool, SfxObjectShell* pPers)
-    : SdrModel(rPath, pPool, pPers, false)
-    , m_pImpl(nullptr)
-    , m_pObjShell(nullptr)
-    , m_bOpenInDesignMode(false)
-    , m_bAutoControlFocus(false)
-{
-    m_pImpl.reset( new FmFormModelImplData );
-    m_pImpl->mxUndoEnv = new FmXUndoEnvironment(*this);
-}
-
-FmFormModel::FmFormModel(const OUString& rPath, SfxItemPool* pPool, SfxObjectShell* pPers,
-                         bool bUseExtColorTable)
-    : SdrModel(rPath, pPool, pPers, bUseExtColorTable)
+FmFormModel::FmFormModel(
+    SfxItemPool* pPool,
+    SfxObjectShell* pPers)
+:   SdrModel(
+        pPool,
+        pPers)
     , m_pImpl(nullptr)
     , m_pObjShell(nullptr)
     , m_bOpenInDesignMode(false)
@@ -100,7 +81,7 @@ SdrPage* FmFormModel::AllocPage(bool bMasterPage)
 
 void FmFormModel::InsertPage(SdrPage* pPage, sal_uInt16 nPos)
 {
-    // hack solange method intern
+    // hack for as long as the method is internal
     if (m_pObjShell && !m_pImpl->mxUndoEnv->IsListening( *m_pObjShell ))
         SetObjectShell(m_pObjShell);
 
@@ -126,7 +107,7 @@ SdrPage* FmFormModel::RemovePage(sal_uInt16 nPgNum)
 
 void FmFormModel::InsertMasterPage(SdrPage* pPage, sal_uInt16 nPos)
 {
-    // hack solange method intern
+    // hack for as long as the method is internal
     if (m_pObjShell && !m_pImpl->mxUndoEnv->IsListening( *m_pObjShell ))
         SetObjectShell(m_pObjShell);
 

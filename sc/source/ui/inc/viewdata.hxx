@@ -134,10 +134,11 @@ private:
         bool operator() (const value_type& rValue1, const value_type& rValue2) const;
     };
 
+    const index_type MAX_INDEX;
     std::set<value_type, Comp> mData;
 
 public:
-    ScPositionHelper();
+    ScPositionHelper(bool bColumn);
 
     void insert(index_type nIndex, long nPos);
     void removeByIndex(index_type nIndex);
@@ -146,6 +147,7 @@ public:
     const value_type& getNearestByIndex(index_type nIndex) const;
     const value_type& getNearestByPosition(long nPos) const;
     long getPosition(index_type nIndex) const;
+    long computePosition(index_type nIndex, const std::function<long (index_type)>& getSizePx);
 };
 
 class ScBoundsProvider
@@ -252,8 +254,17 @@ private:
     void            ReadUserDataSequence(
                         const css::uno::Sequence <css::beans::PropertyValue>& rSettings,
                         ScViewData& rViewData, SCTAB nTab, bool& rHasZoom);
-public:
-    ~ScViewDataTable();
+
+    /** Sanitize the active split range value to not point into a grid window
+        that would never be initialized due to non-matching split modes.
+
+        This is to be done when reading settings from file formats or
+        configurations that could have arbitrary values. The caller is
+        responsible for actually assigning the new value to eWhichActive because
+        we want this function to be const to be able to call the check from
+        anywhere.
+     */
+    SAL_WARN_UNUSED_RESULT ScSplitPos SanitizeWhichActive() const;
 };
 
 class SC_DLLPUBLIC ScViewData
@@ -261,15 +272,15 @@ class SC_DLLPUBLIC ScViewData
 private:
     double              nPPTX, nPPTY;               // Scaling factors
 
-    ::std::vector<ScViewDataTable*> maTabData;
+    ::std::vector<std::unique_ptr<ScViewDataTable>> maTabData;
     std::unique_ptr<ScMarkData> mpMarkData;
     ScViewDataTable*    pThisTab;                   // Data of the displayed sheet
     ScDocShell*         pDocShell;
     ScDocument*         pDoc;
     ScDBFunc*           pView;
     ScTabViewShell*     pViewShell;
-    EditView*           pEditView[4];               // Belongs to the window
-    ScViewOptions*      pOptions;
+    std::unique_ptr<EditView> pEditView[4];               // Belongs to the window
+    std::unique_ptr<ScViewOptions> pOptions;
     EditView*           pSpellingView;
 
     Size                aScenButSize;
@@ -334,7 +345,6 @@ private:
 
 public:
                     ScViewData( ScDocShell* pDocSh, ScTabViewShell* pViewSh );
-                    ScViewData( const ScViewData& rViewData );
                     ~ScViewData() COVERITY_NOEXCEPT_FALSE;
 
     void            InitData( ScDocument* pDocument );
@@ -554,7 +564,7 @@ public:
     bool            HasEditView( ScSplitPos eWhich ) const
                                         { return pEditView[eWhich] && bEditActive[eWhich]; }
     EditView*       GetEditView( ScSplitPos eWhich ) const
-                                        { return pEditView[eWhich]; }
+                                        { return pEditView[eWhich].get(); }
 
     /**
      * Extend the output area for the edit engine view in a horizontal

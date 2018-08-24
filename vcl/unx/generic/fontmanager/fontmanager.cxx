@@ -47,6 +47,7 @@
 #include <rtl/strbuf.hxx>
 
 #include <sal/macros.h>
+#include <sal/log.hxx>
 
 #include <i18nlangtag/applelangid.hxx>
 #include <i18nlangtag/mslangid.hxx>
@@ -65,7 +66,6 @@
 #include <valgrind/callgrind.h>
 #endif
 
-#include <comphelper/string.hxx>
 #include <com/sun/star/beans/XMaterialHolder.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 
@@ -153,8 +153,6 @@ PrintFontManager::~PrintFontManager()
 {
     m_aFontInstallerTimer.Stop();
     deinitFontconfig();
-    for (auto const& font : m_aFonts)
-        delete font.second;
 }
 
 OString PrintFontManager::getDirectory( int nAtom ) const
@@ -197,7 +195,7 @@ std::vector<fontID> PrintFontManager::addFontFile( const OString& rFileName )
             for (auto & font : aNewFonts)
             {
                 fontID nFontId = m_nNextFontID++;
-                m_aFonts[nFontId] = font.release();
+                m_aFonts[nFontId] = std::move(font);
                 m_aFontFileToFontID[ aName ].insert( nFontId );
                 aFontIds.push_back(nFontId);
             }
@@ -243,9 +241,7 @@ std::vector<std::unique_ptr<PrintFontManager::PrintFont>> PrintFontManager::anal
         int nLength = CountTTCFonts( aFullPath.getStr() );
         if (nLength > 0)
         {
-#if OSL_DEBUG_LEVEL > 1
-            fprintf( stderr, "ttc: %s contains %d fonts\n", aFullPath.getStr(), nLength );
-#endif
+            SAL_INFO("vcl.fonts", "ttc: " << aFullPath << " contains " << nLength << " fonts");
 
             sal_uInt64 fileSize = 0;
 
@@ -308,10 +304,10 @@ fontID PrintFontManager::findFontFileID( int nDirID, const OString& rFontFile, i
 
     for (auto const& elem : set_it->second)
     {
-        std::unordered_map< fontID, PrintFont* >::const_iterator it = m_aFonts.find(elem);
+        auto it = m_aFonts.find(elem);
         if( it == m_aFonts.end() )
             continue;
-        PrintFont* const pFont = (*it).second;
+        PrintFont* const pFont = (*it).second.get();
         if (pFont->m_nDirectory == nDirID &&
             pFont->m_aFontFile == rFontFile && pFont->m_nCollectionEntry == nFaceIndex)
         {
@@ -334,10 +330,10 @@ std::vector<fontID> PrintFontManager::findFontFileIDs( int nDirID, const OString
 
     for (auto const& elem : set_it->second)
     {
-        std::unordered_map< fontID, PrintFont* >::const_iterator it = m_aFonts.find(elem);
+        auto it = m_aFonts.find(elem);
         if( it == m_aFonts.end() )
             continue;
-        PrintFont* const pFont = (*it).second;
+        PrintFont* const pFont = (*it).second.get();
         if (pFont->m_nDirectory == nDirID &&
             pFont->m_aFontFile == rFontFile)
             aIds.push_back(it->first);
@@ -458,7 +454,7 @@ OUString PrintFontManager::convertSfntName( void* pRecord )
             default:
                 if (aName.startsWith("Khmer OS"))
                     eEncoding = RTL_TEXTENCODING_UTF8;
-                SAL_WARN_IF(eEncoding == RTL_TEXTENCODING_DONTKNOW, "vcl", "Unimplemented mac encoding " << pNameRecord->encodingID << " to unicode conversion for fontname " << aName);
+                SAL_WARN_IF(eEncoding == RTL_TEXTENCODING_DONTKNOW, "vcl.fonts", "Unimplemented mac encoding " << pNameRecord->encodingID << " to unicode conversion for fontname " << aName);
                 break;
         }
         if (eEncoding != RTL_TEXTENCODING_DONTKNOW)
@@ -564,7 +560,8 @@ bool PrintFontManager::analyzeSfntFile( PrintFont* pFont ) const
     OString aFile = getFontFile( pFont );
     TrueTypeFont* pTTFont = nullptr;
 
-    if( OpenTTFontFile( aFile.getStr(), pFont->m_nCollectionEntry, &pTTFont ) == SF_OK )
+    auto const e = OpenTTFontFile( aFile.getStr(), pFont->m_nCollectionEntry, &pTTFont );
+    if( e == SFErrCodes::Ok )
     {
         TTGlobalFontInfo aInfo;
         GetTTGlobalFontInfo( pTTFont, & aInfo );
@@ -609,7 +606,7 @@ bool PrintFontManager::analyzeSfntFile( PrintFont* pFont ) const
         if( aInfo.usubfamily )
             pFont->m_aStyleName = OUString( aInfo.usubfamily );
 
-        SAL_WARN_IF( !aInfo.psname, "vcl", "No PostScript name in font:" << aFile );
+        SAL_WARN_IF( !aInfo.psname, "vcl.fonts", "No PostScript name in font:" << aFile );
 
         pFont->m_aPSName = aInfo.psname ?
             OUString(aInfo.psname, rtl_str_getLength(aInfo.psname), aEncoding) :
@@ -693,7 +690,7 @@ bool PrintFontManager::analyzeSfntFile( PrintFont* pFont ) const
         bSuccess = true;
     }
     else
-        SAL_WARN("vcl", "Could not OpenTTFont \"" << aFile << "\"");
+        SAL_WARN("vcl.fonts", "Could not OpenTTFont \"" << aFile << "\": " << int(e));
 
     return bSuccess;
 }
@@ -709,8 +706,6 @@ void PrintFontManager::initialize()
     // gtk-fontconfig-timestamp changes to reflect new font installed and
     // PrintFontManager::initialize called again
     {
-        for (auto const& font : m_aFonts)
-            delete font.second;
         m_nNextFontID = 1;
         m_aFonts.clear();
     }
@@ -1004,9 +999,9 @@ bool PrintFontManager::createFontSubset(
         }
         else
         {
-            SAL_WARN_IF( (pGlyphIds[i] & 0x007f0000), "vcl", "overlong glyph id" );
-            SAL_WARN_IF( static_cast<int>(pNewEncoding[i]) >= nGlyphs, "vcl", "encoding wrong" );
-            SAL_WARN_IF( pEnc[pNewEncoding[i]] != 0 || pGID[pNewEncoding[i]] != 0, "vcl", "duplicate encoded glyph" );
+            SAL_WARN_IF( (pGlyphIds[i] & 0x007f0000), "vcl.fonts", "overlong glyph id" );
+            SAL_WARN_IF( static_cast<int>(pNewEncoding[i]) >= nGlyphs, "vcl.fonts", "encoding wrong" );
+            SAL_WARN_IF( pEnc[pNewEncoding[i]] != 0 || pGID[pNewEncoding[i]] != 0, "vcl.fonts", "duplicate encoded glyph" );
             pEnc[ pNewEncoding[i] ] = pNewEncoding[i];
             pGID[ pNewEncoding[i] ] = static_cast<sal_uInt16>(pGlyphIds[ i ]);
             pOldIndex[ pNewEncoding[i] ] = i;
@@ -1020,7 +1015,7 @@ bool PrintFontManager::createFontSubset(
     const OString aFromFile = getFontFile( pFont );
 
     TrueTypeFont* pTTFont = nullptr; // TODO: rename to SfntFont
-    if( OpenTTFontFile( aFromFile.getStr(), pFont->m_nCollectionEntry, &pTTFont ) != SF_OK )
+    if( OpenTTFontFile( aFromFile.getStr(), pFont->m_nCollectionEntry, &pTTFont ) != SFErrCodes::Ok )
         return false;
 
     // prepare system name for write access for subset file target
@@ -1099,7 +1094,7 @@ bool PrintFontManager::createFontSubset(
         return false;
     }
 
-    bool bSuccess = ( SF_OK == CreateTTFromTTGlyphs( pTTFont,
+    bool bSuccess = ( SFErrCodes::Ok == CreateTTFromTTGlyphs( pTTFont,
                                                      aToFile.getStr(),
                                                      pGID,
                                                      pEnc,
@@ -1119,7 +1114,7 @@ void PrintFontManager::getGlyphWidths( fontID nFont,
         return;
     TrueTypeFont* pTTFont = nullptr;
     OString aFromFile = getFontFile( pFont );
-    if( OpenTTFontFile( aFromFile.getStr(), pFont->m_nCollectionEntry, &pTTFont ) != SF_OK )
+    if( OpenTTFontFile( aFromFile.getStr(), pFont->m_nCollectionEntry, &pTTFont ) != SFErrCodes::Ok )
         return;
     int nGlyphs = GetTTGlyphCount(pTTFont);
     if (nGlyphs > 0)

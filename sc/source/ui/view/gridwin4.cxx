@@ -54,6 +54,7 @@
 #include <pagedata.hxx>
 #include <docpool.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <docsh.hxx>
 #include <cbutton.hxx>
 #include <invmerge.hxx>
@@ -67,6 +68,7 @@
 #include <sc.hrc>
 #include <vcl/virdev.hxx>
 #include <svx/sdrpaintwindow.hxx>
+#include <drwlayer.hxx>
 
 static void lcl_LimitRect( tools::Rectangle& rRect, const tools::Rectangle& rVisible )
 {
@@ -239,7 +241,7 @@ static void lcl_DrawScenarioFrames( OutputDevice* pDev, ScViewData* pViewData, S
                     }
 
                 if (aCurrent.isEmpty())
-                    aCurrent = ScGlobal::GetRscString( STR_EMPTYDATA );
+                    aCurrent = ScResId( STR_EMPTYDATA );
 
                 //! Own text "(None)" instead of "(Empty)" ???
 
@@ -771,7 +773,7 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
 
     aOutputData.DrawClipMarks();
 
-    // In any case, Szenario / ChangeTracking must happen after DrawGrid, also for !bGridFirst
+    // In any case, Scenario / ChangeTracking must happen after DrawGrid, also for !bGridFirst
 
     //! test if ChangeTrack display is active
     //! Disable scenario frame via view option?
@@ -1215,6 +1217,10 @@ void ScGridWindow::PaintTile( VirtualDevice& rDevice,
     DrawContent(rDevice, aTabInfo, aOutputData, true);
 
     rDevice.SetMapMode(aOriginalMode);
+
+    // Flag drawn formula cells "unchanged".
+    pDoc->ResetChanged(ScRange(nTopLeftTileCol, nTopLeftTileRow, nTab, nBottomRightTileCol, nBottomRightTileRow, nTab));
+    pDoc->PrepareFormulaCalc();
 }
 
 void ScGridWindow::LogicInvalidate(const tools::Rectangle* pRectangle)
@@ -1342,7 +1348,7 @@ void ScGridWindow::DrawPagePreview( SCCOL nX1, SCROW nY1, SCCOL nX2, SCROW nY2, 
         Color aManual( rColorCfg.GetColorValue(svtools::CALCPAGEBREAKMANUAL).nColor );
         Color aAutomatic( rColorCfg.GetColorValue(svtools::CALCPAGEBREAK).nColor );
 
-        OUString aPageStr = ScGlobal::GetRscString( STR_PGNUM );
+        OUString aPageStr = ScResId( STR_PGNUM );
         if ( nPageScript == SvtScriptType::NONE )
         {
             //  get script type of translated "Page" string only once
@@ -1536,7 +1542,7 @@ void ScGridWindow::DrawButtons(SCCOL nX1, SCCOL nX2, const ScTableInfo& rTabInfo
     aComboButton.SetOutputDevice( pContentDev );
 
     ScDocument* pDoc = pViewData->GetDocument();
-    ScDPFieldButton aCellBtn(pContentDev, &GetSettings().GetStyleSettings(), &pViewData->GetZoomX(), &pViewData->GetZoomY(), pDoc);
+    ScDPFieldButton aCellBtn(pContentDev, &GetSettings().GetStyleSettings(), &pViewData->GetZoomY(), pDoc);
 
     SCCOL nCol;
     SCROW nRow;

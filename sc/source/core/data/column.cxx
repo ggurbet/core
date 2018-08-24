@@ -184,7 +184,7 @@ sc::MatrixEdge ScColumn::GetBlockMatrixEdges( SCROW nRow1, SCROW nRow2, sc::Matr
                 bOpen = false;      // bottom edge closes
         }
 
-        nRow += nEnd;
+        nRow += nEnd - nOffset;
     }
     if (bOpen)
         nEdges |= MatrixEdge::Open; // not closed, matrix continues
@@ -706,7 +706,7 @@ void ScColumn::SetPatternArea( SCROW nStartRow, SCROW nEndRow,
 void ScColumn::ApplyAttr( SCROW nRow, const SfxPoolItem& rAttr )
 {
     //  in order to only create a new SetItem, we don't need SfxItemPoolCache.
-    //TODO: Warning: SfxItemPoolCache seems to create to many Refs for the new SetItem ??
+    //TODO: Warning: SfxItemPoolCache seems to create too many Refs for the new SetItem ??
 
     ScDocumentPool* pDocPool = GetDoc()->GetPool();
 
@@ -1433,7 +1433,7 @@ class CopyByCloneHandler
             // Clone as formula cell.
             ScFormulaCell* pCell = new ScFormulaCell(rSrcCell, *mrDestCol.GetDoc(), aDestPos, mnFormulaCellCloneFlags);
             pCell->SetDirtyVar();
-            mrDestCol.SetFormulaCell(maDestPos, nRow, pCell, meListenType);
+            mrDestCol.SetFormulaCell(maDestPos, nRow, pCell, meListenType, rSrcCell.NeedsNumberFormat());
             setDefaultAttrToDest(nRow);
             return;
         }
@@ -2027,6 +2027,12 @@ namespace {
 class SharedTopFormulaCellPicker
 {
 public:
+    SharedTopFormulaCellPicker() = default;
+    SharedTopFormulaCellPicker(SharedTopFormulaCellPicker const &) = default;
+    SharedTopFormulaCellPicker(SharedTopFormulaCellPicker &&) = default;
+    SharedTopFormulaCellPicker & operator =(SharedTopFormulaCellPicker const &) = default;
+    SharedTopFormulaCellPicker & operator =(SharedTopFormulaCellPicker &&) = default;
+
     virtual ~SharedTopFormulaCellPicker() {}
 
     void operator() ( sc::CellStoreType::value_type& node )
@@ -2112,7 +2118,8 @@ class UpdateRefOnNonCopy
         // We need to re-compile the token array when a range name is
         // modified, to correctly reflect the new references in the
         // name.
-        ScCompiler aComp(&mpCxt->mrDoc, rTopCell.aPos, *rTopCell.GetCode(), mpCxt->mrDoc.GetGrammar());
+        ScCompiler aComp(&mpCxt->mrDoc, rTopCell.aPos, *rTopCell.GetCode(), mpCxt->mrDoc.GetGrammar(),
+                         true, rTopCell.GetMatrixFlag() != ScMatrixMode::NONE);
         aComp.CompileTokenArray();
     }
 

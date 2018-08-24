@@ -42,9 +42,10 @@
 #include <cntfrm.hxx>
 #include <frmatr.hxx>
 #include <ndole.hxx>
+#include <viewsh.hxx>
 #include <DocumentSettingManager.hxx>
 #include <IDocumentLinksAdministration.hxx>
-
+#include <IDocumentLayoutAccess.hxx>
 #include <comphelper/classids.hxx>
 #include <vcl/graph.hxx>
 #include <sot/formats.hxx>
@@ -193,6 +194,8 @@ SwEmbedObjectLink::SwEmbedObjectLink(SwOLENode* pNode):
     }
 
     pOleNode->GetNewReplacement();
+    pOleNode->SetChanged();
+
     return SUCCESS;
 }
 
@@ -630,6 +633,36 @@ bool SwOLENode::IsChart() const
     return bIsChart;
 }
 
+// react on visual change (invalidate)
+void SwOLENode::SetChanged()
+{
+    SwFrame* pFrame(getLayoutFrame(nullptr));
+
+    if(nullptr == pFrame)
+    {
+        return;
+    }
+
+    const SwRect aFrameArea(pFrame->getFrameArea());
+    SwViewShell* pVSh(GetDoc()->getIDocumentLayoutAccess().GetCurrentViewShell());
+
+    if(nullptr == pVSh)
+    {
+        return;
+    }
+
+    for(SwViewShell& rShell : pVSh->GetRingContainer())
+    {
+        SET_CURR_SHELL(&rShell);
+
+        if(rShell.VisArea().IsOver(aFrameArea) && OUTDEV_WINDOW == rShell.GetOut()->GetOutDevType())
+        {
+            // invalidate instead of painting
+            rShell.GetWin()->Invalidate(aFrameArea.SVRect());
+        }
+    }
+}
+
 namespace { class DeflateThread; }
 
 /// Holder for local data for a parallel-executed task to load a chart model
@@ -1019,8 +1052,7 @@ drawinglayer::primitive2d::Primitive2DContainer const & SwOLEObj::tryToGetChartC
             // copy the result data and cleanup
             m_aPrimitive2DSequence = m_pDeflateData->getSequence();
             m_aRange = m_pDeflateData->getRange();
-            delete m_pDeflateData;
-            m_pDeflateData = nullptr;
+            m_pDeflateData.reset();
         }
     }
 
@@ -1048,9 +1080,9 @@ drawinglayer::primitive2d::Primitive2DContainer const & SwOLEObj::tryToGetChartC
                 // is okay (preview will be reused)
                 if(!m_pDeflateData)
                 {
-                    m_pDeflateData = new DeflateData(aXModel);
-                    DeflateThread* pNew = new DeflateThread(*m_pDeflateData);
-                    comphelper::ThreadPool::getSharedOptimalPool().pushTask(pNew);
+                    m_pDeflateData.reset( new DeflateData(aXModel) );
+                    std::unique_ptr<DeflateThread> pNew( new DeflateThread(*m_pDeflateData) );
+                    comphelper::ThreadPool::getSharedOptimalPool().pushTask(std::move(pNew));
                 }
             }
         }
@@ -1074,8 +1106,7 @@ void SwOLEObj::resetBufferedData()
     {
         // load is in progress, wait until finished and cleanup without using it
         m_pDeflateData->waitFinished();
-        delete m_pDeflateData;
-        m_pDeflateData = nullptr;
+        m_pDeflateData.reset();
     }
 }
 

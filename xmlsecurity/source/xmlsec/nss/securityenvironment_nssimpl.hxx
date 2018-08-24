@@ -53,7 +53,6 @@ class SecurityEnvironment_NssImpl : public ::cppu::WeakImplHelper<
 private:
 
     std::list< PK11SlotInfo* > m_Slots;
-    typedef std::list< PK11SlotInfo* >::const_iterator CIT_SLOTS;
     /// The last used certificate which has the private key for signing.
     css::uno::Reference<css::security::XCertificate> m_xSigningCertificate;
 
@@ -102,17 +101,6 @@ private:
         /// @throws css::uno::Exception
         /// @throws css::uno::RuntimeException
         void adoptSymKey( PK11SymKey* aSymKey ) ;
-        /// @throws css::uno::Exception
-        /// @throws css::uno::RuntimeException
-        PK11SymKey* getSymKey( unsigned int position ) ;
-
-        /// @throws css::uno::Exception
-        /// @throws css::uno::RuntimeException
-        SECKEYPublicKey* getPubKey( unsigned int position ) ;
-
-        /// @throws css::uno::Exception
-        /// @throws css::uno::RuntimeException
-        SECKEYPrivateKey* getPriKey( unsigned int position ) ;
 
         virtual css::uno::Sequence< css::uno::Reference< css::security::XCertificate > > SAL_CALL getPersonalCertificates() override ;
         virtual css::uno::Sequence< css::uno::Reference< css::security::XCertificate > > SAL_CALL getAllCertificates() override

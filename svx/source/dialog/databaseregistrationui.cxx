@@ -21,7 +21,6 @@
 
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
-#include <svx/strings.hrc>
 
 #include <sfx2/app.hxx>
 #include <svl/itemset.hxx>
@@ -36,11 +35,8 @@ namespace svx
         SfxItemSet aRegistrationItems( SfxGetpApp()->GetPool(), svl::Items<SID_SB_DB_REGISTER, SID_SB_DB_REGISTER>{} );
 
         SvxAbstractDialogFactory* pDialogFactory = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractDialog> pDialog;
-        if ( pDialogFactory )
-            pDialog.disposeAndReset( pDialogFactory->CreateSfxDialog( _parentWindow, aRegistrationItems, nullptr, RID_SFXPAGE_DBREGISTER ) );
-        if ( pDialog.get() )
-            nResult = pDialog->Execute();
+        ScopedVclPtr<SfxAbstractDialog> pDialog( pDialogFactory->CreateSfxDialog( _parentWindow, aRegistrationItems, nullptr, RID_SFXPAGE_DBREGISTER ) );
+        nResult = pDialog->Execute();
 
         return nResult;
     }

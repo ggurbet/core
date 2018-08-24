@@ -62,11 +62,10 @@
 namespace sw { namespace annotation {
 
 SwAnnotationWin::SwAnnotationWin( SwEditWin& rEditWin,
-                                  WinBits nBits,
                                   SwPostItMgr& aMgr,
                                   SwSidebarItem& rSidebarItem,
                                   SwFormatField* aField )
-    : Window(&rEditWin, nBits)
+    : Window(&rEditWin)
     , maBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "modules/swriter/ui/annotationmenu.ui", "")
     , mrMgr(aMgr)
     , mrView(rEditWin.GetView())
@@ -78,8 +77,6 @@ SwAnnotationWin::SwAnnotationWin( SwEditWin& rEditWin,
     , mpMetadataAuthor(nullptr)
     , mpMetadataDate(nullptr)
     , mpMenuButton(nullptr)
-    , mpAnchor(nullptr)
-    , mpShadow(nullptr)
     , mpTextRangeOverlay(nullptr)
     , mColorAnchor()
     , mColorDark()
@@ -143,17 +140,8 @@ void SwAnnotationWin::dispose()
     }
     mpSidebarTextControl.disposeAndClear();
 
-    if ( mpOutlinerView )
-    {
-        delete mpOutlinerView;
-        mpOutlinerView = nullptr;
-    }
-
-    if (mpOutliner)
-    {
-        delete mpOutliner;
-        mpOutliner = nullptr;
-    }
+    mpOutlinerView.reset();
+    mpOutliner.reset();
 
     if (mpMetadataAuthor)
     {
@@ -175,14 +163,10 @@ void SwAnnotationWin::dispose()
 
     RemoveEventListener( LINK( this, SwAnnotationWin, WindowEventListener ) );
 
-    sidebarwindows::AnchorOverlayObject::DestroyAnchorOverlayObject( mpAnchor );
-    mpAnchor = nullptr;
+    mpAnchor.reset();
+    mpShadow.reset();
 
-    sidebarwindows::ShadowOverlayObject::DestroyShadowOverlayObject( mpShadow );
-    mpShadow = nullptr;
-
-    delete mpTextRangeOverlay;
-    mpTextRangeOverlay = nullptr;
+    mpTextRangeOverlay.reset();
 
     mpMenuButton.disposeAndClear();
 
@@ -238,7 +222,7 @@ void SwAnnotationWin::UpdateData()
         std::unique_ptr<SwField> pOldField;
         if (rUndoRedo.DoesUndo())
         {
-            pOldField.reset(mpField->Copy());
+            pOldField = mpField->Copy();
         }
         mpField->SetPar2(mpOutliner->GetEditEngine().GetText());
         mpField->SetTextObject(mpOutliner->CreateParaObject());
@@ -401,7 +385,7 @@ void SwAnnotationWin::InitAnswer(OutlinerParaObject const * pText)
     std::unique_ptr<SwField> pOldField;
     if (rUndoRedo.DoesUndo())
     {
-        pOldField.reset(mpField->Copy());
+        pOldField = mpField->Copy();
     }
     mpField->SetPar2(mpOutliner->GetEditEngine().GetText());
     mpField->SetTextObject(mpOutliner->CreateParaObject());

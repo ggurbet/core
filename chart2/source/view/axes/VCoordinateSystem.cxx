@@ -17,12 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <BaseGFXHelper.hxx>
 #include <VCoordinateSystem.hxx>
 #include "VCartesianCoordinateSystem.hxx"
 #include "VPolarCoordinateSystem.hxx"
 #include <ScaleAutomatism.hxx>
 #include <VSeriesPlotter.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <servicenames_coosystems.hxx>
 #include <AxisIndexDefines.hxx>
 #include <ObjectIdentifier.hxx>
@@ -34,10 +35,12 @@
 #include <DataSeriesHelper.hxx>
 #include <defines.hxx>
 #include <chartview/ExplicitValueProvider.hxx>
+#include <com/sun/star/chart/TimeUnit.hpp>
 #include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
 #include <com/sun/star/chart2/XDataSeriesContainer.hpp>
 #include <comphelper/sequence.hxx>
+#include <sal/log.hxx>
 
 #include <algorithm>
 #include <rtl/math.hxx>
@@ -104,7 +107,7 @@ void VCoordinateSystem::initPlottingTargets(  const Reference< drawing::XShapes 
 
     sal_Int32 nDimensionCount = m_xCooSysModel->getDimension();
     //create group shape for grids first thus axes are always painted above grids
-    AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory);
+    ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(xShapeFactory);
     if(nDimensionCount==2)
     {
         //create and add to target

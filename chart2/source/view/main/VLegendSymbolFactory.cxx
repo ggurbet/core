@@ -19,11 +19,15 @@
 
 #include <VLegendSymbolFactory.hxx>
 #include <PropertyMapper.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <ObjectIdentifier.hxx>
 #include <com/sun/star/drawing/LineStyle.hpp>
+#include <com/sun/star/drawing/Position3D.hpp>
 #include <com/sun/star/chart2/Symbol.hpp>
+#include <com/sun/star/drawing/XShapes.hpp>
+#include <com/sun/star/drawing/Direction3D.hpp>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 using ::com::sun::star::uno::Reference;
@@ -101,7 +105,7 @@ Reference< drawing::XShape > VLegendSymbolFactory::createSymbol(
     if( ! (rSymbolContainer.is() && xShapeFactory.is()))
         return xResult;
 
-    AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(xShapeFactory);
+    ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(xShapeFactory);
     xResult.set( pShapeFactory->createGroup2D( rSymbolContainer ), uno::UNO_QUERY );
 
     Reference< drawing::XShapes > xResultGroup( xResult, uno::UNO_QUERY );
@@ -132,7 +136,7 @@ Reference< drawing::XShape > VLegendSymbolFactory::createSymbol(
             {
                 drawing::Direction3D aSymbolSize( nSize, nSize, 0 );
                 drawing::Position3D aPos( rEntryKeyAspectRatio.Width/2.0, rEntryKeyAspectRatio.Height/2.0, 0 );
-                AbstractShapeFactory* pFactory = AbstractShapeFactory::getOrCreateShapeFactory( xShapeFactory );
+                ShapeFactory* pFactory = ShapeFactory::getOrCreateShapeFactory( xShapeFactory );
                 if( aSymbol.Style == chart2::SymbolStyle_STANDARD )
                 {
                     // take series color as fill color

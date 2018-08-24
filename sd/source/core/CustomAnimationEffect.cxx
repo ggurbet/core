@@ -18,6 +18,7 @@
  */
 
 #include <tools/debug.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/animations/AnimationNodeType.hpp>
 #include <com/sun/star/animations/AnimateColor.hpp>
 #include <com/sun/star/animations/AnimateMotion.hpp>
@@ -1543,7 +1544,7 @@ void CustomAnimationEffect::updateSdrPathObjFromPath( SdrPathObj& rPathObj )
         SdrObject* pObj = GetSdrObjectFromXShape( getTargetShape() );
         if( pObj )
         {
-            SdrPage* pPage = pObj->GetPage();
+            SdrPage* pPage = pObj->getSdrPageFromSdrObject();
             if( pPage )
             {
                 const Size aPageSize( pPage->GetSize() );
@@ -1583,7 +1584,7 @@ void CustomAnimationEffect::updatePathFromSdrPathObj( const SdrPathObj& rPathObj
 
         aPolyPoly.transform(basegfx::utils::createTranslateB2DHomMatrix(-aCenter.X(), -aCenter.Y()));
 
-        SdrPage* pPage = pObj->GetPage();
+        SdrPage* pPage = pObj->getSdrPageFromSdrObject();
         if( pPage )
         {
             const Size aPageSize( pPage->GetSize() );
@@ -2021,12 +2022,8 @@ void stl_process_after_effect_node_func(AfterEffectNode const & rNode)
 
                     xNextContainer.set( ParallelTimeContainer::create( xContext ), UNO_QUERY_THROW );
 
-                    DBG_ASSERT( xNextContainer.is(), "ppt::stl_process_after_effect_node_func::operator(), could not create container!" );
-                    if( xNextContainer.is() )
-                    {
-                        xNextContainer->setBegin( makeAny( 0.0 ) );
-                        xNewClickContainer->appendChild( xNextContainer );
-                    }
+                    xNextContainer->setBegin( makeAny( 0.0 ) );
+                    xNewClickContainer->appendChild( xNextContainer );
                 }
 
                 if( xNextContainer.is() )
@@ -2321,6 +2318,16 @@ void EffectSequenceHelper::updateTextGroups()
         }
 
         pGroup->addEffect( pEffect );
+    }
+
+    // Now that all the text groups have been cleared up and rebuilt, we need to update its
+    // text grouping. addEffect() already make mnTextGrouping the last possible level,
+    // so just continue to find the last level that is not EffectNodeType::WITH_PREVIOUS.
+    for(const auto &rGroupMapItem: maGroupMap)
+    {
+        const CustomAnimationTextGroupPtr &pGroup = rGroupMapItem.second;
+        while(pGroup->mnTextGrouping > 0 && pGroup->mnDepthFlags[pGroup->mnTextGrouping - 1] == EffectNodeType::WITH_PREVIOUS)
+            --pGroup->mnTextGrouping;
     }
 }
 

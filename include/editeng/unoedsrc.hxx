@@ -56,6 +56,12 @@ typedef std::vector< SvxUnoTextRangeBase* > SvxUnoTextRangeBaseVec;
 class EDITENG_DLLPUBLIC SvxEditSource
 {
 public:
+    SvxEditSource() = default;
+    SvxEditSource(SvxEditSource const &) = default;
+    SvxEditSource(SvxEditSource &&) = default;
+    SvxEditSource & operator =(SvxEditSource const &) = default;
+    SvxEditSource & operator =(SvxEditSource &&) = default;
+
     virtual                 ~SvxEditSource();
 
     /// Returns a new reference to the same object. This is a shallow copy
@@ -155,7 +161,7 @@ public:
     virtual void        QuickSetAttribs( const SfxItemSet& rSet, const ESelection& rSel ) = 0;
     virtual void        QuickInsertLineBreak( const ESelection& rSel ) = 0;
 
-    virtual OUString    CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rpTxtColor, Color*& rpFldColor ) = 0;
+    virtual OUString    CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rpTxtColor, boost::optional<Color>& rpFldColor ) = 0;
     virtual void         FieldClicked( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos ) = 0;
 
     virtual SfxItemPool* GetPool() const = 0;

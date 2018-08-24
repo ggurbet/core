@@ -16,7 +16,6 @@
 #include <vcl/pngwrite.hxx>
 #include <vcl/svapp.hxx>
 #include <unotools/configmgr.hxx>
-#include <unotools/syslocaleoptions.hxx>
 
 
 namespace {
@@ -39,8 +38,7 @@ ScreenshotTest::ScreenshotTest()
 :   m_aScreenshotDirectory("screenshots"),
     maKnownDialogs()
 {
-    SvtSysLocaleOptions localeOptions;
-    maCurrentLanguage = localeOptions.GetRealUILanguageTag().getBcp47();
+    maCurrentLanguage = OUString::fromUtf8(getenv("LO_TEST_LOCALE"));
 }
 
 ScreenshotTest::~ScreenshotTest()
@@ -63,7 +61,7 @@ void ScreenshotTest::setUp()
     }
 }
 
-void ScreenshotTest::implSaveScreenshot(const Bitmap& rScreenshot, const OString& rScreenshotId)
+void ScreenshotTest::implSaveScreenshot(const BitmapEx& rScreenshot, const OString& rScreenshotId)
 {
     OUString aDirname, aBasename;
     splitHelpId(rScreenshotId, aDirname, aBasename);
@@ -83,13 +81,13 @@ void ScreenshotTest::implSaveScreenshot(const Bitmap& rScreenshot, const OString
     SvFileStream aNew(pngUrl, StreamMode::WRITE | StreamMode::TRUNC);
     CPPUNIT_ASSERT_MESSAGE(OUStringToOString("Failed to open <" + pngUrl + ">: " + OUString::number(sal_uInt32(aNew.GetErrorCode())), RTL_TEXTENCODING_UTF8).getStr(), aNew.IsOpen());
 
-    vcl::PNGWriter aPNGWriter(rScreenshot);
+    vcl::PNGWriter aPNGWriter((BitmapEx(rScreenshot)));
     aPNGWriter.Write(aNew);
 }
 
 void ScreenshotTest::saveScreenshot(VclAbstractDialog const & rDialog)
 {
-    const Bitmap aScreenshot(rDialog.createScreenshot());
+    const BitmapEx aScreenshot(rDialog.createScreenshot());
 
     if (!aScreenshot.IsEmpty())
     {
@@ -104,7 +102,7 @@ void ScreenshotTest::saveScreenshot(VclAbstractDialog const & rDialog)
 
 void ScreenshotTest::saveScreenshot(Dialog& rDialog)
 {
-    const Bitmap aScreenshot(rDialog.createScreenshot());
+    const BitmapEx aScreenshot(rDialog.createScreenshot());
 
     if (!aScreenshot.IsEmpty())
     {
@@ -186,7 +184,12 @@ void ScreenshotTest::dumpDialogToPath(const OString& rUIXMLDescription)
         {
             VclPtr<vcl::Window> aOwnedToplevel;
 
-            std::unique_ptr<VclBuilder> xBuilder(new VclBuilder(pDialog, VclBuilderContainer::getUIRootDir(), OStringToOUString(rUIXMLDescription, RTL_TEXTENCODING_UTF8)));
+            bool bLegacy;
+            if (rUIXMLDescription == "cui/ui/textanimtabpage.ui")
+                bLegacy = false;
+            else
+                bLegacy = true;
+            std::unique_ptr<VclBuilder> xBuilder(new VclBuilder(pDialog, VclBuilderContainer::getUIRootDir(), OStringToOUString(rUIXMLDescription, RTL_TEXTENCODING_UTF8), OString(), css::uno::Reference<css::frame::XFrame>(), bLegacy));
             vcl::Window *pRoot = xBuilder->get_widget_root();
             Dialog *pRealDialog = dynamic_cast<Dialog*>(pRoot);
 

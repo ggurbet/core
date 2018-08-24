@@ -1160,14 +1160,8 @@ static void lcl_CalcNewWidths( std::list<sal_uInt16> &rSpanPos, ChangeList& rCha
         }
     }
 
-    rChanges.clear();
-    ChangeList::iterator pCopy = aNewChanges.begin();
-    while( pCopy != aNewChanges.end() )
-        rChanges.push_back( *pCopy++ );
-    rSpanPos.clear();
-    std::list<sal_uInt16>::iterator pSpCopy = aNewSpanPos.begin();
-    while( pSpCopy != aNewSpanPos.end() )
-        rSpanPos.push_back( *pSpCopy++ );
+    rChanges.swap(aNewChanges);
+    rSpanPos.swap(aNewSpanPos);
 }
 
 void SwTable::NewSetTabCols( Parm &rParm, const SwTabCols &rNew,
@@ -1628,7 +1622,7 @@ SwTableBox::SwTableBox( SwTableBoxFormat* pFormat, const SwNodeIndex &rIdx,
 
     // insert into the table
     const SwTableNode* pTableNd = m_pStartNode->FindTableNode();
-    OSL_ENSURE( pTableNd, "In which table is that box?" );
+    assert(pTableNd && "In which table is that box?");
     SwTableSortBoxes& rSrtArr = const_cast<SwTableSortBoxes&>(pTableNd->GetTable().
                                 GetTabSortBoxes());
     SwTableBox* p = this;   // error: &this
@@ -1698,7 +1692,7 @@ SwTableBoxFormat* SwTableBox::CheckBoxFormat( SwTableBoxFormat* pFormat )
             pNewFormat->LockModify();
             *pNewFormat = *pFormat;
 
-            // Remove values and formulars
+            // Remove values and formulas
             pNewFormat->ResetFormatAttr( RES_BOXATR_FORMULA, RES_BOXATR_VALUE );
             pNewFormat->UnlockModify();
 

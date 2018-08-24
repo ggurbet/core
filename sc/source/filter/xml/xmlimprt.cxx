@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <svl/zforlist.hxx>
 #include <sal/macros.h>
@@ -76,6 +77,7 @@
 #include "pivotsource.hxx"
 #include <unonames.hxx>
 #include <numformat.hxx>
+#include <sizedev.hxx>
 
 #include <comphelper/base64.hxx>
 #include <comphelper/extract.hxx>
@@ -1803,6 +1805,26 @@ void SAL_CALL ScXMLImport::endDocument()
                     pDoc->SetStreamValid( nTab, true );
             }
         }
+
+        // There are rows with optimal height which need to be updated
+        if (pDoc && !maRecalcRowRanges.empty())
+        {
+            bool bLockHeight = pDoc->IsAdjustHeightLocked();
+            if (bLockHeight)
+            {
+                pDoc->UnlockAdjustHeight();
+            }
+
+            ScSizeDeviceProvider aProv(static_cast<ScDocShell*>(pDoc->GetDocumentShell()));
+            ScDocRowHeightUpdater aUpdater(*pDoc, aProv.GetDevice(), aProv.GetPPTX(), aProv.GetPPTY(), &maRecalcRowRanges);
+            aUpdater.update();
+
+            if (bLockHeight)
+            {
+                pDoc->LockAdjustHeight();
+            }
+        }
+
         aTables.FixupOLEs();
     }
     if (GetModel().is())
@@ -1991,8 +2013,8 @@ const ScXMLEditAttributeMap& ScXMLImport::GetEditAttributeMap() const
 
 void ScXMLImport::NotifyEmbeddedFontRead()
 {
-    if ( pDoc )
-        pDoc->SetIsUsingEmbededFonts( true );
+    if (pDoc)
+        pDoc->SetEmbedFonts(true);
 }
 
 ScMyImpDetectiveOpArray* ScXMLImport::GetDetectiveOpArray()

@@ -107,12 +107,10 @@ protected:
     sal_uInt16  nPLine, nPCol1, nPCol2; // pushback location
     bool bEof;
     bool bEos;
-    bool bKeywords;                 // true, if keywords are parsed
     bool bAs;                       // last keyword was AS
     bool bErrorIsSymbol;            // Handle Error token as Symbol, not keyword
 public:
     SbiTokenizer( const OUString&, StarBASIC* = nullptr );
-   ~SbiTokenizer();
 
     bool IsEof()             { return bEof; }
     bool IsEos()             { return bEos; }

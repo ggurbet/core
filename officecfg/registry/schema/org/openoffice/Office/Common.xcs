@@ -1491,6 +1491,7 @@
         </info>
         <prop oor:name="TotalCacheSize" oor:type="xs:int" oor:nillable="false">
           <info>
+            <deprecated>Not used anymore</deprecated>
             <desc>Specifies the maximum cache size for all graphical display
             objects.</desc>
             <label>Total Image Cache Size</label>
@@ -1499,6 +1500,7 @@
         </prop>
         <prop oor:name="ObjectCacheSize" oor:type="xs:int" oor:nillable="false">
           <info>
+            <deprecated>Not used anymore</deprecated>
             <desc>Specifies the maximum cache size for a single graphic display
             object.</desc>
             <label>Image Object Cache Size</label>
@@ -1507,11 +1509,30 @@
         </prop>
         <prop oor:name="ObjectReleaseTime" oor:type="xs:int" oor:nillable="false">
           <info>
+            <deprecated>Not used anymore</deprecated>
             <desc>Specifies the time in seconds after which a cached object is
             freed from the cache.</desc>
             <label>Image Object Release Timeout</label>
           </info>
           <value>600</value>
+        </prop>
+        <prop oor:name="GraphicMemoryLimit" oor:type="xs:int" oor:nillable="false">
+          <info>
+            <desc>Specifies the allowed cumulated memory that the
+            graphic objects can occupy before they start to get swapped
+            to the disk to save memory.</desc>
+            <label>Graphic Memory Limit Size</label>
+          </info>
+          <value>300000000</value>
+        </prop>
+        <prop oor:name="GraphicAllowedIdleTime" oor:type="xs:int" oor:nillable="false">
+          <info>
+            <desc>Specifies the time in seconds when the graphic object
+            can be idle (time since it was last used) before it is
+            considered to be swapped to the disk to save memory.</desc>
+            <label>Graphic Allowed Idle Time</label>
+          </info>
+          <value>10</value>
         </prop>
       </group>
     </group>
@@ -3533,6 +3554,12 @@
         </info>
         <value>false</value>
       </prop>
+      <prop oor:name="BuiltInHelpNotInstalledPopUp" oor:type="xs:boolean" oor:nillable="false">
+        <info>
+          <desc>Activates "Built-in help is not installed" pop-up</desc>
+        </info>
+        <value>true</value>
+      </prop>
       <prop oor:name="HelpStyleSheet" oor:type="xs:string" oor:nillable="false">
         <info>
           <desc>Specifies the name of the stylesheet used to display help
@@ -3564,13 +3591,6 @@
             additional template documents</desc>
           </info>
           <value/>
-        </prop>
-        <prop oor:name="StartCenterHideExternalLinks" oor:type="xs:int" oor:nillable="false">
-          <info>
-            <desc>Contains a number deciding whether to show or hide buttons
-            with external links</desc>
-          </info>
-          <value>0</value>
         </prop>
         <prop oor:name="StartCenterBackgroundColor" oor:type="xs:int" oor:nillable="false">
           <!-- Default 14540253 = 0xdddddd as specified in tdf#90452, comment 45 -->
@@ -5182,7 +5202,7 @@
             <constraints>
               <enumeration oor:value="0">
                 <info>
-                  <desc>PDF 1.4 (default selection).</desc>
+                  <desc>PDF 1.5 (default selection).</desc>
                 </info>
               </enumeration>
               <enumeration oor:value="1">
@@ -5201,7 +5221,7 @@
               protocol) present in the document will be exported as relative to
               the source document location.</desc>
             </info>
-            <value>false</value>
+            <value>true</value>
           </prop>
           <prop oor:name="PDFViewSelection" oor:type="xs:int" oor:nillable="false">
             <info>
@@ -5273,6 +5293,18 @@
           <desc>Special font for rendering of emojis</desc>
         </info>
         <value>EmojiOne Color</value>
+      </prop>
+      <prop oor:name="FontsUseWinMetrics" oor:type="oor:string-list" oor:nillable="false">
+        <info>
+          <desc>
+            Fonts where the win metrics need to be considered in order to display the font correctly
+            Fonts are identified by their name and the font metrics (see fontmetric.cxx:ShouldUseWinMetrics).
+          </desc>
+        </info>
+        <value>
+          <!-- DIN Light (ttf version) has odd metrics. The otf version works fine. -->
+          <it>DIN Light,1509,-503,1509,-483,1997,483</it>
+        </value>
       </prop>
       <prop oor:name="PluginsEnabled" oor:type="xs:boolean" oor:nillable="false">
         <!-- OldPath: ? -->
@@ -5384,13 +5416,6 @@
           <desc>A string identifying the OpenCL device that was successfully selected and passed the OpenCL calculation tests. The syntax of this value is purposely not documented. For LibreOffice internal use only, do not inspect this value or try to modify it from any level of user code.</desc>
         </info>
         <value>none</value>
-      </prop>
-      <prop oor:name="UseSwInterpreter" oor:type="xs:boolean" oor:nillable="false">
-        <info>
-          <desc>Determines whether Software Interpreter can be used to speed
-          up some operations on Calc formulas.</desc>
-        </info>
-        <value>true</value>
       </prop>
       <prop oor:name="MacroRecorderMode" oor:type="xs:boolean" oor:nillable="false">
         <info>

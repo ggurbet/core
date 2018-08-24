@@ -105,7 +105,7 @@ public:
 
     virtual Control*    getControl() = 0;
 
-    static PropertySubControl*
+    static std::unique_ptr<PropertySubControl>
                         create( sal_Int32 nType,
                                 vcl::Window* pParent,
                                 const css::uno::Any& rValue,
@@ -125,13 +125,13 @@ public:
     virtual ~PropertyControl() override;
     virtual void dispose() override;
 
-    void setSubControl( PropertySubControl* pSubControl );
-    PropertySubControl* getSubControl() const { return mpSubControl; }
+    void setSubControl( std::unique_ptr<PropertySubControl> pSubControl );
+    PropertySubControl* getSubControl() const { return mpSubControl.get(); }
 
     virtual void Resize() override;
 
 private:
-    PropertySubControl* mpSubControl;
+    std::unique_ptr<PropertySubControl> mpSubControl;
 };
 
 class CustomAnimationDurationTabPage;
@@ -142,17 +142,18 @@ class STLPropertySet;
 class CustomAnimationDialog : public TabDialog
 {
 public:
-    CustomAnimationDialog(vcl::Window* pParent, STLPropertySet* pSet, const OString& Page);
+    CustomAnimationDialog(vcl::Window* pParent, std::unique_ptr<STLPropertySet> pSet, const OString& Page);
     virtual ~CustomAnimationDialog() override;
     virtual void dispose() override;
 
     STLPropertySet* getResultSet();
+    STLPropertySet* getPropertySet() const { return mpSet.get(); }
 
-    static STLPropertySet* createDefaultSet();
+    static std::unique_ptr<STLPropertySet> createDefaultSet();
 
 private:
-    STLPropertySet* mpSet;
-    STLPropertySet* mpResultSet;
+    std::unique_ptr<STLPropertySet> mpSet;
+    std::unique_ptr<STLPropertySet> mpResultSet;
 
     VclPtr<TabControl> mpTabControl;
 

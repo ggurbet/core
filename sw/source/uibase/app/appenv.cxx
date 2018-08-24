@@ -123,7 +123,7 @@ OUString InsertLabEnvText( SwWrtShell& rSh, SwFieldMgr& rFieldMgr, const OUStrin
             if ( !bField )
                 rSh.Insert( sTmpText );
         }
-        rSh.InsertLineBreak();
+        rSh.SplitNode();
     }
     rSh.DelLeft();  // Again remove last linebreak
 
@@ -212,10 +212,7 @@ void SwModule::InsertEnv( SfxRequest& rReq )
     if ( !pItem )
     {
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
-        pDlg.disposeAndReset(pFact->CreateSwEnvDlg( pParent, aSet, pOldSh, pTempPrinter, !bEnvChange ));
-        OSL_ENSURE(pDlg, "Dialog creation failed!");
+        pDlg.disposeAndReset(pFact->CreateSwEnvDlg(pParent ? pParent->GetFrameWeld() : nullptr, aSet, pOldSh, pTempPrinter, !bEnvChange));
         nMode = pDlg->Execute();
     }
     else

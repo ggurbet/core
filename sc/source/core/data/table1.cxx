@@ -33,6 +33,7 @@
 #include <stlsheet.hxx>
 #include <global.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <refupdat.hxx>
 #include <markdata.hxx>
 #include <progress.hxx>
@@ -49,8 +50,10 @@
 #include <scmatrix.hxx>
 #include <refupdatecontext.hxx>
 #include <rowheightcontext.hxx>
+#include <compressedarray.hxx>
 
 #include <formula/vectortoken.hxx>
+#include <token.hxx>
 
 #include <vector>
 #include <memory>
@@ -75,7 +78,7 @@ ScProgress* GetProgressBar(
 
     if (nCount > 1)
         return new ScProgress(
-            pDoc->GetDocumentShell(), ScGlobal::GetRscString(STR_PROGRESS_HEIGHTING), nTotalCount, true);
+            pDoc->GetDocumentShell(), ScResId(STR_PROGRESS_HEIGHTING), nTotalCount, true);
 
     return nullptr;
 }
@@ -240,7 +243,7 @@ ScTable::ScTable( ScDocument* pDoc, SCTAB nNewTab, const OUString& rNewName,
     aCodeName( rNewName ),
     nLinkRefreshDelay( 0 ),
     nLinkMode( ScLinkMode::NONE ),
-    aPageStyle( ScGlobal::GetRscString(STR_STYLENAME_STANDARD) ),
+    aPageStyle( ScResId(STR_STYLENAME_STANDARD) ),
     nRepeatStartX( SCCOL_REPEAT_NONE ),
     nRepeatEndX( SCCOL_REPEAT_NONE ),
     nRepeatStartY( SCROW_REPEAT_NONE ),
@@ -354,11 +357,6 @@ ScTable::~ScTable() COVERITY_NOEXCEPT_FALSE
 sal_Int64 ScTable::GetHashCode() const
 {
     return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-}
-
-void ScTable::GetName( OUString& rName ) const
-{
-    rName = aName;
 }
 
 void ScTable::SetName( const OUString& rNewName )
@@ -1301,7 +1299,10 @@ bool ScTable::ValidNextPos( SCCOL nCol, SCROW nRow, const ScMarkData& rMark,
     if (bMarked && !rMark.IsCellMarked(nCol,nRow))
         return false;
 
-    if (bUnprotected && GetAttr(nCol,nRow,ATTR_PROTECTION)->GetProtection())
+    /* TODO: for cursor movement *only* this should even take the protection
+     * options (select locked, select unlocked) into account, see
+     * ScTabView::SkipCursorHorizontal() and ScTabView::SkipCursorVertical(). */
+    if (bUnprotected && pDocument->HasAttrib(nCol, nRow, nTab, nCol, nRow, nTab, HasAttrFlags::Protected))
         return false;
 
     if (bMarked || bUnprotected)        //TODO: also in other case ???
@@ -1322,7 +1323,8 @@ bool ScTable::ValidNextPos( SCCOL nCol, SCROW nRow, const ScMarkData& rMark,
 
 // Skips the current cell if it is Hidden, Overlapped or Protected and Sheet is Protected
 bool ScTable::SkipRow( const SCCOL nCol, SCROW& rRow, const SCROW nMovY,
-        const ScMarkData& rMark, const bool bUp, const SCROW nUsedY, const bool bSheetProtected ) const
+        const ScMarkData& rMark, const bool bUp, const SCROW nUsedY,
+        const bool bMarked, const bool bSheetProtected ) const
 {
     if ( !ValidRow( rRow ))
         return false;
@@ -1334,7 +1336,8 @@ bool ScTable::SkipRow( const SCCOL nCol, SCROW& rRow, const SCROW nMovY,
         else
             rRow += nMovY;
 
-        rRow  = rMark.GetNextMarked( nCol, rRow, bUp );
+        if (bMarked)
+            rRow  = rMark.GetNextMarked( nCol, rRow, bUp );
 
         return true;
     }
@@ -1346,7 +1349,8 @@ bool ScTable::SkipRow( const SCCOL nCol, SCROW& rRow, const SCROW nMovY,
         if ( bRowHidden || bOverlapped )
         {
             rRow += nMovY;
-            rRow  = rMark.GetNextMarked( nCol, rRow, bUp );
+            if (bMarked)
+                rRow = rMark.GetNextMarked( nCol, rRow, bUp );
 
             return true;
         }
@@ -1358,61 +1362,110 @@ bool ScTable::SkipRow( const SCCOL nCol, SCROW& rRow, const SCROW nMovY,
 void ScTable::GetNextPos( SCCOL& rCol, SCROW& rRow, SCCOL nMovX, SCROW nMovY,
                                 bool bMarked, bool bUnprotected, const ScMarkData& rMark ) const
 {
-    bool bSheetProtected = IsProtected();
+    // Ensure bMarked is set only if there is a mark.
+    assert( !bMarked || rMark.IsMarked() || rMark.IsMultiMarked());
+
+    const bool bSheetProtected = IsProtected();
 
     if ( bUnprotected && !bSheetProtected )     // Is sheet really protected?
         bUnprotected = false;
 
-    sal_uInt16 nWrap = 0;
-    SCCOL nCol = rCol;
-    SCROW nRow = rRow;
+    SCCOL nCol = rCol + nMovX;
+    SCROW nRow = rRow + nMovY;
 
-    nCol = sal::static_int_cast<SCCOL>( nCol + nMovX );
-    nRow = sal::static_int_cast<SCROW>( nRow + nMovY );
-
-    OSL_ENSURE( !nMovY || !bUnprotected,
-                "GetNextPos with bUnprotected horizontal not implemented" );
-
-    if ( nMovY && bMarked )
+    SCCOL nStartCol, nEndCol;
+    SCROW nStartRow, nEndRow;
+    if (bMarked)
     {
-        bool  bUp    = ( nMovY < 0 );
-        SCROW nUsedY = nRow;
-        SCCOL nUsedX = nCol;
-
-        nRow = rMark.GetNextMarked( nCol, nRow, bUp );
-        pDocument->GetPrintArea( nTab, nUsedX, nUsedY );
-
-        while ( SkipRow( nCol, nRow, nMovY, rMark, bUp, nUsedY, bSheetProtected ))
-            ;
-
-        while ( nRow < 0 || nRow > MAXROW )
+        ScRange aRange( ScAddress::UNINITIALIZED);
+        if (rMark.IsMarked())
+            rMark.GetMarkArea( aRange);
+        else if (rMark.IsMultiMarked())
+            rMark.GetMultiMarkArea( aRange);
+        else
         {
-            nCol = sal::static_int_cast<SCCOL>( nCol + static_cast<SCCOL>(nMovY) );
-
-            while ( ValidCol(nCol) && ColHidden(nCol) )
-                nCol = sal::static_int_cast<SCCOL>( nCol + static_cast<SCCOL>(nMovY) );   //  skip hidden rows (see above)
-            if (nCol < 0)
+            // Covered by assert() above, but for NDEBUG build.
+            if (ValidColRow(nCol,nRow))
             {
-                nCol = (bSheetProtected ? nUsedX : MAXCOL);
-
-                if (++nWrap >= 2)
-                    return;
+                rCol = nCol;
+                rRow = nRow;
             }
-            else if (nCol > MAXCOL || ( nCol > nUsedX && bSheetProtected ))
-            {
-                nCol = 0;
+            return;
+        }
+        nStartCol = aRange.aStart.Col();
+        nStartRow = aRange.aStart.Row();
+        nEndCol = aRange.aEnd.Col();
+        nEndRow = aRange.aEnd.Row();
+    }
+    else if (bUnprotected)
+    {
+        nStartCol = 0;
+        nStartRow = 0;
+        nEndCol = rCol;
+        nEndRow = rRow;
+        pDocument->GetPrintArea( nTab, nEndCol, nEndRow, true );
+        // Add some cols/rows to the print area (which is "content or
+        // visually different from empty") to enable travelling through
+        // protected forms with empty cells and no visual indicator.
+        // 42 might be good enough and not too much..
+        nEndCol = std::min<SCCOL>( nEndCol+42, MAXCOL);
+        nEndRow = std::min<SCROW>( nEndRow+42, MAXROW);
+    }
+    else
+    {
+        // Invalid values show up for instance for Tab, when nothing is
+        // selected and not protected (left / right edge), then leave values
+        // unchanged.
+        if (ValidColRow(nCol,nRow))
+        {
+            rCol = nCol;
+            rRow = nRow;
+        }
+        return;
+    }
 
-                if (++nWrap >= 2)
-                    return;
-            }
-            if (nRow < 0)
-                nRow = MAXROW;
-            else if (nRow > MAXROW)
-                nRow = 0;
+    if ( nMovY && (bMarked || bUnprotected))
+    {
+        bool bUp = (nMovY < 0);
+        const SCCOL nColAdd = (bUp ? -1 : 1);
+        sal_uInt16 nWrap = 0;
 
+        if (bMarked)
             nRow = rMark.GetNextMarked( nCol, nRow, bUp );
 
-            while ( SkipRow( nCol, nRow, nMovY, rMark, bUp, nUsedY, bSheetProtected ))
+        while ( SkipRow( nCol, nRow, nMovY, rMark, bUp, nEndRow, bMarked, bSheetProtected ))
+            ;
+
+        while ( nRow < nStartRow || nRow > nEndRow )
+        {
+            nCol += nColAdd;
+
+            while (nStartCol <= nCol && nCol <= nEndCol && ValidCol(nCol) && ColHidden(nCol))
+                nCol += nColAdd;    //  skip hidden cols
+
+            if (nCol < nStartCol)
+            {
+                nCol = nEndCol;
+
+                if (++nWrap >= 2)
+                    return;
+            }
+            else if (nCol > nEndCol)
+            {
+                nCol = nStartCol;
+
+                if (++nWrap >= 2)
+                    return;
+            }
+            if (nRow < nStartRow)
+                nRow = nEndRow;
+            else if (nRow > nEndRow)
+                nRow = nStartRow;
+
+            if (bMarked)
+                nRow = rMark.GetNextMarked( nCol, nRow, bUp );
+
+            while ( SkipRow( nCol, nRow, nMovY, rMark, bUp, nEndRow, bMarked, bSheetProtected ))
                 ;
         }
     }
@@ -1420,100 +1473,92 @@ void ScTable::GetNextPos( SCCOL& rCol, SCROW& rRow, SCCOL nMovX, SCROW nMovY,
     if ( nMovX && ( bMarked || bUnprotected ) )
     {
         // wrap initial skip counting:
-        if (nCol<0)
+        if (nCol < nStartCol)
         {
-            nCol = MAXCOL;
+            nCol = nEndCol;
             --nRow;
-            if (nRow<0)
-                nRow = MAXROW;
+            if (nRow < nStartRow)
+                nRow = nEndRow;
         }
-        if (nCol>MAXCOL)
+        if (nCol > nEndCol)
         {
-            nCol = 0;
+            nCol = nStartCol;
             ++nRow;
-            if (nRow>MAXROW)
-                nRow = 0;
+            if (nRow > nEndRow)
+                nRow = nStartRow;
         }
 
         if ( !ValidNextPos(nCol, nRow, rMark, bMarked, bUnprotected) )
         {
-            std::unique_ptr<SCROW[]> pNextRows(new SCROW[MAXCOL+1]);
-            SCCOL i;
+            const SCCOL nColCount = nEndCol - nStartCol + 1;
+            std::unique_ptr<SCROW[]> pNextRows( new SCROW[nColCount]);
             const SCCOL nLastCol = aCol.size() - 1;
+            const bool bUp = (nMovX < 0);   // Moving left also means moving up in rows.
+            const SCROW nRowAdd = (bUp ? -1 : 1);
+            sal_uInt16 nWrap = 0;
 
-            if ( nMovX > 0 )                            //  forward
+            for (SCCOL i = 0; i < nColCount; ++i)
+                pNextRows[i] = (i + nStartCol < nCol) ? (nRow + nRowAdd) : nRow;
+            do
             {
-                for (i=0; i<=MAXCOL; i++)
-                    pNextRows[i] = (i<nCol) ? (nRow+1) : nRow;
-                do
+                SCROW nNextRow = pNextRows[nCol - nStartCol] + nRowAdd;
+                if ( bMarked )
+                    nNextRow = rMark.GetNextMarked( nCol, nNextRow, bUp );
+                if ( bUnprotected )
+                    nNextRow = ( nCol <= nLastCol ) ? aCol[nCol].GetNextUnprotected( nNextRow, bUp ) :
+                        aDefaultColAttrArray.GetNextUnprotected( nNextRow, bUp );
+                pNextRows[nCol - nStartCol] = nNextRow;
+
+                if (bUp)
                 {
-                    SCROW nNextRow = pNextRows[nCol] + 1;
-                    if ( bMarked )
-                        nNextRow = rMark.GetNextMarked( nCol, nNextRow, false );
-                    if ( bUnprotected )
-                        nNextRow = ( nCol <= nLastCol ) ? aCol[nCol].GetNextUnprotected( nNextRow, false ) :
-                            aDefaultColAttrArray.GetNextUnprotected( nNextRow, false );
-                    pNextRows[nCol] = nNextRow;
-
-                    SCROW nMinRow = MAXROW+1;
-                    for (i=0; i<=MAXCOL; i++)
-                        if (pNextRows[i] < nMinRow)     // when two equal on the left
-                        {
-                            nMinRow = pNextRows[i];
-                            nCol = i;
-                        }
-                    nRow = nMinRow;
-
-                    if ( nRow > MAXROW )
+                    SCROW nMaxRow = nStartRow - 1;
+                    for (SCCOL i = 0; i < nColCount; ++i)
                     {
-                        if (++nWrap >= 2) break;        // handle invalid value
-                        nCol = 0;
-                        nRow = 0;
-                        for (i=0; i<=MAXCOL; i++)
-                            pNextRows[i] = 0;           // do it all over again
-                    }
-                }
-                while ( !ValidNextPos(nCol, nRow, rMark, bMarked, bUnprotected) );
-            }
-            else                                        //  backwards
-            {
-                for (i=0; i<=MAXCOL; i++)
-                    pNextRows[i] = (i>nCol) ? (nRow-1) : nRow;
-                do
-                {
-                    SCROW nNextRow = pNextRows[nCol] - 1;
-                    if ( bMarked )
-                        nNextRow = rMark.GetNextMarked( nCol, nNextRow, true );
-                    if ( bUnprotected )
-                        nNextRow = ( nCol <= nLastCol ) ? aCol[nCol].GetNextUnprotected( nNextRow, true ) :
-                            aDefaultColAttrArray.GetNextUnprotected( nNextRow, true );
-                    pNextRows[nCol] = nNextRow;
-
-                    SCROW nMaxRow = -1;
-                    for (i=0; i<=MAXCOL; i++)
-                        if (pNextRows[i] >= nMaxRow)    // when two equal on the right
+                        if (pNextRows[i] >= nMaxRow)    // when two equal the right one
                         {
                             nMaxRow = pNextRows[i];
-                            nCol = i;
+                            nCol = i + nStartCol;
                         }
+                    }
                     nRow = nMaxRow;
 
-                    if ( nRow < 0 )
+                    if ( nRow < nStartRow )
                     {
-                        if (++nWrap >= 2) break;        // handle invalid value
-                        nCol = MAXCOL;
-                        nRow = MAXROW;
-                        for (i=0; i<=MAXCOL; i++)
-                            pNextRows[i] = MAXROW;      // do it all over again
+                        if (++nWrap >= 2)
+                            return;
+                        nCol = nEndCol;
+                        nRow = nEndRow;
+                        for (SCCOL i = 0; i < nColCount; ++i)
+                            pNextRows[i] = nEndRow;     // do it all over again
                     }
                 }
-                while ( !ValidNextPos(nCol, nRow, rMark, bMarked, bUnprotected) );
+                else
+                {
+                    SCROW nMinRow = nEndRow + 1;
+                    for (SCCOL i = 0; i < nColCount; ++i)
+                    {
+                        if (pNextRows[i] < nMinRow)     // when two equal the left one
+                        {
+                            nMinRow = pNextRows[i];
+                            nCol = i + nStartCol;
+                        }
+                    }
+                    nRow = nMinRow;
+
+                    if ( nRow > nEndRow )
+                    {
+                        if (++nWrap >= 2)
+                            return;
+                        nCol = nStartCol;
+                        nRow = nStartRow;
+                        for (SCCOL i = 0; i < nColCount; ++i)
+                            pNextRows[i] = nStartRow;   // do it all over again
+                    }
+                }
             }
+            while ( !ValidNextPos(nCol, nRow, rMark, bMarked, bUnprotected) );
         }
     }
-
-    //  Invalid values show up for instane for Tab, when nothing is selected and not
-    //  protected (left / right edge), then leave values unchanged.
 
     if (ValidColRow(nCol,nRow))
     {
@@ -2306,7 +2351,7 @@ formula::VectorRefArray ScTable::FetchVectorRefArray( SCCOL nCol, SCROW nRow1, S
     return aCol[nCol].FetchVectorRefArray(nRow1, nRow2);
 }
 
-bool ScTable::HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2 )
+bool ScTable::HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup )
 {
     if (nRow2 < nRow1)
         return false;
@@ -2314,7 +2359,7 @@ bool ScTable::HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2
     if ( !IsColValid( nCol ) || !ValidRow( nRow1 ) || !ValidRow( nRow2 ) )
         return false;
 
-    return aCol[nCol].HandleRefArrayForParallelism(nRow1, nRow2);
+    return aCol[nCol].HandleRefArrayForParallelism(nRow1, nRow2, mxGroup);
 }
 
 ScRefCellValue ScTable::GetRefCellValue( SCCOL nCol, SCROW nRow )
@@ -2356,15 +2401,6 @@ void ScTable::InterpretDirtyCells( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW 
 }
 
 void ScTable::SetFormulaResults( SCCOL nCol, SCROW nRow, const double* pResults, size_t nLen )
-{
-    if (!ValidCol(nCol))
-        return;
-
-    aCol[nCol].SetFormulaResults(nRow, pResults, nLen);
-}
-
-void ScTable::SetFormulaResults(
-    SCCOL nCol, SCROW nRow, const formula::FormulaConstTokenRef* pResults, size_t nLen )
 {
     if (!ValidCol(nCol))
         return;

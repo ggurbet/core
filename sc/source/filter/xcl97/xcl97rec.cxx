@@ -34,6 +34,7 @@
 
 #include <rtl/math.hxx>
 #include <rtl/uuid.h>
+#include <sal/log.hxx>
 #include <svl/zformat.hxx>
 #include <formulacell.hxx>
 #include <drwlayer.hxx>
@@ -73,6 +74,7 @@
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
+#include <com/sun/star/chart2/XChartDocument.hpp>
 #include <oox/token/tokens.hxx>
 #include <oox/token/namespaces.hxx>
 #include <oox/token/relationship.hxx>
@@ -97,10 +99,9 @@ sal_Int32 XclExpObjList::mnVmlCount;
 XclExpObjList::XclExpObjList( const XclExpRoot& rRoot, XclEscherEx& rEscherEx ) :
     XclExpRoot( rRoot ),
     mnScTab( rRoot.GetCurrScTab() ),
-    mrEscherEx( rEscherEx ),
-    pSolverContainer( nullptr )
+    mrEscherEx( rEscherEx )
 {
-    pMsodrawingPerSheet = new XclExpMsoDrawing( rEscherEx );
+    pMsodrawingPerSheet.reset( new XclExpMsoDrawing( rEscherEx ) );
     // open the DGCONTAINER and the patriarch group shape
     mrEscherEx.OpenContainer( ESCHER_DgContainer );
     tools::Rectangle aRect( 0, 0, 0, 0 );
@@ -110,12 +111,12 @@ XclExpObjList::XclExpObjList( const XclExpRoot& rRoot, XclEscherEx& rEscherEx ) 
 
 XclExpObjList::~XclExpObjList()
 {
-    std::for_each(maObjs.begin(), maObjs.end(), std::default_delete<XclObj>());
-    delete pMsodrawingPerSheet;
-    delete pSolverContainer;
+    maObjs.clear();
+    pMsodrawingPerSheet.reset();
+    pSolverContainer.reset();
 }
 
-sal_uInt16 XclExpObjList::Add( XclObj* pObj )
+sal_uInt16 XclExpObjList::Add( std::unique_ptr<XclObj> pObj )
 {
     OSL_ENSURE( maObjs.size() < 0xFFFF, "XclExpObjList::Add: too much for Xcl" );
 
@@ -123,30 +124,31 @@ sal_uInt16 XclExpObjList::Add( XclObj* pObj )
 
     if ( nSize < 0xFFFF )
     {
-        maObjs.push_back(pObj);
-        ++nSize;
-        pObj->SetId( nSize );
+        pObj->SetId( nSize+1 );
         pObj->SetTab( mnScTab );
+        maObjs.push_back(std::move(pObj));
+        ++nSize;
     }
     else
     {
-        delete pObj;
         nSize = 0;
     }
 
     return nSize;
 }
 
-void XclExpObjList::pop_back ()
+std::unique_ptr<XclObj> XclExpObjList::pop_back ()
 {
+    auto ret = std::move(maObjs.back());
     maObjs.pop_back();
+    return ret;
 }
 
 void XclExpObjList::EndSheet()
 {
     // Is there still something in the stream? -> The solver container
     if( mrEscherEx.HasPendingDffData() )
-        pSolverContainer = new XclExpMsoDrawing( mrEscherEx );
+        pSolverContainer.reset( new XclExpMsoDrawing( mrEscherEx ) );
 
     // close the DGCONTAINER created by XclExpObjList ctor MSODRAWING
     mrEscherEx.CloseContainer();
@@ -157,8 +159,7 @@ void XclExpObjList::Save( XclExpStream& rStrm )
     //! Escher must be written, even if there are no objects
     pMsodrawingPerSheet->Save( rStrm );
 
-    std::vector<XclObj*>::iterator pIter;
-    for ( pIter = maObjs.begin(); pIter != maObjs.end(); ++pIter )
+    for ( auto pIter = maObjs.begin(); pIter != maObjs.end(); ++pIter )
         (*pIter)->Save( rStrm );
 
     if( pSolverContainer )
@@ -182,9 +183,8 @@ sal_Int32 GetVmlObjectCount( XclExpObjList& rList )
 {
     sal_Int32 nNumVml = 0;
 
-    std::vector<XclObj*>::iterator pIter;
-    for ( pIter = rList.begin(); pIter != rList.end(); ++pIter )
-        if( IsVmlObject( *pIter ) )
+    for ( auto pIter = rList.begin(); pIter != rList.end(); ++pIter )
+        if( IsVmlObject( pIter->get() ) )
             ++nNumVml;
 
     return nNumVml;
@@ -235,13 +235,12 @@ void SaveDrawingMLObjects( XclExpObjList& rList, XclExpXmlStream& rStrm, sal_Int
 {
     std::vector<XclObj*> aList;
     aList.reserve(rList.size());
-    std::vector<XclObj*>::iterator it = rList.begin(), itEnd = rList.end();
-    for (; it != itEnd; ++it)
+    for (auto it = rList.begin(), itEnd = rList.end(); it != itEnd; ++it)
     {
-        if (IsVmlObject(*it) || !IsValidObject(**it))
+        if (IsVmlObject(it->get()) || !IsValidObject(**it))
             continue;
 
-        aList.push_back(*it);
+        aList.push_back(it->get());
     }
 
     if (aList.empty())
@@ -268,7 +267,7 @@ void SaveDrawingMLObjects( XclExpObjList& rList, XclExpXmlStream& rStrm, sal_Int
             FSNS( XML_xmlns, XML_r ),   XclXmlUtils::ToOString(rStrm.getNamespaceURL(OOX_NS(officeRel))).getStr(),
             FSEND );
 
-    for (it = aList.begin(), itEnd = aList.end(); it != itEnd; ++it)
+    for (auto it = aList.begin(), itEnd = aList.end(); it != itEnd; ++it)
         (*it)->SaveXml(rStrm);
 
     pDrawing->endElement( FSNS( XML_xdr, XML_wsDr ) );
@@ -303,10 +302,9 @@ void SaveVmlObjects( XclExpObjList& rList, XclExpXmlStream& rStrm, sal_Int32& nV
             FSNS( XML_xmlns, XML_w10 ), XclXmlUtils::ToOString(rStrm.getNamespaceURL(OOX_NS(vmlWord))).getStr(),
             FSEND );
 
-    std::vector<XclObj*>::iterator pIter;
-    for ( pIter = rList.begin(); pIter != rList.end(); ++pIter )
+    for ( auto pIter = rList.begin(); pIter != rList.end(); ++pIter )
     {
-        if( !IsVmlObject( *pIter ) )
+        if( !IsVmlObject( pIter->get() ) )
             continue;
         (*pIter)->SaveXml( rStrm );
     }
@@ -341,8 +339,6 @@ void XclExpObjList::ResetCounters()
 XclObj::XclObj( XclExpObjectManager& rObjMgr, sal_uInt16 nObjType, bool bOwnEscher ) :
     XclExpRecord( EXC_ID_OBJ, 26 ),
     mrEscherEx( rObjMgr.GetEscherEx() ),
-    pClientTextbox( nullptr ),
-    pTxo( nullptr ),
     mnObjType( nObjType ),
     nObjId(0),
     nGrbit( 0x6011 ),   // AutoLine, AutoFill, Printable, Locked
@@ -361,8 +357,8 @@ XclObj::~XclObj()
 {
     if ( !bFirstOnSheet )
         delete pMsodrawing;
-    delete pClientTextbox;
-    delete pTxo;
+    pClientTextbox.reset();
+    pTxo.reset();
 }
 
 void XclObj::ImplWriteAnchor( const SdrObject* pSdrObj, const tools::Rectangle* pChildAnchor )
@@ -413,10 +409,10 @@ void XclObj::SetText( const XclExpRoot& rRoot, const SdrTextObj& rObj )
     if ( !pClientTextbox )
     {
         mrEscherEx.UpdateDffFragmentEnd();
-        pClientTextbox = new XclExpMsoDrawing( mrEscherEx );
+        pClientTextbox.reset( new XclExpMsoDrawing( mrEscherEx ) );
         mrEscherEx.AddAtom( 0, ESCHER_ClientTextbox );    // TXO record
         mrEscherEx.UpdateDffFragmentEnd();
-        pTxo = new XclTxo( rRoot, rObj );
+        pTxo.reset( new XclTxo( rRoot, rObj ) );
     }
 }
 
@@ -492,19 +488,35 @@ void XclObj::SaveTextRecs( XclExpStream& rStrm )
         pTxo->Save( rStrm );
 }
 
-  // --- class XclObjComment ------------------------------------------
+// --- class XclObjComment ------------------------------------------
+
+// tdf#118662 static helper to allow single function access as friend in SdrCaptionObj
+void setSuppressGetBitmapFromXclObjComment(SdrCaptionObj* pSdrCaptionObj, bool bValue)
+{
+    if(nullptr != pSdrCaptionObj)
+    {
+        pSdrCaptionObj->setSuppressGetBitmap(bValue);
+    }
+}
 
 XclObjComment::XclObjComment( XclExpObjectManager& rObjMgr, const tools::Rectangle& rRect, const EditTextObject& rEditObj, SdrCaptionObj* pCaption, bool bVisible, const ScAddress& rAddress, const tools::Rectangle &rFrom, const tools::Rectangle &rTo ) :
     XclObj( rObjMgr, EXC_OBJTYPE_NOTE, true )
             , maScPos( rAddress )
-            , mpCaption( pCaption->Clone() )
+            , mpCaption( pCaption )
             , mbVisible( bVisible )
             , maFrom ( rFrom )
             , maTo ( rTo )
 {
+    // tdf#118662 due to no longer cloning the SdrCaptionObj an old 'hack' using the
+    // fact that no Graphics gets created when a SdrObject is not inserted in a SdrPage
+    // does not work anymore. In SvxShape::GetBitmap that info was used, and here the
+    // SdrCaptionObj was cloned for the only reason to have one not added to a SdrPage.
+    // To emulate old behaviour, use a boolean flag at the SdrCaptionObj.
+    setSuppressGetBitmapFromXclObjComment(mpCaption, true);
+
     ProcessEscherObj( rObjMgr.GetRoot(), rRect, pCaption, bVisible);
     // TXO
-    pTxo = new XclTxo( rObjMgr.GetRoot(), rEditObj, pCaption );
+    pTxo .reset(new XclTxo( rObjMgr.GetRoot(), rEditObj, pCaption ));
 }
 
 static void lcl_FillProps( EscherPropertyContainer& rPropOpt, SdrObject* pCaption, bool bVisible )
@@ -574,7 +586,7 @@ void XclObjComment::ProcessEscherObj( const XclExpRoot& rRoot, const tools::Rect
 
     //! Be sure to construct the MSODRAWING ClientTextbox record _after_ the
     //! base OBJ's MSODRAWING record Escher data is completed.
-    pClientTextbox = new XclExpMsoDrawing( mrEscherEx );
+    pClientTextbox.reset( new XclExpMsoDrawing( mrEscherEx ) );
     mrEscherEx.AddAtom( 0, ESCHER_ClientTextbox );    // TXO record
     mrEscherEx.UpdateDffFragmentEnd();
     mrEscherEx.CloseContainer();   // ESCHER_SpContainer
@@ -582,6 +594,8 @@ void XclObjComment::ProcessEscherObj( const XclExpRoot& rRoot, const tools::Rect
 
 XclObjComment::~XclObjComment()
 {
+    // tdf#118662 reset flag
+    setSuppressGetBitmapFromXclObjComment(mpCaption, false);
 }
 
 void XclObjComment::Save( XclExpStream& rStrm )
@@ -675,7 +689,7 @@ void VmlCommentExporter::EndShape( sal_Int32 nShapeElement )
 
 void XclObjComment::SaveXml( XclExpXmlStream& rStrm )
 {
-    VmlCommentExporter aCommentExporter( rStrm.GetCurrentStream(), maScPos, mpCaption.get(), mbVisible, maFrom, maTo );
+    VmlCommentExporter aCommentExporter( rStrm.GetCurrentStream(), maScPos, mpCaption, mbVisible, maFrom, maTo );
     aCommentExporter.AddSdrObject( *mpCaption );
 }
 

@@ -43,6 +43,19 @@ public:
     static FieldUnit GetValue(sal_uInt32 i);
 };
 
+class TextFilterAutoConvert : public TextFilter
+{
+private:
+    OUString m_sLastGoodText;
+    OUString m_sNone;
+public:
+    TextFilterAutoConvert(const OUString &rNone)
+        : m_sNone(rNone)
+    {
+    }
+    virtual OUString filter(const OUString &rText) override;
+};
+
 class SwLoadOptPage : public SfxTabPage
 {
 private:
@@ -74,7 +87,7 @@ public:
     virtual ~SwLoadOptPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage> Create( TabPageParent pParent,
                                       const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -116,7 +129,6 @@ private:
     OUString maText;
     bool mbFontInitialized;
     vcl::Font maFont;
-    Point maDrawPos;
 public:
     SwCaptionPreview(vcl::Window* pParent, WinBits nStyle);
     virtual void ApplySettings(vcl::RenderContext& rRenderContext) override;
@@ -157,7 +169,6 @@ private:
     OUString m_sOLE;
 
     OUString m_sIllustration;
-    OUString m_sFigure;
     OUString m_sTable;
     OUString m_sText;
     OUString m_sDrawing;
@@ -169,8 +180,10 @@ private:
 
     OUString m_sNone;
 
-    SwFieldMgr* pMgr;
+    std::unique_ptr<SwFieldMgr> pMgr;
     bool bHTMLMode;
+
+    TextFilterAutoConvert m_aTextFilter;
 
     DECL_LINK(SelectHdl, ComboBox&, void);
     DECL_LINK(SelectListBoxHdl, ListBox&, void);
@@ -190,7 +203,7 @@ public:
                         virtual ~SwCaptionOptPage() override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window* pParent,
+    static VclPtr<SfxTabPage> Create( TabPageParent pParent,
                                       const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;

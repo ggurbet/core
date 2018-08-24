@@ -34,6 +34,7 @@
 #include <svx/svdpage.hxx>
 #include <svl/itemiter.hxx>
 #include <comphelper/sequenceashashmap.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/document/XActionLockable.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
@@ -84,6 +85,8 @@ void SwTextBoxHelper::create(SwFrameFormat* pShape)
     xPropertySet->setPropertyValue(UNO_NAME_FILL_TRANSPARENCE, uno::makeAny(sal_Int32(100)));
 
     xPropertySet->setPropertyValue(UNO_NAME_SIZE_TYPE, uno::makeAny(text::SizeType::FIX));
+
+    xPropertySet->setPropertyValue(UNO_NAME_SURROUND, uno::makeAny(text::WrapTextMode_THROUGH));
 
     uno::Reference<container::XNamed> xNamed(xTextFrame, uno::UNO_QUERY);
     xNamed->setName(pShape->GetDoc()->GetUniqueFrameName());
@@ -212,7 +215,7 @@ uno::Any SwTextBoxHelper::getByIndex(SdrPage const* pPage, sal_Int32 nIndex)
 
 sal_Int32 SwTextBoxHelper::getOrdNum(const SdrObject* pObject)
 {
-    if (const SdrPage* pPage = pObject->GetPage())
+    if (const SdrPage* pPage = pObject->getSdrPageFromSdrObject())
     {
         sal_Int32 nOrder = 0; // Current logical order.
         for (std::size_t i = 0; i < pPage->GetObjCount(); ++i)

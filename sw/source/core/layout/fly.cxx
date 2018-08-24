@@ -24,6 +24,7 @@
 #include <editeng/opaqitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/frmdiritem.hxx>
+#include <editeng/outlobj.hxx>
 #include <drawdoc.hxx>
 #include <fmtfsize.hxx>
 #include <fmtclds.hxx>
@@ -376,8 +377,14 @@ void SwFlyFrame::FinitDrawObj()
             }
         }
     }
-    GetVirtDrawObj()->SetUserCall(nullptr); // Else calls delete of the ContactObj
-    delete GetVirtDrawObj();            // Deregisters itself at the Master
+
+    // Else calls delete of the ContactObj
+    GetVirtDrawObj()->SetUserCall(nullptr);
+
+    // Deregisters itself at the Master
+    // always use SdrObject::Free(...) for SdrObjects (!)
+    SdrObject* pTemp(GetVirtDrawObj());
+    SdrObject::Free(pTemp);
 }
 
 void SwFlyFrame::ChainFrames( SwFlyFrame *pMaster, SwFlyFrame *pFollow )
@@ -717,7 +724,7 @@ void SwFlyFrame::UpdateAttr_( const SfxPoolItem *pOld, const SfxPoolItem *pNew,
             if ( Lower() && Lower()->IsNoTextFrame() &&
                  !GetFormat()->GetSurround().IsContour() )
             {
-                SwNoTextNode *pNd = static_cast<SwNoTextNode*>(static_cast<SwContentFrame*>(Lower())->GetNode());
+                SwNoTextNode *pNd = static_cast<SwNoTextNode*>(static_cast<SwNoTextFrame*>(Lower())->GetNode());
                 if ( pNd->HasContour() )
                     pNd->SetContour( nullptr );
             }
@@ -835,7 +842,7 @@ void SwFlyFrame::UpdateAttr_( const SfxPoolItem *pOld, const SfxPoolItem *pNew,
                 if( Lower()->IsNoTextFrame() &&
                      !GetFormat()->GetSurround().IsContour() )
                 {
-                    SwNoTextNode *pNd = static_cast<SwNoTextNode*>(static_cast<SwContentFrame*>(Lower())->GetNode());
+                    SwNoTextNode *pNd = static_cast<SwNoTextNode*>(static_cast<SwNoTextFrame*>(Lower())->GetNode());
                     if ( pNd->HasContour() )
                         pNd->SetContour( nullptr );
                 }
@@ -1082,10 +1089,10 @@ void SwFlyFrame::ChgRelPos( const Point &rNewPos )
             if( LONG_MAX != nNewY )
             {
                 aVert.SetVertOrient( text::VertOrientation::NONE );
-                sal_Int32 nOfs =
-                    pFormat->GetAnchor().GetContentAnchor()->nContent.GetIndex();
-                OSL_ENSURE( GetAnchorFrame()->IsTextFrame(), "TextFrame expected" );
+                assert(GetAnchorFrame()->IsTextFrame());
                 pAutoFrame = static_cast<const SwTextFrame*>(GetAnchorFrame());
+                TextFrameIndex const nOfs(pAutoFrame->MapModelToViewPos(
+                            *pFormat->GetAnchor().GetContentAnchor()));
                 while( pAutoFrame->GetFollow() &&
                        pAutoFrame->GetFollow()->GetOfst() <= nOfs )
                 {
@@ -1138,10 +1145,10 @@ void SwFlyFrame::ChgRelPos( const Point &rNewPos )
                 {
                     if( !pAutoFrame )
                     {
-                        sal_Int32 nOfs = pFormat->GetAnchor().GetContentAnchor()
-                                      ->nContent.GetIndex();
-                        OSL_ENSURE( GetAnchorFrame()->IsTextFrame(), "TextFrame expected");
+                        assert(GetAnchorFrame()->IsTextFrame());
                         pAutoFrame = static_cast<const SwTextFrame*>(GetAnchorFrame());
+                        TextFrameIndex const nOfs(pAutoFrame->MapModelToViewPos(
+                                    *pFormat->GetAnchor().GetContentAnchor()));
                         while( pAutoFrame->GetFollow() &&
                                pAutoFrame->GetFollow()->GetOfst() <= nOfs )
                             pAutoFrame = pAutoFrame->GetFollow();
@@ -1422,6 +1429,7 @@ void CalcContent( SwLayoutFrame *pLay, bool bNoColl )
             }
 
             {
+                SwFrameDeleteGuard aDeletePageGuard(pSect ? pSect->FindPageFrame() : nullptr);
                 SwFrameDeleteGuard aDeleteGuard(pSect);
                 pFrame->Calc(pRenderContext);
             }
@@ -1450,7 +1458,7 @@ void CalcContent( SwLayoutFrame *pLay, bool bNoColl )
                                !pTmpFlowFrame->IsJoinLocked() &&
                                !pTmpPrev->isFrameAreaPositionValid() &&
                                 pLay->IsAnLower( pTmpPrev ) &&
-                                pTmpPrevFlowFrame->IsKeep( *pTmpPrev->GetAttrSet() ) &&
+                                pTmpPrevFlowFrame->IsKeep(pTmpPrev->GetAttrSet()->GetKeep(), pTmpPrev->GetBreakItem()) &&
                                 pTmpPrevFlowFrame->IsKeepFwdMoveAllowed();
 
             // format floating screen objects anchored to the frame.
@@ -2418,7 +2426,7 @@ static SwTwips lcl_CalcAutoWidth( const SwLayoutFrame& rFrame )
         {
             nMin = const_cast<SwTextFrame*>(static_cast<const SwTextFrame*>(pFrame))->CalcFitToContent();
             const SvxLRSpaceItem &rSpace =
-                static_cast<const SwTextFrame*>(pFrame)->GetTextNode()->GetSwAttrSet().GetLRSpace();
+                static_cast<const SwTextFrame*>(pFrame)->GetTextNodeForParaProps()->GetSwAttrSet().GetLRSpace();
             if (!static_cast<const SwTextFrame*>(pFrame)->IsLocked())
                 nMin += rSpace.GetRight() + rSpace.GetTextLeft() + rSpace.GetTextFirstLineOfst();
         }
@@ -2462,7 +2470,7 @@ bool SwFlyFrame::GetContour( tools::PolyPolygon&   rContour,
     {
         if(GetFormat()->GetSurround().IsContour())
         {
-            SwNoTextNode *pNd = const_cast<SwNoTextNode*>(static_cast<const SwNoTextNode*>(static_cast<const SwContentFrame*>(Lower())->GetNode()));
+            SwNoTextNode *pNd = const_cast<SwNoTextNode*>(static_cast<const SwNoTextNode*>(static_cast<const SwNoTextFrame*>(Lower())->GetNode()));
             // OD 16.04.2003 #i13147# - determine <GraphicObject> instead of <Graphic>
             // in order to avoid load of graphic, if <SwNoTextNode> contains a graphic
             // node and method is called for paint.

@@ -41,6 +41,7 @@
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
+#include <sal/log.hxx>
 
 #include <o3tl/make_unique.hxx>
 
@@ -56,11 +57,8 @@ SvxGradientTabPage::SvxGradientTabPage
     SfxTabPage          ( pParent, "GradientPage", "cui/ui/gradientpage.ui", &rInAttrs ),
 
     m_rOutAttrs           ( rInAttrs ),
-
     m_pnGradientListState ( nullptr ),
     m_pnColorListState    ( nullptr ),
-
-    m_aXGradientItem      ( OUString(), XGradient( COL_BLACK, COL_WHITE ) ),
     m_aXFillAttr          ( rInAttrs.GetPool() ),
     m_rXFSet              ( m_aXFillAttr.GetItemSet() )
 {
@@ -100,7 +98,7 @@ SvxGradientTabPage::SvxGradientTabPage
 
     // setting the output device
     m_rXFSet.Put( XFillStyleItem(drawing::FillStyle_GRADIENT) );
-    m_rXFSet.Put( m_aXGradientItem );
+    m_rXFSet.Put( XFillGradientItem(OUString(), XGradient( COL_BLACK, COL_WHITE )) );
     m_pCtlPreview->SetAttributes( m_aXFillAttr.GetItemSet() );
 
     // set handler
@@ -272,10 +270,10 @@ void SvxGradientTabPage::Reset( const SfxItemSet* )
 }
 
 
-VclPtr<SfxTabPage> SvxGradientTabPage::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SvxGradientTabPage::Create( TabPageParent pWindow,
                                                const SfxItemSet* rOutAttrs )
 {
-    return VclPtr<SvxGradientTabPage>::Create( pWindow, *rOutAttrs );
+    return VclPtr<SvxGradientTabPage>::Create( pWindow.pParent, *rOutAttrs );
 }
 
 IMPL_LINK( SvxGradientTabPage, ModifiedListBoxHdl_Impl, ListBox&, rListBox, void )
@@ -414,7 +412,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickAddHdl_Impl, Button*, void)
         m_pGradientList->Insert(o3tl::make_unique<XGradientEntry>(aXGradient, aName), nCount);
 
         sal_Int32 nId = m_pGradientLB->GetItemId(nCount - 1); //calculate the last ID
-        Bitmap aBitmap = m_pGradientList->GetBitmapForPreview( nCount, m_pGradientLB->GetIconSize() );
+        BitmapEx aBitmap = m_pGradientList->GetBitmapForPreview( nCount, m_pGradientLB->GetIconSize() );
         m_pGradientLB->InsertItem( nId + 1, Image(aBitmap), aName );
         m_pGradientLB->SelectItem( nId + 1 );
         m_pGradientLB->Resize();
@@ -452,7 +450,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickModifyHdl_Impl, Button*, void)
 
         m_pGradientList->Replace(o3tl::make_unique<XGradientEntry>(aXGradient, aName), nPos);
 
-        Bitmap aBitmap = m_pGradientList->GetBitmapForPreview( static_cast<sal_uInt16>(nPos), m_pGradientLB->GetIconSize() );
+        BitmapEx aBitmap = m_pGradientList->GetBitmapForPreview( static_cast<sal_uInt16>(nPos), m_pGradientLB->GetIconSize() );
         m_pGradientLB->RemoveItem( nId );
         m_pGradientLB->InsertItem( nId, Image(aBitmap), aName, static_cast<sal_uInt16>(nPos) );
         m_pGradientLB->SelectItem( nId );
@@ -501,9 +499,7 @@ IMPL_LINK_NOARG(SvxGradientTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void
         OUString aName( m_pGradientList->GetGradient( nPos )->GetName() );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        assert(pFact && "Dialog creation failed!");
         ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aName, aDesc));
-        assert(pDlg && "Dialog creation failed!");
 
         bool bLoop = true;
         while( bLoop && pDlg->Execute() == RET_OK )

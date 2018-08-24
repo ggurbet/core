@@ -20,15 +20,10 @@
 #ifndef INCLUDED_SC_INC_DOCOPTIO_HXX
 #define INCLUDED_SC_INC_DOCOPTIO_HXX
 
-#include <unotools/configitem.hxx>
 #include <unotools/textsearch.hxx>
 #include <svl/poolitem.hxx>
-#include <svl/itemprop.hxx>
 #include "scdllapi.h"
-#include "scmod.hxx"
 #include "optutil.hxx"
-
-#include <formula/grammar.hxx>
 
 class SC_DLLPUBLIC ScDocOptions
 {
@@ -144,6 +139,11 @@ public:
                 ScTpCalcItem( sal_uInt16 nWhich,
                               const ScDocOptions& rOpt );
                 virtual ~ScTpCalcItem() override;
+
+    ScTpCalcItem(ScTpCalcItem const &) = default;
+    ScTpCalcItem(ScTpCalcItem &&) = default;
+    ScTpCalcItem & operator =(ScTpCalcItem const &) = default;
+    ScTpCalcItem & operator =(ScTpCalcItem &&) = default;
 
     virtual bool            operator==( const SfxPoolItem& ) const override;
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;

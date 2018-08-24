@@ -21,21 +21,20 @@
 #define INCLUDED_SC_INC_DPFILTEREDCACHE_HXX
 
 #include <sal/types.h>
-#include <osl/mutex.hxx>
-#include "global.hxx"
 #include "dpitemdata.hxx"
 #include "calcmacros.hxx"
+#include "scdllapi.h"
+#include "types.hxx"
 
-#include <memory>
 #include <unordered_set>
 #include <vector>
 
 #include <mdds/flat_segment_tree.hpp>
 
-class ScDPItemData;
+namespace com { namespace sun { namespace star { namespace uno { class Any; } } } }
+namespace com { namespace sun { namespace star { namespace uno { template <typename > class Sequence; } } } }
+
 class ScDPCache;
-class ScDocument;
-class ScRange;
 struct ScDPValue;
 struct ScQueryParam;
 
@@ -157,7 +156,7 @@ private:
 
 private:
 
-    /** unique field entires for each field (column). */
+    /** unique field entries for each field (column). */
     ::std::vector< ::std::vector<SCROW> > maFieldEntries;
 
     /** Rows visible by standard filter query. */

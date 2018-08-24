@@ -318,6 +318,9 @@ void testArithmeticTypedefs() {
     (void) static_cast<T1>(nt1r()); // expected-error {{redundant}}
     (void) T1(nt1r()); // expected-error {{redundant}}
     (void) (T1) nt1r(); // expected-error {{redundant}}
+
+    T1 const c{};
+    (void) static_cast<T1>(c); // expected-error {{redundant}}
 }
 
 void testReinterpretConstCast() {
@@ -374,6 +377,15 @@ void testOverloadResolution() {
     (void) NonOverloadMemFn(&Overload::nonOverload); // expected-error {{redundant functional cast from 'void (Overload::*)()' to 'NonOverloadMemFn' (aka 'void (Overload::*)()') [loplugin:redundantcast]}}
 };
 
+void testIntermediaryStaticCast() {
+    int n = 0;
+    n = static_cast<double>(n); // expected-error {{suspicious static_cast from 'int' to 'double', result is implicitly cast to 'int' [loplugin:redundantcast]}}
+    n = double(n); // expected-error {{suspicious functional cast from 'int' to 'double', result is implicitly cast to 'int' [loplugin:redundantcast]}}
+    double d = 0.0;
+    d = static_cast<int>(d) + 1.0; // expected-error {{suspicious static_cast from 'double' to 'int', result is implicitly cast to 'double' [loplugin:redundantcast]}}
+    d = int(d) + 1.0; // expected-error {{suspicious functional cast from 'double' to 'int', result is implicitly cast to 'double' [loplugin:redundantcast]}}
+};
+
 int main() {
     testConstCast();
     testStaticCast();
@@ -382,6 +394,7 @@ int main() {
     testCStyleCastOfTemplateMethodResult(nullptr);
     testReinterpretConstCast();
     testDynamicCast();
+    testIntermediaryStaticCast();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

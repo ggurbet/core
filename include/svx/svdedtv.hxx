@@ -240,7 +240,7 @@ public:
     bool IsDistortAllowed(bool bNoContortion=false) const;
 
     // Unite several objects to a polygon:
-    // - rectangles/circles/text... are implicite converted.
+    // - rectangles/circles/text... are implicitly converted.
     // - polygones are closed automatically
     // - attributes and layer are taken from the first object marked
     //   (thus from lowest Z-order).
@@ -308,11 +308,11 @@ public:
     void SetStyleSheetToMarked(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
 
     /* new interface src537 */
-    bool GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const;
+    void GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const;
 
-    bool SetAttributes(const SfxItemSet& rSet, bool bReplaceAll);
+    void SetAttributes(const SfxItemSet& rSet, bool bReplaceAll);
     SfxStyleSheet* GetStyleSheet() const; // SfxStyleSheet* GetStyleSheet(bool& rOk) const;
-    bool SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
+    void SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
 
     // Group all marked objects to a single group.
     // Subsequently mark the new group . If the group spawns multiple

@@ -40,8 +40,8 @@
 #include <xmloff/attrlist.hxx>
 #include <rtl/math.hxx>
 #include <rtl/ref.hxx>
+#include <sal/log.hxx>
 #include <unotools/datetime.hxx>
-#include <comphelper/ofopxmlhelper.hxx>
 #include <sax/tools/converter.hxx>
 #include "ooxmlsecexporter.hxx"
 #include <xmlsignaturehelper2.hxx>
@@ -68,9 +68,32 @@ OUString getDigestURI(sal_Int32 nID)
             return OUString(ALGO_XMLDSIGSHA1);
     }
 }
-OUString getSignatureURI(sal_Int32 nID)
+OUString getSignatureURI(svl::crypto::SignatureMethodAlgorithm eAlgorithm, sal_Int32 nDigestID)
 {
-    switch( nID )
+    OUString aRet;
+
+    if (eAlgorithm == svl::crypto::SignatureMethodAlgorithm::ECDSA)
+    {
+        switch (nDigestID)
+        {
+            case cssxc::DigestID::SHA1:
+                aRet = ALGO_ECDSASHA1;
+                break;
+            case cssxc::DigestID::SHA256:
+                aRet = ALGO_ECDSASHA256;
+                break;
+            case cssxc::DigestID::SHA512:
+                aRet = ALGO_ECDSASHA512;
+                break;
+            default:
+                aRet = ALGO_ECDSASHA1;
+                break;
+        }
+    }
+    if (!aRet.isEmpty())
+        return aRet;
+
+    switch (nDigestID)
     {
         case cssxc::DigestID::SHA1:
             return OUString(ALGO_RSASHA1);
@@ -608,7 +631,7 @@ void XSecController::exportSignature(
             // SignatureMethod:Algorithm should be the corresponding one.
             pAttributeList->AddAttribute(
                 "Algorithm",
-                getSignatureURI(vReferenceInfors[0].nDigestID));
+                getSignatureURI(signatureInfo.eAlgorithmID, vReferenceInfors[0].nDigestID));
             xDocumentHandler->startElement( "SignatureMethod", cssu::Reference< cssxs::XAttributeList > (pAttributeList) );
             xDocumentHandler->endElement( "SignatureMethod" );
 
@@ -814,7 +837,7 @@ void XSecController::exportSignature(
 
                     OUStringBuffer buffer;
                     //If the xml signature was already contained in the document,
-                    //then we use the original date and time string, rather then the
+                    //then we use the original date and time string, rather than the
                     //converted one. This avoids writing a different string due to
                     //e.g. rounding issues and thus breaking the signature.
                     if (!signatureInfo.ouDateTime.isEmpty())

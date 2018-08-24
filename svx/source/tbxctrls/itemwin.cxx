@@ -29,7 +29,6 @@
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
 
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 
 #define DELAY_TIMEOUT           100
@@ -40,7 +39,6 @@
 #include <svx/xlndsit.hxx>
 #include <svx/xtable.hxx>
 #include <svx/drawitem.hxx>
-#include <svx/dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/itemwin.hxx>
 #include <svx/linectrl.hxx>
@@ -529,7 +527,7 @@ void SvxFillAttrBox::Fill( const XHatchListRef &pList )
     for( long i = 0; i < nCount; i++ )
     {
         const XHatchEntry* pEntry = pList->GetHatch(i);
-        const Bitmap aBitmap = pList->GetUiBitmap( i );
+        const BitmapEx aBitmap = pList->GetUiBitmap( i );
         if( !aBitmap.IsEmpty() )
             ListBox::InsertEntry(pEntry->GetName(), Image(aBitmap));
         else
@@ -550,7 +548,7 @@ void SvxFillAttrBox::Fill( const XGradientListRef &pList )
     for( long i = 0; i < nCount; i++ )
     {
         const XGradientEntry* pEntry = pList->GetGradient(i);
-        const Bitmap aBitmap = pList->GetUiBitmap( i );
+        const BitmapEx aBitmap = pList->GetUiBitmap( i );
         if( !aBitmap.IsEmpty() )
             ListBox::InsertEntry(pEntry->GetName(), Image(aBitmap));
         else
@@ -610,7 +608,7 @@ namespace
                 }
             }
 
-            rBitmapEx = pVirtualDevice->GetBitmap(Point(0, 0), rSize);
+            rBitmapEx = pVirtualDevice->GetBitmapEx(Point(0, 0), rSize);
         }
     }
 } // end of anonymous namespace

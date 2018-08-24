@@ -67,6 +67,7 @@
 #include <global.hxx>
 #include <sc.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <patattr.hxx>
 #include <viewdata.hxx>
 #include <document.hxx>
@@ -278,17 +279,6 @@ ScTypedCaseStrSet::const_iterator findTextAll(
     return rDataSet.end(); // no matching text found
 }
 
-void removeChars(OUString& rStr, sal_Unicode c)
-{
-    OUStringBuffer aBuf(rStr);
-    for (sal_Int32 i = 0, n = aBuf.getLength(); i < n; ++i)
-    {
-        if (aBuf[i] == c)
-            aBuf[i] = ' ';
-    }
-    rStr = aBuf.makeStringAndClear();
-}
-
 }
 
 void ScInputHandler::InitRangeFinder( const OUString& rFormula )
@@ -496,13 +486,13 @@ inline OUString GetEditText(const EditEngine* pEng)
 
 static void lcl_RemoveTabs(OUString& rStr)
 {
-    removeChars(rStr, '\t');
+    rStr = rStr.replace('\t', ' ');
 }
 
 static void lcl_RemoveLineEnd(OUString& rStr)
 {
     rStr = convertLineEnd(rStr, LINEEND_LF);
-    removeChars(rStr, '\n');
+    rStr = rStr.replace('\n', ' ');
 }
 
 static sal_Int32 lcl_MatchParenthesis( const OUString& rStr, sal_Int32 nPos )
@@ -827,17 +817,17 @@ void ScInputHandler::GetFormulaData()
         for(sal_uLong i=0;i<nListCount;i++)
         {
             const ScFuncDesc* pDesc = pFuncList->GetFunction( i );
-            if ( pDesc->pFuncName )
+            if ( pDesc->mxFuncName )
             {
-                const sal_Unicode* pName = pDesc->pFuncName->getStr();
-                const sal_Int32 nLen = pDesc->pFuncName->getLength();
+                const sal_Unicode* pName = pDesc->mxFuncName->getStr();
+                const sal_Int32 nLen = pDesc->mxFuncName->getLength();
                 // fdo#75264 fill maFormulaChar with all characters used in formula names
                 for ( sal_Int32 j = 0; j < nLen; j++ )
                 {
                     sal_Unicode c = pName[ j ];
                     maFormulaChar.insert( c );
                 }
-                OUString aFuncName = *pDesc->pFuncName + aParenthesesReplacement;
+                OUString aFuncName = *pDesc->mxFuncName + aParenthesesReplacement;
                 pFormulaData->insert(ScTypedStrData(aFuncName, 0.0, ScTypedStrData::Standard));
                 pDesc->initArgumentInfo();
                 OUString aEntry = pDesc->getSignature();
@@ -995,9 +985,9 @@ void ScInputHandler::ShowArgumentsTip( OUString& rSelText )
                             if (nStartPosition > 0)
                             {
                                 OUStringBuffer aBuf;
-                                aBuf.append(aNew.copy(0, nStartPosition));
+                                aBuf.appendCopy(aNew, 0, nStartPosition);
                                 aBuf.append(u'\x25BA');
-                                aBuf.append(aNew.copy(nStartPosition));
+                                aBuf.appendCopy(aNew, nStartPosition);
                                 nArgs = ppFDesc->getParameterCount();
                                 sal_Int16 nVarArgsSet = 0;
                                 if ( nArgs >= PAIRED_VAR_ARGS )
@@ -1143,7 +1133,7 @@ bool ScInputHandler::GetFuncName( OUString& aStart, OUString& aResult )
 
 void ScInputHandler::ShowFuncList( const ::std::vector< OUString > & rFuncStrVec )
 {
-    OUString aTipStr;
+    OUStringBuffer aTipStr;
     OUString aFuncNameStr;
     OUString aDescFuncNameStr;
     ::std::vector<OUString>::const_iterator itStr = rFuncStrVec.begin();
@@ -1167,21 +1157,20 @@ void ScInputHandler::ShowFuncList( const ::std::vector< OUString > & rFuncStrVec
         }
         else
         {
-            aTipStr = aTipStr + ", ";
+            aTipStr.append(", ");
         }
-        aTipStr = aTipStr + aFuncNameStr;
+        aTipStr.append(aFuncNameStr);
         if ( itStr == rFuncStrVec.begin() )
-            aTipStr += "]";
+            aTipStr.append("]");
         if ( --nRemainFindNumber <= 0 )
             break;
     }
     sal_Int32 nRemainNumber = rFuncStrVec.size() - nMaxFindNumber;
     if ( nRemainFindNumber == 0 && nRemainNumber > 0 )
     {
-        OUString aBufStr( aTipStr );
-        OUString aMessage( ScGlobal::GetRscString( STR_FUNCTIONS_FOUND ) );
+        OUString aMessage( ScResId( STR_FUNCTIONS_FOUND ) );
         aMessage = aMessage.replaceFirst("%2", OUString::number(nRemainNumber));
-        aMessage = aMessage.replaceFirst("%1", aBufStr);
+        aMessage = aMessage.replaceFirst("%1", aTipStr.makeStringAndClear());
         aTipStr = aMessage;
     }
     FormulaHelper aHelper(ScGlobal::GetStarCalcFunctionMgr());
@@ -1193,10 +1182,10 @@ void ScInputHandler::ShowFuncList( const ::std::vector< OUString > & rFuncStrVec
     {
         if ( !ppFDesc->getFunctionName().isEmpty() )
         {
-            aTipStr += " : " + ppFDesc->getDescription();
+            aTipStr.append(" : ").append(ppFDesc->getDescription());
         }
     }
-    ShowTip( aTipStr );
+    ShowTip( aTipStr.makeStringAndClear() );
 }
 
 void ScInputHandler::UseFormulaData()
@@ -1907,7 +1896,7 @@ void ScInputHandler::SetInputWindow(  ScInputWindow* pNew )
 
 void ScInputHandler::StopInputWinEngine( bool bAll )
 {
-    if (pInputWin)
+    if (pInputWin && !pInputWin->IsDisposed())
         pInputWin->StopEditEngine( bAll );
 
     pTopView = nullptr; // invalid now
@@ -2627,6 +2616,7 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
     bool            bForget     = false; // Remove due to validity?
 
     OUString aString = GetEditText(mpEditEngine.get());
+    OUString aPreAutoCorrectString(aString);
     EditView* pActiveView = pTopView ? pTopView : pTableView;
     if (bModified && pActiveView && !aString.isEmpty() && !lcl_IsNumber(aString))
     {
@@ -2647,6 +2637,7 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
         aString = GetEditText(mpEditEngine.get());
     }
     lcl_RemoveTabs(aString);
+    lcl_RemoveTabs(aPreAutoCorrectString);
 
     // Test if valid (always with simple string)
     if ( bModified && nValidation && pActiveViewSh )
@@ -2657,7 +2648,17 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
         {
             // #i67990# don't use pLastPattern in EnterHandler
             const ScPatternAttr* pPattern = pDoc->GetPattern( aCursorPos.Col(), aCursorPos.Row(), aCursorPos.Tab() );
-            bool bOk = pData->IsDataValid( aString, *pPattern, aCursorPos );
+
+            bool bOk;
+
+            if (pData->GetDataMode() == SC_VALID_CUSTOM)
+            {
+                bOk = pData->IsDataValidCustom( aString, *pPattern, aCursorPos,  ScValidationData::CustomValidationPrivateAccess() );
+            }
+            else
+            {
+                bOk = pData->IsDataValid( aString, *pPattern, aCursorPos );
+            }
 
             if (!bOk)
             {
@@ -2870,12 +2871,14 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
 
     if (bOldMod && !bProtected && !bForget)
     {
+        bool bInsertPreCorrectedString = true;
         // No typographic quotes in formulas
         if (aString.startsWith("="))
         {
             SvxAutoCorrect* pAuto = SvxAutoCorrCfg::Get().GetAutoCorrect();
             if ( pAuto )
             {
+                bInsertPreCorrectedString = false;
                 OUString aReplace(pAuto->GetStartDoubleQuote());
                 if( aReplace.isEmpty() )
                     aReplace = ScGlobal::pLocaleData->getDoubleQuotationMarkStart();
@@ -2914,17 +2917,26 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
             else if ( nBlockMode == ScEnterMode::MATRIX )
                 nId = FID_INPUTLINE_MATRIX;
 
-            ScInputStatusItem aItem( FID_INPUTLINE_STATUS,
-                                     aCursorPos, aCursorPos, aCursorPos,
-                                     aString, pObject.get() );
-
-            if (!aMisspellRanges.empty())
-                aItem.SetMisspellRanges(&aMisspellRanges);
-
             const SfxPoolItem* aArgs[2];
-            aArgs[0] = &aItem;
             aArgs[1] = nullptr;
-            rBindings.Execute( nId, aArgs );
+
+            if ( bInsertPreCorrectedString && aString != aPreAutoCorrectString )
+            {
+               ScInputStatusItem aItem(FID_INPUTLINE_STATUS,
+                                       aCursorPos, aCursorPos, aCursorPos,
+                                       aPreAutoCorrectString, pObject.get());
+                aArgs[0] = &aItem;
+                rBindings.Execute(nId, aArgs);
+            }
+
+            ScInputStatusItem aItemCorrected(FID_INPUTLINE_STATUS,
+                                             aCursorPos, aCursorPos, aCursorPos,
+                                             aString, pObject.get());
+            if ( !aMisspellRanges.empty() )
+                aItemCorrected.SetMisspellRanges(&aMisspellRanges);
+
+            aArgs[0] = &aItemCorrected;
+            rBindings.Execute(nId, aArgs);
         }
 
         pLastState.reset(); // pLastState still contains the old text
@@ -3400,13 +3412,22 @@ bool ScInputHandler::KeyInput( const KeyEvent& rKEvt, bool bStartEdit /* = false
                 {
                     if (pTableView)
                     {
+                        if (pTopView)
+                            pTableView->SetControlWord(pTableView->GetControlWord() | EVControlBits::SINGLELINEPASTE);
+
                         vcl::Window* pFrameWin = pActiveViewSh ? pActiveViewSh->GetFrameWin() : nullptr;
                         if ( pTableView->PostKeyEvent( rKEvt, pFrameWin ) )
                             bUsed = true;
+
+                        pTableView->SetControlWord(pTableView->GetControlWord() & ~EVControlBits::SINGLELINEPASTE);
                     }
                     if (pTopView)
-                        if ( pTopView->PostKeyEvent( rKEvt ) )
+                    {
+                        if ( bUsed && rKEvt.GetKeyCode().GetFunction() == KeyFuncType::CUT )
+                            pTopView->DeleteSelected();
+                        else if ( pTopView->PostKeyEvent( rKEvt ) )
                             bUsed = true;
+                    }
                 }
 
                 // AutoInput:

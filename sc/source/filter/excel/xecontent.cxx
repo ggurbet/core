@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <com/sun/star/sheet/XAreaLinks.hpp>
 #include <com/sun/star/sheet/XAreaLink.hpp>
+#include <com/sun/star/sheet/TableValidationVisibility.hpp>
 #include <comphelper/string.hxx>
 #include <sfx2/objsh.hxx>
 #include <tools/urlobj.hxx>
@@ -45,6 +46,7 @@
 #include <xestyle.hxx>
 #include <xename.hxx>
 #include <rtl/uuid.h>
+#include <sal/log.hxx>
 #include <oox/export/utils.hxx>
 #include <oox/token/namespaces.hxx>
 #include <oox/token/relationship.hxx>
@@ -457,7 +459,8 @@ OUString XclExpHyperlink::BuildFileName(
         sal_uInt16& rnLevel, bool& rbRel, const OUString& rUrl, const XclExpRoot& rRoot, bool bEncoded )
 {
     INetURLObject aURLObject( rUrl );
-    OUString aDosName( bEncoded ? aURLObject.GetURLPath() : aURLObject.getFSysPath( FSysStyle::Dos ) );
+    OUString aDosName(bEncoded ? aURLObject.GetMainURL(INetURLObject::DecodeMechanism::ToIUri)
+                               : aURLObject.getFSysPath(FSysStyle::Dos));
     rnLevel = 0;
     rbRel = rRoot.IsRelUrl();
 
@@ -936,6 +939,71 @@ bool IsTextRule(ScConditionMode eMode)
     return false;
 }
 
+bool RequiresFormula(ScConditionMode eMode)
+{
+    if (IsTopBottomRule(eMode))
+        return false;
+    else if (IsTextRule(eMode))
+        return false;
+
+    switch (eMode)
+    {
+        case ScConditionMode::NoError:
+        case ScConditionMode::Error:
+        case ScConditionMode::Duplicate:
+        case ScConditionMode::NotDuplicate:
+            return false;
+        default:
+        break;
+    }
+
+    return true;
+}
+
+bool RequiresFixedFormula(ScConditionMode eMode)
+{
+    switch(eMode)
+    {
+        case ScConditionMode::NoError:
+        case ScConditionMode::Error:
+        case ScConditionMode::BeginsWith:
+        case ScConditionMode::EndsWith:
+        case ScConditionMode::ContainsText:
+        case ScConditionMode::NotContainsText:
+            return true;
+        default:
+        break;
+    }
+
+    return false;
+}
+
+OString GetFixedFormula(ScConditionMode eMode, const ScAddress& rAddress, const OString& rText)
+{
+    OStringBuffer aBuffer;
+    OStringBuffer aPosBuffer = XclXmlUtils::ToOString(aBuffer, rAddress);
+    OString aPos = aPosBuffer.makeStringAndClear();
+    switch (eMode)
+    {
+        case ScConditionMode::Error:
+            return OString("ISERROR(" + aPos + ")") ;
+        case ScConditionMode::NoError:
+            return OString("NOT(ISERROR(" + aPos + "))") ;
+        case ScConditionMode::BeginsWith:
+            return OString("LEFT(" + aPos + ",LEN(\"" + rText + "\"))=\"" + rText + "\"");
+        case ScConditionMode::EndsWith:
+            return OString("RIGHT(" + aPos +",LEN(\"" + rText + "\"))=\"" + rText + "\"");
+        case ScConditionMode::ContainsText:
+            return OString("NOT(ISERROR(SEARCH(\"" + rText + "\"," + aPos + ")))");
+        case ScConditionMode::NotContainsText:
+            return OString("ISERROR(SEARCH(\"" +  rText + "\"," + aPos + "))");
+        default:
+        break;
+    }
+
+    return OString("");
+}
+
 }
 
 void XclExpCFImpl::SaveXml( XclExpXmlStream& rStrm )
@@ -981,7 +1049,15 @@ void XclExpCFImpl::SaveXml( XclExpXmlStream& rStrm )
             XML_text, aText.getStr(),
             XML_dxfId, OString::number( GetDxfs().GetDxfId( mrFormatEntry.GetStyle() ) ).getStr(),
             FSEND );
-    if(!IsTextRule(eOperation) && !IsTopBottomRule(eOperation))
+
+    if (RequiresFixedFormula(eOperation))
+    {
+        rWorksheet->startElement( XML_formula, FSEND );
+        OString aFormula = GetFixedFormula(eOperation, mrFormatEntry.GetValidSrcPos(), aText);
+        rWorksheet->writeEscaped(aFormula.getStr());
+        rWorksheet->endElement( XML_formula );
+    }
+    else if(RequiresFormula(eOperation))
     {
         rWorksheet->startElement( XML_formula, FSEND );
         std::unique_ptr<ScTokenArray> pTokenArray(mrFormatEntry.CreateFlatCopiedTokenArray(0));

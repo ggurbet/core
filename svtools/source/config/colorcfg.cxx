@@ -228,7 +228,7 @@ void ColorConfig_Impl::Load(const OUString& rScheme)
     {
         if(pColors[nIndex].hasValue())
         {
-            sal_Int32 nTmp;
+            sal_Int32 nTmp(0);
             pColors[nIndex] >>= nTmp;
             m_aConfigValues[i].nColor = Color(nTmp);
         }
@@ -540,7 +540,7 @@ void EditableColorConfig::AddScheme(const OUString& rScheme )
     m_pImpl->AddScheme(rScheme);
 }
 
-bool EditableColorConfig::LoadScheme(const OUString& rScheme )
+void EditableColorConfig::LoadScheme(const OUString& rScheme )
 {
     if(m_bModified)
         m_pImpl->SetModified();
@@ -550,7 +550,6 @@ bool EditableColorConfig::LoadScheme(const OUString& rScheme )
     m_pImpl->Load(rScheme);
     //the name of the loaded scheme has to be committed separately
     m_pImpl->CommitCurrentSchemeName();
-    return true;
 }
 
 const OUString& EditableColorConfig::GetCurrentSchemeName()const

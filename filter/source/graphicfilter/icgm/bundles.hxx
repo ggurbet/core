@@ -45,9 +45,13 @@ public:
         {};
 
     virtual Bundle*     Clone() { return new Bundle( *this ); };
-            Bundle&     operator=(const Bundle& rBundle );
 
     virtual            ~Bundle() {} ;
+
+    Bundle(Bundle const &) = default;
+    Bundle(Bundle &&) = default;
+    Bundle & operator =(Bundle const &) = default;
+    Bundle & operator =(Bundle &&) = default;
 };
 
 
@@ -64,7 +68,6 @@ public:
     {}
 
     virtual Bundle* Clone() override { return new LineBundle( *this ); }
-    LineBundle& operator=( const LineBundle& rLineBundle );
 };
 
 
@@ -81,7 +84,6 @@ public:
         {};
 
     virtual Bundle*     Clone() override { return new MarkerBundle( *this ); } ;
-            MarkerBundle&   operator=( const MarkerBundle& rMarkerBundle );
 };
 
 
@@ -97,7 +99,6 @@ public:
         , nEdgeWidth(0)
     {}
     virtual Bundle*     Clone() override { return new EdgeBundle( *this ); }
-    EdgeBundle& operator=( const EdgeBundle& rEdgeBundle );
 };
 
 
@@ -118,7 +119,6 @@ public:
         {};
 
     virtual Bundle*     Clone() override { return new TextBundle( *this ); } ;
-            TextBundle& operator=( const TextBundle& rTextBundle );
 };
 
 
@@ -136,7 +136,6 @@ public:
         , nFillHatchIndex(0)
     {}
     virtual Bundle*     Clone() override { return new FillBundle( *this ); }
-    FillBundle& operator=( const FillBundle& rFillBundle );
 };
 
 
@@ -159,7 +158,7 @@ class CGMFList
 {
     sal_uInt32      nFontNameCount;
     sal_uInt32      nCharSetCount;
-    ::std::vector< FontEntry* >
+    ::std::vector< std::unique_ptr<FontEntry> >
                     aFontEntryList;
     void            ImplDeleteList();
 

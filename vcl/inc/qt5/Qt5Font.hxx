@@ -19,28 +19,23 @@
 
 #pragma once
 
-#include <vcl/dllapi.h>
+#include <fontinstance.hxx>
+
 #include <QtGui/QFont>
 
-#include <fontselect.hxx>
-#include <hb-ot.h>
+#include "Qt5FontFace.hxx"
 
-class VCL_DLLPUBLIC Qt5Font : public QFont
+class Qt5Font final : public QFont, public LogicalFontInstance
 {
-    const FontSelectPattern m_aFontSelData;
-    hb_font_t* m_pHbFont;
+    friend rtl::Reference<LogicalFontInstance>
+    Qt5FontFace::CreateFontInstance(const FontSelectPattern&) const;
+
+    virtual hb_font_t* ImplInitHbFont() override;
+
+    explicit Qt5Font(const PhysicalFontFace&, const FontSelectPattern&);
 
 public:
-    Qt5Font(const FontSelectPattern& rFSP)
-        : m_aFontSelData(rFSP)
-        , m_pHbFont(nullptr)
-    {
-    }
-    virtual ~Qt5Font();
-
-    hb_font_t* GetHbFont() const { return m_pHbFont; }
-    void SetHbFont(hb_font_t* pHbFont) { m_pHbFont = pHbFont; }
-    const FontSelectPattern& GetFontSelData() const { return m_aFontSelData; }
+    virtual ~Qt5Font() override;
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

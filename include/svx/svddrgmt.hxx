@@ -23,6 +23,7 @@
 #include <svx/svddrgv.hxx>
 #include <svx/svxdllapi.h>
 #include <svx/sdr/contact/objectcontact.hxx>
+#include <memory>
 
 class SdrDragView;
 class SdrDragStat;
@@ -113,7 +114,7 @@ public:
 class SVX_DLLPUBLIC SdrDragMethod
 {
 private:
-    std::vector< SdrDragEntry* >            maSdrDragEntries;
+    std::vector< std::unique_ptr<SdrDragEntry> > maSdrDragEntries;
     sdr::overlay::OverlayObjectList         maOverlayObjectList;
     SdrDragView&                            mrSdrDragView;
 
@@ -124,12 +125,12 @@ private:
 protected:
     // access for derivated classes to maSdrDragEntries
     void clearSdrDragEntries();
-    void addSdrDragEntry(SdrDragEntry* pNew);
+    void addSdrDragEntry(std::unique_ptr<SdrDragEntry> pNew);
     virtual void createSdrDragEntries();
     virtual void createSdrDragEntryForSdrObject(const SdrObject& rOriginal, sdr::contact::ObjectContact& rObjectContact);
 
     // access for derivated classes to maOverlayObjectList (passes ownership)
-    void addToOverlayObjectList(sdr::overlay::OverlayObject* pNew) { maOverlayObjectList.append(pNew); }
+    void addToOverlayObjectList(std::unique_ptr<sdr::overlay::OverlayObject> pNew) { maOverlayObjectList.append(std::move(pNew)); }
 
     // access for derivated classes to mrSdrDragView
     SdrDragView& getSdrDragView() { return mrSdrDragView; }

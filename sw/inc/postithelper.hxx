@@ -30,7 +30,6 @@ class SwRootFrame;
 class SwPostItMgr;
 class SwEditWin;
 class SwFrame;
-class SvxLanguageItem;
 namespace sw { namespace annotation {
     class SwAnnotationWin;
 } }
@@ -108,6 +107,11 @@ public:
     virtual ~SwSidebarItem()
     {
     }
+
+    SwSidebarItem(SwSidebarItem const &) = default;
+    SwSidebarItem(SwSidebarItem &&) = default;
+    SwSidebarItem & operator =(SwSidebarItem const &) = default;
+    SwSidebarItem & operator =(SwSidebarItem &&) = default;
 
     virtual SwPosition GetAnchorPosition() const = 0;
     virtual bool UseElement() = 0;

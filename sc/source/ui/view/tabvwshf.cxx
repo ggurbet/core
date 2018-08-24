@@ -134,10 +134,8 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                 else
                 {
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
-                    VclPtr<AbstractScShowTabDlg> pDlg(pFact->CreateScShowTabDlg(GetDialogParent()));
-                    OSL_ENSURE(pDlg, "Dialog create fail!");
+                    VclPtr<AbstractScShowTabDlg> pDlg(pFact->CreateScShowTabDlg(GetFrameWeld()));
 
                     OUString aTabName;
                     bool bFirst = true;
@@ -153,20 +151,20 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
 
                     std::shared_ptr<SfxRequest> pReq = std::make_shared<SfxRequest>(rReq);
                     pDlg->StartExecuteAsync([this, pDlg, pReq](sal_Int32 nResult){
-                        OUString sTable;
                         std::vector<OUString> sTables;
                         if (RET_OK == nResult)
                         {
-                            const sal_Int32 nCount = pDlg->GetSelectedEntryCount();
-                            for (sal_Int32 nPos=0; nPos<nCount; ++nPos)
+                            std::vector<sal_Int32> aSelectedRows = pDlg->GetSelectedRows();
+                            for (auto a : aSelectedRows)
                             {
-                                sTable = pDlg->GetSelectedEntry(nPos);
+                                OUString sTable = pDlg->GetEntry(a);
                                 pReq->AppendItem( SfxStringItem( FID_TABLE_SHOW, sTable ) );
                                 sTables.push_back(sTable);
                             }
                             ShowTable( sTables );
                             pReq->Done();
                         }
+                        pDlg->disposeOnce();
                     });
                     rReq.Ignore();
                 }
@@ -216,11 +214,9 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                 else                                // dialog
                 {
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
-                    ScopedVclPtr<AbstractScInsertTableDlg> pDlg(pFact->CreateScInsertTableDlg(GetDialogParent(), rViewData,
+                    ScopedVclPtr<AbstractScInsertTableDlg> pDlg(pFact->CreateScInsertTableDlg(GetFrameWeld(), rViewData,
                         nTabSelCount, nSlot == FID_INS_TABLE_EXT));
-                    OSL_ENSURE(pDlg, "Dialog create fail!");
                     if ( RET_OK == pDlg->Execute() )
                     {
                         if (pDlg->GetTablesFromFile())
@@ -373,7 +369,7 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                 {
                     sal_uInt16      nRet    = RET_OK;
                     bool        bDone   = false;
-                    OUString      aErrMsg ( ScGlobal::GetRscString( STR_INVALIDTABNAME ) );
+                    OUString      aErrMsg ( ScResId( STR_INVALIDTABNAME ) );
                     OUString aName;
                     OUString      aDlgTitle;
                     const sal_Char* pHelpId = nullptr;
@@ -394,7 +390,6 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                     }
 
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
                     vcl::Window* pWin = GetDialogParent();
                     ScopedVclPtr<AbstractScStringInputDlg> pDlg(pFact->CreateScStringInputDlg(
@@ -402,7 +397,6 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                         aName, GetStaticInterface()->GetSlot(nSlot)->GetCommand(),
                         pHelpId));
 
-                    OSL_ENSURE(pDlg, "Dialog create fail!");
 
                     while ( !bDone && nRet == RET_OK )
                     {
@@ -520,11 +514,9 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                     pDoc->GetName( rViewData.GetTabNo(), aDefaultName );
 
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
-                    ScopedVclPtr<AbstractScMoveTableDlg> pDlg(pFact->CreateScMoveTableDlg(GetDialogParent(),
+                    ScopedVclPtr<AbstractScMoveTableDlg> pDlg(pFact->CreateScMoveTableDlg(GetFrameWeld(),
                         aDefaultName));
-                    OSL_ENSURE(pDlg, "Dialog create fail!");
 
                     SCTAB nTableCount = pDoc->GetTableCount();
                     ScMarkData& rMark       = GetViewData().GetMarkData();
@@ -633,7 +625,7 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                     {
                         std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                                        VclMessageType::Question, VclButtonsType::YesNo,
-                                                                       ScGlobal::GetRscString(STR_QUERY_PIVOTTABLE_DELTAB)));
+                                                                       ScResId(STR_QUERY_PIVOTTABLE_DELTAB)));
                         xQueryBox->set_default_response(RET_NO);
 
                         // Hard warning as there is potential of data loss on deletion
@@ -643,7 +635,7 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                     {
                         std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                                        VclMessageType::Question, VclButtonsType::YesNo,
-                                                                       ScGlobal::GetRscString(STR_QUERY_DELTAB)));
+                                                                       ScResId(STR_QUERY_DELTAB)));
                         xQueryBox->set_default_response(RET_YES);
 
                         // no parameter given, ask for confirmation
@@ -703,8 +695,8 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                 {
                     //  handle several sheets
 
-                    ::svl::IUndoManager* pUndoManager = pDocSh->GetUndoManager();
-                    OUString aUndo = ScGlobal::GetRscString( STR_UNDO_TAB_RTL );
+                    SfxUndoManager* pUndoManager = pDocSh->GetUndoManager();
+                    OUString aUndo = ScResId( STR_UNDO_TAB_RTL );
                     pUndoManager->EnterListAction( aUndo, aUndo, 0, rViewData.GetViewShell()->GetViewShellId() );
 
                     ScMarkData::const_iterator itr = rMark.begin(), itrEnd = rMark.end();
@@ -785,9 +777,8 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
 
                     aTabBgColor = pDoc->GetTabBgColor( nCurrentTab );
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
                     ScopedVclPtr<AbstractScTabBgColorDlg> pDlg(pFact->CreateScTabBgColorDlg(
-                                                                GetDialogParent(),
+                                                                GetFrameWeld(),
                                                                 ScResId(SCSTR_SET_TAB_BG_COLOR),
                                                                 ScResId(SCSTR_NO_TAB_BG_COLOR),
                                                                 aTabBgColor));
@@ -844,14 +835,11 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                     uno::Reference<container::XNameReplace> xEvents( new ScSheetEventsObj( pDocSh, nCurrentTab ) );
                     uno::Reference<frame::XFrame> xFrame = GetViewFrame()->GetFrame().GetFrameInterface();
                     SvxAbstractDialogFactory* pDlgFactory = SvxAbstractDialogFactory::Create();
-                    if (pDlgFactory)
+                    ScopedVclPtr<VclAbstractDialog> pDialog( pDlgFactory->CreateSvxMacroAssignDlg(
+                        GetDialogParent(), xFrame, false, xEvents, 0 ) );
+                    if ( pDialog->Execute() == RET_OK )
                     {
-                        ScopedVclPtr<VclAbstractDialog> pDialog( pDlgFactory->CreateSvxMacroAssignDlg(
-                            GetDialogParent(), xFrame, false, xEvents, 0 ) );
-                        if ( pDialog.get() && pDialog->Execute() == RET_OK )
-                        {
                             // the dialog modifies the settings directly
-                        }
                     }
                 }
                 break;

@@ -51,11 +51,11 @@ CXXMethodDecl const* getTemplateInstantiationPattern(CXXMethodDecl const* decl)
     return p == nullptr ? decl : cast<CXXMethodDecl>(p);
 }
 
-class SalCall final : public RecursiveASTVisitor<SalCall>, public loplugin::RewritePlugin
+class SalCall final : public loplugin::FilteringRewritePlugin<SalCall>
 {
 public:
     explicit SalCall(loplugin::InstantiationData const& data)
-        : RewritePlugin(data)
+        : FilteringRewritePlugin(data)
     {
     }
 
@@ -382,7 +382,7 @@ bool SalCall::isSalCallFunction(FunctionDecl const* functionDecl, SourceLocation
         // qualified names this will point after the qualifiers, but needlessly including those in
         // the search should be harmless---modulo issues with using "SAL_CALL" as the name of a
         // function-like macro parameter as discussed below):
-        endLoc = functionDecl->getNameInfo().getLocStart();
+        endLoc = compat::getBeginLoc(functionDecl->getNameInfo());
         while (SM.isMacroArgExpansion(endLoc, &endLoc))
         {
         }
@@ -428,7 +428,7 @@ bool SalCall::isSalCallFunction(FunctionDecl const* functionDecl, SourceLocation
             //TODO: If the macro is a function-like macro with a parameter named "SAL_CALL", uses of
             // that parameter in the remainder of the replacement text will be false positives.
             assert(SM.isMacroBodyExpansion(startLoc));
-            auto const startLoc2 = SM.getImmediateExpansionRange(startLoc).second;
+            auto const startLoc2 = compat::getImmediateExpansionRange(SM, startLoc).second;
             auto name = Lexer::getImmediateMacroName(startLoc, SM, compiler.getLangOpts());
             while (name.startswith("\\\n"))
             {
@@ -463,7 +463,7 @@ bool SalCall::isSalCallFunction(FunctionDecl const* functionDecl, SourceLocation
         // Stop searching for "SAL_CALL" at the start of the function declaration's name (for
         // qualified names this will point after the qualifiers, but needlessly including those in
         // the search should be harmless):
-        endLoc = functionDecl->getNameInfo().getLocStart();
+        endLoc = compat::getBeginLoc(functionDecl->getNameInfo());
         while (endLoc.isMacroID() && SM.isAtStartOfImmediateMacroExpansion(endLoc, &endLoc))
         {
         }

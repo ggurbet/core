@@ -34,11 +34,8 @@ class Graphic;
 class ImageMap;
 class IMapObject;
 class SwRect;
-class SwContact;
 class SdrObject;
 class SwRootFrame;
-class SwFlyDrawContact;
-class SdrModel;
 
 namespace sw
 {
@@ -56,7 +53,9 @@ namespace sw
 class SwFrameFormats;
 
 /// Style of a layout element.
-class SW_DLLPUBLIC SwFrameFormat: public SwFormat
+class SW_DLLPUBLIC SwFrameFormat
+    : public SwFormat
+    , public sw::BroadcasterMixin
 {
     friend class SwDoc;
     friend class SwPageDesc;    ///< Is allowed to call protected CTor.
@@ -104,6 +103,11 @@ protected:
 
 public:
     virtual ~SwFrameFormat() override;
+
+    SwFrameFormat(SwFrameFormat const &) = default;
+    SwFrameFormat(SwFrameFormat &&) = default;
+    SwFrameFormat & operator =(SwFrameFormat const &) = default;
+    SwFrameFormat & operator =(SwFrameFormat &&) = default;
 
     /// Destroys all Frames in aDepend (Frames are identified via dynamic_cast).
     virtual void DelFrames();
@@ -165,7 +169,6 @@ public:
     SAL_DLLPRIVATE void SetXObject(css::uno::Reference<css::uno::XInterface> const& xObject)
             { m_wXObject = xObject; }
 
-    DECL_FIXEDMEMPOOL_NEWDEL_DLL(SwFrameFormat)
     void RegisterToFormat( SwFormat& rFormat );
 
     // Access to DrawingLayer FillAttributes in a preprocessed form for primitive usage
@@ -222,8 +225,6 @@ public:
         because format of fly frame provides transparent backgrounds.
         Method determines, if background of fly frame is transparent.
 
-        @author OD
-
         @return true, if background color is transparent, but not "no fill"
         or a existing background graphic is transparent.
     */
@@ -236,8 +237,6 @@ public:
         This is the case, if no background graphic is set and the background
         color is "no fill"/"auto fill"
 
-        @author OD
-
         @return true, if background brush is "inherited" from parent/grandparent
     */
     bool IsBackgroundBrushInherited() const;
@@ -245,7 +244,6 @@ public:
     const Point & GetLastFlyFramePrtRectPos() const       { return m_aLastFlyFramePrtRectPos; }
     void SetLastFlyFramePrtRectPos( const Point &rPoint ) { m_aLastFlyFramePrtRectPos = rPoint; }
 
-    DECL_FIXEDMEMPOOL_NEWDEL(SwFlyFrameFormat)
     SwFlyDrawContact* GetOrCreateContact();
 };
 
@@ -400,8 +398,6 @@ public:
     void PosAttrSet() { mbPosAttrSet = true; }
 
     virtual OUString GetDescription() const override;
-
-    DECL_FIXEDMEMPOOL_NEWDEL(SwDrawFrameFormat);
 };
 
 namespace sw {

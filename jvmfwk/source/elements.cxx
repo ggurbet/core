@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <cassert>
 #include <memory>
@@ -691,10 +692,6 @@ bool NodeJava::createSettingsDocument() const
 CNodeJavaInfo::CNodeJavaInfo() :
     m_bEmptyNode(false), bNil(true), bAutoSelect(true),
     nFeatures(0), nRequirements(0)
-{
-}
-
-CNodeJavaInfo::~CNodeJavaInfo()
 {
 }
 

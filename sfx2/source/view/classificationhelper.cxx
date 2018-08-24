@@ -20,6 +20,7 @@
 #include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 
+#include <sal/log.hxx>
 #include <sfx2/infobar.hxx>
 #include <sfx2/objsh.hxx>
 #include <o3tl/make_unique.hxx>
@@ -390,8 +391,8 @@ void SfxClassificationHelper::Impl::parsePolicy()
             aPath = aLocalized;
     }
 
-    SvStream* pStream = utl::UcbStreamHelper::CreateStream(aPath, StreamMode::READ);
-    uno::Reference<io::XInputStream> xInputStream(new utl::OStreamWrapper(*pStream));
+    std::unique_ptr<SvStream> pStream = utl::UcbStreamHelper::CreateStream(aPath, StreamMode::READ);
+    uno::Reference<io::XInputStream> xInputStream(new utl::OStreamWrapper(std::move(pStream)));
     xml::sax::InputSource aParserInput;
     aParserInput.aInputStream = xInputStream;
 

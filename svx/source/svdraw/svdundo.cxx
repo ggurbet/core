@@ -30,7 +30,7 @@
 #include <svx/svdview.hxx>
 #include <svx/xfillit0.hxx>
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/scene3d.hxx>
 #include <editeng/editdata.hxx>
 #include <editeng/outlobj.hxx>
@@ -46,6 +46,7 @@
 #include <svx/svdotable.hxx> // #i124389#
 #include <vcl/svapp.hxx>
 #include <sfx2/viewsh.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 // iterates over all views and unmarks this SdrObject if it is marked
@@ -205,7 +206,7 @@ void SdrUndoGroup::SdrRepeat(SdrView& rView)
 
 OUString SdrUndoGroup::GetSdrRepeatComment(SdrView& /*rView*/) const
 {
-    return aComment.replaceAll("%1", ImpGetResStr(STR_ObjNameSingulPlural));
+    return aComment.replaceAll("%1", SvxResId(STR_ObjNameSingulPlural));
 }
 
 SdrUndoObj::SdrUndoObj(SdrObject& rNewObj)
@@ -216,14 +217,14 @@ SdrUndoObj::SdrUndoObj(SdrObject& rNewObj)
 
 OUString SdrUndoObj::GetDescriptionStringForObject( const SdrObject& _rForObject, const char* pStrCacheID, bool bRepeat )
 {
-    const OUString rStr {ImpGetResStr(pStrCacheID)};
+    const OUString rStr {SvxResId(pStrCacheID)};
 
     const sal_Int32 nPos = rStr.indexOf("%1");
     if (nPos < 0)
         return rStr;
 
     if (bRepeat)
-        return rStr.replaceAt(nPos, 2, ImpGetResStr(STR_ObjNameSingulPlural));
+        return rStr.replaceAt(nPos, 2, SvxResId(STR_ObjNameSingulPlural));
 
     return rStr.replaceAt(nPos, 2, _rForObject.TakeObjNameSingul());
 }
@@ -237,9 +238,9 @@ void SdrUndoObj::ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr, 
 // common call method for possible change of the page when UNDO/REDO is triggered
 void SdrUndoObj::ImpShowPageOfThisObject()
 {
-    if(pObj && pObj->IsInserted() && pObj->GetPage())
+    if(pObj && pObj->IsInserted() && pObj->getSdrPageFromSdrObject())
     {
-        SdrHint aHint(SdrHintKind::SwitchToPage, *pObj, pObj->GetPage());
+        SdrHint aHint(SdrHintKind::SwitchToPage, *pObj, pObj->getSdrPageFromSdrObject());
         pObj->getSdrModelFromSdrObject().Broadcast(aHint);
     }
 }
@@ -404,7 +405,7 @@ void SdrUndoAttrObj::Undo()
 
         if(pTextUndo)
         {
-            pObj->SetOutlinerParaObject(new OutlinerParaObject(*pTextUndo));
+            pObj->SetOutlinerParaObject(o3tl::make_unique<OutlinerParaObject>(*pTextUndo));
         }
     }
 
@@ -482,7 +483,7 @@ void SdrUndoAttrObj::Redo()
         // #i8508#
         if(pTextRedo)
         {
-            pObj->SetOutlinerParaObject(new OutlinerParaObject(*pTextRedo));
+            pObj->SetOutlinerParaObject(o3tl::make_unique<OutlinerParaObject>(*pTextRedo));
         }
     }
 
@@ -656,7 +657,7 @@ SdrUndoObjList::SdrUndoObjList(SdrObject& rNewObj, bool bOrdNumDirect)
     : SdrUndoObj(rNewObj)
     , bOwner(false)
 {
-    pObjList=pObj->getParentOfSdrObject();
+    pObjList=pObj->getParentSdrObjListFromSdrObject();
     if (bOrdNumDirect)
     {
         nOrdNum=pObj->GetOrdNumDirect();
@@ -700,12 +701,12 @@ void SdrUndoRemoveObj::Undo()
         // position of the target object.
         Point aOwnerAnchorPos(0, 0);
 
-        if (dynamic_cast<const SdrObjGroup*>(pObjList->GetOwnerObj()) != nullptr)
+        if (dynamic_cast< const SdrObjGroup* >(pObjList->getSdrObjectFromSdrObjList()) != nullptr)
         {
-            aOwnerAnchorPos = pObjList->GetOwnerObj()->GetAnchorPos();
+            aOwnerAnchorPos = pObjList->getSdrObjectFromSdrObjList()->GetAnchorPos();
         }
 
-        E3DModifySceneSnapRectUpdater aUpdater(pObjList->GetOwnerObj());
+        E3DModifySceneSnapRectUpdater aUpdater(pObjList->getSdrObjectFromSdrObjList());
         pObjList->InsertObject(pObj,nOrdNum);
 
         // #i11426#
@@ -759,7 +760,8 @@ void SdrUndoInsertObj::Redo()
         // which becomes a member of a group, because its cleared in method
         // <InsertObject(..)>. Needed for correct Redo in Writer. (#i45952#)
         Point aAnchorPos( 0, 0 );
-        if (dynamic_cast<const SdrObjGroup*>(pObjList->GetOwnerObj()) != nullptr)
+
+        if (dynamic_cast<const SdrObjGroup*>(pObjList->getSdrObjectFromSdrObjList()) != nullptr)
         {
             aAnchorPos = pObj->GetAnchorPos();
         }
@@ -856,7 +858,7 @@ SdrUndoReplaceObj::SdrUndoReplaceObj(SdrObject& rOldObj1, SdrObject& rNewObj1, b
 {
     SetOldOwner(true);
 
-    pObjList=pObj->getParentOfSdrObject();
+    pObjList=pObj->getParentSdrObjListFromSdrObject();
     if (bOrdNumDirect)
     {
         nOrdNum=pObj->GetOrdNumDirect();
@@ -983,7 +985,7 @@ void SdrUndoObjOrdNum::Undo()
     // Trigger PageChangeCall
     ImpShowPageOfThisObject();
 
-    SdrObjList* pOL=pObj->getParentOfSdrObject();
+    SdrObjList* pOL=pObj->getParentSdrObjListFromSdrObject();
     if (pOL==nullptr)
     {
         OSL_FAIL("UndoObjOrdNum: pObj does not have an ObjList.");
@@ -994,7 +996,7 @@ void SdrUndoObjOrdNum::Undo()
 
 void SdrUndoObjOrdNum::Redo()
 {
-    SdrObjList* pOL=pObj->getParentOfSdrObject();
+    SdrObjList* pOL=pObj->getParentSdrObjListFromSdrObject();
     if (pOL==nullptr)
     {
         OSL_FAIL("RedoObjOrdNum: pObj does not have an ObjList.");
@@ -1070,9 +1072,8 @@ void SdrUndoObjSetText::Undo()
     if (pText)
     {
         // copy text for Undo, because the original now belongs to SetOutlinerParaObject()
-        OutlinerParaObject* pText1 = pOldText ? new OutlinerParaObject(*pOldText) : nullptr;
-        pText->SetOutlinerParaObject(pText1);
-        pTarget->NbcSetOutlinerParaObjectForText(pText1, pText);
+        std::unique_ptr<OutlinerParaObject> pText1( pOldText ? new OutlinerParaObject(*pOldText) : nullptr );
+        pTarget->NbcSetOutlinerParaObjectForText(std::move(pText1), pText);
     }
 
     pTarget->SetEmptyPresObj(bEmptyPresObj);
@@ -1105,8 +1106,8 @@ void SdrUndoObjSetText::Redo()
     if (pText)
     {
         // copy text for Undo, because the original now belongs to SetOutlinerParaObject()
-        OutlinerParaObject* pText1 = pNewText ? new OutlinerParaObject(*pNewText) : nullptr;
-        pTarget->NbcSetOutlinerParaObjectForText( pText1, pText );
+        std::unique_ptr<OutlinerParaObject> pText1( pNewText ? new OutlinerParaObject(*pNewText) : nullptr );
+        pTarget->NbcSetOutlinerParaObjectForText( std::move(pText1), pText );
     }
 
     pTarget->ActionChanged();
@@ -1164,10 +1165,10 @@ void SdrUndoObjSetText::SdrRepeat(SdrView& rView)
                 if( bUndo )
                     rView.AddUndo(new SdrUndoObjSetText(*pTextObj,0));
 
-                OutlinerParaObject* pText1=pNewText.get();
-                if (pText1!=nullptr)
-                    pText1 = new OutlinerParaObject(*pText1);
-                pTextObj->SetOutlinerParaObject(pText1);
+                std::unique_ptr<OutlinerParaObject> pText1;
+                if (pNewText)
+                    pText1.reset(new OutlinerParaObject(*pNewText));
+                pTextObj->SetOutlinerParaObject(std::move(pText1));
             }
         }
 
@@ -1289,7 +1290,7 @@ void SdrUndoNewLayer::Redo()
 
 OUString SdrUndoNewLayer::GetComment() const
 {
-    return ImpGetResStr(STR_UndoNewLayer);
+    return SvxResId(STR_UndoNewLayer);
 }
 
 
@@ -1310,7 +1311,7 @@ void SdrUndoDelLayer::Redo()
 
 OUString SdrUndoDelLayer::GetComment() const
 {
-    return ImpGetResStr(STR_UndoDelLayer);
+    return SvxResId(STR_UndoDelLayer);
 }
 
 
@@ -1330,7 +1331,7 @@ void SdrUndoMoveLayer::Redo()
 
 OUString SdrUndoMoveLayer::GetComment() const
 {
-    return ImpGetResStr(STR_UndoMovLayer);
+    return SvxResId(STR_UndoMovLayer);
 }
 
 
@@ -1392,7 +1393,7 @@ void SdrUndoPage::ImpMovePage(sal_uInt16 nOldNum, sal_uInt16 nNewNum)
 
 void SdrUndoPage::ImpTakeDescriptionStr(const char* pStrCacheID, OUString& rStr)
 {
-    rStr = ImpGetResStr(pStrCacheID);
+    rStr = SvxResId(pStrCacheID);
 }
 
 

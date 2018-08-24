@@ -34,8 +34,7 @@ MenuItemData::~MenuItemData()
 {
     if (aUserValueReleaseFunc)
         aUserValueReleaseFunc(nUserValue);
-    if( pSalMenuItem )
-        ImplGetSVData()->mpDefInst->DestroyMenuItem( pSalMenuItem );
+    pSalMenuItem.reset();
     pSubMenu.disposeAndClear();
 }
 
@@ -53,7 +52,7 @@ MenuItemData* MenuItemList::Insert(
     const OString &rIdent
 )
 {
-    MenuItemData* pData     = new MenuItemData( rStr, Image() );
+    MenuItemData* pData     = new MenuItemData( rStr );
     pData->nId              = nId;
     pData->sIdent           = rIdent;
     pData->eType            = eType;
@@ -73,7 +72,7 @@ MenuItemData* MenuItemList::Insert(
     aSalMIData.aText = rStr;
 
     // Native-support: returns NULL if not supported
-    pData->pSalMenuItem = ImplGetSVData()->mpDefInst->CreateMenuItem( &aSalMIData );
+    pData->pSalMenuItem = ImplGetSVData()->mpDefInst->CreateMenuItem( aSalMIData );
 
     if( nPos < maItemList.size() ) {
         maItemList.insert( maItemList.begin() + nPos, std::unique_ptr<MenuItemData>(pData) );
@@ -106,7 +105,7 @@ void MenuItemList::InsertSeparator(const OString &rIdent, size_t nPos)
     aSalMIData.aImage = Image();
 
     // Native-support: returns NULL if not supported
-    pData->pSalMenuItem = ImplGetSVData()->mpDefInst->CreateMenuItem( &aSalMIData );
+    pData->pSalMenuItem = ImplGetSVData()->mpDefInst->CreateMenuItem( aSalMIData );
 
     if( nPos < maItemList.size() ) {
         maItemList.insert( maItemList.begin() + nPos, std::unique_ptr<MenuItemData>(pData) );
@@ -137,6 +136,17 @@ MenuItemData* MenuItemList::GetData( sal_uInt16 nSVId, size_t& rPos ) const
             rPos = i;
             return maItemList[ i ].get();
         }
+    }
+    return nullptr;
+}
+
+MenuItemData* MenuItemList::GetDataFromSubMenu(sal_uInt16 nSVId) const
+{
+    for ( size_t i = 0, n = maItemList.size(); i < n; ++i )
+    {
+        if ( maItemList[i]->pSubMenu
+            && maItemList[i]->pSubMenu->GetCurItemId() != 0 ) // if something is selected
+            return maItemList[i].get()->pSubMenu->GetItemList()->GetDataFromPos(nSVId - 1);
     }
     return nullptr;
 }

@@ -459,7 +459,7 @@ void lcl_formatPersianWord( sal_Int32 nNumber, OUString& rsResult )
         nNumber /= 1000;
         nSection++;
     }
-    rsResult += aTemp.makeStringAndClear();
+    rsResult += aTemp;
 }
 
 
@@ -536,7 +536,7 @@ void lcl_formatCharsGR(const sal_Unicode table[], int n, OUString& s )
     }
     sb.append(gr_smallNum(table,n));
 
-    s += sb.makeStringAndClear();
+    s += sb;
 }
 
 static
@@ -584,6 +584,7 @@ DefaultNumberingProvider::makeNumberingString( const Sequence<beans::PropertyVal
      sal_Int16 tableSize = 0;
      const sal_Unicode *table = nullptr;     // initialize to avoid compiler warning
      bool bRecycleSymbol = false;
+     OUString sNatNumParams;
      Locale locale;
 
      OUString  prefix;
@@ -633,6 +634,21 @@ DefaultNumberingProvider::makeNumberingString( const Sequence<beans::PropertyVal
                break;
           case CHARS_LOWER_LETTER:
                lcl_formatChars( lowerLetter, 26, number-1, result );
+               break;
+          case TEXT_NUMBER: // ordinal indicators (1st, 2nd, 3rd, ...)
+               natNum = NativeNumberMode::NATNUM12;
+               sNatNumParams = "capitalize ordinal-number";
+               locale = aLocale;
+               break;
+          case TEXT_CARDINAL: // cardinal number names (One, Two, Three, ...)
+               natNum = NativeNumberMode::NATNUM12;
+               sNatNumParams = "capitalize";
+               locale = aLocale;
+               break;
+          case TEXT_ORDINAL: // ordinal number names (First, Second, Third, ...)
+               natNum = NativeNumberMode::NATNUM12;
+               sNatNumParams = "capitalize ordinal";
+               locale = aLocale;
                break;
           case ROMAN_UPPER:
                result += toRoman( number );
@@ -893,7 +909,8 @@ DefaultNumberingProvider::makeNumberingString( const Sequence<beans::PropertyVal
 
         if (natNum) {
             rtl::Reference<NativeNumberSupplierService> xNatNum(new NativeNumberSupplierService);
-            result += xNatNum->getNativeNumberString(OUString::number( number ), locale, natNum);
+            result += xNatNum->getNativeNumberStringParams(OUString::number(number), locale,
+                                                                 natNum, sNatNumParams);
         } else if (tableSize) {
             if ( number > tableSize && !bRecycleSymbol)
                 result += OUString::number( number);
@@ -928,6 +945,9 @@ static const Supported_NumberingType aSupportedTypes[] =
         {style::NumberingType::CHAR_SPECIAL,                    "Bullet", LANG_ALL},
         {style::NumberingType::PAGE_DESCRIPTOR,                 "Page", LANG_ALL},
         {style::NumberingType::BITMAP,                          "Bitmap", LANG_ALL},
+        {style::NumberingType::TEXT_NUMBER,             "1st", LANG_ALL},
+        {style::NumberingType::TEXT_CARDINAL,           "One", LANG_ALL},
+        {style::NumberingType::TEXT_ORDINAL,            "First", LANG_ALL},
         {style::NumberingType::CHARS_UPPER_LETTER_N,    "AAA", LANG_ALL},
         {style::NumberingType::CHARS_LOWER_LETTER_N,    "aaa", LANG_ALL},
         {style::NumberingType::NATIVE_NUMBERING,        "Native Numbering", LANG_CJK|LANG_CTL},
@@ -989,7 +1009,7 @@ OUString DefaultNumberingProvider::makeNumberingIdentifier(sal_Int16 index)
     if (aSupportedTypes[index].cSymbol)
         return OUString(aSupportedTypes[index].cSymbol, strlen(aSupportedTypes[index].cSymbol), RTL_TEXTENCODING_UTF8);
     else {
-        OUString result;
+        OUStringBuffer result;
         Locale aLocale("en", OUString(), OUString());
         Sequence<beans::PropertyValue> aProperties(2);
         aProperties[0].Name = "NumberingType";
@@ -997,11 +1017,11 @@ OUString DefaultNumberingProvider::makeNumberingIdentifier(sal_Int16 index)
         aProperties[1].Name = "Value";
         for (sal_Int32 j = 1; j <= 3; j++) {
             aProperties[1].Value <<= j;
-            result += makeNumberingString( aProperties, aLocale );
-            result += ", ";
+            result.append( makeNumberingString( aProperties, aLocale ) );
+            result.append(", ");
         }
-        result += "...";
-        return result;
+        result.append("...");
+        return result.makeStringAndClear();
     }
 }
 

@@ -43,6 +43,7 @@
 #include <vcl/i18nhelp.hxx>
 #include <vcl/dockingarea.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
 
 using namespace ::com::sun::star;
@@ -903,7 +904,7 @@ bool ToolbarLayoutManager::dockAllToolbars()
     return bResult;
 }
 
-long ToolbarLayoutManager::childWindowEvent( VclSimpleEvent const * pEvent )
+void ToolbarLayoutManager::childWindowEvent( VclSimpleEvent const * pEvent )
 {
     // To enable toolbar controllers to change their image when a sub-toolbar function
     // is activated, we need this mechanism. We have NO connection between these toolbars
@@ -982,8 +983,6 @@ long ToolbarLayoutManager::childWindowEvent( VclSimpleEvent const * pEvent )
             }
         }
     }
-
-    return 1;
 }
 
 void ToolbarLayoutManager::resetDockingArea()

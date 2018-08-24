@@ -19,6 +19,7 @@
 
 #include <sfx2/objsh.hxx>
 #include <svl/listener.hxx>
+#include <sal/log.hxx>
 
 #include <document.hxx>
 #include <brdcst.hxx>
@@ -39,13 +40,8 @@
 // Number of slots per dimension
 // must be integer divisors of MAXCOLCOUNT respectively MAXROWCOUNT
 #define BCA_SLOTS_COL ((MAXCOLCOUNT_DEFINE) / 16)
-#if MAXROWCOUNT_DEFINE == 32000
-#define BCA_SLOTS_ROW 256
-#define BCA_SLICE 125
-#else
 #define BCA_SLICE 128
 #define BCA_SLOTS_ROW ((MAXROWCOUNT_DEFINE) / BCA_SLICE)
-#endif
 #define BCA_SLOT_COLS ((MAXCOLCOUNT_DEFINE) / BCA_SLOTS_COL)
 #define BCA_SLOT_ROWS ((MAXROWCOUNT_DEFINE) / BCA_SLOTS_ROW)
 // multiple?
@@ -74,12 +70,6 @@ struct ScSlotData
     ScSlotData( SCROW r1, SCROW r2, SCSIZE s, SCSIZE c ) : nStartRow(r1), nStopRow(r2), nSlice(s), nCumulated(c) {}
 };
 typedef ::std::vector< ScSlotData > ScSlotDistribution;
-#if MAXROWCOUNT_DEFINE <= 65536
-// Linear distribution.
-static ScSlotDistribution aSlotDistribution( ScSlotData( 0, MAXROWCOUNT, BCA_SLOT_ROWS, 0));
-static SCSIZE nBcaSlotsRow = BCA_SLOTS_ROW;
-static SCSIZE nBcaSlots = BCA_SLOTS_DEFINE;
-#else
 // Logarithmic or any other distribution.
 // Upper sheet part usually is more populated and referenced and gets fine
 // grained resolution, larger data in larger hunks.
@@ -107,7 +97,6 @@ static ScSlotDistribution aSlotDistribution;
 static SCSIZE nBcaSlotsRow;
 static SCSIZE nBcaSlots = initSlotDistribution( aSlotDistribution, nBcaSlotsRow) * BCA_SLOTS_COL;
 // Ensure that all static variables are initialized with this one call.
-#endif
 
 ScBroadcastArea::ScBroadcastArea( const ScRange& rRange ) :
     pUpdateChainNext(nullptr),

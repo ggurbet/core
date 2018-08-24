@@ -84,25 +84,14 @@ static const OUStringLiteral gPropNames[CB_COUNT] =
     "UseBandingColumnStyle"
 };
 
-TableDesignWidget::TableDesignWidget( VclBuilderContainer* pParent, ViewShellBase& rBase, bool bModal )
+TableDesignWidget::TableDesignWidget( VclBuilderContainer* pParent, ViewShellBase& rBase )
     : mrBase(rBase)
-    , mbModal(bModal)
-    , mbStyleSelected(false)
-    , mbOptionsChanged(false)
 {
     pParent->get(m_pValueSet, "previews");
     m_pValueSet->SetStyle(m_pValueSet->GetStyle() | WB_NO_DIRECTSELECT | WB_FLATVALUESET | WB_ITEMBORDER);
     m_pValueSet->SetExtraSpacing(8);
-    m_pValueSet->setModal(mbModal);
-    if( !mbModal )
-    {
-        m_pValueSet->SetColor();
-    }
-    else
-    {
-        m_pValueSet->SetColor( COL_WHITE );
-        m_pValueSet->SetBackground( COL_WHITE );
-    }
+    m_pValueSet->setModal(false);
+    m_pValueSet->SetColor();
     m_pValueSet->SetSelectHdl (LINK(this, TableDesignWidget, implValueSetHdl));
 
     for (sal_uInt16 i = CB_HEADER_ROW; i <= CB_BANDED_COLUMNS; ++i)
@@ -155,9 +144,7 @@ static SfxDispatcher* getDispatcher( ViewShellBase const & rBase )
 
 IMPL_LINK_NOARG(TableDesignWidget, implValueSetHdl, ValueSet*, void)
 {
-    mbStyleSelected = true;
-    if( !mbModal )
-        ApplyStyle();
+    ApplyStyle();
 }
 
 void TableDesignWidget::ApplyStyle()
@@ -212,11 +199,7 @@ void TableDesignWidget::ApplyStyle()
 
 IMPL_LINK_NOARG(TableDesignWidget, implCheckBoxHdl, Button*, void)
 {
-    mbOptionsChanged = true;
-
-    if( !mbModal )
-        ApplyOptions();
-
+    ApplyOptions();
     FillDesignPreviewControl();
 }
 
@@ -263,27 +246,24 @@ void TableDesignWidget::onSelectionChanged()
     if( mxView.is() ) try
     {
         Reference< XSelectionSupplier >  xSel( mxView, UNO_QUERY_THROW );
-        if (xSel.is())
+        Any aSel( xSel->getSelection() );
+        Sequence< XShape > xShapeSeq;
+        if( aSel >>= xShapeSeq )
         {
-            Any aSel( xSel->getSelection() );
-            Sequence< XShape > xShapeSeq;
-            if( aSel >>= xShapeSeq )
-            {
-                if( xShapeSeq.getLength() == 1 )
-                    aSel <<= xShapeSeq[0];
-            }
-            else
-            {
-                Reference< XShapes > xShapes( aSel, UNO_QUERY );
-                if( xShapes.is() && (xShapes->getCount() == 1) )
-                    aSel = xShapes->getByIndex(0);
-            }
+            if( xShapeSeq.getLength() == 1 )
+                aSel <<= xShapeSeq[0];
+        }
+        else
+        {
+            Reference< XShapes > xShapes( aSel, UNO_QUERY );
+            if( xShapes.is() && (xShapes->getCount() == 1) )
+                aSel = xShapes->getByIndex(0);
+        }
 
-            Reference< XShapeDescriptor > xDesc( aSel, UNO_QUERY );
-            if( xDesc.is() && ( xDesc->getShapeType() == "com.sun.star.drawing.TableShape" || xDesc->getShapeType() == "com.sun.star.presentation.TableShape" ) )
-            {
-                xNewSelection.set( xDesc, UNO_QUERY );
-            }
+        Reference< XShapeDescriptor > xDesc( aSel, UNO_QUERY );
+        if( xDesc.is() && ( xDesc->getShapeType() == "com.sun.star.drawing.TableShape" || xDesc->getShapeType() == "com.sun.star.presentation.TableShape" ) )
+        {
+            xNewSelection.set( xDesc, UNO_QUERY );
         }
     }
     catch( Exception& )
@@ -769,20 +749,6 @@ void TableDesignWidget::FillDesignPreviewControl()
     m_pValueSet->SelectItem(nSelectedItem);
 }
 
-short TableDesignDialog::Execute()
-{
-    if( ModalDialog::Execute() )
-    {
-        if( aImpl.isStyleChanged() )
-            aImpl.ApplyStyle();
-
-        if( aImpl.isOptionsChanged() )
-            aImpl.ApplyOptions();
-        return RET_OK;
-    }
-    return RET_CANCEL;
-}
-
 VclPtr<vcl::Window> createTableDesignPanel( vcl::Window* pParent, ViewShellBase& rBase )
 {
     VclPtr<TableDesignPane> pRet = nullptr;
@@ -794,12 +760,6 @@ VclPtr<vcl::Window> createTableDesignPanel( vcl::Window* pParent, ViewShellBase&
     {
     }
     return pRet;
-}
-
-void showTableDesignDialog( vcl::Window* pParent, ViewShellBase& rBase )
-{
-    ScopedVclPtrInstance< TableDesignDialog > xDialog( pParent, rBase );
-    xDialog->Execute();
 }
 
 }

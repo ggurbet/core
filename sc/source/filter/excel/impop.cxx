@@ -30,11 +30,14 @@
 #include <editeng/editobj.hxx>
 #include <editeng/editstat.hxx>
 #include <editeng/flditem.hxx>
-#include <svx/pageitem.hxx>
 #include <editeng/colritem.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/docfile.hxx>
+#include <svx/pageitem.hxx>
+#include <svx/svxids.hrc>
 #include <svl/zforlist.hxx>
+#include <unotools/configmgr.hxx>
+#include <sal/log.hxx>
 
 #include <sfx2/objsh.hxx>
 #include <tools/urlobj.hxx>
@@ -47,6 +50,7 @@
 #include <patattr.hxx>
 #include <attrib.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <global.hxx>
 #include <markdata.hxx>
 #include <olinetab.hxx>
@@ -78,6 +82,7 @@
 #include <excimp8.hxx>
 #include <excform.hxx>
 #include <documentimport.hxx>
+#include <o3tl/make_unique.hxx>
 
 #if defined(_WIN32)
 #include <math.h>
@@ -121,14 +126,15 @@ ImportExcel::ImportExcel( XclImpRootData& rImpData, SvStream& rStrm ):
     pExcRoot = &GetOldRoot();
     pExcRoot->pIR = this;   // ExcRoot -> XclImpRoot
     pExcRoot->eDateiTyp = BiffX;
-    pExcRoot->pExtSheetBuff = new ExtSheetBuffer( pExcRoot );   //&aExtSheetBuff;
-    pExcRoot->pShrfmlaBuff = new SharedFormulaBuffer( pExcRoot );     //&aShrfrmlaBuff;
-    pExcRoot->pExtNameBuff = new ExtNameBuff ( *this );
+    pExcRoot->pExtSheetBuff.reset( new ExtSheetBuffer( pExcRoot ) );   //&aExtSheetBuff;
+    pExcRoot->pShrfmlaBuff.reset( new SharedFormulaBuffer( pExcRoot ) );     //&aShrfrmlaBuff;
+    pExcRoot->pExtNameBuff.reset( new ExtNameBuff ( *this ) );
 
-    pOutlineListBuffer = new XclImpOutlineListBuffer;
+    pOutlineListBuffer.reset(new XclImpOutlineListBuffer);
 
     // ab Biff8
-    pFormConv = pExcRoot->pFmlaConverter = new ExcelToSc( GetRoot() );
+    pFormConv.reset(new ExcelToSc( GetRoot() ));
+    pExcRoot->pFmlaConverter = pFormConv.get();
 
     bTabTruncated = false;
 
@@ -150,9 +156,9 @@ ImportExcel::~ImportExcel()
 {
     GetDoc().SetSrcCharSet( GetTextEncoding() );
 
-    delete pOutlineListBuffer;
+    pOutlineListBuffer.reset();
 
-    delete pFormConv;
+    pFormConv.reset();
 }
 
 void ImportExcel::SetLastFormula( SCCOL nCol, SCROW nRow, double fVal, sal_uInt16 nXF, ScFormulaCell* pCell )
@@ -1079,6 +1085,12 @@ void ImportExcel::TableOp()
     nInpRow2 = aIn.ReaduInt16();
     nInpCol2 = aIn.ReaduInt16();
 
+    if (utl::ConfigManager::IsFuzzing())
+    {
+        //shrink to smallish arbitrary value to not timeout
+        nLastRow = std::min<sal_uInt16>(nLastRow, MAXROW_30);
+    }
+
     if( ValidColRow( nLastCol, nLastRow ) )
     {
         if( nFirstCol && nFirstRow )
@@ -1249,7 +1261,7 @@ void ImportExcel::PostDocLoad()
     /*  Set automatic page numbering in Default page style (default is "page number = 1").
         Otherwise hidden tables (i.e. for scenarios) which have Default page style will
         break automatic page numbering. */
-    if( SfxStyleSheetBase* pStyleSheet = GetStyleSheetPool().Find( ScGlobal::GetRscString( STR_STYLENAME_STANDARD ), SfxStyleFamily::Page ) )
+    if( SfxStyleSheetBase* pStyleSheet = GetStyleSheetPool().Find( ScResId( STR_STYLENAME_STANDARD ), SfxStyleFamily::Page ) )
         pStyleSheet->GetItemSet().Put( SfxUInt16Item( ATTR_PAGE_FIRSTPAGENO, 0 ) );
 
     // outlines for all sheets, sets hidden rows and columns (#i11776# after filtered ranges)
@@ -1301,7 +1313,7 @@ void ImportExcel::PostDocLoad()
     GetExtDocOptions().SetChanged( true );
 
     // root data owns the extended document options -> create a new object
-    GetDoc().SetExtDocOptions( new ScExtDocOptions( GetExtDocOptions() ) );
+    GetDoc().SetExtDocOptions( o3tl::make_unique<ScExtDocOptions>( GetExtDocOptions() ) );
 
     const SCTAB     nLast = pD->GetTableCount();
     const ScRange*      p;

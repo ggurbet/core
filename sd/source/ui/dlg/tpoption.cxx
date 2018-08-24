@@ -100,10 +100,10 @@ void SdTpOptionsSnap::Reset( const SfxItemSet* rAttrs )
     pCbxRotate->GetClickHdl().Call(nullptr);
 }
 
-VclPtr<SfxTabPage> SdTpOptionsSnap::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SdTpOptionsSnap::Create( TabPageParent pWindow,
                                             const SfxItemSet* rAttrs )
 {
-    return VclPtr<SdTpOptionsSnap>::Create( pWindow, *rAttrs );
+    return VclPtr<SdTpOptionsSnap>::Create( pWindow.pParent, *rAttrs );
 }
 
 /*************************************************************************
@@ -173,10 +173,10 @@ void SdTpOptionsContents::Reset( const SfxItemSet* rAttrs )
     m_pCbxHandlesBezier->SaveValue();
 }
 
-VclPtr<SfxTabPage> SdTpOptionsContents::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SdTpOptionsContents::Create( TabPageParent pWindow,
                                                 const SfxItemSet* rAttrs )
 {
-    return VclPtr<SdTpOptionsContents>::Create( pWindow, *rAttrs );
+    return VclPtr<SdTpOptionsContents>::Create( pWindow.pParent, *rAttrs );
 }
 
 /*************************************************************************
@@ -526,10 +526,10 @@ void SdTpOptionsMisc::Reset( const SfxItemSet* rAttrs )
     UpdateCompatibilityControls ();
 }
 
-VclPtr<SfxTabPage> SdTpOptionsMisc::Create( vcl::Window* pWindow,
+VclPtr<SfxTabPage> SdTpOptionsMisc::Create( TabPageParent pWindow,
                                             const SfxItemSet* rAttrs )
 {
-    return VclPtr<SdTpOptionsMisc>::Create( pWindow, *rAttrs );
+    return VclPtr<SdTpOptionsMisc>::Create( pWindow.pParent, *rAttrs );
 }
 
 IMPL_LINK_NOARG(SdTpOptionsMisc, SelectMetricHdl_Impl, ListBox&, void)
@@ -587,10 +587,15 @@ OUString SdTpOptionsMisc::GetScale( sal_Int32 nX, sal_Int32 nY )
 
 bool SdTpOptionsMisc::SetScale( const OUString& aScale, sal_Int32& rX, sal_Int32& rY )
 {
-    if( comphelper::string::getTokenCount(aScale, TOKEN) != 2 )
+    if (aScale.isEmpty())
         return false;
 
-    OUString aTmp(aScale.getToken(0, TOKEN));
+    sal_Int32 nIdx {0};
+
+    OUString aTmp(aScale.getToken(0, TOKEN, nIdx));
+    if (nIdx<0)
+        return false; // we expect another token!
+
     if (!comphelper::string::isdigitAsciiString(aTmp))
         return false;
 
@@ -598,7 +603,10 @@ bool SdTpOptionsMisc::SetScale( const OUString& aScale, sal_Int32& rX, sal_Int32
     if( rX == 0 )
         return false;
 
-    aTmp = aScale.getToken(1, TOKEN);
+    aTmp = aScale.getToken(0, TOKEN, nIdx);
+    if (nIdx>=0)
+        return false; // we require just 2 tokens!
+
     if (!comphelper::string::isdigitAsciiString(aTmp))
         return false;
 

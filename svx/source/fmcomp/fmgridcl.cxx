@@ -69,6 +69,7 @@
 #include <vcl/longcurr.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
 #include <math.h>
 #include <memory>
@@ -563,8 +564,6 @@ IMPL_LINK_NOARG( FmGridHeader, OnAsyncExecuteDrop, void*, void )
 
         if (bDateNTimeCol)
         {
-            OUString sRealName,sPurePostfix;
-
             OUString aPostfix[] = {
                 SvxResId(RID_STR_POSTFIX_DATE),
                 SvxResId(RID_STR_POSTFIX_TIME)
@@ -572,12 +571,10 @@ IMPL_LINK_NOARG( FmGridHeader, OnAsyncExecuteDrop, void*, void )
 
             for ( size_t i=0; i<2; ++i )
             {
-                sPurePostfix = comphelper::string::stripStart(aPostfix[i], ' ');
+                OUString sPurePostfix = comphelper::string::stripStart(aPostfix[i], ' ');
                 sPurePostfix = comphelper::string::stripStart(sPurePostfix, '(');
                 sPurePostfix = comphelper::string::stripEnd(sPurePostfix, ')');
-                sRealName = sFieldName;
-                sRealName += "_";
-                sRealName += sPurePostfix;
+                OUString sRealName = sFieldName + "_" + sPurePostfix;
                 if (i)
                     xSecondCol->setPropertyValue(FM_PROP_NAME, makeAny(sRealName));
                 else
@@ -775,7 +772,7 @@ void FmGridHeader::PreExecuteColumnContextMenu(sal_uInt16 nColId, PopupMenu& rMe
             if (eState >= SfxItemState::DEFAULT && pItem.get() != nullptr )
             {
                 bool bChecked = dynamic_cast<const SfxBoolItem*>( pItem.get()) != nullptr && static_cast<SfxBoolItem*>(pItem.get())->GetValue();
-                rMenu.CheckItem(rMenu.GetItemId("column"), bChecked);
+                rMenu.CheckItem("column", bChecked);
             }
         }
     }
@@ -893,14 +890,9 @@ void FmGridHeader::PostExecuteColumnContextMenu(sal_uInt16 nColId, const PopupMe
     else if (sExecutionResult == "more")
     {
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        if(pFact)
-        {
-            ScopedVclPtr<AbstractFmShowColsDialog> pDlg(pFact->CreateFmShowColsDialog());
-            DBG_ASSERT(pDlg, "Dialog creation failed!");
-            pDlg->SetColumns(xCols);
-            pDlg->Execute();
-        }
-
+        ScopedVclPtr<AbstractFmShowColsDialog> pDlg(pFact->CreateFmShowColsDialog());
+        pDlg->SetColumns(xCols);
+        pDlg->Execute();
     }
     else if (sExecutionResult == "all")
     {
@@ -1003,14 +995,14 @@ void FmGridHeader::triggerColumnContextMenu( const ::Point& _rPreferredPos )
     VclBuilder aBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "svx/ui/colsmenu.ui", "");
     VclPtr<PopupMenu> aContextMenu(aBuilder.get_menu("menu"));
 
-    // let derivees modify the menu
+    // let derivatives modify the menu
     PreExecuteColumnContextMenu( nColId, *aContextMenu );
     aContextMenu->RemoveDisabledEntries( true, true );
 
     // execute the menu
     sal_uInt16 nResult = aContextMenu->Execute( this, _rPreferredPos );
 
-    // let derivees handle the result
+    // let derivatives handle the result
     PostExecuteColumnContextMenu( nColId, *aContextMenu, nResult );
 }
 
@@ -1232,7 +1224,7 @@ void FmGridControl::DeleteSelectedRows()
                 // there is a next row to position on
                 if (SeekCursor(nIdx))
                 {
-                    GetSeekRow()->SetState(m_pSeekCursor, true);
+                    GetSeekRow()->SetState(m_pSeekCursor.get(), true);
 
                     bNewPos = true;
                     // if it's not the row for inserting we keep the bookmark
@@ -1246,7 +1238,7 @@ void FmGridControl::DeleteSelectedRows()
                 nIdx = FirstSelectedRow() - 1;
                 if (nIdx >= 0 && SeekCursor(nIdx))
                 {
-                    GetSeekRow()->SetState(m_pSeekCursor, true);
+                    GetSeekRow()->SetState(m_pSeekCursor.get(), true);
 
                     bNewPos = true;
                     aBookmark = m_pSeekCursor->getBookmark();
@@ -1438,7 +1430,7 @@ void FmGridControl::inserted()
         return;
 
     // line has been inserted, then reset the status and mode
-    xRow->SetState(m_pDataCursor, false);
+    xRow->SetState(m_pDataCursor.get(), false);
     xRow->SetNew(false);
 
 }
@@ -1453,7 +1445,7 @@ void FmGridControl::markColumn(sal_uInt16 nId)
 {
     if (GetHeaderBar() && m_nMarkedColumnId != nId)
     {
-        // deselektieren
+        // deselect
         if (m_nMarkedColumnId != BROWSER_INVALIDID)
         {
             HeaderBarItemBits aBits = GetHeaderBar()->GetItemBits(m_nMarkedColumnId) & ~HeaderBarItemBits::FLAT;
@@ -1508,7 +1500,7 @@ void FmGridControl::ColumnResized(sal_uInt16 nId)
     DbGridControl::ColumnResized(nId);
 
     // transfer value to the model
-    DbGridColumn* pCol = DbGridControl::GetColumns().at( GetModelColumnPos(nId) );
+    DbGridColumn* pCol = DbGridControl::GetColumns()[ GetModelColumnPos(nId) ].get();
     Reference< css::beans::XPropertySet >  xColModel(pCol->getModel());
     if (xColModel.is())
     {
@@ -1550,7 +1542,7 @@ void FmGridControl::ColumnMoved(sal_uInt16 nId)
     {
         // locate the column and move in the model;
         // get ColumnPos
-        DbGridColumn* pCol = DbGridControl::GetColumns().at( GetModelColumnPos(nId) );
+        DbGridColumn* pCol = DbGridControl::GetColumns()[ GetModelColumnPos(nId) ].get();
         Reference< css::beans::XPropertySet >  xCol;
 
         // inserting must be based on the column positions
@@ -1612,7 +1604,7 @@ void FmGridControl::InitColumnsByModels(const Reference< css::container::XIndexC
             nWidth = LogicToPixel(Point(nWidth, 0), MapMode(MapUnit::Map10thMM)).X();
 
         AppendColumn(aName, static_cast<sal_uInt16>(nWidth));
-        DbGridColumn* pCol = DbGridControl::GetColumns().at( i );
+        DbGridColumn* pCol = DbGridControl::GetColumns()[ i ].get();
         pCol->setModel(xCol);
     }
 
@@ -1716,7 +1708,7 @@ void FmGridControl::InitColumnsByFields(const Reference< css::container::XIndexA
     // inserting must be based on the column positions
     for (sal_Int32 i = 0; i < xColumns->getCount(); i++)
     {
-        DbGridColumn* pCol = GetColumns().at( i );
+        DbGridColumn* pCol = GetColumns()[ i ].get();
         OSL_ENSURE(pCol,"No grid column!");
         if ( pCol )
         {
@@ -1736,7 +1728,7 @@ void FmGridControl::HideColumn(sal_uInt16 nId)
     if (nPos == sal_uInt16(-1))
         return;
 
-    DbGridColumn* pColumn = GetColumns().at( nPos );
+    DbGridColumn* pColumn = GetColumns()[ nPos ].get();
     if (pColumn->IsHidden())
         GetPeer()->columnHidden(pColumn);
 
@@ -1767,7 +1759,7 @@ void FmGridControl::ShowColumn(sal_uInt16 nId)
     if (nPos == sal_uInt16(-1))
         return;
 
-    DbGridColumn* pColumn = GetColumns().at( nPos );
+    DbGridColumn* pColumn = GetColumns()[ nPos ].get();
     if (!pColumn->IsHidden())
         GetPeer()->columnVisible(pColumn);
 
@@ -1824,11 +1816,11 @@ Sequence< Any> FmGridControl::getSelectionBookmarks()
     {
         Any* pBookmarks = aBookmarks.getArray();
 
-        // (I'm not sure if the problem isn't deeper : The szenario : a large table displayed by a grid with a
+        // (I'm not sure if the problem isn't deeper: The scenario: a large table displayed by a grid with a
         // thread-safe cursor (dBase). On loading the sdb-cursor started a counting thread. While this counting progress
         // was running, I tried do delete 3 records from within the grid. Deletion caused a SeekCursor, which did a
         // m_pSeekCursor->moveRelative and a m_pSeekCursor->getPosition.
-        // Unfortunally the first call caused a propertyChanged(RECORDCOUNT) which resulted in a repaint of the
+        // Unfortunately the first call caused a propertyChanged(RECORDCOUNT) which resulted in a repaint of the
         // navigation bar and the grid. The latter itself will result in SeekRow calls. So after (successfully) returning
         // from the moveRelative the getPosition returns an invalid value. And so the SeekCursor fails.
         // In the consequence ALL parts of code where two calls to the seek cursor are done, while the second call _relies_ on
@@ -1862,7 +1854,7 @@ Sequence< Any> FmGridControl::getSelectionBookmarks()
             // first, position the data cursor on the selected block
             if (SeekCursor(nIdx))
             {
-                GetSeekRow()->SetState(m_pSeekCursor, true);
+                GetSeekRow()->SetState(m_pSeekCursor.get(), true);
 
                 pBookmarks[i] = m_pSeekCursor->getBookmark();
             }

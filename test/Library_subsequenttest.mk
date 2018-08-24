@@ -10,7 +10,6 @@
 $(eval $(call gb_Library_Library,subsequenttest))
 
 $(eval $(call gb_Library_set_include,subsequenttest,\
-    -I$(SRCDIR)/test/inc \
     $$(INCLUDE) \
 ))
 
@@ -87,6 +86,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xcellseries \
 	test/source/sheet/xconsolidatable \
 	test/source/sheet/xconsolidationdescriptor \
+	test/source/sheet/xdocumentauditing \
 	test/source/sheet/xgoalseek \
 	test/source/sheet/xdatabaserange \
 	test/source/sheet/xdatabaseranges \
@@ -98,6 +98,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xdatapilottables \
 	test/source/sheet/xdatapilottablessupplier \
 	test/source/sheet/xddelink \
+	test/source/sheet/xformulaquery \
 	test/source/sheet/xfunctiondescriptions \
 	test/source/sheet/xheaderfootercontent \
 	test/source/sheet/xlabelrange \
@@ -122,8 +123,9 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xsheetannotationssupplier \
 	test/source/sheet/xsheetannotationshapesupplier \
 	test/source/sheet/xsheetauditing \
-	test/source/sheet/xsheetcellrangecontainer \
+	test/source/sheet/xsheetcellcursor \
 	test/source/sheet/xsheetcellrange \
+	test/source/sheet/xsheetcellrangecontainer \
 	test/source/sheet/xsheetcellranges \
 	test/source/sheet/xsheetconditionalentries \
 	test/source/sheet/xsheetconditionalentry \

@@ -97,6 +97,10 @@ class SVX_DLLPUBLIC SdrTableObj : public ::SdrTextObj
     friend class Cell;
     friend class SdrTableObjImpl;
 
+protected:
+    // protected destructor
+    virtual ~SdrTableObj() override;
+
 public:
     SdrTableObj(SdrModel& rSdrModel);
     SdrTableObj(
@@ -105,13 +109,10 @@ public:
         sal_Int32 nColumns,
         sal_Int32 nRows);
 
-    virtual ~SdrTableObj() override;
+    // helper to limit existing TableModel to a given selection
+    void CropTableModelToSelection(const CellPos& rStart, const CellPos& rEnd);
 
     // Table stuff
-    SdrTableObj* CloneRange(
-        const CellPos& rStartPos,
-        const CellPos& rEndPos,
-        SdrModel& rTargetModel);
     void DistributeColumns( sal_Int32 nFirstColumn, sal_Int32 nLastColumn );
     void DistributeRows( sal_Int32 nFirstRow, sal_Int32 nLastRow );
 
@@ -199,7 +200,7 @@ public:
     virtual bool AdjustTextFrameWidthAndHeight() override;
     virtual OUString TakeObjNameSingul() const override;
     virtual OUString TakeObjNamePlural() const override;
-    virtual SdrTableObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrTableObj* CloneSdrObject(SdrModel& rTargetModel) const override;
     SdrTableObj& operator=(const SdrTableObj& rObj);
     virtual void RecalcSnapRect() override;
     virtual const tools::Rectangle& GetSnapRect() const override;
@@ -236,7 +237,7 @@ public:
     void TakeTextEditArea(const sdr::table::CellPos& rPos, Size* pPaperMin, Size* pPaperMax, tools::Rectangle* pViewInit, tools::Rectangle* pViewMin) const;
     virtual EEAnchorMode GetOutlinerViewAnchorMode() const override;
 
-    virtual void NbcSetOutlinerParaObject(OutlinerParaObject* pTextObject) override;
+    virtual void NbcSetOutlinerParaObject(std::unique_ptr<OutlinerParaObject> pTextObject) override;
 
     virtual OutlinerParaObject* GetOutlinerParaObject() const override;
 
@@ -266,8 +267,8 @@ private:
     void init( sal_Int32 nColumns, sal_Int32 nRows );
 
 protected:
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
 
     virtual SdrObjGeoData* NewGeoData() const override;
     virtual void SaveGeoData(SdrObjGeoData& rGeo) const override;

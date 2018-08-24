@@ -128,10 +128,10 @@ namespace sdr
                             mpItemSet->Put(aNewSet);
                         }
 
-                        OutlinerParaObject* pTemp = pOutliner->CreateParaObject(0, nParaCount);
+                        std::unique_ptr<OutlinerParaObject> pTemp = pOutliner->CreateParaObject(0, nParaCount);
                         pOutliner->Clear();
 
-                        rObj.NbcSetOutlinerParaObjectForText(pTemp,pText);
+                        rObj.NbcSetOutlinerParaObjectForText(std::move(pTemp),pText);
                     }
                 }
             }
@@ -187,10 +187,10 @@ namespace sdr
                             ESelection aSelection( 0, 0, EE_PARA_ALL, EE_TEXTPOS_ALL);
                             rOutliner.RemoveAttribs(aSelection, true, 0);
 
-                            OutlinerParaObject* pTemp = rOutliner.CreateParaObject(0, nParaCount);
+                            std::unique_ptr<OutlinerParaObject> pTemp = rOutliner.CreateParaObject(0, nParaCount);
                             rOutliner.Clear();
 
-                            rObj.NbcSetOutlinerParaObjectForText( pTemp, pText );
+                            rObj.NbcSetOutlinerParaObjectForText( std::move(pTemp), pText );
                         }
                     }
                 }
@@ -338,9 +338,9 @@ namespace sdr
                             delete pTempSet;
                         }
 
-                        OutlinerParaObject* pTemp = rOutliner.CreateParaObject(0, nParaCount);
+                        std::unique_ptr<OutlinerParaObject> pTemp = rOutliner.CreateParaObject(0, nParaCount);
                         rOutliner.Clear();
-                        rObj.NbcSetOutlinerParaObjectForText(pTemp, pText);
+                        rObj.NbcSetOutlinerParaObjectForText(std::move(pTemp), pText);
                     }
                 }
             }
@@ -397,7 +397,7 @@ namespace sdr
 
             if(!rObj.IsTextEditActive() && !rObj.IsLinkedText())
             {
-                Outliner* pOutliner = SdrMakeOutliner(OutlinerMode::OutlineObject, rObj.getSdrModelFromSdrObject());
+                std::unique_ptr<Outliner> pOutliner = SdrMakeOutliner(OutlinerMode::OutlineObject, rObj.getSdrModelFromSdrObject());
                 const svx::ITextProvider& rTextProvider(getTextProvider());
                 sal_Int32 nText = rTextProvider.getTextCount();
                 while (nText--)
@@ -464,7 +464,7 @@ namespace sdr
                                                 {
                                                     const SvxFieldData* pData = pFieldItem->GetField();
 
-                                                    if(pData && dynamic_cast<const SvxURLField*>( pData) !=  nullptr)
+                                                    if(dynamic_cast<const SvxURLField*>( pData))
                                                     {
                                                         bHasURL = true;
                                                         break;
@@ -518,14 +518,13 @@ namespace sdr
 
                         if(bBurnIn)
                         {
-                            OutlinerParaObject* pTemp = pOutliner->CreateParaObject(0, nParaCount);
-                            rObj.NbcSetOutlinerParaObjectForText(pTemp,pText);
+                            std::unique_ptr<OutlinerParaObject> pTemp = pOutliner->CreateParaObject(0, nParaCount);
+                            rObj.NbcSetOutlinerParaObjectForText(std::move(pTemp),pText);
                         }
                     }
 
                     pOutliner->Clear();
                 }
-                delete pOutliner;
             }
         }
 

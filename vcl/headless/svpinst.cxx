@@ -25,6 +25,7 @@
 #include <sys/poll.h>
 
 #include <sal/types.h>
+#include <sal/log.hxx>
 
 #include <vcl/inputtypes.hxx>
 #include <vcl/opengl/OpenGLContext.hxx>
@@ -62,8 +63,8 @@ static void atfork_child()
 
 #endif
 
-SvpSalInstance::SvpSalInstance( SalYieldMutex *pMutex )
-    : SalGenericInstance( pMutex )
+SvpSalInstance::SvpSalInstance( std::unique_ptr<SalYieldMutex> pMutex )
+    : SalGenericInstance( std::move(pMutex) )
 {
     m_aTimeout.tv_sec       = 0;
     m_aTimeout.tv_usec      = 0;
@@ -236,16 +237,21 @@ void SvpSalInstance::DestroyObject( SalObject* pObject )
 
 #ifndef IOS
 
-SalVirtualDevice* SvpSalInstance::CreateVirtualDevice( SalGraphics* pGraphics,
+std::unique_ptr<SalVirtualDevice> SvpSalInstance::CreateVirtualDevice( SalGraphics* pGraphics,
                                                        long &nDX, long &nDY,
                                                        DeviceFormat eFormat,
                                                        const SystemGraphicsData* /* pData */ )
 {
     SvpSalGraphics *pSvpSalGraphics = dynamic_cast<SvpSalGraphics*>(pGraphics);
     assert(pSvpSalGraphics);
-    SvpSalVirtualDevice* pNew = new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface());
+    std::unique_ptr<SalVirtualDevice> pNew(new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface()));
     pNew->SetSize( nDX, nDY );
     return pNew;
+}
+
+cairo_surface_t* get_underlying_cairo_surface(VirtualDevice& rDevice)
+{
+    return static_cast<SvpSalVirtualDevice*>(rDevice.mpVirDev.get())->GetSurface();
 }
 
 #endif
@@ -260,12 +266,12 @@ SalSystem* SvpSalInstance::CreateSalSystem()
     return new SvpSalSystem();
 }
 
-SalBitmap* SvpSalInstance::CreateSalBitmap()
+std::shared_ptr<SalBitmap> SvpSalInstance::CreateSalBitmap()
 {
 #ifdef IOS
-    return new QuartzSalBitmap();
+    return std::make_shared<QuartzSalBitmap>();
 #else
-    return new SvpSalBitmap();
+    return std::make_shared<SvpSalBitmap>();
 #endif
 }
 
@@ -360,7 +366,7 @@ sal_uInt32 SvpSalYieldMutex::doRelease(bool const bUnlockAll)
     {
         // read m_nCount before doRelease
         bool const isReleased(bUnlockAll || m_nCount == 1);
-        nCount = comphelper::GenericSolarMutex::doRelease( bUnlockAll );
+        nCount = comphelper::SolarMutex::doRelease( bUnlockAll );
         if (isReleased) {
             std::unique_lock<std::mutex> g(m_WakeUpMainMutex);
             m_wakeUpMain = true;
@@ -489,11 +495,6 @@ bool SvpSalInstance::AnyInput( VclInputFlags nType )
     if( nType & VclInputFlags::TIMER )
         return CheckTimeout( false );
     return false;
-}
-
-SalSession* SvpSalInstance::CreateSalSession()
-{
-    return nullptr;
 }
 
 OUString SvpSalInstance::GetConnectionIdentifier()

@@ -168,10 +168,10 @@ void SwLoadOptPage::dispose()
 }
 
 
-VclPtr<SfxTabPage> SwLoadOptPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SwLoadOptPage::Create( TabPageParent pParent,
                                           const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SwLoadOptPage>::Create(pParent, *rAttrSet );
+    return VclPtr<SwLoadOptPage>::Create(pParent.pParent, *rAttrSet );
 }
 
 IMPL_LINK_NOARG(SwLoadOptPage, StandardizedPageCountCheckHdl, Button*, void)
@@ -405,7 +405,6 @@ SwCaptionPreview::SwCaptionPreview(vcl::Window* pParent, WinBits nStyle)
     : Window(pParent, nStyle)
     , mbFontInitialized(false)
 {
-    maDrawPos = Point(4, 6);
 }
 
 VCL_BUILDER_FACTORY_CONSTRUCTOR(SwCaptionPreview, 0)
@@ -463,12 +462,14 @@ SwCaptionOptPage::SwCaptionOptPage(vcl::Window* pParent, const SfxItemSet& rSet)
     , m_sNone(SwResId(SW_STR_NONE))
     , pMgr(new SwFieldMgr())
     , bHTMLMode(false)
+    , m_aTextFilter(m_sNone)
 {
     get(m_pCheckLB, "objects");
     get(m_pLbCaptionOrder, "captionorder");
     get(m_pPreview, "preview");
     get(m_pSettingsGroup, "settings");
     get(m_pCategoryBox, "category");
+    m_pCategoryBox->SetTextFilter(&m_aTextFilter);
     get(m_pFormatText, "numberingft");
     get(m_pFormatBox, "numbering");
     get(m_pNumberingSeparatorFT, "numseparatorft");
@@ -487,7 +488,6 @@ SwCaptionOptPage::SwCaptionOptPage(vcl::Window* pParent, const SfxItemSet& rSet)
     SwStyleNameMapper::FillUIName(RES_POOLCOLL_LABEL_TABLE, m_sTable);
     SwStyleNameMapper::FillUIName(RES_POOLCOLL_LABEL_FRAME, m_sText);
     SwStyleNameMapper::FillUIName(RES_POOLCOLL_LABEL_DRAWING, m_sDrawing);
-    SwStyleNameMapper::FillUIName(RES_POOLCOLL_LABEL_FIGURE, m_sFigure);
 
     SwWrtShell* pSh = ::GetActiveWrtShell();
 
@@ -562,7 +562,7 @@ SwCaptionOptPage::~SwCaptionOptPage()
 void SwCaptionOptPage::dispose()
 {
     DelUserData();
-    delete pMgr;
+    pMgr.reset();
     m_pCheckLB.clear();
     m_pLbCaptionOrder.clear();
     m_pPreview.clear();
@@ -584,10 +584,10 @@ void SwCaptionOptPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SwCaptionOptPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SwCaptionOptPage::Create( TabPageParent pParent,
                                              const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SwCaptionOptPage>::Create( pParent, *rAttrSet );
+    return VclPtr<SwCaptionOptPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 bool SwCaptionOptPage::FillItemSet( SfxItemSet* )

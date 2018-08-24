@@ -21,7 +21,6 @@
 class EditTextObject;
 class ScDocument;
 class ScColumn;
-class ScAddress;
 struct ScAttrEntry;
 class ScTokenArray;
 class ScFormulaCell;
@@ -126,8 +125,15 @@ public:
 
     void finalize();
 
+    /** Broadcast all formula cells that are marked with
+        FormulaTokenArray::IsRecalcModeMustAfterImport() for a subsequent
+        ScDocument::CalcFormulaTree().
+     */
+    void broadcastRecalcAfterImport();
+
 private:
     void initColumn(ScColumn& rCol);
+    void broadcastRecalcAfterImportColumn(ScColumn& rCol);
 };
 
 #endif

@@ -31,7 +31,9 @@
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <rtl/uuid.h>
 #include <cppuhelper/queryinterface.hxx>
@@ -50,6 +52,7 @@
 #include <vcl/settings.hxx>
 #include <o3tl/functional.hxx>
 #include <tools/diagnose_ex.h>
+#include <unotools/accessiblestatesethelper.hxx>
 
 #include <algorithm>
 #include <iterator>

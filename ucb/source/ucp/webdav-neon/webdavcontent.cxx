@@ -37,6 +37,7 @@
 #include <osl/diagnose.h>
 #include <rtl/uri.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <officecfg/Inet.hxx>
 #include <ucbhelper/contentidentifier.hxx>
 #include <ucbhelper/propertyvalueset.hxx>
@@ -1256,8 +1257,8 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
 
         while ( it != end )
         {
-            if ( pProvider->getProperty( (*it).first, aProp ) )
-                xRow->appendObject( aProp, (*it).second.value() );
+            pProvider->getProperty( (*it).first, aProp );
+            xRow->appendObject( aProp, (*it).second.value() );
 
             ++it;
         }

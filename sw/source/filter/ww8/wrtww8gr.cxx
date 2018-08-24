@@ -22,6 +22,7 @@
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/wmf.hxx>
 #include <svl/itemiter.hxx>
@@ -159,7 +160,7 @@ bool WW8Export::TestOleNeedsGraphic(const SwAttrSet& rSet,
             uno::Reference< embed::XEmbeddedObject > xObj = pOLENd->GetOLEObj().GetOleRef();
             if ( xObj.is() )
             {
-                SvStream* pGraphicStream = nullptr;
+                std::unique_ptr<SvStream> pGraphicStream;
                 comphelper::EmbeddedObjectContainer aCnt( m_pDoc->GetDocStorage() );
                 try
                 {
@@ -183,7 +184,6 @@ bool WW8Export::TestOleNeedsGraphic(const SwAttrSet& rSet,
                     if( rGF.ImportGraphic( aGr1, OUString(), *pGraphicStream ) == ERRCODE_NONE )
                     {
                         Graphic aGr2;
-                        delete pGraphicStream;
                         pGraphicStream =
                                 ::utl::UcbStreamHelper::CreateStream( aCnt.GetGraphicStream( pRet->GetObjRef() ) );
                         if( pGraphicStream && rGF.ImportGraphic( aGr2, OUString(), *pGraphicStream ) == ERRCODE_NONE )
@@ -193,10 +193,11 @@ bool WW8Export::TestOleNeedsGraphic(const SwAttrSet& rSet,
                         }
                     }
                 }
-                delete pGraphicStream;
             }
 
-            delete pRet;
+            // always use SdrObject::Free(...) for SdrObjects (!)
+            SdrObject* pTemp(pRet);
+            SdrObject::Free(pTemp);
         }
     }
     else
@@ -420,7 +421,7 @@ void WW8Export::OutGrf(const ww8::Frame &rFrame)
             bool bVert = false;
             //The default for word in vertical text mode is to center,
             //otherwise a sub/super script hack is employed
-            if (m_pOutFormatNode && dynamic_cast< const SwContentNode *>( m_pOutFormatNode ) !=  nullptr )
+            if (dynamic_cast< const SwContentNode *>( m_pOutFormatNode ) )
             {
                 const SwTextNode* pTextNd = static_cast<const SwTextNode*>(m_pOutFormatNode);
                 SwPosition aPos(*pTextNd);
@@ -878,15 +879,15 @@ void SwWW8WrGrf::WriteGraphicNode(SvStream& rStrm, const GraphicDetails &rItem)
 void SwWW8WrGrf::Write()
 {
     SvStream& rStrm = *rWrt.pDataStrm;
-    myiter aEnd = maDetails.end();
-    for (myiter aIter = maDetails.begin(); aIter != aEnd; ++aIter)
+    auto aEnd = maDetails.end();
+    for (auto aIter = maDetails.begin(); aIter != aEnd; ++aIter)
     {
         sal_uInt32 nPos = rStrm.Tell();                 // align to 4 Bytes
         if( nPos & 0x3 )
             SwWW8Writer::FillCount( rStrm, 4 - ( nPos & 0x3 ) );
 
         bool bDuplicated = false;
-        for (myiter aIter2 = maDetails.begin(); aIter2 != aIter; ++aIter2)
+        for (auto aIter2 = maDetails.begin(); aIter2 != aIter; ++aIter2)
         {
             if (*aIter2 == *aIter)
             {

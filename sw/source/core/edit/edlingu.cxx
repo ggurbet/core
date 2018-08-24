@@ -21,7 +21,6 @@
 #include <com/sun/star/linguistic2/XProofreadingIterator.hpp>
 #include <com/sun/star/text/XFlatParagraph.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
-#include <comphelper/string.hxx>
 #include <o3tl/any.hxx>
 
 #include <unoflatpara.hxx>
@@ -898,7 +897,7 @@ uno::Reference< XSpellAlternatives >
     {
         sal_Int32 nBegin = aPos.nContent.GetIndex();
         sal_Int32 nLen = 1;
-        if( pWrong->InWrongWord(nBegin,nLen) && !pNode->IsSymbol(nBegin) )
+        if (pWrong->InWrongWord(nBegin, nLen) && !pNode->IsSymbolAt(nBegin))
         {
             const OUString aText(pNode->GetText().copy(nBegin, nLen));
             OUString aWord = aText.replaceAll(OUStringLiteral1(CH_TXTATR_BREAKWORD), "")

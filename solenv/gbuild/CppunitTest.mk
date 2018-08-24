@@ -23,6 +23,8 @@
 export MAX_CONCURRENCY=4
 # Disable searching for certificates by default
 export MOZILLA_CERTIFICATE_FOLDER=0
+# Avoid hanging if the cups daemon requests a password.
+export SAL_DISABLE_SYNCHRONOUS_PRINTER_DETECTION=1
 
 gb_CppunitTest_UNITTESTFAILED ?= $(GBUILDDIR)/platform/unittest-failed-default.sh
 gb_CppunitTest_PYTHONDEPS ?= $(call gb_Library_get_target,pyuno_wrapper) $(if $(SYSTEM_PYTHON),,$(call gb_Package_get_target,python3))
@@ -54,7 +56,7 @@ endif
 endif
 
 ifneq (,$(filter perfcheck,$(MAKECMDGOALS)))
-$(if $(ENABLE_VALGRIND),,$(call gb_Output_error,Running performance tests with empty $$(ENABLE_VALGRIND) does not make sense))
+$(if $(ENABLE_VALGRIND),,$(call gb_Output_error,Running performance tests with empty $$(ENABLE_VALGRIND) does not make sense. Please install valgrind-dev and re-run autogen.))
 gb_CppunitTest_VALGRINDTOOL := valgrind --tool=callgrind --dump-instr=yes --instr-atstart=no --simulate-cache=yes --dump-instr=yes --collect-bus=yes --branch-sim=yes
 ifneq ($(strip $(VALGRIND_GDB)),)
 gb_CppunitTest_VALGRINDTOOL += --vgdb=yes --vgdb-error=0

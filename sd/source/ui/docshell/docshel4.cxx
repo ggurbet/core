@@ -18,12 +18,14 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <memory>
 #include <utility>
 
 #include <DrawDocShell.hxx>
 #include <com/sun/star/document/PrinterIndependentLayout.hpp>
+#include <editeng/outlobj.hxx>
 #include <o3tl/make_unique.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/progress.hxx>
@@ -79,6 +81,7 @@
 #include <sdcgmfilter.hxx>
 #include <sdgrffilter.hxx>
 #include <sdhtmlfilter.hxx>
+#include <sdpdffilter.hxx>
 #include <framework/FrameworkHelper.hxx>
 
 #include <SdUnoDrawView.hxx>
@@ -489,11 +492,17 @@ bool DrawDocShell::ConvertFrom( SfxMedium& rMedium )
         ErrCode nError = ERRCODE_NONE;
         bRet = SdXMLFilter( rMedium, *this, SDXMLMODE_Normal, SOFFICE_FILEFORMAT_60 ).Import( nError );
     }
-    else if( aFilterName == "CGM - Computer Graphics Metafile" )
+    else if (aFilterName == "CGM - Computer Graphics Metafile")
     {
         mpDoc->CreateFirstPages();
         mpDoc->StopWorkStartupDelay();
         bRet = SdCGMFilter( rMedium, *this ).Import();
+    }
+    else if (aFilterName == "draw_pdf_import")
+    {
+        mpDoc->CreateFirstPages();
+        mpDoc->StopWorkStartupDelay();
+        bRet = SdPdfFilter(rMedium, *this).Import();
     }
     else
     {
@@ -583,8 +592,8 @@ bool DrawDocShell::SaveAs( SfxMedium& rMedium )
             SdrOutliner* pOutl = mpViewShell->GetView()->GetTextEditOutliner();
             if( pObj && pOutl && pOutl->IsModified() )
             {
-                OutlinerParaObject* pNewText = pOutl->CreateParaObject( 0, pOutl->GetParagraphCount() );
-                pObj->SetOutlinerParaObject( pNewText );
+                std::unique_ptr<OutlinerParaObject> pNewText = pOutl->CreateParaObject( 0, pOutl->GetParagraphCount() );
+                pObj->SetOutlinerParaObject( std::move(pNewText) );
                 pOutl->ClearModifyFlag();
             }
         }
@@ -716,9 +725,8 @@ SfxStyleSheetBasePool* DrawDocShell::GetStyleSheetPool()
 
 void DrawDocShell::GotoBookmark(const OUString& rBookmark)
 {
-    if (mpViewShell && dynamic_cast< const DrawViewShell *>( mpViewShell ) !=  nullptr)
+    if (auto pDrawViewShell = dynamic_cast<DrawViewShell *>( mpViewShell ))
     {
-        DrawViewShell* pDrawViewShell = static_cast<DrawViewShell*>(mpViewShell);
         ViewShellBase& rBase (mpViewShell->GetViewShellBase());
 
         bool bIsMasterPage = false;
@@ -767,7 +775,7 @@ void DrawDocShell::GotoBookmark(const OUString& rBookmark)
 
                 if (pObj)
                 {
-                    nPageNumber = pObj->GetPage()->GetPageNum();
+                    nPageNumber = pObj->getSdrPageFromSdrObject()->GetPageNum();
                 }
             }
         }

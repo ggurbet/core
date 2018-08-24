@@ -26,6 +26,7 @@
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <drawinglayer/primitive2d/polygonprimitive2d.hxx>
 #include <drawinglayer/primitive2d/hiddengeometryprimitive2d.hxx>
+#include <svgdocument.hxx>
 
 namespace svgio
 {
@@ -350,13 +351,20 @@ namespace svgio
                         seekReferenceWidth(fWReference, bHasFoundWidth);
                         if (!bHasFoundWidth)
                         {
-                            // Even outermost svg has not all information to resolve relative values,
-                            // I use content itself as fallback to set missing values for viewport
-                            // Any better idea for such ill structured svg documents?
-                            const basegfx::B2DRange aChildRange(
-                                        aSequence.getB2DRange(
-                                            drawinglayer::geometry::ViewInformation2D()));
-                            fWReference = aChildRange.getWidth();
+                            if (getViewBox())
+                            {
+                                fWReference = getViewBox()->getWidth();
+                            }
+                            else
+                            {
+                                // Even outermost svg has not all information to resolve relative values,
+                                // I use content itself as fallback to set missing values for viewport
+                                // Any better idea for such ill structured svg documents?
+                                const basegfx::B2DRange aChildRange(
+                                            aSequence.getB2DRange(
+                                                drawinglayer::geometry::ViewInformation2D()));
+                                fWReference = aChildRange.getWidth();
+                            }
                         }
                         // referenced values are already in 'user unit'
                         if (!bXIsAbsolute)
@@ -377,13 +385,20 @@ namespace svgio
                         seekReferenceHeight(fHReference, bHasFoundHeight);
                         if (!bHasFoundHeight)
                         {
+                            if (getViewBox())
+                            {
+                                fHReference = getViewBox()->getHeight();
+                            }
+                            else
+                            {
                             // Even outermost svg has not all information to resolve relative values,
-                            // I use content itself as fallback to set missing values for viewport
-                            // Any better idea for such ill structured svg documents?
-                            const basegfx::B2DRange aChildRange(
-                                    aSequence.getB2DRange(
-                                        drawinglayer::geometry::ViewInformation2D()));
-                            fHReference = aChildRange.getHeight();
+                                // I use content itself as fallback to set missing values for viewport
+                                // Any better idea for such ill structured svg documents?
+                                const basegfx::B2DRange aChildRange(
+                                        aSequence.getB2DRange(
+                                            drawinglayer::geometry::ViewInformation2D()));
+                                fHReference = aChildRange.getHeight();
+                            }
                         }
 
                         // referenced values are already in 'user unit'
@@ -527,13 +542,15 @@ namespace svgio
                                     // by the viewBox. No mapping.
                                     // We get viewport >= content, therefore no clipping.
                                     bNeedsMapping = false;
+
                                     const basegfx::B2DRange aChildRange(
                                         aSequence.getB2DRange(
                                             drawinglayer::geometry::ViewInformation2D()));
-                                    const double fChildWidth(aChildRange.getWidth());
-                                    const double fChildHeight(aChildRange.getHeight());
-                                    const double fLeft(aChildRange.getMinX());
-                                    const double fTop(aChildRange.getMinY());
+
+                                    const double fChildWidth(getViewBox() ? getViewBox()->getWidth() : aChildRange.getWidth());
+                                    const double fChildHeight(getViewBox() ? getViewBox()->getHeight() : aChildRange.getHeight());
+                                    const double fLeft(getViewBox() ? getViewBox()->getMinX()  : aChildRange.getMinX());
+                                    const double fTop (getViewBox() ? getViewBox()->getMinY() : aChildRange.getMinY());
                                     if ( fChildWidth / fViewBoxWidth > fChildHeight / fViewBoxHeight )
                                     {  // expand y
                                         fW = fChildWidth;
@@ -546,7 +563,6 @@ namespace svgio
                                     }
                                     aSvgCanvasRange = basegfx::B2DRange(fLeft, fTop, fLeft + fW, fTop + fH);
                                 }
-
 
                                 if (bNeedsMapping)
                                 {
@@ -655,27 +671,64 @@ namespace svgio
 
                         if(!aSequence.empty())
                         {
-                            // embed in transform primitive to scale to 1/100th mm
-                            // where 1 inch == 25.4 mm to get from Svg coordinates (px) to
-                            // drawinglayer coordinates
-                            const double fScaleTo100thmm(25.4 * 100.0 / F_SVG_PIXEL_PER_INCH);
-                            const basegfx::B2DHomMatrix aTransform(
-                                basegfx::utils::createScaleB2DHomMatrix(
-                                    fScaleTo100thmm,
-                                    fScaleTo100thmm));
+                            // Another correction:
+                            // If no Width/Height is set (usually done in
+                            // <svg ... width="215.9mm" height="279.4mm" >) which
+                            // is the case for own-Impress-exports, assume that
+                            // the Units are already 100ThMM.
+                            // Maybe only for own-Impress-exports, thus may need to be
+                            // &&ed with getDocument().findSvgNodeById("ooo:meta_slides"),
+                            // but does not need to be.
+                            bool bEmbedInFinalTransformPxTo100ThMM(true);
 
-                            const drawinglayer::primitive2d::Primitive2DReference xTransform(
-                                new drawinglayer::primitive2d::TransformPrimitive2D(
-                                    aTransform,
-                                    aSequence));
+                            if(getDocument().findSvgNodeById("ooo:meta_slides")
+                                && !getWidth().isSet()
+                                && !getHeight().isSet())
+                            {
+                                bEmbedInFinalTransformPxTo100ThMM = false;
+                            }
 
-                            aSequence = drawinglayer::primitive2d::Primitive2DContainer { xTransform };
+                            if(bEmbedInFinalTransformPxTo100ThMM)
+                            {
+                                // embed in transform primitive to scale to 1/100th mm
+                                // where 1 inch == 25.4 mm to get from Svg coordinates (px) to
+                                // drawinglayer coordinates
+                                const double fScaleTo100thmm(25.4 * 100.0 / F_SVG_PIXEL_PER_INCH);
+                                const basegfx::B2DHomMatrix aTransform(
+                                    basegfx::utils::createScaleB2DHomMatrix(
+                                        fScaleTo100thmm,
+                                        fScaleTo100thmm));
+
+                                const drawinglayer::primitive2d::Primitive2DReference xTransform(
+                                    new drawinglayer::primitive2d::TransformPrimitive2D(
+                                        aTransform,
+                                        aSequence));
+
+                                aSequence = drawinglayer::primitive2d::Primitive2DContainer { xTransform };
+                            }
 
                             // append to result
                             rTarget.append(aSequence);
                         }
                     }
                 }
+            }
+
+            if(aSequence.empty() && !getParent() && getViewBox())
+            {
+                // tdf#118232 No geometry, Outermost SVG element and we have a ViewBox.
+                // Create a HiddenGeometry Primitive containing an expanded
+                // hairline geometry to have the size contained
+                const drawinglayer::primitive2d::Primitive2DReference xLine(
+                    new drawinglayer::primitive2d::PolygonHairlinePrimitive2D(
+                        basegfx::utils::createPolygonFromRect(
+                            *getViewBox()),
+                        basegfx::BColor(0.0, 0.0, 0.0)));
+                const drawinglayer::primitive2d::Primitive2DReference xHidden(
+                    new drawinglayer::primitive2d::HiddenGeometryPrimitive2D(
+                        drawinglayer::primitive2d::Primitive2DContainer { xLine }));
+
+                rTarget.push_back(xHidden);
             }
         }
 

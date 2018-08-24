@@ -29,6 +29,7 @@
 #include <win/salgdi.h>
 #include <win/salvd.h>
 #include <opengl/win/gdiimpl.hxx>
+#include <sal/log.hxx>
 
 HBITMAP WinSalVirtualDevice::ImplCreateVirDevBitmap(HDC hDC, long nDX, long nDY, sal_uInt16 nBitCount, void **ppData)
 {
@@ -46,7 +47,7 @@ HBITMAP WinSalVirtualDevice::ImplCreateVirDevBitmap(HDC hDC, long nDX, long nDY,
              nBitCount = static_cast<WORD>(GetDeviceCaps(hDC, BITSPIXEL));
 
         // #146839# Don't use CreateCompatibleBitmap() - there seem to
-        // be build-in limits for those HBITMAPs, at least this fails
+        // be built-in limits for those HBITMAPs, at least this fails
         // rather often on large displays/multi-monitor setups.
          BITMAPINFO aBitmapInfo;
          aBitmapInfo.bmiHeader.biSize = sizeof( BITMAPINFOHEADER );
@@ -70,7 +71,7 @@ HBITMAP WinSalVirtualDevice::ImplCreateVirDevBitmap(HDC hDC, long nDX, long nDY,
     return hBitmap;
 }
 
-SalVirtualDevice* WinSalInstance::CreateVirtualDevice( SalGraphics* pSGraphics,
+std::unique_ptr<SalVirtualDevice> WinSalInstance::CreateVirtualDevice( SalGraphics* pSGraphics,
                                                        long &nDX, long &nDY,
                                                        DeviceFormat eFormat,
                                                        const SystemGraphicsData* pData )
@@ -135,7 +136,7 @@ SalVirtualDevice* WinSalInstance::CreateVirtualDevice( SalGraphics* pSGraphics,
 
         pVDev->setGraphics(pVirGraphics);
 
-        return pVDev;
+        return std::unique_ptr<SalVirtualDevice>(pVDev);
     }
     else
     {

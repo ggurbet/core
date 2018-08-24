@@ -35,7 +35,6 @@
 #include <vcl/weld.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <dbadmin.hxx>
-#include <comphelper/types.hxx>
 #include <vcl/stdtext.hxx>
 #include <sqlmessage.hxx>
 #include "odbcconfig.hxx"
@@ -310,7 +309,7 @@ namespace dbaui
 
                 sal_Int32 count = list.getLength();
 
-                StringBag aProfiles;
+                std::set<OUString> aProfiles;
                 for (sal_Int32 index=0; index < count; index++)
                     aProfiles.insert(pArray[index]);
 

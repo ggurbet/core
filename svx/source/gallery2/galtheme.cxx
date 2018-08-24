@@ -20,6 +20,7 @@
 #include <config_features.h>
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <algorithm>
 
@@ -40,7 +41,6 @@
 #include <svl/itempool.hxx>
 #include <sfx2/docfile.hxx>
 #include <avmedia/mediawindow.hxx>
-#include <svx/dialmgr.hxx>
 #include <svx/svxids.hrc>
 #include <svx/svdograf.hxx>
 #include <svx/fmpage.hxx>
@@ -79,11 +79,11 @@ GalleryTheme::~GalleryTheme()
 {
     ImplWrite();
 
-    for (GalleryObject* pEntry : aObjectList)
+    for (auto & pEntry : aObjectList)
     {
-        Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), pEntry ) );
-        Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), pEntry ) );
-        delete pEntry;
+        Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), pEntry.get() ) );
+        Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), pEntry.get() ) );
+        pEntry.reset();
     }
     aObjectList.clear();
 
@@ -126,12 +126,10 @@ bool GalleryTheme::ImplWriteSgaObject(const SgaObject& rObj, sal_uInt32 nPos, Ga
                 pEntry = new GalleryObject;
                 if ( nPos < aObjectList.size() )
                 {
-                    GalleryObjectList::iterator it = aObjectList.begin();
-                    ::std::advance( it, nPos );
-                    aObjectList.insert( it, pEntry );
+                    aObjectList.emplace( aObjectList.begin() + nPos, pEntry );
                 }
                 else
-                    aObjectList.push_back( pEntry );
+                    aObjectList.emplace_back( pEntry );
             }
             else
                 pEntry = pExistentEntry;
@@ -146,9 +144,9 @@ bool GalleryTheme::ImplWriteSgaObject(const SgaObject& rObj, sal_uInt32 nPos, Ga
     return bRet;
 }
 
-SgaObject* GalleryTheme::ImplReadSgaObject( GalleryObject const * pEntry )
+std::unique_ptr<SgaObject> GalleryTheme::ImplReadSgaObject( GalleryObject const * pEntry )
 {
-    SgaObject* pSgaObj = nullptr;
+    std::unique_ptr<SgaObject> pSgaObj;
 
     if( pEntry )
     {
@@ -168,11 +166,11 @@ SgaObject* GalleryTheme::ImplReadSgaObject( GalleryObject const * pEntry )
 
                 switch( pEntry->eObjKind )
                 {
-                    case SgaObjKind::Bitmap:    pSgaObj = new SgaObjectBmp(); break;
-                    case SgaObjKind::Animation:   pSgaObj = new SgaObjectAnim(); break;
-                    case SgaObjKind::Inet:   pSgaObj = new SgaObjectINet(); break;
-                    case SgaObjKind::SvDraw: pSgaObj = new SgaObjectSvDraw(); break;
-                    case SgaObjKind::Sound:  pSgaObj = new SgaObjectSound(); break;
+                    case SgaObjKind::Bitmap:    pSgaObj.reset(new SgaObjectBmp()); break;
+                    case SgaObjKind::Animation:   pSgaObj.reset(new SgaObjectAnim()); break;
+                    case SgaObjKind::Inet:   pSgaObj.reset(new SgaObjectINet()); break;
+                    case SgaObjKind::SvDraw: pSgaObj.reset(new SgaObjectSvDraw()); break;
+                    case SgaObjKind::Sound:  pSgaObj.reset(new SgaObjectSound()); break;
 
                     default:
                     break;
@@ -222,9 +220,9 @@ void GalleryTheme::ImplWrite()
 
 const GalleryObject* GalleryTheme::ImplGetGalleryObject( const INetURLObject& rURL )
 {
-    for (GalleryObject* i : aObjectList)
+    for (auto const & i : aObjectList)
         if ( i->aURL == rURL )
-            return i;
+            return i.get();
     return nullptr;
 }
 
@@ -295,7 +293,7 @@ INetURLObject GalleryTheme::ImplCreateUniqueURL( SgaObjKind eObjKind, ConvertDat
 
             bExists = false;
 
-            for (GalleryObject* p : aObjectList)
+            for (auto const & p : aObjectList)
                 if ( p->aURL == aNewURL )
                 {
                     bExists = true;
@@ -375,7 +373,7 @@ bool GalleryTheme::InsertObject(const SgaObject& rObj, sal_uInt32 nInsertPos)
     {
         if (aObjectList[ iFoundPos ]->aURL == rObj.GetURL())
         {
-            pFoundEntry = aObjectList[ iFoundPos ];
+            pFoundEntry = aObjectList[ iFoundPos ].get();
             break;
         }
     }
@@ -409,76 +407,49 @@ bool GalleryTheme::InsertObject(const SgaObject& rObj, sal_uInt32 nInsertPos)
     return true;
 }
 
-SgaObject* GalleryTheme::AcquireObject(sal_uInt32 nPos)
+std::unique_ptr<SgaObject> GalleryTheme::AcquireObject(sal_uInt32 nPos)
 {
     return ImplReadSgaObject(ImplGetGalleryObject(nPos));
 }
 
 void GalleryTheme::GetPreviewBitmapExAndStrings(sal_uInt32 nPos, BitmapEx& rBitmapEx, Size& rSize, OUString& rTitle, OUString& rPath) const
 {
-    const GalleryObject* pGalleryObject = nPos < aObjectList.size() ? aObjectList[ nPos ] : nullptr;
+    const GalleryObject* pGalleryObject = aObjectList[ nPos ].get();
 
-    if(pGalleryObject)
-    {
-        rBitmapEx = pGalleryObject->maPreviewBitmapEx;
-        rSize = pGalleryObject->maPreparedSize;
-        rTitle = pGalleryObject->maTitle;
-        rPath = pGalleryObject->maPath;
-    }
-    else
-    {
-        OSL_ENSURE(false, "OOps, no GalleryObject at this index (!)");
-    }
+    rBitmapEx = pGalleryObject->maPreviewBitmapEx;
+    rSize = pGalleryObject->maPreparedSize;
+    rTitle = pGalleryObject->maTitle;
+    rPath = pGalleryObject->maPath;
 }
 
 void GalleryTheme::SetPreviewBitmapExAndStrings(sal_uInt32 nPos, const BitmapEx& rBitmapEx, const Size& rSize, const OUString& rTitle, const OUString& rPath)
 {
-    GalleryObject* pGalleryObject = nPos < aObjectList.size() ? aObjectList[ nPos ] : nullptr;
+    GalleryObject* pGalleryObject = aObjectList[ nPos ].get();
 
-    if(pGalleryObject)
-    {
-        pGalleryObject->maPreviewBitmapEx = rBitmapEx;
-        pGalleryObject->maPreparedSize = rSize;
-        pGalleryObject->maTitle = rTitle;
-        pGalleryObject->maPath = rPath;
-    }
-    else
-    {
-        OSL_ENSURE(false, "OOps, no GalleryObject at this index (!)");
-    }
-}
-
-void GalleryTheme::ReleaseObject( SgaObject* pObject )
-{
-    delete pObject;
+    pGalleryObject->maPreviewBitmapEx = rBitmapEx;
+    pGalleryObject->maPreparedSize = rSize;
+    pGalleryObject->maTitle = rTitle;
+    pGalleryObject->maPath = rPath;
 }
 
 void GalleryTheme::RemoveObject(sal_uInt32 nPos)
 {
-    GalleryObject* pEntry = nullptr;
-    if ( nPos < aObjectList.size() )
-    {
-        GalleryObjectList::iterator it = aObjectList.begin();
-        ::std::advance( it, nPos );
-        pEntry = *it;
-        aObjectList.erase( it );
-    }
+    auto it = aObjectList.begin() + nPos;
+    std::unique_ptr<GalleryObject> pEntry = std::move(*it);
+    aObjectList.erase( it );
 
     if( aObjectList.empty() )
         KillFile( GetSdgURL() );
 
-    if( pEntry )
-    {
-        if( SgaObjKind::SvDraw == pEntry->eObjKind )
-            aSvDrawStorageRef->Remove( pEntry->aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
+    if( SgaObjKind::SvDraw == pEntry->eObjKind )
+        aSvDrawStorageRef->Remove( pEntry->aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
 
-        Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), pEntry ) );
-        Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), pEntry ) );
-        delete pEntry;
+    Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), pEntry.get() ) );
+    Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), pEntry.get() ) );
+    pEntry.reset();
 
-        ImplSetModified( true );
-        ImplBroadcast( nPos );
-    }
+    ImplSetModified( true );
+    ImplBroadcast( nPos );
 }
 
 bool GalleryTheme::ChangeObjectPos(sal_uInt32 nOldPos, sal_uInt32 nNewPos)
@@ -486,17 +457,14 @@ bool GalleryTheme::ChangeObjectPos(sal_uInt32 nOldPos, sal_uInt32 nNewPos)
     if (nOldPos == nNewPos || nOldPos >= aObjectList.size())
         return false;
 
-    GalleryObject* pEntry = aObjectList[nOldPos];
+    std::unique_ptr<GalleryObject> pEntry = std::move(aObjectList[nOldPos]);
 
-    GalleryObjectList::iterator it = aObjectList.begin();
-    ::std::advance(it, nNewPos);
-    aObjectList.insert(it, pEntry);
+    aObjectList.insert(aObjectList.begin() + nNewPos, std::move(pEntry));
 
     if (nNewPos < nOldPos)
         nOldPos++;
 
-    it = aObjectList.begin();
-    ::std::advance(it, nOldPos);
+    auto it = aObjectList.begin() + nOldPos;
     aObjectList.erase(it);
 
     ImplSetModified(true);
@@ -512,7 +480,6 @@ void GalleryTheme::Actualize( const Link<const INetURLObject&, void>& rActualize
 
     Graphic         aGraphic;
     OUString        aFormat;
-    GalleryObject*  pEntry;
     const sal_uInt32 nCount = aObjectList.size();
 
     LockBroadcaster();
@@ -527,7 +494,7 @@ void GalleryTheme::Actualize( const Link<const INetURLObject&, void>& rActualize
         if( pProgress )
             pProgress->Update( i, nCount - 1 );
 
-        pEntry = aObjectList[ i ];
+        GalleryObject* pEntry = aObjectList[ i ].get();
 
         const INetURLObject aURL( pEntry->aURL );
 
@@ -590,16 +557,16 @@ void GalleryTheme::Actualize( const Link<const INetURLObject&, void>& rActualize
     }
 
     // remove all entries with set flag
-    for ( GalleryObjectList::iterator it = aObjectList.begin(); it != aObjectList.end(); /* increment is in the body of loop */)
+    for ( auto it = aObjectList.begin(); it != aObjectList.end(); /* increment is in the body of loop */)
     {
         if( (*it)->mbDelete )
         {
-            Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), *it ) );
-            Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), *it ) );
-            delete *it;
+            Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), it->get() ) );
+            Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), it->get() ) );
             it = aObjectList.erase( it );
         }
-        else ++it;
+        else
+            ++it;
     }
 
     // update theme
@@ -615,9 +582,9 @@ void GalleryTheme::Actualize( const Link<const INetURLObject&, void>& rActualize
 
     if( pIStm && pTmpStm )
     {
-        for (GalleryObject* i : aObjectList)
+        for (auto & i : aObjectList)
         {
-            pEntry = i;
+            GalleryObject* pEntry = i.get();
             std::unique_ptr<SgaObject> pObj;
 
             switch( pEntry->eObjKind )
@@ -752,13 +719,12 @@ GalleryThemeEntry* GalleryTheme::CreateThemeEntry( const INetURLObject& rURL, bo
 
 bool GalleryTheme::GetThumb(sal_uInt32 nPos, BitmapEx& rBmp)
 {
-    SgaObject*  pObj = AcquireObject( nPos );
+    std::unique_ptr<SgaObject> pObj = AcquireObject( nPos );
     bool        bRet = false;
 
     if( pObj )
     {
         rBmp = pObj->GetThumbBmp();
-        ReleaseObject( pObj );
         bRet = true;
     }
 
@@ -816,7 +782,7 @@ bool GalleryTheme::GetGraphic(sal_uInt32 nPos, Graphic& rGraphic)
 
             case SgaObjKind::Sound:
             {
-                SgaObject* pObj = AcquireObject( nPos );
+                std::unique_ptr<SgaObject> pObj = AcquireObject( nPos );
 
                 if( pObj )
                 {
@@ -824,7 +790,6 @@ bool GalleryTheme::GetGraphic(sal_uInt32 nPos, Graphic& rGraphic)
                     //Bitmap aBmp( pObj->GetThumbBmp() );
                     //aBmp.Replace( COL_LIGHTMAGENTA, COL_WHITE );
                     //rGraphic = aBmp;
-                    ReleaseObject( pObj );
                     bRet = true;
                 }
             }
@@ -1378,24 +1343,23 @@ SvStream& GalleryTheme::ReadData( SvStream& rIStm )
 
     if( nCount <= ( 1 << 14 ) )
     {
-        GalleryObject*  pObj;
         INetURLObject   aRelURL1( GetParent()->GetRelativeURL() );
         INetURLObject   aRelURL2( GetParent()->GetUserURL() );
         sal_uInt32      nId1, nId2;
         bool            bRel;
 
-        for(GalleryObject* i : aObjectList)
+        for(auto & i : aObjectList)
         {
-            pObj = i;
+            GalleryObject* pObj = i.get();
             Broadcast( GalleryHint( GalleryHintType::CLOSE_OBJECT, GetName(), pObj ) );
             Broadcast( GalleryHint( GalleryHintType::OBJECT_REMOVED, GetName(), pObj ) );
-            delete pObj;
+            i.reset();
         }
         aObjectList.clear();
 
         for( sal_uInt32 i = 0; i < nCount; i++ )
         {
-            pObj = new GalleryObject;
+            std::unique_ptr<GalleryObject> pObj(new GalleryObject);
 
             OUString    aFileName;
             OUString    aPath;
@@ -1453,7 +1417,7 @@ SvStream& GalleryTheme::ReadData( SvStream& rIStm )
                     }
                 }
             }
-            aObjectList.push_back( pObj );
+            aObjectList.push_back( std::move(pObj) );
         }
 
         rIStm.ReadUInt32( nId1 ).ReadUInt32( nId2 );

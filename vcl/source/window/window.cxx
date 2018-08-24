@@ -19,6 +19,7 @@
 
 #include <config_features.h>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 
 #include <sal/types.h>
 #include <vcl/salgtype.hxx>
@@ -418,7 +419,7 @@ void Window::dispose()
         bHasFocussedChild = true;
 #if OSL_DEBUG_LEVEL > 0
         OUString aTempStr = "Window (" + GetText() +
-                ") with focussed child window destroyed ! THIS WILL LEAD TO CRASHES AND MUST BE FIXED !";
+                ") with focused child window destroyed ! THIS WILL LEAD TO CRASHES AND MUST BE FIXED !";
         SAL_WARN( "vcl", aTempStr );
         Application::Abort(aTempStr);   // abort in debug build version, this must be fixed!
 #endif
@@ -642,12 +643,11 @@ WindowImpl::WindowImpl( WindowType nType )
     mnExtendedStyle                     = WindowExtendedStyle::NONE; // extended style (init in ImplInitWindow)
     mnType                              = nType;                     // type
     mnGetFocusFlags                     = GetFocusFlags::NONE;       // Flags for GetFocus()-Call
-    mnWaitCount                         = 0;                         // Wait-Count (>1 == Warte-MousePointer)
+    mnWaitCount                         = 0;                         // Wait-Count (>1 == "wait" mouse pointer)
     mnPaintFlags                        = ImplPaintFlags::NONE;      // Flags for ImplCallPaint
     mnParentClipMode                    = ParentClipMode::NONE;      // Flags for Parent-ClipChildren-Mode
     mnActivateMode                      = ActivateModeFlags::NONE;   // Will be converted in System/Overlap-Windows
     mnDlgCtrlFlags                      = DialogControlFlags::NONE;  // DialogControl-Flags
-    mnLockCount                         = 0;                         // LockCount
     meAlwaysInputMode                   = AlwaysInputNone;           // neither AlwaysEnableInput nor AlwaysDisableInput called
     meHalign                            = VclAlign::Fill;
     meValign                            = VclAlign::Fill;
@@ -778,8 +778,8 @@ ImplFrameData::ImplFrameData( vcl::Window *pWindow )
     mpFocusWin         = nullptr;
     mpMouseMoveWin     = nullptr;
     mpMouseDownWin     = nullptr;
-    mpFontCollection   = pSVData->maGDIData.mpScreenFontList;
-    mpFontCache        = pSVData->maGDIData.mpScreenFontCache;
+    mxFontCollection   = pSVData->maGDIData.mxScreenFontList;
+    mxFontCache        = pSVData->maGDIData.mxScreenFontCache;
     mnFocusId          = nullptr;
     mnMouseMoveId      = nullptr;
     mnLastMouseX       = -1;
@@ -1079,8 +1079,8 @@ void Window::ImplInit( vcl::Window* pParent, WinBits nStyle, SystemParentData* p
     mpWindowImpl->mpRealParent = pRealParent;
 
     // #99318: make sure fontcache and list is available before call to SetSettings
-    mpFontCollection      = mpWindowImpl->mpFrameData->mpFontCollection;
-    mpFontCache     = mpWindowImpl->mpFrameData->mpFontCache;
+    mxFontCollection = mpWindowImpl->mpFrameData->mxFontCollection;
+    mxFontCache = mpWindowImpl->mpFrameData->mxFontCache;
 
     if ( mpWindowImpl->mbFrame )
     {
@@ -1738,7 +1738,7 @@ void Window::ImplNewInputContext()
     SalInputContext         aNewContext;
     const vcl::Font&        rFont = rInputContext.GetFont();
     const OUString&         rFontName = rFont.GetFamilyName();
-    LogicalFontInstance*    pFontInstance = nullptr;
+    rtl::Reference<LogicalFontInstance> pFontInstance;
     aNewContext.mpFont = nullptr;
     if (!rFontName.isEmpty())
     {
@@ -1753,17 +1753,14 @@ void Window::ImplNewInputContext()
             else
                 aSize.setHeight( (12*pFocusWin->mnDPIY)/72 );
         }
-        pFontInstance = pFocusWin->mpFontCache->GetFontInstance( pFocusWin->mpFontCollection,
+        pFontInstance = pFocusWin->mxFontCache->GetFontInstance( pFocusWin->mxFontCollection.get(),
                          rFont, aSize, static_cast<float>(aSize.Height()) );
         if ( pFontInstance )
-            aNewContext.mpFont = &pFontInstance->maFontSelData;
+            aNewContext.mpFont = pFontInstance;
     }
     aNewContext.meLanguage  = rFont.GetLanguage();
     aNewContext.mnOptions   = rInputContext.GetOptions();
     pFocusWin->ImplGetFrame()->SetInputContext( &aNewContext );
-
-    if ( pFontInstance )
-        pFontInstance->Release();
 }
 
 void Window::doLazyDelete()

@@ -38,6 +38,7 @@
 #include <stlpool.hxx>
 #include <stlsheet.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <global.hxx>
 #include <target.hxx>
 #include <docpool.hxx>
@@ -100,7 +101,7 @@ ScUndoInsertCells::~ScUndoInsertCells()
 
 OUString ScUndoInsertCells::GetComment() const
 {
-    return ScGlobal::GetRscString( pPasteUndo ? STR_UNDO_PASTE : STR_UNDO_INSERTCELLS );
+    return ScResId( pPasteUndo ? STR_UNDO_PASTE : STR_UNDO_INSERTCELLS );
 }
 
 bool ScUndoInsertCells::Merge( SfxUndoAction* pNextAction )
@@ -113,7 +114,7 @@ bool ScUndoInsertCells::Merge( SfxUndoAction* pNextAction )
     {
         ScUndoWrapper* pWrapper = static_cast<ScUndoWrapper*>(pNextAction);
         SfxUndoAction* pWrappedAction = pWrapper->GetWrappedUndo();
-        if ( pWrappedAction && dynamic_cast<const ScUndoPaste*>( pWrappedAction) !=  nullptr )
+        if ( dynamic_cast<const ScUndoPaste*>( pWrappedAction) )
         {
             //  Store paste action if this is part of paste with inserting cells.
             //  A list action isn't used because Repeat wouldn't work (insert wrong cells).
@@ -366,14 +367,14 @@ ScUndoDeleteCells::~ScUndoDeleteCells()
 
 OUString ScUndoDeleteCells::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_DELETECELLS ); // "Delete"
+    return ScResId( STR_UNDO_DELETECELLS ); // "Delete"
 }
 
 void ScUndoDeleteCells::SetChangeTrack()
 {
     ScChangeTrack* pChangeTrack = pDocShell->GetDocument().GetChangeTrack();
     if ( pChangeTrack )
-        pChangeTrack->AppendDeleteRange( aEffRange, pRefUndoDoc,
+        pChangeTrack->AppendDeleteRange( aEffRange, pRefUndoDoc.get(),
             nStartChangeAction, nEndChangeAction );
     else
         nStartChangeAction = nEndChangeAction = 0;
@@ -551,6 +552,20 @@ void ScUndoDeleteCells::Undo()
     BeginUndo();
     DoChange( true );
     EndUndo();
+
+    ScDocument& rDoc = pDocShell->GetDocument();
+
+    // Now that DBData have been restored in ScMoveUndo::EndUndo() via its
+    // pRefUndoDoc we can apply the AutoFilter buttons.
+    // Add one row for cases undoing deletion right above a cut AutoFilter
+    // range so the buttons are removed.
+    SCROW nRefreshEndRow = std::min<SCROW>( aEffRange.aEnd.Row() + 1, MAXROW);
+    for (SCTAB i=0; i < nCount; ++i)
+    {
+        rDoc.RefreshAutoFilter( aEffRange.aStart.Col(), aEffRange.aStart.Row(),
+                aEffRange.aEnd.Col(), nRefreshEndRow, pTabs[i]);
+    }
+
     SfxGetpApp()->Broadcast( SfxHint( SfxHintId::ScAreaLinksChanged ) );
 
     // Selection not until EndUndo
@@ -563,7 +578,6 @@ void ScUndoDeleteCells::Undo()
         }
     }
 
-    ScDocument& rDoc = pDocShell->GetDocument();
     for (SCTAB i = 0; i < nCount; ++i)
         rDoc.SetDrawPageSize(pTabs[i]);
 }
@@ -574,13 +588,21 @@ void ScUndoDeleteCells::Redo()
     BeginRedo();
     DoChange( false);
     EndRedo();
+
+    ScDocument& rDoc = pDocShell->GetDocument();
+
+    for (SCTAB i=0; i < nCount; ++i)
+    {
+        rDoc.RefreshAutoFilter( aEffRange.aStart.Col(), aEffRange.aStart.Row(),
+                aEffRange.aEnd.Col(), aEffRange.aEnd.Row(), pTabs[i]);
+    }
+
     SfxGetpApp()->Broadcast( SfxHint( SfxHintId::ScAreaLinksChanged ) );
 
     ScTabViewShell* pViewShell = ScTabViewShell::GetActiveViewShell();
     if (pViewShell)
         pViewShell->DoneBlockMode();            // current way
 
-    ScDocument& rDoc = pDocShell->GetDocument();
     for (SCTAB i = 0; i < nCount; ++i)
         rDoc.SetDrawPageSize(pTabs[i]);
 }
@@ -617,7 +639,7 @@ ScUndoDeleteMulti::~ScUndoDeleteMulti()
 
 OUString ScUndoDeleteMulti::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_DELETECELLS );  // like DeleteCells
+    return ScResId( STR_UNDO_DELETECELLS );  // like DeleteCells
 }
 
 void ScUndoDeleteMulti::DoChange() const
@@ -684,7 +706,7 @@ void ScUndoDeleteMulti::SetChangeTrack()
                 aRange.aEnd.SetCol( static_cast<SCCOL>(nEnd) );
             }
             sal_uLong nDummyStart;
-            pChangeTrack->AppendDeleteRange( aRange, pRefUndoDoc,
+            pChangeTrack->AppendDeleteRange( aRange, pRefUndoDoc.get(),
                 nDummyStart, nEndChangeAction );
         }
     }
@@ -792,7 +814,7 @@ ScUndoCut::~ScUndoCut()
 
 OUString ScUndoCut::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_CUT ); // "cut"
+    return ScResId( STR_UNDO_CUT ); // "cut"
 }
 
 void ScUndoCut::SetChangeTrack()
@@ -840,7 +862,7 @@ void ScUndoCut::DoChange( const bool bUndo )
 /*A*/   pDocShell->PostPaint( aExtendedRange, PaintPartFlags::Grid, nExtFlags );
 
     if ( !bUndo )                               //   draw redo after updating row heights
-        RedoSdrUndoAction( pDrawUndo );         //! include in ScBlockUndo?
+        RedoSdrUndoAction( pDrawUndo.get() );         //! include in ScBlockUndo?
 
     pDocShell->PostDataChanged();
     if (pViewShell)
@@ -901,15 +923,15 @@ ScUndoPaste::ScUndoPaste( ScDocShell* pNewDocShell, const ScRangeList& rRanges,
 
 ScUndoPaste::~ScUndoPaste()
 {
-    delete pUndoDoc;
-    delete pRedoDoc;
-    delete pRefUndoData;
-    delete pRefRedoData;
+    pUndoDoc.reset();
+    pRedoDoc.reset();
+    pRefUndoData.reset();
+    pRefRedoData.reset();
 }
 
 OUString ScUndoPaste::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_PASTE ); // "paste"
+    return ScResId( STR_UNDO_PASTE ); // "paste"
 }
 
 void ScUndoPaste::SetChangeTrack()
@@ -919,7 +941,7 @@ void ScUndoPaste::SetChangeTrack()
     {
         for (size_t i = 0, n = maBlockRanges.size(); i < n; ++i)
         {
-            pChangeTrack->AppendContentRange(maBlockRanges[i], pUndoDoc,
+            pChangeTrack->AppendContentRange(maBlockRanges[i], pUndoDoc.get(),
                 nStartChangeAction, nEndChangeAction, SC_CACM_PASTE );
         }
     }
@@ -935,9 +957,9 @@ void ScUndoPaste::DoChange(bool bUndo)
     //  (with DeleteUnchanged after the DoUndo call)
     bool bCreateRedoData = ( bUndo && pRefUndoData && !pRefRedoData );
     if ( bCreateRedoData )
-        pRefRedoData = new ScRefUndoData( &rDoc );
+        pRefRedoData.reset( new ScRefUndoData( &rDoc ) );
 
-    ScRefUndoData* pWorkRefData = bUndo ? pRefUndoData : pRefRedoData;
+    ScRefUndoData* pWorkRefData = bUndo ? pRefUndoData.get() : pRefRedoData.get();
 
     // Always back-up either all or none of the content for Undo
     InsertDeleteFlags nUndoFlags = InsertDeleteFlags::NONE;
@@ -970,7 +992,7 @@ void ScUndoPaste::DoChange(bool bUndo)
                     break;
             }
 
-            pRedoDoc = new ScDocument( SCDOCMODE_UNDO );
+            pRedoDoc.reset( new ScDocument( SCDOCMODE_UNDO ) );
             pRedoDoc->InitUndoSelected( &rDoc, aMarkData, bColInfo, bRowInfo );
         }
         //  read "redo" data from the document in the first undo
@@ -1095,7 +1117,7 @@ void ScUndoPaste::DoChange(bool bUndo)
     }
 
     if ( !bUndo )                               //   draw redo after updating row heights
-        RedoSdrUndoAction(mpDrawUndo);
+        RedoSdrUndoAction(mpDrawUndo.get());
 
     pDocShell->PostPaint(aDrawRanges, nPaint, nExtFlags);
 
@@ -1131,7 +1153,7 @@ void ScUndoPaste::Repeat(SfxRepeatTarget& rTarget)
     {
         ScTabViewShell* pViewSh = static_cast<ScTabViewTarget&>(rTarget).GetViewShell();
         // keep a reference in case the clipboard is changed during PasteFromClip
-        rtl::Reference<ScTransferObj> pOwnClip = ScTransferObj::GetOwnClipboard( pViewSh->GetActiveWin() );
+        const ScTransferObj* pOwnClip = ScTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(pViewSh->GetViewData().GetActiveWin()));
         if (pOwnClip)
         {
             pViewSh->PasteFromClip( nFlags, pOwnClip->GetDocument(),
@@ -1186,8 +1208,8 @@ ScUndoDragDrop::~ScUndoDragDrop()
 OUString ScUndoDragDrop::GetComment() const
 {   // "Move" : "Copy"
     return bCut ?
-        ScGlobal::GetRscString( STR_UNDO_MOVE ) :
-        ScGlobal::GetRscString( STR_UNDO_COPY );
+        ScResId( STR_UNDO_MOVE ) :
+        ScResId( STR_UNDO_COPY );
 }
 
 void ScUndoDragDrop::SetChangeTrack()
@@ -1198,11 +1220,11 @@ void ScUndoDragDrop::SetChangeTrack()
         if ( bCut )
         {
             nStartChangeAction = pChangeTrack->GetActionMax() + 1;
-            pChangeTrack->AppendMove( aSrcRange, aDestRange, pRefUndoDoc );
+            pChangeTrack->AppendMove( aSrcRange, aDestRange, pRefUndoDoc.get() );
             nEndChangeAction = pChangeTrack->GetActionMax();
         }
         else
-            pChangeTrack->AppendContentRange( aDestRange, pRefUndoDoc,
+            pChangeTrack->AppendContentRange( aDestRange, pRefUndoDoc.get(),
                 nStartChangeAction, nEndChangeAction );
     }
     else
@@ -1465,7 +1487,7 @@ void ScUndoDragDrop::Redo()
     pClipDoc.reset();
     ShowTable( aDestRange.aStart.Tab() );
 
-    RedoSdrUndoAction( pDrawUndo );             //! include in ScBlockUndo?
+    RedoSdrUndoAction( pDrawUndo.get() );        //! include in ScBlockUndo?
     EnableDrawAdjust( &rDoc, true );             //! include in ScBlockUndo?
 
     EndRedo();
@@ -1493,7 +1515,7 @@ ScUndoListNames::ScUndoListNames(ScDocShell* pNewDocShell, const ScRange& rRange
 
 OUString ScUndoListNames::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_LISTNAMES );
+    return ScResId( STR_UNDO_LISTNAMES );
 }
 
 void ScUndoListNames::DoChange( ScDocument* pSrcDoc ) const
@@ -1549,7 +1571,7 @@ ScUndoConditionalFormat::~ScUndoConditionalFormat()
 
 OUString ScUndoConditionalFormat::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_CONDFORMAT );
+    return ScResId( STR_UNDO_CONDFORMAT );
 }
 
 void ScUndoConditionalFormat::Undo()
@@ -1599,7 +1621,7 @@ ScUndoConditionalFormatList::~ScUndoConditionalFormatList()
 
 OUString ScUndoConditionalFormatList::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_CONDFORMAT_LIST );
+    return ScResId( STR_UNDO_CONDFORMAT_LIST );
 }
 
 void ScUndoConditionalFormatList::Undo()
@@ -1668,7 +1690,7 @@ ScUndoUseScenario::~ScUndoUseScenario()
 
 OUString ScUndoUseScenario::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_USESCENARIO );
+    return ScResId( STR_UNDO_USESCENARIO );
 }
 
 void ScUndoUseScenario::Undo()
@@ -1783,7 +1805,7 @@ ScUndoSelectionStyle::~ScUndoSelectionStyle()
 
 OUString ScUndoSelectionStyle::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_APPLYCELLSTYLE );
+    return ScResId( STR_UNDO_APPLYCELLSTYLE );
 }
 
 void ScUndoSelectionStyle::DoChange( const bool bUndo )
@@ -1882,7 +1904,7 @@ ScUndoEnterMatrix::~ScUndoEnterMatrix()
 
 OUString ScUndoEnterMatrix::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_ENTERMATRIX );
+    return ScResId( STR_UNDO_ENTERMATRIX );
 }
 
 void ScUndoEnterMatrix::SetChangeTrack()
@@ -1976,7 +1998,7 @@ ScUndoIndent::~ScUndoIndent()
 OUString ScUndoIndent::GetComment() const
 {
     const char* pId = bIsIncrement ? STR_UNDO_INC_INDENT : STR_UNDO_DEC_INDENT;
-    return ScGlobal::GetRscString(pId);
+    return ScResId(pId);
 }
 
 void ScUndoIndent::Undo()
@@ -2031,7 +2053,7 @@ ScUndoTransliterate::~ScUndoTransliterate()
 
 OUString ScUndoTransliterate::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_TRANSLITERATE );
+    return ScResId( STR_UNDO_TRANSLITERATE );
 }
 
 void ScUndoTransliterate::Undo()
@@ -2094,7 +2116,7 @@ ScUndoClearItems::~ScUndoClearItems()
 
 OUString ScUndoClearItems::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_DELETECONTENTS );
+    return ScResId( STR_UNDO_DELETECONTENTS );
 }
 
 void ScUndoClearItems::Undo()
@@ -2148,7 +2170,7 @@ ScUndoRemoveBreaks::~ScUndoRemoveBreaks()
 
 OUString ScUndoRemoveBreaks::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_REMOVEBREAKS );
+    return ScResId( STR_UNDO_REMOVEBREAKS );
 }
 
 void ScUndoRemoveBreaks::Undo()
@@ -2217,7 +2239,7 @@ ScUndoRemoveMerge::~ScUndoRemoveMerge()
 
 OUString ScUndoRemoveMerge::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_REMERGE );  // "remove merge"
+    return ScResId( STR_UNDO_REMERGE );  // "remove merge"
 }
 
 ScDocument* ScUndoRemoveMerge::GetUndoDoc()
@@ -2367,7 +2389,7 @@ ScUndoBorder::ScUndoBorder(ScDocShell* pNewDocShell,
 
 OUString ScUndoBorder::GetComment() const
 {
-    return ScGlobal::GetRscString( STR_UNDO_SELATTRLINES );     //! own string?
+    return ScResId( STR_UNDO_SELATTRLINES );     //! own string?
 }
 
 void ScUndoBorder::Undo()

@@ -42,6 +42,7 @@
 #include <drwlayer.hxx>
 #include <drwtrans.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <chartlis.hxx>
 #include <docuno.hxx>
 #include <docsh.hxx>
@@ -113,7 +114,7 @@ void ScViewFunc::PasteDraw( const Point& rLogicPos, SdrModel* pModel,
 
     ScDrawView* pScDrawView = GetScDrawView();
     if (bGroup)
-        pScDrawView->BegUndo( ScGlobal::GetRscString( STR_UNDO_PASTE ) );
+        pScDrawView->BegUndo( ScResId( STR_UNDO_PASTE ) );
 
     bool bSameDoc = ( pDragEditView && pDragEditView->GetModel() == pScDrawView->GetModel() );
     if (bSameDoc)
@@ -154,13 +155,10 @@ void ScViewFunc::PasteDraw( const Point& rLogicPos, SdrModel* pModel,
                 const SdrObject* pObj=pM->GetMarkedSdrObj();
 
                 // Directly Clone to target SdrModel
-                SdrObject* pNewObj(pObj->Clone(pDrawModel));
+                SdrObject* pNewObj(pObj->CloneSdrObject(*pDrawModel));
 
                 if (pNewObj!=nullptr)
                 {
-                    // pNewObj->SetModel(pDrawModel);
-                    pNewObj->SetPage(pDestPage);
-
                     //  copy graphics within the same model - always needs new name
                     if ( dynamic_cast<const SdrGrafObj*>( pNewObj) !=  nullptr && !bPasteIsMove )
                         pNewObj->SetName(static_cast<ScDrawLayer*>(pDrawModel)->GetNewGraphicName());
@@ -231,7 +229,7 @@ void ScViewFunc::PasteDraw( const Point& rLogicPos, SdrModel* pModel,
         // controls must be on SC_LAYER_CONTROLS
         if (pPage)
         {
-            SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+            SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
             SdrObject* pObject = aIter.Next();
             while (pObject)
             {
@@ -251,9 +249,8 @@ void ScViewFunc::PasteDraw( const Point& rLogicPos, SdrModel* pModel,
 
         ScDocument* pDocument = GetViewData().GetDocument();
         ScDocShell* pDocShell = GetViewData().GetDocShell();
-        vcl::Window* pWin = GetViewData().GetActiveWin();
         ScModelObj* pModelObj = ( pDocShell ? ScModelObj::getImplementation( pDocShell->GetModel() ) : nullptr );
-        ScDrawTransferObj* pTransferObj = ScDrawTransferObj::GetOwnClipboard( pWin );
+        const ScDrawTransferObj* pTransferObj = ScDrawTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(GetViewData().GetActiveWin()));
         if ( pDocument && pPage && pModelObj && ( pTransferObj || pDrawTrans ) )
         {
             const ScRangeListVector& rProtectedChartRangesVector(
@@ -398,7 +395,7 @@ bool ScViewFunc::PasteGraphic( const Point& rPos, const Graphic& rGraphic,
         SdrObject* pPickObj = pScDrawView->PickObj(rPos, pScDrawView->getHitTolLog(), pPageView);
         if (pPickObj)
         {
-            const OUString aBeginUndo(ScGlobal::GetRscString(STR_UNDO_DRAGDROP));
+            const OUString aBeginUndo(ScResId(STR_UNDO_DRAGDROP));
             SdrObject* pResult = pScDrawView->ApplyGraphicToObject(
                 *pPickObj,
                 rGraphic,

@@ -28,6 +28,7 @@
 #include <osl/module.hxx>
 #include <osl/thread.h>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 
 #include <typelib/typedescription.hxx>
 
@@ -336,7 +337,6 @@ static PyObject* initTestEnvironment(
         Reference<XMultiServiceFactory> const xMSF(
             xContext->getServiceManager(),
             css::uno::UNO_QUERY_THROW);
-        if (!xMSF.is()) { abort(); }
         char *const testlib = getenv("TEST_LIB");
         if (!testlib) { abort(); }
         OString const libname = OString(testlib, strlen(testlib))
@@ -824,6 +824,20 @@ static PyObject *setCurrentContext(
     return ret.getAcquired();
 }
 
+static PyObject *sal_debug(
+    SAL_UNUSED_PARAMETER PyObject *, SAL_UNUSED_PARAMETER PyObject * args )
+{
+    Py_INCREF( Py_None );
+    if( !PyTuple_Check( args ) || PyTuple_Size( args) != 1 )
+        return Py_None;
+
+    OUString line = pyString2ustring( PyTuple_GetItem( args, 0 ) );
+
+    SAL_DEBUG(line.toUtf8().getStr());
+
+    return Py_None;
+}
+
 }
 
 struct PyMethodDef PyUNOModule_methods [] =
@@ -844,6 +858,7 @@ struct PyMethodDef PyUNOModule_methods [] =
     {"invoke", invoke, METH_VARARGS | METH_KEYWORDS, nullptr},
     {"setCurrentContext", setCurrentContext, METH_VARARGS, nullptr},
     {"getCurrentContext", getCurrentContext, METH_VARARGS, nullptr},
+    {"sal_debug", sal_debug, METH_VARARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 

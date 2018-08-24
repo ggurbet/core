@@ -22,7 +22,6 @@
 #include <cstdlib>
 
 #include <scitems.hxx>
-#include <comphelper/string.hxx>
 #include <editeng/eeitem.hxx>
 
 #include <sfx2/app.hxx>
@@ -41,6 +40,7 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/printer.hxx>
 
+#include <drwlayer.hxx>
 #include <prevwsh.hxx>
 #include <preview.hxx>
 #include <printfun.hxx>
@@ -52,6 +52,7 @@
 #include <stlpool.hxx>
 #include <editutil.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <sc.hrc>
 #include <ViewSettingsSequenceDefines.hxx>
 #include <tpprint.hxx>
@@ -150,20 +151,17 @@ ScPreviewShell::ScPreviewShell( SfxViewFrame* pViewFrame,
     pDocShell( static_cast<ScDocShell*>(pViewFrame->GetObjectShell()) ),
     mpFrameWindow(nullptr),
     nSourceDesignMode( TRISTATE_INDET ),
-    nMaxVertPos(0),
-    pAccessibilityBroadcaster( nullptr )
+    nMaxVertPos(0)
 {
     Construct( &pViewFrame->GetWindow() );
 
-    if ( pOldSh && dynamic_cast<const ScTabViewShell*>( pOldSh) !=  nullptr )
+    if ( auto pTabViewShell = dynamic_cast<ScTabViewShell*>( pOldSh) )
     {
         //  store view settings, show table from TabView
         //! store live ScViewData instead, and update on ScTablesHint?
         //! or completely forget aSourceData on ScTablesHint?
 
-        ScTabViewShell* pTabViewShell = static_cast<ScTabViewShell*>(pOldSh);
         const ScViewData& rData = pTabViewShell->GetViewData();
-        rData.WriteUserDataSequence( aSourceData );
         pPreview->SetSelectedTabs(rData.GetMarkData());
         InitStartTable( rData.GetTabNo() );
 
@@ -185,7 +183,7 @@ ScPreviewShell::~ScPreviewShell()
 
     // #108333#; notify Accessibility that Shell is dying and before destroy all
     BroadcastAccessibility( SfxHint( SfxHintId::Dying ) );
-    DELETEZ(pAccessibilityBroadcaster);
+    pAccessibilityBroadcaster.reset();
 
     SfxBroadcaster* pDrawBC = pDocShell->GetDocument().GetDrawBroadcaster();
     if (pDrawBC)
@@ -442,7 +440,7 @@ IMPL_LINK( ScPreviewShell, ScrollHandler, ScrollBar*, pScroll, void )
                 if( bIsDivide )
                     pPreview->SetPageNo( nPageNo );
 
-                aHelpStr = ScGlobal::GetRscString( STR_PAGE ) +
+                aHelpStr = ScResId( STR_PAGE ) +
                            " " + OUString::number( nPageNo ) +
                            " / "  + OUString::number( nTotalPages );
             }
@@ -452,7 +450,7 @@ IMPL_LINK( ScPreviewShell, ScrollHandler, ScrollBar*, pScroll, void )
                 if ( nTotalPages && ( nPageNo < nTotalPages || !bAllTested ) )
                     pPreview->SetPageNo( nPageNo );
 
-                aHelpStr = ScGlobal::GetRscString( STR_PAGE ) +
+                aHelpStr = ScResId( STR_PAGE ) +
                            " " + OUString::number( nPageNo+1 ) +
                            " / "  + OUString::number( nTotalPages );
             }
@@ -516,13 +514,12 @@ bool ScPreviewShell::HasPrintOptionsPage() const
     return true;
 }
 
-VclPtr<SfxTabPage> ScPreviewShell::CreatePrintOptionsPage( vcl::Window *pParent, const SfxItemSet &rOptions )
+VclPtr<SfxTabPage> ScPreviewShell::CreatePrintOptionsPage(weld::Container* pPage, const SfxItemSet &rOptions)
 {
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
     ::CreateTabPage ScTpPrintOptionsCreate = pFact->GetTabPageCreatorFunc(RID_SC_TP_PRINT);
     if ( ScTpPrintOptionsCreate )
-        return ScTpPrintOptionsCreate( pParent, &rOptions );
+        return ScTpPrintOptionsCreate(pPage, &rOptions);
     return VclPtr<SfxTabPage>();
 }
 
@@ -620,22 +617,18 @@ void ScPreviewShell::Execute( SfxRequest& rReq )
 
                     aSet.Put( aZoomItem );
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    if(pFact)
+                    ScopedVclPtr<AbstractSvxZoomDialog> pDlg(pFact->CreateSvxZoomDialog(nullptr, aSet));
+                    pDlg->SetLimits( 20, 400 );
+                    pDlg->HideButton( ZoomButtonId::OPTIMAL );
+                    bCancel = ( RET_CANCEL == pDlg->Execute() );
+
+                    if ( !bCancel )
                     {
-                        ScopedVclPtr<AbstractSvxZoomDialog> pDlg(pFact->CreateSvxZoomDialog(nullptr, aSet));
-                        OSL_ENSURE(pDlg, "Dialog creation failed!");
-                        pDlg->SetLimits( 20, 400 );
-                        pDlg->HideButton( ZoomButtonId::OPTIMAL );
-                        bCancel = ( RET_CANCEL == pDlg->Execute() );
+                        const SvxZoomItem&  rZoomItem = pDlg->GetOutputItemSet()->
+                                                    Get( SID_ATTR_ZOOM );
 
-                        if ( !bCancel )
-                        {
-                            const SvxZoomItem&  rZoomItem = pDlg->GetOutputItemSet()->
-                                                        Get( SID_ATTR_ZOOM );
-
-                            eZoom = rZoomItem.GetType();
-                            nZoom = rZoomItem.GetValue();
-                        }
+                        eZoom = rZoomItem.GetType();
+                        nZoom = rZoomItem.GetValue();
                     }
                 }
 
@@ -1140,7 +1133,7 @@ void ScPreviewShell::ExitPreview()
 void ScPreviewShell::AddAccessibilityObject( SfxListener& rObject )
 {
     if (!pAccessibilityBroadcaster)
-        pAccessibilityBroadcaster = new SfxBroadcaster;
+        pAccessibilityBroadcaster.reset( new SfxBroadcaster );
 
     rObject.StartListening( *pAccessibilityBroadcaster );
 }

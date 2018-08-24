@@ -40,9 +40,9 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 
-FuConstRectangle::FuConstRectangle(ScTabViewShell* pViewSh, vcl::Window* pWin, ScDrawView* pViewP,
-                   SdrModel* pDoc, const SfxRequest& rReq)
-    : FuConstruct(pViewSh, pWin, pViewP, pDoc, rReq)
+FuConstRectangle::FuConstRectangle(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView* pViewP,
+                                   SdrModel* pDoc, const SfxRequest& rReq)
+    : FuConstruct(rViewSh, pWin, pViewP, pDoc, rReq)
 {
 }
 
@@ -207,7 +207,7 @@ void FuConstRectangle::Activate()
     pView->SetCurrentObj(sal::static_int_cast<sal_uInt16>(aObjKind));
 
     aOldPointer = pWindow->GetPointer();
-    pViewShell->SetActivePointer( aNewPointer );
+    rViewShell.SetActivePointer( aNewPointer );
 
     FuConstruct::Activate();
 }
@@ -222,7 +222,8 @@ void FuConstRectangle::SetLineEnds(SfxItemSet& rAttr, const SdrObject& rObj, sal
          nSlotId == SID_LINE_ARROW_CIRCLE     ||
          nSlotId == SID_LINE_CIRCLE_ARROW     ||
          nSlotId == SID_LINE_ARROW_SQUARE     ||
-         nSlotId == SID_LINE_SQUARE_ARROW )
+         nSlotId == SID_LINE_SQUARE_ARROW     ||
+         nSlotId == SID_DRAW_MEASURELINE )
     {
 
         // set attributes of line start and ends
@@ -276,6 +277,7 @@ void FuConstRectangle::SetLineEnds(SfxItemSet& rAttr, const SdrObject& rObj, sal
         switch (nSlotId)
         {
             case SID_LINE_ARROWS:
+            case SID_DRAW_MEASURELINE:
             {
                 // connector with arrow ends
                 rAttr.Put(XLineStartItem(SvxResId(RID_SVXSTR_ARROW), aArrow));
@@ -347,7 +349,7 @@ void FuConstRectangle::SetLineEnds(SfxItemSet& rAttr, const SdrObject& rObj, sal
 void FuConstRectangle::Deactivate()
 {
     FuConstruct::Deactivate();
-    pViewShell->SetActivePointer( aOldPointer );
+    rViewShell.SetActivePointer( aOldPointer );
 }
 
 // Create default drawing objects via keyboard

@@ -43,19 +43,8 @@
 class SfxItemSet;
 class SfxPoolItem;
 class SwContentFrame;
-class SwCursorShell;
-class SwCursor;
-class SwField;
-class SwFieldType;
-class SwFormat;
 class SwFormatField;
-class SwNodeIndex;
-class SwPaM;
-class SwShellCursor;
-class SwShellTableCursor;
-class SwTableNode;
 class SwTextFormatColl;
-class SwVisibleCursor;
 class SwTextINetFormat;
 class SwFormatINetFormat;
 class SwTextAttr;
@@ -63,10 +52,8 @@ class SwTableBox;
 class SwTOXMark;
 class SwRangeRedline;
 class SwBlockCursor;
-class SwContentNode;
 class SwPostItField;
 class SwTextField;
-struct SwPosition;
 
 namespace i18nutil {
     struct SearchOptions2;
@@ -427,7 +414,7 @@ public:
      *      stack
      *  @return <true> if there was one on the stack, <false> otherwise
      */
-    bool Pop(PopMode = PopMode::DeleteStack);
+    bool Pop(PopMode);
     /*
      * Combine 2 Cursors.
      * Delete the topmost from the stack and move its Mark into the current.
@@ -525,6 +512,9 @@ public:
     // false: which is visible at the upper margin.
     void GetPageNum( sal_uInt16 &rnPhyNum, sal_uInt16 &rnVirtNum,
                      bool bAtCursorPos = true, const bool bCalcFrame = true );
+    // Returns current page's sequential number (1-based), ignoring autoinserted empty pages
+    // Returns 0 on error
+    sal_uInt16 GetPageNumSeqNonEmpty(bool bAtCursorPos, bool bCalcFrame);
     // Determine how "empty pages" are handled
     // (used in PhyPage).
     sal_uInt16 GetNextPrevPageNum( bool bNext = true );
@@ -543,6 +533,11 @@ public:
         const vcl::KeyCode&,
         const OUString& rName,
         IDocumentMarkAccess::MarkType eMark = IDocumentMarkAccess::MarkType::BOOKMARK);
+    ::sw::mark::IMark* SetBookmark2(
+        const vcl::KeyCode&,
+        const OUString& rName,
+        bool bHide,
+        const OUString& rCondition);
     bool GotoMark( const ::sw::mark::IMark* const pMark );    // sets CurrentCursor.SPoint
     bool GotoMark( const ::sw::mark::IMark* const pMark, bool bAtStart );
     bool GoNextBookmark(); // true, if there was one

@@ -26,6 +26,7 @@
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
+#include <sal/log.hxx>
 
 namespace
 {
@@ -76,6 +77,16 @@ public:
         return string::split(m_sql, u' ')[2];
     }
 };
+
+OUString lcl_createAlterForeign(const OUString& sForeignPart, const OUString& sTableName)
+{
+    OUStringBuffer sBuff("ALTER TABLE ");
+    sBuff.append(sTableName);
+    sBuff.append(" ADD ");
+    sBuff.append(sForeignPart);
+    return sBuff.makeStringAndClear();
+}
+
 } // anonymous namespace
 
 namespace dbahsql
@@ -91,7 +102,7 @@ SchemaParser::SchemaParser(Reference<XStorage>& rStorage)
 {
 }
 
-SqlStatementVector SchemaParser::parseSchema()
+void SchemaParser::parseSchema()
 {
     assert(m_rStorage);
 
@@ -99,7 +110,7 @@ SqlStatementVector SchemaParser::parseSchema()
     if (!m_rStorage->hasByName(SCHEMA_FILENAME))
     {
         SAL_WARN("dbaccess", "script file does not exist in storage during hsqldb import");
-        return SqlStatementVector{};
+        return;
     }
 
     Reference<XStream> xStream(m_rStorage->openStreamElement(SCHEMA_FILENAME, ElementModes::READ));
@@ -109,7 +120,6 @@ SqlStatementVector SchemaParser::parseSchema()
     xTextInput->setEncoding("UTF-8");
     xTextInput->setInputStream(xStream->getInputStream());
 
-    SqlStatementVector parsedStatements;
     while (!xTextInput->isEOF())
     {
         // every line contains exactly one DDL statement
@@ -128,11 +138,18 @@ SqlStatementVector SchemaParser::parseSchema()
             FbCreateStmtParser aCreateParser;
             aCreateParser.parse(sSql);
 
+            for (const auto& foreignParts : aCreateParser.getForeignParts())
+            {
+                m_sAlterStatements.push_back(
+                    lcl_createAlterForeign(foreignParts, aCreateParser.getTableName()));
+            }
+
             sSql = aCreateParser.compose();
 
             // save column definitions
             m_ColumnTypes[aCreateParser.getTableName()] = aCreateParser.getColumnDef();
-            parsedStatements.push_back(sSql);
+
+            m_sCreateStatements.push_back(sSql);
         }
         else if (sSql.startsWith("ALTER"))
         {
@@ -141,13 +158,11 @@ SqlStatementVector SchemaParser::parseSchema()
             OUString parsedStmt = aAlterParser.compose();
 
             if (!parsedStmt.isEmpty())
-                parsedStatements.push_back(parsedStmt);
+                m_sAlterStatements.push_back(parsedStmt);
         }
         else if (sSql.startsWith("CREATE VIEW"))
-            parsedStatements.push_back(sSql);
+            m_sCreateStatements.push_back(sSql);
     }
-
-    return parsedStatements;
 }
 
 ColumnTypeVector SchemaParser::getTableColumnTypes(const OUString& sTableName) const
@@ -158,6 +173,11 @@ ColumnTypeVector SchemaParser::getTableColumnTypes(const OUString& sTableName) c
 const std::map<OUString, std::vector<sal_Int32>>& SchemaParser::getTableIndexes() const
 {
     return m_Indexes;
+}
+
+const std::map<OUString, std::vector<OUString>>& SchemaParser::getPrimaryKeys() const
+{
+    return m_PrimaryKeys;
 }
 
 } // namespace dbahsql

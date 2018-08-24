@@ -65,9 +65,8 @@ SvxMacroTabPage_Impl::SvxMacroTabPage_Impl( const SfxItemSet& rAttrSet )
 }
 
 // attention, this array is indexed directly (0, 1, ...) in the code
-static long nTabs[] =
+static const long nTabs[] =
 {
-    2, // Number of Tabs
     0, 90
 };
 
@@ -221,7 +220,7 @@ SvxMacroTabPage_::SvxMacroTabPage_(vcl::Window* pParent, const OString& rID,
     bAppEvents(false),
     bInitialized(false)
 {
-    mpImpl = new SvxMacroTabPage_Impl( rAttrSet );
+    mpImpl.reset( new SvxMacroTabPage_Impl( rAttrSet ) );
 }
 
 SvxMacroTabPage_::~SvxMacroTabPage_()
@@ -231,7 +230,7 @@ SvxMacroTabPage_::~SvxMacroTabPage_()
 
 void SvxMacroTabPage_::dispose()
 {
-    DELETEZ( mpImpl );
+    mpImpl.reset();
     SfxTabPage::dispose();
 }
 
@@ -565,19 +564,20 @@ IMPL_LINK( SvxMacroTabPage_, AssignDeleteHdl_Impl, Button*, pBtn, void )
 
 IMPL_LINK_NOARG( SvxMacroTabPage_, DoubleClickHdl_Impl, SvTreeListBox*, bool)
 {
-    return GenericHandler_Impl( this, nullptr );
+    GenericHandler_Impl( this, nullptr );
+    return false;
 }
 
 // handler for double click on the listbox, and for the assign/delete buttons
-long SvxMacroTabPage_::GenericHandler_Impl( SvxMacroTabPage_* pThis, PushButton* pBtn )
+void SvxMacroTabPage_::GenericHandler_Impl( SvxMacroTabPage_* pThis, PushButton* pBtn )
 {
-    SvxMacroTabPage_Impl*    pImpl = pThis->mpImpl;
+    SvxMacroTabPage_Impl*    pImpl = pThis->mpImpl.get();
     SvHeaderTabListBox& rListBox = pImpl->pEventLB->GetListBox();
     SvTreeListEntry* pE = rListBox.FirstSelected();
     if( !pE || LISTBOX_ENTRY_NOTFOUND == rListBox.GetModel()->GetAbsPos( pE ) )
     {
         DBG_ASSERT( pE, "Where does the empty entry come from?" );
-        return 0;
+        return;
     }
 
     const bool bAssEnabled = pBtn != pImpl->pDeletePB && pImpl->pAssignPB->IsEnabled();
@@ -623,13 +623,13 @@ long SvxMacroTabPage_::GenericHandler_Impl( SvxMacroTabPage_* pThis, PushButton*
                 )
             )
     {
-        ScopedVclPtrInstance< AssignComponentDialog > pAssignDlg( pThis, sEventURL );
+        AssignComponentDialog aAssignDlg(pThis->GetFrameWeld(), sEventURL);
 
-        short ret = pAssignDlg->Execute();
+        short ret = aAssignDlg.run();
         if( ret )
         {
             sEventType = "UNO";
-            sEventURL = pAssignDlg->getURL();
+            sEventURL = aAssignDlg.getURL();
             if(!pThis->bAppEvents)
                 pThis->bDocModified = true;
         }
@@ -676,7 +676,6 @@ long SvxMacroTabPage_::GenericHandler_Impl( SvxMacroTabPage_* pThis, PushButton*
     rListBox.SetUpdateMode( true );
 
     pThis->EnableButtons();
-    return 0;
 }
 
 // pass in the XNameReplace.
@@ -698,8 +697,8 @@ void SvxMacroTabPage_::InitAndSetHandler( const Reference< container::XNameRepla
     rListBox.SetSelectHdl( LINK( this, SvxMacroTabPage_, SelectEvent_Impl ));
 
     rListBox.SetSelectionMode( SelectionMode::Single );
-    rListBox.SetTabs( &nTabs[0] );
-    Size aSize( nTabs[ 2 ], 0 );
+    rListBox.SetTabs( SAL_N_ELEMENTS(nTabs), nTabs );
+    Size aSize( nTabs[ 1 ], 0 );
     rHeaderBar.InsertItem( ITEMID_EVENT, mpImpl->sStrEvent, LogicToPixel( aSize, MapMode( MapUnit::MapAppFont ) ).Width() );
     aSize.setWidth( 1764 );        // don't know what, so 42^2 is best to use...
     rHeaderBar.InsertItem( ITMEID_ASSMACRO, mpImpl->sAssignedMacro, LogicToPixel( aSize, MapMode( MapUnit::MapAppFont ) ).Width() );
@@ -822,45 +821,37 @@ SvxMacroAssignDlg::SvxMacroAssignDlg( vcl::Window* pParent, const Reference< fra
     SetTabPage(VclPtr<SvxMacroTabPage>::Create(get_content_area(), _rxDocumentFrame, rSet, xNameReplace, nSelectedIndex));
 }
 
-
-IMPL_LINK_NOARG(AssignComponentDialog, ButtonHandler, Button*, void)
+IMPL_LINK_NOARG(AssignComponentDialog, ButtonHandler, weld::Button&, void)
 {
-    OUString aMethodName = mpMethodEdit->GetText();
+    OUString aMethodName = mxMethodEdit->get_text();
     maURL.clear();
     if( !aMethodName.isEmpty() )
     {
         maURL = aVndSunStarUNO;
         maURL += aMethodName;
     }
-    EndDialog(1);
+    m_xDialog->response(RET_OK);
 }
 
-AssignComponentDialog::AssignComponentDialog( vcl::Window * pParent, const OUString& rURL )
-    : ModalDialog( pParent, "AssignComponent", "cui/ui/assigncomponentdialog.ui" )
+AssignComponentDialog::AssignComponentDialog(weld::Window* pParent, const OUString& rURL)
+    : GenericDialogController(pParent, "cui/ui/assigncomponentdialog.ui", "AssignComponent")
     , maURL( rURL )
+    , mxMethodEdit(m_xBuilder->weld_entry("methodEntry"))
+    , mxOKButton(m_xBuilder->weld_button("ok"))
 {
-    get(mpMethodEdit, "methodEntry");
-    get(mpOKButton, "ok");
-    mpOKButton->SetClickHdl(LINK(this, AssignComponentDialog, ButtonHandler));
+    mxOKButton->connect_clicked(LINK(this, AssignComponentDialog, ButtonHandler));
 
     OUString aMethodName;
     if( maURL.startsWith( aVndSunStarUNO ) )
     {
         aMethodName = maURL.copy( strlen(aVndSunStarUNO) );
     }
-    mpMethodEdit->SetText( aMethodName, Selection( 0, SELECTION_MAX ) );
+    mxMethodEdit->set_text(aMethodName);
+    mxMethodEdit->select_region(0, -1);
 }
 
 AssignComponentDialog::~AssignComponentDialog()
 {
-    disposeOnce();
-}
-
-void AssignComponentDialog::dispose()
-{
-    mpMethodEdit.clear();
-    mpOKButton.clear();
-    ModalDialog::dispose();
 }
 
 IMPL_LINK_NOARG( SvxMacroAssignSingleTabDialog, OKHdl_Impl, Button *, void )

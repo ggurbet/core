@@ -27,9 +27,9 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 
-FuConstPolygon::FuConstPolygon(ScTabViewShell* pViewSh, vcl::Window* pWin, ScDrawView* pViewP,
-                   SdrModel* pDoc, const SfxRequest& rReq)
-    : FuConstruct(pViewSh, pWin, pViewP, pDoc, rReq)
+FuConstPolygon::FuConstPolygon(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView* pViewP,
+                               SdrModel* pDoc, const SfxRequest& rReq)
+    : FuConstruct(rViewSh, pWin, pViewP, pDoc, rReq)
 {
 }
 
@@ -158,7 +158,7 @@ void FuConstPolygon::Activate()
 
     aNewPointer = Pointer( PointerStyle::DrawPolygon );
     aOldPointer = pWindow->GetPointer();
-    pViewShell->SetActivePointer( aNewPointer );
+    rViewShell.SetActivePointer( aNewPointer );
 }
 
 void FuConstPolygon::Deactivate()
@@ -169,7 +169,7 @@ void FuConstPolygon::Deactivate()
 
     FuConstruct::Deactivate();
 
-    pViewShell->SetActivePointer( aOldPointer );
+    rViewShell.SetActivePointer( aOldPointer );
 }
 
 // Create default drawing objects via keyboard

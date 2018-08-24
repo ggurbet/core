@@ -325,17 +325,9 @@ namespace basegfx
 
 namespace basegfx
 {
-    B2DCubicBezier::B2DCubicBezier(const B2DCubicBezier& rBezier)
-    :   maStartPoint(rBezier.maStartPoint),
-        maEndPoint(rBezier.maEndPoint),
-        maControlPointA(rBezier.maControlPointA),
-        maControlPointB(rBezier.maControlPointB)
-    {
-    }
+    B2DCubicBezier::B2DCubicBezier(const B2DCubicBezier&) = default;
 
-    B2DCubicBezier::B2DCubicBezier()
-    {
-    }
+    B2DCubicBezier::B2DCubicBezier() = default;
 
     B2DCubicBezier::B2DCubicBezier(const B2DPoint& rStart, const B2DPoint& rControlPointA, const B2DPoint& rControlPointB, const B2DPoint& rEnd)
     :   maStartPoint(rStart),
@@ -345,20 +337,10 @@ namespace basegfx
     {
     }
 
-    B2DCubicBezier::~B2DCubicBezier()
-    {
-    }
+    B2DCubicBezier::~B2DCubicBezier() = default;
 
     // assignment operator
-    B2DCubicBezier& B2DCubicBezier::operator=(const B2DCubicBezier& rBezier)
-    {
-        maStartPoint = rBezier.maStartPoint;
-        maEndPoint = rBezier.maEndPoint;
-        maControlPointA = rBezier.maControlPointA;
-        maControlPointB = rBezier.maControlPointB;
-
-        return *this;
-    }
+    B2DCubicBezier& B2DCubicBezier::operator=(const B2DCubicBezier&) = default;
 
     // compare operators
     bool B2DCubicBezier::operator==(const B2DCubicBezier& rBezier) const
@@ -550,7 +532,8 @@ namespace basegfx
         if(isBezier())
         {
             // use support method #i37443# and allow unsharpen the criteria
-            ImpSubDivAngleStart(maStartPoint, maControlPointA, maControlPointB, maEndPoint, rTarget, fAngleBound * F_PI180);
+            ImpSubDivAngleStart(maStartPoint, maControlPointA, maControlPointB, maEndPoint, rTarget,
+                                deg2rad(fAngleBound));
         }
         else
         {

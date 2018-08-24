@@ -37,9 +37,9 @@
 #include <com/sun/star/text/GraphicCrop.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/fileformat.h>
-#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <sal/log.hxx>
 
 #include <graphic/UnoGraphicDescriptor.hxx>
 #include <graphic/UnoGraphic.hxx>
@@ -305,6 +305,8 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
     uno::Sequence< ::beans::PropertyValue > aFilterData;
 
     bool bLazyRead = false;
+    bool bLoadAsLink = false;
+
     for( sal_Int32 i = 0; ( i < rMediaProperties.getLength() ) && !pIStm && !xRet.is(); ++i )
     {
         const OUString   aName( rMediaProperties[ i ].Name );
@@ -329,7 +331,13 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
             aValue >>= aFilterData;
         }
         else if (aName == "LazyRead")
+        {
             aValue >>= bLazyRead;
+        }
+        else if (aName == "LoadAsLink")
+        {
+            aValue >>= bLoadAsLink;
+        }
     }
 
     // Check for the goal width and height if they are defined
@@ -359,7 +367,7 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
 
     if( xIStm.is() )
     {
-        pIStm.reset(::utl::UcbStreamHelper::CreateStream( xIStm ));
+        pIStm = ::utl::UcbStreamHelper::CreateStream( xIStm );
     }
     else if( !aPath.isEmpty() )
     {
@@ -372,7 +380,7 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
             xRet = implLoadStandardImage( aPath );
 
         if( !xRet.is() )
-            pIStm.reset(::utl::UcbStreamHelper::CreateStream( aPath, StreamMode::READ ));
+            pIStm = ::utl::UcbStreamHelper::CreateStream( aPath, StreamMode::READ );
     }
     else if( xBtm.is() )
     {
@@ -384,7 +392,7 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
         ::GraphicFilter& rFilter = ::GraphicFilter::GetGraphicFilter();
 
         {
-            ::Graphic aVCLGraphic;
+            Graphic aVCLGraphic;
 
             // Define APM Header if goal height and width are defined
             WmfExternal aExtHeader;
@@ -412,6 +420,9 @@ uno::Reference< ::graphic::XGraphic > SAL_CALL GraphicProvider::queryGraphic( co
             if( (error == ERRCODE_NONE ) &&
                 ( aVCLGraphic.GetType() != GraphicType::NONE ) )
             {
+                if (!aPath.isEmpty() && bLoadAsLink)
+                    aVCLGraphic.setOriginURL(aPath);
+
                 ::unographic::Graphic* pUnoGraphic = new ::unographic::Graphic;
 
                 pUnoGraphic->init( aVCLGraphic );
@@ -431,10 +442,10 @@ uno::Sequence< uno::Reference<graphic::XGraphic> > SAL_CALL GraphicProvider::que
     SolarMutexGuard aGuard;
 
     // Turn properties into streams.
-    std::vector< std::shared_ptr<SvStream> > aStreams;
+    std::vector< std::unique_ptr<SvStream> > aStreams;
     for (const auto& rMediaProperties : rMediaPropertiesSeq)
     {
-        SvStream* pStream = nullptr;
+        std::unique_ptr<SvStream> pStream;
         uno::Reference<io::XInputStream> xStream;
 
         for (sal_Int32 i = 0; rMediaProperties.getLength(); ++i)
@@ -448,14 +459,13 @@ uno::Sequence< uno::Reference<graphic::XGraphic> > SAL_CALL GraphicProvider::que
             }
         }
 
-        aStreams.push_back(std::shared_ptr<SvStream>(pStream));
-
+        aStreams.push_back(std::move(pStream));
     }
 
     // Import: streams to graphics.
     std::vector< std::shared_ptr<Graphic> > aGraphics;
     GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
-    rFilter.ImportGraphics(aGraphics, aStreams);
+    rFilter.ImportGraphics(aGraphics, std::move(aStreams));
 
     // Returning: graphics to UNO objects.
     std::vector< uno::Reference<graphic::XGraphic> > aRet;
@@ -670,12 +680,7 @@ void ImplApplyFilterData( ::Graphic& rGraphic, uno::Sequence< beans::PropertyVal
                         ImplApplyBitmapResolution( aGraphic, nImageResolution,
                             aGraphic.GetSizePixel(), awt::Size( aSize100thmm2.Width(), aSize100thmm2.Height() ) );
 
-                        rtl::Reference<MetaAction> pNewAction;
-                        if ( pAction->GetType() == MetaActionType::BMPSCALE )
-                            pNewAction = new MetaBmpScaleAction ( aPos, aSize, aGraphic.GetBitmap() );
-                        else
-                            pNewAction = new MetaBmpExScaleAction( aPos, aSize, aGraphic.GetBitmapEx() );
-
+                        rtl::Reference<MetaAction> pNewAction = new MetaBmpExScaleAction( aPos, aSize, aGraphic.GetBitmapEx() );
                         aMtf.ReplaceAction( pNewAction, i );
                         break;
                     }
@@ -713,7 +718,7 @@ void SAL_CALL GraphicProvider::storeGraphic( const uno::Reference< ::graphic::XG
             OUString aURL;
 
             aValue >>= aURL;
-            pOStm.reset(::utl::UcbStreamHelper::CreateStream( aURL, StreamMode::WRITE | StreamMode::TRUNC ));
+            pOStm = ::utl::UcbStreamHelper::CreateStream( aURL, StreamMode::WRITE | StreamMode::TRUNC );
             aPath = aURL;
         }
         else if (aName == "OutputStream")
@@ -723,7 +728,7 @@ void SAL_CALL GraphicProvider::storeGraphic( const uno::Reference< ::graphic::XG
             aValue >>= xOStm;
 
             if( xOStm.is() )
-                pOStm.reset(::utl::UcbStreamHelper::CreateStream( xOStm ));
+                pOStm = ::utl::UcbStreamHelper::CreateStream( xOStm );
         }
     }
 

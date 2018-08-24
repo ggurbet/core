@@ -124,16 +124,25 @@ OUString getShapeDescription( const Reference< XShape >& xShape, bool bWithText 
 {
     OUString aDescription;
     Reference< XPropertySet > xSet( xShape, UNO_QUERY );
+    bool bAppendIndex = true;
+
     if( xSet.is() )
     {
-        Reference< XPropertySetInfo > xInfo( xSet->getPropertySetInfo() );
-        const OUString aPropName( "UINameSingular");
-        if( xInfo->hasPropertyByName( aPropName ) )
-            xSet->getPropertyValue( aPropName ) >>= aDescription;
+        Reference<XPropertySetInfo> xInfo(xSet->getPropertySetInfo());
+
+        xSet->getPropertyValue("Name") >>= aDescription;
+        bAppendIndex = aDescription.isEmpty();
+
+        const OUString aPropName("UINameSingular");
+        if(xInfo->hasPropertyByName(aPropName))
+            xSet->getPropertyValue(aPropName) >>= aDescription;
     }
 
-    aDescription += " ";
-    aDescription += OUString::number( getShapeIndex( xShape ) );
+    if (bAppendIndex)
+    {
+        aDescription += " ";
+        aDescription += OUString::number(getShapeIndex(xShape));
+    }
 
     if( bWithText )
     {
@@ -211,7 +220,6 @@ private:
     OUString        msDescription;
     OUString        msEffectName;
     CustomAnimationEffectPtr mpEffect;
-    const CustomAnimationPresets* mpCustomAnimationPresets;
     static const long nIconWidth = 19;
     static const long nItemMinHeight = 38;
 };
@@ -222,7 +230,6 @@ CustomAnimationListEntryItem::CustomAnimationListEntryItem( const OUString& aDes
 , msDescription( aDescription )
 , msEffectName( OUString() )
 , mpEffect(pEffect)
-, mpCustomAnimationPresets(&CustomAnimationPresets::getCustomAnimationPresets())
 {
     switch(mpEffect->getPresetClass())
     {
@@ -235,7 +242,7 @@ CustomAnimationListEntryItem::CustomAnimationListEntryItem( const OUString& aDes
     case EffectPresetClass::MOTIONPATH:
         msEffectName = SdResId(STR_CUSTOMANIMATION_MOTION_PATHS); break;
     }
-    msEffectName = msEffectName.replaceFirst( "%1" , mpCustomAnimationPresets->getUINameForPresetId(mpEffect->getPresetId()));
+    msEffectName = msEffectName.replaceFirst( "%1" , CustomAnimationPresets::getCustomAnimationPresets().getUINameForPresetId(mpEffect->getPresetId()));
 }
 
 void CustomAnimationListEntryItem::InitViewData( SvTreeListBox* pView, SvTreeListEntry* pEntry, SvViewDataItem* pViewData )
@@ -855,7 +862,7 @@ EffectSequence CustomAnimationList::getSelection() const
                         aSelection.push_back( pChildEffect );
                 }
 
-                pChild = dynamic_cast< CustomAnimationListEntry* >(  NextSibling( pChild ) );
+                pChild = dynamic_cast< CustomAnimationListEntry* >(  pChild->NextSibling() );
             }
         }
 

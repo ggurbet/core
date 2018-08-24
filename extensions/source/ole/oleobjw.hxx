@@ -53,16 +53,16 @@ typedef std::unordered_multimap<OUString, unsigned int> TLBFuncIndexMap;
 // This class wraps an IDispatch and maps XInvocation calls to IDispatch calls on the wrapped object.
 // If m_TypeDescription is set then this class represents an UNO interface implemented in a COM component.
 // The interface is not a real interface in terms of an abstract class but is realized through IDispatch.
-class IUnknownWrapper_Impl : public WeakImplHelper< XBridgeSupplier2, XInitialization, XAutomationObject, XDefaultProperty, XDefaultMethod, XDirectInvocation, XAutomationInvocation >,
+class IUnknownWrapper : public WeakImplHelper< XBridgeSupplier2, XInitialization, XAutomationObject, XDefaultProperty, XDefaultMethod, XDirectInvocation, XAutomationInvocation >,
 
-                             public UnoConversionUtilities<IUnknownWrapper_Impl>
+                             public UnoConversionUtilities<IUnknownWrapper>
 
 {
 public:
-    IUnknownWrapper_Impl(Reference<XMultiServiceFactory> const &xFactory,
-                         sal_uInt8 unoWrapperClass, sal_uInt8 comWrapperClass);
+    IUnknownWrapper(Reference<XMultiServiceFactory> const &xFactory,
+                    sal_uInt8 unoWrapperClass, sal_uInt8 comWrapperClass);
 
-    ~IUnknownWrapper_Impl() override;
+    ~IUnknownWrapper() override;
 
     //XInterface
     Any SAL_CALL queryInterface(const Type& t) override;
@@ -220,7 +220,7 @@ protected:
     CComPtr<IDispatch> m_spDispatch;
         OUString m_sTypeName; // is "" ( not initialised ), "IDispatch" ( we have no idea ) or "SomeLibrary.SomeTypeName" if we managed to get a type
     /** This value is set during XInitialization::initialize. It indicates that the COM interface
-    was transported as VT_DISPATCH in a VARIANT rather then a VT_UNKNOWN
+    was transported as VT_DISPATCH in a VARIANT rather than a VT_UNKNOWN
     */
     bool  m_bOriginalDispatch;
     DispIdMap           m_dispIdMap;

@@ -46,6 +46,7 @@
 #include <unx/x11_cursors/salcursors.h>
 
 #include <vcl/svapp.hxx>
+#include <sal/log.hxx>
 
 #ifdef GDK_WINDOWING_X11
 #  include <gdk/gdkx.h>
@@ -213,7 +214,10 @@ GdkCursor* GtkSalDisplay::getFromXBM( const unsigned char *pBitmap,
     return cursor;
 }
 
-#define MAKE_CURSOR( vcl_name, name ) \
+static unsigned char nullmask_bits[] = { 0x00, 0x00, 0x00, 0x00 };
+static unsigned char nullcurs_bits[] = { 0x00, 0x00, 0x00, 0x00 };
+
+#define MAKE_CURSOR( vcl_name, name )           \
     case vcl_name: \
         pCursor = getFromXBM( name##curs##_bits, name##mask##_bits, \
                               name##curs_width, name##curs_height, \
@@ -460,8 +464,8 @@ bool GtkSalData::Yield( bool bWait, bool bHandleAllCurrentEvents )
                 if( wasOneEvent )
                     bWasEvent = true;
             }
-            if (m_aException.hasValue())
-                ::cppu::throwException(m_aException);
+            if (m_aException)
+                std::rethrow_exception(m_aException);
         }
         else if( bWait )
         {

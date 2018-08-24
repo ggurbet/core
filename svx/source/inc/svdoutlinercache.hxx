@@ -41,8 +41,8 @@ public:
     SdrOutlinerCache( SdrModel* pModel );
     ~SdrOutlinerCache();
 
-    SdrOutliner* createOutliner( OutlinerMode nOutlinerMode );
-    void disposeOutliner( SdrOutliner* pOutliner );
+    std::unique_ptr<SdrOutliner> createOutliner( OutlinerMode nOutlinerMode );
+    void disposeOutliner( std::unique_ptr<SdrOutliner> pOutliner );
     std::vector< SdrOutliner* > GetActiveOutliners() const;
 };
 

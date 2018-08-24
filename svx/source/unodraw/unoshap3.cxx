@@ -24,8 +24,8 @@
 #include <com/sun/star/drawing/CameraGeometry.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <vcl/svapp.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <comphelper/serviceinfohelper.hxx>
+#include <sal/log.hxx>
 
 #include <svx/svdpool.hxx>
 #include <svx/svditer.hxx>
@@ -150,12 +150,12 @@ void SAL_CALL Svx3DSceneObject::remove( const Reference< drawing::XShape >& xSha
         throw uno::RuntimeException();
 
     SdrObject* pSdrShape = pShape->GetSdrObject();
-    if(pSdrShape == nullptr || pSdrShape->getParentOfSdrObject()->GetOwnerObj() != GetSdrObject())
+    if(pSdrShape == nullptr || pSdrShape->getParentSdrObjectFromSdrObject() != GetSdrObject())
     {
         throw uno::RuntimeException();
     }
 
-    SdrObjList& rList = *pSdrShape->getParentOfSdrObject();
+    SdrObjList& rList = *pSdrShape->getParentSdrObjListFromSdrObject();
 
     const size_t nObjCount = rList.GetObjCount();
     size_t nObjNum = 0;
@@ -280,7 +280,7 @@ bool Svx3DSceneObject::setPropertyValueImpl( const OUString& rName, const SfxIte
             aSceneTAR.maRect = pScene->GetSnapRect();
 
             // rescue object transformations
-            SdrObjListIter aIter(*pScene->GetSubList(), SdrIterMode::DeepWithGroups);
+            SdrObjListIter aIter(pScene->GetSubList(), SdrIterMode::DeepWithGroups);
             std::vector<basegfx::B3DHomMatrix*> aObjTrans;
             while(aIter.IsMore())
             {

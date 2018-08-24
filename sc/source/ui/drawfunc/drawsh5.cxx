@@ -485,10 +485,8 @@ void ScDrawShell::ExecDrawFunc( SfxRequest& rReq )
                         OUString aName = pSelected->GetName();
 
                         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                        OSL_ENSURE(pFact, "Dialog creation failed!");
                         vcl::Window* pWin = pViewData->GetActiveWin();
                         ScopedVclPtr<AbstractSvxObjectNameDialog> pDlg(pFact->CreateSvxObjectNameDialog(pWin ? pWin->GetFrameWeld() : nullptr, aName));
-                        OSL_ENSURE(pDlg, "Dialog creation failed!");
 
                         pDlg->SetCheckNameHdl(LINK(this, ScDrawShell, NameObjectHdl));
 
@@ -555,11 +553,9 @@ void ScDrawShell::ExecDrawFunc( SfxRequest& rReq )
                         OUString aDescription(pSelected->GetDescription());
 
                         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                        OSL_ENSURE(pFact, "Dialog creation failed!");
                         vcl::Window* pWin = pViewData->GetActiveWin();
                         ScopedVclPtr<AbstractSvxObjectTitleDescDialog> pDlg(pFact->CreateSvxObjectTitleDescDialog(
                                     pWin ? pWin->GetFrameWeld() : nullptr, aTitle, aDescription));
-                        OSL_ENSURE(pDlg, "Dialog creation failed!");
 
                         if(RET_OK == pDlg->Execute())
                         {
@@ -672,8 +668,8 @@ void ScDrawShell::ExecFormatPaintbrush( const SfxRequest& rReq )
         ScDrawView* pDrawView = pViewData->GetScDrawView();
         if ( pDrawView && pDrawView->AreObjectsMarked() )
         {
-            SfxItemSet* pItemSet = new SfxItemSet( pDrawView->GetAttrFromMarked(true/*bOnlyHardAttr*/) );
-            pView->SetDrawBrushSet( pItemSet, bLock );
+            std::unique_ptr<SfxItemSet> pItemSet(new SfxItemSet( pDrawView->GetAttrFromMarked(true/*bOnlyHardAttr*/) ));
+            pView->SetDrawBrushSet( std::move(pItemSet), bLock );
         }
     }
 }

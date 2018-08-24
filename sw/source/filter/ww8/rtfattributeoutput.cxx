@@ -25,6 +25,7 @@
 #include "ww8par.hxx"
 #include <fmtcntnt.hxx>
 #include <rtl/tencinfo.h>
+#include <sal/log.hxx>
 #include <svtools/rtfkeywd.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/tstpitem.hxx>
@@ -65,7 +66,6 @@
 #include <filter/msfilter/rtfutil.hxx>
 #include <sfx2/sfxbasemodel.hxx>
 #include <svx/xflgrit.hxx>
-#include <drawdoc.hxx>
 #include <docufld.hxx>
 #include <fmtclds.hxx>
 #include <fmtrowsplt.hxx>
@@ -82,7 +82,6 @@
 #include <ndole.hxx>
 #include <lineinfo.hxx>
 #include <rtf.hxx>
-#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <vcl/cvtgrf.hxx>
 #include <oox/mathml/export.hxx>
@@ -1355,8 +1354,8 @@ void RtfAttributeOutput::NumberingLevel(sal_uInt8 nLevel, sal_uInt16 nStart,
             nVal = 35;
             if (pOutSet)
             {
-                const SvxLanguageItem rlang = pOutSet->Get(RES_CHRATR_CJK_LANGUAGE);
-                if (LANGUAGE_CHINESE_SIMPLIFIED == rlang.GetLanguage())
+                const SvxLanguageItem& rLang = pOutSet->Get(RES_CHRATR_CJK_LANGUAGE);
+                if (rLang.GetLanguage() == LANGUAGE_CHINESE_SIMPLIFIED)
                 {
                     nVal = 39;
                 }
@@ -1882,20 +1881,6 @@ void RtfAttributeOutput::OutputFlyFrame_Impl(const ww8::Frame& rFrame, const Poi
             const SdrObject* pSdrObj = rFrame.GetFrameFormat().FindRealSdrObject();
             if (pSdrObj)
             {
-                bool bSwapInPage = false;
-                if (!pSdrObj->GetPage())
-                {
-                    if (SwDrawModel* pModel
-                        = m_rExport.m_pDoc->getIDocumentDrawModelAccess().GetDrawModel())
-                    {
-                        if (SdrPage* pPage = pModel->GetPage(0))
-                        {
-                            bSwapInPage = true;
-                            const_cast<SdrObject*>(pSdrObj)->SetPage(pPage);
-                        }
-                    }
-                }
-
                 m_aRunText->append("{" OOO_STRING_SVTOOLS_RTF_FIELD "{");
                 m_aRunText->append(OOO_STRING_SVTOOLS_RTF_IGNORE);
                 m_aRunText->append(OOO_STRING_SVTOOLS_RTF_FLDINST);
@@ -1907,9 +1892,6 @@ void RtfAttributeOutput::OutputFlyFrame_Impl(const ww8::Frame& rFrame, const Poi
 
                 m_aRunText->append('}');
                 m_aRunText->append('}');
-
-                if (bSwapInPage)
-                    const_cast<SdrObject*>(pSdrObj)->SetPage(nullptr);
             }
         }
         break;
@@ -2852,7 +2834,7 @@ void RtfAttributeOutput::ParaNumRule_Impl(const SwTextNode* pTextNd, sal_Int32 n
 
     SvxLRSpaceItem aLR(rNdSet.Get(RES_LR_SPACE));
     aLR.SetTextLeft(aLR.GetTextLeft() + pFormat->GetIndentAt());
-    aLR.SetTextFirstLineOfst(pFormat->GetFirstLineOffset());
+    aLR.SetTextFirstLineOfst(pFormat->GetFirstLineOffset()); //TODO: overflow
 
     sal_uInt16 nStyle = m_rExport.GetId(pFormat->GetCharFormat());
     OString* pString = m_rExport.GetStyle(nStyle);
@@ -3017,7 +2999,14 @@ void RtfAttributeOutput::FormatULSpace(const SvxULSpaceItem& rULSpace)
             if (!m_rExport.GetCurItemSet())
                 return;
 
-            sw::util::HdFtDistanceGlue aDistances(*m_rExport.GetCurItemSet());
+            // If we export a follow page format, then our doc model has
+            // separate header/footer distances for the first page and the
+            // follow pages, but Word can have only a single distance. In case
+            // the two values differ, work with the value from the first page
+            // format to be in sync with the import.
+            sw::util::HdFtDistanceGlue aDistances(m_rExport.GetFirstPageItemSet()
+                                                      ? *m_rExport.GetFirstPageItemSet()
+                                                      : *m_rExport.GetCurItemSet());
 
             if (aDistances.dyaTop)
             {
@@ -3694,37 +3683,6 @@ void RtfAttributeOutput::FontPitchType(FontPitch ePitch) const
     m_rExport.OutULong(nVal);
 }
 
-static bool IsEMF(const sal_uInt8* pGraphicAry, unsigned long nSize)
-{
-    if (pGraphicAry && (nSize > 0x2c))
-    {
-        // check the magic number
-        if ((pGraphicAry[0x28] == 0x20) && (pGraphicAry[0x29] == 0x45)
-            && (pGraphicAry[0x2a] == 0x4d) && (pGraphicAry[0x2b] == 0x46))
-        {
-            //emf detected
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool StripMetafileHeader(const sal_uInt8*& rpGraphicAry, unsigned long& rSize)
-{
-    if (rpGraphicAry && (rSize > 0x22))
-    {
-        if ((rpGraphicAry[0] == 0xd7) && (rpGraphicAry[1] == 0xcd) && (rpGraphicAry[2] == 0xc6)
-            && (rpGraphicAry[3] == 0x9a))
-        {
-            // we have to get rid of the metafileheader
-            rpGraphicAry += 22;
-            rSize -= 22;
-            return true;
-        }
-    }
-    return false;
-}
-
 static void lcl_AppendSP(OStringBuffer& rBuffer, const char cName[], const OUString& rValue,
                          const RtfExport& rExport)
 {
@@ -3739,7 +3697,7 @@ static void lcl_AppendSP(OStringBuffer& rBuffer, const char cName[], const OUStr
 
 static OString ExportPICT(const SwFlyFrameFormat* pFlyFrameFormat, const Size& rOrig,
                           const Size& rRendered, const Size& rMapped, const SwCropGrf& rCr,
-                          const char* pBLIPType, const sal_uInt8* pGraphicAry, unsigned long nSize,
+                          const char* pBLIPType, const sal_uInt8* pGraphicAry, sal_uInt64 nSize,
                           const RtfExport& rExport, SvStream* pStream = nullptr,
                           bool bWritePicProp = true, const SwAttrSet* pAttrSet = nullptr)
 {
@@ -3811,7 +3769,7 @@ static OString ExportPICT(const SwFlyFrameFormat* pFlyFrameFormat, const Size& r
         if (bIsWMF)
         {
             aRet.append(sal_Int32(8));
-            StripMetafileHeader(pGraphicAry, nSize);
+            msfilter::rtfutil::StripMetafileHeader(pGraphicAry, nSize);
         }
         aRet.append(SAL_NEWLINE_STRING);
         if (pStream)
@@ -3950,8 +3908,8 @@ void RtfAttributeOutput::FlyFrameGraphic(const SwFlyFrameFormat* pFlyFrameFormat
                 pBLIPType = OOO_STRING_SVTOOLS_RTF_PNGBLIP;
                 break;
             case GfxLinkType::NativeWmf:
-                pBLIPType = IsEMF(pGraphicAry, nSize) ? OOO_STRING_SVTOOLS_RTF_EMFBLIP
-                                                      : OOO_STRING_SVTOOLS_RTF_WMETAFILE;
+                pBLIPType = aGraphicLink.IsEMF() ? OOO_STRING_SVTOOLS_RTF_EMFBLIP
+                                                 : OOO_STRING_SVTOOLS_RTF_WMETAFILE;
                 break;
             case GfxLinkType::NativeGif:
                 // GIF is not supported by RTF, but we override default conversion to WMF, PNG seems fits better here.

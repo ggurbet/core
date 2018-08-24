@@ -45,6 +45,7 @@
 #include <shellres.hxx>
 #include <docary.hxx>
 #include <ndole.hxx>
+#include <ndtxt.hxx>
 #include <frame.hxx>
 #include <vcl/svapp.hxx>
 #include <fmtfsize.hxx>
@@ -99,6 +100,7 @@
 #include <unochart.hxx>
 #include <sortopt.hxx>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <calbck.hxx>
 #include <comphelper/interfacecontainer2.hxx>
@@ -1043,6 +1045,36 @@ void SwXCell::setPropertyValue(const OUString& rPropertyName, const uno::Any& aV
     else
     {
         auto pEntry(m_pPropSet->getPropertyMap().getByName(rPropertyName));
+        if ( !pEntry )
+        {
+            // not a table property: if it is a paragraph/character property, consider applying it to the underlying text.
+            const SfxItemPropertySet& rParaPropSet = *aSwMapProvider.GetPropertySet(PROPERTY_MAP_PARAGRAPH);
+            pEntry = rParaPropSet.getPropertyMap().getByName(rPropertyName);
+
+            if ( pEntry )
+            {
+                SwNodeIndex aIdx( *GetStartNode(), 1 );
+                const SwNode* pEndNd = aIdx.GetNode().EndOfSectionNode();
+                while ( &aIdx.GetNode() != pEndNd )
+                {
+                    const SwTextNode* pNd = aIdx.GetNode().GetTextNode();
+                    if ( pNd )
+                    {
+                        //point and mark selecting the whole paragraph
+                        SwPaM aPaM(*pNd, 0, *pNd, pNd->GetText().getLength());
+                        const bool bHasAttrSet = pNd->HasSwAttrSet();
+                        const SfxItemSet& aSet = pNd->GetSwAttrSet();
+                        // isPARATR: replace DEFAULT_VALUE properties only
+                        // isCHRATR: change the base/auto SwAttr property, but don't remove the DIRECT hints
+                        if ( !bHasAttrSet || SfxItemState::DEFAULT == aSet.GetItemState(pEntry->nWID, /*bSrchInParent=*/false) )
+                            SwUnoCursorHelper::SetPropertyValue(aPaM, rParaPropSet, rPropertyName, aValue, SetAttrMode::DONTREPLACE);
+                    }
+                    ++aIdx;
+                }
+                return;
+            }
+        }
+
         if(!pEntry)
             throw beans::UnknownPropertyException(rPropertyName, static_cast<cppu::OWeakObject*>(this));
         if(pEntry->nWID != FN_UNO_CELL_ROW_SPAN)
@@ -2145,7 +2177,7 @@ SwXTextTable::attach(const uno::Reference<text::XTextRange> & xTextRange)
             pDoc->getIDocumentContentOperations().DeleteAndJoin(aPam);
             aPam.DeleteMark();
         }
-        pTable = pDoc->InsertTable(SwInsertTableOptions( tabopts::HEADLINE | tabopts::DEFAULT_BORDER | tabopts::SPLIT_LAYOUT, 0 ),
+        pTable = pDoc->InsertTable(SwInsertTableOptions( SwInsertTableFlags::Headline | SwInsertTableFlags::DefaultBorder | SwInsertTableFlags::SplitLayout, 0 ),
                 *aPam.GetPoint(),
                 m_pImpl->m_nRows,
                 m_pImpl->m_nColumns,
@@ -2248,10 +2280,10 @@ uno::Reference<table::XCellRange> GetRangeByName(
     pUnoCursor->SetMark();
     pUnoCursor->GetPoint()->nNode = *pBRBox->GetSttNd();
     pUnoCursor->Move( fnMoveForward, GoInNode );
-    SwUnoTableCursor* pCursor = dynamic_cast<SwUnoTableCursor*>(pUnoCursor.get());
+    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
     // HACK: remove pending actions for selecting old style tables
-    UnoActionRemoveContext aRemoveContext(*pCursor);
-    pCursor->MakeBoxSels();
+    UnoActionRemoveContext aRemoveContext(rCursor);
+    rCursor.MakeBoxSels();
     // pUnoCursor will be provided and will not be deleted
     return SwXCellRange::CreateXCellRange(pUnoCursor, *pFormat, rDesc).get();
 }
@@ -2313,7 +2345,7 @@ uno::Sequence< uno::Sequence< uno::Any > > SAL_CALL SwXTextTable::getDataArray()
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<sheet::XCellRangeData> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     return xAllRange->getDataArray();
 }
 
@@ -2323,7 +2355,7 @@ void SAL_CALL SwXTextTable::setDataArray(const uno::Sequence< uno::Sequence< uno
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<sheet::XCellRangeData> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     return xAllRange->setDataArray(rArray);
 }
 
@@ -2333,7 +2365,7 @@ uno::Sequence< uno::Sequence< double > > SwXTextTable::getData()
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<chart::XChartDataArray> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     static_cast<SwXCellRange*>(xAllRange.get())->SetLabels(
             m_pImpl->m_bFirstRowAsLabel, m_pImpl->m_bFirstColumnAsLabel);
     return xAllRange->getData();
@@ -2345,7 +2377,7 @@ void SwXTextTable::setData(const uno::Sequence< uno::Sequence< double > >& rData
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<chart::XChartDataArray> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     static_cast<SwXCellRange*>(xAllRange.get())->SetLabels(
             m_pImpl->m_bFirstRowAsLabel, m_pImpl->m_bFirstColumnAsLabel);
     xAllRange->setData(rData);
@@ -2359,7 +2391,7 @@ uno::Sequence<OUString> SwXTextTable::getRowDescriptions()
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<chart::XChartDataArray> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     static_cast<SwXCellRange*>(xAllRange.get())->SetLabels(
             m_pImpl->m_bFirstRowAsLabel, m_pImpl->m_bFirstColumnAsLabel);
     return xAllRange->getRowDescriptions();
@@ -2371,7 +2403,7 @@ void SwXTextTable::setRowDescriptions(const uno::Sequence<OUString>& rRowDesc)
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<chart::XChartDataArray> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     static_cast<SwXCellRange*>(xAllRange.get())->SetLabels(
             m_pImpl->m_bFirstRowAsLabel, m_pImpl->m_bFirstColumnAsLabel);
     xAllRange->setRowDescriptions(rRowDesc);
@@ -2383,7 +2415,7 @@ uno::Sequence<OUString> SwXTextTable::getColumnDescriptions()
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<chart::XChartDataArray> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     static_cast<SwXCellRange*>(xAllRange.get())->SetLabels(
             m_pImpl->m_bFirstRowAsLabel, m_pImpl->m_bFirstColumnAsLabel);
     return xAllRange->getColumnDescriptions();
@@ -2395,7 +2427,7 @@ void SwXTextTable::setColumnDescriptions(const uno::Sequence<OUString>& rColumnD
     std::pair<sal_uInt16, sal_uInt16> const RowsAndColumns(SwXTextTable::Impl::ThrowIfComplex(*this));
     uno::Reference<chart::XChartDataArray> const xAllRange(
         getCellRangeByPosition(0, 0, RowsAndColumns.second-1, RowsAndColumns.first-1),
-        uno::UNO_QUERY);
+        uno::UNO_QUERY_THROW);
     static_cast<SwXCellRange*>(xAllRange.get())->SetLabels(
             m_pImpl->m_bFirstRowAsLabel, m_pImpl->m_bFirstColumnAsLabel);
     return xAllRange->setColumnDescriptions(rColumnDesc);
@@ -3326,10 +3358,10 @@ SwXCellRange::getCellRangeByPosition(
                     pUnoCursor->SetMark();
                     pUnoCursor->GetPoint()->nNode = *pBRBox->GetSttNd();
                     pUnoCursor->Move( fnMoveForward, GoInNode );
-                    SwUnoTableCursor* pCursor = dynamic_cast<SwUnoTableCursor*>(pUnoCursor.get());
+                    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
                     // HACK: remove pending actions for selecting old style tables
-                    UnoActionRemoveContext aRemoveContext(*pCursor);
-                    pCursor->MakeBoxSels();
+                    UnoActionRemoveContext aRemoveContext(rCursor);
+                    rCursor.MakeBoxSels();
                     // pUnoCursor will be provided and will not be deleted
                     aRet = SwXCellRange::CreateXCellRange(pUnoCursor, *pFormat, aNewDesc).get();
                 }
@@ -3657,7 +3689,7 @@ SwXCellRange::getData()
         uno::Reference<chart::XChartDataArray> const xDataRange(
                 getCellRangeByPosition((m_pImpl->m_bFirstColumnAsLabel) ? 1 : 0,
                                        (m_pImpl->m_bFirstRowAsLabel) ? 1 : 0,
-            nColCount-1, nRowCount-1), uno::UNO_QUERY);
+            nColCount-1, nRowCount-1), uno::UNO_QUERY_THROW);
         return xDataRange->getData();
     }
     uno::Sequence< uno::Sequence< double > > vRows(nRowCount);
@@ -3690,7 +3722,7 @@ SwXCellRange::setData(const uno::Sequence< uno::Sequence<double> >& rData)
         uno::Reference<chart::XChartDataArray> const xDataRange(
                 getCellRangeByPosition((m_pImpl->m_bFirstColumnAsLabel) ? 1 : 0,
                                        (m_pImpl->m_bFirstRowAsLabel) ? 1 : 0,
-            nColCount-1, nRowCount-1), uno::UNO_QUERY);
+            nColCount-1, nRowCount-1), uno::UNO_QUERY_THROW);
         return xDataRange->setData(rData);
     }
     lcl_EnsureCoreConnected(m_pImpl->GetFrameFormat(), static_cast<cppu::OWeakObject*>(this));
@@ -3769,6 +3801,8 @@ void SwXCellRange::Impl::SetLabelDescriptions(SwXCellRange & rThis,
     if(!nRight && !nBottom)
         throw uno::RuntimeException("Table too complex", static_cast<cppu::OWeakObject*>(&rThis));
     auto xLabelRange(rThis.getCellRangeByPosition(nLeft, nTop, nRight, nBottom));
+    if (!xLabelRange.is())
+        throw uno::RuntimeException("Missing Cell Range", static_cast<cppu::OWeakObject*>(&rThis));
     auto vCells(static_cast<SwXCellRange*>(xLabelRange.get())->GetCells());
     if (sal::static_int_cast<sal_uInt32>(rDesc.getLength()) != vCells.size())
         throw uno::RuntimeException("Too few or too many descriptions", static_cast<cppu::OWeakObject*>(&rThis));
@@ -4008,12 +4042,12 @@ void SwXTableRows::removeByIndex(sal_Int32 nIndex, sal_Int32 nCount)
     pUnoCursor->SetMark();
     pUnoCursor->GetPoint()->nNode = *pBLBox->GetSttNd();
     pUnoCursor->Move(fnMoveForward, GoInNode);
-    SwUnoTableCursor* pCursor = dynamic_cast<SwUnoTableCursor*>(pUnoCursor.get());
+    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
     {
         // HACK: remove pending actions for selecting old style tables
-        UnoActionRemoveContext aRemoveContext(*pCursor);
+        UnoActionRemoveContext aRemoveContext(rCursor);
     }
-    pCursor->MakeBoxSels();
+    rCursor.MakeBoxSels();
     {   // these braces are important
         UnoActionContext aAction(pFrameFormat->GetDoc());
         pFrameFormat->GetDoc()->DeleteRow(*pUnoCursor);
@@ -4159,12 +4193,12 @@ void SwXTableColumns::removeByIndex(sal_Int32 nIndex, sal_Int32 nCount)
     pUnoCursor->SetMark();
     pUnoCursor->GetPoint()->nNode = *pTRBox->GetSttNd();
     pUnoCursor->Move(fnMoveForward, GoInNode);
-    SwUnoTableCursor* pCursor = dynamic_cast<SwUnoTableCursor*>(pUnoCursor.get());
+    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
     {
         // HACK: remove pending actions for selecting old style tables
-        UnoActionRemoveContext aRemoveContext(*pCursor);
+        UnoActionRemoveContext aRemoveContext(rCursor);
     }
-    pCursor->MakeBoxSels();
+    rCursor.MakeBoxSels();
     {   // these braces are important
         UnoActionContext aAction(pFrameFormat->GetDoc());
         pFrameFormat->GetDoc()->DeleteCol(*pUnoCursor);

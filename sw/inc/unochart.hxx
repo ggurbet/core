@@ -38,7 +38,6 @@
 #include <com/sun/star/lang/XEventListener.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <com/sun/star/util/XModifyListener.hpp>
-#include <com/sun/star/table/XCell.hpp>
 
 #include <comphelper/interfacecontainer2.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -58,6 +57,7 @@ class SwTable;
 class SwTableBox;
 struct SwRangeDescriptor;
 class SwSelBoxes;
+namespace com { namespace sun { namespace star { namespace table { class XCell; } } } }
 
 bool FillRangeDescriptor( SwRangeDescriptor &rDesc, const OUString &rCellRangeName );
 
@@ -100,8 +100,7 @@ typedef cppu::WeakImplHelper
 SwChartDataProviderBaseClass;
 
 class SwChartDataProvider :
-    public SwChartDataProviderBaseClass,
-    public SwClient
+    public SwChartDataProviderBaseClass
 {
 
     // used to keep weak-references to all data-sequences of a single table
@@ -142,10 +141,6 @@ class SwChartDataProvider :
 
     static OUString GetBrokenCellRangeForExport( const OUString &rCellRangeRepresentation );
 
-protected:
-    //SwClient
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
-
 public:
     SwChartDataProvider( const SwDoc* pDoc );
     virtual ~SwChartDataProvider() override;
@@ -181,7 +176,7 @@ public:
 
     // will send modified events for all data-sequences of the table
     void        InvalidateTable( const SwTable *pTable );
-    bool        DeleteBox( const SwTable *pTable, const SwTableBox &rBox );
+    void        DeleteBox( const SwTable *pTable, const SwTableBox &rBox );
     void        DisposeAllDataSequences( const SwTable *pTable );
 
     // functionality needed to get notified about new added rows/cols

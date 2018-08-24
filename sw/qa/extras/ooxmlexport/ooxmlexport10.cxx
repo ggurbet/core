@@ -9,7 +9,6 @@
 
 #include <memory>
 #include <sstream>
-#include <config_test.h>
 
 #include <swmodeltestbase.hxx>
 
@@ -101,8 +100,8 @@ protected:
         uno::Reference<document::XFilter> xFilter(m_xSFactory->createInstance("com.sun.star.comp.Writer.WriterFilter"), uno::UNO_QUERY_THROW);
         uno::Reference<document::XImporter> xImporter(xFilter, uno::UNO_QUERY_THROW);
         xImporter->setTargetDocument(mxComponent);
-        SvStream* pStream = utl::UcbStreamHelper::CreateStream(m_directories.getURLFromSrc("/sw/qa/extras/ooxmlexport/data/") + rFilename, StreamMode::READ);
-        uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(*pStream));
+        std::unique_ptr<SvStream> pStream = utl::UcbStreamHelper::CreateStream(m_directories.getURLFromSrc("/sw/qa/extras/ooxmlexport/data/") + rFilename, StreamMode::READ);
+        uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(std::move(pStream)));
         uno::Sequence<beans::PropertyValue> aDescriptor(comphelper::InitPropertySequence(
         {
             {"InputStream", uno::makeAny(xStream)},
@@ -155,8 +154,8 @@ DECLARE_OOXMLEXPORT_TEST(testWpsOnly, "wps-only.docx")
     // Check position, it was 0. This is a shape, so use getPosition(), not a property.
     CPPUNIT_ASSERT_EQUAL(oox::drawingml::convertEmuToHmm(671830), xShape->getPosition().X);
 
-    // Left margin was 0, instead of 114300 EMU's.
-    CPPUNIT_ASSERT_EQUAL(sal_Int32(318), getProperty<sal_Int32>(xShape, "LeftMargin"));
+    // Left margin should be 0, as margins are not relevant for <wp:wrapNone/>.
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(xShape, "LeftMargin"));
     // Wrap type was PARALLEL.
     CPPUNIT_ASSERT_EQUAL(text::WrapTextMode_THROUGH, getProperty<text::WrapTextMode>(xShape, "Surround"));
     // Confirm that the deprecated (incorrectly spelled) _THROUGHT also matches
@@ -181,8 +180,20 @@ DECLARE_OOXMLEXPORT_TEST(testWpgNested, "wpg-nested.docx")
     uno::Reference<drawing::XShapeDescriptor> xShapeDescriptor(xGroup->getByIndex(0), uno::UNO_QUERY);
     // This was a com.sun.star.drawing.CustomShape, due to lack of handling of groupshapes inside groupshapes.
     CPPUNIT_ASSERT_EQUAL(OUString("com.sun.star.drawing.GroupShape"), xShapeDescriptor->getShapeType());
-    // This was text::RelOrientation::PAGE_FRAME, effectively placing the group shape on the left side of the page instead of the right one.
-    CPPUNIT_ASSERT_EQUAL(text::RelOrientation::PAGE_RIGHT, getProperty<sal_Int16>(xGroup, "HoriOrientRelation"));
+
+    // This failed, the right edge of the shape was outside the page
+    // boundaries.
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    sal_Int32 nPageLeft = getXPath(pXmlDoc, "/root/page[2]/infos/bounds", "left").toInt32();
+    sal_Int32 nPageWidth = getXPath(pXmlDoc, "/root/page[2]/infos/bounds", "width").toInt32();
+    sal_Int32 nShapeLeft
+        = getXPath(pXmlDoc, "/root/page[2]/body/txt/anchored/SwAnchoredDrawObject/bounds", "left")
+              .toInt32();
+    sal_Int32 nShapeWidth
+        = getXPath(pXmlDoc, "/root/page[2]/body/txt/anchored/SwAnchoredDrawObject/bounds", "width")
+              .toInt32();
+    // Make sure the shape is within the page bounds.
+    CPPUNIT_ASSERT_GREATEREQUAL(nShapeLeft + nShapeWidth, nPageLeft + nPageWidth);
 }
 
 DECLARE_OOXMLEXPORT_TEST(textboxWpgOnly, "textbox-wpg-only.docx")
@@ -279,6 +290,40 @@ DECLARE_OOXMLEXPORT_TEST(testFdo72560, "fdo72560.docx")
     CPPUNIT_ASSERT_EQUAL( sal_Int32 (style::ParagraphAdjust_RIGHT), getProperty< sal_Int32 >( xParaRightLTR, "ParaAdjust" ));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testFdo72560b, "fdo72560b.docx")
+{
+    // The problem was libreoffice confuse when RTL was specified in non-default style
+    uno::Reference<uno::XInterface> xParaEndRTL(getParagraph( 2, "RTL END"));
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::RL_TB, getProperty<sal_Int16>( xParaEndRTL, "WritingMode" ));
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(style::ParagraphAdjust_LEFT), getProperty< sal_Int32 >( xParaEndRTL, "ParaAdjust" ));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testFdo72560c, "fdo72560c.docx")
+{
+    // The problem was libreoffice confuse when RTL was specified in DocDefaults
+    uno::Reference<uno::XInterface> xParaEndRTL(getParagraph( 2, "RTL END"));
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::RL_TB, getProperty<sal_Int16>( xParaEndRTL, "WritingMode" ));
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(style::ParagraphAdjust_LEFT), getProperty< sal_Int32 >( xParaEndRTL, "ParaAdjust" ));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testFdo72560d, "fdo72560d.docx")
+{
+    // The problem was libreoffice confuse when RTL was specified in "Normal" when not using Normal at all
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(style::ParagraphAdjust_RIGHT), getProperty< sal_Int32 >( getParagraph(1), "ParaAdjust" ));
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(style::ParagraphAdjust_RIGHT), getProperty< sal_Int32 >( getParagraph(2), "ParaAdjust" ));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testFdo72560e, "fdo72560e.docx")
+{
+    // The problem was libreoffice confuse when *locale* is RTL, but w:bidi / w:jc are never defined.
+    // This unit test would only be noticed if the testing environment is set to something like an Arabic locale.
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::LR_TB, getProperty<sal_Int16>( getParagraph(2), "WritingMode" ));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(style::ParagraphAdjust_LEFT), getProperty<sal_Int32>( getParagraph(2), "ParaAdjust" ));
+
+    // widow/orphan control is on when never specified.
+    CPPUNIT_ASSERT_EQUAL(sal_Int8(2), getProperty<sal_Int8>( getParagraph(2), "ParaWidows" ));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testRPrChangeClosed, "rprchange_closed.docx")
 {
     // Redline defined by rPrChanged wasn't removed.
@@ -359,14 +404,12 @@ DECLARE_OOXMLEXPORT_TEST(testPictureWithSchemeColor, "picture-with-schemecolor.d
     uno::Reference<beans::XPropertySet> xImage(getShape(1), uno::UNO_QUERY);
     uno::Reference<graphic::XGraphic> xGraphic = getProperty<uno::Reference<graphic::XGraphic> >(xImage, "Graphic");
     Graphic aVclGraphic(xGraphic);
-    Bitmap aBitmap(aVclGraphic.GetBitmap());
-    Bitmap::ScopedReadAccess pAccess(aBitmap);
-    CPPUNIT_ASSERT(pAccess);
-    CPPUNIT_ASSERT_EQUAL(341L, pAccess->Width());
-    CPPUNIT_ASSERT_EQUAL(181L, pAccess->Height());
-    Color aColor(pAccess->GetPixel(30, 120).GetColor());
+    BitmapEx aBitmap(aVclGraphic.GetBitmapEx());
+    CPPUNIT_ASSERT_EQUAL(341L, aBitmap.GetSizePixel().Width());
+    CPPUNIT_ASSERT_EQUAL(181L, aBitmap.GetSizePixel().Height());
+    Color aColor(aBitmap.GetPixelColor(120, 30));
     CPPUNIT_ASSERT_EQUAL(aColor, Color( 0xb1, 0xc8, 0xdd ));
-    aColor = pAccess->GetPixel(130, 260).GetColor();
+    aColor = aBitmap.GetPixelColor(260, 130);
     CPPUNIT_ASSERT_EQUAL(aColor, Color( 0xb1, 0xc8, 0xdd ));
 }
 
@@ -537,13 +580,11 @@ DECLARE_OOXMLEXPORT_TEST(testMsoBrightnessContrast, "msobrightnesscontrast.docx"
     imageProperties->getPropertyValue( "Graphic" ) >>= graphic;
     uno::Reference<awt::XBitmap> bitmap(graphic, uno::UNO_QUERY);
     Graphic aVclGraphic(graphic);
-    Bitmap aBitmap(aVclGraphic.GetBitmap());
-    Bitmap::ScopedReadAccess pAccess(aBitmap);
-    CPPUNIT_ASSERT(pAccess);
-    CPPUNIT_ASSERT_EQUAL(58L, pAccess->Width());
-    CPPUNIT_ASSERT_EQUAL(320L, pAccess->Height());
-    Color aColor(pAccess->GetPixel(30, 20).GetColor());
-    CPPUNIT_ASSERT_EQUAL(aColor, Color( 0xce, 0xce, 0xce ));
+    BitmapEx aBitmap(aVclGraphic.GetBitmapEx());
+    CPPUNIT_ASSERT_EQUAL(58L, aBitmap.GetSizePixel().Width());
+    CPPUNIT_ASSERT_EQUAL(320L, aBitmap.GetSizePixel().Height());
+    Color aColor(aBitmap.GetPixelColor(20, 30));
+    CPPUNIT_ASSERT_EQUAL(Color( 255, 0xce, 0xce, 0xce ), aColor);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testChartSize, "chart-size.docx")
@@ -715,7 +756,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo85542, "fdo85542.docx")
 {
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xBookmarksByIdx->getCount(), static_cast<sal_Int32>(3));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3), xBookmarksByIdx->getCount());
     uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("B1"));
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("B2"));
@@ -723,11 +764,11 @@ DECLARE_OOXMLEXPORT_TEST(testFdo85542, "fdo85542.docx")
     // B1
     uno::Reference<text::XTextContent> xContent1(xBookmarksByName->getByName("B1"), uno::UNO_QUERY);
     uno::Reference<text::XTextRange> xRange1(xContent1->getAnchor(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xRange1->getString(), OUString("ABB"));
+    CPPUNIT_ASSERT_EQUAL(OUString("ABB"), xRange1->getString());
     // B2
     uno::Reference<text::XTextContent> xContent2(xBookmarksByName->getByName("B2"), uno::UNO_QUERY);
     uno::Reference<text::XTextRange> xRange2(xContent2->getAnchor(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xRange2->getString(), OUString("BBC"));
+    CPPUNIT_ASSERT_EQUAL(OUString("BBC"), xRange2->getString());
     // B3 -- testing a collapsed bookmark
     uno::Reference<text::XTextContent> xContent3(xBookmarksByName->getByName("B3"), uno::UNO_QUERY);
     uno::Reference<text::XTextRange> xRange3(xContent3->getAnchor(), uno::UNO_QUERY);
@@ -738,14 +779,14 @@ DECLARE_OOXMLEXPORT_TEST(testFdo85542, "fdo85542.docx")
     xNeighborhoodCursor->goLeft(1, false);
     xNeighborhoodCursor->goRight(2, true);
     uno::Reference<text::XTextRange> xTextNeighborhood(xNeighborhoodCursor, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xTextNeighborhood->getString(), OUString("AB"));
+    CPPUNIT_ASSERT_EQUAL(OUString("AB"), xTextNeighborhood->getString());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf65955, "tdf65955.odt")
 {
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xBookmarksByIdx->getCount(), static_cast<sal_Int32>(2));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), xBookmarksByIdx->getCount());
     uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("a"));
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("b"));
@@ -763,13 +804,13 @@ DECLARE_OOXMLEXPORT_TEST(testTdf65955_2, "tdf65955_2.odt")
 {
     uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xBookmarksByIdx->getCount(), static_cast<sal_Int32>(1));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), xBookmarksByIdx->getCount());
     uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("test"));
 
     uno::Reference<text::XTextContent> xContent3(xBookmarksByName->getByName("test"), uno::UNO_QUERY);
     uno::Reference<text::XTextRange> xRange3(xContent3->getAnchor(), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xRange3->getString(), OUString("foo bar"));
+    CPPUNIT_ASSERT_EQUAL(OUString("foo bar"), xRange3->getString());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testChtOutlineNumberingOoxml, "chtoutline.docx")

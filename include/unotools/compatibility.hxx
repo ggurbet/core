@@ -60,13 +60,13 @@ class UNOTOOLS_DLLPUBLIC SvtCompatibilityEntry
             ProtectForm,
             MsWordTrailingBlanks,
             SubtractFlysAnchoredAtFlys,
+            EmptyDbFieldHidesPara,
 
             /* Should be at the end. Do not remove it. */
             INVALID
         };
 
         SvtCompatibilityEntry();
-        ~SvtCompatibilityEntry();
 
         static OUString getName( const Index rIdx );
 

@@ -33,12 +33,14 @@
 #include "OOXMLFastDocumentHandler.hxx"
 #include "OOXMLPropertySet.hxx"
 
+#include <sal/log.hxx>
 #include <unotools/resmgr.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <comphelper/sequence.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <unotools/mediadescriptor.hxx>
 
 #include <iostream>
@@ -357,7 +359,7 @@ void OOXMLDocumentImpl::resolvePicture(Stream & rStream,
 {
     OOXMLPropertySet::Pointer_t pProps(getPicturePropSet(rId));
 
-    rStream.props(pProps);
+    rStream.props(pProps.get());
 }
 
 OUString OOXMLDocumentImpl::getTargetForId(const OUString & rId)
@@ -515,11 +517,11 @@ void OOXMLDocumentImpl::resolve(Stream & rStream)
             throw;
         }
         // note: cannot throw anything other than SAXException out of here?
-        catch (uno::Exception const& e)
+        catch (uno::Exception const&)
         {
-            SAL_WARN("writerfilter.ooxml", "OOXMLDocumentImpl::resolve(): " << e);
-            throw lang::WrappedTargetRuntimeException("", nullptr,
-                    uno::makeAny(e));
+            css::uno::Any anyEx = cppu::getCaughtException();
+            SAL_WARN("writerfilter.ooxml", "OOXMLDocumentImpl::resolve(): " << anyEx);
+            throw lang::WrappedTargetRuntimeException("", nullptr, anyEx);
         }
         catch (...)
         {
@@ -633,6 +635,12 @@ void OOXMLDocumentImpl::resolveGlossaryStream(Stream & /*rStream*/)
               OOXMLStream::Pointer_t gStream;
               uno::Sequence< beans::StringPair > aSeq = aSeqs[j];
               //Follows following aSeq[0] is Id, aSeq[1] is Type, aSeq[2] is Target
+              if (aSeq.getLength() < 3)
+              {
+                  SAL_WARN("writerfilter.ooxml", "too short sequence");
+                  continue;
+              }
+
               OUString gId(aSeq[0].Second);
               OUString gType(aSeq[1].Second);
               OUString gTarget(aSeq[2].Second);

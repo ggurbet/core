@@ -24,7 +24,9 @@
 #include <sfx2/bindings.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
+#include <pagedata.hxx>
 #include <tabview.hxx>
 #include <tabvwsh.hxx>
 #include <document.hxx>
@@ -38,6 +40,7 @@
 #include <sc.hrc>
 #include <viewutil.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <drawview.hxx>
 #include <docsh.hxx>
 #include <viewuno.hxx>
@@ -1086,7 +1089,7 @@ IMPL_LINK( ScTabView, ScrollHdl, ScrollBar*, pScroll, void )
             QuickHelpFlags nAlign;
             if (bHoriz)
             {
-                aHelpStr = ScGlobal::GetRscString(STR_COLUMN) +
+                aHelpStr = ScResId(STR_COLUMN) +
                            " " + ScColToAlpha(static_cast<SCCOL>(nScrollPos));
 
                 aRect.SetLeft( aMousePos.X() );
@@ -1095,7 +1098,7 @@ IMPL_LINK( ScTabView, ScrollHdl, ScrollBar*, pScroll, void )
             }
             else
             {
-                aHelpStr = ScGlobal::GetRscString(STR_ROW) +
+                aHelpStr = ScResId(STR_ROW) +
                            " " + OUString::number(nScrollPos + 1);
 
                 // show quicktext always inside sheet area
@@ -1482,10 +1485,10 @@ void ScTabView::UpdateShow()
 
     if (bShowH && bHeader && !pColBar[SC_SPLIT_RIGHT])
         pColBar[SC_SPLIT_RIGHT] = VclPtr<ScColBar>::Create( pFrameWin, SC_SPLIT_RIGHT,
-                                                            &aHdrFunc, pHdrSelEng, this );
+                                                            &aHdrFunc, pHdrSelEng.get(), this );
     if (bShowV && bHeader && !pRowBar[SC_SPLIT_TOP])
         pRowBar[SC_SPLIT_TOP] = VclPtr<ScRowBar>::Create( pFrameWin, SC_SPLIT_TOP,
-                                                          &aHdrFunc, pHdrSelEng, this );
+                                                          &aHdrFunc, pHdrSelEng.get(), this );
 
         // show Windows
 
@@ -2491,6 +2494,9 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
     long nStartWidthPx = 0;
     long nEndWidthPx = 0;
 
+    tools::Rectangle aOldVisArea(
+            mnLOKStartHeaderCol + 1, mnLOKStartHeaderRow + 1,
+            mnLOKEndHeaderCol, mnLOKEndHeaderRow);
 
     /// *** start collecting ROWS ***
 
@@ -2774,6 +2780,16 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
 
     aBuffer.append("\n}");
     OUString sRet = aBuffer.makeStringAndClear();
+
+    vcl::Region aNewVisArea(
+            tools::Rectangle(mnLOKStartHeaderCol + 1, mnLOKStartHeaderRow + 1,
+                    mnLOKEndHeaderCol, mnLOKEndHeaderRow));
+    aNewVisArea.Exclude(aOldVisArea);
+    tools::Rectangle aChangedArea = aNewVisArea.GetBoundRect();
+    if (!aChangedArea.IsEmpty())
+    {
+        UpdateFormulas(aChangedArea.Left(), aChangedArea.Top(), aChangedArea.Right(), aChangedArea.Bottom());
+    }
 
     return sRet;
 }

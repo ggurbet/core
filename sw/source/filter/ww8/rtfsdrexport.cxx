@@ -33,6 +33,7 @@
 #include <textboxhelper.hxx>
 #include <dcontact.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <algorithm>
 #include "rtfexport.hxx"
 
@@ -270,16 +271,16 @@ void RtfSdrExport::Commit(EscherPropertyContainer& rProps, const tools::Rectangl
 
                 if (rProps.GetOpt(ESCHER_Prop_pVertices, aVertices)
                     && rProps.GetOpt(ESCHER_Prop_pSegmentInfo, aSegments)
-                    && aVertices.nPropSize >= 6 && aSegments.nPropSize >= 6)
+                    && aVertices.nProp.size() >= 6 && aSegments.nProp.size() >= 6)
                 {
-                    const sal_uInt8* pVerticesIt = aVertices.pBuf + 6;
+                    const sal_uInt8* pVerticesIt = &aVertices.nProp[0] + 6;
                     std::size_t nVerticesPos = 6;
-                    const sal_uInt8* pSegmentIt = aSegments.pBuf;
+                    const sal_uInt8* pSegmentIt = &aSegments.nProp[0];
 
                     OStringBuffer aSegmentInfo(512);
                     OStringBuffer aVerticies(512);
 
-                    sal_uInt16 nPointSize = aVertices.pBuf[4] + (aVertices.pBuf[5] << 8);
+                    sal_uInt16 nPointSize = aVertices.nProp[4] + (aVertices.nProp[5] << 8);
 
                     // number of segments
                     sal_uInt16 nSegments = impl_GetUInt16(pSegmentIt);
@@ -432,8 +433,8 @@ void RtfSdrExport::Commit(EscherPropertyContainer& rProps, const tools::Rectangl
                     .append(SAL_NEWLINE_STRING);
                 int nHeaderSize
                     = 25; // The first bytes are WW8-specific, we're only interested in the PNG
-                aBuf.append(msfilter::rtfutil::WriteHex(rOpt.pBuf + nHeaderSize,
-                                                        rOpt.nPropSize - nHeaderSize));
+                aBuf.append(msfilter::rtfutil::WriteHex(&rOpt.nProp[0] + nHeaderSize,
+                                                        rOpt.nProp.size() - nHeaderSize));
                 aBuf.append('}');
                 m_aShapeProps.insert(
                     std::pair<OString, OString>("fillBlip", aBuf.makeStringAndClear()));
@@ -611,7 +612,7 @@ sal_Int32 RtfSdrExport::StartShape()
         */
         if (pTextObj->IsTextEditActive())
         {
-            pOwnedParaObj.reset(pTextObj->GetEditOutlinerParaObject());
+            pOwnedParaObj = pTextObj->GetEditOutlinerParaObject();
             pParaObj = pOwnedParaObj.get();
         }
         else

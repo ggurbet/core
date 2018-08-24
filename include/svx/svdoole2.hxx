@@ -62,8 +62,11 @@ private:
     SVX_DLLPRIVATE void Init();
 
 protected:
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
+
+    // protected destructor
+    virtual ~SdrOle2Obj() override;
 
 public:
     OUString GetStyleString();
@@ -76,8 +79,6 @@ public:
         const svt::EmbeddedObjectRef& rNewObjRef,
         const OUString& rNewObjName,
         const tools::Rectangle& rNewRect);
-
-    virtual ~SdrOle2Obj() override;
 
     const svt::EmbeddedObjectRef& getEmbeddedObjectRef() const;
 
@@ -119,7 +120,8 @@ public:
 
     void AbandonObject();
 
-    virtual void SetPage(SdrPage* pNewPage) override;
+    // react on model/page change
+    virtual void handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage) override;
 
     /** Change the IsClosedObj attribute
 
@@ -136,7 +138,7 @@ public:
     virtual OUString TakeObjNameSingul() const override;
     virtual OUString TakeObjNamePlural() const override;
 
-    virtual SdrOle2Obj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrOle2Obj* CloneSdrObject(SdrModel& rTargetModel) const override;
 
     SdrOle2Obj& assignFrom(const SdrOle2Obj& rObj);
     SdrOle2Obj& operator=(const SdrOle2Obj& rObj);
@@ -158,7 +160,6 @@ public:
     css::uno::Reference< css::frame::XModel > getXModel() const;
 
     bool IsChart() const;
-    bool IsReal3DChart() const;
     bool IsCalc() const;
 
     bool UpdateLinkURL_Impl();
@@ -167,7 +168,7 @@ public:
     void CheckFileLink_Impl();
 
     // allows to transfer the graphics to the object helper
-    void SetGraphicToObj( const Graphic& aGraphic, const OUString& aMediaType );
+    void SetGraphicToObj( const Graphic& aGraphic );
     void SetGraphicToObj( const css::uno::Reference< css::io::XInputStream >& xGrStream,
                           const OUString& aMediaType );
 

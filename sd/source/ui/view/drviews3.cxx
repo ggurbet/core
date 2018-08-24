@@ -29,6 +29,7 @@
 #include <editeng/frmdiritem.hxx>
 #include <editeng/adjustitem.hxx>
 #include <svx/ruler.hxx>
+#include <svx/svdotable.hxx>
 #include <editeng/numitem.hxx>
 #include <svx/rulritem.hxx>
 #include <sfx2/zoomitem.hxx>
@@ -290,14 +291,11 @@ void  DrawViewShell::ExecCtrl(SfxRequest& rReq)
         {
             SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
             ScopedVclPtr<AbstractHeaderFooterDialog> pDlg(pFact ? pFact->CreateHeaderFooterDialog( this, GetActiveWindow(), GetDoc(), mpActualPage ) : nullptr);
-            if( pDlg )
-            {
-                pDlg->Execute();
-                pDlg.disposeAndClear();
+            pDlg->Execute();
+            pDlg.disposeAndClear();
 
-                GetActiveWindow()->Invalidate();
-                UpdatePreview( mpActualPage );
-            }
+            GetActiveWindow()->Invalidate();
+            UpdatePreview( mpActualPage );
 
             Invalidate();
             rReq.Done ();
@@ -313,12 +311,10 @@ void  DrawViewShell::ExecCtrl(SfxRequest& rReq)
                 pPage = static_cast<SdPage*>(&pPage->TRG_GetMasterPage());
 
             SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-            if (pFact)
-            {
-                ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateMasterLayoutDialog( GetActiveWindow(), GetDoc(), pPage ));
-                pDlg->Execute();
-                Invalidate();
-            }
+            vcl::Window* pWin = GetActiveWindow();
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateMasterLayoutDialog(pWin ? pWin->GetFrameWeld() : nullptr, GetDoc(), pPage));
+            pDlg->Execute();
+            Invalidate();
             rReq.Done ();
             break;
         }
@@ -789,7 +785,7 @@ void  DrawViewShell::ExecRuler(SfxRequest& rReq)
                     // n#707779 (previously, LRSpace left indent could
                     // become negative - EditEngine really does not
                     // like that.
-                    const short nAbsLSpace=aFormat.GetAbsLSpace();
+                    const auto nAbsLSpace=aFormat.GetAbsLSpace();
                     const long  nTxtLeft=rItem.GetTextLeft();
                     const long  nLeftIndent=std::max(0L,nTxtLeft - nAbsLSpace);
                     aLRSpaceItem.SetTextLeft(nLeftIndent);
@@ -812,7 +808,7 @@ void  DrawViewShell::ExecRuler(SfxRequest& rReq)
                         aFormat.SetFirstLineOffset(0);
                         aLRSpaceItem.SetTextFirstLineOfst(
                             rItem.GetTextFirstLineOfst()
-                            - aFormat.GetFirstLineOffset()
+                            - aFormat.GetFirstLineOffset() //TODO: overflow
                             + aFormat.GetCharTextDistance());
                     }
 
@@ -915,6 +911,7 @@ void  DrawViewShell::GetRulerState(SfxItemSet& rSet)
                         aLRSpaceItem.SetTextLeft(rFormat.GetAbsLSpace() + rLRSpaceItem.GetTextLeft());
                         aLRSpaceItem.SetTextFirstLineOfst(
                             rLRSpaceItem.GetTextFirstLineOfst() + rFormat.GetFirstLineOffset()
+                                //TODO: overflow
                             - rFormat.GetCharTextDistance());
                     }
 
@@ -931,7 +928,16 @@ void  DrawViewShell::GetRulerState(SfxItemSet& rSet)
 
                     aPointItem.SetValue( aPos );
 
-                    aLRSpace.SetLeft( aPagePos.X() + maMarkRect.Left() );
+                    ::tools::Rectangle aParaRect(maMarkRect);
+                    if (pObj->GetObjIdentifier() == OBJ_TABLE)
+                    {
+                        sdr::table::SdrTableObj* pTable = static_cast<sdr::table::SdrTableObj*>(pObj);
+                        sdr::table::CellPos cellpos;
+                        pTable->getActiveCellPos(cellpos);
+                        pTable->getCellBounds(cellpos, aParaRect);
+                    }
+
+                    aLRSpace.SetLeft(aPagePos.X() + aParaRect.Left());
 
                     if ( aEditAttr.GetItemState( SDRATTR_TEXT_LEFTDIST ) == SfxItemState::SET )
                     {
@@ -940,7 +946,15 @@ void  DrawViewShell::GetRulerState(SfxItemSet& rSet)
                         aLRSpace.SetLeft( aLRSpace.GetLeft() + nLD );
                     }
 
-                    aLRSpace.SetRight( aRect.Right() + aPageSize.Width() - maMarkRect.Right() );
+                    aLRSpace.SetRight(aRect.Right() + aPageSize.Width() - aParaRect.Right());
+
+                    if ( aEditAttr.GetItemState( SDRATTR_TEXT_RIGHTDIST ) == SfxItemState::SET )
+                    {
+                        const SdrMetricItem& rTRDItem = aEditAttr.Get( SDRATTR_TEXT_RIGHTDIST );
+                        long nRD = rTRDItem.GetValue();
+                        aLRSpace.SetRight( aLRSpace.GetRight() + nRD );
+                    }
+
                     aULSpace.SetUpper( aPagePos.Y() + maMarkRect.Top() );
                     aULSpace.SetLower( aRect.Bottom() + aPageSize.Height() - maMarkRect.Bottom() );
 

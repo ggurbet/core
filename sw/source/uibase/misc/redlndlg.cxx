@@ -86,7 +86,7 @@ SwModelessRedlineAcceptDlg::SwModelessRedlineAcceptDlg(
         "AcceptRejectChangesDialog", "svx/ui/acceptrejectchangesdialog.ui")
     , pChildWin       (pChild)
 {
-    pImplDlg = new SwRedlineAcceptDlg(this, this, get_content_area());
+    pImplDlg.reset(new SwRedlineAcceptDlg(this, this, get_content_area()));
 }
 
 void SwModelessRedlineAcceptDlg::Activate()
@@ -142,7 +142,7 @@ SwModelessRedlineAcceptDlg::~SwModelessRedlineAcceptDlg()
 
 void SwModelessRedlineAcceptDlg::dispose()
 {
-    delete pImplDlg;
+    pImplDlg.reset();
     SfxModelessDialog::dispose();
 }
 
@@ -945,7 +945,7 @@ IMPL_LINK_NOARG(SwRedlineAcceptDlg, GotoHdl, Timer *, void)
     bool bIsNotFormated = false;
     bool bSel = false;
 
-    //#98883# don't select redlines while the dialog is not focussed
+    //#98883# don't select redlines while the dialog is not focused
     //#107938# But not only ask pTable if it has the focus. To move
     //         the selection to the selected redline any child of pParentDlg
     //         may the focus.
@@ -1076,9 +1076,7 @@ IMPL_LINK_NOARG(SwRedlineAcceptDlg, CommandHdl, SvSimpleTable*, void)
 
             OUString sComment = convertLineEnd(rRedline.GetComment(), GetSystemLineEnd());
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "Dialog creation failed!");
             ::DialogGetRanges fnGetRange = pFact->GetDialogGetRangesFunc();
-            OSL_ENSURE(fnGetRange, "Dialog creation failed! GetRanges()");
             SfxItemSet aSet( pSh->GetAttrPool(), fnGetRange() );
 
             aSet.Put(SvxPostItTextItem(sComment, SID_ATTR_POSTIT_TEXT));
@@ -1089,7 +1087,6 @@ IMPL_LINK_NOARG(SwRedlineAcceptDlg, CommandHdl, SvSimpleTable*, void)
                         SID_ATTR_POSTIT_DATE ));
 
             ScopedVclPtr<AbstractSvxPostItDialog> pDlg(pFact->CreateSvxPostItDialog(m_pParentDlg->GetFrameWeld(), aSet));
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
 
             pDlg->HideAuthor();
 
@@ -1128,8 +1125,8 @@ IMPL_LINK_NOARG(SwRedlineAcceptDlg, CommandHdl, SvSimpleTable*, void)
                 m_pTable->SetEntryText(sMsg.replace('\n', ' '), pEntry, 3);
             }
 
-            pDlg.disposeAndClear();
             SwViewShell::SetCareDialog(nullptr);
+            pDlg.disposeAndClear();
         }
     }
     else if (nRet)
@@ -1208,7 +1205,7 @@ void SwRedlineAcceptDlg::FillInfo(OUString &rExtraData) const
 SwRedlineAcceptPanel::SwRedlineAcceptPanel(vcl::Window* pParent, const css::uno::Reference<css::frame::XFrame>& rFrame)
     : PanelLayout(pParent, "ManageChangesPanel", "modules/swriter/ui/managechangessidebar.ui", rFrame)
 {
-    mpImplDlg = new SwRedlineAcceptDlg(this, this, get<VclGrid>("content_area"));
+    mpImplDlg.reset(new SwRedlineAcceptDlg(this, this, get<VclGrid>("content_area")));
 
     mpImplDlg->Init();
 
@@ -1223,8 +1220,7 @@ SwRedlineAcceptPanel::~SwRedlineAcceptPanel()
 
 void SwRedlineAcceptPanel::dispose()
 {
-    delete mpImplDlg;
-    mpImplDlg = nullptr;
+    mpImplDlg.reset();
     PanelLayout::dispose();
 }
 

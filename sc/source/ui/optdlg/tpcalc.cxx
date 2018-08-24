@@ -24,6 +24,7 @@
 
 #include <global.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <uiitems.hxx>
 #include <docsh.hxx>
 #include <document.hxx>
@@ -74,8 +75,8 @@ ScTpCalcOptions::~ScTpCalcOptions()
 
 void ScTpCalcOptions::dispose()
 {
-    delete pOldOptions;
-    delete pLocalOptions;
+    pOldOptions.reset();
+    pLocalOptions.reset();
     m_pBtnIterate.clear();
     m_pFtSteps.clear();
     m_pEdSteps.clear();
@@ -108,9 +109,9 @@ void ScTpCalcOptions::Init()
     m_pBtnThread->SetClickHdl( LINK( this, ScTpCalcOptions, CheckClickHdl ) );
 }
 
-VclPtr<SfxTabPage> ScTpCalcOptions::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> ScTpCalcOptions::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<ScTpCalcOptions>::Create( pParent, *rAttrSet );
+    return VclPtr<ScTpCalcOptions>::Create( pParent.pParent, *rAttrSet );
 }
 
 void ScTpCalcOptions::Reset( const SfxItemSet* /* rCoreAttrs */ )
@@ -182,7 +183,7 @@ void ScTpCalcOptions::Reset( const SfxItemSet* /* rCoreAttrs */ )
         m_pEdPrec->SetValue(nPrec);
     }
 
-    m_pBtnThread->Enable();
+    m_pBtnThread->Enable( !officecfg::Office::Calc::Formula::Calculation::UseThreadedCalculationForFormulaGroups::isReadOnly() );
     m_pBtnThread->Check( officecfg::Office::Calc::Formula::Calculation::UseThreadedCalculationForFormulaGroups::get() );
 
     CheckClickHdl(m_pBtnIterate);
@@ -235,7 +236,7 @@ DeactivateRC ScTpCalcOptions::DeactivatePage( SfxItemSet* pSetP )
     if ( nReturn == DeactivateRC::KeepPage )
     {
         std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetFrameWeld(), VclMessageType::Warning,
-                    VclButtonsType::Ok, ScGlobal::GetRscString(STR_INVALID_EPS)));
+                    VclButtonsType::Ok, ScResId(STR_INVALID_EPS)));
         xBox->run();
 
         m_pEdEps->GrabFocus();

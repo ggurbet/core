@@ -41,6 +41,7 @@
 #include <rtl/ref.hxx>
 
 #include <osl/thread.h>
+#include <memory>
 
 namespace cppu {
     class OMultiTypeInterfaceContainerHelper;
@@ -105,6 +106,10 @@ public:
 
 class OleComponent;
 class OwnView_Impl;
+/**
+ * Represents an OLE object that has native data and we try to let an external
+ * application handle that data.
+ */
 class OleEmbeddedObject : public ::cppu::WeakImplHelper
                         < css::embed::XEmbeddedObject
                         , css::embed::XEmbeddedOleObject
@@ -120,7 +125,7 @@ class OleEmbeddedObject : public ::cppu::WeakImplHelper
 
     OleComponent*   m_pOleComponent;
 
-    ::cppu::OMultiTypeInterfaceContainerHelper* m_pInterfaceContainer;
+    std::unique_ptr<::cppu::OMultiTypeInterfaceContainerHelper> m_pInterfaceContainer;
 
     bool m_bReadOnly;
 

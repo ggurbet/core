@@ -32,9 +32,8 @@
 #include "UndoManager.hxx"
 #include <ChartView.hxx>
 #include <PopupRequest.hxx>
+#include <ModifyListenerHelper.hxx>
 #include <svx/charthelper.hxx>
-
-#include <vcl/openglwin.hxx>
 
 #include <com/sun/star/chart/ChartDataRowSource.hpp>
 #include <com/sun/star/chart2/data/XPivotTableDataProvider.hpp>
@@ -64,8 +63,10 @@
 #include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/document/DocumentProperties.hpp>
 #include <com/sun/star/chart2/XTimeBased.hpp>
+#include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/util/XModifyBroadcaster.hpp>
 
+#include <sal/log.hxx>
 #include <svl/zforlist.hxx>
 #include <tools/diagnose_ex.h>
 
@@ -112,9 +113,6 @@ ChartModel::ChartModel(uno::Reference<uno::XComponentContext > const & xContext)
                 "com.sun.star.xml.NamespaceMap", "com.sun.star.comp.chart.XMLNameSpaceMap" ), uno::UNO_QUERY)
     , mnStart(0)
     , mnEnd(0)
-#if HAVE_FEATURE_OPENGL
-    , mpOpenGLWindow(nullptr)
-#endif
 {
     osl_atomic_increment(&m_refCount);
     {
@@ -156,9 +154,6 @@ ChartModel::ChartModel( const ChartModel & rOther )
     , m_xInternalDataProvider( rOther.m_xInternalDataProvider )
     , mnStart(rOther.mnStart)
     , mnEnd(rOther.mnEnd)
-#if HAVE_FEATURE_OPENGL
-    , mpOpenGLWindow(nullptr)
-#endif
 {
     osl_atomic_increment(&m_refCount);
     {
@@ -637,12 +632,7 @@ void SAL_CALL ChartModel::close( sal_Bool bDeliverOwnership )
                         "the model itself could not be closed",
                         static_cast< ::cppu::OWeakObject* >(this) );
 
-        if( m_aLifeTimeManager.g_close_isNeedToCancelLongLastingCalls( bDeliverOwnership, aVetoException ) )
-        {
-            m_aLifeTimeManager.g_close_endTryClose( bDeliverOwnership );
-            throw aVetoException;
-        }
-
+        m_aLifeTimeManager.g_close_isNeedToCancelLongLastingCalls( bDeliverOwnership, aVetoException );
     }
     m_aLifeTimeManager.g_close_endTryClose_doClose();
 
@@ -942,11 +932,6 @@ uno::Reference< beans::XPropertySet > SAL_CALL ChartModel::getPageBackground()
 void SAL_CALL ChartModel::createDefaultChart()
 {
     insertDefaultChart();
-}
-
-sal_Bool SAL_CALL ChartModel::isOpenGLChart()
-{
-    return ChartHelper::isGL3DDiagram(m_xDiagram);
 }
 
 // ____ XTitled ____
@@ -1307,16 +1292,6 @@ void ChartModel::setTimeBasedRange(sal_Int32 nStart, sal_Int32 nEnd)
     mbTimeBased = true;
 }
 
-void ChartModel::setWindow( const sal_uInt64 nWindowPtr )
-{
-#if HAVE_FEATURE_OPENGL
-    OpenGLWindow* pWindow = reinterpret_cast<OpenGLWindow*>(nWindowPtr);
-    mpOpenGLWindow = pWindow;
-#else
-    (void)nWindowPtr;
-#endif
-}
-
 void ChartModel::update()
 {
     if(!mxChartView.is())
@@ -1325,9 +1300,6 @@ void ChartModel::update()
     }
     mxChartView->setViewDirty();
     mxChartView->update();
-#if HAVE_FEATURE_OPENGL
-    mxChartView->updateOpenGLWindow();
-#endif
 }
 
 bool ChartModel::isDataFromSpreadsheet()

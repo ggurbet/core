@@ -28,9 +28,9 @@
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/sheet/ExternalLinkInfo.hpp>
 #include <com/sun/star/sheet/ExternalLinkType.hpp>
-#include <comphelper/string.hxx>
 #include <sfx2/objsh.hxx>
 #include <tools/urlobj.hxx>
+#include <sal/log.hxx>
 
 using namespace css;
 
@@ -2154,7 +2154,7 @@ static void lcl_ScRange_Format_XL_Header( OUStringBuffer& rString, const ScRange
                 {
                     if (!aDocName.isEmpty())
                     {
-                        rString.append("'[").append(aDocName).append("]").append(aTabName.copy(1));
+                        rString.append("'[").append(aDocName).append("]").appendCopy(aTabName, 1);
                     }
                     else
                     {

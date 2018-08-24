@@ -27,6 +27,7 @@ struct ImpSwapInfo
 {
     MapMode     maPrefMapMode;
     Size        maPrefSize;
+    Size        maSizePixel;
 
     bool mbIsAnimated;
     bool mbIsEPS;
@@ -59,11 +60,6 @@ public:
                rID.mnID3 == mnID3 && rID.mnID4 == mnID4;
     }
 
-    bool IsEmpty() const
-    {
-        return 0 == mnID4;
-    }
-
     OString getIDString() const;
 };
 
@@ -81,18 +77,27 @@ private:
     std::unique_ptr<Animation>   mpAnimation;
     std::shared_ptr<GraphicReader> mpContext;
     std::shared_ptr<ImpSwapFile> mpSwapFile;
-    std::unique_ptr<GfxLink>     mpGfxLink;
+    std::shared_ptr<GfxLink>     mpGfxLink;
     GraphicType                  meType;
     mutable sal_uLong            mnSizeBytes;
     bool                         mbSwapOut;
     bool                         mbDummyContext;
     VectorGraphicDataPtr         maVectorGraphicData;
-    css::uno::Sequence<sal_Int8> maPdfData;
+
+    /// The PDF stream from which this Graphic is rendered,
+    /// as converted (version downgraded) from the original,
+    /// which should be in GfxLink.
+    std::shared_ptr<css::uno::Sequence<sal_Int8>> mpPdfData;
     std::unique_ptr<GraphicID>   mpGraphicID;
     GraphicExternalLink          maGraphicExternalLink;
 
     std::chrono::high_resolution_clock::time_point maLastUsed;
     bool mbPrepared;
+
+    /// Used with GfxLink and/or PdfData when they store original media
+    /// which might be multi-page (PDF, f.e.) and we need to re-render
+    /// this Graphic (a page) from the source in GfxLink or PdfData.
+    sal_Int32                    mnPageNumber;
 
 public:
     ImpGraphic();
@@ -106,7 +111,7 @@ public:
     ImpGraphic( const GDIMetaFile& rMtf );
     ~ImpGraphic();
 
-    void ImplSetPrepared();
+    void ImplSetPrepared(bool bAnimated);
 
 private:
 
@@ -115,7 +120,7 @@ private:
     bool                operator==( const ImpGraphic& rImpGraphic ) const;
     bool                operator!=( const ImpGraphic& rImpGraphic ) const { return !( *this == rImpGraphic ); }
 
-    OUString getOriginURL() const
+    OUString const & getOriginURL() const
     {
         return maGraphicExternalLink.msURL;
     }
@@ -130,6 +135,11 @@ private:
         if (!mpGraphicID)
             mpGraphicID.reset(new GraphicID(*this));
         return mpGraphicID->getIDString();
+    }
+
+    bool hasPdfData() const
+    {
+        return mpPdfData && mpPdfData->hasElements();
     }
 
     void                ImplCreateSwapInfo();
@@ -154,6 +164,8 @@ private:
     const BitmapEx&     ImplGetBitmapExRef() const;
     Animation           ImplGetAnimation() const;
     const GDIMetaFile&  ImplGetGDIMetaFile() const;
+
+    Size                ImplGetSizePixel() const;
 
     Size                ImplGetPrefSize() const;
     void                ImplSetPrefSize( const Size& rPrefSize );
@@ -198,7 +210,7 @@ private:
 
     bool                ImplIsSwapOut() const { return mbSwapOut;}
     bool                ImplIsDummyContext() const { return mbDummyContext; }
-    void                ImplSetLink( const GfxLink& );
+    void                ImplSetLink( const std::shared_ptr<GfxLink>& );
     GfxLink             ImplGetLink();
     bool                ImplIsLink() const;
 
@@ -211,9 +223,9 @@ private:
 
     const VectorGraphicDataPtr& getVectorGraphicData() const;
 
-    const css::uno::Sequence<sal_Int8>& getPdfData() const;
+    const std::shared_ptr<css::uno::Sequence<sal_Int8>>& getPdfData() const;
 
-    void setPdfData(const css::uno::Sequence<sal_Int8>& rPdfData);
+    void setPdfData(const std::shared_ptr<css::uno::Sequence<sal_Int8>>& rPdfData);
 
     bool ensureAvailable () const;
 

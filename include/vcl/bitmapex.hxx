@@ -45,15 +45,16 @@ class SAL_WARN_UNUSED VCL_DLLPUBLIC BitmapEx
 public:
 
                         BitmapEx();
-                        BitmapEx( const OUString& rIconName );
+    explicit            BitmapEx( const OUString& rIconName );
                         BitmapEx( const BitmapEx& rBitmapEx );
                         BitmapEx( const BitmapEx& rBitmapEx, Point aSrc, Size aSize );
-                        BitmapEx( const Bitmap& rBmp );
+    explicit            BitmapEx( const Bitmap& rBmp );
                         BitmapEx( const Bitmap& rBmp, const Bitmap& rMask );
                         BitmapEx( const Bitmap& rBmp, const AlphaMask& rAlphaMask );
                         BitmapEx( const Bitmap& rBmp, const Color& rTransparentColor );
 
     BitmapEx&           operator=( const BitmapEx& rBitmapEx );
+    BitmapEx&           operator=( const Bitmap& rBitmap ) { return operator=(BitmapEx(rBitmap)); }
     bool                operator==( const BitmapEx& rBitmapEx ) const;
     bool                operator!=( const BitmapEx& rBitmapEx ) const { return !(*this==rBitmapEx); }
     bool                operator!() const { return !maBitmap; }
@@ -332,20 +333,6 @@ public:
                             bool bInvert = false,
                             bool msoBrightness = false );
 
-    /** Apply specified filter to the bitmap
-
-        @param eFilter
-        The filter algorithm to apply
-
-        @param pFilterParam
-        Various parameter for the different bitmap filter algorithms
-
-        @return true, if the operation was completed successfully.
-     */
-    bool                Filter(
-                            BmpFilter eFilter,
-                            const BmpFilterParam* pFilterParam = nullptr );
-
     /** Get transparency at given position
 
         @param nX
@@ -444,6 +431,13 @@ public:
     void                AdjustTransparency( sal_uInt8 cTrans );
 
     void                CombineMaskOr(Color maskColor, sal_uInt8 nTol);
+
+    /**
+     * Retrieves the color model data we need for the XImageConsumer stuff.
+     */
+    void                GetColorModel(css::uno::Sequence< sal_Int32 >& rRGBPalette,
+                            sal_uInt32& rnRedMask, sal_uInt32& rnGreenMask, sal_uInt32& rnBlueMask, sal_uInt32& rnAlphaMask, sal_uInt32& rnTransparencyIndex,
+                            sal_uInt32& rnWidth, sal_uInt32& rnHeight, sal_uInt8& rnBitCount);
 public:
 
     SAL_DLLPRIVATE std::shared_ptr<SalBitmap> const & ImplGetBitmapSalBitmap() const { return maBitmap.ImplGetSalBitmap(); }

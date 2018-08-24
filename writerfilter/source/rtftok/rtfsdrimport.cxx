@@ -27,10 +27,12 @@
 #include <com/sun/star/text/WritingMode.hpp>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <ooxml/resourceids.hxx>
 #include <filter/msfilter/escherex.hxx>
 #include <filter/msfilter/util.hxx>
 #include <filter/msfilter/rtfutil.hxx>
+#include <sal/log.hxx>
 #include <svx/svdtrans.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/propertyvalue.hxx>
@@ -163,9 +165,8 @@ void RTFSdrImport::resolveLineColorAndWidth(bool bTextFrame,
             = { "TopBorder", "LeftBorder", "BottomBorder", "RightBorder" };
         for (const char* pBorder : aBorders)
         {
-            table::BorderLine2 aBorderLine
-                = xPropertySet->getPropertyValue(OUString::createFromAscii(pBorder))
-                      .get<table::BorderLine2>();
+            auto aBorderLine = xPropertySet->getPropertyValue(OUString::createFromAscii(pBorder))
+                                   .get<table::BorderLine2>();
             if (rLineColor.hasValue())
                 aBorderLine.Color = rLineColor.get<sal_Int32>();
             if (rLineWidth.hasValue())
@@ -247,7 +248,7 @@ void RTFSdrImport::applyProperty(uno::Reference<drawing::XShape> const& xShape,
         if (!xServiceInfo->supportsService("com.sun.star.text.TextFrame"))
             xPropertySet->setPropertyValue(
                 "RotateAngle",
-                uno::makeAny(sal_Int32(NormAngle360(static_cast<long>(nRotation) * -1))));
+                uno::makeAny(sal_Int32(NormAngle36000(static_cast<long>(nRotation) * -1))));
     }
 
     if (nHoriOrient != 0 && xPropertySet.is())
@@ -605,9 +606,8 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
         else if (rProperty.first == "dxWrapDistLeft")
         {
             if (m_bTextGraphicObject)
-                rShape.aAnchorAttributes.set(
-                    NS_ooxml::LN_CT_Anchor_distL,
-                    std::make_shared<RTFValue>(rProperty.second.toInt32()));
+                rShape.aAnchorAttributes.set(NS_ooxml::LN_CT_Anchor_distL,
+                                             new RTFValue(rProperty.second.toInt32()));
             else if (xPropertySet.is())
                 xPropertySet->setPropertyValue("LeftMargin",
                                                uno::makeAny(rProperty.second.toInt32() / 360));
@@ -615,9 +615,8 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
         else if (rProperty.first == "dyWrapDistTop")
         {
             if (m_bTextGraphicObject)
-                rShape.aAnchorAttributes.set(
-                    NS_ooxml::LN_CT_Anchor_distT,
-                    std::make_shared<RTFValue>(rProperty.second.toInt32()));
+                rShape.aAnchorAttributes.set(NS_ooxml::LN_CT_Anchor_distT,
+                                             new RTFValue(rProperty.second.toInt32()));
             else if (xPropertySet.is())
                 xPropertySet->setPropertyValue("TopMargin",
                                                uno::makeAny(rProperty.second.toInt32() / 360));
@@ -625,9 +624,8 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
         else if (rProperty.first == "dxWrapDistRight")
         {
             if (m_bTextGraphicObject)
-                rShape.aAnchorAttributes.set(
-                    NS_ooxml::LN_CT_Anchor_distR,
-                    std::make_shared<RTFValue>(rProperty.second.toInt32()));
+                rShape.aAnchorAttributes.set(NS_ooxml::LN_CT_Anchor_distR,
+                                             new RTFValue(rProperty.second.toInt32()));
             else if (xPropertySet.is())
                 xPropertySet->setPropertyValue("RightMargin",
                                                uno::makeAny(rProperty.second.toInt32() / 360));
@@ -635,9 +633,8 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
         else if (rProperty.first == "dyWrapDistBottom")
         {
             if (m_bTextGraphicObject)
-                rShape.aAnchorAttributes.set(
-                    NS_ooxml::LN_CT_Anchor_distB,
-                    std::make_shared<RTFValue>(rProperty.second.toInt32()));
+                rShape.aAnchorAttributes.set(NS_ooxml::LN_CT_Anchor_distB,
+                                             new RTFValue(rProperty.second.toInt32()));
             else if (xPropertySet.is())
                 xPropertySet->setPropertyValue("BottomMargin",
                                                uno::makeAny(rProperty.second.toInt32() / 360));
@@ -716,10 +713,12 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
         else if (rProperty.first == "pctHoriz" || rProperty.first == "pctVert")
         {
             sal_Int16 nPercentage = rtl::math::round(rProperty.second.toDouble() / 10);
-            boost::optional<sal_Int16>& rPercentage
-                = rProperty.first == "pctHoriz" ? oRelativeWidth : oRelativeHeight;
             if (nPercentage)
+            {
+                boost::optional<sal_Int16>& rPercentage
+                    = rProperty.first == "pctHoriz" ? oRelativeWidth : oRelativeHeight;
                 rPercentage = nPercentage;
+            }
         }
         else if (rProperty.first == "sizerelh")
         {
@@ -841,11 +840,10 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
                             oY.reset(aPoint.toInt32());
                     } while (nI >= 0);
                     RTFSprms aPathAttributes;
-                    aPathAttributes.set(NS_ooxml::LN_CT_Point2D_x, std::make_shared<RTFValue>(*oX));
-                    aPathAttributes.set(NS_ooxml::LN_CT_Point2D_y, std::make_shared<RTFValue>(*oY));
+                    aPathAttributes.set(NS_ooxml::LN_CT_Point2D_x, new RTFValue(*oX));
+                    aPathAttributes.set(NS_ooxml::LN_CT_Point2D_y, new RTFValue(*oY));
                     aPolygonSprms.set(NS_ooxml::LN_CT_WrapPath_lineTo,
-                                      std::make_shared<RTFValue>(aPathAttributes),
-                                      RTFOverwrite::NO_APPEND);
+                                      new RTFValue(aPathAttributes), RTFOverwrite::NO_APPEND);
                 }
             } while (nCharIndex >= 0);
             rShape.aWrapPolygonSprms = aPolygonSprms;
@@ -1095,9 +1093,8 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
     {
         RTFSprms aAttributes;
         aAttributes.set(NS_ooxml::LN_CT_Background_color,
-                        std::make_shared<RTFValue>(
-                            xPropertySet->getPropertyValue("FillColor").get<sal_Int32>()));
-        m_rImport.Mapper().props(std::make_shared<RTFReferenceProperties>(aAttributes));
+                        new RTFValue(xPropertySet->getPropertyValue("FillColor").get<sal_Int32>()));
+        m_rImport.Mapper().props(new RTFReferenceProperties(aAttributes));
 
         uno::Reference<lang::XComponent> xComponent(xShape, uno::UNO_QUERY);
         xComponent->dispose();
@@ -1122,6 +1119,8 @@ void RTFSdrImport::append(const OUString& aKey, const OUString& aValue)
 
 void RTFSdrImport::appendGroupProperty(const OUString& aKey, const OUString& aValue)
 {
+    if (m_aParents.empty())
+        return;
     uno::Reference<drawing::XShape> xShape(m_aParents.top(), uno::UNO_QUERY);
     if (xShape.is())
         applyProperty(xShape, aKey, aValue);

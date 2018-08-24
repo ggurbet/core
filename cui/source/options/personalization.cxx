@@ -99,7 +99,13 @@ SelectPersonaDialog::~SelectPersonaDialog()
 void SelectPersonaDialog::dispose()
 {
     if (m_pSearchThread.is())
+    {
+        // Release the solar mutex, so the thread is not affected by the race
+        // when it's after the m_bExecute check but before taking the solar
+        // mutex.
+        SolarMutexReleaser aReleaser;
         m_pSearchThread->join();
+    }
 
     m_pEdit.clear();
     m_pSearchButton.clear();
@@ -252,6 +258,8 @@ void SelectPersonaDialog::AddPersonaSetting( OUString const & rPersonaSetting )
 
 void SelectPersonaDialog::ClearSearchResults()
 {
+    // for VCL to be able to destroy bitmaps
+    SolarMutexGuard aGuard;
     m_vPersonaSettings.clear();
     m_aSelectedPersona.clear();
     for(VclPtr<PushButton> & nIndex : m_vResultList)
@@ -317,9 +325,9 @@ void SvxPersonalizationTabPage::dispose()
 }
 
 
-VclPtr<SfxTabPage> SvxPersonalizationTabPage::Create( vcl::Window *pParent, const SfxItemSet *rSet )
+VclPtr<SfxTabPage> SvxPersonalizationTabPage::Create( TabPageParent pParent, const SfxItemSet *rSet )
 {
-    return VclPtr<SvxPersonalizationTabPage>::Create( pParent, *rSet );
+    return VclPtr<SvxPersonalizationTabPage>::Create( pParent.pParent, *rSet );
 }
 
 bool SvxPersonalizationTabPage::FillItemSet( SfxItemSet * )
@@ -418,6 +426,7 @@ void SvxPersonalizationTabPage::LoadDefaultImages()
     GraphicFilter aFilter;
     Graphic aGraphic;
     sal_Int32 nIndex = 0;
+    bool foundOne = false;
 
     while( aStream.IsOpen() && !aStream.eof() )
     {
@@ -434,10 +443,13 @@ void SvxPersonalizationTabPage::LoadDefaultImages()
 
         INetURLObject aURLObj( gallery + aPreviewFile );
         aFilter.ImportGraphic( aGraphic, aURLObj );
-        Bitmap aBmp = aGraphic.GetBitmap();
+        BitmapEx aBmp = aGraphic.GetBitmapEx();
         m_vDefaultPersonaImages[nIndex]->Show();
         m_vDefaultPersonaImages[nIndex++]->SetModeImage( Image( aBmp ) );
+        foundOne = true;
     }
+
+    m_pDefaultPersona->Enable(foundOne);
 }
 
 void SvxPersonalizationTabPage::LoadExtensionThemes()
@@ -484,6 +496,7 @@ void SvxPersonalizationTabPage::LoadExtensionThemes()
 
 IMPL_LINK_NOARG( SvxPersonalizationTabPage, SelectPersona, Button*, void )
 {
+    m_pOwnPersona->Check();
     ScopedVclPtrInstance< SelectPersonaDialog > aDialog(nullptr);
 
     if ( aDialog->Execute() == RET_OK )
@@ -529,7 +542,7 @@ IMPL_LINK_NOARG( SvxPersonalizationTabPage, SelectInstalledPersona, ListBox&, vo
     Graphic aGraphic;
     INetURLObject aURLObj( aPreviewFile );
     aFilter.ImportGraphic( aGraphic, aURLObj );
-    Bitmap aBmp = aGraphic.GetBitmap();
+    BitmapEx aBmp = aGraphic.GetBitmapEx();
     m_pExtensionPersonaPreview->SetModeImage( Image( aBmp ) );
 }
 
@@ -776,14 +789,16 @@ void SearchAndParseThread::execute()
                 continue;
             }
             INetURLObject aURLObj( sPreviewFile );
-            aFilter.ImportGraphic( aGraphic, aURLObj );
-            Bitmap aBmp = aGraphic.GetBitmap();
 
+            // Stop the thread if requested -- before taking the solar mutex.
             if( !m_bExecute )
                 return;
 
-            // for VCL to be able to do visual changes in the thread
+            // for VCL to be able to create bitmaps / do visual changes in the thread
             SolarMutexGuard aGuard;
+            aFilter.ImportGraphic( aGraphic, aURLObj );
+            BitmapEx aBmp = aGraphic.GetBitmapEx();
+
             m_pPersonaDialog->SetImages( Image( aBmp ), nIndex++ );
             m_pPersonaDialog->setOptimalLayoutSize();
             m_pPersonaDialog->AddPersonaSetting( aPersonaSetting );

@@ -60,6 +60,7 @@
 #include <document.hxx>
 #include <global.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <conditio.hxx>
 #include <validat.hxx>
 #include <scmod.hxx>
@@ -980,7 +981,7 @@ static SfxStyleSheetBase* lcl_CopyStyleToPool
 
         // if necessary create derivative Styles, if not available:
 
-        if ( ScGlobal::GetRscString(STR_STYLENAME_STANDARD) != aStrParent &&
+        if ( ScResId(STR_STYLENAME_STANDARD) != aStrParent &&
              aStrSrcStyle != aStrParent &&
              !pDestPool->Find( aStrParent, eFamily ) )
         {
@@ -1172,7 +1173,7 @@ void ScPatternAttr::UpdateStyleSheet(const ScDocument* pDoc)
         //  Assumes that "Standard" is always the 1st entry!
         if (!pStyle)
         {
-            std::shared_ptr<SfxStyleSheetIterator> pIter = pDoc->GetStyleSheetPool()->CreateIterator( SfxStyleFamily::Para, SfxStyleSearchBits::All );
+            std::unique_ptr<SfxStyleSheetIterator> pIter = pDoc->GetStyleSheetPool()->CreateIterator( SfxStyleFamily::Para, SfxStyleSearchBits::All );
             pStyle = dynamic_cast< ScStyleSheet* >(pIter->First());
         }
 

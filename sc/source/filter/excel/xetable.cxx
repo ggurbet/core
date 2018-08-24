@@ -606,8 +606,6 @@ void XclExpSingleCellBase::WriteBody( XclExpStream& rStrm )
     WriteContents( rStrm );
 }
 
-IMPL_FIXEDMEMPOOL_NEWDEL( XclExpNumberCell )
-
 XclExpNumberCell::XclExpNumberCell(
         const XclExpRoot& rRoot, const XclAddress& rXclPos,
         const ScPatternAttr* pPattern, sal_uInt32 nForcedXFId, double fValue ) :
@@ -650,8 +648,6 @@ void XclExpNumberCell::WriteContents( XclExpStream& rStrm )
     rStrm << mfValue;
 }
 
-IMPL_FIXEDMEMPOOL_NEWDEL( XclExpBooleanCell )
-
 XclExpBooleanCell::XclExpBooleanCell(
         const XclExpRoot& rRoot, const XclAddress& rXclPos,
         const ScPatternAttr* pPattern, sal_uInt32 nForcedXFId, bool bValue ) :
@@ -680,8 +676,6 @@ void XclExpBooleanCell::WriteContents( XclExpStream& rStrm )
 {
     rStrm << sal_uInt16( mbValue ? 1 : 0 ) << EXC_BOOLERR_BOOL;
 }
-
-IMPL_FIXEDMEMPOOL_NEWDEL( XclExpLabelCell )
 
 XclExpLabelCell::XclExpLabelCell(
         const XclExpRoot& rRoot, const XclAddress& rXclPos,
@@ -805,8 +799,6 @@ void XclExpLabelCell::WriteContents( XclExpStream& rStrm )
         default:    DBG_ERROR_BIFF();
     }
 }
-
-IMPL_FIXEDMEMPOOL_NEWDEL( XclExpFormulaCell )
 
 XclExpFormulaCell::XclExpFormulaCell(
         const XclExpRoot& rRoot, const XclAddress& rXclPos,
@@ -1302,8 +1294,6 @@ void XclExpMultiCellBase::RemoveUnusedXFIndexes( const ScfUInt16Vec& rXFIndexes 
     // The Save() function will skip all XF indexes equal to EXC_XF_NOTFOUND.
 }
 
-IMPL_FIXEDMEMPOOL_NEWDEL( XclExpBlankCell )
-
 XclExpBlankCell::XclExpBlankCell( const XclAddress& rXclPos, const XclExpMultiXFId& rXFId ) :
     XclExpMultiCellBase( EXC_ID3_BLANK, EXC_ID_MULBLANK, 0, rXclPos )
 {
@@ -1349,8 +1339,6 @@ void XclExpBlankCell::WriteXmlContents( XclExpXmlStream& rStrm, const XclAddress
             XML_s,      lcl_GetStyleId( rStrm, nXFId ).getStr(),
             FSEND );
 }
-
-IMPL_FIXEDMEMPOOL_NEWDEL( XclExpRkCell )
 
 XclExpRkCell::XclExpRkCell(
         const XclExpRoot& rRoot, const XclAddress& rXclPos,
@@ -2196,9 +2184,9 @@ void XclExpRowBuffer::Finalize( XclExpDefaultRowData& rDefRowData, const ScfUInt
     {
         comphelper::ThreadPool &rPool = comphelper::ThreadPool::getSharedOptimalPool();
         std::shared_ptr<comphelper::ThreadTaskTag> pTag = comphelper::ThreadPool::createThreadTaskTag();
-        std::vector<RowFinalizeTask*> aTasks(nThreads, nullptr);
+        std::vector<std::unique_ptr<RowFinalizeTask>> aTasks(nThreads);
         for ( size_t i = 0; i < nThreads; i++ )
-            aTasks[ i ] = new RowFinalizeTask( pTag, rColXFIndexes, i == 0 );
+            aTasks[ i ].reset( new RowFinalizeTask( pTag, rColXFIndexes, i == 0 ) );
 
         RowMap::iterator itr, itrBeg = maRowMap.begin(), itrEnd = maRowMap.end();
         size_t nIdx = 0;
@@ -2206,7 +2194,7 @@ void XclExpRowBuffer::Finalize( XclExpDefaultRowData& rDefRowData, const ScfUInt
             aTasks[ nIdx % nThreads ]->push_back( itr->second.get() );
 
         for ( size_t i = 1; i < nThreads; i++ )
-            rPool.pushTask( aTasks[ i ] );
+            rPool.pushTask( std::move(aTasks[ i ]) );
 
         // Progress bar updates must be synchronous to avoid deadlock
         aTasks[0]->doWork();
@@ -2454,6 +2442,9 @@ XclExpCellTable::XclExpCellTable( const XclExpRoot& rRoot ) :
 
     if(nLastUsedScCol > nMaxScCol)
         nLastUsedScCol = nMaxScCol;
+
+    // check extra blank rows to avoid of losing their not default settings (workaround for tdf#41425)
+    nLastUsedScRow += 1000;
 
     if(nLastUsedScRow > nMaxScRow)
         nLastUsedScRow = nMaxScRow;

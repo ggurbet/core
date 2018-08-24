@@ -34,7 +34,7 @@ class ScTpUserLists : public SfxTabPage
 {
     friend class VclPtr<ScTpUserLists>;
 public:
-    static  VclPtr<SfxTabPage> Create          ( vcl::Window*               pParent,
+    static  VclPtr<SfxTabPage> Create          ( TabPageParent pParent,
                                           const SfxItemSet*     rAttrSet );
     virtual bool        FillItemSet     ( SfxItemSet* rCoreAttrs ) override;
     virtual void        Reset           ( const SfxItemSet* rCoreAttrs ) override;
@@ -71,7 +71,7 @@ private:
     const OUString      aStrCopyErr;
 
     const sal_uInt16    nWhichUserLists;
-    ScUserList*     pUserLists;
+    std::unique_ptr<ScUserList> pUserLists;
 
     ScDocument*     pDoc;
     ScViewData*     pViewData;

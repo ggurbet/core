@@ -29,6 +29,7 @@
 #include <tools/ref.hxx>
 #include <rtl/ref.hxx>
 #include <osl/thread.h>
+#include <o3tl/typed_flags_set.hxx>
 #include "swdllapi.h"
 #include "docfac.hxx"
 
@@ -172,8 +173,14 @@ protected:
 };
 
 // Special Readers can be both!! (Excel, W4W, .. ).
-#define SW_STREAM_READER    1
-#define SW_STORAGE_READER   2
+enum class SwReaderType {
+    NONE = 0x00,
+    Stream = 0x01,
+    Storage = 0x02
+};
+namespace o3tl {
+    template<> struct typed_flags<SwReaderType> : is_typed_flags<SwReaderType, 0x03> {};
+};
 
 extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportDOC(SvStream &rStream, const OUString &rFltName);
 extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportRTF(SvStream &rStream);
@@ -187,27 +194,27 @@ class SW_DLLPUBLIC Reader
     friend bool TestImportRTF(SvStream &rStream);
     friend bool TestImportHTML(SvStream &rStream);
     rtl::Reference<SwDoc> mxTemplate;
-    OUString aTemplateNm;
+    OUString m_aTemplateName;
 
-    Date aDStamp;
-    tools::Time aTStamp;
-    DateTime aChkDateTime;
+    Date m_aDateStamp;
+    tools::Time m_aTimeStamp;
+    DateTime m_aCheckDateTime;
 
 protected:
-    SvStream* pStrm;
-    tools::SvRef<SotStorage> pStg;
-    css::uno::Reference < css::embed::XStorage > xStg;
-    SfxMedium* pMedium;     // Who wants to obtain a Medium (W4W).
+    SvStream* m_pStream;
+    tools::SvRef<SotStorage> m_pStorage;
+    css::uno::Reference < css::embed::XStorage > m_xStorage;
+    SfxMedium* m_pMedium;     // Who wants to obtain a Medium (W4W).
 
-    SwgReaderOption aOpt;
-    bool bInsertMode : 1;
-    bool bTmplBrowseMode : 1;
-    bool bReadUTF8: 1;      // Interprete stream as UTF-8.
-    bool bBlockMode: 1;
-    bool bOrganizerMode : 1;
-    bool bHasAskTemplateName : 1;
-    bool bIgnoreHTMLComments : 1;
-    bool bSkipImages : 1;
+    SwgReaderOption m_aOption;
+    bool m_bInsertMode : 1;
+    bool m_bTemplateBrowseMode : 1;
+    bool m_bReadUTF8: 1;      // Interpret stream as UTF-8.
+    bool m_bBlockMode: 1;
+    bool m_bOrganizerMode : 1;
+    bool m_bHasAskTemplateName : 1;
+    bool m_bIgnoreHTMLComments : 1;
+    bool m_bSkipImages : 1;
 
     virtual OUString GetTemplateName(SwDoc& rDoc) const;
 
@@ -215,8 +222,8 @@ public:
     Reader();
     virtual ~Reader();
 
-    virtual int GetReaderType();
-    SwgReaderOption& GetReaderOpt() { return aOpt; }
+    virtual SwReaderType GetReaderType();
+    SwgReaderOption& GetReaderOpt() { return m_aOption; }
 
     virtual void SetFltName( const OUString& rFltNm );
 
@@ -234,16 +241,16 @@ public:
     void SetTemplateName( const OUString& rDir );
     void MakeHTMLDummyTemplateDoc();
 
-    bool IsReadUTF8() const { return bReadUTF8; }
-    void SetReadUTF8( bool bSet ) { bReadUTF8 = bSet; }
+    bool IsReadUTF8() const { return m_bReadUTF8; }
+    void SetReadUTF8( bool bSet ) { m_bReadUTF8 = bSet; }
 
-    bool IsBlockMode() const { return bBlockMode; }
-    void SetBlockMode( bool bSet ) { bBlockMode = bSet; }
+    bool IsBlockMode() const { return m_bBlockMode; }
+    void SetBlockMode( bool bSet ) { m_bBlockMode = bSet; }
 
-    bool IsOrganizerMode() const { return bOrganizerMode; }
-    void SetOrganizerMode( bool bSet ) { bOrganizerMode = bSet; }
+    bool IsOrganizerMode() const { return m_bOrganizerMode; }
+    void SetOrganizerMode( bool bSet ) { m_bOrganizerMode = bSet; }
 
-    void SetIgnoreHTMLComments( bool bSet ) { bIgnoreHTMLComments = bSet; }
+    void SetIgnoreHTMLComments( bool bSet ) { m_bIgnoreHTMLComments = bSet; }
 
     virtual bool HasGlossaries() const;
     virtual bool ReadGlossaries( SwTextBlocks&, bool bSaveRelFiles ) const;
@@ -253,8 +260,8 @@ public:
     virtual size_t GetSectionList( SfxMedium& rMedium,
                                    std::vector<OUString>& rStrings) const;
 
-    const tools::SvRef<SotStorage>& getSotStorageRef() { return pStg; };
-    void setSotStorageRef(const tools::SvRef<SotStorage>& pStgRef) { pStg = pStgRef; };
+    const tools::SvRef<SotStorage>& getSotStorageRef() { return m_pStorage; };
+    void setSotStorageRef(const tools::SvRef<SotStorage>& pStgRef) { m_pStorage = pStgRef; };
 
 private:
     virtual ErrCode Read(SwDoc &, const OUString& rBaseURL, SwPaM &, const OUString &)=0;
@@ -277,7 +284,7 @@ class SW_DLLPUBLIC StgReader : public Reader
     OUString aFltName;
 
 public:
-    virtual int GetReaderType() override;
+    virtual SwReaderType GetReaderType() override;
     const OUString& GetFltName() { return aFltName; }
     virtual void SetFltName( const OUString& r ) override;
 };

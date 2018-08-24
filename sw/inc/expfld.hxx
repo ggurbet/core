@@ -85,14 +85,14 @@ protected:
 
 class SW_DLLPUBLIC SwGetExpField : public SwFormulaField
 {
-    OUString        sExpand;
-    bool            bIsInBodyText;
-    sal_uInt16          nSubType;
+    OUString        m_sExpand;
+    bool            m_bIsInBodyText;
+    sal_uInt16          m_nSubType;
 
-    bool            bLateInitialization; // #i82544#
+    bool            m_bLateInitialization; // #i82544#
 
     virtual OUString            Expand() const override;
-    virtual SwField*            Copy() const override;
+    virtual std::unique_ptr<SwField> Copy() const override;
 
 public:
     SwGetExpField( SwGetExpFieldType*, const OUString& rFormel,
@@ -126,19 +126,19 @@ public:
 
     static sal_Int32    GetReferenceTextPos( const SwFormatField& rFormat, SwDoc& rDoc, sal_Int32 nHint = 0);
     // #i82544#
-    void                SetLateInitialization() { bLateInitialization = true;}
+    void                SetLateInitialization() { m_bLateInitialization = true;}
 };
 
 inline void SwGetExpField::ChgExpStr(const OUString& rExpand)
-    { sExpand = rExpand;}
+    { m_sExpand = rExpand;}
 
  /// Called by formatting.
 inline bool SwGetExpField::IsInBodyText() const
-    { return bIsInBodyText; }
+    { return m_bIsInBodyText; }
 
  /// Set by UpdateExpFields where node position is known.
 inline void SwGetExpField::ChgBodyTextFlag( bool bIsInBody )
-    { bIsInBodyText = bIsInBody; }
+    { m_bIsInBodyText = bIsInBody; }
 
 class SwSetExpField;
 
@@ -214,7 +214,7 @@ class SW_DLLPUBLIC SwSetExpField : public SwFormulaField
     SwFormatField * mpFormatField; /// pool item to which the SwSetExpField belongs
 
     virtual OUString            Expand() const override;
-    virtual SwField*            Copy() const override;
+    virtual std::unique_ptr<SwField> Copy() const override;
 
 public:
     SwSetExpField(SwSetExpFieldType*, const OUString& rFormel, sal_uLong nFormat = 0);
@@ -278,31 +278,31 @@ inline bool SwSetExpField::IsSequenceField() const
 
 class SwInputFieldType : public SwFieldType
 {
-    SwDoc* pDoc;
+    SwDoc* mpDoc;
 public:
     SwInputFieldType( SwDoc* pDoc );
 
     virtual SwFieldType* Copy() const override;
 
-    SwDoc* GetDoc() const { return pDoc; }
+    SwDoc* GetDoc() const { return mpDoc; }
 };
 
 class SW_DLLPUBLIC SwInputField : public SwField
 {
-    mutable OUString aContent;
-    OUString aPText;
-    OUString aHelp;
-    OUString aToolTip;
-    sal_uInt16 nSubType;
+    mutable OUString maContent;
+    OUString maPText;
+    OUString maHelp;
+    OUString maToolTip;
+    sal_uInt16 mnSubType;
     bool mbIsFormField;
 
     SwFormatField* mpFormatField; // attribute to which the <SwInputField> belongs to
 
     virtual OUString        Expand() const override;
-    virtual SwField*        Copy() const override;
+    virtual std::unique_ptr<SwField> Copy() const override;
 
     // Accessing Input Field's content
-    const OUString& getContent() const { return aContent;}
+    const OUString& getContent() const { return maContent;}
 
 public:
     /// Direct input via dialog; delete old value.
@@ -366,9 +366,9 @@ public:
     bool        BuildSortLst();
 
 private:
-    SwEditShell*                      pSh;
-    std::unique_ptr<SetGetExpFields>  pSrtLst;
-    std::set<const SwTextField*>      aTmpLst;
+    SwEditShell*                      mpSh;
+    std::unique_ptr<SetGetExpFields>  mpSrtLst;
+    std::set<const SwTextField*>      maTmpLst;
 };
 
  /// Implementation in tblcalc.cxx.
@@ -385,7 +385,7 @@ class SwTableField : public SwValueField, public SwTableFormula
     sal_uInt16      nSubType;
 
     virtual OUString    Expand() const override;
-    virtual SwField*    Copy() const override;
+    virtual std::unique_ptr<SwField> Copy() const override;
 
     /// Search TextNode containing the field.
     virtual const SwNode* GetNodeOfFormula() const override;

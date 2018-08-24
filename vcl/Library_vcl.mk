@@ -248,7 +248,6 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/animate \
     vcl/source/gdi/base14 \
     vcl/source/gdi/bitmap3 \
-    vcl/source/gdi/bitmap4 \
     vcl/source/gdi/bitmapex \
     vcl/source/gdi/bmpacc2 \
     vcl/source/gdi/bmpacc3 \
@@ -312,20 +311,31 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/graphic/UnoGraphicTransformer \
     vcl/source/bitmap/bitmap \
     vcl/source/bitmap/bitmapfilter \
-    vcl/source/bitmap/BitmapInterpolateScaleFilter \
+    vcl/source/bitmap/BitmapAlphaClampFilter \
+    vcl/source/bitmap/BitmapMonochromeFilter \
+    vcl/source/bitmap/BitmapSmoothenFilter \
     vcl/source/bitmap/BitmapLightenFilter \
     vcl/source/bitmap/BitmapDisabledImageFilter \
     vcl/source/bitmap/BitmapColorizeFilter \
     vcl/source/bitmap/bitmappaint \
     vcl/source/bitmap/BitmapGaussianSeparableBlurFilter \
+    vcl/source/bitmap/BitmapSobelGreyFilter \
+    vcl/source/bitmap/BitmapSolarizeFilter \
+    vcl/source/bitmap/BitmapSepiaFilter \
+    vcl/source/bitmap/BitmapMosaicFilter \
+    vcl/source/bitmap/BitmapEmbossGreyFilter \
+    vcl/source/bitmap/BitmapPopArtFilter \
+    vcl/source/bitmap/BitmapDuoToneFilter \
+    vcl/source/bitmap/BitmapConvolutionMatrixFilter \
+    vcl/source/bitmap/BitmapMedianFilter \
+    vcl/source/bitmap/BitmapInterpolateScaleFilter \
     vcl/source/bitmap/BitmapSeparableUnsharpenFilter \
-    vcl/source/bitmap/BitmapFastScaleFilter \
+	vcl/source/bitmap/BitmapFastScaleFilter \
     vcl/source/bitmap/BitmapScaleSuperFilter \
     vcl/source/bitmap/BitmapScaleConvolutionFilter \
     vcl/source/bitmap/BitmapSymmetryCheck \
     vcl/source/bitmap/BitmapColorQuantizationFilter \
     vcl/source/bitmap/BitmapSimpleColorQuantizationFilter \
-    vcl/source/bitmap/BitmapMedianColorQuantizationFilter \
     vcl/source/bitmap/BitmapTools \
     vcl/source/bitmap/checksum \
     vcl/source/image/Image \
@@ -343,6 +353,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/helper/strhelper \
     vcl/source/helper/threadex \
     vcl/source/app/brand \
+    vcl/source/app/customweld \
     vcl/source/app/dbggui \
     vcl/source/app/dndhelp \
     vcl/source/app/help \
@@ -392,6 +403,10 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/filter/wmf/wmf \
     vcl/source/filter/wmf/wmfexternal \
     vcl/source/filter/wmf/wmfwr \
+    vcl/source/font/Feature \
+    vcl/source/font/FeatureCollector \
+    vcl/source/font/FeatureParser \
+    vcl/source/font/OpenTypeFeatureDefinitonList \
     vcl/source/font/PhysicalFontCollection \
     vcl/source/font/PhysicalFontFace \
     vcl/source/font/PhysicalFontFamily \
@@ -633,7 +648,6 @@ else
     vcl/opengl/LineRenderUtils \
     vcl/source/opengl/OpenGLContext \
     vcl/source/opengl/OpenGLHelper \
-    vcl/source/window/openglwin \
  ))
 ifeq ($(OS), $(filter LINUX %BSD SOLARIS, $(OS)))
 $(eval $(call gb_Library_add_libs,vcl,\
@@ -659,6 +673,10 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
 
 $(eval $(call gb_Library_add_libs,vcl,\
     -lbe \
+))
+
+$(eval $(call gb_Library_add_exception_objects,vcl, \
+    $(if $(or $(ENABLE_QT5),$(ENABLE_KDE5)),vcl/unx/generic/plugadapt/salplug) \
 ))
 
 $(eval $(call gb_Library_use_externals,vcl,\
@@ -763,24 +781,6 @@ ifeq ($(OS),WNT)
 # HACK: dependency on icon themes so running unit tests don't
 # prevent delivering these by having open file handles on WNT
 $(eval $(call gb_Library_use_package,vcl,postprocess_images))
-endif
-
-ifeq ($(ENABLE_QT5),TRUE)
-$(eval $(call gb_Library_use_externals,vcl,\
-    qt5 \
-))
-$(eval $(call gb_Library_add_defs,vcl,\
-    $(QT5_CFLAGS) \
-))
-$(eval $(call gb_Library_add_libs,vcl,\
-    $(QT5_LIBS) \
-))
-$(eval $(call gb_Library_add_cxxflags,vcl,\
-    $(QT5_CFLAGS) \
-))
-$(eval $(call gb_Library_add_exception_objects,vcl,\
-    vcl/qt5/Qt5Font \
-))
 endif
 
 # vim: set noet sw=4 ts=4:

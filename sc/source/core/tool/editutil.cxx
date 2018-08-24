@@ -19,7 +19,6 @@
 
 #include <scitems.hxx>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/string.hxx>
 #include <editeng/eeitem.hxx>
 
 #include <svx/algitem.hxx>
@@ -35,6 +34,7 @@
 #include <vcl/outdev.hxx>
 #include <svl/inethist.hxx>
 #include <unotools/syslocale.hxx>
+#include <sfx2/objsh.hxx>
 
 #include <com/sun/star/text/textfield/Type.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
@@ -112,6 +112,11 @@ OUString ScEditUtil::GetMultilineString( const EditTextObject& rEdit )
 
 OUString ScEditUtil::GetString( const EditTextObject& rEditText, const ScDocument* pDoc )
 {
+    if( !rEditText.HasField())
+        return GetMultilineString( rEditText );
+
+    static osl::Mutex aMutex;
+    osl::MutexGuard aGuard( aMutex);
     // ScFieldEditEngine is needed to resolve field contents.
     if (pDoc)
     {
@@ -124,8 +129,6 @@ OUString ScEditUtil::GetString( const EditTextObject& rEditText, const ScDocumen
     }
     else
     {
-        static osl::Mutex aMutex;
-        osl::MutexGuard aGuard( aMutex);
         EditEngine& rEE = ScGlobal::GetStaticFieldEditEngine();
         rEE.SetText( rEditText);
         return GetMultilineString( rEE);
@@ -191,7 +194,7 @@ std::unique_ptr<EditTextObject> ScEditUtil::Clone( const EditTextObject& rObj, S
 }
 
 OUString ScEditUtil::GetCellFieldValue(
-    const SvxFieldData& rFieldData, const ScDocument* pDoc, Color** ppTextColor )
+    const SvxFieldData& rFieldData, const ScDocument* pDoc, boost::optional<Color>* ppTextColor )
 {
     OUString aRet;
     switch (rFieldData.GetClassId())
@@ -218,7 +221,7 @@ OUString ScEditUtil::GetCellFieldValue(
                 INetURLHistory::GetOrCreate()->QueryUrl(aURL) ? svtools::LINKSVISITED : svtools::LINKS;
 
             if (ppTextColor)
-                *ppTextColor = new Color( SC_MOD()->GetColorConfig().GetColorValue(eEntry).nColor );
+                *ppTextColor = SC_MOD()->GetColorConfig().GetColorValue(eEntry).nColor;
         }
         break;
         case text::textfield::Type::EXTENDED_TIME:
@@ -781,9 +784,7 @@ static OUString lcl_GetNumStr(sal_Int32 nNo, SvxNumType eType)
 }
 
 ScHeaderFieldData::ScHeaderFieldData()
-    :
-        aDate( Date::EMPTY ),
-        aTime( tools::Time::EMPTY )
+    : aDateTime ( DateTime::EMPTY )
 {
     nPageNo = nTotalPages = 0;
     eNumType = SVX_NUM_ARABIC;
@@ -796,7 +797,7 @@ ScHeaderEditEngine::ScHeaderEditEngine( SfxItemPool* pEnginePoolP )
 
 OUString ScHeaderEditEngine::CalcFieldValue( const SvxFieldItem& rField,
                                     sal_Int32 /* nPara */, sal_Int32 /* nPos */,
-                                    Color*& /* rTxtColor */, Color*& /* rFldColor */ )
+                                    boost::optional<Color>& /* rTxtColor */, boost::optional<Color>& /* rFldColor */ )
 {
     const SvxFieldData* pFieldData = rField.GetField();
     if (!pFieldData)
@@ -815,7 +816,7 @@ OUString ScHeaderEditEngine::CalcFieldValue( const SvxFieldItem& rField,
         case text::textfield::Type::EXTENDED_TIME:
         case text::textfield::Type::TIME:
             // For now, time field in the header / footer is always dynamic.
-            aRet = ScGlobal::pLocaleData->getTime(aData.aTime);
+            aRet = ScGlobal::pLocaleData->getTime(aData.aDateTime);
         break;
         case text::textfield::Type::DOCINFO_TITLE:
             aRet = aData.aTitle;
@@ -836,7 +837,7 @@ OUString ScHeaderEditEngine::CalcFieldValue( const SvxFieldItem& rField,
             aRet = aData.aTabName;
         break;
         case text::textfield::Type::DATE:
-            aRet = ScGlobal::pLocaleData->getDate(aData.aDate);
+            aRet = ScGlobal::pLocaleData->getDate(aData.aDateTime);
         break;
         default:
             aRet = "?";
@@ -860,7 +861,7 @@ ScFieldEditEngine::ScFieldEditEngine(
 
 OUString ScFieldEditEngine::CalcFieldValue( const SvxFieldItem& rField,
                                     sal_Int32 /* nPara */, sal_Int32 /* nPos */,
-                                    Color*& rTxtColor, Color*& /* rFldColor */ )
+                                    boost::optional<Color>& rTxtColor, boost::optional<Color>& /* rFldColor */ )
 {
     const SvxFieldData* pFieldData = rField.GetField();
 

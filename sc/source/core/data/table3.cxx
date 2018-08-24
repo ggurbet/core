@@ -28,6 +28,7 @@
 #include <unotools/collatorwrapper.hxx>
 #include <stdlib.h>
 #include <unotools/transliterationwrapper.hxx>
+#include <sal/log.hxx>
 
 #include <table.hxx>
 #include <scitems.hxx>
@@ -35,6 +36,7 @@
 #include <formulacell.hxx>
 #include <document.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <global.hxx>
 #include <stlpool.hxx>
 #include <compiler.hxx>
@@ -252,13 +254,12 @@ public:
         explicit Row( size_t nColSize ) : maCells(nColSize, Cell()), mbHidden(false), mbFiltered(false) {}
     };
 
-    typedef std::vector<Row*> RowsType;
+    typedef std::vector<Row> RowsType;
 
 private:
     std::unique_ptr<RowsType> mpRows; /// row-wise data table for sort by row operation.
 
     std::vector<std::unique_ptr<ScSortInfo[]>> mvppInfo;
-    SCSIZE          nCount;
     SCCOLROW        nStart;
     SCCOLROW        mnLastIndex; /// index of last non-empty cell position.
 
@@ -272,11 +273,12 @@ public:
 
     ScSortInfoArray( sal_uInt16 nSorts, SCCOLROW nInd1, SCCOLROW nInd2 ) :
         mvppInfo(nSorts),
-        nCount( nInd2 - nInd1 + 1 ), nStart( nInd1 ),
+        nStart( nInd1 ),
         mnLastIndex(nInd2),
         mbKeepQuery(false),
         mbUpdateRefs(false)
     {
+        SCSIZE nCount( nInd2 - nInd1 + 1 );
         if (nSorts)
         {
             for ( sal_uInt16 nSort = 0; nSort < nSorts; nSort++ )
@@ -287,12 +289,6 @@ public:
 
         for (size_t i = 0; i < nCount; ++i)
             maOrderIndices.push_back(i+nStart);
-    }
-
-    ~ScSortInfoArray()
-    {
-        if (mpRows)
-            std::for_each(mpRows->begin(), mpRows->end(), std::default_delete<Row>());
     }
 
     void SetKeepQuery( bool b ) { mbKeepQuery = b; }
@@ -324,6 +320,8 @@ public:
      */
     void Swap( SCCOLROW nInd1, SCCOLROW nInd2 )
     {
+        if (nInd1 == nInd2) // avoid self-move-assign
+            return;
         SCSIZE n1 = static_cast<SCSIZE>(nInd1 - nStart);
         SCSIZE n2 = static_cast<SCSIZE>(nInd2 - nStart);
         for ( sal_uInt16 nSort = 0; nSort < static_cast<sal_uInt16>(mvppInfo.size()); nSort++ )
@@ -386,10 +384,7 @@ public:
     RowsType& InitDataRows( size_t nRowSize, size_t nColSize )
     {
         mpRows.reset(new RowsType);
-        mpRows->reserve(nRowSize);
-        for (size_t i = 0; i < nRowSize; ++i)
-            mpRows->push_back(new Row(nColSize));
-
+        mpRows->resize(nRowSize, Row(nColSize));
         return *mpRows;
     }
 
@@ -425,7 +420,7 @@ void initDataRows(
 
         for (SCROW nRow = nRow1; nRow <= nRow2; ++nRow)
         {
-            ScSortInfoArray::Row& rRow = *rRows[nRow-nRow1];
+            ScSortInfoArray::Row& rRow = rRows[nRow-nRow1];
             ScSortInfoArray::Cell& rCell = rRow.maCells[nCol-nCol1];
             rCell.maCell = rCol.GetCellValue(aBlockPos, nRow);
             rCell.mpAttr = rCol.GetCellTextAttr(aBlockPos, nRow);
@@ -442,7 +437,7 @@ void initDataRows(
     {
         for (SCROW nRow = nRow1; nRow <= nRow2; ++nRow)
         {
-            ScSortInfoArray::Row& rRow = *rRows[nRow-nRow1];
+            ScSortInfoArray::Row& rRow = rRows[nRow-nRow1];
             rRow.mbHidden = rTab.RowHidden(nRow);
             rRow.mbFiltered = rTab.RowFiltered(nRow);
         }
@@ -699,12 +694,12 @@ void fillSortedColumnArray(
 
     for (size_t i = 0; i < pRows->size(); ++i)
     {
-        ScSortInfoArray::Row* pRow = (*pRows)[i];
-        for (size_t j = 0; j < pRow->maCells.size(); ++j)
+        ScSortInfoArray::Row& rRow = (*pRows)[i];
+        for (size_t j = 0; j < rRow.maCells.size(); ++j)
         {
             ScAddress aCellPos(nCol1 + j, nRow1 + i, nTab);
 
-            ScSortInfoArray::Cell& rCell = pRow->maCells[j];
+            ScSortInfoArray::Cell& rCell = rRow.maCells[j];
 
             sc::CellStoreType& rCellStore = aSortedCols.at(j).get()->maCells;
             switch (rCell.maCell.meType)
@@ -798,8 +793,8 @@ void fillSortedColumnArray(
         {
             // Hidden and filtered flags are first converted to segments.
             SCROW nRow = nRow1 + i;
-            aRowFlags.setRowHidden(nRow, pRow->mbHidden);
-            aRowFlags.setRowFiltered(nRow, pRow->mbFiltered);
+            aRowFlags.setRowHidden(nRow, rRow.mbHidden);
+            aRowFlags.setRowFiltered(nRow, rRow.mbFiltered);
         }
 
         if (pProgress)
@@ -2010,7 +2005,6 @@ bool ScTable::DoSubTotals( ScSubTotalParam& rParam )
     bool bTestPrevSub = ( nLevelCount > 1 );
 
     OUString  aSubString;
-    OUString  aOutString;
 
     bool bIgnoreCase = !rParam.bCaseSens;
 
@@ -2019,7 +2013,7 @@ bool ScTable::DoSubTotals( ScSubTotalParam& rParam )
                                 //TODO: sort?
 
     ScStyleSheet* pStyle = static_cast<ScStyleSheet*>(pDocument->GetStyleSheetPool()->Find(
-                                ScGlobal::GetRscString(STR_STYLENAME_RESULT), SfxStyleFamily::Para ));
+                                ScResId(STR_STYLENAME_RESULT), SfxStyleFamily::Para ));
 
     bool bSpaceLeft = true;                                         // Success when inserting?
 
@@ -2116,14 +2110,14 @@ bool ScTable::DoSubTotals( ScSubTotalParam& rParam )
                         // collect formula positions
                         aRowVector.push_back( aRowEntry );
 
-                        aOutString = aSubString;
+                        OUString aOutString = aSubString;
                         if (aOutString.isEmpty())
-                            aOutString = ScGlobal::GetRscString( STR_EMPTYDATA );
+                            aOutString = ScResId( STR_EMPTYDATA );
                         aOutString += " ";
                         const char* pStrId = STR_TABLE_ERGEBNIS;
                         if ( nResCount == 1 )
                             pStrId = lcl_GetSubTotalStrId(pResFunc[0]);
-                        aOutString += ScGlobal::GetRscString(pStrId);
+                        aOutString += ScResId(pStrId);
                         SetString( nGroupCol[aRowEntry.nGroupNo], aRowEntry.nDestRow, nTab, aOutString );
                         ApplyStyle( nGroupCol[aRowEntry.nGroupNo], aRowEntry.nDestRow, pStyle );
 
@@ -2192,9 +2186,9 @@ bool ScTable::DoSubTotals( ScSubTotalParam& rParam )
                 DBShowRow(aRowEntry.nDestRow, true);
 
                 // insert label
-                OUString label = ScGlobal::GetRscString(STR_TABLE_GRAND);
+                OUString label = ScResId(STR_TABLE_GRAND);
                 label += " ";
-                label += ScGlobal::GetRscString(lcl_GetSubTotalStrId(pResFunc[0]));
+                label += ScResId(lcl_GetSubTotalStrId(pResFunc[0]));
                 SetString(nGroupCol[aRowEntry.nGroupNo], aRowEntry.nDestRow, nTab, label);
                 ApplyStyle(nGroupCol[aRowEntry.nGroupNo], aRowEntry.nDestRow, pStyle);
             }
@@ -2386,7 +2380,7 @@ public:
     std::pair<bool,bool> compareByValue(
         const ScRefCellValue& rCell, SCCOL nCol, SCROW nRow,
         const ScQueryEntry& rEntry, const ScQueryEntry::Item& rItem,
-        const ScInterpreterContext* pContext = nullptr)
+        const ScInterpreterContext* pContext)
     {
         bool bOk = false;
         bool bTestEqual = false;
@@ -2474,7 +2468,7 @@ public:
 
     std::pair<bool,bool> compareByString(
         ScRefCellValue& rCell, SCROW nRow, const ScQueryEntry& rEntry, const ScQueryEntry::Item& rItem,
-        const ScInterpreterContext* pContext = nullptr)
+        const ScInterpreterContext* pContext)
     {
         bool bOk = false;
         bool bTestEqual = false;
@@ -3274,12 +3268,12 @@ bool ScTable::CreateStarQuery(SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2
         if (nIndex > 0)
         {
             GetUpperCellString(nCol1, nRow, aCellStr);
-            if ( aCellStr == ScGlobal::GetRscString(STR_TABLE_UND) )
+            if ( aCellStr == ScResId(STR_TABLE_UND) )
             {
                 rEntry.eConnect = SC_AND;
                 bValid = true;
             }
-            else if ( aCellStr == ScGlobal::GetRscString(STR_TABLE_ODER) )
+            else if ( aCellStr == ScResId(STR_TABLE_ODER) )
             {
                 rEntry.eConnect = SC_OR;
                 bValid = true;

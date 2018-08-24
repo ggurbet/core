@@ -25,6 +25,7 @@
 #include "xcl97esc.hxx"
 #include "xlstyle.hxx"
 #include <tabprotection.hxx>
+#include <svx/svdobj.hxx>
 
 class XclObj;
 class XclExpMsoDrawing;
@@ -36,24 +37,19 @@ class XclExpObjList : public ExcEmptyRec, protected XclExpRoot
 {
 public:
 
-    typedef std::vector<XclObj*>::iterator iterator;
+    typedef std::vector<std::unique_ptr<XclObj>>::iterator iterator;
 
     explicit            XclExpObjList( const XclExpRoot& rRoot, XclEscherEx& rEscherEx );
     virtual             ~XclExpObjList() override;
 
     /// return: 1-based ObjId
     ///! count>=0xFFFF: Obj will be deleted, return 0
-    sal_uInt16              Add( XclObj* );
-
-    XclObj* back () { return maObjs.empty() ? nullptr : maObjs.back(); }
+    sal_uInt16              Add( std::unique_ptr<XclObj> );
 
     /**
-     *
      * @brief Remove last element in the list.
-     *
      */
-
-    void pop_back ();
+    std::unique_ptr<XclObj> pop_back ();
 
     bool empty () const { return maObjs.empty(); }
 
@@ -63,7 +59,7 @@ public:
 
     iterator end () { return maObjs.end(); }
 
-    XclExpMsoDrawing* GetMsodrawingPerSheet() { return pMsodrawingPerSheet; }
+    XclExpMsoDrawing* GetMsodrawingPerSheet() { return pMsodrawingPerSheet.get(); }
 
                                 /// close groups and DgContainer opened in ctor
     void                EndSheet();
@@ -78,10 +74,10 @@ private:
     SCTAB               mnScTab;
 
     XclEscherEx&        mrEscherEx;
-    XclExpMsoDrawing*   pMsodrawingPerSheet;
-    XclExpMsoDrawing*   pSolverContainer;
+    std::unique_ptr<XclExpMsoDrawing> pMsodrawingPerSheet;
+    std::unique_ptr<XclExpMsoDrawing> pSolverContainer;
 
-    std::vector<XclObj*> maObjs;
+    std::vector<std::unique_ptr<XclObj>> maObjs;
 };
 
 // --- class XclObj --------------------------------------------------
@@ -91,8 +87,8 @@ class XclObj : public XclExpRecord
 protected:
         XclEscherEx&        mrEscherEx;
         XclExpMsoDrawing*   pMsodrawing;
-        XclExpMsoDrawing*   pClientTextbox;
-        XclTxo*             pTxo;
+        std::unique_ptr<XclExpMsoDrawing> pClientTextbox;
+        std::unique_ptr<XclTxo> pTxo;
         sal_uInt16          mnObjType;
         sal_uInt16          nObjId;
         sal_uInt16          nGrbit;
@@ -157,11 +153,13 @@ public:
 class XclObjComment : public XclObj
 {
     ScAddress                   maScPos;
-    std::unique_ptr< SdrCaptionObj >
-                                mpCaption;
+
+    // no need to use std::unique_ptr< SdrCaptionObj, SdrObjectFreeOp >
+    SdrCaptionObj*              mpCaption;
+
     bool                        mbVisible;
-    tools::Rectangle                   maFrom;
-    tools::Rectangle                   maTo;
+    tools::Rectangle            maFrom;
+    tools::Rectangle            maTo;
 
 public:
                                 XclObjComment( XclExpObjectManager& rObjMgr,

@@ -30,6 +30,8 @@
 #include <memory>
 #include <unordered_map>
 
+#include <datatransformation.hxx>
+
 
 namespace com { namespace sun { namespace star {
     namespace beans { class XPropertySet; }
@@ -108,7 +110,6 @@ class ScXMLExport : public SvXMLExport
     std::unique_ptr<ScMyMergedRangesContainer>  pMergedRangesContainer;
     std::unique_ptr<ScMyValidationsContainer>   pValidationsContainer;
     std::unique_ptr<ScChangeTrackingExportHelper> pChangeTrackingExportHelper;
-    const OUString         sLayerID;
     OUString               sExternalRefTabStyleName;
     OUString               sAttrName;
     OUString               sAttrStyleName;
@@ -196,6 +197,7 @@ class ScXMLExport : public SvXMLExport
     void WriteLabelRanges( const css::uno::Reference< css::container::XIndexAccess >& xRangesIAccess, bool bColumn );
     void WriteNamedExpressions();
     void WriteExternalDataMapping();
+    void WriteExternalDataTransformations(const std::vector<std::shared_ptr<sc::DataTransformation>>& aDataTransformations);
     void WriteDataStream();
     void WriteNamedRange(ScRangeName* pRangeName);
     void ExportConditionalFormat(SCTAB nTab);
@@ -232,6 +234,8 @@ public:
         OUString const & implementationName, SvXMLExportFlags nExportFlag);
 
     virtual ~ScXMLExport() override;
+
+    void collectAutoStyles() override;
 
     static sal_Int16 GetMeasureUnit();
     ScDocument*          GetDocument()           { return pDoc; }

@@ -37,6 +37,7 @@
 #include <xmloff/xmlnumi.hxx>
 #include <xmloff/maptype.hxx>
 
+#include <sal/log.hxx>
 #include "txtparai.hxx"
 #include <xmloff/txtprmap.hxx>
 #include <xmloff/txtimppr.hxx>
@@ -156,6 +157,7 @@ static const SvXMLTokenMapEntry aTextPElemTokenMap[] =
     // sender fields
     { XML_NAMESPACE_TEXT, XML_SENDER_FIRSTNAME,XML_TOK_TEXT_SENDER_FIRSTNAME},
     { XML_NAMESPACE_TEXT, XML_SENDER_LASTNAME, XML_TOK_TEXT_SENDER_LASTNAME },
+    // note: loext was written by accident in some LO versions, don't remove!
     { XML_NAMESPACE_LO_EXT, XML_SENDER_INITIALS, XML_TOK_TEXT_SENDER_INITIALS },
     { XML_NAMESPACE_TEXT,   XML_SENDER_INITIALS, XML_TOK_TEXT_SENDER_INITIALS },
     { XML_NAMESPACE_TEXT, XML_SENDER_TITLE, XML_TOK_TEXT_SENDER_TITLE },
@@ -546,6 +548,9 @@ struct XMLTextImportHelper::Impl
     // Used for frame deduplication, the name of the last frame imported directly before the current one
     OUString msLastImportedFrameName;
 
+    bool m_bBookmarkHidden;
+    OUString m_sBookmarkCondition;
+
     uno::Reference<text::XText> m_xText;
     uno::Reference<text::XTextCursor> m_xCursor;
     uno::Reference<text::XTextRange> m_xCursorAsRange;
@@ -591,6 +596,7 @@ struct XMLTextImportHelper::Impl
                 bool const bProgress, bool const bBlockMode,
                 bool const bOrganizerMode)
         :   m_xTextListsHelper( new XMLTextListsHelper() )
+        ,   m_bBookmarkHidden( false )
         // XML import: reconstrution of assignment of paragraph style to outline levels (#i69629#)
         ,   m_xServiceFactory( rModel, UNO_QUERY )
         ,   m_rSvXMLImport( rImport )
@@ -1609,7 +1615,7 @@ OUString XMLTextImportHelper::SetStyleAndAttrs(
                 bool bSameNumRules = xNewNumRules == xNumRules;
                 if( !bSameNumRules && xNewNumRules.is() && xNumRules.is() )
                 {
-                    // If the interface pointers are different then this does
+                    // If the interface pointers are different, then this does
                     // not mean that the num rules are different. Further tests
                     // are required then. However, if only one num rule is
                     // set, no tests are required of course.
@@ -2606,11 +2612,7 @@ bool XMLTextImportHelper::FindAndRemoveBookmarkStartRange(
         o_rXmlId = std::get<1>(rEntry);
         o_rpRDFaAttributes = std::get<2>(rEntry);
         m_xImpl->m_BookmarkStartRanges.erase(sName);
-        auto it(m_xImpl->m_BookmarkVector.begin());
-        while (it != m_xImpl->m_BookmarkVector.end() && *it != sName)
-        {
-            ++it;
-        }
+        auto it = std::find(m_xImpl->m_BookmarkVector.begin(), m_xImpl->m_BookmarkVector.end(), sName);
         if (it!=m_xImpl->m_BookmarkVector.end())
         {
             m_xImpl->m_BookmarkVector.erase(it);
@@ -2948,6 +2950,22 @@ void XMLTextImportHelper::MapCrossRefHeadingFieldsHorribly()
         }
         xField->setPropertyValue("SourceName", uno::makeAny(iter->second));
     }
+}
+
+void XMLTextImportHelper::setBookmarkAttributes(bool hidden, OUString const& condition)
+{
+    m_xImpl->m_bBookmarkHidden = hidden;
+    m_xImpl->m_sBookmarkCondition = condition;
+}
+
+bool XMLTextImportHelper::getBookmarkHidden()
+{
+    return m_xImpl->m_bBookmarkHidden;
+}
+
+const OUString& XMLTextImportHelper::getBookmarkCondition()
+{
+    return m_xImpl->m_sBookmarkCondition;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

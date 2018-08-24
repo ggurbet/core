@@ -18,10 +18,10 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <objc/objc-runtime.h>
 
-#include <comphelper/string.hxx>
 #include <rtl/ustrbuf.hxx>
 
 #include <vcl/commandevent.hxx>
@@ -219,34 +219,21 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
     }
 }
 
-SalMenu* AquaSalInstance::CreateMenu( bool bMenuBar, Menu* pVCLMenu )
+std::unique_ptr<SalMenu> AquaSalInstance::CreateMenu( bool bMenuBar, Menu* pVCLMenu )
 {
     initAppMenu();
 
     AquaSalMenu *pAquaSalMenu = new AquaSalMenu( bMenuBar );
     pAquaSalMenu->mpVCLMenu = pVCLMenu;
 
-    return pAquaSalMenu;
+    return std::unique_ptr<SalMenu>(pAquaSalMenu);
 }
 
-void AquaSalInstance::DestroyMenu( SalMenu* pSalMenu )
+std::unique_ptr<SalMenuItem> AquaSalInstance::CreateMenuItem( const SalItemParams & rItemData )
 {
-    delete pSalMenu;
-}
+    AquaSalMenuItem *pSalMenuItem = new AquaSalMenuItem( &rItemData );
 
-SalMenuItem* AquaSalInstance::CreateMenuItem( const SalItemParams* pItemData )
-{
-    if( !pItemData )
-        return nullptr;
-
-    AquaSalMenuItem *pSalMenuItem = new AquaSalMenuItem( pItemData );
-
-    return pSalMenuItem;
-}
-
-void AquaSalInstance::DestroyMenuItem( SalMenuItem* pSalMenuItem )
-{
-    delete pSalMenuItem;
+    return std::unique_ptr<SalMenuItem>(pSalMenuItem);
 }
 
 /*
@@ -317,11 +304,6 @@ AquaSalMenu::~AquaSalMenu()
 
 bool AquaSalMenu::ShowNativePopupMenu(FloatingWindow * pWin, const tools::Rectangle& rRect, FloatWinPopupFlags nFlags)
 {
-    // do not use native popup menu when AQUA_NATIVE_MENUS is set to false
-    if( ! VisibleMenuBar() ) {
-        return false;
-    }
-
     // set offsets for positioning
     const float offset = 9.0;
 
@@ -488,17 +470,6 @@ void AquaSalMenu::removeFallbackMenuItem( NSMenuItem* pOldItem )
 
 bool AquaSalMenu::VisibleMenuBar()
 {
-    // Enable/disable experimental native menus code?
-
-    // To disable native menus, set the environment variable AQUA_NATIVE_MENUS to FALSE
-
-    static const char *pExperimental = getenv ("AQUA_NATIVE_MENUS");
-
-    if ( pExperimental && !strcasecmp(pExperimental, "FALSE") )
-        return false;
-
-    // End of experimental code enable/disable part
-
     return true;
 }
 
@@ -811,7 +782,7 @@ void AquaSalMenu::statusLayout()
 
 bool AquaSalMenu::AddMenuBarButton( const SalMenuButtonItem& i_rNewItem )
 {
-    if( ! mbMenuBar || ! VisibleMenuBar() )
+    if( ! mbMenuBar  )
         return false;
 
     MenuBarButtonEntry* pEntry = findButtonItem( i_rNewItem.mnId );

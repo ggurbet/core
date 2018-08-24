@@ -20,6 +20,7 @@
 
 #include <cclass_unicode.hxx>
 #include <unicode/uchar.h>
+#include <rtl/character.hxx>
 #include <rtl/math.hxx>
 #include <rtl/ustring.hxx>
 #include <com/sun/star/i18n/KParseTokens.hpp>
@@ -317,13 +318,15 @@ const sal_Int32 cclass_Unicode::pParseTokensType[ nDefCnt ] =
 
 
 // static
-const sal_Unicode* cclass_Unicode::StrChr( const sal_Unicode* pStr, sal_Unicode c )
+const sal_Unicode* cclass_Unicode::StrChr( const sal_Unicode* pStr, sal_uInt32 c )
 {
     if ( !pStr )
         return nullptr;
+    sal_Unicode cs[2];
+    auto const n = rtl::splitSurrogates(c, cs);
     while ( *pStr )
     {
-        if ( *pStr == c )
+        if ( *pStr == cs[0] && (n == 1 || pStr[1] == cs[1]) )
             return pStr;
         pStr++;
     }
@@ -410,18 +413,16 @@ void cclass_Unicode::initParserTable( const Locale& rLocale, sal_Int32 startChar
     setupInternational( rLocale );
     // Memory of pTable is reused.
     if ( !pTable )
-        pTable = new ParserFlags[nDefCnt];
-    memcpy( pTable, pDefaultParserTable, sizeof(ParserFlags) * nDefCnt );
+        pTable.reset(new ParserFlags[nDefCnt]);
+    memcpy( pTable.get(), pDefaultParserTable, sizeof(ParserFlags) * nDefCnt );
     // Start and cont tables only need reallocation if different length.
     if ( pStart && userDefinedCharactersStart.getLength() != aStartChars.getLength() )
     {
-        delete [] pStart;
-        pStart = nullptr;
+        pStart.reset();
     }
     if ( pCont && userDefinedCharactersCont.getLength() != aContChars.getLength() )
     {
-        delete [] pCont;
-        pCont = nullptr;
+        pCont.reset();
     }
     nStartTypes = startCharTokenType;
     nContTypes = contCharTokenType;
@@ -515,7 +516,7 @@ void cclass_Unicode::initParserTable( const Locale& rLocale, sal_Int32 startChar
     if ( nLen )
     {
         if ( !pStart )
-            pStart = new ParserFlags[ nLen ];
+            pStart.reset(new ParserFlags[ nLen ]);
         const sal_Unicode* p = aStartChars.getStr();
         for ( sal_Int32 j=0; j<nLen; j++, p++ )
         {
@@ -529,7 +530,7 @@ void cclass_Unicode::initParserTable( const Locale& rLocale, sal_Int32 startChar
     if ( nLen )
     {
         if ( !pCont )
-            pCont = new ParserFlags[ nLen ];
+            pCont.reset(new ParserFlags[ nLen ]);
         const sal_Unicode* p = aContChars.getStr();
         for ( sal_Int32 j=0; j<nLen; j++ )
         {
@@ -543,12 +544,9 @@ void cclass_Unicode::initParserTable( const Locale& rLocale, sal_Int32 startChar
 
 void cclass_Unicode::destroyParserTable()
 {
-    if ( pCont )
-        delete [] pCont;
-    if ( pStart )
-        delete [] pStart;
-    if ( pTable )
-        delete [] pTable;
+    pCont.reset();
+    pStart.reset();
+    pTable.reset();
 }
 
 
@@ -664,7 +662,7 @@ ParserFlags cclass_Unicode::getFlagsExtended(sal_uInt32 const c)
 }
 
 
-ParserFlags cclass_Unicode::getStartCharsFlags( sal_Unicode c )
+ParserFlags cclass_Unicode::getStartCharsFlags( sal_uInt32 c )
 {
     if ( pStart )
     {
@@ -696,7 +694,7 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
     eState = ssGetChar;
 
     //! All the variables below (plus ParseResult) have to be resetted on ssRewindFromValue!
-    OUString aSymbol;
+    OUStringBuffer aSymbol;
     bool isFirst(true);
     sal_Int32 index(nPos); // index of next code point after current
     sal_Int32 postSymbolIndex(index); // index of code point following last quote
@@ -885,13 +883,13 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                     {
                         if ( cLast == '\\' )
                         {   // escaped
-                            aSymbol += rText.copy(postSymbolIndex, nextCharIndex - postSymbolIndex - 2);
-                            aSymbol += OUString(&current, 1);
+                            aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 2);
+                            aSymbol.append(OUString(&current, 1));
                         }
                         else
                         {
                             eState = ssStop;
-                            aSymbol += rText.copy(postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
+                            aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
                         }
                         postSymbolIndex = nextCharIndex;
                     }
@@ -910,13 +908,13 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                 {
                     if ( cLast == '\\' )
                     {   // escaped
-                        aSymbol += rText.copy(postSymbolIndex, nextCharIndex - postSymbolIndex - 2);
-                        aSymbol += OUString(&current, 1);
+                        aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 2);
+                        aSymbol.append(OUString(&current, 1));
                     }
                     else if (current == nextChar &&
                             !(nContTypes & KParseTokens::TWO_DOUBLE_QUOTES_BREAK_STRING) )
                     {   // "" => literal " escaped
-                        aSymbol += rText.copy(postSymbolIndex, nextCharIndex - postSymbolIndex);
+                        aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex);
                         nextCharIndex = index;
                         if (index < rText.getLength()) { ++nCodePoints; }
                         nextChar = (index < rText.getLength()) ? rText.iterateCodePoints(&index) : 0;
@@ -924,7 +922,7 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                     else
                     {
                         eState = ssStop;
-                        aSymbol += rText.copy(postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
+                        aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
                     }
                     postSymbolIndex = nextCharIndex;
                 }
@@ -950,7 +948,7 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
             index = nPos;
             postSymbolIndex = nPos;
             nextCharIndex = nPos;
-            aSymbol.clear();
+            aSymbol.setLength(0);
             current = (index < rText.getLength()) ? rText.iterateCodePoints(&index) : 0;
             nCodePoints = (nPos < rText.getLength()) ? 1 : 0;
             isFirst = true;
@@ -1033,10 +1031,10 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
     {
         if (postSymbolIndex < nextCharIndex)
         {   //! open quote
-            aSymbol += rText.copy(postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
+            aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
             r.TokenType |= KParseType::MISSING_QUOTE;
         }
-        r.DequotedNameOrString = aSymbol;
+        r.DequotedNameOrString = aSymbol.toString();
     }
 }
 

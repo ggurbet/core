@@ -59,7 +59,6 @@
 #define STR_POOLFRM_WATERSIGN                   NC_("STR_POOLFRM_WATERSIGN", "Watermark")
 #define STR_POOLFRM_LABEL                       NC_("STR_POOLFRM_LABEL", "Labels")
 // Template names
-// tdf#107211 please don't change STANDARD, except back to "Default"
 #define STR_POOLCOLL_STANDARD                   NC_("STR_POOLCOLL_STANDARD", "Default Style")
 #define STR_POOLCOLL_TEXT                       NC_("STR_POOLCOLL_TEXT", "Text Body")
 #define STR_POOLCOLL_TEXT_IDENT                 NC_("STR_POOLCOLL_TEXT_IDENT", "First Line Indent")
@@ -169,8 +168,8 @@
 #define STR_POOLCOLL_TOX_USER9                  NC_("STR_POOLCOLL_TOX_USER9", "User Index 9")
 #define STR_POOLCOLL_TOX_USER10                 NC_("STR_POOLCOLL_TOX_USER10", "User Index 10")
 #define STR_POOLCOLL_TOX_CITATION               NC_("STR_POOLCOLL_TOX_CITATION", "Citation")
-#define STR_POOLCOLL_TOX_ILLUSH                 NC_("STR_POOLCOLL_TOX_ILLUSH", "Illustration Index Heading")
-#define STR_POOLCOLL_TOX_ILLUS1                 NC_("STR_POOLCOLL_TOX_ILLUS1", "Illustration Index 1")
+#define STR_POOLCOLL_TOX_ILLUSH                 NC_("STR_POOLCOLL_TOX_ILLUSH", "Figure Index Heading")
+#define STR_POOLCOLL_TOX_ILLUS1                 NC_("STR_POOLCOLL_TOX_ILLUS1", "Figure Index 1")
 #define STR_POOLCOLL_TOX_OBJECTH                NC_("STR_POOLCOLL_TOX_OBJECTH", "Object Index Heading")
 #define STR_POOLCOLL_TOX_OBJECT1                NC_("STR_POOLCOLL_TOX_OBJECT1", "Object Index 1")
 #define STR_POOLCOLL_TOX_TABLESH                NC_("STR_POOLCOLL_TOX_TABLESH", "Table Index Heading")
@@ -236,6 +235,8 @@
 #define STR_BOOKMARK_DEF_NAME                   NC_("STR_BOOKMARK_DEF_NAME", "Bookmark")
 #define STR_BOOKMARK_NAME                       NC_("STR_BOOKMARK_NAME", "Name")
 #define STR_BOOKMARK_TEXT                       NC_("STR_BOOKMARK_TEXT", "Text")
+#define STR_BOOKMARK_HIDDEN                     NC_("STR_BOOKMARK_HIDDEN", "Hidden")
+#define STR_BOOKMARK_CONDITION                  NC_("STR_BOOKMARK_CONDITION", "Condition")
 #define SW_STR_NONE                             NC_("SW_STR_NONE", "[None]")
 #define STR_CAPTION_BEGINNING                   NC_("STR_CAPTION_BEGINNING", "Start")
 #define STR_CAPTION_END                         NC_("STR_CAPTION_END", "End")
@@ -669,7 +670,7 @@
 #define STR_TOX_CITATION                        NC_("STR_TOX_CITATION", "Citation")
 #define STR_TOX_TBL                             NC_("STR_TOX_TBL", "Index of Tables")
 #define STR_TOX_OBJ                             NC_("STR_TOX_OBJ", "Table of Objects")
-#define STR_TOX_ILL                             NC_("STR_TOX_ILL", "Illustration Index")
+#define STR_TOX_ILL                             NC_("STR_TOX_ILL", "Table of Figures")
 #define STR_LINK_CTRL_CLICK                     NC_("STR_LINK_CTRL_CLICK", "%s-Click to follow link")
 #define STR_LINK_CLICK                          NC_("STR_LINK_CLICK", "Click to follow link")
 // SubType DocInfo
@@ -1327,6 +1328,8 @@
 #define STR_INVALID_SIGNATURE                   NC_("STR_INVALID_SIGNATURE", "Invalid Signature")
 #define STR_SIGNED_BY                           NC_("STR_SIGNED_BY", "Signed-by")
 #define STR_PARAGRAPH_SIGNATURE                 NC_("STR_PARAGRAPH_SIGNATURE", "Paragraph Signature")
+
+#define STR_BUSINESS_CARDS                      NC_("labeldialog|cards", "Business Cards")
 
 #endif
 

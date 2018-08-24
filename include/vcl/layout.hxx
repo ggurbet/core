@@ -14,6 +14,7 @@
 #include <vcl/button.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/fixed.hxx>
+#include <vcl/help.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/split.hxx>
 #include <vcl/svapp.hxx>
@@ -507,10 +508,13 @@ class VCL_DLLPUBLIC VclViewport : public VclBin
 public:
     VclViewport(vcl::Window *pParent)
         : VclBin(pParent, WB_HIDE | WB_CLIPCHILDREN)
+        , m_bInitialAllocation(true)
     {
     }
 protected:
     virtual void setAllocation(const Size &rAllocation) override;
+private:
+    bool m_bInitialAllocation;
 };
 
 //Enforces that its children are always the same size as itself.
@@ -558,14 +562,6 @@ public:
     virtual void setAllocation(const Size &rAllocation) override;
 
     virtual void Command(const CommandEvent& rCEvt) override;
-};
-
-enum class VclSizeGroupMode
-{
-    NONE,
-    Horizontal,
-    Vertical,
-    Both
 };
 
 class VCL_DLLPUBLIC VclSizeGroup
@@ -623,6 +619,8 @@ private:
     Link<const MouseEvent&, void> m_aMouseReleaseHdl;
     Link<const KeyEvent&, bool> m_aKeyPressHdl;
     Link<const KeyEvent&, bool> m_aKeyReleaseHdl;
+    Link<VclDrawingArea&, void> m_aStyleUpdatedHdl;
+    Link<tools::Rectangle&, OUString> m_aQueryTooltipHdl;
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override
     {
@@ -655,21 +653,42 @@ private:
         if (!m_aKeyReleaseHdl.Call(rKEvt))
             Control::KeyUp(rKEvt);
     }
-
     virtual void StateChanged(StateChangedType nType) override
     {
         Control::StateChanged(nType);
         if (nType == StateChangedType::ControlForeground || nType == StateChangedType::ControlBackground)
+        {
+            m_aStyleUpdatedHdl.Call(*this);
             Invalidate();
+        }
     }
-
     virtual void DataChanged(const DataChangedEvent& rDCEvt) override
     {
         Control::DataChanged(rDCEvt);
         if ((rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE))
+        {
+            m_aStyleUpdatedHdl.Call(*this);
             Invalidate();
+        }
     }
-
+    virtual void RequestHelp(const HelpEvent& rHelpEvent) override
+    {
+        if (rHelpEvent.GetMode() & (HelpEventMode::QUICK | HelpEventMode::BALLOON))
+        {
+            Point aPos(ScreenToOutputPixel(rHelpEvent.GetMousePosPixel()));
+            tools::Rectangle aHelpArea(aPos.X(), aPos.Y());
+            OUString sHelpTip = m_aQueryTooltipHdl.Call(aHelpArea);
+            if (sHelpTip.isEmpty())
+                return;
+            Point aPt = OutputToScreenPixel(aHelpArea.TopLeft());
+            aHelpArea.SetLeft(aPt.X());
+            aHelpArea.SetTop(aPt.Y());
+            aPt = OutputToScreenPixel(aHelpArea.BottomRight());
+            aHelpArea.SetRight(aPt.X());
+            aHelpArea.SetBottom(aPt.Y());
+            Help::ShowQuickHelp(this, aHelpArea, sHelpTip);
+        }
+    }
     virtual FactoryFunction GetUITestFactory() const override
     {
         if (m_pFactoryFunction)
@@ -683,6 +702,7 @@ public:
         , m_pFactoryFunction(nullptr)
         , m_pUserData(nullptr)
     {
+        SetBackground();
     }
     void SetUITestFactory(FactoryFunction pFactoryFunction, void* pUserData)
     {
@@ -720,6 +740,14 @@ public:
     void SetKeyReleaseHdl(const Link<const KeyEvent&, bool>& rLink)
     {
         m_aKeyReleaseHdl = rLink;
+    }
+    void SetStyleUpdatedHdl(const Link<VclDrawingArea&, void>& rLink)
+    {
+        m_aStyleUpdatedHdl = rLink;
+    }
+    void SetQueryTooltipHdl(const Link<tools::Rectangle&, OUString>& rLink)
+    {
+        m_aQueryTooltipHdl = rLink;
     }
 };
 

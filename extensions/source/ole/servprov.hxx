@@ -20,6 +20,8 @@
 #ifndef INCLUDED_EXTENSIONS_SOURCE_OLE_SERVPROV_HXX
 #define INCLUDED_EXTENSIONS_SOURCE_OLE_SERVPROV_HXX
 
+#include <functional>
+
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <cppuhelper/implbase.hxx>
@@ -39,93 +41,28 @@ Reference< XInterface> ConverterProvider_CreateInstanceVar1(   const Reference<X
 Reference<XInterface> OleClient_CreateInstance( const Reference<XMultiServiceFactory> & xSMgr);
 /// @throws Exception
 Reference<XInterface> OleServer_CreateInstance( const Reference<XMultiServiceFactory> & xSMgr);
-/*****************************************************************************
-
-    IClassFactoryWrapper
-
-    Specify abstract helper methods on class factories, which provide
-    UNO objects. These methods are used by objects of class OleServer_Impl,
-    to handle the OLE registration of different class factories.
-
-*****************************************************************************/
-
-class IClassFactoryWrapper : public IClassFactory
-{
-public:
-
-    virtual bool registerClass() = 0;
-    virtual bool deregisterClass() = 0;
-
-protected:
-    ~IClassFactoryWrapper() {}
-};
 
 /*****************************************************************************
 
-    ProviderOleWrapper_Impl
+    OneInstanceOleWrapper
 
-    Provides an UNO service provider as OLE class factory. Handle the
-    OLE registration by overriding the abstract methods from
-    IClassFactoryWrapper.
+    Provides an single UNO object as OLE object.
 
     Acts as a COM class factory. When IClassFactory::CreateInstance is being called
-    then it creates an service by help of the XSingleServiceFactory member and maps
-    maps it to a COM object.
-
-*****************************************************************************/
-
-class ProviderOleWrapper_Impl : public IClassFactoryWrapper
-{
-public:
-
-    ProviderOleWrapper_Impl( const Reference<XMultiServiceFactory>& smgr,
-                             const Reference<XSingleServiceFactory>& xSFactory, GUID const * pGuid);
-    virtual ~ProviderOleWrapper_Impl();
-
-    bool registerClass() override;
-    bool deregisterClass() override;
-
-    /* IUnknown methods */
-    STDMETHOD(QueryInterface)(REFIID riid, LPVOID FAR * ppvObj) override;
-    STDMETHOD_(ULONG, AddRef)() override;
-    STDMETHOD_(ULONG, Release)() override;
-
-    /* IClassFactory methods */
-    STDMETHOD(CreateInstance)(IUnknown FAR* punkOuter, REFIID riid, void FAR* FAR* ppv) override;
-    STDMETHOD(LockServer)(int fLock) override;
-
-protected:
-
-    oslInterlockedCount m_refCount;
-    Reference<XSingleServiceFactory> m_xSingleServiceFactory;
-    const GUID          m_guid;
-    DWORD               m_factoryHandle;
-    Reference<XBridgeSupplier2> m_bridgeSupplier;
-    Reference<XMultiServiceFactory> m_smgr;
-};
-
-/*****************************************************************************
-
-    OneInstanceOleWrapper_Impl
-
-    Provides an single UNO object as OLE object. Handle the
-    OLE registration by overriding the abstract methods from
-    IClassFactoryWrapper.
-
-      Acts as a COM class factory. When IClassFactory::CreateInstance is being called
     then it maps the XInstance member it to a COM object.
 
 *****************************************************************************/
 
-class OneInstanceOleWrapper_Impl : public IClassFactoryWrapper
+class OneInstanceOleWrapper : public IClassFactory
 {
 public:
 
-    OneInstanceOleWrapper_Impl( const Reference<XMultiServiceFactory>& smgr, const Reference<XInterface>& xInst, GUID const * pGuid );
-    virtual ~OneInstanceOleWrapper_Impl();
+    OneInstanceOleWrapper( const Reference<XMultiServiceFactory>& smgr,
+                           std::function<const Reference<XInterface>()> xInstFunction );
+    virtual ~OneInstanceOleWrapper();
 
-    bool registerClass() override;
-    bool deregisterClass() override;
+    bool registerClass(GUID const * pGuid);
+    bool deregisterClass();
 
     /* IUnknown methods */
     STDMETHOD(QueryInterface)(REFIID riid, LPVOID FAR * ppvObj) override;
@@ -137,10 +74,8 @@ public:
     STDMETHOD(LockServer)(int fLock) override;
 
 protected:
-
     oslInterlockedCount m_refCount;
-    Reference<XInterface>       m_xInst;
-    const GUID          m_guid;
+    std::function<const Reference<XInterface>()> m_xInstFunction;
     DWORD               m_factoryHandle;
     Reference<XBridgeSupplier2> m_bridgeSupplier;
     Reference<XMultiServiceFactory> m_smgr;
@@ -149,22 +84,21 @@ protected:
 // Implementation of the UNO service com.sun.star.bridge.OleBridgeSupplier2.
 
 // This class realizes the service com.sun.star.bridge.OleBridgeSupplier2 and
-// com.sun.star.bridge.OleBridgeSupplierVar1. The class implements XBridgeSupplier2
-// instead of XBridgeSuppplier as done by class OleConverter_Impl. The XBridgeSupplier2
+// com.sun.star.bridge.OleBridgeSupplierVar1. The class implements XBridgeSupplier2 which
 // interface does not need a Maschine Id in its createBridge function anymore,
 // If an UNO interface is to be converted then the member m_nUnoWrapperClass determines
-// what wrapper class is to be used. There are currently InterfaceOleWrapper_Impl and
+// what wrapper class is to be used. There are currently InterfaceOleWrapper and
 // UnoObjectWrapperRemoteOpt. The first is used for the OleBridgeSupplier2 and the
 // latter for OleBridgeSupplierVar1.
 // The m_nComWrapperClass specifies the class which is used as wrapper for COM interfaces.
-// Currently there is only one class available ( IUnknownWrapper_Impl).
-class OleConverter_Impl2 : public WeakImplHelper<XBridgeSupplier2, XInitialization, css::lang::XServiceInfo>,
-                            public UnoConversionUtilities<OleConverter_Impl2>
+// Currently there is only one class available (IUnknownWrapper).
+class OleConverter : public WeakImplHelper<XBridgeSupplier2, XInitialization, css::lang::XServiceInfo>,
+                            public UnoConversionUtilities<OleConverter>
 {
 public:
-    explicit OleConverter_Impl2( const Reference<XMultiServiceFactory>& smgr);
-    OleConverter_Impl2( const  Reference<XMultiServiceFactory>& smgr, sal_uInt8 unoWrapperClass, sal_uInt8 comWrapperClass );
-    virtual ~OleConverter_Impl2() override;
+    explicit OleConverter( const Reference<XMultiServiceFactory>& smgr);
+    OleConverter( const  Reference<XMultiServiceFactory>& smgr, sal_uInt8 unoWrapperClass, sal_uInt8 comWrapperClass );
+    virtual ~OleConverter() override;
 
     // XBridgeSupplier2 ---------------------------------------------------
 
@@ -182,7 +116,7 @@ public:
 
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override;
 
-    // Abstract struct UnoConversionUtilities
+    // UnoConversionUtilities
     Reference< XInterface > createUnoWrapperInstance() override;
     Reference< XInterface > createComWrapperInstance() override;
 protected:
@@ -191,12 +125,12 @@ protected:
 
 // Implementation of the UNO service com.sun.star.bridge.OleObjectFactory.
 
-class OleClient_Impl : public WeakImplHelper<XMultiServiceFactory, css::lang::XServiceInfo>,
-                       public UnoConversionUtilities<OleClient_Impl>
+class OleClient : public WeakImplHelper<XMultiServiceFactory, css::lang::XServiceInfo>,
+                  public UnoConversionUtilities<OleClient>
 {
 public:
-    explicit OleClient_Impl( const Reference<XMultiServiceFactory>& smgr);
-    ~OleClient_Impl() override;
+    explicit OleClient( const Reference<XMultiServiceFactory>& smgr);
+    ~OleClient() override;
 
     // XMultiServiceFactory
     Reference<XInterface> SAL_CALL createInstance(const OUString& ServiceSpecifier) override;
@@ -209,7 +143,7 @@ public:
 
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override;
 
-    // Abstract struct UnoConversionUtilities
+    // UnoConversionUtilities
     Reference< XInterface > createUnoWrapperInstance() override;
     Reference< XInterface > createComWrapperInstance() override;
 
@@ -219,7 +153,7 @@ protected:
 
 /*****************************************************************************
 
-    OleServer_Impl
+    OleServer
 
     Implementation of the UNO service com.sun.star.bridge.OleApplicationRegistration.
     Register the calling application as OLE automation server for
@@ -228,11 +162,11 @@ protected:
 
 *****************************************************************************/
 
-class OleServer_Impl : public cppu::WeakImplHelper<css::lang::XServiceInfo>
+class OleServer : public cppu::WeakImplHelper<css::lang::XServiceInfo>
 {
 public:
-    explicit OleServer_Impl( const Reference<XMultiServiceFactory> &smgr);
-    ~OleServer_Impl() override;
+    explicit OleServer( const Reference<XMultiServiceFactory> &smgr);
+    ~OleServer() override;
 
     OUString SAL_CALL getImplementationName() override;
 
@@ -241,11 +175,9 @@ public:
     css::uno::Sequence<OUString> SAL_CALL getSupportedServiceNames() override;
 
 protected:
+    bool provideInstance(std::function<const Reference<XInterface>()> xInstFunction, GUID const * guid);
 
-    bool provideService(const Reference<XSingleServiceFactory>& xMulFact, GUID const * guid);
-    bool provideInstance(const Reference<XInterface>& xInst, GUID const * guid);
-
-    list< IClassFactoryWrapper* > m_wrapperList;
+    list< OneInstanceOleWrapper* > m_wrapperList;
     Reference< XBridgeSupplier2 >   m_bridgeSupplier;
 
     Reference<XMultiServiceFactory> m_smgr;

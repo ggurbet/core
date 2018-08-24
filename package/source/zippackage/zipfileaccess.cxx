@@ -25,6 +25,7 @@
 #include <com/sun/star/io/XSeekable.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <comphelper/processfactory.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <zipfileaccess.hxx>
 #include <ZipEnumeration.hxx>
@@ -34,6 +35,7 @@
 #include <ucbhelper/content.hxx>
 #include <rtl/ref.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 
@@ -282,11 +284,11 @@ uno::Any SAL_CALL OZipFileAccess::getByName( const OUString& aName )
     {
         throw;
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
+        css::uno::Any anyEx = cppu::getCaughtException();
         throw lang::WrappedTargetException( "This package is unusable!",
-                  static_cast < OWeakObject * > ( this ),
-                                        makeAny(e));
+                  static_cast < OWeakObject * > ( this ), anyEx);
     }
 
     if ( !xEntryStream.is() )
@@ -413,8 +415,7 @@ void SAL_CALL OZipFileAccess::dispose()
     {
            lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
         m_pListenersContainer->disposeAndClear( aSource );
-        delete m_pListenersContainer;
-        m_pListenersContainer = nullptr;
+        m_pListenersContainer.reset();
     }
 
     m_pZipFile.reset();
@@ -436,7 +437,7 @@ void SAL_CALL OZipFileAccess::addEventListener( const uno::Reference< lang::XEve
         throw lang::DisposedException(THROW_WHERE );
 
     if ( !m_pListenersContainer )
-        m_pListenersContainer = new ::comphelper::OInterfaceContainerHelper2( m_aMutexHolder->GetMutex() );
+        m_pListenersContainer.reset( new ::comphelper::OInterfaceContainerHelper2( m_aMutexHolder->GetMutex() ) );
     m_pListenersContainer->addInterface( xListener );
 }
 

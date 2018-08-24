@@ -728,7 +728,7 @@ void SvImpLBox::KeyLeftRight( long nDelta )
     nFlags &= (~LBoxFlags::Filling);
     ShowCursor( false );
 
-    // neuen Origin berechnen
+    // calculate new origin
     long nPos = aHorSBar->GetThumbPos();
     Point aOrigin( -nPos, 0 );
 
@@ -1075,8 +1075,8 @@ void SvImpLBox::DrawNet(vcl::RenderContext& rRenderContext)
             aPos1.AdjustY(nEntryHeightDIV2 );
 
             pChild = pView->FirstChild( pEntry );
-            DBG_ASSERT(pChild,"Child?");
-            pChild = SvTreeList::LastSibling( pChild );
+            assert(pChild && "Child?");
+            pChild = pChild->LastSibling();
             nDistance = static_cast<sal_uInt16>(pView->GetVisiblePos(pChild) - pView->GetVisiblePos(pEntry));
             aPos2 = aPos1;
             aPos2.AdjustY(nDistance * nEntryHeight );
@@ -1116,7 +1116,7 @@ void SvImpLBox::DrawNet(vcl::RenderContext& rRenderContext)
         aPos1.AdjustX( -(pView->GetIndent()) );
         aPos1.setY( GetEntryLine( pEntry ) );
         aPos1.AdjustY(nEntryHeightDIV2 );
-        pChild = SvTreeList::LastSibling( pEntry );
+        pChild = pEntry->LastSibling();
         aPos2.setX( aPos1.X() );
         aPos2.setY( GetEntryLine( pChild ) );
         aPos2.AdjustY(nEntryHeightDIV2 );
@@ -1311,10 +1311,12 @@ void SvImpLBox::FillView()
 {
     if( !pStartEntry )
     {
-        sal_uInt16 nVisibleViewCount = static_cast<sal_uInt16>(pView->GetVisibleCount());
-        sal_uInt16 nTempThumb = static_cast<sal_uInt16>(aVerSBar->GetThumbPos());
-        if( nTempThumb >= nVisibleViewCount )
-            nTempThumb = nVisibleViewCount - 1;
+        sal_uLong nVisibleViewCount = pView->GetVisibleCount();
+        long nTempThumb = aVerSBar->GetThumbPos();
+        if( nTempThumb < 0 )
+            nTempThumb = 0;
+        else if( static_cast<unsigned long>(nTempThumb) >= nVisibleViewCount )
+            nTempThumb = nVisibleViewCount == 0 ? 0 : nVisibleViewCount - 1;
         pStartEntry = pView->GetEntryAtVisPos(nTempThumb);
     }
     if( !pStartEntry )
@@ -1650,7 +1652,7 @@ void SvImpLBox::RemovingEntry( SvTreeListEntry* pEntry )
             pView->Select( pCursor, false );
         ShowCursor( false );    // focus rectangle gone
         // NextSibling, because we also delete the children of the cursor
-        pTemp = SvTreeListBox::NextSibling( pCursor );
+        pTemp = pCursor->NextSibling();
         if( !pTemp )
             pTemp = pView->PrevVisible(pCursor);
 
@@ -1658,7 +1660,7 @@ void SvImpLBox::RemovingEntry( SvTreeListEntry* pEntry )
     }
     if( pStartEntry && pStartEntry == pEntry )
     {
-        pTemp = SvTreeListBox::NextSibling( pStartEntry );
+        pTemp = pStartEntry->NextSibling();
         if( !pTemp )
             pTemp = pView->PrevVisible(pStartEntry);
         pStartEntry = pTemp;
@@ -1749,9 +1751,9 @@ void SvImpLBox::MovingEntry( SvTreeListEntry* pEntry )
     }
     else
     {
-        pNew = SvTreeList::NextSibling( pEntry );
+        pNew = pEntry->NextSibling();
         if( !pNew )
-            pNew = SvTreeList::PrevSibling( pEntry );
+            pNew = pEntry->PrevSibling();
     }
     pStartEntry = pNew;
 }
@@ -2019,7 +2021,13 @@ void SvImpLBox::MouseButtonDown( const MouseEvent& rMEvt )
     {
         nFlags &= (~LBoxFlags::StartEditTimer);
         pView->pHdlEntry = pEntry;
-        if( pView->DoubleClickHdl() )
+        if( !pView->DoubleClickHdl() )
+        {
+            // Handler signals nothing to be done anymore, bail out, 'this' may
+            // even be dead and destroyed.
+            return;
+        }
+        else
         {
             // if the entry was deleted within the handler
             pEntry = GetClickedEntry( aPos );

@@ -24,9 +24,9 @@
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <rtl/ustring.hxx>
+#include <memory>
 
 class SfxItemPropertySet;
-class SwXTextDocument;
 class SwSearchProperties_Impl;
 class SfxItemSet;
 
@@ -46,8 +46,8 @@ class SwXTextSearch : public cppu::WeakImplHelper
     OUString                m_sSearchText;
     OUString                m_sReplaceText;
 
-    SwSearchProperties_Impl*    m_pSearchProperties;
-    SwSearchProperties_Impl*    m_pReplaceProperties;
+    std::unique_ptr<SwSearchProperties_Impl> m_pSearchProperties;
+    std::unique_ptr<SwSearchProperties_Impl> m_pReplaceProperties;
 
     const SfxItemPropertySet*   m_pPropSet;
     bool                    m_bAll  : 1;

@@ -124,10 +124,10 @@ class VCL_DLLPUBLIC PPDParser
     friend class CPDManager;
     friend class PPDCache;
 
-    typedef std::unordered_map< OUString, PPDKey* > hash_type;
+    typedef std::unordered_map< OUString, std::unique_ptr<PPDKey> > hash_type;
     typedef std::vector< PPDKey* > value_type;
 
-    void insertKey( const OUString& rKey, PPDKey* pKey );
+    void insertKey( std::unique_ptr<PPDKey> pKey );
 public:
     struct PPDConstraint
     {
@@ -143,9 +143,6 @@ private:
     value_type                                  m_aOrderedKeys;
     ::std::vector< PPDConstraint >              m_aConstraints;
 
-    // some identifying fields
-    OUString                                    m_aPrinterName;
-    OUString                                    m_aNickName;
     // the full path of the PPD file
     OUString                                    m_aFile;
     // some basic attributes
@@ -157,20 +154,14 @@ private:
 
     // shortcuts to important keys and their default values
     // imageable area
-    const PPDValue*                             m_pDefaultImageableArea;
     const PPDKey*                               m_pImageableAreas;
     // paper dimensions
     const PPDValue*                             m_pDefaultPaperDimension;
     const PPDKey*                               m_pPaperDimensions;
     // paper trays
     const PPDValue*                             m_pDefaultInputSlot;
-    const PPDKey*                               m_pInputSlots;
     // resolutions
     const PPDValue*                             m_pDefaultResolution;
-    const PPDKey*                               m_pResolutions;
-
-    // fonts
-    const PPDKey*                               m_pFontList;
 
     // translations
     std::unique_ptr<PPDTranslator>              m_pTranslator;
@@ -270,7 +261,7 @@ public:
 
     // for printer setup
     char*   getStreamableBuffer( sal_uLong& rBytes ) const;
-    void    rebuildFromStreamBuffer( char* pBuffer, sal_uLong nBytes );
+    void    rebuildFromStreamBuffer(const std::vector<char> &rBuffer);
 
     // convenience
     int getRenderResolution() const;

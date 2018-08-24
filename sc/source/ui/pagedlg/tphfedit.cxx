@@ -28,6 +28,7 @@
 #include <editeng/fhgtitem.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/sfxdlg.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
@@ -80,7 +81,7 @@ ScEditWindow::ScEditWindow( vcl::Window* pParent, WinBits nBits, ScEditWindowLoc
     Size aSize( GetOutputSize() );
     aSize.setHeight( aSize.Height() * 4 );
 
-    pEdEngine = new ScHeaderEditEngine( EditEngine::CreatePool() );
+    pEdEngine.reset( new ScHeaderEditEngine( EditEngine::CreatePool() ) );
     pEdEngine->SetPaperSize( aSize );
     pEdEngine->SetRefDevice( this );
 
@@ -94,11 +95,11 @@ ScEditWindow::ScEditWindow( vcl::Window* pParent, WinBits nBits, ScEditWindowLoc
     if (mbRTL)
         pEdEngine->SetDefaultHorizontalTextDirection(EEHorizontalTextDirection::R2L);
 
-    pEdView = new EditView( pEdEngine, this );
+    pEdView.reset( new EditView( pEdEngine.get(), this ) );
     pEdView->SetOutputArea( tools::Rectangle( Point(0,0), GetOutputSize() ) );
 
     pEdView->SetBackgroundColor( aBgColor );
-    pEdEngine->InsertView( pEdView );
+    pEdEngine->InsertView( pEdView.get() );
 }
 
 void ScEditWindow::Resize()
@@ -125,8 +126,8 @@ void ScEditWindow::dispose()
         if (xTemp.is())
             pAcc->dispose();
     }
-    delete pEdEngine;
-    delete pEdView;
+    pEdEngine.reset();
+    pEdView.reset();
     Control::dispose();
 }
 
@@ -199,12 +200,10 @@ void ScEditWindow::SetCharAttributes()
         SfxItemSet aSet( pEdView->GetAttribs() );
 
         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-        OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
         ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScCharDlg(
             GetParent(),  &aSet, pDocSh));
-        OSL_ENSURE(pDlg, "Dialog create fail!");
-        pDlg->SetText( ScGlobal::GetRscString( STR_TEXTATTRS ) );
+        pDlg->SetText( ScResId( STR_TEXTATTRS ) );
         if ( pDlg->Execute() == RET_OK )
         {
             aSet.ClearItem();
@@ -328,7 +327,7 @@ css::uno::Reference< css::accessibility::XAccessible > ScEditWindow::CreateAcces
         }
         break;
     }
-    pAcc = new ScAccessibleEditObject(GetAccessibleParentWindow()->GetAccessible(), pEdView, this,
+    pAcc = new ScAccessibleEditObject(GetAccessibleParentWindow()->GetAccessible(), pEdView.get(), this,
         sName, sDescription, ScAccessibleEditObject::EditControl);
     css::uno::Reference< css::accessibility::XAccessible > xAccessible = pAcc;
     xAcc = xAccessible;

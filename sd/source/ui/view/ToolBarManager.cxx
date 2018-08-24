@@ -27,6 +27,7 @@
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/ui/UIElementType.hpp>
 
+#include <sal/log.hxx>
 #include <osl/mutex.hxx>
 #include <o3tl/deleter.hxx>
 #include <o3tl/enumrange.hxx>
@@ -68,8 +69,6 @@ private:
     Reference<frame::XLayoutManager> mxLayouter;
 };
 
-typedef ::std::vector<OUString> NameList;
-
 /** Store a list of tool bars for each of the tool bar groups.  From
     this the list of requested tool bars is built.
 */
@@ -82,19 +81,19 @@ public:
     void AddToolBar (sd::ToolBarManager::ToolBarGroup eGroup, const OUString& rsName);
     bool RemoveToolBar (sd::ToolBarManager::ToolBarGroup eGroup, const OUString& rsName);
 
-    void GetToolBarsToActivate (NameList& rToolBars) const;
-    void GetToolBarsToDeactivate (NameList& rToolBars) const;
+    void GetToolBarsToActivate (std::vector<OUString>& rToolBars) const;
+    void GetToolBarsToDeactivate (std::vector<OUString>& rToolBars) const;
 
     void MarkToolBarAsActive (const OUString& rsName);
     void MarkToolBarAsNotActive (const OUString& rsName);
     void MarkAllToolBarsAsNotActive();
 
 private:
-    typedef ::std::map<sd::ToolBarManager::ToolBarGroup,NameList> Groups;
+    typedef ::std::map<sd::ToolBarManager::ToolBarGroup, std::vector<OUString> > Groups;
     Groups maGroups;
-    NameList maActiveToolBars;
+    std::vector<OUString> maActiveToolBars;
 
-    void MakeRequestedToolBarList (NameList& rToolBars) const;
+    void MakeRequestedToolBarList (std::vector<OUString>& rToolBars) const;
 };
 
 /** Manage tool bars that are implemented as sub shells of a view shell.
@@ -682,17 +681,16 @@ void ToolBarManager::Implementation::PreUpdate()
 
         // Get the list of tool bars that are not used anymore and are to be
         // deactivated.
-        NameList aToolBars;
+        std::vector<OUString> aToolBars;
         maToolBarList.GetToolBarsToDeactivate(aToolBars);
 
         // Turn off the tool bars.
-        NameList::const_iterator iToolBar;
-        for (iToolBar=aToolBars.begin(); iToolBar!=aToolBars.end(); ++iToolBar)
+        for (auto& aToolBar : aToolBars)
         {
-            OUString sFullName (GetToolBarResourceName(*iToolBar));
+            OUString sFullName (GetToolBarResourceName(aToolBar));
             SAL_INFO("sd.view", OSL_THIS_FUNC << ":    turning off tool bar " << sFullName);
             mxLayouter->destroyElement(sFullName);
-            maToolBarList.MarkToolBarAsNotActive(*iToolBar);
+            maToolBarList.MarkToolBarAsNotActive(aToolBar);
         }
 
         SAL_INFO("sd.view", OSL_THIS_FUNC << ": ToolBarManager::PreUpdate ]");
@@ -710,19 +708,18 @@ void ToolBarManager::Implementation::PostUpdate()
         mbPostUpdatePending = false;
 
         // Create the list of requested tool bars.
-        NameList aToolBars;
+        std::vector<OUString> aToolBars;
         maToolBarList.GetToolBarsToActivate(aToolBars);
 
         SAL_INFO("sd.view", OSL_THIS_FUNC << ": ToolBarManager::PostUpdate [");
 
         // Turn on the tool bars that are visible in the new context.
-        NameList::const_iterator iToolBar;
-        for (iToolBar=aToolBars.begin(); iToolBar!=aToolBars.end(); ++iToolBar)
+        for (auto& aToolBar : aToolBars)
         {
-            OUString sFullName (GetToolBarResourceName(*iToolBar));
+            OUString sFullName (GetToolBarResourceName(aToolBar));
             SAL_INFO("sd.view", OSL_THIS_FUNC << ":    turning on tool bar " << sFullName);
             mxLayouter->requestElement(sFullName);
-            maToolBarList.MarkToolBarAsActive(*iToolBar);
+            maToolBarList.MarkToolBarAsActive(aToolBar);
         }
 
         SAL_INFO("sd.view", OSL_THIS_FUNC << ": ToolBarManager::PostUpdate ]");
@@ -1220,13 +1217,12 @@ void ToolBarList::AddToolBar (
 {
     Groups::iterator iGroup (maGroups.find(eGroup));
     if (iGroup == maGroups.end())
-        iGroup = maGroups.emplace(eGroup,NameList()).first;
+        iGroup = maGroups.emplace(eGroup,std::vector<OUString>()).first;
 
     if (iGroup != maGroups.end())
     {
-        NameList::const_iterator iBar (
-            ::std::find(iGroup->second.begin(),iGroup->second.end(),rsName));
-        if (iBar == iGroup->second.end())
+        auto iBar (std::find(iGroup->second.cbegin(),iGroup->second.cend(),rsName));
+        if (iBar == iGroup->second.cend())
         {
             iGroup->second.push_back(rsName);
         }
@@ -1240,8 +1236,7 @@ bool ToolBarList::RemoveToolBar (
     Groups::iterator iGroup (maGroups.find(eGroup));
     if (iGroup != maGroups.end())
     {
-        NameList::iterator iBar (
-            ::std::find(iGroup->second.begin(),iGroup->second.end(),rsName));
+        auto iBar (std::find(iGroup->second.begin(),iGroup->second.end(),rsName));
         if (iBar != iGroup->second.end())
         {
             iGroup->second.erase(iBar);
@@ -1251,7 +1246,7 @@ bool ToolBarList::RemoveToolBar (
     return false;
 }
 
-void ToolBarList::MakeRequestedToolBarList (NameList& rRequestedToolBars) const
+void ToolBarList::MakeRequestedToolBarList (std::vector<OUString>& rRequestedToolBars) const
 {
     for (auto eGroup : o3tl::enumrange<sd::ToolBarManager::ToolBarGroup>())
     {
@@ -1264,34 +1259,32 @@ void ToolBarList::MakeRequestedToolBarList (NameList& rRequestedToolBars) const
     }
 }
 
-void ToolBarList::GetToolBarsToActivate (NameList& rToolBars) const
+void ToolBarList::GetToolBarsToActivate (std::vector<OUString>& rToolBars) const
 {
-    NameList aRequestedToolBars;
+    std::vector<OUString> aRequestedToolBars;
     MakeRequestedToolBarList(aRequestedToolBars);
 
-    NameList::const_iterator iToolBar;
-    for (iToolBar=aRequestedToolBars.begin(); iToolBar!=aRequestedToolBars.end(); ++iToolBar)
+    for (auto& aToolBar : aRequestedToolBars)
     {
-        if (::std::find(maActiveToolBars.begin(),maActiveToolBars.end(),*iToolBar)
+        if (::std::find(maActiveToolBars.begin(),maActiveToolBars.end(),aToolBar)
             == maActiveToolBars.end())
         {
-            rToolBars.push_back(*iToolBar);
+            rToolBars.push_back(aToolBar);
         }
     }
 }
 
-void ToolBarList::GetToolBarsToDeactivate (NameList& rToolBars) const
+void ToolBarList::GetToolBarsToDeactivate (std::vector<OUString>& rToolBars) const
 {
-    NameList aRequestedToolBars;
+    std::vector<OUString> aRequestedToolBars;
     MakeRequestedToolBarList(aRequestedToolBars);
 
-    NameList::const_iterator iToolBar;
-    for (iToolBar=maActiveToolBars.begin(); iToolBar!=maActiveToolBars.end(); ++iToolBar)
+    for (auto& aToolBar : maActiveToolBars)
     {
-        if (::std::find(aRequestedToolBars.begin(),aRequestedToolBars.end(),*iToolBar)
+        if (::std::find(aRequestedToolBars.begin(),aRequestedToolBars.end(),aToolBar)
             == aRequestedToolBars.end())
         {
-            rToolBars.push_back(*iToolBar);
+            rToolBars.push_back(aToolBar);
         }
     }
 }

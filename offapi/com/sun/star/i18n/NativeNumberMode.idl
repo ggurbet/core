@@ -146,6 +146,12 @@ published constants NativeNumberMode
       */
     const short NATNUM11    = 11;
 
+    /** Transliteration to cardinal number names (one, two, three, ...),
+        ordinal number names (first, second, third, ...),
+        ordinal indicators (1st, 2nd, 3rd, ...), etc.
+        Uses NatNum params string
+     */
+    const short NATNUM12 = 12;
 };
 
 }; }; }; };

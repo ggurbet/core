@@ -68,6 +68,7 @@
 #include <comphelper/interaction.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <comphelper/types.hxx>
 #include <connectivity/conncleanup.hxx>
 #include <connectivity/dbconversion.hxx>
 #include <connectivity/dbexception.hxx>
@@ -76,6 +77,7 @@
 #include <o3tl/any.hxx>
 #include <osl/diagnose.h>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 #include <cppuhelper/implbase.hxx>
 #include <strings.hrc>
@@ -484,16 +486,13 @@ Reference< XNameAccess> getPrimaryKeyColumns_throw(const Reference< XPropertySet
             for(sal_Int32 i = 0;i< nCount;++i)
             {
                 xProp.set(xKeys->getByIndex(i),UNO_QUERY_THROW);
-                if ( xProp.is() )
+                sal_Int32 nKeyType = 0;
+                xProp->getPropertyValue(sPropName) >>= nKeyType;
+                if(KeyType::PRIMARY == nKeyType)
                 {
-                    sal_Int32 nKeyType = 0;
-                    xProp->getPropertyValue(sPropName) >>= nKeyType;
-                    if(KeyType::PRIMARY == nKeyType)
-                    {
-                        const Reference<XColumnsSupplier> xKeyColsSup(xProp,UNO_QUERY_THROW);
-                        xKeyColumns = xKeyColsSup->getColumns();
-                        break;
-                    }
+                    const Reference<XColumnsSupplier> xKeyColsSup(xProp,UNO_QUERY_THROW);
+                    xKeyColumns = xKeyColsSup->getColumns();
+                    break;
                 }
             }
         }

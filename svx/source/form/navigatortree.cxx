@@ -34,6 +34,7 @@
 #include <fmitems.hxx>
 #include <fmobj.hxx>
 #include <fmprop.hxx>
+#include <sal/log.hxx>
 #include <vcl/wrkwin.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/dispatch.hxx>
@@ -93,7 +94,7 @@ namespace svxform
 
         _rMapping.clear();
 
-        SdrObjListIter aIter( *_pPage );
+        SdrObjListIter aIter( _pPage );
         while ( aIter.IsMore() )
         {
             SdrObject* pSdrObject = aIter.Next();
@@ -143,7 +144,7 @@ namespace svxform
         EnableInplaceEditing( true );
         SetSelectionMode(SelectionMode::Multiple);
 
-        m_pNavModel = new NavigatorTreeModel();
+        m_pNavModel.reset(new NavigatorTreeModel());
         Clear();
 
         StartListening( *m_pNavModel );
@@ -172,7 +173,7 @@ namespace svxform
         DBG_ASSERT(GetNavModel() != nullptr, "NavigatorTree::~NavigatorTree : unexpected : no ExplorerModel");
         EndListening( *m_pNavModel );
         Clear();
-        delete m_pNavModel;
+        m_pNavModel.reset();
         SvTreeListBox::dispose();
     }
 
@@ -212,7 +213,7 @@ namespace svxform
         if (m_pRootEntry)
         {
             SvTreeListEntry* pFirst = FirstChild(m_pRootEntry);
-            if (pFirst && !NextSibling(pFirst))
+            if (pFirst && !pFirst->NextSibling())
                 Expand(pFirst);
         }
     }
@@ -435,8 +436,8 @@ namespace svxform
 
                     // set OpenReadOnly
 
-                    aContextMenu->CheckItem(aContextMenu->GetItemId("designmode"), pFormModel->GetOpenInDesignMode());
-                    aContextMenu->CheckItem(aContextMenu->GetItemId("controlfocus"), pFormModel->GetAutoControlFocus());
+                    aContextMenu->CheckItem("designmode", pFormModel->GetOpenInDesignMode());
+                    aContextMenu->CheckItem("controlfocus", pFormModel->GetAutoControlFocus());
 
                     aContextMenu->Execute(this, ptWhere);
                     OString sIdent;
@@ -682,7 +683,7 @@ namespace svxform
     bool NavigatorTree::IsFormComponentEntry( SvTreeListEntry const * pEntry )
     {
         FmEntryData* pEntryData = static_cast<FmEntryData*>(pEntry->GetUserData());
-        return pEntryData && dynamic_cast<const FmControlData*>( pEntryData) !=  nullptr;
+        return dynamic_cast<const FmControlData*>( pEntryData) != nullptr;
     }
 
 
@@ -781,7 +782,7 @@ namespace svxform
 
         // conditions to disallow the drop
         // 0) the root entry is part of the list (can't DnD the root!)
-        // 1) one of the draged entries is to be dropped onto it's own parent
+        // 1) one of the draged entries is to be dropped onto its own parent
         // 2) -               "       - is to be dropped onto itself
         // 3) -               "       - is a Form and to be dropped onto one of its descendants
         // 4) one of the entries is a control and to be dropped onto the root
@@ -1127,9 +1128,9 @@ namespace svxform
 
             // give parent the new child
             if (pTargetData)
-                pTargetData->GetChildList()->insert( pCurrentUserData, nIndex );
+                pTargetData->GetChildList()->insert( std::unique_ptr<FmEntryData>(pCurrentUserData), nIndex );
             else
-                GetNavModel()->GetRootList()->insert( pCurrentUserData, nIndex );
+                GetNavModel()->GetRootList()->insert( std::unique_ptr<FmEntryData>(pCurrentUserData), nIndex );
 
             // announce to myself and reselect
             SvTreeListEntry* pNew = Insert( pCurrentUserData, nIndex );
@@ -2049,7 +2050,7 @@ namespace svxform
         SdrPage*        pPage           = pPageView->GetPage();
         //FmFormPage*     pFormPage       = dynamic_cast< FmFormPage* >( pPage );
 
-        SdrObjListIter aIter( *pPage );
+        SdrObjListIter aIter( pPage );
         while ( aIter.IsMore() )
         {
             SdrObject* pSdrObject = aIter.Next();
@@ -2110,7 +2111,7 @@ namespace svxform
         SdrPage*        pPage           = pPageView->GetPage();
 
         bool bPaint = false;
-        SdrObjListIter aIter( *pPage );
+        SdrObjListIter aIter( pPage );
         while ( aIter.IsMore() )
         {
             SdrObject* pSdrObject = aIter.Next();

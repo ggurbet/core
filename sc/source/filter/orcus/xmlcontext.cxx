@@ -16,6 +16,7 @@
 #include <svtools/treelistentry.hxx>
 #include <ucbhelper/content.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <orcus/spreadsheet/import_interface.hpp>
 #include <orcus/xml_structure_tree.hpp>
@@ -243,7 +244,7 @@ public:
 
 void ScOrcusXMLContextImpl::importXML(const ScOrcusImportXMLParam& rParam)
 {
-    ScOrcusFactory aFactory(mrDoc);
+    ScOrcusFactory aFactory(mrDoc, true);
     OString aSysPath = ScOrcusFiltersImpl::toSystemPath(maPath);
     const char* path = aSysPath.getStr();
     try
@@ -289,6 +290,7 @@ void ScOrcusXMLContextImpl::importXML(const ScOrcusImportXMLParam& rParam)
         }
 
         filter.read_file(path);
+        aFactory.finalize();
     }
     catch (const std::exception&)
     {

@@ -911,15 +911,13 @@ bool paintUsingPrimitivesHelper(
                 uno::Sequence< beans::PropertyValue >());
 
             // get a primitive processor for rendering
-            drawinglayer::processor2d::BaseProcessor2D* pProcessor2D =
+            std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor2D(
                 drawinglayer::processor2d::createProcessor2DFromOutputDevice(
-                                                rOutputDevice, aViewInformation2D);
-
+                                                rOutputDevice, aViewInformation2D) );
             if(pProcessor2D)
             {
                 // render and cleanup
                 pProcessor2D->process(rSequence);
-                delete pProcessor2D;
                 return true;
             }
         }
@@ -939,60 +937,56 @@ void paintGraphicUsingPrimitivesHelper(
     // -> the primitive renderer will create the needed pdf export data
     // -> if bitmap content, it will be cached system-dependent
     drawinglayer::primitive2d::Primitive2DContainer aContent(1);
-    bool bDone(false);
 
-    if(!bDone)
+    aContent[0] = new drawinglayer::primitive2d::GraphicPrimitive2D(
+        rGraphicTransform,
+        rGrfObj,
+        rGraphicAttr);
+
+    // RotateFlyFrame3: If ClipRegion is set at OutputDevice, we
+    // need to use that. Usually the renderer would be a VCL-based
+    // PrimitiveRenderer, but there are system-specific shortcuts that
+    // will *not* use the VCL-Paint of Bitmap and thus ignore this.
+    // Anyways, indirectly using a CLipRegion set at the target OutDev
+    // when using a PrimitiveRenderer is a non-valid implication.
+    // First tried only to use when HasPolyPolygonOrB2DPolyPolygon(),
+    // but there is an optimization at ClipRegion creation that detects
+    // a single Rectangle in a tools::PolyPolygon and forces to a simple
+    // RegionBand-based implementation, so cannot use it here.
+    if(rOutputDevice.IsClipRegion())
     {
-        aContent[0] = new drawinglayer::primitive2d::GraphicPrimitive2D(
-            rGraphicTransform,
-            rGrfObj,
-            rGraphicAttr);
+        const basegfx::B2DPolyPolygon aClip(rOutputDevice.GetClipRegion().GetAsB2DPolyPolygon());
 
-        // RotateFlyFrame3: If ClipRegion is set at OutputDevice, we
-        // need to use that. Usually the renderer would be a VCL-based
-        // PrimitiveRenderer, but there are system-specific shortcuts that
-        // will *not* use the VCL-Paint of Bitmap and thus ignore this.
-        // Anyways, indirectly using a CLipRegion set at the target OutDev
-        // when using a PrimitiveRenderer is a non-valid implication.
-        // First tried only to use when HasPolyPolygonOrB2DPolyPolygon(),
-        // but there is an optimization at ClipRegion creation that detects
-        // a single Rectangle in a tools::PolyPolygon and forces to a simple
-        // RegionBand-based implementation, so cannot use it here.
-        if(rOutputDevice.IsClipRegion())
+        if(0 != aClip.count())
         {
-            const basegfx::B2DPolyPolygon aClip(rOutputDevice.GetClipRegion().GetAsB2DPolyPolygon());
+            // tdf#114076: Expand ClipRange to next PixelBound
+            // Do this by going to basegfx::B2DRange, adding a
+            // single pixel size and using floor/ceil to go to
+            // full integer (as needed for pixels). Also need
+            // to go back to basegfx::B2DPolyPolygon for the
+            // creation of the needed MaskPrimitive2D.
+            // The general problem is that Writer is scrolling
+            // using blitting the unchanged parts, this forces
+            // this part of the scroll to pixel coordinate steps,
+            // while the ViewTransformation for paint nowadays has
+            // a sub-pixel precision. This results in an offset
+            // up to one pixel in radius. To solve this for now,
+            // we need to expand to the next outer pixel bound.
+            // Hopefully in the future we will someday be able to
+            // stay on the full available precision, but this
+            // will need a change in the repaint/scroll paradigm.
+            const basegfx::B2DRange aClipRange(aClip.getB2DRange());
+            const basegfx::B2DVector aSinglePixelXY(rOutputDevice.GetInverseViewTransformation() * basegfx::B2DVector(1.0, 1.0));
+            const basegfx::B2DRange aExpandedClipRange(
+                floor(aClipRange.getMinX() - aSinglePixelXY.getX()),
+                floor(aClipRange.getMinY() - aSinglePixelXY.getY()),
+                ceil(aClipRange.getMaxX() + aSinglePixelXY.getX()),
+                ceil(aClipRange.getMaxY() + aSinglePixelXY.getY()));
 
-            if(0 != aClip.count())
-            {
-                // tdf#114076: Expand ClipRange to next PixelBound
-                // Do this by going to basegfx::B2DRange, adding a
-                // single pixel size and using floor/ceil to go to
-                // full integer (as needed for pixels). Also need
-                // to go back to basegfx::B2DPolyPolygon for the
-                // creation of the needed MaskPrimitive2D.
-                // The general problem is that Writer is scrolling
-                // using blitting the unchanged parts, this forces
-                // this part of the scroll to pixel coordinate steps,
-                // while the ViewTransformation for paint nowadays has
-                // a sub-pixel precision. This results in an offset
-                // up to one pixel in radius. To solve this for now,
-                // we need to expand to the next outer pixel bound.
-                // Hopefully in the future we will someday be able to
-                // stay on the full available precision, but this
-                // will need a change in the repaint/scroll paradigm.
-                const basegfx::B2DRange aClipRange(aClip.getB2DRange());
-                const basegfx::B2DVector aSinglePixelXY(rOutputDevice.GetInverseViewTransformation() * basegfx::B2DVector(1.0, 1.0));
-                const basegfx::B2DRange aExpandedClipRange(
-                    floor(aClipRange.getMinX() - aSinglePixelXY.getX()),
-                    floor(aClipRange.getMinY() - aSinglePixelXY.getY()),
-                    ceil(aClipRange.getMaxX() + aSinglePixelXY.getX()),
-                    ceil(aClipRange.getMaxY() + aSinglePixelXY.getY()));
-
-                aContent[0] = new drawinglayer::primitive2d::MaskPrimitive2D(
-                    basegfx::B2DPolyPolygon(
-                        basegfx::utils::createPolygonFromRect(aExpandedClipRange)),
-                    aContent);
-            }
+            aContent[0] = new drawinglayer::primitive2d::MaskPrimitive2D(
+                basegfx::B2DPolyPolygon(
+                    basegfx::utils::createPolygonFromRect(aExpandedClipRange)),
+                aContent);
         }
     }
 
@@ -1254,9 +1248,8 @@ void SwNoTextFrame::PaintPicture( vcl::RenderContext* pOut, const SwRect &rGrfAr
             }
 
             sal_Int64 nMiscStatus = pOLENd->GetOLEObj().GetOleRef()->getStatus( pOLENd->GetAspect() );
-            if ( !bPrn && dynamic_cast< const SwCursorShell *>( pShell ) !=  nullptr && (
-                    (nMiscStatus & embed::EmbedMisc::MS_EMBED_ACTIVATEWHENVISIBLE) ||
-                    pOLENd->GetOLEObj().GetObject().IsGLChart()))
+            if ( !bPrn && dynamic_cast< const SwCursorShell *>( pShell ) !=  nullptr &&
+                    (nMiscStatus & embed::EmbedMisc::MS_EMBED_ACTIVATEWHENVISIBLE))
             {
                 const SwFlyFrame *pFly = FindFlyFrame();
                 assert( pFly != nullptr );
@@ -1299,7 +1292,7 @@ bool SwNoTextFrame::IsTransparent() const
         // we can be more specific - rotations of multiples of
         // 90 degrees will leave no gaps. Go from [0.0 .. F_2PI]
         // to [0 .. 360] and check modulo 90
-        const long nRot(static_cast<long>(getLocalFrameRotation() / F_PI180));
+        const long nRot(static_cast<long>(basegfx::rad2deg(getLocalFrameRotation())));
         const bool bMultipleOf90(0 == (nRot % 90));
 
         if(!bMultipleOf90)

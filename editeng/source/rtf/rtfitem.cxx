@@ -30,7 +30,6 @@
 #include <editeng/wrlmitem.hxx>
 #include <editeng/contouritem.hxx>
 #include <editeng/colritem.hxx>
-#include <editeng/charsetcoloritem.hxx>
 #include <editeng/kernitem.hxx>
 #include <editeng/cmapitem.hxx>
 #include <editeng/escapementitem.hxx>
@@ -73,6 +72,7 @@
 #include <svtools/rtftoken.h>
 #include <svl/itempool.hxx>
 #include <svl/itemiter.hxx>
+#include <sal/log.hxx>
 
 #include <editeng/svxrtf.hxx>
 #include <editeng/editids.hrc>

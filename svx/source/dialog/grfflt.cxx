@@ -17,14 +17,17 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <vcl/BitmapSharpenFilter.hxx>
+#include <vcl/BitmapMedianFilter.hxx>
+#include <vcl/BitmapSobelGreyFilter.hxx>
+#include <vcl/BitmapPopArtFilter.hxx>
+
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 
-#include <svx/dialmgr.hxx>
 #include <svx/grfflt.hxx>
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include <svx/svxdlg.hxx>
 #include <memory>
@@ -72,13 +75,9 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
             case SID_GRFFILTER_SMOOTH:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
-                {
-                    ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterSmooth(pWindow, rGraphic, 0.7));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
-                        aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
-                }
+                ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterSmooth(pWindow, rGraphic, 0.7));
+                if( aDlg->Execute() == RET_OK )
+                    aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
             }
             break;
 
@@ -91,14 +90,14 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
                 {
                     Animation aAnimation( rGraphic.GetAnimation() );
 
-                    if( aAnimation.Filter( BmpFilter::Sharpen ) )
+                    if (BitmapFilter::Filter(aAnimation, BitmapSharpenFilter()))
                         aGraphic = aAnimation;
                 }
                 else
                 {
                     BitmapEx aBmpEx( rGraphic.GetBitmapEx() );
 
-                    if( aBmpEx.Filter( BmpFilter::Sharpen ) )
+                    if (BitmapFilter::Filter(aBmpEx, BitmapSharpenFilter()))
                         aGraphic = aBmpEx;
                 }
 
@@ -116,14 +115,14 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
                 {
                     Animation aAnimation( rGraphic.GetAnimation() );
 
-                    if( aAnimation.Filter( BmpFilter::RemoveNoise ) )
+                    if (BitmapFilter::Filter(aAnimation, BitmapMedianFilter()))
                         aGraphic = aAnimation;
                 }
                 else
                 {
                     BitmapEx aBmpEx( rGraphic.GetBitmapEx() );
 
-                    if( aBmpEx.Filter( BmpFilter::RemoveNoise ) )
+                    if (BitmapFilter::Filter(aBmpEx, BitmapMedianFilter()))
                         aGraphic = aBmpEx;
                 }
 
@@ -141,14 +140,14 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
                 {
                     Animation aAnimation( rGraphic.GetAnimation() );
 
-                    if( aAnimation.Filter( BmpFilter::SobelGrey ) )
+                    if (BitmapFilter::Filter(aAnimation, BitmapSobelGreyFilter()))
                         aGraphic = aAnimation;
                 }
                 else
                 {
                     BitmapEx aBmpEx( rGraphic.GetBitmapEx() );
 
-                    if( aBmpEx.Filter( BmpFilter::SobelGrey ) )
+                    if (BitmapFilter::Filter(aBmpEx, BitmapSobelGreyFilter()))
                         aGraphic = aBmpEx;
                 }
 
@@ -160,39 +159,27 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
             case SID_GRFFILTER_MOSAIC:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
-                {
-                    ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterMosaic(pWindow, rGraphic));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
-                        aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
-                }
+                ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterMosaic(pWindow, rGraphic));
+                if( aDlg->Execute() == RET_OK )
+                    aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
             }
             break;
 
             case SID_GRFFILTER_EMBOSS:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
-                {
-                    ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterEmboss(pWindow, rGraphic));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
-                        aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
-                }
+                ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterEmboss(pWindow, rGraphic));
+                if( aDlg->Execute() == RET_OK )
+                    aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
             }
             break;
 
             case SID_GRFFILTER_POSTER:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
-                {
-                    ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterPoster(pWindow, rGraphic));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
-                        aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
-                }
+                ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterPoster(pWindow, rGraphic));
+                if( aDlg->Execute() == RET_OK )
+                    aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
             }
             break;
 
@@ -205,14 +192,14 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
                 {
                     Animation aAnimation( rGraphic.GetAnimation() );
 
-                    if( aAnimation.Filter( BmpFilter::PopArt ) )
+                    if (BitmapFilter::Filter(aAnimation, BitmapPopArtFilter()))
                         aGraphic = aAnimation;
                 }
                 else
                 {
                     BitmapEx aBmpEx( rGraphic.GetBitmapEx() );
 
-                    if( aBmpEx.Filter( BmpFilter::PopArt ) )
+                    if (BitmapFilter::Filter(aBmpEx, BitmapPopArtFilter()))
                         aGraphic = aBmpEx;
                 }
 
@@ -224,26 +211,18 @@ SvxGraphicFilterResult SvxGraphicFilter::ExecuteGrfFilterSlot( SfxRequest const 
             case SID_GRFFILTER_SEPIA:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
-                {
-                    ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterSepia(pWindow, rGraphic));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
-                        aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
-                }
+                ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterSepia(pWindow, rGraphic));
+                if( aDlg->Execute() == RET_OK )
+                    aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
             }
             break;
 
             case SID_GRFFILTER_SOLARIZE:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
-                {
-                    ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterSolarize(pWindow, rGraphic));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
-                        aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
-                }
+                ScopedVclPtr<AbstractGraphicFilterDialog> aDlg(pFact->CreateGraphicFilterSolarize(pWindow, rGraphic));
+                if( aDlg->Execute() == RET_OK )
+                    aGraphic = aDlg->GetFilteredGraphic( rGraphic, 1.0, 1.0 );
             }
             break;
 

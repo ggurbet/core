@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <ShapeFactory.hxx>
 #include <VDiagram.hxx>
 #include <PropertyMapper.hxx>
 #include <ViewDefines.hxx>
@@ -39,6 +40,7 @@
 #include <svx/scene3d.hxx>
 #include <svx/e3dsceneupdater.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 namespace chart
 {
@@ -92,7 +94,7 @@ void VDiagram::init(
 
     m_xTarget  = xTarget;
     m_xShapeFactory = xFactory;
-    m_pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(xFactory);
+    m_pShapeFactory = ShapeFactory::getOrCreateShapeFactory(xFactory);
 }
 
 void VDiagram::createShapes( const awt::Point& rPos, const awt::Size& rSize )
@@ -129,10 +131,10 @@ void VDiagram::createShapes( const awt::Point& rPos, const awt::Size& rSize )
         //do not change aspect ratio
         awt::Size  aAspectRatio( static_cast<sal_Int32>(m_aPreferredAspectRatio.DirectionX*FIXED_SIZE_FOR_3D_CHART_VOLUME),
                                  static_cast<sal_Int32>(m_aPreferredAspectRatio.DirectionY*FIXED_SIZE_FOR_3D_CHART_VOLUME ));
-        m_aCurrentSizeWithoutAxes = awt::Size( AbstractShapeFactory::calculateNewSizeRespectingAspectRatio(
+        m_aCurrentSizeWithoutAxes = awt::Size( ShapeFactory::calculateNewSizeRespectingAspectRatio(
                         rAvailableSize, aAspectRatio ) );
         //center diagram position
-        m_aCurrentPosWithoutAxes = awt::Point( AbstractShapeFactory::calculateTopLeftPositionToCenterObject(
+        m_aCurrentPosWithoutAxes = awt::Point( ShapeFactory::calculateTopLeftPositionToCenterObject(
             rPos, rAvailableSize, m_aCurrentSizeWithoutAxes ) );
 
     }
@@ -168,7 +170,7 @@ void VDiagram::createShapes_2d()
 
     //add back wall
     {
-        AbstractShapeFactory* pShapeFactory = AbstractShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
+        ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
         m_xWall2D = pShapeFactory->createRectangle(
                 xGroupForWall );
 
@@ -188,7 +190,7 @@ void VDiagram::createShapes_2d()
                 {
                     //we always need this object as dummy object for correct scene dimensions
                     //but it should not be visible in this case:
-                    AbstractShapeFactory::makeShapeInvisible( m_xWall2D );
+                    ShapeFactory::makeShapeInvisible( m_xWall2D );
                 }
                 else
                 {
@@ -220,8 +222,7 @@ E3dScene* lcl_getE3dScene( const uno::Reference< drawing::XShape >& xShape )
         if(pSvxShape)
         {
             SdrObject* pObj = pSvxShape->GetSdrObject();
-            if( pObj && dynamic_cast< const E3dScene* >(pObj) !=  nullptr )
-                pRet = static_cast<E3dScene*>(pObj);
+            pRet = dynamic_cast< E3dScene* >(pObj);
         }
     }
     return pRet;
@@ -454,12 +455,12 @@ void VDiagram::adjustAspectRatio3d( const awt::Size& rAvailableSize )
     adjustAspectRatio3d( rAvailableSize );
 
     //do not change aspect ratio of 3D scene with 2D bound rect
-    m_aCurrentSizeWithoutAxes = AbstractShapeFactory::calculateNewSizeRespectingAspectRatio(
+    m_aCurrentSizeWithoutAxes = ShapeFactory::calculateNewSizeRespectingAspectRatio(
                     rAvailableSize, m_xOuterGroupShape->getSize() );
     m_xOuterGroupShape->setSize( m_aCurrentSizeWithoutAxes );
 
     //center diagram position
-    m_aCurrentPosWithoutAxes= AbstractShapeFactory::calculateTopLeftPositionToCenterObject(
+    m_aCurrentPosWithoutAxes= ShapeFactory::calculateTopLeftPositionToCenterObject(
          rPos, rAvailableSize, m_aCurrentSizeWithoutAxes );
     m_xOuterGroupShape->setPosition(m_aCurrentPosWithoutAxes);
 
@@ -526,7 +527,7 @@ void VDiagram::createShapes_3d()
             {
                 //we always need this object as dummy object for correct scene dimensions
                 //but it should not be visible in this case:
-                AbstractShapeFactory::makeShapeInvisible( xShape );
+                ShapeFactory::makeShapeInvisible( xShape );
             }
         }
         //add back wall
@@ -554,7 +555,7 @@ void VDiagram::createShapes_3d()
             {
                 //we always need this object as dummy object for correct scene dimensions
                 //but it should not be visible in this case:
-                AbstractShapeFactory::makeShapeInvisible( xShape );
+                ShapeFactory::makeShapeInvisible( xShape );
             }
         }
     }
@@ -631,12 +632,12 @@ void VDiagram::createShapes_3d()
         {
             //we always need this object as dummy object for correct scene dimensions
             //but it should not be visible in this case:
-            AbstractShapeFactory::makeShapeInvisible( xShape );
+            ShapeFactory::makeShapeInvisible( xShape );
         }
         else
         {
             OUString aFloorCID( ObjectIdentifier::createClassifiedIdentifier( OBJECTTYPE_DIAGRAM_FLOOR, OUString() ) );//@todo read CID from model
-            AbstractShapeFactory::setShapeName( xShape, aFloorCID );
+            ShapeFactory::setShapeName( xShape, aFloorCID );
         }
     }
 

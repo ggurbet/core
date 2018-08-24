@@ -12,6 +12,8 @@
 #include <limits>
 #include <set>
 #include <string>
+
+#include "compat.hxx"
 #include "plugin.hxx"
 
 //
@@ -163,10 +165,10 @@ bool canBeUsedForFunctionalCast(TypeSourceInfo const * info) {
 }
 
 class CStyleCast:
-    public RecursiveASTVisitor<CStyleCast>, public loplugin::RewritePlugin
+    public loplugin::FilteringRewritePlugin<CStyleCast>
 {
 public:
-    explicit CStyleCast(loplugin::InstantiationData const & data): RewritePlugin(data)
+    explicit CStyleCast(loplugin::InstantiationData const & data): FilteringRewritePlugin(data)
     {}
 
     virtual void run() override {
@@ -232,7 +234,7 @@ bool CStyleCast::VisitCStyleCastExpr(const CStyleCastExpr * expr) {
     if( expr->getCastKind() == CK_ToVoid ) {
         return true;
     }
-    if (isSharedCAndCppCode(expr->getLocStart())) {
+    if (isSharedCAndCppCode(compat::getBeginLoc(expr))) {
         return true;
     }
     char const * perf = nullptr;
@@ -351,7 +353,7 @@ bool CStyleCast::isLastTokenOfImmediateMacroBodyExpansion(
     assert(MI != nullptr);
     if (spell == MI->getDefinitionEndLoc()) {
         if (macroEnd != nullptr) {
-            *macroEnd = compiler.getSourceManager().getImmediateExpansionRange(loc).second;
+            *macroEnd = compat::getImmediateExpansionRange(compiler.getSourceManager(), loc).second;
         }
         return true;
     }
@@ -391,8 +393,8 @@ bool CStyleCast::rewriteArithmeticCast(CStyleCastExpr const * expr, char const *
     auto secondBegin = expr->getRParenLoc();
     while (compiler.getSourceManager().isMacroArgExpansion(firstBegin)
            && compiler.getSourceManager().isMacroArgExpansion(secondBegin)
-           && (compiler.getSourceManager().getImmediateExpansionRange(firstBegin)
-               == compiler.getSourceManager().getImmediateExpansionRange(secondBegin)))
+           && (compat::getImmediateExpansionRange(compiler.getSourceManager(), firstBegin)
+               == compat::getImmediateExpansionRange(compiler.getSourceManager(), secondBegin)))
     {
         firstBegin = compiler.getSourceManager().getImmediateSpellingLoc(firstBegin);
         secondBegin = compiler.getSourceManager().getImmediateSpellingLoc(secondBegin);
@@ -405,8 +407,8 @@ bool CStyleCast::rewriteArithmeticCast(CStyleCastExpr const * expr, char const *
         firstBegin = compiler.getSourceManager().getSpellingLoc(firstBegin);
         secondBegin = compiler.getSourceManager().getSpellingLoc(secondBegin);
     }
-    auto third = sub->getLocStart();
-    auto fourth = sub->getLocEnd();
+    auto third = compat::getBeginLoc(sub);
+    auto fourth = compat::getEndLoc(sub);
     bool macro = false;
     // Ensure that
     //
@@ -424,14 +426,14 @@ bool CStyleCast::rewriteArithmeticCast(CStyleCastExpr const * expr, char const *
     //  FOO((y))
     while (compiler.getSourceManager().isMacroArgExpansion(third)
            && compiler.getSourceManager().isMacroArgExpansion(fourth)
-           && (compiler.getSourceManager().getImmediateExpansionRange(third)
-               == compiler.getSourceManager().getImmediateExpansionRange(fourth))
+           && (compat::getImmediateExpansionRange(compiler.getSourceManager(), third)
+               == compat::getImmediateExpansionRange(compiler.getSourceManager(), fourth))
            && compiler.getSourceManager().isAtStartOfImmediateMacroExpansion(third))
             //TODO: check fourth is at end of immediate macro expansion, but
             // SourceManager::isAtEndOfImmediateMacroExpansion requires a location pointing at the
             // character end of the last token
     {
-        auto const range = compiler.getSourceManager().getImmediateExpansionRange(third);
+        auto const range = compat::getImmediateExpansionRange(compiler.getSourceManager(), third);
         third = range.first;
         fourth = range.second;
         macro = true;
@@ -439,8 +441,8 @@ bool CStyleCast::rewriteArithmeticCast(CStyleCastExpr const * expr, char const *
     }
     while (compiler.getSourceManager().isMacroArgExpansion(third)
            && compiler.getSourceManager().isMacroArgExpansion(fourth)
-           && (compiler.getSourceManager().getImmediateExpansionRange(third)
-               == compiler.getSourceManager().getImmediateExpansionRange(fourth)))
+           && (compat::getImmediateExpansionRange(compiler.getSourceManager(), third)
+               == compat::getImmediateExpansionRange(compiler.getSourceManager(), fourth)))
     {
         third = compiler.getSourceManager().getImmediateSpellingLoc(third);
         fourth = compiler.getSourceManager().getImmediateSpellingLoc(fourth);
@@ -474,7 +476,8 @@ bool CStyleCast::rewriteArithmeticCast(CStyleCastExpr const * expr, char const *
                 }
                 break;
             }
-            auto const range = compiler.getSourceManager().getImmediateExpansionRange(third);
+            auto const range = compat::getImmediateExpansionRange(
+                compiler.getSourceManager(), third);
             third = range.first;
             fourth = range.second;
             assert(third.isValid());
@@ -511,7 +514,8 @@ bool CStyleCast::rewriteArithmeticCast(CStyleCastExpr const * expr, char const *
             {
                 break;
             }
-            auto const range = compiler.getSourceManager().getImmediateExpansionRange(third);
+            auto const range = compat::getImmediateExpansionRange(
+                compiler.getSourceManager(), third);
             third = range.first;
             fourth = range.second;
         }

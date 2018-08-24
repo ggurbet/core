@@ -37,6 +37,7 @@
 #include <com/sun/star/sheet/XDrillDownDataSupplier.hpp>
 
 #include <global.hxx>
+#include <scresid.hxx>
 #include <globstr.hrc>
 #include <sc.hrc>
 #include <undotab.hxx>
@@ -252,9 +253,9 @@ void ScDBFunc::ShowOutline( bool bColumns, sal_uInt16 nLevel, sal_uInt16 nEntry,
     ScDocShell* pDocSh = GetViewData().GetDocShell();
     ScOutlineDocFunc aFunc(*pDocSh);
 
-    bool bOk = aFunc.ShowOutline( nTab, bColumns, nLevel, nEntry, bRecord, bPaint );
+    aFunc.ShowOutline( nTab, bColumns, nLevel, nEntry, bRecord, bPaint );
 
-    if ( bOk && bPaint )
+    if ( bPaint )
         UpdateScrollBars(bColumns ? COLUMN_HEADER : ROW_HEADER);
 }
 
@@ -424,8 +425,8 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
             vcl::Window* pWin = GetViewData().GetDialogParent();
             std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                       VclMessageType::Question, VclButtonsType::YesNo,
-                                                      ScGlobal::GetRscString(STR_MSSG_DOSUBTOTALS_1))); // "delete data?"
-            xBox->set_title(ScGlobal::GetRscString(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
+                                                      ScResId(STR_MSSG_DOSUBTOTALS_1))); // "delete data?"
+            xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
             xBox->set_default_response(RET_YES);
             bOk = xBox->run() == RET_YES;
         }
@@ -437,7 +438,7 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
 
         ScSubTotalParam aNewParam( rParam );        // change end of range
         ScDocument*     pUndoDoc = nullptr;
-        ScOutlineTable* pUndoTab = nullptr;
+        std::unique_ptr<ScOutlineTable> pUndoTab;
         ScRangeName*    pUndoRange = nullptr;
         ScDBCollection* pUndoDB = nullptr;
 
@@ -449,7 +450,7 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
             ScOutlineTable* pTable = rDoc.GetOutlineTable( nTab );
             if (pTable)
             {
-                pUndoTab = new ScOutlineTable( *pTable );
+                pUndoTab.reset(new ScOutlineTable( *pTable ));
 
                 SCCOLROW nOutStartCol;                          // row/column status
                 SCCOLROW nOutStartRow;
@@ -473,7 +474,7 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
             rDoc.CopyToDocument( 0,0,0, MAXCOL,MAXROW,nTabCount-1,
                                         InsertDeleteFlags::FORMULA, false, *pUndoDoc );
 
-            // data base and othe ranges
+            // database and other ranges
             ScRangeName* pDocRange = rDoc.GetRangeName();
             if (!pDocRange->empty())
                 pUndoRange = new ScRangeName( *pDocRange );
@@ -525,7 +526,7 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
             pDocSh->GetUndoManager()->AddUndoAction(
                 new ScUndoSubTotals( pDocSh, nTab,
                                         rParam, aNewParam.nRow2,
-                                        pUndoDoc, pUndoTab, // pUndoDBData,
+                                        pUndoDoc, std::move(pUndoTab), // pUndoDBData,
                                         pUndoRange, pUndoDB ) );
         }
 
@@ -594,7 +595,7 @@ bool ScDBFunc::MakePivotTable(
     {
         SCTAB nSrcTab = GetViewData().GetTabNo();
 
-        OUString aName( ScGlobal::GetRscString(STR_PIVOT_TABLE) );
+        OUString aName( ScResId(STR_PIVOT_TABLE) );
         OUString aStr;
 
         pDoc->GetName( nSrcTab, aStr );
@@ -1171,7 +1172,7 @@ void ScDBFunc::GroupDataPilot()
     }
     OUString aGroupDimName = pGroupDimension->GetGroupDimName();
 
-    OUString aGroupName = pGroupDimension->CreateGroupName(ScGlobal::GetRscString(STR_PIVOT_GROUP));
+    OUString aGroupName = pGroupDimension->CreateGroupName(ScResId(STR_PIVOT_GROUP));
     ScDPSaveGroupItem aGroup( aGroupName );
     ScDPUniqueStringSet::const_iterator it = aEntries.begin(), itEnd = aEntries.end();
     for (; it != itEnd; ++it)
@@ -2068,8 +2069,8 @@ void ScDBFunc::ShowDataPilotSourceData( ScDPObject& rDPObj, const Sequence<sheet
     pInsDoc->GetCellArea( nNewTab, nEndCol, nEndRow );
     pInsDoc->SetClipArea( ScRange( 0, 0, nNewTab, nEndCol, nEndRow, nNewTab ) );
 
-    ::svl::IUndoManager* pMgr = GetViewData().GetDocShell()->GetUndoManager();
-    OUString aUndo = ScGlobal::GetRscString( STR_UNDO_DOOUTLINE );
+    SfxUndoManager* pMgr = GetViewData().GetDocShell()->GetUndoManager();
+    OUString aUndo = ScResId( STR_UNDO_DOOUTLINE );
     pMgr->EnterListAction( aUndo, aUndo, 0, GetViewData().GetViewShell()->GetViewShellId() );
 
     OUString aNewTabName;

@@ -21,6 +21,7 @@
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <linguistic/misc.hxx>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <tools/urlobj.hxx>
 #include <svtools/langtab.hxx>
@@ -654,6 +655,8 @@ void LanguageBox::SetLanguageList( SvxLanguageListFlags nLangList,
     {
         nCount = SvtLanguageTable::GetLanguageEntryCount();
     }
+
+    m_xControl->freeze();
     for ( sal_uInt32 i = 0; i < nCount; i++ )
     {
         LanguageType nLangType;
@@ -691,6 +694,8 @@ void LanguageBox::SetLanguageList( SvxLanguageListFlags nLangList,
 
     if (bHasLangNone)
         InsertLanguage( LANGUAGE_NONE );
+
+    m_xControl->thaw();
 }
 
 int LanguageBox::ImplTypeToPos(LanguageType eType) const
@@ -749,8 +754,8 @@ IMPL_LINK(LanguageBox, ChangeHdl, weld::ComboBoxText&, rControl, void)
     }
 }
 
-LanguageBox::LanguageBox(weld::ComboBoxText* pControl)
-    : m_xControl(pControl)
+LanguageBox::LanguageBox(std::unique_ptr<weld::ComboBoxText> pControl)
+    : m_xControl(std::move(pControl))
     , m_aAllString(SvxResId(RID_SVXSTR_LANGUAGE_ALL))
     , m_bHasLangNone(false)
     , m_bLangNoneIsLangAll(false)
@@ -758,6 +763,7 @@ LanguageBox::LanguageBox(weld::ComboBoxText* pControl)
     m_xControl->make_sorted();
     m_xControl->connect_changed(LINK(this, LanguageBox, ChangeHdl));
 
+    m_xControl->freeze();
     sal_uInt32 nCount = SvtLanguageTable::GetLanguageEntryCount();
     for (sal_uInt32 i = 0; i < nCount; ++i)
     {
@@ -774,6 +780,7 @@ LanguageBox::LanguageBox(weld::ComboBoxText* pControl)
 
         InsertLanguage(nLangType);
     }
+    m_xControl->thaw();
 }
 
 SvxLanguageBox::SvxLanguageBox( vcl::Window* pParent, WinBits nBits )

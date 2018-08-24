@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -304,7 +305,7 @@ void SotStorage::CreateStorage( bool bForceUCBStorage, StreamMode nMode )
         }
 
         // check the stream
-        m_pStorStm = ::utl::UcbStreamHelper::CreateStream( m_aName, nMode );
+        m_pStorStm = ::utl::UcbStreamHelper::CreateStream( m_aName, nMode ).release();
         if ( m_pStorStm && m_pStorStm->GetError() )
             DELETEZ( m_pStorStm );
 
@@ -456,10 +457,9 @@ SotStorage::~SotStorage()
         delete m_pStorStm;
 }
 
-SvMemoryStream * SotStorage::CreateMemoryStream()
+std::unique_ptr<SvMemoryStream> SotStorage::CreateMemoryStream()
 {
-    SvMemoryStream * pStm = nullptr;
-    pStm = new SvMemoryStream( 0x8000, 0x8000 );
+    std::unique_ptr<SvMemoryStream> pStm(new SvMemoryStream( 0x8000, 0x8000 ));
     tools::SvRef<SotStorage> aStg = new SotStorage( *pStm );
     if( CopyTo( aStg.get() ) )
     {
@@ -468,8 +468,7 @@ SvMemoryStream * SotStorage::CreateMemoryStream()
     else
     {
         aStg.clear(); // release storage beforehand
-        delete pStm;
-        pStm = nullptr;
+        pStm.reset();
     }
     return pStm;
 }
@@ -730,7 +729,7 @@ SotStorage* SotStorage::OpenOLEStorage( const css::uno::Reference < css::embed::
     if ( nMode & StreamMode::NOCREATE )
         nEleMode |= embed::ElementModes::NOCREATE;
 
-    SvStream* pStream = nullptr;
+    std::unique_ptr<SvStream> pStream;
     try
     {
         uno::Reference < io::XStream > xStream = xStorage->openStreamElement( rEleName, nEleMode );
@@ -748,11 +747,11 @@ SotStorage* SotStorage::OpenOLEStorage( const css::uno::Reference < css::embed::
     catch ( uno::Exception& )
     {
         //TODO/LATER: ErrorHandling
-        pStream = new SvMemoryStream;
+        pStream.reset( new SvMemoryStream );
         pStream->SetError( ERRCODE_IO_GENERAL );
     }
 
-    return new SotStorage( pStream, true );
+    return new SotStorage( pStream.release(), true );
 }
 
 SotClipboardFormatId SotStorage::GetFormatID( const css::uno::Reference < css::embed::XStorage >& xStorage )

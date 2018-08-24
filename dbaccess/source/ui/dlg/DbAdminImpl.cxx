@@ -52,16 +52,14 @@
 #include <com/sun/star/ucb/XInteractionSupplyAuthentication2.hpp>
 #include <com/sun/star/ucb/AuthenticationRequest.hpp>
 
-#include <comphelper/guarding.hxx>
 #include <comphelper/interaction.hxx>
-#include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
-#include <comphelper/string.hxx>
 #include <connectivity/DriversConfig.hxx>
 #include <connectivity/dbexception.hxx>
 #include <osl/file.hxx>
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 #include <typelib/typedescription.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/stdtext.hxx>
@@ -388,11 +386,11 @@ Reference< XDriver > ODbDataSourceAdministrationHelper::getDriver(const OUString
     {
         xDriverManager.set( ConnectionPool::create( getORB() ) );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
+        css::uno::Any anyEx = cppu::getCaughtException();
         // wrap the exception into an SQLException
-        SQLException aSQLWrapper(e.Message, getORB(), "S1000", 0, Any());
-        throw SQLException(sCurrentActionError, getORB(), "S1000", 0, makeAny(aSQLWrapper));
+        throw SQLException(sCurrentActionError, getORB(), "S1000", 0, anyEx);
     }
 
     Reference< XDriver > xDriver = xDriverManager->getDriverByURL(_sURL);
@@ -752,10 +750,10 @@ void ODbDataSourceAdministrationHelper::fillDatasourceInfo(const SfxItemSet& _rS
         // These settings have to be removed: If they're not relevant, we have no UI for changing them.
 
         // for this, we need a string-controlled quick access to m_aIndirectPropTranslator
-        StringSet aIndirectProps;
+        std::set<OUString> aIndirectProps;
         std::transform(m_aIndirectPropTranslator.begin(),
                          m_aIndirectPropTranslator.end(),
-                         std::insert_iterator<StringSet>(aIndirectProps,aIndirectProps.begin()),
+                         std::inserter(aIndirectProps,aIndirectProps.begin()),
                          ::o3tl::select2nd< MapInt2String::value_type >());
 
         // now check the to-be-preserved props

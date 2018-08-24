@@ -172,7 +172,7 @@ bool AnchorPrimitive::operator==( const drawinglayer::primitive2d::BasePrimitive
 
 ImplPrimitive2DIDBlock(AnchorPrimitive, PRIMITIVE2D_ID_SWSIDEBARANCHORPRIMITIVE)
 
-/*static*/ AnchorOverlayObject* AnchorOverlayObject::CreateAnchorOverlayObject(
+/*static*/ std::unique_ptr<AnchorOverlayObject> AnchorOverlayObject::CreateAnchorOverlayObject(
                                                        SwView const & rDocView,
                                                        const SwRect& aAnchorRect,
                                                        long aPageBorder,
@@ -180,7 +180,7 @@ ImplPrimitive2DIDBlock(AnchorPrimitive, PRIMITIVE2D_ID_SWSIDEBARANCHORPRIMITIVE)
                                                        const Point& aLineEnd,
                                                        const Color& aColorAnchor )
 {
-    AnchorOverlayObject* pAnchorOverlayObject( nullptr );
+    std::unique_ptr<AnchorOverlayObject> pAnchorOverlayObject;
     if ( rDocView.GetDrawView() )
     {
         SdrPaintWindow* pPaintWindow = rDocView.GetDrawView()->GetPaintWindow(0);
@@ -190,7 +190,7 @@ ImplPrimitive2DIDBlock(AnchorPrimitive, PRIMITIVE2D_ID_SWSIDEBARANCHORPRIMITIVE)
 
             if ( xOverlayManager.is() )
             {
-                pAnchorOverlayObject = new AnchorOverlayObject(
+                pAnchorOverlayObject.reset(new AnchorOverlayObject(
                     basegfx::B2DPoint( aAnchorRect.Left() , aAnchorRect.Bottom()-5*15),
                     basegfx::B2DPoint( aAnchorRect.Left()-5*15 , aAnchorRect.Bottom()+5*15),
                     basegfx::B2DPoint( aAnchorRect.Left()+5*15 , aAnchorRect.Bottom()+5*15),
@@ -198,26 +198,13 @@ ImplPrimitive2DIDBlock(AnchorPrimitive, PRIMITIVE2D_ID_SWSIDEBARANCHORPRIMITIVE)
                     basegfx::B2DPoint( aPageBorder ,aAnchorRect.Bottom()+2*15),
                     basegfx::B2DPoint( aLineStart.X(),aLineStart.Y()),
                     basegfx::B2DPoint( aLineEnd.X(),aLineEnd.Y()) ,
-                    aColorAnchor);
+                    aColorAnchor));
                 xOverlayManager->add(*pAnchorOverlayObject);
             }
         }
     }
 
     return pAnchorOverlayObject;
-}
-
-/*static*/ void AnchorOverlayObject::DestroyAnchorOverlayObject( AnchorOverlayObject* pAnchor )
-{
-    if ( pAnchor )
-    {
-        if ( pAnchor->getOverlayManager() )
-        {
-            // remove this object from the chain
-            pAnchor->getOverlayManager()->remove(*pAnchor);
-        }
-        delete pAnchor;
-    }
 }
 
 AnchorOverlayObject::AnchorOverlayObject( const basegfx::B2DPoint& rBasePos,
@@ -245,6 +232,11 @@ AnchorOverlayObject::AnchorOverlayObject( const basegfx::B2DPoint& rBasePos,
 
 AnchorOverlayObject::~AnchorOverlayObject()
 {
+    if ( getOverlayManager() )
+    {
+        // remove this object from the chain
+        getOverlayManager()->remove(*this);
+    }
 }
 
 void AnchorOverlayObject::implEnsureGeometry()

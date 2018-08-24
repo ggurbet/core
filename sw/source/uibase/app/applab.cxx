@@ -103,7 +103,6 @@ static const SwFrameFormat *lcl_InsertBCText( SwWrtShell& rSh, const SwLabItem& 
     if(!rItem.m_bSynchron || !(nCol|nRow))
     {
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        OSL_ENSURE(pFact, "Dialog creation failed!");
         ::GlossarySetActGroup fnSetActGroup = pFact->SetGlossaryActGroupFunc();
         if ( fnSetActGroup )
             (*fnSetActGroup)( rItem.m_sGlossaryGroup );
@@ -167,16 +166,14 @@ void SwModule::InsertLab(SfxRequest& rReq, bool bLabel)
     aSet.Put( aLabCfg.GetItem() );
 
     SwAbstractDialogFactory* pDialogFactory = SwAbstractDialogFactory::Create();
-    OSL_ENSURE(pDialogFactory, "SwAbstractDialogFactory fail!");
 
-    ScopedVclPtr<AbstractSwLabDlg> pDlg(pDialogFactory->CreateSwLabDlg(aSet,
+    ScopedVclPtr<AbstractSwLabDlg> pDlg(pDialogFactory->CreateSwLabDlg(rReq.GetFrameWeld(), aSet,
 #if HAVE_FEATURE_DBCONNECTIVITY
                                                                             pDBManager.get(),
 #else
                                                                             NULL,
 #endif
                                                                             bLabel));
-    OSL_ENSURE(pDlg, "Dialog creation failed!");
 
     if ( RET_OK != pDlg->Execute() )
         return;
@@ -384,6 +381,9 @@ void SwModule::InsertLab(SfxRequest& rReq, bool bLabel)
 
         if (pFirstFlyFormat)
             pSh->GotoFly(pFirstFlyFormat->GetName(), FLYCNTTYPE_ALL, false);
+
+        if (pSh->IsAnyDatabaseFieldInDoc())
+            pSh->GetView().ShowUIElement("private:resource/toolbar/mailmerge");
 
         pSh->EndAllAction();
         pSh->DoUndo();

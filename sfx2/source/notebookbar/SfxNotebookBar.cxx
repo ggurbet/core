@@ -68,6 +68,12 @@ static OUString lcl_getAppName( vcl::EnumContext::Application eApp )
         case vcl::EnumContext::Application::Impress:
             return OUString( "Impress" );
             break;
+        case vcl::EnumContext::Application::Draw:
+            return OUString( "Draw" );
+            break;
+        case vcl::EnumContext::Application::Formula:
+            return OUString( "Formula" );
+            break;
         default:
             return OUString();
             break;
@@ -89,6 +95,9 @@ static void lcl_setNotebookbarFileName( vcl::EnumContext::Application eApp, cons
         case vcl::EnumContext::Application::Impress:
             officecfg::Office::UI::ToolbarMode::ActiveImpress::set( sFileName, aBatch );
             break;
+        case vcl::EnumContext::Application::Draw:
+            officecfg::Office::UI::ToolbarMode::ActiveDraw::set( sFileName, aBatch );
+            break;
         default:
             break;
     }
@@ -108,6 +117,10 @@ static OUString lcl_getNotebookbarFileName( vcl::EnumContext::Application eApp )
         case vcl::EnumContext::Application::Impress:
             return officecfg::Office::UI::ToolbarMode::ActiveImpress::get();
             break;
+        case vcl::EnumContext::Application::Draw:
+            return officecfg::Office::UI::ToolbarMode::ActiveDraw::get();
+            break;
+
         default:
             break;
     }
@@ -196,9 +209,17 @@ bool SfxNotebookBar::IsActive()
         const Reference<frame::XModuleManager> xModuleManager  = frame::ModuleManager::create( ::comphelper::getProcessComponentContext() );
         eApp = vcl::EnumContext::GetApplicationEnum(xModuleManager->identify(xFrame));
     }
+    else
+        return false;
+
+    OUString appName(lcl_getAppName( eApp ));
+
+    if (appName.isEmpty())
+        return false;
+
 
     OUStringBuffer aPath("org.openoffice.Office.UI.ToolbarMode/Applications/");
-    aPath.append( lcl_getAppName( eApp ) );
+    aPath.append( appName );
 
     const utl::OConfigurationTreeRoot aAppNode(
                                         ::comphelper::getProcessComponentContext(),

@@ -161,7 +161,7 @@ namespace framework
             void                                      implts_initialize();
             void                                      implts_notifyContainerListener( const css::ui::ConfigurationEvent& aEvent, NotifyOp eOp );
             ImageList*                                implts_getUserImageList( vcl::ImageType nImageType );
-            bool                                      implts_loadUserImages( vcl::ImageType nImageType,
+            void                                      implts_loadUserImages( vcl::ImageType nImageType,
                                                                              const css::uno::Reference< css::embed::XStorage >& xUserImageStorage,
                                                                              const css::uno::Reference< css::embed::XStorage >& xUserBitmapsStorage );
             bool                                      implts_storeUserImages( vcl::ImageType nImageType,
@@ -177,12 +177,12 @@ namespace framework
             css::uno::Reference< css::uno::XComponentContext >        m_xContext;
             ::cppu::OWeakObject*                                                            m_pOwner;
             rtl::Reference< GlobalImageList >                                               m_pGlobalImageList;
-            CmdImageList*                                                                   m_pDefaultImageList;
+            std::unique_ptr<CmdImageList>                                                   m_pDefaultImageList;
             OUString                                                                   m_aModuleIdentifier;
             OUString                                                                   m_aResourceString;
             osl::Mutex m_mutex;
             ::cppu::OMultiTypeInterfaceContainerHelper                                      m_aListenerContainer;   /// container for ALL Listener
-            o3tl::enumarray<vcl::ImageType,ImageList*>                                      m_pUserImageList;
+            o3tl::enumarray<vcl::ImageType,std::unique_ptr<ImageList>>                      m_pUserImageList;
             o3tl::enumarray<vcl::ImageType,bool>                                            m_bUserImageListModified;
             bool                                                                            m_bUseGlobal;
             bool                                                                            m_bReadOnly;

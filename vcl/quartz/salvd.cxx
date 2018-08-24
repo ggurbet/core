@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <vcl/svapp.hxx>
 #include <vcl/sysdata.hxx>
@@ -36,7 +37,7 @@
 #include <quartz/salvd.h>
 #include <quartz/utils.h>
 
-SalVirtualDevice* AquaSalInstance::CreateVirtualDevice( SalGraphics* pGraphics,
+std::unique_ptr<SalVirtualDevice> AquaSalInstance::CreateVirtualDevice( SalGraphics* pGraphics,
                                                         long &nDX, long &nDY,
                                                         DeviceFormat eFormat,
                                                         const SystemGraphicsData *pData )
@@ -47,18 +48,18 @@ SalVirtualDevice* AquaSalInstance::CreateVirtualDevice( SalGraphics* pGraphics,
 #ifdef IOS
     if( pData )
     {
-        return new AquaSalVirtualDevice( static_cast< AquaSalGraphics* >( pGraphics ),
-                                         nDX, nDY, eFormat, pData );
+        return std::unique_ptr<SalVirtualDevice>(new AquaSalVirtualDevice( static_cast< AquaSalGraphics* >( pGraphics ),
+                                         nDX, nDY, eFormat, pData ));
     }
     else
     {
-        AquaSalVirtualDevice* pNew = new AquaSalVirtualDevice( NULL, nDX, nDY, eFormat, NULL );
+        std::unique_ptr<SalVirtualDevice> pNew(new AquaSalVirtualDevice( NULL, nDX, nDY, eFormat, NULL ));
         pNew->SetSize( nDX, nDY );
         return pNew;
     }
 #else
-    return new AquaSalVirtualDevice( static_cast< AquaSalGraphics* >( pGraphics ),
-                                     nDX, nDY, eFormat, pData );
+    return std::unique_ptr<SalVirtualDevice>(new AquaSalVirtualDevice( static_cast< AquaSalGraphics* >( pGraphics ),
+                                     nDX, nDY, eFormat, pData ));
 #endif
 }
 

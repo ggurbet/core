@@ -20,6 +20,7 @@
 #include <hintids.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <svl/itemiter.hxx>
+#include <sal/log.hxx>
 #include <fmtcntnt.hxx>
 #include <fmtanchr.hxx>
 #include <txtftn.hxx>
@@ -505,7 +506,7 @@ SwSection* SwDoc::GetCurrSection( const SwPosition& rPos )
 
 SwSectionFormat* SwDoc::MakeSectionFormat()
 {
-    SwSectionFormat* pNew = new SwSectionFormat( mpDfltFrameFormat, this );
+    SwSectionFormat* pNew = new SwSectionFormat( mpDfltFrameFormat.get(), this );
     mpSectionFormatTable->push_back( pNew );
     return pNew;
 }

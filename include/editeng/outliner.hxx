@@ -87,11 +87,8 @@ class OutlinerViewShell;
 enum class CharCompressType;
 enum class TransliterationFlags;
 class SvxFieldData;
+class SfxUndoManager;
 
-namespace svl
-{
-    class IUndoManager;
-}
 namespace com { namespace sun { namespace star { namespace linguistic2 {
     class XSpellChecker1;
     class XHyphenator;
@@ -154,7 +151,6 @@ private:
                         Paragraph( sal_Int16 nDepth );
                         Paragraph( const Paragraph& ) = delete;
                         Paragraph( const ParagraphData& );
-                        ~Paragraph();
 
     sal_Int16           GetDepth() const { return nDepth; }
 
@@ -168,6 +164,7 @@ private:
     void                RemoveFlag( ParaFlag nFlag ) { nFlags &= ~nFlag; }
     bool                HasFlag( ParaFlag nFlag ) const { return bool(nFlags & nFlag); }
 public:
+                        ~Paragraph();
     void                dumpAsXml(struct _xmlTextWriter* pWriter) const;
 };
 
@@ -248,8 +245,7 @@ public:
 
     void        CreateSelectionList (std::vector<Paragraph*> &aSelList) ;
 
-    // Retruns the number of selected paragraphs
-    sal_Int32   Select( Paragraph const * pParagraph, bool bSelect = true);
+    void        Select( Paragraph const * pParagraph, bool bSelect = true);
 
     OUString    GetSelected() const;
     void        SelectRange( sal_Int32 nFirst, sal_Int32 nCount );
@@ -694,7 +690,7 @@ public:
 
     size_t          InsertView( OutlinerView* pView, size_t nIndex = size_t(-1) );
     void            RemoveView( OutlinerView const * pView );
-    OutlinerView*   RemoveView( size_t nIndex );
+    void            RemoveView( size_t nIndex );
     OutlinerView*   GetView( size_t nIndex ) const;
     size_t          GetViewCount() const;
 
@@ -706,7 +702,7 @@ public:
 
     void            SetToEmptyText();
 
-    OutlinerParaObject* CreateParaObject( sal_Int32 nStartPara = 0, sal_Int32 nParaCount = EE_PARA_ALL ) const;
+    std::unique_ptr<OutlinerParaObject> CreateParaObject( sal_Int32 nStartPara = 0, sal_Int32 nParaCount = EE_PARA_ALL ) const;
 
     const SfxItemSet& GetEmptyItemSet() const;
 
@@ -760,7 +756,7 @@ public:
     void ClearOverflowingParaNum();
     bool IsPageOverflow();
 
-    OutlinerParaObject *GetEmptyParaObject() const;
+    std::unique_ptr<OutlinerParaObject> GetEmptyParaObject() const;
 
 
     void            DepthChangedHdl(Paragraph*, ParaFlag nPrevFlags);
@@ -882,8 +878,8 @@ public:
 
     ErrCode             Read( SvStream& rInput, const OUString& rBaseURL, EETextFormat, SvKeyValueIterator* pHTTPHeaderAttrs = nullptr );
 
-    ::svl::IUndoManager& GetUndoManager();
-    ::svl::IUndoManager* SetUndoManager(::svl::IUndoManager* pNew);
+    SfxUndoManager& GetUndoManager();
+    SfxUndoManager* SetUndoManager(SfxUndoManager* pNew);
 
     void            QuickSetAttribs( const SfxItemSet& rSet, const ESelection& rSel );
     void            QuickInsertField( const SvxFieldItem& rFld, const ESelection& rSel );
@@ -900,7 +896,7 @@ public:
     bool            UpdateFields();
     void            RemoveFields( const std::function<bool ( const SvxFieldData* )>& isFieldData = [] (const SvxFieldData* ){return true;} );
 
-    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, Color*& rTxtColor, Color*& rFldColor );
+    virtual OUString CalcFieldValue( const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rTxtColor, boost::optional<Color>& rFldColor );
 
     void            SetSpeller( css::uno::Reference< css::linguistic2::XSpellChecker1 > const &xSpeller );
     css::uno::Reference< css::linguistic2::XSpellChecker1 > const &
@@ -911,7 +907,6 @@ public:
 
     // Deprecated
     void            SetDefaultLanguage( LanguageType eLang );
-    LanguageType    GetDefaultLanguage() const;
 
     void            CompleteOnlineSpelling();
 

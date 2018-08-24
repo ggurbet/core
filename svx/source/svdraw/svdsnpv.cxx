@@ -62,10 +62,10 @@ ImplPageOriginOverlay::ImplPageOriginOverlay(const SdrPaintView& rView, const ba
 
         if (xTargetOverlay.is())
         {
-            sdr::overlay::OverlayCrosshairStriped* aNew = new sdr::overlay::OverlayCrosshairStriped(
-                maPosition);
+            std::unique_ptr<sdr::overlay::OverlayCrosshairStriped> aNew(new sdr::overlay::OverlayCrosshairStriped(
+                maPosition));
             xTargetOverlay->add(*aNew);
-            maObjects.append(aNew);
+            maObjects.append(std::move(aNew));
         }
     }
 }
@@ -136,10 +136,10 @@ ImplHelpLineOverlay::ImplHelpLineOverlay(
 
         if (xTargetOverlay.is())
         {
-            sdr::overlay::OverlayHelplineStriped* aNew = new sdr::overlay::OverlayHelplineStriped(
-                maPosition, meHelpLineKind);
+            std::unique_ptr<sdr::overlay::OverlayHelplineStriped> aNew(new sdr::overlay::OverlayHelplineStriped(
+                maPosition, meHelpLineKind));
             xTargetOverlay->add(*aNew);
-            maObjects.append(aNew);
+            maObjects.append(std::move(aNew));
         }
     }
 }
@@ -325,7 +325,7 @@ SdrSnap SdrSnapView::SnapPos(Point& rPnt, const SdrPageView* pPV) const
         sal_uInt32 nMaxFrameSnapCount=200;
 
         // go back to SdrIterMode::DeepNoGroups runthrough for snap to object comparisons
-        SdrObjListIter aIter(*pPV->GetPage(),SdrIterMode::DeepNoGroups,true);
+        SdrObjListIter aIter(pPV->GetPage(),SdrIterMode::DeepNoGroups,true);
 
         while (aIter.IsMore() && (nMaxPointSnapCount>0 || nMaxFrameSnapCount>0)) {
             SdrObject* pO=aIter.Next();

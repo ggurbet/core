@@ -102,7 +102,7 @@ SwMailMergeLayoutPage::SwMailMergeLayoutPage( SwMailMergeWizard* _pParent) :
             SwDocShell::Factory().GetFilterContainer() );
     //save the current document into a temporary file
     {
-        //temp file needs it's own block
+        //temp file needs its own block
         //creating with extension is not supported by a static method :-(
         OUString const sExt(
             comphelper::string::stripStart(pSfxFlt->GetDefaultExtension(),'*'));
@@ -111,17 +111,20 @@ SwMailMergeLayoutPage::SwMailMergeLayoutPage( SwMailMergeWizard* _pParent) :
         aTempFile.EnableKillingFile();
     }
     SwView* pView = m_pWizard->GetSwView();
-    uno::Sequence< beans::PropertyValue > aValues(1);
+    uno::Sequence< beans::PropertyValue > aValues(2);
     beans::PropertyValue* pValues = aValues.getArray();
     pValues[0].Name = "FilterName";
     pValues[0].Value <<= pSfxFlt->GetFilterName();
+    // Don't save embedded data set! It would steal it from current document.
+    pValues[1].Name = "NoEmbDataSet";
+    pValues[1].Value <<= true;
 
     uno::Reference< frame::XStorable > xStore( pView->GetDocShell()->GetModel(), uno::UNO_QUERY);
     xStore->storeToURL( m_sExampleURL, aValues   );
 
     Link<SwOneExampleFrame&,void> aLink(LINK(this, SwMailMergeLayoutPage, PreviewLoadedHdl_Impl));
-    m_pExampleFrame = new SwOneExampleFrame( *m_pExampleContainerWIN,
-                                    EX_SHOW_DEFAULT_PAGE, &aLink, &m_sExampleURL );
+    m_pExampleFrame.reset( new SwOneExampleFrame( *m_pExampleContainerWIN,
+                                    EX_SHOW_DEFAULT_PAGE, &aLink, &m_sExampleURL ) );
 
     m_pExampleContainerWIN->Show(false);
 
@@ -162,7 +165,7 @@ SwMailMergeLayoutPage::~SwMailMergeLayoutPage()
 
 void SwMailMergeLayoutPage::dispose()
 {
-    delete m_pExampleFrame;
+    m_pExampleFrame.reset();
     File::remove( m_sExampleURL );
     m_pPosition.clear();
     m_pAlignToBodyCB.clear();

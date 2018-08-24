@@ -19,6 +19,7 @@
 
 
 #include <sal/macros.h>
+#include <sal/log.hxx>
 #include <fmitems.hxx>
 #include <fmobj.hxx>
 #include <fmpgeimp.hxx>
@@ -83,6 +84,7 @@
 #include <comphelper/property.hxx>
 #include <comphelper/solarmutex.hxx>
 #include <comphelper/string.hxx>
+#include <comphelper/types.hxx>
 #include <connectivity/dbtools.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
@@ -288,7 +290,7 @@ namespace
             std::unique_ptr<SdrObjListIter> pGroupIterator;
             if ( pCurrent->IsGroupObject() )
             {
-                pGroupIterator.reset(new SdrObjListIter( *pCurrent->GetSubList() ));
+                pGroupIterator.reset(new SdrObjListIter( pCurrent->GetSubList() ));
                 pCurrent = pGroupIterator->IsMore() ? pGroupIterator->Next() : nullptr;
             }
 
@@ -407,9 +409,8 @@ namespace
                 for (j=0; j<pCurrentArray->getLength(); ++j, ++pCurrentListeners)
                 {
                     OUString aListener = (*pCurrentListeners).getTypeName();
-                    sal_Int32 nTokens = comphelper::string::getTokenCount(aListener, '.');
-                    if (nTokens)
-                        aListener = aListener.getToken(nTokens - 1, '.');
+                    if (!aListener.isEmpty())
+                        aListener = aListener.copy(aListener.lastIndexOf('.')+1);
 
                     if (aListener == pCurrent->ListenerType)
                         // the current ScriptEventDescriptor doesn't match the current listeners class
@@ -577,7 +578,7 @@ bool isControlList(const SdrMarkList& rMarkList)
         {
             if (pObj->IsGroupObject())
             {
-                SdrObjListIter aIter(*pObj->GetSubList());
+                SdrObjListIter aIter(pObj->GetSubList());
                 while (aIter.IsMore() && bControlList)
                 {
                     bControlList = SdrInventor::FmForm == aIter.Next()->GetObjInventor();
@@ -1085,7 +1086,7 @@ bool FmXFormShell::executeControlConversionSlot_Lock(const Reference<XFormCompon
         return false;
 
     SdrPage* pPage = m_pShell->GetCurPage();
-    FmFormPage* pFormPage = pPage ? dynamic_cast< FmFormPage* >( pPage ) : nullptr;
+    FmFormPage* pFormPage = dynamic_cast< FmFormPage* >( pPage );
     OSL_ENSURE( pFormPage, "FmXFormShell::executeControlConversionSlot: no current (form) page!" );
     if ( !pFormPage )
         return false;
@@ -1100,7 +1101,7 @@ bool FmXFormShell::executeControlConversionSlot_Lock(const Reference<XFormCompon
             Reference< XInterface > xNormalizedObject( _rxObject, UNO_QUERY );
 
             FmFormObj* pFormObject = nullptr;
-            SdrObjListIter aPageIter( *pFormPage );
+            SdrObjListIter aPageIter( pFormPage );
             while ( aPageIter.IsMore() )
             {
                 SdrObject* pCurrent = aPageIter.Next();
@@ -1568,18 +1569,16 @@ void FmXFormShell::ExecuteSearch_Lock()
     // somewhat more fluid. Should be, however, somehow made dependent of the
     // underlying cursor. DAO for example is not thread-safe.
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractFmSearchDialog> pDialog;
-    if ( pFact )
-        pDialog.disposeAndReset(pFact->CreateFmSearchDialog( &m_pShell->GetViewShell()->GetViewFrame()->GetWindow(), strInitialText, aContextNames, nInitialContext, LINK(this, FmXFormShell, OnSearchContextRequest_Lock) ));
-    DBG_ASSERT( pDialog, "FmXFormShell::ExecuteSearch: could not create the search dialog!" );
-    if ( pDialog )
-    {
-        pDialog->SetActiveField( strActiveField );
-        pDialog->SetFoundHandler(LINK(this, FmXFormShell, OnFoundData_Lock));
-        pDialog->SetCanceledNotFoundHdl(LINK(this, FmXFormShell, OnCanceledNotFound_Lock));
-        pDialog->Execute();
-        pDialog.disposeAndClear();
-    }
+    ScopedVclPtr<AbstractFmSearchDialog> pDialog(
+            pFact->CreateFmSearchDialog(
+                &m_pShell->GetViewShell()->GetViewFrame()->GetWindow(),
+                strInitialText, aContextNames, nInitialContext,
+                LINK(this, FmXFormShell, OnSearchContextRequest_Lock) ));
+    pDialog->SetActiveField( strActiveField );
+    pDialog->SetFoundHandler(LINK(this, FmXFormShell, OnFoundData_Lock));
+    pDialog->SetCanceledNotFoundHdl(LINK(this, FmXFormShell, OnCanceledNotFound_Lock));
+    pDialog->Execute();
+    pDialog.disposeAndClear();
 
     // restore GridControls again
     LoopGrids_Lock(LoopGridsSync::ENABLE_SYNC, LoopGridsFlags::DISABLE_ROCTRLR);
@@ -2349,7 +2348,7 @@ IMPL_LINK(FmXFormShell, OnSearchContextRequest_Lock, FmSearchContext&, rfmscCont
     // Search all SdrControls of this page...
     OUString sControlSource, aName;
 
-    SdrObjListIter aPageIter( *pCurrentPage );
+    SdrObjListIter aPageIter( pCurrentPage );
     while ( aPageIter.IsMore() )
     {
         SdrObject* pCurrent = aPageIter.Next();

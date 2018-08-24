@@ -19,6 +19,7 @@
 
 #include <config_features.h>
 
+#include <sal/log.hxx>
 #include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
 #include <svl/whiter.hxx>
@@ -50,6 +51,7 @@
 #include <basic/basmgr.hxx>
 #include <basic/sbuno.hxx>
 #include <framework/actiontriggerhelper.hxx>
+#include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -222,7 +224,6 @@ SfxViewShell_Impl::SfxViewShell_Impl(SfxViewShellFlags const nFlags)
 ,   m_bIsShowView(!(nFlags & SfxViewShellFlags::NO_SHOW))
 ,   m_nFamily(0xFFFF)   // undefined, default set by TemplateDialog
 ,   m_pController(nullptr)
-,   mpIPClients(nullptr)
 ,   m_pLibreOfficeKitViewCallback(nullptr)
 ,   m_pLibreOfficeKitViewData(nullptr)
 ,   m_bTiledSearching(false)
@@ -231,14 +232,13 @@ SfxViewShell_Impl::SfxViewShell_Impl(SfxViewShellFlags const nFlags)
 
 SfxViewShell_Impl::~SfxViewShell_Impl()
 {
-    DELETEZ(mpIPClients);
 }
 
 std::vector< SfxInPlaceClient* > *SfxViewShell_Impl::GetIPClients_Impl( bool bCreate ) const
 {
     if (!mpIPClients && bCreate)
-        mpIPClients = new std::vector< SfxInPlaceClient* >;
-    return mpIPClients;
+        mpIPClients.reset(new std::vector< SfxInPlaceClient* >);
+    return mpIPClients.get();
 }
 
 SFX_IMPL_SUPERCLASS_INTERFACE(SfxViewShell,SfxShell)
@@ -1650,8 +1650,7 @@ void SfxViewShell::CheckIPClient_Impl(
     bool bAlwaysActive =
         ( ( pIPClient->GetObjectMiscStatus() & embed::EmbedMisc::EMBED_ACTIVATEIMMEDIATELY ) != 0 );
     bool bActiveWhenVisible =
-        ( (( pIPClient->GetObjectMiscStatus() & embed::EmbedMisc::MS_EMBED_ACTIVATEWHENVISIBLE ) != 0 ) ||
-         svt::EmbeddedObjectRef::IsGLChart(pIPClient->GetObject()));
+        ( pIPClient->GetObjectMiscStatus() & embed::EmbedMisc::MS_EMBED_ACTIVATEWHENVISIBLE ) != 0;
 
     // this method is called when a client is created
     if (!pIPClient->IsObjectInPlaceActive())

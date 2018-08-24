@@ -21,6 +21,7 @@
 
 #include <rangeutl.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 using ::oox::core::ContextHandlerRef;
 
@@ -91,8 +92,7 @@ ContextHandlerRef ExtConditionalFormattingContext::onCreateContext(sal_Int32 nEl
         SCTAB nTab = getSheetIndex();
         ScAddress aPos(0, 0, nTab);
         mpCurrentRule->SetData(&rIconSet, pDoc, aPos);
-        delete mpCurrentRule;
-        mpCurrentRule = nullptr;
+        mpCurrentRule.reset();
     }
     if (nElement == XLS14_TOKEN(cfRule))
     {
@@ -115,9 +115,9 @@ ContextHandlerRef ExtConditionalFormattingContext::onCreateContext(sal_Int32 nEl
         else if (aType == "iconSet")
         {
             ScDocument* pDoc = &getScDocument();
-            mpCurrentRule = new IconSetRule(*this);
+            mpCurrentRule.reset(new IconSetRule(*this));
             maEntries.push_back(o3tl::make_unique<ScIconSetFormat>(pDoc));
-            return new IconSetContext(*this, mpCurrentRule);
+            return new IconSetContext(*this, mpCurrentRule.get());
         }
         else
         {

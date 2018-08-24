@@ -18,11 +18,11 @@
  */
 
 #include <fuconcs.hxx>
+#include <rtl/ustring.hxx>
 #include <svx/svdpagv.hxx>
 
 #include <svx/svxids.hrc>
 #include <svx/dialogs.hrc>
-#include <svx/dialmgr.hxx>
 
 #include <app.hrc>
 #include <svl/aeitem.hxx>
@@ -176,8 +176,9 @@ void FuConstructCustomShape::SetAttributes( SdrObject* pObj )
                 if ( aObjList[ i ].equalsIgnoreAsciiCase( aCustomShape ) )
                 {
                     FmFormModel aFormModel;
-                    SfxItemPool& rPool = aFormModel.GetItemPool();
+                    SfxItemPool& rPool(aFormModel.GetItemPool());
                     rPool.FreezeIdRanges();
+
                     if ( GalleryExplorer::GetSdrObj( GALLERY_THEME_POWERPOINT, i, &aFormModel ) )
                     {
                         const SdrPage* pPage = aFormModel.GetPage( 0 );

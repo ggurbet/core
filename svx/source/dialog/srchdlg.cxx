@@ -309,6 +309,7 @@ SvxSearchDialog::SvxSearchDialog( vcl::Window* pParent, SfxChildWindow* pChildWi
 
     get(m_pCloseBtn, "close");
 
+    get(m_pOtherOptionsExpander, "OptionsExpander");
     get(m_pIncludeDiacritics, "includediacritics");
     get(m_pIncludeKashida, "includekashida");
     get(m_pSelectionBtn, "selection");
@@ -358,15 +359,15 @@ void SvxSearchDialog::dispose()
     Hide();
 
     rBindings.EnterRegistrations();
-    DELETEZ( pSearchController );
-    DELETEZ( pOptionsController );
-    DELETEZ( pFamilyController );
+    pSearchController.reset();
+    pOptionsController.reset();
+    pFamilyController.reset();
     rBindings.LeaveRegistrations();
 
-    delete pSearchItem;
+    pSearchItem.reset();
     pImpl.reset();
-    delete pSearchList;
-    delete pReplaceList;
+    pSearchList.reset();
+    pReplaceList.reset();
     mpDocWin.clear();
     m_pSearchFrame.clear();
     m_pSearchLB.clear();
@@ -391,6 +392,7 @@ void SvxSearchDialog::dispose()
     m_pCloseBtn.clear();
     m_pIncludeDiacritics.clear();
     m_pIncludeKashida.clear();
+    m_pOtherOptionsExpander.clear();
     m_pSelectionBtn.clear();
     m_pReplaceBackwardsCB.clear();
     m_pRegExpBtn.clear();
@@ -442,7 +444,7 @@ void SvxSearchDialog::Construct_Impl()
     InitControls_Impl();
 
     // Get attribute sets only once in constructor()
-    const SfxPoolItem* ppArgs[] = { pSearchItem, nullptr };
+    const SfxPoolItem* ppArgs[] = { pSearchItem.get(), nullptr };
     const SvxSetItem* pSrchSetItem =
         static_cast<const SvxSetItem*>( rBindings.GetDispatcher()->Execute( FID_SEARCH_SEARCHSET, SfxCallMode::SLOT, ppArgs ) );
 
@@ -457,10 +459,10 @@ void SvxSearchDialog::Construct_Impl()
 
     // Create controller and update at once
     rBindings.EnterRegistrations();
-    pSearchController =
-        new SvxSearchController( SID_SEARCH_ITEM, rBindings, *this );
-    pOptionsController =
-        new SvxSearchController( SID_SEARCH_OPTIONS, rBindings, *this );
+    pSearchController.reset(
+        new SvxSearchController( SID_SEARCH_ITEM, rBindings, *this ) );
+    pOptionsController.reset(
+        new SvxSearchController( SID_SEARCH_OPTIONS, rBindings, *this ) );
     rBindings.LeaveRegistrations();
     rBindings.GetDispatcher()->Execute( FID_SEARCH_ON, SfxCallMode::SLOT, ppArgs );
     pImpl->aSelectionTimer.Start();
@@ -575,7 +577,7 @@ bool SvxSearchDialog::Close()
     aOpt.SetSearchFormatted         ( m_pSearchFormattedCB->IsChecked() );
     aOpt.Commit();
 
-    const SfxPoolItem* ppArgs[] = { pSearchItem, nullptr };
+    const SfxPoolItem* ppArgs[] = { pSearchItem.get(), nullptr };
     rBindings.GetDispatcher()->Execute( FID_SEARCH_OFF, SfxCallMode::SLOT, ppArgs );
     rBindings.Execute( SID_SEARCH_DLG );
 
@@ -609,6 +611,22 @@ void SvxSearchDialog::ApplyTransliterationFlags_Impl( TransliterationFlags nSett
     m_pMatchCaseCB->Check( !bVal );
     bVal = bool(nSettings & TransliterationFlags::IGNORE_WIDTH);
     m_pJapMatchFullHalfWidthCB->Check( !bVal );
+}
+
+
+bool SvxSearchDialog::IsOtherOptionsExpanded()
+{
+    return m_pReplaceBackwardsCB->IsChecked() ||
+           m_pSelectionBtn->IsChecked() ||
+           m_pRegExpBtn->IsChecked() ||
+           m_pLayoutBtn->IsChecked() ||
+           m_pSimilarityBox->IsChecked() ||
+           m_pJapMatchFullHalfWidthCB->IsChecked() ||
+           m_pJapOptionsCB->IsChecked() ||
+           m_pWildcardBtn->IsChecked() ||
+           m_pNotesBtn->IsChecked() ||
+           m_pIncludeKashida->IsChecked() ||
+           m_pIncludeDiacritics->IsChecked();
 }
 
 
@@ -806,11 +824,13 @@ void SvxSearchDialog::Init_Impl( bool bSearchPattern )
     if (m_pNotesBtn->IsChecked())
         m_pLayoutBtn->Disable();
     m_pSimilarityBox->Check( pSearchItem->IsLevenshtein() );
-    if( m_pJapOptionsCB->IsVisible() )
+    if ( m_pJapOptionsCB->IsVisible() )
         m_pJapOptionsCB->Check( pSearchItem->IsUseAsianOptions() );
     m_pIncludeDiacritics->Check( !aOpt.IsIgnoreDiacritics_CTL() );
-    if (m_pIncludeKashida->IsVisible())
+    if ( m_pIncludeKashida->IsVisible() )
         m_pIncludeKashida->Check( !aOpt.IsIgnoreKashida_CTL() );
+    if ( SvxSearchDialog::IsOtherOptionsExpanded() )
+        m_pOtherOptionsExpander->set_expanded( true );
     ApplyTransliterationFlags_Impl( pSearchItem->GetTransliterationFlags() );
 
     ShowOptionalControls_Impl();
@@ -889,7 +909,7 @@ void SvxSearchDialog::Init_Impl( bool bSearchPattern )
             if ( !pSearchList )
             {
                 // Get attribute sets, if it not has been done already
-                const SfxPoolItem* ppArgs[] = { pSearchItem, nullptr };
+                const SfxPoolItem* ppArgs[] = { pSearchItem.get(), nullptr };
                 const SvxSetItem* pSrchSetItem =
                     static_cast<const SvxSetItem*>(rBindings.GetDispatcher()->Execute( FID_SEARCH_SEARCHSET, SfxCallMode::SLOT, ppArgs ));
 
@@ -1088,8 +1108,7 @@ void SvxSearchDialog::InitAttrList_Impl( const SfxItemSet* pSSet,
 
     if ( pSSet )
     {
-        delete pSearchList;
-        pSearchList = new SearchAttrItemList;
+        pSearchList.reset(new SearchAttrItemList);
 
         if ( pSSet->Count() )
         {
@@ -1107,8 +1126,7 @@ void SvxSearchDialog::InitAttrList_Impl( const SfxItemSet* pSSet,
 
     if ( pRSet )
     {
-        delete pReplaceList;
-        pReplaceList = new SearchAttrItemList;
+        pReplaceList.reset(new SearchAttrItemList);
 
         if ( pRSet->Count() )
         {
@@ -1372,7 +1390,7 @@ IMPL_LINK( SvxSearchDialog, CommandHdl_Impl, Button *, pBtn, void )
                 pReplaceList->Clear();
         }
         nModifyFlag = ModifyFlags::NONE;
-        const SfxPoolItem* ppArgs[] = { pSearchItem, nullptr };
+        const SfxPoolItem* ppArgs[] = { pSearchItem.get(), nullptr };
         rBindings.ExecuteSynchron( FID_SEARCH_NOW, ppArgs );
     }
     else if ( pBtn == m_pCloseBtn )
@@ -1394,22 +1412,18 @@ IMPL_LINK( SvxSearchDialog, CommandHdl_Impl, Button *, pBtn, void )
     else if (pBtn == m_pSimilarityBtn)
     {
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        if(pFact)
+        ScopedVclPtr<AbstractSvxSearchSimilarityDialog> pDlg(pFact->CreateSvxSearchSimilarityDialog(GetFrameWeld(),
+                                                                    pSearchItem->IsLEVRelaxed(),
+                                                                    pSearchItem->GetLEVOther(),
+                                                                    pSearchItem->GetLEVShorter(),
+                                                                    pSearchItem->GetLEVLonger() ));
+        if ( pDlg->Execute() == RET_OK )
         {
-            ScopedVclPtr<AbstractSvxSearchSimilarityDialog> pDlg(pFact->CreateSvxSearchSimilarityDialog(GetFrameWeld(),
-                                                                        pSearchItem->IsLEVRelaxed(),
-                                                                        pSearchItem->GetLEVOther(),
-                                                                        pSearchItem->GetLEVShorter(),
-                                                                        pSearchItem->GetLEVLonger() ));
-            DBG_ASSERT(pDlg, "Dialog creation failed!");
-            if ( pDlg && pDlg->Execute() == RET_OK )
-            {
-                pSearchItem->SetLEVRelaxed( pDlg->IsRelaxed() );
-                pSearchItem->SetLEVOther( pDlg->GetOther() );
-                pSearchItem->SetLEVShorter( pDlg->GetShorter() );
-                pSearchItem->SetLEVLonger( pDlg->GetLonger() );
-                SaveToModule_Impl();
-            }
+            pSearchItem->SetLEVRelaxed( pDlg->IsRelaxed() );
+            pSearchItem->SetLEVOther( pDlg->GetOther() );
+            pSearchItem->SetLEVShorter( pDlg->GetShorter() );
+            pSearchItem->SetLEVLonger( pDlg->GetLonger() );
+            SaveToModule_Impl();
         }
     }
     else if (pBtn == m_pJapOptionsBtn)
@@ -1417,18 +1431,14 @@ IMPL_LINK( SvxSearchDialog, CommandHdl_Impl, Button *, pBtn, void )
         SfxItemSet aSet( SfxGetpApp()->GetPool() );
         pSearchItem->SetTransliterationFlags( GetTransliterationFlags() );
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        if(pFact)
+        ScopedVclPtr<AbstractSvxJSearchOptionsDialog> aDlg(pFact->CreateSvxJSearchOptionsDialog( this, aSet,
+                pSearchItem->GetTransliterationFlags() ));
+        int nRet = aDlg->Execute();
+        if (RET_OK == nRet) //! true only if FillItemSet of SvxJSearchOptionsPage returns true
         {
-            ScopedVclPtr<AbstractSvxJSearchOptionsDialog> aDlg(pFact->CreateSvxJSearchOptionsDialog( this, aSet,
-                    pSearchItem->GetTransliterationFlags() ));
-            DBG_ASSERT(aDlg, "Dialog creation failed!");
-            int nRet = aDlg->Execute();
-            if (RET_OK == nRet) //! true only if FillItemSet of SvxJSearchOptionsPage returns true
-            {
-                TransliterationFlags nFlags = aDlg->GetTransliterationFlags();
-                pSearchItem->SetTransliterationFlags( nFlags );
-                ApplyTransliterationFlags_Impl( nFlags );
-            }
+            TransliterationFlags nFlags = aDlg->GetTransliterationFlags();
+            pSearchItem->SetTransliterationFlags( nFlags );
+            ApplyTransliterationFlags_Impl( nFlags );
         }
     }
     else if (pBtn == m_pSearchComponent1PB || pBtn == m_pSearchComponent2PB)
@@ -1533,8 +1543,8 @@ IMPL_LINK_NOARG(SvxSearchDialog, TemplateHdl_Impl, Button*, void)
             }
 
             rBindings.EnterRegistrations();
-            pFamilyController =
-                new SvxSearchController( nId, rBindings, *this );
+            pFamilyController.reset(
+                new SvxSearchController( nId, rBindings, *this ) );
             rBindings.LeaveRegistrations();
             m_pSearchTmplLB->Clear();
             m_pReplaceTmplLB->Clear();
@@ -1563,7 +1573,7 @@ IMPL_LINK_NOARG(SvxSearchDialog, TemplateHdl_Impl, Button*, void)
     {
         // Disable templates controller
         rBindings.EnterRegistrations();
-        DELETEZ( pFamilyController );
+        pFamilyController.reset();
         rBindings.LeaveRegistrations();
 
         m_pSearchLB->Show();
@@ -1895,8 +1905,7 @@ void SvxSearchDialog::SetItem_Impl( const SvxSearchItem* pItem )
 {
     if ( pItem )
     {
-        delete pSearchItem;
-        pSearchItem = static_cast<SvxSearchItem*>(pItem->Clone());
+        pSearchItem.reset(static_cast<SvxSearchItem*>(pItem->Clone()));
         Init_Impl( pSearchItem->GetPattern() &&
                    ( !pSearchList || !pSearchList->Count() ) );
     }
@@ -2015,38 +2024,34 @@ IMPL_LINK_NOARG(SvxSearchDialog, FormatHdl_Impl, Button*, void)
 
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    if(pFact)
+    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTabItemDialog(this, aSet));
+    pDlg->SetText( aTxt );
+
+    if ( pDlg->Execute() == RET_OK )
     {
-        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTabItemDialog(this, aSet));
-        DBG_ASSERT(pDlg, "Dialog creation failed!");
-        pDlg->SetText( aTxt );
+        DBG_ASSERT( pDlg->GetOutputItemSet(), "invalid Output-Set" );
+        SfxItemSet aOutSet( *pDlg->GetOutputItemSet() );
 
-        if ( pDlg->Execute() == RET_OK )
+        SearchAttrItemList* pList = bSearch ? pSearchList.get() : pReplaceList.get();
+
+        const SfxPoolItem* pItem;
+        for( sal_uInt16 n = 0; n < pList->Count(); ++n )
         {
-            DBG_ASSERT( pDlg->GetOutputItemSet(), "invalid Output-Set" );
-            SfxItemSet aOutSet( *pDlg->GetOutputItemSet() );
-
-            SearchAttrItemList* pList = bSearch ? pSearchList : pReplaceList;
-
-            const SfxPoolItem* pItem;
-            for( sal_uInt16 n = 0; n < pList->Count(); ++n )
+            SearchAttrItem* pAItem;
+            if( !IsInvalidItem( (pAItem = &pList->GetObject(n))->pItem ) &&
+                SfxItemState::SET == aOutSet.GetItemState(
+                    pAItem->pItem->Which(), false, &pItem ) )
             {
-                SearchAttrItem* pAItem;
-                if( !IsInvalidItem( (pAItem = &pList->GetObject(n))->pItem ) &&
-                    SfxItemState::SET == aOutSet.GetItemState(
-                        pAItem->pItem->Which(), false, &pItem ) )
-                {
-                    delete pAItem->pItem;
-                    pAItem->pItem = pItem->Clone();
-                    aOutSet.ClearItem( pAItem->pItem->Which() );
-                }
+                delete pAItem->pItem;
+                pAItem->pItem = pItem->Clone();
+                aOutSet.ClearItem( pAItem->pItem->Which() );
             }
-
-            if( aOutSet.Count() )
-                pList->Put( aOutSet );
-
-            PaintAttrText_Impl(); // Set AttributText in GroupBox
         }
+
+        if( aOutSet.Count() )
+            pList->Put( aOutSet );
+
+        PaintAttrText_Impl(); // Set AttributText in GroupBox
     }
 }
 
@@ -2099,12 +2104,8 @@ IMPL_LINK_NOARG(SvxSearchDialog, AttributeHdl_Impl, Button*, void)
         return;
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    if(pFact)
-    {
-        ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSvxSearchAttributeDialog( this, *pSearchList, pImpl->pRanges.get() ));
-        DBG_ASSERT(pDlg, "Dialog creation failed!");
-        pDlg->Execute();
-    }
+    ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSvxSearchAttributeDialog( this, *pSearchList, pImpl->pRanges.get() ));
+    pDlg->Execute();
     PaintAttrText_Impl();
 }
 
@@ -2139,7 +2140,7 @@ OUString& SvxSearchDialog::BuildAttrText_Impl( OUString& rStr,
         return rStr;
 
     SfxItemPool& rPool = pSh->GetPool();
-    SearchAttrItemList* pList = bSrchFlag ? pSearchList : pReplaceList;
+    SearchAttrItemList* pList = bSrchFlag ? pSearchList.get() : pReplaceList.get();
 
     if ( !pList )
         return rStr;
@@ -2320,7 +2321,7 @@ void SvxSearchDialog::SaveToModule_Impl()
 
     pSearchItem->SetCommand( SvxSearchCmd::FIND );
     nModifyFlag = ModifyFlags::NONE;
-    const SfxPoolItem* ppArgs[] = { pSearchItem, nullptr };
+    const SfxPoolItem* ppArgs[] = { pSearchItem.get(), nullptr };
     rBindings.GetDispatcher()->Execute( SID_SEARCH_ITEM, SfxCallMode::SLOT, ppArgs );
 }
 

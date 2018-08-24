@@ -96,7 +96,7 @@ ScXMLDataPilotTableContext::ScXMLDataPilotTableContext( ScXMLImport& rImport,
                                       const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList ) :
     ScXMLImportContext( rImport ),
     pDoc(GetScImport().GetDocument()),
-    pDPObject(nullptr),
+    pDPSave(new ScDPSaveData()),
     pDPDimSaveData(nullptr),
     sDataPilotTableName(),
     sApplicationData(),
@@ -194,9 +194,6 @@ ScXMLDataPilotTableContext::ScXMLDataPilotTableContext( ScXMLImport& rImport,
             }
         }
     }
-
-    pDPObject = new ScDPObject(pDoc);
-    pDPSave.reset(new ScDPSaveData());
 }
 
 ScXMLDataPilotTableContext::~ScXMLDataPilotTableContext()
@@ -322,7 +319,7 @@ ScDPOutputGeometry::FieldType toFieldType(sheet::DataPilotFieldOrientation nOrie
 
 }
 
-void ScXMLDataPilotTableContext::SetButtons()
+void ScXMLDataPilotTableContext::SetButtons(ScDPObject* pDPObject)
 {
     ScDPOutputGeometry aGeometry(aTargetRangeAddress, bShowFilter);
     aGeometry.setColumnFieldCount(mnColFieldCount);
@@ -390,8 +387,7 @@ void ScXMLDataPilotTableContext::SetButtons()
         }
     }
 
-    if ( pDPObject )
-        pDPObject->RefreshAfterLoad();
+    pDPObject->RefreshAfterLoad();
 }
 
 void ScXMLDataPilotTableContext::SetSelectedPage( const OUString& rDimName, const OUString& rSelected )
@@ -455,6 +451,7 @@ void SAL_CALL ScXMLDataPilotTableContext::endFastElement( sal_Int32 /*nElement*/
     if (!bTargetRangeAddress)
         return;
 
+    ScDPObject* pDPObject(new ScDPObject(pDoc));
     pDPObject->SetName(sDataPilotTableName);
     pDPObject->SetTag(sApplicationData);
     pDPObject->SetOutRange(aTargetRangeAddress);
@@ -540,13 +537,9 @@ void SAL_CALL ScXMLDataPilotTableContext::endFastElement( sal_Int32 /*nElement*/
     if ( pDPCollection->GetByName(pDPObject->GetName()) )
         pDPObject->SetName( OUString() );     // ignore the invalid name, create a new name in AfterXMLLoading
 
-    if (!pDPCollection->InsertNewTable(pDPObject))
-    {
-        OSL_FAIL("cannot insert DPObject");
-        DELETEZ( pDPObject );
-    }
+    pDPCollection->InsertNewTable(pDPObject);
 
-    SetButtons();
+    SetButtons(pDPObject);
 }
 
 void ScXMLDataPilotTableContext::SetGrandTotal(
@@ -575,9 +568,8 @@ void ScXMLDataPilotTableContext::SetGrandTotal(
 
 ScXMLDPSourceSQLContext::ScXMLDPSourceSQLContext( ScXMLImport& rImport,
                                       const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
-                                      ScXMLDataPilotTableContext* pTempDataPilotTable) :
-    ScXMLImportContext( rImport ),
-    pDataPilotTable(pTempDataPilotTable)
+                                      ScXMLDataPilotTableContext* pDataPilotTable) :
+    ScXMLImportContext( rImport )
 {
     if ( rAttrList.is() )
     {
@@ -605,9 +597,8 @@ ScXMLDPSourceSQLContext::~ScXMLDPSourceSQLContext()
 
 ScXMLDPSourceTableContext::ScXMLDPSourceTableContext( ScXMLImport& rImport,
                                       const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
-                                      ScXMLDataPilotTableContext* pTempDataPilotTable) :
-    ScXMLImportContext( rImport ),
-    pDataPilotTable(pTempDataPilotTable)
+                                      ScXMLDataPilotTableContext* pDataPilotTable) :
+    ScXMLImportContext( rImport )
 {
     if ( rAttrList.is() )
     {
@@ -633,9 +624,8 @@ ScXMLDPSourceTableContext::~ScXMLDPSourceTableContext()
 
 ScXMLDPSourceQueryContext::ScXMLDPSourceQueryContext( ScXMLImport& rImport,
                                       const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
-                                      ScXMLDataPilotTableContext* pTempDataPilotTable) :
-    ScXMLImportContext( rImport ),
-    pDataPilotTable(pTempDataPilotTable)
+                                      ScXMLDataPilotTableContext* pDataPilotTable) :
+    ScXMLImportContext( rImport )
 {
     if ( rAttrList.is() )
     {
@@ -660,9 +650,8 @@ ScXMLDPSourceQueryContext::~ScXMLDPSourceQueryContext()
 
 ScXMLSourceServiceContext::ScXMLSourceServiceContext( ScXMLImport& rImport,
                                       const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
-                                      ScXMLDataPilotTableContext* pTempDataPilotTable) :
-    ScXMLImportContext( rImport ),
-    pDataPilotTable(pTempDataPilotTable)
+                                      ScXMLDataPilotTableContext* pDataPilotTable) :
+    ScXMLImportContext( rImport )
 {
     if ( rAttrList.is() )
     {
@@ -1288,9 +1277,8 @@ void ScXMLDataPilotSubTotalsContext::SetDisplayName(const OUString& rName)
 
 ScXMLDataPilotSubTotalContext::ScXMLDataPilotSubTotalContext( ScXMLImport& rImport,
                                       const rtl::Reference<sax_fastparser::FastAttributeList>& rAttrList,
-                                      ScXMLDataPilotSubTotalsContext* pTempDataPilotSubTotals) :
-    ScXMLImportContext( rImport ),
-    pDataPilotSubTotals(pTempDataPilotSubTotals)
+                                      ScXMLDataPilotSubTotalsContext* pDataPilotSubTotals) :
+    ScXMLImportContext( rImport )
 {
     if ( rAttrList.is() )
     {

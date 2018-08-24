@@ -46,7 +46,7 @@
 #include <svx/svdtrans.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdoedge.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <editeng/eeitem.hxx>
 #include <editeng/editstat.hxx>
@@ -81,9 +81,8 @@
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
-#include <basegfx/utils/unotools.hxx>
-#include "svdconv.hxx"
 #include <svdobjplusdata.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -217,7 +216,7 @@ SdrObject* ImpCreateShadowObjectClone(const SdrObject& rOriginal, const SfxItemS
         const sal_Int32 nYDist(rOriginalSet.Get(SDRATTR_SHADOWYDIST).GetValue());
         const ::Color aShadowColor(rOriginalSet.Get(SDRATTR_SHADOWCOLOR).GetColorValue());
         const sal_uInt16 nShadowTransparence(rOriginalSet.Get(SDRATTR_SHADOWTRANSPARENCE).GetValue());
-        pRetval = rOriginal.Clone();
+        pRetval = rOriginal.CloneSdrObject(rOriginal.getSdrModelFromSdrObject());
         DBG_ASSERT(pRetval, "ImpCreateShadowObjectClone: Could not clone object (!)");
 
         // look for used stuff
@@ -563,7 +562,7 @@ basegfx::B2DPolyPolygon SdrObjCustomShape::GetLineGeometry( const bool bBezierAl
         css::drawing::PolyPolygonBezierCoords aBezierCoords = xCustomShapeEngine->getLineGeometry();
         try
         {
-            aRetval = basegfx::unotools::polyPolygonBezierToB2DPolyPolygon( aBezierCoords );
+            aRetval = basegfx::utils::UnoPolyPolygonBezierCoordsToB2DPolyPolygon( aBezierCoords );
             if ( !bBezierAllowed && aRetval.areControlPointsUsed())
             {
                 aRetval = basegfx::utils::adaptiveSubdivideByAngle(aRetval);
@@ -805,9 +804,9 @@ static void lcl_ShapePropertiesFromDFF( const SvxMSDffHandle* pData, css::beans:
     }
 }
 
-sdr::properties::BaseProperties* SdrObjCustomShape::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> SdrObjCustomShape::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::CustomShapeProperties(*this);
+    return o3tl::make_unique<sdr::properties::CustomShapeProperties>(*this);
 }
 
 SdrObjCustomShape::SdrObjCustomShape(SdrModel& rSdrModel)
@@ -1742,7 +1741,8 @@ void SdrObjCustomShape::ImpCheckCustomGluePointsAreAdded()
                         if ( nShearAngle )
                             ShearPoint( aGlue, aRef, fTan );
 
-                        RotatePoint( aGlue, aRef, sin( fObjectRotation * F_PI180 ), cos( fObjectRotation * F_PI180 ) );
+                        RotatePoint(aGlue, aRef, sin(basegfx::deg2rad(fObjectRotation)),
+                                    cos(basegfx::deg2rad(fObjectRotation)));
                         if ( bMirroredX )
                             aGlue.setX( maRect.GetWidth() - aGlue.X() );
                         if ( bMirroredY )
@@ -2635,7 +2635,7 @@ void SdrObjCustomShape::TakeTextRect( SdrOutliner& rOutliner, tools::Rectangle& 
     // put text into the Outliner - if necessary the use the text from the EditOutliner
     OutlinerParaObject* pPara= GetOutlinerParaObject();
     if (pEdtOutl && !bNoEditText)
-        pPara=pEdtOutl->CreateParaObject();
+        pPara=pEdtOutl->CreateParaObject().release();
 
     if (pPara)
     {
@@ -2729,17 +2729,17 @@ void SdrObjCustomShape::TakeTextRect( SdrOutliner& rOutliner, tools::Rectangle& 
     rTextRect=tools::Rectangle(aTextPos,aTextSiz);
 }
 
-void SdrObjCustomShape::NbcSetOutlinerParaObject(OutlinerParaObject* pTextObject)
+void SdrObjCustomShape::NbcSetOutlinerParaObject(std::unique_ptr<OutlinerParaObject> pTextObject)
 {
-    SdrTextObj::NbcSetOutlinerParaObject( pTextObject );
+    SdrTextObj::NbcSetOutlinerParaObject( std::move(pTextObject) );
     SetBoundRectDirty();
     SetRectsDirty(true);
     InvalidateRenderGeometry();
 }
 
-SdrObjCustomShape* SdrObjCustomShape::Clone(SdrModel* pTargetModel) const
+SdrObjCustomShape* SdrObjCustomShape::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrObjCustomShape >(pTargetModel);
+    return CloneHelper< SdrObjCustomShape >(rTargetModel);
 }
 
 SdrObjCustomShape& SdrObjCustomShape::operator=(const SdrObjCustomShape& rObj)
@@ -2757,7 +2757,7 @@ SdrObjCustomShape& SdrObjCustomShape::operator=(const SdrObjCustomShape& rObj)
 
 OUString SdrObjCustomShape::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulCUSTOMSHAPE));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulCUSTOMSHAPE));
     OUString aNm(GetName());
     if (!aNm.isEmpty())
     {
@@ -2771,7 +2771,7 @@ OUString SdrObjCustomShape::TakeObjNameSingul() const
 
 OUString SdrObjCustomShape::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralCUSTOMSHAPE);
+    return SvxResId(STR_ObjNamePluralCUSTOMSHAPE);
 }
 
 basegfx::B2DPolyPolygon SdrObjCustomShape::TakeXorPoly() const
@@ -2807,7 +2807,7 @@ SdrObject* SdrObjCustomShape::DoConvertToPolyObj(bool bBezier, bool bAddText) co
     if ( pRenderedCustomShape )
     {
         // Clone to same SdrModel
-        SdrObject* pCandidate = pRenderedCustomShape->Clone();
+        SdrObject* pCandidate(pRenderedCustomShape->CloneSdrObject(pRenderedCustomShape->getSdrModelFromSdrObject()));
         DBG_ASSERT(pCandidate, "SdrObjCustomShape::DoConvertToPolyObj: Could not clone SdrObject (!)");
         pRetval = pCandidate->DoConvertToPolyObj(bBezier, bAddText);
         SdrObject::Free( pCandidate );
@@ -2837,11 +2837,12 @@ void SdrObjCustomShape::NbcSetStyleSheet( SfxStyleSheet* pNewStyleSheet, bool bD
     SdrObject::NbcSetStyleSheet( pNewStyleSheet, bDontRemoveHardAttr );
 }
 
-void SdrObjCustomShape::SetPage( SdrPage* pNewPage )
+void SdrObjCustomShape::handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage)
 {
-    SdrTextObj::SetPage( pNewPage );
+    // call parent
+    SdrTextObj::handlePageChange(pOldPage, pNewPage);
 
-    if( pNewPage )
+    if(nullptr != pNewPage)
     {
         // invalidating rectangles by SetRectsDirty is not sufficient,
         // AdjustTextFrameWidthAndHeight() also has to be made, both
@@ -2913,31 +2914,6 @@ void SdrObjCustomShape::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, 
     aGeo.nShearAngle = 0;
     aGeo.RecalcTan();
 
-    // force metric to pool metric
-    const MapUnit eMapUnit(GetObjectMapUnit());
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aTranslate.setX(ImplMMToTwips(aTranslate.getX()));
-                aTranslate.setY(ImplMMToTwips(aTranslate.getY()));
-
-                // size
-                aScale.setX(ImplMMToTwips(aScale.getX()));
-                aScale.setY(ImplMMToTwips(aScale.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRSetBaseGeometry: Missing unit translation to PoolMetric!");
-            }
-        }
-    }
-
     // if anchor is used, make position relative to it
     if(getSdrModelFromSdrObject().IsWriter())
     {
@@ -2963,7 +2939,7 @@ void SdrObjCustomShape::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, 
         // #i123181# The fix for #121932# here was wrong, the trunk version does not correct the
         // mirrored shear values, neither at the object level, nor on the API or XML level. Taking
         // back the mirroring of the shear angle
-        aGeoStat.nShearAngle = FRound((atan(fShearX) / F_PI180) * 100.0);
+        aGeoStat.nShearAngle = FRound(basegfx::rad2deg(atan(fShearX)) * 100.0);
         aGeoStat.RecalcTan();
         Shear(Point(), aGeoStat.nShearAngle, aGeoStat.nTan, false);
     }
@@ -2976,7 +2952,7 @@ void SdrObjCustomShape::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, 
         // #i78696#
         // fRotate is mathematically correct, but aGeoStat.nRotationAngle is
         // mirrored -> mirror value here
-        aGeoStat.nRotationAngle = NormAngle360(FRound(-fRotate / F_PI18000));
+        aGeoStat.nRotationAngle = NormAngle36000(FRound(-fRotate / F_PI18000));
         aGeoStat.RecalcSinCos();
         Rotate(Point(), aGeoStat.nRotationAngle, aGeoStat.nSin, aGeoStat.nCos);
     }
@@ -2992,8 +2968,8 @@ void SdrObjCustomShape::TRSetBaseGeometry(const basegfx::B2DHomMatrix& rMatrix, 
 bool SdrObjCustomShape::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegfx::B2DPolyPolygon& /*rPolyPolygon*/) const
 {
     // get turn and shear
-    double fRotate = fObjectRotation * F_PI180;
-    double fShearX = (aGeo.nShearAngle / 100.0) * F_PI180;
+    double fRotate = basegfx::deg2rad(fObjectRotation);
+    double fShearX = basegfx::deg2rad(aGeo.nShearAngle / 100.0);
 
     // get aRect, this is the unrotated snaprect
     tools::Rectangle aRectangle(maRect);
@@ -3064,31 +3040,6 @@ bool SdrObjCustomShape::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegf
         }
     }
 
-    // force MapUnit to 100th mm
-    const MapUnit eMapUnit(GetObjectMapUnit());
-    if(eMapUnit != MapUnit::Map100thMM)
-    {
-        switch(eMapUnit)
-        {
-            case MapUnit::MapTwip :
-            {
-                // position
-                aTranslate.setX(ImplTwipsToMM(aTranslate.getX()));
-                aTranslate.setY(ImplTwipsToMM(aTranslate.getY()));
-
-                // size
-                aScale.setX(ImplTwipsToMM(aScale.getX()));
-                aScale.setY(ImplTwipsToMM(aScale.getY()));
-
-                break;
-            }
-            default:
-            {
-                OSL_FAIL("TRGetBaseGeometry: Missing unit translation to 100th mm!");
-            }
-        }
-    }
-
     // build matrix
     rMatrix = basegfx::utils::createScaleShearXRotateTranslateB2DHomMatrix(
         aScale,
@@ -3099,9 +3050,9 @@ bool SdrObjCustomShape::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegf
     return false;
 }
 
-sdr::contact::ViewContact* SdrObjCustomShape::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrObjCustomShape::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfSdrObjCustomShape(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfSdrObjCustomShape>(*this);
 }
 
 // #i33136#

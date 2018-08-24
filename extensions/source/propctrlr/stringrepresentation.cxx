@@ -34,8 +34,10 @@
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/util/Date.hpp>
 #include <com/sun/star/util/Time.hpp>
-#include <comphelper/sequence.hxx>
 #include <connectivity/dbconversion.hxx>
+#include <osl/diagnose.h>
+#include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <strings.hrc>
 #include <yesno.hrc>
 #include "pcrservices.hxx"
@@ -331,7 +333,7 @@ namespace
     template < class ElementType, class Transformer >
     OUString composeSequenceElements( const Sequence< ElementType >& _rElements, const Transformer& _rTransformer )
     {
-        OUString sCompose;
+        OUStringBuffer sCompose;
 
         // loop through the elements and concatenate the string representations of the integers
         // (separated by a line break)
@@ -339,12 +341,12 @@ namespace
         const ElementType* pElementsEnd = pElements + _rElements.getLength();
         for ( ; pElements != pElementsEnd; ++pElements )
         {
-            sCompose += OUString( _rTransformer( *pElements ) );
+            sCompose.append( OUString( _rTransformer( *pElements ) ) );
             if ( pElements != pElementsEnd )
-                sCompose += "\n";
+                sCompose.append("\n");
         }
 
-        return sCompose;
+        return sCompose.makeStringAndClear();
     }
 
     template < class ElementType, class Transformer >

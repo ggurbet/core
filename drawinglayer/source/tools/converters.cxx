@@ -80,7 +80,7 @@ namespace drawinglayer
             // create pixel processor, also already takes care of AAing and
             // checking the getOptionsDrawinglayer().IsAntiAliasing() switch. If
             // not wanted, change after this call as needed
-            processor2d::BaseProcessor2D* pContentProcessor = processor2d::createPixelProcessor2DFromOutputDevice(
+            std::unique_ptr<processor2d::BaseProcessor2D> pContentProcessor = processor2d::createPixelProcessor2DFromOutputDevice(
                 *pContent.get(),
                 rViewInformation2D);
 
@@ -100,7 +100,8 @@ namespace drawinglayer
                 if(bDoSaveForVisualControl)
                 {
                     SvFileStream aNew("c:\\test_content.png", StreamMode::WRITE|StreamMode::TRUNC);
-                    vcl::PNGWriter aPNGWriter(aContent);
+                    BitmapEx aContentEx = BitmapEx(aContent);
+                    vcl::PNGWriter aPNGWriter(aContentEx);
                     aPNGWriter.Write(aNew);
                 }
 #endif
@@ -121,7 +122,7 @@ namespace drawinglayer
 
                 // render
                 pContentProcessor->process(xSeq);
-                delete pContentProcessor;
+                pContentProcessor.reset();
 
                 // get alpha channel from vdev
                 pContent->EnableMapMode(false);
@@ -130,7 +131,8 @@ namespace drawinglayer
                 if(bDoSaveForVisualControl)
                 {
                     SvFileStream aNew("c:\\test_alpha.png", StreamMode::WRITE|StreamMode::TRUNC);
-                    vcl::PNGWriter aPNGWriter(aAlpha);
+                    BitmapEx aAlphaEx = BitmapEx(aAlpha);
+                    vcl::PNGWriter aPNGWriter(aAlphaEx);
                     aPNGWriter.Write(aNew);
                 }
 #endif

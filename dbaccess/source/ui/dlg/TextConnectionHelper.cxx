@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
+#include <config_java.h>
 
 #include <core_resource.hxx>
 #include "TextConnectionHelper.hxx"
@@ -42,7 +42,6 @@
 #include "DriverSettings.hxx"
 #include <dbadmin.hxx>
 #include <comphelper/string.hxx>
-#include <comphelper/types.hxx>
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <svl/filenotation.hxx>
 #include <unotools/localfilehelper.hxx>

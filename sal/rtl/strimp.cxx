@@ -87,51 +87,33 @@ static void pre_freeStringFn(void *data)
 }
 } // extern "C"
 
-static void mark_static(void *addr, sal_Size /* size */, void *)
+static void mark_static(void *addr, sal_Size /* size */)
 {
     char *inner = static_cast<char*>(addr) + 4;
     rtl_uString *str = reinterpret_cast<rtl_uString *>(inner);
     str->refCount |= SAL_STRING_STATIC_FLAG;
 }
 
-void SAL_CALL rtl_alloc_preInit (rtl_alloc_preInit_phase_t phase) SAL_THROW_EXTERN_C()
+void SAL_CALL rtl_alloc_preInit (sal_Bool start) SAL_THROW_EXTERN_C()
 {
-    switch (phase)
+    if (start)
     {
-        case rtlAllocPreInitStart:
-        {
-            rtl_allocateString = pre_allocateStringFn;
-            rtl_freeString = pre_freeStringFn;
-            pre_arena = rtl_arena_create("pre-init strings", 4, 0,
-                                         nullptr, rtl_arena_alloc,
-                                         rtl_arena_free, 0);
+        rtl_allocateString = pre_allocateStringFn;
+        rtl_freeString = pre_freeStringFn;
+        pre_arena = rtl_arena_create("pre-init strings", 4, 0,
+                                     nullptr, rtl_arena_alloc,
+                                     rtl_arena_free, 0);
 
-            // To be consistent (and to ensure the rtl_cache threads are started).
-            ensureCacheSingleton();
-        }
-        break;
+        // To be consistent (and to ensure the rtl_cache threads are started).
+        ensureCacheSingleton();
+    }
+    else
+    {
+        rtl_arena_foreach(pre_arena, mark_static);
+        rtl_allocateString = rtl_allocateMemory;
+        rtl_freeString = rtl_freeMemory;
 
-        case rtlAllocPreInitEnd:
-        // back to normal
-        {
-            rtl_arena_foreach(pre_arena, mark_static);
-            rtl_allocateString = rtl_allocateMemory;
-            rtl_freeString = rtl_freeMemory;
-
-            // Stop the rtl cache thread to have no extra threads while forking.
-            rtl_cache_stop_threads();
-
-            // TODO: also re-initialize main allocator as well.
-        }
-        break;
-
-        case rtlAllocPostInit:
-        {
-            // We have forked and need to restart threads and anything
-            // that must start after forking.
-            rtl_cache_start_threads();
-        }
-        break;
+        // TODO: also re-initialize main allocator as well.
     }
 }
 

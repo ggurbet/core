@@ -19,7 +19,9 @@
 
 #include <memory>
 #include <config_features.h>
+#include <config_java.h>
 #include <config_folders.h>
+#include <config_extensions.h>
 
 #include <sal/config.h>
 
@@ -97,6 +99,7 @@
 #include <officecfg/Setup.hxx>
 #include <osl/file.hxx>
 #include <osl/process.h>
+#include <rtl/byteseq.hxx>
 #include <rtl/uri.hxx>
 #include <unotools/pathoptions.hxx>
 #include <svtools/miscopt.hxx>
@@ -1052,7 +1055,7 @@ void restartOnMac(bool passArguments) {
 
     std::unique_ptr<weld::MessageDialog> xRestartBox(Application::CreateMessageDialog(nullptr,
                                                      VclMessageType::Warning, VclButtonsType::Ok, aMessage));
-    xRestartBox->Execute();
+    xRestartBox->run();
 #else
     OUString execUrl;
     OSL_VERIFY(osl_getExecutableFile(&execUrl.pData) == osl_Process_E_None);
@@ -1971,10 +1974,6 @@ IMPL_LINK_NOARG(Desktop, OpenClients_Impl, void*, void)
 void Desktop::OpenClients()
 {
 
-    // check if a document has been recovered - if there is one of if a document was loaded by cmdline, no default document
-    // should be created
-    bool bRecovery = false;
-
     const CommandLineArgs& rArgs = GetCommandLineArgs();
 
     if (!rArgs.IsQuickstart())
@@ -2069,7 +2068,7 @@ void Desktop::OpenClients()
         {
             try
             {
-                bRecovery = impl_callRecoveryUI(
+                impl_callRecoveryUI(
                     false          , // false => force recovery instead of emergency save
                     bExistsRecoveryData);
             }
@@ -2078,9 +2077,6 @@ void Desktop::OpenClients()
                 SAL_WARN( "desktop.app", "Error during recovery" << e);
             }
         }
-        else if (bExistsRecoveryData && bDisableRecovery && !rArgs.HasModuleParam())
-            // prevent new Writer doc
-            bRecovery = true;
 
         Reference< XSessionManagerListener2 > xSessionListener;
         try
@@ -2187,14 +2183,7 @@ void Desktop::OpenClients()
         // soffice was started as tray icon ...
         return;
 
-    if ( bRecovery )
-    {
-        ShowBackingComponent(nullptr);
-    }
-    else
-    {
-        OpenDefault();
-    }
+    OpenDefault();
 }
 
 void Desktop::OpenDefault()
@@ -2227,6 +2216,12 @@ void Desktop::OpenDefault()
 
     if ( aName.isEmpty() )
     {
+        if (aOpt.IsModuleInstalled(SvtModuleOptions::EModule::STARTMODULE))
+        {
+            ShowBackingComponent(nullptr);
+            return;
+        }
+
         // Old way to create a default document
         if ( aOpt.IsModuleInstalled( SvtModuleOptions::EModule::WRITER ) )
             aName = aOpt.GetFactoryEmptyDocumentURL( SvtModuleOptions::EFactory::WRITER );

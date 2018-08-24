@@ -44,8 +44,8 @@ private:
     friend class SdrTextObj; // Due to SetXPolyDirty for GrowAdjust
 
 protected:
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
 
     std::unique_ptr<XPolygon> mpXPoly;
 
@@ -58,6 +58,9 @@ protected:
     virtual void RecalcXPoly();
     const XPolygon& GetXPoly() const;
     virtual void           RestGeoData(const SdrObjGeoData& rGeo) override;
+
+    // protected destructor
+    virtual ~SdrRectObj() override;
 
 public:
     /**
@@ -82,8 +85,6 @@ public:
         SdrObjKind eNewTextKind,
         const tools::Rectangle& rRect);
 
-    virtual ~SdrRectObj() override;
-
     virtual void TakeObjInfo(SdrObjTransformInfoRec& rInfo) const override;
     virtual sal_uInt16 GetObjIdentifier() const override;
     virtual void TakeUnrotatedSnapRect(tools::Rectangle& rRect) const override;
@@ -91,7 +92,7 @@ public:
     virtual OUString TakeObjNameSingul() const override;
     virtual OUString TakeObjNamePlural() const override;
 
-    virtual SdrRectObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrRectObj* CloneSdrObject(SdrModel& rTargetModel) const override;
     virtual void RecalcSnapRect() override;
     virtual void NbcSetSnapRect(const tools::Rectangle& rRect) override;
     virtual void NbcSetLogicRect(const tools::Rectangle& rRect) override;

@@ -32,12 +32,11 @@
 #include <com/sun/star/io/XObjectInputStream.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/types.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <svx/svdouno.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdmodel.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/svdetc.hxx>
 #include <svx/svdview.hxx>
@@ -49,6 +48,7 @@
 #include <svx/sdrpaintwindow.hxx>
 #include <tools/diagnose_ex.h>
 #include <svx/svdograf.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 using namespace sdr::contact;
@@ -236,7 +236,7 @@ void SdrUnoObj::SetContextWritingMode( const sal_Int16 _nContextWritingMode )
 
 OUString SdrUnoObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulUno));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulUno));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -252,12 +252,12 @@ OUString SdrUnoObj::TakeObjNameSingul() const
 
 OUString SdrUnoObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralUno);
+    return SvxResId(STR_ObjNamePluralUno);
 }
 
-SdrUnoObj* SdrUnoObj::Clone(SdrModel* pTargetModel) const
+SdrUnoObj* SdrUnoObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrUnoObj >(pTargetModel);
+    return CloneHelper< SdrUnoObj >(rTargetModel);
 }
 
 SdrUnoObj& SdrUnoObj::operator= (const SdrUnoObj& rObj)
@@ -485,8 +485,8 @@ uno::Reference< awt::XControl > SdrUnoObj::GetUnoControl(const SdrView& _rView, 
     uno::Reference< awt::XControl > xControl;
 
     SdrPageView* pPageView = _rView.GetSdrPageView();
-    OSL_ENSURE( pPageView && GetPage() == pPageView->GetPage(), "SdrUnoObj::GetUnoControl: This object is not displayed in that particular view!" );
-    if ( !pPageView || GetPage() != pPageView->GetPage() )
+    OSL_ENSURE( pPageView && getSdrPageFromSdrObject() == pPageView->GetPage(), "SdrUnoObj::GetUnoControl: This object is not displayed in that particular view!" );
+    if ( !pPageView || getSdrPageFromSdrObject() != pPageView->GetPage() )
         return nullptr;
 
     SdrPageWindow* pPageWindow = pPageView->FindPageWindow( _rOut );
@@ -526,9 +526,9 @@ bool SdrUnoObj::impl_getViewContact( ViewContactOfUnoControl*& _out_rpContact ) 
 }
 
 
-sdr::contact::ViewContact* SdrUnoObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrUnoObj::CreateObjectSpecificViewContact()
 {
-  return new sdr::contact::ViewContactOfUnoControl( *this );
+  return o3tl::make_unique<sdr::contact::ViewContactOfUnoControl>( *this );
 }
 
 

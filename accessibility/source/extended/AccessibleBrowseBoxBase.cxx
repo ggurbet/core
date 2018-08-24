@@ -19,7 +19,6 @@
 
 #include <extended/AccessibleBrowseBoxBase.hxx>
 #include <svtools/accessibletableprovider.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
@@ -27,6 +26,7 @@
 #include <com/sun/star/accessibility/IllegalAccessibleComponentStateException.hpp>
 #include <unotools/accessiblerelationsethelper.hxx>
 #include <vcl/svapp.hxx>
+#include <sal/log.hxx>
 
 
 using ::com::sun::star::uno::Reference;

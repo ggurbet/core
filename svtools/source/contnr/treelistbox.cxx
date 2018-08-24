@@ -34,6 +34,7 @@
 #include <unotools/accessiblestatesethelper.hxx>
 #include <rtl/instance.hxx>
 #include <comphelper/string.hxx>
+#include <sal/log.hxx>
 
 #include <svtools/svmedit.hxx>
 #include <svtools/svlbitm.hxx>
@@ -352,7 +353,6 @@ SvTreeListBox::SvTreeListBox(vcl::Window* pParent, WinBits nWinStyle) :
     pModel->SetCloneLink( LINK(this, SvTreeListBox, CloneHdl_Impl ));
     pModel->InsertView( this );
     pHdlEntry = nullptr;
-    pEdCtrl = nullptr;
     eSelMode = SelectionMode::Single;
     nDragDropMode = DragDropMode::NONE;
     SetType(WindowType::TREELISTBOX);
@@ -528,16 +528,6 @@ TriState SvTreeListBox::NotifyCopying(
 SvTreeListEntry* SvTreeListBox::FirstChild( SvTreeListEntry* pParent ) const
 {
     return pModel->FirstChild(pParent);
-}
-
-SvTreeListEntry* SvTreeListBox::NextSibling( SvTreeListEntry* pEntry )
-{
-    return SvTreeList::NextSibling(pEntry);
-}
-
-SvTreeListEntry* SvTreeListBox::PrevSibling( SvTreeListEntry* pEntry )
-{
-    return SvTreeList::PrevSibling(pEntry);
 }
 
 // return: all entries copied
@@ -820,10 +810,9 @@ const SvViewDataItem* SvTreeListBox::GetViewDataItem(const SvTreeListEntry* pEnt
     return &pEntryData->GetItem(nItemPos);
 }
 
-SvViewDataEntry* SvTreeListBox::CreateViewData( SvTreeListEntry* )
+std::unique_ptr<SvViewDataEntry> SvTreeListBox::CreateViewData( SvTreeListEntry* )
 {
-    SvViewDataEntry* pEntryData = new SvViewDataEntry;
-    return pEntryData;
+    return o3tl::make_unique<SvViewDataEntry>();
 }
 
 void SvTreeListBox::InitViewData( SvViewDataEntry* pData, SvTreeListEntry* pEntry )
@@ -884,14 +873,14 @@ void SvTreeListBox::EnableSelectionAsDropTarget( bool bEnable )
 void SvTreeListBox::EditText( const OUString& rStr, const tools::Rectangle& rRect,
     const Selection& rSel )
 {
-    delete pEdCtrl;
+    pEdCtrl.reset();
     nImpFlags |= SvTreeListBoxFlags::IN_EDT;
     nImpFlags &= ~SvTreeListBoxFlags::EDTEND_CALLED;
     HideFocus();
-    pEdCtrl = new SvInplaceEdit2(
+    pEdCtrl.reset( new SvInplaceEdit2(
         this, rRect.TopLeft(), rRect.GetSize(), rStr,
         LINK( this, SvTreeListBox, TextEditEndedHdl_Impl ),
-        rSel );
+        rSel ) );
 }
 
 IMPL_LINK_NOARG(SvTreeListBox, TextEditEndedHdl_Impl, SvInplaceEdit2&, void)
@@ -967,7 +956,7 @@ const void* SvTreeListBox::NextSearchEntry( const void* _pCurrentSearchEntry, OU
         &&  !IsExpanded( pEntry )
         )
     {
-        pEntry = NextSibling( pEntry );
+        pEntry = pEntry->NextSibling();
     }
     else
     {
@@ -1326,7 +1315,7 @@ OUString SvTreeListBox::GetEntryLongDescription( SvTreeListEntry* ) const
 OUString SvTreeListBox::SearchEntryTextWithHeadTitle( SvTreeListEntry* pEntry )
 {
     assert(pEntry);
-    OUString sRet;
+    OUStringBuffer sRet;
 
     sal_uInt16 nCount = pEntry->ItemCount();
     sal_uInt16 nCur = 0;
@@ -1336,14 +1325,14 @@ OUString SvTreeListBox::SearchEntryTextWithHeadTitle( SvTreeListEntry* pEntry )
         if ( (rItem.GetType() == SvLBoxItemType::String) &&
              !static_cast<SvLBoxString&>( rItem ).GetText().isEmpty() )
         {
-            sRet += static_cast<SvLBoxString&>( rItem ).GetText() + ",";
+            sRet.append(static_cast<SvLBoxString&>( rItem ).GetText()).append(",");
         }
         nCur++;
     }
 
     if (!sRet.isEmpty())
         sRet = sRet.copy(0, sRet.getLength() - 1);
-    return sRet;
+    return sRet.makeStringAndClear();
 }
 
 SvTreeListBox::~SvTreeListBox()
@@ -1362,8 +1351,7 @@ void SvTreeListBox::dispose()
     {
         ClearTabList();
 
-        delete pEdCtrl;
-        pEdCtrl = nullptr;
+        pEdCtrl.reset();
 
         if( pModel )
         {
@@ -1414,15 +1402,6 @@ void SvTreeListBox::SetBaseModel( SvTreeList* pNewModel )
     }
 }
 
-void SvTreeListBox::DisconnectFromModel()
-{
-    SvTreeList* pNewModel = new SvTreeList;
-    pNewModel->SetRefCount( 0 );    // else this will never be deleted
-    SvListView::SetModel( pNewModel );
-
-    pImpl->SetModel( GetModel() );
-}
-
 void SvTreeListBox::SetSublistOpenWithReturn()
 {
     pImpl->bSubLstOpRet = true;
@@ -1433,9 +1412,9 @@ void SvTreeListBox::SetSublistOpenWithLeftRight()
     pImpl->bSubLstOpLR = true;
 }
 
-void SvTreeListBox::SetSublistDontOpenWithDoubleClick()
+void SvTreeListBox::SetSublistDontOpenWithDoubleClick(bool bDontOpen)
 {
-    pImpl->bSubLstOpDblClick = false;
+    pImpl->bSubLstOpDblClick = !bDontOpen;
 }
 
 void SvTreeListBox::Resize()
@@ -2032,8 +2011,7 @@ void SvTreeListBox::LoseFocus()
 void SvTreeListBox::ModelHasCleared()
 {
     pImpl->pCursor = nullptr; // else we crash in GetFocus when editing in-place
-    delete pEdCtrl;
-    pEdCtrl = nullptr;
+    pEdCtrl.reset();
     pImpl->Clear();
     nFocusWidth = -1;
 
@@ -3181,7 +3159,7 @@ void SvTreeListBox::SetAlternatingRowColors( bool bEnable )
             if( IsExpanded( pEntry ) )
                 pNextEntry = pModel->FirstChild( pEntry );
             else
-                pNextEntry = SvTreeList::NextSibling( pEntry );
+                pNextEntry = pEntry->NextSibling();
 
             if( !pNextEntry )
                 pEntry = pModel->Next( pEntry );

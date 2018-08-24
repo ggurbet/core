@@ -31,6 +31,7 @@
 #include <svtools/controldims.hxx>
 #include <svtools/imagemgr.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <sal/log.hxx>
 
 #include <memory>
 
@@ -63,7 +64,6 @@
 #include <helper.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/docfile.hxx>
-#include <comphelper/storagehelper.hxx>
 
 #include <documentfontsdialog.hxx>
 #include <dinfdlg.hrc>
@@ -248,8 +248,8 @@ SfxDocumentInfoItem::SfxDocumentInfoItem( const OUString& rFile,
                 }
 
                 uno::Any aValue = xSet->getPropertyValue(pProps[i].Name);
-                CustomProperty* pProp = new CustomProperty( pProps[i].Name, aValue );
-                m_aCustomProperties.push_back( pProp );
+                std::unique_ptr<CustomProperty> pProp(new CustomProperty( pProps[i].Name, aValue ));
+                m_aCustomProperties.push_back( std::move(pProp) );
             }
         }
 
@@ -284,11 +284,11 @@ SfxDocumentInfoItem::SfxDocumentInfoItem( const SfxDocumentInfoItem& rItem )
     , m_bUseUserData( rItem.m_bUseUserData )
     , m_bUseThumbnailSave( rItem.m_bUseThumbnailSave )
 {
-    for (const CustomProperty* pOtherProp : rItem.m_aCustomProperties)
+    for (auto const & pOtherProp : rItem.m_aCustomProperties)
     {
-        CustomProperty* pProp = new CustomProperty( pOtherProp->m_sName,
-                                                    pOtherProp->m_aValue );
-        m_aCustomProperties.push_back( pProp );
+        std::unique_ptr<CustomProperty> pProp(new CustomProperty( pOtherProp->m_sName,
+                                                    pOtherProp->m_aValue ));
+        m_aCustomProperties.push_back( std::move(pProp) );
     }
 
     m_aCmisProperties = rItem.m_aCmisProperties;
@@ -402,7 +402,7 @@ void SfxDocumentInfoItem::UpdateDocumentInfo(
             }
         }
 
-        for (const CustomProperty* pProp : m_aCustomProperties)
+        for (auto const & pProp : m_aCustomProperties)
         {
             try
             {
@@ -438,14 +438,14 @@ void SfxDocumentInfoItem::SetUseThumbnailSave( bool bSet )
     m_bUseThumbnailSave = bSet;
 }
 
-std::vector< CustomProperty* > SfxDocumentInfoItem::GetCustomProperties() const
+std::vector< std::unique_ptr<CustomProperty> > SfxDocumentInfoItem::GetCustomProperties() const
 {
-    std::vector< CustomProperty* > aRet;
-    for (CustomProperty* pOtherProp : m_aCustomProperties)
+    std::vector< std::unique_ptr<CustomProperty> > aRet;
+    for (auto const & pOtherProp : m_aCustomProperties)
     {
-        CustomProperty* pProp = new CustomProperty( pOtherProp->m_sName,
-                                                    pOtherProp->m_aValue );
-        aRet.push_back( pProp );
+        std::unique_ptr<CustomProperty> pProp(new CustomProperty( pOtherProp->m_sName,
+                                                    pOtherProp->m_aValue ));
+        aRet.push_back( std::move(pProp) );
     }
 
     return aRet;
@@ -453,15 +453,13 @@ std::vector< CustomProperty* > SfxDocumentInfoItem::GetCustomProperties() const
 
 void SfxDocumentInfoItem::ClearCustomProperties()
 {
-    for (CustomProperty* pProp : m_aCustomProperties)
-        delete pProp;
     m_aCustomProperties.clear();
 }
 
 void SfxDocumentInfoItem::AddCustomProperty( const OUString& sName, const Any& rValue )
 {
-    CustomProperty* pProp = new CustomProperty( sName, rValue );
-    m_aCustomProperties.push_back( pProp );
+    std::unique_ptr<CustomProperty> pProp(new CustomProperty( sName, rValue ));
+    m_aCustomProperties.push_back( std::move(pProp) );
 }
 
 
@@ -607,34 +605,23 @@ bool SfxDocumentInfoItem::PutValue( const Any& rVal, sal_uInt8 nMemberId )
     return bRet;
 }
 
-SfxDocumentDescPage::SfxDocumentDescPage( vcl::Window * pParent, const SfxItemSet& rItemSet )
-    : SfxTabPage(pParent, "DescriptionInfoPage", "sfx/ui/descriptioninfopage.ui", &rItemSet)
-    , m_pInfoItem   ( nullptr )
-
+SfxDocumentDescPage::SfxDocumentDescPage(TabPageParent pParent, const SfxItemSet& rItemSet)
+    : SfxTabPage(pParent, "sfx/ui/descriptioninfopage.ui", "DescriptionInfoPage", &rItemSet)
+    , m_pInfoItem( nullptr)
+    , m_xTitleEd(m_xBuilder->weld_entry("title"))
+    , m_xThemaEd(m_xBuilder->weld_entry("subject"))
+    , m_xKeywordsEd(m_xBuilder->weld_entry("keywords"))
+    , m_xCommentEd(m_xBuilder->weld_text_view("comments"))
 {
-    get(m_pTitleEd, "title");
-    get(m_pThemaEd, "subject");
-    get(m_pKeywordsEd, "keywords");
-    get(m_pCommentEd, "comments");
-    m_pCommentEd->set_width_request(m_pKeywordsEd->get_preferred_size().Width());
-    m_pCommentEd->set_height_request(m_pCommentEd->GetTextHeight() * 16);
+    m_xCommentEd->set_size_request(m_xKeywordsEd->get_preferred_size().Width(),
+                                   m_xCommentEd->get_height_rows(16));
 }
 
 SfxDocumentDescPage::~SfxDocumentDescPage()
 {
-    disposeOnce();
 }
 
-void SfxDocumentDescPage::dispose()
-{
-    m_pTitleEd.clear();
-    m_pThemaEd.clear();
-    m_pKeywordsEd.clear();
-    m_pCommentEd.clear();
-    SfxTabPage::dispose();
-}
-
-VclPtr<SfxTabPage> SfxDocumentDescPage::Create(vcl::Window *pParent, const SfxItemSet *rItemSet)
+VclPtr<SfxTabPage> SfxDocumentDescPage::Create(TabPageParent pParent, const SfxItemSet *rItemSet)
 {
      return VclPtr<SfxDocumentDescPage>::Create(pParent, *rItemSet);
 }
@@ -642,10 +629,10 @@ VclPtr<SfxTabPage> SfxDocumentDescPage::Create(vcl::Window *pParent, const SfxIt
 bool SfxDocumentDescPage::FillItemSet(SfxItemSet *rSet)
 {
     // Test whether a change is present
-    const bool bTitleMod = m_pTitleEd->IsModified();
-    const bool bThemeMod = m_pThemaEd->IsModified();
-    const bool bKeywordsMod = m_pKeywordsEd->IsModified();
-    const bool bCommentMod = m_pCommentEd->IsModified();
+    const bool bTitleMod = m_xTitleEd->get_value_changed_from_saved();
+    const bool bThemeMod = m_xThemaEd->get_value_changed_from_saved();
+    const bool bKeywordsMod = m_xKeywordsEd->get_value_changed_from_saved();
+    const bool bCommentMod = m_xCommentEd->get_value_changed_from_saved();
     if ( !( bTitleMod || bThemeMod || bKeywordsMod || bCommentMod ) )
     {
         return false;
@@ -673,19 +660,19 @@ bool SfxDocumentDescPage::FillItemSet(SfxItemSet *rSet)
 
     if ( bTitleMod )
     {
-        pInfo->setTitle( m_pTitleEd->GetText() );
+        pInfo->setTitle( m_xTitleEd->get_text() );
     }
     if ( bThemeMod )
     {
-        pInfo->setSubject( m_pThemaEd->GetText() );
+        pInfo->setSubject( m_xThemaEd->get_text() );
     }
     if ( bKeywordsMod )
     {
-        pInfo->setKeywords( m_pKeywordsEd->GetText() );
+        pInfo->setKeywords( m_xKeywordsEd->get_text() );
     }
     if ( bCommentMod )
     {
-        pInfo->setDescription( m_pCommentEd->GetText() );
+        pInfo->setDescription( m_xCommentEd->get_text() );
     }
     rSet->Put( *pInfo );
     if ( pInfo != m_pInfoItem )
@@ -696,26 +683,29 @@ bool SfxDocumentDescPage::FillItemSet(SfxItemSet *rSet)
     return true;
 }
 
-
 void SfxDocumentDescPage::Reset(const SfxItemSet *rSet)
 {
     m_pInfoItem = const_cast<SfxDocumentInfoItem*>(&rSet->Get(SID_DOCINFO));
 
-    m_pTitleEd->SetText( m_pInfoItem->getTitle() );
-    m_pThemaEd->SetText( m_pInfoItem->getSubject() );
-    m_pKeywordsEd->SetText( m_pInfoItem->getKeywords() );
-    m_pCommentEd->SetText( m_pInfoItem->getDescription() );
+    m_xTitleEd->set_text(m_pInfoItem->getTitle());
+    m_xThemaEd->set_text(m_pInfoItem->getSubject());
+    m_xKeywordsEd->set_text(m_pInfoItem->getKeywords());
+    m_xCommentEd->set_text(m_pInfoItem->getDescription());
+
+    m_xTitleEd->save_value();
+    m_xThemaEd->save_value();
+    m_xKeywordsEd->save_value();
+    m_xCommentEd->save_value();
 
     const SfxBoolItem* pROItem = SfxItemSet::GetItem<SfxBoolItem>(rSet, SID_DOC_READONLY, false);
-    if ( pROItem && pROItem->GetValue() )
+    if (pROItem && pROItem->GetValue())
     {
-        m_pTitleEd->SetReadOnly();
-        m_pThemaEd->SetReadOnly();
-        m_pKeywordsEd->SetReadOnly();
-        m_pCommentEd->SetReadOnly();
+        m_xTitleEd->set_editable(false);
+        m_xThemaEd->set_editable(false);
+        m_xKeywordsEd->set_editable(false);
+        m_xCommentEd->set_editable(false);
     }
 }
-
 
 namespace
 {
@@ -849,7 +839,7 @@ IMPL_LINK_NOARG(SfxDocumentPage, SignatureHdl, Button*, void)
     SfxObjectShell* pDoc = SfxObjectShell::Current();
     if( pDoc )
     {
-        pDoc->SignDocumentContent();
+        pDoc->SignDocumentContent(GetFrameWeld());
 
         ImplUpdateSignatures();
     }
@@ -930,9 +920,9 @@ void SfxDocumentPage::ImplCheckPasswordState()
     m_pChangePassBtn->Disable();
 }
 
-VclPtr<SfxTabPage> SfxDocumentPage::Create( vcl::Window* pParent, const SfxItemSet* rItemSet )
+VclPtr<SfxTabPage> SfxDocumentPage::Create( TabPageParent pParent, const SfxItemSet* rItemSet )
 {
-     return VclPtr<SfxDocumentPage>::Create( pParent, *rItemSet );
+     return VclPtr<SfxDocumentPage>::Create( pParent.pParent, *rItemSet );
 }
 
 void SfxDocumentPage::EnableUseUserData()
@@ -950,7 +940,7 @@ bool SfxDocumentPage::FillItemSet( SfxItemSet* rSet )
          m_pUseUserDataCB->IsValueChangedFromSaved() &&
          GetTabDialog() && GetTabDialog()->GetExampleSet() )
     {
-        SfxItemSet* pExpSet = GetTabDialog()->GetExampleSet();
+        const SfxItemSet* pExpSet = GetTabDialog()->GetExampleSet();
         const SfxPoolItem* pItem;
 
         if ( pExpSet && SfxItemState::SET == pExpSet->GetItemState( SID_DOCINFO, true, &pItem ) )
@@ -965,7 +955,7 @@ bool SfxDocumentPage::FillItemSet( SfxItemSet* rSet )
 
     if ( bHandleDelete )
     {
-        SfxItemSet* pExpSet = GetTabDialog()->GetExampleSet();
+        const SfxItemSet* pExpSet = GetTabDialog()->GetExampleSet();
         const SfxPoolItem* pItem;
         if ( pExpSet && SfxItemState::SET == pExpSet->GetItemState( SID_DOCINFO, true, &pItem ) )
         {
@@ -987,7 +977,7 @@ bool SfxDocumentPage::FillItemSet( SfxItemSet* rSet )
     if ( m_pUseThumbnailSaveCB->IsValueChangedFromSaved() &&
        GetTabDialog() && GetTabDialog()->GetExampleSet() )
     {
-        SfxItemSet* pExpSet = GetTabDialog()->GetExampleSet();
+        const SfxItemSet* pExpSet = GetTabDialog()->GetExampleSet();
         const SfxPoolItem* pItem;
 
         if ( pExpSet && SfxItemState::SET == pExpSet->GetItemState( SID_DOCINFO, true, &pItem ) )
@@ -1702,7 +1692,7 @@ void CustomPropertiesWindow::SetVisibleLineCount(sal_uInt32 nCount)
 
 void CustomPropertiesWindow::AddLine(const OUString& sName, Any const & rAny)
 {
-    m_aCustomProperties.push_back(new CustomProperty(sName, rAny));
+    m_aCustomProperties.push_back(std::unique_ptr<CustomProperty>(new CustomProperty(sName, rAny)));
     ReloadLinesContent();
 }
 
@@ -1864,9 +1854,9 @@ void CustomPropertiesWindow::StoreCustomProperties()
     }
 }
 
-void CustomPropertiesWindow::SetCustomProperties(const std::vector<CustomProperty*>& rProperties)
+void CustomPropertiesWindow::SetCustomProperties(std::vector< std::unique_ptr<CustomProperty> >&& rProperties)
 {
-    m_aCustomProperties = rProperties;
+    m_aCustomProperties = std::move(rProperties);
     ReloadLinesContent();
 }
 
@@ -2107,9 +2097,9 @@ void CustomPropertiesControl::AddLine( Any const & rAny )
         m_pVertScroll->DoScroll(nLineCount + 1);
 }
 
-void CustomPropertiesControl::SetCustomProperties(const std::vector<CustomProperty*>& rProperties)
+void CustomPropertiesControl::SetCustomProperties(std::vector< std::unique_ptr<CustomProperty> >&& rProperties)
 {
-    m_pPropertiesWin->SetCustomProperties(rProperties);
+    m_pPropertiesWin->SetCustomProperties(std::move(rProperties));
     long nLineCount = m_pPropertiesWin->GetTotalLineCount();
     m_pVertScroll->SetRangeMax(nLineCount + 1);
 }
@@ -2209,8 +2199,8 @@ void SfxCustomPropertiesPage::Reset( const SfxItemSet* rItemSet )
 {
     m_pPropertiesCtrl->ClearAllLines();
     const SfxDocumentInfoItem& rInfoItem = rItemSet->Get(SID_DOCINFO);
-    std::vector< CustomProperty* > aCustomProps = rInfoItem.GetCustomProperties();
-    m_pPropertiesCtrl->SetCustomProperties(aCustomProps);
+    std::vector< std::unique_ptr<CustomProperty> > aCustomProps = rInfoItem.GetCustomProperties();
+    m_pPropertiesCtrl->SetCustomProperties(std::move(aCustomProps));
 }
 
 DeactivateRC SfxCustomPropertiesPage::DeactivatePage( SfxItemSet* /*pSet*/ )
@@ -2221,9 +2211,9 @@ DeactivateRC SfxCustomPropertiesPage::DeactivatePage( SfxItemSet* /*pSet*/ )
     return nRet;
 }
 
-VclPtr<SfxTabPage> SfxCustomPropertiesPage::Create( vcl::Window* pParent, const SfxItemSet* rItemSet )
+VclPtr<SfxTabPage> SfxCustomPropertiesPage::Create( TabPageParent pParent, const SfxItemSet* rItemSet )
 {
-    return VclPtr<SfxCustomPropertiesPage>::Create( pParent, *rItemSet );
+    return VclPtr<SfxCustomPropertiesPage>::Create( pParent.pParent, *rItemSet );
 }
 
 CmisValue::CmisValue( vcl::Window* pParent, const OUString& aStr )
@@ -2717,9 +2707,9 @@ DeactivateRC SfxCmisPropertiesPage::DeactivatePage( SfxItemSet* /*pSet*/ )
     return DeactivateRC::LeavePage;
 }
 
-VclPtr<SfxTabPage> SfxCmisPropertiesPage::Create( vcl::Window* pParent, const SfxItemSet* rItemSet )
+VclPtr<SfxTabPage> SfxCmisPropertiesPage::Create( TabPageParent pParent, const SfxItemSet* rItemSet )
 {
-    return VclPtr<SfxCmisPropertiesPage>::Create( pParent, *rItemSet );
+    return VclPtr<SfxCmisPropertiesPage>::Create( pParent.pParent, *rItemSet );
 }
 
 void SfxCmisPropertiesPage::SetPosSizePixel(const Point& rAllocPos, const Size& rAllocation)

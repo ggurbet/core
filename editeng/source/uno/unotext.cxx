@@ -279,18 +279,15 @@ void SvxUnoTextRangeBase::SetEditSource( SvxEditSource* pSource ) throw()
 
 /** puts a field item with a copy of the given FieldData into the itemset
     corresponding with this range */
-void SvxUnoTextRangeBase::attachField( const SvxFieldData* pData ) throw()
+void SvxUnoTextRangeBase::attachField( std::unique_ptr<SvxFieldData> pData ) throw()
 {
     SolarMutexGuard aGuard;
 
-    if( pData )
+    SvxTextForwarder* pForwarder = mpEditSource ? mpEditSource->GetTextForwarder() : nullptr;
+    if( pForwarder )
     {
-        SvxTextForwarder* pForwarder = mpEditSource ? mpEditSource->GetTextForwarder() : nullptr;
-        if( pForwarder )
-        {
-            SvxFieldItem aField( *pData, EE_FEATURE_FIELD );
-            pForwarder->QuickInsertField( aField, maSelection );
-        }
+        SvxFieldItem aField( std::move(pData), EE_FEATURE_FIELD );
+        pForwarder->QuickInsertField( std::move(aField), maSelection );
     }
 }
 
@@ -582,9 +579,9 @@ uno::Any SAL_CALL SvxUnoTextRangeBase::getPropertyValue(const OUString& Property
         const ESelection& rSel = GetSelection();
         text::TextRangeSelection aSel;
         aSel.Start.Paragraph = rSel.nStartPara;
-        aSel.Start.PositionInParagraph = static_cast<sal_Int32>(rSel.nStartPos);
+        aSel.Start.PositionInParagraph = rSel.nStartPos;
         aSel.End.Paragraph = rSel.nEndPara;
-        aSel.End.PositionInParagraph = static_cast<sal_Int32>(rSel.nEndPos);
+        aSel.End.PositionInParagraph = rSel.nEndPos;
         return uno::makeAny(aSel);
     }
 
@@ -633,14 +630,11 @@ void SvxUnoTextRangeBase::getPropertyValue( const SfxItemPropertySimpleEntry* pM
             uno::Reference< text::XTextRange > xAnchor( this );
 
             // get presentation string for field
-            Color* pTColor = nullptr;
-            Color* pFColor = nullptr;
+            boost::optional<Color> pTColor;
+            boost::optional<Color> pFColor;
 
             SvxTextForwarder* pForwarder = mpEditSource->GetTextForwarder();
             OUString aPresentation( pForwarder->CalcFieldValue( SvxFieldItem(*pData, EE_FEATURE_FIELD), maSelection.nStartPara, maSelection.nStartPos, pTColor, pFColor ) );
-
-            delete pTColor;
-            delete pFColor;
 
             uno::Reference< text::XTextField > xField( new SvxUnoTextField( xAnchor, aPresentation, pData ) );
             rAny <<= xField;
@@ -2377,7 +2371,7 @@ void SvxDummyTextSource::QuickInsertLineBreak( const ESelection& )
 {
 };
 
-OUString SvxDummyTextSource::CalcFieldValue( const SvxFieldItem&, sal_Int32, sal_Int32, Color*&, Color*& )
+OUString SvxDummyTextSource::CalcFieldValue( const SvxFieldItem&, sal_Int32, sal_Int32, boost::optional<Color>&, boost::optional<Color>& )
 {
     return OUString();
 }

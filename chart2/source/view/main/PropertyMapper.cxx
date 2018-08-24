@@ -19,8 +19,10 @@
 
 #include <PropertyMapper.hxx>
 #include <unonames.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/beans/XMultiPropertySet.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
 #include <com/sun/star/drawing/TextHorizontalAdjust.hpp>

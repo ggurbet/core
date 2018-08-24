@@ -55,8 +55,8 @@ private:
     OUString                    sOldUsername;
 
     std::unique_ptr<ScChangeTrack> pChangeTrack;
-    tools::SvRef<SotStorageStream>          xInStrm;        // input stream
-    XclImpStream*               pStrm;          // stream import class
+    tools::SvRef<SotStorageStream> xInStrm;        // input stream
+    std::unique_ptr<XclImpStream>  pStrm;          // stream import class
     sal_uInt16                  nTabIdCount;
     bool                        bGlobExit;      // global exit loop
 
@@ -102,7 +102,7 @@ public:
 
                                 // reads extended 3D ref info following the formulas, returns sc tab nums
                                 // ( called by XclImpChTrFmlConverter::Read3DTabReference() )
-    bool                        Read3DTabRefInfo( SCTAB& rFirstTab, SCTAB& rLastTab, ExcelToSc8::ExternalTabInfo& rExtInfo );
+    void                        Read3DTabRefInfo( SCTAB& rFirstTab, SCTAB& rLastTab, ExcelToSc8::ExternalTabInfo& rExtInfo );
 
     void                        Apply();
 };

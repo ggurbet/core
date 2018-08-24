@@ -7,7 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <sal/config.h>
+#include <config_clang.h>
 #include <array>
+#include <memory>
 #include <vector>
 #include <unordered_map>
 
@@ -61,6 +64,18 @@ class Class5 {
             delete p; // expected-error {{rather manage with std::some_container<std::unique_ptr<T>> [loplugin:useuniqueptr]}}
     }
 };
+class Class5a {
+    int* m_pbar[10]; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    ~Class5a()
+    {
+        for (auto p : m_pbar)
+        {
+            int x = 1;
+            x = x + 2;
+            delete p; // expected-error {{rather manage with std::some_container<std::unique_ptr<T>> [loplugin:useuniqueptr]}}
+        }
+    }
+};
 class Class6 {
     std::array<int*,10> m_pbar; // expected-note {{member is here [loplugin:useuniqueptr]}}
     ~Class6()
@@ -77,13 +92,12 @@ class Class7 {
             delete m_pbar[i]; // expected-error {{rather manage with std::some_container<std::unique_ptr<T>> [loplugin:useuniqueptr]}}
     }
 };
-// don't warn for maps, MSVC 2015 has problems with mixing std::map/std::unordered_map and std::unique_ptr
 class Class8 {
-    std::unordered_map<int, int*> m_pbar;
+    std::unordered_map<int, int*> m_pbar; // expected-note {{member is here [loplugin:useuniqueptr]}}
     ~Class8()
     {
         for (auto i : m_pbar)
-            delete i.second;
+            delete i.second; // expected-error {{rather manage with std::some_container<std::unique_ptr<T>> [loplugin:useuniqueptr]}}
     }
 };
 class Foo8 {
@@ -151,4 +165,87 @@ class Foo12 {
             delete m_pbar[i++]; // expected-error {{rather manage with std::some_container<std::unique_ptr<T>> [loplugin:useuniqueptr]}}
     }
 };
+#define DELETEZ( p )    ( delete p,p = NULL )
+class Foo13 {
+    int * m_pbar1; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    int * m_pbar2; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    int * m_pbar3; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    ~Foo13()
+    {
+        if (m_pbar1)
+            DELETEZ(m_pbar1); // expected-error {{unconditional call to delete on a member, should be using std::unique_ptr [loplugin:useuniqueptr]}}
+        DELETEZ(m_pbar2); // expected-error {{unconditional call to delete on a member, should be using std::unique_ptr [loplugin:useuniqueptr]}}
+        if (m_pbar3)
+        {
+            DELETEZ(m_pbar3); // expected-error {{unconditional call to delete on a member, should be using std::unique_ptr [loplugin:useuniqueptr]}}
+        }
+    }
+};
+
+// check for unconditional inner compound statements
+class Foo14 {
+    int * m_pbar1; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    ~Foo14()
+    {
+        {
+            delete m_pbar1; // expected-error {{unconditional call to delete on a member, should be using std::unique_ptr [loplugin:useuniqueptr]}}
+        }
+    }
+};
+
+void Foo15(int * p)
+{
+    delete p; // expected-error {{calling delete on a pointer param, should be either whitelisted or simplified [loplugin:useuniqueptr]}}
+};
+
+class Foo16 {
+    Foo16(int * p)
+    {
+        delete p; // expected-error {{calling delete on a pointer param, should be either whitelisted or simplified [loplugin:useuniqueptr]}}
+    };
+    void foo(int * p)
+    {
+        delete p; // expected-error {{calling delete on a pointer param, should be either whitelisted or simplified [loplugin:useuniqueptr]}}
+    };
+};
+
+// check for delete on array members
+class Foo17 {
+    int * m_pbar1[6]; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    ~Foo17()
+    {
+        delete m_pbar1[0]; // expected-error {{unconditional call to delete on a member, should be using std::unique_ptr [loplugin:useuniqueptr]}}
+    }
+};
+
+// this only starts to work somewhere after clang 3.8 and before clang7
+#if CLANG_VERSION >= 30900
+class Foo18 {
+    std::vector<char*> m_pbar1; // expected-note {{member is here [loplugin:useuniqueptr]}}
+    ~Foo18()
+    {
+        for (auto aIter = m_pbar1.begin(); aIter != m_pbar1.end(); ++aIter)
+            delete *aIter; // expected-error {{rather manage with std::some_container<std::unique_ptr<T>> [loplugin:useuniqueptr]}}
+    }
+};
+#endif
+
+//  ------------------------------------------------------------------------------------------------
+// tests for passing owning pointers to constructors
+
+class Bravo1
+{
+    std::unique_ptr<int> m_field1;
+    Bravo1(int* p)
+        : m_field1(p) // expected-error {{should be passing via std::unique_ptr param [loplugin:useuniqueptr]}}
+    {}
+};
+class Bravo2
+{
+    std::unique_ptr<int> m_field1;
+    Bravo2(std::unique_ptr<int> p)
+        : m_field1(std::move(p)) // no warning expected
+    {}
+};
+
 /* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

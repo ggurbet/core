@@ -27,11 +27,9 @@
 #include <svx/svdocirc.hxx>
 #include <svx/xtextit.hxx>
 
-#include <svx/dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 
 #include <svx/svxids.hrc>
-#include <svx/strings.hrc>
 #include <bitmaps.hlst>
 #include <svx/fontwork.hxx>
 #include <editeng/outlobj.hxx>
@@ -83,7 +81,7 @@ void SvxFontWorkControllerItem::StateChanged( sal_uInt16 /*nSID*/, SfxItemState 
         {
             const XFormTextDistanceItem* pStateItem =
                                 dynamic_cast<const XFormTextDistanceItem*>( pItem );
-            DBG_ASSERT(pStateItem || pItem == nullptr, "XFormTextDistanceItem erwartet");
+            DBG_ASSERT(pStateItem || pItem == nullptr, "XFormTextDistanceItem expected");
             rFontWorkDlg.SetDistance_Impl(pStateItem);
             break;
         }

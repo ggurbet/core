@@ -764,7 +764,8 @@ void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
             rInfo.bOutLi = true;
         }
         else
-            html.endAttribute();
+            // Finish the opening element, but don't close it.
+            html.characters(OString());
     }
 
     if( rHWrt.m_nDefListLvl > 0 && !bForceDL )
@@ -1078,7 +1079,7 @@ class HTMLEndPosLst
 
     SwDoc *pDoc;            // the current document
     SwDoc* pTemplate;       // the HTML template (or 0)
-    const Color* pDfltColor;// the default foreground colors
+    boost::optional<Color> xDfltColor;// the default foreground colors
     std::set<OUString>& rScriptTextStyles;
 
     sal_uLong nHTMLMode;
@@ -1122,7 +1123,7 @@ class HTMLEndPosLst
 
 public:
 
-    HTMLEndPosLst( SwDoc *pDoc, SwDoc* pTemplate, const Color* pDfltColor,
+    HTMLEndPosLst( SwDoc *pDoc, SwDoc* pTemplate, boost::optional<Color> xDfltColor,
                    bool bOutStyles, sal_uLong nHTMLMode,
                    const OUString& rText, std::set<OUString>& rStyles );
     ~HTMLEndPosLst();
@@ -1569,12 +1570,12 @@ const SwHTMLFormatInfo *HTMLEndPosLst::GetFormatInfo( const SwFormat& rFormat,
 }
 
 HTMLEndPosLst::HTMLEndPosLst( SwDoc *pD, SwDoc* pTempl,
-                              const Color* pDfltCol, bool bStyles,
+                              boost::optional<Color> xDfltCol, bool bStyles,
                               sal_uLong nMode, const OUString& rText,
                               std::set<OUString>& rStyles ):
     pDoc( pD ),
     pTemplate( pTempl ),
-    pDfltColor( pDfltCol ),
+    xDfltColor( xDfltCol ),
     rScriptTextStyles( rStyles ),
     nHTMLMode( nMode ),
     bOutStyles( bStyles )
@@ -1680,8 +1681,8 @@ void HTMLEndPosLst::InsertNoScript( const SfxPoolItem& rItem,
                 Color aColor( static_cast<const SvxColorItem&>(rItem).GetValue() );
                 if( COL_AUTO == aColor )
                     aColor = COL_BLACK;
-                bSet = !bParaAttrs || !pDfltColor ||
-                       !pDfltColor->IsRGBEqual( aColor );
+                bSet = !bParaAttrs || !xDfltColor ||
+                       !xDfltColor->IsRGBEqual( aColor );
             }
             break;
 
@@ -2258,7 +2259,7 @@ Writer& OutHTML_SwTextNode( Writer& rWrt, const SwContentNode& rNode )
     // are there any hard attributes that must be written as tags?
     aFullText += rStr;
     HTMLEndPosLst aEndPosLst( rWrt.m_pDoc, rHTMLWrt.m_xTemplate.get(),
-                              rHTMLWrt.m_pDfltColor, rHTMLWrt.m_bCfgOutStyles,
+                              rHTMLWrt.m_xDfltColor, rHTMLWrt.m_bCfgOutStyles,
                               rHTMLWrt.GetHTMLMode(), aFullText,
                                  rHTMLWrt.m_aScriptTextStyles );
     if( aFormatInfo.pItemSet )
@@ -2630,13 +2631,29 @@ static Writer& OutHTML_SvxColor( Writer& rWrt, const SfxPoolItem& rHt )
         if( COL_AUTO == aColor )
             aColor = COL_BLACK;
 
-        OString sOut = "<" OOO_STRING_SVTOOLS_HTML_font " "
-            OOO_STRING_SVTOOLS_HTML_O_color "=";
-        rWrt.Strm().WriteOString( sOut );
-        HTMLOutFuncs::Out_Color( rWrt.Strm(), aColor ).WriteChar( '>' );
+        if (rHTMLWrt.mbXHTML)
+        {
+            OString sOut = "<" + rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_span
+                           " " OOO_STRING_SVTOOLS_HTML_O_style "=";
+            rWrt.Strm().WriteOString(sOut);
+            HTMLOutFuncs::Out_Color(rWrt.Strm(), aColor, /*bXHTML=*/true).WriteChar('>');
+        }
+        else
+        {
+            OString sOut = "<" OOO_STRING_SVTOOLS_HTML_font " "
+                OOO_STRING_SVTOOLS_HTML_O_color "=";
+            rWrt.Strm().WriteOString( sOut );
+            HTMLOutFuncs::Out_Color( rWrt.Strm(), aColor ).WriteChar( '>' );
+        }
     }
     else
-        HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_font, false );
+    {
+        if (rHTMLWrt.mbXHTML)
+            HTMLOutFuncs::Out_AsciiTag(
+                rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_span, false);
+        else
+            HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_font, false );
+    }
 
     return rWrt;
 }
@@ -2672,14 +2689,32 @@ static Writer& OutHTML_SvxFont( Writer& rWrt, const SfxPoolItem& rHt )
         OUString aNames;
         SwHTMLWriter::PrepareFontList( static_cast<const SvxFontItem&>(rHt), aNames, 0,
                            rHTMLWrt.IsHTMLMode(HTMLMODE_FONT_GENERIC) );
-        OString sOut = "<" OOO_STRING_SVTOOLS_HTML_font " "
-            OOO_STRING_SVTOOLS_HTML_O_face "=\"";
-        rWrt.Strm().WriteOString( sOut );
-        HTMLOutFuncs::Out_String( rWrt.Strm(), aNames, rHTMLWrt.m_eDestEnc, &rHTMLWrt.m_aNonConvertableCharacters )
-           .WriteCharPtr( "\">" );
+        if (rHTMLWrt.mbXHTML)
+        {
+            OString sOut = "<" + rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_span
+                           " " OOO_STRING_SVTOOLS_HTML_O_style "=\"font-family: ";
+            rWrt.Strm().WriteOString(sOut);
+            HTMLOutFuncs::Out_String(rWrt.Strm(), aNames, rHTMLWrt.m_eDestEnc,
+                                     &rHTMLWrt.m_aNonConvertableCharacters)
+                .WriteCharPtr("\">");
+        }
+        else
+        {
+            OString sOut = "<" OOO_STRING_SVTOOLS_HTML_font " "
+                OOO_STRING_SVTOOLS_HTML_O_face "=\"";
+            rWrt.Strm().WriteOString( sOut );
+            HTMLOutFuncs::Out_String( rWrt.Strm(), aNames, rHTMLWrt.m_eDestEnc, &rHTMLWrt.m_aNonConvertableCharacters )
+               .WriteCharPtr( "\">" );
+        }
     }
     else
-        HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_font, false );
+    {
+        if (rHTMLWrt.mbXHTML)
+            HTMLOutFuncs::Out_AsciiTag(
+                rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_span, false);
+        else
+            HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_font, false );
+    }
 
     return rWrt;
 }
@@ -2692,24 +2727,42 @@ static Writer& OutHTML_SvxFontHeight( Writer& rWrt, const SfxPoolItem& rHt )
 
     if( rHTMLWrt.m_bTagOn )
     {
-        OString sOut = "<" OOO_STRING_SVTOOLS_HTML_font;
-
-        sal_uInt32 nHeight = static_cast<const SvxFontHeightItem&>(rHt).GetHeight();
-        sal_uInt16 nSize = rHTMLWrt.GetHTMLFontSize( nHeight );
-        sOut += " " OOO_STRING_SVTOOLS_HTML_O_size "=\"" +
-            OString::number(static_cast<sal_Int32>(nSize)) + "\"";
-        rWrt.Strm().WriteOString( sOut );
-
-        if( rHTMLWrt.m_bCfgOutStyles && rHTMLWrt.m_bTextAttr )
+        if (rHTMLWrt.mbXHTML)
         {
-            // always export font size as CSS option, too
-            OutCSS1_HintStyleOpt( rWrt, rHt );
+            OString sOut = "<" + rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_span;
+
+            sal_uInt32 nHeight = static_cast<const SvxFontHeightItem&>(rHt).GetHeight();
+            // Twips -> points.
+            sal_uInt16 nSize = nHeight / 20;
+            sOut += " " OOO_STRING_SVTOOLS_HTML_O_style "=\"font-size: "
+                    + OString::number(static_cast<sal_Int32>(nSize)) + "pt\"";
+            rWrt.Strm().WriteOString(sOut);
+        }
+        else
+        {
+            OString sOut = "<" OOO_STRING_SVTOOLS_HTML_font;
+
+            sal_uInt32 nHeight = static_cast<const SvxFontHeightItem&>(rHt).GetHeight();
+            sal_uInt16 nSize = rHTMLWrt.GetHTMLFontSize( nHeight );
+            sOut += " " OOO_STRING_SVTOOLS_HTML_O_size "=\"" +
+                OString::number(static_cast<sal_Int32>(nSize)) + "\"";
+            rWrt.Strm().WriteOString( sOut );
+
+            if( rHTMLWrt.m_bCfgOutStyles && rHTMLWrt.m_bTextAttr )
+            {
+                // always export font size as CSS option, too
+                OutCSS1_HintStyleOpt( rWrt, rHt );
+            }
         }
         rWrt.Strm().WriteChar( '>' );
     }
     else
     {
-        HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_font, false );
+        if (rHTMLWrt.mbXHTML)
+            HTMLOutFuncs::Out_AsciiTag(
+                rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_span, false);
+        else
+            HTMLOutFuncs::Out_AsciiTag( rWrt.Strm(), rHTMLWrt.GetNamespace() + OOO_STRING_SVTOOLS_HTML_font, false );
     }
 
     return rWrt;

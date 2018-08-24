@@ -17,49 +17,53 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <scitems.hxx>
+#include <com/sun/star/table/BorderLineStyle.hpp>
+
+#include <comphelper/lok.hxx>
+#include <editeng/boxitem.hxx>
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
+#include <o3tl/temporary.hxx>
+#include <sfx2/bindings.hxx>
+#include <sfx2/dispatch.hxx>
+#include <sfx2/lokhelper.hxx>
+#include <sfx2/request.hxx>
+#include <sfx2/sfxdlg.hxx>
+#include <sfx2/sidebar/Sidebar.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <svl/ilstitem.hxx>
+#include <svl/int64item.hxx>
+#include <svl/srchitem.hxx>
 #include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/zformat.hxx>
-#include <editeng/boxitem.hxx>
 #include <svx/numinf.hxx>
-#include <svl/srchitem.hxx>
-#include <svl/ilstitem.hxx>
-#include <svl/int64item.hxx>
+#include <svx/unobrushitemhelper.hxx>
 #include <svx/zoomslideritem.hxx>
-#include <sfx2/bindings.hxx>
-#include <sfx2/sidebar/Sidebar.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/dispatch.hxx>
-#include <sfx2/request.hxx>
 
 #include <global.hxx>
+#include <appoptio.hxx>
 #include <attrib.hxx>
-#include <patattr.hxx>
 #include <cellform.hxx>
+#include <cellvalue.hxx>
+#include <compiler.hxx>
+#include <docsh.hxx>
 #include <document.hxx>
+#include <dwfunctr.hxx>
 #include <formulacell.hxx>
 #include <globstr.hrc>
-#include <scmod.hxx>
 #include <inputhdl.hxx>
 #include <inputwin.hxx>
-#include <docsh.hxx>
-#include <viewdata.hxx>
-#include <appoptio.hxx>
+#include <markdata.hxx>
+#include <patattr.hxx>
 #include <sc.hrc>
+#include <scabstdlg.hxx>
+#include <scitems.hxx>
+#include <scmod.hxx>
+#include <scresid.hxx>
 #include <stlpool.hxx>
 #include <tabvwsh.hxx>
-#include <dwfunctr.hxx>
-#include <scabstdlg.hxx>
-#include <compiler.hxx>
-#include <markdata.hxx>
-#include <cellvalue.hxx>
 #include <tokenarray.hxx>
-#include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <comphelper/lok.hxx>
-#include <sfx2/lokhelper.hxx>
-
-#include <com/sun/star/table/BorderLineStyle.hpp>
+#include <viewdata.hxx>
 
 #include <memory>
 
@@ -67,8 +71,6 @@ using namespace com::sun::star;
 
 bool ScTabViewShell::GetFunction( OUString& rFuncStr, FormulaError nErrCode )
 {
-    OUString aStr;
-
     sal_uInt32 nFuncs = SC_MOD()->GetAppOptions().GetStatusFunc();
     ScViewData& rViewData   = GetViewData();
     ScMarkData& rMark       = rViewData.GetMarkData();
@@ -112,7 +114,7 @@ bool ScTabViewShell::GetFunction( OUString& rFuncStr, FormulaError nErrCode )
             SCROW       nPosY       = rViewData.GetCurY();
             SCTAB       nTab        = rViewData.GetTabNo();
 
-            aStr = ScGlobal::GetRscString(pGlobStrId);
+            OUString aStr = ScResId(pGlobStrId);
             aStr += ": ";
 
             ScAddress aCursor( nPosX, nPosY, nTab );
@@ -480,6 +482,12 @@ void ScTabViewShell::ExecuteCellFormatDlg(SfxRequest& rReq, const OString &rName
     std::shared_ptr<SfxItemSet> pOldSet(new SfxItemSet(pOldAttrs->GetItemSet()));
     std::shared_ptr<SvxNumberInfoItem> pNumberInfoItem;
 
+    pOldSet->MergeRange(XATTR_FILLSTYLE, XATTR_FILLCOLOR);
+
+    sal_uInt16 nWhich = pOldSet->GetPool()->GetWhich( SID_ATTR_BRUSH );
+    SvxBrushItem aBrushItem(static_cast<const SvxBrushItem&>(pOldSet->Get(nWhich)));
+    setSvxBrushItemAsFillAttributesToTargetSet(aBrushItem, *pOldSet);
+
     pOldSet->MergeRange(SID_ATTR_BORDER_STYLES, SID_ATTR_BORDER_DEFAULT_WIDTH);
 
     // We only allow these border line types.
@@ -533,7 +541,6 @@ void ScTabViewShell::ExecuteCellFormatDlg(SfxRequest& rReq, const OString &rName
 
     bInFormatDialog = true;
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
     VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScAttrDlg(GetDialogParent(), pOldSet.get()));
 
@@ -679,8 +686,7 @@ void ScTabViewShell::UpdateInputHandler( bool bForce /* = sal_False */, bool bSt
                     // unintentionally interpreted as a number, and to show the
                     // user that it is a string (#35060#).
                     //! also for numberformat "Text"? -> then remove when editing
-                    double fDummy;
-                    if ( pFormatter->IsNumberFormat(aString, nNumFmt, fDummy) )
+                    if ( pFormatter->IsNumberFormat(aString, nNumFmt, o3tl::temporary(double())) )
                         aString = "'" + aString;
                 }
             }

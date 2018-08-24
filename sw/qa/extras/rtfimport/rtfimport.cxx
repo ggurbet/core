@@ -36,14 +36,26 @@
 #include <com/sun/star/text/WrapTextMode.hpp>
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/text/VertOrientation.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/text/XFormField.hpp>
 
 #include <rtl/ustring.hxx>
 #include <vcl/settings.hxx>
-#include <unotools/ucbstreamhelper.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/configuration.hxx>
+
+namespace com
+{
+namespace sun
+{
+namespace star
+{
+namespace graphic
+{
+class XGraphic;
+}
+}
+}
+}
 
 class Test : public SwModelTestBase
 {
@@ -106,6 +118,12 @@ DECLARE_RTFIMPORT_TEST(testN695479, "n695479.rtf")
     CPPUNIT_ASSERT(bDrawFound);
 }
 
+DECLARE_RTFIMPORT_TEST(testTdf117246, "tdf117246.rtf")
+{
+    // This was 2, all but the last \page was lost.
+    CPPUNIT_ASSERT_EQUAL(3, getPages());
+}
+
 DECLARE_RTFIMPORT_TEST(testTdf108943, "tdf108943.rtf")
 {
     uno::Reference<beans::XPropertySet> xPropertySet(
@@ -153,6 +171,12 @@ DECLARE_RTFIMPORT_TEST(testTdf115715, "tdf115715.rtf")
     // horizontal position as the 3rd paragraph.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(-1270),
                          getProperty<sal_Int32>(getParagraph(2), "ParaFirstLineIndent"));
+}
+
+DECLARE_RTFIMPORT_TEST(testTdf81943, "tdf81943.rtf")
+{
+    // The shape wasn't in background.
+    CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(getShape(1), "Opaque"));
 }
 
 DECLARE_RTFIMPORT_TEST(testTdf115155, "tdf115155.rtf")
@@ -530,6 +554,14 @@ DECLARE_RTFIMPORT_TEST(testPoshPosv, "posh-posv.rtf")
     CPPUNIT_ASSERT_EQUAL(text::VertOrientation::CENTER,
                          getProperty<sal_Int16>(getShape(1), "VertOrient"));
     CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(getShape(1), "FrameIsAutomaticHeight"));
+}
+
+DECLARE_RTFIMPORT_TEST(testPoshLeftRight, "posh-leftright.rtf")
+{
+    CPPUNIT_ASSERT_EQUAL(text::HoriOrientation::RIGHT,
+                         getProperty<sal_Int16>(getShape(1), "HoriOrient"));
+    CPPUNIT_ASSERT_EQUAL(text::HoriOrientation::LEFT,
+                         getProperty<sal_Int16>(getShape(2), "HoriOrient"));
 }
 
 DECLARE_RTFIMPORT_TEST(testTdf96326, "tdf96326.rtf")
@@ -1226,13 +1258,21 @@ DECLARE_RTFIMPORT_TEST(testTdf90097, "tdf90097.rtf")
     uno::Sequence<uno::Sequence<awt::Point>> aPolyPolySequence;
     xShape->getPropertyValue("PolyPolygon") >>= aPolyPolySequence;
     uno::Sequence<awt::Point>& rPolygon = aPolyPolySequence[0];
+
+    // tdf#106792 These values were wrong all the time due to a missing
+    // conversion in SvxShapePolyPolygon::getPropertyValueImpl. There was no
+    // ForceMetricTo100th_mm -> the old results were in twips due to the
+    // object residing in Writer. The UNO API by definition is in 100thmm,
+    // thus I will correct the values here.
+    // Indeed need to use the Linux values, I have no idea why these differ
+    // from Mac/Win ones, but the disable above hints to that (maybe a problem
+    // of its own). Factor between Twips and 100thmm is ca. 1.76 -> stable change
+
     // Vertical flip for the line shape was ignored, so Y coordinates were swapped.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2819), rPolygon[0].X);
-    // This was 1619.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1963), rPolygon[0].Y);
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3181), rPolygon[1].X);
-    // This was 1962.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1620), rPolygon[1].Y);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(4972), rPolygon[0].X); // was: 2819, win is 10927
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3463), rPolygon[0].Y); // was: 1963
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(5617), rPolygon[1].X); // was: 3181, win is 11572
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2852), rPolygon[1].Y); // was: 1620
 }
 #endif
 
@@ -1284,6 +1324,20 @@ DECLARE_RTFIMPORT_TEST(testTdf78506, "tdf78506.rtf")
             // This was '0', invalid \levelnumbers wasn't ignored.
             CPPUNIT_ASSERT_EQUAL(CHAR_ZWSP, rProp.Value.get<OUString>().toChar());
     }
+}
+
+DECLARE_RTFIMPORT_TEST(testTdf117403, "tdf117403.rtf")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xCell.is());
+    table::BorderLine2 aExpected(static_cast<sal_Int32>(COL_BLACK), 0, 4, 0,
+                                 table::BorderLineStyle::SOLID, 4);
+    // This failed, border was not imported, OuterLineWidth was 0 instead of 4.
+    CPPUNIT_ASSERT_BORDER_EQUAL(aExpected, getProperty<table::BorderLine2>(xCell, "BottomBorder"));
 }
 
 DECLARE_RTFIMPORT_TEST(testImportHeaderFooter, "tdf108055.rtf")
@@ -1345,9 +1399,6 @@ DECLARE_RTFIMPORT_TEST(testImportHeaderFooter, "tdf108055.rtf")
 
 DECLARE_RTFIMPORT_TEST(testTdf108947, "tdf108947.rtf")
 {
-    //Check page count
-    CPPUNIT_ASSERT_EQUAL(2, getPages());
-
     //Check if Headers/Footers contain what they should in this document
     uno::Reference<text::XText> xHeaderTextRight = getProperty<uno::Reference<text::XText>>(
         getStyles("PageStyles")->getByName("Default Style"), "HeaderTextRight");

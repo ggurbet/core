@@ -23,7 +23,6 @@
 #include <vcl/graph.hxx>
 #include <sot/formats.hxx>
 #include <sot/storage.hxx>
-#include <unotools/pathoptions.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/viewsh.hxx>
@@ -191,7 +190,7 @@ void SwFEShell::Copy( SwDoc* pClpDoc, const OUString* pNewClpText )
             SdrObject *pObj = rMrkList.GetMark( i )->GetMarkedSdrObj();
 
             if( Imp()->GetDrawView()->IsGroupEntered() ||
-                ( !pObj->GetUserCall() && pObj->GetUpGroup()) )
+                ( !pObj->GetUserCall() && pObj->getParentSdrObjectFromSdrObject()) )
             {
                 SfxItemSet aSet( pClpDoc->GetAttrPool(), aFrameFormatSetRange );
 
@@ -378,7 +377,7 @@ bool SwFEShell::CopyDrawSel( SwFEShell* pDestShell, const Point& rSttPt,
             if( bRet )
             {
                 if( pSrcDrwView->IsGroupEntered() ||
-                    ( !pObj->GetUserCall() && pObj->GetUpGroup()) )
+                    ( !pObj->GetUserCall() && pObj->getParentSdrObjectFromSdrObject()) )
                 {
                     SfxItemSet aSet( pDestDoc->GetAttrPool(),aFrameFormatSetRange);
                     aSet.Put( aAnchor );
@@ -928,14 +927,14 @@ bool SwFEShell::Paste( SwDoc* pClpDoc )
                             Imp()->GetDrawView()->InsertObjectAtView( pNew, *Imp()->GetPageView() );
 
                             Point aGrpAnchor( 0, 0 );
-                            SdrObjList* pList = pNew->getParentOfSdrObject();
+                            SdrObjList* pList = pNew->getParentSdrObjListFromSdrObject();
                             if ( pList )
                             {
-                                SdrObject* pOwner = pList->GetOwnerObj();
-                                if ( pOwner )
+                                SdrObjGroup* pOwner(dynamic_cast< SdrObjGroup* >(pList->getSdrObjectFromSdrObjList()));
+
+                                if(nullptr != pOwner)
                                 {
-                                    SdrObjGroup* pThisGroup = dynamic_cast<SdrObjGroup*>( pOwner );
-                                    aGrpAnchor = pThisGroup->GetAnchorPos();
+                                    aGrpAnchor = pOwner->GetAnchorPos();
                                 }
                             }
 
@@ -1242,7 +1241,7 @@ bool SwFEShell::GetDrawObjGraphic( SotClipboardFormatId nFormat, Graphic& rGrf )
                         if( pVirtDev->SetOutputSize( aSz ) )
                         {
                             aGrf.Draw( pVirtDev.get(), Point(), aSz );
-                            rGrf = pVirtDev->GetBitmap( Point(), aSz );
+                            rGrf = pVirtDev->GetBitmapEx( Point(), aSz );
                         }
                         else
                         {
@@ -1269,14 +1268,14 @@ static void lcl_ConvertSdrOle2ObjsToSdrGrafObjs( SdrModel& _rModel )
     {
         // setup object iterator in order to iterate through all objects
         // including objects in group objects, but exclusive group objects.
-        SdrObjListIter aIter(*(_rModel.GetPage( nPgNum )));
+        SdrObjListIter aIter(_rModel.GetPage(nPgNum));
         while( aIter.IsMore() )
         {
             SdrOle2Obj* pOle2Obj = dynamic_cast< SdrOle2Obj* >( aIter.Next() );
             if( pOle2Obj )
             {
                 // found an ole2 shape
-                SdrObjList* pObjList = pOle2Obj->getParentOfSdrObject();
+                SdrObjList* pObjList = pOle2Obj->getParentSdrObjListFromSdrObject();
 
                 // get its graphic
                 Graphic aGraphic;
@@ -1308,9 +1307,11 @@ void SwFEShell::Paste( SvStream& rStrm, SwPasteSdr nAction, const Point* pPt )
     StartAllAction();
     StartUndo();
 
-    SvtPathOptions aPathOpt;
-    std::unique_ptr<FmFormModel> pModel( new FmFormModel( aPathOpt.GetPalettePath(),
-                                            nullptr, GetDoc()->GetDocShell() ) );
+    std::unique_ptr< FmFormModel > pModel(
+        new FmFormModel(
+            nullptr,
+            GetDoc()->GetDocShell()));
+
     pModel->GetItemPool().FreezeIdRanges();
 
     rStrm.Seek(0);
@@ -1362,7 +1363,7 @@ void SwFEShell::Paste( SvStream& rStrm, SwPasteSdr nAction, const Point* pPt )
                     }
                 }
 
-                SdrObject* pNewObj = pClpObj->Clone();
+                SdrObject* pNewObj(pClpObj->CloneSdrObject(pOldObj->getSdrModelFromSdrObject()));
                 tools::Rectangle aOldObjRect( pOldObj->GetCurrentBoundRect() );
                 Size aOldObjSize( aOldObjRect.GetSize() );
                 tools::Rectangle aNewRect( pNewObj->GetCurrentBoundRect() );
@@ -1542,7 +1543,7 @@ bool SwFEShell::Paste(const Graphic &rGrf, const OUString& rURL)
 
         if(dynamic_cast< SdrGrafObj* >(pObj))
         {
-            SdrGrafObj* pNewGrafObj = static_cast<SdrGrafObj*>(pObj->Clone());
+            SdrGrafObj* pNewGrafObj(static_cast<SdrGrafObj*>(pObj->CloneSdrObject(pObj->getSdrModelFromSdrObject())));
 
             pNewGrafObj->SetGraphic(rGrf);
 

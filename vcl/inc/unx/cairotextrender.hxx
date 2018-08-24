@@ -42,7 +42,7 @@ protected:
     virtual void                getSurfaceOffset(double& nDX, double& nDY) = 0;
     virtual void                releaseCairoContext(cairo_t* cr) = 0;
 
-    void                        setFont( const FontSelectPattern *pEntry, int nFallbackLevel );
+    void                        setFont(LogicalFontInstance *pEntry, int nFallbackLevel);
 
     virtual void                clipRegion(cairo_t* cr) = 0;
 
@@ -51,7 +51,7 @@ public:
 
 
     virtual void                SetTextColor( Color nColor ) override;
-    virtual void                SetFont( const FontSelectPattern*, int nFallbackLevel ) override;
+    virtual void                SetFont(LogicalFontInstance*, int nFallbackLevel) override;
     virtual void                GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) override;
     virtual const FontCharMapRef GetFontCharMap() const override;
     virtual bool                GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const override;
@@ -79,7 +79,7 @@ public:
     virtual bool                GetGlyphOutline(const GlyphItem&, basegfx::B2DPolyPolygon&) override;
     virtual std::unique_ptr<SalLayout>
                                 GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
-    virtual void                DrawTextLayout(const CommonSalLayout&) override;
+    virtual void                DrawTextLayout(const GenericSalLayout&, const SalGraphics&) override;
 #if ENABLE_CAIRO_CANVAS
     virtual SystemFontData      GetSysFontData( int nFallbackLevel ) const override;
 #endif

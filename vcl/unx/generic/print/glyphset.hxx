@@ -55,7 +55,7 @@ private:
                                 unsigned char* nOutGlyphID, sal_Int32* nOutGlyphSetID);
     bool        LookupGlyphID (sal_GlyphId nGlyphId,
                                    unsigned char* nOutGlyphID, sal_Int32* nOutGlyphSetID);
-    bool        AddGlyphID (sal_GlyphId nGlyphId,
+    void        AddGlyphID (sal_GlyphId nGlyphId,
                                 unsigned char* nOutGlyphID,
                                 sal_Int32* nOutGlyphSetID);
     static void     AddNotdef (glyph_map_t &rGlyphMap);
@@ -74,8 +74,7 @@ public:
 
     void            DrawGlyph (PrinterGfx& rGfx,
                                const Point& rPoint,
-                               const sal_GlyphId nGlyphId,
-                               const sal_Int32 nDelta);
+                               const sal_GlyphId nGlyphId);
     void        PSUploadFont (osl::File& rOutFile, PrinterGfx &rGfx, bool bAsType42, std::vector< OString >& rSuppliedFonts );
 };
 

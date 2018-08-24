@@ -31,7 +31,6 @@
 #include <ndtxt.hxx>
 #include <txatbase.hxx>
 #include <fmtfsize.hxx>
-#include <drawdoc.hxx>
 #include <frmatr.hxx>
 #include "docxattributeoutput.hxx"
 #include "docxexportfilter.hxx"
@@ -40,6 +39,7 @@
 #include <comphelper/sequence.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <IDocumentDrawModelAccess.hxx>
 
@@ -117,6 +117,13 @@ void lclMovePositionWithRotation(awt::Point& aPos, const Size& rSize, sal_Int64 
 
     aPos.X += nXDiff;
     aPos.Y += nYDiff;
+}
+
+/// Determines if the anchor is inside a paragraph.
+bool IsAnchorTypeInsideParagraph(const ww8::Frame* pFrame)
+{
+    const SwFormatAnchor& rAnchor = pFrame->GetFrameFormat().GetAttrSet().GetAnchor();
+    return rAnchor.GetAnchorId() != RndStdIds::FLY_AT_PAGE;
 }
 }
 
@@ -654,7 +661,7 @@ void DocxSdrExport::startDMLAnchorInline(const SwFrameFormat* pFrameFormat, cons
         auto it = aGrabBag.find("EG_WrapType");
         if (it != aGrabBag.end())
         {
-            OUString sType = it->second.get<OUString>();
+            auto sType = it->second.get<OUString>();
             if (sType == "wrapTight")
                 nWrapToken = XML_wrapTight;
             else if (sType == "wrapThrough")
@@ -671,10 +678,8 @@ void DocxSdrExport::startDMLAnchorInline(const SwFrameFormat* pFrameFormat, cons
             {
                 m_pImpl->m_pSerializer->startElementNS(XML_wp, XML_wrapPolygon, XML_edited, "0",
                                                        FSEND);
-                drawing::PointSequenceSequence aSeqSeq
-                    = it->second.get<drawing::PointSequenceSequence>();
-                std::vector<awt::Point> aPoints(
-                    comphelper::sequenceToContainer<std::vector<awt::Point>>(aSeqSeq[0]));
+                auto aSeqSeq = it->second.get<drawing::PointSequenceSequence>();
+                auto aPoints(comphelper::sequenceToContainer<std::vector<awt::Point>>(aSeqSeq[0]));
                 for (auto i = aPoints.begin(); i != aPoints.end(); ++i)
                 {
                     awt::Point& rPoint = *i;
@@ -758,20 +763,6 @@ void DocxSdrExport::endDMLAnchorInline(const SwFrameFormat* pFrameFormat)
 
 void DocxSdrExport::writeVMLDrawing(const SdrObject* sdrObj, const SwFrameFormat& rFrameFormat)
 {
-    bool bSwapInPage = false;
-    if (!sdrObj->GetPage())
-    {
-        if (SdrModel* pModel
-            = m_pImpl->m_rExport.m_pDoc->getIDocumentDrawModelAccess().GetDrawModel())
-        {
-            if (SdrPage* pPage = pModel->GetPage(0))
-            {
-                bSwapInPage = true;
-                const_cast<SdrObject*>(sdrObj)->SetPage(pPage);
-            }
-        }
-    }
-
     m_pImpl->m_pSerializer->startElementNS(XML_w, XML_pict, FSEND);
     m_pImpl->m_pDrawingML->SetFS(m_pImpl->m_pSerializer);
     // See WinwordAnchoring::SetAnchoring(), these are not part of the SdrObject, have to be passed around manually.
@@ -782,9 +773,6 @@ void DocxSdrExport::writeVMLDrawing(const SdrObject* sdrObj, const SwFrameFormat
         *sdrObj, rHoriOri.GetHoriOrient(), rVertOri.GetVertOrient(), rHoriOri.GetRelationOrient(),
         rVertOri.GetRelationOrient(), true);
     m_pImpl->m_pSerializer->endElementNS(XML_w, XML_pict);
-
-    if (bSwapInPage)
-        const_cast<SdrObject*>(sdrObj)->SetPage(nullptr);
 }
 
 bool lcl_isLockedCanvas(const uno::Reference<drawing::XShape>& xShape)
@@ -1413,7 +1401,7 @@ void DocxSdrExport::writeDMLTextFrame(ww8::Frame const* pParentFrame, int nAncho
                                       bool bTextBoxOnly)
 {
     bool bDMLAndVMLDrawingOpen = m_pImpl->m_bDMLAndVMLDrawingOpen;
-    m_pImpl->m_bDMLAndVMLDrawingOpen = true;
+    m_pImpl->m_bDMLAndVMLDrawingOpen = IsAnchorTypeInsideParagraph(pParentFrame);
 
     sax_fastparser::FSHelperPtr pFS = m_pImpl->m_pSerializer;
     const SwFrameFormat& rFrameFormat = pParentFrame->GetFrameFormat();
@@ -1708,7 +1696,7 @@ void DocxSdrExport::writeDMLTextFrame(ww8::Frame const* pParentFrame, int nAncho
 void DocxSdrExport::writeVMLTextFrame(ww8::Frame const* pParentFrame, bool bTextBoxOnly)
 {
     bool bDMLAndVMLDrawingOpen = m_pImpl->m_bDMLAndVMLDrawingOpen;
-    m_pImpl->m_bDMLAndVMLDrawingOpen = true;
+    m_pImpl->m_bDMLAndVMLDrawingOpen = IsAnchorTypeInsideParagraph(pParentFrame);
 
     sax_fastparser::FSHelperPtr pFS = m_pImpl->m_pSerializer;
     const SwFrameFormat& rFrameFormat = pParentFrame->GetFrameFormat();

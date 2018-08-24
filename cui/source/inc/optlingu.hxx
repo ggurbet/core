@@ -67,7 +67,7 @@ class SvxEditModulesDlg : public ModalDialog
     OUString            sThes;
     OUString            sGrammar;
 
-    SvxLinguData_Impl*  pDefaultLinguData;
+    std::unique_ptr<SvxLinguData_Impl>  pDefaultLinguData;
     SvxLinguData_Impl&  rLinguData;
 
     std::unique_ptr<SvLBoxButtonData>   m_xCheckButtonData;
@@ -129,7 +129,7 @@ private:
 
     std::unique_ptr<SvLBoxButtonData>   m_xCheckButtonData;
 
-    SvxLinguData_Impl*  pLinguData;
+    std::unique_ptr<SvxLinguData_Impl>  pLinguData;
 
     SvxLinguTabPage( vcl::Window* pParent, const SfxItemSet& rCoreSet );
     SvTreeListEntry*    CreateEntry(OUString& rTxt, sal_uInt16 nCol);
@@ -149,7 +149,7 @@ private:
 public:
     virtual             ~SvxLinguTabPage() override;
     virtual void        dispose() override;
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rSet );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rSet );
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;

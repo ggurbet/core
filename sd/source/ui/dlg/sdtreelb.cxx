@@ -18,6 +18,7 @@
  */
 
 #include <sal/types.h>
+#include <sal/log.hxx>
 #include <sot/formats.hxx>
 #include <sot/storage.hxx>
 #include <vcl/weld.hxx>
@@ -37,6 +38,7 @@
 #include <DrawDocShell.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
+#include <sdmod.hxx>
 #include <sdresid.hxx>
 #include <navigatr.hxx>
 #include <strings.hrc>
@@ -265,7 +267,7 @@ OUString SdPageObjsTLB::getAltLongDescText(SvTreeListEntry* pEntry , bool isAltT
         const SdPage* pPage = static_cast<const SdPage*>( mpDoc->GetPage( pageNo ) );
         if( pPage->GetPageKind() != PageKind::Standard ) continue;
         if( pPage->GetName() !=  ParentName ) continue;
-        SdrObjListIter aIter( *pPage, SdrIterMode::Flat );
+        SdrObjListIter aIter( pPage, SdrIterMode::Flat );
         while( aIter.IsMore() )
         {
             pObj = aIter.Next();
@@ -315,7 +317,7 @@ void SdPageObjsTLB::SaveExpandedTreeItemState(SvTreeListEntry* pEntry, std::vect
                 SvTreeListEntry* pChildEntry = FirstChild(pListEntry);
                 SaveExpandedTreeItemState(pChildEntry, vectTreeItem);
             }
-            pListEntry = NextSibling(pListEntry);
+            pListEntry = pListEntry->NextSibling();
         }
     }
 }
@@ -524,7 +526,7 @@ void SdPageObjsTLB::AddShapeList (
         pUserData);
 
     SdrObjListIter aIter(
-        rList,
+        &rList,
         !rList.HasObjectNavigationOrder() /* use navigation order, if available */,
         SdrIterMode::Flat);
 
@@ -641,7 +643,7 @@ bool SdPageObjsTLB::IsEqualToShapeList(SvTreeListEntry*& pEntry, const SdrObjLis
 
     pEntry = Next(pEntry);
 
-    SdrObjListIter aIter(rList,
+    SdrObjListIter aIter(&rList,
                          !rList.HasObjectNavigationOrder() /* use navigation order, if available */,
                          SdrIterMode::Flat);
 
@@ -772,7 +774,7 @@ void SdPageObjsTLB::RequestingChildren( SvTreeListEntry* pFileEntry )
                                               TREELIST_APPEND,
                                               reinterpret_cast< void* >( 1 ) );
 
-                    SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+                    SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
 
                     while( aIter.IsMore() )
                     {
@@ -1269,7 +1271,7 @@ TriState SdPageObjsTLB::NotifyMoving(
 
     if (pTargetObject != nullptr && pSourceObject != nullptr)
     {
-        SdrPage* pObjectList = pSourceObject->GetPage();
+        SdrPage* pObjectList = pSourceObject->getSdrPageFromSdrObject();
         if (pObjectList != nullptr)
         {
             sal_uInt32 nNewPosition;

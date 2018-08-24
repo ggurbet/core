@@ -53,6 +53,15 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
         if include == k and v in toAdd:
             return True
 
+    # Avoid proposing to use libstdc++ internal headers.
+    bits = {
+        "exception": "bits/exception.h",
+        "memory": "bits/shared_ptr.h",
+    }
+    for k, v in bits.items():
+        if include == k and v in toAdd:
+            return True
+
     # Follow boost documentation.
     if include == "boost/optional.hpp" and "boost/optional/optional.hpp" in toAdd:
         return True
@@ -117,7 +126,7 @@ def processIWYUOutput(iwyuOutput, moduleRules):
 
         match = re.match("(.*) should add these lines:$", line)
         if match:
-            currrentFileName = match.group(1)
+            currentFileName = match.group(1)
             inAdd = True
             continue
 
@@ -145,8 +154,15 @@ def processIWYUOutput(iwyuOutput, moduleRules):
                     toRemove.append("%s:%s: %s" % (currentFileName, lineno, include))
                 continue
 
+            match = re.match("- (.*);  // lines (.*)-.*", line)
+            if match:
+                fwdDecl = match.group(1)
+                lineno = match.group(2)
+                if not ignoreRemoval(fwdDecl, toAdd, currentFileName, moduleRules):
+                    toRemove.append("%s:%s: %s" % (currentFileName, lineno, fwdDecl))
+
     for remove in toRemove:
-        print("ERROR: %s: remove not needed include" % remove)
+        print("ERROR: %s: remove not needed include / forward declaration" % remove)
     return len(toRemove)
 
 
@@ -158,7 +174,7 @@ def run_tool(task_queue, failed_files):
             p = subprocess.Popen(invocation, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             retcode = processIWYUOutput(p.communicate()[0].decode('utf-8').splitlines(), moduleRules)
             if retcode != 0:
-                print("ERROR: '" + invocation + "' found unused includes.")
+                print("ERROR: The following command found unused includes:\n" + invocation)
                 failed_files.append(invocation)
         task_queue.task_done()
 

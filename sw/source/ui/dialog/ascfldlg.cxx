@@ -217,7 +217,7 @@ SwAsciiFilterDlg::SwAsciiFilterDlg( weld::Window* pParent, SwDocShell& rDocSh,
                 aOpt.SetFontName(aTmpFont.GetFamilyName());
             }
 
-            m_xFontLB->set_active(aOpt.GetFontName());
+            m_xFontLB->set_active_text(aOpt.GetFontName());
 
             if( bDelPrinter )
                 pPrt.disposeAndClear();
@@ -251,6 +251,8 @@ SwAsciiFilterDlg::SwAsciiFilterDlg( weld::Window* pParent, SwDocShell& rDocSh,
 
 SwAsciiFilterDlg::~SwAsciiFilterDlg()
 {
+    SvtViewOptions aDlgOpt(EViewType::Dialog, OStringToOUString(m_xDialog->get_help_id(), RTL_TEXTENCODING_UTF8));
+    aDlgOpt.SetUserItem("UserItem", uno::makeAny(m_sExtraData));
 }
 
 void SwAsciiFilterDlg::FillOptions( SwAsciiOptions& rOptions )

@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <comphelper/string.hxx>
-
 #include <o3tl/make_unique.hxx>
 
 #include <unotools/syslocale.hxx>
@@ -32,6 +30,7 @@
 #include <tools/color.hxx>
 #include <osl/diagnose.h>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 #include <sax/tools/converter.hxx>
 
@@ -93,34 +92,25 @@ public:
 
 struct SvXMLNumberInfo
 {
-    sal_Int32   nDecimals;
-    sal_Int32   nInteger;
-    sal_Int32   nExpDigits;
-    sal_Int32   nExpInterval;
-    sal_Int32   nMinNumerDigits;
-    sal_Int32   nMinDenomDigits;
-    sal_Int32   nMaxNumerDigits;
-    sal_Int32   nMaxDenomDigits;
-    sal_Int32   nFracDenominator;
-    sal_Int32   nMinDecimalDigits;
-    sal_Int32   nZerosNumerDigits;
-    sal_Int32   nZerosDenomDigits;
-    bool        bGrouping;
-    bool        bDecReplace;
-    bool        bExpSign;
-    bool        bDecAlign;
-    double      fDisplayFactor;
+    sal_Int32   nDecimals           = -1;
+    sal_Int32   nInteger            = -1;
+    sal_Int32   nExpDigits          = -1;
+    sal_Int32   nExpInterval        = -1;
+    sal_Int32   nMinNumerDigits     = -1;
+    sal_Int32   nMinDenomDigits     = -1;
+    sal_Int32   nMaxNumerDigits     = -1;
+    sal_Int32   nMaxDenomDigits     = -1;
+    sal_Int32   nFracDenominator    = -1;
+    sal_Int32   nMinDecimalDigits   = -1;
+    sal_Int32   nZerosNumerDigits   = -1;
+    sal_Int32   nZerosDenomDigits   = -1;
+    bool        bGrouping           = false;
+    bool        bDecReplace         = false;
+    bool        bExpSign            = true;
+    bool        bDecAlign           = false;
+    double      fDisplayFactor      = 1.0;
     OUString    aIntegerFractionDelimiter;
     std::map<sal_Int32, OUString> m_EmbeddedElements;
-
-    SvXMLNumberInfo()
-    {
-        nDecimals = nInteger = nExpDigits = nExpInterval = nMinNumerDigits = nMinDenomDigits = nMaxNumerDigits = nMaxDenomDigits =
-            nFracDenominator = nMinDecimalDigits = nZerosNumerDigits = nZerosDenomDigits = -1;
-        bGrouping = bDecReplace = bDecAlign = false;
-        bExpSign = true;
-        fDisplayFactor = 1.0;
-    }
 };
 
 class SvXMLNumFmtElementContext : public SvXMLImportContext
@@ -246,7 +236,8 @@ enum SvXMLStyleAttrTokens
     XML_TOK_STYLE_ATTR_TRANSL_FORMAT,
     XML_TOK_STYLE_ATTR_TRANSL_LANGUAGE,
     XML_TOK_STYLE_ATTR_TRANSL_COUNTRY,
-    XML_TOK_STYLE_ATTR_TRANSL_STYLE
+    XML_TOK_STYLE_ATTR_TRANSL_STYLE,
+    XML_TOK_STYLE_ATTR_TRANSL_SPELLOUT
 };
 
 enum SvXMLStyleElemAttrTokens
@@ -524,6 +515,8 @@ const SvXMLTokenMap& SvXMLNumImpData::GetStyleAttrTokenMap()
             // not defined in ODF { XML_NAMESPACE_NUMBER, XML_TRANSLITERATION_SCRIPT,     XML_TOK_STYLE_ATTR_TRANSL_SCRIPT    },
             { XML_NAMESPACE_NUMBER, XML_TRANSLITERATION_COUNTRY,    XML_TOK_STYLE_ATTR_TRANSL_COUNTRY   },
             { XML_NAMESPACE_NUMBER, XML_TRANSLITERATION_STYLE,      XML_TOK_STYLE_ATTR_TRANSL_STYLE     },
+            { XML_NAMESPACE_LO_EXT, XML_TRANSLITERATION_SPELLOUT,    XML_TOK_STYLE_ATTR_TRANSL_SPELLOUT   },
+            { XML_NAMESPACE_NUMBER, XML_TRANSLITERATION_SPELLOUT,    XML_TOK_STYLE_ATTR_TRANSL_SPELLOUT   },
             XML_TOKEN_MAP_END
         };
 
@@ -1395,6 +1388,7 @@ SvXMLNumFormatContext::SvXMLNumFormatContext( SvXMLImport& rImport,
 {
     LanguageTagODF aLanguageTagODF;
     css::i18n::NativeNumberXmlAttributes aNatNumAttr;
+    OUString aSpellout;
     bool bAttrBool(false);
 
     sal_Int16 nAttrCount = xAttrList.is() ? xAttrList->getLength() : 0;
@@ -1446,6 +1440,9 @@ SvXMLNumFormatContext::SvXMLNumFormatContext( SvXMLImport& rImport,
             case XML_TOK_STYLE_ATTR_TRANSL_FORMAT:
                 aNatNumAttr.Format = sValue;
                 break;
+            case XML_TOK_STYLE_ATTR_TRANSL_SPELLOUT:
+                aSpellout = sValue;
+                break;
             case XML_TOK_STYLE_ATTR_TRANSL_LANGUAGE:
                 aNatNumAttr.Locale.Language = sValue;
                 break;
@@ -1465,30 +1462,36 @@ SvXMLNumFormatContext::SvXMLNumFormatContext( SvXMLImport& rImport,
             nFormatLang = LANGUAGE_SYSTEM;          //! error handling for unknown locales?
     }
 
-    if ( !aNatNumAttr.Format.isEmpty() )
+    if ( !aNatNumAttr.Format.isEmpty() || !aSpellout.isEmpty() )
     {
-        SvNumberFormatter* pFormatter = pData->GetNumberFormatter();
-        if ( pFormatter )
-        {
-            LanguageTag aLanguageTag( OUString(), aNatNumAttr.Locale.Language,
+        LanguageTag aLanguageTag( OUString(), aNatNumAttr.Locale.Language,
                     OUString(), aNatNumAttr.Locale.Country);
-            aNatNumAttr.Locale = aLanguageTag.getLocale( false);
+        aNatNumAttr.Locale = aLanguageTag.getLocale( false);
+
+        // NatNum12 spell out formula (cardinal, ordinal, ordinal-feminine etc.)
+        if ( !aSpellout.isEmpty() )
+        {
+            aFormatCode.append( "[NatNum12 " );
+            aFormatCode.append( aSpellout );
+        } else {
+            SvNumberFormatter* pFormatter = pData->GetNumberFormatter();
+            if ( !pFormatter ) return;
 
             sal_Int32 nNatNum = pFormatter->GetNatNum()->convertFromXmlAttributes( aNatNumAttr );
             aFormatCode.append( "[NatNum" );
             aFormatCode.append( nNatNum );
-
-            LanguageType eLang = aLanguageTag.getLanguageType( false);
-            if ( eLang == LANGUAGE_DONTKNOW )
-                eLang = LANGUAGE_SYSTEM;            //! error handling for unknown locales?
-            if ( eLang != nFormatLang && eLang != LANGUAGE_SYSTEM )
-            {
-                aFormatCode.append( "][$-" );
-                // language code in upper hex:
-                aFormatCode.append(OUString::number(static_cast<sal_uInt16>(eLang), 16).toAsciiUpperCase());
-            }
-            aFormatCode.append( ']' );
         }
+
+        LanguageType eLang = aLanguageTag.getLanguageType( false );
+        if ( eLang == LANGUAGE_DONTKNOW )
+            eLang = LANGUAGE_SYSTEM;            //! error handling for unknown locales?
+        if ( eLang != nFormatLang && eLang != LANGUAGE_SYSTEM )
+        {
+            aFormatCode.append( "][$-" );
+            // language code in upper hex:
+            aFormatCode.append(OUString::number(static_cast<sal_uInt16>(eLang), 16).toAsciiUpperCase());
+        }
+        aFormatCode.append( ']' );
     }
 }
 

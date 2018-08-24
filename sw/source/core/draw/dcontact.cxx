@@ -71,6 +71,8 @@
 #include <calbck.hxx>
 #include <algorithm>
 #include <txtfly.hxx>
+#include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 
@@ -80,6 +82,7 @@ namespace
     struct VirtObjAnchoredAtFramePred
     {
         const SwFrame* m_pAnchorFrame;
+
         // #i26791# - compare with master frame
         static const SwFrame* FindFrame(const SwFrame* pFrame)
         {
@@ -89,10 +92,16 @@ namespace
             while(pContentFrame->IsFollow())
                 pContentFrame = pContentFrame->FindMaster();
             return pContentFrame;
-        };
-        VirtObjAnchoredAtFramePred(const SwFrame* pAnchorFrame) : m_pAnchorFrame(FindFrame(pAnchorFrame)) {};
-        bool operator()(const std::unique_ptr<SwDrawVirtObj>& rpDrawVirtObj)
-            { return FindFrame(rpDrawVirtObj->GetAnchorFrame()) == m_pAnchorFrame; };
+        }
+
+        VirtObjAnchoredAtFramePred(const SwFrame* pAnchorFrame)
+        :   m_pAnchorFrame(FindFrame(pAnchorFrame))
+        {}
+
+        bool operator()(const SwDrawVirtObjPtr& rpDrawVirtObj)
+        {
+            return FindFrame(rpDrawVirtObj->GetAnchorFrame()) == m_pAnchorFrame;
+        }
     };
 }
 
@@ -168,7 +177,7 @@ SwRect GetBoundRectOfAnchoredObj( const SdrObject* pObj )
 SwContact* GetUserCall( const SdrObject* pObj )
 {
     SdrObject *pTmp;
-    while ( !pObj->GetUserCall() && nullptr != (pTmp = pObj->GetUpGroup()) )
+    while ( !pObj->GetUserCall() && nullptr != (pTmp = pObj->getParentSdrObjectFromSdrObject()) )
         pObj = pTmp;
     assert((!pObj->GetUserCall() || nullptr != dynamic_cast<const SwContact*>(pObj->GetUserCall())) &&
             "<::GetUserCall(..)> - wrong type of found object user call." );
@@ -340,14 +349,6 @@ void SwContact::MoveObjToLayer( const bool _bToVisible,
     }
 }
 
-// some virtual helper methods for information
-// about the object (Writer fly frame resp. drawing object)
-
-const SwIndex& SwContact::GetContentAnchorIndex() const
-{
-    return GetContentAnchor().nContent;
-}
-
 /// get minimum order number of anchored objects handled by with contact
 sal_uInt32 SwContact::GetMinOrdNum() const
 {
@@ -477,8 +478,8 @@ SwFlyDrawContact::~SwFlyDrawContact()
     if ( mpMasterObj )
     {
         mpMasterObj->SetUserCall( nullptr );
-        if ( mpMasterObj->GetPage() )
-            mpMasterObj->GetPage()->RemoveObject( mpMasterObj->GetOrdNum() );
+        if ( mpMasterObj->getSdrPageFromSdrObject() )
+            mpMasterObj->getSdrPageFromSdrObject()->RemoveObject( mpMasterObj->GetOrdNum() );
     }
 }
 
@@ -524,7 +525,7 @@ SwVirtFlyDrawObj* SwFlyDrawContact::CreateNewRef(SwFlyFrame* pFly, SwFlyFrameFor
     // After creating the first Reference the Masters are removed from the
     // List and are not important anymore.
     SdrPage* pPg(nullptr);
-    if(nullptr != (pPg = pContact->GetMaster()->GetPage()))
+    if(nullptr != (pPg = pContact->GetMaster()->getSdrPageFromSdrObject()))
     {
         const size_t nOrdNum = pContact->GetMaster()->GetOrdNum();
         pPg->ReplaceObject(pDrawObj, nOrdNum);
@@ -813,7 +814,7 @@ SwFrame* SwDrawContact::GetAnchorFrame(SdrObject const *const pDrawObj)
 SwDrawVirtObj* SwDrawContact::AddVirtObj()
 {
     maDrawVirtObjs.push_back(
-        std::unique_ptr<SwDrawVirtObj>(
+        SwDrawVirtObjPtr(
             new SwDrawVirtObj(
                 GetMaster()->getSdrModelFromSdrObject(),
                 *GetMaster(),
@@ -1224,12 +1225,12 @@ void SwDrawContact::Changed_( const SdrObject& rObj,
                 // If drawing object is a member of a group, the adjustment
                 // of the positioning and the alignment attributes has to
                 // be done for the top group object.
-                if ( rObj.GetUpGroup() )
+                if ( rObj.getParentSdrObjectFromSdrObject() )
                 {
-                    const SdrObject* pGroupObj = rObj.GetUpGroup();
-                    while ( pGroupObj->GetUpGroup() )
+                    const SdrObject* pGroupObj = rObj.getParentSdrObjectFromSdrObject();
+                    while ( pGroupObj->getParentSdrObjectFromSdrObject() )
                     {
-                        pGroupObj = pGroupObj->GetUpGroup();
+                        pGroupObj = pGroupObj->getParentSdrObjectFromSdrObject();
                     }
                     // use geometry of drawing object
                     aObjRect = pGroupObj->GetSnapRect();
@@ -1676,7 +1677,8 @@ void SwDrawContact::DisconnectObjFromLayout( SdrObject* _pDrawObj )
     else
     {
         const auto ppVirtDrawObj(std::find_if(maDrawVirtObjs.begin(), maDrawVirtObjs.end(),
-                [] (const std::unique_ptr<SwDrawVirtObj>& pObj) { return pObj->IsConnected(); }));
+                [] (const SwDrawVirtObjPtr& pObj) { return pObj->IsConnected(); }));
+
         if(ppVirtDrawObj != maDrawVirtObjs.end())
         {
             // replace found 'virtual' drawing object by 'master' drawing
@@ -1702,16 +1704,17 @@ void SwDrawContact::DisconnectObjFromLayout( SdrObject* _pDrawObj )
 }
 
 static SwTextFrame* lcl_GetFlyInContentAnchor( SwTextFrame* _pProposedAnchorFrame,
-                                   const sal_Int32 _nTextOfs )
+                                   SwPosition const& rAnchorPos)
 {
     SwTextFrame* pAct = _pProposedAnchorFrame;
     SwTextFrame* pTmp;
+    TextFrameIndex const nTextOffset(_pProposedAnchorFrame->MapModelToViewPos(rAnchorPos));
     do
     {
         pTmp = pAct;
         pAct = pTmp->GetFollow();
     }
-    while( pAct && _nTextOfs >= pAct->GetOfst() );
+    while (pAct && nTextOffset >= pAct->GetOfst());
     return pTmp;
 }
 
@@ -1794,7 +1797,7 @@ void SwDrawContact::ConnectToLayout( const SwFormatAnchor* pAnch )
                     {
                         SwNodeIndex aIdx( pAnch->GetContentAnchor()->nNode );
                         SwContentNode* pCNd = pDrawFrameFormat->GetDoc()->GetNodes().GoNext( &aIdx );
-                        if ( SwIterator<SwFrame,SwContentNode>( *pCNd ).First() )
+                        if (SwIterator<SwFrame, SwContentNode, sw::IteratorMode::UnwrapMulti>(*pCNd).First())
                             pModify = pCNd;
                         else
                         {
@@ -1827,7 +1830,7 @@ void SwDrawContact::ConnectToLayout( const SwFormatAnchor* pAnch )
                     break;
                 }
 
-                SwIterator<SwFrame,SwModify> aIter( *pModify );
+                SwIterator<SwFrame, SwModify, sw::IteratorMode::UnwrapMulti> aIter(*pModify);
                 SwFrame* pAnchorFrameOfMaster = nullptr;
                 for( SwFrame *pFrame = aIter.First(); pFrame; pFrame = aIter.Next() )
                 {
@@ -1854,7 +1857,7 @@ void SwDrawContact::ConnectToLayout( const SwFormatAnchor* pAnch )
                         {
                             pFrame = lcl_GetFlyInContentAnchor(
                                         static_cast<SwTextFrame*>(pFrame),
-                                        pAnch->GetContentAnchor()->nContent.GetIndex() );
+                                        *pAnch->GetContentAnchor());
                         }
 
                         if ( !pAnchorFrameOfMaster )
@@ -2148,9 +2151,9 @@ namespace sdr
 } // end of namespace sdr
 
 /// implementation of class <SwDrawVirtObj>
-sdr::contact::ViewContact* SwDrawVirtObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SwDrawVirtObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::VCOfDrawVirtObj(*this);
+    return o3tl::make_unique<sdr::contact::VCOfDrawVirtObj>(*this);
 }
 
 SwDrawVirtObj::SwDrawVirtObj(
@@ -2180,10 +2183,10 @@ SwDrawVirtObj& SwDrawVirtObj::operator=( const SwDrawVirtObj& rObj )
     return *this;
 }
 
-SwDrawVirtObj* SwDrawVirtObj::Clone(SdrModel* pTargetModel) const
+SwDrawVirtObj* SwDrawVirtObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
     SwDrawVirtObj* pObj = new SwDrawVirtObj(
-        nullptr == pTargetModel ? getSdrModelFromSdrObject() : *pTargetModel,
+        rTargetModel,
         rRefObj,
         mrDrawContact);
 
@@ -2223,14 +2226,14 @@ void SwDrawVirtObj::AddToDrawingPage()
     // insert 'virtual' drawing object into page, set layer and user call.
     SdrPage* pDrawPg;
     // #i27030# - apply order number of referenced object
-    if ( nullptr != ( pDrawPg = pOrgMasterSdrObj->GetPage() ) )
+    if ( nullptr != ( pDrawPg = pOrgMasterSdrObj->getSdrPageFromSdrObject() ) )
     {
         // #i27030# - apply order number of referenced object
         pDrawPg->InsertObject( this, GetReferencedObj().GetOrdNum() );
     }
     else
     {
-        pDrawPg = GetPage();
+        pDrawPg = getSdrPageFromSdrObject();
         if ( pDrawPg )
         {
             pDrawPg->SetObjectOrdNum( GetOrdNumDirect(),
@@ -2247,9 +2250,9 @@ void SwDrawVirtObj::AddToDrawingPage()
 void SwDrawVirtObj::RemoveFromDrawingPage()
 {
     SetUserCall( nullptr );
-    if ( GetPage() )
+    if ( getSdrPageFromSdrObject() )
     {
-        GetPage()->RemoveObject( GetOrdNum() );
+        getSdrPageFromSdrObject()->RemoveObject( GetOrdNum() );
     }
 }
 
@@ -2257,7 +2260,7 @@ void SwDrawVirtObj::RemoveFromDrawingPage()
 bool SwDrawVirtObj::IsConnected() const
 {
     bool bRetVal = GetAnchorFrame() &&
-                   ( GetPage() && GetUserCall() );
+                   ( getSdrPageFromSdrObject() && GetUserCall() );
 
     return bRetVal;
 }

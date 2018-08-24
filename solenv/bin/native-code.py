@@ -50,7 +50,6 @@ core_factory_list = [
     ("libutllo.a", "utl_component_getFactory"),
     ("libxoflo.a", "xof_component_getFactory"),
     ("libxolo.a", "xo_component_getFactory"),
-    ("libxsec_xmlsec.a", "xsec_xmlsec_component_getFactory", "#if HAVE_FEATURE_NSS"),
     ("libxstor.a", "xstor_component_getFactory"),
     ("libvclcanvaslo.a", "vclcanvas_component_getFactory"),
     ("libmtfrendererlo.a", "mtfrenderer_component_getFactory"),
@@ -61,6 +60,7 @@ core_factory_list = [
     ("libmcnttype.a", "mcnttype_component_getFactory"),
     ("libvcllo.a", "vcl_component_getFactory"),
     ("libspelllo.a", "spell_component_getFactory"),
+    ("libpdffilterlo.a", "pdffilter_component_getFactory"),
     ("libsvgiolo.a", "svgio_component_getFactory")
     ]
 
@@ -78,7 +78,6 @@ core_constructor_list = [
     "com_sun_star_comp_chart_DataSeries_get_implementation",
     "com_sun_star_comp_chart_DataSource_get_implementation",
     "com_sun_star_comp_chart_FilledNetChartType_get_implementation",
-    "com_sun_star_comp_chart_GL3DBarChartType_get_implementation",
     "com_sun_star_comp_chart_FormattedString_get_implementation",
     "com_sun_star_comp_chart_LineChartType_get_implementation",
     "com_sun_star_comp_chart_NetChartType_get_implementation",
@@ -244,6 +243,18 @@ core_constructor_list = [
 # xmlsecurity/util/xmlsecurity.component
     ("com_sun_star_security_CertificateContainer_get_implementation", "#if HAVE_FEATURE_NSS"),
     ("com_sun_star_security_DocumentDigitalSignatures_get_implementation", "#if HAVE_FEATURE_NSS"),
+# xmlsecurity/util/xsec_xmlsec.component
+    ("com_sun_star_xml_crypto_NSSInitializer_get_implementation", "#if HAVE_FEATURE_NSS"),
+    ("com_sun_star_xml_crypto_SEInitializer_get_implementation", "#if HAVE_FEATURE_NSS"),
+    ("com_sun_star_xml_security_SEInitializer_Gpg_get_implementation", "#if HAVE_FEATURE_GPGME"),
+    ("com_sun_star_xml_crypto_SecurityEnvironment_get_implementation", "#if HAVE_FEATURE_NSS"),
+    ("com_sun_star_xml_wrapper_XMLDocumentWrapper_get_implementation", "#if HAVE_FEATURE_NSS"),
+    ("com_sun_star_xml_wrapper_XMLElementWrapper_get_implementation", "#if HAVE_FEATURE_NSS"),
+    ("com_sun_star_xml_crypto_XMLSecurityContext_get_implementation", "#if HAVE_FEATURE_NSS"),
+    ("com_sun_star_xml_crypto_XMLSignature_get_implementation", "#if HAVE_FEATURE_NSS"),
+# oox/util/oox.component
+    "com_sun_star_comp_oox_core_FastTokenHandler_get_implementation",
+    "com_sun_star_comp_oox_FormatDetector_get_implementation",
     ]
 
 # edit group for apps, where you can edit documents

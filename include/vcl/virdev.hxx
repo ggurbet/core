@@ -23,16 +23,18 @@
 #include <vcl/dllapi.h>
 #include <vcl/salgtype.hxx>
 #include <vcl/outdev.hxx>
-
+#include <memory>
 
 class SalVirtualDevice;
 struct SystemGraphicsData;
+typedef struct _cairo_surface cairo_surface_t;
 
 class VCL_DLLPUBLIC VirtualDevice : public OutputDevice
 {
     friend class Application;
     friend class ::OutputDevice;
     friend class Printer;
+    friend cairo_surface_t* get_underlying_cairo_surface(VirtualDevice&);
 public:
     // reference device modes for different compatibility levels
     enum class RefDevMode { NONE = 0,
@@ -43,7 +45,7 @@ public:
                           };
 
 private:
-    SalVirtualDevice*   mpVirDev;
+    std::unique_ptr<SalVirtualDevice> mpVirDev;
     VclPtr<VirtualDevice>  mpPrev;
     VclPtr<VirtualDevice>  mpNext;
     sal_uInt16          mnBitCount;

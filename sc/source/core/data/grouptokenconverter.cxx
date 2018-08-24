@@ -116,6 +116,8 @@ bool ScGroupTokenConverter::convert( const ScTokenArray& rCode, sc::FormulaLogge
             case svSingleRef:
             {
                 ScSingleRefData aRef = *p->GetSingleRef();
+                if( aRef.IsDeleted())
+                    return false;
                 ScAddress aRefPos = aRef.toAbs(mrPos);
                 if (aRef.IsRowRel())
                 {
@@ -165,19 +167,15 @@ bool ScGroupTokenConverter::convert( const ScTokenArray& rCode, sc::FormulaLogge
             break;
             case svDoubleRef:
             {
-                /* FIXME: this simply does not work, it doesn't know
-                 * a) the context of implicit intersection, for which creating
-                      two arrays does not only result in huge unnecessary matrix
-                      operations but also produces wrong results, e.g. =B:B/C:C
-                 * b) when to keep a reference as a reference depending on the
-                      expected parameter type, e.g. INDEX(), OFFSET() and
-                      others (though that *may* be disabled by OpCode already).
-                 * Until both are solved keep the reference. */
-                mrGroupTokens.AddToken(*p);
-                break;
+                // This code may break in case of implicit intersection, leading to unnecessarily large
+                // matrix operations and possibly incorrect results (=C:C/D:D). That is handled by
+                // having ScCompiler check that there are no possible implicit intersections.
+                // Additionally some functions such as INDEX() and OFFSET() require a reference,
+                // that is handled by blacklisting those opcodes in ScTokenArray::CheckToken().
 
-#if 0
                 ScComplexRefData aRef = *p->GetDoubleRef();
+                if( aRef.IsDeleted())
+                    return false;
                 ScRange aAbs = aRef.toAbs(mrPos);
 
                 // Multiple sheets not handled by vector/matrix.
@@ -249,7 +247,6 @@ bool ScGroupTokenConverter::convert( const ScTokenArray& rCode, sc::FormulaLogge
                     //ensure that backing storage exists for our lifetime
                     mxFormulaGroupContext = mrDoc.GetFormulaGroupContext();
                 }
-#endif
             }
             break;
             case svIndex:

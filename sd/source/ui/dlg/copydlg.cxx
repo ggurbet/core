@@ -18,7 +18,6 @@
  */
 
 #include <copydlg.hxx>
-#include <comphelper/string.hxx>
 #include <svx/colorbox.hxx>
 #include <svx/dlgutil.hxx>
 #include <sfx2/module.hxx>
@@ -79,30 +78,15 @@ CopyDlg::~CopyDlg()
 
 void CopyDlg::dispose()
 {
-    OUString& rStr = GetExtraData();
-
-    rStr = OUString::number(m_pNumFldCopies->GetValue());
-    rStr += OUString(TOKEN);
-
-    rStr += OUString::number(m_pMtrFldMoveX->GetValue());
-    rStr += OUString( TOKEN );
-
-    rStr += OUString::number(m_pMtrFldMoveY->GetValue());
-    rStr += OUString( TOKEN );
-
-    rStr += OUString::number(m_pMtrFldAngle->GetValue());
-    rStr += OUString( TOKEN );
-
-    rStr += OUString::number(m_pMtrFldWidth->GetValue());
-    rStr += OUString( TOKEN );
-
-    rStr += OUString::number(m_pMtrFldHeight->GetValue());
-    rStr += OUString( TOKEN );
-
-    rStr += OUString::number( sal_uInt32(m_pLbStartColor->GetSelectEntryColor()) );
-    rStr += OUString( TOKEN );
-
-    rStr += OUString::number( sal_uInt32(m_pLbEndColor->GetSelectEntryColor()) );
+    GetExtraData() =
+        OUString::number(m_pNumFldCopies->GetValue()) + OUString(TOKEN) +
+        OUString::number(m_pMtrFldMoveX->GetValue()) + OUString(TOKEN) +
+        OUString::number(m_pMtrFldMoveY->GetValue()) + OUString(TOKEN) +
+        OUString::number(m_pMtrFldAngle->GetValue()) + OUString(TOKEN) +
+        OUString::number(m_pMtrFldWidth->GetValue()) + OUString(TOKEN) +
+        OUString::number(m_pMtrFldHeight->GetValue()) + OUString(TOKEN) +
+        OUString::number(static_cast<sal_uInt32>(m_pLbStartColor->GetSelectEntryColor())) + OUString(TOKEN) +
+        OUString::number(static_cast<sal_uInt32>(m_pLbEndColor->GetSelectEntryColor()));
 
     m_pNumFldCopies.clear();
     m_pBtnSetViewData.clear();
@@ -143,9 +127,9 @@ void CopyDlg::Reset()
     m_pMtrFldHeight->SetMax(  nPageHeight );
 
     const SfxPoolItem* pPoolItem = nullptr;
-    OUString aStr( GetExtraData() );
+    const OUString aStr( GetExtraData() );
 
-    if (comphelper::string::getTokenCount(aStr, TOKEN) < 8)
+    if (aStr.isEmpty())
     {
         if( SfxItemState::SET == mrOutAttrs.GetItemState( ATTR_COPY_NUMBER, true, &pPoolItem ) )
             m_pNumFldCopies->SetValue( static_cast<const SfxUInt16Item*>( pPoolItem )->GetValue() );
@@ -193,30 +177,15 @@ void CopyDlg::Reset()
     }
     else
     {
-        sal_Int32 nTmp;
-        nTmp = static_cast<long>(aStr.getToken( 0, TOKEN ).toInt32());
-        m_pNumFldCopies->SetValue( nTmp );
-
-        nTmp = static_cast<long>(aStr.getToken( 1, TOKEN ).toInt32());
-        m_pMtrFldMoveX->SetValue( nTmp );
-
-        nTmp = static_cast<long>(aStr.getToken( 2, TOKEN ).toInt32());
-        m_pMtrFldMoveY->SetValue( nTmp );
-
-        nTmp = static_cast<long>(aStr.getToken( 3, TOKEN ).toInt32());
-        m_pMtrFldAngle->SetValue( nTmp );
-
-        nTmp = static_cast<long>(aStr.getToken( 4, TOKEN ).toInt32());
-        m_pMtrFldWidth->SetValue( nTmp );
-
-        nTmp = static_cast<long>(aStr.getToken( 5, TOKEN ).toInt32());
-        m_pMtrFldHeight->SetValue( nTmp );
-
-        nTmp = static_cast<long>(aStr.getToken( 6, TOKEN ).toInt32());
-        m_pLbStartColor->SelectEntry( Color( nTmp ) );
-
-        nTmp = static_cast<long>(aStr.getToken( 7, TOKEN ).toInt32());
-        m_pLbEndColor->SelectEntry( Color( nTmp ) );
+        sal_Int32 nIdx {0};
+        m_pNumFldCopies->SetValue( aStr.getToken(0, TOKEN, nIdx).toInt64() );
+        m_pMtrFldMoveX->SetValue( aStr.getToken(0, TOKEN, nIdx).toInt64() );
+        m_pMtrFldMoveY->SetValue( aStr.getToken(0, TOKEN, nIdx).toInt64() );
+        m_pMtrFldAngle->SetValue( aStr.getToken(0, TOKEN, nIdx).toInt64() );
+        m_pMtrFldWidth->SetValue( aStr.getToken(0, TOKEN, nIdx).toInt64() );
+        m_pMtrFldHeight->SetValue( aStr.getToken(0, TOKEN, nIdx).toInt64() );
+        m_pLbStartColor->SelectEntry( Color( aStr.getToken(0, TOKEN, nIdx).toUInt32() ) );
+        m_pLbEndColor->SelectEntry( Color( aStr.getToken(0, TOKEN, nIdx).toUInt32() ) );
     }
 
 }

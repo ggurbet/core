@@ -69,6 +69,7 @@
 #include <svx/svdundo.hxx>
 #include <svx/unoapi.hxx>
 #include <svx/unopage.hxx>
+#include <o3tl/make_unique.hxx>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <tools/diagnose_ex.h>
@@ -155,11 +156,11 @@ bool lcl_deleteDataCurve(
 
 } // anonymous namespace
 
-ReferenceSizeProvider* ChartController::impl_createReferenceSizeProvider()
+std::unique_ptr<ReferenceSizeProvider> ChartController::impl_createReferenceSizeProvider()
 {
     awt::Size aPageSize( ChartModelHelper::getPageSize( getModel() ) );
 
-    return new ReferenceSizeProvider(
+    return o3tl::make_unique<ReferenceSizeProvider>(
         aPageSize, Reference<chart2::XChartDocument>(getModel(), uno::UNO_QUERY));
 }
 
@@ -271,7 +272,10 @@ void ChartController::executeDispatch_Paste()
                 {
                     xStm->Seek( 0 );
                     Reference< io::XInputStream > xInputStream( new utl::OInputStreamWrapper( *xStm ) );
-                    std::unique_ptr< SdrModel > spModel( new SdrModel() );
+
+                    std::unique_ptr< SdrModel > spModel(
+                        new SdrModel());
+
                     if ( SvxDrawingLayerImport( spModel.get(), xInputStream ) )
                     {
                         impl_PasteShapes( spModel.get() );
@@ -358,7 +362,7 @@ void ChartController::impl_PasteGraphic(
             }
             //select new shape
             m_aSelection.setSelection( xGraphicShape );
-            m_aSelection.applySelection( m_pDrawViewWrapper );
+            m_aSelection.applySelection( m_pDrawViewWrapper.get() );
         }
         xGraphicShapeProp->setPropertyValue( "Graphic", uno::Any( xGraphic ));
         uno::Reference< beans::XPropertySet > xGraphicProp( xGraphic, uno::UNO_QUERY );
@@ -393,17 +397,15 @@ void ChartController::impl_PasteShapes( SdrModel* pModel )
             for ( sal_uInt16 i = 0; i < nCount; ++i )
             {
                 const SdrPage* pPage = pModel->GetPage( i );
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
                 while ( aIter.IsMore() )
                 {
                     SdrObject* pObj(aIter.Next());
                     // Clone to new SdrModel
-                    SdrObject* pNewObj(pObj ? pObj->Clone(&pDrawModelWrapper->getSdrModel()) : nullptr);
+                    SdrObject* pNewObj(pObj ? pObj->CloneSdrObject(pDrawModelWrapper->getSdrModel()) : nullptr);
 
                     if ( pNewObj )
                     {
-                        pNewObj->SetPage( pDestPage );
-
                         // set position
                         Reference< drawing::XShape > xShape( pNewObj->getUnoShape(), uno::UNO_QUERY );
                         if ( xShape.is() )
@@ -426,7 +428,7 @@ void ChartController::impl_PasteShapes( SdrModel* pModel )
 
             // select last inserted shape
             m_aSelection.setSelection( xSelShape );
-            m_aSelection.applySelection( m_pDrawViewWrapper );
+            m_aSelection.applySelection( m_pDrawViewWrapper.get() );
 
             m_pDrawViewWrapper->EndUndo();
 
@@ -469,7 +471,7 @@ void ChartController::impl_PasteStringAsTextShape( const OUString& rString, cons
                 xTextShape->setPosition( rPosition );
 
                 m_aSelection.setSelection( xTextShape );
-                m_aSelection.applySelection( m_pDrawViewWrapper );
+                m_aSelection.applySelection( m_pDrawViewWrapper.get() );
 
                 SdrObject* pObj = DrawViewWrapper::getSdrObject( xTextShape );
                 if ( pObj )
@@ -526,7 +528,8 @@ void ChartController::executeDispatch_Copy()
             }
             if ( xTransferable.is() )
             {
-                Reference< datatransfer::clipboard::XClipboard > xClipboard( TransferableHelper::GetSystemClipboard() );
+                SolarMutexGuard aSolarGuard;
+                Reference<datatransfer::clipboard::XClipboard> xClipboard(GetChartWindow()->GetClipboard());
                 if ( xClipboard.is() )
                 {
                     xClipboard->setContents( xTransferable, Reference< datatransfer::clipboard::XClipboardOwner >() );

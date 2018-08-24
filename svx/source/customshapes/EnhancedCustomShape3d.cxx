@@ -82,8 +82,8 @@ void GetRotateAngle( const SdrCustomShapeGeometryItem& rItem, double& rAngleX, d
         rAngleX = 0.0;
         rAngleY = 0.0;
     }
-    rAngleX *= F_PI180;
-    rAngleY *= F_PI180;
+    rAngleX = basegfx::deg2rad(rAngleX);
+    rAngleY = basegfx::deg2rad(rAngleY);
 }
 
 void GetSkew( const SdrCustomShapeGeometryItem& rItem, double& rSkewAmount, double& rSkewAngle )
@@ -95,7 +95,7 @@ void GetSkew( const SdrCustomShapeGeometryItem& rItem, double& rSkewAmount, doub
         rSkewAmount = 50;
         rSkewAngle = -135;
     }
-    rSkewAngle *= F_PI180;
+    rSkewAngle = basegfx::deg2rad(rSkewAngle);
 }
 
 void GetExtrusionDepth( const SdrCustomShapeGeometryItem& rItem, const double* pMap, double& rBackwardDepth, double& rForwardDepth )
@@ -531,7 +531,7 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
                             p3DObj->SetMergedItem(XFillBitmapItem(OUString(), Graphic(aFillBmp)));
                         }
                     }
-                    pScene->Insert3DObj( p3DObj );
+                    pScene->InsertObject( p3DObj );
                     p3DObj = new E3dExtrudeObj(
                         rSdrObjCustomShape.getSdrModelFromSdrObject(),
                         a3DDefaultAttr,
@@ -544,7 +544,7 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
                     p3DObj->SetMergedItem( XFillStyleItem( drawing::FillStyle_SOLID ) );
                     p3DObj->SetMergedItem( Svx3DCloseFrontItem( false ) );
                     p3DObj->SetMergedItem( Svx3DCloseBackItem( false ) );
-                    pScene->Insert3DObj( p3DObj );
+                    pScene->InsertObject( p3DObj );
 
                     // #i122777# depth 0 is okay for planes when using double-sided
                     p3DObj = new E3dExtrudeObj(
@@ -573,7 +573,7 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
                     p3DObj->SetMergedItem( Svx3DCloseFrontItem( false ) );
                     p3DObj->SetMergedItem( Svx3DCloseBackItem( false ) );
                 }
-                pScene->Insert3DObj( p3DObj );
+                pScene->InsertObject( p3DObj );
                 bSceneHasObjects = true;
             }
         }
@@ -613,7 +613,7 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
 
             double fXRotate, fYRotate;
             GetRotateAngle( rGeometryItem, fXRotate, fYRotate );
-            double fZRotate(rSdrObjCustomShape.GetObjectRotation() * F_PI180);
+            double fZRotate(basegfx::deg2rad(rSdrObjCustomShape.GetObjectRotation()));
             if ( fZRotate != 0.0 )
                 aNewTransform.rotate( 0.0, 0.0, fZRotate );
             if ( bIsMirroredX )
@@ -741,12 +741,19 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
             // removing placeholder objects
             for (std::vector< E3dCompoundObject* >::iterator aObjectListIter( aPlaceholderObjectList.begin() ); aObjectListIter != aPlaceholderObjectList.end(); )
             {
-                pScene->Remove3DObj( *aObjectListIter );
-                delete *aObjectListIter++;
+                E3dCompoundObject* pTemp(*aObjectListIter++);
+                pScene->RemoveObject( pTemp->GetOrdNum() );
+                // always use SdrObject::Free(...) for SdrObjects (!)
+                SdrObject* pTemp2(pTemp);
+                SdrObject::Free(pTemp2);
             }
         }
         else
-            delete pScene;
+        {
+            // always use SdrObject::Free(...) for SdrObjects (!)
+            SdrObject* pTemp(pScene);
+            SdrObject::Free(pTemp);
+        }
     }
     return pRet;
 }
@@ -782,7 +789,7 @@ tools::Rectangle EnhancedCustomShape3d::CalculateNewSnapRect(
 
     double fXRotate, fYRotate;
     GetRotateAngle( rGeometryItem, fXRotate, fYRotate );
-    double fZRotate(rSdrObjCustomShape.GetObjectRotation() * F_PI180);
+    double fZRotate(basegfx::deg2rad(rSdrObjCustomShape.GetObjectRotation()));
 
     // rotating bound volume
     basegfx::B3DHomMatrix aMatrix;

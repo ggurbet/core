@@ -38,6 +38,7 @@
 #include <editeng/unolingu.hxx>
 #include <expfld.hxx>
 #include <hintids.hxx>
+#include <o3tl/temporary.hxx>
 #include <osl/diagnose.hxx>
 #include <rtl/math.hxx>
 #include <shellres.hxx>
@@ -448,6 +449,7 @@ SwCalcExp* SwCalc::VarLook( const OUString& rStr, bool bIns )
                 sal_Int32 nCommandPos = m_nCommandPos;
                 SwCalcOper eCurrOper = m_eCurrOper;
                 SwCalcOper eCurrListOper = m_eCurrListOper;
+                OUString sCurrCommand = m_sCommand;
 
                 pFnd->nValue.PutDouble( pUField->GetValue( *this ) );
 
@@ -458,6 +460,7 @@ SwCalcExp* SwCalc::VarLook( const OUString& rStr, bool bIns )
                 m_nCommandPos = nCommandPos;
                 m_eCurrOper = eCurrOper;
                 m_eCurrListOper = eCurrListOper;
+                m_sCommand = sCurrCommand;
             }
             else
             {
@@ -606,6 +609,11 @@ void SwCalc::Pop()
     m_aRekurStack.pop_back();
 }
 
+CharClass* SwCalc::GetCharClass()
+{
+    return m_pCharClass;
+}
+
 SwCalcOper SwCalc::GetToken()
 {
     if( m_nCommandPos >= m_sCommand.getLength() )
@@ -739,7 +747,7 @@ SwCalcOper SwCalc::GetToken()
                 case '[':
                     if( aRes.EndPos < m_sCommand.getLength() )
                     {
-                        m_aVarName.clear();
+                        m_aVarName.setLength(0);
                         sal_Int32 nFndPos = aRes.EndPos,
                                   nSttPos = nFndPos;
 
@@ -750,7 +758,7 @@ SwCalcOper SwCalc::GetToken()
                                 // ignore the ]
                                 if ('\\' == m_sCommand[nFndPos-1])
                                 {
-                                    m_aVarName += m_sCommand.copy( nSttPos,
+                                    m_aVarName.appendCopy(m_sCommand, nSttPos,
                                                     nFndPos - nSttPos - 1 );
                                     nSttPos = ++nFndPos;
                                 }
@@ -762,7 +770,7 @@ SwCalcOper SwCalc::GetToken()
                         if( nFndPos != -1 )
                         {
                             if( nSttPos != nFndPos )
-                                m_aVarName += m_sCommand.copy( nSttPos,
+                                m_aVarName.appendCopy(m_sCommand, nSttPos,
                                                     nFndPos - nSttPos );
                             aRes.EndPos = nFndPos + 1;
                             m_eCurrOper = CALC_NAME;
@@ -1095,13 +1103,13 @@ SwSbxValue SwCalc::PrimFunc(bool &rChkPow)
             {
                 case CALC_ASSIGN:
                 {
-                    SwCalcExp* n = VarInsert(m_aVarName);
+                    SwCalcExp* n = VarInsert(m_aVarName.toString());
                     GetToken();
                     nErg = n->nValue = Expr();
                     break;
                 }
                 default:
-                    nErg = VarLook(m_aVarName)->nValue;
+                    nErg = VarLook(m_aVarName.toString())->nValue;
                     // Explicitly disallow unknown function names (followed by "("),
                     // allow unknown variable names (equal to zero)
                     if (nErg.IsVoidValue() && (eOper == CALC_LP))
@@ -1195,8 +1203,8 @@ SwSbxValue SwCalc::Prim()
         GetToken();
         double right = Prim().GetDouble();
 
-        double fraction, integer;
-        fraction = modf( right, &integer );
+        double fraction;
+        fraction = modf( right, &o3tl::temporary(double()) );
         if( ( dleft < 0.0 && 0.0 != fraction ) ||
             ( 0.0 == dleft && right < 0.0 ) )
         {

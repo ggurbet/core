@@ -59,7 +59,7 @@ SchAxisLabelTabPage::SchAxisLabelTabPage( vcl::Window* pParent, const SfxItemSet
     get(m_pLbTextDirection,"textdirLB");
     get(m_pFtABCD,"labelABCD");
     m_pCtrlDial->SetText(m_pFtABCD->GetText());
-    m_pOrientHlp = new svx::OrientationHelper(*m_pCtrlDial, *m_pNfRotate, *m_pCbStacked);
+    m_pOrientHlp.reset(new svx::OrientationHelper(*m_pCtrlDial, *m_pNfRotate, *m_pCbStacked));
     m_pOrientHlp->Enable();
 
     m_pCbStacked->EnableTriState( false );
@@ -76,8 +76,7 @@ SchAxisLabelTabPage::~SchAxisLabelTabPage()
 
 void SchAxisLabelTabPage::dispose()
 {
-    delete m_pOrientHlp;
-    m_pOrientHlp = nullptr;
+    m_pOrientHlp.reset();
     m_pCbShowDescription.clear();
     m_pFlOrder.clear();
     m_pRbSideBySide.clear();
@@ -98,9 +97,9 @@ void SchAxisLabelTabPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SchAxisLabelTabPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrs )
+VclPtr<SfxTabPage> SchAxisLabelTabPage::Create( TabPageParent pParent, const SfxItemSet* rAttrs )
 {
-    return VclPtr<SchAxisLabelTabPage>::Create( pParent, *rAttrs );
+    return VclPtr<SchAxisLabelTabPage>::Create( pParent.pParent, *rAttrs );
 }
 
 bool SchAxisLabelTabPage::FillItemSet( SfxItemSet* rOutAttrs )

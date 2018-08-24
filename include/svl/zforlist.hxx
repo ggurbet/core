@@ -227,7 +227,7 @@ enum NfIndexTableOffset
     // (NF_..._START and NF_..._END above) to fill its categories with builtin
     // formats, make new formats known to svx/source/items/numfmtsh.cxx
     // SvxNumberFormatShell::FillEListWithStd_Impl(), otherwise they will not
-    // be be listed at all. Yes that is ugly.
+    // be listed at all. Yes that is ugly.
 
     NF_FRACTION_3D = NF_INDEX_TABLE_LOCALE_DATA_DEFAULTS,    // # ???/???
     NF_FRACTION_2,                          // # ?/2
@@ -461,7 +461,7 @@ public:
     bool PutandConvertEntry( OUString& rString, sal_Int32& nCheckPos,
                              SvNumFormatType& nType, sal_uInt32& nKey,
                              LanguageType eLnge, LanguageType eNewLnge,
-                             bool bForExcelExport = false );
+                             bool bConvertDateOrder );
 
     /** Same as <method>PutandConvertEntry</method> but the format code string
          is considered to be of the System language/country eLnge and is
@@ -776,7 +776,7 @@ public:
         returned, even if the format code only contains [$xxx] !
      */
     bool    GetNewCurrencySymbolString( sal_uInt32 nFormat, OUString& rSymbol,
-                                        const NfCurrencyEntry** ppEntry = nullptr,
+                                        const NfCurrencyEntry** ppEntry,
                                         bool* pBank = nullptr ) const;
 
     /** Look up the corresponding NfCurrencyEntry matching
@@ -881,6 +881,10 @@ public:
 
     /** Access for unit tests. */
     size_t GetMaxDefaultColors() const;
+
+    struct InputScannerPrivateAccess { friend class ImpSvNumberInputScan; private: InputScannerPrivateAccess() {} };
+    /** Access for input scanner to temporarily (!) switch locales. */
+    OnDemandLocaleDataWrapper& GetOnDemandLocaleDataWrapper( const InputScannerPrivateAccess& ) { return xLocaleData; }
 
 private:
     mutable ::osl::Mutex m_aMutex;

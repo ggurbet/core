@@ -55,6 +55,7 @@
     </menu:menupopup>
   </menu:menu>
   <menu:menuitem menu:id=".uno:TableNumberFormatDialog"/>
+  <menu:menuitem menu:id=".uno:InsertCaptionDialog"/>
   <menu:menuitem menu:id=".uno:TableDialog"/>
   <menu:menuseparator/>
   <menu:menuitem menu:id=".uno:FontDialog"/>
@@ -77,7 +78,7 @@
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:EditStyle"/>
       <menu:menuseparator/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Default Style&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Standard&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
       <menu:menuitem menu:id=".uno:StyleApply?Style:string=Emphasis&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
       <menu:menuitem menu:id=".uno:StyleApply?Style:string=Strong Emphasis&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
       <menu:menuitem menu:id=".uno:StyleApply?Style:string=Citation&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>

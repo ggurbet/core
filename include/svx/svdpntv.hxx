@@ -34,6 +34,7 @@
 #include <svtools/optionsdrawinglayer.hxx>
 #include <unotools/options.hxx>
 #include <vcl/idle.hxx>
+#include <memory>
 
 
 // Pre defines
@@ -133,7 +134,7 @@ private:
     // the SdrModel this view was created with, unchanged during lifetime
     SdrModel&                   mrSdrModelFromSdrView;
 
-    SdrPageView*                mpPageView;
+    std::unique_ptr<SdrPageView> mpPageView;
 protected:
     SdrModel*                   mpModel;
 #ifdef DBG_UTIL
@@ -313,7 +314,7 @@ public:
     virtual void HideSdrPage();
 
     // Iterate over all registered PageViews
-    SdrPageView* GetSdrPageView() const { return mpPageView; }
+    SdrPageView* GetSdrPageView() const { return mpPageView.get(); }
 
     // A SdrView can be displayed on multiple Windows at the same time
     virtual void AddWindowToPaintView(OutputDevice* pNewWin, vcl::Window* pWindow);
@@ -467,11 +468,11 @@ public:
     virtual bool MouseMove(const MouseEvent& /*rMEvt*/, vcl::Window* /*pWin*/) { return false; }
     virtual bool Command(const CommandEvent& /*rCEvt*/, vcl::Window* /*pWin*/) { return false; }
 
-    bool GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const;
+    void GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const;
 
-    bool SetAttributes(const SfxItemSet& rSet, bool bReplaceAll);
+    void SetAttributes(const SfxItemSet& rSet, bool bReplaceAll);
     SfxStyleSheet* GetStyleSheet() const; // SfxStyleSheet* GetStyleSheet(bool& rOk) const;
-    bool SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
+    void SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
 
     virtual void MakeVisible(const tools::Rectangle& rRect, vcl::Window& rWin);
 
@@ -502,7 +503,7 @@ public:
 #endif
 
     /// Must be called by the App when scrolling etc. in order for
-    /// an active FormularControl to be moved too
+    /// an active FormControl to be moved too
     void VisAreaChanged(const OutputDevice* pOut);
     void VisAreaChanged();
 

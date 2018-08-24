@@ -17,14 +17,11 @@
 #include "types.hxx"
 #include "stlalgorithm.hxx"
 
-#include <formula/opcode.hxx>
 #if HAVE_FEATURE_OPENCL
 #include <opencl/platforminfo.hxx>
 #endif
-#include <svl/sharedstringpool.hxx>
 
 #include <memory>
-#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -51,6 +48,8 @@ struct FormulaGroupEntry
     FormulaGroupEntry( ScFormulaCell* pCell, size_t nRow );
 };
 
+// Despite the name, this is actually a cache of cell values, used by OpenCL
+// code ... I think. And obviously it's not really a struct either.
 struct FormulaGroupContext
 {
     typedef AlignedAllocator<double,256> DoubleAllocType;
@@ -94,6 +93,8 @@ struct FormulaGroupContext
 
     ColArray* setCachedColArray(
         SCTAB nTab, SCCOL nCol, NumArrayType* pNumArray, StrArrayType* pStrArray );
+
+    void discardCachedColArray(SCTAB nTab, SCCOL nCol);
 
     void ensureStrArray( ColArray& rColArray, size_t nArrayLen );
     void ensureNumArray( ColArray& rColArray, size_t nArrayLen );
@@ -143,16 +144,6 @@ public:
 #endif
     virtual ScMatrixRef inverseMatrix(const ScMatrix& rMat) = 0;
     virtual bool interpret(ScDocument& rDoc, const ScAddress& rTopPos, ScFormulaCellGroupRef& xGroup, ScTokenArray& rCode) = 0;
-};
-
-/// Inherit from this for alternate formula group calculation approaches.
-class SC_DLLPUBLIC FormulaGroupInterpreterSoftware : public FormulaGroupInterpreter
-{
-public:
-    FormulaGroupInterpreterSoftware();
-
-    virtual ScMatrixRef inverseMatrix(const ScMatrix& rMat) override;
-    virtual bool interpret(ScDocument& rDoc, const ScAddress& rTopPos, ScFormulaCellGroupRef& xGroup, ScTokenArray& rCode) override;
 };
 
 }

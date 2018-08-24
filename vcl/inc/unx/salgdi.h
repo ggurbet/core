@@ -115,7 +115,7 @@ public:
     virtual void                    SetROPFillColor( SalROPColor nROPColor ) override;
 
     virtual void                    SetTextColor( Color nColor ) override;
-    virtual void                    SetFont( const FontSelectPattern*, int nFallbackLevel ) override;
+    virtual void                    SetFont(LogicalFontInstance*, int nFallbackLevel) override;
     virtual void                    GetFontMetric( ImplFontMetricDataRef&, int nFallbackLevel ) override;
     virtual const FontCharMapRef    GetFontCharMap() const override;
     virtual bool                    GetFontCapabilities(vcl::FontCapabilities &rFontCapabilities) const override;
@@ -145,7 +145,7 @@ public:
     virtual bool                    GetGlyphOutline(const GlyphItem&, basegfx::B2DPolyPolygon&) override;
     virtual std::unique_ptr<SalLayout>
                                     GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
-    virtual void                    DrawTextLayout( const CommonSalLayout& ) override;
+    virtual void                    DrawTextLayout( const GenericSalLayout& ) override;
 
     virtual bool                    supportsOperation( OutDevSupportType ) const override;
     virtual void                    drawPixel( long nX, long nY ) override;
@@ -217,7 +217,7 @@ public:
                                         const SalBitmap& rSalBitmap,
                                         Color nMaskColor ) override;
 
-    virtual SalBitmap*              getBitmap( long nX, long nY, long nWidth, long nHeight ) override;
+    virtual std::shared_ptr<SalBitmap> getBitmap( long nX, long nY, long nWidth, long nHeight ) override;
     virtual Color                   getPixel( long nX, long nY ) override;
     virtual void                    invert( long nX, long nY, long nWidth, long nHeight, SalInvert nFlags ) override;
     virtual void                    invert( sal_uInt32 nPoints, const SalPoint* pPtAry, SalInvert nFlags ) override;
@@ -318,7 +318,7 @@ protected:
     SalVirtualDevice*               m_pVDev;  // the SalVirtualDevice which created this Graphics or NULL
 
     const SalColormap*              m_pColormap;
-    SalColormap*                    m_pDeleteColormap;
+    std::unique_ptr<SalColormap>    m_pDeleteColormap;
     Drawable                        hDrawable_;     // use
     SalX11Screen                    m_nXScreen;
     mutable XRenderPictFormat*      m_pXRenderFormat;

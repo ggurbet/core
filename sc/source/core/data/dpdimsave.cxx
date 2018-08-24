@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <dpcache.hxx>
 #include <dpdimsave.hxx>
 #include <dpgroup.hxx>
 #include <dpobject.hxx>
@@ -32,6 +33,7 @@
 
 #include <global.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 
 using namespace com::sun::star;
 
@@ -140,10 +142,6 @@ ScDPSaveGroupDimension::ScDPSaveGroupDimension( const OUString& rSource, const O
     aGroupDimName( rName ),
     aDateInfo( rDateInfo ),
     nDatePart( nPart )
-{
-}
-
-ScDPSaveGroupDimension::~ScDPSaveGroupDimension()
 {
 }
 
@@ -431,10 +429,6 @@ ScDPSaveNumGroupDimension::ScDPSaveNumGroupDimension( const OUString& rName, con
 {
 }
 
-ScDPSaveNumGroupDimension::~ScDPSaveNumGroupDimension()
-{
-}
-
 void ScDPSaveNumGroupDimension::AddToData( ScDPGroupTableData& rData ) const
 {
     long nSource = rData.GetDimensionIndex( aDimensionName );
@@ -584,10 +578,6 @@ struct ScDPSaveGroupSourceNameFunc
 } // namespace
 
 ScDPDimensionSaveData::ScDPDimensionSaveData()
-{
-}
-
-ScDPDimensionSaveData::~ScDPDimensionSaveData()
 {
 }
 
@@ -828,13 +818,13 @@ OUString ScDPDimensionSaveData::CreateDateGroupDimName(
     OUString aPartName;
     switch( nDatePart )
     {
-        case SECONDS:  aPartName = ScGlobal::GetRscString(aDatePartIds[0]); break;
-        case MINUTES:  aPartName = ScGlobal::GetRscString(aDatePartIds[1]); break;
-        case HOURS:    aPartName = ScGlobal::GetRscString(aDatePartIds[2]); break;
-        case DAYS:     aPartName = ScGlobal::GetRscString(aDatePartIds[3]); break;
-        case MONTHS:   aPartName = ScGlobal::GetRscString(aDatePartIds[4]); break;
-        case QUARTERS: aPartName = ScGlobal::GetRscString(aDatePartIds[5]); break;
-        case YEARS:    aPartName = ScGlobal::GetRscString(aDatePartIds[6]); break;
+        case SECONDS:  aPartName = ScResId(aDatePartIds[0]); break;
+        case MINUTES:  aPartName = ScResId(aDatePartIds[1]); break;
+        case HOURS:    aPartName = ScResId(aDatePartIds[2]); break;
+        case DAYS:     aPartName = ScResId(aDatePartIds[3]); break;
+        case MONTHS:   aPartName = ScResId(aDatePartIds[4]); break;
+        case QUARTERS: aPartName = ScResId(aDatePartIds[5]); break;
+        case YEARS:    aPartName = ScResId(aDatePartIds[6]); break;
     }
     OSL_ENSURE(!aPartName.isEmpty(), "ScDPDimensionSaveData::CreateDateGroupDimName - invalid date part");
     return CreateGroupDimName( aPartName, rObject, bAllowSource, pDeletedNames );

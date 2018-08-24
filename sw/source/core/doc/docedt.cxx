@@ -348,7 +348,7 @@ bool sw_JoinText( SwPaM& rPam, bool bJoinPrev )
         if( bJoinPrev )
         {
             // We do not need to handle xmlids in this case, because
-            // it is only invoked if one paragraph is completely empty
+            // it is only invoked if one paragraph is/becomes completely empty
             // (see sw_GetJoinFlags)
             {
                 // If PageBreaks are deleted/set, it must not be added to the Undo history!
@@ -360,8 +360,9 @@ bool sw_JoinText( SwPaM& rPam, bool bJoinPrev )
                 // PageDesc, etc. we also have to change SwUndoDelete.
                 // There, we copy the AUTO PageBreak from the GetMarkNode!
 
-                /* The GetMarkNode */
-                if( ( pTextNd = aIdx.GetNode().GetTextNode())->HasSwAttrSet() )
+                /* The MarkNode */
+                pTextNd = aIdx.GetNode().GetTextNode();
+                if (pTextNd->HasSwAttrSet())
                 {
                     const SfxPoolItem* pItem;
                     if( SfxItemState::SET == pTextNd->GetpSwAttrSet()->GetItemState(
@@ -747,6 +748,8 @@ static bool lcl_HyphenateNode( const SwNodePtr& rpNd, void* pArgs )
     SwHyphArgs *pHyphArgs = static_cast<SwHyphArgs*>(pArgs);
     if( pNode )
     {
+        // sw_redlinehide: this will be called once per node for merged nodes;
+        // the fully deleted ones won't have frames so are skipped.
         SwContentFrame* pContentFrame = pNode->getLayoutFrame( pNode->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout() );
         if( pContentFrame && !static_cast<SwTextFrame*>(pContentFrame)->IsHiddenNow() )
         {
@@ -795,17 +798,14 @@ uno::Reference< XHyphenatedWord >  SwDoc::Hyphenate(
 }
 
 // Save the current values to add them as automatic entries to AutoCorrect.
-void SwDoc::SetAutoCorrExceptWord( SwAutoCorrExceptWord* pNew )
+void SwDoc::SetAutoCorrExceptWord( std::unique_ptr<SwAutoCorrExceptWord> pNew )
 {
-    if( pNew != mpACEWord )
-        delete mpACEWord;
-    mpACEWord = pNew;
+    mpACEWord = std::move(pNew);
 }
 
 void SwDoc::DeleteAutoCorrExceptWord()
 {
-    delete mpACEWord;
-    mpACEWord = nullptr;
+    mpACEWord.reset();
 }
 
 void SwDoc::CountWords( const SwPaM& rPaM, SwDocStat& rStat )

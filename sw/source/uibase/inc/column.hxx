@@ -48,9 +48,9 @@ class SwColumnDlg : public SfxModalDialog
 
     SwWrtShell&         m_rWrtShell;
     VclPtr<SwColumnPage>       m_pTabPage;
-    SfxItemSet*         m_pPageSet;
-    SfxItemSet*         m_pSectionSet;
-    SfxItemSet*         m_pSelectionSet;
+    std::unique_ptr<SfxItemSet> m_pPageSet;
+    std::unique_ptr<SfxItemSet> m_pSectionSet;
+    std::unique_ptr<SfxItemSet> m_pSelectionSet;
     SfxItemSet*         m_pFrameSet;
 
     long                m_nOldSelection;
@@ -121,7 +121,7 @@ class SwColumnPage : public SfxTabPage
     VclPtr<SwColExample>   m_pPgeExampleWN;
     VclPtr<SwColumnOnlyExample> m_pFrameExampleWN;
 
-    SwColMgr*       m_pColMgr;
+    std::unique_ptr<SwColMgr> m_pColMgr;
 
     sal_uInt16          m_nFirstVis;
     sal_uInt16          m_nCols;
@@ -175,7 +175,7 @@ public:
     virtual ~SwColumnPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(vcl::Window *pParent, const SfxItemSet *rSet);
+    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet *rSet);
     static const sal_uInt16* GetRanges() { return aPageRg; }
 
     virtual bool    FillItemSet(SfxItemSet *rSet) override;

@@ -12,12 +12,18 @@ $(eval $(call gb_Library_Library,mysqlc))
 $(eval $(call gb_Library_use_externals,mysqlc,\
 	boost_headers \
 	mysql-connector-cpp \
+	mariadb-connector-c \
 ))
+
+ifeq ($(OS)-$(SYSTEM_MARIADB_CONNECTOR_C),MACOSX-)
+$(eval $(call gb_Library_use_external,mysqlc,iconv))
+endif
 
 ifeq ($(SYSTEM_MYSQL_CONNECTOR_CPP),)
 $(eval $(call gb_Library_add_libs,mysqlc,\
 	$(if $(filter-out WNT,$(OS)),$(if $(filter MACOSX SOLARIS,$(OS)),-lz -lm,\
 	-rdynamic -lz -lcrypt -lm)) \
+	$(if $(filter LINUX,$(OS)),-lpthread -ldl,) \
 ))
 endif
 
@@ -46,6 +52,7 @@ $(eval $(call gb_Library_add_exception_objects,mysqlc,\
 	mysqlc/source/mysqlc_services \
 	mysqlc/source/mysqlc_connection \
 	mysqlc/source/mysqlc_resultset \
+	mysqlc/source/mysqlc_prepared_resultset \
 	mysqlc/source/mysqlc_resultsetmetadata \
 	mysqlc/source/mysqlc_statement \
 	mysqlc/source/mysqlc_preparedstatement \

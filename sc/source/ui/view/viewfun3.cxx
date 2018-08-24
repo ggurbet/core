@@ -37,7 +37,6 @@
 #include <sot/exchange.hxx>
 #include <memory>
 
-#include <comphelper/lok.hxx>
 #include <sfx2/lokhelper.hxx>
 
 #include <attrib.hxx>
@@ -50,6 +49,7 @@
 #include <undoblk.hxx>
 #include <refundo.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <global.hxx>
 #include <transobj.hxx>
 #include <drwtrans.hxx>
@@ -185,218 +185,234 @@ bool ScViewFunc::CopyToClip( ScDocument* pClipDoc, const ScRangeList& rRanges, b
 {
     if ( rRanges.empty() )
         return false;
-    bool bDone = false;
     if ( bStopEdit )
         UpdateInputLine();
 
+    bool bDone;
+    if (rRanges.size() > 1) // isMultiRange
+        bDone = CopyToClipMultiRange(pClipDoc, rRanges, bCut, bApi, bIncludeObjects);
+    else
+        bDone = CopyToClipSingleRange(pClipDoc, rRanges, bCut, bIncludeObjects);
+    return bDone;
+}
+
+bool ScViewFunc::CopyToClipSingleRange( ScDocument* pClipDoc, const ScRangeList& rRanges, bool bCut, bool bIncludeObjects )
+{
     ScRange aRange = rRanges[0];
     ScClipParam aClipParam( aRange, bCut );
     aClipParam.maRanges = rRanges;
-
     ScDocument* pDoc = GetViewData().GetDocument();
     ScMarkData& rMark = GetViewData().GetMarkData();
 
-    if ( !aClipParam.isMultiRange() )
+    if ( !pDoc
+        || pDoc->HasSelectedBlockMatrixFragment( aRange.aStart.Col(), aRange.aStart.Row(), aRange.aEnd.Col(), aRange.aEnd.Row(), rMark ) )
+        return false;
+
+    bool bSysClip = false;
+    if ( !pClipDoc )                                    // no clip doc specified
     {
-        if ( pDoc && ( !pDoc->HasSelectedBlockMatrixFragment( aRange.aStart.Col(), aRange.aStart.Row(), aRange.aEnd.Col(), aRange.aEnd.Row(), rMark ) ) )
+        // Create one (deleted by ScTransferObj).
+        pClipDoc = new ScDocument( SCDOCMODE_CLIP );
+        bSysClip = true;                                // and copy into system
+    }
+    if ( !bCut )
+    {
+        ScChangeTrack* pChangeTrack = pDoc->GetChangeTrack();
+        if ( pChangeTrack )
+            pChangeTrack->ResetLastCut();
+    }
+
+    if ( bSysClip && bIncludeObjects )
+    {
+        bool bAnyOle = pDoc->HasOLEObjectsInArea( aRange );
+        // Update ScGlobal::xDrawClipDocShellRef.
+        ScDrawLayer::SetGlobalDrawPersist( ScTransferObj::SetDrawClipDoc( bAnyOle ) );
+    }
+
+    // is this necessary?, will setting the doc id upset the
+    // following paste operation with range? would be nicer to just set this always
+    // and lose the 'if' above
+    aClipParam.setSourceDocID( pDoc->GetDocumentID() );
+
+    if (SfxObjectShell* pObjectShell = pDoc->GetDocumentShell())
+    {
+        // Copy document properties from pObjectShell to pClipDoc (to its clip options, as it has no object shell).
+        uno::Reference<document::XDocumentPropertiesSupplier> xDocumentPropertiesSupplier(pObjectShell->GetModel(), uno::UNO_QUERY);
+        uno::Reference<util::XCloneable> xCloneable(xDocumentPropertiesSupplier->getDocumentProperties(), uno::UNO_QUERY);
+        std::unique_ptr<ScClipOptions> pOptions(new ScClipOptions);
+        pOptions->m_xDocumentProperties.set(xCloneable->createClone(), uno::UNO_QUERY);
+        pClipDoc->SetClipOptions(std::move(pOptions));
+    }
+
+    pDoc->CopyToClip( aClipParam, pClipDoc, &rMark, false, bIncludeObjects );
+    if ( pDoc && pClipDoc )
+    {
+        ScDrawLayer* pDrawLayer = pClipDoc->GetDrawLayer();
+        if ( pDrawLayer )
         {
-            bool bSysClip = false;
-            if ( !pClipDoc )                                    // no clip doc specified
+            ScClipParam& rClipDocClipParam = pClipDoc->GetClipParam();
+            ScRangeListVector& rRangesVector = rClipDocClipParam.maProtectedChartRangesVector;
+            SCTAB nTabCount = pClipDoc->GetTableCount();
+            for ( SCTAB nTab = 0; nTab < nTabCount; ++nTab )
             {
-                // Create one (deleted by ScTransferObj).
-                pClipDoc = new ScDocument( SCDOCMODE_CLIP );
-                bSysClip = true;                                // and copy into system
-            }
-            if ( !bCut )
-            {
-                ScChangeTrack* pChangeTrack = pDoc->GetChangeTrack();
-                if ( pChangeTrack )
-                    pChangeTrack->ResetLastCut();
-            }
-
-            if ( bSysClip && bIncludeObjects )
-            {
-                bool bAnyOle = pDoc->HasOLEObjectsInArea( aRange );
-                // Update ScGlobal::xDrawClipDocShellRef.
-                ScDrawLayer::SetGlobalDrawPersist( ScTransferObj::SetDrawClipDoc( bAnyOle ) );
-            }
-
-            // is this necessary?, will setting the doc id upset the
-            // following paste operation with range? would be nicer to just set this always
-            // and lose the 'if' above
-            aClipParam.setSourceDocID( pDoc->GetDocumentID() );
-
-            if (SfxObjectShell* pObjectShell = pDoc->GetDocumentShell())
-            {
-                // Copy document properties from pObjectShell to pClipDoc (to its clip options, as it has no object shell).
-                uno::Reference<document::XDocumentPropertiesSupplier> xDocumentPropertiesSupplier(pObjectShell->GetModel(), uno::UNO_QUERY);
-                uno::Reference<util::XCloneable> xCloneable(xDocumentPropertiesSupplier->getDocumentProperties(), uno::UNO_QUERY);
-                ScClipOptions aOptions;
-                aOptions.m_xDocumentProperties.set(xCloneable->createClone(), uno::UNO_QUERY);
-                pClipDoc->SetClipOptions(aOptions);
-            }
-
-            pDoc->CopyToClip( aClipParam, pClipDoc, &rMark, false, bIncludeObjects );
-            if ( pDoc && pClipDoc )
-            {
-                ScDrawLayer* pDrawLayer = pClipDoc->GetDrawLayer();
-                if ( pDrawLayer )
+                SdrPage* pPage = pDrawLayer->GetPage( static_cast< sal_uInt16 >( nTab ) );
+                if ( pPage )
                 {
-                    ScClipParam& rClipParam = pClipDoc->GetClipParam();
-                    ScRangeListVector& rRangesVector = rClipParam.maProtectedChartRangesVector;
-                    SCTAB nTabCount = pClipDoc->GetTableCount();
-                    for ( SCTAB nTab = 0; nTab < nTabCount; ++nTab )
-                    {
-                        SdrPage* pPage = pDrawLayer->GetPage( static_cast< sal_uInt16 >( nTab ) );
-                        if ( pPage )
-                        {
-                            ScChartHelper::FillProtectedChartRangesVector( rRangesVector, pDoc, pPage );
-                        }
-                    }
+                    ScChartHelper::FillProtectedChartRangesVector( rRangesVector, pDoc, pPage );
                 }
             }
-
-            if ( bSysClip )
-            {
-                ScDrawLayer::SetGlobalDrawPersist(nullptr);
-                ScGlobal::SetClipDocName( pDoc->GetDocumentShell()->GetTitle( SFX_TITLE_FULLNAME ) );
-            }
-            pClipDoc->ExtendMerge( aRange, true );
-
-            if ( bSysClip )
-            {
-                ScDocShell* pDocSh = GetViewData().GetDocShell();
-                TransferableObjectDescriptor aObjDesc;
-                pDocSh->FillTransferableObjectDescriptor( aObjDesc );
-                aObjDesc.maDisplayName = pDocSh->GetMedium()->GetURLObject().GetURLNoPass();
-                // maSize is set in ScTransferObj ctor
-
-                rtl::Reference<ScTransferObj> pTransferObj = new ScTransferObj( pClipDoc, aObjDesc );
-                if ( ScGlobal::xDrawClipDocShellRef.is() )
-                {
-                    SfxObjectShellRef aPersistRef( ScGlobal::xDrawClipDocShellRef.get() );
-                    pTransferObj->SetDrawPersist( aPersistRef );// keep persist for ole objects alive
-
-                }
-                pTransferObj->CopyToClipboard( GetActiveWin() );
-            }
-
-            bDone = true;
         }
     }
-    else
+
+    if ( bSysClip )
     {
-        bool bSuccess = false;
-        aClipParam.mbCutMode = false;
+        ScDrawLayer::SetGlobalDrawPersist(nullptr);
+        ScGlobal::SetClipDocName( pDoc->GetDocumentShell()->GetTitle( SFX_TITLE_FULLNAME ) );
+    }
+    pClipDoc->ExtendMerge( aRange, true );
 
-        do
+    if ( bSysClip )
+    {
+        ScDocShell* pDocSh = GetViewData().GetDocShell();
+        TransferableObjectDescriptor aObjDesc;
+        pDocSh->FillTransferableObjectDescriptor( aObjDesc );
+        aObjDesc.maDisplayName = pDocSh->GetMedium()->GetURLObject().GetURLNoPass();
+        // maSize is set in ScTransferObj ctor
+
+        ScTransferObj* pTransferObj = new ScTransferObj( ScDocumentUniquePtr(pClipDoc), aObjDesc );
+        uno::Reference<css::datatransfer::XTransferable2> xTransferObj = pTransferObj;
+        if ( ScGlobal::xDrawClipDocShellRef.is() )
         {
-            if (bCut)
-                // We con't support cutting of multi-selections.
-                break;
-
-            if (pClipDoc)
-                // TODO: What's this for?
-                break;
-
-            ScDocumentUniquePtr pDocClip(new ScDocument(SCDOCMODE_CLIP));
-
-            // Check for geometrical feasibility of the ranges.
-            bool bValidRanges = true;
-            ScRange & r = aClipParam.maRanges.front();
-            SCCOL nPrevColDelta = 0;
-            SCROW nPrevRowDelta = 0;
-            SCCOL nPrevCol = r.aStart.Col();
-            SCROW nPrevRow = r.aStart.Row();
-            SCCOL nPrevColSize = r.aEnd.Col() - r.aStart.Col() + 1;
-            SCROW nPrevRowSize = r.aEnd.Row() - r.aStart.Row() + 1;
-            for ( size_t i = 1; i < aClipParam.maRanges.size(); ++i )
-            {
-                r = aClipParam.maRanges[i];
-                if ( pDoc->HasSelectedBlockMatrixFragment(
-                    r.aStart.Col(), r.aStart.Row(), r.aEnd.Col(), r.aEnd.Row(), rMark) )
-                {
-                    if (!bApi)
-                        ErrorMessage(STR_MATRIXFRAGMENTERR);
-                    return false;
-                }
-
-                SCCOL nColDelta = r.aStart.Col() - nPrevCol;
-                SCROW nRowDelta = r.aStart.Row() - nPrevRow;
-
-                if ((nColDelta && nRowDelta) || (nPrevColDelta && nRowDelta) || (nPrevRowDelta && nColDelta))
-                {
-                    bValidRanges = false;
-                    break;
-                }
-
-                if (aClipParam.meDirection == ScClipParam::Unspecified)
-                {
-                    if (nColDelta)
-                        aClipParam.meDirection = ScClipParam::Column;
-                    if (nRowDelta)
-                        aClipParam.meDirection = ScClipParam::Row;
-                }
-
-                SCCOL nColSize = r.aEnd.Col() - r.aStart.Col() + 1;
-                SCROW nRowSize = r.aEnd.Row() - r.aStart.Row() + 1;
-
-                if (aClipParam.meDirection == ScClipParam::Column && nRowSize != nPrevRowSize)
-                {
-                    // column-oriented ranges must have identical row size.
-                    bValidRanges = false;
-                    break;
-                }
-                if (aClipParam.meDirection == ScClipParam::Row && nColSize != nPrevColSize)
-                {
-                    // likewise, row-oriented ranges must have identical
-                    // column size.
-                    bValidRanges = false;
-                    break;
-                }
-
-                nPrevCol = r.aStart.Col();
-                nPrevRow = r.aStart.Row();
-                nPrevColDelta = nColDelta;
-                nPrevRowDelta = nRowDelta;
-                nPrevColSize  = nColSize;
-                nPrevRowSize  = nRowSize;
-            }
-            if (!bValidRanges)
-                break;
-            pDoc->CopyToClip(aClipParam, pDocClip.get(), &rMark, false, bIncludeObjects );
-
-            ScChangeTrack* pChangeTrack = pDoc->GetChangeTrack();
-            if ( pChangeTrack )
-                pChangeTrack->ResetLastCut();   // no more cut-mode
-
-            {
-                ScDocShell* pDocSh = GetViewData().GetDocShell();
-                TransferableObjectDescriptor aObjDesc;
-                pDocSh->FillTransferableObjectDescriptor( aObjDesc );
-                aObjDesc.maDisplayName = pDocSh->GetMedium()->GetURLObject().GetURLNoPass();
-                // maSize is set in ScTransferObj ctor
-
-                rtl::Reference<ScTransferObj> pTransferObj = new ScTransferObj( pDocClip.release(), aObjDesc );
-
-                if ( ScGlobal::xDrawClipDocShellRef.is() )
-                {
-                    SfxObjectShellRef aPersistRef( ScGlobal::xDrawClipDocShellRef.get() );
-                    pTransferObj->SetDrawPersist( aPersistRef );    // keep persist for ole objects alive
-                }
-
-                pTransferObj->CopyToClipboard( GetActiveWin() );    // system clipboard
-            }
-
-            bSuccess = true;
+            SfxObjectShellRef aPersistRef( ScGlobal::xDrawClipDocShellRef.get() );
+            pTransferObj->SetDrawPersist( aPersistRef );// keep persist for ole objects alive
         }
-        while (false);
+        pTransferObj->CopyToClipboard( GetActiveWin() );
+    }
 
-        if (!bSuccess && !bApi)
+    return true;
+}
+
+bool ScViewFunc::CopyToClipMultiRange( ScDocument* pInputClipDoc, const ScRangeList& rRanges, bool bCut, bool bApi, bool bIncludeObjects )
+{
+    if (bCut)
+    {
+        // We don't support cutting of multi-selections.
+        if (!bApi)
             ErrorMessage(STR_NOMULTISELECT);
-
-        bDone = bSuccess;
+        return false;
     }
+    if (pInputClipDoc)
+    {
+        // TODO: What's this for?
+        if (!bApi)
+            ErrorMessage(STR_NOMULTISELECT);
+        return false;
+    }
+
+    ScClipParam aClipParam( rRanges[0], bCut );
+    aClipParam.maRanges = rRanges;
+    ScDocument* pDoc = GetViewData().GetDocument();
+    ScMarkData& rMark = GetViewData().GetMarkData();
+    bool bDone = false;
+    bool bSuccess = false;
+    aClipParam.mbCutMode = false;
+
+    do
+    {
+        ScDocumentUniquePtr pDocClip(new ScDocument(SCDOCMODE_CLIP));
+
+        // Check for geometrical feasibility of the ranges.
+        bool bValidRanges = true;
+        ScRange const * p = &aClipParam.maRanges.front();
+        SCCOL nPrevColDelta = 0;
+        SCROW nPrevRowDelta = 0;
+        SCCOL nPrevCol = p->aStart.Col();
+        SCROW nPrevRow = p->aStart.Row();
+        SCCOL nPrevColSize = p->aEnd.Col() - p->aStart.Col() + 1;
+        SCROW nPrevRowSize = p->aEnd.Row() - p->aStart.Row() + 1;
+        for ( size_t i = 1; i < aClipParam.maRanges.size(); ++i )
+        {
+            p = &aClipParam.maRanges[i];
+            if ( pDoc->HasSelectedBlockMatrixFragment(
+                p->aStart.Col(), p->aStart.Row(), p->aEnd.Col(), p->aEnd.Row(), rMark) )
+            {
+                if (!bApi)
+                    ErrorMessage(STR_MATRIXFRAGMENTERR);
+                return false;
+            }
+
+            SCCOL nColDelta = p->aStart.Col() - nPrevCol;
+            SCROW nRowDelta = p->aStart.Row() - nPrevRow;
+
+            if ((nColDelta && nRowDelta) || (nPrevColDelta && nRowDelta) || (nPrevRowDelta && nColDelta))
+            {
+                bValidRanges = false;
+                break;
+            }
+
+            if (aClipParam.meDirection == ScClipParam::Unspecified)
+            {
+                if (nColDelta)
+                    aClipParam.meDirection = ScClipParam::Column;
+                if (nRowDelta)
+                    aClipParam.meDirection = ScClipParam::Row;
+            }
+
+            SCCOL nColSize = p->aEnd.Col() - p->aStart.Col() + 1;
+            SCROW nRowSize = p->aEnd.Row() - p->aStart.Row() + 1;
+
+            if (aClipParam.meDirection == ScClipParam::Column && nRowSize != nPrevRowSize)
+            {
+                // column-oriented ranges must have identical row size.
+                bValidRanges = false;
+                break;
+            }
+            if (aClipParam.meDirection == ScClipParam::Row && nColSize != nPrevColSize)
+            {
+                // likewise, row-oriented ranges must have identical
+                // column size.
+                bValidRanges = false;
+                break;
+            }
+
+            nPrevCol = p->aStart.Col();
+            nPrevRow = p->aStart.Row();
+            nPrevColDelta = nColDelta;
+            nPrevRowDelta = nRowDelta;
+            nPrevColSize  = nColSize;
+            nPrevRowSize  = nRowSize;
+        }
+        if (!bValidRanges)
+            break;
+        pDoc->CopyToClip(aClipParam, pDocClip.get(), &rMark, false, bIncludeObjects );
+
+        ScChangeTrack* pChangeTrack = pDoc->GetChangeTrack();
+        if ( pChangeTrack )
+            pChangeTrack->ResetLastCut();   // no more cut-mode
+
+        ScDocShell* pDocSh = GetViewData().GetDocShell();
+        TransferableObjectDescriptor aObjDesc;
+        pDocSh->FillTransferableObjectDescriptor( aObjDesc );
+        aObjDesc.maDisplayName = pDocSh->GetMedium()->GetURLObject().GetURLNoPass();
+        // maSize is set in ScTransferObj ctor
+
+        ScTransferObj* pTransferObj = new ScTransferObj( std::move(pDocClip), aObjDesc );
+        uno::Reference<css::datatransfer::XTransferable2> xTransferObj = pTransferObj;
+        if ( ScGlobal::xDrawClipDocShellRef.is() )
+        {
+            SfxObjectShellRef aPersistRef( ScGlobal::xDrawClipDocShellRef.get() );
+            pTransferObj->SetDrawPersist( aPersistRef );    // keep persist for ole objects alive
+        }
+        pTransferObj->CopyToClipboard( GetActiveWin() );    // system clipboard
+
+        bSuccess = true;
+    }
+    while (false);
+
+    if (!bSuccess && !bApi)
+        ErrorMessage(STR_NOMULTISELECT);
+
+    bDone = bSuccess;
 
     return bDone;
 }
@@ -413,13 +429,13 @@ ScTransferObj* ScViewFunc::CopyToTransferable()
                         aRange.aEnd.Col(),   aRange.aEnd.Row(),
                         rMark ) )
         {
-            ScDocument *pClipDoc = new ScDocument( SCDOCMODE_CLIP );    // create one (deleted by ScTransferObj)
+            ScDocumentUniquePtr pClipDoc(new ScDocument( SCDOCMODE_CLIP ));    // create one (deleted by ScTransferObj)
 
             bool bAnyOle = pDoc->HasOLEObjectsInArea( aRange, &rMark );
             ScDrawLayer::SetGlobalDrawPersist( ScTransferObj::SetDrawClipDoc( bAnyOle ) );
 
             ScClipParam aClipParam(aRange, false);
-            pDoc->CopyToClip(aClipParam, pClipDoc, &rMark, false, true);
+            pDoc->CopyToClip(aClipParam, pClipDoc.get(), &rMark, false, true);
 
             ScDrawLayer::SetGlobalDrawPersist(nullptr);
             pClipDoc->ExtendMerge( aRange, true );
@@ -428,7 +444,7 @@ ScTransferObj* ScViewFunc::CopyToTransferable()
             TransferableObjectDescriptor aObjDesc;
             pDocSh->FillTransferableObjectDescriptor( aObjDesc );
             aObjDesc.maDisplayName = pDocSh->GetMedium()->GetURLObject().GetURLNoPass();
-            ScTransferObj* pTransferObj = new ScTransferObj( pClipDoc, aObjDesc );
+            ScTransferObj* pTransferObj = new ScTransferObj( std::move(pClipDoc), aObjDesc );
             return pTransferObj;
         }
     }
@@ -446,7 +462,7 @@ void ScViewFunc::PasteDraw()
     vcl::Window* pWin = GetActiveWin();
     Point aPos = pWin->PixelToLogic( rViewData.GetScrPos( nPosX, nPosY,
                                      rViewData.GetActivePart() ) );
-    ScDrawTransferObj* pDrawClip = ScDrawTransferObj::GetOwnClipboard( pWin );
+    const ScDrawTransferObj* pDrawClip = ScDrawTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(rViewData.GetActiveWin()));
     if (pDrawClip)
     {
         OUString aSrcShellID = pDrawClip->GetShellID();
@@ -460,9 +476,10 @@ void ScViewFunc::PasteFromSystem()
     UpdateInputLine();
 
     vcl::Window* pWin = GetActiveWin();
-    ScTransferObj* pOwnClip = ScTransferObj::GetOwnClipboard( pWin );
+    css::uno::Reference<css::datatransfer::XTransferable2> xTransferable2(ScTabViewShell::GetClipData(pWin));
+    const ScTransferObj* pOwnClip = ScTransferObj::GetOwnClipboard(xTransferable2);
     // keep a reference in case the clipboard is changed during PasteFromClip
-    rtl::Reference<ScDrawTransferObj> pDrawClip = ScDrawTransferObj::GetOwnClipboard( pWin );
+    const ScDrawTransferObj* pDrawClip = ScDrawTransferObj::GetOwnClipboard(xTransferable2);
     if (pOwnClip)
     {
         PasteFromClip( InsertDeleteFlags::ALL, pOwnClip->GetDocument(),
@@ -705,7 +722,7 @@ bool ScViewFunc::PasteFromSystem( SotClipboardFormatId nFormatId, bool bApi )
     bool bRet = true;
     vcl::Window* pWin = GetActiveWin();
     // keep a reference in case the clipboard is changed during PasteFromClip
-    rtl::Reference<ScTransferObj> pOwnClip = ScTransferObj::GetOwnClipboard( pWin );
+    const ScTransferObj* pOwnClip = ScTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(pWin));
     if ( nFormatId == SotClipboardFormatId::NONE && pOwnClip )
     {
         PasteFromClip( InsertDeleteFlags::ALL, pOwnClip->GetDocument(),
@@ -763,7 +780,7 @@ bool ScViewFunc::PasteOnDrawObjectLinked(
 
             ReadGraphic( *xStm, aGraphic );
 
-            const OUString aBeginUndo(ScGlobal::GetRscString(STR_UNDO_DRAGDROP));
+            const OUString aBeginUndo(ScResId(STR_UNDO_DRAGDROP));
 
             if(pScDrawView->ApplyGraphicToObject( rHitObj, aGraphic, aBeginUndo, "", "" ))
             {
@@ -778,7 +795,7 @@ bool ScViewFunc::PasteOnDrawObjectLinked(
 
         if( pScDrawView && aDataHelper.GetGDIMetaFile( SotClipboardFormatId::GDIMETAFILE, aMtf ) )
         {
-            const OUString aBeginUndo(ScGlobal::GetRscString(STR_UNDO_DRAGDROP));
+            const OUString aBeginUndo(ScResId(STR_UNDO_DRAGDROP));
 
             if(pScDrawView->ApplyGraphicToObject( rHitObj, Graphic(aMtf), aBeginUndo, "", "" ))
             {
@@ -793,7 +810,7 @@ bool ScViewFunc::PasteOnDrawObjectLinked(
 
         if( pScDrawView && aDataHelper.GetBitmapEx( SotClipboardFormatId::BITMAP, aBmpEx ) )
         {
-            const OUString aBeginUndo(ScGlobal::GetRscString(STR_UNDO_DRAGDROP));
+            const OUString aBeginUndo(ScResId(STR_UNDO_DRAGDROP));
 
             if(pScDrawView->ApplyGraphicToObject( rHitObj, Graphic(aBmpEx), aBeginUndo, "", "" ))
             {
@@ -913,7 +930,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
         // include filtered rows until TransposeClip can skip them
         bIncludeFiltered = true;
         pClipDoc->GetClipArea( nX, nY, true );
-        if ( nY > static_cast<sal_Int32>(MAXCOL) )                      // to many lines for transpose
+        if ( nY > static_cast<sal_Int32>(MAXCOL) )                      // too many lines for transpose
         {
             ErrorMessage(STR_PASTE_FULL);
             return false;
@@ -951,7 +968,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
 
     ScDocument* pDoc = GetViewData().GetDocument();
     ScDocShell* pDocSh = GetViewData().GetDocShell();
-    ::svl::IUndoManager* pUndoMgr = pDocSh->GetUndoManager();
+    SfxUndoManager* pUndoMgr = pDocSh->GetUndoManager();
     const bool bRecord(pDoc->IsUndoEnabled());
 
     ScDocShellModificator aModificator( *pDocSh );
@@ -1050,7 +1067,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
              ( bMarkIsFiltered && nUnfilteredRows < nDestSizeY+1 ) )
         {
             ScWaitCursorOff aWaitOff( GetFrameWin() );
-            OUString aMessage = ScGlobal::GetRscString( STR_PASTE_BIGGER );
+            OUString aMessage = ScResId( STR_PASTE_BIGGER );
 
             vcl::Window* pWin = GetViewData().GetDialogParent();
             std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
@@ -1188,7 +1205,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
     ScDocFunc& rDocFunc = pDocSh->GetDocFunc();
     if ( bRecord )
     {
-        OUString aUndo = ScGlobal::GetRscString( pClipDoc->IsCutMode() ? STR_UNDO_MOVE : STR_UNDO_COPY );
+        OUString aUndo = ScResId( pClipDoc->IsCutMode() ? STR_UNDO_MOVE : STR_UNDO_COPY );
         pUndoMgr->EnterListAction( aUndo, aUndo, 0, GetViewData().GetViewShell()->GetViewShellId() );
     }
 
@@ -1581,8 +1598,8 @@ bool ScViewFunc::PasteMultiRangesFromClip(
 
     if (pDoc->IsUndoEnabled())
     {
-        ::svl::IUndoManager* pUndoMgr = pDocSh->GetUndoManager();
-        OUString aUndo = ScGlobal::GetRscString(
+        SfxUndoManager* pUndoMgr = pDocSh->GetUndoManager();
+        OUString aUndo = ScResId(
             pClipDoc->IsCutMode() ? STR_UNDO_CUT : STR_UNDO_COPY);
         pUndoMgr->EnterListAction(aUndo, aUndo, 0, GetViewData().GetViewShell()->GetViewShellId());
 
@@ -1746,8 +1763,8 @@ bool ScViewFunc::PasteFromClipToMultiRanges(
 
     if (pDoc->IsUndoEnabled())
     {
-        svl::IUndoManager* pUndoMgr = pDocSh->GetUndoManager();
-        OUString aUndo = ScGlobal::GetRscString(
+        SfxUndoManager* pUndoMgr = pDocSh->GetUndoManager();
+        OUString aUndo = ScResId(
             pClipDoc->IsCutMode() ? STR_UNDO_CUT : STR_UNDO_COPY);
         pUndoMgr->EnterListAction(aUndo, aUndo, 0, GetViewData().GetViewShell()->GetViewShellId());
 
@@ -1817,7 +1834,7 @@ bool ScViewFunc::MoveBlockTo( const ScRange& rSource, const ScAddress& rDestPos,
     {
         //  moving within one table and several tables selected -> apply to all selected tables
 
-        OUString aUndo = ScGlobal::GetRscString( bCut ? STR_UNDO_MOVE : STR_UNDO_COPY );
+        OUString aUndo = ScResId( bCut ? STR_UNDO_MOVE : STR_UNDO_COPY );
         pDocSh->GetUndoManager()->EnterListAction( aUndo, aUndo, 0, GetViewData().GetViewShell()->GetViewShellId() );
 
         //  collect ranges of consecutive selected tables
@@ -1936,7 +1953,7 @@ void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
     ScDocShell* pDocSh = GetViewData().GetDocShell();
     ScMarkData& rMark = GetViewData().GetMarkData();
     ScDocShellModificator aModificator( *pDocSh );
-    ::svl::IUndoManager* pUndoMgr = pDocSh->GetUndoManager();
+    SfxUndoManager* pUndoMgr = pDocSh->GetUndoManager();
     if ( pDoc )
     {
         const bool bRecord( pDoc->IsUndoEnabled());

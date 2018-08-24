@@ -38,6 +38,7 @@
 #include <vcl/salbtype.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/BitmapTools.hxx>
+#include <vcl/GraphicLoader.hxx>
 #include <vcl/dibtools.hxx>
 
 #include <libxml/xmlwriter.h>
@@ -124,7 +125,7 @@ void XOBitmap::Array2Bitmap()
         }
     }
 
-    xGraphicObject.reset(new GraphicObject(pVDev->GetBitmap(Point(), Size(nLines, nLines))));
+    xGraphicObject.reset(new GraphicObject(pVDev->GetBitmapEx(Point(), Size(nLines, nLines))));
     bGraphicDirty = false;
 }
 
@@ -141,65 +142,6 @@ XFillBitmapItem::XFillBitmapItem(const XFillBitmapItem& rItem)
 :   NameOrIndex(rItem),
     maGraphicObject(rItem.maGraphicObject)
 {
-}
-
-BitmapEx createHistorical8x8FromArray(std::array<sal_uInt8,64> const & pArray, Color aColorPix, Color aColorBack)
-{
-    vcl::bitmap::RawBitmap aBitmap(Size(8, 8), 24);
-
-    for(sal_uInt16 a(0); a < 8; a++)
-    {
-        for(sal_uInt16 b(0); b < 8; b++)
-        {
-            if(pArray[(a * 8) + b])
-            {
-                aBitmap.SetPixel(a, b, aColorBack);
-            }
-            else
-            {
-                aBitmap.SetPixel(a, b, aColorPix);
-            }
-        }
-    }
-
-    return vcl::bitmap::CreateFromData(std::move(aBitmap));
-}
-
-bool isHistorical8x8(const BitmapEx& rBitmapEx, BitmapColor& o_rBack, BitmapColor& o_rFront)
-{
-    bool bRet(false);
-
-    if(!rBitmapEx.IsTransparent())
-    {
-        Bitmap aBitmap(rBitmapEx.GetBitmap());
-
-        if(8 == aBitmap.GetSizePixel().Width() && 8 == aBitmap.GetSizePixel().Height())
-        {
-            if(2 == aBitmap.GetColorCount())
-            {
-                BitmapReadAccess* pRead = aBitmap.AcquireReadAccess();
-
-                if(pRead)
-                {
-                    if(pRead->HasPalette() && 2 == pRead->GetPaletteEntryCount())
-                    {
-                        const BitmapPalette& rPalette = pRead->GetPalette();
-
-                        // #i123564# background and foreground were exchanged; of course
-                        // rPalette[0] is the background color
-                        o_rFront = rPalette[1];
-                        o_rBack = rPalette[0];
-
-                        bRet = true;
-                    }
-
-                    Bitmap::ReleaseAccess(pRead);
-                }
-            }
-        }
-    }
-
-    return bRet;
 }
 
 XFillBitmapItem::XFillBitmapItem(const GraphicObject& rGraphicObject)
@@ -223,7 +165,7 @@ bool XFillBitmapItem::operator==(const SfxPoolItem& rItem) const
 bool XFillBitmapItem::isPattern() const
 {
     BitmapColor aBack, aFront;
-    return isHistorical8x8(GetGraphicObject().GetGraphic().GetBitmap(), aBack, aFront);
+    return vcl::bitmap::isHistorical8x8(GetGraphicObject().GetGraphic().GetBitmapEx(), aBack, aFront);
 }
 
 sal_uInt16 XFillBitmapItem::GetVersion(sal_uInt16 /*nFileFormatVersion*/) const
@@ -262,8 +204,8 @@ bool XFillBitmapItem::QueryValue(css::uno::Any& rVal, sal_uInt8 nMemberId) const
         aInternalName = GetName();
     }
 
-    if( nMemberId == MID_BITMAP ||
-        nMemberId == 0  )
+    if (nMemberId == MID_BITMAP ||
+        nMemberId == 0)
     {
         xBmp.set(GetGraphicObject().GetGraphic().GetXGraphic(), uno::UNO_QUERY);
     }
@@ -294,9 +236,11 @@ bool XFillBitmapItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId )
     nMemberId &= ~CONVERT_TWIPS;
 
     OUString aName;
+    OUString aURL;
     css::uno::Reference< css::awt::XBitmap > xBmp;
     css::uno::Reference< css::graphic::XGraphic > xGraphic;
 
+    bool bSetURL    = false;
     bool bSetName   = false;
     bool bSetBitmap = false;
 
@@ -304,9 +248,21 @@ bool XFillBitmapItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId )
         bSetName = (rVal >>= aName);
     else if( nMemberId == MID_BITMAP )
     {
-        bSetBitmap = (rVal >>= xBmp);
-        if ( !bSetBitmap )
-            bSetBitmap = (rVal >>= xGraphic );
+        if (rVal.has<OUString>())
+        {
+            bSetURL = true;
+            aURL = rVal.get<OUString>();
+        }
+        else if (rVal.has<uno::Reference<awt::XBitmap>>())
+        {
+            bSetBitmap = true;
+            xBmp = rVal.get<uno::Reference<awt::XBitmap>>();
+        }
+        else if (rVal.has<uno::Reference<graphic::XGraphic>>())
+        {
+            bSetBitmap = true;
+            xGraphic = rVal.get<uno::Reference<graphic::XGraphic>>();
+        }
     }
     else
     {
@@ -320,6 +276,8 @@ bool XFillBitmapItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId )
                     bSetName = (aPropSeq[n].Value >>= aName);
                 else if ( aPropSeq[n].Name == "Bitmap" )
                     bSetBitmap = (aPropSeq[n].Value >>= xBmp);
+                else if ( aPropSeq[n].Name == "FillBitmapURL" )
+                    bSetURL = (aPropSeq[n].Value >>= aURL);
             }
         }
     }
@@ -328,7 +286,15 @@ bool XFillBitmapItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId )
     {
         SetName( aName );
     }
-    if( bSetBitmap )
+    if (bSetURL && !aURL.isEmpty())
+    {
+        Graphic aGraphic = vcl::graphic::loadFromURL(aURL);
+        if (aGraphic)
+        {
+            maGraphicObject.SetGraphic(aGraphic.GetXGraphic());
+        }
+    }
+    else if( bSetBitmap )
     {
         if (xBmp.is())
         {

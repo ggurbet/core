@@ -22,6 +22,7 @@
 
 #include <svx/svddrgv.hxx>
 #include <svx/svxdllapi.h>
+#include <memory>
 
 class XLineAttrSetItem;
 class XFillAttrSetItem;
@@ -38,7 +39,7 @@ class SVX_DLLPUBLIC SdrCreateView : public SdrDragView
 protected:
     SdrObject*                  pCurrentCreate;   // The currently being created object
     SdrPageView*                pCreatePV;    // Here, the creation is started
-    ImplConnectMarkerOverlay*   mpCoMaOverlay;
+    std::unique_ptr<ImplConnectMarkerOverlay> mpCoMaOverlay;
 
     // for migrating stuff from XOR, use ImpSdrCreateViewExtraData ATM to not need to
     // compile the apps all the time
@@ -151,11 +152,11 @@ public:
 
     // Attributes of the object that is in the process of being created
     /* new interface src537 */
-    bool GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const;
+    void GetAttributes(SfxItemSet& rTargetSet, bool bOnlyHardAttr) const;
 
     bool SetAttributes(const SfxItemSet& rSet, bool bReplaceAll);
     SfxStyleSheet* GetStyleSheet() const; // SfxStyleSheet* GetStyleSheet(bool& rOk) const;
-    bool SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
+    void SetStyleSheet(SfxStyleSheet* pStyleSheet, bool bDontRemoveHardAttr);
 };
 
 #endif // INCLUDED_SVX_SVDCRTV_HXX

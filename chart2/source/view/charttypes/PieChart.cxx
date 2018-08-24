@@ -17,9 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <BaseGFXHelper.hxx>
+#include <VLineProperties.hxx>
 #include "PieChart.hxx"
 #include <PlottingPositionHelper.hxx>
-#include <AbstractShapeFactory.hxx>
+#include <ShapeFactory.hxx>
 #include <PolarLabelPositionHelper.hxx>
 #include <CommonConverters.hxx>
 #include <ViewDefines.hxx>
@@ -30,6 +32,8 @@
 
 #include <com/sun/star/container/XChild.hpp>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
+#include <tools/helpers.hxx>
 
 #include <memory>
 
@@ -381,9 +385,9 @@ void PieChart::createTextLabelShape(
     m_aLabelInfoList.push_back(aPieLabelInfo);
 }
 
-void PieChart::addSeries( VDataSeries* pSeries, sal_Int32 /* zSlot */, sal_Int32 /* xSlot */, sal_Int32 /* ySlot */ )
+void PieChart::addSeries( std::unique_ptr<VDataSeries> pSeries, sal_Int32 /* zSlot */, sal_Int32 /* xSlot */, sal_Int32 /* ySlot */ )
 {
-    VSeriesPlotter::addSeries( pSeries, 0, -1, 0 );
+    VSeriesPlotter::addSeries( std::move(pSeries), 0, -1, 0 );
 }
 
 double PieChart::getMinimumX()
@@ -402,11 +406,11 @@ double PieChart::getMaxOffset()
     if( m_aZSlots.front().empty() )
         return m_fMaxOffset;
 
-    const std::vector< VDataSeries* >& rSeriesList( m_aZSlots.front().front().m_aSeriesVector );
+    const std::vector< std::unique_ptr<VDataSeries> >& rSeriesList( m_aZSlots.front().front().m_aSeriesVector );
     if(rSeriesList.empty())
         return m_fMaxOffset;
 
-    VDataSeries* pSeries = rSeriesList.front();
+    VDataSeries* pSeries = rSeriesList.front().get();
     uno::Reference< beans::XPropertySet > xSeriesProp( pSeries->getPropertiesOfSeries() );
     if( !xSeriesProp.is() )
         return m_fMaxOffset;
@@ -560,10 +564,10 @@ void PieChart::createShapes()
     {
         ShapeParam aParam;
 
-        std::vector< VDataSeries* >* pSeriesList = &(aXSlotIter->m_aSeriesVector);
+        std::vector< std::unique_ptr<VDataSeries> >* pSeriesList = &(aXSlotIter->m_aSeriesVector);
         if(pSeriesList->empty())//there should be only one series in each x slot
             continue;
-        VDataSeries* pSeries = pSeriesList->front();
+        VDataSeries* pSeries = pSeriesList->front().get();
         if(!pSeries)
             continue;
 
@@ -683,7 +687,7 @@ void PieChart::createShapes()
 
                 if(!bDoExplode)
                 {
-                    AbstractShapeFactory::setShapeName( xPointShape
+                    ShapeFactory::setShapeName( xPointShape
                                 , ObjectIdentifier::createPointCID( pSeries->getPointCID_Stub(), nPointIndex ) );
                 }
                 else try
@@ -710,7 +714,7 @@ void PieChart::createShapes()
                             nOffsetPercent, aMinimumPosition, aMaximumPosition )
                         ) );
 
-                    AbstractShapeFactory::setShapeName( xPointShape
+                    ShapeFactory::setShapeName( xPointShape
                                 , ObjectIdentifier::createPointCID( aPointCIDStub, nPointIndex ) );
                 }
                 catch( const uno::Exception& e )
@@ -742,28 +746,6 @@ bool lcl_isInsidePage( const awt::Point& rPos, const awt::Size& rSize, const awt
     if( (rPos.Y + rSize.Height) > rPageSize.Height )
         return false;
     return true;
-}
-
-inline
-double lcl_radToDeg(double fAngleRad)
-{
-    return (fAngleRad / M_PI) * 180.0;
-}
-
-inline
-double lcl_degToRad(double fAngleDeg)
-{
-    return (fAngleDeg / 180) * M_PI;
-}
-
-inline
-double lcl_getDegAngleInStandardRange(double fAngle)
-{
-    while( fAngle < 0.0 )
-        fAngle += 360.0;
-    while( fAngle >= 360.0 )
-        fAngle -= 360.0;
-    return fAngle;
 }
 
 }//end anonymous namespace
@@ -1274,10 +1256,10 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
               "** PieChart::performLabelBestFitInnerPlacement invoked **" );
 
     // get pie slice properties
-    double fStartAngleDeg = lcl_getDegAngleInStandardRange(rShapeParam.mfUnitCircleStartAngleDegree);
+    double fStartAngleDeg = NormAngle360(rShapeParam.mfUnitCircleStartAngleDegree);
     double fWidthAngleDeg = rShapeParam.mfUnitCircleWidthAngleDegree;
     double fHalfWidthAngleDeg = fWidthAngleDeg / 2.0;
-    double fBisectingRayAngleDeg = lcl_getDegAngleInStandardRange(fStartAngleDeg + fHalfWidthAngleDeg);
+    double fBisectingRayAngleDeg = NormAngle360(fStartAngleDeg + fHalfWidthAngleDeg);
 
     // get the middle point of the arc representing the pie slice border
     double fLogicZ = rShapeParam.mfLogicZ + 1.0;
@@ -1331,8 +1313,8 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
     double fLabelHeight = aBb.getHeight();
 
     // -45 <= fAlphaDeg < 315
-    double fAlphaDeg = lcl_getDegAngleInStandardRange(fBisectingRayAngleDeg + 45) - 45;
-    double fAlphaRad = lcl_degToRad(fAlphaDeg);
+    double fAlphaDeg = NormAngle360(fBisectingRayAngleDeg + 45) - 45;
+    double fAlphaRad = basegfx::deg2rad(fAlphaDeg);
 
     // compute nearest edge index
     // 0 left
@@ -1476,9 +1458,9 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
     aVertexG[nOrthogonalAxisIndex] += aDirection[nOrthogonalAxisIndex] * fOrthogonalEdgeLength;
 
     SAL_INFO( "chart2.pie.label.bestfit.inside",
-              "      beta = " << lcl_radToDeg(fBetaRad) );
+              "      beta = " << basegfx::rad2deg(fBetaRad) );
     SAL_INFO( "chart2.pie.label.bestfit.inside",
-              "      theta = " << lcl_radToDeg(fThetaRad) );
+              "      theta = " << basegfx::rad2deg(fThetaRad) );
     SAL_INFO( "chart2.pie.label.bestfit.inside",
               "        fAlphaMod90 = " << fAlphaMod90 );
     SAL_INFO( "chart2.pie.label.bestfit.inside",
@@ -1504,7 +1486,7 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
 
     // check the angle between CP and CM
     double fAngleRad = aPositionalVector.angle(aVertexM);
-    double fAngleDeg = lcl_getDegAngleInStandardRange( lcl_radToDeg(fAngleRad) );
+    double fAngleDeg = NormAngle360(basegfx::rad2deg(fAngleRad));
     if( fAngleDeg > 180 )  // in case the wrong angle has been computed
         fAngleDeg = 360 - fAngleDeg;
     SAL_INFO( "chart2.pie.label.bestfit.inside",
@@ -1519,7 +1501,7 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
     {
         // check the angle between CP and CN
         fAngleRad = aPositionalVector.angle(aNearestVertex);
-        fAngleDeg = lcl_getDegAngleInStandardRange( lcl_radToDeg(fAngleRad) );
+        fAngleDeg = NormAngle360(basegfx::rad2deg(fAngleRad));
         if( fAngleDeg > 180 )  // in case the wrong angle has been computed
             fAngleDeg = 360 - fAngleDeg;
         SAL_INFO( "chart2.pie.label.bestfit.inside",
@@ -1533,7 +1515,7 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
     {
         // check the angle between CP and CG
         fAngleRad = aPositionalVector.angle(aVertexG);
-        fAngleDeg = lcl_getDegAngleInStandardRange( lcl_radToDeg(fAngleRad) );
+        fAngleDeg = NormAngle360(basegfx::rad2deg(fAngleRad));
         if( fAngleDeg > 180 )  // in case the wrong angle has been computed
             fAngleDeg = 360 - fAngleDeg;
         SAL_INFO( "chart2.pie.label.bestfit.inside",

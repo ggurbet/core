@@ -55,7 +55,6 @@ SwParaDlg::SwParaDlg(vcl::Window *pParent,
                  "modules/swriter/ui/paradialog.ui",
                  &rCoreSet,  nullptr != pTitle)
     , rView(rVw)
-    , nDlgMode(nDialogMode)
     , bDrawParaDlg(bDraw)
     , m_nParaStd(0)
     , m_nParaAlign(0)
@@ -132,7 +131,7 @@ SwParaDlg::SwParaDlg(vcl::Window *pParent,
     }
     else
     {
-        if(!(nDlgMode & DLG_ENVELOP))
+        if(!(nDialogMode & DLG_ENVELOP))
             m_nParaNumPara = AddTabPage("labelTP_NUMPARA", SwParagraphNumTabPage::Create, SwParagraphNumTabPage::GetRanges);
         else
             RemoveTabPage("labelTP_NUMPARA");
@@ -221,7 +220,7 @@ void SwParaDlg::PageCreated(sal_uInt16 nId, SfxTabPage& rPage)
         }
 
         static_cast<SwParagraphNumTabPage&>(rPage).EnableNewStart();
-        ListBox & rBox = static_cast<SwParagraphNumTabPage&>(rPage).GetStyleBox();
+        weld::ComboBoxText& rBox = static_cast<SwParagraphNumTabPage&>(rPage).GetStyleBox();
         SfxStyleSheetBasePool* pPool = rView.GetDocShell()->GetStyleSheetPool();
         pPool->SetSearchMask(SfxStyleFamily::Pseudo);
         const SfxStyleSheetBase* pBase = pPool->First();
@@ -232,7 +231,7 @@ void SwParaDlg::PageCreated(sal_uInt16 nId, SfxTabPage& rPage)
             pBase = pPool->Next();
         }
         for(std::set<OUString>::const_iterator it = aNames.begin(); it != aNames.end(); ++it)
-            rBox.InsertEntry(*it);
+            rBox.append_text(*it);
     }
     // inits for Area and Transparency TabPages
     // The selection attribute lists (XPropertyList derivates, e.g. XColorList for

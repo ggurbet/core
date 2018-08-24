@@ -77,6 +77,7 @@ $(eval $(call gb_Module_add_slowcheck_targets,sw,\
     CppunitTest_sw_ooxmlw14export \
     CppunitTest_sw_ooxmlencryption \
     CppunitTest_sw_ooxmlimport \
+    CppunitTest_sw_ooxmlimport2 \
     CppunitTest_sw_ww8export \
     CppunitTest_sw_ww8export2 \
     CppunitTest_sw_ww8import \
@@ -92,6 +93,8 @@ $(eval $(call gb_Module_add_slowcheck_targets,sw,\
     CppunitTest_sw_mailmerge \
     CppunitTest_sw_globalfilter \
     CppunitTest_sw_accessible_relation_set \
+    CppunitTest_sw_apitests \
+    CppunitTest_sw_unowriter \
 ))
 
 ifneq ($(ENABLE_HEADLESS),TRUE)
@@ -132,6 +135,9 @@ $(eval $(call gb_Module_add_screenshot_targets,sw,\
 
 $(eval $(call gb_Module_add_uicheck_targets,sw,\
 	UITest_writer_tests \
+	UITest_writer_tests2 \
+	UITest_writer_tests3 \
+	UITest_writer_tests4 \
 ))
 endif
 

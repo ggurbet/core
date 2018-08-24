@@ -20,14 +20,11 @@
 #ifndef INCLUDED_SFX2_SOURCE_INC_SFXPICKLIST_HXX
 #define INCLUDED_SFX2_SOURCE_INC_SFXPICKLIST_HXX
 
-#include <vcl/menu.hxx>
-#include <svl/lstner.hxx>
-#include <com/sun/star/util/XStringWidth.hpp>
-
-#include <vector>
+#include <memory>
 
 #define PICKLIST_MAXSIZE  100
 
+class SfxApplication;
 class SfxPickListImpl;
 
 class SfxPickList
@@ -35,8 +32,7 @@ class SfxPickList
 private:
     std::unique_ptr<SfxPickListImpl> mxImpl;
 public:
-    SfxPickList(sal_uInt32 nAllowedMenuSize);
-    static void ensure();
+    SfxPickList(SfxApplication& rApp);
     ~SfxPickList();
 };
 

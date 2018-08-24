@@ -69,6 +69,7 @@
 #include <tabvwsh.hxx>
 #include <editutil.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <gridwin.hxx>
 
 #define ShellClass_ScEditShell
@@ -132,7 +133,7 @@ static void lcl_RemoveAttribs( EditView& rEditView )
     bool bOld = pEngine->GetUpdateMode();
     pEngine->SetUpdateMode(false);
 
-    OUString aName = ScGlobal::GetRscString( STR_UNDO_DELETECONTENTS );
+    OUString aName = ScResId( STR_UNDO_DELETECONTENTS );
     ViewShellId nViewShellId(-1);
     if (ScTabViewShell* pViewSh = ScTabViewShell::GetActiveViewShell())
         nViewShellId = pViewSh->GetViewShellId();
@@ -217,10 +218,18 @@ void ScEditShell::Execute( SfxRequest& rReq )
             break;
 
         case SID_PASTE:
-            pTableView->PasteSpecial();
+        {
+            EVControlBits nControl = pTableView->GetControlWord();
             if (pTopView)
+            {
                 pTopView->Paste();
-            break;
+                pTableView->SetControlWord(nControl | EVControlBits::SINGLELINEPASTE);
+            }
+
+            pTableView->PasteSpecial();
+            pTableView->SetControlWord(nControl);
+        }
+        break;
 
         case SID_DELETE:
             pTableView->DeleteSelected();
@@ -264,19 +273,16 @@ void ScEditShell::Execute( SfxRequest& rReq )
                 vcl::Window* pWin = pViewData->GetDialogParent();
                 ScopedVclPtr<SfxAbstractPasteDialog> pDlg(pFact->CreatePasteDialog(pWin ? pWin->GetFrameWeld() : nullptr));
                 SotClipboardFormatId nFormat = SotClipboardFormatId::NONE;
-                if ( pDlg )
-                {
-                    pDlg->Insert( SotClipboardFormatId::STRING, EMPTY_OUSTRING );
-                    pDlg->Insert( SotClipboardFormatId::RTF,    EMPTY_OUSTRING );
-                    pDlg->Insert( SotClipboardFormatId::RICHTEXT,    EMPTY_OUSTRING );
-                    // Do not offer SotClipboardFormatId::STRING_TSVC for
-                    // in-cell paste.
+                pDlg->Insert( SotClipboardFormatId::STRING, EMPTY_OUSTRING );
+                pDlg->Insert( SotClipboardFormatId::RTF,    EMPTY_OUSTRING );
+                pDlg->Insert( SotClipboardFormatId::RICHTEXT,    EMPTY_OUSTRING );
+                // Do not offer SotClipboardFormatId::STRING_TSVC for
+                // in-cell paste.
 
-                    TransferableDataHelper aDataHelper(
-                        TransferableDataHelper::CreateFromSystemClipboard( pViewData->GetActiveWin() ) );
+                TransferableDataHelper aDataHelper(
+                    TransferableDataHelper::CreateFromSystemClipboard( pViewData->GetActiveWin() ) );
 
-                    nFormat = pDlg->GetFormat( aDataHelper.GetTransferable() );
-                }
+                nFormat = pDlg->GetFormat( aDataHelper.GetTransferable() );
                 pDlg.disposeAndClear();
 
                 // while the dialog was open, edit mode may have been stopped
@@ -455,10 +461,8 @@ void ScEditShell::Execute( SfxRequest& rReq )
         case FID_INSERT_NAME:
             {
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
                 ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg( pViewData->GetDialogParent(), pViewData->GetDocShell() ));
-                OSL_ENSURE(pDlg, "Dialog create fail!");
                 short nRet = pDlg->Execute();
                 // pDlg is needed below
 
@@ -497,11 +501,9 @@ void ScEditShell::Execute( SfxRequest& rReq )
                 SfxObjectShell* pObjSh = pViewData->GetSfxDocShell();
 
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "ScAbstractFactory create fail!");
 
                 ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScCharDlg(
                     pViewData->GetDialogParent(), &aAttrs, pObjSh));
-                OSL_ENSURE(pDlg, "Dialog create fail!");
                 if (nSlot == SID_CHAR_DLG_EFFECT)
                 {
                     pDlg->SetCurPageId("fonteffects");
@@ -791,8 +793,8 @@ const SvxURLField* ScEditShell::GetURLField()
         if (pFieldItem)
         {
             const SvxFieldData* pField = pFieldItem->GetField();
-            if ( pField && dynamic_cast<const SvxURLField*>( pField) !=  nullptr )
-                return static_cast<const SvxURLField*>(pField);
+            if ( auto pURLField = dynamic_cast<const SvxURLField*>( pField) )
+                return pURLField;
         }
     }
 
@@ -1275,7 +1277,7 @@ void ScEditShell::GetUndoState(SfxItemSet &rSet)
     EditView* pTopView = pHdl->GetTopView();
     if (pTopView)
     {
-        ::svl::IUndoManager& rTopMgr = pTopView->GetEditEngine()->GetUndoManager();
+        SfxUndoManager& rTopMgr = pTopView->GetEditEngine()->GetUndoManager();
         if ( rTopMgr.GetUndoActionCount() == 0 )
             rSet.DisableItem( SID_UNDO );
         if ( rTopMgr.GetRedoActionCount() == 0 )

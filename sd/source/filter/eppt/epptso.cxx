@@ -48,15 +48,21 @@
 #include <com/sun/star/awt/XFont.hpp>
 #include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/awt/FontUnderline.hpp>
+#include <com/sun/star/awt/FontFamily.hpp>
+#include <com/sun/star/awt/FontPitch.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/style/LineSpacing.hpp>
 #include <com/sun/star/style/LineSpacingMode.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/style/XStyle.hpp>
+#include <com/sun/star/style/TabStop.hpp>
+#include <com/sun/star/drawing/CircleKind.hpp>
 #include <com/sun/star/drawing/PointSequence.hpp>
 #include <com/sun/star/drawing/FlagSequence.hpp>
 #include <com/sun/star/drawing/PolygonFlags.hpp>
+#include <com/sun/star/drawing/XMasterPagesSupplier.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/i18n/XBreakIterator.hpp>
@@ -69,6 +75,7 @@
 #include <rtl/crc.h>
 #include <comphelper/classids.hxx>
 #include <com/sun/star/text/FontRelief.hpp>
+#include <com/sun/star/text/XSimpleText.hpp>
 #include <editeng/frmdiritem.hxx>
 #include <vcl/fltcall.hxx>
 #include <com/sun/star/table/XTable.hpp>
@@ -115,26 +122,41 @@ sal_uInt16 PPTExBulletProvider::GetId(Graphic const & rGraphic, Size& rGraphicSi
 
         if ( rGraphicSize.Width() && rGraphicSize.Height() )
         {
-            double          fQ1 = ( static_cast<double>(aPrefSize.Width()) / static_cast<double>(aPrefSize.Height()) );
-            double          fQ2 = ( static_cast<double>(rGraphicSize.Width()) / static_cast<double>(rGraphicSize.Height()) );
-            double          fXScale = 1;
-            double          fYScale = 1;
-
-            if ( fQ1 > fQ2 )
-                fYScale = fQ1 / fQ2;
-            else if ( fQ1 < fQ2 )
-                fXScale = fQ2 / fQ1;
-
-            if ( ( fXScale != 1.0 ) || ( fYScale != 1.0 ) )
+            Size aNewSize;
+            bool changed = false;
+            if (aPrefSize.Width() == 0 || aPrefSize.Height() == 0)
             {
-                aBmpEx.Scale( fXScale, fYScale );
-                Size aNewSize( static_cast<sal_Int32>(static_cast<double>(rGraphicSize.Width()) / fXScale + 0.5 ),
-                                static_cast<sal_Int32>(static_cast<double>(rGraphicSize.Height()) / fYScale + 0.5 ) );
+                aBmpEx.Scale(aPrefSize);
+                aNewSize = aPrefSize;
+                changed = true;
+            }
+            else
+            {
+                double          fQ1 = ( static_cast<double>(aPrefSize.Width()) / static_cast<double>(aPrefSize.Height()) );
+                double          fQ2 = ( static_cast<double>(rGraphicSize.Width()) / static_cast<double>(rGraphicSize.Height()) );
+                double          fXScale = 1;
+                double          fYScale = 1;
 
-                rGraphicSize = aNewSize;
+                if ( fQ1 > fQ2 )
+                    fYScale = fQ1 / fQ2;
+                else if ( fQ1 < fQ2 )
+                    fXScale = fQ2 / fQ1;
 
-                aMappedGraphic = Graphic( aBmpEx );
-                xGraphicObject.reset(new GraphicObject(aMappedGraphic));
+                if ( ( fXScale != 1.0 ) || ( fYScale != 1.0 ) )
+                {
+                    aBmpEx.Scale( fXScale, fYScale );
+                    aNewSize = Size( static_cast<sal_Int32>(static_cast<double>(rGraphicSize.Width()) / fXScale + 0.5 ),
+                                     static_cast<sal_Int32>(static_cast<double>(rGraphicSize.Height()) / fYScale + 0.5 ) );
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    rGraphicSize = aNewSize;
+
+                    aMappedGraphic = Graphic( aBmpEx );
+                    xGraphicObject.reset(new GraphicObject(aMappedGraphic));
+                }
             }
         }
         sal_uInt32 nId = pGraphicProv->GetBlibID(aBuExPictureStream, *xGraphicObject.get());
@@ -1065,7 +1087,7 @@ void PPTWriter::ImplWriteTextStyleAtom( SvStream& rOut, int nTextInstance, sal_u
         if ( mnTextSize )
             aTextObj.Write( &rOut );
 
-        if ( pPropOpt )
+        if ( pPropOpt && mType != "drawing.Table" )
             ImplAdjustFirstLineLineSpacing( aTextObj, *pPropOpt );
 
         sal_uInt32 nSize, nPos = rOut.Tell();
@@ -1086,7 +1108,7 @@ void PPTWriter::ImplWriteTextStyleAtom( SvStream& rOut, int nTextInstance, sal_u
                 const PortionObj& rPortion = *(*it).get();
                 if ( rPortion.mpFieldEntry )
                 {
-                    const FieldEntry* pFieldEntry = rPortion.mpFieldEntry;
+                    const FieldEntry* pFieldEntry = rPortion.mpFieldEntry.get();
 
                     switch ( pFieldEntry->nFieldType >> 28 )
                     {
@@ -2032,19 +2054,7 @@ void PPTWriter::ImplWritePage( const PHLayout& rLayout, EscherSolverContainer& a
 
                 if ( !aControlName.isEmpty() )
                 {
-                    sal_uInt16 nBufSize;
-                    nBufSize = ( aControlName.getLength() + 1 ) << 1;
-                    sal_uInt8* pBuf = new sal_uInt8[ nBufSize ];
-                    sal_uInt8* pTmp = pBuf;
-                    for ( sal_Int32 i = 0; i < aControlName.getLength(); i++ )
-                    {
-                        sal_Unicode nUnicode = aControlName[i];
-                        *pTmp++ = static_cast<sal_uInt8>(nUnicode);
-                        *pTmp++ = static_cast<sal_uInt8>( nUnicode >> 8 );
-                    }
-                    *pTmp++ = 0;
-                    *pTmp = 0;
-                    aPropOpt.AddOpt( ESCHER_Prop_wzName, true, nBufSize, pBuf, nBufSize );
+                    aPropOpt.AddOpt(ESCHER_Prop_wzName, aControlName);
                 }
             }
             else if ( mType == "drawing.Connector" )
@@ -3118,7 +3128,6 @@ void PPTWriter::ImplCreateTable( uno::Reference< drawing::XShape > const & rXSha
             EscherPropertyContainer aPropOpt2;
 
             SvMemoryStream aMemStrm;
-            aMemStrm.ObjectOwnsMemory( false );
             aMemStrm.WriteUInt16( nRowCount )
                     .WriteUInt16( nRowCount )
                     .WriteUInt16( 4 );
@@ -3129,7 +3138,7 @@ void PPTWriter::ImplCreateTable( uno::Reference< drawing::XShape > const & rXSha
 
             aPropOpt.AddOpt( ESCHER_Prop_LockAgainstGrouping, 0x1000100 );
             aPropOpt2.AddOpt( ESCHER_Prop_tableProperties, 1 );
-            aPropOpt2.AddOpt( ESCHER_Prop_tableRowProperties, true, aMemStrm.Tell(), static_cast< sal_uInt8* >( const_cast< void* >( aMemStrm.GetData() ) ), aMemStrm.Tell() );
+            aPropOpt2.AddOpt(ESCHER_Prop_tableRowProperties, true, 0, aMemStrm);
             aPropOpt.CreateShapeProperties( rXShape );
             aPropOpt.Commit( *mpStrm );
             aPropOpt2.Commit( *mpStrm, 3, ESCHER_UDefProp );

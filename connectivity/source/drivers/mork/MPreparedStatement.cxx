@@ -12,6 +12,7 @@
 #include "MResultSetMetaData.hxx"
 #include <connectivity/dbtools.hxx>
 #include <com/sun/star/sdbc/ColumnValue.hpp>
+#include <sal/log.hxx>
 
 using namespace ::comphelper;
 using namespace connectivity;
@@ -429,7 +430,7 @@ void OPreparedStatement::describeColumn(OSQLParseNode const * _pParameter,
 void OPreparedStatement::describeParameter()
 {
     std::vector< OSQLParseNode*> aParseNodes;
-    scanParameter(m_pParseTree,aParseNodes);
+    scanParameter(m_pParseTree.get(), aParseNodes);
     if(!aParseNodes.empty())
     {
         m_xParamColumns = new OSQLColumns();

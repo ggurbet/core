@@ -49,10 +49,6 @@ OPredicateInterpreter::~OPredicateInterpreter()
 
 void OPredicateCompiler::Clean()
 {
-    for(OCodeList::reverse_iterator aIter = m_aCodeList.rbegin(); aIter != m_aCodeList.rend();++aIter)
-    {
-        delete *aIter;
-    }
     m_aCodeList.clear();
 }
 
@@ -61,7 +57,7 @@ void OSQLAnalyzer::bindParameterRow(OValueRefRow const & _pRow)
     OCodeList& rCodeList    = m_aCompiler->m_aCodeList;
     for (auto const& code : rCodeList)
     {
-        OOperandParam* pParam = dynamic_cast<OOperandParam*>(code);
+        OOperandParam* pParam = dynamic_cast<OOperandParam*>(code.get());
         if ( pParam )
             pParam->bindValue(_pRow);
     }
@@ -87,11 +83,11 @@ void OPreparedStatement::scanParameter(OSQLParseNode* pParseNode,std::vector< OS
         scanParameter(pParseNode->getChild(i),_rParaNodes);
 }
 
-OKeyValue* OResultSet::GetOrderbyKeyValue(OValueRefRow const & _rRow)
+std::unique_ptr<OKeyValue> OResultSet::GetOrderbyKeyValue(OValueRefRow const & _rRow)
 {
     sal_uInt32 nBookmarkValue = std::abs(static_cast<sal_Int32>((_rRow->get())[0]->getValue()));
 
-    OKeyValue* pKeyValue = OKeyValue::createKeyValue(nBookmarkValue);
+    std::unique_ptr<OKeyValue> pKeyValue = OKeyValue::createKeyValue(nBookmarkValue);
 
     for (auto const& elem : m_aOrderbyColumnNumber)
     {

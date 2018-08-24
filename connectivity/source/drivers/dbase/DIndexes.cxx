@@ -21,7 +21,6 @@
 #include <dbase/DIndex.hxx>
 #include <connectivity/dbexception.hxx>
 #include <unotools/ucbhelper.hxx>
-#include <comphelper/types.hxx>
 #include <strings.hrc>
 
 using namespace ::comphelper;
@@ -52,7 +51,7 @@ sdbcx::ObjectType ODbaseIndexes::createObject(const OUString& _rName)
     }
 
     sdbcx::ObjectType xRet;
-    SvStream* pFileStream = ::connectivity::file::OFileTable::createStream_simpleError(sFile, StreamMode::READ | StreamMode::NOCREATE | StreamMode::SHARE_DENYWRITE);
+    std::unique_ptr<SvStream> pFileStream = ::connectivity::file::OFileTable::createStream_simpleError(sFile, StreamMode::READ | StreamMode::NOCREATE | StreamMode::SHARE_DENYWRITE);
     if(pFileStream)
     {
         pFileStream->SetEndian(SvStreamEndian::LITTLE);
@@ -61,7 +60,7 @@ sdbcx::ObjectType ODbaseIndexes::createObject(const OUString& _rName)
 
         pFileStream->Seek(0);
         ReadHeader(*pFileStream, aHeader);
-        delete pFileStream;
+        pFileStream.reset();
 
         ODbaseIndex* pIndex = new ODbaseIndex(m_pTable,aHeader,_rName);
         xRet = pIndex;
@@ -96,8 +95,9 @@ sdbcx::ObjectType ODbaseIndexes::appendObject( const OUString& _rForName, const 
     if(xTunnel.is())
     {
         ODbaseIndex* pIndex = reinterpret_cast< ODbaseIndex* >( xTunnel->getSomething(ODbaseIndex::getUnoTunnelImplementationId()) );
-        if(!pIndex || !pIndex->CreateImpl())
+        if(!pIndex)
             throw SQLException();
+        pIndex->CreateImpl();
     }
 
     return createObject( _rForName );

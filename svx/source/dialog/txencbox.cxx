@@ -32,6 +32,7 @@
 #include <rtl/tencinfo.h>
 #include <rtl/locale.h>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <osl/nlsupport.h>
 #include <txenctab.hrc>
 
@@ -223,9 +224,10 @@ void SvxTextEncodingBox::SelectTextEncoding( const rtl_TextEncoding nEnc )
         SelectEntryPos( nAt );
 }
 
-TextEncodingBox::TextEncodingBox(weld::ComboBoxText* pControl)
-    : m_xControl(pControl)
+TextEncodingBox::TextEncodingBox(std::unique_ptr<weld::ComboBoxText> pControl)
+    : m_xControl(std::move(pControl))
 {
+    m_xControl->make_sorted();
 }
 
 TextEncodingBox::~TextEncodingBox()
@@ -233,67 +235,36 @@ TextEncodingBox::~TextEncodingBox()
 }
 
 void TextEncodingBox::FillFromTextEncodingTable(
-        bool bExcludeImportSubsets, sal_uInt32 nExcludeInfoFlags,
-        sal_uInt32 nButIncludeInfoFlags )
+        bool bExcludeImportSubsets )
 {
-    rtl_TextEncodingInfo aInfo;
-    aInfo.StructSize = sizeof(rtl_TextEncodingInfo);
+    m_xControl->freeze();
     const sal_uInt32 nCount = SAL_N_ELEMENTS(RID_SVXSTR_TEXTENCODING_TABLE);
     for (sal_uInt32 j = 0; j < nCount; ++j)
     {
         bool bInsert = true;
         rtl_TextEncoding nEnc = RID_SVXSTR_TEXTENCODING_TABLE[j].second;
-        if ( nExcludeInfoFlags )
+        if ( bExcludeImportSubsets )
         {
-            if ( !rtl_getTextEncodingInfo( nEnc, &aInfo ) )
-                bInsert = false;
-            else
+            switch ( nEnc )
             {
-                if ( (aInfo.Flags & nExcludeInfoFlags) == 0 )
-                {
-                    if ( (nExcludeInfoFlags & RTL_TEXTENCODING_INFO_UNICODE) &&
-                            ((nEnc == RTL_TEXTENCODING_UCS2) ||
-                            nEnc == RTL_TEXTENCODING_UCS4) )
-                        bInsert = false;    // InfoFlags don't work for Unicode :-(
-                }
-                else if ( (aInfo.Flags & nButIncludeInfoFlags) == 0 )
+                // subsets of RTL_TEXTENCODING_GB_18030
+                case RTL_TEXTENCODING_GB_2312 :
+                case RTL_TEXTENCODING_GBK :
+                case RTL_TEXTENCODING_MS_936 :
                     bInsert = false;
+                break;
             }
         }
         if ( bInsert )
-        {
-            if ( bExcludeImportSubsets )
-            {
-                switch ( nEnc )
-                {
-                    // subsets of RTL_TEXTENCODING_GB_18030
-                    case RTL_TEXTENCODING_GB_2312 :
-                    case RTL_TEXTENCODING_GBK :
-                    case RTL_TEXTENCODING_MS_936 :
-                        bInsert = false;
-                    break;
-                }
-            }
-            if ( bInsert )
-                InsertTextEncoding(nEnc, SvxResId(RID_SVXSTR_TEXTENCODING_TABLE[j].first));
-        }
+            InsertTextEncoding(nEnc, SvxResId(RID_SVXSTR_TEXTENCODING_TABLE[j].first));
     }
+    m_xControl->thaw();
 }
-
 
 void TextEncodingBox::InsertTextEncoding( const rtl_TextEncoding nEnc,
             const OUString& rEntry )
 {
     m_xControl->append(OUString::number(nEnc), rEntry);
-}
-
-void TextEncodingBox::InsertTextEncoding( const rtl_TextEncoding nEnc )
-{
-    const OUString& rEntry = SvxTextEncodingTable::GetTextString(nEnc);
-    if (!rEntry.isEmpty())
-        InsertTextEncoding( nEnc, rEntry );
-    else
-        SAL_WARN( "svx.dialog", "TextEncodingBox::InsertTextEncoding: no resource string for text encoding: " << static_cast<sal_Int32>( nEnc ) );
 }
 
 rtl_TextEncoding TextEncodingBox::GetSelectTextEncoding() const

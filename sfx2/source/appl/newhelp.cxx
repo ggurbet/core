@@ -30,6 +30,7 @@
 #include <srchdlg.hxx>
 #include <sfx2/sfxhelp.hxx>
 #include <svtools/treelistentry.hxx>
+#include <sal/log.hxx>
 
 #include <sfx2/strings.hrc>
 #include <helpids.h>
@@ -198,7 +199,7 @@ namespace sfx2
     OUString PrepareSearchString( const OUString& rSearchString,
                                 const Reference< XBreakIterator >& xBreak, bool bForSearch )
     {
-        OUString sSearchStr;
+        OUStringBuffer sSearchStr;
         sal_Int32 nStartPos = 0;
         const lang::Locale aLocale = Application::GetSettings().GetUILanguageTag().getLocale();
         Boundary aBoundary = xBreak->getWordBoundary(
@@ -220,18 +221,18 @@ namespace sfx2
                     if ( !sSearchStr.isEmpty() )
                     {
                         if ( bForSearch )
-                            sSearchStr += " ";
+                            sSearchStr.append(" ");
                         else
-                            sSearchStr += "|";
+                            sSearchStr.append("|");
                     }
-                    sSearchStr += sSearchToken;
+                    sSearchStr.append(sSearchToken);
                 }
             }
             aBoundary = xBreak->nextWord( rSearchString, nStartPos,
                                           aLocale, WordType::ANYWORD_IGNOREWHITESPACES );
         }
 
-        return sSearchStr;
+        return sSearchStr.makeStringAndClear();
     }
 
 // namespace sfx2
@@ -336,7 +337,7 @@ void ContentListBox_Impl::ClearChildren( SvTreeListEntry* pParent )
     {
         ClearChildren( pEntry );
         delete static_cast<ContentEntry_Impl*>(pEntry->GetUserData());
-        pEntry = NextSibling( pEntry );
+        pEntry = pEntry->NextSibling();
     }
 }
 
@@ -928,16 +929,17 @@ SearchTabPage_Impl::SearchTabPage_Impl(vcl::Window* pParent, SfxHelpIndexWindow_
         Any aUserItem = aViewOpt.GetUserItem( USERITEM_NAME );
         if ( aUserItem >>= aUserData )
         {
-            bool bChecked = aUserData.getToken(0, ';').toInt32() == 1;
+            sal_Int32 nIdx {0};
+            bool bChecked = aUserData.getToken(0, ';', nIdx).toInt32() == 1;
             m_pFullWordsCB->Check( bChecked );
-            bChecked = aUserData.getToken(1, ';').toInt32() == 1;
+            bChecked = aUserData.getToken(0, ';', nIdx).toInt32() == 1;
             m_pScopeCB->Check( bChecked );
 
-            for ( sal_Int32 i = 2; i < comphelper::string::getTokenCount(aUserData, ';'); ++i )
+            while ( nIdx > 0 )
             {
-                OUString aToken = aUserData.getToken(i, ';');
                 m_pSearchED->InsertEntry( INetURLObject::decode(
-                    aToken, INetURLObject::DecodeMechanism::WithCharset ) );
+                    aUserData.getToken(0, ';', nIdx),
+                    INetURLObject::DecodeMechanism::WithCharset ) );
             }
         }
     }
@@ -953,25 +955,21 @@ SearchTabPage_Impl::~SearchTabPage_Impl()
 void SearchTabPage_Impl::dispose()
 {
     SvtViewOptions aViewOpt( EViewType::TabPage, CONFIGNAME_SEARCHPAGE );
-    sal_Int32 nChecked = m_pFullWordsCB->IsChecked() ? 1 : 0;
-    OUString aUserData = OUString::number( nChecked );
-    aUserData += ";";
-    nChecked = m_pScopeCB->IsChecked() ? 1 : 0;
-    aUserData += OUString::number( nChecked );
-    aUserData += ";";
+    OUStringBuffer aUserData;
+    aUserData.append(OUString::number( m_pFullWordsCB->IsChecked() ? 1 : 0 ))
+        .append(";")
+        .append(OUString::number( m_pScopeCB->IsChecked() ? 1 : 0 ));
     sal_Int32 nCount = std::min( m_pSearchED->GetEntryCount(), sal_Int32(10) );  // save only 10 entries
 
     for ( sal_Int32 i = 0; i < nCount; ++i )
     {
-        OUString aText = m_pSearchED->GetEntry(i);
-        aUserData += INetURLObject::encode(
-            aText, INetURLObject::PART_UNO_PARAM_VALUE,
-            INetURLObject::EncodeMechanism::All );
-        aUserData += ";";
+        aUserData.append(";").append(INetURLObject::encode(
+            m_pSearchED->GetEntry(i),
+            INetURLObject::PART_UNO_PARAM_VALUE,
+            INetURLObject::EncodeMechanism::All ));
     }
 
-    aUserData = comphelper::string::stripEnd(aUserData, ';');
-    Any aUserItem = makeAny( aUserData );
+    Any aUserItem = makeAny( aUserData.makeStringAndClear() );
     aViewOpt.SetUserItem( USERITEM_NAME, aUserItem );
 
     m_pSearchED.clear();
@@ -1427,11 +1425,11 @@ SfxHelpIndexWindow_Impl::SfxHelpIndexWindow_Impl(SfxHelpWindow_Impl* _pParent)
 
     m_pTabCtrl->SetActivatePageHdl( LINK( this, SfxHelpIndexWindow_Impl, ActivatePageHdl ) );
 
-    sal_Int32 nPageId = m_pTabCtrl->GetPageId("index");
+    OString sPageId("index");
     SvtViewOptions aViewOpt( EViewType::TabDialog, CONFIGNAME_INDEXWIN );
     if ( aViewOpt.Exists() )
-        nPageId = aViewOpt.GetPageID();
-    m_pTabCtrl->SetCurPageId( static_cast<sal_uInt16>(nPageId) );
+        sPageId = aViewOpt.GetPageID();
+    m_pTabCtrl->SetCurPageId(m_pTabCtrl->GetPageId(sPageId));
     ActivatePageHdl( m_pTabCtrl );
     m_pActiveLB->SetSelectHdl( LINK( this, SfxHelpIndexWindow_Impl, SelectHdl ) );
 
@@ -1460,7 +1458,7 @@ void SfxHelpIndexWindow_Impl::dispose()
         delete static_cast<OUString*>(m_pActiveLB->GetEntryData(i));
 
     SvtViewOptions aViewOpt( EViewType::TabDialog, CONFIGNAME_INDEXWIN );
-    aViewOpt.SetPageID( static_cast<sal_Int32>(m_pTabCtrl->GetCurPageId()) );
+    aViewOpt.SetPageID(m_pTabCtrl->GetPageName(m_pTabCtrl->GetCurPageId()));
 
     disposeBuilder();
     m_pActiveLB.clear();

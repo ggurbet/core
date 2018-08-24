@@ -152,9 +152,9 @@ void SvxGrfCropPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxGrfCropPage::Create(vcl::Window *pParent, const SfxItemSet *rSet)
+VclPtr<SfxTabPage> SvxGrfCropPage::Create(TabPageParent pParent, const SfxItemSet *rSet)
 {
-    return VclPtr<SvxGrfCropPage>::Create( pParent, *rSet );
+    return VclPtr<SvxGrfCropPage>::Create( pParent.pParent, *rSet );
 }
 
 void SvxGrfCropPage::Reset( const SfxItemSet *rSet )
@@ -236,8 +236,7 @@ void SvxGrfCropPage::Reset( const SfxItemSet *rSet )
             aOrigSize = GetGrfOrigSize( *pGrf );
             if (pGrf->GetType() == GraphicType::Bitmap && aOrigSize.Width() && aOrigSize.Height())
             {
-                Bitmap aBitmap = pGrf->GetBitmap();
-                aOrigPixelSize = aBitmap.GetSizePixel();
+                aOrigPixelSize = pGrf->GetSizePixel();
             }
 
             if( aOrigSize.Width() && aOrigSize.Height() )
@@ -386,8 +385,7 @@ void SvxGrfCropPage::ActivatePage(const SfxItemSet& rSet)
             m_pExampleWN->SetGraphic( *pGrf );
             aOrigSize = GetGrfOrigSize( *pGrf );
             if (pGrf->GetType() == GraphicType::Bitmap && aOrigSize.Width() > 1 && aOrigSize.Height() > 1) {
-                Bitmap aBitmap = pGrf->GetBitmap();
-                aOrigPixelSize = aBitmap.GetSizePixel();
+                aOrigPixelSize = pGrf->GetSizePixel();
             }
             m_pExampleWN->SetFrameSize(aOrigSize);
             GraphicHasChanged( aOrigSize.Width() && aOrigSize.Height() );
@@ -489,7 +487,7 @@ IMPL_LINK( SvxGrfCropPage, CropHdl, SpinField&, rField, void )
         long nLeft = lcl_GetValue( *m_pLeftMF, eUnit );
         long nRight = lcl_GetValue( *m_pRightMF, eUnit );
         long nWidthZoom = static_cast<long>(m_pWidthZoomMF->GetValue());
-        if(bZoom && ( ( ( aOrigSize.Width() - (nLeft + nRight )) * nWidthZoom )
+        if (bZoom && nWidthZoom != 0 && ( ( ( aOrigSize.Width() - (nLeft + nRight )) * nWidthZoom )
                             / 100 >= aPageSize.Width() ) )
         {
             if(&rField == m_pLeftMF)

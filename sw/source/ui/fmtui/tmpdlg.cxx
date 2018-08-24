@@ -19,6 +19,7 @@
 
 #include <hintids.hxx>
 
+#include <sal/log.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svx/hdft.hxx>
 #include <editeng/flstitem.hxx>
@@ -106,7 +107,6 @@ SwTemplateDlg::SwTemplateDlg(vcl::Window* pParent,
 {
     nHtmlMode = ::GetHtmlMode(pWrtShell->GetView().GetDocShell());
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
     // tinker TabPages together
     switch( nRegion )
     {
@@ -412,7 +412,7 @@ void SwTemplateDlg::PageCreated( sal_uInt16 nId, SfxTabPage &rPage )
             static_cast<SwParagraphNumTabPage&>(rPage).DisableOutline() ;
             static_cast<SwParagraphNumTabPage&>(rPage).DisableNumbering();
         }//<-end
-        ListBox & rBox = static_cast<SwParagraphNumTabPage&>(rPage).GetStyleBox();
+        weld::ComboBoxText& rBox = static_cast<SwParagraphNumTabPage&>(rPage).GetStyleBox();
         SfxStyleSheetBasePool* pPool = pWrtShell->GetView().GetDocShell()->GetStyleSheetPool();
         pPool->SetSearchMask(SfxStyleFamily::Pseudo);
         const SfxStyleSheetBase* pBase = pPool->First();
@@ -423,7 +423,7 @@ void SwTemplateDlg::PageCreated( sal_uInt16 nId, SfxTabPage &rPage )
             pBase = pPool->Next();
         }
         for(std::set<OUString>::const_iterator it = aNames.begin(); it != aNames.end(); ++it)
-            rBox.InsertEntry(*it);
+            rBox.append_text(*it);
     }
     else if (nId == m_nAlignId)
     {

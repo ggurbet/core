@@ -83,20 +83,19 @@ Sequence< OUString > SAL_CALL PDFDialog::getSupportedServiceNames()
     return PDFDialog_getSupportedServiceNames();
 }
 
-svt::OGenericUnoDialog::Dialog PDFDialog::createDialog( vcl::Window* pParent )
+svt::OGenericUnoDialog::Dialog PDFDialog::createDialog(vcl::Window* pParent)
 {
     if( mxSrcDoc.is() )
-        return svt::OGenericUnoDialog::Dialog(VclPtr<ImpPDFTabDialog>::Create(pParent, maFilterData, mxSrcDoc));
-    return svt::OGenericUnoDialog::Dialog(VclPtr<::Dialog>());
+        return svt::OGenericUnoDialog::Dialog(o3tl::make_unique<ImpPDFTabDialog>(pParent ? pParent->GetFrameWeld() : nullptr, maFilterData, mxSrcDoc));
+    return svt::OGenericUnoDialog::Dialog();
 }
 
 void PDFDialog::executedDialog( sal_Int16 nExecutionResult )
 {
     if (nExecutionResult && m_aDialog)
-        maFilterData = static_cast< ImpPDFTabDialog* >( m_aDialog.m_xVclDialog.get() )->GetFilterData();
+        maFilterData = static_cast<ImpPDFTabDialog*>(m_aDialog.m_xWeldDialog.get())->GetFilterData();
     destroyDialog();
 }
-
 
 Reference< XPropertySetInfo > SAL_CALL PDFDialog::getPropertySetInfo()
 {
@@ -104,12 +103,10 @@ Reference< XPropertySetInfo > SAL_CALL PDFDialog::getPropertySetInfo()
     return xInfo;
 }
 
-
 ::cppu::IPropertyArrayHelper& PDFDialog::getInfoHelper()
 {
     return *getArrayHelper();
 }
-
 
 ::cppu::IPropertyArrayHelper* PDFDialog::createArrayHelper() const
 {

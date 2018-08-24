@@ -46,7 +46,7 @@ class SW_DLLPUBLIC SwOLEObj
     // eventually buffered data if it is a chart OLE
     drawinglayer::primitive2d::Primitive2DContainer     m_aPrimitive2DSequence;
     basegfx::B2DRange                                   m_aRange;
-    class DeflateData*                                  m_pDeflateData;
+    std::unique_ptr<DeflateData>                        m_pDeflateData;
 
     SwOLEObj( const SwOLEObj& rObj ) = delete;
 
@@ -149,6 +149,10 @@ public:
 
     const OUString& GetChartTableName() const { return msChartTableName; }
     void SetChartTableName( const OUString& rNm ) { msChartTableName = rNm; }
+
+
+    // react on visual change (invalidate)
+    void SetChanged();
 };
 
 /// Inline methods from Node.hxx

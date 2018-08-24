@@ -24,7 +24,6 @@
 #include <tools/helpers.hxx>
 #include <sot/formats.hxx>
 #include <sot/storage.hxx>
-#include <comphelper/storagehelper.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/localfilehelper.hxx>
 #include <svl/style.hxx>
@@ -36,7 +35,7 @@
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/docfile.hxx>
 #include <svx/svdetc.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/svdpool.hxx>
 #include <svx/svdmodel.hxx>
@@ -63,156 +62,34 @@
 #include <drawinglayer/primitive2d/objectinfoprimitive2d.hxx>
 #include <memory>
 #include <vcl/GraphicLoader.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::io;
 
-const Graphic ImpLoadLinkedGraphic( const OUString& aFileName, const OUString& aReferer, const OUString& aFilterName )
-{
-    Graphic aGraphic;
-
-    SfxMedium aMed( aFileName, aReferer, StreamMode::STD_READ );
-    aMed.Download();
-
-    SvStream* pInStrm = aMed.GetInStream();
-    if ( pInStrm )
-    {
-        pInStrm->Seek( STREAM_SEEK_TO_BEGIN );
-        GraphicFilter& rGF = GraphicFilter::GetGraphicFilter();
-
-        const sal_uInt16 nFilter = !aFilterName.isEmpty() && rGF.GetImportFormatCount()
-            ? rGF.GetImportFormatNumber( aFilterName )
-            : GRFILTER_FORMAT_DONTKNOW;
-
-        css::uno::Sequence< css::beans::PropertyValue > aFilterData( 1 );
-
-        // TODO: Room for improvement:
-        // As this is a linked graphic the GfxLink is not needed if saving/loading our own format.
-        // But this link is required by some filters to access the native graphic (PDF export/MS export),
-        // there we should create a new service to provide this data if needed
-        aFilterData[ 0 ].Name = "CreateNativeLink";
-        aFilterData[ 0 ].Value <<= true;
-
-        // #i123042# for e.g SVG the path is needed, so hand it over here. I have no real idea
-        // what consequences this may have; maybe this is not handed over by purpose here. Not
-        // handing it over means that any GraphicFormat that internally needs a path as base
-        // to interpret included links may fail.
-        // Alternatively the path may be set at the result after this call when it is known
-        // that it is a SVG graphic, but only because no one yet tried to interpret it.
-        rGF.ImportGraphic( aGraphic, aFileName, *pInStrm, nFilter, nullptr, GraphicFilterImportFlags::NONE, &aFilterData );
-    }
-    aGraphic.setOriginURL(aFileName);
-    return aGraphic;
-}
-
-class SdrGraphicUpdater;
 class SdrGraphicLink : public sfx2::SvBaseLink
 {
     SdrGrafObj&         rGrafObj;
-    SdrGraphicUpdater*  pGraphicUpdater;
 
 public:
     explicit            SdrGraphicLink(SdrGrafObj& rObj);
-    virtual             ~SdrGraphicLink() override;
 
     virtual void        Closed() override;
 
     virtual ::sfx2::SvBaseLink::UpdateResult DataChanged(
         const OUString& rMimeType, const css::uno::Any & rValue ) override;
-    void                DataChanged( const Graphic& rGraphic );
 
     void                Connect() { GetRealObject(); }
-    void                UpdateAsynchron();
-    void                RemoveGraphicUpdater();
 
     const OUString& getReferer() const { return rGrafObj.aReferer; }
 };
 
-class SdrGraphicUpdater : public ::osl::Thread
-{
-public:
-    SdrGraphicUpdater( const OUString& rFileName, const OUString& rFilterName, SdrGraphicLink& );
-
-    void Terminate();
-
-    bool GraphicLinkChanged( const OUString& rFileName ){ return maFileName != rFileName;    };
-
-protected:
-
-    /** is called from the inherited create method and acts as the
-        main function of this thread.
-    */
-    virtual void SAL_CALL run() override;
-
-    /** Called after the thread is terminated via the terminate
-        method.  Used to kill the thread by calling delete on this.
-    */
-    virtual void SAL_CALL onTerminated() override;
-
-private:
-
-    const OUString  maFileName;
-    const OUString  maFilterName;
-    SdrGraphicLink& mrGraphicLink;
-
-    volatile bool   mbIsTerminated;
-};
-
-SdrGraphicUpdater::SdrGraphicUpdater( const OUString& rFileName, const OUString& rFilterName, SdrGraphicLink& rGraphicLink )
-: maFileName( rFileName )
-, maFilterName( rFilterName )
-, mrGraphicLink( rGraphicLink )
-, mbIsTerminated( false )
-{
-    create();
-}
-
-void SdrGraphicUpdater::Terminate()
-{
-    mbIsTerminated = true;
-}
-
-void SAL_CALL SdrGraphicUpdater::onTerminated()
-{
-    delete this;
-}
-
-void SAL_CALL SdrGraphicUpdater::run()
-{
-    osl_setThreadName("SdrGraphicUpdater");
-
-    Graphic aGraphic( ImpLoadLinkedGraphic( maFileName, mrGraphicLink.getReferer(), maFilterName ) );
-    SolarMutexGuard aSolarGuard;
-    if ( !mbIsTerminated )
-    {
-        mrGraphicLink.DataChanged( aGraphic );
-        mrGraphicLink.RemoveGraphicUpdater();
-    }
-}
-
 SdrGraphicLink::SdrGraphicLink(SdrGrafObj& rObj)
 : ::sfx2::SvBaseLink( ::SfxLinkUpdateMode::ONCALL, SotClipboardFormatId::SVXB )
 , rGrafObj( rObj )
-, pGraphicUpdater( nullptr )
 {
     SetSynchron( false );
-}
-
-SdrGraphicLink::~SdrGraphicLink()
-{
-    if ( pGraphicUpdater )
-        pGraphicUpdater->Terminate();
-}
-
-void SdrGraphicLink::DataChanged( const Graphic& rGraphic )
-{
-    rGrafObj.ImpSetLinkedGraphic( rGraphic );
-}
-
-void SdrGraphicLink::RemoveGraphicUpdater()
-{
-    pGraphicUpdater = nullptr;
 }
 
 ::sfx2::SvBaseLink::UpdateResult SdrGraphicLink::DataChanged(
@@ -226,7 +103,7 @@ void SdrGraphicLink::RemoveGraphicUpdater()
         sfx2::LinkManager::GetDisplayNames( this, nullptr, &rGrafObj.aFileName, nullptr, &rGrafObj.aFilterName );
 
         Graphic aGraphic;
-        if( sfx2::LinkManager::GetGraphicFromAny( rMimeType, rValue, aGraphic ))
+        if (sfx2::LinkManager::GetGraphicFromAny(rMimeType, rValue, getReferer(), aGraphic))
         {
             rGrafObj.ImpSetLinkedGraphic(aGraphic);
         }
@@ -248,34 +125,17 @@ void SdrGraphicLink::Closed()
     SvBaseLink::Closed();
 }
 
-void SdrGraphicLink::UpdateAsynchron()
+std::unique_ptr<sdr::properties::BaseProperties> SdrGrafObj::CreateObjectSpecificProperties()
 {
-    if( GetObj() )
-    {
-        if ( pGraphicUpdater )
-        {
-            if ( pGraphicUpdater->GraphicLinkChanged( rGrafObj.GetFileName() ) )
-            {
-                pGraphicUpdater->Terminate();
-                pGraphicUpdater = new SdrGraphicUpdater( rGrafObj.GetFileName(), rGrafObj.GetFilterName(), *this );
-            }
-        }
-        else
-            pGraphicUpdater = new SdrGraphicUpdater( rGrafObj.GetFileName(), rGrafObj.GetFilterName(), *this );
-    }
-}
-
-sdr::properties::BaseProperties* SdrGrafObj::CreateObjectSpecificProperties()
-{
-    return new sdr::properties::GraphicProperties(*this);
+    return o3tl::make_unique<sdr::properties::GraphicProperties>(*this);
 }
 
 
 // DrawContact section
 
-sdr::contact::ViewContact* SdrGrafObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrGrafObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfGraphic(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfGraphic>(*this);
 }
 
 // check if SVG and if try to get ObjectInfoPrimitive2D and extract info
@@ -343,7 +203,6 @@ SdrGrafObj::SdrGrafObj(SdrModel& rSdrModel)
 
     // #i25616#
     mbLineIsOutsideGeometry = true;
-    mbInsidePaint = false;
 
     // #i25616#
     mbSupportTextIndentingOnLineWidthChange = false;
@@ -370,7 +229,6 @@ SdrGrafObj::SdrGrafObj(
 
     // #i25616#
     mbLineIsOutsideGeometry = true;
-    mbInsidePaint = false;
 
     // #i25616#
     mbSupportTextIndentingOnLineWidthChange = false;
@@ -396,7 +254,6 @@ SdrGrafObj::SdrGrafObj(
 
     // #i25616#
     mbLineIsOutsideGeometry = true;
-    mbInsidePaint = false;
 
     // #i25616#
     mbSupportTextIndentingOnLineWidthChange = false;
@@ -434,7 +291,7 @@ const GraphicObject* SdrGrafObj::GetReplacementGraphicObject() const
         {
             const_cast< SdrGrafObj* >(this)->mpReplacementGraphicObject.reset(new GraphicObject(rVectorGraphicDataPtr->getReplacement()));
         }
-        else if (mpGraphicObject->GetGraphic().getPdfData().hasElements() ||
+        else if (mpGraphicObject->GetGraphic().hasPdfData() ||
                  mpGraphicObject->GetGraphic().GetType() == GraphicType::GdiMetafile)
         {
             // Replacement graphic for PDF and metafiles is just the bitmap.
@@ -543,12 +400,6 @@ bool SdrGrafObj::IsAnimated() const
 bool SdrGrafObj::IsEPS() const
 {
     return mpGraphicObject->IsEPS();
-}
-
-// TODO Remove
-bool SdrGrafObj::IsSwappedOut() const
-{
-    return false;
 }
 
 MapMode SdrGrafObj::GetGrafPrefMapMode() const
@@ -691,23 +542,6 @@ sal_uInt16 SdrGrafObj::GetObjIdentifier() const
     return sal_uInt16( OBJ_GRAF );
 }
 
-/* The graphic of the GraphicLink will be loaded. If it is called with
-   bAsynchron = true then the graphic will be set later via DataChanged
-*/
-bool SdrGrafObj::ImpUpdateGraphicLink( bool bAsynchron ) const
-{
-    bool bRet = false;
-    if( pGraphicLink )
-    {
-        if ( bAsynchron )
-            pGraphicLink->UpdateAsynchron();
-        else
-            pGraphicLink->DataChanged( ImpLoadLinkedGraphic( aFileName, aReferer, aFilterName ) );
-        bRet = true;
-    }
-    return bRet;
-}
-
 void SdrGrafObj::ImpSetLinkedGraphic( const Graphic& rGraphic )
 {
     const bool bIsChanged(getSdrModelFromSdrObject().IsChanged());
@@ -732,17 +566,17 @@ OUString SdrGrafObj::TakeObjNameSingul() const
         {
         case VectorGraphicDataType::Wmf:
         {
-            sName.append(ImpGetResStr(STR_ObjNameSingulGRAFWMF));
+            sName.append(SvxResId(STR_ObjNameSingulGRAFWMF));
             break;
         }
         case VectorGraphicDataType::Emf:
         {
-            sName.append(ImpGetResStr(STR_ObjNameSingulGRAFEMF));
+            sName.append(SvxResId(STR_ObjNameSingulGRAFEMF));
             break;
         }
         default: // case VectorGraphicDataType::Svg:
         {
-            sName.append(ImpGetResStr(STR_ObjNameSingulGRAFSVG));
+            sName.append(SvxResId(STR_ObjNameSingulGRAFSVG));
             break;
         }
         }
@@ -757,20 +591,20 @@ OUString SdrGrafObj::TakeObjNameSingul() const
                                      ( IsLinkedGraphic() ? STR_ObjNameSingulGRAFBMPTRANSLNK : STR_ObjNameSingulGRAFBMPTRANS ) :
                                      ( IsLinkedGraphic() ? STR_ObjNameSingulGRAFBMPLNK : STR_ObjNameSingulGRAFBMP ) );
 
-                sName.append(ImpGetResStr(pId));
+                sName.append(SvxResId(pId));
             }
             break;
 
             case GraphicType::GdiMetafile:
-                sName.append(ImpGetResStr(IsLinkedGraphic() ? STR_ObjNameSingulGRAFMTFLNK : STR_ObjNameSingulGRAFMTF));
+                sName.append(SvxResId(IsLinkedGraphic() ? STR_ObjNameSingulGRAFMTFLNK : STR_ObjNameSingulGRAFMTF));
             break;
 
             case GraphicType::NONE:
-                sName.append(ImpGetResStr(IsLinkedGraphic() ? STR_ObjNameSingulGRAFNONELNK : STR_ObjNameSingulGRAFNONE));
+                sName.append(SvxResId(IsLinkedGraphic() ? STR_ObjNameSingulGRAFNONELNK : STR_ObjNameSingulGRAFNONE));
             break;
 
             default:
-                sName.append(ImpGetResStr(IsLinkedGraphic() ? STR_ObjNameSingulGRAFLNK : STR_ObjNameSingulGRAF));
+                sName.append(SvxResId(IsLinkedGraphic() ? STR_ObjNameSingulGRAFLNK : STR_ObjNameSingulGRAF));
             break;
         }
     }
@@ -802,17 +636,17 @@ OUString SdrGrafObj::TakeObjNamePlural() const
         {
         case VectorGraphicDataType::Wmf:
         {
-            sName.append(ImpGetResStr(STR_ObjNamePluralGRAFWMF));
+            sName.append(SvxResId(STR_ObjNamePluralGRAFWMF));
             break;
         }
         case VectorGraphicDataType::Emf:
         {
-            sName.append(ImpGetResStr(STR_ObjNamePluralGRAFEMF));
+            sName.append(SvxResId(STR_ObjNamePluralGRAFEMF));
             break;
         }
         default: // case VectorGraphicDataType::Svg:
         {
-            sName.append(ImpGetResStr(STR_ObjNamePluralGRAFSVG));
+            sName.append(SvxResId(STR_ObjNamePluralGRAFSVG));
             break;
         }
         }
@@ -827,20 +661,20 @@ OUString SdrGrafObj::TakeObjNamePlural() const
                                      ( IsLinkedGraphic() ? STR_ObjNamePluralGRAFBMPTRANSLNK : STR_ObjNamePluralGRAFBMPTRANS ) :
                                      ( IsLinkedGraphic() ? STR_ObjNamePluralGRAFBMPLNK : STR_ObjNamePluralGRAFBMP ) );
 
-                sName.append(ImpGetResStr(pId));
+                sName.append(SvxResId(pId));
             }
             break;
 
             case GraphicType::GdiMetafile:
-                sName.append(ImpGetResStr(IsLinkedGraphic() ? STR_ObjNamePluralGRAFMTFLNK : STR_ObjNamePluralGRAFMTF));
+                sName.append(SvxResId(IsLinkedGraphic() ? STR_ObjNamePluralGRAFMTFLNK : STR_ObjNamePluralGRAFMTF));
             break;
 
             case GraphicType::NONE:
-                sName.append(ImpGetResStr(IsLinkedGraphic() ? STR_ObjNamePluralGRAFNONELNK : STR_ObjNamePluralGRAFNONE));
+                sName.append(SvxResId(IsLinkedGraphic() ? STR_ObjNamePluralGRAFNONELNK : STR_ObjNamePluralGRAFNONE));
             break;
 
             default:
-                sName.append(ImpGetResStr(IsLinkedGraphic() ? STR_ObjNamePluralGRAFLNK : STR_ObjNamePluralGRAF));
+                sName.append(SvxResId(IsLinkedGraphic() ? STR_ObjNamePluralGRAFLNK : STR_ObjNamePluralGRAF));
             break;
         }
     }
@@ -874,9 +708,9 @@ SdrObject* SdrGrafObj::getFullDragClone() const
     return pRetval;
 }
 
-SdrGrafObj* SdrGrafObj::Clone(SdrModel* pTargetModel) const
+SdrGrafObj* SdrGrafObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrGrafObj >(pTargetModel);
+    return CloneHelper< SdrGrafObj >(rTargetModel);
 }
 
 SdrGrafObj& SdrGrafObj::operator=( const SdrGrafObj& rObj )
@@ -885,7 +719,6 @@ SdrGrafObj& SdrGrafObj::operator=( const SdrGrafObj& rObj )
         return *this;
     SdrRectObj::operator=( rObj );
 
-    mpGraphicObject->SetGraphic( rObj.GetGraphic(), &rObj.GetGraphicObject() );
     aFileName = rObj.aFileName;
     aFilterName = rObj.aFilterName;
     bMirrored = rObj.bMirrored;
@@ -899,6 +732,10 @@ SdrGrafObj& SdrGrafObj::operator=( const SdrGrafObj& rObj )
     mbIsSignatureLineShowSignDate = rObj.mbIsSignatureLineShowSignDate;
     mbIsSignatureLineCanAddComment = rObj.mbIsSignatureLineCanAddComment;
     mpSignatureLineUnsignedGraphic = rObj.mpSignatureLineUnsignedGraphic;
+    if (mbIsSignatureLine && rObj.mpSignatureLineUnsignedGraphic)
+        mpGraphicObject->SetGraphic(rObj.mpSignatureLineUnsignedGraphic);
+    else
+        mpGraphicObject->SetGraphic( rObj.GetGraphic(), &rObj.GetGraphicObject() );
 
     if( rObj.IsLinkedGraphic() )
     {
@@ -907,32 +744,6 @@ SdrGrafObj& SdrGrafObj::operator=( const SdrGrafObj& rObj )
 
     ImpSetAttrToGrafInfo();
     return *this;
-}
-
-basegfx::B2DPolyPolygon SdrGrafObj::TakeXorPoly() const
-{
-    if(mbInsidePaint)
-    {
-        basegfx::B2DPolyPolygon aRetval;
-
-        // take grown rectangle
-        const sal_Int32 nHalfLineWidth(ImpGetLineWdt() / 2);
-        const tools::Rectangle aGrownRect(
-            maRect.Left() - nHalfLineWidth,
-            maRect.Top() - nHalfLineWidth,
-            maRect.Right() + nHalfLineWidth,
-            maRect.Bottom() + nHalfLineWidth);
-
-        XPolygon aXPoly(ImpCalcXPoly(aGrownRect, GetEckenradius()));
-        aRetval.append(aXPoly.getB2DPolygon());
-
-        return aRetval;
-    }
-    else
-    {
-        // call parent
-        return SdrRectObj::TakeXorPoly();
-    }
 }
 
 sal_uInt32 SdrGrafObj::GetHdlCount() const
@@ -981,10 +792,10 @@ void SdrGrafObj::RestGeoData(const SdrObjGeoData& rGeo)
     bMirrored=rGGeo.bMirrored;
 }
 
-void SdrGrafObj::SetPage( SdrPage* pNewPage )
+void SdrGrafObj::handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage)
 {
-    bool bRemove = pNewPage == nullptr && pPage != nullptr;
-    bool bInsert = pNewPage != nullptr && pPage == nullptr;
+    const bool bRemove(pNewPage == nullptr && pOldPage != nullptr);
+    const bool bInsert(pNewPage != nullptr && pOldPage == nullptr);
 
     if( bRemove )
     {
@@ -996,30 +807,13 @@ void SdrGrafObj::SetPage( SdrPage* pNewPage )
             ImpDeregisterLink();
     }
 
-    if(!GetStyleSheet() && pNewPage)
-    {
-        // #i119287# Set default StyleSheet for SdrGrafObj here, it is different from 'Default'. This
-        // needs to be done before the style 'Default' is set from the :SetModel() call which is triggered
-        // from the following :SetPage().
-        // TTTT: Needs to be moved in branch aw080 due to having a SdrModel from the beginning, is at this
-        // place for convenience currently (works in both versions, is not in the way)
-        SfxStyleSheet* pSheet(pNewPage->getSdrModelFromSdrPage().GetDefaultStyleSheetForSdrGrafObjAndSdrOle2Obj());
-
-        if(pSheet)
-        {
-            SetStyleSheet(pSheet, false);
-        }
-        else
-        {
-            SetMergedItem(XFillStyleItem(drawing::FillStyle_NONE));
-            SetMergedItem(XLineStyleItem(drawing::LineStyle_NONE));
-        }
-    }
-
-    SdrRectObj::SetPage( pNewPage );
+    // call parent
+    SdrRectObj::handlePageChange(pOldPage, pNewPage);
 
     if (!aFileName.isEmpty() && bInsert)
+    {
         ImpRegisterLink();
+    }
 }
 
 void SdrGrafObj::StartAnimation()
@@ -1082,6 +876,21 @@ GDIMetaFile SdrGrafObj::GetMetaFile(GraphicType &rGraphicType) const
         return GetTransformedGraphic(SdrGrafObjTransformsAttrs::COLOR|SdrGrafObjTransformsAttrs::MIRROR).GetGDIMetaFile();
     }
     return GDIMetaFile();
+}
+
+bool SdrGrafObj::isEmbeddedPdfData() const
+{
+   return mpGraphicObject->GetGraphic().hasPdfData();
+}
+
+std::shared_ptr<uno::Sequence<sal_Int8>> const & SdrGrafObj::getEmbeddedPdfData() const
+{
+   return mpGraphicObject->GetGraphic().getPdfData();
+}
+
+sal_Int32 SdrGrafObj::getEmbeddedPageNumber() const
+{
+   return mpGraphicObject->GetGraphic().getPageNumber();
 }
 
 SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
@@ -1148,7 +957,9 @@ SdrObject* SdrGrafObj::DoConvertToPolyObj(bool bBezier, bool bAddText ) const
             }
             else
             {
-                delete pGrp;
+                // always use SdrObject::Free(...) for SdrObjects (!)
+                SdrObject* pTemp(pGrp);
+                SdrObject::Free(pTemp);
             }
 
             // #i118485# convert line and fill

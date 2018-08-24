@@ -593,10 +593,7 @@ void SwTableShell::Execute(SfxRequest &rReq)
             setSvxBrushItemAsFillAttributesToTargetSet(aBrush, aCoreSet);
 
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
             VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwTableTabDlg(GetView().GetWindow(), &aCoreSet, &rSh));
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
 
             if (pDlg)
             {
@@ -680,32 +677,27 @@ void SwTableShell::Execute(SfxRequest &rReq)
                                     sCurText, SID_ATTR_NUMBERFORMAT_INFO ));
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                assert(pFact && "SwAbstractDialogFactory fail!");
                 ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateNumFormatDialog(GetView().GetWindow(), aCoreSet));
-                assert(pDlg && "Dialog creation failed!");
 
                 if (RET_OK == pDlg->Execute())
                 {
-                    const SfxPoolItem* pNumberFormatItem = GetView().GetDocShell()->
-                                    GetItem( SID_ATTR_NUMBERFORMAT_INFO );
+                    const SvxNumberInfoItem* pNumberFormatItem
+                        = GetView().GetDocShell()->GetItem( SID_ATTR_NUMBERFORMAT_INFO );
 
-                    if( pNumberFormatItem && 0 != static_cast<const SvxNumberInfoItem*>(pNumberFormatItem)->GetDelCount() )
+                    if( pNumberFormatItem )
                     {
-                        const sal_uInt32* pDelArr = static_cast<const SvxNumberInfoItem*>(
-                                                        pNumberFormatItem)->GetDelArray();
-
-                        for ( sal_uInt32 i = 0; i < static_cast<const SvxNumberInfoItem*>(pNumberFormatItem)->GetDelCount(); i++ )
-                            static_cast<const SvxNumberInfoItem*>(pNumberFormatItem)->
-                            GetNumberFormatter()->DeleteEntry( pDelArr[i] );
+                        for ( sal_uInt32 key : pNumberFormatItem->GetDelFormats() )
+                            pNumberFormatItem->GetNumberFormatter()->DeleteEntry( key );
                     }
 
+                    const SfxPoolItem* pNumberFormatValueItem = nullptr;
                     if( SfxItemState::SET == pDlg->GetOutputItemSet()->GetItemState(
-                        SID_ATTR_NUMBERFORMAT_VALUE, false, &pNumberFormatItem ))
+                        SID_ATTR_NUMBERFORMAT_VALUE, false, &pNumberFormatValueItem ))
                     {
                         SfxItemSet aBoxFormatSet( *aCoreSet.GetPool(),
                                     svl::Items<RES_BOXATR_FORMAT, RES_BOXATR_FORMAT>{} );
                         aBoxFormatSet.Put( SwTableBoxNumFormat(
-                                static_cast<const SfxUInt32Item*>(pNumberFormatItem)->GetValue() ));
+                                static_cast<const SfxUInt32Item*>(pNumberFormatValueItem)->GetValue() ));
                         rSh.SetTableBoxFormulaAttrs( aBoxFormatSet );
 
                     }
@@ -828,19 +820,14 @@ void SwTableShell::Execute(SfxRequest &rReq)
         case SID_AUTOFORMAT:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
             ScopedVclPtr<AbstractSwAutoFormatDlg> pDlg(pFact->CreateSwAutoFormatDlg(GetView().GetFrameWeld(), &rSh));
-            OSL_ENSURE(pDlg, "Dialog creation failed!");
             pDlg->Execute();
             break;
         }
         case FN_TABLE_SET_ROW_HEIGHT:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            assert(pFact && "SwAbstractDialogFactory fail!");
             ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSwTableHeightDialog(GetView().GetFrameWeld(), rSh));
-            assert(pDlg && "Dialog creation failed!");
             pDlg->Execute();
             break;
         }
@@ -952,10 +939,9 @@ void SwTableShell::Execute(SfxRequest &rReq)
             if ( FN_TABLE_INSERT_ROW_DLG != nSlot || !rSh.IsInRepeatedHeadline())
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                ScopedVclPtr<SvxAbstractInsRowColDlg> pDlg(pFact ? pFact->CreateSvxInsRowColDlg(GetView().GetFrameWeld(),
-                                                                                                nSlot == FN_TABLE_INSERT_COL_DLG, pSlot->GetCommand() ) : nullptr);
-
-                if( pDlg.get() && (pDlg->Execute() == 1) )
+                ScopedVclPtr<SvxAbstractInsRowColDlg> pDlg(pFact->CreateSvxInsRowColDlg(GetView().GetFrameWeld(),
+                                                                                        nSlot == FN_TABLE_INSERT_COL_DLG, pSlot->GetCommand()));
+                if( pDlg->Execute() == 1 )
                 {
                     const sal_uInt16 nDispatchSlot = (nSlot == FN_TABLE_INSERT_COL_DLG)
                         ? FN_TABLE_INSERT_COL_AFTER : FN_TABLE_INSERT_ROW_AFTER;
@@ -989,19 +975,16 @@ void SwTableShell::Execute(SfxRequest &rReq)
             else
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if( pFact )
+                const long nMaxVert = rSh.GetAnyCurRect( CurRectType::Frame ).Width() / MINLAY;
+                ScopedVclPtr<SvxAbstractSplitTableDialog> pDlg(pFact->CreateSvxSplitTableDialog(GetView().GetFrameWeld(), rSh.IsTableVertical(), nMaxVert));
+                if( pDlg->Execute() == RET_OK )
                 {
-                    const long nMaxVert = rSh.GetAnyCurRect( CurRectType::Frame ).Width() / MINLAY;
-                    ScopedVclPtr<SvxAbstractSplitTableDialog> pDlg(pFact->CreateSvxSplitTableDialog(GetView().GetFrameWeld(), rSh.IsTableVertical(), nMaxVert));
-                    if( pDlg && (pDlg->Execute() == RET_OK) )
-                    {
-                        nCount = pDlg->GetCount();
-                        bHorizontal = pDlg->IsHorizontal();
-                        bProportional = pDlg->IsProportional();
-                        rReq.AppendItem( SfxInt32Item( FN_TABLE_SPLIT_CELLS, nCount ) );
-                        rReq.AppendItem( SfxBoolItem( FN_PARAM_1, bHorizontal ) );
-                        rReq.AppendItem( SfxBoolItem( FN_PARAM_2, bProportional ) );
-                    }
+                    nCount = pDlg->GetCount();
+                    bHorizontal = pDlg->IsHorizontal();
+                    bProportional = pDlg->IsProportional();
+                    rReq.AppendItem( SfxInt32Item( FN_TABLE_SPLIT_CELLS, nCount ) );
+                    rReq.AppendItem( SfxBoolItem( FN_PARAM_1, bHorizontal ) );
+                    rReq.AppendItem( SfxBoolItem( FN_PARAM_2, bProportional ) );
                 }
             }
 
@@ -1035,10 +1018,7 @@ void SwTableShell::Execute(SfxRequest &rReq)
             else
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
-
                 ScopedVclPtr<AbstractSplitTableDialog> pDlg(pFact->CreateSplitTableDialog(GetView().GetFrameWeld(), rSh));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
                 pDlg->Execute();
                 rReq.AppendItem( SfxUInt16Item( FN_PARAM_1, static_cast<sal_uInt16>(pDlg->GetSplitMode()) ) );
                 bCallDone = true;
@@ -1054,9 +1034,7 @@ void SwTableShell::Execute(SfxRequest &rReq)
             if( bPrev && bNext )
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
                 ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateTableMergeDialog(GetView().GetFrameWeld(), bPrev));
-                OSL_ENSURE(pDlg, "Dialog creation failed!");
                 if( RET_OK != pDlg->Execute())
                     bPrev = bNext = false;
             }

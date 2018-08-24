@@ -46,6 +46,7 @@
 
 #include <sc.hrc>
 #include <globstr.hrc>
+#include <scresid.hxx>
 
 #include <attrib.hxx>
 #include <autoform.hxx>
@@ -949,7 +950,7 @@ void ScViewFunc::SetPrintRanges( bool bEntireSheet, const OUString* pPrint,
     SCTAB nTab;
     bool bUndo (rDoc.IsUndoEnabled());
 
-    ScPrintRangeSaver* pOldRanges = rDoc.CreatePrintRangeSaver();
+    std::unique_ptr<ScPrintRangeSaver> pOldRanges = rDoc.CreatePrintRangeSaver();
 
     ScAddress::Details aDetails(rDoc.GetAddressConvention(), 0, 0);
 
@@ -1029,12 +1030,12 @@ void ScViewFunc::SetPrintRanges( bool bEntireSheet, const OUString* pPrint,
     if (bUndo)
     {
         SCTAB nCurTab = GetViewData().GetTabNo();
-        ScPrintRangeSaver* pNewRanges = rDoc.CreatePrintRangeSaver();
+        std::unique_ptr<ScPrintRangeSaver> pNewRanges = rDoc.CreatePrintRangeSaver();
         pDocSh->GetUndoManager()->AddUndoAction(
-                    new ScUndoPrintRange( pDocSh, nCurTab, pOldRanges, pNewRanges ) );
+                    new ScUndoPrintRange( pDocSh, nCurTab, std::move(pOldRanges), std::move(pNewRanges) ) );
     }
     else
-        delete pOldRanges;
+        pOldRanges.reset();
 
     //  update page breaks
 
@@ -1148,12 +1149,13 @@ bool ScViewFunc::MergeCells( bool bApi, bool& rDoContents, bool bCenter )
         bool bShowDialog = officecfg::Office::Calc::Compatibility::MergeCells::ShowDialog::get();
         if (!bApi && bShowDialog)
         {
-            ScopedVclPtr<ScMergeCellsDialog> aBox( VclPtr<ScMergeCellsDialog>::Create( GetViewData().GetDialogParent() ) );
-            sal_uInt16 nRetVal = aBox->Execute();
+            vcl::Window* pWin = GetViewData().GetDialogParent();
+            ScMergeCellsDialog aBox(pWin ? pWin->GetFrameWeld() : nullptr);
+            sal_uInt16 nRetVal = aBox.run();
 
             if ( nRetVal == RET_OK )
             {
-                switch ( aBox->GetMergeCellsOption() )
+                switch (aBox.GetMergeCellsOption())
                 {
                     case MoveContentHiddenCells:
                         rDoContents = true;
@@ -1556,11 +1558,11 @@ void ScViewFunc::FillTab( InsertDeleteFlags nFlags, ScPasteFunc nFunction, bool 
     else
         aMarkRange = ScRange( GetViewData().GetCurX(), GetViewData().GetCurY(), nTab );
 
-    ScDocument* pUndoDoc = nullptr;
+    ScDocumentUniquePtr pUndoDoc;
 
     if (bUndo)
     {
-        pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+        pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
         pUndoDoc->InitUndo( &rDoc, nTab, nTab );
 
         ScMarkData::iterator itr = rMark.begin(), itrEnd = rMark.end();
@@ -1590,7 +1592,7 @@ void ScViewFunc::FillTab( InsertDeleteFlags nFlags, ScPasteFunc nFunction, bool 
             new ScUndoFillTable( pDocSh, rMark,
                                 aMarkRange.aStart.Col(), aMarkRange.aStart.Row(), nTab,
                                 aMarkRange.aEnd.Col(), aMarkRange.aEnd.Row(), nTab,
-                                pUndoDoc, bMulti, nTab, nFlags, nFunction, bSkipEmpty, bAsLink ) );
+                                std::move(pUndoDoc), bMulti, nTab, nFlags, nFunction, bSkipEmpty, bAsLink ) );
     }
 
     pDocSh->PostPaintGridAll();
@@ -1603,8 +1605,6 @@ void ScViewFunc::FillTab( InsertDeleteFlags nFlags, ScPasteFunc nFunction, bool 
     column when the lower-right corner of the selection is double-clicked.  It
     uses a left-adjoining non-empty column as a guide if such is available,
     otherwise a right-adjoining non-empty column is used.
-
-    @author Kohei Yoshida (kohei@openoffice.org)
 
     @return No return value
 
@@ -1841,7 +1841,7 @@ bool ScViewFunc::SearchAndReplace( const SvxSearchItem* pSearchItem,
                 GetViewData().GetDocShell()->GetUndoManager()->AddUndoAction(
                     new ScUndoReplace( GetViewData().GetDocShell(), *pUndoMark,
                                         nCol, nRow, nTab,
-                                        aUndoStr, pUndoDoc.release(), pSearchItem ) );
+                                        aUndoStr, std::move(pUndoDoc), pSearchItem ) );
             }
 
             if (nCommand == SvxSearchCmd::FIND_ALL || nCommand == SvxSearchCmd::REPLACE_ALL)
@@ -2082,24 +2082,24 @@ void ScViewFunc::Solve( const ScSolveParam& rParam )
 
         if ( bExact )
         {
-            aMsgStr += ScGlobal::GetRscString( STR_MSSG_SOLVE_0 );
+            aMsgStr += ScResId( STR_MSSG_SOLVE_0 );
             aMsgStr += aResStr;
-            aMsgStr += ScGlobal::GetRscString( STR_MSSG_SOLVE_1 );
+            aMsgStr += ScResId( STR_MSSG_SOLVE_1 );
         }
         else
         {
-            aMsgStr  = ScGlobal::GetRscString( STR_MSSG_SOLVE_2 );
-            aMsgStr += ScGlobal::GetRscString( STR_MSSG_SOLVE_3 );
+            aMsgStr  = ScResId( STR_MSSG_SOLVE_2 );
+            aMsgStr += ScResId( STR_MSSG_SOLVE_3 );
             aMsgStr += aResStr ;
-            aMsgStr += ScGlobal::GetRscString( STR_MSSG_SOLVE_4 );
+            aMsgStr += ScResId( STR_MSSG_SOLVE_4 );
         }
 
         vcl::Window* pWin = GetViewData().GetDialogParent();
         std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                   VclMessageType::Question, VclButtonsType::YesNo, aMsgStr));
-        xBox->set_title(ScGlobal::GetRscString(STR_MSSG_DOSUBTOTALS_0));
+        xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0));
         xBox->set_default_response(RET_NO);
-        if (xBox->run() == RET_NO)
+        if (xBox->run() == RET_YES)
             EnterValue( nDestCol, nDestRow, nDestTab, nSolveResult );
 
         GetViewData().GetViewShell()->UpdateInputHandler( true );

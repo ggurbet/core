@@ -307,8 +307,8 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
                 bPotentiallyAssignedTo = true;
                 break;
             }
-            child = parent;
-            parent = getParentStmt(parent);
+            // cannot be assigned to anymore
+            break;
         }
         else if (isa<CallExpr>(parent))
         {
@@ -387,7 +387,7 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
         report(
              DiagnosticsEngine::Warning,
              "oh dear, what can the matter be?",
-              memberExpr->getLocStart())
+              compat::getBeginLoc(memberExpr))
               << memberExpr->getSourceRange();
         parent->dump();
     }

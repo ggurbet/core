@@ -21,6 +21,7 @@
 #include "textund2.hxx"
 #include <strings.hrc>
 
+#include <sal/log.hxx>
 #include <vcl/texteng.hxx>
 #include <vcl/textview.hxx>
 #include <vcl/textdata.hxx>
@@ -135,11 +136,11 @@ void TextUndo::SetSelection( const TextSelection& rSel )
 }
 
 TextUndoDelPara::TextUndoDelPara( TextEngine* pTextEngine, TextNode* pNode, sal_uInt32 nPara )
-                    : TextUndo( pTextEngine )
+    : TextUndo( pTextEngine )
+    , mbDelObject( true)
+    , mnPara( nPara )
+    , mpNode( pNode )
 {
-    mpNode = pNode;
-    mnPara = nPara;
-    mbDelObject = true;
 }
 
 TextUndoDelPara::~TextUndoDelPara()
@@ -150,7 +151,7 @@ TextUndoDelPara::~TextUndoDelPara()
 
 void TextUndoDelPara::Undo()
 {
-    GetTextEngine()->InsertContent( mpNode, mnPara );
+    GetTextEngine()->InsertContent( std::unique_ptr<TextNode>(mpNode), mnPara );
     mbDelObject = false;    // belongs again to the engine
 
     if ( GetView() )
@@ -163,19 +164,20 @@ void TextUndoDelPara::Undo()
 void TextUndoDelPara::Redo()
 {
     // pNode is not valid anymore in case an Undo joined paragraphs
-    mpNode = GetDoc()->GetNodes()[ mnPara ];
+    mpNode = GetDoc()->GetNodes()[ mnPara ].get();
 
     GetTEParaPortions()->Remove( mnPara );
 
     // do not delete Node because of Undo!
-    GetDoc()->GetNodes().erase( ::std::find( GetDoc()->GetNodes().begin(), GetDoc()->GetNodes().end(), mpNode ) );
+    GetDoc()->GetNodes().erase( ::std::find_if( GetDoc()->GetNodes().begin(), GetDoc()->GetNodes().end(),
+                                                [&] (std::unique_ptr<TextNode> const & p) { return p.get() == mpNode; } ) );
     GetTextEngine()->ImpParagraphRemoved( mnPara );
 
     mbDelObject = true; // belongs again to the Undo
 
     const sal_uInt32 nParas = static_cast<sal_uInt32>(GetDoc()->GetNodes().size());
     const sal_uInt32 n = mnPara < nParas ? mnPara : nParas-1;
-    TextNode* pN = GetDoc()->GetNodes()[ n ];
+    TextNode* pN = GetDoc()->GetNodes()[ n ].get();
     TextPaM aPaM( n, pN->GetText().getLength() );
     SetSelection( aPaM );
 }
@@ -186,10 +188,10 @@ OUString TextUndoDelPara::GetComment () const
 }
 
 TextUndoConnectParas::TextUndoConnectParas( TextEngine* pTextEngine, sal_uInt32 nPara, sal_Int32 nPos )
-                    :   TextUndo( pTextEngine )
+    : TextUndo( pTextEngine )
+    , mnPara( nPara )
+    , mnSepPos( nPos )
 {
-    mnPara = nPara;
-    mnSepPos = nPos;
 }
 
 TextUndoConnectParas::~TextUndoConnectParas()
@@ -214,10 +216,10 @@ OUString TextUndoConnectParas::GetComment () const
 }
 
 TextUndoSplitPara::TextUndoSplitPara( TextEngine* pTextEngine, sal_uInt32 nPara, sal_Int32 nPos )
-                    : TextUndo( pTextEngine )
+    : TextUndo( pTextEngine )
+    , mnPara( nPara )
+    , mnSepPos ( nPos )
 {
-    mnPara = nPara;
-    mnSepPos = nPos;
 }
 
 TextUndoSplitPara::~TextUndoSplitPara()

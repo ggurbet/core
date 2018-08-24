@@ -43,6 +43,7 @@
 #include <vcl/builderfactory.hxx>
 
 #include <osl/mutex.hxx>
+#include <sal/log.hxx>
 
 #include <svtools/extensionlistbox.hxx>
 #include <svtools/restartdialog.hxx>
@@ -893,13 +894,10 @@ IMPL_LINK_NOARG(ExtMgrDialog, HandleOptionsBtn, Button*, void)
     {
         SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
 
-        if ( pFact )
-        {
-            OUString sExtensionId = m_pExtensionBox->GetEntryData( nActive )->m_xPackage->getIdentifier().Value;
-            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateOptionsDialog( this, sExtensionId ));
+        OUString sExtensionId = m_pExtensionBox->GetEntryData( nActive )->m_xPackage->getIdentifier().Value;
+        ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateOptionsDialog( this, sExtensionId ));
 
-            pDlg->Execute();
-        }
+        pDlg->Execute();
     }
 }
 
@@ -1028,19 +1026,15 @@ IMPL_STATIC_LINK(ExtMgrDialog, Restart, void*, pParent, void)
 
 bool ExtMgrDialog::Close()
 {
-    bool bRet = TheExtensionManager::queryTermination();
-    if ( bRet )
+    bool bRet = ModelessDialog::Close();
+    m_pManager->terminateDialog();
+    //only suggest restart if modified and this is the first close attempt
+    if (!m_bClosed && m_pManager->isModified())
     {
-        bRet = ModelessDialog::Close();
-        m_pManager->terminateDialog();
-        //only suggest restart if modified and this is the first close attempt
-        if (!m_bClosed && m_pManager->isModified())
-        {
-            m_pManager->clearModified();
-            Application::PostUserEvent(LINK(nullptr, ExtMgrDialog, Restart), m_xRestartParent);
-        }
-        m_bClosed = true;
+        m_pManager->clearModified();
+        Application::PostUserEvent(LINK(nullptr, ExtMgrDialog, Restart), m_xRestartParent);
     }
+    m_bClosed = true;
     return bRet;
 }
 

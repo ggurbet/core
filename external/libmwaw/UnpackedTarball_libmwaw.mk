@@ -37,8 +37,14 @@ $(eval $(call gb_UnpackedTarball_add_patches,libmwaw, \
 ))
 endif
 
-$(eval $(call gb_UnpackedTarball_add_patches,libmwaw, \
-    external/libmwaw/0001-fix-call-of-explicit-ctor.patch.1 \
+$(eval $(call gb_UnpackedTarball_add_patches,libmwaw,\
+	external/libmwaw/0001-ssize_t-is-not-std-type.patch.1 \
 ))
+
+ifeq ($(OS),ANDROID)
+$(eval $(call gb_UnpackedTarball_add_patches,libmwaw, \
+    external/libmwaw/libmwaw_android_arm.patch.1 \
+))
+endif
 
 # vim: set noet sw=4 ts=4:

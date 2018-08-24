@@ -31,6 +31,7 @@
 #include <svx/svxdllapi.h>
 #include <tools/date.hxx>
 #include <tools/time.hxx>
+#include <memory>
 
 class GalleryTheme;
 class SotStorageStream;
@@ -120,7 +121,6 @@ class GraphicFilter;
 class SVX_DLLPUBLIC GalleryProgress
 {
     css::uno::Reference< css::awt::XProgressBar > mxProgressBar;
-    GraphicFilter*                                                          mpFilter;
 
     public:
 
@@ -142,10 +142,9 @@ using TransferableHelper::CopyToClipboard;
     GalleryTheme*                   mpTheme;
     SgaObjKind                      meObjectKind;
     sal_uInt32                      mnObjectPos;
-    tools::SvRef<SotStorageStream>             mxModelStream;
-    GraphicObject*                  mpGraphicObject;
-    ImageMap*                       mpImageMap;
-    INetURLObject*                  mpURL;
+    tools::SvRef<SotStorageStream>  mxModelStream;
+    std::unique_ptr<GraphicObject>  mpGraphicObject;
+    std::unique_ptr<INetURLObject>  mpURL;
 
                                     GalleryTransferable( GalleryTheme* pTheme, sal_uInt32 nObjectPos, bool bLazy );
                                     virtual ~GalleryTransferable() override;

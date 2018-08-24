@@ -92,7 +92,6 @@
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/random.hxx>
-#include <comphelper/sequence.hxx>
 #include <utility>
 #include <xmloff/SchXMLSeriesHelper.hxx>
 #include "ColorPropertySet.hxx"
@@ -100,11 +99,13 @@
 #include <svl/zforlist.hxx>
 #include <svl/numuno.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <set>
 #include <unordered_set>
 
 #include <rtl/math.hxx>
+#include <o3tl/temporary.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -231,8 +232,7 @@ bool lcl_isSeriesAttachedToFirstAxis(
     {
         sal_Int32 nAxisIndex = 0;
         Reference< beans::XPropertySet > xProp( xDataSeries, uno::UNO_QUERY_THROW );
-        if( xProp.is() )
-            xProp->getPropertyValue("AttachedAxisIndex") >>= nAxisIndex;
+        xProp->getPropertyValue("AttachedAxisIndex") >>= nAxisIndex;
         bResult = (0==nAxisIndex);
     }
     catch( const uno::Exception & )
@@ -1039,6 +1039,12 @@ void ChartExport::exportTitle( const Reference< XShape >& xShape )
             XML_val, "0",
             FSEND);
 
+    // shape properties
+    if( xPropSet.is() )
+    {
+        exportShapeProps( xPropSet );
+    }
+
     pFS->endElement( FSNS( XML_c, XML_title ) );
 }
 
@@ -1172,7 +1178,7 @@ void ChartExport::exportPlotArea( const Reference< css::chart::XChartDocument >&
         Reference< beans::XPropertySet > xWallPropSet( xWallFloorSupplier->getWall(), uno::UNO_QUERY );
         if( xWallPropSet.is() )
         {
-            exportPlotAreaShapeProps( xWallPropSet );
+            exportShapeProps( xWallPropSet );
         }
     }
 
@@ -1239,7 +1245,7 @@ void ChartExport::exportManualLayout(const css::chart2::RelativePosition& rPos,
             x -= w;
         break;
         default:
-            SAL_WARN("oox", "unhandled alignment case for manual layout export");
+            SAL_WARN("oox", "unhandled alignment case for manual layout export " << static_cast<sal_uInt16>(rPos.Anchor));
     }
 
     pFS->singleElement(FSNS(XML_c, XML_x),
@@ -1260,18 +1266,6 @@ void ChartExport::exportManualLayout(const css::chart2::RelativePosition& rPos,
 
     pFS->endElement(FSNS(XML_c, XML_manualLayout));
     pFS->endElement(FSNS(XML_c, XML_layout));
-}
-
-void ChartExport::exportPlotAreaShapeProps( const Reference< XPropertySet >& xPropSet )
-{
-    FSHelperPtr pFS = GetFS();
-    pFS->startElement( FSNS( XML_c, XML_spPr ),
-            FSEND );
-
-    exportFill( xPropSet );
-    WriteOutline( xPropSet );
-
-    pFS->endElement( FSNS( XML_c, XML_spPr ) );
 }
 
 void ChartExport::exportFill( const Reference< XPropertySet >& xPropSet )
@@ -1504,9 +1498,24 @@ void ChartExport::exportBarChart( const Reference< chart2::XChartType >& xChartT
         if( aBarPositionSequence.getLength() )
         {
             sal_Int32 nOverlap = aBarPositionSequence[0];
-            pFS->singleElement( FSNS( XML_c, XML_overlap ),
+            // Stacked/Percent Bar/Column chart Overlap-workaround
+            // Export the Overlap value with 100% for stacked charts,
+            // because the default overlap value of the Bar/Column chart is 0% and
+            // LibreOffice do nothing with the overlap value in Stacked charts case,
+            // unlike the MS Office, which is interpreted differently.
+            if( ( mbStacked || mbPercent ) && nOverlap != 100 )
+            {
+                nOverlap = 100;
+                pFS->singleElement( FSNS( XML_c, XML_overlap ),
                     XML_val, I32S( nOverlap ),
                     FSEND );
+            }
+            else // Normal bar chart
+            {
+                pFS->singleElement( FSNS( XML_c, XML_overlap ),
+                    XML_val, I32S( nOverlap ),
+                    FSEND );
+            }
         }
     }
 
@@ -2313,24 +2322,38 @@ void ChartExport::exportShapeProps( const Reference< XPropertySet >& xPropSet )
     pFS->startElement( FSNS( XML_c, XML_spPr ),
             FSEND );
 
-    WriteFill( xPropSet );
+    exportFill( xPropSet );
     WriteOutline( xPropSet );
 
     pFS->endElement( FSNS( XML_c, XML_spPr ) );
 }
 
-void ChartExport::exportTextProps(const Reference<XPropertySet>& xPropSet, bool bAxis)
+void ChartExport::exportTextProps(const Reference<XPropertySet>& xPropSet)
 {
     FSHelperPtr pFS = GetFS();
     pFS->startElement(FSNS(XML_c, XML_txPr), FSEND);
 
     sal_Int32 nRotation = 0;
-    if (bAxis)
+    if (auto xServiceInfo = uno::Reference<lang::XServiceInfo>(xPropSet, uno::UNO_QUERY))
     {
-        double fTextRotation = 0;
-        uno::Any aAny = xPropSet->getPropertyValue("TextRotation");
-        if (aAny.hasValue() && (aAny >>= fTextRotation))
-            nRotation = fTextRotation * -600.0;
+        double fMultiplier = 0;
+        // We have at least two possible units of returned value: degrees (e.g., for data labels),
+        // and 100ths of degree (e.g., for axes labels). The latter is returned as an Any wrapping
+        // a sal_Int32 value (see WrappedTextRotationProperty::convertInnerToOuterValue), while
+        // the former is double. So we could test the contained type to decide which multiplier to
+        // use. But testing the service info should be more robust.
+        if (xServiceInfo->supportsService("com.sun.star.chart.ChartAxis"))
+            fMultiplier = -600.0;
+        else if (xServiceInfo->supportsService("com.sun.star.chart2.DataSeries"))
+            fMultiplier = -60000.0;
+
+        if (fMultiplier)
+        {
+            double fTextRotation = 0;
+            uno::Any aAny = xPropSet->getPropertyValue("TextRotation");
+            if (aAny.hasValue() && (aAny >>= fTextRotation))
+                nRotation = std::round(fTextRotation * fMultiplier);
+        }
     }
 
     if (nRotation)
@@ -2343,9 +2366,8 @@ void ChartExport::exportTextProps(const Reference<XPropertySet>& xPropSet, bool 
     pFS->startElement(FSNS(XML_a, XML_p), FSEND);
     pFS->startElement(FSNS(XML_a, XML_pPr), FSEND);
 
-    bool bOverrideCharHeight = false;
-    sal_Int32 nCharHeight;
-    WriteRunProperties(xPropSet, false, XML_defRPr, true, bOverrideCharHeight, nCharHeight);
+    WriteRunProperties(xPropSet, false, XML_defRPr, true, o3tl::temporary(false),
+                       o3tl::temporary(sal_Int32()));
 
     pFS->endElement(FSNS(XML_a, XML_pPr));
     pFS->endElement(FSNS(XML_a, XML_p));
@@ -2744,7 +2766,7 @@ void ChartExport::_exportAxis(
     // shape properties
     exportShapeProps( xAxisProp );
 
-    exportTextProps(xAxisProp, true);
+    exportTextProps(xAxisProp);
 
     pFS->singleElement( FSNS( XML_c, XML_crossAx ),
             XML_val, I32S( rAxisIdPair.nCrossAx ),
@@ -3180,10 +3202,12 @@ void ChartExport::exportDataLabels(
         // Individual label property that overwrites the baseline.
         pFS->startElement(FSNS(XML_c, XML_dLbl), FSEND);
         pFS->singleElement(FSNS(XML_c, XML_idx), XML_val, I32S(nIdx), FSEND);
+        exportTextProps( xPropSet );
         writeLabelProperties(pFS, this, xLabelPropSet, aParam);
         pFS->endElement(FSNS(XML_c, XML_dLbl));
     }
 
+    exportTextProps( xPropSet );
     // Baseline label properties for all labels.
     writeLabelProperties(pFS, this, xPropSet, aParam);
 
@@ -3268,6 +3292,57 @@ void ChartExport::exportDataPoints(
                     }
                     default:
                         break;
+                }
+                exportShapeProps( xPropSet );
+
+                pFS->endElement( FSNS( XML_c, XML_dPt ) );
+            }
+        }
+    }
+
+    // Export Data Point Property in Charts even if the VaryColors is false
+    if( !bVaryColorsByPoint )
+    {
+        ::std::set< sal_Int32 > aAttrPointSet;
+        ::std::copy( pPoints, pPoints + aDataPointSeq.getLength(),
+                    ::std::inserter( aAttrPointSet, aAttrPointSet.begin()));
+        const ::std::set< sal_Int32 >::const_iterator aEndIt( aAttrPointSet.end());
+        for( nElement = 0; nElement < nSeriesLength; ++nElement )
+        {
+            uno::Reference< beans::XPropertySet > xPropSet;
+            if( aAttrPointSet.find( nElement ) != aEndIt )
+            {
+                try
+                {
+                    xPropSet = SchXMLSeriesHelper::createOldAPIDataPointPropertySet(
+                            xSeries, nElement, getModel() );
+                }
+                catch( const uno::Exception & )
+                {
+                    DBG_UNHANDLED_EXCEPTION( "oox", "Exception caught during Export of data point" );
+                }
+            }
+
+            if( xPropSet.is() )
+            {
+                FSHelperPtr pFS = GetFS();
+                pFS->startElement( FSNS( XML_c, XML_dPt ),
+                    FSEND );
+                pFS->singleElement( FSNS( XML_c, XML_idx ),
+                    XML_val, I32S(nElement),
+                    FSEND );
+
+                switch( eChartType )
+                {
+                    case chart::TYPEID_BUBBLE:
+                    case chart::TYPEID_HORBAR:
+                    case chart::TYPEID_BAR:
+                    {
+                        pFS->singleElement(FSNS(XML_c, XML_invertIfNegative),
+                                    XML_val, "0",
+                                    FSEND);
+                    }
+                    break;
                 }
                 exportShapeProps( xPropSet );
 

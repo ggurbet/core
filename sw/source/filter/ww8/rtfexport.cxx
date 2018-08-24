@@ -48,6 +48,8 @@
 #include <svtools/rtfkeywd.hxx>
 #include <filter/msfilter/rtfutil.hxx>
 #include <unotools/docinfohelper.hxx>
+#include <rtl/tencinfo.h>
+#include <sal/log.hxx>
 #if OSL_DEBUG_LEVEL > 1
 #include <iostream>
 #endif
@@ -674,7 +676,7 @@ void RtfExport::WritePageDescTable()
     m_pTableInfo = std::make_shared<ww8::WW8TableInfo>();
 }
 
-void RtfExport::ExportDocument_Impl()
+ErrCode RtfExport::ExportDocument_Impl()
 {
     // Make the header
     Strm()
@@ -945,6 +947,8 @@ void RtfExport::ExportDocument_Impl()
     WriteMainText();
 
     Strm().WriteChar('}');
+
+    return ERRCODE_NONE;
 }
 
 void RtfExport::PrepareNewPageDesc(const SfxItemSet* pSet, const SwNode& rNd,
@@ -1348,7 +1352,10 @@ void RtfExport::OutPageDescription(const SwPageDesc& rPgDsc, bool bCheckForFirst
 
     const SwFormat* pFormat = &m_pCurrentPageDesc->GetMaster(); //GetLeft();
     m_bOutPageDescs = true;
+    if (m_pCurrentPageDesc != &rPgDsc)
+        m_pFirstPageItemSet = &rPgDsc.GetMaster().GetAttrSet();
     OutputFormat(*pFormat, true, false);
+    m_pFirstPageItemSet = nullptr;
     m_bOutPageDescs = false;
 
     // normal header / footer (without a style)

@@ -19,7 +19,6 @@
 
 #include <tools/diagnose_ex.h>
 #include <vcl/svapp.hxx>
-#include <comphelper/sequence.hxx>
 #include <comphelper/anytostring.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -64,6 +63,7 @@
 #include <tools.hxx>
 #include <outdevstate.hxx>
 #include <action.hxx>
+#include <sal/log.hxx>
 #include "bitmapaction.hxx"
 #include "lineaction.hxx"
 #include "pointaction.hxx"
@@ -865,6 +865,7 @@ namespace cppcanvas
             // TODO(F2): implement all text effects
             // if( rState.textAlignment );             // TODO(F2): NYI
 
+            ::Color aTextFillColor( COL_AUTO );
             ::Color aShadowColor( COL_AUTO );
             ::Color aReliefColor( COL_AUTO );
             ::Size  aShadowOffset;
@@ -930,6 +931,9 @@ namespace cppcanvas
                 aReliefColor.SetTransparency( aTextColor.GetTransparency() );
             }
 
+            if (rState.isTextFillColorSet)
+                aTextFillColor = vcl::unotools::doubleSequenceToColor(rState.textFillColor, xColorSpace);
+
             // create the actual text action
             std::shared_ptr<Action> pTextAction(
                 TextActionFactory::createTextAction(
@@ -938,6 +942,7 @@ namespace cppcanvas
                     aReliefColor,
                     aShadowOffset,
                     aShadowColor,
+                    aTextFillColor,
                     rString,
                     nIndex,
                     nLength,
@@ -973,9 +978,9 @@ namespace cppcanvas
                 nMaxWidth += nWidth + 1;
 
                 long nFullStrikeoutWidth = 0;
-                OUString aStrikeoutText;
+                OUStringBuffer aStrikeoutText;
                 while( (nFullStrikeoutWidth+=nStrikeoutWidth ) < nMaxWidth+1 )
-                    aStrikeoutText += OUStringLiteral1(pChars[0]);
+                    aStrikeoutText.append(pChars[0]);
 
                 sal_Int32 nLen = aStrikeoutText.getLength();
 
@@ -1002,9 +1007,10 @@ namespace cppcanvas
                             aReliefColor,
                             aShadowOffset,
                             aShadowColor,
-                            aStrikeoutText,
+                            aTextFillColor,
+                            aStrikeoutText.makeStringAndClear(),
                             0/*nStartPos*/,
-                            aStrikeoutText.getLength(),
+                            nLen,
                             pStrikeoutCharWidths,
                             rParms.mrVDev,
                             rParms.mrCanvas,
@@ -2108,7 +2114,7 @@ namespace cppcanvas
 
                         std::shared_ptr<Action> pBmpAction(
                                 internal::BitmapActionFactory::createBitmapAction(
-                                    pAct->GetBitmap(),
+                                    BitmapEx(pAct->GetBitmap()),
                                     rStates.getState().mapModeTransform *
                                     vcl::unotools::b2DPointFromPoint( pAct->GetPoint() ),
                                     rCanvas,
@@ -2131,7 +2137,7 @@ namespace cppcanvas
 
                         std::shared_ptr<Action> pBmpAction(
                                 internal::BitmapActionFactory::createBitmapAction(
-                                    pAct->GetBitmap(),
+                                    BitmapEx(pAct->GetBitmap()),
                                     rStates.getState().mapModeTransform *
                                     vcl::unotools::b2DPointFromPoint( pAct->GetPoint() ),
                                     rStates.getState().mapModeTransform *
@@ -2163,7 +2169,7 @@ namespace cppcanvas
 
                         std::shared_ptr<Action> pBmpAction(
                                 internal::BitmapActionFactory::createBitmapAction(
-                                    aBmp,
+                                    BitmapEx(aBmp),
                                     rStates.getState().mapModeTransform *
                                     vcl::unotools::b2DPointFromPoint( pAct->GetDestPoint() ),
                                     rStates.getState().mapModeTransform *

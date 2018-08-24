@@ -54,7 +54,6 @@
 #include <svx/AccessibleShapeInfo.hxx>
 #include <svx/IAccessibleParent.hxx>
 #include <comphelper/sequence.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/docfile.hxx>
 #include <svx/unoshape.hxx>
@@ -409,8 +408,8 @@ void ScChildrenShapes::Notify(SfxBroadcaster&, const SfxHint& rHint)
     if (pSdrHint)
     {
         SdrObject* pObj = const_cast<SdrObject*>(pSdrHint->GetObject());
-        if (pObj && /*(pObj->GetLayer() != SC_LAYER_INTERN) && */(pObj->GetPage() == GetDrawPage()) &&
-            (pObj->GetPage() == pObj->getParentOfSdrObject()) ) //only do something if the object lies direct on the page
+        if (pObj && /*(pObj->GetLayer() != SC_LAYER_INTERN) && */(pObj->getSdrPageFromSdrObject() == GetDrawPage()) &&
+            (pObj->getSdrPageFromSdrObject() == pObj->getParentSdrObjListFromSdrObject()) ) //only do something if the object lies direct on the page
         {
             switch (pSdrHint->GetKind())
             {
@@ -1064,7 +1063,7 @@ bool ScChildrenShapes::FindSelectedShapesChanges(const uno::Reference<drawing::X
         if( pMarkedObj )
         {
             uno::Reference< drawing::XShape > xMarkedXShape (pMarkedObj->getUnoShape(), uno::UNO_QUERY);
-            pUpObj = pMarkedObj->GetUpGroup();
+            pUpObj = pMarkedObj->getParentSdrObjectFromSdrObject();
 
             if( pMarkedObj == pFocusedObj )
             {
@@ -1418,7 +1417,7 @@ void ScAccessibleDocument::PreInit()
 void ScAccessibleDocument::Init()
 {
     if(!mpChildrenShapes)
-        mpChildrenShapes = new ScChildrenShapes(this, mpViewShell, meSplitPos);
+        mpChildrenShapes.reset( new ScChildrenShapes(this, mpViewShell, meSplitPos) );
 }
 
 ScAccessibleDocument::~ScAccessibleDocument()
@@ -1444,8 +1443,7 @@ void SAL_CALL ScAccessibleDocument::disposing()
         mpViewShell->RemoveAccessibilityObject(*this);
         mpViewShell = nullptr;
     }
-    if (mpChildrenShapes)
-        DELETEZ(mpChildrenShapes);
+    mpChildrenShapes.reset();
 
     ScAccessibleDocumentBase::disposing();
 }
@@ -1540,9 +1538,7 @@ void ScAccessibleDocument::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
 
             // Shapes / form controls after reload not accessible, rebuild the
             // mpChildrenShapes variable.
-            if (mpChildrenShapes)
-                DELETEZ(mpChildrenShapes);
-            mpChildrenShapes = new ScChildrenShapes( this, mpViewShell, meSplitPos );
+            mpChildrenShapes.reset( new ScChildrenShapes( this, mpViewShell, meSplitPos ) );
 
             AccessibleEventObject aEvent;
             aEvent.EventId = AccessibleEventId::INVALIDATE_ALL_CHILDREN;
@@ -1854,7 +1850,7 @@ void SAL_CALL
 
     if (mpChildrenShapes && mpViewShell)
     {
-        sal_Int32 nCount(mpChildrenShapes->GetCount()); //all shapes and the table
+        sal_Int32 nCount(mpChildrenShapes->GetCount()); // all shapes and the table
         if (mxTempAcc.is())
             ++nCount;
         if (nChildIndex < 0 || nChildIndex >= nCount)
@@ -1866,7 +1862,7 @@ void SAL_CALL
             bool bWasTableSelected(IsTableSelected());
 
             if (mpChildrenShapes)
-                mpChildrenShapes->Select(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is to high
+                mpChildrenShapes->Select(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is too high
 
             if (bWasTableSelected)
                 mpViewShell->SelectAll();
@@ -1888,7 +1884,7 @@ sal_Bool SAL_CALL
 
     if (mpChildrenShapes)
     {
-        sal_Int32 nCount(mpChildrenShapes->GetCount()); //all shapes and the table
+        sal_Int32 nCount(mpChildrenShapes->GetCount()); // all shapes and the table
         if (mxTempAcc.is())
             ++nCount;
         if (nChildIndex < 0 || nChildIndex >= nCount)
@@ -1898,7 +1894,7 @@ sal_Bool SAL_CALL
         if (xAccessible.is())
         {
             uno::Reference<drawing::XShape> xShape;
-            bResult = mpChildrenShapes->IsSelected(nChildIndex, xShape); // throws no lang::IndexOutOfBoundsException if Index is to high
+            bResult = mpChildrenShapes->IsSelected(nChildIndex, xShape); // throws no lang::IndexOutOfBoundsException if Index is too high
         }
         else
         {
@@ -1971,14 +1967,14 @@ uno::Reference<XAccessible > SAL_CALL
         bool bTabMarked(IsTableSelected());
 
         if (mpChildrenShapes)
-            xAccessible = mpChildrenShapes->GetSelected(nSelectedChildIndex, bTabMarked); // throws no lang::IndexOutOfBoundsException if Index is to high
+            xAccessible = mpChildrenShapes->GetSelected(nSelectedChildIndex, bTabMarked); // throws no lang::IndexOutOfBoundsException if Index is too high
         if (mxTempAcc.is() && nSelectedChildIndex == nCount - 1)
             xAccessible = mxTempAcc;
         else if (bTabMarked)
             xAccessible = GetAccessibleSpreadsheet();
     }
 
-    OSL_ENSURE(xAccessible.is(), "here should always be an accessible object or a exception throwed");
+    OSL_ENSURE(xAccessible.is(), "here should always be an accessible object or an exception thrown");
 
     return xAccessible;
 }
@@ -1991,7 +1987,7 @@ void SAL_CALL
 
     if (mpChildrenShapes && mpViewShell)
     {
-        sal_Int32 nCount(mpChildrenShapes->GetCount()); //all shapes and the table
+        sal_Int32 nCount(mpChildrenShapes->GetCount()); // all shapes and the table
         if (mxTempAcc.is())
             ++nCount;
         if (nChildIndex < 0 || nChildIndex >= nCount)
@@ -2003,7 +1999,7 @@ void SAL_CALL
         if (xAccessible.is())
         {
             if (mpChildrenShapes)
-                mpChildrenShapes->Deselect(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is to high
+                mpChildrenShapes->Deselect(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is too high
 
             if (bTabMarked)
                 mpViewShell->SelectAll(); // select the table again

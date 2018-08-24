@@ -34,6 +34,7 @@
 #include <com/sun/star/frame/XTitle.hpp>
 #include <osl/file.hxx>
 #include <rtl/instance.hxx>
+#include <sal/log.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/wrkwin.hxx>
 #include <vcl/svapp.hxx>
@@ -55,7 +56,6 @@
 #include <svtools/ehdl.hxx>
 #include <unotools/printwarningoptions.hxx>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/string.hxx>
 
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
 #include <com/sun/star/script/DocumentDialogLibraryContainer.hpp>
@@ -249,6 +249,7 @@ SfxObjectShell_Impl::SfxObjectShell_Impl( SfxObjectShell& _rDocShell )
     ,m_nModifyPasswordHash( 0 )
     ,m_bModifyPasswordEntered( false )
     ,m_bSavingForSigning( false )
+    ,m_bAllowModifiedBackAfterSigning( false )
 {
     SfxObjectShell* pDoc = &_rDocShell;
     SfxObjectShellArr_Impl &rArr = SfxGetpApp()->GetObjectShells_Impl();
@@ -309,16 +310,16 @@ SfxObjectShell::~SfxObjectShell()
     SfxObjectShell::CloseInternal();
     pImpl->pBaseModel.set( nullptr );
 
-    DELETEX(AutoReloadTimer_Impl, pImpl->pReloadTimer );
+    DELETEZ( pImpl->pReloadTimer );
 
     SfxApplication *pSfxApp = SfxGetpApp();
-    if ( USHRT_MAX != pImpl->nVisualDocumentNumber )
+    if ( USHRT_MAX != pImpl->nVisualDocumentNumber && pSfxApp )
         pSfxApp->ReleaseIndex(pImpl->nVisualDocumentNumber);
 
     // Destroy Basic-Manager
     pImpl->aBasicManager.reset( nullptr );
 
-    if ( pSfxApp->GetDdeService() )
+    if ( pSfxApp && pSfxApp->GetDdeService() )
         pSfxApp->RemoveDdeTopic( this );
 
     pImpl->pBaseModel.set( nullptr );
@@ -344,7 +345,7 @@ SfxObjectShell::~SfxObjectShell()
         if ( IsDocShared() && pMedium )
             FreeSharedFile( pMedium->GetURLObject().GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
 #endif
-        DELETEX( SfxMedium, pMedium );
+        DELETEZ( pMedium );
     }
 
     // The removing of the temporary file must be done as the latest step in the document destruction

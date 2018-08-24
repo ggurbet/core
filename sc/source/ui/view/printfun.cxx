@@ -59,6 +59,7 @@
 #include <formulacell.hxx>
 #include <drawutil.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <sc.hrc>
 #include <pagedata.hxx>
 #include <printopt.hxx>
@@ -399,8 +400,8 @@ void ScPrintFunc::FillPageData()
 
 ScPrintFunc::~ScPrintFunc()
 {
-    delete pEditDefaults;
-    delete pEditEngine;
+    pEditDefaults.reset();
+    pEditEngine.reset();
 
     //  Printer settings are now restored from outside
 
@@ -1074,7 +1075,7 @@ void ScPrintFunc::InitParam( const ScPrintOptions* pOptions )
     else
         aFieldData.nTotalPages = nTotalPages;
 
-    SetDateTime( Date( Date::SYSTEM ), tools::Time( tools::Time::SYSTEM ) );
+    SetDateTime( DateTime( DateTime::SYSTEM ) );
 
     if( pDocShell->getDocProperties()->getTitle().getLength() != 0 )
         aFieldData.aTitle = pDocShell->getDocProperties()->getTitle();
@@ -1110,10 +1111,9 @@ void ScPrintFunc::GetScaleData( Size& rPhysSize, long& rDocHdr, long& rDocFtr )
     rDocFtr = aFtr.nHeight;
 }
 
-void ScPrintFunc::SetDateTime( const Date& rDate, const tools::Time& rTime )
+void ScPrintFunc::SetDateTime( const DateTime& rDateTime )
 {
-    aFieldData.aDate = rDate;
-    aFieldData.aTime = rTime;
+    aFieldData.aDateTime = rDateTime;
 }
 
 static void lcl_DrawGraphic( const Graphic &rGraphic, vcl::RenderContext *pOut,
@@ -1704,7 +1704,7 @@ void ScPrintFunc::MakeEditEngine()
     {
         //  can't use document's edit engine pool here,
         //  because pool must have twips as default metric
-        pEditEngine = new ScHeaderEditEngine( EditEngine::CreatePool() );
+        pEditEngine.reset( new ScHeaderEditEngine( EditEngine::CreatePool() ) );
 
         pEditEngine->EnableUndo(false);
         //fdo#45869 we want text to be positioned as it would be for the
@@ -1718,10 +1718,10 @@ void ScPrintFunc::MakeEditEngine()
         pEditEngine->EnableAutoColor( bUseStyleColor );
 
         //  Default-Set for alignment
-        pEditDefaults = new SfxItemSet( pEditEngine->GetEmptyItemSet() );
+        pEditDefaults.reset( new SfxItemSet( pEditEngine->GetEmptyItemSet() ) );
 
         const ScPatternAttr& rPattern = pDoc->GetPool()->GetDefaultItem(ATTR_PATTERN);
-        rPattern.FillEditItemSet( pEditDefaults );
+        rPattern.FillEditItemSet( pEditDefaults.get() );
         //  FillEditItemSet adjusts font height to 1/100th mm,
         //  but for header/footer twips is needed, as in the PatternAttr:
         std::unique_ptr<SfxPoolItem> pNewItem(rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT));
@@ -2737,7 +2737,7 @@ long ScPrintFunc::DoPrint( const MultiSelection& rPageRanges,
         }
     }
 
-    aFieldData.aTabName = ScGlobal::GetRscString( STR_NOTES );
+    aFieldData.aTabName = ScResId( STR_NOTES );
 
     long nNoteNr = 0;
     long nNoteAdd;

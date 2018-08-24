@@ -32,7 +32,8 @@
 #include <com/sun/star/document/XExporter.hpp>
 #include <com/sun/star/document/XFilter.hpp>
 #include <com/sun/star/document/XImporter.hpp>
-#include <com/sun/star/document/GraphicObjectResolver.hpp>
+#include <com/sun/star/document/XGraphicStorageHandler.hpp>
+#include <com/sun/star/document/GraphicStorageHandler.hpp>
 #include <com/sun/star/embed/EntryInitModes.hpp>
 #include <com/sun/star/embed/XEmbedPersist.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
@@ -60,16 +61,12 @@
 #include <com/sun/star/script/XStorageBasedLibraryContainer.hpp>
 #include <com/sun/star/awt/XControl.hpp>
 #include <com/sun/star/awt/DialogProvider.hpp>
-#include <com/sun/star/document/XGraphicObjectResolver.hpp>
-#include <com/sun/star/document/XGraphicStorageHandler.hpp>
 
 #include <comphelper/documentconstants.hxx>
 #include <comphelper/enumhelper.hxx>
 #include <comphelper/genericpropertyset.hxx>
-#include <comphelper/interaction.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/numberedcollection.hxx>
-#include <comphelper/property.hxx>
 #include <comphelper/storagehelper.hxx>
 
 #include <connectivity/dbtools.hxx>
@@ -82,6 +79,7 @@
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <vcl/errcode.hxx>
+#include <sal/log.hxx>
 
 #include <list>
 
@@ -383,10 +381,8 @@ void lcl_uglyHackToStoreDialogeEmbedImages( const Reference< XStorageBasedLibrar
     if (!vxGraphicList.empty())
     {
         // Export the images to the storage
-        uno::Reference<document::XGraphicObjectResolver> xGraphicResolver;
-        xGraphicResolver.set(GraphicObjectResolver::createWithStorage(rxContext, xTmpPic));
         uno::Reference<document::XGraphicStorageHandler> xGraphicStorageHandler;
-        xGraphicStorageHandler.set(xGraphicResolver, uno::UNO_QUERY);
+        xGraphicStorageHandler.set(GraphicStorageHandler::createWithStorage(rxContext, xTmpPic));
         if (xGraphicStorageHandler.is())
         {
             for (uno::Reference<graphic::XGraphic> const & rxGraphic : vxGraphicList)
@@ -649,18 +645,21 @@ void SAL_CALL ODatabaseDocument::storeToRecoveryFile( const OUString& i_TargetLo
         // commit the root storage
         tools::stor::commitStorageIfWriteable( xTargetStorage );
     }
+    catch( const IOException& )
+    {
+        throw;
+    }
+    catch( const RuntimeException& )
+    {
+        throw;
+    }
+    catch( const WrappedTargetException& )
+    {
+        throw;
+    }
     catch( const Exception& )
     {
         Any aError = ::cppu::getCaughtException();
-        if  (   aError.isExtractableTo( ::cppu::UnoType< IOException >::get() )
-            ||  aError.isExtractableTo( ::cppu::UnoType< RuntimeException >::get() )
-            ||  aError.isExtractableTo( ::cppu::UnoType< WrappedTargetException >::get() )
-            )
-        {
-            // allowed to leave
-            throw;
-        }
-
         throw WrappedTargetException( OUString(), *this, aError );
     }
 }
@@ -1031,15 +1030,8 @@ void ODatabaseDocument::impl_storeAs_throw( const OUString& _rURL, const ::comph
         if ( bLocationChanged )
         {
             // create storage for target URL
-            uno::Reference<embed::XStorage> xTargetStorage;
-            _rArguments.get("TargetStorage") >>= xTargetStorage;
-            if (!xTargetStorage.is())
-                xTargetStorage = impl_createStorageFor_throw(_rURL);
-
-            // In case we got a StreamRelPath, then xTargetStorage should reference that sub-storage.
-            OUString sStreamRelPath = _rArguments.getOrDefault("StreamRelPath", OUString());
-            if (!sStreamRelPath.isEmpty())
-                xTargetStorage = xTargetStorage->openStorageElement(sStreamRelPath, embed::ElementModes::READWRITE);
+            uno::Reference<embed::XStorage> xTargetStorage(
+                impl_GetStorageOrCreateFor_throw(_rArguments, _rURL));
 
             if ( m_pImpl->isEmbeddedDatabase() )
                 m_pImpl->clearConnections();
@@ -1130,6 +1122,24 @@ Reference< XStorage > ODatabaseDocument::impl_createStorageFor_throw( const OUSt
 
     Reference< XSingleServiceFactory > xStorageFactory( m_pImpl->createStorageFactory(), UNO_SET_THROW );
     return Reference< XStorage >( xStorageFactory->createInstanceWithArguments( aParam ), UNO_QUERY_THROW );
+}
+
+css::uno::Reference<css::embed::XStorage> ODatabaseDocument::impl_GetStorageOrCreateFor_throw(
+    const ::comphelper::NamedValueCollection& _rArguments, const OUString& _rURL) const
+{
+    // Try to get the storage from arguments, then create storage for target URL
+    uno::Reference<embed::XStorage> xTargetStorage;
+    _rArguments.get("TargetStorage") >>= xTargetStorage;
+    if (!xTargetStorage.is())
+        xTargetStorage = impl_createStorageFor_throw(_rURL);
+
+    // In case we got a StreamRelPath, then xTargetStorage should reference that sub-storage.
+    OUString sStreamRelPath = _rArguments.getOrDefault("StreamRelPath", OUString());
+    if (!sStreamRelPath.isEmpty())
+        xTargetStorage
+            = xTargetStorage->openStorageElement(sStreamRelPath, embed::ElementModes::READWRITE);
+
+    return xTargetStorage;
 }
 
 void SAL_CALL ODatabaseDocument::storeAsURL( const OUString& _rURL, const Sequence< PropertyValue >& _rArguments )
@@ -1234,11 +1244,12 @@ void SAL_CALL ODatabaseDocument::storeToURL( const OUString& _rURL, const Sequen
 
     try
     {
+        const ::comphelper::NamedValueCollection aArguments(_rArguments);
         // create storage for target URL
-        Reference< XStorage > xTargetStorage( impl_createStorageFor_throw( _rURL ) );
+        Reference<XStorage> xTargetStorage(impl_GetStorageOrCreateFor_throw(aArguments, _rURL));
 
         // extend media descriptor with URL
-        Sequence< PropertyValue > aMediaDescriptor( lcl_appendFileNameToDescriptor( _rArguments, _rURL ) );
+        Sequence<PropertyValue> aMediaDescriptor(lcl_appendFileNameToDescriptor(aArguments, _rURL));
 
         // store to this storage
         impl_storeToStorage_throw( xTargetStorage, aMediaDescriptor, aGuard );

@@ -111,8 +111,6 @@ class SdXMLExport : public SvXMLExport
 
     bool                    mbIsDraw;
 
-    const OUString         msPageLayoutNames;
-
     virtual void ExportStyles_(bool bUsed) override;
     virtual void ExportAutoStyles_() override;
     virtual void ExportFontDecls_() override;
@@ -160,6 +158,8 @@ public:
         OUString const & implementationName,
         bool bIsDraw, SvXMLExportFlags nExportFlags );
     virtual ~SdXMLExport() override;
+
+    void collectAutoStyles() override;
 
     // XExporter
     virtual void SAL_CALL setSourceDocument( const css::uno::Reference< css::lang::XComponent >& xDoc ) override;

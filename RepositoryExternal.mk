@@ -810,6 +810,63 @@ endef
 endif # SYSTEM_LIBEXTTEXTCAT
 
 
+ifneq ($(SYSTEM_LIBNUMBERTEXT),)
+
+define gb_LinkTarget__use_libnumbertext
+$(call gb_LinkTarget_set_include,$(1),\
+	$$(INCLUDE) \
+	$(LIBNUMBERTEXT_CFLAGS) \
+)
+$(call gb_LinkTarget_add_defs,$(1),\
+	-DSYSTEM_LIBNUMBERTEXT \
+)
+$(call gb_LinkTarget_add_libs,$(1),$(LIBNUMBERTEXT_LIBS))
+
+endef
+
+else # !SYSTEM_LIBNUMBERTEXT
+
+ifneq ($(ENABLE_LIBNUMBERTEXT),)
+
+$(eval $(call gb_Helper_register_packages_for_install,ooo, \
+	libnumbertext_numbertext \
+))
+
+define gb_LinkTarget__use_libnumbertext
+$(call gb_LinkTarget_use_package,$(1),libnumbertext_numbertext)
+$(call gb_LinkTarget_set_include,$(1),\
+	-I$(call gb_UnpackedTarball_get_dir,libnumbertext/src) \
+	$$(INCLUDE) \
+)
+$(call gb_LinkTarget_add_defs,$(1),\
+	-DENABLE_LIBNUMBERTEXT \
+)
+
+ifeq ($(COM),MSC)
+$(call gb_LinkTarget_use_static_libraries,$(1),\
+	libnumbertext \
+)
+else
+
+$(call gb_LinkTarget_add_libs,$(1),\
+	$(call gb_UnpackedTarball_get_dir,libnumbertext)/src/.libs/libnumbertext-1.0.a\
+)
+$(call gb_LinkTarget_use_external_project,$(1),libnumbertext,full)
+
+endif
+
+endef
+
+else # !ENABLE_LIBNUMBERTEXT
+
+define gb_LinkTarget__use_libnumbertext
+endef
+
+endif # ENABLE_LIBNUMBERTEXT
+
+endif # SYSTEM_LIBNUMBERTEXT
+
+
 ifneq ($(SYSTEM_LIBXML),)
 
 define gb_LinkTarget__use_libxml2
@@ -2623,7 +2680,7 @@ define gb_LinkTarget__use_cups
 
 endef
 
-endif # ENABLE_DBUS
+endif # ENABLE_CUPS
 
 ifeq ($(ENABLE_DBUS),TRUE)
 
@@ -2777,11 +2834,7 @@ $(call gb_LinkTarget_set_include,$(1),\
 	$$(INCLUDE) \
 )
 
-$(call gb_LinkTarget_add_libs,$(1),\
-	$(call gb_UnpackedTarball_get_dir,poppler)/fofi/.libs/libfofi$(gb_StaticLibrary_PLAINEXT) \
-	$(call gb_UnpackedTarball_get_dir,poppler)/goo/.libs/libgoo$(gb_StaticLibrary_PLAINEXT) \
-	$(call gb_UnpackedTarball_get_dir,poppler)/poppler/.libs/libpoppler$(gb_StaticLibrary_PLAINEXT) \
-)
+$(call gb_LinkTarget_use_static_libraries,$(1),poppler)
 
 $(call gb_LinkTarget_use_external,$(1),libjpeg)
 
@@ -4165,8 +4218,8 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo,\
 ))
 endif
 
-$(eval $(call gb_Helper_register_packages_for_install,vcredist_exe_binarytable,\
-	$(if $(VCREDIST_DIR),vcredist_exe) \
+$(eval $(call gb_Helper_register_packages_for_install,ucrt_binarytable,\
+	$(if $(UCRT_REDISTDIR),ucrt) \
 ))
 
 # vim: set noet sw=4 ts=4:

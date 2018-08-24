@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <vcl/notebookbar.hxx>
 #include <vcl/svapp.hxx>
@@ -98,7 +99,7 @@ void TabControl::ImplInit( vcl::Window* pParent, WinBits nStyle )
     mbFormat                    = true;
     mbRestoreHelpId             = false;
     mbSmallInvalidate           = false;
-    mpTabCtrlData               = new ImplTabCtrlData;
+    mpTabCtrlData.reset(new ImplTabCtrlData);
     mpTabCtrlData->mpListBox    = nullptr;
 
     ImplInitSettings( true );
@@ -198,8 +199,7 @@ void TabControl::dispose()
     // delete TabCtrl data
     if (mpTabCtrlData)
         mpTabCtrlData->mpListBox.disposeAndClear();
-    delete mpTabCtrlData;
-    mpTabCtrlData = nullptr;
+    mpTabCtrlData.reset();
     Control::dispose();
 }
 
@@ -256,7 +256,8 @@ Size TabControl::ImplGetItemSize( ImplTabItem* pItem, long nMaxWidth )
         pItem->maFormatText += aAppendStr;
         do
         {
-            pItem->maFormatText = pItem->maFormatText.replaceAt( pItem->maFormatText.getLength()-aAppendStr.getLength()-1, 1, "" );
+            if (pItem->maFormatText.getLength() > aAppendStr.getLength())
+                pItem->maFormatText = pItem->maFormatText.replaceAt( pItem->maFormatText.getLength()-aAppendStr.getLength()-1, 1, "" );
             aSize.setWidth( GetCtrlTextWidth( pItem->maFormatText ) );
             aSize.AdjustWidth(aImageSize.Width() );
             aSize.AdjustWidth(TAB_TABOFFSET_X*2 );
@@ -817,7 +818,7 @@ void TabControl::ImplDrawItem(vcl::RenderContext& rRenderContext, ImplTabItem co
     if (pItem->mnId == mnCurPageId)
     {
         nState |= ControlState::SELECTED;
-        // only the selected item can be focussed
+        // only the selected item can be focused
         if (HasFocus())
             nState |= ControlState::FOCUSED;
     }
@@ -2200,7 +2201,7 @@ NotebookbarTabControlBase::NotebookbarTabControlBase(vcl::Window* pParent)
 {
     BitmapEx aBitmap(SV_RESID_BITMAP_NOTEBOOKBAR);
 
-    m_pOpenMenu = VclPtr<PushButton>::Create(this);
+    m_pOpenMenu = VclPtr<PushButton>::Create( this , WB_CENTER | WB_VCENTER );
     m_pOpenMenu->SetSizePixel(Size(HAMBURGER_DIM, HAMBURGER_DIM));
     m_pOpenMenu->SetClickHdl(LINK(this, NotebookbarTabControlBase, OpenMenu));
     m_pOpenMenu->SetModeImage(Image(aBitmap));
@@ -2338,6 +2339,8 @@ bool NotebookbarTabControlBase::ImplPlaceTabs( long nWidth )
         return false;
     if ( mpTabCtrlData->maItemList.empty() )
         return false;
+    if (!m_pOpenMenu || m_pOpenMenu->isDisposed())
+        return false;
 
     long nMaxWidth = nWidth - HAMBURGER_DIM;
     long nShortcutsWidth = m_pShortcuts != nullptr ? m_pShortcuts->GetSizePixel().getWidth() + 1 : 0;
@@ -2424,7 +2427,8 @@ bool NotebookbarTabControlBase::ImplPlaceTabs( long nWidth )
     }
 
     // position the shortcutbox
-    m_pShortcuts->SetPosPixel(Point(0, 0));
+    if (m_pShortcuts)
+        m_pShortcuts->SetPosPixel(Point(0, 0));
 
     // position the menu
     m_pOpenMenu->SetPosPixel(Point(nWidth - HAMBURGER_DIM, 0));

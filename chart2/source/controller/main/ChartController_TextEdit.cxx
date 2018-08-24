@@ -155,7 +155,6 @@ void ChartController::executeDispatch_InsertSpecialCharacter()
         StartTextEdit();
 
     SvxAbstractDialogFactory * pFact = SvxAbstractDialogFactory::Create();
-    OSL_ENSURE( pFact, "No dialog factory" );
 
     SfxAllItemSet aSet( m_pDrawModelWrapper->GetItemPool() );
     aSet.Put( SfxBoolItem( FN_PARAM_1, false ) );
@@ -168,7 +167,6 @@ void ChartController::executeDispatch_InsertSpecialCharacter()
 
     vcl::Window* pWin = GetChartWindow();
     ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(pWin ? pWin->GetFrameWeld() : nullptr, aSet, false));
-    OSL_ENSURE( pDlg, "Couldn't create SvxCharacterMap dialog" );
     if( pDlg->Execute() == RET_OK )
     {
         const SfxItemSet* pSet = pDlg->GetOutputItemSet();
@@ -211,7 +209,7 @@ uno::Reference< css::accessibility::XAccessibleContext >
     ChartController::impl_createAccessibleTextContext()
 {
     uno::Reference< css::accessibility::XAccessibleContext > xResult(
-        new AccessibleTextHelper( m_pDrawViewWrapper ));
+        new AccessibleTextHelper( m_pDrawViewWrapper.get() ));
 
     return xResult;
 }

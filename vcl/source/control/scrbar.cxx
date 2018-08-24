@@ -26,6 +26,7 @@
 #include <svdata.hxx>
 
 #include <rtl/string.hxx>
+#include <sal/log.hxx>
 
 /*  #i77549#
     HACK: for scrollbars in case of thumb rect, page up and page down rect we
@@ -115,7 +116,7 @@ ScrollBar::~ScrollBar()
 
 void ScrollBar::dispose()
 {
-    delete mpData; mpData = nullptr;
+    mpData.reset();
     Control::dispose();
 }
 
@@ -1137,7 +1138,7 @@ void ScrollBar::GetFocus()
 {
     if( !mpData )
     {
-        mpData = new ImplScrollBarData;
+        mpData.reset(new ImplScrollBarData);
         mpData->maTimer.SetInvokeHandler( LINK( this, ScrollBar, ImplAutoTimerHdl ) );
         mpData->maTimer.SetDebugName( "vcl::ScrollBar mpData->maTimer" );
         mpData->mbHide = false;

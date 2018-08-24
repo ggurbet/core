@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <o3tl/safeint.hxx>
 #include <svl/itemiter.hxx>
@@ -620,7 +621,21 @@ namespace
             return true;
 
         // The frame is in a table, see if the table is in a section.
-        return !pFrame->FindTabFrame()->IsInSct();
+        bool bRet = !pFrame->FindTabFrame()->IsInSct();
+
+        if (bRet)
+        {
+            // Don't try to split if the frame itself is a section frame with
+            // multiple columns.
+            if (pFrame->IsSctFrame())
+            {
+                const SwFrame* pLower = pFrame->GetLower();
+                if (pLower && pLower->IsColumnFrame())
+                    bRet = false;
+            }
+        }
+
+        return bRet;
     }
 }
 
@@ -1751,8 +1766,11 @@ SwLayoutFrame *SwFrame::GetNextSctLeaf( MakePageType eMakePage )
                 if (parents.size() >= 2 &&
                     parents[0]->IsBodyFrame() && parents[1]->IsColumnFrame())
                 {   // this only inserts section frame - remove column
-                    assert(parents[2]->IsSctFrame());
-                    std::advance(iter, +2);
+                    assert(parents[2]->IsSctFrame() || IsSctFrame());
+                    if (parents[2]->IsSctFrame())
+                        std::advance(iter, +2);
+                    else
+                        pTmp = pTmp->GetUpper();
                 }
                 else if (IsBodyFrame() && parents.size() >= 1
                          && parents[0]->IsColumnFrame())
@@ -2556,7 +2574,7 @@ void SwSectionFrame::SwClientNotify( const SwModify& rMod, const SfxHint& rHint 
     // #i117863#
     const SwSectionFrameMoveAndDeleteHint* pHint =
                     dynamic_cast<const SwSectionFrameMoveAndDeleteHint*>(&rHint);
-    if ( pHint && pHint->GetId() == SfxHintId::Dying && &rMod == GetRegisteredIn() )
+    if (pHint && pHint->GetId() == SfxHintId::Dying && &rMod == GetDep())
     {
         SwSectionFrame::MoveContentAndDelete( this, pHint->IsSaveContent() );
     }
@@ -2806,7 +2824,7 @@ void SwSectionFrame::CalcFootnoteContent()
 void SwRootFrame::InsertEmptySct( SwSectionFrame* pDel )
 {
     if( !mpDestroy )
-        mpDestroy = new SwDestroyList;
+        mpDestroy.reset( new SwDestroyList );
     mpDestroy->insert( pDel );
 }
 
@@ -2837,7 +2855,7 @@ void SwRootFrame::DeleteEmptySct_()
             }
         }
         else {
-            OSL_ENSURE( pSect->GetSection(), "DeleteEmptySct: Halbtoter SectionFrame?!" );
+            OSL_ENSURE( pSect->GetSection(), "DeleteEmptySct: Half-dead SectionFrame?!" );
         }
     }
 }

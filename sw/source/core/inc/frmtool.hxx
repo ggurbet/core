@@ -328,8 +328,6 @@ class SwBorderAttrs : public SwCacheObj
                        const SwFrame *pCmp ) const;
 
 public:
-    DECL_FIXEDMEMPOOL_NEWDEL(SwBorderAttrs)
-
     SwBorderAttrs( const SwModify *pOwner, const SwFrame *pConstructor );
     virtual ~SwBorderAttrs() override;
 
@@ -544,11 +542,7 @@ private:
     const SwModify* mpRegIn;
 
 public:
-    SwDeletionChecker( const SwFrame* pFrame )
-            : mpFrame( pFrame ),
-              mpRegIn( pFrame ? const_cast<SwFrame*>(pFrame)->GetRegisteredIn() : nullptr )
-    {
-    }
+    SwDeletionChecker(const SwFrame* pFrame);
 
     /**
      *  return

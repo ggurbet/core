@@ -34,7 +34,7 @@
 #include <svx/svdview.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdopath.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/xflclit.hxx>
 #include <svx/xlnclit.hxx>
@@ -43,22 +43,23 @@
 #include <svx/sdr/contact/viewcontactofsdrrectobj.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 
 // BaseProperties section
 
-sdr::properties::BaseProperties* SdrRectObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> SdrRectObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::RectangleProperties(*this);
+    return o3tl::make_unique<sdr::properties::RectangleProperties>(*this);
 }
 
 
 // DrawContact section
 
-sdr::contact::ViewContact* SdrRectObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrRectObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfSdrRectObj(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfSdrRectObj>(*this);
 }
 
 
@@ -188,7 +189,7 @@ void SdrRectObj::TakeUnrotatedSnapRect(tools::Rectangle& rRect) const
     rRect = maRect;
     if (aGeo.nShearAngle!=0)
     {
-        long nDst=svx::Round((maRect.Bottom()-maRect.Top())*aGeo.nTan);
+        long nDst=FRound((maRect.Bottom()-maRect.Top())*aGeo.nTan);
         if (aGeo.nShearAngle>0)
         {
             Point aRef(rRect.TopLeft());
@@ -224,7 +225,7 @@ OUString SdrRectObj::TakeObjNameSingul() const
     {
         pResId = bRounded ? STR_ObjNameSingulQUADRND : STR_ObjNameSingulQUAD; // square
     }
-    sName.append(ImpGetResStr(pResId));
+    sName.append(SvxResId(pResId));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -256,12 +257,12 @@ OUString SdrRectObj::TakeObjNamePlural() const
         pResId = bRounded ? STR_ObjNamePluralQUADRND : STR_ObjNamePluralQUAD; // square
     }
 
-    return ImpGetResStr(pResId);
+    return SvxResId(pResId);
 }
 
-SdrRectObj* SdrRectObj::Clone(SdrModel* pTargetModel) const
+SdrRectObj* SdrRectObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrRectObj >(pTargetModel);
+    return CloneHelper< SdrRectObj >(rTargetModel);
 }
 
 SdrRectObj& SdrRectObj::operator=(const SdrRectObj& rCopy)

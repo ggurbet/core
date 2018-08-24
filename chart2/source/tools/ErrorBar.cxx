@@ -22,6 +22,7 @@
 #include <EventListenerHelper.hxx>
 #include <PropertyHelper.hxx>
 #include <CloneHelper.hxx>
+#include <ModifyListenerHelper.hxx>
 
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -38,6 +39,7 @@
 #include <rtl/math.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 

@@ -25,6 +25,7 @@
 #include <com/sun/star/lang/NullPointerException.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 #include <strings.hrc>
 #include <comphelper/processfactory.hxx>
@@ -193,7 +194,7 @@ MacabDriver::MacabDriver(
     }
     catch( const Exception& )
     {
-        DBG_UNHANDLED_EXCEPTION();
+        DBG_UNHANDLED_EXCEPTION("connectivity.macab");
     }
     osl_atomic_decrement( &m_refCount );
 }

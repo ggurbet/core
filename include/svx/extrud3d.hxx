@@ -38,9 +38,13 @@ private:
     // geometry, which determines the object
     basegfx::B2DPolyPolygon         maExtrudePolygon;
 
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
     void SetDefaultAttributes(const E3dDefaultAttributes& rDefault);
+
+private:
+    // protected destructor - due to final, make private
+    virtual ~E3dExtrudeObj() override;
 
 public:
     E3dExtrudeObj(
@@ -84,7 +88,7 @@ public:
 
     virtual sal_uInt16 GetObjIdentifier() const override;
 
-    virtual E3dExtrudeObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual E3dExtrudeObj* CloneSdrObject(SdrModel& rTargetModel) const override;
 
     // implemented mainly for the purposes of Clone()
     E3dExtrudeObj& operator=(const E3dExtrudeObj& rObj);

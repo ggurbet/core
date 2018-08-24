@@ -552,7 +552,7 @@ void SwXViewSettings::_preSetValues ()
     else
         pVOpt = SW_MOD()->GetViewOption(false);
 
-    mpViewOption = new SwViewOption (*pVOpt);
+    mpViewOption.reset( new SwViewOption (*pVOpt) );
     mbApplyZoom = false;
     if(pView)
         mpViewOption->SetStarOneSetting(true);
@@ -782,8 +782,7 @@ void SwXViewSettings::_postSetValues()
     SW_MOD()->ApplyUsrPref( *mpViewOption, pView, pView ? SvViewOpt::DestViewOnly
                                                   : SvViewOpt::DestText );
 
-    delete mpViewOption;
-    mpViewOption = nullptr;
+    mpViewOption.reset();
 }
 
 void SwXViewSettings::_preGetValues ()
@@ -833,6 +832,7 @@ void SwXViewSettings::_getSingleValue( const comphelper::PropertyInfo & rInfo, u
         case  HANDLE_VIEWSET_TEXT_BOUNDARIES       :   bBoolVal = SwViewOption::IsDocBoundaries(); break;
         case  HANDLE_VIEWSET_SMOOTH_SCROLLING      :   bBoolVal = mpConstViewOption->IsSmoothScroll();  break;
         case  HANDLE_VIEWSET_SHOW_CONTENT_TIPS     :   bBoolVal = mpConstViewOption->IsShowContentTips(); break;
+        case  HANDLE_VIEWSET_INLINECHANGES_TIPS    :   bBoolVal = mpConstViewOption->IsShowInlineTooltips(); break;
         case  HANDLE_VIEWSET_IS_RASTER_VISIBLE     : bBoolVal = mpConstViewOption->IsGridVisible(); break;
         case  HANDLE_VIEWSET_IS_SNAP_TO_RASTER     : bBoolVal = mpConstViewOption->IsSnap(); break;
         case  HANDLE_VIEWSET_SCROLLBAR_TIPS        : bBoolVal = mpConstViewOption->IsShowScrollBarTips(); break;

@@ -24,6 +24,7 @@
 #include <svtools/ctrltool.hxx>
 #include <svl/style.hxx>
 #include <svl/itemiter.hxx>
+#include <svl/listener.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <svx/pageitem.hxx>
@@ -66,6 +67,7 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/drawing/BitmapMode.hpp>
+#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <istyleaccess.hxx>
 #include <GetMetricVal.hxx>
@@ -75,9 +77,11 @@
 #include <fmtautofmt.hxx>
 
 #include <comphelper/servicehelper.hxx>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/sequence.hxx>
 #include <o3tl/make_unique.hxx>
+#include <sal/log.hxx>
 
 #include <svl/stylepool.hxx>
 #include <svx/unobrushitemhelper.hxx>
@@ -274,7 +278,7 @@ class SwXStyle : public cppu::WeakImplHelper
         css::beans::XMultiPropertyStates
     >
     , public SfxListener
-    , public SwClient
+    , public SvtListener
 {
     SwDoc* m_pDoc;
     OUString m_sStyleName;
@@ -299,7 +303,6 @@ protected:
     uno::Any GetStyleProperty_Impl(const SfxItemPropertySimpleEntry& rEntry, const SfxItemPropertySet& rPropSet, SwStyleBase_Impl& rBase);
     uno::Any GetPropertyValue_Impl(const SfxItemPropertySet* pPropSet, SwStyleBase_Impl& rBase, const OUString& rPropertyName);
 
-   virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
 public:
     SwXStyle(SwDoc* pDoc, SfxStyleFamily eFam, bool bConditional = false);
     SwXStyle(SfxStyleSheetBasePool* pPool, SfxStyleFamily eFamily, SwDoc* pDoc, const OUString& rStyleName);
@@ -364,6 +367,8 @@ public:
 
     //SfxListener
     virtual void        Notify( SfxBroadcaster& rBC, const SfxHint& rHint ) override;
+    //SvtListener
+    virtual void Notify(const SfxHint&) override;
     const OUString&     GetStyleName() const { return m_sStyleName;}
     SfxStyleFamily      GetFamily() const {return m_rEntry.m_eFamily;}
 
@@ -374,7 +379,7 @@ public:
                             {
                                 m_bIsDescriptor = false; m_pDoc = pDc;
                                 m_pBasePool = pPool;
-                                StartListening(*m_pBasePool);
+                                SfxListener::StartListening(*m_pBasePool);
                             }
     SwDoc*                GetDoc() const { return m_pDoc; }
     void Invalidate();
@@ -859,7 +864,7 @@ uno::Sequence<OUString> XStyleFamily::getElementNames()
     if(!m_pBasePool)
         throw uno::RuntimeException();
     std::vector<OUString> vRet;
-    std::shared_ptr<SfxStyleSheetIterator> pIt = m_pBasePool->CreateIterator(m_rEntry.m_eFamily, SfxStyleSearchBits::All);
+    std::unique_ptr<SfxStyleSheetIterator> pIt = m_pBasePool->CreateIterator(m_rEntry.m_eFamily, SfxStyleSearchBits::All);
     for (SfxStyleSheetBase* pStyle = pIt->First(); pStyle; pStyle = pIt->Next())
     {
         OUString sName;
@@ -1289,7 +1294,7 @@ SwXStyle::SwXStyle(SwDoc* pDoc, SfxStyleFamily eFamily, bool bConditional)
 {
     assert(!m_bIsConditional || m_rEntry.m_eFamily == SfxStyleFamily::Para); // only paragraph styles are conditional
     // Register ourselves as a listener to the document (via the page descriptor)
-    pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->Add(this);
+    SvtListener::StartListening(pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->GetNotifier());
     m_pPropertiesImpl = o3tl::make_unique<SwStyleProperties_Impl>(
             aSwMapProvider.GetPropertySet(m_bIsConditional ? PROPERTY_MAP_CONDITIONAL_PARA_STYLE :  m_rEntry.m_nPropMapType)->getPropertyMap());
 }
@@ -1308,15 +1313,14 @@ SwXStyle::~SwXStyle()
 {
     SolarMutexGuard aGuard;
     if(m_pBasePool)
-        EndListening(*m_pBasePool);
+        SfxListener::EndListening(*m_pBasePool);
     m_pPropertiesImpl.reset();
-    SwClient::EndListeningAll();
+    SvtListener::EndListeningAll();
 }
 
-void SwXStyle::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXStyle::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if(!GetRegisteredIn())
+    if(rHint.GetId() == SfxHintId::Dying)
     {
         m_pDoc = nullptr;
         m_xStyleData.clear();
@@ -2426,11 +2430,15 @@ uno::Sequence<uno::Any> SwXStyle::getPropertyValues(const uno::Sequence<OUString
     }
     catch(beans::UnknownPropertyException&)
     {
-        throw uno::RuntimeException("Unknown property exception caught", static_cast<cppu::OWeakObject*>(this));
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException("Unknown property exception caught",
+                static_cast < cppu::OWeakObject * > ( this ), anyEx );
     }
     catch(lang::WrappedTargetException&)
     {
-        throw uno::RuntimeException("WrappedTargetException caught", static_cast<cppu::OWeakObject*>(this));
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw lang::WrappedTargetRuntimeException("WrappedTargetException caught",
+                static_cast < cppu::OWeakObject * > ( this ), anyEx );
     }
     return aValues;
 }
@@ -2766,7 +2774,7 @@ void SwXStyle::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
     if((rHint.GetId() == SfxHintId::Dying) || (rHint.GetId() == SfxHintId::StyleSheetErased))
     {
         m_pBasePool = nullptr;
-        EndListening(rBC);
+        SfxListener::EndListening(rBC);
     }
     else if(rHint.GetId() == SfxHintId::StyleSheetChanged)
     {
@@ -2774,7 +2782,7 @@ void SwXStyle::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
         SfxStyleSheetBase* pOwnBase = static_cast<SfxStyleSheetBasePool&>(rBC).Find(m_sStyleName);
         if(!pOwnBase)
         {
-            EndListening(rBC);
+            SfxListener::EndListening(rBC);
             Invalidate();
         }
     }
@@ -3258,11 +3266,15 @@ uno::Sequence<uno::Any> SwXPageStyle::getPropertyValues(const uno::Sequence<OUSt
     }
     catch(beans::UnknownPropertyException &)
     {
-        throw uno::RuntimeException("Unknown property exception caught", static_cast<cppu::OWeakObject*>(this));
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw lang::WrappedTargetRuntimeException("Unknown property exception caught",
+                static_cast < cppu::OWeakObject * > ( this ), anyEx );
     }
     catch(lang::WrappedTargetException &)
     {
-        throw uno::RuntimeException("WrappedTargetException caught", static_cast<cppu::OWeakObject*>(this));
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw lang::WrappedTargetRuntimeException("WrappedTargetException caught",
+                static_cast < cppu::OWeakObject * > ( this ), anyEx );
     }
 
     return aValues;
@@ -4062,11 +4074,13 @@ uno::Sequence< uno::Any > SwXAutoStyle::getPropertyValues (
     }
     catch (beans::UnknownPropertyException &)
     {
-        throw uno::RuntimeException("Unknown property exception caught", static_cast < cppu::OWeakObject * > ( this ) );
+        css::uno::Any exc = cppu::getCaughtException();
+        throw lang::WrappedTargetRuntimeException("Unknown property exception caught", static_cast < cppu::OWeakObject * > ( this ), exc );
     }
     catch (lang::WrappedTargetException &)
     {
-        throw uno::RuntimeException("WrappedTargetException caught", static_cast < cppu::OWeakObject * > ( this ) );
+        css::uno::Any exc = cppu::getCaughtException();
+        throw lang::WrappedTargetRuntimeException("WrappedTargetException caught", static_cast < cppu::OWeakObject * > ( this ), exc );
     }
 
     return aValues;
@@ -5351,7 +5365,7 @@ css::uno::Sequence<css::beans::PropertyState> SAL_CALL SwXTextCellStyle::getProp
                     pStates[i] = aAny1 == aAny2 ? beans::PropertyState_DEFAULT_VALUE : beans::PropertyState_DIRECT_VALUE;
                     break;
                 default:
-                    // falltrough to DIRECT_VALUE, to export properties for which getPropertyStates is not implemented
+                    // fallthrough to DIRECT_VALUE, to export properties for which getPropertyStates is not implemented
                     pStates[i] = beans::PropertyState_DIRECT_VALUE;
                     SAL_WARN("sw.uno", "SwXTextCellStyle getPropertyStates unknown nWID");
             }

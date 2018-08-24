@@ -1,0 +1,48 @@
+---
+assumeFilename: desktop/source/app/app.cxx
+blacklist:
+    include/sal/typesizes.h:
+    # needed for build to work
+    - config_typesizes.h
+    include/sal/types.h:
+    # needed for build to work
+    - sal/typesizes.h
+    include/sal/mathconf.h:
+    # Platform dependent
+    - cmath
+    include/osl/endian.h:
+    # needed for base types used in macros
+    - sal/types.h
+    include/osl/conditn.h:
+    # ODK API test would fail with fw decl here
+    - osl/time.h
+    include/osl/socket.h:
+    # ODK API test would fail with fw decl here
+    - osl/time.h
+    include/osl/thread.h:
+    # ODK API test would fail with fw decl here
+    - osl/time.h
+    include/osl/conditn.hxx:
+    # ODK API test would fail with fw decl here
+    - osl/time.h
+    include/osl/pipe_decl.hxx:
+    # ODK API test would fail with fw decl here
+    - osl/security.hxx
+    include/osl/socket_decl.hxx:
+    # Needed by socket.hxx for inline function
+    - rtl/byteseq.hxx
+    include/osl/thread.hxx:
+    # ODK API test would fail with fw decl here
+    - osl/time.h
+    include/rtl/instance.hxx:
+    # Needed for template functions
+    - osl/getglobalmutex.hxx
+    include/rtl/math.hxx:
+    # TODO MSVC does not compile basegfx/numeric/ftools.hxx when this is replaced
+    - math.h
+    include/registry/regtype.h:
+    # Needed for template
+    - o3tl/typed_flags_set.hxx
+    include/registry/types.hxx:
+    # Needed for template
+    - o3tl/typed_flags_set.hxx

@@ -27,7 +27,6 @@
 #include <com/sun/star/datatransfer/clipboard/XFlushableClipboard.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <cppuhelper/typeprovider.hxx>
-#include <comphelper/sequence.hxx>
 #include <vcl/window.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/unohelp2.hxx>
@@ -50,8 +49,9 @@ using namespace ::comphelper;
 VCLXAccessibleTextComponent::VCLXAccessibleTextComponent( VCLXWindow* pVCLXWindow )
     :VCLXAccessibleComponent( pVCLXWindow )
 {
-    if ( GetWindow() )
-        m_sText = OutputDevice::GetNonMnemonicString( GetWindow()->GetText() );
+    VclPtr<vcl::Window> pWindow = GetWindow();
+    if ( pWindow )
+        m_sText = OutputDevice::GetNonMnemonicString( pWindow->GetText() );
 }
 
 
@@ -88,8 +88,9 @@ void VCLXAccessibleTextComponent::ProcessWindowEvent( const VclWindowEvent& rVcl
 OUString VCLXAccessibleTextComponent::implGetText()
 {
     OUString aText;
-    if ( GetWindow() )
-        aText = OutputDevice::GetNonMnemonicString( GetWindow()->GetText() );
+    VclPtr<vcl::Window> pWindow = GetWindow();
+    if ( pWindow )
+        aText = OutputDevice::GetNonMnemonicString( pWindow->GetText() );
 
     return aText;
 }
@@ -142,8 +143,6 @@ sal_Int32 VCLXAccessibleTextComponent::getCaretPosition()
 
 sal_Bool VCLXAccessibleTextComponent::setCaretPosition( sal_Int32 nIndex )
 {
-    OExternalLockGuard aGuard( this );
-
     return setSelection( nIndex, nIndex );
 }
 
@@ -166,12 +165,13 @@ Sequence< PropertyValue > VCLXAccessibleTextComponent::getCharacterAttributes( s
     if ( !implIsValidIndex( nIndex, sText.getLength() ) )
         throw IndexOutOfBoundsException();
 
-    if ( GetWindow() )
+    VclPtr<vcl::Window> pWindow = GetWindow();
+    if ( pWindow )
     {
-        vcl::Font aFont = GetWindow()->GetControlFont();
+        vcl::Font aFont = pWindow->GetControlFont();
 
-        Color nBackColor = GetWindow()->GetControlBackground();
-        Color nColor = GetWindow()->GetControlForeground();
+        Color nBackColor = pWindow->GetControlBackground();
+        Color nColor = pWindow->GetControlForeground();
 
         // MT: Code with default font was introduced with the IA2 CWS, but I am not convinced that this is the correct font...
         // Decide what to do when we have a concrete issue.
@@ -348,12 +348,13 @@ sal_Bool VCLXAccessibleTextComponent::copyText( sal_Int32 nStartIndex, sal_Int32
 
     bool bReturn = false;
 
-    if ( GetWindow() )
+    VclPtr<vcl::Window> pWindow = GetWindow();
+    if ( pWindow )
     {
-        Reference< datatransfer::clipboard::XClipboard > xClipboard = GetWindow()->GetClipboard();
+        Reference< datatransfer::clipboard::XClipboard > xClipboard = pWindow->GetClipboard();
         if ( xClipboard.is() )
         {
-            OUString sText( getTextRange( nStartIndex, nEndIndex ) );
+            OUString sText( OCommonAccessibleText::implGetTextRange( implGetText(), nStartIndex, nEndIndex ) );
 
             vcl::unohelper::TextDataObject* pDataObj = new vcl::unohelper::TextDataObject( sText );
 

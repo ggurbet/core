@@ -42,9 +42,8 @@ namespace
 OUString lcl_double_dabble(const std::vector<sal_uInt8>& bytes)
 {
     size_t nbits = 8 * bytes.size(); // length of array in bits
-    size_t nscratch = nbits / 3; // length of scratch in bytes
+    size_t nscratch = nbits / 2; // length of scratch in bytes
     std::vector<char> scratch(nscratch, 0);
-    size_t smin = nscratch - 2; // speed optimization
 
     for (size_t i = 0; i < bytes.size(); ++i)
     {
@@ -54,13 +53,11 @@ OUString lcl_double_dabble(const std::vector<sal_uInt8>& bytes)
             int shifted_in = (bytes[i] & (1 << (7 - j))) ? 1 : 0;
 
             /* Add 3 everywhere that scratch[k] >= 5. */
-            for (size_t k = smin; k < nscratch; ++k)
+            for (size_t k = 0; k < nscratch; ++k)
                 scratch[k] += (scratch[k] >= 5) ? 3 : 0;
 
             /* Shift scratch to the left by one position. */
-            if (scratch[smin] >= 8)
-                smin -= 1;
-            for (size_t k = smin; k < nscratch - 1; ++k)
+            for (size_t k = 0; k < nscratch - 1; ++k)
             {
                 scratch[k] <<= 1;
                 scratch[k] &= 0xF;
@@ -76,7 +73,7 @@ OUString lcl_double_dabble(const std::vector<sal_uInt8>& bytes)
 
     auto it = scratch.begin();
     /* Remove leading zeros from the scratch space. */
-    while (*it == 0)
+    while (*it == 0 && scratch.size() > 1)
     {
         it = scratch.erase(it);
     }
@@ -117,13 +114,12 @@ OUString lcl_makeStringFromBigint(const std::vector<sal_uInt8> bytes)
 
 OUString lcl_putDot(const OUString& sNum, sal_Int32 nScale)
 {
+    // e.g. sNum = "0", nScale = 2 -> "0.00"
     OUStringBuffer sBuf{ sNum };
-    if (nScale >= sNum.getLength())
-    {
-        sal_Int32 nNullsToAppend = nScale - sNum.getLength();
-        for (sal_Int32 i = 0; i < nNullsToAppend; ++i)
-            sBuf.insert(0, "0");
-    }
+    sal_Int32 nNullsToAppend = nScale - sNum.getLength() + 1;
+    for (sal_Int32 i = 0; i < nNullsToAppend; ++i)
+        sBuf.insert(0, "0");
+
     if (nScale > 0)
         sBuf.insert(sBuf.getLength() - 1 - nScale, ".");
     return sBuf.makeStringAndClear();
@@ -144,7 +140,7 @@ HsqlRowInputStream::HsqlRowInputStream() {}
 
 void HsqlRowInputStream::setInputStream(Reference<XInputStream> const& rStream)
 {
-    m_pStream.reset(utl::UcbStreamHelper::CreateStream(rStream, true));
+    m_pStream = utl::UcbStreamHelper::CreateStream(rStream, true);
     m_pStream->SetEndian(SvStreamEndian::BIG);
 }
 
@@ -336,7 +332,20 @@ std::vector<Any> HsqlRowInputStream::readOneRow(const ColumnTypeVector& nColType
             {
                 sal_Int64 value = 0;
                 m_pStream->ReadInt64(value);
-                css::util::Time time((value % 1000) * 1000000, value / 1000, 0, 0, true);
+                auto valueInSecs = value / 1000;
+                sal_uInt16 nHours = 0;
+                // in negative case value is comprised between
+                // -24 * 60 * 60 and -1
+                // so add 24 * 60 * 60 in order the rest of calculus is ok
+                if (valueInSecs < 0)
+                    valueInSecs += 24 * 60 * 60;
+                else
+                    nHours = (valueInSecs / 3600) + 1;
+
+                valueInSecs = valueInSecs % 3600;
+                const sal_uInt16 nMins = valueInSecs / 60;
+                const sal_uInt16 nSecs = valueInSecs % 60;
+                css::util::Time time((value % 1000) * 1000000, nSecs, nMins, nHours, true);
                 aData.push_back(makeAny(time));
             }
             break;

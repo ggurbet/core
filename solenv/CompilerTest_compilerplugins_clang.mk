@@ -15,6 +15,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/casttovoid \
     compilerplugins/clang/test/commaoperator \
     compilerplugins/clang/test/constparams \
+    compilerplugins/clang/test/conststringfield \
     compilerplugins/clang/test/convertlong \
     compilerplugins/clang/test/cppunitassertequals \
     compilerplugins/clang/test/cstylecast \
@@ -45,14 +46,17 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/salcall \
     compilerplugins/clang/test/sallogareas \
     compilerplugins/clang/test/salunicodeliteral \
+    compilerplugins/clang/test/shouldreturnbool \
     compilerplugins/clang/test/simplifybool \
     compilerplugins/clang/test/simplifydynamiccast \
     compilerplugins/clang/test/stringconstant \
+    compilerplugins/clang/test/stringloop \
     compilerplugins/clang/test/unnecessarycatchthrow \
     compilerplugins/clang/test/unnecessaryoverride \
     compilerplugins/clang/test/unnecessaryoverride-dtor \
     compilerplugins/clang/test/unnecessaryparen \
     compilerplugins/clang/test/unoany \
+    compilerplugins/clang/test/unreffun \
     compilerplugins/clang/test/unusedindex \
     compilerplugins/clang/test/unusedvariablecheck \
     compilerplugins/clang/test/unusedvariablemore \

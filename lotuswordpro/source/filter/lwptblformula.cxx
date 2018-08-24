@@ -66,6 +66,7 @@
 #include "lwptablelayout.hxx"
 #include <osl/thread.h>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <memory>
 
 LwpFormulaArg::~LwpFormulaArg()
@@ -441,29 +442,29 @@ OUString LwpFormulaFunc::ToArgString(LwpTableLayout* pCellsMap)
 */
 OUString LwpFormulaFunc::ToString(LwpTableLayout* pCellsMap)
 {
-    OUString aFormula;
+    OUStringBuffer aFormula;
 
     OUString aFuncName = LwpFormulaTools::GetName(m_nTokenType);
-    aFormula += aFuncName;
-    aFormula += " ";//Append a blank space
+    aFormula.append(aFuncName);
+    aFormula.append(" ");//Append a blank space
 
     //Append args
     for (auto const& elem : m_aArgs)
     {
-        aFormula += elem->ToArgString(pCellsMap) + "|"; //separator
+        aFormula.append(elem->ToArgString(pCellsMap)).append("|"); //separator
     }
 
     //erase the last "|"
     if (!m_aArgs.empty())
     {
-        aFormula = aFormula.replaceAt(aFormula.getLength()-1,1,"");
+        aFormula.setLength(aFormula.getLength()-1);
     }
     else
     {
         assert(false);
     }
 
-    return aFormula;
+    return aFormula.makeStringAndClear();
 }
 
 /**

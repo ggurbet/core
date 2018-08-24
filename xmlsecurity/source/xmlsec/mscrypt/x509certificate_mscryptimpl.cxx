@@ -20,8 +20,10 @@
 #include <string.h>
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <comphelper/windowserrorstring.hxx>
+#include <cppuhelper/supportsservice.hxx>
 #include "x509certificate_mscryptimpl.hxx"
 #include <certificateextension_xmlsecimpl.hxx>
 #include "sanextension_mscryptimpl.hxx"
@@ -37,6 +39,7 @@
 #include <utility>
 #include <vector>
 #include <tools/time.hxx>
+#include <svl/sigstruct.hxx>
 
 using namespace com::sun::star;
 using namespace ::com::sun::star::uno ;
@@ -569,6 +572,21 @@ uno::Sequence<sal_Int8> X509Certificate_MSCryptImpl::getSHA256Thumbprint()
     return getThumbprint(m_pCertContext, CERT_SHA256_HASH_PROP_ID);
 }
 
+svl::crypto::SignatureMethodAlgorithm X509Certificate_MSCryptImpl::getSignatureMethodAlgorithm()
+{
+    svl::crypto::SignatureMethodAlgorithm nRet = svl::crypto::SignatureMethodAlgorithm::RSA;
+
+    if (!m_pCertContext || !m_pCertContext->pCertInfo)
+        return nRet;
+
+    CRYPT_ALGORITHM_IDENTIFIER algorithm = m_pCertContext->pCertInfo->SubjectPublicKeyInfo.Algorithm;
+    OString aObjId(algorithm.pszObjId);
+    if (aObjId == szOID_ECC_PUBLIC_KEY)
+        nRet = svl::crypto::SignatureMethodAlgorithm::ECDSA;
+
+    return nRet;
+}
+
 css::uno::Sequence< sal_Int8 > SAL_CALL X509Certificate_MSCryptImpl::getSHA1Thumbprint()
 {
     return getThumbprint(m_pCertContext, CERT_SHA1_HASH_PROP_ID);
@@ -641,6 +659,24 @@ sal_Int32 SAL_CALL X509Certificate_MSCryptImpl::getCertificateUsage(  )
     }
 
     return usage;
+}
+
+/* XServiceInfo */
+OUString SAL_CALL X509Certificate_MSCryptImpl::getImplementationName()
+{
+    return OUString("com.sun.star.xml.security.gpg.XCertificate_MsCryptImpl");
+}
+
+/* XServiceInfo */
+sal_Bool SAL_CALL X509Certificate_MSCryptImpl::supportsService(const OUString& serviceName)
+{
+    return cppu::supportsService(this, serviceName);
+}
+
+/* XServiceInfo */
+Sequence<OUString> SAL_CALL X509Certificate_MSCryptImpl::getSupportedServiceNames()
+{
+    return { OUString() };
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

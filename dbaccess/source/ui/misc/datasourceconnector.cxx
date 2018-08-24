@@ -36,11 +36,11 @@
 #include <vcl/stdtext.hxx>
 #include <vcl/button.hxx>
 #include <svl/filenotation.hxx>
+#include <toolkit/helper/vclunohelper.hxx>
 #include <tools/diagnose_ex.h>
 #include <cppuhelper/exc_hlp.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
-#include <migrwarndlg.hxx>
 
 namespace dbaui
 {
@@ -114,12 +114,6 @@ namespace dbaui
             DBG_UNHANDLED_EXCEPTION("dbaccess");
         }
 
-        if(_xDataSource->getConnectionUrl().startsWithIgnoreAsciiCase("sdbc:embedded:hsqldb"))
-        {
-            MigrationWarnDialog aWarnDlg{m_pErrorMessageParent->GetFrameWeld()};
-            _xDataSource->setMigrationNeeded(aWarnDlg.run() == RET_OK);
-        }
-
         // try to connect
         SQLExceptionInfo aInfo;
         try
@@ -135,7 +129,7 @@ namespace dbaui
                 if ( !xHandler.is() )
                 {
                     // instantiate the default SDB interaction handler
-                    xHandler.set( InteractionHandler::createWithParent(m_xContext, nullptr), UNO_QUERY );
+                    xHandler.set( InteractionHandler::createWithParent(m_xContext, VCLUnoHelper::GetInterface(m_pErrorMessageParent)), UNO_QUERY );
                 }
 
                 xConnection = xConnectionCompletion->connectWithCompletion(xHandler);

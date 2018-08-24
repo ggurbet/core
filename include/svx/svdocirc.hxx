@@ -47,8 +47,8 @@ private:
     // only for SdrCircleAttributes
     SdrObjKind GetCircleKind() const { return meCircleKind; }
 
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
 
     SdrObjKind                  meCircleKind;
     long                        nStartAngle;
@@ -64,6 +64,10 @@ private:
     SVX_DLLPRIVATE virtual void RecalcXPoly() override;
 
     virtual void Notify(SfxBroadcaster& rBC, const SfxHint& rHint) override;
+
+private:
+    // protected destructor - due to final, make private
+    virtual ~SdrCircObj() override;
 
 public:
     SdrCircObj(
@@ -85,8 +89,6 @@ public:
         long nNewStartAngle,
         long nNewEndWink);
 
-    virtual ~SdrCircObj() override;
-
     virtual void TakeObjInfo(SdrObjTransformInfoRec& rInfo) const override;
     virtual sal_uInt16 GetObjIdentifier() const override;
     virtual void TakeUnrotatedSnapRect(tools::Rectangle& rRect) const override;
@@ -94,7 +96,7 @@ public:
     virtual OUString TakeObjNameSingul() const override;
     virtual OUString TakeObjNamePlural() const override;
 
-    virtual SdrCircObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrCircObj* CloneSdrObject(SdrModel& rTargetModel) const override;
 
     // implemented mainly for the purposes of Clone()
     SdrCircObj& operator=(const SdrCircObj& rObj);

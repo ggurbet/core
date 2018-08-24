@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <sal/log.hxx>
 
 #include <memory>
 #include <string.h>
@@ -166,7 +167,6 @@ void WinSalInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
                 pInfo->maPrinterName = o3tl::toU(pWinInfo4[i].pPrinterName);
                 pInfo->mnStatus      = PrintQueueFlags::NONE;
                 pInfo->mnJobs        = 0;
-                pInfo->mpSysData     = nullptr;
                 pList->Add( pInfo );
             }
         }
@@ -202,8 +202,8 @@ void WinSalInstance::GetPrinterQueueState( SalPrinterQueueInfo* pInfo )
                     pInfo->maComment = o3tl::toU(pWinInfo2->pComment);
                 pInfo->mnStatus      = ImplWinQueueStatusToSal( pWinInfo2->Status );
                 pInfo->mnJobs        = pWinInfo2->cJobs;
-                if( ! pInfo->mpSysData )
-                    pInfo->mpSysData = new OUString(aPortName);
+                if( ! pInfo->mpPortName )
+                    pInfo->mpPortName.reset(new OUString(aPortName));
             }
             rtl_freeMemory(pWinInfo2);
         }
@@ -213,7 +213,6 @@ void WinSalInstance::GetPrinterQueueState( SalPrinterQueueInfo* pInfo )
 
 void WinSalInstance::DeletePrinterQueueInfo( SalPrinterQueueInfo* pInfo )
 {
-    delete pInfo->mpSysData;
     delete pInfo;
 }
 
@@ -348,7 +347,7 @@ static bool ImplTestSalJobSetup( WinSalInfoPrinter const * pPrinter,
 }
 
 static bool ImplUpdateSalJobSetup( WinSalInfoPrinter const * pPrinter, ImplJobSetup* pSetupData,
-                                   bool bIn, WinSalFrame* pVisibleDlgParent )
+                                   bool bIn, weld::Window* pVisibleDlgParent )
 {
     HANDLE hPrn;
     LPWSTR pPrinterNameW = const_cast<LPWSTR>(o3tl::toW(pPrinter->maDeviceName.getStr()));
@@ -392,7 +391,7 @@ static bool ImplUpdateSalJobSetup( WinSalInfoPrinter const * pPrinter, ImplJobSe
     // check if the dialog should be shown
     if ( pVisibleDlgParent )
     {
-        hWnd = pVisibleDlgParent->mhWnd;
+        hWnd = pVisibleDlgParent->get_system_data().hWnd;
         nMode |= DM_IN_PROMPT;
     }
 
@@ -1060,13 +1059,11 @@ SalInfoPrinter* WinSalInstance::CreateInfoPrinter( SalPrinterQueueInfo* pQueueIn
                                                    ImplJobSetup* pSetupData )
 {
     WinSalInfoPrinter* pPrinter = new WinSalInfoPrinter;
-    if( ! pQueueInfo->mpSysData )
+    if( ! pQueueInfo->mpPortName )
         GetPrinterQueueState( pQueueInfo );
     pPrinter->maDriverName  = pQueueInfo->maDriver;
     pPrinter->maDeviceName  = pQueueInfo->maPrinterName;
-    pPrinter->maPortName    = pQueueInfo->mpSysData ?
-                                *pQueueInfo->mpSysData
-                              : OUString();
+    pPrinter->maPortName    = pQueueInfo->mpPortName ? *pQueueInfo->mpPortName : OUString();
 
     // check if the provided setup data match the actual printer
     ImplTestSalJobSetup( pPrinter, pSetupData, true );
@@ -1164,9 +1161,9 @@ void WinSalInfoPrinter::ReleaseGraphics( SalGraphics* )
     mbGraphics = FALSE;
 }
 
-bool WinSalInfoPrinter::Setup( SalFrame* pFrame, ImplJobSetup* pSetupData )
+bool WinSalInfoPrinter::Setup(weld::Window* pFrame, ImplJobSetup* pSetupData)
 {
-    if ( ImplUpdateSalJobSetup( this, pSetupData, true, static_cast<WinSalFrame*>(pFrame) ) )
+    if ( ImplUpdateSalJobSetup(this, pSetupData, true, pFrame))
     {
         ImplDevModeToJobSetup( this, pSetupData, JobSetFlags::ALL );
         return ImplUpdateSalPrnIC( this, pSetupData );
@@ -1279,16 +1276,11 @@ void WinSalInfoPrinter::GetPageInfo( const ImplJobSetup*,
 }
 
 
-SalPrinter* WinSalInstance::CreatePrinter( SalInfoPrinter* pInfoPrinter )
+std::unique_ptr<SalPrinter> WinSalInstance::CreatePrinter( SalInfoPrinter* pInfoPrinter )
 {
     WinSalPrinter* pPrinter = new WinSalPrinter;
     pPrinter->mpInfoPrinter = static_cast<WinSalInfoPrinter*>(pInfoPrinter);
-    return pPrinter;
-}
-
-void WinSalInstance::DestroyPrinter( SalPrinter* pPrinter )
-{
-    delete pPrinter;
+    return std::unique_ptr<SalPrinter>(pPrinter);
 }
 
 BOOL CALLBACK SalPrintAbortProc( HDC hPrnDC, int /* nError */ )

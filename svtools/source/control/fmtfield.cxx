@@ -36,6 +36,7 @@
 #include <map>
 #include <rtl/math.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star::lang;
 using namespace ::com::sun::star::util;
@@ -75,8 +76,6 @@ namespace validation
     {
     private:
         TransitionTable     m_aTransitions;
-        const sal_Unicode   m_cThSep;
-        const sal_Unicode   m_cDecSep;
 
     public:
         NumberValidator( const sal_Unicode _cThSep, const sal_Unicode _cDecSep );
@@ -122,8 +121,6 @@ namespace validation
     }
 
     NumberValidator::NumberValidator( const sal_Unicode _cThSep, const sal_Unicode _cDecSep )
-        :m_cThSep( _cThSep )
-        ,m_cDecSep( _cDecSep )
     {
         // build up our transition table
 
@@ -142,7 +139,7 @@ namespace validation
             lcl_insertSignTransitions( rRow, DIGIT_PRE_COMMA );
 
             // common transitions for the two pre-comma states
-            lcl_insertCommonPreCommaTransitions( rRow, m_cThSep, m_cDecSep );
+            lcl_insertCommonPreCommaTransitions( rRow, _cThSep, _cDecSep );
 
             // the exponent may start here
             // (this would mean string like "_+e10_", but this is a valid fragment, though no valid number)
@@ -154,7 +151,7 @@ namespace validation
             StateTransitions& rRow = m_aTransitions[ DIGIT_PRE_COMMA ];
 
             // common transitions for the two pre-comma states
-            lcl_insertCommonPreCommaTransitions( rRow, m_cThSep, m_cDecSep );
+            lcl_insertCommonPreCommaTransitions( rRow, _cThSep, _cDecSep );
 
             // the exponent may start here
             lcl_insertStartExponentTransition( rRow );
@@ -484,7 +481,7 @@ void FormattedField::ImplSetTextImpl(const OUString& rNew, Selection const * pNe
         sal_Int32 nCurrentLen = GetText().getLength();
 
         if ((nNewLen > nCurrentLen) && (aSel.Max() == nCurrentLen))
-        {   // new new text is longer and the cursor is behind the last char
+        {   // new text is longer and the cursor is behind the last char
             if (aSel.Min() == 0)
             {   // the whole text was selected -> select the new text on the whole, too
                 aSel.Max() = nNewLen;
@@ -578,7 +575,7 @@ void FormattedField::SetFormatter(SvNumberFormatter* pFormatter, bool bResetForm
             // convert the old format string into the new language
             sal_Int32 nCheckPos;
             SvNumFormatType nType;
-            pFormatter->PutandConvertEntry(sOldFormat, nCheckPos, nType, nDestKey, aOldLang, aNewLang);
+            pFormatter->PutandConvertEntry(sOldFormat, nCheckPos, nType, nDestKey, aOldLang, aNewLang, true);
             m_nFormatKey = nDestKey;
         }
         m_pFormatter = pFormatter;

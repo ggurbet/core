@@ -34,6 +34,7 @@
 #include <svx/zoomslideritem.hxx>
 #include <svl/eitem.hxx>
 
+#include <sdcommands.h>
 #include <svx/dialogs.hrc>
 #include <svx/extrusionbar.hxx>
 #include <svx/fontworkbar.hxx>
@@ -45,12 +46,13 @@
 #include <svx/float3d.hxx>
 #include <svx/extedit.hxx>
 #include <svx/sidebar/SelectionAnalyzer.hxx>
+#include <svx/sidebar/SelectionChangeHandler.hxx>
 #include <helpids.h>
 
 #include <view/viewoverlaymanager.hxx>
 #include <app.hrc>
 #include <strings.hrc>
-
+#include <sdmod.hxx>
 #include <sdpage.hxx>
 #include <FrameView.hxx>
 #include <drawdoc.hxx>
@@ -111,6 +113,8 @@ DrawViewShell::DrawViewShell( ViewShellBase& rViewShellBase, vcl::Window* pParen
           [this] () { return this->GetSidebarContextName(); },
           uno::Reference<frame::XController>(&rViewShellBase.GetDrawController()),
           vcl::EnumContext::Context::Default))
+    , mbMouseButtonDown(false)
+    , mbMouseSelecting(false)
 {
     if (pFrameViewArgument != nullptr)
         mpFrameView = pFrameViewArgument;

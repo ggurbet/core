@@ -547,8 +547,8 @@ DECLARE_SHELL_MAILMERGE_TEST(testTdf92623, "tdf92623.odt", "10-testing-addresses
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pIDMA->getBookmarksCount());
     IDocumentMarkAccess::const_iterator_t mark = pIDMA->getAllMarksBegin();
     // and it's a TEXT_FIELDMARK
-    CPPUNIT_ASSERT_EQUAL( sal_Int32(IDocumentMarkAccess::GetType( **mark )),
-                          sal_Int32(IDocumentMarkAccess::MarkType::TEXT_FIELDMARK ) );
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(IDocumentMarkAccess::MarkType::TEXT_FIELDMARK),
+                            sal_Int32(IDocumentMarkAccess::GetType( **mark )) );
     sal_uLong src_pos = (*mark)->GetMarkPos().nNode.GetIndex();
 
     // Get the size of the document in nodes
@@ -579,7 +579,7 @@ DECLARE_SHELL_MAILMERGE_TEST(testTdf92623, "tdf92623.odt", "10-testing-addresses
             countFieldMarks++;
         }
         else // see previous TODO
-            CPPUNIT_ASSERT_EQUAL( sal_Int32(markType), sal_Int32(IDocumentMarkAccess::MarkType::UNO_BOOKMARK) );
+            CPPUNIT_ASSERT_EQUAL( sal_Int32(IDocumentMarkAccess::MarkType::UNO_BOOKMARK), sal_Int32(markType) );
     }
     CPPUNIT_ASSERT_EQUAL(sal_Int32(10), countFieldMarks);
 }
@@ -675,6 +675,189 @@ DECLARE_FILE_MAILMERGE_TEST(testTdf102010, "empty.odt", "10-testing-addresses.od
     // Don't overwrite previous result
     executeMailMerge( true );
     loadMailMergeDocument( 1 );
+}
+
+DECLARE_SHELL_MAILMERGE_TEST(testTdf118113, "tdf118113.odt", "tdf118113.ods", "testing-addresses")
+{
+    executeMailMerge();
+
+    // The document contains a text box anchored to the page and a conditionally hidden
+    // section that is only shown for one of the 4 recipients, namely the 3rd record.
+    // In case the hidden section is shown, the page count is 3 for a single data entry, otherwise 1.
+    // Previously, the page number was calculated incorrectly which led to the
+    // text box being anchored to the wrong page.
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxMMComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    // 3 documents with 1 page size each + 1 document with 3 pages
+    // + an additional page after each of the first 3 documents to make
+    // sure that each document starts on an odd page number
+    sal_uInt16 nPhysPages = pTextDoc->GetDocShell()->GetWrtShell()->GetPhyPageNum();
+    CPPUNIT_ASSERT_EQUAL(sal_uInt16(9), nPhysPages);
+
+    // verify that there is a text box for each data record
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxMMComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDraws(xDrawPageSupplier->getDrawPage(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(4), xDraws->getCount());
+
+    // verify the text box for each data record is anchored to the first page of the given data record's pages
+    std::vector<sal_uInt16> expectedPageNumbers {1, 3, 5, 9};
+    uno::Reference<beans::XPropertySet> xPropertySet;
+    for (sal_Int32 i = 0; i < xDraws->getCount(); i++)
+    {
+        xPropertySet.set(xDraws->getByIndex(i), uno::UNO_QUERY);
+
+        text::TextContentAnchorType nAnchorType;
+        CPPUNIT_ASSERT(xPropertySet->getPropertyValue( UNO_NAME_ANCHOR_TYPE ) >>= nAnchorType);
+        CPPUNIT_ASSERT_EQUAL( text::TextContentAnchorType_AT_PAGE, nAnchorType );
+
+        sal_uInt16 nAnchorPageNo = {};
+        CPPUNIT_ASSERT(xPropertySet->getPropertyValue( UNO_NAME_ANCHOR_PAGE_NO ) >>= nAnchorPageNo);
+
+        CPPUNIT_ASSERT_EQUAL(expectedPageNumbers.at(i), nAnchorPageNo);
+    }
+}
+
+
+namespace
+{
+constexpr char const* const EmptyValuesLegacyData[][8]
+    = { { "Heading", "Title: ", "First Name: firstname1", "Last Name: lastname1",
+          "Title:  First Name: firstname1", "First Name: firstname1 Last Name: lastname1",
+          "Title:  First Name: firstname1 Last Name: lastname1", "Trailing text" },
+        { "Heading", "Title: title2", "First Name: ", "Last Name: lastname2",
+          "Title: title2 First Name: ", "First Name:  Last Name: lastname2",
+          "Title: title2 First Name:  Last Name: lastname2", "Trailing text" },
+        { "Heading", "Title: title3", "First Name: firstname3", "Last Name: ",
+          "Title: title3 First Name: firstname3", "First Name: firstname3 Last Name: ",
+          "Title: title3 First Name: firstname3 Last Name: ", "Trailing text" },
+        { "Heading", "Title: ", "First Name: ", "Last Name: lastname4",
+          "Title:  First Name: ", "First Name:  Last Name: lastname4",
+          "Title:  First Name:  Last Name: lastname4", "Trailing text" },
+        { "Heading", "Title: title5", "First Name: ", "Last Name: ", "Title: title5 First Name: ",
+          "First Name:  Last Name: ", "Title: title5 First Name:  Last Name: ", "Trailing text" } };
+constexpr char const* const EmptyValuesNewData[][8]
+    = { { "Heading", "First Name: firstname1", "Last Name: lastname1",
+          "Title:  First Name: firstname1", "First Name: firstname1 Last Name: lastname1",
+          "Title:  First Name: firstname1 Last Name: lastname1", "Trailing text" },
+        { "Heading", "Title: title2", "Last Name: lastname2",
+          "Title: title2 First Name: ", "First Name:  Last Name: lastname2",
+          "Title: title2 First Name:  Last Name: lastname2", "Trailing text" },
+        { "Heading", "Title: title3", "First Name: firstname3",
+          "Title: title3 First Name: firstname3", "First Name: firstname3 Last Name: ",
+          "Title: title3 First Name: firstname3 Last Name: ", "Trailing text" },
+        { "Heading", "Last Name: lastname4", "First Name:  Last Name: lastname4",
+          "Title:  First Name:  Last Name: lastname4", "Trailing text" },
+        { "Heading", "Title: title5", "Title: title5 First Name: ",
+          "Title: title5 First Name:  Last Name: ", "Trailing text" } };
+}
+
+// The following four tests (testEmptyValuesLegacyODT, testEmptyValuesNewODT, (testEmptyValuesLegacyFODT, testEmptyValuesNewFODT)
+// check that for native documents without "EmptyDbFieldHidesPara" compatibility option, all paragraphs are exported visible,
+// while for documents with the option enabled, the paragraphs with all Database fields having empty values are hidden.
+
+DECLARE_FILE_MAILMERGE_TEST(testEmptyValuesLegacyODT, "tdf35798-legacy.odt", "5-with-blanks.ods",
+                            "names")
+{
+    executeMailMerge();
+    for (int doc = 0; doc < 5; ++doc)
+    {
+        loadMailMergeDocument(doc);
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+        CPPUNIT_ASSERT(pTextDoc);
+        SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+        pDoc->RemoveInvisibleContent();
+        CPPUNIT_ASSERT_EQUAL(1, getPages());
+        for (int i = 0; i < 8; ++i)
+        {
+            auto xPara = getParagraph(i+1);
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(
+                OString("in doc " + OString::number(doc) + " paragraph " + OString::number(i + 1))
+                    .getStr(),
+                OUString::createFromAscii(EmptyValuesLegacyData[doc][i]), xPara->getString());
+        }
+        CPPUNIT_ASSERT_EQUAL(8, getParagraphs());
+    }
+}
+
+DECLARE_FILE_MAILMERGE_TEST(testEmptyValuesNewODT, "tdf35798-new.odt", "5-with-blanks.ods",
+                            "names")
+{
+    executeMailMerge();
+    for (int doc = 0; doc < 5; ++doc)
+    {
+        loadMailMergeDocument(doc);
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+        CPPUNIT_ASSERT(pTextDoc);
+        SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+        pDoc->RemoveInvisibleContent();
+        CPPUNIT_ASSERT_EQUAL(1, getPages());
+        int i;
+        for (i = 0; i < 8; ++i)
+        {
+            const char* pExpected = EmptyValuesNewData[doc][i];
+            if (!pExpected)
+                break;
+            auto xPara = getParagraph(i + 1);
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(
+                OString("in doc " + OString::number(doc) + " paragraph " + OString::number(i + 1))
+                    .getStr(),
+                OUString::createFromAscii(pExpected), xPara->getString());
+        }
+        CPPUNIT_ASSERT_EQUAL(i, getParagraphs());
+    }
+}
+
+DECLARE_FILE_MAILMERGE_TEST(testEmptyValuesLegacyFODT, "tdf35798-legacy.fodt", "5-with-blanks.ods",
+                            "names")
+{
+    executeMailMerge();
+    for (int doc = 0; doc < 5; ++doc)
+    {
+        loadMailMergeDocument(doc);
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+        CPPUNIT_ASSERT(pTextDoc);
+        SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+        pDoc->RemoveInvisibleContent();
+        CPPUNIT_ASSERT_EQUAL(1, getPages());
+        for (int i = 0; i < 8; ++i)
+        {
+            auto xPara = getParagraph(i + 1);
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(
+                OString("in doc " + OString::number(doc) + " paragraph " + OString::number(i + 1))
+                    .getStr(),
+                OUString::createFromAscii(EmptyValuesLegacyData[doc][i]), xPara->getString());
+        }
+        CPPUNIT_ASSERT_EQUAL(8, getParagraphs());
+    }
+}
+
+DECLARE_FILE_MAILMERGE_TEST(testEmptyValuesNewFODT, "tdf35798-new.fodt", "5-with-blanks.ods",
+                            "names")
+{
+    executeMailMerge();
+    for (int doc = 0; doc < 5; ++doc)
+    {
+        loadMailMergeDocument(doc);
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+        CPPUNIT_ASSERT(pTextDoc);
+        SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+        pDoc->RemoveInvisibleContent();
+        CPPUNIT_ASSERT_EQUAL(1, getPages());
+        int i;
+        for (i = 0; i < 8; ++i)
+        {
+            const char* pExpected = EmptyValuesNewData[doc][i];
+            if (!pExpected)
+                break;
+            auto xPara = getParagraph(i + 1);
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(
+                OString("in doc " + OString::number(doc) + " paragraph " + OString::number(i + 1))
+                    .getStr(),
+                OUString::createFromAscii(pExpected), xPara->getString());
+        }
+        CPPUNIT_ASSERT_EQUAL(i, getParagraphs());
+    }
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

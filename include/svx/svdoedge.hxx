@@ -52,7 +52,6 @@ class SdrObjConnection final
 
 public:
     SdrObjConnection() { ResetVars(); }
-    SVX_DLLPUBLIC ~SdrObjConnection();
 
     void ResetVars();
     bool TakeGluePoint(SdrGluePoint& rGP) const;
@@ -136,8 +135,8 @@ private:
     friend class                ImpEdgeHdl;
 
 protected:
-    virtual sdr::contact::ViewContact* CreateObjectSpecificViewContact() override;
-    virtual sdr::properties::BaseProperties* CreateObjectSpecificProperties() override;
+    virtual std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact() override;
+    virtual std::unique_ptr<sdr::properties::BaseProperties> CreateObjectSpecificProperties() override;
 
     SdrObjConnection            aCon1;  // Connection status of the beginning of the line
     SdrObjConnection            aCon2;  // Connection status of the end of the line
@@ -186,9 +185,14 @@ protected:
     void ImpSetAttrToEdgeInfo(); // copying values from the pool to aEdgeInfo
     void ImpSetEdgeInfoToAttr(); // copying values from the aEdgeInfo to the pool
 
+    // protected destructor
+    virtual ~SdrEdgeObj() override;
+
 public:
     SdrEdgeObj(SdrModel& rSdrModel);
-    virtual ~SdrEdgeObj() override;
+
+    // react on model/page change
+    virtual void handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage) override;
 
     SdrObjConnection& GetConnection(bool bTail1) { return *(bTail1 ? &aCon1 : &aCon2); }
     virtual void TakeObjInfo(SdrObjTransformInfoRec& rInfo) const override;
@@ -213,7 +217,7 @@ public:
 
     virtual void RecalcSnapRect() override;
     virtual void TakeUnrotatedSnapRect(tools::Rectangle& rRect) const override;
-    virtual SdrEdgeObj* Clone(SdrModel* pTargetModel = nullptr) const override;
+    virtual SdrEdgeObj* CloneSdrObject(SdrModel& rTargetModel) const override;
     SdrEdgeObj& operator=(const SdrEdgeObj& rObj);
     virtual OUString TakeObjNameSingul() const override;
     virtual OUString TakeObjNamePlural() const override;

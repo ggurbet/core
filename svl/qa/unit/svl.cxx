@@ -7,11 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifdef _WIN32
-# undef ERROR
-#endif
-
 #include <sal/types.h>
+#include <config_libnumbertext.h>
 #include <cppunit/TestAssert.h>
 #include <cppunit/TestFixture.h>
 #include <cppunit/extensions/HelperMacros.h>
@@ -314,7 +311,7 @@ void Test::testSharedString()
 void Test::testSharedStringPool()
 {
     SvtSysLocale aSysLocale;
-    svl::SharedStringPool aPool(aSysLocale.GetCharClassPtr());
+    svl::SharedStringPool aPool(*aSysLocale.GetCharClassPtr());
 
     svl::SharedString p1, p2;
     p1 = aPool.intern("Andy");
@@ -347,7 +344,7 @@ void Test::testSharedStringPool()
 void Test::testSharedStringPoolPurge()
 {
     SvtSysLocale aSysLocale;
-    svl::SharedStringPool aPool(aSysLocale.GetCharClassPtr());
+    svl::SharedStringPool aPool(*aSysLocale.GetCharClassPtr());
     aPool.intern("Andy");
     aPool.intern("andy");
     aPool.intern("ANDY");
@@ -1297,7 +1294,7 @@ void Test::testUserDefinedNumberFormats()
         checkPreviewString(aFormatter, sCode, M_PI, eLang, sExpected);
     }
     {  // tdf#101096: different detection of month/minute with Excel
-        sCode =     "HH DD MM"; // month detectected because of previous DD
+        sCode =     "HH DD MM"; // month detected because of previous DD
         sExpected = "03 02 01";
         checkPreviewString(aFormatter, sCode, M_PI, eLang, sExpected);
         sCode =     "HH:MM HH DD/MM"; // month detected because of previous DD
@@ -1383,6 +1380,39 @@ void Test::testUserDefinedNumberFormats()
         checkPreviewString(aFormatter, sCode, 120, eLang, sExpected);
         sCode = "[DBNum2][$-0404]General\\ ";
         checkPreviewString(aFormatter, sCode, 120, eLang, sExpected);
+#if ENABLE_LIBNUMBERTEXT
+        // tdf#115007 - cardinal/ordinal number names/indicators
+        sCode = "[NatNum12]0";
+        sExpected = "one hundred twenty-three";
+        checkPreviewString(aFormatter, sCode, 123, eLang, sExpected);
+        sCode = "[NatNum12]0.00";
+        sExpected = "one hundred twenty-three point four five";
+        checkPreviewString(aFormatter, sCode, 123.45, eLang, sExpected);
+        sCode = "[NatNum12 ordinal]0";
+        sExpected = "one hundred twenty-third";
+        checkPreviewString(aFormatter, sCode, 123, eLang, sExpected);
+        sCode = "[NatNum12 ordinal-number]0";
+        sExpected = "123rd";
+        checkPreviewString(aFormatter, sCode, 123, eLang, sExpected);
+        sCode = "[NatNum12 capitalize]0";
+        sExpected = "One hundred twenty-three";
+        checkPreviewString(aFormatter, sCode, 123, eLang, sExpected);
+        sCode = "[NatNum12 title ordinal]0";
+        sExpected = "One Thousand Two Hundred Thirty-Fourth";
+        checkPreviewString(aFormatter, sCode, 1234, eLang, sExpected);
+        sCode = "[NatNum12 upper ordinal-number]0";
+        sExpected = "12345TH";
+        checkPreviewString(aFormatter, sCode, 12345, eLang, sExpected);
+        sCode = "[NatNum12 D=ordinal-number]D\" of \"MMMM";
+        sExpected = "2nd of January";
+        checkPreviewString(aFormatter, sCode, M_PI, eLang, sExpected);
+        sCode = "[NatNum12 D=ordinal-number,YYYY=year]D\" of \"MMMM\", \"YYYY";
+        sExpected = "2nd of January, nineteen hundred";
+        checkPreviewString(aFormatter, sCode, M_PI, eLang, sExpected);
+        sCode = "[NatNum12 YYYY=title year, D=capitalize ordinal]D\" of \"MMMM\", \"YYYY";
+        sExpected = "Second of January, Nineteen Hundred";
+        checkPreviewString(aFormatter, sCode, M_PI, eLang, sExpected);
+#endif
     }
     {  // tdf#105968 engineering format with value rounded up to next magnitude
         sCode = "##0.00E+00";
@@ -1493,6 +1523,25 @@ void Test::testUserDefinedNumberFormats()
         sCode =     "\"Finnish: \"YYYY/MM/DD HH:MM:SS";
         checkPreviewString(aFormatter, sCode, M_PI, eLang, sExpected);
     }
+    {   // tdf#117819 wrong separator positions when displaying integers with
+        // more decimals than rtl::math::doubleToUString delivers.
+        sCode = "#,##0.00000000000000000000";
+        sExpected = "117,669,030,460,994.00000000000000000000";
+        checkPreviewString(aFormatter, sCode, 117669030460994.0, LANGUAGE_ENGLISH_US, sExpected);
+    }
+    {   // tdf#117575 treat thousand separator with '?' in integer part
+        sCode = "\"Value= \"?,??0.00";
+        sExpected = "Value=     3.14";
+        checkPreviewString(aFormatter, sCode, M_PI, LANGUAGE_ENGLISH_US, sExpected);
+        sExpected = "Value=    12.00";
+        checkPreviewString(aFormatter, sCode, 12, LANGUAGE_ENGLISH_US, sExpected);
+        sExpected = "Value=   123.00";
+        checkPreviewString(aFormatter, sCode, 123, LANGUAGE_ENGLISH_US, sExpected);
+        sExpected = "Value= 1,234.00";
+        checkPreviewString(aFormatter, sCode, 1234, LANGUAGE_ENGLISH_US, sExpected);
+        sExpected = "Value= 12,345.00";
+        checkPreviewString(aFormatter, sCode, 12345, LANGUAGE_ENGLISH_US, sExpected);
+    }
 }
 
 void Test::testNfEnglishKeywordsIntegrity()
@@ -1506,58 +1555,58 @@ void Test::testNfEnglishKeywordsIntegrity()
         CPPUNIT_ASSERT_EQUAL( sKeywords[i], rEnglishKeywords[i] );
     }
     // Check the order of sEnglishKeyword
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_E], OUString("E") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_AMPM], OUString("AM/PM") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_AP], OUString("A/P") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MI], OUString("M") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MMI], OUString("MM") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_M], OUString("M") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MM], OUString("MM") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MMM], OUString("MMM") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MMMM], OUString("MMMM") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_H], OUString("H") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_HH], OUString("HH") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_S], OUString("S") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_SS], OUString("SS") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_Q], OUString("Q") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_QQ], OUString("QQ") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_D], OUString("D") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_DD], OUString("DD") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_DDD], OUString("DDD") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_DDDD], OUString("DDDD") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_YY], OUString("YY") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_YYYY], OUString("YYYY") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_NN], OUString("NN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_NNNN], OUString("NNNN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_CCC], OUString("CCC") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_GENERAL], OUString("GENERAL") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_NNN], OUString("NNN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_WW], OUString("WW") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MMMMM], OUString("MMMMM") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_TRUE], OUString("TRUE") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_FALSE], OUString("FALSE") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_BOOLEAN], OUString("BOOLEAN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_COLOR], OUString("COLOR") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_BLACK], OUString("BLACK") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_BLUE], OUString("BLUE") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_GREEN], OUString("GREEN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_CYAN], OUString("CYAN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_RED], OUString("RED") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_MAGENTA], OUString("MAGENTA") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_BROWN], OUString("BROWN") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_GREY], OUString("GREY") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_YELLOW], OUString("YELLOW") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_WHITE], OUString("WHITE") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_AAA], OUString("AAA") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_AAAA], OUString("AAAA") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_EC], OUString("E") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_EEC], OUString("EE") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_G], OUString("G") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_GG], OUString("GG") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_GGG], OUString("GGG") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_R], OUString("R") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_RR], OUString("RR") );
-    CPPUNIT_ASSERT_EQUAL( rEnglishKeywords[NF_KEY_THAI_T], OUString("t") );
+    CPPUNIT_ASSERT_EQUAL( OUString("E"),     rEnglishKeywords[NF_KEY_E] );
+    CPPUNIT_ASSERT_EQUAL( OUString("AM/PM"), rEnglishKeywords[NF_KEY_AMPM] );
+    CPPUNIT_ASSERT_EQUAL( OUString("A/P"),   rEnglishKeywords[NF_KEY_AP] );
+    CPPUNIT_ASSERT_EQUAL( OUString("M"),     rEnglishKeywords[NF_KEY_MI]  );
+    CPPUNIT_ASSERT_EQUAL( OUString("MM"),    rEnglishKeywords[NF_KEY_MMI] );
+    CPPUNIT_ASSERT_EQUAL( OUString("M"),     rEnglishKeywords[NF_KEY_M] );
+    CPPUNIT_ASSERT_EQUAL( OUString("MM"),    rEnglishKeywords[NF_KEY_MM] );
+    CPPUNIT_ASSERT_EQUAL( OUString("MMM"),   rEnglishKeywords[NF_KEY_MMM] );
+    CPPUNIT_ASSERT_EQUAL( OUString("MMMM"),  rEnglishKeywords[NF_KEY_MMMM] );
+    CPPUNIT_ASSERT_EQUAL( OUString("H"),     rEnglishKeywords[NF_KEY_H] );
+    CPPUNIT_ASSERT_EQUAL( OUString("HH"),    rEnglishKeywords[NF_KEY_HH] );
+    CPPUNIT_ASSERT_EQUAL( OUString("S"),     rEnglishKeywords[NF_KEY_S] );
+    CPPUNIT_ASSERT_EQUAL( OUString("SS"),    rEnglishKeywords[NF_KEY_SS] );
+    CPPUNIT_ASSERT_EQUAL( OUString("Q"),     rEnglishKeywords[NF_KEY_Q] );
+    CPPUNIT_ASSERT_EQUAL( OUString("QQ"),    rEnglishKeywords[NF_KEY_QQ] );
+    CPPUNIT_ASSERT_EQUAL( OUString("D"),     rEnglishKeywords[NF_KEY_D] );
+    CPPUNIT_ASSERT_EQUAL( OUString("DD"),    rEnglishKeywords[NF_KEY_DD] );
+    CPPUNIT_ASSERT_EQUAL( OUString("DDD"),   rEnglishKeywords[NF_KEY_DDD] );
+    CPPUNIT_ASSERT_EQUAL( OUString("DDDD"),  rEnglishKeywords[NF_KEY_DDDD] );
+    CPPUNIT_ASSERT_EQUAL( OUString("YY"),    rEnglishKeywords[NF_KEY_YY] );
+    CPPUNIT_ASSERT_EQUAL( OUString("YYYY"),  rEnglishKeywords[NF_KEY_YYYY] );
+    CPPUNIT_ASSERT_EQUAL( OUString("NN"),    rEnglishKeywords[NF_KEY_NN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("NNNN"),  rEnglishKeywords[NF_KEY_NNNN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("CCC"),   rEnglishKeywords[NF_KEY_CCC] );
+    CPPUNIT_ASSERT_EQUAL( OUString("GENERAL"), rEnglishKeywords[NF_KEY_GENERAL] );
+    CPPUNIT_ASSERT_EQUAL( OUString("NNN"),     rEnglishKeywords[NF_KEY_NNN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("WW"),      rEnglishKeywords[NF_KEY_WW] );
+    CPPUNIT_ASSERT_EQUAL( OUString("MMMMM"),   rEnglishKeywords[NF_KEY_MMMMM] );
+    CPPUNIT_ASSERT_EQUAL( OUString("TRUE"),    rEnglishKeywords[NF_KEY_TRUE] );
+    CPPUNIT_ASSERT_EQUAL( OUString("FALSE"),   rEnglishKeywords[NF_KEY_FALSE] );
+    CPPUNIT_ASSERT_EQUAL( OUString("BOOLEAN"), rEnglishKeywords[NF_KEY_BOOLEAN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("COLOR"),   rEnglishKeywords[NF_KEY_COLOR] );
+    CPPUNIT_ASSERT_EQUAL( OUString("BLACK"),   rEnglishKeywords[NF_KEY_BLACK] );
+    CPPUNIT_ASSERT_EQUAL( OUString("BLUE"),    rEnglishKeywords[NF_KEY_BLUE] );
+    CPPUNIT_ASSERT_EQUAL( OUString("GREEN"),   rEnglishKeywords[NF_KEY_GREEN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("CYAN"),    rEnglishKeywords[NF_KEY_CYAN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("RED"),     rEnglishKeywords[NF_KEY_RED] );
+    CPPUNIT_ASSERT_EQUAL( OUString("MAGENTA"), rEnglishKeywords[NF_KEY_MAGENTA] );
+    CPPUNIT_ASSERT_EQUAL( OUString("BROWN"),   rEnglishKeywords[NF_KEY_BROWN] );
+    CPPUNIT_ASSERT_EQUAL( OUString("GREY"),    rEnglishKeywords[NF_KEY_GREY] );
+    CPPUNIT_ASSERT_EQUAL( OUString("YELLOW"),  rEnglishKeywords[NF_KEY_YELLOW] );
+    CPPUNIT_ASSERT_EQUAL( OUString("WHITE"),   rEnglishKeywords[NF_KEY_WHITE] );
+    CPPUNIT_ASSERT_EQUAL( OUString("AAA"),   rEnglishKeywords[NF_KEY_AAA]);
+    CPPUNIT_ASSERT_EQUAL( OUString("AAAA"),  rEnglishKeywords[NF_KEY_AAAA] );
+    CPPUNIT_ASSERT_EQUAL( OUString("E"),     rEnglishKeywords[NF_KEY_EC] );
+    CPPUNIT_ASSERT_EQUAL( OUString("EE"),    rEnglishKeywords[NF_KEY_EEC] );
+    CPPUNIT_ASSERT_EQUAL( OUString("G"),     rEnglishKeywords[NF_KEY_G] );
+    CPPUNIT_ASSERT_EQUAL( OUString("GG"),    rEnglishKeywords[NF_KEY_GG] );
+    CPPUNIT_ASSERT_EQUAL( OUString("GGG"),   rEnglishKeywords[NF_KEY_GGG] );
+    CPPUNIT_ASSERT_EQUAL( OUString("R"),     rEnglishKeywords[NF_KEY_R]  );
+    CPPUNIT_ASSERT_EQUAL( OUString("RR"),    rEnglishKeywords[NF_KEY_RR]  );
+    CPPUNIT_ASSERT_EQUAL( OUString("t"),     rEnglishKeywords[NF_KEY_THAI_T] );
 }
 
 void Test::testStandardColorIntegrity()
@@ -1565,7 +1614,7 @@ void Test::testStandardColorIntegrity()
     SvNumberFormatter aFormatter(m_xContext, LANGUAGE_ENGLISH_US);
     const ::std::vector<Color> & rStandardColors = aFormatter.GetStandardColors();
     const size_t nMaxDefaultColors = aFormatter.GetMaxDefaultColors();
-    CPPUNIT_ASSERT_EQUAL( nMaxDefaultColors, size_t(NF_KEY_LASTCOLOR) - size_t(NF_KEY_FIRSTCOLOR) + 1 );
+    CPPUNIT_ASSERT_EQUAL( size_t(NF_KEY_LASTCOLOR) - size_t(NF_KEY_FIRSTCOLOR) + 1, nMaxDefaultColors );
     CPPUNIT_ASSERT_EQUAL( nMaxDefaultColors, rStandardColors.size() );
     // Colors must follow same order as in sEnglishKeyword
     CPPUNIT_ASSERT_EQUAL( rStandardColors[0], COL_BLACK );
@@ -1607,7 +1656,7 @@ void Test::testColorNamesConversion()
     for (size_t i = NF_KEY_BLACK; i <= NF_KEY_WHITE; ++i)
     {
         aFormatCode = "[" + aGermanKeywords[i] + "]0";
-        aFormatter.PutandConvertEntry( aFormatCode, nCheckPos, nType, nKey, LANGUAGE_GERMAN, LANGUAGE_ENGLISH_US);
+        aFormatter.PutandConvertEntry( aFormatCode, nCheckPos, nType, nKey, LANGUAGE_GERMAN, LANGUAGE_ENGLISH_US, false);
         CPPUNIT_ASSERT_EQUAL_MESSAGE("CheckPos should be 0.", sal_Int32(0), nCheckPos);
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Type should be NUMBER.", SvNumFormatType::NUMBER, nType);
         CPPUNIT_ASSERT_EQUAL( OUString("[" + rEnglishKeywords[i] + "]0"), aFormatCode);

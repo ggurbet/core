@@ -117,15 +117,14 @@ class ImplEESdrWriter
     const SdrPage*          mpSdrPage;
     std::unique_ptr<EscherSolverContainer> mpSolverContainer;
 
-    bool                ImplInitPageValues();
+    void                ImplInitPageValues();
     void                ImplWritePage( EscherSolverContainer& rSolver );
     sal_uInt32          ImplWriteShape( ImplEESdrObject& rObj,
                             EscherSolverContainer& rSolver,
                             const bool bOOxmlExport = false );  // returns ShapeID
     static void         ImplFlipBoundingBox( ImplEESdrObject& rObj, EscherPropertyContainer& rPropOpt );
     void                ImplWriteAdditionalText(
-                            ImplEESdrObject& rObj,
-                            const Point& rTextRefPoint );
+                            ImplEESdrObject& rObj );
     sal_uInt32          ImplEnterAdditionalTextGroup(
                             const css::uno::Reference< css::drawing::XShape >& rShape,
                             const tools::Rectangle* pBoundRect );

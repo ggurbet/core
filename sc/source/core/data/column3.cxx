@@ -53,6 +53,7 @@
 
 #include <memory>
 
+#include <rtl/tencinfo.h>
 #include <mdds/flat_segment_tree.hpp>
 
 #include <sfx2/objsh.hxx>
@@ -63,6 +64,7 @@
 #include <editeng/editstat.hxx>
 
 #include <cstdio>
+#include <refdata.hxx>
 
 using ::com::sun::star::i18n::LocaleDataItem2;
 
@@ -785,13 +787,12 @@ void ScColumn::DeleteArea(
     }
 }
 
-bool ScColumn::InitBlockPosition( sc::ColumnBlockPosition& rBlockPos )
+void ScColumn::InitBlockPosition( sc::ColumnBlockPosition& rBlockPos )
 {
     rBlockPos.miBroadcasterPos = maBroadcasters.begin();
     rBlockPos.miCellNotePos = maCellNotes.begin();
     rBlockPos.miCellTextAttrPos = maCellTextAttrs.begin();
     rBlockPos.miCellPos = maCells.begin();
-    return true;
 }
 
 void ScColumn::InitBlockPosition( sc::ColumnBlockConstPosition& rBlockPos ) const
@@ -1002,7 +1003,9 @@ public:
                         {
                             mrDestCol.SetFormulaCell(
                                 maDestBlockPos, nSrcRow + mnRowOffset,
-                                new ScFormulaCell(rSrcCell, *mrDestCol.GetDoc(), aDestPos));
+                                new ScFormulaCell(rSrcCell, *mrDestCol.GetDoc(), aDestPos),
+                                sc::SingleCellListening,
+                                rSrcCell.NeedsNumberFormat());
                         }
                     }
                     else if (bNumeric || bDateTime || bString)
@@ -1968,11 +1971,12 @@ void ScColumn::SetFormula( SCROW nRow, const OUString& rFormula, formula::Formul
 }
 
 ScFormulaCell* ScColumn::SetFormulaCell(
-    SCROW nRow, ScFormulaCell* pCell, sc::StartListeningType eListenType )
+    SCROW nRow, ScFormulaCell* pCell, sc::StartListeningType eListenType,
+    bool bInheritNumFormatIfNeeded )
 {
     sc::CellStoreType::iterator it = GetPositionToInsert(nRow);
     sal_uInt32 nCellFormat = GetNumberFormat(GetDoc()->GetNonThreadedContext(), nRow);
-    if( (nCellFormat % SV_COUNTRY_LANGUAGE_OFFSET) == 0)
+    if( (nCellFormat % SV_COUNTRY_LANGUAGE_OFFSET) == 0 && bInheritNumFormatIfNeeded )
         pCell->SetNeedNumberFormat(true);
     it = maCells.set(it, nRow, pCell);
     maCellTextAttrs.set(nRow, sc::CellTextAttr());
@@ -1985,11 +1989,12 @@ ScFormulaCell* ScColumn::SetFormulaCell(
 
 void ScColumn::SetFormulaCell(
     sc::ColumnBlockPosition& rBlockPos, SCROW nRow, ScFormulaCell* pCell,
-    sc::StartListeningType eListenType )
+    sc::StartListeningType eListenType,
+    bool bInheritNumFormatIfNeeded )
 {
     rBlockPos.miCellPos = GetPositionToInsert(rBlockPos.miCellPos, nRow);
     sal_uInt32 nCellFormat = GetNumberFormat(GetDoc()->GetNonThreadedContext(), nRow);
-    if( (nCellFormat % SV_COUNTRY_LANGUAGE_OFFSET) == 0)
+    if( (nCellFormat % SV_COUNTRY_LANGUAGE_OFFSET) == 0 && bInheritNumFormatIfNeeded )
         pCell->SetNeedNumberFormat(true);
     rBlockPos.miCellPos = maCells.set(rBlockPos.miCellPos, nRow, pCell);
     rBlockPos.miCellTextAttrPos = maCellTextAttrs.set(
@@ -2552,7 +2557,7 @@ void ScColumn::SetValue(
         BroadcastNewCell(nRow);
 }
 
-void ScColumn::GetString( SCROW nRow, OUString& rString ) const
+void ScColumn::GetString( SCROW nRow, OUString& rString, const ScInterpreterContext* pContext ) const
 {
     ScRefCellValue aCell = GetCellValue(nRow);
 
@@ -2560,9 +2565,10 @@ void ScColumn::GetString( SCROW nRow, OUString& rString ) const
     if (aCell.meType == CELLTYPE_FORMULA)
         aCell.mpFormula->MaybeInterpret();
 
-    sal_uInt32 nFormat = GetNumberFormat(GetDoc()->GetNonThreadedContext(), nRow);
+    sal_uInt32 nFormat = GetNumberFormat( pContext ? *pContext : GetDoc()->GetNonThreadedContext(), nRow);
     Color* pColor = nullptr;
-    ScCellFormat::GetString(aCell, nFormat, rString, &pColor, *(GetDoc()->GetFormatTable()), GetDoc());
+    ScCellFormat::GetString(aCell, nFormat, rString, &pColor,
+        pContext ? *(pContext->GetFormatTable()) : *(GetDoc()->GetFormatTable()), GetDoc());
 }
 
 double* ScColumn::GetValueCell( SCROW nRow )
@@ -3074,6 +3080,8 @@ public:
                 if (xCurGrp)
                 {
                     // Move to the cell after the last cell of the current group.
+                    if (xCurGrp->mnLength > std::distance(it, itEnd))
+                        throw css::lang::IllegalArgumentException();
                     std::advance(it, xCurGrp->mnLength);
                     nRow += xCurGrp->mnLength;
                 }

@@ -21,18 +21,15 @@
 
 #include <memory>
 #include <vcl/button.hxx>
-#include <sfx2/tabdlg.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/field.hxx>
 #include <vcl/lstbox.hxx>
+#include <vcl/layout.hxx>
 #include <svl/itemset.hxx>
 #include <svx/chrtitem.hxx>
-#include <chartview/ChartSfxItemIds.hxx>
 #include "RangeSelectionListener.hxx"
 
-#include <com/sun/star/chart2/XChartDocument.hpp>
-
-class Dialog;
+namespace com { namespace sun { namespace star { namespace chart2 { class XChartDocument; } } } }
 
 namespace chart
 {
@@ -57,7 +54,7 @@ public:
     void SetChartDocumentForRangeChoosing(
         const css::uno::Reference< css::chart2::XChartDocument > & xChartDocument );
     void Reset(const SfxItemSet& rInAttrs);
-    bool FillItemSet(SfxItemSet& rOutAttrs) const;
+    void FillItemSet(SfxItemSet& rOutAttrs) const;
 
     void FillValueSets();
 
@@ -105,8 +102,6 @@ private:
     bool                 m_bIndicatorUnique;
     bool                 m_bRangePosUnique;
     bool                 m_bRangeNegUnique;
-
-    bool                 m_bNoneAvailable;
 
     tErrorBarType        m_eErrorBarType;
     sal_uInt16           m_nConstDecimalDigits;

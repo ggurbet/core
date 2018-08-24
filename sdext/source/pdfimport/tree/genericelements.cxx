@@ -28,6 +28,7 @@
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/range/b2drange.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 
 namespace pdfi
 {
@@ -447,7 +448,6 @@ void PageElement::resolveUnderlines( PDFIProcessor const & rProc )
             auto next_it = poly_it;
             ++next_it;
             Children.erase( poly_it );
-            delete pPoly;
             poly_it = next_it;
         }
         else

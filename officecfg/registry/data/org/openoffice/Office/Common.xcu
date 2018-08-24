@@ -42,9 +42,6 @@
       <prop oor:name="TemplateRepositoryURL" oor:type="xs:string">
         <value>${STARTCENTER_TEMPLREP_URL}</value>
       </prop>
-      <prop oor:name="StartCenterHideExternalLinks" oor:type="xs:int">
-        <value>${STARTCENTER_HIDE_EXTERNAL_LINKS}</value>
-      </prop>
     </node>
     <prop oor:name="System">
       <value install:module="unx">UNIX</value>
@@ -270,7 +267,7 @@
           <value>.uno:NewDoc</value>
         </prop>
         <prop oor:name="Title">
-          <value xml:lang="en-US">Templates</value>
+          <value xml:lang="en-US">Templates...</value>
         </prop>
         <prop oor:name="TargetName" oor:type="xs:string">
           <value>_self</value>

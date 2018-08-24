@@ -35,9 +35,10 @@ $(eval $(call gb_UnpackedTarball_add_patches,libwps, \
 endif
 endif
 
-$(eval $(call gb_UnpackedTarball_add_patches,libwps,\
-	external/libwps/0001-drop-unneeded-include.patch.1 \
-	external/libwps/0001-Lotus-.123-do-no-assume-that-a-file-containing-a-fdc.patch.1 \
+ifeq ($(OS),ANDROID)
+$(eval $(call gb_UnpackedTarball_add_patches,libwps, \
+    external/libwps/0001-Fix-nan-is-not-a-member-of-std.patch.1 \
 ))
+endif
 
 # vim: set noet sw=4 ts=4:

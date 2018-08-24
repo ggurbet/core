@@ -21,10 +21,13 @@
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <formula/token.hxx>
+#include <sal/log.hxx>
+#include <unotools/configmgr.hxx>
 
 #include <document.hxx>
 #include <table.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <subtotal.hxx>
 #include <docoptio.hxx>
 #include <interpre.hxx>
@@ -153,7 +156,7 @@ bool ScDocument::Solver(SCCOL nFCol, SCROW nFRow, SCTAB nFTab,
                     while ( !bDoneHorMove && !bHorMoveError && nHorIter++ < nHorMaxIter )
                     {
                         double fHorAngle = fHorStepAngle * static_cast<double>( nHorIter );
-                        double fHorTangent = ::rtl::math::tan( fHorAngle * F_PI / 180 );
+                        double fHorTangent = ::rtl::math::tan(basegfx::deg2rad(fHorAngle));
 
                         sal_uInt16 nIdx = 0;
                         while( nIdx++ < 2 && !bDoneHorMove )
@@ -271,6 +274,8 @@ void ScDocument::InsertMatrixFormula(SCCOL nCol1, SCROW nRow1,
         SAL_WARN("sc", "ScDocument::InsertMatrixFormula: No table marked");
         return;
     }
+    if (utl::ConfigManager::IsFuzzing()) //just too slow
+        return;
     assert( ValidColRow( nCol1, nRow1) && ValidColRow( nCol2, nRow2));
 
     SCTAB nTab1 = *rMark.begin();
@@ -653,9 +658,10 @@ bool ScDocument::GetSelectionFunction( ScSubTotalFunc eFunc,
     return !aData.bError;
 }
 
-double ScDocument::RoundValueAsShown( double fVal, sal_uInt32 nFormat ) const
+double ScDocument::RoundValueAsShown( double fVal, sal_uInt32 nFormat, const ScInterpreterContext* pContext ) const
 {
-    const SvNumberformat* pFormat = GetFormatTable()->GetEntry( nFormat );
+    const SvNumberFormatter* pFormatter = pContext ? pContext->GetFormatTable() : GetFormatTable();
+    const SvNumberformat* pFormat = pFormatter->GetEntry( nFormat );
     SvNumFormatType nType;
     if (pFormat && (nType = pFormat->GetMaskedType()) != SvNumFormatType::DATE
             && nType != SvNumFormatType::TIME && nType != SvNumFormatType::DATETIME )
@@ -742,13 +748,13 @@ sal_uLong ScDocument::AddValidationEntry( const ScValidationData& rNew )
     if (!pValidationList)
     {
         ScMutationGuard aGuard(this, ScMutationGuardFlags::CORE);
-        pValidationList = new ScValidationDataList;
+        pValidationList.reset(new ScValidationDataList);
     }
 
     sal_uLong nMax = 0;
     for( ScValidationDataList::iterator it = pValidationList->begin(); it != pValidationList->end(); ++it )
     {
-        const ScValidationData* pData = *it;
+        const ScValidationData* pData = it->get();
         sal_uLong nKey = pData->GetKey();
         if ( pData->EqualEntries( rNew ) )
             return nKey;
@@ -759,10 +765,10 @@ sal_uLong ScDocument::AddValidationEntry( const ScValidationData& rNew )
     // might be called from ScPatternAttr::PutInPool; thus clone (real copy)
 
     sal_uLong nNewKey = nMax + 1;
-    ScValidationData* pInsert = rNew.Clone(this);
+    std::unique_ptr<ScValidationData> pInsert(rNew.Clone(this));
     pInsert->SetKey( nNewKey );
     ScMutationGuard aGuard(this, ScMutationGuardFlags::CORE);
-    pValidationList->InsertNew( pInsert );
+    pValidationList->InsertNew( std::move(pInsert) );
     return nNewKey;
 }
 
@@ -1190,7 +1196,7 @@ void ScDocument::CompareDocument( ScDocument& rOtherDoc )
 
             OUString aTabName;
             GetName( nThisTab, aTabName );
-            OUString aTemplate = ScGlobal::GetRscString(STR_PROGRESS_COMPARING);
+            OUString aTemplate = ScResId(STR_PROGRESS_COMPARING);
             sal_Int32 nIndex = 0;
             OUStringBuffer aProText = aTemplate.getToken( 0, '#', nIndex );
             aProText.append(aTabName);

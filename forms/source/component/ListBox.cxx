@@ -39,7 +39,7 @@
 #include <com/sun/star/sdb/CommandType.hpp>
 
 #include <comphelper/basicio.hxx>
-#include <comphelper/listenernotification.hxx>
+#include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/formattedcolumnvalue.hxx>
@@ -48,6 +48,7 @@
 #include <o3tl/any.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <unotools/sharedunocomponent.hxx>
 #include <vcl/svapp.hxx>
 
@@ -1762,20 +1763,6 @@ namespace frm
                     setControlValue( makeAny( m_aDefaultSelectSeq ), eOther );
             }
         }
-    }
-
-
-    void OListBoxModel::connectedExternalListSource( )
-    {
-        // TODO?
-    }
-
-
-    void OListBoxModel::disconnectedExternalListSource( )
-    {
-        // TODO: in case we're part of an already loaded form, we should probably simulate
-        // an onConnectedDbColumn, so our list gets filled with the data as indicated
-        // by our SQL-binding related properties
     }
 
 

@@ -95,7 +95,7 @@ ScChartObj* ScChartsObj::GetObjectByIndex_Impl(long nIndex) const
             if (pPage)
             {
                 long nPos = 0;
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
                 SdrObject* pObject = aIter.Next();
                 while (pObject)
                 {
@@ -188,7 +188,7 @@ void SAL_CALL ScChartsObj::addNewByName( const OUString& rName,
 
             Size aRectSize( aRect.Width, aRect.Height );
             if (aRectSize.Width() <= 0)
-                aRectSize.setWidth( 5000 );   // Default-Groesse
+                aRectSize.setWidth( 5000 );   // default size
 
             if (aRectSize.Height() <= 0)
                 aRectSize.setHeight( 5000 );
@@ -307,7 +307,7 @@ sal_Int32 SAL_CALL ScChartsObj::getCount()
             OSL_ENSURE(pPage, "Page not found");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
                 SdrObject* pObject = aIter.Next();
                 while (pObject)
                 {
@@ -372,7 +372,7 @@ uno::Sequence<OUString> SAL_CALL ScChartsObj::getElementNames()
             OSL_ENSURE(pPage, "Page not found");
             if (pPage)
             {
-                SdrObjListIter aIter( *pPage, SdrIterMode::DeepNoGroups );
+                SdrObjListIter aIter( pPage, SdrIterMode::DeepNoGroups );
                 SdrObject* pObject = aIter.Next();
                 while (pObject)
                 {
@@ -383,14 +383,14 @@ uno::Sequence<OUString> SAL_CALL ScChartsObj::getElementNames()
                         if ( xObj.is() )
                             aName = pDocShell->GetEmbeddedObjectContainer().GetEmbeddedObjectName( xObj );
 
-                        OSL_ENSURE(nPos<nCount, "huch, verzaehlt?");
+                        OSL_ENSURE(nPos<nCount, "oops, miscounted?");
                         pAry[nPos++] = aName;
                     }
                     pObject = aIter.Next();
                 }
             }
         }
-        OSL_ENSURE(nPos==nCount, "nanu, verzaehlt?");
+        OSL_ENSURE(nPos==nCount, "hey, miscounted?");
 
         return aSeq;
     }

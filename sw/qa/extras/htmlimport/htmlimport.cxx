@@ -224,6 +224,14 @@ DECLARE_HTMLIMPORT_TEST(testImageWidthAuto, "image-width-auto.html")
     CPPUNIT_ASSERT_EQUAL(Size(1835, 560), rSize.GetSize());
 }
 
+DECLARE_HTMLIMPORT_TEST(testImageLazyRead, "image-lazy-read.html")
+{
+    auto xGraphic = getProperty<uno::Reference<graphic::XGraphic>>(getShape(1), "Graphic");
+    Graphic aGraphic(xGraphic);
+    // This failed, import loaded the graphic, it wasn't lazy-read.
+    CPPUNIT_ASSERT(!aGraphic.isAvailable());
+}
+
 DECLARE_HTMLIMPORT_TEST(testChangedby, "meta-changedby.html")
 {
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
@@ -311,6 +319,21 @@ DECLARE_HTMLIMPORT_TEST(testReqIfBr, "reqif-br.xhtml")
 {
     // <reqif-xhtml:br/> was not recognized as a line break from a ReqIf file.
     CPPUNIT_ASSERT(getParagraph(1)->getString().startsWith("aaa\nbbb"));
+}
+
+DECLARE_HTMLIMPORT_TEST(testReqIfTable, "reqif-table.xhtml")
+{
+    // Load a table with xhtmlns=reqif-xhtml filter param.
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), xTables->getCount());
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    auto aBorder = getProperty<table::BorderLine2>(xCell, "TopBorder");
+    // This was 0, tables had no borders, even if the default autoformat has
+    // borders and the markup allows no custom borders.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(18), aBorder.LineWidth);
 }
 
 DECLARE_HTMLIMPORT_TEST(testImageSize, "image-size.html")

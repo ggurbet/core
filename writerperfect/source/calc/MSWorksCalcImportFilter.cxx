@@ -14,6 +14,7 @@
 #include <com/sun/star/sdbc/XRow.hpp>
 #include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/ucb/XContentAccess.hpp>
+#include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <sfx2/passwd.hxx>
@@ -179,7 +180,8 @@ private:
 }
 
 ////////////////////////////////////////////////////////////
-bool MSWorksCalcImportFilter::doImportDocument(librevenge::RVNGInputStream& rInput,
+bool MSWorksCalcImportFilter::doImportDocument(weld::Window* pParent,
+                                               librevenge::RVNGInputStream& rInput,
                                                OdsGenerator& rGenerator, utl::MediaDescriptor&)
 {
     libwps::WPSKind kind = libwps::WPS_TEXT;
@@ -195,36 +197,45 @@ bool MSWorksCalcImportFilter::doImportDocument(librevenge::RVNGInputStream& rInp
     if (needEncoding)
     {
         OUString title, encoding;
-        if (creator == libwps::WPS_MSWORKS)
+        switch (creator)
         {
-            title = WpResId(STR_ENCODING_DIALOG_TITLE_MSWORKS);
-            encoding = "CP850";
+            case libwps::WPS_MSWORKS:
+                title = WpResId(STR_ENCODING_DIALOG_TITLE_MSWORKS);
+                encoding = "CP850";
+                break;
+            case libwps::WPS_LOTUS:
+                title = WpResId(STR_ENCODING_DIALOG_TITLE_LOTUS);
+                encoding = "CP437";
+                break;
+            case libwps::WPS_SYMPHONY:
+                title = WpResId(STR_ENCODING_DIALOG_TITLE_SYMPHONY);
+                encoding = "CP437";
+                break;
+            case libwps::WPS_QUATTRO_PRO:
+                title = WpResId(STR_ENCODING_DIALOG_TITLE_QUATTROPRO);
+                encoding = "CP437";
+                break;
+            case libwps::WPS_RESERVED_2:
+                title = WpResId(STR_ENCODING_DIALOG_TITLE_MSMULTIPLAN);
+                encoding = "CP437";
+                break;
+            default:
+                SAL_INFO("writerperfect", "unexpected creator: " << creator);
+                title = WpResId(STR_ENCODING_DIALOG_TITLE);
+                encoding = "CP437";
+                break;
         }
-        else if (creator == libwps::WPS_LOTUS)
-        {
-            title = WpResId(STR_ENCODING_DIALOG_TITLE_LOTUS);
-            encoding = "CP437";
-        }
-        else if (creator == libwps::WPS_SYMPHONY)
-        {
-            title = WpResId(STR_ENCODING_DIALOG_TITLE_SYMPHONY);
-            encoding = "CP437";
-        }
-        else
-        {
-            title = WpResId(STR_ENCODING_DIALOG_TITLE_QUATTROPRO);
-            encoding = "CP437";
-        }
+
         try
         {
-            const ScopedVclPtrInstance<writerperfect::WPFTEncodingDialog> pDlg(title, encoding);
-            if (pDlg->Execute() == RET_OK)
+            writerperfect::WPFTEncodingDialog aDlg(pParent, title, encoding);
+            if (aDlg.run() == RET_OK)
             {
-                if (!pDlg->GetEncoding().isEmpty())
-                    fileEncoding = pDlg->GetEncoding().toUtf8().getStr();
+                if (!aDlg.GetEncoding().isEmpty())
+                    fileEncoding = aDlg.GetEncoding().toUtf8().getStr();
             }
             // we can fail because we are in headless mode, the user has cancelled conversion, ...
-            else if (pDlg->hasUserCalledCancel())
+            else if (aDlg.hasUserCalledCancel())
                 return false;
         }
         catch (...)
@@ -239,7 +250,7 @@ bool MSWorksCalcImportFilter::doImportDocument(librevenge::RVNGInputStream& rInp
         // try to ask for a password
         try
         {
-            SfxPasswordDialog aPasswdDlg(nullptr);
+            SfxPasswordDialog aPasswdDlg(pParent);
             aPasswdDlg.SetMinLen(1);
             if (!aPasswdDlg.execute())
                 return false;
@@ -266,6 +277,7 @@ MSWorksCalcImportFilter::filter(const css::uno::Sequence<css::beans::PropertyVal
     OUString sUrl;
     css::uno::Reference<css::io::XInputStream> xInputStream;
     css::uno::Reference<ucb::XContent> xContent;
+    css::uno::Reference<css::awt::XWindow> xDialogParent;
 
     sal_Int32 nLength = rDescriptor.getLength();
     const css::beans::PropertyValue* pValue = rDescriptor.getConstArray();
@@ -277,6 +289,8 @@ MSWorksCalcImportFilter::filter(const css::uno::Sequence<css::beans::PropertyVal
             pValue[i].Value >>= xContent;
         else if (pValue[i].Name == "FileName" || pValue[i].Name == "URL")
             pValue[i].Value >>= sUrl;
+        else if (pValue[i].Name == "ParentWindow")
+            pValue[i].Value >>= xDialogParent;
     }
 
     if (!getXContext().is() || !xInputStream.is())
@@ -364,7 +378,8 @@ MSWorksCalcImportFilter::filter(const css::uno::Sequence<css::beans::PropertyVal
                         = libwps::WPSDocument::isFileFormatSupported(&structuredInput, kind,
                                                                      creator, needEncoding);
                     if (confidence != libwps::WPS_CONFIDENCE_NONE)
-                        return doImportDocument(structuredInput, exporter, aDescriptor);
+                        return doImportDocument(Application::GetFrameWeld(xDialogParent),
+                                                structuredInput, exporter, aDescriptor);
                 }
             }
         }
@@ -373,7 +388,7 @@ MSWorksCalcImportFilter::filter(const css::uno::Sequence<css::beans::PropertyVal
     {
     }
 
-    return doImportDocument(input, exporter, aDescriptor);
+    return doImportDocument(Application::GetFrameWeld(xDialogParent), input, exporter, aDescriptor);
 }
 
 bool MSWorksCalcImportFilter::doDetectFormat(librevenge::RVNGInputStream& rInput,
@@ -388,24 +403,27 @@ bool MSWorksCalcImportFilter::doDetectFormat(librevenge::RVNGInputStream& rInput
     if ((kind == libwps::WPS_SPREADSHEET || kind == libwps::WPS_DATABASE)
         && confidence != libwps::WPS_CONFIDENCE_NONE)
     {
-        if (creator == libwps::WPS_MSWORKS)
+        switch (creator)
         {
-            rTypeName = "calc_MS_Works_Document";
-            return true;
-        }
-        if (creator == libwps::WPS_LOTUS || creator == libwps::WPS_SYMPHONY)
-        {
-            rTypeName = "calc_WPS_Lotus_Document";
-            return true;
-        }
-        if (creator == libwps::WPS_QUATTRO_PRO)
-        {
-            rTypeName = "calc_WPS_QPro_Document";
-            return true;
+            case libwps::WPS_MSWORKS:
+                rTypeName = "calc_MS_Works_Document";
+                break;
+            case libwps::WPS_LOTUS:
+            case libwps::WPS_SYMPHONY:
+                rTypeName = "calc_WPS_Lotus_Document";
+                break;
+            case libwps::WPS_QUATTRO_PRO:
+                rTypeName = "calc_WPS_QPro_Document";
+                break;
+            case libwps::WPS_RESERVED_2:
+                rTypeName = "calc_MS_Multiplan";
+                break;
+            default:
+                break;
         }
     }
 
-    return false;
+    return !rTypeName.isEmpty();
 }
 
 void MSWorksCalcImportFilter::doRegisterHandlers(OdsGenerator&) {}

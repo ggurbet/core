@@ -74,7 +74,6 @@
 #include <svl/filenotation.hxx>
 #include <comphelper/interaction.hxx>
 #include <comphelper/namedvaluecollection.hxx>
-#include <comphelper/sequenceashashmap.hxx>
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <connectivity/DriversConfig.hxx>
@@ -141,7 +140,7 @@ ODbTypeWizDialogSetup::ODbTypeWizDialogSetup(vcl::Window* _pParent
     m_pImpl.reset(new ODbDataSourceAdministrationHelper(_rxORB,this,this));
     m_pImpl->setDataSourceOrName(_aDataSourceName);
     Reference< XPropertySet > xDatasource = m_pImpl->getCurrentDataSource();
-    m_pOutSet = new SfxItemSet( *_pItems->GetPool(), _pItems->GetRanges() );
+    m_pOutSet.reset( new SfxItemSet( *_pItems->GetPool(), _pItems->GetRanges() ) );
 
     m_pImpl->translateProperties(xDatasource, *m_pOutSet);
 
@@ -264,8 +263,7 @@ ODbTypeWizDialogSetup::~ODbTypeWizDialogSetup()
 
 void ODbTypeWizDialogSetup::dispose()
 {
-    delete m_pOutSet;
-    m_pOutSet = nullptr;
+    m_pOutSet.reset();
     m_pGeneralPage.clear();
     m_pMySQLIntroPage.clear();
     m_pFinalPage.clear();
@@ -388,12 +386,12 @@ void ODbTypeWizDialogSetup::resetPages(const Reference< XPropertySet >& _rxDatas
 
 const SfxItemSet* ODbTypeWizDialogSetup::getOutputSet() const
 {
-    return m_pOutSet;
+    return m_pOutSet.get();
 }
 
 SfxItemSet* ODbTypeWizDialogSetup::getWriteOutputSet()
 {
-    return m_pOutSet;
+    return m_pOutSet.get();
 }
 
 std::pair< Reference<XConnection>,bool> ODbTypeWizDialogSetup::createConnection()
@@ -628,7 +626,7 @@ void ODbTypeWizDialogSetup::saveDatasource()
 {
     SfxTabPage* pPage = static_cast<SfxTabPage*>(WizardDialog::GetPage(getCurrentState()));
     if ( pPage )
-        pPage->FillItemSet(m_pOutSet);
+        pPage->FillItemSet(m_pOutSet.get());
 }
 
 bool ODbTypeWizDialogSetup::leaveState(WizardState _nState)
@@ -640,7 +638,7 @@ bool ODbTypeWizDialogSetup::leaveState(WizardState _nState)
         resetPages(m_pImpl->getCurrentDataSource());
     }
     SfxTabPage* pPage = static_cast<SfxTabPage*>(WizardDialog::GetPage(_nState));
-    return pPage && pPage->DeactivatePage(m_pOutSet) != DeactivateRC::KeepPage;
+    return pPage && pPage->DeactivatePage(m_pOutSet.get()) != DeactivateRC::KeepPage;
 }
 
 void ODbTypeWizDialogSetup::setTitle(const OUString& /*_sTitle*/)

@@ -41,6 +41,7 @@
 #include <unotools/localedatawrapper.hxx>
 
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -165,14 +166,14 @@ void PrintDialog::PrintPreviewWindow::Paint(vcl::RenderContext& rRenderContext, 
     }
     else
     {
-        Bitmap aPreviewBitmap(maPreviewBitmap);
+        BitmapEx aPreviewBitmap(maPreviewBitmap);
 
         // This explicit force-to-scale allows us to get the
         // mentioned best quality here. Unfortunately this is
         // currently not sure when using just ::DrawBitmap with
         // a defined size or ::DrawOutDev
         aPreviewBitmap.Scale(maPreviewSize, BmpScaleFlag::BestQuality);
-        rRenderContext.DrawBitmap(aOffset, aPreviewBitmap);
+        rRenderContext.DrawBitmapEx(aOffset, aPreviewBitmap);
     }
 
     tools::Rectangle aFrameRect(aOffset + Point(-1, -1), Size(maPreviewSize.Width() + 2, maPreviewSize.Height() + 2));
@@ -377,7 +378,7 @@ void PrintDialog::PrintPreviewWindow::preparePreviewBitmap()
     SetMapMode(MapMode(MapUnit::MapPixel));
     pPrerenderVDev->SetMapMode(MapMode(MapUnit::MapPixel));
 
-    maPreviewBitmap = pPrerenderVDev->GetBitmap(Point(0, 0), aVDevSize);
+    maPreviewBitmap = pPrerenderVDev->GetBitmapEx(Point(0, 0), aVDevSize);
 
     pPrerenderVDev->SetDrawMode( nOldDrawMode );
 }
@@ -798,7 +799,7 @@ PrintDialog::~PrintDialog()
 
 void PrintDialog::dispose()
 {
-    delete mpCustomOptionsUIBuilder;
+    mpCustomOptionsUIBuilder.reset();
     mpTabCtrl.clear();
     mpPreviewWindow.clear();
     mpPageEdit.clear();
@@ -908,8 +909,7 @@ void PrintDialog::setupOptionalUI()
 
             vcl::Window *pCustom = get<vcl::Window>("customcontents");
 
-            delete mpCustomOptionsUIBuilder;
-            mpCustomOptionsUIBuilder = new VclBuilder(pCustom, getUIRootDir(), sOptionsUIFile);
+            mpCustomOptionsUIBuilder.reset(new VclBuilder(pCustom, getUIRootDir(), sOptionsUIFile));
             vcl::Window *pWindow = mpCustomOptionsUIBuilder->get_widget_root();
             pWindow->Show();
             continue;
@@ -1343,10 +1343,10 @@ static OUString searchAndReplace( const OUString& i_rOrig, const char* i_pRepl, 
     if( nPos != -1 )
     {
         OUStringBuffer aBuf( i_rOrig.getLength() );
-        aBuf.append( i_rOrig.getStr(), nPos );
+        aBuf.appendCopy( i_rOrig, 0, nPos );
         aBuf.append( i_rRepl );
         if( nPos + i_nReplLen < i_rOrig.getLength() )
-            aBuf.append( i_rOrig.getStr() + nPos + i_nReplLen );
+            aBuf.appendCopy( i_rOrig, nPos + i_nReplLen );
         return aBuf.makeStringAndClear();
     }
     return i_rOrig;
@@ -1720,7 +1720,7 @@ IMPL_LINK( PrintDialog, ClickHdl, Button*, pButton, void )
     {
         if( pButton == maJobPage.mpSetupButton )
         {
-            maPController->setupPrinter( this );
+            maPController->setupPrinter(GetFrameWeld());
 
             // tdf#63905 don't use cache: page size may change
             preparePreview();

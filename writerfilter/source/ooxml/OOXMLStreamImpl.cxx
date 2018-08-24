@@ -24,6 +24,7 @@
 #include <com/sun/star/embed/XHierarchicalStorageAccess.hpp>
 #include <com/sun/star/uri/UriReferenceFactory.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
+#include <comphelper/storagehelper.hxx>
 
 namespace writerfilter {
 namespace ooxml
@@ -414,7 +415,7 @@ OOXMLDocumentFactory::createStream
     if (nStreamType != OOXMLStream::VBADATA)
     {
         if (OOXMLStreamImpl* pImpl = dynamic_cast<OOXMLStreamImpl *>(pStream.get()))
-            pRet.reset(new OOXMLStreamImpl(*pImpl, nStreamType));
+            pRet = new OOXMLStreamImpl(*pImpl, nStreamType);
     }
     else
     {
@@ -422,7 +423,7 @@ OOXMLDocumentFactory::createStream
         if (OOXMLStreamImpl* pImpl = dynamic_cast<OOXMLStreamImpl *>(pStream.get()))
         {
             std::unique_ptr<OOXMLStreamImpl> pProject(new OOXMLStreamImpl(*pImpl, OOXMLStream::VBAPROJECT));
-            pRet.reset(new OOXMLStreamImpl(*pProject, OOXMLStream::VBADATA));
+            pRet = new OOXMLStreamImpl(*pProject, OOXMLStream::VBADATA);
         }
     }
 
@@ -435,7 +436,7 @@ OOXMLDocumentFactory::createStream
 {
     OOXMLStream::Pointer_t pRet;
     if (OOXMLStreamImpl* pImpl = dynamic_cast<OOXMLStreamImpl *>(pStream.get()))
-        pRet.reset(new OOXMLStreamImpl(*pImpl, rId));
+        pRet = new OOXMLStreamImpl(*pImpl, rId);
     return pRet;
 }
 

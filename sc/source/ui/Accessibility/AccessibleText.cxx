@@ -831,7 +831,7 @@ SvxTextForwarder* ScAccessibleCellTextData::GetTextForwarder()
         pEditEngine->SetNotifyHdl( LINK(this, ScAccessibleCellTextData, NotifyHdl) );
     }
 
-    return pForwarder;
+    return pForwarder.get();
 }
 
 SvxViewForwarder* ScAccessibleCellTextData::GetViewForwarder()
@@ -1179,7 +1179,7 @@ SvxTextForwarder* ScAccessiblePreviewCellTextData::GetTextForwarder()
     if (pEditEngine)
         pEditEngine->SetNotifyHdl( LINK(this, ScAccessiblePreviewCellTextData, NotifyHdl) );
 
-    return pForwarder;
+    return pForwarder.get();
 }
 
 SvxViewForwarder* ScAccessiblePreviewCellTextData::GetViewForwarder()
@@ -1253,11 +1253,11 @@ SvxTextForwarder* ScAccessiblePreviewHeaderCellTextData::GetTextForwarder()
             pEditEngine->SetRefDevice(pDocShell->GetRefDevice());
         else
             pEditEngine->SetRefMapMode(MapMode(MapUnit::Map100thMM));
-        pForwarder = new SvxEditEngineForwarder(*pEditEngine);
+        pForwarder.reset( new SvxEditEngineForwarder(*pEditEngine) );
     }
 
     if (bDataValid)
-        return pForwarder;
+        return pForwarder.get();
 
     if (!maText.isEmpty())
     {
@@ -1280,7 +1280,7 @@ SvxTextForwarder* ScAccessiblePreviewHeaderCellTextData::GetTextForwarder()
 
     pEditEngine->SetNotifyHdl( LINK(this, ScAccessiblePreviewHeaderCellTextData, NotifyHdl) );
 
-    return pForwarder;
+    return pForwarder.get();
 }
 
 SvxViewForwarder* ScAccessiblePreviewHeaderCellTextData::GetViewForwarder()
@@ -1439,7 +1439,7 @@ ScAccessibleNoteTextData::~ScAccessibleNoteTextData()
     if (mpEditEngine)
         mpEditEngine->SetNotifyHdl(Link<EENotify&,void>());
     mpEditEngine.reset();
-    delete mpForwarder;
+    mpForwarder.reset();
 }
 
 ScAccessibleTextData* ScAccessibleNoteTextData::Clone() const
@@ -1478,11 +1478,11 @@ SvxTextForwarder* ScAccessibleNoteTextData::GetTextForwarder()
             mpEditEngine->SetRefDevice(mpDocSh->GetRefDevice());
         else
             mpEditEngine->SetRefMapMode(MapMode(MapUnit::Map100thMM));
-        mpForwarder = new SvxEditEngineForwarder(*mpEditEngine);
+        mpForwarder.reset( new SvxEditEngineForwarder(*mpEditEngine) );
     }
 
     if (mbDataValid)
-        return mpForwarder;
+        return mpForwarder.get();
 
     if (!msText.isEmpty())
     {
@@ -1506,7 +1506,7 @@ SvxTextForwarder* ScAccessibleNoteTextData::GetTextForwarder()
 
     mpEditEngine->SetNotifyHdl( LINK(this, ScAccessibleNoteTextData, NotifyHdl) );
 
-    return mpForwarder;
+    return mpForwarder.get();
 }
 
 SvxViewForwarder* ScAccessibleNoteTextData::GetViewForwarder()

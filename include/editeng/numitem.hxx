@@ -65,6 +65,7 @@ public:
     explicit SvxNumberType(SvxNumType nType = SVX_NUM_ARABIC);
     SvxNumberType(const SvxNumberType& rType);
     ~SvxNumberType();
+    SvxNumberType & operator =(SvxNumberType const &) = default;
 
     OUString        GetNumStr( sal_Int32 nNo ) const;
     OUString        GetNumStr( sal_Int32 nNo, const css::lang::Locale& rLocale ) const;
@@ -123,8 +124,8 @@ private:
     //         LABEL_ALIGNMENT is active.
     SvxNumPositionAndSpaceMode mePositionAndSpaceMode;
 
-    short               nFirstLineOffset;   // First line indent
-    short               nAbsLSpace;         // Distance Border<->Number
+    sal_Int32           nFirstLineOffset;   // First line indent
+    sal_Int32           nAbsLSpace;         // Distance Border<->Number
     short               nCharTextDistance;  // Distance Number<->Text
 
     // specifies what follows the list label before the text of the first line
@@ -194,10 +195,10 @@ public:
     SvxNumPositionAndSpaceMode GetPositionAndSpaceMode() const { return mePositionAndSpaceMode;}
     void SetPositionAndSpaceMode( SvxNumPositionAndSpaceMode ePositionAndSpaceMode );
 
-    void            SetAbsLSpace(short nSet) {nAbsLSpace = nSet;}
-    short           GetAbsLSpace() const;
-    void            SetFirstLineOffset(short nSet) { nFirstLineOffset = nSet;}
-    short           GetFirstLineOffset() const;
+    void            SetAbsLSpace(sal_Int32 nSet) {nAbsLSpace = nSet;}
+    sal_Int32       GetAbsLSpace() const;
+    void            SetFirstLineOffset(sal_Int32 nSet) { nFirstLineOffset = nSet;}
+    sal_Int32       GetFirstLineOffset() const;
     void            SetCharTextDistance(short nSet) { nCharTextDistance = nSet; }
     short           GetCharTextDistance() const;
 

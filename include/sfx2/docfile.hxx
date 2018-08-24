@@ -27,6 +27,7 @@
 #include <sfx2/signaturestate.hxx>
 #include <svl/lockfilecommon.hxx>
 #include <sal/types.h>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/util/RevisionTag.hpp>
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
@@ -35,12 +36,14 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
+#include <com/sun/star/security/XCertificate.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <cppuhelper/weak.hxx>
 #include <rtl/ustring.hxx>
 #include <svl/lstner.hxx>
+#include <svl/itemset.hxx>
 #include <tools/link.hxx>
 #include <tools/stream.hxx>
 #include <ucbhelper/content.hxx>
@@ -53,7 +56,6 @@ class INetURLObject;
 class SfxObjectShell;
 class SfxFrame;
 class Timer;
-class SfxItemSet;
 class DateTime;
 
 class SFX2_DLLPUBLIC SfxMedium : public SvRefBase
@@ -76,7 +78,7 @@ public:
                         SfxMedium( const OUString &rName,
                                    StreamMode nOpenMode,
                                    std::shared_ptr<const SfxFilter> pFilter = nullptr,
-                                   SfxItemSet *pSet = nullptr );
+                                   std::unique_ptr<SfxItemSet> pSet = nullptr );
                         /**
                          * @param pSet Takes ownership
                          */
@@ -84,7 +86,7 @@ public:
                                    const OUString &rReferer,
                                    StreamMode nOpenMode,
                                    std::shared_ptr<const SfxFilter> pFilter = nullptr,
-                                   SfxItemSet *pSet = nullptr );
+                                   std::unique_ptr<SfxItemSet> pSet = nullptr );
 
                         /**
                          * @param pSet does NOT take ownership
@@ -149,7 +151,7 @@ public:
     void                SetError(ErrCode nError);
 
     void                CloseInStream();
-    bool                CloseOutStream();
+    void                CloseOutStream();
 
     void                CloseStorage();
 
@@ -206,7 +208,6 @@ public:
     void                SetInCheckIn( bool bInCheckIn );
     bool                IsInCheckIn( );
     bool                IsSkipImages( );
-    OUString            GetConvertImagesFilter();
 
     SAL_DLLPRIVATE bool HasStorage_Impl() const;
 
@@ -262,13 +263,24 @@ public:
                              const INetURLObject& aDest,
                              const css::uno::Reference< css::ucb::XCommandEnvironment >& xComEnv );
 
-    SAL_DLLPRIVATE bool SignContents_Impl( bool bScriptingContent, const OUString& aODFVersion, bool bHasValidDocumentSignature );
+    SAL_DLLPRIVATE bool
+    SignContents_Impl(bool bSignScriptingContent, bool bHasValidDocumentSignature,
+                      const OUString& aSignatureLineId = OUString(),
+                      const css::uno::Reference<css::security::XCertificate> xCert
+                      = css::uno::Reference<css::security::XCertificate>(),
+                      const css::uno::Reference<css::graphic::XGraphic> xValidGraphic
+                      = css::uno::Reference<css::graphic::XGraphic>(),
+                      const css::uno::Reference<css::graphic::XGraphic> xInvalidGraphic
+                      = css::uno::Reference<css::graphic::XGraphic>(),
+                      const OUString& aComment = OUString());
 
     // the following two methods must be used and make sense only during saving currently
     // TODO/LATER: in future the signature state should be controlled by the medium not by the document
     //             in this case the methods will be used generally, and might need to be renamed
     SAL_DLLPRIVATE SignatureState GetCachedSignatureState_Impl();
     SAL_DLLPRIVATE void       SetCachedSignatureState_Impl( SignatureState nState );
+
+    void SetHasEmbeddedObjects(bool bHasEmbeddedObjects);
 
     static css::uno::Sequence < css::util::RevisionTag > GetVersionList(
                     const css::uno::Reference< css::embed::XStorage >& xStorage );

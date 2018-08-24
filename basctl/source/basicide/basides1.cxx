@@ -34,6 +34,7 @@
 #include <com/sun/star/script/ModuleType.hpp>
 #include <com/sun/star/script/XLibraryContainerPassword.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
+#include <sal/log.hxx>
 #include <sfx2/childwin.hxx>
 #include <sfx2/docfac.hxx>
 #include <sfx2/dinfdlg.hxx>
@@ -153,13 +154,11 @@ void Shell::ExecuteSearch( SfxRequest& rReq )
                 {
                     // search other modules...
                     bool bChangeCurWindow = false;
-                    WindowTableIt it;
-                    for (it = aWindowTable.begin(); it != aWindowTable.end(); ++it)
-                        if (it->second == pCurWin)
-                            break;
-                    if (it != aWindowTable.end())
+                    auto it = std::find_if(aWindowTable.cbegin(), aWindowTable.cend(),
+                                           [this](const WindowTable::value_type& item) { return item.second == pCurWin; });
+                    if (it != aWindowTable.cend())
                         ++it;
-                    BaseWindow* pWin = it != aWindowTable.end() ? it->second.get() : nullptr;
+                    BaseWindow* pWin = it != aWindowTable.cend() ? it->second.get() : nullptr;
 
                     bool bSearchedFromStart = false;
                     while ( !nFound && !bCanceled && ( pWin || !bSearchedFromStart ) )
@@ -176,8 +175,8 @@ void Shell::ExecuteSearch( SfxRequest& rReq )
                             xQueryBox->set_default_response(RET_YES);
                             if (xQueryBox->run() == RET_YES)
                             {
-                                it = aWindowTable.begin();
-                                if ( it != aWindowTable.end() )
+                                it = aWindowTable.cbegin();
+                                if ( it != aWindowTable.cend() )
                                     pWin = it->second;
                                 bSearchedFromStart = true;
                             }
@@ -201,9 +200,9 @@ void Shell::ExecuteSearch( SfxRequest& rReq )
                         }
                         if ( pWin && ( pWin != pCurWin ) )
                         {
-                            if ( it != aWindowTable.end() )
+                            if ( it != aWindowTable.cend() )
                                 ++it;
-                            pWin = it != aWindowTable.end() ? it->second.get() : nullptr;
+                            pWin = it != aWindowTable.cend() ? it->second.get() : nullptr;
                         }
                         else
                             pWin = nullptr;

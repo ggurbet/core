@@ -156,8 +156,8 @@ private:
     bool bKilled : 1; ///< Killed
 
     css::uno::Reference<css::accessibility::XAccessible > mxAccessible;
-    mutable vcl::MenuLayoutData* mpLayoutData;
-    SalMenu* mpSalMenu;
+    mutable std::unique_ptr<vcl::MenuLayoutData> mpLayoutData;
+    std::unique_ptr<SalMenu> mpSalMenu;
 
 protected:
     SAL_DLLPRIVATE Menu* ImplGetStartMenu();
@@ -181,7 +181,7 @@ protected:
     DECL_DLLPRIVATE_LINK(ImplCallSelect, void*, void );
 
     SAL_DLLPRIVATE void ImplFillLayoutData() const;
-    SAL_DLLPRIVATE SalMenu* ImplGetSalMenu() { return mpSalMenu; }
+    SAL_DLLPRIVATE SalMenu* ImplGetSalMenu() { return mpSalMenu.get(); }
     SAL_DLLPRIVATE void ImplClearSalMenu();
     SAL_DLLPRIVATE OUString ImplGetHelpText( sal_uInt16 nItemId ) const;
 
@@ -263,7 +263,7 @@ public:
     MenuItemType GetItemType( sal_uInt16 nPos ) const;
     sal_uInt16 GetCurItemId() const { return nSelectedId;}
     OString GetCurItemIdent() const;
-
+    OString GetItemIdentFromSubMenu(sal_uInt16 nItemId) const;
     void SetItemBits( sal_uInt16 nItemId, MenuItemBits nBits );
     MenuItemBits GetItemBits( sal_uInt16 nItemId ) const;
 

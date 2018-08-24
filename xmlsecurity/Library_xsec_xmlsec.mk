@@ -9,11 +9,7 @@
 
 $(eval $(call gb_Library_Library,xsec_xmlsec))
 
-ifeq ($(OS),WNT)
-$(eval $(call gb_Library_set_componentfile,xsec_xmlsec,xmlsecurity/util/xsec_xmlsec.windows))
-else
 $(eval $(call gb_Library_set_componentfile,xsec_xmlsec,xmlsecurity/util/xsec_xmlsec))
-endif
 
 $(eval $(call gb_Library_set_include,xsec_xmlsec,\
 	$$(INCLUDE) \
@@ -69,11 +65,9 @@ $(eval $(call gb_Library_add_exception_objects,xsec_xmlsec,\
 	xmlsecurity/source/xmlsec/xmlelementwrapper_xmlsecimpl \
 	xmlsecurity/source/xmlsec/xmlsec_init \
 	xmlsecurity/source/xmlsec/xmlstreamio \
-	xmlsecurity/source/xmlsec/xsec_xmlsec \
 	xmlsecurity/source/xmlsec/nss/ciphercontext \
 	xmlsecurity/source/xmlsec/nss/digestcontext \
 	xmlsecurity/source/xmlsec/nss/nssinitializer \
-	xmlsecurity/source/xmlsec/nss/xsec_nss \
 ))
 
 ifeq ($(ENABLE_GPGMEPP),TRUE)
@@ -96,13 +90,14 @@ $(eval $(call gb_Library_add_defs,xsec_xmlsec,\
 ))
 
 $(eval $(call gb_Library_add_libs,xsec_xmlsec,\
-	$(call gb_UnpackedTarball_get_dir,xmlsec)/win32/binaries/libxmlsec-mscrypto.lib \
+	$(call gb_UnpackedTarball_get_dir,xmlsec)/win32/binaries/libxmlsec-mscng.lib \
 	$(call gb_UnpackedTarball_get_dir,xmlsec)/win32/binaries/libxmlsec.lib \
 ))
 
 $(eval $(call gb_Library_use_system_win32_libs,xsec_xmlsec,\
 	crypt32 \
 	advapi32 \
+	ncrypt \
 ))
 
 $(eval $(call gb_Library_add_exception_objects,xsec_xmlsec,\
@@ -113,7 +108,6 @@ $(eval $(call gb_Library_add_exception_objects,xsec_xmlsec,\
 	xmlsecurity/source/xmlsec/mscrypt/x509certificate_mscryptimpl \
 	xmlsecurity/source/xmlsec/mscrypt/xmlsecuritycontext_mscryptimpl \
 	xmlsecurity/source/xmlsec/mscrypt/xmlsignature_mscryptimpl \
-	xmlsecurity/source/xmlsec/mscrypt/xsec_mscrypt \
 ))
 
 else

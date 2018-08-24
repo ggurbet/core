@@ -20,6 +20,7 @@
 #include <vcl/wrkwin.hxx>
 #include <vcl/settings.hxx>
 
+#include <sal/log.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/app.hxx>
 #include <Outliner.hxx>
@@ -39,7 +40,6 @@
 #include <sfx2/linkmgr.hxx>
 #include <editeng/editdata.hxx>
 #include <svx/dialogs.hrc>
-#include <svx/dialmgr.hxx>
 
 #include <editeng/outliner.hxx>
 #include <svx/svditer.hxx>
@@ -89,7 +89,7 @@ SdrObject* SdDrawDocument::GetObj(const OUString& rObjName) const
     while (nPage < nMaxPages && !pObjFound)
     {
         pPage = static_cast<const SdPage*>( GetPage(nPage) );
-        SdrObjListIter aIter(*pPage, SdrIterMode::DeepWithGroups);
+        SdrObjListIter aIter(pPage, SdrIterMode::DeepWithGroups);
 
         while (aIter.IsMore() && !pObjFound)
         {
@@ -114,7 +114,7 @@ SdrObject* SdDrawDocument::GetObj(const OUString& rObjName) const
     while (nPage < nMaxMasterPages && !pObjFound)
     {
         pPage = static_cast<const SdPage*>( GetMasterPage(nPage) );
-        SdrObjListIter aIter(*pPage, SdrIterMode::DeepWithGroups);
+        SdrObjListIter aIter(pPage, SdrIterMode::DeepWithGroups);
 
         while (aIter.IsMore() && !pObjFound)
         {
@@ -1384,8 +1384,8 @@ sal_uInt16 SdDrawDocument::DuplicatePage (
     }
 
     // Create duplicates of a standard page and the associated notes page
-    pStandardPage = static_cast<SdPage*>( pPreviousStandardPage->Clone() );
-    pNotesPage = static_cast<SdPage*>( pPreviousNotesPage->Clone() );
+    pStandardPage = static_cast<SdPage*>( pPreviousStandardPage->CloneSdrPage(*this) );
+    pNotesPage = static_cast<SdPage*>( pPreviousNotesPage->CloneSdrPage(*this) );
 
     return InsertPageSet (
         pActualPage,

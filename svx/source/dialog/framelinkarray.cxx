@@ -78,7 +78,6 @@ public:
     basegfx::B2DHomMatrix CreateCoordinateSystem(const Array& rArray, size_t nCol, size_t nRow, bool bExpandMerged) const;
 };
 
-typedef std::vector< long >     LongVec;
 typedef std::vector< Cell >     CellVec;
 
 basegfx::B2DHomMatrix Cell::CreateCoordinateSystem(const Array& rArray, size_t nCol, size_t nRow, bool bExpandMerged) const
@@ -148,13 +147,15 @@ void Cell::MirrorSelfX()
 }
 
 
-void lclRecalcCoordVec( LongVec& rCoords, const LongVec& rSizes )
+void lclRecalcCoordVec( std::vector<long>& rCoords, const std::vector<long>& rSizes )
 {
     DBG_ASSERT( rCoords.size() == rSizes.size() + 1, "lclRecalcCoordVec - inconsistent vectors" );
-    LongVec::iterator aCIt = rCoords.begin();
-    LongVec::const_iterator aSIt = rSizes.begin(), aSEnd = rSizes.end();
-    for( ; aSIt != aSEnd; ++aCIt, ++aSIt )
-        *(aCIt + 1) = *aCIt + *aSIt;
+    auto aCIt = rCoords.begin();
+    for( const auto& rSize : rSizes )
+    {
+        *(aCIt + 1) = *aCIt + rSize;
+        ++aCIt;
+    }
 }
 
 void lclSetMergedRange( CellVec& rCells, size_t nWidth, size_t nFirstCol, size_t nFirstRow, size_t nLastCol, size_t nLastRow )
@@ -179,10 +180,10 @@ static const Cell OBJ_CELL_NONE;
 struct ArrayImpl
 {
     CellVec             maCells;
-    LongVec             maWidths;
-    LongVec             maHeights;
-    mutable LongVec     maXCoords;
-    mutable LongVec     maYCoords;
+    std::vector<long>   maWidths;
+    std::vector<long>   maHeights;
+    mutable std::vector<long>     maXCoords;
+    mutable std::vector<long>     maYCoords;
     size_t              mnWidth;
     size_t              mnHeight;
     size_t              mnFirstClipCol;

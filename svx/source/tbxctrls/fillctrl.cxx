@@ -26,7 +26,6 @@
 #include <rtl/ustring.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/toolbox.hxx>
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 
 #define TMP_STR_BEGIN   "["
@@ -37,7 +36,6 @@
 #include <svx/xtable.hxx>
 #include <svx/fillctrl.hxx>
 #include <svx/itemwin.hxx>
-#include <svx/dialmgr.hxx>
 #include <memory>
 #include <o3tl/make_unique.hxx>
 
@@ -376,7 +374,7 @@ void SvxFillToolBoxControl::Update()
                             XGradientList aGradientList( "", ""/*TODO?*/ );
                             aGradientList.Insert(o3tl::make_unique<XGradientEntry>(mpFillGradientItem->GetGradientValue(), aTmpStr));
                             aGradientList.SetDirty( false );
-                            const Bitmap aBmp = aGradientList.GetUiBitmap( 0 );
+                            const BitmapEx aBmp = aGradientList.GetUiBitmap( 0 );
 
                             if(!aBmp.IsEmpty())
                             {
@@ -434,7 +432,7 @@ void SvxFillToolBoxControl::Update()
                             XHatchList aHatchList( "", ""/*TODO?*/ );
                             aHatchList.Insert(o3tl::make_unique<XHatchEntry>(mpHatchItem->GetHatchValue(), aTmpStr));
                             aHatchList.SetDirty( false );
-                            const Bitmap aBmp = aHatchList.GetUiBitmap( 0 );
+                            const BitmapEx & aBmp = aHatchList.GetUiBitmap( 0 );
 
                             if( !aBmp.IsEmpty() )
                             {
@@ -528,6 +526,8 @@ VclPtr<vcl::Window> SvxFillToolBoxControl::CreateItemWindow(vcl::Window *pParent
         mpLbFillType = mpFillControl->mpLbFillType;
         mpLbFillAttr = mpFillControl->mpLbFillAttr;
         mpToolBoxColor = mpFillControl->mpToolBoxColor;
+        mpFillControl->SetBackground();
+        mpFillControl->SetPaintTransparent( true );
         mpFillControl->Resize();
         mpToolBoxColor->InsertItem(".uno:FillColor", m_xFrame, ToolBoxItemBits::DROPDOWNONLY, Size(mpToolBoxColor->GetSizePixel().Width(), 0));
 

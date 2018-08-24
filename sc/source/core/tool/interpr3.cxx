@@ -1834,8 +1834,6 @@ static void lcl_PutFactorialElements( ::std::vector< double >& cn, double fLower
 
 /** Calculates a value of the hypergeometric distribution.
 
-    @author Kohei Yoshida <kohei@openoffice.org>
-
     @see #i47296#
 
     This function has an extra argument bCumulative,
@@ -1844,7 +1842,7 @@ static void lcl_PutFactorialElements( ::std::vector< double >& cn, double fLower
 
     @see fdo#71722
     @see tdf#102948, make Calc function ODFF1.2-compliant
-
+    @see tdf#117041, implement note at bottom of ODFF1.2 par.6.18.37
  */
 void ScInterpreter::ScHypGeomDist( int nMinParamCount )
 {
@@ -1858,23 +1856,21 @@ void ScInterpreter::ScHypGeomDist( int nMinParamCount )
     double n = ::rtl::math::approxFloor(GetDouble());
     double x = ::rtl::math::approxFloor(GetDouble());
 
-    if( (x < 0.0) || (n < x) || (M < x) || (N < n) || (N < M) || (x < n - N + M) )
+    if ( (x < 0.0) || (n < x) || (N < n) || (N < M) || (M < 0.0) )
     {
         PushIllegalArgument();
         return;
     }
 
-    if ( bCumulative )
+    double fVal = 0.0;
+
+    for ( int i = ( bCumulative ? 0 : x ); i <= x && nGlobalError == FormulaError::NONE; i++ )
     {
-        double fVal = 0.0;
-
-        for ( int i = 0; i <= x && nGlobalError == FormulaError::NONE; i++ )
-            fVal += GetHypGeomDist( i, n, M, N );
-
-        PushDouble( fVal );
+        if ( (n - i <= N - M) && (i <= M) )
+            fVal +=  GetHypGeomDist( i, n, M, N );
     }
-    else
-        PushDouble( GetHypGeomDist( x, n, M, N ) );
+
+    PushDouble( fVal );
 }
 
 /** Calculates a value of the hypergeometric distribution.
@@ -1885,17 +1881,13 @@ void ScInterpreter::ScHypGeomDist( int nMinParamCount )
     for a fast calculation for large values which would otherwise cause an overflow
     in the intermediate values.
 
-    @author Kohei Yoshida <kohei@openoffice.org>
-
     @see #i47296#
-
  */
 double ScInterpreter::GetHypGeomDist( double x, double n, double M, double N )
 {
     const size_t nMaxArraySize = 500000; // arbitrary max array size
 
-    typedef ::std::vector< double > HypContainer;
-    HypContainer cnNumer, cnDenom;
+    std::vector<double> cnNumer, cnDenom;
 
     size_t nEstContainerSize = static_cast<size_t>( x + ::std::min( n, M ) );
     size_t nMaxSize = ::std::min( cnNumer.max_size(), nMaxArraySize );
@@ -2070,8 +2062,8 @@ double ScInterpreter::GetHypGeomDist( double x, double n, double M, double N )
 
     ::std::sort( cnNumer.begin(), cnNumer.end() );
     ::std::sort( cnDenom.begin(), cnDenom.end() );
-    HypContainer::reverse_iterator it1 = cnNumer.rbegin(), it1End = cnNumer.rend();
-    HypContainer::reverse_iterator it2 = cnDenom.rbegin(), it2End = cnDenom.rend();
+    auto it1 = cnNumer.rbegin(), it1End = cnNumer.rend();
+    auto it2 = cnDenom.rbegin(), it2End = cnDenom.rend();
 
     double fFactor = 1.0;
     for ( ; it1 != it1End || it2 != it2End; )
@@ -2442,6 +2434,8 @@ void ScInterpreter::ScConfidenceT()
         double alpha = GetDouble();
         if (sigma <= 0.0 || alpha <= 0.0 || alpha >= 1.0 || n < 1.0)
             PushIllegalArgument();
+        else if (n == 1.0) // for interoperability with Excel
+            PushError(FormulaError::DivisionByZero);
         else
             PushDouble( sigma * GetTInv( alpha, n - 1, 2 ) / sqrt( n ) );
     }
@@ -2562,6 +2556,11 @@ void ScInterpreter::ScZTest()
         if (nParamCount != 3)
         {
             sigma = (fSumSqr - fSum*fSum/rValCount)/(rValCount-1.0);
+            if (sigma == 0.0)
+            {
+                PushError(FormulaError::DivisionByZero);
+                return;
+            }
             PushDouble(0.5 - gauss((mue-x)/sqrt(sigma/rValCount)));
         }
         else
@@ -2745,12 +2744,12 @@ void ScInterpreter::ScFTest()
     aOp.emplace_back(new sc::op::Op(0.0, [](double& rAccum, double fVal){rAccum += fVal;}));
     aOp.emplace_back(new sc::op::Op(0.0, [](double& rAccum, double fVal){rAccum += fVal * fVal;}));
 
-    auto aVal1 = pMat1->Collect(false, aOp);
+    auto aVal1 = pMat1->Collect(aOp);
     fSum1 = aVal1[0].mfFirst + aVal1[0].mfRest;
     fSumSqr1 = aVal1[1].mfFirst + aVal1[1].mfRest;
     fCount1 = aVal1[2].mnCount;
 
-    auto aVal2 = pMat2->Collect(false, aOp);
+    auto aVal2 = pMat2->Collect(aOp);
     fSum2 = aVal2[0].mfFirst + aVal2[0].mfRest;
     fSumSqr2 = aVal2[1].mfFirst + aVal2[1].mfRest;
     fCount2 = aVal2[2].mnCount;
@@ -3376,8 +3375,7 @@ double ScInterpreter::GetMedian( vector<double> & rArray )
     {
         double fUp = *iMid;
         // Lower median.
-        iMid = rArray.begin() + nMid - 1;
-        ::std::nth_element( rArray.begin(), iMid, rArray.end());
+        iMid = ::std::max_element( rArray.begin(), rArray.begin() + nMid);
         return (fUp + *iMid) / 2;
     }
 }
@@ -3410,8 +3408,7 @@ double ScInterpreter::GetPercentile( vector<double> & rArray, double fPercentile
         {
             OSL_ENSURE(nIndex < nSize-1, "GetPercentile: wrong index(2)");
             double fVal = *iter;
-            iter = rArray.begin() + nIndex+1;
-            ::std::nth_element( rArray.begin(), iter, rArray.end());
+            iter = ::std::min_element( rArray.begin() + nIndex + 1, rArray.end());
             return fVal + fDiff * (*iter - fVal);
         }
     }
@@ -3442,8 +3439,7 @@ double ScInterpreter::GetPercentileExclusive( vector<double> & rArray, double fP
     {
         OSL_ENSURE(nIndex < nSize1, "GetPercentile: wrong index(2)");
         double fVal = *iter;
-        iter = rArray.begin() + nIndex + 1;
-        ::std::nth_element( rArray.begin(), iter, rArray.end());
+        iter = ::std::min_element( rArray.begin() + nIndex + 1, rArray.end());
         return fVal + fDiff * (*iter - fVal);
     }
 }

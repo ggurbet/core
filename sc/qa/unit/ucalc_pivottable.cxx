@@ -222,8 +222,7 @@ void Test::testPivotTable()
         m_pDoc, ScRange(nCol1, nRow1, 0, nCol2, nRow2, 0), aFields, nFieldCount, false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new datapilot object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -248,7 +247,7 @@ void Test::testPivotTable()
             { "Total Result", "50", "57", "23", "130" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
     CPPUNIT_ASSERT_EQUAL_MESSAGE("There should be only one data cache.", size_t(1), pDPs->GetSheetCaches().size());
@@ -286,7 +285,7 @@ void Test::testPivotTable()
             { "Total Result", "50", "57", "23", "130" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (from old cache)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (from old cache)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -323,7 +322,7 @@ void Test::testPivotTable()
             { "Total Result", "300", "700", "1100", "2100" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (refreshed)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (refreshed)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -352,8 +351,7 @@ void Test::testPivotTable()
 
     pDPObj = createDPFromRange(
         m_pDoc, ScRange(nCol1, nRow1, 0, nCol2, nRow2, 0), aFields, nFieldCount, false);
-    bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new datapilot object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -403,8 +401,7 @@ void Test::testPivotTableLabels()
         m_pDoc, ScRange(nCol1, nRow1, 0, nCol2, nRow2, 0), aFields, nFieldCount, false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new datapilot object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -419,7 +416,7 @@ void Test::testPivotTableLabels()
             { "Total Result", "30", "20", "45", "95" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -459,8 +456,7 @@ void Test::testPivotTableDateLabels()
         m_pDoc, ScRange(nCol1, nRow1, 0, nCol2, nRow2, 0), aFields, nFieldCount, false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new datapilot object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -477,7 +473,7 @@ void Test::testPivotTableDateLabels()
             { "Total Result", "30", "20", "45", "95" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -542,8 +538,7 @@ void Test::testPivotTableFilters()
         m_pDoc, ScRange(nCol1, nRow1, 0, nCol2, nRow2, 0), aFields, nFieldCount, true);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new datapilot object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -560,7 +555,7 @@ void Test::testPivotTableFilters()
             { "Sum - Val2", "80" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (unfiltered)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (unfiltered)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -594,7 +589,7 @@ void Test::testPivotTableFilters()
             { "Sum - Val2", "40" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (filtered by page)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (filtered by page)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -623,7 +618,7 @@ void Test::testPivotTableFilters()
             { "Sum - Val2", "20" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (filtered by query)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (filtered by query)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -646,7 +641,7 @@ void Test::testPivotTableFilters()
             { "Sum - Val2", "40" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (filtered by page)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output (filtered by page)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -702,8 +697,7 @@ void Test::testPivotTableNamedSource()
     CPPUNIT_ASSERT_MESSAGE("Failed to create a new pivot table object.", pDPObj);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -978,9 +972,7 @@ void Test::testPivotTableDuplicateDataFields()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -998,7 +990,7 @@ void Test::testPivotTableDuplicateDataFields()
             { "Total Count - Value", nullptr, "10" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1022,7 +1014,7 @@ void Test::testPivotTableDuplicateDataFields()
             { "Total Result", "411", "10" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1071,9 +1063,7 @@ void Test::testPivotTableNormalGrouping()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1093,7 +1083,7 @@ void Test::testPivotTableNormalGrouping()
             { "Total Result", "28" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Initial output without grouping");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Initial output without grouping");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1141,7 +1131,7 @@ void Test::testPivotTableNormalGrouping()
             { "Total Result", nullptr, "28" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "A, B, C grouped by Group1.");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "A, B, C grouped by Group1.");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1178,7 +1168,7 @@ void Test::testPivotTableNormalGrouping()
             { "Total Result", nullptr, "28" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "D, E, F grouped by Group2.");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "D, E, F grouped by Group2.");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1233,9 +1223,7 @@ void Test::testPivotTableNumberGrouping()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1273,7 +1261,7 @@ void Test::testPivotTableNumberGrouping()
             { "Total Result", "1389" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Order grouped by numbers");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Order grouped by numbers");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1318,9 +1306,7 @@ void Test::testPivotTableDateGrouping()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1390,7 +1376,7 @@ void Test::testPivotTableDateGrouping()
             { "Total Result", nullptr, nullptr, "36" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Years, quarters and months date groups.");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Years, quarters and months date groups.");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1418,7 +1404,7 @@ void Test::testPivotTableDateGrouping()
             { "Total Result", nullptr, nullptr, "10" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Year 2012 data now hidden");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Year 2012 data now hidden");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1447,7 +1433,7 @@ void Test::testPivotTableDateGrouping()
             { "Total Result", "36" }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Remove all date grouping.");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Remove all date grouping.");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1491,9 +1477,7 @@ void Test::testPivotTableEmptyRows()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1512,7 +1496,7 @@ void Test::testPivotTableEmptyRows()
             { "Total Result", "10" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Include empty rows");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Include empty rows");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1534,7 +1518,7 @@ void Test::testPivotTableEmptyRows()
             { "Total Result", "10" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Ignore empty rows");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Ignore empty rows");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1560,7 +1544,7 @@ void Test::testPivotTableEmptyRows()
             { "Total Result", "10" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Ignore empty rows");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Ignore empty rows");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1618,9 +1602,7 @@ void Test::testPivotTableTextNumber()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1638,7 +1620,7 @@ void Test::testPivotTableTextNumber()
             { "Total Result", "10" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Text number field members");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Text number field members");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1663,7 +1645,7 @@ void Test::testPivotTableTextNumber()
             { "4", nullptr }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Text number field members");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Text number field members");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1702,9 +1684,7 @@ void Test::testPivotTableCaseInsensitiveStrings()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1719,7 +1699,7 @@ void Test::testPivotTableCaseInsensitiveStrings()
             { "Total Result", "3" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Case insensitive strings");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Case insensitive strings");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1793,9 +1773,7 @@ void Test::testPivotTableNumStability()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1865,9 +1843,7 @@ void Test::testPivotTableFieldReference()
         m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -1885,7 +1861,7 @@ void Test::testPivotTableFieldReference()
             { "Total Result", "15" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (none)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (none)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1912,7 +1888,7 @@ void Test::testPivotTableFieldReference()
             { "Total Result", nullptr },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (difference from)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (difference from)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1932,7 +1908,7 @@ void Test::testPivotTableFieldReference()
             { "Total Result", nullptr },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (% of)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (% of)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1952,7 +1928,7 @@ void Test::testPivotTableFieldReference()
             { "Total Result", nullptr },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (% difference from)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (% difference from)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1972,7 +1948,7 @@ void Test::testPivotTableFieldReference()
             { "Total Result", nullptr },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (Running total)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (Running total)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -1992,7 +1968,7 @@ void Test::testPivotTableFieldReference()
             { "Total Result", "100.00%" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (% of column)");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Field reference (% of column)");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -2106,9 +2082,7 @@ void Test::testFuncGETPIVOTDATA()
     }
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -2123,7 +2097,7 @@ void Test::testFuncGETPIVOTDATA()
             { "Total Result", "21" },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Pivot table created for GETPIVOTDATA");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Pivot table created for GETPIVOTDATA");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -2169,8 +2143,7 @@ void Test::testFuncGETPIVOTDATA()
         pDPObj = createDPFromRange(m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
     }
 
-    bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("InsertNewTable failed", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     aOutRange = refresh(pDPObj);
 
     {
@@ -2185,7 +2158,7 @@ void Test::testFuncGETPIVOTDATA()
             { "Total Count - Value", nullptr,               "6"  },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Pivot table refreshed");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Pivot table refreshed");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -2265,9 +2238,7 @@ void Test::testFuncGETPIVOTDATALeafAccess()
     pDPObj = createDPFromRange(m_pDoc, aDataRange, aFields, SAL_N_ELEMENTS(aFields), false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new pivot table object into document.", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -2284,7 +2255,7 @@ void Test::testFuncGETPIVOTDATALeafAccess()
             { "Total Result",  nullptr,         "10"          },
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Pivot table refreshed");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "Pivot table refreshed");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -2362,8 +2333,7 @@ void Test::testPivotTableRepeatItemLabels()
         m_pDoc, ScRange(nCol1, nRow1, 0, nCol2, nRow2, 0), aFields, nFieldCount, false);
 
     ScDPCollection* pDPs = m_pDoc->GetDPCollection();
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new datapilot object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.",
                            size_t(1), pDPs->GetCount());
     pDPObj->SetName(pDPs->CreateNewName());
@@ -2389,7 +2359,7 @@ void Test::testPivotTableRepeatItemLabels()
             { "Total Result", nullptr,         nullptr,      "220"         }
         };
 
-        bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
+        bool bSuccess = checkDPTableOutput(m_pDoc, aOutRange, aOutputCheck, "DataPilot table output");
         CPPUNIT_ASSERT_MESSAGE("Table output check failed", bSuccess);
     }
 
@@ -2443,15 +2413,13 @@ void Test::testPivotTableDPCollection()
 
     // Add 2 DP objects
     ScDPObject* pDPObj = createDPFromRange(m_pDoc, aDataRange , aFields, nFieldCount, false);
-    bool bSuccess = pDPs->InsertNewTable(pDPObj);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new DP object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj);
     pDPObj->SetName("DP1"); // set custom name
 
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be only one data pilot table.", size_t(1), pDPs->GetCount());
 
     ScDPObject* pDPObj2 = createDPFromRange(m_pDoc, aDataRange, aFields, nFieldCount, false);
-    bSuccess = pDPs->InsertNewTable(pDPObj2);
-    CPPUNIT_ASSERT_MESSAGE("failed to insert a new DP object into document", bSuccess);
+    pDPs->InsertNewTable(pDPObj2);
     pDPObj2->SetName("DP2"); // set custom name
 
     CPPUNIT_ASSERT_EQUAL_MESSAGE("there should be two DP tables", size_t(2), pDPs->GetCount());

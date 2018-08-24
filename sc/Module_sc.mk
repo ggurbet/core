@@ -185,6 +185,18 @@ $(eval $(call gb_Module_add_uicheck_targets,sc,\
 	UITest_autofilter \
 	UITest_search_replace \
 	UITest_calc_tests \
+	UITest_calc_tests2 \
+	UITest_calc_tests3 \
+	UITest_calc_tests4 \
+	UITest_calc_tests6 \
+	UITest_statistics \
+	UITest_solver \
+	UITest_goalSeek \
+	UITest_protect \
+	UITest_options \
+	UITest_validity \
+	UITest_key_f4 \
+	UITest_textCase \
 ))
 endif
 

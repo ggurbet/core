@@ -30,6 +30,7 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <vcl/weld.hxx>
 
 #include <memory>
 #include <vector>
@@ -69,6 +70,7 @@ struct SwDBFormatData
 };
 
 namespace weld {
+    class ComboBoxText;
     class Window;
 }
 
@@ -269,8 +271,6 @@ class SW_DLLPUBLIC SwDBManager
     SAL_DLLPRIVATE SwDSParam*          FindDSData(const SwDBData& rData, bool bCreate);
     SAL_DLLPRIVATE SwDSParam*          FindDSConnection(const OUString& rSource, bool bCreate);
 
-    DECL_DLLPRIVATE_LINK( PrtCancelHdl, Button *, void );
-
     /// Insert data record as text into document.
     SAL_DLLPRIVATE void ImportFromConnection( SwWrtShell* pSh);
 
@@ -312,12 +312,17 @@ public:
     void     SetInitDBFields(bool b) { bInitDBFields = b;    }
 
     /// Fill listbox with all table names of a database.
-    bool            GetTableNames(ListBox* pListBox, const OUString& rDBName );
+    bool            GetTableNames(weld::ComboBoxText& rBox, const OUString& rDBName);
 
     /// Fill listbox with all column names of a database table.
     void            GetColumnNames(ListBox* pListBox,
                             const OUString& rDBName, const OUString& rTableName);
+    void            GetColumnNames(weld::ComboBoxText& rBox,
+                            const OUString& rDBName, const OUString& rTableName);
     static void GetColumnNames(ListBox* pListBox,
+                            css::uno::Reference< css::sdbc::XConnection> const & xConnection,
+                            const OUString& rTableName);
+    static void GetColumnNames(weld::ComboBoxText& rBox,
                             css::uno::Reference< css::sdbc::XConnection> const & xConnection,
                             const OUString& rTableName);
 
@@ -455,7 +460,7 @@ public:
     static void StoreEmbeddedDataSource(const css::uno::Reference<css::frame::XStorable>& xStorable,
                                         const css::uno::Reference<css::embed::XStorage>& xStorage,
                                         const OUString& rStreamRelPath,
-                                        const OUString& rOwnURL);
+                                        const OUString& rOwnURL, bool bCopyTo = false);
 
     SwDoc* getDoc() const;
     /// Stop reacting to removed database registrations.

@@ -38,6 +38,7 @@
 #include <com/sun/star/sdb/CommandType.hpp>
 
 #include <comphelper/basicio.hxx>
+#include <comphelper/property.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/dbconversion.hxx>
 #include <cppuhelper/queryinterface.hxx>
@@ -827,18 +828,6 @@ void OComboBoxModel::stringItemListChanged( ControlModelLock& /*_rInstanceLock*/
         m_xAggregateSet->setPropertyValue( PROPERTY_STRINGITEMLIST, makeAny( comphelper::containerToSequence(getStringItemList()) ) );
         m_xAggregateSet->setPropertyValue( PROPERTY_TYPEDITEMLIST, makeAny( getTypedItemList()) ) ;
     }
-}
-
-
-void OComboBoxModel::connectedExternalListSource( )
-{
-    // TODO?
-}
-
-
-void OComboBoxModel::disconnectedExternalListSource( )
-{
-    // TODO?
 }
 
 

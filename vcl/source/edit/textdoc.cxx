@@ -21,6 +21,7 @@
 #include "textdoc.hxx"
 #include <stdlib.h>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 
 // compare function called by QuickSort
 static bool CompareStart( const std::unique_ptr<TextCharAttrib>& pFirst, const std::unique_ptr<TextCharAttrib>& pSecond )
@@ -43,8 +44,8 @@ TextCharAttrib::TextCharAttrib( const TextCharAttrib& rTextCharAttrib )
 }
 
 TextCharAttribList::TextCharAttribList()
+    : mbHasEmptyAttribs(false)
 {
-    mbHasEmptyAttribs = false;
 }
 
 TextCharAttribList::~TextCharAttribList()
@@ -64,14 +65,12 @@ void TextCharAttribList::InsertAttrib( TextCharAttrib* pAttrib )
 
     const sal_Int32 nStart = pAttrib->GetStart(); // maybe better for Comp.Opt.
     bool bInserted = false;
-    for (std::vector<std::unique_ptr<TextCharAttrib> >::iterator it = maAttribs.begin(); it != maAttribs.end(); ++it)
+    auto it = std::find_if(maAttribs.begin(), maAttribs.end(),
+        [nStart](std::unique_ptr<TextCharAttrib>& rAttrib) { return rAttrib->GetStart() > nStart; });
+    if (it != maAttribs.end())
     {
-        if ( (*it)->GetStart() > nStart )
-        {
-            maAttribs.insert( it, std::unique_ptr<TextCharAttrib>(pAttrib) );
-            bInserted = true;
-            break;
-        }
+        maAttribs.insert( it, std::unique_ptr<TextCharAttrib>(pAttrib) );
+        bInserted = true;
     }
     if ( !bInserted )
         maAttribs.push_back( std::unique_ptr<TextCharAttrib>(pAttrib) );
@@ -282,7 +281,7 @@ void TextNode::RemoveText( sal_Int32 nPos, sal_Int32 nChars )
     CollapseAttribs( nPos, nChars );
 }
 
-TextNode* TextNode::Split( sal_Int32 nPos )
+std::unique_ptr<TextNode> TextNode::Split( sal_Int32 nPos )
 {
     OUString aNewText;
     if ( nPos < maText.getLength() )
@@ -290,7 +289,7 @@ TextNode* TextNode::Split( sal_Int32 nPos )
         aNewText = maText.copy( nPos );
         maText = maText.copy(0, nPos);
     }
-    TextNode* pNew = new TextNode( aNewText );
+    std::unique_ptr<TextNode> pNew(new TextNode( aNewText ));
 
     for ( sal_uInt16 nAttr = 0; nAttr < maCharAttribs.Count(); nAttr++ )
     {
@@ -380,8 +379,8 @@ void TextNode::Append( const TextNode& rNode )
 }
 
 TextDoc::TextDoc()
+    : mnLeftMargin(0)
 {
-    mnLeftMargin = 0;
 };
 
 TextDoc::~TextDoc()
@@ -396,8 +395,6 @@ void TextDoc::Clear()
 
 void TextDoc::DestroyTextNodes()
 {
-    for ( auto pNode : maTextNodes )
-        delete pNode;
     maTextNodes.clear();
 }
 
@@ -405,22 +402,22 @@ OUString TextDoc::GetText( const sal_Unicode* pSep ) const
 {
     sal_uInt32 nNodes = static_cast<sal_uInt32>(maTextNodes.size());
 
-    OUString aASCIIText;
+    OUStringBuffer aASCIIText;
     const sal_uInt32 nLastNode = nNodes-1;
     for ( sal_uInt32 nNode = 0; nNode < nNodes; ++nNode )
     {
-        TextNode* pNode = maTextNodes[ nNode ];
-        aASCIIText += pNode->GetText();
+        TextNode* pNode = maTextNodes[ nNode ].get();
+        aASCIIText.append(pNode->GetText());
         if ( pSep && ( nNode != nLastNode ) )
-            aASCIIText += pSep;
+            aASCIIText.append(pSep);
     }
 
-    return aASCIIText;
+    return aASCIIText.makeStringAndClear();
 }
 
 OUString TextDoc::GetText( sal_uInt32 nPara ) const
 {
-    TextNode* pNode = ( nPara < maTextNodes.size() ) ? maTextNodes[ nPara ] : nullptr;
+    TextNode* pNode = ( nPara < maTextNodes.size() ) ? maTextNodes[ nPara ].get() : nullptr;
     if ( pNode )
         return pNode->GetText();
 
@@ -443,7 +440,7 @@ sal_Int32 TextDoc::GetTextLen( const sal_Unicode* pSep, const TextSelection* pSe
 
         for ( sal_uInt32 nNode = nStartNode; nNode <= nEndNode; ++nNode )
         {
-            TextNode* pNode = maTextNodes[ nNode ];
+            TextNode* pNode = maTextNodes[ nNode ].get();
 
             sal_Int32 nS = 0;
             sal_Int32 nE = pNode->GetText().getLength();
@@ -467,7 +464,7 @@ TextPaM TextDoc::InsertText( const TextPaM& rPaM, sal_Unicode c )
     SAL_WARN_IF( c == 0x0A, "vcl", "TextDoc::InsertText: Line separator in paragraph not allowed!" );
     SAL_WARN_IF( c == 0x0D, "vcl", "TextDoc::InsertText: Line separator in paragraph not allowed!" );
 
-    TextNode* pNode = maTextNodes[ rPaM.GetPara() ];
+    TextNode* pNode = maTextNodes[ rPaM.GetPara() ].get();
     pNode->InsertText( rPaM.GetIndex(), c );
 
     TextPaM aPaM( rPaM.GetPara(), rPaM.GetIndex()+1 );
@@ -479,7 +476,7 @@ TextPaM TextDoc::InsertText( const TextPaM& rPaM, const OUString& rStr )
     SAL_WARN_IF( rStr.indexOf( 0x0A ) != -1, "vcl", "TextDoc::InsertText: Line separator in paragraph not allowed!" );
     SAL_WARN_IF( rStr.indexOf( 0x0D ) != -1, "vcl", "TextDoc::InsertText: Line separator in paragraph not allowed!" );
 
-    TextNode* pNode = maTextNodes[ rPaM.GetPara() ];
+    TextNode* pNode = maTextNodes[ rPaM.GetPara() ].get();
     pNode->InsertText( rPaM.GetIndex(), rStr );
 
     TextPaM aPaM( rPaM.GetPara(), rPaM.GetIndex()+rStr.getLength() );
@@ -488,11 +485,11 @@ TextPaM TextDoc::InsertText( const TextPaM& rPaM, const OUString& rStr )
 
 TextPaM TextDoc::InsertParaBreak( const TextPaM& rPaM )
 {
-    TextNode* pNode = maTextNodes[ rPaM.GetPara() ];
-    TextNode* pNew = pNode->Split( rPaM.GetIndex() );
+    TextNode* pNode = maTextNodes[ rPaM.GetPara() ].get();
+    std::unique_ptr<TextNode> pNew = pNode->Split( rPaM.GetIndex() );
 
     SAL_WARN_IF( maTextNodes.size()>=SAL_MAX_UINT32, "vcl", "InsertParaBreak: more than 4Gi paragraphs!" );
-    maTextNodes.insert( maTextNodes.begin() + rPaM.GetPara() + 1, pNew );
+    maTextNodes.insert( maTextNodes.begin() + rPaM.GetPara() + 1, std::move(pNew) );
 
     TextPaM aPaM( rPaM.GetPara()+1, 0 );
     return aPaM;
@@ -504,17 +501,19 @@ TextPaM TextDoc::ConnectParagraphs( TextNode* pLeft, TextNode* pRight )
     pLeft->Append( *pRight );
 
     // the paragraph on the right vanishes
-    maTextNodes.erase( std::find( maTextNodes.begin(), maTextNodes.end(), pRight ) );
-    delete pRight;
+    maTextNodes.erase( std::find_if( maTextNodes.begin(), maTextNodes.end(),
+                                     [&] (std::unique_ptr<TextNode> const & p) { return p.get() == pRight; } ) );
 
-    sal_uLong nLeft = ::std::find( maTextNodes.begin(), maTextNodes.end(), pLeft ) - maTextNodes.begin();
+    sal_uLong nLeft = ::std::find_if( maTextNodes.begin(), maTextNodes.end(),
+                                      [&] (std::unique_ptr<TextNode> const & p) { return p.get() == pLeft; } )
+                        - maTextNodes.begin();
     TextPaM aPaM( nLeft, nPrevLen );
     return aPaM;
 }
 
 void TextDoc::RemoveChars( const TextPaM& rPaM, sal_Int32 nChars )
 {
-    TextNode* pNode = maTextNodes[ rPaM.GetPara() ];
+    TextNode* pNode = maTextNodes[ rPaM.GetPara() ].get();
     pNode->RemoveText( rPaM.GetIndex(), nChars );
 }
 
@@ -525,7 +524,7 @@ bool TextDoc::IsValidPaM( const TextPaM& rPaM )
         OSL_FAIL( "PaM: Para out of range" );
         return false;
     }
-    TextNode * pNode = maTextNodes[ rPaM.GetPara() ];
+    TextNode * pNode = maTextNodes[ rPaM.GetPara() ].get();
     if ( rPaM.GetIndex() > pNode->GetText().getLength() )
     {
         OSL_FAIL( "PaM: Index out of range" );

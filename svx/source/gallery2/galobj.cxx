@@ -23,7 +23,6 @@
 #include <sfx2/docfac.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/classids.hxx>
-#include <comphelper/string.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/resmgr.hxx>
 #include <tools/vcompat.hxx>
@@ -33,7 +32,6 @@
 #include <svx/fmmodel.hxx>
 #include <svx/fmview.hxx>
 #include <svx/fmpage.hxx>
-#include <svx/strings.hrc>
 #include <svx/galmisc.hxx>
 #include <galobj.hxx>
 #include <vcl/svapp.hxx>

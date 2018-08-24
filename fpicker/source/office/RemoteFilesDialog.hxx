@@ -122,7 +122,6 @@ private:
 
     SvtRemoteDlgMode m_eMode;
     SvtRemoteDlgType m_eType;
-    bool m_bMultiselection;
     bool m_bIsUpdated;
     bool m_bIsConnected;
     bool m_bServiceChanged;
@@ -167,7 +166,7 @@ private:
     /* If failure returns < 0 */
     int GetSelectedServicePos();
 
-    FileViewResult OpenURL( OUString const & sURL );
+    void OpenURL( OUString const & sURL );
 
     void AddFileExtension();
 

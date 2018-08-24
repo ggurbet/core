@@ -51,6 +51,7 @@
 #include <unotext.hxx>
 #include "xmltexte.hxx"
 #include "xmlexp.hxx"
+#include "xmlexpit.hxx"
 #include <sfx2/viewsh.hxx>
 #include <comphelper/processfactory.hxx>
 #include <docary.hxx>
@@ -243,11 +244,11 @@ ErrCode SwXMLExport::exportDoc( enum XMLTokenEnum eClass )
     // we don't need it here.
     // else: keep default pClass that we received
 
-    rtl::Reference<SvXMLGraphicHelper> xGraphicResolver;
-    if( !GetGraphicResolver().is() )
+    rtl::Reference<SvXMLGraphicHelper> xGraphicStorageHandler;
+    if (!GetGraphicStorageHandler().is())
     {
-        xGraphicResolver = SvXMLGraphicHelper::Create( SvXMLGraphicHelperMode::Write, GetImageFilterName() );
-        SetGraphicResolver( xGraphicResolver.get() );
+        xGraphicStorageHandler = SvXMLGraphicHelper::Create(SvXMLGraphicHelperMode::Write, GetImageFilterName());
+        SetGraphicStorageHandler(xGraphicStorageHandler.get());
     }
 
     rtl::Reference<SvXMLEmbeddedObjectHelper> xEmbeddedResolver;
@@ -297,9 +298,9 @@ ErrCode SwXMLExport::exportDoc( enum XMLTokenEnum eClass )
       pDoc->getIDocumentRedlineAccess().SetRedlineFlags( nRedlineFlags );
     }
 
-    if( xGraphicResolver )
-        xGraphicResolver->dispose();
-    xGraphicResolver.clear();
+    if (xGraphicStorageHandler)
+        xGraphicStorageHandler->dispose();
+    xGraphicStorageHandler.clear();
     if( xEmbeddedResolver )
         xEmbeddedResolver->dispose();
     xEmbeddedResolver.clear();

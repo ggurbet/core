@@ -29,6 +29,7 @@
 #include <basegfx/polygon/b2dpolygontriangulator.hxx>
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
 #include <basegfx/polygon/b2dtrapezoid.hxx>
+#include <sal/log.hxx>
 
 #include <vcl/opengl/OpenGLHelper.hxx>
 #include <salgdi.hxx>
@@ -39,6 +40,7 @@
 #include <opengl/VertexUtils.hxx>
 #include <opengl/BufferObject.hxx>
 
+#include <cmath>
 #include <vector>
 
 #include <glm/gtc/type_ptr.hpp>
@@ -131,11 +133,9 @@ bool OpenGLSalGraphicsImpl::AcquireContext( bool bForceCreate )
     return mpContext.is();
 }
 
-bool OpenGLSalGraphicsImpl::ReleaseContext()
+void OpenGLSalGraphicsImpl::ReleaseContext()
 {
     mpContext.clear();
-
-    return true;
 }
 
 void OpenGLSalGraphicsImpl::Init()
@@ -1071,7 +1071,7 @@ void OpenGLSalGraphicsImpl::DrawTransformedTexture(
     if( ixscale >= 2 && iyscale >= 2 )  // scale ratio less than 50%
     {
         areaScaling = true;
-        fastAreaScaling = ( ixscale == int( ixscale ) && iyscale == int( iyscale ));
+        fastAreaScaling = ( ixscale == std::trunc( ixscale ) && iyscale == std::trunc( iyscale ));
         // The generic case has arrays only up to 16 ratio downscaling and is performed in 2 passes,
         // when the ratio is in the 16-100 range, which is hopefully enough in practice, but protect
         // against buffer overflows in case such an extreme case happens (and in such case the precision
@@ -1550,7 +1550,7 @@ void OpenGLSalGraphicsImpl::drawPolyLine( sal_uInt32 nPoints, const SalPoint* pP
     aPoly.setClosed(false);
 
     drawPolyLine(aPoly, 0.0, basegfx::B2DVector(1.0, 1.0), basegfx::B2DLineJoin::Miter,
-                 css::drawing::LineCap_BUTT, 15.0 * F_PI180 /*default*/);
+                 css::drawing::LineCap_BUTT, basegfx::deg2rad(15.0) /*default*/);
 }
 
 void OpenGLSalGraphicsImpl::drawPolygon( sal_uInt32 nPoints, const SalPoint* pPtAry )
@@ -1600,7 +1600,12 @@ bool OpenGLSalGraphicsImpl::drawPolyLine(const basegfx::B2DPolygon& rPolygon, do
 {
     VCL_GL_INFO("::drawPolyLine " << rPolygon.getB2DRange());
 
-    mpRenderList->addDrawPolyLine(rPolygon, fTransparency, rLineWidth, eLineJoin, eLineCap,
+    // addDrawPolyLine() assumes that there are no duplicate points in the
+    // polygon.
+    basegfx::B2DPolygon aPolygon(rPolygon);
+    aPolygon.removeDoublePoints();
+
+    mpRenderList->addDrawPolyLine(aPolygon, fTransparency, rLineWidth, eLineJoin, eLineCap,
                                   fMiterMinimumAngle, mnLineColor, mrParent.getAntiAliasB2DDraw());
     PostBatchDraw();
     return true;
@@ -1721,22 +1726,18 @@ void OpenGLSalGraphicsImpl::drawMask(
     PostBatchDraw();
 }
 
-SalBitmap* OpenGLSalGraphicsImpl::getBitmap( long nX, long nY, long nWidth, long nHeight )
+std::shared_ptr<SalBitmap> OpenGLSalGraphicsImpl::getBitmap( long nX, long nY, long nWidth, long nHeight )
 {
     FlushDeferredDrawing();
 
     OpenGLZone aZone;
 
-    OpenGLSalBitmap* pBitmap = new OpenGLSalBitmap;
+    std::shared_ptr<OpenGLSalBitmap> pBitmap(std::make_shared<OpenGLSalBitmap>());
     VCL_GL_INFO( "::getBitmap " << nX << "," << nY <<
               " " << nWidth << "x" << nHeight );
     //TODO really needed?
     PreDraw();
-    if( !pBitmap->Create( maOffscreenTex, nX, nY, nWidth, nHeight ) )
-    {
-        delete pBitmap;
-        pBitmap = nullptr;
-    }
+    pBitmap->Create( maOffscreenTex, nX, nY, nWidth, nHeight );
     PostDraw();
     return pBitmap;
 }
@@ -1785,7 +1786,41 @@ void OpenGLSalGraphicsImpl::invert( sal_uInt32 nPoints, const SalPoint* pPtAry, 
     PreDraw();
 
     if( UseInvert( nFlags ) )
-        DrawPolygon( nPoints, pPtAry );
+    {
+        if (nFlags & SalInvert::TrackFrame)
+        {
+            // Track frame means the invert50FragmentShader must remain active
+            // (to draw what looks like a dashed line), so DrawLineSegment()
+            // can't be used. Draw the edge of the polygon as polygons instead.
+            for (size_t nPoint = 0; nPoint < nPoints; ++nPoint)
+            {
+                const SalPoint& rFrom = pPtAry[nPoint];
+                const SalPoint& rTo = pPtAry[(nPoint + 1) % nPoints];
+                if (rFrom.mnX == rTo.mnX)
+                {
+                    // Extend to the right, comments assuming "to" is above
+                    // "from":
+                    const SalPoint aPoints[] = { { rFrom.mnX + 1, rFrom.mnY }, // bottom right
+                                                 { rFrom.mnX, rFrom.mnY }, // bottom left
+                                                 { rTo.mnX, rTo.mnY }, // top left
+                                                 { rTo.mnX + 1, rTo.mnY } }; // top right
+                    DrawConvexPolygon(4, aPoints, true);
+                }
+                else
+                {
+                    // Otherwise can extend downwards, comments assuming "to"
+                    // is above and on the right of "from":
+                    const SalPoint aPoints[] = { { rFrom.mnX, rFrom.mnY + 1 }, // bottom left
+                                                 { rFrom.mnX, rFrom.mnY }, // top left
+                                                 { rTo.mnX, rTo.mnY }, // top right
+                                                 { rTo.mnX, rTo.mnY + 1 } }; // bottom right
+                    DrawConvexPolygon(4, aPoints, true);
+                }
+            }
+        }
+        else
+            DrawPolygon(nPoints, pPtAry);
+    }
 
     PostDraw();
 }

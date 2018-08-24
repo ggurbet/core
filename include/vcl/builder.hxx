@@ -49,6 +49,17 @@ class VclExpander;
 class VclMultiLineEdit;
 namespace xmlreader { class XmlReader; }
 
+struct ComboBoxTextItem
+{
+    OUString m_sItem;
+    OString m_sId;
+    ComboBoxTextItem(const OUString& rItem, const OString& rId)
+        : m_sItem(rItem)
+        , m_sId(rId)
+    {
+    }
+};
+
 class VCL_DLLPUBLIC VclBuilder
 {
 public:
@@ -206,7 +217,7 @@ private:
     };
 
     const ListStore* get_model_by_name(const OString& sID) const;
-    static void     mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
+    void     mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
 
     typedef stringmap TextBuffer;
     const TextBuffer* get_buffer_by_name(const OString& sID) const;
@@ -343,7 +354,8 @@ private:
     void        applyPackingProperty(vcl::Window *pCurrent, vcl::Window *pParent, xmlreader::XmlReader &reader);
     void        collectProperty(xmlreader::XmlReader &reader, stringmap &rVec) const;
     static void collectPangoAttribute(xmlreader::XmlReader &reader, stringmap &rMap);
-    static void collectAtkAttribute(xmlreader::XmlReader &reader, stringmap &rMap);
+    static void collectAtkRelationAttribute(xmlreader::XmlReader &reader, stringmap &rMap);
+    static void collectAtkRoleAttribute(xmlreader::XmlReader &reader, stringmap &rMap);
     static void collectAccelerator(xmlreader::XmlReader &reader, accelmap &rMap);
 
     void        insertMenuObject(
@@ -361,7 +373,7 @@ private:
     void        handleRow(xmlreader::XmlReader &reader, const OString &rID);
     void        handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &reader);
     void        handleMenu(xmlreader::XmlReader &reader, const OString &rID);
-    std::vector<OUString> handleItems(xmlreader::XmlReader &reader) const;
+    std::vector<ComboBoxTextItem> handleItems(xmlreader::XmlReader &reader) const;
 
     void        handleSizeGroup(xmlreader::XmlReader &reader);
 
@@ -400,6 +412,9 @@ namespace BuilderUtils
     //Helpers to retrofit all the existing code to the builder
     VCL_DLLPUBLIC void reorderWithinParent(std::vector< vcl::Window*>& rChilds, bool bIsButtonBox);
     VCL_DLLPUBLIC void reorderWithinParent(vcl::Window &rWindow, sal_uInt16 nNewPosition);
+
+    //Convert an accessibility role name to accessibility role number
+    VCL_DLLPUBLIC sal_Int16 getRoleFromName(const OString& roleName);
 }
 
 template <typename T>

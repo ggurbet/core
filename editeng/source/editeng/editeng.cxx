@@ -59,7 +59,6 @@
 #include <editeng/wghtitem.hxx>
 #include <editeng/wrlmitem.hxx>
 #include <editeng/brushitem.hxx>
-#include <editeng/charsetcoloritem.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/charscaleitem.hxx>
@@ -74,6 +73,7 @@
 #include <linguistic/lngprops.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/help.hxx>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/i18n/InputSequenceCheckMode.hpp>
@@ -120,12 +120,12 @@ bool EditEngine::IsInUndo()
     return pImpEditEngine->IsInUndo();
 }
 
-::svl::IUndoManager& EditEngine::GetUndoManager()
+SfxUndoManager& EditEngine::GetUndoManager()
 {
     return pImpEditEngine->GetUndoManager();
 }
 
-::svl::IUndoManager* EditEngine::SetUndoManager(::svl::IUndoManager* pNew)
+SfxUndoManager* EditEngine::SetUndoManager(SfxUndoManager* pNew)
 {
     return pImpEditEngine->SetUndoManager(pNew);
 }
@@ -2590,7 +2590,7 @@ tools::Rectangle EditEngine::GetBulletArea( sal_Int32 )
     return tools::Rectangle( Point(), Point() );
 }
 
-OUString EditEngine::CalcFieldValue( const SvxFieldItem&, sal_Int32, sal_Int32, Color*&, Color*& )
+OUString EditEngine::CalcFieldValue( const SvxFieldItem&, sal_Int32, sal_Int32, boost::optional<Color>&, boost::optional<Color>& )
 {
     return OUString(' ');
 }

@@ -2644,7 +2644,6 @@ namespace pcr
             ScopedVclPtrInstance< SfxSingleTabDialog > xDialog( impl_getDefaultDialogParent_nothrow(), aCoreSet,
                 "FormatNumberDialog", "cui/ui/formatnumberdialog.ui");
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            DBG_ASSERT( pFact, "CreateFactory fail!" );
             ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc( RID_SVXPAGE_NUMBERFORMAT );
             if ( !fnCreatePage )
                 throw RuntimeException();   // caught below
@@ -2659,12 +2658,10 @@ namespace pcr
 
                 const SfxPoolItem* pItem = pResult->GetItem( SID_ATTR_NUMBERFORMAT_INFO );
                 const SvxNumberInfoItem* pInfoItem = dynamic_cast< const SvxNumberInfoItem* >( pItem );
-                if (pInfoItem && pInfoItem->GetDelCount())
+                if (pInfoItem)
                 {
-                    const sal_uInt32* pDeletedKeys = pInfoItem->GetDelArray();
-
-                    for (sal_uInt32 i=0; i< pInfoItem->GetDelCount(); ++i)
-                        pFormatter->DeleteEntry(pDeletedKeys[i]);
+                    for (sal_uInt32 key : pInfoItem->GetDelFormats())
+                        pFormatter->DeleteEntry(key);
                 }
 
                 pItem = nullptr;
@@ -2780,11 +2777,11 @@ namespace pcr
         bool bSuccess = false;
 
         // create an item set for use with the dialog
-        SfxItemSet* pSet = nullptr;
+        std::unique_ptr<SfxItemSet> pSet;
         SfxItemPool* pPool = nullptr;
         std::vector<SfxPoolItem*>* pDefaults = nullptr;
         ControlCharacterDialog::createItemSet(pSet, pPool, pDefaults);
-        ControlCharacterDialog::translatePropertiesToItems(m_xComponent, pSet);
+        ControlCharacterDialog::translatePropertiesToItems(m_xComponent, pSet.get());
 
         {   // do this in an own block. The dialog needs to be destroyed before we call
             // destroyItemSet
@@ -2843,11 +2840,12 @@ namespace pcr
     {
         ::Color aColor;
         OSL_VERIFY( impl_getPropertyValue_throw( impl_getPropertyNameFromId_nothrow( _nColorPropertyId ) ) >>= aColor );
-        SvColorDialog aColorDlg( impl_getDefaultDialogParent_nothrow() );
+        SvColorDialog aColorDlg;
         aColorDlg.SetColor( aColor );
 
         _rClearBeforeDialog.clear();
-        if ( !aColorDlg.Execute() )
+        vcl::Window* pParent = impl_getDefaultDialogParent_nothrow();
+        if (!aColorDlg.Execute(pParent ? pParent->GetFrameWeld() : nullptr))
             return false;
 
         _out_rNewValue <<= aColorDlg.GetColor();

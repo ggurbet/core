@@ -26,6 +26,7 @@
 #include <vcl/settings.hxx>
 
 #include <sal/types.h>
+#include <sal/log.hxx>
 
 #include <window.h>
 #include <salgdi.hxx>
@@ -1189,6 +1190,17 @@ void Window::Invalidate( const vcl::Region& rRegion, InvalidateFlags nFlags )
 
 void Window::LogicInvalidate(const tools::Rectangle* pRectangle)
 {
+    if(pRectangle)
+    {
+        tools::Rectangle aRect = GetOutDev()->ImplLogicToDevicePixel( *pRectangle );
+        PixelInvalidate(&aRect);
+    }
+    else
+        PixelInvalidate(nullptr);
+}
+
+void Window::PixelInvalidate(const tools::Rectangle* pRectangle)
+{
     if (comphelper::LibreOfficeKit::isDialogPainting() || !comphelper::LibreOfficeKit::isActive())
         return;
 
@@ -1198,14 +1210,19 @@ void Window::LogicInvalidate(const tools::Rectangle* pRectangle)
         std::vector<vcl::LOKPayloadItem> aPayload;
         if (pRectangle)
             aPayload.push_back(std::make_pair(OString("rectangle"), pRectangle->toString()));
+        else
+        {
+            const tools::Rectangle aRect(Point(0, 0), GetSizePixel());
+            aPayload.push_back(std::make_pair(OString("rectangle"), aRect.toString()));
+        }
 
         pNotifier->notifyWindow(GetLOKWindowId(), "invalidate", aPayload);
     }
     // Added for dialog items. Pass invalidation to the parent window.
     else if (VclPtr<vcl::Window> pParent = GetParentWithLOKNotifier())
     {
-        const tools::Rectangle aRect(Point(GetOutOffXPixel(), GetOutOffYPixel()), Size(GetOutputWidthPixel(), GetOutputHeightPixel()));
-        pParent->LogicInvalidate(&aRect);
+        const tools::Rectangle aRect(Point(GetOutOffXPixel(), GetOutOffYPixel()), GetSizePixel());
+        pParent->PixelInvalidate(&aRect);
     }
 }
 

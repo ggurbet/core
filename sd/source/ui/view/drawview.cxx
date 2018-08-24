@@ -35,12 +35,14 @@
 #include <svl/itempool.hxx>
 #include <editeng/numitem.hxx>
 #include <svl/whiter.hxx>
+#include <sal/log.hxx>
 
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/objface.hxx>
 #include <stlsheet.hxx>
 
 #include <svx/svdoutl.hxx>
+#include <svx/svdundo.hxx>
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 
@@ -540,7 +542,7 @@ void DrawView::DeleteMarked()
             SdrObject* pObj = aList.GetMark(nMark)->GetMarkedSdrObj();
             if( pObj && !pObj->IsEmptyPresObj() && pObj->GetUserCall() )
             {
-                pPage = static_cast< SdPage* >( pObj->GetPage() );
+                pPage = static_cast< SdPage* >( pObj->getSdrPageFromSdrObject() );
                 if (pPage)
                 {
                     PresObjKind ePresObjKind(pPage->GetPresObjKind(pObj));

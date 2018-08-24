@@ -66,6 +66,7 @@
 #include <crsrsh.hxx>
 #include <fmtflcnt.hxx>
 #include <docedt.hxx>
+#include <sal/log.hxx>
 #include <unotools/charclass.hxx>
 #include <unotools/configmgr.hxx>
 #include <sfx2/Metadatable.hxx>
@@ -2709,7 +2710,7 @@ void DocumentContentOperationsManager::ReRead( SwPaM& rPam, const OUString& rGrf
                                                 GetMirrorGrf().GetValue() )
             pGrfNd->SetAttr( SwMirrorGrf() );
 
-        pGrfNd->ReRead( rGrfName, rFltName, pGraphic, /*pGrafObj*/nullptr );
+        pGrfNd->ReRead( rGrfName, rFltName, pGraphic );
         m_rDoc.getIDocumentState().SetModified();
     }
 }
@@ -4580,8 +4581,10 @@ bool DocumentContentOperationsManager::CopyImpl( SwPaM& rPam, SwPosition& rPos,
     if ( pNumRuleToPropagate != nullptr )
     {
         // #i86492# - use <SwDoc::SetNumRule(..)>, because it also handles the <ListId>
+        // Don't reset indent attributes, that would mean loss of direct
+        // formatting.
         pDoc->SetNumRule( *pCopyPam, *pNumRuleToPropagate, false,
-                          aListIdToPropagate, true, true );
+                          aListIdToPropagate, true, /*bResetIndentAttrs=*/false );
     }
 
     pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );

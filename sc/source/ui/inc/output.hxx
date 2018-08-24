@@ -184,9 +184,9 @@ private:
     bool mbForceAutoColor;
 
     bool mbSyntaxMode;          // Syntax highlighting
-    Color* pValueColor;
-    Color* pTextColor;
-    Color* pFormulaColor;
+    std::unique_ptr<Color> pValueColor;
+    std::unique_ptr<Color> pTextColor;
+    std::unique_ptr<Color> pFormulaColor;
 
     Color   aGridColor;
 
@@ -234,7 +234,7 @@ private:
 
     void            DrawRotatedFrame(vcl::RenderContext& rRenderContext);       // pixel
 
-    drawinglayer::processor2d::BaseProcessor2D*  CreateProcessor2D( );
+    std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> CreateProcessor2D( );
 
     void DrawEditStandard(DrawEditParam& rParam);
     void DrawEditBottomTop(DrawEditParam& rParam);

@@ -30,50 +30,45 @@
 #include <vcl/vclptr.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/customweld.hxx>
 #include <vcl/font.hxx>
 
 #include "wrtsh.hxx"
 #include <tblafmt.hxx>
 
-class AutoFormatPreview
+class AutoFormatPreview : public weld::CustomWidgetController
 {
 public:
-    AutoFormatPreview(weld::DrawingArea* pDrawingArea);
+    AutoFormatPreview();
 
     void NotifyChange(const SwTableAutoFormat& rNewData);
 
     void DetectRTL(SwWrtShell const* pWrtShell);
 
-    void set_size_request(int nWidth, int nHeight)
-    {
-        mxDrawingArea->set_size_request(nWidth, nHeight);
-    }
-
 private:
-    std::unique_ptr<weld::DrawingArea> mxDrawingArea;
-    SwTableAutoFormat aCurData;
+    SwTableAutoFormat maCurrentData;
     svx::frame::Array maArray; /// Implementation to draw the frame borders.
-    bool bFitWidth;
+    bool mbFitWidth;
     bool mbRTL;
-    Size aPrvSize;
-    long nLabelColWidth;
-    long nDataColWidth1;
-    long nDataColWidth2;
-    long nRowHeight;
-    const OUString aStrJan;
-    const OUString aStrFeb;
-    const OUString aStrMar;
-    const OUString aStrNorth;
-    const OUString aStrMid;
-    const OUString aStrSouth;
-    const OUString aStrSum;
+    Size maPreviousSize;
+    long mnLabelColumnWidth;
+    long mnDataColumnWidth1;
+    long mnDataColumnWidth2;
+    long mnRowHeight;
+    const OUString maStringJan;
+    const OUString maStringFeb;
+    const OUString maStringMar;
+    const OUString maStringNorth;
+    const OUString maStringMid;
+    const OUString maStringSouth;
+    const OUString maStringSum;
     std::unique_ptr<SvNumberFormatter> mxNumFormat;
 
     uno::Reference<i18n::XBreakIterator> m_xBreak;
 
     void Init();
-    DECL_LINK(DoPaint, weld::DrawingArea::draw_args, void);
-    DECL_LINK(DoResize, const Size& rSize, void);
+    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
+    virtual void Resize() override;
     void CalcCellArray(bool bFitWidth);
     void CalcLineMap();
     void PaintCells(vcl::RenderContext& rRenderContext);

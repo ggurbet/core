@@ -330,10 +330,10 @@ bool SelectionHelper::findNamedParent( SdrObject*& pInOutObject
 
     while( pObj && !ObjectIdentifier::isCID( aName  )  )
     {
-        SdrObjList* pObjList = pObj->getParentOfSdrObject();
+        SdrObjList* pObjList = pObj->getParentSdrObjListFromSdrObject();
         if( !pObjList )
             return false;
-        SdrObject* pOwner = pObjList->GetOwnerObj();
+        SdrObject* pOwner = pObjList->getSdrObjectFromSdrObjList();
         if( !pOwner )
             return false;
         pObj = pOwner;
@@ -462,10 +462,8 @@ SelectionHelper::~SelectionHelper()
 
 bool SelectionHelper::getFrameDragSingles()
 {
-    bool bFrameDragSingles = true;//true == green == surrounding handles
-    if( m_pSelectedObj && dynamic_cast<const E3dObject*>( m_pSelectedObj) !=  nullptr )
-        bFrameDragSingles = false;
-    return bFrameDragSingles;
+    //true == green == surrounding handles
+    return dynamic_cast<const E3dObject*>( m_pSelectedObj) == nullptr;
 }
 
 SdrObject* SelectionHelper::getMarkHandlesObject( SdrObject* pObj )
@@ -483,7 +481,7 @@ SdrObject* SelectionHelper::getMarkHandlesObject( SdrObject* pObj )
     SdrObjList* pSubList = pObj->GetSubList();
     if(pSubList)
     {
-        SdrObjListIter aIterator(*pSubList, SdrIterMode::Flat);
+        SdrObjListIter aIterator(pSubList, SdrIterMode::Flat);
         while (aIterator.IsMore())
         {
             SdrObject* pMarkHandles = SelectionHelper::getMarkHandlesObject( aIterator.Next() );
@@ -508,7 +506,7 @@ SdrObject* SelectionHelper::getObjectToMark()
         SdrObjList* pSubList = pObj->GetSubList();
         if(pSubList)
         {
-            SdrObjListIter aIterator(*pSubList, SdrIterMode::Flat);
+            SdrObjListIter aIterator(pSubList, SdrIterMode::Flat);
             while (aIterator.IsMore())
             {
                 SdrObject* pMarkHandles = SelectionHelper::getMarkHandlesObject( aIterator.Next() );
@@ -539,7 +537,7 @@ E3dScene* SelectionHelper::getSceneToRotate( SdrObject* pObj )
             SdrObjList* pSubList = pObj->GetSubList();
             if(pSubList)
             {
-                SdrObjListIter aIterator(*pSubList, SdrIterMode::DeepWithGroups);
+                SdrObjListIter aIterator(pSubList, SdrIterMode::DeepWithGroups);
                 while( aIterator.IsMore() && !pRotateable )
                 {
                     SdrObject* pSubObj = aIterator.Next();
@@ -549,14 +547,15 @@ E3dScene* SelectionHelper::getSceneToRotate( SdrObject* pObj )
         }
     }
 
-    E3dScene* pScene = nullptr;
+    E3dScene* pScene(nullptr);
+
     if(pRotateable)
     {
         SolarMutexGuard aSolarGuard;
-        pScene = pRotateable->GetScene();
+        pScene = pRotateable->getRootE3dSceneFromE3dObject();
     }
-    return pScene;
 
+    return pScene;
 }
 
 bool SelectionHelper::getMarkHandles( SdrHdlList& rHdlList )
@@ -628,7 +627,7 @@ bool SelectionHelper::getMarkHandles( SdrHdlList& rHdlList )
         return false;
     }
 
-    SdrObjListIter aIterator(*pSubList, SdrIterMode::Flat);
+    SdrObjListIter aIterator(pSubList, SdrIterMode::Flat);
 
     while (aIterator.IsMore())
     {

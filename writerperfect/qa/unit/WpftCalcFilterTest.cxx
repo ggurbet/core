@@ -33,14 +33,18 @@ void WpftCalcFilterTest::test()
     const writerperfect::test::WpftOptionalMap_t aEtonyekOptional{
         { "Numbers_2.numbers", REQUIRE_ETONYEK_VERSION(0, 1, 2) },
     };
+    const writerperfect::test::WpftOptionalMap_t aMWAWOptional{
+        { "Multiplan_1.hqx", REQUIRE_MWAW_VERSION(0, 3, 14) },
+    };
     const writerperfect::test::WpftOptionalMap_t aWpsOptional{
         { "Lotus123_3.123", REQUIRE_WPS_VERSION(0, 4, 5) },
         { "Lotus123_98.123", REQUIRE_WPS_VERSION(0, 4, 6) },
+        { "Multiplan_3", REQUIRE_WPS_VERSION(0, 4, 9) },
         { "QuattroPro.wb1", REQUIRE_WPS_VERSION(0, 4, 8) },
     };
 
     doTest("com.sun.star.comp.Calc.MWAWCalcImportFilter",
-           "/writerperfect/qa/unit/data/calc/libmwaw/");
+           "/writerperfect/qa/unit/data/calc/libmwaw/", aMWAWOptional);
     doTest("com.sun.star.comp.Calc.MSWorksCalcImportFilter",
            "/writerperfect/qa/unit/data/calc/libwps/", aWpsOptional);
     doTest("org.libreoffice.comp.Calc.NumbersImportFilter",

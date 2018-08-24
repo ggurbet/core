@@ -33,6 +33,7 @@
 #include <TitleHelper.hxx>
 #include <DiagramHelper.hxx>
 #include <chartview/DrawModelWrapper.hxx>
+#include <chartview/ChartSfxItemIds.hxx>
 #include <NumberFormatterWrapper.hxx>
 #include <ViewElementListProvider.hxx>
 #include <MultipleChartConverters.hxx>
@@ -56,6 +57,7 @@
 #include <svx/ActionDescriptionProvider.hxx>
 
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 
 using namespace ::com::sun::star;
@@ -97,14 +99,14 @@ void ChartController::executeDispatch_InsertAxes()
         AxisHelper::getAxisOrGridPossibilities( aDialogInput.aPossibilityList, xDiagram );
 
         SolarMutexGuard aGuard;
-        ScopedVclPtrInstance<SchAxisDlg> aDlg( GetChartWindow(), aDialogInput );
-        if( aDlg->Execute() == RET_OK )
+        SchAxisDlg aDlg(GetChartFrame(), aDialogInput);
+        if (aDlg.run() == RET_OK)
         {
             // lock controllers till end of block
             ControllerLockGuardUNO aCLGuard( getModel() );
 
             InsertAxisOrGridDialogData aDialogOutput;
-            aDlg->getResult( aDialogOutput );
+            aDlg.getResult(aDialogOutput);
             std::unique_ptr< ReferenceSizeProvider > pRefSizeProvider(
                 impl_createReferenceSizeProvider());
             bool bChanged = AxisHelper::changeVisibilityOfAxes( xDiagram
@@ -135,13 +137,13 @@ void ChartController::executeDispatch_InsertGrid()
         AxisHelper::getAxisOrGridPossibilities( aDialogInput.aPossibilityList, xDiagram, false );
 
         SolarMutexGuard aGuard;
-        ScopedVclPtrInstance<SchGridDlg> aDlg(GetChartWindow(), aDialogInput);//aItemSet, b3D, bNet, bSecondaryX, bSecondaryY );
-        if( aDlg->Execute() == RET_OK )
+        SchGridDlg aDlg(GetChartFrame(), aDialogInput);//aItemSet, b3D, bNet, bSecondaryX, bSecondaryY );
+        if (aDlg.run() == RET_OK)
         {
             // lock controllers till end of block
             ControllerLockGuardUNO aCLGuard( getModel() );
             InsertAxisOrGridDialogData aDialogOutput;
-            aDlg->getResult( aDialogOutput );
+            aDlg.getResult( aDialogOutput );
             bool bChanged = AxisHelper::changeVisibilityOfGrids( xDiagram
                 , aDialogInput.aExistenceList, aDialogOutput.aExistenceList );
             if( bChanged )
@@ -226,9 +228,8 @@ void ChartController::executeDispatch_OpenLegendDialog()
         {
             // lock controllers till end of block
             ControllerLockGuardUNO aCLGuard( getModel() );
-            bool bChanged = aDlg->writeToModel( getModel() );
-            if( bChanged )
-                aUndoGuard.commit();
+            aDlg->writeToModel( getModel() );
+            aUndoGuard.commit();
         }
     }
     catch(const uno::RuntimeException& e)

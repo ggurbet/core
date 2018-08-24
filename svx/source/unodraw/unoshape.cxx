@@ -65,8 +65,6 @@
 #include <svx/svdpagv.hxx>
 #include <svx/svdpool.hxx>
 #include <tools/gen.hxx>
-#include <svx/dialmgr.hxx>
-#include <svx/strings.hrc>
 #include <svx/svdocapt.hxx>
 #include <svx/obj3d.hxx>
 #include <tools/diagnose_ex.h>
@@ -76,19 +74,19 @@
 #include <svx/xflgrit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xlndsit.hxx>
-#include <svdglob.hxx>
 #include <svx/unomaster.hxx>
 #include <editeng/outlobj.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <basegfx/utils/unotools.hxx>
 #include "gluepts.hxx"
 #include "shapeimpl.hxx"
 #include <sal/log.hxx>
 
 #include <svx/lathe3d.hxx>
 #include <svx/extrud3d.hxx>
+#include <svx/sdr/contact/viewcontact.hxx>
+#include <drawinglayer/geometry/viewinformation2d.hxx>
 
 #include <vcl/wmf.hxx>
 
@@ -198,19 +196,6 @@ SvxShape::SvxShape( SdrObject* pObject, const SfxItemPropertyMapEntry* pEntries,
 }
 
 
-SvxShape::SvxShape()
-:   maSize(100,100)
-,   mpImpl( new SvxShapeImpl( *this, maMutex ) )
-,   mbIsMultiPropertyCall(false)
-,   mpPropSet(getSvxMapProvider().GetPropertySet(SVXMAP_SHAPE, SdrObject::GetGlobalDrawObjectItemPool()))
-,   maPropMapEntries(getSvxMapProvider().GetMap(SVXMAP_SHAPE))
-,   mpSdrObjectWeakReference(nullptr)
-,   mnLockCount(0)
-{
-    impl_construct();
-}
-
-
 SvxShape::~SvxShape() throw()
 {
     ::SolarMutexGuard aGuard;
@@ -249,6 +234,9 @@ void SvxShape::InvalidateSdrObject()
     {
         EndListening(GetSdrObject()->getSdrModelFromSdrObject());
     }
+
+    if (HasSdrObjectOwnership())
+        return;
 
     mpSdrObjectWeakReference.reset( nullptr );
 };
@@ -474,7 +462,6 @@ void SvxShape::ForceMetricToItemPoolMetric(Pair& rPoint) const throw()
     }
 }
 
-// Reintroduction of fix for issue i59051 (#i108851#)
 void SvxShape::ForceMetricToItemPoolMetric(basegfx::B2DPolyPolygon& rPolyPolygon) const throw()
 {
     DBG_TESTSOLARMUTEX();
@@ -503,6 +490,35 @@ void SvxShape::ForceMetricToItemPoolMetric(basegfx::B2DPolyPolygon& rPolyPolygon
     }
 }
 
+void SvxShape::ForceMetricToItemPoolMetric(basegfx::B2DHomMatrix& rB2DHomMatrix) const throw()
+{
+    DBG_TESTSOLARMUTEX();
+    if(HasSdrObject())
+    {
+        MapUnit eMapUnit(GetSdrObject()->getSdrModelFromSdrObject().GetItemPool().GetMetric(0));
+        if(eMapUnit != MapUnit::Map100thMM)
+        {
+            switch(eMapUnit)
+            {
+                case MapUnit::MapTwip :
+                {
+                    const double fMMToTWIPS(72.0 / 127.0);
+                    const basegfx::utils::B2DHomMatrixBufferedDecompose aDecomposedTransform(rB2DHomMatrix);
+                    rB2DHomMatrix = basegfx::utils::createScaleShearXRotateTranslateB2DHomMatrix(
+                        aDecomposedTransform.getScale() * fMMToTWIPS,
+                        aDecomposedTransform.getShearX(),
+                        aDecomposedTransform.getRotate(),
+                        aDecomposedTransform.getTranslate() * fMMToTWIPS);
+                    break;
+                }
+                default:
+                {
+                    OSL_FAIL("Missing unit translation to PoolMetric!");
+                }
+            }
+        }
+    }
+}
 
 void SvxShape::ForceMetricTo100th_mm(Pair& rPoint) const throw()
 {
@@ -530,7 +546,6 @@ void SvxShape::ForceMetricTo100th_mm(Pair& rPoint) const throw()
     }
 }
 
-// Reintroduction of fix for issue i59051 (#i108851#)
 void SvxShape::ForceMetricTo100th_mm(basegfx::B2DPolyPolygon& rPolyPolygon) const throw()
 {
     DBG_TESTSOLARMUTEX();
@@ -559,6 +574,36 @@ void SvxShape::ForceMetricTo100th_mm(basegfx::B2DPolyPolygon& rPolyPolygon) cons
     }
 }
 
+void SvxShape::ForceMetricTo100th_mm(basegfx::B2DHomMatrix& rB2DHomMatrix) const throw()
+{
+    DBG_TESTSOLARMUTEX();
+    MapUnit eMapUnit = MapUnit::Map100thMM;
+    if(HasSdrObject())
+    {
+        eMapUnit = GetSdrObject()->getSdrModelFromSdrObject().GetItemPool().GetMetric(0);
+        if(eMapUnit != MapUnit::Map100thMM)
+        {
+            switch(eMapUnit)
+            {
+                case MapUnit::MapTwip :
+                {
+                    const double fTWIPSToMM(127.0 / 72.0);
+                    const basegfx::utils::B2DHomMatrixBufferedDecompose aDecomposedTransform(rB2DHomMatrix);
+                    rB2DHomMatrix = basegfx::utils::createScaleShearXRotateTranslateB2DHomMatrix(
+                        aDecomposedTransform.getScale() * fTWIPSToMM,
+                        aDecomposedTransform.getShearX(),
+                        aDecomposedTransform.getRotate(),
+                        aDecomposedTransform.getTranslate() * fTWIPSToMM);
+                    break;
+                }
+                default:
+                {
+                    OSL_FAIL("Missing unit translation to 100th mm!");
+                }
+            }
+        }
+    }
+}
 
 void SvxItemPropertySet_ObtainSettingsFromPropertySet(const SvxItemPropertySet& rPropSet,
   SfxItemSet& rSet, const uno::Reference< beans::XPropertySet >& xSet, const SfxItemPropertyMap* pMap )
@@ -634,48 +679,80 @@ uno::Any SvxShape::GetBitmap( bool bMetaFile /* = false */ ) const
     DBG_TESTSOLARMUTEX();
     uno::Any aAny;
 
-    if( !HasSdrObject() || !GetSdrObject()->IsInserted() || nullptr == GetSdrObject()->GetPage() )
-        return aAny;
-
-    ScopedVclPtrInstance< VirtualDevice > pVDev;
-    pVDev->SetMapMode(MapMode(MapUnit::Map100thMM));
-    SdrPage* pPage = GetSdrObject()->GetPage();
-
-    std::unique_ptr<E3dView> pView(
-        new E3dView(
-            GetSdrObject()->getSdrModelFromSdrObject(),
-            pVDev.get()));
-    pView->hideMarkHandles();
-    SdrPageView* pPageView = pView->ShowSdrPage(pPage);
-
-    SdrObject *pTempObj = GetSdrObject();
-    pView->MarkObj(pTempObj,pPageView);
-
-    tools::Rectangle aRect(pTempObj->GetCurrentBoundRect());
-    aRect.Justify();
-    Size aSize(aRect.GetSize());
-
-    GDIMetaFile aMtf( pView->GetMarkedObjMetaFile() );
-    if( bMetaFile )
+    if(!HasSdrObject() || nullptr == GetSdrObject()->getSdrPageFromSdrObject())
     {
-        SvMemoryStream aDestStrm( 65535, 65535 );
-        ConvertGDIMetaFileToWMF( aMtf, aDestStrm, nullptr, false );
+        return aAny;
+    }
+
+    // tdf#118662 Emulate old behaviour of XclObjComment (see there)
+    const SdrCaptionObj* pSdrCaptionObj(dynamic_cast<SdrCaptionObj*>(GetSdrObject()));
+    if(nullptr != pSdrCaptionObj && pSdrCaptionObj->isSuppressGetBitmap())
+    {
+        return aAny;
+    }
+
+    // tdf#118662 instead of creating an E3dView instance every time to paint
+    // a single SdrObject, use the existing SdrObject::SingleObjectPainter to
+    // use less resources and runtime
+    ScopedVclPtrInstance< VirtualDevice > pVDev;
+    const tools::Rectangle aBoundRect(GetSdrObject()->GetCurrentBoundRect());
+
+    if(bMetaFile)
+    {
+        GDIMetaFile aMtf;
+
+        pVDev->SetMapMode(MapMode(MapUnit::Map100thMM));
+        pVDev->EnableOutput(false);
+        aMtf.Record(pVDev);
+        GetSdrObject()->SingleObjectPainter(*pVDev.get());
+        aMtf.Stop();
+        aMtf.WindStart();
+        aMtf.Move(-aBoundRect.Left(), -aBoundRect.Top());
+        aMtf.SetPrefMapMode(MapMode(MapUnit::Map100thMM));
+        aMtf.SetPrefSize(aBoundRect.GetSize());
+
+        SvMemoryStream aDestStrm(65535, 65535);
+
+        ConvertGDIMetaFileToWMF(
+            aMtf,
+            aDestStrm,
+            nullptr,
+            false);
+
         const uno::Sequence<sal_Int8> aSeq(
             static_cast< const sal_Int8* >(aDestStrm.GetData()),
             aDestStrm.GetEndOfData());
+
         aAny <<= aSeq;
     }
     else
     {
-        Graphic aGraph(aMtf);
-        aGraph.SetPrefSize(aSize);
-        aGraph.SetPrefMapMode(MapMode(MapUnit::Map100thMM));
+        const drawinglayer::primitive2d::Primitive2DContainer xPrimitives(
+            GetSdrObject()->GetViewContact().getViewIndependentPrimitive2DContainer());
 
-        Reference< awt::XBitmap > xBmp( aGraph.GetXGraphic(), UNO_QUERY );
-        aAny <<= xBmp;
+        if(!xPrimitives.empty())
+        {
+            const drawinglayer::geometry::ViewInformation2D aViewInformation2D;
+            const basegfx::B2DRange aRange(
+                xPrimitives.getB2DRange(aViewInformation2D));
+
+            if(!aRange.isEmpty())
+            {
+                const BitmapEx aBmp(
+                    convertPrimitive2DSequenceToBitmapEx(
+                        xPrimitives,
+                        aRange));
+
+                Graphic aGraph(aBmp);
+
+                aGraph.SetPrefSize(aBmp.GetPrefSize());
+                aGraph.SetPrefMapMode(aBmp.GetPrefMapMode());
+
+                Reference< awt::XBitmap > xBmp( aGraph.GetXGraphic(), UNO_QUERY );
+                aAny <<= xBmp;
+            }
+        }
     }
-
-    pView->UnmarkAll();
 
     return aAny;
 }
@@ -1282,37 +1359,38 @@ void SAL_CALL SvxShape::dispose()
 
     if ( HasSdrObject() )
     {
-        EndListening( GetSdrObject()->getSdrModelFromSdrObject() );
+        SdrObject* pObject = GetSdrObject();
+
+        EndListening( pObject->getSdrModelFromSdrObject() );
         bool bFreeSdrObject = false;
 
-        if ( GetSdrObject()->IsInserted() && GetSdrObject()->GetPage() )
+        if ( pObject->IsInserted() && pObject->getSdrPageFromSdrObject() )
         {
             OSL_ENSURE( HasSdrObjectOwnership(), "SvxShape::dispose: is the below code correct?" );
                 // normally, we are allowed to free the SdrObject only if we have its ownership.
                 // Why isn't this checked here?
 
-            SdrPage* pPage = GetSdrObject()->GetPage();
+            SdrPage* pPage = pObject->getSdrPageFromSdrObject();
             // delete the SdrObject from the page
             const size_t nCount = pPage->GetObjCount();
             for ( size_t nNum = 0; nNum < nCount; ++nNum )
             {
-                if ( pPage->GetObj( nNum ) == GetSdrObject() )
+                if ( pPage->GetObj( nNum ) == pObject )
                 {
-                    OSL_VERIFY( pPage->RemoveObject( nNum ) == GetSdrObject() );
+                    OSL_VERIFY( pPage->RemoveObject( nNum ) == pObject );
                     bFreeSdrObject = true;
                     break;
                 }
             }
         }
 
-        GetSdrObject()->setUnoShape(nullptr);
+        pObject->setUnoShape(nullptr);
 
         if ( bFreeSdrObject )
         {
             // in case we have the ownership of the SdrObject, a Free
             // would do nothing. So ensure the ownership is reset.
             mpImpl->mbHasSdrObjectOwnership = false;
-            SdrObject* pObject = GetSdrObject();
             SdrObject::Free( pObject );
         }
     }
@@ -1997,7 +2075,7 @@ beans::PropertyState SvxShape::_getPropertyState( const OUString& PropertyName )
             case XATTR_FILLHATCH:
             case XATTR_LINEDASH:
                 {
-                    const NameOrIndex* pItem = rSet.GetItem<NameOrIndex>(static_cast<sal_uInt16>(pMap->nWID));
+                    const NameOrIndex* pItem = rSet.GetItem<NameOrIndex>(pMap->nWID);
                     if( ( pItem == nullptr ) || pItem->GetName().isEmpty() )
                         eState = beans::PropertyState_DEFAULT_VALUE;
                 }
@@ -2012,7 +2090,7 @@ beans::PropertyState SvxShape::_getPropertyState( const OUString& PropertyName )
             case XATTR_LINESTART:
             case XATTR_FILLFLOATTRANSPARENCE:
                 {
-                    const NameOrIndex* pItem = rSet.GetItem<NameOrIndex>(static_cast<sal_uInt16>(pMap->nWID));
+                    const NameOrIndex* pItem = rSet.GetItem<NameOrIndex>(pMap->nWID);
                     if ( pItem == nullptr )
                         eState = beans::PropertyState_DEFAULT_VALUE;
                 }
@@ -2034,6 +2112,10 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
         {
             Point aVclPoint( aPnt.X, aPnt.Y );
 
+            // tdf#117145 metric of SdrModel is app-specific, metric of UNO API is 100thmm
+            // Need to adapt aVclPoint from 100thmm to app-specific
+            ForceMetricToItemPoolMetric(aVclPoint);
+
             // #90763# position is relative to top left, make it absolute
             basegfx::B2DPolyPolygon aNewPolyPolygon;
             basegfx::B2DHomMatrix aNewHomogenMatrix;
@@ -2041,9 +2123,6 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
 
             aVclPoint.AdjustX(basegfx::fround(aNewHomogenMatrix.get(0, 2)) );
             aVclPoint.AdjustY(basegfx::fround(aNewHomogenMatrix.get(1, 2)) );
-
-            // #88657# metric of pool maybe twips (writer)
-            ForceMetricToItemPoolMetric(aVclPoint);
 
             // #88491# position relative to anchor
             if( GetSdrObject()->getSdrModelFromSdrObject().IsWriter() )
@@ -2065,6 +2144,7 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
             basegfx::B2DPolyPolygon aNewPolyPolygon;
             basegfx::B2DHomMatrix aNewHomogenMatrix;
 
+            // tdf#117145 SdrModel data is app-specific
             GetSdrObject()->TRGetBaseGeometry(aNewHomogenMatrix, aNewPolyPolygon);
 
             aNewHomogenMatrix.set(0, 0, aMatrix.Line1.Column1);
@@ -2077,6 +2157,10 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
             aNewHomogenMatrix.set(2, 1, aMatrix.Line3.Column2);
             aNewHomogenMatrix.set(2, 2, aMatrix.Line3.Column3);
 
+            // tdf#117145 metric of SdrModel is app-specific, metric of UNO API is 100thmm
+            // Need to adapt aNewHomogenMatrix from 100thmm to app-specific
+            ForceMetricToItemPoolMetric(aNewHomogenMatrix);
+
             GetSdrObject()->TRSetBaseGeometry(aNewHomogenMatrix, aNewPolyPolygon);
             return true;
         }
@@ -2088,7 +2172,7 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
         sal_Int32 nNewOrdNum = 0;
         if(rValue >>= nNewOrdNum)
         {
-            SdrObjList* pObjList = GetSdrObject()->getParentOfSdrObject();
+            SdrObjList* pObjList = GetSdrObject()->getParentSdrObjListFromSdrObject();
             if( pObjList )
             {
                 SdrObject* pCheck =
@@ -2477,9 +2561,6 @@ bool SvxShape::getPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
             aVclPoint -= GetSdrObject()->GetAnchorPos();
         }
 
-        // #88657# metric of pool maybe twips (writer)
-        ForceMetricTo100th_mm(aVclPoint);
-
         // #90763# pos is absolute, make it relative to top left
         basegfx::B2DPolyPolygon aNewPolyPolygon;
         basegfx::B2DHomMatrix aNewHomogenMatrix;
@@ -2487,6 +2568,10 @@ bool SvxShape::getPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
 
         aVclPoint.AdjustX( -(basegfx::fround(aNewHomogenMatrix.get(0, 2))) );
         aVclPoint.AdjustY( -(basegfx::fround(aNewHomogenMatrix.get(1, 2))) );
+
+        // tdf#117145 metric of SdrModel is app-specific, metric of UNO API is 100thmm
+        // Need to adapt aVclPoint from app-specific to 100thmm
+        ForceMetricTo100th_mm(aVclPoint);
 
         awt::Point aPnt( aVclPoint.X(), aVclPoint.Y() );
         rValue <<= aPnt;
@@ -2499,6 +2584,10 @@ bool SvxShape::getPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
         basegfx::B2DHomMatrix aNewHomogenMatrix;
         GetSdrObject()->TRGetBaseGeometry(aNewHomogenMatrix, aNewPolyPolygon);
         drawing::HomogenMatrix3 aMatrix;
+
+        // tdf#117145 metric of SdrModel is app-specific, metric of UNO API is 100thmm
+        // Need to adapt aNewHomogenMatrix from app-specific to 100thmm
+        ForceMetricTo100th_mm(aNewHomogenMatrix);
 
         aMatrix.Line1.Column1 = aNewHomogenMatrix.get(0, 0);
         aMatrix.Line1.Column2 = aNewHomogenMatrix.get(0, 1);
@@ -2661,7 +2750,7 @@ bool SvxShape::getPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
                     // Reintroduction of fix for issue #i59051# (#i108851#)
                     ForceMetricTo100th_mm( aPolyPoly );
                     drawing::PolyPolygonBezierCoords aRetval;
-                    basegfx::unotools::b2DPolyPolygonToPolyPolygonBezier( aPolyPoly, aRetval);
+                    basegfx::utils::B2DPolyPolygonToUnoPolyPolygonBezierCoords( aPolyPoly, aRetval);
                     rValue <<= aRetval;
                     break;
                 }
@@ -3670,28 +3759,47 @@ uno::Reference< container::XIndexContainer > SAL_CALL SvxShape::getGluePoints()
 uno::Reference<uno::XInterface> SAL_CALL SvxShape::getParent()
 {
     ::SolarMutexGuard aGuard;
+    const SdrObject* pSdrObject(GetSdrObject());
 
-    if( HasSdrObject() && GetSdrObject()->getParentOfSdrObject() )
+    if(nullptr != pSdrObject)
     {
-        SdrObjList* pObjList = GetSdrObject()->getParentOfSdrObject();
+        const SdrObjList* pParentSdrObjList(GetSdrObject()->getParentSdrObjListFromSdrObject());
 
-        switch (pObjList->GetListKind())
+        if(nullptr != pParentSdrObjList)
         {
-            case SdrObjListKind::GroupObj:
-                if (SdrObjGroup *pGroup = dynamic_cast<SdrObjGroup*>(pObjList->GetOwnerObj()))
-                    return pGroup->getUnoShape();
-                else if (E3dScene *pScene = dynamic_cast<E3dScene*>(pObjList->GetOwnerObj()))
-                    return pScene->getUnoShape();
-                break;
-            case SdrObjListKind::DrawPage:
-            case SdrObjListKind::MasterPage:
-                return dynamic_cast<SdrPage&>(*pObjList).getUnoPage();
-            default:
-                OSL_FAIL( "SvxShape::getParent(  ): unexpected SdrObjListKind" );
-                break;
+            // SdrObject is member of a SdrObjList. That may be a SdrObject
+            // (SdrObjGroup or E3dScene) or a SdrPage.
+            // Check for SdrObject first - using getSdrPageFromSdrObjList
+            // *will* get the SdrPage even when the SdrObject is deep buried
+            // in a construct of SdrObjGroup.
+            // We want to ask for the direct parent here...
+            SdrObject* pParentSdrObject(pParentSdrObjList->getSdrObjectFromSdrObjList());
+
+            if(nullptr != pParentSdrObject)
+            {
+                // SdrObject is member of a SdrObject-based Group (SdrObjGroup or E3dScene).
+                return pParentSdrObject->getUnoShape();
+            }
+            else
+            {
+                SdrPage* pParentSdrPage(pParentSdrObjList->getSdrPageFromSdrObjList());
+
+                if(nullptr != pParentSdrPage)
+                {
+                    // SdrObject is inserted to a SdrPage. Since
+                    // we checked for getSdrObjectFromSdrObjList first,
+                    // we can even say that it is directly member of that
+                    // SdrPage.
+                    return pParentSdrPage->getUnoPage();
+                }
+            }
+
+            // not member of any SdrObjList, no parent
+            OSL_FAIL( "SvxShape::getParent(  ): unexpected Parent SdrObjList" );
         }
     }
 
+    // no SdrObject, no parent
     return uno::Reference<uno::XInterface>();
 }
 

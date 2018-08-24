@@ -41,6 +41,7 @@
 #define FORMULA_MAXJUMPCOUNT    32  /* maximum number of jumps (ocChoose) */
 #define FORMULA_MAXTOKENS     8192  /* maximum number of tokens in formula */
 #define FORMULA_MAXPARAMS      255  /* maximum number of parameters per function (byte) */
+#define FORMULA_MAXPARAMSII      8  /* maximum number of parameters for functions that have implicit intersection ranges */
 
 
 namespace com { namespace sun { namespace star {
@@ -66,7 +67,6 @@ struct FormulaArrayStack
     bool bTemp;
 };
 
-
 typedef std::unordered_map< OUString, OpCode > OpCodeHashMap;
 typedef std::unordered_map< OUString, OUString > ExternalHashMap;
 
@@ -76,8 +76,8 @@ private:
     FormulaCompiler(const FormulaCompiler&) = delete;
     FormulaCompiler& operator=(const FormulaCompiler&) = delete;
 public:
-    FormulaCompiler();
-    FormulaCompiler(FormulaTokenArray& _rArr);
+    FormulaCompiler(bool bComputeII = false, bool bMatrixFlag = false);
+    FormulaCompiler(FormulaTokenArray& _rArr, bool bComputeII = false, bool bMatrixFlag = false);
     virtual ~FormulaCompiler();
 
     /** Mappings from strings to OpCodes and vice versa. */
@@ -182,7 +182,7 @@ public:
 
         /** The value used in createSequenceOfAvailableMappings() and thus in
             XFormulaOpCodeMapper::getMappings() for an unknown symbol. */
-        static sal_Int32 getOpCodeUnknown();
+        static sal_Int32 getOpCodeUnknown() { return -1; }
 
     private:
 
@@ -269,6 +269,12 @@ public:
     static void ResetNativeSymbols();
     static void SetNativeSymbols( const OpCodeMapPtr& xMap );
 
+    /** Sets the implicit intersection compute flag */
+    void SetComputeIIFlag(bool bSet) { mbComputeII = bSet; }
+
+    /** Sets the matrix flag for the formula*/
+    void SetMatrixFlag(bool bSet) { mbMatrixFlag = bSet; }
+
     /** Separators mapped when loading opcodes from the resource, values other
         than RESOURCE_BASE may override the resource strings. Used by OpCodeList
         implementation via loadSymbols().
@@ -323,6 +329,14 @@ protected:
 
     bool MergeRangeReference( FormulaToken * * const pCode1, FormulaToken * const * const pCode2 );
 
+    // Returns whether the opcode has implicit intersection ranges as parameters.
+    // Called for (most) opcodes to possibly handle implicit intersection for the parameters.
+    virtual void HandleIIOpCode(FormulaToken* /*token*/,
+                                FormulaToken*** /*pppToken*/, sal_uInt8 /*nNumParams*/) {}
+
+    // Called from CompileTokenArray() after RPN code generation is done.
+    virtual void PostProcessCode() {}
+
     OUString            aCorrectedFormula;      // autocorrected Formula
     OUString            aCorrectedSymbol;       // autocorrected Symbol
 
@@ -348,9 +362,13 @@ protected:
     bool                bAutoCorrect;           // whether to apply AutoCorrection
     bool                bCorrected;             // AutoCorrection was applied
     bool                glSubTotal;             // if code contains one or more subtotal functions
+    bool                needsRPNTokenCheck;     // whether to make FormulaTokenArray check all tokens at the end
 
     bool mbJumpCommandReorder; /// Whether or not to reorder RPN for jump commands.
     bool mbStopOnError;        /// Whether to stop compilation on first encountered error.
+
+    bool mbComputeII;  // whether to attempt computing implicit intersection ranges while building the RPN array.
+    bool mbMatrixFlag; // whether the formula is a matrix formula (needed for II computation)
 
 private:
     void InitSymbolsNative() const;    /// only SymbolsNative, on first document creation

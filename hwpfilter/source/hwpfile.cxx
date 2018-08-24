@@ -65,9 +65,9 @@ HWPFile::~HWPFile()
     hiodev.reset();
 }
 
-int HWPFile::ReadHwpFile(HStream * stream)
+int HWPFile::ReadHwpFile(std::unique_ptr<HStream> stream)
 {
-    if (Open(stream) != HWP_NoError)
+    if (Open(std::move(stream)) != HWP_NoError)
         return State();
     InfoRead();
     FontRead();
@@ -92,9 +92,9 @@ int detect_hwp_version(const char *str)
 
 // HIODev wrapper
 
-int HWPFile::Open(HStream * stream)
+int HWPFile::Open(std::unique_ptr<HStream> stream)
 {
-    HStreamIODev *hstreamio = new HStreamIODev(stream);
+    HStreamIODev *hstreamio = new HStreamIODev(std::move(stream));
 
     if (!hstreamio->open())
     {
@@ -253,7 +253,7 @@ void HWPFile::ReadParaList(std::vector < HWPPara* > &aplist)
     }
 }
 
-bool HWPFile::ReadParaList(std::vector< std::unique_ptr<HWPPara> > &aplist, unsigned char flag)
+void HWPFile::ReadParaList(std::vector< std::unique_ptr<HWPPara> > &aplist, unsigned char flag)
 {
     std::unique_ptr<HWPPara> spNode( new HWPPara );
     unsigned char tmp_etcflag;
@@ -284,8 +284,6 @@ bool HWPFile::ReadParaList(std::vector< std::unique_ptr<HWPPara> > &aplist, unsi
         aplist.push_back(std::move(spNode));
         spNode.reset( new HWPPara );
     }
-
-    return true;
 }
 
 void HWPFile::TagsRead()

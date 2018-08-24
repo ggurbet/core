@@ -58,6 +58,7 @@
 #include <com/sun/star/i18n/InputSequenceCheckMode.hpp>
 
 
+#include <sal/log.hxx>
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
 #include <svl/asiancfg.hxx>
@@ -286,7 +287,7 @@ OUString ImpEditEngine::GetSelected( const EditSelection& rSel  ) const
 
     OSL_ENSURE( nStartNode <= nEndNode, "Selection not sorted ?" );
 
-    OUString aText;
+    OUStringBuffer aText;
     const OUString aSep = EditDoc::GetSepStr( LINEEND_LF );
 
     // iterate over the paragraphs ...
@@ -298,11 +299,11 @@ OUString ImpEditEngine::GetSelected( const EditSelection& rSel  ) const
         const sal_Int32 nStartPos = nNode==nStartNode ? aSel.Min().GetIndex() : 0;
         const sal_Int32 nEndPos = nNode==nEndNode ? aSel.Max().GetIndex() : pNode->Len(); // can also be == nStart!
 
-        aText += EditDoc::GetParaAsString( pNode, nStartPos, nEndPos );
+        aText.append(EditDoc::GetParaAsString( pNode, nStartPos, nEndPos ));
         if ( nNode < nEndNode )
-            aText += aSep;
+            aText.append(aSep);
     }
-    return aText;
+    return aText.makeStringAndClear();
 }
 
 bool ImpEditEngine::MouseButtonDown( const MouseEvent& rMEvt, EditView* pView )
@@ -587,7 +588,17 @@ bool ImpEditEngine::MouseButtonUp( const MouseEvent& rMEvt, EditView* pView )
     {
         if ( ( rMEvt.GetClicks() == 1 ) && rMEvt.IsLeft() && !rMEvt.IsMod2() )
         {
-            const SvxFieldItem* pFld = pView->GetFieldUnderMousePointer();
+
+            const SvxFieldItem* pFld;
+            if ( comphelper::LibreOfficeKit::isActive() )
+            {
+                Point aLogicClick = pView->GetWindow()->PixelToLogic( rMEvt.GetPosPixel() );
+                pFld = pView->GetField( aLogicClick );
+            }
+            else
+            {
+                pFld = pView->GetFieldUnderMousePointer();
+            }
             if ( pFld )
             {
                 EditPaM aPaM( aCurSel.Max() );
@@ -614,7 +625,9 @@ bool ImpEditEngine::MouseMove( const MouseEvent& rMEvt, EditView* pView )
 
 EditPaM ImpEditEngine::InsertText(const EditSelection& aSel, const OUString& rStr)
 {
+    EnterBlockNotifications();
     EditPaM aPaM = ImpInsertText( aSel, rStr );
+    LeaveBlockNotifications();
     return aPaM;
 }
 
@@ -1650,7 +1663,7 @@ void ImpEditEngine::InitScriptTypes( sal_Int32 nPara )
                     }
 
                     // ...  but if the first one is LATIN, and there are CJK or CTL chars too,
-                    // we prefer that ScripType because we need an other font.
+                    // we prefer that ScriptType because we need another font.
                     if ( ( nTmpType == i18n::ScriptType::ASIAN ) || ( nTmpType == i18n::ScriptType::COMPLEX ) )
                     {
                         aText = aText.replaceAt( pField->GetStart(), 1, aFldText.copy(nCharInField,1) );
@@ -1724,8 +1737,11 @@ void ImpEditEngine::InitScriptTypes( sal_Int32 nPara )
                     ++nIdx;
 
                 // Remove any entries *inside* the current run:
-                while ( nIdx < rTypes.size() && rTypes[nIdx].nEndPos <= nEnd )
-                    rTypes.erase( rTypes.begin()+nIdx );
+                while (nIdx < rTypes.size() && rTypes[nIdx].nEndPos <= nEnd)
+                {
+                    // coverity[use_iterator] - we're protected from a bad iterator by the above condition
+                    rTypes.erase(rTypes.begin() + nIdx);
+                }
 
                 // special case:
                 if(nIdx < rTypes.size() && rTypes[nIdx].nStartPos < nStart && rTypes[nIdx].nEndPos > nEnd)
@@ -2512,7 +2528,7 @@ EditPaM ImpEditEngine::AutoCorrect( const EditSelection& rCurSel, sal_Unicode c,
         // #i78661 allow application to turn off capitalization of
         // start sentence explicitly.
         // (This is done by setting IsFirstWordCapitalization to sal_False.)
-        bool bOldCapitalStartSentence = pAutoCorrect->IsAutoCorrFlag( CapitalStartSentence );
+        bool bOldCapitalStartSentence = pAutoCorrect->IsAutoCorrFlag( ACFlags::CapitalStartSentence );
         if (!IsFirstWordCapitalization())
         {
             ESelection aESel( CreateESel(aSel) );
@@ -2543,7 +2559,7 @@ EditPaM ImpEditEngine::AutoCorrect( const EditSelection& rCurSel, sal_Unicode c,
                     aSel.Max().GetIndex() <= aSecondWordSel.Min().GetIndex();
 
             if (bIsFirstWordInFirstPara)
-                pAutoCorrect->SetAutoCorrFlag( CapitalStartSentence, IsFirstWordCapitalization() );
+                pAutoCorrect->SetAutoCorrFlag( ACFlags::CapitalStartSentence, IsFirstWordCapitalization() );
         }
 
         ContentNode* pNode = aSel.Max().GetNode();
@@ -2557,7 +2573,7 @@ EditPaM ImpEditEngine::AutoCorrect( const EditSelection& rCurSel, sal_Unicode c,
 
         // #i78661 since the SvxAutoCorrect object used here is
         // shared we need to reset the value to its original state.
-        pAutoCorrect->SetAutoCorrFlag( CapitalStartSentence, bOldCapitalStartSentence );
+        pAutoCorrect->SetAutoCorrFlag( ACFlags::CapitalStartSentence, bOldCapitalStartSentence );
     }
     return aSel.Max();
 }
@@ -2968,7 +2984,7 @@ bool ImpEditEngine::UpdateFields()
                 rField.Reset();
 
                 if ( aStatus.MarkFields() )
-                    rField.GetFieldColor() = new Color( GetColorConfig().GetColorValue( svtools::WRITERFIELDSHADINGS ).nColor );
+                    rField.GetFieldColor() = GetColorConfig().GetColorValue( svtools::WRITERFIELDSHADINGS ).nColor;
 
                 const OUString aFldValue =
                     GetEditEnginePtr()->CalcFieldValue(
@@ -3108,8 +3124,9 @@ sal_uInt32 ImpEditEngine::CalcParaWidth( sal_Int32 nPara, bool bIgnoreExtraSpace
 
     // Over all the paragraphs ...
 
+    OSL_ENSURE( 0 <= nPara && nPara < GetParaPortions().Count(), "CalcParaWidth: Out of range" );
     ParaPortion* pPortion = GetParaPortions()[nPara];
-    if ( pPortion->IsVisible() )
+    if ( pPortion && pPortion->IsVisible() )
     {
         const SvxLRSpaceItem& rLRItem = GetLRSpaceItem( pPortion->GetNode() );
         sal_Int32 nSpaceBeforeAndMinLabelWidth = GetSpaceBeforeAndMinLabelWidth( pPortion->GetNode() );

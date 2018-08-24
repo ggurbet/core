@@ -38,9 +38,9 @@ one go*/
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/servicehelper.hxx>
-#include <comphelper/string.hxx>
 #include <o3tl/make_unique.hxx>
 #include <rtl/character.hxx>
+#include <sal/log.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/sfxsids.hrc>
@@ -515,9 +515,11 @@ void SmXMLImport::endDocument()
             pDocShell->SetFormulaTree(static_cast<SmTableNode *>(pTree));
             if (aText.isEmpty())  //If we picked up no annotation text
             {
+                OUStringBuffer aStrBuf;
                 // Get text from imported formula
-                pTree->CreateTextFromNode(aText);
-                aText = comphelper::string::stripEnd(aText, ' ');
+                pTree->CreateTextFromNode(aStrBuf);
+                aStrBuf.stripEnd(' ');
+                aText = aStrBuf.makeStringAndClear();
             }
 
             // Convert symbol names

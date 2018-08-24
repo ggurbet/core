@@ -29,6 +29,7 @@
 #include <OAuthenticationContinuation.hxx>
 
 #include <hsqlimport.hxx>
+#include <migrwarndlg.hxx>
 
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
@@ -49,11 +50,9 @@
 #include <com/sun/star/ui/XUIConfigurationManagerSupplier.hpp>
 #include <com/sun/star/view/XPrintable.hpp>
 
-#include <comphelper/guarding.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/interaction.hxx>
 #include <comphelper/property.hxx>
-#include <comphelper/seqstream.hxx>
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <connectivity/dbexception.hxx>
@@ -63,6 +62,7 @@
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <osl/process.h>
+#include <sal/log.hxx>
 #include <tools/urlobj.hxx>
 #include <typelib/typedescription.hxx>
 #include <unotools/confignode.hxx>
@@ -72,6 +72,8 @@
 #include <algorithm>
 #include <iterator>
 #include <set>
+
+#include <config_firebird.h>
 
 using namespace ::com::sun::star::sdbc;
 using namespace ::com::sun::star::sdbcx;
@@ -574,9 +576,23 @@ void ODatabaseSource::disposing()
     m_pImpl.clear();
 }
 
-OUString SAL_CALL ODatabaseSource::getConnectionUrl()
+namespace
 {
-    return m_pImpl->m_sConnectURL;
+#if ENABLE_FIREBIRD_SDBC
+    weld::Window* GetFrameWeld(const Reference<XModel>& rModel)
+    {
+        if (!rModel.is())
+            return nullptr;
+        Reference<XController> xController(rModel->getCurrentController());
+        if (!xController.is())
+            return nullptr;
+        Reference<XFrame> xFrame(xController->getFrame());
+        if (!xFrame.is())
+            return nullptr;
+        Reference<css::awt::XWindow> xWindow(xFrame->getContainerWindow());
+        return Application::GetFrameWeld(xWindow);
+    }
+#endif
 }
 
 Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString& _rUid, const OUString& _rPwd)
@@ -585,13 +601,35 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
 
     Reference< XDriverManager > xManager;
 
-    OUString sMigrEnvVal;
-    osl_getEnvironment(OUString("DBACCESS_HSQL_MIGRATION").pData,
+#if ENABLE_FIREBIRD_SDBC
+    bool bNeedMigration = false;
+    if(m_pImpl->m_sConnectURL == "sdbc:embedded:hsqldb")
+    {
+        OUString sMigrEnvVal;
+        osl_getEnvironment(OUString("DBACCESS_HSQL_MIGRATION").pData,
             &sMigrEnvVal.pData);
-    bool bNeedMigration =  m_pImpl->m_sConnectURL == "sdbc:embedded:hsqldb" &&
-            (m_bMigationNeeded || !sMigrEnvVal.isEmpty());
-    if(bNeedMigration)
-        m_pImpl->m_sConnectURL = "sdbc:embedded:firebird";
+        if(!sMigrEnvVal.isEmpty())
+            bNeedMigration = true;
+        else
+        {
+            MigrationWarnDialog aWarnDlg(GetFrameWeld(m_pImpl->getModel_noCreate()));
+            bNeedMigration = aWarnDlg.run() == RET_OK;
+        }
+        if (bNeedMigration)
+        {
+            // back up content xml file if migration was successful
+            Reference<XStorage> xRootStorage = m_pImpl->getOrCreateRootStorage();
+
+            constexpr char BACKUP_XML_NAME[] = "content_before_migration.xml";
+            if(xRootStorage->isStreamElement(BACKUP_XML_NAME))
+                xRootStorage->removeElement(BACKUP_XML_NAME);
+            xRootStorage->copyElementTo("content.xml", xRootStorage,
+                BACKUP_XML_NAME);
+
+            m_pImpl->m_sConnectURL = "sdbc:embedded:firebird";
+        }
+    }
+#endif
 
     try {
         xManager.set( ConnectionPool::create( m_pImpl->m_aContext ), UNO_QUERY_THROW );
@@ -704,6 +742,7 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
         throwGenericSQLException( sMessage, static_cast< XDataSource* >( this ), makeAny( aContext ) );
     }
 
+#if ENABLE_FIREBIRD_SDBC
     if( bNeedMigration )
     {
         Reference< css::document::XDocumentSubStorageSupplier> xDocSup(
@@ -712,6 +751,7 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
                 xDocSup->getDocumentSubStorage("database",ElementModes::READWRITE) );
         importer.importHsqlDatabase();
     }
+#endif
 
     return xReturn;
 }
@@ -846,12 +886,11 @@ namespace
     void lcl_setPropertyValues_resetOrRemoveOther( const Reference< XPropertyBag >& _rxPropertyBag, const Sequence< PropertyValue >& _rAllNewPropertyValues )
     {
         // sequences are ugly to operate on
-        typedef std::set< OUString >   StringSet;
-        StringSet aToBeSetPropertyNames;
+        std::set<OUString> aToBeSetPropertyNames;
         std::transform(
             _rAllNewPropertyValues.begin(),
             _rAllNewPropertyValues.end(),
-            std::insert_iterator< StringSet >( aToBeSetPropertyNames, aToBeSetPropertyNames.end() ),
+            std::inserter( aToBeSetPropertyNames, aToBeSetPropertyNames.end() ),
             SelectPropertyName()
         );
 

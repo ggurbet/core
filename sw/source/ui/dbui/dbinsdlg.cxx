@@ -40,6 +40,8 @@
 #include <com/sun/star/util/XNumberFormatTypes.hpp>
 #include <com/sun/star/sdbc/XRowSet.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/types.hxx>
+#include <sal/log.hxx>
 #include <editeng/langitem.hxx>
 #include <svl/numuno.hxx>
 #include <svl/stritem.hxx>
@@ -415,8 +417,8 @@ SwInsertDBColAutoPilot::~SwInsertDBColAutoPilot()
 
 void SwInsertDBColAutoPilot::dispose()
 {
-    delete pTableSet;
-    delete pRep;
+    pTableSet.reset();
+    pRep.reset();
 
     m_xTAutoFormat.reset();
     m_pRbAsTable.clear();
@@ -658,7 +660,7 @@ IMPL_LINK( SwInsertDBColAutoPilot, TableFormatHdl, Button*, pButton, void )
     if( !pTableSet )
     {
         bNewSet = true;
-        pTableSet = new SfxItemSet( rSh.GetAttrPool(), SwuiGetUITableAttrRange() );
+        pTableSet.reset(new SfxItemSet( rSh.GetAttrPool(), SwuiGetUITableAttrRange() ));
 
         // At first acquire the simple attributes
         pTableSet->Put( SfxStringItem( FN_PARAM_TABLE_NAME, rSh.GetUniqueTableName() ));
@@ -720,12 +722,12 @@ IMPL_LINK( SwInsertDBColAutoPilot, TableFormatHdl, Button*, pButton, void )
         SwTabCols aTabCols;
         aTabCols.SetRight( nWidth );
         aTabCols.SetRightMax( nWidth );
-        pRep = new SwTableRep( aTabCols );
+        pRep.reset(new SwTableRep( aTabCols ));
         pRep->SetAlign( text::HoriOrientation::NONE );
         pRep->SetSpace( nWidth );
         pRep->SetWidth( nWidth );
         pRep->SetWidthPercent( 100 );
-        pTableSet->Put( SwPtrItem( FN_TABLE_REP, pRep ));
+        pTableSet->Put( SwPtrItem( FN_TABLE_REP, pRep.get() ));
 
         pTableSet->Put( SfxUInt16Item( SID_HTML_MODE,
                     ::GetHtmlMode( pView->GetDocShell() )));
@@ -748,28 +750,24 @@ IMPL_LINK( SwInsertDBColAutoPilot, TableFormatHdl, Button*, pButton, void )
                 aTabCols.Insert( nStep*(n+1), false, n );
             }
         }
-        delete pRep;
-        pRep = new SwTableRep( aTabCols );
+        pRep.reset(new SwTableRep( aTabCols ));
         pRep->SetAlign( text::HoriOrientation::NONE );
         pRep->SetSpace( nWidth );
         pRep->SetWidth( nWidth );
         pRep->SetWidthPercent( 100 );
-        pTableSet->Put( SwPtrItem( FN_TABLE_REP, pRep ));
+        pTableSet->Put( SwPtrItem( FN_TABLE_REP, pRep.get() ));
     }
 
     SwAbstractDialogFactory* pFact = swui::GetFactory();
     OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
 
-    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwTableTabDlg(pButton, pTableSet, &rSh));
-    OSL_ENSURE(pDlg, "Dialog creation failed!");
+    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwTableTabDlg(pButton, pTableSet.get(), &rSh));
     if( RET_OK == pDlg->Execute() )
         pTableSet->Put( *pDlg->GetOutputItemSet() );
     else if( bNewSet )
     {
-        delete pTableSet;
-        pTableSet = nullptr;
-        delete pRep;
-        pRep = nullptr;
+        pTableSet.reset();
+        pRep.reset();
     }
 }
 
@@ -779,7 +777,6 @@ IMPL_LINK( SwInsertDBColAutoPilot, AutoFormatHdl, Button*, pButton, void )
     OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
 
     ScopedVclPtr<AbstractSwAutoFormatDlg> pDlg(pFact->CreateSwAutoFormatDlg(pButton->GetFrameWeld(), pView->GetWrtShellPtr(), false, m_xTAutoFormat.get()));
-    OSL_ENSURE(pDlg, "Dialog creation failed!");
     if( RET_OK == pDlg->Execute())
         m_xTAutoFormat.reset(pDlg->FillAutoFormatOfIndex());
 }
@@ -1315,7 +1312,7 @@ void SwInsertDBColAutoPilot::DataToDoc( const Sequence<Any>& rSelection,
                     case DB_Column::Type::COL_FIELD:
                         {
                             std::unique_ptr<SwDBField> pField(static_cast<SwDBField *>(
-                                pDBCol->pField->CopyField()));
+                                pDBCol->pField->CopyField().release()));
                             double nValue = DBL_MAX;
 
                             Reference< XPropertySet > xColumnProps;

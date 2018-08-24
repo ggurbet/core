@@ -18,10 +18,16 @@
  */
 
 #include <unobookmark.hxx>
-#include <osl/mutex.hxx>
+
 #include <comphelper/interfacecontainer2.hxx>
+#include <comphelper/sequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <osl/mutex.hxx>
+#include <svl/itemprop.hxx>
+#include <svl/listener.hxx>
 #include <vcl/svapp.hxx>
+#include <xmloff/odffields.hxx>
 
 #include <TextCursorHelper.hxx>
 #include <unotextrange.hxx>
@@ -34,69 +40,64 @@
 #include <docary.hxx>
 #include <swundo.hxx>
 #include <docsh.hxx>
-#include <xmloff/odffields.hxx>
-#include <comphelper/servicehelper.hxx>
-#include <comphelper/sequence.hxx>
-#include <svl/itemprop.hxx>
 
 using namespace ::sw::mark;
 using namespace ::com::sun::star;
 
 class SwXBookmark::Impl
-    : public SwClient
+    : public SvtListener
 {
 private:
     ::osl::Mutex m_Mutex; // just for OInterfaceContainerHelper2
 
 public:
     uno::WeakReference<uno::XInterface> m_wThis;
-    ::comphelper::OInterfaceContainerHelper2  m_EventListeners;
-    SwDoc *                     m_pDoc;
-    ::sw::mark::IMark *         m_pRegisteredBookmark;
-    OUString                    m_sMarkName;
+    ::comphelper::OInterfaceContainerHelper2 m_EventListeners;
+    SwDoc* m_pDoc;
+    ::sw::mark::IMark* m_pRegisteredBookmark;
+    OUString m_sMarkName;
+    bool m_bHidden;
+    OUString m_HideCondition;
 
     Impl( SwDoc *const pDoc )
-        : SwClient()
-        , m_EventListeners(m_Mutex)
+        : m_EventListeners(m_Mutex)
         , m_pDoc(pDoc)
         , m_pRegisteredBookmark(nullptr)
+        , m_bHidden(false)
     {
         // DO NOT registerInMark here! (because SetXBookmark would delete rThis)
     }
 
     void registerInMark(SwXBookmark & rThis, ::sw::mark::IMark *const pBkmk);
 protected:
-    // SwClient
-    virtual void Modify( const SfxPoolItem *pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint&) override;
 
 };
 
-void SwXBookmark::Impl::Modify(const SfxPoolItem *pOld, const SfxPoolItem *pNew)
+void SwXBookmark::Impl::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if (GetRegisteredIn())
+    if(rHint.GetId() == SfxHintId::Dying)
     {
-        return; // core object still alive
+        m_pRegisteredBookmark = nullptr;
+        m_pDoc = nullptr;
+        uno::Reference<uno::XInterface> const xThis(m_wThis);
+        if (!xThis.is())
+        {   // fdo#72695: if UNO object is already dead, don't revive it with event
+            return;
+        }
+        lang::EventObject const ev(xThis);
+        m_EventListeners.disposeAndClear(ev);
     }
-
-    m_pRegisteredBookmark = nullptr;
-    m_pDoc = nullptr;
-    uno::Reference<uno::XInterface> const xThis(m_wThis);
-    if (!xThis.is())
-    {   // fdo#72695: if UNO object is already dead, don't revive it with event
-        return;
-    }
-    lang::EventObject const ev(xThis);
-    m_EventListeners.disposeAndClear(ev);
 }
 
-void SwXBookmark::Impl::registerInMark(SwXBookmark & rThis,
-        ::sw::mark::IMark *const pBkmk)
+void SwXBookmark::Impl::registerInMark(SwXBookmark& rThis,
+        ::sw::mark::IMark* const pBkmk)
 {
-    const uno::Reference<text::XTextContent> xBookmark(& rThis);
+    const uno::Reference<text::XTextContent> xBookmark(&rThis);
     if (pBkmk)
     {
-        pBkmk->Add(this);
+        EndListeningAll();
+        StartListening(pBkmk->GetNotifier());
         ::sw::mark::MarkBase *const pMarkBase(dynamic_cast< ::sw::mark::MarkBase * >(pBkmk));
         OSL_ENSURE(pMarkBase, "registerInMark: no MarkBase?");
         if (pMarkBase)
@@ -107,6 +108,14 @@ void SwXBookmark::Impl::registerInMark(SwXBookmark & rThis,
     else if (m_pRegisteredBookmark)
     {
         m_sMarkName = m_pRegisteredBookmark->GetName();
+
+        // the following applies only to bookmarks (not to fieldmarks)
+        IBookmark* pBookmark = dynamic_cast<IBookmark*>(m_pRegisteredBookmark);
+        if (pBookmark)
+        {
+            m_bHidden = pBookmark->IsHidden();
+            m_HideCondition = pBookmark->GetHideCondition();
+        }
         EndListeningAll();
     }
     m_pRegisteredBookmark = pBkmk;
@@ -396,8 +405,43 @@ SwXBookmark::getPropertySetInfo()
 
 void SAL_CALL
 SwXBookmark::setPropertyValue(const OUString& PropertyName,
-        const uno::Any& /*rValue*/)
+        const uno::Any& rValue)
 {
+    if (PropertyName == UNO_NAME_BOOKMARK_HIDDEN)
+    {
+        bool bNewValue = false;
+        if (!(rValue >>= bNewValue))
+            throw lang::IllegalArgumentException("Property BookmarkHidden requires value of type boolean", nullptr, 0);
+
+        IBookmark* pBookmark = dynamic_cast<IBookmark*>(m_pImpl->m_pRegisteredBookmark);
+        if (pBookmark)
+        {
+            pBookmark->Hide(bNewValue);
+        }
+        else
+        {
+            m_pImpl->m_bHidden = bNewValue;
+        }
+        return;
+    }
+    else if (PropertyName == UNO_NAME_BOOKMARK_CONDITION)
+    {
+        OUString newValue;
+        if (!(rValue >>= newValue))
+            throw lang::IllegalArgumentException("Property BookmarkCondition requires value of type string", nullptr, 0);
+
+        IBookmark* pBookmark = dynamic_cast<IBookmark*>(m_pImpl->m_pRegisteredBookmark);
+        if (pBookmark)
+        {
+            pBookmark->SetHideCondition(newValue);
+        }
+        else
+        {
+            m_pImpl->m_HideCondition = newValue;
+        }
+        return;
+    }
+
     // nothing to set here
     throw lang::IllegalArgumentException("Property is read-only: "
             + PropertyName, static_cast< cppu::OWeakObject * >(this), 0 );
@@ -413,6 +457,30 @@ uno::Any SAL_CALL SwXBookmark::getPropertyValue(const OUString& rPropertyName)
         if(rPropertyName == UNO_LINK_DISPLAY_NAME)
         {
             aRet <<= getName();
+        }
+        else if (rPropertyName == UNO_NAME_BOOKMARK_HIDDEN)
+        {
+            IBookmark* pBookmark = dynamic_cast<IBookmark*>(m_pImpl->m_pRegisteredBookmark);
+            if (pBookmark)
+            {
+                aRet <<= pBookmark->IsHidden();
+            }
+            else
+            {
+                aRet <<= m_pImpl->m_bHidden;
+            }
+        }
+        else if (rPropertyName == UNO_NAME_BOOKMARK_CONDITION)
+        {
+            IBookmark* pBookmark = dynamic_cast<IBookmark*>(m_pImpl->m_pRegisteredBookmark);
+            if (pBookmark)
+            {
+                aRet <<= pBookmark->GetHideCondition();
+            }
+            else
+            {
+                aRet <<= m_pImpl->m_HideCondition;
+            }
         }
     }
     return aRet;

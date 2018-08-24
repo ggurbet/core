@@ -218,7 +218,6 @@ void Chart2ImportTest::Fdo60083()
     CPPUNIT_ASSERT( xDataSeries.is() );
 
     Reference< beans::XPropertySet > xPropSet( xDataSeries, UNO_QUERY_THROW );
-    CPPUNIT_ASSERT( xPropSet.is() );
 
     // test that y error bars are there
     Reference< beans::XPropertySet > xErrorBarYProps;
@@ -245,11 +244,11 @@ void Chart2ImportTest::Fdo60083()
         bool bVal;
         CPPUNIT_ASSERT(
             xErrorBarYProps->getPropertyValue("ShowPositiveError") >>= bVal);
-        CPPUNIT_ASSERT_EQUAL(bVal, true);
+        CPPUNIT_ASSERT_EQUAL(true, bVal);
 
         CPPUNIT_ASSERT(
             xErrorBarYProps->getPropertyValue("ShowNegativeError") >>= bVal);
-        CPPUNIT_ASSERT_EQUAL(bVal, true);
+        CPPUNIT_ASSERT_EQUAL(true, bVal);
     }
 
     // test that x error bars are not imported
@@ -268,7 +267,6 @@ void Chart2ImportTest::testErrorBarRange()
     CPPUNIT_ASSERT( xDataSeries.is() );
 
     Reference< beans::XPropertySet > xPropSet( xDataSeries, UNO_QUERY_THROW );
-    CPPUNIT_ASSERT( xPropSet.is() );
 
     // test that y error bars are there
     Reference< beans::XPropertySet > xErrorBarYProps;
@@ -285,7 +283,7 @@ void Chart2ImportTest::testErrorBarRange()
 
     OUString aRangePos;
     CPPUNIT_ASSERT(xErrorBarYProps->getPropertyValue("ErrorBarRangePositive") >>= aRangePos);
-    CPPUNIT_ASSERT_EQUAL(aRangePos, OUString("$Sheet1.$C$2:$C$4"));
+    CPPUNIT_ASSERT_EQUAL(OUString("$Sheet1.$C$2:$C$4"), aRangePos);
 }
 
 void Chart2ImportTest::testErrorBarFormatting()
@@ -298,7 +296,6 @@ void Chart2ImportTest::testErrorBarFormatting()
     CPPUNIT_ASSERT( xDataSeries.is() );
 
     Reference< beans::XPropertySet > xPropSet( xDataSeries, UNO_QUERY_THROW );
-    CPPUNIT_ASSERT( xPropSet.is() );
 
     // test that y error bars are there
     Reference< beans::XPropertySet > xErrorBarYProps;
@@ -354,7 +351,6 @@ uno::Sequence < OUString > getChartColumnDescriptions( uno::Reference< chart::XC
 {
     CPPUNIT_ASSERT(xChart1Doc.is());
     uno::Reference< chart::XChartDataArray > xChartData ( xChart1Doc->getData(), UNO_QUERY_THROW);
-    CPPUNIT_ASSERT(xChartData.is());
     uno::Sequence < OUString > seriesList = xChartData->getColumnDescriptions();
     return seriesList;
 }
@@ -690,13 +686,12 @@ void Chart2ImportTest::testBnc889755()
 {
     load("/chart2/qa/extras/data/pptx/", "bnc889755.pptx");
     uno::Reference<chart2::XChartDocument> xChartDoc(getChartDocFromDrawImpress(0, 6), uno::UNO_QUERY_THROW);
-    CPPUNIT_ASSERT(xChartDoc.is());
     CPPUNIT_ASSERT(xChartDoc->hasInternalDataProvider());
 
     uno::Reference< chart2::XInternalDataProvider > xDataProvider( xChartDoc->getDataProvider(), uno::UNO_QUERY_THROW );
     uno::Reference< chart::XChartDataArray > xChartDataArray(xDataProvider, uno::UNO_QUERY_THROW);
     uno::Sequence< OUString > aRowLabels = xChartDataArray->getRowDescriptions();
-    CPPUNIT_ASSERT_EQUAL( aRowLabels.getLength(), sal_Int32(16) );
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(16), aRowLabels.getLength());
     CPPUNIT_ASSERT_EQUAL(OUString("Oct-12"), aRowLabels[0]);
     CPPUNIT_ASSERT_EQUAL(OUString("Nov-12"), aRowLabels[1]);
     CPPUNIT_ASSERT_EQUAL(OUString("Dec-12"), aRowLabels[2]);
@@ -807,14 +802,14 @@ void Chart2ImportTest::testTdf105517()
     long lineColor;
     xPropSet1->getPropertyValue("Color") >>= lineColor;
     // incorrect line color was 0x4a7ebb due to not handling themeOverride
-    CPPUNIT_ASSERT_EQUAL(lineColor, long(0xeaa700));
+    CPPUNIT_ASSERT_EQUAL(long(0xeaa700), lineColor);
 
     Reference<beans::XPropertySet> xPropSet2(xDSContainer->getDataSeries()[1], uno::UNO_QUERY);
     CPPUNIT_ASSERT(xPropSet2.is());
 
     xPropSet2->getPropertyValue("Color") >>= lineColor;
     // incorrect line color was 0x98b855
-    CPPUNIT_ASSERT_EQUAL(lineColor, long(0x1e69a8));
+    CPPUNIT_ASSERT_EQUAL(long(0x1e69a8), lineColor);
 }
 
 void Chart2ImportTest::testTdf106217()
@@ -829,14 +824,14 @@ void Chart2ImportTest::testTdf106217()
     CPPUNIT_ASSERT(xCircle.is());
 
     uno::Reference<container::XNamed> xNamedShape(xCircle, uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(xNamedShape->getName(), OUString("Oval 1"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Oval 1"), xNamedShape->getName());
 
     awt::Point aPosition = xCircle->getPosition();
-    CPPUNIT_ASSERT_EQUAL(aPosition.X, sal_Int32(6870));
-    CPPUNIT_ASSERT_EQUAL(aPosition.Y, sal_Int32(7261));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(6870), aPosition.X);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(7261), aPosition.Y);
     awt::Size aSize = xCircle->getSize();
-    CPPUNIT_ASSERT_EQUAL(aSize.Width, sal_Int32(2701));
-    CPPUNIT_ASSERT_EQUAL(aSize.Height, sal_Int32(2700));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(2701), aSize.Width);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(2700), aSize.Height);
 }
 
 void Chart2ImportTest::testTransparentBackground(OUString const & filename)
@@ -926,7 +921,6 @@ void Chart2ImportTest::testTextCanOverlapXLSX()
     uno::Reference< beans::XPropertySet > xAxisProp;
     bool bTextCanOverlap = false;
     uno::Reference< chart::XChartDocument > xChartDoc ( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW);
-    CPPUNIT_ASSERT(xChartDoc.is());
     mxDiagram.set(xChartDoc->getDiagram());
     CPPUNIT_ASSERT(mxDiagram.is());
     uno::Reference< chart::XAxisXSupplier > xAxisXSupp( mxDiagram, uno::UNO_QUERY );
@@ -1054,7 +1048,7 @@ void Chart2ImportTest::testSmoothDefaultValue2007XLSX()
 
     chart2::CurveStyle eCurveStyle;
     xPropSet->getPropertyValue("CurveStyle") >>= eCurveStyle;
-    CPPUNIT_ASSERT_EQUAL(eCurveStyle, chart2::CurveStyle_LINES);
+    CPPUNIT_ASSERT_EQUAL(chart2::CurveStyle_LINES, eCurveStyle);
 }
 
 void Chart2ImportTest::testSmoothDefaultValue2013XLSX()
@@ -1161,7 +1155,6 @@ void Chart2ImportTest::testPlotVisOnlyDefaultValue2013XLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "plotVisOnly.xlsx");
     uno::Reference< chart::XChartDocument > xChart1Doc ( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChart1Doc.is());
     Reference<beans::XPropertySet> xPropSet(xChart1Doc->getDiagram(), uno::UNO_QUERY_THROW);
     uno::Any aAny = xPropSet->getPropertyValue("IncludeHiddenCells");
     CPPUNIT_ASSERT(aAny.hasValue());
@@ -1174,7 +1167,6 @@ void Chart2ImportTest::testRAngAxDefaultValue2013XLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "rAngAx.xlsx");
     uno::Reference< chart::XChartDocument > xChart1Doc ( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChart1Doc.is());
     Reference<beans::XPropertySet> xPropSet(xChart1Doc->getDiagram(), uno::UNO_QUERY_THROW);
     uno::Any aAny = xPropSet->getPropertyValue("RightAngledAxes");
     CPPUNIT_ASSERT(aAny.hasValue());
@@ -1328,7 +1320,6 @@ void Chart2ImportTest::testTdf90510()
 {
     load("/chart2/qa/extras/data/xls/", "piechart_outside.xls");
     uno::Reference< chart::XChartDocument > xChart1Doc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
-    CPPUNIT_ASSERT_MESSAGE( "failed to load chart", xChart1Doc.is() );
     Reference<beans::XPropertySet> xPropSet( xChart1Doc->getDiagram()->getDataPointProperties( 0, 0 ), uno::UNO_QUERY_THROW );
     uno::Any aAny = xPropSet->getPropertyValue( "LabelPlacement" );
     CPPUNIT_ASSERT( aAny.hasValue() );
@@ -1341,7 +1332,6 @@ void Chart2ImportTest::testTdf109858()
 {
     load("/chart2/qa/extras/data/xlsx/", "piechart_outside.xlsx");
     uno::Reference< chart::XChartDocument > xChart1Doc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
-    CPPUNIT_ASSERT_MESSAGE( "failed to load chart", xChart1Doc.is() );
     Reference<beans::XPropertySet> xPropSet( xChart1Doc->getDiagram()->getDataPointProperties( 0, 0 ), uno::UNO_QUERY_THROW );
     uno::Any aAny = xPropSet->getPropertyValue( "LabelPlacement" );
     CPPUNIT_ASSERT( aAny.hasValue() );
@@ -1354,7 +1344,6 @@ void Chart2ImportTest::testTdf111173()
 {
     load("/chart2/qa/extras/data/xlsx/", "tdf111173.xlsx");
     uno::Reference< chart::XChartDocument > xChart1Doc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
-    CPPUNIT_ASSERT_MESSAGE( "failed to load chart", xChart1Doc.is() );
 }
 
 void Chart2ImportTest::testTdf115107()
@@ -1556,7 +1545,6 @@ void Chart2ImportTest::testTdf116163()
     CPPUNIT_ASSERT(xXAxis.is());
 
     uno::Reference<container::XIndexAccess> xIndexAccess(xXAxis, UNO_QUERY_THROW);
-    CPPUNIT_ASSERT(xIndexAccess.is());
 
     // Check text
     uno::Reference<text::XTextRange> xLabel0(xIndexAccess->getByIndex(0), uno::UNO_QUERY);

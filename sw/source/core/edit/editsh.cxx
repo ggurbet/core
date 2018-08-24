@@ -129,26 +129,36 @@ void SwEditShell::Insert2(const OUString &rStr, const bool bForceExpandHints )
             if ( nPrevPos )
                 --nPrevPos;
 
-            SwScriptInfo* pSI = SwScriptInfo::GetScriptInfo( static_cast<SwTextNode&>(rNode), true );
+            SwTextFrame const* pFrame;
+            SwScriptInfo *const pSI = SwScriptInfo::GetScriptInfo(
+                    static_cast<SwTextNode&>(rNode), &pFrame, true);
 
             sal_uInt8 nLevel = 0;
             if ( ! pSI )
             {
                 // seems to be an empty paragraph.
-                Point aPt;
-                SwContentFrame* pFrame =
-                        static_cast<SwTextNode&>(rNode).getLayoutFrame( GetLayout(), &aPt, pTmpCursor->GetPoint(),
-                                                    false );
+                Point aPt; // why ???
+                pFrame = static_cast<SwTextFrame*>(
+                        static_cast<SwTextNode&>(rNode).getLayoutFrame(
+                            GetLayout(), &aPt, pTmpCursor->GetPoint(), false));
 
                 SwScriptInfo aScriptInfo;
-                aScriptInfo.InitScriptInfo( static_cast<SwTextNode&>(rNode), pFrame->IsRightToLeft() );
-                nLevel = aScriptInfo.DirType( nPrevPos );
+                aScriptInfo.InitScriptInfo(static_cast<SwTextNode&>(rNode),
+                        pFrame->GetMergedPara(), pFrame->IsRightToLeft());
+                TextFrameIndex const iPrevPos(pFrame->MapModelToView(
+                            &static_cast<SwTextNode&>(rNode), nPrevPos));
+                nLevel = aScriptInfo.DirType( iPrevPos );
             }
             else
             {
-                if ( COMPLETE_STRING != pSI->GetInvalidityA() )
-                    pSI->InitScriptInfo( static_cast<SwTextNode&>(rNode) );
-                nLevel = pSI->DirType( nPrevPos );
+                if (TextFrameIndex(COMPLETE_STRING) != pSI->GetInvalidityA())
+                {
+                    // mystery why this doesn't use the other overload?
+                    pSI->InitScriptInfo(static_cast<SwTextNode&>(rNode), pFrame->GetMergedPara());
+                }
+                TextFrameIndex const iPrevPos(pFrame->MapModelToView(
+                            &static_cast<SwTextNode&>(rNode), nPrevPos));
+                nLevel = pSI->DirType(iPrevPos);
             }
 
             pTmpCursor->SetCursorBidiLevel( nLevel );
@@ -174,7 +184,7 @@ void SwEditShell::Overwrite(const OUString &rStr)
     EndAllAction();
 }
 
-long SwEditShell::SplitNode( bool bAutoFormat, bool bCheckTableStart )
+void SwEditShell::SplitNode( bool bAutoFormat, bool bCheckTableStart )
 {
     StartAllAction();
     GetDoc()->GetIDocumentUndoRedo().StartUndo(SwUndoId::EMPTY, nullptr);
@@ -194,7 +204,6 @@ long SwEditShell::SplitNode( bool bAutoFormat, bool bCheckTableStart )
     ClearTableBoxContent();
 
     EndAllAction();
-    return 1;
 }
 
 bool SwEditShell::AppendTextNode()
@@ -506,7 +515,7 @@ void SwEditShell::ReplaceDropText( const OUString &rStr, SwPaM* pPaM )
 
 OUString SwEditShell::Calculate()
 {
-    OUString  aFormel;                    // the final formula
+    OUStringBuffer aFormel;                    // the final formula
     SwCalc    aCalc( *GetDoc() );
     const CharClass& rCC = GetAppCharClass();
 
@@ -522,13 +531,12 @@ OUString SwEditShell::Calculate()
 
             aStr = rCC.lowercase( aStr );
 
-            sal_Unicode ch;
             bool bValidFields = false;
             sal_Int32 nPos = 0;
 
             while( nPos < aStr.getLength() )
             {
-                ch = aStr[ nPos++ ];
+                sal_Unicode ch = aStr[ nPos++ ];
                 if( rCC.isLetter( aStr, nPos-1 ) || ch == '_' )
                 {
                     sal_Int32 nTmpStt = nPos-1;
@@ -553,18 +561,18 @@ OUString SwEditShell::Calculate()
                                                   pStart->nContent.GetIndex() );
                             bValidFields = true;
                         }
-                        aFormel += "(" + aCalc.GetStrResult( aCalc.VarLook( sVar )->nValue ) + ")";
+                        aFormel.append("(").append(aCalc.GetStrResult( aCalc.VarLook( sVar )->nValue )).append(")");
                     }
                     else
-                        aFormel += sVar;
+                        aFormel.append(sVar);
                 }
                 else
-                    aFormel += OUStringLiteral1(ch);
+                    aFormel.append(ch);
             }
         }
     }
 
-    return aCalc.GetStrResult( aCalc.Calculate(aFormel) );
+    return aCalc.GetStrResult( aCalc.Calculate(aFormel.makeStringAndClear()) );
 }
 
 sfx2::LinkManager& SwEditShell::GetLinkManager()
@@ -826,7 +834,7 @@ sal_uInt16 SwEditShell::GetLineCount()
     {
         if( nullptr != ( pContentFrame = pCNd->getLayoutFrame( GetLayout() ) ) && pContentFrame->IsTextFrame() )
         {
-            nRet = nRet + static_cast<SwTextFrame*>(pContentFrame)->GetLineCount( COMPLETE_STRING );
+            nRet = nRet + static_cast<SwTextFrame*>(pContentFrame)->GetLineCount(TextFrameIndex(COMPLETE_STRING));
         }
     }
     return nRet;

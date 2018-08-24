@@ -99,26 +99,26 @@ private:
     sal_uInt16              nDrawSfxId;
     sal_uInt16              nFormSfxId;
     OUString                sDrawCustom;                // current custom shape type
-    ScDrawShell*            pDrawShell;
-    ScDrawTextObjectBar*    pDrawTextShell;
-    ScEditShell*            pEditShell;
-    ScPivotShell*           pPivotShell;
-    ScAuditingShell*        pAuditingShell;
-    ScDrawFormShell*        pDrawFormShell;
-    ScCellShell*            pCellShell;
-    ScOleObjectShell*       pOleObjectShell;
-    ScChartShell*           pChartShell;
-    ScGraphicShell*         pGraphicShell;
-    ScMediaShell*           pMediaShell;
-    ScPageBreakShell*       pPageBreakShell;
-    svx::ExtrusionBar*      pExtrusionBarShell;
-    svx::FontworkBar*       pFontworkBarShell;
+    std::unique_ptr<ScDrawShell>         pDrawShell;
+    std::unique_ptr<ScDrawTextObjectBar> pDrawTextShell;
+    std::unique_ptr<ScEditShell>         pEditShell;
+    std::unique_ptr<ScPivotShell>        pPivotShell;
+    std::unique_ptr<ScAuditingShell>     pAuditingShell;
+    std::unique_ptr<ScDrawFormShell>     pDrawFormShell;
+    std::unique_ptr<ScCellShell>         pCellShell;
+    std::unique_ptr<ScOleObjectShell>    pOleObjectShell;
+    std::unique_ptr<ScChartShell>        pChartShell;
+    std::unique_ptr<ScGraphicShell>      pGraphicShell;
+    std::unique_ptr<ScMediaShell>        pMediaShell;
+    std::unique_ptr<ScPageBreakShell>    pPageBreakShell;
+    std::unique_ptr<svx::ExtrusionBar>   pExtrusionBarShell;
+    std::unique_ptr<svx::FontworkBar>    pFontworkBarShell;
 
-    FmFormShell*            pFormShell;
+    std::unique_ptr<FmFormShell> pFormShell;
 
     std::unique_ptr<ScInputHandler, o3tl::default_delete<ScInputHandler>> mpInputHandler;              // for OLE input cell
 
-    ::editeng::SvxBorderLine*           pCurFrameLine;
+    std::unique_ptr<::editeng::SvxBorderLine> pCurFrameLine;
 
     css::uno::Reference< css::frame::XDispatchProviderInterceptor >
                             xDisProvInterceptor;
@@ -126,10 +126,10 @@ private:
     Point                   aWinPos;
 
     ScTabViewTarget         aTarget;
-    ScArea*                 pPivotSource;
-    ScDPObject*             pDialogDPObject;
+    std::unique_ptr<ScArea>     pPivotSource;
+    std::unique_ptr<ScDPObject> pDialogDPObject;
 
-    ScNavigatorSettings*    pNavSettings;
+    std::unique_ptr<ScNavigatorSettings> pNavSettings;
 
     // used in first Activate
     bool                    bFirstActivate;
@@ -159,7 +159,7 @@ private:
 
     sal_uInt16              nCurRefDlgId;
 
-    SfxBroadcaster*         pAccessibilityBroadcaster;
+    std::unique_ptr<SfxBroadcaster> pAccessibilityBroadcaster;
 
     // ugly hack for Add button in ScNameDlg
     std::map<OUString, std::unique_ptr<ScRangeName>> m_RangeMap;
@@ -174,6 +174,7 @@ private:
 
     void            DoReadUserData( const OUString& rData );
     void            DoReadUserDataSequence( const css::uno::Sequence< css::beans::PropertyValue >& rSettings );
+    bool            IsSignatureLineSelected();
 
     DECL_LINK( SimpleRefClose, const OUString*, void );
     DECL_LINK( SimpleRefDone, const OUString&, void );
@@ -239,7 +240,7 @@ public:
 
     void            SetActive();
 
-    ::editeng::SvxBorderLine*   GetDefaultFrameLine() const { return pCurFrameLine; }
+    ::editeng::SvxBorderLine*   GetDefaultFrameLine() const { return pCurFrameLine.get(); }
     void            SetDefaultFrameLine(const ::editeng::SvxBorderLine* pLine );
 
     void           Execute( SfxRequest& rReq );
@@ -278,8 +279,8 @@ public:
     void            SetDrawTextShell( bool bActive );
 
     void            SetPivotShell( bool bActive );
-    void            SetDialogDPObject( const ScDPObject* pObj );
-    const ScDPObject* GetDialogDPObject() const { return pDialogDPObject; }
+    void            SetDialogDPObject( std::unique_ptr<ScDPObject> pObj );
+    const ScDPObject* GetDialogDPObject() const { return pDialogDPObject.get(); }
 
     void            SetDontSwitch(bool bFlag){bDontSwitch=bFlag;}
 
@@ -304,7 +305,7 @@ public:
     bool            IsDrawTextShell() const;
     bool            IsAuditShell() const;
 
-    void            SetDrawTextUndo( ::svl::IUndoManager* pUndoMgr );
+    void            SetDrawTextUndo( SfxUndoManager* pUndoMgr );
 
     void            FillFieldData( ScHeaderFieldData& rData );
 
@@ -318,7 +319,7 @@ public:
                                           SfxPrinterChangeFlags nDiffFlags = SFX_PRINTER_ALL ) override;
 
     virtual bool            HasPrintOptionsPage() const override;
-    virtual VclPtr<SfxTabPage> CreatePrintOptionsPage( vcl::Window *pParent, const SfxItemSet &rOptions ) override;
+    virtual VclPtr<SfxTabPage> CreatePrintOptionsPage(weld::Container* pPage, const SfxItemSet &rOptions) override;
 
     void            ConnectObject( const SdrOle2Obj* pObj );
     void            ActivateObject( SdrOle2Obj* pObj, long nVerb );
@@ -332,8 +333,8 @@ public:
 
     void            UpdateOleZoom();
 
-    virtual const FmFormShell* GetFormShell() const override { return pFormShell; }
-    virtual       FmFormShell* GetFormShell()       override { return pFormShell; }
+    virtual const FmFormShell* GetFormShell() const override { return pFormShell.get(); }
+    virtual       FmFormShell* GetFormShell()       override { return pFormShell.get(); }
 
     void    InsertURL( const OUString& rName, const OUString& rURL, const OUString& rTarget,
                             sal_uInt16 nMode );
@@ -387,10 +388,11 @@ public:
     /// See SfxViewShell::NotifyCursor().
     void NotifyCursor(SfxViewShell* pViewShell) const override;
     /// Emits a LOK_CALLBACK_INVALIDATE_HEADER for all views whose current tab is equal to nCurrentTabIndex
-    static void notifyAllViewsHeaderInvalidation(HeaderType eHeaderType, SCTAB nCurrentTabIndex = -1);
-    static void notifyAllViewsHeaderInvalidation(bool Columns, SCTAB nCurrentTabIndex = -1);
+    static void notifyAllViewsHeaderInvalidation(HeaderType eHeaderType, SCTAB nCurrentTabIndex);
+    static void notifyAllViewsHeaderInvalidation(bool Columns, SCTAB nCurrentTabIndex);
     static bool isAnyEditViewInRange(bool bColumns, SCCOLROW nStart, SCCOLROW nEnd);
     css::uno::Reference<css::drawing::XShapes> getSelectedXShapes();
+    static  css::uno::Reference<css::datatransfer::XTransferable2> GetClipData(vcl::Window* pWin);
 };
 
 #endif

@@ -18,9 +18,7 @@
  */
 #include <sfx2/sidebar/ControlFactory.hxx>
 #include "LinePropertyPanel.hxx"
-#include <svx/strings.hrc>
 #include <svx/svxids.hrc>
-#include <svx/dialmgr.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
@@ -190,6 +188,7 @@ void LinePropertyPanel::HandleContextChange(
     {
         case CombinedEnumContext(Application::Calc, Context::DrawLine):
         case CombinedEnumContext(Application::DrawImpress, Context::DrawLine):
+        case CombinedEnumContext(Application::DrawImpress, Context::Draw):
         case CombinedEnumContext(Application::WriterVariants, Context::Draw):
             // TODO : Implement DrawLine context in Writer
             bShowArrows = true;

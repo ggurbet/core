@@ -24,6 +24,7 @@
 
 #include "fontinstance.hxx"
 #include "PhysicalFontFamily.hxx"
+#include <array>
 
 #define MAX_GLYPHFALLBACK 16
 
@@ -55,6 +56,7 @@ public:
 
     // suggest fonts for glyph fallback
     PhysicalFontFamily*     GetGlyphFallbackFont( FontSelectPattern&,
+                                                  LogicalFontInstance* pLogicalFont,
                                                   OUString& rMissingCodes, int nFallbackLevel ) const;
 
     // prepare platform specific font substitutions
@@ -62,20 +64,20 @@ public:
     void                    SetFallbackHook( ImplGlyphFallbackFontSubstitution* );
 
     // misc utilities
-    PhysicalFontCollection* Clone() const;
-    ImplDeviceFontList*     GetDeviceFontList() const;
-    ImplDeviceFontSizeList* GetDeviceFontSizeList( const OUString& rFontName ) const;
+    std::shared_ptr<PhysicalFontCollection> Clone() const;
+    std::unique_ptr<ImplDeviceFontList> GetDeviceFontList() const;
+    std::unique_ptr<ImplDeviceFontSizeList> GetDeviceFontSizeList( const OUString& rFontName ) const;
 
 private:
     mutable bool            mbMatchData;    // true if matching attributes are initialized
 
-    typedef std::unordered_map<OUString, PhysicalFontFamily*> PhysicalFontFamilies;
+    typedef std::unordered_map<OUString, std::unique_ptr<PhysicalFontFamily>> PhysicalFontFamilies;
     PhysicalFontFamilies    maPhysicalFontFamilies;
 
     ImplPreMatchFontSubstitution* mpPreMatchHook;       // device specific prematch substitution
     ImplGlyphFallbackFontSubstitution* mpFallbackHook;  // device specific glyph fallback substitution
 
-    mutable PhysicalFontFamily**  mpFallbackList;
+    mutable std::unique_ptr<std::array<PhysicalFontFamily*,MAX_GLYPHFALLBACK>>  mpFallbackList;
     mutable int             mnFallbackCount;
 
     void                    ImplInitMatchData() const;

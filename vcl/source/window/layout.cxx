@@ -21,6 +21,7 @@
 #include <boost/multi_array.hpp>
 #include <officecfg/Office/Common.hxx>
 #include <vcl/abstdlg.hxx>
+#include <sal/log.hxx>
 
 #include <svdata.hxx>
 #include <strings.hrc>
@@ -1926,6 +1927,8 @@ void VclScrolledWindow::setAllocation(const Size &rAllocation)
     {
         m_pVScroll->Show(nAvailHeight < aChildReq.Height());
     }
+    else if (m_pVScroll->IsVisible() != bool(GetStyle() & WB_VSCROLL))
+        m_pVScroll->Show((GetStyle() & WB_VSCROLL) != 0);
 
     if (m_pVScroll->IsVisible())
         nAvailWidth -= getLayoutRequisition(*m_pVScroll).Width();
@@ -1942,6 +1945,8 @@ void VclScrolledWindow::setAllocation(const Size &rAllocation)
         if (GetStyle() & WB_AUTOVSCROLL)
             m_pVScroll->Show(nAvailHeight < aChildReq.Height());
     }
+    else if (m_pHScroll->IsVisible() != bool(GetStyle() & WB_HSCROLL))
+        m_pHScroll->Show((GetStyle() & WB_HSCROLL) != 0);
 
     Size aInnerSize(rAllocation);
     aInnerSize.AdjustWidth(-2);
@@ -2041,7 +2046,13 @@ void VclViewport::setAllocation(const Size &rAllocation)
         Size aReq(getLayoutRequisition(*pChild));
         aReq.setWidth( std::max(aReq.Width(), rAllocation.Width()) );
         aReq.setHeight( std::max(aReq.Height(), rAllocation.Height()) );
-        setLayoutAllocation(*pChild, Point(0, 0), aReq);
+        Point aKeepPos(pChild->GetPosPixel());
+        if (m_bInitialAllocation)
+        {
+            aKeepPos = Point(0, 0);
+            m_bInitialAllocation = false;
+        }
+        setLayoutAllocation(*pChild, aKeepPos, aReq);
     }
 }
 
@@ -2314,19 +2325,6 @@ MessageDialog::MessageDialog(vcl::Window* pParent, WinBits nStyle)
     SetType(WindowType::MESSBOX);
 }
 
-MessageDialog::MessageDialog(vcl::Window* pParent, const OString& rID, const OUString& rUIXMLDescription)
-    : Dialog(pParent, OStringToOUString(rID, RTL_TEXTENCODING_UTF8), rUIXMLDescription, WindowType::MESSBOX)
-    , m_eButtonsType(VclButtonsType::NONE)
-    , m_eMessageType(VclMessageType::Info)
-    , m_pOwnedContentArea(nullptr)
-    , m_pOwnedActionArea(nullptr)
-    , m_pGrid(nullptr)
-    , m_pImage(nullptr)
-    , m_pPrimaryMessage(nullptr)
-    , m_pSecondaryMessage(nullptr)
-{
-}
-
 MessageDialog::MessageDialog(vcl::Window* pParent,
     const OUString &rMessage,
     VclMessageType eMessageType,
@@ -2344,6 +2342,22 @@ MessageDialog::MessageDialog(vcl::Window* pParent,
     SetType(WindowType::MESSBOX);
     create_owned_areas();
     create_message_area();
+
+    switch (m_eMessageType)
+    {
+        case VclMessageType::Info:
+            SetText(GetStandardInfoBoxText());
+            break;
+        case VclMessageType::Warning:
+            SetText(GetStandardWarningBoxText());
+            break;
+        case VclMessageType::Question:
+            SetText(GetStandardQueryBoxText());
+            break;
+        case VclMessageType::Error:
+            SetText(GetStandardErrorBoxText());
+            break;
+    }
 }
 
 void MessageDialog::dispose()

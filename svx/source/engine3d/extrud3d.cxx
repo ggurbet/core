@@ -19,7 +19,7 @@
 
 
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/globl3d.hxx>
 #include <svx/extrud3d.hxx>
@@ -36,17 +36,18 @@
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/polygon/b3dpolygontools.hxx>
 #include <basegfx/polygon/b3dpolypolygontools.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 // DrawContact section
-sdr::contact::ViewContact* E3dExtrudeObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> E3dExtrudeObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfE3dExtrude(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfE3dExtrude>(*this);
 }
 
-sdr::properties::BaseProperties* E3dExtrudeObj::CreateObjectSpecificProperties()
+std::unique_ptr<sdr::properties::BaseProperties> E3dExtrudeObj::CreateObjectSpecificProperties()
 {
-    return new sdr::properties::E3dExtrudeProperties(*this);
+    return o3tl::make_unique<sdr::properties::E3dExtrudeProperties>(*this);
 }
 
 // Constructor creates a two cover surface tools::PolyPolygon and (point-count 1) side
@@ -80,6 +81,10 @@ E3dExtrudeObj::E3dExtrudeObj(SdrModel& rSdrModel)
     SetDefaultAttributes(aDefault);
 }
 
+E3dExtrudeObj::~E3dExtrudeObj()
+{
+}
+
 void E3dExtrudeObj::SetDefaultAttributes(const E3dDefaultAttributes& rDefault)
 {
     GetProperties().SetObjectItemDirect(Svx3DSmoothNormalsItem(rDefault.GetDefaultExtrudeSmoothed()));
@@ -98,9 +103,9 @@ sal_uInt16 E3dExtrudeObj::GetObjIdentifier() const
     return E3D_EXTRUDEOBJ_ID;
 }
 
-E3dExtrudeObj* E3dExtrudeObj::Clone(SdrModel* pTargetModel) const
+E3dExtrudeObj* E3dExtrudeObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< E3dExtrudeObj >(pTargetModel);
+    return CloneHelper< E3dExtrudeObj >(rTargetModel);
 }
 
 E3dExtrudeObj& E3dExtrudeObj::operator=(const E3dExtrudeObj& rObj)
@@ -129,7 +134,7 @@ void E3dExtrudeObj::SetExtrudePolygon(const basegfx::B2DPolyPolygon &rNew)
 
 OUString E3dExtrudeObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulExtrude3d));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulExtrude3d));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -146,7 +151,7 @@ OUString E3dExtrudeObj::TakeObjNameSingul() const
 
 OUString E3dExtrudeObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralExtrude3d);
+    return SvxResId(STR_ObjNamePluralExtrude3d);
 }
 
 bool E3dExtrudeObj::IsBreakObjPossible()

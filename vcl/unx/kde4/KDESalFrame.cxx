@@ -41,6 +41,7 @@
 
 #include <vcl/font.hxx>
 #include <vcl/settings.hxx>
+#include <sal/log.hxx>
 
 #include <unx/fontmanager.hxx>
 
@@ -258,6 +259,7 @@ void KDESalFrame::UpdateSettings( AllSettings& rSettings )
     // Buttons
     style.SetButtonTextColor( aButn );
     style.SetButtonRolloverTextColor( aButn );
+    style.SetButtonPressedRolloverTextColor( aButn );
 
     // Tabs
     style.SetTabTextColor( aButn );

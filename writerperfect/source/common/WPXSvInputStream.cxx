@@ -15,6 +15,7 @@
 #include <comphelper/seekableinput.hxx>
 
 #include <rtl/string.hxx>
+#include <sal/log.hxx>
 
 #include <sot/storage.hxx>
 
@@ -144,7 +145,7 @@ struct OLEStorageImpl
 {
     OLEStorageImpl();
 
-    void initialize(SvStream* pStream);
+    void initialize(std::unique_ptr<SvStream> pStream);
 
     tools::SvRef<SotStorageStream> getStream(const rtl::OUString& rPath);
     tools::SvRef<SotStorageStream> const& getStream(std::size_t nId);
@@ -178,12 +179,12 @@ OLEStorageImpl::OLEStorageImpl()
 {
 }
 
-void OLEStorageImpl::initialize(SvStream* const pStream)
+void OLEStorageImpl::initialize(std::unique_ptr<SvStream> pStream)
 {
     if (!pStream)
         return;
 
-    mxRootStorage.ref = new SotStorage(pStream, true);
+    mxRootStorage.ref = new SotStorage(pStream.release(), true);
 
     traverse(mxRootStorage.ref, "");
 

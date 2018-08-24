@@ -24,6 +24,7 @@
 #include <global.hxx>
 #include <subtotal.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <dpitemdata.hxx>
 #include <generalfunction.hxx>
 
@@ -34,6 +35,7 @@
 #include <osl/diagnose.h>
 #include <rtl/math.hxx>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 
 #include <math.h>
 #include <float.h>
@@ -757,7 +759,6 @@ ScDPResultData::ScDPResultData( ScDPSource& rSrc ) :
 
 ScDPResultData::~ScDPResultData()
 {
-    std::for_each(maDimMembers.begin(), maDimMembers.end(), std::default_delete<ResultMembers>());
 }
 
 void ScDPResultData::SetMeasureData(
@@ -780,7 +781,7 @@ void ScDPResultData::SetMeasureData(
 
     maMeasureNames.swap(rNames);
     if (maMeasureNames.empty())
-        maMeasureNames.push_back(ScGlobal::GetRscString(STR_EMPTYDATA));
+        maMeasureNames.push_back(ScResId(STR_EMPTYDATA));
 }
 
 void ScDPResultData::SetDataLayoutOrientation( sheet::DataPilotFieldOrientation nOrient )
@@ -839,10 +840,10 @@ OUString ScDPResultData::GetMeasureString(long nMeasure, bool bForce, ScSubTotal
         //  display only function name
         assert(unsigned(eForceFunc) < SAL_N_ELEMENTS(aFuncStrIds));
         if ( eForceFunc != SUBTOTAL_FUNC_NONE )
-            return ScGlobal::GetRscString(aFuncStrIds[eForceFunc]);
+            return ScResId(aFuncStrIds[eForceFunc]);
 
         rbTotalResult = true;
-        return ScGlobal::GetRscString(STR_TABLE_ERGEBNIS);
+        return ScResId(STR_TABLE_ERGEBNIS);
     }
     else
     {
@@ -908,15 +909,15 @@ bool ScDPResultData::HasCommonElement( SCROW nFirstDataId, long nFirstIndex,
         return false;
 }
 
-ResultMembers* ScDPResultData::GetDimResultMembers(long nDim, const ScDPDimension* pDim, ScDPLevel* pLevel) const
+ResultMembers& ScDPResultData::GetDimResultMembers(long nDim, const ScDPDimension* pDim, ScDPLevel* pLevel) const
 {
     if (nDim < static_cast<long>(maDimMembers.size()) && maDimMembers[nDim])
-        return maDimMembers[nDim];
+        return *maDimMembers[nDim];
 
     if (nDim >= static_cast<long>(maDimMembers.size()))
-        maDimMembers.resize(nDim+1, nullptr);
+        maDimMembers.resize(nDim+1);
 
-    ResultMembers* pResultMembers = new ResultMembers();
+    std::unique_ptr<ResultMembers> pResultMembers(new ResultMembers());
     // global order is used to initialize aMembers, so it doesn't have to be looked at later
     const ScMemberSortOrder& rGlobalOrder = pLevel->GetGlobalOrder();
 
@@ -933,8 +934,8 @@ ResultMembers* ScDPResultData::GetDimResultMembers(long nDim, const ScDPDimensio
         }
     }
 
-    maDimMembers[nDim] = pResultMembers;
-    return maDimMembers[nDim];
+    maDimMembers[nDim] = std::move(pResultMembers);
+    return *maDimMembers[nDim];
 }
 
 ScDPResultMember::ScDPResultMember(
@@ -976,7 +977,7 @@ OUString ScDPResultMember::GetName() const
     if (pMemberDesc)
         return pMemberDesc->GetNameStr( false );
     else
-        return ScGlobal::GetRscString(STR_PIVOT_TOTAL);         // root member
+        return ScResId(STR_PIVOT_TOTAL);         // root member
 }
 
 OUString ScDPResultMember::GetDisplayName( bool bLocaleIndependent ) const
@@ -1000,7 +1001,7 @@ ScDPItemData ScDPResultMember::FillItemData() const
     const ScDPMember* pMemberDesc = GetDPMember();
     if (pMemberDesc)
         return pMemberDesc->FillItemData();
-    return ScDPItemData(ScGlobal::GetRscString(STR_PIVOT_TOTAL));     // root member
+    return ScDPItemData(ScResId(STR_PIVOT_TOTAL));     // root member
 }
 
 bool ScDPResultMember::IsNamedItem( SCROW nIndex ) const
@@ -1387,7 +1388,7 @@ void ScDPResultMember::FillMemberResults(
     if ( pMemberCaption )                   // use pMemberCaption if != NULL
         aCaption = *pMemberCaption;
     if (aCaption.isEmpty())
-        aCaption = ScGlobal::GetRscString(STR_EMPTYDATA);
+        aCaption = ScResId(STR_EMPTYDATA);
 
     if (bIsNumeric)
         pArray[rPos].Flags |= sheet::MemberResultFlags::NUMERIC;
@@ -2735,7 +2736,7 @@ bool ScDPGroupCompare::TestIncluded( const ScDPMember& rMember )
         {
             if (pResultData->GetGroupBase(it->mnSrcIndex) == nGroupBase)
             {
-                // coverity[copy_paste_error] - same base (hierarchy between
+                // coverity[copy_paste_error : FALSE] - same base (hierarchy between
                 // the two groups is irrelevant)
                 bInclude = pResultData->HasCommonElement(
                     it->mnNameIndex, it->mnSrcIndex, aMemberData, nDimSource);
@@ -2901,12 +2902,12 @@ void ScDPResultDimension::LateInitFrom(
 
     if ( !bLateInitAllMembers )
     {
-        ResultMembers* pMembers = pResultData->GetDimResultMembers(nDimSource, pThisDim, pThisLevel);
-        bLateInitAllMembers = pMembers->IsHasHideDetailsMembers();
+        ResultMembers& rMembers = pResultData->GetDimResultMembers(nDimSource, pThisDim, pThisLevel);
+        bLateInitAllMembers = rMembers.IsHasHideDetailsMembers();
 
-        SAL_INFO("sc.core", aDimensionName << (pMembers->IsHasHideDetailsMembers() ? " HasHideDetailsMembers" : ""));
+        SAL_INFO("sc.core", aDimensionName << (rMembers.IsHasHideDetailsMembers() ? " HasHideDetailsMembers" : ""));
 
-        pMembers->SetHasHideDetailsMembers( false );
+        rMembers.SetHasHideDetailsMembers( false );
     }
 
     bool bNewAllMembers = (!rParams.IsRow()) ||  nPos == 0 || bLateInitAllMembers;
@@ -3534,7 +3535,6 @@ ScDPDataDimension::ScDPDataDimension( const ScDPResultData* pData ) :
 
 ScDPDataDimension::~ScDPDataDimension()
 {
-    std::for_each(maMembers.begin(), maMembers.end(), std::default_delete<ScDPDataMember>());
 }
 
 void ScDPDataDimension::InitFrom( const ScDPResultDimension* pDim )
@@ -3553,7 +3553,7 @@ void ScDPDataDimension::InitFrom( const ScDPResultDimension* pDim )
         const ScDPResultMember* pResMem = pDim->GetMember(i);
 
         ScDPDataMember* pNew = new ScDPDataMember( pResultData, pResMem );
-        maMembers.push_back( pNew);
+        maMembers.emplace_back( pNew);
 
         if ( !pResultData->IsLateInit() )
         {
@@ -3575,7 +3575,7 @@ void ScDPDataDimension::ProcessData( const vector< SCROW >& aDataMembers, const 
     long nCount = maMembers.size();
     for (long i=0; i<nCount; i++)
     {
-        ScDPDataMember* pMember = maMembers[static_cast<sal_uInt16>(i)];
+        ScDPDataMember* pMember = maMembers[static_cast<sal_uInt16>(i)].get();
 
         // always first member for data layout dim
         if ( bIsDataLayout || ( !aDataMembers.empty() && pMember->IsNamedItem(aDataMembers[0]) ) )
@@ -3633,7 +3633,7 @@ void ScDPDataDimension::FillDataRow(
         const ScDPResultMember* pRefMember = pRefDim->GetMember(nMemberPos);
         if ( pRefMember->IsVisible() )  //TODO: here or in ScDPDataMember::FillDataRow ???
         {
-            const ScDPDataMember* pDataMember = maMembers[static_cast<sal_uInt16>(nMemberPos)];
+            const ScDPDataMember* pDataMember = maMembers[static_cast<sal_uInt16>(nMemberPos)].get();
             pDataMember->FillDataRow(pRefMember, rFilterCxt, rSequence, nMemberMeasure, bIsSubTotalRow, rSubState);
         }
     }
@@ -3661,7 +3661,7 @@ void ScDPDataDimension::UpdateDataRow( const ScDPResultDimension* pRefDim,
 
         // Calculate must be called even if the member is not visible (for use as reference value)
         const ScDPResultMember* pRefMember = pRefDim->GetMember(nMemberPos);
-        ScDPDataMember* pDataMember = maMembers[static_cast<sal_uInt16>(nMemberPos)];
+        ScDPDataMember* pDataMember = maMembers[static_cast<sal_uInt16>(nMemberPos)].get();
         pDataMember->UpdateDataRow( pRefMember, nMemberMeasure, bIsSubTotalRow, rSubState );
     }
 }
@@ -3696,7 +3696,7 @@ void ScDPDataDimension::SortMembers( ScDPResultDimension* pRefDim )
         ScDPResultMember* pRefMember = pRefDim->GetMember(i);
         if ( pRefMember->IsVisible() )  //TODO: here or in ScDPDataMember ???
         {
-            ScDPDataMember* pDataMember = maMembers[static_cast<sal_uInt16>(i)];
+            ScDPDataMember* pDataMember = maMembers[static_cast<sal_uInt16>(i)].get();
             pDataMember->SortMembers( pRefMember );
         }
     }
@@ -3718,7 +3718,7 @@ void ScDPDataDimension::DoAutoShow( ScDPResultDimension* pRefDim )
         ScDPResultMember* pRefMember = pRefDim->GetMember(i);
         if ( pRefMember->IsVisible() )  //TODO: here or in ScDPDataMember ???
         {
-            ScDPDataMember* pDataMember = maMembers[i];
+            ScDPDataMember* pDataMember = maMembers[i].get();
             pDataMember->DoAutoShow( pRefMember );
         }
     }
@@ -3739,7 +3739,7 @@ void ScDPDataDimension::DoAutoShow( ScDPResultDimension* pRefDim )
         // look for equal values to the last included one
 
         long nIncluded = pRefDim->GetAutoCount();
-        ScDPDataMember* pDataMember1 = maMembers[aAutoOrder[nIncluded - 1]];
+        ScDPDataMember* pDataMember1 = maMembers[aAutoOrder[nIncluded - 1]].get();
         if ( !pDataMember1->IsVisible() )
             pDataMember1 = nullptr;
         bool bContinue = true;
@@ -3748,7 +3748,7 @@ void ScDPDataDimension::DoAutoShow( ScDPResultDimension* pRefDim )
             bContinue = false;
             if ( nIncluded < nCount )
             {
-                ScDPDataMember* pDataMember2 = maMembers[aAutoOrder[nIncluded]];
+                ScDPDataMember* pDataMember2 = maMembers[aAutoOrder[nIncluded]].get();
                 if ( !pDataMember2->IsVisible() )
                     pDataMember2 = nullptr;
 
@@ -3778,7 +3778,7 @@ void ScDPDataDimension::ResetResults()
         //  sort order doesn't matter
 
         long nMemberPos = bIsDataLayout ? 0 : i;
-        ScDPDataMember* pDataMember = maMembers[nMemberPos];
+        ScDPDataMember* pDataMember = maMembers[nMemberPos].get();
         pDataMember->ResetResults();
     }
 }
@@ -3824,7 +3824,7 @@ void ScDPDataDimension::UpdateRunningTotals( const ScDPResultDimension* pRefDim,
             else
                 rRunning.AddColIndex( i, nSorted );
 
-            ScDPDataMember* pDataMember = maMembers[nMemberPos];
+            ScDPDataMember* pDataMember = maMembers[nMemberPos].get();
             pDataMember->UpdateRunningTotals(
                 pRefMember, nMemberMeasure, bIsSubTotalRow, rSubState, rRunning, rTotals, rRowParent);
 
@@ -3845,7 +3845,7 @@ void ScDPDataDimension::DumpState( const ScDPResultDimension* pRefDim, ScDocumen
     for (long i=0; i<nCount; i++)
     {
         const ScDPResultMember* pRefMember = pRefDim->GetMember(i);
-        const ScDPDataMember* pDataMember = maMembers[i];
+        const ScDPDataMember* pDataMember = maMembers[i].get();
         pDataMember->DumpState( pRefMember, pDoc, rPos );
     }
 
@@ -3857,7 +3857,7 @@ void ScDPDataDimension::Dump(int nIndent) const
     std::string aIndent(nIndent*2, ' ');
     std::cout << aIndent << "-- data dimension '"
         << (pResultDimension ? pResultDimension->GetName() : OUString()) << "'" << std::endl;
-    ScDPDataMembers::const_iterator it = maMembers.begin(), itEnd = maMembers.end();
+    auto it = maMembers.begin(), itEnd = maMembers.end();
     for (; it != itEnd; ++it)
         (*it)->Dump(nIndent+1);
 }
@@ -3870,12 +3870,12 @@ long ScDPDataDimension::GetMemberCount() const
 
 const ScDPDataMember* ScDPDataDimension::GetMember(long n) const
 {
-    return maMembers[n];
+    return maMembers[n].get();
 }
 
 ScDPDataMember* ScDPDataDimension::GetMember(long n)
 {
-    return maMembers[n];
+    return maMembers[n].get();
 }
 
 ScDPResultVisibilityData::ScDPResultVisibilityData(
@@ -4010,7 +4010,7 @@ void ScDPResultDimension::InitWithMembers(
         long nDimSource = pThisDim->GetDimension();     //TODO: check GetSourceDim?
 
         //  create all members at the first call (preserve order)
-        ResultMembers* pMembers = pResultData->GetDimResultMembers(nDimSource, pThisDim, pThisLevel);
+        ResultMembers& rMembers = pResultData->GetDimResultMembers(nDimSource, pThisDim, pThisLevel);
         ScDPGroupCompare aCompare( pResultData, rInitState, nDimSource );
         //  initialize only specific member (or all if "show empty" flag is set)
         ScDPResultMember* pResultMember = nullptr;
@@ -4021,7 +4021,7 @@ void ScDPResultDimension::InitWithMembers(
 
         if ( pResultMember == nullptr )
         { //only insert found item
-            ScDPParentDimData* pMemberData = pMembers->FindMember( nDataID );
+            ScDPParentDimData* pMemberData = rMembers.FindMember( nDataID );
             if ( pMemberData && aCompare.IsIncluded( *( pMemberData->mpMemberDesc ) ) )
                 pResultMember = InsertMember( pMemberData );
         }

@@ -19,26 +19,25 @@
 #ifndef INCLUDED_SVX_SWFRAMEEXAMPLE_HXX
 #define INCLUDED_SVX_SWFRAMEEXAMPLE_HXX
 
-#include <vcl/window.hxx>
 #include <tools/color.hxx>
 #include <tools/gen.hxx>
 #include <svx/svxdllapi.h>
 #include <svx/swframetypes.hxx>
+#include <vcl/customweld.hxx>
+#include <vcl/window.hxx>
 #include <com/sun/star/text/WrapTextMode.hpp>
-
-// class SwFrmPagePreview -------------------------------------------------------
 
 class SVX_DLLPUBLIC SvxSwFrameExample : public vcl::Window
 {
-    Color       m_aTransColor;      // transparency
-    Color       m_aBgCol;           // background
-    Color       m_aFrameColor;      // graphic frame
-    Color       m_aAlignColor;      // align anchor
-    Color       m_aBorderCol;       // frame of doc
-    Color       m_aPrintAreaCol;    // frame of printable area of doc
-    Color       m_aTxtCol;          // symbolised text
-    Color       m_aBlankCol;        // area of symbol for blank
-    Color       m_aBlankFrameCol;   // frame of symbol for blank
+    Color       m_aTransColor;      ///< transparency
+    Color       m_aBgCol;           ///< background
+    Color       m_aFrameColor;      ///< graphic frame
+    Color       m_aAlignColor;      ///< align anchor
+    Color       m_aBorderCol;       ///< frame of doc
+    Color       m_aPrintAreaCol;    ///< frame of printable area of doc
+    Color       m_aTxtCol;          ///< symbolised text
+    Color       m_aBlankCol;        ///< area of symbol for blank
+    Color       m_aBlankFrameCol;   ///< frame of symbol for blank
 
     tools::Rectangle   aPage;
     tools::Rectangle   aPagePrtArea;
@@ -88,6 +87,63 @@ public:
 
     void SetRelPos(const Point& rP);
 };
+
+class SVX_DLLPUBLIC SwFrameExample : public weld::CustomWidgetController
+{
+    Color       m_aTransColor;      ///< transparency
+    Color       m_aBgCol;           ///< background
+    Color       m_aFrameColor;      ///< graphic frame
+    Color       m_aAlignColor;      ///< align anchor
+    Color       m_aBorderCol;       ///< frame of doc
+    Color       m_aPrintAreaCol;    ///< frame of printable area of doc
+    Color       m_aTxtCol;          ///< symbolised text
+    Color       m_aBlankCol;        ///< area of symbol for blank
+    Color       m_aBlankFrameCol;   ///< frame of symbol for blank
+
+    tools::Rectangle   aPage;
+    tools::Rectangle   aPagePrtArea;
+    tools::Rectangle   aTextLine;
+    tools::Rectangle   aPara;
+    tools::Rectangle   aParaPrtArea;
+    tools::Rectangle   aFrameAtFrame;
+    tools::Rectangle   aDrawObj;
+    tools::Rectangle   aAutoCharFrame;
+    Size        aFrmSize;
+
+    short       nHAlign;
+    short       nHRel;
+
+    short       nVAlign;
+    short       nVRel;
+
+    RndStdIds   nAnchor;
+
+    Point       aRelPos;
+
+    void InitColors_Impl();
+    void InitAllRects_Impl(vcl::RenderContext& rRenderContext);
+    void CalcBoundRect_Impl(vcl::RenderContext& rRenderContext, tools::Rectangle &rRect);
+    tools::Rectangle DrawInnerFrame_Impl(vcl::RenderContext& rRenderContext, const tools::Rectangle &rRect, const Color &rFillColor, const Color &rBorderColor);
+
+    virtual void StyleUpdated() override;
+    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
+public:
+
+    SwFrameExample();
+
+    virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
+
+    void SetHAlign(short nH)          { nHAlign   = nH; }
+    void SetHoriRel(short nR)         { nHRel     = nR; }
+
+    void SetVAlign(short nV)          { nVAlign   = nV; }
+    void SetVertRel(short nR)         { nVRel     = nR; }
+
+    void SetAnchor(RndStdIds nA) { nAnchor   = nA; }
+
+    void SetRelPos(const Point& rP);
+};
+
 
 
 #endif // INCLUDED_SVX_SWFRAMEEXAMPLE_HXX

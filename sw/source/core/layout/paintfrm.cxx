@@ -91,9 +91,9 @@
 #include <drawinglayer/processor2d/processorfromoutputdevice.hxx>
 #include <svx/unoapi.hxx>
 #include <svx/framelinkarray.hxx>
-#include <comphelper/sequence.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/color/bcolortools.hxx>
+#include <sal/log.hxx>
 
 #include <memory>
 #include <vector>
@@ -1764,16 +1764,12 @@ bool DrawFillAttributes(
                     nullptr,
                     0.0,
                     uno::Sequence< beans::PropertyValue >());
-                drawinglayer::processor2d::BaseProcessor2D* pProcessor = drawinglayer::processor2d::createProcessor2DFromOutputDevice(
+                std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor(drawinglayer::processor2d::createProcessor2DFromOutputDevice(
                     rOut,
-                    aViewInformation2D);
-
+                    aViewInformation2D) );
                 if(pProcessor)
                 {
                     pProcessor->process(*pPrimitives);
-
-                    delete pProcessor;
-
                     return true;
                 }
             }
@@ -2308,8 +2304,8 @@ class SwTabFramePainter
     const SwTabFrame& mrTabFrame;
 
     void Insert( SwLineEntry&, bool bHori );
-    void Insert( const SwFrame& rFrame, const SvxBoxItem& rBoxItem );
-    void HandleFrame( const SwLayoutFrame& rFrame );
+    void Insert(const SwFrame& rFrame, const SvxBoxItem& rBoxItem, const SwRect &rPaintArea);
+    void HandleFrame(const SwLayoutFrame& rFrame, const SwRect& rPaintArea);
     void FindStylesForLine( const Point&,
                             const Point&,
                             svx::frame::Style*,
@@ -2324,10 +2320,11 @@ public:
 SwTabFramePainter::SwTabFramePainter( const SwTabFrame& rTabFrame )
     : mrTabFrame( rTabFrame )
 {
-    HandleFrame( rTabFrame );
+    SwRect aPaintArea = rTabFrame.GetUpper()->GetPaintArea();
+    HandleFrame(rTabFrame, aPaintArea);
 }
 
-void SwTabFramePainter::HandleFrame( const SwLayoutFrame& rLayoutFrame )
+void SwTabFramePainter::HandleFrame(const SwLayoutFrame& rLayoutFrame, const SwRect& rPaintArea)
 {
     // Add border lines of cell frames. Skip covered cells. Skip cells
     // in special row span row, which do not have a negative row span:
@@ -2341,7 +2338,7 @@ void SwTabFramePainter::HandleFrame( const SwLayoutFrame& rLayoutFrame )
             SwBorderAttrAccess aAccess( SwFrame::GetCache(), &rLayoutFrame );
             const SwBorderAttrs& rAttrs = *aAccess.Get();
             const SvxBoxItem& rBox = rAttrs.GetBox();
-            Insert( rLayoutFrame, rBox );
+            Insert(rLayoutFrame, rBox, rPaintArea);
         }
     }
 
@@ -2351,7 +2348,7 @@ void SwTabFramePainter::HandleFrame( const SwLayoutFrame& rLayoutFrame )
     {
         const SwLayoutFrame* pLowerLayFrame = dynamic_cast<const SwLayoutFrame*>(pLower);
         if ( pLowerLayFrame && !pLowerLayFrame->IsTabFrame() )
-            HandleFrame( *pLowerLayFrame );
+            HandleFrame(*pLowerLayFrame, rPaintArea);
 
         pLower = pLower->GetNext();
     }
@@ -2725,15 +2722,12 @@ static bool lcl_IsFirstRowInFollowTableWithoutRepeatedHeadlines(
         && rBoxItem.GetBottom());
 }
 
-void SwTabFramePainter::Insert( const SwFrame& rFrame, const SvxBoxItem& rBoxItem )
+void SwTabFramePainter::Insert(const SwFrame& rFrame, const SvxBoxItem& rBoxItem, const SwRect& rPaintArea)
 {
     // build 4 line entries for the 4 borders:
     SwRect aBorderRect = rFrame.getFrameArea();
-    if ( rFrame.IsTabFrame() )
-    {
-        aBorderRect = rFrame.getFramePrintArea();
-        aBorderRect.Pos() += rFrame.getFrameArea().Pos();
-    }
+
+    aBorderRect.Intersection(rPaintArea);
 
     bool const bBottomAsTop(lcl_IsFirstRowInFollowTableWithoutRepeatedHeadlines(
                 mrTabFrame, rFrame, rBoxItem));
@@ -4962,7 +4956,7 @@ static const SwFrame* lcl_GetCellFrameForBorderAttrs( const SwFrame*         _pC
     return pRet;
 }
 
-drawinglayer::processor2d::BaseProcessor2D * SwFrame::CreateProcessor2D( ) const
+std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> SwFrame::CreateProcessor2D( ) const
 {
     basegfx::B2DRange aViewRange;
 
@@ -4982,12 +4976,10 @@ drawinglayer::processor2d::BaseProcessor2D * SwFrame::CreateProcessor2D( ) const
 
 void SwFrame::ProcessPrimitives( const drawinglayer::primitive2d::Primitive2DContainer& rSequence ) const
 {
-    drawinglayer::processor2d::BaseProcessor2D * pProcessor2D = CreateProcessor2D();
-
+    std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor2D = CreateProcessor2D();
     if ( pProcessor2D )
     {
         pProcessor2D->process( rSequence );
-        delete pProcessor2D;
     }
 }
 

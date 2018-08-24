@@ -54,7 +54,7 @@ struct MenuItemData
     Size            aSz;                    // only temporarily valid
     OUString        aAccessibleName;        // accessible name
 
-    SalMenuItem*    pSalMenuItem;           // access to native menu
+    std::unique_ptr<SalMenuItem> pSalMenuItem; // access to native menu
 
     MenuItemData()
         : nId(0)
@@ -68,10 +68,9 @@ struct MenuItemData
         , bVisible(false)
         , bIsTemporary(false)
         , bHiddenOnGUI(false)
-        , pSalMenuItem(nullptr)
     {
     }
-    MenuItemData( const OUString& rStr, const Image& rImage )
+    MenuItemData( const OUString& rStr )
         : nId(0)
         , eType(MenuItemType::DONTKNOW)
         , nBits(MenuItemBits::NONE)
@@ -79,13 +78,12 @@ struct MenuItemData
         , aText(rStr)
         , nUserValue(nullptr)
         , aUserValueReleaseFunc(nullptr)
-        , aImage(rImage)
+        , aImage()
         , bChecked(false)
         , bEnabled(false)
         , bVisible(false)
         , bIsTemporary(false)
         , bHiddenOnGUI(false)
-        , pSalMenuItem(nullptr)
     {
     }
     ~MenuItemData();
@@ -118,6 +116,7 @@ public:
     void            Clear();
 
     MenuItemData*   GetData( sal_uInt16 nSVId, size_t& rPos ) const;
+    MenuItemData*   GetDataFromSubMenu( sal_uInt16 nSVId ) const;
     MenuItemData*   GetData( sal_uInt16 nSVId ) const
                     {
                         size_t nTemp;

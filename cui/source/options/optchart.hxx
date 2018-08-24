@@ -40,8 +40,8 @@ private:
     VclPtr<PushButton>             m_pPBAdd;
     VclPtr<PushButton>             m_pPBRemove;
 
-    SvxChartOptions*        pChartOptions;
-    SvxChartColorTableItem* pColorConfig;
+    std::unique_ptr<SvxChartOptions>        pChartOptions;
+    std::unique_ptr<SvxChartColorTableItem> pColorConfig;
     XColorListRef           pColorList;
     ImpColorList            aColorList;
 
@@ -70,7 +70,7 @@ public:
 
     void    Construct();
 
-    static VclPtr<SfxTabPage>  Create( vcl::Window* pParent, const SfxItemSet* rInAttrs );
+    static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rInAttrs );
     virtual bool        FillItemSet( SfxItemSet* rOutAttrs ) override;
     virtual void        Reset( const SfxItemSet* rInAttrs ) override;
 };

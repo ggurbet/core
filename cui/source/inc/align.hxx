@@ -60,7 +60,7 @@ public:
     virtual             ~AlignmentTabPage() override;
     virtual void        dispose() override;
 
-    static VclPtr<SfxTabPage> Create( vcl::Window* pParent, const SfxItemSet* rAttrSet );
+    static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
     static const sal_uInt16*  GetRanges() { return s_pRanges; }
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
@@ -93,7 +93,7 @@ private:
     VclPtr<ValueSet>            m_pVsRefEdge;
     VclPtr<TriStateBox>         m_pCbStacked;
     VclPtr<TriStateBox>         m_pCbAsianMode;
-    OrientationHelper*   m_pOrientHlp;
+    std::unique_ptr<OrientationHelper> m_pOrientHlp;
 
     VclPtr<VclHBox>             m_pBoxDirection;
     VclPtr<TriStateBox>         m_pBtnWrap;

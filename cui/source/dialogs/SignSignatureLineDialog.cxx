@@ -10,15 +10,16 @@
 #include <SignSignatureLineDialog.hxx>
 
 #include <sal/types.h>
+#include <sal/log.hxx>
 
 #include <dialmgr.hxx>
 #include <strings.hrc>
 
 #include <comphelper/processfactory.hxx>
-#include <comphelper/xmltools.hxx>
 #include <tools/stream.hxx>
 #include <unotools/streamwrap.hxx>
 #include <vcl/weld.hxx>
+#include <sfx2/objsh.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
@@ -84,7 +85,7 @@ SignSignatureLineDialog::SignSignatureLineDialog(weld::Widget* pParent, Referenc
     m_xShapeProperties->getPropertyValue("SignatureLineSigningInstructions")
         >>= aSigningInstructions;
     m_xShapeProperties->getPropertyValue("SignatureLineShowSignDate") >>= m_bShowSignDate;
-    bool bCanAddComment;
+    bool bCanAddComment(false);
     m_xShapeProperties->getPropertyValue("SignatureLineCanAddComment") >>= bCanAddComment;
 
     if (aSigningInstructions.isEmpty())
@@ -117,7 +118,7 @@ IMPL_LINK_NOARG(SignSignatureLineDialog, chooseCertificate, weld::Button&, void)
     Reference<XDocumentDigitalSignatures> xSigner(DocumentDigitalSignatures::createWithVersion(
         comphelper::getProcessComponentContext(), "1.2"));
     OUString aDescription;
-    Reference<XCertificate> xSignCertificate = xSigner->chooseSigningCertificate(aDescription);
+    Reference<XCertificate> xSignCertificate = xSigner->selectSigningCertificate(aDescription);
 
     if (xSignCertificate.is())
     {
@@ -137,6 +138,22 @@ void SignSignatureLineDialog::ValidateFields()
 
 void SignSignatureLineDialog::Apply()
 {
+    if (!m_xSelectedCertifate.is())
+    {
+        SAL_WARN("cui.dialogs", "No certificate selected!");
+        return;
+    }
+
+    SfxObjectShell* pShell = SfxObjectShell::Current();
+    Reference<XGraphic> xValidGraphic = getSignedGraphic(true);
+    Reference<XGraphic> xInvalidGraphic = getSignedGraphic(false);
+    pShell->SignSignatureLine(m_xDialog.get(), m_aSignatureLineId, m_xSelectedCertifate,
+                              xValidGraphic, xInvalidGraphic, m_xEditComment->get_text());
+}
+
+const css::uno::Reference<css::graphic::XGraphic>
+SignSignatureLineDialog::getSignedGraphic(bool bValid)
+{
     // Read svg and replace placeholder texts
     OUString aSvgImage(getSignatureImage());
     aSvgImage = aSvgImage.replaceAll("[SIGNER_NAME]", getCDataString(m_aSuggestedSignerName));
@@ -146,10 +163,11 @@ void SignSignatureLineDialog::Apply()
     OUString aIssuerLine = CuiResId(RID_SVXSTR_SIGNATURELINE_SIGNED_BY)
                                .replaceFirst("%1", m_xSelectedCertifate->getIssuerName());
     aSvgImage = aSvgImage.replaceAll("[SIGNED_BY]", getCDataString(aIssuerLine));
-    aSvgImage = aSvgImage.replaceAll("[INVALID_SIGNATURE]", "");
+    if (bValid)
+        aSvgImage = aSvgImage.replaceAll("[INVALID_SIGNATURE]", "");
 
     OUString aDate;
-    if (m_bShowSignDate)
+    if (m_bShowSignDate && bValid)
     {
         const SvtSysLocale aSysLocale;
         const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
@@ -158,7 +176,7 @@ void SignSignatureLineDialog::Apply()
     }
     aSvgImage = aSvgImage.replaceAll("[DATE]", aDate);
 
-    // Insert/Update graphic
+    // Create graphic
     SvMemoryStream aSvgStream(4096, 4096);
     aSvgStream.WriteOString(OUStringToOString(aSvgImage, RTL_TEXTENCODING_UTF8));
     Reference<XInputStream> xInputStream(new utl::OSeekableInputStreamWrapper(aSvgStream));
@@ -168,9 +186,8 @@ void SignSignatureLineDialog::Apply()
     Sequence<PropertyValue> aMediaProperties(1);
     aMediaProperties[0].Name = "InputStream";
     aMediaProperties[0].Value <<= xInputStream;
-    Reference<XGraphic> xGraphic(xProvider->queryGraphic(aMediaProperties));
-
-    m_xShapeProperties->setPropertyValue("Graphic", Any(xGraphic));
+    Reference<XGraphic> xGraphic = xProvider->queryGraphic(aMediaProperties);
+    return xGraphic;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

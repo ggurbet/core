@@ -23,6 +23,7 @@
 
 #include <rtl/ustring.hxx>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
@@ -34,10 +35,11 @@
 #include <vcl/svapp.hxx>
 
 #include <svx/svdmodel.hxx>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/sdr/contact/viewcontactofsdrmediaobj.hxx>
 #include <avmedia/mediawindow.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 
@@ -88,9 +90,9 @@ bool SdrMediaObj::HasTextEdit() const
     return false;
 }
 
-sdr::contact::ViewContact* SdrMediaObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrMediaObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfSdrMediaObj( *this );
+    return o3tl::make_unique<sdr::contact::ViewContactOfSdrMediaObj>( *this );
 }
 
 void SdrMediaObj::TakeObjInfo( SdrObjTransformInfoRec& rInfo ) const
@@ -122,7 +124,7 @@ sal_uInt16 SdrMediaObj::GetObjIdentifier() const
 
 OUString SdrMediaObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulMEDIA));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulMEDIA));
 
     OUString aName(GetName());
 
@@ -139,12 +141,12 @@ OUString SdrMediaObj::TakeObjNameSingul() const
 
 OUString SdrMediaObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralMEDIA);
+    return SvxResId(STR_ObjNamePluralMEDIA);
 }
 
-SdrMediaObj* SdrMediaObj::Clone(SdrModel* pTargetModel) const
+SdrMediaObj* SdrMediaObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< SdrMediaObj >(pTargetModel);
+    return CloneHelper< SdrMediaObj >(rTargetModel);
 }
 
 SdrMediaObj& SdrMediaObj::operator=(const SdrMediaObj& rObj)

@@ -609,8 +609,8 @@ void XclExpChTrTabIdBuffer::Remove()
 XclExpChTrTabId::XclExpChTrTabId( const XclExpChTrTabIdBuffer& rBuffer )
     : nTabCount( rBuffer.GetBufferCount() )
 {
-    pBuffer = new sal_uInt16[ nTabCount ];
-    rBuffer.GetBufferCopy( pBuffer );
+    pBuffer.reset( new sal_uInt16[ nTabCount ] );
+    rBuffer.GetBufferCopy( pBuffer.get() );
 }
 
 XclExpChTrTabId::~XclExpChTrTabId()
@@ -622,16 +622,15 @@ void XclExpChTrTabId::Copy( const XclExpChTrTabIdBuffer& rBuffer )
 {
     Clear();
     nTabCount = rBuffer.GetBufferCount();
-    pBuffer = new sal_uInt16[ nTabCount ];
-    rBuffer.GetBufferCopy( pBuffer );
+    pBuffer.reset( new sal_uInt16[ nTabCount ] );
+    rBuffer.GetBufferCopy( pBuffer.get() );
 }
 
 void XclExpChTrTabId::SaveCont( XclExpStream& rStrm )
 {
     rStrm.EnableEncryption();
     if( pBuffer )
-        for( sal_uInt16* pElem = pBuffer; pElem < (pBuffer + nTabCount); pElem++ )
-            rStrm << *pElem;
+        rStrm.Write(pBuffer.get(), nTabCount);
     else
         for( sal_uInt16 nIndex = 1; nIndex <= nTabCount; nIndex++ )
             rStrm << nIndex;
@@ -764,7 +763,7 @@ XclExpChTrData::~XclExpChTrData()
 
 void XclExpChTrData::Clear()
 {
-    DELETEZ( pString );
+    pString.reset();
     mpFormulaCell = nullptr;
     mxTokArr.reset();
     maRefLog.clear();
@@ -839,21 +838,21 @@ XclExpChTrCellContent::XclExpChTrCellContent(
 
 XclExpChTrCellContent::~XclExpChTrCellContent()
 {
-    delete pOldData;
-    delete pNewData;
+    pOldData.reset();
+    pNewData.reset();
 }
 
-void XclExpChTrCellContent::MakeEmptyChTrData( XclExpChTrData*& rpData )
+void XclExpChTrCellContent::MakeEmptyChTrData( std::unique_ptr<XclExpChTrData>& rpData )
 {
     if( rpData )
         rpData->Clear();
     else
-        rpData = new XclExpChTrData;
+        rpData.reset( new XclExpChTrData );
 }
 
 void XclExpChTrCellContent::GetCellData(
     const XclExpRoot& rRoot, const ScCellValue& rScCell,
-    XclExpChTrData*& rpData, sal_uInt32& rXclLength1, sal_uInt16& rXclLength2 )
+    std::unique_ptr<XclExpChTrData>& rpData, sal_uInt32& rXclLength1, sal_uInt16& rXclLength2 )
 {
     MakeEmptyChTrData( rpData );
     rXclLength1 = 0x0000003A;
@@ -861,8 +860,7 @@ void XclExpChTrCellContent::GetCellData(
 
     if (rScCell.isEmpty())
     {
-        delete rpData;
-        rpData = nullptr;
+        rpData.reset();
         return;
     }
 
@@ -912,7 +910,7 @@ void XclExpChTrCellContent::GetCellData(
                         rRoot, EMPTY_OUSTRING, nullptr);
                 }
             }
-            rpData->pString = new XclExpString( sCellStr, XclStrFlags::NONE, 32766 );
+            rpData->pString.reset( new XclExpString( sCellStr, XclStrFlags::NONE, 32766 ) );
             rpData->nType = EXC_CHTR_TYPE_STRING;
             rpData->nSize = 3 + rpData->pString->GetSize();
             rXclLength1 = 64 + (sCellStr.getLength() << 1);
@@ -1070,7 +1068,7 @@ void XclExpChTrCellContent::SaveXml( XclExpXmlStream& rRevisionLogStrm )
             FSEND );
     if( pOldData )
     {
-        lcl_WriteCell( rRevisionLogStrm, XML_oc, aPosition, pOldData );
+        lcl_WriteCell( rRevisionLogStrm, XML_oc, aPosition, pOldData.get() );
         if (!pNewData)
         {
             pStream->singleElement(XML_nc,
@@ -1080,7 +1078,7 @@ void XclExpChTrCellContent::SaveXml( XclExpXmlStream& rRevisionLogStrm )
     }
     if( pNewData )
     {
-        lcl_WriteCell( rRevisionLogStrm, XML_nc, aPosition, pNewData );
+        lcl_WriteCell( rRevisionLogStrm, XML_nc, aPosition, pNewData.get() );
     }
     // OOXTODO: XML_odxf, XML_ndxf, XML_extLst elements
     pStream->endElement( XML_rcc );
@@ -1409,9 +1407,7 @@ void EndXmlElement::SaveXml( XclExpXmlStream& rStrm )
 XclExpChangeTrack::XclExpChangeTrack( const XclExpRoot& rRoot ) :
     XclExpRoot( rRoot ),
     aActionStack(),
-    pTabIdBuffer( nullptr ),
-    pHeader( nullptr ),
-    bValidGUID( false )
+    pTabIdBuffer( nullptr )
 {
     OSL_ENSURE( GetOldRoot().pTabId, "XclExpChangeTrack::XclExpChangeTrack - root data incomplete" );
     if( !GetOldRoot().pTabId )
@@ -1449,7 +1445,7 @@ XclExpChangeTrack::XclExpChangeTrack( const XclExpRoot& rRoot ) :
     // build record list
     if (GetOutput() == EXC_OUTPUT_BINARY)
     {
-        pHeader = new XclExpChTrHeader;
+        XclExpChTrHeader* pHeader = new XclExpChTrHeader; // header record for last GUID
         maRecList.push_back( std::unique_ptr<ExcRecord>(pHeader) );
         maRecList.push_back( std::unique_ptr<ExcRecord>( new XclExpChTr0x0195 ) );
         maRecList.push_back( std::unique_ptr<ExcRecord>( new XclExpChTr0x0194( *pTempChangeTrack ) ) );
@@ -1458,6 +1454,8 @@ XclExpChangeTrack::XclExpChangeTrack( const XclExpRoot& rRoot ) :
         DateTime aLastDateTime( DateTime::EMPTY );
         sal_uInt32 nIndex = 1;
         sal_Int32 nLogNumber = 1;
+        sal_uInt8 aGUID[ 16 ]; // GUID for action info records
+        bool bValidGUID = false;
         while( !aActionStack.empty() )
         {
             XclExpChTrAction* pAction = aActionStack.top();
@@ -1494,6 +1492,8 @@ XclExpChangeTrack::XclExpChangeTrack( const XclExpRoot& rRoot ) :
         sal_uInt32 nIndex = 1;
         sal_Int32 nLogNumber = 1;
         XclExpXmlChTrHeader* pCurHeader = nullptr;
+        sal_uInt8 aGUID[ 16 ]; // GUID for action info records
+        bool bValidGUID = false;
 
         while (!aActionStack.empty())
         {

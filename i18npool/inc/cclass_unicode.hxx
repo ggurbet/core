@@ -120,7 +120,7 @@ private:
     static const sal_Int32      pParseTokensType[];
 
     /// If and where c occurs in pStr
-    static  const sal_Unicode*  StrChr( const sal_Unicode* pStr, sal_Unicode c );
+    static  const sal_Unicode*  StrChr( const sal_Unicode* pStr, sal_uInt32 c );
 
 
     css::uno::Reference < css::uno::XComponentContext > m_xContext;
@@ -131,9 +131,9 @@ private:
     css::uno::Reference < css::i18n::XNativeNumberSupplier > xNatNumSup;
     OUString             aStartChars;
     OUString             aContChars;
-    ParserFlags*         pTable;
-    ParserFlags*         pStart;
-    ParserFlags*         pCont;
+    std::unique_ptr<ParserFlags[]> pTable;
+    std::unique_ptr<ParserFlags[]> pStart;
+    std::unique_ptr<ParserFlags[]> pCont;
     sal_Int32            nStartTypes;
     sal_Int32            nContTypes;
     ScanState            eState;
@@ -151,7 +151,7 @@ private:
     ParserFlags getFlagsExtended(sal_uInt32 c);
 
     /// Access parser table flags for user defined start characters.
-    ParserFlags getStartCharsFlags( sal_Unicode c );
+    ParserFlags getStartCharsFlags( sal_uInt32 c );
 
     /// Access parser table flags for user defined continuation characters.
     ParserFlags getContCharsFlags( sal_Unicode c );

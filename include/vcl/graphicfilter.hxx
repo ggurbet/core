@@ -144,6 +144,7 @@ class VCL_DLLPUBLIC GraphicDescriptor final
     sal_uInt16          nPlanes;
     GraphicFileFormat   nFormat;
     bool                bOwnStream;
+    sal_uInt8 mnNumberOfImageComponents;
 
     void                ImpConstruct();
 
@@ -209,6 +210,9 @@ public:
 
     /** @return bits/pixel or 0 **/
     sal_uInt16          GetBitsPerPixel() const { return nBitsPerPixel; }
+
+    /** @return number of color channels */
+    sal_uInt8 GetNumberOfImageComponents() const { return mnNumberOfImageComponents; }
 
     /** @return filter number that is needed by the GraphFilter to read this format */
     static OUString GetImportFormatShortName( GraphicFileFormat nFormat );
@@ -281,7 +285,7 @@ public:
     /// Imports multiple graphics.
     ///
     /// The resulting graphic is added to rGraphics on success, nullptr is added on failure.
-    void ImportGraphics(std::vector< std::shared_ptr<Graphic> >& rGraphics, const std::vector< std::shared_ptr<SvStream> >& rStreams);
+    void ImportGraphics(std::vector< std::shared_ptr<Graphic> >& rGraphics, std::vector< std::unique_ptr<SvStream> > vStreams);
 
     ErrCode             ImportGraphic( Graphic& rGraphic, const OUString& rPath,
                                    SvStream& rStream,

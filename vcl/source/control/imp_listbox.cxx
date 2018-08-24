@@ -38,6 +38,7 @@
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 
 #include <rtl/instance.hxx>
+#include <sal/log.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/processfactory.hxx>
 
@@ -461,7 +462,7 @@ ImplListBoxWindow::ImplListBoxWindow( vcl::Window* pParent, WinBits nWinStyle ) 
     Control( pParent, 0 ),
     maQuickSelectionEngine( *this )
 {
-    mpEntryList         = new ImplEntryList( this );
+    mpEntryList.reset(new ImplEntryList( this ));
 
     mnTop               = 0;
     mnLeft              = 0;
@@ -508,7 +509,7 @@ ImplListBoxWindow::~ImplListBoxWindow()
 
 void ImplListBoxWindow::dispose()
 {
-    delete mpEntryList;
+    mpEntryList.reset();
     Control::dispose();
 }
 
@@ -2683,18 +2684,16 @@ void ImplWin::ImplDraw(vcl::RenderContext& rRenderContext, bool bLayout)
             if (bHasFocus && !ImplGetSVData()->maNWFData.mbDDListBoxNoTextArea)
             {
                 if ( !ImplGetSVData()->maNWFData.mbNoFocusRects )
+                {
                     rRenderContext.SetFillColor( rStyleSettings.GetHighlightColor() );
+                    rRenderContext.SetTextColor( rStyleSettings.GetHighlightTextColor() );
+                }
                 else
                 {
                     rRenderContext.SetLineColor();
                     rRenderContext.SetFillColor();
+                    rRenderContext.SetTextColor( rStyleSettings.GetFieldTextColor() );
                 }
-                Color aColor;
-                if( bNativeOK && (nState & ControlState::ROLLOVER) )
-                    aColor = rStyleSettings.GetFieldRolloverTextColor();
-                else
-                    aColor = rStyleSettings.GetHighlightTextColor();
-                rRenderContext.SetTextColor( aColor );
                 rRenderContext.DrawRect( maFocusRect );
             }
             else

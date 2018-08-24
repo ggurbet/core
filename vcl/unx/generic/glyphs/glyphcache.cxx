@@ -28,6 +28,7 @@
 
 #include <rtl/ustring.hxx>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 
 static GlyphCache* pInstance = nullptr;
 
@@ -49,12 +50,12 @@ GlyphCache::~GlyphCache()
 
 void GlyphCache::InvalidateAllGlyphs()
 {
-    for (auto const& font : maFontList)
+    for (auto& font : maFontList)
     {
-        FreetypeFont* pFreetypeFont = font.second;
+        FreetypeFont* pFreetypeFont = font.second.get();
         // free all pFreetypeFont related data
         pFreetypeFont->GarbageCollect( mnLruIndex+0x10000000 );
-        delete pFreetypeFont;
+        font.second.reset();
     }
 
     maFontList.clear();
@@ -65,19 +66,28 @@ void GlyphCache::ClearFontOptions()
 {
     for (auto const& font : maFontList)
     {
-        FreetypeFont* pFreetypeFont = font.second;
+        FreetypeFont* pFreetypeFont = font.second.get();
         // free demand-loaded FontConfig related data
         pFreetypeFont->ClearFontOptions();
     }
 }
 
+static inline sal_IntPtr GetFontId(const LogicalFontInstance& rFontInstance)
+{
+    if (rFontInstance.GetFontFace())
+        return rFontInstance.GetFontFace()->GetFontId();
+    return 0;
+}
+
 inline
-size_t GlyphCache::IFSD_Hash::operator()( const FontSelectPattern& rFontSelData ) const
+size_t GlyphCache::IFSD_Hash::operator()(const rtl::Reference<LogicalFontInstance>& rFontInstance) const
 {
     // TODO: is it worth to improve this hash function?
-    sal_uIntPtr nFontId = reinterpret_cast<sal_uIntPtr>(rFontSelData.mpFontData);
+    sal_uIntPtr nFontId = GetFontId(*rFontInstance);
 
-    if (rFontSelData.maTargetName.indexOf(FontSelectPatternAttributes::FEAT_PREFIX)
+    const FontSelectPattern& rFontSelData = rFontInstance->GetFontSelectPattern();
+
+    if (rFontSelData.maTargetName.indexOf(FontSelectPattern::FEAT_PREFIX)
         != -1)
     {
         OString aFeatName = OUStringToOString( rFontSelData.maTargetName, RTL_TEXTENCODING_UTF8 );
@@ -95,13 +105,18 @@ size_t GlyphCache::IFSD_Hash::operator()( const FontSelectPattern& rFontSelData 
     return nHash;
 }
 
-bool GlyphCache::IFSD_Equal::operator()( const FontSelectPattern& rA, const FontSelectPattern& rB) const
+bool GlyphCache::IFSD_Equal::operator()(const rtl::Reference<LogicalFontInstance>& rAFontInstance,
+                                        const rtl::Reference<LogicalFontInstance>& rBFontInstance) const
 {
-    // check font ids
-    sal_IntPtr nFontIdA = reinterpret_cast<sal_IntPtr>( rA.mpFontData );
-    sal_IntPtr nFontIdB = reinterpret_cast<sal_IntPtr>( rB.mpFontData );
-    if( nFontIdA != nFontIdB )
+    if (!rAFontInstance->GetFontCache() || !rBFontInstance->GetFontCache())
         return false;
+
+    // check font ids
+    if (GetFontId(*rAFontInstance) != GetFontId(*rBFontInstance))
+        return false;
+
+    const FontSelectPattern& rA = rAFontInstance->GetFontSelectPattern();
+    const FontSelectPattern& rB = rBFontInstance->GetFontSelectPattern();
 
     // compare with the requested metrics
     if( (rA.mnHeight         != rB.mnHeight)
@@ -125,9 +140,9 @@ bool GlyphCache::IFSD_Equal::operator()( const FontSelectPattern& rA, const Font
    if (rA.meLanguage != rB.meLanguage)
         return false;
    // check for features
-   if ((rA.maTargetName.indexOf(FontSelectPatternAttributes::FEAT_PREFIX)
+   if ((rA.maTargetName.indexOf(FontSelectPattern::FEAT_PREFIX)
         != -1 ||
-        rB.maTargetName.indexOf(FontSelectPatternAttributes::FEAT_PREFIX)
+        rB.maTargetName.indexOf(FontSelectPattern::FEAT_PREFIX)
         != -1) && rA.maTargetName != rB.maTargetName)
         return false;
 
@@ -165,36 +180,29 @@ void GlyphCache::ClearFontCache()
         mpFtManager->ClearFontList();
 }
 
-FreetypeFont* GlyphCache::CacheFont( const FontSelectPattern& rFontSelData )
+FreetypeFont* GlyphCache::CacheFont(LogicalFontInstance* pFontInstance)
 {
-    // a serverfont request has pFontData
-    if( rFontSelData.mpFontData == nullptr )
-        return nullptr;
     // a serverfont request has a fontid > 0
-    sal_IntPtr nFontId = rFontSelData.mpFontData->GetFontId();
-    if( nFontId <= 0 )
+    if (GetFontId(*pFontInstance) <= 0)
         return nullptr;
 
-    // the FontList's key mpFontData member is reinterpreted as font id
-    FontSelectPattern aFontSelData = rFontSelData;
-    aFontSelData.mpFontData = reinterpret_cast<PhysicalFontFace*>( nFontId );
-    FontList::iterator it = maFontList.find( aFontSelData );
+    FontList::iterator it = maFontList.find(pFontInstance);
     if( it != maFontList.end() )
     {
-        FreetypeFont* pFound = it->second;
-        if( pFound )
-            pFound->AddRef();
+        FreetypeFont* pFound = it->second.get();
+        assert(pFound);
+        pFound->AddRef();
         return pFound;
     }
 
     // font not cached yet => create new font item
     FreetypeFont* pNew = nullptr;
-    if( mpFtManager )
-        pNew = mpFtManager->CreateFont( aFontSelData );
+    if (mpFtManager)
+        pNew = mpFtManager->CreateFont(pFontInstance);
 
     if( pNew )
     {
-        maFontList[ aFontSelData ] = pNew;
+        maFontList[pFontInstance].reset(pNew);
         mnBytesUsed += pNew->GetByteCount();
 
         // enable garbage collection for new font
@@ -232,7 +240,7 @@ void GlyphCache::GarbageCollect()
     {
         FontList::iterator it = maFontList.begin();
         if( it != maFontList.end() )
-            mpCurrentGCFont = it->second;
+            mpCurrentGCFont = it->second.get();
     }
 
     // unless there is no other font to collect
@@ -258,8 +266,6 @@ void GlyphCache::GarbageCollect()
         pFreetypeFont->GarbageCollect( mnLruIndex+0x10000000 );
         if( pFreetypeFont == mpCurrentGCFont )
             mpCurrentGCFont = nullptr;
-        const FontSelectPattern& rIFSD = pFreetypeFont->GetFontSelData();
-        maFontList.erase( rIFSD );
         mnBytesUsed -= pFreetypeFont->GetByteCount();
 
         // remove font from list of garbage collected fonts
@@ -270,7 +276,7 @@ void GlyphCache::GarbageCollect()
         if( pFreetypeFont == mpCurrentGCFont )
             mpCurrentGCFont = nullptr;
 
-        delete pFreetypeFont;
+        maFontList.erase(pFreetypeFont->GetFontInstance());
     }
 }
 
@@ -347,26 +353,43 @@ void FreetypeFont::GarbageCollect( long nMinLruIndex )
     }
 }
 
-FreetypeFontInstance::FreetypeFontInstance( FontSelectPattern const & rFSD )
-:   LogicalFontInstance( rFSD )
-,   mpFreetypeFont( nullptr )
+FreetypeFontInstance::FreetypeFontInstance(const PhysicalFontFace& rPFF, const FontSelectPattern& rFSP)
+    : LogicalFontInstance(rPFF, rFSP)
+    , mpFreetypeFont(nullptr)
 {}
 
 void FreetypeFontInstance::SetFreetypeFont(FreetypeFont* p)
 {
     if (p == mpFreetypeFont)
         return;
-    if (mpFreetypeFont)
-        mpFreetypeFont->Release();
     mpFreetypeFont = p;
-    if (mpFreetypeFont)
-        mpFreetypeFont->AddRef();
 }
 
 FreetypeFontInstance::~FreetypeFontInstance()
 {
-    // TODO: remove the FreetypeFont here instead of in the GlyphCache
-    if (mpFreetypeFont)
-        mpFreetypeFont->Release();
 }
+
+static hb_blob_t* getFontTable(hb_face_t* /*face*/, hb_tag_t nTableTag, void* pUserData)
+{
+    char pTagName[5];
+    LogicalFontInstance::DecodeOpenTypeTag( nTableTag, pTagName );
+
+    sal_uLong nLength = 0;
+    FreetypeFontInstance* pFontInstance = static_cast<FreetypeFontInstance*>( pUserData );
+    FreetypeFont* pFont = pFontInstance->GetFreetypeFont();
+    const char* pBuffer = reinterpret_cast<const char*>(
+        pFont->GetTable(pTagName, &nLength) );
+
+    hb_blob_t* pBlob = nullptr;
+    if (pBuffer != nullptr)
+        pBlob = hb_blob_create(pBuffer, nLength, HB_MEMORY_MODE_READONLY, nullptr, nullptr);
+
+    return pBlob;
+}
+
+hb_font_t* FreetypeFontInstance::ImplInitHbFont()
+{
+    return InitHbFont(hb_face_create_for_tables(getFontTable, this, nullptr));
+}
+
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

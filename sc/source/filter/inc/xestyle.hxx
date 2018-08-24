@@ -21,7 +21,6 @@
 #define INCLUDED_SC_SOURCE_FILTER_INC_XESTYLE_HXX
 
 #include <map>
-#include <tools/mempool.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/nfkeytab.hxx>
 #include <editeng/svxfont.hxx>
@@ -726,7 +725,6 @@ private:
     typedef std::vector< std::unique_ptr<XclExpDxf> > DxfContainer;
     std::map<OUString, sal_Int32> maStyleNameToDxfId;
     DxfContainer maDxf;
-    SvNumberFormatterPtr mxFormatter;   /// Special number formatter for conversion.
     std::unique_ptr<NfKeywordTable>   mpKeywordTable; /// Replacement table.
 };
 

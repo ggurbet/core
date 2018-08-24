@@ -21,7 +21,7 @@
 #define INCLUDED_SC_INC_QUERYPARAM_HXX
 
 #include <unotools/textsearch.hxx>
-#include "global.hxx"
+#include "address.hxx"
 #include "types.hxx"
 
 #include <memory>
@@ -109,6 +109,11 @@ struct ScQueryParamTable
 
     ScQueryParamTable();
     virtual ~ScQueryParamTable();
+
+    ScQueryParamTable(ScQueryParamTable const &) = default;
+    ScQueryParamTable(ScQueryParamTable &&) = default;
+    ScQueryParamTable & operator =(ScQueryParamTable const &) = default;
+    ScQueryParamTable & operator =(ScQueryParamTable &&) = default;
 };
 
 // For use in SAL_DEBUG etc. Output format not guaranteed to be stable.

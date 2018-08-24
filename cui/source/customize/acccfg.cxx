@@ -782,9 +782,8 @@ static const sal_uInt16 KEYCODE_ARRAY_SIZE = SAL_N_ELEMENTS(KEYCODE_ARRAY);
 
 // seems to be needed to layout the list box, which shows all
 // assignable shortcuts
-static long AccCfgTabs[] =
+static const long AccCfgTabs[] =
 {
-    2,  // Number of Tabs
     0,
     120 // Function
 };
@@ -943,7 +942,7 @@ SfxAcceleratorConfigPage::SfxAcceleratorConfigPage( vcl::Window* pParent, const 
     // initialize Entriesbox
     m_pEntriesBox->SetStyle(m_pEntriesBox->GetStyle()|WB_HSCROLL|WB_CLIPCHILDREN);
     m_pEntriesBox->SetSelectionMode(SelectionMode::Single);
-    m_pEntriesBox->SetTabs(&AccCfgTabs[0]);
+    m_pEntriesBox->SetTabs(SAL_N_ELEMENTS(AccCfgTabs), AccCfgTabs);
     m_pEntriesBox->Resize(); // OS: Hack for right selection
     m_pEntriesBox->SetSpaceBetweenEntries(0);
     m_pEntriesBox->SetDragDropMode(DragDropMode::NONE);
@@ -1000,9 +999,7 @@ void SfxAcceleratorConfigPage::dispose()
     m_pEntriesBox->Clear();
     m_pKeyBox->Clear();
 
-    delete m_pFileDlg;
-    m_pFileDlg = nullptr;
-
+    m_pFileDlg.reset();
     m_pEntriesBox.clear();
     m_pOfficeButton.clear();
     m_pModuleButton.clear();
@@ -1558,8 +1555,7 @@ void SfxAcceleratorConfigPage::StartFileDialog( StartFileDialogType nType, const
     bool bSave = nType == StartFileDialogType::SaveAs;
     short nDialogType = bSave ? ui::dialogs::TemplateDescription::FILESAVE_AUTOEXTENSION
                               : ui::dialogs::TemplateDescription::FILEOPEN_SIMPLE;
-    delete m_pFileDlg;
-    m_pFileDlg = new sfx2::FileDialogHelper(nDialogType, FileDialogFlags::NONE, GetFrameWeld());
+    m_pFileDlg.reset(new sfx2::FileDialogHelper(nDialogType, FileDialogFlags::NONE, GetFrameWeld()));
 
     m_pFileDlg->SetTitle( rTitle );
     m_pFileDlg->AddFilter( aFilterAllStr, FILEDIALOG_FILTER_ALL );

@@ -81,7 +81,7 @@ public:
 
     static OUString     GetStandardText( StandardButtonType eButton );
 
-    bool                SetModeImage( const Image& rImage );
+    void                SetModeImage( const Image& rImage );
     Image const &       GetModeImage( ) const;
     bool                HasImage() const;
     void                SetImageAlign( ImageAlign eAlign );
@@ -171,7 +171,8 @@ protected:
     SAL_DLLPRIVATE static WinBits  ImplInitStyle( const vcl::Window* pPrevWindow, WinBits nStyle );
     SAL_DLLPRIVATE void            ImplInitSettings( bool bBackground );
     SAL_DLLPRIVATE void            ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFlags,
-                                                             const tools::Rectangle& rRect, bool bMenuBtnSep);
+                                                             const tools::Rectangle& rRect, bool bMenuBtnSep,
+                                                             DrawButtonFlags nButtonFlags);
     SAL_DLLPRIVATE void            ImplDrawPushButton(vcl::RenderContext& rRenderContext);
     using Button::ImplGetTextStyle;
     SAL_DLLPRIVATE DrawTextFlags   ImplGetTextStyle( DrawFlags nDrawFlags ) const;
@@ -340,7 +341,7 @@ public:
     void            EnableRadioCheck( bool bRadioCheck ) { mbRadioCheck = bRadioCheck; }
     bool            IsRadioCheckEnabled() const { return mbRadioCheck; }
 
-    bool            SetModeRadioImage( const Image& rImage );
+    void            SetModeRadioImage( const Image& rImage );
     const Image&    GetModeRadioImage( ) const { return maImage;}
 
     void            SetState( bool bCheck );

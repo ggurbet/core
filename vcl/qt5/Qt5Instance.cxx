@@ -17,35 +17,44 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "Qt5Instance.hxx"
+#include <Qt5Instance.hxx>
 #include <Qt5Instance.moc>
 
-#include "Qt5Frame.hxx"
-#include "Qt5Data.hxx"
-#include "Qt5Timer.hxx"
-#include "Qt5VirtualDevice.hxx"
-#include "Qt5Object.hxx"
-#include "Qt5Bitmap.hxx"
+#include <Qt5Bitmap.hxx>
+#include <Qt5Data.hxx>
+#include <Qt5FilePicker.hxx>
+#include <Qt5Frame.hxx>
+#include <Qt5Menu.hxx>
+#include <Qt5Object.hxx>
+#include <Qt5System.hxx>
+#include <Qt5Timer.hxx>
+#include <Qt5VirtualDevice.hxx>
 
 #include <headless/svpvd.hxx>
 
+#include <QtCore/QAbstractEventDispatcher>
 #include <QtCore/QThread>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
-#include <QtCore/QAbstractEventDispatcher>
 
 #include <vclpluginapi.h>
 #include <sal/log.hxx>
 #include <osl/process.h>
 
-#include <headless/svpdummies.hxx>
 #include <headless/svpbmp.hxx>
 
-Qt5Instance::Qt5Instance(SalYieldMutex* pMutex, bool bUseCairo)
-    : SalGenericInstance(pMutex)
+Qt5Instance::Qt5Instance(std::unique_ptr<SalYieldMutex> pMutex, bool bUseCairo)
+    : SalGenericInstance(std::move(pMutex))
     , m_postUserEventId(-1)
     , m_bUseCairo(bUseCairo)
 {
+    ImplSVData* pSVData = ImplGetSVData();
+    delete pSVData->maAppData.mpToolkitName;
+    if (bUseCairo)
+        pSVData->maAppData.mpToolkitName = new OUString("qt5+cairo");
+    else
+        pSVData->maAppData.mpToolkitName = new OUString("qt5");
+
     m_postUserEventId = QEvent::registerEventType();
 
     // this one needs to be blocking, so that the handling in main thread
@@ -84,40 +93,55 @@ SalObject* Qt5Instance::CreateObject(SalFrame* pParent, SystemWindowData*, bool 
 
 void Qt5Instance::DestroyObject(SalObject* pObject) { delete pObject; }
 
-SalVirtualDevice* Qt5Instance::CreateVirtualDevice(SalGraphics* pGraphics, long& nDX, long& nDY,
-                                                   DeviceFormat eFormat,
-                                                   const SystemGraphicsData* /* pData */)
+std::unique_ptr<SalVirtualDevice>
+Qt5Instance::CreateVirtualDevice(SalGraphics* pGraphics, long& nDX, long& nDY, DeviceFormat eFormat,
+                                 const SystemGraphicsData* /* pData */)
 {
     if (m_bUseCairo)
     {
         SvpSalGraphics* pSvpSalGraphics = dynamic_cast<SvpSalGraphics*>(pGraphics);
         assert(pSvpSalGraphics);
-        SvpSalVirtualDevice* pVD = new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface());
+        std::unique_ptr<SalVirtualDevice> pVD(
+            new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface()));
         pVD->SetSize(nDX, nDY);
         return pVD;
     }
     else
     {
-        Qt5VirtualDevice* pVD = new Qt5VirtualDevice(eFormat, 1);
+        std::unique_ptr<SalVirtualDevice> pVD(new Qt5VirtualDevice(eFormat, 1));
         pVD->SetSize(nDX, nDY);
         return pVD;
     }
 }
 
+std::unique_ptr<SalMenu> Qt5Instance::CreateMenu(bool bMenuBar, Menu* pVCLMenu)
+{
+    Qt5Menu* pSalMenu = new Qt5Menu(bMenuBar);
+    pSalMenu->SetMenu(pVCLMenu);
+    return std::unique_ptr<SalMenu>(pSalMenu);
+}
+
+std::unique_ptr<SalMenuItem> Qt5Instance::CreateMenuItem(const SalItemParams& rItemData)
+{
+    return std::unique_ptr<SalMenuItem>(new Qt5MenuItem(&rItemData));
+}
+
 SalTimer* Qt5Instance::CreateSalTimer() { return new Qt5Timer(); }
 
-SalSystem* Qt5Instance::CreateSalSystem() { return new SvpSalSystem(); }
+SalSystem* Qt5Instance::CreateSalSystem() { return new Qt5System(); }
 
-SalBitmap* Qt5Instance::CreateSalBitmap()
+std::shared_ptr<SalBitmap> Qt5Instance::CreateSalBitmap()
 {
     if (m_bUseCairo)
-        return new SvpSalBitmap();
+        return std::make_shared<SvpSalBitmap>();
     else
-        return new Qt5Bitmap();
+        return std::make_shared<Qt5Bitmap>();
 }
 
 bool Qt5Instance::ImplYield(bool bWait, bool bHandleAllCurrentEvents)
 {
+    // Re-acquire the guard for user events when called via Q_EMIT ImplYieldSignal
+    SolarMutexGuard aGuard;
     bool wasEvent = DispatchUserEvents(bHandleAllCurrentEvents);
     if (!bHandleAllCurrentEvents && wasEvent)
         return true;
@@ -126,6 +150,7 @@ bool Qt5Instance::ImplYield(bool bWait, bool bHandleAllCurrentEvents)
      * Quoting the Qt docs: [QAbstractEventDispatcher::processEvents] processes
      * pending events that match flags until there are no more events to process.
      */
+    SolarMutexReleaser aReleaser;
     QAbstractEventDispatcher* dispatcher = QAbstractEventDispatcher::instance(qApp->thread());
     if (bWait && !wasEvent)
         wasEvent = dispatcher->processEvents(QEventLoop::WaitForMoreEvents);
@@ -162,8 +187,6 @@ bool Qt5Instance::DoYield(bool bWait, bool bHandleAllCurrentEvents)
 
 bool Qt5Instance::AnyInput(VclInputFlags /*nType*/) { return false; }
 
-SalSession* Qt5Instance::CreateSalSession() { return nullptr; }
-
 OUString Qt5Instance::GetConnectionIdentifier() { return OUString(); }
 
 void Qt5Instance::AddToRecentDocumentList(const OUString&, const OUString&, const OUString&) {}
@@ -180,6 +203,20 @@ void Qt5Instance::TriggerUserEventProcessing()
 void Qt5Instance::ProcessEvent(SalUserEvent aEvent)
 {
     aEvent.m_pFrame->CallCallback(aEvent.m_nEvent, aEvent.m_pData);
+}
+
+css::uno::Reference<css::ui::dialogs::XFilePicker2>
+Qt5Instance::createFilePicker(const css::uno::Reference<css::uno::XComponentContext>&)
+{
+    return css::uno::Reference<css::ui::dialogs::XFilePicker2>(
+        new Qt5FilePicker(QFileDialog::ExistingFile));
+}
+
+css::uno::Reference<css::ui::dialogs::XFolderPicker2>
+Qt5Instance::createFolderPicker(const css::uno::Reference<css::uno::XComponentContext>&)
+{
+    return css::uno::Reference<css::ui::dialogs::XFolderPicker2>(
+        new Qt5FilePicker(QFileDialog::Directory));
 }
 
 extern "C" {
@@ -249,8 +286,8 @@ VCLPLUG_QT5_PUBLIC SalInstance* create_SalInstance()
 
     QApplication::setQuitOnLastWindowClosed(false);
 
-    const bool bUseCairo = (nullptr != getenv("SAL_VCL_QT5_USE_CAIRO"));
-    Qt5Instance* pInstance = new Qt5Instance(new SalYieldMutex(), bUseCairo);
+    static const bool bUseCairo = (nullptr != getenv("SAL_VCL_QT5_USE_CAIRO"));
+    Qt5Instance* pInstance = new Qt5Instance(o3tl::make_unique<SalYieldMutex>(), bUseCairo);
 
     // initialize SalData
     new Qt5Data(pInstance);

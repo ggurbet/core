@@ -53,7 +53,6 @@
 #include <vcl/GraphicObject.hxx>
 #include <tools/urlobj.hxx>
 #include <comphelper/fileformat.h>
-#include <comphelper/types.hxx>
 #include <svl/memberid.h>
 #include <svtools/borderhelper.hxx>
 #include <rtl/ustring.hxx>
@@ -85,6 +84,7 @@
 #include <editeng/editerr.hxx>
 #include <libxml/xmlwriter.h>
 #include <o3tl/enumrange.hxx>
+#include <o3tl/safeint.hxx>
 #include <vcl/GraphicLoader.hxx>
 
 using namespace ::editeng;
@@ -1128,10 +1128,10 @@ bool SvxShadowItem::PutValue( const uno::Any& rVal, sal_uInt8 nMemberId )
         case MID_SHADOW_TRANSPARENCE:
         {
             sal_Int32 nTransparence = 0;
-            if (rVal >>= nTransparence)
+            if ((rVal >>= nTransparence) && !o3tl::checked_multiply<sal_Int32>(nTransparence, 255, nTransparence))
             {
                 Color aColor(aShadow.Color);
-                aColor.SetTransparency(rtl::math::round(float(nTransparence * 255) / 100));
+                aColor.SetTransparency(rtl::math::round(float(nTransparence) / 100));
                 aShadow.Color = sal_Int32(aColor);
             }
             break;
@@ -3314,6 +3314,11 @@ bool SvxBrushItem::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
             rVal <<= ( aColor.GetTransparency() == 0xff );
         break;
 
+        case MID_GRAPHIC_URL:
+        {
+            throw uno::RuntimeException("Getting from this property is not unsupported");
+        }
+        break;
         case MID_GRAPHIC:
         {
             uno::Reference<graphic::XGraphic> xGraphic;
@@ -3396,13 +3401,24 @@ bool SvxBrushItem::PutValue( const uno::Any& rVal, sal_uInt8 nMemberId )
             aColor.SetTransparency( Any2Bool( rVal ) ? 0xff : 0 );
         break;
 
+        case MID_GRAPHIC_URL:
         case MID_GRAPHIC:
         {
-            if (rVal.getValueType() == cppu::UnoType<graphic::XGraphic>::get())
+            Graphic aGraphic;
+
+            if (rVal.getValueType() == ::cppu::UnoType<OUString>::get())
+            {
+                OUString aURL = rVal.get<OUString>();
+                aGraphic = vcl::graphic::loadFromURL(aURL);
+            }
+            else if (rVal.getValueType() == cppu::UnoType<graphic::XGraphic>::get())
             {
                 auto xGraphic = rVal.get<uno::Reference<graphic::XGraphic>>();
+                aGraphic = Graphic(xGraphic);
+            }
 
-                Graphic aGraphic(xGraphic);
+            if (aGraphic)
+            {
                 maStrLink.clear();
 
                 std::unique_ptr<GraphicObject> xOldGrfObj(std::move(xGraphicObject));
@@ -3790,14 +3806,6 @@ SvxFrameDirectionItem::SvxFrameDirectionItem( SvxFrameDirection nValue ,
 
 SvxFrameDirectionItem::~SvxFrameDirectionItem()
 {
-}
-
-
-bool SvxFrameDirectionItem::operator==( const SfxPoolItem& rCmp ) const
-{
-    assert(SfxPoolItem::operator==(rCmp));
-
-    return GetValue() == static_cast<const SvxFrameDirectionItem&>(rCmp).GetValue();
 }
 
 

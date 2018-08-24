@@ -1455,15 +1455,6 @@ bool INetURLObject::setAbsURIRef(OUString const & rTheAbsURIRef,
     }
 #endif
 
-#ifdef _WIN32
-    if (m_eScheme==INetProtocol::Smb) {
-        // Change "smb://server/path" URIs to "file://server/path"
-        // URIs on Windows, since Windows doesn't understand the
-        // SMB scheme.
-        changeScheme(INetProtocol::File);
-    }
-#endif
-
     return true;
 }
 
@@ -3304,17 +3295,16 @@ bool INetURLObject::insertName(OUString const & rTheName,
         RTL_TEXTENCODING_UTF8);
 }
 
-bool INetURLObject::clearQuery()
+void INetURLObject::clearQuery()
 {
     if (HasError())
-        return false;
+        return;
     if (m_aQuery.isPresent())
     {
         lcl_Erase(m_aAbsURIRef, m_aQuery.getBegin() - 1,
             m_aQuery.getLength() + 1);
         m_aFragment += m_aQuery.clear() - 1;
     }
-    return false;
 }
 
 bool INetURLObject::setQuery(OUString const & rTheQuery,

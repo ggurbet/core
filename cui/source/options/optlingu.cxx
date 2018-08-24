@@ -51,6 +51,7 @@
 #include <svl/intitem.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <vcl/svapp.hxx>
+#include <sal/log.hxx>
 
 #include <svx/svxdlg.hxx>
 #include <editeng/optitems.hxx>
@@ -311,17 +312,17 @@ public:
         if (nRID == EID_NUM_PRE_BREAK)
         {
             m_xBeforeFrame->show();
-            m_xBreakNF.reset(m_xBuilder->weld_spin_button("beforebreak"));
+            m_xBreakNF = m_xBuilder->weld_spin_button("beforebreak");
         }
         else if(nRID == EID_NUM_POST_BREAK)
         {
             m_xAfterFrame->show();
-            m_xBreakNF.reset(m_xBuilder->weld_spin_button("afterbreak"));
+            m_xBreakNF = m_xBuilder->weld_spin_button("afterbreak");
         }
         else if(nRID == EID_NUM_MIN_WORDLEN)
         {
             m_xMinimalFrame->show();
-            m_xBreakNF.reset(m_xBuilder->weld_spin_button("wordlength"));
+            m_xBreakNF = m_xBuilder->weld_spin_button("wordlength");
         }
     }
 
@@ -1029,8 +1030,7 @@ SvxLinguTabPage::~SvxLinguTabPage()
 
 void SvxLinguTabPage::dispose()
 {
-    delete pLinguData;
-    pLinguData = nullptr;
+    pLinguData.reset();
     m_pLinguModulesFT.clear();
     m_pLinguModulesCLB.clear();
     m_pLinguModulesEditPB.clear();
@@ -1045,10 +1045,10 @@ void SvxLinguTabPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxLinguTabPage::Create( vcl::Window* pParent,
+VclPtr<SfxTabPage> SvxLinguTabPage::Create( TabPageParent pParent,
                                             const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxLinguTabPage>::Create( pParent, *rAttrSet );
+    return VclPtr<SvxLinguTabPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 bool SvxLinguTabPage::FillItemSet( SfxItemSet* rCoreSet )
@@ -1060,7 +1060,7 @@ bool SvxLinguTabPage::FillItemSet( SfxItemSet* rCoreSet )
     {
         DBG_ASSERT( pLinguData, "pLinguData not yet initialized" );
         if (!pLinguData)
-            pLinguData = new SvxLinguData_Impl;
+            pLinguData.reset( new SvxLinguData_Impl );
 
         // update spellchecker configuration entries
         const LangImplNameTable *pTable = &pLinguData->GetSpellTable();
@@ -1299,7 +1299,7 @@ void SvxLinguTabPage::Reset( const SfxItemSet* rSet )
     if (m_pLinguModulesCLB->IsVisible())
     {
         if (!pLinguData)
-            pLinguData = new SvxLinguData_Impl;
+            pLinguData.reset( new SvxLinguData_Impl );
         UpdateModulesBox_Impl();
     }
 
@@ -1459,7 +1459,7 @@ IMPL_LINK( SvxLinguTabPage, ClickHdl_Impl, Button *, pBtn, void )
     if (m_pLinguModulesEditPB == pBtn)
     {
         if (!pLinguData)
-            pLinguData = new SvxLinguData_Impl;
+            pLinguData.reset( new SvxLinguData_Impl );
 
         SvxLinguData_Impl   aOldLinguData( *pLinguData );
         ScopedVclPtrInstance< SvxEditModulesDlg > aDlg( this, *pLinguData );
@@ -1491,23 +1491,19 @@ IMPL_LINK( SvxLinguTabPage, ClickHdl_Impl, Button *, pBtn, void )
     else if (m_pLinguDicsNewPB == pBtn)
     {
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        if(pFact)
+        ScopedVclPtr<AbstractSvxNewDictionaryDialog> aDlg(pFact->CreateSvxNewDictionaryDialog(GetFrameWeld()));
+        uno::Reference< XDictionary >  xNewDic;
+        if ( aDlg->Execute() == RET_OK )
+            xNewDic.set( aDlg->GetNewDictionary(), UNO_QUERY );
+        if ( xNewDic.is() )
         {
-            ScopedVclPtr<AbstractSvxNewDictionaryDialog> aDlg(pFact->CreateSvxNewDictionaryDialog(GetFrameWeld()));
-            DBG_ASSERT(aDlg, "Dialog creation failed!");
-            uno::Reference< XDictionary >  xNewDic;
-            if ( aDlg->Execute() == RET_OK )
-                xNewDic.set( aDlg->GetNewDictionary(), UNO_QUERY );
-            if ( xNewDic.is() )
-            {
-                // add new dics to the end
-                sal_Int32 nLen = aDics.getLength();
-                aDics.realloc( nLen + 1 );
+            // add new dics to the end
+            sal_Int32 nLen = aDics.getLength();
+            aDics.realloc( nLen + 1 );
 
-                aDics.getArray()[ nLen ] = xNewDic;
+            aDics.getArray()[ nLen ] = xNewDic;
 
-                AddDicBoxEntry( xNewDic, static_cast<sal_uInt16>(nLen) );
-            }
+            AddDicBoxEntry( xNewDic, static_cast<sal_uInt16>(nLen) );
         }
     }
     else if (m_pLinguDicsEditPB == pBtn)
@@ -1525,12 +1521,8 @@ IMPL_LINK( SvxLinguTabPage, ClickHdl_Impl, Button *, pBtn, void )
                 if (xDic.is())
                 {
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    if(pFact)
-                    {
-                        ScopedVclPtr<VclAbstractDialog> aDlg(pFact->CreateSvxEditDictionaryDialog( this, xDic->getName() ));
-                        DBG_ASSERT(aDlg, "Dialog creation failed!");
-                        aDlg->Execute();
-                    }
+                    ScopedVclPtr<VclAbstractDialog> aDlg(pFact->CreateSvxEditDictionaryDialog( this, xDic->getName() ));
+                    aDlg->Execute();
                 }
             }
         }
@@ -1719,7 +1711,7 @@ SvxEditModulesDlg::SvxEditModulesDlg(vcl::Window* pParent, SvxLinguData_Impl& rD
     get(m_pLanguageLB, "language");
     m_pLanguageLB->SetStyle(m_pLanguageLB->GetStyle() | WB_SORT);
 
-    pDefaultLinguData = new SvxLinguData_Impl( rLinguData );
+    pDefaultLinguData.reset( new SvxLinguData_Impl( rLinguData ) );
 
     m_pModulesCLB->SetStyle( m_pModulesCLB->GetStyle()|WB_CLIPCHILDREN|WB_HSCROLL );
     m_pModulesCLB->SetForceMakeVisible(true);
@@ -1771,8 +1763,7 @@ SvxEditModulesDlg::~SvxEditModulesDlg()
 
 void SvxEditModulesDlg::dispose()
 {
-    delete pDefaultLinguData;
-    pDefaultLinguData = nullptr;
+    pDefaultLinguData.reset();
     m_pLanguageLB.clear();
     for(sal_uLong i = 0; i < m_pModulesCLB->GetEntryCount(); i++)
         delete static_cast<ModuleUserData_Impl*>(m_pModulesCLB->GetEntry(i)->GetUserData());

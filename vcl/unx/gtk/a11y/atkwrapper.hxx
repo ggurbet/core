@@ -21,6 +21,10 @@
 #define INCLUDED_VCL_UNX_GTK_A11Y_ATKWRAPPER_HXX
 
 #include <atk/atk.h>
+#include <gtk/gtk.h>
+#if GTK_CHECK_VERSION(3,0,0)
+#include <gtk/gtk-a11y.h>
+#endif
 #include <com/sun/star/accessibility/XAccessible.hpp>
 
 extern "C" {
@@ -43,6 +47,7 @@ namespace com { namespace sun { namespace star { namespace accessibility {
 struct AtkObjectWrapper
 {
     AtkObject aParent;
+    AtkObject* mpOrig;  //if we're a GtkDrawingArea acting as a custom LibreOffice widget, this is the toolkit default impl
 
     css::uno::Reference<css::accessibility::XAccessible> mpAccessible;
     css::uno::Reference<css::accessibility::XAccessibleContext> mpContext;
@@ -69,7 +74,11 @@ struct AtkObjectWrapper
 
 struct AtkObjectWrapperClass
 {
+#if GTK_CHECK_VERSION(3,0,0)
+    GtkWidgetAccessibleClass aParentClass;
+#else
     AtkObjectClass aParentClass;
+#endif
 };
 
 GType                  atk_object_wrapper_get_type() G_GNUC_CONST;
@@ -79,7 +88,7 @@ AtkObject *            atk_object_wrapper_ref(
 
 AtkObject *            atk_object_wrapper_new(
     const css::uno::Reference< css::accessibility::XAccessible >& rxAccessible,
-    AtkObject* parent = nullptr );
+    AtkObject* parent = nullptr, AtkObject* orig = nullptr );
 
 void                   atk_object_wrapper_add_child(AtkObjectWrapper* wrapper, AtkObject *child, gint index);
 void                   atk_object_wrapper_remove_child(AtkObjectWrapper* wrapper, AtkObject *child, gint index);
@@ -104,6 +113,7 @@ void                   valueIfaceInit(AtkValueIface *iface);
 #define ATK_TYPE_OBJECT_WRAPPER atk_object_wrapper_get_type()
 #define ATK_OBJECT_WRAPPER(obj) \
     (G_TYPE_CHECK_INSTANCE_CAST ((obj), ATK_TYPE_OBJECT_WRAPPER, AtkObjectWrapper))
+#define ATK_IS_OBJECT_WRAPPER(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), ATK_TYPE_OBJECT_WRAPPER))
 
 static inline gchar *
 OUStringToGChar(const OUString& rString )

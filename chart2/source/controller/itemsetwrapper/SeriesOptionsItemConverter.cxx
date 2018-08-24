@@ -28,6 +28,7 @@
 #include <DiagramHelper.hxx>
 #include <ChartTypeHelper.hxx>
 #include <DataSeriesHelper.hxx>
+#include <ChartModel.hxx>
 
 #include <com/sun/star/chart/MissingValueTreatment.hpp>
 #include <com/sun/star/chart2/XDataSeries.hpp>
@@ -37,6 +38,7 @@
 #include <svl/ilstitem.hxx>
 #include <rtl/math.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <functional>
 #include <algorithm>

@@ -62,6 +62,7 @@
 #include <sdpage.hxx>
 #include <DrawViewShell.hxx>
 #include <drawdoc.hxx>
+#include <sdmod.hxx>
 #include <sdresid.hxx>
 #include <strings.hrc>
 #include <imapinfo.hxx>
@@ -446,7 +447,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
 
                                 if( (mnDragSrcPgNum != SDRPAGE_NOTFOUND) && (mnDragSrcPgNum != pPV->GetPage()->GetPageNum()) )
                                 {
-                                    pMarkList = mpDragSrcMarkList;
+                                    pMarkList = mpDragSrcMarkList.get();
                                 }
                                 else
                                 {
@@ -480,7 +481,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                 for(size_t a = 0; a < pMarkList->GetMarkCount(); ++a)
                                 {
                                     SdrMark* pM = pMarkList->GetMark(a);
-                                    SdrObject* pObj = pM->GetMarkedSdrObj()->Clone();
+                                    SdrObject* pObj(pM->GetMarkedSdrObj()->CloneSdrObject(pPage->getSdrModelFromSdrPage()));
 
                                     if(pObj)
                                     {
@@ -592,7 +593,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                 for(ImpRememberOrigAndClone* p : aConnectorContainer)
                                     delete p;
 
-                                if( pMarkList != mpDragSrcMarkList )
+                                if( pMarkList != mpDragSrcMarkList.get() )
                                     delete pMarkList;
 
                                 bReturn = true;
@@ -646,7 +647,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
             SdDrawDocument* pWorkModel = const_cast<SdDrawDocument*>(pOwnData->GetWorkDocument());
             SdPage*         pWorkPage = pWorkModel->GetSdPage( 0, PageKind::Standard );
 
-            pWorkPage->SetRectsDirty();
+            pWorkPage->SetSdrObjListRectsDirty();
 
             // #i120393# Clipboard data uses full object geometry range
             const Size aSize( pWorkPage->GetAllObjBoundRect().GetSize() );
@@ -714,7 +715,8 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                         if( ( mnAction & DND_ACTION_MOVE ) && pPickObj2 && pObj )
                         {
                             // replace object
-                            SdrObject*  pNewObj = pObj->Clone();
+                            SdrPage* pWorkPage = GetSdrPageView()->GetPage();
+                            SdrObject* pNewObj(pObj->CloneSdrObject(pWorkPage->getSdrModelFromSdrPage()));
                             ::tools::Rectangle   aPickObjRect( pPickObj2->GetCurrentBoundRect() );
                             Size        aPickObjSize( aPickObjRect.GetSize() );
                             Point       aVec( aPickObjRect.TopLeft() );
@@ -733,7 +735,6 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                             if( bUndo )
                                 BegUndo(SdResId(STR_UNDO_DRAGDROP));
                             pNewObj->NbcSetLayer( pPickObj->GetLayer() );
-                            SdrPage* pWorkPage = GetSdrPageView()->GetPage();
                             pWorkPage->InsertObject( pNewObj );
                             if( bUndo )
                             {
@@ -816,7 +817,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                 {
                     SdrPage* pWorkPage = pModel->GetSdPage( 0, PageKind::Standard );
 
-                    pWorkPage->SetRectsDirty();
+                    pWorkPage->SetSdrObjListRectsDirty();
 
                     if( pOwnData )
                     {
@@ -890,7 +891,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                     SdDrawDocument* pModel = xDocShRef->GetDoc();
                     SdPage*         pWorkPage = pModel->GetSdPage( 0, PageKind::Standard );
 
-                    pWorkPage->SetRectsDirty();
+                    pWorkPage->SetSdrObjListRectsDirty();
 
                     if( pOwnData )
                     {
@@ -1228,7 +1229,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                                     pWorkModel->GetSdPage( 0, PageKind::Standard ) :
                                                     pWorkModel->GetPage( 0 ) );
 
-                pWorkPage->SetRectsDirty();
+                pWorkPage->SetSdrObjListRectsDirty();
 
                 // #i120393# Clipboard data uses full object geometry range
                 const Size aSize( pWorkPage->GetAllObjBoundRect().GetSize() );
@@ -1260,7 +1261,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                                 pWorkModel->GetSdPage( 0, PageKind::Standard ) :
                                                 pWorkModel->GetPage( 0 ) );
 
-            pWorkPage->SetRectsDirty();
+            pWorkPage->SetSdrObjListRectsDirty();
 
             // #i120393# Clipboard data uses full object geometry range
             const Size aSize( pWorkPage->GetAllObjBoundRect().GetSize() );
@@ -1309,7 +1310,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                                     pWorkModel->GetSdPage( 0, PageKind::Standard ) :
                                                     pWorkModel->GetPage( 0 ) );
 
-                pWorkPage->SetRectsDirty();
+                pWorkPage->SetSdrObjListRectsDirty();
 
                 // #i120393# Clipboard data uses full object geometry range
                 const Size aSize( pWorkPage->GetAllObjBoundRect().GetSize() );

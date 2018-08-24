@@ -11,6 +11,7 @@
 
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/table/BorderLine.hpp>
 #include <com/sun/star/text/XDependentTextField.hpp>
 #include <com/sun/star/text/XFootnote.hpp>
@@ -44,16 +45,67 @@ protected:
     }
 };
 
+DECLARE_OOXMLEXPORT_TEST(testTdf57589_hashColor, "tdf57589_hashColor.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, getProperty<drawing::FillStyle>(getParagraph(1), "FillStyle"));
+    CPPUNIT_ASSERT_EQUAL(COL_LIGHTMAGENTA, Color(getProperty<sal_uInt32>(getParagraph(1), "ParaBackColor")));
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_NONE, getProperty<drawing::FillStyle>(getParagraph(2), "FillStyle"));
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(getParagraph(2), "ParaBackColor")));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf92524_autoColor, "tdf92524_autoColor.doc")
 {
     CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_NONE, getProperty<drawing::FillStyle>(getParagraph(1), "FillStyle"));
     CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(getParagraph(1), "ParaBackColor")));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf116436_rowFill, "tdf116436_rowFill.odt")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<table::XCell> xCell = xTable->getCellByName("A1");
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0xF8DF7C), getProperty<sal_Int32>(xCell, "BackColor"));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf46938_clearTabStop, "tdf46938_clearTabStop.docx")
 {
     // Number of tabstops should be zero, overriding the one in the style
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty< uno::Sequence<style::TabStop> >(getParagraph(1), "ParaTabStops").getLength());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf63561_clearTabs, "tdf63561_clearTabs.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(5), getProperty< uno::Sequence<style::TabStop> >(getParagraph(1), "ParaTabStops").getLength());
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(7), getProperty< uno::Sequence<style::TabStop> >(getParagraph(3), "ParaTabStops").getLength());
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(4), getProperty< uno::Sequence<style::TabStop> >(getParagraph(4), "ParaTabStops").getLength());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf63561_clearTabs2, "tdf63561_clearTabs2.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), getProperty< uno::Sequence<style::TabStop> >(getParagraph(1), "ParaTabStops").getLength());
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(3), getProperty< uno::Sequence<style::TabStop> >(getParagraph(3), "ParaTabStops").getLength());
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(4), getProperty< uno::Sequence<style::TabStop> >(getParagraph(4), "ParaTabStops").getLength());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf106174_rtlParaAlign, "tdf106174_rtlParaAlign.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_CENTER), getProperty<sal_Int16>(getParagraph(1), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_CENTER), getProperty<sal_Int16>(getParagraph(2), "ParaAdjust"));
+    uno::Reference<beans::XPropertySet> xPropertySet(getStyles("ParagraphStyles")->getByName("Another paragraph aligned to right"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(xPropertySet, "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(3), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(4), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(5), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_LEFT),  getProperty<sal_Int16>(getParagraph(6), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(7), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(8), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_LEFT),  getProperty<sal_Int16>(getParagraph(9), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_LEFT),  getProperty<sal_Int16>(getParagraph(10), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(11), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_LEFT),  getProperty<sal_Int16>(getParagraph(12), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_LEFT),  getProperty<sal_Int16>(getParagraph(13), "ParaAdjust"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getParagraph(14), "ParaAdjust"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf82065_Ind_start_strict, "tdf82065_Ind_start_strict.docx")
@@ -82,6 +134,12 @@ DECLARE_OOXMLEXPORT_TEST(testTdf112694, "tdf112694.docx")
     // Header was on when header for file was for explicit first pages only
     // (marked via <w:titlePg>).
     CPPUNIT_ASSERT(!getProperty<bool>(aPageStyle, "HeaderIsOn"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf118361_RTLfootnoteSeparator, "tdf118361_RTLfootnoteSeparator.docx")
+{
+    uno::Any aPageStyle = getStyles("PageStyles")->getByName("Standard");
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Footnote separator RTL", sal_Int16(2), getProperty<sal_Int16>(aPageStyle, "FootnoteLineAdjust"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf115861, "tdf115861.docx")
@@ -127,6 +185,17 @@ DECLARE_OOXMLEXPORT_TEST(testTdf115719, "tdf115719.docx")
 DECLARE_OOXMLEXPORT_TEST(testTdf116410, "tdf116410.docx")
 {
     // Opposite of the above, was 2 pages, should be 1 page.
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testDefaultStyle, "defaultStyle.docx")
+{
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Default Style", OUString("Title"), getProperty<OUString>(getParagraph(1), "ParaStyleName") );
+    CPPUNIT_ASSERT_EQUAL(2, getPages());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf117988, "tdf117988.docx")
+{
     CPPUNIT_ASSERT_EQUAL(1, getPages());
 }
 
@@ -191,14 +260,34 @@ DECLARE_OOXMLEXPORT_TEST(testSignatureLineShape, "signature-line-all-props-set.d
     CPPUNIT_ASSERT_EQUAL(OUString("Check the machines!"), aSigningInstructions);
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf117805, "tdf117805.odt")
+{
+    if (!mbExported)
+        return;
+
+    uno::Reference<packages::zip::XZipFileAccess2> xNameAccess
+        = packages::zip::ZipFileAccess::createWithURL(comphelper::getComponentContext(m_xSFactory),
+                                                      maTempFile.GetURL());
+    // This failed, the header was lost. It's still referenced at an incorrect
+    // location in document.xml, though.
+    CPPUNIT_ASSERT(xNameAccess->hasByName("word/header1.xml"));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf113183, "tdf113183.docx")
 {
-    // This was 2096, the horizontal positioning of the star shape affected the
-    // positioning of the triangle one, so the triangle was outside the page
-    // frame.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0),
-                         getProperty<sal_Int32>(getShapeByName("triangle"),
-                                                "HoriOrientPosition"));
+    // The horizontal positioning of the star shape affected the positioning of
+    // the triangle one, so the triangle was outside the page frame.
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    sal_Int32 nPageLeft = getXPath(pXmlDoc, "/root/page[1]/infos/bounds", "left").toInt32();
+    sal_Int32 nPageWidth = getXPath(pXmlDoc, "/root/page[1]/infos/bounds", "width").toInt32();
+    sal_Int32 nShapeLeft
+        = getXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[2]/bounds", "left")
+              .toInt32();
+    sal_Int32 nShapeWidth
+        = getXPath(pXmlDoc, "/root/page/body/txt/anchored/SwAnchoredDrawObject[2]/bounds", "width")
+              .toInt32();
+    // Make sure the second triangle shape is within the page bounds (with ~1px tolerance).
+    CPPUNIT_ASSERT_GREATEREQUAL(nShapeLeft + nShapeWidth, nPageLeft + nPageWidth + 21);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testGraphicObjectFliph, "graphic-object-fliph.docx")
@@ -275,6 +364,18 @@ DECLARE_OOXMLEXPORT_TEST(testTdf113258, "tdf113258.docx")
     // margin for the first paragraph in a shape.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0),
                          getProperty<sal_Int32>(xShape->getStart(), "ParaTopMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf104354, "tdf104354.docx")
+{
+    uno::Reference<text::XTextRange> xShape(getShape(1), uno::UNO_QUERY);
+    // This was 494, i.e. automatic spacing resulted in non-zero paragraph top
+    // margin for the first paragraph in a text frame.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0),
+                         getProperty<sal_Int32>(xShape->getStart(), "ParaTopMargin"));
+    // still 494 in the second paragraph
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494),
+                         getProperty<sal_Int32>(xShape->getEnd(), "ParaTopMargin"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf107035, "tdf107035.docx")
@@ -367,6 +468,132 @@ DECLARE_OOXMLEXPORT_TEST(testTdf116985, "tdf116985.docx")
     sal_Int32 nWidth
         = parseDump("/root/page[1]/body/txt[1]/anchored/fly/infos/bounds", "width").toInt32();
     CPPUNIT_ASSERT(nWidth > 4000);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf116801, "tdf116801.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    // This raised a lang::IndexOutOfBoundsException, table was missing from
+    // the import result.
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("D1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("D1"), xCell->getString());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf107969, "tdf107969.docx")
+{
+    // A VML object in a footnote's tracked changes caused write past end of document.xml at export to docx.
+    // After that, importing after export failed with
+    // SAXParseException: '[word/document.xml line 2]: Extra content at the end of the document', Stream 'word/document.xml'.
+}
+
+DECLARE_OOXMLEXPORT_TEST(testOpenDocumentAsReadOnly, "open-as-read-only.docx")
+{
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    CPPUNIT_ASSERT(pTextDoc->GetDocShell()->IsSecurityOptOpenReadOnly());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testNoDefault, "noDefault.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    uno::Reference<container::XEnumerationAccess> xParaEnumAccess(xCell->getText(), uno::UNO_QUERY);
+    uno::Reference<container::XEnumeration> xParaEnum = xParaEnumAccess->createEnumeration();
+    uno::Reference<text::XTextRange> xPara(xParaEnum->nextElement(), uno::UNO_QUERY);
+
+    // Row 1: color directly applied to the paragraph, overrides table and style colors
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0x2E74B5), getProperty<sal_Int32>(getRun(xPara,1), "CharColor"));
+
+    // Row2: (still part of firstRow table-style) ought to use the Normal style color, not the table-style color(5B9BD5)
+    //xCell.set(xTable->getCellByName("A2"), uno::UNO_QUERY);
+    //xParaEnumAccess.set(xCell->getText(), uno::UNO_QUERY);
+    //xParaEnum = xParaEnumAccess->createEnumeration();
+    //xPara.set(xParaEnum->nextElement(), uno::UNO_QUERY);
+    //CPPUNIT_ASSERT_EQUAL(sal_Int32(COL_LIGHTMAGENTA), getProperty<sal_Int32>(getRun(xPara,1), "CharColor"));
+
+    // Row 3+: Normal style still applied, even if nothing is specified with w:default="1"
+    xCell.set(xTable->getCellByName("A3"), uno::UNO_QUERY);
+    xParaEnumAccess.set(xCell->getText(), uno::UNO_QUERY);
+    xParaEnum = xParaEnumAccess->createEnumeration();
+    xPara.set(xParaEnum->nextElement(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(COL_LIGHTMAGENTA), getProperty<sal_Int32>(getRun(xPara,1), "CharColor"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testMarginsFromStyle, "margins_from_style.docx")
+{
+    // tdf#118521 paragraphs with direct formatting of top or bottom margins have
+    // lost the other margin comes from paragraph style, getting a bad
+    // margin from the default style
+
+    // from direct formatting
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(35), getProperty<sal_Int32>(getParagraph(1), "ParaTopMargin"));
+    // from paragraph style
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(106), getProperty<sal_Int32>(getParagraph(1), "ParaBottomMargin"));
+
+    // from paragraph style
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(388), getProperty<sal_Int32>(getParagraph(3), "ParaTopMargin"));
+    // from direct formatting
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(600), getProperty<sal_Int32>(getParagraph(3), "ParaBottomMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf104348_contextMargin, "tdf104348_contextMargin.docx")
+{
+    // tdf#104348 shows that ContextMargin belongs with Top/Bottom handling
+
+    uno::Reference<beans::XPropertySet> xMyStyle(getStyles("ParagraphStyles")->getByName("MyStyle"), uno::UNO_QUERY);
+    // from paragraph style - this is what direct formatting should equal
+    sal_Int32 nMargin = getProperty<sal_Int32>(xMyStyle, "ParaBottomMargin");
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), nMargin);
+    // from direct formatting
+    CPPUNIT_ASSERT_EQUAL(nMargin, getProperty<sal_Int32>(getParagraph(2), "ParaBottomMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf118521_marginsLR, "tdf118521_marginsLR.docx")
+{
+    // tdf#118521 paragraphs with direct formatting of only some of left, right, or first margins have
+    // lost the other unset margins coming from paragraph style, getting a bad margin from the default style instead
+
+    uno::Reference<beans::XPropertySet> xMyStyle(getStyles("ParagraphStyles")->getByName("MyStyle"), uno::UNO_QUERY);
+    // from paragraph style - this is what direct formatting should equal
+    sal_Int32 nMargin = getProperty<sal_Int32>(xMyStyle, "ParaLeftMargin");
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), nMargin);
+    // from direct formatting
+    CPPUNIT_ASSERT_EQUAL(nMargin, getProperty<sal_Int32>(getParagraph(1), "ParaLeftMargin"));
+
+    nMargin = getProperty<sal_Int32>(xMyStyle, "ParaRightMargin");
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1900), nMargin);
+    CPPUNIT_ASSERT_EQUAL(nMargin, getProperty<sal_Int32>(getParagraph(2), "ParaRightMargin"));
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf104797, "tdf104797.docx")
+{
+    // check moveFrom and moveTo
+    CPPUNIT_ASSERT_EQUAL( OUString( "Will this sentence be duplicated?" ), getParagraph( 1 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 1 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 2), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Delete"),getProperty<OUString>(getRun(getParagraph(1), 2), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(true,getProperty<bool>(getRun(getParagraph(1), 2), "IsStart"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "This is a filler sentence. Will this sentence be duplicated ADDED STUFF?" ),
+            getParagraph( 2 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "This is a filler sentence." ), getRun( getParagraph( 2 ), 1 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 2 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( " Will this sentence be duplicated ADDED STUFF?" ), getRun( getParagraph( 2 ), 3 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 4 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(2), 5), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Insert"),getProperty<OUString>(getRun(getParagraph(2), 5), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(false,getProperty<bool>(getRun(getParagraph(2), 5), "IsStart"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf113608_runAwayNumbering, "tdf113608_runAwayNumbering.docx")
+{
+    // check that an incorrect numbering style is not applied
+    // after removing a w:r-less paragraph
+    CPPUNIT_ASSERT_EQUAL(OUString(), getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

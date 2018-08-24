@@ -321,8 +321,7 @@ void SalDisplay::doDestruct()
 {
     GenericUnixSalData *pData = GetGenericUnixSalData();
 
-    delete m_pWMAdaptor;
-    m_pWMAdaptor = nullptr;
+    m_pWMAdaptor.reset();
     X11SalBitmap::ImplDestroyCache();
     X11SalGraphics::releaseGlyphPeer();
 
@@ -1495,6 +1494,9 @@ KeySym SalDisplay::GetKeySym( XKeyEvent        *pEvent,
 }
 
 // Pointer
+static unsigned char nullmask_bits[] = { 0x00, 0x00, 0x00, 0x00 };
+static unsigned char nullcurs_bits[] = { 0x00, 0x00, 0x00, 0x00 };
+
 #define MAKE_BITMAP( name ) \
     XCreateBitmapFromData( pDisp_, \
                            DefaultRootWindow( pDisp_ ), \
@@ -2436,11 +2438,6 @@ SalVisual::SalVisual( const XVisualInfo* pXVI )
     }
 }
 
-SalVisual::~SalVisual()
-{
-    if( -1 == screen && VisualID(-1) == visualid ) delete visual;
-}
-
 // Converts the order of bytes of a Pixel into bytes of a Color
 // This is not reversible for the 6 XXXA
 
@@ -2609,8 +2606,8 @@ SalColormap::SalColormap( sal_uInt16 nDepth )
                                &aVI ) )
         {
             aVI.visual          = new Visual;
-            aVI.visualid        = VisualID(0); // beware of temporary destructor below
-            aVI.screen          = 0;
+            aVI.visualid        = VisualID(-1);
+            aVI.screen          = -1;
             aVI.depth           = nDepth;
             aVI.c_class         = TrueColor;
             if( 24 == nDepth ) // 888
@@ -2662,13 +2659,18 @@ SalColormap::SalColormap( sal_uInt16 nDepth )
             aVI.visual->map_entries     = aVI.colormap_size;
 
             m_aVisual = SalVisual( &aVI );
-            // give ownership of constructed Visual() to m_aVisual
-            // see SalVisual destructor
-            m_aVisual.visualid        = VisualID(-1);
-            m_aVisual.screen          = -1;
+            m_aVisualOwnership.owner = true;
         }
         else
             m_aVisual = SalVisual( &aVI );
+    }
+}
+
+SalColormap::~SalColormap()
+{
+    if (m_aVisualOwnership.owner)
+    {
+        delete m_aVisual.visual;
     }
 }
 

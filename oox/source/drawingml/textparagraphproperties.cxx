@@ -45,7 +45,6 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
-#include <comphelper/genericpropertyset.hxx>
 #include <oox/ppt/pptimport.hxx>
 #include <oox/ppt/slidepersist.hxx>
 #endif
@@ -364,10 +363,6 @@ void BulletList::pushToPropMap( const ::oox::core::XmlFilterBase* pFilterBase, P
 
 TextParagraphProperties::TextParagraphProperties()
 : mnLevel( 0 )
-{
-}
-
-TextParagraphProperties::~TextParagraphProperties()
 {
 }
 

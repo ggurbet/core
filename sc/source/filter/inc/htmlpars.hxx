@@ -99,7 +99,7 @@ struct ScHTMLTableStackEntry
 {
     ScRangeListRef      xLockedList;
     std::shared_ptr<ScEEParseEntry> xCellEntry;
-    ScHTMLColOffset*    pLocalColOffset;
+    std::unique_ptr<ScHTMLColOffset> pLocalColOffset;
     sal_uLong           nFirstTableCell;
     SCROW               nRowCnt;
     SCCOL               nColCntStart;
@@ -110,14 +110,14 @@ struct ScHTMLTableStackEntry
     sal_uInt16          nColOffsetStart;
     bool                bFirstRow;
                         ScHTMLTableStackEntry( const std::shared_ptr<ScEEParseEntry>& rE,
-                                const ScRangeListRef& rL, ScHTMLColOffset* pTO,
+                                const ScRangeListRef& rL, std::unique_ptr<ScHTMLColOffset> pTO,
                                 sal_uLong nFTC,
                                 SCROW nRow,
                                 SCCOL nStart, SCCOL nMax, sal_uInt16 nTab,
                                 sal_uInt16 nTW, sal_uInt16 nCO, sal_uInt16 nCOS,
                                 bool bFR )
                             : xLockedList( rL ), xCellEntry(rE),
-                            pLocalColOffset( pTO ),
+                            pLocalColOffset( std::move(pTO) ),
                             nFirstTableCell( nFTC ),
                             nRowCnt( nRow ),
                             nColCntStart( nStart ), nMaxCol( nMax ),
@@ -152,13 +152,13 @@ class ScHTMLLayoutParser : public ScHTMLParser
 private:
     Size                aPageSize;
     OUString            aBaseURL;
-    ::std::stack< ScHTMLTableStackEntry* >
+    ::std::stack< std::unique_ptr<ScHTMLTableStackEntry> >
                         aTableStack;
     OUString            aString;
     ScRangeListRef      xLockedList;        // per table
-    OuterMap*           pTables;
+    std::unique_ptr<OuterMap> pTables;
     ScHTMLColOffset     maColOffset;
-    ScHTMLColOffset*    pLocalColOffset;    // per table
+    std::unique_ptr<ScHTMLColOffset> pLocalColOffset;    // per table
     sal_uLong           nFirstTableCell;    // per table
     short               nTableLevel;
     sal_uInt16          nTable;
@@ -169,8 +169,8 @@ private:
     sal_uInt16          nColOffset;         // current, pixel
     sal_uInt16          nColOffsetStart;    // start value per table, in pixel
     sal_uInt16          nOffsetTolerance;   // for use with SeekOffset and related
+    bool                bFirstRow;          // per table, whether in first row
     bool                bTabInTabCell:1;
-    bool                bFirstRow:1;        // per table, whether in first row
     bool                bInCell:1;
     bool                bInTitle:1;
 

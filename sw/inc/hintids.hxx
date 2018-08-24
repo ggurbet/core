@@ -33,6 +33,9 @@ class SwDocPosUpdate;
 class SwFormatMeta;
 class SvXMLAttrContainerItem;
 class SwMsgPoolItem;
+class SwPtrMsgPoolItem;
+class SfxBoolItem;
+class SvxColorItem;
 
 // For SwTextHints without end index the following char is added:
 
@@ -63,7 +66,7 @@ class SwMsgPoolItem;
 // Which-values for character-format attributes.
 #define RES_CHRATR_BEGIN  HINT_BEGIN
 #define     RES_CHRATR_CASEMAP                     TypedWhichId<SvxCaseMapItem>(RES_CHRATR_BEGIN)  //  1
-#define     RES_CHRATR_CHARSETCOLOR                TypedWhichId<SvxCharSetColorItem>(2)
+#define     RES_CHRATR_CHARSETCOLOR                TypedWhichId<SvxColorItem>(2)
 #define     RES_CHRATR_COLOR                       TypedWhichId<SvxColorItem>(3)
 #define     RES_CHRATR_CONTOUR                     TypedWhichId<SvxContourItem>(4)
 #define     RES_CHRATR_CROSSEDOUT                  TypedWhichId<SvxCrossedOutItem>(5)

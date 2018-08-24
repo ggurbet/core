@@ -17,12 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "Qt5Widget.hxx"
+#include <Qt5Widget.hxx>
 #include <Qt5Widget.moc>
 
-#include "Qt5Frame.hxx"
-#include "Qt5Graphics.hxx"
-#include "Qt5Tools.hxx"
+#include <Qt5Frame.hxx>
+#include <Qt5Graphics.hxx>
+#include <Qt5Tools.hxx>
 
 #include <QtGui/QFocusEvent>
 #include <QtGui/QImage>
@@ -32,20 +32,11 @@
 #include <QtGui/QPaintEvent>
 #include <QtGui/QShowEvent>
 #include <QtGui/QWheelEvent>
+#include <QtWidgets/QtWidgets>
+#include <QtWidgets/QMainWindow>
 
 #include <cairo.h>
 #include <headless/svpgdi.hxx>
-
-Qt5Widget::Qt5Widget(Qt5Frame& rFrame, QWidget* parent, Qt::WindowFlags f)
-    : QWidget(parent, f)
-    , m_pFrame(&rFrame)
-{
-    create();
-    setMouseTracking(true);
-    setFocusPolicy(Qt::StrongFocus);
-}
-
-Qt5Widget::~Qt5Widget() {}
 
 void Qt5Widget::paintEvent(QPaintEvent* pEvent)
 {
@@ -63,17 +54,22 @@ void Qt5Widget::paintEvent(QPaintEvent* pEvent)
         p.drawImage(pEvent->rect().topLeft(), *m_pFrame->m_pQImage, pEvent->rect());
 }
 
-void Qt5Widget::resizeEvent(QResizeEvent*)
+void Qt5Widget::resizeEvent(QResizeEvent* /*event*/)
 {
     if (m_pFrame->m_bUseCairo)
     {
         int width = size().width();
         int height = size().height();
-        cairo_surface_t* pSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-        cairo_surface_set_user_data(pSurface, SvpSalGraphics::getDamageKey(),
-                                    &m_pFrame->m_aDamageHandler, nullptr);
-        m_pFrame->m_pSvpGraphics->setSurface(pSurface, basegfx::B2IVector(width, height));
-        m_pFrame->m_pSurface.reset(pSurface);
+
+        if (m_pFrame->m_pSvpGraphics)
+        {
+            cairo_surface_t* pSurface
+                = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+            cairo_surface_set_user_data(pSurface, SvpSalGraphics::getDamageKey(),
+                                        &m_pFrame->m_aDamageHandler, nullptr);
+            m_pFrame->m_pSvpGraphics->setSurface(pSurface, basegfx::B2IVector(width, height));
+            m_pFrame->m_pSurface.reset(pSurface);
+        }
     }
     else
     {
@@ -168,9 +164,14 @@ void Qt5Widget::moveEvent(QMoveEvent*) { m_pFrame->CallCallback(SalEvent::Move, 
 
 void Qt5Widget::showEvent(QShowEvent*)
 {
-    QSize aSize(m_pFrame->m_pQWidget->size());
+    QSize aSize(m_pFrame->GetQWidget()->size());
     SalPaintEvent aPaintEvt(0, 0, aSize.width(), aSize.height(), true);
     m_pFrame->CallCallback(SalEvent::Paint, &aPaintEvt);
+}
+
+void Qt5Widget::closeEvent(QCloseEvent* /*pEvent*/)
+{
+    m_pFrame->CallCallback(SalEvent::Close, nullptr);
 }
 
 static sal_uInt16 GetKeyCode(int keyval)
@@ -217,6 +218,10 @@ static sal_uInt16 GetKeyCode(int keyval)
                 nCode = KEY_ESCAPE;
                 break;
             case Qt::Key_Tab:
+            // oddly enough, Qt doesn't send Shift-Tab event as 'Tab key pressed with Shift
+            // modifier' but as 'Backtab key pressed' (while its modifier bits are still
+            // set to Shift) -- so let's map both Key_Tab and Key_Backtab to VCL's KEY_TAB
+            case Qt::Key_Backtab:
                 nCode = KEY_TAB;
                 break;
             case Qt::Key_Backspace:
@@ -344,5 +349,16 @@ void Qt5Widget::focusOutEvent(QFocusEvent*)
 {
     m_pFrame->CallCallback(SalEvent::LoseFocus, nullptr);
 }
+
+Qt5Widget::Qt5Widget(Qt5Frame& rFrame, Qt::WindowFlags f)
+    : QWidget(Q_NULLPTR, f)
+    , m_pFrame(&rFrame)
+{
+    create();
+    setMouseTracking(true);
+    setFocusPolicy(Qt::StrongFocus);
+}
+
+Qt5Widget::~Qt5Widget(){};
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

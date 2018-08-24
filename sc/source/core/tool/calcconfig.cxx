@@ -14,6 +14,7 @@
 #include <formula/grammar.hxx>
 #include <formula/opcode.hxx>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 #include <sfx2/objsh.hxx>
 #include <unotools/configmgr.hxx>
 
@@ -22,6 +23,7 @@
 #include <docsh.hxx>
 
 #include <comphelper/configurationlistener.hxx>
+#include <com/sun/star/datatransfer/XTransferable2.hpp>
 
 using comphelper::ConfigurationListener;
 
@@ -55,14 +57,6 @@ bool ScCalcConfig::isThreadingEnabled()
         return false;
     static comphelper::ConfigurationListenerProperty<bool> gThreadingEnabled(getFormulaCalculationListener(), "UseThreadedCalculationForFormulaGroups");
     return gThreadingEnabled.get();
-}
-
-bool ScCalcConfig::isSwInterpreterEnabled()
-{
-    if (utl::ConfigManager::IsFuzzing())
-        return false;
-    static comphelper::ConfigurationListenerProperty<bool> gSwInterpreterEnabled(getMiscListener(), "UseSwInterpreter");
-    return gSwInterpreterEnabled.get();
 }
 
 ScCalcConfig::ScCalcConfig() :
@@ -113,15 +107,6 @@ void ScCalcConfig::setOpenCLConfigToDefault()
         ocSlope,
         ocSumIfs}));
 
-    // opcodes that are known to work well with the software interpreter
-    static OpCodeSet pDefaultSwInterpreterSubsetOpCodes(new std::set<OpCode>({
-        ocAdd,
-        ocSub,
-        ocMul,
-        ocDiv,
-        ocSum,
-        ocProduct}));
-
     // Note that these defaults better be kept in sync with those in
     // officecfg/registry/schema/org/openoffice/Office/Calc.xcs.
     // Crazy.
@@ -129,7 +114,6 @@ void ScCalcConfig::setOpenCLConfigToDefault()
     mbOpenCLAutoSelect = true;
     mnOpenCLMinimumFormulaGroupSize = 100;
     mpOpenCLSubsetOpCodes = pDefaultOpenCLSubsetOpCodes;
-    mpSwInterpreterSubsetOpCodes = pDefaultSwInterpreterSubsetOpCodes;
 }
 
 void ScCalcConfig::reset()
@@ -163,8 +147,7 @@ bool ScCalcConfig::operator== (const ScCalcConfig& r) const
            mbOpenCLAutoSelect == r.mbOpenCLAutoSelect &&
            maOpenCLDevice == r.maOpenCLDevice &&
            mnOpenCLMinimumFormulaGroupSize == r.mnOpenCLMinimumFormulaGroupSize &&
-           *mpOpenCLSubsetOpCodes == *r.mpOpenCLSubsetOpCodes &&
-           *mpSwInterpreterSubsetOpCodes == *r.mpSwInterpreterSubsetOpCodes;
+           *mpOpenCLSubsetOpCodes == *r.mpOpenCLSubsetOpCodes;
 }
 
 bool ScCalcConfig::operator!= (const ScCalcConfig& r) const

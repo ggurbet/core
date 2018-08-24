@@ -35,6 +35,7 @@
 #include <cppuhelper/factory.hxx>
 #include <sax/fshelper.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <filter/msfilter/escherex.hxx>
 #include <tools/poly.hxx>
 
@@ -45,6 +46,7 @@
 #include <com/sun/star/animations/AnimationRestart.hpp>
 #include <com/sun/star/animations/AnimationTransformType.hpp>
 #include <com/sun/star/animations/AnimationValueType.hpp>
+#include <com/sun/star/animations/AnimationColorSpace.hpp>
 #include <com/sun/star/animations/Event.hpp>
 #include <com/sun/star/animations/EventTrigger.hpp>
 #include <com/sun/star/animations/Timing.hpp>
@@ -55,13 +57,17 @@
 #include <com/sun/star/animations/XAnimateTransform.hpp>
 #include <com/sun/star/animations/XAnimationNode.hpp>
 #include <com/sun/star/animations/XAnimationNodeSupplier.hpp>
+#include <com/sun/star/animations/XAnimateColor.hpp>
 #include <com/sun/star/animations/XCommand.hpp>
 #include <com/sun/star/animations/XTransitionFilter.hpp>
+#include <com/sun/star/animations/XIterateContainer.hpp>
 #include <com/sun/star/beans/Property.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/RectanglePoint.hpp>
+#include <com/sun/star/drawing/XDrawPages.hpp>
+#include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/geometry/RealPoint2D.hpp>
 #include <com/sun/star/office/XAnnotationEnumeration.hpp>
@@ -71,11 +77,17 @@
 #include <com/sun/star/presentation/EffectNodeType.hpp>
 #include <com/sun/star/presentation/EffectPresetClass.hpp>
 #include <com/sun/star/presentation/ParagraphTarget.hpp>
+#include <com/sun/star/presentation/TextAnimationType.hpp>
 #include <com/sun/star/util/DateTime.hpp>
+#include <com/sun/star/task/XStatusIndicator.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 
 #include <oox/export/utils.hxx>
+#include <oox/ppt/pptfilterhelpers.hxx>
+#include <basegfx/polygon/b2dpolypolygontools.hxx>
 
 #include "pptexanimations.hxx"
+#include "../ppt/pptanimations.hxx"
 
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
@@ -357,7 +369,19 @@ void PowerPointExport::writeDocumentProperties()
     uno::Reference<document::XDocumentProperties> xDocProps = xDPS->getDocumentProperties();
 
     if (xDocProps.is())
-        exportDocumentProperties(xDocProps);
+    {
+        bool bSecurityOptOpenReadOnly = false;
+        uno::Reference< lang::XMultiServiceFactory > xFactory(mXModel, uno::UNO_QUERY);
+        uno::Reference< beans::XPropertySet > xSettings(xFactory->createInstance("com.sun.star.document.Settings"), uno::UNO_QUERY);
+        try
+        {
+            xSettings->getPropertyValue("LoadReadonly") >>= bSecurityOptOpenReadOnly;
+        }
+        catch( Exception& )
+        {
+        }
+        exportDocumentProperties(xDocProps, bSecurityOptOpenReadOnly);
+    }
 
     exportCustomFragments();
 }
@@ -898,6 +922,27 @@ void PowerPointExport::WriteAnimationProperty(const FSHelperPtr& pFS, const Any&
     if (!rAny.hasValue())
         return;
 
+    ValuePair aPair;
+
+    if (rAny >>= aPair)
+    {
+        double x, y;
+        if ((aPair.First >>= x) && (aPair.Second >>= y))
+        {
+            if (nToken == XML_by)
+            {
+                // MS needs ending values but we have offset values.
+                x += 1.0;
+                y += 1.0;
+            }
+            pFS->singleElementNS(XML_p, nToken,
+                XML_x, OString::number(x*100000).getStr(),
+                XML_y, OString::number(y*100000).getStr(),
+                FSEND);
+        }
+        return;
+    }
+
     sal_uInt32 nRgb;
     double fDouble;
 
@@ -908,7 +953,7 @@ void PowerPointExport::WriteAnimationProperty(const FSHelperPtr& pFS, const Any&
         || aClass == TypeClass_STRING );
 
     if (bWriteToken)
-        pFS->startElementNS(XML_p, XML_to, FSEND);
+        pFS->startElementNS(XML_p, nToken, FSEND);
 
     switch (rAny.getValueType().getTypeClass())
     {
@@ -984,14 +1029,7 @@ void PowerPointExport::WriteAnimateTo(const FSHelperPtr& pFS, const Any& rValue,
 
     SAL_INFO("sd.eppt", "to attribute name: " << USS(rAttributeName));
 
-    sal_uInt32 nColor;
-    if (rValue >>= nColor)
-    {
-        // RGB color
-        WriteAnimationProperty(pFS, rValue, XML_to);
-    }
-    else
-        WriteAnimationProperty(pFS, AnimationExporter::convertAnimateValue(rValue, rAttributeName), XML_to);
+    WriteAnimationProperty(pFS, AnimationExporter::convertAnimateValue(rValue, rAttributeName), XML_to);
 }
 
 void PowerPointExport::WriteAnimationAttributeName(const FSHelperPtr& pFS, const OUString& rAttributeName)
@@ -1003,21 +1041,7 @@ void PowerPointExport::WriteAnimationAttributeName(const FSHelperPtr& pFS, const
 
     SAL_INFO("sd.eppt", "write attribute name: " << USS(rAttributeName));
 
-    const char* pAttribute = nullptr;
-
-    if (rAttributeName == "Visibility")
-    {
-        pAttribute = "style.visibility";
-    }
-    else if (rAttributeName == "X")
-    {
-        pAttribute = "ppt_x";
-    }
-    else if (rAttributeName == "Y")
-    {
-        pAttribute = "ppt_y";
-    }
-    else if (rAttributeName == "X;Y")
+    if (rAttributeName == "X;Y")
     {
         pFS->startElementNS(XML_p, XML_attrName, FSEND);
         pFS->writeEscaped("ppt_x");
@@ -1027,52 +1051,31 @@ void PowerPointExport::WriteAnimationAttributeName(const FSHelperPtr& pFS, const
         pFS->writeEscaped("ppt_y");
         pFS->endElementNS(XML_p, XML_attrName);
     }
-    else if (rAttributeName == "Width")
-    {
-        pAttribute = "ppt_w";
-    }
-    else if (rAttributeName == "Height")
-    {
-        pAttribute = "ppt_h";
-    }
-    else if (rAttributeName == "Rotate")
-    {
-        pAttribute = "r";
-    }
-    else if (rAttributeName == "FillStyle")
-    {
-        pAttribute = "fill.type";
-    }
-    else if (rAttributeName == "FillOn")
-    {
-        pAttribute = "fill.on";
-    }
-    else if (rAttributeName == "FillColor")
-    {
-        pAttribute = "fillcolor";
-    }
-    else if (rAttributeName == "CharColor")
-    {
-        pAttribute = "style.color";
-    }
-    else if (rAttributeName == "Opacity")
-    {
-        pAttribute = "style.opacity";
-    }
-    else if (rAttributeName == "SkewX")
-    {
-        pAttribute = "xshear";
-    }
     else
     {
-        SAL_WARN("sd.eppt", "unhandled animation attribute name: " << rAttributeName);
-    }
+        const oox::ppt::ImplAttributeNameConversion *attrConv = oox::ppt::getAttributeConversionList();
+        const char* pAttribute = nullptr;
 
-    if (pAttribute)
-    {
-        pFS->startElementNS(XML_p, XML_attrName, FSEND);
-        pFS->writeEscaped(pAttribute);
-        pFS->endElementNS(XML_p, XML_attrName);
+        while(attrConv->mpAPIName != nullptr)
+        {
+            if(rAttributeName.equalsAscii(attrConv->mpAPIName))
+            {
+                pAttribute = attrConv->mpMSName;
+                break;
+            }
+            attrConv++;
+        }
+
+        if (pAttribute)
+        {
+            pFS->startElementNS(XML_p, XML_attrName, FSEND);
+            pFS->writeEscaped(pAttribute);
+            pFS->endElementNS(XML_p, XML_attrName);
+        }
+        else
+        {
+            SAL_WARN("sd.eppt", "unhandled animation attribute name: " << rAttributeName);
+        }
     }
 
     pFS->endElementNS(XML_p, XML_attrNameLst);
@@ -1166,9 +1169,15 @@ void PowerPointExport::WriteAnimationNodeAnimate(const FSHelperPtr& pFS, const R
         OUString aPath;
         Reference<XAnimateMotion> xMotion(rXNode, UNO_QUERY);
         if (xMotion.is())
+        {
             xMotion->getPath() >>= aPath;
+            ::basegfx::B2DPolyPolygon aPolyPoly;
+            if (::basegfx::utils::importFromSvgD(aPolyPoly, aPath, true, nullptr))
+                aPath = ::basegfx::utils::exportToSvgD(aPolyPoly, false, false, true, true);
+        }
 
         pFS->startElementNS(XML_p, nXmlNodeType,
+                            XML_origin, "layout",
                             XML_path, OUStringToOString(aPath, RTL_TEXTENCODING_UTF8),
                             FSEND);
     }
@@ -1211,40 +1220,96 @@ void PowerPointExport::WriteAnimationNodeAnimate(const FSHelperPtr& pFS, const R
     }
     else if (nXmlNodeType == XML_animClr)
     {
+        Reference<XAnimateColor> xColor(rXNode, UNO_QUERY);
+        const char *pColorSpace = "rgb";
+        const char *pDirection = nullptr;
+        if (xColor.is() && xColor->getColorInterpolation() == AnimationColorSpace::HSL)
+        {
+            // Note: from, to, by can still be specified in any supported format.
+            pColorSpace = "hsl";
+            pDirection = xColor->getDirection() ? "cw" : "ccw";
+        }
         pFS->startElementNS(XML_p, nXmlNodeType,
-            XML_clrSpc, "rgb",
+            XML_clrSpc, pColorSpace,
+            XML_dir, pDirection,
             XML_calcmode, pCalcMode,
             XML_valueType, pValueType,
             FSEND);
     }
     else
     {
-        OUString sTo;
+        OUString sFrom, sTo, sBy;
         if (rXAnimate.is() && nXmlNodeType == XML_anim)
         {
-            rXAnimate->getTo() >>= sTo;
+            OUString sAttributeName = rXAnimate->getAttributeName();
+            Any aFrom = AnimationExporter::convertAnimateValue(rXAnimate->getFrom(), sAttributeName);
+            aFrom >>= sFrom;
+            Any aTo = AnimationExporter::convertAnimateValue(rXAnimate->getTo(), sAttributeName);
+            aTo >>= sTo;
+            Any aBy = AnimationExporter::convertAnimateValue(rXAnimate->getBy(), sAttributeName);
+            aBy >>= sBy;
         }
-        if (!sTo.isEmpty())
-        {
-            pFS->startElementNS(XML_p, nXmlNodeType,
-                XML_calcmode, pCalcMode,
-                XML_valueType, pValueType,
-                XML_to, USS(sTo),
-                FSEND);
 
-            bTo = false;
-        }
-        else
-        {
-            pFS->startElementNS(XML_p, nXmlNodeType,
-                XML_calcmode, pCalcMode,
-                XML_valueType, pValueType,
-                FSEND);
-        }
+        pFS->startElementNS(XML_p, nXmlNodeType,
+            XML_calcmode, pCalcMode,
+            XML_valueType, pValueType,
+            XML_from, sFrom.getLength() ? USS(sFrom) : nullptr,
+            XML_to, sTo.getLength() ? USS(sTo) : nullptr,
+            XML_by, sBy.getLength() ? USS(sBy) : nullptr,
+            FSEND);
+        bTo = sTo.isEmpty() && sFrom.isEmpty() && sBy.isEmpty();
     }
 
     WriteAnimationNodeAnimateInside(pFS, rXNode, bMainSeqChild, bSimple, bTo);
     pFS->endElementNS(XML_p, nXmlNodeType);
+}
+
+void PowerPointExport::WriteAnimateColorColor(const FSHelperPtr& pFS, const Any& rAny, sal_Int32 nToken)
+{
+    if (!rAny.hasValue())
+        return;
+
+    sal_Int32 nColor = 0;
+    if (rAny >>= nColor)
+    {
+        pFS->startElementNS(XML_p, nToken, FSEND);
+
+        if (nToken == XML_by)
+        {
+            // CT_TLByRgbColorTransform
+            SAL_WARN("sd.eppt", "Export p:rgb in p:by of animClr isn't implemented yet.");
+        }
+        else
+        {
+            // CT_Color
+            pFS->singleElementNS(XML_a, XML_srgbClr, XML_val, I32SHEX(nColor), FSEND);
+        }
+
+        pFS->endElementNS(XML_p, nToken);
+    }
+
+    Sequence< double > aHSL(3);
+    if (rAny >>= aHSL)
+    {
+        pFS->startElementNS(XML_p, nToken, FSEND);
+
+        if (nToken == XML_by)
+        {
+            // CT_TLByHslColorTransform
+            pFS->singleElementNS(XML_p, XML_hsl,
+                             XML_h, I32S(aHSL[0] * 60000),  // ST_Angel
+                             XML_s, I32S(aHSL[1] * 100000),
+                             XML_l, I32S(aHSL[2] * 100000),
+                             FSEND);
+        }
+        else
+        {
+            // CT_Color
+            SAL_WARN("sd.eppt", "Export p:hsl in p:from or p:to of animClr isn't implemented yet.");
+        }
+
+        pFS->endElementNS(XML_p, nToken);
+    }
 }
 
 void PowerPointExport::WriteAnimationNodeAnimateInside(const FSHelperPtr& pFS, const Reference< XAnimationNode >& rXNode, bool bMainSeqChild, bool bSimple, bool bWriteTo)
@@ -1281,11 +1346,38 @@ void PowerPointExport::WriteAnimationNodeAnimateInside(const FSHelperPtr& pFS, c
                         XML_additive, pAdditive,
                         FSEND);
     WriteAnimationNodeCommonPropsStart(pFS, rXNode, true, bMainSeqChild);
-    WriteAnimationTarget(pFS, rXAnimate->getTarget());
-    WriteAnimationAttributeName(pFS, rXAnimate->getAttributeName());
+
+    Reference<XIterateContainer> xIterate(rXNode->getParent(), UNO_QUERY);
+    WriteAnimationTarget(pFS, xIterate.is() ?
+            xIterate->getTarget() : rXAnimate->getTarget());
+
+    Reference<XAnimateTransform> xTransform(rXNode, UNO_QUERY);
+
+    // The attribute name of AnimateTransform is "Transform", we have to fix it.
+    OUString sNewAttr;
+    if (xTransform.is() && xTransform->getTransformType() == AnimationTransformType::ROTATE)
+            sNewAttr = "Rotate";
+
+    WriteAnimationAttributeName(pFS, xTransform.is() ? sNewAttr : rXAnimate->getAttributeName());
+
     pFS->endElementNS(XML_p, XML_cBhvr);
     WriteAnimateValues(pFS, rXAnimate);
-    if (bWriteTo)
+
+    Reference<XAnimateColor> xColor(rXNode, UNO_QUERY);
+
+    if (xColor.is())
+    {
+        WriteAnimateColorColor(pFS, xColor->getBy(), XML_by);
+        WriteAnimateColorColor(pFS, xColor->getFrom(), XML_from);
+        WriteAnimateColorColor(pFS, xColor->getTo(), XML_to);
+    }
+    else if (xTransform.is() && xTransform->getTransformType() == AnimationTransformType::SCALE)
+    {
+        WriteAnimationProperty(pFS, rXAnimate->getBy(), XML_by);
+        WriteAnimationProperty(pFS, rXAnimate->getFrom(), XML_from);
+        WriteAnimationProperty(pFS, rXAnimate->getTo(), XML_to);
+    }
+    else if (bWriteTo)
         WriteAnimateTo(pFS, rXAnimate->getTo(), rXAnimate->getAttributeName());
 }
 
@@ -1551,9 +1643,12 @@ void PowerPointExport::WriteAnimationNodeCommonPropsStart(const FSHelperPtr& pFS
         }
     }
 
+    bool bAutoReverse = rXNode->getAutoReverse();
+
     pFS->startElementNS(XML_p, XML_cTn,
                         XML_id, I64S(mnAnimationNodeIdMax ++),
                         XML_dur, fDuration != 0 ? I32S(static_cast<sal_Int32>(fDuration * 1000.0)) : pDuration,
+                        XML_autoRev, bAutoReverse ? "1" : nullptr,
                         XML_restart, pRestart,
                         XML_nodeType, pNodeType,
                         XML_fill, pFill,
@@ -1588,6 +1683,32 @@ void PowerPointExport::WriteAnimationNodeCommonPropsStart(const FSHelperPtr& pFS
         }
         else
             WriteAnimationCondition(pFS, aAny, false, bMainSeqChild, XML_endCondLst);
+    }
+
+    if (rXNode->getType() == AnimationNodeType::ITERATE)
+    {
+        Reference<XIterateContainer> xIterate(rXNode, UNO_QUERY);
+        if (xIterate.is())
+        {
+            const char *sType = nullptr;
+            switch(xIterate->getIterateType())
+            {
+                case TextAnimationType::BY_PARAGRAPH:
+                    sType = "el";
+                break;
+                case TextAnimationType::BY_LETTER:
+                    sType = "lt";
+                break;
+                case TextAnimationType::BY_WORD:
+                default:
+                    sType = "wd";
+                break;
+
+            }
+            pFS->startElementNS(XML_p, XML_iterate, XML_type, sType, FSEND);
+            pFS->singleElementNS(XML_p, XML_tmAbs, XML_val, I32S(xIterate->getIterateInterval() * 1000), FSEND);
+            pFS->endElementNS(XML_p, XML_iterate);
+        }
     }
 
     Reference< XEnumerationAccess > xEnumerationAccess(rXNode, UNO_QUERY);
@@ -1697,6 +1818,7 @@ void PowerPointExport::WriteAnimationNode(const FSHelperPtr& pFS, const Referenc
 
     switch (rXNode->getType())
     {
+    case AnimationNodeType::ITERATE:
     case AnimationNodeType::PAR:
         xmlNodeType = XML_par;
         break;
@@ -1718,7 +1840,8 @@ void PowerPointExport::WriteAnimationNode(const FSHelperPtr& pFS, const Referenc
             {
                 if (xTransform->getTransformType() == AnimationTransformType::SCALE)
                 {
-                    SAL_WARN("sd.eppt", "SCALE transform type not handled");
+                    xmlNodeType = XML_animScale;
+                    pMethod = &PowerPointExport::WriteAnimationNodeAnimate;
                 }
                 else if (xTransform->getTransformType() == AnimationTransformType::ROTATE)
                 {
@@ -1898,8 +2021,8 @@ bool PowerPointExport::WriteComments(sal_uInt32 nPageNum)
                                     FSEND);
 
                 pFS->singleElementNS(XML_p, XML_pos,
-                                     XML_x, I64S((static_cast<sal_Int64>(57600*aRealPoint2D.X + 1270)/2540.0)),
-                                     XML_y, I64S((static_cast<sal_Int64>(57600*aRealPoint2D.Y + 1270)/2540.0)),
+                                     XML_x, I64S(static_cast<sal_Int64>((57600*aRealPoint2D.X + 1270)/2540.0)),
+                                     XML_y, I64S(static_cast<sal_Int64>((57600*aRealPoint2D.Y + 1270)/2540.0)),
                                      FSEND);
 
                 pFS->startElementNS(XML_p, XML_text,
@@ -2204,12 +2327,6 @@ sal_Int32 PowerPointExport::GetLayoutFileId(sal_Int32 nOffset, sal_uInt32 nMaste
         return 0;
 
     return mLayoutInfo[ nOffset ].mnFileIdArray[ nMasterNum ];
-}
-
-void PowerPointExport::ImplWriteLayout(sal_Int32 /*nOffset*/, sal_uInt32 /*nMasterNum*/)
-{
-    // we write all the layouts together with master(s)
-    // ImplWritePPTXLayout( GetPPTXLayoutId( nOffset ), nMasterNum );
 }
 
 void PowerPointExport::ImplWritePPTXLayout(sal_Int32 nOffset, sal_uInt32 nMasterNum)
@@ -2772,7 +2889,7 @@ bool PowerPointExport::ImplCreateDocument()
     return true;
 }
 
-bool PowerPointExport::WriteNotesMaster()
+void PowerPointExport::WriteNotesMaster()
 {
     SAL_INFO("sd.eppt", "write Notes master\n---------------");
 
@@ -2835,14 +2952,12 @@ bool PowerPointExport::WriteNotesMaster()
     pFS->endElementNS(XML_p, XML_notesMaster);
 
     SAL_INFO("sd.eppt", "----------------");
-
-    return true;
 }
 
 bool PowerPointExport::ImplCreateMainNotes()
 {
     if (mbCreateNotes)
-        return WriteNotesMaster();
+        WriteNotesMaster();
 
     return true;
 }

@@ -81,8 +81,8 @@
 #include <oox/token/properties.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
-#include <comphelper/string.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/font.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 
@@ -504,7 +504,7 @@ void DocxExport::OutputDML(uno::Reference<drawing::XShape> const & xShape)
     aExport.WriteShape(xShape);
 }
 
-void DocxExport::ExportDocument_Impl()
+ErrCode DocxExport::ExportDocument_Impl()
 {
     // Set the 'Track Revisions' flag in the settings structure
     m_aSettings.trackRevisions = bool( RedlineFlags::On & m_nOrigRedlineFlags );
@@ -512,7 +512,7 @@ void DocxExport::ExportDocument_Impl()
     InitStyles();
 
     // init sections
-    m_pSections = new MSWordSections( *this );
+    m_pSections.reset(new MSWordSections( *this ));
 
     // Make sure images are counted from one, even when exporting multiple documents.
     oox::drawingml::DrawingML::ResetCounters();
@@ -542,8 +542,9 @@ void DocxExport::ExportDocument_Impl()
     m_aLinkedTextboxesHelper.clear();   //final cleanup
     delete m_pStyles;
     m_pStyles = nullptr;
-    delete m_pSections;
-    m_pSections = nullptr;
+    m_pSections.reset();
+
+    return ERRCODE_NONE;
 }
 
 void DocxExport::AppendSection( const SwPageDesc *pPageDesc, const SwSectionFormat* pFormat, sal_uLong nLnNum )
@@ -682,11 +683,14 @@ void DocxExport::WriteFootnotesEndnotes()
         m_pAttrOutput->SetSerializer( pFootnotesFS );
         // tdf#99227
         m_pSdrExport->setSerializer( pFootnotesFS );
+        // tdf#107969
+        m_pVMLExport->SetFS(pFootnotesFS);
 
         // do the work
         m_pAttrOutput->FootnotesEndnotes( true );
 
         // switch the serializer back
+        m_pVMLExport->SetFS(m_pDocumentFS);
         m_pSdrExport->setSerializer( m_pDocumentFS );
         m_pAttrOutput->SetSerializer( m_pDocumentFS );
     }
@@ -706,11 +710,14 @@ void DocxExport::WriteFootnotesEndnotes()
         m_pAttrOutput->SetSerializer( pEndnotesFS );
         // tdf#99227
         m_pSdrExport->setSerializer( pEndnotesFS );
+        // tdf#107969
+        m_pVMLExport->SetFS(pEndnotesFS);
 
         // do the work
         m_pAttrOutput->FootnotesEndnotes( false );
 
         // switch the serializer back
+        m_pVMLExport->SetFS(m_pDocumentFS);
         m_pSdrExport->setSerializer( m_pDocumentFS );
         m_pAttrOutput->SetSerializer( m_pDocumentFS );
     }
@@ -881,14 +888,16 @@ void DocxExport::WriteProperties( )
     // Write the core properties
     SwDocShell* pDocShell( m_pDoc->GetDocShell( ) );
     uno::Reference<document::XDocumentProperties> xDocProps;
+    bool bSecurityOptOpenReadOnly = false;
     if ( pDocShell )
     {
         uno::Reference<document::XDocumentPropertiesSupplier> xDPS(
                pDocShell->GetModel( ), uno::UNO_QUERY );
         xDocProps = xDPS->getDocumentProperties();
+        bSecurityOptOpenReadOnly = pDocShell->IsSecurityOptOpenReadOnly();
     }
 
-    m_pFilter->exportDocumentProperties( xDocProps );
+    m_pFilter->exportDocumentProperties( xDocProps, bSecurityOptOpenReadOnly );
 }
 
 void DocxExport::WriteSettings()
@@ -1077,7 +1086,7 @@ void DocxExport::WriteSettings()
                             pAttributeList->add(FSNS(XML_w, nToken), rAttributeList[j].Value.get<OUString>().toUtf8());
                     }
 
-                    // we have document protection from from input DOCX file
+                    // we have document protection from input DOCX file
 
                     sax_fastparser::XFastAttributeListRef xAttributeList(pAttributeList);
                     pFS->singleElementNS(XML_w, XML_documentProtection, xAttributeList);

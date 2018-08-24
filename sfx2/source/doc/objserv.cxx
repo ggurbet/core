@@ -33,6 +33,7 @@
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/document/XCmisDocument.hpp>
 #include <com/sun/star/document/XExporter.hpp>
+#include <com/sun/star/security/XCertificate.hpp>
 #include <com/sun/star/task/ErrorCodeIOException.hpp>
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/task/XStatusIndicator.hpp>
@@ -52,6 +53,7 @@
 #include <vcl/wrkwin.hxx>
 #include <svtools/sfxecode.hxx>
 #include <svtools/ehdl.hxx>
+#include <sal/log.hxx>
 
 #include <comphelper/string.hxx>
 #include <basic/sbx.hxx>
@@ -62,8 +64,10 @@
 #include <svtools/asynclink.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/documentconstants.hxx>
+#include <comphelper/storagehelper.hxx>
 #include <tools/link.hxx>
 
+#include <sfx2/asyncfunc.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/signaturestate.hxx>
 #include <sfx2/sfxresid.hxx>
@@ -111,7 +115,9 @@ using namespace ::com::sun::star::awt;
 using namespace ::com::sun::star::container;
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::document;
+using namespace ::com::sun::star::security;
 using namespace ::com::sun::star::task;
+using namespace ::com::sun::star::graphic;
 
 #define ShellClass_SfxObjectShell
 #include <sfxslots.hxx>
@@ -350,10 +356,10 @@ void SfxObjectShell::CheckIn( )
     {
         uno::Reference< document::XCmisDocument > xCmisDoc( GetModel(), uno::UNO_QUERY_THROW );
         // Pop up dialog to ask for comment and major
-        ScopedVclPtrInstance< SfxCheckinDialog > checkinDlg(&GetFrame( )->GetWindow( ));
-        if ( checkinDlg->Execute( ) == RET_OK )
+        SfxCheckinDialog checkinDlg(GetFrame()->GetWindow().GetFrameWeld());
+        if (checkinDlg.run() == RET_OK)
         {
-            xCmisDoc->checkIn( checkinDlg->IsMajor(), checkinDlg->GetComment() );
+            xCmisDoc->checkIn(checkinDlg.IsMajor(), checkinDlg.GetComment());
             uno::Reference< util::XModifiable > xModifiable( GetModel( ), uno::UNO_QUERY );
             if ( xModifiable.is( ) )
                 xModifiable->setModified( false );
@@ -392,7 +398,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
     if( SID_SIGNATURE == nId || SID_MACRO_SIGNATURE == nId )
     {
         if ( QueryHiddenInformation( HiddenWarningFact::WhenSigning, nullptr ) == RET_YES )
-            ( SID_SIGNATURE == nId ) ? SignDocumentContent() : SignScriptingContent();
+            ( SID_SIGNATURE == nId ) ? SignDocumentContent(rReq.GetFrameWeld()) : SignScriptingContent(rReq.GetFrameWeld());
         return;
     }
 
@@ -492,6 +498,14 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
                             pReq->AppendItem( SfxDocumentInfoItem( GetTitle(),
                                 getDocProperties(), aNewCmisProperties, IsUseUserData(), IsUseThumbnailSave() ) );
                         }
+
+                        css::uno::Reference< css::uno::XInterface > xInterface;
+                        const SfxUnoAnyItem* pUnoAny = pReq->GetArg<SfxUnoAnyItem>(FN_PARAM_2);
+                        AsyncFunc* pAsyncFunc = pUnoAny && (pUnoAny->GetValue() >>= xInterface ) ?
+                            AsyncFunc::getImplementation(xInterface) : nullptr;
+                        if (pAsyncFunc)
+                            pAsyncFunc->Execute();
+
                         pReq->Done();
                     }
                     else
@@ -673,6 +687,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             catch( const task::ErrorCodeIOException& aErrorEx )
             {
                 nErrorCode = ErrCode(aErrorEx.ErrCode);
+                SAL_WARN( "sfx.doc", "Fatal IO error during save " << aErrorEx );
             }
             catch( Exception& )
             {
@@ -1058,21 +1073,28 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
                         break;
                     }
 
-                    if ( pFrame->HasInfoBarWithID("signature") )
-                        pFrame->RemoveInfoBar("signature");
-
-                    if ( eState != SignatureState::NOSIGNATURES )
+                    // new info bar
+                    if ( !pFrame->HasInfoBarWithID("signature") )
                     {
-                        auto pInfoBar = pFrame->AppendInfoBar("signature", sMessage, aInfoBarType);
-                        if (pInfoBar == nullptr)
-                            return;
-                        VclPtrInstance<PushButton> xBtn(&(pFrame->GetWindow()));
-                        xBtn->SetText(SfxResId(STR_SIGNATURE_SHOW));
-                        xBtn->SetSizePixel(xBtn->GetOptimalSize());
-                        xBtn->SetClickHdl(LINK(this, SfxObjectShell, SignDocumentHandler));
-                        pInfoBar->addButton(xBtn);
+                        if ( !sMessage.isEmpty() )
+                        {
+                            auto pInfoBar = pFrame->AppendInfoBar("signature", sMessage, aInfoBarType);
+                            if (pInfoBar == nullptr || pInfoBar->IsDisposed())
+                                return;
+                            VclPtrInstance<PushButton> xBtn(&(pFrame->GetWindow()));
+                            xBtn->SetText(SfxResId(STR_SIGNATURE_SHOW));
+                            xBtn->SetSizePixel(xBtn->GetOptimalSize());
+                            xBtn->SetClickHdl(LINK(this, SfxObjectShell, SignDocumentHandler));
+                            pInfoBar->addButton(xBtn);
+                        }
                     }
-
+                    else // info bar exists already
+                    {
+                        if ( eState == SignatureState::NOSIGNATURES )
+                            pFrame->RemoveInfoBar("signature");
+                        else
+                            pFrame->UpdateInfoBar("signature", sMessage, aInfoBarType);
+                    }
                 }
 
                 rSet.Put( SfxUInt16Item( SID_SIGNATURE, static_cast<sal_uInt16>(GetDocumentSignatureState()) ) );
@@ -1089,7 +1111,7 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
             }
             case SID_DOC_REPAIR:
             {
-                svl::IUndoManager* pIUndoMgr = GetUndoManager();
+                SfxUndoManager* pIUndoMgr = GetUndoManager();
                 if (pIUndoMgr)
                     rSet.Put( SfxBoolItem(nWhich, pIUndoMgr->IsEmptyActions()) );
                 else
@@ -1274,6 +1296,38 @@ SignatureState SfxObjectShell::ImplCheckSignaturesInformation( const uno::Sequen
     return nResult;
 }
 
+/// Does this ZIP storage have a signature stream?
+static bool HasSignatureStream(const uno::Reference<embed::XStorage>& xStorage)
+{
+    uno::Reference<container::XNameAccess> xNameAccess(xStorage, uno::UNO_QUERY);
+    if (!xNameAccess.is())
+        return false;
+
+    if (xNameAccess->hasByName("META-INF"))
+    {
+        // ODF case.
+        try
+        {
+            uno::Reference<embed::XStorage> xMetaInf
+                = xStorage->openStorageElement("META-INF", embed::ElementModes::READ);
+            uno::Reference<container::XNameAccess> xMetaInfNames(xMetaInf, uno::UNO_QUERY);
+            if (xMetaInfNames.is())
+            {
+                return xMetaInfNames->hasByName("documentsignatures.xml")
+                       || xMetaInfNames->hasByName("macrosignatures.xml")
+                       || xMetaInfNames->hasByName("packagesignatures.xml");
+            }
+        }
+        catch (const css::io::IOException& rException)
+        {
+            SAL_WARN("sfx.doc", "HasSignatureStream: failed to open META-INF: " << rException.Message);
+        }
+    }
+
+    // OOXML case.
+    return xNameAccess->hasByName("_xmlsignatures");
+}
+
 uno::Sequence< security::DocumentSignatureInformation > SfxObjectShell::ImplAnalyzeSignature( bool bScriptingContent, const uno::Reference< security::XDocumentDigitalSignatures >& xSigner )
 {
     uno::Sequence< security::DocumentSignatureInformation > aResult;
@@ -1308,8 +1362,11 @@ uno::Sequence< security::DocumentSignatureInformation > SfxObjectShell::ImplAnal
                 if (GetMedium()->GetStorage().is())
                 {
                     // Something ZIP-based.
-                    aResult = xLocSigner->verifyDocumentContentSignatures( GetMedium()->GetZipStorageToSign_Impl(),
-                                                                    uno::Reference< io::XInputStream >() );
+                    // Only call into xmlsecurity if we see a signature stream,
+                    // as libxmlsec init is expensive.
+                    if (HasSignatureStream(GetMedium()->GetZipStorageToSign_Impl()))
+                        aResult = xLocSigner->verifyDocumentContentSignatures( GetMedium()->GetZipStorageToSign_Impl(),
+                                                                        uno::Reference< io::XInputStream >() );
                 }
                 else
                 {
@@ -1351,7 +1408,7 @@ SignatureState SfxObjectShell::ImplGetSignatureState( bool bScriptingContent )
     return *pState;
 }
 
-void SfxObjectShell::ImplSign( bool bScriptingContent )
+bool SfxObjectShell::PrepareForSigning(weld::Window* pDialogParent)
 {
     // Check if it is stored in OASIS format...
     if  (   GetMedium()
@@ -1363,11 +1420,11 @@ void SfxObjectShell::ImplSign( bool bScriptingContent )
         )
     {
         // Only OASIS and OOo6.x formats will be handled further
-        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(nullptr,
+        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pDialogParent,
                                                   VclMessageType::Info, VclButtonsType::Ok, SfxResId(STR_INFO_WRONGDOCFORMAT)));
 
         xBox->run();
-        return;
+        return false;
     }
 
     // check whether the document is signed
@@ -1389,19 +1446,7 @@ void SfxObjectShell::ImplSign( bool bScriptingContent )
     SvtSaveOptions::ODFDefaultVersion nVersion = aSaveOpt.GetODFDefaultVersion();
 
     // the document is not new and is not modified
-    OUString aODFVersion;
-    try
-    {
-        // check the ODF version of the document
-        // No idea what relevance this has if the document has not been loaded from ODF (or is not
-        // being saved to ODF)
-        uno::Reference < beans::XPropertySet > xPropSet( GetStorage(), uno::UNO_QUERY_THROW );
-        xPropSet->getPropertyValue("Version") >>= aODFVersion;
-    }
-    catch( uno::Exception& )
-    {}
-
-    bool bNoSig = false;
+    OUString aODFVersion(comphelper::OStorageHelper::GetODFVersionFromStorage(GetStorage()));
 
     if ( IsModified() || !GetMedium() || GetMedium()->GetName().isEmpty()
       || (aODFVersion != ODFVER_012_TEXT && !bHasSign) )
@@ -1411,7 +1456,7 @@ void SfxObjectShell::ImplSign( bool bScriptingContent )
         if ( nVersion >= SvtSaveOptions::ODFVER_012 )
         {
             OUString sQuestion(bHasSign ? SfxResId(STR_XMLSEC_QUERY_SAVESIGNEDBEFORESIGN) : SfxResId(RID_SVXSTR_XMLSEC_QUERY_SAVEBEFORESIGN));
-            std::unique_ptr<weld::MessageDialog> xQuestion(Application::CreateMessageDialog(nullptr,
+            std::unique_ptr<weld::MessageDialog> xQuestion(Application::CreateMessageDialog(pDialogParent,
                                                            VclMessageType::Question, VclButtonsType::YesNo, sQuestion));
 
 
@@ -1431,10 +1476,10 @@ void SfxObjectShell::ImplSign( bool bScriptingContent )
                     || SotStorage::GetVersion( GetMedium()->GetStorage() ) <= SOFFICE_FILEFORMAT_60 ) )
                 {
                     // Only OASIS format will be handled further
-                    std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(nullptr,
+                    std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pDialogParent,
                                                               VclMessageType::Info, VclButtonsType::Ok, SfxResId(STR_INFO_WRONGDOCFORMAT)));
                     xBox->run();
-                    return;
+                    return false;
                 }
             }
             else
@@ -1443,69 +1488,105 @@ void SfxObjectShell::ImplSign( bool bScriptingContent )
                 // digital signatures dialog
                 // If we have come here then the user denied to save.
                 if (!bHasSign)
-                    bNoSig = true;
+                    return false;
             }
         }
         else
         {
-            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(nullptr,
+            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pDialogParent,
                                                       VclMessageType::Warning, VclButtonsType::Ok, SfxResId(STR_XMLSEC_ODF12_EXPECTED)));
             xBox->run();
-            return;
+            return false;
         }
 
         if ( IsModified() || !GetMedium() || GetMedium()->GetName().isEmpty() )
-            return;
+            return false;
     }
 
     // the document is not modified currently, so it can not become modified after signing
-    bool bAllowModifiedBack = false;
+    pImpl->m_bAllowModifiedBackAfterSigning = false;
     if ( IsEnableSetModified() )
     {
         EnableSetModified( false );
-        bAllowModifiedBack = true;
+        pImpl->m_bAllowModifiedBackAfterSigning = true;
     }
 
     // we have to store to the original document, the original medium should be closed for this time
-    if ( !bNoSig
-      && ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium ) )
+    if ( ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium ) )
     {
         GetMedium()->CloseAndRelease();
+        return true;
+    }
+    return false;
+}
 
-        // We sign only ODF1.2, that means that if this point has been reached,
-        // the ODF1.2 signing process should be used.
-        // This code still might be called to show the signature of ODF1.1 document.
-        bool bSigned = GetMedium()->SignContents_Impl(
-            bScriptingContent,
-            aODFVersion,
-            pImpl->nDocumentSignatureState == SignatureState::OK
-            || pImpl->nDocumentSignatureState == SignatureState::NOTVALIDATED
-            || pImpl->nDocumentSignatureState == SignatureState::PARTIAL_OK);
+void SfxObjectShell::AfterSigning(bool bSignSuccess, bool bSignScriptingContent)
+{
+    pImpl->m_bSavingForSigning = true;
+    DoSaveCompleted( GetMedium() );
+    pImpl->m_bSavingForSigning = false;
 
-        pImpl->m_bSavingForSigning = true;
-        DoSaveCompleted( GetMedium() );
-        pImpl->m_bSavingForSigning = false;
+    if ( bSignSuccess )
+    {
+        if ( bSignScriptingContent )
+            pImpl->nScriptingSignatureState = SignatureState::UNKNOWN; // Re-Check
 
-        if ( bSigned )
-        {
-            if ( bScriptingContent )
-            {
-                pImpl->nScriptingSignatureState = SignatureState::UNKNOWN;// Re-Check
+        pImpl->nDocumentSignatureState = SignatureState::UNKNOWN; // Re-Check
 
-                // adding of scripting signature removes existing document signature
-                pImpl->nDocumentSignatureState = SignatureState::UNKNOWN;// Re-Check
-            }
-            else
-                pImpl->nDocumentSignatureState = SignatureState::UNKNOWN;// Re-Check
-
-            Invalidate( SID_SIGNATURE );
-            Invalidate( SID_MACRO_SIGNATURE );
-            Broadcast( SfxHint(SfxHintId::TitleChanged) );
-        }
+        Invalidate( SID_SIGNATURE );
+        Invalidate( SID_MACRO_SIGNATURE );
+        Broadcast( SfxHint(SfxHintId::TitleChanged) );
     }
 
-    if ( bAllowModifiedBack )
+    if ( pImpl->m_bAllowModifiedBackAfterSigning )
         EnableSetModified();
+}
+
+bool SfxObjectShell::CheckIsReadonly(bool bSignScriptingContent)
+{
+    if (GetMedium()->IsOriginallyReadOnly())
+    {
+        // If the file is physically read-only, we just show the existing signatures
+        try
+        {
+            OUString aODFVersion(
+                comphelper::OStorageHelper::GetODFVersionFromStorage(GetStorage()));
+            uno::Reference<security::XDocumentDigitalSignatures> xSigner(
+                security::DocumentDigitalSignatures::createWithVersionAndValidSignature(
+                    comphelper::getProcessComponentContext(), aODFVersion, HasValidSignatures()));
+            if (bSignScriptingContent)
+                xSigner->showScriptingContentSignatures(GetMedium()->GetZipStorageToSign_Impl(),
+                                                        uno::Reference<io::XInputStream>());
+            else
+            {
+                uno::Reference<embed::XStorage> xStorage = GetMedium()->GetZipStorageToSign_Impl();
+                if (xStorage.is())
+                    xSigner->showDocumentContentSignatures(xStorage,
+                                                           uno::Reference<io::XInputStream>());
+                else
+                {
+                    std::unique_ptr<SvStream> pStream(
+                        utl::UcbStreamHelper::CreateStream(GetName(), StreamMode::READ));
+                    uno::Reference<io::XInputStream> xStream(new utl::OStreamWrapper(*pStream));
+                    xSigner->showDocumentContentSignatures(uno::Reference<embed::XStorage>(),
+                                                           xStream);
+                }
+            }
+        }
+        catch (const uno::Exception&)
+        {
+            SAL_WARN("sfx.doc", "Couldn't use signing functionality!");
+        }
+        return true;
+    }
+    return false;
+}
+
+bool SfxObjectShell::HasValidSignatures()
+{
+    return pImpl->nDocumentSignatureState == SignatureState::OK
+           || pImpl->nDocumentSignatureState == SignatureState::NOTVALIDATED
+           || pImpl->nDocumentSignatureState == SignatureState::PARTIAL_OK;
 }
 
 SignatureState SfxObjectShell::GetDocumentSignatureState()
@@ -1513,9 +1594,42 @@ SignatureState SfxObjectShell::GetDocumentSignatureState()
     return ImplGetSignatureState();
 }
 
-void SfxObjectShell::SignDocumentContent()
+void SfxObjectShell::SignDocumentContent(weld::Window* pDialogParent)
 {
-    ImplSign();
+    if (!PrepareForSigning(pDialogParent))
+        return;
+
+    if (CheckIsReadonly(false))
+        return;
+
+    bool bSignSuccess = GetMedium()->SignContents_Impl(false, HasValidSignatures());
+
+    AfterSigning(bSignSuccess, false);
+}
+
+void SfxObjectShell::SignSignatureLine(weld::Window* pDialogParent,
+                                       const OUString& aSignatureLineId,
+                                       const Reference<XCertificate> xCert,
+                                       const Reference<XGraphic> xValidGraphic,
+                                       const Reference<XGraphic> xInvalidGraphic,
+                                       const OUString& aComment)
+{
+    if (!PrepareForSigning(pDialogParent))
+        return;
+
+    if (CheckIsReadonly(false))
+        return;
+
+    bool bSignSuccess = GetMedium()->SignContents_Impl(
+        false, HasValidSignatures(), aSignatureLineId, xCert, xValidGraphic, xInvalidGraphic, aComment);
+
+    AfterSigning(bSignSuccess, false);
+
+    // Reload the document to get the updated graphic
+    // FIXME: Update just the signature line graphic instead of reloading the document
+    SfxViewFrame *pFrame = GetFrame();
+    if (pFrame)
+        pFrame->GetDispatcher()->Execute(SID_RELOAD);
 }
 
 SignatureState SfxObjectShell::GetScriptingSignatureState()
@@ -1523,9 +1637,17 @@ SignatureState SfxObjectShell::GetScriptingSignatureState()
     return ImplGetSignatureState( true );
 }
 
-void SfxObjectShell::SignScriptingContent()
+void SfxObjectShell::SignScriptingContent(weld::Window* pDialogParent)
 {
-    ImplSign( true );
+    if (!PrepareForSigning(pDialogParent))
+        return;
+
+    if (CheckIsReadonly(true))
+        return;
+
+    bool bSignSuccess = GetMedium()->SignContents_Impl(true, HasValidSignatures());
+
+    AfterSigning(bSignSuccess, true);
 }
 
 namespace

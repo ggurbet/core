@@ -33,7 +33,6 @@
 #include <tools/lineend.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
-#include <deque>
 #include <memory>
 #include <vector>
 
@@ -90,7 +89,7 @@ struct ScriptTypePosInfo
     }
 };
 
-typedef std::deque< ScriptTypePosInfo > ScriptTypePosInfos;
+typedef std::vector<ScriptTypePosInfo> ScriptTypePosInfos;
 
 struct WritingDirectionInfo
 {
@@ -107,7 +106,7 @@ struct WritingDirectionInfo
 };
 
 
-typedef std::deque< WritingDirectionInfo > WritingDirectionInfos;
+typedef std::vector<WritingDirectionInfo> WritingDirectionInfos;
 
 class ContentAttribsInfo
 {

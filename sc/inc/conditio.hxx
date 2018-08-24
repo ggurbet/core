@@ -21,14 +21,13 @@
 #define INCLUDED_SC_INC_CONDITIO_HXX
 
 #include "global.hxx"
+#include <tools/solar.h>
 #include "address.hxx"
 #include <formula/grammar.hxx>
 #include "scdllapi.h"
 #include "rangelst.hxx"
 
-#include <svl/hint.hxx>
 #include <svl/listener.hxx>
-#include <svl/broadcast.hxx>
 
 #include <comphelper/stl_types.hxx>
 #include <com/sun/star/sheet/ConditionOperator.hpp>
@@ -44,6 +43,7 @@
 class ScFormulaCell;
 class ScTokenArray;
 struct ScRefCellValue;
+class Color;
 
 namespace sc {
 
@@ -187,10 +187,12 @@ private:
     std::function<void()> maCallbackFunction;
 
     void startListening(const ScTokenArray* pTokens, const ScRange& rPos);
+    void startListening(const ScRangeList& rPos);
 
 public:
     explicit ScFormulaListener(ScFormulaCell* pCell);
     explicit ScFormulaListener(ScDocument* pDoc);
+    explicit ScFormulaListener(ScDocument* pDoc, const ScRangeList& rRange);
     virtual ~ScFormulaListener() override;
 
     void Notify( const SfxHint& rHint ) override;
@@ -200,6 +202,7 @@ public:
     void addTokenArray(const ScTokenArray* pTokens, const ScRange& rRange);
     void stopListening();
     void setCallback(const std::function<void()>& aCallbackFunction);
+
 };
 
 class ScConditionalFormat;
@@ -398,6 +401,7 @@ public:
     virtual void startRendering() override;
 
     bool NeedsRepaint() const;
+    void CalcAll();
 
 protected:
     virtual void    DataChanged() const;
@@ -551,6 +555,8 @@ public:
     bool IsEmpty() const;
     size_t size() const;
 
+    ScDocument* GetDocument();
+
     void            CompileAll();
     void            CompileXML();
     void UpdateReference( sc::RefUpdateContext& rCxt, bool bCopyAsMove = false );
@@ -584,6 +590,9 @@ public:
 
     void startRendering();
     void endRendering();
+
+    // Forced recalculation for formulas
+    void CalcAll();
 };
 
 //  List of all conditional formats in a sheet
@@ -649,6 +658,9 @@ public:
     void endRendering();
 
     sal_uInt32 getMaxKey() const;
+
+    /// Forced recalculation of formulas
+    void CalcAll();
 };
 
 #endif

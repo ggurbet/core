@@ -36,6 +36,7 @@
 #include <svl/stritem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/eitem.hxx>
+#include <sal/log.hxx>
 
 #include <unotools/charclass.hxx>
 #include <tools/diagnose_ex.h>
@@ -59,7 +60,6 @@
 #include <com/sun/star/sheet/XFormulaOpCodeMapper.hpp>
 #include <com/sun/star/sheet/XFormulaParser.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <comphelper/string.hxx>
 #include <map>
 
 // For tab page
@@ -82,7 +82,7 @@ public:
     void            RefInputStartAfter();
     void            RefInputDoneAfter( bool bForced );
     bool            CalcValue( const OUString& rStrExp, OUString& rStrResult, bool bForceMatrixFormula = false );
-    bool            CalcStruct( const OUString& rStrExp, bool bForceRecalcStruct = false );
+    void            CalcStruct( const OUString& rStrExp, bool bForceRecalcStruct = false );
     void            UpdateValues( bool bForceRecalcStruct = false );
     void            DeleteArgs();
     sal_Int32       GetFunctionPos(sal_Int32 nPos);
@@ -199,8 +199,6 @@ public:
     bool                    m_bIsShutDown;
     bool                    m_bMakingTree;  // in method of constructing tree
 
-    vcl::Font               m_aFntBold;
-    vcl::Font               m_aFntLight;
     bool                    m_bEditFlag;
     const IFunctionDescription* m_pFuncDesc;
     sal_Int32               m_nArgs;
@@ -331,18 +329,18 @@ FormulaDlg_Impl::FormulaDlg_Impl(Dialog* pParent
     m_pMEdit->SetModifyHdl( LINK( this, FormulaDlg_Impl, FormulaHdl ) );
     m_pMEFormula->SetSelChangedHdl( LINK( this, FormulaDlg_Impl, FormulaCursorHdl ) );
 
-    m_aFntLight = m_pFtFormula->GetFont();
-    m_aFntLight.SetTransparent( true );
-    m_aFntBold = m_aFntLight;
-    m_aFntBold.SetWeight( WEIGHT_BOLD );
+    vcl::Font aFntLight = m_pFtFormula->GetFont();
+    aFntLight.SetTransparent( true );
+    vcl::Font aFntBold = aFntLight;
+    aFntBold.SetWeight( WEIGHT_BOLD );
 
-    m_pParaWin->SetArgumentFonts( m_aFntBold, m_aFntLight);
+    m_pParaWin->SetArgumentFonts( aFntBold, aFntLight);
 
     //  function description for choosing a function is no longer in a different color
 
-    m_pFtHeadLine->SetFont(m_aFntBold);
-    m_pFtFuncName->SetFont(m_aFntLight);
-    m_pFtFuncDesc->SetFont(m_aFntLight);
+    m_pFtHeadLine->SetFont(aFntBold);
+    m_pFtFuncName->SetFont(aFntLight);
+    m_pFtFuncDesc->SetFont(aFntLight);
 }
 
 FormulaDlg_Impl::~FormulaDlg_Impl()
@@ -610,42 +608,33 @@ void FormulaDlg_Impl::UpdateValues( bool bForceRecalcStruct )
     CalcStruct( m_pMEdit->GetText(), bForceRecalcStruct);
 }
 
-bool FormulaDlg_Impl::CalcStruct( const OUString& rStrExp, bool bForceRecalcStruct )
+void FormulaDlg_Impl::CalcStruct( const OUString& rStrExp, bool bForceRecalcStruct )
 {
-    bool bResult = true;
     sal_Int32 nLength = rStrExp.getLength();
 
     if ( !rStrExp.isEmpty() && (bForceRecalcStruct || m_aOldFormula != rStrExp) && m_bStructUpdate)
     {
-        // Only calculate the value when there isn't any more keyboard input:
+        m_pStructPage->ClearStruct();
 
-        if ( !Application::AnyInput( VclInputFlags::KEYBOARD ) )
+        OUString aString = rStrExp;
+        if (rStrExp[nLength-1] == '(')
         {
-            m_pStructPage->ClearStruct();
-
-            OUString aString = rStrExp;
-            if (rStrExp[nLength-1] == '(')
-            {
-                aString = aString.copy( 0, nLength-1);
-            }
-
-            aString = aString.replaceAll( "\n", "");
-            OUString aStrResult;
-
-            if ( CalcValue( aString, aStrResult ) )
-                m_pWndFormResult->SetText( aStrResult );
-
-            UpdateTokenArray(aString);
-            fillTree(m_pStructPage);
-
-            m_aOldFormula = rStrExp;
-            if (rStrExp[nLength-1] == '(')
-                UpdateTokenArray(rStrExp);
+            aString = aString.copy( 0, nLength-1);
         }
-        else
-            bResult = false;
+
+        aString = aString.replaceAll( "\n", "");
+        OUString aStrResult;
+
+        if ( CalcValue( aString, aStrResult ) )
+            m_pWndFormResult->SetText( aStrResult );
+
+        UpdateTokenArray(aString);
+        fillTree(m_pStructPage);
+
+        m_aOldFormula = rStrExp;
+        if (rStrExp[nLength-1] == '(')
+            UpdateTokenArray(rStrExp);
     }
-    return bResult;
 }
 
 
@@ -842,6 +831,8 @@ void FormulaDlg_Impl::UpdateTokenArray( const OUString& rStrExp)
     // #i101512# Disable special handling of jump commands.
     pCompiler->EnableJumpCommandReorder(false);
     pCompiler->EnableStopOnError(false);
+    pCompiler->SetComputeIIFlag(true);
+    pCompiler->SetMatrixFlag(m_bUserMatrixFlag);
     pCompiler->CompileTokenArray();
 }
 

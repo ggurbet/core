@@ -72,6 +72,7 @@
 #include "lwpdivinfo.hxx"
 #include "lwpgrfobj.hxx"
 #include <osl/thread.h>
+#include <sal/log.hxx>
 
 LwpVirtualLayout::LwpVirtualLayout(LwpObjectHeader const &objHdr, LwpSvStream* pStrm)
     : LwpDLNFPVList(objHdr, pStrm)
@@ -84,6 +85,7 @@ LwpVirtualLayout::LwpVirtualLayout(LwpObjectHeader const &objHdr, LwpSvStream* p
     , m_bGettingExtMarginsValue(false)
     , m_bGettingUsePrinterSettings(false)
     , m_bGettingScaleCenter(false)
+    , m_bGettingBorderStuff(false)
     , m_bGettingUseWhen(false)
     , m_bGettingStyleLayout(false)
     , m_nAttributes(0)
@@ -587,6 +589,7 @@ void LwpLayoutMisc::Read(LwpObjectStream* pStrm)
 LwpMiddleLayout::LwpMiddleLayout( LwpObjectHeader const &objHdr, LwpSvStream* pStrm )
     : LwpVirtualLayout(objHdr, pStrm)
     , m_bGettingGeometry(false)
+    , m_bGettingBackgroundStuff(false)
 {
 }
 
@@ -654,21 +657,28 @@ rtl::Reference<LwpObject> LwpMiddleLayout::GetBasedOnStyle()
 * @descr:   Get the geometry of current layout
 *
 */
-LwpLayoutGeometry* LwpMiddleLayout::Geometry()
+LwpLayoutGeometry* LwpMiddleLayout::GetGeometry()
 {
+    if (m_bGettingGeometry)
+        throw std::runtime_error("recursion in layout");
+    m_bGettingGeometry = true;
+
+    LwpLayoutGeometry* pRet = nullptr;
     if( !m_LayGeometry.IsNull() )
     {
-        return dynamic_cast<LwpLayoutGeometry*> (m_LayGeometry.obj().get());
+        pRet = dynamic_cast<LwpLayoutGeometry*> (m_LayGeometry.obj().get());
     }
     else
     {
         rtl::Reference<LwpObject> xBase(GetBasedOnStyle());
         if (LwpMiddleLayout* pLay = dynamic_cast<LwpMiddleLayout*>(xBase.get()))
         {
-            return pLay->GetGeometry();
+            pRet = pLay->GetGeometry();
         }
     }
-    return nullptr;
+
+    m_bGettingGeometry = false;
+    return pRet;
 }
 
 /**
@@ -788,20 +798,28 @@ double LwpMiddleLayout::ExtMarginsValue(sal_uInt8 nWhichSide)
 */
 LwpBorderStuff* LwpMiddleLayout::GetBorderStuff()
 {
+    if (m_bGettingBorderStuff)
+        throw std::runtime_error("recursion in layout");
+    m_bGettingBorderStuff = true;
+
+    LwpBorderStuff* pRet = nullptr;
+
     if(m_nOverrideFlag & OVER_BORDERS)
     {
         LwpLayoutBorder* pLayoutBorder = dynamic_cast<LwpLayoutBorder*>(m_LayBorderStuff.obj().get());
-        return pLayoutBorder ? &pLayoutBorder->GetBorderStuff() : nullptr;
+        pRet = pLayoutBorder ? &pLayoutBorder->GetBorderStuff() : nullptr;
     }
     else
     {
         rtl::Reference<LwpObject> xBase(GetBasedOnStyle());
         if (LwpMiddleLayout* pLay = dynamic_cast<LwpMiddleLayout*>(xBase.get()))
         {
-            return pLay->GetBorderStuff();
+            pRet = pLay->GetBorderStuff();
         }
     }
-    return nullptr;
+
+    m_bGettingBorderStuff= false;
+    return pRet;
 }
 
 /**
@@ -809,21 +827,30 @@ LwpBorderStuff* LwpMiddleLayout::GetBorderStuff()
 */
 LwpBackgroundStuff* LwpMiddleLayout::GetBackgroundStuff()
 {
+    if (m_bGettingBackgroundStuff)
+        throw std::runtime_error("recursion in layout");
+    m_bGettingBackgroundStuff = true;
+
+    LwpBackgroundStuff* pRet = nullptr;
+
     if(m_nOverrideFlag & OVER_BACKGROUND)
     {
         LwpLayoutBackground* pLayoutBackground = dynamic_cast<LwpLayoutBackground*>(m_LayBackgroundStuff.obj().get());
-        return pLayoutBackground ? &pLayoutBackground->GetBackgoudStuff() : nullptr;
+        pRet = pLayoutBackground ? &pLayoutBackground->GetBackgoudStuff() : nullptr;
     }
     else
     {
         rtl::Reference<LwpObject> xBase(GetBasedOnStyle());
         if (LwpMiddleLayout* pLay = dynamic_cast<LwpMiddleLayout*>(xBase.get()))
         {
-            return pLay->GetBackgroundStuff();
+            pRet = pLay->GetBackgroundStuff();
         }
     }
-    return nullptr;
+
+    m_bGettingBackgroundStuff = false;
+    return pRet;
 }
+
 /**
  * @descr:  create xfborder.
 */
@@ -1368,7 +1395,7 @@ rtl::Reference<LwpVirtualLayout> LwpMiddleLayout::GetWaterMarkLayout()
 }
 
 /**
-* @descr:   Create and reture xfbgimage object for watermark
+* @descr:   Create and return xfbgimage object for watermark
 *
 */
 std::unique_ptr<XFBGImage> LwpMiddleLayout::GetXFBGImage()

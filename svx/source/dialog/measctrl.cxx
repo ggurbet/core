@@ -21,7 +21,6 @@
 #include <svx/svdomeas.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/measctrl.hxx>
-#include <svx/dialmgr.hxx>
 #include <svx/dlgutil.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/settings.hxx>
@@ -42,7 +41,7 @@ SvxXMeasurePreview::SvxXMeasurePreview(vcl::Window* pParent, WinBits nStyle)
     Point aPt1 = Point(aSize.Width() / 5, static_cast<long>(aSize.Height() / 2));
     Point aPt2 = Point(aSize.Width() * 4 / 5, static_cast<long>(aSize.Height() / 2));
 
-    pModel = new SdrModel();
+    pModel.reset(new SdrModel(nullptr, nullptr, true));
     pMeasureObj = new SdrMeasureObj(
         *pModel,
         aPt1,
@@ -69,7 +68,7 @@ VCL_BUILDER_FACTORY_CONSTRUCTOR(SvxXMeasurePreview, 0)
 
 Size SvxXMeasurePreview::GetOptimalSize() const
 {
-    return getPreviewStripSize(this);
+    return getPreviewStripSize(*this);
 }
 
 SvxXMeasurePreview::~SvxXMeasurePreview()
@@ -84,9 +83,12 @@ void SvxXMeasurePreview::dispose()
     // a StyleSheet of the model which was set. Thus, if You want to keep the object,
     // set the model to 0L, if object is not needed (seems to be the case here),
     // delete it.
-    delete pMeasureObj;
 
-    delete pModel;
+    // always use SdrObject::Free(...) for SdrObjects (!)
+    SdrObject* pTemp(pMeasureObj);
+    SdrObject::Free(pTemp);
+
+    pModel.reset();
     Control::dispose();
 }
 

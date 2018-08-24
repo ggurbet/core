@@ -18,6 +18,7 @@
  */
 
 #include <config_features.h>
+#include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 
 #include <sfx2/docfile.hxx>
@@ -54,6 +55,7 @@
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <type_traits>
 #include <unordered_map>
+#include <sfx2/notebookbar/SfxNotebookBar.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -460,7 +462,6 @@ SfxWorkWindow::SfxWorkWindow( vcl::Window *pWin, SfxFrame *pFrm, SfxFrame* pMast
     pParent( nullptr ),
     pBindings(&pFrm->GetCurrentViewFrame()->GetBindings()),
     pWorkWin (pWin),
-    pConfigShell( nullptr ),
     pActiveChild( nullptr ),
     nUpdateMode(SfxVisibilityFlags::Standard),
     nChildren( 0 ),
@@ -499,7 +500,7 @@ SfxWorkWindow::SfxWorkWindow( vcl::Window *pWin, SfxFrame *pFrm, SfxFrame* pMast
                                   css::uno::UNO_QUERY );
     pLayoutManagerListener->setFrame( xFrame );
 
-    pConfigShell = pFrm->GetCurrentViewFrame();
+    SfxShell* pConfigShell = pFrm->GetCurrentViewFrame();
     if ( pConfigShell && pConfigShell->GetObjectShell() )
     {
         bShowStatusBar = ( !pConfigShell->GetObjectShell()->IsInPlaceActive() );
@@ -1195,7 +1196,7 @@ void SfxWorkWindow::UpdateObjectBars_Impl2()
 
         // Is a ToolBox required in this context ?
         bool bModesMatching = (nUpdateMode != SfxVisibilityFlags::Invisible) && ((nTbxMode & nUpdateMode) == nUpdateMode);
-        if ( bDestroy )
+        if ( bDestroy || sfx2::SfxNotebookBar::IsActive())
         {
             OUString aTbxId( m_aTbxTypeName );
             aTbxId += GetResourceURLFromToolbarId(eId);
@@ -1482,6 +1483,9 @@ bool SfxWorkWindow::IsVisible_Impl()
 
 void SfxWorkWindow::HidePopups_Impl(bool bHide, bool bParent, sal_uInt16 nId )
 {
+    if (comphelper::LibreOfficeKit::isActive() && bHide)
+        return;
+
     for (SfxChildWin_Impl* i : aChildWins)
     {
         SfxChildWindow *pCW = i->pWin;
@@ -1494,7 +1498,8 @@ void SfxWorkWindow::HidePopups_Impl(bool bHide, bool bParent, sal_uInt16 nId )
                 pChild->nVisible &= ~SfxChildVisibility::ACTIVE;
                 pCW->Hide();
             }
-            else
+            else if ( !comphelper::LibreOfficeKit::isActive() ||
+                      SfxChildVisibility::ACTIVE != (pChild->nVisible & SfxChildVisibility::ACTIVE) )
             {
                 pChild->nVisible |= SfxChildVisibility::ACTIVE;
                 if ( SfxChildVisibility::VISIBLE == (pChild->nVisible & SfxChildVisibility::VISIBLE) )

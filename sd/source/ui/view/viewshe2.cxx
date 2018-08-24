@@ -36,6 +36,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/app.hxx>
 #include <svx/ruler.hxx>
+#include <editeng/outlobj.hxx>
 #include <editeng/outliner.hxx>
 #include <svtools/ehdl.hxx>
 #include <svx/svdoole2.hxx>
@@ -470,139 +471,68 @@ void ViewShell::SetPageSizeAndBorder(PageKind ePageKind, const Size& rNewSize,
                                        Orientation eOrientation, sal_uInt16 nPaperBin,
                                        bool bBackgroundFullSize)
 {
-    SdPage* pPage = nullptr;
-    SdUndoGroup* pUndoGroup = nullptr;
-    pUndoGroup = new SdUndoGroup(GetDoc());
-    OUString aString(SdResId(STR_UNDO_CHANGE_PAGEFORMAT));
-    pUndoGroup->SetComment(aString);
-    SfxViewShell* pViewShell = GetViewShell();
-    OSL_ASSERT (pViewShell!=nullptr);
+    const sal_uInt16 nMasterPageCnt(GetDoc()->GetMasterSdPageCount(ePageKind));
+    const sal_uInt16 nPageCnt(GetDoc()->GetSdPageCount(ePageKind));
 
-    sal_uInt16 i, nPageCnt = GetDoc()->GetMasterSdPageCount(ePageKind);
+    if(0 == nPageCnt && 0 == nMasterPageCnt)
+    {
+        return;
+    }
 
+    SdUndoGroup* pUndoGroup(nullptr);
+    SfxViewShell* pViewShell(GetViewShell());
+    if (pViewShell)
+    {
+        pUndoGroup = new SdUndoGroup(GetDoc());
+        pUndoGroup->SetComment(SdResId(STR_UNDO_CHANGE_PAGEFORMAT));
+    }
     Broadcast (ViewShellHint(ViewShellHint::HINT_PAGE_RESIZE_START));
 
-    for (i = 0; i < nPageCnt; i++)
-    {
-        // first, handle all master pages
-        pPage = GetDoc()->GetMasterSdPage(i, ePageKind);
-
-        SdUndoAction* pUndo = new SdPageFormatUndoAction(GetDoc(), pPage,
-                            pPage->GetSize(),
-                            pPage->GetLeftBorder(), pPage->GetRightBorder(),
-                            pPage->GetUpperBorder(), pPage->GetLowerBorder(),
-                            pPage->GetOrientation(),
-                            pPage->GetPaperBin(),
-                            pPage->IsBackgroundFullSize(),
-                            rNewSize,
-                            nLeft, nRight,
-                            nUpper, nLower,
-                            bScaleAll,
-                            eOrientation,
-                            nPaperBin,
-                            bBackgroundFullSize);
-        pUndoGroup->AddAction(pUndo);
-
-        if (rNewSize.Width() > 0 ||
-            nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0)
-        {
-            ::tools::Rectangle aNewBorderRect(nLeft, nUpper, nRight, nLower);
-            pPage->ScaleObjects(rNewSize, aNewBorderRect, bScaleAll);
-
-            if (rNewSize.Width() > 0)
-                pPage->SetSize(rNewSize);
-        }
-
-        if( nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0 )
-        {
-            pPage->SetBorder(nLeft, nUpper, nRight, nLower);
-        }
-
-        pPage->SetOrientation(eOrientation);
-        pPage->SetPaperBin( nPaperBin );
-        pPage->SetBackgroundFullSize( bBackgroundFullSize );
-
-        if ( ePageKind == PageKind::Standard )
-            GetDoc()->GetMasterSdPage(i, PageKind::Notes)->CreateTitleAndLayout();
-
-        pPage->CreateTitleAndLayout();
-    }
-
-    nPageCnt = GetDoc()->GetSdPageCount(ePageKind);
-
-    for (i = 0; i < nPageCnt; i++)
-    {
-        // then, handle all pages
-        pPage = GetDoc()->GetSdPage(i, ePageKind);
-
-        SdUndoAction* pUndo = new SdPageFormatUndoAction(GetDoc(), pPage,
-                                pPage->GetSize(),
-                                pPage->GetLeftBorder(), pPage->GetRightBorder(),
-                                pPage->GetUpperBorder(), pPage->GetLowerBorder(),
-                                pPage->GetOrientation(),
-                                pPage->GetPaperBin(),
-                                pPage->IsBackgroundFullSize(),
-                                rNewSize,
-                                nLeft, nRight,
-                                nUpper, nLower,
-                                bScaleAll,
-                                eOrientation,
-                                nPaperBin,
-                                bBackgroundFullSize);
-        pUndoGroup->AddAction(pUndo);
-
-        if (rNewSize.Width() > 0 ||
-            nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0)
-        {
-            ::tools::Rectangle aNewBorderRect(nLeft, nUpper, nRight, nLower);
-            pPage->ScaleObjects(rNewSize, aNewBorderRect, bScaleAll);
-
-            if (rNewSize.Width() > 0)
-                pPage->SetSize(rNewSize);
-        }
-
-        if( nLeft  >= 0 || nRight >= 0 || nUpper >= 0 || nLower >= 0 )
-        {
-            pPage->SetBorder(nLeft, nUpper, nRight, nLower);
-        }
-
-        pPage->SetOrientation(eOrientation);
-        pPage->SetPaperBin( nPaperBin );
-        pPage->SetBackgroundFullSize( bBackgroundFullSize );
-
-        if ( ePageKind == PageKind::Standard )
-        {
-            SdPage* pNotesPage = GetDoc()->GetSdPage(i, PageKind::Notes);
-            pNotesPage->SetAutoLayout( pNotesPage->GetAutoLayout() );
-        }
-
-        pPage->SetAutoLayout( pPage->GetAutoLayout() );
-    }
+    // use Model-based method at SdDrawDocument
+    GetDoc()->AdaptPageSizeForAllPages(
+        rNewSize,
+        ePageKind,
+        pUndoGroup,
+        nLeft,
+        nRight,
+        nUpper,
+        nLower,
+        bScaleAll,
+        eOrientation,
+        nPaperBin,
+        bBackgroundFullSize);
 
     // adjust handout page to new format of the standard page
-    if( (ePageKind == PageKind::Standard) || (ePageKind == PageKind::Handout) )
+    if(0 != nPageCnt && ((ePageKind == PageKind::Standard) || (ePageKind == PageKind::Handout)))
+    {
         GetDoc()->GetSdPage(0, PageKind::Handout)->CreateTitleAndLayout(true);
+    }
 
     // handed over undo group to undo manager
-    pViewShell->GetViewFrame()->GetObjectShell()
-        ->GetUndoManager()->AddUndoAction(pUndoGroup);
+    if (pViewShell)
+    {
+        pViewShell->GetViewFrame()->GetObjectShell()->GetUndoManager()->AddUndoAction(pUndoGroup);
+    }
 
-    long nWidth = pPage->GetSize().Width();
-    long nHeight = pPage->GetSize().Height();
-
-    Point aPageOrg(nWidth, nHeight / 2);
-    Size aViewSize(nWidth * 3, nHeight * 2);
+    // calculate View-Sizes
+    SdPage* pPage(0 != nPageCnt
+        ? GetDoc()->GetSdPage(0, ePageKind)
+        : GetDoc()->GetMasterSdPage(0, ePageKind));
+    const long nWidth(pPage->GetSize().Width());
+    const long nHeight(pPage->GetSize().Height());
+    const Point aPageOrg(nWidth, nHeight / 2);
+    const Size aViewSize(nWidth * 3, nHeight * 2);
+    Point aVisAreaPos;
+    ::sd::View* pView(GetView());
+    const Point aNewOrigin(pPage->GetLeftBorder(), pPage->GetUpperBorder());
 
     InitWindows(aPageOrg, aViewSize, Point(-1, -1), true);
-
-    Point aVisAreaPos;
 
     if ( GetDocSh()->GetCreateMode() == SfxObjectCreateMode::EMBEDDED )
     {
         aVisAreaPos = GetDocSh()->GetVisArea(ASPECT_CONTENT).TopLeft();
     }
 
-    ::sd::View* pView = GetView();
     if (pView)
     {
         pView->SetWorkArea(::tools::Rectangle(Point() - aVisAreaPos - aPageOrg, aViewSize));
@@ -610,20 +540,19 @@ void ViewShell::SetPageSizeAndBorder(PageKind ePageKind, const Size& rNewSize,
 
     UpdateScrollBars();
 
-    Point aNewOrigin(pPage->GetLeftBorder(), pPage->GetUpperBorder());
-
     if (pView)
     {
         pView->GetSdrPageView()->SetPageOrigin(aNewOrigin);
     }
 
-    pViewShell->GetViewFrame()->GetBindings().Invalidate(SID_RULER_NULL_OFFSET);
+    if(nullptr != pViewShell)
+    {
+        pViewShell->GetViewFrame()->GetBindings().Invalidate(SID_RULER_NULL_OFFSET);
+        // zoom onto (new) page size
+        pViewShell->GetViewFrame()->GetDispatcher()->Execute(SID_SIZE_PAGE, SfxCallMode::ASYNCHRON | SfxCallMode::RECORD);
+    }
 
-    // zoom onto (new) page size
-    pViewShell->GetViewFrame()->GetDispatcher()->Execute(SID_SIZE_PAGE,
-            SfxCallMode::ASYNCHRON | SfxCallMode::RECORD);
-
-    Broadcast (ViewShellHint(ViewShellHint::HINT_PAGE_RESIZE_END));
+    Broadcast(ViewShellHint(ViewShellHint::HINT_PAGE_RESIZE_END));
 }
 
 /**
@@ -972,7 +901,7 @@ sal_Int8 ViewShell::ExecuteDrop (
     return pView ? pView->ExecuteDrop( rEvt, pTargetWindow, nPage, nLayer ) : DND_ACTION_NONE;
 }
 
-void ViewShell::WriteUserDataSequence ( css::uno::Sequence < css::beans::PropertyValue >& rSequence, bool /*bBrowse*/)
+void ViewShell::WriteUserDataSequence ( css::uno::Sequence < css::beans::PropertyValue >& rSequence )
 {
     const sal_Int32 nIndex = rSequence.getLength();
     rSequence.realloc( nIndex + 1 );
@@ -990,7 +919,7 @@ void ViewShell::WriteUserDataSequence ( css::uno::Sequence < css::beans::Propert
     mpFrameView->WriteUserDataSequence( rSequence );
 }
 
-void ViewShell::ReadUserDataSequence ( const css::uno::Sequence < css::beans::PropertyValue >& rSequence, bool /*bBrowse*/ )
+void ViewShell::ReadUserDataSequence ( const css::uno::Sequence < css::beans::PropertyValue >& rSequence )
 {
     mpFrameView->ReadUserDataSequence( rSequence );
 }

@@ -28,6 +28,7 @@
 #include <vcl/region.hxx>
 #include <vcl/scopedbitmapaccess.hxx>
 #include <o3tl/typed_flags_set.hxx>
+#include <memory>
 
 class Color;
 
@@ -89,94 +90,6 @@ enum class BmpCombine
     Or, And
 };
 
-enum class BmpFilter
-{
-    Smooth = 0,
-    Sharpen = 1,
-    RemoveNoise = 2,
-    SobelGrey = 3,
-    EmbossGrey = 4,
-    Solarize = 5,
-    Sepia = 6,
-    Mosaic = 7,
-    PopArt = 8,
-    DuoTone = 9,
-
-    Unknown = 65535
-};
-
-class VCL_DLLPUBLIC BmpFilterParam
-{
-public:
-
-    BmpFilterParam( sal_uLong nProgressStart = 0, sal_uLong nProgressEnd = 0 ) :
-        meFilter( BmpFilter::Unknown ), mnProgressStart( nProgressStart ), mnProgressEnd( nProgressEnd ) {}
-
-    BmpFilterParam( sal_uInt8 cSolarGreyThreshold, sal_uLong nProgressStart = 0, sal_uLong nProgressEnd = 0 ) :
-        meFilter( BmpFilter::Solarize ), mnProgressStart( nProgressStart ), mnProgressEnd( nProgressEnd ),
-        mcSolarGreyThreshold( cSolarGreyThreshold ) {}
-
-    BmpFilterParam( double nRadius, sal_uLong nProgressStart = 0, sal_uLong nProgressEnd = 0 ) :
-        meFilter( BmpFilter::Smooth ), mnProgressStart( nProgressStart ), mnProgressEnd( nProgressEnd ),
-        mnRadius( nRadius ) {}
-
-    BmpFilterParam( sal_uInt16 nSepiaPercent, sal_uLong nProgressStart = 0, sal_uLong nProgressEnd = 0 ) :
-        meFilter( BmpFilter::Sepia ), mnProgressStart( nProgressStart ), mnProgressEnd( nProgressEnd ),
-        mnSepiaPercent( nSepiaPercent )
-        {
-            assert(nSepiaPercent<=100);
-        }
-
-    BmpFilterParam( const Size& rMosaicTileSize, sal_uLong nProgressStart = 0, sal_uLong nProgressEnd = 0 ) :
-        meFilter( BmpFilter::Mosaic ), mnProgressStart( nProgressStart ), mnProgressEnd( nProgressEnd )
-        {
-            maMosaicTileSize.mnTileWidth = rMosaicTileSize.Width();
-            maMosaicTileSize.mnTileHeight= rMosaicTileSize.Height();
-        }
-    BmpFilterParam( sal_uInt16 nEmbossAzimuthAngle100, sal_uInt16 nEmbossElevationAngle100,
-                    sal_uLong nProgressStart = 0, sal_uLong nProgressEnd = 0 ) :
-        meFilter( BmpFilter::EmbossGrey ), mnProgressStart( nProgressStart ), mnProgressEnd( nProgressEnd )
-        {
-            maEmbossAngles.mnAzimuthAngle100 = nEmbossAzimuthAngle100;
-            maEmbossAngles.mnElevationAngle100 = nEmbossElevationAngle100;
-        }
-
-private:
-    friend class ::Bitmap;
-    friend class BitmapEx;
-    friend class Animation;
-
-private:
-    BmpFilter       meFilter;
-    sal_uLong       mnProgressStart;
-    sal_uLong       mnProgressEnd;
-
-public:
-    struct MosaicTileSize
-    {
-        sal_uLong   mnTileWidth;
-        sal_uLong   mnTileHeight;
-    };
-
-    struct EmbossAngles
-    {
-        sal_uInt16  mnAzimuthAngle100;
-        sal_uInt16  mnElevationAngle100;
-    };
-
-private:
-    union
-    {
-        sal_uInt16  mnSepiaPercent;
-        sal_uInt8   mcSolarGreyThreshold;
-        double      mnRadius;
-
-        MosaicTileSize maMosaicTileSize;
-        EmbossAngles maEmbossAngles;
-    };
-
-};
-
 class   BitmapInfoAccess;
 class   BitmapReadAccess;
 class   BitmapWriteAccess;
@@ -212,7 +125,7 @@ public:
                             Bitmap();
                             Bitmap( const Bitmap& rBitmap );
                             Bitmap( const Size& rSizePixel, sal_uInt16 nBitCount, const BitmapPalette* pPal = nullptr );
-                            Bitmap( SalBitmap* pSalBitmap );
+    explicit                Bitmap( std::shared_ptr<SalBitmap> const & xSalBitmap );
     virtual                 ~Bitmap();
 
     Bitmap&                 operator=( const Bitmap& rBitmap );
@@ -265,30 +178,16 @@ public:
      */
     bool                    Convert( BmpConversion eConversion );
 
-
-    /** Convert to 2 color bitmap.
-
-        Converts to a 2 color indexed bitmap - note that we don't change to black and white
-        monochrome, but we pick the closest color to black and white in the bitmap.
-
-        @param cThreshold
-        Luminance value that determines whether the colour should be black (or closest
-        color to black) or white (or closest color to white).
-
-        @return true conversion to monochrome bitmap was successful
-    */
-    bool                    MakeMonochrome(sal_uInt8 cThreshold);
-
     /** Apply a dither algorithm to the bitmap
 
-        This method dithers the bitmap inplace, i.e. a true color
-        bitmap is converted to a paletted bitmap, reducing the color
-        deviation by error diffusion.
+     This method dithers the bitmap inplace, i.e. a true color
+     bitmap is converted to a paletted bitmap, reducing the color
+     deviation by error diffusion.
 
-        @param nDitherFlags
-        The algorithm to be used for dithering
+     @param nDitherFlags
+     The algorithm to be used for dithering
      */
-    bool                    Dither( BmpDitherFlags nDitherFlags = BmpDitherFlags::Matrix );
+    bool                    Dither( BmpDitherFlags nDitherFlags );
 
     /** Crop the bitmap
 
@@ -626,20 +525,6 @@ public:
                                 bool bInvert = false,
                                 bool msoBrightness = false );
 
-    /** Apply specified filter to the bitmap
-
-        @param eFilter
-        The filter algorithm to apply
-
-        @param pFilterParam
-        Various parameter for the different bitmap filter algorithms
-
-        @return true, if the operation was completed successfully.
-     */
-    bool                    Filter(
-                                BmpFilter eFilter,
-                                const BmpFilterParam* pFilterParam = nullptr );
-
 public:
     /** ReassignWithSize and recalculate bitmap.
 
@@ -657,17 +542,6 @@ public:
     SAL_DLLPRIVATE bool     ImplDitherMatrix();
     SAL_DLLPRIVATE bool     ImplDitherFloyd();
     SAL_DLLPRIVATE bool     ImplDitherFloyd16();
-
-    SAL_DLLPRIVATE bool     ImplConvolute3( const long* pMatrix );
-
-    SAL_DLLPRIVATE bool     ImplMedianFilter();
-    SAL_DLLPRIVATE bool     ImplSobelGrey();
-    SAL_DLLPRIVATE bool     ImplEmbossGrey( const BmpFilterParam* pFilterParam );
-    SAL_DLLPRIVATE bool     ImplSolarize( const BmpFilterParam* pFilterParam );
-    SAL_DLLPRIVATE bool     ImplSepia( const BmpFilterParam* pFilterParam );
-    SAL_DLLPRIVATE bool     ImplMosaic( const BmpFilterParam* pFilterParam );
-    SAL_DLLPRIVATE bool     ImplPopArt();
-    SAL_DLLPRIVATE bool     ImplDuotoneFilter( const sal_uLong nColorOne,  sal_uLong nColorTwo );
 
 public:
 

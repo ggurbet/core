@@ -33,7 +33,6 @@
 
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/propshlp.hxx>
-#include <comphelper/proparrhlp.hxx>
 #include <comphelper/uno3.hxx>
 #include <comphelper/propertycontainer.hxx>
 #include <comphelper/broadcasthelper.hxx>
@@ -81,8 +80,8 @@ namespace svt
             {
             }
 
-            Dialog(weld::DialogController* pWeldDialog)
-                : m_xWeldDialog(pWeldDialog)
+            Dialog(std::unique_ptr<weld::DialogController> pWeldDialog)
+                : m_xWeldDialog(std::move(pWeldDialog))
             {
             }
 

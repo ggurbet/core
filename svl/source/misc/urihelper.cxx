@@ -47,6 +47,7 @@
 #include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
+#include <sal/log.hxx>
 #include <tools/inetmime.hxx>
 #include <unotools/charclass.hxx>
 
@@ -782,12 +783,11 @@ OUString URIHelper::resolveIdnaHost(OUString const & url) {
         return url;
     }
     OUStringBuffer buf(uri->getScheme());
-    buf.append("://").append(auth.getStr(), hostStart);
+    buf.append("://").appendCopy(auth, 0, hostStart);
     buf.append(
         reinterpret_cast<sal_Unicode const *>(ascii.getBuffer()),
         ascii.length());
-    buf.append(auth.getStr() + hostEnd, auth.getLength() - hostEnd)
-        .append(uri->getPath());
+    buf.appendCopy(auth, hostEnd).append(uri->getPath());
     if (uri->hasQuery()) {
         buf.append('?').append(uri->getQuery());
     }

@@ -69,7 +69,7 @@ public:
 class TableDesignWidget final
 {
 public:
-    TableDesignWidget( VclBuilderContainer* pParent, ViewShellBase& rBase, bool bModal );
+    TableDesignWidget( VclBuilderContainer* pParent, ViewShellBase& rBase );
     ~TableDesignWidget();
 
     // callbacks
@@ -77,9 +77,6 @@ public:
 
     void ApplyOptions();
     void ApplyStyle();
-
-    bool isStyleChanged() const { return mbStyleSelected; }
-    bool isOptionsChanged() const { return mbOptionsChanged; }
 
 private:
     void addListener();
@@ -101,10 +98,6 @@ private:
     css::uno::Reference< css::beans::XPropertySet > mxSelectedTable;
     css::uno::Reference< css::drawing::XDrawView > mxView;
     css::uno::Reference< css::container::XIndexAccess > mxTableFamily;
-
-    bool mbModal;
-    bool mbStyleSelected;
-    bool mbOptionsChanged;
 };
 
 class TableDesignPane : public PanelLayout
@@ -115,32 +108,16 @@ public:
     TableDesignPane( vcl::Window* pParent, ViewShellBase& rBase )
         : PanelLayout(pParent, "TableDesignPanel",
         "modules/simpress/ui/tabledesignpanel.ui", css::uno::Reference<css::frame::XFrame>())
-        , aImpl(this, rBase, false)
+        , aImpl(this, rBase)
     {
     }
     TableDesignPane( vcl::Window* pParent, ViewShellBase& rBase, bool )
         : PanelLayout(pParent, "TableDesignPanel",
         "modules/simpress/ui/tabledesignpanelhorizontal.ui", css::uno::Reference<css::frame::XFrame>())
-        , aImpl(this, rBase, false)
+        , aImpl(this, rBase)
     {
     }
 };
-
-class TableDesignDialog : public ModalDialog
-{
-private:
-    TableDesignWidget aImpl;
-public:
-    TableDesignDialog( vcl::Window* pParent, ViewShellBase& rBase )
-        : ModalDialog(pParent, "TableDesignDialog",
-        "modules/sdraw/ui/tabledesigndialog.ui")
-        , aImpl(this, rBase, true)
-    {
-    }
-    virtual short Execute() override;
-};
-
-void showTableDesignDialog( vcl::Window*, ViewShellBase& );
 
 }
 

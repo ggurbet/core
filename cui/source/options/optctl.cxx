@@ -19,6 +19,7 @@
 
 #include "optctl.hxx"
 #include <svl/ctloptions.hxx>
+#include <sal/log.hxx>
 
 // class SvxCTLOptionsPage -----------------------------------------------------
 
@@ -70,9 +71,9 @@ void SvxCTLOptionsPage::dispose()
     SfxTabPage::dispose();
 }
 
-VclPtr<SfxTabPage> SvxCTLOptionsPage::Create( vcl::Window* pParent, const SfxItemSet* rAttrSet )
+VclPtr<SfxTabPage> SvxCTLOptionsPage::Create( TabPageParent pParent, const SfxItemSet* rAttrSet )
 {
-    return VclPtr<SvxCTLOptionsPage>::Create( pParent, *rAttrSet );
+    return VclPtr<SvxCTLOptionsPage>::Create( pParent.pParent, *rAttrSet );
 }
 
 bool SvxCTLOptionsPage::FillItemSet( SfxItemSet* )

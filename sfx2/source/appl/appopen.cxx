@@ -43,7 +43,6 @@
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
-#include <comphelper/string.hxx>
 #include <comphelper/synchronousdispatch.hxx>
 
 #include <vcl/wrkwin.hxx>
@@ -281,7 +280,7 @@ ErrCode CheckPasswd_Impl
 }
 
 
-ErrCode SfxApplication::LoadTemplate( SfxObjectShellLock& xDoc, const OUString &rFileName, SfxItemSet* pSet )
+ErrCode SfxApplication::LoadTemplate( SfxObjectShellLock& xDoc, const OUString &rFileName, std::unique_ptr<SfxItemSet> pSet )
 {
     std::shared_ptr<const SfxFilter> pFilter;
     SfxMedium aMedium( rFileName,  ( StreamMode::READ | StreamMode::SHARE_DENYNONE ) );
@@ -291,7 +290,6 @@ ErrCode SfxApplication::LoadTemplate( SfxObjectShellLock& xDoc, const OUString &
 
     if ( aMedium.GetError() )
     {
-        delete pSet;
         return aMedium.GetErrorCode();
     }
 
@@ -299,23 +297,20 @@ ErrCode SfxApplication::LoadTemplate( SfxObjectShellLock& xDoc, const OUString &
     ErrCode nErr = GetFilterMatcher().GuessFilter( aMedium, pFilter, SfxFilterFlags::TEMPLATE, SfxFilterFlags::NONE );
     if ( ERRCODE_NONE != nErr)
     {
-        delete pSet;
         return ERRCODE_SFX_NOTATEMPLATE;
     }
 
     if( !pFilter || !pFilter->IsAllowedAsTemplate() )
     {
-        delete pSet;
         return ERRCODE_SFX_NOTATEMPLATE;
     }
 
     if ( pFilter->GetFilterFlags() & SfxFilterFlags::STARONEFILTER )
     {
         DBG_ASSERT( !xDoc.Is(), "Sorry, not implemented!" );
-        delete pSet;
         SfxStringItem aName( SID_FILE_NAME, rFileName );
-        SfxStringItem aReferer( SID_REFERER, OUString("private:user") );
-        SfxStringItem aFlags( SID_OPTIONS, OUString("T") );
+        SfxStringItem aReferer( SID_REFERER, "private:user" );
+        SfxStringItem aFlags( SID_OPTIONS, "T" );
         SfxBoolItem aHidden( SID_HIDDEN, true );
         const SfxPoolItem *pRet = GetDispatcher_Impl()->ExecuteList(
             SID_OPENDOC, SfxCallMode::SYNCHRON,
@@ -343,7 +338,7 @@ ErrCode SfxApplication::LoadTemplate( SfxObjectShellLock& xDoc, const OUString &
             xDoc = SfxObjectShell::CreateObject( pFilter->GetServiceName() );
 
         //pMedium takes ownership of pSet
-        SfxMedium *pMedium = new SfxMedium( rFileName, StreamMode::STD_READ, pFilter, pSet );
+        SfxMedium *pMedium = new SfxMedium( rFileName, StreamMode::STD_READ, pFilter, std::move(pSet) );
         if(!xDoc->DoLoad(pMedium))
         {
             ErrCode nErrCode = xDoc->GetErrorCode();
@@ -407,16 +402,13 @@ void SfxApplication::NewDocDirectExec_Impl( SfxRequest& rReq )
     OUString aFactName;
     if ( pFactoryItem )
         aFactName = pFactoryItem->GetValue();
-   else
+    else
         aFactName = SvtModuleOptions().GetDefaultModuleName();
 
-
     SfxRequest aReq( SID_OPENDOC, SfxCallMode::SYNCHRON, GetPool() );
-    OUString aFact("private:factory/");
-    aFact += aFactName;
-    aReq.AppendItem( SfxStringItem( SID_FILE_NAME, aFact ) );
+    aReq.AppendItem( SfxStringItem( SID_FILE_NAME, "private:factory/" + aFactName ) );
     aReq.AppendItem( SfxFrameItem( SID_DOCFRAME, GetFrame() ) );
-    aReq.AppendItem( SfxStringItem( SID_TARGETNAME, OUString( "_default" ) ) );
+    aReq.AppendItem( SfxStringItem( SID_TARGETNAME, "_default" ) );
 
     // TODO/LATER: Should the other arguments be transferred as well?
     const SfxStringItem* pDefaultPathItem = rReq.GetArg<SfxStringItem>(SID_DEFAULTFILEPATH);
@@ -613,8 +605,8 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
         else if ( nSID == SID_OPENTEMPLATE )
         {
             aPath = SvtPathOptions().GetTemplatePath();
-            sal_Int32 nTokenCount = comphelper::string::getTokenCount(aPath, ';');
-            aPath = aPath.getToken( nTokenCount ? ( nTokenCount - 1 ) : 0 , ';' );
+            if (!aPath.isEmpty())                             // if not empty then get last token
+                aPath = aPath.copy(aPath.lastIndexOf(';')+1); // lastIndexOf+copy works whether separator (';') is there or not
         }
 
         sal_Int16 nDialog = SFX2_IMPL_DIALOG_CONFIG;
@@ -662,7 +654,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
         rReq.SetArgs( *static_cast<SfxAllItemSet*>(pSet) );
         if ( !aFilter.isEmpty() )
             rReq.AppendItem( SfxStringItem( SID_FILTER_NAME, aFilter ) );
-        rReq.AppendItem( SfxStringItem( SID_TARGETNAME, OUString("_default") ) );
+        rReq.AppendItem( SfxStringItem( SID_TARGETNAME, "_default" ) );
         rReq.AppendItem( SfxStringItem( SID_REFERER, "private:user" ) );
         delete pSet;
 
@@ -784,27 +776,26 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
     const SfxStringItem* pFileFlagsItem = rReq.GetArg<SfxStringItem>(SID_OPTIONS);
     if ( pFileFlagsItem )
     {
-        OUString aFileFlags = pFileFlagsItem->GetValue();
-        aFileFlags = aFileFlags.toAsciiUpperCase();
-        if ( -1 != aFileFlags.indexOf( 0x0054 ) )               // T = 54h
+        const OUString aFileFlags = pFileFlagsItem->GetValue().toAsciiUpperCase();
+        if ( aFileFlags.indexOf('T') >= 0 )
         {
             rReq.RemoveItem( SID_TEMPLATE );
             rReq.AppendItem( SfxBoolItem( SID_TEMPLATE, true ) );
         }
 
-        if ( -1 != aFileFlags.indexOf( 0x0048 ) )               // H = 48h
+        if ( aFileFlags.indexOf('H') >= 0 )
         {
             rReq.RemoveItem( SID_HIDDEN );
             rReq.AppendItem( SfxBoolItem( SID_HIDDEN, true ) );
         }
 
-        if ( -1 != aFileFlags.indexOf( 0x0052 ) )               // R = 52h
+        if ( aFileFlags.indexOf('R') >= 0 )
         {
             rReq.RemoveItem( SID_DOC_READONLY );
             rReq.AppendItem( SfxBoolItem( SID_DOC_READONLY, true ) );
         }
 
-        if ( -1 != aFileFlags.indexOf( 0x0042 ) )               // B = 42h
+        if ( aFileFlags.indexOf('B') >= 0 )
         {
             rReq.RemoveItem( SID_PREVIEW );
             rReq.AppendItem( SfxBoolItem( SID_PREVIEW, true ) );
@@ -822,7 +813,6 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
         if ( xTypeDetection.is() )
         {
             URL             aURL;
-            OUString aTypeName;
 
             aURL.Complete = aFileName;
             Reference< util::XURLTransformer > xTrans( util::URLTransformer::create( ::comphelper::getProcessComponentContext() ) );
@@ -844,7 +834,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
                 return;
             }
 
-            aTypeName = xTypeDetection->queryTypeByURL( aURL.Main );
+            const OUString aTypeName { xTypeDetection->queryTypeByURL( aURL.Main ) };
             SfxFilterMatcher& rMatcher = SfxGetpApp()->GetFilterMatcher();
             std::shared_ptr<const SfxFilter> pFilter = rMatcher.GetFilter4EA( aTypeName );
             if (!pFilter || !lcl_isFilterNativelySupported(*pFilter))
@@ -854,7 +844,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
                 {
                     // don't dispatch mailto hyperlink to desktop dispatcher
                     rReq.RemoveItem( SID_TARGETNAME );
-                    rReq.AppendItem( SfxStringItem( SID_TARGETNAME, OUString("_self") ) );
+                    rReq.AppendItem( SfxStringItem( SID_TARGETNAME, "_self" ) );
                 }
                 else if ( aINetProtocol == INetProtocol::Ftp ||
                      aINetProtocol == INetProtocol::Http ||
@@ -913,7 +903,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
                         catch ( css::system::SystemShellExecuteException& )
                         {
                             rReq.RemoveItem( SID_TARGETNAME );
-                            rReq.AppendItem( SfxStringItem( SID_TARGETNAME, OUString("_default") ) );
+                            rReq.AppendItem( SfxStringItem( SID_TARGETNAME, "_default" ) );
                             bLoadInternal = true;
                         }
                         if ( !bLoadInternal )
@@ -925,7 +915,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
             {
                 // hyperlink document must be loaded into a new frame
                 rReq.RemoveItem( SID_TARGETNAME );
-                rReq.AppendItem( SfxStringItem( SID_TARGETNAME, OUString("_default") ) );
+                rReq.AppendItem( SfxStringItem( SID_TARGETNAME, "_default" ) );
             }
         }
     }
@@ -1122,8 +1112,7 @@ void SfxApplication::OpenDocExec_Impl( SfxRequest& rReq )
         const SfxPoolItem* pRetValue = rReq.GetReturnValue();
         if (pRetValue)
         {
-            SfxPoolItem* pClone = pRetValue->Clone();
-            pLinkItem->GetValue().Call(pClone);
+            pLinkItem->GetValue().Call(pRetValue);
         }
         delete pLinkItem;
     }

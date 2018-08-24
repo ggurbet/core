@@ -21,6 +21,7 @@
 #include <svl/itemiter.hxx>
 #include <svl/grabbagitem.hxx>
 #include <rtl/tencinfo.h>
+#include <sal/log.hxx>
 
 #include <hintids.hxx>
 #include <editeng/lspcitem.hxx>
@@ -317,6 +318,33 @@ void SwWW8ImplReader::Read_ParaBiDi(sal_uInt16, const sal_uInt8* pData, short nL
     {
         SvxFrameDirection eDir =
             *pData ? SvxFrameDirection::Horizontal_RL_TB : SvxFrameDirection::Horizontal_LR_TB;
+
+        // Previous adjust or bidi values require changing paraAdjust.
+        // Only change if ParaBiDi doesn't match previous setting.
+        const bool bParentRTL = IsRightToLeft();
+        if ( (eDir == SvxFrameDirection::Horizontal_RL_TB && !bParentRTL) ||
+             (eDir == SvxFrameDirection::Horizontal_LR_TB && bParentRTL) )
+        {
+            const SvxAdjustItem* pItem = static_cast<const SvxAdjustItem*>(GetFormatAttr(RES_PARATR_ADJUST));
+            if ( !pItem )
+            {
+                // no previous adjust: set appropriate default
+                if ( eDir == SvxFrameDirection::Horizontal_LR_TB )
+                    NewAttr( SvxAdjustItem( SvxAdjust::Left, RES_PARATR_ADJUST ) );
+                else
+                    NewAttr( SvxAdjustItem( SvxAdjust::Right, RES_PARATR_ADJUST ) );
+            }
+            else
+            {
+                // previous adjust and bidi has changed: swap Left/Right
+                const SvxAdjust eJustify = pItem->GetAdjust();
+                if ( eJustify == SvxAdjust::Left )
+                    NewAttr( SvxAdjustItem( SvxAdjust::Right, RES_PARATR_ADJUST ) );
+                else if ( eJustify == SvxAdjust::Right )
+                    NewAttr( SvxAdjustItem( SvxAdjust::Left, RES_PARATR_ADJUST ) );
+            }
+        }
+
         NewAttr(SvxFrameDirectionItem(eDir, RES_FRAMEDIR));
     }
 }
@@ -496,8 +524,17 @@ void wwSectionManager::GetPageULData(const wwSection &rSection,
         nWWUp += rSection.maSep.dzaGutter;
     }
 
-    rData.bHasHeader = (rSection.maSep.grpfIhdt &
-        (WW8_HEADER_EVEN | WW8_HEADER_ODD | WW8_HEADER_FIRST)) != 0;
+    /* Check whether this section has headers / footers */
+    sal_uInt16 nHeaderMask = WW8_HEADER_EVEN | WW8_HEADER_ODD;
+    sal_uInt16 nFooterMask = WW8_FOOTER_EVEN | WW8_FOOTER_ODD;
+    /* Ignore the presence of a first-page header/footer unless it is enabled */
+    if( rSection.HasTitlePage() )
+    {
+        nHeaderMask |= WW8_HEADER_FIRST;
+        nFooterMask |= WW8_FOOTER_FIRST;
+    }
+    rData.bHasHeader = (rSection.maSep.grpfIhdt & nHeaderMask) != 0;
+    rData.bHasFooter = (rSection.maSep.grpfIhdt & nFooterMask) != 0;
 
     if( rData.bHasHeader )
     {
@@ -517,9 +554,6 @@ void wwSectionManager::GetPageULData(const wwSection &rSection,
     }
     else // no header -> just use Up as-is
         rData.nSwUp = std::abs(nWWUp);
-
-    rData.bHasFooter = (rSection.maSep.grpfIhdt &
-        (WW8_FOOTER_EVEN | WW8_FOOTER_ODD | WW8_FOOTER_FIRST)) != 0;
 
     if( rData.bHasFooter )
     {
@@ -629,8 +663,8 @@ SwSectionFormat *wwSectionManager::InsertSection(
         return nullptr;
 
     SwPageDesc *pPage = nullptr;
-    mySegrIter aEnd = maSegments.rend();
-    for (mySegrIter aIter = maSegments.rbegin(); aIter != aEnd; ++aIter)
+    auto aEnd = maSegments.rend();
+    for (auto aIter = maSegments.rbegin(); aIter != aEnd; ++aIter)
     {
         if (nullptr != (pPage = aIter->mpPage))
             break;
@@ -1909,7 +1943,7 @@ bToggelPos(false)
     // #i36649# - adjustments for certain horizontal alignments
     // Note: These special adjustments found by an investigation of documents
     //       containing frames with different left/right border distances and
-    //       distances to text. The outcome is some how strange.
+    //       distances to text. The outcome is somehow strange.
     // Note: These adjustments causes wrong horizontal positions for frames,
     //       which are aligned inside|outside to page|margin on even pages,
     //       the left and right border distances are different.
@@ -2520,6 +2554,7 @@ void SwWW8ImplReader::StopApo()
         Color aBg(0xFE, 0xFF, 0xFF, 0xFF);  //Transparent by default
 
         SwTextNode* pNd = aPref.GetNode().GetTextNode();
+        SwTextNode* pJoinNext = nullptr;
         if (pNd && m_xSFlyPara->pFlyFormat)
         {
             /*
@@ -2549,13 +2584,16 @@ void SwWW8ImplReader::StopApo()
             }
 
             //Get rid of extra empty paragraph
-            pNd->JoinNext();
+            pJoinNext = pNd;
         }
 
         if (m_xSFlyPara->pFlyFormat)
             m_xSFlyPara->pFlyFormat->SetFormatAttr(SvxBrushItem(aBg, RES_BACKGROUND));
 
         DeleteAnchorStack();
+        if (pJoinNext)
+            pJoinNext->JoinNext();
+
         m_xAnchorStck = std::move(m_xSFlyPara->xOldAnchorStck);
 
         // When inserting a graphic into the fly frame using the auto
@@ -3465,7 +3503,7 @@ void SwWW8ImplReader::Read_TextColor( sal_uInt16, const sal_uInt8* pData, short 
 
         NewAttr( SvxColorItem(GetCol(b), RES_CHRATR_COLOR));
         if (m_pCurrentColl && m_xStyles)
-            m_xStyles->bTextColChanged = true;
+            m_xStyles->mbTextColChanged = true;
     }
 }
 
@@ -3478,7 +3516,7 @@ void SwWW8ImplReader::Read_TextForeColor(sal_uInt16, const sal_uInt8* pData, sho
         Color aColor(msfilter::util::BGRToRGB(SVBT32ToUInt32(pData)));
         NewAttr(SvxColorItem(aColor, RES_CHRATR_COLOR));
         if (m_pCurrentColl && m_xStyles)
-            m_xStyles->bTextColChanged = true;
+            m_xStyles->mbTextColChanged = true;
     }
 }
 
@@ -3553,20 +3591,20 @@ bool SwWW8ImplReader::GetFontParams( sal_uInt16 nFCode, FontFamily& reFamily,
     rName = pF->sFontname;
 
     // pF->prg : Pitch
-    rePitch = ePitchA[pF->prg];
+    rePitch = ePitchA[pF->aFFNBase.prg];
 
     // pF->chs: Charset
-    if( 77 == pF->chs )             // Mac font in Mac Charset or
+    if( 77 == pF->aFFNBase.chs )             // Mac font in Mac Charset or
         reCharSet = m_eTextCharSet;   // translated to ANSI charset
     else
     {
         // #i52786#, for word 67 we'll assume that ANSI is basically invalid,
         // might be true for (above) mac as well, but would need a mac example
         // that exercises this to be sure
-        if (m_bVer67 && pF->chs == 0)
+        if (m_bVer67 && pF->aFFNBase.chs == 0)
             reCharSet = RTL_TEXTENCODING_DONTKNOW;
         else
-            reCharSet = rtl_getTextEncodingFromWindowsCharset( pF->chs );
+            reCharSet = rtl_getTextEncodingFromWindowsCharset(pF->aFFNBase.chs);
     }
 
     // make sure Font Family Code is set correctly
@@ -3595,7 +3633,7 @@ bool SwWW8ImplReader::GetFontParams( sal_uInt16 nFCode, FontFamily& reFamily,
     }
     else
     {
-        reFamily = eFamilyA[pF->ff];
+        reFamily = eFamilyA[pF->aFFNBase.ff];
     }
 
     return true;
@@ -3703,11 +3741,11 @@ void SwWW8ImplReader::openFont(sal_uInt16 nFCode, sal_uInt16 nId)
     {
         // remember for simulating default font
         if (RES_CHRATR_CJK_FONT == nId)
-            m_xStyles->bCJKFontChanged = true;
+            m_xStyles->mbCJKFontChanged = true;
         else if (RES_CHRATR_CTL_FONT == nId)
-            m_xStyles->bCTLFontChanged = true;
+            m_xStyles->mbCTLFontChanged = true;
         else
-            m_xStyles->bFontChanged = true;
+            m_xStyles->mbFontChanged = true;
     }
 }
 
@@ -3821,12 +3859,12 @@ void SwWW8ImplReader::Read_FontSize( sal_uInt16 nId, const sal_uInt8* pData, sho
         {
             // remember for simulating default font size
             if (nId == RES_CHRATR_CTL_FONTSIZE)
-                m_xStyles->bFCTLSizeChanged = true;
+                m_xStyles->mbFCTLSizeChanged = true;
             else
             {
-                m_xStyles->bFSizeChanged = true;
+                m_xStyles->mbFSizeChanged = true;
                 if (eVersion <= ww::eWW6)
-                    m_xStyles->bFCTLSizeChanged= true;
+                    m_xStyles->mbFCTLSizeChanged= true;
             }
         }
     }
@@ -4727,7 +4765,7 @@ void SwWW8Shade::SetShade(Color nFore, Color nBack, sal_uInt16 nIndex)
     if (nFore == COL_AUTO)
         nFore = COL_BLACK;
 
-    //NO auto for shading so background: Auto = Weiss
+    //NO auto for shading so background: Auto = White
     Color nUseBack = nBack;
     if (nUseBack == COL_AUTO)
         nUseBack = COL_WHITE;
@@ -4991,7 +5029,7 @@ void SwWW8ImplReader::Read_WidowControl( sal_uInt16, const sal_uInt8* pData, sho
         NewAttr( SvxOrphansItem( nL, RES_PARATR_ORPHANS ) );
 
         if( m_pCurrentColl && m_xStyles )           // Style-Def ?
-            m_xStyles->bWidowsChanged = true; // save for simulation
+            m_xStyles->mbWidowsChanged = true; // save for simulation
                                             // Default-Widows
     }
 }

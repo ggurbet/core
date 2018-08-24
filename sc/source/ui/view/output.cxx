@@ -41,6 +41,7 @@
 #include <vcl/gradient.hxx>
 #include <vcl/settings.hxx>
 #include <svx/unoapi.hxx>
+#include <sal/log.hxx>
 
 #include <output.hxx>
 #include <document.hxx>
@@ -220,9 +221,6 @@ ScOutputData::ScOutputData( OutputDevice* pNewDev, ScOutputType eNewType,
 
 ScOutputData::~ScOutputData()
 {
-    delete pValueColor;
-    delete pTextColor;
-    delete pFormulaColor;
 }
 
 void ScOutputData::SetSpellCheckContext( const sc::SpellCheckContext* pCxt )
@@ -295,9 +293,9 @@ void ScOutputData::SetSyntaxMode( bool bNewMode )
         if ( !pValueColor )
         {
             const svtools::ColorConfig& rColorCfg = SC_MOD()->GetColorConfig();
-            pValueColor = new Color( rColorCfg.GetColorValue( svtools::CALCVALUE ).nColor );
-            pTextColor = new Color( rColorCfg.GetColorValue( svtools::CALCTEXT ).nColor );
-            pFormulaColor = new Color( rColorCfg.GetColorValue( svtools::CALCFORMULA ).nColor );
+            pValueColor.reset( new Color( rColorCfg.GetColorValue( svtools::CALCVALUE ).nColor ) );
+            pTextColor.reset( new Color( rColorCfg.GetColorValue( svtools::CALCTEXT ).nColor ) );
+            pFormulaColor.reset( new Color( rColorCfg.GetColorValue( svtools::CALCFORMULA ).nColor ) );
         }
 }
 
@@ -1693,7 +1691,7 @@ void ScOutputData::DrawRotatedFrame(vcl::RenderContext& rRenderContext)
         rRenderContext.SetClipRegion();
 }
 
-drawinglayer::processor2d::BaseProcessor2D* ScOutputData::CreateProcessor2D( )
+std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> ScOutputData::CreateProcessor2D( )
 {
     mpDoc->InitDrawLayer(mpDoc->GetDocumentShell());
     ScDrawLayer* pDrawLayer = mpDoc->GetDrawLayer();

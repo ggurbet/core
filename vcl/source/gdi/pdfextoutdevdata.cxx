@@ -22,8 +22,11 @@
 #include <vcl/outdev.hxx>
 #include <vcl/gfxlink.hxx>
 #include <vcl/dllapi.h>
+#include <vcl/metaact.hxx>
+#include <vcl/graphicfilter.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
+#include <sal/log.hxx>
 
 #include <set>
 #include <memory>
@@ -300,7 +303,7 @@ struct PageSyncData
     { mpGlobalData = pGlobal; }
 
     void PushAction( const OutputDevice& rOutDev, const PDFExtOutDevDataSync::Action eAct );
-    bool PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAction, const PDFExtOutDevData& rOutDevData );
+    bool PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAction, const GDIMetaFile& rMtf, const PDFExtOutDevData& rOutDevData );
 };
 
 void PageSyncData::PushAction( const OutputDevice& rOutDev, const PDFExtOutDevDataSync::Action eAct )
@@ -316,7 +319,7 @@ void PageSyncData::PushAction( const OutputDevice& rOutDev, const PDFExtOutDevDa
         aSync.nIdx = 0x7fffffff;    // sync not possible
     mActions.push_back( aSync );
 }
-bool PageSyncData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAction, const PDFExtOutDevData& rOutDevData )
+bool PageSyncData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAction, const GDIMetaFile& rMtf, const PDFExtOutDevData& rOutDevData )
 {
     bool bRet = false;
     if ( mActions.size() && ( mActions.front().nIdx == rCurGDIMtfAction ) )
@@ -403,13 +406,13 @@ bool PageSyncData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAc
                             GfxLinkType eType = rGraphic.GetGfxLink().GetType();
                             if ( eType == GfxLinkType::NativeJpg )
                             {
-                                mbGroupIgnoreGDIMtfActions = rOutDevData.HasAdequateCompression(rGraphic);
+                                mbGroupIgnoreGDIMtfActions = rOutDevData.HasAdequateCompression(rGraphic, mParaRects[0], mParaRects[1]);
                                 if ( !mbGroupIgnoreGDIMtfActions )
                                     mCurrentGraphic = rGraphic;
                             }
                             else if ( eType == GfxLinkType::NativePng || eType == GfxLinkType::NativePdf )
                             {
-                                if ( eType == GfxLinkType::NativePdf || rOutDevData.HasAdequateCompression(rGraphic) )
+                                if ( eType == GfxLinkType::NativePdf || rOutDevData.HasAdequateCompression(rGraphic, mParaRects[0], mParaRects[1]) )
                                     mCurrentGraphic = rGraphic;
                             }
                         }
@@ -462,7 +465,25 @@ bool PageSyncData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rCurGDIMtfAc
                         if( pData && nBytes )
                         {
                             aTmp.WriteBytes( pData, nBytes );
-                            rWriter.DrawJPGBitmap( aTmp, aGraphic.GetBitmap().GetBitCount() > 8, aGraphic.GetSizePixel(), aOutputRect, aMask, aGraphic );
+
+                            // Look up the output rectangle from the previous
+                            // bitmap scale action if possible. This has the
+                            // correct position and size for images with a
+                            // custom translation (Writer header) or scaling
+                            // (Impress notes page).
+                            if (rCurGDIMtfAction > 0)
+                            {
+                                const MetaAction* pAction = rMtf.GetAction(rCurGDIMtfAction - 1);
+                                if (pAction && pAction->GetType() == MetaActionType::BMPSCALE)
+                                {
+                                    const MetaBmpScaleAction* pA
+                                        = static_cast<const MetaBmpScaleAction*>(pAction);
+                                    aOutputRect.SetPos(pA->GetPoint());
+                                    aOutputRect.SetSize(pA->GetSize());
+                                }
+                            }
+
+                            rWriter.DrawJPGBitmap( aTmp, aGraphic.GetBitmapEx().GetBitCount() > 8, aGraphic.GetSizePixel(), aOutputRect, aMask, aGraphic );
                         }
 
                         if ( bClippingNeeded )
@@ -582,9 +603,9 @@ void PDFExtOutDevData::ResetSyncData()
 {
     *mpPageSyncData = PageSyncData( mpGlobalSyncData.get() );
 }
-bool PDFExtOutDevData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rIdx )
+bool PDFExtOutDevData::PlaySyncPageAct( PDFWriter& rWriter, sal_uInt32& rIdx, const GDIMetaFile& rMtf )
 {
-    return mpPageSyncData->PlaySyncPageAct( rWriter, rIdx, *this );
+    return mpPageSyncData->PlaySyncPageAct( rWriter, rIdx, rMtf, *this );
 }
 void PDFExtOutDevData::PlayGlobalActions( PDFWriter& rWriter )
 {
@@ -652,19 +673,17 @@ sal_Int32 PDFExtOutDevData::CreateScreen(const tools::Rectangle& rRect, sal_Int3
     return mpGlobalSyncData->mCurId++;
 }
 
-sal_Int32 PDFExtOutDevData::SetLinkDest( sal_Int32 nLinkId, sal_Int32 nDestId )
+void PDFExtOutDevData::SetLinkDest( sal_Int32 nLinkId, sal_Int32 nDestId )
 {
     mpGlobalSyncData->mActions.push_back( PDFExtOutDevDataSync::SetLinkDest );
     mpGlobalSyncData->mParaInts.push_back( nLinkId );
     mpGlobalSyncData->mParaInts.push_back( nDestId );
-    return 0;
 }
-sal_Int32 PDFExtOutDevData::SetLinkURL( sal_Int32 nLinkId, const OUString& rURL )
+void PDFExtOutDevData::SetLinkURL( sal_Int32 nLinkId, const OUString& rURL )
 {
     mpGlobalSyncData->mActions.push_back( PDFExtOutDevDataSync::SetLinkURL );
     mpGlobalSyncData->mParaInts.push_back( nLinkId );
     mpGlobalSyncData->mParaOUStrings.push_back( rURL );
-    return 0;
 }
 
 void PDFExtOutDevData::SetScreenURL(sal_Int32 nScreenId, const OUString& rURL)
@@ -743,19 +762,17 @@ sal_Int32 PDFExtOutDevData::GetCurrentStructureElement()
 {
     return mpGlobalSyncData->mCurrentStructElement;
 }
-bool PDFExtOutDevData::SetStructureAttribute( PDFWriter::StructAttribute eAttr, PDFWriter::StructAttributeValue eVal )
+void PDFExtOutDevData::SetStructureAttribute( PDFWriter::StructAttribute eAttr, PDFWriter::StructAttributeValue eVal )
 {
     mpPageSyncData->PushAction( mrOutDev, PDFExtOutDevDataSync::SetStructureAttribute );
     mpPageSyncData->mParaStructAttributes.push_back( eAttr );
     mpPageSyncData->mParaStructAttributeValues.push_back( eVal );
-    return true;
 }
-bool PDFExtOutDevData::SetStructureAttributeNumerical( PDFWriter::StructAttribute eAttr, sal_Int32 nValue )
+void PDFExtOutDevData::SetStructureAttributeNumerical( PDFWriter::StructAttribute eAttr, sal_Int32 nValue )
 {
     mpPageSyncData->PushAction( mrOutDev, PDFExtOutDevDataSync::SetStructureAttributeNumerical );
     mpPageSyncData->mParaStructAttributes.push_back( eAttr );
     mpPageSyncData->mParaInts.push_back( nValue );
-    return true;
 }
 void PDFExtOutDevData::SetStructureBoundingBox( const tools::Rectangle& rRect )
 {
@@ -799,17 +816,36 @@ void PDFExtOutDevData::EndGroup( const Graphic&     rGraphic,
 }
 
 // Avoids expensive de-compression and re-compression of large images.
-bool PDFExtOutDevData::HasAdequateCompression( const Graphic &rGraphic ) const
+bool PDFExtOutDevData::HasAdequateCompression( const Graphic &rGraphic,
+                                               const tools::Rectangle & rOutputRect,
+                                               const tools::Rectangle & rVisibleOutputRect ) const
 {
     assert(rGraphic.IsGfxLink() &&
            (rGraphic.GetGfxLink().GetType() == GfxLinkType::NativeJpg ||
             rGraphic.GetGfxLink().GetType() == GfxLinkType::NativePng ||
             rGraphic.GetGfxLink().GetType() == GfxLinkType::NativePdf));
 
+    if (rOutputRect != rVisibleOutputRect)
+        // rOutputRect is the crop rectangle, re-compress cropped image.
+        return false;
+
+    if (mbReduceImageResolution)
+        // Reducing resolution was requested, implies that re-compressing is
+        // wanted.
+        return false;
+
     if (rGraphic.GetGfxLink().GetDataSize() == 0)
         return false;
 
-    Size aSize = rGraphic.GetSizePixel();
+    GfxLink aLink = rGraphic.GetGfxLink();
+    SvMemoryStream aMemoryStream(const_cast<sal_uInt8*>(aLink.GetData()), aLink.GetDataSize(),
+                                 StreamMode::READ | StreamMode::WRITE);
+    GraphicDescriptor aDescriptor(aMemoryStream, nullptr);
+    if (aDescriptor.Detect(true) && aDescriptor.GetNumberOfImageComponents() == 4)
+        // 4 means CMYK, which is not handled.
+        return false;
+
+    const Size aSize = rGraphic.GetSizePixel();
 
     // small items better off as PNG anyway
     if ( aSize.Width() < 32 &&

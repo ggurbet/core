@@ -19,6 +19,7 @@
 
 #include <tools/diagnose_ex.h>
 #include <tools/stream.hxx>
+#include <sal/log.hxx>
 
 #include <comphelper/lok.hxx>
 #include <vcl/svapp.hxx>
@@ -228,8 +229,7 @@ void Menu::dispose()
     bKilled = true;
 
     pItemList->Clear();
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
 
     // Native-support: destroy SalMenu
     ImplClearSalMenu();
@@ -432,7 +432,7 @@ MenuItemData* Menu::NbcInsertItem(sal_uInt16 nId, MenuItemBits nBits,
 
     // update native menu
     if (ImplGetSalMenu() && pData->pSalMenuItem)
-        ImplGetSalMenu()->InsertItem(pData->pSalMenuItem, nPos);
+        ImplGetSalMenu()->InsertItem(pData->pSalMenuItem.get(), nPos);
 
     return pData;
 }
@@ -452,8 +452,7 @@ void Menu::InsertItem(sal_uInt16 nItemId, const OUString& rStr, MenuItemBits nIt
     NbcInsertItem(nItemId, nItemBits, rStr, this, nPos, rIdent);
 
     vcl::Window* pWin = ImplGetWindow();
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
     if ( pWin )
     {
         ImplCalcSize( pWin );
@@ -516,10 +515,9 @@ void Menu::InsertSeparator(const OString &rIdent, sal_uInt16 nPos)
     size_t itemPos = ( nPos != MENU_APPEND ) ? nPos : pItemList->size() - 1;
     MenuItemData *pData = pItemList->GetDataFromPos( itemPos );
     if( ImplGetSalMenu() && pData && pData->pSalMenuItem )
-        ImplGetSalMenu()->InsertItem( pData->pSalMenuItem, nPos );
+        ImplGetSalMenu()->InsertItem( pData->pSalMenuItem.get(), nPos );
 
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
 
     ImplCallEventListeners( VclEventId::MenuInsertItem, nPos );
 }
@@ -545,8 +543,7 @@ void Menu::RemoveItem( sal_uInt16 nPos )
         if ( pWin->IsVisible() )
             pWin->Invalidate();
     }
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
 
     if ( bRemove )
         ImplCallEventListeners( VclEventId::MenuRemoveItem, nPos );
@@ -706,6 +703,12 @@ OString Menu::GetItemIdent(sal_uInt16 nId) const
     return pData ? pData->sIdent : OString();
 }
 
+OString Menu::GetItemIdentFromSubMenu(sal_uInt16 nId) const
+{
+    const MenuItemData* pData = pItemList->GetDataFromSubMenu(nId);
+    return pData ? pData->sIdent : OString();
+}
+
 void Menu::SetItemBits( sal_uInt16 nItemId, MenuItemBits nBits )
 {
     MenuItemData* pData = pItemList->GetData( nItemId );
@@ -767,9 +770,9 @@ void Menu::SetPopupMenu( sal_uInt16 nItemId, PopupMenu* pMenu )
     if( ImplGetSalMenu() && pData->pSalMenuItem )
     {
         if( pMenu )
-            ImplGetSalMenu()->SetSubMenu( pData->pSalMenuItem, pMenu->ImplGetSalMenu(), nPos );
+            ImplGetSalMenu()->SetSubMenu( pData->pSalMenuItem.get(), pMenu->ImplGetSalMenu(), nPos );
         else
-            ImplGetSalMenu()->SetSubMenu( pData->pSalMenuItem, nullptr, nPos );
+            ImplGetSalMenu()->SetSubMenu( pData->pSalMenuItem.get(), nullptr, nPos );
     }
 
     oldSubMenu.disposeAndClear();
@@ -802,7 +805,7 @@ void Menu::SetAccelKey( sal_uInt16 nItemId, const KeyCode& rKeyCode )
 
     // update native menu
     if( ImplGetSalMenu() && pData->pSalMenuItem )
-        ImplGetSalMenu()->SetAccelerator( nPos, pData->pSalMenuItem, rKeyCode, rKeyCode.GetName() );
+        ImplGetSalMenu()->SetAccelerator( nPos, pData->pSalMenuItem.get(), rKeyCode, rKeyCode.GetName() );
 }
 
 KeyCode Menu::GetAccelKey( sal_uInt16 nItemId ) const
@@ -1002,11 +1005,10 @@ void Menu::SetItemText( sal_uInt16 nItemId, const OUString& rStr )
         ImplSetMenuItemData( pData );
         // update native menu
         if( ImplGetSalMenu() && pData->pSalMenuItem )
-            ImplGetSalMenu()->SetItemText( nPos, pData->pSalMenuItem, rStr );
+            ImplGetSalMenu()->SetItemText( nPos, pData->pSalMenuItem.get(), rStr );
 
         vcl::Window* pWin = ImplGetWindow();
-        delete mpLayoutData;
-        mpLayoutData = nullptr;
+        mpLayoutData.reset();
         if (pWin && IsMenuBar())
         {
             ImplCalcSize( pWin );
@@ -1042,7 +1044,7 @@ void Menu::SetItemImage( sal_uInt16 nItemId, const Image& rImage )
 
     // update native menu
     if( ImplGetSalMenu() && pData->pSalMenuItem )
-        ImplGetSalMenu()->SetItemImage( nPos, pData->pSalMenuItem, rImage );
+        ImplGetSalMenu()->SetItemImage( nPos, pData->pSalMenuItem.get(), rImage );
 }
 
 Image Menu::GetItemImage( sal_uInt16 nItemId ) const
@@ -1681,9 +1683,9 @@ static OUString getShortenedString( const OUString& i_rLong, vcl::RenderContext 
         if (nPos < aNonMnem.getLength() && i_rLong[nPos+1] == aNonMnem[nPos])
         {
             OUStringBuffer aBuf( i_rLong.getLength() );
-            aBuf.append( aNonMnem.copy( 0, nPos) );
+            aBuf.appendCopy( aNonMnem, 0, nPos );
             aBuf.append( '~' );
-            aBuf.append( aNonMnem.copy(nPos) );
+            aBuf.appendCopy( aNonMnem, nPos );
             aNonMnem = aBuf.makeStringAndClear();
         }
     }
@@ -2201,8 +2203,7 @@ void Menu::RemoveDisabledEntries( bool bCheckPopups, bool bRemoveEmptyPopups )
         if ( pItem->eType == MenuItemType::SEPARATOR )
             RemoveItem( nLast );
     }
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
 }
 
 void Menu::UpdateNativeMenu()
@@ -2217,15 +2218,14 @@ void Menu::MenuBarKeyInput(const KeyEvent&)
 
 void Menu::ImplKillLayoutData() const
 {
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
 }
 
 void Menu::ImplFillLayoutData() const
 {
     if (pWindow && pWindow->IsReallyVisible())
     {
-        mpLayoutData = new MenuLayoutData;
+        mpLayoutData.reset(new MenuLayoutData);
         if (IsMenuBar())
         {
             ImplPaint(*pWindow, pWindow->GetOutputSizePixel(), 0, 0, nullptr, false, true); // FIXME
@@ -2309,9 +2309,7 @@ OUString Menu::GetAccessibleName( sal_uInt16 nItemId ) const
 
 void Menu::ImplClearSalMenu()
 {
-    if( mpSalMenu )
-        ImplGetSVData()->mpDefInst->DestroyMenu( mpSalMenu );
-    mpSalMenu = nullptr;
+    mpSalMenu.reset();
 }
 
 void Menu::GetSystemMenuData( SystemMenuData* pData ) const
@@ -2813,8 +2811,7 @@ sal_uInt16 PopupMenu::ImplExecute( const VclPtr<vcl::Window>& pW, const tools::R
         pMenuBarWindow->SetMBWHideAccel( !(pMenuBarWindow->GetMBWMenuKey()) );
     }
 
-    delete mpLayoutData;
-    mpLayoutData = nullptr;
+    mpLayoutData.reset();
 
     ImplSVData* pSVData = ImplGetSVData();
 

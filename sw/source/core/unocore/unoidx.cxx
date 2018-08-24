@@ -1422,21 +1422,18 @@ OUString SAL_CALL SwXDocumentIndex::getName()
 {
     SolarMutexGuard g;
 
-    OUString uRet;
     SwSectionFormat *const pSectionFormat( m_pImpl->GetSectionFormat() );
     if (m_pImpl->m_bIsDescriptor)
     {
-        uRet = m_pImpl->m_pProps->GetTOXBase().GetTOXName();
+        return m_pImpl->m_pProps->GetTOXBase().GetTOXName();
     }
-    else if(pSectionFormat)
-    {
-        uRet = pSectionFormat->GetSection()->GetSectionName();
-    }
-    else
+
+    if(!pSectionFormat)
     {
         throw uno::RuntimeException();
     }
-    return uRet;
+
+    return pSectionFormat->GetSection()->GetSectionName();
 }
 
 void SAL_CALL
@@ -1727,21 +1724,18 @@ SwXDocumentIndexMark::getMarkEntry()
 {
     SolarMutexGuard aGuard;
 
-    OUString sRet;
     SwTOXType *const pType = m_pImpl->GetTOXType();
     if (pType && m_pImpl->m_pTOXMark)
     {
-        sRet = m_pImpl->m_pTOXMark->GetAlternativeText();
+        return m_pImpl->m_pTOXMark->GetAlternativeText();
     }
-    else if (m_pImpl->m_bIsDescriptor)
-    {
-        sRet = m_pImpl->m_sAltText;
-    }
-    else
+
+    if (!m_pImpl->m_bIsDescriptor)
     {
         throw uno::RuntimeException();
     }
-    return sRet;
+
+    return m_pImpl->m_sAltText;
 }
 
 void SAL_CALL
@@ -1932,7 +1926,7 @@ void SwXDocumentIndexMark::Impl::InsertTOXMark(
     // thus use a space - is this really the ideal solution?
     if (!bMark && rMark.GetAlternativeText().isEmpty())
     {
-        rMark.SetAlternativeText( OUString(' ') );
+        rMark.SetAlternativeText( " " );
     }
 
     const bool bForceExpandHints( !bMark && pTextCursor && pTextCursor->IsAtEndOfMeta() );
@@ -2612,19 +2606,19 @@ SwXDocumentIndex::StyleAccess_Impl::replaceByIndex(
 
     const sal_Int32 nStyles = aSeq.getLength();
     const OUString* pStyles = aSeq.getConstArray();
-    OUString sSetStyles;
+    OUStringBuffer sSetStyles;
     OUString aString;
     for(sal_Int32 i = 0; i < nStyles; i++)
     {
         if(i)
         {
-            sSetStyles += OUStringLiteral1(TOX_STYLE_DELIMITER);
+            sSetStyles.append(TOX_STYLE_DELIMITER);
         }
         SwStyleNameMapper::FillUIName(pStyles[i], aString,
                 SwGetPoolIdFromName::TxtColl);
-        sSetStyles +=  aString;
+        sSetStyles.append(aString);
     }
-    rTOXBase.SetStyleNames(sSetStyles, static_cast<sal_uInt16>(nIndex));
+    rTOXBase.SetStyleNames(sSetStyles.makeStringAndClear(), static_cast<sal_uInt16>(nIndex));
 }
 
 sal_Int32 SAL_CALL
@@ -2749,7 +2743,7 @@ SwXDocumentIndex::TokenAccess_Impl::replaceByIndex(
         throw lang::IllegalArgumentException();
     }
 
-    OUString sPattern;
+    OUStringBuffer sPattern;
     const sal_Int32 nTokens = aSeq.getLength();
     const beans::PropertyValues* pTokens = aSeq.getConstArray();
     for(sal_Int32 i = 0; i < nTokens; i++)
@@ -2902,10 +2896,10 @@ SwXDocumentIndex::TokenAccess_Impl::replaceByIndex(
                 throw lang::IllegalArgumentException();
             }
         }
-        sPattern += aToken.GetString();
+        sPattern.append(aToken.GetString());
     }
     SwForm aForm(rTOXBase.GetTOXForm());
-    aForm.SetPattern(static_cast<sal_uInt16>(nIndex), sPattern);
+    aForm.SetPattern(static_cast<sal_uInt16>(nIndex), sPattern.makeStringAndClear());
     rTOXBase.SetTOXForm(aForm);
 }
 

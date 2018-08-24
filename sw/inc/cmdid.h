@@ -548,7 +548,7 @@
 #define FN_UNO_IS_PIXEL_CONTOUR             (FN_EXTRA2 + 83)
 #define FN_UNO_ALTERNATIVE_TEXT             (FN_EXTRA2 + 84)
 #define FN_UNO_ACTUAL_SIZE                  (FN_EXTRA2 + 85)
-// #define free                             (FN_EXTRA2 + 86)
+#define FN_UNO_GRAPHIC_URL                  (FN_EXTRA2 + 86)
 #define FN_UNO_GRAPHIC_FILTER               (FN_EXTRA2 + 87)
 #define FN_UNO_CELL_NAME                    (FN_EXTRA2 + 88)
 #define FN_INSERT_GLOSSARY                  (FN_EXTRA2 + 89)
@@ -566,7 +566,7 @@
 #define FN_UNO_PARA_STYLE_CONDITIONS        (FN_EXTRA2 + 100)
 #define FN_UNO_GRAPHIC                      (FN_EXTRA2 + 101)
 
-// #define free                             (FN_EXTRA2 + 102)
+#define FN_UNO_REPLACEMENT_GRAPHIC_URL      (FN_EXTRA2 + 102)
 #define FN_UNO_CELL_ROW_SPAN                (FN_EXTRA2 + 103)
 #define FN_UNO_TABLE_BORDER_DISTANCES       (FN_EXTRA2 + 104)
 #define FN_SPELL_GRAMMAR_DIALOG             (FN_EXTRA2 + 105)
@@ -781,6 +781,8 @@
 #define FN_SHAPE_ENDPOSITION_IN_HORI_L2R   (FN_PARAM2+26)
 #define FN_PARAM_PAM                    (FN_PARAM2+27) /* Point and Mark */
 #define FN_TEXT_BOX                     (FN_PARAM2+28) /* TextBox Property*/
+#define FN_BOOKMARK_HIDDEN              (FN_PARAM2+29) /* Hidden Property of bookmarks*/
+#define FN_BOOKMARK_CONDITION           (FN_PARAM2+30) /* Condition Property of bookmarks*/
 
 // Status: not more than 19!
 #define FN_STAT_PAGE                (FN_STAT + 1)

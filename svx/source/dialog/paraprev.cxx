@@ -23,20 +23,10 @@
 #include <vcl/settings.hxx>
 
 SvxParaPrevWindow::SvxParaPrevWindow( vcl::Window* pParent,  WinBits nBits) :
-    Window( pParent, nBits),
-    nLeftMargin     ( 0 ),
-    nRightMargin    ( 0 ),
-    nFirstLineOfst  ( 0 ),
-    nUpper          ( 0 ),
-    nLower          ( 0 ),
-    eAdjust         ( SvxAdjust::Left ),
-    eLastLine       ( SvxAdjust::Left ),
-    eLine           ( SvxPrevLineSpace::N1 )
+    Window( pParent, nBits)
 {
     // Count in Twips by default
     SetMapMode(MapMode(MapUnit::MapTwip));
-
-    aSize = Size(11905, 16837);
 
     SetBorderStyle(WindowBorderStyle::MONO);
 }
@@ -45,7 +35,7 @@ VCL_BUILDER_FACTORY_ARGS(SvxParaPrevWindow, WB_BORDER)
 
 Size SvxParaPrevWindow::GetOptimalSize() const
 {
-    return getParagraphPreviewOptimalSize(this);
+    return getParagraphPreviewOptimalSize(*this);
 }
 
 void SvxParaPrevWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
@@ -61,6 +51,105 @@ void SvxParaPrevWindow::DrawParagraph(vcl::RenderContext& rRenderContext)
     aWinSize = rRenderContext.PixelToLogic(aWinSize);
     Size aTmp(1, 1);
     aTmp = PixelToLogic(aTmp);
+    aWinSize.AdjustWidth( -(aTmp.Width() /2) );
+    aWinSize.AdjustHeight( -(aTmp.Height() /2) );
+
+    const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
+    const Color& rWinColor = rStyleSettings.GetWindowColor();
+    Color aGrayColor(COL_LIGHTGRAY);
+
+    rRenderContext.SetFillColor(rWinColor);
+    rRenderContext.DrawRect(tools::Rectangle(Point(), aWinSize));
+
+    rRenderContext.SetLineColor();
+
+    long nH = aWinSize.Height() / 19;
+    Size aLineSiz(aWinSize.Width() - DEF_MARGIN, nH);
+    Size aSiz = aLineSiz;
+    Point aPnt;
+    aPnt.setX( DEF_MARGIN / 2 );
+    rRenderContext.SetFillColor(aGrayColor);
+
+    for (sal_uInt16 i = 0; i < 9; ++i)
+    {
+        if (i == 3)
+            rRenderContext.SetFillColor(COL_GRAY);
+        else if (i == 6 )
+            rRenderContext.SetFillColor(aGrayColor);
+
+        aPnt.AdjustY(nH );
+
+        if (3 <= i && 5 >= i)
+        {
+            long nLW = long();
+            switch (i)
+            {
+                case 3:
+                    nLW = aLineSiz.Width() * 8 / 10;
+                    break;
+                case 4:
+                    nLW = aLineSiz.Width() * 9 / 10;
+                    break;
+                case 5:
+                    nLW = aLineSiz.Width() / 2;
+                    break;
+            }
+
+            if (nLW > aSiz.Width())
+                nLW = aSiz.Width();
+
+            aSiz.setWidth( nLW );
+        }
+
+        tools::Rectangle aRect(aPnt, aSiz);
+
+        rRenderContext.DrawRect( aRect );
+        Lines[i] = aRect;
+
+        aPnt.AdjustY(nH );
+        // Reset, recalculate for each line
+        aPnt.setX( DEF_MARGIN / 2 );
+        aSiz = aLineSiz;
+    }
+}
+
+ParaPrevWindow::ParaPrevWindow() :
+    nLeftMargin     ( 0 ),
+    nRightMargin    ( 0 ),
+    nFirstLineOfst  ( 0 ),
+    nUpper          ( 0 ),
+    nLower          ( 0 ),
+    eAdjust         ( SvxAdjust::Left ),
+    eLastLine       ( SvxAdjust::Left ),
+    eLine           ( SvxPrevLineSpace::N1 )
+{
+    aSize = Size(11905, 16837);
+}
+
+void ParaPrevWindow::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+{
+    Size aOptimalSize(getParagraphPreviewOptimalSize(pDrawingArea->get_ref_device()));
+    pDrawingArea->set_size_request(aOptimalSize.Width(), aOptimalSize.Height());
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
+}
+
+void ParaPrevWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+{
+    DrawParagraph(rRenderContext);
+}
+
+#define DEF_MARGIN  120
+
+void ParaPrevWindow::DrawParagraph(vcl::RenderContext& rRenderContext)
+{
+    // Count in Twips by default
+    rRenderContext.Push(PushFlags::MAPMODE);
+    rRenderContext.SetMapMode(MapMode(MapUnit::MapTwip));
+
+    Size aWinSize(GetOutputSizePixel());
+    aWinSize = rRenderContext.PixelToLogic(aWinSize);
+    Size aTmp(1, 1);
+    aTmp = rRenderContext.PixelToLogic(aTmp);
     aWinSize.AdjustWidth( -(aTmp.Width() /2) );
     aWinSize.AdjustHeight( -(aTmp.Height() /2) );
 
@@ -209,6 +298,7 @@ void SvxParaPrevWindow::DrawParagraph(vcl::RenderContext& rRenderContext)
         aPnt.setX( DEF_MARGIN / 2 );
         aSiz = aLineSiz;
     }
+    rRenderContext.Pop();
 }
 
 #undef DEF_MARGIN

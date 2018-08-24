@@ -71,7 +71,6 @@ class ScXMLDataPilotTableContext : public ScXMLImportContext
         GrandTotalItem();
     };
     ScDocument*     pDoc;
-    ScDPObject*     pDPObject;
     std::unique_ptr<ScDPSaveData> pDPSave;
     std::unique_ptr<ScDPDimensionSaveData> pDPDimSaveData;
     GrandTotalItem  maRowGrandTotal;
@@ -139,14 +138,12 @@ public:
     void AddDimension(ScDPSaveDimension* pDim);
     void AddGroupDim(const ScDPSaveNumGroupDimension& aNumGroupDim);
     void AddGroupDim(const ScDPSaveGroupDimension& aGroupDim);
-    void SetButtons();
+    void SetButtons(ScDPObject* pDPObject);
     void SetSelectedPage( const OUString& rDimName, const OUString& rSelected );
 };
 
 class ScXMLDPSourceSQLContext : public ScXMLImportContext
 {
-    ScXMLDataPilotTableContext* pDataPilotTable;
-
 public:
 
     ScXMLDPSourceSQLContext( ScXMLImport& rImport,
@@ -158,8 +155,6 @@ public:
 
 class ScXMLDPSourceTableContext : public ScXMLImportContext
 {
-    ScXMLDataPilotTableContext* pDataPilotTable;
-
 public:
 
     ScXMLDPSourceTableContext( ScXMLImport& rImport,
@@ -171,8 +166,6 @@ public:
 
 class ScXMLDPSourceQueryContext : public ScXMLImportContext
 {
-    ScXMLDataPilotTableContext* pDataPilotTable;
-
 public:
 
     ScXMLDPSourceQueryContext( ScXMLImport& rImport,
@@ -184,8 +177,6 @@ public:
 
 class ScXMLSourceServiceContext : public ScXMLImportContext
 {
-    ScXMLDataPilotTableContext* pDataPilotTable;
-
 public:
 
     ScXMLSourceServiceContext( ScXMLImport& rImport,
@@ -382,8 +373,6 @@ public:
 
 class ScXMLDataPilotSubTotalContext : public ScXMLImportContext
 {
-    ScXMLDataPilotSubTotalsContext* pDataPilotSubTotals;
-
 public:
 
     ScXMLDataPilotSubTotalContext( ScXMLImport& rImport,

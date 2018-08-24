@@ -14,8 +14,24 @@
 
 #include <vector>
 
-#include <com/sun/star/task/XStatusIndicator.hpp>
+#include <com/sun/star/uno/Reference.h>
 
+#include <rtl/ustring.hxx>
+#include <tools/ref.hxx>
+
+namespace com
+{
+namespace sun
+{
+namespace star
+{
+namespace task
+{
+class XStatusIndicator;
+}
+}
+}
+}
 class SvStream;
 
 namespace writerfilter
@@ -23,12 +39,12 @@ namespace writerfilter
 namespace rtftok
 {
 /// RTF tokenizer that separates control words from text.
-class RTFTokenizer final
+class RTFTokenizer final : public virtual SvRefBase
 {
 public:
     RTFTokenizer(RTFListener& rImport, SvStream* pInStream,
                  css::uno::Reference<css::task::XStatusIndicator> const& xStatusIndicator);
-    ~RTFTokenizer();
+    ~RTFTokenizer() override;
 
     RTFError resolveParse();
     /// Number of states on the stack.

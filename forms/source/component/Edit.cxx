@@ -36,7 +36,9 @@
 #include <connectivity/formattedcolumnvalue.hxx>
 #include <connectivity/dbconversion.hxx>
 
+#include <comphelper/property.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 using namespace dbtools;
 
@@ -516,7 +518,7 @@ void OEditModel::write(const Reference<XObjectOutputStream>& _rxOutStream)
         m_xAggregateSet->setPropertyValue(PROPERTY_MAXTEXTLEN, makeAny(nOldTextLen));
         // and reset the text
         // First we set it to an empty string : Without this the second setPropertyValue would not do anything as it thinks
-        // we aren't changing the prop (it didn't notify the - implicite - change of the text prop while setting the max text len)
+        // we aren't changing the prop (it didn't notify the - implicit - change of the text prop while setting the max text len)
         // This seems to be a bug with in toolkit's EditControl-implementation.
         m_xAggregateSet->setPropertyValue(PROPERTY_TEXT, makeAny(OUString()));
         m_xAggregateSet->setPropertyValue(PROPERTY_TEXT, aCurrentText);

@@ -13,6 +13,7 @@
 #include <PivotLayoutDialog.hxx>
 #include <reffact.hxx>
 #include <svtools/treelistentry.hxx>
+#include <o3tl/make_unique.hxx>
 
 #include <rangeutl.hxx>
 #include <uiitems.hxx>
@@ -71,6 +72,7 @@ ScPivotLayoutDialog::ScPivotLayoutDialog(
                             ScViewData* pViewData, const ScDPObject* pPivotTableObject, bool bNewPivotTable) :
     ScAnyRefDlg           (pSfxBindings, pChildWindow, pParent, "PivotTableLayout", "modules/scalc/ui/pivottablelayoutdialog.ui"),
     maPivotTableObject    (*pPivotTableObject),
+    mpPreviouslyFocusedListBox(nullptr),
     mpViewData            (pViewData),
     mpDocument            (pViewData->GetDocument()),
     mbNewPivotTable       (bNewPivotTable),
@@ -188,6 +190,7 @@ ScPivotLayoutDialog::~ScPivotLayoutDialog()
 
 void ScPivotLayoutDialog::dispose()
 {
+    mpPreviouslyFocusedListBox.clear();
     mpListBoxField.clear();
     mpListBoxPage.clear();
     mpListBoxColumn.clear();
@@ -501,7 +504,7 @@ void ScPivotLayoutDialog::ApplyChanges()
 
     sal_uInt16 nWhichPivot = SC_MOD()->GetPool().GetWhich(SID_PIVOT_TABLE);
     ScPivotItem aPivotItem(nWhichPivot, &aSaveData, &aDestinationRange, bToNewSheet);
-    mpViewData->GetViewShell()->SetDialogDPObject(&maPivotTableObject);
+    mpViewData->GetViewShell()->SetDialogDPObject(o3tl::make_unique<ScDPObject>(maPivotTableObject));
 
 
     SfxDispatcher* pDispatcher = GetBindings().GetDispatcher();

@@ -82,6 +82,7 @@
 #include <string.h>
 
 #include <osl/thread.h>
+#include <sal/log.hxx>
 
 #define EF_NONE 0x0000
 #define EF_ODMA 0x0002
@@ -111,7 +112,6 @@ void LwpGraphicObject::Read()
         m_sDataFormat[strsize] = '\0';
     }
     sal_uInt32 nServerContextSize = m_pObjStrm->QuickReaduInt32();
-    unsigned char *pServerContext = nullptr;
     if (nServerContextSize > 0)
     {
         sal_uInt16 nMaxPossibleSize = m_pObjStrm->remainingSize();
@@ -122,16 +122,16 @@ void LwpGraphicObject::Read()
             nServerContextSize = nMaxPossibleSize;
         }
 
-        pServerContext = new unsigned char[nServerContextSize];
-        m_pObjStrm->QuickRead(pServerContext, static_cast<sal_uInt16>(nServerContextSize));
+        std::vector<unsigned char> aServerContext(nServerContextSize);
+        m_pObjStrm->QuickRead(aServerContext.data(), static_cast<sal_uInt16>(nServerContextSize));
         if (nServerContextSize > 44)
         {
-            m_aIPData.nBrightness = pServerContext[14];
-            m_aIPData.nContrast = pServerContext[19];
-            m_aIPData.nEdgeEnchancement = pServerContext[24];
-            m_aIPData.nSmoothing = pServerContext[29];
-            m_aIPData.bInvertImage = (pServerContext[34] == 0x01);
-            m_aIPData.bAutoContrast = (pServerContext[44] == 0x00);
+            m_aIPData.nBrightness = aServerContext[14];
+            m_aIPData.nContrast = aServerContext[19];
+            m_aIPData.nEdgeEnchancement = aServerContext[24];
+            m_aIPData.nSmoothing = aServerContext[29];
+            m_aIPData.bInvertImage = (aServerContext[34] == 0x01);
+            m_aIPData.bAutoContrast = (aServerContext[44] == 0x00);
         }
     }
     m_pObjStrm->QuickReaduInt16(); //disksize
@@ -152,7 +152,6 @@ void LwpGraphicObject::Read()
     }
     m_nCachedBaseLine = m_pObjStrm->QuickReadInt32();
     m_bIsLinked = m_pObjStrm->QuickReadInt16();
-    unsigned char * pFilterContext = nullptr;
 
     if (m_bIsLinked)
     {
@@ -169,8 +168,8 @@ void LwpGraphicObject::Read()
                 nFilterContextSize = nMaxPossibleSize;
             }
 
-            pFilterContext = new unsigned char[nFilterContextSize];
-            m_pObjStrm->QuickRead(pFilterContext, static_cast<sal_uInt16>(nFilterContextSize));
+            std::vector<unsigned char> aFilterContext(nFilterContextSize);
+            m_pObjStrm->QuickRead(aFilterContext.data(), static_cast<sal_uInt16>(nFilterContextSize));
         }
         if (LwpFileHeader::m_nFileRevision >= 0x000b)
         {
@@ -199,9 +198,6 @@ void LwpGraphicObject::Read()
     {
         m_WatermarkName = m_pObjStrm->QuickReadStringPtr();
     }
-
-    delete[] pServerContext;
-    delete[] pFilterContext;
 }
 
 void LwpGraphicObject::XFConvert (XFContentContainer* pCont)
@@ -317,10 +313,10 @@ void LwpGraphicObject::CreateDrawObjects()
 void LwpGraphicObject::GetBentoNamebyID(LwpObjectID const & rMyID, std::string& rName)
 {
     sal_uInt16 nHigh = rMyID.GetHigh();
-    sal_uInt16 nLow = rMyID.GetLow();
+    sal_uInt32 nLow = rMyID.GetLow();
     char pTempStr[32];
     rName = std::string("Gr");
-    sprintf(pTempStr, "%X,%X", nHigh, nLow);
+    sprintf(pTempStr, "%X,%" SAL_PRIXUINT32, nHigh, nLow);
     rName.append(pTempStr);
 }
 

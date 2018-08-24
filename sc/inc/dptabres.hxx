@@ -24,10 +24,7 @@
 #include "dpfilteredcache.hxx"
 #include "calcmacros.hxx"
 
-#include <com/sun/star/sheet/MemberResult.hpp>
-#include <com/sun/star/sheet/DataResult.hpp>
 #include <com/sun/star/sheet/DataPilotFieldOrientation.hpp>
-#include <com/sun/star/uno/Sequence.hxx>
 
 #include <map>
 #include <unordered_map>
@@ -39,13 +36,14 @@ namespace com { namespace sun { namespace star { namespace sheet {
     struct DataPilotFieldReference;
 } } } }
 
-class ScAddress;
-class ScDocument;
+namespace com { namespace sun { namespace star { namespace sheet { struct DataResult; } } } }
+namespace com { namespace sun { namespace star { namespace sheet { struct MemberResult; } } } }
+namespace com { namespace sun { namespace star { namespace uno { template <typename > class Sequence; } } } }
+
 class ScDPSource;
 class ScDPDimension;
 class ScDPLevel;
 class ScDPMember;
-class ScDPAggData;
 class ScDPResultMember;
 class ScDPResultVisibilityData;
 
@@ -295,7 +293,7 @@ class ScDPResultData
     bool                    bDataAtRow:1;
 
     //! add "displayed values" settings
-    mutable std::vector<ResultMembers*> maDimMembers;
+    mutable std::vector<std::unique_ptr<ResultMembers>> maDimMembers;
 public:
     ScDPResultData( ScDPSource& rSrc );
     ~ScDPResultData();
@@ -331,7 +329,7 @@ public:
     bool                HasCommonElement( SCROW nFirstDataId, long nFirstIndex,
                                           const ScDPItemData& rSecondData, long nSecondIndex ) const;
 
-    ResultMembers* GetDimResultMembers(long nDim, const ScDPDimension* pDim, ScDPLevel* pLevel) const;
+    ResultMembers&      GetDimResultMembers(long nDim, const ScDPDimension* pDim, ScDPLevel* pLevel) const;
 
     const ScDPSource& GetSource() const { return mrSource;}
 };
@@ -616,7 +614,7 @@ class ScDPDataDimension
 private:
     const ScDPResultData*       pResultData;
     const ScDPResultDimension* pResultDimension;  // column
-    ScDPDataMembers     maMembers;
+    std::vector<std::unique_ptr<ScDPDataMember>> maMembers;
     bool bIsDataLayout;      //! or ptr to IntDimension?
 
 public:

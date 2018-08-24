@@ -23,6 +23,7 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/frmdiritem.hxx>
+#include <sal/log.hxx>
 #include <fmtclds.hxx>
 #include <fmtfsize.hxx>
 #include <pagefrm.hxx>
@@ -60,6 +61,7 @@ SwPageDesc::SwPageDesc(const OUString& rName, SwFrameFormat *pFormat, SwDoc *con
 
 SwPageDesc::SwPageDesc( const SwPageDesc &rCpy )
     : SwModify(nullptr)
+    , BroadcasterMixin()
     , m_StyleName( rCpy.GetName() )
     , m_NumType( rCpy.GetNumType() )
     , m_Master( rCpy.GetMaster() )

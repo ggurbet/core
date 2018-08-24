@@ -132,13 +132,13 @@
         </menu:menupopup>
       </menu:menu>
       <menu:menuitem menu:id=".uno:ShowAnnotations"/>
-      <menu:menuitem menu:id=".uno:ShowImeStatusWindow"/>
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:Sidebar"/>
       <menu:menuitem menu:id=".uno:ViewSidebarStyles"/>
       <menu:menuitem menu:id=".uno:Gallery"/>
       <menu:menuitem menu:id=".uno:Navigator"/>
       <menu:menuseparator/>
+      <menu:menuitem menu:id=".uno:ZoomPanning"/>
       <menu:menu menu:id=".uno:ZoomMenu">
         <menu:menupopup>
           <menu:menuitem menu:id=".uno:ZoomPage"/>
@@ -149,6 +149,11 @@
           <menu:menuitem menu:id=".uno:Zoom100Percent"/>
           <menu:menuitem menu:id=".uno:Zoom150Percent"/>
           <menu:menuitem menu:id=".uno:Zoom200Percent"/>
+          <menu:menuseparator/>
+          <menu:menuitem menu:id=".uno:ZoomMode"/>
+          <menu:menuitem menu:id=".uno:ZoomPrevious"/>
+          <menu:menuitem menu:id=".uno:ZoomNext"/>
+          <menu:menuitem menu:id=".uno:ZoomObjects"/>
           <menu:menuseparator/>
           <menu:menuitem menu:id=".uno:Zoom"/>
         </menu:menupopup>
@@ -448,7 +453,7 @@
           <menu:menuitem menu:id=".uno:MirrorHorz"/>
         </menu:menupopup>
       </menu:menu>
-      <menu:menuitem menu:id=".uno:ToggleObjectRotateMode"/>
+      <menu:menuitem menu:id=".uno:AdvancedMode"/>
       <menu:menuseparator/>
       <menu:menu menu:id=".uno:ArrangeMenu">
         <menu:menupopup>

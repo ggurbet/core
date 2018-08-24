@@ -17,11 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <o3tl/make_unique.hxx>
 #include <sfx2/app.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <svx/dataaccessdescriptor.hxx>
 #include <svx/svdpage.hxx>
+#include <svx/svdoole2.hxx>
 #include <com/sun/star/sdb/CommandType.hpp>
 
 #include <dbdocfun.hxx>
@@ -31,6 +33,7 @@
 #include <docsh.hxx>
 #include <docfunc.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <globalnames.hxx>
 #include <tabvwsh.hxx>
 #include <patattr.hxx>
@@ -49,6 +52,7 @@
 #include <progress.hxx>
 #include <undosort.hxx>
 #include <inputopt.hxx>
+#include <scmod.hxx>
 
 #include <chartlis.hxx>
 #include <ChartTools.hxx>
@@ -67,9 +71,9 @@ bool ScDBDocFunc::AddDBRange( const OUString& rName, const ScRange& rRange )
     ScDBCollection* pDocColl = rDoc.GetDBCollection();
     bool bUndo (rDoc.IsUndoEnabled());
 
-    ScDBCollection* pUndoColl = nullptr;
+    std::unique_ptr<ScDBCollection> pUndoColl;
     if (bUndo)
-        pUndoColl = new ScDBCollection( *pDocColl );
+        pUndoColl.reset( new ScDBCollection( *pDocColl ) );
 
     std::unique_ptr<ScDBData> pNew(new ScDBData( rName, rRange.aStart.Tab(),
                                     rRange.aStart.Col(), rRange.aStart.Row(),
@@ -96,15 +100,14 @@ bool ScDBDocFunc::AddDBRange( const OUString& rName, const ScRange& rRange )
 
     if (!bOk)
     {
-        delete pUndoColl;
         return false;
     }
 
     if (bUndo)
     {
-        ScDBCollection* pRedoColl = new ScDBCollection( *pDocColl );
         rDocShell.GetUndoManager()->AddUndoAction(
-                        new ScUndoDBData( &rDocShell, pUndoColl, pRedoColl ) );
+                        new ScUndoDBData( &rDocShell, std::move(pUndoColl),
+                            o3tl::make_unique<ScDBCollection>( *pDocColl ) ) );
     }
 
     aModificator.SetDocumentModified();
@@ -125,9 +128,9 @@ bool ScDBDocFunc::DeleteDBRange(const OUString& rName)
     {
         ScDocShellModificator aModificator( rDocShell );
 
-        ScDBCollection* pUndoColl = nullptr;
+        std::unique_ptr<ScDBCollection> pUndoColl;
         if (bUndo)
-            pUndoColl = new ScDBCollection( *pDocColl );
+            pUndoColl.reset( new ScDBCollection( *pDocColl ) );
 
         rDoc.PreprocessDBDataUpdate();
         rDBs.erase(iter);
@@ -135,9 +138,9 @@ bool ScDBDocFunc::DeleteDBRange(const OUString& rName)
 
         if (bUndo)
         {
-            ScDBCollection* pRedoColl = new ScDBCollection( *pDocColl );
             rDocShell.GetUndoManager()->AddUndoAction(
-                            new ScUndoDBData( &rDocShell, pUndoColl, pRedoColl ) );
+                            new ScUndoDBData( &rDocShell, std::move(pUndoColl),
+                                o3tl::make_unique<ScDBCollection>( *pDocColl ) ) );
         }
 
         aModificator.SetDocumentModified();
@@ -179,9 +182,9 @@ bool ScDBDocFunc::RenameDBRange( const OUString& rOld, const OUString& rNew )
         {
             if (bUndo)
             {
-                ScDBCollection* pRedoColl = new ScDBCollection( *pDocColl );
                 rDocShell.GetUndoManager()->AddUndoAction(
-                                new ScUndoDBData( &rDocShell, pUndoColl.release(), pRedoColl ) );
+                                new ScUndoDBData( &rDocShell, std::move(pUndoColl),
+                                    o3tl::make_unique<ScDBCollection>( *pDocColl ) ) );
             }
             else
                 pUndoColl.reset();
@@ -220,9 +223,9 @@ void ScDBDocFunc::ModifyDBData( const ScDBData& rNewData )
         rNewData.GetArea(aNewRange);
         bool bAreaChanged = ( aOldRange != aNewRange );     // then a recompilation is needed
 
-        ScDBCollection* pUndoColl = nullptr;
+        std::unique_ptr<ScDBCollection> pUndoColl;
         if (bUndo)
-            pUndoColl = new ScDBCollection( *pDocColl );
+            pUndoColl.reset( new ScDBCollection( *pDocColl ) );
 
         *pData = rNewData;
         if (bAreaChanged)
@@ -230,9 +233,9 @@ void ScDBDocFunc::ModifyDBData( const ScDBData& rNewData )
 
         if (bUndo)
         {
-            ScDBCollection* pRedoColl = new ScDBCollection( *pDocColl );
             rDocShell.GetUndoManager()->AddUndoAction(
-                            new ScUndoDBData( &rDocShell, pUndoColl, pRedoColl ) );
+                            new ScUndoDBData( &rDocShell, std::move(pUndoColl),
+                                o3tl::make_unique<ScDBCollection>( *pDocColl ) ) );
         }
 
         aModificator.SetDocumentModified();
@@ -244,7 +247,7 @@ void ScDBDocFunc::ModifyAllDBData( const ScDBCollection& rNewColl, const std::ve
     ScDocShellModificator aModificator(rDocShell);
     ScDocument& rDoc = rDocShell.GetDocument();
     ScDBCollection* pOldColl = rDoc.GetDBCollection();
-    ScDBCollection* pUndoColl = nullptr;
+    std::unique_ptr<ScDBCollection> pUndoColl;
     bool bRecord = rDoc.IsUndoEnabled();
 
     std::vector<ScRange>::const_iterator iter;
@@ -258,7 +261,7 @@ void ScDBDocFunc::ModifyAllDBData( const ScDBCollection& rNewColl, const std::ve
     }
 
     if (bRecord)
-        pUndoColl = new ScDBCollection( *pOldColl );
+        pUndoColl.reset( new ScDBCollection( *pOldColl ) );
 
     //  register target in SBA no longer necessary
 
@@ -272,9 +275,9 @@ void ScDBDocFunc::ModifyAllDBData( const ScDBCollection& rNewColl, const std::ve
 
     if (bRecord)
     {
-        ScDBCollection* pRedoColl = new ScDBCollection(rNewColl);
         rDocShell.GetUndoManager()->AddUndoAction(
-            new ScUndoDBData(&rDocShell, pUndoColl, pRedoColl));
+            new ScUndoDBData(&rDocShell, std::move(pUndoColl),
+                o3tl::make_unique<ScDBCollection>(rNewColl)));
     }
 }
 
@@ -561,7 +564,7 @@ bool ScDBDocFunc::Sort( SCTAB nTab, const ScSortParam& rSortParam,
     {
         ScInputOptions aInputOption = SC_MOD()->GetInputOptions();
         bool bUpdateRefs = aInputOption.GetSortRefUpdate();
-        ScProgress aProgress(&rDocShell, ScGlobal::GetRscString(STR_PROGRESS_SORTING), 0, true);
+        ScProgress aProgress(&rDocShell, ScResId(STR_PROGRESS_SORTING), 0, true);
         rDoc.Sort(nTab, aLocalParam, bRepeatQuery, bUpdateRefs, &aProgress, &aUndoParam);
     }
 
@@ -831,7 +834,7 @@ bool ScDBDocFunc::Query( SCTAB nTab, const ScQueryParam& rQueryParam,
                 sal_uLong nProgCount = nFormulaCols;
                 nProgCount *= aLocalParam.nRow2 - nFStartY;
                 ScProgress aProgress( rDoc.GetDocumentShell(),
-                        ScGlobal::GetRscString(STR_FILL_SERIES_PROGRESS), nProgCount, true );
+                        ScResId(STR_FILL_SERIES_PROGRESS), nProgCount, true );
 
                 rDoc.Fill( aLocalParam.nCol2+1, nFStartY,
                             aLocalParam.nCol2+nFormulaCols, nFStartY, &aProgress, aMark,
@@ -1012,8 +1015,8 @@ void ScDBDocFunc::DoSubTotals( SCTAB nTab, const ScSubTotalParam& rParam,
             vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
             std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                       VclMessageType::Question,
-                                                      VclButtonsType::YesNo, ScGlobal::GetRscString(STR_MSSG_DOSUBTOTALS_1))); // "Delete Data?"
-            xBox->set_title(ScGlobal::GetRscString(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
+                                                      VclButtonsType::YesNo, ScResId(STR_MSSG_DOSUBTOTALS_1))); // "Delete Data?"
+            xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
             bOk = xBox->run() == RET_YES;
         }
     }
@@ -1025,7 +1028,7 @@ void ScDBDocFunc::DoSubTotals( SCTAB nTab, const ScSubTotalParam& rParam,
 
         ScSubTotalParam aNewParam( rParam );        // end of range is being changed
         ScDocument*     pUndoDoc = nullptr;
-        ScOutlineTable* pUndoTab = nullptr;
+        std::unique_ptr<ScOutlineTable> pUndoTab;
         ScRangeName*    pUndoRange = nullptr;
         ScDBCollection* pUndoDB = nullptr;
 
@@ -1038,7 +1041,7 @@ void ScDBDocFunc::DoSubTotals( SCTAB nTab, const ScSubTotalParam& rParam,
             ScOutlineTable* pTable = rDoc.GetOutlineTable( nTab );
             if (pTable)
             {
-                pUndoTab = new ScOutlineTable( *pTable );
+                pUndoTab.reset(new ScOutlineTable( *pTable ));
 
                 // column/row state
                 SCCOLROW nOutStartCol, nOutEndCol;
@@ -1107,7 +1110,7 @@ void ScDBDocFunc::DoSubTotals( SCTAB nTab, const ScSubTotalParam& rParam,
             rDocShell.GetUndoManager()->AddUndoAction(
                 new ScUndoSubTotals( &rDocShell, nTab,
                                         rParam, aNewParam.nRow2,
-                                        pUndoDoc, pUndoTab, // pUndoDBData,
+                                        pUndoDoc, std::move(pUndoTab), // pUndoDBData,
                                         pUndoRange, pUndoDB ) );
         }
 
@@ -1302,7 +1305,7 @@ bool ScDBDocFunc::DataPilotUpdate( ScDPObject* pOldObj, const ScDPObject* pNewOb
             vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
             std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                            VclMessageType::Question, VclButtonsType::YesNo,
-                                                           ScGlobal::GetRscString(STR_PIVOT_NOTEMPTY)));
+                                                           ScResId(STR_PIVOT_NOTEMPTY)));
             xQueryBox->set_default_response(RET_YES);
             if (xQueryBox->run() == RET_NO)
             {
@@ -1356,7 +1359,7 @@ bool ScDBDocFunc::RemovePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
             vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
             std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                            VclMessageType::Question, VclButtonsType::YesNo,
-                                                           ScGlobal::GetRscString(STR_PIVOT_REMOVE_PIVOTCHART)));
+                                                           ScResId(STR_PIVOT_REMOVE_PIVOTCHART)));
             xQueryBox->set_default_response(RET_YES);
             if (xQueryBox->run() == RET_NO)
             {
@@ -1368,7 +1371,7 @@ bool ScDBDocFunc::RemovePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
                 {
                     rDoc.GetChartListenerCollection()->removeByName(pChartObject->GetName());
                     pModel->AddUndo(new SdrUndoDelObj(*pChartObject));
-                    pChartObject->GetPage()->RemoveObject(pChartObject->GetOrdNum());
+                    pChartObject->getSdrPageFromSdrObject()->RemoveObject(pChartObject->GetOrdNum());
                 }
             }
         }
@@ -1455,9 +1458,7 @@ bool ScDBDocFunc::CreatePivotTable(const ScDPObject& rDPObj, bool bRecord, bool 
         }
     }
 
-    if (!rDoc.GetDPCollection()->InsertNewTable(pDestObj.release()))
-        // Insertion into collection failed.
-        return false;
+    rDoc.GetDPCollection()->InsertNewTable(pDestObj.release());
 
     rDestObj.ReloadGroupTableData();
     rDestObj.SyncAllDimensionMembers();
@@ -1502,7 +1503,7 @@ bool ScDBDocFunc::CreatePivotTable(const ScDPObject& rDPObj, bool bRecord, bool 
             vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
             std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                            VclMessageType::Question, VclButtonsType::YesNo,
-                                                           ScGlobal::GetRscString(STR_PIVOT_NOTEMPTY)));
+                                                           ScResId(STR_PIVOT_NOTEMPTY)));
             xQueryBox->set_default_response(RET_YES);
             if (xQueryBox->run() == RET_NO)
             {
@@ -1577,7 +1578,7 @@ bool ScDBDocFunc::UpdatePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
             vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
             std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                            VclMessageType::Question, VclButtonsType::YesNo,
-                                                           ScGlobal::GetRscString(STR_PIVOT_NOTEMPTY)));
+                                                           ScResId(STR_PIVOT_NOTEMPTY)));
             xQueryBox->set_default_response(RET_YES);
             if (xQueryBox->run() == RET_NO)
             {
@@ -1684,7 +1685,7 @@ void ScDBDocFunc::UpdateImport( const OUString& rTarget, const svx::ODataAccessD
         vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
         std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                       VclMessageType::Info, VclButtonsType::Ok,
-                                                      ScGlobal::GetRscString(STR_TARGETNOTFOUND)));
+                                                      ScResId(STR_TARGETNOTFOUND)));
         xInfoBox->run();
         return;
     }

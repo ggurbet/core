@@ -36,7 +36,6 @@
 #include <svx/sdasitm.hxx>
 #include <svx/dialmgr.hxx>
 
-#include <coreservices.hxx>
 #include <helpids.h>
 #include "extrusioncontrols.hxx"
 #include <extrusiondepthdialog.hxx>
@@ -271,7 +270,7 @@ void ExtrusionDirectionWindow::SelectHdl(void const * pControl)
     {
         Sequence< PropertyValue > aArgs( 1 );
         aArgs[0].Name = OUString(g_sExtrusionDirection).copy(5);
-        aArgs[0].Value <<= static_cast<sal_Int32>(gSkewList[mpDirectionSet->GetSelectedItemId()-1]);
+        aArgs[0].Value <<= gSkewList[mpDirectionSet->GetSelectedItemId()-1];
 
         mrController.dispatchCommand( g_sExtrusionDirection, aArgs );
     }
@@ -320,95 +319,79 @@ void SAL_CALL ExtrusionDirectionControl::initialize( const css::uno::Sequence< c
 // XServiceInfo
 
 
-OUString ExtrusionDirectionControl_getImplementationName()
+OUString ExtrusionDirectionControl::getImplementationName()
 {
     return OUString( "com.sun.star.comp.svx.ExtrusionDirectionController" );
 }
 
 
-Sequence< OUString > ExtrusionDirectionControl_getSupportedServiceNames()
+Sequence< OUString > ExtrusionDirectionControl::getSupportedServiceNames()
 {
     Sequence<OUString> aSNS { "com.sun.star.frame.ToolbarController" };
     return aSNS;
 }
 
 
-Reference< XInterface > ExtrusionDirectionControl_createInstance(
-    const Reference< XMultiServiceFactory >& rSMgr
-)
+extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*
+com_sun_star_comp_svx_ExtrusionDirectionControl_get_implementation(
+    css::uno::XComponentContext* xContext,
+    css::uno::Sequence<css::uno::Any> const &)
 {
-    return *new ExtrusionDirectionControl( comphelper::getComponentContext(rSMgr) );
+    return cppu::acquire(new ExtrusionDirectionControl(xContext));
 }
 
 
-OUString SAL_CALL ExtrusionDirectionControl::getImplementationName(  )
+ExtrusionDepthDialog::ExtrusionDepthDialog(weld::Window* pParent, double fDepth, FieldUnit eDefaultUnit)
+    : GenericDialogController(pParent, "svx/ui/extrustiondepthdialog.ui", "ExtrustionDepthDialog")
+    , m_xMtrDepth(m_xBuilder->weld_metric_spin_button("depth", eDefaultUnit))
 {
-    return ExtrusionDirectionControl_getImplementationName();
-}
-
-
-Sequence< OUString > SAL_CALL ExtrusionDirectionControl::getSupportedServiceNames(  )
-{
-    return ExtrusionDirectionControl_getSupportedServiceNames();
-}
-
-ExtrusionDepthDialog::ExtrusionDepthDialog( vcl::Window* pParent, double fDepth, FieldUnit eDefaultUnit )
-    : ModalDialog( pParent, "ExtrustionDepthDialog", "svx/ui/extrustiondepthdialog.ui" )
-{
-    get(m_pMtrDepth, "depth");
-    m_pMtrDepth->SetUnit( eDefaultUnit );
-    m_pMtrDepth->SetValue( static_cast<int>(fDepth) * 100, FUNIT_100TH_MM );
+    m_xMtrDepth->set_value(static_cast<int>(fDepth) * 100, FUNIT_100TH_MM);
 }
 
 ExtrusionDepthDialog::~ExtrusionDepthDialog()
 {
-    disposeOnce();
-}
-
-void ExtrusionDepthDialog::dispose()
-{
-    m_pMtrDepth.clear();
-    ModalDialog::dispose();
 }
 
 double ExtrusionDepthDialog::getDepth() const
 {
-    return static_cast<double>( m_pMtrDepth->GetValue( FUNIT_100TH_MM ) ) / 100.0;
+    return static_cast<double>(m_xMtrDepth->get_value(FUNIT_100TH_MM)) / 100.0;
 }
 
 double const aDepthListInch[] = { 0, 1270,2540,5080,10160 };
 double const aDepthListMM[] = { 0, 1000, 2500, 5000, 10000 };
+
+static const OUStringLiteral gsExtrusionDepth( ".uno:ExtrusionDepth" );
+static const OUStringLiteral gsMetricUnit(     ".uno:MetricUnit"     );
 
 ExtrusionDepthWindow::ExtrusionDepthWindow(
     svt::ToolboxController& rController,
     vcl::Window* pParentWindow
 )   : ToolbarMenu( rController.getFrameInterface(), pParentWindow, WB_STDPOPUP )
     , mrController( rController )
-    , maImgDepth0(BitmapEx(RID_SVXBMP_DEPTH_0))
-    , maImgDepth1(BitmapEx(RID_SVXBMP_DEPTH_1))
-    , maImgDepth2(BitmapEx(RID_SVXBMP_DEPTH_2))
-    , maImgDepth3(BitmapEx(RID_SVXBMP_DEPTH_3))
-    , maImgDepth4(BitmapEx(RID_SVXBMP_DEPTH_4))
-    , maImgDepthInfinity(BitmapEx(RID_SVXBMP_DEPTH_INFINITY))
     , meUnit(FUNIT_NONE)
     , mfDepth( -1.0 )
-    , msExtrusionDepth( ".uno:ExtrusionDepth" )
-    , msMetricUnit(     ".uno:MetricUnit"     )
 {
     SetSelectHdl( LINK( this, ExtrusionDepthWindow, SelectHdl ) );
 
-    appendEntry(0, "", maImgDepth0);
-    appendEntry(1, "", maImgDepth1);
-    appendEntry(2, "", maImgDepth2);
-    appendEntry(3, "", maImgDepth3);
-    appendEntry(4, "", maImgDepth4);
-    appendEntry(5, SvxResId(RID_SVXSTR_INFINITY), maImgDepthInfinity);
+    Image aImgDepth0(BitmapEx(RID_SVXBMP_DEPTH_0));
+    Image aImgDepth1(BitmapEx(RID_SVXBMP_DEPTH_1));
+    Image aImgDepth2(BitmapEx(RID_SVXBMP_DEPTH_2));
+    Image aImgDepth3(BitmapEx(RID_SVXBMP_DEPTH_3));
+    Image aImgDepth4(BitmapEx(RID_SVXBMP_DEPTH_4));
+    Image aImgDepthInfinity(BitmapEx(RID_SVXBMP_DEPTH_INFINITY));
+
+    appendEntry(0, "", aImgDepth0);
+    appendEntry(1, "", aImgDepth1);
+    appendEntry(2, "", aImgDepth2);
+    appendEntry(3, "", aImgDepth3);
+    appendEntry(4, "", aImgDepth4);
+    appendEntry(5, SvxResId(RID_SVXSTR_INFINITY), aImgDepthInfinity);
     appendEntry(6, SvxResId(RID_SVXSTR_CUSTOM));
 
     SetOutputSizePixel( getMenuSize() );
 
-    AddStatusListener( msExtrusionDepth );
-    AddStatusListener( msMetricUnit );
+    AddStatusListener( gsExtrusionDepth );
+    AddStatusListener( gsMetricUnit );
 }
 
 void ExtrusionDepthWindow::implSetDepth( double fDepth )
@@ -465,7 +448,7 @@ void ExtrusionDepthWindow::statusChanged(
     const css::frame::FeatureStateEvent& Event
 )
 {
-    if( Event.FeatureURL.Main == msExtrusionDepth )
+    if( Event.FeatureURL.Main == gsExtrusionDepth )
     {
         if( !Event.IsEnabled )
         {
@@ -478,7 +461,7 @@ void ExtrusionDepthWindow::statusChanged(
                 implSetDepth( fValue );
         }
     }
-    else if( Event.FeatureURL.Main == msMetricUnit )
+    else if( Event.FeatureURL.Main == gsMetricUnit )
     {
         if( Event.IsEnabled )
         {
@@ -527,10 +510,10 @@ IMPL_LINK_NOARG(ExtrusionDepthWindow, SelectHdl, ToolbarMenu*, void)
             }
 
             Sequence< PropertyValue > aArgs( 1 );
-            aArgs[0].Name = msExtrusionDepth.copy(5);
+            aArgs[0].Name = OUString(gsExtrusionDepth).copy(5);
             aArgs[0].Value <<= fDepth;
 
-            mrController.dispatchCommand( msExtrusionDepth,  aArgs );
+            mrController.dispatchCommand( gsExtrusionDepth,  aArgs );
             implSetDepth( fDepth );
 
             if ( IsInPopupMode() )
@@ -573,33 +556,27 @@ void SAL_CALL ExtrusionDepthController::initialize( const css::uno::Sequence< cs
 // XServiceInfo
 
 
-OUString ExtrusionDepthController_getImplementationName()
+OUString ExtrusionDepthController::getImplementationName()
 {
     return OUString( "com.sun.star.comp.svx.ExtrusionDepthController" );
 }
 
 
-Sequence< OUString > ExtrusionDepthController_getSupportedServiceNames()
+Sequence< OUString > ExtrusionDepthController::getSupportedServiceNames()
 {
     Sequence<OUString> aSNS { "com.sun.star.frame.ToolbarController" };
     return aSNS;
 }
 
 
-Reference< XInterface > ExtrusionDepthController_createInstance( const Reference< XMultiServiceFactory >& rSMgr )
+extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*
+com_sun_star_comp_svx_ExtrusionDepthController_get_implementation(
+    css::uno::XComponentContext* xContext,
+    css::uno::Sequence<css::uno::Any> const &)
 {
-    return *new ExtrusionDepthController( comphelper::getComponentContext(rSMgr) );
+    return cppu::acquire(new ExtrusionDepthController(xContext));
 }
 
-OUString SAL_CALL ExtrusionDepthController::getImplementationName(  )
-{
-    return ExtrusionDepthController_getImplementationName();
-}
-
-Sequence< OUString > SAL_CALL ExtrusionDepthController::getSupportedServiceNames(  )
-{
-    return ExtrusionDepthController_getSupportedServiceNames();
-}
 
 static const char g_sExtrusionLightingDirection[] = ".uno:ExtrusionLightingDirection";
 static const char g_sExtrusionLightingIntensity[] = ".uno:ExtrusionLightingIntensity";
@@ -833,37 +810,27 @@ void SAL_CALL ExtrusionLightingControl::initialize( const css::uno::Sequence< cs
 // XServiceInfo
 
 
-OUString ExtrusionLightingControl_getImplementationName()
+OUString ExtrusionLightingControl::getImplementationName()
 {
     return OUString( "com.sun.star.comp.svx.ExtrusionLightingController" );
 }
 
 
-Sequence< OUString > ExtrusionLightingControl_getSupportedServiceNames()
+Sequence< OUString > ExtrusionLightingControl::getSupportedServiceNames()
 {
     Sequence<OUString> aSNS { "com.sun.star.frame.ToolbarController" };
     return aSNS;
 }
 
 
-Reference< XInterface > ExtrusionLightingControl_createInstance(
-    const Reference< XMultiServiceFactory >& rSMgr
-)
+extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*
+com_sun_star_comp_svx_ExtrusionLightingControl_get_implementation(
+    css::uno::XComponentContext* xContext,
+    css::uno::Sequence<css::uno::Any> const &)
 {
-    return *new ExtrusionLightingControl( comphelper::getComponentContext(rSMgr) );
+    return cppu::acquire(new ExtrusionLightingControl(xContext));
 }
 
-
-OUString SAL_CALL ExtrusionLightingControl::getImplementationName(  )
-{
-    return ExtrusionLightingControl_getImplementationName();
-}
-
-
-Sequence< OUString > SAL_CALL ExtrusionLightingControl::getSupportedServiceNames(  )
-{
-    return ExtrusionLightingControl_getSupportedServiceNames();
-}
 
 static const char g_sExtrusionSurface[] = ".uno:ExtrusionSurface";
 
@@ -872,17 +839,18 @@ ExtrusionSurfaceWindow::ExtrusionSurfaceWindow(
     vcl::Window* pParentWindow)
     : ToolbarMenu(rController.getFrameInterface(), pParentWindow, WB_STDPOPUP)
     , mrController(rController)
-    , maImgSurface1(BitmapEx(RID_SVXBMP_WIRE_FRAME))
-    , maImgSurface2(BitmapEx(RID_SVXBMP_MATTE))
-    , maImgSurface3(BitmapEx(RID_SVXBMP_PLASTIC))
-    , maImgSurface4(BitmapEx(RID_SVXBMP_METAL))
 {
     SetSelectHdl( LINK( this, ExtrusionSurfaceWindow, SelectHdl ) );
 
-    appendEntry(0, SvxResId(RID_SVXSTR_WIREFRAME), maImgSurface1);
-    appendEntry(1, SvxResId(RID_SVXSTR_MATTE), maImgSurface2);
-    appendEntry(2, SvxResId(RID_SVXSTR_PLASTIC), maImgSurface3);
-    appendEntry(3, SvxResId(RID_SVXSTR_METAL), maImgSurface4);
+    Image aImgSurface1(BitmapEx(RID_SVXBMP_WIRE_FRAME));
+    Image aImgSurface2(BitmapEx(RID_SVXBMP_MATTE));
+    Image aImgSurface3(BitmapEx(RID_SVXBMP_PLASTIC));
+    Image aImgSurface4(BitmapEx(RID_SVXBMP_METAL));
+
+    appendEntry(0, SvxResId(RID_SVXSTR_WIREFRAME), aImgSurface1);
+    appendEntry(1, SvxResId(RID_SVXSTR_MATTE), aImgSurface2);
+    appendEntry(2, SvxResId(RID_SVXSTR_PLASTIC), aImgSurface3);
+    appendEntry(3, SvxResId(RID_SVXSTR_METAL), aImgSurface4);
 
     SetOutputSizePixel( getMenuSize() );
 
@@ -968,36 +936,25 @@ void SAL_CALL ExtrusionSurfaceControl::initialize( const css::uno::Sequence< css
 // XServiceInfo
 
 
-OUString ExtrusionSurfaceControl_getImplementationName()
+OUString ExtrusionSurfaceControl::getImplementationName()
 {
     return OUString( "com.sun.star.comp.svx.ExtrusionSurfaceController" );
 }
 
 
-Sequence< OUString > ExtrusionSurfaceControl_getSupportedServiceNames()
+Sequence< OUString > ExtrusionSurfaceControl::getSupportedServiceNames()
 {
     Sequence<OUString> aSNS { "com.sun.star.frame.ToolbarController" };
     return aSNS;
 }
 
 
-Reference< XInterface > ExtrusionSurfaceControl_createInstance(
-    const Reference< XMultiServiceFactory >& rSMgr
-)
+extern "C" SAL_DLLPUBLIC_EXPORT css::uno::XInterface*
+com_sun_star_comp_svx_ExtrusionSurfaceControl_get_implementation(
+    css::uno::XComponentContext* xContext,
+    css::uno::Sequence<css::uno::Any> const &)
 {
-    return *new ExtrusionSurfaceControl( comphelper::getComponentContext(rSMgr) );
-}
-
-
-OUString SAL_CALL ExtrusionSurfaceControl::getImplementationName(  )
-{
-    return ExtrusionSurfaceControl_getImplementationName();
-}
-
-
-Sequence< OUString > SAL_CALL ExtrusionSurfaceControl::getSupportedServiceNames(  )
-{
-    return ExtrusionSurfaceControl_getSupportedServiceNames();
+    return cppu::acquire(new ExtrusionSurfaceControl(xContext));
 }
 
 }

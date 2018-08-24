@@ -18,7 +18,6 @@
  */
 
 
-#include <comphelper/string.hxx>
 #include <sot/formats.hxx>
 #include <svl/urlbmk.hxx>
 #include <svl/stritem.hxx>
@@ -239,7 +238,7 @@ void GalleryThemePopup::ExecutePopup( vcl::Window *pWindow, const ::Point &aPos 
     mpPopupMenu->EnableItem(mpPopupMenu->GetItemId("add"), bValidURL && SgaObjKind::Sound != eObjKind);
 
     mpPopupMenu->EnableItem(mpPopupMenu->GetItemId("preview"), bValidURL);
-    mpPopupMenu->CheckItem(mpPopupMenu->GetItemId("preview"), mbPreview);
+    mpPopupMenu->CheckItem("preview", mbPreview);
 
     if( mpTheme->IsReadOnly() || !mpTheme->GetObjectCount() )
     {
@@ -1111,32 +1110,26 @@ void GalleryBrowser2::Execute(const OString &rIdent)
         }
         else if (rIdent == "title")
         {
-            SgaObject* pObj = mpCurTheme->AcquireObject( mnCurActionPos );
+            std::unique_ptr<SgaObject> pObj = mpCurTheme->AcquireObject( mnCurActionPos );
 
             if( pObj )
             {
                 const OUString  aOldTitle( GetItemText( *mpCurTheme, *pObj, GalleryItemFlags::Title ) );
 
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if(pFact)
+                ScopedVclPtr<AbstractTitleDialog> aDlg(pFact->CreateTitleDialog(GetFrameWeld(), aOldTitle));
+                if( aDlg->Execute() == RET_OK )
                 {
-                    ScopedVclPtr<AbstractTitleDialog> aDlg(pFact->CreateTitleDialog( this, aOldTitle ));
-                    DBG_ASSERT(aDlg, "Dialog creation failed!");
-                    if( aDlg->Execute() == RET_OK )
+                    OUString aNewTitle( aDlg->GetTitle() );
+
+                    if( ( aNewTitle.isEmpty() && !pObj->GetTitle().isEmpty() ) || ( aNewTitle != aOldTitle ) )
                     {
-                        OUString aNewTitle( aDlg->GetTitle() );
+                        if( aNewTitle.isEmpty() )
+                            aNewTitle = "__<empty>__";
 
-                        if( ( aNewTitle.isEmpty() && !pObj->GetTitle().isEmpty() ) || ( aNewTitle != aOldTitle ) )
-                        {
-                            if( aNewTitle.isEmpty() )
-                                aNewTitle = "__<empty>__";
-
-                            pObj->SetTitle( aNewTitle );
-                            mpCurTheme->InsertObject( *pObj );
-                        }
+                        pObj->SetTitle( aNewTitle );
+                        mpCurTheme->InsertObject( *pObj );
                     }
-
-                    GalleryTheme::ReleaseObject( pObj );
                 }
             }
         }
@@ -1190,7 +1183,7 @@ OUString GalleryBrowser2::GetItemText( const GalleryTheme& rTheme, const SgaObje
         if( aTitle.isEmpty() )
         {
             aTitle = aURL.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous );
-            aTitle = aTitle.getToken( comphelper::string::getTokenCount(aTitle, '/') - 1, '/' );
+            aTitle = aTitle.copy( aTitle.lastIndexOf('/')+1 );
         }
 
         aRet += aTitle;

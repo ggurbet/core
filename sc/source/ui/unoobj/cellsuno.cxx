@@ -51,6 +51,7 @@
 #include <com/sun/star/table/CellVertJustify2.hpp>
 #include <com/sun/star/table/ShadowFormat.hpp>
 #include <com/sun/star/table/TableBorder.hpp>
+#include <com/sun/star/table/TableBorder2.hpp>
 #include <com/sun/star/table/BorderLineStyle.hpp>
 #include <com/sun/star/sheet/CellFlags.hpp>
 #include <com/sun/star/sheet/FormulaResult.hpp>
@@ -113,6 +114,7 @@
 #include <brdcst.hxx>
 #include <cellform.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <unonames.hxx>
 #include <styleuno.hxx>
 #include <rangeseq.hxx>
@@ -1477,7 +1479,7 @@ ScCellRangesBase::~ScCellRangesBase()
     ForgetCurrentAttrs();
     ForgetMarkData();
 
-    delete pValueListener;
+    pValueListener.reset();
 
     //! unregister XChartDataChangeEventListener ??
     //! (ChartCollection will then hold this object as well!)
@@ -1487,8 +1489,8 @@ void ScCellRangesBase::ForgetCurrentAttrs()
 {
     pCurrentFlat.reset();
     pCurrentDeep.reset();
-    delete pCurrentDataSet;
-    delete pNoDfltCurrentDataSet;
+    pCurrentDataSet.reset();
+    pNoDfltCurrentDataSet.reset();
     pCurrentDataSet = nullptr;
     pNoDfltCurrentDataSet = nullptr;
 
@@ -1497,8 +1499,7 @@ void ScCellRangesBase::ForgetCurrentAttrs()
 
 void ScCellRangesBase::ForgetMarkData()
 {
-    delete pMarkData;
-    pMarkData = nullptr;
+    pMarkData.reset();
 }
 
 const ScPatternAttr* ScCellRangesBase::GetCurrentAttrsFlat()
@@ -1533,22 +1534,22 @@ SfxItemSet* ScCellRangesBase::GetCurrentDataSet(bool bNoDflt)
         if ( pPattern )
         {
             //  replace Dontcare with Default,  so that we always have a reflection
-            pCurrentDataSet = new SfxItemSet( pPattern->GetItemSet() );
-            pNoDfltCurrentDataSet = new SfxItemSet( pPattern->GetItemSet() );
+            pCurrentDataSet.reset( new SfxItemSet( pPattern->GetItemSet() ) );
+            pNoDfltCurrentDataSet.reset( new SfxItemSet( pPattern->GetItemSet() ) );
             pCurrentDataSet->ClearInvalidItems();
         }
     }
-    return bNoDflt ? pNoDfltCurrentDataSet : pCurrentDataSet;
+    return bNoDflt ? pNoDfltCurrentDataSet.get() : pCurrentDataSet.get();
 }
 
 const ScMarkData* ScCellRangesBase::GetMarkData()
 {
     if (!pMarkData)
     {
-        pMarkData = new ScMarkData();
+        pMarkData.reset( new ScMarkData() );
         pMarkData->MarkFromRangeList( aRanges, false );
     }
-    return pMarkData;
+    return pMarkData.get();
 }
 
 void ScCellRangesBase::Notify( SfxBroadcaster&, const SfxHint& rHint )
@@ -1682,7 +1683,7 @@ void ScCellRangesBase::RefChanged()
 
         ScDocument& rDoc = pDocShell->GetDocument();
         for ( size_t i = 0, nCount = aRanges.size(); i < nCount; ++i )
-            rDoc.StartListeningArea( aRanges[ i ], false, pValueListener );
+            rDoc.StartListeningArea( aRanges[ i ], false, pValueListener.get() );
     }
 
     ForgetCurrentAttrs();
@@ -2006,7 +2007,7 @@ void SAL_CALL ScCellRangesBase::setPropertyToDefault( const OUString& aPropertyN
                 bChartRowAsHdr = false;
             else if ( pEntry->nWID == SC_WID_UNO_CELLSTYL )
             {
-                OUString aStyleName( ScGlobal::GetRscString( STR_STYLENAME_STANDARD ) );
+                OUString aStyleName( ScResId( STR_STYLENAME_STANDARD ) );
                 pDocShell->GetDocFunc().ApplyStyle( *GetMarkData(), aStyleName, true );
             }
         }
@@ -2058,7 +2059,7 @@ uno::Any SAL_CALL ScCellRangesBase::getPropertyDefault( const OUString& aPropert
                         break;
                     case SC_WID_UNO_CELLSTYL:
                         aAny <<= ScStyleNameConversion::DisplayToProgrammaticName(
-                                    ScGlobal::GetRscString(STR_STYLENAME_STANDARD), SfxStyleFamily::Para );
+                                    ScResId(STR_STYLENAME_STANDARD), SfxStyleFamily::Para );
                         break;
                     case SC_WID_UNO_TBLBORD:
                     case SC_WID_UNO_TBLBORD2:
@@ -3373,11 +3374,11 @@ void SAL_CALL ScCellRangesBase::addModifyListener(const uno::Reference<util::XMo
     if ( aValueListeners.size() == 1 )
     {
         if (!pValueListener)
-            pValueListener = new ScLinkListener( LINK( this, ScCellRangesBase, ValueListenerHdl ) );
+            pValueListener.reset( new ScLinkListener( LINK( this, ScCellRangesBase, ValueListenerHdl ) ) );
 
         ScDocument& rDoc = pDocShell->GetDocument();
         for ( size_t i = 0, nCount = aRanges.size(); i < nCount; i++)
-            rDoc.StartListeningArea( aRanges[ i ], false, pValueListener );
+            rDoc.StartListeningArea( aRanges[ i ], false, pValueListener.get() );
 
         acquire();  // don't lose this object (one ref for all listeners)
     }
@@ -4031,10 +4032,10 @@ sal_Int32 SAL_CALL ScCellRangesBase::replaceAll( const uno::Reference<util::XSea
                     SCROW nRow = 0;
 
                     OUString aUndoStr;
-                    ScDocument* pUndoDoc = nullptr;
+                    ScDocumentUniquePtr pUndoDoc;
                     if (bUndo)
                     {
-                        pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+                        pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
                         pUndoDoc->InitUndo( &rDoc, nTab, nTab );
                     }
                     itr = aMark.begin();
@@ -4050,7 +4051,7 @@ sal_Int32 SAL_CALL ScCellRangesBase::replaceAll( const uno::Reference<util::XSea
                     {
                         ScRangeList aMatchedRanges;
                         bFound = rDoc.SearchAndReplace(
-                            *pSearchItem, nCol, nRow, nTab, aMark, aMatchedRanges, aUndoStr, pUndoDoc );
+                            *pSearchItem, nCol, nRow, nTab, aMark, aMatchedRanges, aUndoStr, pUndoDoc.get() );
                     }
                     if (bFound)
                     {
@@ -4058,15 +4059,10 @@ sal_Int32 SAL_CALL ScCellRangesBase::replaceAll( const uno::Reference<util::XSea
 
                         pDocShell->GetUndoManager()->AddUndoAction(
                             new ScUndoReplace( pDocShell, *pUndoMark, nCol, nRow, nTab,
-                                                        aUndoStr, pUndoDoc, pSearchItem ) );
+                                                        aUndoStr, std::move(pUndoDoc), pSearchItem ) );
 
                         pDocShell->PostPaintGridAll();
                         pDocShell->SetDocumentModified();
-                    }
-                    else
-                    {
-                        delete pUndoDoc;
-                        // nReplaced stays zero
                     }
                 }
             }
@@ -4696,8 +4692,8 @@ uno::Sequence<OUString> SAL_CALL ScCellRangesObj::getSupportedServiceNames()
 uno::Reference<table::XCellRange> ScCellRangeObj::CreateRangeFromDoc( const ScDocument* pDoc, const ScRange& rR )
 {
     SfxObjectShell* pObjSh = pDoc->GetDocumentShell();
-    if ( pObjSh && dynamic_cast<const ScDocShell*>( pObjSh) !=  nullptr )
-        return new ScCellRangeObj( static_cast<ScDocShell*>(pObjSh), rR );
+    if ( auto pDocShell = dynamic_cast<ScDocShell*>( pObjSh) )
+        return new ScCellRangeObj( pDocShell, rR );
     return nullptr;
 }
 
@@ -5065,7 +5061,7 @@ uno::Sequence<sheet::FormulaToken> SAL_CALL ScCellRangeObj::getArrayTokens()
             {
                 const ScTokenArray* pTokenArray = pFCell1->GetCode();
                 if (pTokenArray)
-                    (void)ScTokenConversion::ConvertToTokenSequence(rDoc, aSequence, *pTokenArray);
+                    ScTokenConversion::ConvertToTokenSequence(rDoc, aSequence, *pTokenArray);
             }
         }
     }
@@ -6249,7 +6245,7 @@ void SAL_CALL ScCellObj::insertTextContent( const uno::Reference<text::XTextRang
             aSelection.nEndPos = aSelection.nStartPos + 1;
             uno::Reference<text::XTextRange> xParent(this);
             pCellField->InitDoc(
-                xParent, new ScCellEditSource(pDocSh, aCellPos), aSelection);
+                xParent, o3tl::make_unique<ScCellEditSource>(pDocSh, aCellPos), aSelection);
 
             //  for bAbsorb=FALSE, the new selection must be behind the inserted content
             //  (the xml filter relies on this)
@@ -7183,7 +7179,7 @@ void SAL_CALL ScTableSheetObj::copyRange( const table::CellAddress& aDestination
 
 // XPrintAreas
 
-void ScTableSheetObj::PrintAreaUndo_Impl( ScPrintRangeSaver* pOldRanges )
+void ScTableSheetObj::PrintAreaUndo_Impl( std::unique_ptr<ScPrintRangeSaver> pOldRanges )
 {
     //  page break and undo
     ScDocShell* pDocSh = GetDocShell();
@@ -7200,11 +7196,8 @@ void ScTableSheetObj::PrintAreaUndo_Impl( ScPrintRangeSaver* pOldRanges )
                 new ScUndoPrintRange(
                     pDocSh,
                     nTab,
-                    pOldRanges,
+                    std::move(pOldRanges),
                     rDoc.CreatePrintRangeSaver())); // create new ranges
-
-            // #i120105# ownership of old ranges has changed, mark as consumed
-            pOldRanges = nullptr;
         }
 
         ScPrintFunc(pDocSh, pDocSh->GetPrinter(), nTab).UpdatePages();
@@ -7217,9 +7210,6 @@ void ScTableSheetObj::PrintAreaUndo_Impl( ScPrintRangeSaver* pOldRanges )
 
         pDocSh->SetDocumentModified();
     }
-
-    // #i120105# pOldRanges not used, need to cleanup
-    delete pOldRanges;
 }
 
 uno::Sequence<table::CellRangeAddress> SAL_CALL ScTableSheetObj::getPrintAreas()
@@ -7258,7 +7248,7 @@ void SAL_CALL ScTableSheetObj::setPrintAreas(
     ScDocShell* pDocSh = GetDocShell();
     if ( pDocSh )
     {
-        ScPrintRangeSaver* pOldRanges = nullptr;
+        std::unique_ptr<ScPrintRangeSaver> pOldRanges;
         ScDocument& rDoc = pDocSh->GetDocument();
         SCTAB nTab = GetTab_Impl();
 
@@ -7279,7 +7269,7 @@ void SAL_CALL ScTableSheetObj::setPrintAreas(
         }
 
         if ( rDoc.IsUndoEnabled() )
-            PrintAreaUndo_Impl( pOldRanges );   // Undo, Page Breaks, Modified etc.
+            PrintAreaUndo_Impl( std::move(pOldRanges) );   // Undo, Page Breaks, Modified etc.
     }
 }
 
@@ -7305,7 +7295,7 @@ void SAL_CALL ScTableSheetObj::setPrintTitleColumns( sal_Bool bPrintTitleColumns
         ScDocument& rDoc = pDocSh->GetDocument();
         SCTAB nTab = GetTab_Impl();
 
-        ScPrintRangeSaver* pOldRanges = rDoc.CreatePrintRangeSaver();
+        std::unique_ptr<ScPrintRangeSaver> pOldRanges = rDoc.CreatePrintRangeSaver();
 
         if ( bPrintTitleColumns )
         {
@@ -7317,7 +7307,7 @@ void SAL_CALL ScTableSheetObj::setPrintTitleColumns( sal_Bool bPrintTitleColumns
         else
             rDoc.SetRepeatColRange( nTab, nullptr );          // disable
 
-        PrintAreaUndo_Impl( pOldRanges );   // undo, page break, modified etc.
+        PrintAreaUndo_Impl( std::move(pOldRanges) );   // undo, page break, modified etc.
 
         //! save last set area during switch off and recreate during switch on ???
     }
@@ -7351,13 +7341,13 @@ void SAL_CALL ScTableSheetObj::setTitleColumns( const table::CellRangeAddress& a
         ScDocument& rDoc = pDocSh->GetDocument();
         SCTAB nTab = GetTab_Impl();
 
-        ScPrintRangeSaver* pOldRanges = rDoc.CreatePrintRangeSaver();
+        std::unique_ptr<ScPrintRangeSaver> pOldRanges = rDoc.CreatePrintRangeSaver();
 
         std::unique_ptr<ScRange> pNew(new ScRange);
         ScUnoConversion::FillScRange( *pNew, aTitleColumns );
         rDoc.SetRepeatColRange( nTab, std::move(pNew) );     // also always enable
 
-        PrintAreaUndo_Impl( pOldRanges );           // undo, page breaks, modified etc.
+        PrintAreaUndo_Impl( std::move(pOldRanges) );           // undo, page breaks, modified etc.
     }
 }
 
@@ -7383,7 +7373,7 @@ void SAL_CALL ScTableSheetObj::setPrintTitleRows( sal_Bool bPrintTitleRows )
         ScDocument& rDoc = pDocSh->GetDocument();
         SCTAB nTab = GetTab_Impl();
 
-        ScPrintRangeSaver* pOldRanges = rDoc.CreatePrintRangeSaver();
+        std::unique_ptr<ScPrintRangeSaver> pOldRanges = rDoc.CreatePrintRangeSaver();
 
         if ( bPrintTitleRows )
         {
@@ -7396,7 +7386,7 @@ void SAL_CALL ScTableSheetObj::setPrintTitleRows( sal_Bool bPrintTitleRows )
         else
             rDoc.SetRepeatRowRange( nTab, nullptr );          // disable
 
-        PrintAreaUndo_Impl( pOldRanges );   // undo, page breaks, modified etc.
+        PrintAreaUndo_Impl( std::move(pOldRanges) );   // undo, page breaks, modified etc.
 
         //! save last set area during switch off and recreate during switch on ???
     }
@@ -7430,13 +7420,13 @@ void SAL_CALL ScTableSheetObj::setTitleRows( const table::CellRangeAddress& aTit
         ScDocument& rDoc = pDocSh->GetDocument();
         SCTAB nTab = GetTab_Impl();
 
-        ScPrintRangeSaver* pOldRanges = rDoc.CreatePrintRangeSaver();
+        std::unique_ptr<ScPrintRangeSaver> pOldRanges = rDoc.CreatePrintRangeSaver();
 
         std::unique_ptr<ScRange> pNew(new ScRange);
         ScUnoConversion::FillScRange( *pNew, aTitleRows );
         rDoc.SetRepeatRowRange( nTab, std::move(pNew) );     // also always enable
 
-        PrintAreaUndo_Impl( pOldRanges );           // Undo, page breaks, modified etc.
+        PrintAreaUndo_Impl( std::move(pOldRanges) );           // Undo, page breaks, modified etc.
     }
 }
 
@@ -8950,7 +8940,7 @@ void ScCellsEnumeration::CheckPos_Impl()
     {
         if (!pMark)
         {
-            pMark = new ScMarkData;
+            pMark.reset( new ScMarkData );
             pMark->MarkFromRangeList(aRanges, false);
             pMark->MarkToMulti();   // needed for GetNextMarkedCell
         }
@@ -8966,7 +8956,7 @@ ScCellsEnumeration::~ScCellsEnumeration()
 
     if (pDocShell)
         pDocShell->GetDocument().RemoveUnoObject(*this);
-    delete pMark;
+    pMark.reset();
 }
 
 void ScCellsEnumeration::Advance_Impl()
@@ -8974,7 +8964,7 @@ void ScCellsEnumeration::Advance_Impl()
     OSL_ENSURE(!bAtEnd,"too much Advance_Impl");
     if (!pMark)
     {
-        pMark = new ScMarkData;
+        pMark.reset( new ScMarkData );
         pMark->MarkFromRangeList( aRanges, false );
         pMark->MarkToMulti();   // needed for GetNextMarkedCell
     }
@@ -8999,8 +8989,7 @@ void ScCellsEnumeration::Notify( SfxBroadcaster&, const SfxHint& rHint )
             aRanges.UpdateReference( pRefHint->GetMode(), &pDocShell->GetDocument(), pRefHint->GetRange(),
                                      pRefHint->GetDx(), pRefHint->GetDy(), pRefHint->GetDz() );
 
-            delete pMark;       // recreate from moved area
-            pMark = nullptr;
+            pMark.reset();       // recreate from moved area
 
             if (!bAtEnd)        // adjust aPos
             {
@@ -9176,9 +9165,9 @@ ScCellFormatsEnumeration::ScCellFormatsEnumeration(ScDocShell* pDocSh, const ScR
     OSL_ENSURE( rRange.aStart.Tab() == rRange.aEnd.Tab(),
                 "CellFormatsEnumeration: different tables" );
 
-    pIter = new ScAttrRectIterator( &rDoc, nTab,
+    pIter.reset( new ScAttrRectIterator( &rDoc, nTab,
                                     rRange.aStart.Col(), rRange.aStart.Row(),
-                                    rRange.aEnd.Col(), rRange.aEnd.Row() );
+                                    rRange.aEnd.Col(), rRange.aEnd.Row() ) );
     Advance_Impl();
 }
 
@@ -9188,7 +9177,6 @@ ScCellFormatsEnumeration::~ScCellFormatsEnumeration()
 
     if (pDocShell)
         pDocShell->GetDocument().RemoveUnoObject(*this);
-    delete pIter;
 }
 
 void ScCellFormatsEnumeration::Advance_Impl()
@@ -9240,8 +9228,7 @@ void ScCellFormatsEnumeration::Notify( SfxBroadcaster&, const SfxHint& rHint )
         if ( nId == SfxHintId::Dying )
         {
             pDocShell = nullptr;
-            delete pIter;
-            pIter = nullptr;
+            pIter.reset();
         }
         else if ( nId == SfxHintId::DataChanged )
         {

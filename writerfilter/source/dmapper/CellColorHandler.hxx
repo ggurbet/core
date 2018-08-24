@@ -53,7 +53,7 @@ public:
     CellColorHandler( );
     virtual ~CellColorHandler() override;
 
-    ::std::shared_ptr<TablePropertyMap>            getProperties();
+    ::tools::SvRef<TablePropertyMap>            getProperties();
 
     void setOutputFormat( OutputFormat format ) { m_OutputFormat = format; }
 
@@ -62,7 +62,6 @@ public:
     void disableInteropGrabBag();
     bool isInteropGrabBagEnabled();
 };
-typedef std::shared_ptr< CellColorHandler >          CellColorHandlerPtr;
 }}
 
 #endif

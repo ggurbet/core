@@ -58,7 +58,6 @@
 #include <com/sun/star/style/VerticalAlignment.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/report/XFormattedField.hpp>
-#include <comphelper/genericpropertyset.hxx>
 #include <comphelper/property.hxx>
 #include <tools/diagnose_ex.h>
 #include <PropertyForward.hxx>
@@ -379,7 +378,6 @@ void OObjectBase::EndListening()
 {
     OSL_ENSURE(!m_xReportComponent.is() || isListening(), "OUnoObject::EndListening: not listening currently!");
 
-    m_bIsListening = false;
     if ( isListening() && m_xReportComponent.is() )
     {
         // XPropertyChangeListener
@@ -397,6 +395,7 @@ void OObjectBase::EndListening()
         }
         m_xPropertyChangeListener.clear();
     }
+    m_bIsListening = false;
 }
 
 void OObjectBase::SetPropsFromRect(const tools::Rectangle& _rRect)
@@ -506,7 +505,7 @@ SdrInventor OCustomShape::GetObjInventor() const
 
 SdrPage* OCustomShape::GetImplPage() const
 {
-    return GetPage();
+    return getSdrPageFromSdrObject();
 }
 
 void OCustomShape::NbcMove( const Size& rSize )
@@ -640,18 +639,6 @@ void OUnoObject::impl_initializeModel_nothrow()
     }
 }
 
-void OUnoObject::impl_setReportComponent_nothrow()
-{
-    if ( m_xReportComponent.is() )
-        return;
-
-    OReportModel& rRptModel(static_cast< OReportModel& >(getSdrModelFromSdrObject()));
-    OXUndoEnvironment::OUndoEnvLock aLock( rRptModel.GetUndoEnv() );
-    m_xReportComponent.set(getUnoShape(),uno::UNO_QUERY);
-
-    impl_initializeModel_nothrow();
-}
-
 sal_uInt16 OUnoObject::GetObjIdentifier() const
 {
     return m_nObjectType;
@@ -664,7 +651,7 @@ SdrInventor OUnoObject::GetObjInventor() const
 
 SdrPage* OUnoObject::GetImplPage() const
 {
-    return GetPage();
+    return getSdrPageFromSdrObject();
 }
 
 void OUnoObject::NbcMove( const Size& rSize )
@@ -741,37 +728,6 @@ void OUnoObject::NbcSetLogicRect(const tools::Rectangle& rRect)
 
     // start listening
     OObjectBase::StartListening();
-}
-
-
-bool OUnoObject::EndCreate(SdrDragStat& rStat, SdrCreateCmd eCmd)
-{
-    bool bResult = SdrUnoObj::EndCreate(rStat, eCmd);
-    if ( bResult )
-    {
-        impl_setReportComponent_nothrow();
-        // set labels
-        if ( m_xReportComponent.is() )
-        {
-            try
-            {
-                if ( supportsService( SERVICE_FIXEDTEXT ) )
-                {
-                    m_xReportComponent->setPropertyValue( PROPERTY_LABEL, uno::makeAny(GetDefaultName(this)) );
-                }
-            }
-            catch(const uno::Exception&)
-            {
-                DBG_UNHANDLED_EXCEPTION("reportdesign");
-            }
-
-            impl_initializeModel_nothrow();
-        }
-        // set geometry properties
-        SetPropsFromRect(GetLogicRect());
-    }
-
-    return bResult;
 }
 
 OUString OUnoObject::GetDefaultName(const OUnoObject* _pObj)
@@ -857,11 +813,57 @@ void OUnoObject::CreateMediator(bool _bReverse)
 {
     if ( !m_xMediator.is() )
     {
-        impl_setReportComponent_nothrow();
+        // tdf#118730 Directly do things formerly done in
+        // OUnoObject::impl_setReportComponent_nothrow here
+        if(!m_xReportComponent.is())
+        {
+            OReportModel& rRptModel(static_cast< OReportModel& >(getSdrModelFromSdrObject()));
+            OXUndoEnvironment::OUndoEnvLock aLock( rRptModel.GetUndoEnv() );
+            m_xReportComponent.set(getUnoShape(),uno::UNO_QUERY);
 
-        Reference<XPropertySet> xControlModel(GetUnoControlModel(),uno::UNO_QUERY);
-        if ( !m_xMediator.is() && m_xReportComponent.is() && xControlModel.is() )
-            m_xMediator = new OPropertyMediator(m_xReportComponent.get(),xControlModel,getPropertyNameMap(GetObjIdentifier()),_bReverse);
+            impl_initializeModel_nothrow();
+        }
+
+        // tdf#118730 Directly do things formerly done in
+        // OUnoObject::EndCreate here
+        if(m_xReportComponent.is())
+        {
+            // set labels
+            if ( m_xReportComponent.is() )
+            {
+                try
+                {
+                    if ( supportsService( SERVICE_FIXEDTEXT ) )
+                    {
+                        m_xReportComponent->setPropertyValue( PROPERTY_LABEL, uno::makeAny(GetDefaultName(this)) );
+                    }
+                }
+                catch(const uno::Exception&)
+                {
+                    DBG_UNHANDLED_EXCEPTION("reportdesign");
+                }
+
+                impl_initializeModel_nothrow();
+            }
+        }
+
+        // tdf#118730 set geometry properties
+        SetPropsFromRect(GetLogicRect());
+
+        if(!m_xMediator.is() && m_xReportComponent.is())
+        {
+            Reference<XPropertySet> xControlModel(GetUnoControlModel(),uno::UNO_QUERY);
+
+            if(xControlModel.is())
+            {
+                m_xMediator = new OPropertyMediator(
+                    m_xReportComponent.get(),
+                    xControlModel,
+                    getPropertyNameMap(GetObjIdentifier()),
+                    _bReverse);
+            }
+        }
+
         OObjectBase::StartListening();
     }
 }
@@ -883,9 +885,9 @@ void OUnoObject::impl_setUnoShape( const uno::Reference< uno::XInterface >& rxUn
     releaseUnoShape();
 }
 
-OUnoObject* OUnoObject::Clone(SdrModel* pTargetModel) const
+OUnoObject* OUnoObject::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< OUnoObject >(pTargetModel);
+    return CloneHelper< OUnoObject >(rTargetModel);
 }
 
 OUnoObject& OUnoObject::operator=(const OUnoObject& rObj)
@@ -944,7 +946,7 @@ SdrInventor OOle2Obj::GetObjInventor() const
 
 SdrPage* OOle2Obj::GetImplPage() const
 {
-    return GetPage();
+    return getSdrPageFromSdrObject();
 }
 
 void OOle2Obj::NbcMove( const Size& rSize )
@@ -1089,9 +1091,9 @@ uno::Reference< chart2::data::XDatabaseDataProvider > lcl_getDataProvider(const 
 }
 
 // Clone() should make a complete copy of the object.
-OOle2Obj* OOle2Obj::Clone(SdrModel* pTargetModel) const
+OOle2Obj* OOle2Obj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< OOle2Obj >(pTargetModel);
+    return CloneHelper< OOle2Obj >(rTargetModel);
 }
 
 OOle2Obj& OOle2Obj::operator=(const OOle2Obj& rObj)

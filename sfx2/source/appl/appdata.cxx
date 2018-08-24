@@ -30,6 +30,7 @@
 #include <appdata.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/event.hxx>
+#include <sfxpicklist.hxx>
 #include <sfxtypes.hxx>
 #include <sfx2/doctempl.hxx>
 #include <arrdecl.hxx>
@@ -42,6 +43,7 @@
 #include "imestatuswindow.hxx"
 #include <appbaslib.hxx>
 #include <childwinimpl.hxx>
+#include <svl/svdde.hxx>
 
 #include <basic/basicmanagerrepository.hxx>
 #include <basic/basmgr.hxx>

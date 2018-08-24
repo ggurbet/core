@@ -905,7 +905,7 @@ bool Dialog::ImplStartExecuteModal()
     css::document::DocumentEvent aObject;
     aObject.EventName = "DialogExecute";
     xEventBroadcaster->documentEventOccured(aObject);
-    UITestLogger::getInstance().log("DialogExecute");
+    UITestLogger::getInstance().log("ModalDialogExecuted Id:" + get_id());
 
     if (comphelper::LibreOfficeKit::isActive())
     {
@@ -965,7 +965,7 @@ void Dialog::ensureRepaint()
     }
 }
 
-Bitmap Dialog::createScreenshot()
+BitmapEx Dialog::createScreenshot()
 {
     // same prerequisites as in Execute()
     setDeferredProperties();
@@ -974,7 +974,7 @@ Bitmap Dialog::createScreenshot()
     ToTop();
     ensureRepaint();
 
-    return GetBitmap(Point(), GetOutputSizePixel());
+    return GetBitmapEx(Point(), GetOutputSizePixel());
 }
 
 short Dialog::Execute()
@@ -1444,6 +1444,7 @@ VclBuilderContainer::~VclBuilderContainer()
 ModelessDialog::ModelessDialog(vcl::Window* pParent, const OUString& rID, const OUString& rUIXMLDescription, InitFlag eFlag)
     : Dialog(pParent, rID, rUIXMLDescription, WindowType::MODELESSDIALOG, eFlag)
 {
+    UITestLogger::getInstance().log("ModelessDialogConstructed Id:" + get_id());
 }
 
 ModalDialog::ModalDialog( vcl::Window* pParent, const OUString& rID, const OUString& rUIXMLDescription, bool bBorder ) :
@@ -1459,7 +1460,6 @@ void ModelessDialog::Activate()
     css::document::DocumentEvent aObject;
     aObject.EventName = "ModelessDialogVisible";
     xEventBroadcaster->documentEventOccured(aObject);
-    UITestLogger::getInstance().log("Modeless Dialog Visible");
     Dialog::Activate();
 }
 

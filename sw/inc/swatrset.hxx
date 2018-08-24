@@ -18,7 +18,7 @@
  */
 #ifndef INCLUDED_SW_INC_SWATRSET_HXX
 #define INCLUDED_SW_INC_SWATRSET_HXX
-#include <tools/mempool.hxx>
+
 #include <svl/itemset.hxx>
 #include <svl/itempool.hxx>
 #include "swdllapi.h"
@@ -27,7 +27,6 @@ class SwModify;
 class SwDoc;
 class OutputDevice;
 class IDocumentSettingAccess;
-class SfxBoolItem;
 class SvxPostureItem;
 class SvxWeightItem;
 class SvxShadowedItem;
@@ -39,10 +38,8 @@ class SvxUnderlineItem;
 class SvxOverlineItem;
 class SvxCrossedOutItem;
 class SvxFontHeightItem;
-class SvxPropSizeItem;
 class SvxFontItem;
 class SvxColorItem;
-class SvxCharSetColorItem;
 class SvxLanguageItem;
 class SvxEscapementItem;
 class SvxCaseMapItem;
@@ -89,7 +86,6 @@ class SwFormatFootnoteAtTextEnd;
 class SwFormatEndAtTextEnd;
 class SwFormatNoBalancedColumns;
 class SvxFrameDirectionItem;
-class SwTextGridItem;
 class SwHeaderAndFooterEatSpacingItem;
 class SwFormatFollowTextFlow;
 class SwFormatWrapInfluenceOnObjPos;
@@ -317,8 +313,6 @@ public:
     inline  const SwTableBoxNumFormat       &GetTableBoxNumFormat( bool = true ) const;
     inline  const SwTableBoxFormula     &GetTableBoxFormula( bool = true ) const;
     inline  const SwTableBoxValue           &GetTableBoxValue( bool = true ) const;
-
-    DECL_FIXEDMEMPOOL_NEWDEL(SwAttrSet)
 };
 
 //Helper for filters to find true lineheight of a font

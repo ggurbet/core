@@ -341,15 +341,15 @@ sal_Int64 SAL_CALL SdGenericDrawPage::getSomething( const css::uno::Sequence< sa
 SdGenericDrawPage::SdGenericDrawPage(SdXImpressDocument* _pModel, SdPage* pInPage, const SvxItemPropertySet* _pSet)
 :       SvxFmDrawPage( static_cast<SdrPage*>(pInPage) ),
         SdUnoSearchReplaceShape(this),
-        mpModel     ( _pModel ),
+        mpDocModel( _pModel ),
         mpSdrModel(nullptr),
         mbIsImpressDocument(false),
         mnTempPageNumber(0),
         mpPropSet   ( _pSet )
 {
     mpSdrModel = SvxFmDrawPage::mpModel;
-    if( mpModel )
-        mbIsImpressDocument = mpModel->IsImpressDocument();
+    if( mpDocModel )
+        mbIsImpressDocument = mpDocModel->IsImpressDocument();
 
 }
 
@@ -359,7 +359,7 @@ SdGenericDrawPage::~SdGenericDrawPage() throw()
 
 void SdGenericDrawPage::throwIfDisposed() const
 {
-    if( (SvxFmDrawPage::mpModel == nullptr) || (mpModel == nullptr) || (SvxFmDrawPage::mpPage == nullptr) )
+    if( (SvxFmDrawPage::mpModel == nullptr) || (mpDocModel == nullptr) || (SvxFmDrawPage::mpPage == nullptr) )
         throw lang::DisposedException();
 }
 
@@ -367,7 +367,7 @@ SdXImpressDocument* SdGenericDrawPage::GetModel() const
 {
     if( mpSdrModel != SvxFmDrawPage::mpModel )
         const_cast<SdGenericDrawPage*>(this)->UpdateModel();
-    return mpModel;
+    return mpDocModel;
 }
 
 bool SdGenericDrawPage::IsImpressDocument() const
@@ -384,13 +384,13 @@ void SdGenericDrawPage::UpdateModel()
     if( mpSdrModel )
     {
         uno::Reference< uno::XInterface > xModel( SvxFmDrawPage::mpModel->getUnoModel() );
-        mpModel = SdXImpressDocument::getImplementation( xModel );
+        mpDocModel = SdXImpressDocument::getImplementation( xModel );
     }
     else
     {
-        mpModel = nullptr;
+        mpDocModel = nullptr;
     }
-    mbIsImpressDocument = mpModel && mpModel->IsImpressDocument();
+    mbIsImpressDocument = mpDocModel && mpDocModel->IsImpressDocument();
 }
 
 // this is called whenever a SdrObject must be created for a empty api shape wrapper
@@ -404,24 +404,6 @@ SdrObject * SdGenericDrawPage::CreateSdrObject_( const Reference< drawing::XShap
     if( !aType.startsWith( aPrefix ) )
     {
         SdrObject* pObj = SvxFmDrawPage::CreateSdrObject_( xShape );
-        if( pObj && ( (pObj->GetObjInventor() != SdrInventor::Default) || (pObj->GetObjIdentifier() != OBJ_PAGE) ) )
-        {
-            SdDrawDocument& rDoc(static_cast< SdDrawDocument& >(GetPage()->getSdrModelFromSdrPage()));
-            // #i119287# similar to the code in the SdrObject methods the graphic and ole
-            // SdrObjects need another default style than the rest, see task. Adding here, too.
-            // TTTT: Same as for #i119287#: Can be removed in branch aw080 again
-            const bool bIsSdrGrafObj(dynamic_cast< const SdrGrafObj* >(pObj) !=  nullptr);
-            const bool bIsSdrOle2Obj(dynamic_cast< const SdrOle2Obj* >(pObj) !=  nullptr);
-
-            if(bIsSdrGrafObj || bIsSdrOle2Obj)
-            {
-                pObj->NbcSetStyleSheet(rDoc.GetDefaultStyleSheetForSdrGrafObjAndSdrOle2Obj(), true);
-            }
-            else
-            {
-                pObj->NbcSetStyleSheet(rDoc.GetDefaultStyleSheet(), true);
-            }
-        }
         return pObj;
     }
 
@@ -1280,7 +1262,7 @@ Any SAL_CALL SdGenericDrawPage::getPropertyValue( const OUString& PropertyName )
     case WID_PAGE_DATETIMEFORMAT:
         {
             auto const & rSettings = GetPage()->getHeaderFooterSettings();
-            sal_Int32 x = static_cast<sal_Int32>(rSettings.meDateFormat) & (static_cast<sal_Int32>(rSettings.meTimeFormat) << 4);
+            sal_Int32 x = static_cast<sal_Int32>(rSettings.meDateFormat) | (static_cast<sal_Int32>(rSettings.meTimeFormat) << 4);
             aAny <<= x;
         }
         break;
@@ -1862,7 +1844,7 @@ void SdGenericDrawPage::release() throw()
 // XComponent
 void SdGenericDrawPage::disposing() throw()
 {
-    mpModel = nullptr;
+    mpDocModel = nullptr;
     SvxFmDrawPage::disposing();
 }
 
@@ -1902,7 +1884,7 @@ sal_Bool SAL_CALL SdPageLinkTargets::hasElements()
     SdPage* pPage = mpUnoPage->GetPage();
     if( pPage != nullptr )
     {
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
 
         while( aIter.IsMore() )
         {
@@ -1948,7 +1930,7 @@ Sequence< OUString > SAL_CALL SdPageLinkTargets::getElementNames()
     SdPage* pPage = mpUnoPage->GetPage();
     if( pPage != nullptr )
     {
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
         while( aIter.IsMore() )
         {
             SdrObject* pObj = aIter.Next();
@@ -1965,7 +1947,7 @@ Sequence< OUString > SAL_CALL SdPageLinkTargets::getElementNames()
     {
         OUString* pStr = aSeq.getArray();
 
-        SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+        SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
         while( aIter.IsMore() )
         {
             SdrObject* pObj = aIter.Next();
@@ -1993,7 +1975,7 @@ SdrObject* SdPageLinkTargets::FindObject( const OUString& rName ) const throw()
     if( pPage == nullptr )
         return nullptr;
 
-    SdrObjListIter aIter( *pPage, SdrIterMode::DeepWithGroups );
+    SdrObjListIter aIter( pPage, SdrIterMode::DeepWithGroups );
 
     while( aIter.IsMore() )
     {
@@ -2300,11 +2282,8 @@ void SAL_CALL SdDrawPage::setName( const OUString& rName )
         // fake a mode change to repaint the page tab bar
         ::sd::DrawDocShell* pDocSh = GetModel()->GetDocShell();
         ::sd::ViewShell* pViewSh = pDocSh ? pDocSh->GetViewShell() : nullptr;
-        if( pViewSh && dynamic_cast< const ::sd::DrawViewShell* >(pViewSh) !=  nullptr)
+        if( auto pDrawViewSh = dynamic_cast<::sd::DrawViewShell* >(pViewSh) )
         {
-            ::sd::DrawViewShell* pDrawViewSh = static_cast<
-                  ::sd::DrawViewShell*>(pViewSh);
-
             EditMode eMode = pDrawViewSh->GetEditMode();
             if( eMode == EditMode::Page )
             {
@@ -2827,29 +2806,26 @@ void SdMasterPage::setBackground( const Any& rValue )
         {
             Reference< container::XNameAccess >  xFamilies( GetModel()->getStyleFamilies(), UNO_QUERY_THROW );
             Reference< container::XNameAccess > xFamily( xFamilies->getByName( getName() ), UNO_QUERY_THROW ) ;
-            if( xFamily.is() )
+            OUString aStyleName(sUNO_PseudoSheet_Background);
+
+            Reference< beans::XPropertySet >  xStyleSet( xFamily->getByName( aStyleName ), UNO_QUERY_THROW );
+
+            Reference< beans::XPropertySetInfo >  xSetInfo( xInputSet->getPropertySetInfo(), UNO_QUERY_THROW );
+            Reference< beans::XPropertyState > xSetStates( xInputSet, UNO_QUERY );
+
+            PropertyEntryVector_t aBackgroundProperties = ImplGetPageBackgroundPropertySet()->getPropertyMap().getPropertyEntries();
+            PropertyEntryVector_t::const_iterator aIt = aBackgroundProperties.begin();
+            while( aIt != aBackgroundProperties.end() )
             {
-                OUString aStyleName(sUNO_PseudoSheet_Background);
-
-                Reference< beans::XPropertySet >  xStyleSet( xFamily->getByName( aStyleName ), UNO_QUERY_THROW );
-
-                Reference< beans::XPropertySetInfo >  xSetInfo( xInputSet->getPropertySetInfo(), UNO_QUERY_THROW );
-                Reference< beans::XPropertyState > xSetStates( xInputSet, UNO_QUERY );
-
-                PropertyEntryVector_t aBackgroundProperties = ImplGetPageBackgroundPropertySet()->getPropertyMap().getPropertyEntries();
-                PropertyEntryVector_t::const_iterator aIt = aBackgroundProperties.begin();
-                while( aIt != aBackgroundProperties.end() )
+                if( xSetInfo->hasPropertyByName( aIt->sName ) )
                 {
-                    if( xSetInfo->hasPropertyByName( aIt->sName ) )
-                    {
-                        if( !xSetStates.is() || xSetStates->getPropertyState( aIt->sName ) == beans::PropertyState_DIRECT_VALUE )
-                            xStyleSet->setPropertyValue( aIt->sName,    xInputSet->getPropertyValue( aIt->sName ) );
-                        else
-                            xSetStates->setPropertyToDefault( aIt->sName );
-                    }
-
-                    ++aIt;
+                    if( !xSetStates.is() || xSetStates->getPropertyState( aIt->sName ) == beans::PropertyState_DIRECT_VALUE )
+                        xStyleSet->setPropertyValue( aIt->sName,    xInputSet->getPropertyValue( aIt->sName ) );
+                    else
+                        xSetStates->setPropertyToDefault( aIt->sName );
                 }
+
+                ++aIt;
             }
         }
         else
@@ -2999,11 +2975,8 @@ void SAL_CALL SdMasterPage::setName( const OUString& rName )
         // fake a mode change to repaint the page tab bar
         ::sd::DrawDocShell* pDocSh = GetModel()->GetDocShell();
         ::sd::ViewShell* pViewSh = pDocSh ? pDocSh->GetViewShell() : nullptr;
-        if( pViewSh && dynamic_cast< const ::sd::DrawViewShell* >(pViewSh) !=  nullptr )
+        if( auto pDrawViewSh = dynamic_cast< ::sd::DrawViewShell* >(pViewSh) )
         {
-            ::sd::DrawViewShell* pDrawViewSh =
-                  static_cast< ::sd::DrawViewShell*>(pViewSh);
-
             EditMode eMode = pDrawViewSh->GetEditMode();
             if( eMode == EditMode::MasterPage )
             {

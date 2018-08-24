@@ -49,6 +49,7 @@ eu \
 fa \
 fi \
 fr \
+fy \
 ga \
 gd \
 gl \
@@ -64,6 +65,7 @@ is \
 it \
 ja \
 ka \
+kab \
 kk \
 km \
 kmr-Latn \

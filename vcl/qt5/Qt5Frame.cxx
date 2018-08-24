@@ -17,20 +17,26 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "Qt5Frame.hxx"
+#include <Qt5Frame.hxx>
 
-#include "Qt5Tools.hxx"
-#include "Qt5Instance.hxx"
-#include "Qt5Graphics.hxx"
-#include "Qt5Widget.hxx"
-#include "Qt5Data.hxx"
+#include <Qt5Tools.hxx>
+#include <Qt5Instance.hxx>
+#include <Qt5Graphics.hxx>
+#include <Qt5Widget.hxx>
+#include <Qt5MainWindow.hxx>
+#include <Qt5Data.hxx>
+#include <Qt5Menu.hxx>
 
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtGui/QIcon>
 #include <QtGui/QWindow>
 #include <QtGui/QScreen>
+#include <QtWidgets/QStyle>
+#include <QtWidgets/QToolTip>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QMenuBar>
+#include <QtWidgets/QMainWindow>
 
 #include <saldatabasic.hxx>
 #include <window.h>
@@ -48,7 +54,9 @@ static void SvpDamageHandler(void* handle, sal_Int32 nExtentsX, sal_Int32 nExten
 }
 
 Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
-    : m_bUseCairo(bUseCairo)
+    : m_pTopLevel(nullptr)
+    , m_bUseCairo(bUseCairo)
+    , m_pSvpGraphics(nullptr)
     , m_bGraphicsInUse(false)
     , m_ePointerStyle(PointerStyle::Arrow)
     , m_bDefaultSize(true)
@@ -90,7 +98,14 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
             aWinFlags |= Qt::Window;
     }
 
-    m_pQWidget.reset(new Qt5Widget(*this, pParent ? pParent->GetQWidget() : nullptr, aWinFlags));
+    if (!pParent && (aWinFlags == Qt::Window))
+    {
+        m_pTopLevel = new Qt5MainWindow(*this, nullptr, aWinFlags);
+        m_pQWidget = new Qt5Widget(*this, aWinFlags);
+        m_pTopLevel->setCentralWidget(m_pQWidget);
+    }
+    else
+        m_pQWidget = new Qt5Widget(*this, aWinFlags);
 
     if (pParent && !(pParent->m_nStyle & SalFrameStyleFlags::PLUG))
     {
@@ -103,7 +118,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     // fake an initial geometry, gets updated via configure event or SetPosSize
     if (m_bDefaultPos || m_bDefaultSize)
     {
-        Size aDefSize = CalcDefaultSize();
+        Size aDefSize = Size(0, 0); // CalcDefaultSize();
         maGeometry.nX = -1;
         maGeometry.nY = -1;
         maGeometry.nWidth = aDefSize.Width();
@@ -119,6 +134,10 @@ Qt5Frame::~Qt5Frame()
 {
     Qt5Instance* pInst = static_cast<Qt5Instance*>(GetSalData()->m_pInstance);
     pInst->eraseFrame(this);
+    if (m_pTopLevel)
+        delete m_pTopLevel;
+    else
+        delete m_pQWidget;
 }
 
 void Qt5Frame::Damage(sal_Int32 nExtentsX, sal_Int32 nExtentsY, sal_Int32 nExtentsWidth,
@@ -140,6 +159,18 @@ void Qt5Frame::TriggerPaintEvent(QRect aRect)
     CallCallback(SalEvent::Paint, &aPaintEvt);
 }
 
+void Qt5Frame::InitSvpSalGraphics(SvpSalGraphics* pSvpSalGraphics)
+{
+    int width = 100;
+    int height = 100;
+    m_pSvpGraphics = pSvpSalGraphics;
+    m_pSurface.reset(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height));
+    m_pSvpGraphics->setSurface(m_pSurface.get(), basegfx::B2IVector(width, height));
+    cairo_surface_set_user_data(m_pSurface.get(), SvpSalGraphics::getDamageKey(), &m_aDamageHandler,
+                                nullptr);
+    TriggerPaintEvent();
+}
+
 SalGraphics* Qt5Frame::AcquireGraphics()
 {
     if (m_bGraphicsInUse)
@@ -149,18 +180,12 @@ SalGraphics* Qt5Frame::AcquireGraphics()
 
     if (m_bUseCairo)
     {
-        if (!m_pSvpGraphics.get())
+        if (!m_pOurSvpGraphics.get())
         {
-            int width = m_pQWidget->size().width();
-            int height = m_pQWidget->size().height();
-            m_pSvpGraphics.reset(new SvpSalGraphics());
-            m_pSurface.reset(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height));
-            m_pSvpGraphics->setSurface(m_pSurface.get(), basegfx::B2IVector(width, height));
-            cairo_surface_set_user_data(m_pSurface.get(), SvpSalGraphics::getDamageKey(),
-                                        &m_aDamageHandler, nullptr);
-            TriggerPaintEvent();
+            m_pOurSvpGraphics.reset(new SvpSalGraphics());
+            InitSvpSalGraphics(m_pOurSvpGraphics.get());
         }
-        return m_pSvpGraphics.get();
+        return m_pOurSvpGraphics.get();
     }
     else
     {
@@ -179,7 +204,7 @@ void Qt5Frame::ReleaseGraphics(SalGraphics* pSalGraph)
 {
     (void)pSalGraph;
     if (m_bUseCairo)
-        assert(pSalGraph == m_pSvpGraphics.get());
+        assert(pSalGraph == m_pOurSvpGraphics.get());
     else
         assert(pSalGraph == m_pQt5Graphics.get());
     m_bGraphicsInUse = false;
@@ -190,6 +215,30 @@ bool Qt5Frame::PostEvent(ImplSVEvent* pData)
     Qt5Instance* pInst = static_cast<Qt5Instance*>(GetSalData()->m_pInstance);
     pInst->PostEvent(this, pData, SalEvent::UserEvent);
     return true;
+}
+
+bool Qt5Frame::isWindow()
+{
+    if (m_pTopLevel)
+        return m_pTopLevel->isWindow();
+    else
+        return m_pQWidget->isWindow();
+}
+
+QWindow* Qt5Frame::windowHandle()
+{
+    if (m_pTopLevel)
+        return m_pTopLevel->windowHandle();
+    else
+        return m_pQWidget->windowHandle();
+}
+
+QScreen* Qt5Frame::screen()
+{
+    if (m_pTopLevel)
+        return m_pTopLevel->windowHandle()->screen();
+    else
+        return m_pQWidget->windowHandle()->screen();
 }
 
 void Qt5Frame::SetTitle(const OUString& rTitle)
@@ -203,7 +252,7 @@ void Qt5Frame::SetIcon(sal_uInt16 nIcon)
             & (SalFrameStyleFlags::PLUG | SalFrameStyleFlags::SYSTEMCHILD
                | SalFrameStyleFlags::FLOAT | SalFrameStyleFlags::INTRO
                | SalFrameStyleFlags::OWNERDRAWDECORATION)
-        || !m_pQWidget->isWindow())
+        || !isWindow())
         return;
 
     const char* appicon;
@@ -227,7 +276,7 @@ void Qt5Frame::SetIcon(sal_uInt16 nIcon)
     m_pQWidget->window()->setWindowIcon(aIcon);
 }
 
-void Qt5Frame::SetMenu(SalMenu* /*pMenu*/) {}
+void Qt5Frame::SetMenu(SalMenu* pMenu) { m_pSalMenu = static_cast<Qt5Menu*>(pMenu); }
 
 void Qt5Frame::DrawMenuBar() {}
 
@@ -235,8 +284,11 @@ void Qt5Frame::SetExtendedFrameStyle(SalExtStyle /*nExtStyle*/) {}
 
 void Qt5Frame::Show(bool bVisible, bool /*bNoActivate*/)
 {
-    assert(m_pQWidget.get());
-    m_pQWidget->setVisible(bVisible);
+    assert(m_pQWidget);
+    if (m_pTopLevel)
+        m_pTopLevel->setVisible(bVisible);
+    else
+        m_pQWidget->setVisible(bVisible);
 }
 
 void Qt5Frame::SetMinClientSize(long nWidth, long nHeight)
@@ -263,8 +315,8 @@ void Qt5Frame::Center()
 
 Size Qt5Frame::CalcDefaultSize()
 {
-    assert(m_pQWidget->isWindow());
-    QScreen* pScreen = m_pQWidget->windowHandle()->screen();
+    assert(isWindow());
+    QScreen* pScreen = screen();
     if (!pScreen)
         return Size();
     return bestmaxFrameSizeForScreenSize(toSize(pScreen->size()));
@@ -279,7 +331,7 @@ void Qt5Frame::SetDefaultSize()
 
 void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt16 nFlags)
 {
-    if (!m_pQWidget->isWindow() || isChild(true, false))
+    if (!isWindow() || isChild(true, false))
         return;
 
     if ((nFlags & (SAL_FRAME_POSSIZE_WIDTH | SAL_FRAME_POSSIZE_HEIGHT))
@@ -301,7 +353,12 @@ void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt1
     {
         if (m_pParent)
         {
-            QRect aRect = m_pParent->GetQWidget()->geometry();
+            QRect aRect;
+            if (m_pParent->GetTopLevelWindow())
+                aRect = m_pParent->GetTopLevelWindow()->geometry();
+            else
+                aRect = m_pParent->GetQWidget()->geometry();
+
             nX += aRect.x();
             nY += aRect.y();
         }
@@ -326,9 +383,9 @@ void Qt5Frame::GetClientSize(long& rWidth, long& rHeight)
 
 void Qt5Frame::GetWorkArea(tools::Rectangle& rRect)
 {
-    if (!m_pQWidget->isWindow())
+    if (!isWindow())
         return;
-    QScreen* pScreen = m_pQWidget->windowHandle()->screen();
+    QScreen* pScreen = screen();
     if (!pScreen)
         return;
 
@@ -338,9 +395,23 @@ void Qt5Frame::GetWorkArea(tools::Rectangle& rRect)
 
 SalFrame* Qt5Frame::GetParent() const { return m_pParent; }
 
+void Qt5Frame::SetModal(bool bModal)
+{
+    if (isWindow())
+    {
+        if (m_pTopLevel)
+            m_pTopLevel->setVisible(true);
+        // modality change is only effective if the window is hidden
+        windowHandle()->hide();
+        windowHandle()->setModality(bModal ? Qt::WindowModal : Qt::NonModal);
+        // and shown again
+        windowHandle()->show();
+    }
+}
+
 void Qt5Frame::SetWindowState(const SalFrameState* pState)
 {
-    if (!m_pQWidget->isWindow() || !pState || isChild(true, false))
+    if (!isWindow() || !pState || isChild(true, false))
         return;
 
     const WindowStateMask nMaxGeometryMask
@@ -378,7 +449,7 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
     }
     else if (pState->mnMask & WindowStateMask::State && !isChild())
     {
-        if ((pState->mnState & WindowStateState::Minimized) && m_pQWidget->isWindow())
+        if ((pState->mnState & WindowStateState::Minimized) && isWindow())
             m_pQWidget->showMinimized();
         else
             m_pQWidget->showNormal();
@@ -397,7 +468,7 @@ bool Qt5Frame::GetWindowState(SalFrameState* pState)
     }
     else
     {
-        QRect rect = m_pQWidget->geometry();
+        QRect rect = m_pTopLevel ? m_pTopLevel->geometry() : m_pQWidget->geometry();
         pState->mnX = rect.x();
         pState->mnY = rect.y();
         pState->mnWidth = rect.width();
@@ -451,12 +522,131 @@ bool Qt5Frame::MapUnicodeToKeyCode(sal_Unicode /*aUnicode*/, LanguageType /*aLan
 
 LanguageType Qt5Frame::GetInputLanguage() { return LANGUAGE_DONTKNOW; }
 
+static Color toColor(const QColor& rColor)
+{
+    return Color(rColor.red(), rColor.green(), rColor.blue());
+}
+
 void Qt5Frame::UpdateSettings(AllSettings& rSettings)
 {
+    if (Qt5Data::noNativeControls())
+        return;
+
     StyleSettings style(rSettings.GetStyleSettings());
+
+    // General settings
+    QPalette pal = QApplication::palette();
+
+    style.SetToolbarIconSize(ToolbarIconSize::Large);
+
+    style.SetActiveColor(toColor(pal.color(QPalette::Active, QPalette::Window)));
+    style.SetDeactiveColor(toColor(pal.color(QPalette::Inactive, QPalette::Window)));
+
+    style.SetActiveTextColor(toColor(pal.color(QPalette::Active, QPalette::WindowText)));
+    style.SetDeactiveTextColor(toColor(pal.color(QPalette::Inactive, QPalette::WindowText)));
+
+    Color aFore = toColor(pal.color(QPalette::Active, QPalette::WindowText));
+    Color aBack = toColor(pal.color(QPalette::Active, QPalette::Window));
+    Color aText = toColor(pal.color(QPalette::Active, QPalette::Text));
+    Color aBase = toColor(pal.color(QPalette::Active, QPalette::Base));
+    Color aButn = toColor(pal.color(QPalette::Active, QPalette::ButtonText));
+    Color aMid = toColor(pal.color(QPalette::Active, QPalette::Mid));
+    Color aHigh = toColor(pal.color(QPalette::Active, QPalette::Highlight));
+    Color aHighText = toColor(pal.color(QPalette::Active, QPalette::HighlightedText));
+
+    style.SetSkipDisabledInMenus(true);
+
+    // Foreground
+    style.SetRadioCheckTextColor(aFore);
+    style.SetLabelTextColor(aFore);
+    style.SetDialogTextColor(aFore);
+    style.SetGroupTextColor(aFore);
+
+    // Text
+    style.SetFieldTextColor(aText);
+    style.SetFieldRolloverTextColor(aText);
+    style.SetWindowTextColor(aText);
+    style.SetToolTextColor(aText);
+
+    // Base
+    style.SetFieldColor(aBase);
+    style.SetWindowColor(aBase);
+    style.SetActiveTabColor(aBase);
+
+    // Buttons
+    style.SetButtonTextColor(aButn);
+    style.SetButtonRolloverTextColor(aButn);
+    style.SetButtonPressedRolloverTextColor(aButn);
+
+    // Tabs
+    style.SetTabTextColor(aButn);
+    style.SetTabRolloverTextColor(aButn);
+    style.SetTabHighlightTextColor(aButn);
+
+    // Disable color
+    style.SetDisableColor(toColor(pal.color(QPalette::Disabled, QPalette::WindowText)));
+
+    // Background
+    style.BatchSetBackgrounds(aBack);
+    style.SetInactiveTabColor(aBack);
+
+    // Workspace
+    style.SetWorkspaceColor(aMid);
+
+    // Selection
+    style.SetHighlightColor(aHigh);
+    style.SetHighlightTextColor(aHighText);
+
+    // Tooltip
+    style.SetHelpColor(toColor(QToolTip::palette().color(QPalette::Active, QPalette::ToolTipBase)));
+    style.SetHelpTextColor(
+        toColor(QToolTip::palette().color(QPalette::Active, QPalette::ToolTipText)));
 
     const int flash_time = QApplication::cursorFlashTime();
     style.SetCursorBlinkTime(flash_time != 0 ? flash_time / 2 : STYLE_CURSOR_NOBLINKTIME);
+
+    // Menu
+    std::unique_ptr<QMenuBar> pMenuBar = std::unique_ptr<QMenuBar>(new QMenuBar());
+    QPalette qMenuCG = pMenuBar->palette();
+
+    // Menu text and background color, theme specific
+    Color aMenuFore = toColor(qMenuCG.color(QPalette::WindowText));
+    Color aMenuBack = toColor(qMenuCG.color(QPalette::Window));
+
+    style.SetMenuTextColor(aMenuFore);
+    style.SetMenuBarTextColor(style.GetPersonaMenuBarTextColor().get_value_or(aMenuFore));
+    style.SetMenuColor(aMenuBack);
+    style.SetMenuBarColor(aMenuBack);
+    style.SetMenuHighlightColor(toColor(qMenuCG.color(QPalette::Highlight)));
+    style.SetMenuHighlightTextColor(toColor(qMenuCG.color(QPalette::HighlightedText)));
+
+    // set special menubar highlight text color
+    if (QApplication::style()->inherits("HighContrastStyle"))
+        ImplGetSVData()->maNWFData.maMenuBarHighlightTextColor
+            = toColor(qMenuCG.color(QPalette::HighlightedText));
+    else
+        ImplGetSVData()->maNWFData.maMenuBarHighlightTextColor = aMenuFore;
+
+    // set menubar rollover color
+    if (pMenuBar->style()->styleHint(QStyle::SH_MenuBar_MouseTracking))
+    {
+        style.SetMenuBarRolloverColor(toColor(qMenuCG.color(QPalette::Highlight)));
+        style.SetMenuBarRolloverTextColor(ImplGetSVData()->maNWFData.maMenuBarHighlightTextColor);
+    }
+    else
+    {
+        style.SetMenuBarRolloverColor(aMenuBack);
+        style.SetMenuBarRolloverTextColor(aMenuFore);
+    }
+    style.SetMenuBarHighlightTextColor(style.GetMenuHighlightTextColor());
+
+    // Scroll bar size
+    style.SetScrollBarSize(QApplication::style()->pixelMetric(QStyle::PM_ScrollBarExtent));
+    style.SetMinThumbSize(QApplication::style()->pixelMetric(QStyle::PM_ScrollBarSliderMin));
+
+    // These colors are used for the ruler text and marks
+    style.SetShadowColor(toColor(pal.color(QPalette::Disabled, QPalette::WindowText)));
+    style.SetDarkShadowColor(toColor(pal.color(QPalette::Inactive, QPalette::WindowText)));
 
     rSettings.SetStyleSettings(style);
 }

@@ -20,7 +20,6 @@
 #include "UserAdmin.hxx"
 #include <UITools.hxx>
 #include <dbu_dlg.hxx>
-#include <comphelper/types.hxx>
 #include <com/sun/star/sdbc/XDatabaseMetaData.hpp>
 #include <com/sun/star/sdbcx/XDataDefinitionSupplier.hpp>
 #include <com/sun/star/sdbcx/XUsersSupplier.hpp>
@@ -202,9 +201,9 @@ void OUserAdmin::FillUserNames()
 
 }
 
-VclPtr<SfxTabPage> OUserAdmin::Create( vcl::Window* pParent, const SfxItemSet* _rAttrSet )
+VclPtr<SfxTabPage> OUserAdmin::Create( TabPageParent pParent, const SfxItemSet* _rAttrSet )
 {
-    return VclPtr<OUserAdmin>::Create( pParent, *_rAttrSet );
+    return VclPtr<OUserAdmin>::Create( pParent.pParent, *_rAttrSet );
 }
 
 IMPL_LINK( OUserAdmin, UserHdl, Button *, pButton, void )

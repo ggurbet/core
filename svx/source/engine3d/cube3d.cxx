@@ -19,19 +19,20 @@
 
 
 #include <svx/strings.hrc>
-#include <svdglob.hxx>
+#include <svx/dialmgr.hxx>
 #include <svx/cube3d.hxx>
 #include <svx/globl3d.hxx>
 #include <basegfx/point/b3dpoint.hxx>
 #include <basegfx/polygon/b3dpolygon.hxx>
 #include <sdr/contact/viewcontactofe3dcube.hxx>
+#include <o3tl/make_unique.hxx>
 
 
 // DrawContact section
 
-sdr::contact::ViewContact* E3dCubeObj::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> E3dCubeObj::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfE3dCube(*this);
+    return o3tl::make_unique<sdr::contact::ViewContactOfE3dCube>(*this);
 }
 
 
@@ -59,6 +60,10 @@ E3dCubeObj::E3dCubeObj(SdrModel& rSdrModel)
     SetDefaultAttributes(aDefault);
 }
 
+E3dCubeObj::~E3dCubeObj()
+{
+}
+
 void E3dCubeObj::SetDefaultAttributes(const E3dDefaultAttributes& rDefault)
 {
     aCubePos = rDefault.GetDefaultCubePos();
@@ -78,9 +83,9 @@ SdrObject *E3dCubeObj::DoConvertToPolyObj(bool /*bBezier*/, bool /*bAddText*/) c
     return nullptr;
 }
 
-E3dCubeObj* E3dCubeObj::Clone(SdrModel* pTargetModel) const
+E3dCubeObj* E3dCubeObj::CloneSdrObject(SdrModel& rTargetModel) const
 {
-    return CloneHelper< E3dCubeObj >(pTargetModel);
+    return CloneHelper< E3dCubeObj >(rTargetModel);
 }
 
 E3dCubeObj& E3dCubeObj::operator=(const E3dCubeObj& rObj)
@@ -129,7 +134,7 @@ void E3dCubeObj::SetPosIsCenter(bool bNew)
 
 OUString E3dCubeObj::TakeObjNameSingul() const
 {
-    OUStringBuffer sName(ImpGetResStr(STR_ObjNameSingulCube3d));
+    OUStringBuffer sName(SvxResId(STR_ObjNameSingulCube3d));
 
     OUString aName(GetName());
     if (!aName.isEmpty())
@@ -146,7 +151,7 @@ OUString E3dCubeObj::TakeObjNameSingul() const
 
 OUString E3dCubeObj::TakeObjNamePlural() const
 {
-    return ImpGetResStr(STR_ObjNamePluralCube3d);
+    return SvxResId(STR_ObjNamePluralCube3d);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

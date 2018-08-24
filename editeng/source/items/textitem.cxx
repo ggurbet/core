@@ -25,6 +25,7 @@
 #include <tools/stream.hxx>
 #include <math.h>
 #include <rtl/math.hxx>
+#include <sal/log.hxx>
 #include <unotools/fontdefs.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/unohelp.hxx>
@@ -75,7 +76,6 @@
 #include <editeng/wrlmitem.hxx>
 #include <editeng/contouritem.hxx>
 #include <editeng/colritem.hxx>
-#include <editeng/charsetcoloritem.hxx>
 #include <editeng/kernitem.hxx>
 #include <editeng/cmapitem.hxx>
 #include <editeng/escapementitem.hxx>
@@ -1750,43 +1750,6 @@ void SvxColorItem::SetValue( const Color& rNewCol )
     mColor = rNewCol;
 }
 
-// class SvxCharSetColorItem ---------------------------------------------
-
-SvxCharSetColorItem::SvxCharSetColorItem( const sal_uInt16 nId ) :
-    SvxColorItem( nId ),
-
-    eFrom( RTL_TEXTENCODING_DONTKNOW )
-{
-}
-
-
-SvxCharSetColorItem::SvxCharSetColorItem( const Color& rCol,
-                                          const sal_uInt16 nId ) :
-    SvxColorItem( rCol, nId ),
-
-    eFrom( RTL_TEXTENCODING_DONTKNOW )
-{
-}
-
-
-SfxPoolItem* SvxCharSetColorItem::Clone( SfxItemPool * ) const
-{
-    return new SvxCharSetColorItem( *this );
-}
-
-
-bool SvxCharSetColorItem::GetPresentation
-(
-    SfxItemPresentation /*ePres*/,
-    MapUnit             /*eCoreUnit*/,
-    MapUnit             /*ePresUnit*/,
-    OUString&           rText, const IntlWrapper& /*rIntl*/
-)   const
-{
-    rText.clear();
-    return false;
-}
-
 // class SvxKerningItem --------------------------------------------------
 
 SvxKerningItem::SvxKerningItem( const short nKern, const sal_uInt16 nId ) :
@@ -3051,6 +3014,18 @@ bool SvxRsidItem::PutValue( const uno::Any& rVal, sal_uInt8 )
 SfxPoolItem* SvxRsidItem::Clone( SfxItemPool * ) const
 {
     return new SvxRsidItem( *this );
+}
+
+bool SvxRsidItem::GetPresentation
+(
+    SfxItemPresentation /*ePres*/,
+    MapUnit             /*eCoreUnit*/,
+    MapUnit             /*ePresUnit*/,
+    OUString&           rText, const IntlWrapper& /*rIntl*/
+)   const
+{
+    rText.clear();
+    return false;
 }
 
 void SvxRsidItem::dumpAsXml(xmlTextWriterPtr pWriter) const

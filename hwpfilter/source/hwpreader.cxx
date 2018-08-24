@@ -25,7 +25,6 @@
 
 #include <osl/diagnose.h>
 #include <tools/stream.hxx>
-#include <comphelper/newarray.hxx>
 
 #include "fontmap.hxx"
 #include "formula.h"
@@ -35,6 +34,7 @@
 #include <iostream>
 #include <locale.h>
 #include <sal/types.h>
+#include <rtl/ustrbuf.hxx>
 
 // To be shorten source code by realking
 #define hconv(x)        hstr2ucsstr(x).c_str()
@@ -132,7 +132,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportHWP(SvStream &rStream)
         }
 
         HWPFile hwpfile;
-        if (hwpfile.ReadHwpFile(stream.release()))
+        if (hwpfile.ReadHwpFile(std::move(stream)))
             return false;
     }
     catch (...)
@@ -164,7 +164,7 @@ sal_Bool HwpReader::filter(const Sequence< PropertyValue >& rDescriptor)
 
     if( nTotal == 0 ) return false;
 
-    if (hwpfile.ReadHwpFile(stream.release()))
+    if (hwpfile.ReadHwpFile(std::move(stream)))
           return false;
 
     if (m_rxDocumentHandler.is())
@@ -4351,7 +4351,7 @@ void HwpReader::makePictureDRAW(HWPDrawingObject *drawobj, Picture * hbox)
                     sprintf(buf, "0 0 %d %d", WTSM(drawobj->extent.w) , WTSM(drawobj->extent.h) );
                     padd("svg:viewBox", sXML_CDATA, ascii(buf) );
 
-                    OUString oustr;
+                    OUStringBuffer oustr;
 
                     if ((drawobj->u.freeform.npt > 2) &&
                         (static_cast<size_t>(drawobj->u.freeform.npt) <
@@ -4399,24 +4399,24 @@ void HwpReader::makePictureDRAW(HWPDrawingObject *drawobj, Picture * hbox)
                                   NaturalSpline(n, tarr, yarr, yb, carr, darr);
                               }
 
-                              sprintf(buf, "M%d %dC%d %d", WTSM(static_cast<int>(xarr[0])), WTSM(static_cast<int>(yarr[0])),
-                                      WTSM(static_cast<int>(xarr[0] + xb[0]/3)), WTSM(static_cast<int>(yarr[0] + yb[0]/3)) );
-                              oustr += ascii(buf);
+                              sprintf(buf, "M%d %dC%d %d", WTSM(xarr[0]), WTSM(yarr[0]),
+                                      WTSM(xarr[0] + xb[0]/3), WTSM(yarr[0] + yb[0]/3) );
+                              oustr.append(ascii(buf));
 
                               for( i = 1 ; i < n  ; i++ ){
                                   if( i == n -1 ){
                                       sprintf(buf, " %d %d %d %dz",
-                                              WTSM(static_cast<int>(xarr[i] - xb[i]/3)), WTSM(static_cast<int>(yarr[i] - yb[i]/3)),
-                                              WTSM(static_cast<int>(xarr[i])), WTSM(static_cast<int>(yarr[i])) );
+                                              WTSM(xarr[i] - xb[i]/3), WTSM(yarr[i] - yb[i]/3),
+                                              WTSM(xarr[i]), WTSM(yarr[i]) );
                                   }
                                   else{
                                       sprintf(buf, " %d %d %d %d %d %d",
-                                              WTSM(static_cast<int>(xarr[i] - xb[i]/3)), WTSM(static_cast<int>(yarr[i] - yb[i]/3)),
-                                              WTSM(static_cast<int>(xarr[i])), WTSM(static_cast<int>(yarr[i])),
-                                              WTSM(static_cast<int>(xarr[i]) + xb[i]/3), WTSM(static_cast<int>(yarr[i] + yb[i]/3)) );
+                                              WTSM(xarr[i] - xb[i]/3), WTSM(yarr[i] - yb[i]/3),
+                                              WTSM(xarr[i]), WTSM(yarr[i]),
+                                              WTSM(xarr[i] + xb[i]/3), WTSM(yarr[i] + yb[i]/3) );
                                   }
 
-                                  oustr += ascii(buf);
+                                  oustr.append(ascii(buf));
                               }
                               delete[] tarr;
                               delete[] xarr;
@@ -4429,7 +4429,7 @@ void HwpReader::makePictureDRAW(HWPDrawingObject *drawobj, Picture * hbox)
                               delete[] darr;
                           }
 
-                    padd("svg:d", sXML_CDATA, oustr);
+                    padd("svg:d", sXML_CDATA, oustr.makeStringAndClear());
 
                     rstartEl("draw:path", mxList.get());
                     mxList->clear();
@@ -4464,19 +4464,19 @@ void HwpReader::makePictureDRAW(HWPDrawingObject *drawobj, Picture * hbox)
                     sprintf(buf, "0 0 %d %d", WTSM(drawobj->extent.w), WTSM(drawobj->extent.h));
                     padd("svg:viewBox", sXML_CDATA, ascii(buf) );
 
-                    OUString oustr;
+                    OUStringBuffer oustr;
 
                     if (drawobj->u.freeform.npt > 0)
                     {
                         sprintf(buf, "%d,%d", WTSM(drawobj->u.freeform.pt[0].x), WTSM(drawobj->u.freeform.pt[0].y));
-                        oustr += ascii(buf);
+                        oustr.append(ascii(buf));
                         int i;
                         for (i = 1; i < drawobj->u.freeform.npt  ; i++)
                         {
                             sprintf(buf, " %d,%d",
                                 WTSM(drawobj->u.freeform.pt[i].x),
                                 WTSM(drawobj->u.freeform.pt[i].y));
-                            oustr += ascii(buf);
+                            oustr.append(ascii(buf));
                         }
                         if( drawobj->u.freeform.pt[0].x == drawobj->u.freeform.pt[i-1].x &&
                             drawobj->u.freeform.pt[0].y == drawobj->u.freeform.pt[i-1].y )
@@ -4484,7 +4484,7 @@ void HwpReader::makePictureDRAW(HWPDrawingObject *drawobj, Picture * hbox)
                             bIsPolygon = true;
                         }
                     }
-                    padd("draw:points", sXML_CDATA, oustr);
+                    padd("draw:points", sXML_CDATA, oustr.makeStringAndClear());
 
                     if( drawobj->property.fill_color <=  0xffffff ||
                         drawobj->property.pattern_type != 0)

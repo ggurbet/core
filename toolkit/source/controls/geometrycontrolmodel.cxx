@@ -22,7 +22,6 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <osl/diagnose.h>
 #include <rtl/instance.hxx>
-#include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
 #include <toolkit/controls/eventcontainer.hxx>
 #include <toolkit/helper/property.hxx>
@@ -361,7 +360,7 @@
         if (!m_bCloneable)
             return Reference< XCloneable >();
 
-        // let the aggregate create it's own clone
+        // let the aggregate create its own clone
         // the interface
         Reference< XCloneable > xCloneAccess;
         m_xAggregate->queryAggregation(cppu::UnoType<decltype(xCloneAccess)>::get()) >>= xCloneAccess;

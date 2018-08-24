@@ -31,6 +31,7 @@
 #include <unotools/streamwrap.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <sal/log.hxx>
 
 #include <com/sun/star/document/XFilter.hpp>
 #include <com/sun/star/document/XImporter.hpp>
@@ -47,7 +48,7 @@ class SwRTFReader : public Reader
 ErrCode SwRTFReader::Read(SwDoc& rDoc, const OUString& /*rBaseURL*/, SwPaM& rPam,
                           const OUString& /*rFileName*/)
 {
-    if (!pStrm)
+    if (!m_pStream)
         return ERR_SWG_READ_ERROR;
 
     // We want to work in an empty paragraph.
@@ -88,10 +89,11 @@ ErrCode SwRTFReader::Read(SwDoc& rDoc, const OUString& /*rBaseURL*/, SwPaM& rPam
 
     uno::Reference<document::XFilter> xFilter(xInterface, uno::UNO_QUERY_THROW);
     uno::Sequence<beans::PropertyValue> aDescriptor(comphelper::InitPropertySequence(
-        { { "InputStream", uno::Any(uno::Reference<io::XStream>(new utl::OStreamWrapper(*pStrm))) },
+        { { "InputStream",
+            uno::Any(uno::Reference<io::XStream>(new utl::OStreamWrapper(*m_pStream))) },
           { "InsertMode", uno::Any(true) },
           { "TextInsertModeRange", uno::Any(xInsertTextRange) } }));
-    ErrCode ret = ERRCODE_NONE;
+    auto ret = ERRCODE_NONE;
     try
     {
         xFilter->filter(aDescriptor);

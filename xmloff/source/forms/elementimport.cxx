@@ -45,6 +45,7 @@
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
 #include <rtl/strbuf.hxx>
+#include <sal/log.hxx>
 #include <comphelper/extract.hxx>
 #include <comphelper/types.hxx>
 #include <comphelper/sequence.hxx>
@@ -453,14 +454,12 @@ namespace xmloff
             return OUString(sUnnamedName);
         Sequence< OUString > aNames = m_xParentContainer->getElementNames();
 
-        OUString sReturn;
         const OUString* pNames = nullptr;
         const OUString* pNamesEnd = aNames.getConstArray() + aNames.getLength();
         for (sal_Int32 i=0; i<32768; ++i)   // the limit is nearly arbitrary ...
         {
             // assemble the new name (suggestion)
-            sReturn = sUnnamedName;
-            sReturn += OUString::number(i);
+            OUString sReturn = sUnnamedName + OUString::number(i);
             // check the existence (this is the bad performance part ....)
             for (pNames = aNames.getConstArray(); pNames<pNamesEnd; ++pNames)
             {
@@ -2048,7 +2047,7 @@ namespace xmloff
                 )
             {
                 OUString sValue = _xAttrList->getValueByIndex( i );
-
+                sValue = _rImport.GetAbsoluteReference(sValue);
                 INetURLObject aURL(sValue);
                 if ( aURL.GetProtocol() == INetProtocol::File )
                     _xElement->setPropertyValue(PROPERTY_DATASOURCENAME,makeAny(sValue));

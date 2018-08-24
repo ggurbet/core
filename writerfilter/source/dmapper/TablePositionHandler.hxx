@@ -11,7 +11,20 @@
 
 #include "LoggedResources.hxx"
 #include <memory>
-#include <com/sun/star/beans/PropertyValue.hpp>
+
+namespace com
+{
+namespace sun
+{
+namespace star
+{
+namespace beans
+{
+struct PropertyValue;
+}
+}
+}
+}
 
 namespace writerfilter
 {
@@ -94,7 +107,7 @@ public:
     bool operator== (const TablePositionHandler& rHandler) const;
 };
 
-using TablePositionHandlerPtr = std::shared_ptr<TablePositionHandler>;
+using TablePositionHandlerPtr = tools::SvRef<TablePositionHandler>;
 } // namespace dmapper
 } // namespace writerfilter
 

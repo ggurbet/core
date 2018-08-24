@@ -38,6 +38,7 @@
 #include <strings.hxx>
 #include <connectivity/dbconversion.hxx>
 #include <osl/thread.h>
+#include <sal/log.hxx>
 #include <sfx2/sfxhtml.hxx>
 #include <svl/numuno.hxx>
 #include <connectivity/dbtools.hxx>
@@ -804,12 +805,12 @@ Reference< XPreparedStatement > ODatabaseExport::createPreparedStatment( const R
 {
     OUString sComposedTableName = ::dbtools::composeTableName( _xMetaData, _xDestTable, ::dbtools::EComposeRule::InDataManipulation, true );
 
-    OUString aSql = "INSERT INTO "
+    OUStringBuffer aSql = "INSERT INTO "
                   + sComposedTableName
                   + " ( ";
 
     // set values and column names
-    OUString aValues(" VALUES ( ");
+    OUStringBuffer aValues(" VALUES ( ");
 
     OUString aQuote;
     if ( _xMetaData.is() )
@@ -843,18 +844,18 @@ Reference< XPreparedStatement > ODatabaseExport::createPreparedStatment( const R
     {
         if ( !elem.isEmpty() )
         {
-            aSql += elem;
-            aSql += ",";
-            aValues += "?,";
+            aSql.append(elem);
+            aSql.append(",");
+            aValues.append("?,");
         }
     }
 
-    aSql = aSql.replaceAt(aSql.getLength()-1, 1, ")");
-    aValues = aValues.replaceAt(aValues.getLength()-1, 1, ")");
+    aSql[aSql.getLength()-1] = ')';
+    aValues[aValues.getLength()-1] = ')';
 
-    aSql += aValues;
+    aSql.append(aValues);
     // now create,fill and execute the prepared statement
-    return _xMetaData->getConnection()->prepareStatement(aSql);
+    return _xMetaData->getConnection()->prepareStatement(aSql.makeStringAndClear());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

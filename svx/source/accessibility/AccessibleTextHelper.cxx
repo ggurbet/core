@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <deque>
 #include <osl/mutex.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <cppuhelper/weakref.hxx>
@@ -66,6 +67,7 @@
 #include <editeng/editdata.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
@@ -759,12 +761,15 @@ namespace accessibility
             SvxTextForwarder& rCacheTF = GetTextForwarder();
             sal_Int32 nParas=rCacheTF.GetParagraphCount();
 
-            mnFirstVisibleChild = nParas ? 0 : -1;
+            mnFirstVisibleChild = -1;
             mnLastVisibleChild = -2;
 
-            if (mxFrontEnd.is() && bBroadcastEvents)
+            for( sal_Int32 nCurrPara=0; nCurrPara<nParas; ++nCurrPara )
             {
-                for( sal_Int32 nCurrPara=0; nCurrPara<nParas; ++nCurrPara )
+                if (nCurrPara == 0)
+                    mnFirstVisibleChild = nCurrPara;
+                mnLastVisibleChild = nCurrPara;
+                if (mxFrontEnd.is() && bBroadcastEvents)
                 {
                     // child not yet created?
                     ::accessibility::AccessibleParaManager::WeakChild aChild( maParaManager.GetChild(nCurrPara) );
@@ -777,8 +782,6 @@ namespace accessibility
                     }
                 }
             }
-
-            mnLastVisibleChild = nParas - 1;
         }
         catch( const uno::Exception& )
         {
@@ -1284,7 +1287,7 @@ namespace accessibility
                 }
                 catch( const uno::Exception& )
                 {
-                    SAL_WARN("svx", "Unhandled exception.");
+                    DBG_UNHANDLED_EXCEPTION("svx");
                 }
             }
         }
@@ -1398,7 +1401,7 @@ namespace accessibility
         }
         catch( const uno::Exception& )
         {
-            SAL_WARN("svx", "Unhandled exception.");
+            DBG_UNHANDLED_EXCEPTION("svx");
             mbInNotify = false;
         }
 

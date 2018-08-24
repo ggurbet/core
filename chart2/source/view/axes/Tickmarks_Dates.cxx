@@ -20,7 +20,9 @@
 #include "Tickmarks_Dates.hxx"
 #include "DateScaling.hxx"
 #include <rtl/math.hxx>
+#include <osl/diagnose.h>
 #include <DateHelper.hxx>
+#include <com/sun/star/chart/TimeUnit.hpp>
 
 namespace chart
 {
@@ -44,14 +46,6 @@ DateTickFactory::DateTickFactory(
         m_xInverseScaling = m_aScale.Scaling->getInverseScaling();
         OSL_ENSURE( m_xInverseScaling.is(), "each Scaling needs to return a inverse Scaling" );
     }
-
-    m_fScaledVisibleMin = m_aScale.Minimum;
-    if( m_xInverseScaling.is() )
-        m_fScaledVisibleMin = m_aScale.Scaling->doScaling(m_fScaledVisibleMin);
-
-    m_fScaledVisibleMax = m_aScale.Maximum;
-    if( m_xInverseScaling.is() )
-        m_fScaledVisibleMax = m_aScale.Scaling->doScaling(m_fScaledVisibleMax);
 }
 
 DateTickFactory::~DateTickFactory()

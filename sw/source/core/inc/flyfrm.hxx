@@ -25,6 +25,7 @@
 #include <frmfmt.hxx>
 #include <anchoredobject.hxx>
 
+class SwFormatAnchor;
 class SwPageFrame;
 class SwFormatFrameSize;
 struct SwCursorMoveState;
@@ -58,7 +59,7 @@ bool CalcClipRect( const SdrObject *pSdrObj, SwRect &rRect, bool bMove = true );
 class SwFlyFrame : public SwLayoutFrame, public SwAnchoredObject
 {
     // is allowed to lock, implemented in frmtool.cxx
-    friend void AppendObjs   ( const SwFrameFormats *, sal_uLong, SwFrame *, SwPageFrame *, SwDoc* );
+    friend void AppendObj(SwFrame *const pFrame, SwPageFrame *const pPage, SwFrameFormat *const pFormat, const SwFormatAnchor & rAnch);
     friend void Notify( SwFlyFrame *, SwPageFrame *pOld, const SwRect &rOld,
                         const SwRect* pOldPrt );
 
@@ -77,7 +78,7 @@ protected:
 private:
     // It must be possible to block Content-bound flys so that they will be not
     // formatted; in this case MakeAll() returns immediately. This is necessary
-    // for page changes during formattting. In addition, it is needed during
+    // for page changes during formatting. In addition, it is needed during
     // the constructor call of the root object since otherwise the anchor will
     // be formatted before the root is anchored correctly to a shell and
     // because too much would be formatted as a result.

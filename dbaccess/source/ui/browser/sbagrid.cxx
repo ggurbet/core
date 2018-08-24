@@ -32,6 +32,7 @@
 #include <sbagrid.hxx>
 #include <dlgattr.hxx>
 #include <dlgsize.hxx>
+#include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/form/XLoadable.hpp>
 #include <com/sun/star/form/ControlFontDialog.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
@@ -51,6 +52,7 @@
 #include <com/sun/star/sdbc/XResultSetUpdate.hpp>
 #include <tools/diagnose_ex.h>
 
+#include <sal/log.hxx>
 #include <svl/intitem.hxx>
 #include <svx/algitem.hxx>
 #include <tools/multisel.hxx>

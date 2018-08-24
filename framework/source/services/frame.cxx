@@ -66,7 +66,6 @@
 #include <com/sun/star/util/XCloseable.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 
-#include <comphelper/sequenceashashmap.hxx>
 #include <cppuhelper/basemutex.hxx>
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/queryinterface.hxx>
@@ -77,6 +76,7 @@
 #include <cppuhelper/weak.hxx>
 #include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <vcl/window.hxx>
 #include <vcl/wrkwin.hxx>
 #include <vcl/svapp.hxx>
@@ -1291,8 +1291,8 @@ void SAL_CALL Frame::activate()
 
 /*-****************************************************************************************************
     @short      deactivate frame in hierarchy
-    @descr      This feature is used to deactive paths in our frame hierarchy.
-                You can be a listener for this event to react for it ... change some internal states or something else.
+    @descr      This feature is used to deactivate paths in our frame hierarchy.
+                You can be a listener for this event to react for it... change some internal states or something else.
 
     @seealso    method activate()
     @seealso    method isActivate()
@@ -1635,7 +1635,7 @@ void SAL_CALL Frame::removeFrameActionListener( const css::uno::Reference< css::
     @param      bDeliverOwnership
                     If parameter is set to <FALSE/> the original caller will be the owner after thrown
                     veto exception and must try to close this frame at later time again. Otherwise the
-                    source of throwed exception is the right one. May it will be the frame himself.
+                    source of thrown exception is the right one. May it will be the frame himself.
 
     @throws     CloseVetoException
                     if any internal things willn't be closed
@@ -2618,7 +2618,7 @@ void SAL_CALL Frame::windowHidden( const css::lang::EventObject& )
     @short      called by dispose of our windows!
     @descr      This object is forced to release all references to the interfaces given
                 by the parameter source. We are a listener at our container window and
-                should listen for his diposing.
+                should listen for his disposing.
 
     @seealso    XWindowListener
     @seealso    XTopWindowListener
@@ -3175,7 +3175,7 @@ void Frame::implts_checkSuicide()
     m_bSelfClose = false;
     aReadLock.clear();
     /* } SAFE */
-    // force close and deliver ownership to source of possible throwed veto exception
+    // force close and deliver ownership to source of possible thrown veto exception
     // Attention: Because this method is not designed to throw such exception we must suppress
     // it for outside code!
     try

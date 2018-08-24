@@ -219,8 +219,8 @@ sal_uLong ImageMap::Read( SvStream& rIStm, sal_uLong nFormat  )
     switch ( nFormat )
     {
         case IMAP_FORMAT_BIN    : Read( rIStm ); break;
-        case IMAP_FORMAT_CERN   : nRet = ImpReadCERN( rIStm ); break;
-        case IMAP_FORMAT_NCSA   : nRet = ImpReadNCSA( rIStm ); break;
+        case IMAP_FORMAT_CERN   : ImpReadCERN( rIStm ); break;
+        case IMAP_FORMAT_NCSA   : ImpReadNCSA( rIStm ); break;
 
         default:
         break;
@@ -232,7 +232,7 @@ sal_uLong ImageMap::Read( SvStream& rIStm, sal_uLong nFormat  )
     return nRet;
 }
 
-sal_uLong ImageMap::ImpReadCERN( SvStream& rIStm )
+void ImageMap::ImpReadCERN( SvStream& rIStm )
 {
     // delete old content
     ClearImageMap();
@@ -240,8 +240,6 @@ sal_uLong ImageMap::ImpReadCERN( SvStream& rIStm )
     OString aStr;
     while ( rIStm.ReadLine( aStr ) )
         ImpReadCERNLine( aStr );
-
-    return IMAP_ERR_OK;
 }
 
 void ImageMap::ImpReadCERNLine( const OString& rLine  )
@@ -287,12 +285,11 @@ void ImageMap::ImpReadCERNLine( const OString& rLine  )
     {
         const sal_uInt16 nCount = comphelper::string::getTokenCount(aStr, '(') - 1;
         tools::Polygon aPoly( nCount );
-        OUString aURL;
 
         for ( sal_uInt16 i = 0; i < nCount; i++ )
             aPoly[ i ] = ImpReadCERNCoords( &pStr );
 
-        aURL = ImpReadCERNURL( &pStr );
+        const OUString aURL = ImpReadCERNURL( &pStr );
 
         maList.emplace_back( new IMapPolygonObject( aPoly, aURL, OUString(), OUString(), OUString(), OUString() ) );
     }
@@ -370,7 +367,7 @@ OUString ImageMap::ImpReadCERNURL( const char** ppStr )
     return INetURLObject::GetAbsURL( "", aStr );
 }
 
-sal_uLong ImageMap::ImpReadNCSA( SvStream& rIStm )
+void ImageMap::ImpReadNCSA( SvStream& rIStm )
 {
     // delete old content
     ClearImageMap();
@@ -378,8 +375,6 @@ sal_uLong ImageMap::ImpReadNCSA( SvStream& rIStm )
     OString aStr;
     while ( rIStm.ReadLine( aStr ) )
         ImpReadNCSALine( aStr );
-
-    return IMAP_ERR_OK;
 }
 
 void ImageMap::ImpReadNCSALine( const OString& rLine )
@@ -425,8 +420,7 @@ void ImageMap::ImpReadNCSALine( const OString& rLine )
     }
     else if ( aToken == "poly" )
     {
-        const sal_uInt16 nCount = comphelper::string::getTokenCount(aStr,
-            ',') - 1;
+        const sal_uInt16 nCount = comphelper::string::getTokenCount(aStr, ',') - 1;
         const OUString aURL( ImpReadNCSAURL( &pStr ) );
         tools::Polygon aPoly( nCount );
 

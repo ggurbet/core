@@ -18,10 +18,12 @@
  */
 
 #include <AccessiblePresentationOLEShape.hxx>
+#include <com/sun/star/accessibility/AccessibleRole.hpp>
 
 #include <SdShapeTypes.hxx>
 
 #include <svx/DescriptionGenerator.hxx>
+#include <svx/ShapeTypeHandler.hxx>
 #include <rtl/ustring.h>
 
 using namespace ::com::sun::star;
@@ -36,9 +38,6 @@ AccessiblePresentationOLEShape::AccessiblePresentationOLEShape (
     const AccessibleShapeTreeInfo& rShapeTreeInfo)
     :   AccessibleOLEShape (rShapeInfo, rShapeTreeInfo)
 {
-#if defined __clang__ && defined _MSC_VER // workaround clang-cl ABI bug PR25641
-    css::uno::Sequence<css::uno::Type> dummy; (void) dummy;
-#endif
 }
 
 AccessiblePresentationOLEShape::~AccessiblePresentationOLEShape()

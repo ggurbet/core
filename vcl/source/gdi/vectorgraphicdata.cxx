@@ -18,6 +18,7 @@
  */
 
 #include <tools/stream.hxx>
+#include <sal/log.hxx>
 #include <vcl/vectorgraphicdata.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -73,11 +74,7 @@ BitmapEx convertPrimitive2DSequenceToBitmapEx(
             if(xBitmap.is())
             {
                 const uno::Reference< rendering::XIntegerReadOnlyBitmap> xIntBmp(xBitmap, uno::UNO_QUERY_THROW);
-
-                if(xIntBmp.is())
-                {
-                    aRetval = vcl::unotools::bitmapExFromXBitmap(xIntBmp);
-                }
+                aRetval = vcl::unotools::bitmapExFromXBitmap(xIntBmp);
             }
         }
         catch (const uno::Exception& e)

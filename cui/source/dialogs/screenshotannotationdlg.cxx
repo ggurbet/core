@@ -158,10 +158,9 @@ private:
     Point GetOffsetInPicture() const;
 
     // local variables
-    ScreenshotAnnotationDlg&    mrParent;
     Dialog&                     mrParentDialog;
-    Bitmap                      maParentDialogBitmap;
-    Bitmap                      maDimmedDialogBitmap;
+    BitmapEx                    maParentDialogBitmap;
+    BitmapEx                    maDimmedDialogBitmap;
     Size                        maParentDialogSize;
 
     // VirtualDevice for buffered interaction paints
@@ -193,8 +192,7 @@ OUString ScreenshotAnnotationDlg_Impl::maLastFolderURL = OUString();
 ScreenshotAnnotationDlg_Impl::ScreenshotAnnotationDlg_Impl(
     ScreenshotAnnotationDlg& rParent,
     Dialog& rParentDialog)
-:   mrParent(rParent),
-    mrParentDialog(rParentDialog),
+:   mrParentDialog(rParentDialog),
     maParentDialogBitmap(rParentDialog.createScreenshot()),
     maDimmedDialogBitmap(maParentDialogBitmap),
     maParentDialogSize(maParentDialogBitmap.GetSizePixel()),
@@ -213,11 +211,11 @@ ScreenshotAnnotationDlg_Impl::ScreenshotAnnotationDlg_Impl(
     assert(0 != maParentDialogBitmap.GetSizePixel().Height());
 
     // get needed widgets
-    mrParent.get(mpPicture, "picture");
+    rParent.get(mpPicture, "picture");
     assert(mpPicture.get());
-    mrParent.get(mpText, "text");
+    rParent.get(mpText, "text");
     assert(mpText.get());
-    mrParent.get(mpSave, "save");
+    rParent.get(mpSave, "save");
     assert(mpSave.get());
 
     // set screenshot image at FixedImage, resize, set event listener
@@ -235,7 +233,7 @@ ScreenshotAnnotationDlg_Impl::ScreenshotAnnotationDlg_Impl(
 
         // to make clear that maParentDialogBitmap is a background image, adjust
         // luminance a bit for maDimmedDialogBitmap - other methods may be applied
-        maDimmedDialogBitmap.Adjust(-15);
+        maDimmedDialogBitmap.Adjust(-15, 0, 0, 0, 0);
 
         // init paint buffering VirtualDevice
         mpVirtualBufferDevice = VclPtr<VirtualDevice>::Create(*Application::GetDefaultDevice(), DeviceFormat::DEFAULT, DeviceFormat::BITMASK);
@@ -386,8 +384,8 @@ IMPL_LINK_NOARG(ScreenshotAnnotationDlg_Impl, saveButtonHandler, Button*, void)
                     RepaintToBuffer();
 
                     // extract Bitmap
-                    const Bitmap aTargetBitmap(
-                        mpVirtualBufferDevice->GetBitmap(
+                    const BitmapEx aTargetBitmap(
+                        mpVirtualBufferDevice->GetBitmapEx(
                         Point(0, 0),
                         mpVirtualBufferDevice->GetOutputSizePixel()));
 
@@ -490,7 +488,7 @@ void ScreenshotAnnotationDlg_Impl::RepaintToBuffer(
     if (mpVirtualBufferDevice)
     {
         // reset with original screenshot bitmap
-        mpVirtualBufferDevice->DrawBitmap(
+        mpVirtualBufferDevice->DrawBitmapEx(
             Point(0, 0),
             bUseDimmed ? maDimmedDialogBitmap : maParentDialogBitmap);
 
@@ -545,7 +543,7 @@ void ScreenshotAnnotationDlg_Impl::RepaintPictureElement()
         // also set image to get repaints right, but trigger no repaint
         mpPicture->SetImage(
             Image(
-            mpVirtualBufferDevice->GetBitmap(
+            mpVirtualBufferDevice->GetBitmapEx(
             Point(0, 0),
             mpVirtualBufferDevice->GetOutputSizePixel())));
         mpPicture->Validate();
@@ -601,14 +599,14 @@ IMPL_LINK(ScreenshotAnnotationDlg_Impl, pictureFrameListener, VclWindowEvent&, r
                         maSelected.insert(mpHilighted);
                     }
 
-                    OUString aBookmarks;
+                    OUStringBuffer aBookmarks(maMainMarkupText);
                     for (auto&& rCandidate : maSelected)
                     {
                         OUString aHelpId = OStringToOUString( rCandidate->GetHelpId(), RTL_TEXTENCODING_UTF8 );
-                        aBookmarks += lcl_Bookmark( aHelpId );
+                        aBookmarks.append(lcl_Bookmark( aHelpId ));
                     }
 
-                    mpText->SetText( maMainMarkupText + aBookmarks );
+                    mpText->SetText( aBookmarks.makeStringAndClear() );
                     bRepaint = true;
                 }
                 break;

@@ -148,14 +148,14 @@ bool DrawViewShell::KeyInput (const KeyEvent& rKEvt, ::sd::Window* pWin)
                 GetView()->SdrEndTextEdit();
 
                 // look for a new candidate, a successor of pOldObj
-                SdrObjListIter aIter(*pActualPage, SdrIterMode::DeepNoGroups);
+                SdrObjListIter aIter(pActualPage, SdrIterMode::DeepNoGroups);
                 bool bDidVisitOldObject(false);
 
                 while(aIter.IsMore() && !pCandidate)
                 {
                     SdrObject* pObj = aIter.Next();
 
-                    if(pObj && dynamic_cast< const SdrTextObj *>( pObj ) !=  nullptr)
+                    if(auto pSdrTextObj = dynamic_cast<SdrTextObj *>( pObj ))
                     {
                         SdrInventor nInv(pObj->GetObjInventor());
                         sal_uInt16  nKnd(pObj->GetObjIdentifier());
@@ -164,7 +164,7 @@ bool DrawViewShell::KeyInput (const KeyEvent& rKEvt, ::sd::Window* pWin)
                             (OBJ_TITLETEXT == nKnd || OBJ_OUTLINETEXT == nKnd || OBJ_TEXT == nKnd)
                             && bDidVisitOldObject)
                         {
-                            pCandidate = static_cast<SdrTextObj*>(pObj);
+                            pCandidate = pSdrTextObj;
                         }
 
                         if(pObj == pOldObj)
@@ -269,6 +269,9 @@ void DrawViewShell::FreshNavigatrTree()
 void DrawViewShell::MouseButtonDown(const MouseEvent& rMEvt,
     ::sd::Window* pWin)
 {
+    mbMouseButtonDown = true;
+    mbMouseSelecting = false;
+
     // We have to check if a context menu is shown and we have an UI
     // active inplace client. In that case we have to ignore the mouse
     // button down event. Otherwise we would crash (context menu has been
@@ -300,6 +303,9 @@ void DrawViewShell::MouseButtonDown(const MouseEvent& rMEvt,
 
 void DrawViewShell::MouseMove(const MouseEvent& rMEvt, ::sd::Window* pWin)
 {
+    if ( IsMouseButtonDown() )
+        mbMouseSelecting = true;
+
     if ( !IsInputLocked() )
     {
         if ( mpDrawView->IsAction() )
@@ -409,6 +415,8 @@ void DrawViewShell::MouseMove(const MouseEvent& rMEvt, ::sd::Window* pWin)
 
 void DrawViewShell::MouseButtonUp(const MouseEvent& rMEvt, ::sd::Window* pWin)
 {
+    mbMouseButtonDown = false;
+
     if ( !IsInputLocked() )
     {
         bool bIsSetPageOrg = mpDrawView->IsSetPageOrg();
@@ -446,6 +454,7 @@ void DrawViewShell::MouseButtonUp(const MouseEvent& rMEvt, ::sd::Window* pWin)
         //else the corresponding entry is set false .
         FreshNavigatrTree();
     }
+    mbMouseSelecting = false;
 }
 
 void DrawViewShell::Command(const CommandEvent& rCEvt, ::sd::Window* pWin)

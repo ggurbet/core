@@ -437,20 +437,17 @@ void SwDrawTextShell::ExecDraw(SfxRequest &rReq)
                 SfxItemSet aNewAttr( pSdrView->GetModel()->GetItemPool() );
                 pSdrView->GetAttributes( aNewAttr );
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                if ( pFact )
-                {
-                    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog(
-                                &(GetView().GetViewFrame()->GetWindow()),
-                                &aNewAttr, pSdrView ));
-                    sal_uInt16 nResult = pDlg->Execute();
+                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog(
+                            GetView().GetViewFrame()->GetWindow().GetFrameWeld(),
+                            &aNewAttr, pSdrView ));
+                sal_uInt16 nResult = pDlg->Execute();
 
-                    if (nResult == RET_OK)
+                if (nResult == RET_OK)
+                {
+                    if (pSdrView->AreObjectsMarked())
                     {
-                        if (pSdrView->AreObjectsMarked())
-                        {
-                            pSdrView->SetAttributes(*pDlg->GetOutputItemSet());
-                            rReq.Done(*(pDlg->GetOutputItemSet()));
-                        }
+                        pSdrView->SetAttributes(*pDlg->GetOutputItemSet());
+                        rReq.Done(*(pDlg->GetOutputItemSet()));
                     }
                 }
             }
@@ -509,7 +506,7 @@ void SwDrawTextShell::ExecUndo(SfxRequest &rReq)
                     1 < (nCnt = static_cast<const SfxUInt16Item*>(pItem)->GetValue()) )
                 {
                     // then we make by ourself.
-                    ::svl::IUndoManager* pUndoManager = GetUndoManager();
+                    SfxUndoManager* pUndoManager = GetUndoManager();
                     if( pUndoManager )
                     {
                         if( SID_UNDO == nId )
@@ -550,30 +547,30 @@ void SwDrawTextShell::StateUndo(SfxItemSet &rSet)
         case SID_GETUNDOSTRINGS:
         case SID_GETREDOSTRINGS:
             {
-                ::svl::IUndoManager* pUndoManager = GetUndoManager();
+                SfxUndoManager* pUndoManager = GetUndoManager();
                 if( pUndoManager )
                 {
-                    OUString (::svl::IUndoManager:: *fnGetComment)( size_t, bool const ) const;
+                    OUString (SfxUndoManager:: *fnGetComment)( size_t, bool const ) const;
 
                     sal_uInt16 nCount;
                     if( SID_GETUNDOSTRINGS == nWhich )
                     {
                         nCount = pUndoManager->GetUndoActionCount();
-                        fnGetComment = &::svl::IUndoManager::GetUndoActionComment;
+                        fnGetComment = &SfxUndoManager::GetUndoActionComment;
                     }
                     else
                     {
                         nCount = pUndoManager->GetRedoActionCount();
-                        fnGetComment = &::svl::IUndoManager::GetRedoActionComment;
+                        fnGetComment = &SfxUndoManager::GetRedoActionComment;
                     }
                     if( nCount )
                     {
-                        OUString sList;
+                        OUStringBuffer sList;
                         for( sal_uInt16 n = 0; n < nCount; ++n )
-                            sList += (pUndoManager->*fnGetComment)( n, ::svl::IUndoManager::TopLevel ) + "\n";
+                            sList.append( (pUndoManager->*fnGetComment)( n, SfxUndoManager::TopLevel ) ).append("\n");
 
                         SfxStringListItem aItem( nWhich );
-                        aItem.SetString( sList );
+                        aItem.SetString( sList.makeStringAndClear() );
                         rSet.Put( aItem );
                     }
                 }
@@ -790,7 +787,7 @@ void SwDrawTextShell::InsertSymbol(SfxRequest& rReq)
 
 }
 
-::svl::IUndoManager* SwDrawTextShell::GetUndoManager()
+SfxUndoManager* SwDrawTextShell::GetUndoManager()
 {
     SwWrtShell &rSh = GetShell();
     pSdrView = rSh.GetDrawView();

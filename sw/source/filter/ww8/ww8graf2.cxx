@@ -216,15 +216,9 @@ void wwZOrderer::InsertTextLayerObject(SdrObject* pObject)
  */
 sal_uLong wwZOrderer::GetDrawingObjectPos(short nWwHeight)
 {
-    myditer aIter = maDrawHeight.begin();
-    myditer aEnd = maDrawHeight.end();
-
-    while (aIter != aEnd)
-    {
-        if ((*aIter & 0x1fff) > (nWwHeight & 0x1fff))
-            break;
-        ++aIter;
-    }
+    auto aIter = std::find_if(
+        maDrawHeight.begin(), maDrawHeight.end(),
+        [nWwHeight](short aHeight){ return (aHeight & 0x1fff) > (nWwHeight & 0x1fff); });
 
     aIter = maDrawHeight.insert(aIter, nWwHeight);
     return std::distance(maDrawHeight.begin(), aIter);
@@ -336,7 +330,7 @@ void SwWW8ImplReader::ReplaceObj(const SdrObject &rReplaceObj,
     SdrObject &rSubObj)
 {
     // Insert SdrGrafObj instead of SdrTextObj into this group
-    if (SdrObject* pGroupObject = rReplaceObj.GetUpGroup())
+    if (SdrObject* pGroupObject = rReplaceObj.getParentSdrObjectFromSdrObject())
     {
         SdrObjList* pObjectList = pGroupObject->GetSubList();
 
@@ -561,7 +555,7 @@ SwFrameFormat* SwWW8ImplReader::ImportGraf(SdrTextObj const * pTextObj,
 
             tools::Rectangle aClientRect( 0,0, aPD.nWidth,  aPD.nHeight);
             SvxMSDffImportData aData( aClientRect );
-            pObject = m_xMSDffManager->ImportObj(*m_pDataStream, &aData, aClientRect, tools::Rectangle(), /*nCalledByGroup*/0, /*pShapeId*/nullptr );
+            pObject = m_xMSDffManager->ImportObj(*m_pDataStream, aData, aClientRect, tools::Rectangle(), /*nCalledByGroup*/0, /*pShapeId*/nullptr );
             if (pObject)
             {
                 // for the frame
@@ -584,10 +578,11 @@ SwFrameFormat* SwWW8ImplReader::ImportGraf(SdrTextObj const * pTextObj,
                         relativeWidth = pRecord->isHorizontalRule ? 1000 : 0;
                     if( relativeWidth != 0 )
                     {
+                        const sal_Int16 nScale = aPic.dxaGoal ? aPic.dxaGoal : 1000;
                         aPic.mx = msword_cast<sal_uInt16>(
                             m_aSectionManager.GetPageWidth() -
                             m_aSectionManager.GetPageRight() -
-                            m_aSectionManager.GetPageLeft()) * relativeWidth / aPic.dxaGoal;
+                            m_aSectionManager.GetPageLeft()) * relativeWidth / nScale;
                         aPD = WW8PicDesc( aPic );
                         // This SetSnapRect() call adjusts the size of the
                         // object itself, no idea why it's this call (or even
@@ -656,7 +651,7 @@ SwFrameFormat* SwWW8ImplReader::ImportGraf(SdrTextObj const * pTextObj,
                 }
 
                 bool bTextObjWasGrouped = false;
-                if (pOldFlyFormat && pTextObj && pTextObj->GetUpGroup())
+                if (pOldFlyFormat && pTextObj && pTextObj->getParentSdrObjectFromSdrObject())
                     bTextObjWasGrouped = true;
 
                 if (bTextObjWasGrouped)
@@ -712,7 +707,7 @@ SwFrameFormat* SwWW8ImplReader::ImportGraf(SdrTextObj const * pTextObj,
                                 pOurNewObject );
 
                             // delete and destroy old SdrGrafObj from page
-                            if (pObject->GetPage())
+                            if (pObject->getSdrPageFromSdrObject())
                                 m_pDrawPg->RemoveObject(pObject->GetOrdNum());
                             SdrObject::Free( pObject );
                         }
@@ -724,7 +719,7 @@ SwFrameFormat* SwWW8ImplReader::ImportGraf(SdrTextObj const * pTextObj,
                     m_xMSDffManager->RemoveFromShapeOrder( pObject );
 
                 // also delete this from the page if not grouped
-                if (pTextObj && !bTextObjWasGrouped && pTextObj->GetPage())
+                if (pTextObj && !bTextObjWasGrouped && pTextObj->getSdrPageFromSdrObject())
                     m_pDrawPg->RemoveObject( pTextObj->GetOrdNum() );
             }
             m_xMSDffManager->EnableFallbackStream();

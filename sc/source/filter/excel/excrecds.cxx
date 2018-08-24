@@ -48,6 +48,7 @@
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <svtools/ctrltool.hxx>
+#include <sal/log.hxx>
 
 #include <string.h>
 
@@ -701,7 +702,10 @@ bool XclExpAutofilter::AddEntry( const ScQueryEntry& rEntry )
         return true;
 
     if (GetOutput() != EXC_OUTPUT_BINARY && rItems.size() > 1)
-        return AddMultiValueEntry(rEntry);
+    {
+        AddMultiValueEntry(rEntry);
+        return true;
+    }
 
     bool bConflict = false;
     OUString  sText;
@@ -808,15 +812,13 @@ bool XclExpAutofilter::AddEntry( const ScQueryEntry& rEntry )
     return bConflict;
 }
 
-bool XclExpAutofilter::AddMultiValueEntry( const ScQueryEntry& rEntry )
+void XclExpAutofilter::AddMultiValueEntry( const ScQueryEntry& rEntry )
 {
     meType = MultiValue;
     const ScQueryEntry::QueryItemsType& rItems = rEntry.GetQueryItems();
     ScQueryEntry::QueryItemsType::const_iterator itr = rItems.begin(), itrEnd = rItems.end();
     for (; itr != itrEnd; ++itr)
         maMultiValues.push_back(itr->maString.getString());
-
-    return false;
 }
 
 void XclExpAutofilter::WriteBody( XclExpStream& rStrm )
@@ -1013,8 +1015,8 @@ void ExcAutoFilterRecs::AddObjRecs()
         ScAddress aAddr( m_pFilterInfo->GetStartPos() );
         for( SCCOL nObj = 0, nCount = m_pFilterInfo->GetColCount(); nObj < nCount; nObj++ )
         {
-            XclObj* pObjRec = new XclObjDropDown( GetObjectManager(), aAddr, IsFiltered( nObj ) );
-            GetObjectManager().AddObj( pObjRec );
+            std::unique_ptr<XclObj> pObjRec(new XclObjDropDown( GetObjectManager(), aAddr, IsFiltered( nObj ) ));
+            GetObjectManager().AddObj( std::move(pObjRec) );
             aAddr.IncCol();
         }
     }

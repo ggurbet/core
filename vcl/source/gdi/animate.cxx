@@ -19,6 +19,7 @@
 
 #include <tools/stream.hxx>
 #include <rtl/crc.h>
+#include <sal/log.hxx>
 
 #include <vcl/animate.hxx>
 #include <vcl/virdev.hxx>
@@ -326,7 +327,6 @@ void Animation::ImplRestartTimer( sal_uLong nTimeout )
 IMPL_LINK_NOARG(Animation, ImplTimeoutHdl, Timer *, void)
 {
     const size_t nAnimCount = maList.size();
-    std::vector< AInfo* > aAInfoList;
 
     if( nAnimCount )
     {
@@ -335,14 +335,15 @@ IMPL_LINK_NOARG(Animation, ImplTimeoutHdl, Timer *, void)
 
         if( maNotifyLink.IsSet() )
         {
+            std::vector< std::unique_ptr<AInfo> > aAInfoList;
             // create AInfo-List
             for(auto const & i : maViewList)
-                aAInfoList.push_back( i->createAInfo() );
+                aAInfoList.emplace_back( i->createAInfo() );
 
             maNotifyLink.Call( this );
 
             // set view state from AInfo structure
-            for(AInfo* pAInfo : aAInfoList)
+            for(auto& pAInfo : aAInfoList)
             {
                 if( !pAInfo->pViewData )
                 {
@@ -357,11 +358,6 @@ IMPL_LINK_NOARG(Animation, ImplTimeoutHdl, Timer *, void)
                 pView->pause( pAInfo->bPause );
                 pView->setMarked( true );
             }
-
-            // delete AInfo structures
-            for(AInfo* i : aAInfoList)
-                delete i;
-            aAInfoList.clear();
 
             // delete all unmarked views and reset marked state
             for( size_t i = 0; i < maViewList.size(); )
@@ -623,27 +619,6 @@ void Animation::Adjust( short nLuminancePercent, short nContrastPercent,
                            nChannelRPercent, nChannelGPercent, nChannelBPercent,
                            fGamma, bInvert );
     }
-}
-
-bool Animation::Filter( BmpFilter eFilter, const BmpFilterParam* pFilterParam )
-{
-    SAL_WARN_IF( IsInAnimation(), "vcl", "Animation modified while it is animated" );
-
-    bool bRet;
-
-    if( !IsInAnimation() && !maList.empty() )
-    {
-        bRet = true;
-
-        for( size_t i = 0, n = maList.size(); ( i < n ) && bRet; ++i )
-            bRet = maList[ i ]->aBmpEx.Filter( eFilter, pFilterParam );
-
-        (void)maBitmapEx.Filter(eFilter, pFilterParam);
-    }
-    else
-        bRet = false;
-
-    return bRet;
 }
 
 SvStream& WriteAnimation( SvStream& rOStm, const Animation& rAnimation )

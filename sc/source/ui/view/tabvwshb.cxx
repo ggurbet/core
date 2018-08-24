@@ -49,6 +49,7 @@
 #include <unotools/moduleoptions.hxx>
 #include <sot/exchange.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <tabvwsh.hxx>
 #include <scmod.hxx>
@@ -325,24 +326,48 @@ void ScTabViewShell::ExecDrawIns(SfxRequest& rReq)
     switch ( nSlot )
     {
         case SID_INSERT_GRAPHIC:
-            FuInsertGraphic(this, pWin, pView, pDrModel, rReq);
+            FuInsertGraphic(*this, pWin, pView, pDrModel, rReq);
             // shell is set in MarkListHasChanged
             break;
 
         case SID_INSERT_AVMEDIA:
-            FuInsertMedia(this, pWin, pView, pDrModel, rReq);
+            FuInsertMedia(*this, pWin, pView, pDrModel, rReq);
             // shell is set in MarkListHasChanged
             break;
 
         case SID_INSERT_DIAGRAM:
-            FuInsertChart(this, pWin, pView, pDrModel, rReq);
+            FuInsertChart(*this, pWin, pView, pDrModel, rReq);
             break;
 
         case SID_INSERT_OBJECT:
         case SID_INSERT_SMATH:
         case SID_INSERT_FLOATINGFRAME:
-            FuInsertOLE(this, pWin, pView, pDrModel, rReq);
+            FuInsertOLE(*this, pWin, pView, pDrModel, rReq);
             break;
+
+        case SID_INSERT_SIGNATURELINE:
+        case SID_EDIT_SIGNATURELINE:
+            {
+                const uno::Reference<frame::XModel> xModel( GetViewData().GetDocShell()->GetBaseModel() );
+
+                VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
+                ScopedVclPtr<AbstractSignatureLineDialog> pDialog(pFact->CreateSignatureLineDialog(
+                    pWin->GetFrameWeld(), xModel, rReq.GetSlot() == SID_EDIT_SIGNATURELINE));
+                pDialog->Execute();
+                break;
+            }
+
+        case SID_SIGN_SIGNATURELINE:
+            {
+                const uno::Reference<frame::XModel> xModel(
+                    GetViewData().GetDocShell()->GetBaseModel());
+
+                VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
+                ScopedVclPtr<AbstractSignSignatureLineDialog> pDialog(
+                    pFact->CreateSignSignatureLineDialog(GetFrameWeld(), xModel));
+                pDialog->Execute();
+                break;
+            }
 
         case SID_INSERT_DIAGRAM_FROM_FILE:
             try
@@ -354,7 +379,7 @@ void ScTabViewShell::ExecDrawIns(SfxRequest& rReq)
                 {
                     INetURLObject aURLObj( aDlg.GetPath() );
                     OUString aURL = aURLObj.GetURLNoPass();
-                    FuInsertChartFromFile(this, pWin, pView, pDrModel, rReq, aURL);
+                    FuInsertChartFromFile(*this, pWin, pView, pDrModel, rReq, aURL);
                 }
             }
             catch (const uno::Exception& e)
@@ -402,13 +427,10 @@ void ScTabViewShell::ExecDrawIns(SfxRequest& rReq)
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                 ScopedVclPtr<SfxAbstractLinksDialog> pDlg(pFact->CreateLinksDialog( pWin, rDoc.GetLinkManager() ));
-                if ( pDlg )
-                {
-                    pDlg->Execute();
-                    rBindings.Invalidate( nSlot );
-                    SfxGetpApp()->Broadcast( SfxHint( SfxHintId::ScAreaLinksChanged ) );     // Navigator
-                    rReq.Done();
-                }
+                pDlg->Execute();
+                rBindings.Invalidate( nSlot );
+                SfxGetpApp()->Broadcast( SfxHint( SfxHintId::ScAreaLinksChanged ) );     // Navigator
+                rReq.Done();
             }
             break;
 
@@ -479,6 +501,7 @@ void ScTabViewShell::GetDrawInsState(SfxItemSet &rSet)
     bool bTabProt = GetViewData().GetDocument()->IsTabProtected(GetViewData().GetTabNo());
     ScDocShell* pDocShell = GetViewData().GetDocShell();
     bool bShared = pDocShell && pDocShell->IsDocShared();
+    SdrView* pSdrView = GetSdrView();
 
     SfxWhichIter aIter(rSet);
     sal_uInt16 nWhich = aIter.FirstWhich();
@@ -506,6 +529,16 @@ void ScTabViewShell::GetDrawInsState(SfxItemSet &rSet)
             case SID_FONTWORK_GALLERY_FLOATER:
                 if ( bTabProt || bShared )
                     rSet.DisableItem( nWhich );
+                break;
+
+            case SID_INSERT_SIGNATURELINE:
+                if ( bTabProt || bShared || (pSdrView && pSdrView->GetMarkedObjectCount() != 0))
+                    rSet.DisableItem( nWhich );
+                break;
+            case SID_EDIT_SIGNATURELINE:
+            case SID_SIGN_SIGNATURELINE:
+                if (!IsSignatureLineSelected())
+                    rSet.DisableItem(nWhich);
                 break;
 
             case SID_INSERT_GRAPHIC:
@@ -542,10 +575,30 @@ void ScTabViewShell::GetDrawInsState(SfxItemSet &rSet)
     }
 }
 
+bool ScTabViewShell::IsSignatureLineSelected()
+{
+    SdrView* pSdrView = GetSdrView();
+    if (!pSdrView)
+        return false;
+
+    if (pSdrView->GetMarkedObjectCount() != 1)
+        return false;
+
+    SdrObject* pPickObj = pSdrView->GetMarkedObjectByIndex(0);
+    if (!pPickObj)
+        return false;
+
+    SdrGrafObj* pGraphic = dynamic_cast<SdrGrafObj*>(pPickObj);
+    if (!pGraphic)
+        return false;
+
+    return pGraphic->isSignatureLine();
+}
+
 void ScTabViewShell::ExecuteUndo(SfxRequest& rReq)
 {
     SfxShell* pSh = GetViewData().GetDispatcher().GetShell(0);
-    ::svl::IUndoManager* pUndoManager = pSh->GetUndoManager();
+    SfxUndoManager* pUndoManager = pSh->GetUndoManager();
 
     const SfxItemSet* pReqArgs = rReq.GetArgs();
     ScDocShell* pDocSh = GetViewData().GetDocShell();
@@ -629,7 +682,7 @@ void ScTabViewShell::ExecuteUndo(SfxRequest& rReq)
 void ScTabViewShell::GetUndoState(SfxItemSet &rSet)
 {
     SfxShell* pSh = GetViewData().GetDispatcher().GetShell(0);
-    ::svl::IUndoManager* pUndoManager = pSh->GetUndoManager();
+    SfxUndoManager* pUndoManager = pSh->GetUndoManager();
 
     SfxWhichIter aIter(rSet);
     sal_uInt16 nWhich = aIter.FirstWhich();

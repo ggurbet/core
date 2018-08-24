@@ -66,6 +66,7 @@
 #include <com/sun/star/uno/TypeClass.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
+#include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/propertysetmixin.hxx>
 #include <cppuhelper/weak.hxx>
@@ -103,17 +104,15 @@ protected:
         css::uno::Sequence< rtl::OUString > const & absentOptional,
         std::vector< rtl::OUString > * handleNames)
     {
-        TypeSet seen;
+        std::set<rtl::OUString> seen;
         initProperties(type, absentOptional, handleNames, &seen);
     }
 
 private:
-    typedef std::set< rtl::OUString > TypeSet;
-
     void initProperties(
         css::uno::Reference< css::reflection::XTypeDescription > const & type,
         css::uno::Sequence< rtl::OUString > const & absentOptional,
-        std::vector< rtl::OUString > * handleNames, TypeSet * seen);
+        std::vector< rtl::OUString > * handleNames, std::set<rtl::OUString> * seen);
 
     static css::uno::Reference< css::reflection::XTypeDescription >
     resolveTypedefs(
@@ -134,7 +133,7 @@ Data::PropertyMap::const_iterator Data::get(
 void Data::initProperties(
     css::uno::Reference< css::reflection::XTypeDescription > const & type,
     css::uno::Sequence< rtl::OUString > const & absentOptional,
-    std::vector< rtl::OUString > * handleNames, TypeSet * seen)
+    std::vector< rtl::OUString > * handleNames, std::set<rtl::OUString> * seen)
 {
     css::uno::Reference< css::reflection::XInterfaceTypeDescription2 > ifc(
         resolveTypedefs(type), css::uno::UNO_QUERY_THROW);
@@ -405,7 +404,6 @@ private:
         bool isDefaulted, bool wrapOptional);
 
     css::uno::Reference< css::uno::XComponentContext > const & m_context;
-    css::uno::Sequence< rtl::OUString > m_absentOptional;
     css::uno::Type m_type;
     css::uno::Reference< css::reflection::XIdlClass > m_idlClass;
 };
@@ -416,7 +414,7 @@ PropertySetMixinImpl::Impl::Impl(
     css::uno::Sequence< rtl::OUString > const & absentOptional,
     css::uno::Type const & type):
     implements(theImplements), disposed(false), m_context(context),
-    m_absentOptional(absentOptional), m_type(type)
+    m_type(type)
 {
     assert(context.is());
     assert(
@@ -436,12 +434,14 @@ PropertySetMixinImpl::Impl::Impl(
                     m_type.getTypeName()),
             css::uno::UNO_QUERY_THROW);
     } catch (css::container::NoSuchElementException & e) {
-        throw css::uno::RuntimeException(
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
             "unexpected com.sun.star.container.NoSuchElementException: "
-             + e.Message);
+             + e.Message,
+             nullptr, anyEx );
     }
     std::vector< rtl::OUString > handleNames;
-    initProperties(ifc, m_absentOptional, &handleNames);
+    initProperties(ifc, absentOptional, &handleNames);
     std::vector< rtl::OUString >::size_type size = handleNames.size();
     assert(size <= SAL_MAX_INT32);
     handleMap.realloc(static_cast< sal_Int32 >(size));
@@ -509,10 +509,11 @@ void PropertySetMixinImpl::Impl::setProperty(
             throw css::lang::IllegalArgumentException(
                 e.Message, object, illegalArgumentPosition);
         } else {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalArgumentException: "
+                 + e.Message,
+                object, anyEx );
         }
     } catch (css::lang::IllegalAccessException &) {
         //TODO  Clarify whether PropertyVetoException is the correct exception
@@ -564,10 +565,11 @@ css::uno::Any PropertySetMixinImpl::Impl::getProperty(
     try {
         value = field->get(object->queryInterface(m_type));
     } catch (css::lang::IllegalArgumentException & e) {
-        throw css::uno::RuntimeException(
-            ("unexpected com.sun.star.lang.IllegalArgumentException: "
-             + e.Message),
-            object);
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw css::lang::WrappedTargetRuntimeException(
+            "unexpected com.sun.star.lang.IllegalArgumentException: "
+             + e.Message,
+             object, anyEx );
     } catch (css::lang::WrappedTargetRuntimeException & e) {
         //FIXME  A WrappedTargetRuntimeException from XIdlField2.get is not
         // guaranteed to originate directly within XIdlField2.get (and thus have
@@ -621,10 +623,11 @@ css::uno::Any PropertySetMixinImpl::Impl::getProperty(
                     ambiguous->getField("Value"), css::uno::UNO_QUERY_THROW)->
                     get(value);
             } catch (css::lang::IllegalArgumentException & e) {
-                throw css::uno::RuntimeException(
-                    ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                     + e.Message),
-                    object);
+                css::uno::Any anyEx = cppu::getCaughtException();
+                throw css::lang::WrappedTargetRuntimeException(
+                    "unexpected com.sun.star.lang.IllegalArgumentException: "
+                     + e.Message,
+                     object, anyEx );
             }
             undoAmbiguous = false;
         } else if (undoDefaulted
@@ -649,10 +652,11 @@ css::uno::Any PropertySetMixinImpl::Impl::getProperty(
                     defaulted->getField("Value"), css::uno::UNO_QUERY_THROW)->
                     get(value);
             } catch (css::lang::IllegalArgumentException & e) {
-                throw css::uno::RuntimeException(
-                    ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                     + e.Message),
-                    object);
+                css::uno::Any anyEx = cppu::getCaughtException();
+                throw css::lang::WrappedTargetRuntimeException(
+                    "unexpected com.sun.star.lang.IllegalArgumentException: "
+                     + e.Message,
+                    object, anyEx );
             }
             undoDefaulted = false;
         } else if (undoOptional
@@ -681,10 +685,11 @@ css::uno::Any PropertySetMixinImpl::Impl::getProperty(
                     optional->getField("Value"), css::uno::UNO_QUERY_THROW)->
                     get(value);
             } catch (css::lang::IllegalArgumentException & e) {
-                throw css::uno::RuntimeException(
-                    ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                     + e.Message),
-                    object);
+                css::uno::Any anyEx = cppu::getCaughtException();
+                throw css::lang::WrappedTargetRuntimeException(
+                    "unexpected com.sun.star.lang.IllegalArgumentException: "
+                     + e.Message,
+                     object, anyEx );
             }
             undoOptional = false;
         } else {
@@ -738,15 +743,17 @@ css::uno::Any PropertySetMixinImpl::Impl::wrapValue(
                 type->getField("IsAmbiguous"), css::uno::UNO_QUERY_THROW)->set(
                     strct, css::uno::Any(isAmbiguous));
         } catch (css::lang::IllegalArgumentException & e) {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalArgumentException: "
+                 + e.Message,
+                 object, anyEx );
         } catch (css::lang::IllegalAccessException & e) {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalAccessException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalAccessException: "
+                 + e.Message,
+                 object, anyEx );
         }
         return strct;
     }
@@ -767,15 +774,17 @@ css::uno::Any PropertySetMixinImpl::Impl::wrapValue(
                 type->getField("IsDefaulted"), css::uno::UNO_QUERY_THROW)->set(
                     strct, css::uno::Any(isDefaulted));
         } catch (css::lang::IllegalArgumentException & e) {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalArgumentException: "
+                 + e.Message,
+                 object, anyEx );
         } catch (css::lang::IllegalAccessException & e) {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalAccessException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalAccessException: "
+                 + e.Message,
+                 object, anyEx );
         }
         return strct;
     }
@@ -799,15 +808,17 @@ css::uno::Any PropertySetMixinImpl::Impl::wrapValue(
                         isAmbiguous, wrapDefaulted, isDefaulted, false));
             }
         } catch (css::lang::IllegalArgumentException & e) {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalArgumentException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalArgumentException: "
+                 + e.Message,
+                 object, anyEx );
         } catch (css::lang::IllegalAccessException & e) {
-            throw css::uno::RuntimeException(
-                ("unexpected com.sun.star.lang.IllegalAccessException: "
-                 + e.Message),
-                object);
+            css::uno::Any anyEx = cppu::getCaughtException();
+            throw css::lang::WrappedTargetRuntimeException(
+                "unexpected com.sun.star.lang.IllegalAccessException: "
+                 + e.Message,
+                object, anyEx );
         }
         return strct;
     }

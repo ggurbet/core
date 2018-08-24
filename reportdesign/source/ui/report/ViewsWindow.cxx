@@ -35,6 +35,7 @@
 #include <ColorChanger.hxx>
 #include <RptObject.hxx>
 #include <EndMarker.hxx>
+#include <sal/log.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/unoshape.hxx>
 #include <vcl/svapp.hxx>
@@ -76,7 +77,7 @@ bool lcl_getNewRectSize(const tools::Rectangle& _aObjRect,long& _nXMov, long& _n
             }
             if (dynamic_cast<OUnoObject const *>(_pObj) != nullptr || dynamic_cast<OOle2Obj const *>(_pObj) != nullptr)
             {
-                pOverlappedObj = isOver(aNewRect,*_pObj->GetPage(),*_pView,true,_pObj);
+                pOverlappedObj = isOver(aNewRect,*_pObj->getSdrPageFromSdrObject(),*_pView,true,_pObj);
                 if ( pOverlappedObj && _pObj != pOverlappedObj )
                 {
                     tools::Rectangle aOverlappingRect = pOverlappedObj->GetSnapRect();

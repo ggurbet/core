@@ -22,6 +22,7 @@
 #include <bmpfast.hxx>
 #include <o3tl/safeint.hxx>
 #include <osl/diagnose.h>
+#include <sal/log.hxx>
 #include <memory>
 
 #define IMPL_CASE_GET_FORMAT( Format )                          \
@@ -259,13 +260,13 @@ static void ImplTCToPAL( const BitmapBuffer& rSrcBuffer, BitmapBuffer const & rD
     }
 }
 
-BitmapBuffer* StretchAndConvert(
+std::unique_ptr<BitmapBuffer> StretchAndConvert(
     const BitmapBuffer& rSrcBuffer, const SalTwoRect& rTwoRect,
     ScanlineFormat nDstBitmapFormat, const BitmapPalette* pDstPal, const ColorMask* pDstMask )
 {
     FncGetPixel     pFncGetPixel;
     FncSetPixel     pFncSetPixel;
-    BitmapBuffer*   pDstBuffer = new BitmapBuffer;
+    std::unique_ptr<BitmapBuffer> pDstBuffer(new BitmapBuffer);
 
     // set function for getting pixels
     switch( RemoveScanline( rSrcBuffer.mnFormat ) )
@@ -335,7 +336,6 @@ BitmapBuffer* StretchAndConvert(
     {
         SAL_WARN("vcl.gdi", "checked multiply failed");
         pDstBuffer->mpBits = nullptr;
-        delete pDstBuffer;
         return nullptr;
     }
     pDstBuffer->mnScanlineSize = AlignedWidth4Bytes(nScanlineBase);
@@ -343,7 +343,6 @@ BitmapBuffer* StretchAndConvert(
     {
         SAL_WARN("vcl.gdi", "scanline calculation wraparound");
         pDstBuffer->mpBits = nullptr;
-        delete pDstBuffer;
         return nullptr;
     }
     try
@@ -354,7 +353,6 @@ BitmapBuffer* StretchAndConvert(
     {
         // memory exception, clean up
         pDstBuffer->mpBits = nullptr;
-        delete pDstBuffer;
         return nullptr;
     }
 
@@ -368,7 +366,6 @@ BitmapBuffer* StretchAndConvert(
         assert(pDstPal && "destination buffer requires palette");
         if (!pDstPal)
         {
-            delete pDstBuffer;
             return nullptr;
         }
         pDstBuffer->maPalette = *pDstPal;
@@ -381,7 +378,6 @@ BitmapBuffer* StretchAndConvert(
         assert(pDstMask && "destination buffer requires color mask");
         if (!pDstMask)
         {
-            delete pDstBuffer;
             return nullptr;
         }
         pDstBuffer->maColorMask = *pDstMask;
@@ -409,7 +405,6 @@ BitmapBuffer* StretchAndConvert(
         // memory exception, clean up
         // remark: the buffer ptr causing the exception
         // is still NULL here
-        delete pDstBuffer;
         return nullptr;
     }
 

@@ -22,13 +22,10 @@
 
 #include <memory>
 #include <vector>
-#include <boost/intrusive_ptr.hpp>
 
 #include <formula/opcode.hxx>
 #include "refdata.hxx"
-#include <tools/mempool.hxx>
 #include "scdllapi.h"
-#include <formula/IFunctionDescription.hxx>
 #include <formula/token.hxx>
 #include "calcmacros.hxx"
 #include "types.hxx"
@@ -77,8 +74,6 @@ public:
     virtual bool                TextEqual( const formula::FormulaToken& rToken ) const override;
     virtual bool                operator==( const formula::FormulaToken& rToken ) const override;
     virtual FormulaToken*       Clone() const override { return new ScSingleRefToken(*this); }
-
-    DECL_FIXEDMEMPOOL_NEWDEL( ScSingleRefToken );
 };
 
 class ScDoubleRefToken : public formula::FormulaToken
@@ -97,8 +92,6 @@ public:
     virtual bool                TextEqual( const formula::FormulaToken& rToken ) const override;
     virtual bool                operator==( const formula::FormulaToken& rToken ) const override;
     virtual FormulaToken*       Clone() const override { return new ScDoubleRefToken(*this); }
-
-    DECL_FIXEDMEMPOOL_NEWDEL( ScDoubleRefToken );
 };
 
 class ScMatrixToken : public formula::FormulaToken
@@ -125,7 +118,6 @@ class ScMatrixRangeToken : public formula::FormulaToken
     ScMatrixRef mpMatrix;
     ScComplexRefData maRef;
 public:
-    ScMatrixRangeToken( const ScMatrixRef& p, const ScComplexRefData& rRef );
     ScMatrixRangeToken( const sc::RangeMatrix& rMat );
     ScMatrixRangeToken( const ScMatrixRangeToken& );
 
@@ -149,6 +141,11 @@ public:
     ScExternalSingleRefToken() = delete;
     virtual ~ScExternalSingleRefToken() override;
 
+    ScExternalSingleRefToken(ScExternalSingleRefToken const &) = default;
+    ScExternalSingleRefToken(ScExternalSingleRefToken &&) = default;
+    ScExternalSingleRefToken & operator =(ScExternalSingleRefToken const &) = default;
+    ScExternalSingleRefToken & operator =(ScExternalSingleRefToken &&) = default;
+
     virtual sal_uInt16                  GetIndex() const override;
     virtual svl::SharedString GetString() const override;
     virtual const ScSingleRefData*  GetSingleRef() const override;
@@ -167,6 +164,11 @@ public:
     ScExternalDoubleRefToken() = delete;
     ScExternalDoubleRefToken( sal_uInt16 nFileId, const svl::SharedString& rTabName, const ScComplexRefData& r );
     virtual ~ScExternalDoubleRefToken() override;
+
+    ScExternalDoubleRefToken(ScExternalDoubleRefToken const &) = default;
+    ScExternalDoubleRefToken(ScExternalDoubleRefToken &&) = default;
+    ScExternalDoubleRefToken & operator =(ScExternalDoubleRefToken const &) = default;
+    ScExternalDoubleRefToken & operator =(ScExternalDoubleRefToken &&) = default;
 
     virtual sal_uInt16                 GetIndex() const override;
     virtual svl::SharedString GetString() const override;
@@ -189,6 +191,11 @@ public:
     ScExternalNameToken() = delete;
     ScExternalNameToken( sal_uInt16 nFileId, const svl::SharedString& rName );
     virtual ~ScExternalNameToken() override;
+
+    ScExternalNameToken(ScExternalNameToken const &) = default;
+    ScExternalNameToken(ScExternalNameToken &&) = default;
+    ScExternalNameToken & operator =(ScExternalNameToken const &) = default;
+    ScExternalNameToken & operator =(ScExternalNameToken &&) = default;
 
     virtual sal_uInt16              GetIndex() const override;
     virtual svl::SharedString GetString() const override;

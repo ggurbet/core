@@ -38,6 +38,7 @@
 #include <docsh.hxx>
 #include <postit.hxx>
 #include <globstr.hrc>
+#include <scresid.hxx>
 #include <attrib.hxx>
 #include <scitems.hxx>
 #include <drawview.hxx>
@@ -56,7 +57,7 @@ void FuText::StopEditMode()
     if ( pObject->GetLayer() == SC_LAYER_INTERN )
         pView->LockInternalLayer();
 
-    ScViewData& rViewData = pViewShell->GetViewData();
+    ScViewData& rViewData = rViewShell.GetViewData();
     ScDocument& rDoc = *rViewData.GetDocument();
     ScDrawLayer* pDrawLayer = rDoc.GetDrawLayer();
     OSL_ENSURE( pDrawLayer && (pDrawLayer == pDrDoc), "FuText::StopEditMode - missing or different drawing layers" );
@@ -67,11 +68,11 @@ void FuText::StopEditMode()
     {
         aNotePos = pCaptData->maStart;
         pNote = rDoc.GetNote( aNotePos );
-        OSL_ENSURE( pNote && (pNote->GetCaption() == pObject), "FuText::StopEditMode - missing or invalid cell note" );
+        OSL_ENSURE( pNote && (pNote->GetCaption().get() == pObject), "FuText::StopEditMode - missing or invalid cell note" );
     }
 
     ScDocShell* pDocShell = rViewData.GetDocShell();
-    ::svl::IUndoManager* pUndoMgr = rDoc.IsUndoEnabled() ? pDocShell->GetUndoManager() : nullptr;
+    SfxUndoManager* pUndoMgr = rDoc.IsUndoEnabled() ? pDocShell->GetUndoManager() : nullptr;
     bool bNewNote = false;
     if( pNote && pUndoMgr )
     {
@@ -81,13 +82,13 @@ void FuText::StopEditMode()
 
         if(pCalcUndo)
         {
-            const OUString aUndoStr = ScGlobal::GetRscString( STR_UNDO_EDITNOTE );
-            pUndoMgr->EnterListAction( aUndoStr, aUndoStr, 0, pViewShell->GetViewShellId() );
+            const OUString aUndoStr = ScResId( STR_UNDO_EDITNOTE );
+            pUndoMgr->EnterListAction( aUndoStr, aUndoStr, 0, rViewShell.GetViewShellId() );
 
             /*  Note has been created before editing, if first undo action is
                 an insert action. Needed below to decide whether to drop the
                 undo if editing a new note has been cancelled. */
-            bNewNote = (pCalcUndo->GetActionCount() > 0) && dynamic_cast< SdrUndoNewObj* >(pCalcUndo->GetAction( 0 ));
+            bNewNote = (pCalcUndo->GetActionCount() > 0) && dynamic_cast< ScUndoNewSdrCaptionObj* >(pCalcUndo->GetAction( 0 ));
 
             // create a "insert note" undo action if needed
             if( bNewNote )
@@ -111,7 +112,7 @@ void FuText::StopEditMode()
     /*SdrEndTextEditKind eResult =*/ pView->SdrEndTextEdit( pNote != nullptr );
 
     // or ScEndTextEdit (with drawview.hxx)
-    pViewShell->SetDrawTextUndo( nullptr );
+    rViewShell.SetDrawTextUndo( nullptr );
 
     vcl::Cursor* pCur = pWindow->GetCursor();
     if( pCur && pCur->IsVisible() )
@@ -172,7 +173,7 @@ void FuText::StopEditMode()
                 SfxListUndoAction* pAction = dynamic_cast< SfxListUndoAction* >( pUndoMgr->GetUndoAction() );
                 OSL_ENSURE( pAction, "FuText::StopEditMode - list undo action expected" );
                 if( pAction )
-                    pAction->SetComment( ScGlobal::GetRscString( bNewNote ? STR_UNDO_INSERTNOTE : STR_UNDO_DELETENOTE ) );
+                    pAction->SetComment( ScResId( bNewNote ? STR_UNDO_INSERTNOTE : STR_UNDO_DELETENOTE ) );
             }
         }
 

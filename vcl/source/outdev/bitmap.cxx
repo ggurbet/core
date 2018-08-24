@@ -32,6 +32,7 @@
 #include <vcl/virdev.hxx>
 #include <vcl/image.hxx>
 #include <vcl/window.hxx>
+#include <vcl/BitmapMonochromeFilter.hxx>
 
 #include <bmpfast.hxx>
 #include <salgdi.hxx>
@@ -42,6 +43,7 @@
 #include <memory>
 #include <comphelper/lok.hxx>
 #include <bitmapwriteaccess.hxx>
+#include <sal/log.hxx>
 
 void OutputDevice::DrawBitmap( const Point& rDestPt, const Bitmap& rBitmap )
 {
@@ -327,9 +329,9 @@ void OutputDevice::DrawBitmapEx( const Point& rDestPt, const Size& rDestSize,
                     // DRAWMODE_BLACK/WHITEBITMAP requires monochrome
                     // output, having alpha-induced grey levels is not
                     // acceptable.
-                    Bitmap aMask( aBmpEx.GetAlpha().GetBitmap() );
-                    aMask.MakeMonochrome(129);
-                    aBmpEx = BitmapEx( aColorBmp, aMask );
+                    BitmapEx aMaskEx(aBmpEx.GetAlpha().GetBitmap());
+                    BitmapFilter::Filter(aMaskEx, BitmapMonochromeFilter(129));
+                    aBmpEx = BitmapEx(aColorBmp, aMaskEx.GetBitmap());
                 }
                 else
                 {
@@ -464,12 +466,11 @@ Bitmap OutputDevice::GetBitmap( const Point& rSrcPt, const Size& rSize ) const
 
             if ( !bClipped )
             {
-                SalBitmap* pSalBmp = mpGraphics->GetBitmap( nX, nY, nWidth, nHeight, this );
+                std::shared_ptr<SalBitmap> pSalBmp = mpGraphics->GetBitmap( nX, nY, nWidth, nHeight, this );
 
                 if( pSalBmp )
                 {
-                    std::shared_ptr<SalBitmap> xImpBmp(pSalBmp);
-                    aBmp.ImplSetSalBitmap(xImpBmp);
+                    aBmp.ImplSetSalBitmap(pSalBmp);
                 }
             }
         }
@@ -493,7 +494,7 @@ BitmapEx OutputDevice::GetBitmapEx( const Point& rSrcPt, const Size& rSize ) con
         return BitmapEx(GetBitmap( rSrcPt, rSize ), AlphaMask( aAlphaBitmap ) );
     }
     else
-        return GetBitmap( rSrcPt, rSize );
+        return BitmapEx(GetBitmap( rSrcPt, rSize ));
 }
 
 void OutputDevice::DrawDeviceBitmap( const Point& rDestPt, const Size& rDestSize,

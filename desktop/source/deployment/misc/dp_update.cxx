@@ -28,6 +28,7 @@
 #include <com/sun/star/ucb/CommandFailedException.hpp>
 #include <osl/diagnose.h>
 #include <rtl/bootstrap.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -387,15 +388,13 @@ UpdateInfoMap getOnlineUpdateInfos(
     return infoMap;
 }
 OUString getHighestVersion(
-    OUString const & userVersion,
     OUString const & sharedVersion,
     OUString const & bundledVersion,
     OUString const & onlineVersion)
 {
-    int index = determineHighestVersion(userVersion, sharedVersion, bundledVersion, onlineVersion);
+    int index = determineHighestVersion(OUString(), sharedVersion, bundledVersion, onlineVersion);
     switch (index)
     {
-    case 0: return userVersion;
     case 1: return sharedVersion;
     case 2: return bundledVersion;
     case 3: return onlineVersion;

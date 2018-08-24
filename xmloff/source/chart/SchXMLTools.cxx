@@ -48,6 +48,7 @@
 
 #include <comphelper/processfactory.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <algorithm>
 #include <map>
 
@@ -140,7 +141,6 @@ static const SvXMLEnumMapEntry<SchXMLChartTypeEnum> aXMLChartClassMap[] =
     { XML_BAR,          XML_CHART_CLASS_BAR     },
     { XML_STOCK,        XML_CHART_CLASS_STOCK   },
     { XML_BUBBLE,       XML_CHART_CLASS_BUBBLE  },
-    { XML_GL3DBAR,      XML_CHART_CLASS_GL3DBAR },
     { XML_SURFACE,      XML_CHART_CLASS_BAR     }, //@todo change this if a surface chart is available
     { XML_ADD_IN,       XML_CHART_CLASS_ADDIN   },
     { XML_TOKEN_INVALID, XML_CHART_CLASS_UNKNOWN }
@@ -178,9 +178,7 @@ const tMakeStringStringMap& lcl_getChartTypeNameMap()
         {"com.sun.star.chart.StockDiagram",
          "com.sun.star.chart2.CandleStickChartType"},
         {"com.sun.star.chart.BubbleDiagram",
-         "com.sun.star.chart2.BubbleChartType"},
-        {"com.sun.star.chart.GL3DBarDiagram",
-         "com.sun.star.chart2.GL3DBarChartType"}};
+         "com.sun.star.chart2.BubbleChartType"}};
     return g_aChartTypeNameMap;
 }
 
@@ -257,8 +255,6 @@ OUString GetChartTypeByClassName(
         else
             aResultBuffer.append("Column");
     }
-    else if (IsXMLToken(rClassName, XML_GL3DBAR))
-        aResultBuffer.append("GL3DBar");
     else
         bInternalType = false;
 
@@ -324,8 +320,6 @@ XMLTokenEnum getTokenByChartType(
             else if( (bUseOldNames && aServiceName == "Stock") ||
                      (!bUseOldNames && aServiceName == "CandleStick"))
                 eResult = XML_STOCK;
-            else if (aServiceName == "GL3DBar")
-                eResult = XML_GL3DBAR;
         }
     }
 

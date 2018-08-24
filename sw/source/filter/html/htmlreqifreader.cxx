@@ -11,13 +11,13 @@
 
 #include <comphelper/scopeguard.hxx>
 #include <filter/msfilter/rtfutil.hxx>
-#include <rtl/character.hxx>
 #include <rtl/strbuf.hxx>
 #include <sot/storage.hxx>
 #include <svtools/parrtf.hxx>
 #include <svtools/rtfkeywd.hxx>
 #include <svtools/rtftoken.h>
 #include <tools/stream.hxx>
+#include <filter/msfilter/msdffimp.hxx>
 
 namespace
 {
@@ -27,7 +27,7 @@ class ReqIfRtfReader : public SvRTFParser
 public:
     ReqIfRtfReader(SvStream& rStream);
     void NextToken(int nToken) override;
-    bool WriteObjectData(SvStream& rStream);
+    bool WriteObjectData(SvStream& rOLE);
 
 private:
     bool m_bInObjData = false;
@@ -110,9 +110,12 @@ OString InsertOLE1Header(SvStream& rOle2, SvStream& rOle1)
 
     // ClassName
     rOle1.WriteUInt32(aClassName.getLength());
-    rOle1.WriteOString(aClassName);
-    // Null terminated pascal string.
-    rOle1.WriteChar(0);
+    if (!aClassName.isEmpty())
+    {
+        rOle1.WriteOString(aClassName);
+        // Null terminated pascal string.
+        rOle1.WriteChar(0);
+    }
 
     // TopicName.
     rOle1.WriteUInt32(0);
@@ -134,7 +137,7 @@ OString InsertOLE1Header(SvStream& rOle2, SvStream& rOle1)
 
 namespace SwReqIfReader
 {
-bool ExtractOleFromRtf(SvStream& rRtf, SvStream& rOle)
+bool ExtractOleFromRtf(SvStream& rRtf, SvStream& rOle, bool& bOwnFormat)
 {
     // Add missing header/footer.
     SvMemoryStream aRtf;
@@ -150,7 +153,29 @@ bool ExtractOleFromRtf(SvStream& rRtf, SvStream& rOle)
         return false;
 
     // Write the OLE2 data.
-    return xReader->WriteObjectData(rOle);
+    if (!xReader->WriteObjectData(rOle))
+        return false;
+
+    tools::SvRef<SotStorage> pStorage = new SotStorage(rOle);
+    OUString aFilterName = SvxMSDffManager::GetFilterNameFromClassID(pStorage->GetClassName());
+    bOwnFormat = !aFilterName.isEmpty();
+    if (!bOwnFormat)
+    {
+        // Real OLE2 data, we're done.
+        rOle.Seek(0);
+        return true;
+    }
+
+    // ODF-in-OLE2 case, extract actual data.
+    SvMemoryStream aMemory;
+    SvxMSDffManager::ExtractOwnStream(*pStorage, aMemory);
+    rOle.Seek(0);
+    aMemory.Seek(0);
+    rOle.WriteStream(aMemory);
+    // Stream length is current position + 1.
+    rOle.SetStreamSize(aMemory.GetSize() + 1);
+    rOle.Seek(0);
+    return true;
 }
 
 bool WrapOleInRtf(SvStream& rOle2, SvStream& rRtf)
@@ -182,6 +207,70 @@ bool WrapOleInRtf(SvStream& rOle2, SvStream& rRtf)
     // End object.
     rRtf.WriteCharPtr("}");
 
+    return true;
+}
+
+bool WrapGraphicInRtf(const Graphic& rGraphic, const Size& rLogicSize, SvStream& rRtf)
+{
+    rRtf.WriteCharPtr("{" OOO_STRING_SVTOOLS_RTF_PICT);
+
+    GfxLink aLink = rGraphic.GetGfxLink();
+    const sal_uInt8* pGraphicAry = aLink.GetData();
+    sal_uInt64 nSize = aLink.GetDataSize();
+    OString aBlipType;
+    bool bIsWMF = false;
+    switch (aLink.GetType())
+    {
+        case GfxLinkType::NativeBmp:
+            aBlipType = OOO_STRING_SVTOOLS_RTF_WBITMAP;
+            break;
+        case GfxLinkType::NativeJpg:
+            aBlipType = OOO_STRING_SVTOOLS_RTF_JPEGBLIP;
+            break;
+        case GfxLinkType::NativePng:
+            aBlipType = OOO_STRING_SVTOOLS_RTF_PNGBLIP;
+            break;
+        case GfxLinkType::NativeWmf:
+            if (aLink.IsEMF())
+                aBlipType = OOO_STRING_SVTOOLS_RTF_EMFBLIP;
+            else
+            {
+                aBlipType = OOO_STRING_SVTOOLS_RTF_WMETAFILE;
+                bIsWMF = true;
+            }
+            break;
+        default:
+            break;
+    }
+
+    if (aBlipType.isEmpty())
+        return false;
+
+    rRtf.WriteOString(aBlipType);
+
+    Size aMapped(rGraphic.GetPrefSize());
+    rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICW);
+    rRtf.WriteOString(OString::number(aMapped.Width()));
+    rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICH);
+    rRtf.WriteOString(OString::number(aMapped.Height()));
+
+    rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICWGOAL);
+    rRtf.WriteOString(OString::number(rLogicSize.Width()));
+    rRtf.WriteCharPtr(OOO_STRING_SVTOOLS_RTF_PICHGOAL);
+    rRtf.WriteOString(OString::number(rLogicSize.Height()));
+
+    if (bIsWMF)
+    {
+        rRtf.WriteOString(OString::number(8));
+        msfilter::rtfutil::StripMetafileHeader(pGraphicAry, nSize);
+    }
+    rRtf.WriteOString(SAL_NEWLINE_STRING);
+
+    msfilter::rtfutil::WriteHex(pGraphicAry, nSize, &rRtf);
+    rRtf.WriteOString(SAL_NEWLINE_STRING);
+
+    // End pict.
+    rRtf.WriteCharPtr("}");
     return true;
 }
 }

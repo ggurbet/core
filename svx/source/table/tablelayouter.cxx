@@ -36,8 +36,6 @@
 #include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <svx/svdmodel.hxx>
-#include <svx/strings.hrc>
-#include <svdglob.hxx>
 
 using ::editeng::SvxBorderLine;
 using namespace ::com::sun::star::uno;
@@ -53,10 +51,10 @@ namespace sdr { namespace table {
 
 static SvxBorderLine gEmptyBorder;
 
+static const OUStringLiteral gsSize( "Size" );
 
 TableLayouter::TableLayouter( const TableModelRef& xTableModel )
 : mxTable( xTableModel )
-, msSize( "Size" )
 {
 }
 
@@ -326,7 +324,7 @@ bool findMergeOrigin( const TableModelRef& xTable, sal_Int32 nMergedX, sal_Int32
     {
         // check if this cell already the origin or not merged at all
         Reference< XMergeableCell > xCell( xTable->getCellByPosition( nMergedX, nMergedY ), UNO_QUERY_THROW );
-        if( !xCell.is() || !xCell->isMerged() )
+        if( !xCell->isMerged() )
             return true;
 
         bool bCheckVert = true;
@@ -507,7 +505,6 @@ sal_Int32 TableLayouter::distribute( LayoutVector& rLayouts, sal_Int32 nDistribu
 
 typedef std::vector< CellRef > MergeableCellVector;
 typedef std::vector< MergeableCellVector > MergeVector;
-typedef std::vector< sal_Int32 > Int32Vector;
 
 
 void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
@@ -518,7 +515,7 @@ void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
         return;
 
     MergeVector aMergedCells( nColCount );
-    Int32Vector aOptimalColumns;
+    std::vector<sal_Int32> aOptimalColumns;
 
     const OUString sOptimalSize("OptimalSize");
 
@@ -575,7 +572,7 @@ void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
             }
             else
             {
-                xColSet->getPropertyValue( msSize ) >>= nColWidth;
+                xColSet->getPropertyValue( gsSize ) >>= nColWidth;
             }
 
             maColumns[nCol].mnSize = nColWidth;
@@ -593,7 +590,7 @@ void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
         sal_Int32 nLeft = rArea.getWidth() - nCurrentWidth;
         sal_Int32 nDistribute = nLeft / aOptimalColumns.size();
 
-        Int32Vector::iterator iter( aOptimalColumns.begin() );
+        auto iter( aOptimalColumns.begin() );
         while( iter != aOptimalColumns.end() )
         {
             sal_Int32 nOptCol = (*iter++);
@@ -653,7 +650,7 @@ void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
         if( bFit )
         {
             Reference< XPropertySet > xColSet( xCols->getByIndex(nCol), UNO_QUERY_THROW );
-            xColSet->setPropertyValue( msSize, Any( maColumns[nCol].mnSize ) );
+            xColSet->setPropertyValue( gsSize, Any( maColumns[nCol].mnSize ) );
         }
     }
 
@@ -672,7 +669,7 @@ void TableLayouter::LayoutTableHeight( tools::Rectangle& rArea, bool bFit )
     Reference< XTableRows > xRows( mxTable->getRows() );
 
     MergeVector aMergedCells( nRowCount );
-    Int32Vector aOptimalRows;
+    std::vector<sal_Int32> aOptimalRows;
 
     const OUString sOptimalSize("OptimalSize");
 
@@ -735,7 +732,7 @@ void TableLayouter::LayoutTableHeight( tools::Rectangle& rArea, bool bFit )
             }
             else
             {
-                xRowSet->getPropertyValue( msSize ) >>= nRowHeight;
+                xRowSet->getPropertyValue( gsSize ) >>= nRowHeight;
             }
 
             maRows[nRow].mnSize = nRowHeight;
@@ -753,7 +750,7 @@ void TableLayouter::LayoutTableHeight( tools::Rectangle& rArea, bool bFit )
         sal_Int32 nLeft = rArea.getHeight() - nCurrentHeight;
         sal_Int32 nDistribute = nLeft / aOptimalRows.size();
 
-        Int32Vector::iterator iter( aOptimalRows.begin() );
+        auto iter( aOptimalRows.begin() );
         while( iter != aOptimalRows.end() )
         {
             sal_Int32 nOptRow = (*iter++);
@@ -810,7 +807,7 @@ void TableLayouter::LayoutTableHeight( tools::Rectangle& rArea, bool bFit )
         if( bFit )
         {
             Reference< XPropertySet > xRowSet( xRows->getByIndex(nRow), UNO_QUERY_THROW );
-            xRowSet->setPropertyValue( msSize, Any( maRows[nRow].mnSize ) );
+            xRowSet->setPropertyValue( gsSize, Any( maRows[nRow].mnSize ) );
         }
     }
 
@@ -1073,7 +1070,7 @@ void TableLayouter::DistributeColumns( ::tools::Rectangle& rArea, sal_Int32 nFir
                 nWidth = nAllWidth; // last column get round errors
 
             Reference< XPropertySet > xColSet( xCols->getByIndex( nCol ), UNO_QUERY_THROW );
-            xColSet->setPropertyValue( msSize, Any( nWidth ) );
+            xColSet->setPropertyValue( gsSize, Any( nWidth ) );
 
             nAllWidth -= nWidth;
         }
@@ -1123,7 +1120,7 @@ void TableLayouter::DistributeRows( ::tools::Rectangle& rArea, sal_Int32 nFirstR
                 nHeight = nAllHeight; // last row get round errors
 
             Reference< XPropertySet > xRowSet( xRows->getByIndex( nRow ), UNO_QUERY_THROW );
-            xRowSet->setPropertyValue( msSize, Any( nHeight ) );
+            xRowSet->setPropertyValue( gsSize, Any( nHeight ) );
 
             nAllHeight -= nHeight;
         }

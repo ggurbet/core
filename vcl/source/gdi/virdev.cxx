@@ -24,6 +24,7 @@
 #include <PhysicalFontCollection.hxx>
 #include <svdata.hxx>
 #include <vcl/ITiledRenderable.hxx>
+#include <sal/log.hxx>
 
 using namespace ::com::sun::star::uno;
 
@@ -167,8 +168,8 @@ void VirtualDevice::ImplInitVirDev( const OutputDevice* pOutDev,
 
     meOutDevType    = OUTDEV_VIRDEV;
     mbDevOutput     = true;
-    mpFontCollection      = pSVData->maGDIData.mpScreenFontList;
-    mpFontCache     = pSVData->maGDIData.mpScreenFontCache;
+    mxFontCollection = pSVData->maGDIData.mxScreenFontList;
+    mxFontCache     = pSVData->maGDIData.mxScreenFontCache;
     mnDPIX          = pOutDev->mnDPIX;
     mnDPIY          = pOutDev->mnDPIY;
     mnDPIScalePercentage = pOutDev->mnDPIScalePercentage;
@@ -198,8 +199,7 @@ void VirtualDevice::ImplInitVirDev( const OutputDevice* pOutDev,
 }
 
 VirtualDevice::VirtualDevice(DeviceFormat eFormat)
-:   mpVirDev( nullptr ),
-    meRefDevMode( RefDevMode::NONE ),
+:   meRefDevMode( RefDevMode::NONE ),
     mbForceZeroExtleadBug( false )
 {
     SAL_INFO( "vcl.virdev", "VirtualDevice::VirtualDevice( " << static_cast<int>(eFormat) << " )" );
@@ -208,8 +208,7 @@ VirtualDevice::VirtualDevice(DeviceFormat eFormat)
 }
 
 VirtualDevice::VirtualDevice(const OutputDevice& rCompDev, DeviceFormat eFormat)
-    : mpVirDev( nullptr ),
-    meRefDevMode( RefDevMode::NONE ),
+    : meRefDevMode( RefDevMode::NONE ),
     mbForceZeroExtleadBug( false )
 {
     SAL_INFO( "vcl.virdev", "VirtualDevice::VirtualDevice( " << static_cast<int>(eFormat) << " )" );
@@ -218,8 +217,7 @@ VirtualDevice::VirtualDevice(const OutputDevice& rCompDev, DeviceFormat eFormat)
 }
 
 VirtualDevice::VirtualDevice(const OutputDevice& rCompDev, DeviceFormat eFormat, DeviceFormat eAlphaFormat)
-    : mpVirDev( nullptr )
-    , meRefDevMode( RefDevMode::NONE )
+    : meRefDevMode( RefDevMode::NONE )
     , mbForceZeroExtleadBug( false )
 {
     SAL_INFO( "vcl.virdev",
@@ -233,8 +231,7 @@ VirtualDevice::VirtualDevice(const OutputDevice& rCompDev, DeviceFormat eFormat,
 
 VirtualDevice::VirtualDevice(const SystemGraphicsData *pData, const Size &rSize,
                              DeviceFormat eFormat)
-:   mpVirDev( nullptr ),
-    meRefDevMode( RefDevMode::NONE ),
+:   meRefDevMode( RefDevMode::NONE ),
     mbForceZeroExtleadBug( false )
 {
     SAL_INFO( "vcl.virdev", "VirtualDevice::VirtualDevice( " << static_cast<int>(eFormat) << " )" );
@@ -257,7 +254,7 @@ void VirtualDevice::dispose()
 
     ReleaseGraphics();
 
-    delete mpVirDev;
+    mpVirDev.reset();
 
     // remove this VirtualDevice from the double-linked global list
     if( mpPrev )
@@ -316,7 +313,7 @@ bool VirtualDevice::InnerImplSetOutputSizePixel( const Size& rNewSize, bool bEra
     }
     else
     {
-        SalVirtualDevice*   pNewVirDev;
+        std::unique_ptr<SalVirtualDevice> pNewVirDev;
         ImplSVData*         pSVData = ImplGetSVData();
 
         // we need a graphics
@@ -346,8 +343,7 @@ bool VirtualDevice::InnerImplSetOutputSizePixel( const Size& rNewSize, bool bEra
                 pGraphics->CopyBits( aPosAry, mpGraphics, this, this );
                 pNewVirDev->ReleaseGraphics( pGraphics );
                 ReleaseGraphics();
-                delete mpVirDev;
-                mpVirDev = pNewVirDev;
+                mpVirDev = std::move(pNewVirDev);
                 mnOutWidth  = rNewSize.Width();
                 mnOutHeight = rNewSize.Height();
                 bRet = true;
@@ -355,7 +351,6 @@ bool VirtualDevice::InnerImplSetOutputSizePixel( const Size& rNewSize, bool bEra
             else
             {
                 bRet = false;
-                delete pNewVirDev;
             }
         }
         else
@@ -493,35 +488,21 @@ void VirtualDevice::ImplSetReferenceDevice( RefDevMode i_eRefDevMode, sal_Int32 
 
     // the reference device should have only scalable fonts
     // => clean up the original font lists before getting new ones
-    if ( mpFontInstance )
-    {
-        mpFontInstance->Release();
-        mpFontInstance = nullptr;
-    }
-    if ( mpDeviceFontList )
-    {
-        delete mpDeviceFontList;
-        mpDeviceFontList = nullptr;
-    }
-    if ( mpDeviceFontSizeList )
-    {
-        delete mpDeviceFontSizeList;
-        mpDeviceFontSizeList = nullptr;
-    }
+    mpFontInstance.clear();
+    mpDeviceFontList.reset();
+    mpDeviceFontSizeList.reset();
 
     // preserve global font lists
     ImplSVData* pSVData = ImplGetSVData();
-    if( mpFontCollection && (mpFontCollection != pSVData->maGDIData.mpScreenFontList) )
-        delete mpFontCollection;
-    if( mpFontCache && (mpFontCache != pSVData->maGDIData.mpScreenFontCache) )
-        delete mpFontCache;
+    mxFontCollection.reset();
+    mxFontCache.reset();
 
     // get font list with scalable fonts only
     AcquireGraphics();
-    mpFontCollection = pSVData->maGDIData.mpScreenFontList->Clone();
+    mxFontCollection = pSVData->maGDIData.mxScreenFontList->Clone();
 
     // prepare to use new font lists
-    mpFontCache = new ImplFontCache();
+    mxFontCache.reset(new ImplFontCache);
 }
 
 sal_uInt16 VirtualDevice::GetBitCount() const

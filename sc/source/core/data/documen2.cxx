@@ -18,6 +18,8 @@
  */
 
 #include <scitems.hxx>
+#include <scextopt.hxx>
+#include <autonamecache.hxx>
 #include <editeng/eeitem.hxx>
 
 #include <editeng/editeng.hxx>
@@ -41,6 +43,7 @@
 #include <tools/urlobj.hxx>
 #include <rtl/crc.h>
 #include <basic/basmgr.hxx>
+#include <sal/log.hxx>
 
 #include <document.hxx>
 #include <table.hxx>
@@ -102,6 +105,7 @@
 #include <clipoptions.hxx>
 #include <listenercontext.hxx>
 #include <datamapper.hxx>
+#include <drwlayer.hxx>
 
 using namespace com::sun::star;
 
@@ -109,30 +113,18 @@ using namespace com::sun::star;
 // dtor plus helpers are convenient.
 struct ScLookupCacheMapImpl
 {
-    std::unordered_map< ScRange, ScLookupCache*, ScLookupCache::Hash > aCacheMap;
-    ~ScLookupCacheMapImpl()
-    {
-        freeCaches();
-    }
+    std::unordered_map< ScRange, std::unique_ptr<ScLookupCache>, ScLookupCache::Hash > aCacheMap;
     void clear()
     {
-        freeCaches();
-        // free mapping
-        std::unordered_map< ScRange, ScLookupCache*, ScLookupCache::Hash > aTmp;
-        aCacheMap.swap( aTmp);
-    }
-private:
-    void freeCaches()
-    {
-        for (auto it( aCacheMap.begin()); it != aCacheMap.end(); ++it)
-            delete (*it).second;
+        aCacheMap.clear();
     }
 };
 
 ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
-        mpCellStringPool(new svl::SharedStringPool(ScGlobal::pCharClass)),
-        mpFormulaGroupCxt(nullptr),
+        mpCellStringPool(new svl::SharedStringPool(*ScGlobal::pCharClass)),
         mpDocLinkMgr(new sc::DocumentLinkManager(pDocShell)),
+        mpFormulaGroupCxt(nullptr),
+        mbFormulaGroupCxtBlockDiscard(false),
         maCalcConfig( ScInterpreter::GetGlobalConfig()),
         mpUndoManager( nullptr ),
         mpEditEngine( nullptr ),
@@ -169,7 +161,6 @@ ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
         nUnoObjectId( 0 ),
         nRangeOverflowType( 0 ),
         aCurTextWidthCalcPos(MAXCOL,0,0),
-        mbThreadedGroupCalcInProgress( false ),
         nFormulaCodeInTree(0),
         nXMLImportedFormulaCount( 0 ),
         nInterpretLevel(0),
@@ -218,7 +209,11 @@ ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
         mbStreamValidLocked( false ),
         mbUserInteractionEnabled(true),
         mnNamedRangesLockCount(0),
-        mbUseEmbedFonts(false),
+        mbEmbedFonts(false),
+        mbEmbedUsedFontsOnly(false),
+        mbEmbedFontScriptLatin(true),
+        mbEmbedFontScriptAsian(true),
+        mbEmbedFontScriptComplex(true),
         mbTrackFormulasPending(false),
         mbFinalTrackFormulas(false),
         mnMutationGuardFlags(0)
@@ -234,7 +229,7 @@ ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
         mxPoolHelper = new ScPoolHelper( this );
 
         pBASM.reset( new ScBroadcastAreaSlotMachine( this ) );
-        pChartListenerCollection = new ScChartListenerCollection( this );
+        pChartListenerCollection.reset( new ScChartListenerCollection( this ) );
         pRefreshTimerControl.reset( new ScRefreshTimerControl );
     }
     else
@@ -376,18 +371,6 @@ ScDocument::~ScDocument()
         pRefreshTimerControl.reset();
     }
 
-    if (IsClipboardSource())
-    {
-        // Notes copied to the clipboard have a raw SdrCaptionObj pointer
-        // copied from this document, forget it as it references this
-        // document's drawing layer pages and what not, which otherwise when
-        // pasting to another document after this document was destructed would
-        // attempt to access non-existing data. Preserve the text data though.
-        ScDocument* pClipDoc = ScModule::GetClipDoc();
-        if (pClipDoc)
-            pClipDoc->ClosingClipboardSource();
-    }
-
     mxFormulaParserPool.reset();
     // Destroy the external ref mgr instance here because it has a timer
     // which needs to be stopped before the app closes.
@@ -395,7 +378,7 @@ ScDocument::~ScDocument()
 
     ScAddInAsync::RemoveDocument( this );
     ScAddInListener::RemoveDocument( this );
-    DELETEZ( pChartListenerCollection);   // before pBASM because of potential Listener!
+    pChartListenerCollection.reset();   // before pBASM because of potential Listener!
 
     DELETEZ(maNonThreaded.pLookupCacheMapImpl);  // before pBASM because of listeners
     DELETEZ(maThreadSpecific.pLookupCacheMapImpl);
@@ -410,13 +393,7 @@ ScDocument::~ScDocument()
 
     Clear( true );              // true = from destructor (needed for SdrModel::ClearModel)
 
-    if (pValidationList)
-    {
-        for( ScValidationDataList::iterator it = pValidationList->begin(); it != pValidationList->end(); ++it )
-            delete *it;
-        pValidationList->clear();
-        DELETEZ(pValidationList);
-    }
+    pValidationList.reset();
     pRangeName.reset();
     pDBCollection.reset();
     pSelectionAttr.reset();
@@ -460,13 +437,7 @@ void ScDocument::InitClipPtrs( ScDocument* pSourceDoc )
 
     ScMutationGuard aGuard(this, ScMutationGuardFlags::CORE);
 
-    if (pValidationList)
-    {
-        for(ScValidationDataList::iterator it = pValidationList->begin(); it != pValidationList->end(); ++it )
-            delete *it;
-        pValidationList->clear();
-        DELETEZ(pValidationList);
-    }
+    pValidationList.reset();
 
     Clear();
 
@@ -474,9 +445,9 @@ void ScDocument::InitClipPtrs( ScDocument* pSourceDoc )
 
     //  conditional Formats / validations
     // TODO: Copy Templates?
-    const ScValidationDataList* pSourceValid = pSourceDoc->pValidationList;
+    const ScValidationDataList* pSourceValid = pSourceDoc->pValidationList.get();
     if ( pSourceValid )
-        pValidationList = new ScValidationDataList(this, *pSourceValid);
+        pValidationList.reset(new ScValidationDataList(this, *pSourceValid));
 
     // store Links in Stream
     pClipData.reset();
@@ -494,7 +465,7 @@ void ScDocument::InitClipPtrs( ScDocument* pSourceDoc )
 
 SvNumberFormatter* ScDocument::GetFormatTable() const
 {
-    assert(!mbThreadedGroupCalcInProgress);
+    assert(!IsThreadedGroupCalcInProgress());
     return mxPoolHelper->GetFormTable();
 }
 
@@ -549,20 +520,19 @@ void ScDocument::ResetClip( ScDocument* pSourceDoc, const ScMarkData* pMarks )
             if (pSourceDoc->maTabs[i])
                 if (!pMarks || pMarks->GetTableSelect(i))
                 {
-                    OUString aString;
-                    pSourceDoc->maTabs[i]->GetName(aString);
+                    OUString aString = pSourceDoc->maTabs[i]->GetName();
                     if ( i < static_cast<SCTAB>(maTabs.size()) )
                     {
-                        maTabs[i] = new ScTable(this, i, aString);
+                        maTabs[i].reset( new ScTable(this, i, aString) );
 
                     }
                     else
                     {
                         if( i > static_cast<SCTAB>(maTabs.size()) )
                         {
-                            maTabs.resize(i, nullptr );
+                            maTabs.resize(i);
                         }
-                        maTabs.push_back(new ScTable(this, i, aString));
+                        maTabs.emplace_back(new ScTable(this, i, aString));
                     }
                     maTabs[i]->SetLayoutRTL( pSourceDoc->maTabs[i]->IsLayoutRTL() );
                 }
@@ -580,9 +550,9 @@ void ScDocument::ResetClip( ScDocument* pSourceDoc, SCTAB nTab )
         InitClipPtrs(pSourceDoc);
         if (nTab >= static_cast<SCTAB>(maTabs.size()))
         {
-            maTabs.resize(nTab+1, nullptr );
+            maTabs.resize(nTab+1);
         }
-        maTabs[nTab] = new ScTable(this, nTab, "baeh");
+        maTabs[nTab].reset( new ScTable(this, nTab, "baeh") );
         if (nTab < static_cast<SCTAB>(pSourceDoc->maTabs.size()) && pSourceDoc->maTabs[nTab])
             maTabs[nTab]->SetLayoutRTL( pSourceDoc->maTabs[nTab]->IsLayoutRTL() );
     }
@@ -596,10 +566,10 @@ void ScDocument::EnsureTable( SCTAB nTab )
 {
     bool bExtras = !bIsUndo;        // Column-Widths, Row-Heights, Flags
     if (static_cast<size_t>(nTab) >= maTabs.size())
-        maTabs.resize(nTab+1, nullptr);
+        maTabs.resize(nTab+1);
 
     if (!maTabs[nTab])
-        maTabs[nTab] = new ScTable(this, nTab, "temp", bExtras, bExtras);
+        maTabs[nTab].reset( new ScTable(this, nTab, "temp", bExtras, bExtras) );
 }
 
 ScRefCellValue ScDocument::GetRefCellValue( const ScAddress& rPos )
@@ -788,9 +758,9 @@ bool ScDocument::MoveTab( SCTAB nOldPos, SCTAB nNewPos, ScProgress* pProgress )
                 pUnoBroadcaster->Broadcast( ScUpdateRefHint( URM_REORDER,
                             aSourceRange, 0,0,nDz ) );
 
-            ScTable* pSaveTab = maTabs[nOldPos];
+            ScTableUniquePtr pSaveTab = std::move(maTabs[nOldPos]);
             maTabs.erase(maTabs.begin()+nOldPos);
-            maTabs.insert(maTabs.begin()+nNewPos, pSaveTab);
+            maTabs.insert(maTabs.begin()+nNewPos, std::move(pSaveTab));
             TableContainer::iterator it = maTabs.begin();
             for (SCTAB i = 0; i < nTabCount; i++)
                 if (maTabs[i])
@@ -842,7 +812,7 @@ bool ScDocument::CopyTab( SCTAB nOldPos, SCTAB nNewPos, const ScMarkData* pOnlyM
         if (nNewPos >= static_cast<SCTAB>(maTabs.size()))
         {
             nNewPos = static_cast<SCTAB>(maTabs.size());
-            maTabs.push_back(new ScTable(this, nNewPos, aName));
+            maTabs.emplace_back(new ScTable(this, nNewPos, aName));
         }
         else
         {
@@ -867,16 +837,12 @@ bool ScDocument::CopyTab( SCTAB nOldPos, SCTAB nNewPos, const ScMarkData* pOnlyM
                 if ( pUnoBroadcaster )
                     pUnoBroadcaster->Broadcast( ScUpdateRefHint( URM_INSDEL, aRange, 0,0,1 ) );
 
-                SCTAB i;
                 for (TableContainer::iterator it = maTabs.begin(); it != maTabs.end(); ++it)
                     if (*it && it != (maTabs.begin() + nOldPos))
                         (*it)->UpdateInsertTab(aCxt);
-                maTabs.push_back(nullptr);
-                for (i = static_cast<SCTAB>(maTabs.size())-1; i > nNewPos; i--)
-                    maTabs[i] = maTabs[i - 1];
                 if (nNewPos <= nOldPos)
                     nOldPos++;
-                maTabs[nNewPos] = new ScTable(this, nNewPos, aName);
+                maTabs.emplace(maTabs.begin() + nNewPos, new ScTable(this, nNewPos, aName));
                 bValid = true;
                 for (TableContainer::iterator it = maTabs.begin(); it != maTabs.end(); ++it)
                     if (*it && it != maTabs.begin()+nOldPos && it != maTabs.begin() + nNewPos)
@@ -908,7 +874,7 @@ bool ScDocument::CopyTab( SCTAB nOldPos, SCTAB nNewPos, const ScMarkData* pOnlyM
 
         sc::CopyToDocContext aCopyDocCxt(*this);
         maTabs[nOldPos]->CopyToTable(aCopyDocCxt, 0, 0, MAXCOL, MAXROW, InsertDeleteFlags::ALL,
-                (pOnlyMarked != nullptr), maTabs[nNewPos], pOnlyMarked,
+                (pOnlyMarked != nullptr), maTabs[nNewPos].get(), pOnlyMarked,
                 false /*bAsLink*/, true /*bColRowFlags*/, bGlobalNamesToLocal, false /*bCopyCaptions*/ );
         maTabs[nNewPos]->SetTabBgColor(maTabs[nOldPos]->GetTabBgColor());
 
@@ -953,7 +919,7 @@ bool ScDocument::CopyTab( SCTAB nOldPos, SCTAB nNewPos, const ScMarkData* pOnlyM
         // 1. the updated source ScColumn::nTab members if nNewPos <= nOldPos
         // 2. row heights and column widths of the destination
         // 3. RTL settings of the destination
-        maTabs[nOldPos]->CopyCaptionsToTable( 0, 0, MAXCOL, MAXROW, maTabs[nNewPos], true /*bCloneCaption*/);
+        maTabs[nOldPos]->CopyCaptionsToTable( 0, 0, MAXCOL, MAXROW, maTabs[nNewPos].get(), true /*bCloneCaption*/);
     }
 
     return bValid;
@@ -1030,7 +996,7 @@ sal_uLong ScDocument::TransferTab( ScDocument* pSrcDoc, SCTAB nSrcPos,
                 }
                 pSrcDoc->maTabs[nSrcPos]->CopyToTable(aCxt, 0, 0, MAXCOL, MAXROW,
                         ( bResultsOnly ? InsertDeleteFlags::ALL & ~InsertDeleteFlags::FORMULA : InsertDeleteFlags::ALL),
-                        false, maTabs[nDestPos] );
+                        false, maTabs[nDestPos].get() );
             }
         }
         maTabs[nDestPos]->SetTabNo(nDestPos);
@@ -1101,7 +1067,7 @@ sal_uLong ScDocument::TransferTab( ScDocument* pSrcDoc, SCTAB nSrcPos,
                 xLib->getByName( sSrcCodeName ) >>= sRTLSource;
                 sSource = sRTLSource;
             }
-            VBA_InsertModule( *this, nDestPos, OUString(), sSource );
+            VBA_InsertModule( *this, nDestPos, sSource );
         }
     }
 
@@ -1211,62 +1177,30 @@ ScRecursionHelper* ScDocument::CreateRecursionHelperInstance()
 ScLookupCache & ScDocument::GetLookupCache( const ScRange & rRange )
 {
     ScLookupCache* pCache = nullptr;
-    if (!mbThreadedGroupCalcInProgress)
-    {
-        if (!maNonThreaded.pLookupCacheMapImpl)
-            maNonThreaded.pLookupCacheMapImpl = new ScLookupCacheMapImpl;
-        auto it(maNonThreaded.pLookupCacheMapImpl->aCacheMap.find(rRange));
-        if (it == maNonThreaded.pLookupCacheMapImpl->aCacheMap.end())
-        {
-            pCache = new ScLookupCache(this, rRange);
-            AddLookupCache(*pCache);
-        }
-        else
-            pCache = (*it).second;
-    }
-    else
-    {
-        if (!maThreadSpecific.pLookupCacheMapImpl)
-            maThreadSpecific.pLookupCacheMapImpl = new ScLookupCacheMapImpl;
-        auto it(maThreadSpecific.pLookupCacheMapImpl->aCacheMap.find(rRange));
-        if (it == maThreadSpecific.pLookupCacheMapImpl->aCacheMap.end())
-        {
-            pCache = new ScLookupCache(this, rRange);
-            AddLookupCache(*pCache);
-        }
-        else
-            pCache = (*it).second;
-    }
-    return *pCache;
-}
+    ScLookupCacheMapImpl*& rpCacheMapImpl (
+        !IsThreadedGroupCalcInProgress()
+        ? maNonThreaded.pLookupCacheMapImpl
+        : maThreadSpecific.pLookupCacheMapImpl );
 
-void ScDocument::AddLookupCache( ScLookupCache & rCache )
-{
-    if (!mbThreadedGroupCalcInProgress)
+    if (!rpCacheMapImpl)
+        rpCacheMapImpl = new ScLookupCacheMapImpl;
+    auto findIt(rpCacheMapImpl->aCacheMap.find(rRange));
+    if (findIt == rpCacheMapImpl->aCacheMap.end())
     {
-        if (!maNonThreaded.pLookupCacheMapImpl->aCacheMap.insert( ::std::pair< const ScRange,
-                ScLookupCache*>(rCache.getRange(), &rCache)).second)
-        {
-            OSL_FAIL( "ScDocument::AddLookupCache: couldn't add to hash map");
-        }
-        else
-            StartListeningArea(rCache.getRange(), false, &rCache);
+        auto insertIt = rpCacheMapImpl->aCacheMap.emplace_hint(findIt,
+                    rRange, o3tl::make_unique<ScLookupCache>(this, rRange) );
+        pCache = insertIt->second.get();
+        StartListeningArea(rRange, false, pCache);
     }
     else
-    {
-        if (!maThreadSpecific.pLookupCacheMapImpl->aCacheMap.insert( ::std::pair< const ScRange,
-                ScLookupCache*>(rCache.getRange(), &rCache)).second)
-        {
-            OSL_FAIL( "ScDocument::AddLookupCache: couldn't add to hash map");
-        }
-        else
-            StartListeningArea(rCache.getRange(), false, &rCache);
-    }
+        pCache = (*findIt).second.get();
+
+    return *pCache;
 }
 
 void ScDocument::RemoveLookupCache( ScLookupCache & rCache )
 {
-    if (!mbThreadedGroupCalcInProgress)
+    if (!IsThreadedGroupCalcInProgress())
     {
         auto it(maNonThreaded.pLookupCacheMapImpl->aCacheMap.find(rCache.getRange()));
         if (it == maNonThreaded.pLookupCacheMapImpl->aCacheMap.end())
@@ -1275,7 +1209,7 @@ void ScDocument::RemoveLookupCache( ScLookupCache & rCache )
         }
         else
         {
-            ScLookupCache* pCache = (*it).second;
+            ScLookupCache* pCache = (*it).second.release();
             maNonThreaded.pLookupCacheMapImpl->aCacheMap.erase(it);
             EndListeningArea(pCache->getRange(), false, &rCache);
         }
@@ -1289,7 +1223,7 @@ void ScDocument::RemoveLookupCache( ScLookupCache & rCache )
         }
         else
         {
-            ScLookupCache* pCache = (*it).second;
+            ScLookupCache* pCache = (*it).second.release();
             maThreadSpecific.pLookupCacheMapImpl->aCacheMap.erase(it);
             EndListeningArea(pCache->getRange(), false, &rCache);
         }
@@ -1298,7 +1232,7 @@ void ScDocument::RemoveLookupCache( ScLookupCache & rCache )
 
 void ScDocument::ClearLookupCaches()
 {
-    if (!mbThreadedGroupCalcInProgress)
+    if (!IsThreadedGroupCalcInProgress())
     {
         if (maNonThreaded.pLookupCacheMapImpl )
             maNonThreaded.pLookupCacheMapImpl->clear();

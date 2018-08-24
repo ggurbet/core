@@ -126,7 +126,7 @@ void FuBullet::InsertFormattingMark( sal_Unicode cMark )
         pOV->InsertText( "" );
 
         // prepare undo
-        ::svl::IUndoManager& rUndoMgr =  pOL->GetUndoManager();
+        SfxUndoManager& rUndoMgr =  pOL->GetUndoManager();
         rUndoMgr.EnterListAction(SdResId(STR_UNDO_INSERT_SPECCHAR),
                                     "", 0, mpViewShell->GetViewShellBase().GetViewShellId() );
 
@@ -189,10 +189,8 @@ void FuBullet::InsertSpecialCharacter( SfxRequest const & rReq )
             aSet.Put( *pFontItem );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractDialog> pDlg(pFact ? pFact->CreateCharMapDialog(mpView->GetViewShell()->GetFrameWeld(), aSet,
-            true ) : nullptr);
-        if( !pDlg )
-            return;
+        ScopedVclPtr<SfxAbstractDialog> pDlg( pFact->CreateCharMapDialog(mpView->GetViewShell()->GetFrameWeld(), aSet,
+            true ) );
 
         // If a character is selected, it can be shown
         // pDLg->SetFont( );
@@ -207,7 +205,7 @@ void FuBullet::InsertSpecialCharacter( SfxRequest const & rReq )
         ::Outliner*   pOL = nullptr;
 
         // determine depending on ViewShell Outliner and OutlinerView
-        if(mpViewShell && dynamic_cast< const DrawViewShell *>( mpViewShell ) !=  nullptr)
+        if(dynamic_cast< const DrawViewShell *>( mpViewShell ))
         {
             pOV = mpView->GetTextEditOutlinerView();
             if (pOV)
@@ -215,7 +213,7 @@ void FuBullet::InsertSpecialCharacter( SfxRequest const & rReq )
                 pOL = mpView->GetTextEditOutliner();
             }
         }
-        else if(mpViewShell && dynamic_cast< const OutlineViewShell *>( mpViewShell ) !=  nullptr)
+        else if(dynamic_cast< const OutlineViewShell *>( mpViewShell ))
         {
             pOL = &static_cast<OutlineView*>(mpView)->GetOutliner();
             pOV = static_cast<OutlineView*>(mpView)->GetViewByWindow(
@@ -239,7 +237,7 @@ void FuBullet::InsertSpecialCharacter( SfxRequest const & rReq )
             SfxItemSet aOldSet( mpDoc->GetPool(), svl::Items<EE_CHAR_FONTINFO, EE_CHAR_FONTINFO>{} );
             aOldSet.Put( pOV->GetAttribs() );
 
-            ::svl::IUndoManager& rUndoMgr =  pOL->GetUndoManager();
+            SfxUndoManager& rUndoMgr =  pOL->GetUndoManager();
             ViewShellId nViewShellId = mpViewShell ? mpViewShell->GetViewShellBase().GetViewShellId() : ViewShellId(-1);
             rUndoMgr.EnterListAction(SdResId(STR_UNDO_INSERT_SPECCHAR),
                                      "", 0, nViewShellId );
@@ -278,6 +276,7 @@ void FuBullet::InsertSpecialCharacter( SfxRequest const & rReq )
 void FuBullet::GetSlotState( SfxItemSet& rSet, ViewShell const * pViewShell, SfxViewFrame* pViewFrame )
 {
     if( SfxItemState::DEFAULT == rSet.GetItemState( SID_CHARMAP ) ||
+        SfxItemState::DEFAULT == rSet.GetItemState( SID_CHARMAP_CONTROL ) ||
         SfxItemState::DEFAULT == rSet.GetItemState( FN_INSERT_SOFT_HYPHEN ) ||
         SfxItemState::DEFAULT == rSet.GetItemState( FN_INSERT_HARDHYPHEN ) ||
         SfxItemState::DEFAULT == rSet.GetItemState( FN_INSERT_HARD_SPACE ) ||
@@ -304,7 +303,10 @@ void FuBullet::GetSlotState( SfxItemSet& rSet, ViewShell const * pViewShell, Sfx
         }
 
         if( !bTextEdit && (dynamic_cast<OutlineViewShell const *>( pViewShell ) == nullptr) )
+        {
             rSet.DisableItem(SID_CHARMAP);
+            rSet.DisableItem(SID_CHARMAP_CONTROL);
+        }
 
         if(!bTextEdit || !bCtlEnabled )
         {

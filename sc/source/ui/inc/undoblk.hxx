@@ -201,11 +201,11 @@ public:
 
 private:
     ScMarkData      aMarkData;
-    ScDocument*     pUndoDoc;
-    ScDocument*     pRedoDoc;
+    std::unique_ptr<ScDocument> pUndoDoc;
+    std::unique_ptr<ScDocument> pRedoDoc;
     InsertDeleteFlags nFlags;
-    ScRefUndoData*  pRefUndoData;
-    ScRefUndoData*  pRefRedoData;
+    std::unique_ptr<ScRefUndoData> pRefUndoData;
+    std::unique_ptr<ScRefUndoData> pRefRedoData;
     sal_uLong       nStartChangeAction;
     sal_uLong       nEndChangeAction;
     bool            bRedoFilled;
@@ -273,7 +273,7 @@ private:
     ScRange         aRange;
     ScMarkData      aMarkData;
     ScDocumentUniquePtr pUndoDoc; // Block mark and deleted data
-    SdrUndoAction*  pDrawUndo;      // Deleted objects
+    std::unique_ptr<SdrUndoAction> pDrawUndo;      // Deleted objects
     sal_uLong       nStartChangeAction;
     sal_uLong       nEndChangeAction;
     InsertDeleteFlags nFlags;
@@ -290,7 +290,7 @@ public:
                                      const ScMarkData& rMark,
                                      SCCOL nStartX, SCROW nStartY, SCTAB nStartZ,
                                      SCCOL nEndX, SCROW nEndY, SCTAB nEndZ,
-                                     ScDocument* pNewUndoDoc, bool bNewMulti, SCTAB nSrc,
+                                     ScDocumentUniquePtr pNewUndoDoc, bool bNewMulti, SCTAB nSrc,
                                      InsertDeleteFlags nFlg, ScPasteFunc nFunc, bool bSkip, bool bLink );
     virtual         ~ScUndoFillTable() override;
 
@@ -326,7 +326,7 @@ public:
                                          const ScMarkData& rMark,
                                          SCCOL nStartX, SCROW nStartY, SCTAB nStartZ,
                                          SCCOL nEndX, SCROW nEndY, SCTAB nEndZ,
-                                         ScDocument* pNewUndoDoc, bool bNewMulti,
+                                         ScDocumentUniquePtr pNewUndoDoc, bool bNewMulti,
                                          const ScPatternAttr* pNewApply,
                                          const SvxBoxItem* pNewOuter = nullptr,
                                          const SvxBoxInfoItem* pNewInner = nullptr,
@@ -346,7 +346,7 @@ private:
     ScRange         aRange;
     ScRange         aRangeCover;
     std::unique_ptr<ScEditDataArray> mpDataArray;
-    ScDocument*     pUndoDoc;
+    ScDocumentUniquePtr pUndoDoc;
     bool            bMulti;
     ScPatternAttr*  pApplyPattern;
     SvxBoxItem*     pLineOuter;
@@ -365,7 +365,7 @@ public:
                                          SCCOLROW nNewEnd, SCTAB nNewEndTab,
                                          ScDocument* pNewUndoDoc,
                                          const std::vector<sc::ColRowSpan>& rRanges,
-                                         ScOutlineTable* pNewUndoTab,
+                                         std::unique_ptr<ScOutlineTable> pNewUndoTab,
                                          ScSizeMode eNewMode, sal_uInt16 nNewSizeTwips,
                                          bool bNewWidth );
     virtual         ~ScUndoWidthOrHeight() override;
@@ -383,13 +383,13 @@ private:
     SCCOLROW        nEnd;
     SCTAB           nStartTab;
     SCTAB           nEndTab;
-    ScDocument*     pUndoDoc;
-    ScOutlineTable* pUndoTab;
+    std::unique_ptr<ScDocument>     pUndoDoc;
+    std::unique_ptr<ScOutlineTable> pUndoTab;
     std::vector<sc::ColRowSpan> maRanges;
     sal_uInt16      nNewSize;
     bool            bWidth;
     ScSizeMode      eMode;
-    SdrUndoAction*  pDrawUndo;
+    std::unique_ptr<SdrUndoAction>  pDrawUndo;
 };
 
 class ScUndoAutoFill: public ScBlockUndo
@@ -397,7 +397,7 @@ class ScUndoAutoFill: public ScBlockUndo
 public:
                     ScUndoAutoFill( ScDocShell* pNewDocShell,
                                     const ScRange& rRange, const ScRange& rSourceArea,
-                                    ScDocument* pNewUndoDoc, const ScMarkData& rMark,
+                                    ScDocumentUniquePtr pNewUndoDoc, const ScMarkData& rMark,
                                     FillDir eNewFillDir,
                                     FillCmd eNewFillCmd, FillDateCmd eNewFillDateCmd,
                                     double fNewStartValue, double fNewStepValue, double fNewMaxValue );
@@ -431,7 +431,7 @@ class ScUndoMerge: public ScSimpleUndo
 {
 public:
                     ScUndoMerge( ScDocShell* pNewDocShell, const ScCellMergeOption& rOption,
-                                 bool bMergeContents, ScDocument* pUndoDoc, SdrUndoAction* pDrawUndo);
+                                 bool bMergeContents, ScDocumentUniquePtr pUndoDoc, SdrUndoAction* pDrawUndo);
     virtual         ~ScUndoMerge() override;
 
     virtual void    Undo() override;
@@ -445,7 +445,7 @@ private:
     ScCellMergeOption maOption;
     bool            mbMergeContents;        // Merge contents in Redo().
     ScDocumentUniquePtr mxUndoDoc;              // when data is merged
-    SdrUndoAction*  mpDrawUndo;
+    std::unique_ptr<SdrUndoAction> mpDrawUndo;
 
     void            DoChange( bool bUndo ) const;
 };
@@ -454,7 +454,7 @@ class ScUndoAutoFormat: public ScBlockUndo
 {
 public:
                     ScUndoAutoFormat( ScDocShell* pNewDocShell,
-                                      const ScRange& rRange, ScDocument* pNewUndoDoc,
+                                      const ScRange& rRange, ScDocumentUniquePtr pNewUndoDoc,
                                       const ScMarkData& rMark,
                                       bool bNewSize, sal_uInt16 nNewFormatNo );
     virtual         ~ScUndoAutoFormat() override;
@@ -480,7 +480,7 @@ public:
                     ScUndoReplace( ScDocShell* pNewDocShell,
                                    const ScMarkData& rMark,
                                    SCCOL nCurX, SCROW nCurY, SCTAB nCurZ,
-                                   const OUString& rNewUndoStr, ScDocument* pNewUndoDoc,
+                                   const OUString& rNewUndoStr, ScDocumentUniquePtr pNewUndoDoc,
                                    const SvxSearchItem* pItem );
     virtual         ~ScUndoReplace() override;
 
@@ -495,8 +495,8 @@ private:
     ScAddress       aCursorPos;
     ScMarkData      aMarkData;
     OUString        aUndoStr;           // Data at single selection
-    ScDocument*     pUndoDoc;           // Block mark and deleted data
-    SvxSearchItem*  pSearchItem;
+    ScDocumentUniquePtr pUndoDoc;           // Block mark and deleted data
+    std::unique_ptr<SvxSearchItem> pSearchItem;
     sal_uLong           nStartChangeAction;
     sal_uLong           nEndChangeAction;
 
@@ -509,7 +509,7 @@ public:
                     ScUndoTabOp( ScDocShell* pNewDocShell,
                                  SCCOL nStartX, SCROW nStartY, SCTAB nStartZ,
                                  SCCOL nEndX,   SCROW nEndY,   SCTAB nEndZ,
-                                 ScDocument* pNewUndoDoc,
+                                 ScDocumentUniquePtr pNewUndoDoc,
                                  const ScRefAddress& rFormulaCell,
                                  const ScRefAddress& rFormulaEnd,
                                  const ScRefAddress& rRowCell,
@@ -540,8 +540,8 @@ class ScUndoConversion : public ScSimpleUndo
 public:
 
                     ScUndoConversion( ScDocShell* pNewDocShell, const ScMarkData& rMark,
-                                      SCCOL nCurX, SCROW nCurY, SCTAB nCurZ, ScDocument* pNewUndoDoc,
-                                      SCCOL nNewX, SCROW nNewY, SCTAB nNewZ, ScDocument* pNewRedoDoc,
+                                      SCCOL nCurX, SCROW nCurY, SCTAB nCurZ, ScDocumentUniquePtr pNewUndoDoc,
+                                      SCCOL nNewX, SCROW nNewY, SCTAB nNewZ, ScDocumentUniquePtr pNewRedoDoc,
                                       const ScConversionParam& rConvParam );
     virtual         ~ScUndoConversion() override;
 
@@ -555,9 +555,9 @@ public:
 private:
     ScMarkData      aMarkData;
     ScAddress       aCursorPos;
-    ScDocument*     pUndoDoc;           // Block mark and deleted data
+    ScDocumentUniquePtr pUndoDoc;           // Block mark and deleted data
     ScAddress       aNewCursorPos;
-    ScDocument*     pRedoDoc;           // Block mark and new data
+    ScDocumentUniquePtr pRedoDoc;           // Block mark and new data
     sal_uLong       nStartChangeAction;
     sal_uLong       nEndChangeAction;
     ScConversionParam maConvParam;        /// Conversion type and parameters.
@@ -571,7 +571,7 @@ class ScUndoRefConversion: public ScSimpleUndo
 public:
                     ScUndoRefConversion( ScDocShell* pNewDocShell,
                                          const ScRange& aMarkRange, const ScMarkData& rMark,
-                                         ScDocument* pNewUndoDoc, ScDocument* pNewRedoDoc, bool bNewMulti);
+                                         ScDocumentUniquePtr pNewUndoDoc, ScDocumentUniquePtr pNewRedoDoc, bool bNewMulti);
     virtual         ~ScUndoRefConversion() override;
 
     virtual void    Undo() override;
@@ -583,8 +583,8 @@ public:
 
 private:
     ScMarkData          aMarkData;
-    ScDocument*         pUndoDoc;
-    ScDocument*         pRedoDoc;
+    ScDocumentUniquePtr pUndoDoc;
+    ScDocumentUniquePtr pRedoDoc;
     ScRange             aRange;
     bool                bMulti;
     sal_uLong           nStartChangeAction;
@@ -712,7 +712,7 @@ class ScUndoRefreshLink: public ScSimpleUndo
 {
 public:
     ScUndoRefreshLink(ScDocShell* pNewDocShell,
-                      ScDocument* pNewUndoDoc);
+                      ScDocumentUniquePtr pNewUndoDoc);
 
     virtual void    Undo() override;
     virtual void    Redo() override;
@@ -816,7 +816,7 @@ public:
                          const OUString& rNewF, const OUString& rNewO,
                          const OUString& rNewA, const ScRange& rNewR,
                          sal_uLong nNewRD,
-                         ScDocument* pUndo, ScDocument* pRedo,
+                         ScDocumentUniquePtr pUndo, ScDocumentUniquePtr pRedo,
                          bool bDoInsert);
 
     virtual void    Undo() override;

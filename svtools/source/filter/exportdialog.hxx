@@ -111,15 +111,15 @@ private:
     OUString            ms8BitColorPalette;
     OUString            ms24BitColor;
 
-    FilterConfigItem*   mpOptionsItem;
-    FilterConfigItem*   mpFilterOptionsItem;
+    std::unique_ptr<FilterConfigItem> mpOptionsItem;
+    std::unique_ptr<FilterConfigItem> mpFilterOptionsItem;
 
     OUString            maExt;
     sal_Int16           mnFormat;
     sal_Int32           mnMaxFilesizeForRealtimePreview;
 
     std::unique_ptr<SvMemoryStream> mpTempStream;
-    Bitmap              maBitmap;
+    BitmapEx            maBitmap;
 
     css::awt::Size      maOriginalSize;     // the original graphic size in 1/100mm
     css::awt::Size      maSize;             // for vector graphics it always contains the logical size in 1/100mm
@@ -158,7 +158,7 @@ private:
 
                         void GetGraphicSource();
                         void GetGraphicStream();
-                        static Bitmap GetGraphicBitmap( SvStream& rStream );
+                        static BitmapEx GetGraphicBitmap( SvStream& rStream );
                         css::uno::Sequence< css::beans::PropertyValue >
                             GetFilterData( bool bUpdateConfig );
 

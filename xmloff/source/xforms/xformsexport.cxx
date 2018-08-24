@@ -35,6 +35,7 @@
 
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/document/NamedPropertyValues.hpp>
@@ -110,9 +111,9 @@ typedef OUString (*convert_t)( const Any& );
 typedef struct
 {
     const sal_Char* pPropertyName;
-    sal_uInt16 nNamespace;
+    sal_uInt16 const nNamespace;
     sal_uInt16 nToken;
-    convert_t aConverter;
+    convert_t const aConverter;
 } ExportTable;
 static void lcl_export( const Reference<XPropertySet>& rPropertySet,
                  SvXMLExport& rExport,

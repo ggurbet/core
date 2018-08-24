@@ -38,6 +38,7 @@
 #include <svtools/strings.hrc>
 #include <svtools/svtresid.hxx>
 
+#include <sal/log.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/debug.hxx>
 #include <svl/urihelper.hxx>
@@ -183,7 +184,7 @@ short SvInsertOleDlg::execute()
         if ( bCreateNew )
         {
             // create and insert new embedded object
-            OUString aServerName = m_xLbObjecttype->get_selected();
+            OUString aServerName = m_xLbObjecttype->get_selected_text();
             const SvObjectServer* pS = m_pServers->Get( aServerName );
             if ( pS )
             {
@@ -356,20 +357,20 @@ SfxInsertFloatingFrameDialog::SfxInsertFloatingFrameDialog(weld::Window *pParent
 
 void SfxInsertFloatingFrameDialog::Init()
 {
-    m_xEDName.reset(m_xBuilder->weld_entry("edname"));
-    m_xEDURL.reset(m_xBuilder->weld_entry("edurl"));
-    m_xBTOpen.reset(m_xBuilder->weld_button("buttonbrowse"));
-    m_xRBScrollingOn.reset(m_xBuilder->weld_radio_button("scrollbaron"));
-    m_xRBScrollingOff.reset(m_xBuilder->weld_radio_button("scrollbaroff"));
-    m_xRBScrollingAuto.reset(m_xBuilder->weld_radio_button("scrollbarauto"));
-    m_xRBFrameBorderOn.reset(m_xBuilder->weld_radio_button("borderon"));
-    m_xRBFrameBorderOff.reset(m_xBuilder->weld_radio_button("borderoff"));
-    m_xFTMarginWidth.reset(m_xBuilder->weld_label("widthlabel"));
-    m_xNMMarginWidth.reset(m_xBuilder->weld_spin_button("width"));
-    m_xCBMarginWidthDefault.reset(m_xBuilder->weld_check_button("defaultwidth"));
-    m_xFTMarginHeight.reset(m_xBuilder->weld_label("heightlabel"));
-    m_xNMMarginHeight.reset(m_xBuilder->weld_spin_button("height"));
-    m_xCBMarginHeightDefault.reset(m_xBuilder->weld_check_button("defaultheight"));
+    m_xEDName = m_xBuilder->weld_entry("edname");
+    m_xEDURL = m_xBuilder->weld_entry("edurl");
+    m_xBTOpen = m_xBuilder->weld_button("buttonbrowse");
+    m_xRBScrollingOn = m_xBuilder->weld_radio_button("scrollbaron");
+    m_xRBScrollingOff = m_xBuilder->weld_radio_button("scrollbaroff");
+    m_xRBScrollingAuto = m_xBuilder->weld_radio_button("scrollbarauto");
+    m_xRBFrameBorderOn = m_xBuilder->weld_radio_button("borderon");
+    m_xRBFrameBorderOff = m_xBuilder->weld_radio_button("borderoff");
+    m_xFTMarginWidth = m_xBuilder->weld_label("widthlabel");
+    m_xNMMarginWidth = m_xBuilder->weld_spin_button("width");
+    m_xCBMarginWidthDefault = m_xBuilder->weld_check_button("defaultwidth");
+    m_xFTMarginHeight = m_xBuilder->weld_label("heightlabel");
+    m_xNMMarginHeight = m_xBuilder->weld_spin_button("height");
+    m_xCBMarginHeightDefault = m_xBuilder->weld_check_button("defaultheight");
 
     Link<weld::Button&, void> aLink(LINK(this, SfxInsertFloatingFrameDialog, CheckHdl));
     m_xCBMarginWidthDefault->connect_clicked(aLink);

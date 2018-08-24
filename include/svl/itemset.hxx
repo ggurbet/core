@@ -158,11 +158,7 @@ public:
     }
     template<class T> const T* GetItem( TypedWhichId<T> nWhich, bool bSearchInParent = true ) const
     {
-        const SfxPoolItem* pItem = GetItem(sal_uInt16(nWhich), bSearchInParent);
-        const T* pCastedItem = dynamic_cast<const T*>(pItem);
-
-        assert(!pItem || pCastedItem); // if it exists, must have the correct type
-        return pCastedItem;
+        return GetItem<T>(sal_uInt16(nWhich), bSearchInParent);
     }
 
 
@@ -173,6 +169,12 @@ public:
             return pItemSet->GetItem<T>(nWhich, bSearchInParent);
 
         return nullptr;
+    }
+    template <class T>
+    static const T* GetItem(const SfxItemSet* pItemSet, TypedWhichId<T> nWhich,
+                            bool bSearchInParent)
+    {
+        return GetItem<T>(pItemSet, static_cast<sal_uInt16>(nWhich), bSearchInParent);
     }
 
     sal_uInt16                  GetWhichByPos(sal_uInt16 nPos) const;
@@ -201,7 +203,7 @@ public:
                                      bool bInvalidAsDefault = true );
     void                        PutExtended( const SfxItemSet&,
                                              SfxItemState eDontCareAs,
-                                             SfxItemState eDefaultAs = SfxItemState::UNKNOWN );
+                                             SfxItemState eDefaultAs );
 
     bool                        Set( const SfxItemSet&, bool bDeep = true );
 

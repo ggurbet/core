@@ -134,7 +134,7 @@ class WW8Reader : public StgReader
     virtual ErrCode Read(SwDoc &, const OUString& rBaseURL, SwPaM &, const OUString &) override;
     ErrCode OpenMainStream( tools::SvRef<SotStorageStream>& rRef, sal_uInt16& rBuffSize );
 public:
-    virtual int GetReaderType() override;
+    virtual SwReaderType GetReaderType() override;
 
     virtual bool HasGlossaries() const override;
     virtual bool ReadGlossaries( SwTextBlocks&, bool bSaveRelFiles ) const override;
@@ -162,7 +162,7 @@ private:
     SwDoc&           rDoc;
     const WW8Fib&    rFib;
     SvStream&        rSt;
-    std::vector<WW8LSTInfo* > maLSTInfos;
+    std::vector<std::unique_ptr<WW8LSTInfo>> maLSTInfos;
     std::vector<std::unique_ptr<WW8LFOInfo>> m_LFOInfos;// D. from PLF LFO, sorted exactly like in the WW8 Stream
     sal_uInt16       nUniqueList; // current number for creating unique list names
     SprmResult GrpprlHasSprm(sal_uInt16 nId, sal_uInt8& rSprms, sal_uInt8 nLen);
@@ -505,6 +505,11 @@ public:
     SwMacroInfo();
     virtual ~SwMacroInfo() override;
 
+    SwMacroInfo(SwMacroInfo const &) = default;
+    SwMacroInfo(SwMacroInfo &&) = default;
+    SwMacroInfo & operator =(SwMacroInfo const &) = default;
+    SwMacroInfo & operator =(SwMacroInfo &&) = default;
+
     virtual std::unique_ptr<SdrObjUserData> Clone( SdrObject* pObj ) const override;
 
     void SetHlink( const OUString& rHlink ) { maHlink = rHlink; }
@@ -766,7 +771,7 @@ public:
     void DisableFallbackStream();
     void EnableFallbackStream();
 protected:
-    virtual SdrObject* ProcessObj( SvStream& rSt, DffObjData& rObjData, void* pData, tools::Rectangle& rTextRect, SdrObject* pObj ) override;
+    virtual SdrObject* ProcessObj( SvStream& rSt, DffObjData& rObjData, SvxMSDffClientData& rData, tools::Rectangle& rTextRect, SdrObject* pObj ) override;
 };
 
 class wwSection
@@ -817,7 +822,6 @@ private:
     SwWW8ImplReader& mrReader;
     std::deque<wwSection> maSegments;
     typedef std::deque<wwSection>::iterator mySegIter;
-    typedef std::deque<wwSection>::reverse_iterator mySegrIter;
 
     //Num of page desc's entered into the document
     sal_uInt16 mnDesc;
@@ -1049,6 +1053,9 @@ struct WW8TabBandDesc
     void ReadNewShd(const sal_uInt8* pS, bool bVer67);
 
     enum wwDIR {wwTOP = 0, wwLEFT = 1, wwBOTTOM = 2, wwRIGHT = 3};
+
+private:
+    WW8TabBandDesc & operator =(WW8TabBandDesc const &) = default; // only for use in copy ctor
 };
 
 //            Storage-Reader
@@ -1090,7 +1097,8 @@ private:
     This stack is for redlines, because their sequence of discovery can
     be out of order of their order of insertion into the document.
     */
-    std::unique_ptr<sw::util::RedlineStack> m_xRedlineStack;
+    std::stack<std::unique_ptr<sw::util::RedlineStack>> m_aFrameRedlines; //inside frames, tables, etc
+    std::unique_ptr<sw::util::RedlineStack> m_xRedlineStack;    //main document
 
     /*
     This stack is for fields that get referenced later, e.g. BookMarks and TOX.
@@ -1126,7 +1134,6 @@ private:
     main logic of the filter itself.
     */
     std::deque<WW8FieldEntry> m_aFieldStack;
-    typedef std::deque<WW8FieldEntry>::const_iterator mycFieldIter;
 
     /*
     A stack of open footnotes. Should only be one in it at any time.
@@ -1203,7 +1210,7 @@ private:
     */
     std::set<sal_uLong> m_aGrafPosSet;
 
-    WW8PostProcessAttrsInfo * m_pPostProcessAttrsInfo;
+    std::unique_ptr<WW8PostProcessAttrsInfo> m_pPostProcessAttrsInfo;
 
     std::shared_ptr<WW8Fib> m_xWwFib;
     std::unique_ptr<WW8Fonts> m_xFonts;
@@ -1246,7 +1253,7 @@ private:
 
     std::unique_ptr<SwMSDffManager> m_xMSDffManager;
 
-    std::vector<OUString>* m_pAtnNames;
+    std::unique_ptr<std::vector<OUString>> m_pAtnNames;
 
     std::unique_ptr<WW8SmartTagData> m_pSmartTagData;
 
@@ -1275,7 +1282,7 @@ private:
     rtl_TextEncoding m_eHardCharSet;    // Hard rtl_TextEncoding-Attribute
     sal_uInt16 m_nProgress;           // percentage for Progressbar
     sal_uInt16 m_nCurrentColl;          // per WW-count
-    sal_uInt16 m_nFieldNum;             // serial nummer for that
+    sal_uInt16 m_nFieldNum;             // serial number for that
     sal_uInt16 m_nLFOPosition;
 
     short m_nCharFormat;             // per WW-count, <0 for none
@@ -1353,7 +1360,7 @@ private:
     // Indicate that current on loading a hyperlink, which is inside a TOC; Managed by Read_F_Hyperlink() and End_Field()
     bool m_bLoadingTOXHyperlink;
     // a document position recorded the after-position of TOC section, managed by Read_F_TOX() and End_Field()
-    SwPaM* m_pPosAfterTOC;
+    std::unique_ptr<SwPaM> m_pPosAfterTOC;
     // used for some dropcap tweaking
     SwTextNode* m_pPreviousNode;
 
@@ -1388,19 +1395,19 @@ private:
     void CopyPageDescHdFt( const SwPageDesc* pOrgPageDesc,
                            SwPageDesc* pNewPageDesc, sal_uInt8 nCode );
 
-    void DeleteStack(SwFltControlStack* prStck);
+    void DeleteStack(std::unique_ptr<SwFltControlStack> prStck);
     void DeleteCtrlStack()
     {
-        DeleteStack(m_xCtrlStck.release());
+        DeleteStack(std::move(m_xCtrlStck));
     }
     void DeleteRefStacks()
     {
-        DeleteStack(m_xReffedStck.release());
-        DeleteStack(m_xReffingStck.release());
+        DeleteStack(std::move(m_xReffedStck));
+        DeleteStack(std::move(m_xReffingStck));
     }
     void DeleteAnchorStack()
     {
-        DeleteStack(m_xAnchorStck.release());
+        DeleteStack(std::move(m_xAnchorStck));
     }
     void emulateMSWordAddTextToParagraph(const OUString& rAddString);
     void simpleAddTextToParagraph(const OUString& rAddString);
@@ -1579,7 +1586,7 @@ private:
     bool GetTxbxTextSttEndCp(WW8_CP& rStartCp, WW8_CP& rEndCp, sal_uInt16 nTxBxS,
         sal_uInt16 nSequence);
     sal_Int32 GetRangeAsDrawingString(OUString& rString, long StartCp, long nEndCp, ManTypes eType);
-    OutlinerParaObject* ImportAsOutliner(OUString &rString, WW8_CP nStartCp, WW8_CP nEndCp, ManTypes eType);
+    std::unique_ptr<OutlinerParaObject> ImportAsOutliner(OUString &rString, WW8_CP nStartCp, WW8_CP nEndCp, ManTypes eType);
     void InsertTxbxText(SdrTextObj* pTextObj, Size const * pObjSiz,
         sal_uInt16 nTxBxS, sal_uInt16 nSequence, long nPosCp, SwFrameFormat const * pFlyFormat,
         bool bMakeSdrGrafObj, bool& rbEraseTextObj,

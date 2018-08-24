@@ -119,6 +119,9 @@ void MiscTest::testNoThumbnail()
     CPPUNIT_ASSERT(xComponent.is());
 
     // Save it with the NoThumbnail option and assert that it has no thumbnail.
+#ifndef _WIN32
+    mode_t nMask = umask(022);
+#endif
     uno::Reference<frame::XStorable> xStorable(xComponent, uno::UNO_QUERY);
     CPPUNIT_ASSERT(xStorable.is());
     utl::TempFile aTempFile;
@@ -132,7 +135,6 @@ void MiscTest::testNoThumbnail()
 
 #ifndef _WIN32
     // Check permissions of the URL after store.
-    mode_t nMask = umask(022);
     osl::DirectoryItem aItem;
     CPPUNIT_ASSERT_EQUAL(osl::DirectoryItem::E_None,
                          osl::DirectoryItem::get(aTempFile.GetURL(), aItem));
@@ -140,8 +142,8 @@ void MiscTest::testNoThumbnail()
     osl::FileStatus aStatus(osl_FileStatus_Mask_Attributes);
     CPPUNIT_ASSERT_EQUAL(osl::DirectoryItem::E_None, aItem.getFileStatus(aStatus));
 
-    // This failed, osl_File_Attribute_GrpRead was not set even if umask
-    // requested so.
+    // The following checks used to fail in the past, osl_File_Attribute_GrpRead was not set even if
+    // umask requested so:
     CPPUNIT_ASSERT(aStatus.getAttributes() & osl_File_Attribute_GrpRead);
     CPPUNIT_ASSERT(aStatus.getAttributes() & osl_File_Attribute_OthRead);
     umask(nMask);
@@ -172,7 +174,7 @@ void MiscTest::testHardLinks()
 
     struct stat buf;
     int nRet = stat(aOld.getStr(), &buf);
-    CPPUNIT_ASSERT_EQUAL(nRet, 0);
+    CPPUNIT_ASSERT_EQUAL(0, nRet);
     // This failed: hard link count was 1, the hard link broke on store.
     CPPUNIT_ASSERT(buf.st_nlink > 1);
 

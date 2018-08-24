@@ -28,7 +28,6 @@
 #include <vcl/mapmod.hxx>
 #include <vcl/vclptr.hxx>
 #include <vcl/lazydelete.hxx>
-#include <vcl/weld.hxx>
 
 namespace com { namespace sun { namespace star { namespace accessibility {
            class XAccessible; } } } }
@@ -72,6 +71,7 @@ namespace vcl
 {
     typedef OutputDevice RenderContext;
 }
+namespace weld { class Dialog; }
 
 // Define for flags needed in ctor or layers below.
 // Currently the Preview flag is needed for DrawPage.
@@ -107,7 +107,8 @@ class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
     SwRect        maInvalidRect;
 
     SfxViewShell *mpSfxViewShell;
-    SwViewShellImp *mpImp;           // Core-internals of SwViewShell.
+    std::unique_ptr<SwViewShellImp>
+                  mpImp;             // Core-internals of SwViewShell.
                                      // The pointer is never 0.
 
     VclPtr<vcl::Window>   mpWin;     ///< = 0 during printing or pdf export
@@ -118,8 +119,8 @@ class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
                                      // (because a scaling has to be set at
                                      // the original printer)
 
-    SwViewOption *mpOpt;
-    SwAccessibilityOptions* mpAccOptions;
+    std::unique_ptr<SwViewOption> mpOpt;
+    std::unique_ptr<SwAccessibilityOptions> mpAccOptions;
 
     bool  mbDocSizeChgd     :1;  // For DocChgNotify(): Announce new DocSize
                                     // at EndAction to DocMDI.
@@ -162,7 +163,7 @@ class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
     SAL_DLLPRIVATE bool CheckInvalidForPaint( const SwRect & );  // Direct Paint or rather
                                                                     // trigger an action.
 
-    SAL_DLLPRIVATE void PrepareForPrint( const SwPrintData &rOptions );
+    SAL_DLLPRIVATE void PrepareForPrint( const SwPrintData &rOptions, bool bIsPDFExport = false );
 
     SAL_DLLPRIVATE void ImplApplyViewOptions( const SwViewOption &rOpt );
 
@@ -183,8 +184,8 @@ protected:
 
 public:
 
-          SwViewShellImp *Imp() { return mpImp; }
-    const SwViewShellImp *Imp() const { return mpImp; }
+          SwViewShellImp *Imp() { return mpImp.get(); }
+    const SwViewShellImp *Imp() const { return mpImp.get(); }
 
     const SwNodes& GetNodes() const;
 
@@ -346,7 +347,8 @@ public:
     // bIsPDFExport == true is: do PDF Export (no printing!)
     bool PrintOrPDFExport( OutputDevice *pOutDev,
             SwPrintData const& rPrintData,
-            sal_Int32 nRenderer /* offset in vector of pages to print */ );
+            sal_Int32 nRenderer, /* offset in vector of pages to print */
+            bool bIsPDFExport );
 
     // Printing of one brochure page.
     void PrintProspect( OutputDevice *pOutDev, const SwPrintData &rPrintData,
@@ -409,12 +411,14 @@ public:
 
     void SetSubtractFlysAnchoredAtFlys(bool bSubtractFlysAnchoredAtFlys);
 
+    void SetEmptyDbFieldHidesPara(bool bEmptyDbFieldHidesPara);
+
     // DOCUMENT COMPATIBILITY FLAGS END
 
     // Calls Idle-formatter of Layout.
     void LayoutIdle();
 
-    const SwViewOption *GetViewOptions() const { return mpOpt; }
+    const SwViewOption *GetViewOptions() const { return mpOpt.get(); }
     virtual void  ApplyViewOptions( const SwViewOption &rOpt );
            void  SetUIOptions( const SwViewOption &rOpt );
     virtual void  SetReadonlyOption(bool bSet);          // Set readonly-bit of ViewOptions.
@@ -422,7 +426,7 @@ public:
            void  SetPrtFormatOption(bool bSet);         // Set PrtFormat-Bit of ViewOptions.
            void  SetReadonlySelectionOption(bool bSet); // Change the selection mode in readonly docs.
 
-    const SwAccessibilityOptions* GetAccessibilityOptions() const { return mpAccOptions;}
+    const SwAccessibilityOptions* GetAccessibilityOptions() const { return mpAccOptions.get();}
 
     static void           SetShellRes( ShellResource* pRes ) { mpShellRes = pRes; }
     static ShellResource* GetShellRes();
@@ -504,8 +508,6 @@ public:
 
     /** invalidate CONTENT_FLOWS_FROM/_TO relation for paragraphs
 
-        @author OD
-
         @param _pFromTextFrame
         input parameter - paragraph frame, for which the relation CONTENT_FLOWS_FROM
         has to be invalidated.
@@ -520,8 +522,6 @@ public:
                                                const SwTextFrame* _pToTextFrame );
 
     /** invalidate text selection for paragraphs
-
-        @author OD
     */
     void InvalidateAccessibleParaTextSelection();
 
@@ -529,8 +529,6 @@ public:
 
         usage also for changes of the attributes of
         paragraph's characters.
-
-        @author OD
 
         @param rTextFrame
         input parameter - paragraph frame, whose attributes have changed

@@ -19,8 +19,12 @@
 
 #include "fbcreateparser.hxx"
 #include "columndef.hxx"
+#include "utils.hxx"
 
 #include <com/sun/star/sdbc/DataType.hpp>
+
+#include <connectivity/dbexception.hxx>
+#include <comphelper/processfactory.hxx>
 #include <rtl/ustrbuf.hxx>
 
 using namespace css::sdbc;
@@ -69,7 +73,10 @@ OUString lcl_DataTypetoFbTypeName(sal_Int32 eType)
         case DataType::TIMESTAMP:
             return OUString("TIMESTAMP");
         case DataType::DOUBLE:
+        case DataType::REAL:
             return OUString("DOUBLE PRECISION");
+        case DataType::FLOAT:
+            return OUString("FLOAT");
         default:
             assert(false);
             return OUString();
@@ -79,7 +86,7 @@ OUString lcl_DataTypetoFbTypeName(sal_Int32 eType)
 OUString lcl_getTypeModifier(sal_Int32 eType)
 {
     // TODO bind -9546 magic number to a common definition. It also appears
-    // in the connectivity modul.
+    // in the connectivity module.
     switch (eType)
     {
         case DataType::CLOB:
@@ -99,8 +106,16 @@ OUString lcl_getTypeModifier(sal_Int32 eType)
 
 namespace dbahsql
 {
+void FbCreateStmtParser::ensureProperTableLengths() const
+{
+    const std::vector<ColumnDefinition>& rColumns = getColumnDef();
+    for (const auto& col : rColumns)
+        utils::ensureFirebirdTableLength(col.getName());
+}
+
 OUString FbCreateStmtParser::compose() const
 {
+    ensureProperTableLengths();
     OUStringBuffer sSql("CREATE TABLE ");
     sSql.append(getTableName());
 
@@ -155,23 +170,35 @@ OUString FbCreateStmtParser::compose() const
         else if (!columnIter->isNullable())
             lcl_appendWithSpace(sSql, "NOT NULL");
 
-        if (columnIter->isPrimaryKey())
-            lcl_appendWithSpace(sSql, "PRIMARY KEY");
+        if (columnIter->isCaseInsensitive())
+            lcl_appendWithSpace(sSql, "COLLATE UNICODE_CI");
+
+        const OUString& sDefaultVal = columnIter->getDefault();
+        if (!sDefaultVal.isEmpty())
+        {
+            lcl_appendWithSpace(sSql, "DEFAULT");
+            if (sDefaultVal.equalsIgnoreAsciiCase("NOW"))
+                lcl_appendWithSpace(sSql, "\'NOW\'"); // Fb likes it single quoted
+            else
+                lcl_appendWithSpace(sSql, sDefaultVal);
+        }
 
         ++columnIter;
-        if (columnIter != rColumns.end())
+        sSql.append(",");
+    }
+
+    sSql.append("PRIMARY KEY(");
+    const std::vector<OUString>& sPrimaryKeys = getPrimaryKeys();
+    auto it = sPrimaryKeys.cbegin();
+    while (it != sPrimaryKeys.end())
+    {
+        sSql.append(*it);
+        ++it;
+        if (it != sPrimaryKeys.end())
             sSql.append(",");
     }
 
-    // foreign keys
-    const std::vector<OUString>& sForeignParts = getForeignParts();
-    for (const auto& sPart : sForeignParts)
-    {
-        sSql.append(",");
-        sSql.append(sPart);
-    }
-
-    sSql.append(")"); // end of column declaration
+    sSql.append("))"); // end of column declaration and primary keys
     return sSql.makeStringAndClear();
 }
 

@@ -152,7 +152,7 @@ OUString URLParameter::get_title()
 }
 
 
-OUString const & URLParameter::get_language()
+OUString const & URLParameter::get_language() const
 {
     return m_aLanguage;
 }
@@ -515,7 +515,7 @@ bool URLParameter::query()
         else if( parameter == "Active" )
             m_aActive = value;
         else if( parameter == "Version" )
-            ; // ignored (but accepted) in the build-in help, useful only for the online help
+            ; // ignored (but accepted) in the built-in help, useful only for the online help
         else
             ret = false;
     }
@@ -924,7 +924,7 @@ void SAL_CALL InputStreamTransformer::skipBytes( sal_Int32 nBytesToSkip )
 sal_Int32 SAL_CALL InputStreamTransformer::available()
 {
     osl::MutexGuard aGuard( m_aMutex );
-    return std::max<sal_Int32>(buffer.getLength() - pos, 0);
+    return std::min<sal_Int64>(SAL_MAX_INT32, buffer.getLength() - pos);
 }
 
 

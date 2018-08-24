@@ -333,9 +333,9 @@ namespace svxform
         }
 
         if (pFolder)
-            pFolder->GetChildList()->insert( pEntry, nRelPos );
+            pFolder->GetChildList()->insert( std::unique_ptr<FmEntryData>(pEntry), nRelPos );
         else
-            GetRootList()->insert( pEntry, nRelPos );
+            GetRootList()->insert( std::unique_ptr<FmEntryData>(pEntry), nRelPos );
 
 
         // notify UI
@@ -594,8 +594,8 @@ namespace svxform
     )
     {
         FmEntryData* pData = FindData(xOld, GetRootList());
-        assert(pData && dynamic_cast<const FmControlData*>( pData) !=  nullptr); //NavigatorTreeModel::ReplaceFormComponent : invalid argument
-        if (!pData || dynamic_cast<const FmControlData*>( pData) ==  nullptr)
+        assert(dynamic_cast<const FmControlData*>( pData)); //NavigatorTreeModel::ReplaceFormComponent : invalid argument
+        if (!dynamic_cast<const FmControlData*>( pData))
             return;
         static_cast<FmControlData*>(pData)->ModelReplaced(xNew);
 
@@ -704,7 +704,7 @@ namespace svxform
         }
         else if ( pObj->IsGroupObject() )
         {
-            SdrObjListIter aIter( *pObj->GetSubList() );
+            SdrObjListIter aIter( pObj->GetSubList() );
             while ( aIter.IsMore() )
                 InsertSdrObj( aIter.Next() );
         }
@@ -730,7 +730,7 @@ namespace svxform
         }
         else if ( pObj->IsGroupObject() )
         {
-            SdrObjListIter aIter( *pObj->GetSubList() );
+            SdrObjListIter aIter( pObj->GetSubList() );
             while ( aIter.IsMore() )
                 RemoveSdrObj( aIter.Next() );
         }

@@ -39,6 +39,7 @@
 #include <vcl/weld.hxx>
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <sal/log.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
@@ -127,12 +128,10 @@ class SfxFilterContainer_Impl
 {
 public:
     OUString            aName;
-    OUString            aServiceName;
 
     explicit SfxFilterContainer_Impl( const OUString& rName )
         : aName( rName )
     {
-        aServiceName = SfxObjectShell::GetServiceNameFromFactory( rName );
     }
 };
 

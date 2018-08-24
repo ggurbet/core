@@ -36,6 +36,7 @@
 #include <rtl/ref.hxx>
 #include <rtl/string.hxx>
 #include <rtl/ustring.hxx>
+#include <sal/log.hxx>
 #include <salhelper/simplereferenceobject.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
 
@@ -334,12 +335,12 @@ ErrCode marshal(
                 break;
             case SbxSTRING:
                 {
-                    std::vector< char > * blob2 = data.newBlob();
                     void * p;
                     ErrCode e = marshalString(variable, special, data, &p);
                     if (e != ERRCODE_NONE) {
                         return e;
                     }
+                    std::vector< char > * blob2 = data.newBlob();
                     add(*blob2, p, 4, 0);
                     add(blob, address(*blob2), 4, offset);
                     break;

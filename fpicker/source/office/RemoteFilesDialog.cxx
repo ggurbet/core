@@ -195,7 +195,7 @@ RemoteFilesDialog::RemoteFilesDialog( vcl::Window* pParent, PickerFlags nBits )
 
     m_eMode = ( nBits & PickerFlags::SaveAs ) ? REMOTEDLG_MODE_SAVE : REMOTEDLG_MODE_OPEN;
     m_eType = ( nBits & PickerFlags::PathDialog ) ? REMOTEDLG_TYPE_PATHDLG : REMOTEDLG_TYPE_FILEDLG;
-    m_bMultiselection = bool( nBits & PickerFlags::MultiSelection );
+    bool bMultiselection = bool( nBits & PickerFlags::MultiSelection );
     m_bIsUpdated = false;
     m_bIsConnected = false;
     m_bServiceChanged = false;
@@ -245,7 +245,7 @@ RemoteFilesDialog::RemoteFilesDialog( vcl::Window* pParent, PickerFlags nBits )
 
     m_pFileView = VclPtr< SvtFileView >::Create( m_pContainer, WB_BORDER | WB_TABSTOP,
                                        REMOTEDLG_TYPE_PATHDLG == m_eType,
-                                       m_bMultiselection, false );
+                                       bMultiselection, false );
 
     m_pFileView->Show();
     m_pFileView->EnableAutoResize();
@@ -561,7 +561,7 @@ void RemoteFilesDialog::AddFilter( const OUString& rFilter, const OUString& rTyp
 }
 
 
-FileViewResult RemoteFilesDialog::OpenURL( OUString const & sURL )
+void RemoteFilesDialog::OpenURL( OUString const & sURL )
 {
     if( m_pFileView )
     {
@@ -604,14 +604,12 @@ FileViewResult RemoteFilesDialog::OpenURL( OUString const & sURL )
             ErrorHandler::HandleError( ERRCODE_IO_NOTEXISTS );
 
             EnableControls();
-            return eFailure;
+            return;
         }
 
         SetPointer( PointerStyle::Arrow );
         EnableChildPointerOverwrite( false );
     }
-
-    return eFailure;
 }
 
 void RemoteFilesDialog::AddFileExtension()
@@ -1087,17 +1085,17 @@ IMPL_LINK_NOARG ( RemoteFilesDialog, NewFolderHdl, Button*, void )
 
     OUString aTitle;
     aContent.getTitle( aTitle );
-    ScopedVclPtrInstance< QueryFolderNameDialog > aDlg(this, aTitle, FpsResId(STR_SVT_NEW_FOLDER));
+    QueryFolderNameDialog aDlg(GetFrameWeld(), aTitle, FpsResId(STR_SVT_NEW_FOLDER));
     bool bHandled = false;
 
     while( !bHandled )
     {
-        if( aDlg->Execute() == RET_OK )
+        if (aDlg.run() == RET_OK)
         {
-            OUString aUrl = aContent.createFolder( aDlg->GetName() );
+            OUString aUrl = aContent.createFolder(aDlg.GetName());
             if( !aUrl.isEmpty() )
             {
-                m_pFileView->CreatedFolder( aUrl, aDlg->GetName() );
+                m_pFileView->CreatedFolder(aUrl, aDlg.GetName());
                 bHandled = true;
             }
         }

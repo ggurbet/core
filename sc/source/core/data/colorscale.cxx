@@ -15,6 +15,7 @@
 #include <bitmaps.hlst>
 #include <tokenarray.hxx>
 #include <refupdatecontext.hxx>
+#include <refdata.hxx>
 
 #include <formula/token.hxx>
 #include <o3tl/make_unique.hxx>
@@ -33,6 +34,13 @@ ScFormulaListener::ScFormulaListener(ScDocument* pDoc):
     mbDirty(false),
     mpDoc(pDoc)
 {
+}
+
+ScFormulaListener::ScFormulaListener(ScDocument* pDoc, const ScRangeList& rRange):
+    mbDirty(false),
+    mpDoc(pDoc)
+{
+    startListening(rRange);
 }
 
 void ScFormulaListener::startListening(const ScTokenArray* pArr, const ScRange& rRange)
@@ -84,6 +92,19 @@ void ScFormulaListener::startListening(const ScTokenArray* pArr, const ScRange& 
             default:
                 ;   // nothing
         }
+    }
+}
+
+void ScFormulaListener::startListening(const ScRangeList& rRange)
+{
+    if (mpDoc->IsClipOrUndo())
+        return;
+
+    size_t nLength = rRange.size();
+    for (size_t i = 0; i < nLength; ++i)
+    {
+        const ScRange& aRange = rRange[i];
+        mpDoc->StartListeningArea(aRange, false, this);
     }
 }
 
@@ -149,6 +170,7 @@ ScColorScaleEntry::ScColorScaleEntry(const ScColorScaleEntry& rEntry):
     meType(rEntry.meType),
     mpFormat(rEntry.mpFormat)
 {
+    setListener();
     if(rEntry.mpCell)
     {
         mpCell.reset(new ScFormulaCell(*rEntry.mpCell, *rEntry.mpCell->GetDocument(), rEntry.mpCell->aPos, ScCloneFlags::NoMakeAbsExternal));
@@ -164,6 +186,7 @@ ScColorScaleEntry::ScColorScaleEntry(ScDocument* pDoc, const ScColorScaleEntry& 
     meType(rEntry.meType),
     mpFormat(rEntry.mpFormat)
 {
+    setListener();
     if(rEntry.mpCell)
     {
         mpCell.reset(new ScFormulaCell(*rEntry.mpCell, *rEntry.mpCell->GetDocument(), rEntry.mpCell->aPos, ScCloneFlags::NoMakeAbsExternal));
@@ -228,12 +251,16 @@ void ScColorScaleEntry::SetValue(double nValue)
 {
     mnVal = nValue;
     mpCell.reset();
+    setListener();
 }
 
 void ScColorScaleEntry::UpdateReference( const sc::RefUpdateContext& rCxt )
 {
     if (!mpCell)
+    {
+        setListener();
         return;
+    }
 
     mpCell->UpdateReference(rCxt);
     mpListener.reset(new ScFormulaListener(mpCell.get()));
@@ -243,7 +270,10 @@ void ScColorScaleEntry::UpdateReference( const sc::RefUpdateContext& rCxt )
 void ScColorScaleEntry::UpdateInsertTab( const sc::RefUpdateInsertTabContext& rCxt )
 {
     if (!mpCell)
+    {
+        setListener();
         return;
+    }
 
     mpCell->UpdateInsertTab(rCxt);
     mpListener.reset(new ScFormulaListener(mpCell.get()));
@@ -253,7 +283,10 @@ void ScColorScaleEntry::UpdateInsertTab( const sc::RefUpdateInsertTabContext& rC
 void ScColorScaleEntry::UpdateDeleteTab( const sc::RefUpdateDeleteTabContext& rCxt )
 {
     if (!mpCell)
+    {
+        setListener();
         return;
+    }
 
     mpCell->UpdateDeleteTab(rCxt);
     mpListener.reset(new ScFormulaListener(mpCell.get()));
@@ -263,7 +296,10 @@ void ScColorScaleEntry::UpdateDeleteTab( const sc::RefUpdateDeleteTabContext& rC
 void ScColorScaleEntry::UpdateMoveTab( const sc::RefUpdateMoveTabContext& rCxt )
 {
     if (!mpCell)
+    {
+        setListener();
         return;
+    }
 
     SCTAB nTabNo = rCxt.getNewTab(mpCell->aPos.Tab());
     mpCell->UpdateMoveTab(rCxt, nTabNo);
@@ -279,8 +315,40 @@ void ScColorScaleEntry::SetColor(const Color& rColor)
 void ScColorScaleEntry::SetRepaintCallback(ScConditionalFormat* pFormat)
 {
     mpFormat = pFormat;
+    setListener();
     if (mpFormat && mpListener)
         mpListener->setCallback([&]() { mpFormat->DoRepaint();});
+}
+
+void ScColorScaleEntry::SetType( ScColorScaleEntryType eType )
+{
+    meType = eType;
+    if(eType != COLORSCALE_FORMULA)
+    {
+        mpCell.reset();
+        mpListener.reset();
+    }
+
+    setListener();
+}
+
+void ScColorScaleEntry::setListener()
+{
+    if (!mpFormat)
+        return;
+
+    if (meType == COLORSCALE_PERCENT || meType == COLORSCALE_PERCENTILE
+            || meType == COLORSCALE_MIN || meType == COLORSCALE_MAX
+            || meType == COLORSCALE_AUTO)
+    {
+        mpListener.reset(new ScFormulaListener(mpFormat->GetDocument(), mpFormat->GetRange()));
+        mpListener->setCallback([&]() { mpFormat->DoRepaint();});
+    }
+}
+
+void ScColorScaleEntry::SetRepaintCallback(std::function<void()> func)
+{
+    mpListener->setCallback(func);
 }
 
 ScColorFormat::ScColorFormat(ScDocument* pDoc)
@@ -334,16 +402,6 @@ void ScColorScaleFormat::AddEntry( ScColorScaleEntry* pEntry )
 {
     maColorScales.push_back(std::unique_ptr<ScColorScaleEntry>( pEntry ));
     maColorScales.back()->SetRepaintCallback(mpParent);
-}
-
-void ScColorScaleEntry::SetType( ScColorScaleEntryType eType )
-{
-    meType = eType;
-    if(eType != COLORSCALE_FORMULA)
-    {
-        mpCell.reset();
-        mpListener.reset();
-    }
 }
 
 double ScColorScaleFormat::GetMinValue() const

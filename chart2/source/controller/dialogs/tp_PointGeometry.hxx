@@ -32,12 +32,12 @@ public:
     virtual ~SchLayoutTabPage() override;
     virtual void dispose() override;
 
-    static VclPtr<SfxTabPage> Create(vcl::Window* pParent, const SfxItemSet* rInAttrs);
+    static VclPtr<SfxTabPage> Create(TabPageParent pParent, const SfxItemSet* rInAttrs);
     virtual bool FillItemSet(SfxItemSet* rOutAttrs) override;
     virtual void Reset(const SfxItemSet* rInAttrs) override;
 
 private:
-    BarGeometryResources*   m_pGeometryResources;
+    std::unique_ptr<BarGeometryResources> m_pGeometryResources;
 };
 
 } //namespace chart

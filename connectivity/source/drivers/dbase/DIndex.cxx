@@ -21,10 +21,10 @@
 #include <dbase/DIndexColumns.hxx>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <connectivity/sdbcx/VColumn.hxx>
-#include <comphelper/sequence.hxx>
 #include <dbase/DTable.hxx>
 #include <dbase/DIndexIter.hxx>
 #include <osl/file.hxx>
+#include <sal/log.hxx>
 #include <tools/config.hxx>
 #include <connectivity/CommonTools.hxx>
 #include <com/sun/star/sdbc/XResultSetMetaData.hpp>
@@ -253,8 +253,6 @@ bool ODbaseIndex::Delete(sal_uInt32 nRec, const ORowSetValue& rValue)
     if (!ConvertToKey(&aKey, nRec, rValue) || !getRoot()->Find(aKey))
         return false;
 
-    ONDXNode aNewNode(aKey);
-
     // insert in the current leaf
     if (!m_aCurLeaf.Is())
         return false;
@@ -262,7 +260,8 @@ bool ODbaseIndex::Delete(sal_uInt32 nRec, const ORowSetValue& rValue)
     m_aRoot->PrintPage();
 #endif
 
-    return m_aCurLeaf->Delete(m_nCurNode);
+    m_aCurLeaf->Delete(m_nCurNode);
+    return true;
 }
 
 void ODbaseIndex::Collect(ONDXPage* pPage)
@@ -310,11 +309,7 @@ void ODbaseIndex::Release(bool bSave)
 
 void ODbaseIndex::closeImpl()
 {
-    if(m_pFileStream)
-    {
-        delete m_pFileStream;
-        m_pFileStream = nullptr;
-    }
+    m_pFileStream.reset();
 }
 
 ONDXPage* ODbaseIndex::CreatePage(sal_uInt32 nPagePos, ONDXPage* pParent, bool bLoad)
@@ -346,12 +341,12 @@ void connectivity::dbase::ReadHeader(
 #endif
     rStream.ReadUInt32(rHeader.db_rootpage);
     rStream.ReadUInt32(rHeader.db_pagecount);
-    rStream.ReadBytes(&rHeader.db_frei, 4);
+    rStream.ReadBytes(&rHeader.db_free, 4);
     rStream.ReadUInt16(rHeader.db_keylen);
     rStream.ReadUInt16(rHeader.db_maxkeys);
     rStream.ReadUInt16(rHeader.db_keytype);
     rStream.ReadUInt16(rHeader.db_keyrec);
-    rStream.ReadBytes(&rHeader.db_frei1, 3);
+    rStream.ReadBytes(&rHeader.db_free1, 3);
     rStream.ReadUChar(rHeader.db_unique);
     rStream.ReadBytes(&rHeader.db_name, 488);
     assert(rStream.GetError() || rStream.Tell() == nOldPos + DINDEX_PAGE_SIZE);
@@ -372,12 +367,12 @@ SvStream& connectivity::dbase::WriteODbaseIndex(SvStream &rStream, ODbaseIndex& 
     rStream.Seek(0);
     rStream.WriteUInt32(rIndex.m_aHeader.db_rootpage);
     rStream.WriteUInt32(rIndex.m_aHeader.db_pagecount);
-    rStream.WriteBytes(&rIndex.m_aHeader.db_frei, 4);
+    rStream.WriteBytes(&rIndex.m_aHeader.db_free, 4);
     rStream.WriteUInt16(rIndex.m_aHeader.db_keylen);
     rStream.WriteUInt16(rIndex.m_aHeader.db_maxkeys);
     rStream.WriteUInt16(rIndex.m_aHeader.db_keytype);
     rStream.WriteUInt16(rIndex.m_aHeader.db_keyrec);
-    rStream.WriteBytes(&rIndex.m_aHeader.db_frei1, 3);
+    rStream.WriteBytes(&rIndex.m_aHeader.db_free1, 3);
     rStream.WriteUChar(rIndex.m_aHeader.db_unique);
     rStream.WriteBytes(&rIndex.m_aHeader.db_name, 488);
     assert(rStream.GetError() || rStream.Tell() == DINDEX_PAGE_SIZE);
@@ -429,7 +424,7 @@ void ODbaseIndex::createINFEntry()
     aInfFile.WriteKey(aNewEntry, OUStringToOString(sEntry, m_pTable->getConnection()->getTextEncoding()));
 }
 
-bool ODbaseIndex::DropImpl()
+void ODbaseIndex::DropImpl()
 {
     closeImpl();
 
@@ -469,7 +464,6 @@ bool ODbaseIndex::DropImpl()
             }
         }
     }
-    return true;
 }
 
 void ODbaseIndex::impl_killFileAndthrowError_throw(const char* pErrorId, const OUString& _sFile)
@@ -480,7 +474,7 @@ void ODbaseIndex::impl_killFileAndthrowError_throw(const char* pErrorId, const O
     m_pTable->getConnection()->throwGenericSQLException(pErrorId, *this);
 }
 
-bool ODbaseIndex::CreateImpl()
+void ODbaseIndex::CreateImpl()
 {
     // Create the Index
     const OUString sFile = getCompletePath();
@@ -616,7 +610,6 @@ bool ODbaseIndex::CreateImpl()
     }
     Release();
     createINFEntry();
-    return true;
 }
 
 

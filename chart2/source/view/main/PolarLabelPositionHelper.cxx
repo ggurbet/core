@@ -25,6 +25,8 @@
 
 #include <com/sun/star/chart/DataLabelPlacement.hpp>
 
+#include <tools/helpers.hxx>
+
 namespace chart
 {
 using namespace ::com::sun::star;
@@ -34,7 +36,7 @@ PolarLabelPositionHelper::PolarLabelPositionHelper(
                     PolarPlottingPositionHelper* pPosHelper
                     , sal_Int32 nDimensionCount
                     , const uno::Reference< drawing::XShapes >& xLogicTarget
-                    , AbstractShapeFactory* pShapeFactory )
+                    , ShapeFactory* pShapeFactory )
                     : LabelPositionHelper( nDimensionCount, xLogicTarget, pShapeFactory )
                     , m_pPosHelper(pPosHelper)
 {
@@ -107,7 +109,7 @@ awt::Point PolarLabelPositionHelper::getLabelScreenPositionAndAlignmentForUnitCi
         fDY*=-1.0;//drawing layer has inverse y values
         if( fDX != 0.0 )
         {
-            fAngleDegree = atan(fDY/fDX)*180.0/F_PI;
+            fAngleDegree = basegfx::rad2deg(atan(fDY/fDX));
             if(fDX<0.0)
                 fAngleDegree+=180.0;
         }
@@ -122,10 +124,7 @@ awt::Point PolarLabelPositionHelper::getLabelScreenPositionAndAlignmentForUnitCi
     //set LabelAlignment
     if( !bCenter )
     {
-        while(fAngleDegree>360.0)
-            fAngleDegree-=360.0;
-        while(fAngleDegree<0.0)
-            fAngleDegree+=360.0;
+        fAngleDegree = NormAngle360(fAngleDegree);
 
         bool bOutside = nLabelPlacement == css::chart::DataLabelPlacement::OUTSIDE;
 

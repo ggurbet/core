@@ -28,7 +28,6 @@
 #include <editeng/tstpitem.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/langitem.hxx>
-#include <editeng/charsetcoloritem.hxx>
 #include <editeng/unolingu.hxx>
 #include <editeng/acorrcfg.hxx>
 
@@ -117,23 +116,7 @@ class SwAutoFormat
         NO_DELIM = (DIGIT|LOWER_ALPHA|UPPER_ALPHA|LOWER_ROMAN|UPPER_ROMAN)
     };
 
-    enum Format_Status
-    {
-        READ_NEXT_PARA,
-        TST_EMPTY_LINE,
-        TST_ALPHA_LINE,
-        GET_ALL_INFO,
-        IS_ONE_LINE,
-        TST_ENUMERIC,
-        TST_IDENT,
-        TST_NEG_IDENT,
-        TST_TXT_BODY,
-        HAS_FMTCOLL,
-        IS_END
-    } m_eStat;
-
     bool m_bEnd : 1;
-    bool m_bEmptyLine : 1;
     bool m_bMoreLines : 1;
 
     CharClass& GetCharClass( LanguageType eLang ) const
@@ -666,7 +649,7 @@ bool SwAutoFormat::DoTable()
         DelEmptyLine();
         SwNodeIndex aIdx( m_aDelPam.GetPoint()->nNode );
         m_aDelPam.Move( fnMoveForward );
-        m_pDoc->InsertTable( SwInsertTableOptions( tabopts::ALL_TBL_INS_ATTR , 1 ),
+        m_pDoc->InsertTable( SwInsertTableOptions( SwInsertTableFlags::All , 1 ),
                            *m_aDelPam.GetPoint(), 1, nColCnt, eHori,
                            nullptr, &aPosArr );
         m_aDelPam.GetPoint()->nNode = aIdx;
@@ -1452,7 +1435,7 @@ void SwAutoFormat::BuildEnum( sal_uInt16 nLvl, sal_uInt16 nDigitLevel )
                         }
                     }
 
-                    short nAbsPos = lBullIndent;
+                    sal_Int32 nAbsPos = lBullIndent;
                     SwTwips nSpaceSteps = nLvl
                                             ? nLeftTextPos / nLvl
                                             : lBullIndent;
@@ -1536,7 +1519,7 @@ void SwAutoFormat::BuildEnum( sal_uInt16 nLvl, sal_uInt16 nDigitLevel )
                 }
                 else
                 {
-                    sal_uInt16 nSpaceSteps = nLvl ? sal_uInt16(nLeftTextPos / nLvl) : 0;
+                    auto const nSpaceSteps = nLvl ? nLeftTextPos / nLvl : 0;
                     sal_uInt16 n;
                     for( n = 0; n <= nLvl; ++n )
                     {
@@ -1802,9 +1785,9 @@ void SwAutoFormat::BuildHeadLine( sal_uInt16 nLvl )
 void SwAutoFormat::AutoCorrect( sal_Int32 nPos )
 {
     SvxAutoCorrect* pATst = SvxAutoCorrCfg::Get().GetAutoCorrect();
-    long aSvxFlags = pATst->GetFlags( );
-    bool bReplaceQuote = ( aSvxFlags & ChgQuotes ) > 0;
-    bool bReplaceSglQuote = ( aSvxFlags & ChgSglQuotes ) > 0;
+    ACFlags aSvxFlags = pATst->GetFlags( );
+    bool bReplaceQuote( aSvxFlags & ACFlags::ChgQuotes );
+    bool bReplaceSglQuote( aSvxFlags & ACFlags::ChgSglQuotes );
 
     if( m_aFlags.bAFormatByInput ||
         (!m_aFlags.bAutoCorrect && !bReplaceQuote && !bReplaceSglQuote &&
@@ -2114,6 +2097,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
     bool bNxtEmpty = false;
     bool bNxtAlpha = false;
     sal_uInt16 nNxtLevel = 0;
+    bool bEmptyLine;
 
     // set area for autoformatting
     if( pSttNd )
@@ -2125,12 +2109,12 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
 
         // check the previous TextNode
         pNxtNd = m_aNdIdx.GetNode().GetTextNode();
-        m_bEmptyLine = !pNxtNd ||
+        bEmptyLine = !pNxtNd ||
                     IsEmptyLine( *pNxtNd ) ||
                     IsNoAlphaLine( *pNxtNd );
     }
     else
-        m_bEmptyLine = true;      // at document beginning
+        bEmptyLine = true;      // at document beginning
 
     m_bEnd = false;
 
@@ -2166,16 +2150,31 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
     // set defaults
     SwTextFrameInfo aFInfo( nullptr );
 
+    enum Format_Status
+    {
+        READ_NEXT_PARA,
+        TST_EMPTY_LINE,
+        TST_ALPHA_LINE,
+        GET_ALL_INFO,
+        IS_ONE_LINE,
+        TST_ENUMERIC,
+        TST_IDENT,
+        TST_NEG_IDENT,
+        TST_TXT_BODY,
+        HAS_FMTCOLL,
+        IS_END
+    } eStat;
+
     // This is the automat for autoformatting
-    m_eStat = READ_NEXT_PARA;
+    eStat = READ_NEXT_PARA;
     while( !m_bEnd )
     {
-        switch( m_eStat )
+        switch( eStat )
         {
         case READ_NEXT_PARA:
             {
                 GoNextPara();
-                m_eStat = m_bEnd ? IS_END : TST_EMPTY_LINE;
+                eStat = m_bEnd ? IS_END : TST_EMPTY_LINE;
             }
             break;
 
@@ -2184,17 +2183,17 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
             {
                 if( m_aFlags.bDelEmptyNode && !HasObjects( *m_pCurTextNd ) )
                 {
-                    m_bEmptyLine = true;
+                    bEmptyLine = true;
                     sal_uLong nOldCnt = m_pDoc->GetNodes().Count();
                     DelEmptyLine();
                     // Was there really a deletion of a node?
                     if( nOldCnt != m_pDoc->GetNodes().Count() )
                         --m_aNdIdx;       // do not skip the next paragraph
                 }
-                m_eStat = READ_NEXT_PARA;
+                eStat = READ_NEXT_PARA;
             }
             else
-                m_eStat = TST_ALPHA_LINE;
+                eStat = TST_ALPHA_LINE;
             break;
 
         case TST_ALPHA_LINE:
@@ -2208,7 +2207,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                     *pEdShell->GetCursor() = m_aDelPam;
                     pEdShell->Push();
 
-                    m_eStat = IS_END;
+                    eStat = IS_END;
                     break;
                 }
 
@@ -2217,12 +2216,12 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                 if( !DoUnderline() && bReplaceStyles )
                 {
                     SetColl( RES_POOLCOLL_STANDARD, true );
-                    m_bEmptyLine = true;
+                    bEmptyLine = true;
                 }
-                m_eStat = READ_NEXT_PARA;
+                eStat = READ_NEXT_PARA;
             }
             else
-                m_eStat = GET_ALL_INFO;
+                eStat = GET_ALL_INFO;
             break;
 
         case GET_ALL_INFO:
@@ -2230,8 +2229,8 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                 if( m_pCurTextNd->GetNumRule() )
                 {
                     // do nothing in numbering, go to next
-                    m_bEmptyLine = false;
-                    m_eStat = READ_NEXT_PARA;
+                    bEmptyLine = false;
+                    eStat = READ_NEXT_PARA;
                     // delete all blanks at beginning/end and in between
                     //JP 29.04.98: first only "all in between"
                     DelMoreLinesBlanks();
@@ -2249,7 +2248,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                             (RES_POOLCOLL_TEXT_MOVE != nPoolId &&
                              RES_POOLCOLL_TEXT != nPoolId )) ))
                 {
-                    m_eStat = HAS_FMTCOLL;
+                    eStat = HAS_FMTCOLL;
                     break;
                 }
 
@@ -2272,7 +2271,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                             if( nLevel >= MAXLEVEL )
                                 nLevel = MAXLEVEL-1;
                             BuildEnum( nLevel, nDigitLvl );
-                            m_eStat = READ_NEXT_PARA;
+                            eStat = READ_NEXT_PARA;
                             break;
                         }
 
@@ -2289,7 +2288,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                             else if( pLRSpace->GetTextLeft() )   // is indentation
                                 BuildTextIndent();
                         }
-                        m_eStat = READ_NEXT_PARA;
+                        eStat = READ_NEXT_PARA;
                         break;
                     }
                 }
@@ -2303,8 +2302,8 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                     bNxtAlpha = IsNoAlphaLine( *pNxtNd );
                     nNxtLevel = CalcLevel( *pNxtNd );
 
-                    if( !m_bEmptyLine && HasBreakAttr( *m_pCurTextNd ) )
-                        m_bEmptyLine = true;
+                    if( !bEmptyLine && HasBreakAttr( *m_pCurTextNd ) )
+                        bEmptyLine = true;
                     if( !bNxtEmpty && HasBreakAttr( *pNxtNd ) )
                         bNxtEmpty = true;
 
@@ -2315,13 +2314,13 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                     bNxtAlpha = false;
                     nNxtLevel = 0;
                 }
-                m_eStat = !m_bMoreLines ? IS_ONE_LINE : TST_ENUMERIC;
+                eStat = !m_bMoreLines ? IS_ONE_LINE : TST_ENUMERIC;
             }
             break;
 
         case IS_ONE_LINE:
             {
-                m_eStat = TST_ENUMERIC;
+                eStat = TST_ENUMERIC;
                 if( !bReplaceStyles )
                     break;
 
@@ -2329,17 +2328,17 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
 
                 if( sClrStr.isEmpty() )
                 {
-                    m_bEmptyLine = true;
-                    m_eStat = READ_NEXT_PARA;
+                    bEmptyLine = true;
+                    eStat = READ_NEXT_PARA;
                     break;      // read next paragraph
                 }
 
                 // check if headline
-                if( !m_bEmptyLine || !IsFirstCharCapital( *m_pCurTextNd ) ||
+                if( !bEmptyLine || !IsFirstCharCapital( *m_pCurTextNd ) ||
                     IsBlanksInString( *m_pCurTextNd ) )
                     break;
 
-                m_bEmptyLine = false;
+                bEmptyLine = false;
                 const OUString sEndClrStr( DelTrailingBlanks(sClrStr) );
                 const sal_Unicode cLast = sEndClrStr[sEndClrStr.getLength() - 1];
 
@@ -2347,7 +2346,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                 if( ':' == cLast )
                 {
                     BuildHeadLine( 2 );
-                    m_eStat = READ_NEXT_PARA;
+                    eStat = READ_NEXT_PARA;
                     break;
                 }
                 else if( 256 <= cLast || !strchr( ",.;", cLast ) )
@@ -2381,7 +2380,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                             BuildHeadLine( nLevel );
                         else
                             BuildHeadLine( m_nLastHeadLvl );
-                        m_eStat = READ_NEXT_PARA;
+                        eStat = READ_NEXT_PARA;
                         break;
                     }
                 }
@@ -2390,18 +2389,18 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
 
         case TST_ENUMERIC:
             {
-                m_bEmptyLine = false;
+                bEmptyLine = false;
                 if( IsEnumericChar( *m_pCurTextNd ))
                 {
                     if( nLevel >= MAXLEVEL )
                         nLevel = MAXLEVEL-1;
                     BuildEnum( nLevel, nDigitLvl );
-                    m_eStat = READ_NEXT_PARA;
+                    eStat = READ_NEXT_PARA;
                 }
                 else if( bReplaceStyles )
-                    m_eStat = nLevel ? TST_IDENT : TST_NEG_IDENT;
+                    eStat = nLevel ? TST_IDENT : TST_NEG_IDENT;
                 else
-                    m_eStat = READ_NEXT_PARA;
+                    eStat = READ_NEXT_PARA;
             }
             break;
 
@@ -2416,7 +2415,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                     BuildNegIndent( aFInfo.GetLineStart() );
                 else                    // is indentation
                     BuildTextIndent();
-                m_eStat = READ_NEXT_PARA;
+                eStat = READ_NEXT_PARA;
             }
             else if( nLevel && pNxtNd && !m_bEnd &&
                      !bNxtEmpty && !bNxtAlpha && !nNxtLevel &&
@@ -2424,10 +2423,10 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
             {
                 // is an indentation
                 BuildIndent();
-                m_eStat = READ_NEXT_PARA;
+                eStat = READ_NEXT_PARA;
             }
             else
-                m_eStat = TST_TXT_BODY;
+                eStat = TST_TXT_BODY;
             break;
 
         case TST_NEG_IDENT:
@@ -2442,7 +2441,7 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                         BuildNegIndent( aFInfo.GetLineStart() );
                     else                    // is _no_ indentation
                         BuildText();
-                    m_eStat = READ_NEXT_PARA;
+                    eStat = READ_NEXT_PARA;
                 }
                 else if( !nLevel && pNxtNd && !m_bEnd &&
                          !bNxtEmpty && !bNxtAlpha && nNxtLevel &&
@@ -2450,10 +2449,10 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                 {
                     // is a negative indentation
                     BuildNegIndent( aFInfo.GetLineStart() );
-                    m_eStat = READ_NEXT_PARA;
+                    eStat = READ_NEXT_PARA;
                 }
                 else
-                    m_eStat = TST_TXT_BODY;
+                    eStat = TST_TXT_BODY;
             }
             break;
 
@@ -2475,15 +2474,15 @@ SwAutoFormat::SwAutoFormat( SwEditShell* pEdShell, SvxSwAutoFormatFlags const & 
                     BuildTextIndent();
                 else
                     BuildText();
-                m_eStat = READ_NEXT_PARA;
+                eStat = READ_NEXT_PARA;
             }
             break;
 
         case HAS_FMTCOLL:
             {
                 // so far: if there were templates assigned, keep these and go to next node
-                m_bEmptyLine = false;
-                m_eStat = READ_NEXT_PARA;
+                bEmptyLine = false;
+                eStat = READ_NEXT_PARA;
                 // delete all blanks at beginning/end and in between
                 //JP 29.04.98: first only "all in between"
                 DelMoreLinesBlanks();
@@ -2611,6 +2610,14 @@ void SwEditShell::AutoFormatBySplitNode()
 
         SwAutoFormat aFormat( this, aAFFlags, &pCursor->GetMark()->nNode,
                                 &pCursor->GetPoint()->nNode );
+        SvxAutoCorrect* pACorr = SvxAutoCorrCfg::Get().GetAutoCorrect();
+        if( pACorr && !pACorr->IsAutoCorrFlag( ACFlags::CapitalStartSentence | ACFlags::CapitalStartWord |
+                                ACFlags::AddNonBrkSpace | ACFlags::ChgOrdinalNumber |
+                                ACFlags::ChgToEnEmDash | ACFlags::SetINetAttr | ACFlags::Autocorrect ))
+            pACorr = nullptr;
+
+        if( pACorr )
+            AutoCorrect( *pACorr,false, u'\0' );
 
         //JP 30.09.96: DoTable() builds on PopCursor and MoveCursor!
         Pop(PopMode::DeleteCurrent);
