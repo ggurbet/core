@@ -22,6 +22,7 @@ Private	Title					As String
 Private	Document				As Object				&apos;	com.sun.star.comp.dba.ODatabaseDocument	or SwXTextDocument or ScModelObj
 Private	Connection				As Object				&apos;	com.sun.star.sdbc.drivers.OConnectionWrapper or com.sun.star.sdbc.XConnection
 Private	URL						As String
+Private Location				As String				&apos;	Different from URL for registered databases
 Private _ReadOnly				As Boolean
 Private	MetaData				As Object				&apos;	interface XDatabaseMetaData
 Private _RDBMS					As Integer				&apos;	DBMS constants
@@ -228,7 +229,7 @@ Const cstThisSub = &quot;Database.Close&quot;
 	If _DbConnect &lt;&gt; DBCONNECTANY Then Goto Error_NotApplicable
 
 	With Connection
-		.flush
+		If Utils._hasUNOMethod(Connection, &quot;flush&quot;) Then .flush
 		.close()
 		.dispose()
 	End With
@@ -1458,7 +1459,9 @@ Const cstMaxRows = 200
 					If Not vFieldsBin(i) Then
 						If bDataArray Then vDataCell = pvData(i, j) Else vDataCell = vData(i, j)
 						If vDataCell Is Nothing Then vDataCell = Null		&apos;	Necessary because Null object has not a VarType = vbNull
-						If IsDate(vDataCell) And VarType(vDataCell) = vbString Then vDataCell = CDate(vDataCell)
+						If VarType(vDataCell) = vbString Then	&apos;	Null string gives IsDate = True !
+							If Len(vDataCell) &gt; 0 And IsDate(vDataCell) Then vDataCell = CDate(vDataCell)
+						End If
 						Select Case VarType(vDataCell)
 							Case vbEmpty, vbNull
 								vTdClass() = _AddArray(vTdClass, &quot;null&quot;)
@@ -1563,7 +1566,7 @@ Dim i As Integer, l As Long
 
 	lCurrentChar = 1
 	sOutput = &quot;&quot;
-	
+
 	Do While lCurrentChar &lt;= Len(psString)
 		&apos;	Where is next closest pattern ?
 		lPattern = Len(psString) + 1
