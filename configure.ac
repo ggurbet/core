@@ -795,17 +795,13 @@ haiku*)
     test_randr=no
     test_xrender=no
     test_freetype=yes
-    enable_java=no
-    enable_opengl=no
     enable_odk=no
-    enable_gconf=no
-    enable_gnome_vfs=no
-    enable_gstreamer=no
+    enable_gstreamer_0_10=no
+    enable_gstreamer_1_0=no
     enable_vlc=no
-    enable_gltf=no
-    enable_collada=no
     enable_coinmp=no
     enable_pdfium=no
+    enable_sdremote=no
     enable_postgresql_sdbc=no
     enable_firebird_sdbc=no
     _os=Haiku
@@ -949,6 +945,24 @@ if test $_os != "WINNT"; then
 fi
 AC_SUBST(DLOPEN_LIBS)
 
+AC_ARG_ENABLE(ios-simulator,
+    AS_HELP_STRING([--enable-ios-simulator],
+        [build i386 or x86_64 for ios simulator])
+)
+
+AC_ARG_ENABLE(ios-libreofficelight-app,
+    AS_HELP_STRING([--enable-ios-libreofficelight-app],
+        [When building for iOS, build stuff relevant only for the 'LibreOfficeLight' app
+         (in ios/LibreOfficeLight). Note that this app is not known to work in any useful manner,
+         and also that its actual build (in Xcode) requires some obvious modifications to the project.])
+)
+
+ENABLE_IOS_LIBREOFFICELIGHT_APP=
+if test "$enable_ios_libreofficelight_app" = yes; then
+    ENABLE_IOS_LIBREOFFICELIGHT_APP=TRUE
+fi
+AC_SUBST(ENABLE_IOS_LIBREOFFICELIGHT_APP)
+
 ###############################################################################
 # Extensions switches --enable/--disable
 ###############################################################################
@@ -961,11 +975,6 @@ AC_SUBST(DLOPEN_LIBS)
 # extensions are built anyway, just not integrated in the installer,
 # if you use --disable-extension-integration. Is that really the
 # case?
-
-AC_ARG_ENABLE(ios-simulator,
-    AS_HELP_STRING([--enable-ios-simulator],
-        [build i386 or x86_64 for ios simulator])
-)
 
 libo_FUZZ_ARG_ENABLE(extension-integration,
     AS_HELP_STRING([--disable-extension-integration],
@@ -1725,8 +1734,7 @@ AC_ARG_WITH(system-apache-commons,
 
 AC_ARG_WITH(system-mariadb,
     AS_HELP_STRING([--with-system-mariadb],
-        [Use MariaDB/MySQL libraries already on system, for building the MariaDB Connector/LibreOffice
-         .]),,
+        [Use MariaDB/MySQL libraries already on system.]),,
     [with_system_mariadb="$with_system_libs"])
 
 AC_ARG_ENABLE(bundle-mariadb,
@@ -4413,17 +4421,17 @@ if test "$with_x" = "no"; then
     AC_MSG_ERROR([Use --disable-gui instead. How can we get rid of this option? No idea where it comes from.])
 fi
 
-ENABLE_HEADLESS=""
+DISABLE_GUI=""
 if test "$enable_gui" = "no"; then
     if test "$USING_X11" != TRUE; then
         AC_MSG_ERROR([$host_os operating system is not suitable to build LibreOffice with --disable-gui.])
     fi
     USING_X11=
-    ENABLE_HEADLESS=TRUE
+    DISABLE_GUI=TRUE
     AC_DEFINE(HAVE_FEATURE_UI,0)
     test_cairo=yes
 fi
-AC_SUBST(ENABLE_HEADLESS)
+AC_SUBST(DISABLE_GUI)
 
 WORKDIR="${BUILDDIR}/workdir"
 INSTDIR="${BUILDDIR}/instdir"
@@ -5911,7 +5919,7 @@ if test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
     AC_MSG_CHECKING([whether $CC supports -fstack-protector-strong])
     save_CFLAGS=$CFLAGS
     CFLAGS="$CFLAGS -Werror -fstack-protector-strong"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ HAVE_GCC_STACK_PROTECTOR_STRONG=TRUE ],[])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ char a[8]; return 0; ]])],[ HAVE_GCC_STACK_PROTECTOR_STRONG=TRUE ],[])
     CFLAGS=$save_CFLAGS
     if test "$HAVE_GCC_STACK_PROTECTOR_STRONG" = "TRUE"; then
         AC_MSG_RESULT([yes])
@@ -6098,7 +6106,7 @@ dnl ===================================================================
 dnl Identify the C++ library
 dnl ===================================================================
 
-AC_MSG_CHECKING([What the C++ library is])
+AC_MSG_CHECKING([what the C++ library is])
 AC_LANG_PUSH([C++])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <utility>
@@ -6425,6 +6433,27 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
 AC_SUBST([HAVE_CPP_GUARANTEED_COPY_ELISION])
+
+HAVE_CXX_CWG1579_FIX=
+AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
+AC_LANG_PUSH([C++])
+save_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+        #include <memory>
+        struct S1 {};
+        struct S2: S1 {};
+        std::unique_ptr<S1> f() {
+            std::unique_ptr<S2> s2(new S2);
+            return s2;
+        }
+    ])], [
+        AC_DEFINE([HAVE_CXX_CWG1579_FIX],[1])
+        AC_MSG_RESULT([yes])
+    ], [AC_MSG_RESULT([no])])
+CXXFLAGS=$save_CXXFLAGS
+AC_LANG_POP([C++])
+AC_SUBST([HAVE_CXX_CWG1579_FIX])
 
 dnl ===================================================================
 dnl system stl sanity tests
@@ -8316,10 +8345,15 @@ AC_SUBST(PYTHON_VERSION_MAJOR)
 AC_SUBST(PYTHON_VERSION_MINOR)
 
 ENABLE_MARIADBC=TRUE
+if test "$_os" = "Android" -o "$_os" = "iOS"; then
+    ENABLE_MARIADBC=
+fi
 MARIADBC_MAJOR=1
 MARIADBC_MINOR=0
 MARIADBC_MICRO=2
-BUILD_TYPE="$BUILD_TYPE MARIADBC"
+if test "$ENABLE_MARIADBC" = "TRUE"; then
+    BUILD_TYPE="$BUILD_TYPE MARIADBC"
+fi
 
 AC_SUBST(ENABLE_MARIADBC)
 AC_SUBST(MARIADBC_MAJOR)
@@ -8327,9 +8361,6 @@ AC_SUBST(MARIADBC_MINOR)
 AC_SUBST(MARIADBC_MICRO)
 
 if test "$ENABLE_MARIADBC" = "TRUE"; then
-
-    SCPDEFS="$SCPDEFS -DWITH_EXTENSION_MARIADBC"
-
     dnl ===================================================================
     dnl Check for system MariaDB
     dnl ===================================================================
@@ -8413,50 +8444,7 @@ if test "$ENABLE_MARIADBC" = "TRUE"; then
     AC_SUBST(LIBMARIADB)
     AC_SUBST(LIBMARIADB_PATH)
     AC_SUBST(BUNDLE_MARIADB_CONNECTOR_C)
-
-    AC_LANG_PUSH([C++])
-    dnl ===================================================================
-    dnl Check for system MySQL C++ Connector
-    dnl ===================================================================
-    # FIXME!
-    # who thought this too-generic cppconn dir was a good idea?
-    AC_MSG_CHECKING([MySQL Connector/C++])
-    if test "$with_system_mysql_cppconn" = "yes"; then
-        AC_MSG_RESULT([external])
-        SYSTEM_MYSQL_CONNECTOR_CPP=TRUE
-        AC_LANG_PUSH([C++])
-        AC_CHECK_HEADER(mysql_driver.h, [],
-                    [AC_MSG_ERROR(mysql_driver.h not found. install MySQL C++ Connectivity)], [])
-        AC_CHECK_LIB([mysqlcppconn], [main], [:],
-                    [AC_MSG_ERROR(MySQL C++ Connectivity lib not found or functional)], [])
-        save_LIBS=$LIBS
-        LIBS="$LIBS -lmysqlcppconn"
-        AC_MSG_CHECKING([version])
-        AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <mysql_driver.h>
-
-int main(int argc, char **argv) {
-    sql::Driver *driver;
-    driver = get_driver_instance();
-    if (driver->getMajorVersion() > 1 || \
-       (driver->getMajorVersion() == 1 && driver->getMinorVersion() > 0) || \
-       (driver->getMajorVersion() == 1 && driver->getMinorVersion() == 0 && driver->getPatchVersion() >= 6))
-        return 0;
-      else
-        return 1;
-}
-      ]])],[AC_MSG_RESULT(OK)],[AC_MSG_ERROR([not suitable, we need >= 1.0.6])],[AC_MSG_ERROR([MySQL C++ Connecter not tested with cross-compilation])])
-
-        AC_LANG_POP([C++])
-        LIBS=$save_LIBS
-    else
-        AC_MSG_RESULT([internal])
-        BUILD_TYPE="$BUILD_TYPE MYSQL_CONNECTOR_CPP"
-        SYSTEM_MYSQL_CONNECTOR_CPP=
-    fi
-    AC_LANG_POP([C++])
 fi
-AC_SUBST(SYSTEM_MYSQL_CONNECTOR_CPP)
 
 dnl ===================================================================
 dnl Check for system hsqldb
@@ -8892,7 +8880,7 @@ AC_SUBST(SYSTEM_BOOST)
 dnl ===================================================================
 dnl Check for system mdds
 dnl ===================================================================
-libo_CHECK_SYSTEM_MODULE([mdds], [MDDS], [mdds-1.2 >= 1.2.3], ["-I${WORKDIR}/UnpackedTarball/mdds/include"])
+libo_CHECK_SYSTEM_MODULE([mdds], [MDDS], [mdds-1.4 >= 1.4.1], ["-I${WORKDIR}/UnpackedTarball/mdds/include"])
 
 dnl ===================================================================
 dnl Check for system glm
@@ -10435,6 +10423,9 @@ if test "$build_for_ios" = "YES"; then
 elif test "$enable_mpl_subset" = "yes"; then
     AC_MSG_CHECKING([whether gpgmepp should be disabled due to building just MPL])
     AC_MSG_RESULT([yes])
+elif test "$enable_fuzzers" = "yes"; then
+    AC_MSG_CHECKING([whether gpgmepp should be disabled due to oss-fuzz])
+    AC_MSG_RESULT([yes])
 elif test "$_os" = "Linux" -o "$_os" = "Darwin" -o "$_os" = "WINNT" ; then
     dnl ===================================================================
     dnl Check for system gpgme
@@ -11247,7 +11238,9 @@ then
         AC_MSG_ERROR([KF5 libraries not found.  Please specify the root of your KF5 installation by exporting KF5DIR before running "configure".])
     fi
 
-    PKG_CHECK_MODULES(KF5_XCB,[xcb],,[AC_MSG_ERROR([XCB not installed])])
+    if test "$USING_X11" = TRUE; then
+        PKG_CHECK_MODULES(KF5_XCB,[xcb],,[AC_MSG_ERROR([XCB not installed])])
+    fi
 
     KF5_CFLAGS="-I$kf5_incdir -I$kf5_incdir/KCoreAddons -I$kf5_incdir/KI18n -I$kf5_incdir/KConfigCore -I$kf5_incdir/KWindowSystem -I$kf5_incdir/KIOCore -I$kf5_incdir/KIOWidgets -I$kf5_incdir/KIOFileWidgets -I$qt5_incdir -I$qt5_incdir/QtCore -I$qt5_incdir/QtGui -I$qt5_incdir/QtWidgets -I$qt5_incdir/QtNetwork -DQT_CLEAN_NAMESPACE -DQT_THREAD_SUPPORT $KF5_XCB_CFLAGS"
     KF5_LIBS="-L$kf5_libdir -lKF5CoreAddons -lKF5I18n -lKF5ConfigCore -lKF5WindowSystem -lKF5KIOCore -lKF5KIOWidgets -lKF5KIOFileWidgets -L$qt5_libdir -lQt5Core -lQt5Gui -lQt5Widgets -lQt5Network $KF5_XCB_LIBS"

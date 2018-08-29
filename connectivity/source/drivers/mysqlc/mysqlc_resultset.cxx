@@ -32,6 +32,8 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 
+#include <sal/log.hxx>
+
 using namespace rtl;
 #include <comphelper/string.hxx>
 
@@ -96,6 +98,7 @@ OResultSet::OResultSet(OConnection& rConn, OCommonStatement* pStmt, MYSQL_RES* p
     : OResultSet_BASE(m_aMutex)
     , OPropertySetHelper(OResultSet_BASE::rBHelper)
     , m_rConnection(rConn)
+    , m_aRow(nullptr)
     , m_pMysql(rConn.getMysqlConnection())
     , m_aStatement(static_cast<OWeakObject*>(pStmt))
     , m_xMetaData(nullptr)
@@ -559,6 +562,7 @@ void SAL_CALL OResultSet::close()
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
     mysql_free_result(m_pResult);
+    m_pResult = nullptr;
     dispose();
 }
 

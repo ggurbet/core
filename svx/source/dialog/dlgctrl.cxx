@@ -1279,7 +1279,7 @@ void SvxPixelCtl::Paint( vcl::RenderContext& rRenderContext, const tools::Rectan
 
         //Draw Rectangles (squares)
         rRenderContext.SetLineColor();
-        sal_uInt16 nLastPixel = maPixelData[0];
+        sal_uInt16 nLastPixel = maPixelData[0] ? 0 : 1;
 
         for (i = 0; i < nLines; i++)
         {
@@ -2213,13 +2213,8 @@ void PreviewBase::LocalPrePaint(vcl::RenderContext const & rRenderContext)
 {
     // init BufferDevice
     if (mpBufferDevice->GetOutputSizePixel() != GetOutputSizePixel())
-    {
-        mpBufferDevice->SetDrawMode(rRenderContext.GetDrawMode());
-        mpBufferDevice->SetSettings(rRenderContext.GetSettings());
-        mpBufferDevice->SetAntialiasing(rRenderContext.GetAntialiasing());
         mpBufferDevice->SetOutputSizePixel(GetOutputSizePixel());
-        mpBufferDevice->SetMapMode(rRenderContext.GetMapMode());
-    }
+    mpBufferDevice->SetAntialiasing(rRenderContext.GetAntialiasing());
 
     const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
 
@@ -2270,27 +2265,30 @@ XRectPreview::XRectPreview()
 {
 }
 
+// expand to avoid 1 pixel band to the right and bottom of previews
+// in color/gradient/bitmap/pattern/hatch subpages of area tab
+// in e.g. page dialog
+tools::Rectangle XRectPreview::GetPreviewSize() const
+{
+    tools::Rectangle aObjectSize(Point(), getBufferDevice().PixelToLogic(GetOutputSizePixel()));
+    return aObjectSize;
+}
+
 void XRectPreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
     PreviewBase::SetDrawingArea(pDrawingArea);
     InitSettings();
 
     // create RectangleObject
-    const tools::Rectangle aObjectSize(Point(), GetOutputSizePixel());
-    mpRectangleObject = new SdrRectObj(
-        getModel(),
-        aObjectSize);
+    mpRectangleObject = new SdrRectObj(getModel(), GetPreviewSize());
 }
 
 void XRectPreview::Resize()
 {
-    const tools::Rectangle aObjectSize(Point(), GetOutputSizePixel());
     SdrObject *pOrigObject = mpRectangleObject;
     if (pOrigObject)
     {
-        mpRectangleObject = new SdrRectObj(
-            getModel(),
-            aObjectSize);
+        mpRectangleObject = new SdrRectObj(getModel(), GetPreviewSize());
         SetAttributes(pOrigObject->GetMergedItemSet());
         SdrObject::Free(pOrigObject);
     }
@@ -2310,6 +2308,8 @@ void XRectPreview::SetAttributes(const SfxItemSet& rItemSet)
 
 void XRectPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
+    rRenderContext.Push(PushFlags::MAPMODE);
+    rRenderContext.SetMapMode(MapMode(MapUnit::Map100thMM));
     LocalPrePaint(rRenderContext);
 
     sdr::contact::SdrObjectVector aObjectVector;
@@ -2322,6 +2322,7 @@ void XRectPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectan
     aPainter.ProcessDisplay(aDisplayInfo);
 
     LocalPostPaint(rRenderContext);
+    rRenderContext.Pop();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

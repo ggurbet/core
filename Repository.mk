@@ -142,7 +142,7 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,brand, \
 	$(call gb_Helper_optional,FUZZERS,mtpfuzzer) \
 	$(call gb_Helper_optional,FUZZERS,htmlfuzzer) \
 	$(call gb_Helper_optional,FUZZERS,sftfuzzer) \
-	$(if $(filter-out ANDROID IOS MACOSX WNT,$(OS)),oosplash) \
+	$(if $(filter-out ANDROID HAIKU IOS MACOSX WNT,$(OS)),oosplash) \
 	soffice_bin \
 	$(if $(filter DESKTOP,$(BUILD_TYPE)),unopkg_bin) \
 	$(if $(filter WNT,$(OS)), \
@@ -200,7 +200,7 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,ooo, \
 	gengal \
 	$(if $(filter WNT,$(OS)),,uri-encode) \
 	$(if $(ENABLE_MACOSX_SANDBOX),, \
-		$(if $(ENABLE_HEADLESS),, \
+		$(if $(DISABLE_GUI),, \
 			ui-previewer \
 		) \
 	) \
@@ -236,7 +236,7 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,pdfimport, \
 endif
 
 $(eval $(call gb_Helper_register_executables_for_install,UREBIN,ure,\
-	$(if $(and $(ENABLE_JAVA),$(filter-out MACOSX WNT,$(OS)),$(filter DESKTOP,$(BUILD_TYPE))),javaldx) \
+	$(if $(and $(ENABLE_JAVA),$(filter-out HAIKU MACOSX WNT,$(OS)),$(filter DESKTOP,$(BUILD_TYPE))),javaldx) \
 	$(if $(ENABLE_MACOSX_SANDBOX),, \
 		regmerge \
 		regview \
@@ -429,7 +429,7 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	slideshow \
 	sot \
 	spell \
-	$(if $(ENABLE_HEADLESS),,spl) \
+	$(if $(DISABLE_GUI),,spl) \
 	storagefd \
 	$(call gb_Helper_optional,SCRIPTING,stringresource) \
 	svgio \
@@ -962,7 +962,7 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 
 $(eval $(call gb_Helper_register_packages_for_install,ooo_fonts,\
 	extras_fonts \
-	$(if $(USING_X11)$(ENABLE_HEADLESS)$(filter ANDROID,$(OS)), \
+	$(if $(USING_X11)$(DISABLE_GUI)$(filter ANDROID,$(OS)), \
 		postprocess_fontconfig) \
 	$(call gb_Helper_optional,MORE_FONTS,\
 		fonts_alef \
@@ -1016,8 +1016,8 @@ $(eval $(call gb_Helper_register_packages_for_install,brand,\
 	desktop_branding \
 	$(if $(CUSTOM_BRAND_DIR),desktop_branding_custom) \
 	$(if $(filter DESKTOP,$(BUILD_TYPE)),desktop_scripts_install) \
-	$(if $(and $(filter-out MACOSX WNT,$(OS)),$(filter DESKTOP,$(BUILD_TYPE))),\
-		$(if $(ENABLE_HEADLESS),, \
+	$(if $(and $(filter-out MACOSX HAIKU WNT,$(OS)),$(filter DESKTOP,$(BUILD_TYPE))),\
+		$(if $(DISABLE_GUI),, \
 			desktop_soffice_sh \
 		) \
 	) \

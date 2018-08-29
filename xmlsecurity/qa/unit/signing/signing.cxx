@@ -523,7 +523,7 @@ void SigningTest::testOOXMLRemoveAll()
     uno::Reference<io::XInputStream> xInputStream = xStream->getInputStream();
     uno::Sequence< uno::Sequence<beans::StringPair> > aContentTypeInfo = comphelper::OFOPXMLHelper::ReadContentTypeSequence(xInputStream, mxComponentContext);
     uno::Sequence<beans::StringPair>& rOverrides = aContentTypeInfo[1];
-    CPPUNIT_ASSERT_EQUAL(rOverrides.end(), std::find_if(rOverrides.begin(), rOverrides.end(), [](const beans::StringPair& rPair)
+    CPPUNIT_ASSERT(std::none_of(rOverrides.begin(), rOverrides.end(), [](const beans::StringPair& rPair)
     {
         return rPair.First.startsWith("/_xmlsignatures/sig");
     }));
@@ -775,6 +775,10 @@ void SigningTest::testXAdES()
 
     // Assert that the digest of the signing certificate is included.
     assertXPath(pXmlDoc, "//xd:CertDigest", 1);
+
+    // Assert that the Type attribute on the idSignedProperties reference is
+    // not missing.
+    assertXPath(pXmlDoc, "/odfds:document-signatures/dsig:Signature/dsig:SignedInfo/dsig:Reference[@URI='#idSignedProperties']", "Type", "http://uri.etsi.org/01903#SignedProperties");
 }
 
 void SigningTest::testXAdESGood()

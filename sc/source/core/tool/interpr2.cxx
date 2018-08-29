@@ -144,26 +144,26 @@ void ScInterpreter::ScGetDay()
 
 void ScInterpreter::ScGetMin()
 {
-    double fTime = GetDouble();
-    fTime -= ::rtl::math::approxFloor(fTime);       // date part absent
-    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR)) % ::tools::Time::secondPerHour;
-    PushDouble( static_cast<double>(nVal / ::tools::Time::secondPerMinute) );
+    sal_uInt16 nHour, nMinute, nSecond;
+    double fFractionOfSecond;
+    tools::Time::GetClock( GetDouble(), nHour, nMinute, nSecond, fFractionOfSecond, 0);
+    PushDouble( nMinute);
 }
 
 void ScInterpreter::ScGetSec()
 {
-    double fTime = GetDouble();
-    fTime -= ::rtl::math::approxFloor(fTime);       // date part absent
-    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR)) % ::tools::Time::secondPerMinute;
-    PushDouble( static_cast<double>(nVal) );
+    sal_uInt16 nHour, nMinute, nSecond;
+    double fFractionOfSecond;
+    tools::Time::GetClock( GetDouble(), nHour, nMinute, nSecond, fFractionOfSecond, 0);
+    PushDouble( nSecond);
 }
 
 void ScInterpreter::ScGetHour()
 {
-    double fTime = GetDouble();
-    fTime -= ::rtl::math::approxFloor(fTime);       // date part absent
-    long nVal = static_cast<long>(::rtl::math::approxFloor(fTime*DATE_TIME_FACTOR)) / ::tools::Time::secondPerHour;
-    PushDouble(static_cast<double>(nVal));
+    sal_uInt16 nHour, nMinute, nSecond;
+    double fFractionOfSecond;
+    tools::Time::GetClock( GetDouble(), nHour, nMinute, nSecond, fFractionOfSecond, 0);
+    PushDouble( nHour);
 }
 
 void ScInterpreter::ScGetDateValue()
