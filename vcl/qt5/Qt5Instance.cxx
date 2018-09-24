@@ -43,17 +43,16 @@
 
 #include <headless/svpbmp.hxx>
 
-Qt5Instance::Qt5Instance(std::unique_ptr<SalYieldMutex> pMutex, bool bUseCairo)
-    : SalGenericInstance(std::move(pMutex))
+Qt5Instance::Qt5Instance(bool bUseCairo)
+    : SalGenericInstance(o3tl::make_unique<SalYieldMutex>())
     , m_postUserEventId(-1)
     , m_bUseCairo(bUseCairo)
 {
     ImplSVData* pSVData = ImplGetSVData();
-    delete pSVData->maAppData.mpToolkitName;
     if (bUseCairo)
-        pSVData->maAppData.mpToolkitName = new OUString("qt5+cairo");
+        pSVData->maAppData.mxToolkitName = OUString("qt5+cairo");
     else
-        pSVData->maAppData.mpToolkitName = new OUString("qt5");
+        pSVData->maAppData.mxToolkitName = OUString("qt5");
 
     m_postUserEventId = QEvent::registerEventType();
 
@@ -128,7 +127,7 @@ std::unique_ptr<SalMenuItem> Qt5Instance::CreateMenuItem(const SalItemParams& rI
 
 SalTimer* Qt5Instance::CreateSalTimer() { return new Qt5Timer(); }
 
-SalSystem* Qt5Instance::CreateSalSystem() { return new Qt5System(); }
+SalSystem* Qt5Instance::CreateSalSystem() { return new Qt5System; }
 
 std::shared_ptr<SalBitmap> Qt5Instance::CreateSalBitmap()
 {
@@ -287,7 +286,7 @@ VCLPLUG_QT5_PUBLIC SalInstance* create_SalInstance()
     QApplication::setQuitOnLastWindowClosed(false);
 
     static const bool bUseCairo = (nullptr != getenv("SAL_VCL_QT5_USE_CAIRO"));
-    Qt5Instance* pInstance = new Qt5Instance(o3tl::make_unique<SalYieldMutex>(), bUseCairo);
+    Qt5Instance* pInstance = new Qt5Instance(bUseCairo);
 
     // initialize SalData
     new Qt5Data(pInstance);

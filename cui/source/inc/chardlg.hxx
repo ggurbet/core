@@ -35,35 +35,7 @@
 class SvxFontListItem;
 class FontList;
 
-// class SvxCharBasePage -------------------------------------------------
-
 class SvxCharBasePage : public SfxTabPage
-{
-protected:
-    VclPtr<SvxFontPrevWindow>  m_pPreviewWin;
-
-    bool                m_bPreviewBackgroundToCharacter;
-
-    SvxCharBasePage(vcl::Window* pParent, const OString& rID, const OUString& rUIXMLDescription, const SfxItemSet& rItemset);
-
-    void SetPrevFontWidthScale( const SfxItemSet& rSet );
-
-    inline SvxFont&     GetPreviewFont();
-    inline SvxFont&     GetPreviewCJKFont();
-    inline SvxFont&     GetPreviewCTLFont();
-
-public:
-    virtual ~SvxCharBasePage() override;
-    virtual void dispose() override;
-
-    using SfxTabPage::ActivatePage;
-    using SfxTabPage::DeactivatePage;
-
-    virtual void        ActivatePage( const SfxItemSet& rSet ) override;
-
-};
-
-class CharBasePage : public SfxTabPage
 {
 protected:
     FontPrevWindow   m_aPreviewWin;
@@ -71,7 +43,7 @@ protected:
 
     bool                m_bPreviewBackgroundToCharacter;
 
-    CharBasePage(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rAttrSet);
+    SvxCharBasePage(TabPageParent pParent, const OUString& rUIXMLDescription, const OString& rID, const SfxItemSet& rAttrSet);
 
     void SetPrevFontWidthScale( const SfxItemSet& rSet );
     void SetPrevFontEscapement( sal_uInt8 nProp, sal_uInt8 nEscProp, short nEsc );
@@ -81,7 +53,7 @@ protected:
     inline SvxFont&     GetPreviewCTLFont();
 
 public:
-    virtual ~CharBasePage() override;
+    virtual ~SvxCharBasePage() override;
 
     using SfxTabPage::ActivatePage;
     using SfxTabPage::DeactivatePage;
@@ -100,51 +72,52 @@ class SvxCharNamePage : public SvxCharBasePage
 
 private:
     static const sal_uInt16 pNameRanges[];
-    VclPtr<VclContainer>       m_pWestFrame;
-    VclPtr<FixedText>          m_pWestFontNameFT;
-    VclPtr<FontNameBox>        m_pWestFontNameLB;
-    VclPtr<FixedText>          m_pWestFontStyleFT;
-    VclPtr<FontStyleBox>       m_pWestFontStyleLB;
-    VclPtr<FixedText>          m_pWestFontSizeFT;
-    VclPtr<FontSizeBox>        m_pWestFontSizeLB;
-    VclPtr<FixedText>          m_pWestFontLanguageFT;
-    VclPtr<SvxLanguageComboBox> m_pWestFontLanguageLB;
-    VclPtr<FixedText>          m_pWestFontTypeFT;
-    VclPtr<PushButton>         m_pWestFontFeaturesButton;
-
-    VclPtr<VclContainer>       m_pEastFrame;
-    VclPtr<FixedText>          m_pEastFontNameFT;
-    VclPtr<FontNameBox>        m_pEastFontNameLB;
-    VclPtr<FixedText>          m_pEastFontStyleFT;
-    VclPtr<FontStyleBox>       m_pEastFontStyleLB;
-    VclPtr<FixedText>          m_pEastFontSizeFT;
-    VclPtr<FontSizeBox>        m_pEastFontSizeLB;
-    VclPtr<FixedText>          m_pEastFontLanguageFT;
-    VclPtr<SvxLanguageBox>     m_pEastFontLanguageLB;
-    VclPtr<FixedText>          m_pEastFontTypeFT;
-    VclPtr<PushButton>         m_pEastFontFeaturesButton;
-
-    VclPtr<VclContainer>       m_pCTLFrame;
-    VclPtr<FixedText>          m_pCTLFontNameFT;
-    VclPtr<FontNameBox>        m_pCTLFontNameLB;
-    VclPtr<FixedText>          m_pCTLFontStyleFT;
-    VclPtr<FontStyleBox>       m_pCTLFontStyleLB;
-    VclPtr<FixedText>          m_pCTLFontSizeFT;
-    VclPtr<FontSizeBox>        m_pCTLFontSizeLB;
-    VclPtr<FixedText>          m_pCTLFontLanguageFT;
-    VclPtr<SvxLanguageBox>     m_pCTLFontLanguageLB;
-    VclPtr<FixedText>          m_pCTLFontTypeFT;
-    VclPtr<PushButton>         m_pCTLFontFeaturesButton;
 
     std::unique_ptr<SvxCharNamePage_Impl>   m_pImpl;
 
-                        SvxCharNamePage( vcl::Window* pParent, const SfxItemSet& rSet );
+    std::unique_ptr<weld::Widget> m_xWestFrame;
+    std::unique_ptr<weld::Label> m_xWestFontNameFT;
+    std::unique_ptr<weld::ComboBox> m_xWestFontNameLB;
+    std::unique_ptr<weld::Label> m_xWestFontStyleFT;
+    std::unique_ptr<SvtFontStyleBox> m_xWestFontStyleLB;
+    std::unique_ptr<weld::Label> m_xWestFontSizeFT;
+    std::unique_ptr<SvtFontSizeBox> m_xWestFontSizeLB;
+    std::unique_ptr<weld::Label> m_xWestFontLanguageFT;
+    std::unique_ptr<LanguageBox> m_xWestFontLanguageLB;
+    std::unique_ptr<weld::Label> m_xWestFontTypeFT;
+    std::unique_ptr<weld::Button> m_xWestFontFeaturesButton;
+
+    std::unique_ptr<weld::Widget> m_xEastFrame;
+    std::unique_ptr<weld::Label> m_xEastFontNameFT;
+    std::unique_ptr<weld::ComboBox> m_xEastFontNameLB;
+    std::unique_ptr<weld::Label> m_xEastFontStyleFT;
+    std::unique_ptr<SvtFontStyleBox> m_xEastFontStyleLB;
+    std::unique_ptr<weld::Label> m_xEastFontSizeFT;
+    std::unique_ptr<SvtFontSizeBox> m_xEastFontSizeLB;
+    std::unique_ptr<weld::Label> m_xEastFontLanguageFT;
+    std::unique_ptr<LanguageBox> m_xEastFontLanguageLB;
+    std::unique_ptr<weld::Label> m_xEastFontTypeFT;
+    std::unique_ptr<weld::Button> m_xEastFontFeaturesButton;
+
+    std::unique_ptr<weld::Widget> m_xCTLFrame;
+    std::unique_ptr<weld::Label> m_xCTLFontNameFT;
+    std::unique_ptr<weld::ComboBox> m_xCTLFontNameLB;
+    std::unique_ptr<weld::Label> m_xCTLFontStyleFT;
+    std::unique_ptr<SvtFontStyleBox> m_xCTLFontStyleLB;
+    std::unique_ptr<weld::Label> m_xCTLFontSizeFT;
+    std::unique_ptr<SvtFontSizeBox> m_xCTLFontSizeLB;
+    std::unique_ptr<weld::Label> m_xCTLFontLanguageFT;
+    std::unique_ptr<LanguageBox> m_xCTLFontLanguageLB;
+    std::unique_ptr<weld::Label> m_xCTLFontTypeFT;
+    std::unique_ptr<weld::Button> m_xCTLFontFeaturesButton;
+
+    SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rSet);
 
     void                Initialize();
     const FontList*     GetFontList() const;
     void                UpdatePreview_Impl();
-    void                FillStyleBox_Impl( const FontNameBox* rBox );
-    void                FillSizeBox_Impl( const FontNameBox* rBox );
+    void                FillStyleBox_Impl(const weld::Widget& rBox);
+    void                FillSizeBox_Impl(const weld::Widget& rBox);
 
     enum LanguageGroup
     {
@@ -164,13 +137,12 @@ private:
     void                Reset_Impl( const SfxItemSet& rSet, LanguageGroup eLangGrp );
     bool                FillItemSet_Impl( SfxItemSet& rSet, LanguageGroup eLangGrp );
 
-    DECL_LINK( UpdateHdl_Impl, Timer *, void );
-    DECL_LINK( FontModifyEditHdl_Impl, Edit&, void );
-    DECL_LINK( FontModifyListBoxHdl_Impl, ListBox&, void );
-    DECL_LINK( FontModifyComboBoxHdl_Impl, ComboBox&, void );
-    DECL_LINK(FontFeatureButtonClicked, Button*, void);
+    DECL_LINK(UpdateHdl_Impl, Timer *, void );
+    DECL_LINK(FontModifyEditHdl_Impl, weld::Entry&, void);
+    DECL_LINK(FontModifyComboBoxHdl_Impl, weld::ComboBox&, void);
+    DECL_LINK(FontFeatureButtonClicked, weld::Button&, void);
 
-    void FontModifyHdl_Impl(void const *);
+    void FontModifyHdl_Impl(const weld::Widget&);
 
 public:
     using SfxTabPage::ActivatePage;
@@ -210,43 +182,34 @@ private:
     bool                       m_bNewFontColor;
     bool                       m_bEnableNoneFontColor;
     Color                      m_aOrigFontColor;
-    VclPtr<FixedText>          m_pFontColorFT;
-    VclPtr<SvxColorListBox>    m_pFontColorLB;
+    sal_uInt16                 m_nHtmlMode;
+    bool                       m_bUnderlineColorDisabled;
 
-    VclPtr<FixedText>          m_pEffectsFT;
-    VclPtr<ListBox>            m_pEffectsLB;
+    std::unique_ptr<weld::Label> m_xFontColorFT;
+    std::unique_ptr<ColorListBox> m_xFontColorLB;
+    std::unique_ptr<weld::Label> m_xEffectsFT;
+    std::unique_ptr<weld::ComboBox> m_xEffectsLB;
+    std::unique_ptr<weld::Label> m_xReliefFT;
+    std::unique_ptr<weld::ComboBox> m_xReliefLB;
+    std::unique_ptr<weld::CheckButton> m_xOutlineBtn;
+    std::unique_ptr<weld::CheckButton> m_xShadowBtn;
+    std::unique_ptr<weld::CheckButton> m_xBlinkingBtn;
+    std::unique_ptr<weld::CheckButton> m_xHiddenBtn;
+    std::unique_ptr<weld::ComboBox> m_xOverlineLB;
+    std::unique_ptr<weld::Label> m_xOverlineColorFT;
+    std::unique_ptr<ColorListBox> m_xOverlineColorLB;
+    std::unique_ptr<weld::ComboBox> m_xStrikeoutLB;
+    std::unique_ptr<weld::ComboBox> m_xUnderlineLB;
+    std::unique_ptr<weld::Label> m_xUnderlineColorFT;
+    std::unique_ptr<ColorListBox> m_xUnderlineColorLB;
+    std::unique_ptr<weld::CheckButton> m_xIndividualWordsBtn;
+    std::unique_ptr<weld::Label> m_xEmphasisFT;
+    std::unique_ptr<weld::ComboBox> m_xEmphasisLB;
+    std::unique_ptr<weld::Label> m_xPositionFT;
+    std::unique_ptr<weld::ComboBox> m_xPositionLB;
+    std::unique_ptr<weld::Label> m_xA11yWarningFT;
 
-    VclPtr<FixedText>          m_pReliefFT;
-    VclPtr<ListBox>            m_pReliefLB;
-
-    VclPtr<TriStateBox>        m_pOutlineBtn;
-    VclPtr<TriStateBox>        m_pShadowBtn;
-    VclPtr<TriStateBox>        m_pBlinkingBtn;
-    VclPtr<TriStateBox>        m_pHiddenBtn;
-
-    VclPtr<ListBox>            m_pOverlineLB;
-    VclPtr<FixedText>          m_pOverlineColorFT;
-    VclPtr<SvxColorListBox>    m_pOverlineColorLB;
-
-    VclPtr<ListBox>            m_pStrikeoutLB;
-
-    VclPtr<ListBox>            m_pUnderlineLB;
-    VclPtr<FixedText>          m_pUnderlineColorFT;
-    VclPtr<SvxColorListBox>    m_pUnderlineColorLB;
-
-    VclPtr<CheckBox>           m_pIndividualWordsBtn;
-
-    VclPtr<FixedText>          m_pEmphasisFT;
-    VclPtr<ListBox>            m_pEmphasisLB;
-
-    VclPtr<FixedText>          m_pPositionFT;
-    VclPtr<ListBox>            m_pPositionLB;
-
-    VclPtr<FixedText>          m_pA11yWarningFT;
-
-    sal_uInt16          m_nHtmlMode;
-
-                        SvxCharEffectsPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    SvxCharEffectsPage(TabPageParent pParent, const SfxItemSet& rSet);
 
     void                Initialize();
     void                UpdatePreview_Impl();
@@ -256,12 +219,12 @@ private:
     Color               GetPreviewFontColor(const Color& rColor) const;
     void                EnableNoneFontColor();
 
-    void SelectHdl_Impl(ListBox*);
-    DECL_LINK(SelectListBoxHdl_Impl, ListBox&, void);
-    DECL_LINK(CbClickHdl_Impl, Button*, void);
-    DECL_LINK(TristClickHdl_Impl, Button*, void);
-    DECL_LINK(UpdatePreview_Impl, ListBox&, void);
-    DECL_LINK(ColorBoxSelectHdl_Impl, SvxColorListBox&, void);
+    void SelectHdl_Impl(weld::ComboBox*);
+    DECL_LINK(SelectListBoxHdl_Impl, weld::ComboBox&, void);
+    DECL_LINK(CbClickHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(TristClickHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(UpdatePreview_Impl, weld::ComboBox&, void);
+    DECL_LINK(ColorBoxSelectHdl_Impl, ColorListBox&, void);
 
 public:
     virtual ~SvxCharEffectsPage() override;
@@ -285,7 +248,7 @@ public:
 // class SvxCharPositionPage ---------------------------------------------
 
 
-class SvxCharPositionPage : public CharBasePage
+class SvxCharPositionPage : public SvxCharBasePage
 {
     friend class VclPtr<SvxCharPositionPage>;
     static const sal_uInt16 pPositionRanges[];
@@ -333,7 +296,7 @@ private:
     DECL_LINK(RotationHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(AutoPositionHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(FitToLineHdl_Impl, weld::ToggleButton&, void);
-    DECL_LINK(KerningSelectHdl_Impl, weld::ComboBoxText&, void);
+    DECL_LINK(KerningSelectHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(KerningModifyHdl_Impl, weld::MetricSpinButton&, void);
     DECL_LINK(ValueChangedHdl_Impl, weld::MetricSpinButton&, void);
     DECL_LINK(ScaleWidthModifyHdl_Impl, weld::MetricSpinButton&, void);
@@ -359,7 +322,7 @@ public:
 
 // class SvxCharTwoLinesPage ---------------------------------------------
 
-class SvxCharTwoLinesPage : public CharBasePage
+class SvxCharTwoLinesPage : public SvxCharBasePage
 {
     friend class VclPtr<SvxCharTwoLinesPage>;
 private:

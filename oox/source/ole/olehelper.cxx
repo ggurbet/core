@@ -315,7 +315,7 @@ bool OleHelper::importStdPic( StreamDataSequence& orGraphicData, BinaryInputStre
     return !rInStrm.isEof() && (nStdPicId == OLE_STDPIC_ID) && (nBytes > 0) && (rInStrm.readData( orGraphicData, nBytes ) == nBytes);
 }
 
-Reference< css::frame::XFrame > lcl_getFrame( const  Reference< css::frame::XModel >& rxModel )
+static Reference< css::frame::XFrame > lcl_getFrame( const  Reference< css::frame::XModel >& rxModel )
 {
     Reference< css::frame::XFrame > xFrame;
     if ( rxModel.is() )
@@ -326,7 +326,7 @@ Reference< css::frame::XFrame > lcl_getFrame( const  Reference< css::frame::XMod
     return xFrame;
 }
 
-OleFormCtrlExportHelper::OleFormCtrlExportHelper(  const Reference< XComponentContext >& rxCtx, const Reference< XModel >& rxDocModel, const Reference< XControlModel >& xCntrlModel ) : mpControl(nullptr), mpModel( nullptr ), maGrfHelper( rxCtx, lcl_getFrame( rxDocModel ), StorageRef() ), mxDocModel( rxDocModel ), mxControlModel( xCntrlModel )
+OleFormCtrlExportHelper::OleFormCtrlExportHelper(  const Reference< XComponentContext >& rxCtx, const Reference< XModel >& rxDocModel, const Reference< XControlModel >& xCntrlModel ) : mpModel( nullptr ), maGrfHelper( rxCtx, lcl_getFrame( rxDocModel ), StorageRef() ), mxDocModel( rxDocModel ), mxControlModel( xCntrlModel )
 {
     // try to get the guid
     Reference< css::beans::XPropertySet > xProps( xCntrlModel, UNO_QUERY );

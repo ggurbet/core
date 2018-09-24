@@ -93,7 +93,7 @@ bool checkBeginWithNumber(const OUString& rStr)
 #define CPPUNIT_ASSERT_MOTIONPATH(expect, actual) \
       assertMotionPath(expect, actual, CPPUNIT_SOURCELINE())
 
-void assertMotionPath(const OUString &rStr1, const OUString &rStr2, const CppUnit::SourceLine &rSourceLine)
+static void assertMotionPath(const OUString &rStr1, const OUString &rStr2, const CppUnit::SourceLine &rSourceLine)
 {
     sal_Int32 nIdx1 = 0;
     sal_Int32 nIdx2 = 0;
@@ -172,6 +172,7 @@ public:
     void testTdf107608();
     void testTdf111786();
     void testFontScale();
+    void testShapeAutofitPPTX();
     void testTdf115394();
     void testTdf115394Zero();
     void testTdf115005();
@@ -193,6 +194,7 @@ public:
     void testTdf116350TextEffects();
     void testTdf118825();
     void testTdf119118();
+    void testTdf99213();
 
     CPPUNIT_TEST_SUITE(SdOOXMLExportTest2);
 
@@ -250,6 +252,7 @@ public:
     CPPUNIT_TEST(testTdf107608);
     CPPUNIT_TEST(testTdf111786);
     CPPUNIT_TEST(testFontScale);
+    CPPUNIT_TEST(testShapeAutofitPPTX);
     CPPUNIT_TEST(testTdf115394);
     CPPUNIT_TEST(testTdf115394Zero);
     CPPUNIT_TEST(testTdf115005);
@@ -269,6 +272,7 @@ public:
     CPPUNIT_TEST(testTdf116350TextEffects);
     CPPUNIT_TEST(testTdf118825);
     CPPUNIT_TEST(testTdf119118);
+    CPPUNIT_TEST(testTdf99213);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -492,7 +496,7 @@ void SdOOXMLExportTest2::testTdf91378()
     xDocShRef->DoClose();
 }
 
-bool checkTransitionOnPage(uno::Reference<drawing::XDrawPagesSupplier> const & xDoc, sal_Int32 nSlideNumber,
+static bool checkTransitionOnPage(uno::Reference<drawing::XDrawPagesSupplier> const & xDoc, sal_Int32 nSlideNumber,
                            sal_Int16 nExpectedTransitionType, sal_Int16 nExpectedTransitionSubType,
                            bool bExpectedDirection = true)
 {
@@ -1555,6 +1559,20 @@ void SdOOXMLExportTest2::testFontScale()
     xDocShRef->DoClose();
 }
 
+void SdOOXMLExportTest2::testShapeAutofitPPTX()
+{
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/testShapeAutofit.pptx"), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
+    CPPUNIT_ASSERT(pXmlDocContent);
+
+    // TextAutoGrowHeight --> "Resize shape to fit text" --> true
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[1]/p:txBody/a:bodyPr/a:spAutoFit", 1);
+    // TextAutoGrowHeight --> "Resize shape to fit text" --> false
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:sp[2]/p:txBody/a:bodyPr/a:noAutofit", 1);
+}
+
 void SdOOXMLExportTest2::testTdf115394()
 {
     sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf115394.pptx"), PPTX);
@@ -1984,6 +2002,19 @@ void SdOOXMLExportTest2::testTdf119118()
     xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
     assertXPath(pXmlDocContent, "//p:iterate", "type", "lt");
     assertXPath(pXmlDocContent, "//p:tmAbs", "val", "200");
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf99213()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc( "sd/qa/unit/data/odp/tdf99213-target-missing.odp" ), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
+    // Number of nodes with p:attrNameLst was 3, including one that missed tgtEl
+    assertXPath(pXmlDocContent, "//p:attrNameLst", 2);
+    // Timenode that miss its target element should be filtered.
+    assertXPath(pXmlDocContent, "//p:attrNameLst/preceding-sibling::p:tgtEl", 2);
     xDocShRef->DoClose();
 }
 

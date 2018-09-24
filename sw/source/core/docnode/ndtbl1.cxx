@@ -59,7 +59,7 @@ using namespace ::com::sun::star;
 // See swtable.cxx too
 #define COLFUZZY 20L
 
-inline bool IsSame( long nA, long nB ) { return  std::abs(nA-nB) <= COLFUZZY; }
+static inline bool IsSame( long nA, long nB ) { return  std::abs(nA-nB) <= COLFUZZY; }
 
 // SwTableLine::ChgFrameFormat may delete old format which doesn't have writer listeners anymore.
 // This may invalidate my pointers, and lead to use-after-free. For this reason, I register myself
@@ -126,8 +126,10 @@ static void lcl_GetStartEndCell( const SwCursor& rCursor,
     SwContentNode* pPointNd = rCursor.GetContentNode();
     SwContentNode* pMarkNd  = rCursor.GetContentNode(false);
 
-    SwFrame* pPointFrame = pPointNd ? pPointNd->getLayoutFrame( pPointNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), &aPtPos ) : nullptr;
-    SwFrame* pMarkFrame  = pMarkNd  ? pMarkNd->getLayoutFrame( pMarkNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), &aMkPos )  : nullptr;
+    std::pair<Point, bool> tmp(aPtPos, true);
+    SwFrame *const pPointFrame = pPointNd ? pPointNd->getLayoutFrame(pPointNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, &tmp) : nullptr;
+    tmp.first = aMkPos;
+    SwFrame *const pMarkFrame = pMarkNd ? pMarkNd->getLayoutFrame(pMarkNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, &tmp) : nullptr;
 
     prStart = pPointFrame ? pPointFrame->GetUpper() : nullptr;
     prEnd   = pMarkFrame  ? pMarkFrame->GetUpper() : nullptr;
@@ -157,7 +159,7 @@ static bool lcl_GetBoxSel( const SwCursor& rCursor, SwSelBoxes& rBoxes,
     return !rBoxes.empty();
 }
 
-inline void InsertLine( std::vector<SwTableLine*>& rLineArr, SwTableLine* pLine )
+static inline void InsertLine( std::vector<SwTableLine*>& rLineArr, SwTableLine* pLine )
 {
     if( rLineArr.end() == std::find( rLineArr.begin(), rLineArr.end(), pLine ) )
         rLineArr.push_back( pLine );
@@ -186,9 +188,9 @@ struct LinesAndTable
           m_rLines(rL), m_rTable(rTable), m_bInsertLines(true) {}
 };
 
-bool FindLine_( FndLine_ & rLine, LinesAndTable* pPara );
+static bool FindLine_( FndLine_ & rLine, LinesAndTable* pPara );
 
-bool FindBox_( FndBox_ & rBox, LinesAndTable* pPara )
+static bool FindBox_( FndBox_ & rBox, LinesAndTable* pPara )
 {
     if (!rBox.GetLines().empty())
     {
@@ -533,7 +535,7 @@ bool SwDoc::GetRowBackground( const SwCursor& rCursor, SvxBrushItem &rToFill )
     return bRet;
 }
 
-inline void InsertCell( std::vector<SwCellFrame*>& rCellArr, SwCellFrame* pCellFrame )
+static inline void InsertCell( std::vector<SwCellFrame*>& rCellArr, SwCellFrame* pCellFrame )
 {
     if( rCellArr.end() == std::find( rCellArr.begin(), rCellArr.end(), pCellFrame ) )
         rCellArr.push_back( pCellFrame );
@@ -1540,11 +1542,15 @@ void SwDoc::AdjustCellWidth( const SwCursor& rCursor, bool bBalance )
     // only afterwards.
     // The first column's desired width would be discarded as it would cause
     // the Table's width to exceed the maximum width.
+    const sal_uInt16 nEqualWidth = (aTabCols.GetRight() - aTabCols.GetLeft()) / (aTabCols.Count() + 1);
     for ( int k = 0; k < 2; ++k )
     {
         for ( size_t i = 0; i <= aTabCols.Count(); ++i )
         {
-            int nDiff = aWish[i];
+            // First pass is primarily a shrink pass. Give all columns a chance
+            //    to grow by requesting the maximum width as "balanced".
+            // Second pass is a first-come, first-served chance to max out.
+            int nDiff = k ? aWish[i] : std::min(aWish[i], nEqualWidth);
             if ( nDiff )
             {
                 int nMin = aMins[i];

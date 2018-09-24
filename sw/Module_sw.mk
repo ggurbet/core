@@ -58,6 +58,7 @@ $(eval $(call gb_Module_add_slowcheck_targets,sw,\
     CppunitTest_sw_docbookexport \
     CppunitTest_sw_fodfexport \
     CppunitTest_sw_htmlexport \
+    CppunitTest_sw_xhtmlexport \
     CppunitTest_sw_htmlimport \
     CppunitTest_sw_macros_test \
     CppunitTest_sw_ooxmlexport \
@@ -80,6 +81,7 @@ $(eval $(call gb_Module_add_slowcheck_targets,sw,\
     CppunitTest_sw_ooxmlimport2 \
     CppunitTest_sw_ww8export \
     CppunitTest_sw_ww8export2 \
+    CppunitTest_sw_ww8export3 \
     CppunitTest_sw_ww8import \
     CppunitTest_sw_rtfexport \
     CppunitTest_sw_rtfexport2 \
@@ -138,6 +140,7 @@ $(eval $(call gb_Module_add_uicheck_targets,sw,\
 	UITest_writer_tests2 \
 	UITest_writer_tests3 \
 	UITest_writer_tests4 \
+	UITest_table \
 ))
 endif
 

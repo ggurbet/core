@@ -19,6 +19,8 @@
 
 #include <drawingml/table/tableproperties.hxx>
 #include <drawingml/table/tablestylelist.hxx>
+#include <drawingml/textbody.hxx>
+#include <drawingml/textparagraph.hxx>
 #include <oox/drawingml/drawingmltypes.hxx>
 #include <com/sun/star/table/XTable.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
@@ -49,7 +51,7 @@ TableProperties::TableProperties()
 {
 }
 
-void CreateTableRows( const uno::Reference< XTableRows >& xTableRows, const std::vector< TableRow >& rvTableRows )
+static void CreateTableRows( const uno::Reference< XTableRows >& xTableRows, const std::vector< TableRow >& rvTableRows )
 {
     if ( rvTableRows.size() > 1 )
         xTableRows->insertByIndex( 0, rvTableRows.size() - 1 );
@@ -64,7 +66,7 @@ void CreateTableRows( const uno::Reference< XTableRows >& xTableRows, const std:
     }
 }
 
-void CreateTableColumns( const Reference< XTableColumns >& xTableColumns, const std::vector< sal_Int32 >& rvTableGrid )
+static void CreateTableColumns( const Reference< XTableColumns >& xTableColumns, const std::vector< sal_Int32 >& rvTableGrid )
 {
     if ( rvTableGrid.size() > 1 )
         xTableColumns->insertByIndex( 0, rvTableGrid.size() - 1 );
@@ -78,7 +80,7 @@ void CreateTableColumns( const Reference< XTableColumns >& xTableColumns, const 
     }
 }
 
-void MergeCells( const uno::Reference< XTable >& xTable, sal_Int32 nCol, sal_Int32 nRow, sal_Int32 nColSpan, sal_Int32 nRowSpan )
+static void MergeCells( const uno::Reference< XTable >& xTable, sal_Int32 nCol, sal_Int32 nRow, sal_Int32 nColSpan, sal_Int32 nRowSpan )
 {
    if( xTable.is() ) try
    {
@@ -140,7 +142,7 @@ static void SetTableStyleProperties(TableStyle* &pTableStyle , sal_Int32 tblFill
     pTableStyle->getLastCol().getTextBoldStyle() = textBoldStyle;
 }
 
-TableStyle* CreateTableStyle(const OUString& styleId)
+static TableStyle* CreateTableStyle(const OUString& styleId)
 {
     TableStyle* pTableStyle = nullptr;
 
@@ -304,6 +306,48 @@ void TableProperties::pushToPropSet( const ::oox::core::XmlFilterBase& rFilterBa
     xTableStyleToDelete.reset();
 }
 
+void TableProperties::pullFromTextBody(oox::drawingml::TextBodyPtr pTextBody, sal_Int32 nShapeWidth)
+{
+    // Create table grid and a single row.
+    sal_Int32 nNumCol = pTextBody->getTextProperties().mnNumCol;
+    std::vector<sal_Int32>& rTableGrid(getTableGrid());
+    sal_Int32 nColWidth = nShapeWidth / nNumCol;
+    for (sal_Int32 nCol = 0; nCol < nNumCol; ++nCol)
+        rTableGrid.push_back(nColWidth);
+    std::vector<drawingml::table::TableRow>& rTableRows(getTableRows());
+    rTableRows.emplace_back();
+    oox::drawingml::table::TableRow& rTableRow = rTableRows.back();
+    std::vector<oox::drawingml::table::TableCell>& rTableCells = rTableRow.getTableCells();
+
+    // Create the cells and distribute the paragraphs from pTextBody.
+    sal_Int32 nNumPara = pTextBody->getParagraphs().size();
+    sal_Int32 nParaPerCol = std::ceil(double(nNumPara) / nNumCol);
+    // Font scale of text body will be applied at a text run level.
+    sal_Int32 nFontScale = pTextBody->getTextProperties().mnFontScale;
+    size_t nPara = 0;
+    for (sal_Int32 nCol = 0; nCol < nNumCol; ++nCol)
+    {
+        rTableCells.emplace_back();
+        oox::drawingml::table::TableCell& rTableCell = rTableCells.back();
+        TextBodyPtr pCellTextBody(new TextBody);
+        rTableCell.setTextBody(pCellTextBody);
+        for (sal_Int32 nParaInCol = 0; nParaInCol < nParaPerCol; ++nParaInCol)
+        {
+            if (nPara < pTextBody->getParagraphs().size())
+            {
+                std::shared_ptr<oox::drawingml::TextParagraph> pParagraph
+                    = pTextBody->getParagraphs()[nPara];
+                if (nFontScale != 100000)
+                {
+                    for (auto& pRun : pParagraph->getRuns())
+                        pRun->getTextCharacterProperties().moFontScale = nFontScale;
+                }
+                pCellTextBody->appendParagraph(pParagraph);
+            }
+            ++nPara;
+        }
+    }
+}
 } } }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

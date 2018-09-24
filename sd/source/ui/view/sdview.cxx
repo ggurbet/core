@@ -64,6 +64,7 @@
 #include <sdmod.hxx>
 #include <sdpage.hxx>
 #include <sdresid.hxx>
+#include <unokywds.hxx>
 #include <DrawViewShell.hxx>
 #include <futext.hxx>
 #include <fuinsfil.hxx>
@@ -113,9 +114,7 @@ View::View(
     mrDoc(rDrawDoc),
     mpDocSh(rDrawDoc.GetDocSh()),
     mpViewSh(pViewShell),
-    mpDragSrcMarkList(nullptr),
     mpDropMarkerObj(nullptr),
-    mpDropMarker(nullptr),
     mnDragSrcPgNum(SDRPAGE_NOTFOUND),
     mnAction(DND_ACTION_NONE),
     maDropErrorIdle("sd View DropError"),
@@ -138,7 +137,7 @@ View::View(
 
     SetMinMoveDistancePixel(2);
     SetHitTolerancePixel(2);
-    SetMeasureLayer(SdResId(STR_LAYER_MEASURELINES));
+    SetMeasureLayer(sUNO_LayerName_measurelines);
 
     // Timer for delayed drop (has to be for MAC)
     maDropErrorIdle.SetInvokeHandler( LINK(this, View, DropErrorHdl) );

@@ -52,25 +52,14 @@ XMLEventExport::XMLEventExport(SvXMLExport& rExp) :
 XMLEventExport::~XMLEventExport()
 {
     // delete all handlers
-    HandlerMap::iterator aEnd = aHandlerMap.end();
-    for( HandlerMap::iterator aIter =
-             aHandlerMap.begin();
-         aIter != aEnd;
-         ++aIter )
-    {
-        delete aIter->second;
-    }
     aHandlerMap.clear();
 }
 
 void XMLEventExport::AddHandler( const OUString& rName,
-                                 XMLEventExportHandler* pHandler )
+                                 std::unique_ptr<XMLEventExportHandler> pHandler )
 {
-    DBG_ASSERT(pHandler != nullptr, "Need EventExportHandler");
-    if (pHandler != nullptr)
-    {
-        aHandlerMap[rName] = pHandler;
-    }
+    assert(pHandler);
+    aHandlerMap[rName] = std::move(pHandler);
 }
 
 void XMLEventExport::AddTranslationTable(

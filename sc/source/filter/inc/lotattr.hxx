@@ -24,13 +24,11 @@
 #include <memory>
 
 #include <address.hxx>
-#include <scitems.hxx>
 
 class ScDocumentPool;
 class ScPatternAttr;
 class SvxColorItem;
 class Color;
-class LotAttrTable;
 struct LOTUS_ROOT;
 
 namespace editeng { class SvxBorderLine; }
@@ -73,7 +71,7 @@ private:
         std::unique_ptr<ScPatternAttr>  pPattAttr;
         sal_uInt32                      nHash0;
 
-        ENTRY(ScPatternAttr* p);
+        ENTRY(std::unique_ptr<ScPatternAttr> p);
 
         ~ENTRY();
     };

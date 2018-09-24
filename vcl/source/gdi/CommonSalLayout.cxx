@@ -92,9 +92,9 @@ struct SubRun
 namespace vcl {
     struct Run
     {
-        int32_t nStart;
-        int32_t nEnd;
-        UScriptCode nCode;
+        int32_t const nStart;
+        int32_t const nEnd;
+        UScriptCode const nCode;
         Run(int32_t nStart_, int32_t nEnd_, UScriptCode nCode_)
             : nStart(nStart_)
             , nEnd(nEnd_)
@@ -277,7 +277,6 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
     }
 
     hb_font_t *pHbFont = mpFont->GetHbFont();
-    hb_face_t* pHbFace = hb_font_get_face(pHbFont);
 
     int nGlyphCapacity = 2 * (rArgs.mnEndCharPos - rArgs.mnMinCharPos);
     m_GlyphItems.reserve(nGlyphCapacity);
@@ -438,14 +437,9 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
             // but there is no harm in always including it, HarfBuzz will
             // ignore unavailable shapers.
             const char*const pHbShapers[] = { "graphite2", "coretext_aat", "ot", "fallback", nullptr };
-            hb_segment_properties_t aHbProps;
-            hb_buffer_get_segment_properties(pHbBuffer, &aHbProps);
-            hb_shape_plan_t* pHbPlan = hb_shape_plan_create_cached(pHbFace, &aHbProps, maFeatures.data(), maFeatures.size(), pHbShapers);
-            bool ok = hb_shape_plan_execute(pHbPlan, pHbFont, pHbBuffer, maFeatures.data(), maFeatures.size());
+            bool ok = hb_shape_full(pHbFont, pHbBuffer, maFeatures.data(), maFeatures.size(), pHbShapers);
             assert(ok);
             (void) ok;
-            hb_buffer_set_content_type(pHbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
-            hb_shape_plan_destroy(pHbPlan);
 
             int nRunGlyphCount = hb_buffer_get_length(pHbBuffer);
             hb_glyph_info_t *pHbGlyphInfos = hb_buffer_get_glyph_infos(pHbBuffer, nullptr);

@@ -1159,12 +1159,10 @@ void ImpEditEngine::SetText( const EditTextObject& rTextObject )
 
 EditSelection ImpEditEngine::InsertText( const EditTextObject& rTextObject, EditSelection aSel )
 {
-    EnterBlockNotifications();
     aSel.Adjust( aEditDoc );
     if ( aSel.HasRange() )
         aSel = ImpDeleteSelection( aSel );
     EditSelection aNewSel = InsertTextObject( rTextObject, aSel.Max() );
-    LeaveBlockNotifications();
     return aNewSel;
 }
 
@@ -1460,10 +1458,10 @@ EESpellState ImpEditEngine::Spell( EditView* pEditView, bool bMultipleDoc )
     else if ( CreateEPaM( aEditDoc.GetStartPaM() ) == pSpellInfo->aSpellStart )
         bIsStart = true;
 
-    EditSpellWrapper* pWrp = new EditSpellWrapper( Application::GetDefDialogParent(),
-            bIsStart, pEditView );
+    std::unique_ptr<EditSpellWrapper> pWrp(new EditSpellWrapper( Application::GetDefDialogParent(),
+            bIsStart, pEditView ));
     pWrp->SpellDocument();
-    delete pWrp;
+    pWrp.reset();
 
     if ( !bMultipleDoc )
     {
@@ -1530,7 +1528,7 @@ void ImpEditEngine::Convert( EditView* pEditView,
     // initialize pConvInfo
     EditSelection aCurSel( pEditView->pImpEditView->GetEditSelection() );
     aCurSel.Adjust( aEditDoc );
-    pConvInfo = new ConvInfo;
+    pConvInfo.reset(new ConvInfo);
     pConvInfo->bMultipleDoc = bMultipleDoc;
     pConvInfo->aConvStart = CreateEPaM( aCurSel.Min() );
 
@@ -1597,8 +1595,7 @@ void ImpEditEngine::Convert( EditView* pEditView,
         pEditView->pImpEditView->DrawSelectionXOR();
         pEditView->ShowCursor( true, false );
     }
-    delete pConvInfo;
-    pConvInfo = nullptr;
+    pConvInfo.reset();
 }
 
 

@@ -351,8 +351,6 @@ ModelData_Impl::ModelData_Impl( SfxStoringHelper& aOwner,
                                 const uno::Sequence< beans::PropertyValue >& aMediaDescr )
 : m_pOwner( &aOwner )
 , m_xModel( xModel )
-, m_pDocumentPropsHM( nullptr )
-, m_pModulePropsHM( nullptr )
 , m_aMediaDescrHM( aMediaDescr )
 , m_bRecommendReadOnly( false )
 {
@@ -872,7 +870,6 @@ bool ModelData_Impl::OutputFileDialog( sal_Int16 nStoreMode,
 
     SfxFilterFlags nMust = getMustFlags( nStoreMode );
     SfxFilterFlags nDont = getDontFlags( nStoreMode );
-    sfx2::FileDialogHelper::Context eCtxt = sfx2::FileDialogHelper::UNKNOWN_CONTEXT;
     vcl::Window* pWin = SfxStoringHelper::GetModelWindow( m_xModel );
     weld::Window* pFrameWin = pWin ? pWin->GetFrameWeld() : nullptr;
     if ( ( nStoreMode & EXPORT_REQUESTED ) && !( nStoreMode & WIDEEXPORT_REQUESTED ) )
@@ -898,6 +895,7 @@ bool ModelData_Impl::OutputFileDialog( sal_Int16 nStoreMode,
             pFileDlg.reset(new sfx2::FileDialogHelper( aDialogMode, aDialogFlags, aDocServiceName, nDialog, nMust, nDont, rStandardDir, rBlackList, pFrameWin ));
         }
 
+        sfx2::FileDialogHelper::Context eCtxt = sfx2::FileDialogHelper::UNKNOWN_CONTEXT;
         if ( aDocServiceName == "com.sun.star.drawing.DrawingDocument" )
             eCtxt = sfx2::FileDialogHelper::SD_EXPORT;
         else if ( aDocServiceName == "com.sun.star.presentation.PresentationDocument" )

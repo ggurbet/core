@@ -2084,6 +2084,7 @@ void DocxAttributeOutput::InitCollectedRunProperties()
         FSNS( XML_w, XML_specVanish ),
         FSNS( XML_w, XML_oMath ),
         FSNS( XML_w, XML_rPrChange ),
+        FSNS( XML_w, XML_del ),
         FSNS( XML_w14, XML_glow ),
         FSNS( XML_w14, XML_shadow ),
         FSNS( XML_w14, XML_reflection ),
@@ -2382,7 +2383,7 @@ void DocxAttributeOutput::WritePostponedGraphic()
 {
     for (const auto & rPostponedDiagram : *m_pPostponedGraphic)
         FlyFrameGraphic(rPostponedDiagram.grfNode, rPostponedDiagram.size,
-            rPostponedDiagram.mOLEFrameFormat, rPostponedDiagram.mOLENode,
+            nullptr, nullptr,
             rPostponedDiagram.pSdrObj);
     m_pPostponedGraphic.reset(nullptr);
 }
@@ -3031,7 +3032,6 @@ static OutputBorderOptions lcl_getTableDefaultBorderOptions(bool bEcma)
     rOptions.tag = XML_tblBorders;
     rOptions.bUseStartEnd = !bEcma;
     rOptions.bWriteTag = true;
-    rOptions.bWriteInsideHV = true;
     rOptions.bWriteDistance = false;
 
     return rOptions;
@@ -3044,7 +3044,6 @@ static OutputBorderOptions lcl_getTableCellBorderOptions(bool bEcma)
     rOptions.tag = XML_tcBorders;
     rOptions.bUseStartEnd = !bEcma;
     rOptions.bWriteTag = true;
-    rOptions.bWriteInsideHV = true;
     rOptions.bWriteDistance = false;
 
     return rOptions;
@@ -3057,14 +3056,16 @@ static OutputBorderOptions lcl_getBoxBorderOptions()
     rOptions.tag = XML_pBdr;
     rOptions.bUseStartEnd = false;
     rOptions.bWriteTag = false;
-    rOptions.bWriteInsideHV = false;
     rOptions.bWriteDistance = true;
 
     return rOptions;
 }
 
-static void impl_borders( FSHelperPtr const & pSerializer, const SvxBoxItem& rBox, const OutputBorderOptions& rOptions,
-                          std::map<SvxBoxItemLine, css::table::BorderLine2> &rTableStyleConf )
+static void impl_borders( FSHelperPtr const & pSerializer,
+                          const SvxBoxItem& rBox,
+                          const OutputBorderOptions& rOptions,
+                          std::map<SvxBoxItemLine,
+                          css::table::BorderLine2> &rTableStyleConf )
 {
     static const SvxBoxItemLine aBorders[] =
     {
@@ -3081,8 +3082,6 @@ static void impl_borders( FSHelperPtr const & pSerializer, const SvxBoxItem& rBo
     bool tagWritten = false;
     const SvxBoxItemLine* pBrd = aBorders;
 
-    bool bWriteInsideH = false;
-    bool bWriteInsideV = false;
     for( int i = 0; i < 4; ++i, ++pBrd )
     {
         const SvxBorderLine* pLn = rBox.GetLine( *pBrd );
@@ -3147,28 +3146,6 @@ static void impl_borders( FSHelperPtr const & pSerializer, const SvxBoxItem& rBo
         }
 
         impl_borderLine( pSerializer, aXmlElements[i], pLn, nDist, bWriteShadow, aStyleProps );
-
-        // When exporting default borders, we need to export these 2 attr
-        if ( rOptions.bWriteInsideHV) {
-            if ( i == 2 )
-                bWriteInsideH = true;
-            else if ( i == 3 )
-                bWriteInsideV = true;
-        }
-    }
-    if (bWriteInsideH)
-    {
-        const table::BorderLine2 *aStyleProps = nullptr;
-        if( rTableStyleConf.find( SvxBoxItemLine::BOTTOM ) != rTableStyleConf.end() )
-            aStyleProps = &rTableStyleConf[ SvxBoxItemLine::BOTTOM ];
-        impl_borderLine( pSerializer, XML_insideH, rBox.GetLine(SvxBoxItemLine::BOTTOM), 0, false, aStyleProps );
-    }
-    if (bWriteInsideV)
-    {
-        const table::BorderLine2 *aStyleProps = nullptr;
-        if( rTableStyleConf.find( SvxBoxItemLine::RIGHT ) != rTableStyleConf.end() )
-            aStyleProps = &rTableStyleConf[ SvxBoxItemLine::RIGHT ];
-        impl_borderLine( pSerializer, XML_insideV, rBox.GetLine(SvxBoxItemLine::RIGHT), 0, false, aStyleProps );
     }
     if (tagWritten && rOptions.bWriteTag) {
         pSerializer->endElementNS( XML_w, rOptions.tag );
@@ -3247,7 +3224,7 @@ void DocxAttributeOutput::TableCellProperties( ww8::WW8TableNodeInfoInner::Point
 
     // Horizontal spans
     const SwWriteTableRows& rRows = m_xTableWrt->GetRows( );
-    SwWriteTableRow *pRow = rRows[ nRow ];
+    SwWriteTableRow *pRow = rRows[ nRow ].get();
     const SwWriteTableCells& rTableCells =  pRow->GetCells();
     if (nCell < rTableCells.size() )
     {
@@ -4074,7 +4051,7 @@ void DocxAttributeOutput::TableVerticalCell( ww8::WW8TableNodeInfoInner::Pointer
     }
 
     const SwWriteTableRows& rRows = m_xTableWrt->GetRows( );
-    SwWriteTableRow *pRow = rRows[ pTableTextNodeInfoInner->getRow( ) ];
+    SwWriteTableRow *pRow = rRows[ pTableTextNodeInfoInner->getRow( ) ].get();
     sal_uInt32 nCell = pTableTextNodeInfoInner->getCell();
     const SwWriteTableCells& rTableCells =  pRow->GetCells();
     if (nCell < rTableCells.size() )
@@ -5375,7 +5352,7 @@ void DocxAttributeOutput::OutputFlyFrame_Impl( const ww8::Frame &rFrame, const P
                     else // we are writing out attributes, but w:drawing should not be inside w:rPr,
                     {    // so write it out later
                         m_bPostponedProcessingFly = true ;
-                        m_pPostponedGraphic->push_back(PostponedGraphic(pGrfNode, rFrame.GetLayoutSize(), nullptr, nullptr, pSdrObj));
+                        m_pPostponedGraphic->push_back(PostponedGraphic(pGrfNode, rFrame.GetLayoutSize(), pSdrObj));
                     }
                 }
             }
@@ -8250,7 +8227,7 @@ void DocxAttributeOutput::FormatAnchor( const SwFormatAnchor& )
     // Fly frames: anchors here aren't matching the anchors in docx
 }
 
-boost::optional<sal_Int32> lcl_getDmlAlpha(const SvxBrushItem& rBrush)
+static boost::optional<sal_Int32> lcl_getDmlAlpha(const SvxBrushItem& rBrush)
 {
     boost::optional<sal_Int32> oRet;
     sal_Int32 nTransparency = rBrush.GetColor().GetTransparency();

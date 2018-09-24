@@ -142,7 +142,7 @@ class ScMoveUndo: public ScSimpleUndo               // with references
 {
 public:
                     ScMoveUndo( ScDocShell* pDocSh,
-                                ScDocumentUniquePtr pRefDoc, ScRefUndoData* pRefData,
+                                ScDocumentUniquePtr pRefDoc, std::unique_ptr<ScRefUndoData> pRefData,
                                 ScMoveUndoMode eRefMode );
     virtual         ~ScMoveUndo() override;
 
@@ -167,7 +167,7 @@ class ScUndoWrapper: public SfxUndoAction           // for manual merging of act
     ViewShellId                     mnViewShellId;
 
 public:
-                            ScUndoWrapper( SfxUndoAction* pUndo );
+                            ScUndoWrapper( std::unique_ptr<SfxUndoAction> pUndo );
     virtual                 ~ScUndoWrapper() override;
 
     SfxUndoAction*          GetWrappedUndo()        { return pWrappedUndo.get(); }

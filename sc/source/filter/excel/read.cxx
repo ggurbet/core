@@ -23,6 +23,7 @@
 #include <scerrors.hxx>
 #include <fprogressbar.hxx>
 #include <globstr.hrc>
+#include <xlcontent.hxx>
 #include <xltracer.hxx>
 #include <xltable.hxx>
 #include <xihelper.hxx>
@@ -30,9 +31,11 @@
 #include <xiview.hxx>
 #include <xilink.hxx>
 #include <xiname.hxx>
+#include <xlname.hxx>
 #include <xicontent.hxx>
 #include <xiescher.hxx>
 #include <xipivot.hxx>
+#include <xistyle.hxx>
 #include <XclImpChangeTrack.hxx>
 #include <documentimport.hxx>
 

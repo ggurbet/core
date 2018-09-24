@@ -1434,9 +1434,9 @@ SwXTextCursor::gotoNextSentence(sal_Bool Expand)
     // if at the end of the sentence (i.e. at the space after the '.')
     // advance to next word in order for GoSentence to work properly
     // next time and have isStartOfSentence return true after this call
-    if (!rUnoCursor.IsStartWord(css::i18n::WordType::ANYWORD_IGNOREWHITESPACES))
+    if (!rUnoCursor.IsStartWordWT(css::i18n::WordType::ANYWORD_IGNOREWHITESPACES))
     {
-        const bool bNextWord = rUnoCursor.GoNextWord();
+        const bool bNextWord = rUnoCursor.GoNextWordWT(i18n::WordType::ANYWORD_IGNOREWHITESPACES);
         if (bWasEOS && !bNextWord)
         {
             bRet = false;
@@ -1764,7 +1764,7 @@ void SwUnoCursorHelper::SetPropertyValue(
 // SwUnoCursorHelper::SetTextFormatColl, instead of extending item set.
 // We need to get them from nodes in next call to GetCursorAttr.
 // The rest could cause similar problems in theory, so we just list them here.
-inline bool propertyCausesSideEffectsInNodes(sal_uInt16 nWID)
+static inline bool propertyCausesSideEffectsInNodes(sal_uInt16 nWID)
 {
     return nWID == FN_UNO_PARA_STYLE ||
            nWID == FN_UNO_CHARFMT_SEQUENCE ||

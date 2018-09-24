@@ -639,7 +639,6 @@ ScBroadcastAreaSlotMachine::TableSlots::~TableSlots()
 
 ScBroadcastAreaSlotMachine::ScBroadcastAreaSlotMachine(
         ScDocument* pDocument ) :
-    pBCAlways( nullptr ),
     pDoc( pDocument ),
     pUpdateChain( nullptr ),
     pEOUpdateChain( nullptr ),
@@ -690,7 +689,7 @@ void ScBroadcastAreaSlotMachine::ComputeAreaPoints( const ScRange& rRange,
         ScAddress( rRange.aStart.Col(), rRange.aEnd.Row(), 0 ) ) - rStart;
 }
 
-inline void ComputeNextSlot( SCSIZE & nOff, SCSIZE & nBreak, ScBroadcastAreaSlot** & pp,
+static inline void ComputeNextSlot( SCSIZE & nOff, SCSIZE & nBreak, ScBroadcastAreaSlot** & pp,
         SCSIZE & nStart, ScBroadcastAreaSlot** const & ppSlots, SCSIZE nRowBreak )
 {
     if ( nOff < nBreak )

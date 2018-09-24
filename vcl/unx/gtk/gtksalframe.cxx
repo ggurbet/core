@@ -348,7 +348,7 @@ struct KeyAlternate
     KeyAlternate( sal_uInt16 nKey, sal_Unicode nChar = 0 ) : nKeyCode( nKey ), nCharCode( nChar ) {}
 };
 
-inline KeyAlternate
+static inline KeyAlternate
 GetAlternateKeyCode( const sal_uInt16 nKeyCode )
 {
     KeyAlternate aAlternate;
@@ -450,7 +450,6 @@ bool GtkSalFrame::doKeyCallback( guint state,
 
 GtkSalFrame::GtkSalFrame( SalFrame* pParent, SalFrameStyleFlags nStyle )
     : m_nXScreen( getDisplay()->GetDefaultXScreen() )
-    , m_pGraphics(nullptr)
     , m_bGraphics(false)
 {
     getDisplay()->registerFrame( this );
@@ -462,7 +461,6 @@ GtkSalFrame::GtkSalFrame( SalFrame* pParent, SalFrameStyleFlags nStyle )
 
 GtkSalFrame::GtkSalFrame( SystemParentData* pSysData )
     : m_nXScreen( getDisplay()->GetDefaultXScreen() )
-    , m_pGraphics(nullptr)
     , m_bGraphics(false)
 {
     getDisplay()->registerFrame( this );
@@ -587,7 +585,7 @@ static const GActionEntry app_entries[] = {
   { "New", activate_uno, nullptr, nullptr, nullptr, {0} }
 };
 
-gboolean ensure_dbus_setup( gpointer data )
+static gboolean ensure_dbus_setup( gpointer data )
 {
     GtkSalFrame* pSalFrame = static_cast< GtkSalFrame* >( data );
     GdkWindow* gdkWindow = widget_get_window( pSalFrame->getWindow() );
@@ -3647,7 +3645,7 @@ void GtkSalFrame::IMHandler::signalIMPreeditEnd( GtkIMContext*, gpointer im_hand
         pThis->updateIMSpotLocation();
 }
 
-uno::Reference<accessibility::XAccessibleEditableText>
+static uno::Reference<accessibility::XAccessibleEditableText>
     FindFocus(const uno::Reference< accessibility::XAccessibleContext >& xContext)
 {
     if (!xContext.is())

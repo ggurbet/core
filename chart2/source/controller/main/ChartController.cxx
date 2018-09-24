@@ -73,6 +73,7 @@
 
 #include <sal/log.hxx>
 #include <svx/sidebar/SelectionChangeHandler.hxx>
+#include <svx/svdundo.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/svapp.hxx>
@@ -107,20 +108,17 @@ ChartController::ChartController(uno::Reference<uno::XComponentContext> const & 
     m_aLifeTimeManager( nullptr ),
     m_bSuspended( false ),
     m_xCC(xContext), //@todo is it allowed to hold this context??
-    m_xFrame( nullptr ),
     m_aModelMutex(),
     m_aModel( nullptr, m_aModelMutex ),
     m_xViewWindow(),
     m_xChartView(),
     m_pDrawModelWrapper(),
-    m_pDrawViewWrapper(nullptr),
     m_eDragMode(SdrDragMode::Move),
     m_bWaitingForDoubleClick(false),
     m_bWaitingForMouseUp(false),
     m_bFieldButtonDown(false),
     m_bConnectingToView(false),
     m_bDisposed(false),
-    m_xUndoManager( nullptr ),
     m_aDispatchContainer( m_xCC ),
     m_eDrawMode( CHARTDRAW_SELECT ),
     mpSelectionChangeHandler(new svx::sidebar::SelectionChangeHandler(
@@ -137,7 +135,6 @@ ChartController::~ChartController()
 
 ChartController::TheModel::TheModel( const uno::Reference< frame::XModel > & xModel ) :
     m_xModel( xModel ),
-    m_xCloseable( nullptr ),
     m_bOwnership( true )
 {
     m_xCloseable =
@@ -1433,7 +1430,7 @@ void SAL_CALL ChartController::modified(
     //todo? update menu states ?
 }
 
-IMPL_LINK( ChartController, NotifyUndoActionHdl, SdrUndoAction*, pUndoAction, void )
+void ChartController::NotifyUndoActionHdl( std::unique_ptr<SdrUndoAction> pUndoAction )
 {
     ENSURE_OR_RETURN_VOID( pUndoAction, "invalid Undo action" );
 
@@ -1463,7 +1460,8 @@ DrawModelWrapper* ChartController::GetDrawModelWrapper()
             m_pDrawModelWrapper = pProvider->getDrawModelWrapper();
         if ( m_pDrawModelWrapper.get() )
         {
-            m_pDrawModelWrapper->getSdrModel().SetNotifyUndoActionHdl( LINK( this, ChartController, NotifyUndoActionHdl ) );
+            m_pDrawModelWrapper->getSdrModel().SetNotifyUndoActionHdl(
+                std::bind(&ChartController::NotifyUndoActionHdl, this, std::placeholders::_1) );
         }
     }
     return m_pDrawModelWrapper.get();

@@ -9,16 +9,15 @@
 
 #include <formulagroup.hxx>
 #include <formulagroupcl.hxx>
-#include <grouptokenconverter.hxx>
 #include <document.hxx>
 #include <formulacell.hxx>
 #include <tokenarray.hxx>
 #include <compiler.hxx>
-#include <interpre.hxx>
 #include <comphelper/random.hxx>
 #include <formula/vectortoken.hxx>
 #include <scmatrix.hxx>
 #include <sal/log.hxx>
+#include <rtl/math.hxx>
 
 #include <opencl/openclwrapper.hxx>
 
@@ -127,7 +126,6 @@ static const char* const publicFunc =
 #include <vector>
 #include <map>
 #include <iostream>
-#include <sstream>
 #include <algorithm>
 
 #include <rtl/digest.h>
@@ -952,10 +950,11 @@ template<class Base>
 class DynamicKernelSlidingArgument : public Base
 {
 public:
-    DynamicKernelSlidingArgument( const ScCalcConfig& config, const std::string& s,
-        FormulaTreeNodeRef ft, std::shared_ptr<SlidingFunctionBase>& CodeGen,
-        int index ) :
-        Base(config, s, ft, index), mpCodeGen(CodeGen)
+    DynamicKernelSlidingArgument(const ScCalcConfig& config, const std::string& s,
+                                 const FormulaTreeNodeRef& ft,
+                                 std::shared_ptr<SlidingFunctionBase>& CodeGen, int index)
+        : Base(config, s, ft, index)
+        , mpCodeGen(CodeGen)
     {
         FormulaToken* t = ft->GetFormulaToken();
         if (t->GetType() != formula::svDoubleVectorRef)
@@ -1177,8 +1176,9 @@ public:
     typedef std::map<const formula::FormulaToken*, DynamicKernelArgumentRef> ArgumentMap;
     // This avoids instability caused by using pointer as the key type
     SymbolTable() : mCurId(0) { }
-    template<class T>
-    const DynamicKernelArgument* DeclRefArg( const ScCalcConfig& config, FormulaTreeNodeRef, SlidingFunctionBase* pCodeGen, int nResultSize );
+    template <class T>
+    const DynamicKernelArgument* DeclRefArg(const ScCalcConfig& config, const FormulaTreeNodeRef&,
+                                            SlidingFunctionBase* pCodeGen, int nResultSize);
     /// Used to generate sliding window helpers
     void DumpSlidingWindowFunctions( std::stringstream& ss )
     {
@@ -1213,10 +1213,11 @@ template<class Base>
 class ParallelReductionVectorRef : public Base
 {
 public:
-    ParallelReductionVectorRef( const ScCalcConfig& config, const std::string& s,
-        FormulaTreeNodeRef ft, std::shared_ptr<SlidingFunctionBase>& CodeGen,
-        int index ) :
-        Base(config, s, ft, index), mpCodeGen(CodeGen)
+    ParallelReductionVectorRef(const ScCalcConfig& config, const std::string& s,
+                               const FormulaTreeNodeRef& ft,
+                               std::shared_ptr<SlidingFunctionBase>& CodeGen, int index)
+        : Base(config, s, ft, index)
+        , mpCodeGen(CodeGen)
     {
         FormulaToken* t = ft->GetFormulaToken();
         if (t->GetType() != formula::svDoubleVectorRef)
@@ -2131,7 +2132,7 @@ private:
     cl_mem mpClmem2;
 };
 
-DynamicKernelArgumentRef SoPHelper( const ScCalcConfig& config,
+static DynamicKernelArgumentRef SoPHelper( const ScCalcConfig& config,
     const std::string& ts, const FormulaTreeNodeRef& ft, SlidingFunctionBase* pCodeGen,
     int nResultSize )
 {
@@ -2139,7 +2140,7 @@ DynamicKernelArgumentRef SoPHelper( const ScCalcConfig& config,
 }
 
 template<class Base>
-DynamicKernelArgument* VectorRefFactory( const ScCalcConfig& config, const std::string& s,
+static DynamicKernelArgument* VectorRefFactory( const ScCalcConfig& config, const std::string& s,
     const FormulaTreeNodeRef& ft,
     std::shared_ptr<SlidingFunctionBase>& pCodeGen,
     int index )
@@ -3546,9 +3547,10 @@ void DynamicKernel::Launch( size_t nr )
 // Symbol lookup. If there is no such symbol created, allocate one
 // kernel with argument with unique name and return so.
 // The template argument T must be a subclass of DynamicKernelArgument
-template<typename T>
-const DynamicKernelArgument* SymbolTable::DeclRefArg( const ScCalcConfig& config,
-    FormulaTreeNodeRef t, SlidingFunctionBase* pCodeGen, int nResultSize )
+template <typename T>
+const DynamicKernelArgument* SymbolTable::DeclRefArg(const ScCalcConfig& config,
+                                                     const FormulaTreeNodeRef& t,
+                                                     SlidingFunctionBase* pCodeGen, int nResultSize)
 {
     FormulaToken* ref = t->GetFormulaToken();
     ArgumentMap::iterator it = mSymbols.find(ref);

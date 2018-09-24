@@ -313,7 +313,7 @@ struct QuickHelpData
 #define HIT_PIX  2 /* hit tolerance in pixel  */
 #define MIN_MOVE 4
 
-inline bool IsMinMove(const Point &rStartPos, const Point &rLPt)
+static inline bool IsMinMove(const Point &rStartPos, const Point &rLPt)
 {
     return std::abs(rStartPos.X() - rLPt.X()) > MIN_MOVE ||
            std::abs(rStartPos.Y() - rLPt.Y()) > MIN_MOVE;
@@ -325,7 +325,7 @@ inline bool IsMinMove(const Point &rStartPos, const Point &rLPt)
  * in selecting, with DrawObjects; at SwgFlys to trigger
  * hyperlinks if applicable (Download/NewWindow!)
  */
-inline bool IsDrawObjSelectable( const SwWrtShell& rSh, const Point& rPt )
+static inline bool IsDrawObjSelectable( const SwWrtShell& rSh, const Point& rPt )
 {
     bool bRet = true;
     SdrObject* pObj;
@@ -575,15 +575,13 @@ void SwEditWin::UpdatePointer(const Point &rLPt, sal_uInt16 nModifier )
                 if( rSh.GetContentAtPos( rLPt, aSwContentAtPos) )
                 {
                     // Is edit inline input field
-                    if (IsAttrAtPos::Field == aSwContentAtPos.eContentAtPos)
+                    if (IsAttrAtPos::Field == aSwContentAtPos.eContentAtPos
+                        && aSwContentAtPos.pFndTextAttr != nullptr
+                        && aSwContentAtPos.pFndTextAttr->Which() == RES_TXTATR_INPUTFIELD)
                     {
-                        if ( aSwContentAtPos.pFndTextAttr != nullptr
-                            && aSwContentAtPos.pFndTextAttr->Which() == RES_TXTATR_INPUTFIELD)
-                        {
-                            const SwField *pCursorField = rSh.CursorInsideInputField() ? rSh.GetCurField( true ) : nullptr;
-                            if (!(pCursorField && pCursorField == aSwContentAtPos.pFndTextAttr->GetFormatField().GetField()))
-                                eStyle = PointerStyle::RefHand;
-                        }
+                        const SwField *pCursorField = rSh.CursorInsideInputField() ? rSh.GetCurField( true ) : nullptr;
+                        if (!(pCursorField && pCursorField == aSwContentAtPos.pFndTextAttr->GetFormatField().GetField()))
+                            eStyle = PointerStyle::RefHand;
                     }
                     else
                     {
@@ -2250,7 +2248,13 @@ KEYINPUT_CHECKTABLE_INSDEL:
                 if( !m_aInBuffer.isEmpty() && ( !bNormalChar || bIsDocReadOnly ))
                     FlushInBuffer();
 
-                if( m_rView.KeyInput( aKeyEvent ) )
+                if (rSh.HasReadonlySel() && rKeyCode.GetFunction() == KeyFuncType::PASTE)
+                {
+                    auto xInfo(std::make_shared<weld::GenericDialogController>(GetFrameWeld(), "modules/swriter/ui/inforeadonlydialog.ui", "InfoReadonlyDialog"));
+                    weld::DialogController::runAsync(xInfo, [](int) {});
+                    eKeyState = SwKeyState::End;
+                }
+                else if( m_rView.KeyInput( aKeyEvent ) )
                 {
                     bFlushBuffer = true;
                     bNormalChar = false;
@@ -4948,11 +4952,7 @@ SwEditWin::SwEditWin(vcl::Window *pParent, SwView &rMyView):
     DragSourceHelper( this ),
 
     m_eBufferLanguage(LANGUAGE_DONTKNOW),
-    m_pApplyTempl(nullptr),
-    m_pAnchorMarker( nullptr ),
-    m_pUserMarker( nullptr ),
     m_pUserMarkerObj( nullptr ),
-    m_pShadCursor( nullptr ),
 
     m_rView( rMyView ),
 

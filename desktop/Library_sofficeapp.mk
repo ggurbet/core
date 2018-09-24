@@ -43,7 +43,10 @@ $(eval $(call gb_Library_use_custom_headers,sofficeapp,\
 	officecfg/registry \
 ))
 
-$(eval $(call gb_Library_use_sdk_api,sofficeapp))
+$(eval $(call gb_Library_use_api,sofficeapp,\
+	udkapi \
+	offapi \
+))
 
 $(eval $(call gb_Library_add_defs,sofficeapp,\
     -DDESKTOP_DLLIMPLEMENTATION \
@@ -99,9 +102,15 @@ $(eval $(call gb_Library_use_system_darwin_frameworks,sofficeapp,\
 endif
 
 ifeq ($(OS),IOS)
+
 $(eval $(call gb_Library_add_cflags,sofficeapp,\
     $(gb_OBJCFLAGS) \
 ))
+
+$(eval $(call gb_Library_add_cxxflags,sofficeapp,\
+    $(gb_OBJCXXFLAGS) \
+))
+
 endif
 
 $(eval $(call gb_Library_add_exception_objects,sofficeapp,\

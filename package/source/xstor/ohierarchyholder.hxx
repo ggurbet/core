@@ -24,6 +24,7 @@
 #include <com/sun/star/embed/XTransactionListener.hpp>
 #include <com/sun/star/embed/XExtendedStorageStream.hpp>
 #include <cppuhelper/implbase.hxx>
+#include <cppuhelper/weakref.hxx>
 
 #include <comphelper/sequenceashashmap.hxx>
 
@@ -55,13 +56,11 @@ struct OHierarchyElement_Impl : public cppu::WeakImplHelper< css::embed::XTransa
 
 public:
     explicit OHierarchyElement_Impl( const css::uno::Reference< css::embed::XStorage >& xStorage )
-    : m_rParent( nullptr )
-    , m_xOwnStorage( xStorage )
+    : m_xOwnStorage( xStorage )
     {}
 
     explicit OHierarchyElement_Impl( const css::uno::WeakReference< css::embed::XStorage >& xWeakStorage )
-    : m_rParent( nullptr )
-    , m_xWeakOwnStorage( xWeakStorage )
+    : m_xWeakOwnStorage( xWeakStorage )
     {}
 
     void Commit();

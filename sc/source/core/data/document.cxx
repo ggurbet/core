@@ -3920,7 +3920,7 @@ void ScDocument::AddTableOpFormulaCell( ScFormulaCell* pCell )
 {
     if (!m_TableOpList.empty())
     {
-        ScInterpreterTableOpParams *const p = m_TableOpList.back().get();
+        ScInterpreterTableOpParams *const p = m_TableOpList.back();
         if ( p->bCollectNotifications )
         {
             if ( p->bRefresh )
@@ -6726,7 +6726,7 @@ bool ScDocument::ContainsNotesInRange( const ScRangeList& rRangeList ) const
     for( size_t i = 0; i < rRangeList.size(); ++i)
     {
         const ScRange & rRange = rRangeList[i];
-        for( SCTAB nTab = rRange.aStart.Tab(); nTab < rRange.aEnd.Tab(); ++nTab )
+        for( SCTAB nTab = rRange.aStart.Tab(); nTab <= rRange.aEnd.Tab(); ++nTab )
         {
             bool bContainsNote = maTabs[nTab]->ContainsNotesInRange( rRange );
             if(bContainsNote)

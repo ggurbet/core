@@ -108,7 +108,7 @@ DECLARE_ODFEXPORT_TEST(testMathObjectFlatExport, "2_MathType3.docx")
     CPPUNIT_ASSERT_EQUAL(OUString(" size 12{2+2=4} {}"), formula2);
 }
 
-void testTdf43569_CheckIfFieldParse()
+static void testTdf43569_CheckIfFieldParse()
 {
     {
         const OUString fieldDefinition("IF A B C");
@@ -1399,6 +1399,53 @@ DECLARE_ODFEXPORT_TEST(testFdo86963, "fdo86963.odt")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDrawPage->getCount());
 }
 
+// Check for correct header/footer with special first page with TOC inside:
+// - DECLARE_ODFEXPORT_TEST(testTdf118393, "tdf118393.odt")
+// - DECLARE_OOXMLEXPORT_TEST(testTdf118393, "tdf118393.odt")
+DECLARE_ODFEXPORT_TEST(testTdf118393, "tdf118393.odt")
+{
+    CPPUNIT_ASSERT_EQUAL( 7, getPages() );
+
+    // First page has no header/footer
+    {
+        xmlDocPtr pXmlDoc = parseLayoutDump();
+
+        // check first page
+        xmlXPathObjectPtr pXmlPage1Header = getXPathNode(pXmlDoc, "/root/page[1]/header");
+        CPPUNIT_ASSERT_EQUAL(0, xmlXPathNodeSetGetLength(pXmlPage1Header->nodesetval));
+
+        xmlXPathObjectPtr pXmlPage1Footer = getXPathNode(pXmlDoc, "/root/page[1]/footer");
+        CPPUNIT_ASSERT_EQUAL(0, xmlXPathNodeSetGetLength(pXmlPage1Footer->nodesetval));
+
+        // check second page in the same way
+        xmlXPathObjectPtr pXmlPage2Header = getXPathNode(pXmlDoc, "/root/page[2]/header");
+        CPPUNIT_ASSERT_EQUAL(1, xmlXPathNodeSetGetLength(pXmlPage2Header->nodesetval));
+
+        xmlXPathObjectPtr pXmlPage2Footer = getXPathNode(pXmlDoc, "/root/page[2]/footer");
+        CPPUNIT_ASSERT_EQUAL(1, xmlXPathNodeSetGetLength(pXmlPage2Footer->nodesetval));
+   }
+
+    // All other pages should have header/footer
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[2]/header/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[2]/footer/txt/text()"));
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[3]/header/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[3]/footer/txt/text()"));
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[4]/header/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[4]/footer/txt/text()"));
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[5]/header/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[5]/footer/txt/text()"));
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[6]/header/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[6]/footer/txt/text()"));
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[7]/header/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Seite * von *"),   parseDump("/root/page[7]/footer/txt/text()"));
+}
+
 DECLARE_ODFEXPORT_TEST(testGerrit13858, "gerrit13858.odt")
 {
     // Just make sure the output is valid.
@@ -1997,6 +2044,30 @@ DECLARE_ODFEXPORT_TEST(testSpellOutNumberingTypes, "spellout-numberingtypes.odt"
 }
 
 // MAILMERGE Add conditional to expand / collapse bookmarks
+DECLARE_ODFEXPORT_TEST(tdf101856_overlapped, "tdf101856_overlapped.odt")
+{
+    // get bookmark interface
+    uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xBookmarksByIdx(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xBookmarksByName(xBookmarksSupplier->getBookmarks(), uno::UNO_QUERY);
+
+    // check: we have 2 bookmarks
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), xBookmarksByIdx->getCount());
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkNonHidden"));
+    CPPUNIT_ASSERT(xBookmarksByName->hasByName("BookmarkHidden"));
+
+    // <text:bookmark-start text:name="BookmarkNonHidden"/>
+    uno::Reference<beans::XPropertySet> xBookmark1(xBookmarksByName->getByName("BookmarkNonHidden"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), getProperty<OUString>(xBookmark1, UNO_NAME_BOOKMARK_CONDITION));
+    CPPUNIT_ASSERT_EQUAL(false, getProperty<bool>(xBookmark1, UNO_NAME_BOOKMARK_HIDDEN));
+
+    // <text:bookmark-start text:name="BookmarkHidden"/>
+    uno::Reference<beans::XPropertySet> xBookmark2(xBookmarksByName->getByName("BookmarkHidden"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString(""), getProperty<OUString>(xBookmark2, UNO_NAME_BOOKMARK_CONDITION));
+    CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xBookmark2, UNO_NAME_BOOKMARK_HIDDEN));
+}
+
+// MAILMERGE Add conditional to expand / collapse bookmarks
 DECLARE_ODFEXPORT_TEST(tdf101856, "tdf101856.odt")
 {
     // get bookmark interface
@@ -2040,6 +2111,16 @@ DECLARE_ODFEXPORT_TEST(tdf101856, "tdf101856.odt")
     uno::Reference<beans::XPropertySet> xBookmark5(xBookmarksByName->getByName("BookmarkHiddenWithCondition"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("1==1"), getProperty<OUString>(xBookmark5, UNO_NAME_BOOKMARK_CONDITION));
     CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xBookmark5, UNO_NAME_BOOKMARK_HIDDEN));
+}
+
+DECLARE_ODFEXPORT_TEST(tdf118502, "tdf118502.odt")
+{
+    uno::Reference<drawing::XShape> xShape = getShape(1);
+    // Make sure the replacement graphic is still there
+    // (was gone because the original graphic was not recognized during load)
+    auto xReplacementGraphic
+        = getProperty<uno::Reference<graphic::XGraphic>>(xShape, "ReplacementGraphic");
+    CPPUNIT_ASSERT(xReplacementGraphic.is());
 }
 
 #endif

@@ -486,10 +486,12 @@ void SdTiledRenderingTest::testSetGraphicSelection()
     sd::ViewShell* pViewShell = pXImpressDocument->GetDocShell()->GetViewShell();
     SdPage* pPage = pViewShell->GetActualPage();
     SdrObject* pObject = pPage->GetObj(0);
+    SdrHdlList handleList(nullptr);
+    pObject->AddToHdlList(handleList);
     // Make sure the rectangle has 8 handles: at each corner and at the center of each edge.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(8), pObject->GetHdlCount());
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(8), handleList.GetHdlCount());
     // Take the bottom center one.
-    SdrHdl* pHdl = pObject->GetHdl(6);
+    SdrHdl* pHdl = handleList.GetHdl(6);
     CPPUNIT_ASSERT_EQUAL(int(SdrHdlKind::Lower), static_cast<int>(pHdl->GetKind()));
     ::tools::Rectangle aShapeBefore = pObject->GetSnapRect();
     // Resize.
@@ -503,9 +505,9 @@ void SdTiledRenderingTest::testSetGraphicSelection()
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), pUndoManager->GetUndoActionCount());
     auto pListAction = dynamic_cast<SfxListUndoAction*>(pUndoManager->GetUndoAction());
     CPPUNIT_ASSERT(pListAction);
-    for (size_t i = 0; i < pListAction->aUndoActions.size(); ++i)
+    for (size_t i = 0; i < pListAction->maUndoActions.size(); ++i)
         // The second item was -1 here, view shell ID wasn't known.
-        CPPUNIT_ASSERT_EQUAL(ViewShellId(nView1), pListAction->aUndoActions.GetUndoAction(i)->GetViewShellId());
+        CPPUNIT_ASSERT_EQUAL(ViewShellId(nView1), pListAction->GetUndoAction(i)->GetViewShellId());
 
     ::tools::Rectangle aShapeAfter = pObject->GetSnapRect();
     // Check that a resize happened, but aspect ratio is not kept.
@@ -701,6 +703,7 @@ std::vector<OUString> getCurrentParts(SdXImpressDocument* pDocument)
     int parts = pDocument->getParts();
     std::vector<OUString> result;
 
+    result.reserve(parts);
     for (int i = 0; i < parts; i++)
     {
         result.push_back(pDocument->getPartName(i));

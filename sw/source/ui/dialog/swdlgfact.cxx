@@ -90,52 +90,76 @@ using namespace css::uno;
 IMPL_ABSTDLG_BASE(AbstractSwWordCountFloatDlg_Impl);
 IMPL_ABSTDLG_BASE(AbstractSwInsertAbstractDlg_Impl);
 IMPL_ABSTDLG_BASE(SwAbstractSfxDialog_Impl);
+
+short SwAbstractSfxController_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 short AbstractSwAsciiFilterDlg_Impl::Execute()
 {
     return m_xDlg->run();
 }
+
 IMPL_ABSTDLG_BASE(VclAbstractDialog_Impl);
+
 short AbstractSplitTableDialog_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractSwBreakDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractSwTableWidthDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractSwTableHeightDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractSwMergeTableDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractGenericDialog_Impl::Execute()
 {
     return m_xDlg->run();
 }
+
+bool AbstractGenericDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return weld::GenericDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
+
 short AbstractSwSortDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractMultiTOXMarkDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 short AbstractTabController_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 IMPL_ABSTDLG_BASE(AbstractTabDialog_Impl);
+
 short AbstractSwConvertTableDlg_Impl::Execute()
 {
     return m_xDlg->run();
 }
+
 IMPL_ABSTDLG_BASE(AbstractSwInsertDBColAutoPilot_Impl);
 
 short AbstractDropDownFieldDialog_Impl::Execute()
@@ -149,15 +173,19 @@ short AbstractSwLabDlg_Impl::Execute()
 }
 
 IMPL_ABSTDLG_BASE(AbstractSwSelGlossaryDlg_Impl);
+
 short AbstractSwAutoFormatDlg_Impl::Execute()
 {
     return m_xDlg->execute();
 }
+
 IMPL_ABSTDLG_BASE(AbstractSwFieldDlg_Impl);
+
 short AbstractSwRenameXNamedDlg_Impl::Execute()
 {
     return m_xDlg->run();
 }
+
 IMPL_ABSTDLG_BASE(AbstractSwModalRedlineAcceptDlg_Impl);
 IMPL_ABSTDLG_BASE(AbstractGlossaryDlg_Impl);
 
@@ -236,6 +264,11 @@ void AbstractTabController_Impl::SetInputSet( const SfxItemSet* pInSet )
      m_xDlg->SetInputSet( pInSet );
 }
 
+bool AbstractTabController_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxTabDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
+
 //From class Window.
 void AbstractTabController_Impl::SetText( const OUString& rStr )
 {
@@ -252,6 +285,18 @@ void AbstractApplyTabDialog_Impl::SetApplyHdl( const Link<LinkParamNone*,void>& 
 {
     m_aHandler = rLink;
     pDlg->SetApplyHandler(LINK(this, AbstractApplyTabDialog_Impl, ApplyHdl));
+}
+
+IMPL_LINK_NOARG(AbstractApplyTabController_Impl, ApplyHdl, weld::Button&, void)
+{
+    if (m_xDlg->Apply())
+        m_aHandler.Call(nullptr);
+}
+
+void AbstractApplyTabController_Impl::SetApplyHdl( const Link<LinkParamNone*,void>& rLink )
+{
+    m_aHandler = rLink;
+    m_xDlg->SetApplyHandler(LINK(this, AbstractApplyTabController_Impl, ApplyHdl));
 }
 
 sal_uInt8 AbstractSwInsertAbstractDlg_Impl::GetLevel() const
@@ -272,6 +317,16 @@ const SfxItemSet* SwAbstractSfxDialog_Impl::GetOutputItemSet() const
 void SwAbstractSfxDialog_Impl::SetText( const OUString& rStr )
 {
     pDlg->SetText( rStr );
+}
+
+const SfxItemSet* SwAbstractSfxController_Impl::GetOutputItemSet() const
+{
+    return m_xDlg->GetOutputItemSet();
+}
+
+void SwAbstractSfxController_Impl::SetText(const OUString& rStr)
+{
+    m_xDlg->set_title(rStr);
 }
 
 void AbstractSwAsciiFilterDlg_Impl::FillOptions( SwAsciiOptions& rOptions )
@@ -703,18 +758,16 @@ VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwAddressAbstractD
     return VclPtr<SwAbstractSfxDialog_Impl>::Create(pDlg);
 }
 
-VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwDropCapsDialog( vcl::Window* pParent,
+VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwDropCapsDialog(weld::Window* pParent,
                                                                   const SfxItemSet& rSet)
 {
-    VclPtr<SfxModalDialog> pDlg = VclPtr<SwDropCapsDlg>::Create(pParent, rSet);
-    return VclPtr<SwAbstractSfxDialog_Impl>::Create( pDlg );
+    return VclPtr<SwAbstractSfxController_Impl>::Create(o3tl::make_unique<SwDropCapsDlg>(pParent, rSet));
 }
 
-VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwBackgroundDialog( vcl::Window* pParent,
+VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwBackgroundDialog(weld::Window* pParent,
                                                                   const SfxItemSet& rSet)
 {
-    VclPtr<SfxModalDialog> pDlg = VclPtr<SwBackgroundDlg>::Create( pParent, rSet );
-    return VclPtr<SwAbstractSfxDialog_Impl>::Create( pDlg );
+    return VclPtr<SwAbstractSfxController_Impl>::Create(o3tl::make_unique<SwBackgroundDlg>(pParent, rSet));
 }
 
 VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateNumFormatDialog( vcl::Window* pParent,
@@ -749,11 +802,10 @@ VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwChangeDBDlg(SwVi
     return VclPtr<VclAbstractDialog_Impl>::Create(pDlg);
 }
 
-VclPtr<SfxAbstractTabDialog>  SwAbstractDialogFactory_Impl::CreateSwCharDlg(vcl::Window* pParent, SwView& pVw,
+VclPtr<SfxAbstractTabDialog>  SwAbstractDialogFactory_Impl::CreateSwCharDlg(weld::Window* pParent, SwView& pVw,
     const SfxItemSet& rCoreSet, SwCharDlgMode nDialogMode, const OUString* pFormatStr)
 {
-    VclPtr<SfxTabDialog> pDlg = VclPtr<SwCharDlg>::Create(pParent, pVw, rCoreSet, nDialogMode, pFormatStr);
-    return VclPtr<AbstractTabDialog_Impl>::Create(pDlg);
+    return VclPtr<AbstractTabController_Impl>::Create(o3tl::make_unique<SwCharDlg>(pParent, pVw, rCoreSet, nDialogMode, pFormatStr));
 }
 
 VclPtr<AbstractSwConvertTableDlg> SwAbstractDialogFactory_Impl::CreateSwConvertTableDlg(SwView& rView, bool bToTable)
@@ -805,13 +857,12 @@ SwLabDlgMethod SwAbstractDialogFactory_Impl::GetSwLabDlgStaticMethod ()
     return SwLabDlg::UpdateFieldInformation;
 }
 
-VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwParaDlg ( vcl::Window *pParent, SwView& rVw,
-                                                    const SfxItemSet& rCoreSet  ,
-                                                    bool bDraw ,
-                                                    const OString& sDefPage)
+VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwParaDlg(weld::Window *pParent, SwView& rVw,
+                                                                           const SfxItemSet& rCoreSet,
+                                                                           bool bDraw ,
+                                                                           const OString& sDefPage)
 {
-    VclPtr<SfxTabDialog> pDlg = VclPtr<SwParaDlg>::Create( pParent, rVw, rCoreSet, DLG_STD, nullptr, bDraw, sDefPage );
-    return VclPtr<AbstractTabDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractTabController_Impl>::Create(o3tl::make_unique<SwParaDlg>(pParent, rVw, rCoreSet, DLG_STD, nullptr, bDraw, sDefPage));
 }
 
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwAutoMarkDialog(vcl::Window *pParent, SwWrtShell &rSh)
@@ -820,10 +871,9 @@ VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwAutoMarkDialog(v
     return VclPtr<VclAbstractDialog_Impl>::Create( pDlg );
 }
 
-VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwColumnDialog(vcl::Window *pParent, SwWrtShell &rSh)
+VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwColumnDialog(weld::Window *pParent, SwWrtShell &rSh)
 {
-    VclPtr<Dialog> pDlg = VclPtr<SwColumnDlg>::Create( pParent, rSh );
-    return VclPtr<VclAbstractDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGenericDialog_Impl>::Create(o3tl::make_unique<SwColumnDlg>(pParent, rSh));
 }
 
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwTableHeightDialog(weld::Window *pParent, SwWrtShell &rSh)
@@ -855,16 +905,14 @@ VclPtr<AbstractSwAutoFormatDlg> SwAbstractDialogFactory_Impl::CreateSwAutoFormat
                     new SwAutoFormatDlg(pParent, pShell, bSetAutoFormat, pSelFormat)));
 }
 
-VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwBorderDlg(vcl::Window* pParent, SfxItemSet& rSet, SwBorderModes nType )
+VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwBorderDlg(weld::Window* pParent, SfxItemSet& rSet, SwBorderModes nType )
 {
-    VclPtr<SfxModalDialog> pDlg = VclPtr<SwBorderDlg>::Create( pParent, rSet, nType );
-    return VclPtr<SwAbstractSfxDialog_Impl>::Create( pDlg );
+    return VclPtr<SwAbstractSfxController_Impl>::Create(o3tl::make_unique<SwBorderDlg>(pParent, rSet, nType));
 }
 
-VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwWrapDlg ( vcl::Window* pParent, SfxItemSet& rSet, SwWrtShell* pSh )
+VclPtr<SfxAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwWrapDlg(weld::Window* pParent, SfxItemSet& rSet, SwWrtShell* pSh)
 {
-    VclPtr<SfxModalDialog> pDlg = VclPtr<SwWrapDlg>::Create( pParent, rSet, pSh, true/*bDrawMode*/ );
-    return VclPtr<SwAbstractSfxDialog_Impl>::Create( pDlg );
+    return VclPtr<SwAbstractSfxController_Impl>::Create(o3tl::make_unique<SwWrapDlg>(pParent, rSet, pSh, true/*bDrawMode*/));
 }
 
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwTableWidthDlg(weld::Window *pParent, SwTableFUNC &rFnc)
@@ -872,11 +920,10 @@ VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwTableWidthDlg(we
     return VclPtr<AbstractSwTableWidthDlg_Impl>::Create(o3tl::make_unique<SwTableWidthDlg>(pParent, rFnc));
 }
 
-VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwTableTabDlg(vcl::Window* pParent,
+VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwTableTabDlg(weld::Window* pParent,
     const SfxItemSet* pItemSet, SwWrtShell* pSh)
 {
-    VclPtr<SfxTabDialog> pDlg = VclPtr<SwTableTabDlg>::Create(pParent, pItemSet, pSh);
-    return VclPtr<AbstractTabDialog_Impl>::Create(pDlg);
+    return VclPtr<AbstractTabController_Impl>::Create(o3tl::make_unique<SwTableTabDlg>(pParent, pItemSet, pSh));
 }
 
 VclPtr<AbstractSwFieldDlg> SwAbstractDialogFactory_Impl::CreateSwFieldDlg(SfxBindings* pB, SwChildWinWrapper* pCW, vcl::Window *pParent)
@@ -927,6 +974,10 @@ VclPtr<SfxAbstractApplyTabDialog> SwAbstractDialogFactory_Impl::CreateTemplateDi
                                                 SwWrtShell*         pActShell,
                                                 bool                bNew )
 {
+    if (nRegion == SfxStyleFamily::Page)
+    {
+        return VclPtr<AbstractApplyTabController_Impl>::Create(o3tl::make_unique<SwTemplateDlgController>(pParent ? pParent->GetFrameWeld() : nullptr, rBase, nRegion, sPage, pActShell, bNew));
+    }
     VclPtr<SfxTabDialog> pDlg = VclPtr<SwTemplateDlg>::Create(pParent, rBase, nRegion, sPage, pActShell, bNew);
     return VclPtr<AbstractApplyTabDialog_Impl>::Create(pDlg);
 }

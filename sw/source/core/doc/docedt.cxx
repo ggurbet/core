@@ -79,7 +79,7 @@ void RestFlyInRange( SaveFlyArr & rArr, const SwNodeIndex& rSttIdx,
         // SetFormatAttr should call Modify() and add it to the node
         pFormat->SetFormatAttr( aAnchor );
         SwContentNode* pCNd = aPos.nNode.GetNode().GetContentNode();
-        if( pCNd && pCNd->getLayoutFrame( pFormat->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr, false ) )
+        if (pCNd && pCNd->getLayoutFrame(pFormat->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr))
             pFormat->MakeFrames();
     }
     sw::CheckAnchoredFlyConsistency(*rSttIdx.GetNode().GetDoc());
@@ -412,7 +412,16 @@ bool sw_JoinText( SwPaM& rPam, bool bJoinPrev )
                     rPam.GetBound( false ) = aAlphaPos;
             }
             // delete the Node, at last!
+            SwNode::Merge const eOldMergeFlag(pOldTextNd->GetRedlineMergeFlag());
+            if (eOldMergeFlag == SwNode::Merge::First)
+            {
+                sw::MoveDeletedPrevFrames(*pOldTextNd, *pTextNd);
+            }
             pDoc->GetNodes().Delete( aOldIdx );
+            sw::CheckResetRedlineMergeFlag(*pTextNd,
+                    eOldMergeFlag == SwNode::Merge::NonFirst
+                        ? sw::Recreate::Predecessor
+                        : sw::Recreate::No);
         }
         else
         {
@@ -496,17 +505,17 @@ uno::Any SwDoc::Spell( SwPaM& rPaM,
 {
     SwPosition* pSttPos = rPaM.Start(), *pEndPos = rPaM.End();
 
-    SwSpellArgs      *pSpellArgs = nullptr;
+    std::unique_ptr<SwSpellArgs> pSpellArgs;
     if (pConvArgs)
     {
         pConvArgs->SetStart(pSttPos->nNode.GetNode().GetTextNode(), pSttPos->nContent);
         pConvArgs->SetEnd(  pEndPos->nNode.GetNode().GetTextNode(), pEndPos->nContent );
     }
     else
-        pSpellArgs = new SwSpellArgs( xSpeller,
+        pSpellArgs.reset(new SwSpellArgs( xSpeller,
                             pSttPos->nNode.GetNode().GetTextNode(), pSttPos->nContent,
                             pEndPos->nNode.GetNode().GetTextNode(), pEndPos->nContent,
-                            bGrammarCheck );
+                            bGrammarCheck ));
 
     sal_uLong nCurrNd = pSttPos->nNode.GetIndex();
     sal_uLong nEndNd = pEndPos->nNode.GetIndex();
@@ -573,7 +582,7 @@ uno::Any SwDoc::Spell( SwPaM& rPaM,
                         }
 
                         sal_Int32 nSpellErrorPosition = pNd->GetTextNode()->GetText().getLength();
-                        if( (!pConvArgs && pNd->GetTextNode()->Spell( pSpellArgs )) ||
+                        if( (!pConvArgs && pNd->GetTextNode()->Spell( pSpellArgs.get() )) ||
                             ( pConvArgs && pNd->GetTextNode()->Convert( *pConvArgs )))
                         {
                             // Cancel and remember position
@@ -663,7 +672,6 @@ uno::Any SwDoc::Spell( SwPaM& rPaM,
         else
             aRet <<= pSpellArgs->xSpellAlt;
     }
-    delete pSpellArgs;
 
     return aRet;
 }

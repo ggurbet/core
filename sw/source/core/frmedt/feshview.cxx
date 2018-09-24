@@ -1808,7 +1808,8 @@ bool SwFEShell::ImpEndCreate()
         // characterbinding not allowed in readonly-content
         if( !aPos.nNode.GetNode().IsProtect() )
         {
-            pAnch = aPos.nNode.GetNode().GetContentNode()->getLayoutFrame( GetLayout(), &aPoint, &aPos );
+            std::pair<Point, bool> const tmp(aPoint, true);
+            pAnch = aPos.nNode.GetNode().GetContentNode()->getLayoutFrame(GetLayout(), &aPos, &tmp);
             SwRect aTmp;
             pAnch->GetCharRect( aTmp, aPos );
 
@@ -1859,7 +1860,8 @@ bool SwFEShell::ImpEndCreate()
         }
 
         SwContentNode* pCNode = aPos.nNode.GetNode().GetContentNode();
-        pAnch = pCNode ? pCNode->getLayoutFrame( GetLayout(), &aPoint, nullptr, false ) : nullptr;
+        std::pair<Point, bool> const tmp(aPoint, false);
+        pAnch = pCNode ? pCNode->getLayoutFrame(GetLayout(), nullptr, &tmp) : nullptr;
         if (!pAnch)
         {
             // Hidden content. Anchor to the page instead
@@ -2702,22 +2704,7 @@ void SwFEShell::SetObjAttr( const SfxItemSet& rSet )
 
 bool SwFEShell::IsAlignPossible() const
 {
-    const size_t nCnt = IsObjSelected();
-    if ( 0 < nCnt )
-    {
-        bool bRet = true;
-        if ( nCnt == 1 )
-        {
-            SdrObject *pO = Imp()->GetDrawView()->GetMarkedObjectList().GetMark(0)->GetMarkedSdrObj();
-            SwDrawContact *pC = static_cast<SwDrawContact*>(GetUserCall(pO));
-            OSL_ENSURE( pC, "No SwDrawContact!");
-            //only as character bound drawings can be aligned
-            bRet = pC && pC->GetFormat()->GetAnchor().GetAnchorId() == RndStdIds::FLY_AS_CHAR;
-        }
-        if ( bRet )
-            return Imp()->GetDrawView()->IsAlignPossible();
-    }
-    return false;
+    return Imp()->GetDrawView()->IsAlignPossible();
 }
 
 // temporary fix till  SS of JOE is available

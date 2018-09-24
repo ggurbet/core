@@ -30,6 +30,8 @@
 #include <com/sun/star/task/XInteractionAbort.hpp>
 #include <com/sun/star/ucb/InteractiveNetworkConnectException.hpp>
 #include <com/sun/star/ucb/CommandFailedException.hpp>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/ucb/UnsupportedDataSinkException.hpp>
 #include <com/sun/star/ucb/InteractiveIOException.hpp>
 #include <com/sun/star/io/IOException.hpp>
@@ -971,7 +973,6 @@ static bool UCBOpenContentSync_(
 
 UcbLockBytes::UcbLockBytes()
     : m_aExpireDate( DateTime::EMPTY )
-    , m_xInputStream (nullptr)
     , m_nError( ERRCODE_NONE )
     , m_bTerminated  (false)
     , m_bDontClose( false )

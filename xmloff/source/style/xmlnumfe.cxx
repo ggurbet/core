@@ -58,9 +58,9 @@ typedef std::set< sal_uInt32 >  SvXMLuInt32Set;
 
 struct SvXMLEmbeddedTextEntry
 {
-    sal_uInt16      nSourcePos;     // position in NumberFormat (to skip later)
-    sal_Int32       nFormatPos;     // resulting position in embedded-text element
-    OUString   aText;
+    sal_uInt16 const  nSourcePos;     // position in NumberFormat (to skip later)
+    sal_Int32 const   nFormatPos;     // resulting position in embedded-text element
+    OUString const    aText;
 
     SvXMLEmbeddedTextEntry( sal_uInt16 nSP, sal_Int32 nFP, const OUString& rT ) :
         nSourcePos(nSP), nFormatPos(nFP), aText(rT) {}
@@ -190,11 +190,9 @@ uno::Sequence<sal_Int32> SvXMLNumUsedList_Impl::GetWasUsed()
     sal_Int32* pWasUsed = ret.getArray();
     if (pWasUsed)
     {
-        SvXMLuInt32Set::const_iterator aItr = aWasUsed.begin();
-        while (aItr != aWasUsed.end())
+        for (const auto nWasUsed : aWasUsed)
         {
-            *pWasUsed = *aItr;
-            ++aItr;
+            *pWasUsed = nWasUsed;
             ++pWasUsed;
         }
     }
@@ -219,9 +217,7 @@ SvXMLNumFmtExport::SvXMLNumFmtExport(
             const uno::Reference< util::XNumberFormatsSupplier >& rSupp ) :
     rExport( rExp ),
     sPrefix( OUString("N") ),
-    pFormatter( nullptr ),
-    pCharClass( nullptr ),
-    pLocaleData( nullptr )
+    pFormatter( nullptr )
 {
     //  supplier must be SvNumberFormatsSupplierObj
     SvNumberFormatsSupplierObj* pObj =
@@ -253,9 +249,7 @@ SvXMLNumFmtExport::SvXMLNumFmtExport(
                        const OUString& rPrefix ) :
     rExport( rExp ),
     sPrefix( rPrefix ),
-    pFormatter( nullptr ),
-    pCharClass( nullptr ),
-    pLocaleData( nullptr )
+    pFormatter( nullptr )
 {
     //  supplier must be SvNumberFormatsSupplierObj
     SvNumberFormatsSupplierObj* pObj =
@@ -851,7 +845,7 @@ void SvXMLNumFmtExport::WriteMapElement_Impl( sal_Int32 nOp, double fLimit,
 
 //  for old (automatic) currency formats: parse currency symbol from text
 
-sal_Int32 lcl_FindSymbol( const OUString& sUpperStr, const OUString& sCurString )
+static sal_Int32 lcl_FindSymbol( const OUString& sUpperStr, const OUString& sCurString )
 {
     //  search for currency symbol
     //  Quoting as in ImpSvNumberformatScan::Symbol_Division
@@ -1873,18 +1867,15 @@ void SvXMLNumFmtExport::Export( bool bIsAutoStyle )
     {
         std::vector<LanguageType> aLanguages;
         pFormatter->GetUsedLanguages( aLanguages );
-        for (std::vector<LanguageType>::const_iterator it(aLanguages.begin()); it != aLanguages.end(); ++it)
+        for (const auto& nLang : aLanguages)
         {
-            LanguageType nLang = *it;
-
             sal_uInt32 nDefaultIndex = 0;
             SvNumberFormatTable& rTable = pFormatter->GetEntryTable(
                                          SvNumFormatType::DEFINED, nDefaultIndex, nLang );
-            SvNumberFormatTable::iterator it2 = rTable.begin();
-            while (it2 != rTable.end())
+            for (const auto& rTableEntry : rTable)
             {
-                nKey = it2->first;
-                pFormat = it2->second;
+                nKey = rTableEntry.first;
+                pFormat = rTableEntry.second;
                 if (!pUsedList->IsUsed(nKey))
                 {
                     DBG_ASSERT((pFormat->GetType() & SvNumFormatType::DEFINED), "a not user defined numberformat found");
@@ -1899,8 +1890,6 @@ void SvXMLNumFmtExport::Export( bool bIsAutoStyle )
                     // if it is a user-defined Format it will be added else nothing will happen
                     pUsedList->SetUsed(nKey);
                 }
-
-                ++it2;
             }
         }
     }

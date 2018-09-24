@@ -68,8 +68,10 @@
 #include <editutil.hxx>
 #include <formula/errorcodes.hxx>
 #include <oox/export/utils.hxx>
+#include <oox/token/tokens.hxx>
 #include <queryentry.hxx>
 #include <queryparam.hxx>
+#include <root.hxx>
 
 #include <excdoc.hxx>
 #include <xeescher.hxx>
@@ -77,6 +79,7 @@
 #include <xelink.hxx>
 #include <xename.hxx>
 #include <xecontent.hxx>
+#include <xlname.hxx>
 
 #include <xcl97rec.hxx>
 #include <tabprotection.hxx>
@@ -572,8 +575,7 @@ XclExpAutofilterinfo::XclExpAutofilterinfo( const ScAddress& rStartPos, SCCOL nS
 ExcFilterCondition::ExcFilterCondition() :
         nType( EXC_AFTYPE_NOTUSED ),
         nOper( EXC_AFOPER_EQUAL ),
-        fVal( 0.0 ),
-        pText( nullptr )
+        fVal( 0.0 )
 {
 }
 

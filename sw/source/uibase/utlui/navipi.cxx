@@ -598,7 +598,6 @@ SwNavigationPI::SwNavigationPI(SfxBindings* _pBindings,
                                vcl::Window* pParent)
     : PanelLayout(pParent, "NavigatorPanel", "modules/swriter/ui/navigatorpanel.ui", nullptr)
     , SfxControllerItem(SID_DOCFULLNAME, *_pBindings)
-    , m_pxObjectShell(nullptr)
     , m_pContentView(nullptr)
     , m_pContentWrtShell(nullptr)
     , m_pActContView(nullptr)
@@ -870,7 +869,7 @@ void SwNavigationPI::StateChanged(StateChangedType nStateChange)
     PanelLayout::StateChanged(nStateChange);
     if (nStateChange == StateChangedType::InitShow)
     {
-        // if the parent isn't a float, then then the navigator is displayed in
+        // if the parent isn't a float, then the navigator is displayed in
         // the sidebar or is otherwise docked. While the navigator could change
         // its size, the sidebar can not, and the navigator would just waste
         // space. Therefore hide this button.

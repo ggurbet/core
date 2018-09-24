@@ -68,7 +68,7 @@ OUString extractMacroName( const OUString& rMacroUrl )
     return OUString();
 }
 
-OUString trimMacroName( const OUString& rMacroName )
+static OUString trimMacroName( const OUString& rMacroName )
 {
     // the name may contain whitespaces and may be enclosed in apostrophs
     OUString aMacroName = rMacroName.trim();
@@ -78,7 +78,9 @@ OUString trimMacroName( const OUString& rMacroName )
     return aMacroName;
 }
 
-SfxObjectShell* findShellForUrl( const OUString& sMacroURLOrPath )
+#if HAVE_FEATURE_SCRIPTING
+
+static SfxObjectShell* findShellForUrl( const OUString& sMacroURLOrPath )
 {
     SfxObjectShell* pFoundShell=nullptr;
     SfxObjectShell* pShell = SfxObjectShell::GetFirst();
@@ -173,7 +175,7 @@ SfxObjectShell* findShellForUrl( const OUString& sMacroURLOrPath )
 // sMod can be empty ( but we really need the library to search in )
 // if sMod is empty and a macro is found then sMod is updated
 // if sMod is empty, only standard modules will be searched (no class, document, form modules)
-bool hasMacro( SfxObjectShell const * pShell, const OUString& sLibrary, OUString& sMod, const OUString& sMacro )
+static bool hasMacro( SfxObjectShell const * pShell, const OUString& sLibrary, OUString& sMod, const OUString& sMacro )
 {
     bool bFound = false;
 
@@ -224,6 +226,8 @@ bool hasMacro( SfxObjectShell const * pShell, const OUString& sLibrary, OUString
     return bFound;
 }
 
+#endif
+
 OUString getDefaultProjectName( SfxObjectShell const * pShell )
 {
     OUString aPrjName;
@@ -236,7 +240,9 @@ OUString getDefaultProjectName( SfxObjectShell const * pShell )
     return aPrjName;
 }
 
-void parseMacro( const OUString& sMacro, OUString& sContainer, OUString& sModule, OUString& sProcedure )
+#if HAVE_FEATURE_SCRIPTING
+
+static void parseMacro( const OUString& sMacro, OUString& sContainer, OUString& sModule, OUString& sProcedure )
 {
     sal_Int32 nMacroDot = sMacro.lastIndexOf( '.' );
 
@@ -256,6 +262,8 @@ void parseMacro( const OUString& sMacro, OUString& sContainer, OUString& sModule
     else
        sProcedure = sMacro;
 }
+
+#endif
 
 OUString resolveVBAMacro( SfxObjectShell const * pShell, const OUString& rLibName, const OUString& rModuleName, const OUString& rMacroName )
 {
@@ -603,7 +611,7 @@ OUString SAL_CALL VBAMacroResolver::resolveScriptURLtoVBAMacro( const OUString& 
     throw uno::RuntimeException();
 }
 
-bool getModifier( sal_Unicode c, sal_uInt16& mod )
+static bool getModifier( sal_Unicode c, sal_uInt16& mod )
 {
     if ( c == '+' ) {
         mod |= KEY_SHIFT;
@@ -619,7 +627,7 @@ bool getModifier( sal_Unicode c, sal_uInt16& mod )
 }
 
 /// @throws uno::RuntimeException
-sal_uInt16 parseChar( sal_Unicode c )
+static sal_uInt16 parseChar( sal_Unicode c )
 {
     sal_uInt16 nVclKey = 0;
     // do we care about locale here for letters/digits? probably not

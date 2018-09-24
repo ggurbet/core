@@ -70,7 +70,6 @@ static std::set<MyFieldInfo> touchedFromOutsideSet;
 static std::set<MyFieldInfo> touchedFromOutsideConstructorSet;
 static std::set<MyFieldInfo> readFromSet;
 static std::set<MyFieldInfo> writeToSet;
-static std::set<MyFieldInfo> writeToOutsideConstructorSet;
 static std::set<MyFieldInfo> definitionSet;
 
 /**
@@ -160,10 +159,10 @@ public:
 private:
     MyFieldInfo niceName(const FieldDecl*);
     void checkTouchedFromOutside(const FieldDecl* fieldDecl, const Expr* memberExpr);
-    void checkWriteFromOutsideConstructor(const FieldDecl* fieldDecl, const Expr* memberExpr);
-    void checkWriteOnly(const FieldDecl* fieldDecl, const Expr* memberExpr);
-    void checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberExpr);
+    void checkIfReadFrom(const FieldDecl* fieldDecl, const Expr* memberExpr);
+    void checkIfWrittenTo(const FieldDecl* fieldDecl, const Expr* memberExpr);
     bool isSomeKindOfZero(const Expr* arg);
+    bool checkForWriteWhenUsingCollectionType(const CXXMethodDecl * calleeMethodDecl);
     bool IsPassedByNonConst(const FieldDecl* fieldDecl, const Stmt * child, CallerWrapper callExpr,
                                         CalleeWrapper calleeFunctionDecl);
     llvm::Optional<CalleeWrapper> getCallee(CallExpr const *);
@@ -195,8 +194,6 @@ void UnusedFields::run()
             output += "read:\t" + s.parentClass + "\t" + s.fieldName + "\n";
         for (const MyFieldInfo & s : writeToSet)
             output += "write:\t" + s.parentClass + "\t" + s.fieldName + "\n";
-        for (const MyFieldInfo & s : writeToOutsideConstructorSet)
-            output += "write-outside-constructor:\t" + s.parentClass + "\t" + s.fieldName + "\n";
         for (const MyFieldInfo & s : definitionSet)
             output += "definition:\t" + s.access + "\t" + s.parentClass + "\t" + s.fieldName + "\t" + s.fieldType + "\t" + s.sourceLocation + "\n";
         std::ofstream myfile;
@@ -457,14 +454,14 @@ bool UnusedFields::VisitMemberExpr( const MemberExpr* memberExpr )
 
     checkTouchedFromOutside(fieldDecl, memberExpr);
 
-    checkWriteOnly(fieldDecl, memberExpr);
+    checkIfReadFrom(fieldDecl, memberExpr);
 
-    checkReadOnly(fieldDecl, memberExpr);
+    checkIfWrittenTo(fieldDecl, memberExpr);
 
     return true;
 }
 
-void UnusedFields::checkWriteOnly(const FieldDecl* fieldDecl, const Expr* memberExpr)
+void UnusedFields::checkIfReadFrom(const FieldDecl* fieldDecl, const Expr* memberExpr)
 {
     if (insideMoveOrCopyOrCloneDeclParent || insideStreamOutputOperator)
     {
@@ -660,15 +657,10 @@ void UnusedFields::checkWriteOnly(const FieldDecl* fieldDecl, const Expr* member
     if (bPotentiallyReadFrom)
     {
         readFromSet.insert(fieldInfo);
-        if (fieldInfo.fieldName == "nNextElementNumber")
-        {
-            parent->dump();
-            memberExpr->dump();
-        }
     }
 }
 
-void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberExpr)
+void UnusedFields::checkIfWrittenTo(const FieldDecl* fieldDecl, const Expr* memberExpr)
 {
     if (insideMoveOrCopyOrCloneDeclParent)
     {
@@ -676,8 +668,6 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
         // we don't care about writes to a field when inside the copy/move constructor/operator= for that field
         if (cxxRecordDecl1 && (cxxRecordDecl1 == insideMoveOrCopyOrCloneDeclParent))
         {
-            // ... but they matter to tbe can-be-const analysis
-            checkWriteFromOutsideConstructor(fieldDecl, memberExpr);
             return;
         }
     }
@@ -755,10 +745,10 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
             {
                 // if calling a non-const operator on the field
                 auto calleeMethodDecl = callee->getAsCXXMethodDecl();
-                if (calleeMethodDecl
-                    && operatorCallExpr->getArg(0) == child && !calleeMethodDecl->isConst())
+                if (calleeMethodDecl && operatorCallExpr->getArg(0) == child)
                 {
-                    bPotentiallyWrittenTo = true;
+                    if (!calleeMethodDecl->isConst())
+                        bPotentiallyWrittenTo = checkForWriteWhenUsingCollectionType(calleeMethodDecl);
                 }
                 else if (IsPassedByNonConst(fieldDecl, child, operatorCallExpr, *callee))
                 {
@@ -779,13 +769,13 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
                 if (tmp->isBoundMemberFunction(compiler.getASTContext())) {
                     tmp = dyn_cast<MemberExpr>(tmp)->getBase();
                 }
-                if (cxxMemberCallExpr->getImplicitObjectArgument() == tmp
-                     && !calleeMethodDecl->isConst())
+                if (cxxMemberCallExpr->getImplicitObjectArgument() == tmp)
                 {
-                    bPotentiallyWrittenTo = true;
+                    if (!calleeMethodDecl->isConst())
+                        bPotentiallyWrittenTo = checkForWriteWhenUsingCollectionType(calleeMethodDecl);
                     break;
                 }
-                if (IsPassedByNonConst(fieldDecl, child, cxxMemberCallExpr, CalleeWrapper(calleeMethodDecl)))
+                else if (IsPassedByNonConst(fieldDecl, child, cxxMemberCallExpr, CalleeWrapper(calleeMethodDecl)))
                     bPotentiallyWrittenTo = true;
             }
             else
@@ -891,8 +881,72 @@ void UnusedFields::checkReadOnly(const FieldDecl* fieldDecl, const Expr* memberE
     if (bPotentiallyWrittenTo)
     {
         writeToSet.insert(fieldInfo);
-        checkWriteFromOutsideConstructor(fieldDecl, memberExpr);
     }
+}
+
+// return true if this not a collection type, or if it is a collection type, and we might be writing to it
+bool UnusedFields::checkForWriteWhenUsingCollectionType(const CXXMethodDecl * calleeMethodDecl)
+{
+    auto const tc = loplugin::TypeCheck(calleeMethodDecl->getParent());
+    bool listLike = false, setLike = false, mapLike = false, cssSequence = false;
+    if (tc.Class("deque").StdNamespace()
+        || tc.Class("list").StdNamespace()
+        || tc.Class("queue").StdNamespace()
+        || tc.Class("vector").StdNamespace())
+    {
+        listLike = true;
+    }
+    else if (tc.Class("set").StdNamespace()
+        || tc.Class("unordered_set").StdNamespace())
+    {
+        setLike = true;
+    }
+    else if (tc.Class("map").StdNamespace()
+        || tc.Class("unordered_map").StdNamespace())
+    {
+        mapLike = true;
+    }
+    else if (tc.Class("Sequence").Namespace("uno").Namespace("star").Namespace("sun").Namespace("com").GlobalNamespace())
+    {
+        cssSequence = true;
+    }
+    else
+        return true;
+
+    if (calleeMethodDecl->isOverloadedOperator())
+    {
+        auto oo = calleeMethodDecl->getOverloadedOperator();
+        if (oo == OO_Equal)
+            return true;
+        // This is operator[]. We only care about things that add elements to the collection.
+        // if nothing modifies the size of the collection, then nothing useful
+        // is stored in it.
+        if (listLike)
+            return false;
+        return true;
+    }
+
+    auto name = calleeMethodDecl->getName();
+    if (listLike || setLike || mapLike)
+    {
+        if (name == "reserve" || name == "shrink_to_fit" || name == "clear"
+            || name == "erase" || name == "pop_back" || name == "pop_front"
+            || name == "front" || name == "back" || name == "data"
+            || name == "remove" || name == "remove_if"
+            || name == "unique" || name == "sort"
+            || name == "begin" || name == "end"
+            || name == "rbegin" || name == "rend"
+            || name == "at" || name == "find" || name == "equal_range"
+            || name == "lower_bound" || name == "upper_bound")
+            return false;
+    }
+    if (cssSequence)
+    {
+        if (name == "getArray" || name == "begin" || name == "end")
+            return false;
+    }
+
+    return true;
 }
 
 bool UnusedFields::IsPassedByNonConst(const FieldDecl* fieldDecl, const Stmt * child, CallerWrapper callExpr,
@@ -1019,27 +1073,6 @@ void UnusedFields::checkTouchedFromOutside(const FieldDecl* fieldDecl, const Exp
             touchedFromOutsideSet.insert(fieldInfo);
         }
     }
-}
-
-// For the const-field analysis.
-// Called when we have a write to a field, and we want to record that write only if it's writing from
-// outside the constructor.
-void UnusedFields::checkWriteFromOutsideConstructor(const FieldDecl* fieldDecl, const Expr* memberExpr) {
-    const FunctionDecl* memberExprParentFunction = getParentFunctionDecl(memberExpr);
-    bool doWrite = false;
-
-    if (!memberExprParentFunction)
-        // If we are not inside a function
-        doWrite = true;
-    else if (memberExprParentFunction->getParent() != fieldDecl->getParent())
-        // or we are inside a method from another class (than the one the field belongs to)
-        doWrite = true;
-    else if (!isa<CXXConstructorDecl>(memberExprParentFunction))
-        // or we are not inside constructor
-        doWrite = true;
-
-    if (doWrite)
-        writeToOutsideConstructorSet.insert(niceName(fieldDecl));
 }
 
 llvm::Optional<CalleeWrapper> UnusedFields::getCallee(CallExpr const * callExpr)

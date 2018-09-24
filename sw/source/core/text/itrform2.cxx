@@ -77,7 +77,7 @@ namespace {
     bool lcl_HasSameBorder(const SwFont& rFirst, const SwFont& rSecond);
 }
 
-inline void ClearFly( SwTextFormatInfo &rInf )
+static inline void ClearFly( SwTextFormatInfo &rInf )
 {
     delete rInf.GetFly();
     rInf.SetFly(nullptr);
@@ -1250,7 +1250,7 @@ SwLinePortion *SwTextFormatter::NewPortion( SwTextFormatInfo &rInf )
             // We open a multiportion part, if we enter a multi-line part
             // of the paragraph.
             TextFrameIndex nEnd = rInf.GetIdx();
-            SwMultiCreator* pCreate = rInf.GetMultiCreator( nEnd, pMulti );
+            std::unique_ptr<SwMultiCreator> pCreate = rInf.GetMultiCreator( nEnd, pMulti );
             if( pCreate )
             {
                 SwMultiPortion* pTmp = nullptr;
@@ -1269,7 +1269,7 @@ SwLinePortion *SwTextFormatter::NewPortion( SwTextFormatInfo &rInf )
                 else
                     pTmp = new SwDoubleLinePortion( *pCreate, nEnd );
 
-                delete pCreate;
+                pCreate.reset();
                 CalcFlyWidth( rInf );
 
                 return pTmp;

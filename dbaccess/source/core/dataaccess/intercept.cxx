@@ -59,9 +59,6 @@ void OInterceptor::dispose()
 
     osl::MutexGuard aGuard(m_aMutex);
 
-    if ( m_pDisposeEventListeners && m_pDisposeEventListeners->getLength() )
-        m_pDisposeEventListeners->disposeAndClear( aEvt );
-
     if ( m_pStatCL )
         m_pStatCL->disposeAndClear( aEvt );
 
@@ -75,8 +72,6 @@ void OInterceptor::dispose()
 OInterceptor::OInterceptor( ODocumentDefinition* _pContentHolder )
     :m_pContentHolder( _pContentHolder )
     ,m_aInterceptedURL(7)
-    ,m_pDisposeEventListeners(nullptr)
-    ,m_pStatCL(nullptr)
 {
 
     OSL_ENSURE(DISPATCH_RELOAD < m_aInterceptedURL.getLength(),"Illegal size.");

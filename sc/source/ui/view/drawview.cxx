@@ -673,7 +673,6 @@ void ScDrawView::SelectCurrentViewObject( const OUString& rName )
 {
     sal_uInt16 nObjectTab = 0;
     SdrObject* pFound = nullptr;
-    bool bUnMark = false;
     SfxObjectShell* pShell = pDoc->GetDocumentShell();
     if (pShell)
     {
@@ -716,7 +715,7 @@ void ScDrawView::SelectCurrentViewObject( const OUString& rName )
                 SetLayerLocked( pLayer->GetName(), false );
         }
         SdrPageView* pPV = GetSdrPageView();
-        bUnMark = IsObjMarked(pFound);
+        const bool bUnMark = IsObjMarked(pFound);
         MarkObj( pFound, pPV, bUnMark);
     }
 }
@@ -871,7 +870,7 @@ void ScDrawView::DeleteMarked()
             delete pNote;
             // add the undo action for the note
             if( bUndo )
-                pUndoMgr->AddUndoAction( new ScUndoReplaceNote( *pDocShell, pCaptData->maStart, aNoteData, false, pDrawLayer->GetCalcUndo().release() ) );
+                pUndoMgr->AddUndoAction( new ScUndoReplaceNote( *pDocShell, pCaptData->maStart, aNoteData, false, pDrawLayer->GetCalcUndo() ) );
             // repaint the cell to get rid of the note marker
             if( pDocShell )
                 pDocShell->PostPaintCell( pCaptData->maStart );

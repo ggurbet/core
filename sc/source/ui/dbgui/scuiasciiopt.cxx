@@ -34,7 +34,6 @@
 #include <strings.hrc>
 #include <strings.hxx>
 #include <csvtablebox.hxx>
-#include <comphelper/string.hxx>
 #include <osl/thread.h>
 #include <rtl/tencinfo.h>
 #include <unotools/transliterationwrapper.hxx>
@@ -95,17 +94,22 @@ CSVImportOptionsIndex getSkipEmptyCellsIndex( ScImportAsciiCall eCall )
 
 static void lcl_FillCombo( ComboBox& rCombo, const OUString& rList, sal_Unicode cSelect )
 {
-    sal_Int32 i;
-    sal_Int32 nCount = comphelper::string::getTokenCount(rList, '\t');
-    for ( i=0; i<nCount; i+=2 )
-        rCombo.InsertEntry( rList.getToken(i,'\t') );
+    OUString aStr;
+    if (!rList.isEmpty())
+    {
+        sal_Int32 nIdx {0};
+        do
+        {
+            const OUString sEntry {rList.getToken(0, '\t', nIdx)};
+            rCombo.InsertEntry( sEntry );
+            if (nIdx>0 && static_cast<sal_Unicode>(rList.getToken(0, '\t', nIdx).toInt32()) == cSelect)
+                aStr = sEntry;
+        }
+        while (nIdx>0);
+    }
 
     if ( cSelect )
     {
-        OUString aStr;
-        for ( i=0; i<nCount; i+=2 )
-            if ( static_cast<sal_Unicode>(rList.getToken(i+1,'\t').toInt32()) == cSelect )
-                aStr = rList.getToken(i,'\t');
         if (aStr.isEmpty())
             aStr = OUString(cSelect);         // Ascii
 
@@ -117,15 +121,21 @@ static sal_Unicode lcl_CharFromCombo( const ComboBox& rCombo, const OUString& rL
 {
     sal_Unicode c = 0;
     OUString aStr = rCombo.GetText();
-    if ( !aStr.isEmpty() )
+    if ( !aStr.isEmpty() && !rList.isEmpty() )
     {
-        sal_Int32 nCount = comphelper::string::getTokenCount(rList, '\t');
-        for ( sal_Int32 i=0; i<nCount; i+=2 )
+        sal_Int32 nIdx {0};
+        OUString sToken {rList.getToken(0, '\t', nIdx)};
+        while (nIdx>0)
         {
-            if ( ScGlobal::GetpTransliteration()->isEqual( aStr, rList.getToken(i,'\t') ) )
-                c = static_cast<sal_Unicode>(rList.getToken(i+1,'\t').toInt32());
+            if ( ScGlobal::GetpTransliteration()->isEqual( aStr, sToken ) )
+            {
+                sal_Int32 nTmpIdx {nIdx};
+                c = static_cast<sal_Unicode>(rList.getToken(0, '\t', nTmpIdx).toInt32());
+            }
+            // Skip to next token at even position
+            sToken = rList.getToken(1, '\t', nIdx);
         }
-        if (!c && !aStr.isEmpty())
+        if (!c)
         {
             sal_Unicode cFirst = aStr[0];
             // #i24235# first try the first character of the string directly
@@ -138,7 +148,7 @@ static sal_Unicode lcl_CharFromCombo( const ComboBox& rCombo, const OUString& rL
     return c;
 }
 
-void lcl_CreatePropertiesNames ( OUString& rSepPath, Sequence<OUString>& rNames, ScImportAsciiCall eCall )
+static void lcl_CreatePropertiesNames ( OUString& rSepPath, Sequence<OUString>& rNames, ScImportAsciiCall eCall )
 {
     sal_Int32 nProperties = 0;
 
@@ -282,10 +292,8 @@ ScImportAsciiDlg::ScImportAsciiDlg( vcl::Window* pParent, const OUString& aDatNa
         mpDatStream  ( pInStream ),
         mnStreamPos( pInStream ? pInStream->Tell() : 0 ),
 
-        mpRowPosArray( nullptr ),
         mnRowPosCount(0),
 
-        aColumnUser ( ScResId( SCSTR_COLUMN_USER ) ),
         aTextSepList(SCSTR_TEXTSEP),
         mcTextSep   ( ScAsciiOptions::cDefaultTextSep ),
         meCall(eCall),
@@ -474,9 +482,11 @@ ScImportAsciiDlg::ScImportAsciiDlg( vcl::Window* pParent, const OUString& aDatNa
     pLbCustomLang->SelectLanguage(static_cast<LanguageType>(nLanguage));
 
     // *** column type ListBox ***
-    sal_Int32 nCount = comphelper::string::getTokenCount(aColumnUser, ';');
-    for (sal_Int32 i=0; i<nCount; i++)
-        pLbType->InsertEntry( aColumnUser.getToken( i, ';' ) );
+    OUString aColumnUser( ScResId( SCSTR_COLUMN_USER ) );
+    for (sal_Int32 nIdx {0}; nIdx>=0; )
+    {
+        pLbType->InsertEntry( aColumnUser.getToken( 0, ';', nIdx ) );
+    }
 
     pLbType->SetSelectHdl( LINK( this, ScImportAsciiDlg, LbColTypeHdl ) );
     pFtType->Disable();

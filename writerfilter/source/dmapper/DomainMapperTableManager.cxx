@@ -30,6 +30,7 @@
 #include <com/sun/star/text/VertOrientation.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
 #include <o3tl/numeric.hxx>
+#include <o3tl/safeint.hxx>
 #include <ooxml/resourceids.hxx>
 #include "DomainMapper.hxx"
 #include <rtl/math.hxx>
@@ -199,7 +200,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
             case NS_ooxml::LN_CT_TrPrBase_tblHeader:
                 // if nIntValue == 1 then the row is a repeated header line
                 // to prevent later rows from increasing the repeating m_nHeaderRepeat is set to NULL when repeating stops
-                if( nIntValue > 0 && m_nHeaderRepeat >= 0 )
+                if( nIntValue > 0 && m_nHeaderRepeat == static_cast<int>(m_nRow) )
                 {
                     ++m_nHeaderRepeat;
                     TablePropertyMapPtr pPropMap( new TablePropertyMap );
@@ -575,7 +576,7 @@ void DomainMapperTableManager::endOfRowAction()
             TagLogger::getInstance().endElement();
 #endif
 
-             m_nTableWidth += *aCellIter++;
+             m_nTableWidth = o3tl::saturating_add(m_nTableWidth, *aCellIter++);
         }
 
         if (m_nTableWidth > 0 && !m_bTableSizeTypeInserted)
@@ -626,8 +627,8 @@ void DomainMapperTableManager::endOfRowAction()
     // a grid of "20:40:20" and it doesn't have to do something with the tableWidth
     // -> so we have get the sum of each grid entry for the fullWidthRelative:
     int nFullWidthRelative = 0;
-    for (sal_Int32 i : (*pTableGrid.get()))
-        nFullWidthRelative += i;
+    for (int i : (*pTableGrid.get()))
+        nFullWidthRelative = o3tl::saturating_add(nFullWidthRelative, i);
 
     if( pTableGrid->size() == ( m_nGridBefore + nGrids + m_nGridAfter ) && m_nCell.back( ) > 0 )
     {

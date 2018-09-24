@@ -2056,7 +2056,7 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
         }
         else if( FN_UNO_GRAPHIC_URL == pEntry->nWID )
         {
-            throw uno::RuntimeException("Getting from this property is not unsupported");
+            throw uno::RuntimeException("Getting from this property is not supported");
         }
         else if( FN_UNO_GRAPHIC == pEntry->nWID )
         {
@@ -3367,7 +3367,6 @@ uno::Reference<container::XNameReplace> SAL_CALL
 SwXTextEmbeddedObject::SwXTextEmbeddedObject( SwDoc *pDoc )
     : SwXTextEmbeddedObjectBaseClass(FLYCNTTYPE_OLE,
             aSwMapProvider.GetPropertySet(PROPERTY_MAP_EMBEDDED_OBJECT), pDoc)
-    , m_xOLEListener(nullptr)
 {
 }
 

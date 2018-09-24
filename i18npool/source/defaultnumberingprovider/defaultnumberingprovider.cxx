@@ -283,7 +283,7 @@ static const sal_Unicode table_PersianWord_decadeX[][8]={
 };
 
 
-DefaultNumberingProvider::DefaultNumberingProvider( const Reference < XComponentContext >& rxContext ) : m_xContext(rxContext),translit(nullptr)
+DefaultNumberingProvider::DefaultNumberingProvider( const Reference < XComponentContext >& rxContext ) : m_xContext(rxContext)
 {
 
 }
@@ -304,7 +304,7 @@ DefaultNumberingProvider::getDefaultContinuousNumberingLevels( const Locale& rLo
      return LocaleDataImpl::get()->getContinuousNumberingLevels( rLocale );
 }
 
-OUString toRoman( sal_Int32 n )
+static OUString toRoman( sal_Int32 n )
 {
 
 //              i, ii, iii, iv, v, vi, vii, vii, viii, ix

@@ -1642,12 +1642,15 @@ SwFootnoteFrame *SwFootnoteBossFrame::FindFootnote( const SwContentFrame *pRef, 
     return nullptr;
 }
 
-void SwFootnoteBossFrame::RemoveFootnote( const SwContentFrame *pRef, const SwTextFootnote *pAttr,
+bool SwFootnoteBossFrame::RemoveFootnote(
+        const SwContentFrame *const pRef, const SwTextFootnote *const pAttr,
                               bool bPrep )
 {
+    bool ret(false);
     SwFootnoteFrame *pFootnote = FindFootnote( pRef, pAttr );
     if( pFootnote )
     {
+        ret = true;
         do
         {
             SwFootnoteFrame *pFoll = pFootnote->GetFollow();
@@ -1664,6 +1667,7 @@ void SwFootnoteBossFrame::RemoveFootnote( const SwContentFrame *pRef, const SwTe
         }
     }
     FindPageFrame()->UpdateFootnoteNum();
+    return ret;
 }
 
 void SwFootnoteBossFrame::ChangeFootnoteRef( const SwContentFrame *pOld, const SwTextFootnote *pAttr,
@@ -1733,7 +1737,7 @@ void SwFootnoteBossFrame::CollectFootnotes( const SwContentFrame* _pRef,
     CollectFootnotes_( _pRef, pFootnote, _rFootnoteArr, _bCollectOnlyPreviousFootnotes, pRefBossFrame );
 }
 
-inline void FootnoteInArr( SwFootnoteFrames& rFootnoteArr, SwFootnoteFrame* pFootnote )
+static inline void FootnoteInArr( SwFootnoteFrames& rFootnoteArr, SwFootnoteFrame* pFootnote )
 {
     if ( rFootnoteArr.end() == std::find( rFootnoteArr.begin(), rFootnoteArr.end(), pFootnote ) )
         rFootnoteArr.push_back( pFootnote );
@@ -2805,18 +2809,20 @@ SwSaveFootnoteHeight::~SwSaveFootnoteHeight()
 const SwContentFrame* SwFootnoteFrame::GetRef() const
 {
     const SwContentFrame* pRefAttr = GetRefFromAttr();
-    SAL_WARN_IF( mpReference != pRefAttr && !mpReference->IsAnFollow( pRefAttr )
-            && !pRefAttr->IsAnFollow( mpReference ),
-            "sw.core", "access to deleted Frame? pRef != pAttr->GetRef()" );
+    // check consistency: access to deleted frame?
+    assert(mpReference == pRefAttr || mpReference->IsAnFollow(pRefAttr)
+            || pRefAttr->IsAnFollow(mpReference));
+    (void) pRefAttr;
     return mpReference;
 }
 
 SwContentFrame* SwFootnoteFrame::GetRef()
 {
     const SwContentFrame* pRefAttr = GetRefFromAttr();
-    SAL_WARN_IF( mpReference != pRefAttr && !mpReference->IsAnFollow( pRefAttr )
-            && !pRefAttr->IsAnFollow( mpReference ),
-            "sw.core", "access to deleted Frame? pRef != pAttr->GetRef()" );
+    // check consistency: access to deleted frame?
+    assert(mpReference == pRefAttr || mpReference->IsAnFollow(pRefAttr)
+            || pRefAttr->IsAnFollow(mpReference));
+    (void) pRefAttr;
     return mpReference;
 }
 #endif
@@ -2832,7 +2838,7 @@ SwContentFrame* SwFootnoteFrame::GetRefFromAttr()
     assert(mpAttribute && "invalid Attribute");
     SwTextNode& rTNd = const_cast<SwTextNode&>(mpAttribute->GetTextNode());
     SwPosition aPos( rTNd, SwIndex( &rTNd, mpAttribute->GetStart() ));
-    SwContentFrame* pCFrame = rTNd.getLayoutFrame( getRootFrame(), nullptr, &aPos, false );
+    SwContentFrame* pCFrame = rTNd.getLayoutFrame(getRootFrame(), &aPos);
     return pCFrame;
 }
 

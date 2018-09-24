@@ -202,7 +202,6 @@ SwPostItMgr::SwPostItMgr(SwView* pView)
     , mbDeleteNote(true)
     , mpAnswer(nullptr)
     , mbIsShowAnchor( false )
-    , mpFrameSidebarWinContainer( nullptr )
 {
     if(!mpView->GetDrawView() )
         mpView->GetWrtShell().MakeDrawView();
@@ -1572,7 +1571,7 @@ void SwPostItMgr::ExecuteFormatAllDialog(SwView& rView)
     SfxItemSet aDlgAttr(*pPool, svl::Items<EE_ITEMS_START, EE_ITEMS_END>{});
     aDlgAttr.Put(aEditAttr);
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg(rView.GetWindow(), rView, aDlgAttr, SwCharDlgMode::Ann));
+    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg(rView.GetFrameWeld(), rView, aDlgAttr, SwCharDlgMode::Ann));
     sal_uInt16 nRet = pDlg->Execute();
     if (RET_OK == nRet)
     {

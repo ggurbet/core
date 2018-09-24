@@ -1667,7 +1667,7 @@ void Test::testCSV()
 }
 
 template<typename Evaluator>
-void checkMatrixElements(const ScMatrix& rMat)
+static void checkMatrixElements(const ScMatrix& rMat)
 {
     SCSIZE nC, nR;
     rMat.GetDimensions(nC, nR);
@@ -3748,8 +3748,8 @@ void Test::testCopyPasteSkipEmpty()
     m_pDoc->CopyToDocument(aDestRange, InsertDeleteFlags::ALL, false, *pRedoDoc, &aMark);
 
     // Create an undo object for this.
-    ScRefUndoData* pRefUndoData = new ScRefUndoData(m_pDoc);
-    ScUndoPaste aUndo(&getDocShell(), aDestRange, aMark, std::move(pUndoDoc), std::move(pRedoDoc), InsertDeleteFlags::ALL, pRefUndoData);
+    std::unique_ptr<ScRefUndoData> pRefUndoData(new ScRefUndoData(m_pDoc));
+    ScUndoPaste aUndo(&getDocShell(), aDestRange, aMark, std::move(pUndoDoc), std::move(pRedoDoc), InsertDeleteFlags::ALL, std::move(pRefUndoData));
 
     // Check the content after the paste.
     {
@@ -5540,6 +5540,28 @@ void Test::testNoteCopyPaste()
     m_pDoc->DeleteTab(0);
 }
 
+// tdf#112454
+void Test::testNoteContainsNotesInRange() {
+    m_pDoc->InsertTab(0, "PostIts");
+
+    // We need a drawing layer in order to create caption objects.
+    m_pDoc->InitDrawLayer(&getDocShell());
+
+    ScAddress aAddr(2, 2, 0); // cell C3
+
+    CPPUNIT_ASSERT_MESSAGE("Claiming there's notes in a document that doesn't have any.",
+                           !m_pDoc->ContainsNotesInRange((ScRange(ScAddress(0, 0, 0), aAddr))));
+
+    m_pDoc->GetOrCreateNote(aAddr);
+
+    CPPUNIT_ASSERT_MESSAGE("Claiming there's notes in range that doesn't have any.",
+                           !m_pDoc->ContainsNotesInRange(ScRange(ScAddress(0, 0, 0), ScAddress(0, 1, 0))));
+    CPPUNIT_ASSERT_MESSAGE("Note not detected that lies on border of range.",
+                           m_pDoc->ContainsNotesInRange((ScRange(ScAddress(0, 0, 0), aAddr))));
+    CPPUNIT_ASSERT_MESSAGE("Note not detected that lies in inner area of range.",
+                           m_pDoc->ContainsNotesInRange((ScRange(ScAddress(0, 0, 0), ScAddress(3, 3, 0)))));
+}
+
 void Test::testAreasWithNotes()
 {
     ScDocument& rDoc = getDocShell().GetDocument();
@@ -5804,7 +5826,7 @@ void Test::testCellTextWidth()
     m_pDoc->DeleteTab(0);
 }
 
-bool checkEditTextIterator(sc::EditTextIterator& rIter, const char** pChecks)
+static bool checkEditTextIterator(sc::EditTextIterator& rIter, const char** pChecks)
 {
     const EditTextObject* pText = rIter.first();
     const char* p = *pChecks;
@@ -6741,10 +6763,10 @@ ScUndoPaste* Test::createUndoPaste(ScDocShell& rDocSh, const ScRange& rRange, Sc
     ScDocument& rDoc = rDocSh.GetDocument();
     ScMarkData aMarkData;
     aMarkData.SetMarkArea(rRange);
-    ScRefUndoData* pRefUndoData = new ScRefUndoData(&rDoc);
+    std::unique_ptr<ScRefUndoData> pRefUndoData(new ScRefUndoData(&rDoc));
 
     return new ScUndoPaste(
-        &rDocSh, rRange, aMarkData, std::move(pUndoDoc), nullptr, InsertDeleteFlags::ALL, pRefUndoData, false);
+        &rDocSh, rRange, aMarkData, std::move(pUndoDoc), nullptr, InsertDeleteFlags::ALL, std::move(pRefUndoData), false);
 }
 
 void Test::setExpandRefs(bool bExpand)

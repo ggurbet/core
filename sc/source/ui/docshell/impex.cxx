@@ -52,6 +52,7 @@
 #include <cellvalue.hxx>
 #include <tokenarray.hxx>
 #include <documentimport.hxx>
+#include <refundo.hxx>
 
 #include <globstr.hrc>
 #include <scresid.hxx>
@@ -1790,14 +1791,15 @@ bool ScImportExport::Sylk2Doc( SvStream& rStrm )
                 break;
             bool bInvalidCol = false;
             bool bInvalidRow = false;
-            bool bInvalidRefCol = false;
-            bool bInvalidRefRow = false;
             const sal_Unicode* p = aLine.getStr();
             sal_Unicode cTag = *p++;
             if( cTag == 'C' )       // Content
             {
                 if( *p++ != ';' )
                     return false;
+
+                bool bInvalidRefCol = false;
+                bool bInvalidRefRow = false;
                 while( *p )
                 {
                     sal_Unicode ch = *p++;
@@ -2264,7 +2266,7 @@ bool ScImportExport::Dif2Doc( SvStream& rStrm )
 
 bool ScImportExport::RTF2Doc( SvStream& rStrm, const OUString& rBaseURL )
 {
-    ScEEAbsImport *pImp = ScFormatFilter::Get().CreateRTFImport( pDoc, aRange );
+    std::unique_ptr<ScEEAbsImport> pImp = ScFormatFilter::Get().CreateRTFImport( pDoc, aRange );
     if (!pImp)
         return false;
     pImp->Read( rStrm, rBaseURL );
@@ -2278,13 +2280,12 @@ bool ScImportExport::RTF2Doc( SvStream& rStrm, const OUString& rBaseURL )
         pImp->WriteToDocument();
         EndPaste();
     }
-    delete pImp;
     return bOk;
 }
 
 bool ScImportExport::HTML2Doc( SvStream& rStrm, const OUString& rBaseURL )
 {
-    ScEEAbsImport *pImp = ScFormatFilter::Get().CreateHTMLImport( pDoc, rBaseURL, aRange);
+    std::unique_ptr<ScEEAbsImport> pImp = ScFormatFilter::Get().CreateHTMLImport( pDoc, rBaseURL, aRange);
     if (!pImp)
         return false;
     pImp->Read( rStrm, rBaseURL );
@@ -2315,7 +2316,6 @@ bool ScImportExport::HTML2Doc( SvStream& rStrm, const OUString& rBaseURL )
 
         EndPaste();
     }
-    delete pImp;
     return bOk;
 }
 

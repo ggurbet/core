@@ -26,6 +26,8 @@
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
 #include <com/sun/star/container/XEnumeration.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/lang/XSingleComponentFactory.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/linguistic2/XSupportedLocales.hpp>
 #include <com/sun/star/linguistic2/DictionaryListEventFlags.hpp>
 #include <com/sun/star/linguistic2/LinguServiceEventFlags.hpp>
@@ -1939,7 +1941,7 @@ uno::Sequence< OUString > LngSvcMgr::getSupportedServiceNames_Static()
 }
 
 /// @throws uno::Exception
-uno::Reference< uno::XInterface > LngSvcMgr_CreateInstance(
+static uno::Reference< uno::XInterface > LngSvcMgr_CreateInstance(
             const uno::Reference< lang::XMultiServiceFactory > & /*rSMgr*/ )
 {
     uno::Reference< uno::XInterface > xService = static_cast<cppu::OWeakObject*>(new LngSvcMgr);

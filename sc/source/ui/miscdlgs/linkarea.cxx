@@ -19,7 +19,6 @@
 
 #undef SC_DLLIMPLEMENTATION
 
-#include <comphelper/string.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
@@ -39,7 +38,7 @@
 ScLinkedAreaDlg::ScLinkedAreaDlg(weld::Window* pParent)
     : GenericDialogController(pParent, "modules/scalc/ui/externaldata.ui", "ExternalDataDialog")
     , m_pSourceShell(nullptr)
-    , m_xCbUrl(new URLBox(m_xBuilder->weld_combo_box_text("url")))
+    , m_xCbUrl(new URLBox(m_xBuilder->weld_combo_box("url")))
     , m_xBtnBrowse(m_xBuilder->weld_button("browse"))
     , m_xLbRanges(m_xBuilder->weld_tree_view("ranges"))
     , m_xBtnReload(m_xBuilder->weld_check_button("reload"))
@@ -71,7 +70,7 @@ IMPL_LINK_NOARG(ScLinkedAreaDlg, BrowseHdl, weld::Button&, void)
     m_xDocInserter->StartExecuteModal( LINK( this, ScLinkedAreaDlg, DialogClosedHdl ) );
 }
 
-IMPL_LINK_NOARG(ScLinkedAreaDlg, FileHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(ScLinkedAreaDlg, FileHdl, weld::ComboBox&, void)
 {
     OUString aEntered = m_xCbUrl->GetURL();
     if (m_pSourceShell)
@@ -149,11 +148,14 @@ void ScLinkedAreaDlg::InitFromOldLink( const OUString& rFile, const OUString& rF
 
     UpdateSourceRanges();
 
-    sal_Int32 nRangeCount = comphelper::string::getTokenCount(rSource, ';');
-    for ( sal_Int32 i=0; i<nRangeCount; i++ )
+    if (!rSource.isEmpty())
     {
-        OUString aRange = rSource.getToken(i,';');
-        m_xLbRanges->select_text(aRange);
+        sal_Int32 nIdx {0};
+        do
+        {
+            m_xLbRanges->select_text(rSource.getToken(0, ';', nIdx));
+        }
+        while (nIdx>0);
     }
 
     bool bDoRefresh = (nRefresh != 0);

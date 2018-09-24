@@ -81,9 +81,9 @@ SvxShowCharSet::SvxShowCharSet(std::unique_ptr<weld::ScrolledWindow> pScrolledWi
 
 void SvxShowCharSet::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
     mxScrollArea->set_size_request(COLUMN_COUNT * pDrawingArea->get_approximate_digit_width() * 4,
                                    ROW_COUNT * pDrawingArea->get_text_height() * 2);
-    CustomWidgetController::SetDrawingArea(pDrawingArea);
 }
 
 void SvxShowCharSet::init()
@@ -276,13 +276,8 @@ void SvxShowCharSet::updateFavCharacterList(const OUString& sTitle, const OUStri
 {
     if(isFavChar(sTitle, rFont))
     {
-        auto itChar = std::find_if(maFavCharList.begin(),
-             maFavCharList.end(),
-             [sTitle] (const OUString & a) { return a == sTitle; });
-
-        auto itChar2 = std::find_if(maFavCharFontList.begin(),
-             maFavCharFontList.end(),
-             [rFont] (const OUString & a) { return a == rFont; });
+        auto itChar = std::find(maFavCharList.begin(), maFavCharList.end(), sTitle);
+        auto itChar2 = std::find(maFavCharFontList.begin(), maFavCharFontList.end(), rFont);
 
         // if Fav char to be added is already in list, remove it
         if( itChar != maFavCharList.end() &&  itChar2 != maFavCharFontList.end() )
@@ -307,13 +302,8 @@ void SvxShowCharSet::updateFavCharacterList(const OUString& sTitle, const OUStri
         return;
     }
 
-    auto itChar = std::find_if(maFavCharList.begin(),
-         maFavCharList.end(),
-         [sTitle] (const OUString & a) { return a == sTitle; });
-
-    auto itChar2 = std::find_if(maFavCharFontList.begin(),
-         maFavCharFontList.end(),
-         [rFont] (const OUString & a) { return a == rFont; });
+    auto itChar = std::find(maFavCharList.begin(), maFavCharList.end(), sTitle);
+    auto itChar2 = std::find(maFavCharFontList.begin(), maFavCharFontList.end(), rFont);
 
     // if Fav char to be added is already in list, remove it
     if( itChar != maFavCharList.end() &&  itChar2 != maFavCharFontList.end() )

@@ -520,6 +520,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">~Page Number</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:InsertSlideField" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -536,6 +539,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Page Tit~le</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:InsertSlideTitleField" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -551,6 +557,9 @@
       <node oor:name=".uno:InsertPagesField" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Page ~Count</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:InsertSlidesField" oor:op="replace">
@@ -912,6 +921,9 @@
         <prop oor:name="PopupLabel" oor:type="xs:string">
           <value xml:lang="en-US">~Insert Layer...</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:ModifyPage" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -936,6 +948,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">~Normal</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:LayerMode" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -945,6 +960,9 @@
       <node oor:name=".uno:MasterPage" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">~Master</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:DiaEffect" oor:op="replace">
@@ -1154,7 +1172,10 @@
       </node>
       <node oor:name=".uno:InteractiveTransparence" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
-          <value xml:lang="en-US">Transparency</value>
+          <value xml:lang="en-US">Transparency tool</value>
+        </prop>
+        <prop oor:name="TooltipLabel" oor:type="xs:string">
+          <value xml:lang="en-US">Interactive transparency tool</value>
         </prop>
         <prop oor:name="Properties" oor:type="xs:int">
           <value>1</value>
@@ -1162,7 +1183,10 @@
       </node>
       <node oor:name=".uno:InteractiveGradient" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
-          <value xml:lang="en-US">Gradient</value>
+          <value xml:lang="en-US">Gradient tool</value>
+        </prop>
+        <prop oor:name="TooltipLabel" oor:type="xs:string">
+          <value xml:lang="en-US">Interactive gradient tool</value>
         </prop>
         <prop oor:name="Properties" oor:type="xs:int">
           <value>1</value>
@@ -1544,15 +1568,24 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Set Background Image...</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:SaveBackground" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Save Background Image...</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:DisplayMasterBackground" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Master Background</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:DisplayMasterObjects" oor:op="replace">
@@ -1608,6 +1641,9 @@
       <node oor:name=".uno:CloseMasterView" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Close Master View</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:SendMailDocAsMS" oor:op="replace">
@@ -1735,6 +1771,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">P~age Number...</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:InsertSlideNumber" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -1769,10 +1808,16 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Slide ~Pane</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:LeftPaneDraw" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">~Page Pane</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:RightPane" oor:op="replace">
@@ -1804,9 +1849,25 @@
           <value>1</value>
         </prop>
       </node>
+      <node oor:name=".uno:SetOptimalColumnWidth" oor:op="replace">
+        <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">Optimal Column Width</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
+      </node>
       <node oor:name=".uno:DistributeColumns" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Distribute Columns Evenly</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
+      </node>
+      <node oor:name=".uno:SetOptimalRowHeight" oor:op="replace">
+        <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">Optimal Row Height</value>
         </prop>
         <prop oor:name="Properties" oor:type="xs:int">
           <value>1</value>

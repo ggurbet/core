@@ -198,11 +198,8 @@ bool lcl_HasRowOutline( const ScViewData& rViewData )
 ScTabView::ScTabView( vcl::Window* pParent, ScDocShell& rDocSh, ScTabViewShell* pViewShell ) :
     pFrameWin( pParent ),
     aViewData( &rDocSh, pViewShell ),
-    pSelEngine( nullptr ),
     aFunctionSet( &aViewData ),
-    pHdrSelEng( nullptr ),
     aHdrFunc( &aViewData ),
-    pDrawView( nullptr ),
     aVScrollTop( VclPtr<ScrollBar>::Create( pFrameWin, WinBits( WB_VSCROLL | WB_DRAG ) ) ),
     aVScrollBottom( VclPtr<ScrollBar>::Create( pFrameWin, WinBits( WB_VSCROLL | WB_DRAG ) ) ),
     aHScrollLeft( VclPtr<ScrollBar>::Create( pFrameWin, WinBits( WB_HSCROLL | WB_DRAG ) ) ),
@@ -211,9 +208,6 @@ ScTabView::ScTabView( vcl::Window* pParent, ScDocShell& rDocSh, ScTabViewShell* 
     aTopButton( VclPtr<ScCornerButton>::Create( pFrameWin, &aViewData, true ) ),
     aScrollBarBox( VclPtr<ScrollBarBox>::Create( pFrameWin, WB_SIZEABLE ) ),
     mxInputHintOO(),
-    pPageBreakData( nullptr ),
-    pBrushDocument( nullptr ),
-    pDrawBrushSet( nullptr ),
     pTimerWindow( nullptr ),
     aExtraEditViewManager( pViewShell, pGridWin ),
     nTipVisible( nullptr ),
@@ -1432,7 +1426,7 @@ void ScTabView::UpdateHeaderWidth( const ScVSplitPos* pWhich, const SCROW* pPosY
     }
 }
 
-inline void ShowHide( vcl::Window* pWin, bool bShow )
+static inline void ShowHide( vcl::Window* pWin, bool bShow )
 {
     OSL_ENSURE(pWin || !bShow, "window is not present");
     if (pWin)
@@ -2487,12 +2481,8 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
     SCTAB nTab = aViewData.GetTabNo();
     SCROW nStartRow = -1;
     SCROW nEndRow = -1;
-    long nStartHeightPx = 0;
-    long nEndHeightPx = 0;
     SCCOL nStartCol = -1;
     SCCOL nEndCol = -1;
-    long nStartWidthPx = 0;
-    long nEndWidthPx = 0;
 
     tools::Rectangle aOldVisArea(
             mnLOKStartHeaderCol + 1, mnLOKStartHeaderRow + 1,
@@ -2505,6 +2495,8 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
     if (rRectangle.Top() < rRectangle.Bottom())
     {
         SAL_INFO("sc.lok.header", "Row Header: compute start/end rows.");
+        long nStartHeightPx = 0;
+        long nEndHeightPx = 0;
         long nRectTopPx = rRectangle.Top() / TWIPS_PER_PIXEL;
         long nRectBottomPx = rRectangle.Bottom() / TWIPS_PER_PIXEL;
 
@@ -2647,6 +2639,8 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
     if (rRectangle.Left() < rRectangle.Right())
     {
         SAL_INFO("sc.lok.header", "Column Header: compute start/end columns.");
+        long nStartWidthPx = 0;
+        long nEndWidthPx = 0;
         long nRectLeftPx = rRectangle.Left() / TWIPS_PER_PIXEL;
         long nRectRightPx = rRectangle.Right() / TWIPS_PER_PIXEL;
 

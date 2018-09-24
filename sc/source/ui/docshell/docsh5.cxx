@@ -560,7 +560,7 @@ void ScDocShell::DoConsolidate( const ScConsolidateParam& rParam, bool bRecord )
     aData.GetSize( nColSize, nRowSize );
     if (bRecord && nColSize > 0 && nRowSize > 0)
     {
-        ScDBData* pUndoData = pDestData ? new ScDBData(*pDestData) : nullptr;
+        std::unique_ptr<ScDBData> pUndoData(pDestData ? new ScDBData(*pDestData) : nullptr);
 
         SCTAB nDestTab = rParam.nTab;
         ScArea aDestArea( rParam.nTab, rParam.nCol, rParam.nRow,
@@ -575,9 +575,9 @@ void ScDocShell::DoConsolidate( const ScConsolidateParam& rParam, bool bRecord )
 
             // old outlines
             ScOutlineTable* pTable = m_aDocument.GetOutlineTable( nDestTab );
-            ScOutlineTable* pUndoTab = pTable ? new ScOutlineTable( *pTable ) : nullptr;
+            std::unique_ptr<ScOutlineTable> pUndoTab(pTable ? new ScOutlineTable( *pTable ) : nullptr);
 
-            ScDocument* pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+            ScDocumentUniquePtr pUndoDoc(new ScDocument( SCDOCMODE_UNDO ));
             pUndoDoc->InitUndo( &m_aDocument, 0, nTabCount-1, false, true );
 
             // row state
@@ -598,12 +598,12 @@ void ScDocShell::DoConsolidate( const ScConsolidateParam& rParam, bool bRecord )
                 m_aDocument.CopyToDocument(aOldDest, InsertDeleteFlags::ALL, false, *pUndoDoc);
 
             GetUndoManager()->AddUndoAction(
-                    new ScUndoConsolidate( this, aDestArea, rParam, pUndoDoc,
-                                            true, nInsertCount, pUndoTab, pUndoData ) );
+                    new ScUndoConsolidate( this, aDestArea, rParam, std::move(pUndoDoc),
+                                            true, nInsertCount, std::move(pUndoTab), std::move(pUndoData) ) );
         }
         else
         {
-            ScDocument* pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+            ScDocumentUniquePtr pUndoDoc(new ScDocument( SCDOCMODE_UNDO ));
             pUndoDoc->InitUndo( &m_aDocument, aDestArea.nTab, aDestArea.nTab );
 
             m_aDocument.CopyToDocument(aDestArea.nColStart, aDestArea.nRowStart, aDestArea.nTab,
@@ -615,8 +615,8 @@ void ScDocShell::DoConsolidate( const ScConsolidateParam& rParam, bool bRecord )
                 m_aDocument.CopyToDocument(aOldDest, InsertDeleteFlags::ALL, false, *pUndoDoc);
 
             GetUndoManager()->AddUndoAction(
-                    new ScUndoConsolidate( this, aDestArea, rParam, pUndoDoc,
-                                            false, 0, nullptr, pUndoData ) );
+                    new ScUndoConsolidate( this, aDestArea, rParam, std::move(pUndoDoc),
+                                            false, 0, nullptr, std::move(pUndoData) ) );
         }
     }
 

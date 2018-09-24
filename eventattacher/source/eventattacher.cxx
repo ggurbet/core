@@ -84,7 +84,7 @@ private:
 
 
 // Function to replace AllListenerAdapterService::createAllListerAdapter
-Reference< XInterface > createAllListenerAdapter
+static Reference< XInterface > createAllListenerAdapter
 (
     const Reference< XInvocationAdapterFactory2 >& xInvocationAdapterFactory,
     const Reference< XIdlClass >& xListenerType,
@@ -276,7 +276,7 @@ EventAttacherImpl::EventAttacherImpl( const Reference< XComponentContext >& rxCo
 }
 
 /// @throws Exception
-Reference< XInterface > EventAttacherImpl_CreateInstance( const Reference< XMultiServiceFactory >& rSMgr )
+static Reference< XInterface > EventAttacherImpl_CreateInstance( const Reference< XMultiServiceFactory >& rSMgr )
 {
     XEventAttacher *pEventAttacher = static_cast<XEventAttacher*>(new EventAttacherImpl( comphelper::getComponentContext(rSMgr) ));
 
@@ -576,7 +576,7 @@ Reference<XEventListener> EventAttacherImpl::attachListenerForTarget(
     const OUString& aListenerType,
     const OUString& aAddListenerParam)
 {
-    Reference< XEventListener > xRet = nullptr;
+    Reference< XEventListener > xRet;
 
     // Construct the name of the addListener-Method.
     sal_Int32 nIndex = aListenerType.lastIndexOf('.');

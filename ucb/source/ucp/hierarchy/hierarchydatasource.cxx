@@ -31,12 +31,15 @@
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/interfacecontainer2.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/util/XChangesBatch.hpp>
 #include <com/sun/star/util/XChangesNotifier.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
+#include <ucbhelper/getcomponentcontext.hxx>
 
 using namespace com::sun::star;
 using namespace hierarchy_ucp;
@@ -175,8 +178,7 @@ using namespace hcp_impl;
 
 HierarchyDataSource::HierarchyDataSource(
         const uno::Reference< uno::XComponentContext > & rxContext )
-: m_xContext( rxContext ),
-  m_pDisposeEventListeners( nullptr )
+: m_xContext( rxContext )
 {
 }
 

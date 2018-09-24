@@ -28,6 +28,8 @@
 #include <com/sun/star/drawing/LineCap.hpp>
 #include <comphelper/random.hxx>
 
+#include <converters.hxx>
+
 using namespace com::sun::star;
 using namespace std;
 
@@ -291,6 +293,9 @@ namespace drawinglayer
             maLineAttribute(rLineAttribute),
             maStrokeAttribute(rStrokeAttribute)
         {
+            // simplify curve segments: moved here to not need to use it
+            // at VclPixelProcessor2D::tryDrawPolygonStrokePrimitive2DDirect
+            maPolygon = basegfx::utils::simplifyCurveSegments(maPolygon);
         }
 
         PolygonStrokePrimitive2D::PolygonStrokePrimitive2D(
@@ -301,6 +306,9 @@ namespace drawinglayer
             maLineAttribute(rLineAttribute),
             maStrokeAttribute()
         {
+            // simplify curve segments: moved here to not need to use it
+            // at VclPixelProcessor2D::tryDrawPolygonStrokePrimitive2DDirect
+            maPolygon = basegfx::utils::simplifyCurveSegments(maPolygon);
         }
 
         bool PolygonStrokePrimitive2D::operator==(const BasePrimitive2D& rPrimitive) const

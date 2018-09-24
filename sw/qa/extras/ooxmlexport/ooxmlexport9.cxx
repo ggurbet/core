@@ -172,6 +172,16 @@ DECLARE_OOXMLEXPORT_TEST(testTdf79272_strictDxa, "tdf79272_strictDxa.docx")
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(4318), getProperty<sal_Int32>(xTables->getByIndex(0), "Width"));
+
+     xmlDocPtr pXmlDoc = parseExport("word/styles.xml");
+     if (!pXmlDoc)
+         return;
+    // Validation test: order of elements was wrong. Order was: insideH, end, insideV.
+    int nEnd = getXPathPosition(pXmlDoc, "/w:styles/w:style[@w:styleId='TableGrid']/w:tblPr/w:tblBorders", "end");
+    int nInsideH = getXPathPosition(pXmlDoc, "/w:styles/w:style[@w:styleId='TableGrid']/w:tblPr/w:tblBorders", "insideH");
+    int nInsideV = getXPathPosition(pXmlDoc, "/w:styles/w:style[@w:styleId='TableGrid']/w:tblPr/w:tblBorders", "insideV");
+    CPPUNIT_ASSERT(nEnd < nInsideH);
+    CPPUNIT_ASSERT(nInsideH < nInsideV);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf109306, "tdf109306.docx")
@@ -580,6 +590,10 @@ DECLARE_OOXMLEXPORT_TEST(testTdf103982, "tdf103982.docx")
     sal_Int32 nDistB = getXPath(pXmlDoc, "//wp:anchor", "distB").toInt32();
     // This was -260350, which is not a valid value for an unsigned type.
     CPPUNIT_ASSERT(nDistB >= 0);
+
+    // tdf#115670 the shadow should not be enabled (no on="t")
+    uno::Reference<beans::XPropertySet> xPropertySet(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(!getProperty<bool>(xPropertySet, "Shadow"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf104115, "tdf104115.docx")
@@ -1237,14 +1251,22 @@ DECLARE_OOXMLEXPORT_TEST(testTdf104354_2, "tdf104354-2.docx")
 
     // bottom margin is not auto spacing
     uno::Reference<text::XTextRange> xCell3(xTable->getCellByName("A3"), uno::UNO_QUERY);
-    // FIXME next top margin will be 0 after fixing this, too
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494), getProperty<sal_Int32>(getParagraphOfText(1, xCell3->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell3->getText()), "ParaTopMargin"));
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(847), getProperty<sal_Int32>(getParagraphOfText(1, xCell3->getText()), "ParaBottomMargin"));
 
     // auto spacing, if the paragraph contains footnotes
     uno::Reference<text::XTextRange> xCell4(xTable->getCellByName("A4"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell4->getText()), "ParaTopMargin"));
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell4->getText()), "ParaBottomMargin"));
+
+    // auto spacing is explicitly disabled, and no margins are defined.
+    xCell.set(xTable->getCellByName("A5"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell->getText()), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(2, xCell->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(2, xCell->getText()), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(3, xCell->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(3, xCell->getText()), "ParaBottomMargin"));
 
     // auto spacing on a paragraph
     uno::Reference<text::XTextTable> xTable2(xTables->getByIndex(1), uno::UNO_QUERY);

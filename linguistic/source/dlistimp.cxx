@@ -32,6 +32,7 @@
 #include <unotools/ucbstreamhelper.hxx>
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/lang/Locale.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/linguistic2/DictionaryEventFlags.hpp>
 #include <com/sun/star/linguistic2/DictionaryListEventFlags.hpp>
@@ -363,7 +364,7 @@ sal_Int32 DicList::GetDicPos(const uno::Reference< XDictionary > &xDic)
 }
 
 /// @throws Exception
-uno::Reference< XInterface >
+static uno::Reference< XInterface >
     DicList_CreateInstance( const uno::Reference< XMultiServiceFactory > & /*rSMgr*/ )
 {
     uno::Reference< XInterface > xService = static_cast<cppu::OWeakObject *>(new DicList);

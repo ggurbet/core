@@ -174,8 +174,7 @@ FreetypeFontInfo::FreetypeFontInfo( const FontAttributes& rDevFontAttributes,
     mnFaceNum( nFaceNum ),
     mnRefCount( 0 ),
     mnFontId( nFontId ),
-    maDevFontAttributes( rDevFontAttributes ),
-    mxFontCharMap( nullptr )
+    maDevFontAttributes( rDevFontAttributes )
 {
     // prefer font with low ID
     maDevFontAttributes.IncreaseQualityBy( 10000 - nFontId );
@@ -757,7 +756,7 @@ private:
                     mpFlagAry;
 
     FT_Vector       maPosition;
-    sal_uInt16      mnMaxPoints;
+    sal_uInt16 const mnMaxPoints;
     sal_uInt16      mnPoints;
     sal_uInt16      mnPoly;
     bool            bHasOffline;

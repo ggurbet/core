@@ -196,8 +196,8 @@ bool SvXMLStyleContext::IsTransient() const
 
 class SvXMLStyleIndex_Impl
 {
-    OUString              sName;
-    sal_uInt16            nFamily;
+    OUString const              sName;
+    sal_uInt16 const            nFamily;
     const rtl::Reference<SvXMLStyleContext> mxStyle;
 
 public:
@@ -243,7 +243,7 @@ class SvXMLStylesContext_Impl
 
     std::vector<rtl::Reference<SvXMLStyleContext>> aStyles;
     mutable std::unique_ptr<IndicesType> pIndices;
-    bool bAutomaticStyle;
+    bool const bAutomaticStyle;
 
 #if OSL_DEBUG_LEVEL > 0
     mutable sal_uInt32 m_nIndexCreated;
@@ -747,8 +747,7 @@ SvXMLStylesContext::SvXMLStylesContext( SvXMLImport& rImport, sal_uInt16 nPrfx,
                                         const OUString& rLName,
                                         const uno::Reference< xml::sax::XAttributeList > &, bool bAuto ) :
     SvXMLImportContext( rImport, nPrfx, rLName ),
-    mpImpl( new SvXMLStylesContext_Impl( bAuto ) ),
-    mpStyleStylesElemTokenMap( nullptr )
+    mpImpl( new SvXMLStylesContext_Impl( bAuto ) )
 {
 }
 

@@ -44,6 +44,7 @@ public:
     virtual void set_visible(bool visible) = 0;
     virtual bool get_visible() const = 0; //if this widget visibility is true
     virtual bool is_visible() const = 0; //if this widget visibility and all parents is true
+    virtual void set_can_focus(bool bCanFocus) = 0;
     virtual void grab_focus() = 0;
     virtual bool has_focus() const = 0;
     virtual void set_has_default(bool has_default) = 0;
@@ -58,6 +59,7 @@ public:
             hide();
     }
     virtual void set_size_request(int nWidth, int nHeight) = 0;
+    virtual Size get_size_request() const = 0;
     virtual Size get_preferred_size() const = 0;
     virtual float get_approximate_digit_width() const = 0;
     virtual int get_text_height() const = 0;
@@ -81,6 +83,8 @@ public:
 
     virtual void set_accessible_name(const OUString& rName) = 0;
     virtual OUString get_accessible_name() const = 0;
+
+    virtual OUString get_accessible_description() const = 0;
 
     virtual void set_tooltip_text(const OUString& rTip) = 0;
 
@@ -135,6 +139,8 @@ public:
     virtual void vadjustment_set_value(int value) = 0;
     virtual int vadjustment_get_upper() const = 0;
     virtual void vadjustment_set_upper(int upper) = 0;
+    virtual void set_hpolicy(VclPolicyType eHPolicy) = 0;
+    virtual VclPolicyType get_hpolicy() const = 0;
     virtual void set_vpolicy(VclPolicyType eVPolicy) = 0;
     virtual VclPolicyType get_vpolicy() const = 0;
     void connect_vadjustment_changed(const Link<ScrolledWindow&, void>& rLink)
@@ -238,53 +244,63 @@ public:
     virtual Container* weld_message_area() = 0;
 };
 
-class VCL_DLLPUBLIC ComboBoxText : virtual public Container
+class VCL_DLLPUBLIC ComboBox : virtual public Container
 {
 private:
     OUString m_sSavedValue;
 
 protected:
-    Link<ComboBoxText&, void> m_aChangeHdl;
-    Link<ComboBoxText&, void> m_aEntryActivateHdl;
+    Link<ComboBox&, void> m_aChangeHdl;
+    Link<ComboBox&, void> m_aEntryActivateHdl;
 
     void signal_changed() { m_aChangeHdl.Call(*this); }
 
 public:
-    virtual int get_active() const = 0;
-    virtual void set_active(int pos) = 0;
-    virtual OUString get_active_text() const = 0;
-    virtual OUString get_active_id() const = 0;
-    virtual void set_active_id(const OUString& rStr) = 0;
-    virtual OUString get_text(int pos) const = 0;
-    virtual OUString get_id(int pos) const = 0;
     virtual void insert_text(int pos, const OUString& rStr) = 0;
     void append_text(const OUString& rStr) { insert_text(-1, rStr); }
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr) = 0;
-    void append(const OUString& rId, const OUString& rStr) { insert(-1, rId, rStr); }
-    virtual void remove(int pos) = 0;
-    void remove_text(const OUString& rText) { remove(find_text(rText)); }
-    virtual int find_text(const OUString& rStr) const = 0;
-    void remove_id(const OUString& rId) { remove(find_id(rId)); }
-    virtual int find_id(const OUString& rId) const = 0;
+    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage)
+        = 0;
+    void append(const OUString& rId, const OUString& rStr) { insert(-1, rId, rStr, nullptr); }
+    void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
+    {
+        insert(-1, rId, rStr, &rImage);
+    }
+
     virtual int get_count() const = 0;
     virtual void make_sorted() = 0;
     virtual void clear() = 0;
 
-    virtual void set_entry_error(bool bError) = 0;
+    //by index
+    virtual int get_active() const = 0;
+    virtual void set_active(int pos) = 0;
+    virtual void remove(int pos) = 0;
 
-    void connect_changed(const Link<ComboBoxText&, void>& rLink) { m_aChangeHdl = rLink; }
-
+    //by text
+    virtual OUString get_active_text() const = 0;
     void set_active_text(const OUString& rStr) { set_active(find_text(rStr)); }
+    virtual OUString get_text(int pos) const = 0;
+    virtual int find_text(const OUString& rStr) const = 0;
+    void remove_text(const OUString& rText) { remove(find_text(rText)); }
 
+    //by id
+    virtual OUString get_active_id() const = 0;
+    virtual void set_active_id(const OUString& rStr) = 0;
+    virtual OUString get_id(int pos) const = 0;
+    virtual int find_id(const OUString& rId) const = 0;
+    void remove_id(const OUString& rId) { remove(find_id(rId)); }
+
+    void connect_changed(const Link<ComboBox&, void>& rLink) { m_aChangeHdl = rLink; }
+
+    //entry related
+    virtual bool has_entry() const = 0;
+    virtual void set_entry_error(bool bError) = 0;
     virtual void set_entry_text(const OUString& rStr) = 0;
+    virtual void set_entry_width_chars(int nChars) = 0;
     virtual void select_entry_region(int nStartPos, int nEndPos) = 0;
     virtual bool get_entry_selection_bounds(int& rStartPos, int& rEndPos) = 0;
     virtual void set_entry_completion(bool bEnable) = 0;
 
-    void connect_entry_activate(const Link<ComboBoxText&, void>& rLink)
-    {
-        m_aEntryActivateHdl = rLink;
-    }
+    void connect_entry_activate(const Link<ComboBox&, void>& rLink) { m_aEntryActivateHdl = rLink; }
 
     void save_value() { m_sSavedValue = get_active_text(); }
     OUString const& get_saved_value() const { return m_sSavedValue; }
@@ -302,12 +318,13 @@ protected:
 
 public:
     virtual void insert_text(const OUString& rText, int pos) = 0;
-    virtual void append_text(const OUString& rText) { insert_text(rText, -1); }
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString& rImage)
+    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage)
         = 0;
-    virtual void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
+    void append_text(const OUString& rText) { insert_text(rText, -1); }
+    void append(const OUString& rId, const OUString& rStr) { insert(-1, rId, rStr, nullptr); }
+    void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
     {
-        insert(-1, rId, rStr, rImage);
+        insert(-1, rId, rStr, &rImage);
     }
 
     virtual int n_children() const = 0;
@@ -331,7 +348,11 @@ public:
     //by text
     virtual OUString get_text(int pos) const = 0;
     virtual int find_text(const OUString& rText) const = 0;
-    OUString get_selected_text() const { return get_text(get_selected_index()); }
+    OUString get_selected_text() const
+    {
+        int index = get_selected_index();
+        return index != -1 ? get_text(index) : OUString();
+    }
     void select_text(const OUString& rText) { select(find_text(rText)); }
     void remove_text(const OUString& rText) { remove(find_text(rText)); }
     std::vector<OUString> get_selected_rows_text() const
@@ -364,7 +385,9 @@ protected:
 
 public:
     virtual void set_label(const OUString& rText) = 0;
-    virtual void set_image(VirtualDevice& rDevice) = 0;
+    // pDevice, the image for the button, or nullptr to unset
+    virtual void set_image(VirtualDevice* pDevice) = 0;
+    virtual void set_from_icon_name(const OUString& rIconName) = 0;
     virtual OUString get_label() const = 0;
     void clicked() { signal_clicked(); }
 
@@ -483,12 +506,16 @@ public:
     virtual void set_text(const OUString& rText) = 0;
     virtual OUString get_text() const = 0;
     virtual void set_width_chars(int nChars) = 0;
+    virtual int get_width_chars() const = 0;
     virtual void set_max_length(int nChars) = 0;
     // nEndPos can be -1 in order to select all text
     virtual void select_region(int nStartPos, int nEndPos) = 0;
     virtual bool get_selection_bounds(int& rStartPos, int& rEndPos) = 0;
     virtual void set_position(int nCursorPos) = 0;
+    virtual int get_position() const = 0;
     virtual void set_editable(bool bEditable) = 0;
+    virtual bool get_editable() const = 0;
+    virtual void set_error(bool bShowError) = 0;
 
     virtual vcl::Font get_font() = 0;
     virtual void set_font(const vcl::Font& rFont) = 0;
@@ -574,6 +601,92 @@ public:
     static unsigned int Power10(unsigned int n);
 };
 
+class VCL_DLLPUBLIC Image : virtual public Widget
+{
+public:
+    virtual void set_from_icon_name(const OUString& rIconName) = 0;
+};
+
+// an entry + treeview pair, where the entry autocompletes from the
+// treeview list, and selecting something in the list sets the
+// entry to that text, i.e. a visually exploded ComboBox
+class VCL_DLLPUBLIC EntryTreeView : virtual public ComboBox
+{
+private:
+    DECL_DLLPRIVATE_LINK(ClickHdl, weld::TreeView&, void);
+    DECL_DLLPRIVATE_LINK(ModifyHdl, weld::Entry&, void);
+    void EntryModifyHdl(weld::Entry& rEntry);
+
+protected:
+    std::unique_ptr<Entry> m_xEntry;
+    std::unique_ptr<TreeView> m_xTreeView;
+
+public:
+    EntryTreeView(std::unique_ptr<Entry> xEntry, std::unique_ptr<TreeView> xTreeView);
+
+    virtual void insert_text(int pos, const OUString& rStr) override
+    {
+        m_xTreeView->insert_text(rStr, pos);
+    }
+    virtual void insert(int pos, const OUString& rId, const OUString& rStr,
+                        const OUString* pImage) override
+    {
+        m_xTreeView->insert(pos, rId, rStr, pImage);
+    }
+
+    virtual int get_count() const override { return m_xTreeView->n_children(); }
+    virtual void clear() override { m_xTreeView->clear(); }
+
+    //by index
+    virtual int get_active() const override { return m_xTreeView->get_selected_index(); }
+    virtual void set_active(int pos) override
+    {
+        m_xTreeView->select(pos);
+        m_xEntry->set_text(m_xTreeView->get_selected_text());
+    }
+    virtual void remove(int pos) override { m_xTreeView->remove(pos); }
+
+    //by text
+    virtual OUString get_active_text() const override { return m_xEntry->get_text(); }
+    virtual OUString get_text(int pos) const override { return m_xTreeView->get_text(pos); }
+    virtual int find_text(const OUString& rStr) const override
+    {
+        return m_xTreeView->find_text(rStr);
+    }
+
+    //by id
+    virtual OUString get_active_id() const override { return m_xTreeView->get_selected_id(); }
+    virtual void set_active_id(const OUString& rStr) override
+    {
+        m_xTreeView->select_id(rStr);
+        m_xEntry->set_text(m_xTreeView->get_selected_text());
+    }
+    virtual OUString get_id(int pos) const override { return m_xTreeView->get_id(pos); }
+    virtual int find_id(const OUString& rId) const override { return m_xTreeView->find_id(rId); }
+
+    //entry related
+    virtual bool has_entry() const override { return true; }
+    virtual void set_entry_error(bool bError) override { m_xEntry->set_error(bError); }
+    virtual void set_entry_text(const OUString& rStr) override { m_xEntry->set_text(rStr); }
+    virtual void set_entry_width_chars(int nChars) override { m_xEntry->set_width_chars(nChars); }
+    virtual void select_entry_region(int nStartPos, int nEndPos) override
+    {
+        m_xEntry->select_region(nStartPos, nEndPos);
+    }
+    //if not text was selected, both rStartPos and rEndPos will be identical
+    //and false will be returned
+    virtual bool get_entry_selection_bounds(int& rStartPos, int& rEndPos) override
+    {
+        return m_xEntry->get_selection_bounds(rStartPos, rEndPos);
+    }
+    void connect_row_activated(const Link<TreeView&, void>& rLink)
+    {
+        m_xTreeView->connect_row_activated(rLink);
+    }
+
+    void set_height_request_by_rows(int nRows);
+};
+
 class VCL_DLLPUBLIC MetricSpinButton
 {
 protected:
@@ -601,7 +714,10 @@ public:
         m_xSpinButton->connect_input(LINK(this, MetricSpinButton, spin_button_input));
         m_xSpinButton->connect_value_changed(
             LINK(this, MetricSpinButton, spin_button_value_changed));
+        spin_button_output(*m_xSpinButton);
     }
+
+    static OUString MetricToString(FieldUnit rUnit);
 
     FieldUnit get_unit() const { return m_eSrcUnit; }
 
@@ -716,6 +832,7 @@ public:
     {
         m_xSpinButton->set_size_request(nWidth, nHeight);
     }
+    Size get_size_request() const { return m_xSpinButton->get_size_request(); }
     Size get_preferred_size() const { return m_xSpinButton->get_preferred_size(); }
     void connect_focus_in(const Link<Widget&, void>& rLink)
     {
@@ -733,7 +850,7 @@ public:
 class VCL_DLLPUBLIC TimeSpinButton
 {
 protected:
-    TimeFieldFormat m_eFormat;
+    TimeFieldFormat const m_eFormat;
     std::unique_ptr<weld::SpinButton> m_xSpinButton;
     Link<TimeSpinButton&, void> m_aValueChangedHdl;
 
@@ -760,6 +877,7 @@ public:
         m_xSpinButton->connect_value_changed(LINK(this, TimeSpinButton, spin_button_value_changed));
         m_xSpinButton->connect_cursor_position(
             LINK(this, TimeSpinButton, spin_button_cursor_position));
+        spin_button_output(*m_xSpinButton);
     }
 
     void set_value(const tools::Time& rTime) { m_xSpinButton->set_value(ConvertValue(rTime)); }
@@ -845,6 +963,7 @@ protected:
     Link<const KeyEvent&, bool> m_aKeyPressHdl;
     Link<const KeyEvent&, bool> m_aKeyReleaseHdl;
     Link<Widget&, void> m_aStyleUpdatedHdl;
+    Link<const Point&, bool> m_aPopupMenuHdl;
     Link<Widget&, tools::Rectangle> m_aGetFocusRectHdl;
     Link<tools::Rectangle&, OUString> m_aQueryTooltipHdl;
 
@@ -871,6 +990,7 @@ public:
     void connect_key_press(const Link<const KeyEvent&, bool>& rLink) { m_aKeyPressHdl = rLink; }
     void connect_key_release(const Link<const KeyEvent&, bool>& rLink) { m_aKeyReleaseHdl = rLink; }
     void connect_style_updated(const Link<Widget&, void>& rLink) { m_aStyleUpdatedHdl = rLink; }
+    void connect_popup_menu(const Link<const Point&, bool>& rLink) { m_aPopupMenuHdl = rLink; }
     void connect_focus_rect(const Link<Widget&, tools::Rectangle>& rLink)
     {
         m_aGetFocusRectHdl = rLink;
@@ -961,8 +1081,7 @@ public:
     virtual std::unique_ptr<TimeSpinButton>
     weld_time_spin_button(const OString& id, TimeFieldFormat eFormat, bool bTakeOwnership = false)
         = 0;
-    virtual std::unique_ptr<ComboBoxText> weld_combo_box_text(const OString& id,
-                                                              bool bTakeOwnership = false)
+    virtual std::unique_ptr<ComboBox> weld_combo_box(const OString& id, bool bTakeOwnership = false)
         = 0;
     virtual std::unique_ptr<TreeView> weld_tree_view(const OString& id, bool bTakeOwnership = false)
         = 0;
@@ -976,10 +1095,15 @@ public:
     virtual std::unique_ptr<ProgressBar> weld_progress_bar(const OString& id,
                                                            bool bTakeOwnership = false)
         = 0;
+    virtual std::unique_ptr<Image> weld_image(const OString& id, bool bTakeOwnership = false) = 0;
     virtual std::unique_ptr<DrawingArea>
     weld_drawing_area(const OString& id, const a11yref& rA11yImpl = nullptr,
                       FactoryFunction pUITestFactoryFunction = nullptr, void* pUserData = nullptr,
                       bool bTakeOwnership = false)
+        = 0;
+    virtual std::unique_ptr<EntryTreeView>
+    weld_entry_tree_view(const OString& containerid, const OString& entryid,
+                         const OString& treeviewid, bool bTakeOwnership = false)
         = 0;
     virtual std::unique_ptr<Menu> weld_menu(const OString& id, bool bTakeOwnership = true) = 0;
     virtual std::unique_ptr<SizeGroup> create_size_group() = 0;

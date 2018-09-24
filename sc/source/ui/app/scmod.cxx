@@ -144,21 +144,6 @@ ScModule::ScModule( SfxObjectFactory* pFact ) :
     m_pSelTransfer( nullptr ),
     m_pMessagePool( nullptr ),
     m_pRefInputHandler( nullptr ),
-    m_pViewCfg( nullptr ),
-    m_pDocCfg( nullptr ),
-    m_pAppCfg( nullptr ),
-    m_pDefaultsCfg( nullptr ),
-    m_pFormulaCfg( nullptr ),
-    m_pInputCfg( nullptr ),
-    m_pPrintCfg( nullptr ),
-    m_pNavipiCfg( nullptr ),
-    m_pAddInCfg( nullptr ),
-    m_pColorConfig( nullptr ),
-    m_pAccessOptions( nullptr ),
-    m_pCTLOptions( nullptr ),
-    m_pUserOptions( nullptr ),
-    m_pErrorHdl( nullptr ),
-    m_pFormEditData( nullptr ),
     m_nCurRefDlgId( 0 ),
     m_bIsWaterCan( false ),
     m_bIsInEditCommand( false ),
@@ -1784,7 +1769,7 @@ void ScModule::EndReference()
  */
 void ScModule::AnythingChanged()
 {
-    sal_uLong nOldTime = m_aIdleTimer.GetTimeout();
+    sal_uInt64 nOldTime = m_aIdleTimer.GetTimeout();
     if ( nOldTime != SC_IDLE_MIN )
         m_aIdleTimer.SetTimeout( SC_IDLE_MIN );
 
@@ -1849,8 +1834,8 @@ IMPL_LINK_NOARG(ScModule, IdleHandler, Timer *, void)
         }
     }
 
-    sal_uLong nOldTime = m_aIdleTimer.GetTimeout();
-    sal_uLong nNewTime = nOldTime;
+    sal_uInt64 nOldTime = m_aIdleTimer.GetTimeout();
+    sal_uInt64 nNewTime = nOldTime;
     if ( bMore )
     {
         nNewTime = SC_IDLE_MIN;
@@ -2040,7 +2025,7 @@ VclPtr<SfxTabPage> ScModule::CreateTabPage( sal_uInt16 nId, TabPageParent pParen
             break;
         }
         case SID_SC_TP_GRID:
-            pRet = SvxGridTabPage::Create(pParent.pParent, rSet);
+            pRet = SvxGridTabPage::Create(pParent, rSet);
             break;
         case SID_SC_TP_USERLISTS:
         {

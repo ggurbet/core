@@ -531,10 +531,10 @@ public:
     virtual VclPtr<SfxAbstractTabDialog> CreateScSubTotalDlg( vcl::Window*             pParent,
                                                         const SfxItemSet*   pArgSet ) = 0;
 
-    virtual VclPtr<SfxAbstractTabDialog> CreateScCharDlg(vcl::Window* pParent,
+    virtual VclPtr<SfxAbstractTabDialog> CreateScCharDlg(weld::Window* pParent,
         const SfxItemSet* pAttr, const SfxObjectShell* pDocShell) = 0;
 
-    virtual VclPtr<SfxAbstractTabDialog> CreateScParagraphDlg(vcl::Window* pParent,
+    virtual VclPtr<SfxAbstractTabDialog> CreateScParagraphDlg(weld::Window* pParent,
         const SfxItemSet* pAttr) = 0;
 
     virtual VclPtr<SfxAbstractTabDialog> CreateScSortDlg(weld::Window* pParent, const SfxItemSet* pArgSet) = 0;

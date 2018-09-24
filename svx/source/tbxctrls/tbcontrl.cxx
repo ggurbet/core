@@ -1385,7 +1385,7 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
     , mxColorSet(new ColorValueSet(m_xBuilder->weld_scrolled_window("colorsetwin")))
     , mxRecentColorSet(new ColorValueSet(nullptr))
     , mxTopLevel(m_xBuilder->weld_container("palette_popup_window"))
-    , mxPaletteListBox(m_xBuilder->weld_combo_box_text("palette_listbox"))
+    , mxPaletteListBox(m_xBuilder->weld_combo_box("palette_listbox"))
     , mxButtonAutoColor(m_xBuilder->weld_button("auto_color_button"))
     , mxButtonNoneColor(m_xBuilder->weld_button("none_color_button"))
     , mxButtonPicker(m_xBuilder->weld_button("color_picker_button"))
@@ -1452,6 +1452,7 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
     mxColorSet->SetSelectHdl(LINK( this, ColorWindow, SelectHdl));
     mxRecentColorSet->SetSelectHdl(LINK( this, ColorWindow, SelectHdl));
     mxTopLevel->set_help_id(HID_POPUP_COLOR);
+    mxTopLevel->connect_focus_in(LINK(this, ColorWindow, FocusHdl));
     mxColorSet->SetHelpId(HID_POPUP_COLOR_CTRL);
 
     mxPaletteManager->ReloadColorSet(*mxColorSet);
@@ -1466,9 +1467,19 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
     AddStatusListener( ".uno:ColorTableState" );
 }
 
+IMPL_LINK_NOARG(ColorWindow, FocusHdl, weld::Widget&, void)
+{
+    mxColorSet->GrabFocus();
+}
+
 void SvxColorWindow::ShowNoneButton()
 {
     mpButtonNoneColor->Show();
+}
+
+void ColorWindow::ShowNoneButton()
+{
+    mxButtonNoneColor->show();
 }
 
 SvxColorWindow::~SvxColorWindow()
@@ -1633,7 +1644,7 @@ IMPL_LINK_NOARG(SvxColorWindow, SelectPaletteHdl, ListBox&, void)
     mpColorSet->layoutToGivenHeight(mpColorSet->GetSizePixel().Height(), mxPaletteManager->GetColorCount());
 }
 
-IMPL_LINK_NOARG(ColorWindow, SelectPaletteHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(ColorWindow, SelectPaletteHdl, weld::ComboBox&, void)
 {
     int nPos = mxPaletteListBox->get_active();
     mxPaletteManager->SetPalette( nPos );
@@ -1735,6 +1746,15 @@ bool SvxColorWindow::IsNoSelection() const
     if (!mpRecentColorSet->IsNoSelection())
         return false;
     return !mpButtonAutoColor->IsVisible() && !mpButtonNoneColor->IsVisible();
+}
+
+bool ColorWindow::IsNoSelection() const
+{
+    if (!mxColorSet->IsNoSelection())
+        return false;
+    if (!mxRecentColorSet->IsNoSelection())
+        return false;
+    return !mxButtonAutoColor->get_visible() && !mxButtonNoneColor->get_visible();
 }
 
 void SvxColorWindow::statusChanged( const css::frame::FeatureStateEvent& rEvent )
@@ -2504,13 +2524,14 @@ struct SvxStyleToolBoxControl::Impl
                     xParaStyles;
                 static const std::vector<OUString> aWriterStyles =
                 {
+                    "Standard",
                     "Text body",
-                    "Quotations",
                     "Title",
                     "Subtitle",
                     "Heading 1",
                     "Heading 2",
-                    "Heading 3"
+                    "Heading 3",
+                    "Quotations"
                 };
                 for( const OUString& aStyle: aWriterStyles )
                 {
@@ -3586,6 +3607,16 @@ void SvxColorListBox::SetSlotId(sal_uInt16 nSlotId, bool bShowNoneButton)
     createColorWindow();
 }
 
+void ColorListBox::SetSlotId(sal_uInt16 nSlotId, bool bShowNoneButton)
+{
+    m_nSlotId = nSlotId;
+    m_bShowNoneButton = bShowNoneButton;
+    m_xColorWindow.reset();
+    m_aSelectedColor = bShowNoneButton ? GetNoneColor() : GetAutoColor(m_nSlotId);
+    ShowPreview(m_aSelectedColor);
+    createColorWindow();
+}
+
 //to avoid the box resizing every time the color is changed to
 //the optimal size of the individual color, get the longest
 //standard color and stick with that as the size for all
@@ -3734,14 +3765,15 @@ void SvxColorListBox::SelectEntry(const Color& rColor)
     ShowPreview(m_aSelectedColor);
 }
 
-ColorListBox::ColorListBox(std::unique_ptr<weld::MenuButton> pControl, weld::Window* pTopLevel, bool bInterimBuilder)
+ColorListBox::ColorListBox(std::unique_ptr<weld::MenuButton> pControl, weld::Window* pTopLevel)
     : m_xButton(std::move(pControl))
     , m_pTopLevel(pTopLevel)
     , m_aColorWrapper(this)
     , m_aAutoDisplayColor(Application::GetSettings().GetStyleSettings().GetDialogColor())
-    , m_bInterimBuilder(bInterimBuilder)
+    , m_nSlotId(0)
+    , m_bShowNoneButton(false)
 {
-    m_aSelectedColor = GetAutoColor(0);
+    m_aSelectedColor = GetAutoColor(m_nSlotId);
     LockWidthRequest();
     ShowPreview(m_aSelectedColor);
 }
@@ -3768,15 +3800,17 @@ void ColorListBox::createColorWindow()
     m_xColorWindow.reset(new ColorWindow(
                             m_xPaletteManager,
                             m_aBorderColorStatus,
-                            0, // slotID
+                            m_nSlotId,
                             xFrame,
                             m_pTopLevel,
                             m_xButton.get(),
-                            m_bInterimBuilder,
+                            /*bInterimBuilder*/false,
                             m_aColorWrapper));
 
     SetNoSelection();
     m_xButton->set_popover(m_xColorWindow->GetWidget());
+    if (m_bShowNoneButton)
+        m_xColorWindow->ShowNoneButton();
     m_xColorWindow->SelectEntry(m_aSelectedColor);
 }
 
@@ -3826,45 +3860,26 @@ void ColorListBox::ShowPreview(const NamedColor &rColor)
     ScopedVclPtrInstance<VirtualDevice> xDevice;
     xDevice->SetOutputSize(aImageSize);
     const tools::Rectangle aRect(Point(0, 0), aImageSize);
-    if (rColor.first == COL_AUTO)
-        xDevice->SetFillColor(m_aAutoDisplayColor);
+    if (m_bShowNoneButton && rColor.first == COL_NONE_COLOR)
+    {
+        const Color aW(COL_WHITE);
+        const Color aG(0xef, 0xef, 0xef);
+        xDevice->DrawCheckered(aRect.TopLeft(), aRect.GetSize(), 8, aW, aG);
+        xDevice->SetFillColor();
+    }
     else
-        xDevice->SetFillColor(rColor.first);
+    {
+        if (rColor.first == COL_AUTO)
+            xDevice->SetFillColor(m_aAutoDisplayColor);
+        else
+            xDevice->SetFillColor(rColor.first);
+    }
 
     xDevice->SetLineColor(rStyleSettings.GetDisableColor());
     xDevice->DrawRect(aRect);
 
-    m_xButton->set_image(*xDevice);
+    m_xButton->set_image(xDevice.get());
     m_xButton->set_label(rColor.second);
-}
-
-SvxColorListBoxWrapper::SvxColorListBoxWrapper(SvxColorListBox& rListBox)
-    : sfx::SingleControlWrapper<SvxColorListBox, Color>(rListBox)
-{
-}
-
-SvxColorListBoxWrapper::~SvxColorListBoxWrapper()
-{
-}
-
-bool SvxColorListBoxWrapper::IsControlDontKnow() const
-{
-    return GetControl().IsNoSelection();
-}
-
-void SvxColorListBoxWrapper::SetControlDontKnow( bool bSet )
-{
-    if( bSet ) GetControl().SetNoSelection();
-}
-
-Color SvxColorListBoxWrapper::GetControlValue() const
-{
-    return GetControl().GetSelectEntryColor();
-}
-
-void SvxColorListBoxWrapper::SetControlValue( Color aColor )
-{
-    GetControl().SelectEntry( aColor );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

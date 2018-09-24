@@ -29,6 +29,7 @@
 
 #include <cppuhelper/factory.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <iostream>
 #include <algorithm>
 #include <rtl/math.hxx>
@@ -90,7 +91,7 @@ void sca::pricing::InitScaFuncDataList(ScaFuncDataList& rList)
 }
 
 // entry points for service registration / instantiation
-uno::Reference< uno::XInterface > ScaPricingAddIn_CreateInstance(
+static uno::Reference< uno::XInterface > ScaPricingAddIn_CreateInstance(
         const uno::Reference< lang::XMultiServiceFactory >& )
 {
     return static_cast<cppu::OWeakObject*>(new ScaPricingAddIn());
@@ -125,9 +126,7 @@ SAL_DLLPUBLIC_EXPORT void * pricing_component_getFactory(
 }   // extern C
 
 //  "normal" service implementation
-ScaPricingAddIn::ScaPricingAddIn() :
-    pDefLocales( nullptr ),
-    pFuncDataList( nullptr )
+ScaPricingAddIn::ScaPricingAddIn()
 {
 }
 

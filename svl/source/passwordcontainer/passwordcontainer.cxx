@@ -30,6 +30,7 @@
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/task/MasterPasswordRequest.hpp>
 #include <com/sun/star/task/NoMasterException.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <osl/diagnose.h>
 #include <rtl/character.hxx>
@@ -368,8 +369,7 @@ void StorageItem::ImplCommit()
 }
 
 
-PasswordContainer::PasswordContainer( const Reference<XMultiServiceFactory>& xServiceFactory ):
-    m_pStorageFile( nullptr )
+PasswordContainer::PasswordContainer( const Reference<XMultiServiceFactory>& xServiceFactory )
 {
     // m_pStorageFile->Notify() can be called
     ::osl::MutexGuard aGuard( mMutex );

@@ -52,7 +52,6 @@
 #include <vcl/cursor.hxx>
 #include <vcl/settings.hxx>
 #include <tools/urlobj.hxx>
-#include <comphelper/string.hxx>
 #include <formula/formulahelper.hxx>
 #include <formula/funcvarargs.h>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -479,7 +478,7 @@ void ScInputHandler::DeleteRangeFinder()
     }
 }
 
-inline OUString GetEditText(const EditEngine* pEng)
+static inline OUString GetEditText(const EditEngine* pEng)
 {
     return ScEditUtil::GetSpaceDelimitedString(*pEng);
 }
@@ -589,12 +588,8 @@ static sal_Int32 lcl_MatchParenthesis( const OUString& rStr, sal_Int32 nPos )
 
 ScInputHandler::ScInputHandler()
     :   pInputWin( nullptr ),
-        mpEditEngine( nullptr ),
         pTableView( nullptr ),
         pTopView( nullptr ),
-        pColumnData( nullptr ),
-        pFormulaData( nullptr ),
-        pFormulaDataPara( nullptr ),
         pTipVisibleParent( nullptr ),
         nTipVisible( nullptr ),
         pTipVisibleSecParent( nullptr ),
@@ -624,10 +619,6 @@ ScInputHandler::ScInputHandler()
         aScaleY( 1,1 ),
         pRefViewSh( nullptr ),
         pLastPattern( nullptr ),
-        pEditDefaults( nullptr ),
-        pLastState( nullptr ),
-        pDelayTimer( nullptr ),
-        pRangeFindList( nullptr ),
         maFormulaChar()
 {
     //  The InputHandler is constructed with the view, so SfxViewShell::Current
@@ -813,8 +804,8 @@ void ScInputHandler::GetFormulaData()
 
         const OUString aParenthesesReplacement( cParenthesesReplacement);
         const ScFunctionList* pFuncList = ScGlobal::GetStarCalcFunctionList();
-        sal_uLong nListCount = pFuncList->GetCount();
-        for(sal_uLong i=0;i<nListCount;i++)
+        sal_uInt32 nListCount = pFuncList->GetCount();
+        for(sal_uInt32 i=0;i<nListCount;i++)
         {
             const ScFuncDesc* pDesc = pFuncList->GetFunction( i );
             if ( pDesc->mxFuncName )
@@ -875,6 +866,16 @@ void ScInputHandler::HideTipBelow()
     aManualTip.clear();
 }
 
+namespace
+{
+
+bool lcl_hasSingleToken(const OUString& s, sal_Unicode c)
+{
+    return !s.isEmpty() && s.indexOf(c)<0;
+}
+
+}
+
 void ScInputHandler::ShowArgumentsTip( OUString& rSelText )
 {
     ScDocShell* pDocSh = pActiveViewSh->GetViewData().GetDocShell();
@@ -917,12 +918,10 @@ void ScInputHandler::ShowArgumentsTip( OUString& rSelText )
                         }
                         if( bFlag )
                         {
-                            sal_Int32 nCountSemicolon = comphelper::string::getTokenCount(aNew, cSep) - 1;
-                            sal_Int32 nCountDot = comphelper::string::getTokenCount(aNew, cSheetSep) - 1;
                             sal_Int32 nStartPosition = 0;
                             sal_Int32 nEndPosition = 0;
 
-                            if( !nCountSemicolon )
+                            if( lcl_hasSingleToken(aNew, cSep) )
                             {
                                 for (sal_Int32 i = 0; i < aNew.getLength(); ++i)
                                 {
@@ -933,7 +932,7 @@ void ScInputHandler::ShowArgumentsTip( OUString& rSelText )
                                     }
                                 }
                             }
-                            else if( !nCountDot )
+                            else if( lcl_hasSingleToken(aNew, cSheetSep) )
                             {
                                 sal_uInt16 nCount = 0;
                                 for (sal_Int32 i = 0; i < aNew.getLength(); ++i)
@@ -1428,7 +1427,7 @@ static OUString lcl_Calculate( const OUString& rFormula, ScDocument* pDoc, const
     if ( pCalc->IsValue() )
     {
         double n = pCalc->GetValue();
-        sal_uLong nFormat = aFormatter.GetStandardFormat( n, 0,
+        sal_uInt32 nFormat = aFormatter.GetStandardFormat( n, 0,
                 pCalc->GetFormatType(), ScGlobal::eLnge );
         aFormatter.GetInputLineString( n, nFormat, aValue );
         //! display OutputString but insert InputLineString
@@ -1436,7 +1435,7 @@ static OUString lcl_Calculate( const OUString& rFormula, ScDocument* pDoc, const
     else
     {
         OUString aStr = pCalc->GetString().getString();
-        sal_uLong nFormat = aFormatter.GetStandardFormat(
+        sal_uInt32 nFormat = aFormatter.GetStandardFormat(
                 pCalc->GetFormatType(), ScGlobal::eLnge);
         {
             Color* pColor;
@@ -2072,7 +2071,7 @@ bool ScInputHandler::StartTable( sal_Unicode cTyped, bool bFromCommand, bool bIn
 
                 if ( SfxItemState::SET == rAttrSet.GetItemState( ATTR_VALUE_FORMAT, true, &pItem ) )
                 {
-                    sal_uLong nFormat = static_cast<const SfxUInt32Item*>(pItem)->GetValue();
+                    sal_uInt32 nFormat = static_cast<const SfxUInt32Item*>(pItem)->GetValue();
                     bCellHasPercentFormat = ( SvNumFormatType::PERCENT ==
                                               rDoc.GetFormatTable()->GetType( nFormat ) );
                 }
@@ -4049,7 +4048,6 @@ ScInputHdlState::ScInputHdlState( const ScAddress& rCurPos,
 }
 
 ScInputHdlState::ScInputHdlState( const ScInputHdlState& rCpy )
-    :   pEditData   ( nullptr )
 {
     *this = rCpy;
 }

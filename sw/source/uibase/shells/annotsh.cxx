@@ -482,7 +482,7 @@ void SwAnnotationShell::Exec( SfxRequest &rReq )
                 aDlgAttr.Put( SvxKerningItem(0, RES_CHRATR_KERNING) );
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg( rView.GetWindow(), rView, aDlgAttr, SwCharDlgMode::Ann));
+                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg(rView.GetFrameWeld(), rView, aDlgAttr, SwCharDlgMode::Ann));
                 if (nSlot == SID_CHAR_DLG_EFFECT)
                 {
                     pDlg->SetCurPageId("fonteffects");
@@ -531,7 +531,7 @@ void SwAnnotationShell::Exec( SfxRequest &rReq )
                 aDlgAttr.Put( SvxOrphansItem( 0, RES_PARATR_ORPHANS ) );
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwParaDlg( rView.GetWindow(), rView, aDlgAttr, true ));
+                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwParaDlg(rView.GetFrameWeld(), rView, aDlgAttr, true));
                 sal_uInt16 nRet = pDlg->Execute();
                 if(RET_OK == nRet)
                 {
@@ -904,6 +904,10 @@ void SwAnnotationShell::ExecClpbrd(SfxRequest const &rReq)
             break;
         case SID_PASTE:
             if (pPostItMgr->GetActiveSidebarWin()->GetLayoutStatus()!=SwPostItHelper::DELETED)
+                pOLV->PasteSpecial();
+            break;
+        case SID_PASTE_UNFORMATTED:
+            if (pPostItMgr->GetActiveSidebarWin()->GetLayoutStatus()!=SwPostItHelper::DELETED)
                 pOLV->Paste();
             break;
         case SID_PASTE_SPECIAL:
@@ -986,6 +990,7 @@ void SwAnnotationShell::StateClpbrd(SfxItemSet &rSet)
                 break;
             }
             case SID_PASTE:
+            case SID_PASTE_UNFORMATTED:
             case SID_PASTE_SPECIAL:
                 {
                     if( !bPastePossible )

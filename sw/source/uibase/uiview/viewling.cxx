@@ -405,8 +405,8 @@ void SwView::HyphenateDocument()
     // do not hyphenate if interactive hyphenation is active elsewhere
     if (SwEditShell::HasHyphIter())
     {
-        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(nullptr, VclMessageType::Warning,
-            VclButtonsType::Ok, SwResId(STR_MULT_INTERACT_HYPH_WARN)));
+        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetEditWin().GetFrameWeld(),
+            VclMessageType::Warning, VclButtonsType::Ok, SwResId(STR_MULT_INTERACT_HYPH_WARN)));
         xBox->set_title(SwResId(STR_HYPH_TITLE));
         xBox->run();
         return;
@@ -651,9 +651,10 @@ bool SwView::ExecSpellPopup(const Point& rPt)
                 !pCursorShell->IsTableMode() &&
                 !pCursor->HasMark() && !pCursor->IsMultiSelection())
             {
-                SwContentFrame *pContentFrame = pCursor->GetContentNode()->getLayoutFrame(
+                std::pair<Point, bool> const tmp(rPt, false);
+                SwContentFrame *const pContentFrame = pCursor->GetContentNode()->getLayoutFrame(
                                         pCursorShell->GetLayout(),
-                                        &rPt, &aPoint, false);
+                                        &aPoint, &tmp);
                 if (pContentFrame)
                 {
                     SwRect aRepaint(static_cast<SwTextFrame*>(pContentFrame)->AutoSpell_(

@@ -43,7 +43,7 @@ namespace formula
 
 // --- helpers --------------------------------------------------------------
 
-inline bool lcl_IsReference( OpCode eOp, StackVar eType )
+static inline bool lcl_IsReference( OpCode eOp, StackVar eType )
 {
     return
         (eOp == ocPush && (eType == svSingleRef || eType == svDoubleRef))
@@ -557,7 +557,6 @@ bool FormulaTokenArray::HasOpCodes(const unordered_opcode_set& rOpCodes) const
 }
 
 FormulaTokenArray::FormulaTokenArray() :
-    pCode(nullptr),
     pRPN(nullptr),
     nLen(0),
     nRPN(0),

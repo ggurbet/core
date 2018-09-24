@@ -63,6 +63,7 @@
 #include <com/sun/star/text/BibliographyDataType.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
 #include <com/sun/star/rdf/XMetadatable.hpp>
+#include <comphelper/sequence.hxx>
 #include <o3tl/any.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <tools/debug.hxx>
@@ -249,25 +250,25 @@ SvXMLEnumStringMapEntry<FieldIdEnum> const aFieldServiceNameMapping[] =
 
 
 // property accessor helper functions
-inline bool GetBoolProperty(const OUString&,
+static inline bool GetBoolProperty(const OUString&,
                                       const Reference<XPropertySet> &);
-inline bool GetOptionalBoolProperty(const OUString&,
+static inline bool GetOptionalBoolProperty(const OUString&,
                                               const Reference<XPropertySet> &,
                                               const Reference<XPropertySetInfo> &,
                                               bool bDefault);
-inline double GetDoubleProperty(const OUString&,
+static inline double GetDoubleProperty(const OUString&,
                                       const Reference<XPropertySet> &);
-inline OUString const GetStringProperty(const OUString&,
+static inline OUString const GetStringProperty(const OUString&,
                                         const Reference<XPropertySet> &);
-inline sal_Int32 GetIntProperty(const OUString&,
+static inline sal_Int32 GetIntProperty(const OUString&,
                                       const Reference<XPropertySet> &);
-inline sal_Int16 GetInt16Property(const OUString&,
+static inline sal_Int16 GetInt16Property(const OUString&,
                                         const Reference<XPropertySet> &);
-inline sal_Int8 GetInt8Property(const OUString&,
+static inline sal_Int8 GetInt8Property(const OUString&,
                                       const Reference<XPropertySet> &);
-inline util::DateTime const GetDateTimeProperty( const OUString& sPropName,
+static inline util::DateTime const GetDateTimeProperty( const OUString& sPropName,
                                            const Reference<XPropertySet> & xPropSet);
-inline Sequence<OUString> const GetStringSequenceProperty(
+static inline Sequence<OUString> const GetStringSequenceProperty(
                                    const OUString& sPropName,
                                    const Reference<XPropertySet> & xPropSet);
 
@@ -1922,18 +1923,7 @@ void XMLTextFieldExport::ExportFieldDeclarations(
             if (aMapIter != pUsedMasters->end())
             {
                 // found the set of used field masters
-                set<OUString> & rOurMasters = aMapIter->second;
-
-                // copy set to sequence
-                aFieldMasters.realloc( rOurMasters.size() );
-                sal_Int32 i = 0;
-                for( set<OUString>::iterator aSetIter = rOurMasters.begin();
-                     aSetIter != rOurMasters.end();
-                     ++aSetIter, ++i )
-                {
-                    aFieldMasters[i] = *aSetIter;
-                }
-
+                aFieldMasters = comphelper::containerToSequence(aMapIter->second);
                 pUsedMasters->erase(rText);
             }
             // else: XText not found -> ignore
@@ -2007,12 +1997,8 @@ void XMLTextFieldExport::ExportFieldDeclarations(
                                   XML_VARIABLE_DECLS,
                                   true, true );
 
-        for (vector<OUString>::iterator aVarIter = aVarName.begin();
-             aVarIter != aVarName.end();
-             ++aVarIter) {
-
-            OUString sName = *aVarIter;
-
+        for (const auto& sName : aVarName)
+        {
             // get field master property set
             Reference<XPropertySet> xPropSet;
             Any aAny = xFieldMasterNameAccess->getByName(sName);
@@ -2066,12 +2052,8 @@ void XMLTextFieldExport::ExportFieldDeclarations(
                                   XML_SEQUENCE_DECLS,
                                   true, true );
 
-        for (vector<OUString>::iterator aSeqIter = aSeqName.begin();
-             aSeqIter != aSeqName.end();
-             ++aSeqIter) {
-
-            OUString sName = *aSeqIter;
-
+        for (const auto& sName : aSeqName)
+        {
             // get field master property set
             Reference<XPropertySet> xPropSet;
             Any aAny = xFieldMasterNameAccess->getByName(sName);
@@ -2108,12 +2090,8 @@ void XMLTextFieldExport::ExportFieldDeclarations(
                                   XML_USER_FIELD_DECLS,
                                   true, true );
 
-        for (vector<OUString>::iterator aUserIter = aUserName.begin();
-             aUserIter != aUserName.end();
-             ++aUserIter) {
-
-            OUString sName = *aUserIter;
-
+        for (const auto& sName : aUserName)
+        {
             // get field master property set
             Reference<XPropertySet> xPropSet;
             Any aAny = xFieldMasterNameAccess->getByName(sName);
@@ -2159,12 +2137,8 @@ void XMLTextFieldExport::ExportFieldDeclarations(
                                   XML_DDE_CONNECTION_DECLS,
                                   true, true );
 
-        for (vector<OUString>::iterator aDdeIter = aDdeName.begin();
-             aDdeIter != aDdeName.end();
-             ++aDdeIter)
+        for (const auto& sName : aDdeName)
         {
-            OUString sName = *aDdeIter;
-
             // get field master property set
             Reference<XPropertySet> xPropSet;
             Any aAny = xFieldMasterNameAccess->getByName(sName);

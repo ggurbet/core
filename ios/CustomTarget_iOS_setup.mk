@@ -9,7 +9,7 @@
 
 
 #- Env ------------------------------------------------------------------------
-IOSGEN  = $(SRCDIR)/ios/generated
+IOSGEN  = $(BUILDDIR)/workdir/CustomTarget/ios
 IOSRES  = $(IOSGEN)/resources
 IOSDIRS = $(IOSGEN) \
 	       $(IOSGEN)/Debug_x86_64 \
@@ -60,7 +60,8 @@ $(IOSGEN)/native-code.h: $(BUILDDIR)/config_host.mk \
 	cp $(INSTDIR)/program/types/oovbaapi.rdb    $(IOSRES)
 	cp $(INSTDIR)/program/services/services.rdb $(IOSRES)/services
 	cp $(INSTDIR)/program/services.rdb          $(IOSRES)
-	cp -R $(INSTDIR)/share/config/soffice.cfg $(IOSRES)/config
+	mkdir -p $(IOSRES)/share/config
+	cp -R $(INSTDIR)/share/config/soffice.cfg $(IOSRES)/share/config
 	cp $(INSTDIR)/share/filter/oox-drawingml-adj-names $(IOSRES)/filter
 	cp $(INSTDIR)/share/filter/oox-drawingml-cs-presets $(IOSRES)/filter
 	cp $(INSTDIR)/share/filter/vml-shape-types $(IOSRES)/filter
@@ -104,6 +105,8 @@ $(IOSGEN)/native-code.h: $(BUILDDIR)/config_host.mk \
 	&& echo "buildid=$(BUILDID)" \
 	    ) > $(IOSRES)/program/versionrc
 
+	$(SRCDIR)/bin/lo-all-static-libs | sed -e 's/ /\
+/g' >$(IOSGEN)/ios-all-static-libs.list
 
 #- clean ios  -----------------------------------------------------------------
 $(call gb_CustomTarget_get_clean_target,ios/iOS_setup):

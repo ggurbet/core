@@ -28,6 +28,7 @@
 #include <com/sun/star/ui/dialogs/ListboxControlActions.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <com/sun/star/linguistic2/XProofreadingIterator.hpp>
+#include <officecfg/Office/Common.hxx>
 #include <svl/aeitem.hxx>
 #include <SwStyleNameMapper.hxx>
 #include <docary.hxx>
@@ -637,7 +638,9 @@ void SwView::Execute(SfxRequest &rReq)
                 if( static_cast<const SfxBoolItem*>(pItem)->GetValue() )
                     nMode |= RedlineFlags::ShowDelete;
 
-                if (getenv("SW_REDLINEHIDE")) // TODO...
+                uno::Reference<uno::XComponentContext> const xContext(
+                        comphelper::getProcessComponentContext());
+                if (officecfg::Office::Common::Misc::ExperimentalMode::get(xContext))
                 {
                     m_pWrtShell->GetLayout()->SetHideRedlines(
                         !static_cast<const SfxBoolItem*>(pItem)->GetValue());
@@ -2155,8 +2158,8 @@ long SwView::InsertMedium( sal_uInt16 nSlotId, std::unique_ptr<SfxMedium> pMediu
         pMedium->Download();    // start download if needed
         if( aRef.is() && 1 < aRef->GetRefCount() )  // still a valid ref?
         {
-            SwReader* pRdr;
-            Reader *pRead = pDocSh->StartConvertFrom(*pMedium, &pRdr, m_pWrtShell.get());
+            SwReaderPtr pRdr;
+            Reader *pRead = pDocSh->StartConvertFrom(*pMedium, pRdr, m_pWrtShell.get());
             if( pRead ||
                 (pMedium->GetFilter()->GetFilterFlags() & SfxFilterFlags::STARONEFILTER) )
             {
@@ -2174,7 +2177,7 @@ long SwView::InsertMedium( sal_uInt16 nSlotId, std::unique_ptr<SfxMedium> pMediu
                     if( pRead )
                     {
                         nErrno = pRdr->Read( *pRead );  // and insert document
-                        delete pRdr;
+                        pRdr.reset();
                     }
                     else
                     {

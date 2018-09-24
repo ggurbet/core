@@ -156,23 +156,8 @@ private:
     bool                    mbScreen : 1;           // is Screen compatible
     HWND                    mhWnd;              // Window-Handle, when Window-Graphics
 
-    /** HFONT lifecycle
-     *
-     * The HFONT has to be shared between mhFonts and mpWinFontEntry.
-     * As mpWinFontEntry is reference counted and just freed in SetFont, the HFONT is
-     * transferred from mhFonts to the mpWinFontEntry.
-     *
-     * We need the mhFonts list, as embedded fonts don't have a corresponding WinFontInstance
-     * so for these there is just the mhFonts entry.
-     *
-     * The HFONT object can just be assigned to mhFonts _or_ mpWinFontEntry!
-     **/
-
-    HFONT                   mhFonts[ MAX_FALLBACK ];        // Font + Fallbacks
     rtl::Reference<WinFontInstance>
                             mpWinFontEntry[ MAX_FALLBACK ]; // pointer to the most recent font instance
-    float                   mfFontScale[ MAX_FALLBACK ];        // allows metrics emulation of huge font sizes
-    float                   mfCurrentFontScale;
     HRGN                    mhRegion;           // vcl::Region Handle
     HPEN                    mhDefPen;           // DefaultPen
     HBRUSH                  mhDefBrush;         // DefaultBrush
@@ -185,9 +170,10 @@ private:
 
     bool CacheGlyphs(const GenericSalLayout& rLayout);
     bool DrawCachedGlyphs(const GenericSalLayout& rLayout);
-    HFONT ImplDoSetFont(FontSelectPattern const & i_rFont, const PhysicalFontFace * i_pFontFace, float& o_rFontScale, HFONT& o_rOldFont);
 
 public:
+    HFONT ImplDoSetFont(FontSelectPattern const & i_rFont, const PhysicalFontFace * i_pFontFace, float& o_rFontScale, HFONT& o_rOldFont);
+
     HDC getHDC() const { return mhLocalDC; }
     void setHDC(HDC aNew) { mhLocalDC = aNew; }
 
@@ -235,14 +221,19 @@ protected:
     virtual void        drawPolyLine( sal_uInt32 nPoints, const SalPoint* pPtAry ) override;
     virtual void        drawPolygon( sal_uInt32 nPoints, const SalPoint* pPtAry ) override;
     virtual void        drawPolyPolygon( sal_uInt32 nPoly, const sal_uInt32* pPoints, PCONSTSALPOINT* pPtAry ) override;
-    virtual bool        drawPolyPolygon( const basegfx::B2DPolyPolygon&, double fTransparency ) override;
+    virtual bool        drawPolyPolygon(
+        const basegfx::B2DHomMatrix& rObjectToDevice,
+        const basegfx::B2DPolyPolygon&,
+        double fTransparency) override;
     virtual bool        drawPolyLine(
+        const basegfx::B2DHomMatrix& rObjectToDevice,
         const basegfx::B2DPolygon&,
         double fTransparency,
         const basegfx::B2DVector& rLineWidth,
         basegfx::B2DLineJoin,
         css::drawing::LineCap,
-        double fMiterMinimumAngle) override;
+        double fMiterMinimumAngle,
+        bool bPixelSnapHairline) override;
     virtual bool        drawPolyLineBezier( sal_uInt32 nPoints, const SalPoint* pPtAry, const PolyFlags* pFlgAry ) override;
     virtual bool        drawPolygonBezier( sal_uInt32 nPoints, const SalPoint* pPtAry, const PolyFlags* pFlgAry ) override;
     virtual bool        drawPolyPolygonBezier( sal_uInt32 nPoly, const sal_uInt32* pPoints, const SalPoint* const* pPtAry, const PolyFlags* const* pFlgAry ) override;

@@ -101,6 +101,8 @@
 #include <opengl/zone.hxx>
 #include <opengl/watchdog.hxx>
 
+#include <basegfx/utils/systemdependentdata.hxx>
+
 #if OSL_DEBUG_LEVEL > 0
 #include <typeinfo>
 #include <rtl/strbuf.hxx>
@@ -112,7 +114,7 @@ static bool g_bIsLeanException;
 
 static bool isInitVCL();
 
-oslSignalAction VCLExceptionSignal_impl( void* /*pData*/, oslSignalInfo* pInfo)
+static oslSignalAction VCLExceptionSignal_impl( void* /*pData*/, oslSignalInfo* pInfo)
 {
     static volatile bool bIn = false;
 
@@ -179,6 +181,85 @@ oslSignalAction VCLExceptionSignal_impl( void* /*pData*/, oslSignalInfo* pInfo)
 
 }
 
+#ifdef IOS
+
+#include <cppuhelper/exc_hlp.hxx>
+#include <com/sun/star/ucb/InteractiveAugmentedIOException.hpp>
+
+// Swiped from cppuhelper/qa/misc/test_misc.cxx. Ideally we should
+// have a unit test app for iOS that would somehow include relevant
+// unit tests from source files all over the place.
+
+static void testExceptions()
+{
+    css::uno::Any aSavedExceptionAny;
+    std::exception_ptr
+        aSavedException; /// exception caught during unzipping is saved to be thrown during reading
+    try
+    {
+        throw css::uno::RuntimeException("RuntimeException");
+    }
+    catch (...)
+    {
+        aSavedException = std::current_exception();
+    }
+    assert(bool(aSavedException));
+    try
+    {
+        std::rethrow_exception(aSavedException);
+    }
+    catch (const css::uno::RuntimeException&)
+    {
+        // the expected case
+        aSavedExceptionAny = cppu::getCaughtException();
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+    assert(aSavedExceptionAny.hasValue());
+
+    try
+    {
+        throw css::ucb::InteractiveAugmentedIOException();
+    }
+    catch (const css::ucb::InteractiveAugmentedIOException&)
+    {
+        aSavedExceptionAny = cppu::getCaughtException();
+    }
+    catch (const css::uno::Exception&)
+    {
+        assert(false);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+    assert(aSavedExceptionAny.hasValue());
+
+    try
+    {
+        css::ucb::InteractiveAugmentedIOException iaie;
+        css::uno::Any aEx = css::uno::makeAny(iaie);
+        // css::uno::Exception e;
+        // css::uno::Any aEx = css::uno::makeAny(e);
+        cppu::throwException(aEx);
+    }
+    catch (const css::ucb::InteractiveAugmentedIOException&)
+    {
+    }
+    catch (const css::uno::Exception& e)
+    {
+        assert(false);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+#endif
+
 int ImplSVMain()
 {
     // The 'real' SVMain()
@@ -190,8 +271,8 @@ int ImplSVMain()
 
     bool bInit = isInitVCL() || InitVCL();
 
-#ifdef MACOSX
-    postInitVCLinitNSApp();
+#ifdef IOS
+    testExceptions();
 #endif
 
     if( bInit )
@@ -232,11 +313,7 @@ int ImplSVMain()
 
 int SVMain()
 {
-    int nRet;
-    if( !Application::IsConsoleOnly() && ImplSVMainHook( &nRet ) )
-        return nRet;
-    else
-        return ImplSVMain();
+    return ImplSVMain();
 }
 
 // This variable is set when no Application object has been instantiated
@@ -357,12 +434,12 @@ bool InitVCL()
     // convert path to native file format
     OUString aNativeFileName;
     osl::FileBase::getSystemPathFromFileURL( aExeFileName, aNativeFileName );
-    pSVData->maAppData.mpAppFileName = new OUString( aNativeFileName );
+    pSVData->maAppData.mxAppFileName = aNativeFileName;
 
     // Initialize global data
     pSVData->maGDIData.mxScreenFontList.reset(new PhysicalFontCollection);
     pSVData->maGDIData.mxScreenFontCache.reset(new ImplFontCache);
-    pSVData->maGDIData.mpGrfConverter       = new GraphicConverter;
+    pSVData->maGDIData.mpGrfConverter = new GraphicConverter;
 
     g_bIsLeanException = getenv("LO_LEAN_EXCEPTION") != nullptr;
     // Set exception handler
@@ -468,29 +545,24 @@ void DeInitVCL()
     pExceptionHandler = nullptr;
 
     // free global data
-    delete pSVData->maGDIData.mpGrfConverter;
-
-    if( pSVData->mpSettingsConfigItem )
+    if (pSVData->maGDIData.mpGrfConverter)
     {
-        delete pSVData->mpSettingsConfigItem;
-        pSVData->mpSettingsConfigItem = nullptr;
+        delete pSVData->maGDIData.mpGrfConverter;
+        pSVData->maGDIData.mpGrfConverter = nullptr;
     }
+
+    pSVData->mpSettingsConfigItem.reset();
+
+    // empty and deactivate the SystemDependentDataManager
+    ImplGetSystemDependentDataManager().flushAll();
 
     Scheduler::ImplDeInitScheduler();
 
     pSVData->maWinData.maMsgBoxImgList.clear();
     pSVData->maCtrlData.maCheckImgList.clear();
     pSVData->maCtrlData.maRadioImgList.clear();
-    if ( pSVData->maCtrlData.mpDisclosurePlus )
-    {
-        delete pSVData->maCtrlData.mpDisclosurePlus;
-        pSVData->maCtrlData.mpDisclosurePlus = nullptr;
-    }
-    if ( pSVData->maCtrlData.mpDisclosureMinus )
-    {
-        delete pSVData->maCtrlData.mpDisclosureMinus;
-        pSVData->maCtrlData.mpDisclosureMinus = nullptr;
-    }
+    pSVData->maCtrlData.mpDisclosurePlus.reset();
+    pSVData->maCtrlData.mpDisclosureMinus.reset();
     pSVData->mpDefaultWin.disposeAndClear();
 
 #ifndef NDEBUG
@@ -535,56 +607,21 @@ void DeInitVCL()
             delete pSVData->maAppData.mpCfgListener;
         }
 
-        delete pSVData->maAppData.mpSettings;
-        pSVData->maAppData.mpSettings = nullptr;
+        pSVData->maAppData.mpSettings.reset();
     }
-    if ( pSVData->maAppData.mpAccelMgr )
+    if (pSVData->maAppData.mpAccelMgr)
     {
         delete pSVData->maAppData.mpAccelMgr;
         pSVData->maAppData.mpAccelMgr = nullptr;
     }
-    if ( pSVData->maAppData.mpAppFileName )
-    {
-        delete pSVData->maAppData.mpAppFileName;
-        pSVData->maAppData.mpAppFileName = nullptr;
-    }
-    if ( pSVData->maAppData.mpAppName )
-    {
-        delete pSVData->maAppData.mpAppName;
-        pSVData->maAppData.mpAppName = nullptr;
-    }
-    if ( pSVData->maAppData.mpDisplayName )
-    {
-        delete pSVData->maAppData.mpDisplayName;
-        pSVData->maAppData.mpDisplayName = nullptr;
-    }
-    if ( pSVData->maAppData.mpToolkitName )
-    {
-        delete pSVData->maAppData.mpToolkitName;
-        pSVData->maAppData.mpToolkitName = nullptr;
-    }
-    if ( pSVData->maAppData.mpEventListeners )
-    {
-        delete pSVData->maAppData.mpEventListeners;
-        pSVData->maAppData.mpEventListeners = nullptr;
-    }
-    if ( pSVData->maAppData.mpKeyListeners )
-    {
-        delete pSVData->maAppData.mpKeyListeners;
-        pSVData->maAppData.mpKeyListeners = nullptr;
-    }
-    if (pSVData->mpBlendFrameCache)
-    {
-        delete pSVData->mpBlendFrameCache;
-        pSVData->mpBlendFrameCache = nullptr;
-    }
+    pSVData->maAppData.maKeyListeners.clear();
+    pSVData->mpBlendFrameCache.reset();
 
     ImplDeletePrnQueueList();
 
     // destroy all Sal interfaces before destroying the instance
     // and thereby unloading the plugin
-    delete pSVData->mpSalSystem;
-    pSVData->mpSalSystem = nullptr;
+    pSVData->mpSalSystem.reset();
     assert( !pSVData->maSchedCtx.mpSalTimer );
     delete pSVData->maSchedCtx.mpSalTimer;
     pSVData->maSchedCtx.mpSalTimer = nullptr;
@@ -637,8 +674,8 @@ void DeInitVCL()
 // only one call is allowed
 struct WorkerThreadData
 {
-    oslWorkerFunction   pWorker;
-    void *              pThreadData;
+    oslWorkerFunction const   pWorker;
+    void * const              pThreadData;
     WorkerThreadData( oslWorkerFunction pWorker_, void * pThreadData_ )
         : pWorker( pWorker_ )
         , pThreadData( pThreadData_ )

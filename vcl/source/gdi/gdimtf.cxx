@@ -543,7 +543,7 @@ void GDIMetaFile::WindPrev()
             --m_nCurrentActionElement;
 }
 
-void GDIMetaFile::AddAction( rtl::Reference<MetaAction> pAction )
+void GDIMetaFile::AddAction(const rtl::Reference<MetaAction>& pAction)
 {
     m_aList.push_back( pAction );
 
@@ -553,7 +553,7 @@ void GDIMetaFile::AddAction( rtl::Reference<MetaAction> pAction )
     }
 }
 
-void GDIMetaFile::AddAction( rtl::Reference<MetaAction> pAction, size_t nPos )
+void GDIMetaFile::AddAction(const rtl::Reference<MetaAction>& pAction, size_t nPos)
 {
     if ( nPos < m_aList.size() )
     {
@@ -570,7 +570,7 @@ void GDIMetaFile::AddAction( rtl::Reference<MetaAction> pAction, size_t nPos )
     }
 }
 
-void GDIMetaFile::push_back( rtl::Reference<MetaAction> pAction )
+void GDIMetaFile::push_back(const rtl::Reference<MetaAction>& pAction)
 {
     m_aList.push_back( pAction );
 }
@@ -2608,7 +2608,7 @@ namespace
     {
     private:
         ImplMetaReadData& m_rData;
-        rtl_TextEncoding m_eOrigCharSet;
+        rtl_TextEncoding const m_eOrigCharSet;
     public:
         DepthGuard(ImplMetaReadData& rData, SvStream const & rIStm)
             : m_rData(rData)

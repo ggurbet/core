@@ -160,8 +160,8 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                 sText = OStringToOUString(OString::number(
                             static_cast<const SwTableBoxValue*>(aContentAtPos.aFnd.pAttr)->GetValue()),
                             osl_getThreadTextEncoding());
+                break;
             }
-            break;
             case IsAttrAtPos::CurrAttrs:
                 sText = aContentAtPos.sStr;
                 break;
@@ -241,8 +241,8 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                 aModStr = aModStr.replaceFirst(aCode.GetName(), "");
                 aModStr = aModStr.replaceAll("+", "");
                 sText = SwResId(STR_SMARTTAG_CLICK).replaceAll("%s", aModStr);
+                break;
             }
-            break;
 
             case IsAttrAtPos::Ftn:
                 if( aContentAtPos.pFndTextAttr && aContentAtPos.aFnd.pAttr )
@@ -264,8 +264,8 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                 const bool bShowInlineTooltips = rSh.GetViewOptions()->IsShowInlineTooltips();
                 if ( bShowTrackChanges && bShowInlineTooltips )
                      sText = lcl_GetRedlineHelp(*aContentAtPos.aFnd.pRedl, bBalloon);
+                break;
             }
-            break;
 
             case IsAttrAtPos::ToxMark:
                 sText = aContentAtPos.sStr;
@@ -280,6 +280,7 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                     }
                 }
                 break;
+
             case IsAttrAtPos::RefMark:
                 if(aContentAtPos.aFnd.pAttr)
                 {
@@ -315,6 +316,7 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                         case SwFieldIds::Input:  // BubbleHelp, because the suggestion could be quite long
                             bBalloon = true;
                             SAL_FALLTHROUGH;
+                        case SwFieldIds::Dropdown:
                         case SwFieldIds::JumpEdit:
                             sText = pField->GetPar2();
                             break;
@@ -357,8 +359,9 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                                     sText = static_cast<const SwGetRefField*>(pField)->GetSetRefName();
                                 }
                             }
+                            break;
                         }
-                        break;
+
                         default: break;
                         }
                     }

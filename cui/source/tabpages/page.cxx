@@ -60,8 +60,6 @@
 // static ----------------------------------------------------------------
 
 static const long MINBODY       = 284;  // 0,5 cm rounded up in twips
-//static const long PRINT_OFFSET    = 17;   // 0,03 cm rounded down in twips
-static const long PRINT_OFFSET  = 0;    // why was this ever set to 17 ? it led to wrong right and bottom margins.
 
 const sal_uInt16 SvxPageDescPage::pRanges[] =
 {
@@ -84,7 +82,7 @@ const SvxPageUsage aArr[] =
 };
 
 
-sal_uInt16 PageUsageToPos_Impl( SvxPageUsage nUsage )
+static sal_uInt16 PageUsageToPos_Impl( SvxPageUsage nUsage )
 {
     for ( sal_uInt16 i = 0; i < SAL_N_ELEMENTS(aArr); ++i )
         if ( aArr[i] ==  nUsage )
@@ -93,7 +91,7 @@ sal_uInt16 PageUsageToPos_Impl( SvxPageUsage nUsage )
 }
 
 
-SvxPageUsage PosToPageUsage_Impl( sal_uInt16 nPos )
+static SvxPageUsage PosToPageUsage_Impl( sal_uInt16 nPos )
 {
     if ( nPos >= SAL_N_ELEMENTS(aArr) )
         return SvxPageUsage::NONE;
@@ -101,7 +99,7 @@ SvxPageUsage PosToPageUsage_Impl( sal_uInt16 nPos )
 }
 
 
-Size GetMinBorderSpace_Impl( const SvxShadowItem& rShadow, const SvxBoxItem& rBox )
+static Size GetMinBorderSpace_Impl( const SvxShadowItem& rShadow, const SvxBoxItem& rBox )
 {
     Size aSz;
     aSz.setHeight( rShadow.CalcShadowSpace( SvxShadowItemSide::BOTTOM ) + rBox.CalcLineSpace( SvxBoxItemLine::BOTTOM ) );
@@ -112,12 +110,12 @@ Size GetMinBorderSpace_Impl( const SvxShadowItem& rShadow, const SvxBoxItem& rBo
 }
 
 
-long ConvertLong_Impl( const long nIn, MapUnit eUnit )
+static long ConvertLong_Impl( const long nIn, MapUnit eUnit )
 {
     return OutputDevice::LogicToLogic( nIn, eUnit, MapUnit::MapTwip );
 }
 
-bool IsEqualSize_Impl( const SvxSizeItem* pSize, const Size& rSize )
+static bool IsEqualSize_Impl( const SvxSizeItem* pSize, const Size& rSize )
 {
     if ( pSize )
     {
@@ -152,15 +150,15 @@ SvxPageDescPage::SvxPageDescPage(TabPageParent pParent, const SfxItemSet& rAttr)
     , mpDefPrinter(nullptr)
     , mbDelPrinter(false)
     , mbEnableDrawingLayerFillStyles(false)
-    , m_xPaperSizeBox(new SvxPaperSizeListBox(m_xBuilder->weld_combo_box_text("comboPageFormat")))
+    , m_xPaperSizeBox(new SvxPaperSizeListBox(m_xBuilder->weld_combo_box("comboPageFormat")))
     , m_xPaperWidthEdit(m_xBuilder->weld_metric_spin_button("spinWidth", FUNIT_CM))
     , m_xPaperHeightEdit(m_xBuilder->weld_metric_spin_button("spinHeight", FUNIT_CM))
     , m_xOrientationFT(m_xBuilder->weld_label("labelOrientation"))
     , m_xPortraitBtn(m_xBuilder->weld_radio_button("radiobuttonPortrait"))
     , m_xLandscapeBtn(m_xBuilder->weld_radio_button("radiobuttonLandscape"))
     , m_xTextFlowLbl(m_xBuilder->weld_label("labelTextFlow"))
-    , m_xTextFlowBox(new svx::SvxFrameDirectionListBox(m_xBuilder->weld_combo_box_text("comboTextFlowBox")))
-    , m_xPaperTrayBox(m_xBuilder->weld_combo_box_text("comboPaperTray"))
+    , m_xTextFlowBox(new svx::SvxFrameDirectionListBox(m_xBuilder->weld_combo_box("comboTextFlowBox")))
+    , m_xPaperTrayBox(m_xBuilder->weld_combo_box("comboPaperTray"))
     , m_xLeftMarginLbl(m_xBuilder->weld_label("labelLeftMargin"))
     , m_xLeftMarginEdit(m_xBuilder->weld_metric_spin_button("spinMargLeft", FUNIT_CM))
     , m_xRightMarginLbl(m_xBuilder->weld_label("labelRightMargin"))
@@ -168,21 +166,23 @@ SvxPageDescPage::SvxPageDescPage(TabPageParent pParent, const SfxItemSet& rAttr)
     , m_xTopMarginEdit(m_xBuilder->weld_metric_spin_button("spinMargTop", FUNIT_CM))
     , m_xBottomMarginEdit(m_xBuilder->weld_metric_spin_button("spinMargBot", FUNIT_CM))
     , m_xPageText(m_xBuilder->weld_label("labelPageLayout"))
-    , m_xLayoutBox(m_xBuilder->weld_combo_box_text("comboPageLayout"))
-    , m_xNumberFormatBox(new SvxPageNumberListBox(m_xBuilder->weld_combo_box_text("comboLayoutFormat")))
+    , m_xLayoutBox(m_xBuilder->weld_combo_box("comboPageLayout"))
+    , m_xNumberFormatBox(new SvxPageNumberListBox(m_xBuilder->weld_combo_box("comboLayoutFormat")))
     , m_xTblAlignFT(m_xBuilder->weld_label("labelTblAlign"))
     , m_xHorzBox(m_xBuilder->weld_check_button("checkbuttonHorz"))
     , m_xVertBox(m_xBuilder->weld_check_button("checkbuttonVert"))
     , m_xAdaptBox(m_xBuilder->weld_check_button("checkAdaptBox"))
     , m_xRegisterCB(m_xBuilder->weld_check_button("checkRegisterTrue"))
     , m_xRegisterFT(m_xBuilder->weld_label("labelRegisterStyle"))
-    , m_xRegisterLB(m_xBuilder->weld_combo_box_text("comboRegisterStyle"))
+    , m_xRegisterLB(m_xBuilder->weld_combo_box("comboRegisterStyle"))
     // Strings stored in UI
     , m_xInsideLbl(m_xBuilder->weld_label("labelInner"))
     , m_xOutsideLbl(m_xBuilder->weld_label("labelOuter"))
     , m_xPrintRangeQueryText(m_xBuilder->weld_label("labelMsg"))
     , m_xBspWin(new weld::CustomWeld(*m_xBuilder, "drawingareaPageDirection", m_aBspWin))
 {
+    m_xRegisterLB->set_size_request(m_xRegisterLB->get_approximate_digit_width() * 20, -1);
+
     bBorderModified = false;
     m_aBspWin.EnableRTL(false);
 
@@ -264,11 +264,10 @@ SvxPageDescPage::SvxPageDescPage(TabPageParent pParent, const SfxItemSet& rAttr)
     Point aPrintOffset = mpDefPrinter->GetPageOffset() - mpDefPrinter->PixelToLogic( Point() );
     mpDefPrinter->SetMapMode( aOldMode );
 
-    long nOffset = !aPrintOffset.X() && !aPrintOffset.Y() ? 0 : PRINT_OFFSET;
     nFirstLeftMargin = m_xLeftMarginEdit->convert_value_from(m_xLeftMarginEdit->normalize(aPrintOffset.X()), FUNIT_TWIP);
-    nFirstRightMargin = m_xRightMarginEdit->convert_value_from(m_xRightMarginEdit->normalize(aPaperSize.Width() - aPrintSize.Width() - aPrintOffset.X() + nOffset), FUNIT_TWIP);
+    nFirstRightMargin = m_xRightMarginEdit->convert_value_from(m_xRightMarginEdit->normalize(aPaperSize.Width() - aPrintSize.Width() - aPrintOffset.X()), FUNIT_TWIP);
     nFirstTopMargin = m_xTopMarginEdit->convert_value_from(m_xTopMarginEdit->normalize(aPrintOffset.Y() ), FUNIT_TWIP);
-    nFirstBottomMargin = m_xBottomMarginEdit->convert_value_from(m_xBottomMarginEdit->normalize(aPaperSize.Height() - aPrintSize.Height() - aPrintOffset.Y() + nOffset), FUNIT_TWIP );
+    nFirstBottomMargin = m_xBottomMarginEdit->convert_value_from(m_xBottomMarginEdit->normalize(aPaperSize.Height() - aPrintSize.Height() - aPrintOffset.Y()), FUNIT_TWIP );
     nLastLeftMargin = m_xLeftMarginEdit->convert_value_from(m_xLeftMarginEdit->normalize(aPrintOffset.X() + aPrintSize.Width()), FUNIT_TWIP);
     nLastRightMargin = m_xRightMarginEdit->convert_value_from(m_xRightMarginEdit->normalize(aPrintOffset.X() + aPrintSize.Width()), FUNIT_TWIP);
     nLastTopMargin = m_xTopMarginEdit->convert_value_from(m_xTopMarginEdit->normalize(aPrintOffset.Y() + aPrintSize.Height()), FUNIT_TWIP);
@@ -784,7 +783,7 @@ bool SvxPageDescPage::FillItemSet( SfxItemSet* rSet )
     return bModified;
 }
 
-IMPL_LINK_NOARG(SvxPageDescPage, LayoutHdl_Impl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SvxPageDescPage, LayoutHdl_Impl, weld::ComboBox&, void)
 {
     // switch inside outside
     const SvxPageUsage nUsage = PosToPageUsage_Impl(m_xLayoutBox->get_active());
@@ -806,7 +805,7 @@ IMPL_LINK_NOARG(SvxPageDescPage, LayoutHdl_Impl, weld::ComboBoxText&, void)
     UpdateExample_Impl( true );
 }
 
-IMPL_LINK_NOARG(SvxPageDescPage, PaperBinHdl_Impl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SvxPageDescPage, PaperBinHdl_Impl, weld::ComboBox&, void)
 {
     if (m_xPaperTrayBox->get_count() > 1)
         // already filled
@@ -832,7 +831,7 @@ IMPL_LINK_NOARG(SvxPageDescPage, PaperBinHdl_Impl, weld::ComboBoxText&, void)
     m_xPaperTrayBox->thaw();
 }
 
-IMPL_LINK_NOARG(SvxPageDescPage, PaperSizeSelect_Impl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SvxPageDescPage, PaperSizeSelect_Impl, weld::ComboBox&, void)
 {
     Paper ePaper = m_xPaperSizeBox->GetSelection();
 
@@ -963,13 +962,10 @@ void SvxPageDescPage::SwapFirstValues_Impl( bool bSet )
     sal_Int64 nSetB = m_xBottomMarginEdit->denormalize(
                     m_xBottomMarginEdit->get_value( FUNIT_TWIP ) );
 
-    long nOffset = !aPrintOffset.X() && !aPrintOffset.Y() ? 0 : PRINT_OFFSET;
     long nNewL = aPrintOffset.X();
-    long nNewR =
-        aPaperSize.Width() - aPrintSize.Width() - aPrintOffset.X() + nOffset;
+    long nNewR = aPaperSize.Width() - aPrintSize.Width() - aPrintOffset.X();
     long nNewT = aPrintOffset.Y();
-    long nNewB =
-        aPaperSize.Height() - aPrintSize.Height() - aPrintOffset.Y() + nOffset;
+    long nNewB = aPaperSize.Height() - aPrintSize.Height() - aPrintOffset.Y();
 
     nFirstLeftMargin = m_xLeftMarginEdit->convert_value_from(m_xLeftMarginEdit->normalize(nNewL), FUNIT_TWIP);
     nFirstRightMargin = m_xRightMarginEdit->convert_value_from(m_xRightMarginEdit->normalize(nNewR), FUNIT_TWIP);
@@ -1425,8 +1421,10 @@ void SvxPageDescPage::SetCollectionList(const std::vector<OUString> &aList)
     OSL_ENSURE(!aList.empty(), "Empty string list");
 
     sStandardRegister = aList[0];
+    m_xRegisterLB->freeze();
     for (size_t i = 1; i < aList.size(); ++i)
         m_xRegisterLB->append_text(aList[i]);
+    m_xRegisterLB->thaw();
 
     m_xRegisterCB->show();
     m_xRegisterFT->show();
@@ -1459,7 +1457,7 @@ void SvxPageDescPage::DisableVerticalPageDir()
     }
 }
 
-IMPL_LINK_NOARG(SvxPageDescPage, FrameDirectionModify_Impl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SvxPageDescPage, FrameDirectionModify_Impl, weld::ComboBox&, void)
 {
     m_aBspWin.SetFrameDirection(m_xTextFlowBox->get_active_id());
     m_aBspWin.Invalidate();

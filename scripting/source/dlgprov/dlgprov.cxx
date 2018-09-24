@@ -76,7 +76,7 @@ namespace comp_DialogModelProvider
         return s;
     }
 
-    uno::Reference< uno::XInterface > _create(const uno::Reference< uno::XComponentContext > & context)
+    static uno::Reference< uno::XInterface > _create(const uno::Reference< uno::XComponentContext > & context)
     {
         return static_cast< ::cppu::OWeakObject * >(new dlgprov::DialogModelProvider(context));
     }
@@ -196,7 +196,6 @@ namespace dlgprov
 
     DialogProviderImpl::DialogProviderImpl( const Reference< XComponentContext >& rxContext )
         :m_xContext( rxContext )
-        ,m_xModel( nullptr )
     {
     }
 
@@ -206,7 +205,7 @@ namespace dlgprov
     }
 
 
-    Reference< resource::XStringResourceManager > getStringResourceFromDialogLibrary
+    static Reference< resource::XStringResourceManager > getStringResourceFromDialogLibrary
         ( const Reference< container::XNameContainer >& xDialogLib )
     {
         Reference< resource::XStringResourceManager > xStringResourceManager;

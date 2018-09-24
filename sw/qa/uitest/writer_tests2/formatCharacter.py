@@ -34,13 +34,10 @@ class formatCharacter(UITestCase):
         xLangFontCTL = xDialog.getChild("ctllanglb")
 
         xSizeFont.executeAction("TYPE", mkPropertyValues({"KEYCODE":"CTRL+A"}))
-        xSizeFont.executeAction("BACKSPACE", tuple())
         xSizeFont.executeAction("TYPE", mkPropertyValues({"TEXT":"18"}))    #set font size 18
         xSizeFontEast.executeAction("TYPE", mkPropertyValues({"KEYCODE":"CTRL+A"}))
-        xSizeFontEast.executeAction("BACKSPACE", tuple())
         xSizeFontEast.executeAction("TYPE", mkPropertyValues({"TEXT":"18"}))    #set font size 18
         xSizeFontCTL.executeAction("TYPE", mkPropertyValues({"KEYCODE":"CTRL+A"}))
-        xSizeFontCTL.executeAction("BACKSPACE", tuple())
         xSizeFontCTL.executeAction("TYPE", mkPropertyValues({"TEXT":"18"}))    #set font size 18
         select_pos(xLangFont, "0")
         select_pos(xLangFontEast, "0")
@@ -57,12 +54,12 @@ class formatCharacter(UITestCase):
         xLangFontEast = xDialog.getChild("eastlanglb")
         xLangFontCTL = xDialog.getChild("ctllanglb")
 
-        self.assertEqual(get_state_as_dict(xSizeFont)["Text"], "18")
-        self.assertEqual(get_state_as_dict(xSizeFontEast)["Text"], "18")
-        self.assertEqual(get_state_as_dict(xSizeFontCTL)["Text"], "18") #check font size
-        self.assertEqual(get_state_as_dict(xLangFont)["Text"], "\u202a[None]\u202c")
-        self.assertEqual(get_state_as_dict(xLangFontEast)["SelectEntryText"], "\u202a[None]\u202c")
-        self.assertEqual(get_state_as_dict(xLangFontCTL)["SelectEntryText"], "\u202a[None]\u202c")
+        self.assertEqual(get_state_as_dict(xSizeFont)["Text"], "18 pt")
+        self.assertEqual(get_state_as_dict(xSizeFontEast)["Text"], "18 pt")
+        self.assertEqual(get_state_as_dict(xSizeFontCTL)["Text"], "18 pt") #check font size
+        self.assertEqual(get_state_as_dict(xLangFont)["Text"], "[None]")
+        self.assertEqual(get_state_as_dict(xLangFontEast)["SelectEntryText"], "[None]")
+        self.assertEqual(get_state_as_dict(xLangFontCTL)["SelectEntryText"], "[None]")
 
         xCanc = xDialog.getChild("cancel")
         self.ui_test.close_dialog_through_button(xCanc)

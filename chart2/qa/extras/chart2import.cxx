@@ -181,9 +181,10 @@ private:
 
 };
 
-uno::Reference<drawing::XShape> getShapeByName(const uno::Reference<drawing::XShapes>& rShapes,
-    const OUString& rName,
-    std::function<bool(const uno::Reference<drawing::XShape>&)> pCondition = nullptr)
+static uno::Reference<drawing::XShape>
+getShapeByName(const uno::Reference<drawing::XShapes>& rShapes, const OUString& rName,
+               const std::function<bool(const uno::Reference<drawing::XShape>&)>& pCondition
+               = nullptr)
 {
     uno::Reference<container::XIndexAccess> XIndexAccess(rShapes, uno::UNO_QUERY);
     for (sal_Int32 i = 0; i < XIndexAccess->getCount(); ++i)
@@ -347,7 +348,7 @@ void Chart2ImportTest::testSteppedLines()
     }
 }
 
-uno::Sequence < OUString > getChartColumnDescriptions( uno::Reference< chart::XChartDocument > const & xChart1Doc)
+static uno::Sequence < OUString > getChartColumnDescriptions( uno::Reference< chart::XChartDocument > const & xChart1Doc)
 {
     CPPUNIT_ASSERT(xChart1Doc.is());
     uno::Reference< chart::XChartDataArray > xChartData ( xChart1Doc->getData(), UNO_QUERY_THROW);

@@ -40,6 +40,7 @@
 #include <viewdata.hxx>
 #include <progress.hxx>
 #include <markdata.hxx>
+#include <refundo.hxx>
 
 // for ScUndoRenameObject - might me moved to another file later
 #include <svx/svditer.hxx>
@@ -64,7 +65,6 @@ ScUndoInsertTab::ScUndoInsertTab( ScDocShell* pNewDocShell,
                                   const OUString& rNewName) :
     ScSimpleUndo( pNewDocShell ),
     sNewName( rNewName ),
-    pDrawUndo( nullptr ),
     nTab( nTabNum ),
     bAppend( bApp )
 {
@@ -156,7 +156,6 @@ ScUndoInsertTables::ScUndoInsertTables( ScDocShell* pNewDocShell,
                                         SCTAB nTabNum,
                                         const std::vector<OUString>& newNameList) :
     ScSimpleUndo( pNewDocShell ),
-    pDrawUndo( nullptr ),
     aNameList( newNameList ),
     nTab( nTabNum )
 {
@@ -247,8 +246,8 @@ bool ScUndoInsertTables::CanRepeat(SfxRepeatTarget& rTarget) const
 }
 
 ScUndoDeleteTab::ScUndoDeleteTab( ScDocShell* pNewDocShell, const vector<SCTAB> &aTab,
-                                    ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), pRefData, SC_UNDO_REFLAST )
+                                    ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData ) :
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST )
 {
     theTabs.insert(theTabs.end(), aTab.begin(), aTab.end() );
     SetChangeTrack();
@@ -572,8 +571,7 @@ ScUndoCopyTab::ScUndoCopyTab(
     ScSimpleUndo( pNewDocShell ),
     mpOldTabs(pOldTabs),
     mpNewTabs(pNewTabs),
-    mpNewNames(pNewNames),
-    pDrawUndo( nullptr )
+    mpNewNames(pNewNames)
 {
     pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() );
 
@@ -783,8 +781,7 @@ ScUndoMakeScenario::ScUndoMakeScenario( ScDocShell* pNewDocShell,
     aName( rN ),
     aComment( rC ),
     aColor( rCol ),
-    nFlags( nF ),
-    pDrawUndo( nullptr )
+    nFlags( nF )
 {
     pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() );
 }
@@ -863,7 +860,6 @@ ScUndoImportTab::ScUndoImportTab(ScDocShell* pShell,
     : ScSimpleUndo(pShell)
     , nTab(nNewTab)
     , nCount(nNewCount)
-    , pDrawUndo(nullptr)
 {
     pDrawUndo = GetSdrUndoAction( &pDocShell->GetDocument() );
 }

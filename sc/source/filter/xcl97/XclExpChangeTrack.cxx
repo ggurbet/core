@@ -22,15 +22,19 @@
 #include <sot/storage.hxx>
 #include <XclExpChangeTrack.hxx>
 #include <xeformula.hxx>
+#include <xehelper.hxx>
+#include <xltools.hxx>
 #include <formulacell.hxx>
 #include <xcl97rec.hxx>
 #include <document.hxx>
 #include <editutil.hxx>
+#include <root.hxx>
 
 #include <oox/export/utils.hxx>
 #include <oox/token/namespaces.hxx>
 #include <oox/token/tokens.hxx>
 #include <rtl/strbuf.hxx>
+#include <rtl/uuid.h>
 #include <svl/sharedstring.hxx>
 
 using namespace oox;
@@ -652,7 +656,6 @@ XclExpChTrAction::XclExpChTrAction( const XclExpChTrAction& rCopy ) :
     sUsername( rCopy.sUsername ),
     aDateTime( rCopy.aDateTime ),
     nIndex( 0 ),
-    pAddAction( nullptr ),
     bAccepted( rCopy.bAccepted ),
     rTabInfo( rCopy.rTabInfo ),
     rIdBuffer( rCopy.rIdBuffer ),
@@ -670,7 +673,6 @@ XclExpChTrAction::XclExpChTrAction(
     sUsername( rAction.GetUser() ),
     aDateTime( rAction.GetDateTime() ),
     nIndex( 0 ),
-    pAddAction( nullptr ),
     bAccepted( rAction.IsAccepted() ),
     rTabInfo( rRoot.GetTabInfo() ),
     rIdBuffer( rTabIdBuffer ),
@@ -747,7 +749,6 @@ std::size_t XclExpChTrAction::GetLen() const
 }
 
 XclExpChTrData::XclExpChTrData() :
-    pString( nullptr ),
     mpFormulaCell( nullptr ),
     fValue( 0.0 ),
     nRKValue( 0 ),
@@ -826,8 +827,6 @@ XclExpChTrCellContent::XclExpChTrCellContent(
         const XclExpChTrTabIdBuffer& rTabIdBuffer ) :
     XclExpChTrAction( rAction, rRoot, rTabIdBuffer, EXC_CHTR_OP_CELL ),
     XclExpRoot( rRoot ),
-    pOldData( nullptr ),
-    pNewData( nullptr ),
     aPosition( rAction.GetBigRange().MakeRange().aStart )
 {
     sal_uInt32 nDummy32;

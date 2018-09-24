@@ -101,10 +101,20 @@ IMPL_ABSTDLG_BASE(CuiAbstractSfxDialog_Impl)
 IMPL_ABSTDLG_BASE(CuiVclAbstractDialog_Impl)
 IMPL_ABSTDLG_BASE(VclAbstractRefreshableDialog_Impl);
 IMPL_ABSTDLG_BASE(CuiAbstractTabDialog_Impl);
-IMPL_ABSTDLG_BASE(AbstractSvxDistributeDialog_Impl);
+
+short AbstractSvxDistributeDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 IMPL_ABSTDLG_BASE(AbstractHangulHanjaConversionDialog_Impl);
 IMPL_ABSTDLG_BASE(AbstractFmShowColsDialog_Impl);
-IMPL_ABSTDLG_BASE(AbstractHyphenWordDialog_Impl)
+
+short AbstractHyphenWordDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 IMPL_ABSTDLG_BASE(AbstractThesaurusDialog_Impl)
 
 short AbstractSvxZoomDialog_Impl::Execute()
@@ -141,7 +151,16 @@ bool AbstractSvxTransformTabDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
     return SfxTabDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
 }
 
-IMPL_ABSTDLG_BASE(AbstractSvxCaptionDialog_Impl);
+short AbstractSvxCaptionDialog_Impl::Execute()
+{
+    return m_xDlg->execute();
+}
+
+bool AbstractSvxCaptionDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxTabDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
+
 IMPL_ABSTDLG_BASE(AbstractSvxJSearchOptionsDialog_Impl);
 
 short AbstractFmInputRecordNoDialog_Impl::Execute()
@@ -179,8 +198,21 @@ short AbstractSvxPathSelectDialog_Impl::Execute()
 
 IMPL_ABSTDLG_BASE(AbstractSvxHpLinkDlg_Impl);
 IMPL_ABSTDLG_BASE(AbstractFmSearchDialog_Impl);
-IMPL_ABSTDLG_BASE(AbstractGraphicFilterDialog_Impl);
-IMPL_ABSTDLG_BASE(AbstractSvxAreaTabDialog_Impl);
+
+short AbstractGraphicFilterDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
+short AbstractSvxAreaTabDialog_Impl::Execute()
+{
+    return m_xDlg->execute();
+}
+
+bool AbstractSvxAreaTabDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxTabDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
 
 short AbstractPasteDialog_Impl::Execute()
 {
@@ -343,11 +375,11 @@ void CuiAbstractSfxDialog_Impl::SetText( const OUString& rStr )
 
 SvxDistributeHorizontal AbstractSvxDistributeDialog_Impl::GetDistributeHor()const
 {
-    return pDlg->GetDistributeHor();
+    return m_xDlg->GetDistributeHor();
 }
 SvxDistributeVertical AbstractSvxDistributeDialog_Impl::GetDistributeVer()const
 {
-    return pDlg->GetDistributeVer();
+    return m_xDlg->GetDistributeVer();
 }
 
 void AbstractHangulHanjaConversionDialog_Impl::EndDialog(sal_Int32 nResult)
@@ -455,11 +487,6 @@ OUString AbstractThesaurusDialog_Impl::GetWord()
 {
     return pDlg->GetWord();
 };
-
-vcl::Window* AbstractHyphenWordDialog_Impl::GetWindow()
-{
-    return pDlg;
-}
 
 Reference < css::embed::XEmbeddedObject > AbstractInsertObjectDialog_Impl::GetObject()
 {
@@ -621,31 +648,32 @@ void AbstractSvxTransformTabDialog_Impl::SetValidateFramePosLink( const Link<Svx
 // AbstractSvxCaptionDialog implementations just forwards everything to the dialog
 void AbstractSvxCaptionDialog_Impl::SetCurPageId( const OString& rName )
 {
-    pDlg->SetCurPageId( rName );
+    m_xDlg->SetCurPageId(rName);
 }
 
 const SfxItemSet* AbstractSvxCaptionDialog_Impl::GetOutputItemSet() const
 {
-    return pDlg->GetOutputItemSet();
+    return m_xDlg->GetOutputItemSet();
 }
 
 const sal_uInt16* AbstractSvxCaptionDialog_Impl::GetInputRanges(const SfxItemPool& pItem )
 {
-    return pDlg->GetInputRanges( pItem );
+    return m_xDlg->GetInputRanges( pItem );
 }
 
 void AbstractSvxCaptionDialog_Impl::SetInputSet( const SfxItemSet* pInSet )
 {
-     pDlg->SetInputSet( pInSet );
+     m_xDlg->SetInputSet( pInSet );
 }
-//From class Window.
+
 void AbstractSvxCaptionDialog_Impl::SetText( const OUString& rStr )
 {
-    pDlg->SetText( rStr );
+    m_xDlg->set_title(rStr);
 }
+
 void AbstractSvxCaptionDialog_Impl::SetValidateFramePosLink( const Link<SvxSwFrameValidation&,void>& rLink )
 {
-    pDlg->SetValidateFramePosLink( rLink );
+    m_xDlg->SetValidateFramePosLink( rLink );
 }
 
 TransliterationFlags AbstractSvxJSearchOptionsDialog_Impl::GetTransliterationFlags() const
@@ -790,35 +818,35 @@ void AbstractFmSearchDialog_Impl::SetActiveField(const OUString& strField)
     pDlg->SetActiveField(strField);
 }
 
-Graphic AbstractGraphicFilterDialog_Impl::GetFilteredGraphic( const Graphic& rGraphic, double fScaleX, double fScaleY )
+Graphic AbstractGraphicFilterDialog_Impl::GetFilteredGraphic(const Graphic& rGraphic, double fScaleX, double fScaleY)
 {
-    return pDlg->GetFilteredGraphic( rGraphic, fScaleX, fScaleY );
+    return m_xDlg->GetFilteredGraphic(rGraphic, fScaleX, fScaleY);
 }
 
 // AbstractSvxAreaTabDialog implementations just forwards everything to the dialog
 void AbstractSvxAreaTabDialog_Impl::SetCurPageId( const OString& rName )
 {
-    pDlg->SetCurPageId( rName );
+    m_xDlg->SetCurPageId( rName );
 }
 
 const SfxItemSet* AbstractSvxAreaTabDialog_Impl::GetOutputItemSet() const
 {
-    return pDlg->GetOutputItemSet();
+    return m_xDlg->GetOutputItemSet();
 }
 
 const sal_uInt16* AbstractSvxAreaTabDialog_Impl::GetInputRanges(const SfxItemPool& pItem )
 {
-    return pDlg->GetInputRanges( pItem );
+    return m_xDlg->GetInputRanges( pItem );
 }
 
 void AbstractSvxAreaTabDialog_Impl::SetInputSet( const SfxItemSet* pInSet )
 {
-     pDlg->SetInputSet( pInSet );
+     m_xDlg->SetInputSet( pInSet );
 }
-//From class Window.
+
 void AbstractSvxAreaTabDialog_Impl::SetText( const OUString& rStr )
 {
-    pDlg->SetText( rStr );
+    m_xDlg->set_title(rStr);
 }
 
 void AbstractSvxPostItDialog_Impl::SetText( const OUString& rStr )
@@ -999,18 +1027,17 @@ VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateTextTabDialog(wel
 }
 
 // TabDialog that use functionality of the drawing layer and add AnchorTypes -- for SvxCaptionTabDialog
-VclPtr<AbstractSvxCaptionDialog>      AbstractDialogFactory_Impl::CreateCaptionDialog( vcl::Window* pParent,
-                                            const SdrView* pView,
-                                            SvxAnchorIds nAnchorTypes )
+VclPtr<AbstractSvxCaptionDialog> AbstractDialogFactory_Impl::CreateCaptionDialog(weld::Window* pParent,
+                                                                                 const SdrView* pView,
+                                                                                 SvxAnchorIds nAnchorTypes)
 {
-    VclPtrInstance<SvxCaptionTabDialog> pDlg( pParent, pView, nAnchorTypes );
-    return VclPtr<AbstractSvxCaptionDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractSvxCaptionDialog_Impl>::Create(o3tl::make_unique<SvxCaptionTabDialog>(pParent, pView, nAnchorTypes));
 }
 
-VclPtr<AbstractSvxDistributeDialog>    AbstractDialogFactory_Impl::CreateSvxDistributeDialog(const SfxItemSet& rAttr)
+VclPtr<AbstractSvxDistributeDialog> AbstractDialogFactory_Impl::CreateSvxDistributeDialog(weld::Window* pParent,
+                                                                                          const SfxItemSet& rAttr)
 {
-    VclPtrInstance<SvxDistributeDialog> pDlg( nullptr, rAttr, SvxDistributeHorizontal::NONE, SvxDistributeVertical::NONE);
-    return VclPtr<AbstractSvxDistributeDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractSvxDistributeDialog_Impl>::Create(o3tl::make_unique<SvxDistributeDialog>(pParent, rAttr, SvxDistributeHorizontal::NONE, SvxDistributeVertical::NONE));
 }
 
 VclPtr<AbstractHangulHanjaConversionDialog> AbstractDialogFactory_Impl::CreateHangulHanjaConversionDialog(vcl::Window* pParent,
@@ -1028,13 +1055,12 @@ VclPtr<AbstractThesaurusDialog> AbstractDialogFactory_Impl::CreateThesaurusDialo
     return VclPtr<AbstractThesaurusDialog_Impl>::Create( pDlg );
 }
 
-VclPtr<AbstractHyphenWordDialog> AbstractDialogFactory_Impl::CreateHyphenWordDialog( vcl::Window* pParent,
+VclPtr<AbstractHyphenWordDialog> AbstractDialogFactory_Impl::CreateHyphenWordDialog(weld::Window* pParent,
                                                 const OUString &rWord, LanguageType nLang,
                                                 css::uno::Reference< css::linguistic2::XHyphenator >  &xHyphen,
-                                                SvxSpellWrapper* pWrapper )
+                                                SvxSpellWrapper* pWrapper)
 {
-    VclPtrInstance<SvxHyphenWordDialog> pDlg( rWord, nLang, pParent, xHyphen, pWrapper );
-    return VclPtr<AbstractHyphenWordDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractHyphenWordDialog_Impl>::Create(o3tl::make_unique<SvxHyphenWordDialog>(rWord, nLang, pParent, xHyphen, pWrapper));
 }
 
 VclPtr<AbstractFmShowColsDialog> AbstractDialogFactory_Impl::CreateFmShowColsDialog()
@@ -1125,11 +1151,11 @@ VclPtr<AbstractURLDlg> AbstractDialogFactory_Impl::CreateURLDialog( vcl::Window*
     return VclPtr<AbstractURLDlg_Impl>::Create( pDlg );
 }
 
-VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateTabItemDialog(vcl::Window* pParent,
+VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateTabItemDialog(weld::Window* pParent,
     const SfxItemSet& rSet)
 {
-    VclPtrInstance<SvxSearchFormatDialog> pDlg(pParent, rSet);
-    return VclPtr<CuiAbstractTabDialog_Impl>::Create(pDlg);
+    return VclPtr<CuiAbstractTabController_Impl>::Create(o3tl::make_unique<SvxSearchFormatDialog>(
+                                                         pParent, rSet));
 }
 
 VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateSvxSearchAttributeDialog( vcl::Window* pParent,
@@ -1150,17 +1176,15 @@ VclPtr<AbstractSvxSearchSimilarityDialog> AbstractDialogFactory_Impl::CreateSvxS
 }
 
 VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateSvxBorderBackgroundDlg(
-    vcl::Window* pParent,
+    weld::Window* pParent,
     const SfxItemSet& rCoreSet,
     bool bEnableDrawingLayerFillStyles)
 {
-    VclPtrInstance<SvxBorderBackgroundDlg> pDlg(
+    return VclPtr<CuiAbstractTabController_Impl>::Create(o3tl::make_unique<SvxBorderBackgroundDlg>(
         pParent,
         rCoreSet,
         /*bEnableSelector*/true,
-        bEnableDrawingLayerFillStyles);
-
-    return VclPtr<CuiAbstractTabDialog_Impl>::Create(pDlg);
+        bEnableDrawingLayerFillStyles));
 }
 
 VclPtr<AbstractSvxTransformTabDialog> AbstractDialogFactory_Impl::CreateSvxTransformTabDialog(weld::Window* pParent,
@@ -1253,55 +1277,48 @@ VclPtr<AbstractFmSearchDialog> AbstractDialogFactory_Impl::CreateFmSearchDialog(
     return VclPtr<AbstractFmSearchDialog_Impl>::Create( pDlg );
 }
 
-VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterEmboss (vcl::Window* pParent,
+VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterEmboss(weld::Window* pParent,
                                             const Graphic& rGraphic)
 {
-    VclPtrInstance<GraphicFilterEmboss> pDlg( pParent, rGraphic, RectPoint::MM );
-    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create(o3tl::make_unique<GraphicFilterEmboss>(pParent, rGraphic, RectPoint::MM));
 }
 
-VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterPoster(vcl::Window* pParent,
+VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterPoster(weld::Window* pParent,
                                             const Graphic& rGraphic)
 {
-    VclPtrInstance<GraphicFilterPoster> pDlg( pParent, rGraphic, 16 );
-    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create(o3tl::make_unique<GraphicFilterPoster>(pParent, rGraphic, 16));
 }
 
-VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterSepia (vcl::Window* pParent,
+VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterSepia(weld::Window* pParent,
                                             const Graphic& rGraphic)
 {
-    VclPtrInstance<GraphicFilterSepia> pDlg( pParent, rGraphic, 10 );
-    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create(o3tl::make_unique<GraphicFilterSepia>(pParent, rGraphic, 10));
 }
 
-VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterSmooth(vcl::Window* pParent,
+VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterSmooth(weld::Window* pParent,
                                             const Graphic& rGraphic, double nRadius)
 {
-    VclPtrInstance<GraphicFilterSmooth> pDlg( pParent, rGraphic, nRadius );
-    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create(o3tl::make_unique<GraphicFilterSmooth>(pParent, rGraphic, nRadius));
 }
 
-VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterSolarize (vcl::Window* pParent,
+VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterSolarize(weld::Window* pParent,
                                             const Graphic& rGraphic)
 {
-    VclPtrInstance<GraphicFilterSolarize> pDlg( pParent, rGraphic, 128, false/*bInvert*/ );
-    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create(o3tl::make_unique<GraphicFilterSolarize>(pParent, rGraphic, 128, false /*bInvert*/));
 }
 
-VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterMosaic (vcl::Window* pParent,
+VclPtr<AbstractGraphicFilterDialog> AbstractDialogFactory_Impl::CreateGraphicFilterMosaic(weld::Window* pParent,
                                             const Graphic& rGraphic)
 {
-    VclPtrInstance<GraphicFilterMosaic> pDlg(pParent, rGraphic, 4, 4, false/*bEnhanceEdges*/);
-    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGraphicFilterDialog_Impl>::Create(o3tl::make_unique<GraphicFilterMosaic>(pParent, rGraphic, 4, 4, false /*bEnhanceEdges*/));
 }
 
-VclPtr<AbstractSvxAreaTabDialog> AbstractDialogFactory_Impl::CreateSvxAreaTabDialog( vcl::Window* pParent,
+VclPtr<AbstractSvxAreaTabDialog> AbstractDialogFactory_Impl::CreateSvxAreaTabDialog(weld::Window* pParent,
                                                             const SfxItemSet* pAttr,
                                                             SdrModel* pModel,
                                                             bool bShadow)
 {
-    VclPtrInstance<SvxAreaTabDialog> pDlg( pParent, pAttr, pModel, bShadow );
-    return VclPtr<AbstractSvxAreaTabDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractSvxAreaTabDialog_Impl>::Create(o3tl::make_unique<SvxAreaTabDialog>(pParent, pAttr, pModel, bShadow));
 }
 
 VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateSvxLineTabDialog( vcl::Window* pParent, const SfxItemSet* pAttr, //add forSvxLineTabDialog

@@ -646,54 +646,41 @@ void DomainMapper::lcl_attribute(Id nName, Value & val)
         // See SwWW8ImplReader::GetParagraphAutoSpace() on why these are 100 and 280
         case NS_ooxml::LN_CT_Spacing_beforeAutospacing:
         {
-            sal_Int32 default_spacing = 100;
-            if (!m_pImpl->GetSettingsTable()->GetDoNotUseHTMLParagraphAutoSpacing())
+            sal_Int32 default_spacing = -1;
+            if (nIntValue)
             {
-                // 49 is just the old value that should be removed, once the
-                // root cause in SwTabFrm::MakeAll() is fixed.
-                if (m_pImpl->GetSettingsTable()->GetView() == NS_ooxml::LN_Value_doc_ST_View_web)
-                    default_spacing = 49;
-                else
+                m_pImpl->SetParaAutoBefore(true);
+
+                default_spacing = 100;
+                if (!m_pImpl->GetSettingsTable()->GetDoNotUseHTMLParagraphAutoSpacing())
                 {
-                    // tdf#104354 first paragraphs of table cells and shapes get zero top margin
-                    if ((m_pImpl->GetIsFirstParagraphInSection() && m_pImpl->m_nTableDepth > 0) ||
-                         m_pImpl->GetIsFirstParagraphInShape())
-                        default_spacing = 0;
+                    // 49 is just the old value that should be removed, once the
+                    // root cause in SwTabFrm::MakeAll() is fixed.
+                    if (m_pImpl->GetSettingsTable()->GetView() == NS_ooxml::LN_Value_doc_ST_View_web)
+                        default_spacing = 49;
                     else
                         default_spacing = 280;
                 }
-            }
-            if  (nIntValue) // If auto spacing is set, then only store set value in InteropGrabBag
-            {
-                m_pImpl->SetParaAutoBefore(true);
-                m_pImpl->GetTopContext()->Insert( PROP_PARA_TOP_MARGIN, uno::makeAny( ConversionHelper::convertTwipToMM100(default_spacing) ) );
-            }
-            else
-            {
-                default_spacing = -1;
+                // required at export (here mainly for StyleSheets) to determine if the setting has changed from grab_bag
+                m_pImpl->GetTopContext()->Insert(PROP_PARA_TOP_MARGIN, uno::makeAny(ConversionHelper::convertTwipToMM100(default_spacing)));
             }
             m_pImpl->GetTopContext()->Insert( PROP_PARA_TOP_MARGIN_BEFORE_AUTO_SPACING, uno::makeAny( ConversionHelper::convertTwipToMM100(default_spacing) ),true, PARA_GRAB_BAG );
         }
         break;
         case NS_ooxml::LN_CT_Spacing_afterAutospacing:
         {
-            sal_Int32 default_spacing = 100;
-
-            if (!m_pImpl->GetSettingsTable()->GetDoNotUseHTMLParagraphAutoSpacing())
+            sal_Int32 default_spacing = -1;
+            if  (nIntValue)
             {
-                if (m_pImpl->GetSettingsTable()->GetView() == NS_ooxml::LN_Value_doc_ST_View_web)
-                    default_spacing = 49;
-                else
-                    default_spacing = 280;
-            }
-            if  (nIntValue) // If auto spacing is set, then only store set value in InteropGrabBag
-            {
-                m_pImpl->SetParaAutoAfter(true);
-                m_pImpl->GetTopContext()->Insert( PROP_PARA_BOTTOM_MARGIN, uno::makeAny( ConversionHelper::convertTwipToMM100(default_spacing) ) );
-            }
-            else
-            {
-                default_spacing = -1;
+                default_spacing = 100;
+                if (!m_pImpl->GetSettingsTable()->GetDoNotUseHTMLParagraphAutoSpacing())
+                {
+                    if (m_pImpl->GetSettingsTable()->GetView() == NS_ooxml::LN_Value_doc_ST_View_web)
+                        default_spacing = 49;
+                    else
+                        default_spacing = 280;
+                }
+                m_pImpl->GetTopContext()->Insert(PROP_PARA_BOTTOM_MARGIN, uno::makeAny(ConversionHelper::convertTwipToMM100(default_spacing)));
             }
             m_pImpl->GetTopContext()->Insert( PROP_PARA_BOTTOM_MARGIN_AFTER_AUTO_SPACING, uno::makeAny( ConversionHelper::convertTwipToMM100(default_spacing) ),true, PARA_GRAB_BAG );
         }
@@ -2110,27 +2097,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
         const OUString sConvertedStyleName = pStyleTable->ConvertStyleName( sStringValue, true );
         m_pImpl->SetCurrentParaStyleName( sConvertedStyleName );
         if (m_pImpl->GetTopContext() && m_pImpl->GetTopContextType() != CONTEXT_SECTION)
-        {
             m_pImpl->GetTopContext()->Insert( PROP_PARA_STYLE_NAME, uno::makeAny( sConvertedStyleName ));
-
-            if (m_pImpl->GetIsFirstParagraphInShape())
-            {
-                // First paragraph in shape: see if we need to disable
-                // paragraph top margin from style.
-                StyleSheetEntryPtr pEntry
-                    = m_pImpl->GetStyleSheetTable()->FindStyleSheetByConvertedStyleName(
-                        sConvertedStyleName);
-                if (pEntry)
-                {
-                    boost::optional<PropertyMap::Property> pParaAutoBefore
-                        = pEntry->pProperties->getProperty(
-                            PROP_PARA_TOP_MARGIN_BEFORE_AUTO_SPACING);
-                    if (pParaAutoBefore)
-                        m_pImpl->GetTopContext()->Insert(PROP_PARA_TOP_MARGIN,
-                                                         uno::makeAny(static_cast<sal_Int32>(0)));
-                }
-            }
-        }
     }
     break;
     case NS_ooxml::LN_EG_RPrBase_rStyle:
@@ -2576,7 +2543,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
             const PropertyMapPtr pParagraphProps = m_pImpl->GetTopContextOfType(CONTEXT_PARAGRAPH);
             if( pParagraphProps && pParagraphProps->isSet(PROP_PARA_STYLE_NAME) )
             {
-                StyleSheetEntryPtr pStyle = nullptr;
+                StyleSheetEntryPtr pStyle;
                 OUString sStyleName;
                 pParagraphProps->getProperty(PROP_PARA_STYLE_NAME)->second >>= sStyleName;
                 if( !sStyleName.isEmpty() && GetStyleSheetTable() )
@@ -2888,10 +2855,8 @@ void DomainMapper::lcl_endSectionGroup()
     {
         m_pImpl->CheckUnregisteredFrameConversion();
         m_pImpl->ExecuteFrameConversion();
-        // First paragraph in a footnote doesn't count: that would create
-        // additional paragraphs before and after the real footnote content.
-        // Also, when pasting, it's fine to not have any paragraph inside the document at all.
-        if (m_pImpl->GetIsFirstParagraphInSection() && !m_pImpl->IsInFootOrEndnote() && m_pImpl->IsNewDoc())
+        // When pasting, it's fine to not have any paragraph inside the document at all.
+        if (m_pImpl->GetIsFirstParagraphInSection() && m_pImpl->IsNewDoc())
         {
             // This section has no paragraph at all (e.g. they are all actually in a frame).
             // If this section has a page break, there would be nothing to apply to the page

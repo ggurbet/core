@@ -264,7 +264,7 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
         ( rInf.IsInterHyph() && InFieldGrp() ) )
         return false;
 
-    SwHyphPortion *pHyphPor;
+    std::unique_ptr<SwHyphPortion> pHyphPor;
     TextFrameIndex nPorEnd;
     SwTextSizeInfo aInf( rInf );
 
@@ -282,11 +282,11 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
         // soft hyphen at alternative spelling position?
         if( rInf.GetText()[sal_Int32(rInf.GetSoftHyphPos())] == CHAR_SOFTHYPHEN )
         {
-            pHyphPor = new SwSoftHyphStrPortion( aAltText );
+            pHyphPor.reset(new SwSoftHyphStrPortion( aAltText ));
             nTmpLen = 1;
         }
         else {
-            pHyphPor = new SwHyphStrPortion( aAltText );
+            pHyphPor.reset(new SwHyphStrPortion( aAltText ));
         }
 
         // length of pHyphPor is adjusted
@@ -297,16 +297,16 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
     else
     {
         // second case: no alternative spelling
-        pHyphPor = new SwHyphPortion;
+        pHyphPor.reset(new SwHyphPortion);
         pHyphPor->SetLen(TextFrameIndex(1));
 
-        static const void* pLastMagicNo = nullptr;
+        static const void* nLastFontCacheId = nullptr;
         static sal_uInt16 aMiniCacheH = 0, aMiniCacheW = 0;
-        const void* pTmpMagic;
+        const void* nTmpFontCacheId;
         sal_uInt16 nFntIdx;
-        rInf.GetFont()->GetMagic( pTmpMagic, nFntIdx, rInf.GetFont()->GetActual() );
-        if( !pLastMagicNo || pLastMagicNo != pTmpMagic ) {
-            pLastMagicNo = pTmpMagic;
+        rInf.GetFont()->GetFontCacheId( nTmpFontCacheId, nFntIdx, rInf.GetFont()->GetActual() );
+        if( !nLastFontCacheId || nLastFontCacheId != nTmpFontCacheId ) {
+            nLastFontCacheId = nTmpFontCacheId;
             static_cast<SwPosSize&>(*pHyphPor) = pHyphPor->GetTextSize( rInf );
             aMiniCacheH = pHyphPor->Height();
             aMiniCacheW = pHyphPor->Width();
@@ -331,7 +331,7 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
         SetLen( aInf.GetLen() );
         CalcTextSize( aInf );
 
-        Insert( pHyphPor );
+        Insert( pHyphPor.release() );
 
         short nKern = rInf.GetFont()->CheckKerning();
         if( nKern )
@@ -341,7 +341,7 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
     }
 
     // last exit for the lost
-    delete pHyphPor;
+    pHyphPor.reset();
     BreakCut( rInf, rGuess );
     return false;
 }

@@ -23,6 +23,7 @@
 #include <cppuhelper/factory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <com/sun/star/registry/XRegistryKey.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <tools/debug.hxx>
 #include <osl/mutex.hxx>
 
@@ -484,7 +485,7 @@ Reference< XSpellAlternatives > SAL_CALL
 }
 
 /// @throws Exception
-Reference< XInterface > MacSpellChecker_CreateInstance(
+static Reference< XInterface > MacSpellChecker_CreateInstance(
             const Reference< XMultiServiceFactory > & /*rSMgr*/ )
 {
 

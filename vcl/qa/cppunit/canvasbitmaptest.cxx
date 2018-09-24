@@ -51,7 +51,7 @@ using namespace vcl::unotools;
 namespace com { namespace sun { namespace star { namespace rendering
 {
 
-bool operator==( const RGBColor& rLHS, const ARGBColor& rRHS )
+static bool operator==( const RGBColor& rLHS, const ARGBColor& rRHS )
 {
     return rLHS.Red == rRHS.Red && rLHS.Green == rRHS.Green && rLHS.Blue == rRHS.Blue;
 }
@@ -245,7 +245,7 @@ class TestBitmap : public cppu::WeakImplHelper< rendering::XIntegerReadOnlyBitma
                                                  rendering::XIntegerBitmapColorSpace >
 {
 private:
-    geometry::IntegerSize2D        maSize;
+    geometry::IntegerSize2D const  maSize;
     uno::Sequence<sal_Int8>        maComponentTags;
     uno::Sequence<sal_Int32>       maComponentBitCounts;
     rendering::IntegerBitmapLayout maLayout;

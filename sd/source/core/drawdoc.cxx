@@ -100,6 +100,7 @@
 #include <undopage.hxx>
 #include <tools/tenccvt.hxx>
 #include <vcl/settings.hxx>
+#include <unokywds.hxx>
 
 using namespace ::sd;
 using namespace ::com::sun::star;
@@ -134,13 +135,6 @@ SdDrawDocument::SdDrawDocument(DocumentType eType, SfxObjectShell* pDrDocSh)
 :   FmFormModel(
         nullptr,
         pDrDocSh)
-, mpOutliner(nullptr)
-, mpInternalOutliner(nullptr)
-, mpWorkStartupTimer(nullptr)
-, mpOnlineSpellingIdle(nullptr)
-, mpOnlineSpellingList(nullptr)
-, mpOnlineSearchItem(nullptr)
-, mpCustomShowList(nullptr)
 , mpDocSh(static_cast< ::sd::DrawDocShell*>(pDrDocSh))
 , mpCreatingTransferable( nullptr )
 , mbHasOnlineSpellErrors(false)
@@ -155,7 +149,6 @@ SdDrawDocument::SdDrawDocument(DocumentType eType, SfxObjectShell* pDrDocSh)
 , mePageNumType(SVX_NUM_ARABIC)
 , mbAllocDocSh(false)
 , meDocType(eType)
-, mpCharClass(nullptr)
 , mbEmbedFonts(false)
 , mbEmbedUsedFontsOnly(false)
 , mbEmbedFontScriptLatin(true)
@@ -321,28 +314,34 @@ SdDrawDocument::SdDrawDocument(DocumentType eType, SfxObjectShell* pDrDocSh)
       *
       * We create the following default layers on all pages and master pages:
       *
-      * STR_LAYOUT    : default layer for drawing objects
+      * sUNO_LayerName_layout; "layout": default layer for drawing objects of normal pages
+      * localized by SdResId(STR_LAYER_LAYOUT)
       *
-      * STR_BCKGRND   : background of the master page
-      *                 (currently unused within normal pages)
+      * sUNO_LayerName_background; "background": background of the master page
+      * localized by SdResId(STR_LAYER_BCKGRND)
+      *           (currently unused within normal pages and not visible to users)
       *
-      * STR_BCKGRNDOBJ: objects on the background of master pages
-      *                 (currently unused within normal pages)
+      * sUNO_LayerName_background_objects; "backgroundobjects": objects on the background of master pages
+      * localized by SdResId(STR_LAYER_BCKGRNDOBJ)
+      *           (currently unused within normal pages)
       *
-      * STR_CONTROLS  : default layer for controls
+      * sUNO_LayerName_controls; "controls": default layer for controls
+      * localized by SdResId(STR_LAYER_CONTROLS)
+      *           (currently special handling in regard to z-order)
+      *
+      * sUNO_LayerName_measurelines; "measurelines" : default layer for measure lines
+      * localized by SdResId(STR_LAYER_MEASURELINES)
       */
 
     {
-        OUString aControlLayerName( SdResId(STR_LAYER_CONTROLS) );
-
         SdrLayerAdmin& rLayerAdmin = GetLayerAdmin();
-        rLayerAdmin.NewLayer( SdResId(STR_LAYER_LAYOUT) );
-        rLayerAdmin.NewLayer( SdResId(STR_LAYER_BCKGRND) );
-        rLayerAdmin.NewLayer( SdResId(STR_LAYER_BCKGRNDOBJ) );
-        rLayerAdmin.NewLayer( aControlLayerName );
-        rLayerAdmin.NewLayer( SdResId(STR_LAYER_MEASURELINES) );
+        rLayerAdmin.NewLayer( sUNO_LayerName_layout );
+        rLayerAdmin.NewLayer( sUNO_LayerName_background );
+        rLayerAdmin.NewLayer( sUNO_LayerName_background_objects );
+        rLayerAdmin.NewLayer( sUNO_LayerName_controls);
+        rLayerAdmin.NewLayer( sUNO_LayerName_measurelines );
 
-        rLayerAdmin.SetControlLayerName(aControlLayerName);
+        rLayerAdmin.SetControlLayerName(sUNO_LayerName_controls);
     }
 
 }
@@ -623,7 +622,7 @@ SdDrawDocument* SdDrawDocument::AllocSdDrawDocument() const
                 SfxObjectCreateMode::EMBEDDED, true, meDocType ) );
         else
             mpCreatingTransferable->SetDocShell( new ::sd::GraphicDocShell(
-                SfxObjectCreateMode::EMBEDDED, true, meDocType ) );
+                SfxObjectCreateMode::EMBEDDED ) );
 
         pNewDocSh = static_cast< ::sd::DrawDocShell*>( pObj = mpCreatingTransferable->GetDocShell().get() );
         pNewDocSh->DoInitNew();
@@ -760,9 +759,6 @@ void SdDrawDocument::NewOrLoadCompleted(DocCreationMode eMode)
             if( aName != pPage->GetName() )
                 pPage->SetName( aName );
         }
-
-        // Create names of the default layers in the user's language
-        RestoreLayerNames();
 
         // Create names of the styles in the user's language
         static_cast<SdStyleSheetPool*>(mxStyleSheetPool.get())->UpdateStdNames();

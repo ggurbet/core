@@ -351,9 +351,9 @@ public:
                                   aToplevelRegions[2].BottomRight());
                 DemoRenderer::clearRects(rDev,aSubRegions);
                 struct {
-                    bool mbClip;
-                    bool mbArabicText;
-                    bool mbRotate;
+                    bool const mbClip;
+                    bool const mbArabicText;
+                    bool const mbRotate;
                 } aRenderData[] = {
                     { false, false, false },
                     { false, true,  false },
@@ -636,8 +636,8 @@ public:
                 }
 
                 // DX array rendering
-                long *pItems = new long[aText.getLength()+10];
-                rDev.GetTextArray(aText, pItems);
+                std::unique_ptr<long[]> pItems(new long[aText.getLength()+10]);
+                rDev.GetTextArray(aText, pItems.get());
                 for (long j = 0; j < aText.getLength(); ++j)
                 {
                     Point aTop = aTextRect.TopLeft();
@@ -649,7 +649,6 @@ public:
                     rDev.DrawLine(aTop,aBottom);
                     rDev.SetRasterOp(RasterOp::OverPaint);
                 }
-                delete[] pItems;
 
                 aPos.Move(aTextRect.GetWidth() + 16, 0);
             }
@@ -769,7 +768,7 @@ public:
                 doInvert(rDev, aRegions[0], InvertFlags::NONE);
                 doInvert(rDev, aRegions[1], InvertFlags::N50);
                 doInvert(rDev, aRegions[2], InvertFlags::Highlight);
-                doInvert(rDev, aRegions[3], InvertFlags(0xffff));
+                doInvert(rDev, aRegions[3], InvertFlags::TrackFrame);
             }
         }
     };
@@ -1717,7 +1716,7 @@ class DemoWin : public WorkWindow
 
     class RenderThread : public salhelper::Thread {
         DemoWin  &mrWin;
-        sal_uInt32 mnDelaySecs = 0;
+        sal_uInt32 const mnDelaySecs = 0;
     public:
         RenderThread(DemoWin &rWin, sal_uInt32 nDelaySecs)
             : Thread("vcldemo render thread")

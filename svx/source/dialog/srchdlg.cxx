@@ -143,7 +143,7 @@ struct SearchDlg_Impl
     }
 };
 
-void ListToStrArr_Impl( sal_uInt16 nId, std::vector<OUString>& rStrLst, ComboBox& rCBox )
+static void ListToStrArr_Impl( sal_uInt16 nId, std::vector<OUString>& rStrLst, ComboBox& rCBox )
 {
     const SfxStringListItem* pSrchItem =
         static_cast<const SfxStringListItem*>(SfxGetpApp()->GetItem( nId ));
@@ -160,7 +160,7 @@ void ListToStrArr_Impl( sal_uInt16 nId, std::vector<OUString>& rStrLst, ComboBox
     }
 }
 
-void StrArrToList_Impl( sal_uInt16 nId, const std::vector<OUString>& rStrLst )
+static void StrArrToList_Impl( sal_uInt16 nId, const std::vector<OUString>& rStrLst )
 {
     DBG_ASSERT( !rStrLst.empty(), "check in advance");
     SfxGetpApp()->PutItem( SfxStringListItem( nId, &rStrLst ) );
@@ -266,12 +266,7 @@ SvxSearchDialog::SvxSearchDialog( vcl::Window* pParent, SfxChildWindow* pChildWi
     , bSet(false)
     , bConstruct(true)
     , nModifyFlag(ModifyFlags::NONE)
-    , pSearchList(nullptr)
     , pReplaceList(new SearchAttrItemList)
-    , pSearchItem(nullptr)
-    , pSearchController(nullptr)
-    , pOptionsController(nullptr)
-    , pFamilyController(nullptr)
     , nTransliterationFlags(TransliterationFlags::NONE)
 {
     get(m_pSearchFrame, "searchframe");
@@ -2024,7 +2019,7 @@ IMPL_LINK_NOARG(SvxSearchDialog, FormatHdl_Impl, Button*, void)
 
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTabItemDialog(this, aSet));
+    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTabItemDialog(GetFrameWeld(), aSet));
     pDlg->SetText( aTxt );
 
     if ( pDlg->Execute() == RET_OK )

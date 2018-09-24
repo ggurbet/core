@@ -100,7 +100,7 @@ PresentationFragmentHandler::~PresentationFragmentHandler() throw()
 {
 }
 
-void ResolveTextFields( XmlFilterBase const & rFilter )
+static void ResolveTextFields( XmlFilterBase const & rFilter )
 {
     const oox::core::TextFieldStack& rTextFields = rFilter.getTextFieldStack();
     if ( !rTextFields.empty() )
@@ -159,7 +159,8 @@ void ResolveTextFields( XmlFilterBase const & rFilter )
     }
 }
 
-void PresentationFragmentHandler::saveThemeToGrabBag(oox::drawingml::ThemePtr pThemePtr, const OUString& sTheme)
+void PresentationFragmentHandler::saveThemeToGrabBag(const oox::drawingml::ThemePtr& pThemePtr,
+                                                     const OUString& sTheme)
 {
     if (!pThemePtr)
         return;

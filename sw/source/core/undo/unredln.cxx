@@ -25,6 +25,7 @@
 #include <swundo.hxx>
 #include <pam.hxx>
 #include <ndtxt.hxx>
+#include <txtfrm.hxx>
 #include <UndoCore.hxx>
 #include <UndoDelete.hxx>
 #include <strings.hrc>
@@ -36,7 +37,7 @@
 
 SwUndoRedline::SwUndoRedline( SwUndoId nUsrId, const SwPaM& rRange )
     : SwUndo( SwUndoId::REDLINE, rRange.GetDoc() ), SwUndRng( rRange ),
-    mpRedlData( nullptr ), mpRedlSaveData( nullptr ), mnUserId( nUsrId ),
+    mnUserId( nUsrId ),
     mbHiddenRedlines( false )
 {
     // consider Redline
@@ -105,6 +106,17 @@ void SwUndoRedline::UndoImpl(::sw::UndoRedoContext & rContext)
             nEndNode += nEndExtra;
         }
         SetPaM(rPam, true);
+    }
+
+    // update frames after calling SetSaveData
+    if (dynamic_cast<SwUndoRedlineDelete*>(this))
+    {
+        sw::UpdateFramesForRemoveDeleteRedline(rDoc, rPam);
+    }
+    else if (dynamic_cast<SwUndoAcceptRedline*>(this)
+          || dynamic_cast<SwUndoRejectRedline*>(this))
+    {   // (can't check here if there's a delete redline being accepted)
+        sw::UpdateFramesForAddDeleteRedline(rPam);
     }
 }
 
@@ -191,6 +203,7 @@ void SwUndoRedlineDelete::RedoRedlineImpl(SwDoc & rDoc, SwPaM & rPam)
     {
         rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline(*mpRedlData, rPam), false );
     }
+    sw::UpdateFramesForAddDeleteRedline(rPam);
 }
 
 bool SwUndoRedlineDelete::CanGrouping( const SwUndoRedlineDelete& rNext )
@@ -371,8 +384,8 @@ void SwUndoRejectRedline::RepeatImpl(::sw::RepeatContext & rContext)
 }
 
 SwUndoCompDoc::SwUndoCompDoc( const SwPaM& rRg, bool bIns )
-    : SwUndo( SwUndoId::COMPAREDOC, rRg.GetDoc() ), SwUndRng( rRg ), pRedlData( nullptr ),
-    pUnDel( nullptr ), pUnDel2( nullptr ), pRedlSaveData( nullptr ), bInsert( bIns )
+    : SwUndo( SwUndoId::COMPAREDOC, rRg.GetDoc() ), SwUndRng( rRg ),
+    bInsert( bIns )
 {
     SwDoc* pDoc = rRg.GetDoc();
     if( pDoc->getIDocumentRedlineAccess().IsRedlineOn() )
@@ -384,8 +397,7 @@ SwUndoCompDoc::SwUndoCompDoc( const SwPaM& rRg, bool bIns )
 }
 
 SwUndoCompDoc::SwUndoCompDoc( const SwRangeRedline& rRedl )
-    : SwUndo( SwUndoId::COMPAREDOC, rRedl.GetDoc() ), SwUndRng( rRedl ), pRedlData( nullptr ),
-    pUnDel( nullptr ), pUnDel2( nullptr ), pRedlSaveData( nullptr ),
+    : SwUndo( SwUndoId::COMPAREDOC, rRedl.GetDoc() ), SwUndRng( rRedl ),
     // for MergeDoc the corresponding inverse is needed
     bInsert( nsRedlineType_t::REDLINE_DELETE == rRedl.GetType() )
 {
@@ -486,7 +498,7 @@ void SwUndoCompDoc::RedoImpl(::sw::UndoRedoContext & rContext)
         {
             SwRangeRedline* pTmp = new SwRangeRedline(*pRedlData, rPam);
             rDoc.getIDocumentRedlineAccess().GetRedlineTable().Insert( pTmp );
-            pTmp->InvalidateRange();
+            pTmp->InvalidateRange(SwRangeRedline::Invalidation::Add);
         }
         else if( !( RedlineFlags::Ignore & GetRedlineFlags() ) &&
                 !rDoc.getIDocumentRedlineAccess().GetRedlineTable().empty() )
@@ -510,7 +522,7 @@ void SwUndoCompDoc::RedoImpl(::sw::UndoRedoContext & rContext)
 
         SwRangeRedline* pTmp = new SwRangeRedline(*pRedlData, rPam);
         rDoc.getIDocumentRedlineAccess().GetRedlineTable().Insert( pTmp );
-        pTmp->InvalidateRange();
+        pTmp->InvalidateRange(SwRangeRedline::Invalidation::Add);
 
         SetPaM(rPam, true);
     }

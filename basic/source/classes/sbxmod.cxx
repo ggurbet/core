@@ -354,7 +354,7 @@ Any SAL_CALL DocObjectWrapper::queryInterface( const Type& aType )
 
 SbMethodRef DocObjectWrapper::getMethod( const OUString& aName )
 {
-    SbMethodRef pMethod = nullptr;
+    SbMethodRef pMethod;
     if ( m_pMod )
     {
         SbxFlagBits nSaveFlgs = m_pMod->GetFlags();
@@ -369,7 +369,7 @@ SbMethodRef DocObjectWrapper::getMethod( const OUString& aName )
 
 SbPropertyRef DocObjectWrapper::getProperty( const OUString& aName )
 {
-    SbPropertyRef pProperty = nullptr;
+    SbPropertyRef pProperty;
     if ( m_pMod )
     {
         SbxFlagBits nSaveFlgs = m_pMod->GetFlags();
@@ -395,7 +395,7 @@ uno::Reference< frame::XModel > getDocumentModel( StarBASIC* pb )
     return xModel;
 }
 
-uno::Reference< vba::XVBACompatibility > getVBACompatibility( const uno::Reference< frame::XModel >& rxModel )
+static uno::Reference< vba::XVBACompatibility > getVBACompatibility( const uno::Reference< frame::XModel >& rxModel )
 {
     uno::Reference< vba::XVBACompatibility > xVBACompat;
     try
@@ -409,7 +409,7 @@ uno::Reference< vba::XVBACompatibility > getVBACompatibility( const uno::Referen
     return xVBACompat;
 }
 
-bool getDefaultVBAMode( StarBASIC* pb )
+static bool getDefaultVBAMode( StarBASIC* pb )
 {
     uno::Reference< frame::XModel > xModel( getDocumentModel( pb ) );
     if (!xModel.is())
@@ -423,7 +423,7 @@ bool getDefaultVBAMode( StarBASIC* pb )
 
 SbModule::SbModule( const OUString& rName, bool bVBACompat )
          : SbxObject( "StarBASICModule" ),
-           pImage( nullptr ), pBreaks( nullptr ), pClassData( nullptr ), mbVBACompat( bVBACompat ),  pDocObject( nullptr ), bIsProxyModule( false )
+           mbVBACompat( bVBACompat ), bIsProxyModule( false )
 {
     SetName( rName );
     SetFlag( SbxFlagBits::ExtSearch | SbxFlagBits::GlobalSearch );
@@ -929,7 +929,7 @@ static void SendHint( SbxObject* pObj, SfxHintId nId, SbMethod* p )
 
 // #57841 Clear Uno-Objects, which were helt in RTL functions,
 // at the end of the program, so that nothing were helt.
-void ClearUnoObjectsInRTL_Impl_Rek( StarBASIC* pBasic )
+static void ClearUnoObjectsInRTL_Impl_Rek( StarBASIC* pBasic )
 {
     // delete the return value of CreateUnoService
     SbxVariable* pVar = pBasic->GetRtl()->Find( "CreateUnoService", SbxClassType::Method );
@@ -969,7 +969,7 @@ void ClearUnoObjectsInRTL_Impl_Rek( StarBASIC* pBasic )
     }
 }
 
-void ClearUnoObjectsInRTL_Impl( StarBASIC* pBasic )
+static void ClearUnoObjectsInRTL_Impl( StarBASIC* pBasic )
 {
     // #67781 Delete return values of the Uno-methods
     clearUnoMethods();
@@ -1665,10 +1665,10 @@ class ErrorHdlResetter
     Link<StarBASIC*,bool> mErrHandler;
     bool    mbError;
 public:
-    ErrorHdlResetter() : mbError( false )
+    ErrorHdlResetter()
+        : mErrHandler(StarBASIC::GetGlobalErrorHdl()) // save error handler
+        , mbError( false )
     {
-        // save error handler
-        mErrHandler = StarBASIC::GetGlobalErrorHdl();
         // set new error handler
         StarBASIC::SetGlobalErrorHdl( LINK( this, ErrorHdlResetter, BasicErrorHdl ) );
     }

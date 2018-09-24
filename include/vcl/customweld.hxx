@@ -33,6 +33,7 @@ public:
     virtual void GetFocus() {}
     virtual void LoseFocus() {}
     virtual void StyleUpdated() { Invalidate(); }
+    virtual bool ContextMenu(const Point&) { return false; }
     virtual bool KeyInput(const KeyEvent&) { return false; }
     virtual tools::Rectangle GetFocusRect() { return tools::Rectangle(); }
     virtual FactoryFunction GetUITestFactory() const { return nullptr; }
@@ -57,9 +58,14 @@ public:
     bool IsEnabled() const { return m_pDrawingArea->get_sensitive(); }
     int GetTextHeight() const { return m_pDrawingArea->get_text_height(); }
     OUString GetAccessibleName() const { return m_pDrawingArea->get_accessible_name(); }
+    OUString GetAccessibleDescription() const
+    {
+        return m_pDrawingArea->get_accessible_description();
+    }
     void CaptureMouse() { m_pDrawingArea->grab_add(); }
     bool IsMouseCaptured() const { return m_pDrawingArea->has_grab(); }
     void EnableRTL(bool bEnable) { m_pDrawingArea->set_direction(bEnable); }
+    bool IsRTLEnabled() const { return m_pDrawingArea->get_direction(); }
     void ReleaseMouse() { m_pDrawingArea->grab_remove(); }
     void SetHelpId(const OString& rHelpId) { m_pDrawingArea->set_help_id(rHelpId); }
     void SetAccessibleName(const OUString& rName) { m_pDrawingArea->set_accessible_name(rName); }
@@ -95,6 +101,7 @@ private:
     DECL_LINK(DoLoseFocus, weld::Widget&, void);
     DECL_LINK(DoKeyPress, const KeyEvent&, bool);
     DECL_LINK(DoFocusRect, weld::Widget&, tools::Rectangle);
+    DECL_LINK(DoPopupMenu, const Point&, bool);
     DECL_LINK(DoStyleUpdated, weld::Widget&, void);
     DECL_LINK(DoRequestHelp, tools::Rectangle&, OUString);
 
@@ -115,6 +122,8 @@ public:
     void set_margin_top(int nMargin) { m_xDrawingArea->set_margin_top(nMargin); }
     void set_margin_bottom(int nMargin) { m_xDrawingArea->set_margin_bottom(nMargin); }
     void set_sensitive(bool bSensitive) { m_xDrawingArea->set_sensitive(bSensitive); }
+    bool get_sensitive() const { return m_xDrawingArea->get_sensitive(); }
+    bool get_visible() const { return m_xDrawingArea->get_visible(); }
 };
 }
 #endif

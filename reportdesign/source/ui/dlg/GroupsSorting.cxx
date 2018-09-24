@@ -56,7 +56,7 @@ using namespace ::com::sun::star;
 using namespace svt;
 using namespace ::comphelper;
 
-    void lcl_addToList_throw( ComboBoxControl& _rListBox, ::std::vector<ColumnInfo>& o_aColumnList,const uno::Reference< container::XNameAccess>& i_xColumns )
+    static void lcl_addToList_throw( ComboBoxControl& _rListBox, ::std::vector<ColumnInfo>& o_aColumnList,const uno::Reference< container::XNameAccess>& i_xColumns )
     {
         uno::Sequence< OUString > aEntries = i_xColumns->getElementNames();
         const OUString* pEntries = aEntries.getConstArray();
@@ -803,7 +803,6 @@ OGroupsSortingDialog::OGroupsSortingDialog(vcl::Window* _pParent, bool _bReadOnl
     : FloatingWindow(_pParent, "FloatingSort", "modules/dbreport/ui/floatingsort.ui")
     , OPropertyChangeListener(m_aMutex)
     , m_pController(_pController)
-    , m_pCurrentGroupListener(nullptr)
     , m_xGroups(m_pController->getReportDefinition()->getGroups())
     , m_bReadOnly(_bReadOnly)
 {

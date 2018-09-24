@@ -494,7 +494,7 @@ void ChartController::execute_Paint(vcl::RenderContext& rRenderContext, const to
     }
 }
 
-bool isDoubleClick( const MouseEvent& rMEvt )
+static bool isDoubleClick( const MouseEvent& rMEvt )
 {
     return rMEvt.GetClicks() == 2 && rMEvt.IsLeft() &&
         !rMEvt.IsMod1() && !rMEvt.IsMod2() && !rMEvt.IsShift();
@@ -1435,12 +1435,9 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
                     if( bAlternate && pChartWindow )
                     {
                         // together with Alt-key: 1 px in each direction
-                        if( pChartWindow )
-                        {
-                            Size aPixelSize = pChartWindow->PixelToLogic( Size( 2, 2 ));
-                            fGrowAmountX = static_cast< double >( aPixelSize.Width());
-                            fGrowAmountY = static_cast< double >( aPixelSize.Height());
-                        }
+                        Size aPixelSize = pChartWindow->PixelToLogic( Size( 2, 2 ));
+                        fGrowAmountX = static_cast< double >( aPixelSize.Width());
+                        fGrowAmountY = static_cast< double >( aPixelSize.Height());
                     }
                     if( nCode == KEY_SUBTRACT )
                     {
@@ -1465,12 +1462,9 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
                     if( bAlternate && pChartWindow )
                     {
                         // together with Alt-key: 1 px
-                        if(pChartWindow)
-                        {
-                            Size aPixelSize = pChartWindow->PixelToLogic( Size( 1, 1 ));
-                            fShiftAmountX = static_cast< double >( aPixelSize.Width());
-                            fShiftAmountY = static_cast< double >( aPixelSize.Height());
-                        }
+                        Size aPixelSize = pChartWindow->PixelToLogic( Size( 1, 1 ));
+                        fShiftAmountX = static_cast< double >( aPixelSize.Width());
+                        fShiftAmountY = static_cast< double >( aPixelSize.Height());
                     }
                     switch( nCode )
                     {

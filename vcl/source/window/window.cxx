@@ -751,10 +751,8 @@ WindowImpl::~WindowImpl()
 }
 
 ImplWinData::ImplWinData() :
-    mpExtOldAttrAry(nullptr),
     mnCursorExtWidth(0),
     mbVertical(false),
-    mpCompositionCharRects(nullptr),
     mnCompositionCharRects(0),
     mnTrackFlags(ShowTrackFlags::NONE),
     mnIsTopWindow(sal_uInt16(~0)), // not initialized yet, 0/1 will indicate TopWindow (see IsTopWindow())
@@ -1440,14 +1438,14 @@ void Window::ImplPosSizeWindow( long nX, long nY,
     long    nOldOutOffY     = mnOutOffY;
     long    nOldOutWidth    = mnOutWidth;
     long    nOldOutHeight   = mnOutHeight;
-    vcl::Region* pOverlapRegion  = nullptr;
-    vcl::Region* pOldRegion      = nullptr;
+    std::unique_ptr<vcl::Region> pOverlapRegion;
+    std::unique_ptr<vcl::Region> pOldRegion;
 
     if ( IsReallyVisible() )
     {
         tools::Rectangle aOldWinRect( Point( nOldOutOffX, nOldOutOffY ),
                                Size( nOldOutWidth, nOldOutHeight ) );
-        pOldRegion = new vcl::Region( aOldWinRect );
+        pOldRegion.reset( new vcl::Region( aOldWinRect ) );
         if ( mpWindowImpl->mbWinRegion )
             pOldRegion->Intersect( ImplPixelToDevicePixel( mpWindowImpl->maWinRegion ) );
 
@@ -1527,7 +1525,7 @@ void Window::ImplPosSizeWindow( long nX, long nY,
         {
             if ( bCopyBits && !pOverlapRegion )
             {
-                pOverlapRegion = new vcl::Region();
+                pOverlapRegion.reset( new vcl::Region() );
                 ImplCalcOverlapRegion( tools::Rectangle( Point( mnOutOffX, mnOutOffY ),
                                                   Size( mnOutWidth, mnOutHeight ) ),
                                        *pOverlapRegion, false, true );
@@ -1545,7 +1543,7 @@ void Window::ImplPosSizeWindow( long nX, long nY,
         {
             if ( bCopyBits && !pOverlapRegion )
             {
-                pOverlapRegion = new vcl::Region();
+                pOverlapRegion.reset( new vcl::Region() );
                 ImplCalcOverlapRegion( tools::Rectangle( Point( mnOutOffX, mnOutOffY ),
                                                   Size( mnOutWidth, mnOutHeight ) ),
                                        *pOverlapRegion, false, true );
@@ -1670,7 +1668,7 @@ void Window::ImplPosSizeWindow( long nX, long nY,
                             if ( !bInvalidate )
                             {
                                 if ( !pOverlapRegion->IsEmpty() )
-                                    ImplInvalidateFrameRegion( pOverlapRegion, InvalidateFlags::Children );
+                                    ImplInvalidateFrameRegion( pOverlapRegion.get(), InvalidateFlags::Children );
                             }
                         }
                         else
@@ -1716,9 +1714,6 @@ void Window::ImplPosSizeWindow( long nX, long nY,
         if ( bNewSize && mpWindowImpl->mpSysObj )
             mpWindowImpl->mpSysObj->SetPosSize( mnOutOffX, mnOutOffY, mnOutWidth, mnOutHeight );
     }
-
-    delete pOverlapRegion;
-    delete pOldRegion;
 }
 
 void Window::ImplNewInputContext()

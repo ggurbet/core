@@ -175,7 +175,6 @@ E3dScene::E3dScene(SdrModel& rSdrModel)
 :   E3dObject(rSdrModel),
     SdrObjList(),
     aCamera(basegfx::B3DPoint(0.0, 0.0, 4.0), basegfx::B3DPoint()),
-    mp3DDepthRemapper(nullptr),
     bDrawOnlySelected(false),
     mbSkipSettingDirty(false)
 {
@@ -224,11 +223,6 @@ SdrPage* E3dScene::getSdrPageFromSdrObjList() const
 SdrObject* E3dScene::getSdrObjectFromSdrObjList() const
 {
     return const_cast< E3dScene* >(this);
-}
-
-SdrModel& E3dScene::getSdrModelFromSdrObjList() const
-{
-    return getSdrModelFromSdrObject();
 }
 
 SdrObjList* E3dScene::getChildrenOfSdrObject() const

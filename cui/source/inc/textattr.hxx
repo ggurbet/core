@@ -50,7 +50,7 @@ private:
     bool                bWordWrapTextEnabled;
     bool                bFitToSizeEnabled;
 
-    RectCtl m_aCtlPosition;
+    SvxRectCtl m_aCtlPosition;
 
     std::unique_ptr<weld::Widget> m_xDrawingText;
     std::unique_ptr<weld::Widget> m_xCustomShapeText;
@@ -88,7 +88,6 @@ public:
     virtual bool        FillItemSet( SfxItemSet* ) override;
     virtual void        Reset( const SfxItemSet * ) override;
 
-    virtual void        PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
     virtual void        PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     void         Construct();

@@ -29,6 +29,7 @@
 #include <cppuhelper/supportsservice.hxx>
 
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/lang/XSingleComponentFactory.hpp>
 #include <com/sun/star/util/XMacroExpander.hpp>
 #include <com/sun/star/uno/RuntimeException.hpp>
 
@@ -49,7 +50,7 @@ using rtl::OUString;
 namespace cppu
 {
 
-Bootstrap const & get_unorc()
+static Bootstrap const & get_unorc()
 {
     static rtlBootstrapHandle s_bstrap = nullptr;
     if (! s_bstrap)

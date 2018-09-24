@@ -605,7 +605,7 @@ void SvxShape::ForceMetricTo100th_mm(basegfx::B2DHomMatrix& rB2DHomMatrix) const
     }
 }
 
-void SvxItemPropertySet_ObtainSettingsFromPropertySet(const SvxItemPropertySet& rPropSet,
+static void SvxItemPropertySet_ObtainSettingsFromPropertySet(const SvxItemPropertySet& rPropSet,
   SfxItemSet& rSet, const uno::Reference< beans::XPropertySet >& xSet, const SfxItemPropertyMap* pMap )
 {
     if(rPropSet.AreThereOwnUsrAnys())
@@ -3111,7 +3111,8 @@ uno::Sequence<uno::Any> SvxShape::getPropertyDefaults(
     const uno::Sequence<OUString>& aPropertyNames )
 {
     ::std::vector<uno::Any> ret;
-    for ( sal_Int32 pos = 0; pos < aPropertyNames.getLength(); ++pos )
+    ret.reserve(aPropertyNames.getLength());
+    for (sal_Int32 pos = 0; pos < aPropertyNames.getLength(); ++pos)
         ret.push_back( getPropertyDefault( aPropertyNames[pos] ) );
     return uno::Sequence<uno::Any>( &ret[0], ret.size() );
 }

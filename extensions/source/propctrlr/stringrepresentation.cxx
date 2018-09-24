@@ -34,6 +34,7 @@
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/util/Date.hpp>
 #include <com/sun/star/util/Time.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <connectivity/dbconversion.hxx>
 #include <osl/diagnose.h>
 #include <rtl/ustrbuf.hxx>
@@ -53,9 +54,9 @@ namespace comp_StringRepresentation {
 using namespace ::com::sun::star;
 
 // component and service helper functions:
-OUString _getImplementationName();
-uno::Sequence< OUString > _getSupportedServiceNames();
-uno::Reference< uno::XInterface > _create( uno::Reference< uno::XComponentContext > const & context );
+static OUString _getImplementationName();
+static uno::Sequence< OUString > _getSupportedServiceNames();
+static uno::Reference< uno::XInterface > _create( uno::Reference< uno::XComponentContext > const & context );
 
 } // closing component helper namespace
 

@@ -30,14 +30,15 @@ class Qt5Timer final : public QObject, public SalTimer
 
 private Q_SLOTS:
     void timeoutActivated();
-    void startTimer();
+    void startTimer(int);
+    void stopTimer();
 
 Q_SIGNALS:
-    void startTimerSignal();
+    void startTimerSignal(int);
+    void stopTimerSignal();
 
 public:
     Qt5Timer();
-    virtual ~Qt5Timer() override;
 
     virtual void Start(sal_uIntPtr nMS) override;
     virtual void Stop() override;

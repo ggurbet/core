@@ -71,6 +71,7 @@
 #include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
 #include <com/sun/star/frame/XStorable2.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
+#include <com/sun/star/lang/XSingleComponentFactory.hpp>
 
 #include <config_folders.h>
 
@@ -2804,7 +2805,7 @@ ScDocument* ScDocShell::GetClipDoc()
 }
 
 ScDocShell::ScDocShell( const ScDocShell& rShell ) :
-    SvRefBase(),
+    SvRefBase(rShell),
     SotObject(),
     SfxObjectShell( rShell.GetCreateMode() ),
     SfxListener(),
@@ -2820,14 +2821,7 @@ ScDocShell::ScDocShell( const ScDocShell& rShell ) :
     m_bUpdateEnabled  ( true ),
     m_bUcalcTest(rShell.m_bUcalcTest),
     m_nDocumentLock   ( 0 ),
-    m_nCanUpdate (css::document::UpdateDocMode::ACCORDING_TO_CONFIG),
-    m_pOldAutoDBRange ( nullptr ),
-    m_pAutoStyleList  ( nullptr ),
-    m_pPaintLockData  ( nullptr ),
-    m_pSolverSaveData ( nullptr ),
-    m_pSheetSaveData  ( nullptr ),
-    m_pFormatSaveData( nullptr ),
-    m_pModificator    ( nullptr )
+    m_nCanUpdate (css::document::UpdateDocMode::ACCORDING_TO_CONFIG)
 {
     SetPool( &SC_MOD()->GetPool() );
 
@@ -2862,14 +2856,7 @@ ScDocShell::ScDocShell( const SfxModelFlags i_nSfxCreationFlags ) :
     m_bUpdateEnabled  ( true ),
     m_bUcalcTest     ( false ),
     m_nDocumentLock   ( 0 ),
-    m_nCanUpdate (css::document::UpdateDocMode::ACCORDING_TO_CONFIG),
-    m_pOldAutoDBRange ( nullptr ),
-    m_pAutoStyleList  ( nullptr ),
-    m_pPaintLockData  ( nullptr ),
-    m_pSolverSaveData ( nullptr ),
-    m_pSheetSaveData  ( nullptr ),
-    m_pFormatSaveData( nullptr ),
-    m_pModificator    ( nullptr )
+    m_nCanUpdate (css::document::UpdateDocMode::ACCORDING_TO_CONFIG)
 {
     SetPool( &SC_MOD()->GetPool() );
 

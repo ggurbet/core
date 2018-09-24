@@ -123,7 +123,7 @@ SwEnvFormatPage::SwEnvFormatPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_xSendLeftField(m_xBuilder->weld_metric_spin_button("leftsender", FUNIT_CM))
     , m_xSendTopField(m_xBuilder->weld_metric_spin_button("topsender", FUNIT_CM))
     , m_xSendEditButton(m_xBuilder->weld_menu_button("senderedit"))
-    , m_xSizeFormatBox(m_xBuilder->weld_combo_box_text("format"))
+    , m_xSizeFormatBox(m_xBuilder->weld_combo_box("format"))
     , m_xSizeWidthField(m_xBuilder->weld_metric_spin_button("width", FUNIT_CM))
     , m_xSizeHeightField(m_xBuilder->weld_metric_spin_button("height", FUNIT_CM))
     , m_xPreview(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreview))
@@ -225,12 +225,12 @@ IMPL_LINK( SwEnvFormatPage, ModifyHdl, weld::MetricSpinButton&, rEdit, void )
 
 IMPL_LINK(SwEnvFormatPage, AddrEditHdl, const OString&, rIdent, void)
 {
-    Edit(rIdent, true);
+    Edit(rIdent, false);
 }
 
 IMPL_LINK(SwEnvFormatPage, SendEditHdl, const OString&, rIdent, void)
 {
-    Edit(rIdent, false);
+    Edit(rIdent, true);
 }
 
 void SwEnvFormatPage::Edit(const OString& rIdent, bool bSender)
@@ -254,8 +254,7 @@ void SwEnvFormatPage::Edit(const OString& rIdent, bool bSender)
         OSL_ENSURE(pFact, "SwAbstractDialogFactory fail!");
 
         const OUString sFormatStr = pColl->GetName();
-        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg(nullptr /*TODO*/, pSh->GetView(), aTmpSet, SwCharDlgMode::Env, &sFormatStr));
-        //ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg(GetParentSwEnvDlg(), pSh->GetView(), aTmpSet, SwCharDlgMode::Env, &sFormatStr));
+        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSwCharDlg(GetDialogFrameWeld(), pSh->GetView(), aTmpSet, SwCharDlgMode::Env, &sFormatStr));
         if (pDlg->Execute() == RET_OK)
         {
             SfxItemSet aOutputSet( *pDlg->GetOutputItemSet() );
@@ -291,14 +290,13 @@ void SwEnvFormatPage::Edit(const OString& rIdent, bool bSender)
         ::PrepareBoxInfo( aTmpSet, *pSh );
 
         const OUString sFormatStr = pColl->GetName();
-        VclPtrInstance< SwParaDlg > pDlg(nullptr /*TODO*/, pSh->GetView(), aTmpSet, DLG_ENVELOP, &sFormatStr);
-        //VclPtrInstance< SwParaDlg > pDlg(GetParentSwEnvDlg(), pSh->GetView(), aTmpSet, DLG_ENVELOP, &sFormatStr);
+        SwParaDlg aDlg(GetDialogFrameWeld(), pSh->GetView(), aTmpSet, DLG_ENVELOP, &sFormatStr);
 
-        if ( pDlg->Execute() == RET_OK )
+        if (aDlg.execute() == RET_OK)
         {
             // maybe relocate defaults
             const SfxPoolItem* pItem = nullptr;
-            SfxItemSet* pOutputSet = const_cast<SfxItemSet*>(pDlg->GetOutputItemSet());
+            SfxItemSet* pOutputSet = const_cast<SfxItemSet*>(aDlg.GetOutputItemSet());
             sal_uInt16 nNewDist;
 
             if( SfxItemState::SET == pOutputSet->GetItemState( SID_ATTR_TABSTOP_DEFAULTS,
@@ -354,7 +352,7 @@ SfxItemSet *SwEnvFormatPage::GetCollItemSet(SwTextFormatColl const * pColl, bool
     return pAddrSet.get();
 }
 
-IMPL_LINK_NOARG(SwEnvFormatPage, FormatHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SwEnvFormatPage, FormatHdl, weld::ComboBox&, void)
 {
     long lWidth;
     long lHeight;

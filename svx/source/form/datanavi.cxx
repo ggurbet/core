@@ -2403,7 +2403,7 @@ namespace svxform
         }
     }
 
-    void copyPropSet( const Reference< XPropertySet >& xFrom, Reference< XPropertySet > const & xTo )
+    static void copyPropSet( const Reference< XPropertySet >& xFrom, Reference< XPropertySet > const & xTo )
     {
         DBG_ASSERT( xFrom.is(), "copyPropSet(): no source" );
         DBG_ASSERT( xTo.is(), "copyPropSet(): no target" );
@@ -3338,7 +3338,7 @@ namespace svxform
         : GenericDialogController(pParent, "svx/ui/addinstancedialog.ui", "AddInstanceDialog")
         , m_xNameED(m_xBuilder->weld_entry("name"))
         , m_xURLFT(m_xBuilder->weld_label("urlft"))
-        , m_xURLED(new URLBox(m_xBuilder->weld_combo_box_text("url")))
+        , m_xURLED(new URLBox(m_xBuilder->weld_combo_box("url")))
         , m_xFilePickerBtn(m_xBuilder->weld_button("browse"))
         , m_xLinkInstanceCB(m_xBuilder->weld_check_button("link"))
         , m_xAltTitle(m_xBuilder->weld_label("alttitle"))

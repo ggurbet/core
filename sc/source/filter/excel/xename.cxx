@@ -29,9 +29,14 @@
 #include <xelink.hxx>
 #include <globalnames.hxx>
 #include <excrecds.hxx>
+#include <xlname.hxx>
+#include <xeformula.hxx>
+#include <xestring.hxx>
+#include <xltools.hxx>
 
 #include <formula/grammar.hxx>
 #include <oox/export/utils.hxx>
+#include <oox/token/tokens.hxx>
 
 using namespace ::oox;
 
@@ -337,7 +342,7 @@ void XclExpName::WriteBody( XclExpStream& rStrm )
 
 /** Returns true (needed fixing) if FormulaToken was not absolute and 3D.
     So, regardless of whether the fix was successful or not, true is still returned since a fix was required.*/
-bool lcl_EnsureAbs3DToken( const SCTAB nTab, formula::FormulaToken* pTok, const bool bFix = true )
+static bool lcl_EnsureAbs3DToken( const SCTAB nTab, formula::FormulaToken* pTok, const bool bFix = true )
 {
     bool bFixRequired = false;
     if ( !pTok || ( pTok->GetType() != formula::svSingleRef && pTok->GetType() != formula::svDoubleRef ) )

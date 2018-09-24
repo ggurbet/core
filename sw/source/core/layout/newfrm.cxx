@@ -41,6 +41,7 @@
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentFieldsAccess.hxx>
 #include <DocumentLayoutManager.hxx>
+#include <DocumentRedlineManager.hxx>
 #include <ndindex.hxx>
 
 SwLayVout     *SwRootFrame::s_pVout = nullptr;
@@ -49,13 +50,13 @@ bool           SwRootFrame::s_isNoVirDev = false;
 
 SwCache *SwFrame::mpCache = nullptr;
 
-long FirstMinusSecond( long nFirst, long nSecond )
+static long FirstMinusSecond( long nFirst, long nSecond )
     { return nFirst - nSecond; }
-long SecondMinusFirst( long nFirst, long nSecond )
+static long SecondMinusFirst( long nFirst, long nSecond )
     { return nSecond - nFirst; }
-long SwIncrement( long nA, long nAdd )
+static long SwIncrement( long nA, long nAdd )
     { return nA + nAdd; }
-long SwDecrement( long nA, long nSub )
+static long SwDecrement( long nA, long nSub )
     { return nA - nSub; }
 
 static SwRectFnCollection aHorizontal = {
@@ -228,7 +229,7 @@ SwRectFn fnRectVert = &aVertical;
 SwRectFn fnRectVertL2R = &aVerticalLeftToRight;
 
 // #i65250#
-sal_uInt32 SwFrame::mnLastFrameId=0;
+sal_uInt32 SwFrameAreaDefinition::mnLastFrameId=0;
 
 
 void FrameInit()
@@ -354,15 +355,13 @@ SwRootFrame::SwRootFrame( SwFrameFormat *pFormat, SwViewShell * pSh ) :
     mbIsNewLayout( true ),
     mbCallbackActionEnabled ( false ),
     mbLayoutFreezed ( false ),
-    mbHideRedlines( false ),
+    mbHideRedlines(pFormat->GetDoc()->GetDocumentRedlineManager().IsHideRedlines()),
     mnBrowseWidth(MIN_BROWSE_WIDTH),
     mpTurbo( nullptr ),
     mpLastPage( nullptr ),
     mpCurrShell( pSh ),
     mpWaitingCurrShell( nullptr ),
-    mpCurrShells(nullptr),
     mpDrawPage( nullptr ),
-    mpDestroy( nullptr ),
     mnPhyPageNums( 0 ),
     mnAccessibleShells( 0 )
 {

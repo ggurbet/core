@@ -744,6 +744,7 @@ namespace
     private:
         FastSaxParserImpl& m_rParser;
         Entity& m_rEntity;
+        rtl::Reference<ParserThread> m_xParser;
     public:
         ParserCleanup(FastSaxParserImpl& rParser, Entity& rEntity)
             : m_rParser(rParser)
@@ -759,6 +760,20 @@ namespace
                 xmlFreeParserCtxt(m_rEntity.mpParser);
             }
             m_rParser.popEntity();
+            joinThread();
+        }
+        void setThread(const rtl::Reference<ParserThread> &xParser)
+        {
+            m_xParser = xParser;
+        }
+        void joinThread()
+        {
+            if (m_xParser.is())
+            {
+                rtl::Reference<ParserThread> xToJoin = m_xParser;
+                m_xParser.clear();
+                xToJoin->join();
+            }
         }
     };
 }
@@ -800,6 +815,7 @@ void FastSaxParserImpl::parseStream(const InputSource& rStructSource)
         rtl::Reference<ParserThread> xParser;
         xParser = new ParserThread(this);
         xParser->launch();
+        aEnsureFree.setThread(xParser);
         bool done = false;
         do {
             rEntity.maConsumeResume.wait();
@@ -840,7 +856,7 @@ void FastSaxParserImpl::parseStream(const InputSource& rStructSource)
                 rEntity.maUsedEvents.push(std::move(xEventList));
             }
         } while (!done);
-        xParser->join();
+        aEnsureFree.joinThread();
         deleteUsedEvents();
 
         // callbacks used inside XML_Parse may have caught an exception

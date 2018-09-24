@@ -34,16 +34,13 @@ IdlDll & GetIdlApp()
 }
 
 IdlDll::IdlDll()
-    : pHashTable( nullptr )
-    , pGlobalNames( nullptr )
-
 {}
 
 IdlDll::~IdlDll()
 {
 }
 
-inline SvStringHashEntry * INS( const OString& rName )
+static inline SvStringHashEntry * INS( const OString& rName )
 {
     sal_uInt32  nIdx;
     GetIdlApp().pHashTable->Insert( rName, &nIdx );

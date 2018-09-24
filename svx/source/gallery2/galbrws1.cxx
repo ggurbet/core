@@ -26,6 +26,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <ucbhelper/content.hxx>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <sfx2/app.hxx>
 #include <helpids.h>
 #include <svx/gallery1.hxx>
@@ -111,7 +112,6 @@ GalleryBrowser1::GalleryBrowser1(
     mpThemes              ( VclPtr<GalleryThemeListBox>::Create( this, WB_TABSTOP | WB_3DLOOK | WB_BORDER | WB_HSCROLL | WB_VSCROLL | WB_AUTOHSCROLL | WB_SORT ) ),
     mpGallery             ( pGallery ),
     mpExchangeData        ( new ExchangeData ),
-    mpThemePropsDlgItemSet( nullptr ),
     aImgNormal            ( GalleryResGetBitmapEx( RID_SVXBMP_THEME_NORMAL ) ),
     aImgDefault           ( GalleryResGetBitmapEx( RID_SVXBMP_THEME_DEFAULT ) ),
     aImgReadOnly          ( GalleryResGetBitmapEx( RID_SVXBMP_THEME_READONLY ) ),

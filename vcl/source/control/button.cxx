@@ -823,7 +823,6 @@ void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFl
     const StyleSettings&    rStyleSettings = GetSettings().GetStyleSettings();
     tools::Rectangle               aInRect = rRect;
     Color                   aColor;
-    OUString                aText = PushButton::GetText(); // PushButton:: because of MoreButton
     DrawTextFlags           nTextStyle = ImplGetTextStyle( nDrawFlags );
     DrawSymbolFlags         nStyle;
 
@@ -872,7 +871,7 @@ void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFl
     {
         long nSeparatorX = 0;
         tools::Rectangle aSymbolRect = aInRect;
-        if ( !aText.isEmpty() && ! (ImplGetButtonState() & DrawButtonFlags::NoText) )
+        if (!(ImplGetButtonState() & DrawButtonFlags::NoText))
         {
             // calculate symbol size
             long nSymbolSize    = pDev->GetTextHeight() / 2 + 1;
@@ -3812,12 +3811,12 @@ void DisclosureButton::ImplDrawCheckBoxState(vcl::RenderContext& rRenderContext)
 
     ImplSVCtrlData& rCtrlData(ImplGetSVData()->maCtrlData);
     if (!rCtrlData.mpDisclosurePlus)
-        rCtrlData.mpDisclosurePlus = new Image(BitmapEx(SV_DISCLOSURE_PLUS));
+        rCtrlData.mpDisclosurePlus.reset(new Image(BitmapEx(SV_DISCLOSURE_PLUS)));
     if (!rCtrlData.mpDisclosureMinus)
-        rCtrlData.mpDisclosureMinus = new Image(BitmapEx(SV_DISCLOSURE_MINUS));
+        rCtrlData.mpDisclosureMinus.reset(new Image(BitmapEx(SV_DISCLOSURE_MINUS)));
 
     Image* pImg = nullptr;
-    pImg = IsChecked() ? rCtrlData.mpDisclosureMinus : rCtrlData.mpDisclosurePlus;
+    pImg = IsChecked() ? rCtrlData.mpDisclosureMinus.get() : rCtrlData.mpDisclosurePlus.get();
 
     SAL_WARN_IF(!pImg, "vcl", "no disclosure image");
     if (!pImg)

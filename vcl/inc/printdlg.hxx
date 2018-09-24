@@ -46,7 +46,7 @@ namespace vcl
             sal_Int32           mnDPIY;
             BitmapEx            maPreviewBitmap;
             OUString            maReplacementString;
-            OUString            maToolTipString;
+            OUString const      maToolTipString;
             bool                mbGreyscale;
             VclPtr<FixedLine>   maHorzDim;
             VclPtr<FixedLine>   maVertDim;
@@ -145,8 +145,8 @@ namespace vcl
             VclPtr<FixedImage>                      mpCollateImage;
             VclPtr<CheckBox>                        mpReverseOrderBox;
 
-            BitmapEx                                maCollateBmp;
-            BitmapEx                                maNoCollateBmp;
+            BitmapEx const                          maCollateBmp;
+            BitmapEx const                          maNoCollateBmp;
 
             long                                    mnCollateUIMode;
 
@@ -187,7 +187,7 @@ namespace vcl
         VclPtr<HelpButton>                      mpHelpButton;
 
         OUString                                maPageStr;
-        OUString                                maNoPageStr;
+        OUString const                          maNoPageStr;
         sal_Int32                               mnCurPage;
         sal_Int32                               mnCachedPages;
 
@@ -195,7 +195,6 @@ namespace vcl
         std::map< OUString, std::vector< VclPtr<vcl::Window> > >
                                                 maPropertyToWindowMap;
         std::map< VclPtr<vcl::Window>, sal_Int32 >          maControlToNumValMap;
-        std::set< OUString >                    maReverseDependencySet;
 
         Size                                    maNupPortraitSize;
         Size                                    maNupLandscapeSize;
@@ -203,9 +202,9 @@ namespace vcl
         /// internal, used for automatic Nup-Portrait/landscape
         Size                                    maFirstPageSize;
 
-        OUString                           maPrintToFileText;
-        OUString                           maPrintText;
-        OUString                           maDefPrtText;
+        OUString const                          maPrintToFileText;
+        OUString                                maPrintText;
+        OUString const                          maDefPrtText;
 
         bool                                mbShowLayoutPage;
 

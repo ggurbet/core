@@ -27,6 +27,7 @@
 #include <com/sun/star/util/Duration.hpp>
 #include <com/sun/star/util/Time.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
+#include <boost/optional.hpp>
 
 #include <rtl/ustrbuf.hxx>
 #include <rtl/math.hxx>
@@ -474,7 +475,7 @@ void Converter::convertMeasurePx( OUStringBuffer& rBuffer, sal_Int32 nValue )
     rBuffer.append( 'x' );
 }
 
-int lcl_gethex( int nChar )
+static int lcl_gethex( int nChar )
 {
     if( nChar >= '0' && nChar <= '9' )
         return nChar - '0';

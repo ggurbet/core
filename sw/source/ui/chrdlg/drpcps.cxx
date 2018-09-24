@@ -66,9 +66,9 @@ void SwDropCapsPict::SetText( const OUString& rT )
 
 void SwDropCapsPict::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
     Size aPrefSize(getParagraphPreviewOptimalSize(pDrawingArea->get_ref_device()));
     pDrawingArea->set_size_request(aPrefSize.Width(), aPrefSize.Height());
-    CustomWidgetController::SetDrawingArea(pDrawingArea);
 }
 
 void SwDropCapsPict::Resize()
@@ -105,7 +105,7 @@ void SwDropCapsPict::InitPrinter()
 }
 
 // Create Default-String from character-count (A, AB, ABC, ...)
-OUString GetDefaultString(sal_Int32 nChars)
+static OUString GetDefaultString(sal_Int32 nChars)
 {
     OUStringBuffer aStr(nChars);
     for (sal_Int32 i = 0; i < nChars; i++)
@@ -448,12 +448,13 @@ void SwDropCapsPict::InitPrinter_()
     }
 }
 
-SwDropCapsDlg::SwDropCapsDlg(vcl::Window *pParent, const SfxItemSet &rSet )
-    : SfxSingleTabDialog(pParent, rSet)
+SwDropCapsDlg::SwDropCapsDlg(weld::Window *pParent, const SfxItemSet &rSet)
+    : SfxSingleTabDialogController(pParent, rSet)
 {
-    VclPtr<SwDropCapsPage> pNewPage( static_cast<SwDropCapsPage*>( SwDropCapsPage::Create(get_content_area(), &rSet).get() ) );
-    pNewPage->SetFormat(false);
-    SetTabPage(pNewPage);
+    TabPageParent pPageParent(get_content_area(), this);
+    VclPtr<SwDropCapsPage> xNewPage(static_cast<SwDropCapsPage*>(SwDropCapsPage::Create(pPageParent, &rSet).get()));
+    xNewPage->SetFormat(false);
+    SetTabPage(xNewPage);
 }
 
 SwDropCapsPage::SwDropCapsPage(TabPageParent pParent, const SfxItemSet &rSet)
@@ -472,7 +473,7 @@ SwDropCapsPage::SwDropCapsPage(TabPageParent pParent, const SfxItemSet &rSet)
     , m_xTextText(m_xBuilder->weld_label("labelTXT_TEXT"))
     , m_xTextEdit(m_xBuilder->weld_entry("entryEDT_TEXT"))
     , m_xTemplateText(m_xBuilder->weld_label("labelTXT_TEMPLATE"))
-    , m_xTemplateBox(m_xBuilder->weld_combo_box_text("comboBOX_TEMPLATE"))
+    , m_xTemplateBox(m_xBuilder->weld_combo_box("comboBOX_TEMPLATE"))
     , m_xPict(new weld::CustomWeld(*m_xBuilder, "drawingareaWN_EXAMPLE", m_aPict))
 {
     m_aPict.SetDropCapsPage(this);
@@ -676,7 +677,7 @@ IMPL_LINK(SwDropCapsPage, MetricValueChangedHdl, weld::MetricSpinButton&, rEdit,
     ModifyEntry(rEdit.get_widget());
 }
 
-IMPL_LINK_NOARG(SwDropCapsPage, SelectHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SwDropCapsPage, SelectHdl, weld::ComboBox&, void)
 {
     m_aPict.UpdatePaintSettings();
     bModified = true;

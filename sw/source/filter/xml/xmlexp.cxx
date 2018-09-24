@@ -87,8 +87,6 @@ SwXMLExport::SwXMLExport(
     OUString const & implementationName, SvXMLExportFlags nExportFlags)
 :   SvXMLExport( util::MeasureUnit::INCH, rContext, implementationName, XML_TEXT,
         nExportFlags ),
-    m_pTableItemMapper( nullptr ),
-    m_pTableLines( nullptr ),
     m_bBlock( false ),
     m_bShowProgress( true ),
     m_bSavedShowChanges( false ),
@@ -126,6 +124,8 @@ ErrCode SwXMLExport::exportDoc( enum XMLTokenEnum eClass )
     }
 
     SwDoc *pDoc = getDoc();
+    if (!pDoc)
+        return ERR_SWG_WRITE_ERROR;
 
     // Make sure the layout is available to have more stability in the output
     // markup.
@@ -516,6 +516,12 @@ SwDoc* SwXMLExport::getDoc()
     if( m_pDoc != nullptr )
         return m_pDoc;
     Reference < XTextDocument > xTextDoc( GetModel(), UNO_QUERY );
+    if (!xTextDoc)
+    {
+        SAL_WARN("sw.filter", "Problem of mismatching filter for export.");
+        return nullptr;
+    }
+
     Reference < XText > xText = xTextDoc->getText();
     Reference<XUnoTunnel> xTextTunnel( xText, UNO_QUERY);
     assert( xTextTunnel.is());

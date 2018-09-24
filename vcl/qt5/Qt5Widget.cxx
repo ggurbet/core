@@ -41,6 +41,9 @@
 void Qt5Widget::paintEvent(QPaintEvent* pEvent)
 {
     QPainter p(this);
+    if (!m_pFrame->m_bNullRegion)
+        p.setClipRegion(m_pFrame->m_aRegion);
+
     if (m_pFrame->m_bUseCairo)
     {
         cairo_surface_t* pSurface = m_pFrame->m_pSurface.get();
@@ -358,7 +361,5 @@ Qt5Widget::Qt5Widget(Qt5Frame& rFrame, Qt::WindowFlags f)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
 }
-
-Qt5Widget::~Qt5Widget(){};
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -27,7 +27,10 @@
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/weak.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <ucbhelper/contentidentifier.hxx>
+#include <ucbhelper/getcomponentcontext.hxx>
+#include <ucbhelper/macros.hxx>
 #include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/ucb/IllegalIdentifierException.hpp>
@@ -92,8 +95,7 @@ using namespace package_ucp;
 // ContentProvider Implementation.
 ContentProvider::ContentProvider(
             const uno::Reference< uno::XComponentContext >& rxContext )
-: ::ucbhelper::ContentProviderImplHelper( rxContext ),
-  m_pPackages( nullptr )
+: ::ucbhelper::ContentProviderImplHelper( rxContext )
 {
 }
 

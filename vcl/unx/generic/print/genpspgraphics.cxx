@@ -404,19 +404,24 @@ void GenPspGraphics::drawPolyPolygon( sal_uInt32           nPoly,
     m_pPrinterGfx->DrawPolyPolygon (nPoly, pPoints, reinterpret_cast<const Point**>(pPtAry));
 }
 
-bool GenPspGraphics::drawPolyPolygon( const basegfx::B2DPolyPolygon&, double /*fTransparency*/ )
+bool GenPspGraphics::drawPolyPolygon(
+    const basegfx::B2DHomMatrix& /*rObjectToDevice*/,
+    const basegfx::B2DPolyPolygon&,
+    double /*fTransparency*/)
 {
         // TODO: implement and advertise OutDevSupportType::B2DDraw support
         return false;
 }
 
 bool GenPspGraphics::drawPolyLine(
+    const basegfx::B2DHomMatrix& /* rObjectToDevice */,
     const basegfx::B2DPolygon&,
     double /*fTransparency*/,
     const basegfx::B2DVector& /*rLineWidths*/,
     basegfx::B2DLineJoin /*eJoin*/,
     css::drawing::LineCap /*eLineCap*/,
-    double /*fMiterMinimumAngle*/)
+    double /*fMiterMinimumAngle*/,
+    bool /* bPixelSnapHairline */)
 {
     // TODO: a PS printer can draw B2DPolyLines almost directly
     return false;
@@ -516,7 +521,7 @@ void GenPspGraphics::invert(long,long,long,long,SalInvert)
 class ImplPspFontData : public FreetypeFontFace
 {
 private:
-    sal_IntPtr              mnFontId;
+    sal_IntPtr const              mnFontId;
 
 public:
     explicit ImplPspFontData( const psp::FastPrintFontInfo& );

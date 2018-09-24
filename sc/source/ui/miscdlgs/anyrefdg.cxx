@@ -154,16 +154,20 @@ void ScFormulaReferenceHelper::ShowSimpleReference(const OUString& rStr)
 
 bool ScFormulaReferenceHelper::ParseWithNames( ScRangeList& rRanges, const OUString& rStr, const ScDocument* pDoc )
 {
-    bool bError = false;
     rRanges.RemoveAll();
+
+    if (rStr.isEmpty())
+        return true;
 
     ScAddress::Details aDetails(pDoc->GetAddressConvention(), 0, 0);
     ScRangeUtil aRangeUtil;
-    sal_Int32 nTokenCnt = comphelper::string::getTokenCount(rStr, ';');
-    for( sal_Int32 nToken = 0; nToken < nTokenCnt; ++nToken )
+
+    bool bError = false;
+    sal_Int32 nIdx {0};
+    do
     {
         ScRange aRange;
-        OUString aRangeStr( rStr.getToken( nToken, ';' ) );
+        OUString aRangeStr( rStr.getToken( 0, ';', nIdx ) );
 
         ScRefFlags nFlags = aRange.ParseAny( aRangeStr, pDoc, aDetails );
         if ( nFlags & ScRefFlags::VALID )
@@ -179,6 +183,7 @@ bool ScFormulaReferenceHelper::ParseWithNames( ScRangeList& rRanges, const OUStr
         else
             bError = true;
     }
+    while (nIdx>0);
 
     return !bError;
 }
@@ -478,12 +483,10 @@ void ScFormulaReferenceHelper::RefInputStart( formula::RefEdit* pEdit, formula::
         m_sOldDialogText = m_pWindow->GetText();
         if (vcl::Window *pLabel = m_pRefEdit->GetLabelWidgetForShrinkMode())
         {
-            OUString sLabel = pLabel->GetText();
+            const OUString sLabel = pLabel->GetText();
             if (!sLabel.isEmpty())
             {
-                OUString sNewDialogText = m_sOldDialogText;
-                sNewDialogText += ": ";
-                sNewDialogText += comphelper::string::stripEnd(sLabel, ':');
+                const OUString sNewDialogText = m_sOldDialogText + ": " + comphelper::string::stripEnd(sLabel, ':');
                 m_pWindow->SetText( MnemonicGenerator::EraseAllMnemonicChars( sNewDialogText ) );
             }
         }
@@ -872,13 +875,15 @@ void ScRefHandler::SwitchToDocument()
 
 bool ScRefHandler::IsDocAllowed(SfxObjectShell* pDocSh) const   // pDocSh may be 0
 {
-    //  default: allow only same document (overridden in function dialog)
-    OUString aCmpName;
-    if ( pDocSh )
-        aCmpName = pDocSh->GetTitle();
-
     //  if aDocName isn't initialized, allow
-    return ( m_aDocName.isEmpty() || m_aDocName == aCmpName );
+    if ( m_aDocName.isEmpty() )
+        return true;
+
+    if ( !pDocSh )
+        return false;
+
+    //  default: allow only same document (overridden in function dialog)
+    return m_aDocName==pDocSh->GetTitle();
 }
 
 bool ScRefHandler::IsRefInputMode() const

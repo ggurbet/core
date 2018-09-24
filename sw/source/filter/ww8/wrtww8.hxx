@@ -485,6 +485,7 @@ public:
     ww8::Frames m_aFrames;             // The floating frames in this document
     const SwPageDesc *m_pCurrentPageDesc;
     bool m_bPrevTextNodeIsEmpty;
+    bool m_bFirstTOCNodeWithSection;
     WW8_WrPlcPn* m_pPapPlc;
     WW8_WrPlcPn* m_pChpPlc;
     MSWordAttrIter* m_pChpIter;
@@ -1046,8 +1047,9 @@ public:
     void StartCommentOutput( const OUString& rName );
     void EndCommentOutput(   const OUString& rName );
     void OutGrf(const ww8::Frame &rFrame);
-    bool TestOleNeedsGraphic(const SwAttrSet& rSet, tools::SvRef<SotStorage> const & xOleStg,
-        tools::SvRef<SotStorage> xObjStg, OUString const &rStorageName, SwOLENode *pOLENd);
+    bool TestOleNeedsGraphic(const SwAttrSet& rSet, tools::SvRef<SotStorage> const& xOleStg,
+                             const tools::SvRef<SotStorage>& xObjStg, OUString const& rStorageName,
+                             SwOLENode* pOLENd);
 
     virtual void AppendBookmarks( const SwTextNode& rNd, sal_Int32 nCurrentPos, sal_Int32 nLen ) override;
     virtual void AppendBookmark( const OUString& rName ) override;
@@ -1287,7 +1289,7 @@ private:
 public:
     WW8_WrPlcPn( WW8Export& rWrt, ePLCFT ePl, WW8_FC nStartFc );
     ~WW8_WrPlcPn();
-    void AppendFkpEntry(WW8_FC nEndFc,short nVarLen = 0,const sal_uInt8* pSprms = nullptr, const bool bExpandEmpty=false);
+    void AppendFkpEntry(WW8_FC nEndFc,short nVarLen = 0,const sal_uInt8* pSprms = nullptr);
     void WriteFkps();
     void WritePlc();
     sal_uInt8 *CopyLastSprms(sal_uInt8 &rLen);

@@ -28,11 +28,13 @@
 #include <rtl/random.h>
 #include <sax/fshelper.hxx>
 #include <unotools/streamwrap.hxx>
+#include <sot/storage.hxx>
 
 #include <docuno.hxx>
 #include <xestream.hxx>
 #include <xladdress.hxx>
 #include <xlstring.hxx>
+#include <xltools.hxx>
 #include <xeroot.hxx>
 #include <xestyle.hxx>
 #include <xcl97rec.hxx>
@@ -44,6 +46,7 @@
 #include <refreshtimerprotector.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
+#include <root.hxx>
 
 #include <docsh.hxx>
 #include <viewdata.hxx>

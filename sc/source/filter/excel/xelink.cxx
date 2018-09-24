@@ -32,6 +32,10 @@
 #include <externalrefmgr.hxx>
 #include <tokenarray.hxx>
 #include <xecontent.hxx>
+#include <xeformula.hxx>
+#include <xehelper.hxx>
+#include <xllink.hxx>
+#include <xltools.hxx>
 
 #include <vector>
 #include <memory>
@@ -384,7 +388,7 @@ struct XclExpXti
                             { rStrm << mnSupbook << mnFirstSBTab << mnLastSBTab; }
 };
 
-inline bool operator==( const XclExpXti& rLeft, const XclExpXti& rRight )
+static inline bool operator==( const XclExpXti& rLeft, const XclExpXti& rRight )
 {
     return
         (rLeft.mnSupbook    == rRight.mnSupbook)    &&

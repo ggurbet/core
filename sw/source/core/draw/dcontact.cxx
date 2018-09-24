@@ -1068,7 +1068,7 @@ class NestedUserCallHdl
 };
 
 /// Notify the format's textbox that it should reconsider its position / size.
-void lcl_textBoxSizeNotify(SwFrameFormat* pFormat)
+static void lcl_textBoxSizeNotify(SwFrameFormat* pFormat)
 {
     if (SwTextBoxHelper::isTextBox(pFormat, RES_DRAWFRMFMT))
     {
@@ -1838,10 +1838,16 @@ void SwDrawContact::ConnectToLayout( const SwFormatAnchor* pAnch )
                     // (1) proposed anchor frame isn't a follow and
                     // (2) drawing object isn't a control object to be anchored
                     //     in header/footer.
-                    const bool bAdd = ( !pFrame->IsContentFrame() ||
+                    bool bAdd = ( !pFrame->IsContentFrame() ||
                                         !static_cast<SwContentFrame*>(pFrame)->IsFollow() ) &&
                                       ( !::CheckControlLayer( GetMaster() ) ||
                                         !pFrame->FindFooterOrHeader() );
+
+                    if (bAdd && RndStdIds::FLY_AT_FLY != pAnch->GetAnchorId())
+                    {
+                        assert(pFrame->IsTextFrame());
+                        bAdd = IsAnchoredObjShown(*static_cast<SwTextFrame*>(pFrame), *pAnch);
+                    }
 
                     if( bAdd )
                     {
@@ -2044,7 +2050,7 @@ namespace sdr
     namespace contact
     {
         /// recursively collect primitive data from given VOC with given offset
-        void impAddPrimitivesFromGroup(const ViewObjectContact& rVOC, const basegfx::B2DHomMatrix& rOffsetMatrix, const DisplayInfo& rDisplayInfo, drawinglayer::primitive2d::Primitive2DContainer& rxTarget)
+        static void impAddPrimitivesFromGroup(const ViewObjectContact& rVOC, const basegfx::B2DHomMatrix& rOffsetMatrix, const DisplayInfo& rDisplayInfo, drawinglayer::primitive2d::Primitive2DContainer& rxTarget)
         {
             const sal_uInt32 nSubHierarchyCount(rVOC.GetViewContact().GetObjectCount());
 
@@ -2333,21 +2339,19 @@ basegfx::B2DPolyPolygon SwDrawVirtObj::TakeContour() const
     return aRetval;
 }
 
-SdrHdl* SwDrawVirtObj::GetHdl(sal_uInt32 nHdlNum) const
+void SwDrawVirtObj::AddToHdlList(SdrHdlList& rHdlList) const
 {
-    SdrHdl* pHdl = rRefObj.GetHdl(nHdlNum);
+    SdrHdlList tmpList(nullptr);
+    rRefObj.AddToHdlList(tmpList);
 
-    if(pHdl)
+    size_t cnt = tmpList.GetHdlCount();
+    for(size_t i=0; i < cnt; ++i)
     {
+        SdrHdl* pHdl = tmpList.GetHdl(i);
         Point aP(pHdl->GetPos() + GetOffset());
         pHdl->SetPos(aP);
     }
-    else
-    {
-        OSL_ENSURE(false, "Got no SdrHdl(!)");
-    }
-
-    return pHdl;
+    tmpList.MoveTo(rHdlList);
 }
 
 void SwDrawVirtObj::NbcMove(const Size& rSiz)

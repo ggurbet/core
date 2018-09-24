@@ -69,8 +69,7 @@ public:
 };
 
 OpenGLSalGraphicsImpl::OpenGLSalGraphicsImpl(SalGraphics& rParent, SalGeometryProvider *pProvider)
-    : mpContext(nullptr)
-    , mrParent(rParent)
+    : mrParent(rParent)
     , mpProvider(pProvider)
     , mpProgram(nullptr)
     , mpFlush(new OpenGLFlushIdle(this))
@@ -1549,8 +1548,15 @@ void OpenGLSalGraphicsImpl::drawPolyLine( sal_uInt32 nPoints, const SalPoint* pP
         aPoly.setB2DPoint(i, basegfx::B2DPoint(pPtAry[i].mnX, pPtAry[i].mnY));
     aPoly.setClosed(false);
 
-    drawPolyLine(aPoly, 0.0, basegfx::B2DVector(1.0, 1.0), basegfx::B2DLineJoin::Miter,
-                 css::drawing::LineCap_BUTT, basegfx::deg2rad(15.0) /*default*/);
+    drawPolyLine(
+        basegfx::B2DHomMatrix(),
+        aPoly,
+        0.0,
+        basegfx::B2DVector(1.0, 1.0),
+        basegfx::B2DLineJoin::Miter,
+        css::drawing::LineCap_BUTT,
+        basegfx::deg2rad(15.0) /*default*/,
+        false);
 }
 
 void OpenGLSalGraphicsImpl::drawPolygon( sal_uInt32 nPoints, const SalPoint* pPtAry )
@@ -1561,7 +1567,10 @@ void OpenGLSalGraphicsImpl::drawPolygon( sal_uInt32 nPoints, const SalPoint* pPt
     for (sal_uInt32 i = 1; i < nPoints; ++i)
         aPoly.setB2DPoint(i, basegfx::B2DPoint(pPtAry[i].mnX, pPtAry[i].mnY));
 
-    drawPolyPolygon(basegfx::B2DPolyPolygon(aPoly), 0.0);
+    drawPolyPolygon(
+        basegfx::B2DHomMatrix(),
+        basegfx::B2DPolyPolygon(aPoly),
+        0.0);
 }
 
 void OpenGLSalGraphicsImpl::drawPolyPolygon( sal_uInt32 nPoly, const sal_uInt32* pPointCounts, PCONSTSALPOINT* pPtAry )
@@ -1583,30 +1592,67 @@ void OpenGLSalGraphicsImpl::drawPolyPolygon( sal_uInt32 nPoly, const sal_uInt32*
         }
     }
 
-    drawPolyPolygon(aPolyPoly, 0.0);
+    drawPolyPolygon(
+        basegfx::B2DHomMatrix(),
+        aPolyPoly,
+        0.0);
 }
 
-bool OpenGLSalGraphicsImpl::drawPolyPolygon(const basegfx::B2DPolyPolygon& rPolyPolygon, double fTransparency)
+bool OpenGLSalGraphicsImpl::drawPolyPolygon(
+    const basegfx::B2DHomMatrix& rObjectToDevice,
+    const basegfx::B2DPolyPolygon& rPolyPolygon,
+    double fTransparency)
 {
     VCL_GL_INFO("::drawPolyPolygon " << rPolyPolygon.getB2DRange());
-    mpRenderList->addDrawPolyPolygon(rPolyPolygon, fTransparency, mnLineColor, mnFillColor, mrParent.getAntiAliasB2DDraw());
+
+    // Fallback: Transform to DeviceCoordinates
+    basegfx::B2DPolyPolygon aPolyPolygon(rPolyPolygon);
+    aPolyPolygon.transform(rObjectToDevice);
+
+    mpRenderList->addDrawPolyPolygon(
+        aPolyPolygon,
+        fTransparency,
+        mnLineColor,
+        mnFillColor,
+        mrParent.getAntiAliasB2DDraw());
+
     PostBatchDraw();
     return true;
 }
 
-bool OpenGLSalGraphicsImpl::drawPolyLine(const basegfx::B2DPolygon& rPolygon, double fTransparency,
-                                         const basegfx::B2DVector& rLineWidth, basegfx::B2DLineJoin eLineJoin,
-                                         css::drawing::LineCap eLineCap, double fMiterMinimumAngle)
+bool OpenGLSalGraphicsImpl::drawPolyLine(
+    const basegfx::B2DHomMatrix& rObjectToDevice,
+    const basegfx::B2DPolygon& rPolygon,
+    double fTransparency,
+    const basegfx::B2DVector& rLineWidth,
+    basegfx::B2DLineJoin eLineJoin,
+    css::drawing::LineCap eLineCap,
+    double fMiterMinimumAngle,
+    bool bPixelSnapHairline)
 {
     VCL_GL_INFO("::drawPolyLine " << rPolygon.getB2DRange());
 
+    // Transform to DeviceCoordinates, get DeviceLineWidth, execute PixelSnapHairline
+    basegfx::B2DPolygon aPolyLine(rPolygon);
+    aPolyLine.transform(rObjectToDevice);
+    if(bPixelSnapHairline) { aPolyLine = basegfx::utils::snapPointsOfHorizontalOrVerticalEdges(aPolyLine); }
+    const basegfx::B2DVector aLineWidth(rObjectToDevice * rLineWidth);
+
     // addDrawPolyLine() assumes that there are no duplicate points in the
     // polygon.
-    basegfx::B2DPolygon aPolygon(rPolygon);
-    aPolygon.removeDoublePoints();
+    // basegfx::B2DPolygon aPolygon(rPolygon);
+    aPolyLine.removeDoublePoints();
 
-    mpRenderList->addDrawPolyLine(aPolygon, fTransparency, rLineWidth, eLineJoin, eLineCap,
-                                  fMiterMinimumAngle, mnLineColor, mrParent.getAntiAliasB2DDraw());
+    mpRenderList->addDrawPolyLine(
+        aPolyLine,
+        fTransparency,
+        aLineWidth,
+        eLineJoin,
+        eLineCap,
+        fMiterMinimumAngle,
+        mnLineColor,
+        mrParent.getAntiAliasB2DDraw());
+
     PostBatchDraw();
     return true;
 }

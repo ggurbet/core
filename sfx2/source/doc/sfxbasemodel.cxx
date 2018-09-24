@@ -52,6 +52,8 @@
 #include <com/sun/star/document/DocumentProperties.hpp>
 #include <com/sun/star/frame/XTransientDocumentsDocumentContentFactory.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
 #include <comphelper/enumhelper.hxx>
 
@@ -221,7 +223,6 @@ struct IMPL_SfxBaseModel_DataContainer : public ::sfx2::IModifiableDocument
             ,   m_bSuicide              ( false     )
             ,   m_bExternalTitle        ( false     )
             ,   m_bModifiedSinceLastSave( false     )
-            ,   m_pStorageModifyListen  ( nullptr          )
             ,   m_xTitleHelper          ()
             ,   m_xNumberedControllers  ()
             ,   m_xDocumentMetadata     () // lazy
@@ -432,7 +433,7 @@ class SfxSaveGuard
     private:
         Reference< frame::XModel > m_xModel;
         IMPL_SfxBaseModel_DataContainer* m_pData;
-        SfxOwnFramesLocker* m_pFramesLock;
+        std::unique_ptr<SfxOwnFramesLocker> m_pFramesLock;
 
         SfxSaveGuard(SfxSaveGuard &) = delete;
         void operator =(const SfxSaveGuard&) = delete;
@@ -447,20 +448,17 @@ SfxSaveGuard::SfxSaveGuard(const Reference< frame::XModel >&             xModel 
                                  IMPL_SfxBaseModel_DataContainer* pData)
     : m_xModel     ( xModel )
     , m_pData      ( pData )
-    , m_pFramesLock( nullptr )
 {
     if ( m_pData->m_bClosed )
         throw lang::DisposedException("Object already disposed.");
 
     m_pData->m_bSaving = true;
-    m_pFramesLock = new SfxOwnFramesLocker( m_pData->m_pObjectShell.get() );
+    m_pFramesLock.reset(new SfxOwnFramesLocker( m_pData->m_pObjectShell.get() ));
 }
 
 SfxSaveGuard::~SfxSaveGuard()
 {
-    SfxOwnFramesLocker* pFramesLock = m_pFramesLock;
-    m_pFramesLock = nullptr;
-    delete pFramesLock;
+    m_pFramesLock.reset();
 
     m_pData->m_bSaving = false;
 
@@ -581,8 +579,9 @@ Sequence< sal_Int8 > SAL_CALL SfxBaseModel::getImplementationId()
 
 //  XStarBasicAccess
 
+#if HAVE_FEATURE_SCRIPTING
 
-Reference< script::XStarBasicAccess > implGetStarBasicAccess( SfxObjectShell const * pObjectShell )
+static Reference< script::XStarBasicAccess > implGetStarBasicAccess( SfxObjectShell const * pObjectShell )
 {
     Reference< script::XStarBasicAccess > xRet;
 
@@ -597,6 +596,8 @@ Reference< script::XStarBasicAccess > implGetStarBasicAccess( SfxObjectShell con
 #endif
     return xRet;
 }
+
+#endif
 
 Reference< container::XNameContainer > SAL_CALL SfxBaseModel::getLibraryContainer()
 {
@@ -2633,7 +2634,7 @@ SfxMedium* SfxBaseModel::handleLoadError( ErrCode nError, SfxMedium* pMedium )
 //  SfxListener
 
 
-void addTitle_Impl( Sequence < beans::PropertyValue >& rSeq, const OUString& rTitle )
+static void addTitle_Impl( Sequence < beans::PropertyValue >& rSeq, const OUString& rTitle )
 {
     sal_Int32 nCount = rSeq.getLength();
     sal_Int32 nArg;

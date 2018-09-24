@@ -89,7 +89,7 @@ public:
     virtual void
     OPTIONS( const OUString & inPath,
              DAVOptions& rOptions, // contains the name+values
-             const DAVRequestEnvironment & rEnv ) SAL_OVERRIDE;
+             const DAVRequestEnvironment & rEnv ) override;
 
     // allprop & named
     virtual void
@@ -204,6 +204,13 @@ public:
 
     bool isDomainMatch( const OUString& certHostName );
 
+    int CertificationNotify(const ne_ssl_certificate *cert);
+
+    int NeonAuth(const char* inAuthProtocol, const char* inRealm,
+                 int attempt, char* inoutUserName, char * inoutPassWord);
+
+    void PreSendRequest(ne_request* req, ne_buffer* headers);
+
 private:
     friend class NeonLockStore;
 
@@ -271,9 +278,9 @@ private:
     OUString makeAbsoluteURL( OUString const & rURL ) const;
 };
 
-} // namespace webdav_ucp
+osl::Mutex& getGlobalNeonMutex();
 
-extern osl::Mutex aGlobalNeonMutex;
+} // namespace webdav_ucp
 
 #endif // INCLUDED_UCB_SOURCE_UCP_WEBDAV_NEON_NEONSESSION_HXX
 

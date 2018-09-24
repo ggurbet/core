@@ -99,7 +99,7 @@ using namespace ::com::sun::star::text;
 
 namespace sd {
 
-Color ColorFromAlphaColor(sal_uInt8 aTransparency, Color const &aFront, Color const &aBack )
+static Color ColorFromAlphaColor(sal_uInt8 aTransparency, Color const &aFront, Color const &aBack )
 {
     return Color(static_cast<sal_uInt8>(aFront.GetRed()    * aTransparency/double(255) + aBack.GetRed()    * (1-aTransparency/double(255))),
                  static_cast<sal_uInt8>(aFront.GetGreen()  * aTransparency/double(255) + aBack.GetGreen()  * (1-aTransparency/double(255))),
@@ -265,8 +265,6 @@ AnnotationWindow::AnnotationWindow( AnnotationManagerImpl& rManager, DrawDocShel
 , mrManager( rManager )
 , mpDocShell( pDocShell )
 , mpDoc( pDocShell->GetDoc() )
-, mpOutlinerView(nullptr)
-, mpOutliner(nullptr)
 , mpVScrollbar(nullptr)
 , mbReadonly(pDocShell->IsReadOnly())
 , mbProtected(false)

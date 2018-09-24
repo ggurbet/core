@@ -70,14 +70,6 @@ static const sal_Int16 kDefaultEra = 1;     // Gregorian CE, positive year
 
 ImpSvNumberInputScan::ImpSvNumberInputScan( SvNumberFormatter* pFormatterP )
         :
-        pUpperMonthText( nullptr ),
-        pUpperAbbrevMonthText( nullptr ),
-        pUpperGenitiveMonthText( nullptr ),
-        pUpperGenitiveAbbrevMonthText( nullptr ),
-        pUpperPartitiveMonthText( nullptr ),
-        pUpperPartitiveAbbrevMonthText( nullptr ),
-        pUpperDayText( nullptr ),
-        pUpperAbbrevDayText( nullptr ),
         bTextInitialized( false ),
         bScanGenitiveMonths( false ),
         bScanPartitiveMonths( false ),
@@ -134,7 +126,7 @@ void ImpSvNumberInputScan::Reset()
 }
 
 // native number transliteration if necessary
-void TransformInput( SvNumberFormatter const * pFormatter, OUString& rStr )
+static void TransformInput( SvNumberFormatter const * pFormatter, OUString& rStr )
 {
     sal_Int32 nPos, nLen;
     for ( nPos = 0, nLen = rStr.getLength(); nPos < nLen; ++nPos )

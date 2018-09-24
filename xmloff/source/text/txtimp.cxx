@@ -548,8 +548,8 @@ struct XMLTextImportHelper::Impl
     // Used for frame deduplication, the name of the last frame imported directly before the current one
     OUString msLastImportedFrameName;
 
-    bool m_bBookmarkHidden;
-    OUString m_sBookmarkCondition;
+    std::map< OUString, bool > m_bBookmarkHidden;
+    std::map< OUString, OUString > m_sBookmarkCondition;
 
     uno::Reference<text::XText> m_xText;
     uno::Reference<text::XTextCursor> m_xCursor;
@@ -568,11 +568,11 @@ struct XMLTextImportHelper::Impl
 
     SvXMLImport & m_rSvXMLImport;
 
-    bool m_bInsertMode : 1;
-    bool m_bStylesOnlyMode : 1;
-    bool m_bBlockMode : 1;
-    bool m_bProgress : 1;
-    bool m_bOrganizerMode : 1;
+    bool const m_bInsertMode : 1;
+    bool const m_bStylesOnlyMode : 1;
+    bool const m_bBlockMode : 1;
+    bool const m_bProgress : 1;
+    bool const m_bOrganizerMode : 1;
     bool m_bBodyContentStarted : 1;
 
     /// Are we inside a <text:deletion> element (deleted redline section)
@@ -596,7 +596,6 @@ struct XMLTextImportHelper::Impl
                 bool const bProgress, bool const bBlockMode,
                 bool const bOrganizerMode)
         :   m_xTextListsHelper( new XMLTextListsHelper() )
-        ,   m_bBookmarkHidden( false )
         // XML import: reconstrution of assignment of paragraph style to outline levels (#i69629#)
         ,   m_xServiceFactory( rModel, UNO_QUERY )
         ,   m_rSvXMLImport( rImport )
@@ -854,27 +853,25 @@ namespace
     {
         ::std::vector<OUString> vListEntries;
         ::std::map<OUString, Any> vOutParams;
-        for(field_params_t::const_iterator pCurrent = m_pInParams->begin();
-            pCurrent != m_pInParams->end();
-            ++pCurrent)
+        for(const auto& rCurrent : *m_pInParams)
         {
-            if(pCurrent->first == ODF_FORMDROPDOWN_RESULT)
+            if(rCurrent.first == ODF_FORMDROPDOWN_RESULT)
             {
                 // sal_Int32
-                vOutParams[pCurrent->first] <<= pCurrent->second.toInt32();
+                vOutParams[rCurrent.first] <<= rCurrent.second.toInt32();
             }
-            else if(pCurrent->first == ODF_FORMCHECKBOX_RESULT)
+            else if(rCurrent.first == ODF_FORMCHECKBOX_RESULT)
             {
                 // bool
-                vOutParams[pCurrent->first] <<= pCurrent->second.toBoolean();
+                vOutParams[rCurrent.first] <<= rCurrent.second.toBoolean();
             }
-            else if(pCurrent->first == ODF_FORMDROPDOWN_LISTENTRY)
+            else if(rCurrent.first == ODF_FORMDROPDOWN_LISTENTRY)
             {
                 // sequence
-                vListEntries.push_back(pCurrent->second);
+                vListEntries.push_back(rCurrent.second);
             }
             else
-                vOutParams[pCurrent->first] <<= pCurrent->second;
+                vOutParams[rCurrent.first] <<= rCurrent.second;
         }
         if(!vListEntries.empty())
         {
@@ -882,13 +879,11 @@ namespace
             copy(vListEntries.begin(), vListEntries.end(), vListEntriesSeq.begin());
             vOutParams[OUString(ODF_FORMDROPDOWN_LISTENTRY)] <<= vListEntriesSeq;
         }
-        for(::std::map<OUString, Any>::const_iterator pCurrent = vOutParams.begin();
-            pCurrent != vOutParams.end();
-            ++pCurrent)
+        for(const auto& rCurrent : vOutParams)
         {
             try
             {
-                m_xOutParams->insertByName(pCurrent->first, pCurrent->second);
+                m_xOutParams->insertByName(rCurrent.first, rCurrent.second);
             }
             catch(const ElementExistException&)
             {
@@ -2952,20 +2947,20 @@ void XMLTextImportHelper::MapCrossRefHeadingFieldsHorribly()
     }
 }
 
-void XMLTextImportHelper::setBookmarkAttributes(bool hidden, OUString const& condition)
+void XMLTextImportHelper::setBookmarkAttributes(OUString const& bookmark, bool hidden, OUString const& condition)
 {
-    m_xImpl->m_bBookmarkHidden = hidden;
-    m_xImpl->m_sBookmarkCondition = condition;
+    m_xImpl->m_bBookmarkHidden[bookmark] = hidden;
+    m_xImpl->m_sBookmarkCondition[bookmark] = condition;
 }
 
-bool XMLTextImportHelper::getBookmarkHidden()
+bool XMLTextImportHelper::getBookmarkHidden(OUString const& bookmark) const
 {
-    return m_xImpl->m_bBookmarkHidden;
+    return m_xImpl->m_bBookmarkHidden[bookmark];
 }
 
-const OUString& XMLTextImportHelper::getBookmarkCondition()
+const OUString& XMLTextImportHelper::getBookmarkCondition(OUString const& bookmark) const
 {
-    return m_xImpl->m_sBookmarkCondition;
+    return m_xImpl->m_sBookmarkCondition[bookmark];
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

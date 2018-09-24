@@ -45,6 +45,7 @@
 #include <ucbhelper/content.hxx>
 #include <cppuhelper/factory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <com/sun/star/ucb/TransferInfo.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
 #include <com/sun/star/ucb/OpenCommandArgument2.hpp>
@@ -1674,7 +1675,7 @@ Sequence< ElementChange > SAL_CALL ZipPackage::getPendingChanges()
  * Function to create a new component instance; is needed by factory helper implementation.
  * @param xMgr service manager to if the components needs other component instances
  */
-uno::Reference < XInterface > ZipPackage_createInstance(
+static uno::Reference < XInterface > ZipPackage_createInstance(
     const uno::Reference< XMultiServiceFactory > & xMgr )
 {
     return uno::Reference< XInterface >( *new ZipPackage( comphelper::getComponentContext(xMgr) ) );

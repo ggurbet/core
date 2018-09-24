@@ -121,9 +121,6 @@ ImpSdrPdfImport::ImpSdrPdfImport(SdrModel& rModel, SdrLayerID nLay, const tools:
     , maScaleRect(rRect)
     , mpPdfData(pPdfData)
     , mnMapScalingOfs(0)
-    , mpLineAttr(nullptr)
-    , mpFillAttr(nullptr)
-    , mpTextAttr(nullptr)
     , mpModel(&rModel)
     , mnLayer(nLay)
     , maOldLineColor()
@@ -823,12 +820,10 @@ void ImpSdrPdfImport::ImportText(FPDF_PAGEOBJECT pPageObject, FPDF_TEXTPAGE pTex
     aTextMatrix.Transform(left, right, top, bottom);
     const tools::Rectangle aRect = PointsToLogic(left, right, top, bottom);
 
-    const int nChars = FPDFTextObj_CountChars(pPageObject) * 2;
-    std::unique_ptr<sal_Unicode[]> pText(new sal_Unicode[nChars + 1]); // + terminating null
+    const int nChars = FPDFTextObj_GetText(pPageObject, pTextPage, nullptr, 0);
+    std::unique_ptr<sal_Unicode[]> pText(new sal_Unicode[nChars]);
 
-    unsigned short* pShortText = reinterpret_cast<unsigned short*>(pText.get());
-    const int nActualChars
-        = FPDFTextObj_GetTextProcessed(pPageObject, pTextPage, 0, nChars, pShortText);
+    const int nActualChars = FPDFTextObj_GetText(pPageObject, pTextPage, pText.get(), nChars);
     if (nActualChars <= 0)
     {
         return;

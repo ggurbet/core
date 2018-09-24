@@ -645,7 +645,6 @@ namespace {
 
 PrintDialog::PrintDialog( vcl::Window* i_pParent, const std::shared_ptr<PrinterController>& i_rController )
     : ModalDialog(i_pParent, "PrintDialog", "vcl/ui/printdialog.ui")
-    , mpCustomOptionsUIBuilder(nullptr)
     , maPController( i_rController )
     , maNUpPage(m_pUIBuilder.get())
     , maJobPage(m_pUIBuilder.get())
@@ -884,7 +883,7 @@ bool PrintDialog::isSingleJobs()
     return maOptionsPage.mpCollateSingleJobsBox->IsChecked();
 }
 
-void setHelpId( vcl::Window* i_pWindow, const Sequence< OUString >& i_rHelpIds, sal_Int32 i_nIndex )
+static void setHelpId( vcl::Window* i_pWindow, const Sequence< OUString >& i_rHelpIds, sal_Int32 i_nIndex )
 {
     if( i_nIndex >= 0 && i_nIndex < i_rHelpIds.getLength() )
         i_pWindow->SetHelpId( OUStringToOString( i_rHelpIds.getConstArray()[i_nIndex], RTL_TEXTENCODING_UTF8 ) );
@@ -1304,23 +1303,6 @@ void PrintDialog::checkOptionalControlDependencies()
          it != maControlToPropertyMap.end(); ++it )
     {
         bool bShouldbeEnabled = maPController->isUIOptionEnabled( it->second );
-        if( ! bShouldbeEnabled )
-        {
-            // enable controls that are directly attached to a dependency anyway
-            // if the normally disabled controls get modified, change the dependency
-            // so the control would be enabled
-            // example: in print range "Print All" is selected, "Page Range" is then of course
-            // not selected and the Edit for the Page Range would be disabled
-            // as a convenience we should enable the Edit anyway and automatically select
-            // "Page Range" instead of "Print All" if the Edit gets modified
-            if( maReverseDependencySet.find( it->second ) != maReverseDependencySet.end() )
-            {
-                OUString aDep( maPController->getDependency( it->second ) );
-                // if the dependency is at least enabled, then enable this control anyway
-                if( !aDep.isEmpty() && maPController->isUIOptionEnabled( aDep ) )
-                    bShouldbeEnabled = true;
-            }
-        }
 
         if( bShouldbeEnabled && dynamic_cast<RadioButton*>(it->first.get()) )
         {

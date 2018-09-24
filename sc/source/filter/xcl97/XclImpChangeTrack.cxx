@@ -29,6 +29,7 @@
 #include <xilink.hxx>
 #include <externalrefmgr.hxx>
 #include <document.hxx>
+#include <excdefs.hxx>
 
 // class XclImpChangeTrack
 
@@ -36,8 +37,6 @@ XclImpChangeTrack::XclImpChangeTrack( const XclImpRoot& rRoot, const XclImpStrea
     XclImpRoot( rRoot ),
     aRecHeader(),
     sOldUsername(),
-    pChangeTrack( nullptr ),
-    pStrm( nullptr ),
     nTabIdCount( 0 ),
     bGlobExit( false ),
     eNestedMode( nmBase )

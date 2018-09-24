@@ -261,7 +261,6 @@ SchXMLSeries2Context::SchXMLSeries2Context(
         mrAxes( rAxes ),
         mrStyleVector( rStyleVector ),
         mrRegressionStyleVector( rRegressionStyleVector ),
-        m_xSeries(nullptr),
         mnSeriesIndex( nSeriesIndex ),
         mnDataPointIndex( 0 ),
         m_bStockHasVolume( bStockHasVolume ),
@@ -504,7 +503,7 @@ struct DomainInfo
         : aRole(rRole), aRange(rRange), nIndexForLocalData(nIndex)
     {}
 
-    OUString aRole;
+    OUString const aRole;
     OUString aRange;
     sal_Int32 nIndexForLocalData;
 };

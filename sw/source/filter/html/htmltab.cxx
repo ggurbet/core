@@ -2871,7 +2871,6 @@ CellSaveStruct::CellSaveStruct( SwHTMLParser& rParser, HTMLTable const *pCurTabl
                                   bool bHd, bool bReadOpt ) :
     SectionSaveStruct( rParser ),
     m_pCurrCnts( nullptr ),
-    m_pNoBreakEndNodeIndex( nullptr ),
     m_nValue( 0.0 ),
     m_nNumFormat( 0 ),
     m_nRowSpan( 1 ),
@@ -4737,7 +4736,7 @@ void TableSaveStruct::MakeTable( sal_uInt16 nWidth, SwPosition& rPos, SwDoc *pDo
             SwNodeIndex aIdx( *pTableNd->EndOfSectionNode(), 1 );
             OSL_ENSURE( aIdx.GetIndex() <= pTCntxt->GetPos()->nNode.GetIndex(),
                     "unexpected node for table layout" );
-            pTableNd->MakeFrames( &aIdx );
+            pTableNd->MakeOwnFrames(&aIdx);
         }
     }
 

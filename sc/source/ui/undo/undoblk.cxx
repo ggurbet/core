@@ -68,17 +68,17 @@
 //?     // check later
 
 ScUndoInsertCells::ScUndoInsertCells( ScDocShell* pNewDocShell,
-                                const ScRange& rRange, SCTAB nNewCount, SCTAB* pNewTabs, SCTAB* pNewScenarios,
-                                InsCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData,
+                                const ScRange& rRange,
+                                SCTAB nNewCount, std::unique_ptr<SCTAB[]> pNewTabs, std::unique_ptr<SCTAB[]> pNewScenarios,
+                                InsCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData,
                                 bool bNewPartOfPaste ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), pRefData, SC_UNDO_REFLAST ),
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST ),
     aEffRange( rRange ),
     nCount( nNewCount ),
-    pTabs( pNewTabs ),
-    pScenarios( pNewScenarios ),
+    pTabs( std::move(pNewTabs) ),
+    pScenarios( std::move(pNewScenarios) ),
     eCmd( eNewCmd ),
-    bPartOfPaste( bNewPartOfPaste ),
-    pPasteUndo( nullptr )
+    bPartOfPaste( bNewPartOfPaste )
 {
     if (eCmd == INS_INSROWS_BEFORE || eCmd == INS_INSROWS_AFTER)            // whole row?
     {
@@ -337,13 +337,14 @@ bool ScUndoInsertCells::CanRepeat(SfxRepeatTarget& rTarget) const
 }
 
 ScUndoDeleteCells::ScUndoDeleteCells( ScDocShell* pNewDocShell,
-                                const ScRange& rRange, SCTAB nNewCount, SCTAB* pNewTabs, SCTAB* pNewScenarios,
-                                DelCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), pRefData, SC_UNDO_REFLAST ),
+                                const ScRange& rRange,
+                                SCTAB nNewCount, std::unique_ptr<SCTAB[]> pNewTabs, std::unique_ptr<SCTAB[]> pNewScenarios,
+                                DelCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData ) :
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST ),
     aEffRange( rRange ),
     nCount( nNewCount ),
-    pTabs( pNewTabs ),
-    pScenarios( pNewScenarios ),
+    pTabs( std::move(pNewTabs) ),
+    pScenarios( std::move(pNewScenarios) ),
     eCmd( eNewCmd )
 {
     if (eCmd == DelCellCmd::Rows)            // whole row?
@@ -623,8 +624,8 @@ ScUndoDeleteMulti::ScUndoDeleteMulti(
     ScDocShell* pNewDocShell,
     bool bNewRows, bool bNeedsRefresh, SCTAB nNewTab,
     const std::vector<sc::ColRowSpan>& rSpans,
-    ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), pRefData, SC_UNDO_REFLAST ),
+    ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData ) :
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST ),
     mbRows(bNewRows),
     mbRefresh(bNeedsRefresh),
     nTab( nNewTab ),
@@ -797,13 +798,12 @@ bool ScUndoDeleteMulti::CanRepeat(SfxRepeatTarget& rTarget) const
     return dynamic_cast<const ScTabViewTarget*>( &rTarget) !=  nullptr;
 }
 
-ScUndoCut::ScUndoCut( ScDocShell* pNewDocShell,
-                ScRange aRange, const ScAddress& aOldEnd, const ScMarkData& rMark,
-                ScDocumentUniquePtr pNewUndoDoc ) :
-    ScBlockUndo( pNewDocShell, ScRange(aRange.aStart, aOldEnd), SC_UNDO_AUTOHEIGHT ),
-    aMarkData( rMark ),
-    pUndoDoc( std::move(pNewUndoDoc) ),
-    aExtendedRange( aRange )
+ScUndoCut::ScUndoCut(ScDocShell* pNewDocShell, const ScRange& aRange, const ScAddress& aOldEnd,
+                     const ScMarkData& rMark, ScDocumentUniquePtr pNewUndoDoc)
+    : ScBlockUndo(pNewDocShell, ScRange(aRange.aStart, aOldEnd), SC_UNDO_AUTOHEIGHT)
+    , aMarkData(rMark)
+    , pUndoDoc(std::move(pNewUndoDoc))
+    , aExtendedRange(aRange)
 {
     SetChangeTrack();
 }
@@ -901,15 +901,14 @@ ScUndoPaste::ScUndoPaste( ScDocShell* pNewDocShell, const ScRangeList& rRanges,
                 const ScMarkData& rMark,
                 ScDocumentUniquePtr pNewUndoDoc, ScDocumentUniquePtr pNewRedoDoc,
                 InsertDeleteFlags nNewFlags,
-                ScRefUndoData* pRefData,
+                std::unique_ptr<ScRefUndoData> pRefData,
                 bool bRedoIsFilled, const ScUndoPasteOptions* pOptions ) :
     ScMultiBlockUndo( pNewDocShell, rRanges ),
     aMarkData( rMark ),
     pUndoDoc( std::move(pNewUndoDoc) ),
     pRedoDoc( std::move(pNewRedoDoc) ),
     nFlags( nNewFlags ),
-    pRefUndoData( pRefData ),
-    pRefRedoData( nullptr ),
+    pRefUndoData( std::move(pRefData) ),
     bRedoFilled( bRedoIsFilled )
 {
     if ( pRefUndoData )
@@ -2094,11 +2093,10 @@ bool ScUndoTransliterate::CanRepeat(SfxRepeatTarget& rTarget) const
 }
 
 ScUndoClearItems::ScUndoClearItems( ScDocShell* pNewDocShell, const ScMarkData& rMark,
-                            ScDocument* pNewUndoDoc, const sal_uInt16* pW ) :
+                            ScDocumentUniquePtr pNewUndoDoc, const sal_uInt16* pW ) :
     ScBlockUndo( pNewDocShell, lcl_GetMultiMarkRange(rMark), SC_UNDO_AUTOHEIGHT ),
     aMarkData( rMark ),
-    pUndoDoc( pNewUndoDoc ),
-    pWhich( nullptr )
+    pUndoDoc( std::move(pNewUndoDoc) )
 {
     OSL_ENSURE( pW, "ScUndoClearItems: Which-Pointer is Null" );
 
@@ -2157,10 +2155,10 @@ bool ScUndoClearItems::CanRepeat(SfxRepeatTarget& rTarget) const
 
 // remove all line breaks of a table
 ScUndoRemoveBreaks::ScUndoRemoveBreaks( ScDocShell* pNewDocShell,
-                                    SCTAB nNewTab, ScDocument* pNewUndoDoc ) :
+                                    SCTAB nNewTab, ScDocumentUniquePtr pNewUndoDoc ) :
     ScSimpleUndo( pNewDocShell ),
     nTab( nNewTab ),
-    pUndoDoc( pNewUndoDoc )
+    pUndoDoc( std::move(pNewUndoDoc) )
 {
 }
 
@@ -2219,17 +2217,17 @@ bool ScUndoRemoveBreaks::CanRepeat(SfxRepeatTarget& rTarget) const
 }
 
 ScUndoRemoveMerge::ScUndoRemoveMerge( ScDocShell* pNewDocShell,
-                                      const ScCellMergeOption& rOption, ScDocument* pNewUndoDoc ) :
+                                      const ScCellMergeOption& rOption, ScDocumentUniquePtr pNewUndoDoc ) :
     ScBlockUndo( pNewDocShell, rOption.getFirstSingleRange(), SC_UNDO_SIMPLE ),
-    pUndoDoc( pNewUndoDoc )
+    pUndoDoc( std::move(pNewUndoDoc) )
 {
     maOptions.push_back( rOption);
 }
 
 ScUndoRemoveMerge::ScUndoRemoveMerge( ScDocShell* pNewDocShell,
-                                      const ScRange& rRange, ScDocument* pNewUndoDoc ) :
+                                      const ScRange& rRange, ScDocumentUniquePtr pNewUndoDoc ) :
     ScBlockUndo( pNewDocShell, rRange, SC_UNDO_SIMPLE ),
-    pUndoDoc( pNewUndoDoc )
+    pUndoDoc( std::move(pNewUndoDoc) )
 {
 }
 
@@ -2377,10 +2375,10 @@ static ScRange lcl_TotalRange( const ScRangeList& rRanges )
 }
 
 ScUndoBorder::ScUndoBorder(ScDocShell* pNewDocShell,
-                           const ScRangeList& rRangeList, ScDocument* pNewUndoDoc,
+                           const ScRangeList& rRangeList, ScDocumentUniquePtr pNewUndoDoc,
                            const SvxBoxItem& rNewOuter, const SvxBoxInfoItem& rNewInner)
     : ScBlockUndo(pNewDocShell, lcl_TotalRange(rRangeList), SC_UNDO_SIMPLE)
-    , xUndoDoc(pNewUndoDoc)
+    , xUndoDoc(std::move(pNewUndoDoc))
 {
     xRanges.reset(new ScRangeList(rRangeList));
     xOuter.reset(new SvxBoxItem(rNewOuter));

@@ -926,7 +926,7 @@ Reference< data::XLabeledDataSequence >
     return xResult;
 }
 
-void lcl_generateAutomaticCategoriesFromChartType(
+static void lcl_generateAutomaticCategoriesFromChartType(
             Sequence< OUString >& rRet,
             const Reference< XChartType >& xChartType )
 {
@@ -1392,11 +1392,10 @@ bool lcl_moveSeriesOrCheckIfMoveIsAllowed(
                                             if( xOtherDataSeriesContainer.is() )
                                             {
                                                 uno::Sequence< uno::Reference< XDataSeries > > aOtherSeriesList( xOtherDataSeriesContainer->getDataSeries() );
-                                                sal_Int32 nOtherSeriesIndex = 0;
-                                                if( nOtherSeriesIndex >= 0 && nOtherSeriesIndex < aOtherSeriesList.getLength() )
+                                                if( 0 < aOtherSeriesList.getLength() )
                                                 {
-                                                    uno::Reference< XDataSeries > xExchangeSeries( aOtherSeriesList[nOtherSeriesIndex] );
-                                                    aOtherSeriesList[nOtherSeriesIndex] = xGivenDataSeries;
+                                                    uno::Reference< XDataSeries > xExchangeSeries( aOtherSeriesList[0] );
+                                                    aOtherSeriesList[0] = xGivenDataSeries;
                                                     xOtherDataSeriesContainer->setDataSeries(aOtherSeriesList);
 
                                                     aSeriesList[nOldSeriesIndex]=xExchangeSeries;
@@ -1598,7 +1597,7 @@ DiagramPositioningMode DiagramHelper::getDiagramPositioningMode( const uno::Refe
     return eMode;
 }
 
-void lcl_ensureRange0to1( double& rValue )
+static void lcl_ensureRange0to1( double& rValue )
 {
     if(rValue<0.0)
         rValue=0.0;

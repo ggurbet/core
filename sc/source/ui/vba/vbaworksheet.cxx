@@ -809,16 +809,24 @@ ScVbaWorksheet::Shapes( const uno::Any& aIndex )
    return uno::makeAny( xVbaShapes );
 }
 
+uno::Any
+ScVbaWorksheet::getButtons( const uno::Any &rIndex, bool bOptionButtons )
+{
+    ::rtl::Reference< ScVbaSheetObjectsBase > &rxButtons = bOptionButtons ? mxButtons[0] : mxButtons[1];
+
+    if( !rxButtons.is() )
+        rxButtons.set( new ScVbaButtons( this, mxContext, mxModel, mxSheet, bOptionButtons ) );
+    else
+        rxButtons->collectShapes();
+    if( rIndex.hasValue() )
+        return rxButtons->Item( rIndex, uno::Any() );
+    return uno::Any( uno::Reference< XCollection >( rxButtons.get() ) );
+}
+
 uno::Any SAL_CALL
 ScVbaWorksheet::Buttons( const uno::Any& rIndex )
 {
-    if( !mxButtons.is() )
-        mxButtons.set( new ScVbaButtons( this, mxContext, mxModel, mxSheet ) );
-    else
-        mxButtons->collectShapes();
-    if( rIndex.hasValue() )
-        return mxButtons->Item( rIndex, uno::Any() );
-    return uno::Any( uno::Reference< XCollection >( mxButtons.get() ) );
+    return getButtons( rIndex, false );
 }
 
 uno::Any SAL_CALL
@@ -852,9 +860,9 @@ ScVbaWorksheet::ListBoxes( const uno::Any& /*rIndex*/ )
 }
 
 uno::Any SAL_CALL
-ScVbaWorksheet::OptionButtons( const uno::Any& /*rIndex*/ )
+ScVbaWorksheet::OptionButtons( const uno::Any& rIndex )
 {
-    throw uno::RuntimeException();
+    return getButtons( rIndex, true );
 }
 
 uno::Any SAL_CALL
@@ -1038,20 +1046,13 @@ ScVbaWorksheet::getSheetID()
 }
 
 void SAL_CALL
-ScVbaWorksheet::PrintOut( const uno::Any& From, const uno::Any& To, const uno::Any& Copies, const uno::Any& Preview, const uno::Any& ActivePrinter, const uno::Any& PrintToFile, const uno::Any& Collate, const uno::Any& PrToFileName, const uno::Any& IgnorePrintAreas )
+ScVbaWorksheet::PrintOut( const uno::Any& From, const uno::Any& To, const uno::Any& Copies, const uno::Any& Preview, const uno::Any& ActivePrinter, const uno::Any& PrintToFile, const uno::Any& Collate, const uno::Any& PrToFileName, const uno::Any& )
 {
     sal_Int32 nTo = 0;
     sal_Int32 nFrom = 0;
-    sal_Int16 nCopies = 1;
-    bool bCollate = false;
     bool bSelection = false;
-    bool bIgnorePrintAreas = false;
     From >>= nFrom;
     To >>= nTo;
-    Copies >>= nCopies;
-    IgnorePrintAreas >>= bIgnorePrintAreas;
-    if ( nCopies > 1 ) // Collate only useful when more that 1 copy
-        Collate >>= bCollate;
 
     if ( !( nFrom || nTo ) )
         bSelection = true;

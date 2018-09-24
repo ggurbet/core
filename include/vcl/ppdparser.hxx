@@ -65,7 +65,7 @@ class VCL_DLLPUBLIC PPDKey
     typedef std::unordered_map< OUString, PPDValue > hash_type;
     typedef std::vector< PPDValue* > value_type;
 
-    OUString            m_aKey;
+    OUString const      m_aKey;
     hash_type           m_aValues;
     value_type          m_aOrderedValues;
     const PPDValue*     m_pDefaultValue;
@@ -167,7 +167,7 @@ private:
     std::unique_ptr<PPDTranslator>              m_pTranslator;
 
     PPDParser( const OUString& rFile );
-    PPDParser( const OUString& rFile, std::vector<PPDKey*> keys );
+    PPDParser(const OUString& rFile, const std::vector<PPDKey*>& keys);
 
     void parseOrderDependency(const OString& rLine);
     void parseOpenUI(const OString& rLine, const OString& rPPDGroup);

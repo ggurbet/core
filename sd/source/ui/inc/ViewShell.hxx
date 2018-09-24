@@ -22,42 +22,34 @@
 
 #include <rtl/ref.hxx>
 
-#include <vcl/field.hxx>
 #include <sfx2/viewsh.hxx>
 #include <vcl/prntypes.hxx>
-#include <svtools/transfer.hxx>
-#include <glob.hxx>
 #include <pres.hxx>
 #include "View.hxx"
+#include "fupoor.hxx"
 #include <sddllapi.h>
 
-#include <com/sun/star/drawing/XDrawSubController.hpp>
-#include <o3tl/deleter.hxx>
 #include <memory>
+
+namespace o3tl { template <typename T> struct default_delete; }
 
 class SdPage;
 class SvxRuler;
 class SdrOle2Obj;       // for the ones, who have undefined parts of SVDRAW
-class ScrollBarBox;
 class SdDrawDocument;
-class ScrollBar;
 
 namespace weld
 {
     class Window;
 }
 
-namespace com { namespace sun { namespace star {
-namespace embed {
-    class XEmbeddedObject;
-}}}}
+namespace com { namespace sun { namespace star { namespace drawing { class XDrawSubController; } } } }
 
 namespace sd {
 
 class DrawDocShell;
 class FrameView;
 class LayerTabBar;
-class View;
 class ViewShellBase;
 class Window;
 class WindowUpdater;
@@ -160,7 +152,7 @@ public:
         show running then the active window is a ShowWindow.
     */
     ::sd::Window* GetActiveWindow() const { return mpActiveWindow;}
-    weld::Window* GetFrameWeld() const;
+    SD_DLLPUBLIC weld::Window* GetFrameWeld() const;
 
     /** Set the active window.  When the shell is displayed in the center
         pane then the window of the ViewShellBase is also set to the given

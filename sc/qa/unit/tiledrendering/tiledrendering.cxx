@@ -49,7 +49,7 @@
 
 using namespace css;
 
-std::ostream& operator<<(std::ostream& os, ViewShellId const & id)
+static std::ostream& operator<<(std::ostream& os, ViewShellId const & id)
 {
     os << static_cast<sal_Int32>(id); return os;
 }
@@ -63,8 +63,8 @@ class ScTiledRenderingTest : public test::BootstrapFixture, public unotest::Macr
 {
 public:
     ScTiledRenderingTest();
-    virtual void setUp() SAL_OVERRIDE;
-    virtual void tearDown() SAL_OVERRIDE;
+    virtual void setUp() override;
+    virtual void tearDown() override;
 
     void testRowColumnSelections();
     void testSortAscendingDescending();

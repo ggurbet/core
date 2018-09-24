@@ -160,15 +160,20 @@ public:
                                         const sal_uInt32* pPoints,
                                         PCONSTSALPOINT* pPtAry ) override;
 
-    virtual bool                    drawPolyPolygon( const basegfx::B2DPolyPolygon&, double fTransparency ) override;
+    virtual bool                    drawPolyPolygon(
+                                        const basegfx::B2DHomMatrix& rObjectToDevice,
+                                        const basegfx::B2DPolyPolygon&,
+                                        double fTransparency) override;
 
     virtual bool                    drawPolyLine(
+                                        const basegfx::B2DHomMatrix& rObjectToDevice,
                                         const basegfx::B2DPolygon&,
                                         double fTransparency,
                                         const basegfx::B2DVector& rLineWidth,
                                         basegfx::B2DLineJoin,
                                         css::drawing::LineCap,
-                                        double fMiterMinimumAngle) override;
+                                        double fMiterMinimumAngle,
+                                        bool bPixelSnapHairline) override;
 
     virtual bool                    drawGradient( const tools::PolyPolygon&, const Gradient& ) override;
 
@@ -339,7 +344,7 @@ protected:
     bool                            bWindow_ : 1;       // is Window
     bool                            bVirDev_ : 1;       // is VirDev
     bool                            bFontGC_ : 1;       // is Font GC valid
-    bool                            m_bOpenGL : 1;
+    bool const                      m_bOpenGL : 1;
 
 private:
     std::unique_ptr<SalGraphicsImpl> mxImpl;

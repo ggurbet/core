@@ -242,7 +242,6 @@ TextFrameIndex SwBidiPortion::GetSpaceCnt(const SwTextSizeInfo &rInf) const
 SwDoubleLinePortion::SwDoubleLinePortion(
         SwDoubleLinePortion& rDouble, TextFrameIndex const nEnd)
     : SwMultiPortion(nEnd)
-    , pBracket(nullptr)
     , nLineDiff(0)
     , nBlank1(0)
     , nBlank2(0)
@@ -873,7 +872,7 @@ namespace sw {
                     rExtent.pNode != m_pMerged->extents[m_CurrentExtent].pNode)
                 {
                     m_CurrentHint = 0; // reset
-                    rpNode = rExtent.pNode;
+                    rpNode = m_pMerged->extents[m_CurrentExtent].pNode;
                     return nullptr;
                 }
             }
@@ -906,7 +905,7 @@ namespace sw {
 // interrupts the first attribute.
 // E.g. a ruby portion interrupts a 2-line-attribute, a 2-line-attribute
 // with different brackets interrupts another 2-line-attribute.
-SwMultiCreator* SwTextSizeInfo::GetMultiCreator(TextFrameIndex &rPos,
+std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &rPos,
                                                 SwMultiPortion const * pMulti ) const
 {
     SwScriptInfo& rSI = const_cast<SwParaPortion*>(GetParaPortion())->GetScriptInfo();
@@ -939,7 +938,7 @@ SwMultiCreator* SwTextSizeInfo::GetMultiCreator(TextFrameIndex &rPos,
         rPos = bFieldBidi ? rPos + TextFrameIndex(1) : rSI.NextDirChg(rPos, &nCurrLevel);
         if (TextFrameIndex(COMPLETE_STRING) == rPos)
             return nullptr;
-        SwMultiCreator *pRet = new SwMultiCreator;
+        std::unique_ptr<SwMultiCreator> pRet(new SwMultiCreator);
         pRet->pItem = nullptr;
         pRet->pAttr = nullptr;
         pRet->nId = SwMultiCreatorId::Bidi;
@@ -1044,7 +1043,7 @@ SwMultiCreator* SwTextSizeInfo::GetMultiCreator(TextFrameIndex &rPos,
     {   // The winner is ... a ruby attribute and so
         // the end of the multiportion is the end of the ruby attribute.
         rPos = m_pFrame->MapModelToView(startPos.first, *pRuby->End());
-        SwMultiCreator *pRet = new SwMultiCreator;
+        std::unique_ptr<SwMultiCreator> pRet(new SwMultiCreator);
         pRet->pItem = nullptr;
         pRet->pAttr = pRuby;
         pRet->nId = SwMultiCreatorId::Ruby;
@@ -1056,7 +1055,7 @@ SwMultiCreator* SwTextSizeInfo::GetMultiCreator(TextFrameIndex &rPos,
          rPos < TextFrameIndex(GetText().getLength())))
     {   // The winner is a 2-line-attribute,
         // the end of the multiportion depends on the following attributes...
-        SwMultiCreator *pRet = new SwMultiCreator;
+        std::unique_ptr<SwMultiCreator> pRet(new SwMultiCreator);
 
         // We note the endpositions of the 2-line attributes in aEnd as stack
         std::deque<TextFrameIndex> aEnd;
@@ -1203,7 +1202,7 @@ SwMultiCreator* SwTextSizeInfo::GetMultiCreator(TextFrameIndex &rPos,
          rPos < TextFrameIndex(GetText().getLength())))
     {   // The winner is a rotate-attribute,
         // the end of the multiportion depends on the following attributes...
-        SwMultiCreator *pRet = new SwMultiCreator;
+        std::unique_ptr<SwMultiCreator> pRet(new SwMultiCreator);
         pRet->nId = SwMultiCreatorId::Rotate;
 
         // We note the endpositions of the 2-line attributes in aEnd as stack
@@ -1551,18 +1550,18 @@ void SwTextPainter::PaintMultiPortion( const SwRect &rPaint,
 
     SwSpaceManipulator aManip( GetInfo(), rMulti );
 
-    SwFontSave *pFontSave;
-    SwFont* pTmpFnt;
+    std::unique_ptr<SwFontSave> pFontSave;
+    std::unique_ptr<SwFont> pTmpFnt;
 
     if( rMulti.IsDouble() )
     {
-        pTmpFnt = new SwFont( *GetInfo().GetFont() );
+        pTmpFnt.reset(new SwFont( *GetInfo().GetFont() ));
         if( rMulti.IsDouble() )
         {
             SetPropFont( 50 );
             pTmpFnt->SetProportion( GetPropFont() );
         }
-        pFontSave = new SwFontSave( GetInfo(), pTmpFnt, this );
+        pFontSave.reset(new SwFontSave( GetInfo(), pTmpFnt.get(), this ));
     }
     else
     {
@@ -1822,8 +1821,8 @@ void SwTextPainter::PaintMultiPortion( const SwRect &rPaint,
     // Restore the saved values
     GetInfo().X( nOldX );
     GetInfo().SetLen( nOldLen );
-    delete pFontSave;
-    delete pTmpFnt;
+    pFontSave.reset();
+    pTmpFnt.reset();
     SetPropFont( 0 );
 }
 
@@ -2431,7 +2430,7 @@ SwLinePortion* SwTextFormatter::MakeRestPortion( const SwLineLayout* pLine,
         return pRest;
 
     nPosition = nMultiPos + pHelpMulti->GetLen();
-    SwMultiCreator* pCreate = GetInfo().GetMultiCreator( nMultiPos, nullptr );
+    std::unique_ptr<SwMultiCreator> pCreate = GetInfo().GetMultiCreator( nMultiPos, nullptr );
 
     if ( !pCreate )
     {
@@ -2463,10 +2462,9 @@ SwLinePortion* SwTextFormatter::MakeRestPortion( const SwLineLayout* pLine,
             pTmp = new SwRotatedPortion( nMultiPos, pHelpMulti->GetDirection() );
         else
         {
-            delete pCreate;
             return pRest;
         }
-        delete pCreate;
+        pCreate.reset();
         pTmp->SetFollowField();
         if( pRest )
         {
@@ -2480,7 +2478,6 @@ SwLinePortion* SwTextFormatter::MakeRestPortion( const SwLineLayout* pLine,
         }
         return pTmp;
     }
-    delete pCreate;
     return pRest;
 }
 

@@ -91,6 +91,8 @@
 
 #include <boost/optional.hpp>
 
+#include <unotools/configmgr.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::ucb;
@@ -357,7 +359,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                   && !pSh->IsModifyPasswordEntered() )
                 {
                     const OUString aDocumentName = INetURLObject( pMed->GetOrigURL() ).GetMainURL( INetURLObject::DecodeMechanism::WithCharset );
-                    if( !AskPasswordToModify_Impl( pMed->GetInteractionHandler(), aDocumentName, pMed->GetOrigFilter(), pSh->GetModifyPasswordHash(), pSh->GetModifyPasswordInfo() ) )
+                    if( !AskPasswordToModify_Impl( pMed->GetInteractionHandler(), aDocumentName, pMed->GetFilter(), pSh->GetModifyPasswordHash(), pSh->GetModifyPasswordInfo() ) )
                     {
                         // this is a read-only document, if it has "Password to modify"
                         // the user should enter password before he can edit the document
@@ -1369,7 +1371,8 @@ IMPL_LINK_NOARG(SfxViewFrame, GetInvolvedHandler, Button*, void)
 {
     try
     {
-        sfx2::openUriExternally("https://hub.libreoffice.org/joinus", false);
+        OUString sURL("https://hub.libreoffice.org/joinus/?LOlocale=" + utl::ConfigManager::getLocale());
+        sfx2::openUriExternally(sURL, false);
     }
     catch (const Exception&)
     {
@@ -1452,7 +1455,6 @@ SfxViewFrame::SfxViewFrame
     SfxObjectShell*     pObjShell
 )
     : m_pImpl( new SfxViewFrame_Impl( rFrame ) )
-    , m_pDispatcher(nullptr)
     , m_pBindings( new SfxBindings )
     , m_nAdjustPosPixelLock( 0 )
 {
@@ -2202,7 +2204,7 @@ void SfxViewFrame::ExecView_Impl
         TODO: export special helper "framework::FrameListAnalyzer" within the framework module
         and use it here.
 */
-bool impl_maxOpenDocCountReached()
+static bool impl_maxOpenDocCountReached()
 {
     css::uno::Reference< css::uno::XComponentContext > xContext = ::comphelper::getProcessComponentContext();
     boost::optional<sal_Int32> x(officecfg::Office::Common::Misc::MaxOpenDocuments::get(xContext));
@@ -2398,9 +2400,11 @@ void SfxViewFrame::Resize( bool bForce )
     }
 }
 
+#if HAVE_FEATURE_SCRIPTING
+
 #define LINE_SEP 0x0A
 
-void CutLines( OUString& rStr, sal_Int32 nStartLine, sal_Int32 nLines )
+static void CutLines( OUString& rStr, sal_Int32 nStartLine, sal_Int32 nLines )
 {
     sal_Int32 nStartPos = 0;
     sal_Int32 nLine = 0;
@@ -2440,6 +2444,8 @@ void CutLines( OUString& rStr, sal_Int32 nStartLine, sal_Int32 nLines )
             rStr = rStr.copy( 0, nStartPos ) + rStr.copy( n );
     }
 }
+
+#endif
 
 /*
     add new recorded dispatch macro script into the application global basic

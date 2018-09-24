@@ -34,6 +34,7 @@
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -621,11 +622,11 @@ void Test_Impl::raiseRuntimeExceptionOneway( const OUString & rMsg, const Refere
     throw aExc;
 }
 
-void dothrow2(const RuntimeException& e)
+static void dothrow2(const RuntimeException& e)
 {
     throw e;
 }
-void dothrow(const RuntimeException& e)
+static void dothrow(const RuntimeException& e)
 {
 #if defined _MSC_VER
     // currently only for MSVC:

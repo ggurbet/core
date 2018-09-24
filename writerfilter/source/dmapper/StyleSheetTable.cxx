@@ -179,7 +179,7 @@ PropertyMapPtr StyleSheetEntry::GetMergedInheritedProperties(const StyleSheetTab
     return pRet;
 }
 
-void lcl_mergeProps( const PropertyMapPtr& pToFill, const PropertyMapPtr& pToAdd, TblStyleType nStyleId )
+static void lcl_mergeProps( const PropertyMapPtr& pToFill, const PropertyMapPtr& pToAdd, TblStyleType nStyleId )
 {
     static const PropertyIds pPropsToCheck[] =
     {
@@ -220,8 +220,8 @@ PropertyMapPtr TableStyleSheetEntry::GetLocalPropertiesFromMask( sal_Int32 nMask
 {
     // Order from right to left
     struct TblStyleTypeAndMask {
-        sal_Int32       mask;
-        TblStyleType    type;
+        sal_Int32 const       mask;
+        TblStyleType const    type;
     };
 
     static const TblStyleTypeAndMask aOrderedStyleTable[] =
@@ -254,8 +254,8 @@ PropertyMapPtr TableStyleSheetEntry::GetLocalPropertiesFromMask( sal_Int32 nMask
 
 struct ListCharStylePropertyMap_t
 {
-    OUString         sCharStyleName;
-    PropertyValueVector_t   aPropertyValues;
+    OUString const         sCharStyleName;
+    PropertyValueVector_t const   aPropertyValues;
 
     ListCharStylePropertyMap_t(const OUString& rCharStyleName, const PropertyValueVector_t& rPropertyValues):
         sCharStyleName( rCharStyleName ),
@@ -279,7 +279,7 @@ struct StyleSheetTable_Impl
     OUString                                m_sDefaultParaStyleName; //WW8 name
     ListCharStylePropertyVector_t           m_aListCharStylePropertyVector;
     bool                                    m_bHasImportedDefaultParaProps;
-    bool                                    m_bIsNewDoc;
+    bool const                              m_bIsNewDoc;
 
     StyleSheetTable_Impl(DomainMapper& rDMapper, uno::Reference< text::XTextDocument> const& xTextDocument, bool bIsNewDoc);
 
@@ -375,6 +375,7 @@ void StyleSheetTable_Impl::SetPropertiesToDefault(const uno::Reference<style::XS
     uno::Reference<beans::XPropertySetInfo> xPropertySetInfo = xPropertySet->getPropertySetInfo();
     uno::Sequence<beans::Property> aProperties = xPropertySetInfo->getProperties();
     std::vector<OUString> aPropertyNames;
+    aPropertyNames.reserve(aProperties.getLength());
     for (sal_Int32 i = 0; i < aProperties.getLength(); ++i)
     {
         aPropertyNames.push_back(aProperties[i].Name);
@@ -1014,6 +1015,9 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                     }
                     else if( bParaStyle )
                     {
+                        // Paragraph styles that don't inherit from some parent need to apply the DocDefaults
+                        pEntry->pProperties->InsertProps( m_pImpl->m_pDefaultParaProps, /*bAllowOverwrite=*/false );
+
                         //now it's time to set the default parameters - for paragraph styles
                         //Fonts: Western first entry in font table
                         //CJK: second entry

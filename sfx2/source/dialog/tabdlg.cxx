@@ -32,7 +32,6 @@
 #include <sfx2/ctrlitem.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/sfxdlg.hxx>
-#include <sfx2/itemconnect.hxx>
 #include <sfx2/viewsh.hxx>
 #include <uitest/sfx_uiobject.hxx>
 #include <unotools/viewoptions.hxx>
@@ -51,7 +50,6 @@ using namespace ::com::sun::star::uno;
 struct TabPageImpl
 {
     bool                        mbStandard;
-    sfx::ItemConnectionArray    maItemConn;
     VclPtr<SfxTabDialog>        mxDialog;
     SfxTabDialogController*     mpDialogController;
     css::uno::Reference< css::frame::XFrame > mxFrame;
@@ -196,26 +194,30 @@ SfxTabPage::SfxTabPage(TabPageParent pParent, const OUString& rUIXMLDescription,
 
 SfxTabPage::~SfxTabPage()
 {
+    if (m_xContainer)
+    {
+        std::unique_ptr<weld::Container> xParent(m_xContainer->weld_parent());
+        if (xParent)
+            xParent->move(m_xContainer.get(), nullptr);
+    }
+    m_xContainer.reset();
     disposeOnce();
 }
 
 void SfxTabPage::dispose()
 {
     pImpl.reset();
-    m_xContainer.reset();
     m_xBuilder.reset();
     TabPage::dispose();
 }
 
-bool SfxTabPage::FillItemSet( SfxItemSet* rSet )
+bool SfxTabPage::FillItemSet( SfxItemSet* )
 {
-    return pImpl->maItemConn.DoFillItemSet( *rSet, GetItemSet() );
+    return false;
 }
 
-void SfxTabPage::Reset( const SfxItemSet* rSet )
+void SfxTabPage::Reset( const SfxItemSet* )
 {
-    pImpl->maItemConn.DoApplyFlags( rSet );
-    pImpl->maItemConn.DoReset( rSet );
 }
 
 void SfxTabPage::ActivatePage( const SfxItemSet& )
@@ -321,11 +323,6 @@ void SfxTabPage::ChangesApplied()
 {
 }
 
-void SfxTabPage::AddItemConnection( sfx::ItemConnectionBase* pConnection )
-{
-    pImpl->maItemConn.AddConnection( pConnection );
-}
-
 void SfxTabPage::SetTabDialog(SfxTabDialog* pDialog)
 {
     pImpl->mxDialog = pDialog;
@@ -356,6 +353,22 @@ OString SfxTabPage::GetConfigId() const
     return sId;
 }
 
+weld::Window* SfxTabPage::GetDialogFrameWeld() const
+{
+    if (pImpl->mpDialogController)
+        return pImpl->mpDialogController->getDialog();
+    return GetFrameWeld();
+}
+
+const SfxItemSet* SfxTabPage::GetDialogExampleSet() const
+{
+    if (pImpl->mpDialogController)
+        return pImpl->mpDialogController->GetExampleSet();
+    if (pImpl->mxDialog)
+        return pImpl->mxDialog->GetExampleSet();
+    return nullptr;
+}
+
 SfxTabDialog::SfxTabDialog
 
 /*  [Description]
@@ -372,8 +385,6 @@ SfxTabDialog::SfxTabDialog
 )
     : TabDialog(pParent, rID, rUIXMLDescription)
     , m_pSet(pItemSet ? new SfxItemSet(*pItemSet) : nullptr)
-    , m_pOutSet(nullptr)
-    , m_pRanges(nullptr)
     , m_nAppPageId(USHRT_MAX)
     , m_bStandardPushed(false)
     , m_pExampleSet(nullptr)
@@ -1448,8 +1459,9 @@ SfxTabDialogController::SfxTabDialogController
 (
     weld::Window* pParent,              // Parent Window
     const OUString& rUIXMLDescription, const OString& rID, // Dialog .ui path, Dialog Name
-    const SfxItemSet* pItemSet    // Itemset with the data;
+    const SfxItemSet* pItemSet,   // Itemset with the data;
                                   // can be NULL, when Pages are onDemand
+    bool bEditFmt                 // when yes -> additional Button for standard
 )
     : GenericDialogController(pParent, rUIXMLDescription, rID)
     , m_xTabCtrl(m_xBuilder->weld_notebook("tabcontrol"))
@@ -1458,7 +1470,9 @@ SfxTabDialogController::SfxTabDialogController
     , m_xUserBtn(m_xBuilder->weld_button("user"))
     , m_xCancelBtn(m_xBuilder->weld_button("cancel"))
     , m_xResetBtn(m_xBuilder->weld_button("reset"))
+    , m_xBaseFmtBtn(m_xBuilder->weld_button("standard"))
     , m_pSet(pItemSet ? new SfxItemSet(*pItemSet) : nullptr)
+    , m_bStandardPushed(false)
 {
     m_pImpl.reset(new TabDlg_Impl(m_xTabCtrl->get_n_pages()));
     m_pImpl->bHideResetBtn = !m_xResetBtn->get_visible();
@@ -1469,6 +1483,14 @@ SfxTabDialogController::SfxTabDialogController
     m_xTabCtrl->connect_enter_page(LINK(this, SfxTabDialogController, ActivatePageHdl));
     m_xTabCtrl->connect_leave_page(LINK(this, SfxTabDialogController, DeactivatePageHdl));
     m_xResetBtn->set_help_id(HID_TABDLG_RESET_BTN);
+
+    if (bEditFmt)
+    {
+        m_xBaseFmtBtn->set_label(SfxResId(STR_STANDARD_SHORTCUT));
+        m_xBaseFmtBtn->connect_clicked(LINK(this, SfxTabDialogController, BaseFmtHdl));
+        m_xBaseFmtBtn->set_help_id(HID_TABDLG_STANDARD_BTN);
+        m_xBaseFmtBtn->show();
+    }
 
     if (m_xUserBtn)
         m_xUserBtn->connect_clicked(LINK(this, SfxTabDialogController, UserHdl));
@@ -1532,11 +1554,10 @@ IMPL_LINK_NOARG(SfxTabDialogController, ResetHdl, weld::Button&, void)
 */
 
 {
-    const OString sId = m_xTabCtrl->get_current_page_ident();
-    Data_Impl* pDataObject = Find( m_pImpl->aData, sId );
-    DBG_ASSERT( pDataObject, "Id not known" );
+    Data_Impl* pDataObject = Find(m_pImpl->aData, m_xTabCtrl->get_current_page_ident());
+    assert(pDataObject && "Id not known");
 
-    pDataObject->pTabPage->Reset( m_pSet.get() );
+    pDataObject->pTabPage->Reset(m_pSet.get());
     // Also reset relevant items of ExampleSet and OutSet to initial state
     if (pDataObject->fnGetRanges)
     {
@@ -1580,6 +1601,63 @@ IMPL_LINK_NOARG(SfxTabDialogController, ResetHdl, weld::Button&, void)
             // Go to the next pair
             pTmpRanges += 2;
         }
+    }
+}
+
+/*  [Description]
+
+    Handler behind the Standard-Button.
+    This button is available when editing style sheets. All the set attributes
+    in the edited stylesheet are deleted.
+*/
+IMPL_LINK_NOARG(SfxTabDialogController, BaseFmtHdl, weld::Button&, void)
+{
+    m_bStandardPushed = true;
+
+    Data_Impl* pDataObject = Find(m_pImpl->aData, m_xTabCtrl->get_current_page_ident());
+    assert(pDataObject && "Id not known");
+
+    if (pDataObject->fnGetRanges)
+    {
+        if (!m_xExampleSet)
+            m_xExampleSet.reset(new SfxItemSet(*m_pSet));
+
+        const SfxItemPool* pPool = m_pSet->GetPool();
+        const sal_uInt16* pTmpRanges = (pDataObject->fnGetRanges)();
+        SfxItemSet aTmpSet(*m_xExampleSet);
+
+        while (*pTmpRanges)
+        {
+            const sal_uInt16* pU = pTmpRanges + 1;
+
+            // Correct Range with multiple values
+            sal_uInt16 nTmp = *pTmpRanges, nTmpEnd = *pU;
+            DBG_ASSERT( nTmp <= nTmpEnd, "Range is sorted the wrong way" );
+
+            if ( nTmp > nTmpEnd )
+            {
+                // If really sorted wrongly, then set new
+                std::swap(nTmp, nTmpEnd);
+            }
+
+            while ( nTmp && nTmp <= nTmpEnd ) // guard against overflow
+            {
+                // Iterate over the Range and set the Items
+                sal_uInt16 nWh = pPool->GetWhich(nTmp);
+                m_xExampleSet->ClearItem(nWh);
+                aTmpSet.ClearItem(nWh);
+                // At the Outset of InvalidateItem,
+                // so that the change takes effect
+                m_pOutSet->InvalidateItem(nWh);
+                nTmp++;
+            }
+            // Go to the next pair
+            pTmpRanges += 2;
+        }
+        // Set all Items as new  -> the call the current Page Reset()
+        assert(pDataObject->pTabPage && "the Page is gone");
+        pDataObject->pTabPage->Reset( &aTmpSet );
+        pDataObject->pTabPage->pImpl->mbStandard = true;
     }
 }
 
@@ -1869,7 +1947,10 @@ short SfxTabDialogController::Ok()
         }
     }
 
-    if ( m_pOutSet && m_pOutSet->Count() > 0 )
+    if (m_pOutSet && m_pOutSet->Count() > 0)
+        bModified = true;
+
+    if (m_bStandardPushed)
         bModified = true;
 
     return bModified ? RET_OK : RET_CANCEL;
@@ -1926,6 +2007,18 @@ void SfxTabDialogController::AddTabPage
     m_pImpl->aData.push_back(new Data_Impl(m_pImpl->aData.size(), rName, pCreateFunc, pRangesFunc));
 }
 
+void SfxTabDialogController::AddTabPage
+(
+    const OString &rName,          // Page ID
+    sal_uInt16 nPageCreateId       // Identifier of the Factory Method to create the page
+)
+{
+    SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
+    CreateTabPage pCreateFunc = pFact->GetTabPageCreatorFunc(nPageCreateId);
+    GetTabPageRanges pRangesFunc = pFact->GetTabPageRangesFunc(nPageCreateId);
+    AddTabPage(rName, pCreateFunc, pRangesFunc);
+}
+
 void SfxTabDialogController::CreatePages()
 {
     for (auto pDataObject : m_pImpl->aData)
@@ -1933,7 +2026,8 @@ void SfxTabDialogController::CreatePages()
         if (pDataObject->pTabPage)
            continue;
         weld::Container* pPage = m_xTabCtrl->get_page(pDataObject->sId);
-        pDataObject->pTabPage = (pDataObject->fnCreatePage)(pPage, m_pSet.get());
+        // TODO eventually pass DialogController as distinct argument instead of bundling into TabPageParent
+        pDataObject->pTabPage = (pDataObject->fnCreatePage)(TabPageParent(pPage, this), m_pSet.get());
         pDataObject->pTabPage->SetDialogController(this);
 
         OUString sConfigId = OStringToOUString(pDataObject->pTabPage->GetConfigId(), RTL_TEXTENCODING_UTF8);
@@ -2099,6 +2193,12 @@ void SfxTabDialogController::RemoveResetButton()
     m_pImpl->bHideResetBtn = true;
 }
 
+void SfxTabDialogController::RemoveStandardButton()
+{
+    m_xBaseFmtBtn->hide();
+    m_pImpl->bHideResetBtn = true;
+}
+
 SfxTabPage* SfxTabDialogController::GetTabPage(const OString& rPageId) const
 
 /*  [Description]
@@ -2111,6 +2211,31 @@ SfxTabPage* SfxTabDialogController::GetTabPage(const OString& rPageId) const
     if (pDataObject)
         return pDataObject->pTabPage;
     return nullptr;
+}
+
+void SfxTabDialogController::SetApplyHandler(const Link<weld::Button&, void>& _rHdl)
+{
+    DBG_ASSERT( m_xApplyBtn, "SfxTabDialog::GetApplyHandler: no apply button enabled!" );
+    if (m_xApplyBtn)
+        m_xApplyBtn->connect_clicked(_rHdl);
+}
+
+bool SfxTabDialogController::Apply()
+{
+    bool bApplied = false;
+    if (PrepareLeaveCurrentPage())
+    {
+        bApplied = (Ok() == RET_OK);
+        //let the pages update their saved values
+        GetInputSetImpl()->Put(*GetOutputItemSet());
+        for (auto pDataObject : m_pImpl->aData)
+        {
+            if (!pDataObject->pTabPage)
+                continue;
+            pDataObject->pTabPage->ChangesApplied();
+        }
+    }
+    return bApplied;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

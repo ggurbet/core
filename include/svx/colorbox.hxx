@@ -101,7 +101,8 @@ private:
     Color m_aAutoDisplayColor;
     Color m_aSaveColor;
     NamedColor m_aSelectedColor;
-    bool m_bInterimBuilder;
+    sal_uInt16 m_nSlotId;
+    bool m_bShowNoneButton;
     std::shared_ptr<PaletteManager> m_xPaletteManager;
     BorderColorStatus m_aBorderColorStatus;
 
@@ -110,7 +111,7 @@ private:
     void LockWidthRequest();
     ColorWindow* getColorWindow() const;
 public:
-    ColorListBox(std::unique_ptr<weld::MenuButton> pControl, weld::Window* pWindow, bool bInterimBuilder = false);
+    ColorListBox(std::unique_ptr<weld::MenuButton> pControl, weld::Window* pWindow);
     ~ColorListBox();
 
     void SetSelectHdl(const Link<ColorListBox&, void>& rLink)
@@ -118,36 +119,25 @@ public:
         m_aSelectedLink = rLink;
     }
 
+    void SetSlotId(sal_uInt16 nSlotId, bool bShowNoneButton = false);
+
     Color const & GetSelectEntryColor() const { return m_aSelectedColor.first; }
+    NamedColor const & GetSelectedEntry() const { return m_aSelectedColor; }
 
     void SelectEntry(const Color& rColor);
 
     void SetNoSelection() { getColorWindow()->SetNoSelection(); }
+    bool IsNoSelection() const { return getColorWindow()->IsNoSelection(); }
 
     void ShowPreview(const NamedColor &rColor);
     void EnsurePaletteManager();
 
     void SaveValue() { m_aSaveColor = GetSelectEntryColor(); }
     bool IsValueChangedFromSaved() const { return m_aSaveColor != GetSelectEntryColor(); }
-};
 
-/** A wrapper for SvxColorListBox. */
-class SVX_DLLPUBLIC SvxColorListBoxWrapper
-    : public sfx::SingleControlWrapper<SvxColorListBox, Color>
-{
-    /*  Note: cannot use 'const Color&' as template argument, because the
-        SvxColorListBox returns the color by value and not by reference,
-        therefore GetControlValue() must return a temporary object too. */
-public:
-    explicit SvxColorListBoxWrapper(SvxColorListBox& rListBox);
-
-    virtual ~SvxColorListBoxWrapper() override;
-
-    virtual bool        IsControlDontKnow() const override;
-    virtual void        SetControlDontKnow( bool bSet ) override;
-
-    virtual Color       GetControlValue() const override;
-    virtual void        SetControlValue( Color aColor ) override;
+    void set_sensitive(bool sensitive) { m_xButton->set_sensitive(sensitive); }
+    bool get_sensitive() const { return m_xButton->get_sensitive(); }
+    void hide() { m_xButton->hide(); }
 };
 
 #endif

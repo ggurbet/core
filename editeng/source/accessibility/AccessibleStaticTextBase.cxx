@@ -83,7 +83,7 @@ namespace accessibility
     // Static Helper
 
 
-    ESelection MakeSelection( sal_Int32 nStartPara, sal_Int32 nStartIndex,
+    static ESelection MakeSelection( sal_Int32 nStartPara, sal_Int32 nStartIndex,
                               sal_Int32 nEndPara, sal_Int32 nEndIndex )
     {
         DBG_ASSERT(nStartPara >= 0 &&
@@ -183,7 +183,6 @@ namespace accessibility
 
 
     AccessibleStaticTextBase_Impl::AccessibleStaticTextBase_Impl() :
-        mxThis( nullptr ),
         mxTextParagraph( new AccessibleEditableTextPara(nullptr) ),
         maEditSource(),
         maMutex(),

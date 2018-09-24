@@ -164,7 +164,7 @@ private:
     tools::Rectangle m_aSelectionRect;
     tools::Rectangle m_aPaintRect;
     vcl::Region m_aPaintRegion;
-    ImplPaintFlags m_nPaintFlags;
+    ImplPaintFlags const m_nPaintFlags;
     bool m_bPop : 1;
     bool m_bRestoreCursor : 1;
     bool m_bStartedBufferedPaint : 1; ///< This PaintHelper started a buffered paint, and should paint it on the screen when being destructed.
@@ -211,7 +211,6 @@ public:
 
 PaintHelper::PaintHelper(vcl::Window *pWindow, ImplPaintFlags nPaintFlags)
     : m_pWindow(pWindow)
-    , m_pChildRegion(nullptr)
     , m_nPaintFlags(nPaintFlags)
     , m_bPop(false)
     , m_bRestoreCursor(false)

@@ -79,7 +79,6 @@ std::unique_ptr<sdr::contact::ViewContact> SdrTextObj::CreateObjectSpecificViewC
 
 SdrTextObj::SdrTextObj(SdrModel& rSdrModel)
 :   SdrAttrObj(rSdrModel),
-    mpText(nullptr),
     pEdtOutl(nullptr),
     eTextKind(OBJ_TEXT)
 {
@@ -102,7 +101,6 @@ SdrTextObj::SdrTextObj(
     const tools::Rectangle& rNewRect)
 :   SdrAttrObj(rSdrModel),
     maRect(rNewRect),
-    mpText(nullptr),
     pEdtOutl(nullptr),
     eTextKind(OBJ_TEXT)
 {
@@ -125,7 +123,6 @@ SdrTextObj::SdrTextObj(
     SdrModel& rSdrModel,
     SdrObjKind eNewTextKind)
 :   SdrAttrObj(rSdrModel),
-    mpText(nullptr),
     pEdtOutl(nullptr),
     eTextKind(eNewTextKind)
 {
@@ -149,7 +146,6 @@ SdrTextObj::SdrTextObj(
     const tools::Rectangle& rNewRect)
 :   SdrAttrObj(rSdrModel),
     maRect(rNewRect),
-    mpText(nullptr),
     pEdtOutl(nullptr),
     eTextKind(eNewTextKind)
 {
@@ -539,7 +535,7 @@ void SdrTextObj::AdaptTextMinSize()
 void SdrTextObj::ImpSetContourPolygon( SdrOutliner& rOutliner, tools::Rectangle const & rAnchorRect, bool bLineWidth ) const
 {
     basegfx::B2DPolyPolygon aXorPolyPolygon(TakeXorPoly());
-    basegfx::B2DPolyPolygon* pContourPolyPolygon = nullptr;
+    std::unique_ptr<basegfx::B2DPolyPolygon> pContourPolyPolygon;
     basegfx::B2DHomMatrix aMatrix(basegfx::utils::createTranslateB2DHomMatrix(
         -rAnchorRect.Left(), -rAnchorRect.Top()));
 
@@ -555,7 +551,7 @@ void SdrTextObj::ImpSetContourPolygon( SdrOutliner& rOutliner, tools::Rectangle 
     {
         // Take line width into account.
         // When doing the hit test, avoid this. (Performance!)
-        pContourPolyPolygon = new basegfx::B2DPolyPolygon();
+        pContourPolyPolygon.reset(new basegfx::B2DPolyPolygon());
 
         // test if shadow needs to be avoided for TakeContour()
         const SfxItemSet& rSet = GetObjectItemSet();
@@ -590,8 +586,7 @@ void SdrTextObj::ImpSetContourPolygon( SdrOutliner& rOutliner, tools::Rectangle 
         pContourPolyPolygon->transform(aMatrix);
     }
 
-    rOutliner.SetPolygon(aXorPolyPolygon, pContourPolyPolygon);
-    delete pContourPolyPolygon;
+    rOutliner.SetPolygon(aXorPolyPolygon, pContourPolyPolygon.get());
 }
 
 void SdrTextObj::TakeUnrotatedSnapRect(tools::Rectangle& rRect) const
@@ -1901,7 +1896,7 @@ void SdrTextObj::onEditOutlinerStatusEvent( EditStatus* pEditStatus )
 /* Begin chaining code */
 
 // XXX: Make it a method somewhere?
-SdrObject *ImpGetObjByName(SdrObjList const *pObjList, OUString const& aObjName)
+static SdrObject *ImpGetObjByName(SdrObjList const *pObjList, OUString const& aObjName)
 {
     // scan the whole list
     size_t nObjCount = pObjList->GetObjCount();
@@ -1917,7 +1912,7 @@ SdrObject *ImpGetObjByName(SdrObjList const *pObjList, OUString const& aObjName)
 }
 
 // XXX: Make it a (private) method of SdrTextObj
-void ImpUpdateChainLinks(SdrTextObj *pTextObj, OUString const& aNextLinkName)
+static void ImpUpdateChainLinks(SdrTextObj *pTextObj, OUString const& aNextLinkName)
 {
     // XXX: Current implementation constraints text boxes to be on the same page
 

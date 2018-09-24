@@ -23,34 +23,6 @@
 #include <sal/config.h>
 
 namespace oox {
-    namespace docprop {
-        extern OUString DocumentPropertiesImport_getImplementationName();
-        extern css::uno::Sequence< OUString > DocumentPropertiesImport_getSupportedServiceNames();
-        /// @throws css::uno::Exception
-        extern css::uno::Reference< css::uno::XInterface > DocumentPropertiesImport_createInstance(
-            const css::uno::Reference< css::uno::XComponentContext >& rxContext );
-    }
-    namespace ppt {
-        extern OUString PowerPointImport_getImplementationName();
-        extern css::uno::Sequence< OUString > PowerPointImport_getSupportedServiceNames();
-        /// @throws css::uno::Exception
-        extern css::uno::Reference< css::uno::XInterface > PowerPointImport_createInstance(
-            const css::uno::Reference< css::uno::XComponentContext >& rxContext );
-    }
-    namespace ppt {
-        extern OUString QuickDiagrammingImport_getImplementationName();
-        extern css::uno::Sequence< OUString > QuickDiagrammingImport_getSupportedServiceNames();
-        /// @throws css::uno::Exception
-        extern css::uno::Reference< css::uno::XInterface > QuickDiagrammingImport_createInstance(
-            const css::uno::Reference< css::uno::XComponentContext >& rxContext );
-    }
-    namespace ppt {
-        extern OUString QuickDiagrammingLayout_getImplementationName();
-        extern css::uno::Sequence< OUString > QuickDiagrammingLayout_getSupportedServiceNames();
-        /// @throws css::uno::Exception
-        extern css::uno::Reference< css::uno::XInterface > QuickDiagrammingLayout_createInstance(
-            const css::uno::Reference< css::uno::XComponentContext >& rxContext );
-    }
     namespace shape {
         extern OUString ShapeContextHandler_getImplementationName();
         extern css::uno::Sequence< OUString > ShapeContextHandler_getSupportedServiceNames();

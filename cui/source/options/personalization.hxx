@@ -18,9 +18,12 @@
 #include <array>
 #include <atomic>
 
-#define CATEGORYCOUNT 6    // Number of persona categories
+#define CATEGORYCOUNT 6         // Number of persona categories
+#define MAX_RESULTS 9           // Maximum number of search results
+#define MAX_DEFAULT_PERSONAS 3  // Maximum number of default personas
 
 class FixedText;
+class FixedHyperlink;
 class SearchAndParseThread;
 
 class SvxPersonalizationTabPage : public SfxTabPage
@@ -32,12 +35,12 @@ private:
     VclPtr<RadioButton> m_pDefaultPersona;             ///< Use the built-in bitmap
     VclPtr<RadioButton> m_pOwnPersona;                 ///< Use the user-defined bitmap
     VclPtr<PushButton> m_pSelectPersona;               ///< Let the user select in the 'own' case
-    VclPtr<PushButton> m_vDefaultPersonaImages[3];     ///< Buttons to show the default persona images
+    VclPtr<PushButton> m_vDefaultPersonaImages[MAX_DEFAULT_PERSONAS];     ///< Buttons to show the default persona images
     VclPtr<PushButton> m_pExtensionPersonaPreview;     ///< Buttons to show the last 3 personas installed via extensions
     VclPtr<ListBox> m_pPersonaList;                    ///< The ListBox to show the list of installed personas
     OUString m_aPersonaSettings;                       ///< Header and footer images + color to be set in the settings.
     VclPtr<FixedText> m_pExtensionLabel;               ///< The "select persona installed via extensions" label
-    VclPtr<FixedText> m_pAppliedThemeLabel;            ///< The label for showing applied custom theme
+    VclPtr<FixedHyperlink> m_pAppliedThemeLabel;            ///< The label for showing applied custom theme
 
     std::vector<OUString> m_vDefaultPersonaSettings;
     std::vector<OUString> m_vExtensionPersonaSettings;
@@ -59,6 +62,19 @@ public:
     void CheckAppliedTheme();
     void ShowAppliedThemeLabel( const OUString& );
 
+    /*
+     * Loads the default personas from the shared personas directory
+     * which resides in the shared gallery.
+     * There needs to be a separate subdirectory for each default persona,
+     * which includes the preview, header, and footer images.
+     * And there needs to be a personas_list.txt file in the personas directory
+     * which keeps the index/info of the default personas, one persona per line.
+     * A line should look like this:
+     * persona_slug;Persona Name;subdir/preview.jpg;subdir/header.jpg;subdir/footer.jpg;#textcolor;#accentcolor
+     * (It is recommended to keep the subdir name the same as the slug)
+     * Example line:
+     *  abstract;Abstract;abstract/preview.jpg;abstract/Header2.jpg;abstract/Footer2.jpg;#ffffff;#000000
+     */
     void LoadDefaultImages();
     void LoadExtensionThemes();
 
@@ -83,7 +99,7 @@ private:
     VclPtr<Edit> m_pEdit;                                   ///< The input line for the search term
     VclPtr<PushButton> m_pSearchButton;                     ///< The search button
     VclPtr<FixedText> m_pProgressLabel;                     ///< The label for showing progress of search
-    VclPtr<PushButton> m_vResultList[9];                    ///< List of buttons to show search results
+    VclPtr<PushButton> m_vResultList[MAX_RESULTS];                    ///< List of buttons to show search results
     VclPtr<PushButton> m_vSearchSuggestions[CATEGORYCOUNT]; ///< List of buttons for the search suggestions
     VclPtr<PushButton> m_pOkButton;                         ///< The OK button
     VclPtr<PushButton> m_pCancelButton;                     ///< The Cancel button

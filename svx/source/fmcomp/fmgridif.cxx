@@ -78,7 +78,7 @@ using ::com::sun::star::sdb::XRowSetSupplier;
 using ::com::sun::star::awt::XVclWindowPeer;
 
 
-css::awt::FontDescriptor ImplCreateFontDescriptor( const vcl::Font& rFont )
+static css::awt::FontDescriptor ImplCreateFontDescriptor( const vcl::Font& rFont )
 {
     css::awt::FontDescriptor aFD;
     aFD.Name = rFont.GetFamilyName();
@@ -101,7 +101,7 @@ css::awt::FontDescriptor ImplCreateFontDescriptor( const vcl::Font& rFont )
 }
 
 
-vcl::Font ImplCreateFont( const css::awt::FontDescriptor& rDescr )
+static vcl::Font ImplCreateFont( const css::awt::FontDescriptor& rDescr )
 {
     vcl::Font aFont;
     aFont.SetFamilyName( rDescr.Name );
@@ -1021,7 +1021,7 @@ void FmXGridPeer::columnChanged()
 
 namespace fmgridif
 {
-    const OUString getDataModeIdentifier()
+    static const OUString getDataModeIdentifier()
     {
         return OUString("DataMode");
     }
@@ -1038,8 +1038,6 @@ FmXGridPeer::FmXGridPeer(const Reference< XComponentContext >& _rxContext)
             ,m_aMode( getDataModeIdentifier() )
             ,m_nCursorListening(0)
             ,m_bInterceptingDispatch(false)
-            ,m_pStateCache(nullptr)
-            ,m_pDispatchers(nullptr)
             ,m_xContext(_rxContext)
 {
     // Create must be called after this constructor

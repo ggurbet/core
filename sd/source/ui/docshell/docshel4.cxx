@@ -87,6 +87,8 @@
 
 #include <SdUnoDrawView.hxx>
 
+#include <sfx2/zoomitem.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using ::sd::framework::FrameworkHelper;
@@ -356,9 +358,9 @@ bool DrawDocShell::Load( SfxMedium& rMedium )
  */
 bool DrawDocShell::LoadFrom( SfxMedium& rMedium )
 {
-    WaitObject* pWait = nullptr;
+    std::unique_ptr<WaitObject> pWait;
     if( mpViewShell )
-        pWait = new WaitObject( static_cast<vcl::Window*>(mpViewShell->GetActiveWindow()) );
+        pWait.reset(new WaitObject( static_cast<vcl::Window*>(mpViewShell->GetActiveWindow()) ));
 
     mpDoc->NewOrLoadCompleted( NEW_DOC );
     mpDoc->CreateFirstPages();
@@ -376,8 +378,6 @@ bool DrawDocShell::LoadFrom( SfxMedium& rMedium )
         if( pSet )
             pSet->Put( SfxUInt16Item( SID_VIEW_ID, 5 ) );
     }
-
-    delete pWait;
 
     return bRet;
 }
@@ -858,11 +858,14 @@ void DrawDocShell::GotoBookmark(const OUString& rBookmark)
                     pDrawViewShell->SwitchPage(nSdPgNum);
                 }
 
+                // show page
+                SvxZoomItem aZoom;
+                aZoom.SetType( SvxZoomType::WHOLEPAGE );
+                pDrawViewShell->GetDispatcher()->ExecuteList(SID_ATTR_ZOOM, SfxCallMode::ASYNCHRON, { &aZoom });
+
                 if (pObj != nullptr)
                 {
-                    // show and select object
-                    pDrawViewShell->MakeVisible(pObj->GetLogicRect(),
-                        *pDrawViewShell->GetActiveWindow());
+                    // select object
                     pDrawViewShell->GetView()->UnmarkAll();
                     pDrawViewShell->GetView()->MarkObj(
                         pObj,

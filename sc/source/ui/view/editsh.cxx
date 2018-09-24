@@ -147,7 +147,7 @@ static void lcl_RemoveAttribs( EditView& rEditView )
     pEngine->SetUpdateMode(bOld);
 }
 
-void lclInsertCharacter( EditView* pTableView, EditView* pTopView, sal_Unicode cChar )
+static void lclInsertCharacter( EditView* pTableView, EditView* pTopView, sal_Unicode cChar )
 {
     OUString aString( cChar );
     if( pTableView )
@@ -503,7 +503,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
                 ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScCharDlg(
-                    pViewData->GetDialogParent(), &aAttrs, pObjSh));
+                    pViewData->GetFrameWeld(), &aAttrs, pObjSh));
                 if (nSlot == SID_CHAR_DLG_EFFECT)
                 {
                     pDlg->SetCurPageId("fonteffects");

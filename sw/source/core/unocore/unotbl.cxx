@@ -42,6 +42,7 @@
 #include <IDocumentContentOperations.hxx>
 #include <IDocumentFieldsAccess.hxx>
 #include <IDocumentState.hxx>
+#include <IDocumentLayoutAccess.hxx>
 #include <shellres.hxx>
 #include <docary.hxx>
 #include <ndole.hxx>
@@ -532,7 +533,7 @@ OUString sw_GetCellName( sal_Int32 nColumn, sal_Int32 nRow )
   @param i_bTopLeft if true, find top left box, otherwise find bottom
          right box
  */
-const SwTableBox* lcl_FindCornerTableBox(const SwTableLines& rTableLines, const bool i_bTopLeft)
+static const SwTableBox* lcl_FindCornerTableBox(const SwTableLines& rTableLines, const bool i_bTopLeft)
 {
     const SwTableLines* pLines(&rTableLines);
     while(true)
@@ -1602,7 +1603,8 @@ sal_Bool SwXTextTableCursor::goUp(sal_Int16 Count, sal_Bool bExpand)
     SwUnoCursor& rUnoCursor = GetCursor();
     SwUnoTableCursor& rTableCursor = dynamic_cast<SwUnoTableCursor&>(rUnoCursor);
     lcl_CursorSelect(rTableCursor, bExpand);
-    return rTableCursor.UpDown(true, Count, nullptr, 0);
+    return rTableCursor.UpDown(true, Count, nullptr, 0,
+        *rUnoCursor.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout());
 }
 
 sal_Bool SwXTextTableCursor::goDown(sal_Int16 Count, sal_Bool bExpand)
@@ -1611,7 +1613,8 @@ sal_Bool SwXTextTableCursor::goDown(sal_Int16 Count, sal_Bool bExpand)
     SwUnoCursor& rUnoCursor = GetCursor();
     SwUnoTableCursor& rTableCursor = dynamic_cast<SwUnoTableCursor&>(rUnoCursor);
     lcl_CursorSelect(rTableCursor, bExpand);
-    return rTableCursor.UpDown(false, Count, nullptr, 0);
+    return rTableCursor.UpDown(false, Count, nullptr, 0,
+        *rUnoCursor.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout());
 }
 
 void SwXTextTableCursor::gotoStart(sal_Bool bExpand)

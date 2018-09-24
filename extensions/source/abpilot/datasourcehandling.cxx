@@ -161,7 +161,7 @@ namespace abp
         return aReturn;
     }
 
-    void lcl_registerDataSource(
+    static void lcl_registerDataSource(
         const Reference< XComponentContext >& _rxORB, const OUString& _sName,
         const OUString& _sURL )
     {
@@ -307,7 +307,6 @@ namespace abp
 
 
     ODataSource::ODataSource( const ODataSource& _rSource )
-        :m_pImpl( nullptr )
     {
         *this = _rSource;
     }

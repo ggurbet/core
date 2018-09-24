@@ -154,7 +154,6 @@ public:
     void                    SetUserValue( sal_Int64 nNewValue );
     virtual void            SetValue( sal_Int64 nNewValue );
     sal_Int64               GetValue() const;
-    sal_Int64               GetSavedIntValue() const;
     virtual OUString        CreateFieldText( sal_Int64 nValue ) const;
     bool                    IsValueModified() const;
 
@@ -669,9 +668,6 @@ public:
 
     void                    InsertValue( sal_Int64 nValue, FieldUnit eInUnit = FUNIT_NONE,
                                          sal_Int32  nPos = COMBOBOX_APPEND );
-    sal_Int64               GetValue( sal_Int32  nPos ) const;
-    sal_Int32               GetValuePos( sal_Int64 nValue,
-                                         FieldUnit eInUnit = FUNIT_NONE ) const;
 
     // Needed, because GetValue() with nPos hide these functions
     using MetricFormatter::GetValue;

@@ -35,6 +35,7 @@
 #include <com/sun/star/uno/XComponentContext.hpp>
 
 class Button;
+class ComboBox;
 class ListBox;
 class MessageDialog;
 class NumericFormatter;
@@ -148,7 +149,7 @@ private:
 
     struct MenuAndId
     {
-        OString m_sID;
+        OString const m_sID;
         VclPtr<PopupMenu> m_pMenu;
         MenuAndId(const OString &rId, PopupMenu *pMenu);
         ~MenuAndId();
@@ -157,8 +158,8 @@ private:
 
     struct StringPair
     {
-        OString m_sID;
-        OString m_sValue;
+        OString const m_sID;
+        OString const m_sValue;
         StringPair(const OString &rId, const OString &rValue)
             : m_sID(rId)
             , m_sValue(rValue)
@@ -181,9 +182,9 @@ private:
 
     struct ButtonImageWidgetMap
     {
-        OString m_sID;
-        OUString m_sValue;
-        bool m_bRadio;
+        OString const m_sID;
+        OUString const m_sValue;
+        bool const m_bRadio;
         ButtonImageWidgetMap(const OString &rId, const OUString &rValue, bool bRadio)
             : m_sID(rId)
             , m_sValue(rValue)
@@ -199,9 +200,9 @@ private:
 
     struct ComboBoxModelMap
     {
-        OString m_sID;
-        OUString m_sValue;
-        sal_Int32 m_nActiveId;
+        OString const m_sID;
+        OUString const m_sValue;
+        sal_Int32 const m_nActiveId;
         ComboBoxModelMap(const OString &rId, const OUString &rValue, sal_Int32 nActiveId)
             : m_sID(rId)
             , m_sValue(rValue)
@@ -218,6 +219,7 @@ private:
 
     const ListStore* get_model_by_name(const OString& sID) const;
     void     mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
+    void     mungeModel(ComboBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
 
     typedef stringmap TextBuffer;
     const TextBuffer* get_buffer_by_name(const OString& sID) const;
@@ -297,12 +299,12 @@ private:
 
     OString     m_sID;
     OString     m_sHelpRoot;
-    ResHookProc m_pStringReplace;
+    ResHookProc const m_pStringReplace;
     VclPtr<vcl::Window> m_pParent;
     bool        m_bToplevelHasDeferredInit;
     bool        m_bToplevelHasDeferredProperties;
     bool        m_bToplevelParentFound;
-    bool        m_bLegacy;
+    bool const        m_bLegacy;
     std::unique_ptr<ParserState> m_pParserState;
 
     vcl::Window *get_by_name(const OString& sID);
@@ -317,7 +319,7 @@ private:
         bool    operator()(const vcl::Window *pA, const vcl::Window *pB) const;
 
     private:
-        VclBuilder *m_pBuilder;
+        VclBuilder * const m_pBuilder;
     };
 
     /// XFrame to be able to extract labels and other properties of the UNO commands (like of .uno:Bold).

@@ -55,7 +55,6 @@ ODatabaseMetaDataResultSet::ODatabaseMetaDataResultSet()
     :ODatabaseMetaDataResultSet_BASE(m_aMutex)
     ,::comphelper::OPropertyContainer(ODatabaseMetaDataResultSet_BASE::rBHelper)
     ,m_aStatement(nullptr)
-    ,m_xMetaData(nullptr)
     ,m_nColPos(0)
     ,m_bBOF(true)
     ,m_bEOF(true)
@@ -68,7 +67,6 @@ ODatabaseMetaDataResultSet::ODatabaseMetaDataResultSet( MetaDataResultSetType _e
     :ODatabaseMetaDataResultSet_BASE(m_aMutex)
     ,::comphelper::OPropertyContainer(ODatabaseMetaDataResultSet_BASE::rBHelper)
     ,m_aStatement(nullptr)
-    ,m_xMetaData(nullptr)
     ,m_nColPos(0)
     ,m_bBOF(true)
     ,m_bEOF(true)
@@ -873,7 +871,7 @@ void SAL_CALL ODatabaseMetaDataResultSet::initialize( const Sequence< Any >& _aA
     namespace connectivity
     {
         /// @throws Exception
-        Reference< XInterface > ODatabaseMetaDataResultSet_CreateInstance(const Reference< XComponentContext >& )
+        static Reference< XInterface > ODatabaseMetaDataResultSet_CreateInstance(const Reference< XComponentContext >& )
         {
             return *(new ODatabaseMetaDataResultSet());
         }

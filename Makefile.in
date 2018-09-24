@@ -62,7 +62,7 @@ all: build
 check-if-root:
 	@if test ! `uname` = 'Haiku' -a `id -u` = 0 && ! grep -q 'lxc\|docker' /proc/self/cgroup; then \
 		echo; \
-		echo 'No. You make ME a sandwich.'; \
+		echo 'Building LibreOffice as root is a very bad idea, use a regular user.'; \
 		echo; \
 		exit 1; \
 	fi
@@ -224,7 +224,7 @@ distclean : clean compilerplugins-clean
         $(BUILDDIR)/instsetoo_native/util/openoffice.lst \
         $(BUILDDIR)/lo.xcent \
         $(BUILDDIR)/sysui/desktop/macosx/Info.plist
-	$(FIND) $(SRCDIR)/solenv/gdb -name \*.pyc -exec rm {} \;
+	$(if $(filter WNT,$(OS)),env -i PATH="$$PATH") $(FIND) $(SRCDIR)/solenv/gdb -name \*.pyc -exec rm {} \;
 
 #
 # custom command
@@ -478,7 +478,7 @@ endef
 
 $(foreach ide,\
 	codelite \
-	vs2015 \
+	vs2017 \
 	kdevelop \
 	vim \
 	qtcreator \

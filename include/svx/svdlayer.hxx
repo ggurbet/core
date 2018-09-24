@@ -126,7 +126,6 @@ public:
     SdrLayerAdmin(const SdrLayerAdmin& rSrcLayerAdmin);
     ~SdrLayerAdmin();
     SdrLayerAdmin& operator=(const SdrLayerAdmin& rSrcLayerAdmin);
-    SdrLayerAdmin*    GetParent() const { return pParent; }
 
     void               SetModel(SdrModel* pNewModel);
 
@@ -160,10 +159,14 @@ public:
     const OUString&    GetControlLayerName() const { return maControlLayerName; }
 
     // Removes all elements in rOutSet and then adds all IDs of layers from member aLayer
-    // that fullfill the criterion visible, printable, or locked respectively.
+    // that fulfill the criterion visible, printable, or locked respectively.
     void               getVisibleLayersODF( SdrLayerIDSet& rOutSet) const;
     void               getPrintableLayersODF( SdrLayerIDSet& rOutSet) const;
     void               getLockedLayersODF( SdrLayerIDSet& rOutSet) const;
+
+    // Generates a bitfield for settings.xml from the SdrLayerIDSet.
+    // Output is a uno sequence of BYTE (which is 'short' in API).
+    void               QueryValue(const SdrLayerIDSet& rViewLayerSet, css::uno::Any& rAny);
 };
 
 #endif // INCLUDED_SVX_SVDLAYER_HXX

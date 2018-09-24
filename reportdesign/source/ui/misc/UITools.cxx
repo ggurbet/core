@@ -176,7 +176,7 @@ void adjustSectionName(const uno::Reference< report::XGroup >& _xGroup,sal_Int32
 
 ::rtl::Reference< comphelper::OPropertyChangeMultiplexer> addStyleListener(const uno::Reference< report::XReportDefinition >& _xReportDefinition,::comphelper::OPropertyChangeListener* _pListener)
 {
-    ::rtl::Reference< comphelper::OPropertyChangeMultiplexer> pRet = nullptr;
+    ::rtl::Reference< comphelper::OPropertyChangeMultiplexer> pRet;
     if ( _xReportDefinition.is() )
     {
         uno::Reference<beans::XPropertySet> xPageStyle(getUsedStyle(_xReportDefinition),uno::UNO_QUERY);
@@ -743,7 +743,7 @@ bool openAreaDialog( const uno::Reference<report::XShape >& _xShape,const uno::R
 
     std::shared_ptr<rptui::OReportModel> pModel  = ::reportdesign::OReportDefinition::getSdrModel(_xShape->getSection()->getReportDefinition());
 
-    VclPtr<vcl::Window> pParent = VCLUnoHelper::GetWindow( _rxParentWindow );
+    weld::Window* pParent = Application::GetFrameWeld(_rxParentWindow);
 
     bool bSuccess = false;
     try
@@ -754,7 +754,7 @@ bool openAreaDialog( const uno::Reference<report::XShape >& _xShape,const uno::R
 
         {   // want the dialog to be destroyed before our set
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractSvxAreaTabDialog> pDialog(pFact->CreateSvxAreaTabDialog( pParent,pDescriptor.get(),pModel.get(), true ));
+            ScopedVclPtr<AbstractSvxAreaTabDialog> pDialog(pFact->CreateSvxAreaTabDialog(pParent, pDescriptor.get(), pModel.get(), true));
             if ( RET_OK == pDialog->Execute() )
             {
                 bSuccess = true;
@@ -867,7 +867,7 @@ SdrObject* isOver(const tools::Rectangle& _rRect, SdrPage const & _rPage, SdrVie
     return pOverlappedObj;
 }
 
-bool checkArrayForOccurrence(SdrObject const * _pObjToCheck, SdrUnoObj* _pIgnore[], int _nListLength)
+static bool checkArrayForOccurrence(SdrObject const * _pObjToCheck, SdrUnoObj* _pIgnore[], int _nListLength)
 {
     for(int i=0;i<_nListLength;i++)
     {

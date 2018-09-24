@@ -45,7 +45,6 @@ SwSortUndoElement::~SwSortUndoElement()
 SwUndoSort::SwUndoSort(const SwPaM& rRg, const SwSortOptions& rOpt)
     : SwUndo(SwUndoId::SORT_TXT, rRg.GetDoc())
     , SwUndRng(rRg)
-    , pUndoTableAttr(nullptr)
     , nTableNd(0)
 {
     pSortOpt.reset( new SwSortOptions(rOpt) );
@@ -53,7 +52,7 @@ SwUndoSort::SwUndoSort(const SwPaM& rRg, const SwSortOptions& rOpt)
 
 SwUndoSort::SwUndoSort( sal_uLong nStt, sal_uLong nEnd, const SwTableNode& rTableNd,
                         const SwSortOptions& rOpt, bool bSaveTable )
-    : SwUndo(SwUndoId::SORT_TBL, rTableNd.GetDoc()), pUndoTableAttr( nullptr )
+    : SwUndo(SwUndoId::SORT_TBL, rTableNd.GetDoc())
 {
     nSttNode = nStt;
     nEndNode = nEnd;
@@ -87,7 +86,7 @@ void SwUndoSort::UndoImpl(::sw::UndoRedoContext & rContext)
 
         // #i37739# A simple 'MakeFrames' after the node sorting
         // does not work if the table is inside a frame and has no prev/next.
-        SwNode2Layout aNode2Layout( *pTableNd );
+        SwNode2LayoutSaveUpperFrames aNode2Layout(*pTableNd);
 
         pTableNd->DelFrames();
         const SwTable& rTable = pTableNd->GetTable();
@@ -166,7 +165,7 @@ void SwUndoSort::RedoImpl(::sw::UndoRedoContext & rContext)
 
         // #i37739# A simple 'MakeFrames' after the node sorting
         // does not work if the table is inside a frame and has no prev/next.
-        SwNode2Layout aNode2Layout( *pTableNd );
+        SwNode2LayoutSaveUpperFrames aNode2Layout(*pTableNd);
 
         pTableNd->DelFrames();
         const SwTable& rTable = pTableNd->GetTable();

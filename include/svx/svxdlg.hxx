@@ -54,7 +54,6 @@ class SdrObject;
 class SvxSpellWrapper;
 struct FmSearchContext;
 
-typedef VclPtr<SfxTabPage> (*CreateSvxDistributePage)(vcl::Window *pParent, const SfxItemSet &rAttrSet, SvxDistributeHorizontal eHor, SvxDistributeVertical eVer);
 typedef const sal_uInt16*  (*DialogGetRanges)();
 
 typedef ::std::vector< OUString > TargetList;
@@ -339,11 +338,11 @@ public:
                                             const SfxItemSet* pAttrSet,
                                             SdrView* pView ) = 0 ;
 
-    virtual VclPtr<AbstractSvxCaptionDialog> CreateCaptionDialog( vcl::Window* pParent,
-                                        const SdrView* pView,
-                                        SvxAnchorIds nAnchorTypes = SvxAnchorIds::NONE ) = 0;
+    virtual VclPtr<AbstractSvxCaptionDialog> CreateCaptionDialog(weld::Window* pParent,
+                                                                 const SdrView* pView,
+                                                                 SvxAnchorIds nAnchorTypes = SvxAnchorIds::NONE) = 0;
 
-    virtual VclPtr<AbstractSvxDistributeDialog>    CreateSvxDistributeDialog(
+    virtual VclPtr<AbstractSvxDistributeDialog>    CreateSvxDistributeDialog(weld::Window* pParent,
                                             const SfxItemSet& rAttr)= 0;
 
     virtual VclPtr<AbstractFmShowColsDialog> CreateFmShowColsDialog() = 0;
@@ -368,8 +367,7 @@ public:
                                             const OUString& rTarget, const OUString& rName,
                                             TargetList& rTargetList ) = 0;
 
-    virtual VclPtr<SfxAbstractTabDialog> CreateTabItemDialog(vcl::Window* pParent,
-                                            const SfxItemSet& rSet) = 0;
+    virtual VclPtr<SfxAbstractTabDialog> CreateTabItemDialog(weld::Window* pParent, const SfxItemSet& rSet) = 0;
     virtual VclPtr<VclAbstractDialog>      CreateSvxSearchAttributeDialog( vcl::Window* pParent,
                                             SearchAttrItemList& rLst,
                                             const sal_uInt16* pWhRanges)=0;
@@ -380,7 +378,7 @@ public:
                                                             sal_uInt16 nLonger ) = 0;
     // add for SvxBorderBackgroundDlg
     virtual VclPtr<SfxAbstractTabDialog> CreateSvxBorderBackgroundDlg(
-        vcl::Window* pParent,
+        weld::Window* pParent,
         const SfxItemSet& rCoreSet,
         bool bEnableDrawingLayerFillStyles) = 0;
 
@@ -414,23 +412,23 @@ public:
                                                         const ::std::vector< OUString >& _rContexts,
                                                         sal_Int16 nInitialContext,
                                                         const Link<FmSearchContext&,sal_uInt32>& lnkContextSupplier)=0;
-    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterEmboss(vcl::Window* pParent,
+    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterEmboss(weld::Window* pParent,
                                                 const Graphic& rGraphic)=0;
-    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterPoster(vcl::Window* pParent,
+    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterPoster(weld::Window* pParent,
                                                 const Graphic& rGraphic)=0;
-    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterSepia (vcl::Window* pParent,
+    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterSepia(weld::Window* pParent,
                                                 const Graphic& rGraphic)=0;
-    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterSmooth (vcl::Window* pParent,
+    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterSmooth(weld::Window* pParent,
                                                 const Graphic& rGraphic,
                                                 double nRadius)=0;
-    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterSolarize (vcl::Window* pParent,
+    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterSolarize(weld::Window* pParent,
                                                 const Graphic& rGraphic)=0;
-    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterMosaic (vcl::Window* pParent,
+    virtual VclPtr<AbstractGraphicFilterDialog>   CreateGraphicFilterMosaic(weld::Window* pParent,
                                                 const Graphic& rGraphic)=0;
-    virtual VclPtr<AbstractSvxAreaTabDialog>       CreateSvxAreaTabDialog( vcl::Window* pParent,
-                                                            const SfxItemSet* pAttr,
-                                                            SdrModel* pModel,
-                                                            bool bShadow) = 0 ;
+    virtual VclPtr<AbstractSvxAreaTabDialog>       CreateSvxAreaTabDialog(weld::Window* pParent,
+                                                                          const SfxItemSet* pAttr,
+                                                                          SdrModel* pModel,
+                                                                          bool bShadow) = 0 ;
     virtual VclPtr<SfxAbstractTabDialog>           CreateSvxLineTabDialog( vcl::Window* pParent, const SfxItemSet* pAttr, //add forSvxLineTabDialog
                                                                  SdrModel* pModel,
                                                                  const SdrObject* pObj,

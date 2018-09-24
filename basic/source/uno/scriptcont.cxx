@@ -34,6 +34,7 @@
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/task/ErrorCodeIOException.hpp>
 #include <com/sun/star/script/ModuleType.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/storagehelper.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbstreamhelper.hxx>
@@ -533,7 +534,7 @@ void SAL_CALL SfxScriptLibraryContainer::changeLibraryPassword( const OUString& 
 }
 
 
-void setStreamKey( const uno::Reference< io::XStream >& xStream, const OUString& aPass )
+static void setStreamKey( const uno::Reference< io::XStream >& xStream, const OUString& aPass )
 {
     uno::Reference< embed::XEncryptionProtectedSource > xEncrStream( xStream, uno::UNO_QUERY );
     if ( xEncrStream.is() )

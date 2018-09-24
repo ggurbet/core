@@ -351,14 +351,14 @@ namespace dbaui
         m_aEmbeddedURLPrefixes[nPos] = _sType;
     }
 
-    void OGeneralPage::fillWindows(std::vector< ISaveValueWrapper* >& _rControlList)
+    void OGeneralPage::fillWindows(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.push_back( new ODisableWrapper<FixedText>( m_pSpecialMessage ) );
+        _rControlList.emplace_back( new ODisableWrapper<FixedText>( m_pSpecialMessage ) );
     }
 
-    void OGeneralPage::fillControls(std::vector< ISaveValueWrapper* >& _rControlList)
+    void OGeneralPage::fillControls(std::vector< std::unique_ptr<ISaveValueWrapper> >& _rControlList)
     {
-        _rControlList.push_back( new OSaveValueWrapper<ListBox>( m_pDatasourceType ) );
+        _rControlList.emplace_back( new OSaveValueWrapper<ListBox>( m_pDatasourceType ) );
     }
 
     void OGeneralPage::implSetCurrentType( const OUString& _eType )
@@ -400,6 +400,8 @@ namespace dbaui
     {
         // get the type from the entry data
         const sal_Int32 nSelected = _rBox.GetSelectedEntryPos();
+        if ( nSelected == LISTBOX_ENTRY_NOTFOUND)
+            return;
         if (static_cast<size_t>(nSelected) >= m_aURLPrefixes.size() )
         {
             SAL_WARN("dbaccess.ui.generalpage", "Got out-of-range value '" << nSelected <<  "' from the DatasourceType selection ListBox's GetSelectedEntryPos(): no corresponding URL prefix");
@@ -606,13 +608,9 @@ namespace dbaui
         switch ( eType )
         {
         case ::dbaccess::DST_MYSQL_JDBC:
-            _inout_rDisplayName = "MySQL";
-            break;
         case ::dbaccess::DST_MYSQL_ODBC:
         case ::dbaccess::DST_MYSQL_NATIVE:
-            // don't display those, the decision whether the user connects via JDBC/ODBC/C-OOo is made on another
-            // page
-            _inout_rDisplayName.clear();
+            _inout_rDisplayName = "MySQL";
             break;
         default:
             break;

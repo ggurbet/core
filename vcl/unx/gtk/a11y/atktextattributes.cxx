@@ -1015,13 +1015,17 @@ DefaultTabStops2String( const uno::Any& rAny )
 
 /*****************************************************************************/
 
-extern "C" int
+extern "C" {
+
+static int
 attr_compare(const void *p1,const void *p2)
 {
     const rtl_uString * pustr = static_cast<const rtl_uString *>(p1);
     const char * pc = *static_cast<const char * const *>(p2);
 
     return rtl_ustr_ascii_compare_WithLength(pustr->buffer, pustr->length, pc);
+}
+
 }
 
 static void
@@ -1303,7 +1307,7 @@ AtkAttributeSet* attribute_set_prepend_tracked_change_formatchange( AtkAttribute
 struct AtkTextAttrMapping
 {
     const char *          name;
-    TextPropertyValueFunc toPropertyValue;
+    TextPropertyValueFunc const toPropertyValue;
 };
 
 const AtkTextAttrMapping g_TextAttrMap[] =

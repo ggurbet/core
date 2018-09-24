@@ -223,10 +223,6 @@ void ScUnoAddInFuncData::SetCallerPos( long nNewPos )
 
 ScUnoAddInCollection::ScUnoAddInCollection() :
     nFuncCount( 0 ),
-    ppFuncData( nullptr ),
-    pExactHashMap( nullptr ),
-    pNameHashMap( nullptr ),
-    pLocalHashMap( nullptr ),
     bInitialized( false )
 {
 }
@@ -628,7 +624,7 @@ bool ScUnoAddInCollection::GetCalcName( const OUString& rExcelName, OUString& rR
     return false;
 }
 
-inline bool IsTypeName( const OUString& rName, const uno::Type& rType )
+static inline bool IsTypeName( const OUString& rName, const uno::Type& rType )
 {
     return rName == rType.getTypeName();
 }

@@ -682,7 +682,7 @@ void SwTextNode::RstTextAttr(
     }
 }
 
-sal_Int32 clipIndexBounds(const OUString &rStr, sal_Int32 nPos)
+static sal_Int32 clipIndexBounds(const OUString &rStr, sal_Int32 nPos)
 {
     if (nPos < 0)
         return 0;
@@ -695,36 +695,43 @@ sal_Int32 clipIndexBounds(const OUString &rStr, sal_Int32 nPos)
 // Search from left to right, so find the word before nPos.
 // Except if at the start of the paragraph, then return the first word.
 // If the first word consists only of whitespace, return an empty string.
-OUString SwTextNode::GetCurWord( sal_Int32 nPos ) const
+OUString SwTextFrame::GetCurWord(SwPosition const& rPos) const
 {
-    assert(nPos <= m_Text.getLength()); // invalid index
+    TextFrameIndex const nPos(MapModelToViewPos(rPos));
+    SwTextNode *const pTextNode(rPos.nNode.GetNode().GetTextNode());
+    assert(pTextNode);
+    OUString const& rText(GetText());
+    assert(sal_Int32(nPos) <= rText.getLength()); // invalid index
 
-    if (m_Text.isEmpty())
-        return m_Text;
+    if (rText.isEmpty())
+        return OUString();
 
     assert(g_pBreakIt && g_pBreakIt->GetBreakIter().is());
     const uno::Reference< XBreakIterator > &rxBreak = g_pBreakIt->GetBreakIter();
     sal_Int16 nWordType = WordType::DICTIONARY_WORD;
-    lang::Locale aLocale( g_pBreakIt->GetLocale( GetLang( nPos ) ) );
+    lang::Locale aLocale( g_pBreakIt->GetLocale(pTextNode->GetLang(rPos.nContent.GetIndex())) );
     Boundary aBndry =
-        rxBreak->getWordBoundary( m_Text, nPos, aLocale, nWordType, true );
+        rxBreak->getWordBoundary(rText, sal_Int32(nPos), aLocale, nWordType, true);
 
     // if no word was found use previous word (if any)
     if (aBndry.startPos == aBndry.endPos)
     {
-        aBndry = rxBreak->previousWord( m_Text, nPos, aLocale, nWordType );
+        aBndry = rxBreak->previousWord(rText, sal_Int32(nPos), aLocale, nWordType);
     }
 
     // check if word was found and if it uses a symbol font, if so
     // enforce returning an empty string
-    if (aBndry.endPos != aBndry.startPos && IsSymbolAt(aBndry.startPos))
+    if (aBndry.endPos != aBndry.startPos
+        && IsSymbolAt(TextFrameIndex(aBndry.startPos)))
+    {
         aBndry.endPos = aBndry.startPos;
+    }
 
     // can have -1 as start/end of bounds not found
-    aBndry.startPos = clipIndexBounds(m_Text, aBndry.startPos);
-    aBndry.endPos = clipIndexBounds(m_Text, aBndry.endPos);
+    aBndry.startPos = clipIndexBounds(rText, aBndry.startPos);
+    aBndry.endPos = clipIndexBounds(rText, aBndry.endPos);
 
-    return m_Text.copy(aBndry.startPos,
+    return  rText.copy(aBndry.startPos,
                        aBndry.endPos - aBndry.startPos);
 }
 
@@ -738,19 +745,18 @@ SwScanner::SwScanner( const SwTextNode& rNd, const OUString& rText,
 {
 }
 
-SwScanner::SwScanner(
-    std::function<LanguageType (sal_Int32, sal_Int32, bool)> const pGetLangOfChar,
-    const OUString& rText,
-    const LanguageType* pLang, const ModelToViewHelper& rConvMap,
-    sal_uInt16 nType, sal_Int32 nStart, sal_Int32 nEnde, bool bClp )
-    : m_pGetLangOfChar( pGetLangOfChar )
+SwScanner::SwScanner(std::function<LanguageType(sal_Int32, sal_Int32, bool)> const& pGetLangOfChar,
+                     const OUString& rText, const LanguageType* pLang,
+                     const ModelToViewHelper& rConvMap, sal_uInt16 nType, sal_Int32 nStart,
+                     sal_Int32 nEnde, bool bClp)
+    : m_pGetLangOfChar(pGetLangOfChar)
     , m_aPreDashReplacementText(rText)
-    , m_pLanguage( pLang )
-    , m_ModelToView( rConvMap )
-    , m_nLength( 0 )
-    , m_nOverriddenDashCount( 0 )
-    , m_nWordType( nType )
-    , m_bClip( bClp )
+    , m_pLanguage(pLang)
+    , m_ModelToView(rConvMap)
+    , m_nLength(0)
+    , m_nOverriddenDashCount(0)
+    , m_nWordType(nType)
+    , m_bClip(bClp)
 {
     m_nStartPos = m_nBegin = nStart;
     m_nEndPos = nEnde;
@@ -1652,9 +1658,16 @@ bool SwTextNode::Hyphenate( SwInterHyphInfo &rHyphInf )
 
     SwTextFrame *pFrame = ::sw::SwHyphIterCacheLastTextFrame(this,
         [&rHyphInf, this]() {
+            std::pair<Point, bool> tmp;
+            Point const*const pPoint = rHyphInf.GetCursorPos();
+            if (pPoint)
+            {
+                tmp.first = *pPoint;
+                tmp.second = true;
+            }
             return static_cast<SwTextFrame*>(this->getLayoutFrame(
                 this->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(),
-                rHyphInf.GetCursorPos()));
+                nullptr, pPoint ? &tmp : nullptr));
         });
     if (!pFrame)
     {

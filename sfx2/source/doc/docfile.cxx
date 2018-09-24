@@ -44,6 +44,7 @@
 #include <com/sun/star/embed/UseBackupException.hpp>
 #include <com/sun/star/embed/XOptimizedStorage.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <com/sun/star/ucb/InteractiveIOException.hpp>
 #include <com/sun/star/ucb/UnsupportedDataSinkException.hpp>
 #include <com/sun/star/ucb/CommandFailedException.hpp>
@@ -200,10 +201,17 @@ sal_uInt64 GetDefaultFileAttributes(const OUString& rURL)
     return nRet;
 }
 
-/// Determines if rURL is a non-hard-linked file:// URL.
-bool IsNotHardLinkedFile(const OUString& rURL)
+/// Determines if rURL is safe to move or not.
+bool IsFileMovable(const OUString& rURL)
 {
+#ifdef MACOSX
+    (void)rURL;
+    // Hide extension macOS-specific file property would be lost.
+    return false;
+#else
+
     if (!comphelper::isFileUrl(rURL))
+        // Not a file:// URL.
         return false;
 
 #ifdef UNX
@@ -212,14 +220,16 @@ bool IsNotHardLinkedFile(const OUString& rURL)
         return false;
 
     struct stat buf;
-    if (stat(rPath.toUtf8().getStr(), &buf) != 0)
+    if (lstat(rPath.toUtf8().getStr(), &buf) != 0)
         return false;
 
-    if (buf.st_nlink > 1)
+    // Hardlink or symlink: osl::File::move() doesn't play with these nicely.
+    if (buf.st_nlink > 1 || S_ISLNK(buf.st_mode))
         return false;
 #endif
 
     return true;
+#endif
 }
 
 } // anonymous namespace
@@ -266,7 +276,6 @@ public:
     std::unique_ptr<SvStream> m_pInStream;
     std::unique_ptr<SvStream> m_pOutStream;
 
-    std::shared_ptr<const SfxFilter> pOrigFilter;
     OUString    aOrigURL;
     DateTime         aExpireTime;
     SfxFrameWeakRef  wLoadTargetFrame;
@@ -332,14 +341,7 @@ SfxMedium_Impl::SfxMedium_Impl() :
     m_bRemote(false),
     m_bInputStreamIsReadOnly(false),
     m_bInCheckIn(false),
-    m_pSet(nullptr),
-    m_pURLObj(nullptr),
-    m_pFilter(nullptr),
-    m_pInStream(nullptr),
-    m_pOutStream(nullptr),
-    pOrigFilter( nullptr ),
     aExpireTime( DateTime( DateTime::SYSTEM ) + static_cast<sal_Int32>(10) ),
-    pTempFile( nullptr ),
     nLastStorageError( ERRCODE_NONE ),
     m_nSignatureState( SignatureState::NOSIGNATURES )
 {
@@ -1843,7 +1845,7 @@ void SfxMedium::TransactedTransferForFS_Impl( const INetURLObject& aSource,
                 OUString aDestMainURL = aDest.GetMainURL(INetURLObject::DecodeMechanism::NONE);
 
                 sal_uInt64 nAttributes = GetDefaultFileAttributes(aDestMainURL);
-                if (IsNotHardLinkedFile(aDestMainURL) && osl::File::move(aSourceMainURL, aDestMainURL) == osl::FileBase::E_None)
+                if (IsFileMovable(aDestMainURL) && osl::File::move(aSourceMainURL, aDestMainURL) == osl::FileBase::E_None)
                 {
                     if (nAttributes)
                         // Adjust attributes, source might be created with
@@ -2797,13 +2799,6 @@ const std::shared_ptr<const SfxFilter>& SfxMedium::GetFilter() const
     return pImpl->m_pFilter;
 }
 
-
-std::shared_ptr<const SfxFilter> const & SfxMedium::GetOrigFilter() const
-{
-    return pImpl->pOrigFilter ? pImpl->pOrigFilter : pImpl->m_pFilter;
-}
-
-
 sal_uInt32 SfxMedium::CreatePasswordToModifyHash( const OUString& aPasswd, bool bWriter )
 {
     sal_uInt32 nHash = 0;
@@ -3648,12 +3643,11 @@ void SfxMedium::CreateTempFileNoCopy()
     CloseStorage();
 }
 
-bool SfxMedium::SignContents_Impl(bool bSignScriptingContent,
-                                  bool bHasValidDocumentSignature,
+bool SfxMedium::SignContents_Impl(bool bSignScriptingContent, bool bHasValidDocumentSignature,
                                   const OUString& aSignatureLineId,
-                                  const Reference<XCertificate> xCert,
-                                  const Reference<XGraphic> xValidGraphic,
-                                  const Reference<XGraphic> xInvalidGraphic,
+                                  const Reference<XCertificate>& xCert,
+                                  const Reference<XGraphic>& xValidGraphic,
+                                  const Reference<XGraphic>& xInvalidGraphic,
                                   const OUString& aComment)
 {
     bool bChanges = false;

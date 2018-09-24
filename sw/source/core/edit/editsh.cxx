@@ -137,10 +137,11 @@ void SwEditShell::Insert2(const OUString &rStr, const bool bForceExpandHints )
             if ( ! pSI )
             {
                 // seems to be an empty paragraph.
-                Point aPt; // why ???
+                Point aPt;
+                std::pair<Point, bool> const tmp(aPt, false);
                 pFrame = static_cast<SwTextFrame*>(
                         static_cast<SwTextNode&>(rNode).getLayoutFrame(
-                            GetLayout(), &aPt, pTmpCursor->GetPoint(), false));
+                            GetLayout(), pTmpCursor->GetPoint(), &tmp));
 
                 SwScriptInfo aScriptInfo;
                 aScriptInfo.InitScriptInfo(static_cast<SwTextNode&>(rNode),
@@ -415,10 +416,16 @@ OUString SwEditShell::GetCurWord()
 {
     const SwPaM& rPaM = *GetCursor();
     const SwTextNode* pNd = rPaM.GetNode().GetTextNode();
-    OUString aString = pNd ?
-                     pNd->GetCurWord(rPaM.GetPoint()->nContent.GetIndex()) :
-                     OUString();
-    return aString;
+    if (!pNd)
+    {
+        return OUString();
+    }
+    SwTextFrame const*const pFrame(static_cast<SwTextFrame*>(pNd->getLayoutFrame(GetLayout())));
+    if (pFrame)
+    {
+        return pFrame->GetCurWord(*rPaM.GetPoint());
+    }
+    return OUString();
 }
 
 void SwEditShell::UpdateDocStat( )
@@ -603,7 +610,8 @@ Graphic SwEditShell::GetIMapGraphic() const
         }
         else if ( rNd.IsOLENode() )
         {
-            aRet = *static_cast<SwOLENode&>(rNd).GetGraphic();
+            if (const Graphic* pGraphic = static_cast<SwOLENode&>(rNd).GetGraphic())
+                aRet = *pGraphic;
         }
         else
         {

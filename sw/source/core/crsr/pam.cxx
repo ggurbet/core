@@ -46,7 +46,7 @@
 #include <editsh.hxx>
 
 // for the dump "MSC-" compiler
-inline sal_Int32 GetSttOrEnd( bool bCondition, const SwContentNode& rNd )
+static inline sal_Int32 GetSttOrEnd( bool bCondition, const SwContentNode& rNd )
 {
     return bCondition ? 0 : rNd.Len();
 }
@@ -491,12 +491,12 @@ bool SwPaM::Move( SwMoveFnCollection const & fnMove, SwGoInDoc fnGo )
 
     @return Newly created range, in Ring with parameter pOrigRg.
 */
-SwPaM* SwPaM::MakeRegion( SwMoveFnCollection const & fnMove, const SwPaM * pOrigRg )
+std::unique_ptr<SwPaM> SwPaM::MakeRegion( SwMoveFnCollection const & fnMove, const SwPaM * pOrigRg )
 {
-    SwPaM* pPam;
+    std::unique_ptr<SwPaM> pPam;
     if( pOrigRg == nullptr )
     {
-        pPam = new SwPaM( *m_pPoint );
+        pPam.reset(new SwPaM( *m_pPoint ));
         pPam->SetMark(); // set beginning
         pPam->Move( fnMove, GoInSection); // to beginning or end of a node
 
@@ -505,7 +505,7 @@ SwPaM* SwPaM::MakeRegion( SwMoveFnCollection const & fnMove, const SwPaM * pOrig
     }
     else
     {
-        pPam = new SwPaM(*pOrigRg, const_cast<SwPaM*>(pOrigRg)); // given search range
+        pPam.reset(new SwPaM(*pOrigRg, const_cast<SwPaM*>(pOrigRg))); // given search range
         // make sure that SPoint is on the "real" start position
         // FORWARD: SPoint always smaller than GetMark
         // BACKWARD: SPoint always bigger than GetMark
@@ -533,8 +533,14 @@ sal_uInt16 SwPaM::GetPageNum( bool bAtPoint, const Point* pLayPos )
     const SwContentNode *pNd ;
     const SwPosition* pPos = bAtPoint ? m_pPoint : m_pMark;
 
+    std::pair<Point, bool> tmp;
+    if (pLayPos)
+    {
+        tmp.first = *pLayPos;
+        tmp.second = false;
+    }
     if( nullptr != ( pNd = pPos->nNode.GetNode().GetContentNode() ) &&
-        nullptr != ( pCFrame = pNd->getLayoutFrame( pNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), pLayPos, pPos, false )) &&
+        nullptr != (pCFrame = pNd->getLayoutFrame(pNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), pPos, pLayPos ? &tmp : nullptr)) &&
         nullptr != ( pPg = pCFrame->FindPageFrame() ))
         return pPg->GetPhyPageNum();
     return 0;
@@ -575,7 +581,10 @@ bool SwPaM::HasReadonlySel( bool bFormView ) const
     if ( pNd != nullptr )
     {
         Point aTmpPt;
-        pFrame = pNd->getLayoutFrame( pNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), &aTmpPt, GetPoint(), false );
+        std::pair<Point, bool> const tmp(aTmpPt, false);
+        pFrame = pNd->getLayoutFrame(
+            pNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(),
+            GetPoint(), &tmp);
     }
 
     // Will be set if point are inside edit-in-readonly environment
@@ -608,7 +617,10 @@ bool SwPaM::HasReadonlySel( bool bFormView ) const
         if ( pNd != nullptr )
         {
             Point aTmpPt;
-            pFrame = pNd->getLayoutFrame( pNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), &aTmpPt, GetMark(), false );
+            std::pair<Point, bool> const tmp(aTmpPt, false);
+            pFrame = pNd->getLayoutFrame(
+                pNd->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(),
+                GetMark(), &tmp);
         }
 
         const SwFrame* pMarkEditInReadonlyFrame = nullptr;

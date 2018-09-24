@@ -82,6 +82,7 @@
 #include <svx/sdr/contact/viewcontact.hxx>
 #include <svx/sdr/contact/objectcontact.hxx>
 #include <svx/unoapi.hxx>
+#include <unokywds.hxx>
 
 #include <set>
 
@@ -117,7 +118,6 @@ SdPage::SdPage(SdDrawDocument& rNewDoc, bool bMasterPage)
 ,   meCharSet(osl_getThreadTextEncoding())
 ,   mnPaperBin(PAPERBIN_PRINTER_SETTINGS)
 ,   mpPageLink(nullptr)
-,   mpItems(nullptr)
 ,   mnTransitionType(0)
 ,   mnTransitionSubtype(0)
 ,   mbTransitionDirection(true)
@@ -530,8 +530,7 @@ SdrObject* SdPage::CreatePresObj(PresObjKind eObjKind, bool bVertical, const ::t
             SdrLayerAdmin& rLayerAdmin(getSdrModelFromSdrPage().GetLayerAdmin());
 
             // background objects of the master page
-            pSdrObj->SetLayer( rLayerAdmin.
-                GetLayerID(SdResId(STR_LAYER_BCKGRNDOBJ)) );
+            pSdrObj->SetLayer( rLayerAdmin.GetLayerID(sUNO_LayerName_background_objects) );
         }
 
         // Subscribe object at the style sheet
@@ -1273,7 +1272,7 @@ static const LayoutDescriptor& GetLayoutDescriptor( AutoLayout eLayout )
     return aLayouts[ eLayout - AUTOLAYOUT_START ];
 }
 
-rtl::OUString enumtoString(AutoLayout aut)
+static rtl::OUString enumtoString(AutoLayout aut)
 {
     rtl::OUString retstr;
     switch (aut)
@@ -1436,7 +1435,7 @@ static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* r
     }
 }
 
-void findAutoLayoutShapesImpl( SdPage& rPage, const LayoutDescriptor& rDescriptor, std::vector< SdrObject* >& rShapes, bool bInit, bool bSwitchLayout )
+static void findAutoLayoutShapesImpl( SdPage& rPage, const LayoutDescriptor& rDescriptor, std::vector< SdrObject* >& rShapes, bool bInit, bool bSwitchLayout )
 {
     int i;
 
@@ -2075,7 +2074,7 @@ void SdPage::ScaleObjects(const Size& rNewPageSize, const ::tools::Rectangle& rN
     }
 }
 
-SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourceObj, PresObjKind& eObjKind, bool bVertical, const ::tools::Rectangle& rRect)
+static SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourceObj, PresObjKind& eObjKind, bool bVertical, const ::tools::Rectangle& rRect)
 {
     SdDrawDocument& rModel(static_cast< SdDrawDocument& >(rPage.getSdrModelFromSdrPage()));
     if( !pSourceObj )

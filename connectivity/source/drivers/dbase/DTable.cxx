@@ -35,6 +35,7 @@
 #include <unotools/syslocale.hxx>
 #include <rtl/math.hxx>
 #include <ucbhelper/content.hxx>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <connectivity/dbexception.hxx>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
@@ -431,7 +432,6 @@ void ODbaseTable::fillColumns()
 
 ODbaseTable::ODbaseTable(sdbcx::OCollection* _pTables, ODbaseConnection* _pConnection)
     : ODbaseTable_BASE(_pTables,_pConnection)
-    , m_pMemoStream(nullptr)
 {
     // initialize the header
     memset(&m_aHeader, 0, sizeof(m_aHeader));
@@ -450,7 +450,6 @@ ODbaseTable::ODbaseTable(sdbcx::OCollection* _pTables, ODbaseConnection* _pConne
                        Description,
                        SchemaName,
                        CatalogName)
-    , m_pMemoStream(nullptr)
 {
     memset(&m_aHeader, 0, sizeof(m_aHeader));
     m_eEncoding = getConnection()->getTextEncoding();
@@ -2049,7 +2048,7 @@ void ODbaseTable::WriteMemo(const ORowSetValue& aVariable, std::size_t& rBlockNr
             m_pMemoStream->WriteChar( cEOF ).WriteChar( cEOF );
         } break;
         case MemoFoxPro:
-        case MemodBaseIV: // dBase IV-Memofeld with length
+        case MemodBaseIV: // dBase IV-Memofield with length
         {
             if ( MemodBaseIV == m_aMemoHeader.db_typ )
                 (*m_pMemoStream).WriteUChar( 0xFF )

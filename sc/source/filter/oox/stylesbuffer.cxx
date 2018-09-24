@@ -59,6 +59,7 @@
 #include <sal/log.hxx>
 #include <oox/core/filterbase.hxx>
 #include <oox/helper/attributelist.hxx>
+#include <oox/helper/binaryinputstream.hxx>
 #include <oox/helper/containerhelper.hxx>
 #include <oox/helper/propertymap.hxx>
 #include <oox/helper/propertyset.hxx>
@@ -80,6 +81,9 @@
 #include <xlconst.hxx>
 #include <documentimport.hxx>
 #include <numformat.hxx>
+#include <patattr.hxx>
+#include <stlsheet.hxx>
+#include <biffhelper.hxx>
 
 namespace oox {
 namespace xls {
@@ -829,7 +833,7 @@ bool Font::needsRichTextFormat() const
     return maApiData.mnEscapement != API_ESCAPE_NONE;
 }
 
-::FontFamily lcl_getFontFamily( sal_Int32 nFamily )
+static ::FontFamily lcl_getFontFamily( sal_Int32 nFamily )
 {
     ::FontFamily eScFamily = FAMILY_DONTKNOW;
     switch( nFamily )

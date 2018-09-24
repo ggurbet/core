@@ -690,7 +690,6 @@ SwRewriter SwUndo::GetRewriter() const
 }
 
 SwUndoSaveContent::SwUndoSaveContent()
-    : pHistory( nullptr )
 {}
 
 SwUndoSaveContent::~SwUndoSaveContent() COVERITY_NOEXCEPT_FALSE
@@ -1182,7 +1181,7 @@ void SwUndoSaveContent::DelContentIndex( const SwPosition& rMark,
 
 // save a complete section into UndoNodes array
 SwUndoSaveSection::SwUndoSaveSection()
-    : pRedlSaveData( nullptr ), nMvLen( 0 ), nStartPos( ULONG_MAX )
+    : nMvLen( 0 ), nStartPos( ULONG_MAX )
 {
 }
 
@@ -1212,18 +1211,22 @@ void SwUndoSaveSection::SaveSection(
 
     // delete all footnotes, fly frames, bookmarks
     DelContentIndex( *aPam.GetMark(), *aPam.GetPoint() );
+
+    // redlines *before* CorrAbs, because DelBookmarks will make them 0-length
+    // but *after* DelContentIndex because that also may use FillSaveData (in
+    // flys) and that will be restored *after* this one...
+    pRedlSaveData.reset( new SwRedlineSaveDatas );
+    if (!SwUndo::FillSaveData( aPam, *pRedlSaveData ))
+    {
+        pRedlSaveData.reset();
+    }
+
     {
         // move certain indexes out of deleted range
         SwNodeIndex aSttIdx( aPam.Start()->nNode.GetNode() );
         SwNodeIndex aEndIdx( aPam.End()->nNode.GetNode() );
         SwNodeIndex aMvStt( aEndIdx, 1 );
         SwDoc::CorrAbs( aSttIdx, aEndIdx, SwPosition( aMvStt ), true );
-    }
-
-    pRedlSaveData.reset( new SwRedlineSaveDatas );
-    if( !SwUndo::FillSaveData( aPam, *pRedlSaveData ))
-    {
-        pRedlSaveData.reset();
     }
 
     nStartPos = rRange.aStart.GetIndex();

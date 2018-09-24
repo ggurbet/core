@@ -294,7 +294,7 @@ void AppendConfigToken( OUStringBuffer& rURL, bool bQuestionMark )
     rURL.append(utl::ConfigManager::getProductVersion());
 }
 
-bool GetHelpAnchor_Impl( const OUString& _rURL, OUString& _rAnchor )
+static bool GetHelpAnchor_Impl( const OUString& _rURL, OUString& _rAnchor )
 {
     bool bRet = false;
     OUString sAnchor;
@@ -359,7 +359,7 @@ SfxHelp::~SfxHelp()
 {
 }
 
-OUString getDefaultModule_Impl()
+static OUString getDefaultModule_Impl()
 {
     OUString sDefaultModule;
     SvtModuleOptions aModOpt;
@@ -386,7 +386,7 @@ OUString getDefaultModule_Impl()
     return sDefaultModule;
 }
 
-OUString getCurrentModuleIdentifier_Impl()
+static OUString getCurrentModuleIdentifier_Impl()
 {
     OUString sIdentifier;
     Reference < XComponentContext > xContext = ::comphelper::getProcessComponentContext();
@@ -539,7 +539,7 @@ OUString SfxHelp::CreateHelpURL_Impl( const OUString& aCommandURL, const OUStrin
     return aHelpURL.makeStringAndClear();
 }
 
-SfxHelpWindow_Impl* impl_createHelp(Reference< XFrame2 >& rHelpTask   ,
+static SfxHelpWindow_Impl* impl_createHelp(Reference< XFrame2 >& rHelpTask   ,
                                     Reference< XFrame >& rHelpContent)
 {
     Reference < XDesktop2 > xDesktop = Desktop::create( ::comphelper::getProcessComponentContext() );
@@ -726,6 +726,21 @@ static bool impl_showOfflineHelp( const OUString& rURL )
     return false;
 }
 
+namespace
+{
+    // tdf#119579 skip floating windows as potential parent for missing help dialog
+    const vcl::Window* GetBestParent(const vcl::Window* pWindow)
+    {
+        while (pWindow)
+        {
+            if (pWindow->IsSystemWindow() && pWindow->GetType() != WindowType::FLOATINGWINDOW)
+                break;
+            pWindow = pWindow->GetParent();
+        }
+        return pWindow;
+    }
+}
+
 bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const OUString& rKeyword)
 {
     OUStringBuffer aHelpRootURL("vnd.sun.star.help://");
@@ -830,6 +845,8 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
         {
             SvtHelpOptions aHelpOptions;
             bool bShowOfflineHelpPopUp = aHelpOptions.IsOfflineHelpPopUp();
+
+            pWindow = GetBestParent(pWindow);
 
             if(bShowOfflineHelpPopUp)
             {

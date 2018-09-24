@@ -97,7 +97,14 @@ public:
 
 class AbstractCopyDlg_Impl : public AbstractCopyDlg
 {
-    DECL_ABSTDLG_BASE(AbstractCopyDlg_Impl,::sd::CopyDlg)
+private:
+    std::unique_ptr<sd::CopyDlg> m_xDlg;
+public:
+    AbstractCopyDlg_Impl(std::unique_ptr<::sd::CopyDlg> pDlg)
+        : m_xDlg(std::move(pDlg))
+    {
+    }
+    virtual short Execute() override;
     virtual void    GetAttr( SfxItemSet& rOutAttrs ) override;
 };
 
@@ -127,6 +134,26 @@ class SdAbstractTabDialog_Impl : public SfxAbstractTabDialog
         //From class Window.
     virtual void        SetText( const OUString& rStr ) override;
 };
+
+class SdAbstractTabController_Impl : public SfxAbstractTabDialog
+{
+protected:
+    std::shared_ptr<SfxTabDialogController> m_xDlg;
+public:
+    explicit SdAbstractTabController_Impl(std::unique_ptr<SfxTabDialogController> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+    virtual bool  StartExecuteAsync(AsyncContext &rCtx) override;
+    virtual void                SetCurPageId( const OString &rName ) override;
+    virtual const SfxItemSet*   GetOutputItemSet() const override;
+    virtual const sal_uInt16*   GetInputRanges( const SfxItemPool& pItem ) override;
+    virtual void                SetInputSet( const SfxItemSet* pInSet ) override;
+        //From class Window.
+    virtual void        SetText( const OUString& rStr ) override;
+};
+
 
 class AbstractBulletDialog_Impl : public SfxAbstractTabDialog
 {
@@ -288,17 +315,17 @@ public:
     virtual ~SdAbstractDialogFactory_Impl() {}
 
     virtual VclPtr<VclAbstractDialog>          CreateBreakDlg(weld::Window* pWindow, ::sd::DrawView* pDrView, ::sd::DrawDocShell* pShell, sal_uLong nSumActionCount, sal_uLong nObjCount) override;
-    virtual VclPtr<AbstractCopyDlg>            CreateCopyDlg(vcl::Window* pParent, const SfxItemSet& rInAttrs, ::sd::View* pView) override;
+    virtual VclPtr<AbstractCopyDlg>            CreateCopyDlg(weld::Window* pParent, const SfxItemSet& rInAttrs, ::sd::View* pView) override;
     virtual VclPtr<AbstractSdCustomShowDlg>    CreateSdCustomShowDlg(weld::Window* pParent, SdDrawDocument& rDrawDoc) override;
-    virtual VclPtr<SfxAbstractTabDialog>       CreateSdTabCharDialog(vcl::Window* pWindow, const SfxItemSet* pAttr, SfxObjectShell* pDocShell) override;
-    virtual VclPtr<SfxAbstractTabDialog>       CreateSdTabPageDialog(vcl::Window* pWindow, const SfxItemSet* pAttr, SfxObjectShell* pDocShell, bool bAreaPage) override;
+    virtual VclPtr<SfxAbstractTabDialog>       CreateSdTabCharDialog(weld::Window* pWindow, const SfxItemSet* pAttr, SfxObjectShell* pDocShell) override;
+    virtual VclPtr<SfxAbstractTabDialog>       CreateSdTabPageDialog(weld::Window* pWindow, const SfxItemSet* pAttr, SfxObjectShell* pDocShell, bool bAreaPage) override;
     virtual VclPtr<AbstractSdModifyFieldDlg>   CreateSdModifyFieldDlg(weld::Window* pWindow, const SvxFieldData* pInField, const SfxItemSet& rSet) override;
     virtual VclPtr<AbstractSdSnapLineDlg>      CreateSdSnapLineDlg(weld::Window* pParent, const SfxItemSet& rInAttrs, ::sd::View* pView) override;
     virtual VclPtr<AbstractSdInsertLayerDlg>   CreateSdInsertLayerDlg(weld::Window* pParent, const SfxItemSet& rInAttrs, bool bDeletable, const OUString& aStr) override;
     virtual VclPtr<AbstractSdInsertPagesObjsDlg> CreateSdInsertPagesObjsDlg(vcl::Window* pParent, const SdDrawDocument* pDoc, SfxMedium* pSfxMedium, const OUString& rFileName ) override;
     virtual VclPtr<AbstractMorphDlg>           CreateMorphDlg(weld::Window* pParent, const SdrObject* pObj1, const SdrObject* pObj2) override;
     virtual VclPtr<SfxAbstractTabDialog>       CreateSdOutlineBulletTabDlg(vcl::Window* pParent, const SfxItemSet* pAttr, ::sd::View* pView) override;
-    virtual VclPtr<SfxAbstractTabDialog>       CreateSdParagraphTabDlg(vcl::Window* pParent, const SfxItemSet* pAttr) override;
+    virtual VclPtr<SfxAbstractTabDialog>       CreateSdParagraphTabDlg(weld::Window* pParent, const SfxItemSet* pAttr) override;
     virtual VclPtr<AbstractSdStartPresDlg>     CreateSdStartPresentationDlg(weld::Window* pWindow, const SfxItemSet& rInAttrs,
                                                                      const std::vector<OUString> &rPageNames, SdCustomShowList* pCSList ) override;
     virtual VclPtr<VclAbstractDialog>          CreateRemoteDialog( vcl::Window* pWindow ) override; // ad for RemoteDialog

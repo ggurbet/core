@@ -109,10 +109,8 @@ private:
     detail::element_alias2       aData;
     sal_Int32                    nRemain;
 
-    OInterfaceIteratorHelper2( const OInterfaceIteratorHelper2 & )
-        SAL_DELETED_FUNCTION;
-    OInterfaceIteratorHelper2 &  operator = ( const OInterfaceIteratorHelper2 & )
-        SAL_DELETED_FUNCTION;
+    OInterfaceIteratorHelper2( const OInterfaceIteratorHelper2 & ) = delete;
+    OInterfaceIteratorHelper2 &  operator = ( const OInterfaceIteratorHelper2 & ) = delete;
 };
 
 
@@ -125,16 +123,6 @@ private:
 class COMPHELPER_DLLPUBLIC OInterfaceContainerHelper2
 {
 public:
-    // these are here to force memory de/allocation to sal lib.
-    static void * operator new( size_t nSize )
-        { return ::rtl_allocateMemory( nSize ); }
-    static void operator delete( void * pMem )
-        { ::rtl_freeMemory( pMem ); }
-    static void * operator new( size_t, void * pMem )
-        { return pMem; }
-    static void operator delete( void *, void * )
-        {}
-
     /**
        Create an interface container.
 
@@ -245,10 +233,8 @@ friend class OInterfaceIteratorHelper2;
     /** TRUE -> aData.pAsVector is of type Sequence< XInterfaceSequence >. */
     bool                    bIsList;
 
-    OInterfaceContainerHelper2( const OInterfaceContainerHelper2 & )
-        SAL_DELETED_FUNCTION;
-    OInterfaceContainerHelper2 & operator = ( const OInterfaceContainerHelper2 & )
-        SAL_DELETED_FUNCTION;
+    OInterfaceContainerHelper2( const OInterfaceContainerHelper2 & ) = delete;
+    OInterfaceContainerHelper2 & operator = ( const OInterfaceContainerHelper2 & ) = delete;
 
     /*
       Duplicate content of the container and release the old one without destroying.

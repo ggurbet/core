@@ -35,6 +35,9 @@ public:
     void testTdf109137();
     void testForcepoint72();
     void testTdf118058();
+    void testTdf117188();
+    void testTdf117187();
+    void testTdf119875();
 
     CPPUNIT_TEST_SUITE(SwLayoutWriter);
     CPPUNIT_TEST(testTdf116830);
@@ -52,6 +55,9 @@ public:
     CPPUNIT_TEST(testTdf109137);
     CPPUNIT_TEST(testForcepoint72);
     CPPUNIT_TEST(testTdf118058);
+    CPPUNIT_TEST(testTdf117188);
+    CPPUNIT_TEST(testTdf117187);
+    CPPUNIT_TEST(testTdf119875);
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -305,6 +311,49 @@ void SwLayoutWriter::testTdf118058()
     SwDoc* pDoc = createDoc("tdf118058.fodt");
     // This resulted in a layout loop.
     pDoc->getIDocumentLayoutAccess().GetCurrentViewShell()->CalcLayout();
+}
+
+void SwLayoutWriter::testTdf117188()
+{
+    createDoc("tdf117188.docx");
+    uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+    utl::TempFile aTempFile;
+    aTempFile.EnableKillingFile();
+    uno::Sequence<beans::PropertyValue> aDescriptor(comphelper::InitPropertySequence({
+        { "FilterName", uno::Any(OUString("writer8")) },
+    }));
+    xStorable->storeToURL(aTempFile.GetURL(), aDescriptor);
+    loadURL(aTempFile.GetURL(), "tdf117188.odt");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    OUString sWidth = getXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/bounds", "width");
+    OUString sHeight = getXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/bounds", "height");
+    // The text box must have zero border distances
+    assertXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/prtBounds", "left", "0");
+    assertXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/prtBounds", "top", "0");
+    assertXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/prtBounds", "width", sWidth);
+    assertXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/prtBounds", "height", sHeight);
+}
+
+void SwLayoutWriter::testTdf117187()
+{
+    createDoc("tdf117187.odt");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+
+    // there should be no fly portions
+    assertXPath(pXmlDoc, "/root/page/body/txt/Special[@nType='POR_FLY']", 0);
+}
+
+void SwLayoutWriter::testTdf119875()
+{
+    createDoc("tdf119875.odt");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    sal_Int32 nFirstTop
+        = getXPath(pXmlDoc, "/root/page[2]/body/section[1]/infos/bounds", "top").toInt32();
+    sal_Int32 nSecondTop
+        = getXPath(pXmlDoc, "/root/page[2]/body/section[2]/infos/bounds", "top").toInt32();
+    // The first section had the same top value as the second one, so they
+    // overlapped.
+    CPPUNIT_ASSERT_LESS(nSecondTop, nFirstTop);
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SwLayoutWriter);

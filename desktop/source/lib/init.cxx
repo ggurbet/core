@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -12,6 +12,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef IOS
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unicode/udata.h>
+#include <unicode/ucnv.h>
+#include <premac.h>
+#import <Foundation/Foundation.h>
+#import <CoreGraphics/CoreGraphics.h>
+#include <postmac.h>
+#endif
 
 #include <algorithm>
 #include <memory>
@@ -2088,6 +2099,14 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 
     pDoc->paintTile(*pDevice.get(), nCanvasWidth, nCanvasHeight,
                     nTilePosX, nTilePosY, nTileWidth, nTileHeight);
+
+#if 0
+    // Draw something at least, to see that the context as such is correctly set up
+    CGContextSetRGBFillColor(aData.rCGContext, 1, 0, 0, 1);
+    CGContextFillRect(aData.rCGContext, CGRectMake (0, 0, 200, 100));
+    CGContextSetRGBFillColor(aData.rCGContext, 0, 0, 1, .5);
+    CGContextFillRect(aData.rCGContext, CGRectMake (0, 0, 100, 200));
+#endif
 #else
     ScopedVclPtrInstance< VirtualDevice > pDevice(nullptr, Size(1, 1), DeviceFormat::DEFAULT) ;
 
@@ -3857,11 +3876,58 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
         ::osl::Module::getUrlFromAddress( reinterpret_cast< oslGenericFunction >(lo_initialize),
                                           aAppURL);
         osl::FileBase::getSystemPathFromFileURL( aAppURL, aAppPath );
+#ifdef IOS
+        // The above gives something like
+        // "/private/var/containers/Bundle/Application/953AA851-CC15-4C60-A2CB-C2C6F24E6F71/Foo.app/Foo",
+        // and we want to drop the final component (the binary name).
+        sal_Int32 lastSlash = aAppPath.lastIndexOf('/');
+        assert(lastSlash > 0);
+        aAppPath = aAppPath.copy(0, lastSlash);
+#endif
     }
 
     OUString aAppURL;
     if (osl::FileBase::getFileURLFromSystemPath(aAppPath, aAppURL) != osl::FileBase::E_None)
         return 0;
+
+#ifdef IOS
+    // A LibreOffice-using iOS app should have the ICU data file in the app bundle. Initialize ICU
+    // to use that.
+    NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+
+    int fd = open([[bundlePath stringByAppendingPathComponent:@U_ICUDATA_NAME".dat"] UTF8String], O_RDONLY);
+    if (fd == -1)
+        NSLog(@"Could not open ICU data file %s", [[bundlePath stringByAppendingPathComponent:@U_ICUDATA_NAME".dat"] UTF8String]);
+    else
+    {
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+            NSLog(@"fstat on ICU data file failed: %s", strerror(errno));
+        else
+        {
+            void *icudata = mmap(0, (size_t) st.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE, fd, 0);
+            if (icudata == MAP_FAILED)
+                NSLog(@"mmap failed: %s", strerror(errno));
+            else
+            {
+                UErrorCode icuStatus = U_ZERO_ERROR;
+                udata_setCommonData(icudata, &icuStatus);
+                if (U_FAILURE(icuStatus))
+                    NSLog(@"udata_setCommonData failed");
+                else
+                {
+                    // Quick test that ICU works...
+                    UConverter *cnv = ucnv_open("iso-8859-3", &icuStatus);
+                    NSLog(@"ucnv_open(iso-8859-3)-> %p, err = %s, name=%s",
+                          (void *)cnv, u_errorName(icuStatus), (!cnv)?"?":ucnv_getName(cnv,&icuStatus));
+                    if (U_SUCCESS(icuStatus))
+                        ucnv_close(cnv);
+                }
+            }
+        }
+        close(fd);
+    }
+#endif
 
     try
     {

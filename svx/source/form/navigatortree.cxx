@@ -88,7 +88,7 @@ namespace svxform
             MapModelToShape;
 
 
-    void    collectShapeModelMapping( SdrPage const * _pPage, MapModelToShape& _rMapping )
+    static void    collectShapeModelMapping( SdrPage const * _pPage, MapModelToShape& _rMapping )
     {
         OSL_ENSURE( _pPage, "collectShapeModelMapping: invalid arg!" );
 
@@ -115,7 +115,6 @@ namespace svxform
     NavigatorTree::NavigatorTree( vcl::Window* pParent )
         :SvTreeListBox( pParent, WB_HASBUTTONS|WB_HASLINES|WB_BORDER|WB_HSCROLL ) // #100258# OJ WB_HSCROLL added
         ,m_aControlExchange(this)
-        ,m_pNavModel( nullptr )
         ,m_pRootEntry(nullptr)
         ,m_pEditEntry(nullptr)
         ,nEditEvent(nullptr)

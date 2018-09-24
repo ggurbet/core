@@ -995,7 +995,7 @@ sal_uInt8 *WW8_WrPlcPn::CopyLastSprms(sal_uInt8 &rLen)
     return rF.CopyLastSprms(rLen);
 }
 
-void WW8_WrPlcPn::AppendFkpEntry(WW8_FC nEndFc,short nVarLen,const sal_uInt8* pSprms, const bool bExpandEmpty)
+void WW8_WrPlcPn::AppendFkpEntry(WW8_FC nEndFc,short nVarLen,const sal_uInt8* pSprms)
 {
     WW8_WrFkp* pF = m_Fkps.back().get();
 
@@ -1024,7 +1024,7 @@ void WW8_WrPlcPn::AppendFkpEntry(WW8_FC nEndFc,short nVarLen,const sal_uInt8* pS
         pF->MergeToNew( nVarLen, pNewSprms );
     // has the prev EndFC an empty sprm and the current is empty too, then
     // expand only the old EndFc to the new EndFc
-    else if( !nVarLen && (bExpandEmpty || pF->IsEmptySprm()) )
+    else if( !nVarLen && pF->IsEmptySprm() )
     {
         pF->SetNewEnd( nEndFc );
         return ;
@@ -3572,12 +3572,9 @@ MSWordExportBase::MSWordExportBase( SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM 
     : m_aMainStg(sMainStream)
     , m_pISet(nullptr)
     , m_pPiece(nullptr)
-    , m_pUsedNumTable(nullptr)
     , m_pTopNodeOfHdFtPage(nullptr)
     , m_pBkmks(nullptr)
     , m_pRedlAuthors(nullptr)
-    , m_pOLEExp(nullptr)
-    , m_pOCXExp(nullptr)
     , m_pTableInfo(new ww8::WW8TableInfo())
     , m_nCharFormatStart(0)
     , m_nFormatCollStart(0)
@@ -3588,12 +3585,12 @@ MSWordExportBase::MSWordExportBase( SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM 
     , m_nOrigRedlineFlags(RedlineFlags::NONE)
     , m_pCurrentPageDesc(nullptr)
     , m_bPrevTextNodeIsEmpty(false)
+    , m_bFirstTOCNodeWithSection(false)
     , m_pPapPlc(nullptr)
     , m_pChpPlc(nullptr)
     , m_pChpIter(nullptr)
     , m_pStyles(nullptr)
     , m_pAtn(nullptr)
-    , m_pFactoids(nullptr)
     , m_pTextBxs(nullptr)
     , m_pHFTextBxs(nullptr)
     , m_pParentFrame(nullptr)
@@ -3665,11 +3662,6 @@ WW8Export::WW8Export( SwWW8Writer *pWriter,
     , pO(nullptr)
     , pTableStrm(nullptr)
     , pDataStrm(nullptr)
-    , pFib(nullptr)
-    , pDop(nullptr)
-    , pFootnote(nullptr)
-    , pEdn(nullptr)
-    , pSepx(nullptr)
     , m_bDot(bDot)
     , m_pWriter(pWriter)
     , m_pAttrOutput(new WW8AttributeOutput(*this))

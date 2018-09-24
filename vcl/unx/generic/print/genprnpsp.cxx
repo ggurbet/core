@@ -138,9 +138,9 @@ namespace
     }
 }
 
-inline int PtTo10Mu( int nPoints ) { return static_cast<int>((static_cast<double>(nPoints)*35.27777778)+0.5); }
+static inline int PtTo10Mu( int nPoints ) { return static_cast<int>((static_cast<double>(nPoints)*35.27777778)+0.5); }
 
-inline int TenMuToPt( int nUnits ) { return static_cast<int>((static_cast<double>(nUnits)/35.27777778)+0.5); }
+static inline int TenMuToPt( int nUnits ) { return static_cast<int>((static_cast<double>(nUnits)/35.27777778)+0.5); }
 
 static void copyJobDataToJobSetup( ImplJobSetup* pJobSetup, JobData& rData )
 {
@@ -459,7 +459,6 @@ OUString SalGenericInstance::GetDefaultPrinter()
 }
 
 PspSalInfoPrinter::PspSalInfoPrinter()
-    : m_pGraphics( nullptr )
 {
 }
 
@@ -977,8 +976,8 @@ struct PDFNewJobParameters
 
 struct PDFPrintFile
 {
-    OUString       maTmpURL;
-    PDFNewJobParameters maParameters;
+    OUString const       maTmpURL;
+    PDFNewJobParameters const maParameters;
 
     PDFPrintFile( const OUString& i_rURL, const PDFNewJobParameters& i_rNewParameters )
     : maTmpURL( i_rURL )

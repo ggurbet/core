@@ -451,7 +451,7 @@ private:
 
     std::unique_ptr<SfxItemSet> pEmptyItemSet;
     EditUndoManager*    pUndoManager;
-    ESelection*         pUndoMarkSelection;
+    std::unique_ptr<ESelection> pUndoMarkSelection;
 
     std::unique_ptr<ImplIMEInfos> mpIMEInfos;
 
@@ -464,7 +464,6 @@ private:
 
     Color               maBackgroundColor;
 
-    sal_uInt32          nBlockNotifications;
     sal_uInt16          nStretchX;
     sal_uInt16          nStretchY;
 
@@ -479,7 +478,7 @@ private:
     mutable css::uno::Reference < css::i18n::XBreakIterator > xBI;
     mutable css::uno::Reference < css::i18n::XExtendedInputSequenceChecker > xISC;
 
-    ConvInfo *          pConvInfo;
+    std::unique_ptr<ConvInfo> pConvInfo;
 
     OUString            aAutoCompleteText;
 
@@ -791,14 +790,7 @@ public:
 
     void                EnableUndo( bool bEnable );
     bool                IsUndoEnabled()         { return bUndoEnabled; }
-    void                SetUndoMode( bool b )
-    {
-        bIsInUndo = b;
-        if (bIsInUndo)
-            EnterBlockNotifications();
-        else
-            LeaveBlockNotifications();
-    }
+    void                SetUndoMode( bool b )   { bIsInUndo = b; }
     bool                IsInUndo()              { return bIsInUndo; }
 
     void                SetCallParaInsertedOrDeleted( bool b ) { bCallParaInsertedOrDeleted = b; }
@@ -923,9 +915,8 @@ public:
     void                CallStatusHdl();
     void                DelayedCallStatusHdl()  { aStatusTimer.Start(); }
 
-    void                CallNotify( EENotify& rNotify );
-    void                EnterBlockNotifications();
-    void                LeaveBlockNotifications();
+    void                QueueNotify( EENotify& rNotify );
+    void                SendNotifications();
 
     void                UndoActionStart( sal_uInt16 nId );
     void                UndoActionStart( sal_uInt16 nId, const ESelection& rSel );
@@ -966,7 +957,7 @@ public:
     void                Convert( EditView* pEditView, LanguageType nSrcLang, LanguageType nDestLang, const vcl::Font *pDestFont, sal_Int32 nOptions, bool bIsInteractive, bool bMultipleDoc );
     void                ImpConvert( OUString &rConvTxt, LanguageType &rConvTxtLang, EditView* pEditView, LanguageType nSrcLang, const ESelection &rConvRange,
                                     bool bAllowImplicitChangesForNotConvertibleText, LanguageType nTargetLang, const vcl::Font *pTargetFont );
-    ConvInfo *          GetConvInfo() const { return pConvInfo; }
+    ConvInfo *          GetConvInfo() const { return pConvInfo.get(); }
     bool                HasConvertibleTextPortion( LanguageType nLang );
     void                SetLanguageAndFont( const ESelection &rESel,
                                 LanguageType nLang, sal_uInt16 nLangWhichId,

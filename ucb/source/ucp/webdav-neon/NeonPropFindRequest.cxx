@@ -80,7 +80,9 @@ namespace
     }
 }
 
-extern "C" int NPFR_propfind_iter( void* userdata,
+extern "C" {
+
+static int NPFR_propfind_iter( void* userdata,
                                    const NeonPropName* pname,
                                    const char* value,
                                    const HttpStatus* status )
@@ -188,7 +190,7 @@ extern "C" int NPFR_propfind_iter( void* userdata,
     return 0; // Go on.
 }
 
-extern "C" void NPFR_propfind_results( void* userdata,
+static void NPFR_propfind_results( void* userdata,
                                        const ne_uri* uri,
                                        const NeonPropFindResultSet* set )
 {
@@ -205,7 +207,7 @@ extern "C" void NPFR_propfind_results( void* userdata,
     theResources->push_back( theResource );
 }
 
-extern "C" int NPFR_propnames_iter( void* userdata,
+static int NPFR_propnames_iter( void* userdata,
                                     const NeonPropName* pname,
                                     const char* /*value*/,
                                     const HttpStatus* /*status*/ )
@@ -220,7 +222,7 @@ extern "C" int NPFR_propnames_iter( void* userdata,
     return 0;
 }
 
-extern "C" void NPFR_propnames_results( void* userdata,
+static void NPFR_propnames_results( void* userdata,
                                         const ne_uri* /*uri*/,
                                         const NeonPropFindResultSet* results )
 {
@@ -235,6 +237,8 @@ extern "C" void NPFR_propnames_results( void* userdata,
     vector< DAVResourceInfo > * theResources
         = static_cast< vector< DAVResourceInfo > * >( userdata );
     theResources->push_back( theResource );
+}
+
 }
 
 NeonPropFindRequest::NeonPropFindRequest( HttpSession* inSession,
@@ -261,7 +265,7 @@ NeonPropFindRequest::NeonPropFindRequest( HttpSession* inSession,
         thePropNames[ theIndex ].name   = nullptr;
 
         {
-            osl::Guard< osl::Mutex > theGlobalGuard( aGlobalNeonMutex );
+            osl::Guard< osl::Mutex > theGlobalGuard(getGlobalNeonMutex());
             nError = ne_simple_propfind( inSession,
                                          inPath,
                                          inDepth,
@@ -276,7 +280,7 @@ NeonPropFindRequest::NeonPropFindRequest( HttpSession* inSession,
     else
     {
         // ALLPROP
-        osl::Guard< osl::Mutex > theGlobalGuard( aGlobalNeonMutex );
+        osl::Guard< osl::Mutex > theGlobalGuard(getGlobalNeonMutex());
         nError = ne_simple_propfind( inSession,
                                      inPath,
                                      inDepth,
@@ -298,7 +302,7 @@ NeonPropFindRequest::NeonPropFindRequest(
                             int & nError )
 {
     {
-        osl::Guard< osl::Mutex > theGlobalGuard( aGlobalNeonMutex );
+        osl::Guard< osl::Mutex > theGlobalGuard(getGlobalNeonMutex());
         nError = ne_propnames( inSession,
                             inPath,
                             inDepth,

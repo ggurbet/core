@@ -32,10 +32,6 @@
 
 #include <stdio.h>
 
-#ifdef _MSC_VER
-#define snprintf _snprintf
-#endif
-
 using namespace connectivity::mysqlc;
 using namespace com::sun::star::uno;
 using namespace com::sun::star::lang;
@@ -112,8 +108,7 @@ Reference<XResultSetMetaData> SAL_CALL OPreparedStatement::getMetaData()
     {
         MYSQL_RES* pRes = mysql_stmt_result_metadata(m_pStmt);
         // TODO warning or error if no meta data.
-        m_xMetaData = new OResultSetMetaData(*m_xConnection.get(), pRes,
-                                             getOwnConnection()->getConnectionEncoding());
+        m_xMetaData = new OResultSetMetaData(*m_xConnection.get(), pRes);
     }
     return m_xMetaData;
 }
@@ -125,7 +120,7 @@ void SAL_CALL OPreparedStatement::close()
 
     if (mysql_stmt_close(m_pStmt))
     {
-        SAL_WARN("mysqlc", "failed to close mysql prepared statement");
+        SAL_WARN("connectivity.mysqlc", "failed to close mysql prepared statement");
     }
     m_pStmt = nullptr; // it's deallocated already
     clearWarnings();
@@ -303,6 +298,7 @@ void SAL_CALL OPreparedStatement::setTimestamp(sal_Int32 parameter, const DateTi
     checkParameterIndex(parameter);
 
     MYSQL_TIME my_time;
+    memset(&my_time, 0, sizeof(MYSQL_TIME));
 
     my_time.hour = aVal.Hours;
     my_time.minute = aVal.Minutes;
@@ -312,7 +308,7 @@ void SAL_CALL OPreparedStatement::setTimestamp(sal_Int32 parameter, const DateTi
     my_time.day = aVal.Day;
 
     const sal_Int32 nIndex = parameter - 1;
-    m_binds[nIndex].buffer_type = MYSQL_TYPE_TIME;
+    m_binds[nIndex].buffer_type = MYSQL_TYPE_DATETIME;
     mysqlc_sdbc_driver::resetSqlVar(&m_binds[nIndex].buffer, &my_time, MYSQL_TYPE_DATETIME);
     m_bindMetas[nIndex].is_null = 0;
 }

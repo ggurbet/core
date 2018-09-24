@@ -175,7 +175,6 @@ SvxTableController::SvxTableController(
 :   mbCellSelectionMode(false)
     ,mbHasJustMerged(false)
     ,mbLeftButtonDown(false)
-    ,mpSelectionOverlay(nullptr)
     ,mrView(rView)
     ,mxTableObj(const_cast< SdrTableObj* >(&rObj))
     ,mnUpdateEvent( nullptr )
@@ -477,7 +476,6 @@ void SvxTableController::GetState( SfxItemSet& rSet )
                     rSet.DisableItem(SID_TABLE_SPLIT_CELLS);
                 break;
 
-            case SID_OPTIMIZE_TABLE:
             case SID_TABLE_DISTRIBUTE_COLUMNS:
             case SID_TABLE_DISTRIBUTE_ROWS:
             {
@@ -491,12 +489,13 @@ void SvxTableController::GetState( SfxItemSet& rSet )
                     bDistributeColumns = aStart.mnCol != aEnd.mnCol;
                     bDistributeRows = aStart.mnRow != aEnd.mnRow;
                 }
-                if( !bDistributeColumns && !bDistributeRows )
-                    rSet.DisableItem(SID_OPTIMIZE_TABLE);
                 if( !bDistributeColumns )
                     rSet.DisableItem(SID_TABLE_DISTRIBUTE_COLUMNS);
                 if( !bDistributeRows )
+                {
+                    rSet.DisableItem(SID_TABLE_OPTIMAL_ROW_HEIGHT);
                     rSet.DisableItem(SID_TABLE_DISTRIBUTE_ROWS);
+                }
                 break;
             }
 
@@ -1003,12 +1002,20 @@ void SvxTableController::Execute( SfxRequest& rReq )
         SplitMarkedCells();
         break;
 
+    case SID_TABLE_OPTIMAL_COLUMN_WIDTH:
+        DistributeColumns(/*bOptimize=*/true);
+        break;
+
     case SID_TABLE_DISTRIBUTE_COLUMNS:
-        DistributeColumns();
+        DistributeColumns(/*bOptimize=*/false);
+        break;
+
+    case SID_TABLE_OPTIMAL_ROW_HEIGHT:
+        DistributeRows(/*bOptimize=*/true);
         break;
 
     case SID_TABLE_DISTRIBUTE_ROWS:
-        DistributeRows();
+        DistributeRows(/*bOptimize=*/false);
         break;
 
     case SID_TABLE_VERT_BOTTOM:
@@ -1293,7 +1300,7 @@ void SvxTableController::SplitMarkedCells()
     }
 }
 
-void SvxTableController::DistributeColumns()
+void SvxTableController::DistributeColumns(const bool bOptimize)
 {
     if(!checkTableObject())
         return;
@@ -1310,13 +1317,13 @@ void SvxTableController::DistributeColumns()
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
-    rTableObj.DistributeColumns( aStart.mnCol, aEnd.mnCol );
+    rTableObj.DistributeColumns( aStart.mnCol, aEnd.mnCol, bOptimize );
 
     if( bUndo )
         rModel.EndUndo();
 }
 
-void SvxTableController::DistributeRows()
+void SvxTableController::DistributeRows(const bool bOptimize)
 {
     if(!checkTableObject())
         return;
@@ -1333,7 +1340,7 @@ void SvxTableController::DistributeRows()
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
-    rTableObj.DistributeRows( aStart.mnRow, aEnd.mnRow );
+    rTableObj.DistributeRows( aStart.mnRow, aEnd.mnRow, bOptimize );
 
     if( bUndo )
         rModel.EndUndo();
@@ -2305,7 +2312,7 @@ static void ImplSetLinePreserveColor( SvxBoxItem& rNewFrame, const SvxBorderLine
 }
 
 
-void ImplApplyBoxItem( CellPosFlag nCellPosFlags, const SvxBoxItem* pBoxItem, const SvxBoxInfoItem* pBoxInfoItem, SvxBoxItem& rNewFrame )
+static void ImplApplyBoxItem( CellPosFlag nCellPosFlags, const SvxBoxItem* pBoxItem, const SvxBoxInfoItem* pBoxInfoItem, SvxBoxItem& rNewFrame )
 {
     if (nCellPosFlags & (CellPosFlag::Before|CellPosFlag::After|CellPosFlag::Upper|CellPosFlag::Lower))
     {

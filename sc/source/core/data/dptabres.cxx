@@ -942,8 +942,6 @@ ScDPResultMember::ScDPResultMember(
     const ScDPResultData* pData, const ScDPParentDimData& rParentDimData ) :
     pResultData( pData ),
        aParentDimData( rParentDimData ),
-    pChildDimension( nullptr ),
-    pDataRoot( nullptr ),
     bHasElements( false ),
     bForceSubTotal( false ),
     bHasHiddenDetails( false ),
@@ -957,8 +955,6 @@ ScDPResultMember::ScDPResultMember(
 ScDPResultMember::ScDPResultMember(
     const ScDPResultData* pData, bool bForceSub ) :
     pResultData( pData ),
-        pChildDimension( nullptr ),
-    pDataRoot( nullptr ),
     bHasElements( false ),
     bForceSubTotal( bForceSub ),
     bHasHiddenDetails( false ),
@@ -1623,11 +1619,12 @@ void ScDPResultMember::FillDataResults(
                         nMemberMeasure = SC_DPMEASURE_ALL;
 
                     OSL_ENSURE( rFilterCxt.mnRow < rSequence.getLength(), "bumm" );
-                    uno::Sequence<sheet::DataResult>& rSubSeq = rSequence.getArray()[rFilterCxt.mnRow];
                     rFilterCxt.mnCol = 0;
                     if (pRefMember->IsVisible())
+                    {
+                        uno::Sequence<sheet::DataResult>& rSubSeq = rSequence.getArray()[rFilterCxt.mnRow];
                         pDataRoot->FillDataRow(pRefMember, rFilterCxt, rSubSeq, nMemberMeasure, bHasChild, aSubState);
-
+                    }
                     rFilterCxt.mnRow += 1;
                 }
             }
@@ -1832,8 +1829,7 @@ void ScDPResultMember::FillVisibilityData(ScDPResultVisibilityData& rData) const
 
 ScDPDataMember::ScDPDataMember( const ScDPResultData* pData, const ScDPResultMember* pRes ) :
     pResultData( pData ),
-    pResultMember( pRes ),
-    pChildDimension( nullptr )
+    pResultMember( pRes )
 {
     // pResultMember is 0 for root members
 }
@@ -2862,10 +2858,14 @@ void ScDPResultDimension::LateInitFrom(
 {
     if ( rParams.IsEnd( nPos ) )
         return;
-    OSL_ENSURE( nPos <= pItemData.size(), OString::number(pItemData.size()).getStr() );
+    if (nPos >= pItemData.size())
+    {
+        SAL_WARN("sc.core", "pos " << nPos << ", but vector size is " << pItemData.size());
+        return;
+    }
+    SCROW rThisData = pItemData[nPos];
     ScDPDimension* pThisDim = rParams.GetDim( nPos );
     ScDPLevel* pThisLevel = rParams.GetLevel( nPos );
-    SCROW rThisData = pItemData[nPos];
 
     if (!pThisDim || !pThisLevel)
         return;

@@ -261,7 +261,6 @@ public:
         m_eRTLFontSrcCharSet(0),
         m_eCJKFontSrcCharSet(0),
         m_pFormat( nullptr ),
-        m_xWWFly( nullptr ),
         m_pOutlineNumrule( nullptr ),
         m_nFilePos( 0 ),
         m_nBase( 0 ),
@@ -1422,7 +1421,7 @@ private:
 
     void ProcessCurrentCollChange(WW8PLCFManResult& rRes, bool* pStartAttr,
         bool bCallProcessSpecial);
-    long ReadTextAttr(WW8_CP& rTextPos, long nTextEnd, bool& rbStartLine);
+    long ReadTextAttr(WW8_CP& rTextPos, long nTextEnd, bool& rbStartLine, int nDepthGuard = 0);
     void ReadAttrs(WW8_CP& rTextPos, WW8_CP& rNext, long nTextEnd, bool& rbStartLine);
     void CloseAttrEnds();
     bool ReadText(WW8_CP nStartCp, WW8_CP nTextLen, ManTypes nType);
@@ -1886,8 +1885,8 @@ public:     // really private, but can only be done public
 
     static bool GetPictGrafFromStream(Graphic& rGraphic, SvStream& rSrc);
     static void PicRead( SvStream *pDataStream, WW8_PIC *pPic, bool bVer67);
-    static bool ImportOleWMF( tools::SvRef<SotStorage> xSrc1, GDIMetaFile &rWMF,
-        long &rX, long &rY);
+    static bool ImportOleWMF(const tools::SvRef<SotStorage>& xSrc1, GDIMetaFile& rWMF, long& rX,
+                             long& rY);
     static Color GetCol(sal_uInt8 nIco);
 
     SwWW8ImplReader( sal_uInt8 nVersionPara, SotStorage* pStorage, SvStream* pSt,

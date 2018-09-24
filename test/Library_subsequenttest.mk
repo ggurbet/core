@@ -41,6 +41,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/unoapi_test \
 	test/source/calc_unoapi_test \
 	test/source/beans/xpropertyset \
+	test/source/container/xchild \
 	test/source/container/xelementaccess \
 	test/source/container/xindexaccess \
 	test/source/container/xnamecontainer \
@@ -146,9 +147,14 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xviewsplitable \
 	test/source/sheet/xsubtotalcalculatable \
 	test/source/sheet/xsubtotaldescriptor \
+	test/source/table/xcell \
+	test/source/table/xcellcursor \
+	test/source/table/xcolumnrowrange \
 	test/source/text/xtext \
 	test/source/text/xtextfield \
 	test/source/text/xtextcontent \
+	test/source/util/xindent \
+	test/source/util/xmergeable \
 	test/source/util/xreplaceable \
 	test/source/util/xsearchable \
 ))

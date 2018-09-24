@@ -34,7 +34,7 @@
 
 namespace svx
 {
-    SVX_DLLPUBLIC bool ShowBorderBackgroundDlg( vcl::Window* pParent, SfxItemSet* pBBSet );
+    SVX_DLLPUBLIC bool ShowBorderBackgroundDlg(weld::Window* pParent, SfxItemSet* pBBSet);
 }
 
 class SVX_DLLPUBLIC SvxHFPage : public SfxTabPage
@@ -68,7 +68,7 @@ protected:
     bool            mbDisableQueryBox : 1;
     bool            mbEnableDrawingLayerFillStyles : 1;
 
-    PageWindow m_aBspWin;
+    SvxPageWindow m_aBspWin;
     std::unique_ptr<weld::Label> m_xPageLbl;
     std::unique_ptr<weld::CheckButton> m_xTurnOnBox;
     std::unique_ptr<weld::CheckButton> m_xCntSharedBox;
@@ -104,7 +104,7 @@ public:
     static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rSet );
     // returns the Which values to the range
     static const sal_uInt16*  GetRanges() { return pRanges; }
-    SVX_DLLPRIVATE SvxHeaderPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    SVX_DLLPRIVATE SvxHeaderPage(TabPageParent pParent, const SfxItemSet& rSet);
 };
 
 class SVX_DLLPUBLIC SvxFooterPage : public SvxHFPage
@@ -112,7 +112,7 @@ class SVX_DLLPUBLIC SvxFooterPage : public SvxHFPage
 public:
     static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rSet );
     static const sal_uInt16*  GetRanges() { return pRanges; }
-    SVX_DLLPRIVATE SvxFooterPage(   vcl::Window* pParent, const SfxItemSet& rSet );
+    SVX_DLLPRIVATE SvxFooterPage(TabPageParent pParent, const SfxItemSet& rSet);
 };
 
 class SVX_DLLPUBLIC DeleteHeaderDialog : public weld::MessageDialogController

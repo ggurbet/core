@@ -63,11 +63,11 @@ SwAsciiFilterDlg::SwAsciiFilterDlg( weld::Window* pParent, SwDocShell& rDocSh,
                                     SvStream* pStream )
     : GenericDialogController(pParent, "modules/swriter/ui/asciifilterdialog.ui", "AsciiFilterDialog")
     , m_bSaveLineStatus(true)
-    , m_xCharSetLB(new TextEncodingBox(m_xBuilder->weld_combo_box_text("charset")))
+    , m_xCharSetLB(new TextEncodingBox(m_xBuilder->weld_combo_box("charset")))
     , m_xFontFT(m_xBuilder->weld_label("fontft"))
-    , m_xFontLB(m_xBuilder->weld_combo_box_text("font"))
+    , m_xFontLB(m_xBuilder->weld_combo_box("font"))
     , m_xLanguageFT(m_xBuilder->weld_label("languageft"))
-    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box_text("language")))
+    , m_xLanguageLB(new LanguageBox(m_xBuilder->weld_combo_box("language")))
     , m_xCRLF_RB(m_xBuilder->weld_radio_button("crlf"))
     , m_xCR_RB(m_xBuilder->weld_radio_button("cr"))
     , m_xLF_RB(m_xBuilder->weld_radio_button("lf"))
@@ -179,7 +179,7 @@ SwAsciiFilterDlg::SwAsciiFilterDlg( weld::Window* pParent, SwDocShell& rDocSh,
             }
 
             m_xLanguageLB->SetLanguageList( SvxLanguageListFlags::ALL, true );
-            m_xLanguageLB->SelectLanguage( aOpt.GetLanguage() );
+            m_xLanguageLB->set_active_id(aOpt.GetLanguage());
         }
 
         {
@@ -263,7 +263,7 @@ void SwAsciiFilterDlg::FillOptions( SwAsciiOptions& rOptions )
     if (m_xFontLB->get_visible())
     {
         sFont = m_xFontLB->get_active_text();
-        nLng = m_xLanguageLB->GetSelectedLanguage();
+        nLng = m_xLanguageLB->get_active_id();
     }
 
     rOptions.SetFontName( sFont );
@@ -320,11 +320,11 @@ LineEnd SwAsciiFilterDlg::GetCRLF() const
     return eEnd;
 }
 
-IMPL_LINK_NOARG( SwAsciiFilterDlg, CharSetSelHdl, weld::ComboBoxText&, void )
+IMPL_LINK_NOARG( SwAsciiFilterDlg, CharSetSelHdl, weld::ComboBox&, void )
 {
     LineEnd eOldEnd = GetCRLF(), eEnd = LineEnd(-1);
     LanguageType nLng = m_xFontLB->get_visible()
-                    ? m_xLanguageLB->GetSelectedLanguage()
+                    ? m_xLanguageLB->get_active_id()
                     : LANGUAGE_SYSTEM,
                 nOldLng = nLng;
 
@@ -391,7 +391,7 @@ IMPL_LINK_NOARG( SwAsciiFilterDlg, CharSetSelHdl, weld::ComboBoxText&, void )
     m_bSaveLineStatus = true;
 
     if (nOldLng != nLng && m_xFontLB->get_visible())
-        m_xLanguageLB->SelectLanguage( nLng );
+        m_xLanguageLB->set_active_id(nLng);
 }
 
 IMPL_LINK(SwAsciiFilterDlg, LineEndHdl, weld::ToggleButton&, rBtn, void)

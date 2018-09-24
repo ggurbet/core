@@ -227,7 +227,6 @@ OSingleSelectQueryComposer::OSingleSelectQueryComposer(const Reference< XNameAcc
     ,m_xMetaData(_xConnection->getMetaData())
     ,m_xConnectionTables( _rxTables )
     ,m_aContext( _rContext )
-    ,m_pTables(nullptr)
     ,m_nBoolCompareMode( BooleanComparisonMode::EQUAL_INTEGER )
     ,m_nCommandType(CommandType::COMMAND)
 {
@@ -789,29 +788,36 @@ Reference< XNameAccess > SAL_CALL OSingleSelectQueryComposer::getColumns(  )
         }
         catch( const Exception& ) { }
 
-        try
+        if ( !xResultSetMeta.is() && xPreparedStatement.is() )
         {
-            if ( !xResultSetMeta.is() )
+            try
             {
-                xStatement.reset( Reference< XStatement >( m_xConnection->createStatement(), UNO_QUERY_THROW ) );
-                Reference< XPropertySet > xStatementProps( xStatement, UNO_QUERY_THROW );
-                try { xStatementProps->setPropertyValue( PROPERTY_ESCAPE_PROCESSING, makeAny( false ) ); }
-                catch ( const Exception& ) { DBG_UNHANDLED_EXCEPTION("dbaccess"); }
-                xResMetaDataSup.set( xStatement->executeQuery( sSQL ), UNO_QUERY_THROW );
+                //@see issue http://qa.openoffice.org/issues/show_bug.cgi?id=110111
+                // access returns a different order of column names when executing select * from
+                // and asking the columns from the metadata.
+                Reference< XParameters > xParameters( xPreparedStatement, UNO_QUERY_THROW );
+                Reference< XIndexAccess > xPara = getParameters();
+                for(sal_Int32 i = 1;i <= xPara->getCount();++i)
+                    xParameters->setNull(i,DataType::VARCHAR);
+                xResMetaDataSup.set(xPreparedStatement->executeQuery(), UNO_QUERY_THROW );
                 xResultSetMeta.set( xResMetaDataSup->getMetaData(), UNO_QUERY_THROW );
             }
+            catch( const Exception& ) { }
         }
-        catch( const Exception& )
+
+        if ( !xResultSetMeta.is() )
         {
-            //@see issue http://qa.openoffice.org/issues/show_bug.cgi?id=110111
-            // access returns a different order of column names when executing select * from
-            // and asking the columns from the metadata.
-            Reference< XParameters > xParameters( xPreparedStatement, UNO_QUERY_THROW );
-            Reference< XIndexAccess > xPara = getParameters();
-            for(sal_Int32 i = 1;i <= xPara->getCount();++i)
-                xParameters->setNull(i,DataType::VARCHAR);
-            xResMetaDataSup.set(xPreparedStatement->executeQuery(), UNO_QUERY_THROW );
+            xStatement.reset( Reference< XStatement >( m_xConnection->createStatement(), UNO_QUERY_THROW ) );
+            Reference< XPropertySet > xStatementProps( xStatement, UNO_QUERY_THROW );
+            try { xStatementProps->setPropertyValue( PROPERTY_ESCAPE_PROCESSING, makeAny( false ) ); }
+            catch ( const Exception& ) { DBG_UNHANDLED_EXCEPTION("dbaccess"); }
+            xResMetaDataSup.set( xStatement->executeQuery( sSQL ), UNO_QUERY_THROW );
             xResultSetMeta.set( xResMetaDataSup->getMetaData(), UNO_QUERY_THROW );
+
+            if (xResultSetMeta.is())
+            {
+                SAL_WARN("dbaccess", "OSingleSelectQueryComposer::getColumns failed to get xResultSetMeta from executed PreparedStatement, but got it from 'no escape processing' statement. SQL command:\n\t" << sSQL );
+            }
         }
 
         if ( aSelectColumns->get().empty() )
@@ -892,20 +898,15 @@ Reference< XNameAccess > SAL_CALL OSingleSelectQueryComposer::getColumns(  )
 
                 OUString sRealName;
                 xProp->getPropertyValue(PROPERTY_REALNAME) >>= sRealName;
-                std::vector< OUString>::const_iterator aFindName;
                 if ( sColumnName.isEmpty() )
                     xProp->getPropertyValue(PROPERTY_NAME) >>= sColumnName;
 
-                aFindName = std::find_if(aNames.begin(),aNames.end(),
-                                    [&aCaseCompare, &sColumnName](const OUString& lhs)
-                                    { return aCaseCompare(lhs, sColumnName); } );
                 sal_Int32 j = 0;
-                while ( aFindName != aNames.end() )
+                while ( std::any_of(aNames.begin(),aNames.end(),
+                                    [&aCaseCompare, &sColumnName](const OUString& lhs)
+                                    { return aCaseCompare(lhs, sColumnName); } ) )
                 {
                     sColumnName += OUString::number(++j);
-                    aFindName = std::find_if(aNames.begin(),aNames.end(),
-                                        [&aCaseCompare, &sColumnName](const OUString& lhs)
-                                        { return aCaseCompare(lhs, sColumnName); } );
                 }
 
                 pColumn->setName(sColumnName);

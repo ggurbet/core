@@ -26,6 +26,8 @@
 #include <com/sun/star/view/PaperFormat.hpp>
 #include <com/sun/star/view/PaperOrientation.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/lang/EventObject.hpp>
@@ -68,8 +70,7 @@ struct IMPL_PrintListener_DataContainer : public SfxListener
     css::uno::Sequence< css::beans::PropertyValue > m_aPrintOptions;
 
     explicit IMPL_PrintListener_DataContainer( ::osl::Mutex& aMutex)
-            :   m_pObjectShell          ( nullptr )
-            ,   m_aInterfaceContainer   ( aMutex )
+            :   m_aInterfaceContainer   ( aMutex )
     {
     }
 
@@ -78,7 +79,7 @@ struct IMPL_PrintListener_DataContainer : public SfxListener
                     const   SfxHint&        aHint   ) override ;
 };
 
-awt::Size impl_Size_Object2Struct( const Size& aSize )
+static awt::Size impl_Size_Object2Struct( const Size& aSize )
 {
     awt::Size aReturnValue;
     aReturnValue.Width  = aSize.Width()  ;
@@ -86,7 +87,7 @@ awt::Size impl_Size_Object2Struct( const Size& aSize )
     return aReturnValue ;
 }
 
-Size impl_Size_Struct2Object( const awt::Size& aSize )
+static Size impl_Size_Struct2Object( const awt::Size& aSize )
 {
     Size aReturnValue;
     aReturnValue.setWidth( aSize.Width )  ;

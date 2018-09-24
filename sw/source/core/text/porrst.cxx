@@ -223,20 +223,20 @@ SwTwips SwTextFrame::EmptyHeight() const
     }
     OSL_ENSURE( ! IsVertical() || ! IsSwapped(),"SwTextFrame::EmptyHeight with swapped frame" );
 
-    SwFont *pFnt;
+    std::unique_ptr<SwFont> pFnt;
     const SwTextNode& rTextNode = *GetTextNodeForParaProps();
     const IDocumentSettingAccess* pIDSA = rTextNode.getIDocumentSettingAccess();
     SwViewShell *pSh = getRootFrame()->GetCurrShell();
     if ( rTextNode.HasSwAttrSet() )
     {
         const SwAttrSet *pAttrSet = &( rTextNode.GetSwAttrSet() );
-        pFnt = new SwFont( pAttrSet, pIDSA );
+        pFnt.reset(new SwFont( pAttrSet, pIDSA ));
     }
     else
     {
         SwFontAccess aFontAccess( &rTextNode.GetAnyFormatColl(), pSh);
-        pFnt = new SwFont( aFontAccess.Get()->GetFont() );
-        pFnt->ChkMagic( pSh, pFnt->GetActual() );
+        pFnt.reset(new SwFont( aFontAccess.Get()->GetFont() ));
+        pFnt->CheckFontCacheId( pSh, pFnt->GetActual() );
     }
 
     if ( IsVertical() )
@@ -250,7 +250,8 @@ SwTwips SwTextFrame::EmptyHeight() const
     }
 
     const IDocumentRedlineAccess& rIDRA = rTextNode.getIDocumentRedlineAccess();
-    if( IDocumentRedlineAccess::IsShowChanges( rIDRA.GetRedlineFlags() ) )
+    if (IDocumentRedlineAccess::IsShowChanges(rIDRA.GetRedlineFlags())
+        && !getRootFrame()->IsHideRedlines())
     {
         const SwRedlineTable::size_type nRedlPos = rIDRA.GetRedlinePos( rTextNode, USHRT_MAX );
         if( SwRedlineTable::npos != nRedlPos )
@@ -274,7 +275,6 @@ SwTwips SwTextFrame::EmptyHeight() const
         pFnt->ChgPhysFnt( pSh, *pOut );
         nRet = pFnt->GetHeight( pSh, *pOut );
     }
-    delete pFnt;
     return nRet;
 }
 

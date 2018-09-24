@@ -191,7 +191,7 @@ void SdrObjList::CopyObjects(const SdrObjList& rSrcList)
     // and then the object connections are made.
     // Similar implementation are setup as the following:
     //    void SdrObjList::CopyObjects(const SdrObjList& rSrcList)
-    //    SdrModel* SdrExchangeView::GetMarkedObjModel() const
+    //    SdrModel* SdrExchangeView::CreateMarkedObjModel() const
     //    BOOL SdrExchangeView::Paste(const SdrModel& rMod,...)
     //    void SdrEditView::CopyMarked()
     if (nCloneErrCnt==0) {
@@ -1041,7 +1041,7 @@ void SdrPageProperties::ImpAddStyleSheet(SfxStyleSheet& rNewStyleSheet)
     }
 }
 
-void ImpPageChange(SdrPage& rSdrPage)
+static void ImpPageChange(SdrPage& rSdrPage)
 {
     rSdrPage.ActionChanged();
     rSdrPage.getSdrModelFromSdrPage().SetChanged();
@@ -1134,7 +1134,6 @@ SdrPage::SdrPage(SdrModel& rModel, bool bMasterPage)
 :   tools::WeakBase(),
     SdrObjList(),
     maPageUsers(),
-    mpViewContact(nullptr),
     mrSdrModelFromSdrPage(rModel),
     mnWidth(10),
     mnHeight(10),
@@ -1143,9 +1142,7 @@ SdrPage::SdrPage(SdrModel& rModel, bool bMasterPage)
     mnBorderRight(0),
     mnBorderLower(0),
     mpLayerAdmin(new SdrLayerAdmin(&rModel.GetLayerAdmin())),
-    mpSdrPageProperties(nullptr),
     mxUnoPage(),
-    mpMasterPageDescriptor(nullptr),
     nPageNum(0),
     mbMaster(bMasterPage),
     mbInserted(false),
@@ -1190,11 +1187,6 @@ SdrPage::~SdrPage()
 
     mpViewContact.reset();
     mpSdrPageProperties.reset();
-}
-
-SdrModel& SdrPage::getSdrModelFromSdrObjList() const
-{
-    return getSdrModelFromSdrPage();
 }
 
 void SdrPage::lateInit(const SdrPage& rSrcPage)

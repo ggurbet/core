@@ -25,6 +25,7 @@
 #include <com/sun/star/beans/XTolerantMultiPropertySet.hpp>
 #include <com/sun/star/beans/TolerantPropertySetResultType.hpp>
 #include <rtl/ustrbuf.hxx>
+#include <cppuhelper/weakref.hxx>
 #include <list>
 #include <map>
 
@@ -53,8 +54,8 @@ namespace {
 
 struct XMLPropTokens_Impl
 {
-    sal_uInt16 nType;
-    XMLTokenEnum eToken;
+    sal_uInt16 const nType;
+    XMLTokenEnum const eToken;
 };
 
 const sal_uInt16 MAX_PROP_TYPES =
@@ -197,8 +198,7 @@ public:
 
 FilterPropertiesInfo_Impl::FilterPropertiesInfo_Impl() :
     nCount(0),
-    aPropInfos(),
-    pApiNames( nullptr )
+    aPropInfos()
 {
 }
 

@@ -183,7 +183,6 @@ SwGlossaryDlg::SwGlossaryDlg(SfxViewFrame const * pViewFrame,
     : SvxStandardDialog(&pViewFrame->GetWindow(), "AutoTextDialog",
         "modules/swriter/ui/autotext.ui")
     , sReadonlyPath(SwResId(STR_READONLY_PATH))
-    , pExampleFrame(nullptr)
     , pGlossaryHdl(pGlosHdl)
     , bResume(false)
     , bSelection(pWrtShell->IsSelection())
@@ -772,8 +771,8 @@ IMPL_LINK_NOARG(SwGlossaryDlg, EditHdl, MenuButton *, void)
 // EndDialog must not be called in MenuHdl
     if (m_pEditBtn->GetCurItemIdent() == "edit")
     {
-        SwTextBlocks *pGroup = ::GetGlossaries()->GetGroupDoc (  GetCurrGrpName () );
-        delete pGroup;
+        std::unique_ptr<SwTextBlocks> pGroup = ::GetGlossaries()->GetGroupDoc (  GetCurrGrpName () );
+        pGroup.reset();
         EndDialog(RET_EDIT);
     }
 }

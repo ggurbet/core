@@ -56,9 +56,9 @@ public:
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxFrameDirectionListBox
 {
 private:
-    std::unique_ptr<weld::ComboBoxText> m_xControl;
+    std::unique_ptr<weld::ComboBox> m_xControl;
 public:
-    explicit SvxFrameDirectionListBox(std::unique_ptr<weld::ComboBoxText> pControl)
+    explicit SvxFrameDirectionListBox(std::unique_ptr<weld::ComboBox> pControl)
         : m_xControl(std::move(pControl))
     {
     }
@@ -69,36 +69,18 @@ public:
     SvxFrameDirection get_active_id() const { return static_cast<SvxFrameDirection>(m_xControl->get_active_id().toUInt32()); }
     void set_active_id(SvxFrameDirection eDir) { m_xControl->set_active_id(OUString::number(static_cast<sal_uInt32>(eDir))); }
     void remove_id(SvxFrameDirection eDir) { m_xControl->remove_id(OUString::number(static_cast<sal_uInt32>(eDir))); }
+    void set_active(int pos) { m_xControl->set_active(pos); }
+    void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
     void hide() { m_xControl->hide(); }
-    void show() { m_xControl->show(); }
+    void show(bool bShow = true) { m_xControl->show(bShow); }
     int get_count() const { return m_xControl->get_count(); }
     /** Inserts a string with corresponding direction enum into the listbox. */
     void append(SvxFrameDirection eDirection, const OUString& rString)
     {
         m_xControl->append(OUString::number(static_cast<sal_uInt32>(eDirection)), rString);
     }
-    void connect_changed(const Link<weld::ComboBoxText&, void>& rLink) { m_xControl->connect_changed(rLink); }
+    void connect_changed(const Link<weld::ComboBox&, void>& rLink) { m_xControl->connect_changed(rLink); }
 };
-
-/** Wrapper for usage of a FrameDirectionListBox in item connections. */
-class SAL_WARN_UNUSED SVX_DLLPUBLIC FrameDirectionListBoxWrapper : public sfx::SingleControlWrapper< FrameDirectionListBox, SvxFrameDirection >
-{
-public:
-    explicit            FrameDirectionListBoxWrapper( FrameDirectionListBox& rListBox );
-
-    virtual bool        IsControlDontKnow() const override;
-    virtual void        SetControlDontKnow( bool bSet ) override;
-
-    virtual SvxFrameDirection GetControlValue() const override;
-    virtual void        SetControlValue( SvxFrameDirection eValue ) override;
-};
-
-/** Wrapper for usage of a SvxFrameDirectionItem in item connections. */
-typedef sfx::ValueItemWrapper< SvxFrameDirectionItem, SvxFrameDirection > FrameDirItemWrapper;
-
-/** An item<->control connection for a FrameDirectionListBox. */
-typedef sfx::ItemControlConnection< FrameDirItemWrapper, FrameDirectionListBoxWrapper > FrameDirectionListBoxConnection;
-
 
 }
 

@@ -37,12 +37,12 @@ protected:
     {
     }
 
-    virtual BitmapEx execute(BitmapEx const& rBitmap) override;
+    virtual BitmapEx execute(BitmapEx const& rBitmap) const override;
 
 private:
     std::unique_ptr<Kernel> mxKernel;
-    double mrScaleX;
-    double mrScaleY;
+    double const mrScaleX;
+    double const mrScaleY;
 };
 
 class VCL_DLLPUBLIC BitmapScaleBilinearFilter : public BitmapScaleConvolutionFilter

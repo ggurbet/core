@@ -95,6 +95,7 @@
 
 #include <comphelper/xmltools.hxx>
 #include <comphelper/graphicmimetype.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace ::osl;
 using namespace ::com::sun::star;
@@ -127,9 +128,9 @@ namespace {
 struct XMLServiceMapEntry_Impl
 {
     const sal_Char *sModelService;
-    sal_Int32      nModelServiceLen;
+    sal_Int32 const      nModelServiceLen;
     const sal_Char *sFilterService;
-    sal_Int32      nFilterServiceLen;
+    sal_Int32 const      nFilterServiceLen;
 };
 
 }
@@ -255,7 +256,7 @@ public:
 
     uno::Reference< embed::XStorage >                   mxTargetStorage;
 
-    SvtSaveOptions                                      maSaveOptions;
+    SvtSaveOptions const                                maSaveOptions;
 
     /// name of stream in package, e.g., "content.xml"
     OUString mStreamName;
@@ -436,11 +437,6 @@ SvXMLExport::SvXMLExport(
     mxAttrList( new SvXMLAttributeList ),
     mpNamespaceMap( new SvXMLNamespaceMap ),
     maUnitConv( xContext, util::MeasureUnit::MM_100TH, eDefaultMeasureUnit ),
-    mpNumExport(nullptr),
-    mpProgressBarHelper( nullptr ),
-    mpEventExport( nullptr ),
-    mpImageMapExport( nullptr ),
-    mpXMLErrors( nullptr ),
     meClass( eClass ),
     mnExportFlags( nExportFlags ),
     mnErrorFlags( SvXMLErrorFlags::NO ),
@@ -466,11 +462,6 @@ SvXMLExport::SvXMLExport(
     msOrigFileName( rFileName ),
     mpNamespaceMap( new SvXMLNamespaceMap ),
     maUnitConv( xContext, util::MeasureUnit::MM_100TH, eDefaultMeasureUnit ),
-    mpNumExport(nullptr),
-    mpProgressBarHelper( nullptr ),
-    mpEventExport( nullptr ),
-    mpImageMapExport( nullptr ),
-    mpXMLErrors( nullptr ),
     meClass( XML_TOKEN_INVALID ),
     mnExportFlags( SvXMLExportFlags::NONE ),
     mnErrorFlags( SvXMLErrorFlags::NO ),
@@ -506,11 +497,6 @@ SvXMLExport::SvXMLExport(
     maUnitConv( xContext,
                 util::MeasureUnit::MM_100TH,
                 SvXMLUnitConverter::GetMeasureUnit(eDefaultFieldUnit) ),
-    mpNumExport(nullptr),
-    mpProgressBarHelper( nullptr ),
-    mpEventExport( nullptr ),
-    mpImageMapExport( nullptr ),
-    mpXMLErrors( nullptr ),
     meClass( XML_TOKEN_INVALID ),
     mnExportFlags( nExportFlag ),
     mnErrorFlags( SvXMLErrorFlags::NO ),
@@ -2025,8 +2011,8 @@ XMLEventExport& SvXMLExport::GetEventExport()
         mpEventExport.reset( new XMLEventExport(*this) );
 
         // and register standard handlers + names
-        mpEventExport->AddHandler("StarBasic", new XMLStarBasicExportHandler());
-        mpEventExport->AddHandler("Script", new XMLScriptExportHandler());
+        mpEventExport->AddHandler("StarBasic", o3tl::make_unique<XMLStarBasicExportHandler>());
+        mpEventExport->AddHandler("Script", o3tl::make_unique<XMLScriptExportHandler>());
         mpEventExport->AddTranslationTable(aStandardEventTable);
     }
 

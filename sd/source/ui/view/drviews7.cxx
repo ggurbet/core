@@ -81,7 +81,7 @@
 #include <drawdoc.hxx>
 #include <DrawViewShell.hxx>
 #include <sdmod.hxx>
-#include <sdresid.hxx>
+#include <unokywds.hxx>
 #include <sdpage.hxx>
 #include <Client.hxx>
 #include <DrawDocShell.hxx>
@@ -111,7 +111,7 @@ using namespace ::com::sun::star::linguistic2;
     current clipboard content and the DrawViewShell.
     The list is stored in a new instance of SvxClipboardFormatItem.
 */
-::std::unique_ptr<SvxClipboardFormatItem> GetSupportedClipboardFormats (
+static ::std::unique_ptr<SvxClipboardFormatItem> GetSupportedClipboardFormats (
     TransferableDataHelper& rDataHelper)
 {
     ::std::unique_ptr<SvxClipboardFormatItem> pResult (
@@ -857,21 +857,15 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
     }
 
     // is it allowed to delete the current layer?
-    if( SfxItemState::DEFAULT == rSet.GetItemState( SID_DELETE_LAYER ) )
+    if( SfxItemState::DEFAULT == rSet.GetItemState( SID_DELETE_LAYER )
+        || SfxItemState::DEFAULT == rSet.GetItemState( SID_RENAMELAYER ) )
     {
         if(GetLayerTabControl()) // #i87182#
         {
             sal_uInt16 nCurrentLayer = GetLayerTabControl()->GetCurPageId();
-            const OUString& rName = GetLayerTabControl()->GetPageText(nCurrentLayer);
+            const OUString& rName = GetLayerTabControl()->GetLayerName(nCurrentLayer);
 
-            bool bDisableIt = !IsLayerModeActive();
-            bDisableIt |= (rName == SdResId(STR_LAYER_LAYOUT));
-            bDisableIt |= (rName == SdResId(STR_LAYER_BCKGRND));
-            bDisableIt |= (rName == SdResId(STR_LAYER_BCKGRNDOBJ));
-            bDisableIt |= (rName == SdResId(STR_LAYER_CONTROLS));
-            bDisableIt |= (rName == SdResId(STR_LAYER_MEASURELINES));
-
-            if (bDisableIt)
+            if (!IsLayerModeActive() || LayerTabBar::IsRealNameOfStandardLayer(rName))
             {
                 rSet.DisableItem(SID_DELETE_LAYER);
                 rSet.DisableItem(SID_RENAMELAYER);
@@ -1569,8 +1563,8 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
         {
             SdrLayerIDSet aVisibleLayers = pPage->TRG_GetMasterPageVisibleLayers();
             SdrLayerAdmin& rLayerAdmin = GetDoc()->GetLayerAdmin();
-            SdrLayerID aBackgroundId = rLayerAdmin.GetLayerID(SdResId(STR_LAYER_BCKGRND));
-            SdrLayerID aObjectId = rLayerAdmin.GetLayerID(SdResId(STR_LAYER_BCKGRNDOBJ));
+            SdrLayerID aBackgroundId = rLayerAdmin.GetLayerID(sUNO_LayerName_background);
+            SdrLayerID aObjectId = rLayerAdmin.GetLayerID(sUNO_LayerName_background_objects);
             rSet.Put(SfxBoolItem(SID_DISPLAY_MASTER_BACKGROUND,
                     aVisibleLayers.IsSet(aBackgroundId)));
             rSet.Put(SfxBoolItem(SID_DISPLAY_MASTER_OBJECTS,

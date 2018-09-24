@@ -91,7 +91,7 @@ eF_ResT SwWW8ImplReader::Read_F_FormTextBox( WW8FieldDesc* pF, OUString& rStr )
 {
     WW8FormulaEditBox aFormula(*this);
 
-    if (rStr[pF->nLCode-1]==0x01) {
+    if (pF->nLCode && rStr[pF->nLCode-1]==0x01) {
         ImportFormulaControl(aFormula,pF->nSCode+pF->nLCode-1, WW8_CT_EDIT);
     }
 
@@ -477,7 +477,7 @@ static void lcl_CopyGreaterEight(OUString &rDest, OUString const &rSrc,
     }
 }
 
-OUString sanitizeString(const OUString& rString)
+static OUString sanitizeString(const OUString& rString)
 {
     sal_Int32 i=0;
     while (i < rString.getLength())
@@ -1495,7 +1495,7 @@ WW8ListManager::~WW8ListManager() COVERITY_NOEXCEPT_FALSE
     }
 }
 
-bool IsEqualFormatting(const SwNumRule &rOne, const SwNumRule &rTwo)
+static bool IsEqualFormatting(const SwNumRule &rOne, const SwNumRule &rTwo)
 {
     bool bRet =
         (

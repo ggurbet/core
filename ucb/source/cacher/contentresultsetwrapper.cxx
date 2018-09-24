@@ -26,6 +26,7 @@
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <rtl/ustring.hxx>
 #include <osl/diagnose.h>
+#include <cppuhelper/queryinterface.hxx>
 
 using namespace com::sun::star::beans;
 using namespace com::sun::star::lang;
@@ -43,17 +44,9 @@ using namespace cppu;
 ContentResultSetWrapper::ContentResultSetWrapper(
                                 Reference< XResultSet > const & xOrigin )
                 : m_xResultSetOrigin( xOrigin )
-                , m_xRowOrigin( nullptr )
-                , m_xContentAccessOrigin( nullptr )
-                , m_xPropertySetOrigin( nullptr )
-                , m_xPropertySetInfo( nullptr )
                 , m_nForwardOnly( 2 )
-                , m_xMetaDataFromOrigin( nullptr )
                 , m_bDisposed( false )
                 , m_bInDispose( false )
-                , m_pDisposeEventListeners( nullptr )
-                , m_pPropertyChangeListeners( nullptr )
-                , m_pVetoableChangeListeners( nullptr )
 {
     m_xMyListenerImpl = new ContentResultSetWrapperListener( this );
 

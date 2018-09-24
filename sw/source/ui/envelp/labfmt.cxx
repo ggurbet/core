@@ -122,6 +122,8 @@ SwLabPreview::SwLabPreview()
 
 void SwLabPreview::SetDrawingArea(weld::DrawingArea* pWidget)
 {
+    CustomWidgetController::SetDrawingArea(pWidget);
+
     pWidget->set_size_request(pWidget->get_approximate_digit_width() * 54,
                               pWidget->get_text_height() * 15);
 
@@ -133,8 +135,6 @@ void SwLabPreview::SetDrawingArea(weld::DrawingArea* pWidget)
     m_lColsWidth   = pWidget->get_pixel_size(m_aColsStr).Width();
     m_lXWidth  = pWidget->get_pixel_size(OUString('X')).Width();
     m_lXHeight = pWidget->get_text_height();
-
-    CustomWidgetController::SetDrawingArea(pWidget);
 }
 
 void SwLabPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
@@ -520,7 +520,7 @@ SwSaveLabelDlg::SwSaveLabelDlg(SwLabDlg* pParent, SwLabRec& rRec)
     , bSuccess(false)
     , m_pLabDialog(pParent)
     , rLabRec(rRec)
-    , m_xMakeCB(m_xBuilder->weld_combo_box_text("brand"))
+    , m_xMakeCB(m_xBuilder->weld_combo_box("brand"))
     , m_xTypeED(m_xBuilder->weld_entry("type"))
     , m_xOKPB(m_xBuilder->weld_button("ok"))
 {
@@ -577,7 +577,7 @@ void SwSaveLabelDlg::Modify()
     m_xOKPB->set_sensitive(!m_xMakeCB->get_active_text().isEmpty() && !m_xTypeED->get_text().isEmpty());
 }
 
-IMPL_LINK_NOARG(SwSaveLabelDlg, ModifyComboHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SwSaveLabelDlg, ModifyComboHdl, weld::ComboBox&, void)
 {
     Modify();
 }

@@ -78,7 +78,8 @@ static std::vector< LanguageType > lcl_LocaleSeqToLangSeq( Sequence< css::lang::
     sal_Int32 nCount = rSeq.getLength();
 
     std::vector< LanguageType >   aLangs;
-    for (sal_Int32 i = 0;  i < nCount;  ++i)
+    aLangs.reserve(nCount);
+    for (sal_Int32 i = 0; i < nCount; ++i)
     {
         aLangs.push_back( LanguageTag::convertToLanguageType( pLocale[i] ) );
 
@@ -138,8 +139,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT void makeSvxLanguageComboBox(VclPtr<vcl::Window>
 }
 
 SvxLanguageBoxBase::SvxLanguageBoxBase()
-    : m_pSpellUsedLang(nullptr)
-    , m_bHasLangNone(false)
+    : m_bHasLangNone(false)
     , m_bLangNoneIsLangAll(false)
     , m_bWithCheckmark(false)
 {
@@ -493,42 +493,7 @@ sal_Int32 SvxLanguageBoxBase::ImplTypeToPos( LanguageType eType ) const
 }
 
 
-void SvxLanguageBoxBase::SetNoSelectionLBB()
-{
-    ImplSetNoSelection();
-}
-
-void SvxLanguageBoxBase::HideLBB()
-{
-    ImplHide();
-}
-
-void SvxLanguageBoxBase::DisableLBB()
-{
-    ImplDisable();
-}
-
-void SvxLanguageBoxBase::SaveValueLBB()
-{
-    ImplSaveValue();
-}
-
-sal_Int32 SvxLanguageBoxBase::GetSelectedEntryPosLBB() const
-{
-    return ImplGetSelectedEntryPos();
-}
-
-void* SvxLanguageBoxBase::GetEntryDataLBB( sal_Int32  nPos ) const
-{
-    return ImplGetEntryData( nPos);
-}
-
-sal_Int32 SvxLanguageBoxBase::GetSavedValueLBB() const
-{
-    return ImplGetSavedValue();
-}
-
-LanguageType LanguageBox::GetSelectedLanguage() const
+LanguageType LanguageBox::get_active_id() const
 {
     OUString sLang = m_xControl->get_active_id();
     if (!sLang.isEmpty())
@@ -537,7 +502,7 @@ LanguageType LanguageBox::GetSelectedLanguage() const
         return LANGUAGE_DONTKNOW;
 }
 
-void LanguageBox::SelectLanguage( const LanguageType eLangType )
+void LanguageBox::set_active_id(const LanguageType eLangType)
 {
     // If the core uses a LangID of an imported MS document and wants to select
     // a language that is replaced, we need to select the replacement instead.
@@ -579,12 +544,13 @@ void LanguageBox::ImplClear()
 }
 
 void LanguageBox::SetLanguageList( SvxLanguageListFlags nLangList,
-        bool bHasLangNone, bool bLangNoneIsLangAll )
+        bool bHasLangNone, bool bLangNoneIsLangAll, bool bCheckSpellAvail )
 {
     ImplClear();
 
     m_bHasLangNone          = bHasLangNone;
     m_bLangNoneIsLangAll    = bLangNoneIsLangAll;
+    m_bWithCheckmark        = bCheckSpellAvail;
 
     if ( SvxLanguageListFlags::EMPTY == nLangList )
         return;
@@ -734,31 +700,105 @@ void LanguageBox::InsertLanguage(const LanguageType nLangType)
         aStrEntry += SvtLanguageTable::GetLanguageString( nRealLang );
     }
 
-    // aStrEntry = ApplyLreOrRleEmbedding( aStrEntry );
-
-    m_xControl->append(OUString::number(static_cast<sal_uInt16>(nLangType)), aStrEntry);
-}
-
-IMPL_LINK(LanguageBox, ChangeHdl, weld::ComboBoxText&, rControl, void)
-{
-    int nModelPos = rControl.find_text(rControl.get_active_text());
-    if (nModelPos == -1)
+    if (m_bWithCheckmark)
     {
-        rControl.set_entry_error(true);
+        if (!m_xSpellUsedLang)
+        {
+            Reference<XSpellChecker1> xSpell(LinguMgr::GetSpellChecker(), UNO_QUERY);
+            if (xSpell.is())
+                m_xSpellUsedLang.reset(new Sequence<sal_Int16>(xSpell->getLanguages()));
+        }
+
+        bool bFound = m_xSpellUsedLang && lcl_SeqHasLang(*m_xSpellUsedLang, static_cast<sal_uInt16>(nRealLang));
+
+        m_xControl->append(OUString::number(static_cast<sal_uInt16>(nLangType)), aStrEntry,
+                           bFound ? OUString(RID_SVXBMP_CHECKED) : OUString(RID_SVXBMP_NOTCHECKED));
     }
     else
-    {
-        rControl.set_active(nModelPos);
-        rControl.set_entry_error(false);
-        m_aChangeHdl.Call(rControl);
-    }
+        m_xControl->append(OUString::number(static_cast<sal_uInt16>(nLangType)), aStrEntry);
 }
 
-LanguageBox::LanguageBox(std::unique_ptr<weld::ComboBoxText> pControl)
+IMPL_LINK(LanguageBox, ChangeHdl, weld::ComboBox&, rControl, void)
+{
+    if (rControl.has_entry())
+    {
+        EditedAndValid eOldState = m_eEditedAndValid;
+        OUString aStr(rControl.get_active_text());
+        if (aStr.isEmpty())
+            m_eEditedAndValid = EditedAndValid::Invalid;
+        else
+        {
+            const int nPos = rControl.find_text(aStr);
+            if (nPos != -1)
+            {
+                int nStartSelectPos, nEndSelectPos;
+                rControl.get_entry_selection_bounds(nStartSelectPos, nEndSelectPos);
+
+                // Select the corresponding listbox entry if not current. This
+                // invalidates the Edit Selection thus has to happen between
+                // obtaining the Selection and setting the new Selection.
+                int nSelPos = m_xControl->get_active();
+                bool bSetEditSelection;
+                if (nSelPos == nPos)
+                    bSetEditSelection = false;
+                else
+                {
+                    m_xControl->set_active(nPos);
+                    bSetEditSelection = true;
+                }
+
+                // If typing into the Edit control led us here, advance start of a
+                // full selection by one so the next character will already
+                // continue the string instead of having to type the same character
+                // again to start a new string. The selection is in reverse
+                // when obtained from the Edit control.
+                if (nEndSelectPos == 0)
+                {
+                    OUString aText(m_xControl->get_active_text());
+                    if (nStartSelectPos == aText.getLength())
+                    {
+                        ++nEndSelectPos;
+                        bSetEditSelection = true;
+                    }
+                }
+
+                if (bSetEditSelection)
+                    rControl.select_entry_region(nStartSelectPos, nEndSelectPos);
+
+                m_eEditedAndValid = EditedAndValid::No;
+            }
+            else
+            {
+                OUString aCanonicalized;
+                bool bValid = LanguageTag::isValidBcp47( aStr, &aCanonicalized, true);
+                m_eEditedAndValid = (bValid ? EditedAndValid::Valid : EditedAndValid::Invalid);
+                if (bValid && aCanonicalized != aStr)
+                {
+                    m_xControl->set_entry_text(aCanonicalized);
+                    const auto nCursorPos = aCanonicalized.getLength();
+                    m_xControl->select_entry_region(nCursorPos, nCursorPos);
+                }
+            }
+        }
+        if (eOldState != m_eEditedAndValid)
+        {
+            if (m_eEditedAndValid == EditedAndValid::Invalid)
+                rControl.set_entry_error(true);
+            else
+                rControl.set_entry_error(false);
+        }
+    }
+    m_aChangeHdl.Call(rControl);
+}
+
+LanguageBox::LanguageBox(std::unique_ptr<weld::ComboBox> pControl)
     : m_xControl(std::move(pControl))
     , m_aAllString(SvxResId(RID_SVXSTR_LANGUAGE_ALL))
+    , m_eSavedLanguage(LANGUAGE_DONTKNOW)
+    , m_eEditedAndValid(EditedAndValid::No)
     , m_bHasLangNone(false)
     , m_bLangNoneIsLangAll(false)
+    , m_bWithCheckmark(false)
 {
     m_xControl->make_sorted();
     m_xControl->connect_changed(LINK(this, LanguageBox, ChangeHdl));
@@ -796,7 +836,6 @@ SvxLanguageBox::SvxLanguageBox( vcl::Window* pParent, WinBits nBits )
 SvxLanguageComboBox::SvxLanguageComboBox( vcl::Window* pParent, WinBits nBits )
     : ComboBox( pParent, nBits )
     , SvxLanguageBoxBase()
-    , mnSavedValuePos( COMBOBOX_ENTRY_NOTFOUND )
     , meEditedAndValid( EditedAndValid::No )
 {
     // display entries sorted
@@ -919,62 +958,6 @@ sal_Int32 SvxLanguageComboBox::ImplGetEntryPos( const void* pData ) const
 }
 
 
-void SvxLanguageBox::ImplSetNoSelection()
-{
-    SetNoSelection();
-}
-
-void SvxLanguageComboBox::ImplSetNoSelection()
-{
-    SetNoSelection();
-}
-
-
-void SvxLanguageBox::ImplHide()
-{
-    Hide();
-}
-
-void SvxLanguageComboBox::ImplHide()
-{
-    Hide();
-}
-
-
-void SvxLanguageBox::ImplDisable()
-{
-    Disable();
-}
-
-void SvxLanguageComboBox::ImplDisable()
-{
-    Disable();
-}
-
-
-void SvxLanguageBox::ImplSaveValue()
-{
-    SaveValue();
-}
-
-void SvxLanguageComboBox::ImplSaveValue()
-{
-    // Emulate the ListBox behavior.
-    mnSavedValuePos = GetSelectedEntryPos();
-}
-
-
-sal_Int32 SvxLanguageBox::ImplGetSavedValue() const
-{
-    return GetSavedValue();
-}
-
-sal_Int32 SvxLanguageComboBox::ImplGetSavedValue() const
-{
-    return mnSavedValuePos;
-}
-
-
 IMPL_LINK_NOARG( SvxLanguageComboBox, EditModifyHdl, Edit&, void )
 {
     EditedAndValid eOldState = meEditedAndValid;
@@ -1054,21 +1037,21 @@ IMPL_LINK_NOARG( SvxLanguageComboBox, EditModifyHdl, Edit&, void )
 }
 
 
-sal_Int32 SvxLanguageComboBox::SaveEditedAsEntry()
+sal_Int32 LanguageBox::SaveEditedAsEntry()
 {
-    if (meEditedAndValid != EditedAndValid::Valid)
-        return COMBOBOX_ENTRY_NOTFOUND;
+    if (m_eEditedAndValid != EditedAndValid::Valid)
+        return -1;
 
-    LanguageTag aLanguageTag( vcl::I18nHelper::filterFormattingChars( GetText()));
+    LanguageTag aLanguageTag(m_xControl->get_active_text());
     LanguageType nLang = aLanguageTag.getLanguageType();
     if (nLang == LANGUAGE_DONTKNOW)
     {
         SAL_WARN( "svx.dialog", "SvxLanguageComboBox::SaveEditedAsEntry: unknown tag");
-        return COMBOBOX_ENTRY_NOTFOUND;
+        return -1;
     }
 
-    sal_Int32 nPos = ImplTypeToPos( nLang);
-    if (nPos != COMBOBOX_ENTRY_NOTFOUND)
+    int nPos = ImplTypeToPos( nLang);
+    if (nPos != -1)
         return nPos;    // Already present but with a different string.
 
     if (SvtLanguageTable::HasLanguageType( nLang))
@@ -1086,9 +1069,8 @@ sal_Int32 SvxLanguageComboBox::SaveEditedAsEntry()
         SvtLanguageTable::AddLanguageTag( aLanguageTag );
     }
 
-    nPos = InsertLanguage( nLang);
-
-    return nPos;
+    InsertLanguage(nLang);
+    return ImplTypeToPos(nLang);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

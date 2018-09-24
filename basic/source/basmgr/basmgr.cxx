@@ -384,12 +384,11 @@ public:
 
 
 BasicLibInfo::BasicLibInfo()
+    : aStorageName(szImbedded)
+    , aRelStorageName(szImbedded)
+    , bDoLoad(false)
+    , bReference(false)
 {
-    bReference          = false;
-    bDoLoad             = false;
-    mxScriptCont        = nullptr;
-    aStorageName        = szImbedded;
-    aRelStorageName     = szImbedded;
 }
 
 BasicLibInfo* BasicLibInfo::Create( SotStorageStream& rSStream )
@@ -498,7 +497,7 @@ BasicManager::BasicManager( SotStorage& rStorage, const OUString& rBaseURL, Star
     }
 }
 
-void copyToLibraryContainer( StarBASIC* pBasic, const LibraryContainerInfo& rInfo )
+static void copyToLibraryContainer( StarBASIC* pBasic, const LibraryContainerInfo& rInfo )
 {
     uno::Reference< script::XLibraryContainer > xScriptCont( rInfo.mxScriptCont.get() );
     if ( !xScriptCont.is() )
@@ -552,20 +551,18 @@ void BasicManager::SetLibraryContainerInfo( const LibraryContainerInfo& rInfo )
         xLibContainer->addContainerListener( xLibContainerListener );
 
         uno::Sequence< OUString > aScriptLibNames = xScriptCont->getElementNames();
-        const OUString* pScriptLibName = aScriptLibNames.getConstArray();
-        sal_Int32 i, nNameCount = aScriptLibNames.getLength();
 
-        if( nNameCount )
+        if( aScriptLibNames.hasElements() )
         {
-            for( i = 0 ; i < nNameCount ; ++i, ++pScriptLibName )
+            for(const auto& rScriptLibName : aScriptLibNames)
             {
-                uno::Any aLibAny = xScriptCont->getByName( *pScriptLibName );
+                uno::Any aLibAny = xScriptCont->getByName( rScriptLibName );
 
-                if ( *pScriptLibName == "Standard" || *pScriptLibName == "VBAProject")
-                    xScriptCont->loadLibrary( *pScriptLibName );
+                if ( rScriptLibName == "Standard" || rScriptLibName == "VBAProject")
+                    xScriptCont->loadLibrary( rScriptLibName );
 
                 BasMgrContainerListenerImpl::insertLibraryImpl
-                    ( xScriptCont, this, aLibAny, *pScriptLibName );
+                    ( xScriptCont, this, aLibAny, rScriptLibName );
             }
         }
         else
@@ -1774,7 +1771,7 @@ void ModuleContainer_Impl::removeByName( const OUString& Name )
 }
 
 
-uno::Sequence< sal_Int8 > implGetDialogData( SbxObject* pDialog )
+static uno::Sequence< sal_Int8 > implGetDialogData( SbxObject* pDialog )
 {
     SvMemoryStream aMemStream;
     pDialog->Store( aMemStream );
@@ -1787,7 +1784,7 @@ uno::Sequence< sal_Int8 > implGetDialogData( SbxObject* pDialog )
     return aData;
 }
 
-SbxObject* implCreateDialog( const uno::Sequence< sal_Int8 >& aData )
+static SbxObject* implCreateDialog( const uno::Sequence< sal_Int8 >& aData )
 {
     sal_Int8* pData = const_cast< uno::Sequence< sal_Int8 >& >(aData).getArray();
     SvMemoryStream aMemStream( pData, aData.getLength(), StreamMode::READ );

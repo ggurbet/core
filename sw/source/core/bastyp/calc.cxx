@@ -181,7 +181,7 @@ CalcOp* FindOperator( const OUString& rSrch )
                               OperatorCompare ));
 }
 
-inline LanguageType GetDocAppScriptLang( SwDoc const & rDoc )
+static inline LanguageType GetDocAppScriptLang( SwDoc const & rDoc )
 {
     return static_cast<const SvxLanguageItem&>(rDoc.GetDefault(
                GetWhichOfScript( RES_CHRATR_LANGUAGE,
@@ -335,7 +335,7 @@ SwCalc::SwCalc( SwDoc& rD )
 
 } // SwCalc::SwCalc
 
-SwCalc::~SwCalc()
+SwCalc::~SwCalc() COVERITY_NOEXCEPT_FALSE
 {
     if( m_pLocaleDataWrapper != m_aSysLocale.GetLocaleDataPtr() )
         delete m_pLocaleDataWrapper;
@@ -1367,7 +1367,6 @@ bool SwCalc::IsValidVarName( const OUString& rStr, OUString* pValidName )
 
 SwHash::SwHash(const OUString& rStr)
     : aStr(rStr)
-    , pNext(nullptr)
 {
 }
 

@@ -34,6 +34,7 @@
 #include <LegendHelper.hxx>
 #include "VLegend.hxx"
 #include <PropertyMapper.hxx>
+#include <ChartModel.hxx>
 #include <ChartModelHelper.hxx>
 #include <ChartTypeHelper.hxx>
 #include <ScaleAutomatism.hxx>
@@ -261,7 +262,7 @@ typedef std::vector<std::unique_ptr<VSeriesPlotter> > SeriesPlottersType;
 class SeriesPlotterContainer
 {
 public:
-    explicit SeriesPlotterContainer( std::vector< VCoordinateSystem* >& rVCooSysList );
+    explicit SeriesPlotterContainer( std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList );
     ~SeriesPlotterContainer();
 
     /** It is used to set coordinate systems (`m_rVCooSysList`), this method
@@ -337,7 +338,7 @@ public:
     drawing::Direction3D getPreferredAspectRatio();
 
     SeriesPlottersType& getSeriesPlotterList() { return m_aSeriesPlotterList; }
-    std::vector< VCoordinateSystem* >& getCooSysList() { return m_rVCooSysList; }
+    std::vector< std::unique_ptr<VCoordinateSystem> >& getCooSysList() { return m_rVCooSysList; }
     std::vector< LegendEntryProvider* > getLegendEntryProviderList();
 
     void AdaptScaleOfYAxisWithoutAttachedSeries( ChartModel& rModel );
@@ -352,7 +353,7 @@ private:
 
     /** A vector of coordinate systems.
      */
-    std::vector< VCoordinateSystem* >& m_rVCooSysList;
+    std::vector< std::unique_ptr<VCoordinateSystem> >& m_rVCooSysList;
 
     /** A map whose key is a `XAxis` interface and the related value is
      *  an object of `AxisUsage` type.
@@ -371,7 +372,7 @@ private:
     sal_Int32 m_nDefaultDateNumberFormat;
 };
 
-SeriesPlotterContainer::SeriesPlotterContainer( std::vector< VCoordinateSystem* >& rVCooSysList )
+SeriesPlotterContainer::SeriesPlotterContainer( std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList )
         : m_rVCooSysList( rVCooSysList )
         , m_nMaxAxisIndex(0)
         , m_bChartTypeUsesShiftedCategoryPositionPerDefault(false)
@@ -382,7 +383,7 @@ SeriesPlotterContainer::SeriesPlotterContainer( std::vector< VCoordinateSystem* 
 SeriesPlotterContainer::~SeriesPlotterContainer()
 {
     // - remove plotter from coordinatesystems
-    for(VCoordinateSystem* nC : m_rVCooSysList)
+    for(auto & nC : m_rVCooSysList)
         nC->clearMinimumAndMaximumSupplierList();
 }
 
@@ -395,48 +396,47 @@ std::vector< LegendEntryProvider* > SeriesPlotterContainer::getLegendEntryProvid
     return aRet;
 }
 
-VCoordinateSystem* findInCooSysList( const std::vector< VCoordinateSystem* >& rVCooSysList
+VCoordinateSystem* findInCooSysList( const std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList
                                     , const uno::Reference< XCoordinateSystem >& xCooSys )
 {
-    for(VCoordinateSystem* pVCooSys : rVCooSysList)
+    for(auto & pVCooSys : rVCooSysList)
     {
         if(pVCooSys->getModel()==xCooSys)
-            return pVCooSys;
+            return pVCooSys.get();
     }
     return nullptr;
 }
 
-VCoordinateSystem* lcl_getCooSysForPlotter( const std::vector< VCoordinateSystem* >& rVCooSysList, MinimumAndMaximumSupplier* pMinimumAndMaximumSupplier )
+VCoordinateSystem* lcl_getCooSysForPlotter( const std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList, MinimumAndMaximumSupplier* pMinimumAndMaximumSupplier )
 {
     if(!pMinimumAndMaximumSupplier)
         return nullptr;
-    for(VCoordinateSystem* pVCooSys : rVCooSysList)
+    for(auto & pVCooSys : rVCooSysList)
     {
         if(pVCooSys->hasMinimumAndMaximumSupplier( pMinimumAndMaximumSupplier ))
-            return pVCooSys;
+            return pVCooSys.get();
     }
     return nullptr;
 }
 
-VCoordinateSystem* addCooSysToList( std::vector< VCoordinateSystem* >& rVCooSysList
+VCoordinateSystem* addCooSysToList( std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList
             , const uno::Reference< XCoordinateSystem >& xCooSys
             , ChartModel& rChartModel )
 {
-    VCoordinateSystem* pVCooSys = findInCooSysList( rVCooSysList, xCooSys );
-    if( !pVCooSys )
-    {
-        pVCooSys = VCoordinateSystem::createCoordinateSystem(xCooSys );
-        if(pVCooSys)
-        {
-            OUString aCooSysParticle( ObjectIdentifier::createParticleForCoordinateSystem( xCooSys, rChartModel ) );
-            pVCooSys->setParticle(aCooSysParticle);
+    VCoordinateSystem* pExistingVCooSys = findInCooSysList( rVCooSysList, xCooSys );
+    if( pExistingVCooSys )
+        return pExistingVCooSys;
 
-            pVCooSys->setExplicitCategoriesProvider( new ExplicitCategoriesProvider(xCooSys, rChartModel) );
+    std::unique_ptr<VCoordinateSystem> pVCooSys = VCoordinateSystem::createCoordinateSystem(xCooSys );
+    if(!pVCooSys)
+        return nullptr;
 
-            rVCooSysList.push_back( pVCooSys );
-        }
-    }
-    return pVCooSys;
+    OUString aCooSysParticle( ObjectIdentifier::createParticleForCoordinateSystem( xCooSys, rChartModel ) );
+    pVCooSys->setParticle(aCooSysParticle);
+
+    pVCooSys->setExplicitCategoriesProvider( new ExplicitCategoriesProvider(xCooSys, rChartModel) );
+    rVCooSysList.push_back( std::move(pVCooSys) );
+    return rVCooSysList.back().get();
 }
 
 void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
@@ -620,10 +620,8 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
     {
         uno::Sequence< OUString > aSeriesNames;
         bool bSeriesNamesInitialized = false;
-        for(VCoordinateSystem* pVCooSys : m_rVCooSysList)
+        for(auto & pVCooSys : m_rVCooSysList)
         {
-            if(!pVCooSys)
-                continue;
             if( pVCooSys->needSeriesNamesForAxis() )
             {
                 if(!bSeriesNamesInitialized)
@@ -661,7 +659,7 @@ void SeriesPlotterContainer::initAxisUsageList(const Date& rNullDate)
 
     // Loop through coordinate systems in the diagram (though for now
     // there should only be one coordinate system per diagram).
-    for (VCoordinateSystem* pVCooSys : m_rVCooSysList)
+    for (auto & pVCooSys : m_rVCooSysList)
     {
         uno::Reference<XCoordinateSystem> xCooSys = pVCooSys->getModel();
         sal_Int32 nDimCount = xCooSys->getDimension();
@@ -696,14 +694,14 @@ void SeriesPlotterContainer::initAxisUsageList(const Date& rNullDate)
                 }
 
                 AxisUsage& rAxisUsage = m_aAxisUsageList[xAxis];
-                rAxisUsage.addCoordinateSystem(pVCooSys, nDimIndex, nAxisIndex);
+                rAxisUsage.addCoordinateSystem(pVCooSys.get(), nDimIndex, nAxisIndex);
             }
         }
     }
 
     // Determine the highest axis index of all dimensions.
     m_nMaxAxisIndex = 0;
-    for (VCoordinateSystem* pVCooSys : m_rVCooSysList)
+    for (auto & pVCooSys : m_rVCooSysList)
     {
         uno::Reference<XCoordinateSystem> xCooSys = pVCooSys->getModel();
         sal_Int32 nDimCount = xCooSys->getDimension();
@@ -784,7 +782,7 @@ void SeriesPlotterContainer::setNumberFormatsFromAxes()
 
 void SeriesPlotterContainer::updateScalesAndIncrementsOnAxes()
 {
-    for(VCoordinateSystem* nC : m_rVCooSysList)
+    for(auto & nC : m_rVCooSysList)
         nC->updateScalesAndIncrementsOnAxes();
 }
 
@@ -1135,13 +1133,7 @@ ChartView::~ChartView()
 void ChartView::impl_deleteCoordinateSystems()
 {
     //delete all coordinate systems
-    std::vector< VCoordinateSystem* > aVectorToDeleteObjects;
-    std::swap( aVectorToDeleteObjects, m_aVCooSysList );//#i109770#
-    for (auto const& elem : aVectorToDeleteObjects)
-    {
-        delete elem;
-    }
-    aVectorToDeleteObjects.clear();
+    m_aVCooSysList.clear();
 }
 
 // datatransfer::XTransferable
@@ -1288,7 +1280,7 @@ css::uno::Sequence< OUString > SAL_CALL ChartView::getSupportedServiceNames()
     return { CHART_VIEW_SERVICE_NAME };
 }
 
-::basegfx::B3DHomMatrix createTransformationSceneToScreen(
+static ::basegfx::B3DHomMatrix createTransformationSceneToScreen(
     const ::basegfx::B2IRectangle& rDiagramRectangleWithoutAxes )
 {
     ::basegfx::B3DHomMatrix aM;
@@ -1468,7 +1460,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
 
     basegfx::B2IRectangle aAvailableOuterRect = BaseGFXHelper::makeRectangle(rParam.maRemainingSpace);
 
-    const std::vector< VCoordinateSystem* >& rVCooSysList( rParam.mpSeriesPlotterContainer->getCooSysList() );
+    const std::vector< std::unique_ptr<VCoordinateSystem> >& rVCooSysList( rParam.mpSeriesPlotterContainer->getCooSysList() );
     SeriesPlottersType& rSeriesPlotterList = rParam.mpSeriesPlotterContainer->getSeriesPlotterList();
 
     //create VAxis, so they can give necessary information for automatic scaling
@@ -1478,7 +1470,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     size_t nC = 0;
     for( nC=0; nC < rVCooSysList.size(); nC++)
     {
-        VCoordinateSystem* pVCooSys = rVCooSysList[nC];
+        VCoordinateSystem* pVCooSys = rVCooSysList[nC].get();
         if(nDimensionCount==3)
         {
             uno::Reference<beans::XPropertySet> xSceneProperties( xDiagram, uno::UNO_QUERY );
@@ -1504,8 +1496,8 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     drawing::Direction3D aPreferredAspectRatio =
         rParam.mpSeriesPlotterContainer->getPreferredAspectRatio();
 
-    uno::Reference< drawing::XShapes > xSeriesTargetInFrontOfAxis(nullptr);
-    uno::Reference< drawing::XShapes > xSeriesTargetBehindAxis(nullptr);
+    uno::Reference< drawing::XShapes > xSeriesTargetInFrontOfAxis;
+    uno::Reference< drawing::XShapes > xSeriesTargetBehindAxis;
     VDiagram aVDiagram(xDiagram, aPreferredAspectRatio, nDimensionCount);
     bool bIsPieOrDonut = lcl_IsPieOrDonut(xDiagram);
     {//create diagram
@@ -1528,7 +1520,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     //init all coordinate systems
     for( nC=0; nC < rVCooSysList.size(); nC++)
     {
-        VCoordinateSystem* pVCooSys = rVCooSysList[nC];
+        VCoordinateSystem* pVCooSys = rVCooSysList[nC].get();
         pVCooSys->initPlottingTargets(xSeriesTargetInFrontOfAxis,xTextTargetShapes,m_xShapeFactory,xSeriesTargetBehindAxis);
 
         pVCooSys->setTransformationSceneToScreen( B3DHomMatrixToHomogenMatrix(
@@ -1546,7 +1538,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     //todo: this is just a workaround at the moment for pie and donut labels
     if( !bIsPieOrDonut && (!rVCooSysList.empty()) )
     {
-        VCoordinateSystem* pVCooSys = rVCooSysList[0];
+        VCoordinateSystem* pVCooSys = rVCooSysList[0].get();
         pVCooSys->createMaximumAxesLabels();
 
         aConsumedOuterRect = ShapeFactory::getRectangleOfShape(xBoundingShape);
@@ -1586,7 +1578,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     //create axes and grids for the final size
     for( nC=0; nC < rVCooSysList.size(); nC++)
     {
-        VCoordinateSystem* pVCooSys = rVCooSysList[nC];
+        VCoordinateSystem* pVCooSys = rVCooSysList[nC].get();
 
         pVCooSys->setTransformationSceneToScreen( B3DHomMatrixToHomogenMatrix(
             createTransformationSceneToScreen( aVDiagram.getCurrentRectangle() ) ));
@@ -1600,7 +1592,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     for( std::unique_ptr<VSeriesPlotter>& aPlotter : rSeriesPlotterList )
     {
         VSeriesPlotter* pSeriesPlotter = aPlotter.get();
-        uno::Reference< drawing::XShapes > xSeriesTarget(nullptr);
+        uno::Reference< drawing::XShapes > xSeriesTarget;
         if( pSeriesPlotter->WantToPlotInFrontOfAxisLine() )
             xSeriesTarget = xSeriesTargetInFrontOfAxis;
         else
@@ -1647,7 +1639,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
         //set new transformation
         for( nC=0; nC < rVCooSysList.size(); nC++)
         {
-            VCoordinateSystem* pVCooSys = rVCooSysList[nC];
+            VCoordinateSystem* pVCooSys = rVCooSysList[nC].get();
             pVCooSys->setTransformationSceneToScreen( B3DHomMatrixToHomogenMatrix(
                 createTransformationSceneToScreen( aNewInnerRect ) ));
         }
@@ -1726,6 +1718,8 @@ bool ChartView::getExplicitValuesForAxis(
                      , ExplicitScaleData&  rExplicitScale
                      , ExplicitIncrementData& rExplicitIncrement )
 {
+    SolarMutexGuard aSolarGuard;
+
     impl_updateView();
 
     if(!xAxis.is())
@@ -2435,7 +2429,7 @@ void lcl_removeEmptyGroupShapes( const Reference< drawing::XShapes>& xParent )
     for( sal_Int32 nN = xParent->getCount(); nN--; )
     {
         uno::Any aAny = xParent->getByIndex( nN );
-        Reference< drawing::XShapes> xShapes(nullptr);
+        Reference< drawing::XShapes> xShapes;
         if( aAny >>= xShapes )
             lcl_removeEmptyGroupShapes( xShapes );
         if( xShapes.is() && xShapes->getCount()==0 )
@@ -2479,6 +2473,8 @@ static const char* envChartDummyFactory = getenv("CHART_DUMMY_FACTORY");
 
 void ChartView::createShapes()
 {
+    SolarMutexGuard aSolarGuard;
+
     osl::ResettableMutexGuard aTimedGuard(maTimeMutex);
     if(mrChartModel.isTimeBased())
     {
@@ -2492,7 +2488,6 @@ void ChartView::createShapes()
     impl_deleteCoordinateSystems();
     if( m_pDrawModelWrapper )
     {
-        SolarMutexGuard aSolarGuard;
         // #i12587# support for shapes in chart
         m_pDrawModelWrapper->getSdrModel().EnableUndo( false );
         m_pDrawModelWrapper->clearMainDrawPage();
@@ -2520,7 +2515,6 @@ void ChartView::createShapes()
     // #i12587# support for shapes in chart
     if ( m_pDrawModelWrapper )
     {
-        SolarMutexGuard aSolarGuard;
         m_pDrawModelWrapper->getSdrModel().EnableUndo( true );
     }
 
@@ -2968,8 +2962,6 @@ IMPL_LINK_NOARG(ChartView, UpdateTimeBased, Timer *, void)
 void ChartView::createShapes2D( const awt::Size& rPageSize )
 {
     ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);
-
-    SolarMutexGuard aSolarGuard;
 
     // todo: it would be nicer to just pass the page m_xDrawPage and format it,
     // but the draw page does not support XPropertySet

@@ -426,7 +426,6 @@ SfxDialogExecutor_Impl::SfxDialogExecutor_Impl( SfxViewShell* pViewSh, PrinterSe
 
     _pViewSh        ( pViewSh ),
     _rSetupParent   ( rParent ),
-    _pOptions       ( nullptr ),
     _bHelpDisabled  ( false )
 
 {
@@ -893,7 +892,7 @@ sal_uInt16 SfxViewShell::SetPrinter( SfxPrinter* /*pNewPrinter*/, SfxPrinterChan
 
 VclPtr<SfxTabPage> SfxViewShell::CreatePrintOptionsPage
 (
-    weld::Container* /*pPage*/,
+    TabPageParent /*pParent*/,
     const SfxItemSet&   /*rOptions*/
 )
 {

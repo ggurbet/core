@@ -222,57 +222,6 @@ void Window::InvertTracking( const tools::Rectangle& rRect, ShowTrackFlags nFlag
     }
 }
 
-void Window::InvertTracking( const tools::Polygon& rPoly, ShowTrackFlags nFlags )
-{
-    sal_uInt16 nPoints = rPoly.GetSize();
-
-    if ( nPoints < 2 )
-        return;
-
-    OutputDevice *pOutDev = GetOutDev();
-
-    tools::Polygon aPoly( pOutDev->ImplLogicToDevicePixel( rPoly ) );
-
-    SalGraphics* pGraphics;
-
-    if ( nFlags & ShowTrackFlags::TrackWindow )
-    {
-        if ( !IsDeviceOutputNecessary() )
-            return;
-
-        // we need a graphics
-        if ( !mpGraphics )
-        {
-            if ( !pOutDev->AcquireGraphics() )
-                return;
-        }
-
-        if ( mbInitClipRegion )
-            InitClipRegion();
-
-        if ( mbOutputClipped )
-            return;
-
-        pGraphics = mpGraphics;
-    }
-    else
-    {
-        pGraphics = ImplGetFrameGraphics();
-
-        if ( nFlags & ShowTrackFlags::Clip )
-        {
-            Point aPoint( mnOutOffX, mnOutOffY );
-            vcl::Region aRegion( tools::Rectangle( aPoint,
-                                       Size( mnOutWidth, mnOutHeight ) ) );
-            ImplClipBoundaries( aRegion, false, false );
-            pOutDev->SelectClipRegion( aRegion, pGraphics );
-        }
-    }
-
-    const SalPoint* pPtAry = reinterpret_cast<const SalPoint*>(aPoly.GetConstPointAry());
-    pGraphics->Invert( nPoints, pPtAry, SalInvert::TrackFrame, this );
-}
-
 IMPL_LINK( Window, ImplTrackTimerHdl, Timer*, pTimer, void )
 {
     ImplSVData* pSVData = ImplGetSVData();
@@ -433,7 +382,7 @@ void Window::SetZoom( const Fraction& rZoom )
     }
 }
 
-inline long WinFloatRound( double fVal )
+static inline long WinFloatRound( double fVal )
 {
     return( fVal > 0.0 ? static_cast<long>( fVal + 0.5 ) : -static_cast<long>( -fVal + 0.5 ) );
 }
@@ -1604,9 +1553,11 @@ bool Window::set_property(const OString &rKey, const OUString &rValue)
     else if (rKey == "can-focus")
     {
         WinBits nBits = GetStyle();
-        nBits &= ~WB_TABSTOP;
+        nBits &= ~(WB_TABSTOP|WB_NOTABSTOP);
         if (toBool(rValue))
             nBits |= WB_TABSTOP;
+        else
+            nBits |= WB_NOTABSTOP;
         SetStyle(nBits);
     }
     else

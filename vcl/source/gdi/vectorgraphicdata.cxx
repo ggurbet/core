@@ -90,7 +90,7 @@ BitmapEx convertPrimitive2DSequenceToBitmapEx(
     return aRetval;
 }
 
-size_t estimateSize(
+static size_t estimateSize(
     std::deque<uno::Reference<graphic::XPrimitive2D>> const& rSequence)
 {
     size_t nRet(0);
@@ -230,8 +230,7 @@ VectorGraphicData::VectorGraphicData(
     maSequence(),
     maReplacement(),
     mNestedBitmapSize(0),
-    meVectorGraphicDataType(eVectorDataType),
-    mpExternalHeader(nullptr)
+    meVectorGraphicDataType(eVectorDataType)
 {
 }
 
@@ -245,8 +244,7 @@ VectorGraphicData::VectorGraphicData(
     maSequence(),
     maReplacement(),
     mNestedBitmapSize(0),
-    meVectorGraphicDataType(eVectorDataType),
-    mpExternalHeader(nullptr)
+    meVectorGraphicDataType(eVectorDataType)
 {
     SvFileStream rIStm(rPath, StreamMode::STD_READ);
     if(rIStm.GetError())

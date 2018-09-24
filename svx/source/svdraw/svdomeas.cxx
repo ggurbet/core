@@ -326,7 +326,7 @@ void SdrMeasureObj::ImpTakeAttr(ImpMeasureRec& rRec) const
     rRec.nTextAutoAngleView=static_cast<const SdrMeasureTextAutoAngleViewItem&>(rSet.Get(SDRATTR_MEASURETEXTAUTOANGLEVIEW)).GetValue();
 }
 
-long impGetLineStartEndDistance(const basegfx::B2DPolyPolygon& rPolyPolygon, long nNewWidth, bool bCenter)
+static long impGetLineStartEndDistance(const basegfx::B2DPolyPolygon& rPolyPolygon, long nNewWidth, bool bCenter)
 {
     const basegfx::B2DRange aPolygonRange(rPolyPolygon.getB2DRange());
     const double fOldWidth(std::max(aPolygonRange.getWidth(), 1.0));
@@ -751,27 +751,30 @@ sal_uInt32 SdrMeasureObj::GetHdlCount() const
     return 6L;
 }
 
-SdrHdl* SdrMeasureObj::GetHdl(sal_uInt32 nHdlNum) const
+void SdrMeasureObj::AddToHdlList(SdrHdlList& rHdlList) const
 {
     ImpMeasureRec aRec;
     ImpMeasurePoly aMPol;
     ImpTakeAttr(aRec);
     aRec.nHelplineDist=0;
     ImpCalcGeometrics(aRec,aMPol);
-    Point aPt;
 
-    switch (nHdlNum) {
-        case 0: aPt=aMPol.aHelpline1.aP1; break;
-        case 1: aPt=aMPol.aHelpline2.aP1; break;
-        case 2: aPt=aPt1;       break;
-        case 3: aPt=aPt2;       break;
-        case 4: aPt=aMPol.aHelpline1.aP2; break;
-        case 5: aPt=aMPol.aHelpline2.aP2; break;
-    } // switch
-    SdrHdl* pHdl=new ImpMeasureHdl(aPt,SdrHdlKind::User);
-    pHdl->SetObjHdlNum(nHdlNum);
-    pHdl->SetRotationAngle(aMPol.nLineAngle);
-    return pHdl;
+    for (sal_uInt32 nHdlNum=0; nHdlNum<6; ++nHdlNum)
+    {
+        Point aPt;
+        switch (nHdlNum) {
+            case 0: aPt=aMPol.aHelpline1.aP1; break;
+            case 1: aPt=aMPol.aHelpline2.aP1; break;
+            case 2: aPt=aPt1;       break;
+            case 3: aPt=aPt2;       break;
+            case 4: aPt=aMPol.aHelpline1.aP2; break;
+            case 5: aPt=aMPol.aHelpline2.aP2; break;
+        } // switch
+        SdrHdl* pHdl=new ImpMeasureHdl(aPt,SdrHdlKind::User);
+        pHdl->SetObjHdlNum(nHdlNum);
+        pHdl->SetRotationAngle(aMPol.nLineAngle);
+        rHdlList.AddHdl(pHdl);
+    }
 }
 
 

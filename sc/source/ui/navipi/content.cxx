@@ -1253,7 +1253,7 @@ static void lcl_DoDragObject( ScDocShell* pSrcShell, const OUString& rName, ScCo
             SdrPageView* pPV = aEditView.GetSdrPageView();
             aEditView.MarkObj(pObject, pPV);
 
-            std::unique_ptr<SdrModel> pDragModel(aEditView.GetMarkedObjModel());
+            std::unique_ptr<SdrModel> pDragModel(aEditView.CreateMarkedObjModel());
 
             TransferableObjectDescriptor aObjDesc;
             pSrcShell->FillTransferableObjectDescriptor( aObjDesc );
@@ -1306,7 +1306,7 @@ static void lcl_DoDragCells( ScDocShell* pSrcShell, const ScRange& rRange, ScDra
 
 void ScContentTree::DoDrag()
 {
-    ScDocumentLoader* pDocLoader = nullptr;
+    std::unique_ptr<ScDocumentLoader> pDocLoader;
     bIsInDrag = true;
 
     ScModule* pScMod = SC_MOD();
@@ -1395,7 +1395,7 @@ void ScContentTree::DoDrag()
                     {
                         OUString aFilter, aOptions;
                         OUString aURL = aHiddenName;
-                        pDocLoader = new ScDocumentLoader( aURL, aFilter, aOptions );
+                        pDocLoader.reset(new ScDocumentLoader( aURL, aFilter, aOptions ));
                         if (!pDocLoader->IsError())
                             pSrcShell = pDocLoader->GetDocShell();
                     }
@@ -1450,8 +1450,6 @@ void ScContentTree::DoDrag()
     }
 
     bIsInDrag = false;              // static member
-
-    delete pDocLoader;              // if document was load for dragging
 }
 
 IMPL_LINK_NOARG(ScContentTree, ExecDragHdl, void*, void)

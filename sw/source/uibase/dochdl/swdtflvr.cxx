@@ -202,13 +202,7 @@ public:
 SwTransferable::SwTransferable( SwWrtShell& rSh )
     : m_pWrtShell( &rSh ),
     m_pCreatorView( nullptr ),
-    m_pClpDocFac( nullptr ),
-    m_pClpGraphic( nullptr ),
-    m_pClpBitmap( nullptr ),
     m_pOrigGraphic( nullptr ),
-    m_pBookmark( nullptr ),
-    m_pImageMap( nullptr ),
-    m_pTargetURL( nullptr ),
     m_eBufferType( TransferBufferType::NONE )
 {
     rSh.GetView().AddTransferable(*this);
@@ -3478,7 +3472,7 @@ bool SwTransferable::PrivateDrop( SwWrtShell& rSh, const Point& rDragPt,
 
     Point aSttPt( SwEditWin::GetDDStartPosX(), SwEditWin::GetDDStartPosY() );
 
-    // at first, select INetFelder!
+    // at first, select InetFields!
     if( TransferBufferType::InetField == m_eBufferType )
     {
         if( &rSrcSh == &rSh )

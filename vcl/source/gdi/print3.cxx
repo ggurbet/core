@@ -263,7 +263,7 @@ static OUString queryFile( Printer const * pPrinter )
 struct PrintJobAsync
 {
     std::shared_ptr<PrinterController>  mxController;
-    JobSetup                            maInitSetup;
+    JobSetup const                      maInitSetup;
 
     PrintJobAsync(const std::shared_ptr<PrinterController>& i_xController,
                   const JobSetup& i_rInitSetup)
@@ -507,7 +507,7 @@ bool Printer::PreparePrintJob(std::shared_ptr<PrinterController> xController,
     return true;
 }
 
-bool Printer::ExecutePrintJob(std::shared_ptr<PrinterController> xController)
+bool Printer::ExecutePrintJob(const std::shared_ptr<PrinterController>& xController)
 {
     OUString aJobName;
     css::beans::PropertyValue* pJobNameVal = xController->getValue( OUString( "JobName" ) );
@@ -1596,18 +1596,6 @@ bool PrinterController::isUIChoiceEnabled( const OUString& i_rProperty, sal_Int3
             bEnabled = ! rDisabled[i_nValue];
     }
     return bEnabled;
-}
-
-OUString PrinterController::getDependency( const OUString& i_rProperty ) const
-{
-    OUString aDependency;
-
-    vcl::ImplPrinterControllerData::ControlDependencyMap::const_iterator it =
-        mpImplData->maControlDependencies.find( i_rProperty );
-    if( it != mpImplData->maControlDependencies.end() )
-        aDependency = it->second.maDependsOnName;
-
-    return aDependency;
 }
 
 OUString PrinterController::makeEnabled( const OUString& i_rProperty )

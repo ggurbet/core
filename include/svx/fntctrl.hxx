@@ -80,9 +80,6 @@ public:
     void                SetFontWidthScale( const SfxItemSet& rSet );
     void                SetFontEscapement( sal_uInt8 nProp, sal_uInt8 nEscProp, short nEsc );
 
-    void                SetFromItemSet( const SfxItemSet &rSet,
-                                        bool bPreviewBackgroundToCharacter );
-
     virtual Size GetOptimalSize() const override;
 };
 
@@ -90,10 +87,7 @@ class SAL_WARN_UNUSED SVX_DLLPUBLIC FontPrevWindow : public weld::CustomWidgetCo
 {
 private:
     std::unique_ptr<FontPrevWin_Impl> pImpl;
-    bool mbResetForeground : 1;
-    bool mbResetBackground : 1;
 
-    SVX_DLLPRIVATE void ResetSettings();
     SVX_DLLPRIVATE void ApplySettings(vcl::RenderContext& rRenderContext);
     virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
     SVX_DLLPRIVATE static void SetFontSize(const SfxItemSet& rSet, sal_uInt16 nSlot, SvxFont& rFont);
@@ -103,14 +97,14 @@ public:
                         FontPrevWindow();
     virtual             ~FontPrevWindow() override;
 
-    virtual void        StyleUpdated() override;
-
-    // for reasons of efficiency not const
     SvxFont&            GetFont();
     const SvxFont&      GetFont() const;
+    void                SetFont( const SvxFont& rNormalFont, const SvxFont& rCJKFont, const SvxFont& rCTLFont );
     SvxFont&            GetCJKFont();
     SvxFont&            GetCTLFont();
     void                SetBackColor( const Color& rColor );
+    void                SetTextLineColor(const Color& rColor);
+    void                SetOverlineColor(const Color& rColor);
     void                Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& ) override;
 
     bool                IsTwoLines() const;

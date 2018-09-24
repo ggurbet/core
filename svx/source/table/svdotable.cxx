@@ -257,7 +257,6 @@ std::vector<sal_Int32> SdrTableObjImpl::lastColWidths;
 
 SdrTableObjImpl::SdrTableObjImpl()
 : mpTableObj( nullptr )
-, mpLayouter( nullptr )
 , mbSkipChangeLayout(false)
 {
 }
@@ -2188,29 +2187,6 @@ void SdrTableObj::AddToHdlList(SdrHdlList& rHdlList) const
         rHdlList.GetHdl(nHdl)->SetObj(const_cast<SdrTableObj*>(this));
 }
 
-SdrHdl* SdrTableObj::GetHdl(sal_uInt32 nHdlNum) const
-{
-    // #i73248#
-    // Warn the user that this is ineffective and show alternatives. Should not be used at all.
-    OSL_FAIL("SdrTableObj::GetHdl(): ineffective, use AddToHdlList instead (!)");
-
-    // to have an alternative, get single handle using the ineffective way
-    SdrHdl* pRetval = nullptr;
-    SdrHdlList aLocalList(nullptr);
-    AddToHdlList(aLocalList);
-    const size_t nHdlCount(aLocalList.GetHdlCount());
-
-    if(nHdlCount && static_cast<size_t>(nHdlNum) < nHdlCount)
-    {
-        // remove and remember. The other created handles will be deleted again with the
-        // destruction of the local list
-        pRetval = aLocalList.RemoveHdl(nHdlNum);
-    }
-
-    return pRetval;
-}
-
-
 // Dragging
 
 bool SdrTableObj::hasSpecialDrag() const
@@ -2442,22 +2418,22 @@ void SdrTableObj::CropTableModelToSelection(const CellPos& rStart, const CellPos
     mpImpl->CropTableModelToSelection(rStart, rEnd);
 }
 
-void SdrTableObj::DistributeColumns( sal_Int32 nFirstColumn, sal_Int32 nLastColumn )
+void SdrTableObj::DistributeColumns( sal_Int32 nFirstColumn, sal_Int32 nLastColumn, const bool bOptimize )
 {
     if( mpImpl.is() && mpImpl->mpLayouter )
     {
         TableModelNotifyGuard aGuard( mpImpl->mxTable.get() );
-        mpImpl->mpLayouter->DistributeColumns( maRect, nFirstColumn, nLastColumn );
+        mpImpl->mpLayouter->DistributeColumns( maRect, nFirstColumn, nLastColumn, bOptimize );
     }
 }
 
 
-void SdrTableObj::DistributeRows( sal_Int32 nFirstRow, sal_Int32 nLastRow )
+void SdrTableObj::DistributeRows( sal_Int32 nFirstRow, sal_Int32 nLastRow, const bool bOptimize )
 {
     if( mpImpl.is() && mpImpl->mpLayouter )
     {
         TableModelNotifyGuard aGuard( mpImpl->mxTable.get() );
-        mpImpl->mpLayouter->DistributeRows( maRect, nFirstRow, nLastRow );
+        mpImpl->mpLayouter->DistributeRows( maRect, nFirstRow, nLastRow, bOptimize );
     }
 }
 

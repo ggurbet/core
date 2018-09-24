@@ -520,8 +520,8 @@ class ScAbstractTabController_Impl : public SfxAbstractTabDialog
 protected:
     std::unique_ptr<SfxTabDialogController> m_xDlg;
 public:
-    explicit ScAbstractTabController_Impl(SfxTabDialogController* p)
-        : m_xDlg(p)
+    explicit ScAbstractTabController_Impl(std::unique_ptr<SfxTabDialogController> p)
+        : m_xDlg(std::move(p))
     {
     }
     virtual short Execute() override;
@@ -677,10 +677,10 @@ public:
 
     virtual VclPtr<SfxAbstractTabDialog> CreateScSubTotalDlg( vcl::Window*             pParent,
                                                         const SfxItemSet*   pArgSet ) override;
-    virtual VclPtr<SfxAbstractTabDialog> CreateScCharDlg(vcl::Window* pParent,
+    virtual VclPtr<SfxAbstractTabDialog> CreateScCharDlg(weld::Window* pParent,
         const SfxItemSet* pAttr, const SfxObjectShell* pDocShell) override;
 
-    virtual VclPtr<SfxAbstractTabDialog> CreateScParagraphDlg(vcl::Window* pParent,
+    virtual VclPtr<SfxAbstractTabDialog> CreateScParagraphDlg(weld::Window* pParent,
         const SfxItemSet* pAttr) override;
 
     virtual VclPtr<SfxAbstractTabDialog> CreateScSortDlg(weld::Window* pParent, const SfxItemSet* pArgSet) override;

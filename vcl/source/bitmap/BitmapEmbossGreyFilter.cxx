@@ -15,7 +15,7 @@
 
 #include <bitmapwriteaccess.hxx>
 
-BitmapEx BitmapEmbossGreyFilter::execute(BitmapEx const& rBitmapEx)
+BitmapEx BitmapEmbossGreyFilter::execute(BitmapEx const& rBitmapEx) const
 {
     Bitmap aBitmap(rBitmapEx.GetBitmap());
 
@@ -145,7 +145,7 @@ BitmapEx BitmapEmbossGreyFilter::execute(BitmapEx const& rBitmapEx)
     }
 
     if (bRet)
-        return rBitmapEx;
+        return BitmapEx(aBitmap);
 
     return BitmapEx();
 }

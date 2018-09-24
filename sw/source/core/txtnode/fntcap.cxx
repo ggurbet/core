@@ -491,7 +491,7 @@ void SwSubFont::DoOnCapitals( SwDoCapitals &rDo )
     SwFntAccess *pSpaceFontAccess = nullptr;
     SwFntObj *pSpaceFont = nullptr;
 
-    const void *pMagic2 = nullptr;
+    const void* nFontCacheId2 = nullptr;
     sal_uInt16 nIndex2 = 0;
     SwSubFont aFont( *this );
     Point aStartPos( rDo.GetInf().GetPos() );
@@ -508,7 +508,7 @@ void SwSubFont::DoOnCapitals( SwDoCapitals &rDo )
         if ( bWordWise )
         {
             aFont.SetWordLineMode( false );
-            pSpaceFontAccess = new SwFntAccess( pMagic2, nIndex2, &aFont,
+            pSpaceFontAccess = new SwFntAccess( nFontCacheId2, nIndex2, &aFont,
                                                 rDo.GetInf().GetShell() );
             pSpaceFont = pSpaceFontAccess->Get();
         }
@@ -519,9 +519,9 @@ void SwSubFont::DoOnCapitals( SwDoCapitals &rDo )
         aFont.SetUnderline( LINESTYLE_NONE );
         aFont.SetOverline( LINESTYLE_NONE );
         aFont.SetStrikeout( STRIKEOUT_NONE );
-        pMagic2 = nullptr;
+        nFontCacheId2 = nullptr;
         nIndex2 = 0;
-        pBigFontAccess = new SwFntAccess( pMagic2, nIndex2, &aFont,
+        pBigFontAccess = new SwFntAccess( nFontCacheId2, nIndex2, &aFont,
                                           rDo.GetInf().GetShell() );
         pBigFont = pBigFontAccess->Get();
     }
@@ -535,10 +535,10 @@ void SwSubFont::DoOnCapitals( SwDoCapitals &rDo )
     // the option there).
     int smallCapsPercentage = m_bSmallCapsPercentage66 ? 66 : SMALL_CAPS_PERCENTAGE;
     aFont.SetProportion( (aFont.GetPropr() * smallCapsPercentage ) / 100 );
-    pMagic2 = nullptr;
+    nFontCacheId2 = nullptr;
     nIndex2 = 0;
-    SwFntAccess *pSmallFontAccess = new SwFntAccess( pMagic2, nIndex2, &aFont,
-                                                     rDo.GetInf().GetShell() );
+    std::unique_ptr<SwFntAccess> pSmallFontAccess( new SwFntAccess( nFontCacheId2, nIndex2, &aFont,
+                                                     rDo.GetInf().GetShell() ));
     SwFntObj *pSmallFont = pSmallFontAccess->Get();
 
     rDo.Init( pBigFont, pSmallFont );
@@ -749,7 +749,7 @@ void SwSubFont::DoOnCapitals( SwDoCapitals &rDo )
     pLastFont = pOldLast;
     pLastFont->SetDevFont( rDo.GetInf().GetShell(), rDo.GetOut() );
 
-    delete pSmallFontAccess;
+    pSmallFontAccess.reset();
     rDo.GetInf().SetText(oldText);
     rDo.GetInf().SetKanaDiff( nKana );
 }

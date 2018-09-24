@@ -375,11 +375,9 @@ OUString createStandardKeyStatement(const Reference< XPropertySet >& descriptor,
 }
 
 OUString createSqlCreateTableStatement(  const Reference< XPropertySet >& descriptor,
-                                                const Reference< XConnection>& _xConnection,
-                                                ISQLStatementHelper* _pHelper,
-                                                const OUString& _sCreatePattern)
+                                         const Reference< XConnection>& _xConnection)
 {
-    OUString aSql = ::dbtools::createStandardCreateStatement(descriptor,_xConnection,_pHelper,_sCreatePattern);
+    OUString aSql = ::dbtools::createStandardCreateStatement(descriptor,_xConnection,nullptr,OUString());
     const OUString sKeyStmt = ::dbtools::createStandardKeyStatement(descriptor,_xConnection);
     if ( !sKeyStmt.isEmpty() )
         aSql += sKeyStmt;
@@ -942,17 +940,17 @@ sal_Int32 DBTypeConversion::convertUnicodeStringToLength( const OUString& _rSour
 
    return nLen;
 }
-OUString lcl_getReportEngines()
+static OUString lcl_getReportEngines()
 {
     return OUString("org.openoffice.Office.DataAccess/ReportEngines");
 }
 
-OUString lcl_getDefaultReportEngine()
+static OUString lcl_getDefaultReportEngine()
 {
     return OUString("DefaultReportEngine");
 }
 
-OUString lcl_getReportEngineNames()
+static OUString lcl_getReportEngineNames()
 {
     return OUString("ReportEngineNames");
 }

@@ -26,6 +26,7 @@
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/ucb/XDynamicResultSet.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
+#include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/ucb/XContentAccess.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/util/theOfficeInstallationDirectories.hpp>
@@ -59,7 +60,7 @@ namespace svt
     //= helpers
 
 
-    SvStream& WriteDateTime( SvStream& _rStorage, const util::DateTime& _rDate )
+    static SvStream& WriteDateTime( SvStream& _rStorage, const util::DateTime& _rDate )
     {
         sal_uInt16 hundredthSeconds = static_cast< sal_uInt16 >( _rDate.NanoSeconds / tools::Time::nanoPerCenti );
         _rStorage.WriteUInt16( hundredthSeconds );
@@ -75,7 +76,7 @@ namespace svt
     }
 
 
-    SvStream& operator >> ( SvStream& _rStorage, util::DateTime& _rDate )
+    static SvStream& operator >> ( SvStream& _rStorage, util::DateTime& _rDate )
     {
         sal_uInt16 hundredthSeconds;
         _rStorage.ReadUInt16( hundredthSeconds );
@@ -416,8 +417,7 @@ namespace svt
 
 
     TemplateFolderCacheImpl::TemplateFolderCacheImpl( bool _bAutoStoreState )
-        :m_pCacheStream         ( nullptr )
-        ,m_bNeedsUpdate         ( true )
+        :m_bNeedsUpdate         ( true )
         ,m_bKnowState           ( false )
         ,m_bValidCurrentState   ( false )
         ,m_bAutoStoreState      ( _bAutoStoreState )

@@ -22,6 +22,7 @@
 #include <i18nutil/unicode.hxx>
 #include <tools/stream.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/customweld.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/field.hxx>
 #include <vcl/settings.hxx>
@@ -38,6 +39,7 @@
 #include <svtools/ctrlbox.hxx>
 #include <svtools/ctrltool.hxx>
 #include <svtools/borderhelper.hxx>
+#include <svtools/valueset.hxx>
 
 #include <vcl/i18nhelp.hxx>
 #include <vcl/fontcapabilities.hxx>
@@ -48,6 +50,8 @@
 #include <com/sun/star/table/BorderLineStyle.hpp>
 
 #include <rtl/bootstrap.hxx>
+
+#include <borderline.hrc>
 
 #include <stdio.h>
 
@@ -271,7 +275,7 @@ SvxBorderLineStyle LineListBox::GetSelectEntryStyle() const
 }
 
 
-void lclDrawPolygon( OutputDevice& rDev, const basegfx::B2DPolygon& rPolygon, long nWidth, SvxBorderLineStyle nDashing )
+static void lclDrawPolygon( OutputDevice& rDev, const basegfx::B2DPolygon& rPolygon, long nWidth, SvxBorderLineStyle nDashing )
 {
     AntialiasingFlags nOldAA = rDev.GetAntialiasing();
     rDev.SetAntialiasing( nOldAA & ~AntialiasingFlags::EnableB2dDraw );
@@ -312,7 +316,7 @@ namespace svtools {
 /**
  * Dashing array must start with a line width and end with a blank width.
  */
-std::vector<double> GetDashing( SvxBorderLineStyle nDashing )
+static std::vector<double> GetDashing( SvxBorderLineStyle nDashing )
 {
     std::vector<double> aPattern;
     switch (nDashing)
@@ -489,18 +493,6 @@ LineListBox::LineListBox( vcl::Window* pParent, WinBits nWinStyle ) :
     UpdatePaintLineColor();
 }
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeLineListBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    bool bDropdown = BuilderUtils::extractDropdown(rMap);
-    WinBits nWinBits = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_TABSTOP;
-    if (bDropdown)
-        nWinBits |= WB_DROPDOWN;
-    VclPtrInstance<LineListBox> pListBox(pParent, nWinBits);
-    if (bDropdown)
-        pListBox->EnableAutoSize(true);
-    rRet = pListBox;
-}
-
 LineListBox::~LineListBox()
 {
     disposeOnce();
@@ -536,36 +528,12 @@ sal_Int32 LineListBox::GetStylePos( sal_Int32 nListPos, long nWidth )
     return nPos;
 }
 
-void LineListBox::SelectEntry( SvxBorderLineStyle nStyle, bool bSelect )
-{
-    sal_Int32 nPos = GetEntryPos( nStyle );
-    if ( nPos != LISTBOX_ENTRY_NOTFOUND )
-        ListBox::SelectEntryPos( nPos, bSelect );
-}
-
 void LineListBox::InsertEntry(
     const BorderWidthImpl& rWidthImpl, SvxBorderLineStyle nStyle, long nMinWidth,
     ColorFunc pColor1Fn, ColorFunc pColor2Fn, ColorDistFunc pColorDistFn )
 {
     m_vLineList.emplace_back(new ImpLineListData(
         rWidthImpl, nStyle, nMinWidth, pColor1Fn, pColor2Fn, pColorDistFn));
-}
-
-sal_Int32 LineListBox::GetEntryPos( SvxBorderLineStyle nStyle ) const
-{
-    if(nStyle == SvxBorderLineStyle::NONE && !m_sNone.isEmpty())
-        return 0;
-    for ( size_t i = 0, n = m_vLineList.size(); i < n; ++i ) {
-        auto& pData = m_vLineList[ i ];
-        if ( pData->GetStyle() == nStyle )
-        {
-            size_t nPos = i;
-            if (!m_sNone.isEmpty())
-                nPos ++;
-            return static_cast<sal_Int32>(nPos);
-        }
-    }
-    return LISTBOX_ENTRY_NOTFOUND;
 }
 
 SvxBorderLineStyle LineListBox::GetEntryStyle( sal_Int32 nPos ) const
@@ -779,10 +747,10 @@ void FontNameBox::Fill( const FontList* pList )
     for ( sal_uInt16 i = 0; i < nFontCount; i++ )
     {
         const FontMetric& rFontMetric = pList->GetFontName( i );
-        sal_uLong nIndex = InsertEntry( rFontMetric.GetFamilyName() );
+        sal_Int32 nIndex = InsertEntry( rFontMetric.GetFamilyName() );
         if ( nIndex != LISTBOX_ERROR )
         {
-            if ( nIndex < mpFontList->size() ) {
+            if ( nIndex < static_cast<sal_Int32>(mpFontList->size()) ) {
                 ImplFontList::iterator it = mpFontList->begin();
                 ::std::advance( it, nIndex );
                 mpFontList->insert( it, rFontMetric );
@@ -1115,14 +1083,29 @@ void FontStyleBox::Modify()
     ComboBox::Modify();
 }
 
-void FontStyleBox::Fill( const OUString& rName, const FontList* pList )
+
+SvtFontStyleBox::SvtFontStyleBox(std::unique_ptr<weld::ComboBox> p)
+    : m_xComboBox(std::move(p))
 {
-    // note: this method must call ComboBox::SetText(),
-    //   else aLastStyle will overwritten
-    // store prior selection position and clear box
-    OUString aOldText = GetText();
-    sal_Int32 nPos = GetEntryPos( aOldText );
-    Clear();
+    //Use the standard texts to get an optimal size and stick to that size.
+    //That should stop the character dialog dancing around.
+    auto nMaxLen = m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_LIGHT)).Width();
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_LIGHT_ITALIC)).Width());
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_NORMAL)).Width());
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_NORMAL_ITALIC)).Width());
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_BOLD)).Width());
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_BOLD_ITALIC)).Width());
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_BLACK)).Width());
+    nMaxLen = std::max(nMaxLen, m_xComboBox->get_pixel_size(SvtResId(STR_SVT_STYLE_BLACK_ITALIC)).Width());
+    m_xComboBox->set_entry_width_chars(std::ceil(nMaxLen / m_xComboBox->get_approximate_digit_width()));
+}
+
+void SvtFontStyleBox::Fill( const OUString& rName, const FontList* pList )
+{
+    m_xComboBox->freeze();
+    OUString aOldText = m_xComboBox->get_active_text();
+    int nPos = m_xComboBox->get_active();
+    m_xComboBox->clear();
 
     // does a font with this name already exist?
     sal_Handle hFontMetric = pList->GetFirstFontMetric( rName );
@@ -1151,7 +1134,7 @@ void FontStyleBox::Fill( const OUString& rName, const FontList* pList )
                  (eWidth != eLastWidth) )
             {
                 if ( bInsert )
-                    InsertEntry( aStyleText );
+                    m_xComboBox->append_text(aStyleText);
 
                 if ( eWeight <= WEIGHT_NORMAL )
                 {
@@ -1170,11 +1153,11 @@ void FontStyleBox::Fill( const OUString& rName, const FontList* pList )
 
                 // For wrong StyleNames we replace this with the correct once
                 aStyleText = pList->GetStyleName( aFontMetric );
-                bInsert = GetEntryPos( aStyleText ) == LISTBOX_ENTRY_NOTFOUND;
+                bInsert = m_xComboBox->find_text(aStyleText) == -1;
                 if ( !bInsert )
                 {
                     aStyleText = pList->GetStyleName( eWeight, eItalic );
-                    bInsert = GetEntryPos( aStyleText ) == LISTBOX_ENTRY_NOTFOUND;
+                    bInsert = m_xComboBox->find_text(aStyleText) == -1;
                 }
 
                 eLastWeight = eWeight;
@@ -1193,7 +1176,7 @@ void FontStyleBox::Fill( const OUString& rName, const FontList* pList )
                         OUString aTempStyleText = pList->GetStyleName( aFontMetric );
                         if (rAttrStyleText == aTempStyleText)
                             aStyleText = rAttrStyleText;
-                        bInsert = GetEntryPos( aStyleText ) == LISTBOX_ENTRY_NOTFOUND;
+                        bInsert = m_xComboBox->find_text(aStyleText) == -1;
                     }
                 }
             }
@@ -1209,49 +1192,51 @@ void FontStyleBox::Fill( const OUString& rName, const FontList* pList )
         }
 
         if ( bInsert )
-            InsertEntry( aStyleText );
+            m_xComboBox->append_text(aStyleText);
 
         // certain style as copy
         if ( bNormal )
         {
             if ( !bItalic )
-                InsertEntry( pList->GetItalicStr() );
+                m_xComboBox->append_text(pList->GetItalicStr());
             if ( !bBold )
-                InsertEntry( pList->GetBoldStr() );
+                m_xComboBox->append_text(pList->GetBoldStr());
         }
         if ( !bBoldItalic )
         {
             if ( bNormal || bItalic || bBold )
-                InsertEntry( pList->GetBoldItalicStr() );
+                m_xComboBox->append_text(pList->GetBoldItalicStr());
         }
         if (!aOldText.isEmpty())
         {
-            if ( GetEntryPos( aLastStyle ) != LISTBOX_ENTRY_NOTFOUND )
-                ComboBox::SetText( aLastStyle );
+            int nFound = m_xComboBox->find_text(aOldText);
+            if (nFound != -1)
+                m_xComboBox->set_active(nFound);
             else
             {
-                if ( nPos >= GetEntryCount() )
-                    ComboBox::SetText( GetEntry( 0 ) );
+                if (nPos >= m_xComboBox->get_count())
+                    m_xComboBox->set_active(0);
                 else
-                    ComboBox::SetText( GetEntry( nPos ) );
+                    m_xComboBox->set_active(nPos);
             }
         }
     }
     else
     {
         // insert standard styles if no font
-        InsertEntry( pList->GetNormalStr() );
-        InsertEntry( pList->GetItalicStr() );
-        InsertEntry( pList->GetBoldStr() );
-        InsertEntry( pList->GetBoldItalicStr() );
+        m_xComboBox->append_text(pList->GetNormalStr());
+        m_xComboBox->append_text(pList->GetItalicStr());
+        m_xComboBox->append_text(pList->GetBoldStr());
+        m_xComboBox->append_text(pList->GetBoldItalicStr());
         if (!aOldText.isEmpty())
         {
-            if ( nPos > GetEntryCount() )
-                ComboBox::SetText( GetEntry( 0 ) );
+            if (nPos >= m_xComboBox->get_count())
+                m_xComboBox->set_active(0);
             else
-                ComboBox::SetText( GetEntry( nPos ) );
+                m_xComboBox->set_active(nPos);
         }
     }
+    m_xComboBox->thaw();
 }
 
 FontSizeBox::FontSizeBox( vcl::Window* pParent, WinBits nWinSize ) :
@@ -1403,11 +1388,11 @@ void FontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
         if ( pAry == FontList::GetStdSizeAry() )
         {
             // for scalable fonts all font size names
-            sal_uLong nCount = aFontSizeNames.Count();
-            for( sal_uLong i = 0; i < nCount; i++ )
+            sal_Int32 nCount = aFontSizeNames.Count();
+            for( sal_Int32 i = 0; i < nCount; i++ )
             {
                 OUString    aSizeName = aFontSizeNames.GetIndexName( i );
-                sal_IntPtr  nSize = aFontSizeNames.GetIndexSize( i );
+                sal_Int32   nSize = aFontSizeNames.GetIndexSize( i );
                 ComboBox::InsertEntry( aSizeName, nPos );
                 ComboBox::SetEntryData( nPos, reinterpret_cast<void*>(-nSize) ); // mark as special
                 nPos++;
@@ -1443,24 +1428,6 @@ void FontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
 
     SetText( aStr );
     SetSelection( aSelection );
-}
-
-void FontSizeBox::EnableRelativeMode( sal_uInt16 nMin, sal_uInt16 nMax, sal_uInt16 nStep )
-{
-    bRelativeMode = true;
-    nRelMin       = nMin;
-    nRelMax       = nMax;
-    nRelStep      = nStep;
-    SetUnit( FUNIT_POINT );
-}
-
-void FontSizeBox::EnablePtRelativeMode( short nMin, short nMax, short nStep )
-{
-    bRelativeMode = true;
-    nPtRelMin     = nMin;
-    nPtRelMax     = nMax;
-    nPtRelStep    = nStep;
-    SetUnit( FUNIT_POINT );
 }
 
 void FontSizeBox::SetRelative( bool bNewRelative )
@@ -1573,6 +1540,645 @@ sal_Int64 FontSizeBox::GetValueFromStringUnit(const OUString& rStr, FieldUnit eO
     }
 
     return MetricBox::GetValueFromStringUnit( rStr, eOutUnit );
+}
+
+SvtFontSizeBox::SvtFontSizeBox(std::unique_ptr<weld::ComboBox> p)
+    : pFontList(nullptr)
+    , nSavedValue(0)
+    , eUnit(FUNIT_POINT)
+    , nDecimalDigits(1)
+    , nRelMin(0)
+    , nRelMax(0)
+    , nRelStep(0)
+    , nPtRelMin(0)
+    , nPtRelMax(0)
+    , nPtRelStep(0)
+    , bRelativeMode(false)
+    , bRelative(false)
+    , bPtRelative(false)
+    , bStdSize(false)
+    , m_xComboBox(std::move(p))
+{
+    m_xComboBox->set_entry_width_chars(std::ceil(m_xComboBox->get_pixel_size(format_number(105)).Width() /
+                                                 m_xComboBox->get_approximate_digit_width()));
+    m_xComboBox->connect_focus_out(LINK(this, SvtFontSizeBox, ReformatHdl));
+    m_xComboBox->connect_changed(LINK(this, SvtFontSizeBox, ModifyHdl));
+}
+
+IMPL_LINK_NOARG(SvtFontSizeBox, ReformatHdl, weld::Widget&, void)
+{
+    FontSizeNames aFontSizeNames(Application::GetSettings().GetUILanguageTag().getLanguageType());
+    if (!bRelativeMode || !aFontSizeNames.IsEmpty())
+    {
+        if (aFontSizeNames.Name2Size(m_xComboBox->get_active_text()) != 0)
+            return;
+    }
+
+    set_value(get_value());
+}
+
+IMPL_LINK(SvtFontSizeBox, ModifyHdl, weld::ComboBox&, rBox, void)
+{
+    if (bRelativeMode)
+    {
+        OUString aStr = comphelper::string::stripStart(rBox.get_active_text(), ' ');
+
+        bool bNewMode = bRelative;
+        bool bOldPtRelMode = bPtRelative;
+
+        if ( bRelative )
+        {
+            bPtRelative = false;
+            const sal_Unicode* pStr = aStr.getStr();
+            while ( *pStr )
+            {
+                if ( ((*pStr < '0') || (*pStr > '9')) && (*pStr != '%') && !unicode::isSpace(*pStr) )
+                {
+                    if ( ('-' == *pStr || '+' == *pStr) && !bPtRelative )
+                        bPtRelative = true;
+                    else if ( bPtRelative && 'p' == *pStr && 't' == *++pStr )
+                        ;
+                    else
+                    {
+                        bNewMode = false;
+                        break;
+                    }
+                }
+                pStr++;
+            }
+        }
+        else if (!aStr.isEmpty())
+        {
+            if ( -1 != aStr.indexOf('%') )
+            {
+                bNewMode = true;
+                bPtRelative = false;
+            }
+
+            if ( '-' == aStr[0] || '+' == aStr[0] )
+            {
+                bNewMode = true;
+                bPtRelative = true;
+            }
+        }
+
+        if ( bNewMode != bRelative || bPtRelative != bOldPtRelMode )
+            SetRelative( bNewMode );
+    }
+    m_aChangeHdl.Call(rBox);
+}
+
+void SvtFontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
+{
+    // remember for relative mode
+    pFontList = pList;
+
+    // no font sizes need to be set for relative mode
+    if ( bRelative )
+        return;
+
+    // query font sizes
+    const sal_IntPtr* pTempAry;
+    const sal_IntPtr* pAry = nullptr;
+
+    if( pFontMetric )
+    {
+        aFontMetric = *pFontMetric;
+        pAry = pList->GetSizeAry( *pFontMetric );
+    }
+    else
+    {
+        pAry = FontList::GetStdSizeAry();
+    }
+
+    // first insert font size names (for simplified/traditional chinese)
+    FontSizeNames aFontSizeNames( Application::GetSettings().GetUILanguageTag().getLanguageType() );
+    if ( pAry == FontList::GetStdSizeAry() )
+    {
+        // for standard sizes we don't need to bother
+        if (bStdSize && m_xComboBox->get_count() && aFontSizeNames.IsEmpty())
+            return;
+        bStdSize = true;
+    }
+    else
+        bStdSize = false;
+
+    int nSelectionStart, nSelectionEnd;
+    m_xComboBox->get_entry_selection_bounds(nSelectionStart, nSelectionEnd);
+    OUString aStr = m_xComboBox->get_active_text();
+
+    m_xComboBox->freeze();
+    m_xComboBox->clear();
+    int nPos = 0;
+
+    if ( !aFontSizeNames.IsEmpty() )
+    {
+        if ( pAry == FontList::GetStdSizeAry() )
+        {
+            // for scalable fonts all font size names
+            sal_uLong nCount = aFontSizeNames.Count();
+            for( sal_uLong i = 0; i < nCount; i++ )
+            {
+                OUString    aSizeName = aFontSizeNames.GetIndexName( i );
+                sal_IntPtr  nSize = aFontSizeNames.GetIndexSize( i );
+                OUString sId(OUString::number(-nSize)); // mark as special
+                m_xComboBox->insert(nPos, sId, aSizeName, nullptr);
+                nPos++;
+            }
+        }
+        else
+        {
+            // for fixed size fonts only selectable font size names
+            pTempAry = pAry;
+            while ( *pTempAry )
+            {
+                OUString aSizeName = aFontSizeNames.Size2Name( *pTempAry );
+                if ( !aSizeName.isEmpty() )
+                {
+                    OUString sId(OUString::number(-(*pTempAry))); // mark as special
+                    m_xComboBox->insert(nPos, sId, aSizeName, nullptr);
+                    nPos++;
+                }
+                pTempAry++;
+            }
+        }
+    }
+
+    // then insert numerical font size values
+    pTempAry = pAry;
+    while (*pTempAry)
+    {
+        InsertValue(*pTempAry);
+        ++pTempAry;
+    }
+
+    m_xComboBox->set_entry_text(aStr);
+    m_xComboBox->select_entry_region(nSelectionStart, nSelectionEnd);
+    m_xComboBox->thaw();
+}
+
+void SvtFontSizeBox::EnableRelativeMode( sal_uInt16 nNewMin, sal_uInt16 nNewMax, sal_uInt16 nStep )
+{
+    bRelativeMode = true;
+    nRelMin       = nNewMin;
+    nRelMax       = nNewMax;
+    nRelStep      = nStep;
+    SetUnit(FUNIT_POINT);
+}
+
+void SvtFontSizeBox::EnablePtRelativeMode( short nNewMin, short nNewMax, short nStep )
+{
+    bRelativeMode = true;
+    nPtRelMin     = nNewMin;
+    nPtRelMax     = nNewMax;
+    nPtRelStep    = nStep;
+    SetUnit(FUNIT_POINT);
+}
+
+void SvtFontSizeBox::InsertValue(int i)
+{
+    OUString sNumber(OUString::number(i));
+    m_xComboBox->append(sNumber, format_number(i));
+}
+
+void SvtFontSizeBox::SetRelative( bool bNewRelative )
+{
+    if ( !bRelativeMode )
+        return;
+
+    int nSelectionStart, nSelectionEnd;
+    m_xComboBox->get_entry_selection_bounds(nSelectionStart, nSelectionEnd);
+    OUString aStr = comphelper::string::stripStart(m_xComboBox->get_active_text(), ' ');
+
+    if (bNewRelative)
+    {
+        bRelative = true;
+        bStdSize = false;
+
+        m_xComboBox->clear();
+
+        if (bPtRelative)
+        {
+            SetDecimalDigits( 1 );
+            SetUnit(FUNIT_POINT);
+
+            short i = nPtRelMin, n = 0;
+            // JP 30.06.98: more than 100 values are not useful
+            while ( i <= nPtRelMax && n++ < 100 )
+            {
+                InsertValue( i );
+                i = i + nPtRelStep;
+            }
+        }
+        else
+        {
+            SetDecimalDigits(0);
+            SetUnit(FUNIT_PERCENT);
+
+            sal_uInt16 i = nRelMin;
+            while ( i <= nRelMax )
+            {
+                InsertValue( i );
+                i = i + nRelStep;
+            }
+        }
+    }
+    else
+    {
+        if (pFontList)
+            m_xComboBox->clear();
+        bRelative = bPtRelative = false;
+        SetDecimalDigits(1);
+        SetUnit(FUNIT_POINT);
+        if ( pFontList)
+            Fill( &aFontMetric, pFontList );
+    }
+
+    m_xComboBox->set_entry_text(aStr);
+    m_xComboBox->select_entry_region(nSelectionStart, nSelectionEnd);
+}
+
+OUString SvtFontSizeBox::format_number(int nValue) const
+{
+    OUString sRet;
+
+    //pawn percent off to icu to decide whether percent is separated from its number for this locale
+    if (eUnit == FUNIT_PERCENT)
+    {
+        double fValue = nValue;
+        fValue /= weld::SpinButton::Power10(nDecimalDigits);
+        sRet = unicode::formatPercent(fValue, Application::GetSettings().GetUILanguageTag());
+    }
+    else
+    {
+        const SvtSysLocale aSysLocale;
+        const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
+        sRet = rLocaleData.getNum(nValue, nDecimalDigits, true, false);
+        if (eUnit != FUNIT_NONE && eUnit != FUNIT_DEGREE)
+            sRet += " ";
+        assert(eUnit != FUNIT_PERCENT);
+        sRet += weld::MetricSpinButton::MetricToString(eUnit);
+    }
+
+    if (bRelativeMode && bPtRelative && (0 <= nValue) && !sRet.isEmpty())
+        sRet = "+" + sRet;
+
+    return sRet;
+}
+
+void SvtFontSizeBox::SetValue(int nNewValue, FieldUnit eInUnit)
+{
+    auto nTempValue = MetricField::ConvertValue(nNewValue, 0, GetDecimalDigits(), eInUnit, GetUnit());
+    if (!bRelative)
+    {
+        FontSizeNames aFontSizeNames(Application::GetSettings().GetUILanguageTag().getLanguageType());
+        // conversion loses precision; however font sizes should
+        // never have a problem with that
+        OUString aName = aFontSizeNames.Size2Name(nTempValue);
+        if (!aName.isEmpty() && m_xComboBox->find_text(aName) != -1)
+        {
+            m_xComboBox->set_active_text(aName);
+            return;
+        }
+    }
+    OUString aResult = format_number(nTempValue);
+    const int nFound = m_xComboBox->find_text(aResult);
+    if (nFound != -1)
+        m_xComboBox->set_active(nFound);
+    else
+        m_xComboBox->set_entry_text(aResult);
+}
+
+void SvtFontSizeBox::set_value(int nNewValue)
+{
+    SetValue(nNewValue, eUnit);
+}
+
+int SvtFontSizeBox::get_value() const
+{
+    OUString aStr = m_xComboBox->get_active_text();
+    if (!bRelative)
+    {
+        FontSizeNames aFontSizeNames(Application::GetSettings().GetUILanguageTag().getLanguageType());
+        auto nValue = aFontSizeNames.Name2Size(aStr);
+        if (nValue)
+            return MetricField::ConvertValue(nValue, 0, GetDecimalDigits(), GetUnit(), GetUnit());
+    }
+
+    const SvtSysLocale aSysLocale;
+    const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
+    double fResult(0.0);
+    MetricFormatter::TextToValue(aStr, fResult, 0, GetDecimalDigits(), rLocaleData, GetUnit());
+    return fResult;
+}
+
+SvxBorderLineStyle SvtLineListBox::GetSelectEntryStyle() const
+{
+    if (m_xLineSet->IsNoSelection())
+        return SvxBorderLineStyle::NONE;
+    auto nId = m_xLineSet->GetSelectedItemId();
+    return static_cast<SvxBorderLineStyle>(nId - 1);
+}
+
+namespace
+{
+    Size getPreviewSize(const weld::Widget& rControl)
+    {
+        return Size(rControl.get_approximate_digit_width() * 15, rControl.get_text_height());
+    }
+}
+
+void SvtLineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
+                            Color aColor1, Color aColor2, Color aColorDist,
+                            SvxBorderLineStyle nStyle, BitmapEx& rBmp )
+{
+    Size aSize(getPreviewSize(*m_xControl));
+
+    // SourceUnit to Twips
+    if ( eSourceUnit == FUNIT_POINT )
+    {
+        nLine1      /= 5;
+        nLine2      /= 5;
+        nDistance   /= 5;
+    }
+
+    // Paint the lines
+    aSize = aVirDev->PixelToLogic( aSize );
+    long nPix = aVirDev->PixelToLogic( Size( 0, 1 ) ).Height();
+    sal_uInt32 n1 = nLine1;
+    sal_uInt32 n2 = nLine2;
+    long nDist  = nDistance;
+    n1 += nPix-1;
+    n1 -= n1%nPix;
+    if ( n2 )
+    {
+        nDist += nPix-1;
+        nDist -= nDist%nPix;
+        n2    += nPix-1;
+        n2    -= n2%nPix;
+    }
+    long nVirHeight = n1+nDist+n2;
+    if ( nVirHeight > aSize.Height() )
+        aSize.setHeight( nVirHeight );
+    // negative width should not be drawn
+    if ( aSize.Width() <= 0 )
+        return;
+
+    Size aVirSize = aVirDev->LogicToPixel( aSize );
+    if ( aVirDev->GetOutputSizePixel() != aVirSize )
+        aVirDev->SetOutputSizePixel( aVirSize );
+    aVirDev->SetFillColor( aColorDist );
+    aVirDev->DrawRect( tools::Rectangle( Point(), aSize ) );
+
+    aVirDev->SetFillColor( aColor1 );
+
+    double y1 = double( n1 ) / 2;
+    svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y1 ), basegfx::B2DPoint( aSize.Width( ), y1 ), n1, nStyle );
+
+    if ( n2 )
+    {
+        double y2 =  n1 + nDist + double( n2 ) / 2;
+        aVirDev->SetFillColor( aColor2 );
+        svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y2 ), basegfx::B2DPoint( aSize.Width(), y2 ), n2, SvxBorderLineStyle::SOLID );
+    }
+    rBmp = aVirDev->GetBitmapEx( Point(), Size( aSize.Width(), n1+nDist+n2 ) );
+}
+
+namespace
+{
+    OUString GetLineStyleName(SvxBorderLineStyle eStyle)
+    {
+        OUString sRet;
+        for (sal_uInt32 i = 0; i < SAL_N_ELEMENTS(RID_SVXSTR_BORDERLINE); ++i)
+        {
+            if (eStyle == RID_SVXSTR_BORDERLINE[i].second)
+            {
+                sRet = SvtResId(RID_SVXSTR_BORDERLINE[i].first);
+                break;
+            }
+        }
+        return sRet;
+    }
+}
+
+SvtLineListBox::SvtLineListBox(std::unique_ptr<weld::MenuButton> pControl)
+    : m_xControl(std::move(pControl))
+    , m_xBuilder(Application::CreateBuilder(m_xControl.get(), "svt/ui/linewindow.ui"))
+    , m_xTopLevel(m_xBuilder->weld_widget("line_popup_window"))
+    , m_xNoneButton(m_xBuilder->weld_button("none_line_button"))
+    , m_xLineSet(new SvtValueSet(nullptr))
+    , m_xLineSetWin(new weld::CustomWeld(*m_xBuilder, "lineset", *m_xLineSet))
+    , m_nWidth( 5 )
+    , aVirDev(VclPtr<VirtualDevice>::Create())
+    , aColor(COL_BLACK)
+    , maPaintCol(COL_BLACK)
+{
+    const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
+    m_xLineSet->SetStyle(WinBits(WB_FLATVALUESET | WB_NO_DIRECTSELECT | WB_TABSTOP));
+    m_xLineSet->SetItemHeight(rStyleSettings.GetListBoxPreviewDefaultPixelSize().Height() + 1);
+    m_xLineSet->SetColCount(1);
+    m_xLineSet->SetSelectHdl(LINK(this, SvtLineListBox, ValueSelectHdl));
+
+    m_xNoneButton->connect_clicked(LINK(this, SvtLineListBox, NoneHdl));
+
+    m_xTopLevel->connect_focus_in(LINK(this, SvtLineListBox, FocusHdl));
+    m_xControl->set_popover(m_xTopLevel.get());
+
+    // lock size to these maxes height/width so it doesn't jump around in size
+    m_xControl->set_label(GetLineStyleName(SvxBorderLineStyle::NONE));
+    Size aNonePrefSize = m_xControl->get_preferred_size();
+    m_xControl->set_label("");
+    aVirDev->SetOutputSizePixel(getPreviewSize(*m_xControl));
+    m_xControl->set_image(aVirDev);
+    Size aSolidPrefSize = m_xControl->get_preferred_size();
+    m_xControl->set_size_request(std::max(aNonePrefSize.Width(), aSolidPrefSize.Width()),
+                                 std::max(aNonePrefSize.Height(), aSolidPrefSize.Height()));
+
+    eSourceUnit = FUNIT_POINT;
+
+    aVirDev->SetLineColor();
+    aVirDev->SetMapMode(MapMode(MapUnit::MapTwip));
+
+    UpdatePaintLineColor();
+}
+
+IMPL_LINK_NOARG(SvtLineListBox, FocusHdl, weld::Widget&, void)
+{
+    if (GetSelectEntryStyle() == SvxBorderLineStyle::NONE)
+        m_xNoneButton->grab_focus();
+    else
+        m_xLineSet->GrabFocus();
+}
+
+IMPL_LINK_NOARG(SvtLineListBox, NoneHdl, weld::Button&, void)
+{
+    SelectEntry(SvxBorderLineStyle::NONE);
+    ValueSelectHdl(nullptr);
+}
+
+SvtLineListBox::~SvtLineListBox()
+{
+}
+
+sal_Int32 SvtLineListBox::GetStylePos( sal_Int32 nListPos )
+{
+    sal_Int32 nPos = LISTBOX_ENTRY_NOTFOUND;
+    --nListPos;
+
+    sal_Int32 n = 0;
+    size_t i = 0;
+    size_t nCount = m_vLineList.size();
+    while ( nPos == LISTBOX_ENTRY_NOTFOUND && i < nCount )
+    {
+        if ( nListPos == n )
+            nPos = static_cast<sal_Int32>(i);
+        n++;
+        i++;
+    }
+
+    return nPos;
+}
+
+void SvtLineListBox::SelectEntry(SvxBorderLineStyle nStyle)
+{
+    if (nStyle == SvxBorderLineStyle::NONE)
+    {
+        m_xLineSet->SetNoSelection();
+        m_xNoneButton->set_has_default(true);
+    }
+    else
+    {
+        m_xLineSet->SelectItem(static_cast<sal_Int16>(nStyle) + 1);
+        m_xNoneButton->set_has_default(false);
+    }
+    UpdatePreview();
+}
+
+void SvtLineListBox::InsertEntry(
+    const BorderWidthImpl& rWidthImpl, SvxBorderLineStyle nStyle, long nMinWidth,
+    ColorFunc pColor1Fn, ColorFunc pColor2Fn, ColorDistFunc pColorDistFn )
+{
+    m_vLineList.emplace_back(new ImpLineListData(
+        rWidthImpl, nStyle, nMinWidth, pColor1Fn, pColor2Fn, pColorDistFn));
+}
+
+void SvtLineListBox::UpdatePaintLineColor()
+{
+    const StyleSettings& rSettings = Application::GetSettings().GetStyleSettings();
+    Color aNewCol(rSettings.GetWindowColor().IsDark() ? rSettings.GetLabelTextColor() : aColor);
+
+    bool bRet = aNewCol != maPaintCol;
+
+    if( bRet )
+        maPaintCol = aNewCol;
+}
+
+void SvtLineListBox::UpdateEntries()
+{
+    UpdatePaintLineColor( );
+
+    SvxBorderLineStyle eSelected = GetSelectEntryStyle();
+
+    // Remove the old entries
+    m_xLineSet->Clear();
+
+    // Add the new entries based on the defined width
+
+    sal_uInt16 n = 0;
+    sal_uInt16 nCount = m_vLineList.size( );
+    while ( n < nCount )
+    {
+        auto& pData = m_vLineList[ n ];
+        BitmapEx aBmp;
+        ImpGetLine( pData->GetLine1ForWidth( m_nWidth ),
+                pData->GetLine2ForWidth( m_nWidth ),
+                pData->GetDistForWidth( m_nWidth ),
+                GetColorLine1(m_xLineSet->GetItemCount()),
+                GetColorLine2(m_xLineSet->GetItemCount()),
+                GetColorDist(m_xLineSet->GetItemCount()),
+                pData->GetStyle(), aBmp );
+        sal_Int16 nItemId = static_cast<sal_Int16>(pData->GetStyle()) + 1;
+        m_xLineSet->InsertItem(nItemId, Image(aBmp), GetLineStyleName(pData->GetStyle()));
+        if (pData->GetStyle() == eSelected)
+            m_xLineSet->SelectItem(nItemId);
+        n++;
+    }
+
+    m_xLineSet->SetOptimalSize();
+}
+
+Color SvtLineListBox::GetColorLine1( sal_Int32 nPos )
+{
+    sal_Int32 nStyle = GetStylePos( nPos );
+    if (nStyle == LISTBOX_ENTRY_NOTFOUND)
+        return GetPaintColor( );
+    auto& pData = m_vLineList[ nStyle ];
+    return pData->GetColorLine1( GetColor( ) );
+}
+
+Color SvtLineListBox::GetColorLine2( sal_Int32 nPos )
+{
+    sal_Int32 nStyle = GetStylePos(nPos);
+    if (nStyle == LISTBOX_ENTRY_NOTFOUND)
+        return GetPaintColor( );
+    auto& pData = m_vLineList[ nStyle ];
+    return pData->GetColorLine2( GetColor( ) );
+}
+
+Color SvtLineListBox::GetColorDist( sal_Int32 nPos )
+{
+    const StyleSettings& rSettings = Application::GetSettings().GetStyleSettings();
+    Color rResult = rSettings.GetFieldColor();
+
+    sal_Int32 nStyle = GetStylePos( nPos );
+    if (nStyle == LISTBOX_ENTRY_NOTFOUND)
+        return rResult;
+    auto& pData = m_vLineList[ nStyle ];
+    return pData->GetColorDist( GetColor( ), rResult );
+}
+
+IMPL_LINK_NOARG(SvtLineListBox, StyleUpdated, weld::Widget&, void)
+{
+    UpdateEntries();
+}
+
+IMPL_LINK_NOARG(SvtLineListBox, ValueSelectHdl, SvtValueSet*, void)
+{
+    maSelectHdl.Call(*this);
+    UpdatePreview();
+    if (m_xControl->get_active())
+        m_xControl->set_active(false);
+}
+
+void SvtLineListBox::UpdatePreview()
+{
+    SvxBorderLineStyle eStyle = GetSelectEntryStyle();
+    for (sal_uInt32 i = 0; i < SAL_N_ELEMENTS(RID_SVXSTR_BORDERLINE); ++i)
+    {
+        if (eStyle == RID_SVXSTR_BORDERLINE[i].second)
+        {
+            m_xControl->set_label(SvtResId(RID_SVXSTR_BORDERLINE[i].first));
+            break;
+        }
+    }
+
+    if (eStyle == SvxBorderLineStyle::NONE)
+    {
+        m_xControl->set_image(nullptr);
+        m_xControl->set_label(GetLineStyleName(SvxBorderLineStyle::NONE));
+    }
+    else
+    {
+        Image aImage(m_xLineSet->GetItemImage(m_xLineSet->GetSelectedItemId()));
+        m_xControl->set_label("");
+        const auto nPos = (aVirDev->GetOutputSizePixel().Height() - aImage.GetSizePixel().Height()) / 2;
+        aVirDev->Push(PushFlags::MAPMODE);
+        aVirDev->SetMapMode(MapMode(MapUnit::MapPixel));
+        aVirDev->Erase();
+        aVirDev->DrawImage(Point(0, nPos), aImage);
+        m_xControl->set_image(aVirDev.get());
+        aVirDev->Pop();
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -80,6 +80,7 @@
 #include <fuconarc.hxx>
 #include <fucon3d.hxx>
 #include <sdresid.hxx>
+#include <unokywds.hxx>
 #include <Outliner.hxx>
 #include <PresentationViewShell.hxx>
 #include <sdpage.hxx>
@@ -105,7 +106,7 @@ namespace sd {
 
 // Permanent Functions
 
-void ImpAddPrintableCharactersToTextEdit(SfxRequest const & rReq, ::sd::View* pView)
+static void ImpAddPrintableCharactersToTextEdit(SfxRequest const & rReq, ::sd::View* pView)
 {
     // evtl. feed characters to activated textedit
     const SfxItemSet* pSet = rReq.GetArgs();
@@ -304,16 +305,13 @@ void DrawViewShell::FuPermanent(SfxRequest& rReq)
         case SID_OBJECT_CROOK_STRETCH:
         case SID_CONVERT_TO_3D_LATHE:
         {
-            short nSlotId = rReq.GetSlot();
+            sal_uInt16 nSlotId = rReq.GetSlot();
 
-            if( nSlotId == sal_uInt16(SID_OBJECT_ROTATE) )
+            // toggle function
+            if( nOldSId == nSlotId )
             {
-                // toggle rotation
-                if( nOldSId == nSlotId )
-                {
-                    nSlotId = SID_OBJECT_SELECT;
-                    rReq.SetSlot( nSlotId );
-                }
+                nSlotId = SID_OBJECT_SELECT;
+                rReq.SetSlot( nSlotId );
             }
 
             if (nSlotId == SID_OBJECT_CROOK_ROTATE ||
@@ -544,8 +542,15 @@ void DrawViewShell::FuPermanent(SfxRequest& rReq)
         case SID_ZOOM_MODE:
         case SID_ZOOM_PANNING:
         {
-            mbZoomOnPage = false;
-            SetCurrentFunction( FuZoom::Create(this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq ) );
+            if (nOldSId != nSId)
+            {
+                mbZoomOnPage = false;
+                SetCurrentFunction( FuZoom::Create(this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq ) );
+            }
+            else
+            {
+                GetViewFrame()->GetDispatcher()->Execute(SID_OBJECT_SELECT, SfxCallMode::ASYNCHRON);
+            }
             rReq.Done();
         }
         break;
@@ -1015,7 +1020,7 @@ void DrawViewShell::FuSupport(SfxRequest& rReq)
                 ViewShellHint(ViewShellHint::HINT_CHANGE_EDIT_MODE_START));
 
             // turn on default layer of MasterPage
-            mpDrawView->SetActiveLayer( SdResId(STR_LAYER_BCKGRNDOBJ) );
+            mpDrawView->SetActiveLayer(sUNO_LayerName_background_objects);
 
             ChangeEditMode(EditMode::MasterPage, mbIsLayerModeActive);
 

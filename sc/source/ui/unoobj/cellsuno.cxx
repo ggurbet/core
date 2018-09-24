@@ -134,6 +134,7 @@
 #include <condformatuno.hxx>
 #include <TablePivotCharts.hxx>
 #include <table.hxx>
+#include <refundo.hxx>
 
 #include <list>
 #include <memory>
@@ -1056,9 +1057,9 @@ void ScHelperFunctions::ApplyBorder( ScDocShell* pDocShell, const ScRangeList& r
 {
     ScDocument& rDoc = pDocShell->GetDocument();
     bool bUndo(rDoc.IsUndoEnabled());
-    ScDocument* pUndoDoc = nullptr;
+    ScDocumentUniquePtr pUndoDoc;
     if (bUndo)
-        pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+        pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
     size_t nCount = rRanges.size();
     for (size_t i = 0; i < nCount; ++i)
     {
@@ -1085,7 +1086,7 @@ void ScHelperFunctions::ApplyBorder( ScDocShell* pDocShell, const ScRangeList& r
     if (bUndo)
     {
         pDocShell->GetUndoManager()->AddUndoAction(
-                new ScUndoBorder( pDocShell, rRanges, pUndoDoc, rOuter, rInner ) );
+                new ScUndoBorder( pDocShell, rRanges, std::move(pUndoDoc), rOuter, rInner ) );
     }
 
     for (size_t i = 0; i < nCount; ++i )
@@ -1398,12 +1399,6 @@ static OUString lcl_GetInputString( ScDocument& rDoc, const ScAddress& rPos, boo
 ScCellRangesBase::ScCellRangesBase(ScDocShell* pDocSh, const ScRange& rR) :
     pPropSet(lcl_GetCellsPropertySet()),
     pDocShell( pDocSh ),
-    pValueListener( nullptr ),
-    pCurrentFlat( nullptr ),
-    pCurrentDeep( nullptr ),
-    pCurrentDataSet( nullptr ),
-    pNoDfltCurrentDataSet( nullptr ),
-    pMarkData( nullptr ),
     nObjectId( 0 ),
     bChartColAsHdr( false ),
     bChartRowAsHdr( false ),
@@ -1435,12 +1430,6 @@ ScCellRangesBase::ScCellRangesBase(ScDocShell* pDocSh, const ScRange& rR) :
 ScCellRangesBase::ScCellRangesBase(ScDocShell* pDocSh, const ScRangeList& rR) :
     pPropSet(lcl_GetCellsPropertySet()),
     pDocShell( pDocSh ),
-    pValueListener( nullptr ),
-    pCurrentFlat( nullptr ),
-    pCurrentDeep( nullptr ),
-    pCurrentDataSet( nullptr ),
-    pNoDfltCurrentDataSet( nullptr ),
-    pMarkData( nullptr ),
     aRanges( rR ),
     nObjectId( 0 ),
     bChartColAsHdr( false ),
@@ -7022,11 +7011,11 @@ void SAL_CALL ScTableSheetObj::removeAllManualPageBreaks()
 
         if (bUndo)
         {
-            ScDocument* pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+            ScDocumentUniquePtr pUndoDoc(new ScDocument( SCDOCMODE_UNDO ));
             pUndoDoc->InitUndo( &rDoc, nTab, nTab, true, true );
             rDoc.CopyToDocument(0,0,nTab, MAXCOL,MAXROW,nTab, InsertDeleteFlags::NONE, false, *pUndoDoc);
             pDocSh->GetUndoManager()->AddUndoAction(
-                                    new ScUndoRemoveBreaks( pDocSh, nTab, pUndoDoc ) );
+                                    new ScUndoRemoveBreaks( pDocSh, nTab, std::move(pUndoDoc) ) );
         }
 
         rDoc.RemoveManualBreaks(nTab);
@@ -8912,7 +8901,6 @@ sal_Bool SAL_CALL ScCellsObj::hasElements()
 ScCellsEnumeration::ScCellsEnumeration(ScDocShell* pDocSh, const ScRangeList& rR) :
     pDocShell( pDocSh ),
     aRanges( rR ),
-    pMark( nullptr ),
     bAtEnd( false )
 {
     ScDocument& rDoc = pDocShell->GetDocument();
@@ -9155,7 +9143,6 @@ uno::Reference<container::XEnumeration> SAL_CALL ScCellFormatsObj::createEnumera
 ScCellFormatsEnumeration::ScCellFormatsEnumeration(ScDocShell* pDocSh, const ScRange& rRange) :
     pDocShell( pDocSh ),
     nTab( rRange.aStart.Tab() ),
-    pIter( nullptr ),
     bAtEnd( false ),
     bDirty( false )
 {

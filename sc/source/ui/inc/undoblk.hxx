@@ -43,8 +43,9 @@ class ScUndoInsertCells: public ScMoveUndo
 {
 public:
                     ScUndoInsertCells( ScDocShell* pNewDocShell,
-                                       const ScRange& rRange, SCTAB nNewCount, SCTAB* pNewTabs, SCTAB* pNewScenarios,
-                                       InsCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData,
+                                       const ScRange& rRange,
+                                       SCTAB nNewCount, std::unique_ptr<SCTAB[]> pNewTabs, std::unique_ptr<SCTAB[]> pNewScenarios,
+                                       InsCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData,
                                        bool bNewPartOfPaste );
     virtual         ~ScUndoInsertCells() override;
 
@@ -78,8 +79,9 @@ class ScUndoDeleteCells: public ScMoveUndo
 {
 public:
                     ScUndoDeleteCells( ScDocShell* pNewDocShell,
-                                       const ScRange& rRange, SCTAB nNewCount, SCTAB* pNewTabs, SCTAB* pNewScenarios,
-                                       DelCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData );
+                                       const ScRange& rRange,
+                                       SCTAB nNewCount, std::unique_ptr<SCTAB[]> pNewTabs, std::unique_ptr<SCTAB[]> pNewScenarios,
+                                       DelCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData );
     virtual         ~ScUndoDeleteCells() override;
 
     virtual void    Undo() override;
@@ -111,7 +113,7 @@ public:
     ScUndoDeleteMulti( ScDocShell* pNewDocShell,
                        bool bNewRows, bool bNeedsRefresh, SCTAB nNewTab,
                        const std::vector<sc::ColRowSpan>& rSpans,
-                       ScDocumentUniquePtr pUndoDocument, ScRefUndoData* pRefData );
+                       ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData );
 
     virtual         ~ScUndoDeleteMulti() override;
 
@@ -137,11 +139,11 @@ private:
 class ScUndoCut: public ScBlockUndo
 {
 public:
-                    ScUndoCut( ScDocShell* pNewDocShell,
-                               ScRange aRange,              // adjusted for merged cells
-                               const ScAddress& aOldEnd,           // end position without adjustment
-                               const ScMarkData& rMark,     // selected sheets
-                               ScDocumentUniquePtr pNewUndoDoc );
+    ScUndoCut(ScDocShell* pNewDocShell,
+              const ScRange& aRange, // adjusted for merged cells
+              const ScAddress& aOldEnd, // end position without adjustment
+              const ScMarkData& rMark, // selected sheets
+              ScDocumentUniquePtr pNewUndoDoc);
     virtual         ~ScUndoCut() override;
 
     virtual void    Undo() override;
@@ -187,7 +189,7 @@ public:
                 const ScMarkData& rMark,
                 ScDocumentUniquePtr pNewUndoDoc, ScDocumentUniquePtr pNewRedoDoc,
                 InsertDeleteFlags nNewFlags,
-                ScRefUndoData* pRefData,
+                std::unique_ptr<ScRefUndoData> pRefData,
                 bool bRedoIsFilled = true,
                 const ScUndoPasteOptions* pOptions = nullptr);
     virtual ~ScUndoPaste() override;
@@ -431,7 +433,8 @@ class ScUndoMerge: public ScSimpleUndo
 {
 public:
                     ScUndoMerge( ScDocShell* pNewDocShell, const ScCellMergeOption& rOption,
-                                 bool bMergeContents, ScDocumentUniquePtr pUndoDoc, SdrUndoAction* pDrawUndo);
+                                 bool bMergeContents, ScDocumentUniquePtr pUndoDoc,
+                                 std::unique_ptr<SdrUndoAction> pDrawUndo);
     virtual         ~ScUndoMerge() override;
 
     virtual void    Undo() override;
@@ -893,7 +896,7 @@ class ScUndoClearItems: public ScBlockUndo
 {
 public:
                     ScUndoClearItems( ScDocShell* pNewDocShell, const ScMarkData& rMark,
-                                        ScDocument* pNewUndoDoc, const sal_uInt16* pW );
+                                      ScDocumentUniquePtr pNewUndoDoc, const sal_uInt16* pW );
     virtual         ~ScUndoClearItems() override;
 
     virtual void    Undo() override;
@@ -915,7 +918,7 @@ class ScUndoRemoveBreaks: public ScSimpleUndo
 {
 public:
                     ScUndoRemoveBreaks( ScDocShell* pNewDocShell,
-                                    SCTAB nNewTab, ScDocument* pNewUndoDoc );
+                                    SCTAB nNewTab, ScDocumentUniquePtr pNewUndoDoc );
     virtual         ~ScUndoRemoveBreaks() override;
 
     virtual void    Undo() override;
@@ -936,10 +939,10 @@ class ScUndoRemoveMerge: public ScBlockUndo
 public:
                     ScUndoRemoveMerge( ScDocShell* pNewDocShell,
                                        const ScCellMergeOption& rOption,
-                                       ScDocument* pNewUndoDoc );
+                                       ScDocumentUniquePtr pNewUndoDoc );
                     ScUndoRemoveMerge( ScDocShell* pNewDocShell,
                                        const ScRange& rRange,
-                                       ScDocument* pNewUndoDoc );
+                                       ScDocumentUniquePtr pNewUndoDoc );
     virtual         ~ScUndoRemoveMerge() override;
 
     virtual void    Undo() override;
@@ -964,7 +967,7 @@ class ScUndoBorder: public ScBlockUndo
 public:
     ScUndoBorder(ScDocShell* pNewDocShell,
                  const ScRangeList& rRangeList,
-                 ScDocument* pNewUndoDoc,
+                 ScDocumentUniquePtr pNewUndoDoc,
                  const SvxBoxItem& rNewOuter,
                  const SvxBoxInfoItem& rNewInner);
 

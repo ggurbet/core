@@ -88,7 +88,7 @@ SwFormatTablePage::SwFormatTablePage(TabPageParent pParent, const SfxItemSet& rS
     , m_xTopMF(m_xBuilder->weld_metric_spin_button("abovemf", FUNIT_CM))
     , m_xBottomFT(m_xBuilder->weld_label("belowft"))
     , m_xBottomMF(m_xBuilder->weld_metric_spin_button("belowmf", FUNIT_CM))
-    , m_xTextDirectionLB(new svx::SvxFrameDirectionListBox(m_xBuilder->weld_combo_box_text("textdirection")))
+    , m_xTextDirectionLB(new svx::SvxFrameDirectionListBox(m_xBuilder->weld_combo_box("textdirection")))
     , m_xProperties(m_xBuilder->weld_widget("properties"))
 {
     //lock these to initial sizes so they don't change on percent to non percent change
@@ -1150,35 +1150,33 @@ void SwTableColumnPage::SetVisibleWidth(sal_uInt16 nPos, SwTwips nNewWidth)
 
 }
 
-SwTableTabDlg::SwTableTabDlg(vcl::Window* pParent,
-    const SfxItemSet* pItemSet, SwWrtShell* pSh)
-    : SfxTabDialog(pParent, "TablePropertiesDialog",
-        "modules/swriter/ui/tableproperties.ui", pItemSet)
+SwTableTabDlg::SwTableTabDlg(weld::Window* pParent, const SfxItemSet* pItemSet, SwWrtShell* pSh)
+    : SfxTabDialogController(pParent, "modules/swriter/ui/tableproperties.ui", "TablePropertiesDialog", pItemSet)
     , pShell(pSh)
 {
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
     AddTabPage("table", &SwFormatTablePage::Create, nullptr);
-    m_nTextFlowId = AddTabPage("textflow", &SwTextFlowPage::Create, nullptr);
+    AddTabPage("textflow", &SwTextFlowPage::Create, nullptr);
     AddTabPage("columns", &SwTableColumnPage::Create, nullptr);
-    m_nBackgroundId = AddTabPage("background", pFact->GetTabPageCreatorFunc(RID_SVXPAGE_BKG), nullptr);
-    m_nBorderId = AddTabPage("borders", pFact->GetTabPageCreatorFunc(RID_SVXPAGE_BORDER), nullptr);
+    AddTabPage("background", pFact->GetTabPageCreatorFunc(RID_SVXPAGE_BKG), nullptr);
+    AddTabPage("borders", pFact->GetTabPageCreatorFunc(RID_SVXPAGE_BORDER), nullptr);
 }
 
-void  SwTableTabDlg::PageCreated(sal_uInt16 nId, SfxTabPage& rPage)
+void  SwTableTabDlg::PageCreated(const OString& rId, SfxTabPage& rPage)
 {
     SfxAllItemSet aSet(*(GetInputSetImpl()->GetPool()));
-    if (nId == m_nBackgroundId)
+    if (rId == "background")
     {
         SvxBackgroundTabFlags const nFlagType = SvxBackgroundTabFlags::SHOW_TBLCTL;
         aSet.Put (SfxUInt32Item(SID_FLAG_TYPE, static_cast<sal_uInt32>(nFlagType)));
         rPage.PageCreated(aSet);
     }
-    else if (nId == m_nBorderId)
+    else if (rId == "borders")
     {
         aSet.Put (SfxUInt16Item(SID_SWMODE_TYPE, static_cast<sal_uInt16>(SwBorderModes::TABLE)));
         rPage.PageCreated(aSet);
     }
-    else if (nId == m_nTextFlowId)
+    else if (rId == "textflow")
     {
         static_cast<SwTextFlowPage&>(rPage).SetShell(pShell);
         const FrameTypeFlags eType = pShell->GetFrameType(nullptr,true);
@@ -1198,7 +1196,7 @@ SwTextFlowPage::SwTextFlowPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_xPgBrkBeforeRB(m_xBuilder->weld_radio_button("before"))
     , m_xPgBrkAfterRB(m_xBuilder->weld_radio_button("after"))
     , m_xPageCollCB(m_xBuilder->weld_check_button("pagestyle"))
-    , m_xPageCollLB(m_xBuilder->weld_combo_box_text("pagestylelb"))
+    , m_xPageCollLB(m_xBuilder->weld_combo_box("pagestylelb"))
     , m_xPageNoCB(m_xBuilder->weld_check_button("pagenoft"))
     , m_xPageNoNF(m_xBuilder->weld_spin_button("pagenonf"))
     , m_xSplitCB(m_xBuilder->weld_check_button("split"))
@@ -1207,8 +1205,8 @@ SwTextFlowPage::SwTextFlowPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_xHeadLineCB(m_xBuilder->weld_check_button("headline"))
     , m_xRepeatHeaderCombo(m_xBuilder->weld_widget("repeatheader"))
     , m_xRepeatHeaderNF(m_xBuilder->weld_spin_button("repeatheadernf"))
-    , m_xTextDirectionLB(m_xBuilder->weld_combo_box_text("textdirection"))
-    , m_xVertOrientLB(m_xBuilder->weld_combo_box_text("vertorient"))
+    , m_xTextDirectionLB(m_xBuilder->weld_combo_box("textdirection"))
+    , m_xVertOrientLB(m_xBuilder->weld_combo_box("vertorient"))
 {
     m_xPgBrkCB->connect_toggled(LINK(this, SwTextFlowPage, PageBreakHdl_Impl));
     m_xPgBrkBeforeRB->connect_toggled(

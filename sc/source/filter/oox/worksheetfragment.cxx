@@ -18,6 +18,7 @@
  */
 
 #include <worksheetfragment.hxx>
+#include <formulaparser.hxx>
 
 #include <osl/diagnose.h>
 #include <oox/core/filterbase.hxx>
@@ -26,6 +27,7 @@
 #include <oox/token/namespaces.hxx>
 #include <oox/token/tokens.hxx>
 #include <addressconverter.hxx>
+#include <biffhelper.hxx>
 #include <autofilterbuffer.hxx>
 #include <autofiltercontext.hxx>
 #include <commentsfragment.hxx>

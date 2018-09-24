@@ -56,7 +56,7 @@ using namespace ::sf_misc;
 namespace func_provider
 {
 
-bool endsWith( const OUString& target, const OUString& item )
+static bool endsWith( const OUString& target, const OUString& item )
 {
     sal_Int32 index = target.indexOf( item );
     return index != -1  &&
@@ -70,7 +70,7 @@ bool endsWith( const OUString& target, const OUString& item )
 
 MasterScriptProvider::MasterScriptProvider( const Reference< XComponentContext > & xContext ):
         m_xContext( xContext ), m_bIsValid( false ), m_bInitialised( false ),
-        m_bIsPkgMSP( false ), m_pPCache( nullptr )
+        m_bIsPkgMSP( false )
 {
     ENSURE_OR_THROW( m_xContext.is(), "MasterScriptProvider::MasterScriptProvider: No context available\n" );
     m_xMgr = m_xContext->getServiceManager();
@@ -709,14 +709,14 @@ Sequence< OUString > SAL_CALL MasterScriptProvider::getSupportedServiceNames( )
 namespace scripting_runtimemgr
 {
 
-Reference< XInterface > sp_create(
+static Reference< XInterface > sp_create(
     const Reference< XComponentContext > & xCompC )
 {
     return static_cast<cppu::OWeakObject *>(new ::func_provider::MasterScriptProvider( xCompC ));
 }
 
 
-Sequence< OUString > sp_getSupportedServiceNames( )
+static Sequence< OUString > sp_getSupportedServiceNames( )
 {
     OUString names[3];
 
@@ -728,20 +728,20 @@ Sequence< OUString > sp_getSupportedServiceNames( )
 }
 
 
-OUString sp_getImplementationName( )
+static OUString sp_getImplementationName( )
 {
     return OUString( "com.sun.star.script.provider.MasterScriptProvider"  );
 }
 
 // ***** registration or ScriptingFrameworkURIHelper
-Reference< XInterface > urihelper_create(
+static Reference< XInterface > urihelper_create(
     const Reference< XComponentContext > & xCompC )
 {
     return static_cast<cppu::OWeakObject *>(
         new ::func_provider::ScriptingFrameworkURIHelper( xCompC ));
 }
 
-Sequence< OUString > urihelper_getSupportedServiceNames( )
+static Sequence< OUString > urihelper_getSupportedServiceNames( )
 {
     OUString serviceNameList[] = {
         OUString(
@@ -753,7 +753,7 @@ Sequence< OUString > urihelper_getSupportedServiceNames( )
     return serviceNames;
 }
 
-OUString urihelper_getImplementationName( )
+static OUString urihelper_getImplementationName( )
 {
     return OUString(
         "com.sun.star.script.provider.ScriptURIHelper");

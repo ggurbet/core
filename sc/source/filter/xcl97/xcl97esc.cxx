@@ -41,6 +41,7 @@
 #include <sal/log.hxx>
 
 #include <sot/exchange.hxx>
+#include <sot/storage.hxx>
 #include <xeescher.hxx>
 
 #include <global.hxx>
@@ -97,7 +98,6 @@ XclEscherEx::XclEscherEx( const XclExpRoot& rRoot, XclExpObjectManager& rObjMgr,
     XclExpRoot( rRoot ),
     mrObjMgr( rObjMgr ),
     pCurrXclObj( nullptr ),
-    pCurrAppData( nullptr ),
     pTheClientData( new XclEscherClientData ),
     pAdditionalText( nullptr ),
     nAdditionalText( 0 ),

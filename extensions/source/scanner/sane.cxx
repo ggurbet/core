@@ -40,7 +40,7 @@
 #else
 #define dump_state( a, b, c, d ) ;
 #endif
-inline void dbg_msg( const char* pString, ... )
+static inline void dbg_msg( const char* pString, ... )
 {
 #if (OSL_DEBUG_LEVEL > 0) || defined DBG_UTIL
     va_list ap;
@@ -150,7 +150,6 @@ SANE_Status Sane::ControlOption( int nOption, SANE_Action nAction,
 }
 
 Sane::Sane() :
-        mppOptions( nullptr ),
         mnOptions( 0 ),
         mnDevice( -1 ),
         maHandle( nullptr )

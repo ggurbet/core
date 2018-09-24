@@ -1038,22 +1038,20 @@ VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScSubTotalDlg(v
 }
 
 VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScCharDlg(
-    vcl::Window* pParent, const SfxItemSet* pAttr, const SfxObjectShell* pDocShell)
+    weld::Window* pParent, const SfxItemSet* pAttr, const SfxObjectShell* pDocShell)
 {
-    VclPtr<SfxTabDialog> pDlg = VclPtr<ScCharDlg>::Create(pParent, pAttr, pDocShell);
-    return VclPtr<ScAbstractTabDialog_Impl>::Create(pDlg);
+    return VclPtr<ScAbstractTabController_Impl>::Create(o3tl::make_unique<ScCharDlg>(pParent, pAttr, pDocShell));
 }
 
 VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScParagraphDlg(
-    vcl::Window* pParent, const SfxItemSet* pAttr)
+    weld::Window* pParent, const SfxItemSet* pAttr)
 {
-    VclPtr<SfxTabDialog> pDlg = VclPtr<ScParagraphDlg>::Create(pParent, pAttr);
-    return VclPtr<ScAbstractTabDialog_Impl>::Create(pDlg);
+    return VclPtr<ScAbstractTabController_Impl>::Create(o3tl::make_unique<ScParagraphDlg>(pParent, pAttr));
 }
 
 VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScSortDlg(weld::Window* pParent, const SfxItemSet* pArgSet)
 {
-    return VclPtr<ScAbstractTabController_Impl>::Create(new ScSortDlg(pParent, pArgSet));
+    return VclPtr<ScAbstractTabController_Impl>::Create(o3tl::make_unique<ScSortDlg>(pParent, pArgSet));
 }
 
 //------------------ Factories for TabPages--------------------

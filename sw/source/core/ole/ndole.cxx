@@ -242,13 +242,6 @@ const Graphic* SwOLENode::GetGraphic()
     return nullptr;
 }
 
-SwContentNode *SwOLENode::SplitContentNode( const SwPosition & )
-{
-    // Multiply OLE objects?
-    OSL_FAIL( "OleNode: can't split." );
-    return this;
-}
-
 /**
  * Loading a OLE object that has been moved to the Undo Area
  */
@@ -414,7 +407,7 @@ Size SwOLENode::GetTwipSize() const
     return const_cast<SwOLENode*>(this)->maOLEObj.GetObject().GetSize( &aMapMode );
 }
 
-SwContentNode* SwOLENode::MakeCopy( SwDoc* pDoc, const SwNodeIndex& rIdx ) const
+SwContentNode* SwOLENode::MakeCopy( SwDoc* pDoc, const SwNodeIndex& rIdx, bool) const
 {
     // If there's already a SvPersist instance, we use it
     SfxObjectShell* pPersistShell = pDoc->GetPersist();
@@ -765,8 +758,7 @@ SwOLEObj::SwOLEObj( const svt::EmbeddedObjectRef& xObj ) :
     m_pOLENode( nullptr ),
     m_xOLERef( xObj ),
     m_aPrimitive2DSequence(),
-    m_aRange(),
-    m_pDeflateData(nullptr)
+    m_aRange()
 {
     m_xOLERef.Lock();
     if ( xObj.is() )
@@ -780,8 +772,7 @@ SwOLEObj::SwOLEObj( const OUString &rString, sal_Int64 nAspect ) :
     m_pOLENode( nullptr ),
     m_aName( rString ),
     m_aPrimitive2DSequence(),
-    m_aRange(),
-    m_pDeflateData(nullptr)
+    m_aRange()
 {
     m_xOLERef.Lock();
     m_xOLERef.SetViewAspect( nAspect );

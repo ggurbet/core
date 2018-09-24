@@ -77,7 +77,7 @@ namespace dbaxml
 {
     using namespace ::com::sun::star::util;
     /// read a component (file + filter version)
-ErrCode ReadThroughComponent(
+static ErrCode ReadThroughComponent(
     const uno::Reference<XInputStream>& xInputStream,
     const uno::Reference<XComponent>& xModelComponent,
     const uno::Reference<XComponentContext> & rxContext,
@@ -140,7 +140,7 @@ ErrCode ReadThroughComponent(
 
 
 /// read a component (storage version)
-ErrCode ReadThroughComponent(
+static ErrCode ReadThroughComponent(
     const uno::Reference< embed::XStorage >& xStorage,
     const uno::Reference<XComponent>& xModelComponent,
     const sal_Char* pStreamName,
@@ -305,7 +305,7 @@ bool ODBFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
     {
         uno::Reference<XComponent> xCom(GetModel(),UNO_QUERY);
 
-        tools::SvRef<SfxMedium> pMedium(nullptr);
+        tools::SvRef<SfxMedium> pMedium;
         if (!xStorage.is())
         {
             OUString sStreamRelPath;
@@ -658,6 +658,7 @@ const SvXMLTokenMap& ODBFilter::GetDocContentElemTokenMap() const
             { XML_NAMESPACE_OOO,    XML_AUTOMATIC_STYLES,   XML_TOK_CONTENT_AUTOSTYLES  },
             { XML_NAMESPACE_OFFICE, XML_SCRIPTS,            XML_TOK_CONTENT_SCRIPTS     },
             { XML_NAMESPACE_OFFICE, XML_BODY,               XML_TOK_CONTENT_BODY        },
+            { XML_NAMESPACE_OOO,    XML_BODY,               XML_TOK_CONTENT_BODY        },
             XML_TOKEN_MAP_END
         };
         m_pDocContentElemTokenMap.reset(new SvXMLTokenMap( aElemTokenMap ));

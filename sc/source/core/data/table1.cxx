@@ -248,30 +248,20 @@ ScTable::ScTable( ScDocument* pDoc, SCTAB nNewTab, const OUString& rNewName,
     nRepeatEndX( SCCOL_REPEAT_NONE ),
     nRepeatStartY( SCROW_REPEAT_NONE ),
     nRepeatEndY( SCROW_REPEAT_NONE ),
-    pTabProtection( nullptr ),
     mpRowHeights( static_cast<ScFlatUInt16RowSegments*>(nullptr) ),
-    pRowFlags( nullptr ),
     mpHiddenCols(new ScFlatBoolColSegments),
     mpHiddenRows(new ScFlatBoolRowSegments),
     mpFilteredCols(new ScFlatBoolColSegments),
     mpFilteredRows(new ScFlatBoolRowSegments),
-    pOutlineTable( nullptr ),
-    pSheetEvents( nullptr ),
     nTableAreaX( 0 ),
     nTableAreaY( 0 ),
     nTab( nNewTab ),
     pDocument( pDoc ),
-    pSearchText ( nullptr ),
     pSortCollator( nullptr ),
-    pRepeatColRange( nullptr ),
-    pRepeatRowRange( nullptr ),
     nLockCount( 0 ),
-    pScenarioRanges( nullptr ),
     aScenarioColor( COL_LIGHTGRAY ),
     aTabBgColor( COL_AUTO ),
     nScenarioFlags(ScScenarioFlags::NONE),
-    pDBDataNoName(nullptr),
-    mpRangeName(nullptr),
     mpCondFormatList( new ScConditionalFormatList() ),
     bScenario(false),
     bLayoutRTL(false),
@@ -1133,8 +1123,10 @@ void ScTable::LimitChartArea( SCCOL& rStartCol, SCROW& rStartRow, SCCOL& rEndCol
 
     // Optimised loop for finding the bottom of the area, can be costly in large
     // spreadsheets.
+    SCROW lastDataPos = 0;
     for (SCCOL i=rStartCol; i<=rEndCol; i++)
-        rEndRow = std::min(rEndRow, aCol[i].GetLastDataPos());
+        lastDataPos = std::max(lastDataPos, aCol[i].GetLastDataPos());
+    rEndRow = std::min(rEndRow, lastDataPos);
 }
 
 SCCOL ScTable::FindNextVisibleCol( SCCOL nCol, bool bRight ) const

@@ -18,6 +18,7 @@
  */
 
 #include <xiname.hxx>
+#include <xlname.hxx>
 #include <rangenam.hxx>
 #include <xistream.hxx>
 #include <excform.hxx>
@@ -39,8 +40,7 @@ XclImpName::XclImpName( XclImpStream& rStrm, sal_uInt16 nXclNameIdx ) :
     mnXclTab( EXC_NAME_GLOBAL ),
     mnNameIndex( nXclNameIdx ),
     mbVBName( false ),
-    mbMacro( false ),
-    mpTokensData( nullptr )
+    mbMacro( false )
 {
     ExcelToSc& rFmlaConv = GetOldFmlaConverter();
 

@@ -24,12 +24,15 @@
 #include <filter/msfilter/escherex.hxx>
 #include "xcl97rec.hxx"
 #include "xlescher.hxx"
-#include <com/sun/star/chart/XChartDocument.hpp>
+#include "xlformula.hxx"
 #include <svx/sdtaitm.hxx>
 #include <rtl/ustring.hxx>
 #include <memory>
 
 class ScPostIt;
+
+namespace utl { class TempFile; }
+namespace com { namespace sun { namespace star { namespace chart { class XChartDocument; } } } }
 
 namespace com { namespace sun { namespace star {
     namespace script { struct ScriptEventDescriptor; }

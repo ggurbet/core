@@ -179,7 +179,6 @@ RemoteFilesDialog::RemoteFilesDialog( vcl::Window* pParent, PickerFlags nBits )
     , m_xMasterPasswd( PasswordContainer::create( m_xContext ) )
     , m_nWidth( 0 )
     , m_nHeight( 0 )
-    , m_pCurrentAsyncAction( nullptr )
     , m_pSplitter( nullptr )
     , m_pFileView( nullptr )
     , m_pContainer( nullptr )
@@ -406,7 +405,7 @@ void RemoteFilesDialog::Show()
     }
 }
 
-OUString lcl_GetServiceType( const ServicePtr& pService )
+static OUString lcl_GetServiceType( const ServicePtr& pService )
 {
     INetProtocol aProtocol = pService->GetUrlObject().GetProtocol();
     switch( aProtocol )

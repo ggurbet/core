@@ -444,6 +444,35 @@ void MSWordExportBase::OutputSectionBreaks( const SfxItemSet *pSet, const SwNode
              */
             if ( isCellOpen && ( m_pCurrentPageDesc->GetName() != pPageDesc->GetName() ) )
                 pSet = nullptr;
+
+            // tdf#118393: FILESAVE: DOCX Export loses header/footer
+            {
+                bool bPlausableSingleWordSection = sw::util::IsPlausableSingleWordSection(m_pCurrentPageDesc->GetFirstMaster(), pPageDesc->GetMaster());
+
+                {
+                    const SwFrameFormat& rTitleFormat = m_pCurrentPageDesc->GetFirstMaster();
+                    const SwFrameFormat& rFollowFormat = pPageDesc->GetMaster();
+
+                    auto pHeaderFormat1 = rTitleFormat.GetHeader().GetHeaderFormat();
+                    auto pHeaderFormat2 = rFollowFormat.GetHeader().GetHeaderFormat();
+
+                    if (pHeaderFormat1 != pHeaderFormat2)
+                        bPlausableSingleWordSection = false;
+
+                    auto pFooterFormat1 = rTitleFormat.GetFooter().GetFooterFormat();
+                    auto pFooterFormat2 = rFollowFormat.GetFooter().GetFooterFormat();
+
+                    if (pFooterFormat1 != pFooterFormat2)
+                        bPlausableSingleWordSection = false;
+                }
+
+                if ( !bPlausableSingleWordSection && m_bFirstTOCNodeWithSection )
+                {
+                    bBreakSet = false;
+                    bNewPageDesc = true;
+                    m_pCurrentPageDesc = pPageDesc;
+                }
+            }
         }
         else if (!sw::util::IsPlausableSingleWordSection(m_pCurrentPageDesc->GetFirstMaster(), pPageDesc->GetMaster()))
         {
@@ -1061,7 +1090,7 @@ void WW8AttributeOutput::OutputFKP(bool bForce)
     if (!m_rWW8Export.pO->empty() || bForce)
     {
         m_rWW8Export.m_pChpPlc->AppendFkpEntry( m_rWW8Export.Strm().Tell(),
-                m_rWW8Export.pO->size(), m_rWW8Export.pO->data(), m_rWW8Export.pO->empty() );
+                m_rWW8Export.pO->size(), m_rWW8Export.pO->data() );
         m_rWW8Export.pO->clear();
     }
 }
@@ -1527,7 +1556,7 @@ bool WW8Export::TransBrush(const Color& rCol, WW8_SHD& rShd)
     return !rCol.GetTransparency();
 }
 
-sal_uInt32 SuitableBGColor(Color nIn)
+static sal_uInt32 SuitableBGColor(Color nIn)
 {
     if (nIn == COL_AUTO)
         return 0xFF000000;
@@ -5412,6 +5441,8 @@ void AttributeOutputBase::OutputStyleItemSet( const SfxItemSet& rSet, bool bTest
         {
             if ( SfxItemState::SET == pSet->GetItemState( nWhich, true/*bDeep*/, &pItem ) &&
                  ( !bTestForDefault ||
+                   nWhich == RES_UL_SPACE ||
+                   nWhich == RES_LR_SPACE ||
                    *pItem != rPool.GetDefaultItem( nWhich ) ||
                    ( pSet->GetParent() && *pItem != pSet->GetParent()->Get( nWhich ) ) ) )
             {
@@ -5476,23 +5507,35 @@ const SwRedlineData* AttributeOutputBase::GetParagraphMarkerRedline( const SwTex
         if ( pRedl->GetRedlineData().GetType() != aRedlineType )
             continue;
 
-        const SwPosition* pCheckedStt = pRedl->Start();
         const SwPosition* pCheckedEnd = pRedl->End();
+        if (!pCheckedEnd)
+            continue;
 
-        if( pCheckedStt->nNode == rNode )
+        const SwPosition* pCheckedStt = pRedl->Start();
+        sal_uLong uStartNodeIndex = pCheckedStt->nNode.GetIndex();
+        sal_uLong uStartCharIndex = pCheckedStt->nContent.GetIndex();
+        sal_uLong uEndNodeIndex   = pCheckedEnd->nNode.GetIndex();
+        sal_uLong uEndCharIndex   = pCheckedEnd->nContent.GetIndex();
+        sal_uLong uNodeIndex = rNode.GetIndex();
+
+        if( uStartNodeIndex <= uNodeIndex && uNodeIndex < uEndNodeIndex )
         {
-            if ( !pCheckedEnd )
-                continue;
-
-            sal_uLong uStartNodeIndex = pCheckedStt->nNode.GetIndex();
-            sal_uLong uStartCharIndex = pCheckedStt->nContent.GetIndex();
-            sal_uLong uEndNodeIndex   = pCheckedEnd->nNode.GetIndex();
-            sal_uLong uEndCharIndex   = pCheckedEnd->nContent.GetIndex();
-
             // Maybe add here a check that also the start & end of the redline is the entire paragraph
-            if ( ( uStartNodeIndex == uEndNodeIndex - 1 ) &&
-                 ( uStartCharIndex == static_cast<sal_uLong>(rNode.Len()) ) &&
-                 ( uEndCharIndex == 0)
+            if ( ( uStartNodeIndex < uEndNodeIndex ) &&
+                 // check start:
+                 // 1. start in the same node
+                 (( uStartNodeIndex == uNodeIndex &&
+                    uStartCharIndex == static_cast<sal_uLong>(rNode.Len()) ) ||
+                 // 2. or in a previous node
+                    uStartNodeIndex < uNodeIndex
+                 ) &&
+                 // check end:
+                 // 1. end in the same node
+                 (( uEndNodeIndex == (uNodeIndex + 1) &&
+                    uEndCharIndex == 0) ||
+                 // 2. or end in after that
+                    uEndNodeIndex > (uNodeIndex + 1)
+                 )
                )
             {
                 return &( pRedl->GetRedlineData() );

@@ -142,7 +142,7 @@ public:
     }
 };
 
-// win32 specific physical font instance
+// win32 specific logical font instance
 class WinFontInstance : public LogicalFontInstance
 {
     friend rtl::Reference<LogicalFontInstance> WinFontFace::CreateFontInstance(const FontSelectPattern&) const;
@@ -154,19 +154,26 @@ public:
     GlyphCache& GetGlyphCache() { return maGlyphCache; }
     bool hasHScale() const;
 
-    void SetHFONT(const HFONT);
+    void SetGraphics(WinSalGraphics*);
+    WinSalGraphics* GetGraphics() const { return m_pGraphics; }
+
     HFONT GetHFONT() const { return m_hFont; }
+    float GetScale() const { return m_fScale; }
 
     // Prevent deletion of the HFONT in the WinFontInstance destructor
     // Used for the ScopedFont handling
-    void UnsetHFONT() { m_hFont = nullptr; }
+    void SetHFONT(HFONT hFont) { m_hFont = hFont; }
+
+    const WinFontFace * GetFontFace() const { return static_cast<const WinFontFace *>(LogicalFontInstance::GetFontFace()); }
 
 private:
-    explicit WinFontInstance(const PhysicalFontFace&, const FontSelectPattern&);
+    explicit WinFontInstance(const WinFontFace&, const FontSelectPattern&);
 
     virtual hb_font_t* ImplInitHbFont() override;
 
+    WinSalGraphics *m_pGraphics;
     HFONT m_hFont;
+    float m_fScale;
     GlyphCache maGlyphCache;
 };
 

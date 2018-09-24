@@ -1742,11 +1742,6 @@ AC_ARG_ENABLE(bundle-mariadb,
         [When using MariaDB/MySQL libraries already on system, bundle them with the MariaDB Connector/LibreOffice.])
 )
 
-AC_ARG_WITH(system-mysql-cppconn,
-    AS_HELP_STRING([--with-system-mysql-cppconn],
-        [Use MySQL C++ Connector libraries already on system.]),,
-    [with_system_mysql_cppconn="$with_system_libs"])
-
 AC_ARG_WITH(system-postgresql,
     AS_HELP_STRING([--with-system-postgresql],
         [Use PostgreSQL libraries already on system, for building the PostgreSQL-SDBC
@@ -2718,7 +2713,7 @@ if test $_os = Darwin -o $_os = iOS; then
     # higher than or equal to the minimum required should be found.
 
     AC_MSG_CHECKING([what Mac OS X SDK to use])
-    for _macosx_sdk in $with_macosx_sdk 10.13 10.12; do
+    for _macosx_sdk in ${with_macosx_sdk-10.14 10.13 10.12}; do
         MACOSX_SDK_PATH=`xcrun --sdk macosx${_macosx_sdk} --show-sdk-path 2> /dev/null`
         if test -d "$MACOSX_SDK_PATH"; then
             with_macosx_sdk="${_macosx_sdk}"
@@ -2732,7 +2727,7 @@ if test $_os = Darwin -o $_os = iOS; then
         fi
     done
     if test ! -d "$MACOSX_SDK_PATH"; then
-        AC_MSG_ERROR([Could not figure out the location of a Mac OS X SDK and its version])
+        AC_MSG_ERROR([Could not find an appropriate Mac OS X SDK])
     fi
 
     if test $_os = iOS; then
@@ -2747,23 +2742,17 @@ if test $_os = Darwin -o $_os = iOS; then
 
 
     case $with_macosx_sdk in
-    10.9)
-        MACOSX_SDK_VERSION=1090
-        ;;
-    10.10)
-        MACOSX_SDK_VERSION=101000
-        ;;
-    10.11)
-        MACOSX_SDK_VERSION=101100
-        ;;
     10.12)
         MACOSX_SDK_VERSION=101200
         ;;
     10.13)
         MACOSX_SDK_VERSION=101300
         ;;
+    10.14)
+        MACOSX_SDK_VERSION=101400
+        ;;
     *)
-        AC_MSG_ERROR([with-macosx-sdk $with_macosx_sdk is not a supported value, supported values are 10.9--13])
+        AC_MSG_ERROR([with-macosx-sdk $with_macosx_sdk is not a supported value, supported values are 10.12--14])
         ;;
     esac
 
@@ -2798,8 +2787,11 @@ if test $_os = Darwin -o $_os = iOS; then
     10.13)
         MAC_OS_X_VERSION_MIN_REQUIRED="101300"
         ;;
+    10.14)
+        MAC_OS_X_VERSION_MIN_REQUIRED="101400"
+        ;;
     *)
-        AC_MSG_ERROR([with-macosx-version-min-required $with_macosx_version_min_required is not a supported value, supported values are 10.9--13])
+        AC_MSG_ERROR([with-macosx-version-min-required $with_macosx_version_min_required is not a supported value, supported values are 10.9--14])
         ;;
     esac
     MAC_OS_X_VERSION_MIN_REQUIRED_DOTS=$with_macosx_version_min_required
@@ -2839,16 +2831,17 @@ if test $_os = Darwin -o $_os = iOS; then
     10.13)
         MAC_OS_X_VERSION_MAX_ALLOWED="101300"
         ;;
+    10.14)
+        MAC_OS_X_VERSION_MAX_ALLOWED="101400"
+        ;;
     *)
-        AC_MSG_ERROR([with-macosx-version-max-allowed $with_macosx_version_max_allowed is not a supported value, supported values are 10.9--13])
+        AC_MSG_ERROR([with-macosx-version-max-allowed $with_macosx_version_max_allowed is not a supported value, supported values are 10.9--14])
         ;;
     esac
 
     AC_MSG_CHECKING([that macosx-version-min-required is coherent with macosx-version-max-allowed])
     if test $MAC_OS_X_VERSION_MIN_REQUIRED -gt $MAC_OS_X_VERSION_MAX_ALLOWED; then
-        AC_MSG_RESULT([$MAC_OS_X_VERSION_MIN_REQUIRED])
-        AC_MSG_RESULT([$MAC_OS_X_VERSION_MAX_REQUIRED])
-        AC_MSG_ERROR([the version minimumn required must be inferior or equal to the version maximum allowed])
+        AC_MSG_ERROR([the version minimumn required, $MAC_OS_X_VERSION_MIN_REQUIRED, must be <= the version maximum allowed, $MAC_OS_X_VERSION_MAX_ALLOWED])
     else
         AC_MSG_RESULT([ok])
     fi
@@ -2936,7 +2929,6 @@ if test $_os = Darwin -o $_os = iOS; then
     AC_MSG_RESULT([$MACOSX_BUNDLE_IDENTIFIER])
 fi
 AC_SUBST(MACOSX_SDK_PATH)
-AC_SUBST(MACOSX_SDK_VERSION)
 AC_SUBST(MACOSX_DEPLOYMENT_TARGET)
 AC_SUBST(MAC_OS_X_VERSION_MIN_REQUIRED)
 AC_SUBST(MAC_OS_X_VERSION_MIN_REQUIRED_DOTS)
@@ -2954,13 +2946,13 @@ dnl ===================================================================
 
 if test $_os = iOS; then
     AC_MSG_CHECKING([what iOS SDK to use])
-    current_sdk_ver=11.4
+    current_sdk_ver=12.0
     if test "$enable_ios_simulator" = "yes"; then
         platform=iPhoneSimulator
         versionmin=-mios-simulator-version-min=$current_sdk_ver
     else
         platform=iPhoneOS
-        versionmin=-miphoneos-version-min=$current_sdk_ver
+        versionmin=-miphoneos-version-min=11.0
     fi
     xcode_developer=`xcode-select -print-path`
 
@@ -3815,11 +3807,6 @@ if test -n "$enable_dbgutil" -a "$enable_dbgutil" != "no"; then
     else
         with_system_graphite=no
     fi
-    if test "$with_system_mysql_cppconn" = "yes"; then
-        AC_MSG_ERROR([--with-system-mysql-cppconn conflicts with --enable-dbgutil])
-    else
-        with_system_mysql_cppconn=no
-    fi
     if test "$with_system_orcus" = "yes"; then
         AC_MSG_ERROR([--with-system-orcus conflicts with --enable-dbgutil])
     else
@@ -4649,7 +4636,14 @@ AC_SUBST(ENABLE_WERROR)
 dnl Check for --enable-assert-always-abort, set ASSERT_ALWAYS_ABORT
 dnl ===================================================================
 AC_MSG_CHECKING([whether to have assert() failures abort even without --enable-debug])
-if test -n "$enable_assert_always_abort" -a "$enable_assert_always_abort" = "yes"; then
+if test -z "$enable_assert_always_abort"; then
+   if test "$ENABLE_DEBUG" = TRUE; then
+       enable_assert_always_abort=yes
+   else
+       enable_assert_always_abort=no
+   fi
+fi
+if test "$enable_assert_always_abort" = "yes"; then
     ASSERT_ALWAYS_ABORT="TRUE"
     AC_MSG_RESULT([yes])
 else
@@ -5255,16 +5249,17 @@ find_winsdk_version()
             reg_get_value_32 "HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Microsoft SDKs/Windows/v${1}/ProductVersion"
             if test -n "$regvalue"; then
                 winsdkbinsubdir="$regvalue".0
-            fi
-            winsdklibsubdir=$regvalue
-            if test "$regvalue" = "10.0.14393"; then
-                winsdklibsubdir="10.0.14393.0"
-            elif test "$regvalue" = "10.0.16299"; then
-                winsdklibsubdir="10.0.16299.0"
-            elif test "$regvalue" = "10.0.15063"; then
-                winsdklibsubdir="10.0.15063.0"
-            elif test "$regvalue" = "10.0.17134"; then
-                winsdklibsubdir="$regvalue.0"
+                winsdklibsubdir=$winsdkbinsubdir
+                tmppath="$winsdktest\\Include\\$winsdklibsubdir"
+                # test exist the SDK path
+                if test -d "$tmppath"; then
+                   # when path is convertible to a short path then path is okay
+                   if ! cygpath -d "$tmppath"; then
+                      AC_MSG_ERROR([Windows SDK doesn't have a 8.3 name, see NtfsDisable8dot3NameCreation])
+                   fi
+                else
+                   AC_MSG_ERROR([The Windows SDK not found, check the installation])
+                fi
             fi
             return
         fi
@@ -6180,14 +6175,11 @@ libo_FUZZ_ARG_ENABLE(c++17,
         [Do not attempt to run GCC/Clang in C++17 mode (needed for Coverity).])
 )
 
+AC_MSG_CHECKING([whether $CXX supports C++17, C++14, or C++11])
 CXXFLAGS_CXX11=
 if test "$COM" = MSC -a "$COM_IS_CLANG" != TRUE; then
-    AC_MSG_CHECKING([whether $CXX supports C++11])
-    AC_MSG_RESULT(yes)
-    # MSVC supports (a subset of) CXX11 without any switch
+    CXXFLAGS_CXX11=-std:c++17
 elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
-    HAVE_CXX11=
-    AC_MSG_CHECKING([whether $CXX supports C++17, C++14, or C++11])
     dnl But only use C++17 if the gperf that is being used knows not to emit
     dnl "register" in C++ output:
     printf 'foo\n' | $GPERF -L C++ > conftest.inc
@@ -6269,16 +6261,15 @@ elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
         AC_LANG_POP([C++])
         CXXFLAGS=$save_CXXFLAGS
         if test -n "$CXXFLAGS_CXX11"; then
-            HAVE_CXX11=TRUE
             break
         fi
     done
     rm conftest.inc
-    if test "$HAVE_CXX11" = TRUE; then
-        AC_MSG_RESULT([yes ($CXXFLAGS_CXX11)])
-    else
-        AC_MSG_ERROR(no)
-    fi
+fi
+if test -n "$CXXFLAGS_CXX11"; then
+    AC_MSG_RESULT([yes ($CXXFLAGS_CXX11)])
+else
+    AC_MSG_ERROR(no)
 fi
 AC_SUBST(CXXFLAGS_CXX11)
 
@@ -6411,20 +6402,85 @@ if test "$GCC" = yes; then
 fi
 AC_SUBST([HAVE_GCC_FNO_SIZED_DEALLOCATION])
 
-HAVE_CPP_GUARANTEED_COPY_ELISION=
+AC_MSG_CHECKING([[whether $CXX supports [[fallthrough]]]])
+AC_LANG_PUSH([C++])
+save_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
+dnl Unknown attributes must be ignored by compilers, but they do emit warnings about them:
+if test "$COM" = MSC; then
+    CXXFLAGS="$CXXFLAGS /we5030"
+else
+    CXXFLAGS="$CXXFLAGS -Werror"
+fi
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+        // There appears to be no feature-test macro for __has_cpp_attribute in C++2a, approximate
+        // by checking for __cplusplus:
+        #if __cplusplus > 201703L
+        #if !__has_cpp_attribute(fallthrough)
+        #error
+        #endif
+        #else
+        void f(int & x) {
+            switch (x) {
+            case 0:
+                ++x;
+                [[fallthrough]];
+            default:
+                ++x;
+            }
+        }
+        #endif
+    ]])], [
+        AC_DEFINE([HAVE_CPP_ATTRIBUTE_FALLTHROUGH],[1])
+        AC_MSG_RESULT([yes])
+    ], [AC_MSG_RESULT([no])])
+CXXFLAGS=$save_CXXFLAGS
+AC_LANG_POP([C++])
+
+AC_MSG_CHECKING([[whether $CXX supports [[nodiscard]]]])
+AC_LANG_PUSH([C++])
+save_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
+dnl Unknown attributes must be ignored by compilers, but they do emit warnings about them:
+if test "$COM" = MSC; then
+    CXXFLAGS="$CXXFLAGS /we5030"
+else
+    CXXFLAGS="$CXXFLAGS -Werror"
+fi
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+        // There appears to be no feature-test macro for __has_cpp_attribute in C++2a, approximate
+        // by checking for __cplusplus:
+        #if __cplusplus > 201703L
+        #if !__has_cpp_attribute(nodiscard)
+        #error
+        #endif
+        #else
+        [[nodiscard]] int f();
+        #endif
+    ]])], [
+        AC_DEFINE([HAVE_CPP_ATTRIBUTE_NODISCARD],[1])
+        AC_MSG_RESULT([yes])
+    ], [AC_MSG_RESULT([no])])
+CXXFLAGS=$save_CXXFLAGS
+AC_LANG_POP([C++])
+
 AC_MSG_CHECKING([whether $CXX supports guaranteed copy elision])
 AC_LANG_PUSH([C++])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
 AC_COMPILE_IFELSE([AC_LANG_SOURCE([
-        #if !defined __cpp_guaranteed_copy_elision
+        // At least VS 2017 15.8.1 defines __cpp_guaranteed_copy_elision as 201606L without actually
+        // supporting it:
+        #if !defined __cpp_guaranteed_copy_elision || (defined _MSC_VER && !defined __clang__)
         struct S {
         private:
             S(S const &);
         public:
-            S copy() const { return *this; }
+            S();
+            ~S();
         };
-        void f(S & s) { S c(s.copy()); }
+        S copy();
+        void f() { S c(copy()); }
         #endif
     ])], [
         AC_DEFINE([HAVE_CPP_GUARANTEED_COPY_ELISION],[1])
@@ -6432,9 +6488,7 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([
     ], [AC_MSG_RESULT([no])])
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
-AC_SUBST([HAVE_CPP_GUARANTEED_COPY_ELISION])
 
-HAVE_CXX_CWG1579_FIX=
 AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
 AC_LANG_PUSH([C++])
 save_CXXFLAGS=$CXXFLAGS
@@ -6453,7 +6507,21 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([
     ], [AC_MSG_RESULT([no])])
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
-AC_SUBST([HAVE_CXX_CWG1579_FIX])
+
+AC_MSG_CHECKING([whether $CXX has GCC bug 87150])
+AC_LANG_PUSH([C++])
+save_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+        struct S1 { S1(S1 &&); };
+        struct S2: S1 {};
+        S1 f(S2 s) { return s; }
+    ])], [
+        AC_DEFINE([HAVE_GCC_BUG_87150],[1])
+        AC_MSG_RESULT([yes])
+    ], [AC_MSG_RESULT([no])])
+CXXFLAGS=$save_CXXFLAGS
+AC_LANG_POP([C++])
 
 dnl ===================================================================
 dnl system stl sanity tests
@@ -9169,7 +9237,7 @@ AC_SUBST(ENABLE_FUZZERS)
 dnl ===================================================================
 dnl Orcus
 dnl ===================================================================
-libo_CHECK_SYSTEM_MODULE([orcus],[ORCUS],[liborcus-0.13 >= 0.13.3])
+libo_CHECK_SYSTEM_MODULE([orcus],[ORCUS],[liborcus-0.14 >= 0.14.0])
 if test "$with_system_orcus" != "yes"; then
     if test "$SYSTEM_BOOST" = "TRUE"; then
         # ===========================================================
@@ -11246,6 +11314,10 @@ then
     KF5_LIBS="-L$kf5_libdir -lKF5CoreAddons -lKF5I18n -lKF5ConfigCore -lKF5WindowSystem -lKF5KIOCore -lKF5KIOWidgets -lKF5KIOFileWidgets -L$qt5_libdir -lQt5Core -lQt5Gui -lQt5Widgets -lQt5Network $KF5_XCB_LIBS"
     KF5_CFLAGS=$(printf '%s' "$KF5_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
 
+    if test "$USING_X11" = TRUE; then
+        KF5_LIBS="$KF5_LIBS -lQt5X11Extras"
+    fi
+
     AC_LANG_PUSH([C++])
     save_CXXFLAGS=$CXXFLAGS
     CXXFLAGS="$CXXFLAGS $KF5_CFLAGS"
@@ -12399,6 +12471,32 @@ if test "$build_os" = "cygwin"; then
 
     AC_SUBST(ILIB)
 fi
+
+AC_MSG_CHECKING([whether $CXX supports inline variables])
+AC_LANG_PUSH([C++])
+save_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
+if test "$build_os" = cygwin; then
+    save_LIB=$LIB
+    export LIB=$ILIB
+fi
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+        #if !defined __cpp_inline_variables
+        // This tests for one specific aspect of inline variables that is actually used by
+        // ORegistry::ROOT (registry/source/regimpl.cxx):
+        struct S { constexpr S() {} };
+        struct T { static constexpr S s{}; };
+        S const * f() { return &T::s; }
+        #endif
+    ]])], [
+        AC_DEFINE([HAVE_CPP_INLINE_VARIABLES],[1])
+        AC_MSG_RESULT([yes])
+    ], [AC_MSG_RESULT([no])])
+CXXFLAGS=$save_CXXFLAGS
+if test "$build_os" = cygwin; then
+    LIB=$save_LIB
+fi
+AC_LANG_POP([C++])
 
 dnl We should be able to drop the below check when bumping the GCC baseline to
 dnl 4.9, as <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54577>

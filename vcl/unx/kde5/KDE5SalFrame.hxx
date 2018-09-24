@@ -24,6 +24,7 @@
 #undef Status
 
 #include <qt5/Qt5Frame.hxx>
+#include <unx/screensaverinhibitor.hxx>
 
 #include "KDE5SalGraphics.hxx"
 
@@ -34,6 +35,7 @@ class KDE5SalFrame : public Qt5Frame
 {
 private:
     std::unique_ptr<KDE5SalGraphics> m_pKDE5Graphics;
+    ScreenSaverInhibitor m_ScreenSaverInhibitor;
     bool m_bGraphicsInUse;
 
 public:
@@ -43,15 +45,11 @@ public:
     virtual void ReleaseGraphics(SalGraphics* pGraphics) override;
     virtual void UpdateSettings(AllSettings& rSettings) override;
 
-    virtual void DrawMenuBar() override { return; }
-
+    virtual void StartPresentation(bool bStart) override;
     virtual LanguageType GetInputLanguage() override { return LANGUAGE_SYSTEM; }
-    virtual void Beep() override { return; }
     virtual const SystemEnvData* GetSystemData() const override { return nullptr; }
     virtual SalPointerState GetPointerState() override { return SalPointerState(); }
     virtual KeyIndicatorState GetIndicatorState() override { return KeyIndicatorState(); }
-
-    virtual void SetScreenNumber(unsigned int) override { return; }
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

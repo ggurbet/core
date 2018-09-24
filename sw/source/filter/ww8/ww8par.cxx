@@ -176,7 +176,7 @@ static SwMacroInfo* GetMacroInfo( SdrObject* pObj )
     return nullptr;
 };
 
-void lclGetAbsPath(OUString& rPath, sal_uInt16 nLevel, SwDocShell const * pDocShell)
+static void lclGetAbsPath(OUString& rPath, sal_uInt16 nLevel, SwDocShell const * pDocShell)
 {
     OUStringBuffer aTmpStr;
     while( nLevel )
@@ -2855,7 +2855,7 @@ void SwWW8ImplReader::PostProcessAttrs()
  So a encoding converter that on an undefined character attempts to
  convert from 1252 on the undefined character
 */
-std::size_t Custom8BitToUnicode(rtl_TextToUnicodeConverter hConverter,
+static std::size_t Custom8BitToUnicode(rtl_TextToUnicodeConverter hConverter,
     sal_Char const *pIn, std::size_t nInLen, sal_Unicode *pOut, std::size_t nOutLen)
 {
     const sal_uInt32 nFlags =
@@ -3050,14 +3050,14 @@ bool SwWW8ImplReader::ReadPlainChars(WW8_CP& rPos, sal_Int32 nEnd, sal_Int32 nCp
     sal_Unicode* pBuffer = pStr->buffer;
     sal_Unicode* pWork = pBuffer;
 
-    sal_Char* p8Bits = nullptr;
+    std::unique_ptr<sal_Char[]> p8Bits;
 
     rtl_TextToUnicodeConverter hConverter = nullptr;
     if (!m_bIsUnicode || m_bVer67)
         hConverter = rtl_createTextToUnicodeConverter(eSrcCharSet);
 
     if (!m_bIsUnicode)
-        p8Bits = new sal_Char[nStrLen];
+        p8Bits.reset( new sal_Char[nStrLen] );
 
     // read the stream data
     sal_uInt8   nBCode = 0;
@@ -3083,7 +3083,6 @@ bool SwWW8ImplReader::ReadPlainChars(WW8_CP& rPos, sal_Int32 nEnd, sal_Int32 nCp
         {
             rPos = WW8_CP_MAX-10; // -> eof or other error
             std::free(pStr);
-            delete [] p8Bits;
             return true;
         }
 
@@ -3122,7 +3121,7 @@ bool SwWW8ImplReader::ReadPlainChars(WW8_CP& rPos, sal_Int32 nEnd, sal_Int32 nCp
     if (nL2)
     {
         const sal_Int32 nEndUsed = !m_bIsUnicode
-            ? Custom8BitToUnicode(hConverter, p8Bits, nL2, pBuffer, nStrLen)
+            ? Custom8BitToUnicode(hConverter, p8Bits.get(), nL2, pBuffer, nStrLen)
             : pWork - pBuffer;
 
         if (m_bRegardHindiDigits && m_bBidi && LangUsesHindiNumbers(nCTLLang))
@@ -3145,7 +3144,6 @@ bool SwWW8ImplReader::ReadPlainChars(WW8_CP& rPos, sal_Int32 nEnd, sal_Int32 nCp
         rtl_destroyTextToUnicodeConverter(hConverter);
     if (pStr)
         rtl_uString_release(pStr);
-    delete [] p8Bits;
     return nL2 >= nStrLen;
 }
 
@@ -3760,7 +3758,7 @@ void SwWW8ImplReader::ProcessCurrentCollChange(WW8PLCFManResult& rRes,
     }
 }
 
-long SwWW8ImplReader::ReadTextAttr(WW8_CP& rTextPos, long nTextEnd, bool& rbStartLine)
+long SwWW8ImplReader::ReadTextAttr(WW8_CP& rTextPos, long nTextEnd, bool& rbStartLine, int nDepthGuard)
 {
     long nSkipChars = 0;
     WW8PLCFManResult aRes;
@@ -3852,7 +3850,13 @@ long SwWW8ImplReader::ReadTextAttr(WW8_CP& rTextPos, long nTextEnd, bool& rbStar
 
         if( (0 <= nNext) && (nSkipPos >= nNext) )
         {
-            nNext = ReadTextAttr(rTextPos, nTextEnd, rbStartLine);
+            if (nDepthGuard >= 1024)
+            {
+                SAL_WARN("sw.ww8", "ReadTextAttr hit recursion limit");
+                nNext = nTextEnd;
+            }
+            else
+                nNext = ReadTextAttr(rTextPos, nTextEnd, rbStartLine, nDepthGuard + 1);
             bDoPlcxManPlusPLus = false;
             m_bIgnoreText = true;
         }
@@ -4182,7 +4186,6 @@ SwWW8ImplReader::SwWW8ImplReader(sal_uInt8 nVersionPara, SotStorage* pStorage,
     , m_pFormatOfJustInsertedApo(nullptr)
     , m_pPreviousNumPaM(nullptr)
     , m_pPrevNumRule(nullptr)
-    , m_pPostProcessAttrsInfo(nullptr)
     , m_aTextNodesHavingFirstLineOfstSet()
     , m_aTextNodesHavingLeftIndentSet()
     , m_pCurrentColl(nullptr)
@@ -4191,7 +4194,6 @@ SwWW8ImplReader::SwWW8ImplReader(sal_uInt8 nVersionPara, SotStorage* pStorage,
     , m_pDrawModel(nullptr)
     , m_pDrawPg(nullptr)
     , m_pNumFieldType(nullptr)
-    , m_pAtnNames(nullptr)
     , m_sBaseURL(rBaseURL)
     , m_nIniFlags(0)
     , m_nIniFlags1(0)
@@ -4263,7 +4265,6 @@ SwWW8ImplReader::SwWW8ImplReader(sal_uInt8 nVersionPara, SotStorage* pStorage,
     , m_bLoadingTOXCache(false)
     , m_nEmbeddedTOXLevel(0)
     , m_bLoadingTOXHyperlink(false)
-    , m_pPosAfterTOC(nullptr)
     , m_pPreviousNode(nullptr)
     , m_bCareFirstParaEndInToc(false)
     , m_bCareLastParaEndInToc(false)
@@ -4361,7 +4362,7 @@ void wwSectionManager::SetUseOn(wwSection &rSection)
  * Set the page descriptor on this node, handle the different cases for a text
  * node or a table
  */
-void GiveNodePageDesc(SwNodeIndex const &rIdx, const SwFormatPageDesc &rPgDesc,
+static void GiveNodePageDesc(SwNodeIndex const &rIdx, const SwFormatPageDesc &rPgDesc,
     SwDoc &rDoc)
 {
     /*
@@ -5393,6 +5394,9 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
 
     UpdateFields();
 
+    m_xWFlyPara.reset();
+    m_xSFlyPara.reset();
+
     // delete the pam before the call for hide all redlines (Bug 73683)
     if (m_bNewDoc)
       m_rDoc.getIDocumentRedlineAccess().SetRedlineFlags(eMode);
@@ -5450,9 +5454,9 @@ ErrCode SwWW8ImplReader::SetSubStreams(tools::SvRef<SotStorageStream> &rTableStr
 
 namespace
 {
-    utl::TempFile *MakeTemp(SvFileStream &rSt)
+    std::unique_ptr<utl::TempFile> MakeTemp(SvFileStream &rSt)
     {
-        utl::TempFile *pT = new utl::TempFile;
+        std::unique_ptr<utl::TempFile> pT(new utl::TempFile);
         pT->EnableKillingFile();
         rSt.Open(pT->GetFileName(), StreamMode::READWRITE | StreamMode::SHARE_DENYWRITE);
         return pT;
@@ -5688,9 +5692,9 @@ ErrCode SwWW8ImplReader::LoadThroughDecryption(WW8Glossary *pGloss)
     if (!nErrRet)
         nErrRet = SetSubStreams(xTableStream, xDataStream);
 
-    utl::TempFile *pTempMain = nullptr;
-    utl::TempFile *pTempTable = nullptr;
-    utl::TempFile *pTempData = nullptr;
+    std::unique_ptr<utl::TempFile> pTempMain;
+    std::unique_ptr<utl::TempFile> pTempTable;
+    std::unique_ptr<utl::TempFile> pTempData;
     SvFileStream aDecryptMain;
     SvFileStream aDecryptTable;
     SvFileStream aDecryptData;
@@ -5858,9 +5862,9 @@ ErrCode SwWW8ImplReader::LoadThroughDecryption(WW8Glossary *pGloss)
     if (!nErrRet)
         nErrRet = CoreLoad(pGloss);
 
-    delete pTempMain;
-    delete pTempTable;
-    delete pTempData;
+    pTempMain.reset();
+    pTempTable.reset();
+    pTempData.reset();
 
     m_xWwFib.reset();
     return nErrRet;

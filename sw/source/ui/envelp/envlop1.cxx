@@ -51,9 +51,9 @@ SwEnvPreview::SwEnvPreview()
 
 void SwEnvPreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
     pDrawingArea->set_size_request(pDrawingArea->get_approximate_digit_width() * 20,
                                    pDrawingArea->get_text_height() * 8);
-    CustomWidgetController::SetDrawingArea(pDrawingArea);
 }
 
 void SwEnvPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
@@ -125,8 +125,6 @@ SwEnvDlg::SwEnvDlg(weld::Window* pParent, const SfxItemSet& rSet,
     , aEnvItem(static_cast<const SwEnvItem&>( rSet.Get(FN_ENVELOP)))
     , pSh(pWrtSh)
     , pPrinter(pPrt)
-    , pAddresseeSet(nullptr)
-    , pSenderSet(nullptr)
     , m_xModify(m_xBuilder->weld_button("modify"))
 {
     if (!bInsert)
@@ -187,9 +185,9 @@ SwEnvPage::SwEnvPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_pDialog(nullptr)
     , m_pSh(nullptr)
     , m_xAddrEdit(m_xBuilder->weld_text_view("addredit"))
-    , m_xDatabaseLB(m_xBuilder->weld_combo_box_text("database"))
-    , m_xTableLB(m_xBuilder->weld_combo_box_text("table"))
-    , m_xDBFieldLB(m_xBuilder->weld_combo_box_text("field"))
+    , m_xDatabaseLB(m_xBuilder->weld_combo_box("database"))
+    , m_xTableLB(m_xBuilder->weld_combo_box("table"))
+    , m_xDBFieldLB(m_xBuilder->weld_combo_box("field"))
     , m_xInsertBT(m_xBuilder->weld_button("insert"))
     , m_xSenderBox(m_xBuilder->weld_check_button("sender"))
     , m_xSenderEdit(m_xBuilder->weld_text_view("senderedit"))
@@ -231,7 +229,7 @@ SwEnvPage::~SwEnvPage()
     disposeOnce();
 }
 
-IMPL_LINK( SwEnvPage, DatabaseHdl, weld::ComboBoxText&, rListBox, void )
+IMPL_LINK( SwEnvPage, DatabaseHdl, weld::ComboBox&, rListBox, void )
 {
     SwWait aWait( *m_pSh->GetView().GetDocShell(), true );
 

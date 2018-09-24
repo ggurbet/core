@@ -197,7 +197,7 @@ lcl_CleanStr(const SwTextNode& rNd, sal_Int32 const nStart, sal_Int32& rEnd,
 }
 
 // skip all non SwPostIts inside the array
-size_t GetPostIt(sal_Int32 aCount,const SwpHints *pHts)
+static size_t GetPostIt(sal_Int32 aCount,const SwpHints *pHts)
 {
     size_t aIndex = 0;
     while (aCount)
@@ -233,7 +233,7 @@ bool SwPaM::Find( const i18nutil::SearchOptions2& rSearchOpt, bool bSearchInNote
     if( rSearchOpt.searchString.isEmpty() )
         return false;
 
-    SwPaM* pPam = MakeRegion( fnMove, pRegion );
+    std::unique_ptr<SwPaM> pPam = MakeRegion( fnMove, pRegion );
     const bool bSrchForward = &fnMove == &fnMoveForward;
     SwNodeIndex& rNdIdx = pPam->GetPoint()->nNode;
     SwIndex& rContentIdx = pPam->GetPoint()->nContent;
@@ -436,7 +436,7 @@ bool SwPaM::Find( const i18nutil::SearchOptions2& rSearchOpt, bool bSearchInNote
                     bFound = DoSearch( rSearchOpt, rSText, fnMove, bSrchForward,
                                        bRegSearch, bChkEmptyPara, bChkParaEnd,
                                        nStartInside, nEndInside, nTextLen, pNode,
-                                       pPam );
+                                       pPam.get() );
                     if ( bFound )
                         break;
                     else
@@ -464,13 +464,12 @@ bool SwPaM::Find( const i18nutil::SearchOptions2& rSearchOpt, bool bSearchInNote
                 // is disabled, we search the whole length just like before
                 bFound = DoSearch( rSearchOpt, rSText, fnMove, bSrchForward,
                                    bRegSearch, bChkEmptyPara, bChkParaEnd,
-                                   nStart, nEnd, nTextLen, pNode, pPam );
+                                   nStart, nEnd, nTextLen, pNode, pPam.get() );
             }
             if (bFound)
                 break;
         }
     }
-    delete pPam;
     return bFound;
 }
 
@@ -517,13 +516,13 @@ bool SwPaM::DoSearch( const i18nutil::SearchOptions2& rSearchOpt, utl::TextSearc
         sCleanStr = lcl_CleanStr(*pNode->GetTextNode(), nEnd, nStart,
                         aFltArr, bRemoveSoftHyphens, bRemoveCommentAnchors);
 
-    SwScriptIterator* pScriptIter = nullptr;
+    std::unique_ptr<SwScriptIterator> pScriptIter;
     sal_uInt16 nSearchScript = 0;
     sal_uInt16 nCurrScript = 0;
 
     if (SearchAlgorithms2::APPROXIMATE == rSearchOpt.AlgorithmType2)
     {
-        pScriptIter = new SwScriptIterator( sCleanStr, nStart, bSrchForward );
+        pScriptIter.reset(new SwScriptIterator( sCleanStr, nStart, bSrchForward ));
         nSearchScript = g_pBreakIt->GetRealScriptOfText( rSearchOpt.searchString, 0 );
     }
 
@@ -607,7 +606,7 @@ bool SwPaM::DoSearch( const i18nutil::SearchOptions2& rSearchOpt, utl::TextSearc
         nStart = nEnd;
     }
 
-    delete pScriptIter;
+    pScriptIter.reset();
 
     if ( bFound )
         return true;

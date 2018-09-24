@@ -134,6 +134,25 @@ namespace drawingml {
 #define CGETAD(propName) \
     (( bCheckDirect && GetPropertyAndState( rXPropSet, rXPropState, #propName, eState ) && eState == beans::PropertyState_DIRECT_VALUE )||GetProperty( rXPropSet, #propName ))
 
+static css::uno::Any getLineDash( const css::uno::Reference<css::frame::XModel>& xModel, const OUString& rDashName )
+    {
+        css::uno::Reference<css::lang::XMultiServiceFactory> xFact(xModel, css::uno::UNO_QUERY);
+        css::uno::Reference<css::container::XNameAccess> xNameAccess(
+            xFact->createInstance("com.sun.star.drawing.DashTable"),
+            css::uno::UNO_QUERY );
+        if(xNameAccess.is())
+        {
+            if (!xNameAccess->hasByName(rDashName))
+                return css::uno::Any();
+
+            return xNameAccess->getByName(rDashName);
+        }
+
+        return css::uno::Any();
+    }
+
+
+
 // not thread safe
 int DrawingML::mnImageCounter = 1;
 int DrawingML::mnWdpImageCounter = 1;
@@ -571,7 +590,7 @@ void DrawingML::WriteLineArrow( const Reference< XPropertySet >& rXPropSet, bool
     }
 }
 
-void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet )
+void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet, Reference< frame::XModel > const & xModel )
 {
     drawing::LineStyle aLineStyle( drawing::LineStyle_NONE );
 
@@ -642,6 +661,17 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet )
             if (GetProperty(rXPropSet, "LineDash"))
             {
                 aLineDash = mAny.get<drawing::LineDash>();
+                if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 0) {
+                    OUString aLineDashName;
+                    GET(aLineDashName, LineDashName);
+                    if (!aLineDashName.isEmpty()) {
+                        if (xModel) {
+                            css::uno::Any aAny;
+                            aAny = getLineDash(xModel, aLineDashName);
+                            aLineDash = aAny.get<drawing::LineDash>();
+                        }
+                    }
+                }
                 bDashSet = true;
                 if (aLineDash.Style == DashStyle_ROUND || aLineDash.Style == DashStyle_ROUNDRELATIVE)
                 {
@@ -700,34 +730,50 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet )
 
     if( bDashSet && aStyleLineStyle != drawing::LineStyle_DASH )
     {
-        // keep default preset linestyles (instead of custdash)
-        if (aLineDash.Dots == 1 && aLineDash.DotLen == 141 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 141)
+        // convert absolute dash/dot length to relative length
+        int relDotLen = nLineWidth ? aLineDash.DotLen / nLineWidth : -1;
+        int relDashLen = nLineWidth ? aLineDash.DashLen / nLineWidth : -1;
+        int relDistance = nLineWidth ? aLineDash.Distance / nLineWidth : -1;
+        // keep default mso preset linestyles (instead of custdash)
+        if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 0 && relDashLen == 0 && relDistance == 3)
         {
-            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDot", FSEND);
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dot", FSEND);
         }
-        else if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 423 && aLineDash.Distance == 141)
-        {
-            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDash", FSEND);
-        }
-        else if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 564 && aLineDash.Distance == 423)
+        else if (aLineDash.Dots == 0 && relDotLen == 0 && aLineDash.Dashes == 1 && relDashLen == 4 && relDistance == 3)
         {
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dash", FSEND);
         }
-        else if (aLineDash.Dots == 1 && aLineDash.DotLen == 141 && aLineDash.Dashes == 1 && aLineDash.DashLen == 564 && aLineDash.Distance == 423)
+        else if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 1 && relDashLen == 4 && relDistance == 3)
         {
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dashDot", FSEND);
         }
-        else if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 1128 && aLineDash.Distance == 423)
+        else if (aLineDash.Dots == 0 && relDotLen == 0 && aLineDash.Dashes == 1 && relDashLen == 8 && relDistance == 3)
         {
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "lgDash", FSEND);
         }
-        else if (aLineDash.Dots == 1 && aLineDash.DotLen == 141 && aLineDash.Dashes == 1 && aLineDash.DashLen == 1128 && aLineDash.Distance == 423)
+        else if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 1 && relDashLen == 8 && relDistance == 3)
         {
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "lgDashDot", FSEND);
         }
-        else if (aLineDash.Dots == 2 && aLineDash.DotLen == 141 && aLineDash.Dashes == 1 && aLineDash.DashLen == 1128 && aLineDash.Distance == 423)
+        else if (aLineDash.Dots == 2 && relDotLen == 1 && aLineDash.Dashes == 1 && relDashLen == 8 && relDistance == 3)
         {
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "lgDashDotDot", FSEND);
+        }
+        else if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 0 && relDashLen == 0 && relDistance == 1)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDot", FSEND);
+        }
+        else if (aLineDash.Dots == 0 && relDotLen == 0 && aLineDash.Dashes == 1 && relDashLen == 3 && relDistance == 1)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDash", FSEND);
+        }
+        else if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 1 && relDashLen == 3 && relDistance == 1)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDashDot", FSEND);
+        }
+        else if (aLineDash.Dots == 2 && relDotLen == 1 && aLineDash.Dashes == 1 && relDashLen == 3 && relDistance == 1)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDashDotDot", FSEND);
         }
         else
         {
@@ -1862,7 +1908,7 @@ void DrawingML::WriteRun( const Reference< XTextRange >& rRun,
     }
 }
 
-OUString GetAutoNumType(SvxNumType nNumberingType, bool bSDot, bool bPBehind, bool bPBoth)
+static OUString GetAutoNumType(SvxNumType nNumberingType, bool bSDot, bool bPBehind, bool bPBoth)
 {
     OUString sPrefixSuffix;
 
@@ -2423,7 +2469,7 @@ void DrawingML::WriteText( const Reference< XInterface >& rXIface, const OUStrin
             mpFS->singleElementNS(XML_a, XML_prstTxWarp, XML_prst, presetWarp.toUtf8().getStr(),
                 FSEND );
         }
-        if (GetDocumentType() == DOCUMENT_DOCX)
+        if (GetDocumentType() == DOCUMENT_DOCX || GetDocumentType() == DOCUMENT_XLSX)
         {
             bool bTextAutoGrowHeight = false;
             GET(bTextAutoGrowHeight, TextAutoGrowHeight);
@@ -2452,6 +2498,12 @@ void DrawingML::WriteText( const Reference< XInterface >& rXIface, const OUStrin
 
                 mpFS->singleElementNS(XML_a, XML_normAutofit, XML_fontScale,
                     ( nFontScale < MAX_SCALE_VAL && nFontScale > 0 ) ? I32S(nFontScale) : nullptr, FSEND);
+            }
+            else
+            {
+                bool bTextAutoGrowHeight = false;
+                GET(bTextAutoGrowHeight, TextAutoGrowHeight);
+                mpFS->singleElementNS(XML_a, (bTextAutoGrowHeight ? XML_spAutoFit : XML_noAutofit), FSEND);
             }
         }
         mpFS->endElementNS((nXmlNamespace ? nXmlNamespace : XML_a), XML_bodyPr);
@@ -2545,7 +2597,7 @@ void DrawingML::WritePresetShape( const char* pShape )
     mpFS->endElementNS(  XML_a, XML_prstGeom );
 }
 
-std::map< OString, std::vector<OString> > lcl_getAdjNames()
+static std::map< OString, std::vector<OString> > lcl_getAdjNames()
 {
     std::map< OString, std::vector<OString> > aRet;
 
@@ -3287,12 +3339,12 @@ void DrawingML::WriteShapeEffect( const OUString& sName, const Sequence< Propert
     }
 }
 
-sal_Int32 lcl_CalculateDist(const double dX, const double dY)
+static sal_Int32 lcl_CalculateDist(const double dX, const double dY)
 {
     return static_cast< sal_Int32 >(sqrt(dX*dX + dY*dY) * 360);
 }
 
-sal_Int32 lcl_CalculateDir(const double dX, const double dY)
+static sal_Int32 lcl_CalculateDir(const double dX, const double dY)
 {
     return (static_cast< sal_Int32 >(basegfx::rad2deg(atan2(dY,dX)) * 60000) + 21600000) % 21600000;
 }

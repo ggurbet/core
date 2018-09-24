@@ -1864,9 +1864,11 @@ struct ImplHdlAndIndex
     sal_uInt32                  mnIndex;
 };
 
+extern "C" {
+
 // Helper method for sorting handles taking care of OrdNums, keeping order in
 // single objects and re-sorting polygon handles intuitively
-extern "C" int ImplSortHdlFunc( const void* pVoid1, const void* pVoid2 )
+static int ImplSortHdlFunc( const void* pVoid1, const void* pVoid2 )
 {
     const ImplHdlAndIndex* p1 = static_cast<ImplHdlAndIndex const *>(pVoid1);
     const ImplHdlAndIndex* p2 = static_cast<ImplHdlAndIndex const *>(pVoid2);
@@ -1940,6 +1942,7 @@ extern "C" int ImplSortHdlFunc( const void* pVoid1, const void* pVoid2 )
     }
 }
 
+}
 
 void SdrHdlList::TravelFocusHdl(bool bForward)
 {
@@ -2248,11 +2251,9 @@ size_t SdrHdlList::GetHdlNum(const SdrHdl* pHdl) const
 
 void SdrHdlList::AddHdl(SdrHdl* pHdl)
 {
-    if (pHdl!=nullptr)
-    {
-        aList.push_back(pHdl);
-        pHdl->SetHdlList(this);
-    }
+    assert(pHdl);
+    aList.push_back(pHdl);
+    pHdl->SetHdlList(this);
 }
 
 SdrHdl* SdrHdlList::IsHdlListHit(const Point& rPnt) const
@@ -2280,6 +2281,12 @@ SdrHdl* SdrHdlList::GetHdl(SdrHdlKind eKind1) const
             pRet=pHdl;
     }
     return pRet;
+}
+
+void SdrHdlList::MoveTo(SdrHdlList& rOther)
+{
+    rOther.aList.insert(rOther.aList.end(), aList.begin(), aList.end());
+    aList.clear();
 }
 
 SdrCropHdl::SdrCropHdl(

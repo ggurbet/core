@@ -2090,7 +2090,7 @@ void SfxObjectShell::AddToRecentlyUsedList()
 
     if ( aUrl.GetProtocol() == INetProtocol::File )
     {
-        std::shared_ptr<const SfxFilter> pOrgFilter = pMedium->GetOrigFilter();
+        std::shared_ptr<const SfxFilter> pOrgFilter = pMedium->GetFilter();
         Application::AddToRecentDocumentList( aUrl.GetURLNoPass( INetURLObject::DecodeMechanism::NONE ),
                                               pOrgFilter ? pOrgFilter->GetMimeType() : OUString(),
                                               pOrgFilter ? pOrgFilter->GetServiceName() : OUString() );
@@ -3262,7 +3262,7 @@ bool SfxObjectShell::SaveCompleted( const uno::Reference< embed::XStorage >& xSt
     return bResult;
 }
 
-bool StoragesOfUnknownMediaTypeAreCopied_Impl( const uno::Reference< embed::XStorage >& xSource,
+static bool StoragesOfUnknownMediaTypeAreCopied_Impl( const uno::Reference< embed::XStorage >& xSource,
                                                    const uno::Reference< embed::XStorage >& xTarget )
 {
     OSL_ENSURE( xSource.is() && xTarget.is(), "Source and/or target storages are not available!" );

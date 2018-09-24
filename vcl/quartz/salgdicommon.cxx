@@ -24,6 +24,7 @@
 #include <cstring>
 
 #include <basegfx/polygon/b2dpolygon.hxx>
+#include <basegfx/polygon/b2dpolygontools.hxx>
 #include <osl/endian.h>
 #include <osl/file.hxx>
 #include <sal/types.h>
@@ -301,21 +302,21 @@ bool AquaSalGraphics::CreateFontSubset( const OUString& rToFile,
 
     // fill the pGlyphWidths array
     // while making sure that the NotDef glyph is at index==0
-    TTSimpleGlyphMetrics* pGlyphMetrics = ::GetTTSimpleGlyphMetrics( pSftFont, aShortIDs,
+    std::unique_ptr<sal_uInt16[]> pGlyphMetrics = ::GetTTSimpleGlyphMetrics( pSftFont, aShortIDs,
                                                                      nGlyphCount, bVertical );
     if( !pGlyphMetrics )
     {
         return false;
     }
 
-    sal_uInt16 nNotDefAdv = pGlyphMetrics[0].adv;
-    pGlyphMetrics[0].adv = pGlyphMetrics[nNotDef].adv;
-    pGlyphMetrics[nNotDef].adv  = nNotDefAdv;
+    sal_uInt16 nNotDefAdv = pGlyphMetrics[0];
+    pGlyphMetrics[0] = pGlyphMetrics[nNotDef];
+    pGlyphMetrics[nNotDef]  = nNotDefAdv;
     for( int i = 0; i < nOrigCount; ++i )
     {
-        pGlyphWidths[i] = pGlyphMetrics[i].adv;
+        pGlyphWidths[i] = pGlyphMetrics[i];
     }
-    free( pGlyphMetrics );
+    pGlyphMetrics.reset();
 
     // write subset into destination file
     nRC = ::CreateTTFromTTGlyphs( pSftFont, aToFile.getStr(), aShortIDs,
@@ -943,18 +944,20 @@ void AquaSalGraphics::drawPixel( long nX, long nY, Color nColor )
     ImplDrawPixel( nX, nY, aPixelColor );
 }
 
-bool AquaSalGraphics::drawPolyLine( const basegfx::B2DPolygon& rPolyLine,
-                                    double fTransparency,
-                                    const basegfx::B2DVector& rLineWidths,
-                                    basegfx::B2DLineJoin eLineJoin,
-                                    css::drawing::LineCap eLineCap,
-                                    double fMiterMinimumAngle)
+bool AquaSalGraphics::drawPolyLine(
+    const basegfx::B2DHomMatrix& rObjectToDevice,
+    const basegfx::B2DPolygon& rPolyLine,
+    double fTransparency,
+    const basegfx::B2DVector& rLineWidths,
+    basegfx::B2DLineJoin eLineJoin,
+    css::drawing::LineCap eLineCap,
+    double fMiterMinimumAngle,
+    bool bPixelSnapHairline)
 {
     DBG_DRAW_OPERATION("drawPolyLine", true);
 
     // short circuit if there is nothing to do
-    const int nPointCount = rPolyLine.count();
-    if( nPointCount <= 0 )
+    if(0 == rPolyLine.count())
     {
         DBG_DRAW_OPERATION_EXIT_EARLY("drawPolyLine");
         return true;
@@ -968,15 +971,22 @@ bool AquaSalGraphics::drawPolyLine( const basegfx::B2DPolygon& rPolyLine,
     }
 #endif
 
+    // Transform to DeviceCoordinates, get DeviceLineWidth, execute PixelSnapHairline
+    const basegfx::B2DVector aLineWidths(rObjectToDevice * rLineWidths);
+
     // #i101491# Aqua does not support B2DLineJoin::NONE; return false to use
     // the fallback (own geometry preparation)
     // #i104886# linejoin-mode and thus the above only applies to "fat" lines
-    if( (basegfx::B2DLineJoin::NONE == eLineJoin) &&
-        (rLineWidths.getX() > 1.3) )
+    if( (basegfx::B2DLineJoin::NONE == eLineJoin) && (aLineWidths.getX() > 1.3) )
     {
         DBG_DRAW_OPERATION_EXIT_EARLY("drawPolyLine");
         return false;
     }
+
+    // Transform to DeviceCoordinates, get DeviceLineWidth, execute PixelSnapHairline
+    basegfx::B2DPolygon aPolyLine(rPolyLine);
+    aPolyLine.transform(rObjectToDevice);
+    if(bPixelSnapHairline) { aPolyLine = basegfx::utils::snapPointsOfHorizontalOrVerticalEdges(aPolyLine); }
 
     // setup line attributes
     CGLineJoin aCGLineJoin = kCGLineJoinMiter;
@@ -1014,7 +1024,12 @@ bool AquaSalGraphics::drawPolyLine( const basegfx::B2DPolygon& rPolyLine,
     // setup poly-polygon path
     CGMutablePathRef xPath = CGPathCreateMutable();
     SAL_INFO( "vcl.cg", "CGPathCreateMutable() = " << xPath );
-    AddPolygonToPath( xPath, rPolyLine, rPolyLine.isClosed(), !getAntiAliasB2DDraw(), true );
+    AddPolygonToPath(
+        xPath,
+        aPolyLine,
+        aPolyLine.isClosed(),
+        !getAntiAliasB2DDraw(),
+        true);
 
     const CGRect aRefreshRect = CGPathGetBoundingBox( xPath );
     SAL_INFO( "vcl.cg", "CGPathGetBoundingBox(" << xPath << ") = " << aRefreshRect );
@@ -1034,7 +1049,7 @@ bool AquaSalGraphics::drawPolyLine( const basegfx::B2DPolygon& rPolyLine,
         CGContextSetAlpha( mrContext, 1.0 - fTransparency );
         CGContextSetLineJoin( mrContext, aCGLineJoin );
         CGContextSetLineCap( mrContext, aCGLineCap );
-        CGContextSetLineWidth( mrContext, rLineWidths.getX() );
+        CGContextSetLineWidth( mrContext, aLineWidths.getX() );
         CGContextSetMiterLimit(mrContext, fCGMiterLimit);
         SAL_INFO( "vcl.cg", "CGContextDrawPath(" << mrContext << ",kCGPathStroke)" );
         CGContextDrawPath( mrContext, kCGPathStroke );
@@ -1057,13 +1072,15 @@ bool AquaSalGraphics::drawPolyLineBezier( sal_uInt32, const SalPoint*, const Pol
     return false;
 }
 
-bool AquaSalGraphics::drawPolyPolygon( const basegfx::B2DPolyPolygon& rPolyPoly,
-                                       double fTransparency )
+bool AquaSalGraphics::drawPolyPolygon(
+    const basegfx::B2DHomMatrix& rObjectToDevice,
+    const basegfx::B2DPolyPolygon& rPolyPolygon,
+    double fTransparency)
 {
     DBG_DRAW_OPERATION("drawPolyPolygon", true);
 
     // short circuit if there is nothing to do
-    const int nPolyCount = rPolyPoly.count();
+    const int nPolyCount = rPolyPolygon.count();
     if( nPolyCount <= 0 )
     {
         DBG_DRAW_OPERATION_EXIT_EARLY("drawPolyPolygon");
@@ -1077,12 +1094,16 @@ bool AquaSalGraphics::drawPolyPolygon( const basegfx::B2DPolyPolygon& rPolyPoly,
         return true;
     }
 
+    // Fallback: Transform to DeviceCoordinates
+    basegfx::B2DPolyPolygon aPolyPolygon(rPolyPolygon);
+    aPolyPolygon.transform(rObjectToDevice);
+
     // setup poly-polygon path
     CGMutablePathRef xPath = CGPathCreateMutable();
     SAL_INFO( "vcl.cg", "CGPathCreateMutable() = " << xPath );
     for( int nPolyIdx = 0; nPolyIdx < nPolyCount; ++nPolyIdx )
     {
-        const basegfx::B2DPolygon rPolygon = rPolyPoly.getB2DPolygon( nPolyIdx );
+        const basegfx::B2DPolygon rPolygon = rPolyPolygon.getB2DPolygon( nPolyIdx );
         AddPolygonToPath( xPath, rPolygon, true, !getAntiAliasB2DDraw(), IsPenVisible() );
     }
 

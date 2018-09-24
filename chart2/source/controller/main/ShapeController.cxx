@@ -292,7 +292,7 @@ void ShapeController::executeDispatch_FormatArea()
             }
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                 ScopedVclPtr< AbstractSvxAreaTabDialog > pDlg(
-                    pFact->CreateSvxAreaTabDialog( pChartWindow, &aAttr, &pDrawModelWrapper->getSdrModel(), true ) );
+                    pFact->CreateSvxAreaTabDialog(pChartWindow->GetFrameWeld(), &aAttr, &pDrawModelWrapper->getSdrModel(), true));
             if ( pDlg->Execute() == RET_OK )
             {
                 const SfxItemSet* pOutAttr = pDlg->GetOutputItemSet();
@@ -326,7 +326,7 @@ void ShapeController::executeDispatch_TextAttributes()
             }
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
             ScopedVclPtr< SfxAbstractTabDialog > pDlg(
-                pFact->CreateTextTabDialog( pChartWindow ? pChartWindow->GetFrameWeld() : nullptr, &aAttr, pDrawViewWrapper ) );
+                pFact->CreateTextTabDialog(pChartWindow->GetFrameWeld(), &aAttr, pDrawViewWrapper));
             if ( pDlg->Execute() == RET_OK )
             {
                 const SfxItemSet* pOutAttr = pDlg->GetOutputItemSet();
@@ -362,7 +362,7 @@ void ShapeController::executeDispatch_TransformDialog()
                 SfxItemSet aGeoAttr( pDrawViewWrapper->GetGeoAttrFromMarked() );
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
                 ScopedVclPtr< SfxAbstractTabDialog > pDlg(
-                    pFact->CreateCaptionDialog( pChartWindow, pDrawViewWrapper ) );
+                    pFact->CreateCaptionDialog(pChartWindow->GetFrameWeld(), pDrawViewWrapper));
                 const sal_uInt16* pRange = pDlg->GetInputRanges( *aAttr.GetPool() );
                 SfxItemSet aCombAttr( *aAttr.GetPool(), pRange );
                 aCombAttr.Put( aAttr );
@@ -512,10 +512,10 @@ void ShapeController::executeDispatch_FontDialog()
             SfxItemSet aAttr( pDrawViewWrapper->GetModel()->GetItemPool() );
             pDrawViewWrapper->GetAttributes( aAttr );
             ViewElementListProvider aViewElementListProvider( pDrawModelWrapper );
-            ScopedVclPtrInstance< ShapeFontDialog > pDlg( pChartWindow, &aAttr, &aViewElementListProvider );
-            if ( pDlg->Execute() == RET_OK )
+            ShapeFontDialog aDlg(pChartWindow->GetFrameWeld(), &aAttr, &aViewElementListProvider);
+            if (aDlg.execute() == RET_OK)
             {
-                const SfxItemSet* pOutAttr = pDlg->GetOutputItemSet();
+                const SfxItemSet* pOutAttr = aDlg.GetOutputItemSet();
                 pDrawViewWrapper->SetAttributes( *pOutAttr );
             }
         }
@@ -547,10 +547,10 @@ void ShapeController::executeDispatch_ParagraphDialog()
             aNewAttr.Put( SvxWidowsItem( 0, SID_ATTR_PARA_WIDOWS) );
             aNewAttr.Put( SvxOrphansItem( 0, SID_ATTR_PARA_ORPHANS) );
 
-            ScopedVclPtrInstance< ShapeParagraphDialog > pDlg( pChartWindow, &aNewAttr );
-            if ( pDlg->Execute() == RET_OK )
+            ShapeParagraphDialog aDlg(pChartWindow->GetFrameWeld(), &aNewAttr);
+            if (aDlg.execute() == RET_OK)
             {
-                const SfxItemSet* pOutAttr = pDlg->GetOutputItemSet();
+                const SfxItemSet* pOutAttr = aDlg.GetOutputItemSet();
                 pDrawViewWrapper->SetAttributes( *pOutAttr );
             }
         }

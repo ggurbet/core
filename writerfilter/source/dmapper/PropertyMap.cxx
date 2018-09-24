@@ -380,7 +380,6 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     , m_bTitlePage( false )
     , m_nColumnCount( 0 )
     , m_nColumnDistance( 1249 )
-    , m_xColumnContainer( nullptr )
     , m_bSeparatorLineIsOn( false )
     , m_bEvenlySpaced( false )
     , m_nPageNumber( -1 )
@@ -448,7 +447,7 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     }
 }
 
-OUString lcl_FindUnusedPageStyleName( const uno::Sequence< OUString >& rPageStyleNames )
+static OUString lcl_FindUnusedPageStyleName( const uno::Sequence< OUString >& rPageStyleNames )
 {
     static const char DEFAULT_STYLE[] = "Converted";
     sal_Int32         nMaxIndex       = 0;
@@ -1016,7 +1015,7 @@ void SectionPropertyMap::PrepareHeaderFooterProperties( bool bFirstPage )
     }
 }
 
-uno::Reference< beans::XPropertySet > lcl_GetRangeProperties( bool bIsFirstSection,
+static uno::Reference< beans::XPropertySet > lcl_GetRangeProperties( bool bIsFirstSection,
                                                               DomainMapper_Impl& rDM_Impl,
                                                               const uno::Reference< text::XTextRange >& xStartingRange )
 {
@@ -1067,7 +1066,7 @@ void SectionPropertyMap::HandleMarginsHeaderFooter( bool bFirstPage, DomainMappe
                     xParagraphStyles->getByName("Standard") >>= xStandard;
                 if ( xStandard.is() )
                 {
-                    sal_Int16 aWritingMode;
+                    sal_Int16 aWritingMode(0);
                     xStandard->getPropertyValue( getPropertyName(PROP_WRITING_MODE) ) >>= aWritingMode;
                     if( aWritingMode == text::WritingMode2::RL_TB )
                         Insert( PROP_FOOTNOTE_LINE_ADJUST, uno::makeAny( sal_Int16(text::HorizontalAdjust_RIGHT) ), false );
@@ -1644,7 +1643,7 @@ void SectionPropertyMap::ClearHeaderFooterLinkToPrevious( bool bHeader, PageType
 class NamedPropertyValue
 {
 private:
-    OUString m_aName;
+    OUString const m_aName;
 
 public:
     explicit NamedPropertyValue( const OUString& i_aStr )

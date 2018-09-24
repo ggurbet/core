@@ -49,7 +49,7 @@ void generateMap(long nW, long nDstW, bool bHMirr, long* pMapIX, long* pMapFX)
 }
 
 struct ScaleContext {
-    BitmapReadAccess  *mpSrc;
+    BitmapReadAccess  * const mpSrc;
     BitmapWriteAccess *mpDest;
     long mnSrcW, mnDestW;
     long mnSrcH, mnDestH;
@@ -90,7 +90,7 @@ typedef void (*ScaleRangeFn)(ScaleContext &rCtx, long nStartY, long nEndY);
 
 class ScaleTask : public comphelper::ThreadTask
 {
-    ScaleRangeFn mpFn;
+    ScaleRangeFn const mpFn;
     std::vector< ScaleRangeContext > maStrips;
 public:
     explicit ScaleTask( const std::shared_ptr<comphelper::ThreadTaskTag>& pTag, ScaleRangeFn pFn )
@@ -930,7 +930,7 @@ BitmapScaleSuperFilter::BitmapScaleSuperFilter(const double& rScaleX, const doub
 BitmapScaleSuperFilter::~BitmapScaleSuperFilter()
 {}
 
-BitmapEx BitmapScaleSuperFilter::execute(BitmapEx const& rBitmap)
+BitmapEx BitmapScaleSuperFilter::execute(BitmapEx const& rBitmap) const
 {
     Bitmap aBitmap(rBitmap.GetBitmap());
 

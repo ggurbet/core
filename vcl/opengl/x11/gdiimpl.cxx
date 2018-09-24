@@ -81,7 +81,7 @@ namespace
     {
     private:
         errorHandler oldErrorHandler;
-        Display* mdpy;
+        Display* const mdpy;
 
     public:
         TempErrorHandler(Display* dpy, errorHandler newErrorHandler)
@@ -302,7 +302,7 @@ bool X11OpenGLContext::ImplInit()
     if (hasCreateContextAttribsARB && !mbRequestLegacyContext)
     {
         int best_fbc = -1;
-        GLXFBConfig* pFBC = getFBConfig(m_aGLWin.dpy, m_aGLWin.win, best_fbc, mbUseDoubleBufferedRendering);
+        GLXFBConfig* pFBC = getFBConfig(m_aGLWin.dpy, m_aGLWin.win, best_fbc, /*bUseDoubleBufferedRendering*/true);
 
         if (pFBC && best_fbc != -1)
         {

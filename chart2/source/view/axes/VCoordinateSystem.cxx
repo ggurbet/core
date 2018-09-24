@@ -52,7 +52,7 @@ using namespace ::com::sun::star::chart2;
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::uno::Sequence;
 
-VCoordinateSystem* VCoordinateSystem::createCoordinateSystem(
+std::unique_ptr<VCoordinateSystem> VCoordinateSystem::createCoordinateSystem(
             const Reference< XCoordinateSystem >& xCooSysModel )
 {
     if( !xCooSysModel.is() )
@@ -61,22 +61,18 @@ VCoordinateSystem* VCoordinateSystem::createCoordinateSystem(
     OUString aViewServiceName = xCooSysModel->getViewServiceName();
 
     //@todo: in future the coordinatesystems should be instantiated via service factory
-    VCoordinateSystem* pRet=nullptr;
+    std::unique_ptr<VCoordinateSystem> pRet;
     if( aViewServiceName == CHART2_COOSYSTEM_CARTESIAN_VIEW_SERVICE_NAME )
-        pRet = new VCartesianCoordinateSystem(xCooSysModel);
+        pRet.reset( new VCartesianCoordinateSystem(xCooSysModel) );
     else if( aViewServiceName == CHART2_COOSYSTEM_POLAR_VIEW_SERVICE_NAME )
-        pRet = new VPolarCoordinateSystem(xCooSysModel);
+        pRet.reset( new VPolarCoordinateSystem(xCooSysModel) );
     if(!pRet)
-        pRet = new VCoordinateSystem(xCooSysModel);
+        pRet.reset( new VCoordinateSystem(xCooSysModel) );
     return pRet;
 }
 
 VCoordinateSystem::VCoordinateSystem( const Reference< XCoordinateSystem >& xCooSys )
     : m_xCooSysModel(xCooSys)
-    , m_xLogicTargetForGrids(nullptr)
-    , m_xLogicTargetForAxes(nullptr)
-    , m_xFinalTarget(nullptr)
-    , m_xShapeFactory(nullptr)
     , m_aMatrixSceneToScreen()
     , m_eLeftWallPos(CuboidPlanePosition_Left)
     , m_eBackWallPos(CuboidPlanePosition_Back)
@@ -84,7 +80,6 @@ VCoordinateSystem::VCoordinateSystem( const Reference< XCoordinateSystem >& xCoo
     , m_aMergedMinMaxSupplier()
     , m_aExplicitScales(3)
     , m_aExplicitIncrements(3)
-    , m_apExplicitCategoriesProvider(nullptr)
 {
     if( !m_xCooSysModel.is() || m_xCooSysModel->getDimension()<3 )
     {

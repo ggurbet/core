@@ -111,10 +111,10 @@ struct DDInfo
 
 struct Impl_IMEInfos
 {
-    OUString      aOldTextAfterStartPos;
+    OUString const aOldTextAfterStartPos;
     std::unique_ptr<ExtTextInputAttr[]>
                   pAttribs;
-    sal_Int32     nPos;
+    sal_Int32 const nPos;
     sal_Int32     nLen;
     bool          bCursor;
     bool          bWasCursorOverwrite;
@@ -127,7 +127,6 @@ struct Impl_IMEInfos
 
 Impl_IMEInfos::Impl_IMEInfos(sal_Int32 nP, const OUString& rOldTextAfterStartPos)
     : aOldTextAfterStartPos(rOldTextAfterStartPos),
-    pAttribs(nullptr),
     nPos(nP),
     nLen(0),
     bCursor(true),
@@ -192,16 +191,7 @@ bool Edit::set_property(const OString &rKey, const OUString &rValue)
     }
     else if (rKey == "editable")
     {
-        bool bReadOnly = !toBool(rValue);
-        SetReadOnly(bReadOnly);
-        //disable tab to traverse into readonly editables
-        WinBits nBits = GetStyle();
-        nBits &= ~(WB_TABSTOP|WB_NOTABSTOP);
-        if (!bReadOnly)
-            nBits |= WB_TABSTOP;
-        else
-            nBits |= WB_NOTABSTOP;
-        SetStyle(nBits);
+        SetReadOnly(!toBool(rValue));
     }
     else if (rKey == "visibility")
     {

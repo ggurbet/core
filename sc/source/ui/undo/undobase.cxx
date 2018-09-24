@@ -406,11 +406,11 @@ void ScMultiBlockUndo::ShowBlock()
     }
 }
 
-ScMoveUndo::ScMoveUndo( ScDocShell* pDocSh, ScDocumentUniquePtr pRefDoc, ScRefUndoData* pRefData,
+ScMoveUndo::ScMoveUndo( ScDocShell* pDocSh, ScDocumentUniquePtr pRefDoc, std::unique_ptr<ScRefUndoData> pRefData,
                                                 ScMoveUndoMode eRefMode ) :
     ScSimpleUndo( pDocSh ),
     pRefUndoDoc( std::move(pRefDoc) ),
-    pRefUndoData( pRefData ),
+    pRefUndoData( std::move(pRefData) ),
     eMode( eRefMode )
 {
     ScDocument& rDoc = pDocShell->GetDocument();
@@ -552,8 +552,8 @@ void ScDBFuncUndo::EndRedo()
     ScSimpleUndo::EndRedo();
 }
 
-ScUndoWrapper::ScUndoWrapper( SfxUndoAction* pUndo ) :
-    pWrappedUndo( pUndo ),
+ScUndoWrapper::ScUndoWrapper( std::unique_ptr<SfxUndoAction> pUndo ) :
+    pWrappedUndo( std::move(pUndo) ),
     mnViewShellId( -1 )
 {
     if (pWrappedUndo)

@@ -183,7 +183,7 @@ void VclContainer::queue_resize(StateChangedType eReason)
 }
 
 
-Button* isVisibleButtonWithText(vcl::Window* pCandidate)
+static Button* isVisibleButtonWithText(vcl::Window* pCandidate)
 {
     if (!pCandidate)
         return nullptr;
@@ -825,8 +825,8 @@ void VclButtonBox::setAllocation(const Size &rAllocation)
 
 struct ButtonOrder
 {
-    OString m_aType;
-    int m_nPriority;
+    OString const m_aType;
+    int const m_nPriority;
 };
 
 static int getButtonPriority(const OString &rType)
@@ -874,7 +874,7 @@ static int getButtonPriority(const OString &rType)
 
 class sortButtons
 {
-    bool m_bVerticalContainer;
+    bool const m_bVerticalContainer;
 public:
     explicit sortButtons(bool bVerticalContainer)
         : m_bVerticalContainer(bVerticalContainer)
@@ -1234,12 +1234,12 @@ static void calcMaxs(const array_type &A, std::vector<VclGrid::Value> &rWidths, 
     }
 }
 
-bool compareValues(const VclGrid::Value &i, const VclGrid::Value &j)
+static bool compareValues(const VclGrid::Value &i, const VclGrid::Value &j)
 {
     return i.m_nValue < j.m_nValue;
 }
 
-VclGrid::Value accumulateValues(const VclGrid::Value &i, const VclGrid::Value &j)
+static VclGrid::Value accumulateValues(const VclGrid::Value &i, const VclGrid::Value &j)
 {
     VclGrid::Value aRet;
     aRet.m_nValue = i.m_nValue + j.m_nValue;

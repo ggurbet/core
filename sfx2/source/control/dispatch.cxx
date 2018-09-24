@@ -410,9 +410,7 @@ void SfxDispatcher::Construct_Impl()
     for (SfxObjectBars_Impl & rObjBar : xImp->aObjBars)
         rObjBar.eId = ToolbarId::None;
 
-    Link<SfxRequest*,void> aGenLink( LINK(this, SfxDispatcher, PostMsgHandler) );
-
-    xImp->xPoster = new SfxHintPoster(aGenLink);
+    xImp->xPoster = new SfxHintPoster(std::bind(&SfxDispatcher::PostMsgHandler, this, std::placeholders::_1));
 
     xImp->aIdle.SetPriority(TaskPriority::HIGH_IDLE );
     xImp->aIdle.SetInvokeHandler( LINK(this, SfxDispatcher, EventHdl_Impl ) );
@@ -445,7 +443,7 @@ SfxDispatcher::~SfxDispatcher()
 
     // So that no timer by Reschedule in PlugComm strikes the LeaveRegistrations
     xImp->aIdle.Stop();
-    xImp->xPoster->SetEventHdl( Link<SfxRequest*,void>() );
+    xImp->xPoster->SetEventHdl( std::function<void (std::unique_ptr<SfxRequest>)>() );
 
     // Notify the stack variables in Call_Impl
     if ( xImp->pInCallAliveFlag )
@@ -866,7 +864,7 @@ void SfxDispatcher::Execute_(SfxShell& rShell, const SfxSlot& rSlot,
                 {
                     if ( bool(eCallMode & SfxCallMode::RECORD) )
                         rReq.AllowRecording( true );
-                    pDispat->xImp->xPoster->Post(new SfxRequest(rReq));
+                    pDispat->xImp->xPoster->Post(o3tl::make_unique<SfxRequest>(rReq));
                     return;
                 }
             }
@@ -881,7 +879,7 @@ void SfxDispatcher::Execute_(SfxShell& rShell, const SfxSlot& rSlot,
 /** Helper function to put from rItem below the Which-ID in the pool of the
     Item Sets rSet.
 */
-void MappedPut_Impl(SfxAllItemSet &rSet, const SfxPoolItem &rItem)
+static void MappedPut_Impl(SfxAllItemSet &rSet, const SfxPoolItem &rItem)
 {
     // Put with mapped Which-Id if possible
     const SfxItemPool *pPool = rSet.GetPool();
@@ -1104,7 +1102,7 @@ const SfxPoolItem* SfxDispatcher::ExecuteList(sal_uInt16 nSlot, SfxCallMode eCal
 
 /** Helper method to receive the asynchronously executed <SfxRequest>s.
 */
-IMPL_LINK(SfxDispatcher, PostMsgHandler, SfxRequest*, pReq, void)
+void SfxDispatcher::PostMsgHandler(std::unique_ptr<SfxRequest> pReq)
 {
     DBG_ASSERT( !xImp->bFlushing, "recursive call to dispatcher" );
     SFX_STACK(SfxDispatcher::PostMsgHandler);
@@ -1130,13 +1128,11 @@ IMPL_LINK(SfxDispatcher, PostMsgHandler, SfxRequest*, pReq, void)
         else
         {
             if ( xImp->bLocked )
-                xImp->aReqArr.emplace_back(new SfxRequest(*pReq));
+                xImp->aReqArr.emplace_back(std::move(pReq));
             else
-                xImp->xPoster->Post(new SfxRequest(*pReq));
+                xImp->xPoster->Post(std::move(pReq));
         }
     }
-
-    delete pReq;
 }
 
 void SfxDispatcher::SetMenu_Impl()
@@ -1618,9 +1614,13 @@ void SfxDispatcher::SetSlotFilter(SfxSlotFilterState nEnable,
     GetBindings()->InvalidateAll(true);
 }
 
-extern "C" int SfxCompareSIDs_Impl(const void* pSmaller, const void* pBigger)
+extern "C" {
+
+static int SfxCompareSIDs_Impl(const void* pSmaller, const void* pBigger)
 {
     return static_cast<long>(*static_cast<sal_uInt16 const *>(pSmaller)) - static_cast<long>(*static_cast<sal_uInt16 const *>(pBigger));
+}
+
 }
 
 /** Searches for 'nSID' in the Filter set by <SetSlotFilter()> and
@@ -1957,7 +1957,7 @@ void SfxDispatcher::Lock( bool bLock )
     if ( !bLock )
     {
         for(size_t i = 0; i < xImp->aReqArr.size(); ++i)
-            xImp->xPoster->Post(xImp->aReqArr[i].get());
+            xImp->xPoster->Post(std::move(xImp->aReqArr[i]));
         xImp->aReqArr.clear();
     }
 }

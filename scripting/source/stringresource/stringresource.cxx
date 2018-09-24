@@ -1241,7 +1241,7 @@ Sequence< sal_Int8 > StringResourcePersistenceImpl::exportBinary(  )
     BinaryOutput aOut( m_xContext );
 
     sal_Int32 nLocaleCount = m_aLocaleItemVector.size();
-    Sequence< sal_Int8 >* pLocaleDataSeq = new Sequence< sal_Int8 >[ nLocaleCount ];
+    std::vector<Sequence< sal_Int8 >> aLocaleDataSeq(nLocaleCount);
 
     sal_Int32 iLocale = 0;
     sal_Int32 iDefault = 0;
@@ -1255,7 +1255,7 @@ Sequence< sal_Int8 > StringResourcePersistenceImpl::exportBinary(  )
             BinaryOutput aLocaleOut( m_xContext );
             implWriteLocaleBinary( pLocaleItem.get(), aLocaleOut );
 
-            pLocaleDataSeq[iLocale] = aLocaleOut.closeAndGetData();
+            aLocaleDataSeq[iLocale] = aLocaleOut.closeAndGetData();
         }
         ++iLocale;
     }
@@ -1273,7 +1273,7 @@ Sequence< sal_Int8 > StringResourcePersistenceImpl::exportBinary(  )
     {
         aOut.writeInt32( nDataPos );
 
-        Sequence< sal_Int8 >& rSeq = pLocaleDataSeq[iLocale];
+        Sequence< sal_Int8 >& rSeq = aLocaleDataSeq[iLocale];
         sal_Int32 nSeqLen = rSeq.getLength();
         nDataPos += nSeqLen;
     }
@@ -1286,12 +1286,10 @@ Sequence< sal_Int8 > StringResourcePersistenceImpl::exportBinary(  )
     {
         for( iLocale = 0; iLocale < nLocaleCount; iLocale++ )
         {
-            Sequence< sal_Int8 >& rSeq = pLocaleDataSeq[iLocale];
+            Sequence< sal_Int8 >& rSeq = aLocaleDataSeq[iLocale];
             xOutputStream->writeBytes( rSeq );
         }
     }
-
-    delete[] pLocaleDataSeq;
 
     Sequence< sal_Int8 > aRetSeq = aOut.closeAndGetData();
     return aRetSeq;
@@ -1499,7 +1497,7 @@ void StringResourcePersistenceImpl::importBinary( const Sequence< ::sal_Int8 >& 
 
 // Private helper methods
 
-bool checkNamingSceme( const OUString& aName, const OUString& aNameBase,
+static bool checkNamingSceme( const OUString& aName, const OUString& aNameBase,
                        Locale& aLocale )
 {
     bool bSuccess = false;
@@ -1640,7 +1638,7 @@ bool StringResourcePersistenceImpl::implLoadLocale( LocaleItem* )
     return false;
 }
 
-OUString implGetNameScemeForLocaleItem( const LocaleItem* pLocaleItem )
+static OUString implGetNameScemeForLocaleItem( const LocaleItem* pLocaleItem )
 {
     /* FIXME-BCP47: this uses '_' underscore character as separator and
      * also appends Variant, which can't be blindly changed as it would
@@ -1699,7 +1697,7 @@ OUString StringResourcePersistenceImpl::implGetPathForLocaleItem
 
 // White space according to Java property files specification in
 // http://java.sun.com/j2se/1.4.2/docs/api/java/util/Properties.html#load(java.io.InputStream)
-inline bool isWhiteSpace( sal_Unicode c )
+static inline bool isWhiteSpace( sal_Unicode c )
 {
     bool bWhite = ( c == 0x0020 ||      // space
                     c == 0x0009 ||      // tab
@@ -1709,7 +1707,7 @@ inline bool isWhiteSpace( sal_Unicode c )
     return bWhite;
 }
 
-inline void skipWhites( const sal_Unicode* pBuf, sal_Int32 nLen, sal_Int32& ri )
+static inline void skipWhites( const sal_Unicode* pBuf, sal_Int32 nLen, sal_Int32& ri )
 {
     while( ri < nLen )
     {
@@ -1719,7 +1717,7 @@ inline void skipWhites( const sal_Unicode* pBuf, sal_Int32 nLen, sal_Int32& ri )
     }
 }
 
-inline bool isHexDigit( sal_Unicode c, sal_uInt16& nDigitVal )
+static inline bool isHexDigit( sal_Unicode c, sal_uInt16& nDigitVal )
 {
     bool bRet = true;
     if( c >= '0' && c <= '9' )
@@ -1733,7 +1731,7 @@ inline bool isHexDigit( sal_Unicode c, sal_uInt16& nDigitVal )
     return bRet;
 }
 
-sal_Unicode getEscapeChar( const sal_Unicode* pBuf, sal_Int32 nLen, sal_Int32& ri )
+static sal_Unicode getEscapeChar( const sal_Unicode* pBuf, sal_Int32 nLen, sal_Int32& ri )
 {
     sal_Int32 i = ri;
 
@@ -1788,7 +1786,7 @@ sal_Unicode getEscapeChar( const sal_Unicode* pBuf, sal_Int32 nLen, sal_Int32& r
     return cRet;
 }
 
-void CheckContinueInNextLine( const Reference< io::XTextInputStream2 >& xTextInputStream,
+static void CheckContinueInNextLine( const Reference< io::XTextInputStream2 >& xTextInputStream,
     OUString& aLine, bool& bEscapePending, const sal_Unicode*& pBuf,
     sal_Int32& nLen, sal_Int32& i )
 {
@@ -1930,13 +1928,13 @@ bool StringResourcePersistenceImpl::implReadPropertiesFile
 }
 
 
-inline sal_Unicode getHexCharForDigit( sal_uInt16 nDigitVal )
+static inline sal_Unicode getHexCharForDigit( sal_uInt16 nDigitVal )
 {
     sal_Unicode cRet = ( nDigitVal < 10 ) ? ('0' + nDigitVal) : ('a' + (nDigitVal-10));
     return cRet;
 }
 
-void implWriteCharToBuffer( OUStringBuffer& aBuf, sal_Unicode cu, bool bKey )
+static void implWriteCharToBuffer( OUStringBuffer& aBuf, sal_Unicode cu, bool bKey )
 {
     if( cu == '\\' )
     {
@@ -1990,7 +1988,7 @@ void implWriteCharToBuffer( OUStringBuffer& aBuf, sal_Unicode cu, bool bKey )
     }
 }
 
-void implWriteStringWithEncoding( const OUString& aStr,
+static void implWriteStringWithEncoding( const OUString& aStr,
     Reference< io::XTextOutputStream2 > const & xTextOutputStream, bool bKey )
 {
     static sal_Unicode cLineFeed = 0xa;

@@ -27,6 +27,8 @@
 #include <headless/svpgdi.hxx>
 #include <vcl/svapp.hxx>
 
+#include <QtCore/QObject>
+
 class Qt5Graphics;
 class Qt5Instance;
 class Qt5Menu;
@@ -37,8 +39,10 @@ class QScreen;
 class QImage;
 class SvpSalGraphics;
 
-class VCLPLUG_QT5_PUBLIC Qt5Frame : public SalFrame
+class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
 {
+    Q_OBJECT
+
     friend class Qt5Widget;
 
     QWidget* m_pQWidget;
@@ -54,6 +58,8 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public SalFrame
     // of SvpSalGraphics (which the derived class then owns)
     SvpSalGraphics* m_pSvpGraphics;
     DamageHandler m_aDamageHandler;
+    QRegion m_aRegion;
+    bool m_bNullRegion;
 
     bool m_bGraphicsInUse;
     SalFrameStyleFlags m_nStyle;
@@ -82,9 +88,17 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public SalFrame
     bool isWindow();
     QWindow* windowHandle();
     QScreen* screen();
+    bool isMinimized();
+    bool isMaximized();
 
     void TriggerPaintEvent();
     void TriggerPaintEvent(QRect aRect);
+
+private Q_SLOTS:
+    void setVisible(bool);
+
+Q_SIGNALS:
+    void setVisibleSignal(bool);
 
 public:
     Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nSalFrameStyle, bool bUseCairo);
@@ -126,8 +140,8 @@ public:
     virtual void SetPointer(PointerStyle ePointerStyle) override;
     virtual void CaptureMouse(bool bMouse) override;
     virtual void SetPointerPos(long nX, long nY) override;
+    using SalFrame::Flush;
     virtual void Flush() override;
-    virtual void Flush(const tools::Rectangle& rRect) override;
     virtual void SetInputContext(SalInputContext* pContext) override;
     virtual void EndExtTextInput(EndExtTextInputFlags nFlags) override;
     virtual OUString GetKeyName(sal_uInt16 nKeyCode) override;

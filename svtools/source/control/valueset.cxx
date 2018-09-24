@@ -123,7 +123,7 @@ void ValueSet::ImplDeleteItems()
 
     for ( size_t i = 0; i < n; ++i )
     {
-        ValueSetItem* pItem = mItemList[i];
+        ValueSetItem* pItem = mItemList[i].get();
         if ( pItem->mbVisible && ImplHasAccessibleListeners() )
         {
             Any aOldAny;
@@ -133,7 +133,7 @@ void ValueSet::ImplDeleteItems()
             ImplFireAccessibleEvent(AccessibleEventId::CHILD, aOldAny, aNewAny);
         }
 
-        delete pItem;
+        mItemList[i].reset();
     }
 
     mItemList.clear();
@@ -614,7 +614,7 @@ void ValueSet::Format(vcl::RenderContext const & rRenderContext)
         }
         for (size_t i = 0; i < nItemCount; i++)
         {
-            ValueSetItem* pItem = mItemList[i];
+            ValueSetItem* pItem = mItemList[i].get();
 
             if (i >= nFirstItem && i < nLastItem)
             {
@@ -736,7 +736,7 @@ void ValueSet::ImplDrawSelect(vcl::RenderContext& rRenderContext, sal_uInt16 nIt
     if (nItemId)
     {
         const size_t nPos = GetItemPos( nItemId );
-        pItem = mItemList[ nPos ];
+        pItem = mItemList[ nPos ].get();
         aRect = ImplGetItemRect( nPos );
     }
     else if (mpNoneItem.get())
@@ -1028,12 +1028,12 @@ ValueSetItem* ValueSet::ImplGetItem( size_t nPos )
     if (nPos == VALUESET_ITEM_NONEITEM)
         return mpNoneItem.get();
     else
-        return (nPos < mItemList.size()) ? mItemList[nPos] : nullptr;
+        return (nPos < mItemList.size()) ? mItemList[nPos].get() : nullptr;
 }
 
 ValueSetItem* ValueSet::ImplGetFirstItem()
 {
-    return mItemList.size() ? mItemList[0] : nullptr;
+    return mItemList.size() ? mItemList[0].get() : nullptr;
 }
 
 sal_uInt16 ValueSet::ImplGetVisibleItemCount() const
@@ -1520,56 +1520,54 @@ void ValueSet::UserDraw( const UserDrawEvent& )
 
 void ValueSet::InsertItem( sal_uInt16 nItemId, const Image& rImage )
 {
-    ValueSetItem* pItem = new ValueSetItem( *this );
+    std::unique_ptr<ValueSetItem> pItem(new ValueSetItem( *this ));
     pItem->mnId     = nItemId;
     pItem->meType   = VALUESETITEM_IMAGE;
     pItem->maImage  = rImage;
-    ImplInsertItem( pItem, VALUESET_APPEND );
+    ImplInsertItem( std::move(pItem), VALUESET_APPEND );
 }
 
 void ValueSet::InsertItem( sal_uInt16 nItemId, const Image& rImage,
                            const OUString& rText, size_t nPos,
                            bool bShowLegend )
 {
-    ValueSetItem* pItem = new ValueSetItem( *this );
+    std::unique_ptr<ValueSetItem> pItem(new ValueSetItem( *this ));
     pItem->mnId     = nItemId;
     pItem->meType   = bShowLegend ? VALUESETITEM_IMAGE_AND_TEXT : VALUESETITEM_IMAGE;
     pItem->maImage  = rImage;
     pItem->maText   = rText;
-    ImplInsertItem( pItem, nPos );
+    ImplInsertItem( std::move(pItem), nPos );
 }
 
 void ValueSet::InsertItem( sal_uInt16 nItemId, const Color& rColor,
                            const OUString& rText )
 {
-    ValueSetItem* pItem = new ValueSetItem( *this );
+    std::unique_ptr<ValueSetItem> pItem(new ValueSetItem( *this ));
     pItem->mnId     = nItemId;
     pItem->meType   = VALUESETITEM_COLOR;
     pItem->maColor  = rColor;
     pItem->maText   = rText;
-    ImplInsertItem( pItem, VALUESET_APPEND );
+    ImplInsertItem( std::move(pItem), VALUESET_APPEND );
 }
 
 void ValueSet::InsertItem( sal_uInt16 nItemId, size_t nPos )
 {
-    ValueSetItem* pItem = new ValueSetItem( *this );
+    std::unique_ptr<ValueSetItem> pItem(new ValueSetItem( *this ));
     pItem->mnId     = nItemId;
     pItem->meType   = VALUESETITEM_USERDRAW;
-    ImplInsertItem( pItem, nPos );
+    ImplInsertItem( std::move(pItem), nPos );
 }
 
-void ValueSet::ImplInsertItem( ValueSetItem *const pItem, const size_t nPos )
+void ValueSet::ImplInsertItem( std::unique_ptr<ValueSetItem> pItem, const size_t nPos )
 {
     DBG_ASSERT( pItem->mnId, "ValueSet::InsertItem(): ItemId == 0" );
     DBG_ASSERT( GetItemPos( pItem->mnId ) == VALUESET_ITEM_NOTFOUND,
                 "ValueSet::InsertItem(): ItemId already exists" );
 
     if ( nPos < mItemList.size() ) {
-        ValueItemList::iterator it = mItemList.begin();
-        ::std::advance( it, nPos );
-        mItemList.insert( it, pItem );
+        mItemList.insert( mItemList.begin() + nPos, std::move(pItem) );
     } else {
-        mItemList.push_back( pItem );
+        mItemList.push_back( std::move(pItem) );
     }
 
     queue_resize();
@@ -1607,10 +1605,7 @@ void ValueSet::RemoveItem( sal_uInt16 nItemId )
         return;
 
     if ( nPos < mItemList.size() ) {
-        ValueItemList::iterator it = mItemList.begin();
-        ::std::advance( it, nPos );
-        delete *it;
-        mItemList.erase( it );
+        mItemList.erase( mItemList.begin() + nPos );
     }
 
     // reset variables
@@ -1723,19 +1718,6 @@ void ValueSet::SetItemWidth( long nNewItemWidth )
         if ( IsReallyVisible() && IsUpdateMode() )
             Invalidate();
     }
-}
-
-//method to set accessible when the style is user draw.
-void ValueSet::InsertItem( sal_uInt16 nItemId, const OUString& rText, size_t nPos  )
-{
-    DBG_ASSERT( nItemId, "ValueSet::InsertItem(): ItemId == 0" );
-    DBG_ASSERT( GetItemPos( nItemId ) == VALUESET_ITEM_NOTFOUND,
-                "ValueSet::InsertItem(): ItemId already exists" );
-    ValueSetItem* pItem = new ValueSetItem( *this );
-    pItem->mnId     = nItemId;
-    pItem->meType   = VALUESETITEM_USERDRAW;
-    pItem->maText   = rText;
-    ImplInsertItem( pItem, nPos );
 }
 
 void ValueSet::SetItemHeight( long nNewItemHeight )
@@ -1851,7 +1833,7 @@ void ValueSet::SelectItem( sal_uInt16 nItemId )
 
         ValueSetItem* pItem;
         if( nPos != VALUESET_ITEM_NOTFOUND )
-            pItem = mItemList[nPos];
+            pItem = mItemList[nPos].get();
         else
             pItem = mpNoneItem.get();
 
@@ -1892,7 +1874,7 @@ void ValueSet::SetItemImage( sal_uInt16 nItemId, const Image& rImage )
     if ( nPos == VALUESET_ITEM_NOTFOUND )
         return;
 
-    ValueSetItem* pItem = mItemList[nPos];
+    ValueSetItem* pItem = mItemList[nPos].get();
     pItem->meType  = VALUESETITEM_IMAGE;
     pItem->maImage = rImage;
 
@@ -1922,7 +1904,7 @@ void ValueSet::SetItemColor( sal_uInt16 nItemId, const Color& rColor )
     if ( nPos == VALUESET_ITEM_NOTFOUND )
         return;
 
-    ValueSetItem* pItem = mItemList[nPos];
+    ValueSetItem* pItem = mItemList[nPos].get();
     pItem->meType  = VALUESETITEM_COLOR;
     pItem->maColor = rColor;
 
@@ -1952,7 +1934,7 @@ void ValueSet::SetItemData( sal_uInt16 nItemId, void* pData )
     if ( nPos == VALUESET_ITEM_NOTFOUND )
         return;
 
-    ValueSetItem* pItem = mItemList[nPos];
+    ValueSetItem* pItem = mItemList[nPos].get();
     pItem->mpData = pData;
 
     if ( pItem->meType == VALUESETITEM_USERDRAW )
@@ -1985,7 +1967,7 @@ void ValueSet::SetItemText(sal_uInt16 nItemId, const OUString& rText)
         return;
 
 
-    ValueSetItem* pItem = mItemList[nPos];
+    ValueSetItem* pItem = mItemList[nPos].get();
 
     // Remember old and new name for accessibility event.
     Any aOldName;
@@ -2228,7 +2210,7 @@ Size ValueSet::GetLargestItemSize()
 {
     Size aLargestItem;
 
-    for (ValueSetItem* pItem : mItemList)
+    for (std::unique_ptr<ValueSetItem>& pItem : mItemList)
     {
         if (!pItem->mbVisible)
             continue;
@@ -2279,9 +2261,11 @@ void ValueSet::SetEdgeBlending(bool bNew)
 SvtValueSet::SvtValueSet(std::unique_ptr<weld::ScrolledWindow> pScrolledWindow)
     : maVirDev( VclPtr<VirtualDevice>::Create())
     , mxScrolledWindow(std::move(pScrolledWindow))
+    , mnHighItemId(0)
     , maColor(COL_TRANSPARENT)
     , mnStyle(0)
     , mbFormat(true)
+    , mbHighlight(false)
 {
     maVirDev->SetBackground(Application::GetSettings().GetStyleSettings().GetFaceColor());
 
@@ -2296,6 +2280,7 @@ SvtValueSet::SvtValueSet(std::unique_ptr<weld::ScrolledWindow> pScrolledWindow)
     mnUserItemHeight    = 0;
     mnFirstLine         = 0;
     mnSelItemId         = 0;
+    mnSavedItemId       = -1;
     mnCols              = 0;
     mnCurCol            = 0;
     mnUserCols          = 0;
@@ -2303,6 +2288,7 @@ SvtValueSet::SvtValueSet(std::unique_ptr<weld::ScrolledWindow> pScrolledWindow)
     mnSpacing           = 0;
     mnFrameStyle        = DrawFrameStyle::NONE;
     mbNoSelection       = true;
+    mbDrawSelection     = true;
     mbBlackSel          = false;
     mbDoubleSel         = false;
     mbScroll            = false;
@@ -2319,9 +2305,9 @@ SvtValueSet::SvtValueSet(std::unique_ptr<weld::ScrolledWindow> pScrolledWindow)
 
 void SvtValueSet::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
     // #106446#, #106601# force mirroring of virtual device
     maVirDev->EnableRTL(pDrawingArea->get_direction());
-    CustomWidgetController::SetDrawingArea(pDrawingArea);
 }
 
 Reference<XAccessible> SvtValueSet::CreateAccessible()
@@ -2346,7 +2332,7 @@ void SvtValueSet::ImplDeleteItems()
 
     for ( size_t i = 0; i < n; ++i )
     {
-        SvtValueSetItem* pItem = mItemList[i];
+        SvtValueSetItem* pItem = mItemList[i].get();
         if ( pItem->mbVisible && ImplHasAccessibleListeners() )
         {
             Any aOldAny;
@@ -2356,7 +2342,7 @@ void SvtValueSet::ImplDeleteItems()
             ImplFireAccessibleEvent(AccessibleEventId::CHILD, aOldAny, aNewAny);
         }
 
-        delete pItem;
+        mItemList[i].reset();
     }
 
     mItemList.clear();
@@ -2365,6 +2351,10 @@ void SvtValueSet::ImplDeleteItems()
 void SvtValueSet::Select()
 {
     maSelectHdl.Call( this );
+}
+
+void SvtValueSet::UserDraw( const UserDrawEvent& )
+{
 }
 
 size_t SvtValueSet::ImplGetItem( const Point& rPos ) const
@@ -2409,12 +2399,12 @@ SvtValueSetItem* SvtValueSet::ImplGetItem( size_t nPos )
     if (nPos == VALUESET_ITEM_NONEITEM)
         return mpNoneItem.get();
     else
-        return (nPos < mItemList.size()) ? mItemList[nPos] : nullptr;
+        return (nPos < mItemList.size()) ? mItemList[nPos].get() : nullptr;
 }
 
 SvtValueSetItem* SvtValueSet::ImplGetFirstItem()
 {
-    return mItemList.size() ? mItemList[0] : nullptr;
+    return mItemList.size() ? mItemList[0].get() : nullptr;
 }
 
 sal_uInt16 SvtValueSet::ImplGetVisibleItemCount() const
@@ -2653,6 +2643,25 @@ bool SvtValueSet::KeyInput( const KeyEvent& rKeyEvent )
     return true;
 }
 
+void SvtValueSet::ImplTracking(const Point& rPos)
+{
+    SvtValueSetItem* pItem = ImplGetItem( ImplGetItem( rPos ) );
+    if ( pItem )
+    {
+        if( GetStyle() & WB_MENUSTYLEVALUESET || GetStyle() & WB_FLATVALUESET )
+            mbHighlight = true;
+
+        ImplHighlightItem( pItem->mnId );
+    }
+    else
+    {
+        if( GetStyle() & WB_MENUSTYLEVALUESET || GetStyle() & WB_FLATVALUESET )
+            mbHighlight = true;
+
+        ImplHighlightItem( mnSelItemId, false );
+    }
+}
+
 void SvtValueSet::MouseButtonDown( const MouseEvent& rMouseEvent )
 {
     if ( rMouseEvent.IsLeft() )
@@ -2677,6 +2686,14 @@ void SvtValueSet::MouseButtonDown( const MouseEvent& rMouseEvent )
     CustomWidgetController::MouseButtonDown( rMouseEvent );
 }
 
+void SvtValueSet::MouseMove(const MouseEvent& rMouseEvent)
+{
+    // because of SelectionMode
+    if ((GetStyle() & WB_MENUSTYLEVALUESET) || (GetStyle() & WB_FLATVALUESET))
+        ImplTracking(rMouseEvent.GetPosPixel());
+    CustomWidgetController::MouseMove(rMouseEvent);
+}
+
 void SvtValueSet::RemoveItem( sal_uInt16 nItemId )
 {
     size_t nPos = GetItemPos( nItemId );
@@ -2685,10 +2702,7 @@ void SvtValueSet::RemoveItem( sal_uInt16 nItemId )
         return;
 
     if ( nPos < mItemList.size() ) {
-        SvtValueItemList::iterator it = mItemList.begin();
-        ::std::advance( it, nPos );
-        delete *it;
-        mItemList.erase( it );
+        mItemList.erase( mItemList.begin() + nPos );
     }
 
     // reset variables
@@ -2778,6 +2792,23 @@ tools::Rectangle SvtValueSet::ImplGetItemRect( size_t nPos ) const
     const long y = maItemListRect.Top()+row*(mnItemHeight+mnSpacing);
 
     return tools::Rectangle( Point(x, y), Size(mnItemWidth, mnItemHeight) );
+}
+
+void SvtValueSet::ImplHighlightItem( sal_uInt16 nItemId, bool bIsSelection )
+{
+    if ( mnHighItemId == nItemId )
+        return;
+
+    // remember the old item to delete the previous selection
+    mnHighItemId = nItemId;
+
+    // don't draw the selection if nothing is selected
+    if ( !bIsSelection && mbNoSelection )
+        mbDrawSelection = false;
+
+    // remove the old selection and draw the new one
+    Invalidate();
+    mbDrawSelection = true;
 }
 
 void SvtValueSet::ImplDraw(vcl::RenderContext& rRenderContext)
@@ -2890,7 +2921,7 @@ void SvtValueSet::SelectItem( sal_uInt16 nItemId )
 
         SvtValueSetItem* pItem;
         if( nPos != VALUESET_ITEM_NOTFOUND )
-            pItem = mItemList[nPos];
+            pItem = mItemList[nPos].get();
         else
             pItem = mpNoneItem.get();
 
@@ -2916,6 +2947,7 @@ void SvtValueSet::SelectItem( sal_uInt16 nItemId )
 void SvtValueSet::SetNoSelection()
 {
     mbNoSelection   = true;
+    mbHighlight     = false;
 
     if (IsReallyVisible() && IsUpdateMode())
         Invalidate();
@@ -3197,7 +3229,7 @@ void SvtValueSet::Format(vcl::RenderContext const & rRenderContext)
         }
         for (size_t i = 0; i < nItemCount; i++)
         {
-            SvtValueSetItem* pItem = mItemList[i];
+            SvtValueSetItem* pItem = mItemList[i].get();
 
             if (i >= nFirstItem && i < nLastItem)
             {
@@ -3260,13 +3292,19 @@ void SvtValueSet::ImplDrawSelect(vcl::RenderContext& rRenderContext)
         return;
 
     const bool bFocus = HasFocus();
-    if (!bFocus && mbNoSelection)
+    const bool bDrawSel = !((mbNoSelection && !mbHighlight) || (!mbDrawSelection && mbHighlight));
+
+    if (!bFocus && !bDrawSel)
     {
         ImplDrawItemText(rRenderContext, OUString());
         return;
     }
 
-    ImplDrawSelect(rRenderContext, mnSelItemId, bFocus, !mbNoSelection);
+    ImplDrawSelect(rRenderContext, mnSelItemId, bFocus, bDrawSel);
+    if (mbHighlight)
+    {
+        ImplDrawSelect(rRenderContext, mnHighItemId, bFocus, bDrawSel);
+    }
 }
 
 void SvtValueSet::ImplDrawSelect(vcl::RenderContext& rRenderContext, sal_uInt16 nItemId, const bool bFocus, const bool bDrawSel )
@@ -3276,7 +3314,7 @@ void SvtValueSet::ImplDrawSelect(vcl::RenderContext& rRenderContext, sal_uInt16 
     if (nItemId)
     {
         const size_t nPos = GetItemPos( nItemId );
-        pItem = mItemList[ nPos ];
+        pItem = mItemList[ nPos ].get();
         aRect = ImplGetItemRect( nPos );
     }
     else if (mpNoneItem.get())
@@ -3460,19 +3498,32 @@ void SvtValueSet::ImplFormatItem(vcl::RenderContext const & rRenderContext, SvtV
 
         if (pItem->meType == VALUESETITEM_USERDRAW)
         {
+            UserDrawEvent aUDEvt(nullptr, maVirDev.get(), aRect, pItem->mnId);
+            UserDraw(aUDEvt);
         }
         else
         {
+            Size aImageSize = pItem->maImage.GetSizePixel();
             Size  aRectSize = aRect.GetSize();
             Point aPos(aRect.Left(), aRect.Top());
-            aPos.AdjustX(aRectSize.Width() / 2 );
+            aPos.AdjustX((aRectSize.Width() - aImageSize.Width()) / 2 );
 
             if (pItem->meType != VALUESETITEM_IMAGE_AND_TEXT)
-                aPos.AdjustY(aRectSize.Height() / 2 );
+                aPos.AdjustY((aRectSize.Height() - aImageSize.Height()) / 2 );
 
             DrawImageFlags  nImageStyle  = DrawImageFlags::NONE;
             if (!IsEnabled())
                 nImageStyle  |= DrawImageFlags::Disable;
+
+            if (aImageSize.Width()  > aRectSize.Width() ||
+                aImageSize.Height() > aRectSize.Height())
+            {
+                maVirDev->SetClipRegion(vcl::Region(aRect));
+                maVirDev->DrawImage(aPos, pItem->maImage, nImageStyle);
+                maVirDev->SetClipRegion();
+            }
+            else
+                maVirDev->DrawImage(aPos, pItem->maImage, nImageStyle);
 
             if (pItem->meType == VALUESETITEM_IMAGE_AND_TEXT)
             {
@@ -3557,6 +3608,26 @@ void SvtValueSet::SetColCount( sal_uInt16 nNewCols )
     }
 }
 
+void SvtValueSet::SetItemImage( sal_uInt16 nItemId, const Image& rImage )
+{
+    size_t nPos = GetItemPos( nItemId );
+
+    if ( nPos == VALUESET_ITEM_NOTFOUND )
+        return;
+
+    SvtValueSetItem* pItem = mItemList[nPos].get();
+    pItem->meType  = VALUESETITEM_IMAGE;
+    pItem->maImage = rImage;
+
+    if ( !mbFormat && IsReallyVisible() && IsUpdateMode() )
+    {
+        const tools::Rectangle aRect = ImplGetItemRect(nPos);
+        Invalidate(aRect);
+    }
+    else
+        mbFormat = true;
+}
+
 Color SvtValueSet::GetItemColor( sal_uInt16 nItemId ) const
 {
     size_t nPos = GetItemPos( nItemId );
@@ -3638,29 +3709,46 @@ Size SvtValueSet::CalcWindowSizePixel( const Size& rItemSize, sal_uInt16 nDesire
     return aSize;
 }
 
+void SvtValueSet::InsertItem( sal_uInt16 nItemId, const Image& rImage,
+                           const OUString& rText, size_t nPos )
+{
+    std::unique_ptr<SvtValueSetItem> pItem(new SvtValueSetItem( *this ));
+    pItem->mnId     = nItemId;
+    pItem->meType   = VALUESETITEM_IMAGE;
+    pItem->maImage  = rImage;
+    pItem->maText   = rText;
+    ImplInsertItem( std::move(pItem), nPos );
+}
+
+void SvtValueSet::InsertItem( sal_uInt16 nItemId, size_t nPos )
+{
+    std::unique_ptr<SvtValueSetItem> pItem(new SvtValueSetItem( *this ));
+    pItem->mnId     = nItemId;
+    pItem->meType   = VALUESETITEM_USERDRAW;
+    ImplInsertItem( std::move(pItem), nPos );
+}
+
 void SvtValueSet::InsertItem( sal_uInt16 nItemId, const Color& rColor,
                            const OUString& rText )
 {
-    SvtValueSetItem* pItem = new SvtValueSetItem( *this );
+    std::unique_ptr<SvtValueSetItem> pItem(new SvtValueSetItem( *this ));
     pItem->mnId     = nItemId;
     pItem->meType   = VALUESETITEM_COLOR;
     pItem->maColor  = rColor;
     pItem->maText   = rText;
-    ImplInsertItem( pItem, VALUESET_APPEND );
+    ImplInsertItem( std::move(pItem), VALUESET_APPEND );
 }
 
-void SvtValueSet::ImplInsertItem( SvtValueSetItem *const pItem, const size_t nPos )
+void SvtValueSet::ImplInsertItem( std::unique_ptr<SvtValueSetItem> pItem, const size_t nPos )
 {
     DBG_ASSERT( pItem->mnId, "ValueSet::InsertItem(): ItemId == 0" );
     DBG_ASSERT( GetItemPos( pItem->mnId ) == VALUESET_ITEM_NOTFOUND,
                 "ValueSet::InsertItem(): ItemId already exists" );
 
     if ( nPos < mItemList.size() ) {
-        SvtValueItemList::iterator it = mItemList.begin();
-        ::std::advance( it, nPos );
-        mItemList.insert( it, pItem );
+        mItemList.insert( mItemList.begin() + nPos, std::move(pItem) );
     } else {
-        mItemList.push_back( pItem );
+        mItemList.push_back( std::move(pItem) );
     }
 
     queue_resize();
@@ -3736,6 +3824,19 @@ void SvtValueSet::SetItemWidth( long nNewItemWidth )
     }
 }
 
+//method to set accessible when the style is user draw.
+void SvtValueSet::InsertItem( sal_uInt16 nItemId, const OUString& rText, size_t nPos  )
+{
+    DBG_ASSERT( nItemId, "ValueSet::InsertItem(): ItemId == 0" );
+    DBG_ASSERT( GetItemPos( nItemId ) == VALUESET_ITEM_NOTFOUND,
+                "ValueSet::InsertItem(): ItemId already exists" );
+    std::unique_ptr<SvtValueSetItem> pItem(new SvtValueSetItem( *this ));
+    pItem->mnId     = nItemId;
+    pItem->meType   = VALUESETITEM_USERDRAW;
+    pItem->maText   = rText;
+    ImplInsertItem( std::move(pItem), nPos );
+}
+
 void SvtValueSet::SetItemHeight( long nNewItemHeight )
 {
     if ( mnUserItemHeight != nNewItemHeight )
@@ -3769,6 +3870,113 @@ OUString SvtValueSet::GetItemText(sal_uInt16 nItemId) const
         return mItemList[nPos]->maText;
 
     return OUString();
+}
+
+void SvtValueSet::SetExtraSpacing( sal_uInt16 nNewSpacing )
+{
+    if ( GetStyle() & WB_ITEMBORDER )
+    {
+        mnSpacing = nNewSpacing;
+
+        mbFormat = true;
+        queue_resize();
+        if ( IsReallyVisible() && IsUpdateMode() )
+            Invalidate();
+    }
+}
+
+void SvtValueSet::SetFormat()
+{
+    mbFormat = true;
+}
+
+void SvtValueSet::SetItemText(sal_uInt16 nItemId, const OUString& rText)
+{
+    size_t nPos = GetItemPos( nItemId );
+
+    if ( nPos == VALUESET_ITEM_NOTFOUND )
+        return;
+
+    SvtValueSetItem* pItem = mItemList[nPos].get();
+
+    // Remember old and new name for accessibility event.
+    Any aOldName;
+    Any aNewName;
+    OUString sString (pItem->maText);
+    aOldName <<= sString;
+    sString = rText;
+    aNewName <<= sString;
+
+    pItem->maText = rText;
+
+    if (!mbFormat && IsReallyVisible() && IsUpdateMode())
+    {
+        sal_uInt16 nTempId = mnSelItemId;
+
+        if (mbHighlight)
+            nTempId = mnHighItemId;
+
+        if (nTempId == nItemId)
+            Invalidate();
+    }
+
+    if (ImplHasAccessibleListeners())
+    {
+        Reference<XAccessible> xAccessible(pItem->GetAccessible( false/*bIsTransientChildrenDisabled*/));
+        SvtValueItemAcc* pValueItemAcc = static_cast<SvtValueItemAcc*>(xAccessible.get());
+        pValueItemAcc->FireAccessibleEvent(AccessibleEventId::NAME_CHANGED, aOldName, aNewName);
+    }
+}
+
+Size SvtValueSet::GetLargestItemSize()
+{
+    Size aLargestItem;
+
+    for (std::unique_ptr<SvtValueSetItem>& pItem : mItemList)
+    {
+        if (!pItem->mbVisible)
+            continue;
+
+        if (pItem->meType != VALUESETITEM_IMAGE &&
+            pItem->meType != VALUESETITEM_IMAGE_AND_TEXT)
+        {
+            // handle determining an optimal size for this case
+            continue;
+        }
+
+        Size aSize = pItem->maImage.GetSizePixel();
+        if (pItem->meType == VALUESETITEM_IMAGE_AND_TEXT)
+        {
+            aSize.AdjustHeight(3 * NAME_LINE_HEIGHT +
+                maVirDev->GetTextHeight() );
+            aSize.setWidth( std::max(aSize.Width(),
+                                     maVirDev->GetTextWidth(pItem->maText) + NAME_OFFSET) );
+        }
+
+        aLargestItem.setWidth( std::max(aLargestItem.Width(), aSize.Width()) );
+        aLargestItem.setHeight( std::max(aLargestItem.Height(), aSize.Height()) );
+    }
+
+    return aLargestItem;
+}
+
+void SvtValueSet::SetOptimalSize()
+{
+    Size aLargestSize(GetLargestItemSize());
+    aLargestSize.setWidth(std::max(aLargestSize.Width(), mnUserItemWidth));
+    aLargestSize.setHeight(std::max(aLargestSize.Height(), mnUserItemHeight));
+    Size aPrefSize(CalcWindowSizePixel(aLargestSize));
+    GetDrawingArea()->set_size_request(aPrefSize.Width(), aPrefSize.Height());
+}
+
+Image SvtValueSet::GetItemImage(sal_uInt16 nItemId) const
+{
+    size_t nPos = GetItemPos( nItemId );
+
+    if ( nPos != VALUESET_ITEM_NOTFOUND )
+        return mItemList[nPos]->maImage;
+    else
+        return Image();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -38,7 +38,7 @@ struct SwNumberingTypeListBox_Impl
     uno::Reference<text::XNumberingTypeInfo> xInfo;
 };
 
-SwNumberingTypeListBox::SwNumberingTypeListBox(std::unique_ptr<weld::ComboBoxText> pWidget)
+SwNumberingTypeListBox::SwNumberingTypeListBox(std::unique_ptr<weld::ComboBox> pWidget)
     : m_xWidget(std::move(pWidget))
     , m_xImpl(new SwNumberingTypeListBox_Impl)
 {
@@ -113,7 +113,7 @@ void SwNumberingTypeListBox::Reload(SwInsertNumTypes nTypeFlags)
         }
         if (bInsert)
         {
-            m_xWidget->insert(nPos, OUString::number(nValue), SvxNumberingTypeTable::GetString(i));
+            m_xWidget->insert(nPos, OUString::number(nValue), SvxNumberingTypeTable::GetString(i), nullptr);
         }
     }
     if (nTypeFlags & SwInsertNumTypes::Extended)
@@ -127,7 +127,7 @@ void SwNumberingTypeListBox::Reload(SwInsertNumTypes nTypeFlags)
                 {
                     if (m_xWidget->find_id(OUString::number(nCurrent)) == -1)
                     {
-                        m_xWidget->insert(-1, OUString::number(nCurrent), m_xImpl->xInfo->getNumberingIdentifier(nCurrent));
+                        m_xWidget->append(OUString::number(nCurrent), m_xImpl->xInfo->getNumberingIdentifier(nCurrent));
                     }
                 }
             }

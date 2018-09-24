@@ -348,7 +348,7 @@ namespace {
 class ImplPixelFormat
 {
 public:
-    static ImplPixelFormat* GetFormat( sal_uInt16 nBits, const BitmapPalette& rPalette );
+    static std::unique_ptr<ImplPixelFormat> GetFormat( sal_uInt16 nBits, const BitmapPalette& rPalette );
 
     virtual void StartLine( sal_uInt8* pLine ) = 0;
     virtual void SkipPixel( sal_uInt32 nPixel ) = 0;
@@ -572,16 +572,16 @@ public:
         }
 };
 
-ImplPixelFormat* ImplPixelFormat::GetFormat( sal_uInt16 nBits, const BitmapPalette& rPalette )
+std::unique_ptr<ImplPixelFormat> ImplPixelFormat::GetFormat( sal_uInt16 nBits, const BitmapPalette& rPalette )
 {
     switch( nBits )
     {
-    case 1: return new ImplPixelFormat1( rPalette );
-    case 4: return new ImplPixelFormat4( rPalette );
-    case 8: return new ImplPixelFormat8( rPalette );
-    case 16: return new ImplPixelFormat16;
-    case 24: return new ImplPixelFormat24;
-    case 32: return new ImplPixelFormat32;
+    case 1: return o3tl::make_unique<ImplPixelFormat1>( rPalette );
+    case 4: return o3tl::make_unique<ImplPixelFormat4>( rPalette );
+    case 8: return o3tl::make_unique<ImplPixelFormat8>( rPalette );
+    case 16: return o3tl::make_unique<ImplPixelFormat16>();
+    case 24: return o3tl::make_unique<ImplPixelFormat24>();
+    case 32: return o3tl::make_unique<ImplPixelFormat32>();
     default:
         assert(false);
         return nullptr;
@@ -635,8 +635,8 @@ void QuartzSalBitmap::ConvertBitmapData( sal_uInt32 nWidth, sal_uInt32 nHeight,
     {
         // TODO: this implementation is for clarity, not for speed
 
-        ImplPixelFormat* pD = ImplPixelFormat::GetFormat( nDestBits, rDestPalette );
-        ImplPixelFormat* pS = ImplPixelFormat::GetFormat( nSrcBits, rSrcPalette );
+        std::unique_ptr<ImplPixelFormat> pD = ImplPixelFormat::GetFormat( nDestBits, rDestPalette );
+        std::unique_ptr<ImplPixelFormat> pS = ImplPixelFormat::GetFormat( nSrcBits, rSrcPalette );
 
         if( pD && pS )
         {
@@ -655,8 +655,6 @@ void QuartzSalBitmap::ConvertBitmapData( sal_uInt32 nWidth, sal_uInt32 nHeight,
                 pDestData += nDestBytesPerRow;
             }
         }
-        delete pS;
-        delete pD;
     }
 }
 
@@ -696,7 +694,7 @@ const aImplSalSysPalEntryAry[ 16 ] =
 { 0xFF, 0xFF, 0xFF }
 };
 
-const BitmapPalette& GetDefaultPalette( int mnBits, bool bMonochrome )
+static const BitmapPalette& GetDefaultPalette( int mnBits, bool bMonochrome )
 {
     if( bMonochrome )
         return Bitmap::GetGreyPalette( 1U << mnBits );
@@ -937,10 +935,10 @@ CGImageRef QuartzSalBitmap::CreateColorMask( int nX, int nY, int nWidth,
     if (m_pUserBuffer.get() && (nX + nWidth <= mnWidth) && (nY + nHeight <= mnHeight))
     {
         const sal_uInt32 nDestBytesPerRow = nWidth << 2;
-        sal_uInt32* pMaskBuffer = static_cast<sal_uInt32*>( std::malloc( nHeight * nDestBytesPerRow ) );
-        sal_uInt32* pDest = pMaskBuffer;
+        std::unique_ptr<sal_uInt32[]> pMaskBuffer(new (std::nothrow) sal_uInt32[ nHeight * nDestBytesPerRow / 4] );
+        sal_uInt32* pDest = pMaskBuffer.get();
 
-        ImplPixelFormat* pSourcePixels = ImplPixelFormat::GetFormat( mnBits, maPalette );
+        std::unique_ptr<ImplPixelFormat> pSourcePixels = ImplPixelFormat::GetFormat( mnBits, maPalette );
 
         if( pMaskBuffer && pSourcePixels )
         {
@@ -967,17 +965,11 @@ CGImageRef QuartzSalBitmap::CreateColorMask( int nX, int nY, int nWidth,
                 pSource += mnBytesPerRow;
             }
 
-            CGDataProviderRef xDataProvider( CGDataProviderCreateWithData(nullptr, pMaskBuffer, nHeight * nDestBytesPerRow, &CFRTLFree) );
+            CGDataProviderRef xDataProvider( CGDataProviderCreateWithData(nullptr, pMaskBuffer.release(), nHeight * nDestBytesPerRow, &CFRTLFree) );
             xMask = CGImageCreate(nWidth, nHeight, 8, 32, nDestBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaPremultipliedFirst, xDataProvider, nullptr, true, kCGRenderingIntentDefault);
             SAL_INFO("vcl.cg", "CGImageCreate(" << nWidth << "x" << nHeight << "x8) = " << xMask );
             CFRelease(xDataProvider);
         }
-        else
-        {
-            free(pMaskBuffer);
-        }
-
-        delete pSourcePixels;
     }
     return xMask;
 }

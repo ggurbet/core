@@ -371,7 +371,7 @@ public:
     // by repeated calls to ExecutePrintJob(). Used by mailmerge.
     static bool                 PreparePrintJob( std::shared_ptr<vcl::PrinterController> i_pController,
                                     const JobSetup& i_rInitSetup );
-    static bool                 ExecutePrintJob( std::shared_ptr<vcl::PrinterController> i_pController );
+    static bool ExecutePrintJob(const std::shared_ptr<vcl::PrinterController>& i_pController);
     static void                 FinishPrintJob( const std::shared_ptr<vcl::PrinterController>& i_pController );
 
     /** Implementation detail of PrintJob being asynchronous
@@ -483,12 +483,6 @@ public:
     /// Enable/disable an option; this can be used to implement dialog logic.
     bool                                isUIOptionEnabled( const OUString& rPropName ) const;
     bool                                isUIChoiceEnabled( const OUString& rPropName, sal_Int32 nChoice ) const;
-
-    /** @return The property name rPropName depends on or an empty string
-
-        if no dependency exists.
-    */
-    OUString                            getDependency( const OUString& rPropName ) const;
 
     /** MakeEnabled will change the property rPropName depends on to the value
 
@@ -614,9 +608,9 @@ public:
     // helper functions for user to create a single control
     struct UIControlOptions
     {
-        OUString         maDependsOnName;
-        sal_Int32        mnDependsOnEntry;
-        bool             mbAttachToDependency;
+        OUString const   maDependsOnName;
+        sal_Int32 const  mnDependsOnEntry;
+        bool const       mbAttachToDependency;
         OUString         maGroupHint;
         bool             mbInternalOnly;
         bool             mbEnabled;

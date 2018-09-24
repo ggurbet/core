@@ -1305,7 +1305,6 @@ SwXStyle::SwXStyle(SfxStyleSheetBasePool* pPool, SfxStyleFamily eFamily, SwDoc* 
     , m_bIsDescriptor(false)
     , m_bIsConditional(lcl_InitConditional(pPool, eFamily, rStyleName))
     , m_pBasePool(pPool)
-    , m_pPropertiesImpl(nullptr)
 { }
 
 SwXStyle::~SwXStyle()
@@ -1468,7 +1467,6 @@ public:
         : m_rDoc(rSwDoc)
         , m_pOldPageDesc(nullptr)
         , m_pItemSet(nullptr)
-        , m_pMyItemSet(nullptr)
         , m_rStyleName(rName)
         , m_pParentStyle(pParentStyle)
     { }
@@ -1562,7 +1560,7 @@ const SwPageDesc* SwStyleBase_Impl::GetOldPageDesc()
 
 
 
-sal_uInt8 lcl_TranslateMetric(const SfxItemPropertySimpleEntry& rEntry, SwDoc* pDoc, uno::Any& o_aValue)
+static sal_uInt8 lcl_TranslateMetric(const SfxItemPropertySimpleEntry& rEntry, SwDoc* pDoc, uno::Any& o_aValue)
 {
     // check for needed metric translation
     if(!(rEntry.nMoreFlags & PropertyMoreFlags::METRIC_ITEM))
@@ -2460,7 +2458,7 @@ beans::PropertyState SwXStyle::getPropertyState(const OUString& rPropertyName)
 
 // allow to retarget the SfxItemSet working on, default correctly. Only
 // use pSourceSet below this point (except in header/footer processing)
-const SfxItemSet* lcl_GetItemsetForProperty(const SfxItemSet& rSet, SfxStyleFamily eFamily, const OUString& rPropertyName)
+static const SfxItemSet* lcl_GetItemsetForProperty(const SfxItemSet& rSet, SfxStyleFamily eFamily, const OUString& rPropertyName)
 {
     if(eFamily != SfxStyleFamily::Page)
         return &rSet;
@@ -2574,7 +2572,7 @@ void SwXStyle::setPropertyToDefault(const OUString& rPropertyName)
     setPropertiesToDefault(aSequence);
 }
 
-SwFormat* lcl_GetFormatForStyle(SwDoc const * pDoc, const rtl::Reference<SwDocStyleSheet>& xStyle, const SfxStyleFamily eFamily)
+static SwFormat* lcl_GetFormatForStyle(SwDoc const * pDoc, const rtl::Reference<SwDocStyleSheet>& xStyle, const SfxStyleFamily eFamily)
 {
     if(!xStyle.is())
         return nullptr;
@@ -4279,7 +4277,7 @@ uno::Sequence< beans::PropertyValue > SwXAutoStyle::getProperties()
 }
 
 SwXTextTableStyle::SwXTextTableStyle(SwDocShell* pDocShell, SwTableAutoFormat* pTableAutoFormat) :
-    m_pDocShell(pDocShell), m_pTableAutoFormat(pTableAutoFormat), m_pTableAutoFormat_Impl(nullptr), m_bPhysical(true)
+    m_pDocShell(pDocShell), m_pTableAutoFormat(pTableAutoFormat), m_bPhysical(true)
 {
     UpdateCellStylesMapping();
 }
@@ -4634,7 +4632,6 @@ css::uno::Sequence<OUString> SAL_CALL SwXTextTableStyle::getSupportedServiceName
 SwXTextCellStyle::SwXTextCellStyle(SwDocShell* pDocShell, SwBoxAutoFormat* pBoxAutoFormat, const OUString& sParentStyle) :
     m_pDocShell(pDocShell),
     m_pBoxAutoFormat(pBoxAutoFormat),
-    m_pBoxAutoFormat_Impl(nullptr),
     m_sParentStyle(sParentStyle),
     m_bPhysical(true)
 { }

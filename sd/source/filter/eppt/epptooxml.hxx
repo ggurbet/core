@@ -83,6 +83,8 @@ public:
     static const char* Get8Direction( sal_uInt8 nDirection );
     static       int   GetPPTXLayoutId( int nOffset );
 
+    sal_Int32 GetShapeID(const css::uno::Reference<css::drawing::XShape>& rXShape);
+    sal_Int32 GetNextAnimationNodeID();
 private:
 
     virtual void ImplWriteSlide( sal_uInt32 nPageNum, sal_uInt32 nMasterNum, sal_uInt16 nMode,
@@ -90,8 +92,8 @@ private:
     virtual void ImplWriteNotes( sal_uInt32 nPageNum ) override;
     virtual void ImplWriteSlideMaster( sal_uInt32 nPageNum, css::uno::Reference< css::beans::XPropertySet > const & aXBackgroundPropSet ) override;
     void ImplWritePPTXLayout( sal_Int32 nOffset, sal_uInt32 nMasterNum );
-    bool WriteColorSchemes(FSHelperPtr pFS, const OUString& rThemePath);
-    void WriteDefaultColorSchemes(FSHelperPtr pFS);
+    bool WriteColorSchemes(const FSHelperPtr& pFS, const OUString& rThemePath);
+    void WriteDefaultColorSchemes(const FSHelperPtr& pFS);
     void WriteTheme( sal_Int32 nThemeNum );
 
     virtual bool ImplCreateDocument() override;
@@ -99,23 +101,6 @@ private:
     virtual ::oox::ole::VbaProject* implCreateVbaProject() const override;
     void WriteNotesMaster();
 
-    static void WriteAnimateTo( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Any& rValue, const OUString& rAttributeName );
-    static void WriteAnimateValues( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimate >& rXAnimate );
-    static void WriteAnimationCondition( const ::sax_fastparser::FSHelperPtr& pFS, css::uno::Any const & rAny, bool bWriteEvent, bool bMainSeqChild, sal_Int32 nToken );
-    static void WriteAnimationCondition( const ::sax_fastparser::FSHelperPtr& pFS, const char* pDelay, const char* pEvent, double fDelay, bool bHasFDelay, sal_Int32 nToken );
-    void WriteAnimations( const ::sax_fastparser::FSHelperPtr& pFS );
-    static void WriteAnimationAttributeName( const ::sax_fastparser::FSHelperPtr& pFS, const OUString& rAttributeName );
-    void WriteAnimationNode( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, bool bMainSeqChild );
-    void WriteAnimationNodeAnimate( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, sal_Int32 nXmlNodeType, bool bMainSeqChild );
-    void WriteAnimationNodeAnimateInside( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, bool bMainSeqChild, bool bSimple, bool bWriteTo = true );
-    void WriteAnimationNodeSeq( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, sal_Int32 nXmlNodeType, bool bMainSeqChild );
-    void WriteAnimationNodeEffect( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, sal_Int32 nXmlNodeType, bool bMainSeqChild );
-    void WriteAnimationNodeCommand(const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, sal_Int32 nXmlNodeType, bool bMainSeqChild );
-    void WriteAnimationNodeCommonPropsStart( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::animations::XAnimationNode >& rXNode, bool bSingle, bool bMainSeqChild );
-
-    static void WriteAnimateColorColor(const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Any& rAny, sal_Int32 nToken);
-    static void WriteAnimationProperty( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Any& rAny, sal_Int32 nToken = 0 );
-    void WriteAnimationTarget( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Any& rTarget );
     bool WriteComments( sal_uInt32 nPageNum );
     void ImplWriteBackground( const ::sax_fastparser::FSHelperPtr& pFS, const css::uno::Reference< css::beans::XPropertySet >& aXBackgroundPropSet );
     void WriteTransition( const ::sax_fastparser::FSHelperPtr& pFS );

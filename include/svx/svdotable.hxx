@@ -113,8 +113,8 @@ public:
     void CropTableModelToSelection(const CellPos& rStart, const CellPos& rEnd);
 
     // Table stuff
-    void DistributeColumns( sal_Int32 nFirstColumn, sal_Int32 nLastColumn );
-    void DistributeRows( sal_Int32 nFirstRow, sal_Int32 nLastRow );
+    void DistributeColumns( sal_Int32 nFirstColumn, sal_Int32 nLastColumn, const bool bOptimize );
+    void DistributeRows( sal_Int32 nFirstRow, sal_Int32 nLastRow, const bool bOptimize );
 
     css::uno::Reference< css::table::XTable > getTable() const;
 
@@ -211,7 +211,6 @@ public:
     virtual void AdjustToMaxRect( const tools::Rectangle& rMaxRect, bool bShrinkOnly = false ) override;
 
     virtual sal_uInt32 GetHdlCount() const override;
-    virtual SdrHdl* GetHdl(sal_uInt32 nHdlNum) const override;
     virtual void AddToHdlList(SdrHdlList& rHdlList) const override;
 
     // Special drag methods

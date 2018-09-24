@@ -76,17 +76,12 @@ constexpr sal_uInt32 SDTRANSFER_OBJECTTYPE_DRAWOLE   = 2;
 
 SdTransferable::SdTransferable( SdDrawDocument* pSrcDoc, ::sd::View* pWorkView, bool bInitOnGetData )
 :   mpPageDocShell( nullptr )
-,   mpOLEDataHelper( nullptr )
-,   mpObjDesc( nullptr )
 ,   mpSdView( pWorkView )
 ,   mpSdViewIntern( pWorkView )
 ,   mpSdDrawDocument( nullptr )
 ,   mpSdDrawDocumentIntern( nullptr )
 ,   mpSourceDoc( pSrcDoc )
 ,   mpVDev( nullptr )
-,   mpBookmark( nullptr )
-,   mpGraphic( nullptr )
-,   mpImageMap( nullptr )
 ,   mbInternalMove( false )
 ,   mbOwnDocument( false )
 ,   mbOwnView( false )
@@ -272,7 +267,7 @@ void SdTransferable::CreateData()
 
         if( mpSourceDoc )
             mpSourceDoc->CreatingDataObj(this);
-        mpSdDrawDocumentIntern = static_cast<SdDrawDocument*>( mpSdView->GetMarkedObjModel() );
+        mpSdDrawDocumentIntern = static_cast<SdDrawDocument*>( mpSdView->CreateMarkedObjModel().release() );
         if( mpSourceDoc )
             mpSourceDoc->CreatingDataObj(nullptr);
 
@@ -494,7 +489,7 @@ bool SdTransferable::GetData( const DataFlavor& rFlavor, const OUString& rDestDo
             {
                 SdDrawDocument& rInternDoc = mpSdViewIntern->GetDoc();
                 rInternDoc.CreatingDataObj(this);
-                SdDrawDocument* pDoc = dynamic_cast< SdDrawDocument* >( mpSdViewIntern->GetMarkedObjModel() );
+                SdDrawDocument* pDoc = dynamic_cast< SdDrawDocument* >( mpSdViewIntern->CreateMarkedObjModel().release() );
                 rInternDoc.CreatingDataObj(nullptr);
 
                 bOK = SetObject( pDoc, SDTRANSFER_OBJECTTYPE_DRAWMODEL, rFlavor );

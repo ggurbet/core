@@ -90,12 +90,9 @@ static sal_Char sIndentTabs[MAX_INDENT_LEVEL+2] =
     "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 SwHTMLWriter::SwHTMLWriter( const OUString& rBaseURL )
-    : m_pHTMLPosFlyFrames(nullptr)
-    , m_pNumRuleInfo(new SwHTMLNumRuleInfo)
-    , m_pNextNumRuleInfo(nullptr)
+    : m_pNumRuleInfo(new SwHTMLNumRuleInfo)
     , m_nHTMLMode(0)
     , m_eCSS1Unit(FUNIT_NONE)
-    , m_pFootEndNotes(nullptr)
     , mxFormComps()
     , m_pStartNdIdx(nullptr)
     , m_pCurrPageDesc(nullptr)
@@ -1339,7 +1336,8 @@ sal_uInt16 SwHTMLWriter::GetLangWhichIdFromScript( sal_uInt16 nScript )
 
 void SwHTMLWriter::OutLanguage( LanguageType nLang )
 {
-    if( LANGUAGE_DONTKNOW != nLang )
+    // ReqIF mode: consumers would ignore language anyway.
+    if (LANGUAGE_DONTKNOW != nLang && !mbReqIF)
     {
         OStringBuffer sOut;
         sOut.append(' ');
@@ -1490,8 +1488,6 @@ HTMLSaveData::HTMLSaveData(SwHTMLWriter& rWriter, sal_uLong nStt,
     : rWrt(rWriter)
     , pOldPam(rWrt.m_pCurrentPam)
     , pOldEnd(rWrt.GetEndPaM())
-    , pOldNumRuleInfo(nullptr)
-    , pOldNextNumRuleInfo(nullptr)
     , nOldDefListLvl(rWrt.m_nDefListLvl)
     , nOldDirection(rWrt.m_nDirection)
     , bOldOutHeader(rWrt.m_bOutHeader)

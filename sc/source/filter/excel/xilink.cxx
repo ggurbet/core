@@ -25,6 +25,7 @@
 #include <xistream.hxx>
 #include <xihelper.hxx>
 #include <xiname.hxx>
+#include <xltools.hxx>
 #include <excform.hxx>
 #include <tokenarray.hxx>
 #include <externalrefmgr.hxx>
@@ -147,7 +148,7 @@ struct XclImpXti
     explicit     XclImpXti() : mnSupbook( SAL_MAX_UINT16 ), mnSBTabFirst( SAL_MAX_UINT16 ), mnSBTabLast( SAL_MAX_UINT16 ) {}
 };
 
-inline XclImpStream& operator>>( XclImpStream& rStrm, XclImpXti& rXti )
+static inline XclImpStream& operator>>( XclImpStream& rStrm, XclImpXti& rXti )
 {
     rXti.mnSupbook = rStrm.ReaduInt16();
     rXti.mnSBTabFirst = rStrm.ReaduInt16();
@@ -338,8 +339,7 @@ const ScMatrix& XclImpExtName::MOper::GetCache() const
 }
 
 XclImpExtName::XclImpExtName( XclImpSupbook& rSupbook, XclImpStream& rStrm, XclSupbookType eSubType, ExcelToSc* pFormulaConv )
-    : mpMOper(nullptr)
-    , mnStorageId(0)
+    : mnStorageId(0)
 {
     sal_uInt16 nFlags(0);
     sal_uInt8 nLen(0);

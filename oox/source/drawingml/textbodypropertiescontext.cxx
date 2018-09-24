@@ -49,9 +49,10 @@ using namespace ::com::sun::star::xml::sax;
 namespace oox { namespace drawingml {
 
 // CT_TextBodyProperties
-TextBodyPropertiesContext::TextBodyPropertiesContext( ContextHandler2Helper const & rParent,
-    const AttributeList& rAttribs, ShapePtr pShapePtr )
-: TextBodyPropertiesContext( rParent, rAttribs, pShapePtr->getTextBody()->getTextProperties() )
+TextBodyPropertiesContext::TextBodyPropertiesContext(ContextHandler2Helper const& rParent,
+                                                     const AttributeList& rAttribs,
+                                                     const ShapePtr& pShapePtr)
+    : TextBodyPropertiesContext(rParent, rAttribs, pShapePtr->getTextBody()->getTextProperties())
 {
     mpShapePtr = pShapePtr;
 }
@@ -60,7 +61,6 @@ TextBodyPropertiesContext::TextBodyPropertiesContext( ContextHandler2Helper cons
     const AttributeList& rAttribs, TextBodyProperties& rTextBodyProp )
 : ContextHandler2( rParent )
 , mrTextBodyProp( rTextBodyProp )
-, mpShapePtr( nullptr )
 {
     // ST_TextWrappingType
     sal_Int32 nWrappingType = rAttribs.getToken( XML_wrap, XML_square );
@@ -90,7 +90,7 @@ TextBodyPropertiesContext::TextBodyPropertiesContext( ContextHandler2Helper cons
 //   sal_Int32 nVertOverflow =  rAttribs.getToken( XML_vertOverflow, XML_overflow );
 
     // ST_TextColumnCount
-//   sal_Int32 nNumCol = rAttribs.getInteger( XML_numCol, 1 );
+    mrTextBodyProp.mnNumCol = rAttribs.getInteger( XML_numCol, 1 );
 
     // ST_Angle
     mrTextBodyProp.moRotation = rAttribs.getInteger( XML_rot );
@@ -155,9 +155,12 @@ ContextHandlerRef TextBodyPropertiesContext::onCreateContext( sal_Int32 aElement
                 mrTextBodyProp.maPropertyMap.setProperty( PROP_TextAutoGrowHeight, false);   // CT_TextNoAutofit
                 break;
             case A_TOKEN( normAutofit ):    // CT_TextNormalAutofit
+            {
                 mrTextBodyProp.maPropertyMap.setProperty( PROP_TextFitToSize, TextFitToSizeType_AUTOFIT);
                 mrTextBodyProp.maPropertyMap.setProperty( PROP_TextAutoGrowHeight, false);
+                mrTextBodyProp.mnFontScale = rAttribs.getInteger(XML_fontScale, 100000);
                 break;
+            }
             case A_TOKEN( spAutoFit ):
                 {
                     const sal_Int32 tVert = mrTextBodyProp.moVert.get( XML_horz );

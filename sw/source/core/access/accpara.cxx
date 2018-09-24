@@ -534,8 +534,6 @@ SwAccessibleParagraph::SwAccessibleParagraph(
     : SwClient( const_cast<SwTextNode*>(rTextFrame.GetTextNode()) ) // #i108125#
     , SwAccessibleContext( pInitMap, AccessibleRole::PARAGRAPH, &rTextFrame )
     , m_sDesc()
-    , m_pPortionData( nullptr )
-    , m_pHyperTextData( nullptr )
     , m_nOldCaretPos( -1 )
     , m_bIsHeading( false )
     //Get the real heading level, Heading1 ~ Heading10
@@ -1068,7 +1066,7 @@ uno::Sequence< OUString > SAL_CALL SwAccessibleParagraph::getSupportedServiceNam
     return aRet;
 }
 
-uno::Sequence< OUString > const & getAttributeNames()
+static uno::Sequence< OUString > const & getAttributeNames()
 {
     static uno::Sequence< OUString >* pNames = nullptr;
 
@@ -1101,7 +1099,7 @@ uno::Sequence< OUString > const & getAttributeNames()
     return *pNames;
 }
 
-uno::Sequence< OUString > const & getSupplementalAttributeNames()
+static uno::Sequence< OUString > const & getSupplementalAttributeNames()
 {
     static uno::Sequence< OUString >* pNames = nullptr;
 
@@ -1875,7 +1873,7 @@ void SwAccessibleParagraph::_getRunAttributesImpl(
         tAccParaPropValMap& rRunAttrSeq )
 {
     // create PaM for character at position <nIndex>
-    SwPaM* pPaM( nullptr );
+    std::unique_ptr<SwPaM> pPaM;
     {
         const SwTextNode* pTextNode( GetTextNode() );
         std::unique_ptr<SwPosition> pStartPos( new SwPosition( *pTextNode ) );
@@ -1883,7 +1881,7 @@ void SwAccessibleParagraph::_getRunAttributesImpl(
         std::unique_ptr<SwPosition> pEndPos( new SwPosition( *pTextNode ) );
         pEndPos->nContent.Assign( const_cast<SwTextNode*>(pTextNode), nIndex+1 );
 
-        pPaM = new SwPaM( *pStartPos, *pEndPos );
+        pPaM.reset(new SwPaM( *pStartPos, *pEndPos ));
     }
 
     // retrieve character attributes for the created PaM <pPaM>
@@ -1972,8 +1970,6 @@ void SwAccessibleParagraph::_getRunAttributesImpl(
             }
         }
     }
-
-    delete pPaM;
 }
 
 uno::Sequence< PropertyValue > SwAccessibleParagraph::getRunAttributes(

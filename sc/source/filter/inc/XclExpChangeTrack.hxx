@@ -23,14 +23,13 @@
 #include <memory>
 #include <stack>
 #include <tools/datetime.hxx>
-#include <rtl/uuid.h>
-#include <bigrange.hxx>
 #include <chgtrack.hxx>
 #include <document.hxx>
 #include "xelink.hxx"
-#include "ftools.hxx"
+#include "xestring.hxx"
 #include "excrecds.hxx"
-#include <o3tl/deleter.hxx>
+#include "xlformula.hxx"
+#include "xeformula.hxx"
 
 class ExcXmlRecord : public ExcRecord
 {
@@ -327,8 +326,7 @@ private:
     virtual void                SaveCont( XclExpStream& rStrm ) override;
 
 public:
-    XclExpChTrTabId( sal_uInt16 nCount ) :
-                                    pBuffer( nullptr ), nTabCount( nCount ) {}
+    XclExpChTrTabId( sal_uInt16 nCount ) : nTabCount( nCount ) {}
                                 XclExpChTrTabId( const XclExpChTrTabIdBuffer& rBuffer );
     virtual                     ~XclExpChTrTabId() override;
 

@@ -23,6 +23,7 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
+#include <config_global.h>
 #include <o3tl/numeric.hxx>
 #include <o3tl/make_unique.hxx>
 #include <o3tl/safeint.hxx>
@@ -1226,7 +1227,7 @@ public:
     }
 };
 
-#if __cplusplus <= 201402 || (defined __GNUC__ && __GNUC__ <= 6 && !defined __clang__)
+#if !HAVE_CPP_INLINE_VARIABLES
 constexpr sal_Int32 SwXMLTableContext::MAX_WIDTH;
 #endif
 
@@ -1248,7 +1249,6 @@ SwXMLTableContext::SwXMLTableContext( SwXMLImport& rImport,
         const OUString& rLName,
         const Reference< xml::sax::XAttributeList > & xAttrList ) :
     XMLTextTableContext( rImport, nPrfx, rLName ),
-    m_pColumnDefaultCellStyleNames( nullptr ),
     m_pRows( new SwXMLTableRows_Impl ),
     m_pTableNode( nullptr ),
     m_pBox1( nullptr ),
@@ -1256,7 +1256,6 @@ SwXMLTableContext::SwXMLTableContext( SwXMLImport& rImport,
     m_pSttNd1( nullptr ),
     m_pBoxFormat( nullptr ),
     m_pLineFormat( nullptr ),
-    m_pSharedBoxFormats(nullptr),
     m_bFirstSection( true ),
     m_bRelWidth( true ),
     m_bHasSubTables( false ),
@@ -1389,7 +1388,6 @@ SwXMLTableContext::SwXMLTableContext( SwXMLImport& rImport,
         const OUString& rLName,
         SwXMLTableContext *pTable ) :
     XMLTextTableContext( rImport, nPrfx, rLName ),
-    m_pColumnDefaultCellStyleNames( nullptr ),
     m_pRows( new SwXMLTableRows_Impl ),
     m_pTableNode( pTable->m_pTableNode ),
     m_pBox1( nullptr ),
@@ -1397,7 +1395,6 @@ SwXMLTableContext::SwXMLTableContext( SwXMLImport& rImport,
     m_pSttNd1( nullptr ),
     m_pBoxFormat( nullptr ),
     m_pLineFormat( nullptr ),
-    m_pSharedBoxFormats(nullptr),
     m_xParentTable( pTable ),
     m_bFirstSection( false ),
     m_bRelWidth( true ),
@@ -2787,7 +2784,7 @@ void SwXMLTableContext::MakeTable()
     {
         m_pTableNode->DelFrames();
         SwNodeIndex aIdx( *m_pTableNode->EndOfSectionNode(), 1 );
-        m_pTableNode->MakeFrames( &aIdx );
+        m_pTableNode->MakeOwnFrames(&aIdx);
     }
 }
 

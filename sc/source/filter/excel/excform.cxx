@@ -36,6 +36,7 @@
 #include <xihelper.hxx>
 #include <xilink.hxx>
 #include <xiname.hxx>
+#include <xistyle.hxx>
 #include <documentimport.hxx>
 
 using ::std::vector;
@@ -904,7 +905,6 @@ ConvErr ExcelToSc::Convert( ScRangeListTabs& rRangeList, XclImpStream& aIn, std:
 {
     RootData&       rR = GetOldRoot();
     sal_uInt8           nOp, nLen;
-    std::size_t        nIgnore;
     bool            bError = false;
     const bool      bRangeName = eFT == FT_RangeName;
     const bool      bSharedFormula = eFT == FT_SharedFormula;
@@ -929,7 +929,7 @@ ConvErr ExcelToSc::Convert( ScRangeListTabs& rRangeList, XclImpStream& aIn, std:
     while( (aIn.GetRecPos() < nEndPos) && !bError )
     {
         nOp = aIn.ReaduInt8();
-        nIgnore = 0;
+        std::size_t nIgnore = 0;
 
         // always reset flags
         aSRD.InitFlags();

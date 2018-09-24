@@ -1568,7 +1568,7 @@ void SbiRuntime::StepGET()
 }
 
 // #67607 copy Uno-Structs
-inline bool checkUnoStructCopy( bool bVBA, SbxVariableRef const & refVal, SbxVariableRef const & refVar )
+static inline bool checkUnoStructCopy( bool bVBA, SbxVariableRef const & refVal, SbxVariableRef const & refVar )
 {
     SbxDataType eVarType = refVar->GetType();
     SbxDataType eValType = refVal->GetType();
@@ -2081,7 +2081,7 @@ void SbiRuntime::StepDIM()
 }
 
 // #56204 swap out DIM-functionality into a help method (step0.cxx)
-void SbiRuntime::DimImpl( SbxVariableRef refVar )
+void SbiRuntime::DimImpl(const SbxVariableRef& refVar)
 {
     // If refDim then this DIM statement is terminating a ReDIM and
     // previous StepERASE_CLEAR for an array, the following actions have
@@ -2155,7 +2155,7 @@ void SbiRuntime::StepREDIM()
 
 
 // Helper function for StepREDIMP
-void implCopyDimArray( SbxDimArray* pNewArray, SbxDimArray* pOldArray, short nMaxDimIndex,
+static void implCopyDimArray( SbxDimArray* pNewArray, SbxDimArray* pOldArray, short nMaxDimIndex,
     short nActualDim, sal_Int32* pActualIndices, sal_Int32* pLowerBounds, sal_Int32* pUpperBounds )
 {
     sal_Int32& ri = pActualIndices[nActualDim];
@@ -4282,7 +4282,7 @@ void SbiRuntime::StepDCREATE_REDIMP( sal_uInt32 nOp1, sal_uInt32 nOp2 )
 
 
 // Helper function for StepDCREATE_IMPL / bRedimp = true
-void implCopyDimArray_DCREATE( SbxDimArray* pNewArray, SbxDimArray* pOldArray, short nMaxDimIndex,
+static void implCopyDimArray_DCREATE( SbxDimArray* pNewArray, SbxDimArray* pOldArray, short nMaxDimIndex,
     short nActualDim, sal_Int32* pActualIndices, sal_Int32* pLowerBounds, sal_Int32* pUpperBounds )
 {
     sal_Int32& ri = pActualIndices[nActualDim];
@@ -4323,12 +4323,11 @@ void SbiRuntime::StepDCREATE_IMPL( sal_uInt32 nOp1, sal_uInt32 nOp2 )
         sal_Int32 nTotalSize = 0;
 
         // must be a one-dimensional array
-        sal_Int32 nLower, nUpper, nSize;
-        sal_Int32 i;
-        for( i = 0 ; i < nDims ; i++ )
+        sal_Int32 nLower, nUpper;
+        for( sal_Int32 i = 0 ; i < nDims ; ++i )
         {
             pArray->GetDim32( i+1, nLower, nUpper );
-            nSize = nUpper - nLower + 1;
+            sal_Int32 nSize = nUpper - nLower + 1;
             if( i == 0 )
             {
                 nTotalSize = nSize;
@@ -4341,7 +4340,7 @@ void SbiRuntime::StepDCREATE_IMPL( sal_uInt32 nOp1, sal_uInt32 nOp2 )
 
         // create objects and insert them into the array
         OUString aClass( pImg->GetString( static_cast<short>( nOp2 ) ) );
-        for( i = 0 ; i < nTotalSize ; i++ )
+        for( sal_Int32 i = 0 ; i < nTotalSize ; ++i )
         {
             SbxObject *pClassObj = SbxBase::CreateObject( aClass );
             if( !pClassObj )

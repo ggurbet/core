@@ -241,9 +241,6 @@ namespace psp
     public:
         std::vector< std::unique_ptr<PPDParser> > aAllParsers;
         std::unique_ptr<std::unordered_map< OUString, OUString >> pAllPPDFiles;
-        PPDCache()
-            : pAllPPDFiles(nullptr)
-        {}
     };
 }
 
@@ -276,9 +273,7 @@ public:
     const OUString& GetFileName() const { return maFileName; }
 };
 
-PPDDecompressStream::PPDDecompressStream( const OUString& i_rFile ) :
-    mpFileStream( nullptr ),
-    mpMemStream( nullptr )
+PPDDecompressStream::PPDDecompressStream( const OUString& i_rFile )
 {
     Open( i_rFile );
 }
@@ -585,18 +580,18 @@ const PPDParser* PPDParser::getParser( const OUString& rFile )
     return pNewParser;
 }
 
-PPDParser::PPDParser( const OUString& rFile, std::vector<PPDKey*> keys) :
-    m_aFile( rFile ),
-    m_bColorDevice( false ),
-    m_bType42Capable( false ),
-    m_nLanguageLevel( 0 ),
-    m_aFileEncoding( RTL_TEXTENCODING_MS_1252 ),
-    m_pImageableAreas( nullptr ),
-    m_pDefaultPaperDimension( nullptr ),
-    m_pPaperDimensions( nullptr ),
-    m_pDefaultInputSlot( nullptr ),
-    m_pDefaultResolution( nullptr ),
-    m_pTranslator( new PPDTranslator() )
+PPDParser::PPDParser(const OUString& rFile, const std::vector<PPDKey*>& keys)
+    : m_aFile(rFile)
+    , m_bColorDevice(false)
+    , m_bType42Capable(false)
+    , m_nLanguageLevel(0)
+    , m_aFileEncoding(RTL_TEXTENCODING_MS_1252)
+    , m_pImageableAreas(nullptr)
+    , m_pDefaultPaperDimension(nullptr)
+    , m_pPaperDimensions(nullptr)
+    , m_pDefaultInputSlot(nullptr)
+    , m_pDefaultResolution(nullptr)
+    , m_pTranslator(new PPDTranslator())
 {
     for (auto & key: keys)
     {

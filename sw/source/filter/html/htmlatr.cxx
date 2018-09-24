@@ -20,6 +20,7 @@
 #include <hintids.hxx>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <comphelper/string.hxx>
+#include <utility>
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
 #include <svtools/htmlout.hxx>
@@ -225,7 +226,6 @@ SwHTMLFormatInfo::SwHTMLFormatInfo( const SwFormat *pF, SwDoc *pDoc, SwDoc *pTem
                               LanguageType eDfltLang,
                               sal_uInt16 nCSS1Script )
     : pFormat(pF)
-    , pItemSet(nullptr)
     , nLeftMargin(0)
     , nRightMargin(0)
     , nFirstLineIndent(0)
@@ -416,7 +416,7 @@ SwHTMLFormatInfo::~SwHTMLFormatInfo()
 {
 }
 
-void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
+static void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
                     const SfxItemSet *pNodeItemSet,
                     SwHTMLTextCollOutputInfo& rInfo )
 {
@@ -963,7 +963,7 @@ void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
     rHWrt.m_nFirstLineIndent = 0;
 }
 
-void OutHTML_SwFormatOff( Writer& rWrt, const SwHTMLTextCollOutputInfo& rInfo )
+static void OutHTML_SwFormatOff( Writer& rWrt, const SwHTMLTextCollOutputInfo& rInfo )
 {
     SwHTMLWriter & rHWrt = static_cast<SwHTMLWriter&>(rWrt);
 
@@ -1569,16 +1569,15 @@ const SwHTMLFormatInfo *HTMLEndPosLst::GetFormatInfo( const SwFormat& rFormat,
     return pFormatInfo;
 }
 
-HTMLEndPosLst::HTMLEndPosLst( SwDoc *pD, SwDoc* pTempl,
-                              boost::optional<Color> xDfltCol, bool bStyles,
-                              sal_uLong nMode, const OUString& rText,
-                              std::set<OUString>& rStyles ):
-    pDoc( pD ),
-    pTemplate( pTempl ),
-    xDfltColor( xDfltCol ),
-    rScriptTextStyles( rStyles ),
-    nHTMLMode( nMode ),
-    bOutStyles( bStyles )
+HTMLEndPosLst::HTMLEndPosLst(SwDoc* pD, SwDoc* pTempl, boost::optional<Color> xDfltCol,
+                             bool bStyles, sal_uLong nMode, const OUString& rText,
+                             std::set<OUString>& rStyles)
+    : pDoc(pD)
+    , pTemplate(pTempl)
+    , xDfltColor(std::move(xDfltCol))
+    , rScriptTextStyles(rStyles)
+    , nHTMLMode(nMode)
+    , bOutStyles(bStyles)
 {
     sal_Int32 nEndPos = rText.getLength();
     sal_Int32 nPos = 0;

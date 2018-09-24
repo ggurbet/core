@@ -136,7 +136,7 @@ private:
     bool                mbIDATComplete : 1; // true if finished with enough IDAT chunks
     bool                mbpHYs : 1;         // true if physical size of pixel available
     bool                mbIgnoreGammaChunk : 1;
-    bool                mbIgnoreCRC : 1; // skip checking CRCs while fuzzing
+    bool const          mbIgnoreCRC : 1; // skip checking CRCs while fuzzing
 
 #if OSL_DEBUG_LEVEL > 0
     // do some checks in debug mode
@@ -183,9 +183,6 @@ public:
 PNGReaderImpl::PNGReaderImpl( SvStream& rPNGStream )
 :   mrPNGStream( rPNGStream ),
     mpMaskAcc       ( nullptr ),
-    mpInflateInBuf  ( nullptr ),
-    mpScanPrior     ( nullptr ),
-    mpTransTab      ( nullptr ),
     mpScanCurrent   ( nullptr ),
     mpColorTable    ( const_cast<sal_uInt8*>(mpDefaultColorTable) ),
     mnChunkType     ( 0 ),
@@ -217,13 +214,11 @@ PNGReaderImpl::PNGReaderImpl( SvStream& rPNGStream )
     mbIDATComplete( false ),
     mbpHYs              ( false ),
     mbIgnoreGammaChunk  ( false ),
-    mbIgnoreCRC( utl::ConfigManager::IsFuzzing() ),
+    mbIgnoreCRC( utl::ConfigManager::IsFuzzing() )
 #if OSL_DEBUG_LEVEL > 0
-    mnAllocSizeScanline(0),
-    mnAllocSizeScanlineAlpha(0),
+    ,mnAllocSizeScanline(0),
+    mnAllocSizeScanlineAlpha(0)
 #endif
-    mpScanline(nullptr),
-    mpScanlineAlpha(nullptr)
 {
     // prepare the PNG data stream
     mnOrigStreamMode = mrPNGStream.GetEndian();

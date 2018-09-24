@@ -61,7 +61,7 @@ class HexEncoder : public ByteEncoder
 {
 private:
 
-    osl::File*      mpFile;
+    osl::File* const mpFile;
     sal_uInt32      mnColumn;
     sal_uInt32      mnOffset;
     sal_Char        mpFileBuffer[nBufferSize + 16];
@@ -127,7 +127,7 @@ class Ascii85Encoder : public ByteEncoder
 {
 private:
 
-    osl::File*      mpFile;
+    osl::File* const mpFile;
     sal_uInt32      mnByte;
     sal_uInt8       mpByteBuffer[4];
 
@@ -277,9 +277,9 @@ private:
     std::array<LZWCTreeNode, 4096>
                     mpTable;    // LZW compression data
     LZWCTreeNode*   mpPrefix;   // the compression is as same as the TIFF compression
-    sal_uInt16      mnDataSize;
-    sal_uInt16      mnClearCode;
-    sal_uInt16      mnEOICode;
+    static constexpr sal_uInt16 gnDataSize = 8;
+    sal_uInt16 const mnClearCode;
+    sal_uInt16 const mnEOICode;
     sal_uInt16      mnTableSize;
     sal_uInt16      mnCodeSize;
     sal_uInt32      mnOffset;
@@ -298,11 +298,10 @@ public:
 LZWEncoder::LZWEncoder(osl::File* pOutputFile) :
         Ascii85Encoder (pOutputFile),
         mpPrefix(nullptr),
-        mnDataSize(8),
-        mnClearCode(1 << mnDataSize),
+        mnClearCode(1 << gnDataSize),
         mnEOICode(mnClearCode + 1),
         mnTableSize(mnEOICode + 1),
-        mnCodeSize(mnDataSize + 1),
+        mnCodeSize(gnDataSize + 1),
         mnOffset(32),       // free bits in dwShift
         mdwShift(0)
 {
@@ -375,7 +374,7 @@ LZWEncoder::EncodeByte (sal_uInt8 nByte )
                 for (i = 0; i < mnClearCode; i++)
                     mpTable[i].mpFirstChild = nullptr;
 
-                mnCodeSize = mnDataSize + 1;
+                mnCodeSize = gnDataSize + 1;
                 mnTableSize = mnEOICode + 1;
             }
             else

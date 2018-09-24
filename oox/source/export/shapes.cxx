@@ -77,6 +77,7 @@
 #include <com/sun/star/table/XMergeableCell.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/frame/XModel.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <tools/stream.hxx>
 #include <tools/globname.hxx>
 #include <comphelper/classids.hxx>
@@ -632,7 +633,7 @@ static bool lcl_IsOnWhitelist(OUString const & rShapeType)
     return std::find(vWhitelist.begin(), vWhitelist.end(), rShapeType) != vWhitelist.end();
 }
 
-bool lcl_GetHandlePosition( sal_Int32 &nValue, const EnhancedCustomShapeParameter &rParam, Sequence< EnhancedCustomShapeAdjustmentValue > &rSeq)
+static bool lcl_GetHandlePosition( sal_Int32 &nValue, const EnhancedCustomShapeParameter &rParam, Sequence< EnhancedCustomShapeAdjustmentValue > &rSeq)
 {
     bool bAdj = false;
     if ( rParam.Value.getValueTypeClass() == TypeClass_DOUBLE )
@@ -666,7 +667,7 @@ bool lcl_GetHandlePosition( sal_Int32 &nValue, const EnhancedCustomShapeParamete
     return bAdj;
 }
 
-void lcl_AnalyzeHandles( const uno::Sequence<beans::PropertyValues> & rHandles,
+static void lcl_AnalyzeHandles( const uno::Sequence<beans::PropertyValues> & rHandles,
         std::vector< std::pair< sal_Int32, sal_Int32> > &rHandlePositionList,
         Sequence< EnhancedCustomShapeAdjustmentValue > &rSeq)
 {
@@ -705,12 +706,12 @@ void lcl_AnalyzeHandles( const uno::Sequence<beans::PropertyValues> & rHandles,
     }
 }
 
-void lcl_AppendAdjustmentValue( std::vector< std::pair< sal_Int32, sal_Int32> > &rAvList, sal_Int32 nAdjIdx, sal_Int32 nValue )
+static void lcl_AppendAdjustmentValue( std::vector< std::pair< sal_Int32, sal_Int32> > &rAvList, sal_Int32 nAdjIdx, sal_Int32 nValue )
 {
     rAvList.emplace_back( nAdjIdx , nValue );
 }
 
-sal_Int32 lcl_NormalizeAngle( sal_Int32 nAngle )
+static sal_Int32 lcl_NormalizeAngle( sal_Int32 nAngle )
 {
     nAngle = nAngle % 360;
     return nAngle < 0 ? ( nAngle + 360 ) : nAngle ;

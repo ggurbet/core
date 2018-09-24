@@ -29,6 +29,7 @@
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/document/XFilter.hpp>
 #include <com/sun/star/document/XImporter.hpp>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <scitems.hxx>
 #include <svl/stritem.hxx>
 #include <unotools/streamwrap.hxx>
@@ -36,6 +37,7 @@
 #include <document.hxx>
 #include <optuno.hxx>
 #include <xistream.hxx>
+#include <xltools.hxx>
 
 #include <docsh.hxx>
 #include <scerrors.hxx>

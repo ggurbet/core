@@ -66,6 +66,7 @@
 #include "SvXMLAutoCorrectExport.hxx"
 #include "SvXMLAutoCorrectTokenHandler.hxx"
 #include <ucbhelper/content.hxx>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
 #include <com/sun/star/ucb/TransferInfo.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
@@ -103,7 +104,7 @@ static const sal_Char
     /* also at these ends - Brackets and all kinds of begin characters */
     sImplEndSkipChars[] = "\"\')]}\x83\x84\x89\x91\x92\x93\x94";
 
-OUString EncryptBlockName_Imp(const OUString& rName);
+static OUString EncryptBlockName_Imp(const OUString& rName);
 
 static inline bool NonFieldWordDelim( const sal_Unicode c )
 {
@@ -129,7 +130,7 @@ static inline bool IsUpperLetter( sal_Int32 nCharType )
             ( css::i18n::KCharacterType::UPPER & nCharType);
 }
 
-bool lcl_IsUnsupportedUnicodeChar( CharClass const & rCC, const OUString& rTxt,
+static bool lcl_IsUnsupportedUnicodeChar( CharClass const & rCC, const OUString& rTxt,
                                    sal_Int32 nStt, sal_Int32 nEnd )
 {
     for( ; nStt < nEnd; ++nStt )
@@ -1915,9 +1916,6 @@ SvxAutoCorrectLanguageLists::SvxAutoCorrectLanguageLists(
     aModifiedDate( Date::EMPTY ),
     aModifiedTime( tools::Time::EMPTY ),
     aLastCheckTime( tools::Time::EMPTY ),
-    pCplStt_ExcptLst( nullptr ),
-    pWrdStt_ExcptLst( nullptr ),
-    pAutocorr_List( nullptr ),
     rAutoCorrect(rParent),
     nFlags(ACFlags::NONE)
 {

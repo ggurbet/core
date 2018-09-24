@@ -113,7 +113,7 @@ struct NativeTypeEntry
     Atom            nAtom;
     const char*     pType;              // Mime encoding on our side
     const char*     pNativeType;        // string corresponding to nAtom for the case of nAtom being uninitialized
-    int             nFormat;            // the corresponding format
+    int const       nFormat;            // the corresponding format
 };
 
 // the convention for Xdnd is mime types as specified by the corresponding
@@ -1156,7 +1156,7 @@ bool SelectionManager::getPasteData( Atom selection, const OUString& rType, Sequ
                         memcpy( rData.getArray(), pBytes, nOutSize );
                         bSuccess = true;
                     }
-                    X11_freeBmp( pBytes );
+                    std::free( pBytes );
                 }
             }
         }
@@ -3826,7 +3826,7 @@ static bool bWasError = false;
 
 extern "C"
 {
-    int local_xerror_handler(Display* , XErrorEvent*)
+    static int local_xerror_handler(Display* , XErrorEvent*)
     {
         bWasError = true;
         return 0;

@@ -21,6 +21,7 @@
 #include <osl/file.hxx>
 #include <osl/socket.h>
 #include <sal/log.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/ucb/FileSystemNotation.hpp>
@@ -88,7 +89,6 @@ extern "C" SAL_DLLPUBLIC_EXPORT void * ucpfile_component_getFactory(
 FileProvider::FileProvider( const Reference< XComponentContext >& rxContext )
     : m_xContext(rxContext)
     , m_FileSystemNotation(FileSystemNotation::UNKNOWN_NOTATION)
-    , m_pMyShell(nullptr)
 {
 }
 

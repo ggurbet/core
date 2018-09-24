@@ -384,7 +384,8 @@ std::vector< LanguageType >
     sal_Int32 nCount = rLocaleSeq.getLength();
 
     std::vector< LanguageType >   aLangs;
-    for (sal_Int32 i = 0;  i < nCount;  ++i)
+    aLangs.reserve(nCount);
+    for (sal_Int32 i = 0; i < nCount; ++i)
     {
         aLangs.push_back( LinguLocaleToLanguage( pLocale[i] ) );
     }
@@ -589,7 +590,7 @@ static CharClass & lcl_GetCharClass()
     return aCC;
 }
 
-osl::Mutex & lcl_GetCharClassMutex()
+static osl::Mutex & lcl_GetCharClassMutex()
 {
     static osl::Mutex   aMutex;
     return aMutex;

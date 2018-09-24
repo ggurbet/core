@@ -132,8 +132,6 @@ namespace dbaui
             BrowserMode::AUTOSIZE_LASTCOL)
         , m_pBoxControl(nullptr)
         , m_nDataPos(0)
-        , m_xSourceDef(nullptr)
-        , m_xDestDef(nullptr)
     {
     }
 
@@ -629,7 +627,7 @@ namespace dbaui
         m_pRC_Tables->m_ops.clear();
     }
 
-    void fillEntryAndDisable(ListBox& _rListBox,const OUString& _sEntry)
+    static void fillEntryAndDisable(ListBox& _rListBox,const OUString& _sEntry)
     {
         _rListBox.InsertEntry(_sEntry);
         _rListBox.SelectEntryPos(0);

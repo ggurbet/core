@@ -24,6 +24,11 @@
 #include <com/sun/star/ucb/UniversalContentBroker.hpp>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
+#include <cppuhelper/queryinterface.hxx>
+#include <cppuhelper/typeprovider.hxx>
+#include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/factory.hxx>
+#include <ucbhelper/getcomponentcontext.hxx>
 #include <osl/socket.hxx>
 #include "ftpcontentprovider.hxx"
 #include "ftpcontent.hxx"
@@ -40,8 +45,6 @@ using namespace com::sun::star::beans;
 
 FTPContentProvider::FTPContentProvider( const Reference< XComponentContext >& rxContext)
     : ::ucbhelper::ContentProviderImplHelper(rxContext)
-    , m_ftpLoaderThread(nullptr)
-    , m_pProxyDecider(nullptr)
 {
 }
 

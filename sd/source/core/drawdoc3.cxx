@@ -220,7 +220,7 @@ SdDrawDocument* SdDrawDocument::OpenBookmarkDoc(SfxMedium* pMedium)
             // If that wasn't the case, we could load the model directly.
             if ( bCreateGraphicShell )
                 // Draw
-                mxBookmarkDocShRef = new ::sd::GraphicDocShell(SfxObjectCreateMode::STANDARD, true, DocumentType::Draw);
+                mxBookmarkDocShRef = new ::sd::GraphicDocShell(SfxObjectCreateMode::STANDARD);
             else
                 // Impress
                 mxBookmarkDocShRef = new ::sd::DrawDocShell(SfxObjectCreateMode::STANDARD, true, DocumentType::Impress);
@@ -978,7 +978,7 @@ bool SdDrawDocument::InsertBookmarkAsObject(
 {
     bool bOK = true;
     bool bOLEObjFound = false;
-    ::sd::View* pBMView = nullptr;
+    std::unique_ptr<::sd::View> pBMView;
 
     SdDrawDocument* pBookmarkDoc = nullptr;
 
@@ -997,7 +997,7 @@ bool SdDrawDocument::InsertBookmarkAsObject(
 
     if (rBookmarkList.empty())
     {
-        pBMView = new ::sd::View(*pBookmarkDoc, nullptr);
+        pBMView.reset(new ::sd::View(*pBookmarkDoc, nullptr));
         pBMView->EndListening(*pBookmarkDoc);
         pBMView->MarkAll();
     }
@@ -1024,7 +1024,7 @@ bool SdDrawDocument::InsertBookmarkAsObject(
                 if (!pBMView)
                 {
                     // Create View for the first time
-                    pBMView = new ::sd::View(*pBookmarkDoc, nullptr);
+                    pBMView.reset(new ::sd::View(*pBookmarkDoc, nullptr));
                     pBMView->EndListening(*pBookmarkDoc);
                 }
 
@@ -1098,7 +1098,7 @@ bool SdDrawDocument::InsertBookmarkAsObject(
         if (bOLEObjFound)
             pBMView->GetDoc().SetAllocDocSh(true);
 
-        SdDrawDocument* pTmpDoc = static_cast<SdDrawDocument*>( pBMView->GetMarkedObjModel() );
+        SdDrawDocument* pTmpDoc = static_cast<SdDrawDocument*>( pBMView->CreateMarkedObjModel().release() );
         bOK = pView->Paste(*pTmpDoc, aObjPos, pPage, SdrInsertFlags::NONE);
 
         if (bOLEObjFound)
@@ -1130,8 +1130,6 @@ bool SdDrawDocument::InsertBookmarkAsObject(
             }
         }
     }
-
-    delete pBMView;
 
     return bOK;
 }
@@ -1342,7 +1340,7 @@ void SdDrawDocument::RemoveUnnecessaryMasterPages(SdPage* pMasterPage, bool bOnl
   * If rLayoutName is empty, the first master page is used.
   */
 // #i121863# factored out functionality
-bool isMasterPageLayoutNameUnique(const SdDrawDocument& rDoc, const OUString& rCandidate)
+static bool isMasterPageLayoutNameUnique(const SdDrawDocument& rDoc, const OUString& rCandidate)
 {
     if (rCandidate.isEmpty())
     {
@@ -1369,7 +1367,7 @@ bool isMasterPageLayoutNameUnique(const SdDrawDocument& rDoc, const OUString& rC
 }
 
 // #i121863# factored out functinality
-OUString createNewMasterPageLayoutName(const SdDrawDocument& rDoc)
+static OUString createNewMasterPageLayoutName(const SdDrawDocument& rDoc)
 {
     const OUString aBaseName(SdResId(STR_LAYOUT_DEFAULT_NAME));
     sal_uInt16 nCount(0);

@@ -53,6 +53,38 @@ DECLARE_OOXMLEXPORT_TEST(testTdf57589_hashColor, "tdf57589_hashColor.docx")
     CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(getParagraph(2), "ParaBackColor")));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf90906_colAuto, "tdf90906_colAuto.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    uno::Reference<container::XEnumerationAccess> xParaEnumAccess(xCell->getText(), uno::UNO_QUERY);
+    uno::Reference<container::XEnumeration> xParaEnum = xParaEnumAccess->createEnumeration();
+    uno::Reference<text::XTextRange> xPara(xParaEnum->nextElement(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(getRun(xPara, 1, "Nazwa"), "CharBackColor")));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf90906_colAutoB, "tdf90906_colAutoB.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+
+    uno::Reference<table::XCell> xCell = xTable->getCellByName("A1");
+    CPPUNIT_ASSERT_EQUAL(COL_LIGHTGREEN, Color(getProperty<sal_uInt32>(xCell, "BackColor")));
+    xCell.set(xTable->getCellByName("A2"));
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(xCell, "BackColor")));
+    xCell.set(xTable->getCellByName("B1"));
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(xCell, "BackColor")));
+    xCell.set(xTable->getCellByName("B2"));
+    CPPUNIT_ASSERT_EQUAL(COL_LIGHTBLUE, Color(getProperty<sal_uInt32>(xCell, "BackColor")));
+
+    uno::Reference<text::XTextRange> xText(getParagraph(2, "Paragraphs too"));
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_NONE, getProperty<drawing::FillStyle>(xText, "FillStyle"));
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(xText, "ParaBackColor")));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf92524_autoColor, "tdf92524_autoColor.doc")
 {
     CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_NONE, getProperty<drawing::FillStyle>(getParagraph(1), "FillStyle"));
@@ -369,6 +401,15 @@ DECLARE_OOXMLEXPORT_TEST(testTdf113258, "tdf113258.docx")
                          getProperty<sal_Int32>(xShape->getStart(), "ParaTopMargin"));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf113258_noBeforeAutospacing, "tdf113258_noBeforeAutospacing.docx")
+{
+    uno::Reference<text::XTextRange> xShape(getShape(1), uno::UNO_QUERY);
+    // This was 0, i.e. disabled automatic spacing still resulted in zero paragraph
+    // top margin for the first paragraph in a shape.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1764),
+                         getProperty<sal_Int32>(xShape->getStart(), "ParaTopMargin"));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf104354, "tdf104354.docx")
 {
     uno::Reference<text::XTextRange> xShape(getShape(1), uno::UNO_QUERY);
@@ -379,6 +420,16 @@ DECLARE_OOXMLEXPORT_TEST(testTdf104354, "tdf104354.docx")
     // still 494 in the second paragraph
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494),
                          getProperty<sal_Int32>(xShape->getEnd(), "ParaTopMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf104354_firstParaInSection, "tdf104354_firstParaInSection.docx")
+{
+    uno::Reference<text::XFootnotesSupplier> xFootnotesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xFootnotes(xFootnotesSupplier->getFootnotes(), uno::UNO_QUERY);
+    uno::Reference<text::XText> xText(xFootnotes->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494),
+                         getProperty<sal_Int32>(getParagraphOfText(1, xText), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf107035, "tdf107035.docx")
@@ -454,6 +505,36 @@ DECLARE_OOXMLEXPORT_TEST(testTdf112118_DOCX, "tdf112118.docx")
                 sal_Int32(COL_BLACK), aBorder.Color);
         }
     }
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf82177_outsideCellBorders, "tdf82177_outsideCellBorders.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference< text::XTextTable > xTable( xTables->getByIndex(0), uno::UNO_QUERY );
+    uno::Reference< table::XCell > xCell = xTable->getCellByName( "E4" );
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "TopBorder").LineWidth);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "LeftBorder").LineWidth);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf82177_insideCellBorders, "tdf82177_insideCellBorders.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference< text::XTextTable > xTable( xTables->getByIndex(0), uno::UNO_QUERY );
+    uno::Reference< table::XCell > xCell = xTable->getCellByName( "E4" );
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "TopBorder").LineWidth);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "LeftBorder").LineWidth);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf82177_tblBorders, "tdf82177_tblBorders.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference< text::XTextTable > xTable( xTables->getByIndex(0), uno::UNO_QUERY );
+    uno::Reference< table::XCell > xCell = xTable->getCellByName( "E5" );
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "TopBorder").LineWidth);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "LeftBorder").LineWidth);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf116976, "tdf116976.docx")
@@ -597,6 +678,86 @@ DECLARE_OOXMLEXPORT_TEST(testTdf113608_runAwayNumbering, "tdf113608_runAwayNumbe
     // check that an incorrect numbering style is not applied
     // after removing a w:r-less paragraph
     CPPUNIT_ASSERT_EQUAL(OUString(), getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf119188_list_margin_in_cell, "tdf119188_list_margin_in_cell.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
+
+    // lists with auto margins in cells: top margin of the first paragraph is zero,
+    // but not the bottom margin of the last paragraph, also other list items have got
+    // zero margins.
+
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell->getText()), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(2, xCell->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(2, xCell->getText()), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(3, xCell->getText()), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494), getProperty<sal_Int32>(getParagraphOfText(3, xCell->getText()), "ParaBottomMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testChart_BorderLine_Style, "Chart_BorderLine_Style.docx")
+{
+    /* DOCX containing Chart with BorderLine Style as Dash Type should get preserved
+     * inside an XML tag <a:prstDash> with value "dash", "sysDot, "lgDot", etc.
+     */
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart1.xml");
+    if (!pXmlDoc)
+        return;
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:spPr/a:ln/a:prstDash", "val", "sysDot");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[2]/c:spPr/a:ln/a:prstDash", "val", "sysDash");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[3]/c:spPr/a:ln/a:prstDash", "val", "dash");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTrackChangesDeletedEmptyParagraph, "testTrackChangesDeletedEmptyParagraph.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:pPr/w:rPr/w:del");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTrackChangesEmptyParagraphsInADeletion, "testTrackChangesEmptyParagraphsInADeletion.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    for (int i = 1; i < 12; ++i)
+        assertXPath(pXmlDoc, "/w:document/w:body/w:p[" + OString::number(i) + "]/w:pPr/w:rPr/w:del");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf118691, "tdf118691.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    // Text "Before" stays in the first cell, not removed before the table because of
+    // bad handling of <w:cr>
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("Before\nAfter"), xCell->getString());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf64264, "tdf64264.docx")
+{
+    // DOCX table rows with tblHeader setting mustn't modify the count of the
+    // repeated table header rows, when there is rows before them without tblHeader settings.
+    xmlDocPtr pDump = parseLayoutDump();
+    CPPUNIT_ASSERT_EQUAL(2, getPages());
+
+    // table starts on page 1 and finished on page 2
+    // and it has got only a single repeating header line
+    assertXPath(pDump, "/root/page[2]/body/tab", 1);
+    assertXPath(pDump, "/root/page[2]/body/tab/row", 47);
+    CPPUNIT_ASSERT_EQUAL(OUString("Repeating Table Header"),
+                         parseDump("/root/page[2]/body/tab/row[1]/cell[1]/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

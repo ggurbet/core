@@ -140,7 +140,6 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
     ScDocShellModificator aModificator( rDocShell );
 
     bool bSuccess = false;
-    bool bApi = false;                      //! pass as argument
     bool bTruncated = false;                // for warning
     const char* pErrStringId = nullptr;
     OUString aErrorMessage;
@@ -467,13 +466,13 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
         SCROW nUndoEndRow = std::max( nEndRow, rParam.nRow2 );
 
         ScDocumentUniquePtr pUndoDoc;
-        ScDBData* pUndoDBData = nullptr;
+        std::unique_ptr<ScDBData> pUndoDBData;
         if ( bRecord )
         {
             pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
             pUndoDoc->InitUndo( &rDoc, nTab, nTab );
 
-            pUndoDBData = new ScDBData( *pDBData );
+            pUndoDBData.reset(new ScDBData( *pDBData ));
         }
 
         ScMarkData aNewMark;
@@ -581,13 +580,14 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
                                     nEndCol+nFormulaCols, nEndRow, nTab,
                                     InsertDeleteFlags::ALL & ~InsertDeleteFlags::NOTE, false, *pRedoDoc);
 
-            ScDBData* pRedoDBData = pDBData ? new ScDBData( *pDBData ) : nullptr;
+            std::unique_ptr<ScDBData> pRedoDBData(pDBData ? new ScDBData( *pDBData ) : nullptr);
 
             rDocShell.GetUndoManager()->AddUndoAction(
                 new ScUndoImportData( &rDocShell, nTab,
                                         rParam, nUndoEndCol, nUndoEndRow,
                                         nFormulaCols,
-                                        std::move(pUndoDoc), std::move(pRedoDoc), pUndoDBData, pRedoDBData ) );
+                                        std::move(pUndoDoc), std::move(pRedoDoc),
+                                        std::move(pUndoDBData), std::move(pRedoDBData) ) );
         }
 
         sc::SetFormulaDirtyContext aCxt;
@@ -601,10 +601,10 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
         if (pWaitWin)
             pWaitWin->LeaveWait();
 
-        if ( bTruncated && !bApi )          // show warning
+        if ( bTruncated )          // show warning
             ErrorHandler::HandleError(SCWARN_IMPORT_RANGE_OVERFLOW);
     }
-    else if ( !bApi )
+    else
     {
         if (pWaitWin)
             pWaitWin->LeaveWait();

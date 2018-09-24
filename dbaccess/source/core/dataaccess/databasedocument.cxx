@@ -144,7 +144,6 @@ ODatabaseDocument::ODatabaseDocument(const ::rtl::Reference<ODatabaseModelImpl>&
             ,m_aCloseListener( getMutex() )
             ,m_aStorageListeners( getMutex() )
             ,m_pEventContainer( new DocumentEvents( *this, getMutex(), _pImpl->getDocumentEvents() ) )
-            ,m_pEventExecutor( nullptr )   // initialized below, ref-count-protected
             ,m_aEventNotifier( *this, getMutex() )
             ,m_aViewMonitor( m_aEventNotifier )
             ,m_eInitState( NotInitialized )
@@ -349,7 +348,7 @@ static const char sPictures[] = "Pictures";
 // I could check anyway )
 
 /// @throws RuntimeException
-void lcl_uglyHackToStoreDialogeEmbedImages( const Reference< XStorageBasedLibraryContainer >& xDlgCont, const Reference< XStorage >& xStorage, const Reference< XModel >& rxModel, const Reference<XComponentContext >& rxContext )
+static void lcl_uglyHackToStoreDialogeEmbedImages( const Reference< XStorageBasedLibraryContainer >& xDlgCont, const Reference< XStorage >& xStorage, const Reference< XModel >& rxModel, const Reference<XComponentContext >& rxContext )
 {
     Sequence< OUString > sLibraries = xDlgCont->getElementNames();
     Reference< XStorage > xTmpPic = xStorage->openStorageElement( "tempPictures", ElementModes::READWRITE  );

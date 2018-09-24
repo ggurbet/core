@@ -1106,14 +1106,14 @@ IMPL_LINK(SidebarController, OnMenuItemSelected, Menu*, pMenu, bool)
     return true;
 }
 
-void SidebarController::RequestCloseDeck(bool bFocusMenuTab)
+void SidebarController::RequestCloseDeck()
 {
     mbIsDeckRequestedOpen = false;
     UpdateDeckOpenState();
 
     if (mpCurrentDeck.get())
     {
-        sal_Int32 nIndex(bFocusMenuTab ? 0 : mpTabBar->GetDeckIndexForId(mpCurrentDeck->GetId()));
+        sal_Int32 nIndex(mpTabBar->GetDeckIndexForId(mpCurrentDeck->GetId()));
         maFocusManager.GrabFocusButton(nIndex);
     }
     else
@@ -1334,7 +1334,11 @@ void SidebarController::UpdateTitleBarIcons()
 void SidebarController::ShowPanel (const Panel& rPanel)
 {
     if (mpCurrentDeck)
+    {
+        if (!IsDeckOpen())
+            RequestOpenDeck();
         mpCurrentDeck->ShowPanel(rPanel);
+    }
 }
 
 ResourceManager::DeckContextDescriptorContainer SidebarController::GetMatchingDecks()

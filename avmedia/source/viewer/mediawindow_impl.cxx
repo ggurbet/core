@@ -123,8 +123,6 @@ MediaWindowImpl::MediaWindowImpl(vcl::Window* pParent, MediaWindow* pMediaWindow
     , DragSourceHelper(this)
     , mpMediaWindow(pMediaWindow)
     , mpMediaWindowControl(bInternalMediaControl ? VclPtr<MediaWindowControl>::Create(this) : nullptr)
-    , mpEmptyBmpEx(nullptr)
-    , mpAudioBmpEx(nullptr)
 {
     if (mpMediaWindowControl)
     {
@@ -197,10 +195,6 @@ uno::Reference<media::XPlayer> MediaWindowImpl::createPlayer(const OUString& rUR
 // two significant versions deployed at once ...
 #ifdef AVMEDIA_MANAGER_SERVICE_NAME_OLD
             AVMEDIA_MANAGER_SERVICE_NAME_OLD
-#endif
-// fallback to AVMedia framework on OS X
-#ifdef AVMEDIA_MANAGER_SERVICE_NAME_FALLBACK1
-            AVMEDIA_MANAGER_SERVICE_NAME_FALLBACK1
 #endif
         };
 

@@ -112,7 +112,7 @@ class DocumentHandlerImpl :
     sal_Int32 m_nLastPrefix_lookup;
     OUString m_aLastPrefix_lookup;
 
-    std::vector< ElementEntry * > m_elements;
+    std::vector< ElementEntry > m_elements;
     sal_Int32 m_nSkipElements;
 
     std::unique_ptr<Mutex> m_pMutex;
@@ -179,8 +179,7 @@ DocumentHandlerImpl::DocumentHandlerImpl(
       m_aLastURI_lookup( "<<< unknown URI >>>" ),
       m_nLastPrefix_lookup( UID_UNKNOWN ),
       m_aLastPrefix_lookup( "<<< unknown URI >>>" ),
-      m_nSkipElements( 0 ),
-      m_pMutex( nullptr )
+      m_nSkipElements( 0 )
 {
     m_elements.reserve( 10 );
 
@@ -195,7 +194,7 @@ DocumentHandlerImpl::getCurrentElement() const
     if (m_elements.empty())
         return Reference< xml::input::XElement >();
     else
-        return m_elements.back()->m_xElement;
+        return m_elements.back().m_xElement;
 }
 
 inline sal_Int32 DocumentHandlerImpl::getUidByURI( OUString const & rURI )
@@ -396,12 +395,10 @@ sal_Int32 DocumentHandlerImpl::getUidByUri( OUString const & Uri )
 OUString DocumentHandlerImpl::getUriByUid( sal_Int32 Uid )
 {
     MGuard guard( m_pMutex );
-    t_OUString2LongMap::const_iterator iPos( m_URI2Uid.begin() );
-    t_OUString2LongMap::const_iterator const iEnd( m_URI2Uid.end() );
-    for ( ; iPos != iEnd; ++iPos )
+    for (const auto& rURIUid : m_URI2Uid)
     {
-        if (iPos->second == Uid)
-            return iPos->first;
+        if (rURIUid.second == Uid)
+            return rURIUid.first;
     }
     throw container::NoSuchElementException( "no such xmlns uid!" , static_cast< OWeakObject * >(this) );
 }
@@ -426,7 +423,7 @@ void DocumentHandlerImpl::startElement(
     Reference< xml::input::XAttributes > xAttributes;
     sal_Int32 nUid;
     OUString aLocalName;
-    ::std::unique_ptr< ElementEntry > elementEntry( new ElementEntry );
+    ElementEntry elementEntry;
 
     { // guard start:
     MGuard aGuard( m_pMutex );
@@ -442,7 +439,7 @@ void DocumentHandlerImpl::startElement(
 
     // save all namespace ids
     std::unique_ptr<sal_Int32[]> pUids(new sal_Int32[ nAttribs ]);
-    OUString * pPrefixes = new OUString[ nAttribs ];
+    std::unique_ptr<OUString[]> pPrefixes(new OUString[ nAttribs ]);
     std::unique_ptr<OUString[]> pLocalNames(new OUString[ nAttribs ]);
     std::unique_ptr<OUString[]> pQNames(new OUString[ nAttribs ]);
 
@@ -465,7 +462,7 @@ void DocumentHandlerImpl::startElement(
                 pushPrefix(
                     aDefNamespacePrefix,
                     xAttribs->getValueByIndex( nPos ) );
-                elementEntry->m_prefixes.push_back( aDefNamespacePrefix );
+                elementEntry.m_prefixes.push_back( aDefNamespacePrefix );
                 pUids[ nPos ]          = UID_UNKNOWN;
                 pPrefixes[ nPos ]      = g_sXMLNS;
                 pLocalNames[ nPos ]    = aDefNamespacePrefix;
@@ -474,7 +471,7 @@ void DocumentHandlerImpl::startElement(
             {
                 OUString aPrefix( rQAttributeName.copy( 6 ) );
                 pushPrefix( aPrefix, xAttribs->getValueByIndex( nPos ) );
-                elementEntry->m_prefixes.push_back( aPrefix );
+                elementEntry.m_prefixes.push_back( aPrefix );
                 pUids[ nPos ]          = UID_UNKNOWN;
                 pPrefixes[ nPos ]      = g_sXMLNS;
                 pLocalNames[ nPos ]    = aPrefix;
@@ -507,7 +504,7 @@ void DocumentHandlerImpl::startElement(
             pUids[ nPos ] = getUidByPrefix( pPrefixes[ nPos ] );
         }
     }
-    delete[] pPrefixes;
+    pPrefixes.reset();
     // ownership of arrays belongs to attribute list
     xAttributes = static_cast< xml::input::XAttributes * >(
         new ExtendedAttributes(
@@ -518,33 +515,33 @@ void DocumentHandlerImpl::startElement(
 
     // create new child context and append to list
     if (! m_elements.empty())
-        xCurrentElement = m_elements.back()->m_xElement;
+        xCurrentElement = m_elements.back().m_xElement;
     } // :guard end
 
     if (xCurrentElement.is())
     {
-        elementEntry->m_xElement =
+        elementEntry.m_xElement =
             xCurrentElement->startChildElement( nUid, aLocalName, xAttributes );
     }
     else
     {
-        elementEntry->m_xElement =
+        elementEntry.m_xElement =
             m_xRoot->startRootElement( nUid, aLocalName, xAttributes );
     }
 
     {
     MGuard aGuard( m_pMutex );
-    if (elementEntry->m_xElement.is())
+    if (elementEntry.m_xElement.is())
     {
-        m_elements.push_back( elementEntry.release() );
+        m_elements.push_back( std::move(elementEntry) );
     }
     else
     {
         ++m_nSkipElements;
 
         // pop prefixes
-        for (sal_Int32 nPos = elementEntry->m_prefixes.size(); nPos--;)
-            popPrefix(elementEntry->m_prefixes[nPos]);
+        for (sal_Int32 nPos = elementEntry.m_prefixes.size(); nPos--;)
+            popPrefix(elementEntry.m_prefixes[nPos]);
 
         SAL_INFO("xmlscript.xmlhelper", " no context given on createChildElement() => ignoring element \"" << rQElementName << "\" ...");
     }
@@ -556,34 +553,33 @@ void DocumentHandlerImpl::endElement(
 {
     Reference< xml::input::XElement > xCurrentElement;
     {
-    MGuard aGuard( m_pMutex );
-    if (m_nSkipElements)
-    {
-        --m_nSkipElements;
-        SAL_INFO("xmlscript.xmlhelper", "### received endElement() for \"" << rQElementName << "\".");
-        return;
-    }
+        MGuard aGuard( m_pMutex );
+        if (m_nSkipElements)
+        {
+            --m_nSkipElements;
+            SAL_INFO("xmlscript.xmlhelper", "### received endElement() for \"" << rQElementName << "\".");
+            return;
+        }
 
-    // popping context
-    SAL_WARN_IF( m_elements.empty(), "xmlscript.xmlhelper", "m_elements is empty" );
-    ElementEntry * pEntry = m_elements.back();
-    xCurrentElement = pEntry->m_xElement;
+        // popping context
+        SAL_WARN_IF( m_elements.empty(), "xmlscript.xmlhelper", "m_elements is empty" );
+        ElementEntry& rEntry = m_elements.back();
+        xCurrentElement = rEntry.m_xElement;
 
 #if OSL_DEBUG_LEVEL > 0
-    sal_Int32 nUid;
-    OUString aLocalName;
-    getElementName( rQElementName, &nUid, &aLocalName );
-    SAL_WARN_IF( xCurrentElement->getLocalName() != aLocalName, "xmlscript.xmlhelper", "xCurrentElement->getLocalName() != aLocalName" );
-    SAL_WARN_IF( xCurrentElement->getUid() != nUid, "xmlscript.xmlhelper", "xCurrentElement->getUid() != nUid" );
+        sal_Int32 nUid;
+        OUString aLocalName;
+        getElementName( rQElementName, &nUid, &aLocalName );
+        SAL_WARN_IF( xCurrentElement->getLocalName() != aLocalName, "xmlscript.xmlhelper", "xCurrentElement->getLocalName() != aLocalName" );
+        SAL_WARN_IF( xCurrentElement->getUid() != nUid, "xmlscript.xmlhelper", "xCurrentElement->getUid() != nUid" );
 #endif
 
-    // pop prefixes
-    for ( sal_Int32 nPos = pEntry->m_prefixes.size(); nPos--; )
-    {
-        popPrefix( pEntry->m_prefixes[ nPos ] );
-    }
-    m_elements.pop_back();
-    delete pEntry;
+        // pop prefixes
+        for ( sal_Int32 nPos = rEntry.m_prefixes.size(); nPos--; )
+        {
+            popPrefix( rEntry.m_prefixes[ nPos ] );
+        }
+        m_elements.pop_back();
     }
     xCurrentElement->endElement();
 }

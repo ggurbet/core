@@ -429,12 +429,11 @@ static inline SdrTextHorzAdjust lcl_convertAdjust( ParagraphAdjust eAdjust )
     return SDRTEXTHORZADJUST_LEFT;
 }
 
-static inline void lcl_createPresetShape( uno::Reference<drawing::XShape>& xShape,
-                                   const OUString& rClass,
-                                   const OUString& rPresetType,
-                                   const CustomShapePropertiesPtr pCustomShapePropertiesPtr,
-                                   const TextBodyPtr pTextBody,
-                                   const GraphicHelper& rGraphicHelper )
+static inline void lcl_createPresetShape(uno::Reference<drawing::XShape>& xShape,
+                                         const OUString& rClass, const OUString& rPresetType,
+                                         const CustomShapePropertiesPtr& pCustomShapePropertiesPtr,
+                                         const TextBodyPtr& pTextBody,
+                                         const GraphicHelper& rGraphicHelper)
 {
     if (!xShape.is() || !pCustomShapePropertiesPtr || !pTextBody)
         return;
@@ -843,6 +842,9 @@ Reference< XShape > const & Shape::createAndInsert(
             SAL_INFO("oox.drawingml", "Shape::createAndInsert: invisible shape with id='" << msId << "'");
             const OUString sVisible( "Visible" );
             xSet->setPropertyValue( sVisible, Any( false ) );
+            // In Excel hidden means not printed, let's use visibility for now until that's handled separately
+            const OUString sPrintable( "Printable" );
+            xSet->setPropertyValue( sPrintable, Any( false ) );
         }
 
         ActionLockGuard const alg(mxShape);

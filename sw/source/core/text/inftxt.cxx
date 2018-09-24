@@ -87,8 +87,7 @@ using namespace ::com::sun::star::beans;
 #define DRAW_SPECIAL_OPTIONS_ROTATE 2
 
 SwLineInfo::SwLineInfo()
-    : pRuler( nullptr ),
-      pSpace( nullptr ),
+    : pSpace( nullptr ),
       nVertAlign( SvxParaVertAlignItem::Align::Automatic ),
       nDefTabStop( 0 ),
       bListTabStopIncluded( false ),
@@ -163,7 +162,7 @@ SwTextInfo::SwTextInfo( const SwTextInfo &rInf )
 
 #if OSL_DEBUG_LEVEL > 0
 
-void ChkOutDev( const SwTextSizeInfo &rInf )
+static void ChkOutDev( const SwTextSizeInfo &rInf )
 {
     if ( !rInf.GetVsh() )
         return;
@@ -174,7 +173,7 @@ void ChkOutDev( const SwTextSizeInfo &rInf )
 }
 #endif
 
-inline TextFrameIndex GetMinLen( const SwTextSizeInfo &rInf )
+static inline TextFrameIndex GetMinLen( const SwTextSizeInfo &rInf )
 {
     const TextFrameIndex nTextLen(rInf.GetText().getLength());
     if (rInf.GetLen() == TextFrameIndex(COMPLETE_STRING))
@@ -1846,7 +1845,7 @@ SwFontSave::SwFontSave(const SwTextSizeInfo &rInf, SwFont *pNew,
         // 1. the fonts have a different magic number
         // 2. they have different script types
         // 3. their background colors differ (this is not covered by 1.)
-        if( pFnt->DifferentMagic( pNew, pFnt->GetActual() ) ||
+        if( pFnt->DifferentFontCacheId( pNew, pFnt->GetActual() ) ||
             pNew->GetActual() != pFnt->GetActual() ||
             ( ! pNew->GetBackColor() && pFnt->GetBackColor() ) ||
             ( pNew->GetBackColor() && ! pFnt->GetBackColor() ) ||

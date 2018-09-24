@@ -57,7 +57,7 @@
 #include <dlfcn.h>
 #endif
 
-bool toBool(const OString &rValue)
+static bool toBool(const OString &rValue)
 {
     return (!rValue.isEmpty() && (rValue[0] == 't' || rValue[0] == 'T' || rValue[0] == '1'));
 }
@@ -148,9 +148,9 @@ weld::Window* Application::GetFrameWeld(const css::uno::Reference<css::awt::XWin
     return ImplGetSVData()->mpDefInst->GetFrameWeld(rWindow);
 }
 
-namespace
+namespace weld
 {
-    const OUString MetricToString(FieldUnit rUnit)
+    OUString MetricSpinButton::MetricToString(FieldUnit rUnit)
     {
         FieldUnitStringList* pList = ImplGetFieldUnits();
         if (pList)
@@ -165,10 +165,7 @@ namespace
 
         return OUString();
     }
-}
 
-namespace weld
-{
     IMPL_LINK_NOARG(MetricSpinButton, spin_button_value_changed, SpinButton&, void)
     {
         signal_value_changed();
@@ -332,6 +329,57 @@ namespace weld
         const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
         return TimeFormatter::FormatTime(ConvertValue(nValue), m_eFormat, TimeFormat::Hour24, true, rLocaleData);
     }
+
+    EntryTreeView::EntryTreeView(std::unique_ptr<Entry> xEntry, std::unique_ptr<TreeView> xTreeView)
+        : m_xEntry(std::move(xEntry))
+        , m_xTreeView(std::move(xTreeView))
+    {
+        m_xTreeView->connect_changed(LINK(this, EntryTreeView, ClickHdl));
+        m_xEntry->connect_changed(LINK(this, EntryTreeView, ModifyHdl));
+    }
+
+    IMPL_LINK(EntryTreeView, ClickHdl, weld::TreeView&, rView, void)
+    {
+        m_xEntry->set_text(rView.get_selected_text());
+        m_aChangeHdl.Call(*this);
+    }
+
+    void EntryTreeView::EntryModifyHdl(weld::Entry& rBox)
+    {
+        OUString sText(rBox.get_text());
+        int nExists = m_xTreeView->find_text(sText);
+        if (nExists != -1)
+        {
+            m_xTreeView->select(nExists);
+            return;
+        }
+
+        m_xTreeView->select(-1);
+        if (sText.isEmpty())
+            return;
+
+        int nCount = m_xTreeView->n_children();
+        for (int i = 0; i < nCount; ++i)
+        {
+            if (m_xTreeView->get_text(i).startsWith(sText))
+            {
+                m_xTreeView->select(i);
+                break;
+            }
+        }
+    }
+
+    IMPL_LINK(EntryTreeView, ModifyHdl, weld::Entry&, rBox, void)
+    {
+        EntryModifyHdl(rBox);
+        m_aChangeHdl.Call(*this);
+    }
+
+    void EntryTreeView::set_height_request_by_rows(int nRows)
+    {
+        int nHeight = nRows == -1 ? -1 : m_xTreeView->get_height_rows(nRows);
+        m_xTreeView->set_size_request(m_xTreeView->get_size_request().Width(), nHeight);
+    }
 }
 
 VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUString& sUIFile, const OString& sID,
@@ -435,12 +483,16 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
     //Set ComboBox models when everything has been imported
     for (auto const& elem : m_pParserState->m_aModelMaps)
     {
-        ListBox *pTarget = get<ListBox>(elem.m_sID);
+        vcl::Window* pTarget = get<vcl::Window>(elem.m_sID);
+        ListBox *pListBoxTarget = dynamic_cast<ListBox*>(pTarget);
+        ComboBox *pComboBoxTarget = dynamic_cast<ComboBox*>(pTarget);
         // pStore may be empty
         const ListStore *pStore = get_model_by_name(elem.m_sValue.toUtf8());
-        SAL_WARN_IF(!pTarget, "vcl", "missing elements of combobox");
-        if (pTarget && pStore)
-            mungeModel(*pTarget, *pStore, elem.m_nActiveId);
+        SAL_WARN_IF(!pListBoxTarget && !pComboBoxTarget, "vcl", "missing elements of combobox");
+        if (pListBoxTarget && pStore)
+            mungeModel(*pListBoxTarget, *pStore, elem.m_nActiveId);
+        else if (pComboBoxTarget && pStore)
+            mungeModel(*pComboBoxTarget, *pStore, elem.m_nActiveId);
     }
 
     //Set TextView buffers when everything has been imported
@@ -1794,7 +1846,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkEntry")
     {
-        xWindow = VclPtr<Edit>::Create(pParent, WB_LEFT|WB_VCENTER|WB_BORDER|WB_3DLOOK);
+        xWindow = VclPtr<Edit>::Create(pParent, WB_LEFT|WB_VCENTER|WB_BORDER|WB_3DLOOK|WB_NOHIDESELECTION);
         BuilderUtils::ensureDefaultWidthChars(rMap);
     }
     else if (name == "GtkNotebook")
@@ -1804,13 +1856,13 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     else if (name == "GtkDrawingArea")
     {
         OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-        xWindow = VclPtr<VclDrawingArea>::Create(pParent, sBorder.isEmpty() ? 0 : WB_BORDER);
+        xWindow = VclPtr<VclDrawingArea>::Create(pParent, sBorder.isEmpty() ? WB_TABSTOP : WB_BORDER | WB_TABSTOP);
     }
     else if (name == "GtkTextView")
     {
         extractBuffer(id, rMap);
 
-        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT;
+        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_NOHIDESELECTION;
         OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
         if (!sBorder.isEmpty())
             nWinStyle |= WB_BORDER;
@@ -3215,7 +3267,7 @@ void VclBuilder::insertMenuObject(PopupMenu *pParent, PopupMenu *pSubMenu, const
 
 /// Insert items to a ComboBox or a ListBox.
 /// They have no common ancestor that would have 'InsertEntry()', so use a template.
-template<typename T> bool insertItems(vcl::Window *pWindow, VclBuilder::stringmap &rMap, const std::vector<ComboBoxTextItem> &rItems)
+template<typename T> static bool insertItems(vcl::Window *pWindow, VclBuilder::stringmap &rMap, const std::vector<ComboBoxTextItem> &rItems)
 {
     T *pContainer = dynamic_cast<T*>(pWindow);
     if (!pContainer)
@@ -3863,6 +3915,30 @@ const VclBuilder::Adjustment *VclBuilder::get_adjustment_by_name(const OString& 
     if (aI != m_pParserState->m_aAdjustments.end())
         return &(aI->second);
     return nullptr;
+}
+
+void VclBuilder::mungeModel(ComboBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId)
+{
+    for (auto const& entry : rStore.m_aEntries)
+    {
+        const ListStore::row &rRow = entry;
+        sal_uInt16 nEntry = rTarget.InsertEntry(rRow[0]);
+        if (rRow.size() > 1)
+        {
+            if (m_bLegacy)
+            {
+                sal_IntPtr nValue = rRow[1].toInt32();
+                rTarget.SetEntryData(nEntry, reinterpret_cast<void*>(nValue));
+            }
+            else
+            {
+                if (!rRow[1].isEmpty())
+                    rTarget.SetEntryData(nEntry, new OUString(rRow[1]));
+            }
+        }
+    }
+    if (nActiveId < rStore.m_aEntries.size())
+        rTarget.SelectEntryPos(nActiveId);
 }
 
 void VclBuilder::mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId)

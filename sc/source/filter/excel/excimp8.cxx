@@ -53,6 +53,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <sot/exchange.hxx>
+#include <sot/storage.hxx>
 
 #include <svl/stritem.hxx>
 #include <svl/sharedstringpool.hxx>
@@ -83,6 +84,8 @@
 #include <xilink.hxx>
 #include <xiescher.hxx>
 #include <xipivot.hxx>
+#include <xistyle.hxx>
+#include <excdefs.hxx>
 
 #include <excform.hxx>
 #include <scextopt.hxx>

@@ -208,7 +208,7 @@ void SwModule::StateOther(SfxItemSet &rSet)
 }
 
 // start field dialog
-void NewXForms( SfxRequest& rReq ); // implementation: below
+static void NewXForms( SfxRequest& rReq ); // implementation: below
 
 std::shared_ptr<SwMailMergeConfigItem> SwView::EnsureMailMergeConfigItem(const SfxItemSet* pArgs)
 {
@@ -479,6 +479,7 @@ IMPL_LINK_NOARG( SwMailMergeWizardExecutor, EndDialogHdl, Dialog&, void )
             std::shared_ptr<SwMailMergeConfigItem> xMMConfig = m_pView->GetMailMergeConfigItem();
             if (pNewView)
             {
+                pNewView->SetMailMergeConfigItem(xMMConfig);
                 m_pView = pNewView;
                 xMMConfig->DocumentReloaded();
                 //new source view!

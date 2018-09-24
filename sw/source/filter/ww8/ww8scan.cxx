@@ -838,33 +838,33 @@ SprmInfo wwSprmParser::GetSprmInfo(sal_uInt16 nId) const
 
 //-end
 
-inline sal_uInt8 Get_Byte( sal_uInt8 *& p )
+static inline sal_uInt8 Get_Byte( sal_uInt8 *& p )
 {
     sal_uInt8 n = *p;
     p += 1;
     return n;
 }
 
-inline sal_uInt16 Get_UShort( sal_uInt8 *& p )
+static inline sal_uInt16 Get_UShort( sal_uInt8 *& p )
 {
     const sal_uInt16 n = SVBT16ToShort( *reinterpret_cast<SVBT16*>(p) );
     p += 2;
     return n;
 }
 
-inline sal_Int16 Get_Short( sal_uInt8 *& p )
+static inline sal_Int16 Get_Short( sal_uInt8 *& p )
 {
     return Get_UShort(p);
 }
 
-inline sal_uInt32 Get_ULong( sal_uInt8 *& p )
+static inline sal_uInt32 Get_ULong( sal_uInt8 *& p )
 {
     sal_uInt32 n = SVBT32ToUInt32( *reinterpret_cast<SVBT32*>(p) );
     p += 4;
     return n;
 }
 
-inline sal_Int32 Get_Long( sal_uInt8 *& p )
+static inline sal_Int32 Get_Long( sal_uInt8 *& p )
 {
     return Get_ULong(p);
 }
@@ -1734,9 +1734,7 @@ std::unique_ptr<WW8PLCFpcd> WW8ScannerBase::OpenPieceTable( SvStream* pStr, cons
 
 WW8ScannerBase::WW8ScannerBase( SvStream* pSt, SvStream* pTableSt,
     SvStream* pDataSt, WW8Fib* pWwFib )
-    : m_pWw8Fib(pWwFib), m_pMainFdoa(nullptr), m_pHdFtFdoa(nullptr), m_pMainTxbx(nullptr),
-    m_pMainTxbxBkd(nullptr), m_pHdFtTxbx(nullptr), m_pHdFtTxbxBkd(nullptr), m_pMagicTables(nullptr),
-    m_pSubdocs(nullptr), m_pExtendedAtrds(nullptr)
+    : m_pWw8Fib(pWwFib)
 {
     m_pPiecePLCF = OpenPieceTable( pTableSt, m_pWw8Fib );             // Complex
     if( m_pPiecePLCF )
@@ -2254,7 +2252,7 @@ bool WW8PLCFspecial::GetData(long nInIdx, WW8_CP& rPos, void*& rpValue) const
 // Ctor for *others* than Fkps
 // With nStartPos < 0, the first element of PLCFs will be taken
 WW8PLCF::WW8PLCF(SvStream& rSt, WW8_FC nFilePos, sal_Int32 nPLCF, int nStruct,
-    WW8_CP nStartPos) : pPLCF_PosArray(nullptr), nIdx(0), nStru(nStruct)
+    WW8_CP nStartPos) : nIdx(0), nStru(nStruct)
 {
     if (nPLCF < 0)
     {
@@ -2276,7 +2274,7 @@ WW8PLCF::WW8PLCF(SvStream& rSt, WW8_FC nFilePos, sal_Int32 nPLCF, int nStruct,
 // lack of resources and for WordPad (W95).
 // With nStartPos < 0, the first element of the PLCFs is taken.
 WW8PLCF::WW8PLCF(SvStream& rSt, WW8_FC nFilePos, sal_Int32 nPLCF, int nStruct,
-    WW8_CP nStartPos, sal_Int32 nPN, sal_Int32 ncpN): pPLCF_PosArray(nullptr), nIdx(0),
+    WW8_CP nStartPos, sal_Int32 nPN, sal_Int32 ncpN): nIdx(0),
     nStru(nStruct)
 {
     if (nPLCF < 0)
@@ -2594,12 +2592,12 @@ bool WW8PLCFx_Fc_FKP::WW8Fkp::Entry::operator<
     return (mnFC < rSecond.mnFC);
 }
 
-bool IsReplaceAllSprm(sal_uInt16 nSpId)
+static bool IsReplaceAllSprm(sal_uInt16 nSpId)
 {
     return (NS_sprm::LN_PHugePapx == nSpId || 0x6646 == nSpId);
 }
 
-bool IsExpandableSprm(sal_uInt16 nSpId)
+static bool IsExpandableSprm(sal_uInt16 nSpId)
 {
     return 0x646B == nSpId;
 }
@@ -3111,7 +3109,7 @@ bool WW8PLCFx_Fc_FKP::NewFkp()
 WW8PLCFx_Fc_FKP::WW8PLCFx_Fc_FKP(SvStream* pSt, SvStream* pTableSt,
     SvStream* pDataSt, const WW8Fib& rFib, ePLCFT ePl, WW8_FC nStartFcL)
     : WW8PLCFx(rFib, true), pFKPStrm(pSt), pDataStrm(pDataSt)
-    , pFkp(nullptr), ePLCF(ePl), pPCDAttrs(nullptr)
+    , pFkp(nullptr), ePLCF(ePl)
 {
     SetStartFc(nStartFcL);
     long nLenStruct = (8 > rFib.m_nVersion) ? 2 : 4;
@@ -3862,7 +3860,7 @@ SprmResult WW8PLCFx_SEPX::HasSprm( sal_uInt16 nId, sal_uInt8 n2nd ) const
 WW8PLCFx_SubDoc::WW8PLCFx_SubDoc(SvStream* pSt, const WW8Fib& rFib,
     WW8_CP nStartCp, long nFcRef, long nLenRef, long nFcText, long nLenText,
     long nStruct)
-    : WW8PLCFx(rFib, true), pRef(nullptr), pText(nullptr)
+    : WW8PLCFx(rFib, true)
 {
     if( nLenRef && nLenText )
     {
@@ -3966,7 +3964,7 @@ void WW8PLCFx_SubDoc::advance()
 
 // fields
 WW8PLCFx_FLD::WW8PLCFx_FLD( SvStream* pSt, const WW8Fib& rMyFib, short nType)
-    : WW8PLCFx(rMyFib, true), pPLCF(nullptr), rFib(rMyFib)
+    : WW8PLCFx(rMyFib, true), rFib(rMyFib)
 {
     long nFc, nLen;
 
@@ -6610,7 +6608,7 @@ MSOFactoidType::MSOFactoidType()
 
 namespace MSOPBString
 {
-OUString Read(SvStream& rStream)
+static OUString Read(SvStream& rStream)
 {
     OUString aRet;
 
@@ -6626,7 +6624,7 @@ OUString Read(SvStream& rStream)
     return aRet;
 }
 
-void Write(const OUString& rString, SvStream& rStream)
+static void Write(const OUString& rString, SvStream& rStream)
 {
     sal_uInt16 nBuf = 0;
     nBuf |= rString.getLength(); // cch, 0..14th bits.
@@ -8207,7 +8205,7 @@ void WW8DopTypography::WriteToMem(sal_uInt8 *&pData) const
 LanguageType WW8DopTypography::GetConvertedLang() const
 {
     LanguageType nLang;
-    //I have assumed peoples republic/taiwan == simplified/traditional
+    //I have assumed people's republic/taiwan == simplified/traditional
 
     //This isn't a documented issue, so we might have it all wrong,
     //i.e. i.e. what's with the powers of two ?
@@ -8222,7 +8220,7 @@ LanguageType WW8DopTypography::GetConvertedLang() const
         case 2:     //Japan
             nLang = LANGUAGE_JAPANESE;
             break;
-        case 4:     //Chinese (Peoples Republic)
+        case 4:     //Chinese (People's Republic)
             nLang = LANGUAGE_CHINESE_SIMPLIFIED;
             break;
         case 6:     //Korean

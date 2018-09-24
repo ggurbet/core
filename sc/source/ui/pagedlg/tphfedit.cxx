@@ -88,7 +88,7 @@ ScEditWindow::ScEditWindow( vcl::Window* pParent, WinBits nBits, ScEditWindowLoc
     ScHeaderFieldData aData;
     lcl_GetFieldData( aData );
 
-        //  Feldbefehle:
+    // fields
     pEdEngine->SetData( aData );
     pEdEngine->SetControlWord( pEdEngine->GetControlWord() | EEControlBits::MARKFIELDS );
     mbRTL = ScGlobal::IsSystemRTL();
@@ -201,8 +201,9 @@ void ScEditWindow::SetCharAttributes()
 
         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
+        vcl::Window* pWin = GetParent();
         ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScCharDlg(
-            GetParent(),  &aSet, pDocSh));
+            pWin ? pWin->GetFrameWeld() : nullptr,  &aSet, pDocSh));
         pDlg->SetText( ScResId( STR_TEXTATTRS ) );
         if ( pDlg->Execute() == RET_OK )
         {

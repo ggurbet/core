@@ -33,10 +33,14 @@
 #include <xecontent.hxx>
 #include <xeescher.hxx>
 #include <xeextlst.hxx>
+#include <xeformula.hxx>
+#include <xlcontent.hxx>
+#include <xltools.hxx>
 #include <tokenarray.hxx>
 #include <formula/errorcodes.hxx>
 #include <thread>
 #include <comphelper/threadpool.hxx>
+#include <oox/token/tokens.hxx>
 #include <oox/export/utils.hxx>
 
 using namespace ::oox;
@@ -1800,7 +1804,7 @@ XclExpDefaultRowData::XclExpDefaultRowData( const XclExpRow& rRow ) :
     ::set_flag( mnFlags, EXC_DEFROW_UNSYNCED, rRow.IsUnsynced() );
 }
 
-bool operator<( const XclExpDefaultRowData& rLeft, const XclExpDefaultRowData& rRight )
+static bool operator<( const XclExpDefaultRowData& rLeft, const XclExpDefaultRowData& rRight )
 {
     return (rLeft.mnHeight < rRight.mnHeight) ||
         ((rLeft.mnHeight == rRight.mnHeight) && (rLeft.mnFlags < rRight.mnFlags));
@@ -2365,7 +2369,7 @@ XclExpRow& XclExpRowBuffer::GetOrCreateRow( sal_uInt32 nXclRow, bool bRowAlwaysE
     if( !bFound || bFoundHigher )
     {
         size_t nFrom = 0;
-        RowRef pPrevEntry = nullptr;
+        RowRef pPrevEntry;
         if( itr != maRowMap.begin() )
         {
             --itr;

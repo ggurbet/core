@@ -31,14 +31,8 @@ class SVX_DLLPUBLIC SvxPresetListBox : public ValueSet
 {
 private:
     sal_uInt32 nColCount;
-    Size       aIconSize;
-    Link<SvxPresetListBox*,void> maRenameHdl;
-    Link<SvxPresetListBox*,void> maDeleteHdl;
 
     DECL_LINK( OnMenuItemSelected, Menu*, bool );
-
-    template< typename ListType, typename EntryType >
-    void FillPresetListBoxImpl(ListType& pList, sal_uInt32 nStartIndex);
 
 public:
     SvxPresetListBox(vcl::Window* pParent, WinBits nWinStyle);
@@ -46,13 +40,36 @@ public:
     virtual void Resize() override;
     virtual void Command( const CommandEvent& rEvt ) override;
     sal_uInt32 getColumnCount() const { return nColCount; }
+
+    void DrawLayout();
+};
+
+class SVX_DLLPUBLIC PresetListBox : public SvtValueSet
+{
+private:
+    sal_uInt32 nColCount;
+    Size       aIconSize;
+    Link<PresetListBox*,void> maRenameHdl;
+    Link<PresetListBox*,void> maDeleteHdl;
+
+    void OnMenuItemSelected(const OString& rIdent);
+
+    template< typename ListType, typename EntryType >
+    void FillPresetListBoxImpl(ListType& pList, sal_uInt32 nStartIndex);
+
+public:
+    PresetListBox(std::unique_ptr<weld::ScrolledWindow> pWindow);
+
+    virtual void Resize() override;
+    virtual bool ContextMenu(const Point& rPos) override;
+    sal_uInt32 getColumnCount() const { return nColCount; }
     Size const & GetIconSize() const { return aIconSize; }
 
-    void SetRenameHdl( const Link<SvxPresetListBox*,void>& rLink )
+    void SetRenameHdl( const Link<PresetListBox*,void>& rLink )
     {
         maRenameHdl = rLink;
     }
-    void SetDeleteHdl( const Link<SvxPresetListBox*,void>& rLink )
+    void SetDeleteHdl( const Link<PresetListBox*,void>& rLink )
     {
         maDeleteHdl = rLink;
     }
@@ -64,6 +81,7 @@ public:
     void DrawLayout();
 
 };
+
 
 #endif // INCLUDED_SVX_SVXPRESETLISTBOX_HXX
 

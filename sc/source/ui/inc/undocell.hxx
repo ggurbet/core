@@ -21,6 +21,7 @@
 #define INCLUDED_SC_SOURCE_UI_INC_UNDOCELL_HXX
 
 #include "undobase.hxx"
+#include <detdata.hxx>
 #include <postit.hxx>
 #include <cellvalue.hxx>
 #include <cellvalues.hxx>
@@ -298,7 +299,7 @@ public:
                         const ScAddress& rPos,
                         const ScNoteData& rNoteData,
                         bool bInsert,
-                        SdrUndoAction* pDrawUndo );
+                        std::unique_ptr<SdrUndoAction> pDrawUndo );
 
     /** Constructs an undo action for replacing a cell note with another. */
                     ScUndoReplaceNote(
@@ -306,7 +307,7 @@ public:
                         const ScAddress& rPos,
                         const ScNoteData& rOldData,
                         const ScNoteData& rNewData,
-                        SdrUndoAction* pDrawUndo );
+                        std::unique_ptr<SdrUndoAction> pDrawUndo );
 
     virtual         ~ScUndoReplaceNote() override;
 
@@ -351,8 +352,8 @@ class ScUndoDetective: public ScSimpleUndo
 {
 public:
                     ScUndoDetective( ScDocShell* pNewDocShell,
-                                    SdrUndoAction* pDraw, const ScDetOpData* pOperation,
-                                    ScDetOpList* pUndoList = nullptr );
+                                    std::unique_ptr<SdrUndoAction> pDraw, const ScDetOpData* pOperation,
+                                    std::unique_ptr<ScDetOpList> pUndoList = nullptr );
     virtual         ~ScUndoDetective() override;
 
     virtual void    Undo() override;
@@ -375,7 +376,7 @@ class ScUndoRangeNames: public ScSimpleUndo
 public:
                     //use nTab = -1 for global range names
                     ScUndoRangeNames( ScDocShell* pNewDocShell,
-                                      ScRangeName* pOld, ScRangeName* pNew , SCTAB nTab);
+                                      std::unique_ptr<ScRangeName> pOld, std::unique_ptr<ScRangeName> pNew , SCTAB nTab);
     virtual         ~ScUndoRangeNames() override;
 
     virtual void    Undo() override;

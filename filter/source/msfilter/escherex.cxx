@@ -302,7 +302,9 @@ EscherProperties EscherPropertyContainer::GetOpts() const
     return aVector;
 }
 
-extern "C" int EscherPropSortFunc( const void* p1, const void* p2 )
+extern "C" {
+
+static int EscherPropSortFunc( const void* p1, const void* p2 )
 {
     sal_Int16   nID1 = static_cast<EscherPropSortStruct const *>(p1)->nPropId &~0xc000;
     sal_Int16   nID2 = static_cast<EscherPropSortStruct const *>(p2)->nPropId &~0xc000;
@@ -313,6 +315,8 @@ extern "C" int EscherPropSortFunc( const void* p1, const void* p2 )
         return 1;
     else
         return 0;
+}
+
 }
 
 void EscherPropertyContainer::Commit( SvStream& rSt, sal_uInt16 nVersion, sal_uInt16 nRecType )
@@ -1255,17 +1259,20 @@ void EscherPropertyContainer::CreateShapeProperties( const uno::Reference<drawin
     uno::Reference< beans::XPropertySet > aXPropSet( rXShape, uno::UNO_QUERY );
     if ( aXPropSet.is() )
     {
-        bool bVal = false;
+        bool bVisible = false;
+        bool bPrintable = false;
         uno::Any aAny;
         sal_uInt32 nShapeAttr = 0;
-        if (EscherPropertyValueHelper::GetPropertyValue(aAny, aXPropSet, "Visible", true) && (aAny >>= bVal))
+        if (EscherPropertyValueHelper::GetPropertyValue(aAny, aXPropSet, "Visible", true) && (aAny >>= bVisible))
         {
-            if ( !bVal )
+            if ( !bVisible )
                 nShapeAttr |= 0x20002;  // set fHidden = true
         }
-        if (EscherPropertyValueHelper::GetPropertyValue(aAny, aXPropSet, "Printable", true) && (aAny >>= bVal))
+        // This property (fPrint) isn't used in Excel anymore, leaving it for legacy reasons
+        // one change, based on XLSX: hidden implies not printed, let's not export the fPrint property in that case
+        if (bVisible && EscherPropertyValueHelper::GetPropertyValue(aAny, aXPropSet, "Printable", true) && (aAny >>= bPrintable))
         {
-            if ( !bVal )
+            if ( !bPrintable )
                 nShapeAttr |= 0x10000;  // set fPrint = false;
         }
         if ( nShapeAttr )
@@ -1994,7 +2001,7 @@ when save as MS file, the connector must be convert to corresponding type.
 "standard" <->  "bentConnector2-5"
 "curve" <-> "curvedConnector2-5"
 */
-sal_Int32 lcl_GetAdjustValueCount( const XPolygon& rPoly )
+static sal_Int32 lcl_GetAdjustValueCount( const XPolygon& rPoly )
 {
     int nRet = 0;
     switch (  rPoly.GetSize() )
@@ -2018,7 +2025,7 @@ sal_Int32 lcl_GetAdjustValueCount( const XPolygon& rPoly )
 }
 
 // Adjust value decide the position which connector should turn a corner
-sal_Int32 lcl_GetConnectorAdjustValue ( const XPolygon& rPoly, sal_uInt16 nIndex )
+static sal_Int32 lcl_GetConnectorAdjustValue ( const XPolygon& rPoly, sal_uInt16 nIndex )
 {
     sal_uInt16 k =  rPoly.GetSize();
     OSL_ASSERT ( k >= ( 3 + nIndex ) );
@@ -2046,7 +2053,7 @@ sal_Int32 lcl_GetConnectorAdjustValue ( const XPolygon& rPoly, sal_uInt16 nIndex
 }
 
 
-void lcl_Rotate(sal_Int32 nAngle, Point center, Point& pt)
+static void lcl_Rotate(sal_Int32 nAngle, Point center, Point& pt)
 {
     nAngle = NormAngle36000(nAngle);
 
@@ -2083,7 +2090,7 @@ void lcl_Rotate(sal_Int32 nAngle, Point center, Point& pt)
 Generally, draw the connector from top to bottom, from left to right when meet the adjust value,
 but when (X1>X2 or Y1>Y2),the draw director must be reverse, FlipV or FlipH should be set to true.
 */
-bool lcl_GetAngle(tools::Polygon &rPoly, ShapeFlag& rShapeFlags,sal_Int32& nAngle )
+static bool lcl_GetAngle(tools::Polygon &rPoly, ShapeFlag& rShapeFlags,sal_Int32& nAngle )
 {
     Point aStart = rPoly[0];
     Point aEnd = rPoly[rPoly.GetSize()-1];
@@ -2331,7 +2338,7 @@ sal_Int32 EscherPropertyContainer::GetValueForEnhancedCustomShapeParameter( cons
     return nValue;
 }
 
-bool GetValueForEnhancedCustomShapeHandleParameter( sal_Int32& nRetValue, const drawing::EnhancedCustomShapeParameter& rParameter )
+static bool GetValueForEnhancedCustomShapeHandleParameter( sal_Int32& nRetValue, const drawing::EnhancedCustomShapeParameter& rParameter )
 {
     bool bSpecial = false;
     nRetValue = 0;
@@ -2381,7 +2388,7 @@ bool GetValueForEnhancedCustomShapeHandleParameter( sal_Int32& nRetValue, const 
     return bSpecial;
 }
 
-void ConvertEnhancedCustomShapeEquation(
+static void ConvertEnhancedCustomShapeEquation(
     const SdrObjCustomShape& rSdrObjCustomShape,
     std::vector< EnhancedCustomShapeEquation >& rEquations,
     std::vector< sal_Int32 >& rEquationOrder )

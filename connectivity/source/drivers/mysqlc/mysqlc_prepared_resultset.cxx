@@ -75,16 +75,13 @@ OPreparedResultSet::OPreparedResultSet(OConnection& rConn, OPreparedStatement* p
     , OPropertySetHelper(OPreparedResultSet_BASE::rBHelper)
     , m_rConnection(rConn)
     , m_aStatement(static_cast<OWeakObject*>(pPrepared))
-    , m_xMetaData(nullptr)
     , m_pStmt(pStmt)
     , m_encoding(rConn.getConnectionEncoding())
 {
     m_nFieldCount = mysql_stmt_field_count(pStmt);
     m_pResult = mysql_stmt_result_metadata(m_pStmt);
-    m_aFields.reset(mysql_fetch_fields(m_pResult));
+    m_aFields = mysql_fetch_fields(m_pResult);
 }
-
-OPreparedResultSet::~OPreparedResultSet() {}
 
 void OPreparedResultSet::disposing()
 {
@@ -120,7 +117,7 @@ sal_Int32 SAL_CALL OPreparedResultSet::findColumn(const rtl::OUString& columnNam
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OPreparedResultSet_BASE::rBHelper.bDisposed);
 
-    MYSQL_FIELD* pFields = mysql_fetch_field(m_pResult);
+    MYSQL_FIELD* pFields = mysql_fetch_fields(m_pResult);
     for (sal_Int32 i = 0; i < m_nFieldCount; ++i)
     {
         if (columnName.equalsIgnoreAsciiCaseAscii(pFields[i].name))
@@ -262,6 +259,7 @@ sal_Int32 SAL_CALL OPreparedResultSet::getInt(sal_Int32 column)
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OPreparedResultSet_BASE::rBHelper.bDisposed);
+    checkColumnIndex(column);
     if (*m_aData[column - 1].is_null)
     {
         m_bWasNull = true;
@@ -298,7 +296,7 @@ uno::Reference<XResultSetMetaData> SAL_CALL OPreparedResultSet::getMetaData()
     checkDisposed(OPreparedResultSet_BASE::rBHelper.bDisposed);
     if (!m_xMetaData.is())
     {
-        m_xMetaData = new OResultSetMetaData(m_rConnection, m_pResult, m_encoding);
+        m_xMetaData = new OResultSetMetaData(m_rConnection, m_pResult);
     }
     return m_xMetaData;
 }
@@ -1084,6 +1082,8 @@ css::uno::Reference<css::beans::XPropertySetInfo> SAL_CALL OPreparedResultSet::g
 
 void OPreparedResultSet::checkColumnIndex(sal_Int32 index)
 {
+    if (!m_aData)
+        throw SQLException("Cursor out of range", *this, rtl::OUString(), 1, Any());
     if (index < 1 || index > static_cast<int>(m_nFieldCount))
     {
         /* static object for efficiency or thread safety is a problem ? */

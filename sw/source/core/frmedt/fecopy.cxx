@@ -252,7 +252,9 @@ static bool lcl_SetAnchor( const SwPosition& rPos, const SwNode& rNd, SwFlyFrame
 {
     bool bRet = true;
     rAnchor.SetAnchor( &rPos );
-    SwContentFrame* pTmpFrame = rNd.GetContentNode()->getLayoutFrame( rDestShell.GetLayout(), &rInsPt, nullptr, false );
+    std::pair<Point, bool> const tmp(rInsPt, false);
+    SwContentFrame *const pTmpFrame = rNd.GetContentNode()->getLayoutFrame(
+            rDestShell.GetLayout(), nullptr, &tmp);
     SwFlyFrame *pTmpFly = pTmpFrame->FindFlyFrame();
     if( pTmpFly && bCheckFlyRecur && pFly->IsUpperOf( *pTmpFly ) )
     {
@@ -761,7 +763,7 @@ bool SwFEShell::Paste( SwDoc* pClpDoc )
                     SwCursor aCursor( aStartPos, nullptr);
                     // Check if we find another insert position by moving
                     // down the last given position
-                    if( aCursor.UpDown( false, ++nMove, nullptr, 0 ) )
+                    if (aCursor.UpDown(false, ++nMove, nullptr, 0, *GetLayout()))
                         aInsertPos = *aCursor.GetPoint();
                     else // if there is no paragraph we have to create it
                         bCompletePara = nCount > 0;

@@ -976,7 +976,7 @@ MSWordSections::MSWordSections( MSWordExportBase& rExport )
     sal_uLong nRstLnNum =  pSet ? pSet->Get( RES_LINENUMBER ).GetStartValue() : 0;
 
     const SwTableNode* pTableNd = rExport.m_pCurPam->GetNode().FindTableNode();
-    const SwSectionNode* pSectNd;
+    const SwSectionNode* pSectNd = nullptr;
     if ( pTableNd )
     {
         pSet = &pTableNd->GetTable().GetFrameFormat()->GetAttrSet();
@@ -1000,6 +1000,11 @@ MSWordSections::MSWordSections( MSWordExportBase& rExport )
             pFormat = pSectNd->GetSection().GetFormat();
     }
 
+    // tdf#118393: FILESAVE: DOCX Export loses header/footer
+    rExport.m_bFirstTOCNodeWithSection = pSectNd &&
+        (   TOX_HEADER_SECTION  == pSectNd->GetSection().GetType() ||
+            TOX_CONTENT_SECTION == pSectNd->GetSection().GetType()  );
+
     // Try to get page descriptor of the first node
     if ( pSet &&
          SfxItemState::SET == pSet->GetItemState( RES_PAGEDESC, true, &pI ) &&
@@ -1014,7 +1019,6 @@ MSWordSections::MSWordSections( MSWordExportBase& rExport )
 WW8_WrPlcSepx::WW8_WrPlcSepx( MSWordExportBase& rExport )
     : MSWordSections( rExport )
     , m_bHeaderFooterWritten( false )
-    , pTextPos( nullptr )
 {
     // to be in sync with the AppendSection() call in the MSWordSections
     // constructor
@@ -1925,7 +1929,6 @@ void MSWordExportBase::WriteHeaderFooterText( const SwFormat& rFormat, bool bHea
 // WW8_WrPlcFootnoteEdn is the class for Footnotes and Endnotes
 
 WW8_WrPlcSubDoc::WW8_WrPlcSubDoc()
-    : pTextPos( nullptr )
 {
 }
 

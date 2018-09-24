@@ -44,6 +44,7 @@
 #include <com/sun/star/text/XFlatParagraphIterator.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include <sal/config.h>
 #include <sal/log.hxx>
@@ -218,11 +219,15 @@ static sal_Int32 lcl_BacktraceWhiteSpaces( const OUString &rText, sal_Int32 nSta
 }
 
 
-extern "C" void lcl_workerfunc (void * gci)
+extern "C" {
+
+static void lcl_workerfunc (void * gci)
 {
     osl_setThreadName("GrammarCheckingIterator");
 
     static_cast<GrammarCheckingIterator*>(gci)->DequeueAndCheck();
+}
+
 }
 
 static lang::Locale lcl_GetPrimaryLanguageOfSentence(

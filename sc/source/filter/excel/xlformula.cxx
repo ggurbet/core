@@ -873,7 +873,6 @@ bool XclTokenArrayHelper::GetString( OUString& rString, const ScTokenArray& rScT
 bool XclTokenArrayHelper::GetStringList( OUString& rStringList, const ScTokenArray& rScTokArr, sal_Unicode cSep )
 {
     bool bRet = true;
-    OUString aString;
     XclTokenArrayIterator aIt( rScTokArr, true );
     enum { STATE_START, STATE_STR, STATE_SEP, STATE_END } eState = STATE_START;
     while( eState != STATE_END ) switch( eState )
@@ -882,10 +881,13 @@ bool XclTokenArrayHelper::GetStringList( OUString& rStringList, const ScTokenArr
             eState = aIt.Is() ? STATE_STR : STATE_END;
         break;
         case STATE_STR:
+        {
+            OUString aString;
             bRet = GetTokenString( aString, *aIt );
             if( bRet ) rStringList += aString ;
             eState = (bRet && (++aIt).Is()) ? STATE_SEP : STATE_END;
-        break;
+            break;
+        }
         case STATE_SEP:
             bRet = aIt->GetOpCode() == ocSep;
             if( bRet ) rStringList += OUStringLiteral1(cSep);
@@ -903,15 +905,16 @@ void XclTokenArrayHelper::ConvertStringToList(
     if( GetString( aString, rScTokArr ) )
     {
         rScTokArr.Clear();
-        sal_Int32 nTokenCnt = comphelper::string::getTokenCount(aString, cStringSep);
+        if (aString.isEmpty())
+            return;
         sal_Int32 nStringIx = 0;
-        for( sal_Int32 nToken = 0; nToken < nTokenCnt; ++nToken )
+        for (;;)
         {
             OUString aToken( aString.getToken( 0, cStringSep, nStringIx ) );
-            aToken = comphelper::string::stripStart(aToken, ' '); // trim leading spaces
-            if( nToken > 0 )
-                rScTokArr.AddOpCode( ocSep );
-            rScTokArr.AddString(rSPool.intern(aToken));
+            rScTokArr.AddString(rSPool.intern(comphelper::string::stripStart(aToken, ' ')));
+            if (nStringIx<0)
+                break;
+            rScTokArr.AddOpCode( ocSep );
         }
     }
 }

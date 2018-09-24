@@ -29,6 +29,8 @@
 #include <QtGui/QWindow>
 #include <QtWidgets/QWidget>
 
+#include <basegfx/polygon/b2dpolygontools.hxx>
+
 static const basegfx::B2DPoint aHalfPointOfs(0.5, 0.5);
 
 static void AddPolygonToPath(QPainterPath& rPath, const basegfx::B2DPolygon& rPolygon,
@@ -277,7 +279,8 @@ void Qt5Graphics::drawPolyPolygon(sal_uInt32 nPolyCount, const sal_uInt32* pPoin
     aPainter.update(aPath.boundingRect());
 }
 
-bool Qt5Graphics::drawPolyPolygon(const basegfx::B2DPolyPolygon& rPolyPoly, double fTransparency)
+bool Qt5Graphics::drawPolyPolygon(const basegfx::B2DHomMatrix& rObjectToDevice,
+                                  const basegfx::B2DPolyPolygon& rPolyPolygon, double fTransparency)
 {
     // ignore invisible polygons
     if (SALCOLOR_NONE == m_aFillColor && SALCOLOR_NONE == m_aLineColor)
@@ -285,9 +288,13 @@ bool Qt5Graphics::drawPolyPolygon(const basegfx::B2DPolyPolygon& rPolyPoly, doub
     if ((fTransparency >= 1.0) || (fTransparency < 0))
         return true;
 
+    // Fallback: Transform to DeviceCoordinates
+    basegfx::B2DPolyPolygon aPolyPolygon(rPolyPolygon);
+    aPolyPolygon.transform(rObjectToDevice);
+
     QPainterPath aPath;
     // ignore empty polygons
-    if (!AddPolyPolygonToPath(aPath, rPolyPoly, !getAntiAliasB2DDraw(),
+    if (!AddPolyPolygonToPath(aPath, aPolyPolygon, !getAntiAliasB2DDraw(),
                               m_aLineColor != SALCOLOR_NONE))
         return true;
 
@@ -316,28 +323,39 @@ bool Qt5Graphics::drawPolyPolygonBezier(sal_uInt32 /*nPoly*/, const sal_uInt32* 
     return false;
 }
 
-bool Qt5Graphics::drawPolyLine(const basegfx::B2DPolygon& rPolyLine, double fTransparency,
+bool Qt5Graphics::drawPolyLine(const basegfx::B2DHomMatrix& rObjectToDevice,
+                               const basegfx::B2DPolygon& rPolyLine, double fTransparency,
                                const basegfx::B2DVector& rLineWidths,
                                basegfx::B2DLineJoin eLineJoin, css::drawing::LineCap eLineCap,
-                               double fMiterMinimumAngle)
+                               double fMiterMinimumAngle, bool bPixelSnapHairline)
 {
     if (SALCOLOR_NONE == m_aFillColor && SALCOLOR_NONE == m_aLineColor)
         return true;
 
     // short circuit if there is nothing to do
-    const int nPointCount = rPolyLine.count();
-    if (nPointCount <= 0)
+    if (0 == rPolyLine.count())
+    {
         return true;
+    }
+
+    // Transform to DeviceCoordinates, get DeviceLineWidth, execute PixelSnapHairline
+    basegfx::B2DPolygon aPolyLine(rPolyLine);
+    aPolyLine.transform(rObjectToDevice);
+    if (bPixelSnapHairline)
+    {
+        aPolyLine = basegfx::utils::snapPointsOfHorizontalOrVerticalEdges(aPolyLine);
+    }
+    const basegfx::B2DVector aLineWidths(rObjectToDevice * rLineWidths);
 
     // setup poly-polygon path
     QPainterPath aPath;
-    AddPolygonToPath(aPath, rPolyLine, rPolyLine.isClosed(), !getAntiAliasB2DDraw(), true);
+    AddPolygonToPath(aPath, aPolyLine, aPolyLine.isClosed(), !getAntiAliasB2DDraw(), true);
 
     Qt5Painter aPainter(*this, false, 255 * (1.0 - fTransparency));
 
     // setup line attributes
     QPen aPen = aPainter.pen();
-    aPen.setWidth(rLineWidths.getX());
+    aPen.setWidth(aLineWidths.getX());
 
     switch (eLineJoin)
     {

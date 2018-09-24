@@ -37,6 +37,7 @@
 #include <com/sun/star/lang/XEventListener.hpp>
 #include <com/sun/star/lang/XMultiComponentFactory.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/registry/XRegistryKey.hpp>
 #include <com/sun/star/registry/XSimpleRegistry.hpp>
@@ -711,7 +712,8 @@ JavaVirtualMachine::getJavaVM(css::uno::Sequence< sal_Int8 > const & rProcessId)
                             m_xContext);
         const std::vector<OUString> & props = aJvm.getProperties();
         std::vector<OUString> options;
-        for (auto const & i: props)
+        options.reserve(props.size());
+        for (auto const& i : props)
         {
             options.push_back(i.startsWith("-") ? i : "-D" + i);
         }

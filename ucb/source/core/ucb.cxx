@@ -28,6 +28,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/ucb/DuplicateProviderException.hpp>
 #include <com/sun/star/ucb/GlobalTransferCommandArgument2.hpp>
@@ -43,6 +44,7 @@
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <ucbhelper/cancelcommandexecution.hxx>
+#include <ucbhelper/getcomponentcontext.hxx>
 #include "identify.hxx"
 #include "ucbcmds.hxx"
 
@@ -231,7 +233,6 @@ bool createContentProviderData(
 UniversalContentBroker::UniversalContentBroker(
     const Reference< css::uno::XComponentContext >& xContext )
 : m_xContext( xContext ),
-  m_pDisposeEventListeners( nullptr ),
   m_nCommandId( 0 )
 {
     OSL_ENSURE( m_xContext.is(),

@@ -26,6 +26,7 @@
 #include <rtl/uuid.h>
 #include <sal/log.hxx>
 #include <cppuhelper/compbase_ex.hxx>
+#include <cppuhelper/implbase_ex.hxx>
 
 #include <com/sun/star/uno/RuntimeException.hpp>
 
@@ -47,7 +48,7 @@ namespace cppu
 /** Shared mutex for implementation helper initialization.
     Not for public use.
 */
-::osl::Mutex & getImplHelperInitMutex()
+static ::osl::Mutex & getImplHelperInitMutex()
 {
     return theImplHelperInitMutex::get();
 }

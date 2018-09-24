@@ -418,7 +418,7 @@ private:
     css::uno::Reference< css::frame::XDispatchInformationProvider >         m_xDispatchInfoHelper;
     css::uno::Reference< css::frame::XTitle >                               m_xTitleHelper;
 
-    WindowCommandDispatch*                                                  m_pWindowCommandDispatch;
+    std::unique_ptr<WindowCommandDispatch>                                  m_pWindowCommandDispatch;
 
     typedef std::unordered_map<OUString, css::beans::Property> TPropInfoHash;
     TPropInfoHash m_lProps;
@@ -469,7 +469,6 @@ Frame::Frame( const css::uno::Reference< css::uno::XComponentContext >& xContext
         , m_bSelfClose                ( false ) // Important!
         , m_bIsHidden                 ( true )
         , m_xTitleHelper              ()
-        , m_pWindowCommandDispatch    ( nullptr )
         , m_lSimpleChangeListener     ( m_aMutex )
         , m_lVetoChangeListener       ( m_aMutex )
         , m_aChildFrameContainer      ()
@@ -810,7 +809,7 @@ void SAL_CALL Frame::initialize( const css::uno::Reference< css::awt::XWindow >&
     // So superfluous messages are filtered to NULL :-)
     implts_startWindowListening();
 
-    m_pWindowCommandDispatch = new WindowCommandDispatch(m_xContext, this);
+    m_pWindowCommandDispatch.reset(new WindowCommandDispatch(m_xContext, this));
 
     // Initialize title functionality
     TitleHelper* pTitleHelper = new TitleHelper( m_xContext );
@@ -2084,12 +2083,12 @@ void SAL_CALL Frame::disposing()
         disableLayoutManager(layoutMgr);
     }
 
-    WindowCommandDispatch * disp = nullptr;
+    std::unique_ptr<WindowCommandDispatch> disp;
     {
         SolarMutexGuard g;
         std::swap(disp, m_pWindowCommandDispatch);
     }
-    delete disp;
+    disp.reset();
 
     // Send message to all listener and forget her references.
     css::lang::EventObject aEvent( xThis );

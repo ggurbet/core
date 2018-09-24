@@ -63,6 +63,7 @@
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
+#include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <unotools/ucbstreamhelper.hxx>
 #include <rtl/bootstrap.hxx>
 #include <rtl/instance.hxx>
@@ -166,7 +167,7 @@ sal_uInt8* ImplSearchEntry( sal_uInt8* pSource, sal_uInt8 const * pDest, sal_uLo
     return nullptr;
 }
 
-inline OUString ImpGetExtension( const OUString &rPath )
+static inline OUString ImpGetExtension( const OUString &rPath )
 {
     OUString        aExt;
     INetURLObject   aURL( rPath );
@@ -907,8 +908,8 @@ struct ImpFilterLibCacheEntry
 #ifndef DISABLE_DYNLOADING
     osl::Module             maLibrary;
 #endif
-    OUString                maFiltername;
-    OUString                maFormatName;
+    OUString const          maFiltername;
+    OUString const          maFormatName;
     PFilterCall             mpfnImport;
 
     ImpFilterLibCacheEntry(const OUString& rPathname, const OUString& rFiltername, const OUString& rFormatName);
@@ -1070,8 +1071,7 @@ ImpFilterLibCacheEntry* ImpFilterLibCache::GetFilter(const OUString& rFilterPath
 namespace { struct Cache : public rtl::Static<ImpFilterLibCache, Cache> {}; }
 
 GraphicFilter::GraphicFilter( bool bConfig )
-    : pErrorEx(nullptr)
-    , bUseConfig(bConfig)
+    : bUseConfig(bConfig)
 {
     ImplInit();
 }

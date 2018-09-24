@@ -1243,7 +1243,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
 
     ScDocumentUniquePtr pUndoDoc;
     ScDocument* pRefUndoDoc = nullptr;
-    ScRefUndoData* pUndoData = nullptr;
+    std::unique_ptr<ScRefUndoData> pUndoData;
 
     if ( bRecord )
     {
@@ -1260,7 +1260,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
             pRefUndoDoc = new ScDocument( SCDOCMODE_UNDO );
             pRefUndoDoc->InitUndo( pDoc, 0, nTabCount-1 );
 
-            pUndoData = new ScRefUndoData( pDoc );
+            pUndoData.reset(new ScRefUndoData( pDoc ));
         }
     }
 
@@ -1411,20 +1411,20 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
         aOptions.bAsLink    = bAsLink;
         aOptions.eMoveMode  = eMoveMode;
 
-        SfxUndoAction* pUndo = new ScUndoPaste(
+        std::unique_ptr<SfxUndoAction> pUndo(new ScUndoPaste(
             pDocSh, ScRange(nStartCol, nStartRow, nStartTab, nUndoEndCol, nUndoEndRow, nEndTab),
-            aFilteredMark, std::move(pUndoDoc), std::move(pRedoDoc), nFlags | nUndoFlags, pUndoData,
-            false, &aOptions );     // false = Redo data not yet copied
+            aFilteredMark, std::move(pUndoDoc), std::move(pRedoDoc), nFlags | nUndoFlags, std::move(pUndoData),
+            false, &aOptions ));     // false = Redo data not yet copied
 
         if ( bInsertCells )
         {
             //  Merge the paste undo action into the insert action.
             //  Use ScUndoWrapper so the ScUndoPaste pointer can be stored in the insert action.
 
-            pUndoMgr->AddUndoAction( new ScUndoWrapper( pUndo ), true );
+            pUndoMgr->AddUndoAction( new ScUndoWrapper( std::move(pUndo) ), true );
         }
         else
-            pUndoMgr->AddUndoAction( pUndo );
+            pUndoMgr->AddUndoAction( pUndo.release() );
         pUndoMgr->LeaveListAction();
     }
 
@@ -1610,13 +1610,13 @@ bool ScViewFunc::PasteMultiRangesFromClip(
         aOptions.bAsLink    = bAsLink;
         aOptions.eMoveMode  = eMoveMode;
 
-        ScUndoPaste* pUndo = new ScUndoPaste(pDocSh,
-            aMarkedRange, aMark, std::move(pUndoDoc), nullptr, nFlags|nUndoFlags, nullptr, false, &aOptions);
+        std::unique_ptr<ScUndoPaste> pUndo(new ScUndoPaste(pDocSh,
+            aMarkedRange, aMark, std::move(pUndoDoc), nullptr, nFlags|nUndoFlags, nullptr, false, &aOptions));
 
         if (bInsertCells)
-            pUndoMgr->AddUndoAction(new ScUndoWrapper(pUndo), true);
+            pUndoMgr->AddUndoAction(new ScUndoWrapper(std::move(pUndo)), true);
         else
-            pUndoMgr->AddUndoAction(pUndo);
+            pUndoMgr->AddUndoAction(pUndo.release());
 
         pUndoMgr->LeaveListAction();
     }
@@ -1957,9 +1957,9 @@ void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
     if ( pDoc )
     {
         const bool bRecord( pDoc->IsUndoEnabled());
-        ScDocument* pUndoDoc = nullptr;
-        ScDocument* pRedoDoc = nullptr;
-        ScRefUndoData* pUndoData = nullptr;
+        ScDocumentUniquePtr pUndoDoc;
+        ScDocumentUniquePtr pRedoDoc;
+        std::unique_ptr<ScRefUndoData> pUndoData;
         SCTAB nTab = GetViewData().GetTabNo();
         SCTAB nStartTab = nTab;
         SCTAB nEndTab = nTab;
@@ -1977,7 +1977,7 @@ void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
 
         if ( bRecord )
         {
-            pUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+            pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
             pUndoDoc->InitUndoSelected( pDoc , rMark , bColInfo , bRowInfo );
             pDoc->CopyToDocument( aUserRange , InsertDeleteFlags::VALUE , false, *pUndoDoc );
         }
@@ -1994,12 +1994,12 @@ void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
             }
         }
         pDocSh->UpdatePaintExt( nExtFlags, nStartCol, nCurrentRow, nStartTab, nEndCol, nCurrentRow, nEndTab );  // content after the change
-        SfxUndoAction* pUndo = new ScUndoDataForm( pDocSh,
+        std::unique_ptr<SfxUndoAction> pUndo( new ScUndoDataForm( pDocSh,
                                                    nStartCol, nCurrentRow, nStartTab,
                                                    nUndoEndCol, nUndoEndRow, nEndTab, rMark,
-                                                   pUndoDoc, pRedoDoc,
-                                                   pUndoData );
-        pUndoMgr->AddUndoAction( new ScUndoWrapper( pUndo ), true );
+                                                   std::move(pUndoDoc), std::move(pRedoDoc),
+                                                   std::move(pUndoData) ) );
+        pUndoMgr->AddUndoAction( new ScUndoWrapper( std::move(pUndo) ), true );
 
         PaintPartFlags nPaint = PaintPartFlags::Grid;
         if (bColInfo)

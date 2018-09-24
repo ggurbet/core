@@ -176,27 +176,27 @@ SvxConfigPage::CanConfig( const OUString& aModuleId )
     return !(aModuleId == "com.sun.star.script.BasicIDE" || aModuleId == "com.sun.star.frame.Bibliography");
 }
 
-VclPtr<SfxTabPage> CreateSvxMenuConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static VclPtr<SfxTabPage> CreateSvxMenuConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
 {
     return VclPtr<SvxMenuConfigPage>::Create( pParent.pParent, *rSet );
 }
 
-VclPtr<SfxTabPage> CreateSvxContextMenuConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static VclPtr<SfxTabPage> CreateSvxContextMenuConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
 {
     return VclPtr<SvxMenuConfigPage>::Create( pParent.pParent, *rSet, false );
 }
 
-VclPtr<SfxTabPage> CreateKeyboardConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static VclPtr<SfxTabPage> CreateKeyboardConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
 {
        return VclPtr<SfxAcceleratorConfigPage>::Create( pParent.pParent, *rSet );
 }
 
-VclPtr<SfxTabPage> CreateSvxToolbarConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static VclPtr<SfxTabPage> CreateSvxToolbarConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
 {
     return VclPtr<SvxToolbarConfigPage>::Create( pParent.pParent, *rSet );
 }
 
-VclPtr<SfxTabPage> CreateSvxEventConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
+static VclPtr<SfxTabPage> CreateSvxEventConfigPage( TabPageParent pParent, const SfxItemSet* rSet )
 {
     return VclPtr<SvxEventConfigPage>::Create( pParent.pParent, *rSet, SvxEventConfigPage::EarlyInit() );
 }
@@ -395,8 +395,7 @@ MenuSaveInData::MenuSaveInData(
         m_aMenuResourceURL(
             ITEM_MENUBAR_URL  ),
         m_aDescriptorContainer(
-            ITEM_DESCRIPTOR_CONTAINER  ),
-        pRootEntry( nullptr )
+            ITEM_DESCRIPTOR_CONTAINER  )
 {
     try
     {
@@ -1887,7 +1886,6 @@ SvxMainMenuOrganizerDialog::SvxMainMenuOrganizerDialog(
     weld::Window* pParent, SvxEntries* entries,
     SvxConfigEntry const * selection, bool bCreateMenu )
     : GenericDialogController(pParent, "cui/ui/movemenu.ui", "MoveMenuDialog")
-    , mpEntries(nullptr)
     , m_xMenuBox(m_xBuilder->weld_widget("namebox"))
     , m_xMenuNameEdit(m_xBuilder->weld_entry("menuname"))
     , m_xMenuListBox(m_xBuilder->weld_tree_view("menulist"))
@@ -1969,7 +1967,7 @@ IMPL_LINK_NOARG(SvxMainMenuOrganizerDialog, ModifyHdl, weld::Entry&, void)
     const int nNewMenuPos = m_xMenuListBox->find_id(m_sNewMenuEntryId);
     const int nOldSelection = m_xMenuListBox->get_selected_index();
     m_xMenuListBox->remove(nNewMenuPos);
-    m_xMenuListBox->insert(nNewMenuPos, m_sNewMenuEntryId, pNewEntryData->GetName(), "");
+    m_xMenuListBox->insert(nNewMenuPos, m_sNewMenuEntryId, pNewEntryData->GetName(), nullptr);
     m_xMenuListBox->select(nOldSelection);
 }
 
@@ -2007,7 +2005,7 @@ IMPL_LINK( SvxMainMenuOrganizerDialog, MoveHdl, weld::Button&, rButton, void )
     OUString sId = m_xMenuListBox->get_id(nSourceEntry);
     OUString sEntry = m_xMenuListBox->get_text(nSourceEntry);
     m_xMenuListBox->remove(nSourceEntry);
-    m_xMenuListBox->insert(nTargetEntry, sId, sEntry, "");
+    m_xMenuListBox->insert(nTargetEntry, sId, sEntry, nullptr);
     m_xMenuListBox->select(nTargetEntry);
 
     UpdateButtonStates();
@@ -2034,7 +2032,6 @@ SvxConfigEntry::SvxConfigEntry( const OUString& rDisplayName,
     , bIsModified( false )
     , bIsVisible( true )
     , nStyle( 0 )
-    , mpEntries( nullptr )
 {
     if (bPopUp)
     {
@@ -2075,7 +2072,6 @@ ToolbarSaveInData::ToolbarSaveInData(
     bool docConfig ) :
 
     SaveInData              ( xCfgMgr, xParentCfgMgr, aModuleId, docConfig ),
-    pRootEntry              ( nullptr ),
     m_aDescriptorContainer  ( ITEM_DESCRIPTOR_CONTAINER  )
 
 {
@@ -2822,7 +2818,7 @@ SvxNewToolbarDialog::SvxNewToolbarDialog(weld::Window* pWindow, const OUString& 
     : GenericDialogController(pWindow, "cui/ui/newtoolbardialog.ui", "NewToolbarDialog")
     , m_xEdtName(m_xBuilder->weld_entry("edit"))
     , m_xBtnOK(m_xBuilder->weld_button("ok"))
-    , m_xSaveInListBox(m_xBuilder->weld_combo_box_text("savein"))
+    , m_xSaveInListBox(m_xBuilder->weld_combo_box("savein"))
 {
     m_xEdtName->set_text(rName);
     m_xEdtName->select_region(0, -1);

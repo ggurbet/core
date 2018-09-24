@@ -24,6 +24,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/random.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <o3tl/any.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/math.hxx>
@@ -81,10 +82,6 @@ void AnalysisAddIn::InitData()
 }
 
 AnalysisAddIn::AnalysisAddIn( const uno::Reference< uno::XComponentContext >& xContext ) :
-    pDefLocales( nullptr ),
-    pFD( nullptr ),
-    pFactDoubles( nullptr ),
-    pCDL( nullptr ),
     aAnyConv( xContext )
 {
 }

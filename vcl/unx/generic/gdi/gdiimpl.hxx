@@ -30,6 +30,7 @@
 #include <salgdiimpl.hxx>
 
 #include <basegfx/polygon/b2dtrapezoid.hxx>
+#include <basegfx/polygon/b2dpolygontriangulator.hxx>
 #include <ControlCacheKey.hxx>
 
 /* From <X11/Intrinsic.h> */
@@ -93,6 +94,11 @@ private:
 
     XID GetXRenderPicture();
     bool drawFilledTrapezoids( const basegfx::B2DTrapezoid*, int nTrapCount, double fTransparency );
+    bool drawFilledTriangles(
+        const basegfx::B2DHomMatrix& rObjectToDevice,
+        const basegfx::triangulator::B2DTriangleVector& rTriangles,
+        double fTransparency,
+        bool bPixelOffset);
 
     long GetGraphicsHeight() const;
 
@@ -157,15 +163,21 @@ public:
     virtual void drawPolygon( sal_uInt32 nPoints, const SalPoint* pPtAry ) override;
 
     virtual void drawPolyPolygon( sal_uInt32 nPoly, const sal_uInt32* pPoints, PCONSTSALPOINT* pPtAry ) override;
-    virtual bool drawPolyPolygon( const basegfx::B2DPolyPolygon&, double fTransparency ) override;
+
+    virtual bool drawPolyPolygon(
+                const basegfx::B2DHomMatrix& rObjectToDevice,
+                const basegfx::B2DPolyPolygon&,
+                double fTransparency) override;
 
     virtual bool drawPolyLine(
+                const basegfx::B2DHomMatrix& rObjectToDevice,
                 const basegfx::B2DPolygon&,
                 double fTransparency,
                 const basegfx::B2DVector& rLineWidths,
                 basegfx::B2DLineJoin,
                 css::drawing::LineCap,
-                double fMiterMinimumAngle) override;
+                double fMiterMinimumAngle,
+                bool bPixelSnapHairline) override;
 
     virtual bool drawPolyLineBezier(
                 sal_uInt32 nPoints,

@@ -240,7 +240,6 @@ ODatabaseForm::ODatabaseForm(const Reference<XComponentContext>& _rxContext)
     ,m_aPropertyBagHelper( *this )
     ,m_aParameterManager( m_aMutex, _rxContext )
     ,m_aFilterManager()
-    ,m_pLoadTimer(nullptr)
     ,m_nResetsPending(0)
     ,m_nPrivileges(0)
     ,m_bInsertOnly( false )
@@ -275,7 +274,6 @@ ODatabaseForm::ODatabaseForm( const ODatabaseForm& _cloneSource )
     ,m_aPropertyBagHelper( *this )
     ,m_aParameterManager( m_aMutex, _cloneSource.m_xContext )
     ,m_aFilterManager()
-    ,m_pLoadTimer( nullptr )
     ,m_nResetsPending( 0 )
     ,m_nPrivileges( 0 )
     ,m_bInsertOnly( _cloneSource.m_bInsertOnly )
@@ -497,13 +495,13 @@ Sequence<sal_Int8> ODatabaseForm::GetDataMultiPartEncoded(const Reference<XContr
 
     // Copy MessageStream to SvStream
     SvMemoryStream aMemStream;
-    char* pBuf = new char[1025];
+    std::unique_ptr<char[]> pBuf(new char[1025]);
     int nRead;
-    while( (nRead = aMessStream.Read(pBuf, 1024)) > 0 )
+    while( (nRead = aMessStream.Read(pBuf.get(), 1024)) > 0 )
     {
-        aMemStream.WriteBytes(pBuf, nRead);
+        aMemStream.WriteBytes(pBuf.get(), nRead);
     }
-    delete[] pBuf;
+    pBuf.reset();
 
     aMemStream.Flush();
     aMemStream.Seek( 0 );
@@ -2089,7 +2087,7 @@ void SAL_CALL ODatabaseForm::submit( const Reference<XControl>& Control,
     }
 }
 
-void lcl_dispatch(const Reference< XFrame >& xFrame,const Reference<XURLTransformer>& xTransformer,const OUString& aURLStr,const OUString& aReferer,const OUString& aTargetName
+static void lcl_dispatch(const Reference< XFrame >& xFrame,const Reference<XURLTransformer>& xTransformer,const OUString& aURLStr,const OUString& aReferer,const OUString& aTargetName
                   ,const OUString& aData,rtl_TextEncoding _eEncoding)
 {
     URL aURL;

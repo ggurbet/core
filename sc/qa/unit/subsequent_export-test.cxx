@@ -121,6 +121,7 @@ public:
     void testFormatExportODS();
 
     void testCommentExportXLSX();
+    void testCommentExportXLSX_2_XLSX();
 #if HAVE_MORE_FONTS
     void testCustomColumnWidthExportXLSX();
 #endif
@@ -187,7 +188,9 @@ public:
     void testSheetCondensedCharacterSpaceXLSX();
     void testTextUnderlineColorXLSX();
     void testSheetRunParagraphPropertyXLSX();
+    void testHiddenShapeXLS();
     void testHiddenShapeXLSX();
+    void testShapeAutofitXLSX();
     void testHyperlinkXLSX();
     void testMoveCellAnchoredShapesODS();
     void testMatrixMultiplicationXLSX();
@@ -241,8 +244,8 @@ public:
     CPPUNIT_TEST(testCellNoteExportODS);
     CPPUNIT_TEST(testCellNoteExportXLS);
     CPPUNIT_TEST(testFormatExportODS);
-
     CPPUNIT_TEST(testCommentExportXLSX);
+    CPPUNIT_TEST(testCommentExportXLSX_2_XLSX);
 #if HAVE_MORE_FONTS
     CPPUNIT_TEST(testCustomColumnWidthExportXLSX);
 #endif
@@ -300,7 +303,9 @@ public:
     CPPUNIT_TEST(testSheetCondensedCharacterSpaceXLSX);
     CPPUNIT_TEST(testTextUnderlineColorXLSX);
     CPPUNIT_TEST(testSheetRunParagraphPropertyXLSX);
+    CPPUNIT_TEST(testHiddenShapeXLS);
     CPPUNIT_TEST(testHiddenShapeXLSX);
+    CPPUNIT_TEST(testShapeAutofitXLSX);
     CPPUNIT_TEST(testHyperlinkXLSX);
     CPPUNIT_TEST(testMoveCellAnchoredShapesODS);
     CPPUNIT_TEST(testMatrixMultiplicationXLSX);
@@ -696,8 +701,10 @@ void ScExportTest::testCommentExportXLSX()
     ScDocShellRef xShell = loadDoc("comment.", FORMAT_ODS);
     CPPUNIT_ASSERT(xShell.is());
 
-    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
-    const xmlDocPtr pComments = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/comments1.xml");
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    const xmlDocPtr pComments
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/comments1.xml");
     CPPUNIT_ASSERT(pComments);
 
     assertXPath(pComments, "/x:comments/x:authors/x:author[1]", "BAKO");
@@ -705,7 +712,8 @@ void ScExportTest::testCommentExportXLSX()
 
     assertXPath(pComments, "/x:comments/x:commentList/x:comment/x:text/x:r/x:t", "Komentarz");
 
-    const xmlDocPtr pVmlDrawing = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
+    const xmlDocPtr pVmlDrawing
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
     CPPUNIT_ASSERT(pVmlDrawing);
 
     //assertXPath(pVmlDrawing, "/xml/v:shapetype", "coordsize", "21600,21600");
@@ -716,6 +724,37 @@ void ScExportTest::testCommentExportXLSX()
     assertXPath(pVmlDrawing, "/xml/v:shape", "type", sShapeTypeId);
     assertXPath(pVmlDrawing, "/xml/v:shape/v:shadow", "color", "black");
     assertXPath(pVmlDrawing, "/xml/v:shape/v:shadow", "obscured", "t");
+}
+
+void ScExportTest::testCommentExportXLSX_2_XLSX()
+{
+    //tdf#117287 FILESAVE XLSX: Comments always disappear after opening the exported XLSX file with Excel
+    ScDocShellRef xShell = loadDoc("tdf117287_comment.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xShell.is());
+
+
+    ScDocument& rDoc = xShell->GetDocument();
+    ScAddress aPosC9(2, 8, 0);
+    ScPostIt *pNote = rDoc.GetNote(aPosC9);
+
+    CPPUNIT_ASSERT(pNote);
+    CPPUNIT_ASSERT(!pNote->IsCaptionShown());
+
+    pNote->ShowCaption(aPosC9, true);
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    const xmlDocPtr pComments
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/comments1.xml");
+    CPPUNIT_ASSERT(pComments);
+
+    assertXPath(pComments, "/x:comments/x:commentList/x:comment/x:text/x:r/x:t", "visible comment");
+
+    const xmlDocPtr pVmlDrawing
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
+    CPPUNIT_ASSERT(pVmlDrawing);
+
+    assertXPath(pVmlDrawing, "/xml/v:shape/x:ClientData/x:Visible", 0);
 }
 
 #if HAVE_MORE_FONTS
@@ -2418,7 +2457,7 @@ void ScExportTest::testBordersExchangeXLSX()
     xDocSh->DoClose();
 }
 
-OUString toString( const ScBigRange& rRange )
+static OUString toString( const ScBigRange& rRange )
 {
     OUStringBuffer aBuf;
     aBuf.append("(columns:");
@@ -3539,14 +3578,56 @@ void ScExportTest::testPreserveTextWhitespace2XLSX()
     xDocSh->DoClose();
 }
 
+void ScExportTest::testHiddenShapeXLS()
+{
+    ScDocShellRef xDocSh = loadDoc("hiddenShape.", FORMAT_XLS);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    ScDocument& rDoc = xDocSh->GetDocument();
+    CPPUNIT_ASSERT(rDoc.GetTableCount() > 0);
+    ScDrawLayer* pDrawLayer = rDoc.GetDrawLayer();
+    SdrPage* pPage = pDrawLayer->GetPage(0);
+    CPPUNIT_ASSERT(pPage);
+    SdrObject* pObj = pPage->GetObj(0);
+    CPPUNIT_ASSERT(pObj);
+    CPPUNIT_ASSERT_MESSAGE("Drawing object should not be visible.", !pObj->IsVisible());
+    CPPUNIT_ASSERT_MESSAGE("Drawing object should not be printable.", !pObj->IsPrintable());
+    xDocSh->DoClose();
+}
+
 void ScExportTest::testHiddenShapeXLSX()
 {
     ScDocShellRef xDocSh = loadDoc("hiddenShape.", FORMAT_XLSX);
     CPPUNIT_ASSERT(xDocSh.is());
 
+    ScDocument& rDoc = xDocSh->GetDocument();
+    CPPUNIT_ASSERT(rDoc.GetTableCount() > 0);
+    ScDrawLayer* pDrawLayer = rDoc.GetDrawLayer();
+    SdrPage* pPage = pDrawLayer->GetPage(0);
+    CPPUNIT_ASSERT(pPage);
+    SdrObject* pObj = pPage->GetObj(0);
+    CPPUNIT_ASSERT(pObj);
+    CPPUNIT_ASSERT_MESSAGE("Drawing object should not be visible.", !pObj->IsVisible());
+    CPPUNIT_ASSERT_MESSAGE("Drawing object should not be printable.", !pObj->IsPrintable());
+
     xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/drawings/drawing1.xml", FORMAT_XLSX);
     CPPUNIT_ASSERT(pDoc);
     assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor/xdr:sp[1]/xdr:nvSpPr/xdr:cNvPr", "hidden", "1");
+    xDocSh->DoClose();
+}
+
+void ScExportTest::testShapeAutofitXLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("testShapeAutofit.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/drawings/drawing1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    // TextAutoGrowHeight --> "Fit height to text" / "Resize shape to fit text" --> true
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor[1]/xdr:sp/xdr:txBody/a:bodyPr/a:spAutoFit", 1);
+    // TextAutoGrowHeight --> "Fit height to text" / "Resize shape to fit text" --> false
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor[2]/xdr:sp/xdr:txBody/a:bodyPr/a:noAutofit", 1);
 }
 
 void ScExportTest::testHyperlinkXLSX()

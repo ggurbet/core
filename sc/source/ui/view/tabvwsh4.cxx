@@ -1048,12 +1048,12 @@ bool ScTabViewShell::HasPrintOptionsPage() const
     return true;
 }
 
-VclPtr<SfxTabPage> ScTabViewShell::CreatePrintOptionsPage(weld::Container* pPage, const SfxItemSet &rOptions )
+VclPtr<SfxTabPage> ScTabViewShell::CreatePrintOptionsPage(TabPageParent pParent, const SfxItemSet &rOptions )
 {
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
     ::CreateTabPage ScTpPrintOptionsCreate = pFact->GetTabPageCreatorFunc(RID_SC_TP_PRINT);
     if ( ScTpPrintOptionsCreate )
-        return ScTpPrintOptionsCreate(pPage, &rOptions);
+        return ScTpPrintOptionsCreate(pParent, &rOptions);
     return VclPtr<SfxTabPage>();
 }
 
@@ -1626,26 +1626,7 @@ ScTabViewShell::ScTabViewShell( SfxViewFrame* pViewFrame,
     ScDBFunc( &pViewFrame->GetWindow(), static_cast<ScDocShell&>(*pViewFrame->GetObjectShell()), this ),
     eCurOST(OST_NONE),
     nDrawSfxId(0),
-    pDrawShell(nullptr),
-    pDrawTextShell(nullptr),
-    pEditShell(nullptr),
-    pPivotShell(nullptr),
-    pAuditingShell(nullptr),
-    pDrawFormShell(nullptr),
-    pCellShell(nullptr),
-    pOleObjectShell(nullptr),
-    pChartShell(nullptr),
-    pGraphicShell(nullptr),
-    pMediaShell(nullptr),
-    pPageBreakShell(nullptr),
-    pExtrusionBarShell(nullptr),
-    pFontworkBarShell(nullptr),
-    pFormShell(nullptr),
-    mpInputHandler(nullptr),
-    pCurFrameLine(nullptr),
     aTarget(this),
-    pDialogDPObject(nullptr),
-    pNavSettings(nullptr),
     bActiveDrawSh(false),
     bActiveDrawTextSh(false),
     bActiveDrawFormSh(false),
@@ -1661,7 +1642,6 @@ ScTabViewShell::ScTabViewShell( SfxViewFrame* pViewFrame,
     bInPrepareClose(false),
     bInDispose(false),
     nCurRefDlgId(0),
-    pAccessibilityBroadcaster(nullptr),
     mbInSwitch(false)
 {
     const ScAppOptions& rAppOpt = SC_MOD()->GetAppOptions();

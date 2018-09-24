@@ -34,7 +34,7 @@
 using namespace ::utl;
 using namespace ::com::sun::star::uno;
 
-template< class T > T getSafeValue( const Any& rAny )
+template< class T > static T getSafeValue( const Any& rAny )
 {
     T value = T();
     bool bOk = (rAny >>= value);
@@ -76,7 +76,6 @@ bool SdOptionsItem::PutProperties( const Sequence< OUString >& rNames, const Seq
 
 SdOptionsGeneric::SdOptionsGeneric(bool bImpress, const OUString& rSubTree)
     : maSubTree(rSubTree)
-    , mpCfgItem( nullptr)
     , mbImpress(bImpress)
     , mbInit(rSubTree.isEmpty())
     , mbEnableModify(false)

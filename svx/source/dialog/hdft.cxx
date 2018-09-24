@@ -84,11 +84,11 @@ const sal_uInt16 SvxHFPage::pRanges[] =
 
 namespace svx {
 
-    bool ShowBorderBackgroundDlg( vcl::Window* pParent, SfxItemSet* pBBSet )
+    bool ShowBorderBackgroundDlg(weld::Window* pParent, SfxItemSet* pBBSet)
     {
         bool bRes = false;
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxBorderBackgroundDlg( pParent, *pBBSet, false/*bEnableDrawingLayerFillStyles*/ ));
+        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxBorderBackgroundDlg(pParent, *pBBSet, false /*bEnableDrawingLayerFillStyles*/));
         if ( pDlg->Execute() == RET_OK && pDlg->GetOutputItemSet() )
         {
             SfxItemIter aIter( *pDlg->GetOutputItemSet() );
@@ -108,32 +108,27 @@ namespace svx {
 
 VclPtr<SfxTabPage> SvxHeaderPage::Create( TabPageParent pParent, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxHeaderPage>::Create( pParent.pParent, *rSet );
+    return VclPtr<SvxHeaderPage>::Create( pParent, *rSet );
 }
 
 VclPtr<SfxTabPage> SvxFooterPage::Create( TabPageParent pParent, const SfxItemSet* rSet )
 {
-    return VclPtr<SvxFooterPage>::Create( pParent.pParent, *rSet );
+    return VclPtr<SvxFooterPage>::Create( pParent, *rSet );
 }
 
-SvxHeaderPage::SvxHeaderPage( vcl::Window* pParent, const SfxItemSet& rAttr ) :
-
-    SvxHFPage( pParent, rAttr, SID_ATTR_PAGE_HEADERSET )
-
+SvxHeaderPage::SvxHeaderPage(TabPageParent pParent, const SfxItemSet& rAttr)
+    : SvxHFPage( pParent, rAttr, SID_ATTR_PAGE_HEADERSET )
 {
 }
 
-SvxFooterPage::SvxFooterPage( vcl::Window* pParent, const SfxItemSet& rAttr ) :
-
-    SvxHFPage( pParent, rAttr, SID_ATTR_PAGE_FOOTERSET )
-
+SvxFooterPage::SvxFooterPage(TabPageParent pParent, const SfxItemSet& rAttr)
+    : SvxHFPage( pParent, rAttr, SID_ATTR_PAGE_FOOTERSET )
 {
 }
 
 SvxHFPage::SvxHFPage(TabPageParent pParent, const SfxItemSet& rSet, sal_uInt16 nSetId)
     : SfxTabPage(pParent, "svx/ui/headfootformatpage.ui", "HFFormatPage", &rSet)
     , nId(nSetId)
-    , pBBSet(nullptr)
     , mbDisableQueryBox(false)
     , mbEnableDrawingLayerFillStyles(false)
     , m_xCntSharedBox(m_xBuilder->weld_check_button("checkSameLR"))
@@ -623,7 +618,7 @@ IMPL_LINK_NOARG(SvxHFPage, BackgroundHdl, weld::Button&, void)
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
 
     ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxBorderBackgroundDlg(
-        this,
+        GetDialogFrameWeld(),
         *pBBSet,
         mbEnableDrawingLayerFillStyles));
 

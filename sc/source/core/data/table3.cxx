@@ -104,7 +104,7 @@ using namespace ::com::sun::star::i18n;
     @return Returns TRUE if a numeral element is found in a given string, or
     FALSE if no numeral element is found.
 */
-bool SplitString( const OUString &sWhole,
+static bool SplitString( const OUString &sWhole,
     OUString &sPrefix, OUString &sSuffix, double &fNum )
 {
     // Get prefix element, search for any digit and stop.
@@ -164,7 +164,7 @@ bool SplitString( const OUString &sWhole,
     @return Returns 1 if sInput1 is greater, 0 if sInput1 == sInput2, and -1 if
     sInput2 is greater.
 */
-short Compare( const OUString &sInput1, const OUString &sInput2,
+static short Compare( const OUString &sInput1, const OUString &sInput2,
                const bool bCaseSens, const ScUserListData* pData, const CollatorWrapper *pCW )
 {
     OUString sStr1( sInput1 ), sStr2( sInput2 ), sPre1, sSuf1, sPre2, sSuf2;
@@ -1935,15 +1935,14 @@ static void lcl_RemoveNumberFormat( ScTable* pTab, SCCOL nCol, SCROW nRow )
     }
 }
 
-// at least MSC needs this at linkage level to be able to use it in a template
-typedef struct lcl_ScTable_DoSubTotals_RowEntry
+struct RowEntry
 {
     sal_uInt16  nGroupNo;
     SCROW   nSubStartRow;
     SCROW   nDestRow;
     SCROW   nFuncStart;
     SCROW   nFuncEnd;
-} RowEntry;
+};
 
 
 static const char* lcl_GetSubTotalStrId(int id)

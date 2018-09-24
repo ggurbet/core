@@ -94,6 +94,20 @@ class SwAbstractSfxDialog_Impl :public SfxAbstractDialog
     virtual void        SetText( const OUString& rStr ) override;
 };
 
+class SwAbstractSfxController_Impl : public SfxAbstractDialog
+{
+protected:
+    std::unique_ptr<SfxSingleTabDialogController> m_xDlg;
+public:
+    explicit SwAbstractSfxController_Impl(std::unique_ptr<SfxSingleTabDialogController> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+    virtual const SfxItemSet* GetOutputItemSet() const override;
+    virtual void SetText(const OUString& rStr) override;
+};
+
 class AbstractSwAsciiFilterDlg_Impl : public AbstractSwAsciiFilterDlg
 {
 protected:
@@ -115,13 +129,14 @@ class VclAbstractDialog_Impl : public VclAbstractDialog
 class AbstractGenericDialog_Impl : public VclAbstractDialog
 {
 protected:
-    std::unique_ptr<weld::GenericDialogController> m_xDlg;
+    std::shared_ptr<weld::GenericDialogController> m_xDlg;
 public:
     explicit AbstractGenericDialog_Impl(std::unique_ptr<weld::GenericDialogController> p)
         : m_xDlg(std::move(p))
     {
     }
     virtual short Execute() override;
+    virtual bool StartExecuteAsync(AsyncContext &rCtx) override;
 };
 
 class AbstractSwSortDlg_Impl : public VclAbstractDialog
@@ -226,13 +241,14 @@ class AbstractTabDialog_Impl : virtual public SfxAbstractTabDialog
 class AbstractTabController_Impl : virtual public SfxAbstractTabDialog
 {
 protected:
-    std::unique_ptr<SfxTabDialogController> m_xDlg;
+    std::shared_ptr<SfxTabDialogController> m_xDlg;
 public:
     explicit AbstractTabController_Impl(std::unique_ptr<SfxTabDialogController> p)
         : m_xDlg(std::move(p))
     {
     }
     virtual short Execute() override;
+    virtual bool  StartExecuteAsync(AsyncContext &rCtx) override;
     virtual void                SetCurPageId( const OString &rName ) override;
     virtual const SfxItemSet*   GetOutputItemSet() const override;
     virtual const sal_uInt16*   GetInputRanges( const SfxItemPool& pItem ) override;
@@ -249,6 +265,19 @@ public:
     {
     }
     DECL_LINK(ApplyHdl, Button*, void);
+private:
+    Link<LinkParamNone*,void> m_aHandler;
+    virtual void                SetApplyHdl( const Link<LinkParamNone*,void>& rLink ) override;
+};
+
+class AbstractApplyTabController_Impl : public AbstractTabController_Impl, virtual public SfxAbstractApplyTabDialog
+{
+public:
+    explicit AbstractApplyTabController_Impl(std::unique_ptr<SfxTabDialogController> p)
+        : AbstractTabController_Impl(std::move(p))
+    {
+    }
+    DECL_LINK(ApplyHdl, weld::Button&, void);
 private:
     Link<LinkParamNone*,void> m_aHandler;
     virtual void                SetApplyHdl( const Link<LinkParamNone*,void>& rLink ) override;
@@ -545,8 +574,8 @@ public:
     virtual ~SwAbstractDialogFactory_Impl() {}
 
     virtual VclPtr<SfxAbstractDialog> CreateNumFormatDialog(vcl::Window* pParent, const SfxItemSet& rAttr) override;
-    virtual VclPtr<SfxAbstractDialog> CreateSwDropCapsDialog(vcl::Window* pParent, const SfxItemSet& rSet) override;
-    virtual VclPtr<SfxAbstractDialog> CreateSwBackgroundDialog(vcl::Window* pParent, const SfxItemSet& rSet) override;
+    virtual VclPtr<SfxAbstractDialog> CreateSwDropCapsDialog(weld::Window* pParent, const SfxItemSet& rSet) override;
+    virtual VclPtr<SfxAbstractDialog> CreateSwBackgroundDialog(weld::Window* pParent, const SfxItemSet& rSet) override;
     virtual VclPtr<AbstractSwWordCountFloatDlg> CreateSwWordCountDialog(SfxBindings* pBindings,
         SfxChildWindow* pChild, vcl::Window *pParent, SfxChildWinInfo* pInfo) override;
     virtual VclPtr<AbstractSwInsertAbstractDlg> CreateSwInsertAbstractDlg() override;
@@ -556,7 +585,7 @@ public:
     virtual VclPtr<VclAbstractDialog> CreateSwInsertBookmarkDlg( vcl::Window *pParent, SwWrtShell &rSh, SfxRequest& rReq ) override;
     virtual VclPtr<AbstractSwBreakDlg> CreateSwBreakDlg(weld::Window *pParent, SwWrtShell &rSh) override;
     virtual VclPtr<VclAbstractDialog> CreateSwChangeDBDlg(SwView& rVw) override;
-    virtual VclPtr<SfxAbstractTabDialog>  CreateSwCharDlg(vcl::Window* pParent, SwView& pVw, const SfxItemSet& rCoreSet,
+    virtual VclPtr<SfxAbstractTabDialog>  CreateSwCharDlg(weld::Window* pParent, SwView& pVw, const SfxItemSet& rCoreSet,
         SwCharDlgMode nDialogMode, const OUString* pFormatStr = nullptr) override;
     virtual VclPtr<AbstractSwConvertTableDlg> CreateSwConvertTableDlg(SwView& rView, bool bToTable) override;
     virtual VclPtr<VclAbstractDialog> CreateSwCaptionDialog ( vcl::Window *pParent, SwView &rV) override;
@@ -573,27 +602,27 @@ public:
                                                      SwDBManager* pDBManager, bool bLabel) override;
 
     virtual SwLabDlgMethod GetSwLabDlgStaticMethod () override;
-    virtual VclPtr<SfxAbstractTabDialog> CreateSwParaDlg ( vcl::Window *pParent,
+    virtual VclPtr<SfxAbstractTabDialog> CreateSwParaDlg(weld::Window *pParent,
                                                     SwView& rVw,
                                                     const SfxItemSet& rCoreSet,
                                                     bool bDraw,
-                                                    const OString& sDefPage = OString() ) override;
+                                                    const OString& sDefPage = OString()) override;
 
     virtual VclPtr<VclAbstractDialog> CreateSwAutoMarkDialog(vcl::Window *pParent, SwWrtShell &rSh) override;
     virtual VclPtr<AbstractSwSelGlossaryDlg> CreateSwSelGlossaryDlg(const OUString &rShortName) override;
     virtual VclPtr<VclAbstractDialog> CreateSwSortingDialog(weld::Window * pParent, SwWrtShell &rSh) override;
     virtual VclPtr<VclAbstractDialog> CreateSwTableHeightDialog(weld::Window *pParent, SwWrtShell &rSh) override;
-    virtual VclPtr<VclAbstractDialog> CreateSwColumnDialog(vcl::Window *pParent, SwWrtShell &rSh) override;
+    virtual VclPtr<VclAbstractDialog> CreateSwColumnDialog(weld::Window *pParent, SwWrtShell &rSh) override;
     virtual VclPtr<AbstractSplitTableDialog> CreateSplitTableDialog(weld::Window* pParent, SwWrtShell &rSh) override;
 
     virtual VclPtr<AbstractSwAutoFormatDlg> CreateSwAutoFormatDlg(weld::Window* pParent, SwWrtShell* pShell,
                                                                   bool bSetAutoFormat = true,
                                                                   const SwTableAutoFormat* pSelFormat = nullptr) override;
-    virtual VclPtr<SfxAbstractDialog> CreateSwBorderDlg (vcl::Window* pParent, SfxItemSet& rSet, SwBorderModes nType ) override;
+    virtual VclPtr<SfxAbstractDialog> CreateSwBorderDlg(weld::Window* pParent, SfxItemSet& rSet, SwBorderModes nType) override;
 
-    virtual VclPtr<SfxAbstractDialog> CreateSwWrapDlg ( vcl::Window* pParent, SfxItemSet& rSet, SwWrtShell* pSh ) override;
+    virtual VclPtr<SfxAbstractDialog> CreateSwWrapDlg(weld::Window* pParent, SfxItemSet& rSet, SwWrtShell* pSh) override;
     virtual VclPtr<VclAbstractDialog> CreateSwTableWidthDlg(weld::Window *pParent, SwTableFUNC &rFnc) override;
-    virtual VclPtr<SfxAbstractTabDialog> CreateSwTableTabDlg(vcl::Window* pParent,
+    virtual VclPtr<SfxAbstractTabDialog> CreateSwTableTabDlg(weld::Window* pParent,
         const SfxItemSet* pItemSet, SwWrtShell* pSh) override;
     virtual VclPtr<AbstractSwFieldDlg> CreateSwFieldDlg(SfxBindings* pB, SwChildWinWrapper* pCW, vcl::Window *pParent) override;
     virtual VclPtr<SfxAbstractDialog>   CreateSwFieldEditDlg ( SwView& rVw ) override;

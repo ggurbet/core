@@ -47,12 +47,12 @@ using namespace ::xmloff::token;
 
 class XMLFontAutoStylePoolEntry_Impl
 {
-    OUString    sName;
-    OUString    sFamilyName;
-    OUString    sStyleName;
-    FontFamily  nFamily;
-    FontPitch   nPitch;
-    rtl_TextEncoding eEnc;
+    OUString const    sName;
+    OUString const    sFamilyName;
+    OUString const    sStyleName;
+    FontFamily const  nFamily;
+    FontPitch const   nPitch;
+    rtl_TextEncoding const eEnc;
 
 public:
 
@@ -112,8 +112,8 @@ inline XMLFontAutoStylePoolEntry_Impl::XMLFontAutoStylePoolEntry_Impl(
 
 struct XMLFontAutoStylePoolEntryCmp_Impl {
     bool operator()(
-        XMLFontAutoStylePoolEntry_Impl* const& r1,
-        XMLFontAutoStylePoolEntry_Impl* const& r2 ) const
+        std::unique_ptr<XMLFontAutoStylePoolEntry_Impl> const& r1,
+        std::unique_ptr<XMLFontAutoStylePoolEntry_Impl> const& r2 ) const
     {
         bool bEnc1(r1->GetEncoding() != RTL_TEXTENCODING_SYMBOL);
         bool bEnc2(r2->GetEncoding() != RTL_TEXTENCODING_SYMBOL);
@@ -134,13 +134,8 @@ struct XMLFontAutoStylePoolEntryCmp_Impl {
     }
 };
 
-class XMLFontAutoStylePool_Impl : public o3tl::sorted_vector<XMLFontAutoStylePoolEntry_Impl*, XMLFontAutoStylePoolEntryCmp_Impl>
+class XMLFontAutoStylePool_Impl : public o3tl::sorted_vector<std::unique_ptr<XMLFontAutoStylePoolEntry_Impl>, XMLFontAutoStylePoolEntryCmp_Impl>
 {
-public:
-    ~XMLFontAutoStylePool_Impl()
-    {
-        DeleteAndDestroyAll();
-    }
 };
 
 XMLFontAutoStylePool::XMLFontAutoStylePool(SvXMLExport& rExp, bool bTryToEmbedFonts) :
@@ -201,10 +196,10 @@ OUString XMLFontAutoStylePool::Add(
             }
         }
 
-        XMLFontAutoStylePoolEntry_Impl *pEntry =
+        std::unique_ptr<XMLFontAutoStylePoolEntry_Impl> pEntry(
             new XMLFontAutoStylePoolEntry_Impl( sName, rFamilyName, rStyleName,
-                                                nFamily, nPitch, eEnc );
-        m_pFontAutoStylePool->insert( pEntry );
+                                                nFamily, nPitch, eEnc ));
+        m_pFontAutoStylePool->insert( std::move(pEntry) );
         m_aNames.insert(sName);
     }
 
@@ -403,7 +398,7 @@ void XMLFontAutoStylePool::exportXML()
 
     for (sal_uInt32 i = 0; i < nCount; i++)
     {
-        const XMLFontAutoStylePoolEntry_Impl* pEntry = (*m_pFontAutoStylePool)[i];
+        const XMLFontAutoStylePoolEntry_Impl* pEntry = (*m_pFontAutoStylePool)[i].get();
 
         GetExport().AddAttribute(XML_NAMESPACE_STYLE, XML_NAME, pEntry->GetName());
 
@@ -534,7 +529,7 @@ void XMLFontAutoStylePool::exportXML()
     }
 }
 
-OUString getFreeFontName(uno::Reference<embed::XStorage> const & rxStorage, OUString const & rFamilyName)
+static OUString getFreeFontName(uno::Reference<embed::XStorage> const & rxStorage, OUString const & rFamilyName)
 {
     OUString sName;
     int nIndex = 1;
@@ -549,7 +544,7 @@ OUString getFreeFontName(uno::Reference<embed::XStorage> const & rxStorage, OUSt
     return sName;
 }
 
-OString convertToHashString(std::vector<unsigned char> const & rHash)
+static OString convertToHashString(std::vector<unsigned char> const & rHash)
 {
     std::stringstream aStringStream;
     for (auto const & rByte : rHash)
@@ -560,7 +555,7 @@ OString convertToHashString(std::vector<unsigned char> const & rHash)
     return OString(aStringStream.str().c_str());
 }
 
-OString getFileHash(OUString const & rFileUrl)
+static OString getFileHash(OUString const & rFileUrl)
 {
     OString aHash;
     osl::File aFile(rFileUrl);

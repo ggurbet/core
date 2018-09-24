@@ -108,7 +108,8 @@ public:
     virtual void drawPolygon(sal_uInt32 nPoints, const SalPoint* pPtAry) override;
     virtual void drawPolyPolygon(sal_uInt32 nPoly, const sal_uInt32* pPoints,
                                  PCONSTSALPOINT* pPtAry) override;
-    virtual bool drawPolyPolygon(const basegfx::B2DPolyPolygon&, double fTransparency) override;
+    virtual bool drawPolyPolygon(const basegfx::B2DHomMatrix& rObjectToDevice,
+                                 const basegfx::B2DPolyPolygon&, double fTransparency) override;
     virtual bool drawPolyLineBezier(sal_uInt32 nPoints, const SalPoint* pPtAry,
                                     const PolyFlags* pFlgAry) override;
     virtual bool drawPolygonBezier(sal_uInt32 nPoints, const SalPoint* pPtAry,
@@ -116,9 +117,11 @@ public:
     virtual bool drawPolyPolygonBezier(sal_uInt32 nPoly, const sal_uInt32* pPoints,
                                        const SalPoint* const* pPtAry,
                                        const PolyFlags* const* pFlgAry) override;
-    virtual bool drawPolyLine(const basegfx::B2DPolygon&, double fTransparency,
+    virtual bool drawPolyLine(const basegfx::B2DHomMatrix& rObjectToDevice,
+                              const basegfx::B2DPolygon&, double fTransparency,
                               const basegfx::B2DVector& rLineWidths, basegfx::B2DLineJoin,
-                              css::drawing::LineCap eLineCap, double fMiterMinimumAngle) override;
+                              css::drawing::LineCap eLineCap, double fMiterMinimumAngle,
+                              bool bPixelSnapHairline) override;
     virtual bool drawGradient(const tools::PolyPolygon&, const Gradient&) override;
 
     virtual void copyArea(long nDestX, long nDestY, long nSrcX, long nSrcY, long nSrcWidth,

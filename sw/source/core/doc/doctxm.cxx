@@ -252,7 +252,9 @@ const SwTOXMark& SwDoc::GotoTOXMark( const SwTOXMark& rCurTOXMark,
             continue;
 
         Point aPt;
-        const SwContentFrame* pCFrame = pTOXSrc->getLayoutFrame( getIDocumentLayoutAccess().GetCurrentLayout(), &aPt, nullptr, false );
+        std::pair<Point, bool> const tmp(aPt, false);
+        const SwContentFrame* pCFrame = pTOXSrc->getLayoutFrame(
+                getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, &tmp);
         if (!pCFrame)
             continue;
 
@@ -625,8 +627,8 @@ OUString SwDoc::GetUniqueTOXBaseName( const SwTOXType& rType,
 
     SwSectionFormats::size_type nNum = 0;
     const SwSectionFormats::size_type nFlagSize = ( mpSectionFormatTable->size() / 8 ) +2;
-    sal_uInt8* pSetFlags = new sal_uInt8[ nFlagSize ];
-    memset( pSetFlags, 0, nFlagSize );
+    std::unique_ptr<sal_uInt8[]> pSetFlags(new sal_uInt8[ nFlagSize ]);
+    memset( pSetFlags.get(), 0, nFlagSize );
 
     for( auto pSectionFormat : *mpSectionFormatTable )
     {
@@ -670,7 +672,6 @@ OUString SwDoc::GetUniqueTOXBaseName( const SwTOXType& rType,
             }
         }
     }
-    delete [] pSetFlags;
     if ( bUseChkStr )
         return sChkStr;
     return aName + OUString::number( ++nNum );
@@ -838,7 +839,7 @@ void SwTOXBaseSection::Update(const SfxItemSet* pAttr,
             ? ::lcl_FindChapterNode( *pSectNd )
             : nullptr;
 
-    SwNode2Layout aN2L( *pSectNd );
+    SwNode2LayoutSaveUpperFrames aN2L(*pSectNd);
     const_cast<SwSectionNode*>(pSectNd)->DelFrames();
 
     // remove old content an insert one empty textnode (to hold the layout!)

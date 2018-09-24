@@ -18,6 +18,7 @@
  */
 
 #include <Qt5Frame.hxx>
+#include <Qt5Frame.moc>
 
 #include <Qt5Tools.hxx>
 #include <Qt5Instance.hxx>
@@ -35,6 +36,7 @@
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QToolTip>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QDesktopWidget>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMainWindow>
 
@@ -57,6 +59,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     : m_pTopLevel(nullptr)
     , m_bUseCairo(bUseCairo)
     , m_pSvpGraphics(nullptr)
+    , m_bNullRegion(true)
     , m_bGraphicsInUse(false)
     , m_ePointerStyle(PointerStyle::Arrow)
     , m_bDefaultSize(true)
@@ -106,6 +109,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     }
     else
         m_pQWidget = new Qt5Widget(*this, aWinFlags);
+    connect(this, SIGNAL(setVisibleSignal(bool)), SLOT(setVisible(bool)));
 
     if (pParent && !(pParent->m_nStyle & SalFrameStyleFlags::PLUG))
     {
@@ -118,7 +122,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     // fake an initial geometry, gets updated via configure event or SetPosSize
     if (m_bDefaultPos || m_bDefaultSize)
     {
-        Size aDefSize = Size(0, 0); // CalcDefaultSize();
+        Size aDefSize = CalcDefaultSize();
         maGeometry.nX = -1;
         maGeometry.nY = -1;
         maGeometry.nWidth = aDefSize.Width();
@@ -161,8 +165,8 @@ void Qt5Frame::TriggerPaintEvent(QRect aRect)
 
 void Qt5Frame::InitSvpSalGraphics(SvpSalGraphics* pSvpSalGraphics)
 {
-    int width = 100;
-    int height = 100;
+    int width = 640;
+    int height = 480;
     m_pSvpGraphics = pSvpSalGraphics;
     m_pSurface.reset(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height));
     m_pSvpGraphics->setSurface(m_pSurface.get(), basegfx::B2IVector(width, height));
@@ -235,10 +239,27 @@ QWindow* Qt5Frame::windowHandle()
 
 QScreen* Qt5Frame::screen()
 {
-    if (m_pTopLevel)
-        return m_pTopLevel->windowHandle()->screen();
+    QWindow* const pWindow = windowHandle();
+    if (pWindow)
+        return pWindow->screen();
     else
-        return m_pQWidget->windowHandle()->screen();
+        return nullptr;
+}
+
+bool Qt5Frame::isMinimized()
+{
+    if (m_pTopLevel)
+        return m_pTopLevel->isMinimized();
+    else
+        return m_pQWidget->isMinimized();
+}
+
+bool Qt5Frame::isMaximized()
+{
+    if (m_pTopLevel)
+        return m_pTopLevel->isMaximized();
+    else
+        return m_pQWidget->isMaximized();
 }
 
 void Qt5Frame::SetTitle(const OUString& rTitle)
@@ -278,29 +299,48 @@ void Qt5Frame::SetIcon(sal_uInt16 nIcon)
 
 void Qt5Frame::SetMenu(SalMenu* pMenu) { m_pSalMenu = static_cast<Qt5Menu*>(pMenu); }
 
-void Qt5Frame::DrawMenuBar() {}
+void Qt5Frame::DrawMenuBar() { /* not needed */}
 
-void Qt5Frame::SetExtendedFrameStyle(SalExtStyle /*nExtStyle*/) {}
+void Qt5Frame::SetExtendedFrameStyle(SalExtStyle /*nExtStyle*/) { /* not needed */}
 
-void Qt5Frame::Show(bool bVisible, bool /*bNoActivate*/)
+void Qt5Frame::setVisible(bool bVisible)
 {
-    assert(m_pQWidget);
     if (m_pTopLevel)
         m_pTopLevel->setVisible(bVisible);
     else
         m_pQWidget->setVisible(bVisible);
 }
 
+void Qt5Frame::Show(bool bVisible, bool /*bNoActivate*/)
+{
+    assert(m_pQWidget);
+
+    if (m_bDefaultSize)
+        SetDefaultSize();
+
+    Q_EMIT setVisibleSignal(bVisible);
+}
+
 void Qt5Frame::SetMinClientSize(long nWidth, long nHeight)
 {
     if (!isChild())
-        m_pQWidget->setMinimumSize(nWidth, nHeight);
+    {
+        if (m_pTopLevel)
+            m_pTopLevel->setMinimumSize(nWidth, nHeight);
+        else
+            m_pQWidget->setMinimumSize(nWidth, nHeight);
+    }
 }
 
 void Qt5Frame::SetMaxClientSize(long nWidth, long nHeight)
 {
     if (!isChild())
-        m_pQWidget->setMaximumSize(nWidth, nHeight);
+    {
+        if (m_pTopLevel)
+            m_pTopLevel->setMaximumSize(nWidth, nHeight);
+        else
+            m_pQWidget->setMaximumSize(nWidth, nHeight);
+    }
 }
 
 void Qt5Frame::Center()
@@ -316,10 +356,14 @@ void Qt5Frame::Center()
 Size Qt5Frame::CalcDefaultSize()
 {
     assert(isWindow());
+    QSize qSize(0, 0);
     QScreen* pScreen = screen();
-    if (!pScreen)
-        return Size();
-    return bestmaxFrameSizeForScreenSize(toSize(pScreen->size()));
+    if (pScreen)
+        qSize = pScreen->size();
+    else
+        qSize = QApplication::desktop()->screenGeometry(0).size();
+
+    return bestmaxFrameSizeForScreenSize(toSize(qSize));
 }
 
 void Qt5Frame::SetDefaultSize()
@@ -341,7 +385,10 @@ void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt1
         m_bDefaultSize = false;
         if (isChild(false) || !m_pQWidget->isMaximized())
         {
-            m_pQWidget->resize(nWidth, nHeight);
+            if (m_pTopLevel)
+                m_pTopLevel->resize(nWidth, nHeight);
+            else
+                m_pQWidget->resize(nWidth, nHeight);
         }
     }
     else if (m_bDefaultSize)
@@ -420,7 +467,7 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
           | WindowStateMask::MaximizedWidth | WindowStateMask::MaximizedHeight;
 
     if ((pState->mnMask & WindowStateMask::State) && (pState->mnState & WindowStateState::Maximized)
-        && (pState->mnMask & nMaxGeometryMask) == nMaxGeometryMask)
+        && !isMaximized() && (pState->mnMask & nMaxGeometryMask) == nMaxGeometryMask)
         m_pQWidget->showMaximized();
     else if (pState->mnMask
              & (WindowStateMask::X | WindowStateMask::Y | WindowStateMask::Width
@@ -449,6 +496,12 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
     }
     else if (pState->mnMask & WindowStateMask::State && !isChild())
     {
+        if (pState->mnState & WindowStateState::Maximized && m_pTopLevel)
+        {
+            m_pTopLevel->showMaximized();
+            return;
+        }
+
         if ((pState->mnState & WindowStateState::Minimized) && isWindow())
             m_pQWidget->showMinimized();
         else
@@ -460,7 +513,7 @@ bool Qt5Frame::GetWindowState(SalFrameState* pState)
 {
     pState->mnState = WindowStateState::Normal;
     pState->mnMask = WindowStateMask::State;
-    if (m_pQWidget->isMinimized() || !m_pQWidget->windowHandle())
+    if (isMinimized() /*|| !windowHandle()*/)
         pState->mnState |= WindowStateState::Minimized;
     else if (m_pQWidget->isMaximized())
     {
@@ -480,13 +533,48 @@ bool Qt5Frame::GetWindowState(SalFrameState* pState)
     return true;
 }
 
-void Qt5Frame::ShowFullScreen(bool /*bFullScreen*/, sal_Int32 /*nDisplay*/) {}
+void Qt5Frame::ShowFullScreen(bool bFullScreen, sal_Int32 nScreen)
+{
+    assert(m_pTopLevel);
 
-void Qt5Frame::StartPresentation(bool /*bStart*/) {}
+    if (isWindow())
+    {
+        QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+        pWidget->show();
 
-void Qt5Frame::SetAlwaysOnTop(bool /*bOnTop*/) {}
+        // do that before going fullscreen
+        SetScreenNumber(nScreen);
+        bFullScreen ? windowHandle()->showFullScreen() : windowHandle()->showNormal();
+    }
+}
 
-void Qt5Frame::ToTop(SalFrameToTop /*nFlags*/) {}
+void Qt5Frame::StartPresentation(bool)
+{
+    // meh - so there's no Qt platform independent solution - defer to
+    // KDE5 impl. For everyone else:
+    // https://forum.qt.io/topic/38504/solved-qdialog-in-fullscreen-disable-os-screensaver
+}
+
+void Qt5Frame::SetAlwaysOnTop(bool bOnTop)
+{
+    QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+    const Qt::WindowFlags flags = pWidget->windowFlags();
+    if (bOnTop)
+        pWidget->setWindowFlags(flags | Qt::CustomizeWindowHint | Qt::WindowStaysOnTopHint);
+    else
+        pWidget->setWindowFlags(flags & ~(Qt::CustomizeWindowHint | Qt::WindowStaysOnTopHint));
+    pWidget->show();
+}
+
+void Qt5Frame::ToTop(SalFrameToTop nFlags)
+{
+    QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+
+    if (isWindow() && !(nFlags & SalFrameToTop::GrabFocusOnly))
+        pWidget->raise();
+    pWidget->setFocus();
+    pWidget->activateWindow();
+}
 
 void Qt5Frame::SetPointer(PointerStyle ePointerStyle)
 {
@@ -500,27 +588,65 @@ void Qt5Frame::SetPointer(PointerStyle ePointerStyle)
     pWindow->setCursor(static_cast<Qt5Data*>(GetSalData())->getCursor(ePointerStyle));
 }
 
-void Qt5Frame::CaptureMouse(bool /*bMouse*/) {}
+void Qt5Frame::CaptureMouse(bool bMouse)
+{
+    static const char* pEnv = getenv("SAL_NO_MOUSEGRABS");
+    if (pEnv && *pEnv)
+        return;
 
-void Qt5Frame::SetPointerPos(long /*nX*/, long /*nY*/) {}
+    if (bMouse)
+        m_pQWidget->grabMouse();
+    else
+        m_pQWidget->releaseMouse();
+}
 
-void Qt5Frame::Flush() {}
+void Qt5Frame::SetPointerPos(long nX, long nY)
+{
+    QCursor aCursor = m_pQWidget->cursor();
+    QCursor::setPos(m_pQWidget->mapToGlobal(QPoint(nX, nY)));
+    m_pQWidget->setCursor(aCursor);
+}
 
-void Qt5Frame::Flush(const tools::Rectangle& /*rRect*/) {}
+void Qt5Frame::Flush()
+{
+    // was: QGuiApplication::sync();
+    // but FIXME it causes too many issues, figure out sth better
 
-void Qt5Frame::SetInputContext(SalInputContext* /*pContext*/) {}
+    // unclear if we need to also flush cairo surface - gtk3 backend
+    // does not do it. QPainter in Qt5Widget::paintEvent() is
+    // destroyed, so that state should be safely flushed.
+}
 
-void Qt5Frame::EndExtTextInput(EndExtTextInputFlags /*nFlags*/) {}
+// do we even need it? void Qt5Frame::Flush(const tools::Rectangle& /*rRect*/) {}
 
-OUString Qt5Frame::GetKeyName(sal_uInt16 /*nKeyCode*/) { return OUString(); }
+void Qt5Frame::SetInputContext(SalInputContext* /*pContext*/)
+{
+    // TODO some IM handler setup
+}
+
+void Qt5Frame::EndExtTextInput(EndExtTextInputFlags /*nFlags*/)
+{
+    // TODO fwd to IM handler
+}
+
+OUString Qt5Frame::GetKeyName(sal_uInt16 /*nKeyCode*/)
+{
+    // TODO retrieve key cap / modifier names
+    return OUString();
+}
 
 bool Qt5Frame::MapUnicodeToKeyCode(sal_Unicode /*aUnicode*/, LanguageType /*aLangType*/,
                                    vcl::KeyCode& /*rKeyCode*/)
 {
+    // not supported yet
     return false;
 }
 
-LanguageType Qt5Frame::GetInputLanguage() { return LANGUAGE_DONTKNOW; }
+LanguageType Qt5Frame::GetInputLanguage()
+{
+    // fallback
+    return LANGUAGE_DONTKNOW;
+}
 
 static Color toColor(const QColor& rColor)
 {
@@ -651,7 +777,7 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
     rSettings.SetStyleSettings(style);
 }
 
-void Qt5Frame::Beep() {}
+void Qt5Frame::Beep() { QApplication::beep(); }
 
 const SystemEnvData* Qt5Frame::GetSystemData() const { return nullptr; }
 
@@ -667,22 +793,46 @@ SalFrame::SalPointerState Qt5Frame::GetPointerState()
 
 KeyIndicatorState Qt5Frame::GetIndicatorState() { return KeyIndicatorState(); }
 
-void Qt5Frame::SimulateKeyPress(sal_uInt16 /*nKeyCode*/) {}
+void Qt5Frame::SimulateKeyPress(sal_uInt16 nKeyCode)
+{
+    SAL_WARN("vcl.kde5", "missing simulate keypress " << nKeyCode);
+}
 
 void Qt5Frame::SetParent(SalFrame* pNewParent) { m_pParent = static_cast<Qt5Frame*>(pNewParent); }
 
-bool Qt5Frame::SetPluginParent(SystemParentData* /*pNewParent*/) { return false; }
+bool Qt5Frame::SetPluginParent(SystemParentData* /*pNewParent*/)
+{
+    //FIXME: no SetPluginParent impl. for kde5
+    return false;
+}
 
-void Qt5Frame::ResetClipRegion() {}
+void Qt5Frame::ResetClipRegion() { m_bNullRegion = true; }
 
-void Qt5Frame::BeginSetClipRegion(sal_uLong /*nRects*/) {}
+void Qt5Frame::BeginSetClipRegion(sal_uLong)
+{
+    m_aRegion = QRegion(QRect(QPoint(0, 0), m_pQWidget->size()));
+}
 
-void Qt5Frame::UnionClipRegion(long /*nX*/, long /*nY*/, long /*nWidth*/, long /*nHeight*/) {}
+void Qt5Frame::UnionClipRegion(long nX, long nY, long nWidth, long nHeight)
+{
+    m_aRegion = m_aRegion.united(QRegion(nX, nY, nWidth, nHeight));
+}
 
-void Qt5Frame::EndSetClipRegion() {}
+void Qt5Frame::EndSetClipRegion() { m_bNullRegion = false; }
 
-void Qt5Frame::SetScreenNumber(unsigned int) {}
+void Qt5Frame::SetScreenNumber(unsigned int nScreen)
+{
+    if (isWindow())
+    {
+        QWindow* const pWindow = windowHandle();
+        if (pWindow)
+            pWindow->setScreen(QApplication::screens()[nScreen]);
+    }
+}
 
-void Qt5Frame::SetApplicationID(const OUString&) {}
+void Qt5Frame::SetApplicationID(const OUString&)
+{
+    // So the hope is that QGuiApplication deals with this properly..
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

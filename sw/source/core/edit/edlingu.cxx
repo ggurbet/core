@@ -814,10 +814,9 @@ void SwEditShell::HyphIgnore()
     g_pHyphIter->ShowSelection();
 }
 
-void SwEditShell::HandleCorrectionError(
-    const OUString aText, SwPosition aPos, sal_Int32 nBegin,
-    sal_Int32 nLen, SwPaM* pCursor,
-    const Point* pPt, SwRect& rSelectRect )
+void SwEditShell::HandleCorrectionError(const OUString& aText, SwPosition aPos, sal_Int32 nBegin,
+                                        sal_Int32 nLen, SwPaM* pCursor, const Point* pPt,
+                                        SwRect& rSelectRect)
 {
     // save the start and end positions of the line and the starting point
     Push();
@@ -858,7 +857,13 @@ void SwEditShell::HandleCorrectionError(
     SwCursorMoveState aState;
     aState.m_bRealWidth = true;
     SwContentNode* pContentNode = pCursor->GetContentNode();
-    SwContentFrame *pContentFrame = pContentNode->getLayoutFrame( GetLayout(), pPt, pCursor->GetPoint(), false);
+    std::pair<Point, bool> tmp;
+    if (pPt)
+    {
+        tmp.first = *pPt;
+        tmp.second = false;
+    }
+    SwContentFrame *const pContentFrame = pContentNode->getLayoutFrame(GetLayout(), pCursor->GetPoint(), pPt ? &tmp : nullptr);
 
     pContentFrame->GetCharRect( aStartRect, *pCursor->GetPoint(), &aState );
     rContent = nWordEnd - 1;

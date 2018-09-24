@@ -1389,7 +1389,7 @@ SvxBoxItem& SvxBoxItem::operator=( const SvxBoxItem& rBox )
 }
 
 
-inline bool CmpBrdLn( const std::unique_ptr<SvxBorderLine> & pBrd1, const SvxBorderLine* pBrd2 )
+static inline bool CmpBrdLn( const std::unique_ptr<SvxBorderLine> & pBrd1, const SvxBorderLine* pBrd2 )
 {
     if( pBrd1.get() == pBrd2 )
         return true;
@@ -2241,8 +2241,6 @@ bool SvxBoxItem::HasBorder( bool bTreatPaddingAsBorder ) const
 
 SvxBoxInfoItem::SvxBoxInfoItem( const sal_uInt16 nId ) :
     SfxPoolItem( nId ),
-    pHori   ( nullptr ),
-    pVert   ( nullptr ),
     mbEnableHor( false ),
     mbEnableVer( false ),
     nDefDist( 0 )
@@ -2877,10 +2875,7 @@ bool SvxFormatKeepItem::GetPresentation
 
 
 SvxLineItem::SvxLineItem( const sal_uInt16 nId ) :
-
-    SfxPoolItem ( nId ),
-
-    pLine( nullptr )
+    SfxPoolItem ( nId )
 {
 }
 
@@ -3316,7 +3311,7 @@ bool SvxBrushItem::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
 
         case MID_GRAPHIC_URL:
         {
-            throw uno::RuntimeException("Getting from this property is not unsupported");
+            throw uno::RuntimeException("Getting from this property is not supported");
         }
         break;
         case MID_GRAPHIC:

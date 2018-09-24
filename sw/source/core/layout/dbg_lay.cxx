@@ -262,7 +262,7 @@ void SwProtocol::Stop()
 }
 
 SwImplProtocol::SwImplProtocol()
-    : pStream( nullptr ), pFrameIds( nullptr ), nTypes( FRM_ALL ),
+    : nTypes( FRM_ALL ),
       nLineCount( 0 ), nMaxLines( USHRT_MAX ), nTestMode( 0 )
 {
     NewStream();
@@ -466,7 +466,7 @@ static void lcl_Padded(OStringBuffer& rOut, const long n, size_t length = 5)
 }
 
 /// output the frame as plain text.
-static void lcl_FrameRect(OStringBuffer& rOut, const char* hint, const SwRect rect)
+static void lcl_FrameRect(OStringBuffer& rOut, const char* hint, const SwRect& rect)
 {
     rOut.append("[");
     rOut.append(hint);

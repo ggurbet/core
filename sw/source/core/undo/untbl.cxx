@@ -177,7 +177,7 @@ public:
 
 #if OSL_DEBUG_LEVEL > 0
 #include <shellio.hxx>
-void CheckTable( const SwTable& );
+static void CheckTable( const SwTable& );
 #define CHECKTABLE(t) CheckTable( t );
 #else
 #define CHECKTABLE(t)
@@ -221,7 +221,7 @@ SwUndoInsTable::SwUndoInsTable( const SwPosition& rPos, sal_uInt16 nCl, sal_uInt
                             const std::vector<sal_uInt16> *pColArr,
                             const OUString & rName)
     : SwUndo( SwUndoId::INSTABLE, rPos.GetDoc() ),
-    aInsTableOpts( rInsTableOpts ), pDDEFieldType( nullptr ), pColWidth( nullptr ), pRedlData( nullptr ), pAutoFormat( nullptr ),
+    aInsTableOpts( rInsTableOpts ),
     nSttNode( rPos.nNode.GetIndex() ), nRows( nRw ), nCols( nCl ), nAdjust( nAdj )
 {
     if( pColArr )
@@ -353,7 +353,7 @@ SwRewriter SwUndoInsTable::GetRewriter() const
 }
 
 SwTableToTextSave::SwTableToTextSave( SwDoc& rDoc, sal_uLong nNd, sal_uLong nEndIdx, sal_Int32 nCnt )
-    : m_nSttNd( nNd ), m_nEndNd( nEndIdx), m_nContent( nCnt ), m_pHstry( nullptr )
+    : m_nSttNd( nNd ), m_nEndNd( nEndIdx), m_nContent( nCnt )
 {
     // keep attributes of the joined node
     SwTextNode* pNd = rDoc.GetNodes()[ nNd ]->GetTextNode();
@@ -395,7 +395,7 @@ SwTableToTextSave::SwTableToTextSave( SwDoc& rDoc, sal_uLong nNd, sal_uLong nEnd
 
 SwUndoTableToText::SwUndoTableToText( const SwTable& rTable, sal_Unicode cCh )
     : SwUndo( SwUndoId::TABLETOTEXT, rTable.GetFrameFormat()->GetDoc() ),
-    sTableNm( rTable.GetFrameFormat()->GetName() ), pHistory( nullptr ),
+    sTableNm( rTable.GetFrameFormat()->GetName() ),
     nSttNd( 0 ), nEndNd( 0 ),
     cTrenner( cCh ), nHdlnRpt( rTable.GetRowsToRepeat() )
 {
@@ -456,7 +456,7 @@ void SwUndoTableToText::UndoImpl(::sw::UndoRedoContext & rContext)
     pPam->DeleteMark();
 
     // now collect all Uppers
-    SwNode2Layout aNode2Layout( aFrameIdx.GetNode() );
+    SwNode2LayoutSaveUpperFrames aNode2Layout(aFrameIdx.GetNode());
 
     // create TableNode structure
     SwTableNode* pTableNd = rDoc.GetNodes().UndoTableToText( nSttNd, nEndNd, m_vBoxSaves );
@@ -528,7 +528,7 @@ SwTableNode* SwNodes::UndoTableToText( sal_uLong nSttNd, sal_uLong nEndNd,
         for( n = pTableNd->GetIndex() + 1; n < nTmpEnd; ++n )
         {
             if( ( pNd = (*this)[ n ] )->IsContentNode() )
-                static_cast<SwContentNode*>(pNd)->DelFrames();
+                static_cast<SwContentNode*>(pNd)->DelFrames(nullptr);
             pNd->m_pStartOfSection = pTableNd;
         }
     }
@@ -556,10 +556,17 @@ SwTableNode* SwNodes::UndoTableToText( sal_uLong nSttNd, sal_uLong nEndNd,
             SwIndex aCntPos( pTextNd, pSave->m_nContent - 1 );
 
             pTextNd->EraseText( aCntPos, 1 );
-            SwContentNode* pNewNd = pTextNd->SplitContentNode(
-                                        SwPosition( aSttIdx, aCntPos ));
-            if( !pContentStore->Empty() )
-                pContentStore->Restore( *pNewNd, pSave->m_nContent, pSave->m_nContent + 1 );
+
+            std::function<void (SwTextNode *, sw::mark::RestoreMode)> restoreFunc(
+                [&](SwTextNode *const pNewNode, sw::mark::RestoreMode const eMode)
+                {
+                    if (!pContentStore->Empty())
+                    {
+                        pContentStore->Restore(*pNewNode, pSave->m_nContent, pSave->m_nContent + 1, eMode);
+                    }
+                });
+            pTextNd->SplitContentNode(
+                        SwPosition(aSttIdx, aCntPos), &restoreFunc);
         }
         else
         {
@@ -2803,7 +2810,7 @@ bool SwUndoTableCpyTable::IsEmpty() const
 }
 
 SwUndoCpyTable::SwUndoCpyTable(const SwDoc* pDoc)
-    : SwUndo( SwUndoId::CPYTBL, pDoc ), pDel( nullptr ), nTableNode( 0 )
+    : SwUndo( SwUndoId::CPYTBL, pDoc ), nTableNode( 0 )
 {
 }
 
@@ -3048,7 +3055,7 @@ void SwUndoMergeTable::UndoImpl(::sw::UndoRedoContext & rContext)
 
     // create frames for the new table
     SwNodeIndex aTmpIdx( *pNew );
-    pNew->MakeFrames( &aTmpIdx );
+    pNew->MakeOwnFrames(&aTmpIdx);
 
     // position cursor somewhere in content
     SwContentNode* pCNd = pDoc->GetNodes().GoNext( &rIdx );

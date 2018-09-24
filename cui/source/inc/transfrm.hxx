@@ -92,10 +92,10 @@ private:
     // #i75273#
     double              mfOldWidth;
     double              mfOldHeight;
-    RectPoint          meRP;
+    RectPoint           meRP;
 
-    RectCtl          m_aCtlPos;
-    RectCtl          m_aCtlSize;
+    SvxRectCtl          m_aCtlPos;
+    SvxRectCtl          m_aCtlSize;
 
     // position
     std::unique_ptr<weld::Widget> m_xFlPosition;
@@ -146,8 +146,7 @@ public:
     virtual void ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
-    virtual void PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
-    virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
+    virtual void PointChanged(weld::DrawingArea* pWindow, RectPoint eRP) override;
 
     void         Construct();
     void         SetView( const SdrView* pSdrView ) { mpView = pSdrView; }
@@ -183,7 +182,7 @@ private:
     FieldUnit           eDlgUnit;
 
     svx::SvxDialControl m_aCtlAngle;
-    RectCtl m_aCtlRect;
+    SvxRectCtl m_aCtlRect;
 
     std::unique_ptr<weld::Widget> m_xFlPosition;
     std::unique_ptr<weld::MetricSpinButton> m_xMtrPosX;
@@ -207,7 +206,6 @@ public:
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
 
     virtual void PointChanged(weld::DrawingArea* pWindow, RectPoint eRP) override;
-    virtual void PointChanged(vcl::Window* pWindow, RectPoint eRP) override;
 
     void         Construct();
     void         SetView( const SdrView* pSdrView ) { pView = pSdrView; }
@@ -218,7 +216,7 @@ public:
 |* slant/corner radius tab page
 |*
 \************************************************************************/
-class SvxSlantTabPage : public SvxTabPage
+class SvxSlantTabPage : public SfxTabPage
 {
     using TabPage::ActivatePage;
     using TabPage::DeactivatePage;
@@ -257,9 +255,6 @@ public:
 
     virtual void ActivatePage( const SfxItemSet& rSet ) override;
     virtual DeactivateRC DeactivatePage( SfxItemSet* pSet ) override;
-
-    virtual void PointChanged( vcl::Window* pWindow, RectPoint eRP ) override;
-    virtual void PointChanged( weld::DrawingArea* pWindow, RectPoint eRP ) override;
 
     void         Construct();
     void         SetView( const SdrView* pSdrView ) { pView = pSdrView; }

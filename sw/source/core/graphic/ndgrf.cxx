@@ -68,7 +68,6 @@ SwGrfNode::SwGrfNode(
         SwAttrSet const * pAutoAttr ) :
     SwNoTextNode( rWhere, SwNodeType::Grf, pGrfColl, pAutoAttr ),
     maGrfObj(),
-    mpReplacementGraphic(nullptr),
     // #i73788#
     mbLinkedInputStreamReady( false ),
     mbIsStreamReadOnly( false )
@@ -85,7 +84,6 @@ SwGrfNode::SwGrfNode( const SwNodeIndex & rWhere,
                       SwAttrSet const * pAutoAttr ) :
     SwNoTextNode( rWhere, SwNodeType::Grf, pGrfColl, pAutoAttr ),
     maGrfObj(rGrfObj),
-    mpReplacementGraphic(nullptr),
     // #i73788#
     mbLinkedInputStreamReady( false ),
     mbIsStreamReadOnly( false )
@@ -107,7 +105,6 @@ SwGrfNode::SwGrfNode( const SwNodeIndex & rWhere,
                       SwAttrSet const * pAutoAttr ) :
     SwNoTextNode( rWhere, SwNodeType::Grf, pGrfColl, pAutoAttr ),
     maGrfObj(),
-    mpReplacementGraphic(nullptr),
     // #i73788#
     mbLinkedInputStreamReady( false ),
     mbIsStreamReadOnly( false )
@@ -306,7 +303,7 @@ SwGrfNode::~SwGrfNode()
     }
     //#39289# delete frames already here since the Frames' dtor needs the graphic for its StopAnimation
     if( HasWriterListeners() )
-        DelFrames();
+        DelFrames(nullptr);
 }
 
 /// allow reaction on change of content of GraphicObject
@@ -399,11 +396,6 @@ const GraphicObject* SwGrfNode::GetReplacementGrfObj() const
     }
 
     return mpReplacementGraphic.get();
-}
-
-SwContentNode *SwGrfNode::SplitContentNode( const SwPosition & )
-{
-    return this;
 }
 
 SwGrfNode * SwNodes::MakeGrfNode( const SwNodeIndex & rWhere,
@@ -705,7 +697,7 @@ void SwGrfNode::ScaleImageMap()
     }
 }
 
-SwContentNode* SwGrfNode::MakeCopy( SwDoc* pDoc, const SwNodeIndex& rIdx ) const
+SwContentNode* SwGrfNode::MakeCopy(SwDoc* pDoc, const SwNodeIndex& rIdx, bool) const
 {
     // copy formats into the other document
     SwGrfFormatColl* pColl = pDoc->CopyGrfColl( *GetGrfColl() );

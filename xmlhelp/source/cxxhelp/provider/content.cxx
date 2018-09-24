@@ -38,6 +38,7 @@
 #include <ucbhelper/contentidentifier.hxx>
 #include <ucbhelper/propertyvalueset.hxx>
 #include <ucbhelper/cancelcommandexecution.hxx>
+#include <ucbhelper/macros.hxx>
 #include <o3tl/make_unique.hxx>
 #include "content.hxx"
 #include "provider.hxx"
@@ -136,9 +137,9 @@ private:
 
     uno::Reference< uno::XComponentContext >     m_xContext;
     uno::Reference< ucb::XContentProvider >      m_xProvider;
-    uno::Sequence< beans::Property >             m_seq;
-    URLParameter                                 m_aURLParameter;
-    Databases*                                   m_pDatabases;
+    uno::Sequence< beans::Property > const       m_seq;
+    URLParameter const                           m_aURLParameter;
+    Databases* const                             m_pDatabases;
 
 public:
 
@@ -173,9 +174,9 @@ private:
 
     uno::Reference< uno::XComponentContext >     m_xContext;
     uno::Reference< ucb::XContentProvider >      m_xProvider;
-    uno::Sequence< beans::Property >             m_seq;
+    uno::Sequence< beans::Property > const       m_seq;
     URLParameter                                 m_aURLParameter;
-    Databases*                                   m_pDatabases;
+    Databases* const                             m_pDatabases;
 
 public:
 

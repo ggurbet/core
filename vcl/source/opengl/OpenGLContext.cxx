@@ -55,7 +55,6 @@ OpenGLContext::OpenGLContext():
     mbInitialized(false),
     mnRefCount(0),
     mbRequestLegacyContext(false),
-    mbUseDoubleBufferedRendering(true),
     mbVCLOnly(false),
     mnFramebufferCount(0),
     mpCurrentFramebuffer(nullptr),
@@ -238,7 +237,7 @@ bool OpenGLContext::ImplInit()
     return false;
 }
 
-OUString getGLString(GLenum eGlEnum)
+static OUString getGLString(GLenum eGlEnum)
 {
     OUString sString;
     const GLubyte* pString = glGetString(eGlEnum);

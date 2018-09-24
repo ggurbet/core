@@ -28,10 +28,10 @@ public:
     {
     }
 
-    virtual BitmapEx execute(BitmapEx const& rBitmapEx) override;
+    virtual BitmapEx execute(BitmapEx const& rBitmapEx) const override;
 
 private:
-    sal_uInt16 mnNewColorCount;
+    sal_uInt16 const mnNewColorCount;
 
     struct PopularColorCount
     {

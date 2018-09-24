@@ -115,8 +115,8 @@ typedef OUString SvtDefaultOptions_Impl:: *PathStrPtr;
 
 struct PathToDefaultMapping_Impl
 {
-    SvtPathOptions::Paths   _ePath;
-    PathStrPtr              _pDefaultPath;
+    SvtPathOptions::Paths const   _ePath;
+    PathStrPtr const              _pDefaultPath;
 };
 
 static PathToDefaultMapping_Impl const PathMap_Impl[] =
@@ -147,7 +147,7 @@ static PathToDefaultMapping_Impl const PathMap_Impl[] =
 
 // functions -------------------------------------------------------------
 
-Sequence< OUString > GetDefaultPropertyNames()
+static Sequence< OUString > GetDefaultPropertyNames()
 {
     static const char* aPropNames[] =
     {

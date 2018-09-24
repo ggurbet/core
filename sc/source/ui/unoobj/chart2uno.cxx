@@ -458,7 +458,6 @@ public:
 
     Chart2Positioner(ScDocument* pDoc, const vector<ScTokenRef>& rRefTokens) :
         mrRefTokens(rRefTokens),
-        mpPositionMap(nullptr),
         meGlue(GLUETYPE_NA),
         mnStartCol(0),
         mnStartRow(0),
@@ -1553,7 +1552,8 @@ ScChart2DataProvider::createDataSource(
 
     //reorder labeled sequences according to aSequenceMapping
     ::std::vector< uno::Reference< chart2::data::XLabeledDataSequence > > aSeqVector;
-    for (auto const & aSeq : aSeqs)
+    aSeqVector.reserve(aSeqs.size());
+    for (auto const& aSeq : aSeqs)
     {
         aSeqVector.push_back(aSeq);
     }
@@ -2391,12 +2391,8 @@ ScChart2DataSequence::ScChart2DataSequence( ScDocument* pDoc,
     , m_nObjectId( 0 )
     , m_pDocument( pDoc)
     , m_aTokens(std::move(rTokens))
-    , m_pRangeIndices(nullptr)
-    , m_pExtRefListener(nullptr)
     , m_xDataProvider( xDP)
     , m_aPropSet(lcl_GetDataSequencePropertyMap())
-    , m_pHiddenListener(nullptr)
-    , m_pValueListener( nullptr )
     , m_bGotDataChangedHint(false)
     , m_bExtDataRebuildQueued(false)
     , mbTimeBased(false)

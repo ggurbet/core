@@ -81,7 +81,7 @@ using namespace com::sun::star::lang;
  *  static helpers
  */
 
-inline sal_uInt16 getUInt16BE( const sal_uInt8*& pBuffer )
+static inline sal_uInt16 getUInt16BE( const sal_uInt8*& pBuffer )
 {
     sal_uInt16 nRet = static_cast<sal_uInt16>(pBuffer[1]) |
         (static_cast<sal_uInt16>(pBuffer[0]) << 8);
@@ -112,7 +112,7 @@ PrintFontManager::PrintFont::PrintFont()
 }
 
 GenericUnixSalData::GenericUnixSalData(GenericUnixSalDataType const t, SalInstance *const pInstance)
-    : m_eType(t), m_pDisplay(nullptr), m_pPrintFontManager(nullptr)
+    : m_eType(t), m_pDisplay(nullptr)
 {
     m_pInstance = pInstance; SetSalData(this);
 }
@@ -858,8 +858,8 @@ FontFamily PrintFontManager::matchFamilyName( const OUString& rFamily )
 {
     typedef struct {
         const char*  mpName;
-        sal_uInt16   mnLength;
-        FontFamily   meType;
+        sal_uInt16 const   mnLength;
+        FontFamily const   meType;
     } family_t;
 
 #define InitializeClass( p, a ) p, sizeof(p) - 1, a
@@ -1078,15 +1078,15 @@ bool PrintFontManager::createFontSubset(
     rInfo.m_nCapHeight  = yMax; // Well ...
 
     // fill in glyph advance widths
-    TTSimpleGlyphMetrics* pMetrics = GetTTSimpleGlyphMetrics( pTTFont,
+    std::unique_ptr<sal_uInt16[]> pMetrics = GetTTSimpleGlyphMetrics( pTTFont,
                                                               pGID,
                                                               nGlyphs,
                                                               false/*bVertical*/ );
     if( pMetrics )
     {
         for( int i = 0; i < nGlyphs; i++ )
-            pWidths[pOldIndex[i]] = pMetrics[i].adv;
-        free( pMetrics );
+            pWidths[pOldIndex[i]] = pMetrics[i];
+        pMetrics.reset();
     }
     else
     {
@@ -1123,15 +1123,15 @@ void PrintFontManager::getGlyphWidths( fontID nFont,
         std::vector<sal_uInt16> aGlyphIds(nGlyphs);
         for (int i = 0; i < nGlyphs; i++)
             aGlyphIds[i] = sal_uInt16(i);
-        TTSimpleGlyphMetrics* pMetrics = GetTTSimpleGlyphMetrics(pTTFont,
+        std::unique_ptr<sal_uInt16[]> pMetrics = GetTTSimpleGlyphMetrics(pTTFont,
                                                                  &aGlyphIds[0],
                                                                  nGlyphs,
                                                                  bVertical);
         if (pMetrics)
         {
             for (int i = 0; i< nGlyphs; i++)
-                rWidths[i] = pMetrics[i].adv;
-            free(pMetrics);
+                rWidths[i] = pMetrics[i];
+            pMetrics.reset();
             rUnicodeEnc.clear();
         }
 

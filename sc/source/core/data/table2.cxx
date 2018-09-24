@@ -572,14 +572,13 @@ bool CheckAndDeduplicateCondFormat(ScDocument* pDocument, ScConditionalFormat* p
 
     if (pOldFormat->EqualEntries(*pNewFormat, true))
     {
-        pDocument->RemoveCondFormatData(pOldFormat->GetRange(), nTab, pOldFormat->GetKey());
         const ScRangeList& rNewRangeList = pNewFormat->GetRange();
         ScRangeList& rDstRangeList = pOldFormat->GetRangeList();
         for (size_t i = 0; i < rNewRangeList.size(); ++i)
         {
             rDstRangeList.Join(rNewRangeList[i]);
         }
-        pDocument->AddCondFormatData(pOldFormat->GetRange(), nTab, pOldFormat->GetKey());
+        pDocument->AddCondFormatData(rNewRangeList, nTab, pOldFormat->GetKey());
         return true;
     }
 
@@ -3574,7 +3573,7 @@ void ScTable::StripHidden( SCCOL& rX1, SCROW& rY1, SCCOL& rX2, SCROW& rY2 )
 //  Auto-Outline
 
 template< typename T >
-short DiffSign( T a, T b )
+static short DiffSign( T a, T b )
 {
     return (a<b) ? -1 :
             (a>b) ? 1 : 0;

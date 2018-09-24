@@ -521,7 +521,7 @@ public:
 };
 
 
-void MakeTree_Impl(StyleTreeArr_Impl& rArr)
+static void MakeTree_Impl(StyleTreeArr_Impl& rArr)
 {
     const comphelper::string::NaturalStringSorter aSorter(
         ::comphelper::getProcessComponentContext(),
@@ -564,7 +564,7 @@ void MakeTree_Impl(StyleTreeArr_Impl& rArr)
         });
 }
 
-inline bool IsExpanded_Impl( const std::vector<OUString>& rEntries,
+static inline bool IsExpanded_Impl( const std::vector<OUString>& rEntries,
                              const OUString &rStr)
 {
     for (const auto & rEntry : rEntries)
@@ -575,7 +575,7 @@ inline bool IsExpanded_Impl( const std::vector<OUString>& rEntries,
     return false;
 }
 
-SvTreeListEntry* FillBox_Impl(SvTreeListBox* pBox,
+static SvTreeListEntry* FillBox_Impl(SvTreeListBox* pBox,
                               StyleTree_Impl* pEntry,
                               const std::vector<OUString>& rEntries,
                               SfxStyleFamily eStyleFamily,
@@ -601,7 +601,7 @@ SvTreeListEntry* FillBox_Impl(SvTreeListBox* pBox,
 namespace SfxTemplate
 {
     // converts from SFX_STYLE_FAMILY Ids to 1-6
-    sal_uInt16 SfxFamilyIdToNId(SfxStyleFamily nFamily)
+    static sal_uInt16 SfxFamilyIdToNId(SfxStyleFamily nFamily)
     {
         switch ( nFamily )
         {
@@ -616,7 +616,7 @@ namespace SfxTemplate
     }
 
     // converts from 1-6 to SFX_STYLE_FAMILY Ids
-    SfxStyleFamily NIdToSfxFamilyId(sal_uInt16 nId)
+    static SfxStyleFamily NIdToSfxFamilyId(sal_uInt16 nId)
     {
         switch (nId)
         {
@@ -637,8 +637,6 @@ SfxCommonTemplateDialog_Impl::SfxCommonTemplateDialog_Impl( SfxBindings* pB, vcl
     : pBindings(pB)
     , pWindow(pW)
     , pModule(nullptr)
-    , pIdle(nullptr)
-    , pStyleFamilies(nullptr)
     , pStyleSheetPool(nullptr)
     , pCurObjShell(nullptr)
     , xModuleManager(frame::ModuleManager::create(::comphelper::getProcessComponentContext()))
@@ -1696,12 +1694,12 @@ void SfxCommonTemplateDialog_Impl::ActionSelect(sal_uInt16 nEntry)
                     nFilter=pStyleSheetPool->GetSearchMask();
                 pStyleSheetPool->SetSearchMask( eFam, SfxStyleSearchBits::UserDefined );
 
-                ScopedVclPtrInstance< SfxNewStyleDlg > pDlg(pWindow, *pStyleSheetPool);
                 // why? : FloatingWindow must not be parent of a modal dialog
-                if(RET_OK == pDlg->Execute())
+                SfxNewStyleDlg aDlg(pWindow ? pWindow->GetFrameWeld() : nullptr, *pStyleSheetPool);
+                if (aDlg.run() ==  RET_OK)
                 {
                     pStyleSheetPool->SetSearchMask(eFam, nFilter);
-                    const OUString aTemplName(pDlg->GetName());
+                    const OUString aTemplName(aDlg.GetName());
                     Execute_Impl(SID_STYLE_NEW_BY_EXAMPLE,
                                  aTemplName, "",
                                  static_cast<sal_uInt16>(GetFamilyItem_Impl()->GetFamily()),

@@ -55,7 +55,6 @@ using namespace css;
 SvxCharacterMap::SvxCharacterMap(weld::Window* pParent, const SfxItemSet* pSet, bool bInsert)
     : GenericDialogController(pParent, "cui/ui/specialcharacters.ui", "SpecialCharactersDialog")
     , m_xVirDev(VclPtr<VirtualDevice>::Create())
-    , pSubsetMap( nullptr )
     , isSearchMode(true)
     , m_bHasInsert(bInsert)
     , mxContext(comphelper::getProcessComponentContext())
@@ -94,9 +93,9 @@ SvxCharacterMap::SvxCharacterMap(weld::Window* pParent, const SfxItemSet* pSet, 
     , m_aShowChar(m_xVirDev)
     , m_xOKBtn(bInsert ? m_xBuilder->weld_button("insert") : m_xBuilder->weld_button("ok"))
     , m_xFontText(m_xBuilder->weld_label("fontft"))
-    , m_xFontLB(m_xBuilder->weld_combo_box_text("fontlb"))
+    , m_xFontLB(m_xBuilder->weld_combo_box("fontlb"))
     , m_xSubsetText(m_xBuilder->weld_label("subsetft"))
-    , m_xSubsetLB(m_xBuilder->weld_combo_box_text("subsetlb"))
+    , m_xSubsetLB(m_xBuilder->weld_combo_box("subsetlb"))
     , m_xSearchText(m_xBuilder->weld_entry("search"))
     , m_xHexCodeText(m_xBuilder->weld_entry("hexvalue"))
     , m_xDecimalCodeText(m_xBuilder->weld_entry("decimalvalue"))
@@ -285,13 +284,9 @@ void SvxCharacterMap::updateRecentCharControl()
 
 void SvxCharacterMap::updateRecentCharacterList(const OUString& sTitle, const OUString& rFont)
 {
-    auto itChar = std::find_if(maRecentCharList.begin(),
-         maRecentCharList.end(),
-         [sTitle] (const OUString & a) { return a == sTitle; });
+    auto itChar = std::find(maRecentCharList.begin(), maRecentCharList.end(), sTitle);
 
-    auto itChar2 = std::find_if(maRecentCharFontList.begin(),
-         maRecentCharFontList.end(),
-         [rFont] (const OUString & a) { return a == rFont; });
+    auto itChar2 = std::find(maRecentCharFontList.begin(), maRecentCharFontList.end(), rFont);
 
     // if recent char to be added is already in list, remove it
     if( itChar != maRecentCharList.end() &&  itChar2 != maRecentCharFontList.end() )
@@ -329,13 +324,9 @@ void SvxCharacterMap::updateRecentCharacterList(const OUString& sTitle, const OU
 
 void SvxCharacterMap::updateFavCharacterList(const OUString& sTitle, const OUString& rFont)
 {
-    auto itChar = std::find_if(maFavCharList.begin(),
-         maFavCharList.end(),
-         [sTitle] (const OUString & a) { return a == sTitle; });
+    auto itChar = std::find(maFavCharList.begin(), maFavCharList.end(), sTitle);
 
-    auto itChar2 = std::find_if(maFavCharFontList.begin(),
-         maFavCharFontList.end(),
-         [rFont] (const OUString & a) { return a == rFont; });
+    auto itChar2 = std::find(maFavCharFontList.begin(), maFavCharFontList.end(), rFont);
 
     // if Fav char to be added is already in list, remove it
     if( itChar != maFavCharList.end() &&  itChar2 != maFavCharFontList.end() )
@@ -394,13 +385,9 @@ void SvxCharacterMap::updateFavCharControl()
 
 void SvxCharacterMap::deleteFavCharacterFromList(const OUString& sTitle, const OUString& rFont)
 {
-    auto itChar = std::find_if(maFavCharList.begin(),
-         maFavCharList.end(),
-         [sTitle] (const OUString & a) { return a == sTitle; });
+    auto itChar = std::find(maFavCharList.begin(), maFavCharList.end(), sTitle);
 
-    auto itChar2 = std::find_if(maFavCharFontList.begin(),
-         maFavCharFontList.end(),
-         [rFont] (const OUString & a) { return a == rFont; });
+    auto itChar2 = std::find(maFavCharFontList.begin(), maFavCharFontList.end(), rFont);
 
     // if Fav char to be added is already in list, remove it
     if( itChar != maFavCharList.end() &&  itChar2 != maFavCharFontList.end() )
@@ -544,19 +531,16 @@ void SvxCharacterMap::init()
 
 bool SvxCharacterMap::isFavChar(const OUString& sTitle, const OUString& rFont)
 {
-    auto itChar = std::find_if(maFavCharList.begin(),
+    auto isFavCharTitleExists = std::any_of(maFavCharList.begin(),
          maFavCharList.end(),
          [sTitle] (const OUString & a) { return a == sTitle; });
 
-    auto itChar2 = std::find_if(maFavCharFontList.begin(),
+    auto isFavCharFontExists = std::any_of(maFavCharFontList.begin(),
          maFavCharFontList.end(),
          [rFont] (const OUString & a) { return a == rFont; });
 
     // if Fav char to be added is already in list, remove it
-    if( itChar != maFavCharList.end() &&  itChar2 != maFavCharFontList.end() )
-        return true;
-    else
-        return false;
+    return isFavCharTitleExists && isFavCharFontExists;
 }
 
 
@@ -609,7 +593,7 @@ void SvxCharacterMap::SetCharFont( const vcl::Font& rFont )
         m_xSubsetLB->set_active(0);
 }
 
-void SvxCharacterMap::fillAllSubsets(weld::ComboBoxText& rListBox)
+void SvxCharacterMap::fillAllSubsets(weld::ComboBox& rListBox)
 {
     SubsetMap aAll(nullptr);
     rListBox.clear();
@@ -650,7 +634,7 @@ void SvxCharacterMap::insertCharToDoc(const OUString& sGlyph)
     }
 }
 
-IMPL_LINK_NOARG(SvxCharacterMap, FontSelectHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SvxCharacterMap, FontSelectHdl, weld::ComboBox&, void)
 {
     const sal_uInt32 nFont = m_xFontLB->get_active_id().toUInt32();
     aFont = m_xVirDev->GetDevFont(nFont);
@@ -731,7 +715,7 @@ void SvxCharacterMap::setCharName(sal_UCS4 nDecimalValue)
         m_xCharName->set_label(OUString::createFromAscii(buffer));
 }
 
-IMPL_LINK_NOARG(SvxCharacterMap, SubsetSelectHdl, weld::ComboBoxText&, void)
+IMPL_LINK_NOARG(SvxCharacterMap, SubsetSelectHdl, weld::ComboBox&, void)
 {
     const sal_Int32 nPos = m_xSubsetLB->get_active();
     const Subset* pSubset = reinterpret_cast<const Subset*>(m_xSubsetLB->get_active_id().toUInt64());
@@ -764,15 +748,10 @@ IMPL_LINK_NOARG(SvxCharacterMap, SubsetSelectHdl, weld::ComboBoxText&, void)
 IMPL_LINK(SvxCharacterMap, RecentClearClickHdl, SvxCharView*, rView, void)
 {
     OUString sTitle = rView->GetText();
-    auto itChar = std::find_if(maRecentCharList.begin(),
-         maRecentCharList.end(),
-         [sTitle] (const OUString & a) { return a == sTitle; });
+    auto itChar = std::find(maRecentCharList.begin(), maRecentCharList.end(), sTitle);
 
     OUString sFont = rView->GetFont().GetFamilyName();
-    auto itChar2 = std::find_if(maRecentCharFontList.begin(),
-         maRecentCharFontList.end(),
-         [sFont] (const OUString & a)
-         { return a == sFont; });
+    auto itChar2 = std::find(maRecentCharFontList.begin(), maRecentCharFontList.end(), sFont);
 
     // if recent char to be added is already in list, remove it
     if( itChar != maRecentCharList.end() &&  itChar2 != maRecentCharFontList.end() )
@@ -1137,6 +1116,7 @@ SvxShowText::SvxShowText(const VclPtr<VirtualDevice>& rVirDev)
 
 void SvxShowText::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
     vcl::Font aFont = m_xVirDev->GetFont();
     Size aFontSize(aFont.GetFontSize().Width() * 5, aFont.GetFontSize().Height() * 5);
     aFont.SetFontSize(aFontSize);
@@ -1144,7 +1124,6 @@ void SvxShowText::SetDrawingArea(weld::DrawingArea* pDrawingArea)
     m_xVirDev->SetFont(aFont);
     pDrawingArea->set_size_request(m_xVirDev->approximate_digit_width() + 2 * 12,
                                    m_xVirDev->LogicToPixel(aFontSize).Height() * 2);
-    CustomWidgetController::SetDrawingArea(pDrawingArea);
     m_xVirDev->Pop();
 }
 

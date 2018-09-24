@@ -244,9 +244,15 @@ awt::Point BarChart::getLabelScreenPositionAndAlignment(
         {
         fY = (fBaseValue < fScaledUpperYValue) ? fScaledUpperYValue : fScaledLowerYValue;
         if( pPosHelper->isSwapXAndY() )
-            rAlignment = bNormalOutside ? LABEL_ALIGN_RIGHT : LABEL_ALIGN_LEFT;
+            if( fBaseValue == fScaledUpperYValue && fBaseValue == fScaledLowerYValue )
+                rAlignment = LABEL_ALIGN_RIGHT;
+            else
+                rAlignment = bNormalOutside ? LABEL_ALIGN_RIGHT : LABEL_ALIGN_LEFT;
         else
-            rAlignment = bNormalOutside ? LABEL_ALIGN_TOP : LABEL_ALIGN_BOTTOM;
+            if( fBaseValue == fScaledUpperYValue && fBaseValue == fScaledLowerYValue )
+                rAlignment = LABEL_ALIGN_TOP;
+            else
+                rAlignment = bNormalOutside ? LABEL_ALIGN_TOP : LABEL_ALIGN_BOTTOM;
         if(m_nDimension==3)
             fDepth = (fBaseValue < fScaledUpperYValue) ? fabs(fScaledUpperBarDepth) : fabs(fScaledLowerBarDepth);
         }
@@ -316,7 +322,7 @@ uno::Reference< drawing::XShape > BarChart::createDataPoint3D_Bar(
         SAL_WARN("chart2", "Exception caught. " << e );
     }
 
-    uno::Reference< drawing::XShape > xShape(nullptr);
+    uno::Reference< drawing::XShape > xShape;
     switch( nGeometry3D )
     {
         case DataPointGeometry3D::CYLINDER:
@@ -432,7 +438,7 @@ void BarChart::adaptOverlapAndGapwidthForGroupBarsPerAxis()
     }
 }
 
-E3dScene* lcl_getE3dScene(uno::Reference<uno::XInterface> const & xInterface)
+static E3dScene* lcl_getE3dScene(uno::Reference<uno::XInterface> const & xInterface)
 {
     E3dScene* pScene = nullptr;
 

@@ -404,9 +404,9 @@ void SdrModel::ImpPostUndoAction(std::unique_ptr<SdrUndoAction> pUndo)
     DBG_ASSERT( mpImpl->mpUndoManager == nullptr, "svx::SdrModel::ImpPostUndoAction(), method not supported with application undo manager!" );
     if( IsUndoEnabled() )
     {
-        if (aUndoLink.IsSet())
+        if (aUndoLink)
         {
-            aUndoLink.Call(pUndo.release());
+            aUndoLink(std::move(pUndo));
         }
         else
         {
@@ -1916,7 +1916,7 @@ void SdrModel::ReadUserDataSequenceValue(const css::beans::PropertyValue* pValue
 }
 
 template <typename T>
-inline void addPair(std::vector< std::pair< OUString, Any > >& aUserData, const OUString& name, const T val)
+static inline void addPair(std::vector< std::pair< OUString, Any > >& aUserData, const OUString& name, const T val)
 {
     aUserData.push_back(std::pair< OUString, Any >(name, css::uno::makeAny(val)));
 }

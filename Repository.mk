@@ -66,8 +66,7 @@ $(eval $(call gb_Helper_register_executables,NONE, \
         svdemo \
         fftester \
         svptest \
-        svpclient \
-        pixelctl ) \
+        svpclient ) \
 	$(if $(filter LINUX %BSD SOLARIS,$(OS)), tilebench) \
 	$(if $(filter LINUX MACOSX SOLARIS WNT %BSD,$(OS)),icontest \
 	    outdevgrind) \
@@ -330,9 +329,6 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	$(call gb_Helper_optional,AVMEDIA,avmedia) \
 	$(if $(filter MACOSX,$(OS)),\
 		avmediaMacAVF \
-		$(if $(ENABLE_MACOSX_SANDBOX),,\
-			$(if $(shell test $(MACOSX_SDK_VERSION) -ge 101200 || echo not),avmediaQuickTime) \
-		) \
 	) \
 	$(call gb_Helper_optional,SCRIPTING, \
 		basctl \
@@ -982,6 +978,7 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo_fonts,\
 		fonts_reem \
 		fonts_sourcecode \
 		fonts_sourcesans \
+		fonts_sourceserif \
 		fonts_scheherazade \
 	) \
 ))

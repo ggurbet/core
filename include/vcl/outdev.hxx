@@ -291,10 +291,11 @@ enum class InvertFlags
     NONE                    = 0x0000,
     Highlight               = 0x0001,
     N50                     = 0x0002,
+    TrackFrame              = 0x0004
 };
 namespace o3tl
 {
-    template<> struct typed_flags<InvertFlags> : is_typed_flags<InvertFlags, 0x0003> {};
+    template<> struct typed_flags<InvertFlags> : is_typed_flags<InvertFlags, 0x0007> {};
 }
 
 enum OutDevType { OUTDEV_DONTKNOW, OUTDEV_WINDOW, OUTDEV_PRINTER, OUTDEV_VIRDEV };
@@ -705,8 +706,6 @@ public:
 
     void                        DrawPixel( const Point& rPt );
     void                        DrawPixel( const Point& rPt, const Color& rColor );
-    void                        DrawPixel( const tools::Polygon& rPts, const Color* pColors );
-    void                        DrawPixel( const tools::Polygon& rPts, const Color& rColor );
 
     Color                       GetPixel( const Point& rPt ) const;
     ///@}
@@ -800,6 +799,7 @@ public:
     // #i101491#
     // Helper who tries to use SalGDI's DrawPolyLine direct and returns it's bool.
     bool                        DrawPolyLineDirect(
+                                    const basegfx::B2DHomMatrix& rObjectTransform,
                                     const basegfx::B2DPolygon& rB2DPolygon,
                                     double fLineWidth = 0.0,
                                     double fTransparency = 0.0,
@@ -993,7 +993,8 @@ public:
 
     void                        DrawCtrlText( const Point& rPos, const OUString& rStr,
                                               sal_Int32 nIndex = 0, sal_Int32 nLen = -1,
-                                              DrawTextFlags nStyle = DrawTextFlags::Mnemonic, MetricVector* pVector = nullptr, OUString* pDisplayText = nullptr );
+                                              DrawTextFlags nStyle = DrawTextFlags::Mnemonic, MetricVector* pVector = nullptr, OUString* pDisplayText = nullptr,
+                                              const SalLayoutGlyphs* pGlyphs = nullptr);
 
     void                        DrawTextLine( const Point& rPos, long nWidth,
                                               FontStrikeout eStrikeout,
@@ -1068,7 +1069,8 @@ public:
     */
     bool                        GetTextBoundRect( tools::Rectangle& rRect,
                                                   const OUString& rStr, sal_Int32 nBase = 0, sal_Int32 nIndex = 0, sal_Int32 nLen = -1,
-                                                  sal_uLong nLayoutWidth = 0, const long* pDXArray = nullptr ) const;
+                                                  sal_uLong nLayoutWidth = 0, const long* pDXArray = nullptr,
+                                                  const SalLayoutGlyphs* pGlyphs = nullptr ) const;
 
     tools::Rectangle                   ImplGetTextBoundRect( const SalLayout& );
 
@@ -1091,7 +1093,8 @@ public:
     OUString                    GetEllipsisString( const OUString& rStr, long nMaxWidth,
                                                    DrawTextFlags nStyle = DrawTextFlags::EndEllipsis ) const;
 
-    long                        GetCtrlTextWidth( const OUString& rStr ) const;
+    long                        GetCtrlTextWidth( const OUString& rStr,
+                                                  const SalLayoutGlyphs* pLayoutCache = nullptr ) const;
 
     static OUString             GetNonMnemonicString( const OUString& rStr, sal_Int32& rMnemonicPos );
 
@@ -1161,14 +1164,16 @@ public:
                                               SalLayoutGlyphs const*const pLayoutCache = nullptr) const;
 
     void                        GetCaretPositions( const OUString&, long* pCaretXArray,
-                                              sal_Int32 nIndex, sal_Int32 nLen ) const;
+                                              sal_Int32 nIndex, sal_Int32 nLen,
+                                              const SalLayoutGlyphs* pGlyphs = nullptr ) const;
     void                        DrawStretchText( const Point& rStartPt, sal_uLong nWidth,
                                                  const OUString& rStr,
                                                  sal_Int32 nIndex = 0, sal_Int32 nLen = -1);
     sal_Int32                   GetTextBreak( const OUString& rStr, long nTextWidth,
                                               sal_Int32 nIndex, sal_Int32 nLen = -1,
                                               long nCharExtra = 0,
-                                              vcl::TextLayoutCache const* = nullptr) const;
+                                              vcl::TextLayoutCache const* = nullptr,
+                                              const SalLayoutGlyphs* pGlyphs = nullptr) const;
     sal_Int32                   GetTextBreak( const OUString& rStr, long nTextWidth,
                                               sal_Unicode nExtraChar, sal_Int32& rExtraCharPos,
                                               sal_Int32 nIndex, sal_Int32 nLen,
@@ -1604,7 +1609,12 @@ public:
 
 
     void                        DrawTransparent( const tools::PolyPolygon& rPolyPoly, sal_uInt16 nTransparencePercent );
-    void                        DrawTransparent( const basegfx::B2DPolyPolygon& rB2DPolyPoly, double fTransparency);
+
+    void                        DrawTransparent(
+                                    const basegfx::B2DHomMatrix& rObjectTransform,
+                                    const basegfx::B2DPolyPolygon& rB2DPolyPoly,
+                                    double fTransparency);
+
     void                        DrawTransparent(
                                         const GDIMetaFile& rMtf, const Point& rPos, const Size& rSize,
                                         const Gradient& rTransparenceGradient );

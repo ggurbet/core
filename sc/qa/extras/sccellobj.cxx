@@ -9,9 +9,12 @@
 
 #include <test/calc_unoapi_test.hxx>
 #include <test/sheet/sheetcell.hxx>
+#include <test/table/xcell.hxx>
 #include <test/sheet/xcelladdressable.hxx>
 #include <test/sheet/xformulaquery.hxx>
 #include <test/sheet/xsheetannotationanchor.hxx>
+#include <test/table/xcolumnrowrange.hxx>
+#include <test/util/xindent.hxx>
 
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/sheet/XSheetAnnotationsSupplier.hpp>
@@ -29,8 +32,11 @@ using namespace css::uno;
 namespace sc_apitest {
 
 class ScCellObj : public CalcUnoApiTest, public apitest::SheetCell,
+                                         public apitest::XCell,
                                          public apitest::XCellAddressable,
+                                         public apitest::XColumnRowRange,
                                          public apitest::XFormulaQuery,
+                                         public apitest::XIndent,
                                          public apitest::XSheetAnnotationAnchor
 {
 public:
@@ -46,12 +52,26 @@ public:
     // SheetCell
     CPPUNIT_TEST(testSheetCellProperties);
 
+    // XCell
+    CPPUNIT_TEST(testGetError);
+    CPPUNIT_TEST(testGetType);
+    CPPUNIT_TEST(testSetGetFormula);
+    CPPUNIT_TEST(testSetGetValue);
+
     // XCellAddressable
     CPPUNIT_TEST(testGetCellAddress);
+
+    // XColumnRowRange
+    CPPUNIT_TEST(testGetColumns);
+    CPPUNIT_TEST(testGetRows);
 
     // XFormulaQuery
     CPPUNIT_TEST(testQueryDependents);
     CPPUNIT_TEST(testQueryPrecedents);
+
+    // XIndent
+    CPPUNIT_TEST(testIncrementIndent);
+    CPPUNIT_TEST(testDecrementIndent);
 
     // XSheetAnnotationAnchor
     CPPUNIT_TEST(testGetAnnotation);

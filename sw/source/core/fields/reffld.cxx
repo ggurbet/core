@@ -94,8 +94,10 @@ static void lcl_GetLayTree( const SwFrame* pFrame, std::vector<const SwFrame*>& 
 bool IsFrameBehind( const SwTextNode& rMyNd, sal_Int32 nMySttPos,
                     const SwTextNode& rBehindNd, sal_Int32 nSttPos )
 {
-    const SwTextFrame *pMyFrame = static_cast<SwTextFrame*>(rMyNd.getLayoutFrame( rMyNd.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr, false) ),
-                   *pFrame = static_cast<SwTextFrame*>(rBehindNd.getLayoutFrame( rBehindNd.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr, false) );
+    const SwTextFrame * pMyFrame = static_cast<SwTextFrame*>(rMyNd.getLayoutFrame(
+        rMyNd.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr));
+    const SwTextFrame * pFrame = static_cast<SwTextFrame*>(rBehindNd.getLayoutFrame(
+        rBehindNd.GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr));
 
     if( !pFrame || !pMyFrame)
         return false;
@@ -396,7 +398,7 @@ OUString SwGetRefField::GetExpandedTextOfReferencedTextNode() const
 {
     const SwTextNode* pReferencedTextNode( GetReferencedTextNode() );
     return pReferencedTextNode
-           ? pReferencedTextNode->GetExpandText( 0, -1, true, true, false, false )
+           ? pReferencedTextNode->GetExpandText(0, -1, true, true, false)
            : OUString();
 }
 
@@ -538,7 +540,7 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
 
             if( nStart != nEnd ) // a section?
             {
-                m_sText = pTextNd->GetExpandText( nStart, nEnd - nStart, false, false, false, false );
+                m_sText = pTextNd->GetExpandText(nStart, nEnd - nStart, false, false, false);
 
                 // remove all special characters (replace them with blanks)
                 if( !m_sText.isEmpty() )
@@ -568,7 +570,7 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
     case REF_PAGE:
     case REF_PAGE_PGDESC:
         {
-            const SwTextFrame* pFrame = static_cast<SwTextFrame*>(pTextNd->getLayoutFrame( pDoc->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr, false)),
+            const SwTextFrame* pFrame = static_cast<SwTextFrame*>(pTextNd->getLayoutFrame( pDoc->getIDocumentLayoutAccess().GetCurrentLayout(), nullptr, nullptr)),
                         *pSave = pFrame;
             if (pFrame)
             {

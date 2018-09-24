@@ -73,7 +73,6 @@ AccessibleDocumentViewBase::AccessibleDocumentViewBase (
                                      AccessibleRole::DOCUMENT),
       mpWindow (pSdWindow),
       mxController (rxController),
-      mxModel (nullptr),
       maViewForwarder (
         static_cast<SdrPaintView*>(pViewShell->GetView()),
         *pSdWindow)
@@ -708,11 +707,12 @@ uno::Any SAL_CALL AccessibleDocumentViewBase::getExtendedAttributes()
         {
             sName = "page-name:";
             sValue = sName;
+            OUString sLayerName(pDrViewSh->GetLayerTabControl()->GetLayerName(pDrViewSh->GetLayerTabControl()->GetCurPageId()) );
             sDisplay = pDrViewSh->GetLayerTabControl()->GetPageText(pDrViewSh->GetLayerTabControl()->GetCurPageId());
             if( pDoc )
             {
                 SdrLayerAdmin& rLayerAdmin = pDoc->GetLayerAdmin();
-                SdrLayer* aSdrLayer = rLayerAdmin.GetLayer(sDisplay);
+                SdrLayer* aSdrLayer = rLayerAdmin.GetLayer(sLayerName);
                 if( aSdrLayer )
                 {
                     OUString layerAltText = aSdrLayer->GetTitle();

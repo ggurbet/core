@@ -1150,20 +1150,6 @@ EncHashTransporter* EncHashTransporter::getEncHashTransporter( const uno::Refere
     return pResult;
 }
 
-bool PDFWriterImpl::checkEncryptionBufferSize( sal_Int32 newSize )
-{
-    if( m_nEncryptionBufferSize < newSize )
-    {
-        /* reallocate the buffer */
-        m_pEncryptionBuffer = static_cast<sal_uInt8*>(std::realloc( m_pEncryptionBuffer, newSize ));
-        if( m_pEncryptionBuffer )
-            m_nEncryptionBufferSize = newSize;
-        else
-            m_nEncryptionBufferSize = 0;
-    }
-    return ( m_nEncryptionBufferSize != 0 );
-}
-
 void PDFWriterImpl::checkAndEnableStreamEncryption( sal_Int32 nObject )
 {
     if( m_aContext.Encryption.Encrypt() )
@@ -1561,12 +1547,12 @@ static const long setRun[256] =
     4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 8, /* 0xf0 - 0xff */
 };
 
-inline bool isSet( const Scanline i_pLine, long i_nIndex )
+static inline bool isSet( const Scanline i_pLine, long i_nIndex )
 {
     return (i_pLine[ i_nIndex/8 ] & (0x80 >> (i_nIndex&7))) != 0;
 }
 
-long findBitRunImpl( const Scanline i_pLine, long i_nStartIndex, long i_nW, bool i_bSet )
+static long findBitRunImpl( const Scanline i_pLine, long i_nStartIndex, long i_nW, bool i_bSet )
 {
     long nIndex = i_nStartIndex;
     if( nIndex < i_nW )
@@ -1629,7 +1615,7 @@ long findBitRunImpl( const Scanline i_pLine, long i_nStartIndex, long i_nW, bool
     return std::min(nIndex, i_nW);
 }
 
-long findBitRun(const Scanline i_pLine, long i_nStartIndex, long i_nW, bool i_bSet)
+static long findBitRun(const Scanline i_pLine, long i_nStartIndex, long i_nW, bool i_bSet)
 {
     if (i_nStartIndex < 0)
         return i_nW;
@@ -1637,7 +1623,7 @@ long findBitRun(const Scanline i_pLine, long i_nStartIndex, long i_nW, bool i_bS
     return findBitRunImpl(i_pLine, i_nStartIndex, i_nW, i_bSet);
 }
 
-long findBitRun(const Scanline i_pLine, long i_nStartIndex, long i_nW)
+static long findBitRun(const Scanline i_pLine, long i_nStartIndex, long i_nW)
 {
     if (i_nStartIndex < 0)
         return i_nW;
@@ -1684,9 +1670,9 @@ void PDFWriterImpl::putG4Bits( sal_uInt32 i_nLength, sal_uInt32 i_nCode, BitStre
 
 struct PixelCode
 {
-    sal_uInt32      mnEncodedPixels;
-    sal_uInt32      mnCodeBits;
-    sal_uInt32      mnCode;
+    sal_uInt32 const      mnEncodedPixels;
+    sal_uInt32 const      mnCodeBits;
+    sal_uInt32 const      mnCode;
 };
 
 static const PixelCode WhitePixelCodes[] =
@@ -1938,8 +1924,9 @@ void PDFWriterImpl::writeG4Stream( BitmapReadAccess const * i_pBitmap )
     BitStreamState aBitState;
 
     // the first reference line is virtual and completely empty
-    const Scanline pFirstRefLine = static_cast<Scanline>(rtl_allocateZeroMemory( nW/8 + 1 ));
-    Scanline pRefLine = pFirstRefLine;
+    std::unique_ptr<sal_uInt8[]> pFirstRefLine(new  sal_uInt8[nW/8 + 1]);
+    memset(pFirstRefLine.get(), 0, nW/8 + 1);
+    Scanline pRefLine = pFirstRefLine.get();
     for( long nY = 0; nY < nH; nY++ )
     {
         const Scanline pCurLine = i_pBitmap->GetScanline( nY );
@@ -1958,8 +1945,8 @@ void PDFWriterImpl::writeG4Stream( BitmapReadAccess const * i_pBitmap )
                 {   // vertical coding
                     static const struct
                     {
-                        sal_uInt32 mnCodeBits;
-                        sal_uInt32 mnCode;
+                        sal_uInt32 const mnCodeBits;
+                        sal_uInt32 const mnCode;
                     } VerticalCodes[7] = {
                         { 7, 0x03 },    // 0000 011
                         { 6, 0x03 },    // 0000 11
@@ -2012,8 +1999,6 @@ void PDFWriterImpl::writeG4Stream( BitmapReadAccess const * i_pBitmap )
         writeBuffer( &aBitState.getByte(), 1 );
         aBitState.flush();
     }
-
-    std::free( pFirstRefLine );
 }
 
 static bool lcl_canUsePDFAxialShading(const Gradient& rGradient) {

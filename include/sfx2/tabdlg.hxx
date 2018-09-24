@@ -45,15 +45,24 @@ struct TabPageParent
     TabPageParent(vcl::Window* _pParent)
         : pParent(_pParent)
         , pPage(nullptr)
+        , pController(nullptr)
     {
     }
-    TabPageParent(weld::Container* _pPage)
+    TabPageParent(weld::Container* _pPage, weld::DialogController* _pController)
         : pParent(nullptr)
         , pPage(_pPage)
+        , pController(_pController)
     {
+    }
+    weld::Window* GetFrameWeld() const
+    {
+        if (pController)
+            return pController->getDialog();
+        return pParent->GetFrameWeld();
     }
     VclPtr<vcl::Window> pParent;
     weld::Container* pPage;
+    weld::DialogController* pController;
 };
 
 typedef VclPtr<SfxTabPage> (*CreateTabPage)(TabPageParent pParent, const SfxItemSet *rAttrSet);
@@ -230,6 +239,7 @@ protected:
 
     DECL_LINK(OkHdl, weld::Button&, void);
     DECL_LINK(ResetHdl, weld::Button&, void);
+    DECL_LINK(BaseFmtHdl, weld::Button&, void);
     DECL_LINK(UserHdl, weld::Button&, void);
     DECL_LINK(CancelHdl, weld::Button&, void);
 private:
@@ -238,6 +248,7 @@ private:
     std::unique_ptr<weld::Button> m_xUserBtn;
     std::unique_ptr<weld::Button> m_xCancelBtn;
     std::unique_ptr<weld::Button> m_xResetBtn;
+    std::unique_ptr<weld::Button> m_xBaseFmtBtn;
     std::unique_ptr<weld::SizeGroup> m_xSizeGroup;
 
     std::unique_ptr<SfxItemSet>           m_pSet;
@@ -245,6 +256,7 @@ private:
     std::unique_ptr<TabDlg_Impl>          m_pImpl;
     std::unique_ptr<sal_uInt16[]>         m_pRanges;
     OString             m_sAppPageId;
+    bool                m_bStandardPushed;
 
     DECL_DLLPRIVATE_LINK(ActivatePageHdl, const OString&, void);
     DECL_DLLPRIVATE_LINK(DeactivatePageHdl, const OString&, bool);
@@ -253,7 +265,7 @@ private:
 
 protected:
     virtual short               Ok();
-    void                        RefreshInputSet();
+    virtual void                RefreshInputSet();
     virtual void                PageCreated(const OString &rName, SfxTabPage &rPage);
 
     std::unique_ptr<SfxItemSet> m_xExampleSet;
@@ -273,12 +285,16 @@ protected:
     void Start_Impl();
 public:
     SfxTabDialogController(weld::Window* pParent, const OUString& rUIXMLDescription, const OString& rID,
-                           const SfxItemSet * = nullptr);
+                           const SfxItemSet * = nullptr, bool bEditFmt = false);
     virtual ~SfxTabDialogController() override;
 
-    void                AddTabPage( const OString& rName,           // Name of the label for the page in the notebook .ui
-                                    CreateTabPage pCreateFunc,      // != 0
-                                    GetTabPageRanges pRangesFunc);  // can be 0
+    void                AddTabPage(const OString& rName,           // Name of the label for the page in the notebook .ui
+                                   CreateTabPage pCreateFunc,      // != 0
+                                   GetTabPageRanges pRangesFunc);  // can be 0
+
+    void                AddTabPage(const OString &rName,          // Name of the label for the page in the notebook .ui
+                                   sal_uInt16 nPageCreateId);     // Identifier of the Factory Method to create the page
+
     void                RemoveTabPage( const OString& rName ); // Name of the label for the page in the notebook .ui
 
     void                SetCurPageId(const OString& rName);
@@ -298,12 +314,18 @@ public:
     const weld::Button* GetUserButton() const { return m_xUserBtn.get(); }
     weld::Button*       GetUserButton() { return m_xUserBtn.get(); }
     void                RemoveResetButton();
+    void                RemoveStandardButton();
 
     short               execute();
     static bool runAsync(const std::shared_ptr<SfxTabDialogController>& rController,
                          const std::function<void(sal_Int32)>&);
 
     const SfxItemSet*   GetExampleSet() const { return m_xExampleSet.get(); }
+
+    void                SetApplyHandler(const Link<weld::Button&,void>& _rHdl);
+
+    //calls Ok without closing dialog
+    bool Apply();
 };
 
 namespace sfx { class ItemConnectionBase; }
@@ -348,13 +370,10 @@ protected:
     }
 
     SfxTabDialog*       GetTabDialog() const;
-    void                SetTabDialog(SfxTabDialog* pDialog);
-
     SfxTabDialogController* GetDialogController() const;
+public:
+    void                SetTabDialog(SfxTabDialog* pDialog);
     void                SetDialogController(SfxTabDialogController* pDialog);
-
-    void                AddItemConnection( sfx::ItemConnectionBase* pConnection );
-
 public:
     virtual             ~SfxTabPage() override;
     virtual void        dispose() override;
@@ -389,7 +408,18 @@ public:
     void SetFrame(const css::uno::Reference< css::frame::XFrame >& xFrame);
     css::uno::Reference< css::frame::XFrame > GetFrame();
 
+    const SfxItemSet* GetDialogExampleSet() const;
+
     OString         GetConfigId() const;
+
+    //TODO rename to GetFrameWeld when SfxTabPage doesn't inherit from anything
+    weld::Window*   GetDialogFrameWeld() const;
+
+    //TODO rename to get_preferred_size when SfxTabPage doesn't inherit from anything
+    Size get_container_size() const
+    {
+        return m_xContainer->get_preferred_size();
+    }
 };
 
 #endif

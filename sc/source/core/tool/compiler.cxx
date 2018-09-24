@@ -3942,13 +3942,13 @@ void ScCompiler::AutoCorrectParsedSymbol()
         else if ( (GetCharTableFlags( c1, 0 ) & ScCharFlags::CharValue)
                && (GetCharTableFlags( c2, c2p ) & ScCharFlags::CharValue) )
         {
-            if ( comphelper::string::getTokenCount(aCorrectedSymbol, cx) > 1 )
+            if ( aCorrectedSymbol.indexOf(cx) >= 0 ) // At least two tokens separated by cx
             {   // x => *
                 sal_Unicode c = mxSymbols->getSymbolChar(ocMul);
                 aCorrectedSymbol = aCorrectedSymbol.replaceAll(OUStringLiteral1(cx), OUStringLiteral1(c));
                 bCorrected = true;
             }
-            if ( comphelper::string::getTokenCount(aCorrectedSymbol, cX) > 1 )
+            if ( aCorrectedSymbol.indexOf(cX) >= 0 ) // At least two tokens separated by cX
             {   // X => *
                 sal_Unicode c = mxSymbols->getSymbolChar(ocMul);
                 aCorrectedSymbol = aCorrectedSymbol.replaceAll(OUStringLiteral1(cX), OUStringLiteral1(c));
@@ -5592,9 +5592,7 @@ bool ScCompiler::HandleTableRef()
         }
         bool bColumnRange = false;
         bool bCol1Rel = false;
-        bool bCol2Rel = false;
         bool bCol1RelName = false;
-        bool bCol2RelName = false;
         int nLevel = 0;
         if (bForwardToClose && GetTokenIfOpCode( ocTableRefOpen))
         {
@@ -5671,6 +5669,8 @@ bool ScCompiler::HandleTableRef()
         ScTokenArray* pNew = new ScTokenArray();
         if (nError == FormulaError::NONE || nError == FormulaError::NoValue)
         {
+            bool bCol2Rel = false;
+            bool bCol2RelName = false;
             // The FormulaError::NoValue case generates a thisrow reference that can be
             // used to save named expressions in A1 syntax notation.
             if (bColumnRange)

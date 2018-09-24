@@ -106,6 +106,11 @@ namespace vcl
     class Window;
 }
 
+namespace basegfx
+{
+    class SystemDependentDataManager;
+}
+
 class LocaleConfigurationListener : public utl::ConfigurationListener
 {
 public:
@@ -126,16 +131,16 @@ struct ImplSVAppData
         ImeStatusWindowMode_SHOW
     };
 
-    AllSettings*            mpSettings = nullptr;           // Application settings
+    std::unique_ptr<AllSettings> mpSettings;           // Application settings
     LocaleConfigurationListener* mpCfgListener = nullptr;
-    VclEventListeners*      mpEventListeners = nullptr;     // listeners for vcl events (eg, extended toolkit)
-    SVAppKeyListeners*      mpKeyListeners = nullptr;       // listeners for key events only (eg, extended toolkit)
+    VclEventListeners       maEventListeners;     // listeners for vcl events (eg, extended toolkit)
+    SVAppKeyListeners       maKeyListeners;       // listeners for key events only (eg, extended toolkit)
     std::vector<ImplPostEventPair> maPostedEventList;
-    ImplAccelManager*       mpAccelMgr = nullptr;           // Accelerator Manager
-    OUString*               mpAppName = nullptr;            // Application name
-    OUString*               mpAppFileName = nullptr;        // Abs. Application FileName
-    OUString*               mpDisplayName = nullptr;        // Application Display Name
-    OUString*               mpToolkitName = nullptr;        // Toolkit Name
+    ImplAccelManager*       mpAccelMgr;           // Accelerator Manager
+    boost::optional<OUString> mxAppName;            // Application name
+    boost::optional<OUString> mxAppFileName;        // Abs. Application FileName
+    boost::optional<OUString> mxDisplayName;        // Application Display Name
+    boost::optional<OUString> mxToolkitName;        // Toolkit Name
     Help*                   mpHelp = nullptr;               // Application help
     VclPtr<PopupMenu>       mpActivePopupMenu;              // Actives Popup-Menu (in Execute)
     VclPtr<ImplWheelWindow> mpWheelWindow;                  // WheelWindow
@@ -226,8 +231,8 @@ struct ImplSVCtrlData
 {
     std::vector<Image>      maCheckImgList;                 // ImageList for CheckBoxes
     std::vector<Image>      maRadioImgList;                 // ImageList for RadioButtons
-    Image*                  mpDisclosurePlus = nullptr;
-    Image*                  mpDisclosureMinus = nullptr;
+    std::unique_ptr<Image>  mpDisclosurePlus;
+    std::unique_ptr<Image>  mpDisclosureMinus;
     ImplTBDragMgr*          mpTBDragMgr = nullptr;          // DragMgr for ToolBox
     sal_uInt16              mnCheckStyle = 0;               // CheckBox-Style for ImageList-Update
     sal_uInt16              mnRadioStyle = 0;               // Radio-Style for ImageList-Update
@@ -237,8 +242,8 @@ struct ImplSVCtrlData
     Color                   mnLastRadioFColor;              // Last FaceColor for RadioImage
     Color                   mnLastRadioWColor;              // Last WindowColor for RadioImage
     Color                   mnLastRadioLColor;              // Last LightColor for RadioImage
-    FieldUnitStringList*    mpFieldUnitStrings = nullptr;   // list with field units
-    FieldUnitStringList*    mpCleanUnitStrings = nullptr;   // same list but with some "fluff" like spaces removed
+    FieldUnitStringList     maFieldUnitStrings;   // list with field units
+    FieldUnitStringList     maCleanUnitStrings;   // same list but with some "fluff" like spaces removed
 };
 
 struct ImplSVHelpData
@@ -341,7 +346,7 @@ struct ImplSVData
     VclPtr<WorkWindow>      mpDefaultWin;                   // Default-Window
     bool                    mbDeInit = false;               // Is VCL deinitializing
     std::unique_ptr<SalI18NImeStatus> mpImeStatus;          // interface to ime status window, only used by the X11 backend
-    SalSystem*              mpSalSystem = nullptr;          // SalSystem interface
+    std::unique_ptr<SalSystem> mpSalSystem;                 // SalSystem interface
     bool                    mbResLocaleSet = false;         // SV-Resource-Manager
     std::locale             maResLocale;                    // Resource locale
     ImplSchedulerContext    maSchedCtx;                     // indepen data for class Scheduler
@@ -353,16 +358,16 @@ struct ImplSVData
     ImplSVNWFData           maNWFData;
     UnoWrapperBase*         mpUnoWrapper = nullptr;
     VclPtr<vcl::Window>     mpIntroWindow;                  // the splash screen
-    DockingManager*         mpDockingManager = nullptr;
-    BlendFrameCache*        mpBlendFrameCache = nullptr;
+    std::unique_ptr<DockingManager> mpDockingManager;
+    std::unique_ptr<BlendFrameCache> mpBlendFrameCache;
 
     oslThreadIdentifier     mnMainThreadId = 0;
     rtl::Reference< vcl::DisplayConnectionDispatch > mxDisplayConnection;
 
     css::uno::Reference< css::lang::XComponent > mxAccessBridge;
-    vcl::SettingsConfigItem* mpSettingsConfigItem = nullptr;
-    std::vector< vcl::DeleteOnDeinitBase* >* mpDeinitDeleteList = nullptr;
-    std::unordered_map< int, OUString >* mpPaperNames = nullptr;
+    std::unique_ptr<vcl::SettingsConfigItem> mpSettingsConfigItem;
+    std::vector< vcl::DeleteOnDeinitBase* > maDeinitDeleteList;
+    std::unordered_map< int, OUString > maPaperNames;
 
     css::uno::Reference<css::i18n::XCharacterClassification> m_xCharClass;
 
@@ -372,6 +377,7 @@ struct ImplSVData
 css::uno::Reference<css::i18n::XCharacterClassification> const& ImplGetCharClass();
 
 void        ImplDeInitSVData();
+VCL_PLUGIN_PUBLIC basegfx::SystemDependentDataManager& ImplGetSystemDependentDataManager();
 VCL_PLUGIN_PUBLIC vcl::Window* ImplGetDefaultWindow();
 VCL_PLUGIN_PUBLIC vcl::Window* ImplGetDefaultContextWindow();
 VCL_PLUGIN_PUBLIC const std::locale& ImplGetResLocale();

@@ -44,6 +44,7 @@
 #include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/uno3.hxx>
 #include <cppuhelper/component.hxx>
+#include <cppuhelper/implbase1.hxx>
 #include <cppuhelper/implbase2.hxx>
 #include <tools/diagnose_ex.h>
 
@@ -97,8 +98,7 @@ private:
         // used by locked columns
 public:
     DbGridColumn(sal_uInt16 _nId, DbGridControl& rParent)
-        :m_pCell(nullptr)
-        ,m_rParent(rParent)
+        :m_rParent(rParent)
         ,m_nLastVisibleWidth(-1)
         ,m_nFormatKey(0)
         ,m_nFieldType(0)

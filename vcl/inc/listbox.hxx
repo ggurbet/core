@@ -23,6 +23,7 @@
 #include <vcl/button.hxx>
 #include <vcl/floatwin.hxx>
 #include <vcl/quickselectionengine.hxx>
+#include <vcl/vcllayout.hxx>
 
 #include <set>
 #include <vector>
@@ -44,8 +45,9 @@ enum LB_EVENT_TYPE
 
 struct ImplEntryType
 {
-    OUString    maStr;
-    Image       maImage;
+    OUString const    maStr;
+    SalLayoutGlyphs   maStrGlyphs;
+    Image const       maImage;
     void*       mpUserData;
     bool        mbIsSelected;
     ListBoxEntryFlags mnFlags;
@@ -69,6 +71,9 @@ struct ImplEntryType
         mbIsSelected = false;
         mpUserData = nullptr;
     }
+
+    /// Computes maStr's text layout (glyphs), cached in maStrGlyphs.
+    SalLayoutGlyphs* GetTextGlyphs(OutputDevice* pOutputDevice);
 };
 
 class ImplEntryList

@@ -84,7 +84,6 @@ struct OutputBorderOptions
     sal_Int32           tag = 0;
     bool                bUseStartEnd = false;
     bool                bWriteTag = true;
-    bool                bWriteInsideHV = false;
     bool                bWriteDistance = false;
     SvxShadowLocation   aShadowLocation = SvxShadowLocation::NONE;
     std::shared_ptr<editeng::WordBorderDistances> pDistances;
@@ -268,7 +267,7 @@ public:
     virtual void SectionBreak( sal_uInt8 nC, const WW8_SepInfo* pSectionInfo = nullptr ) override;
 
     // preserve DOCX page vertical alignment
-    virtual void TextVerticalAdjustment( const css::drawing::TextVerticalAdjust ) SAL_OVERRIDE;
+    virtual void TextVerticalAdjustment( const css::drawing::TextVerticalAdjust ) override;
 
     /// Start of the section properties.
     virtual void StartSection() override;
@@ -841,13 +840,11 @@ private:
 
     struct PostponedGraphic
     {
-        PostponedGraphic( const SwGrfNode* n, Size s, const SwFlyFrameFormat* pOLEFrameFormat, SwOLENode* pOLENode, const SdrObject* sObj )
-            : grfNode( n ), size( s ), mOLEFrameFormat( pOLEFrameFormat ), mOLENode( pOLENode ), pSdrObj(sObj) {};
+        PostponedGraphic( const SwGrfNode* n, Size s, const SdrObject* sObj )
+            : grfNode( n ), size( s ), pSdrObj(sObj) {};
 
         const SwGrfNode* grfNode;
         Size size;
-        const SwFlyFrameFormat* mOLEFrameFormat;
-        SwOLENode* mOLENode;
         const SdrObject* pSdrObj;
     };
     std::unique_ptr< std::vector<PostponedGraphic> > m_pPostponedGraphic;

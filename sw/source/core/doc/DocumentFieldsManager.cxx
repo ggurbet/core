@@ -50,6 +50,7 @@
 #include <usrfld.hxx>
 #include <ndindex.hxx>
 #include <pam.hxx>
+#include <o3tl/deleter.hxx>
 #include <unotools/transliterationwrapper.hxx>
 #include <com/sun/star/uno/Any.hxx>
 
@@ -670,7 +671,7 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
                 TBL_CALC != static_cast<SwTableFormulaUpdate*>(pHt)->m_eFlags ))
         return ;
 
-    SwCalc* pCalc = nullptr;
+    std::unique_ptr<SwCalc, o3tl::default_delete<SwCalc>> pCalc;
 
     if( pFieldType )
     {
@@ -704,7 +705,7 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
                         continue;
 
                     if( !pCalc )
-                        pCalc = new SwCalc( m_rDoc );
+                        pCalc.reset(new SwCalc( m_rDoc ));
 
                     // get the values of all SetExpression fields that are valid
                     // until the table
@@ -713,7 +714,10 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
                     {
                         // is in the special section, that's expensive!
                         Point aPt;      // return the first frame of the layout - Tab.Headline!!
-                        pFrame = rTextNd.getLayoutFrame( m_rDoc.getIDocumentLayoutAccess().GetCurrentLayout(), &aPt );
+                        std::pair<Point, bool> const tmp(aPt, true);
+                        pFrame = rTextNd.getLayoutFrame(
+                            m_rDoc.getIDocumentLayoutAccess().GetCurrentLayout(),
+                            nullptr, &tmp);
                         if( pFrame )
                         {
                             SwPosition aPos( *pTableNd );
@@ -769,7 +773,7 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
                 {
                     double nValue;
                     if( !pCalc )
-                        pCalc = new SwCalc( m_rDoc );
+                        pCalc.reset(new SwCalc( m_rDoc ));
 
                     // get the values of all SetExpression fields that are valid
                     // until the table
@@ -783,7 +787,10 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
                         if( !pCNd )
                             pCNd = m_rDoc.GetNodes().GoNext( &aCNdIdx );
 
-                        if( pCNd && nullptr != (pFrame = pCNd->getLayoutFrame( m_rDoc.getIDocumentLayoutAccess().GetCurrentLayout(), &aPt )) )
+                        std::pair<Point, bool> const tmp(aPt, true);
+                        if (pCNd && nullptr != (pFrame = pCNd->getLayoutFrame(
+                                m_rDoc.getIDocumentLayoutAccess().GetCurrentLayout(),
+                                nullptr, &tmp)))
                         {
                             SwPosition aPos( *pCNd );
                             if( GetBodyTextNode( m_rDoc, aPos, *pFrame ) )
@@ -829,8 +836,6 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
             }
         }
     }
-
-    delete pCalc;
 }
 
 void DocumentFieldsManager::UpdateExpFields( SwTextField* pUpdateField, bool bUpdRefFields )

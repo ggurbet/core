@@ -40,6 +40,7 @@
 #include <vector>
 #include <memory>
 #include <osl/thread.h>
+#include <comphelper/sequence.hxx>
 
 #include "secerror.hxx"
 
@@ -56,8 +57,8 @@ using ::com::sun::star::lang::XSingleServiceFactory ;
 using ::com::sun::star::xml::crypto::XSecurityEnvironment ;
 using ::com::sun::star::security::XCertificate ;
 
-extern X509Certificate_NssImpl* NssCertToXCert( CERTCertificate* cert ) ;
-extern X509Certificate_NssImpl* NssPrivKeyToXCert( SECKEYPrivateKey* ) ;
+static X509Certificate_NssImpl* NssCertToXCert( CERTCertificate* cert ) ;
+static X509Certificate_NssImpl* NssPrivKeyToXCert( SECKEYPrivateKey* ) ;
 
 
 struct UsageDescription
@@ -77,7 +78,7 @@ struct UsageDescription
 };
 
 
-char* GetPasswordFunction( PK11SlotInfo* pSlot, PRBool bRetry, void* /*arg*/ )
+static char* GetPasswordFunction( PK11SlotInfo* pSlot, PRBool bRetry, void* /*arg*/ )
 {
     uno::Reference< uno::XComponentContext > xContext( ::comphelper::getProcessComponentContext() );
     uno::Reference < task::XInteractionHandler2 > xInteractionHandler(
@@ -105,7 +106,7 @@ char* GetPasswordFunction( PK11SlotInfo* pSlot, PRBool bRetry, void* /*arg*/ )
 }
 
 SecurityEnvironment_NssImpl::SecurityEnvironment_NssImpl() :
-m_pHandler( nullptr ) , m_tSymKeyList() , m_tPubKeyList() , m_tPriKeyList() {
+m_pHandler( nullptr ) , m_tSymKeyList() {
     PK11_SetPasswordFunc( GetPasswordFunction ) ;
 }
 
@@ -119,24 +120,8 @@ SecurityEnvironment_NssImpl::~SecurityEnvironment_NssImpl() {
     }
 
     if( !m_tSymKeyList.empty()  ) {
-        std::list< PK11SymKey* >::iterator symKeyIt ;
-
-        for( symKeyIt = m_tSymKeyList.begin() ; symKeyIt != m_tSymKeyList.end() ; ++symKeyIt )
-            PK11_FreeSymKey( *symKeyIt ) ;
-    }
-
-    if( !m_tPubKeyList.empty()  ) {
-        std::list< SECKEYPublicKey* >::iterator pubKeyIt ;
-
-        for( pubKeyIt = m_tPubKeyList.begin() ; pubKeyIt != m_tPubKeyList.end() ; ++pubKeyIt )
-            SECKEY_DestroyPublicKey( *pubKeyIt ) ;
-    }
-
-    if( !m_tPriKeyList.empty()  ) {
-        std::list< SECKEYPrivateKey* >::iterator priKeyIt ;
-
-        for( priKeyIt = m_tPriKeyList.begin() ; priKeyIt != m_tPriKeyList.end() ; ++priKeyIt )
-            SECKEY_DestroyPrivateKey( *priKeyIt ) ;
+        for( auto& symKey : m_tSymKeyList )
+            PK11_FreeSymKey( symKey ) ;
     }
 }
 
@@ -205,14 +190,10 @@ void SecurityEnvironment_NssImpl::setCertDb( CERTCertDBHandle* aCertDb ) {
 }
 
 void SecurityEnvironment_NssImpl::adoptSymKey( PK11SymKey* aSymKey ) {
-    std::list< PK11SymKey* >::iterator keyIt ;
-
     if( aSymKey != nullptr ) {
         //First try to find the key in the list
-        for( keyIt = m_tSymKeyList.begin() ; keyIt != m_tSymKeyList.end() ; ++keyIt ) {
-            if( *keyIt == aSymKey )
-                return ;
-        }
+        if (std::find(m_tSymKeyList.begin(), m_tSymKeyList.end(), aSymKey) != m_tSymKeyList.end())
+            return;
 
         //If we do not find the key in the list, add a new node
         PK11SymKey* symkey = PK11_ReferenceSymKey( aSymKey ) ;
@@ -322,25 +303,14 @@ SecurityEnvironment_NssImpl::getPersonalCertificates()
 
     }
 
-    //secondly, we try to find certificate from registered private keys.
-    if( !m_tPriKeyList.empty()  ) {
-        std::list< SECKEYPrivateKey* >::iterator priKeyIt ;
-
-        for( priKeyIt = m_tPriKeyList.begin() ; priKeyIt != m_tPriKeyList.end() ; ++priKeyIt ) {
-            xcert = NssPrivKeyToXCert( *priKeyIt ) ;
-            if( xcert != nullptr )
-                certsList.push_back( xcert ) ;
-        }
-    }
-
     length = certsList.size() ;
     if( length != 0 ) {
-        int i ;
-        std::list< X509Certificate_NssImpl* >::iterator xcertIt ;
+        int i = 0;
         Sequence< Reference< XCertificate > > certSeq( length ) ;
 
-        for( i = 0, xcertIt = certsList.begin(); xcertIt != certsList.end(); ++xcertIt, ++i ) {
-            certSeq[i] = *xcertIt ;
+        for( const auto& rXCert : certsList ) {
+            certSeq[i] = rXCert ;
+            ++i;
         }
 
         return certSeq ;
@@ -438,15 +408,10 @@ Sequence< Reference < XCertificate > > SecurityEnvironment_NssImpl::buildCertifi
     }
 
     if( certChain != nullptr ) {
-        X509Certificate_NssImpl* pCert ;
-        CERTCertListNode* node ;
-        int len ;
+        std::vector<uno::Reference<security::XCertificate>> aCertChain;
 
-        for( len = 0, node = CERT_LIST_HEAD( certChain ); !CERT_LIST_END( node, certChain ); node = CERT_LIST_NEXT( node ), len ++ ) ;
-        Sequence< Reference< XCertificate > > xCertChain( len ) ;
-
-        for( len = 0, node = CERT_LIST_HEAD( certChain ); !CERT_LIST_END( node, certChain ); node = CERT_LIST_NEXT( node ), len ++ ) {
-            pCert = new X509Certificate_NssImpl() ;
+        for (CERTCertListNode* node = CERT_LIST_HEAD(certChain); !CERT_LIST_END(node, certChain); node = CERT_LIST_NEXT(node)) {
+            X509Certificate_NssImpl* pCert = new X509Certificate_NssImpl();
             if( pCert == nullptr ) {
                 CERT_DestroyCertList( certChain ) ;
                 throw RuntimeException() ;
@@ -454,12 +419,12 @@ Sequence< Reference < XCertificate > > SecurityEnvironment_NssImpl::buildCertifi
 
             pCert->setCert( node->cert ) ;
 
-            xCertChain[len] = pCert ;
+            aCertChain.push_back(pCert);
         }
 
         CERT_DestroyCertList( certChain ) ;
 
-        return xCertChain ;
+        return comphelper::containerToSequence(aCertChain);
     }
 
     return Sequence< Reference < XCertificate > >();
@@ -716,11 +681,10 @@ verifyCertificate( const Reference< csss::XCertificate >& aCert,
     }
 
     //Destroying the temporary certificates
-    std::vector<CERTCertificate*>::const_iterator cert_i;
-    for (cert_i = vecTmpNSSCertificates.begin(); cert_i != vecTmpNSSCertificates.end(); ++cert_i)
+    for (auto& tmpCert : vecTmpNSSCertificates)
     {
         SAL_INFO("xmlsecurity.xmlsec", "Destroying temporary certificate");
-        CERT_DestroyCertificate(*cert_i);
+        CERT_DestroyCertificate(tmpCert);
     }
     return validity ;
 }

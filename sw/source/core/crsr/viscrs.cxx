@@ -142,7 +142,7 @@ void SwVisibleCursor::SetPosAndShow(SfxViewShell const * pViewShell)
         if( rNode.IsTextNode() )
         {
             const SwTextNode& rTNd = *rNode.GetTextNode();
-            const SwFrame* pFrame = rTNd.getLayoutFrame( m_pCursorShell->GetLayout(), nullptr, nullptr, false );
+            const SwFrame* pFrame = rTNd.getLayoutFrame(m_pCursorShell->GetLayout(), nullptr, nullptr);
             if ( pFrame )
             {
                 const SwScriptInfo* pSI = static_cast<const SwTextFrame*>(pFrame)->GetScriptInfo();
@@ -247,9 +247,7 @@ SwSelPaintRects::SwSelPaintRects( const SwCursorShell& rCSh )
     : SwRects()
     , m_pCursorShell( &rCSh )
 #if HAVE_FEATURE_DESKTOP
-    , m_pCursorOverlay(nullptr)
     , m_bShowTextInputFieldOverlay(true)
-    , m_pTextInputFieldOverlay(nullptr)
 #endif
 {
 }
@@ -292,7 +290,10 @@ void SwSelPaintRects::Hide()
 static SwRect lcl_getLayoutRect(const Point& rPoint, const SwPosition& rPosition)
 {
     const SwContentNode* pNode = rPosition.nNode.GetNode().GetContentNode();
-    const SwContentFrame* pFrame = pNode->getLayoutFrame(pNode->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(), &rPoint, &rPosition);
+    std::pair<Point, bool> const tmp(rPoint, true);
+    const SwContentFrame* pFrame = pNode->getLayoutFrame(
+            pNode->GetDoc()->getIDocumentLayoutAccess().GetCurrentLayout(),
+            &rPosition, &tmp);
     SwRect aRect;
     pFrame->GetCharRect(aRect, rPosition);
     return aRect;
@@ -700,7 +701,8 @@ void SwShellCursor::SaveTableBoxContent( const SwPosition* pPos )
 bool SwShellCursor::UpDown( bool bUp, sal_uInt16 nCnt )
 {
     return SwCursor::UpDown( bUp, nCnt,
-                            &GetPtPos(), GetShell()->GetUpDownX() );
+                            &GetPtPos(), GetShell()->GetUpDownX(),
+                            *GetShell()->GetLayout());
 }
 
 // if <true> than the cursor can be set to the position.
@@ -785,7 +787,8 @@ void SwShellTableCursor::FillRects()
         if( !pCNd )
             continue;
 
-        SwFrame* pFrame = pCNd->getLayoutFrame( GetShell()->GetLayout(), &GetSttPos() );
+        std::pair<Point, bool> const tmp(GetSttPos(), true);
+        SwFrame* pFrame = pCNd->getLayoutFrame(GetShell()->GetLayout(), nullptr, &tmp);
         while( pFrame && !pFrame->IsCellFrame() )
             pFrame = pFrame->GetUpper();
 
@@ -834,7 +837,8 @@ bool SwShellTableCursor::IsInside( const Point& rPt ) const
         if( !pCNd )
             continue;
 
-        SwFrame* pFrame = pCNd->getLayoutFrame( GetShell()->GetLayout(), &GetPtPos() );
+        std::pair<Point, bool> const tmp(GetPtPos(), true);
+        SwFrame* pFrame = pCNd->getLayoutFrame(GetShell()->GetLayout(), nullptr, &tmp);
         while( pFrame && !pFrame->IsCellFrame() )
             pFrame = pFrame->GetUpper();
         OSL_ENSURE( pFrame, "Node not in a table" );

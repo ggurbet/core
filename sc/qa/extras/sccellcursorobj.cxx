@@ -25,6 +25,10 @@
 #include <test/sheet/xsubtotalcalculatable.hxx>
 #include <test/sheet/xuniquecellformatrangessupplier.hxx>
 #include <test/sheet/xusedareacursor.hxx>
+#include <test/table/xcellcursor.hxx>
+#include <test/table/xcolumnrowrange.hxx>
+#include <test/util/xindent.hxx>
+#include <test/util/xmergeable.hxx>
 
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
@@ -37,12 +41,16 @@ namespace sc_apitest {
 
 class ScCellCursorObj : public CalcUnoApiTest, public apitest::SheetCellRange,
                                                public apitest::XArrayFormulaRange,
+                                               public apitest::XCellCursor,
                                                public apitest::XCellFormatRangesSupplier,
                                                public apitest::XCellRangeAddressable,
                                                public apitest::XCellRangeData,
                                                public apitest::XCellRangeFormula,
                                                public apitest::XCellSeries,
+                                               public apitest::XColumnRowRange,
                                                public apitest::XFormulaQuery,
+                                               public apitest::XIndent,
+                                               public apitest::XMergeable,
                                                public apitest::XMultipleOperation,
                                                public apitest::XSheetCellCursor,
                                                public apitest::XSheetCellRange,
@@ -70,6 +78,13 @@ public:
     // XArrayFormulaRange
     CPPUNIT_TEST(testGetSetArrayFormula);
 
+    // XCellCursor
+    CPPUNIT_TEST(testGoToNext);
+    CPPUNIT_TEST(testGoToOffset);
+    CPPUNIT_TEST(testGoToPrevious);
+    CPPUNIT_TEST(testGoToStart);
+    CPPUNIT_TEST(testGoToEnd);
+
     // XCellFormatRangesSupplier
     CPPUNIT_TEST(testGetCellFormatRanges);
 
@@ -87,9 +102,20 @@ public:
     CPPUNIT_TEST(testFillAuto);
     CPPUNIT_TEST(testFillSeries);
 
+    // XColumnRowRange
+    CPPUNIT_TEST(testGetColumns);
+    CPPUNIT_TEST(testGetRows);
+
     // XFormulaQuery
     CPPUNIT_TEST(testQueryDependents);
     CPPUNIT_TEST(testQueryPrecedents);
+
+    // XIndent
+    CPPUNIT_TEST(testIncrementIndent);
+    CPPUNIT_TEST(testDecrementIndent);
+
+    // XMergeable
+    CPPUNIT_TEST(testGetIsMergedMerge);
 
     // XMultipleOperation
     CPPUNIT_TEST(testSetTableOperation);

@@ -113,7 +113,6 @@ void DlgEdFunc::ForceScroll( const Point& rPos )
 DlgEdFunc::DlgEdFunc( OReportSection* _pParent )
     : m_pParent(_pParent)
     , m_rView(_pParent->getSectionView())
-    , m_xOverlappingObj(nullptr)
     , m_pOverlappingObj(nullptr)
     , m_nOverlappedControlColor(0)
     , m_nOldColor(0)
@@ -131,7 +130,7 @@ void DlgEdFunc::setOverlappedControlColor(Color _nColor)
     m_nOverlappedControlColor = _nColor;
 }
 
-Color lcl_setColorOfObject(const uno::Reference< uno::XInterface >& _xObj, Color _nColorTRGB)
+static Color lcl_setColorOfObject(const uno::Reference< uno::XInterface >& _xObj, Color _nColorTRGB)
 {
     Color nBackColor;
     try

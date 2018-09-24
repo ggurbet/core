@@ -516,7 +516,7 @@ void SwTextCursor::GetCharRect_( SwRect* pOrig, TextFrameIndex const nOfst,
 
         // First all portions without Len at beginning of line are skipped.
         // Exceptions are the mean special portions from WhichFirstPortion:
-        // Num, ErgoSum, FootnoteNum, FeldReste
+        // Num, ErgoSum, FootnoteNum, FieldRests
         // 8477: but also the only Textportion of an empty line with
         // Right/Center-Adjustment! So not just pPor->GetExpandPortion() ...
         while( pPor && !pPor->GetLen() && ! bInsideFirstField )
@@ -1476,8 +1476,10 @@ TextFrameIndex SwTextCursor::GetCursorOfst( SwPosition *pPos, const Point &rPoin
     {
         if ( nWidth )
         {
-            // Else we may not enter the character-supplying frame...
-            if( !( bChgNode && pPos && pPor->IsFlyCntPortion() ) )
+            // no quick return for as-character frames, we want to peek inside
+            if (!(bChgNode && pPos && pPor->IsFlyCntPortion())
+            // if we want to get the position inside the field, we should not return
+                && (!pCMS || !pCMS->m_pSpecialPos))
             {
                 if ( pPor->InFieldGrp() ||
                      ( pPor->IsMultiPortion() &&
@@ -1506,9 +1508,7 @@ TextFrameIndex SwTextCursor::GetCursorOfst( SwPosition *pPos, const Point &rPoin
                          && ( bRightAllowed || !bLastHyph ))
                     ++nCurrStart;
 
-                // if we want to get the position inside the field, we should not return
-                if ( !pCMS || !pCMS->m_pSpecialPos )
-                    return nCurrStart;
+                return nCurrStart;
             }
         }
         else

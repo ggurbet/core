@@ -63,7 +63,7 @@ test::BootstrapFixture::BootstrapFixture( bool bAssertOnDialog, bool bNeedUCB )
 extern "C"
 {
 
-void test_init_impl(bool bAssertOnDialog, bool bNeedUCB,
+static void test_init_impl(bool bAssertOnDialog, bool bNeedUCB,
         lang::XMultiServiceFactory * pSFactory)
 {
     if (bAssertOnDialog)
@@ -97,6 +97,12 @@ SAL_DLLPUBLIC_EXPORT void test_init(lang::XMultiServiceFactory *pFactory)
         test_init_impl(false, true, pFactory);
     }
     catch (...) { abort(); }
+}
+
+// this is called from pyuno
+SAL_DLLPUBLIC_EXPORT void test_deinit()
+{
+    DeInitVCL();
 }
 
 } // extern "C"

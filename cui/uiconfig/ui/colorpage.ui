@@ -40,7 +40,7 @@
   <object class="GtkImage" id="image3">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">res/sc10350.png</property>
+    <property name="icon_name">res/sc10350.png</property>
   </object>
   <object class="GtkBox" id="ColorPage">
     <property name="visible">True</property>
@@ -134,6 +134,7 @@
                       <object class="GtkDrawingArea" id="recentcolorset">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
+                        <property name="events">GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
                         <property name="hexpand">True</property>
                         <property name="vexpand">True</property>
                       </object>
@@ -254,6 +255,7 @@
                               <object class="GtkDrawingArea" id="colorset">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
+                                <property name="events">GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
                                 <property name="hexpand">True</property>
                                 <property name="vexpand">True</property>
                               </object>
@@ -311,6 +313,7 @@
               <object class="GtkBox" id="box1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="valign">start</property>
                 <property name="orientation">vertical</property>
                 <property name="spacing">12</property>
                 <child>
@@ -319,14 +322,31 @@
                     <property name="can_focus">False</property>
                     <property name="orientation">vertical</property>
                     <child>
-                      <object class="GtkDrawingArea" id="oldpreview">
+                      <object class="GtkScrolledWindow">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="hexpand">True</property>
                         <property name="vexpand">True</property>
-                        <child internal-child="accessible">
-                          <object class="AtkObject" id="oldpreview-atkobject">
-                            <property name="AtkObject::accessible-name" translatable="yes" context="colorpage|oldpreview-atkobject">Old Color</property>
+                        <property name="hscrollbar_policy">never</property>
+                        <property name="vscrollbar_policy">never</property>
+                        <property name="shadow_type">in</property>
+                        <child>
+                          <object class="GtkViewport">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <child>
+                              <object class="GtkDrawingArea" id="oldpreview">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="hexpand">True</property>
+                                <property name="vexpand">True</property>
+                                <child internal-child="accessible">
+                                  <object class="AtkObject" id="oldpreview-atkobject">
+                                    <property name="AtkObject::accessible-name" translatable="yes" context="colorpage|oldpreview-atkobject">Old Color</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
@@ -621,14 +641,31 @@
                     <property name="can_focus">False</property>
                     <property name="orientation">vertical</property>
                     <child>
-                      <object class="GtkDrawingArea" id="newpreview">
+                      <object class="GtkScrolledWindow">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="hexpand">True</property>
                         <property name="vexpand">True</property>
-                        <child internal-child="accessible">
-                          <object class="AtkObject" id="newpreview-atkobject">
-                            <property name="AtkObject::accessible-name" translatable="yes" context="colorpage|newpreview-atkobject">New Color</property>
+                        <property name="hscrollbar_policy">never</property>
+                        <property name="vscrollbar_policy">never</property>
+                        <property name="shadow_type">in</property>
+                        <child>
+                          <object class="GtkViewport">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <child>
+                              <object class="GtkDrawingArea" id="newpreview">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="hexpand">True</property>
+                                <property name="vexpand">True</property>
+                                <child internal-child="accessible">
+                                  <object class="AtkObject" id="newpreview-atkobject">
+                                    <property name="AtkObject::accessible-name" translatable="yes" context="colorpage|newpreview-atkobject">New Color</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
@@ -889,6 +926,7 @@
                     <property name="valign">start</property>
                     <property name="image">image3</property>
                     <property name="image_position">right</property>
+                    <property name="always_show_image">True</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>

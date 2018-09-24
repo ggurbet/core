@@ -107,13 +107,11 @@ uno::Reference< drawing::XShapes > ShapeFactory::getOrCreateChartRootShape(
     return xRet;
 }
 
-void ShapeFactory::setPageSize(uno::Reference< drawing::XShapes >, const awt::Size& )
-{
-}
+void ShapeFactory::setPageSize(const uno::Reference<drawing::XShapes>&, const awt::Size&) {}
 
 //  diverse tools::PolyPolygon create methods
 
-uno::Any createPolyPolygon_Cube(
+static uno::Any createPolyPolygon_Cube(
             const drawing::Direction3D& rSize, double fRoundedEdge, bool bRounded )
 {
     OSL_PRECOND(fRoundedEdge>=0, "fRoundedEdge needs to be >= 0");
@@ -202,7 +200,7 @@ uno::Any createPolyPolygon_Cube(
     return uno::Any( &aPP, cppu::UnoType<drawing::PolyPolygonShape3D>::get());
 }
 
-uno::Any createPolyPolygon_Cylinder(
+static uno::Any createPolyPolygon_Cylinder(
              double fHeight
            , double fRadius
            , sal_Int32& nVerticalSegmentCount )
@@ -284,7 +282,7 @@ uno::Any createPolyPolygon_Cylinder(
     return uno::Any( &aPP, cppu::UnoType<drawing::PolyPolygonShape3D>::get());
 }
 
-uno::Any createPolyPolygon_Cone( double fHeight, double fRadius, double fTopHeight
+static uno::Any createPolyPolygon_Cone( double fHeight, double fRadius, double fTopHeight
             , sal_Int32& nVerticalSegmentCount )
 {
     OSL_PRECOND(fRadius>0, "The radius of a cone needs to be > 0");
@@ -708,7 +706,7 @@ uno::Reference<drawing::XShape>
     return xShape;
 }
 
-void appendAndCloseBezierCoords( drawing::PolyPolygonBezierCoords& rReturn, const drawing::PolyPolygonBezierCoords& rAdd, bool bAppendInverse )
+static void appendAndCloseBezierCoords( drawing::PolyPolygonBezierCoords& rReturn, const drawing::PolyPolygonBezierCoords& rAdd, bool bAppendInverse )
 {
     if(!rAdd.Coordinates.getLength())
         return;
@@ -733,7 +731,7 @@ void appendAndCloseBezierCoords( drawing::PolyPolygonBezierCoords& rReturn, cons
     rReturn.Flags[0][nOldCount+nAddCount] = rReturn.Flags[0][0];
 }
 
-drawing::PolyPolygonBezierCoords getCircularArcBezierCoords(
+static drawing::PolyPolygonBezierCoords getCircularArcBezierCoords(
         double fStartAngleRadian, double fWidthAngleRadian, double fUnitRadius
         , const ::basegfx::B2DHomMatrix& rTransformationFromUnitCircle
         , const double fAngleSubdivisionRadian )
@@ -844,7 +842,7 @@ drawing::PolyPolygonBezierCoords getCircularArcBezierCoords(
     return aReturn;
 }
 
-drawing::PolyPolygonBezierCoords getRingBezierCoords(
+static drawing::PolyPolygonBezierCoords getRingBezierCoords(
             double fUnitCircleInnerRadius
             , double fUnitCircleOuterRadius
             , double fStartAngleRadian, double fWidthAngleRadian
@@ -1158,7 +1156,7 @@ uno::Reference< drawing::XShape >
     return xShape;
 }
 
-drawing::PolyPolygonShape3D createPolyPolygon_Symbol( const drawing::Position3D& rPos
+static drawing::PolyPolygonShape3D createPolyPolygon_Symbol( const drawing::Position3D& rPos
                                  , const drawing::Direction3D& rSize
                                  , sal_Int32 nStandardSymbol )
 {
@@ -2409,6 +2407,7 @@ uno::Reference< drawing::XShape >
             aValueMap.insert( { "TextVerticalAdjust", uno::Any(drawing::TextVerticalAdjust_CENTER) } ); //drawing::TextVerticalAdjust
             aValueMap.insert( { "TextAutoGrowHeight", uno::Any(true) } ); // sal_Bool
             aValueMap.insert( { "TextAutoGrowWidth", uno::Any(true) } ); // sal_Bool
+            aValueMap.insert( { "TextMaximumFrameWidth", uno::Any(rSize.Width) } ); // sal_Int32
 
             //set name/classified ObjectID (CID)
             if( !aName.isEmpty() )

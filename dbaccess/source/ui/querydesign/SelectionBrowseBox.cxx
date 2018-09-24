@@ -135,10 +135,9 @@ OSelectionBrowseBox::OSelectionBrowseBox( vcl::Window* pParent )
     aTitleFont.SetFontSize(Size(0, 6));
     SetTitleFont(aTitleFont);
 
-    OUString aTxt(DBA_RES(STR_QUERY_SORTTEXT));
-    sal_Int32 nCount = comphelper::string::getTokenCount(aTxt, ';');
-    for (sal_Int32 nIdx = 0; nIdx < nCount; nIdx++)
-        m_pOrderCell->InsertEntry(aTxt.getToken(nIdx, ';'));
+    const OUString aTxt(DBA_RES(STR_QUERY_SORTTEXT));
+    for (sal_Int32 nIdx {0}; nIdx>=0;)
+        m_pOrderCell->InsertEntry(aTxt.getToken(0, ';', nIdx));
 
     m_bVisibleRow.insert(m_bVisibleRow.end(), BROW_ROW_CNT, true);
 
@@ -186,25 +185,21 @@ void OSelectionBrowseBox::initialize()
             ,IParseContext::InternationalKeyCode::Intersection
         };
 
-        OUString sGroup = m_aFunctionStrings.getToken(comphelper::string::getTokenCount(m_aFunctionStrings, ';') - 1, ';');
+        OUString sGroup = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);;
         m_aFunctionStrings = m_aFunctionStrings.getToken(0, ';');
 
         for (IParseContext::InternationalKeyCode eFunction : eFunctions)
         {
-            m_aFunctionStrings += ";";
-            m_aFunctionStrings += OStringToOUString(rContext.getIntlKeywordAscii(eFunction),
-                RTL_TEXTENCODING_UTF8);
+            m_aFunctionStrings += ";" + OStringToOUString(rContext.getIntlKeywordAscii(eFunction), RTL_TEXTENCODING_UTF8);
         }
-        m_aFunctionStrings += ";";
-        m_aFunctionStrings += sGroup;
+        m_aFunctionStrings += ";" + sGroup;
 
         // Aggregate functions in general available only with Core SQL
         // We slip in a few optionals one, too.
         if ( lcl_SupportsCoreSQLGrammar(xConnection) )
         {
-            sal_Int32 nCount = comphelper::string::getTokenCount(m_aFunctionStrings, ';');
-            for( sal_Int32 nIdx = 0; nIdx < nCount; nIdx++ )
-                m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(nIdx, ';'));
+            for (sal_Int32 nIdx {0}; nIdx>=0;)
+                m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(0, ';', nIdx));
         }
         else // else only COUNT(*) and COUNT("table".*)
         {
@@ -699,13 +694,12 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
             bool bQuote = ( nPass <= 2 );
             bool bInternational = ( nPass % 2 ) == 0;
 
-            OUString sSql;
+            OUString sSql {"SELECT "};
             if ( bQuote )
                 sSql += sQuotedFullFieldName;
             else
                 sSql += sFullFieldName;
 
-            sSql = "SELECT " + sSql;
             if ( !sFieldAlias.isEmpty() )
             { // always quote the alias name: there cannot be a function in it
                 sSql += " " + ::dbtools::quoteName( xMetaData->getIdentifierQuoteString(), sFieldAlias );
@@ -824,7 +818,7 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
                     aSelEntry->SetField(sParameters);
                     if ( aSelEntry->IsGroupBy() )
                     {
-                        sOldLocalizedFunctionName = m_aFunctionStrings.getToken(comphelper::string::getTokenCount(m_aFunctionStrings, ';')-1, ';');
+                        sOldLocalizedFunctionName = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);
                         aSelEntry->SetGroupBy(false);
                     }
 
@@ -893,7 +887,7 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
 bool OSelectionBrowseBox::SaveModified()
 {
     OQueryController& rController = static_cast<OQueryController&>(getDesignView()->getController());
-    OTableFieldDescRef pEntry = nullptr;
+    OTableFieldDescRef pEntry;
     sal_uInt16 nCurrentColumnPos = GetColumnPos(GetCurColumnId());
     if(getFields().size() > static_cast<sal_uInt16>(nCurrentColumnPos - 1))
         pEntry = getEntry(nCurrentColumnPos - 1);
@@ -951,7 +945,7 @@ bool OSelectionBrowseBox::SaveModified()
 
                         sal_Int32 nPos = m_pFieldCell->GetEntryPos(aFieldName);
                         OUString aAliasName = pEntry->GetAlias();
-                        if ( nPos != COMBOBOX_ENTRY_NOTFOUND && aAliasName.isEmpty() && comphelper::string::getTokenCount(aFieldName, '.') > 1 )
+                        if ( nPos != COMBOBOX_ENTRY_NOTFOUND && aAliasName.isEmpty() && aFieldName.indexOf('.') >= 0 )
                         { // special case, we have a table field so we must cut the table name
                             OUString sTableAlias = aFieldName.getToken(0,'.');
                             pEntry->SetAlias(sTableAlias);
@@ -1042,7 +1036,7 @@ bool OSelectionBrowseBox::SaveModified()
                     sal_Int32 nPos = m_pFunctionCell->GetSelectedEntryPos();
                     // these functions are only available in CORE
                     OUString sFunctionName        = m_pFunctionCell->GetEntry(nPos);
-                    OUString sGroupFunctionName   = m_aFunctionStrings.getToken(comphelper::string::getTokenCount(m_aFunctionStrings, ';')-1, ';');
+                    OUString sGroupFunctionName   = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);
                     bool bGroupBy = false;
                     if ( sGroupFunctionName == sFunctionName ) // check if the function name is GROUP
                     {
@@ -1220,7 +1214,7 @@ void OSelectionBrowseBox::PaintCell(OutputDevice& rDev, const tools::Rectangle& 
 {
     rDev.SetClipRegion(vcl::Region(rRect));
 
-    OTableFieldDescRef pEntry = nullptr;
+    OTableFieldDescRef pEntry;
     sal_uInt16 nPos = GetColumnPos(nColumnId);
     if(getFields().size() > sal_uInt16(nPos - 1))
         pEntry = getFields()[nPos - 1];
@@ -1434,7 +1428,7 @@ void OSelectionBrowseBox::DeleteFields(const OUString& rAliasName)
             DeactivateCell();
 
         OTableFields::const_reverse_iterator aIter = getFields().rbegin();
-        OTableFieldDescRef pEntry = nullptr;
+        OTableFieldDescRef pEntry;
         for(sal_uInt16 nPos=sal::static_int_cast< sal_uInt16 >(getFields().size());aIter != getFields().rend();++aIter,--nPos)
         {
             pEntry = *aIter;
@@ -2139,7 +2133,7 @@ OUString OSelectionBrowseBox::GetCellText(long nRow, sal_uInt16 nColId) const
         case BROW_FUNCTION_ROW:
             // we always show the group function at first
             if ( pEntry->IsGroupBy() )
-                aText = m_aFunctionStrings.getToken(comphelper::string::getTokenCount(m_aFunctionStrings, ';')-1, ';');
+                aText = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);
             else if ( pEntry->isNumericOrAggreateFunction() )
                 aText = pEntry->GetFunction();
             break;
@@ -2151,7 +2145,6 @@ OUString OSelectionBrowseBox::GetCellText(long nRow, sal_uInt16 nColId) const
 
 bool OSelectionBrowseBox::GetFunctionName(sal_uInt32 _nFunctionTokenId, OUString& rFkt)
 {
-    bool bErg=true;
     switch(_nFunctionTokenId)
     {
         case SQL_TOKEN_COUNT:
@@ -2201,22 +2194,21 @@ bool OSelectionBrowseBox::GetFunctionName(sal_uInt32 _nFunctionTokenId, OUString
             break;
         default:
             {
-                sal_Int32 nCount = comphelper::string::getTokenCount(m_aFunctionStrings, ';');
-                sal_Int32 i;
-                for( i = 0; i < nCount-1; i++ ) // grouping is not counted
+                const sal_Int32 nStopIdx = m_aFunctionStrings.lastIndexOf(';'); // grouping is not counted
+                for (sal_Int32 nIdx {0}; nIdx<nStopIdx;)
                 {
-                    if(rFkt.equalsIgnoreAsciiCase(m_aFunctionStrings.getToken(i, ';')))
+                    const OUString sFunc {m_aFunctionStrings.getToken(0, ';', nIdx)};
+                    if (rFkt.equalsIgnoreAsciiCase(sFunc))
                     {
-                        rFkt = m_aFunctionStrings.getToken(i, ';');
-                        break;
+                        rFkt = sFunc;
+                        return true;
                     }
                 }
-                if(i == nCount-1)
-                    bErg = false;
+                return false;
             }
     }
 
-    return bErg;
+    return true;
 }
 
 OUString OSelectionBrowseBox::GetCellContents(sal_Int32 nCellIndex, sal_uInt16 nColId)
@@ -2275,7 +2267,7 @@ void OSelectionBrowseBox::SetCellContents(sal_Int32 nRow, sal_uInt16 nColId, con
             break;
         case BROW_FUNCTION_ROW:
         {
-            OUString sGroupFunctionName = m_aFunctionStrings.getToken(comphelper::string::getTokenCount(m_aFunctionStrings, ';')-1, ';');
+            OUString sGroupFunctionName = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);
             pEntry->SetFunction(strNewText);
             // first reset this two member
             sal_Int32 nFunctionType = pEntry->GetFunctionType();
@@ -2656,7 +2648,7 @@ void OSelectionBrowseBox::setFunctionCell(OTableFieldDescRef const & _pEntry)
 
 Reference< XAccessible > OSelectionBrowseBox::CreateAccessibleCell( sal_Int32 _nRow, sal_uInt16 _nColumnPos )
 {
-    OTableFieldDescRef pEntry = nullptr;
+    OTableFieldDescRef pEntry;
     if(getFields().size() > sal_uInt16(_nColumnPos - 1))
         pEntry = getFields()[_nColumnPos - 1];
 

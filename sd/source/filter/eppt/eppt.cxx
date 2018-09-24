@@ -87,10 +87,6 @@ PPTWriter::PPTWriter( tools::SvRef<SotStorage> const & rSvStorage,
     mbFontIndependentLineSpacing( false ),
     mnTextSize( 0 ),
     mrStg                   ( rSvStorage ),
-    mpCurUserStrm           ( nullptr ),
-    mpStrm                  ( nullptr ),
-    mpPicStrm               ( nullptr ),
-    mpPptEscherEx           ( nullptr ),
     mnVBAOleOfs             ( 0 ),
     mpVBA                   ( pVBA ),
     mnExEmbed               ( 0 ),
@@ -167,7 +163,7 @@ void PPTWriter::exportPPTPost( )
     mbStatus = true;
 };
 
-void ImplExportComments( const uno::Reference< drawing::XDrawPage >& xPage, SvMemoryStream& rBinaryTagData10Atom );
+static void ImplExportComments( const uno::Reference< drawing::XDrawPage >& xPage, SvMemoryStream& rBinaryTagData10Atom );
 
 void PPTWriter::ImplWriteSlide( sal_uInt32 nPageNum, sal_uInt32 nMasterNum, sal_uInt16 nMode,
                                 bool bHasBackground, Reference< XPropertySet > const & aXBackgroundPropSet )

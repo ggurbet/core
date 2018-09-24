@@ -83,21 +83,21 @@ typedef unsigned long Pixel;
 using namespace vcl_sal;
 
 #ifdef DBG_UTIL
-inline const char *Null( const char *p ) { return p ? p : ""; }
-inline const char *GetEnv( const char *p ) { return Null( getenv( p ) ); }
-inline const char *KeyStr( KeySym n ) { return Null( XKeysymToString( n ) ); }
+static inline const char *Null( const char *p ) { return p ? p : ""; }
+static inline const char *GetEnv( const char *p ) { return Null( getenv( p ) ); }
+static inline const char *KeyStr( KeySym n ) { return Null( XKeysymToString( n ) ); }
 
-inline const char *GetAtomName( Display *d, Atom a )
+static inline const char *GetAtomName( Display *d, Atom a )
 { return Null( XGetAtomName( d, a ) ); }
 
-inline double Hypothenuse( long w, long h )
+static inline double Hypothenuse( long w, long h )
 { return sqrt( static_cast<double>((w*w)+(h*h)) ); }
 #endif
 
-inline int ColorDiff( int r, int g, int b )
+static inline int ColorDiff( int r, int g, int b )
 { return (r*r)+(g*g)+(b*b); }
 
-inline int ColorDiff( Color c1, int r, int g, int b )
+static inline int ColorDiff( Color c1, int r, int g, int b )
 { return ColorDiff( static_cast<int>(c1.GetRed())-r,
                     static_cast<int>(c1.GetGreen())-g,
                     static_cast<int>(c1.GetBlue())-b ); }
@@ -156,9 +156,9 @@ extern "C" srv_vendor_t
 sal_GetServerVendor( Display *p_display )
 {
     typedef struct {
-        srv_vendor_t    e_vendor;   // vendor as enum
+        srv_vendor_t const    e_vendor;   // vendor as enum
         const char      *p_name;    // vendor name as returned by VendorString()
-        unsigned int    n_len;  // number of chars to compare
+        unsigned int const    n_len;  // number of chars to compare
     } vendor_t;
 
     const vendor_t p_vendorlist[] = {
@@ -283,7 +283,6 @@ SalDisplay::SalDisplay( Display *display ) :
         nShiftKeySym_( 0 ),
         nCtrlKeySym_( 0 ),
         nMod1KeySym_( 0 ),
-        m_pWMAdaptor( nullptr ),
         m_bXinerama( false ),
         m_bUseRandRWrapper( true ),
         m_nLastUserEventTime( CurrentTime )
@@ -766,7 +765,7 @@ OUString SalDisplay::GetKeyNameFromKeySym( KeySym nKeySym ) const
     return aRet;
 }
 
-inline KeySym sal_XModifier2Keysym( Display         *pDisplay,
+static inline KeySym sal_XModifier2Keysym( Display         *pDisplay,
                                     XModifierKeymap const *pXModMap,
                                     int              n )
 {

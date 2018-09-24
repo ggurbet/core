@@ -161,8 +161,7 @@ data2string(void *data,
     return result.makeStringAndClear();
 }
 
-static OUString
-any2string(uno::Any any)
+static OUString any2string(const uno::Any& any)
 {
     return data2string(const_cast<void*>(any.getValue()), any.pType);
 }
@@ -188,7 +187,7 @@ XMLAutoStylePoolProperties::XMLAutoStylePoolProperties( XMLAutoStyleFamily& rFam
             }
 
         // Create a name based on the properties used
-        for(XMLPropertyState & rState : maProperties)
+        for(XMLPropertyState const & rState : maProperties)
             {
                 if (rState.mnIndex == -1)
                     continue;
@@ -248,7 +247,7 @@ XMLAutoStylePoolProperties::XMLAutoStylePoolProperties( XMLAutoStyleFamily& rFam
 
 #if OSL_DEBUG_LEVEL > 0
     std::set<sal_Int32> DebugProperties;
-    for (XMLPropertyState & rPropState : maProperties)
+    for (XMLPropertyState const & rPropState : maProperties)
     {
         sal_Int32 const property(rPropState.mnIndex);
         // serious bug: will cause duplicate attributes to be exported
@@ -481,10 +480,10 @@ void SvXMLAutoStylePoolP_Impl::GetRegisteredNames(
         XMLAutoStyleFamily &rFamily = *aJ;
 
         // iterate over names
-        for (std::set<OUString>::const_iterator aI = rFamily.maNameSet.begin(); aI != rFamily.maNameSet.end(); ++aI)
+        for (const auto& rName : rFamily.maNameSet)
         {
             aFamilies.push_back( rFamily.mnFamily );
-            aNames.push_back( *aI );
+            aNames.push_back( rName );
         }
     }
 
