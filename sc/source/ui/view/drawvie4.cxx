@@ -444,7 +444,7 @@ void ScDrawView::CalcNormScale( Fraction& rFractX, Fraction& rFractY ) const
 
 void ScDrawView::SetMarkedOriginalSize()
 {
-    SdrUndoGroup* pUndoGroup = new SdrUndoGroup(*GetModel());
+    std::unique_ptr<SdrUndoGroup> pUndoGroup(new SdrUndoGroup(*GetModel()));
 
     const SdrMarkList& rMarkList = GetMarkedObjectList();
     long nDone = 0;
@@ -518,7 +518,7 @@ void ScDrawView::SetMarkedOriginalSize()
         {
             tools::Rectangle aDrawRect = pObj->GetLogicRect();
 
-            pUndoGroup->AddAction( new SdrUndoGeoObj( *pObj ) );
+            pUndoGroup->AddAction( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
             pObj->Resize( aDrawRect.TopLeft(), Fraction( aOriginalSize.Width(), aDrawRect.GetWidth() ),
                                                  Fraction( aOriginalSize.Height(), aDrawRect.GetHeight() ) );
             ++nDone;
@@ -529,11 +529,9 @@ void ScDrawView::SetMarkedOriginalSize()
     {
         pUndoGroup->SetComment(ScResId( STR_UNDO_ORIGINALSIZE ));
         ScDocShell* pDocSh = pViewData->GetDocShell();
-        pDocSh->GetUndoManager()->AddUndoAction(pUndoGroup);
+        pDocSh->GetUndoManager()->AddUndoAction(std::move(pUndoGroup));
         pDocSh->SetDrawModified();
     }
-    else
-        delete pUndoGroup;
 }
 
 void ScDrawView::FitToCellSize()
@@ -562,7 +560,7 @@ void ScDrawView::FitToCellSize()
         return;
     }
 
-    SdrUndoGroup* pUndoGroup = new SdrUndoGroup(*GetModel());
+    std::unique_ptr<SdrUndoGroup> pUndoGroup(new SdrUndoGroup(*GetModel()));
     tools::Rectangle aGraphicRect = pObj->GetSnapRect();
     tools::Rectangle aCellRect = ScDrawLayer::GetCellRect( *pDoc, pObjData->maStart, true);
 
@@ -581,13 +579,13 @@ void ScDrawView::FitToCellSize()
         aCellRect.setHeight(static_cast<double>(aGraphicRect.GetHeight()) * fScaleMin);
     }
 
-    pUndoGroup->AddAction( new SdrUndoGeoObj( *pObj ) );
+    pUndoGroup->AddAction( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
 
     pObj->SetSnapRect(aCellRect);
 
     pUndoGroup->SetComment(ScResId( STR_UNDO_FITCELLSIZE ));
     ScDocShell* pDocSh = pViewData->GetDocShell();
-    pDocSh->GetUndoManager()->AddUndoAction(pUndoGroup);
+    pDocSh->GetUndoManager()->AddUndoAction(std::move(pUndoGroup));
 
 }
 

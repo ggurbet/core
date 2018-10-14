@@ -36,9 +36,9 @@ static const basegfx::B2DPoint aHalfPointOfs(0.5, 0.5);
 static void AddPolygonToPath(QPainterPath& rPath, const basegfx::B2DPolygon& rPolygon,
                              bool bClosePath, bool bPixelSnap, bool bLineDraw)
 {
-    // short circuit if there is nothing to do
     const int nPointCount = rPolygon.count();
-    if (nPointCount <= 0)
+    // short circuit if there is nothing to do
+    if (nPointCount == 0)
         return;
 
     const bool bHasCurves = rPolygon.areControlPointsUsed();
@@ -102,12 +102,10 @@ static void AddPolygonToPath(QPainterPath& rPath, const basegfx::B2DPolygon& rPo
 static bool AddPolyPolygonToPath(QPainterPath& rPath, const basegfx::B2DPolyPolygon& rPolyPoly,
                                  bool bPixelSnap, bool bLineDraw)
 {
-    const int nPolyCount = rPolyPoly.count();
-    if (nPolyCount <= 0)
+    if (rPolyPoly.count() == 0)
         return false;
-    for (int nPolyIdx = 0; nPolyIdx < nPolyCount; ++nPolyIdx)
+    for (auto const& rPolygon : rPolyPoly)
     {
-        const basegfx::B2DPolygon rPolygon = rPolyPoly.getB2DPolygon(nPolyIdx);
         AddPolygonToPath(rPath, rPolygon, true, bPixelSnap, bLineDraw);
     }
     return true;

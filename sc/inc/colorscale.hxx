@@ -52,7 +52,7 @@ private:
     void setListener();
 
 public:
-    ScColorScaleEntry(double nVal, const Color& rCol);
+    ScColorScaleEntry(double nVal, const Color& rCol, ScColorScaleEntryType eType = COLORSCALE_VALUE);
     ScColorScaleEntry();
     ScColorScaleEntry(const ScColorScaleEntry& rEntry);
     ScColorScaleEntry(ScDocument* pDoc, const ScColorScaleEntry& rEntry);
@@ -268,7 +268,7 @@ public:
 
     virtual void SetParent(ScConditionalFormat* pParent) override;
 
-    Color* GetColor(const ScAddress& rAddr) const;
+    boost::optional<Color> GetColor(const ScAddress& rAddr) const;
     void AddEntry(ScColorScaleEntry* pEntry);
 
     virtual void UpdateReference( sc::RefUpdateContext& rCxt ) override;
@@ -303,7 +303,7 @@ public:
 
     virtual void SetParent(ScConditionalFormat* pParent) override;
 
-    ScDataBarInfo* GetDataBarInfo(const ScAddress& rAddr) const;
+    std::unique_ptr<ScDataBarInfo> GetDataBarInfo(const ScAddress& rAddr) const;
 
     void SetDataBarData( ScDataBarFormatData* pData );
     const ScDataBarFormatData* GetDataBarData() const;
@@ -344,8 +344,8 @@ struct ScIconSetFormatData
     // std..pair::second == -1 means no image
     std::vector<std::pair<ScIconSetType, sal_Int32> > maCustomVector;
 
-    ScIconSetFormatData():
-        eIconSetType(IconSet_3Arrows),
+    ScIconSetFormatData(ScIconSetType eType = IconSet_3Arrows):
+        eIconSetType(eType),
         mbShowValue(true),
         mbReverse(false),
         mbCustom(false)
@@ -365,7 +365,7 @@ public:
 
     virtual void SetParent(ScConditionalFormat* pParent) override;
 
-    ScIconSetInfo* GetIconSetInfo(const ScAddress& rAddr) const;
+    std::unique_ptr<ScIconSetInfo> GetIconSetInfo(const ScAddress& rAddr) const;
 
     void SetIconSetData( ScIconSetFormatData* pData );
     const ScIconSetFormatData* GetIconSetData() const;

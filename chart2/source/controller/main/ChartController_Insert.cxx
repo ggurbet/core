@@ -172,13 +172,13 @@ void ChartController::executeDispatch_InsertTitles()
         aDialogInput.readFromModel( getModel() );
 
         SolarMutexGuard aGuard;
-        ScopedVclPtrInstance< SchTitleDlg > aDlg( GetChartWindow(), aDialogInput );
-        if( aDlg->Execute() == RET_OK )
+        SchTitleDlg aDlg(GetChartFrame(), aDialogInput);
+        if (aDlg.run() == RET_OK)
         {
             // lock controllers till end of block
             ControllerLockGuardUNO aCLGuard( getModel() );
             TitleDialogData aDialogOutput(impl_createReferenceSizeProvider());
-            aDlg->getResult( aDialogOutput );
+            aDlg.getResult(aDialogOutput);
             bool bChanged = aDialogOutput.writeDifferenceToModel( getModel(), m_xCC, &aDialogInput );
             if( bChanged )
                 aUndoGuard.commit();
@@ -225,13 +225,13 @@ void ChartController::executeDispatch_OpenLegendDialog()
     {
         //prepare and open dialog
         SolarMutexGuard aGuard;
-        ScopedVclPtrInstance< SchLegendDlg > aDlg( GetChartWindow(), m_xCC );
-        aDlg->init( getModel() );
-        if( aDlg->Execute() == RET_OK )
+        SchLegendDlg aDlg(GetChartFrame(), m_xCC);
+        aDlg.init( getModel() );
+        if (aDlg.run() == RET_OK)
         {
             // lock controllers till end of block
             ControllerLockGuardUNO aCLGuard( getModel() );
-            aDlg->writeToModel( getModel() );
+            aDlg.writeToModel( getModel() );
             aUndoGuard.commit();
         }
     }
@@ -284,12 +284,12 @@ void ChartController::executeDispatch_InsertMenu_DataLabels()
         NumberFormatterWrapper aNumberFormatterWrapper( xNumberFormatsSupplier );
         SvNumberFormatter* pNumberFormatter = aNumberFormatterWrapper.getSvNumberFormatter();
 
-        ScopedVclPtrInstance< DataLabelsDialog > aDlg( GetChartWindow(), aItemSet, pNumberFormatter);
+        DataLabelsDialog aDlg(GetChartFrame(), aItemSet, pNumberFormatter);
 
-        if( aDlg->Execute() == RET_OK )
+        if (aDlg.run() == RET_OK)
         {
             SfxItemSet aOutItemSet = aItemConverter.CreateEmptyItemSet();
-            aDlg->FillItemSet( aOutItemSet );
+            aDlg.FillItemSet(aOutItemSet);
             // lock controllers till end of block
             ControllerLockGuardUNO aCLGuard( getModel() );
             bool bChanged = aItemConverter.ApplyItemSet( aOutItemSet );//model should be changed now

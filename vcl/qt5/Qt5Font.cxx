@@ -33,10 +33,10 @@ static QFont::Weight GetQFontWeight(FontWeight eWeight)
             return QFont::ExtraLight;
         case WEIGHT_LIGHT:
             return QFont::Light;
-        case FontWeight_FORCE_EQUAL_SIZE:
-            assert(false && "FontWeight_FORCE_EQUAL_SIZE not implementable for QFont");
         case WEIGHT_SEMILIGHT:
+            SAL_FALLTHROUGH;
         case WEIGHT_DONTKNOW:
+            SAL_FALLTHROUGH;
         case WEIGHT_NORMAL:
             return QFont::Normal;
         case WEIGHT_MEDIUM:
@@ -49,6 +49,8 @@ static QFont::Weight GetQFontWeight(FontWeight eWeight)
             return QFont::ExtraBold;
         case WEIGHT_BLACK:
             return QFont::Black;
+        case FontWeight_FORCE_EQUAL_SIZE:
+            assert(false && "FontWeight_FORCE_EQUAL_SIZE not implementable for QFont");
     }
 
     // so we would get enum not handled warning

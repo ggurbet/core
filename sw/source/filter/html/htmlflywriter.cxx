@@ -105,8 +105,7 @@ const HtmlFrmOpts HTML_FRMOPTS_MULTICOL       =
     HtmlFrmOpts::AnySize |
     HtmlFrmOpts::AbsSize |
     HtmlFrmOpts::Dir;
-const HtmlFrmOpts HTML_FRMOPTS_MULTICOL_CNTNR =
-    HTML_FRMOPTS_MULTICOL;
+
 const HtmlFrmOpts HTML_FRMOPTS_MULTICOL_CSS1  =
     HtmlFrmOpts::SAlign |
     HtmlFrmOpts::SSize |
@@ -249,7 +248,7 @@ sal_uInt16 SwHTMLWriter::GuessFrameType( const SwFrameFormat& rFrameFormat,
                     bEmpty = true;
                     if( m_pHTMLPosFlyFrames )
                     {
-                        for( auto pHTMLPosFlyFrame : *m_pHTMLPosFlyFrames )
+                        for( auto & pHTMLPosFlyFrame : *m_pHTMLPosFlyFrames )
                         {
                             sal_uLong nIdx = pHTMLPosFlyFrame->GetNdIndex().GetIndex();
                             bEmpty = (nIdx != nStt) && (nIdx != nStt-1);
@@ -348,8 +347,7 @@ void SwHTMLWriter::CollectFlyFrames()
         if( !m_pHTMLPosFlyFrames )
             m_pHTMLPosFlyFrames.reset(new SwHTMLPosFlyFrames);
 
-        SwHTMLPosFlyFrame *pNew = new SwHTMLPosFlyFrame(**aIter, pSdrObj, nMode);
-        m_pHTMLPosFlyFrames->insert( pNew );
+        m_pHTMLPosFlyFrames->insert( o3tl::make_unique<SwHTMLPosFlyFrame>(**aIter, pSdrObj, nMode) );
     }
 }
 
@@ -374,7 +372,7 @@ bool SwHTMLWriter::OutFlyFrame( sal_uLong nNdIdx, sal_Int32 nContentIdx, HtmlPos
         for( ; !bRestart && i < m_pHTMLPosFlyFrames->size() &&
             (*m_pHTMLPosFlyFrames)[i]->GetNdIndex().GetIndex() == nNdIdx; i++ )
         {
-            SwHTMLPosFlyFrame *pPosFly = (*m_pHTMLPosFlyFrames)[i];
+            SwHTMLPosFlyFrame *pPosFly = (*m_pHTMLPosFlyFrames)[i].get();
             if( ( HtmlPosition::Any == nPos ||
                   pPosFly->GetOutPos() == nPos ) &&
                 pPosFly->GetContentIndex() == nContentIdx )
@@ -382,7 +380,7 @@ bool SwHTMLWriter::OutFlyFrame( sal_uLong nNdIdx, sal_Int32 nContentIdx, HtmlPos
                 // It is important to remove it first, because additional
                 // elements or the whole array could be deleted on
                 // deeper recursion levels.
-                m_pHTMLPosFlyFrames->erase(i);
+                std::unique_ptr<SwHTMLPosFlyFrame> flyHolder = m_pHTMLPosFlyFrames->erase_extract(i);
                 i--;
                 if( m_pHTMLPosFlyFrames->empty() )
                 {
@@ -408,7 +406,6 @@ bool SwHTMLWriter::OutFlyFrame( sal_uLong nNdIdx, sal_Int32 nContentIdx, HtmlPos
                     break;
                 default: break;
                 }
-                delete pPosFly;
             }
             else
             {
@@ -1613,8 +1610,7 @@ static Writer & OutHTML_FrameFormatAsMulticol( Writer& rWrt,
     rWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
 
     // WIDTH
-    HtmlFrmOpts nFrameFlags = bInCntnr ? HTML_FRMOPTS_MULTICOL_CNTNR
-                                : HTML_FRMOPTS_MULTICOL;
+    HtmlFrmOpts nFrameFlags = HTML_FRMOPTS_MULTICOL;
     if( rHTMLWrt.IsHTMLMode( HTMLMODE_ABS_POS_FLY ) && !bInCntnr )
         nFrameFlags |= HTML_FRMOPTS_MULTICOL_CSS1;
     rHTMLWrt.OutFrameFormatOptions( rFrameFormat, aEmptyOUStr, nFrameFlags );

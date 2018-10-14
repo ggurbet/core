@@ -93,7 +93,7 @@ SvxPatternTabPage::SvxPatternTabPage(TabPageParent pParent, const SfxItemSet& rI
     , m_xCtlPixel(new SvxPixelCtl(this))
     , m_xLbColor(new ColorListBox(m_xBuilder->weld_menu_button("LB_COLOR"), pParent.GetFrameWeld()))
     , m_xLbBackgroundColor(new ColorListBox(m_xBuilder->weld_menu_button("LB_BACKGROUND_COLOR"), pParent.GetFrameWeld()))
-    , m_xPatternLB(new PresetListBox(m_xBuilder->weld_scrolled_window("patternpresetlistwin")))
+    , m_xPatternLB(new SvxPresetListBox(m_xBuilder->weld_scrolled_window("patternpresetlistwin")))
     , m_xBtnAdd(m_xBuilder->weld_button("BTN_ADD"))
     , m_xBtnModify(m_xBuilder->weld_button("BTN_MODIFY"))
     , m_xCtlPixelWin(new weld::CustomWeld(*m_xBuilder, "CTL_PIXEL", *m_xCtlPixel))
@@ -176,12 +176,18 @@ void SvxPatternTabPage::ActivatePage( const SfxItemSet& rSet )
         else
             aString += aURL.getBase();
 
-        sal_Int32 nPos = SearchPatternList( rSet.Get(XATTR_FILLBITMAP).GetName() );
-        if( nPos != LISTBOX_ENTRY_NOTFOUND )
+        XFillBitmapItem aItem( rSet.Get( XATTR_FILLBITMAP ) );
+
+        sal_Int32 nPos( 0 );
+        if ( aItem.isPattern() )
         {
-            sal_uInt16 nId = m_xPatternLB->GetItemId( static_cast<size_t>( nPos ) );
-            m_xPatternLB->SelectItem( nId );
+            nPos = SearchPatternList( aItem.GetName() );
+            if ( nPos == LISTBOX_ENTRY_NOTFOUND )
+                nPos = 0;
         }
+
+        sal_uInt16 nId = m_xPatternLB->GetItemId( static_cast<size_t>( nPos ) );
+        m_xPatternLB->SelectItem( nId );
     }
 }
 
@@ -212,6 +218,7 @@ bool SvxPatternTabPage::FillItemSet( SfxItemSet* _rOutAttrs )
 
         _rOutAttrs->Put(XFillBitmapItem(OUString(), Graphic(aBitmapEx)));
     }
+    _rOutAttrs->Put(XFillBmpTileItem(true));
     return true;
 }
 
@@ -224,9 +231,12 @@ void SvxPatternTabPage::Reset( const SfxItemSet*  )
 
     // get bitmap and display it
     const XFillBitmapItem aBmpItem(OUString(), Graphic(m_xBitmapCtl->GetBitmapEx()));
-    m_rXFSet.Put( aBmpItem );
-    m_aCtlPreview.SetAttributes( m_aXFillAttr.GetItemSet() );
-    m_aCtlPreview.Invalidate();
+    if(aBmpItem.isPattern())
+    {
+        m_rXFSet.Put( aBmpItem );
+        m_aCtlPreview.SetAttributes( m_aXFillAttr.GetItemSet() );
+        m_aCtlPreview.Invalidate();
+    }
 
     ChangePatternHdl_Impl(m_xPatternLB.get());
 
@@ -437,7 +447,7 @@ IMPL_LINK_NOARG(SvxPatternTabPage, ClickModifyHdl_Impl, weld::Button&, void)
 }
 
 
-IMPL_LINK_NOARG(SvxPatternTabPage, ClickRenameHdl_Impl, PresetListBox*, void)
+IMPL_LINK_NOARG(SvxPatternTabPage, ClickRenameHdl_Impl, SvxPresetListBox*, void)
 {
     size_t nPos = m_xPatternLB->GetSelectItemPos();
     sal_Int32 nId = m_xPatternLB->GetSelectedItemId();
@@ -479,7 +489,7 @@ IMPL_LINK_NOARG(SvxPatternTabPage, ClickRenameHdl_Impl, PresetListBox*, void)
     }
 }
 
-IMPL_LINK_NOARG(SvxPatternTabPage, ClickDeleteHdl_Impl, PresetListBox*, void)
+IMPL_LINK_NOARG(SvxPatternTabPage, ClickDeleteHdl_Impl, SvxPresetListBox*, void)
 {
     sal_uInt16 nId = m_xPatternLB->GetSelectedItemId();
     size_t nPos = m_xPatternLB->GetSelectItemPos();

@@ -206,13 +206,13 @@ ScTabSizeChangedHint::~ScTabSizeChangedHint()
 
 #define MAXMM   10000000
 
-static inline long TwipsToHmm (long nVal)
+static long TwipsToHmm (long nVal)
 {
     return static_cast< long >( MetricField::ConvertDoubleValue (static_cast<sal_Int64>(nVal), 0, 0,
             FUNIT_TWIP, FUNIT_100TH_MM) );
 }
 
-static inline long HmmToTwips (long nVal)
+static long HmmToTwips (long nVal)
 {
     return static_cast< long > ( MetricField::ConvertDoubleValue (static_cast<sal_Int64>(nVal), 0, 0,
             FUNIT_100TH_MM, FUNIT_TWIP) );
@@ -296,6 +296,7 @@ ScDrawLayer::ScDrawLayer( ScDocument* pDocument, const OUString& rName ) :
     rAdmin.NewLayer("hinten",   sal_uInt8(SC_LAYER_BACK));
     rAdmin.NewLayer("intern",   sal_uInt8(SC_LAYER_INTERN));
     rAdmin.NewLayer("Controls", sal_uInt8(SC_LAYER_CONTROLS));
+    rAdmin.SetControlLayerName("Controls");
     rAdmin.NewLayer("hidden",   sal_uInt8(SC_LAYER_HIDDEN));
     // "Controls" is new - must also be created when loading
 
@@ -511,7 +512,7 @@ void ScDrawLayer::ResetTab( SCTAB nStart, SCTAB nEnd )
     }
 }
 
-static inline bool IsInBlock( const ScAddress& rPos, SCCOL nCol1,SCROW nRow1, SCCOL nCol2,SCROW nRow2 )
+static bool IsInBlock( const ScAddress& rPos, SCCOL nCol1,SCROW nRow1, SCCOL nCol2,SCROW nRow2 )
 {
     return rPos.Col() >= nCol1 && rPos.Col() <= nCol2 &&
            rPos.Row() >= nRow1 && rPos.Row() <= nRow2;
@@ -1192,7 +1193,7 @@ void ScDrawLayer::AddCalcUndo( std::unique_ptr<SdrUndoAction> pUndo )
         if (!pUndoGroup)
             pUndoGroup.reset(new SdrUndoGroup(*this));
 
-        pUndoGroup->AddAction( pUndo.release() );
+        pUndoGroup->AddAction( std::move(pUndo) );
     }
 }
 
@@ -1835,7 +1836,7 @@ OUString ScDrawLayer::GetVisibleName( const SdrObject* pObj )
     return aName;
 }
 
-static inline bool IsNamedObject( const SdrObject* pObj, const OUString& rName )
+static bool IsNamedObject( const SdrObject* pObj, const OUString& rName )
 {
     //  sal_True if rName is the object's Name or PersistName
     //  (used to find a named object)

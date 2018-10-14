@@ -30,6 +30,7 @@
 #include <vcl/settings.hxx>
 #include <vcl/edit.hxx>
 #include <sal/log.hxx>
+#include <o3tl/make_unique.hxx>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyValues.hpp>
@@ -226,7 +227,7 @@ static const sal_Unicode static_aLFText[] = { '\n', 0 };
 static const sal_Unicode static_aCRText[] = { '\r', 0 };
 static const sal_Unicode static_aCRLFText[] = { '\r', '\n', 0 };
 
-static inline const sal_Unicode* static_getLineEndText( LineEnd aLineEnd )
+static const sal_Unicode* static_getLineEndText( LineEnd aLineEnd )
 {
     const sal_Unicode* pRet = nullptr;
 
@@ -488,7 +489,7 @@ void TextEngine::ImpRemoveChars( const TextPaM& rPaM, sal_Int32 nChars )
                 break;  // for
             }
         }
-        InsertUndo( new TextUndoRemoveChars( this, rPaM, aStr ) );
+        InsertUndo( o3tl::make_unique<TextUndoRemoveChars>( this, rPaM, aStr ) );
     }
 
     mpDoc->RemoveChars( rPaM, nChars );
@@ -503,7 +504,7 @@ TextPaM TextEngine::ImpConnectParagraphs( sal_uInt32 nLeft, sal_uInt32 nRight )
     TextNode* pRight = mpDoc->GetNodes()[ nRight ].get();
 
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo( new TextUndoConnectParas( this, nLeft, pLeft->GetText().getLength() ) );
+        InsertUndo( o3tl::make_unique<TextUndoConnectParas>( this, nLeft, pLeft->GetText().getLength() ) );
 
     // first lookup Portions, as pRight is gone after ConnectParagraphs
     TEParaPortion* pLeftPortion = mpTEParaPortions->GetObject( nLeft );
@@ -598,7 +599,7 @@ void TextEngine::ImpRemoveParagraph( sal_uInt32 nPara )
     // the Node is handled by Undo and is deleted if appropriate
     mpDoc->GetNodes().erase( mpDoc->GetNodes().begin() + nPara );
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo( new TextUndoDelPara( this, pNode.release(), nPara ) );
+        InsertUndo( o3tl::make_unique<TextUndoDelPara>( this, pNode.release(), nPara ) );
 
     mpTEParaPortions->Remove( nPara );
 
@@ -720,9 +721,9 @@ TextPaM TextEngine::ImpInsertText( sal_Unicode c, const TextSelection& rCurSel, 
 
     if ( IsUndoEnabled() && !IsInUndo() )
     {
-        TextUndoInsertChars* pNewUndo = new TextUndoInsertChars( this, aPaM, OUString(c) );
+        std::unique_ptr<TextUndoInsertChars> pNewUndo(new TextUndoInsertChars( this, aPaM, OUString(c) ));
         bool bTryMerge = !bDoOverwrite && ( c != ' ' );
-        InsertUndo( pNewUndo, bTryMerge );
+        InsertUndo( std::move(pNewUndo), bTryMerge );
     }
 
     TEParaPortion* pPortion = mpTEParaPortions->GetObject( aPaM.GetPara() );
@@ -765,7 +766,7 @@ TextPaM TextEngine::ImpInsertText( const TextSelection& rCurSel, const OUString&
         {
             OUString aLine(aText.copy(nStart, nEnd-nStart));
             if ( IsUndoEnabled() && !IsInUndo() )
-                InsertUndo( new TextUndoInsertChars( this, aPaM, aLine ) );
+                InsertUndo( o3tl::make_unique<TextUndoInsertChars>( this, aPaM, aLine ) );
 
             TEParaPortion* pPortion = mpTEParaPortions->GetObject( aPaM.GetPara() );
             pPortion->MarkInvalid( aPaM.GetIndex(), aLine.getLength() );
@@ -805,7 +806,7 @@ TextPaM TextEngine::ImpInsertParaBreak( const TextSelection& rCurSel )
 TextPaM TextEngine::ImpInsertParaBreak( const TextPaM& rPaM )
 {
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo( new TextUndoSplitPara( this, rPaM.GetPara(), rPaM.GetIndex() ) );
+        InsertUndo( o3tl::make_unique<TextUndoSplitPara>( this, rPaM.GetPara(), rPaM.GetIndex() ) );
 
     TextNode* pNode = mpDoc->GetNodes()[ rPaM.GetPara() ].get();
     bool bFirstParaContentChanged = rPaM.GetIndex() < pNode->GetText().getLength();
@@ -1312,10 +1313,10 @@ void TextEngine::UndoActionEnd()
         GetUndoManager().LeaveListAction();
 }
 
-void TextEngine::InsertUndo( TextUndo* pUndo, bool bTryMerge )
+void TextEngine::InsertUndo( std::unique_ptr<TextUndo> pUndo, bool bTryMerge )
 {
     SAL_WARN_IF( IsInUndo(), "vcl", "InsertUndo: in Undo mode!" );
-    GetUndoManager().AddUndoAction( pUndo, bTryMerge );
+    GetUndoManager().AddUndoAction( std::move(pUndo), bTryMerge );
 }
 
 void TextEngine::ResetUndo()
@@ -2073,10 +2074,7 @@ bool TextEngine::CreateLines( sal_uInt32 nPara )
     {
         if ( !pTEParaPortion->GetTextPortions().empty() )
             pTEParaPortion->GetTextPortions().Reset();
-        if ( !pTEParaPortion->GetLines().empty() )
-        {
-            pTEParaPortion->GetLines().clear();
-        }
+        pTEParaPortion->GetLines().clear();
         CreateAndInsertEmptyLine( nPara );
         pTEParaPortion->SetValid();
         return nOldLineCount != pTEParaPortion->GetLines().size();
@@ -2539,7 +2537,7 @@ void TextEngine::SetAttrib( const TextAttrib& rAttr, sal_uInt32 nPara, sal_Int32
         if ( nEnd > nMax )
             nEnd = nMax;
 
-        pNode->GetCharAttribs().InsertAttrib( new TextCharAttrib( rAttr, nStart, nEnd ) );
+        pNode->GetCharAttribs().InsertAttrib( o3tl::make_unique<TextCharAttrib>( rAttr, nStart, nEnd ) );
         pTEParaPortion->MarkSelectionInvalid( nStart );
 
         mbFormatted = false;

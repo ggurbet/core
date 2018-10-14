@@ -532,8 +532,8 @@ namespace
             lcl_pushBack( _out_rProperties, PROPERTY_CHARCASEMAP, uno::makeAny( pFontItem->GetEnumValue() ) );
         }
         struct Items {
-                sal_uInt16 nWhich;
-                OUString sPropertyName;
+                sal_uInt16 const nWhich;
+                OUString const sPropertyName;
         };
         const Items pItems[] = { {ITEMID_LANGUAGE,OUString(PROPERTY_CHARLOCALE)}
                                 ,{ITEMID_LANGUAGE_ASIAN,OUString(PROPERTY_CHARLOCALEASIAN)}
@@ -710,16 +710,16 @@ bool openCharDialog( const uno::Reference<report::XReportControlFormat >& _rxRep
         lcl_CharPropertiesToItems( _rxReportControlFormat, *pDescriptor );
 
         {   // want the dialog to be destroyed before our set
-            ScopedVclPtrInstance< ORptPageDialog > aDlg(pParent, pDescriptor.get(), "CharDialog");
+            ORptPageDialog aDlg(Application::GetFrameWeld(_rxParentWindow), pDescriptor.get(), "CharDialog");
             uno::Reference< report::XShape > xShape( _rxReportControlFormat, uno::UNO_QUERY );
             if ( xShape.is() )
-                aDlg->RemoveTabPage("background");
-            bSuccess = ( RET_OK == aDlg->Execute() );
+                aDlg.RemoveTabPage("background");
+            bSuccess = aDlg.execute() == RET_OK;
             if ( bSuccess )
             {
                 lcl_itemsToCharProperties( lcl_getReportControlFont( _rxReportControlFormat,WESTERN ),
                     lcl_getReportControlFont( _rxReportControlFormat,ASIAN ),
-                    lcl_getReportControlFont( _rxReportControlFormat,COMPLEX ), *aDlg->GetOutputItemSet(), _out_rNewValues );
+                    lcl_getReportControlFont( _rxReportControlFormat,COMPLEX ), *aDlg.GetOutputItemSet(), _out_rNewValues );
             }
         }
     }
@@ -867,11 +867,11 @@ SdrObject* isOver(const tools::Rectangle& _rRect, SdrPage const & _rPage, SdrVie
     return pOverlappedObj;
 }
 
-static bool checkArrayForOccurrence(SdrObject const * _pObjToCheck, SdrUnoObj* _pIgnore[], int _nListLength)
+static bool checkArrayForOccurrence(SdrObject const * _pObjToCheck, std::unique_ptr<SdrUnoObj, SdrObjectFreeOp> _pIgnore[], int _nListLength)
 {
     for(int i=0;i<_nListLength;i++)
     {
-        SdrObject *pIgnore = _pIgnore[i];
+        SdrObject *pIgnore = _pIgnore[i].get();
         if (pIgnore == _pObjToCheck)
         {
             return true;
@@ -880,7 +880,7 @@ static bool checkArrayForOccurrence(SdrObject const * _pObjToCheck, SdrUnoObj* _
     return false;
 }
 
-SdrObject* isOver(const tools::Rectangle& _rRect,SdrPage const & _rPage,SdrView const & _rView,bool _bAllObjects, SdrUnoObj * _pIgnoreList[], int _nIgnoreListLength)
+SdrObject* isOver(const tools::Rectangle& _rRect,SdrPage const & _rPage,SdrView const & _rView,bool _bAllObjects, std::unique_ptr<SdrUnoObj, SdrObjectFreeOp> _pIgnoreList[], int _nIgnoreListLength)
 {
     SdrObject* pOverlappedObj = nullptr;
     SdrObjListIter aIter(&_rPage,SdrIterMode::DeepNoGroups);

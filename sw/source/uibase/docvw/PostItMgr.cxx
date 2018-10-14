@@ -306,8 +306,11 @@ void SwPostItMgr::RemoveItem( SfxBroadcaster* pBroadcast )
             SwSidebarItem* p = (*i);
             if (GetActiveSidebarWin() == p->pPostIt)
                 SetActiveSidebarWin(nullptr);
-            p->pPostIt.disposeAndClear();
+            // tdf#120487 remove from list before dispose, so comment window
+            // won't be recreated due to the entry still in the list if focus
+            // transferring from the pPostIt triggers relayout of postits
             mvPostItFields.erase(i);
+            p->pPostIt.disposeAndClear();
             delete p;
             break;
         }
@@ -1343,7 +1346,7 @@ public:
 
 class IsPostitFieldWithAuthorOf : public FilterFunctor
 {
-    OUString m_sAuthor;
+    OUString const m_sAuthor;
 public:
     explicit IsPostitFieldWithAuthorOf(const OUString &rAuthor)
         : m_sAuthor(rAuthor)
@@ -1359,7 +1362,7 @@ public:
 
 class IsPostitFieldWithPostitId : public FilterFunctor
 {
-    sal_uInt32 m_nPostItId;
+    sal_uInt32 const m_nPostItId;
 public:
     explicit IsPostitFieldWithPostitId(sal_uInt32 nPostItId)
         : m_nPostItId(nPostItId)

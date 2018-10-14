@@ -679,7 +679,7 @@ void SwTableShell::Execute(SfxRequest &rReq)
                                     sCurText, SID_ATTR_NUMBERFORMAT_INFO ));
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateNumFormatDialog(GetView().GetWindow(), aCoreSet));
+                ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateNumFormatDialog(GetView().GetFrameWeld(), aCoreSet));
 
                 if (RET_OK == pDlg->Execute())
                 {
@@ -711,13 +711,6 @@ void SwTableShell::Execute(SfxRequest &rReq)
             rSh.UpdateTable();
             bCallDone = true;
             break;
-        case FN_TABLE_OPTIMAL_HEIGHT:
-        {
-            const SwFormatFrameSize aSz;
-            rSh.SetRowHeight( aSz );
-            bCallDone = true;
-            break;
-        }
         case FN_TABLE_DELETE_COL:
             if ( rSh.DeleteCol() && rSh.HasSelection() )
                 rSh.EnterStdMode();
@@ -772,18 +765,35 @@ void SwTableShell::Execute(SfxRequest &rReq)
                         break;
                 }
             break;
+        case SID_TABLE_MINIMAL_COLUMN_WIDTH:
         case FN_TABLE_ADJUST_CELLS:
         case FN_TABLE_BALANCE_CELLS:
         {
             bool bBalance = (FN_TABLE_BALANCE_CELLS == nSlot);
+            const bool bNoShrink = FN_TABLE_ADJUST_CELLS == nSlot;
+            const bool bSelectedWidth = SID_TABLE_MINIMAL_COLUMN_WIDTH == nSlot;
             if ( rSh.IsAdjustCellWidthAllowed(bBalance) )
             {
                 {
                     // remove actions to make a valid table selection
                     UnoActionRemoveContext aRemoveContext(rSh.GetDoc());
                 }
-                rSh.AdjustCellWidth(bBalance);
+                rSh.AdjustCellWidth(bBalance, bNoShrink, !bSelectedWidth);
             }
+            bCallDone = true;
+            break;
+        }
+        case SID_TABLE_MINIMAL_ROW_HEIGHT:
+        {
+            const SwFormatFrameSize aSz;
+            rSh.SetRowHeight( aSz );
+            bCallDone = true;
+            break;
+        }
+        case FN_TABLE_OPTIMAL_HEIGHT:
+        {
+            rSh.BalanceRowHeight(/*bTstOnly=*/false, /*bOptimize=*/true);
+            rSh.BalanceRowHeight(/*bTstOnly=*/false, /*bOptimize=*/false);
             bCallDone = true;
             break;
         }
@@ -1221,9 +1231,10 @@ void SwTableShell::GetState(SfxItemSet &rSet)
                 if ( !rSh.IsTableMode() )
                     rSet.DisableItem(FN_TABLE_MERGE_CELLS);
                 break;
+            case SID_TABLE_MINIMAL_COLUMN_WIDTH:
             case FN_TABLE_ADJUST_CELLS:
                 if ( !rSh.IsAdjustCellWidthAllowed() )
-                    rSet.DisableItem(FN_TABLE_ADJUST_CELLS);
+                    rSet.DisableItem(nSlot);
                 break;
 
             case FN_TABLE_BALANCE_CELLS:
@@ -1231,9 +1242,10 @@ void SwTableShell::GetState(SfxItemSet &rSet)
                     rSet.DisableItem(FN_TABLE_BALANCE_CELLS);
                 break;
 
+            case FN_TABLE_OPTIMAL_HEIGHT:
             case FN_TABLE_BALANCE_ROWS:
                 if ( !rSh.BalanceRowHeight(true) )
-                    rSet.DisableItem(FN_TABLE_BALANCE_ROWS);
+                    rSet.DisableItem(nSlot);
                 break;
             case FN_OPTIMIZE_TABLE:
                 if ( !rSh.IsTableMode() &&
@@ -1257,7 +1269,7 @@ void SwTableShell::GetState(SfxItemSet &rSet)
                 }
                 break;
 
-            case FN_TABLE_OPTIMAL_HEIGHT:
+            case SID_TABLE_MINIMAL_ROW_HEIGHT:
             {
                 // Disable if auto height already is enabled.
                 SwFormatFrameSize *pSz;

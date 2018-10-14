@@ -517,6 +517,9 @@ void SwLayoutFrame::DestroyImpl()
                 }
             }
             pFrame->RemoveFromLayout();
+            //forcepoint#74, testcase swanchoredobject_considerobjwrapinfluenceonobjpos
+            if (pFrame->IsDeleteForbidden())
+                throw std::logic_error("DeleteForbidden");
             SwFrame::DestroyFrame(pFrame);
             pFrame = m_pLower;
         }
@@ -691,11 +694,11 @@ const SwRect SwFrame::UnionFrame( bool bBorder ) const
         const SvxBoxItem &rBox = rAttrs.GetBox();
         if ( rBox.GetLeft() )
             nLeft -= rBox.CalcLineSpace( SvxBoxItemLine::LEFT );
-        else if ( rAttrs.IsBorderDist() )
+        else
             nLeft -= rBox.GetDistance( SvxBoxItemLine::LEFT ) + 1;
         if ( rBox.GetRight() )
             nAdd += rBox.CalcLineSpace( SvxBoxItemLine::RIGHT );
-        else if ( rAttrs.IsBorderDist() )
+        else
             nAdd += rBox.GetDistance( SvxBoxItemLine::RIGHT ) + 1;
         if( rAttrs.GetShadow().GetLocation() != SvxShadowLocation::NONE )
         {

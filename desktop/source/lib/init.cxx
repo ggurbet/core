@@ -55,6 +55,7 @@
 #include <com/sun/star/frame/DispatchResultEvent.hpp>
 #include <com/sun/star/frame/DispatchResultState.hpp>
 #include <com/sun/star/frame/XDispatchProvider.hpp>
+#include <com/sun/star/frame/XDispatchResultListener.hpp>
 #include <com/sun/star/frame/XSynchronousDispatch.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/lang/Locale.hpp>
@@ -74,6 +75,7 @@
 
 #include <com/sun/star/linguistic2/LinguServiceManager.hpp>
 #include <com/sun/star/linguistic2/XSpellChecker.hpp>
+#include <com/sun/star/i18n/ScriptType.hpp>
 
 #include <editeng/fontitem.hxx>
 #include <editeng/flstitem.hxx>
@@ -115,6 +117,7 @@
 #include <sfx2/sfxbasemodel.hxx>
 #include <svl/undo.hxx>
 #include <unotools/datetime.hxx>
+#include <i18nlangtag/mslangid.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <vcl/builder.hxx>
 #include <vcl/abstdlg.hxx>
@@ -330,6 +333,8 @@ std::vector<beans::PropertyValue> desktop::jsonToPropertyValuesVector(const char
                 aValue.Value <<= OString(rValue.c_str()).toFloat();
             else if (rType == "long")
                 aValue.Value <<= OString(rValue.c_str()).toInt32();
+            else if (rType == "short")
+                aValue.Value <<= static_cast<sal_Int16>(OString(rValue.c_str()).toInt32());
             else if (rType == "unsigned short")
                 aValue.Value <<= static_cast<sal_uInt16>(OString(rValue.c_str()).toUInt32());
             else if (rType == "[]any")
@@ -576,6 +581,13 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
                           const int nCanvasWidth, const int nCanvasHeight,
                           const int nTilePosX, const int nTilePosY,
                           const int nTileWidth, const int nTileHeight);
+#ifdef IOS
+static void doc_paintTileToCGContext(LibreOfficeKitDocument* pThis,
+                                     void* rCGContext,
+                                     const int nCanvasWidth, const int nCanvasHeight,
+                                     const int nTilePosX, const int nTilePosY,
+                                     const int nTileWidth, const int nTileHeight);
+#endif
 static void doc_paintPartTile(LibreOfficeKitDocument* pThis,
                               unsigned char* pBuffer,
                               const int nPart,
@@ -689,6 +701,9 @@ LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XCompone
         m_pDocumentClass->getPartName = doc_getPartName;
         m_pDocumentClass->setPartMode = doc_setPartMode;
         m_pDocumentClass->paintTile = doc_paintTile;
+#ifdef IOS
+        m_pDocumentClass->paintTileToCGContext = doc_paintTileToCGContext;
+#endif
         m_pDocumentClass->paintPartTile = doc_paintPartTile;
         m_pDocumentClass->getTileMode = doc_getTileMode;
         m_pDocumentClass->getDocumentSize = doc_getDocumentSize;
@@ -2092,21 +2107,15 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 #if defined(UNX) && !defined(MACOSX)
 
 #if defined(IOS)
-    SystemGraphicsData aData;
-    aData.rCGContext = reinterpret_cast<CGContextRef>(pBuffer);
-    // the Size argument is irrelevant, I hope
-    ScopedVclPtrInstance<VirtualDevice> pDevice(&aData, Size(1, 1), DeviceFormat::DEFAULT);
+    CGContextRef cgc = CGBitmapContextCreate(pBuffer, nCanvasWidth, nCanvasHeight, 8, nCanvasWidth*4, CGColorSpaceCreateDeviceRGB(), kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little);
 
-    pDoc->paintTile(*pDevice.get(), nCanvasWidth, nCanvasHeight,
-                    nTilePosX, nTilePosY, nTileWidth, nTileHeight);
+    CGContextTranslateCTM(cgc, 0, nCanvasHeight);
+    CGContextScaleCTM(cgc, 1, -1);
 
-#if 0
-    // Draw something at least, to see that the context as such is correctly set up
-    CGContextSetRGBFillColor(aData.rCGContext, 1, 0, 0, 1);
-    CGContextFillRect(aData.rCGContext, CGRectMake (0, 0, 200, 100));
-    CGContextSetRGBFillColor(aData.rCGContext, 0, 0, 1, .5);
-    CGContextFillRect(aData.rCGContext, CGRectMake (0, 0, 100, 200));
-#endif
+    doc_paintTileToCGContext(pThis, (void*) cgc, nCanvasWidth, nCanvasHeight, nTilePosX, nTilePosY, nTileWidth, nTileHeight);
+
+    CGContextRelease(cgc);
+
 #else
     ScopedVclPtrInstance< VirtualDevice > pDevice(nullptr, Size(1, 1), DeviceFormat::DEFAULT) ;
 
@@ -2128,6 +2137,44 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 #endif
 }
 
+#ifdef IOS
+
+static void doc_paintTileToCGContext(LibreOfficeKitDocument* pThis,
+                                     void* rCGContext,
+                                     const int nCanvasWidth, const int nCanvasHeight,
+                                     const int nTilePosX, const int nTilePosY,
+                                     const int nTileWidth, const int nTileHeight)
+{
+    SolarMutexGuard aGuard;
+    if (gImpl)
+        gImpl->maLastExceptionMsg.clear();
+
+    SAL_INFO( "lok.tiledrendering", "paintTileToCGContext: painting [" << nTileWidth << "x" << nTileHeight <<
+              "]@(" << nTilePosX << ", " << nTilePosY << ") to [" <<
+              nCanvasWidth << "x" << nCanvasHeight << "]px" );
+
+    ITiledRenderable* pDoc = getTiledRenderable(pThis);
+    if (!pDoc)
+    {
+        gImpl->maLastExceptionMsg = "Document doesn't support tiled rendering";
+        return;
+    }
+
+    SystemGraphicsData aData;
+    aData.rCGContext = reinterpret_cast<CGContextRef>(rCGContext);
+    // the Size argument is irrelevant, I hope
+    ScopedVclPtrInstance<VirtualDevice> pDevice(&aData, Size(1, 1), DeviceFormat::DEFAULT);
+
+    pDevice->SetBackground(Wallpaper(COL_TRANSPARENT));
+
+    pDevice->SetOutputSizePixel(Size(nCanvasWidth, nCanvasHeight));
+
+    pDoc->paintTile(*pDevice.get(), nCanvasWidth, nCanvasHeight,
+                    nTilePosX, nTilePosY, nTileWidth, nTileHeight);
+
+}
+
+#endif
 
 static void doc_paintPartTile(LibreOfficeKitDocument* pThis,
                               unsigned char* pBuffer,
@@ -3804,9 +3851,35 @@ static void preloadData()
     images.getImageUrl("forcefed.png", "style", "FO_oo");
 
     std::cerr << "Preload languages\n";
+
     // force load language singleton
     SvtLanguageTable::HasLanguageType(LANGUAGE_SYSTEM);
     (void)LanguageTag::isValidBcp47("foo", nullptr);
+
+    std::cerr << "Preload fonts\n";
+
+    // Initialize fonts.
+    css::uno::Reference<css::linguistic2::XLinguServiceManager2> xLangSrv = css::linguistic2::LinguServiceManager::create(xContext);
+    if (xLangSrv.is())
+    {
+        css::uno::Reference<css::linguistic2::XSpellChecker> xSpell(xLangSrv->getSpellChecker(), css::uno::UNO_QUERY);
+        css::uno::Reference<css::linguistic2::XSupportedLocales> xLocales(xSpell, css::uno::UNO_QUERY);
+        if (xLocales.is())
+            aLocales = xLocales->getLocales();
+    }
+
+    for (const auto& aLocale : aLocales)
+    {
+        //TODO: Add more types and cache more aggressively. For now this initializes the fontcache.
+        using namespace ::com::sun::star::i18n::ScriptType;
+        LanguageType nLang;
+        nLang = MsLangId::resolveSystemLanguageByScriptType(LanguageTag::convertToLanguageType(aLocale, false), LATIN);
+        OutputDevice::GetDefaultFont(DefaultFontType::LATIN_SPREADSHEET, nLang, GetDefaultFontFlags::OnlyOne);
+        nLang = MsLangId::resolveSystemLanguageByScriptType(LanguageTag::convertToLanguageType(aLocale, false), ASIAN);
+        OutputDevice::GetDefaultFont(DefaultFontType::CJK_SPREADSHEET, nLang, GetDefaultFontFlags::OnlyOne);
+        nLang = MsLangId::resolveSystemLanguageByScriptType(LanguageTag::convertToLanguageType(aLocale, false), COMPLEX);
+        OutputDevice::GetDefaultFont(DefaultFontType::CTL_SPREADSHEET, nLang, GetDefaultFontFlags::OnlyOne);
+    }
 }
 
 static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char* pUserProfileUrl)
@@ -3973,6 +4046,7 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
                 // Force load some modules
                 VclBuilder::preload();
                 VclAbstractDialogFactory::Create();
+
                 preloadData();
 
                 // Release Solar Mutex, lo_startmain thread should acquire it.

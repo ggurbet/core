@@ -34,9 +34,11 @@ namespace {
 using namespace css;
 using namespace css::uno;
 
+    /// the target directory for screenshots
+static constexpr OUStringLiteral g_aScreenshotDirectory("screenshots");
+
 ScreenshotTest::ScreenshotTest()
-:   m_aScreenshotDirectory("screenshots"),
-    maKnownDialogs()
+    : maKnownDialogs()
 {
     maCurrentLanguage = OUString::fromUtf8(getenv("LO_TEST_LOCALE"));
 }
@@ -52,7 +54,7 @@ void ScreenshotTest::setUp()
     mxDesktop = css::frame::Desktop::create( comphelper::getComponentContext(getMultiServiceFactory()) );
     CPPUNIT_ASSERT_MESSAGE("no desktop!", mxDesktop.is());
 
-    osl::Directory::create( m_directories.getURLFromWorkdir( m_aScreenshotDirectory)) ;
+    osl::Directory::create( m_directories.getURLFromWorkdir( g_aScreenshotDirectory)) ;
 
     // initialize maKnownDialogs
     if (maKnownDialogs.empty())
@@ -65,7 +67,7 @@ void ScreenshotTest::implSaveScreenshot(const BitmapEx& rScreenshot, const OStri
 {
     OUString aDirname, aBasename;
     splitHelpId(rScreenshotId, aDirname, aBasename);
-    aDirname = m_aScreenshotDirectory + "/" + aDirname +
+    aDirname = g_aScreenshotDirectory + "/" + aDirname +
                ( (maCurrentLanguage == "en-US") ? OUString() : "/" + maCurrentLanguage );
 
     auto const dirUrl = m_directories.getURLFromWorkdir(aDirname);
@@ -247,25 +249,34 @@ void ScreenshotTest::processDialogBatchFile(const OUString& rFile)
 
     while (aStream.ReadLine(aNextUIFile))
     {
-        if (!aNextUIFile.isEmpty() && !aNextUIFile.startsWith(aComment))
+        try
         {
-            // first check if it's a known dialog
-            ScopedVclPtr<VclAbstractDialog> pDlg(createDialogByName(aNextUIFile));
+            if (!aNextUIFile.isEmpty() && !aNextUIFile.startsWith(aComment))
+            {
+                // first check if it's a known dialog
+                ScopedVclPtr<VclAbstractDialog> pDlg(createDialogByName(aNextUIFile));
 
-            if (pDlg)
-            {
-                // known dialog, dump screenshot to path
-                dumpDialogToPath(*pDlg);
+                if (pDlg)
+                {
+                    // known dialog, dump screenshot to path
+                    dumpDialogToPath(*pDlg);
+                }
+                else
+                {
+                    // unknown dialog, try fallback to generic created
+                    // VclBuilder-generated instance. Keep in mind that Dialogs
+                    // using this mechanism will probably not be layouted well
+                    // since the setup/initialization part is missing. Thus,
+                    // only use for fallback when only the UI file is available.
+                    dumpDialogToPath(aNextUIFile);
+                }
             }
-            else
-            {
-                // unknown dialog, try fallback to generic created
-                // VclBuilder-generated instance. Keep in mind that Dialogs
-                // using this mechanism will probably not be layouted well
-                // since the setup/initialization part is missing. Thus,
-                // only use for fallback when only the UI file is available.
-                dumpDialogToPath(aNextUIFile);
-            }
+        }
+        catch(...)
+        {
+            OString aMsg("Exception while processing ");
+            aMsg += aNextUIFile;
+            CPPUNIT_ASSERT_MESSAGE(aMsg.getStr(), false);
         }
     }
 }

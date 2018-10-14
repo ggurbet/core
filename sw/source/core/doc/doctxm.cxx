@@ -73,6 +73,7 @@
 #include <o3tl/make_unique.hxx>
 #include <tools/datetimeutils.hxx>
 #include <tools/globname.hxx>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <memory>
 
@@ -171,7 +172,7 @@ void SwDoc::DeleteTOXMark( const SwTOXMark* pTOXMark )
             SwUndoResetAttr* pUndo = new SwUndoResetAttr(
                 SwPosition( rTextNd, SwIndex( &rTextNd, pTextTOXMark->GetStart() ) ),
                 RES_TXTATR_TOXMARK );
-            GetIDocumentUndoRedo().AppendUndo( pUndo );
+            GetIDocumentUndoRedo().AppendUndo( std::unique_ptr<SwUndo>(pUndo) );
 
             aRHst.reset(new SwRegHistory(rTextNd, &pUndo->GetHistory()));
             rTextNd.GetpSwpHints()->Register(aRHst.get());
@@ -1328,7 +1329,7 @@ void SwTOXBaseSection::UpdateAuthorities( const SwTOXInternational& rIntl )
 static SwTOOElements lcl_IsSOObject( const SvGlobalName& rFactoryNm )
 {
     static const struct SoObjType {
-        SwTOOElements nFlag;
+        SwTOOElements const nFlag;
         // GlobalNameId
         struct GlobalNameIds {
             sal_uInt32 n1;

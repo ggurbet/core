@@ -409,8 +409,9 @@ VclPtr<VclAbstractDialog> SdDialogsTest::createDialogByID(sal_uInt32 nID)
         case 11:
         {
             // CreateSdOutlineBulletTabDlg(const SfxItemSet* pAttr, ::sd::View* pView = nullptr) override;
+            auto const parent = Application::GetDefDialogParent();
             pRetval = getSdAbstractDialogFactory()->CreateSdOutlineBulletTabDlg(
-                getViewShell()->GetActiveWindow(),
+                parent == nullptr ? nullptr : parent->GetFrameWeld(),
                 &getEmptySfxItemSet(),
                 getDrawView());
             break;
@@ -426,7 +427,6 @@ VclPtr<VclAbstractDialog> SdDialogsTest::createDialogByID(sal_uInt32 nID)
         case 13:
         {
             // CreateSdStartPresentationDlg(weld::Window* pWindow, const SfxItemSet& rInAttrs, const std::vector<OUString> &rPageNames, SdCustomShowList* pCSList) override;
-            const std::vector<OUString> aPageNames;
             SdDrawDocument* pDrawDoc = getSdXImpressDocument()->GetDoc();
             CPPUNIT_ASSERT(pDrawDoc);
             SfxItemSet aDlgSet(pDrawDoc->GetItemPool(), svl::Items<ATTR_PRESENT_START, ATTR_PRESENT_END>{});
@@ -450,7 +450,7 @@ VclPtr<VclAbstractDialog> SdDialogsTest::createDialogByID(sal_uInt32 nID)
             pRetval = getSdAbstractDialogFactory()->CreateSdStartPresentationDlg(
                 pWin ? pWin->GetFrameWeld() : nullptr,
                 aDlgSet,
-                aPageNames,
+                std::vector<OUString>(),
                 nullptr);
             break;
         }
@@ -482,7 +482,9 @@ VclPtr<VclAbstractDialog> SdDialogsTest::createDialogByID(sal_uInt32 nID)
         case 16:
         {
             // CreateSdPresLayoutDlg(::sd::DrawDocShell* pDocShell, vcl::Window* pWindow, const SfxItemSet& rInAttrs) override;
+            auto const parent = Application::GetDefDialogParent();
             pRetval = getSdAbstractDialogFactory()->CreateSdPresLayoutDlg(
+                parent == nullptr ? nullptr : parent->GetFrameWeld(),
                 getDocShell(),
                 getEmptySfxItemSet());
             break;

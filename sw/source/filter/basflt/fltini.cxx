@@ -109,7 +109,7 @@ SwRead SwGetReaderXML() // SW_DLLPUBLIC
         return ReadXML;
 }
 
-static inline void SetFltPtr( sal_uInt16 rPos, SwRead pReader )
+static void SetFltPtr( sal_uInt16 rPos, SwRead pReader )
 {
         aReaderWriter[ rPos ].pReader = pReader;
 }
@@ -411,7 +411,7 @@ namespace
 
 struct CharSetNameMap
 {
-    rtl_TextEncoding eCode;
+    rtl_TextEncoding const eCode;
     const sal_Char* pName;
 };
 

@@ -95,10 +95,10 @@ private:
     friend class ListBoxColorWrapper;
     std::unique_ptr<ColorWindow> m_xColorWindow;
     std::unique_ptr<weld::MenuButton> m_xButton;
-    weld::Window* m_pTopLevel;
+    weld::Window* const m_pTopLevel;
     Link<ColorListBox&, void> m_aSelectedLink;
     ListBoxColorWrapper m_aColorWrapper;
-    Color m_aAutoDisplayColor;
+    Color const m_aAutoDisplayColor;
     Color m_aSaveColor;
     NamedColor m_aSelectedColor;
     sal_uInt16 m_nSlotId;
@@ -137,7 +137,17 @@ public:
 
     void set_sensitive(bool sensitive) { m_xButton->set_sensitive(sensitive); }
     bool get_sensitive() const { return m_xButton->get_sensitive(); }
+    void show() { m_xButton->show(); }
     void hide() { m_xButton->hide(); }
+    void show(bool bShow)
+    {
+        if (bShow)
+            show();
+        else
+            hide();
+    }
+    void set_help_id(const OString& rHelpId) { m_xButton->set_help_id(rHelpId); }
+    weld::MenuButton& get_widget() { return *m_xButton; }
 };
 
 #endif

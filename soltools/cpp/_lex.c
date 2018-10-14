@@ -68,7 +68,7 @@ struct fsm
 {
     int state;                          /* if in this state */
     uchar ch[4];                        /* and see one of these characters */
-    int nextstate;                      /* enter this state if +ve */
+    int const nextstate;                /* enter this state if +ve */
 };
 
 static /*const*/ struct fsm fsm[] = {
@@ -668,7 +668,7 @@ Source *
         len = strlen(str);
         s->inb = domalloc(len + 4);
         s->inp = s->inb;
-        strncpy((char *) s->inp, str, len);
+        memcpy((char *) s->inp, str, len);
     }
     else
     {

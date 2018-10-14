@@ -22,6 +22,7 @@
 #include <memory>
 #include <sal/config.h>
 #include <sfx2/dllapi.h>
+#include <sfx2/basedlgs.hxx>
 #include <sal/types.h>
 #include <vcl/button.hxx>
 #include <vcl/layout.hxx>
@@ -61,7 +62,7 @@ struct TabPageParent
         return pParent->GetFrameWeld();
     }
     VclPtr<vcl::Window> pParent;
-    weld::Container* pPage;
+    weld::Container* const pPage;
     weld::DialogController* pController;
 };
 
@@ -207,8 +208,6 @@ public:
     const CancelButton& GetCancelButton() const { return *m_pCancelBtn; }
     CancelButton&       GetCancelButton() { return *m_pCancelBtn; }
 
-    const PushButton*   GetUserButton() const { return m_pUserBtn; }
-    PushButton*         GetUserButton() { return m_pUserBtn; }
     void                RemoveResetButton();
     void                RemoveStandardButton();
 
@@ -232,7 +231,7 @@ public:
     virtual bool selectPageByUIXMLDescription(const OString& rUIXMLDescription) override;
 };
 
-class SFX2_DLLPUBLIC SfxTabDialogController : public weld::GenericDialogController
+class SFX2_DLLPUBLIC SfxTabDialogController : public SfxDialogController
 {
 protected:
     std::unique_ptr<weld::Notebook> m_xTabCtrl;

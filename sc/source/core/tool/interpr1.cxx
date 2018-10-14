@@ -2168,12 +2168,12 @@ void ScInterpreter::ScType()
     PushInt( nType );
 }
 
-static inline bool lcl_FormatHasNegColor( const SvNumberformat* pFormat )
+static bool lcl_FormatHasNegColor( const SvNumberformat* pFormat )
 {
     return pFormat && pFormat->GetColor( 1 );
 }
 
-static inline bool lcl_FormatHasOpenPar( const SvNumberformat* pFormat )
+static bool lcl_FormatHasOpenPar( const SvNumberformat* pFormat )
 {
     return pFormat && (pFormat->GetFormatstring().indexOf('(') != -1);
 }
@@ -3440,7 +3440,7 @@ void ScInterpreter::ScNumberValue()
 }
 
 //2do: this should be a proper unicode string method
-static inline bool lcl_ScInterpreter_IsPrintable( sal_Unicode c )
+static bool lcl_ScInterpreter_IsPrintable( sal_Unicode c )
 {
     return 0x20 <= c && c != 0x7f;
 }
@@ -9666,7 +9666,7 @@ bool ScInterpreter::LookupQueryWithCache( ScAddress & o_rResultPos,
     {
         ScRange aLookupRange( rParam.nCol1, rParam.nRow1, rParam.nTab,
                 rParam.nCol2, rParam.nRow2, rParam.nTab);
-        ScLookupCache& rCache = pDok->GetLookupCache( aLookupRange);
+        ScLookupCache& rCache = pDok->GetLookupCache( aLookupRange, &mrContext );
         ScLookupCache::QueryCriteria aCriteria( rEntry);
         ScLookupCache::Result eCacheResult = rCache.lookup( o_rResultPos,
                 aCriteria, aPos);

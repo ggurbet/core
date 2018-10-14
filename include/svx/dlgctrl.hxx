@@ -216,30 +216,6 @@ public:
 
 /************************************************************************/
 
-class SAL_WARN_UNUSED SVX_DLLPUBLIC HatchingLB : public ListBox
-{
-public:
-    explicit HatchingLB(vcl::Window* pParent, WinBits aWB);
-};
-
-/************************************************************************/
-
-class SAL_WARN_UNUSED SVX_DLLPUBLIC GradientLB : public ListBox
-{
-public:
-    explicit GradientLB(vcl::Window* pParent, WinBits aWB);
-};
-
-/************************************************************************/
-
-class SAL_WARN_UNUSED SVX_DLLPUBLIC BitmapLB : public ListBox
-{
-public:
-    explicit BitmapLB(vcl::Window* pParent, WinBits aWB);
-};
-
-/************************************************************************/
-
 class SAL_WARN_UNUSED SVX_DLLPUBLIC FillTypeLB : public ListBox
 {
 
@@ -262,68 +238,76 @@ public:
 
     void Fill(const XDashListRef &pList);
     bool getAddStandardFields() const { return mbAddStandardFields; }
+};
+
+class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxLineLB
+{
+private:
+    std::unique_ptr<weld::ComboBox> m_xControl;
+
+    /// defines if standard fields (none, solid) are added, default is true
+    bool        mbAddStandardFields : 1;
+
+public:
+    SvxLineLB(std::unique_ptr<weld::ComboBox> pControl);
+
+    void Fill(const XDashListRef &pList);
+    bool getAddStandardFields() const { return mbAddStandardFields; }
     void setAddStandardFields(bool bNew);
 
     void Append(const XDashEntry& rEntry, const BitmapEx& rBitmap );
     void Modify(const XDashEntry& rEntry, sal_Int32 nPos, const BitmapEx& rBitmap );
-};
 
+    void clear() { m_xControl->clear(); }
+    void remove(int nPos) { m_xControl->remove(nPos); }
+    int get_active() const { return m_xControl->get_active(); }
+    void set_active(int nPos) { m_xControl->set_active(nPos); }
+    void set_active_text(const OUString& rStr) { m_xControl->set_active_text(rStr); }
+    OUString get_active_text() const { return m_xControl->get_active_text(); }
+    void connect_changed(const Link<weld::ComboBox&, void>& rLink) { m_xControl->connect_changed(rLink); }
+    int get_count() const { return m_xControl->get_count(); }
+    void append_text(const OUString& rStr) { m_xControl->append_text(rStr); }
+    bool get_value_changed_from_saved() const { return m_xControl->get_value_changed_from_saved(); }
+    void save_value() { m_xControl->save_value(); }
+    void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
+    bool get_sensitive() const { return m_xControl->get_sensitive(); }
+};
 
 /************************************************************************/
 
-class SAL_WARN_UNUSED SVX_DLLPUBLIC LineEndLB : public ListBox
+class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxLineEndLB
 {
+private:
+    std::unique_ptr<weld::ComboBox> m_xControl;
 
 public:
-    LineEndLB( vcl::Window* pParent, WinBits aWB );
+    SvxLineEndLB(std::unique_ptr<weld::ComboBox> pControl);
 
     void Fill( const XLineEndListRef &pList, bool bStart = true );
 
     void    Append( const XLineEndEntry& rEntry, const BitmapEx& rBitmap );
     void    Modify( const XLineEndEntry& rEntry, sal_Int32 nPos, const BitmapEx& rBitmap );
-};
 
+    void clear() { m_xControl->clear(); }
+    void remove(int nPos) { m_xControl->remove(nPos); }
+    int get_active() const { return m_xControl->get_active(); }
+    void set_active(int nPos) { m_xControl->set_active(nPos); }
+    void set_active_text(const OUString& rStr) { m_xControl->set_active_text(rStr); }
+    OUString get_active_text() const { return m_xControl->get_active_text(); }
+    void connect_changed(const Link<weld::ComboBox&, void>& rLink) { m_xControl->connect_changed(rLink); }
+    int get_count() const { return m_xControl->get_count(); }
+    void append_text(const OUString& rStr) { m_xControl->append_text(rStr); }
+    bool get_value_changed_from_saved() const { return m_xControl->get_value_changed_from_saved(); }
+    void save_value() { m_xControl->save_value(); }
+    void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
+    bool get_sensitive() const { return m_xControl->get_sensitive(); }
+};
 
 class SdrObject;
 class SdrPathObj;
 class SdrModel;
 
-class SAL_WARN_UNUSED SAL_DLLPUBLIC_RTTI SvxPreviewBase : public Control
-{
-private:
-    std::unique_ptr<SdrModel> mpModel;
-    VclPtr<VirtualDevice> mpBufferDevice;
-
-protected:
-    void InitSettings(bool bForeground, bool bBackground);
-
-    // prepare buffered paint
-    void LocalPrePaint(vcl::RenderContext const & rRenderContext);
-
-    // end and output buffered paint
-    void LocalPostPaint(vcl::RenderContext& rRenderContext);
-
-public:
-    SvxPreviewBase(vcl::Window* pParent);
-    virtual ~SvxPreviewBase() override;
-    virtual void dispose() override;
-
-    // change support
-    virtual void StateChanged(StateChangedType nStateChange) override;
-    virtual void DataChanged(const DataChangedEvent& rDCEvt) override;
-
-    // dada read access
-    SdrModel& getModel() const
-    {
-        return *mpModel;
-    }
-    OutputDevice& getBufferDevice() const
-    {
-        return *mpBufferDevice;
-    }
-};
-
-class SAL_WARN_UNUSED SAL_DLLPUBLIC_RTTI PreviewBase : public weld::CustomWidgetController
+class SAL_WARN_UNUSED SAL_DLLPUBLIC_RTTI SvxPreviewBase : public weld::CustomWidgetController
 {
 private:
     std::unique_ptr<SdrModel> mpModel;
@@ -341,9 +325,9 @@ protected:
     void LocalPostPaint(vcl::RenderContext& rRenderContext);
 
 public:
-    PreviewBase();
+    SvxPreviewBase();
     virtual void SetDrawingArea(weld::DrawingArea*) override;
-    virtual ~PreviewBase() override;
+    virtual ~SvxPreviewBase() override;
 
     // change support
     virtual void StyleUpdated() override;
@@ -351,6 +335,11 @@ public:
     void SetDrawMode(DrawModeFlags nDrawMode)
     {
         mpBufferDevice->SetDrawMode(nDrawMode);
+    }
+
+    Size GetOutputSize() const
+    {
+        return mpBufferDevice->PixelToLogic(GetOutputSizePixel());
     }
 
     // dada read access
@@ -383,9 +372,9 @@ private:
     Size                                            maSymbolSize;
 
 public:
-    SvxXLinePreview( vcl::Window* pParent );
+    SvxXLinePreview();
+    virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
     virtual ~SvxXLinePreview() override;
-    virtual void dispose() override;
 
     void SetLineAttributes(const SfxItemSet& rItemSet);
 
@@ -395,40 +384,17 @@ public:
 
     virtual void Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
     virtual void Resize() override;
-    virtual Size GetOptimalSize() const override;
 };
-
-/*************************************************************************
-|*
-|* SvxXRectPreview
-|*
-\************************************************************************/
 
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxXRectPreview : public SvxPreviewBase
-{
-private:
-    SdrObject*                                      mpRectangleObject;
-
-public:
-    SvxXRectPreview(vcl::Window* pParent);
-    virtual ~SvxXRectPreview() override;
-    virtual void dispose() override;
-
-    void SetAttributes(const SfxItemSet& rItemSet);
-
-    virtual void    Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
-    virtual void Resize() override;
-};
-
-class SAL_WARN_UNUSED SVX_DLLPUBLIC XRectPreview : public PreviewBase
 {
 private:
     SdrObject* mpRectangleObject;
 
 public:
-    XRectPreview();
+    SvxXRectPreview();
     virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
-    virtual ~XRectPreview() override;
+    virtual ~SvxXRectPreview() override;
 
     void SetAttributes(const SfxItemSet& rItemSet);
 
@@ -442,7 +408,7 @@ public:
 |*
 \************************************************************************/
 
-class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxXShadowPreview : public PreviewBase
+class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxXShadowPreview : public SvxPreviewBase
 {
 private:
     Point maShadowOffset;

@@ -97,6 +97,7 @@ $(eval $(call gb_Module_add_slowcheck_targets,sw,\
     CppunitTest_sw_accessible_relation_set \
     CppunitTest_sw_apitests \
     CppunitTest_sw_unowriter \
+    CppunitTest_sw_unoapi \
 ))
 
 ifneq ($(DISABLE_GUI),TRUE)
@@ -141,6 +142,7 @@ $(eval $(call gb_Module_add_uicheck_targets,sw,\
 	UITest_writer_tests3 \
 	UITest_writer_tests4 \
 	UITest_table \
+	UITest_findReplace \
 ))
 endif
 

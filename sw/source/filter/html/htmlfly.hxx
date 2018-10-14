@@ -98,9 +98,9 @@ class SwHTMLPosFlyFrame
     const SwFrameFormat    *pFrameFormat;  // the frame
     const SdrObject        *pSdrObject;    // maybe Sdr-Object
     SwNodeIndex            *pNdIdx;        // Node-Index
-    sal_uInt32              nOrdNum;       // from SwPosFlyFrame
+    sal_uInt32 const        nOrdNum;       // from SwPosFlyFrame
     sal_Int32               nContentIdx;   // its position in content
-    AllHtmlFlags            nAllFlags;
+    AllHtmlFlags const      nAllFlags;
 
     SwHTMLPosFlyFrame(const SwHTMLPosFlyFrame&) = delete;
     SwHTMLPosFlyFrame& operator=(const SwHTMLPosFlyFrame&) = delete;
@@ -122,8 +122,8 @@ public:
 };
 
 class SwHTMLPosFlyFrames
-    : public o3tl::sorted_vector<SwHTMLPosFlyFrame*,
-                o3tl::less_ptr_to<SwHTMLPosFlyFrame>,
+    : public o3tl::sorted_vector<std::unique_ptr<SwHTMLPosFlyFrame>,
+                o3tl::less_uniqueptr_to<SwHTMLPosFlyFrame>,
                 o3tl::find_partialorder_ptrequals>
 {};
 

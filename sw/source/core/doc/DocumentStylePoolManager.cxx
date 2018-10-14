@@ -118,8 +118,8 @@ namespace
     void lcl_SetDfltFont( DefaultFontType nFntType, SfxItemSet& rSet )
     {
         static struct {
-            sal_uInt16 nResLngId;
-            sal_uInt16 nResFntId;
+            sal_uInt16 const nResLngId;
+            sal_uInt16 const nResFntId;
         } aArr[ 3 ] = {
             { RES_CHRATR_LANGUAGE, RES_CHRATR_FONT },
             { RES_CHRATR_CJK_LANGUAGE, RES_CHRATR_CJK_FONT },
@@ -142,8 +142,8 @@ namespace
                             DefaultFontType nCTLFntType, SfxItemSet& rSet )
     {
         static struct {
-            sal_uInt16 nResLngId;
-            sal_uInt16 nResFntId;
+            sal_uInt16 const nResLngId;
+            sal_uInt16 const nResFntId;
             DefaultFontType nFntType;
         } aArr[ 3 ] = {
             { RES_CHRATR_LANGUAGE, RES_CHRATR_FONT, static_cast<DefaultFontType>(0) },
@@ -1336,7 +1336,7 @@ SwTextFormatColl* DocumentStylePoolManager::GetTextCollFromPool( sal_uInt16 nId,
             {
                 SvxBoxItem aBox( RES_BOX );
                 Color aColor( COL_GRAY );
-                SvxBorderLine aNew(&aColor, 1, SvxBorderLineStyle::DOUBLE);
+                SvxBorderLine aNew(&aColor, 3, SvxBorderLineStyle::DOUBLE);
                 aBox.SetLine( &aNew, SvxBoxItemLine::BOTTOM );
 
                 aSet.Put( aBox );

@@ -450,9 +450,9 @@ def __translate__(arg = None):
         pagebreak = False
         selection.setString(text)
     # convert to paragraphs
-    __dispatcher__(".uno:ExecuteSearch", (__getprop__("SearchItem.SearchString", r"\n"), __getprop__("SearchItem.ReplaceString", "\n"), \
+    __dispatcher__(".uno:ExecuteSearch", (__getprop__("SearchItem.SearchString", r"\n"), __getprop__("SearchItem.ReplaceString", r"\n"), \
         __getprop__("Quiet", True), __getprop__("SearchItem.Command", 3), __getprop__("SearchItem.StyleFamily", 2), \
-        __getprop__("SearchItem.AlgorithmType2", 1), __getprop__("SearchItem.SearchFlags", 0)))
+        __getprop__("SearchItem.AlgorithmType", 1), __getprop__("SearchItem.AlgorithmType2", 2), __getprop__("SearchItem.SearchFlags", 0)))
     # set 2-page layout
     if pagebreak:
         selection.getStart().BreakType = 4
@@ -968,7 +968,7 @@ def __go__(shapename, n, dot = False, preciseAngle = -1):
     if shape and not _.pen and not dot:
         _.continuous = False
         return
-    c, c2 = __Point__(pos.X + turtle.BoundRect.Width / 2.0, pos.Y + turtle.BoundRect.Height / 2.0), __Point__(round(dx), round(dy))
+    c, c2 = __Point__(pos.X + turtle.BoundRect.Width / 2.0, pos.Y + turtle.BoundRect.Height / 2.0), __Point__(round(dx / __MM10_TO_TWIP__), round(dy / __MM10_TO_TWIP__))
     if shape and "LineShape" in shape.ShapeType:
             if _.continuous or dot:
                 last = shape.PolyPolygon[-1][-1]

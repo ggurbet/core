@@ -57,7 +57,8 @@ IconThemeSelector::GetIconThemeForDesktopEnvironment(const OUString& desktopEnvi
     (void)desktopEnvironment;
 #else
     if ( desktopEnvironment.equalsIgnoreAsciiCase("kde4") ||
-         desktopEnvironment.equalsIgnoreAsciiCase("kde5") ) {
+         desktopEnvironment.equalsIgnoreAsciiCase("kde5") ||
+         desktopEnvironment.equalsIgnoreAsciiCase("lxqt") ) {
         r = "breeze";
     } else
     if ( desktopEnvironment.equalsIgnoreAsciiCase("macosx") ) {
@@ -130,7 +131,9 @@ IconThemeSelector::SetUseHighContrastTheme(bool v)
 void
 IconThemeSelector::SetPreferredIconTheme(const OUString& theme, bool bDarkIconTheme)
 {
-    mPreferredIconTheme = theme;
+    // lower case theme name, and (tdf#120175) replace - with _
+    // see icon-themes/README
+    mPreferredIconTheme = theme.toAsciiLowerCase().replace('-','_');
     mPreferDarkIconTheme = bDarkIconTheme;
 }
 

@@ -52,7 +52,7 @@ class SwHTMLForm_Impl;
 class SwApplet_Impl;
 struct SwHTMLFootEndNote_Impl;
 class HTMLTableCnts;
-struct SwPendingStack;
+struct SwPending;
 class SvxCSS1PropertyInfo;
 struct ImplSVEvent;
 
@@ -205,14 +205,14 @@ class HTMLAttrContext
 {
     HTMLAttrs m_aAttrs;      // the attributes created in the context
 
-    OUString    m_aClass;          // context class
+    OUString const    m_aClass;          // context class
 
     std::unique_ptr<HTMLAttrContext_SaveDoc> m_pSaveDocContext;
     std::unique_ptr<SfxItemSet> m_pFrameItemSet;
 
-    HtmlTokenId m_nToken;         // the token of the context
+    HtmlTokenId const m_nToken;         // the token of the context
 
-    sal_uInt16  m_nTextFormatColl;    // a style created in the context or zero
+    sal_uInt16 const  m_nTextFormatColl;    // a style created in the context or zero
 
     sal_uInt16  m_nLeftMargin;        // a changed left border
     sal_uInt16  m_nRightMargin;       // a changed right border
@@ -225,7 +225,7 @@ class HTMLAttrContext
 
     bool    m_bLRSpaceChanged : 1;    // left/right border, changed indent?
     bool    m_bULSpaceChanged : 1;    // top/bottom border changed?
-    bool    m_bDefaultTextFormatColl : 1;// nTextFormatColl is only default
+    bool const    m_bDefaultTextFormatColl : 1;// nTextFormatColl is only default
     bool    m_bSpansSection : 1;      // the context opens a SwSection
     bool    m_bPopStack : 1;          // delete above stack elements
     bool    m_bFinishPREListingXMP : 1;
@@ -338,7 +338,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
      */
     std::unique_ptr<ImportProgress> m_xProgress;
 
-    OUString      m_aPathToFile;
+    OUString const      m_aPathToFile;
     OUString      m_sBaseURL;
     OUString      m_aBasicLib;
     OUString      m_aBasicModule;
@@ -347,7 +347,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     OUString      m_aScriptURL;     // script URL
     OUString      m_aStyleSource;   // content of current style sheet
     OUString      m_aContents;      // text of current marquee, field and so
-    OUString      m_sTitle;
+    OUStringBuffer m_sTitle;
     OUString      m_aUnknownToken;  // a started unknown token
     OUString      m_aBulletGrfs[MAXLEVEL];
     OUString      m_sJmpMark;
@@ -372,7 +372,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
 
     std::unique_ptr<SwCSS1Parser> m_pCSS1Parser;   // Style-Sheet-Parser
     std::unique_ptr<SwHTMLNumRuleInfo> m_pNumRuleInfo;
-    SwPendingStack  *m_pPendStack;
+    std::vector<SwPending>  m_vPendingStack;
 
     rtl::Reference<SwDoc> m_xDoc;
     SwPaM           *m_pPam;      // SwPosition should be enough, or ??
@@ -448,7 +448,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     bool m_bSelect : 1;
     bool m_bInFootEndNoteAnchor : 1;
     bool m_bInFootEndNoteSymbol : 1;
-    bool m_bIgnoreHTMLComments : 1;
+    bool const m_bIgnoreHTMLComments : 1;
     bool m_bRemoveHidden : 1; // the filter implementation might set the hidden flag
 
     bool m_bBodySeen : 1;
@@ -483,9 +483,9 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     DECL_LINK( AsyncCallback, void*, void );
 
     // set attribute on document
-    void SetAttr_( bool bChkEnd, bool bBeforeTable, HTMLAttrs *pPostIts );
+    void SetAttr_( bool bChkEnd, bool bBeforeTable, std::deque<std::unique_ptr<HTMLAttr>> *pPostIts );
     void SetAttr( bool bChkEnd = true, bool bBeforeTable = false,
-                         HTMLAttrs *pPostIts = nullptr )
+                         std::deque<std::unique_ptr<HTMLAttr>> *pPostIts = nullptr )
     {
         if( !m_aSetAttrTab.empty() || !m_aMoveFlyFrames.empty() )
             SetAttr_( bChkEnd, bBeforeTable, pPostIts );
@@ -510,7 +510,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     void SplitAttrTab(std::shared_ptr<HTMLAttrTable> const & rNewAttrTab, bool bMoveEndBack);
     void RestoreAttrTab(std::shared_ptr<HTMLAttrTable> const & rNewAttrTab);
     void InsertAttr( const SfxPoolItem& rItem, bool bInsAtStart );
-    void InsertAttrs( HTMLAttrs& rAttrs );
+    void InsertAttrs( std::deque<std::unique_ptr<HTMLAttr>> rAttrs );
 
     bool DoPositioning( SfxItemSet &rItemSet,
                         SvxCSS1PropertyInfo &rPropInfo,
@@ -930,19 +930,18 @@ public:
     static OUString StripQueryFromPath(const OUString& rBase, const OUString& rPath);
 };
 
-struct SwPendingStackData
+struct SwPendingData
 {
-    virtual ~SwPendingStackData() {}
+    virtual ~SwPendingData() {}
 };
 
-struct SwPendingStack
+struct SwPending
 {
-    HtmlTokenId nToken;
-    SwPendingStackData* pData;
-    SwPendingStack* pNext;
+    HtmlTokenId const nToken;
+    std::unique_ptr<SwPendingData> pData;
 
-    SwPendingStack( HtmlTokenId nTkn, SwPendingStack* pNxt )
-        : nToken( nTkn ), pData( nullptr ), pNext( pNxt )
+    SwPending( HtmlTokenId nTkn )
+        : nToken( nTkn )
         {}
 };
 

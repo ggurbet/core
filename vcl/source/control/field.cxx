@@ -408,13 +408,6 @@ void FormatterBase::SetStrictFormat( bool bStrict )
     }
 }
 
-void FormatterBase::SetLocale( const lang::Locale& rLocale )
-{
-    ImplGetLocaleDataWrapper().setLanguageTag( LanguageTag( rLocale) );
-    mbDefaultLocale = false;
-    ReformatAll();
-}
-
 const lang::Locale& FormatterBase::GetLocale() const
 {
     if ( !mpLocaleDataWrapper || mbDefaultLocale )
@@ -1781,7 +1774,7 @@ static bool ImplCurrencyProcessKeyInput( const KeyEvent& rKEvt,
     return ImplNumericProcessKeyInput( rKEvt, false, bUseThousandSep, rWrapper );
 }
 
-static inline bool ImplCurrencyGetValue( const OUString& rStr, sal_Int64& rValue,
+static bool ImplCurrencyGetValue( const OUString& rStr, sal_Int64& rValue,
                                   sal_uInt16 nDecDigits, const LocaleDataWrapper& rWrapper )
 {
     // fetch number

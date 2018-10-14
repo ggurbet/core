@@ -2851,7 +2851,7 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
             ww::eField eField(ww::eNONE);
             switch (0xff & nSubType)
             {
-                case DI_TITEL:
+                case DI_TITLE:
                     eField = ww::eTITLE;
                     break;
                 case DI_THEMA:
@@ -4250,6 +4250,7 @@ WW8_BRCVer9 WW8Export::TranslateBorderLine(const SvxBorderLine& rLine,
                 brcType = 7;
                 break;
             case SvxBorderLineStyle::DOUBLE:
+            case SvxBorderLineStyle::DOUBLE_THIN:
                 brcType = 3;
                 break;
             case SvxBorderLineStyle::THINTHICK_SMALLGAP:
@@ -5508,9 +5509,6 @@ const SwRedlineData* AttributeOutputBase::GetParagraphMarkerRedline( const SwTex
             continue;
 
         const SwPosition* pCheckedEnd = pRedl->End();
-        if (!pCheckedEnd)
-            continue;
-
         const SwPosition* pCheckedStt = pRedl->Start();
         sal_uLong uStartNodeIndex = pCheckedStt->nNode.GetIndex();
         sal_uLong uStartCharIndex = pCheckedStt->nContent.GetIndex();

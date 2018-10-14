@@ -64,9 +64,9 @@ const short RET_EDIT = 100;
 
 struct TextBlockInfo_Impl
 {
-    OUString sTitle;
-    OUString sLongName;
-    OUString sGroupName;
+    OUString const sTitle;
+    OUString const sLongName;
+    OUString const sGroupName;
     TextBlockInfo_Impl(OUString const& rTitle, OUString const& rLongName, OUString const& rGroupName)
         : sTitle(rTitle), sLongName(rLongName), sGroupName(rGroupName) {}
 };
@@ -352,7 +352,7 @@ bool SwGlossaryHdl::DelGlossary(const OUString &rShortName)
 }
 
 // expand short name
-bool SwGlossaryHdl::ExpandGlossary()
+bool SwGlossaryHdl::ExpandGlossary(weld::Window* pParent)
 {
     OSL_ENSURE(pWrtShell->CanInsert(), "illegal");
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
@@ -383,12 +383,12 @@ bool SwGlossaryHdl::ExpandGlossary()
         if(pWrtShell->IsSelection())
             aShortName = pWrtShell->GetSelText();
     }
-    return pGlossary && Expand( aShortName, &rStatGlossaries, std::move(pGlossary) );
+    return pGlossary && Expand(pParent, aShortName, &rStatGlossaries, std::move(pGlossary));
 }
 
-bool SwGlossaryHdl::Expand( const OUString& rShortName,
+bool SwGlossaryHdl::Expand(weld::Window* pParent, const OUString& rShortName,
                             SwGlossaries *pGlossaries,
-                            std::unique_ptr<SwTextBlocks> pGlossary  )
+                            std::unique_ptr<SwTextBlocks> pGlossary)
 {
     std::vector<TextBlockInfo_Impl> aFoundArr;
     OUString aShortName( rShortName );
@@ -436,7 +436,7 @@ bool SwGlossaryHdl::Expand( const OUString& rShortName,
             else
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                ScopedVclPtr<AbstractSwSelGlossaryDlg> pDlg(pFact->CreateSwSelGlossaryDlg(aShortName));
+                ScopedVclPtr<AbstractSwSelGlossaryDlg> pDlg(pFact->CreateSwSelGlossaryDlg(pParent, aShortName));
                 for(TextBlockInfo_Impl & i : aFoundArr)
                 {
                     pDlg->InsertGlos(i.sTitle, i.sLongName);

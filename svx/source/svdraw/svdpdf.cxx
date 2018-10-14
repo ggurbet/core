@@ -94,9 +94,9 @@ namespace
 /// dimensions are in inches, with 72 points / inch.
 /// Here we effectively render at 96 DPI (to match
 /// the image rendered in vcl::ImportPDF in pdfread.cxx).
-inline double lcl_PointToPixel(double fPoint) { return fPoint * 96. / 72.; }
+double lcl_PointToPixel(double fPoint) { return fPoint * 96. / 72.; }
 /// Convert from pixels to logic (twips).
-inline long lcl_ToLogic(double value)
+long lcl_ToLogic(double value)
 {
     // Convert to integral preserving two dp.
     const long in = static_cast<long>(value * 100.);
@@ -104,7 +104,7 @@ inline long lcl_ToLogic(double value)
     return out / 100;
 }
 
-inline double sqrt2(double a, double b) { return sqrt(a * a + b * b); }
+double sqrt2(double a, double b) { return sqrt(a * a + b * b); }
 }
 
 struct FPDFBitmapDeleter
@@ -125,7 +125,6 @@ ImpSdrPdfImport::ImpSdrPdfImport(SdrModel& rModel, SdrLayerID nLay, const tools:
     , mnLayer(nLay)
     , maOldLineColor()
     , mnLineWidth(0)
-    , maLineJoin(basegfx::B2DLineJoin::NONE)
     , maLineCap(css::drawing::LineCap_BUTT)
     , maDash(css::drawing::DashStyle_RECT, 0, 0, 0, 0, 0)
     , mbMov(false)
@@ -384,21 +383,7 @@ void ImpSdrPdfImport::SetAttributes(SdrObject* pObj, bool bForceTextAttr)
             mpLineAttr->Put(XLineStyleItem(drawing::LineStyle_NONE));
         }
 
-        switch (maLineJoin)
-        {
-            case basegfx::B2DLineJoin::NONE:
-                mpLineAttr->Put(XLineJointItem(css::drawing::LineJoint_NONE));
-                break;
-            case basegfx::B2DLineJoin::Bevel:
-                mpLineAttr->Put(XLineJointItem(css::drawing::LineJoint_BEVEL));
-                break;
-            case basegfx::B2DLineJoin::Miter:
-                mpLineAttr->Put(XLineJointItem(css::drawing::LineJoint_MITER));
-                break;
-            case basegfx::B2DLineJoin::Round:
-                mpLineAttr->Put(XLineJointItem(css::drawing::LineJoint_ROUND));
-                break;
-        }
+        mpLineAttr->Put(XLineJointItem(css::drawing::LineJoint_NONE));
 
         // Add LineCap support
         mpLineAttr->Put(XLineCapItem(maLineCap));
@@ -986,7 +971,7 @@ void ImpSdrPdfImport::MapScaling()
 void ImpSdrPdfImport::ImportImage(FPDF_PAGEOBJECT pPageObject, int /*nPageObjectIndex*/)
 {
     std::unique_ptr<std::remove_pointer<FPDF_BITMAP>::type, FPDFBitmapDeleter> bitmap(
-        FPDFImageObj_GetBitmapBgra(pPageObject));
+        FPDFImageObj_GetBitmap(pPageObject));
     if (!bitmap)
     {
         SAL_WARN("sd.filter", "Failed to get IMAGE");

@@ -194,7 +194,7 @@ Any ServiceEnumeration_Impl::nextElement()
 
 class PropertySetInfo_Impl : public WeakImplHelper< beans::XPropertySetInfo >
 {
-    Sequence< beans::Property > m_properties;
+    Sequence< beans::Property > const m_properties;
 
 public:
     explicit PropertySetInfo_Impl( Sequence< beans::Property > const & properties )
@@ -411,8 +411,8 @@ public:
     void SAL_CALL removeVetoableChangeListener(const OUString& PropertyName, const Reference<XVetoableChangeListener >& aListener) override;
 
 protected:
-    inline bool is_disposed() const;
-    inline void check_undisposed() const;
+    bool is_disposed() const;
+    void check_undisposed() const;
     virtual void SAL_CALL disposing() override;
 
     bool haveFactoryWithThisImplementation(const OUString& aImplName);
@@ -440,14 +440,14 @@ private:
 };
 
 
-inline bool OServiceManager::is_disposed() const
+bool OServiceManager::is_disposed() const
 {
     // ought to be guarded by m_mutex:
     return (m_bInDisposing || rBHelper.bDisposed);
 }
 
 
-inline void OServiceManager::check_undisposed() const
+void OServiceManager::check_undisposed() const
 {
     if (is_disposed())
     {

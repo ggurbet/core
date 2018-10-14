@@ -907,63 +907,6 @@ void SvxPixelCtl::Reset()
     Invalidate();
 }
 
-// Fills the listbox (provisional) with strings
-
-HatchingLB::HatchingLB( vcl::Window* pParent, WinBits nWinStyle)
-: ListBox( pParent, nWinStyle )
-{
-    SetEdgeBlending(true);
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeHatchingLB(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    WinBits nWinStyle = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE;
-    OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-    if (!sBorder.isEmpty())
-        nWinStyle |= WB_BORDER;
-    VclPtrInstance<HatchingLB> pListBox(pParent, nWinStyle);
-    pListBox->EnableAutoSize(true);
-    rRet = pListBox;
-}
-
-// Fills the listbox (provisional) with strings
-
-GradientLB::GradientLB( vcl::Window* pParent, WinBits aWB)
-: ListBox( pParent, aWB )
-{
-    SetEdgeBlending(true);
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeGradientLB(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    WinBits nWinStyle = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE;
-    OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-    if (!sBorder.isEmpty())
-        nWinStyle |= WB_BORDER;
-    VclPtrInstance<GradientLB> pListBox(pParent, nWinStyle);
-    pListBox->EnableAutoSize(true);
-    rRet = pListBox;
-}
-
-// BitmapLB Constructor
-
-BitmapLB::BitmapLB( vcl::Window* pParent, WinBits aWB)
-:   ListBox( pParent, aWB )
-{
-    SetEdgeBlending(true);
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeBitmapLB(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    WinBits nWinStyle = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE;
-    OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-    if (!sBorder.isEmpty())
-        nWinStyle |= WB_BORDER;
-    VclPtrInstance<BitmapLB> pListBox(pParent, nWinStyle);
-    pListBox->EnableAutoSize(true);
-    rRet = pListBox;
-}
-
 void FillTypeLB::Fill()
 {
     SetUpdateMode( false );
@@ -984,28 +927,6 @@ LineLB::LineLB(vcl::Window* pParent, WinBits aWB)
     mbAddStandardFields(true)
 {
     // No EdgeBlending for LineStyle/Dash SetEdgeBlending(true);
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeLineLB(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    bool bDropdown = BuilderUtils::extractDropdown(rMap);
-    WinBits nWinBits = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE|WB_TABSTOP;
-    if (bDropdown)
-        nWinBits |= WB_DROPDOWN;
-    OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-    if (!sBorder.isEmpty())
-        nWinBits |= WB_BORDER;
-    VclPtrInstance<LineLB> pListBox(pParent, nWinBits);
-    pListBox->EnableAutoSize(true);
-    rRet = pListBox;
-}
-
-void LineLB::setAddStandardFields(bool bNew)
-{
-    if(getAddStandardFields() != bNew)
-    {
-        mbAddStandardFields = bNew;
-    }
 }
 
 // Fills the listbox (provisional) with strings
@@ -1048,64 +969,118 @@ void LineLB::Fill( const XDashListRef &pList )
     SetUpdateMode( true );
 }
 
-void LineLB::Append( const XDashEntry& rEntry, const BitmapEx& rBitmap )
+SvxLineLB::SvxLineLB(std::unique_ptr<weld::ComboBox> pControl)
+    : m_xControl(std::move(pControl))
+    , mbAddStandardFields(true)
 {
-    if(!rBitmap.IsEmpty())
-    {
-        InsertEntry(rEntry.GetName(), Image(rBitmap));
-    }
-    else
-    {
-        InsertEntry( rEntry.GetName() );
-    }
-
-    AdaptDropDownLineCountToMaximum();
 }
 
-void LineLB::Modify( const XDashEntry& rEntry, sal_Int32 nPos, const BitmapEx& rBitmap )
+void SvxLineLB::setAddStandardFields(bool bNew)
 {
-    RemoveEntry( nPos );
-
-    if(!rBitmap.IsEmpty())
+    if(getAddStandardFields() != bNew)
     {
-        InsertEntry( rEntry.GetName(), Image(rBitmap), nPos );
-    }
-    else
-    {
-        InsertEntry( rEntry.GetName(), nPos );
+        mbAddStandardFields = bNew;
     }
 }
 
 // Fills the listbox (provisional) with strings
 
-LineEndLB::LineEndLB( vcl::Window* pParent, WinBits aWB )
-    : ListBox( pParent, aWB )
+void SvxLineLB::Fill( const XDashListRef &pList )
 {
-    // No EdgeBlending for LineEnds SetEdgeBlending(true);
+    m_xControl->clear();
+
+    if( !pList.is() )
+        return;
+
+    ScopedVclPtrInstance< VirtualDevice > pVD;
+
+    if(getAddStandardFields())
+    {
+        // entry for 'none'
+        m_xControl->append_text(pList->GetStringForUiNoLine());
+
+        // entry for solid line
+        const BitmapEx aBitmap = pList->GetBitmapForUISolidLine();
+        const Size aBmpSize(aBitmap.GetSizePixel());
+        pVD->SetOutputSizePixel(aBmpSize, false);
+        pVD->DrawBitmapEx(Point(), aBitmap);
+        m_xControl->append("", pList->GetStringForUiSolidLine(), *pVD);
+    }
+
+    // entries for dashed lines
+
+    long nCount = pList->Count();
+    m_xControl->freeze();
+
+    for( long i = 0; i < nCount; i++ )
+    {
+        const XDashEntry* pEntry = pList->GetDash(i);
+        const BitmapEx aBitmap = pList->GetUiBitmap( i );
+        if( !aBitmap.IsEmpty() )
+        {
+            const Size aBmpSize(aBitmap.GetSizePixel());
+            pVD->SetOutputSizePixel(aBmpSize, false);
+            pVD->DrawBitmapEx(Point(), aBitmap);
+            m_xControl->append("", pEntry->GetName(), *pVD);
+        }
+        else
+        {
+            m_xControl->append_text(pEntry->GetName());
+        }
+    }
+
+    m_xControl->thaw();
 }
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeLineEndLB(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
+void SvxLineLB::Append( const XDashEntry& rEntry, const BitmapEx& rBitmap )
 {
-    bool bDropdown = BuilderUtils::extractDropdown(rMap);
-    WinBits nWinBits = WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE|WB_TABSTOP;
-    if (bDropdown)
-        nWinBits |= WB_DROPDOWN;
-    OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-    if (!sBorder.isEmpty())
-        nWinBits |= WB_BORDER;
-    VclPtrInstance<LineEndLB> pListBox(pParent, nWinBits);
-    pListBox->EnableAutoSize(true);
-    rRet = pListBox;
+    if (!rBitmap.IsEmpty())
+    {
+        ScopedVclPtrInstance< VirtualDevice > pVD;
+
+        const Size aBmpSize(rBitmap.GetSizePixel());
+        pVD->SetOutputSizePixel(aBmpSize, false);
+        pVD->DrawBitmapEx(Point(), rBitmap);
+        m_xControl->append("", rEntry.GetName(), *pVD);
+    }
+    else
+    {
+        m_xControl->append_text(rEntry.GetName());
+    }
 }
 
-void LineEndLB::Fill( const XLineEndListRef &pList, bool bStart )
+void SvxLineLB::Modify(const XDashEntry& rEntry, sal_Int32 nPos, const BitmapEx& rBitmap)
+{
+    m_xControl->remove(nPos);
+
+    if (!rBitmap.IsEmpty())
+    {
+        ScopedVclPtrInstance< VirtualDevice > pVD;
+
+        const Size aBmpSize(rBitmap.GetSizePixel());
+        pVD->SetOutputSizePixel(aBmpSize, false);
+        pVD->DrawBitmapEx(Point(), rBitmap);
+        m_xControl->insert(nPos, rEntry.GetName(), nullptr, nullptr, pVD);
+    }
+    else
+    {
+        m_xControl->insert_text(nPos, rEntry.GetName());
+    }
+}
+
+SvxLineEndLB::SvxLineEndLB(std::unique_ptr<weld::ComboBox> pControl)
+    : m_xControl(std::move(pControl))
+{
+}
+
+void SvxLineEndLB::Fill( const XLineEndListRef &pList, bool bStart )
 {
     if( !pList.is() )
         return;
 
     long nCount = pList->Count();
     ScopedVclPtrInstance< VirtualDevice > pVD;
-    SetUpdateMode( false );
+    m_xControl->freeze();
 
     for( long i = 0; i < nCount; i++ )
     {
@@ -1113,207 +1088,51 @@ void LineEndLB::Fill( const XLineEndListRef &pList, bool bStart )
         const BitmapEx aBitmap = pList->GetUiBitmap( i );
         if( !aBitmap.IsEmpty() )
         {
-            Size aBmpSize( aBitmap.GetSizePixel() );
-            pVD->SetOutputSizePixel( aBmpSize, false );
-            pVD->DrawBitmapEx( Point(), aBitmap );
-            InsertEntry( pEntry->GetName(),
-                Image(pVD->GetBitmapEx(
-                    bStart ? Point() : Point(aBmpSize.Width() / 2, 0),
-                    Size(aBmpSize.Width() / 2, aBmpSize.Height()))));
+            const Size aBmpSize(aBitmap.GetSizePixel());
+            pVD->SetOutputSizePixel(Size(aBmpSize.Width() / 2, aBmpSize.Height()), false);
+            pVD->DrawBitmapEx(bStart ? Point() : Point(-aBmpSize.Width() / 2, 0), aBitmap);
+            m_xControl->append("", pEntry->GetName(), *pVD);
         }
         else
-            InsertEntry( pEntry->GetName() );
+            m_xControl->append_text(pEntry->GetName());
     }
 
-    AdaptDropDownLineCountToMaximum();
-    SetUpdateMode( true );
+    m_xControl->thaw();
 }
 
-void LineEndLB::Append( const XLineEndEntry& rEntry, const BitmapEx& rBitmap )
+void SvxLineEndLB::Append( const XLineEndEntry& rEntry, const BitmapEx& rBitmap )
 {
     if(!rBitmap.IsEmpty())
     {
         ScopedVclPtrInstance< VirtualDevice > pVD;
-        const Size aBmpSize(rBitmap.GetSizePixel());
 
-        pVD->SetOutputSizePixel(aBmpSize, false);
-        pVD->DrawBitmapEx(Point(), rBitmap);
-        InsertEntry(
-            rEntry.GetName(),
-            Image(pVD->GetBitmapEx(
-                Point(),
-                Size(aBmpSize.Width() / 2, aBmpSize.Height()))));
+        const Size aBmpSize(rBitmap.GetSizePixel());
+        pVD->SetOutputSizePixel(Size(aBmpSize.Width() / 2, aBmpSize.Height()), false);
+        pVD->DrawBitmapEx(Point(-aBmpSize.Width() / 2, 0), rBitmap);
+        m_xControl->append("", rEntry.GetName(), *pVD);
     }
     else
     {
-        InsertEntry(rEntry.GetName());
+        m_xControl->append_text(rEntry.GetName());
     }
-
-    AdaptDropDownLineCountToMaximum();
 }
 
-void LineEndLB::Modify( const XLineEndEntry& rEntry, sal_Int32 nPos, const BitmapEx& rBitmap )
+void SvxLineEndLB::Modify( const XLineEndEntry& rEntry, sal_Int32 nPos, const BitmapEx& rBitmap )
 {
-    RemoveEntry( nPos );
+    m_xControl->remove(nPos);
 
     if(!rBitmap.IsEmpty())
     {
         ScopedVclPtrInstance< VirtualDevice > pVD;
+
         const Size aBmpSize(rBitmap.GetSizePixel());
-
-        pVD->SetOutputSizePixel(aBmpSize, false);
-        pVD->DrawBitmapEx(Point(), rBitmap);
-        InsertEntry(
-            rEntry.GetName(),
-            Image(pVD->GetBitmapEx(
-                    Point(),
-                    Size(aBmpSize.Width() / 2, aBmpSize.Height()))),
-            nPos);
+        pVD->SetOutputSizePixel(Size(aBmpSize.Width() / 2, aBmpSize.Height()), false);
+        pVD->DrawBitmapEx(Point(-aBmpSize.Width() / 2, 0), rBitmap);
+        m_xControl->insert(nPos, rEntry.GetName(), nullptr, nullptr, pVD);
     }
     else
     {
-        InsertEntry(rEntry.GetName(), nPos);
-    }
-}
-
-
-void SvxPreviewBase::InitSettings(bool bForeground, bool bBackground)
-{
-    const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
-
-    if(bForeground)
-    {
-        svtools::ColorConfig aColorConfig;
-        Color aTextColor(aColorConfig.GetColorValue(svtools::FONTCOLOR).nColor);
-
-        if(IsControlForeground())
-        {
-            aTextColor = GetControlForeground();
-        }
-
-        getBufferDevice().SetTextColor(aTextColor);
-    }
-
-    if(bBackground)
-    {
-        if(IsControlBackground())
-        {
-            getBufferDevice().SetBackground(GetControlBackground());
-        }
-        else
-        {
-            getBufferDevice().SetBackground(rStyleSettings.GetWindowColor());
-        }
-    }
-
-    // do not paint background self, it gets painted buffered
-    SetControlBackground();
-    SetBackground();
-
-    Invalidate();
-}
-
-SvxPreviewBase::SvxPreviewBase(vcl::Window* pParent)
-    : Control(pParent, WB_BORDER)
-    , mpModel(new SdrModel(nullptr, nullptr, true))
-    , mpBufferDevice(VclPtr<VirtualDevice>::Create(*this))
-{
-    //  Draw the control's border as a flat thin black line.
-    SetBorderStyle(WindowBorderStyle::MONO);
-    SetDrawMode( GetSettings().GetStyleSettings().GetHighContrastMode() ? OUTPUT_DRAWMODE_CONTRAST : OUTPUT_DRAWMODE_COLOR );
-    SetMapMode(MapMode(MapUnit::Map100thMM));
-
-    // init model
-    mpModel->GetItemPool().FreezeIdRanges();
-}
-
-SvxPreviewBase::~SvxPreviewBase()
-{
-    disposeOnce();
-}
-
-void SvxPreviewBase::dispose()
-{
-    mpModel.reset();
-    mpBufferDevice.disposeAndClear();
-    Control::dispose();
-}
-
-void SvxPreviewBase::LocalPrePaint(vcl::RenderContext const & rRenderContext)
-{
-    // init BufferDevice
-    if (mpBufferDevice->GetOutputSizePixel() != GetOutputSizePixel())
-    {
-        mpBufferDevice->SetDrawMode(rRenderContext.GetDrawMode());
-        mpBufferDevice->SetSettings(rRenderContext.GetSettings());
-        mpBufferDevice->SetAntialiasing(rRenderContext.GetAntialiasing());
-        mpBufferDevice->SetOutputSizePixel(GetOutputSizePixel());
-        mpBufferDevice->SetMapMode(rRenderContext.GetMapMode());
-    }
-
-    const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
-
-    if (rStyleSettings.GetPreviewUsesCheckeredBackground())
-    {
-        const Point aNull(0, 0);
-        static const sal_uInt32 nLen(8);
-        static const Color aW(COL_WHITE);
-        static const Color aG(0xef, 0xef, 0xef);
-        const bool bWasEnabled(mpBufferDevice->IsMapModeEnabled());
-
-        mpBufferDevice->EnableMapMode(false);
-        mpBufferDevice->DrawCheckered(aNull, mpBufferDevice->GetOutputSizePixel(), nLen, aW, aG);
-        mpBufferDevice->EnableMapMode(bWasEnabled);
-    }
-    else
-    {
-        mpBufferDevice->Erase();
-    }
-}
-
-void SvxPreviewBase::LocalPostPaint(vcl::RenderContext& rRenderContext)
-{
-    // copy to front (in pixel mode)
-    const bool bWasEnabledSrc(mpBufferDevice->IsMapModeEnabled());
-    const bool bWasEnabledDst(IsMapModeEnabled());
-    const Point aEmptyPoint;
-
-    mpBufferDevice->EnableMapMode(false);
-    rRenderContext.EnableMapMode(false);
-
-    rRenderContext.DrawOutDev(aEmptyPoint, GetOutputSizePixel(),
-                              aEmptyPoint, GetOutputSizePixel(),
-                              *mpBufferDevice);
-
-    mpBufferDevice->EnableMapMode(bWasEnabledSrc);
-    rRenderContext.EnableMapMode(bWasEnabledDst);
-}
-
-void SvxPreviewBase::StateChanged(StateChangedType nType)
-{
-    Control::StateChanged(nType);
-
-    if(StateChangedType::ControlForeground == nType)
-    {
-        InitSettings(true, false);
-    }
-    else if(StateChangedType::ControlBackground == nType)
-    {
-        InitSettings(false, true);
-    }
-}
-
-void SvxPreviewBase::DataChanged(const DataChangedEvent& rDCEvt)
-{
-    SetDrawMode(GetSettings().GetStyleSettings().GetHighContrastMode() ? OUTPUT_DRAWMODE_CONTRAST : OUTPUT_DRAWMODE_COLOR);
-
-    if((DataChangedEventType::SETTINGS == rDCEvt.GetType()) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE))
-    {
-        InitSettings(true, true);
-    }
-    else
-    {
-        Control::DataChanged(rDCEvt);
+        m_xControl->insert_text(nPos, rEntry.GetName());
     }
 }
 
@@ -1357,34 +1176,28 @@ void SvxXLinePreview::Resize()
     mpLineObjC->SetPathPoly(basegfx::B2DPolyPolygon(aPolygonC));
 }
 
-SvxXLinePreview::SvxXLinePreview(vcl::Window* pParent)
-    : SvxPreviewBase(pParent)
-    , mpLineObjA(nullptr)
+SvxXLinePreview::SvxXLinePreview()
+    : mpLineObjA(nullptr)
     , mpLineObjB(nullptr)
     , mpLineObjC(nullptr)
     , mpGraphic(nullptr)
     , mbWithSymbol(false)
 {
-    InitSettings( true, true );
+}
+
+void SvxXLinePreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+{
+    SvxPreviewBase::SetDrawingArea(pDrawingArea);
 
     mpLineObjA = new SdrPathObj(getModel(), OBJ_LINE);
     mpLineObjB = new SdrPathObj(getModel(), OBJ_PLIN);
     mpLineObjC = new SdrPathObj(getModel(), OBJ_PLIN);
-}
 
-VCL_BUILDER_FACTORY(SvxXLinePreview)
-
-Size SvxXLinePreview::GetOptimalSize() const
-{
-    return getPreviewStripSize(*this);
+    Resize();
+    Invalidate();
 }
 
 SvxXLinePreview::~SvxXLinePreview()
-{
-    disposeOnce();
-}
-
-void SvxXLinePreview::dispose()
 {
     SdrObject *pFoo = mpLineObjA;
     SdrObject::Free( pFoo );
@@ -1392,16 +1205,13 @@ void SvxXLinePreview::dispose()
     SdrObject::Free( pFoo );
     pFoo = mpLineObjC;
     SdrObject::Free( pFoo );
-    SvxPreviewBase::dispose();
 }
-
 
 void SvxXLinePreview::SetSymbol(Graphic* p,const Size& s)
 {
     mpGraphic = p;
     maSymbolSize = s;
 }
-
 
 void SvxXLinePreview::ResizeSymbol(const Size& s)
 {
@@ -1411,7 +1221,6 @@ void SvxXLinePreview::ResizeSymbol(const Size& s)
         Invalidate();
     }
 }
-
 
 void SvxXLinePreview::SetLineAttributes(const SfxItemSet& rItemSet)
 {
@@ -1426,7 +1235,6 @@ void SvxXLinePreview::SetLineAttributes(const SfxItemSet& rItemSet)
     mpLineObjB->SetMergedItemSet(aTempSet);
     mpLineObjC->SetMergedItemSet(aTempSet);
 }
-
 
 void SvxXLinePreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
@@ -1456,69 +1264,6 @@ void SvxXLinePreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rec
     LocalPostPaint(rRenderContext);
 }
 
-SvxXRectPreview::SvxXRectPreview(vcl::Window* pParent)
-:   SvxPreviewBase(pParent)
-    ,mpRectangleObject(nullptr)
-{
-    InitSettings(true, true);
-
-    // create RectangleObject
-    const tools::Rectangle aObjectSize(Point(), GetOutputSize());
-    mpRectangleObject = new SdrRectObj(
-        getModel(),
-        aObjectSize);
-}
-
-void SvxXRectPreview::Resize()
-{
-    const tools::Rectangle aObjectSize(Point(), GetOutputSize());
-    SdrObject *pOrigObject = mpRectangleObject;
-    if (pOrigObject)
-    {
-        mpRectangleObject = new SdrRectObj(
-            getModel(),
-            aObjectSize);
-        SetAttributes(pOrigObject->GetMergedItemSet());
-        SdrObject::Free(pOrigObject);
-    }
-    SvxPreviewBase::Resize();
-}
-
-VCL_BUILDER_FACTORY(SvxXRectPreview)
-
-SvxXRectPreview::~SvxXRectPreview()
-{
-    disposeOnce();
-}
-
-void SvxXRectPreview::dispose()
-{
-    SdrObject::Free(mpRectangleObject);
-    SvxPreviewBase::dispose();
-}
-
-void SvxXRectPreview::SetAttributes(const SfxItemSet& rItemSet)
-{
-    mpRectangleObject->SetMergedItemSet(rItemSet, true);
-    mpRectangleObject->SetMergedItem(XLineStyleItem(drawing::LineStyle_NONE));
-}
-
-void SvxXRectPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
-{
-    LocalPrePaint(rRenderContext);
-
-    sdr::contact::SdrObjectVector aObjectVector;
-
-    aObjectVector.push_back(mpRectangleObject);
-
-    sdr::contact::ObjectContactOfObjListPainter aPainter(getBufferDevice(), aObjectVector, nullptr);
-    sdr::contact::DisplayInfo aDisplayInfo;
-
-    aPainter.ProcessDisplay(aDisplayInfo);
-
-    LocalPostPaint(rRenderContext);
-}
-
 SvxXShadowPreview::SvxXShadowPreview()
     : mpRectangleObject(nullptr)
     , mpRectangleShadow(nullptr)
@@ -1527,7 +1272,7 @@ SvxXShadowPreview::SvxXShadowPreview()
 
 void SvxXShadowPreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
-    PreviewBase::SetDrawingArea(pDrawingArea);
+    SvxPreviewBase::SetDrawingArea(pDrawingArea);
     InitSettings();
 
     // prepare size
@@ -1603,7 +1348,7 @@ void SvxXShadowPreview::Paint(vcl::RenderContext& rRenderContext, const tools::R
     rRenderContext.Pop();
 }
 
-void PreviewBase::InitSettings()
+void SvxPreviewBase::InitSettings()
 {
     const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
 
@@ -1618,27 +1363,31 @@ void PreviewBase::InitSettings()
     Invalidate();
 }
 
-PreviewBase::PreviewBase()
+SvxPreviewBase::SvxPreviewBase()
     : mpModel(new SdrModel(nullptr, nullptr, true))
 {
     // init model
     mpModel->GetItemPool().FreezeIdRanges();
 }
 
-void PreviewBase::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+void SvxPreviewBase::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
     CustomWidgetController::SetDrawingArea(pDrawingArea);
+    Size aSize(getPreviewStripSize(pDrawingArea->get_ref_device()));
+    pDrawingArea->set_size_request(aSize.Width(), aSize.Height());
+    SetOutputSizePixel(aSize);
+
     mpBufferDevice = VclPtr<VirtualDevice>::Create(pDrawingArea->get_ref_device());
     mpBufferDevice->SetMapMode(MapMode(MapUnit::Map100thMM));
 }
 
-PreviewBase::~PreviewBase()
+SvxPreviewBase::~SvxPreviewBase()
 {
     mpModel.reset();
     mpBufferDevice.disposeAndClear();
 }
 
-void PreviewBase::LocalPrePaint(vcl::RenderContext const & rRenderContext)
+void SvxPreviewBase::LocalPrePaint(vcl::RenderContext const & rRenderContext)
 {
     // init BufferDevice
     if (mpBufferDevice->GetOutputSizePixel() != GetOutputSizePixel())
@@ -1665,7 +1414,7 @@ void PreviewBase::LocalPrePaint(vcl::RenderContext const & rRenderContext)
     }
 }
 
-void PreviewBase::LocalPostPaint(vcl::RenderContext& rRenderContext)
+void SvxPreviewBase::LocalPostPaint(vcl::RenderContext& rRenderContext)
 {
     // copy to front (in pixel mode)
     const bool bWasEnabledSrc(mpBufferDevice->IsMapModeEnabled());
@@ -1683,33 +1432,33 @@ void PreviewBase::LocalPostPaint(vcl::RenderContext& rRenderContext)
     rRenderContext.EnableMapMode(bWasEnabledDst);
 }
 
-void PreviewBase::StyleUpdated()
+void SvxPreviewBase::StyleUpdated()
 {
     InitSettings();
     CustomWidgetController::StyleUpdated();
 }
 
-XRectPreview::XRectPreview()
+SvxXRectPreview::SvxXRectPreview()
     : mpRectangleObject(nullptr)
 {
 }
 
-tools::Rectangle PreviewBase::GetPreviewSize() const
+tools::Rectangle SvxPreviewBase::GetPreviewSize() const
 {
     tools::Rectangle aObjectSize(Point(), getBufferDevice().PixelToLogic(GetOutputSizePixel()));
     return aObjectSize;
 }
 
-void XRectPreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+void SvxXRectPreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
-    PreviewBase::SetDrawingArea(pDrawingArea);
+    SvxPreviewBase::SetDrawingArea(pDrawingArea);
     InitSettings();
 
     // create RectangleObject
     mpRectangleObject = new SdrRectObj(getModel(), GetPreviewSize());
 }
 
-void XRectPreview::Resize()
+void SvxXRectPreview::Resize()
 {
     SdrObject *pOrigObject = mpRectangleObject;
     if (pOrigObject)
@@ -1718,21 +1467,21 @@ void XRectPreview::Resize()
         SetAttributes(pOrigObject->GetMergedItemSet());
         SdrObject::Free(pOrigObject);
     }
-    PreviewBase::Resize();
+    SvxPreviewBase::Resize();
 }
 
-XRectPreview::~XRectPreview()
+SvxXRectPreview::~SvxXRectPreview()
 {
     SdrObject::Free(mpRectangleObject);
 }
 
-void XRectPreview::SetAttributes(const SfxItemSet& rItemSet)
+void SvxXRectPreview::SetAttributes(const SfxItemSet& rItemSet)
 {
     mpRectangleObject->SetMergedItemSet(rItemSet, true);
     mpRectangleObject->SetMergedItem(XLineStyleItem(drawing::LineStyle_NONE));
 }
 
-void XRectPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+void SvxXRectPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
     rRenderContext.Push(PushFlags::MAPMODE);
     rRenderContext.SetMapMode(MapMode(MapUnit::Map100thMM));

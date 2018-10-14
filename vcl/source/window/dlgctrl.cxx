@@ -68,72 +68,77 @@ static vcl::Window* ImplGetTopParentOfTabHierarchy( vcl::Window* pParent )
     return pResult;
 }
 
+static vcl::Window* ImplGetCurTabWindow(const vcl::Window* pWindow)
+{
+    assert(pWindow->GetType() == WindowType::TABCONTROL);
+    const TabControl* pTabControl = static_cast<const TabControl*>(pWindow);
+    // Check if the TabPage is a Child of the TabControl and still exists (by
+    // walking all child windows); because it could be that the TabPage has been
+    // destroyed already by a Dialog-Dtor, event that the TabControl still exists.
+    const TabPage* pTempTabPage = pTabControl->GetTabPage(pTabControl->GetCurPageId());
+    if (pTempTabPage)
+    {
+        vcl::Window* pTempWindow = pTabControl->GetWindow(GetWindowType::FirstChild);
+        while (pTempWindow)
+        {
+            if (pTempWindow->ImplGetWindow() == pTempTabPage)
+            {
+                return const_cast<TabPage*>(pTempTabPage);
+            }
+            pTempWindow = nextLogicalChildOfParent(pTabControl, pTempWindow);
+        }
+    }
+
+    return nullptr;
+}
+
 static vcl::Window* ImplGetSubChildWindow( vcl::Window* pParent, sal_uInt16 n, sal_uInt16& nIndex )
 {
-    vcl::Window*     pTabPage = nullptr;
-    vcl::Window*     pFoundWindow = nullptr;
+    // ignore all windows with mpClientWindow set
+    for (vcl::Window *pNewParent = pParent->ImplGetWindow();
+         pParent != pNewParent; pParent = pNewParent);
 
-    vcl::Window*     pWindow = firstLogicalChildOfParent(pParent);
-    vcl::Window*     pNextWindow = pWindow;
-    while ( pWindow )
+    vcl::Window* pFoundWindow = nullptr;
+    vcl::Window* pWindow = firstLogicalChildOfParent(pParent);
+    vcl::Window* pNextWindow = pWindow;
+
+    // process just the current page of a tab control
+    if (pWindow && pParent->GetType() == WindowType::TABCONTROL)
+    {
+        pWindow = ImplGetCurTabWindow(pParent);
+        pNextWindow = lastLogicalChildOfParent(pParent);
+    }
+
+    while (pWindow)
     {
         pWindow = pWindow->ImplGetWindow();
 
         // skip invisible and disabled windows
-        if ( pTabPage || isVisibleInLayout(pWindow) )
+        if (isVisibleInLayout(pWindow))
         {
-            // if the last control was a TabControl, take its TabPage
-            if ( pTabPage )
+            // return the TabControl itself, before handling its page
+            if (pWindow->GetType() == WindowType::TABCONTROL)
             {
-                pFoundWindow = ImplGetSubChildWindow( pTabPage, n, nIndex );
-                pTabPage = nullptr;
+                if (n == nIndex)
+                    return pWindow;
+                ++nIndex;
             }
+            if (pWindow->GetStyle() & (WB_DIALOGCONTROL | WB_CHILDDLGCTRL))
+                pFoundWindow = ImplGetSubChildWindow(pWindow, n, nIndex);
             else
-            {
                 pFoundWindow = pWindow;
 
-                // for a TabControl, remember the current TabPage for later use
-                if ( pWindow->GetType() == WindowType::TABCONTROL )
-                {
-                    TabControl* pTabControl = static_cast<TabControl*>(pWindow);
-                    // Check if the TabPage is a Child of the TabControl and still exists (by
-                    // walking all child windows); because it could be that the TabPage has been
-                    // destroyed already by a Dialog-Dtor, event that the TabControl still exists.
-                    TabPage* pTempTabPage = pTabControl->GetTabPage( pTabControl->GetCurPageId() );
-                    if ( pTempTabPage )
-                    {
-                        vcl::Window* pTempWindow = pTabControl->GetWindow( GetWindowType::FirstChild );
-                        while ( pTempWindow )
-                        {
-                            if ( pTempWindow->ImplGetWindow() == pTempTabPage )
-                            {
-                                pTabPage = pTempTabPage;
-                                break;
-                            }
-                            pTempWindow = nextLogicalChildOfParent(pTabControl, pTempWindow);
-                        }
-                    }
-                }
-                else if ( ( pWindow->GetStyle() & WB_DIALOGCONTROL )
-                       || ( pWindow->GetStyle() & WB_CHILDDLGCTRL ) )
-                    pFoundWindow = ImplGetSubChildWindow( pWindow, n, nIndex );
-            }
-
-            if ( n == nIndex )
+            if (n == nIndex)
                 return pFoundWindow;
-            nIndex++;
+            ++nIndex;
         }
 
-        if ( pTabPage )
-            pWindow = pTabPage;
-        else
-        {
-            pWindow = nextLogicalChildOfParent(pParent, pNextWindow);
-            pNextWindow = pWindow;
-        }
+        pWindow = nextLogicalChildOfParent(pParent, pNextWindow);
+        pNextWindow = pWindow;
     }
 
-    nIndex--;
+    --nIndex;
+    assert(!pFoundWindow || (pFoundWindow == pFoundWindow->ImplGetWindow()));
     return pFoundWindow;
 }
 

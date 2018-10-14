@@ -339,7 +339,7 @@ private:
     SwRect      maOldBox;                       // the old bounds for CHILD_POS_CHANGED
                                                 // and POS_CHANGED
     uno::WeakReference < XAccessible > mxAcc;   // The object that fires the event
-    SwAccessibleChild   maFrameOrObj;             // the child for CHILD_POS_CHANGED and
+    SwAccessibleChild const maFrameOrObj;       // the child for CHILD_POS_CHANGED and
                                                 // the same as xAcc for any other
                                                 // event type
     EventType   meType;                         // The event type
@@ -598,8 +598,8 @@ public:
 
 struct SwAccessibleParaSelection
 {
-    sal_Int32 nStartOfSelection;
-    sal_Int32 nEndOfSelection;
+    sal_Int32 const nStartOfSelection;
+    sal_Int32 const nEndOfSelection;
 
     SwAccessibleParaSelection( const sal_Int32 _nStartOfSelection,
                                const sal_Int32 _nEndOfSelection )
@@ -3171,7 +3171,7 @@ Point SwAccessibleMap::PixelToCore( const Point& rPoint ) const
     return aPoint;
 }
 
-static inline long lcl_CorrectCoarseValue(long aCoarseValue, long aFineValue,
+static long lcl_CorrectCoarseValue(long aCoarseValue, long aFineValue,
                                           long aRefValue, bool bToLower)
 {
     long aResult = aCoarseValue;
@@ -3190,7 +3190,7 @@ static inline long lcl_CorrectCoarseValue(long aCoarseValue, long aFineValue,
     return aResult;
 }
 
-static inline void lcl_CorrectRectangle(tools::Rectangle & rRect,
+static void lcl_CorrectRectangle(tools::Rectangle & rRect,
                                         const tools::Rectangle & rSource,
                                         const tools::Rectangle & rInGrid)
 {

@@ -348,9 +348,9 @@ void SdrModel::Undo()
             pDo->Undo();
             if(!pRedoStack)
                 pRedoStack.reset(new std::deque<std::unique_ptr<SfxUndoAction>>);
-            SfxUndoAction* p = pUndoStack->front().release();
+            std::unique_ptr<SfxUndoAction> p = std::move(pUndoStack->front());
             pUndoStack->pop_front();
-            pRedoStack->emplace_front(p);
+            pRedoStack->emplace_front(std::move(p));
             mbUndoEnabled = bWasUndoEnabled;
         }
     }
@@ -372,9 +372,9 @@ void SdrModel::Redo()
             pDo->Redo();
             if(!pUndoStack)
                 pUndoStack.reset(new std::deque<std::unique_ptr<SfxUndoAction>>);
-            SfxUndoAction* p = pRedoStack->front().release();
+            std::unique_ptr<SfxUndoAction> p = std::move(pRedoStack->front());
             pRedoStack->pop_front();
-            pUndoStack->emplace_front(p);
+            pUndoStack->emplace_front(std::move(p));
             mbUndoEnabled = bWasUndoEnabled;
         }
     }
@@ -514,8 +514,7 @@ void SdrModel::EndUndo()
             {
                 if(pCurrentUndoGroup->GetActionCount()!=0)
                 {
-                    SdrUndoAction* pUndo=pCurrentUndoGroup.release();
-                    ImpPostUndoAction(std::unique_ptr<SdrUndoAction>(pUndo));
+                    ImpPostUndoAction(std::move(pCurrentUndoGroup));
                 }
                 else
                 {
@@ -561,25 +560,21 @@ void SdrModel::SetUndoComment(const OUString& rComment, const OUString& rObjDesc
     }
 }
 
-void SdrModel::AddUndo(SdrUndoAction* pUndo)
+void SdrModel::AddUndo(std::unique_ptr<SdrUndoAction> pUndo)
 {
     if( mpImpl->mpUndoManager )
     {
-        mpImpl->mpUndoManager->AddUndoAction( pUndo );
+        mpImpl->mpUndoManager->AddUndoAction( std::move(pUndo) );
     }
-    else if( !IsUndoEnabled() )
-    {
-        delete pUndo;
-    }
-    else
+    else if( IsUndoEnabled() )
     {
         if (pCurrentUndoGroup)
         {
-            pCurrentUndoGroup->AddAction(pUndo);
+            pCurrentUndoGroup->AddAction(std::move(pUndo));
         }
         else
         {
-            ImpPostUndoAction(std::unique_ptr<SdrUndoAction>(pUndo));
+            ImpPostUndoAction(std::move(pUndo));
         }
     }
 }
@@ -645,7 +640,7 @@ void SdrModel::ClearModel(bool bCalledFromDestructor)
     maMaPag.clear();
     MasterPageListChanged();
 
-    pLayerAdmin->ClearLayer();
+    pLayerAdmin->ClearLayers();
 }
 
 SdrModel* SdrModel::AllocModel() const
@@ -1916,7 +1911,7 @@ void SdrModel::ReadUserDataSequenceValue(const css::beans::PropertyValue* pValue
 }
 
 template <typename T>
-static inline void addPair(std::vector< std::pair< OUString, Any > >& aUserData, const OUString& name, const T val)
+static void addPair(std::vector< std::pair< OUString, Any > >& aUserData, const OUString& name, const T val)
 {
     aUserData.push_back(std::pair< OUString, Any >(name, css::uno::makeAny(val)));
 }

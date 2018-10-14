@@ -47,6 +47,7 @@
 #include <bitmaps.hlst>
 #include <sfx2/app.hxx>
 #include <sfx2/minfitem.hxx>
+#include <comphelper/DisableInteractionHelper.hxx>
 #include <comphelper/documentinfo.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
@@ -548,6 +549,10 @@ void SfxConfigGroupListBox::FillScriptList(const css::uno::Reference< css::scrip
     try {
         if ( xRootNode->hasChildNodes() )
         {
+            // tdf#120362: Don't ask to enable disabled Java when filling script list
+            css::uno::ContextLayer layer(
+                new comphelper::NoEnableJavaInteractionContext(css::uno::getCurrentContext()));
+
             Sequence< Reference< browse::XBrowseNode > > children =
                 xRootNode->getChildNodes();
             bool bIsRootNode = false;

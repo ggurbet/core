@@ -148,7 +148,7 @@ struct XclImpXti
     explicit     XclImpXti() : mnSupbook( SAL_MAX_UINT16 ), mnSBTabFirst( SAL_MAX_UINT16 ), mnSBTabLast( SAL_MAX_UINT16 ) {}
 };
 
-static inline XclImpStream& operator>>( XclImpStream& rStrm, XclImpXti& rXti )
+static XclImpStream& operator>>( XclImpStream& rStrm, XclImpXti& rXti )
 {
     rXti.mnSupbook = rStrm.ReaduInt16();
     rXti.mnSBTabFirst = rStrm.ReaduInt16();
@@ -272,7 +272,7 @@ sal_uInt16 XclImpTabInfo::GetCurrentIndex( sal_uInt16 nCreatedId, sal_uInt16 nMa
 // External names =============================================================
 
 XclImpExtName::MOper::MOper(svl::SharedStringPool& rPool, XclImpStream& rStrm) :
-    mxCached(new ScFullMatrix(0,0))
+    mxCached(new ScMatrix(0,0))
 {
     SCSIZE nLastCol = rStrm.ReaduInt8();
     SCSIZE nLastRow = rStrm.ReaduInt16();
@@ -382,7 +382,7 @@ XclImpExtName::XclImpExtName( XclImpSupbook& rSupbook, XclImpStream& rStrm, XclS
             {
                 if (pFormulaConv)
                 {
-                    const ScTokenArray* pArray = nullptr;
+                    std::unique_ptr<ScTokenArray> pArray;
                     sal_uInt16 nFmlaLen;
                     nFmlaLen = rStrm.ReaduInt16();
                     std::vector<OUString> aTabNames;
@@ -393,7 +393,7 @@ XclImpExtName::XclImpExtName( XclImpSupbook& rSupbook, XclImpStream& rStrm, XclS
 
                     pFormulaConv->ConvertExternName(pArray, rStrm, nFmlaLen, rSupbook.GetXclUrl(), aTabNames);
                     if (pArray)
-                        mxArray.reset(pArray->Clone());
+                        mxArray = std::move( pArray );
                 }
             }
         break;

@@ -21,10 +21,17 @@
 #define CATEGORYCOUNT 6         // Number of persona categories
 #define MAX_RESULTS 9           // Maximum number of search results
 #define MAX_DEFAULT_PERSONAS 3  // Maximum number of default personas
+/*
+ * The category which will be loaded initially.
+   Should be a non-negative integer lower than CATEGORYCOUNT
+   Categories are defined in RID_SVXSTR_PERSONA_CATEGORIES
+ */
+#define DEFAULT_PERSONA_CATEGORY 0
 
 class FixedText;
 class FixedHyperlink;
 class SearchAndParseThread;
+class GetPersonaThread;
 
 class SvxPersonalizationTabPage : public SfxTabPage
 {
@@ -70,10 +77,10 @@ public:
      * And there needs to be a personas_list.txt file in the personas directory
      * which keeps the index/info of the default personas, one persona per line.
      * A line should look like this:
-     * persona_slug;Persona Name;subdir/preview.jpg;subdir/header.jpg;subdir/footer.jpg;#textcolor;#accentcolor
+     * persona_slug;Persona Name;subdir/preview.jpg;subdir/header.jpg;subdir/footer.jpg;#textcolor
      * (It is recommended to keep the subdir name the same as the slug)
      * Example line:
-     *  abstract;Abstract;abstract/preview.jpg;abstract/Header2.jpg;abstract/Footer2.jpg;#ffffff;#000000
+     *  abstract;Abstract;abstract/preview.jpg;abstract/Header2.jpg;abstract/Footer2.jpg;#ffffff
      */
     void LoadDefaultImages();
     void LoadExtensionThemes();
@@ -112,7 +119,8 @@ public:
     explicit SelectPersonaDialog( vcl::Window *pParent );
     virtual ~SelectPersonaDialog() override;
     virtual void dispose() override;
-    ::rtl::Reference< SearchAndParseThread > m_pSearchThread;
+    ::rtl::Reference< SearchAndParseThread >    m_pSearchThread;
+    ::rtl::Reference< GetPersonaThread >        m_pGetPersonaThread;
 
     OUString GetSelectedPersona() const;
     void SetProgress( const OUString& );
@@ -146,6 +154,25 @@ public:
 
     SearchAndParseThread( SelectPersonaDialog* pDialog,
                           const OUString& rURL, bool bDirectURL );
+
+    void StopExecution() { m_bExecute = false; }
+};
+
+class GetPersonaThread: public salhelper::Thread
+{
+private:
+
+    VclPtr<SelectPersonaDialog> m_pPersonaDialog;
+    OUString m_aSelectedPersona;
+    std::atomic<bool> m_bExecute;
+
+    virtual ~GetPersonaThread() override;
+    virtual void execute() override;
+
+public:
+
+    GetPersonaThread( SelectPersonaDialog* pDialog,
+                          const OUString& rSelectedPersona );
 
     void StopExecution() { m_bExecute = false; }
 };

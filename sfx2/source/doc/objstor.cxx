@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -54,6 +54,7 @@
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/embed/XEmbedPersist.hpp>
 #include <com/sun/star/embed/XLinkageSupport.hpp>
 #include <com/sun/star/embed/EntryInitModes.hpp>
@@ -1780,7 +1781,6 @@ bool SfxObjectShell::DisconnectStorage_Impl( SfxMedium& rSrcMedium, SfxMedium& r
         catch ( uno::Exception& )
         {}
     }
-
     return bResult;
 }
 
@@ -2441,7 +2441,7 @@ bool SfxObjectShell::ExportTo( SfxMedium& rMedium )
         }
 
         return xFilter->filter( aArgs );
-        }catch(const uno::Exception&)
+        }catch(...)
         {}
     }
 

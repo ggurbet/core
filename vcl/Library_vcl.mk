@@ -89,22 +89,6 @@ $(eval $(call gb_Library_use_libraries,vcl,\
     xmlreader \
 ))
 
-ifeq ($(OS),MACOSX)
-$(eval $(call gb_Library_add_libs,vcl,\
-    -framework IOKit \
-    -F/System/Library/PrivateFrameworks \
-    -framework CoreUI \
-    -lobjc \
-))
-endif
-ifeq ($(OS),MACOSX)
-
-$(eval $(call gb_Library_add_cxxflags,vcl,\
-    $(gb_OBJCXXFLAGS) \
-))
-
-endif
-
 ifeq ($(ENABLE_JAVA),TRUE)
 $(eval $(call gb_Library_use_libraries,vcl,\
     jvmaccess \
@@ -122,6 +106,7 @@ $(eval $(call gb_Library_use_externals,vcl,\
     lcms2 \
     mdds_headers \
 ))
+
 ifeq ($(DISABLE_GUI),)
 $(eval $(call gb_Library_use_externals,vcl,\
      epoxy \
@@ -443,8 +428,6 @@ $(eval $(call gb_Library_add_cobjects,vcl,\
     vcl/source/filter/jpeg/transupp \
 ))
 
-# optional parts
-
 vcl_quartz_code= \
     vcl/quartz/salbmp \
     vcl/quartz/utils \
@@ -454,100 +437,6 @@ vcl_quartz_code= \
 vcl_coretext_code= \
     vcl/quartz/ctfonts \
     vcl/quartz/salgdi \
-
-ifeq ($(OS),MACOSX)
-
-$(eval $(call gb_Library_add_cxxflags,vcl,\
-    $(gb_OBJCXXFLAGS) \
-))
-
-$(eval $(call gb_Library_add_defs,vcl,\
-    -DMACOSX_BUNDLE_IDENTIFIER=\"$(MACOSX_BUNDLE_IDENTIFIER)\" \
-))
-
-$(eval $(call gb_Library_add_exception_objects,vcl,\
-    $(vcl_coretext_code) \
-))
-
-$(eval $(call gb_Library_use_system_darwin_frameworks,vcl,\
-    ApplicationServices \
-))
-
-$(eval $(call gb_Library_add_objcxxobjects,vcl,\
-    vcl/osx/a11yactionwrapper \
-    vcl/osx/a11ycomponentwrapper \
-    vcl/osx/a11yfactory \
-    vcl/osx/a11yrolehelper \
-    vcl/osx/a11yselectionwrapper \
-    vcl/osx/a11ytablewrapper \
-    vcl/osx/a11ytextattributeswrapper \
-    vcl/osx/a11ytextwrapper \
-    vcl/osx/a11yutil \
-    vcl/osx/a11yvaluewrapper \
-    vcl/osx/a11ywrapper \
-    vcl/osx/a11ywrapperbutton \
-    vcl/osx/a11ywrappercheckbox \
-    vcl/osx/a11ywrappercombobox \
-    vcl/osx/a11ywrappergroup \
-    vcl/osx/a11ywrapperlist \
-    vcl/osx/a11ywrapperradiobutton \
-    vcl/osx/a11ywrapperradiogroup \
-    vcl/osx/a11ywrapperrow \
-    vcl/osx/a11ywrapperscrollarea \
-    vcl/osx/a11ywrapperscrollbar \
-    vcl/osx/a11ywrappersplitter \
-    vcl/osx/a11ywrapperstatictext \
-    vcl/osx/a11ywrappertabgroup \
-    vcl/osx/a11ywrappertextarea \
-    vcl/osx/a11ywrappertoolbar \
-    vcl/osx/salnstimer \
-    vcl/osx/vclnsapp \
-    vcl/osx/printaccessoryview \
-    vcl/osx/printview \
-    vcl/osx/salframeview \
-    vcl/osx/salnsmenu \
-))
-$(eval $(call gb_Library_add_exception_objects,vcl,\
-    vcl/osx/a11yfocuslistener \
-    vcl/osx/a11yfocustracker \
-    vcl/osx/a11ylistener \
-    vcl/osx/documentfocuslistener \
-    vcl/osx/saldata \
-    vcl/osx/salinst \
-    vcl/osx/salsys \
-    vcl/osx/saltimer \
-    vcl/osx/DataFlavorMapping \
-    vcl/osx/DragActionConversion \
-    vcl/osx/DragSource \
-    vcl/osx/DragSourceContext \
-    vcl/osx/DropTarget \
-    vcl/osx/HtmlFmtFlt \
-    vcl/osx/OSXTransferable \
-    vcl/osx/PictToBmpFlt \
-    vcl/osx/clipboard \
-    vcl/osx/service_entry \
-    $(vcl_quartz_code) \
-    vcl/quartz/salgdiutils \
-    vcl/osx/salnativewidgets \
-    vcl/osx/salprn \
-    vcl/osx/salframe \
-    vcl/osx/salmenu \
-    vcl/osx/salobj \
-))
-$(eval $(call gb_Library_use_system_darwin_frameworks,vcl,\
-    $(if $(filter X86_64,$(CPUNAME)),,QuickTime) \
-    Cocoa \
-    Carbon \
-    CoreFoundation \
-))
-
-ifneq ($(ENABLE_MACOSX_SANDBOX),TRUE)
-$(eval $(call gb_Library_use_libraries,vcl,\
-    AppleRemote \
-))
-endif
-
-endif
 
 vcl_headless_code= \
     vcl/headless/svpframe \
@@ -565,7 +454,7 @@ vcl_headless_code= \
 vcl_headless_freetype_code=\
     vcl/headless/svpprn \
     vcl/headless/svptext \
-    vcl/headless/svpglyphcache \
+    vcl/unx/generic/app/gendata \
     vcl/unx/generic/gdi/cairotextrender \
     vcl/unx/generic/glyphs/freetype_glyphcache \
     vcl/unx/generic/glyphs/glyphcache \
@@ -586,7 +475,7 @@ vcl_headless_freetype_code=\
 
 ifeq ($(USING_X11),TRUE)
 $(eval $(call gb_Library_add_exception_objects,vcl,\
-    vcl/unx/generic/plugadapt/salplug \
+    vcl/source/app/salplug \
     vcl/unx/generic/printer/jobdata \
     vcl/unx/generic/printer/ppdparser \
     vcl/unx/generic/gdi/nativewindowhandleprovider \
@@ -632,8 +521,10 @@ $(eval $(call gb_Library_add_libs,vcl,\
     -lpthread \
 ))
 endif
-else
- $(eval $(call gb_Library_add_exception_objects,vcl,\
+
+else # ! DISABLE_GUI
+
+$(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/opengl/DeviceInfo \
     vcl/opengl/gdiimpl \
     vcl/opengl/salbmp \
@@ -659,7 +550,8 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/opengl/x11/X11DeviceInfo \
 ))
 endif
-endif
+endif # ! DISABLE_GUI
+
 
 ifeq ($(OS),HAIKU)
 $(eval $(call gb_Library_add_exception_objects,vcl,\
@@ -675,7 +567,7 @@ $(eval $(call gb_Library_add_libs,vcl,\
 ))
 
 $(eval $(call gb_Library_add_exception_objects,vcl, \
-    $(if $(or $(ENABLE_QT5),$(ENABLE_KDE5)),vcl/unx/generic/plugadapt/salplug) \
+    $(if $(or $(ENABLE_QT5),$(ENABLE_KDE5)),vcl/source/app/salplug) \
 ))
 
 $(eval $(call gb_Library_use_externals,vcl,\
@@ -685,6 +577,7 @@ $(eval $(call gb_Library_use_externals,vcl,\
     expat \
 ))
 endif
+
 
 ifeq ($(OS),ANDROID)
 $(eval $(call gb_Library_add_libs,vcl,\
@@ -709,6 +602,7 @@ $(eval $(call gb_Library_use_externals,vcl,\
 ))
 endif
 
+
 ifeq ($(OS),IOS)
 $(eval $(call gb_Library_add_cxxflags,vcl,\
     $(gb_OBJCXXFLAGS) \
@@ -716,7 +610,6 @@ $(eval $(call gb_Library_add_cxxflags,vcl,\
 $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/ios/iosinst \
     vcl/ios/dummies \
-    $(vcl_really_generic_code) \
     $(vcl_coretext_code) \
     $(vcl_quartz_code) \
     $(vcl_headless_code) \
@@ -727,56 +620,34 @@ $(eval $(call gb_Library_use_system_darwin_frameworks,vcl,\
 ))
 endif
 
-# OS-specific stuff
+
+ifeq ($(OS),MACOSX)
+$(eval $(call gb_Library_use_system_darwin_frameworks,vcl,\
+    Cocoa \
+    CoreFoundation \
+))
+
+$(eval $(call gb_Library_add_exception_objects,vcl,\
+    vcl/source/app/salplug \
+))
+endif
+
 
 ifeq ($(OS),WNT)
 $(eval $(call gb_Library_add_exception_objects,vcl,\
-    vcl/opengl/win/gdiimpl \
     vcl/opengl/win/WinDeviceInfo \
     vcl/opengl/win/blocklist_parser \
-    vcl/win/app/saldata \
-    vcl/win/app/salinfo \
-    vcl/win/app/salinst \
-    vcl/win/app/salshl \
-    vcl/win/app/saltimer \
-    vcl/win/gdi/gdiimpl \
-    vcl/win/gdi/salbmp \
-    vcl/win/gdi/salgdi \
-    vcl/win/gdi/salgdi2 \
-    vcl/win/gdi/salfont \
-    vcl/win/gdi/salgdi_gdiplus \
-    vcl/win/gdi/salnativewidgets-luna \
-    vcl/win/gdi/salprn \
-    vcl/win/gdi/salvd \
-    vcl/win/gdi/winlayout \
-    vcl/win/gdi/DWriteTextRenderer \
-    vcl/win/window/salframe \
-    vcl/win/window/keynames \
-    vcl/win/window/salmenu \
-    vcl/win/window/salobj \
+    vcl/source/app/salplug \
 ))
 
 $(eval $(call gb_Library_use_system_win32_libs,vcl,\
-    advapi32 \
-    crypt32 \
-    gdi32 \
-    gdiplus \
-    imm32 \
-    mpr \
     ole32 \
-    shell32 \
-    usp10 \
-    uuid \
-    version \
-    winspool \
     setupapi \
-    shlwapi \
+    version \
 ))
 
 $(eval $(call gb_Library_add_nativeres,vcl,vcl/salsrc))
-endif
 
-ifeq ($(OS),WNT)
 # HACK: dependency on icon themes so running unit tests don't
 # prevent delivering these by having open file handles on WNT
 $(eval $(call gb_Library_use_package,vcl,postprocess_images))

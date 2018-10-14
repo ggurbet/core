@@ -18,8 +18,6 @@
  */
 
 
-#include <vcl/wrkwin.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/svapp.hxx>
 
 #include <svl/srchitem.hxx>
@@ -2688,7 +2686,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
 
     bool bChanges = false;
     bool bLenChanged = false;
-    EditUndoTransliteration* pUndo = nullptr;
+    std::unique_ptr<EditUndoTransliteration> pUndo;
 
     utl::TransliterationWrapper aTransliterationWrapper( ::comphelper::getProcessComponentContext(), nTransliterationMode );
     bool bConsiderLanguage = aTransliterationWrapper.needLanguageForTheMode();
@@ -2706,7 +2704,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
 
         // since we don't use Hiragana/Katakana or half-width/full-width transliterations here
         // it is fine to use ANYWORD_IGNOREWHITESPACES. (ANY_WORD btw is broken and will
-        // occasionaly miss words in consecutive sentences). Also with ANYWORD_IGNOREWHITESPACES
+        // occasionally miss words in consecutive sentences). Also with ANYWORD_IGNOREWHITESPACES
         // text like 'just-in-time' will be converted to 'Just-In-Time' which seems to be the
         // proper thing to do.
         const sal_Int16 nWordType = i18n::WordType::ANYWORD_IGNOREWHITESPACES;
@@ -2921,7 +2919,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
                 aNewSel = aSel;
 
                 ESelection aESel( CreateESel( aSel ) );
-                pUndo = new EditUndoTransliteration(pEditEngine, aESel, nTransliterationMode);
+                pUndo.reset(new EditUndoTransliteration(pEditEngine, aESel, nTransliterationMode));
 
                 const bool bSingleNode = aSel.Min().GetNode()== aSel.Max().GetNode();
                 const bool bHasAttribs = aSel.Min().GetNode()->GetCharAttribs().HasAttrib( aSel.Min().GetIndex(), aSel.Max().GetIndex() );
@@ -2961,7 +2959,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
     {
         ESelection aESel( CreateESel( aNewSel ) );
         pUndo->SetNewSelection( aESel );
-        InsertUndo( pUndo );
+        InsertUndo( std::move(pUndo) );
     }
 
     if ( bChanges )

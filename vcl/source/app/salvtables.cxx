@@ -341,6 +341,11 @@ public:
         return m_xWidget->get_grid_left_attach();
     }
 
+    virtual void set_grid_width(int nCols) override
+    {
+        m_xWidget->set_grid_width(nCols);
+    }
+
     virtual void set_grid_top_attach(int nAttach) override
     {
         m_xWidget->set_grid_top_attach(nAttach);
@@ -498,6 +503,47 @@ IMPL_LINK(SalInstanceWidget, FocusOutListener, VclWindowEvent&, rEvent, void)
         signal_focus_out();
 }
 
+namespace
+{
+    Image createImage(const OUString& rImage)
+    {
+        if (rImage.lastIndexOf('.') != rImage.getLength() - 4)
+        {
+            assert((rImage == "dialog-warning" || rImage == "dialog-error" || rImage == "dialog-information") && "unknown stock image");
+            if (rImage == "dialog-warning")
+                return Image(BitmapEx(IMG_WARN));
+            else if (rImage == "dialog-error")
+                return Image(BitmapEx(IMG_ERROR));
+            else if (rImage == "dialog-information")
+                return Image(BitmapEx(IMG_INFO));
+        }
+        return Image(BitmapEx(rImage));
+    }
+
+    Image createImage(VirtualDevice& rDevice)
+    {
+        return Image(BitmapEx(rDevice.GetBitmapEx(Point(), rDevice.GetOutputSizePixel())));
+    }
+
+    void insert_to_menu(PopupMenu* pMenu, int pos, const OUString& rId, const OUString& rStr,
+                        const OUString* pIconName, VirtualDevice* pImageSurface, bool bCheck)
+    {
+        const auto nCount = pMenu->GetItemCount();
+        const sal_uInt16 nLastId = nCount ? pMenu->GetItemId(nCount-1) : 0;
+        const sal_uInt16 nNewid = nLastId + 1;
+        pMenu->InsertItem(nNewid, rStr, bCheck ? MenuItemBits::CHECKABLE : MenuItemBits::NONE,
+                            OUStringToOString(rId, RTL_TEXTENCODING_UTF8), pos == -1 ? MENU_APPEND : pos);
+        if (pIconName)
+        {
+            pMenu->SetItemImage(nNewid, createImage(*pIconName));
+        }
+        else if (pImageSurface)
+        {
+            pMenu->SetItemImage(nNewid, createImage(*pImageSurface));
+        }
+    }
+}
+
 class SalInstanceMenu : public weld::Menu
 {
 private:
@@ -530,6 +576,13 @@ public:
     {
         m_xMenu->ShowItem(m_xMenu->GetItemId(rIdent), bShow);
     }
+
+    virtual void insert(int pos, const OUString& rId, const OUString& rStr,
+                        const OUString* pIconName, VirtualDevice* pImageSurface, bool bCheck) override
+    {
+        insert_to_menu(m_xMenu, pos, rId, rStr, pIconName, pImageSurface, bCheck);
+    }
+
     virtual ~SalInstanceMenu() override
     {
         if (m_bTakeOwnership)
@@ -729,6 +782,11 @@ public:
         aCtx.mxOwnerDialog = aOwner;
         aCtx.maEndDialogFn = rEndDialogFn;
         return m_xDialog->StartExecuteAsync(aCtx);
+    }
+
+    virtual void SetInstallLOKNotifierHdl(const Link<void*, vcl::ILibreOfficeKitNotifier*>& rLink) override
+    {
+        m_xDialog->SetInstallLOKNotifierHdl(rLink);
     }
 
     virtual int run() override
@@ -1113,12 +1171,14 @@ private:
     VclPtr<::MenuButton> m_xMenuButton;
 
     DECL_LINK(MenuSelectHdl, ::MenuButton*, void);
+    DECL_LINK(ActivateHdl, ::MenuButton*, void);
 
 public:
     SalInstanceMenuButton(::MenuButton* pButton, bool bTakeOwnership)
         : SalInstanceButton(pButton, bTakeOwnership)
         , m_xMenuButton(pButton)
     {
+        m_xMenuButton->SetActivateHdl(LINK(this, SalInstanceMenuButton, ActivateHdl));
         m_xMenuButton->SetSelectHdl(LINK(this, SalInstanceMenuButton, MenuSelectHdl));
     }
 
@@ -1145,6 +1205,12 @@ public:
     virtual bool get_inconsistent() const override
     {
         return false;
+    }
+
+    virtual void insert_item(int pos, const OUString& rId, const OUString& rStr,
+                             const OUString* pIconName, VirtualDevice* pImageSurface, bool bCheck) override
+    {
+        insert_to_menu(m_xMenuButton->GetPopupMenu(), pos, rId, rStr, pIconName, pImageSurface, bCheck);
     }
 
     virtual void set_item_active(const OString& rIdent, bool bActive) override
@@ -1180,12 +1246,20 @@ public:
     virtual ~SalInstanceMenuButton() override
     {
         m_xMenuButton->SetSelectHdl(Link<::MenuButton*, void>());
+        m_xMenuButton->SetActivateHdl(Link<::MenuButton*, void>());
     }
 };
 
 IMPL_LINK_NOARG(SalInstanceMenuButton, MenuSelectHdl, ::MenuButton*, void)
 {
     signal_selected(m_xMenuButton->GetCurItemIdent());
+}
+
+IMPL_LINK_NOARG(SalInstanceMenuButton, ActivateHdl, ::MenuButton*, void)
+{
+    if (notify_events_disabled())
+        return;
+    signal_toggled();
 }
 
 class SalInstanceRadioButton : public SalInstanceButton, public virtual weld::RadioButton
@@ -1376,6 +1450,12 @@ public:
         m_xScale->SetThumbPos(value);
     }
 
+    virtual void set_range(int min, int max) override
+    {
+        m_xScale->SetRangeMin(min);
+        m_xScale->SetRangeMax(max);
+    }
+
     virtual int get_value() const override
     {
         return m_xScale->GetThumbPos();
@@ -1553,6 +1633,7 @@ public:
     virtual void set_font(const vcl::Font& rFont) override
     {
         m_xEntry->SetFont(rFont);
+        m_xEntry->Invalidate();
     }
 
     virtual void connect_cursor_position(const Link<Entry&, void>& rLink) override
@@ -1594,24 +1675,6 @@ IMPL_LINK(SalInstanceEntry, CursorListener, VclWindowEvent&, rEvent, void)
         signal_cursor_position();
 }
 
-namespace
-{
-    Image createImage(const OUString& rImage)
-    {
-        if (rImage.lastIndexOf('.') != rImage.getLength() - 4)
-        {
-            assert((rImage == "dialog-warning" || rImage == "dialog-error" || rImage == "dialog-information") && "unknown stock image");
-            if (rImage == "dialog-warning")
-                return Image(BitmapEx(IMG_WARN));
-            else if (rImage == "dialog-error")
-                return Image(BitmapEx(IMG_ERROR));
-            else if (rImage == "dialog-information")
-                return Image(BitmapEx(IMG_INFO));
-        }
-        return Image(BitmapEx(rImage));
-    }
-}
-
 class SalInstanceTreeView : public SalInstanceContainer, public virtual weld::TreeView
 {
 private:
@@ -1629,20 +1692,23 @@ public:
         m_xTreeView->SetDoubleClickHdl(LINK(this, SalInstanceTreeView, DoubleClickHdl));
     }
 
-    virtual void insert_text(const OUString& rText, int pos) override
-    {
-        m_xTreeView->InsertEntry(rText, pos == -1 ? LISTBOX_APPEND : pos);
-    }
-
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage) override
+    virtual void insert(int pos, const OUString& rStr, const OUString* pId, const OUString* pIconName, VirtualDevice* pImageSurface) override
     {
         auto nInsertPos = pos == -1 ? COMBOBOX_APPEND : pos;
         sal_Int32 nInsertedAt;
-        if (!pImage)
+        if (!pIconName && !pImageSurface)
             nInsertedAt = m_xTreeView->InsertEntry(rStr, nInsertPos);
+        else if (pIconName)
+            nInsertedAt = m_xTreeView->InsertEntry(rStr, createImage(*pIconName), nInsertPos);
         else
-            nInsertedAt = m_xTreeView->InsertEntry(rStr, createImage(*pImage), nInsertPos);
-        m_xTreeView->SetEntryData(nInsertedAt, new OUString(rId));
+            nInsertedAt = m_xTreeView->InsertEntry(rStr, createImage(*pImageSurface), nInsertPos);
+        if (pId)
+            m_xTreeView->SetEntryData(nInsertedAt, new OUString(*pId));
+    }
+
+    virtual void set_font_color(int pos, const Color& rColor) const override
+    {
+        m_xTreeView->SetEntryTextColor(pos, &rColor);
     }
 
     virtual void remove(int pos) override
@@ -2237,9 +2303,17 @@ public:
         return *pRet;
     }
 
-    virtual void insert_text(int pos, const OUString& rStr) override
+    virtual void insert_vector(const std::vector<weld::ComboBoxEntry>& rItems, bool bKeepExisting) override
     {
-        m_xComboBox->InsertEntry(rStr, pos == -1 ? COMBOBOX_APPEND : pos);
+        freeze();
+        if (!bKeepExisting)
+            clear();
+        for (const auto& rItem : rItems)
+        {
+            insert(-1, rItem.sString, rItem.sId.isEmpty() ? nullptr : &rItem.sId,
+                   rItem.sImage.isEmpty() ? nullptr : &rItem.sImage, nullptr);
+        }
+        thaw();
     }
 
     virtual int get_count() const override
@@ -2311,15 +2385,18 @@ public:
         m_xComboBox->RemoveEntry(pos);
     }
 
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage) override
+    virtual void insert(int pos, const OUString& rStr, const OUString* pId, const OUString* pIconName, VirtualDevice* pImageSurface) override
     {
         auto nInsertPos = pos == -1 ? COMBOBOX_APPEND : pos;
         sal_Int32 nInsertedAt;
-        if (!pImage)
+        if (!pIconName && !pImageSurface)
             nInsertedAt = m_xComboBox->InsertEntry(rStr, nInsertPos);
+        else if (pIconName)
+            nInsertedAt = m_xComboBox->InsertEntry(rStr, createImage(*pIconName), nInsertPos);
         else
-            nInsertedAt = m_xComboBox->InsertEntry(rStr, createImage(*pImage), nInsertPos);
-        m_xComboBox->SetEntryData(nInsertedAt, new OUString(rId));
+            nInsertedAt = m_xComboBox->InsertEntry(rStr, createImage(*pImageSurface), nInsertPos);
+        if (pId)
+            m_xComboBox->SetEntryData(nInsertedAt, new OUString(*pId));
     }
 
     virtual bool has_entry() const override
@@ -2405,15 +2482,18 @@ public:
         m_xComboBox->RemoveEntryAt(pos);
     }
 
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage) override
+    virtual void insert(int pos, const OUString& rStr, const OUString* pId, const OUString* pIconName, VirtualDevice* pImageSurface) override
     {
         auto nInsertPos = pos == -1 ? COMBOBOX_APPEND : pos;
         sal_Int32 nInsertedAt;
-        if (!pImage)
+        if (!pIconName && !pImageSurface)
             nInsertedAt = m_xComboBox->InsertEntry(rStr, nInsertPos);
+        else if (pIconName)
+            nInsertedAt = m_xComboBox->InsertEntryWithImage(rStr, createImage(*pIconName), nInsertPos);
         else
-            nInsertedAt = m_xComboBox->InsertEntryWithImage(rStr, createImage(*pImage), nInsertPos);
-        m_xComboBox->SetEntryData(nInsertedAt, new OUString(rId));
+            nInsertedAt = m_xComboBox->InsertEntryWithImage(rStr, createImage(*pImageSurface), nInsertPos);
+        if (pId)
+            m_xComboBox->SetEntryData(nInsertedAt, new OUString(*pId));
     }
 
     virtual void set_entry_text(const OUString& rText) override

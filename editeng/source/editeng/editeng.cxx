@@ -22,8 +22,6 @@
 
 #include <comphelper/lok.hxx>
 #include <config_global.h>
-#include <vcl/wrkwin.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/svapp.hxx>
 
@@ -1060,7 +1058,7 @@ bool EditEngine::PostKeyEvent( const KeyEvent& rKeyEvent, EditView* pEditView, v
                     bDebugPaint = !bDebugPaint;
                     OStringBuffer aInfo("DebugPaint: ");
                     aInfo.append(bDebugPaint ? "On" : "Off");
-                    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(nullptr,
+                    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pEditView->GetWindow()->GetFrameWeld(),
                                                                   VclMessageType::Info, VclButtonsType::Ok,
                                                                   OStringToOUString(aInfo.makeStringAndClear(), RTL_TEXTENCODING_ASCII_US)));
                     xInfoBox->run();
@@ -2482,7 +2480,7 @@ void EditEngine::ParagraphInserted( sal_Int32 nPara )
     {
         EENotify aNotify( EE_NOTIFY_PARAGRAPHINSERTED );
         aNotify.nParagraph = nPara;
-        pImpEditEngine->QueueNotify( aNotify );
+        pImpEditEngine->GetNotifyHdl().Call( aNotify );
     }
 }
 
@@ -2493,7 +2491,7 @@ void EditEngine::ParagraphDeleted( sal_Int32 nPara )
     {
         EENotify aNotify( EE_NOTIFY_PARAGRAPHREMOVED );
         aNotify.nParagraph = nPara;
-        pImpEditEngine->QueueNotify( aNotify );
+        pImpEditEngine->GetNotifyHdl().Call( aNotify );
     }
 }
 void EditEngine::ParagraphConnected( sal_Int32 /*nLeftParagraph*/, sal_Int32 /*nRightParagraph*/ )
@@ -2515,7 +2513,7 @@ void EditEngine::ParagraphHeightChanged( sal_Int32 nPara )
     {
         EENotify aNotify( EE_NOTIFY_TextHeightChanged );
         aNotify.nParagraph = nPara;
-        pImpEditEngine->QueueNotify( aNotify );
+        pImpEditEngine->GetNotifyHdl().Call( aNotify );
     }
 }
 

@@ -535,7 +535,6 @@ public:
     bool BeginMark( const Point &rPos );
     void MoveMark ( const Point &rPos );
     bool EndMark  ();
-    void BreakMark();
 
     /// Create and destroy group, don't when frame is selected.
     bool IsGroupSelected();     ///< Can be a mixed selection!
@@ -656,8 +655,7 @@ public:
     void   SetBoxAlign( sal_uInt16 nOrient );
     sal_uInt16 GetBoxAlign() const;         ///< USHRT_MAX if ambiguous.
 
-    /// Adjustment of Rowheights. Determine via bTstOnly if more than one row is selected.
-    bool BalanceRowHeight( bool bTstOnly );
+    bool BalanceRowHeight( bool bTstOnly, const bool bOptimize = false );
 
     void SetTabBorders( const SfxItemSet& rSet );
     void GetTabBorders(       SfxItemSet& rSet) const;
@@ -709,10 +707,7 @@ public:
     bool IsInRepeatedHeadline() const { return CheckHeadline( true ); }
     bool IsInHeadline() const { return CheckHeadline( false ); }
 
-    /** Adjusts cell widths in such a way, that their content
-     does not need to be wrapped (if possible).
-     bBalance provides for adjustment of selected columns. */
-    void AdjustCellWidth( bool bBalance );
+    void AdjustCellWidth( bool bBalance, const bool bNoShrink, const bool bColumnWidth );
 
     /// Not allowed if only empty cells are selected.
     bool IsAdjustCellWidthAllowed( bool bBalance = false ) const;

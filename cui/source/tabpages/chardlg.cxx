@@ -138,7 +138,7 @@ const sal_uInt16 SvxCharTwoLinesPage::pTwoLinesRanges[] =
 
 // C-Function ------------------------------------------------------------
 
-static inline bool StateToAttr( TriState aState )
+static bool StateToAttr( TriState aState )
 {
     return ( TRISTATE_TRUE == aState );
 }
@@ -292,10 +292,10 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
         std::unique_ptr<weld::EntryTreeView> xWestFontStyleLB = m_xBuilder->weld_entry_tree_view("stylegrid", "weststyle-nocjk", "weststylelb-nocjk");
         std::unique_ptr<weld::EntryTreeView> xWestFontSizeLB = m_xBuilder->weld_entry_tree_view("sizegrid", "westsize-nocjk", "westsizelb-nocjk");
 
-        // 8 lines in the treeview
-        xWestFontNameLB->set_height_request_by_rows(8);
-        xWestFontStyleLB->set_height_request_by_rows(8);
-        xWestFontSizeLB->set_height_request_by_rows(8);
+        // 7 lines in the treeview
+        xWestFontNameLB->set_height_request_by_rows(7);
+        xWestFontStyleLB->set_height_request_by_rows(7);
+        xWestFontSizeLB->set_height_request_by_rows(7);
 
         m_xWestFontNameLB = std::move(xWestFontNameLB);
         m_xWestFontStyleLB.reset(new SvtFontStyleBox(std::move(xWestFontStyleLB)));
@@ -604,15 +604,15 @@ namespace
     void FillFontNames(weld::ComboBox& rBox, const FontList& rList)
     {
         // insert fonts
-        rBox.freeze();
         sal_uInt16 nFontCount = rList.GetFontNameCount();
+        std::vector<weld::ComboBoxEntry> aVector;
+        aVector.reserve(nFontCount);
         for (sal_uInt16 i = 0; i < nFontCount; ++i)
         {
             const FontMetric& rFontMetric = rList.GetFontName(i);
-            rBox.append_text(rFontMetric.GetFamilyName());
+            aVector.emplace_back(rFontMetric.GetFamilyName());
         }
-        rBox.make_sorted();
-        rBox.thaw();
+        rBox.insert_vector(aVector, false);
     }
 }
 

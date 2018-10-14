@@ -1246,71 +1246,61 @@ static void lcl_CalcBorderRect( SwRect &rRect, const SwFrame *pFrame,
         rRect = pFrame->getFramePrintArea();
         rRect.Pos() += pFrame->getFrameArea().Pos();
 
-        if ( rAttrs.IsLine() || rAttrs.IsBorderDist() ||
-             (bShadow && rAttrs.GetShadow().GetLocation() != SvxShadowLocation::NONE) )
+        SwRectFn fnRect = pFrame->IsVertical() ? ( pFrame->IsVertLR() ? fnRectVertL2R : fnRectVert ) : fnRectHori;
+
+        const SvxBoxItem &rBox = rAttrs.GetBox();
+        const bool bTop = 0 != (pFrame->*fnRect->fnGetTopMargin)();
+        if ( bTop )
         {
-            SwRectFn fnRect = pFrame->IsVertical() ? ( pFrame->IsVertLR() ? fnRectVertL2R : fnRectVert ) : fnRectHori;
+            SwTwips nDiff = rBox.GetTop() ?
+                rBox.CalcLineSpace( SvxBoxItemLine::TOP ) :
+                rBox.GetDistance( SvxBoxItemLine::TOP );
+            if( nDiff )
+                (rRect.*fnRect->fnSubTop)( nDiff );
+        }
 
-            const SvxBoxItem &rBox = rAttrs.GetBox();
-            const bool bTop = 0 != (pFrame->*fnRect->fnGetTopMargin)();
-            if ( bTop )
+        const bool bBottom = 0 != (pFrame->*fnRect->fnGetBottomMargin)();
+        if ( bBottom )
+        {
+            SwTwips nDiff = 0;
+            // #i29550#
+            if ( pFrame->IsTabFrame() &&
+                 static_cast<const SwTabFrame*>(pFrame)->IsCollapsingBorders() )
             {
-                SwTwips nDiff = rBox.GetTop() ?
-                    rBox.CalcLineSpace( SvxBoxItemLine::TOP ) :
-                    ( rAttrs.IsBorderDist() ?
-                      // Increase of distance by one twip is incorrect.
-                      rBox.GetDistance( SvxBoxItemLine::TOP ) : 0 );
-                if( nDiff )
-                    (rRect.*fnRect->fnSubTop)( nDiff );
+                // For collapsing borders, we have to add the height of
+                // the height of the last line
+                nDiff = static_cast<const SwTabFrame*>(pFrame)->GetBottomLineSize();
             }
-
-            const bool bBottom = 0 != (pFrame->*fnRect->fnGetBottomMargin)();
-            if ( bBottom )
+            else
             {
-                SwTwips nDiff = 0;
-                // #i29550#
-                if ( pFrame->IsTabFrame() &&
-                     static_cast<const SwTabFrame*>(pFrame)->IsCollapsingBorders() )
-                {
-                    // For collapsing borders, we have to add the height of
-                    // the height of the last line
-                    nDiff = static_cast<const SwTabFrame*>(pFrame)->GetBottomLineSize();
-                }
-                else
-                {
-                    nDiff = rBox.GetBottom() ?
+                nDiff = rBox.GetBottom() ?
                     rBox.CalcLineSpace( SvxBoxItemLine::BOTTOM ) :
-                    ( rAttrs.IsBorderDist() ?
-                      // Increase of distance by one twip is incorrect.
-                      rBox.GetDistance( SvxBoxItemLine::BOTTOM ) : 0 );
-                }
-                if( nDiff )
-                    (rRect.*fnRect->fnAddBottom)( nDiff );
+                    rBox.GetDistance( SvxBoxItemLine::BOTTOM );
             }
+            if( nDiff )
+                (rRect.*fnRect->fnAddBottom)( nDiff );
+        }
 
-            if ( rBox.GetLeft() )
-                (rRect.*fnRect->fnSubLeft)( rBox.CalcLineSpace( SvxBoxItemLine::LEFT ) );
-            else if ( rAttrs.IsBorderDist() )
-                 // Increase of distance by one twip is incorrect.
-                (rRect.*fnRect->fnSubLeft)( rBox.GetDistance( SvxBoxItemLine::LEFT ) );
+        if ( rBox.GetLeft() )
+            (rRect.*fnRect->fnSubLeft)( rBox.CalcLineSpace( SvxBoxItemLine::LEFT ) );
+        else
+            (rRect.*fnRect->fnSubLeft)( rBox.GetDistance( SvxBoxItemLine::LEFT ) );
 
-            if ( rBox.GetRight() )
-                (rRect.*fnRect->fnAddRight)( rBox.CalcLineSpace( SvxBoxItemLine::RIGHT ) );
-            else if ( rAttrs.IsBorderDist() )
-                 // Increase of distance by one twip is incorrect.
-                (rRect.*fnRect->fnAddRight)( rBox.GetDistance( SvxBoxItemLine::RIGHT ) );
+        if ( rBox.GetRight() )
+            (rRect.*fnRect->fnAddRight)( rBox.CalcLineSpace( SvxBoxItemLine::RIGHT ) );
+        else
+            (rRect.*fnRect->fnAddRight)( rBox.GetDistance( SvxBoxItemLine::RIGHT ) );
 
-            if ( bShadow && rAttrs.GetShadow().GetLocation() != SvxShadowLocation::NONE )
-            {
-                const SvxShadowItem &rShadow = rAttrs.GetShadow();
-                if ( bTop )
-                    (rRect.*fnRect->fnSubTop)(rShadow.CalcShadowSpace(SvxShadowItemSide::TOP));
-                (rRect.*fnRect->fnSubLeft)(rShadow.CalcShadowSpace(SvxShadowItemSide::LEFT));
-                if ( bBottom )
-                    (rRect.*fnRect->fnAddBottom)
-                                    (rShadow.CalcShadowSpace( SvxShadowItemSide::BOTTOM ));
-                (rRect.*fnRect->fnAddRight)(rShadow.CalcShadowSpace(SvxShadowItemSide::RIGHT));
-            }
+        if ( bShadow && rAttrs.GetShadow().GetLocation() != SvxShadowLocation::NONE )
+        {
+            const SvxShadowItem &rShadow = rAttrs.GetShadow();
+            if ( bTop )
+                (rRect.*fnRect->fnSubTop)(rShadow.CalcShadowSpace(SvxShadowItemSide::TOP));
+            (rRect.*fnRect->fnSubLeft)(rShadow.CalcShadowSpace(SvxShadowItemSide::LEFT));
+            if ( bBottom )
+                (rRect.*fnRect->fnAddBottom)
+                                (rShadow.CalcShadowSpace( SvxShadowItemSide::BOTTOM ));
+            (rRect.*fnRect->fnAddRight)(rShadow.CalcShadowSpace(SvxShadowItemSide::RIGHT));
         }
     }
 
@@ -1601,7 +1591,7 @@ static void lcl_implDrawGraphicBackgrd( const SvxBrushItem& _rBackgrdBrush,
  * @param _bBackgrdAlreadyDrawn
  * boolean (optional; default: false) indicating, if the background is already drawn.
 */
-static inline void lcl_DrawGraphicBackgrd( const SvxBrushItem& _rBackgrdBrush,
+static void lcl_DrawGraphicBackgrd( const SvxBrushItem& _rBackgrdBrush,
                                     OutputDevice* _pOut,
                                     const SwRect& _rAlignedPaintRect,
                                     const GraphicObject& _rGraphicObj,
@@ -4466,13 +4456,13 @@ namespace drawinglayer
         {
         private:
             /// the transformation defining the geometry of this BorderRectangle
-            basegfx::B2DHomMatrix       maB2DHomMatrix;
+            basegfx::B2DHomMatrix const       maB2DHomMatrix;
 
             /// the four styles to be used
-            svx::frame::Style           maStyleTop;
-            svx::frame::Style           maStyleRight;
-            svx::frame::Style           maStyleBottom;
-            svx::frame::Style           maStyleLeft;
+            svx::frame::Style const           maStyleTop;
+            svx::frame::Style const           maStyleRight;
+            svx::frame::Style const           maStyleBottom;
+            svx::frame::Style const           maStyleLeft;
 
         protected:
             /// local decomposition.

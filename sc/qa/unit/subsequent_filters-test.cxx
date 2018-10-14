@@ -177,6 +177,7 @@ public:
 
     //test shape import
     void testControlImport();
+    void testActiveXOptionButtonGroup();
     void testChartImportODS();
 #if HAVE_MORE_FONTS
     void testChartImportXLS();
@@ -233,6 +234,7 @@ public:
 
     void testPageScalingXLSX();
     void testActiveXCheckboxXLSX();
+    void testtdf120301_xmlSpaceParsingXLSX();
 #ifdef UNX
     void testUnicodeFileNameGnumeric();
 #endif
@@ -290,6 +292,7 @@ public:
     CPPUNIT_TEST(testCellValueXLSX);
     CPPUNIT_TEST(testRowIndex1BasedXLSX);
     CPPUNIT_TEST(testControlImport);
+    CPPUNIT_TEST(testActiveXOptionButtonGroup);
     CPPUNIT_TEST(testChartImportODS);
 #if HAVE_MORE_FONTS
     CPPUNIT_TEST(testChartImportXLS);
@@ -369,6 +372,7 @@ public:
 
     CPPUNIT_TEST(testPageScalingXLSX);
     CPPUNIT_TEST(testActiveXCheckboxXLSX);
+    CPPUNIT_TEST(testtdf120301_xmlSpaceParsingXLSX);
 #ifdef UNX
     CPPUNIT_TEST(testUnicodeFileNameGnumeric);
 #endif
@@ -1674,6 +1678,79 @@ void ScFiltersTest::testControlImport()
     uno::Reference< drawing::XControlShape > xControlShape(xIA_DrawPage->getByIndex(0), UNO_QUERY_THROW);
 
     xDocSh->DoClose();
+}
+
+void ScFiltersTest::testActiveXOptionButtonGroup()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf111980_radioButtons.", FORMAT_XLSX);
+    CPPUNIT_ASSERT_MESSAGE("Failed to load singlecontrol.xlsx", xDocSh.is());
+    uno::Reference< frame::XModel > xModel = xDocSh->GetModel();
+    uno::Reference< sheet::XSpreadsheetDocument > xDoc(xModel, UNO_QUERY_THROW);
+    uno::Reference< container::XIndexAccess > xIA(xDoc->getSheets(), UNO_QUERY_THROW);
+    uno::Reference< drawing::XDrawPageSupplier > xDrawPageSupplier( xIA->getByIndex(0), UNO_QUERY_THROW);
+    uno::Reference< container::XIndexAccess > xIA_DrawPage(xDrawPageSupplier->getDrawPage(), UNO_QUERY_THROW);
+
+    OUString sGroupName;
+    uno::Reference< drawing::XControlShape > xControlShape(xIA_DrawPage->getByIndex(0), UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xPropertySet(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName;
+    CPPUNIT_ASSERT_EQUAL(OUString("Sheet1"), sGroupName);
+
+    // Optionbuttons (without Group names) were not grouped.
+    // The two optionbuttons should have the same auto-generated group name.
+    OUString sGroupName2; //ActiveX controls
+    xControlShape.set(xIA_DrawPage->getByIndex(2), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName2;
+    CPPUNIT_ASSERT_EQUAL( false, sGroupName2.isEmpty() );
+
+    OUString sGroupName3;
+    xControlShape.set(xIA_DrawPage->getByIndex(3), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName3;
+    CPPUNIT_ASSERT_EQUAL( sGroupName2, sGroupName3 );
+    CPPUNIT_ASSERT( sGroupName != sGroupName3 );
+
+    OUString sGroupName4; //Form controls
+    xControlShape.set(xIA_DrawPage->getByIndex(4), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName4;
+    CPPUNIT_ASSERT_EQUAL( false, sGroupName4.isEmpty() );
+
+    OUString sGroupName5;
+    xControlShape.set(xIA_DrawPage->getByIndex(5), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName5;
+    CPPUNIT_ASSERT_EQUAL( sGroupName4, sGroupName5 );
+    CPPUNIT_ASSERT( sGroupName2 != sGroupName5 );
+    CPPUNIT_ASSERT( sGroupName != sGroupName5 );
+
+    OUString sGroupName7; //Form radiobutton autogrouped by GroupBox
+    xControlShape.set(xIA_DrawPage->getByIndex(7), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName7;
+    CPPUNIT_ASSERT_EQUAL( OUString("autoGroup_Group Box 7"), sGroupName7 );
+
+    OUString sGroupName8;
+    xControlShape.set(xIA_DrawPage->getByIndex(8), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName8;
+    CPPUNIT_ASSERT_EQUAL( sGroupName7, sGroupName8 );
+    CPPUNIT_ASSERT( sGroupName4 != sGroupName8 );
+    CPPUNIT_ASSERT( sGroupName2 != sGroupName8 );
+    CPPUNIT_ASSERT( sGroupName != sGroupName8 );
+
+    OUString sGroupName9; //Form radiobutton not fully inside GroupBox
+    xControlShape.set(xIA_DrawPage->getByIndex(9), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName9;
+    CPPUNIT_ASSERT_EQUAL( sGroupName4, sGroupName9 );
+
+    OUString sGroupName10; //ActiveX unaffected by GroupBox
+    xControlShape.set(xIA_DrawPage->getByIndex(10), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
+    xPropertySet->getPropertyValue("GroupName") >>= sGroupName10;
+    CPPUNIT_ASSERT_EQUAL( sGroupName, sGroupName10 );
 }
 
 void ScFiltersTest::testChartImportODS()
@@ -4089,6 +4166,23 @@ void ScFiltersTest::testActiveXCheckboxXLSX()
     xPropertySet->getPropertyValue("State") >>= nState;
     CPPUNIT_ASSERT_EQUAL(sal_Int16(1), nState);
 
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testtdf120301_xmlSpaceParsingXLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf120301_xmlSpaceParsing.", FORMAT_XLSX);
+    uno::Reference< frame::XModel > xModel = xDocSh->GetModel();
+    uno::Reference< sheet::XSpreadsheetDocument > xDoc(xModel, UNO_QUERY_THROW);
+    uno::Reference< container::XIndexAccess > xIA(xDoc->getSheets(), UNO_QUERY_THROW);
+    uno::Reference< drawing::XDrawPageSupplier > xDrawPageSupplier( xIA->getByIndex(0), UNO_QUERY_THROW);
+    uno::Reference< container::XIndexAccess > xIA_DrawPage(xDrawPageSupplier->getDrawPage(), UNO_QUERY_THROW);
+
+    uno::Reference< drawing::XControlShape > xControlShape(xIA_DrawPage->getByIndex(0), UNO_QUERY_THROW);
+    uno::Reference< beans::XPropertySet > XPropSet( xControlShape->getControl(), uno::UNO_QUERY_THROW );
+    OUString sCaption;
+    XPropSet->getPropertyValue("Label") >>= sCaption;
+    CPPUNIT_ASSERT_EQUAL(OUString("Check Box 1"), sCaption);
     xDocSh->DoClose();
 }
 

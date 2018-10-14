@@ -91,7 +91,7 @@ void SwNumNamesDlg::SetUserNames(const OUString *pList[])
         if(pList[i])
         {
             m_xFormBox->remove(i);
-            m_xFormBox->insert_text(*pList[i], i);
+            m_xFormBox->insert_text(i, *pList[i]);
             if (i == nSelect && nSelect < SwChapterNumRules::nMaxRules)
                 nSelect++;
         }
@@ -113,7 +113,7 @@ IMPL_LINK_NOARG(SwNumNamesDlg, DoubleClickHdl, weld::TreeView&, void)
 }
 
 SwNumNamesDlg::SwNumNamesDlg(weld::Window *pParent)
-    : weld::GenericDialogController(pParent,
+    : GenericDialogController(pParent,
             "modules/swriter/ui/numberingnamedialog.ui",
             "NumberingNameDialog")
     , m_xFormEdit(m_xBuilder->weld_entry("entry"))

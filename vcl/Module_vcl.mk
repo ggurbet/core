@@ -106,12 +106,14 @@ endif
 ifeq ($(OS),MACOSX)
 $(eval $(call gb_Module_add_targets,vcl,\
     Package_osxres \
+    Library_vclplug_osx \
 ))
 endif
 
 ifeq ($(OS),WNT)
 $(eval $(call gb_Module_add_targets,vcl,\
     WinResTarget_vcl \
+    Library_vclplug_win \
 ))
 endif
 

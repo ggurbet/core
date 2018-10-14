@@ -855,7 +855,7 @@ TextFrameIndex UpdateMergedParaForDelete(MergedPara & rMerged,
         if (it->pNode == &rNode)
         {
             ++nFoundNode;
-            if (nIndex + nToDelete <= it->nStart)
+            if (nIndex + nToDelete < it->nStart)
             {
                 nToDelete = 0;
                 if (!isRealDelete)
@@ -891,6 +891,15 @@ TextFrameIndex UpdateMergedParaForDelete(MergedPara & rMerged,
                     {   // adjust for deleted text
                         it->nStart -= (nLen - nToDelete);
                         it->nEnd -= (nLen - nToDelete + nDeleteHere);
+                        if (it != rMerged.extents.begin()
+                            && (it-1)->pNode == &rNode
+                            && (it-1)->nEnd == it->nStart)
+                        {   // merge adjacent extents
+                            nTFIndex += it->nEnd - it->nStart;
+                            (it-1)->nEnd = it->nEnd;
+                            it = rMerged.extents.erase(it);
+                            bErase = true; // skip increment
+                        }
                     }
                     else
                     {   // exclude text marked as deleted
@@ -1694,7 +1703,7 @@ void UpdateMergedParaForMove(sw::MergedPara & rMerged,
             break;
         }
     }
-    if (nLastEnd != rNode.Len() + nLen) // add nLen, string was removed already
+    if (nLastEnd != rNode.Len()) // without nLen, string yet to be removed
     {
         assert(rNode.Len() == 0 || nLastEnd < nSourceEnd);
         if (nLastEnd < nSourceEnd)
@@ -2075,8 +2084,17 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
 
         case RES_TXTATR_FTN :
         {
-            nPos = MapModelToView(&rNode,
-                static_cast<const SwFormatFootnote*>(pNew)->GetTextFootnote()->GetStart());
+            if (!IsInFootnote())
+            {   // the hint may be sent from the anchor node, or from a
+                // node in the footnote; the anchor index is only valid in the
+                // anchor node!
+                assert(&rNode == &static_cast<const SwFormatFootnote*>(pNew)->GetTextFootnote()->GetTextNode());
+                nPos = MapModelToView(&rNode,
+                    static_cast<const SwFormatFootnote*>(pNew)->GetTextFootnote()->GetStart());
+            }
+#ifdef _MSC_VER
+            else nPos = TextFrameIndex(42); // shut up MSVC 2017 spurious warning C4701
+#endif
             if (IsInFootnote() || IsIdxInside(nPos, TextFrameIndex(1)))
                 Prepare( PREP_FTN, static_cast<const SwFormatFootnote*>(pNew)->GetTextFootnote() );
             break;

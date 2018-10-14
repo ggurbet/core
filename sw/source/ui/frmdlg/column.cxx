@@ -75,7 +75,7 @@ using namespace ::com::sun::star;
 // static data
 static const sal_uInt16 nVisCols = 3;
 
-static inline bool IsMarkInSameSection( SwWrtShell& rWrtSh, const SwSection* pSect )
+static bool IsMarkInSameSection( SwWrtShell& rWrtSh, const SwSection* pSect )
 {
     rWrtSh.SwapPam();
     bool bRet = pSect == rWrtSh.GetCurrSection();
@@ -84,7 +84,7 @@ static inline bool IsMarkInSameSection( SwWrtShell& rWrtSh, const SwSection* pSe
 }
 
 SwColumnDlg::SwColumnDlg(weld::Window* pParent, SwWrtShell& rSh)
-    : weld::GenericDialogController(pParent, "modules/swriter/ui/columndialog.ui", "ColumnDialog")
+    : SfxDialogController(pParent, "modules/swriter/ui/columndialog.ui", "ColumnDialog")
     , m_rWrtShell(rSh)
     , m_pFrameSet(nullptr)
     , m_nOldSelection(0)
@@ -189,7 +189,8 @@ SwColumnDlg::SwColumnDlg(weld::Window* pParent, SwWrtShell& rSh)
     {
         const OUString sPageStr = pApplyToLB->get_text(nPagePos) + pPageDesc->GetName();
         pApplyToLB->remove(nPagePos);
-        pApplyToLB->insert(nPagePos, OUString::number(LISTBOX_PAGE), sPageStr, nullptr);
+        OUString sId(OUString::number(LISTBOX_PAGE));
+        pApplyToLB->insert(nPagePos, sPageStr, &sId, nullptr, nullptr);
     }
     else
         pApplyToLB->remove( nPagePos );
@@ -348,9 +349,6 @@ SfxItemSet* SwColumnDlg::EvalCurrentSelection(void)
 }
 
 static
-#if OSL_DEBUG_LEVEL < 2
-inline
-#endif
 sal_uInt16 GetMaxWidth( SwColMgr const * pColMgr, sal_uInt16 nCols )
 {
     sal_uInt16 nMax = pColMgr->GetActualSize();
@@ -376,11 +374,12 @@ void SwColumnPage::ResetColWidth()
 
 }
 
+constexpr sal_uInt16 g_nMinWidth(MINLAY);
+
 // Now as TabPage
 SwColumnPage::SwColumnPage(TabPageParent pParent, const SfxItemSet &rSet)
     : SfxTabPage(pParent, "modules/swriter/ui/columnpage.ui", "ColumnPage", &rSet)
     , m_nFirstVis(0)
-    , m_nMinWidth(MINLAY)
     , m_pModifiedField(nullptr)
     , m_bFormat(false)
     , m_bFrame(false)
@@ -808,7 +807,7 @@ void SwColumnPage::Init()
         // set maximum number of columns
         // values below 1 are not allowed
     m_xCLNrEdt->set_max(std::max(1L,
-        std::min(long(nMaxCols), long( m_xColMgr->GetActualSize() / m_nMinWidth) )));
+        std::min(long(nMaxCols), long( m_xColMgr->GetActualSize() / g_nMinWidth) )));
 }
 
 bool SwColumnPage::isLineNotNone() const
@@ -1086,20 +1085,20 @@ void SwColumnPage::Timeout()
         if(nChanged == m_nCols - 1)
         {
             m_nColWidth[0] -= nDiff;
-            if(m_nColWidth[0] < static_cast<long>(m_nMinWidth))
+            if(m_nColWidth[0] < static_cast<long>(g_nMinWidth))
             {
-                nNewWidth -= m_nMinWidth - m_nColWidth[0];
-                m_nColWidth[0] = m_nMinWidth;
+                nNewWidth -= g_nMinWidth - m_nColWidth[0];
+                m_nColWidth[0] = g_nMinWidth;
             }
 
         }
         else if(nDiff)
         {
             m_nColWidth[nChanged + 1] -= nDiff;
-            if(m_nColWidth[nChanged + 1] < static_cast<long>(m_nMinWidth))
+            if(m_nColWidth[nChanged + 1] < static_cast<long>(g_nMinWidth))
             {
-                nNewWidth -= m_nMinWidth - m_nColWidth[nChanged + 1];
-                m_nColWidth[nChanged + 1] = m_nMinWidth;
+                nNewWidth -= g_nMinWidth - m_nColWidth[nChanged + 1];
+                m_nColWidth[nChanged + 1] = g_nMinWidth;
             }
         }
         m_nColWidth[nChanged] = nNewWidth;

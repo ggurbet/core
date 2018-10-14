@@ -208,7 +208,7 @@ void AquaSalVirtualDevice::ReleaseGraphics( SalGraphics* )
 bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
 {
     SAL_INFO( "vcl.virdev", "AquaSalVirtualDevice::SetSize() this=" << this <<
-              " (" << nDX << "x" << nDY << ") mbForeignContext=" << mbForeignContext );
+              " (" << nDX << "x" << nDY << ") mbForeignContext=" << (mbForeignContext ? "YES" : "NO"));
 
     if( mbForeignContext )
     {
@@ -237,12 +237,6 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
         const int nBytesPerRow = (mnBitmapDepth * nDX + 7) / 8;
 
         void* pRawData = std::malloc( nBytesPerRow * nDY );
-#ifdef DBG_UTIL
-        for (ssize_t i = 0; i < nBytesPerRow * nDY; i++)
-        {
-            static_cast<sal_uInt8*>(pRawData)[i] = (i & 0xFF);
-        }
-#endif
         mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
                                                  mnBitmapDepth, nBytesPerRow,
                                                  GetSalData()->mxGraySpace, kCGImageAlphaNone );
@@ -270,10 +264,17 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
                 NSGraphicsContext* pNSContext = [NSGraphicsContext graphicsContextWithWindow: pNSWindow];
                 if( pNSContext )
                 {
-                    xCGContext = static_cast<CGContextRef>([pNSContext graphicsPort]);
+                    xCGContext = [pNSContext CGContext];
                 }
             }
-            else
+            // At least on macOS 10.14 during CppunitTests (that have hidden windows), it happens
+            // that the above
+            //
+            //   [NSGraphicsContext graphicsContextWithWindow: pNSWindow]
+            //
+            // returns nil for unclear reasons; so use the below fallback even if there is a
+            // pNSWindow but obtaining a graphics context for it fails:
+            if (xCGContext == nullptr)
             {
                 // fall back to a bitmap context
                 mnBitmapDepth = 32;
@@ -304,7 +305,7 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
         }
 #endif
         mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
-                                                 8, nBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaNoneSkipFirst );
+                                                 8, nBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little );
         SAL_INFO( "vcl.cg",  "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );
         xCGContext = mxBitmapContext;
 #endif

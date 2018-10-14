@@ -480,31 +480,17 @@ ErrCode SwHTMLWriter::WriteStream()
 
     // delete the table with floating frames
     OSL_ENSURE( !m_pHTMLPosFlyFrames, "Were not all frames output?" );
-    if( m_pHTMLPosFlyFrames )
-    {
-        m_pHTMLPosFlyFrames->DeleteAndDestroyAll();
-        m_pHTMLPosFlyFrames.reset();
-    }
+    m_pHTMLPosFlyFrames.reset();
 
-    m_aHTMLControls.DeleteAndDestroyAll();
+    m_aHTMLControls.clear();
 
-    if (!m_CharFormatInfos.empty())
-        m_CharFormatInfos.clear();
-
-    if (!m_TextCollInfos.empty())
-        m_TextCollInfos.clear();
-
-    if(!m_aImgMapNames.empty())
-        m_aImgMapNames.clear();
-
+    m_CharFormatInfos.clear();
+    m_TextCollInfos.clear();
+    m_aImgMapNames.clear();
     m_aImplicitMarks.clear();
-
     m_aOutlineMarks.clear();
-
     m_aOutlineMarkPoss.clear();
-
     m_aNumRuleNames.clear();
-
     m_aScriptParaStyles.clear();
     m_aScriptTextStyles.clear();
 

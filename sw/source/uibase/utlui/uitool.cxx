@@ -687,7 +687,7 @@ void InsertStringSorted(const OUString& rId, const OUString& rEntry, weld::Combo
             break;
         ++nOffset;
     }
-    rToFill.insert(nOffset, rId, rEntry, nullptr);
+    rToFill.insert(nOffset, rEntry, &rId, nullptr, nullptr);
 }
 
 void FillCharStyleListBox(ListBox& rToFill, SwDocShell* pDocSh, bool bSorted, bool bWithDefault)
@@ -732,6 +732,7 @@ void FillCharStyleListBox(ListBox& rToFill, SwDocShell* pDocSh, bool bSorted, bo
 void FillCharStyleListBox(weld::ComboBox& rToFill, SwDocShell* pDocSh, bool bSorted, bool bWithDefault)
 {
     const int nOffset = rToFill.get_count() > 0 ? 1 : 0;
+    rToFill.freeze();
     SfxStyleSheetBasePool* pPool = pDocSh->GetStyleSheetPool();
     pPool->SetSearchMask(SfxStyleFamily::Char);
     SwDoc* pDoc = pDocSh->GetDoc();
@@ -768,6 +769,7 @@ void FillCharStyleListBox(weld::ComboBox& rToFill, SwDocShell* pDocSh, bool bSor
                 rToFill.append(sId, rName);
         }
     }
+    rToFill.thaw();
 };
 
 SwTwips GetTableWidth( SwFrameFormat const * pFormat, SwTabCols const & rCols, sal_uInt16 *pPercent,

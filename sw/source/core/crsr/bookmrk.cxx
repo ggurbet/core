@@ -297,7 +297,7 @@ namespace sw { namespace mark
         if (io_pDoc->GetIDocumentUndoRedo().DoesUndo())
         {
             io_pDoc->GetIDocumentUndoRedo().AppendUndo(
-                    new SwUndoInsBookmark(*this));
+                    o3tl::make_unique<SwUndoInsBookmark>(*this));
         }
         io_pDoc->getIDocumentState().SetModified();
     }
@@ -309,7 +309,7 @@ namespace sw { namespace mark
         if (io_pDoc->GetIDocumentUndoRedo().DoesUndo())
         {
             io_pDoc->GetIDocumentUndoRedo().AppendUndo(
-                    new SwUndoDeleteBookmark(*this));
+                    o3tl::make_unique<SwUndoDeleteBookmark>(*this));
         }
         io_pDoc->getIDocumentState().SetModified();
     }
@@ -407,9 +407,12 @@ namespace sw { namespace mark
         xmlTextWriterEndElement(pWriter);
     }
 
-    TextFieldmark::TextFieldmark(const SwPaM& rPaM)
+    TextFieldmark::TextFieldmark(const SwPaM& rPaM, const OUString& rName)
         : Fieldmark(rPaM)
-    { }
+    {
+        if ( !rName.isEmpty() )
+            m_aName = rName;
+    }
 
     void TextFieldmark::InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode const eMode)
     {

@@ -30,10 +30,6 @@
     hidden window and forward these requests via window messages.
 */
 
-#if !defined WINVER
-#define WINVER 0x0400
-#endif
-
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
 
@@ -157,7 +153,7 @@ CMtaOleClipboard* CMtaOleClipboard::s_theMtaOleClipboardInst = nullptr;
 // marshal an IDataObject
 
 //inline
-HRESULT MarshalIDataObjectInStream( IDataObject* pIDataObject, LPSTREAM* ppStream )
+static HRESULT MarshalIDataObjectInStream( IDataObject* pIDataObject, LPSTREAM* ppStream )
 {
     OSL_ASSERT( nullptr != pIDataObject );
     OSL_ASSERT( nullptr != ppStream );
@@ -173,7 +169,7 @@ HRESULT MarshalIDataObjectInStream( IDataObject* pIDataObject, LPSTREAM* ppStrea
 // unmarshal an IDataObject
 
 //inline
-HRESULT UnmarshalIDataObjectAndReleaseStream( LPSTREAM lpStream, IDataObject** ppIDataObject )
+static HRESULT UnmarshalIDataObjectAndReleaseStream( LPSTREAM lpStream, IDataObject** ppIDataObject )
 {
     OSL_ASSERT( nullptr != lpStream );
     OSL_ASSERT( nullptr != ppIDataObject );

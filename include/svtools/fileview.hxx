@@ -26,7 +26,6 @@
 #include <vcl/ctrl.hxx>
 #include <vcl/image.hxx>
 #include <vcl/fixed.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/button.hxx>
 #include <vcl/weld.hxx>
 #include <rtl/ustring.hxx>
@@ -190,7 +189,7 @@ protected:
 
 struct SvtContentEntry
 {
-    bool     mbIsFolder;
+    bool const     mbIsFolder;
     OUString maURL;
 
     SvtContentEntry( const OUString& rURL, bool bIsFolder ) :

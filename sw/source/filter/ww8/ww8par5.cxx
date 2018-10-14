@@ -40,6 +40,7 @@
 #include <ucbhelper/commandenvironment.hxx>
 
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <hintids.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/fhgtitem.hxx>
@@ -1623,7 +1624,7 @@ eF_ResT SwWW8ImplReader::Read_F_DocInfo( WW8FieldDesc* pF, OUString& rStr )
             nSub = DI_KEYS;
             break;
         case 15:
-            nSub = DI_TITEL;
+            nSub = DI_TITLE;
             break;
         case 16:
             nSub = DI_THEMA;

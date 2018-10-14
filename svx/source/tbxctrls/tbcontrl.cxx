@@ -157,16 +157,16 @@ private:
     SfxStyleFamily                  eStyleFamily;
     sal_Int32                       nCurSel;
     bool                            bRelease;
-    Size                            aLogicalSize;
+    Size const                      aLogicalSize;
     Link<SvxStyleBox_Impl&,void>    aVisibilityListener;
     bool                            bVisible;
     Reference< XDispatchProvider >  m_xDispatchProvider;
     Reference< XFrame >             m_xFrame;
-    OUString                        m_aCommand;
-    OUString                        aClearFormatKey;
-    OUString                        aMoreKey;
+    OUString const                  m_aCommand;
+    OUString const                  aClearFormatKey;
+    OUString const                  aMoreKey;
     OUString                        sDefaultStyle;
-    bool                            bInSpecialMode;
+    bool const                      bInSpecialMode;
     VclPtr<MenuButton>              m_pButtons[MAX_STYLES_ENTRIES];
     VclBuilder                      m_aBuilder;
     VclPtr<PopupMenu>               m_pMenu;
@@ -187,7 +187,7 @@ private:
     const FontList*                pFontList;
     ::std::unique_ptr<FontList>    m_aOwnFontList;
     vcl::Font                      aCurFont;
-    Size                           aLogicalSize;
+    Size const                     aLogicalSize;
     OUString                       aCurText;
     sal_uInt16                     nFtCount;
     bool                           bRelease;
@@ -1437,8 +1437,10 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
 
     mxPaletteListBox->connect_changed(LINK(this, ColorWindow, SelectPaletteHdl));
     std::vector<OUString> aPaletteList = mxPaletteManager->GetPaletteList();
+    mxPaletteListBox->freeze();
     for (std::vector<OUString>::iterator it = aPaletteList.begin(); it != aPaletteList.end(); ++it)
         mxPaletteListBox->append_text(*it);
+    mxPaletteListBox->thaw();
     OUString aPaletteName( officecfg::Office::Common::UserColors::PaletteName::get() );
     mxPaletteListBox->set_active_text(aPaletteName);
     const int nSelectedEntry(mxPaletteListBox->get_active());
@@ -3611,6 +3613,7 @@ void ColorListBox::SetSlotId(sal_uInt16 nSlotId, bool bShowNoneButton)
 {
     m_nSlotId = nSlotId;
     m_bShowNoneButton = bShowNoneButton;
+    m_xButton->set_popover(nullptr);
     m_xColorWindow.reset();
     m_aSelectedColor = bShowNoneButton ? GetNoneColor() : GetAutoColor(m_nSlotId);
     ShowPreview(m_aSelectedColor);

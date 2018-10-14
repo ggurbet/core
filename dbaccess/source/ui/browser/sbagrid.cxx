@@ -60,6 +60,7 @@
 #include <svl/itempool.hxx>
 #include <svl/itemset.hxx>
 #include <svl/rngitem.hxx>
+#include <toolkit/helper/vclunohelper.hxx>
 
 #include <vcl/waitobj.hxx>
 
@@ -69,6 +70,7 @@
 #include <connectivity/dbconversion.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <comphelper/servicehelper.hxx>
+#include <comphelper/types.hxx>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
 #include <browserids.hxx>
@@ -789,10 +791,10 @@ void SbaGridControl::SetColWidth(sal_uInt16 nColId)
         Any aWidth = xAffectedCol->getPropertyValue(PROPERTY_WIDTH);
         sal_Int32 nCurWidth = aWidth.hasValue() ? ::comphelper::getINT32(aWidth) : -1;
 
-        ScopedVclPtrInstance< DlgSize > aDlgColWidth(this, nCurWidth, false);
-        if (aDlgColWidth->Execute())
+        DlgSize aDlgColWidth(GetFrameWeld(), nCurWidth, false);
+        if (aDlgColWidth.run() == RET_OK)
         {
-            sal_Int32 nValue = aDlgColWidth->GetValue();
+            sal_Int32 nValue = aDlgColWidth.GetValue();
             Any aNewWidth;
             if (-1 == nValue)
             {   // set to default
@@ -818,10 +820,10 @@ void SbaGridControl::SetRowHeight()
     Any aHeight = xCols->getPropertyValue(PROPERTY_ROW_HEIGHT);
     sal_Int32 nCurHeight = aHeight.hasValue() ? ::comphelper::getINT32(aHeight) : -1;
 
-    ScopedVclPtrInstance< DlgSize > aDlgRowHeight(this, nCurHeight, true);
-    if (aDlgRowHeight->Execute())
+    DlgSize aDlgRowHeight(GetFrameWeld(), nCurHeight, true);
+    if (aDlgRowHeight.run() == RET_OK)
     {
-        sal_Int32 nValue = aDlgRowHeight->GetValue();
+        sal_Int32 nValue = aDlgRowHeight.GetValue();
         Any aNewHeight;
         if (sal_Int16(-1) == nValue)
         {   // set to default
@@ -877,7 +879,16 @@ void SbaGridControl::SetBrowserAttrs()
     try
     {
         Reference< XComponentContext > xContext = getContext();
-        Reference< XExecutableDialog > xExecute = ControlFontDialog::createWithGridModel( xContext, xGridModel);
+        css::beans::PropertyValue aArg;
+        css::uno::Sequence<css::uno::Any> aArguments(2);
+        aArg.Name = "IntrospectedObject";
+        aArg.Value <<= xGridModel;
+        aArguments[0] <<= aArg;
+        aArg.Name = "ParentWindow";
+        aArg.Value <<= VCLUnoHelper::GetInterface(this);
+        aArguments[1] <<= aArg;
+        Reference<XExecutableDialog> xExecute(xContext->getServiceManager()->createInstanceWithArgumentsAndContext("com.sun.star.form.ControlFontDialog",
+                                              aArguments, xContext), css::uno::UNO_QUERY_THROW);
         xExecute->execute();
     }
     catch( const Exception& )
@@ -1242,8 +1253,8 @@ sal_Int8 SbaGridControl::AcceptDrop( const BrowserAcceptDropEvent& rEvt )
             // without an empty row we're not in update mode
             break;
 
-        long    nRow = GetRowAtYPosPixel(rEvt.maPosPixel.Y(), false);
-        sal_uInt16  nCol = GetColumnAtXPosPixel(rEvt.maPosPixel.X());
+        const long        nRow = GetRowAtYPosPixel(rEvt.maPosPixel.Y(), false);
+        const sal_uInt16  nCol = GetColumnId(GetColumnAtXPosPixel(rEvt.maPosPixel.X()));
 
         long nCorrectRowCount = GetRowCount();
         if (GetOptions() & DbGridControlOptions::Insert)
@@ -1251,7 +1262,7 @@ sal_Int8 SbaGridControl::AcceptDrop( const BrowserAcceptDropEvent& rEvt )
         if (IsCurrentAppending())
             --nCorrectRowCount; // the current data record doesn't really exist, we are appending a new one
 
-        if ((nCol == BROWSER_INVALIDID) || (nRow >= nCorrectRowCount) || GetColumnId(nCol) == 0  || GetColumnId(nCol) == BROWSER_INVALIDID )
+        if ((nCol == BROWSER_INVALIDID) || (nRow >= nCorrectRowCount) || nCol == 0  || nCol == BROWSER_INVALIDID )
             // no valid cell under the mouse cursor
             break;
 

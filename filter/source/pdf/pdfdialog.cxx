@@ -21,7 +21,6 @@
 #include "pdfdialog.hxx"
 #include "impdialog.hxx"
 #include <vcl/svapp.hxx>
-#include <vcl/dialog.hxx>
 #include <svl/solar.hrc>
 #include <com/sun/star/view/XRenderable.hpp>
 
@@ -83,10 +82,10 @@ Sequence< OUString > SAL_CALL PDFDialog::getSupportedServiceNames()
     return PDFDialog_getSupportedServiceNames();
 }
 
-svt::OGenericUnoDialog::Dialog PDFDialog::createDialog(vcl::Window* pParent)
+svt::OGenericUnoDialog::Dialog PDFDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
 {
     if( mxSrcDoc.is() )
-        return svt::OGenericUnoDialog::Dialog(o3tl::make_unique<ImpPDFTabDialog>(pParent ? pParent->GetFrameWeld() : nullptr, maFilterData, mxSrcDoc));
+        return svt::OGenericUnoDialog::Dialog(o3tl::make_unique<ImpPDFTabDialog>(Application::GetFrameWeld(rParent), maFilterData, mxSrcDoc));
     return svt::OGenericUnoDialog::Dialog();
 }
 

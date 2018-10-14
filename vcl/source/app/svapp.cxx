@@ -182,13 +182,11 @@ Application::Application()
     osl_setEnvironment(aVar.pData, aValue.pData);
 
     ImplGetSVData()->mpApp = this;
-    InitSalData();
 }
 
 Application::~Application()
 {
     ImplDeInitSVData();
-    DeInitSalData();
     ImplGetSVData()->mpApp = nullptr;
 }
 
@@ -453,7 +451,7 @@ void Application::Execute()
     pSVData->maAppData.mbInAppExecute = false;
 }
 
-static inline bool ImplYield(bool i_bWait, bool i_bAllEvents)
+static bool ImplYield(bool i_bWait, bool i_bAllEvents)
 {
     ImplSVData* pSVData = ImplGetSVData();
 
@@ -503,21 +501,24 @@ void Scheduler::ProcessEventsToIdle()
     // events were processed at some point, but our check can't prevent further
     // processing in the main thread, which may add new events, so skip it.
     const ImplSVData* pSVData = ImplGetSVData();
-    if ( !pSVData->mpDefInst->IsMainThread() )
+    if (!pSVData->mpDefInst->IsMainThread())
         return;
-    const ImplSchedulerData* pSchedulerData = pSVData->maSchedCtx.mpFirstSchedulerData;
-    while ( pSchedulerData )
+    for (int nTaskPriority = 0; nTaskPriority < PRIO_COUNT; ++nTaskPriority)
     {
-        if ( pSchedulerData->mpTask && !pSchedulerData->mbInScheduler )
+        const ImplSchedulerData* pSchedulerData = pSVData->maSchedCtx.mpFirstSchedulerData[nTaskPriority];
+        while (pSchedulerData)
         {
-            Idle *pIdle = dynamic_cast<Idle*>( pSchedulerData->mpTask );
-            if ( pIdle && pIdle->IsActive() )
+            if (pSchedulerData->mpTask && !pSchedulerData->mbInScheduler)
             {
-                SAL_WARN( "vcl.schedule", "Unprocessed Idle: "
-                          << pIdle << " " << pIdle->GetDebugName() );
+                Idle *pIdle = dynamic_cast<Idle*>(pSchedulerData->mpTask);
+                if (pIdle && pIdle->IsActive())
+                {
+                    SAL_WARN("vcl.schedule", "Unprocessed Idle: "
+                             << pIdle << " " << pIdle->GetDebugName());
+                }
             }
+            pSchedulerData = pSchedulerData->mpNext;
         }
-        pSchedulerData = pSchedulerData->mpNext;
     }
 #endif
 }
@@ -1135,8 +1136,7 @@ OUString Application::GetHWOSConfInfo()
         aDetails.append( VclResId(SV_APP_DEFAULT) );
     aDetails.append( "; " );
 
-#ifdef LINUX
-    // Only linux has different backends, so don't show blank for others.
+#if (defined LINUX || defined _WIN32 || defined MACOSX)
     aDetails.append( SV_APP_VCLBACKEND );
     aDetails.append( GetToolkitName() );
     aDetails.append( "; " );

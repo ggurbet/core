@@ -144,9 +144,16 @@ bool operator<(const SwTextGlyphsKey& l, const SwTextGlyphsKey& r)
     if (l.m_nLength > r.m_nLength)
         return false;
 
-    // Comparing strings is expensive, so compare them only at the end, and
-    // only once.
-    sal_Int32 nRet = l.m_aText.compareTo(r.m_aText);
+    // Comparing strings is expensive, so compare them:
+    // - only at the end of this function
+    // - only once
+    // - only the relevant substring (if the index/length is not out of bounds)
+    sal_Int32 nRet = 0;
+    if (l.m_nLength < 0 || l.m_nIndex < 0 || l.m_nIndex + l.m_nLength > l.m_aText.getLength())
+        nRet = l.m_aText.compareTo(r.m_aText);
+    else
+        nRet = memcmp(l.m_aText.getStr() + l.m_nIndex, r.m_aText.getStr() + r.m_nIndex,
+                      l.m_nLength * sizeof(sal_Unicode));
     if (nRet < 0)
         return true;
     if (nRet > 0)
@@ -243,11 +250,11 @@ struct CalcLinePosData
 {
     SwDrawTextInfo& rInf;
     vcl::Font& rFont;
-    TextFrameIndex nCnt;
+    TextFrameIndex const nCnt;
     const bool bSwitchH2V;
     const bool bSwitchL2R;
-    long nHalfSpace;
-    long* pKernArray;
+    long const nHalfSpace;
+    long* const pKernArray;
     const bool bBidiPor;
 
     CalcLinePosData( SwDrawTextInfo& _rInf, vcl::Font& _rFont,
@@ -2680,6 +2687,12 @@ bool SwDrawTextInfo::ApplyAutoColor( vcl::Font* pFont )
     }
 
     return false;
+}
+
+void SwClearFntCacheTextGlyphs()
+{
+    for (SwFntObj* pFntObj = pFntCache->First(); pFntObj; pFntObj = SwFntCache::Next(pFntObj))
+        pFntObj->GetTextGlyphs().clear();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

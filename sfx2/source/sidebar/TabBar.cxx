@@ -229,7 +229,21 @@ void TabBar::DataChanged (const DataChangedEvent& rDataChangedEvent)
 
 bool TabBar::EventNotify(NotifyEvent& rEvent)
 {
-    if(rEvent.GetType() == MouseNotifyEvent::COMMAND)
+    MouseNotifyEvent nType = rEvent.GetType();
+    if(MouseNotifyEvent::KEYINPUT == nType)
+    {
+        const vcl::KeyCode& rKeyCode = rEvent.GetKeyEvent()->GetKeyCode();
+        if (!mpAccel)
+        {
+            mpAccel = svt::AcceleratorExecute::createAcceleratorHelper();
+            mpAccel->init(comphelper::getProcessComponentContext(), mxFrame);
+        }
+        const OUString aCommand(mpAccel->findCommand(svt::AcceleratorExecute::st_VCLKey2AWTKey(rKeyCode)));
+        if (".uno:Sidebar" == aCommand)
+            return vcl::Window::EventNotify(rEvent);
+        return true;
+    }
+    else if(MouseNotifyEvent::COMMAND == nType)
     {
         const CommandEvent& rCommandEvent = *rEvent.GetCommandEvent();
         if(rCommandEvent.GetCommand() == CommandEventId::Wheel)

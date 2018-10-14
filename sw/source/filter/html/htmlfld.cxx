@@ -40,7 +40,7 @@ using namespace ::com::sun::star;
 struct HTMLNumFormatTableEntry
 {
     const sal_Char *pName;
-    NfIndexTableOffset eFormat;
+    NfIndexTableOffset const eFormat;
 };
 
 static HTMLOptionEnum<SwFieldIds> aHTMLFieldTypeTable[] =
@@ -147,7 +147,7 @@ static HTMLOptionEnum<SwPageNumSubType> aHTMLPageNumFieldSubTable[] =
 
 static HTMLOptionEnum<sal_uInt16> aHTMLDocInfoFieldSubTable[] =
 {
-    { OOO_STRING_SW_HTML_FS_title,   DI_TITEL },
+    { OOO_STRING_SW_HTML_FS_title,   DI_TITLE },
     { OOO_STRING_SW_HTML_FS_theme,   DI_THEMA },
     { OOO_STRING_SW_HTML_FS_keys,    DI_KEYS },
     { OOO_STRING_SW_HTML_FS_comment, DI_COMMENT },

@@ -476,14 +476,6 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
         {
             aTableBorder.LeftLine = aLeftBorder;
             aTableBorder.IsLeftLineValid = true;
-            // Only top level table position depends on border width
-            if (rInfo.nNestLevel == 1)
-            {
-                if (rFrameProperties.empty())
-                    rInfo.nLeftBorderDistance += aLeftBorder.LineWidth * 0.5;
-                else
-                    lcl_DecrementHoriOrientPosition(rFrameProperties, aLeftBorder.LineWidth * 0.5);
-            }
         }
         if (lcl_extractTableBorderProperty(m_aTableProperties.get(), PROP_RIGHT_BORDER, rInfo, aBorderLine))
         {
@@ -514,6 +506,25 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
         // - top level tables: the goal is to have in-cell text starting at table indent pos (tblInd),
         //   so table's position depends on table's cells margin
         // - nested tables: the goal is to have left-most border starting at table_indent pos
+
+        // Only top level table position depends on border width of Column A.
+        // TODO: Position based on last row (at least in MSOffice 2016), but first row in Office 2003.
+        //       Export code is also based on first cell, so using first row here...
+        if ( rInfo.nNestLevel == 1 && !m_aCellProperties.empty() && !m_aCellProperties[0].empty() )
+        {
+            // aLeftBorder already contains tblBorder; overwrite if cell is different.
+            const boost::optional<PropertyMap::Property> aCellBorder
+                = m_aCellProperties[0][0]->getProperty(PROP_LEFT_BORDER);
+            if ( aCellBorder )
+                aCellBorder->second >>= aLeftBorder;
+        }
+        if ( rInfo.nNestLevel == 1 && aLeftBorder.LineWidth )
+        {
+            if (rFrameProperties.empty())
+                rInfo.nLeftBorderDistance += aLeftBorder.LineWidth * 0.5;
+            else
+                lcl_DecrementHoriOrientPosition(rFrameProperties, aLeftBorder.LineWidth * 0.5);
+        }
 
         // tdf#106742: since MS Word 2013 (compatibilityMode >= 15), top-level tables are handled the same as nested tables;
         // this is also the default behavior in LO when DOCX doesn't define "compatibilityMode" option
@@ -898,36 +909,33 @@ css::uno::Sequence<css::beans::PropertyValues> DomainMapperTableHandler::endTabl
 #endif
 
     css::uno::Sequence<css::beans::PropertyValues> aRowProperties( m_aRowProperties.size() );
-    PropertyMapVector1::const_iterator aRowIter = m_aRowProperties.begin();
-    PropertyMapVector1::const_iterator aRowIterEnd = m_aRowProperties.end();
     sal_Int32 nRow = 0;
-    while( aRowIter != aRowIterEnd )
+    for( const auto& rRow : m_aRowProperties )
     {
 #ifdef DEBUG_WRITERFILTER
         TagLogger::getInstance().startElement("rowProps.row");
 #endif
-        if( aRowIter->get() )
+        if( rRow.get() )
         {
             //set default to 'break across pages"
-            (*aRowIter)->Insert( PROP_IS_SPLIT_ALLOWED, uno::makeAny(true ), false );
+            rRow->Insert( PROP_IS_SPLIT_ALLOWED, uno::makeAny(true ), false );
             // tblHeader is only our property, remove before the property map hits UNO
-            (*aRowIter)->Erase(PROP_TBL_HEADER);
+            rRow->Erase(PROP_TBL_HEADER);
 
             if (lcl_hideMarks(m_aCellProperties[nRow]) && lcl_emptyRow(m_aTableRanges, nRow))
             {
                 // We have CellHideMark on all cells, and also all cells are empty:
                 // Force the row height to be exactly as specified, and not just as the minimum suggestion.
-                (*aRowIter)->Insert(PROP_SIZE_TYPE, uno::makeAny(text::SizeType::FIX));
+                rRow->Insert(PROP_SIZE_TYPE, uno::makeAny(text::SizeType::FIX));
             }
 
-            aRowProperties[nRow] = (*aRowIter)->GetPropertyValues();
+            aRowProperties[nRow] = rRow->GetPropertyValues();
 #ifdef DEBUG_WRITERFILTER
-            (*aRowIter)->dumpXml();
+            rRow->dumpXml();
             lcl_DumpPropertyValues(aRowProperties[nRow]);
 #endif
         }
         ++nRow;
-        ++aRowIter;
 #ifdef DEBUG_WRITERFILTER
         TagLogger::getInstance().endElement();
 #endif

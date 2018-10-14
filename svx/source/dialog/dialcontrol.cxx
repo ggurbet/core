@@ -262,8 +262,6 @@ DialControl::DialControl( vcl::Window* pParent, WinBits nBits ) :
     Init( GetOutputSizePixel() );
 }
 
-VCL_BUILDER_FACTORY_ARGS(DialControl, WB_TABSTOP)
-
 void DialControl::Resize()
 {
     mpImpl->SetSize(GetOutputSizePixel());
@@ -619,6 +617,11 @@ void SvxDialControl::LoseFocus()
 {
     // release captured mouse
     HandleEscapeEvent();
+}
+
+bool SvxDialControl::HasRotation() const
+{
+    return !mpImpl->mbNoRot;
 }
 
 void SvxDialControl::SetNoRotation()

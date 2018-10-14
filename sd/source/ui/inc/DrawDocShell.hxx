@@ -210,18 +210,17 @@ protected:
     ::sd::ViewShell*        mpViewShell;
     std::unique_ptr<FontList> mpFontList;
     rtl::Reference<FuPoor> mxDocShellFunction;
-    DocumentType            meDocType;
+    DocumentType const      meDocType;
     SfxStyleFamily          mnStyleFamily;
     o3tl::array_view<sal_uInt16 const>
                             mpFilterSIDs;
     bool                    mbFilterEnable;
-    bool                    mbSdDataObj;
+    bool const              mbSdDataObj;
     bool                    mbInDestruction;
     bool                    mbOwnPrinter;
 
     bool                    mbOwnDocument;          // if true, we own mpDoc and will delete it in our d'tor
     void                    Construct(bool bClipboard);
-    virtual void            InPlaceActivate( bool bActive ) override;
 private:
     static void setEditMode(DrawViewShell* pDrawViewShell, bool isMasterPage);
 };

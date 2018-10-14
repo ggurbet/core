@@ -55,7 +55,7 @@
 
 // if selection is bigger as max nodes or more than max selections
 // => no attributes
-static inline sal_uInt16 getMaxLookup()
+static sal_uInt16 getMaxLookup()
 {
     return 1000;
 }
@@ -468,10 +468,9 @@ size_t SwEditShell::GetSeqFootnoteList( SwSeqFieldList& rList, bool bEndNotes )
                     sText += " ";
                 sText += pTextNd->GetExpandText();
 
-                SeqFieldLstElem* pNew = new SeqFieldLstElem( sText,
-                                            pTextFootnote->GetSeqRefNo() );
-                while( rList.InsertSort( pNew ) )
-                    pNew->sDlgEntry += " ";
+                SeqFieldLstElem aNew( sText, pTextFootnote->GetSeqRefNo() );
+                while( rList.InsertSort( aNew ) )
+                    aNew.sDlgEntry += " ";
             }
         }
     }
@@ -549,7 +548,7 @@ void SwEditShell::MoveLeftMargin( bool bRight, bool bModulus )
     EndAllAction();
 }
 
-static inline SvtScriptType lcl_SetScriptFlags( sal_uInt16 nType )
+static SvtScriptType lcl_SetScriptFlags( sal_uInt16 nType )
 {
     switch( nType )
     {

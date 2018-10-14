@@ -102,8 +102,8 @@ public:
         // demand clear, hand over a SdrMldel&
         SdrModel& _rModel,
 
-        SdrUnoObj*& _rpLabel,
-        SdrUnoObj*& _rpControl
+        std::unique_ptr<SdrUnoObj, SdrObjectFreeOp>& _rpLabel,
+        std::unique_ptr<SdrUnoObj, SdrObjectFreeOp>& _rpControl
     );
 
     virtual SdrPageView* ShowSdrPage(SdrPage* pPage) override;

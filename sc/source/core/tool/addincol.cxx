@@ -624,7 +624,7 @@ bool ScUnoAddInCollection::GetCalcName( const OUString& rExcelName, OUString& rR
     return false;
 }
 
-static inline bool IsTypeName( const OUString& rName, const uno::Type& rType )
+static bool IsTypeName( const OUString& rName, const uno::Type& rType )
 {
     return rName == rType.getTypeName();
 }
@@ -1547,7 +1547,7 @@ void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
                     }
                     if ( nMaxColCount && nRowCount )
                     {
-                        xMatrix = new ScFullMatrix(
+                        xMatrix = new ScMatrix(
                                 static_cast<SCSIZE>(nMaxColCount),
                                 static_cast<SCSIZE>(nRowCount), 0.0);
                         for (long nRow=0; nRow<nRowCount; nRow++)
@@ -1588,7 +1588,7 @@ void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
                     }
                     if ( nMaxColCount && nRowCount )
                     {
-                        xMatrix = new ScFullMatrix(
+                        xMatrix = new ScMatrix(
                                 static_cast<SCSIZE>(nMaxColCount),
                                 static_cast<SCSIZE>(nRowCount), 0.0);
                         for (long nRow=0; nRow<nRowCount; nRow++)
@@ -1629,7 +1629,7 @@ void ScUnoAddInCall::SetResult( const uno::Any& rNewRes )
                     }
                     if ( nMaxColCount && nRowCount )
                     {
-                        xMatrix = new ScFullMatrix(
+                        xMatrix = new ScMatrix(
                                 static_cast<SCSIZE>(nMaxColCount),
                                 static_cast<SCSIZE>(nRowCount), 0.0);
                         for (long nRow=0; nRow<nRowCount; nRow++)

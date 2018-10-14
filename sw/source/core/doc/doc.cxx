@@ -561,8 +561,8 @@ bool sw_GetPostIts(
                 if (pSrtLst)
                 {
                     SwNodeIndex aIdx( pTextField->GetTextNode() );
-                    PostItField_* pNew = new PostItField_( aIdx, pTextField );
-                    pSrtLst->insert( pNew );
+                    std::unique_ptr<PostItField_> pNew(new PostItField_( aIdx, pTextField ));
+                    pSrtLst->insert( std::move(pNew) );
                 }
                 else
                     break;  // we just wanted to check for the existence of postits ...
@@ -1712,16 +1712,16 @@ void SwDoc::AppendUndoForInsertFromDB( const SwPaM& rPam, bool bIsTable )
         const SwTableNode* pTableNd = rPam.GetPoint()->nNode.GetNode().FindTableNode();
         if( pTableNd )
         {
-            SwUndoCpyTable* pUndo = new SwUndoCpyTable(this);
+            std::unique_ptr<SwUndoCpyTable> pUndo(new SwUndoCpyTable(this));
             pUndo->SetTableSttIdx( pTableNd->GetIndex() );
-            GetIDocumentUndoRedo().AppendUndo( pUndo );
+            GetIDocumentUndoRedo().AppendUndo( std::move(pUndo) );
         }
     }
     else if( rPam.HasMark() )
     {
-        SwUndoCpyDoc* pUndo = new SwUndoCpyDoc( rPam );
+        std::unique_ptr<SwUndoCpyDoc> pUndo(new SwUndoCpyDoc( rPam ));
         pUndo->SetInsertRange( rPam, false );
-        GetIDocumentUndoRedo().AppendUndo( pUndo );
+        GetIDocumentUndoRedo().AppendUndo( std::move(pUndo) );
     }
 }
 
@@ -1731,9 +1731,8 @@ void SwDoc::ChgTOX(SwTOXBase & rTOX, const SwTOXBase & rNew)
     {
         GetIDocumentUndoRedo().DelAllUndoObj();
 
-        SwUndo * pUndo = new SwUndoTOXChange(this, &rTOX, rNew);
-
-        GetIDocumentUndoRedo().AppendUndo(pUndo);
+        GetIDocumentUndoRedo().AppendUndo(
+            o3tl::make_unique<SwUndoTOXChange>(this, &rTOX, rNew));
     }
 
     rTOX = rNew;

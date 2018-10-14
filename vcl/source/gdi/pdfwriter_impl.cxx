@@ -508,8 +508,8 @@ void doTestCode()
 static const sal_Int32 nLog10Divisor = 3;
 static const double fDivisor = 1000.0;
 
-static inline double pixelToPoint( double px ) { return px/fDivisor; }
-static inline sal_Int32 pointToPixel( double pt ) { return sal_Int32(pt*fDivisor); }
+static double pixelToPoint( double px ) { return px/fDivisor; }
+static sal_Int32 pointToPixel( double pt ) { return sal_Int32(pt*fDivisor); }
 
 const sal_uInt8 PDFWriterImpl::s_nPadString[32] =
 {
@@ -1539,9 +1539,8 @@ void PDFWriterImpl::PDFPage::appendPolyPolygon( const tools::PolyPolygon& rPolyP
 
 void PDFWriterImpl::PDFPage::appendPolyPolygon( const basegfx::B2DPolyPolygon& rPolyPoly, OStringBuffer& rBuffer ) const
 {
-    sal_uInt32 nPolygons = rPolyPoly.count();
-    for( sal_uInt32 n = 0; n < nPolygons; n++ )
-        appendPolygon( rPolyPoly.getB2DPolygon( n ), rBuffer );
+    for(auto const& rPolygon : rPolyPoly)
+        appendPolygon( rPolygon, rBuffer );
 }
 
 void PDFWriterImpl::PDFPage::appendMappedLength( sal_Int32 nLength, OStringBuffer& rBuffer, bool bVertical, sal_Int32* pOutLength ) const
@@ -4093,7 +4092,7 @@ sal_Int32 PDFWriterImpl::getBestBuiltinFont( const vcl::Font& rFont )
     return nBest;
 }
 
-static inline const Color& replaceColor( const Color& rCol1, const Color& rCol2 )
+static const Color& replaceColor( const Color& rCol1, const Color& rCol2 )
 {
     return (rCol1 == COL_TRANSPARENT) ? rCol2 : rCol1;
 }

@@ -59,8 +59,8 @@ struct TabPageImpl
 
 struct Data_Impl
 {
-    sal_uInt16 nId;               // The ID
-    OString sId;                  // The ID
+    sal_uInt16 const nId;               // The ID
+    OString const sId;                  // The ID
     CreateTabPage fnCreatePage;   // Pointer to Factory
     GetTabPageRanges fnGetRanges; // Pointer to Ranges-Function
     VclPtr<SfxTabPage> pTabPage;         // The TabPage itself
@@ -1463,7 +1463,7 @@ SfxTabDialogController::SfxTabDialogController
                                   // can be NULL, when Pages are onDemand
     bool bEditFmt                 // when yes -> additional Button for standard
 )
-    : GenericDialogController(pParent, rUIXMLDescription, rID)
+    : SfxDialogController(pParent, rUIXMLDescription, rID)
     , m_xTabCtrl(m_xBuilder->weld_notebook("tabcontrol"))
     , m_xOKBtn(m_xBuilder->weld_button("ok"))
     , m_xApplyBtn(m_xBuilder->weld_button("apply"))

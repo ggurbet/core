@@ -52,6 +52,9 @@ public:
     void Flush();
 };
 
+/// Clears the pre-calculated text glyphs in all SwFntObj instances.
+void SwClearFntCacheTextGlyphs();
+
 // Font cache, global variable, created/destroyed in txtinit.cxx
 extern SwFntCache *pFntCache;
 extern SwFntObj *pLastFont;
@@ -87,7 +90,7 @@ class SwFntObj : public SwCacheObj
     sal_uInt16 m_nPrtAscent;
     sal_uInt16 m_nScrHeight;
     sal_uInt16 m_nPrtHeight;
-    sal_uInt16 m_nPropWidth;
+    sal_uInt16 const m_nPropWidth;
     sal_uInt16 m_nZoom;
     bool m_bSymbol : 1;
     bool m_bPaintBlank : 1;

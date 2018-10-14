@@ -1554,7 +1554,12 @@ void AxMorphDataModelBase::convertProperties( PropertyMap& rPropMap, const Contr
     rPropMap.setProperty( PROP_Enabled, getFlag( mnFlags, AX_FLAGS_ENABLED ) );
     rConv.convertColor( rPropMap, PROP_TextColor, mnTextColor );
     if ( mnDisplayStyle == AX_DISPLAYSTYLE_OPTBUTTON )
-        rPropMap.setProperty( PROP_GroupName, maGroupName );
+    {
+        // If unspecified, radio buttons autoGroup in the same document/sheet
+        // NOTE: form controls should not autoGroup with ActiveX controls - see drawingfragment.cxx
+        OUString sGroupName = !maGroupName.isEmpty() ? maGroupName : "autoGroup_";
+        rPropMap.setProperty( PROP_GroupName, sGroupName );
+    }
     AxFontDataModel::convertProperties( rPropMap, rConv );
 }
 

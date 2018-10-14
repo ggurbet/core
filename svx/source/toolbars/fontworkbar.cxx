@@ -204,25 +204,6 @@ FontworkBar::~FontworkBar()
     SetRepeatTarget(nullptr);
 }
 
-static vcl::Window* ImpGetViewWin(SdrView const * pView)
-{
-    if( pView )
-    {
-        const sal_uInt32 nCount(pView->PaintWindowCount());
-        for(sal_uInt32 nNum(0); nNum < nCount; nNum++)
-        {
-            OutputDevice* pOut = &(pView->GetPaintWindow(nNum)->GetOutputDevice());
-
-            if(OUTDEV_WINDOW == pOut->GetOutDevType())
-            {
-                return static_cast<vcl::Window*>(pOut);
-            }
-        }
-    }
-
-    return nullptr;
-}
-
 namespace svx {
 bool checkForSelectedFontWork( SdrView const * pSdrView, sal_uInt32& nCheckStatus )
 {
@@ -431,8 +412,8 @@ void FontworkBar::execute( SdrView* pSdrView, SfxRequest const & rReq, SfxBindin
     {
         case SID_FONTWORK_GALLERY_FLOATER:
         {
-            ScopedVclPtrInstance< FontWorkGalleryDialog > aDlg( pSdrView, ImpGetViewWin(pSdrView) );
-            aDlg->Execute();
+            FontWorkGalleryDialog aDlg(rReq.GetFrameWeld(), pSdrView);
+            aDlg.run();
         }
         break;
 
@@ -490,11 +471,11 @@ void FontworkBar::execute( SdrView* pSdrView, SfxRequest const & rReq, SfxBindin
             if( rReq.GetArgs() && ( rReq.GetArgs()->GetItemState( SID_FONTWORK_CHARACTER_SPACING ) == SfxItemState::SET ) )
             {
                 sal_Int32 nCharSpacing = rReq.GetArgs()->GetItem<SfxInt32Item>(SID_FONTWORK_CHARACTER_SPACING)->GetValue();
-                ScopedVclPtrInstance< FontworkCharacterSpacingDialog > aDlg( nullptr, nCharSpacing );
-                sal_uInt16 nRet = aDlg->Execute();
-                if( nRet != 0 )
+                FontworkCharacterSpacingDialog aDlg(rReq.GetFrameWeld(), nCharSpacing);
+                sal_uInt16 nRet = aDlg.run();
+                if (nRet != RET_CANCEL)
                 {
-                    SfxInt32Item aItem( SID_FONTWORK_CHARACTER_SPACING, aDlg->getScale() );
+                    SfxInt32Item aItem(SID_FONTWORK_CHARACTER_SPACING, aDlg.getScale());
                     SfxPoolItem* aItems[] = { &aItem, nullptr };
                     rBindings.Execute( SID_FONTWORK_CHARACTER_SPACING, const_cast<const SfxPoolItem**>(aItems) );
                 }

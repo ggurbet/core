@@ -1208,10 +1208,10 @@ void ViewShell::ImpGetRedoStrings(SfxItemSet &rSet) const
 
 class KeepSlideSorterInSyncWithPageChanges
 {
-    sd::slidesorter::view::SlideSorterView::DrawLock m_aDrawLock;
-    sd::slidesorter::controller::SlideSorterController::ModelChangeLock m_aModelLock;
-    sd::slidesorter::controller::PageSelector::UpdateLock m_aUpdateLock;
-    sd::slidesorter::controller::SelectionObserver::Context m_aContext;
+    sd::slidesorter::view::SlideSorterView::DrawLock const m_aDrawLock;
+    sd::slidesorter::controller::SlideSorterController::ModelChangeLock const m_aModelLock;
+    sd::slidesorter::controller::PageSelector::UpdateLock const m_aUpdateLock;
+    sd::slidesorter::controller::SelectionObserver::Context const m_aContext;
 
 public:
     explicit KeepSlideSorterInSyncWithPageChanges(sd::slidesorter::SlideSorter const & rSlideSorter)
@@ -1257,7 +1257,7 @@ void ViewShell::ImpSidUndo(SfxRequest& rReq)
         {
             if (comphelper::LibreOfficeKit::isActive() && !bRepair)
             {
-                // If an other view created the first undo action, prevent redoing it from this view.
+                // If another view created the first undo action, prevent redoing it from this view.
                 const SfxUndoAction* pAction = pUndoManager->GetUndoAction();
                 if (pAction->GetViewShellId() != GetViewShellBase().GetViewShellId())
                 {
@@ -1325,7 +1325,7 @@ void ViewShell::ImpSidRedo(SfxRequest& rReq)
         {
             if (comphelper::LibreOfficeKit::isActive() && !bRepair)
             {
-                // If an other view created the first undo action, prevent redoing it from this view.
+                // If another view created the first undo action, prevent redoing it from this view.
                 const SfxUndoAction* pAction = pUndoManager->GetRedoAction();
                 if (pAction->GetViewShellId() != GetViewShellBase().GetViewShellId())
                 {

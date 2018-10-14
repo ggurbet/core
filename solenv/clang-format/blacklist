@@ -3010,6 +3010,7 @@ dbaccess/qa/unit/dbaccess-dialogs-test.cxx
 dbaccess/qa/unit/dbtest_base.cxx
 dbaccess/qa/unit/embeddeddb_performancetest.cxx
 dbaccess/qa/unit/firebird.cxx
+dbaccess/qa/unit/firebird-regression.cxx
 dbaccess/qa/unit/hsqldb.cxx
 dbaccess/source/core/api/BookmarkSet.cxx
 dbaccess/source/core/api/BookmarkSet.hxx
@@ -3137,7 +3138,6 @@ dbaccess/source/core/inc/sdbcoretools.hxx
 dbaccess/source/core/inc/statement.hxx
 dbaccess/source/core/inc/table.hxx
 dbaccess/source/core/inc/tablecontainer.hxx
-dbaccess/source/core/inc/userinformation.hxx
 dbaccess/source/core/inc/veto.hxx
 dbaccess/source/core/inc/viewcontainer.hxx
 dbaccess/source/core/misc/ContainerMediator.cxx
@@ -3148,7 +3148,6 @@ dbaccess/source/core/misc/dsntypes.cxx
 dbaccess/source/core/misc/objectnameapproval.cxx
 dbaccess/source/core/misc/sdbcoretools.cxx
 dbaccess/source/core/misc/services.cxx
-dbaccess/source/core/misc/userinformation.cxx
 dbaccess/source/core/misc/veto.cxx
 dbaccess/source/core/recovery/dbdocrecovery.cxx
 dbaccess/source/core/recovery/settingsimport.cxx
@@ -6805,8 +6804,6 @@ include/sfx2/htmlmode.hxx
 include/sfx2/infobar.hxx
 include/sfx2/inputdlg.hxx
 include/sfx2/ipclient.hxx
-include/sfx2/itemconnect.hxx
-include/sfx2/itemwrapper.hxx
 include/sfx2/linkmgr.hxx
 include/sfx2/linksrc.hxx
 include/sfx2/lnkbase.hxx
@@ -7290,7 +7287,6 @@ include/svx/objfac3d.hxx
 include/svx/ofaitem.hxx
 include/svx/optgenrl.hxx
 include/svx/optgrid.hxx
-include/svx/orienthelper.hxx
 include/svx/pagectrl.hxx
 include/svx/pageitem.hxx
 include/svx/pagenumberlistbox.hxx
@@ -7660,7 +7656,6 @@ include/test/util/xsearchable.hxx
 include/test/xmldiff.hxx
 include/test/xmltesttools.hxx
 include/toolkit/awt/animatedimagespeer.hxx
-include/toolkit/awt/scrollabledialog.hxx
 include/toolkit/awt/vclxaccessiblecomponent.hxx
 include/toolkit/awt/vclxbitmap.hxx
 include/toolkit/awt/vclxcontainer.hxx
@@ -14230,7 +14225,6 @@ svx/source/dialog/langbox.cxx
 svx/source/dialog/linkwarn.cxx
 svx/source/dialog/measctrl.cxx
 svx/source/dialog/optgrid.cxx
-svx/source/dialog/orienthelper.cxx
 svx/source/dialog/pagectrl.cxx
 svx/source/dialog/pagenumberlistbox.cxx
 svx/source/dialog/papersizelistbox.cxx
@@ -15124,6 +15118,7 @@ sw/qa/extras/txtexport/txtexport.cxx
 sw/qa/extras/uiwriter/uiwriter.cxx
 sw/qa/extras/ww8export/ww8export.cxx
 sw/qa/extras/ww8export/ww8export2.cxx
+sw/qa/extras/ww8export/ww8export3.cxx
 sw/qa/extras/ww8import/ww8import.cxx
 sw/qa/unit/sw-dialogs-test.cxx
 sw/qa/unit/sw-dialogs-test_2.cxx
@@ -16675,6 +16670,7 @@ toolkit/inc/helper/accessibilityclient.hxx
 toolkit/inc/helper/imagealign.hxx
 toolkit/inc/helper/tkresmgr.hxx
 toolkit/inc/helper/btndlg.hxx
+toolkit/inc/helper/scrollabledialog.hxx
 toolkit/inc/helper/unopropertyarrayhelper.hxx
 toolkit/inc/helper/unowrapper.hxx
 toolkit/source/awt/animatedimagespeer.cxx
@@ -17642,7 +17638,6 @@ vcl/inc/unx/desktops.hxx
 vcl/inc/unx/fc_fontoptions.hxx
 vcl/inc/unx/fontmanager.hxx
 vcl/inc/unx/freetype_glyphcache.hxx
-vcl/inc/unx/gendata.hxx
 vcl/inc/unx/gendisp.hxx
 vcl/inc/unx/geninst.h
 vcl/inc/unx/genprn.h
@@ -17692,6 +17687,7 @@ vcl/inc/unx/wmadaptor.hxx
 vcl/inc/unx/x11/x11gdiimpl.h
 vcl/inc/unx/x11/x11sys.hxx
 vcl/inc/unx/x11/xlimits.hxx
+vcl/inc/unx/x11/xrender_peer.hxx
 vcl/inc/unx/x11_cursors/ase_curs.h
 vcl/inc/unx/x11_cursors/ase_mask.h
 vcl/inc/unx/x11_cursors/asn_curs.h
@@ -17957,6 +17953,7 @@ vcl/source/app/dndhelp.cxx
 vcl/source/app/help.cxx
 vcl/source/app/i18nhelp.cxx
 vcl/source/app/idle.cxx
+vcl/source/app/salplug.cxx
 vcl/source/app/salusereventlist.cxx
 vcl/source/app/salvtables.cxx
 vcl/source/app/scheduler.cxx
@@ -18319,10 +18316,8 @@ vcl/unx/generic/gdi/salvd.cxx
 vcl/unx/generic/gdi/x11cairotextrender.cxx
 vcl/unx/generic/gdi/x11cairotextrender.hxx
 vcl/unx/generic/gdi/xrender_peer.cxx
-vcl/unx/generic/gdi/xrender_peer.hxx
 vcl/unx/generic/glyphs/freetype_glyphcache.cxx
 vcl/unx/generic/glyphs/glyphcache.cxx
-vcl/unx/generic/plugadapt/salplug.cxx
 vcl/unx/generic/print/bitmap_gfx.cxx
 vcl/unx/generic/print/common_gfx.cxx
 vcl/unx/generic/print/genprnpsp.cxx

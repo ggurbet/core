@@ -17,11 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-
-#include <vcl/wrkwin.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/svapp.hxx>
-
+#include <vcl/window.hxx>
 #include <editeng/lspcitem.hxx>
 #include <editeng/flditem.hxx>
 #include "impedit.hxx"
@@ -174,18 +170,6 @@ void ImpEditEngine::Dispose()
     pSharedVCL.reset();
 }
 
-void ImpEditEngine::SendNotifications()
-{
-    while(!aNotifyCache.empty())
-    {
-        GetNotifyHdl().Call( aNotifyCache[0] );
-        aNotifyCache.erase(aNotifyCache.begin());
-    }
-
-    EENotify aNotify(EE_NOTIFY_PROCESSNOTIFICATIONS);
-    GetNotifyHdl().Call(aNotify);
-}
-
 ImpEditEngine::~ImpEditEngine()
 {
     aStatusTimer.Stop();
@@ -262,8 +246,7 @@ void ImpEditEngine::InitDoc(bool bKeepParaAttribs)
 
     GetParaPortions().Reset();
 
-    ParaPortion* pIniPortion = new ParaPortion( aEditDoc[0] );
-    GetParaPortions().Insert(0, pIniPortion);
+    GetParaPortions().Insert(0, o3tl::make_unique<ParaPortion>( aEditDoc[0] ));
 
     bFormatted = false;
 
@@ -741,7 +724,7 @@ void ImpEditEngine::TextModified()
     if ( GetNotifyHdl().IsSet() )
     {
         EENotify aNotify( EE_NOTIFY_TEXTMODIFIED );
-        QueueNotify( aNotify );
+        GetNotifyHdl().Call( aNotify );
     }
 }
 
@@ -2105,12 +2088,11 @@ void ImpEditEngine::ImpRemoveChars( const EditPaM& rPaM, sal_Int32 nChars )
             {
                 EditSelection aSel( rPaM );
                 aSel.Max().SetIndex( aSel.Max().GetIndex() + nChars );
-                EditUndoSetAttribs* pAttrUndo = CreateAttribUndo( aSel, GetEmptyItemSet() );
-                InsertUndo( pAttrUndo );
+                InsertUndo( CreateAttribUndo( aSel, GetEmptyItemSet() ) );
                 break;  // for
             }
         }
-        InsertUndo(new EditUndoRemoveChars(pEditEngine, CreateEPaM(rPaM), aStr));
+        InsertUndo(o3tl::make_unique<EditUndoRemoveChars>(pEditEngine, CreateEPaM(rPaM), aStr));
     }
 
     aEditDoc.RemoveChars( rPaM, nChars );
@@ -2169,7 +2151,7 @@ EditSelection ImpEditEngine::ImpMoveParagraphs( Range aOldPositions, sal_Int32 n
     aBeginMovingParagraphsHdl.Call( aMoveParagraphsInfo );
 
     if ( IsUndoEnabled() && !IsInUndo())
-        InsertUndo(new EditUndoMoveParagraphs(pEditEngine, aOldPositions, nNewPos));
+        InsertUndo(o3tl::make_unique<EditUndoMoveParagraphs>(pEditEngine, aOldPositions, nNewPos));
 
     // do not lose sight of the Position !
     ParaPortion* pDestPortion = GetParaPortions().SafeGetObject( nNewPos );
@@ -2178,17 +2160,18 @@ EditSelection ImpEditEngine::ImpMoveParagraphs( Range aOldPositions, sal_Int32 n
     for (long i = aOldPositions.Min(); i <= aOldPositions.Max(); i++  )
     {
         // always aOldPositions.Min(), since Remove().
-        ParaPortion* pTmpPortion = GetParaPortions().Release(aOldPositions.Min());
+        std::unique_ptr<ParaPortion> pTmpPortion = GetParaPortions().Release(aOldPositions.Min());
         aEditDoc.Release( aOldPositions.Min() );
-        aTmpPortionList.Append(pTmpPortion);
+        aTmpPortionList.Append(std::move(pTmpPortion));
     }
 
     sal_Int32 nRealNewPos = pDestPortion ? GetParaPortions().GetPos( pDestPortion ) : GetParaPortions().Count();
     OSL_ENSURE( nRealNewPos != EE_PARA_NOT_FOUND, "ImpMoveParagraphs: Invalid Position!" );
 
-    for (sal_Int32 i = 0; i < aTmpPortionList.Count(); ++i)
+    sal_Int32 i = 0;
+    while( aTmpPortionList.Count() > 0 )
     {
-        ParaPortion* pTmpPortion = aTmpPortionList[i];
+        std::unique_ptr<ParaPortion> pTmpPortion = aTmpPortionList.Release(0);
         if ( i == 0 )
             aSelection.Min().SetNode( pTmpPortion->GetNode() );
 
@@ -2198,7 +2181,8 @@ EditSelection ImpEditEngine::ImpMoveParagraphs( Range aOldPositions, sal_Int32 n
         ContentNode* pN = pTmpPortion->GetNode();
         aEditDoc.Insert(nRealNewPos+i, pN);
 
-        GetParaPortions().Insert(nRealNewPos+i, pTmpPortion);
+        GetParaPortions().Insert(nRealNewPos+i, std::move(pTmpPortion));
+        ++i;
     }
 
     aEndMovingParagraphsHdl.Call( aMoveParagraphsInfo );
@@ -2209,7 +2193,7 @@ EditSelection ImpEditEngine::ImpMoveParagraphs( Range aOldPositions, sal_Int32 n
         aNotify.nParagraph = nNewPos;
         aNotify.nParam1 = aOldPositions.Min();
         aNotify.nParam2 = aOldPositions.Max();
-        QueueNotify( aNotify );
+        GetNotifyHdl().Call( aNotify );
     }
 
     aEditDoc.SetModified( true );
@@ -2222,9 +2206,6 @@ EditSelection ImpEditEngine::ImpMoveParagraphs( Range aOldPositions, sal_Int32 n
         CalcHeight( pRecalc3 );
     if ( pRecalc4 )
         CalcHeight( pRecalc4 );
-
-    while( aTmpPortionList.Count() > 0 )
-        aTmpPortionList.Release( aTmpPortionList.Count() - 1 );
 
 #if OSL_DEBUG_LEVEL > 0
     ParaPortionList::DbgCheck(GetParaPortions(), aEditDoc);
@@ -2256,7 +2237,7 @@ EditPaM ImpEditEngine::ImpConnectParagraphs( ContentNode* pLeft, ContentNode* pR
 
     if ( IsUndoEnabled() && !IsInUndo() )
     {
-        InsertUndo( new EditUndoConnectParas(pEditEngine,
+        InsertUndo( o3tl::make_unique<EditUndoConnectParas>(pEditEngine,
             aEditDoc.GetPos( pLeft ), pLeft->Len(),
             pLeft->GetContentAttribs().GetItems(), pRight->GetContentAttribs().GetItems(),
             pLeft->GetStyleSheet(), pRight->GetStyleSheet(), bBackward ) );
@@ -2413,12 +2394,7 @@ EditPaM ImpEditEngine::DeleteLeftOrRight( const EditSelection& rSel, sal_uInt8 n
     if ( ( nDelMode == DeleteMode::RestOfContent ) || ( aDelStart.GetNode() == aDelEnd.GetNode() ) )
         return ImpDeleteSelection( EditSelection( aDelStart, aDelEnd ) );
 
-    // Decide now if to delete selection (RESTOFCONTENTS)
-    bool bSpecialBackward = ( nMode == DEL_LEFT ) && ( nDelMode == DeleteMode::Simple );
-    if ( aStatus.IsAnyOutliner() )
-        bSpecialBackward = false;
-
-    return ImpConnectParagraphs( aDelStart.GetNode(), aDelEnd.GetNode(), bSpecialBackward );
+    return ImpConnectParagraphs(aDelStart.GetNode(), aDelEnd.GetNode());
 }
 
 EditPaM ImpEditEngine::ImpDeleteSelection(const EditSelection& rCurSel)
@@ -2506,7 +2482,7 @@ void ImpEditEngine::ImpRemoveParagraph( sal_Int32 nPara )
         ParaAttribsChanged( pNextNode );
 
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo(new EditUndoDelContent(pEditEngine, pNode, nPara));
+        InsertUndo(o3tl::make_unique<EditUndoDelContent>(pEditEngine, pNode, nPara));
     else
     {
         aEditDoc.RemoveItemsFromPool(*pNode);
@@ -2672,9 +2648,9 @@ EditPaM ImpEditEngine::InsertTextUserInput( const EditSelection& rCurSel,
 
         if ( IsUndoEnabled() && !IsInUndo() )
         {
-            EditUndoInsertChars* pNewUndo = new EditUndoInsertChars(pEditEngine, CreateEPaM(aPaM), OUString(c));
+            std::unique_ptr<EditUndoInsertChars> pNewUndo(new EditUndoInsertChars(pEditEngine, CreateEPaM(aPaM), OUString(c)));
             bool bTryMerge = !bDoOverwrite && ( c != ' ' );
-            InsertUndo( pNewUndo, bTryMerge );
+            InsertUndo( std::move(pNewUndo), bTryMerge );
         }
 
         aEditDoc.InsertText( aPaM, OUString(c) );
@@ -2741,7 +2717,7 @@ EditPaM ImpEditEngine::ImpInsertText(const EditSelection& aCurSel, const OUStrin
                 aLine = aLine.copy( 0, nMaxNewChars );        // Delete the Rest...
             }
             if ( IsUndoEnabled() && !IsInUndo() )
-                InsertUndo(new EditUndoInsertChars(pEditEngine, CreateEPaM(aPaM), aLine));
+                InsertUndo(o3tl::make_unique<EditUndoInsertChars>(pEditEngine, CreateEPaM(aPaM), aLine));
             // Tabs ?
             if ( aLine.indexOf( '\t' ) == -1 )
                 aPaM = aEditDoc.InsertText( aPaM, aLine );
@@ -2799,7 +2775,7 @@ EditPaM ImpEditEngine::ImpFastInsertText( EditPaM aPaM, const OUString& rStr )
     if ( ( aPaM.GetNode()->Len() + rStr.getLength() ) < MAXCHARSINPARA )
     {
         if ( IsUndoEnabled() && !IsInUndo() )
-            InsertUndo(new EditUndoInsertChars(pEditEngine, CreateEPaM(aPaM), rStr));
+            InsertUndo(o3tl::make_unique<EditUndoInsertChars>(pEditEngine, CreateEPaM(aPaM), rStr));
 
         aPaM = aEditDoc.InsertText( aPaM, rStr );
         TextModified();
@@ -2824,7 +2800,7 @@ EditPaM ImpEditEngine::ImpInsertFeature(const EditSelection& rCurSel, const SfxP
         return aPaM;
 
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo(new EditUndoInsertFeature(pEditEngine, CreateEPaM(aPaM), rItem));
+        InsertUndo(o3tl::make_unique<EditUndoInsertFeature>(pEditEngine, CreateEPaM(aPaM), rItem));
     aPaM = aEditDoc.InsertFeature( aPaM, rItem );
     UpdateFields();
 
@@ -2858,7 +2834,7 @@ EditPaM ImpEditEngine::ImpInsertParaBreak( EditPaM& rPaM, bool bKeepEndingAttrib
     }
 
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo(new EditUndoSplitPara(pEditEngine, aEditDoc.GetPos(rPaM.GetNode()), rPaM.GetIndex()));
+        InsertUndo(o3tl::make_unique<EditUndoSplitPara>(pEditEngine, aEditDoc.GetPos(rPaM.GetNode()), rPaM.GetIndex()));
 
     EditPaM aPaM( aEditDoc.InsertParaBreak( rPaM, bKeepEndingAttribs ) );
 
@@ -2900,7 +2876,7 @@ EditPaM ImpEditEngine::ImpInsertParaBreak( EditPaM& rPaM, bool bKeepEndingAttrib
     // Here, as in undo, but also in all other methods.
     sal_Int32 nPos = GetParaPortions().GetPos( pPortion );
     ParaPortion* pNewPortion = new ParaPortion( aPaM.GetNode() );
-    GetParaPortions().Insert(nPos+1, pNewPortion);
+    GetParaPortions().Insert(nPos+1, std::unique_ptr<ParaPortion>(pNewPortion));
     ParaAttribsChanged( pNewPortion->GetNode() );
     if ( IsCallParaInsertedOrDeleted() )
         GetEditEnginePtr()->ParagraphInserted( nPos+1 );
@@ -2917,10 +2893,10 @@ EditPaM ImpEditEngine::ImpFastInsertParagraph( sal_Int32 nPara )
         if ( nPara )
         {
             OSL_ENSURE( aEditDoc.GetObject( nPara-1 ), "FastInsertParagraph: Prev does not exist" );
-            InsertUndo(new EditUndoSplitPara(pEditEngine, nPara-1, aEditDoc.GetObject( nPara-1 )->Len()));
+            InsertUndo(o3tl::make_unique<EditUndoSplitPara>(pEditEngine, nPara-1, aEditDoc.GetObject( nPara-1 )->Len()));
         }
         else
-            InsertUndo(new EditUndoSplitPara(pEditEngine, 0, 0));
+            InsertUndo(o3tl::make_unique<EditUndoSplitPara>(pEditEngine, 0, 0));
     }
 
     ContentNode* pNode = new ContentNode( aEditDoc.GetItemPool() );
@@ -2932,8 +2908,7 @@ EditPaM ImpEditEngine::ImpFastInsertParagraph( sal_Int32 nPara )
 
     aEditDoc.Insert(nPara, pNode);
 
-    ParaPortion* pNewPortion = new ParaPortion( pNode );
-    GetParaPortions().Insert(nPara, pNewPortion);
+    GetParaPortions().Insert(nPara, o3tl::make_unique<ParaPortion>( pNode ));
     if ( IsCallParaInsertedOrDeleted() )
         GetEditEnginePtr()->ParagraphInserted( nPara );
 
@@ -2993,8 +2968,21 @@ bool ImpEditEngine::UpdateFields()
                 std::unique_ptr<EditCharAttribField> pCurrent(new EditCharAttribField(rField));
                 rField.Reset();
 
-                if ( aStatus.MarkFields() )
+                if (!aStatus.MarkNonUrlFields() && !aStatus.MarkUrlFields())
+                    ;   // nothing marked
+                else if (aStatus.MarkNonUrlFields() && aStatus.MarkUrlFields())
                     rField.GetFieldColor() = GetColorConfig().GetColorValue( svtools::WRITERFIELDSHADINGS ).nColor;
+                else
+                {
+                    bool bURL = false;
+                    if (const SvxFieldItem* pFieldItem = dynamic_cast<const SvxFieldItem*>(rField.GetItem()))
+                    {
+                        if (const SvxFieldData* pFieldData = pFieldItem->GetField())
+                            bURL = (dynamic_cast<const SvxURLField* >(pFieldData) != nullptr);
+                    }
+                    if ((bURL && aStatus.MarkUrlFields()) || (!bURL && aStatus.MarkNonUrlFields()))
+                        rField.GetFieldColor() = GetColorConfig().GetColorValue( svtools::WRITERFIELDSHADINGS ).nColor;
+                }
 
                 const OUString aFldValue =
                     GetEditEnginePtr()->CalcFieldValue(
@@ -4397,12 +4385,6 @@ bool ImpEditEngine::DoVisualCursorTraveling()
 {
     // Don't check if it's necessary, because we also need it when leaving the paragraph
     return IsVisualCursorTravelingEnabled();
-}
-
-
-void ImpEditEngine::QueueNotify( EENotify& rNotify )
-{
-    aNotifyCache.push_back(rNotify);
 }
 
 IMPL_LINK_NOARG(ImpEditEngine, DocModified, LinkParamNone*, void)

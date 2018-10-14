@@ -41,11 +41,9 @@
 #include <com/sun/star/chart2/XDataSeriesContainer.hpp>
 #include <com/sun/star/chart2/data/XDataSource.hpp>
 
-#include <rtl/ustrbuf.hxx>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
 
-#include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/lang/XServiceName.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/sequence.hxx>
@@ -153,8 +151,6 @@ sal_Int32 AxisHelper::getExplicitNumberFormatKeyForAxis(
     bool bLinkToSource = true;
     xProp->getPropertyValue(CHART_UNONAME_LINK_TO_SRC_NUMFMT) >>= bLinkToSource;
     xProp->getPropertyValue(CHART_UNONAME_NUMFMT) >>= nNumberFormatKey;
-
-    sal_Int32 nOldNumberFormat = nNumberFormatKey;
 
     if (bLinkToSource)
     {
@@ -329,9 +325,6 @@ sal_Int32 AxisHelper::getExplicitNumberFormatKeyForAxis(
                 }
             }
         }
-
-        if (nOldNumberFormat != nNumberFormatKey)
-            xProp->setPropertyValue(CHART_UNONAME_NUMFMT, uno::Any(nNumberFormatKey));
     }
 
     return nNumberFormatKey;

@@ -55,6 +55,7 @@
 #include <sdbdatacolumn.hxx>
 
 #include <comphelper/property.hxx>
+#include <comphelper/types.hxx>
 #include <cppuhelper/implbase.hxx>
 
 #include <algorithm>
@@ -130,7 +131,7 @@ class GridFieldValueListener : protected ::comphelper::OPropertyChangeListener
     osl::Mutex                          m_aMutex;
     DbGridControl&                      m_rParent;
     rtl::Reference<::comphelper::OPropertyChangeMultiplexer> m_pRealListener;
-    sal_uInt16                          m_nId;
+    sal_uInt16 const                    m_nId;
     sal_Int16                           m_nSuspended;
     bool                                m_bDisposed : 1;
 
@@ -2753,7 +2754,7 @@ void DbGridControl::StartDrag( sal_Int8 /*nAction*/, const Point& rPosPixel )
     if (!m_pSeekCursor || IsResizing())
         return;
 
-    sal_uInt16 nColId = GetColumnAtXPosPixel(rPosPixel.X());
+    sal_uInt16 nColId = GetColumnId(GetColumnAtXPosPixel(rPosPixel.X()));
     long   nRow = GetRowAtYPosPixel(rPosPixel.Y());
     if (nColId != HandleColumnId && nRow >= 0)
     {
@@ -2772,7 +2773,7 @@ bool DbGridControl::canCopyCellText(sal_Int32 _nRow, sal_uInt16 _nColId)
     return  (_nRow >= 0)
         &&  (_nRow < GetRowCount())
         &&  (_nColId != HandleColumnId)
-        &&  (_nColId <= ColCount());
+        &&  (GetModelColumnPos(_nColId) != GRID_COLUMN_NOT_FOUND);
 }
 
 void DbGridControl::copyCellText(sal_Int32 _nRow, sal_uInt16 _nColId)
@@ -2819,7 +2820,7 @@ void DbGridControl::Command(const CommandEvent& rEvt)
                 }
             }
 
-            sal_uInt16 nColId = GetColumnAtXPosPixel(rEvt.GetMousePosPixel().X());
+            sal_uInt16 nColId = GetColumnId(GetColumnAtXPosPixel(rEvt.GetMousePosPixel().X()));
             long   nRow = GetRowAtYPosPixel(rEvt.GetMousePosPixel().Y());
 
             if (nColId == HandleColumnId)

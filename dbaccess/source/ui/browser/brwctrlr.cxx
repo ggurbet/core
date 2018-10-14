@@ -71,6 +71,7 @@
 #include <comphelper/interaction.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/string.hxx>
+#include <comphelper/types.hxx>
 #include <connectivity/dbexception.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/sqlerror.hxx>
@@ -1750,19 +1751,19 @@ void SbaXDataBrowserController::ExecuteFilterSortCrit(bool bFilter)
         Reference< XConnection> xCon(xFormSet->getPropertyValue(PROPERTY_ACTIVE_CONNECTION),UNO_QUERY);
         if(bFilter)
         {
-            ScopedVclPtrInstance< DlgFilterCrit > aDlg( getBrowserView(), getORB(), xCon, xParser, m_xColumnsSupplier->getColumns() );
-            if ( !aDlg->Execute() )
+            DlgFilterCrit aDlg(getFrameWeld(), getORB(), xCon, xParser, m_xColumnsSupplier->getColumns());
+            if (!aDlg.run())
                 return; // if so we don't need to update the grid
-            aDlg->BuildWherePart();
+            aDlg.BuildWherePart();
         }
         else
         {
-            ScopedVclPtrInstance< DlgOrderCrit > aDlg( getBrowserView(),xCon,xParser, m_xColumnsSupplier->getColumns() );
-            if(!aDlg->Execute())
+            DlgOrderCrit aDlg(getFrameWeld(), xCon, xParser, m_xColumnsSupplier->getColumns());
+            if (!aDlg.run())
             {
                 return; // if so we don't need to actualize the grid
             }
-            aDlg->BuildOrderPart();
+            aDlg.BuildOrderPart();
         }
     }
     catch(const SQLException& )

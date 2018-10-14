@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <comphelper/string.hxx>
 #include <svtools/htmlkywd.hxx>
 #include <svtools/htmlout.hxx>
@@ -167,7 +168,7 @@ static Writer& OutHTML_SwField( Writer& rWrt, const SwField* pField,
 
                 switch( nSubType )
                 {
-                    case DI_TITEL:      pSubStr = OOO_STRING_SW_HTML_FS_title;  break;
+                    case DI_TITLE:      pSubStr = OOO_STRING_SW_HTML_FS_title;  break;
                     case DI_THEMA:      pSubStr = OOO_STRING_SW_HTML_FS_theme;  break;
                     case DI_KEYS:       pSubStr = OOO_STRING_SW_HTML_FS_keys;   break;
                     case DI_COMMENT:    pSubStr = OOO_STRING_SW_HTML_FS_comment; break;

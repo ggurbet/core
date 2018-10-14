@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -196,6 +196,8 @@ oslFileError SAL_CALL osl_openDirectory(rtl_uString* ustrDirectoryURL, oslDirect
 
             if( pdir )
             {
+                SAL_INFO("sal.file", "opendir(" << path << ") => " << pdir);
+
                 /* create and initialize impl structure */
                 oslDirectoryImpl* pDirImpl = static_cast<oslDirectoryImpl*>(malloc( sizeof(oslDirectoryImpl) ));
 
@@ -214,9 +216,8 @@ oslFileError SAL_CALL osl_openDirectory(rtl_uString* ustrDirectoryURL, oslDirect
             }
             else
             {
-#ifdef DEBUG_OSL_FILE
-                perror ("osl_openDirectory"); fprintf (stderr, path);
-#endif
+                int e = errno;
+                SAL_INFO("sal.file", "opendir(" << path << "): errno " << e << ": " << strerror(e));
             }
         }
     }
@@ -244,8 +245,14 @@ oslFileError SAL_CALL osl_closeDirectory(oslDirectory pDirectory)
     else
 #endif
     {
-        if (closedir( pDirImpl->pDirStruct))
+        if (closedir( pDirImpl->pDirStruct) != 0)
+        {
+            int e = errno;
+            SAL_INFO("sal.file", "closedir(" << pDirImpl->pDirStruct << "): errno " << e << ": " << strerror(e));
             err = oslTranslateFileError(errno);
+        }
+        else
+            SAL_INFO("sal.file", "closedir(" << pDirImpl->pDirStruct << "): OK");
     }
 
     /* cleanup members */
@@ -461,8 +468,11 @@ oslFileError osl_psz_createDirectory(char const * pszPath, sal_uInt32 flags)
     if ( nRet < 0 )
     {
         nRet=errno;
+        SAL_INFO("sal.file", "mkdir(" << pszPath << ",0" << std::oct << mode << std::dec << "): errno " << nRet << ": " << strerror(nRet));
         return oslTranslateFileError(nRet);
     }
+    else
+        SAL_INFO("sal.file", "mkdir(" << pszPath << ",0" << std::oct << mode << std::dec << "): OK");
 
     return osl_File_E_None;
 }
@@ -476,8 +486,11 @@ static oslFileError osl_psz_removeDirectory( const sal_Char* pszPath )
     if ( nRet < 0 )
     {
         nRet=errno;
+        SAL_INFO("sal.file", "rmdir(" << pszPath << "): errno " << nRet << ": " << strerror(nRet));
         return oslTranslateFileError(nRet);
     }
+    else
+        SAL_INFO("sal.file", "rmdir(" << pszPath << "): OK");
 
     return osl_File_E_None;
 }
@@ -604,6 +617,11 @@ oslFileError SAL_CALL osl_moveFile( rtl_uString* ustrFileURL, rtl_uString* ustrD
     return oslDoMoveFile( srcPath, destPath );
 }
 
+oslFileError SAL_CALL osl_replaceFile(rtl_uString* ustrFileURL, rtl_uString* ustrDestURL)
+{
+    return osl_moveFile(ustrFileURL, ustrDestURL);
+}
+
 oslFileError SAL_CALL osl_copyFile( rtl_uString* ustrFileURL, rtl_uString* ustrDestURL )
 {
     char srcPath[PATH_MAX];
@@ -692,8 +710,11 @@ static oslFileError osl_unlinkFile(const sal_Char* pszPath)
     if (nRet < 0)
     {
         nRet=errno;
+        SAL_INFO("sal.file", "unlink(" << pszPath << "): errno " << nRet << ": " << strerror(nRet));
         return oslTranslateFileError(nRet);
     }
+    else
+        SAL_INFO("sal.file", "unlink(" << pszPath << "): OK");
 
     return osl_File_E_None;
 }
@@ -707,8 +728,11 @@ static oslFileError osl_psz_moveFile(const sal_Char* pszPath, const sal_Char* ps
     if (nRet < 0)
     {
         nRet=errno;
+        SAL_INFO("sal.file", "rename(" << pszPath << "," << pszDestPath << "): errno " << nRet << ": " << strerror(nRet));
         return oslTranslateFileError(nRet);
     }
+    else
+        SAL_INFO("sal.file", "rename(" << pszPath << "," << pszDestPath << "): OK");
 
     return osl_File_E_None;
 }
@@ -751,6 +775,14 @@ static oslFileError osl_psz_copyFile( const sal_Char* pszPath, const sal_Char* p
     {
         nRet=errno;
 
+#ifdef IOS
+        // Checking for nonexistent files at least in the iCloud cache directory (like
+        // "/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs/helloodt0.odt" fails
+        // with EPERM, not ENOENT.
+        if (nRet == EPERM)
+            DestFileExists=0;
+#endif
+
         if (nRet == ENOENT)
             DestFileExists=0;
     }
@@ -784,19 +816,22 @@ static oslFileError oslDoCopy(const sal_Char* pszSourceFileName, const sal_Char*
         tmpDestFile = rtl::OString(pszDestFileName) + ".osl-tmp";
         if (rename(pszDestFileName, tmpDestFile.getStr()) != 0)
         {
+            int e = errno;
+            SAL_INFO("sal.file", "rename(" << pszDestFileName << ", " << tmpDestFile
+                     << "): errno " << e << ": " << strerror(e));
             if (errno == ENOENT)
             {
                 DestFileExists = 0;
             }
             else
             {
-                int e = errno;
-                SAL_INFO(
-                    "sal.osl",
-                    "rename(" << pszDestFileName << ", " << tmpDestFile
-                        << ") failed with errno " << e);
                 return osl_File_E_EXIST; // for want of a better error code
             }
+        }
+        else
+        {
+            SAL_INFO("sal.file", "rename(" << pszDestFileName << ", " << tmpDestFile
+                     << "): OK");
         }
     }
 
@@ -819,15 +854,22 @@ static oslFileError oslDoCopy(const sal_Char* pszSourceFileName, const sal_Char*
 
     if ( nRet > 0 && DestFileExists == 1 )
     {
-        unlink(pszDestFileName);
+        if (unlink(pszDestFileName) != 0)
+        {
+            int e = errno;
+            SAL_INFO("sal.file", "unlink(" << pszDestFileName << "): errno " << e << ": " << strerror(e));
+        }
+        else
+            SAL_INFO("sal.file", "unlink(" << pszDestFileName << "): OK");
+
         if (rename(tmpDestFile.getStr(), pszDestFileName) != 0)
         {
             int e = errno;
-            SAL_WARN(
-                "sal.osl",
-                "rename(" << tmpDestFile << ", " << pszDestFileName
-                << ") failed with errno " << e);
+            SAL_INFO("sal.file", "rename(" << tmpDestFile << ", " << pszDestFileName
+                     << "): errno " << e << ": " << strerror(e));
         }
+        else
+            SAL_INFO("sal.file", "rename(" << tmpDestFile << ", " << pszDestFileName << "): OK");
     }
 
     if ( nRet > 0 )
@@ -854,9 +896,10 @@ void attemptChangeMetadata( const sal_Char* pszFileName, mode_t nMode, time_t nA
 #endif
     {
         int e = errno;
-        SAL_INFO(
-            "sal.osl", "chmod(" << pszFileName << ") failed with errno " << e);
+        SAL_INFO("sal.file", "chmod(" << pszFileName << ",0" << std::oct << nMode << std::dec <<"): errno " << e << ": " << strerror(e));
     }
+    else
+        SAL_INFO("sal.file", "chmod(" << pszFileName << ",0" << std::oct << nMode << std::dec <<"): OK");
 
     // No way to change utime of a symlink itself:
     if (!S_ISLNK(nMode))
@@ -866,9 +909,7 @@ void attemptChangeMetadata( const sal_Char* pszFileName, mode_t nMode, time_t nA
         if ( utime(pszFileName,&aTimeBuffer) < 0 )
         {
             int e = errno;
-            SAL_INFO(
-                "sal.osl",
-                "utime(" << pszFileName << ") failed with errno " << e);
+            SAL_INFO("sal.file", "utime(" << pszFileName << "): errno " << e);
         }
     }
 
@@ -879,9 +920,10 @@ void attemptChangeMetadata( const sal_Char* pszFileName, mode_t nMode, time_t nA
     if ( lchown(pszFileName,nUID,nGID) < 0 )
     {
         int e = errno;
-        SAL_INFO(
-            "sal.osl", "lchown(" << pszFileName << ") failed with errno " << e);
+        SAL_INFO("sal.file", "lchown(" << pszFileName << "): errno " << e);
     }
+    else
+        SAL_INFO("sal.file", "lchown(" << pszFileName << "): OK");
 }
 
 static int oslDoCopyLink(const sal_Char* pszSourceFileName, const sal_Char* pszDestFileName)
@@ -935,9 +977,12 @@ static int oslDoCopyFile(const sal_Char* pszSourceFileName, const sal_Char* pszD
     if ( DestFileFD < 0 )
     {
         nRet=errno;
+        SAL_INFO("sal.file", "open(" << pszDestFileName << ",O_WRONLY|O_CREAT,0" << std::oct << mode << std::dec << "): errno " << nRet << ": " << strerror(nRet));
         osl_closeFile(SourceFileFH);
         return nRet;
     }
+    else
+        SAL_INFO("sal.file", "open(" << pszDestFileName << ",O_WRONLY|O_CREAT,0" << std::oct << mode << std::dec << "): OK");
 
     size_t nRemains = nSourceSize;
 
@@ -973,8 +1018,15 @@ static int oslDoCopyFile(const sal_Char* pszSourceFileName, const sal_Char* pszD
     }
 
     osl_closeFile( SourceFileFH );
-    if ( close( DestFileFD ) == -1 && nRet == 0 )
-        nRet = errno;
+    if ( close( DestFileFD ) == -1 )
+    {
+        int e = errno;
+        SAL_INFO("sal.file", "close(" << DestFileFD << "): errno " << e << ": " << strerror(e));
+        if ( nRet == 0 )
+            nRet = e;
+    }
+    else
+        SAL_INFO("sal.file", "close(" << DestFileFD << "): OK");
 
     return nRet;
 }

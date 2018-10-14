@@ -36,7 +36,7 @@ using namespace ::com::sun::star;
 namespace std
 {
     // add operator!= for weak_ptr
-    static inline bool operator!=( slideshow::internal::LayerWeakPtr const& rLHS,
+    static bool operator!=( slideshow::internal::LayerWeakPtr const& rLHS,
                             slideshow::internal::LayerWeakPtr const& rRHS )
     {
         return rLHS.lock().get() != rRHS.lock().get();
@@ -594,7 +594,7 @@ namespace slideshow
                 }
 
             private:
-                ::cppcanvas::CanvasSharedPtr mpCanvas;
+                ::cppcanvas::CanvasSharedPtr const mpCanvas;
             };
         }
 

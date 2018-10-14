@@ -64,7 +64,16 @@ static std::vector< TimeRecord > aTimes;
 static void dumpTile(const int nWidth, const int nHeight, const int mode, const unsigned char* pBufferU)
 {
     auto pBuffer = reinterpret_cast<const char *>(pBufferU);
+#ifndef IOS
     std::ofstream ofs("/tmp/dump_tile.ppm");
+#else
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths objectAtIndex:0];
+    static int counter = 0;
+    NSString *path = [NSString stringWithFormat:@"%@/dump_tile_%d.ppm", documentsDirectory, counter++];
+    std::ofstream ofs([path UTF8String]);
+    std::cerr << "---> Dumping tile\n";
+#endif
     ofs << "P6\n"
         << nWidth << " "
         << nHeight << "\n"
@@ -101,6 +110,7 @@ static void dumpTile(const int nWidth, const int nHeight, const int mode, const 
             }
         }
     }
+    ofs.close();
 }
 
 static void testTile( Document *pDocument, int max_parts,
@@ -157,7 +167,7 @@ static void testTile( Document *pDocument, int max_parts,
             // whole part; meaningful only for non-writer documents.
             aTimes.emplace_back("render whole part");
             pDocument->paintTile(pPixels, nTilePixelWidth, nTilePixelHeight,
-                                 nWidth/2, 2000, 1000, 1000); // not square
+                                 nWidth/2, 2000, 1000, 1000);
             aTimes.emplace_back();
             if (dump)
                 dumpTile(nTilePixelWidth, nTilePixelHeight, mode, pPixels);
@@ -177,7 +187,6 @@ static void testTile( Document *pDocument, int max_parts,
                         nY = nHeight;
                         break;
                     }
-
                     pDocument->paintTile(pPixels, nTilePixelWidth, nTilePixelHeight,
                                          nX, nY, nTilePixelWidth, nTilePixelHeight);
                     nTiles++;
@@ -203,7 +212,6 @@ static void testTile( Document *pDocument, int max_parts,
                         nY = nHeight;
                         break;
                     }
-
                     pDocument->paintTile(pPixels, nTilePixelWidth, nTilePixelHeight,
                                          nX, nY, nTileTwipWidth, nTileTwipHeight);
                     nTiles++;
@@ -284,14 +292,20 @@ static void testDialog( Document *pDocument, const char *uno_cmd )
     pDocument->destroyView(view);
 }
 
+static void documentCallback(const int type, const char* p, void*)
+{
+    std::cerr << "Document callback " << type << ": " << (p ? p : "(null)") << "\n";
+}
+
 int main( int argc, char* argv[] )
 {
-    int arg;
+    int arg = 2;
+    origin = getTimeNow();
 
+#ifndef IOS
     // avoid X oddness etc.
     unsetenv("DISPLAY");
 
-    origin = getTimeNow();
     if( argc < 4 ||
         ( argc > 1 && ( !strcmp( argv[1], "--help" ) || !strcmp( argv[1], "-h" ) ) ) )
         return help();
@@ -302,7 +316,6 @@ int main( int argc, char* argv[] )
         return 1;
     }
 
-    arg = 2;
     const char *doc_url = argv[arg++];
     const char *mode = argv[arg++];
 
@@ -325,10 +338,18 @@ int main( int argc, char* argv[] )
         lok_preinit(argv[1], user_url.c_str());
         aTimes.emplace_back();
     }
+    const char *install_path = argv[1];
+    const char *user_profile = user_url.c_str();
+#else
+    const char *install_path = nullptr;
+    const char *user_profile = nullptr;
+    const char *doc_url = strdup([[[[[NSBundle mainBundle] bundleURL] absoluteString] stringByAppendingString:@"/test.odt"] UTF8String]);
+    const char *mode = "--tile";
+#endif
 
     aTimes.emplace_back("initialization");
     // coverity[tainted_string] - build time test tool
-    Office *pOffice = lok_cpp_init(argv[1], user_url.c_str());
+    Office *pOffice = lok_cpp_init(install_path, user_profile);
     if (pOffice == nullptr)
     {
         fprintf(stderr, "Failed to initialize Office from %s\n", argv[1]);
@@ -338,6 +359,8 @@ int main( int argc, char* argv[] )
 
     Document *pDocument = nullptr;
 
+    pOffice->setOptionalFeatures(LOK_FEATURE_NO_TILED_ANNOTATIONS);
+
     aTimes.emplace_back("load document");
     if (doc_url != nullptr)
         pDocument = pOffice->documentLoad(doc_url);
@@ -345,6 +368,8 @@ int main( int argc, char* argv[] )
 
     if (pDocument)
     {
+        pDocument->initializeForRendering("{\".uno:Author\":{\"type\":\"string\",\"value\":\"Local Host #0\"}}");
+        pDocument->registerCallback(documentCallback, nullptr);
         if (!strcmp(mode, "--tile"))
         {
             const int max_parts = (argc > arg ? atoi(argv[arg++]) : -1);

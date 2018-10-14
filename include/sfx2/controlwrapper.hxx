@@ -68,8 +68,8 @@ public:
     /** A helper struct that contains a list position - value pair. */
     struct MapEntryType
     {
-        PosT                mnPos;      /// Position in the list.
-        ValueT              mnValue;    /// Corresponding value.
+        PosT const          mnPos;      /// Position in the list.
+        ValueT const        mnValue;    /// Corresponding value.
     };
 
     /** Constructs the map helper with the passed map.
@@ -142,15 +142,6 @@ public:
     explicit     ControlWrapperBase() {}
     virtual             ~ControlWrapperBase();
 
-    /** Derived classes enable, disable, show, or hide control(s).
-        @descr  Will do nothing, if the corresponding parameter is TRISTATE_INDET. */
-    virtual void        ModifyControl( TriState eShow ) = 0;
-
-    /** Derived classes return true if the control is in "don't know" state. */
-    virtual bool        IsControlDontKnow() const = 0;
-    /** Derived classes set the control to "don't know" state. */
-    virtual void        SetControlDontKnow( bool bSet ) = 0;
-
 private:
                         ControlWrapperBase( const ControlWrapperBase& ) = delete;
     ControlWrapperBase& operator=( const ControlWrapperBase& ) = delete;
@@ -188,10 +179,6 @@ public:
     /** Returns a reference to the control this connection works on. */
     ControlT&    GetControl() { return mrControl; }
 
-    /** Enables, disables, shows, or hides the control.
-        @descr  Does nothing, if the corresponding parameter is TRISTATE_INDET. */
-    virtual void        ModifyControl( TriState eShow ) override;
-
     /** Derived classes return the value the control contains. */
     virtual ValueT      GetControlValue() const = 0;
     /** Derived classes set the contents of the control to the passed value. */
@@ -199,50 +186,6 @@ public:
 
 private:
     ControlT&           mrControl;  /// The control of this wrapper.
-};
-
-
-/** A dummy wrapper for a VCL Window that does nothing special.
-
-    This wrapper is used to implement the DummyItemConnection. It does not
-    connect an item to a control, but handles the special flags to disable or
-    hide a control, if an item is unknown.
- */
-class SFX2_DLLPUBLIC DummyWindowWrapper:
-    public SingleControlWrapper< vcl::Window, void* >
-{
-public:
-    explicit            DummyWindowWrapper( vcl::Window& rWindow );
-
-    virtual bool        IsControlDontKnow() const override;
-    virtual void        SetControlDontKnow( bool ) override;
-
-    virtual void*       GetControlValue() const override;
-    virtual void        SetControlValue( void* ) override;
-};
-
-
-/** A wrapper for the VCL MetricField.
-
-    Adds support for field units during accessing the control value. The
-    wrapper respects the field unit set at the control itself and converts it
-    from/to the field unit passed to the constructor.
- */
-template< typename ValueT >
-class MetricFieldWrapper : public SingleControlWrapper< MetricField, ValueT >
-{
-public:
-    explicit     MetricFieldWrapper( MetricField& rField, FieldUnit eUnit ) :
-                            SingleControlWrapper< MetricField, ValueT >( rField ), meUnit( eUnit ) {}
-
-    virtual bool        IsControlDontKnow() const override;
-    virtual void        SetControlDontKnow( bool bSet ) override;
-
-    virtual ValueT      GetControlValue() const override;
-    virtual void        SetControlValue( ValueT nValue ) override;
-
-private:
-    FieldUnit           meUnit;
 };
 
 
@@ -268,11 +211,6 @@ public:
         See PosValueMapper documentation for details. */
     explicit     ListBoxWrapper( ListBox& rListBox, const MapEntryType* pMap ) :
                             SingleControlWrapper< ListBox, ValueT >( rListBox ), MapperType( WRAPPER_LISTBOX_ENTRY_NOTFOUND, pMap ) {}
-
-    virtual bool        IsControlDontKnow() const override
-                            { return this->GetControl().GetSelectedEntryCount() == 0; }
-    virtual void        SetControlDontKnow( bool bSet ) override
-                            { if( bSet ) this->GetControl().SetNoSelection(); }
 
     virtual ValueT      GetControlValue() const override;
     virtual void        SetControlValue( ValueT nValue ) override;
@@ -324,39 +262,6 @@ PosT PosValueMapper< PosT, ValueT >::GetPosFromValue( ValueT nValue ) const
 
 // Single control wrappers
 
-
-template< typename ControlT, typename ValueT >
-inline void SingleControlWrapper< ControlT, ValueT >::ModifyControl( TriState eShow )
-{
-    if( eShow != TRISTATE_INDET )
-        mrControl.Show( eShow == TRISTATE_TRUE );
-}
-
-
-template< typename ValueT >
-bool MetricFieldWrapper< ValueT >::IsControlDontKnow() const
-{
-    return this->GetControl().GetText().isEmpty();
-}
-
-template< typename ValueT >
-void MetricFieldWrapper< ValueT >::SetControlDontKnow( bool bSet )
-{
-    if( bSet )
-        this->GetControl().SetText( OUString() );
-}
-
-template< typename ValueT >
-ValueT MetricFieldWrapper< ValueT >::GetControlValue() const
-{
-    return static_cast< ValueT >( this->GetControl().Denormalize( this->GetControl().GetValue( meUnit ) ) );
-}
-
-template< typename ValueT >
-void MetricFieldWrapper< ValueT >::SetControlValue( ValueT nValue )
-{
-    this->GetControl().SetValue( this->GetControl().Normalize( static_cast< sal_Int64 >( nValue ) ), meUnit );
-}
 
 template< typename ValueT >
 ValueT ListBoxWrapper< ValueT >::GetControlValue() const

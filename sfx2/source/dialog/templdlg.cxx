@@ -82,7 +82,7 @@ namespace
 
 class StyleLBoxString : public SvLBoxString
 {
-    SfxStyleFamily meStyleFamily;
+    SfxStyleFamily const meStyleFamily;
     SvViewDataItem* mpViewData;
 
 public:
@@ -505,8 +505,8 @@ typedef std::vector<std::unique_ptr<StyleTree_Impl>> StyleTreeArr_Impl;
 class StyleTree_Impl
 {
 private:
-    OUString aName;
-    OUString aParent;
+    OUString const aName;
+    OUString const aParent;
     StyleTreeArr_Impl pChildren;
 
 public:
@@ -564,7 +564,7 @@ static void MakeTree_Impl(StyleTreeArr_Impl& rArr)
         });
 }
 
-static inline bool IsExpanded_Impl( const std::vector<OUString>& rEntries,
+static bool IsExpanded_Impl( const std::vector<OUString>& rEntries,
                              const OUString &rStr)
 {
     for (const auto & rEntry : rEntries)
@@ -1704,6 +1704,7 @@ void SfxCommonTemplateDialog_Impl::ActionSelect(sal_uInt16 nEntry)
                                  aTemplName, "",
                                  static_cast<sal_uInt16>(GetFamilyItem_Impl()->GetFamily()),
                                  nFilter);
+                    UpdateFamily_Impl();
                 }
                 pStyleSheetPool->SetSearchMask( eFam, nFilter );
             }

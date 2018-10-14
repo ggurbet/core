@@ -63,7 +63,6 @@
 #include <AccessibilityHints.hxx>
 #include <vcl/svapp.hxx>
 #include <viewutil.hxx>
-#include <columnspanset.hxx>
 #include <docpool.hxx>
 #include <patattr.hxx>
 
@@ -1112,7 +1111,7 @@ void ScPreview::MouseButtonUp( const MouseEvent& rMEvt )
                     if( bUndo )
                     {
                         pDocShell->GetUndoManager()->AddUndoAction(
-                            new ScUndoModifyStyle( pDocShell, SfxStyleFamily::Page,
+                            o3tl::make_unique<ScUndoModifyStyle>( pDocShell, SfxStyleFamily::Page,
                             aOldData, aNewData ) );
                     }
 
@@ -1214,7 +1213,7 @@ void ScPreview::MouseButtonUp( const MouseEvent& rMEvt )
                     if( bUndo )
                     {
                         pDocShell->GetUndoManager()->AddUndoAction(
-                            new ScUndoModifyStyle( pDocShell, SfxStyleFamily::Page,
+                            o3tl::make_unique<ScUndoModifyStyle>( pDocShell, SfxStyleFamily::Page,
                             aOldData, aNewData ) );
                     }
 

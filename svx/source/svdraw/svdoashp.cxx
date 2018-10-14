@@ -30,6 +30,7 @@
 #include <com/sun/star/drawing/PolyPolygonBezierCoords.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/processfactory.hxx>
 #include <svl/urihelper.hxx>
 #include <com/sun/star/uno/Sequence.h>
@@ -1816,10 +1817,10 @@ void SdrObjCustomShape::AddToHdlList(SdrHdlList& rHdlList) const
             try
             {
                 css::awt::Point aPosition( rInteraction.xInteraction->getPosition() );
-                SdrHdl* pH = new SdrHdl( Point( aPosition.X, aPosition.Y ), SdrHdlKind::CustomShape1 );
+                std::unique_ptr<SdrHdl> pH(new SdrHdl( Point( aPosition.X, aPosition.Y ), SdrHdlKind::CustomShape1 ));
                 pH->SetPointNum( nCustomShapeHdlNum );
                 pH->SetObj( const_cast<SdrObjCustomShape*>(this) );
-                rHdlList.AddHdl(pH);
+                rHdlList.AddHdl(std::move(pH));
             }
             catch ( const uno::RuntimeException& )
             {

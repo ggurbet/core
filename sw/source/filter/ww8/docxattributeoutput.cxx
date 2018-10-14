@@ -137,6 +137,7 @@
 #include <svtools/miscopt.hxx>
 
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/drawing/ShadingPattern.hpp>
 #include <com/sun/star/text/GraphicCrop.hpp>
@@ -2109,8 +2110,8 @@ namespace
 
 struct NameToId
 {
-    OUString  maName;
-    sal_Int32 maId;
+    OUString const  maName;
+    sal_Int32 const maId;
 };
 
 const NameToId constNameToIdMapping[] =
@@ -2932,6 +2933,7 @@ static void impl_borderLine( FSHelperPtr const & pSerializer, sal_Int32 elementT
                 pVal = "dashed";
                 break;
             case SvxBorderLineStyle::DOUBLE:
+            case SvxBorderLineStyle::DOUBLE_THIN:
                 pVal = "double";
                 break;
             case SvxBorderLineStyle::THINTHICK_SMALLGAP:
@@ -2966,6 +2968,12 @@ static void impl_borderLine( FSHelperPtr const & pSerializer, sal_Int32 elementT
                 break;
             case SvxBorderLineStyle::FINE_DASHED:
                 pVal = "dashSmallGap";
+                break;
+            case SvxBorderLineStyle::DASH_DOT:
+                pVal = "dotDash";
+                break;
+            case SvxBorderLineStyle::DASH_DOT_DOT:
+                pVal = "dotDotDash";
                 break;
             case SvxBorderLineStyle::NONE:
             default:
@@ -3023,18 +3031,6 @@ static void impl_borderLine( FSHelperPtr const & pSerializer, sal_Int32 elementT
 
     XFastAttributeListRef xAttrs( pAttr );
     pSerializer->singleElementNS( XML_w, elementToken, xAttrs );
-}
-
-static OutputBorderOptions lcl_getTableDefaultBorderOptions(bool bEcma)
-{
-    OutputBorderOptions rOptions;
-
-    rOptions.tag = XML_tblBorders;
-    rOptions.bUseStartEnd = !bEcma;
-    rOptions.bWriteTag = true;
-    rOptions.bWriteDistance = false;
-
-    return rOptions;
 }
 
 static OutputBorderOptions lcl_getTableCellBorderOptions(bool bEcma)
@@ -3567,8 +3563,7 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
 
     // We should clear the TableStyle map. In case of Table inside multiple tables it contains the
     // table border style of the previous table.
-    if (! m_aTableStyleConf.empty())
-        m_aTableStyleConf.clear();
+    m_aTableStyleConf.clear();
 
     // Extract properties from grab bag
     for( const auto & rGrabBagElement : aGrabBag )
@@ -3773,19 +3768,10 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
     m_pSerializer->endElementNS( XML_w, XML_tblGrid );
 }
 
-void DocxAttributeOutput::TableDefaultBorders( ww8::WW8TableNodeInfoInner::Pointer_t pTableTextNodeInfoInner )
+void DocxAttributeOutput::TableDefaultBorders( ww8::WW8TableNodeInfoInner::Pointer_t /*pTableTextNodeInfoInner*/ )
 {
-    const SwTableBox * pTabBox = pTableTextNodeInfoInner->getTableBox();
-    const SwFrameFormat * pFrameFormat = pTabBox->GetFrameFormat();
-
-    bool bEcma = GetExport().GetFilter().getVersion( ) == oox::core::ECMA_DIALECT;
-
-    // Don't write table defaults based on the top-left cell if we have a table style available.
-    if (m_aTableStyleConf.empty())
-    {
-        // the defaults of the table are taken from the top-left cell
-        impl_borders(m_pSerializer, pFrameFormat->GetBox(), lcl_getTableDefaultBorderOptions(bEcma), m_aTableStyleConf);
-    }
+    // Table defaults should only be created IF m_aTableStyleConf contents haven't come from a table style.
+    // Previously this function wrote out Cell A1 as the table default, causing problems with no benefit.
 }
 
 void DocxAttributeOutput::TableDefaultCellMargins( ww8::WW8TableNodeInfoInner::Pointer_t const & pTableTextNodeInfoInner )
@@ -5316,8 +5302,8 @@ void DocxAttributeOutput::WritePostponedDMLDrawing()
         return;
 
     // Clear the list early, this method may be called recursively.
-    std::unique_ptr< std::vector<PostponedDrawing> > pPostponedDMLDrawings(m_pPostponedDMLDrawings.release());
-    std::unique_ptr< std::vector<PostponedOLE> > pPostponedOLEs(m_pPostponedOLEs.release());
+    std::unique_ptr< std::vector<PostponedDrawing> > pPostponedDMLDrawings(std::move(m_pPostponedDMLDrawings));
+    std::unique_ptr< std::vector<PostponedOLE> > pPostponedOLEs(std::move(m_pPostponedOLEs));
 
     for( const auto & rPostponedDrawing : *pPostponedDMLDrawings )
     {
@@ -6330,7 +6316,7 @@ void DocxAttributeOutput::EmbedFont( const OUString& name, FontFamily family, Fo
     EmbedFontStyle( name, XML_embedBoldItalic, family, ITALIC_NORMAL, WEIGHT_BOLD, pitch );
 }
 
-static inline char toHexChar( int value )
+static char toHexChar( int value )
 {
     return value >= 10 ? value + 'A' - 10 : value + '0';
 }

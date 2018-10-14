@@ -20,6 +20,7 @@
 #include <config_features.h>
 
 #include <com/sun/star/document/EventObject.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <osl/mutex.hxx>
@@ -308,8 +309,7 @@ void SAL_CALL SvxDrawPage::remove( const Reference< drawing::XShape >& xShape )
                         mpModel->BegUndo(SvxResId(STR_EditDelete),
                             pObj->TakeObjNameSingul(), SdrRepeatFunc::Delete);
 
-                        SdrUndoAction * pAction = mpModel->GetSdrUndoFactory().CreateUndoDeleteObject(*pObj);
-                        mpModel->AddUndo(pAction);
+                        mpModel->AddUndo(mpModel->GetSdrUndoFactory().CreateUndoDeleteObject(*pObj));
                     }
 
                     OSL_VERIFY( mpPage->RemoveObject( nNum ) == pObj );

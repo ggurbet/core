@@ -48,7 +48,7 @@ private:
     SfxItemSet           aDataSet;
     OUString             aStrPageStyle;
     SvxPageUsage         nPageUsage;
-    VclPtr<ScStyleDlg>   pStyleDlg;
+    ScStyleDlg*          pStyleDlg;
     std::unique_ptr<weld::Button> m_xBtnEdit;
 
     DECL_LINK(BtnHdl, weld::Button&, void);
@@ -64,7 +64,7 @@ public:
     static const sal_uInt16*      GetRanges();
 
 private:
-    ScHeaderPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    ScHeaderPage(TabPageParent pParent, const SfxItemSet& rSet);
 };
 
 class ScFooterPage : public ScHFPage
@@ -75,7 +75,7 @@ public:
     static const sal_uInt16*      GetRanges();
 
 private:
-    ScFooterPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    ScFooterPage(TabPageParent pParent, const SfxItemSet& rSet);
 };
 
 #endif // INCLUDED_SC_SOURCE_UI_INC_TPHF_HXX

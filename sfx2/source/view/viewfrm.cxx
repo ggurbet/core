@@ -1237,7 +1237,8 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                     pInfoBar->addButton(xGetInvolvedButton);
                 }
 
-                if (bUpdateLastTimeGetInvolvedShown)
+                if (bUpdateLastTimeGetInvolvedShown
+                    && !officecfg::Setup::Product::LastTimeGetInvolvedShown::isReadOnly())
                 {
                     std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
                     officecfg::Setup::Product::LastTimeGetInvolvedShown::set(nNow, batch);
@@ -1371,7 +1372,7 @@ IMPL_LINK_NOARG(SfxViewFrame, GetInvolvedHandler, Button*, void)
 {
     try
     {
-        OUString sURL("https://hub.libreoffice.org/joinus/?LOlocale=" + utl::ConfigManager::getLocale());
+        OUString sURL("https://hub.libreoffice.org/joinus/?LOlocale=" + utl::ConfigManager::getUILocale());
         sfx2::openUriExternally(sURL, false);
     }
     catch (const Exception&)

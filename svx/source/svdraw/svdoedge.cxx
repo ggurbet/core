@@ -1774,16 +1774,16 @@ void SdrEdgeObj::AddToHdlList(SdrHdlList& rHdlList) const
         return;
 
     {
-        SdrHdl* pHdl=new ImpEdgeHdl((*pEdgeTrack)[0],SdrHdlKind::Poly);
+        std::unique_ptr<SdrHdl> pHdl(new ImpEdgeHdl((*pEdgeTrack)[0],SdrHdlKind::Poly));
         if (aCon1.pObj!=nullptr && aCon1.bBestVertex) pHdl->Set1PixMore();
         pHdl->SetPointNum(0);
-        rHdlList.AddHdl(pHdl);
+        rHdlList.AddHdl(std::move(pHdl));
     }
     {
-        SdrHdl* pHdl=new ImpEdgeHdl((*pEdgeTrack)[sal_uInt16(nPointCount-1)],SdrHdlKind::Poly);
+        std::unique_ptr<SdrHdl> pHdl(new ImpEdgeHdl((*pEdgeTrack)[sal_uInt16(nPointCount-1)],SdrHdlKind::Poly));
         if (aCon2.pObj!=nullptr && aCon2.bBestVertex) pHdl->Set1PixMore();
         pHdl->SetPointNum(1);
-        rHdlList.AddHdl(pHdl);
+        rHdlList.AddHdl(std::move(pHdl));
     }
     {
         SdrEdgeKind eKind=GetObjectItem(SDRATTR_EDGEKIND).GetValue();
@@ -1792,10 +1792,11 @@ void SdrEdgeObj::AddToHdlList(SdrHdlList& rHdlList) const
             sal_uInt32 nO1(aEdgeInfo.nObj1Lines > 0 ? aEdgeInfo.nObj1Lines - 1 : 0);
             sal_uInt32 nO2(aEdgeInfo.nObj2Lines > 0 ? aEdgeInfo.nObj2Lines - 1 : 0);
             sal_uInt32 nM(aEdgeInfo.nMiddleLine != 0xFFFF ? 1 : 0);
-            for(sal_uInt32 nNum = 0; nNum < (nO1 + nO2 + nM); ++nNum)
+            for(sal_uInt32 i = 0; i < (nO1 + nO2 + nM); ++i)
             {
                 sal_Int32 nPt(0);
-                ImpEdgeHdl* pHdl=new ImpEdgeHdl(Point(),SdrHdlKind::Poly);
+                sal_uInt32 nNum = i;
+                std::unique_ptr<ImpEdgeHdl> pHdl(new ImpEdgeHdl(Point(),SdrHdlKind::Poly));
                 if (nNum<nO1) {
                     nPt=nNum+1;
                     if (nNum==0) pHdl->SetLineCode(SdrEdgeLineCode::Obj1Line2);
@@ -1820,11 +1821,8 @@ void SdrEdgeObj::AddToHdlList(SdrHdlList& rHdlList) const
                     aPos.setX( aPos.X() / 2 );
                     aPos.setY( aPos.Y() / 2 );
                     pHdl->SetPos(aPos);
-                    pHdl->SetPointNum(nNum + 2);
-                    rHdlList.AddHdl(pHdl);
-                } else {
-                    delete pHdl;
-                    pHdl=nullptr;
+                    pHdl->SetPointNum(i + 2);
+                    rHdlList.AddHdl(std::move(pHdl));
                 }
             }
         }
@@ -1833,18 +1831,18 @@ void SdrEdgeObj::AddToHdlList(SdrHdlList& rHdlList) const
             if(GetConnectedNode(true))
             {
                 Point aPos((*pEdgeTrack)[1]);
-                ImpEdgeHdl* pHdl=new ImpEdgeHdl(aPos,SdrHdlKind::Poly);
+                std::unique_ptr<ImpEdgeHdl> pHdl(new ImpEdgeHdl(aPos,SdrHdlKind::Poly));
                 pHdl->SetLineCode(SdrEdgeLineCode::Obj1Line2);
                 pHdl->SetPointNum(2);
-                rHdlList.AddHdl(pHdl);
+                rHdlList.AddHdl(std::move(pHdl));
             }
             if(GetConnectedNode(false))
             {
                 Point aPos((*pEdgeTrack)[2]);
-                ImpEdgeHdl* pHdl=new ImpEdgeHdl(aPos,SdrHdlKind::Poly);
+                std::unique_ptr<ImpEdgeHdl> pHdl(new ImpEdgeHdl(aPos,SdrHdlKind::Poly));
                 pHdl->SetLineCode(SdrEdgeLineCode::Obj2Line2);
                 pHdl->SetPointNum(3);
-                rHdlList.AddHdl(pHdl);
+                rHdlList.AddHdl(std::move(pHdl));
             }
         }
     }

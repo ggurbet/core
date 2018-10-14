@@ -70,6 +70,10 @@ namespace
             return OUString(SV_RESID_BITMAP_INDEX);
         else if (sType == "gtk-refresh")
             return OUString(SV_RESID_BITMAP_REFRESH);
+        else if (sType == "gtk-apply")
+            return OUString(IMG_APPLY);
+        else if (sType == "gtk-dialog-error")
+            return OUString(IMG_ERROR);
         return OUString();
     }
 
@@ -627,7 +631,7 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
                     pTargetButton->SetStyle(pTargetButton->GetStyle() | WB_SMALLSTYLE);
             }
             else
-                SAL_WARN_IF(eType != SymbolType::IMAGE, "vcl.layout", "inimplemented symbol type for radiobuttons");
+                SAL_WARN_IF(eType != SymbolType::IMAGE, "vcl.layout", "unimplemented symbol type for radiobuttons");
             if (eType == SymbolType::IMAGE)
             {
                 BitmapEx aBitmap(mapStockToImageResource(rImageInfo.m_sStock));
@@ -656,6 +660,28 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
     for (auto const& elem : aImagesToBeRemoved)
     {
         delete_by_name(elem.toUtf8());
+    }
+
+    //fill in any stock icons in surviving images
+    for (auto const& elem : m_pParserState->m_aStockMap)
+    {
+        FixedImage *pImage = get<FixedImage>(elem.first);
+        SAL_WARN_IF(!pImage, "vcl", "missing elements of image/stock");
+        if (!pImage)
+            continue;
+
+        const stockinfo &rImageInfo = elem.second;
+        if (rImageInfo.m_sStock == "gtk-missing-image")
+            continue;
+
+        SymbolType eType = mapStockToSymbol(rImageInfo.m_sStock);
+        SAL_WARN_IF(eType != SymbolType::IMAGE, "vcl", "unimplemented symbol type for images");
+        if (eType != SymbolType::IMAGE)
+            continue;
+
+        BitmapEx aBitmap(mapStockToImageResource(rImageInfo.m_sStock));
+        const Image aImage(aBitmap);
+        pImage->SetImage(aImage);
     }
 
     //Set button menus when everything has been imported
@@ -3872,8 +3898,7 @@ VclBuilder::PackingData VclBuilder::get_window_packing_data(const vcl::Window *p
     //border windows placed around them which are what you get
     //from GetChild, so scoot up a level if necessary to get the
     //window whose position value we have
-    const vcl::Window *pPropHolder = pWindow->ImplGetWindowImpl()->mpClientWindow ?
-        pWindow->ImplGetWindowImpl()->mpClientWindow : pWindow;
+    const vcl::Window *pPropHolder = pWindow->ImplGetWindow();
 
     for (auto const& child : m_aChildren)
     {

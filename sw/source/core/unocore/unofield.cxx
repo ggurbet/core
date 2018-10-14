@@ -125,14 +125,14 @@ static const sal_uInt16 aDocInfoSubTypeFromService[] =
     DI_PRINT | DI_SUB_DATE,     //PROPERTY_MAP_FLDTYP_DOCINFO_PRINT_DATE_TIME
     DI_KEYS,                    //PROPERTY_MAP_FLDTYP_DOCINFO_KEY_WORDS
     DI_THEMA,                   //PROPERTY_MAP_FLDTYP_DOCINFO_SUBJECT
-    DI_TITEL,                   //PROPERTY_MAP_FLDTYP_DOCINFO_TITLE
+    DI_TITLE,                   //PROPERTY_MAP_FLDTYP_DOCINFO_TITLE
     DI_DOCNO                    //PROPERTY_MAP_FLDTYP_DOCINFO_REVISION
 };
 
 struct ServiceIdResId
 {
-    SwFieldIds    nResId;
-    SwServiceType nServiceId;
+    SwFieldIds const    nResId;
+    SwServiceType const nServiceId;
 };
 
 static const ServiceIdResId aServiceToRes[] =
@@ -238,7 +238,7 @@ static SwServiceType lcl_GetServiceForField( const SwField& rField )
             case DI_COMMENT:nSrvId = SwServiceType::FieldTypeDocInfoDescription;break;
             case DI_KEYS:   nSrvId = SwServiceType::FieldTypeDocInfoKeywords;break;
             case DI_THEMA:  nSrvId = SwServiceType::FieldTypeDocInfoSubject;  break;
-            case DI_TITEL:  nSrvId = SwServiceType::FieldTypeDocInfoTitle;    break;
+            case DI_TITLE:  nSrvId = SwServiceType::FieldTypeDocInfoTitle;    break;
             case DI_DOCNO:  nSrvId = SwServiceType::FieldTypeDocInfoRevision; break;
             case DI_CUSTOM: nSrvId = SwServiceType::FieldTypeDocInfoCustom;   break;
             }
@@ -424,7 +424,7 @@ public:
     SwDoc*          m_pDoc;
     SwFieldType* m_pType;
 
-    SwFieldIds      m_nResTypeId;
+    SwFieldIds const      m_nResTypeId;
 
     OUString        m_sParam1;  // Content / Database / NumberingSeparator
     OUString        m_sParam2;  // -    /DataTablename
@@ -1135,7 +1135,7 @@ public:
     // required to access field master of not yet inserted fields
     SwClient            m_FieldTypeClient;
     bool                m_bCallUpdate;
-    SwServiceType       m_nServiceId;
+    SwServiceType const       m_nServiceId;
     OUString            m_sTypeName;
     std::unique_ptr<SwFieldProperties_Impl> m_pProps;
 

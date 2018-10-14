@@ -35,15 +35,15 @@ using namespace ::com::sun::star::uno;
 
 namespace {
 
-inline const sal_Char* lclFindCharacter( const sal_Char* pcBeg, const sal_Char* pcEnd, sal_Char cChar )
+const sal_Char* lclFindCharacter( const sal_Char* pcBeg, const sal_Char* pcEnd, sal_Char cChar )
 {
     sal_Int32 nIndex = rtl_str_indexOfChar_WithLength( pcBeg, static_cast< sal_Int32 >( pcEnd - pcBeg ), cChar );
     return (nIndex < 0) ? pcEnd : (pcBeg + nIndex);
 }
 
-inline bool lclIsWhiteSpace( sal_Char cChar )
+bool lclIsWhiteSpace( sal_Char cChar )
 {
-    return cChar < 32;
+    return cChar <= 32;
 }
 
 const sal_Char* lclFindWhiteSpace( const sal_Char* pcBeg, const sal_Char* pcEnd )
@@ -69,7 +69,7 @@ const sal_Char* lclTrimWhiteSpaceFromEnd( const sal_Char* pcBeg, const sal_Char*
     return pcEnd;
 }
 
-inline void lclAppendToBuffer( OStringBuffer& rBuffer, const sal_Char* pcBeg, const sal_Char* pcEnd )
+void lclAppendToBuffer( OStringBuffer& rBuffer, const sal_Char* pcBeg, const sal_Char* pcEnd )
 {
     rBuffer.append( pcBeg, static_cast< sal_Int32 >( pcEnd - pcBeg ) );
 }

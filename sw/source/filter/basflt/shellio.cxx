@@ -111,7 +111,6 @@ ErrCode SwReader::Read( const Reader& rOptions )
 
     // Pams are connected like rings; stop when we return to the 1st element
     SwPaM *pEnd = pPam;
-    SwUndoInsDoc* pUndo = nullptr;
 
     bool bReadPageDescs = false;
     bool const bDocUndo = mxDoc->GetIDocumentUndoRedo().DoesUndo();
@@ -145,17 +144,18 @@ ErrCode SwReader::Read( const Reader& rOptions )
 
     while( true )
     {
+        std::unique_ptr<SwUndoInsDoc> pUndo;
         if( bSaveUndo )
-            pUndo = new SwUndoInsDoc( *pPam );
+            pUndo.reset(new SwUndoInsDoc( *pPam ));
 
         mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( RedlineFlags::Ignore );
 
-        SwPaM* pUndoPam = nullptr;
+        std::unique_ptr<SwPaM> pUndoPam;
         if( bDocUndo || pCursor )
         {
             // set Pam to the previous node, so that it is not also moved
             const SwNodeIndex& rTmp = pPam->GetPoint()->nNode;
-            pUndoPam = new SwPaM( rTmp, rTmp, 0, -1 );
+            pUndoPam.reset(new SwPaM( rTmp, rTmp, 0, -1 ));
         }
 
         // store for now all Fly's
@@ -268,7 +268,7 @@ ErrCode SwReader::Read( const Reader& rOptions )
                                 // UGLY: temp. enable undo
                                 mxDoc->GetIDocumentUndoRedo().DoUndo(true);
                                 mxDoc->GetIDocumentUndoRedo().AppendUndo(
-                                    new SwUndoInsLayFormat( pFrameFormat,0,0 ) );
+                                    o3tl::make_unique<SwUndoInsLayFormat>( pFrameFormat,0,0 ) );
                                 mxDoc->GetIDocumentUndoRedo().DoUndo(false);
                                 mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( RedlineFlags::Ignore );
                             }
@@ -295,8 +295,7 @@ ErrCode SwReader::Read( const Reader& rOptions )
                     }
                 }
             }
-            if( !aFlyFrameArr.empty() )
-                aFlyFrameArr.clear();
+            aFlyFrameArr.clear();
 
             mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
             if( mxDoc->getIDocumentRedlineAccess().IsRedlineOn() )
@@ -311,12 +310,12 @@ ErrCode SwReader::Read( const Reader& rOptions )
             pUndo->SetInsertRange( *pUndoPam, false );
             // UGLY: temp. enable undo
             mxDoc->GetIDocumentUndoRedo().DoUndo(true);
-            mxDoc->GetIDocumentUndoRedo().AppendUndo( pUndo );
+            mxDoc->GetIDocumentUndoRedo().AppendUndo( std::move(pUndo) );
             mxDoc->GetIDocumentUndoRedo().DoUndo(false);
             mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( RedlineFlags::Ignore );
         }
 
-        delete pUndoPam;
+        pUndoPam.reset();
 
         pPam = pPam->GetNext();
         if( pPam == pEnd )

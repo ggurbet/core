@@ -113,13 +113,14 @@ void RTFSprms::set(Id nKeyword, RTFValue::Pointer_t pValue, RTFOverwrite eOverwr
 bool RTFSprms::erase(Id nKeyword)
 {
     ensureCopyBeforeWrite();
-    for (auto i = m_pSprms->begin(); i != m_pSprms->end(); ++i)
+
+    auto i = std::find_if(
+        m_pSprms->begin(), m_pSprms->end(),
+        [&nKeyword](RTFSprmsImpl::value_type& rEntry) { return rEntry.first == nKeyword; });
+    if (i != m_pSprms->end())
     {
-        if (i->first == nKeyword)
-        {
-            m_pSprms->erase(i);
-            return true;
-        }
+        m_pSprms->erase(i);
+        return true;
     }
     return false;
 }
@@ -127,31 +128,44 @@ bool RTFSprms::erase(Id nKeyword)
 void RTFSprms::eraseLast(Id nKeyword)
 {
     ensureCopyBeforeWrite();
-    for (auto i = m_pSprms->rbegin(); i != m_pSprms->rend(); ++i)
-    {
-        if (i->first == nKeyword)
-        {
-            m_pSprms->erase(std::next(i).base());
-            return;
-        }
-    }
+
+    auto i = std::find_if(
+        m_pSprms->rbegin(), m_pSprms->rend(),
+        [&nKeyword](RTFSprmsImpl::value_type& rEntry) { return rEntry.first == nKeyword; });
+    if (i != m_pSprms->rend())
+        m_pSprms->erase(std::next(i).base());
 }
 
-static RTFValue::Pointer_t getDefaultSPRM(Id const id)
+static RTFValue::Pointer_t getDefaultSPRM(Id const id, Id nStyleType)
 {
-    switch (id)
+    if (!nStyleType || nStyleType == NS_ooxml::LN_Value_ST_StyleType_character)
     {
-        case NS_ooxml::LN_CT_Spacing_before:
-        case NS_ooxml::LN_CT_Spacing_after:
-        case NS_ooxml::LN_EG_RPrBase_b:
-        case NS_ooxml::LN_CT_Ind_left:
-        case NS_ooxml::LN_CT_Ind_right:
-        case NS_ooxml::LN_CT_Ind_firstLine:
-            return new RTFValue(0);
-
-        default:
-            return RTFValue::Pointer_t();
+        switch (id)
+        {
+            case NS_ooxml::LN_EG_RPrBase_b:
+                return new RTFValue(0);
+            default:
+                break;
+        }
     }
+
+    if (!nStyleType || nStyleType == NS_ooxml::LN_Value_ST_StyleType_paragraph)
+    {
+        switch (id)
+        {
+            case NS_ooxml::LN_CT_Spacing_before:
+            case NS_ooxml::LN_CT_Spacing_after:
+            case NS_ooxml::LN_CT_Ind_left:
+            case NS_ooxml::LN_CT_Ind_right:
+            case NS_ooxml::LN_CT_Ind_firstLine:
+                return new RTFValue(0);
+
+            default:
+                break;
+        }
+    }
+
+    return RTFValue::Pointer_t();
 }
 
 /// Is it problematic to deduplicate this SPRM?
@@ -199,7 +213,8 @@ static bool isSPRMChildrenExpected(Id nId)
 }
 
 /// Does the clone / deduplication of a single sprm.
-static void cloneAndDeduplicateSprm(std::pair<Id, RTFValue::Pointer_t> const& rSprm, RTFSprms& ret)
+static void cloneAndDeduplicateSprm(std::pair<Id, RTFValue::Pointer_t> const& rSprm, RTFSprms& ret,
+                                    Id nStyleType)
 {
     RTFValue::Pointer_t const pValue(ret.find(rSprm.first));
     if (pValue)
@@ -211,9 +226,10 @@ static void cloneAndDeduplicateSprm(std::pair<Id, RTFValue::Pointer_t> const& rS
         }
         else if (!rSprm.second->getSprms().empty() || !rSprm.second->getAttributes().empty())
         {
-            RTFSprms const sprms(pValue->getSprms().cloneAndDeduplicate(rSprm.second->getSprms()));
-            RTFSprms const attributes(
-                pValue->getAttributes().cloneAndDeduplicate(rSprm.second->getAttributes()));
+            RTFSprms const sprms(
+                pValue->getSprms().cloneAndDeduplicate(rSprm.second->getSprms(), nStyleType));
+            RTFSprms const attributes(pValue->getAttributes().cloneAndDeduplicate(
+                rSprm.second->getAttributes(), nStyleType));
             // Don't copy the sprm in case we expect it to have children but it doesn't have some.
             if (!isSPRMChildrenExpected(rSprm.first) || !sprms.empty() || !attributes.empty())
                 ret.set(rSprm.first,
@@ -223,16 +239,17 @@ static void cloneAndDeduplicateSprm(std::pair<Id, RTFValue::Pointer_t> const& rS
     else
     {
         // not found - try to override style with default
-        RTFValue::Pointer_t const pDefault(getDefaultSPRM(rSprm.first));
+        RTFValue::Pointer_t const pDefault(getDefaultSPRM(rSprm.first, nStyleType));
         if (pDefault)
         {
             ret.set(rSprm.first, pDefault);
         }
         else if (!rSprm.second->getSprms().empty() || !rSprm.second->getAttributes().empty())
         {
-            RTFSprms const sprms(RTFSprms().cloneAndDeduplicate(rSprm.second->getSprms()));
+            RTFSprms const sprms(
+                RTFSprms().cloneAndDeduplicate(rSprm.second->getSprms(), nStyleType));
             RTFSprms const attributes(
-                RTFSprms().cloneAndDeduplicate(rSprm.second->getAttributes()));
+                RTFSprms().cloneAndDeduplicate(rSprm.second->getAttributes(), nStyleType));
             if (!sprms.empty() || !attributes.empty())
             {
                 ret.set(rSprm.first, new RTFValue(attributes, sprms));
@@ -314,14 +331,14 @@ void RTFSprms::duplicateList(const RTFValue::Pointer_t& pAbstract)
                     = getNestedAttribute(*this, NS_ooxml::LN_CT_PPrBase_ind, rListLevelPair.first);
                 if (!pParagraphValue)
                     putNestedAttribute(*this, NS_ooxml::LN_CT_PPrBase_ind, rListLevelPair.first,
-                                       getDefaultSPRM(rListLevelPair.first));
+                                       getDefaultSPRM(rListLevelPair.first, 0));
 
                 break;
         }
     }
 }
 
-RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference) const
+RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference, Id nStyleType) const
 {
     RTFSprms ret(*this);
     ret.ensureCopyBeforeWrite();
@@ -337,10 +354,10 @@ RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference) const
         if (rSprm.first == NS_ooxml::LN_CT_Style_pPr)
         {
             for (auto& i : rSprm.second->getSprms())
-                cloneAndDeduplicateSprm(i, ret);
+                cloneAndDeduplicateSprm(i, ret, nStyleType);
         }
         else
-            cloneAndDeduplicateSprm(rSprm, ret);
+            cloneAndDeduplicateSprm(rSprm, ret, nStyleType);
     }
     return ret;
 }

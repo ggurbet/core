@@ -562,7 +562,7 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
     bool bPageMode = pViewData->IsPagebreakMode();
     if (bPageMode)                                      // after FindChanged
     {
-        // SetPagebreakMode initialisiert auch bPrinted Flags
+        // SetPagebreakMode also initializes bPrinted Flags
         aOutputData.SetPagebreakMode( pViewData->GetView()->GetPageBreakData() );
     }
 
@@ -1058,7 +1058,6 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
 namespace
 {
     template<typename IndexType>
-    inline
     void lcl_getBoundingRowColumnforTile(ScViewData* pViewData,
             long nTileStartPosPx, long nTileEndPosPx,
             sal_Int32& nTopLeftTileOffset, sal_Int32& nTopLeftTileOrigin,

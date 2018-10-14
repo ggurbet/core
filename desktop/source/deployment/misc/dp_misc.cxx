@@ -239,7 +239,7 @@ bool needToSyncRepository(OUString const & name)
 
 
 namespace {
-inline OUString encodeForRcFile( OUString const & str )
+OUString encodeForRcFile( OUString const & str )
 {
     // escape $\{} (=> rtl bootstrap files)
     OUStringBuffer buf;
@@ -465,7 +465,7 @@ Reference<XInterface> resolveUnoURL(
 }
 
 #ifdef _WIN32
-void writeConsoleWithStream(OUString const & sText, HANDLE stream)
+static void writeConsoleWithStream(OUString const & sText, HANDLE stream)
 {
     DWORD nWrittenChars = 0;
     WriteFile(stream, sText.getStr(),

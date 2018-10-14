@@ -60,20 +60,15 @@
 
 using namespace vcl;
 
-// GetGlyphOutlineW() seems to be a little slow, and doesn't seem to do its own caching (tested on Windows10).
-// TODO include the font as part of the cache key, then we won't need to clear it on font change
-// The cache limit is set by the rough number of characters needed to read your average Asian newspaper.
-static o3tl::lru_map<sal_GlyphId, tools::Rectangle> g_BoundRectCache(3000);
-
 static const int MAXFONTHEIGHT = 2048;
 
-inline FIXED FixedFromDouble( double d )
+static inline FIXED FixedFromDouble( double d )
 {
     const long l = static_cast<long>( d * 65536. );
     return *reinterpret_cast<FIXED const *>(&l);
 }
 
-inline int IntTimes256FromFixed(FIXED f)
+static inline int IntTimes256FromFixed(FIXED f)
 {
     int nFixedTimes256 = (f.value << 8) + ((f.fract+0x80) >> 8);
     return nFixedTimes256;
@@ -493,7 +488,7 @@ static int ImplWeightToWin( FontWeight eWeight )
     return 0;
 }
 
-inline FontPitch ImplLogPitchToSal( BYTE nPitch )
+static inline FontPitch ImplLogPitchToSal( BYTE nPitch )
 {
     if ( nPitch & FIXED_PITCH )
         return PITCH_FIXED;
@@ -501,7 +496,7 @@ inline FontPitch ImplLogPitchToSal( BYTE nPitch )
         return PITCH_VARIABLE;
 }
 
-inline FontPitch ImplMetricPitchToSal( BYTE nPitch )
+static inline FontPitch ImplMetricPitchToSal( BYTE nPitch )
 {
     // Grrrr! See NT help
     if ( !(nPitch & TMPF_FIXED_PITCH) )
@@ -510,7 +505,7 @@ inline FontPitch ImplMetricPitchToSal( BYTE nPitch )
         return PITCH_VARIABLE;
 }
 
-inline BYTE ImplPitchToWin( FontPitch ePitch )
+static inline BYTE ImplPitchToWin( FontPitch ePitch )
 {
     if ( ePitch == PITCH_FIXED )
         return FIXED_PITCH;
@@ -750,7 +745,7 @@ void WinSalGraphics::SetTextColor( Color nColor )
     ::SetTextColor( getHDC(), aCol );
 }
 
-int CALLBACK SalEnumQueryFontProcExW( const LOGFONTW*,
+static int CALLBACK SalEnumQueryFontProcExW( const LOGFONTW*,
                                       const TEXTMETRICW*,
                                       DWORD, LPARAM lParam )
 {
@@ -846,8 +841,6 @@ HFONT WinSalGraphics::ImplDoSetFont(FontSelectPattern const & i_rFont,
                                     float& o_rFontScale,
                                     HFONT& o_rOldFont)
 {
-    // clear the cache on font change
-    g_BoundRectCache.clear();
     HFONT hNewFont = nullptr;
 
     LOGFONTW aLogFont;
@@ -1013,7 +1006,7 @@ bool WinSalGraphics::GetFontCapabilities(vcl::FontCapabilities &rFontCapabilitie
     return mpWinFontEntry[0]->GetFontFace()->GetFontCapabilities(rFontCapabilities);
 }
 
-int CALLBACK SalEnumFontsProcExW( const LOGFONTW* lpelfe,
+static int CALLBACK SalEnumFontsProcExW( const LOGFONTW* lpelfe,
                                   const TEXTMETRICW* lpntme,
                                   DWORD nFontType, LPARAM lParam )
 {
@@ -1335,15 +1328,11 @@ void WinSalGraphics::ClearDevFontCache()
 
 bool WinSalGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect)
 {
-    auto it = g_BoundRectCache.find(rGlyph.maGlyphId);
-    if (it != g_BoundRectCache.end())
-    {
-        rRect = it->second;
-        return true;
-    }
-
     rtl::Reference<WinFontInstance> pFont = mpWinFontEntry[rGlyph.mnFallbackLevel];
     assert(pFont.is());
+
+    if (pFont.is() && pFont->GetCachedGlyphBoundRect(rGlyph.maGlyphId, rRect))
+        return true;
 
     HDC hDC = getHDC();
     HFONT hFont = static_cast<HFONT>(GetCurrentObject(hDC, OBJ_FONT));
@@ -1379,7 +1368,7 @@ bool WinSalGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle
     rRect.SetTop(static_cast<int>( fFontScale * rRect.Top() ));
     rRect.SetBottom(static_cast<int>( fFontScale * rRect.Bottom() ) + 1);
 
-    g_BoundRectCache.insert({rGlyph.maGlyphId, rRect});
+    pFont->CacheGlyphBoundRect(rGlyph.maGlyphId, rRect);
 
     return true;
 }

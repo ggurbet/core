@@ -710,7 +710,7 @@ double ConvertToDec( const OUString& aStr, sal_uInt16 nBase, sal_uInt16 nCharLim
 }
 
 
-static inline sal_Char GetMaxChar( sal_uInt16 nBase )
+static sal_Char GetMaxChar( sal_uInt16 nBase )
 {
     const sal_Char* const c = "--123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     return c[ nBase ];
@@ -769,31 +769,31 @@ double Erfc( double x )
     return ::rtl::math::erfc(x);
 }
 
-static inline bool IsNum( sal_Unicode c )
+static bool IsNum( sal_Unicode c )
 {
     return c >= '0' && c <= '9';
 }
 
 
-static inline bool IsComma( sal_Unicode c )
+static bool IsComma( sal_Unicode c )
 {
     return c == '.' || c == ',';
 }
 
 
-static inline bool IsExpStart( sal_Unicode c )
+static bool IsExpStart( sal_Unicode c )
 {
     return c == 'e' || c == 'E';
 }
 
 
-static inline bool IsImagUnit( sal_Unicode c )
+static bool IsImagUnit( sal_Unicode c )
 {
     return c == 'i' || c == 'j';
 }
 
 
-static inline sal_uInt16 GetVal( sal_Unicode c )
+static sal_uInt16 GetVal( sal_Unicode c )
 {
     return sal_uInt16( c - '0' );
 }
@@ -2298,10 +2298,10 @@ double ConvertDataLinear::ConvertFromBase( double f, sal_Int16 n ) const
 
 ConvertDataList::ConvertDataList()
 {
-#define NEWD(str,unit,cl)   maVector.push_back(new ConvertData(str,unit,cl))
-#define NEWDP(str,unit,cl)  maVector.push_back(new ConvertData(str,unit,cl,true))
-#define NEWL(str,unit,offs,cl)  maVector.push_back(new ConvertDataLinear(str,unit,offs,cl))
-#define NEWLP(str,unit,offs,cl) maVector.push_back(new ConvertDataLinear(str,unit,offs,cl,true))
+#define NEWD(str,unit,cl)   maVector.emplace_back(new ConvertData(str,unit,cl))
+#define NEWDP(str,unit,cl)  maVector.emplace_back(new ConvertData(str,unit,cl,true))
+#define NEWL(str,unit,offs,cl)  maVector.emplace_back(new ConvertDataLinear(str,unit,offs,cl))
+#define NEWLP(str,unit,offs,cl) maVector.emplace_back(new ConvertDataLinear(str,unit,offs,cl,true))
 
     // *** are extra and not standard Excel Analysis Addin!
 
@@ -2481,8 +2481,6 @@ ConvertDataList::ConvertDataList()
 
 ConvertDataList::~ConvertDataList()
 {
-    for( std::vector<ConvertData*>::const_iterator it = maVector.begin(); it != maVector.end(); ++it )
-        delete *it;
 }
 
 
@@ -2495,10 +2493,10 @@ double ConvertDataList::Convert( double fVal, const OUString& rFrom, const OUStr
     sal_Int16       nLevelFrom = 0;
     sal_Int16       nLevelTo = 0;
 
-    std::vector<ConvertData*>::iterator it = maVector.begin();
+    auto it = maVector.begin();
     while( it != maVector.end() && ( bSearchFrom || bSearchTo ) )
     {
-        ConvertData*    p = *it;
+        ConvertData*    p = it->get();
         if( bSearchFrom )
         {
             sal_Int16   n = p->GetMatchingLevel( rFrom );

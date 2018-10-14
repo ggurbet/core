@@ -78,10 +78,8 @@ struct SwInsDBColumn
     bool operator<( const SwInsDBColumn& rCmp ) const;
 };
 
-class SwInsDBColumns : public o3tl::sorted_vector<SwInsDBColumn*, o3tl::less_ptr_to<SwInsDBColumn> >
+class SwInsDBColumns : public o3tl::sorted_vector<std::unique_ptr<SwInsDBColumn>, o3tl::less_uniqueptr_to<SwInsDBColumn> >
 {
-public:
-    ~SwInsDBColumns() { DeleteAndDestroyAll(); }
 };
 
 class SwInsertDBColAutoPilot : public SfxModalDialog, public utl::ConfigItem
@@ -123,7 +121,7 @@ class SwInsertDBColAutoPilot : public SfxModalDialog, public utl::ConfigItem
     const SwDBData  aDBData;
 
     Link<ListBox&,void>    aOldNumFormatLnk;
-    OUString        sNoTmpl;
+    OUString const  sNoTmpl;
 
     SwView*         pView;
     std::unique_ptr<SwTableAutoFormat> m_xTAutoFormat;

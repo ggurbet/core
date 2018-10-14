@@ -731,9 +731,35 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet, Referenc
     if( bDashSet && aStyleLineStyle != drawing::LineStyle_DASH )
     {
         // convert absolute dash/dot length to relative length
-        int relDotLen = nLineWidth ? aLineDash.DotLen / nLineWidth : -1;
-        int relDashLen = nLineWidth ? aLineDash.DashLen / nLineWidth : -1;
-        int relDistance = nLineWidth ? aLineDash.Distance / nLineWidth : -1;
+        int relDotLen = nLineWidth ? aLineDash.DotLen / nLineWidth : 0;
+        int relDashLen = nLineWidth ? aLineDash.DashLen / nLineWidth : 0;
+        int relDistance = nLineWidth ? aLineDash.Distance / nLineWidth : 0;
+        // fixing relative values in the case of mso preset linewidths
+        //todo: fix relDotLen, relDashLen and relDistance in every case of 0-1 linewidth
+        switch (nLineWidth)
+        {
+        case 9: // 1/4 pt
+            {
+            relDotLen = relDotLen ? (relDotLen + 1) / 4 : 0;
+            relDashLen = relDashLen ? (relDashLen + 1) / 4 : 0;
+            relDistance = relDistance ? (relDistance + 1) / 4 : 0;
+            break;
+            }
+        case 18: // 1/2 pt
+            {
+            relDotLen = relDotLen ? (relDotLen + 1) / 2 : 0;
+            relDashLen = relDashLen ? (relDashLen + 1) / 2 : 0;
+            relDistance = relDistance ? (relDistance + 1) / 2 : 0;
+            break;
+            }
+        case 26: // 3/4 pt
+            {
+            relDotLen = relDotLen ? (relDotLen + 1) * 3 / 4 : 0;
+            relDashLen = relDashLen ? (relDashLen + 1) * 3 / 4 : 0;
+            relDistance = relDistance ? (relDistance + 1) *3 / 4 : 0;
+            break;
+            }
+        }
         // keep default mso preset linestyles (instead of custdash)
         if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 0 && relDashLen == 0 && relDistance == 3)
         {
@@ -772,6 +798,35 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet, Referenc
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDashDot", FSEND);
         }
         else if (aLineDash.Dots == 2 && relDotLen == 1 && aLineDash.Dashes == 1 && relDashLen == 3 && relDistance == 1)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDashDotDot", FSEND);
+        }
+        /*convert some LO preset dashes to MSO preset dashes for oox interoperability
+        LO preset dashes which don't have equivalent in MSO preset dashes: 2 Dots 3 Dashes, Line with Fine Dots, 3 Dashes 3 Dots*/
+        //ultrafine Dashed, Ultrafine Dotted -> sysDot
+        else if ((aLineDash.Dots == 1 && aLineDash.DotLen == 51 && aLineDash.Dashes == 1 && aLineDash.DashLen == 51 && aLineDash.Distance == 51) ||
+                 (aLineDash.Dots == 1 && aLineDash.DotLen == 0 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 50))
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDot", FSEND);
+        }
+        //Fine Dashed -> dash
+        else if (aLineDash.Dots == 1 && aLineDash.DotLen == 197 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 197)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dash", FSEND);
+        }
+        //Fine Dotted -> dot
+        else if (aLineDash.Dots == 1 && aLineDash.DotLen == 0 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 457)
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "dot", FSEND);
+        }
+        //Line Style 9, Dashed -> sysDash
+        else if ((aLineDash.Dots == 1 && aLineDash.DotLen == 197 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 120) ||
+                 (aLineDash.Dots == 1 && aLineDash.DotLen == 197 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0  && aLineDash.Distance == 127))
+        {
+            mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDash", FSEND);
+        }
+        //2 Dots 1 Dash -> sysDashDotDot
+        else if (aLineDash.Dots == 2 && aLineDash.DotLen == 0 && aLineDash.Dashes == 1 && aLineDash.DashLen == 203 && aLineDash.Distance == 203)
         {
             mpFS->singleElementNS(XML_a, XML_prstDash, XML_val, "sysDashDotDot", FSEND);
         }

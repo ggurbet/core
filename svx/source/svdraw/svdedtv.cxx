@@ -261,12 +261,12 @@ void SdrEditView::DeleteLayer(const OUString& rName)
         if( bUndo )
         {
             AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoDeleteLayer(nLayerNum, rLA, *mpModel));
-            rLA.RemoveLayer(nLayerNum);
+            rLA.RemoveLayer(nLayerNum).release();
             EndUndo();
         }
         else
         {
-            delete rLA.RemoveLayer(nLayerNum);
+            rLA.RemoveLayer(nLayerNum);
         }
 
         mpModel->SetChanged();
@@ -712,8 +712,7 @@ std::vector<SdrObject*> SdrEditView::DeleteMarkedList(SdrMarkList const& rMark)
                     SdrObject* pObj = pM->GetMarkedSdrObj();
 
                     // extra undo actions for changed connector which now may hold its laid out path (SJ)
-                    std::vector< SdrUndoAction* > vConnectorUndoActions( CreateConnectorUndo( *pObj ) );
-                    AddUndoActions( vConnectorUndoActions );
+                    AddUndoActions(CreateConnectorUndo( *pObj ));
 
                     AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoDeleteObject(*pObj));
                 }

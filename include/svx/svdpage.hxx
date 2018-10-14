@@ -123,7 +123,6 @@ public:
     /// Replace existing object by different one.
     /// Same as Remove(old)+Insert(new) but faster because the order numbers
     /// do not have to be set dirty.
-    virtual SdrObject* NbcReplaceObject(SdrObject* pNewObj, size_t nObjNum);
     virtual SdrObject* ReplaceObject(SdrObject* pNewObj, size_t nObjNum);
 
     /// Modify ZOrder of an SdrObject
@@ -284,8 +283,8 @@ private:
 /// for the snap-to-grid in Writer
 class SdrPageGridFrame
 {
-    tools::Rectangle aPaper;
-    tools::Rectangle aUserArea;
+    tools::Rectangle const aPaper;
+    tools::Rectangle const aUserArea;
 public:
     SdrPageGridFrame(const tools::Rectangle& rPaper, const tools::Rectangle& rUser): aPaper(rPaper), aUserArea(rUser) {}
     const tools::Rectangle& GetPaperRect() const                  { return aPaper; }

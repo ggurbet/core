@@ -132,7 +132,6 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sfx2/itemwrapper.hxx>
 #include <sc.hrc>
 #include <unonames.hxx>
 
@@ -177,7 +176,6 @@
 #include <com/sun/star/bridge/oleautomation/Date.hpp>
 #include <tokenarray.hxx>
 #include <tokenuno.hxx>
-#include <columnspanset.hxx>
 
 #include <memory>
 
@@ -1255,7 +1253,7 @@ namespace {
 
 /// @throws uno::RuntimeException
 template< typename RangeType >
-inline table::CellRangeAddress lclGetRangeAddress( const uno::Reference< RangeType >& rxCellRange )
+table::CellRangeAddress lclGetRangeAddress( const uno::Reference< RangeType >& rxCellRange )
 {
     return uno::Reference< sheet::XCellRangeAddressable >( rxCellRange, uno::UNO_QUERY_THROW )->getRangeAddress();
 }
@@ -4827,7 +4825,7 @@ sal_Unicode lclGetPrefixChar( const uno::Reference< sheet::XSheetCellRangeContai
     return cCurrPrefix;
 }
 
-inline uno::Any lclGetPrefixVariant( sal_Unicode cPrefixChar )
+uno::Any lclGetPrefixVariant( sal_Unicode cPrefixChar )
 {
     return uno::Any( (cPrefixChar == 0) ? OUString() : OUString( cPrefixChar ) );
 }

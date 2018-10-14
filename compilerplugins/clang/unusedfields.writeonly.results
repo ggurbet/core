@@ -56,9 +56,9 @@ canvas/source/cairo/cairo_spritehelper.hxx:103
     cairocanvas::SpriteHelper mbTextureDirty _Bool
 canvas/source/opengl/ogl_spritedevicehelper.hxx:124
     oglcanvas::SpriteDeviceHelper mpDevice css::rendering::XGraphicDevice *
-chart2/inc/ChartModel.hxx:472
+chart2/inc/ChartModel.hxx:470
     chart::ChartModel mnStart sal_Int32
-chart2/inc/ChartModel.hxx:473
+chart2/inc/ChartModel.hxx:471
     chart::ChartModel mnEnd sal_Int32
 chart2/source/controller/main/ElementSelector.hxx:37
     chart::ListBoxEntryData nHierarchyDepth sal_Int32
@@ -146,7 +146,7 @@ cui/source/inc/cuihyperdlg.hxx:57
     SvxHlinkCtrl aRdOnlyForwarder class SfxStatusForwarder
 cui/source/inc/cuihyperdlg.hxx:77
     SvxHpLinkDlg maCtrl class SvxHlinkCtrl
-dbaccess/source/core/dataaccess/documentdefinition.cxx:287
+dbaccess/source/core/dataaccess/documentdefinition.cxx:288
     dbaccess::LifetimeCoupler m_xClient Reference<class com::sun::star::uno::XInterface>
 desktop/qa/desktop_lib/test_desktop_lib.cxx:178
     DesktopLOKTest m_bModified _Bool
@@ -308,7 +308,7 @@ sc/inc/pivot.hxx:78
     ScDPLabelData mbIsValue _Bool
 sc/source/core/data/cellvalues.cxx:25
     sc::(anonymous namespace)::BlockPos mnEnd size_t
-sc/source/core/data/column4.cxx:1315
+sc/source/core/data/column4.cxx:1316
     (anonymous namespace)::StartListeningFormulaCellsHandler mnStartRow SCROW
 sc/source/filter/excel/xltoolbar.hxx:23
     TBCCmd cmdID sal_uInt16
@@ -340,17 +340,17 @@ sc/source/filter/excel/xltools.cxx:104
      smD union sal_math_Double
 sc/source/filter/inc/exp_op.hxx:47
     ExportBiff5 pExcRoot struct RootData *
-sc/source/filter/inc/imp_op.hxx:81
+sc/source/filter/inc/imp_op.hxx:84
     ImportExcel::LastFormula mpCell class ScFormulaCell *
-sc/source/filter/inc/orcusinterface.hxx:450
+sc/source/filter/inc/orcusinterface.hxx:446
     ScOrcusStyles::xf mnStyleXf size_t
-sc/source/filter/inc/orcusinterface.hxx:470
+sc/source/filter/inc/orcusinterface.hxx:466
     ScOrcusStyles::cell_style mnBuiltInId size_t
-sc/source/filter/inc/root.hxx:95
+sc/source/filter/inc/root.hxx:92
     LOTUS_ROOT eActType enum Lotus123Typ
-sc/source/filter/inc/root.hxx:96
+sc/source/filter/inc/root.hxx:93
     LOTUS_ROOT aActRange class ScRange
-sc/source/filter/inc/tokstack.hxx:145
+sc/source/filter/inc/tokstack.hxx:142
     TokenPool pP_Err TokenPoolPool<sal_uInt16, 8>
 sc/source/filter/oox/biffhelper.cxx:41
     oox::xls::(anonymous namespace)::DecodedDouble maStruct union sal_math_Double
@@ -414,6 +414,8 @@ svx/source/dialog/contimp.hxx:56
     SvxSuperContourDlg aContourItem class SvxContourDlgItem
 svx/source/form/dataaccessdescriptor.cxx:44
     svx::ODADescriptorImpl m_bSetOutOfDate _Bool
+svx/source/form/formcontroller.cxx:211
+    svxform::ColumnInfo nNullable sal_Int32
 svx/source/sidebar/line/LinePropertyPanel.hxx:97
     svx::sidebar::LinePropertyPanel maStyleControl sfx2::sidebar::ControllerItem
 svx/source/sidebar/line/LinePropertyPanel.hxx:98
@@ -432,12 +434,12 @@ svx/source/sidebar/line/LinePropertyPanel.hxx:105
     svx::sidebar::LinePropertyPanel maEdgeStyle sfx2::sidebar::ControllerItem
 svx/source/sidebar/line/LinePropertyPanel.hxx:106
     svx::sidebar::LinePropertyPanel maCapStyle sfx2::sidebar::ControllerItem
-svx/source/svdraw/svdpdf.hxx:197
+svx/source/svdraw/svdpdf.hxx:196
     ImpSdrPdfImport mdPageWidthPts double
 svx/source/table/tablertfimporter.cxx:54
     sdr::table::RTFCellDefault maItemSet class SfxItemSet
-sw/inc/shellio.hxx:146
-    SwReader aFileName class rtl::OUString
+sw/inc/shellio.hxx:147
+    SwReader aFileName const class rtl::OUString
 sw/source/core/doc/tblafmt.cxx:186
     SwAfVersions m_nVerticalAlignmentVersion sal_uInt16
 sw/source/core/inc/swfont.hxx:973
@@ -451,11 +453,11 @@ sw/source/core/inc/swfont.hxx:976
 sw/source/core/inc/swfont.hxx:977
     SvStatistics nChangeFont sal_uInt16
 sw/source/filter/html/htmlcss1.cxx:77
-    SwCSS1ItemIds nFormatBreak sal_uInt16
+    SwCSS1ItemIds nFormatBreak const sal_uInt16
 sw/source/filter/html/htmlcss1.cxx:78
-    SwCSS1ItemIds nFormatPageDesc sal_uInt16
+    SwCSS1ItemIds nFormatPageDesc const sal_uInt16
 sw/source/filter/html/htmlcss1.cxx:79
-    SwCSS1ItemIds nFormatKeep sal_uInt16
+    SwCSS1ItemIds nFormatKeep const sal_uInt16
 sw/source/filter/inc/rtf.hxx:28
     RTFSurround::(anonymous union)::(anonymous) nGoldCut sal_uInt8
 sw/source/filter/inc/rtf.hxx:29
@@ -463,7 +465,7 @@ sw/source/filter/inc/rtf.hxx:29
 sw/source/filter/inc/rtf.hxx:30
     RTFSurround::(anonymous union)::(anonymous) nJunk sal_uInt8
 sw/source/filter/inc/rtf.hxx:31
-    RTFSurround::(anonymous) Flags struct (anonymous struct at /media/noel/disk2/libo6/sw/source/filter/inc/rtf.hxx:27:9)
+    RTFSurround::(anonymous) Flags struct (anonymous struct at /media/noel/disk2/libo5/sw/source/filter/inc/rtf.hxx:27:9)
 ucb/source/ucp/gio/gio_mount.hxx:46
     OOoMountOperationClass parent_class GMountOperationClass
 ucb/source/ucp/gio/gio_mount.hxx:49
@@ -484,10 +486,6 @@ vcl/inc/opengl/RenderList.hxx:29
     Vertex color glm::vec4
 vcl/inc/opengl/RenderList.hxx:30
     Vertex lineData glm::vec4
-vcl/inc/qt5/Qt5Frame.hxx:65
-    Qt5Frame m_pSalMenu class Qt5Menu *
-vcl/inc/qt5/Qt5Graphics.hxx:56
-    Qt5Graphics m_pFontCollection class PhysicalFontCollection *
 vcl/inc/salmenu.hxx:34
     SalItemParams nBits enum MenuItemBits
 vcl/inc/salmenu.hxx:42
@@ -514,13 +512,13 @@ vcl/inc/salwtype.hxx:213
     SalQueryCharPositionEvent mnCursorBoundHeight long
 vcl/inc/salwtype.hxx:248
     SalSwipeEvent mnVelocityY double
-vcl/inc/sft.hxx:461
+vcl/inc/sft.hxx:462
     vcl::TrueTypeFont mapper sal_uInt32 (*)(const sal_uInt8 *, sal_uInt32, sal_uInt32)
 vcl/inc/unx/gtk/gtkframe.hxx:215
     GtkSalFrame m_nFloatFlags enum FloatWinPopupFlags
 vcl/opengl/salbmp.cxx:440
     (anonymous namespace)::ScanlineWriter mpCurrentScanline sal_uInt8 *
-vcl/source/filter/graphicfilter.cxx:1009
+vcl/source/filter/graphicfilter.cxx:1010
     ImpFilterLibCache mpLast struct ImpFilterLibCacheEntry *
 vcl/source/filter/jpeg/Exif.hxx:56
     Exif::ExifIFD type sal_uInt16
@@ -531,20 +529,16 @@ vcl/unx/generic/app/wmadaptor.cxx:1269
 vcl/unx/generic/app/wmadaptor.cxx:1270
     _mwmhints status unsigned long
 vcl/unx/gtk/a11y/atkwrapper.hxx:49
-    AtkObjectWrapper aParent AtkObject
+    AtkObjectWrapper aParent const AtkObject
 vcl/unx/gtk/a11y/atkwrapper.hxx:80
-    AtkObjectWrapperClass aParentClass AtkObjectClass
+    AtkObjectWrapperClass aParentClass const AtkObjectClass
 vcl/unx/gtk/gloactiongroup.cxx:30
     GLOAction parent_instance GObject
 vcl/unx/gtk/glomenu.cxx:20
-    GLOMenu parent_instance GMenuModel
+    GLOMenu parent_instance const GMenuModel
 vcl/unx/gtk/hudawareness.cxx:20
     (anonymous) connection GDBusConnection *
 vcl/unx/gtk/hudawareness.cxx:23
     (anonymous) notify GDestroyNotify
-vcl/unx/kde4/KDEXLib.hxx:49
-    KDEXLib::SocketData pending YieldFunc
-vcl/unx/kde4/KDEXLib.hxx:50
-    KDEXLib::SocketData queued YieldFunc
 writerfilter/source/dmapper/PropertyMap.hxx:197
     writerfilter::dmapper::SectionPropertyMap m_nDebugSectionNumber sal_Int32

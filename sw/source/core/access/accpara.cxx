@@ -38,8 +38,10 @@
 #include <com/sun/star/accessibility/AccessibleTextType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <unotools/accessiblestatesethelper.hxx>
+#include <com/sun/star/i18n/Boundary.hpp>
 #include <com/sun/star/i18n/CharacterIteratorMode.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
+#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <com/sun/star/beans/UnknownPropertyException.hpp>
 #include <breakit.hxx>
 #include "accpara.hxx"
@@ -2941,7 +2943,7 @@ void SwAccessibleParagraph::deselectAccessibleChild(
 class SwHyperlinkIter_Impl
 {
     const SwpHints *m_pHints;
-    sal_Int32 m_nStt;
+    sal_Int32 const m_nStt;
     sal_Int32 m_nEnd;
     size_t m_nPos;
 

@@ -489,8 +489,19 @@ void ScGlobal::InitPPT()
 {
     OutputDevice* pDev = Application::GetDefaultDevice();
 
-    nScreenPPTX = double(pDev->GetDPIX()) / double(TWIPS_PER_INCH);
-    nScreenPPTY = double(pDev->GetDPIY()) / double(TWIPS_PER_INCH);
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        nScreenPPTX = double(pDev->GetDPIX()) / double(TWIPS_PER_INCH);
+        nScreenPPTY = double(pDev->GetDPIY()) / double(TWIPS_PER_INCH);
+    }
+    else
+    {
+        // Avoid cumulative placement errors by intentionally limiting
+        // precision.
+        Point aPix1000 = pDev->LogicToPixel(Point(1000, 1000), MapMode(MapUnit::MapTwip));
+        nScreenPPTX = aPix1000.X() / 1000.0;
+        nScreenPPTY = aPix1000.Y() / 1000.0;
+    }
 }
 
 const OUString& ScGlobal::GetClipDocName()
@@ -543,10 +554,6 @@ void ScGlobal::InitTextHeight(const SfxItemPool* pPool)
 void ScGlobal::Clear()
 {
     // Destroy asyncs _before_ ExitExternalFunc!
-    for( ScAddInAsyncs::iterator it = theAddInAsyncTbl.begin(); it != theAddInAsyncTbl.end(); ++it )
-    {
-        delete *it;
-    }
     theAddInAsyncTbl.clear();
     ExitExternalFunc();
     ClearAutoFormat();

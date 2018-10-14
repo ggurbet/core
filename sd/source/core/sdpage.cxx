@@ -52,6 +52,7 @@
 #include <com/sun/star/animations/XAnimationNode.hpp>
 #include <com/sun/star/animations/XTimeContainer.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/xml/dom/XNode.hpp>
 #include <com/sun/star/xml/dom/XNodeList.hpp>
 #include <com/sun/star/xml/dom/XNamedNodeMap.hpp>
@@ -231,16 +232,16 @@ SdrObject* SdPage::GetPresObj(PresObjKind eObjKind, int nIndex, bool bFuzzySearc
         }
     }
 
-    if( aMatches.size() > 1 )
-    {
-        std::sort( aMatches.begin(), aMatches.end(), OrdNumSorter() );
-    }
-
     if( nIndex > 0 )
         nIndex--;
 
     if( (nIndex >= 0) && ( aMatches.size() > static_cast<unsigned int>(nIndex)) )
+    {
+        if( aMatches.size() > 1 )
+            std::nth_element( aMatches.begin(), aMatches.begin() + nIndex, aMatches.end(),
+                              OrdNumSorter() );
         return aMatches[nIndex];
+    }
 
     return nullptr;
 }
@@ -574,8 +575,8 @@ SdrObject* SdPage::CreatePresObj(PresObjKind eObjKind, bool bVertical, const ::t
 
         if( bUndo )
         {
-            pUndoManager->AddUndoAction( new UndoObjectPresentationKind( *pSdrObj ) );
-            pUndoManager->AddUndoAction( new UndoObjectUserCall(*pSdrObj) );
+            pUndoManager->AddUndoAction( o3tl::make_unique<UndoObjectPresentationKind>( *pSdrObj ) );
+            pUndoManager->AddUndoAction( o3tl::make_unique<UndoObjectUserCall>(*pSdrObj) );
         }
 
         InsertPresObj(pSdrObj, eObjKind);
@@ -737,7 +738,7 @@ void SdPage::Changed(const SdrObject& rObj, SdrUserCallType eType, const ::tools
                             const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
                             if( bUndo )
-                                pUndoManager->AddUndoAction( new UndoObjectUserCall(*pObj) );
+                                pUndoManager->AddUndoAction( o3tl::make_unique<UndoObjectUserCall>(*pObj) );
 
                             // Object was resized by user and does not listen to its slide anymore
                             pObj->SetUserCall(nullptr);
@@ -1714,14 +1715,6 @@ SdrObject* SdPage::NbcRemoveObject(size_t nObjNum)
 
 // Also override ReplaceObject methods to realize when
 // objects are removed with this mechanism instead of RemoveObject
-SdrObject* SdPage::NbcReplaceObject(SdrObject* pNewObj, size_t nObjNum)
-{
-    onRemoveObject(GetObj( nObjNum ));
-    return FmFormPage::NbcReplaceObject(pNewObj, nObjNum);
-}
-
-// Also override ReplaceObject methods to realize when
-// objects are removed with this mechanism instead of RemoveObject
 SdrObject* SdPage::ReplaceObject(SdrObject* pNewObj, size_t nObjNum)
 {
     onRemoveObject(GetObj( nObjNum ));
@@ -2235,7 +2228,7 @@ SdrObject* SdPage::InsertAutoLayoutShape(SdrObject* pObj, PresObjKind eObjKind, 
         {
             pUndoManager->AddUndoAction( getSdrModelFromSdrPage().GetSdrUndoFactory().CreateUndoGeoObject( *pObj ) );
             pUndoManager->AddUndoAction( getSdrModelFromSdrPage().GetSdrUndoFactory().CreateUndoAttrObject( *pObj, true, true ) );
-            pUndoManager->AddUndoAction( new UndoObjectUserCall( *pObj ) );
+            pUndoManager->AddUndoAction( o3tl::make_unique<UndoObjectUserCall>( *pObj ) );
         }
 
             pObj->AdjustToMaxRect(rRect);
@@ -2298,7 +2291,7 @@ SdrObject* SdPage::InsertAutoLayoutShape(SdrObject* pObj, PresObjKind eObjKind, 
         if( !IsPresObj( pObj ) )
         {
             if( bUndo )
-                pUndoManager->AddUndoAction( new UndoObjectPresentationKind( *pObj ) );
+                pUndoManager->AddUndoAction( o3tl::make_unique<UndoObjectPresentationKind>( *pObj ) );
 
             InsertPresObj( pObj, eObjKind );
         }

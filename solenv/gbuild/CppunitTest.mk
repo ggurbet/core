@@ -236,6 +236,10 @@ $(call gb_CppunitTest_get_target,$(1)) : $(if $(filter $(2),$(true)),, \
         $(if $(ENABLE_KDE4),$(call gb_Library_get_target,vclplug_kde4)) \
         $(if $(ENABLE_QT5),$(call gb_Library_get_target,vclplug_qt5)) \
 	 )
+else ifeq ($(OS),MACOSX)
+$(call gb_CppunitTest_get_target,$(1)): $(call gb_Library_get_target,vclplug_osx)
+else ifeq ($(OS),WNT)
+$(call gb_CppunitTest_get_target,$(1)): $(call gb_Library_get_target,vclplug_win)
 endif
 
 endef
@@ -370,6 +374,14 @@ endef
 
 define gb_CppunitTest_use_executable
 $(call gb_CppunitTest_get_target,$(1)) : $(call gb_Executable_get_target,$(2))
+
+endef
+
+define gb_CppunitTest_use_more_fonts
+ifneq ($(filter MORE_FONTS,$(BUILD_TYPE)),)
+$(call gb_CppunitTest_get_target,$(1)) : \
+    $(foreach font,$(gb_Package_MODULE_ooo_fonts),$(call gb_Package_get_target,$(font)))
+endif
 
 endef
 

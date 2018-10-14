@@ -39,7 +39,6 @@
 #include <unotools/configmgr.hxx>
 #include <svtools/strings.hrc>
 #include <svtools/svtresid.hxx>
-#include <vcl/lazydelete.hxx>
 #include <bitmaps.hlst>
 #include <strings.hxx>
 
@@ -51,9 +50,9 @@
 struct SvtExtensionResIdMapping_Impl
 {
     const char* _pExt;
-    bool        _bExt;
+    bool const        _bExt;
     const char* pStrId;
-    SvImageId   _nImgId;
+    SvImageId const   _nImgId;
 };
 
 static SvtExtensionResIdMapping_Impl const ExtensionMap_Impl[] =
@@ -771,6 +770,13 @@ Image SvFileInformationManager::GetImage( const INetURLObject& rObject, bool bBi
     SvImageId nImage = GetImageId_Impl( rObject, true );
     DBG_ASSERT( nImage != SvImageId::NONE, "invalid ImageId" );
     return GetImageFromList_Impl( nImage, bBig );
+}
+
+OUString SvFileInformationManager::GetFileImageId(const INetURLObject& rObject)
+{
+    SvImageId nImage = GetImageId_Impl( rObject, false );
+    DBG_ASSERT( nImage != SvImageId::NONE, "invalid ImageId" );
+    return GetImageNameFromList_Impl(nImage, /*bBig*/false);
 }
 
 Image SvFileInformationManager::GetFileImage( const INetURLObject& rObject )

@@ -440,8 +440,10 @@ void SwXAutoTextGroup::removeByName(const OUString& aEntryName)
         throw container::NoSuchElementException();
 
     sal_uInt16 nIdx = pGlosGroup->GetIndex(aEntryName);
-    if ( nIdx != USHRT_MAX )
-        pGlosGroup->Delete(nIdx);
+    if ( nIdx == USHRT_MAX )
+        throw container::NoSuchElementException();
+
+    pGlosGroup->Delete(nIdx);
 }
 
 OUString SwXAutoTextGroup::getName()
@@ -966,8 +968,6 @@ const struct SvEventDescription aAutotextEvents[] =
 SwAutoTextEventDescriptor::SwAutoTextEventDescriptor(
     SwXAutoTextEntry& rAutoText ) :
         SvBaseEventDescriptor(aAutotextEvents),
-        sSwAutoTextEventDescriptor(
-            "SwAutoTextEventDescriptor"),
         rAutoTextEntry(rAutoText)
 {
 }
@@ -978,7 +978,7 @@ SwAutoTextEventDescriptor::~SwAutoTextEventDescriptor()
 
 OUString SwAutoTextEventDescriptor::getImplementationName()
 {
-    return sSwAutoTextEventDescriptor;
+    return OUString("SwAutoTextEventDescriptor");
 }
 
 void SwAutoTextEventDescriptor::replaceByName(

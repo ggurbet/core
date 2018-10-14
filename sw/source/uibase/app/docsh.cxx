@@ -454,7 +454,8 @@ bool SwDocShell::SaveAs( SfxMedium& rMedium )
     CalcLayoutForOLEObjects();  // format for OLE objects
 
     const bool bURLChanged = !GetMedium() || GetMedium()->GetURLObject() != rMedium.GetURLObject();
-    const bool bHasEmbedded = !m_xDoc->GetDBManager()->getEmbeddedName().isEmpty();
+    auto pMgr = m_xDoc->GetDBManager();
+    const bool bHasEmbedded = pMgr && !pMgr->getEmbeddedName().isEmpty();
     bool bSaveDS = bHasEmbedded && bURLChanged;
     if (bSaveDS)
     {
@@ -1185,10 +1186,6 @@ void SwDocShell::SetView(SwView* pVw)
     }
     else
         m_pWrtShell = nullptr;
-}
-
-void SwDocShell::PrepareReload()
-{
 }
 
 // #i59688#

@@ -47,7 +47,7 @@ namespace stoc_sec
 {
 
 
-static inline sal_Int32 makeMask(
+static sal_Int32 makeMask(
     OUString const & items, char const * const * strings )
 {
     sal_Int32 mask = 0;
@@ -79,7 +79,7 @@ static inline sal_Int32 makeMask(
     return mask;
 }
 
-static inline OUString makeStrings(
+static OUString makeStrings(
     sal_Int32 mask, char const * const * strings )
 {
     OUStringBuffer buf( 48 );
@@ -109,7 +109,7 @@ class SocketPermission : public Permission
     mutable OUString m_ip;
     mutable bool m_resolveErr;
     mutable bool m_resolvedHost;
-    bool m_wildCardHost;
+    bool const m_wildCardHost;
 
     inline bool resolveHost() const;
 
@@ -268,10 +268,10 @@ OUString SocketPermission::toString() const
 class FilePermission : public Permission
 {
     static char const * s_actions [];
-    sal_Int32 m_actions;
+    sal_Int32 const m_actions;
 
     OUString m_url;
-    bool m_allFiles;
+    bool const m_allFiles;
 
 public:
     FilePermission(
@@ -418,7 +418,7 @@ OUString FilePermission::toString() const
 
 class RuntimePermission : public Permission
 {
-    OUString m_name;
+    OUString const m_name;
 
 public:
     RuntimePermission(
@@ -513,7 +513,7 @@ Sequence< OUString > PermissionCollection::toStrings() const
 }
 #endif
 
-inline static bool implies(
+static bool implies(
     ::rtl::Reference< Permission > const & head, Permission const & demanded )
 {
     for ( Permission * perm = head.get(); perm; perm = perm->m_next.get() )

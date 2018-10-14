@@ -18,7 +18,6 @@
  */
 
 #include "datasource.hxx"
-#include <userinformation.hxx>
 #include "commandcontainer.hxx"
 #include <stringconstants.hxx>
 #include <core_resource.hxx>
@@ -54,6 +53,7 @@
 #include <comphelper/interaction.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/types.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <connectivity/dbexception.hxx>
 #include <connectivity/dbtools.hxx>

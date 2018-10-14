@@ -43,7 +43,7 @@
 using namespace ::com::sun::star;
 using namespace svl;
 
-static inline std::ostream& operator<<(std::ostream& rStrm, const Color& rColor)
+static std::ostream& operator<<(std::ostream& rStrm, const Color& rColor)
 {
     rStrm << "Color: R:" << static_cast<int>(rColor.GetRed()) << " G:" << static_cast<int>(rColor.GetGreen()) << " B: " << static_cast<int>(rColor.GetBlue());
     return rStrm;
@@ -233,9 +233,9 @@ void Test::testNumberFormat()
     };
 
     struct {
-        NfIndexTableOffset eStart;
-        NfIndexTableOffset eEnd;
-        size_t nSize;
+        NfIndexTableOffset const eStart;
+        NfIndexTableOffset const eEnd;
+        size_t const nSize;
         const char** pCodes;
     } aTests[] = {
         { NF_NUMBER_START, NF_NUMBER_END, 6, pNumber },
@@ -1101,7 +1101,7 @@ void Test::testIsNumberFormat()
     struct NumberFormatData
     {
         const char* pFormat;
-        bool bIsNumber;
+        bool const bIsNumber;
     } aTests[] = {
         { "20.3", true },
         { "2", true },
@@ -1152,7 +1152,7 @@ void checkSpecificNumberFormats( SvNumberFormatter& rFormatter,
     {
         sal_uInt32 nIndex = 0;
         double fNumber = 0;
-        OUString aString( OUString::createFromAscii( rVec[i].mpInput));
+        OUString aString( OUString::fromUtf8( rVec[i].mpInput));
         const bool bIsNumber = rFormatter.IsNumberFormat( aString, nIndex, fNumber);
         CPPUNIT_ASSERT_EQUAL_MESSAGE( OString( OString(pName) + " " + OString::number(i) +
                     (rVec[i].mbNumber ? " not recognized: " : " should not be recognized: ") +
@@ -1164,7 +1164,7 @@ void checkSpecificNumberFormats( SvNumberFormatter& rFormatter,
             Color* pColor;
             rFormatter.GetOutputString( fNumber, nIndex, aString, &pColor);
             CPPUNIT_ASSERT_EQUAL_MESSAGE( OString( OString(pName) + " " + OString::number(i)  + " mismatch").getStr(),
-                    OUString::createFromAscii( rVec[i].mpOutput), aString);
+                    OUString::fromUtf8( rVec[i].mpOutput), aString);
         }
     }
 }
@@ -1213,14 +1213,14 @@ void Test::testIsNumberFormatSpecific()
     }
 
     {
-        // en-ZA uses Y/M/D format, test that Y/M/D input leads to Y/M/D output
-        // and ISO Y-M-D input leads to Y-M-D output.
+        // en-ZA uses Y-M-D and Y/M/D format, test that either are accepted.
+        // The default format changed from YY/MM/DD to YYYY-MM-DD.
         SvNumberFormatter aFormatter(m_xContext, LANGUAGE_ENGLISH_SAFRICA);
 
         std::vector<FormatInputOutput> aIO = {
-            { "1999/11/22", true, "99/11/22", 0 },      // if default YY changes to YYYY adapt this
+            { "1999/11/22", true, "1999-11-22", 0 },
             { "1999-11-22", true, "1999-11-22", 0 },
-            { "11/2/1",     true, "11/02/01", 0 },      // if default YY changes to YYYY adapt this
+            { "11/2/1",     true, "2011-02-01", 0 },
             { "99-2-11",    true, "1999-02-11", 0 },
             { "22-2-11",    true, "2022-02-11", 0 }
         };
@@ -1265,6 +1265,36 @@ void Test::testIsNumberFormatSpecific()
         };
 
         checkSpecificNumberFormats( aFormatter, aIO, "[es-ES] date");
+    }
+
+    {
+        // Test that de-DE accepts Januar and Jänner.
+        SvNumberFormatter aFormatter(m_xContext, LANGUAGE_GERMAN);
+
+        const sal_uInt32 n = aFormatter.GetFormatIndex( NF_DATE_SYS_DDMMYYYY, LANGUAGE_GERMAN);
+        std::vector<FormatInputOutput> aIO = {
+            { "23. Januar 1999", true, "23.01.1999", n },
+            { "23. J\xC3\xA4nner 1999", true, "23.01.1999", n },
+            { "23. Jan. 1999", true, "23.01.1999", n },
+            { "23. J\xC3\xA4n. 1999", true, "23.01.1999", n },
+        };
+
+        checkSpecificNumberFormats( aFormatter, aIO, "[de-DE] date January month names");
+    }
+
+    {
+        // Test that de-AT accepts Januar and Jänner.
+        SvNumberFormatter aFormatter(m_xContext, LANGUAGE_GERMAN_AUSTRIAN);
+
+        const sal_uInt32 n = aFormatter.GetFormatIndex( NF_DATE_SYS_DDMMYYYY, LANGUAGE_GERMAN_AUSTRIAN);
+        std::vector<FormatInputOutput> aIO = {
+            { "23. Januar 1999", true, "23.01.1999", n },
+            { "23. J\xC3\xA4nner 1999", true, "23.01.1999", n },
+            { "23. Jan. 1999", true, "23.01.1999", n },
+            { "23. J\xC3\xA4n. 1999", true, "23.01.1999", n },
+        };
+
+        checkSpecificNumberFormats( aFormatter, aIO, "[de-AT] date January month names");
     }
 }
 

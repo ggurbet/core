@@ -49,12 +49,10 @@ ScAccessiblePageHeaderArea::ScAccessiblePageHeaderArea(
         const uno::Reference<XAccessible>& rxParent,
         ScPreviewShell* pViewShell,
         const EditTextObject* pEditObj,
-        bool bHeader,
         SvxAdjust eAdjust)
         : ScAccessibleContextBase(rxParent, AccessibleRole::TEXT),
-        mpEditObj(pEditObj->Clone().release()),
+        mpEditObj(pEditObj->Clone()),
         mpViewShell(pViewShell),
-        mbHeader(bHeader),
         meAdjust(eAdjust)
 {
     if (mpViewShell)
@@ -280,7 +278,7 @@ void ScAccessiblePageHeaderArea::CreateTextHelper()
         mpTextHelper.reset( new ::accessibility::AccessibleTextHelper(
             o3tl::make_unique<ScAccessibilityEditSource>(
                 o3tl::make_unique<ScAccessibleHeaderTextData>(
-                    mpViewShell, mpEditObj.get(), mbHeader, meAdjust))) );
+                    mpViewShell, mpEditObj.get(), meAdjust))) );
         mpTextHelper->SetEventSource(this);
     }
 }

@@ -45,8 +45,6 @@ namespace svgio
 {
     namespace svgreader
     {
-        typedef ::std::vector< SvgNode* > SvgNodeVector;
-
         enum XmlSpace
         {
             XmlSpace_notset,
@@ -86,7 +84,7 @@ namespace svgio
         {
         private:
             /// basic data, Type, document we belong to and parent (if not root)
-            SVGToken                    maType;
+            SVGToken const              maType;
             SvgDocument&                mrDocument;
             const SvgNode*              mpParent;
             const SvgNode*              mpAlternativeParent;

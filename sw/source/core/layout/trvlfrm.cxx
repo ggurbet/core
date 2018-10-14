@@ -533,7 +533,7 @@ bool SwCellFrame::GetCursorOfst( SwPosition *pPos, Point &rPoint,
 
 //Problem: If two Flys have the same size and share the same position then
 //they end inside each other.
-//Because we recursively check if a Point doesn't randomly lie inside an other
+//Because we recursively check if a Point doesn't randomly lie inside another
 //fly which lies completely inside the current Fly we could trigger an endless
 //loop with the mentioned situation above.
 //Using the helper class SwCursorOszControl we prevent the recursion. During
@@ -1976,14 +1976,14 @@ bool SwRootFrame::MakeTableCursors( SwTableCursor& rTableCursor )
     return bRet;
 }
 
-static inline void Sub( SwRegionRects& rRegion, const SwRect& rRect )
+static void Sub( SwRegionRects& rRegion, const SwRect& rRect )
 {
     if( rRect.Width() > 1 && rRect.Height() > 1 &&
         rRect.IsOver( rRegion.GetOrigin() ))
         rRegion -= rRect;
 }
 
-static inline void Add( SwRegionRects& rRegion, const SwRect& rRect )
+static void Add( SwRegionRects& rRegion, const SwRect& rRect )
 {
     if( rRect.Width() > 1 && rRect.Height() > 1 )
         rRegion += rRect;

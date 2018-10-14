@@ -65,7 +65,7 @@ private:
     OUString                     m_AutoloadURL;
     bool                         m_isAutoloadEnabled;
     OUString                     m_DefaultTarget;
-    OUString                     m_TemplateName;
+    OUString const               m_TemplateName;
     OUString                     m_Author;
     css::util::DateTime          m_CreationDate;
     OUString                     m_ModifiedBy;
@@ -262,7 +262,7 @@ struct CustomPropertyLine;
 class CustomPropertiesEdit : public Edit
 {
 private:
-    CustomPropertyLine*             m_pLine;
+    CustomPropertyLine* const       m_pLine;
 
 public:
     CustomPropertiesEdit(vcl::Window* pParent, WinBits nStyle, CustomPropertyLine* pLine)
@@ -277,7 +277,7 @@ public:
 class CustomPropertiesTypeBox : public ListBox
 {
 private:
-    CustomPropertyLine*             m_pLine;
+    CustomPropertyLine* const       m_pLine;
 
 public:
     CustomPropertiesTypeBox(vcl::Window* pParent, CustomPropertyLine* pLine);
@@ -309,7 +309,7 @@ public:
 
 class CustomPropertiesDurationField : public Edit
 {
-    CustomPropertyLine*             m_pLine;
+    CustomPropertyLine* const       m_pLine;
     css::util::Duration             m_aDuration;
 protected:
     virtual void    RequestHelp(const HelpEvent& rEvt) override;
@@ -333,7 +333,7 @@ public:
 class CustomPropertiesRemoveButton : public ImageButton
 {
 private:
-    CustomPropertyLine*             m_pLine;
+    CustomPropertyLine* const       m_pLine;
 
 public:
     CustomPropertiesRemoveButton(vcl::Window* pParent, WinBits nStyle, CustomPropertyLine* pLine)
@@ -403,7 +403,7 @@ private:
     sal_Int32                           m_nLineHeight;
     sal_Int32                           m_nScrollPos;
     std::vector<std::unique_ptr<CustomProperty>> m_aCustomProperties;
-    std::vector<CustomPropertyLine*>    m_aCustomPropertiesLines;
+    std::vector<std::unique_ptr<CustomPropertyLine>> m_aCustomPropertiesLines;
     CustomPropertyLine*                 m_pCurrentLine;
     SvNumberFormatter                   m_aNumberFormatter;
     Idle                                m_aEditLoseFocusIdle;
@@ -554,9 +554,9 @@ struct CmisPropertyLine : public VclBuilderContainer
     bool                          m_bOpenChoice;
     VclPtr<FixedText>             m_aName;
     VclPtr<FixedText>             m_aType;
-    std::vector< CmisValue* >     m_aValues;
-    std::vector< CmisDateTime* >  m_aDateTimes;
-    std::vector< CmisYesNo* >     m_aYesNos;
+    std::vector< std::unique_ptr<CmisValue> >     m_aValues;
+    std::vector< std::unique_ptr<CmisDateTime> >  m_aDateTimes;
+    std::vector< std::unique_ptr<CmisYesNo> >     m_aYesNos;
     long getItemHeight() const;
     CmisPropertyLine( vcl::Window* pParent );
     virtual ~CmisPropertyLine() override;
@@ -570,7 +570,7 @@ private:
     VclPtr<VclBox>                      m_pBox;
     sal_Int32                           m_nItemHeight;
     SvNumberFormatter                   m_aNumberFormatter;
-    std::vector< CmisPropertyLine* >    m_aCmisPropertiesLines;
+    std::vector< std::unique_ptr<CmisPropertyLine> > m_aCmisPropertiesLines;
 public:
     CmisPropertiesWindow(SfxTabPage* pParent);
     ~CmisPropertiesWindow();

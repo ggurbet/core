@@ -24,6 +24,11 @@
 typedef css::uno::Reference<css::accessibility::XAccessible> a11yref;
 typedef css::uno::Reference<css::accessibility::XAccessibleRelationSet> a11yrelationset;
 
+namespace vcl
+{
+class ILibreOfficeKitNotifier;
+}
+
 namespace weld
 {
 class Container;
@@ -70,6 +75,7 @@ public:
 
     virtual void set_grid_left_attach(int nAttach) = 0;
     virtual int get_grid_left_attach() const = 0;
+    virtual void set_grid_width(int nCols) = 0;
     virtual void set_grid_top_attach(int nAttach) = 0;
     virtual int get_grid_top_attach() const = 0;
 
@@ -232,6 +238,9 @@ public:
     virtual void set_default_response(int response) = 0;
     virtual Button* get_widget_for_response(int response) = 0;
     virtual Container* weld_content_area() = 0;
+
+    virtual void SetInstallLOKNotifierHdl(const Link<void*, vcl::ILibreOfficeKitNotifier*>& rLink)
+        = 0;
 };
 
 class VCL_DLLPUBLIC MessageDialog : virtual public Dialog
@@ -242,6 +251,28 @@ public:
     virtual void set_secondary_text(const OUString& rText) = 0;
     virtual OUString get_secondary_text() const = 0;
     virtual Container* weld_message_area() = 0;
+};
+
+struct VCL_DLLPUBLIC ComboBoxEntry
+{
+    OUString sString;
+    OUString sId;
+    OUString sImage;
+    ComboBoxEntry(const OUString& rString)
+        : sString(rString)
+    {
+    }
+    ComboBoxEntry(const OUString& rString, const OUString& rId)
+        : sString(rString)
+        , sId(rId)
+    {
+    }
+    ComboBoxEntry(const OUString& rString, const OUString& rId, const OUString& rImage)
+        : sString(rString)
+        , sId(rId)
+        , sImage(rImage)
+    {
+    }
 };
 
 class VCL_DLLPUBLIC ComboBox : virtual public Container
@@ -256,14 +287,27 @@ protected:
     void signal_changed() { m_aChangeHdl.Call(*this); }
 
 public:
-    virtual void insert_text(int pos, const OUString& rStr) = 0;
-    void append_text(const OUString& rStr) { insert_text(-1, rStr); }
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage)
+    virtual void insert(int pos, const OUString& rStr, const OUString* pId,
+                        const OUString* pIconName, VirtualDevice* pImageSurface)
         = 0;
-    void append(const OUString& rId, const OUString& rStr) { insert(-1, rId, rStr, nullptr); }
+    virtual void insert_vector(const std::vector<weld::ComboBoxEntry>& rItems, bool bKeepExisting)
+        = 0;
+    void insert_text(int pos, const OUString& rStr)
+    {
+        insert(pos, rStr, nullptr, nullptr, nullptr);
+    }
+    void append_text(const OUString& rStr) { insert(-1, rStr, nullptr, nullptr, nullptr); }
+    void append(const OUString& rId, const OUString& rStr)
+    {
+        insert(-1, rStr, &rId, nullptr, nullptr);
+    }
     void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
     {
-        insert(-1, rId, rStr, &rImage);
+        insert(-1, rStr, &rId, &rImage, nullptr);
+    }
+    void append(const OUString& rId, const OUString& rStr, VirtualDevice& rImage)
+    {
+        insert(-1, rStr, &rId, nullptr, &rImage);
     }
 
     virtual int get_count() const = 0;
@@ -317,22 +361,26 @@ protected:
     void signal_row_activated() { m_aRowActivatedHdl.Call(*this); }
 
 public:
-    virtual void insert_text(const OUString& rText, int pos) = 0;
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr, const OUString* pImage)
+    virtual void insert(int pos, const OUString& rStr, const OUString* pId,
+                        const OUString* pIconName, VirtualDevice* pImageSurface)
         = 0;
-    void append_text(const OUString& rText) { insert_text(rText, -1); }
-    void append(const OUString& rId, const OUString& rStr) { insert(-1, rId, rStr, nullptr); }
+    void insert_text(int pos, const OUString& rStr)
+    {
+        insert(pos, rStr, nullptr, nullptr, nullptr);
+    }
+    void append_text(const OUString& rStr) { insert(-1, rStr, nullptr, nullptr, nullptr); }
+    void append(const OUString& rId, const OUString& rStr)
+    {
+        insert(-1, rStr, &rId, nullptr, nullptr);
+    }
     void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
     {
-        insert(-1, rId, rStr, &rImage);
+        insert(-1, rStr, &rId, &rImage, nullptr);
     }
-
-    virtual int n_children() const = 0;
-    virtual void clear() = 0;
-    virtual int get_height_rows(int nRows) const = 0;
-
-    virtual void set_selection_mode(bool bMultiple) = 0;
-    virtual int count_selected_rows() const = 0;
+    void append(const OUString& rId, const OUString& rStr, VirtualDevice& rImage)
+    {
+        insert(-1, rStr, &rId, nullptr, &rImage);
+    }
 
     void connect_changed(const Link<TreeView&, void>& rLink) { m_aChangeHdl = rLink; }
     void connect_row_activated(const Link<TreeView&, void>& rLink) { m_aRowActivatedHdl = rLink; }
@@ -344,6 +392,7 @@ public:
     virtual void remove(int pos) = 0;
     virtual void set_top_entry(int pos) = 0;
     virtual std::vector<int> get_selected_rows() const = 0;
+    virtual void set_font_color(int pos, const Color& rColor) const = 0;
 
     //by text
     virtual OUString get_text(int pos) const = 0;
@@ -374,6 +423,13 @@ public:
     //all of them
     void select_all() { unselect(-1); }
     void unselect_all() { select(-1); }
+
+    virtual int n_children() const = 0;
+    virtual void clear() = 0;
+    virtual int get_height_rows(int nRows) const = 0;
+
+    virtual void set_selection_mode(bool bMultiple) = 0;
+    virtual int count_selected_rows() const = 0;
 };
 
 class VCL_DLLPUBLIC Button : virtual public Container
@@ -452,6 +508,26 @@ protected:
 
 public:
     void connect_selected(const Link<const OString&, void>& rLink) { m_aSelectHdl = rLink; }
+
+    virtual void insert_item(int pos, const OUString& rId, const OUString& rStr,
+                             const OUString* pIconName, VirtualDevice* pImageSufface, bool bCheck)
+        = 0;
+    void append_item(const OUString& rId, const OUString& rStr)
+    {
+        insert_item(-1, rId, rStr, nullptr, nullptr, false);
+    }
+    void append_item_check(const OUString& rId, const OUString& rStr)
+    {
+        insert_item(-1, rId, rStr, nullptr, nullptr, true);
+    }
+    void append_item(const OUString& rId, const OUString& rStr, const OUString& rImage)
+    {
+        insert_item(-1, rId, rStr, &rImage, nullptr, false);
+    }
+    void append_item(const OUString& rId, const OUString& rStr, VirtualDevice& rImage)
+    {
+        insert_item(-1, rId, rStr, nullptr, &rImage, false);
+    }
     virtual void set_item_active(const OString& rIdent, bool bActive) = 0;
     virtual void set_item_label(const OString& rIdent, const OUString& rLabel) = 0;
     virtual void set_item_help_id(const OString& rIdent, const OString& rHelpId) = 0;
@@ -478,6 +554,7 @@ protected:
 public:
     virtual void set_value(int value) = 0;
     virtual int get_value() const = 0;
+    virtual void set_range(int min, int max) = 0;
     void connect_value_changed(const Link<Scale&, void>& rLink) { m_aValueChangedHdl = rLink; }
 };
 
@@ -624,14 +701,24 @@ protected:
 public:
     EntryTreeView(std::unique_ptr<Entry> xEntry, std::unique_ptr<TreeView> xTreeView);
 
-    virtual void insert_text(int pos, const OUString& rStr) override
+    virtual void insert_vector(const std::vector<weld::ComboBoxEntry>& rItems,
+                               bool bKeepExisting) override
     {
-        m_xTreeView->insert_text(rStr, pos);
+        m_xTreeView->freeze();
+        if (!bKeepExisting)
+            m_xTreeView->clear();
+        for (const auto& rItem : rItems)
+        {
+            m_xTreeView->insert(-1, rItem.sString, rItem.sId.isEmpty() ? nullptr : &rItem.sId,
+                                rItem.sImage.isEmpty() ? nullptr : &rItem.sImage, nullptr);
+        }
+        m_xTreeView->thaw();
     }
-    virtual void insert(int pos, const OUString& rId, const OUString& rStr,
-                        const OUString* pImage) override
+
+    virtual void insert(int pos, const OUString& rStr, const OUString* pId,
+                        const OUString* pIconName, VirtualDevice* pImageSurface) override
     {
-        m_xTreeView->insert(pos, rId, rStr, pImage);
+        m_xTreeView->insert(pos, rStr, pId, pIconName, pImageSurface);
     }
 
     virtual int get_count() const override { return m_xTreeView->n_children(); }
@@ -746,6 +833,11 @@ public:
     {
         return convert_value_to(m_xSpinButton->get_value(), eDestUnit);
     }
+
+    // typically you only need to call this if set_text (e.g. with "") was
+    // previously called to display some arbitrary text instead of the
+    // formatted value and now you want to show it as formatted again
+    void reformat() { set_value(get_value(m_eSrcUnit), m_eSrcUnit); }
 
     void set_range(int min, int max, FieldUnit eValueUnit)
     {
@@ -1017,6 +1109,27 @@ public:
     virtual void set_sensitive(const OString& rIdent, bool bSensitive) = 0;
     virtual void set_active(const OString& rIdent, bool bActive) = 0;
     virtual void show(const OString& rIdent, bool bShow) = 0;
+
+    virtual void insert(int pos, const OUString& rId, const OUString& rStr,
+                        const OUString* pIconName, VirtualDevice* pImageSufface, bool bCheck)
+        = 0;
+    void append(const OUString& rId, const OUString& rStr)
+    {
+        insert(-1, rId, rStr, nullptr, nullptr, false);
+    }
+    void append_check(const OUString& rId, const OUString& rStr)
+    {
+        insert(-1, rId, rStr, nullptr, nullptr, true);
+    }
+    void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
+    {
+        insert(-1, rId, rStr, &rImage, nullptr, false);
+    }
+    void append(const OUString& rId, const OUString& rStr, VirtualDevice& rImage)
+    {
+        insert(-1, rId, rStr, nullptr, &rImage, false);
+    }
+
     virtual ~Menu() {}
 };
 

@@ -72,7 +72,7 @@ using namespace ::com::sun::star;
 // also see swtable.cxx
 #define COLFUZZY 20L
 
-static inline bool IsSame( long nA, long nB ) { return  std::abs(nA-nB) <= COLFUZZY; }
+static bool IsSame( long nA, long nB ) { return  std::abs(nA-nB) <= COLFUZZY; }
 
 class TableWait
 {
@@ -736,12 +736,12 @@ void SwFEShell::GetRowHeight( SwFormatFrameSize *& rpSz ) const
     SwDoc::GetRowHeight( *getShellCursor( false ), rpSz );
 }
 
-bool SwFEShell::BalanceRowHeight( bool bTstOnly )
+bool SwFEShell::BalanceRowHeight( bool bTstOnly, const bool bOptimize )
 {
     SET_CURR_SHELL( this );
     if( !bTstOnly )
         StartAllAction();
-    bool bRet = GetDoc()->BalanceRowHeight( *getShellCursor( false ), bTstOnly );
+    bool bRet = GetDoc()->BalanceRowHeight( *getShellCursor( false ), bTstOnly, bOptimize );
     if( !bTstOnly )
         EndAllActionAndCall();
     return bRet;
@@ -1107,7 +1107,7 @@ bool SwFEShell::CheckHeadline( bool bRepeat ) const
     return bRet;
 }
 
-void SwFEShell::AdjustCellWidth( bool bBalance )
+void SwFEShell::AdjustCellWidth( bool bBalance, const bool bNoShrink, const bool bColumnWidth )
 {
     SET_CURR_SHELL( this );
     StartAllAction();
@@ -1117,7 +1117,7 @@ void SwFEShell::AdjustCellWidth( bool bBalance )
     TableWait aWait(std::numeric_limits<size_t>::max(), nullptr,
                   *GetDoc()->GetDocShell());
 
-    GetDoc()->AdjustCellWidth( *getShellCursor( false ), bBalance );
+    GetDoc()->AdjustCellWidth( *getShellCursor( false ), bBalance, bNoShrink, bColumnWidth );
     EndAllActionAndCall();
 }
 

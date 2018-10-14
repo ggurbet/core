@@ -60,15 +60,15 @@ namespace dbaui
 
     protected:
         // own overridables
-        virtual VclPtr<::Dialog> createComposerDialog(
-            vcl::Window* _pParent,
+        virtual std::unique_ptr<weld::GenericDialogController> createComposerDialog(
+            weld::Window* _pParent,
             const css::uno::Reference< css::sdbc::XConnection >& _rxConnection,
             const css::uno::Reference< css::container::XNameAccess >& _rxColumns
         ) = 0;
 
     private:
         // OGenericUnoDialog overridables
-        virtual svt::OGenericUnoDialog::Dialog createDialog(vcl::Window* _pParent) override;
+        virtual svt::OGenericUnoDialog::Dialog createDialog(const css::uno::Reference<css::awt::XWindow>& rParent) override;
     };
 
     // RowsetFilterDialog
@@ -89,8 +89,8 @@ namespace dbaui
 
     protected:
         // own overridables
-        virtual VclPtr<::Dialog> createComposerDialog(
-            vcl::Window* _pParent,
+        virtual std::unique_ptr<weld::GenericDialogController> createComposerDialog(
+            weld::Window* _pParent,
             const css::uno::Reference< css::sdbc::XConnection >& _rxConnection,
             const css::uno::Reference< css::container::XNameAccess >& _rxColumns
         ) override;
@@ -119,8 +119,8 @@ namespace dbaui
 
     protected:
         // own overridables
-        virtual VclPtr<::Dialog> createComposerDialog(
-            vcl::Window* _pParent,
+        virtual std::unique_ptr<weld::GenericDialogController> createComposerDialog(
+            weld::Window* _pParent,
             const css::uno::Reference< css::sdbc::XConnection >& _rxConnection,
             const css::uno::Reference< css::container::XNameAccess >& _rxColumns
         ) override;

@@ -40,6 +40,7 @@
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/awt/Size.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <tools/globname.hxx>
 #include <unotools/streamwrap.hxx>
@@ -74,13 +75,13 @@ const sal_uInt32 OLE_PALETTECOLOR_MASK      = 0x0000FFFF;
 const sal_uInt32 OLE_SYSTEMCOLOR_MASK       = 0x0000FFFF;
 
 /** Swaps the red and blue component of the passed color. */
-inline sal_uInt32 lclSwapRedBlue( sal_uInt32 nColor )
+sal_uInt32 lclSwapRedBlue( sal_uInt32 nColor )
 {
     return static_cast< sal_uInt32 >( (nColor & 0xFF00FF00) | ((nColor & 0x0000FF) << 16) | ((nColor & 0xFF0000) >> 16) );
 }
 
 /** Returns the UNO RGB color from the passed encoded OLE BGR color. */
-inline ::Color lclDecodeBgrColor( sal_uInt32 nOleColor )
+::Color lclDecodeBgrColor( sal_uInt32 nOleColor )
 {
     return ::Color( lclSwapRedBlue( nOleColor ) & 0xFFFFFF );
 }

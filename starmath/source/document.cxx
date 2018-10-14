@@ -276,10 +276,10 @@ void SetEditEngineDefaultFonts(SfxItemPool &rEditEngineItemPool, const SvtLinguO
 {
     // set fonts to be used
     struct FontDta {
-        LanguageType    nFallbackLang;
+        LanguageType const    nFallbackLang;
         LanguageType    nLang;
-        DefaultFontType nFontType;
-        sal_uInt16      nFontInfoId;
+        DefaultFontType const nFontType;
+        sal_uInt16 const      nFontInfoId;
         } aTable[3] =
     {
         // info to get western font to be used
@@ -901,7 +901,7 @@ void SmDocShell::Execute(SfxRequest& rReq)
             SfxUndoManager *pTmpUndoMgr = GetUndoManager();
             if (pTmpUndoMgr)
                 pTmpUndoMgr->AddUndoAction(
-                    new SmFormatAction(this, aOldFormat, aNewFormat));
+                    o3tl::make_unique<SmFormatAction>(this, aOldFormat, aNewFormat));
 
             SetFormat( aNewFormat );
             Repaint();
@@ -944,7 +944,7 @@ void SmDocShell::Execute(SfxRequest& rReq)
                 SfxUndoManager *pTmpUndoMgr = GetUndoManager();
                 if (pTmpUndoMgr)
                     pTmpUndoMgr->AddUndoAction(
-                        new SmFormatAction(this, aOldFormat, aNewFormat));
+                        o3tl::make_unique<SmFormatAction>(this, aOldFormat, aNewFormat));
 
                 SetFormat( aNewFormat );
                 Repaint();
@@ -967,7 +967,7 @@ void SmDocShell::Execute(SfxRequest& rReq)
                 SfxUndoManager *pTmpUndoMgr = GetUndoManager();
                 if (pTmpUndoMgr)
                     pTmpUndoMgr->AddUndoAction(
-                        new SmFormatAction(this, aOldFormat, aNewFormat));
+                        o3tl::make_unique<SmFormatAction>(this, aOldFormat, aNewFormat));
 
                 SetFormat( aNewFormat );
                 Repaint();
@@ -990,7 +990,7 @@ void SmDocShell::Execute(SfxRequest& rReq)
                 SfxUndoManager *pTmpUndoMgr = GetUndoManager();
                 if (pTmpUndoMgr)
                     pTmpUndoMgr->AddUndoAction(
-                        new SmFormatAction(this, aOldFormat, aNewFormat));
+                        o3tl::make_unique<SmFormatAction>(this, aOldFormat, aNewFormat));
 
                 SetFormat( aNewFormat );
                 Repaint();
@@ -1018,7 +1018,7 @@ void SmDocShell::Execute(SfxRequest& rReq)
                 SfxUndoManager *pTmpUndoMgr = GetUndoManager();
                 if (pTmpUndoMgr)
                     pTmpUndoMgr->AddUndoAction(
-                        new SmFormatAction(this, aOldFormat, aNewFormat));
+                        o3tl::make_unique<SmFormatAction>(this, aOldFormat, aNewFormat));
 
                 SetFormat( aNewFormat );
                 Repaint();

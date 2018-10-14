@@ -26,82 +26,15 @@
 #include <vcl/menu.hxx>
 #include <vcl/popupmenuwindow.hxx>
 
-SvxPresetListBox::SvxPresetListBox(vcl::Window* pParent, WinBits nWinStyle)
-    : ValueSet(pParent, nWinStyle),
-      nColCount(3)
-{
-    SetEdgeBlending(true);
-    SetExtraSpacing(4);
-}
-
-
-VCL_BUILDER_FACTORY_CONSTRUCTOR(SvxPresetListBox, WB_ITEMBORDER| WB_3DLOOK|WB_OWNERDRAWDECORATION|WB_TABSTOP)
-
-void SvxPresetListBox::Resize()
-{
-    DrawLayout();
-    WinBits aWinBits(GetStyle());
-    aWinBits |= WB_VSCROLL;
-    SetStyle(aWinBits);
-    ValueSet::Resize();
-}
-
-void SvxPresetListBox::Command( const CommandEvent& rEvent )
-{
-    switch(rEvent.GetCommand())
-    {
-        case CommandEventId::ContextMenu:
-        {
-            const sal_uInt16 nIndex = GetSelectedItemId();
-            if(nIndex > 0)
-            {
-                Point aPos(rEvent.GetMousePosPixel());
-                VclBuilder aBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "svx/ui/presetmenu.ui", "");
-                VclPtr<PopupMenu> pMenu(aBuilder.get_menu("menu"));
-                FloatingWindow* pMenuWindow = dynamic_cast<FloatingWindow*>(pMenu->GetWindow());
-                if(pMenuWindow != nullptr)
-                {
-                    pMenuWindow->SetPopupModeFlags(
-                    pMenuWindow->GetPopupModeFlags() | FloatWinPopupFlags::NoMouseUpClose);
-                }
-                pMenu->SetSelectHdl( LINK(this, SvxPresetListBox, OnMenuItemSelected) );
-                pMenu->Execute(this,tools::Rectangle(aPos,Size(1,1)),PopupMenuFlags::ExecuteDown);
-            }
-        }
-        break;
-        default:
-            ValueSet::Command( rEvent );
-            break;
-    }
-}
-
-void SvxPresetListBox::DrawLayout()
-{
-    SetColCount(getColumnCount());
-    SetLineCount(5);
-}
-
-IMPL_LINK(SvxPresetListBox, OnMenuItemSelected, Menu*, pMenu, bool)
-{
-    if( pMenu == nullptr )
-    {
-        OSL_ENSURE( pMenu != nullptr, "SvxPresetListBox::OnMenuItemSelected : illegal menu!" );
-        return false;
-    }
-    pMenu->Deactivate();
-    return false;
-}
-
-PresetListBox::PresetListBox(std::unique_ptr<weld::ScrolledWindow> pWindow)
+SvxPresetListBox::SvxPresetListBox(std::unique_ptr<weld::ScrolledWindow> pWindow)
     : SvtValueSet(std::move(pWindow))
-    , nColCount(3)
     , aIconSize(60, 64)
 {
     SetEdgeBlending(true);
     SetExtraSpacing(4);
 }
 
-void PresetListBox::Resize()
+void SvxPresetListBox::Resize()
 {
     DrawLayout();
     WinBits aWinBits(GetStyle());
@@ -110,7 +43,7 @@ void PresetListBox::Resize()
     SvtValueSet::Resize();
 }
 
-bool PresetListBox::ContextMenu(const Point& rPos)
+bool SvxPresetListBox::ContextMenu(const Point& rPos)
 {
     const sal_uInt16 nIndex = GetSelectedItemId();
     if(nIndex > 0)
@@ -123,14 +56,14 @@ bool PresetListBox::ContextMenu(const Point& rPos)
     return false;
 }
 
-void PresetListBox::DrawLayout()
+void SvxPresetListBox::DrawLayout()
 {
     SetColCount(getColumnCount());
     SetLineCount(5);
 }
 
 template< typename ListType, typename EntryType >
-void PresetListBox::FillPresetListBoxImpl(ListType & pList, sal_uInt32 nStartIndex)
+void SvxPresetListBox::FillPresetListBoxImpl(ListType & pList, sal_uInt32 nStartIndex)
 {
     const Size aSize( GetIconSize() );
     BitmapEx aBitmap;
@@ -142,27 +75,27 @@ void PresetListBox::FillPresetListBoxImpl(ListType & pList, sal_uInt32 nStartInd
     }
 }
 
-void PresetListBox::FillPresetListBox(XGradientList& pList, sal_uInt32 nStartIndex)
+void SvxPresetListBox::FillPresetListBox(XGradientList& pList, sal_uInt32 nStartIndex)
 {
     FillPresetListBoxImpl< XGradientList, XGradientEntry>( pList, nStartIndex );
 }
 
-void PresetListBox::FillPresetListBox(XHatchList& pList, sal_uInt32 nStartIndex)
+void SvxPresetListBox::FillPresetListBox(XHatchList& pList, sal_uInt32 nStartIndex)
 {
     FillPresetListBoxImpl< XHatchList, XHatchEntry>( pList, nStartIndex );
 }
 
-void PresetListBox::FillPresetListBox(XBitmapList& pList, sal_uInt32 nStartIndex)
+void SvxPresetListBox::FillPresetListBox(XBitmapList& pList, sal_uInt32 nStartIndex)
 {
     FillPresetListBoxImpl< XBitmapList, XBitmapEntry >( pList, nStartIndex );
 }
 
-void PresetListBox::FillPresetListBox(XPatternList& pList, sal_uInt32 nStartIndex)
+void SvxPresetListBox::FillPresetListBox(XPatternList& pList, sal_uInt32 nStartIndex)
 {
     FillPresetListBoxImpl< XPatternList, XBitmapEntry >( pList, nStartIndex );
 }
 
-void PresetListBox::OnMenuItemSelected(const OString& rIdent)
+void SvxPresetListBox::OnMenuItemSelected(const OString& rIdent)
 {
     if (rIdent == "rename")
         maRenameHdl.Call(this);

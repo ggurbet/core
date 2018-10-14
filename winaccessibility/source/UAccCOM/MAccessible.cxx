@@ -45,6 +45,7 @@
 
 #include <vcl/svapp.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
+#include <comphelper/AccessibleImplementationHelper.hxx>
 
 #include <com/sun/star/accessibility/XAccessibleText.hpp>
 #include <com/sun/star/accessibility/XAccessibleEditableText.hpp>
@@ -650,7 +651,7 @@ STDMETHODIMP CMAccessible::get_accKeyboardShortcut(VARIANT varChild, BSTR *pszKe
                             long nCount = binding->getAccessibleKeyBindingCount();
                             if(nCount >= 1)
                             {
-                                wString = CAccAction::GetkeyBindingStrByXkeyBinding( binding->getAccessibleKeyBinding(0) );
+                                wString = comphelper::GetkeyBindingStrByXkeyBinding( binding->getAccessibleKeyBinding(0) );
                             }
                         }
                     }
@@ -2541,7 +2542,7 @@ BOOL CMAccessible::GetXInterfaceFromXAccessible(XAccessible* pXAcc, XInterface**
     return FALSE;
 }
 
-template<typename T> HRESULT
+template<typename T> static HRESULT
 createAggInstance(CMAccessible &rOuter, void ** ppvObject)
 {
     // Note: CComAggObject has special handling for IUnknown - must

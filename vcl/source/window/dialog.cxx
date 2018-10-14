@@ -126,11 +126,9 @@ void ImplHideSplash()
             pSVData->mpIntroWindow->Hide();
 }
 
-//Get next window after pChild of a pTopLevel window as
-//if any intermediate layout widgets didn't exist
-vcl::Window * nextLogicalChildOfParent(vcl::Window *pTopLevel, vcl::Window *pChild)
+vcl::Window * nextLogicalChildOfParent(const vcl::Window *pTopLevel, const vcl::Window *pChild)
 {
-    vcl::Window *pLastChild = pChild;
+    const vcl::Window *pLastChild = pChild;
 
     if (isContainerWindow(*pChild))
         pChild = pChild->GetWindow(GetWindowType::FirstChild);
@@ -151,12 +149,12 @@ vcl::Window * nextLogicalChildOfParent(vcl::Window *pTopLevel, vcl::Window *pChi
     if (pChild && isContainerWindow(*pChild))
         pChild = nextLogicalChildOfParent(pTopLevel, pChild);
 
-    return pChild;
+    return const_cast<vcl::Window *>(pChild);
 }
 
-vcl::Window * prevLogicalChildOfParent(vcl::Window *pTopLevel, vcl::Window *pChild)
+vcl::Window * prevLogicalChildOfParent(const vcl::Window *pTopLevel, const vcl::Window *pChild)
 {
-    vcl::Window *pLastChild = pChild;
+    const vcl::Window *pLastChild = pChild;
 
     if (isContainerWindow(*pChild))
         pChild = pChild->GetWindow(GetWindowType::LastChild);
@@ -177,17 +175,23 @@ vcl::Window * prevLogicalChildOfParent(vcl::Window *pTopLevel, vcl::Window *pChi
     if (pChild && isContainerWindow(*pChild))
         pChild = prevLogicalChildOfParent(pTopLevel, pChild);
 
-    return pChild;
+    return const_cast<vcl::Window *>(pChild);
 }
 
-//Get first window of a pTopLevel window as
-//if any intermediate layout widgets didn't exist
-vcl::Window * firstLogicalChildOfParent(vcl::Window *pTopLevel)
+vcl::Window * firstLogicalChildOfParent(const vcl::Window *pTopLevel)
 {
-    vcl::Window *pChild = pTopLevel->GetWindow(GetWindowType::FirstChild);
+    const vcl::Window *pChild = pTopLevel->GetWindow(GetWindowType::FirstChild);
     if (pChild && isContainerWindow(*pChild))
         pChild = nextLogicalChildOfParent(pTopLevel, pChild);
-    return pChild;
+    return const_cast<vcl::Window *>(pChild);
+}
+
+vcl::Window * lastLogicalChildOfParent(const vcl::Window *pTopLevel)
+{
+    const vcl::Window *pChild = pTopLevel->GetWindow(GetWindowType::LastChild);
+    if (pChild && isContainerWindow(*pChild))
+        pChild = prevLogicalChildOfParent(pTopLevel, pChild);
+    return const_cast<vcl::Window *>(pChild);
 }
 
 void Accelerator::GenerateAutoMnemonicsOnHierarchy(vcl::Window* pWindow)
@@ -343,6 +347,7 @@ struct DialogImpl
     long    mnResult;
     bool    mbStartedModal;
     VclAbstractDialog::AsyncContext maEndCtx;
+    Link<void*, vcl::ILibreOfficeKitNotifier*> m_aInstallLOKNotifierHdl;
 
     DialogImpl() : mnResult( -1 ), mbStartedModal( false ) {}
 
@@ -717,10 +722,30 @@ Size bestmaxFrameSizeForScreenSize(const Size &rScreenSize)
                 std::max<long>(h, 480 - 50));
 }
 
+void Dialog::SetInstallLOKNotifierHdl(const Link<void*, vcl::ILibreOfficeKitNotifier*>& rLink)
+{
+    mpDialogImpl->m_aInstallLOKNotifierHdl = rLink;
+}
+
 void Dialog::StateChanged( StateChangedType nType )
 {
     if (nType == StateChangedType::InitShow)
     {
+        if (comphelper::LibreOfficeKit::isActive() && !GetLOKNotifier())
+        {
+            vcl::ILibreOfficeKitNotifier* pViewShell = mpDialogImpl->m_aInstallLOKNotifierHdl.Call(nullptr);
+            if (pViewShell)
+            {
+                SetLOKNotifier(pViewShell);
+                std::vector<vcl::LOKPayloadItem> aItems;
+                aItems.emplace_back("type", "dialog");
+                aItems.emplace_back("size", GetSizePixel().toString());
+                if (!GetText().isEmpty())
+                    aItems.emplace_back("title", GetText().toUtf8());
+                pViewShell->notifyWindow(GetLOKWindowId(), "created", aItems);
+            }
+        }
+
         DoInitialLayout();
 
         if ( !HasChildPathFocus() || HasFocus() )
@@ -826,6 +851,13 @@ bool Dialog::ImplStartExecuteModal()
 
     ImplSVData* pSVData = ImplGetSVData();
 
+    const bool bKitActive = comphelper::LibreOfficeKit::isActive();
+    if (bKitActive && !GetLOKNotifier())
+    {
+        if (vcl::ILibreOfficeKitNotifier* pViewShell = mpDialogImpl->m_aInstallLOKNotifierHdl.Call(nullptr))
+            SetLOKNotifier(pViewShell);
+    }
+
     switch ( Application::GetDialogCancelMode() )
     {
     case Application::DialogCancelMode::Off:
@@ -887,7 +919,7 @@ bool Dialog::ImplStartExecuteModal()
     }
     mbInExecute = true;
     // no real modality in LibreOfficeKit
-    if (!comphelper::LibreOfficeKit::isActive())
+    if (!bKitActive)
         SetModalInputMode(true);
 
     // FIXME: no layouting, workaround some clipping issues
@@ -907,7 +939,7 @@ bool Dialog::ImplStartExecuteModal()
     xEventBroadcaster->documentEventOccured(aObject);
     UITestLogger::getInstance().log("ModalDialogExecuted Id:" + get_id());
 
-    if (comphelper::LibreOfficeKit::isActive())
+    if (bKitActive)
     {
         if(const vcl::ILibreOfficeKitNotifier* pNotifier = GetLOKNotifier())
         {

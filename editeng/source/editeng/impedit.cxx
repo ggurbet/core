@@ -17,11 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/wrkwin.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
-
 #include "impedit.hxx"
 #include <sal/log.hxx>
 #include <editeng/editeng.hxx>
@@ -51,7 +46,7 @@ using namespace ::com::sun::star::linguistic2;
 
 #define SCRLRANGE   20  // Scroll 1/20 of the width/height, when in QueryDrop
 
-static inline void lcl_AllignToPixel( Point& rPoint, OutputDevice const * pOutDev, short nDiffX, short nDiffY )
+static void lcl_AllignToPixel( Point& rPoint, OutputDevice const * pOutDev, short nDiffX, short nDiffY )
 {
     rPoint = pOutDev->LogicToPixel( rPoint );
 
@@ -148,10 +143,13 @@ void ImpEditView::SetEditSelection( const EditSelection& rEditSelection )
             eNotifyType = EE_NOTIFY_TEXTVIEWSELECTIONCHANGED;
         }
         EENotify aNotify( eNotifyType );
-        pEditEngine->pImpEditEngine->QueueNotify( aNotify );
+        pEditEngine->pImpEditEngine->GetNotifyHdl().Call( aNotify );
     }
     if(pEditEngine->pImpEditEngine->IsFormatted())
-        pEditEngine->pImpEditEngine->SendNotifications();
+    {
+        EENotify aNotify(EE_NOTIFY_PROCESSNOTIFICATIONS);
+        pEditEngine->pImpEditEngine->GetNotifyHdl().Call(aNotify);
+    }
 }
 
 /// Translate absolute <-> relative twips: LOK wants absolute coordinates as output and gives absolute coordinates as input.
@@ -1274,7 +1272,7 @@ Pair ImpEditView::Scroll( long ndX, long ndY, ScrollRangeCheck nRangeCheck )
         if ( pEditEngine->pImpEditEngine->GetNotifyHdl().IsSet() )
         {
             EENotify aNotify( EE_NOTIFY_TEXTVIEWSCROLLED );
-            pEditEngine->pImpEditEngine->QueueNotify( aNotify );
+            pEditEngine->pImpEditEngine->GetNotifyHdl().Call( aNotify );
         }
     }
 

@@ -106,9 +106,9 @@ class SaveTable
     const SwTable* m_pSwTable;
     SfxItemSets m_aSets;
     SwFrameFormatsV m_aFrameFormats;
-    sal_uInt16 m_nLineCount;
+    sal_uInt16 const m_nLineCount;
     bool m_bModifyBox : 1;
-    bool m_bSaveFormula : 1;
+    bool const m_bSaveFormula : 1;
     bool m_bNewModel : 1;
 
     SaveTable(const SaveTable&) = delete;
@@ -191,9 +191,9 @@ So we need to remember not only the start node position but the end node positio
 
 struct SwTableToTextSave
 {
-    sal_uLong m_nSttNd;
+    sal_uLong const m_nSttNd;
     sal_uLong m_nEndNd;
-    sal_Int32 m_nContent;
+    sal_Int32 const m_nContent;
     std::unique_ptr<SwHistory> m_pHstry;
     // metadata references for first and last paragraph in cell
     std::shared_ptr< ::sfx2::MetadatableUndo > m_pMetadataUndoStart;
@@ -1469,15 +1469,15 @@ SwUndoTableNdsChg::SwUndoTableNdsChg( SwUndoId nAction,
                                     long nMn, long nMx,
                                     sal_uInt16 nCnt, bool bFlg, bool bSmHght )
     : SwUndo( nAction, rTableNd.GetDoc() ),
-    nMin( nMn ), nMax( nMx ),
-    nSttNode( rTableNd.GetIndex() ), nCurrBox( 0 ),
-    nCount( nCnt ), nRelDiff( 0 ), nAbsDiff( 0 ),
-    nSetColType( TableChgWidthHeightType::InvalidPos ),
-    bFlag( bFlg ),
-    bSameHeight( bSmHght )
+    m_nMin( nMn ), m_nMax( nMx ),
+    m_nSttNode( rTableNd.GetIndex() ), m_nCurrBox( 0 ),
+    m_nCount( nCnt ), m_nRelDiff( 0 ), m_nAbsDiff( 0 ),
+    m_nSetColType( TableChgWidthHeightType::InvalidPos ),
+    m_bFlag( bFlg ),
+    m_bSameHeight( bSmHght )
 {
     const SwTable& rTable = rTableNd.GetTable();
-    pSaveTable.reset( new SaveTable( rTable ) );
+    m_pSaveTable.reset( new SaveTable( rTable ) );
 
     // and remember selection
     ReNewBoxes( rBoxes );
@@ -1487,15 +1487,15 @@ SwUndoTableNdsChg::SwUndoTableNdsChg( SwUndoId nAction,
                                     const SwSelBoxes& rBoxes,
                                     const SwTableNode& rTableNd )
     : SwUndo( nAction, rTableNd.GetDoc() ),
-    nMin( 0 ), nMax( 0 ),
-    nSttNode( rTableNd.GetIndex() ), nCurrBox( 0 ),
-    nCount( 0 ), nRelDiff( 0 ), nAbsDiff( 0 ),
-    nSetColType( TableChgWidthHeightType::InvalidPos ),
-    bFlag( false ),
-    bSameHeight( false )
+    m_nMin( 0 ), m_nMax( 0 ),
+    m_nSttNode( rTableNd.GetIndex() ), m_nCurrBox( 0 ),
+    m_nCount( 0 ), m_nRelDiff( 0 ), m_nAbsDiff( 0 ),
+    m_nSetColType( TableChgWidthHeightType::InvalidPos ),
+    m_bFlag( false ),
+    m_bSameHeight( false )
 {
     const SwTable& rTable = rTableNd.GetTable();
-    pSaveTable.reset( new SaveTable( rTable ) );
+    m_pSaveTable.reset( new SaveTable( rTable ) );
 
     // and remember selection
     ReNewBoxes( rBoxes );
@@ -1524,7 +1524,7 @@ void SwUndoTableNdsChg::SaveNewBoxes( const SwTableNode& rTableNd,
     const SwTableSortBoxes& rTableBoxes = rTable.GetTabSortBoxes();
 
     OSL_ENSURE( ! IsDelBox(), "wrong Action" );
-    pNewSttNds.reset( new std::set<BoxMove> );
+    m_pNewSttNds.reset( new std::set<BoxMove> );
 
     size_t i = 0;
     for (size_t  n = 0; n < rOld.size(); ++i)
@@ -1533,12 +1533,12 @@ void SwUndoTableNdsChg::SaveNewBoxes( const SwTableNode& rTableNd,
             ++n;
         else
             // new box: insert sorted
-            pNewSttNds->insert( BoxMove(rTableBoxes[ i ]->GetSttIdx()) );
+            m_pNewSttNds->insert( BoxMove(rTableBoxes[ i ]->GetSttIdx()) );
     }
 
     for( ; i < rTableBoxes.size(); ++i )
         // new box: insert sorted
-        pNewSttNds->insert( BoxMove(rTableBoxes[ i ]->GetSttIdx()) );
+        m_pNewSttNds->insert( BoxMove(rTableBoxes[ i ]->GetSttIdx()) );
 }
 
 static SwTableLine* lcl_FindTableLine( const SwTable& rTable,
@@ -1576,9 +1576,9 @@ void SwUndoTableNdsChg::SaveNewBoxes( const SwTableNode& rTableNd,
     const SwTableSortBoxes& rTableBoxes = rTable.GetTabSortBoxes();
 
     OSL_ENSURE( ! IsDelBox(), "wrong Action" );
-    pNewSttNds.reset( new std::set<BoxMove> );
+    m_pNewSttNds.reset( new std::set<BoxMove> );
 
-    OSL_ENSURE( rTable.IsNewModel() || rOld.size() + nCount * rBoxes.size() == rTableBoxes.size(),
+    OSL_ENSURE( rTable.IsNewModel() || rOld.size() + m_nCount * rBoxes.size() == rTableBoxes.size(),
         "unexpected boxes" );
     OSL_ENSURE( rOld.size() <= rTableBoxes.size(), "more unexpected boxes" );
     for (size_t n = 0, i = 0; i < rTableBoxes.size(); ++i)
@@ -1643,7 +1643,7 @@ void SwUndoTableNdsChg::SaveNewBoxes( const SwTableNode& rTableNd,
                 ( nNodes != ( pSourceBox->GetSttNd()->EndOfSectionIndex() -
                               pSourceBox->GetSttIdx() ) )
                 && ( nNodes - 1 > nLineDiff );
-            pNewSttNds->insert( BoxMove(pBox->GetSttIdx(), bNodesMoved) );
+            m_pNewSttNds->insert( BoxMove(pBox->GetSttIdx(), bNodesMoved) );
         }
     }
 }
@@ -1659,13 +1659,13 @@ void SwUndoTableNdsChg::SaveSection( SwStartNode* pSttNd )
     pSave->SaveSection( SwNodeIndex( *pSttNd ));
 
     m_pDelSects->push_back(std::move(pSave));
-    nSttNode = pTableNd->GetIndex();
+    m_nSttNode = pTableNd->GetIndex();
 }
 
 void SwUndoTableNdsChg::UndoImpl(::sw::UndoRedoContext & rContext)
 {
     SwDoc & rDoc = rContext.GetDoc();
-    SwNodeIndex aIdx( rDoc.GetNodes(), nSttNode );
+    SwNodeIndex aIdx( rDoc.GetNodes(), m_nSttNode );
 
     SwTableNode *const pTableNd = aIdx.GetNode().GetTableNode();
     OSL_ENSURE( pTableNd, "no TableNode" );
@@ -1702,11 +1702,11 @@ void SwUndoTableNdsChg::UndoImpl(::sw::UndoRedoContext & rContext)
         }
         m_pDelSects->clear();
     }
-    else if( !pNewSttNds->empty() )
+    else if( !m_pNewSttNds->empty() )
     {
         // Then the nodes have be moved and not deleted!
         // But for that we need a temp array.
-        std::vector<BoxMove> aTmp( pNewSttNds->begin(), pNewSttNds->end() );
+        std::vector<BoxMove> aTmp( m_pNewSttNds->begin(), m_pNewSttNds->end() );
 
         // backwards
         for (size_t n = aTmp.size(); n > 0 ; )
@@ -1755,7 +1755,7 @@ void SwUndoTableNdsChg::UndoImpl(::sw::UndoRedoContext & rContext)
     {
         // Remove nodes from nodes array (backwards!)
         std::set<BoxMove>::reverse_iterator it;
-        for( it = pNewSttNds->rbegin(); it != pNewSttNds->rend(); ++it )
+        for( it = m_pNewSttNds->rbegin(); it != m_pNewSttNds->rend(); ++it )
         {
             sal_uLong nIdx = (*it).index;
             SwTableBox* pBox = pTableNd->GetTable().GetTableBox( nIdx );
@@ -1791,13 +1791,13 @@ void SwUndoTableNdsChg::UndoImpl(::sw::UndoRedoContext & rContext)
         delete pCurrBox;
     }
 
-    pSaveTable->CreateNew( pTableNd->GetTable(), true, false );
+    m_pSaveTable->CreateNew( pTableNd->GetTable(), true, false );
 
     // TL_CHART2: need to inform chart of probably changed cell names
     rDoc.UpdateCharts( pTableNd->GetTable().GetFrameFormat()->GetName() );
 
     if( IsDelBox() )
-        nSttNode = pTableNd->GetIndex();
+        m_nSttNode = pTableNd->GetIndex();
     ClearFEShellTabCols(rDoc, nullptr);
     CHECK_TABLE( pTableNd->GetTable() )
 }
@@ -1806,7 +1806,7 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
 {
     SwDoc & rDoc = rContext.GetDoc();
 
-    SwTableNode* pTableNd = rDoc.GetNodes()[ nSttNode ]->GetTableNode();
+    SwTableNode* pTableNd = rDoc.GetNodes()[ m_nSttNode ]->GetTableNode();
     OSL_ENSURE( pTableNd, "no TableNode" );
     CHECK_TABLE( pTableNd->GetTable() )
 
@@ -1822,44 +1822,44 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
     switch( GetId() )
     {
     case SwUndoId::TABLE_INSCOL:
-        if( TableChgWidthHeightType::InvalidPos == extractPosition(nSetColType) )
-            rDoc.InsertCol( aSelBoxes, nCount, bFlag );
+        if( TableChgWidthHeightType::InvalidPos == extractPosition(m_nSetColType) )
+            rDoc.InsertCol( aSelBoxes, m_nCount, m_bFlag );
         else
         {
-            SwTableBox* pBox = pTableNd->GetTable().GetTableBox( nCurrBox );
-            rDoc.SetColRowWidthHeight( *pBox, nSetColType, nAbsDiff,
-                                        nRelDiff );
+            SwTableBox* pBox = pTableNd->GetTable().GetTableBox( m_nCurrBox );
+            rDoc.SetColRowWidthHeight( *pBox, m_nSetColType, m_nAbsDiff,
+                                        m_nRelDiff );
         }
         break;
 
     case SwUndoId::TABLE_INSROW:
-        if( TableChgWidthHeightType::InvalidPos == extractPosition(nSetColType) )
-            rDoc.InsertRow( aSelBoxes, nCount, bFlag );
+        if( TableChgWidthHeightType::InvalidPos == extractPosition(m_nSetColType) )
+            rDoc.InsertRow( aSelBoxes, m_nCount, m_bFlag );
         else
         {
             SwTable& rTable = pTableNd->GetTable();
-            SwTableBox* pBox = rTable.GetTableBox( nCurrBox );
+            SwTableBox* pBox = rTable.GetTableBox( m_nCurrBox );
             TableChgMode eOldMode = rTable.GetTableChgMode();
-            rTable.SetTableChgMode( static_cast<TableChgMode>(nCount) );
-            rDoc.SetColRowWidthHeight( *pBox, nSetColType, nAbsDiff, nRelDiff );
+            rTable.SetTableChgMode( static_cast<TableChgMode>(m_nCount) );
+            rDoc.SetColRowWidthHeight( *pBox, m_nSetColType, m_nAbsDiff, m_nRelDiff );
             rTable.SetTableChgMode( eOldMode );
         }
         break;
 
     case SwUndoId::TABLE_SPLIT:
-        rDoc.SplitTable( aSelBoxes, bFlag, nCount, bSameHeight );
+        rDoc.SplitTable( aSelBoxes, m_bFlag, m_nCount, m_bSameHeight );
         break;
     case SwUndoId::TABLE_DELBOX:
     case SwUndoId::ROW_DELETE:
     case SwUndoId::COL_DELETE:
-        if( TableChgWidthHeightType::InvalidPos == extractPosition(nSetColType) )
+        if( TableChgWidthHeightType::InvalidPos == extractPosition(m_nSetColType) )
         {
             SwTableFormulaUpdate aMsgHint( &pTableNd->GetTable() );
             aMsgHint.m_eFlags = TBL_BOXPTR;
             rDoc.getIDocumentFieldsAccess().UpdateTableFields( &aMsgHint );
             SwTable &rTable = pTableNd->GetTable();
-            if( nMax > nMin && rTable.IsNewModel() )
-                rTable.PrepareDeleteCol( nMin, nMax );
+            if( m_nMax > m_nMin && rTable.IsNewModel() )
+                rTable.PrepareDeleteCol( m_nMin, m_nMax );
             rTable.DeleteSel( &rDoc, aSelBoxes, nullptr, this, true, true );
         }
         else
@@ -1870,47 +1870,48 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
             aMsgHint.m_eFlags = TBL_BOXPTR;
             rDoc.getIDocumentFieldsAccess().UpdateTableFields( &aMsgHint );
 
-            SwTableBox* pBox = rTable.GetTableBox( nCurrBox );
+            SwTableBox* pBox = rTable.GetTableBox( m_nCurrBox );
             TableChgMode eOldMode = rTable.GetTableChgMode();
-            rTable.SetTableChgMode( static_cast<TableChgMode>(nCount) );
+            rTable.SetTableChgMode( static_cast<TableChgMode>(m_nCount) );
 
             // need the SaveSections!
             rDoc.GetIDocumentUndoRedo().DoUndo( true );
-            SwUndo* pUndo = nullptr;
+            std::unique_ptr<SwUndo> pUndo;
 
-            switch( extractPosition(nSetColType) )
+            switch( extractPosition(m_nSetColType) )
             {
             case TableChgWidthHeightType::ColLeft:
             case TableChgWidthHeightType::ColRight:
             case TableChgWidthHeightType::CellLeft:
             case TableChgWidthHeightType::CellRight:
-                 rTable.SetColWidth( *pBox, nSetColType, nAbsDiff,
-                                    nRelDiff, &pUndo );
+                 rTable.SetColWidth( *pBox, m_nSetColType, m_nAbsDiff,
+                                    m_nRelDiff, &pUndo );
                 break;
             case TableChgWidthHeightType::RowBottom:
             case TableChgWidthHeightType::CellTop:
             case TableChgWidthHeightType::CellBottom:
-                rTable.SetRowHeight( *pBox, nSetColType, nAbsDiff,
-                                    nRelDiff, &pUndo );
+                rTable.SetRowHeight( *pBox, m_nSetColType, m_nAbsDiff,
+                                    m_nRelDiff, &pUndo );
                 break;
             default: break;
             }
 
             if( pUndo )
             {
+                auto pSwUndoTableNdsChg = static_cast<SwUndoTableNdsChg *>(pUndo.get());
                 m_pDelSects->insert(m_pDelSects->begin(),
                     std::make_move_iterator(
-                        static_cast<SwUndoTableNdsChg *>(pUndo)->m_pDelSects->begin()),
+                        pSwUndoTableNdsChg->m_pDelSects->begin()),
                     std::make_move_iterator(
-                        static_cast<SwUndoTableNdsChg *>(pUndo)->m_pDelSects->end()));
-                static_cast<SwUndoTableNdsChg *>(pUndo)->m_pDelSects->clear();
-                delete pUndo;
+                        pSwUndoTableNdsChg->m_pDelSects->end()));
+                pSwUndoTableNdsChg->m_pDelSects->clear();
+                pUndo.reset();
             }
             rDoc.GetIDocumentUndoRedo().DoUndo( false );
 
             rTable.SetTableChgMode( eOldMode );
         }
-        nSttNode = pTableNd->GetIndex();
+        m_nSttNode = pTableNd->GetIndex();
         break;
     default:
         ;
@@ -2271,7 +2272,7 @@ void SwUndoTableNumFormat::UndoImpl(::sw::UndoRedoContext & rContext)
 class RedlineFlagsInternGuard
 {
     SwDoc& mrDoc;
-    RedlineFlags meOldRedlineFlags;
+    RedlineFlags const meOldRedlineFlags;
 
 public:
     RedlineFlagsInternGuard(

@@ -701,7 +701,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                         nRetMask = sal_uInt16( nullptr != pStyleSheet );
                         if ( pStyleSheet && !pScMod->GetIsWaterCan() )
                         {
-                            ScUndoApplyPageStyle* pUndoAction = nullptr;
+                            std::unique_ptr<ScUndoApplyPageStyle> pUndoAction;
                             SCTAB nTabCount = rDoc.GetTableCount();
                             ScMarkData::iterator itr = rMark.begin(), itrEnd = rMark.end();
                             for (; itr != itrEnd && *itr < nTabCount; ++itr)
@@ -712,13 +712,13 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                                     rDoc.SetPageStyle( *itr, aStyleName );
                                     ScPrintFunc( pDocSh, pTabViewShell->GetPrinter(true), *itr ).UpdatePages();
                                     if( !pUndoAction )
-                                        pUndoAction = new ScUndoApplyPageStyle( pDocSh, aStyleName );
+                                        pUndoAction.reset(new ScUndoApplyPageStyle( pDocSh, aStyleName ));
                                     pUndoAction->AddSheetAction( *itr, aOldName );
                                 }
                             }
                             if( pUndoAction )
                             {
-                                pDocSh->GetUndoManager()->AddUndoAction( pUndoAction );
+                                pDocSh->GetUndoManager()->AddUndoAction( std::move(pUndoAction) );
                                 pDocSh->SetDocumentModified();
                                 rBindings.Invalidate( SID_STYLE_FAMILY4 );
                                 rBindings.Invalidate( SID_STATUS_PAGESTYLE );
@@ -781,7 +781,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
             {
                 SfxStyleFamily  eFam    = pStyleSheet->GetFamily();
                 ScopedVclPtr<SfxAbstractTabDialog> pDlg;
-                sal_uInt16          nRsc    = 0;
+                bool bPage = false;
 
                 // Store old Items from the style
                 SfxItemSet aOldSet = pStyleSheet->GetItemSet();
@@ -790,7 +790,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                 switch ( eFam )
                 {
                     case SfxStyleFamily::Page:
-                        nRsc = RID_SCDLG_STYLES_PAGE;
+                        bPage = true;
                         break;
 
                     case SfxStyleFamily::Para:
@@ -823,7 +823,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                                 ScTabViewShell::MakeNumberInfoItem(&rDoc, GetViewData()));
 
                             pDocSh->PutItem( *pNumberInfoItem );
-                            nRsc = RID_SCDLG_STYLES_PAR;
+                            bPage = false;
 
                             // Definitely a SvxBoxInfoItem with Table = sal_False in set:
                             // (If there is no item, the dialogue will also delete the
@@ -840,28 +840,11 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                         break;
                 }
 
-                //  If GetDefDialogParent is a dialog, it must be used
-                //  (style catalog)
-
-                vcl::Window* pParent = Application::GetDefDialogParent();
-                if ( !pParent || !pParent->IsDialog() )
-                {
-                    //  GetDefDialogParent dynamically finds the
-                    //  topmost parent of the focus window, so IsDialog above is FALSE
-                    //  even if called from the style catalog.
-                    //  -> Use NULL if a modal dialog is open, to enable the Dialog's
-                    //  default parent handling.
-                    if ( Application::IsInModalMode() )
-                        pParent = nullptr;
-                    else
-                        pParent = pTabViewShell->GetDialogParent();
-                }
-
                 pTabViewShell->SetInFormatDialog(true);
 
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                pDlg.disposeAndReset(pFact->CreateScStyleDlg( pParent, *pStyleSheet, nRsc, nRsc ));
+                pDlg.disposeAndReset(pFact->CreateScStyleDlg(rReq.GetFrameWeld(), *pStyleSheet, bPage));
                 short nResult = pDlg->Execute();
                 pTabViewShell->SetInFormatDialog(false);
 
@@ -950,7 +933,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
 
         if ( bAddUndo && bUndo)
             pDocSh->GetUndoManager()->AddUndoAction(
-                        new ScUndoModifyStyle( pDocSh, eFamily, aOldData, aNewData ) );
+                        o3tl::make_unique<ScUndoModifyStyle>( pDocSh, eFamily, aOldData, aNewData ) );
 
         if ( bStyleToMarked )
         {
@@ -2797,7 +2780,7 @@ void ScFormatShell::ExecFormatPaintbrush( const SfxRequest& rReq )
         if ( pViewData->GetSimpleArea(aDummy) != SC_MARK_SIMPLE )
             pView->Unmark();
 
-        std::unique_ptr<ScDocument> pBrushDoc(new ScDocument( SCDOCMODE_CLIP ));
+        ScDocumentUniquePtr pBrushDoc(new ScDocument( SCDOCMODE_CLIP ));
         pView->CopyToClip( pBrushDoc.get(), false, true );
         pView->SetBrushDocument( std::move(pBrushDoc), bLock );
     }

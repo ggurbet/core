@@ -142,13 +142,17 @@ public:
 private:
     std::unique_ptr<weld::ComboBox> m_xControl;
     Link<weld::ComboBox&, void> m_aChangeHdl;
-    OUString m_aAllString;
+    OUString const m_aAllString;
     std::unique_ptr<css::uno::Sequence<sal_Int16>> m_xSpellUsedLang;
     LanguageType m_eSavedLanguage;
     EditedAndValid  m_eEditedAndValid;
     bool m_bHasLangNone;
     bool m_bLangNoneIsLangAll;
     bool m_bWithCheckmark;
+
+    SVX_DLLPRIVATE weld::ComboBoxEntry BuildEntry(const LanguageType nLangType);
+    SVX_DLLPRIVATE void AddLanguages(const std::vector< LanguageType >& rLanguageTypes, SvxLanguageListFlags nLangList,
+                                     std::vector<weld::ComboBoxEntry>& rEntries);
 
     SVX_DLLPRIVATE int ImplTypeToPos(LanguageType eType) const;
     SVX_DLLPRIVATE void ImplClear();
@@ -165,15 +169,24 @@ public:
     sal_Int32           SaveEditedAsEntry();
 
     void connect_changed(const Link<weld::ComboBox&, void>& rLink) { m_aChangeHdl = rLink; }
+    void connect_focus_in(const Link<weld::Widget&, void>& rLink) { m_xControl->connect_focus_in(rLink); }
     void save_active_id() { m_eSavedLanguage = get_active_id(); }
     LanguageType get_saved_active_id() const { return m_eSavedLanguage; }
     bool get_active_id_changed_from_saved() const { return m_eSavedLanguage != get_active_id(); }
+    void show() { m_xControl->show(); }
     void hide() { m_xControl->hide(); }
+    void show(bool bShow) { if (bShow) show(); else hide(); }
     void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
     void set_active(int nPos) { m_xControl->set_active(nPos); }
     int get_active() const { return m_xControl->get_active(); }
     void set_active_id(const LanguageType eLangType);
+    OUString get_active_text() const { return m_xControl->get_active_text(); }
+    bool get_visible() const { return m_xControl->get_visible(); }
     LanguageType get_active_id() const;
+    void remove_id(const LanguageType eLangType);
+    void append(const LanguageType eLangType, const OUString& rStr);
+    int find_text(const OUString& rStr) const { return m_xControl->find_text(rStr); }
+    const weld::ComboBox* get_widget() const { return m_xControl.get(); }
 };
 
 class SVX_DLLPUBLIC SvxLanguageComboBox : public ComboBox, public SvxLanguageBoxBase

@@ -119,7 +119,7 @@ static bool is_gnome_desktop( Display* pDisplay )
 
 static bool bWasXError = false;
 
-static inline bool WasXError()
+static bool WasXError()
 {
     bool bRet = bWasXError;
     bWasXError = false;
@@ -215,6 +215,8 @@ DESKTOP_DETECTOR_PUBLIC DesktopType get_desktop_environment()
     {
         OString aOver( pOverride );
 
+        if ( aOver.equalsIgnoreAsciiCase( "lxqt" ) )
+            return DESKTOP_LXQT;
         if ( aOver.equalsIgnoreAsciiCase( "kde5" ) )
             return DESKTOP_KDE5;
         if ( aOver.equalsIgnoreAsciiCase( "kde4" ) )
@@ -258,8 +260,10 @@ DESKTOP_DETECTOR_PUBLIC DesktopType get_desktop_environment()
         {
             if ( rCurrentDesktopStr.equalsIgnoreAsciiCase( "unity" ) )
                 return DESKTOP_UNITY;
-            else if ( rCurrentDesktopStr.equalsIgnoreAsciiCase( "gnome") )
+            else if ( rCurrentDesktopStr.equalsIgnoreAsciiCase( "gnome" ) )
                 return DESKTOP_GNOME;
+            else if ( rCurrentDesktopStr.equalsIgnoreAsciiCase( "lxqt" ) )
+                return DESKTOP_LXQT;
         }
     }
 
@@ -272,6 +276,8 @@ DESKTOP_DETECTOR_PUBLIC DesktopType get_desktop_environment()
         ret = DESKTOP_MATE;
     else if ( aDesktopSession.equalsIgnoreAsciiCase( "xfce" ) )
         ret = DESKTOP_XFCE;
+    else if ( aDesktopSession.equalsIgnoreAsciiCase( "lxqt" ) )
+        ret = DESKTOP_LXQT;
     else
     {
         // these guys can be slower, with X property fetches,

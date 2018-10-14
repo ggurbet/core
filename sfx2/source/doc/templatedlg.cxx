@@ -133,8 +133,8 @@ public:
 
 private:
 
-    OUString maKeyword;
-    FILTER_APPLICATION meApp;
+    OUString const maKeyword;
+    FILTER_APPLICATION const meApp;
 };
 
 /***
@@ -1319,7 +1319,7 @@ static std::vector<OUString> lcl_getAllFactoryURLs ()
 //   Class SfxTemplateCategoryDialog --------------------------------------------------
 
 SfxTemplateCategoryDialog::SfxTemplateCategoryDialog(weld::Window* pParent)
-    : weld::GenericDialogController(pParent, "sfx/ui/templatecategorydlg.ui", "TemplatesCategoryDialog")
+    : GenericDialogController(pParent, "sfx/ui/templatecategorydlg.ui", "TemplatesCategoryDialog")
     , msSelectedCategory(OUString())
     , mbIsNewCategory(false)
     , mxLBCategory(m_xBuilder->weld_tree_view("categorylb"))

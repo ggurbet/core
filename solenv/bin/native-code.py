@@ -36,7 +36,6 @@ core_factory_list = [
     ("liblnglo.a", "lng_component_getFactory"),
     ("liblnthlo.a", "lnth_component_getFactory"),
     ("liblocalebe1lo.a", "localebe1_component_getFactory"),
-    ("libooxlo.a", "oox_component_getFactory"),
     ("libpackage2.a", "package2_component_getFactory"),
     ("libsmlo.a", "sm_component_getFactory"),
     ("libsrtrs1.a", "srtrs1_component_getFactory"),
@@ -257,6 +256,7 @@ core_constructor_list = [
     "com_sun_star_comp_oox_FormatDetector_get_implementation",
     "com_sun_star_comp_oox_docprop_DocumentPropertiesImporter_get_implementation",
     "com_sun_star_comp_oox_ppt_PowerPointImport_get_implementation",
+    "com_sun_star_comp_oox_ShapeContextHandler_get_implementation",
     ]
 
 # edit group for apps, where you can edit documents
@@ -369,6 +369,9 @@ writer_constructor_list = [
     "com_sun_star_util_comp_FinalThreadManager_get_implementation",
 # sw/util/swd.component
     "com_sun_star_comp_writer_FormatDetector_get_implementation",
+# sw/util/msword.component
+    "com_sun_star_comp_Writer_RtfExport_get_implementation",
+    "com_sun_star_comp_Writer_DocxExport_get_implementation",
 # writerfilter/util/writerfilter.component
     "com_sun_star_comp_Writer_RtfFilter_get_implementation",
     "com_sun_star_comp_Writer_WriterFilter_get_implementation",

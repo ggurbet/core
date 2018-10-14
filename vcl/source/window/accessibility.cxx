@@ -170,7 +170,7 @@ bool Window::ImplIsAccessibleNativeFrame() const
 
 vcl::Window* Window::GetAccessibleParentWindow() const
 {
-    if ( ImplIsAccessibleNativeFrame() )
+    if (!mpWindowImpl || ImplIsAccessibleNativeFrame())
         return nullptr;
 
     vcl::Window* pParent = mpWindowImpl->mpParent;
@@ -203,6 +203,9 @@ vcl::Window* Window::GetAccessibleParentWindow() const
 
 sal_uInt16 Window::GetAccessibleChildWindowCount()
 {
+    if (!mpWindowImpl)
+        return 0;
+
     sal_uInt16 nChildren = 0;
     vcl::Window* pChild = mpWindowImpl->mpFirstChild;
     while( pChild )
@@ -394,7 +397,7 @@ sal_uInt16 Window::getDefaultAccessibleRole() const
                 nRole = accessibility::AccessibleRole::FRAME;
             else if( IsScrollable() )
                 nRole = accessibility::AccessibleRole::SCROLL_PANE;
-            else if( const_cast<vcl::Window*>(this)->ImplGetWindow()->IsMenuFloatingWindow() )
+            else if( this->ImplGetWindow()->IsMenuFloatingWindow() )
                 nRole = accessibility::AccessibleRole::WINDOW;      // #106002#, contextmenus are windows (i.e. toplevel)
             else
                 // #104051# WINDOW seems to be a bad default role, use LAYEREDPANE instead
@@ -407,6 +410,9 @@ sal_uInt16 Window::getDefaultAccessibleRole() const
 
 sal_uInt16 Window::GetAccessibleRole() const
 {
+    if (!mpWindowImpl)
+        return 0;
+
     sal_uInt16 nRole = mpWindowImpl->mpAccessibleInfos ? mpWindowImpl->mpAccessibleInfos->nAccessibleRole : 0xFFFF;
     if ( nRole == 0xFFFF )
         nRole = getDefaultAccessibleRole();
@@ -427,6 +433,9 @@ void Window::SetAccessibleName( const OUString& rName )
 
 OUString Window::GetAccessibleName() const
 {
+    if (!mpWindowImpl)
+        return OUString();
+
     if (mpWindowImpl->mpAccessibleInfos && mpWindowImpl->mpAccessibleInfos->pAccessibleName)
         return *mpWindowImpl->mpAccessibleInfos->pAccessibleName;
     return getDefaultAccessibleName();
@@ -506,6 +515,9 @@ void Window::SetAccessibleDescription( const OUString& rDescription )
 
 OUString Window::GetAccessibleDescription() const
 {
+    if (!mpWindowImpl)
+        return OUString();
+
     OUString aAccessibleDescription;
     if ( mpWindowImpl->mpAccessibleInfos && mpWindowImpl->mpAccessibleInfos->pAccessibleDescription )
     {
@@ -515,7 +527,7 @@ OUString Window::GetAccessibleDescription() const
     {
         // Special code for help text windows. ZT asks the border window for the
         // description so we have to forward this request to our inner window.
-        const vcl::Window* pWin = const_cast<vcl::Window *>(this)->ImplGetWindow();
+        const vcl::Window* pWin = this->ImplGetWindow();
         if ( pWin->GetType() == WindowType::HELPTEXTWINDOW )
             aAccessibleDescription = pWin->GetHelpText();
         else

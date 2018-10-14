@@ -28,13 +28,13 @@ const sal_Unicode FPH_CHAR_PATH_SEPARATOR = '/';
 const sal_Unicode FPH_CHAR_DOT            = '.';
 const sal_Unicode FPH_CHAR_COLON          = ':';
 
-static inline const rtl::OUString FPH_PATH_SEPARATOR()
+static const rtl::OUString FPH_PATH_SEPARATOR()
 { return rtl::OUString(FPH_CHAR_PATH_SEPARATOR); }
 
-static inline const rtl::OUString FPH_LOCAL_DIR_ENTRY()
+static const rtl::OUString FPH_LOCAL_DIR_ENTRY()
 { return rtl::OUString(FPH_CHAR_DOT); }
 
-static inline const rtl::OUString FPH_PARENT_DIR_ENTRY()
+static const rtl::OUString FPH_PARENT_DIR_ENTRY()
 { return rtl::OUString(".."); }
 
 void osl_systemPathRemoveSeparator(rtl_uString* pustrPath)
@@ -211,7 +211,7 @@ private:
     }
 
 private:
-    rtl::OUString       m_path_list;
+    rtl::OUString const m_path_list;
     const sal_Unicode*  m_end;
     const sal_Unicode   m_separator;
     const sal_Unicode*  m_path_segment_begin;

@@ -20,7 +20,6 @@
 #ifndef INCLUDED_SVX_GALCTRL_HXX
 #define INCLUDED_SVX_GALCTRL_HXX
 
-#include <vcl/dialog.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/group.hxx>
@@ -46,7 +45,7 @@ private:
 
     GraphicObject       aGraphicObj;
     tools::Rectangle           aPreviewRect;
-    GalleryTheme*       mpTheme;
+    GalleryTheme* const       mpTheme;
 
     SVX_DLLPRIVATE bool             ImplGetGraphicCenterRect( const Graphic& rGraphic, tools::Rectangle& rResultRect ) const;
     SVX_DLLPRIVATE void             InitSettings();

@@ -476,6 +476,7 @@ void SvxTableController::GetState( SfxItemSet& rSet )
                     rSet.DisableItem(SID_TABLE_SPLIT_CELLS);
                 break;
 
+            case SID_TABLE_OPTIMAL_ROW_HEIGHT:
             case SID_TABLE_DISTRIBUTE_COLUMNS:
             case SID_TABLE_DISTRIBUTE_ROWS:
             {
@@ -887,7 +888,7 @@ namespace
     }
 }
 
-void SvxTableController::onFormatTable( SfxRequest const & rReq )
+void SvxTableController::onFormatTable(const SfxRequest& rReq)
 {
     if(!mxTableObj.is())
         return;
@@ -912,6 +913,7 @@ void SvxTableController::onFormatTable( SfxRequest const & rReq )
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
         ScopedVclPtr<SfxAbstractTabDialog> xDlg( pFact->CreateSvxFormatCellsDialog(
+            rReq.GetFrameWeld(),
             &aNewAttr,
             rModel,
             &rTableObj) );
@@ -999,23 +1001,31 @@ void SvxTableController::Execute( SfxRequest& rReq )
         break;
 
     case SID_TABLE_SPLIT_CELLS:
-        SplitMarkedCells();
+        SplitMarkedCells(rReq);
+        break;
+
+    case SID_TABLE_MINIMAL_COLUMN_WIDTH:
+        DistributeColumns(/*bOptimize=*/true, /*bMinimize=*/true);
         break;
 
     case SID_TABLE_OPTIMAL_COLUMN_WIDTH:
-        DistributeColumns(/*bOptimize=*/true);
+        DistributeColumns(/*bOptimize=*/true, /*bMinimize=*/false);
         break;
 
     case SID_TABLE_DISTRIBUTE_COLUMNS:
-        DistributeColumns(/*bOptimize=*/false);
+        DistributeColumns(/*bOptimize=*/false, /*bMinimize=*/false);
+        break;
+
+    case SID_TABLE_MINIMAL_ROW_HEIGHT:
+        DistributeRows(/*bOptimize=*/true, /*bMinimize=*/true);
         break;
 
     case SID_TABLE_OPTIMAL_ROW_HEIGHT:
-        DistributeRows(/*bOptimize=*/true);
+        DistributeRows(/*bOptimize=*/true, /*bMinimize=*/false);
         break;
 
     case SID_TABLE_DISTRIBUTE_ROWS:
-        DistributeRows(/*bOptimize=*/false);
+        DistributeRows(/*bOptimize=*/false, /*bMinimize=*/false);
         break;
 
     case SID_TABLE_VERT_BOTTOM:
@@ -1069,7 +1079,7 @@ void SvxTableController::SetTableStyle( const SfxItemSet* pArgs )
             if( bUndo )
             {
                 rModel.BegUndo(SvxResId(STR_TABLE_STYLE));
-                rModel.AddUndo(new TableStyleUndo(rTableObj));
+                rModel.AddUndo(o3tl::make_unique<TableStyleUndo>(rTableObj));
             }
 
             rTableObj.setTableStyle( xNewTableStyle );
@@ -1163,7 +1173,7 @@ void SvxTableController::SetTableStyleSettings( const SfxItemSet* pArgs )
     if( bUndo )
     {
         rModel.BegUndo( SvxResId(STR_TABLE_STYLE_SETTINGS) );
-        rModel.AddUndo(new TableStyleUndo(rTableObj));
+        rModel.AddUndo(o3tl::make_unique<TableStyleUndo>(rTableObj));
     }
 
     rTableObj.setTableStyleSettings( aSettings );
@@ -1246,13 +1256,13 @@ void SvxTableController::MergeMarkedCells()
     }
 }
 
-void SvxTableController::SplitMarkedCells()
+void SvxTableController::SplitMarkedCells(const SfxRequest& rReq)
 {
     if(!checkTableObject() || !mxTable.is())
         return;
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr< SvxAbstractSplitTableDialog > xDlg( pFact->CreateSvxSplitTableDialog( nullptr, false, 99 ) );
+    ScopedVclPtr<SvxAbstractSplitTableDialog> xDlg(pFact->CreateSvxSplitTableDialog(rReq.GetFrameWeld(), false, 99));
 
     if( xDlg->Execute() )
     {
@@ -1300,7 +1310,7 @@ void SvxTableController::SplitMarkedCells()
     }
 }
 
-void SvxTableController::DistributeColumns(const bool bOptimize)
+void SvxTableController::DistributeColumns(const bool bOptimize, const bool bMinimize)
 {
     if(!checkTableObject())
         return;
@@ -1317,13 +1327,13 @@ void SvxTableController::DistributeColumns(const bool bOptimize)
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
-    rTableObj.DistributeColumns( aStart.mnCol, aEnd.mnCol, bOptimize );
+    rTableObj.DistributeColumns( aStart.mnCol, aEnd.mnCol, bOptimize, bMinimize );
 
     if( bUndo )
         rModel.EndUndo();
 }
 
-void SvxTableController::DistributeRows(const bool bOptimize)
+void SvxTableController::DistributeRows(const bool bOptimize, const bool bMinimize)
 {
     if(!checkTableObject())
         return;
@@ -1340,7 +1350,7 @@ void SvxTableController::DistributeRows(const bool bOptimize)
 
     CellPos aStart, aEnd;
     getSelectedCells( aStart, aEnd );
-    rTableObj.DistributeRows( aStart.mnRow, aEnd.mnRow, bOptimize );
+    rTableObj.DistributeRows( aStart.mnRow, aEnd.mnRow, bOptimize, bMinimize );
 
     if( bUndo )
         rModel.EndUndo();
@@ -3176,7 +3186,7 @@ bool SvxTableController::setCursorLogicPosition(const Point& rPosition, bool bPo
         }
         else if (aCellPos != maMouseDownPos)
         {
-            // No selection, but rPosition is at an other cell: start table selection.
+            // No selection, but rPosition is at another cell: start table selection.
             StartSelection(maMouseDownPos);
             // Update graphic selection, should be hidden now.
             mrView.AdjustMarkHdl();

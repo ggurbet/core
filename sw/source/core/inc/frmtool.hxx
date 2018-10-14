@@ -207,7 +207,7 @@ protected:
     SwTwips mnFlyAnchorOfstNoWrap;
     bool     mbHadFollow;
     bool     mbInvaKeep;
-    bool     mbValidSize;
+    bool const     mbValidSize;
 
 public:
     SwFrameNotify( SwFrame *pFrame );
@@ -231,7 +231,7 @@ public:
 
 class SwFlyNotify : public SwLayNotify
 {
-    SwPageFrame *pOldPage;
+    SwPageFrame * const pOldPage;
     const SwRect aFrameAndSpace;
 
 public:
@@ -280,9 +280,6 @@ class SwBorderAttrs : public SwCacheObj
     const SvxBoxItem     &m_rBox;
     const SvxShadowItem  &m_rShadow;
     const Size            m_aFrameSize;
-
-    // Is it a frame that can have a margin without a border?
-    bool m_bBorderDist  : 1;
 
     // the following bool values set the cached values to INVALID - until they
     // are calculated for the first time
@@ -373,8 +370,6 @@ public:
     inline bool IsLine() const;
 
     const Size &GetSize()     const { return m_aFrameSize; }
-
-    bool IsBorderDist() const { return m_bBorderDist; }
 
     // Should upper (or lower) border be evaluated for this frame?
     // #i25029# - If <_pPrevFrame> is set, its value is taken for testing, if

@@ -82,7 +82,6 @@ void ListBox::ImplInitListBoxData()
     mnLineCount     = 0;
     m_nMaxWidthChars = -1;
     mbDDAutoSize    = true;
-    mbEdgeBlending  = false;
 }
 
 void ListBox::ImplInit( vcl::Window* pParent, WinBits nStyle )
@@ -128,7 +127,7 @@ void ListBox::ImplInit( vcl::Window* pParent, WinBits nStyle )
         mpImplWin->SetUserDrawHdl( LINK( this, ListBox, ImplUserDrawHdl ) );
         mpImplWin->Show();
         mpImplWin->GetDropTarget()->addDropTargetListener(xDrop);
-        mpImplWin->SetEdgeBlending(GetEdgeBlending());
+        mpImplWin->SetEdgeBlending(false);
 
         mpBtn = VclPtr<ImplBtn>::Create( this, WB_NOLIGHTBORDER | WB_RECTSTYLE );
         ImplInitDropDownButton( mpBtn );
@@ -149,7 +148,7 @@ void ListBox::ImplInit( vcl::Window* pParent, WinBits nStyle )
     mpImplLB->SetFocusHdl( LINK( this, ListBox, ImplFocusHdl ) );
     mpImplLB->SetListItemSelectHdl( LINK( this, ListBox, ImplListItemSelectHdl ) );
     mpImplLB->SetPosPixel( Point() );
-    mpImplLB->SetEdgeBlending(GetEdgeBlending());
+    mpImplLB->SetEdgeBlending(false);
     mpImplLB->Show();
 
     mpImplLB->GetDropTarget()->addDropTargetListener(xDrop);
@@ -1091,6 +1090,11 @@ void* ListBox::GetEntryData( sal_Int32 nPos ) const
     return mpImplLB->GetEntryList()->GetEntryData( nPos + mpImplLB->GetEntryList()->GetMRUCount() );
 }
 
+void ListBox::SetEntryTextColor(sal_Int32 nPos, const Color* pTextColor)
+{
+    mpImplLB->SetEntryTextColor(nPos + mpImplLB->GetEntryList()->GetMRUCount(), pTextColor);
+}
+
 void ListBox::SetEntryFlags( sal_Int32 nPos, ListBoxEntryFlags nFlags )
 {
     mpImplLB->SetEntryFlags( nPos + mpImplLB->GetEntryList()->GetMRUCount(), nFlags );
@@ -1423,39 +1427,21 @@ bool ListBox::set_property(const OString &rKey, const OUString &rValue)
         SelectEntryPos(rValue.toInt32());
     else if (rKey == "max-width-chars")
         setMaxWidthChars(rValue.toInt32());
+    else if (rKey == "can-focus")
+    {
+        // as far as I can see in Gtk, setting a ComboBox as can.focus means
+        // the focus gets stuck in it, so try here to behave like gtk does
+        // with the settings that work, i.e. can.focus of false doesn't
+        // set the hard WB_NOTABSTOP
+        WinBits nBits = GetStyle();
+        nBits &= ~(WB_TABSTOP|WB_NOTABSTOP);
+        if (toBool(rValue))
+            nBits |= WB_TABSTOP;
+        SetStyle(nBits);
+    }
     else
         return Control::set_property(rKey, rValue);
     return true;
-}
-
-void ListBox::SetEdgeBlending(bool bNew)
-{
-    if(mbEdgeBlending != bNew)
-    {
-        mbEdgeBlending = bNew;
-
-        if(IsDropDownBox())
-        {
-            assert(mpImplWin);
-            mpImplWin->Invalidate();
-        }
-        else
-        {
-            mpImplLB->Invalidate();
-        }
-
-        if(mpImplWin)
-        {
-            mpImplWin->SetEdgeBlending(GetEdgeBlending());
-        }
-
-        if(mpImplLB)
-        {
-            mpImplLB->SetEdgeBlending(GetEdgeBlending());
-        }
-
-        Invalidate();
-    }
 }
 
 FactoryFunction ListBox::GetUITestFactory() const

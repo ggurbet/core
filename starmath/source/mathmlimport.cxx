@@ -38,6 +38,7 @@ one go*/
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/servicehelper.hxx>
+#include <comphelper/propertysetinfo.hxx>
 #include <o3tl/make_unique.hxx>
 #include <rtl/character.hxx>
 #include <sal/log.hxx>
@@ -925,7 +926,7 @@ public:
 class SmXMLRowContext_Impl : public SmXMLDocContext_Impl
 {
 protected:
-    size_t nElementCount;
+    size_t const nElementCount;
 
 public:
     SmXMLRowContext_Impl(SmXMLImport &rImport,sal_uInt16 nPrefix,

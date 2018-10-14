@@ -469,7 +469,7 @@ void adjustDBRange(formula::FormulaToken* pToken, ScDocument& rNewDoc, const ScD
     if (!pNewDBData)
     {
         pNewDBData = new ScDBData(*pDBData);
-        bool ins = aNewNamedDBs.insert(pNewDBData);
+        bool ins = aNewNamedDBs.insert(std::unique_ptr<ScDBData>(pNewDBData));
         assert(ins); (void)ins;
     }
     pToken->SetIndex(pNewDBData->GetIndex());
@@ -548,6 +548,7 @@ void ScFormulaCellGroup::setCode( ScTokenArray* pCode )
 {
     delete mpCode;
     mpCode = pCode; // takes ownership of the token array.
+    mpCode->Finalize(); // Reduce memory usage if needed.
     mbInvariant = mpCode->IsInvariant();
     mpCode->GenHash();
 }
@@ -699,6 +700,8 @@ ScFormulaCell::ScFormulaCell(
 {
     assert(pArray); // Never pass a NULL pointer here.
 
+    pCode->Finalize(); // Reduce memory usage if needed.
+
     // Generate RPN token array.
     if (pCode->GetLen() && pCode->GetCodeError() == FormulaError::NONE && !pCode->GetCodeLen())
     {
@@ -722,7 +725,7 @@ ScFormulaCell::ScFormulaCell(
     ScDocument* pDoc, const ScAddress& rPos, const ScTokenArray& rArray,
     const FormulaGrammar::Grammar eGrammar, ScMatrixMode cMatInd ) :
     eTempGrammar( eGrammar),
-    pCode(new ScTokenArray(rArray)),
+    pCode(new ScTokenArray(rArray)), // also implicitly does Finalize() on the array
     pDocument( pDoc ),
     pPrevious(nullptr),
     pNext(nullptr),
@@ -4248,7 +4251,7 @@ struct ScDependantsCalculator
 
     bool isSelfReferenceRelative(const ScAddress& rRefPos, SCROW nRelRow)
     {
-        if (rRefPos.Col() != mrPos.Col())
+        if (rRefPos.Col() != mrPos.Col() || rRefPos.Tab() != mrPos.Tab())
             return false;
 
         SCROW nEndRow = mrPos.Row() + mnLen - 1;
@@ -4278,7 +4281,7 @@ struct ScDependantsCalculator
 
     bool isSelfReferenceAbsolute(const ScAddress& rRefPos)
     {
-        if (rRefPos.Col() != mrPos.Col())
+        if (rRefPos.Col() != mrPos.Col() || rRefPos.Tab() != mrPos.Tab())
             return false;
 
         SCROW nEndRow = mrPos.Row() + mnLen - 1;
@@ -4297,8 +4300,11 @@ struct ScDependantsCalculator
     //        isSelfReference[Absolute|Relative]() on both the start and end of the double ref
     bool isDoubleRefSpanGroupRange(const ScRange& rAbs, bool bIsRef1RowRel, bool bIsRef2RowRel)
     {
-        if (rAbs.aStart.Col() > mrPos.Col() || rAbs.aEnd.Col() < mrPos.Col())
+        if (rAbs.aStart.Col() > mrPos.Col() || rAbs.aEnd.Col() < mrPos.Col()
+            || rAbs.aStart.Tab() > mrPos.Tab() || rAbs.aEnd.Tab() < mrPos.Tab())
+        {
             return false;
+        }
 
         SCROW nStartRow    = mrPos.Row();
         SCROW nEndRow      = nStartRow + mnLen - 1;
@@ -4661,6 +4667,7 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
             for (int i = 0; i < nThreadCount; ++i)
             {
                 contexts[i] = new ScInterpreterContext(*pDocument, pNonThreadedFormatter);
+                pDocument->SetupFromNonThreadedContext(*contexts[i], i);
                 rThreadPool.pushTask(o3tl::make_unique<Executor>(aTag, i, nThreadCount, pDocument, contexts[i], mxGroup->mpTopCell->aPos, mxGroup->mnLength));
             }
 
@@ -4672,7 +4679,7 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
             for (int i = 0; i < nThreadCount; ++i)
             {
                 // This is intentionally done in this main thread in order to avoid locking.
-                pDocument->MergeBackIntoNonThreadedContext(*contexts[i]);
+                pDocument->MergeBackIntoNonThreadedContext(*contexts[i], i);
                 delete contexts[i];
             }
 

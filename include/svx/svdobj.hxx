@@ -200,8 +200,8 @@ public:
 class SVX_DLLPUBLIC SdrObjUserData
 {
 protected:
-    SdrInventor                     nInventor;
-    sal_uInt16                      nIdentifier;
+    SdrInventor const                     nInventor;
+    sal_uInt16 const                      nIdentifier;
 
 private:
     void operator=(const SdrObjUserData& rData) = delete;
@@ -682,7 +682,6 @@ public:
     virtual void NbcSetOutlinerParaObject(std::unique_ptr<OutlinerParaObject> pTextObject);
     virtual OutlinerParaObject* GetOutlinerParaObject() const;
     virtual void NbcReformatText();
-    virtual void ReformatText();
 
     void BurnInStyleSheetAttributes();
 
@@ -692,7 +691,6 @@ public:
     virtual Pointer GetMacroPointer (const SdrObjMacroHitRec& rRec) const;
     virtual void PaintMacro (OutputDevice& rOut, const tools::Rectangle& rDirtyRect, const SdrObjMacroHitRec& rRec) const;
     virtual bool DoMacro (const SdrObjMacroHitRec& rRec);
-    virtual OUString GetMacroPopupComment(const SdrObjMacroHitRec& rRec) const;
     bool IsMacroHit(const SdrObjMacroHitRec& rRec) const;
 
     // Connectors
@@ -1043,11 +1041,12 @@ struct SVX_DLLPUBLIC SdrObjectFreeOp
         SdrObject::Free(obj);
     }
 };
+typedef std::unique_ptr< SdrObject, SdrObjectFreeOp > SdrObjectUniquePtr;
 
 struct SdrObjCreatorParams
 {
-    SdrInventor nInventor;
-    sal_uInt16  nObjIdentifier;
+    SdrInventor const nInventor;
+    sal_uInt16 const  nObjIdentifier;
     SdrModel&   rSdrModel;
 };
 

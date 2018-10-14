@@ -388,7 +388,7 @@ struct DoesStyleMatchStyleSheetPredicate final : public svl::StyleSheetPredicate
         return bMatches;
     }
 
-    SfxStyleSheetIterator *mIterator;
+    SfxStyleSheetIterator * const mIterator;
 };
 
 }
@@ -833,10 +833,6 @@ void SfxStyleSheetBasePool::ChangeParent(const OUString& rOld,
         }
     }
     SetSearchMask(GetSearchFamily(), nTmpMask);
-}
-
-void SfxStyleSheetBase::Load( SvStream&, sal_uInt16 )
-{
 }
 
 SfxStyleSheet::SfxStyleSheet(const OUString &rName,

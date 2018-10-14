@@ -143,7 +143,7 @@ XclImpStream& operator>>( XclImpStream& rStrm, XclChRectangle& rRect )
     return rStrm;
 }
 
-inline void lclSetValueOrClearAny( Any& rAny, double fValue, bool bClear )
+void lclSetValueOrClearAny( Any& rAny, double fValue, bool bClear )
 {
     if( bClear )
         rAny.clear();
@@ -754,8 +754,8 @@ void XclImpChSourceLink::ReadChSourceLink( XclImpStream& rStrm )
         rStrm >> aXclTokArr;
 
         // convert BIFF formula tokens to Calc token array
-        if( const ScTokenArray* pTokens = GetFormulaCompiler().CreateFormula( EXC_FMLATYPE_CHART, aXclTokArr ) )
-            mxTokenArray.reset( pTokens->Clone() );
+        if( std::unique_ptr<ScTokenArray> pTokens = GetFormulaCompiler().CreateFormula( EXC_FMLATYPE_CHART, aXclTokArr ) )
+            mxTokenArray = std::move( pTokens );
     }
 
     // try to read a following CHSTRING record

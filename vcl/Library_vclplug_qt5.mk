@@ -80,7 +80,11 @@ $(eval $(call gb_Library_add_libs,vclplug_qt5,\
 endif
 
 $(eval $(call gb_Library_add_exception_objects,vclplug_qt5,\
+    vcl/qt5/Qt5AccessibleText \
+    vcl/qt5/Qt5AccessibleValue \
+    vcl/qt5/Qt5AccessibleWidget \
     vcl/qt5/Qt5Bitmap \
+    vcl/qt5/Qt5Clipboard \
     vcl/qt5/Qt5Data \
     vcl/qt5/Qt5FilePicker \
     vcl/qt5/Qt5Font \
@@ -102,6 +106,7 @@ $(eval $(call gb_Library_add_exception_objects,vclplug_qt5,\
     vcl/qt5/Qt5Tools \
     vcl/qt5/Qt5VirtualDevice \
     vcl/qt5/Qt5Widget \
+    vcl/qt5/Qt5XAccessible \
 ))
 
 ifeq ($(OS),LINUX)

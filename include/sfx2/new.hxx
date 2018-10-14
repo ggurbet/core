@@ -22,6 +22,7 @@
 #include <memory>
 #include <sal/config.h>
 #include <sfx2/dllapi.h>
+#include <sfx2/basedlgs.hxx>
 #include <sfx2/objsh.hxx>
 
 #include <vcl/idle.hxx>
@@ -55,11 +56,11 @@ namespace o3tl
 
 #define RET_TEMPLATE_LOAD       100
 
-class SFX2_DLLPUBLIC SfxNewFileDialog : public weld::GenericDialogController
+class SFX2_DLLPUBLIC SfxNewFileDialog : public SfxDialogController
 {
 private:
     Idle m_aPrevIdle;
-    SfxNewFileDialogMode m_nFlags;
+    SfxNewFileDialogMode const m_nFlags;
     SfxDocumentTemplates m_aTemplates;
     SfxObjectShellLock m_xDocShell;
 

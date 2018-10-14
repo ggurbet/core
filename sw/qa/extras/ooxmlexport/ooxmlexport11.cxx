@@ -160,6 +160,17 @@ DECLARE_OOXMLEXPORT_TEST(testTdf82065_Ind_start_strict, "tdf82065_Ind_start_stri
     CPPUNIT_ASSERT_EQUAL_MESSAGE("IndentAt defined", true, bFoundIndentAt);
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf76683_negativeTwipsMeasure, "tdf76683_negativeTwipsMeasure.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    assertXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:cols/w:col", 2);
+    sal_uInt32 nColumn1 = getXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:cols/w:col[1]", "w").toUInt32();
+    sal_uInt32 nColumn2 = getXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:cols/w:col[2]", "w").toUInt32();
+    CPPUNIT_ASSERT( nColumn1 > nColumn2 );
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf112694, "tdf112694.docx")
 {
     uno::Any aPageStyle = getStyles("PageStyles")->getByName("Standard");
@@ -532,9 +543,20 @@ DECLARE_OOXMLEXPORT_TEST(testTdf82177_tblBorders, "tdf82177_tblBorders.docx")
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
     uno::Reference< text::XTextTable > xTable( xTables->getByIndex(0), uno::UNO_QUERY );
-    uno::Reference< table::XCell > xCell = xTable->getCellByName( "E5" );
+    uno::Reference< table::XCell > xCell = xTable->getCellByName( "A5" );
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "BottomBorder").LineWidth);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "LeftBorder").LineWidth);
+    xCell.set(xTable->getCellByName( "E5" ));
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "TopBorder").LineWidth);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt32>(0), getProperty<table::BorderLine2>(xCell, "LeftBorder").LineWidth);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf119760_positionCellBorder, "tdf119760_positionCellBorder.docx")
+{
+    //inconsistent in Word even. 2016 positions on last row, 2003 positions on first cell.
+    sal_Int32 nRowLeft = parseDump("/root/page/body/tab[4]/row[1]/infos/bounds", "left").toInt32();
+    sal_Int32 nTextLeft  = parseDump("/root/page/body/tab[4]/row[1]/cell[1]/txt/infos/bounds", "left").toInt32();
+    CPPUNIT_ASSERT( nRowLeft < nTextLeft );
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf116976, "tdf116976.docx")
@@ -652,6 +674,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf118521_marginsLR, "tdf118521_marginsLR.docx")
     nMargin = getProperty<sal_Int32>(xMyStyle, "ParaRightMargin");
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1900), nMargin);
     CPPUNIT_ASSERT_EQUAL(nMargin, getProperty<sal_Int32>(getParagraph(2), "ParaRightMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(882), getProperty<sal_Int32>(getParagraph(2), "ParaFirstLineIndent"));
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf104797, "tdf104797.docx")
@@ -757,6 +780,38 @@ DECLARE_OOXMLEXPORT_TEST(testTdf64264, "tdf64264.docx")
     CPPUNIT_ASSERT_EQUAL(OUString("Repeating Table Header"),
                          parseDump("/root/page[2]/body/tab/row[1]/cell[1]/txt/text()"));
     CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testLOPresetDashesConvert, "lo_preset_dashes.odt")
+{
+    // File asserting while saving in LO.
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[1]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDot");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[2]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDash");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[3]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDot");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[6]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "dot");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[8]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "dash");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[9]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDashDotDot");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[10]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDash");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf58944RepeatingTableHeader, "tdf58944-repeating-table-header.docx")
+{
+    // DOCX tables with more than 10 repeating header lines imported without repeating header lines
+    // as a workaround for MSO's limitation of header line repetition
+    xmlDocPtr pDump = parseLayoutDump();
+    CPPUNIT_ASSERT_EQUAL(2, getPages());
+
+    // table starts on page 1 and finished on page 2
+    // instead of showing only a part of it on page 2
+    assertXPath(pDump, "/root/page[1]/body/tab", 1);
+    assertXPath(pDump, "/root/page[1]/body/tab/row", 11);
+    CPPUNIT_ASSERT_EQUAL(OUString("Test1"),
+                         parseDump("/root/page[2]/body/tab/row[1]/cell[1]/txt/text()"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Test2"),
                          parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
 }
 

@@ -120,6 +120,7 @@ static OString OutTBLBorderLine(RtfExport const& rExport, const editeng::SvxBord
                 aRet.append(OOO_STRING_SVTOOLS_RTF_BRDRDASH);
                 break;
             case SvxBorderLineStyle::DOUBLE:
+            case SvxBorderLineStyle::DOUBLE_THIN:
                 aRet.append(OOO_STRING_SVTOOLS_RTF_BRDRDB);
                 break;
             case SvxBorderLineStyle::THINTHICK_SMALLGAP:
@@ -151,6 +152,15 @@ static OString OutTBLBorderLine(RtfExport const& rExport, const editeng::SvxBord
                 break;
             case SvxBorderLineStyle::INSET:
                 aRet.append(OOO_STRING_SVTOOLS_RTF_BRDRINSET);
+                break;
+            case SvxBorderLineStyle::FINE_DASHED:
+                aRet.append(OOO_STRING_SVTOOLS_RTF_BRDRDASHSM);
+                break;
+            case SvxBorderLineStyle::DASH_DOT:
+                aRet.append(OOO_STRING_SVTOOLS_RTF_BRDRDASHD);
+                break;
+            case SvxBorderLineStyle::DASH_DOT_DOT:
+                aRet.append(OOO_STRING_SVTOOLS_RTF_BRDRDASHDD);
                 break;
             case SvxBorderLineStyle::NONE:
             default:
@@ -731,12 +741,12 @@ void RtfAttributeOutput::TableBackgrounds(
     const SwTableLine* pTableLine = pTableBox->GetUpper();
 
     Color aColor = COL_AUTO;
-    const SvxBrushItem* pTableColorProp
+    auto pTableColorProp
         = pTable->GetFrameFormat()->GetAttrSet().GetItem<SvxBrushItem>(RES_BACKGROUND);
     if (pTableColorProp)
         aColor = pTableColorProp->GetColor();
 
-    const SvxBrushItem* pRowColorProp
+    auto pRowColorProp
         = pTableLine->GetFrameFormat()->GetAttrSet().GetItem<SvxBrushItem>(RES_BACKGROUND);
     if (pRowColorProp && pRowColorProp->GetColor() != COL_AUTO)
         aColor = pRowColorProp->GetColor();
@@ -1759,7 +1769,7 @@ void RtfAttributeOutput::writeTextFrame(const ww8::Frame& rFrame, bool bTextBox)
         // Save table state, in case the inner text also contains a table.
         ww8::WW8TableInfo::Pointer_t pTableInfoOrig = m_rExport.m_pTableInfo;
         m_rExport.m_pTableInfo = std::make_shared<ww8::WW8TableInfo>();
-        std::unique_ptr<SwWriteTable> pTableWrt(m_pTableWrt.release());
+        std::unique_ptr<SwWriteTable> pTableWrt(std::move(m_pTableWrt));
         sal_uInt32 nTableDepth = m_nTableDepth;
 
         m_nTableDepth = 0;

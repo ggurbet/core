@@ -200,10 +200,7 @@ struct HTMLControl
     }
 };
 
-class HTMLControls : public o3tl::sorted_vector<HTMLControl*, o3tl::less_ptr_to<HTMLControl> > {
-public:
-    // will free any items still in the vector
-    ~HTMLControls() { DeleteAndDestroyAll(); }
+class HTMLControls : public o3tl::sorted_vector<std::unique_ptr<HTMLControl>, o3tl::less_uniqueptr_to<HTMLControl> > {
 };
 
 struct SwHTMLFormatInfo
@@ -622,12 +619,12 @@ struct HTMLSaveData
     SwPaM* pOldPam, *pOldEnd;
     std::unique_ptr<SwHTMLNumRuleInfo> pOldNumRuleInfo;     // Owner = this
     std::unique_ptr<SwHTMLNumRuleInfo> pOldNextNumRuleInfo;
-    sal_uInt16 nOldDefListLvl;
-    SvxFrameDirection nOldDirection;
+    sal_uInt16 const nOldDefListLvl;
+    SvxFrameDirection const nOldDirection;
     bool bOldWriteAll : 1;
-    bool bOldOutHeader : 1;
-    bool bOldOutFooter : 1;
-    bool bOldOutFlyFrame : 1;
+    bool const bOldOutHeader : 1;
+    bool const bOldOutFooter : 1;
+    bool const bOldOutFlyFrame : 1;
 
     HTMLSaveData( SwHTMLWriter&, sal_uLong nStt, sal_uLong nEnd,
                   bool bSaveNum=true,

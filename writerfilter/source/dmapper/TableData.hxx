@@ -166,17 +166,6 @@ public:
     }
 
     /**
-       Add properties to a cell of the row.
-
-       @param i          index of the cell
-       @param pProps     the properties to add
-     */
-    void insertCellProperties(unsigned int i, TablePropertyMapPtr pProps)
-    {
-        mCells[i]->insertProperties(pProps);
-    }
-
-    /**
         Add properties to the last cell of the row.
      */
     void insertCellProperties(TablePropertyMapPtr pProps)
@@ -318,17 +307,6 @@ public:
     void insertCellProperties(TablePropertyMapPtr pProps)
     {
         mpRow->insertCellProperties(pProps);
-    }
-
-    /**
-       Add properties to a cell of the current row.
-
-       @param i       index of the cell
-       @param pProps  properties to add
-     */
-    void insertCellProperties(unsigned int i, TablePropertyMapPtr pProps)
-    {
-        mpRow->insertCellProperties(i, pProps);
     }
 
     /**

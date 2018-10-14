@@ -1752,8 +1752,12 @@ IMPL_LINK( SvxConfigPage, MoveHdl, Button *, pButton, void )
 IMPL_LINK_NOARG( SvxConfigPage, FunctionDoubleClickHdl, SvTreeListBox *, bool )
 {
     if ( m_pAddCommandButton->IsEnabled() )
+    {
         m_pAddCommandButton->Click();
-    return false;
+        return false;
+    }
+    else
+        return true;
 }
 
 IMPL_LINK_NOARG( SvxConfigPage, SelectFunctionHdl, SvTreeListBox *, void )
@@ -1901,7 +1905,7 @@ SvxMainMenuOrganizerDialog::SvxMainMenuOrganizerDialog(
         for (auto const& entry : *entries)
         {
             m_xMenuListBox->append(OUString::number(reinterpret_cast<sal_uInt64>(entry)),
-                                   SvxConfigPageHelper::stripHotKey(entry->GetName()), "");
+                                   SvxConfigPageHelper::stripHotKey(entry->GetName()));
             mpEntries->push_back(entry);
             if (entry == selection)
             {
@@ -1967,7 +1971,7 @@ IMPL_LINK_NOARG(SvxMainMenuOrganizerDialog, ModifyHdl, weld::Entry&, void)
     const int nNewMenuPos = m_xMenuListBox->find_id(m_sNewMenuEntryId);
     const int nOldSelection = m_xMenuListBox->get_selected_index();
     m_xMenuListBox->remove(nNewMenuPos);
-    m_xMenuListBox->insert(nNewMenuPos, m_sNewMenuEntryId, pNewEntryData->GetName(), nullptr);
+    m_xMenuListBox->insert(nNewMenuPos, pNewEntryData->GetName(), &m_sNewMenuEntryId, nullptr, nullptr);
     m_xMenuListBox->select(nOldSelection);
 }
 
@@ -2005,7 +2009,7 @@ IMPL_LINK( SvxMainMenuOrganizerDialog, MoveHdl, weld::Button&, rButton, void )
     OUString sId = m_xMenuListBox->get_id(nSourceEntry);
     OUString sEntry = m_xMenuListBox->get_text(nSourceEntry);
     m_xMenuListBox->remove(nSourceEntry);
-    m_xMenuListBox->insert(nTargetEntry, sId, sEntry, nullptr);
+    m_xMenuListBox->insert(nTargetEntry, sEntry, &sId, nullptr, nullptr);
     m_xMenuListBox->select(nTargetEntry);
 
     UpdateButtonStates();

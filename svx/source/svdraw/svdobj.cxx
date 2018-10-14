@@ -687,14 +687,14 @@ void SdrObject::SetName(const OUString& rStr)
         if ( getSdrModelFromSdrObject().IsUndoEnabled() )
         {
             bUndo = true;
-            SdrUndoAction* pUndoAction =
+            std::unique_ptr<SdrUndoAction> pUndoAction =
                     SdrUndoFactory::CreateUndoObjectStrAttr(
                                                     *this,
                                                     SdrUndoObjStrAttr::ObjStrAttrType::Name,
                                                     GetName(),
                                                     rStr );
             getSdrModelFromSdrObject().BegUndo( pUndoAction->GetComment() );
-            getSdrModelFromSdrObject().AddUndo( pUndoAction );
+            getSdrModelFromSdrObject().AddUndo( std::move(pUndoAction) );
         }
         pPlusData->aObjName = rStr;
         // Undo/Redo for setting object's name (#i73249#)
@@ -731,14 +731,14 @@ void SdrObject::SetTitle(const OUString& rStr)
         if ( getSdrModelFromSdrObject().IsUndoEnabled() )
         {
             bUndo = true;
-            SdrUndoAction* pUndoAction =
+            std::unique_ptr<SdrUndoAction> pUndoAction =
                     SdrUndoFactory::CreateUndoObjectStrAttr(
                                                     *this,
                                                     SdrUndoObjStrAttr::ObjStrAttrType::Title,
                                                     GetTitle(),
                                                     rStr );
             getSdrModelFromSdrObject().BegUndo( pUndoAction->GetComment() );
-            getSdrModelFromSdrObject().AddUndo( pUndoAction );
+            getSdrModelFromSdrObject().AddUndo( std::move(pUndoAction) );
         }
         pPlusData->aObjTitle = rStr;
         // Undo/Redo for setting object's title (#i73249#)
@@ -775,14 +775,14 @@ void SdrObject::SetDescription(const OUString& rStr)
         if ( getSdrModelFromSdrObject().IsUndoEnabled() )
         {
             bUndo = true;
-            SdrUndoAction* pUndoAction =
+            std::unique_ptr<SdrUndoAction> pUndoAction =
                     SdrUndoFactory::CreateUndoObjectStrAttr(
                                                     *this,
                                                     SdrUndoObjStrAttr::ObjStrAttrType::Description,
                                                     GetDescription(),
                                                     rStr );
             getSdrModelFromSdrObject().BegUndo( pUndoAction->GetComment() );
-            getSdrModelFromSdrObject().AddUndo( pUndoAction );
+            getSdrModelFromSdrObject().AddUndo( std::move(pUndoAction) );
         }
         pPlusData->aObjDescription = rStr;
         // Undo/Redo for setting object's description (#i73249#)
@@ -947,7 +947,12 @@ void SdrObject::SetChanged()
     // of the next changes. It should not mean to have a SdrModel
     // set (this is guaranteed now), but should be connected to
     // being added to a SdrPage (?)
-    if(IsInserted())
+    // TTTT tdf#120066 Indeed - This triggers e.g. by CustomShape
+    // geometry-presenting SdrObjects that are in a SdrObjGroup,
+    // but the SdrObjGroup is *by purpose* not inserted.
+    // Need to check deeper and maybe identify all ::IsInserted()
+    // calls by rename and let the compiler work...
+    if(nullptr != getSdrPageFromSdrObject())
     {
         getSdrModelFromSdrObject().SetChanged();
     }
@@ -1179,18 +1184,18 @@ void SdrObject::AddToHdlList(SdrHdlList& rHdlList) const
     const tools::Rectangle& rR=GetSnapRect();
     for (sal_uInt32 nHdlNum=0; nHdlNum<8; ++nHdlNum)
     {
-        SdrHdl* pH=nullptr;
+        std::unique_ptr<SdrHdl> pH;
         switch (nHdlNum) {
-            case 0: pH=new SdrHdl(rR.TopLeft(),     SdrHdlKind::UpperLeft); break;
-            case 1: pH=new SdrHdl(rR.TopCenter(),   SdrHdlKind::Upper); break;
-            case 2: pH=new SdrHdl(rR.TopRight(),    SdrHdlKind::UpperRight); break;
-            case 3: pH=new SdrHdl(rR.LeftCenter(),  SdrHdlKind::Left ); break;
-            case 4: pH=new SdrHdl(rR.RightCenter(), SdrHdlKind::Right); break;
-            case 5: pH=new SdrHdl(rR.BottomLeft(),  SdrHdlKind::LowerLeft); break;
-            case 6: pH=new SdrHdl(rR.BottomCenter(),SdrHdlKind::Lower); break;
-            case 7: pH=new SdrHdl(rR.BottomRight(), SdrHdlKind::LowerRight); break;
+            case 0: pH.reset(new SdrHdl(rR.TopLeft(),     SdrHdlKind::UpperLeft)); break;
+            case 1: pH.reset(new SdrHdl(rR.TopCenter(),   SdrHdlKind::Upper)); break;
+            case 2: pH.reset(new SdrHdl(rR.TopRight(),    SdrHdlKind::UpperRight)); break;
+            case 3: pH.reset(new SdrHdl(rR.LeftCenter(),  SdrHdlKind::Left )); break;
+            case 4: pH.reset(new SdrHdl(rR.RightCenter(), SdrHdlKind::Right)); break;
+            case 5: pH.reset(new SdrHdl(rR.BottomLeft(),  SdrHdlKind::LowerLeft)); break;
+            case 6: pH.reset(new SdrHdl(rR.BottomCenter(),SdrHdlKind::Lower)); break;
+            case 7: pH.reset(new SdrHdl(rR.BottomRight(), SdrHdlKind::LowerRight)); break;
         }
-        rHdlList.AddHdl(pH);
+        rHdlList.AddHdl(std::move(pH));
     }
 }
 
@@ -1754,17 +1759,6 @@ void SdrObject::NbcReformatText()
 {
 }
 
-void SdrObject::ReformatText()
-{
-    tools::Rectangle aBoundRect0; if (pUserCall!=nullptr) aBoundRect0=GetLastBoundRect();
-    NbcReformatText();
-    SetChanged();
-    BroadcastObjectChange();
-    if (GetCurrentBoundRect()!=aBoundRect0) {
-        SendUserCall(SdrUserCallType::Resize,aBoundRect0);
-    }
-}
-
 void SdrObject::BurnInStyleSheetAttributes()
 {
     GetProperties().ForceStyleToHardAttributes();
@@ -1811,11 +1805,6 @@ void SdrObject::PaintMacro(OutputDevice& rOut, const tools::Rectangle& , const S
 bool SdrObject::DoMacro(const SdrObjMacroHitRec&)
 {
     return false;
-}
-
-OUString SdrObject::GetMacroPopupComment(const SdrObjMacroHitRec&) const
-{
-    return OUString();
 }
 
 bool SdrObject::IsMacroHit(const SdrObjMacroHitRec& rRec) const

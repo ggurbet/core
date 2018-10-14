@@ -81,7 +81,7 @@ using namespace com::sun::star::lang;
  *  static helpers
  */
 
-static inline sal_uInt16 getUInt16BE( const sal_uInt8*& pBuffer )
+static sal_uInt16 getUInt16BE( const sal_uInt8*& pBuffer )
 {
     sal_uInt16 nRet = static_cast<sal_uInt16>(pBuffer[1]) |
         (static_cast<sal_uInt16>(pBuffer[0]) << 8);
@@ -111,30 +111,14 @@ PrintFontManager::PrintFont::PrintFont()
 {
 }
 
-GenericUnixSalData::GenericUnixSalData(GenericUnixSalDataType const t, SalInstance *const pInstance)
-    : m_eType(t), m_pDisplay(nullptr)
-{
-    m_pInstance = pInstance; SetSalData(this);
-}
-
-GenericUnixSalData::~GenericUnixSalData()
-{
-}
-
 /*
  *  one instance only
  */
 PrintFontManager& PrintFontManager::get()
 {
-    GenericUnixSalData *const pSalData(GetGenericUnixSalData());
+    GenericUnixSalData* const pSalData(GetGenericUnixSalData());
     assert(pSalData);
-
-    if (!pSalData->m_pPrintFontManager)
-    {
-        pSalData->m_pPrintFontManager.reset( new PrintFontManager );
-        pSalData->m_pPrintFontManager->initialize();
-    }
-    return *pSalData->m_pPrintFontManager;
+    return *pSalData->GetPrintFontManager();
 }
 
 /*

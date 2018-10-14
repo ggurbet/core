@@ -118,9 +118,11 @@ void XclImpPCItem::WriteToSource( XclImpRoot& rRoot, const ScAddress& rScPos ) c
     {
         double fValue;
         sal_uInt8 nErrCode = static_cast< sal_uInt8 >( *pnError );
-        const ScTokenArray* pScTokArr = rRoot.GetOldFmlaConverter().GetBoolErr(
+        std::unique_ptr<ScTokenArray> pScTokArr = rRoot.GetOldFmlaConverter().GetBoolErr(
             XclTools::ErrorToEnum( fValue, true, nErrCode ) );
-        ScFormulaCell* pCell = pScTokArr ? new ScFormulaCell(&rDoc.getDoc(), rScPos, *pScTokArr) : new ScFormulaCell(&rDoc.getDoc(), rScPos);
+        ScFormulaCell* pCell = pScTokArr
+            ? new ScFormulaCell(&rDoc.getDoc(), rScPos, pScTokArr.release())
+            : new ScFormulaCell(&rDoc.getDoc(), rScPos);
         pCell->SetHybridDouble( fValue );
         rDoc.setFormulaCell(rScPos, pCell);
     }
@@ -1475,7 +1477,7 @@ void XclImpPivotTable::Convert()
     }
 
     // create the DataPilot
-    ScDPObject* pDPObj = new ScDPObject( &GetDocRef() );
+    std::unique_ptr<ScDPObject> pDPObj(new ScDPObject( &GetDocRef() ));
     pDPObj->SetName( maPTInfo.maTableName );
     if (!maPTInfo.maDataName.isEmpty())
         aSaveData.GetDataLayoutDimension()->SetLayoutName(maPTInfo.maDataName);
@@ -1488,8 +1490,8 @@ void XclImpPivotTable::Convert()
     pDPObj->SetOutRange( aOutRange );
     pDPObj->SetHeaderLayout( maPTViewEx9Info.mnGridLayout == 0 );
 
-    GetDoc().GetDPCollection()->InsertNewTable(pDPObj);
-    mpDPObj = pDPObj;
+    mpDPObj = pDPObj.get();
+    GetDoc().GetDPCollection()->InsertNewTable(std::move(pDPObj));
 
     ApplyFieldInfo();
     ApplyMergeFlags(aOutRange, aSaveData);

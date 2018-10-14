@@ -26,6 +26,7 @@
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <comphelper/string.hxx>
 #include <o3tl/safeint.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -259,7 +260,6 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
     m_sBaseURL( rBaseURL ),
     m_xAttrTab(new HTMLAttrTable),
     m_pNumRuleInfo( new SwHTMLNumRuleInfo ),
-    m_pPendStack( nullptr ),
     m_xDoc( pD ),
     m_pActionViewShell( nullptr ),
     m_pSttNdIdx( nullptr ),
@@ -477,15 +477,9 @@ SwHTMLParser::~SwHTMLParser()
     OSL_ENSURE(!m_xTable.get(), "It exists still a open table");
     m_pImageMaps.reset();
 
-    OSL_ENSURE( !m_pPendStack,
+    OSL_ENSURE( m_vPendingStack.empty(),
             "SwHTMLParser::~SwHTMLParser: Here should not be Pending-Stack anymore" );
-    while( m_pPendStack )
-    {
-        SwPendingStack* pTmp = m_pPendStack;
-        m_pPendStack = m_pPendStack->pNext;
-        delete pTmp->pData;
-        delete pTmp;
-    }
+    m_vPendingStack.clear();
 
     m_xDoc.clear();
 
@@ -634,16 +628,16 @@ void SwHTMLParser::Continue( HtmlTokenId nToken )
     // of NextToken.
     if( SvParserState::Error == eState )
     {
-        OSL_ENSURE( !m_pPendStack || m_pPendStack->nToken != HtmlTokenId::NONE,
+        OSL_ENSURE( m_vPendingStack.empty() || m_vPendingStack.back().nToken != HtmlTokenId::NONE,
                 "SwHTMLParser::Continue: Pending-Stack without Token" );
-        if( m_pPendStack && m_pPendStack->nToken != HtmlTokenId::NONE )
-            NextToken( m_pPendStack->nToken );
-        OSL_ENSURE( !m_pPendStack,
+        if( !m_vPendingStack.empty() && m_vPendingStack.back().nToken != HtmlTokenId::NONE )
+            NextToken( m_vPendingStack.back().nToken );
+        OSL_ENSURE( m_vPendingStack.empty(),
                 "SwHTMLParser::Continue: There is again a Pending-Stack" );
     }
     else
     {
-        HTMLParser::Continue( m_pPendStack ? m_pPendStack->nToken : nToken );
+        HTMLParser::Continue( !m_vPendingStack.empty() ? m_vPendingStack.back().nToken : nToken );
     }
 
     // disable progress bar again
@@ -698,8 +692,7 @@ void SwHTMLParser::Continue( HtmlTokenId nToken )
                 m_nContextStMin = 0;
             }
 
-            if( !m_aParaAttrs.empty() )
-                m_aParaAttrs.clear();
+            m_aParaAttrs.clear();
 
             SetAttr( false );
 
@@ -962,14 +955,14 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
         // Was the import cancelled by SFX? If a pending stack
         // exists, clean it.
         eState = SvParserState::Error;
-        OSL_ENSURE( !m_pPendStack || m_pPendStack->nToken != HtmlTokenId::NONE,
+        OSL_ENSURE( m_vPendingStack.empty() || m_vPendingStack.back().nToken != HtmlTokenId::NONE,
                 "SwHTMLParser::NextToken: Pending-Stack without token" );
-        if( 1 == m_xDoc->getReferenceCount() || !m_pPendStack )
+        if( 1 == m_xDoc->getReferenceCount() || m_vPendingStack.empty() )
             return ;
     }
 
 #if OSL_DEBUG_LEVEL > 0
-    if( m_pPendStack )
+    if( !m_vPendingStack.empty() )
     {
         switch( nToken )
         {
@@ -985,7 +978,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
         case HtmlTokenId::SELECT_OFF:
             break;
         default:
-            OSL_ENSURE( !m_pPendStack, "Unknown token for Pending-Stack" );
+            OSL_ENSURE( m_vPendingStack.empty(), "Unknown token for Pending-Stack" );
             break;
         }
     }
@@ -994,14 +987,16 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
     // The following special cases have to be treated before the
     // filter detection, because Netscape doesn't reference the content
     // of the title for filter detection either.
-    if( !m_pPendStack )
+    if( m_vPendingStack.empty() )
     {
         if( m_bInTitle )
         {
             switch( nToken )
             {
             case HtmlTokenId::TITLE_OFF:
-                if( IsNewDoc() && !m_sTitle.isEmpty() )
+            {
+                OUString sTitle = m_sTitle.makeStringAndClear();
+                if( IsNewDoc() && !sTitle.isEmpty() )
                 {
                     if( m_xDoc->GetDocShell() ) {
                         uno::Reference<document::XDocumentPropertiesSupplier>
@@ -1011,39 +1006,39 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
                             xDPS->getDocumentProperties());
                         OSL_ENSURE(xDocProps.is(), "no DocumentProperties");
                         if (xDocProps.is()) {
-                            xDocProps->setTitle(m_sTitle);
+                            xDocProps->setTitle(sTitle);
                         }
 
-                        m_xDoc->GetDocShell()->SetTitle( m_sTitle );
+                        m_xDoc->GetDocShell()->SetTitle(sTitle);
                     }
                 }
                 m_bInTitle = false;
-                m_sTitle.clear();
                 break;
+            }
 
             case HtmlTokenId::NONBREAKSPACE:
-                m_sTitle += " ";
+                m_sTitle.append(" ");
                 break;
 
             case HtmlTokenId::SOFTHYPH:
-                m_sTitle += "-";
+                m_sTitle.append("-");
                 break;
 
             case HtmlTokenId::TEXTTOKEN:
-                m_sTitle += aToken;
+                m_sTitle.append(aToken);
                 break;
 
             default:
-                m_sTitle += "<";
+                m_sTitle.append("<");
                 if( (nToken >= HtmlTokenId::ONOFF_START) && isOffToken(nToken) )
-                    m_sTitle += "/";
-                m_sTitle += sSaveToken;
+                    m_sTitle.append("/");
+                m_sTitle.append(sSaveToken);
                 if( !aToken.isEmpty() )
                 {
-                    m_sTitle += " ";
-                    m_sTitle += aToken;
+                    m_sTitle.append(" ");
+                    m_sTitle.append(aToken);
                 }
-                m_sTitle += ">";
+                m_sTitle.append(">");
                 break;
             }
 
@@ -1063,7 +1058,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
 
     // The following special cases may or have to be treated after the
     // filter detection
-    if( !m_pPendStack )
+    if( m_vPendingStack.empty() )
     {
         if( m_bInFloatingFrame )
         {
@@ -1241,8 +1236,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
                 // if there are temporary paragraph attributes and the
                 // paragraph isn't empty then the paragraph attributes
                 // are final.
-                if( !m_aParaAttrs.empty() )
-                    m_aParaAttrs.clear();
+                m_aParaAttrs.clear();
 
                 SetAttr();
             }
@@ -1530,8 +1524,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
             // if there are temporary paragraph attributes and the
             // paragraph isn't empty then the paragraph attributes
             // are final.
-            if( !m_aParaAttrs.empty() )
-                m_aParaAttrs.clear();
+            m_aParaAttrs.clear();
 
             SetAttr();
         }
@@ -1729,7 +1722,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
         break;
 
     case HtmlTokenId::TABLE_ON:
-        if( m_pPendStack )
+        if( !m_vPendingStack.empty() )
             BuildTable( SvxAdjust::End );
         else
         {
@@ -2144,8 +2137,7 @@ bool SwHTMLParser::AppendTextNode( SwHTMLAppendMode eMode, bool bUpdateNum )
         eMode = AM_SPACE;
 
     // the hard attributes of this paragraph will never be invalid again
-    if( !m_aParaAttrs.empty() )
-        m_aParaAttrs.clear();
+    m_aParaAttrs.clear();
 
     SwTextNode *pTextNode = (AM_SPACE==eMode || AM_NOSPACE==eMode) ?
         m_pPam->GetPoint()->nNode.GetNode().GetTextNode() : nullptr;
@@ -2681,7 +2673,7 @@ SwViewShell *SwHTMLParser::CheckActionViewShell()
 }
 
 void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
-                             HTMLAttrs *pPostIts )
+                             std::deque<std::unique_ptr<HTMLAttr>> *pPostIts )
 {
     std::unique_ptr<SwPaM> pAttrPam( new SwPaM( *m_pPam->GetPoint() ) );
     const SwNodeIndex& rEndIdx = m_pPam->GetPoint()->nNode;
@@ -2880,7 +2872,7 @@ void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
                         if( pPostIts && (SwFieldIds::Postit == nFieldWhich ||
                                          SwFieldIds::Script == nFieldWhich) )
                         {
-                            pPostIts->push_front( pAttr );
+                            pPostIts->emplace_front( pAttr );
                         }
                         else
                         {
@@ -3199,8 +3191,7 @@ void SwHTMLParser::DeleteAttr( HTMLAttr* pAttr )
     // be set here and then the pointers become invalid!
     OSL_ENSURE(m_aParaAttrs.empty(),
         "Danger: there are non-final paragraph attributes");
-    if( !m_aParaAttrs.empty() )
-        m_aParaAttrs.clear();
+    m_aParaAttrs.clear();
 
     // The list header is saved in the attribute
     HTMLAttr **ppHead = pAttr->ppHead;
@@ -3258,8 +3249,7 @@ void SwHTMLParser::SaveAttrTab(std::shared_ptr<HTMLAttrTable> const & rNewAttrTa
     // be set here and then the pointers become invalid!
     OSL_ENSURE(m_aParaAttrs.empty(),
             "Danger: there are non-final paragraph attributes");
-    if( !m_aParaAttrs.empty() )
-        m_aParaAttrs.clear();
+    m_aParaAttrs.clear();
 
     HTMLAttr** pHTMLAttributes = reinterpret_cast<HTMLAttr**>(m_xAttrTab.get());
     HTMLAttr** pSaveAttributes = reinterpret_cast<HTMLAttr**>(rNewAttrTab.get());
@@ -3286,8 +3276,7 @@ void SwHTMLParser::SplitAttrTab( std::shared_ptr<HTMLAttrTable> const & rNewAttr
     // be set here and then the pointers become invalid!
     OSL_ENSURE(m_aParaAttrs.empty(),
             "Danger: there are non-final paragraph attributes");
-    if( !m_aParaAttrs.empty() )
-        m_aParaAttrs.clear();
+    m_aParaAttrs.clear();
 
     const SwNodeIndex& nSttIdx = m_pPam->GetPoint()->nNode;
     SwNodeIndex nEndIdx( nSttIdx );
@@ -3386,8 +3375,7 @@ void SwHTMLParser::RestoreAttrTab(std::shared_ptr<HTMLAttrTable> const & rNewAtt
     // be set here and then the pointers become invalid!
     OSL_ENSURE(m_aParaAttrs.empty(),
             "Danger: there are non-final paragraph attributes");
-    if( !m_aParaAttrs.empty() )
-        m_aParaAttrs.clear();
+    m_aParaAttrs.clear();
 
     HTMLAttr** pHTMLAttributes = reinterpret_cast<HTMLAttr**>(m_xAttrTab.get());
     HTMLAttr** pSaveAttributes = reinterpret_cast<HTMLAttr**>(rNewAttrTab.get());
@@ -3420,14 +3408,13 @@ void SwHTMLParser::InsertAttr( const SfxPoolItem& rItem, bool bInsAtStart )
         m_aSetAttrTab.push_back( pTmp );
 }
 
-void SwHTMLParser::InsertAttrs( HTMLAttrs& rAttrs )
+void SwHTMLParser::InsertAttrs( std::deque<std::unique_ptr<HTMLAttr>> rAttrs )
 {
     while( !rAttrs.empty() )
     {
-        HTMLAttr *pAttr = rAttrs.front();
+        std::unique_ptr<HTMLAttr> pAttr = std::move(rAttrs.front());
         InsertAttr( pAttr->GetItem(), false );
         rAttrs.pop_front();
-        delete pAttr;
     }
 }
 
@@ -5277,8 +5264,7 @@ void SwHTMLParser::InsertHorzRule()
     SetTextCollAttrs(m_aContexts.back().get());
 
     // the hard attributes of the current paragraph will never become invalid
-    if( !m_aParaAttrs.empty() )
-        m_aParaAttrs.clear();
+    m_aParaAttrs.clear();
 
     if( nSize>0 || bColor || bNoShade )
     {

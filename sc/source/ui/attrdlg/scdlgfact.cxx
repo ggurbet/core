@@ -693,6 +693,11 @@ short ScAbstractTabController_Impl::Execute()
     return m_xDlg->execute();
 }
 
+bool ScAbstractTabController_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxTabDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
+
 void ScAbstractTabController_Impl::SetCurPageId( const OString &rName )
 {
     m_xDlg->SetCurPageId( rName );
@@ -957,10 +962,9 @@ VclPtr<AbstractScImportOptionsDlg> ScAbstractDialogFactory_Impl::CreateScImportO
     return VclPtr<AbstractScImportOptionsDlg_Impl>::Create( pDlg );
 }
 
-VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScAttrDlg(vcl::Window* pParent, const SfxItemSet* pCellAttrs)
+VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScAttrDlg(weld::Window* pParent, const SfxItemSet* pCellAttrs)
 {
-    VclPtr<SfxTabDialog> pDlg = VclPtr<ScAttrDlg>::Create(pParent, pCellAttrs);
-    return VclPtr<ScAbstractTabDialog_Impl>::Create(pDlg);
+    return VclPtr<ScAbstractTabController_Impl>::Create(o3tl::make_unique<ScAttrDlg>(pParent, pCellAttrs));
 }
 
 VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScHFEditDlg( vcl::Window*         pParent,
@@ -1010,25 +1014,11 @@ VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScHFEditDlg( vc
     return pDlg ? VclPtr<ScAbstractTabDialog_Impl>::Create( pDlg ) : nullptr;
 }
 
-VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScStyleDlg( vcl::Window*              pParent,
-                                                                        SfxStyleSheetBase&  rStyleBase,
-                                                                        sal_uInt16              nRscId,
-                                                                        int nId)
+VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScStyleDlg(weld::Window* pParent,
+                                                                            SfxStyleSheetBase& rStyleBase,
+                                                                            bool bPage)
 {
-    VclPtr<SfxTabDialog> pDlg;
-    switch ( nId )
-    {
-        case RID_SCDLG_STYLES_PAGE :
-        case RID_SCDLG_STYLES_PAR :
-            pDlg = VclPtr<ScStyleDlg>::Create( pParent, rStyleBase, nRscId );
-            break;
-        default:
-            break;
-    }
-
-    if ( pDlg )
-        return VclPtr<ScAbstractTabDialog_Impl>::Create( pDlg );
-    return nullptr;
+    return VclPtr<ScAbstractTabController_Impl>::Create(o3tl::make_unique<ScStyleDlg>(pParent, rStyleBase, bPage));
 }
 
 VclPtr<SfxAbstractTabDialog> ScAbstractDialogFactory_Impl::CreateScSubTotalDlg(vcl::Window* pParent, const SfxItemSet* pArgSet)

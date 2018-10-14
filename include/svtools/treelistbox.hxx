@@ -251,7 +251,7 @@ protected:
     Link<SvTreeListBox*,bool> aDoubleClickHdl;
     SvTreeListEntry*        pTargetEntry;
     SvLBoxButtonData*       pCheckButtonData;
-    std::vector<SvLBoxTab*> aTabs;
+    std::vector<std::unique_ptr<SvLBoxTab>> aTabs;
     SvTreeFlags             nTreeFlags;
     SvTreeListBoxFlags      nImpFlags;
     // Move/CopySelection: Position of the current Entry in SelectionList
@@ -686,7 +686,6 @@ public:
     void            SetSpaceBetweenEntries( short nSpace );
     short           GetSpaceBetweenEntries() const {return nEntryHeightOffs;}
     Point           GetEntryPosition( SvTreeListEntry* ) const;
-    void            ShowEntry( SvTreeListEntry* );  // !!!OBSOLETE, use MakeVisible
     void            MakeVisible( SvTreeListEntry* pEntry );
     void            MakeVisible( SvTreeListEntry* pEntry, bool bMoveToTop );
 
@@ -770,7 +769,7 @@ public:
 
 class SvInplaceEdit2
 {
-    Link<SvInplaceEdit2&,void> aCallBackHdl;
+    Link<SvInplaceEdit2&,void> const aCallBackHdl;
     Accelerator   aAccReturn;
     Accelerator   aAccEscape;
     Idle          aIdle;

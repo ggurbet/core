@@ -41,8 +41,8 @@ public:
 
     SwPageFootnoteInfoItem(SwPageFootnoteInfoItem const &) = default;
     SwPageFootnoteInfoItem(SwPageFootnoteInfoItem &&) = default;
-    SwPageFootnoteInfoItem & operator =(SwPageFootnoteInfoItem const &) = default;
-    SwPageFootnoteInfoItem & operator =(SwPageFootnoteInfoItem &&) = default;
+    SwPageFootnoteInfoItem & operator =(SwPageFootnoteInfoItem const &) = delete; // due to SfxPoolItem
+    SwPageFootnoteInfoItem & operator =(SwPageFootnoteInfoItem &&) = delete; // due to SfxPoolItem
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
     virtual bool            operator==( const SfxPoolItem& ) const override;
@@ -61,7 +61,7 @@ public:
 
 class SW_DLLPUBLIC SwPtrItem : public SfxPoolItem
 {
-    void* pMisc;
+    void* const pMisc;
 
 public:
     SwPtrItem( const sal_uInt16 nId, void* pPtr);
@@ -93,7 +93,7 @@ public:
 
 class SW_DLLPUBLIC SwPaMItem : public SfxPoolItem
 {
-    SwPaM* m_pPaM;
+    SwPaM* const m_pPaM;
 
 public:
     SwPaMItem( const sal_uInt16 nId, SwPaM* pPaM);

@@ -25,6 +25,7 @@
 #include <sal/log.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
 
+#include "file-impl.hxx"
 #include "file_url.hxx"
 #include "file_error.hxx"
 
@@ -1088,6 +1089,40 @@ oslFileError SAL_CALL osl_moveFile(rtl_uString* strPath, rtl_uString *strDestPat
             error = osl_File_E_None;
         else
             error = oslTranslateFileError(GetLastError());
+    }
+
+    if (strSysPath)
+        rtl_uString_release(strSysPath);
+    if (strSysDestPath)
+        rtl_uString_release(strSysDestPath);
+
+    return error;
+}
+
+oslFileError SAL_CALL osl_replaceFile(rtl_uString* strPath, rtl_uString* strDestPath)
+{
+    rtl_uString *strSysPath = nullptr, *strSysDestPath = nullptr;
+    oslFileError    error = osl_getSystemPathFromFileURL_(strPath, &strSysPath, false);
+
+    if (error == osl_File_E_None)
+        error = osl_getSystemPathFromFileURL_(strDestPath, &strSysDestPath, false);
+
+    if (error == osl_File_E_None)
+    {
+        LPCWSTR src = o3tl::toW(rtl_uString_getStr(strSysPath));
+        LPCWSTR dst = o3tl::toW(rtl_uString_getStr(strSysDestPath));
+
+        if (!ReplaceFileW(dst, src, nullptr,
+                          REPLACEFILE_WRITE_THROUGH | REPLACEFILE_IGNORE_MERGE_ERRORS
+                              | REPLACEFILE_IGNORE_ACL_ERRORS,
+                          nullptr, nullptr))
+        {
+            DWORD dwError = GetLastError();
+            if (dwError == ERROR_FILE_NOT_FOUND) // no strDestPath file?
+                error = osl_moveFile(strPath, strDestPath);
+            else
+                error = oslTranslateFileError(dwError);
+        }
     }
 
     if (strSysPath)

@@ -443,7 +443,7 @@ private:
     std::unique_ptr<weld::CheckButton> m_xWarningOnBox;
 public:
     MessageWithCheck(weld::Window *pParent, const OUString& rUIFile, const OString& rDialogId)
-        : weld::MessageDialogController(pParent, rUIFile, rDialogId, "ask")
+        : MessageDialogController(pParent, rUIFile, rDialogId, "ask")
         , m_xWarningOnBox(m_xBuilder->weld_check_button("ask"))
     {
     }
@@ -2716,19 +2716,6 @@ bool ScDocShell::PrepareClose( bool bUI )
         m_aDocument.EnableIdle(false); // Do not mess around with it anymore!
 
     return bRet;
-}
-
-void ScDocShell::PrepareReload()
-{
-    SfxObjectShell::PrepareReload(); // FIXME: Doesn't do a thing?
-
-    //  The Disconnect of DDE Links can trigger a Reschedule.
-    //  If the DDE Links are not deleted before the Document dtor,
-    //  the DDE Link Update for this Document can be triggered from this Reschedule on Reload.
-    //  This causes a hang.
-    //
-    //  Thus: Disconnect the DDE Links of the old Document before Reload
-    m_aDocument.GetDocLinkManager().disconnectDdeLinks();
 }
 
 OUString ScDocShell::GetOwnFilterName()

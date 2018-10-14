@@ -114,30 +114,6 @@
       </properties>
     </glade-widget-class>
 
-    <glade-widget-class title="Svx Line End ListBox" name="svxlo-LineEndLB"
-                        generic-name="Line End ListBox" parent="GtkComboBox"
-                        icon-name="widget-gtk-combobox">
-      <properties>
-        <property save="True" query="False" id="dropdown" default="True" name="Use DropDown">
-          <parameter-spec>
-            <type>GParamBoolean</type>
-          </parameter-spec>
-        </property>
-      </properties>
-    </glade-widget-class>
-
-    <glade-widget-class title="Svx Line ListBox" name="svxlo-LineLB"
-                        generic-name="Line ListBox" parent="GtkComboBox"
-                        icon-name="widget-gtk-combobox">
-      <properties>
-        <property save="True" query="False" id="dropdown" default="True" name="Use DropDown">
-          <parameter-spec>
-            <type>GParamBoolean</type>
-          </parameter-spec>
-        </property>
-      </properties>
-    </glade-widget-class>
-
     <glade-widget-class title="Text Encoding ListBox" name="svxlo-SvxTextEncodingBox"
                         generic-name="TextEncodingBox" parent="GtkComboBox"
                         icon-name="widget-gtk-combobox">
@@ -149,10 +125,6 @@
         </property>
       </properties>
     </glade-widget-class>
-
-    <glade-widget-class title="Limit ListBox" name="dbulo-LimitBox"
-                        generic-name="LimitBox" parent="GtkComboBox"
-                        icon-name="widget-gtk-combobox"/>
 
     <glade-widget-class title="OSQL NameComboBox" name="dbulo-OSQLNameComboBox"
                         generic-name="OSQLNameComboBox" parent="GtkComboBox"
@@ -191,21 +163,12 @@
     <glade-widget-class title="Gallery Preview" name="svxcorelo-GalleryPreview"
                         generic-name="Gallery Preview" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
-    <glade-widget-class title="Number Preview" name="cuilo-SvxNumberPreview"
-                        generic-name="Number Preview Window" parent="GtkDrawingArea"
-                        icon-name="widget-gtk-drawingarea"/>
     <glade-widget-class title="Html Attribute Preview" name="sduilo-SdHtmlAttrPreview"
                         generic-name="Html Attribute Preview" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
     <glade-widget-class title="Document Preview Window" name="sdlo-SdDocPreviewWin"
                         generic-name="Document Preview Window" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
-    <glade-widget-class title="SvxXLinePreview" name="svxlo-SvxXLinePreview"
-                        generic-name="Line Preview Window" parent="GtkDrawingArea"
-                        icon-name="widget-gtk-drawingarea"/>
-    <glade-widget-class title="SvxXConnectionPreview" name="svxlo-SvxXConnectionPreview"
-                        generic-name="Connector Line Preview Window" parent="GtkDrawingArea"
-                            icon-name="widget-gtk-drawingarea"/>
     <glade-widget-class title="Svx 3D Light Control" name="svxlo-SvxLightCtl3D"
                         generic-name="3D Light Control" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
@@ -237,9 +200,6 @@
                         generic-name="Document Info Preview" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
     <glade-widget-class title="SvxColorValueSet" name="svxcorelo-SvxColorValueSet"
-                        generic-name="Set of Value Options" parent="GtkDrawingArea"
-                        icon-name="widget-gtk-drawingarea"/>
-    <glade-widget-class title="SvxPresetListBox" name="svxcorelo-SvxPresetListBox"
                         generic-name="Set of Value Options" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
     <glade-widget-class title="TableValueSet" name="sdlo-TableValueSet"
@@ -314,9 +274,6 @@
     <glade-widget-class title="Frame Direction ListBox" name="svxlo-FrameDirectionListBox"
                         generic-name="FrameDirectionListBox" parent="GtkComboBox"
                         icon-name="widget-gtk-combobox"/>
-    <glade-widget-class title="Text Direction ListBox" name="chartcontrollerlo-TextDirectionListBox"
-                        generic-name="TextDirectionListBox" parent="svxlo-FrameDirectionListBox"
-                        icon-name="widget-gtk-combobox"/>
     <glade-widget-class title="Chart Light Button" name="chartcontrollerlo-LightButton"
                         generic-name="ChartLightButton" parent="GtkButton"
                         icon-name="widget-gtk-button"/>
@@ -334,9 +291,6 @@
                         icon-name="widget-gtk-textentry"/>
     <glade-widget-class title="Glossary List" name="swuilo-SwGlossaryGroupTLB"
                         generic-name="Glossary List" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="Font List" name="svxlo-SvxFontListBox"
-                        generic-name="Font List" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
     <glade-widget-class title="Macro Library" name="basctllo-TreeListBox"
                         generic-name="Macro Library List" parent="GtkTreeView"
@@ -409,9 +363,6 @@
     <glade-widget-class title="Pivot Table Data List" name="sclo-ScPivotLayoutTreeListData"
                         generic-name="Pivot Table Data List" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="Dial Control" name="svxlo-DialControl"
-                        generic-name="Dial Control" parent="GtkSpinner"
-                        icon-name="widget-gtk-spinner"/>
     <glade-widget-class title="Sidebar Dial Control" name="svxlo-SidebarDialControl"
                         generic-name="Sidebar Dial Control" parent="GtkSpinner"
                         icon-name="widget-gtk-spinner"/>
@@ -516,10 +467,6 @@
                         generic-name="IntellectualPropertyPartEdit" parent="GtkEntry"
                         icon-name="widget-gtk-textentry"/>
 
-    <glade-widget-class title="Combo Image Button" name="sclo-ScExtIButton"
-                        generic-name="Combo Image Button" parent="GtkButton"
-                        icon-name="widget-gtk-button"/>
-
     <glade-widget-class title="Open Document ListBox" name="dbulo-OpenDocumentListBox"
                         generic-name="Open Document ListBox" parent="GtkComboBox"
                         icon-name="widget-gtk-combobox"/>
@@ -568,10 +515,6 @@
     <glade-widget-class title="Writer Navigator ToolBox" name="swlo-SwNavHelpToolBox"
                         generic-name="Writer Navigator ToolBox" parent="GtkToolbar"
                         icon-name="widget-gtk-toolbar"/>
-
-    <glade-widget-class title="BmpWindow" name="swuilo-BmpWindow"
-                        generic-name="BmpWindow" parent="GtkDrawingArea"
-                        icon-name="widget-gtk-drawingarea"/>
 
     <glade-widget-class title="ClientBox" name="sduilo-ClientBox"
                         generic-name="ClientBox" parent="GtkDrawingArea"

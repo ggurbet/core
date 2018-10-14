@@ -343,12 +343,12 @@ void SwContentType::Init(bool* pbInvalidateWindow)
         break;
         case ContentTypeId::REGION :
         {
-            SwContentArr*   pOldMember = nullptr;
+            std::unique_ptr<SwContentArr> pOldMember;
             if(!pMember)
                 pMember.reset( new SwContentArr );
             else if(!pMember->empty())
             {
-                pOldMember = pMember.release();
+                pOldMember = std::move(pMember);
                 pMember.reset( new SwContentArr );
             }
             const Point aNullPt;
@@ -398,8 +398,6 @@ void SwContentType::Init(bool* pbInvalidateWindow)
                         *pOldMember,
                         *pMember);
                 }
-
-                delete pOldMember;
             }
         }
         break;
@@ -2110,7 +2108,6 @@ bool SwContentTree::HasContentChanged()
             const SwOutlineNodes::size_type nActPos = GetWrtShell()->GetOutlinePos(MAXLEVEL);
             SvTreeListEntry* pFirstEntry = First();
 
-            SelectAll(false);
             while( nullptr != (pFirstEntry = Next(pFirstEntry)) )
             {
                 assert(dynamic_cast<SwOutlineContent*>(static_cast<SwTypeNumber*>(pFirstEntry->GetUserData())));
@@ -2122,6 +2119,8 @@ bool SwContentTree::HasContentChanged()
                         MakeVisible(pFirstEntry);
                     }
                 }
+                else
+                    Select(pFirstEntry, false);
             }
 
         }
