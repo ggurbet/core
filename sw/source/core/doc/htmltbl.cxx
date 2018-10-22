@@ -392,9 +392,9 @@ const SwStartNode *SwHTMLTableLayout::GetAnyBoxStartNode() const
     const SwTableBox* pBox = m_pSwTable->GetTabLines()[0]->GetTabBoxes()[0];
     while( nullptr == (pBoxSttNd = pBox->GetSttNd()) )
     {
-        OSL_ENSURE( pBox->GetTabLines().size() > 0,
+        OSL_ENSURE( !pBox->GetTabLines().empty(),
                 "Box without start node and lines" );
-        OSL_ENSURE( pBox->GetTabLines().front()->GetTabBoxes().size() > 0,
+        OSL_ENSURE( !pBox->GetTabLines().front()->GetTabBoxes().empty(),
                 "Line without boxes" );
         pBox = pBox->GetTabLines().front()->GetTabBoxes().front();
     }
@@ -1026,20 +1026,17 @@ void SwHTMLTableLayout::AutoLayoutPass1()
                     pColumn->SetMax( pColumn->GetMin() );
             }
             // and divide by the quotient
-            SAL_WARN_IF(nQuotMax != ULONG_MAX && !nQuotMax, "sw.core", "Where did the relative columns go?");
+            SAL_WARN_IF(!nQuotMax, "sw.core", "Where did the relative columns go?");
             for (i = 0; i < m_nCols; ++i)
             {
                 SwHTMLTableLayoutColumn *pColumn = GetColumn( i );
                 if (pColumn->IsRelWidthOption() && pColumn->GetWidthOption() && nQuotMax)
                 {
-                    if( pColumn->GetWidthOption() )
-                    {
-                        pColumn->SetMax( pColumn->GetMax() / nQuotMax );
-                        OSL_ENSURE( pColumn->GetMax() >= pColumn->GetMin(),
-                                "Minimum width is one column bigger than maximum" );
-                        if( pColumn->GetMax() < pColumn->GetMin() )
-                            pColumn->SetMax( pColumn->GetMin() );
-                    }
+                    pColumn->SetMax( pColumn->GetMax() / nQuotMax );
+                    OSL_ENSURE( pColumn->GetMax() >= pColumn->GetMin(),
+                            "Minimum width is one column bigger than maximum" );
+                    if( pColumn->GetMax() < pColumn->GetMin() )
+                        pColumn->SetMax( pColumn->GetMin() );
                 }
                 m_nMax += pColumn->GetMax();
             }

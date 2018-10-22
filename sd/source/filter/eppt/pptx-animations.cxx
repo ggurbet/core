@@ -419,10 +419,7 @@ bool isValidTarget(const Any& rTarget)
 
     ParagraphTarget aParagraphTarget;
 
-    if ((rTarget >>= aParagraphTarget) && aParagraphTarget.Shape.is())
-        return true;
-
-    return false;
+    return (rTarget >>= aParagraphTarget) && aParagraphTarget.Shape.is();
 }
 
 /// extract ooxml node type from a XAnimationNode.
@@ -1259,7 +1256,7 @@ void NodeContext::initValid(bool bHasValidChild, bool bIsIterateChild)
     {
         Reference<XIterateContainer> xIterate(mxNode, UNO_QUERY);
         mbValid = xIterate.is() && (bIsIterateChild || isValidTarget(xIterate->getTarget()))
-                  && maChildNodes.size();
+                  && !maChildNodes.empty();
     }
     else if (nType == AnimationNodeType::COMMAND)
     {

@@ -839,7 +839,7 @@ namespace sw {
         {
             m_First = false;
             rpNode = m_pMerged
-                ? m_pMerged->extents.size()
+                ? !m_pMerged->extents.empty()
                     ? m_pMerged->extents[0].pNode
                     : m_pMerged->pFirstNode
                 : m_pNode;
@@ -883,7 +883,7 @@ namespace sw {
             SwpHints const*const pHints(m_pNode->GetpSwpHints());
             if (pHints)
             {
-                while (m_CurrentHint < pHints->Count())
+                if (m_CurrentHint < pHints->Count())
                 {
                     SwTextAttr const*const pHint(pHints->Get(m_CurrentHint));
                     ++m_CurrentHint;

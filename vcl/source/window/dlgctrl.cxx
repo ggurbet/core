@@ -537,28 +537,20 @@ namespace
         if (aStart != rGroup.end())
             ++aI;
 
-        for (; aI != rGroup.end(); ++aI)
+        aI = std::find_if(aI, rGroup.end(), isSuitableDestination);
+        if (aI != rGroup.end())
         {
             vcl::Window *pWindow = *aI;
-
-            if (isSuitableDestination(pWindow))
-            {
-                pWindow->ImplControlFocus( GetFocusFlags::CURSOR | GetFocusFlags::Forward );
-                return true;
-            }
+            pWindow->ImplControlFocus( GetFocusFlags::CURSOR | GetFocusFlags::Forward );
+            return true;
         }
-
-        for (aI = rGroup.begin(); aI != aStart; ++aI)
+        aI = std::find_if(rGroup.begin(), aStart, isSuitableDestination);
+        if (aI != aStart)
         {
             vcl::Window *pWindow = *aI;
-
-            if (isSuitableDestination(pWindow))
-            {
-                pWindow->ImplControlFocus( GetFocusFlags::CURSOR | GetFocusFlags::Forward );
-                return true;
-            }
+            pWindow->ImplControlFocus( GetFocusFlags::CURSOR | GetFocusFlags::Forward );
+            return true;
         }
-
         return false;
     }
 

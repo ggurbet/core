@@ -176,7 +176,7 @@ class PresenterProtocolHandler::Dispatch
       public PresenterDispatchInterfaceBase
 {
 public:
-    typedef void (PresenterProtocolHandler::Dispatch::* Action)(void);
+    typedef void (PresenterProtocolHandler::Dispatch::* Action)();
 
     /** Create a new Dispatch object.  When the given command name
         (rsURLPath) is not known then an empty reference is returned.
@@ -341,7 +341,7 @@ Reference<frame::XDispatch> PresenterProtocolHandler::Dispatch::Create (
     const ::rtl::Reference<PresenterController>& rpPresenterController)
 {
     ::rtl::Reference<Dispatch> pDispatch (new Dispatch (rsURLPath, rpPresenterController));
-    if (pDispatch->mpCommand.get() != nullptr)
+    if (pDispatch->mpCommand != nullptr)
         return Reference<frame::XDispatch>(pDispatch.get());
     else
         return nullptr;
@@ -357,7 +357,7 @@ PresenterProtocolHandler::Dispatch::Dispatch (
       maStatusListenerContainer(),
       mbIsListeningToWindowManager(false)
 {
-    if (mpCommand.get() != nullptr)
+    if (mpCommand != nullptr)
     {
         mpPresenterController->GetWindowManager()->AddLayoutListener(this);
         mbIsListeningToWindowManager = true;
@@ -438,7 +438,7 @@ void SAL_CALL PresenterProtocolHandler::Dispatch::dispatch(
         throw RuntimeException();
     }
 
-    if (mpCommand.get() != nullptr)
+    if (mpCommand != nullptr)
         mpCommand->Execute();
 }
 

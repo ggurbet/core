@@ -1558,17 +1558,8 @@ void DocxAttributeOutput::DoWritePermissionTagEnd(const OUString & permission)
 {
     OUString permissionIdAndName;
 
-    if (permission.startsWith("permission-for-group:", &permissionIdAndName))
-    {
-        const sal_Int32 sparatorIndex = permissionIdAndName.indexOf(':');
-        const OUString permissionId   = permissionIdAndName.copy(0, sparatorIndex);
-        const OString rId             = OUStringToOString(BookmarkToWord(permissionId), RTL_TEXTENCODING_UTF8).getStr();
-
-        m_pSerializer->singleElementNS(XML_w, XML_permEnd,
-            FSNS(XML_w, XML_id), rId.getStr(),
-            FSEND);
-    }
-    else // if (permission.startsWith("permission-for-user:", &permissionIdAndName))
+    if (permission.startsWith("permission-for-group:", &permissionIdAndName) ||
+        permission.startsWith("permission-for-user:", &permissionIdAndName))
     {
         const sal_Int32 sparatorIndex = permissionIdAndName.indexOf(':');
         const OUString permissionId   = permissionIdAndName.copy(0, sparatorIndex);
@@ -3175,15 +3166,6 @@ static void impl_cellMargins( FSHelperPtr const & pSerializer, const SvxBoxItem&
                 continue;
         }
 
-        if ( aBorders[i] == SvxBoxItemLine::LEFT ) {
-            // Office's cell margin is measured from the right of the border.
-            // While LO's cell spacing is measured from the center of the border.
-            // So we add half left-border width to tblIndent value
-            const SvxBorderLine* pLn = rBox.GetLine( *pBrd );
-            if (pLn)
-                nDist -= pLn->GetWidth() * 0.5;
-        }
-
         if (!tagWritten) {
             pSerializer->startElementNS( XML_w, tag, FSEND );
             tagWritten = true;
@@ -3330,7 +3312,7 @@ void DocxAttributeOutput::EndTable()
     // We closed the table; if it is a nested table, the cell that contains it
     // still continues
     // set to true only if we were in a nested table, not otherwise.
-    if( 0 != tableFirstCells.size() )
+    if( !tableFirstCells.empty() )
         m_tableReference->m_bTableCellOpen = true;
 
     // Cleans the table helper
@@ -5158,10 +5140,7 @@ bool DocxAttributeOutput::ExportAsActiveXControl(const SdrObject* pObject) const
         return false;
 
     oox::ole::OleFormCtrlExportHelper exportHelper(comphelper::getProcessComponentContext(), xModel, xControlModel);
-    if(!exportHelper.isValid())
-        return false;
-
-    return true;
+    return exportHelper.isValid();
 }
 
 void DocxAttributeOutput::PostponeOLE( SwOLENode& rNode, const Size& rSize, const SwFlyFrameFormat* pFlyFrameFormat )

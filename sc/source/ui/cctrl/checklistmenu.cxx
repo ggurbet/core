@@ -822,7 +822,7 @@ void ScMenuFloatingWindow::ensureSubMenuVisible(ScMenuFloatingWindow* pSubMenu)
 
 void ScMenuFloatingWindow::ensureSubMenuNotVisible()
 {
-    if (mnSelectedMenu <= maMenuItems.size() &&
+    if (mnSelectedMenu < maMenuItems.size() &&
         maMenuItems[mnSelectedMenu].mpSubMenuWin &&
         maMenuItems[mnSelectedMenu].mpSubMenuWin->IsVisible())
     {
@@ -1535,7 +1535,7 @@ void ScTabStops::AddTabStop( vcl::Window* pWin )
 
 void ScTabStops::SetTabStop( vcl::Window* pWin )
 {
-    if ( !maControls.size() )
+    if ( maControls.empty() )
         return;
     ControlToPosMap::const_iterator aIter = maControlToPos.find( pWin );
     if ( aIter == maControlToPos.end() )
@@ -1554,7 +1554,7 @@ void ScTabStops::SetTabStop( vcl::Window* pWin )
 
 void ScTabStops::CycleFocus( bool bReverse )
 {
-    if (!maControls.size())
+    if (maControls.empty())
         return;
     if ( mnCurTabStop < maControls.size() )
     {

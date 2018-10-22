@@ -73,7 +73,7 @@ static bool lcl_SortByX( const DataPoint &lhs, const DataPoint &rhs ) { return l
 class ScETSForecastCalculation
 {
 private:
-    SvNumberFormatter* mpFormatter;
+    SvNumberFormatter* const mpFormatter;
     std::vector< DataPoint > maRange;   // data (X, Y)
     std::unique_ptr<double[]> mpBase;                     // calculated base value array
     std::unique_ptr<double[]> mpTrend;                    // calculated trend factor array
@@ -96,7 +96,7 @@ private:
     bool bEDS;                          // true: EDS, false: ETS
 
     // constants used in determining best fit for alpha, beta, gamma
-    const double cfMinABCResolution = 0.001;  // minimum change of alpha, beta, gamma
+    static constexpr double cfMinABCResolution = 0.001;  // minimum change of alpha, beta, gamma
     static const SCSIZE cnScenarios = 1000;   // No. of scenarios to calculate for PI calculations
 
     bool initData();

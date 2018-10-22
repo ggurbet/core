@@ -117,7 +117,7 @@ class DBConnector : public ScDPCache::DBConnector
     uno::Reference<sdbc::XRowSet> mxRowSet;
     uno::Reference<sdbc::XRow> mxRow;
     uno::Reference<sdbc::XResultSetMetaData> mxMetaData;
-    Date maNullDate;
+    Date const maNullDate;
 
 public:
     DBConnector(ScDPCache& rCache, const uno::Reference<sdbc::XRowSet>& xRowSet, const Date& rNullDate);
@@ -348,27 +348,29 @@ ScDPObject::~ScDPObject()
 
 ScDPObject& ScDPObject::operator= (const ScDPObject& r)
 {
-    Clear();
+    if (this != &r)
+    {
+        Clear();
 
-    pDoc = r.pDoc;
-    aTableName = r.aTableName;
-    aTableTag = r.aTableTag;
-    aOutRange = r.aOutRange;
-    nHeaderRows = r.nHeaderRows;
-    mbHeaderLayout = r.mbHeaderLayout;
-    bAllowMove = false;
-    bSettingsChanged = false;
-    mbEnableGetPivotData = r.mbEnableGetPivotData;
+        pDoc = r.pDoc;
+        aTableName = r.aTableName;
+        aTableTag = r.aTableTag;
+        aOutRange = r.aOutRange;
+        nHeaderRows = r.nHeaderRows;
+        mbHeaderLayout = r.mbHeaderLayout;
+        bAllowMove = false;
+        bSettingsChanged = false;
+        mbEnableGetPivotData = r.mbEnableGetPivotData;
 
-    if (r.pSaveData)
-        pSaveData.reset( new ScDPSaveData(*r.pSaveData) );
-    if (r.pSheetDesc)
-        pSheetDesc.reset( new ScSheetSourceDesc(*r.pSheetDesc) );
-    if (r.pImpDesc)
-        pImpDesc.reset( new ScImportSourceDesc(*r.pImpDesc) );
-    if (r.pServDesc)
-        pServDesc.reset( new ScDPServiceDesc(*r.pServDesc) );
-
+        if (r.pSaveData)
+            pSaveData.reset( new ScDPSaveData(*r.pSaveData) );
+        if (r.pSheetDesc)
+            pSheetDesc.reset( new ScSheetSourceDesc(*r.pSheetDesc) );
+        if (r.pImpDesc)
+            pImpDesc.reset( new ScImportSourceDesc(*r.pImpDesc) );
+        if (r.pServDesc)
+            pServDesc.reset( new ScDPServiceDesc(*r.pServDesc) );
+    }
     return *this;
 }
 
@@ -557,7 +559,7 @@ namespace {
 class DisableGetPivotData
 {
     ScDPObject& mrDPObj;
-    bool mbOldState;
+    bool const mbOldState;
 public:
     DisableGetPivotData(ScDPObject& rObj, bool bOld) : mrDPObj(rObj), mbOldState(bOld)
     {
@@ -572,7 +574,7 @@ public:
 
 class FindIntersectingTable
 {
-    ScRange maRange;
+    ScRange const maRange;
 public:
     explicit FindIntersectingTable(const ScRange& rRange) : maRange(rRange) {}
 
@@ -584,10 +586,10 @@ public:
 
 class FindIntersectingTableByColumns
 {
-    SCCOL mnCol1;
-    SCCOL mnCol2;
-    SCROW mnRow;
-    SCTAB mnTab;
+    SCCOL const mnCol1;
+    SCCOL const mnCol2;
+    SCROW const mnRow;
+    SCTAB const mnTab;
 public:
     FindIntersectingTableByColumns(SCCOL nCol1, SCCOL nCol2, SCROW nRow, SCTAB nTab) :
         mnCol1(nCol1), mnCol2(nCol2), mnRow(nRow), mnTab(nTab) {}
@@ -618,10 +620,10 @@ public:
 
 class FindIntersectingTableByRows
 {
-    SCCOL mnCol;
-    SCROW mnRow1;
-    SCROW mnRow2;
-    SCTAB mnTab;
+    SCCOL const mnCol;
+    SCROW const mnRow1;
+    SCROW const mnRow2;
+    SCTAB const mnTab;
 public:
     FindIntersectingTableByRows(SCCOL nCol, SCROW nRow1, SCROW nRow2, SCTAB nTab) :
         mnCol(nCol), mnRow1(nRow1), mnRow2(nRow2), mnTab(nTab) {}
@@ -653,7 +655,7 @@ public:
 class AccumulateOutputRanges
 {
     ScRangeList maRanges;
-    SCTAB mnTab;
+    SCTAB const mnTab;
 public:
     explicit AccumulateOutputRanges(SCTAB nTab) : mnTab(nTab) {}
     AccumulateOutputRanges(const AccumulateOutputRanges& r) : maRanges(r.maRanges), mnTab(r.mnTab) {}
@@ -1307,7 +1309,7 @@ namespace {
 
 class FindByName
 {
-    OUString maName; // must be all uppercase.
+    OUString const maName; // must be all uppercase.
 public:
     explicit FindByName(const OUString& rName) : maName(rName) {}
     bool operator() (const ScDPSaveDimension* pDim) const
@@ -1490,7 +1492,7 @@ bool dequote( const OUString& rSource, sal_Int32 nStartPos, sal_Int32& rEndPos, 
 struct ScGetPivotDataFunctionEntry
 {
     const sal_Char*         pName;
-    sal_Int16               eFunc;
+    sal_Int16 const               eFunc;
 };
 
 bool parseFunction( const OUString& rList, sal_Int32 nStartPos, sal_Int32& rEndPos, sal_Int16& rFunc )
@@ -2143,8 +2145,8 @@ namespace {
 
 class FindByColumn
 {
-    SCCOL mnCol;
-    PivotFunc mnMask;
+    SCCOL const mnCol;
+    PivotFunc const mnMask;
 public:
     FindByColumn(SCCOL nCol, PivotFunc nMask) : mnCol(nCol), mnMask(nMask) {}
     bool operator() (const ScPivotField& r) const
@@ -2612,7 +2614,7 @@ bool hasFieldColumn(const vector<ScPivotField>* pRefFields, SCCOL nCol)
 
 class FindByOriginalDim
 {
-    long mnDim;
+    long const mnDim;
 public:
     explicit FindByOriginalDim(long nDim) : mnDim(nDim) {}
     bool operator() (const ScPivotField& r) const
@@ -3163,7 +3165,7 @@ void ScDPCollection::NameCaches::updateCache(
         return;
     }
 
-    ScDPCache& rCache = *itr->second.get();
+    ScDPCache& rCache = *itr->second;
     // Update the cache with new cell values. This will clear all group dimension info.
     rCache.InitFromDoc(mpDoc, rRange);
 
@@ -3388,7 +3390,7 @@ namespace {
  */
 class MatchByTable
 {
-    SCTAB mnTab;
+    SCTAB const mnTab;
 public:
     explicit MatchByTable(SCTAB nTab) : mnTab(nTab) {}
 
@@ -3556,7 +3558,7 @@ bool ScDPCollection::GetReferenceGroups(const ScDPObject& rDPObj, const ScDPDime
 {
     for (const std::unique_ptr<ScDPObject>& aTable : maTables)
     {
-        const ScDPObject& rRefObj = *aTable.get();
+        const ScDPObject& rRefObj = *aTable;
 
         if (&rRefObj == &rDPObj)
             continue;
@@ -3639,7 +3641,7 @@ void ScDPCollection::CopyToTab( SCTAB nOld, SCTAB nNew )
     TablesType::const_iterator it = maTables.begin(), itEnd = maTables.end();
     for (; it != itEnd; ++it)
     {
-        const ScDPObject& rObj = *it->get();
+        const ScDPObject& rObj = **it;
         ScRange aOutRange = rObj.GetOutRange();
         if (aOutRange.aStart.Tab() != nOld)
             continue;
@@ -3664,7 +3666,7 @@ bool ScDPCollection::RefsEqual( const ScDPCollection& r ) const
 
     TablesType::const_iterator itr = maTables.begin(), itr2 = r.maTables.begin(), itrEnd = maTables.end();
     for (; itr != itrEnd; ++itr, ++itr2)
-        if (!(*itr)->RefsEqual(*itr2->get()))
+        if (!(*itr)->RefsEqual(**itr2))
             return false;
 
     return true;
@@ -3678,7 +3680,7 @@ void ScDPCollection::WriteRefsTo( ScDPCollection& r ) const
         TablesType::const_iterator itr = maTables.begin(), itrEnd = maTables.end();
         TablesType::iterator itr2 = r.maTables.begin();
         for (; itr != itrEnd; ++itr, ++itr2)
-            (*itr)->WriteRefsTo(*itr2->get());
+            (*itr)->WriteRefsTo(**itr2);
     }
     else
     {
@@ -3897,7 +3899,7 @@ void ScDPCollection::GetAllTables(const ScRange& rSrcRange, std::set<ScDPObject*
     TablesType::const_iterator it = maTables.begin(), itEnd = maTables.end();
     for (; it != itEnd; ++it)
     {
-        const ScDPObject& rObj = *it->get();
+        const ScDPObject& rObj = **it;
         if (!rObj.IsSheetData())
             // Source is not a sheet range.
             continue;
@@ -3926,7 +3928,7 @@ void ScDPCollection::GetAllTables(const OUString& rSrcName, std::set<ScDPObject*
     TablesType::const_iterator it = maTables.begin(), itEnd = maTables.end();
     for (; it != itEnd; ++it)
     {
-        const ScDPObject& rObj = *it->get();
+        const ScDPObject& rObj = **it;
         if (!rObj.IsSheetData())
             // Source is not a sheet range.
             continue;
@@ -3957,7 +3959,7 @@ void ScDPCollection::GetAllTables(
     TablesType::const_iterator it = maTables.begin(), itEnd = maTables.end();
     for (; it != itEnd; ++it)
     {
-        const ScDPObject& rObj = *it->get();
+        const ScDPObject& rObj = **it;
         if (!rObj.IsImportData())
             // Source data is not a database.
             continue;

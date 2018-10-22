@@ -178,9 +178,9 @@ SwViewShell::SwViewShell( SwDoc& rDocument, vcl::Window *pWindow,
     // i#38810 Do not reset modified state of document,
     // if it's already been modified.
     const bool bIsDocModified( mxDoc->getIDocumentState().IsModified() );
-    pOutput = mpOut;
+    OutputDevice* pOrigOut = mpOut;
     Init( pNewOpt );    // may change the Outdev (InitPrt())
-    mpOut = pOutput;
+    mpOut = pOrigOut;
 
     // initialize print preview layout after layout
     // is created in <SwViewShell::Init(..)> - called above.
@@ -253,9 +253,9 @@ SwViewShell::SwViewShell( SwViewShell& rShell, vcl::Window *pWindow,
 
     bool bModified = mxDoc->getIDocumentState().IsModified();
 
-    pOutput = mpOut;
+    OutputDevice* pOrigOut = mpOut;
     Init( rShell.GetViewOptions() ); // might change Outdev (InitPrt())
-    mpOut = pOutput;
+    mpOut = pOrigOut;
 
     if ( mbPreview )
         mpImp->InitPagePreviewLayout();
@@ -281,7 +281,8 @@ SwViewShell::SwViewShell( SwViewShell& rShell, vcl::Window *pWindow,
 
 SwViewShell::~SwViewShell()
 {
-    IDocumentLayoutAccess * const pLayoutAccess = mxDoc.get() ? &mxDoc->getIDocumentLayoutAccess() : nullptr;
+    IDocumentLayoutAccess* const pLayoutAccess
+        = mxDoc ? &mxDoc->getIDocumentLayoutAccess() : nullptr;
 
     {
         SET_CURR_SHELL( this );
@@ -320,7 +321,7 @@ SwViewShell::~SwViewShell()
 
         mpImp.reset();
 
-        if ( mxDoc.get() )
+        if (mxDoc)
         {
             if( mxDoc->getReferenceCount() > 1 )
                 GetLayout()->ResetNewLayout();

@@ -112,20 +112,20 @@ namespace {
 class ScDPOutputImpl
 {
     ScDocument*         mpDoc;
-    sal_uInt16          mnTab;
+    sal_uInt16 const          mnTab;
     ::std::vector< bool > mbNeedLineCols;
     ::std::vector< SCCOL > mnCols;
 
     ::std::vector< bool > mbNeedLineRows;
     ::std::vector< SCROW > mnRows;
 
-    SCCOL   mnTabStartCol;
-    SCROW   mnTabStartRow;
+    SCCOL const   mnTabStartCol;
+    SCROW const   mnTabStartRow;
 
     SCCOL   mnDataStartCol;
     SCROW   mnDataStartRow;
-    SCCOL   mnTabEndCol;
-    SCROW   mnTabEndRow;
+    SCCOL const   mnTabEndCol;
+    SCROW const   mnTabEndRow;
 
 public:
     ScDPOutputImpl( ScDocument* pDoc, sal_uInt16 nTab,
@@ -256,7 +256,7 @@ void ScDPOutputImpl::OutputBlockFrame ( SCCOL nStartCol, SCROW nStartRow, SCCOL 
     else
         aBox.SetLine(&aLine,  SvxBoxItemLine::RIGHT);
 
-     if ( nEndRow == mnTabEndRow ) //bottom
+    if ( nEndRow == mnTabEndRow ) //bottom
         aBox.SetLine(&aOutLine,  SvxBoxItemLine::BOTTOM);
     else
         aBox.SetLine(&aLine,  SvxBoxItemLine::BOTTOM);
@@ -858,7 +858,7 @@ void ScDPOutput::CalcSizes()
         //  calculate output positions and sizes
 
         long nPageSize = 0;     // use page fields!
-        if ( bDoFilter || pPageFields.size() )
+        if ( bDoFilter || !pPageFields.empty() )
         {
             nPageSize += pPageFields.size() + 1;   // plus one empty row
             if ( bDoFilter )

@@ -8,8 +8,11 @@
  */
 
 #include "htmldataprovider.hxx"
+#include <datamapper.hxx>
 #include <datatransformation.hxx>
 #include <salhelper/thread.hxx>
+#include <vcl/svapp.hxx>
+#include <tools/stream.hxx>
 
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
@@ -25,10 +28,10 @@ namespace sc {
 class HTMLFetchThread : public salhelper::Thread
 {
     ScDocument& mrDocument;
-    OUString maURL;
-    OUString maID;
+    OUString const maURL;
+    OUString const maID;
     const std::vector<std::shared_ptr<sc::DataTransformation>> maDataTransformations;
-    std::function<void()> maImportFinishedHdl;
+    std::function<void()> const maImportFinishedHdl;
 
     void handleTable(xmlNodePtr pTable);
     void handleRow(xmlNodePtr pRow, SCROW nRow);

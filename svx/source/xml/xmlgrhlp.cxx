@@ -306,8 +306,7 @@ Graphic SvXMLGraphicOutputStream::GetGraphic()
 
             sal_uInt8    sFirstBytes[ 2 ];
 
-            mpOStm->Seek( STREAM_SEEK_TO_END );
-            sal_uIntPtr nStreamLen = mpOStm->Tell();
+            sal_uIntPtr nStreamLen = mpOStm->TellEnd();
             mpOStm->Seek( 0 );
 
             if ( !nStreamLen )
@@ -316,8 +315,7 @@ Graphic SvXMLGraphicOutputStream::GetGraphic()
                 if ( pLockBytes  )
                     pLockBytes->SetSynchronMode();
 
-                mpOStm->Seek( STREAM_SEEK_TO_END );
-                nStreamLen = mpOStm->Tell();
+                nStreamLen = mpOStm->TellEnd();
                 mpOStm->Seek( 0 );
             }
             if( nStreamLen >= 2 )
@@ -333,10 +331,9 @@ Graphic SvXMLGraphicOutputStream::GetGraphic()
                     mpOStm->Seek( 0 );
                     aZCodec.Decompress( *mpOStm, *pDest );
 
-                    if (aZCodec.EndCompression() && pDest )
+                    if (aZCodec.EndCompression())
                     {
-                        pDest->Seek( STREAM_SEEK_TO_END );
-                        sal_uIntPtr nStreamLen_ = pDest->Tell();
+                        sal_uIntPtr nStreamLen_ = pDest->TellEnd();
                         if (nStreamLen_)
                         {
                             pDest->Seek(0);

@@ -1611,7 +1611,7 @@ namespace
         {
             GdkPixbufLoader *pixbuf_loader = gdk_pixbuf_loader_new();
             gdk_pixbuf_loader_write(pixbuf_loader, static_cast<const guchar*>(xMemStm->GetData()),
-                                    xMemStm->Seek(STREAM_SEEK_TO_END), nullptr);
+                                    xMemStm->TellEnd(), nullptr);
             gdk_pixbuf_loader_close(pixbuf_loader, nullptr);
             pixbuf = gdk_pixbuf_loader_get_pixbuf(pixbuf_loader);
             if (pixbuf)
@@ -2052,6 +2052,11 @@ public:
             g_object_unref(pCursor);
     }
 
+    virtual void set_modal(bool bModal) override
+    {
+        gtk_window_set_modal(m_pWindow, bModal);
+    }
+
     virtual void resize_to_request() override
     {
         gtk_window_resize(m_pWindow, 1, 1);
@@ -2089,7 +2094,7 @@ namespace
 {
     struct ButtonOrder
     {
-        OString m_aType;
+        const char * m_aType;
         int m_nPriority;
     };
 
@@ -2928,6 +2933,22 @@ public:
     {
         disable_notify_events();
         gtk_notebook_remove_page(m_pNotebook, get_page_number(rIdent));
+        update_tab_pos();
+        enable_notify_events();
+    }
+
+    virtual void append_page(const OString& rIdent, const OUString& rLabel) override
+    {
+        disable_notify_events();
+
+        GtkWidget *pTabWidget = gtk_label_new(MapToGtkAccelerator(rLabel).getStr());
+        gtk_buildable_set_name(GTK_BUILDABLE(pTabWidget), rIdent.getStr());
+
+        GtkWidget *pChild = gtk_grid_new();
+        gtk_notebook_append_page(m_pNotebook, pChild, pTabWidget);
+        gtk_widget_show_all(pChild);
+        gtk_widget_show_all(pTabWidget);
+
         update_tab_pos();
         enable_notify_events();
     }
@@ -4147,6 +4168,30 @@ public:
         gtk_widget_set_size_request(m_pWidget, nWidth, nHeight);
     }
 
+    virtual void set_visible(bool visible) override
+    {
+        GtkWidget* pParent = gtk_widget_get_parent(m_pWidget);
+        if (GTK_IS_SCROLLED_WINDOW(pParent))
+            gtk_widget_set_visible(pParent, visible);
+        gtk_widget_set_visible(m_pWidget, visible);
+    }
+
+    virtual void show() override
+    {
+        GtkWidget* pParent = gtk_widget_get_parent(m_pWidget);
+        if (GTK_IS_SCROLLED_WINDOW(pParent))
+            gtk_widget_show(pParent);
+        gtk_widget_show(m_pWidget);
+    }
+
+    virtual void hide() override
+    {
+        GtkWidget* pParent = gtk_widget_get_parent(m_pWidget);
+        if (GTK_IS_SCROLLED_WINDOW(pParent))
+            gtk_widget_hide(pParent);
+        gtk_widget_hide(m_pWidget);
+    }
+
     virtual void set_selection_mode(bool bMultiple) override
     {
         disable_notify_events();
@@ -4833,6 +4878,7 @@ private:
     GtkMenu* m_pMenu;
     std::unique_ptr<comphelper::string::NaturalStringSorter> m_xSorter;
     vcl::QuickSelectionEngine m_aQuickSelectionEngine;
+    std::vector<int> m_aSeparatorRows;
     gboolean m_bPopupActive;
     gulong m_nChangedSignalId;
     gulong m_nPopupShownSignalId;
@@ -4938,6 +4984,20 @@ private:
         gtk_entry_completion_set_popup_completion(pCompletion, false);
         gtk_entry_set_completion(pEntry, pCompletion);
         g_object_unref(pCompletion);
+    }
+
+    bool separator_function(int nIndex)
+    {
+        return std::find(m_aSeparatorRows.begin(), m_aSeparatorRows.end(), nIndex) != m_aSeparatorRows.end();
+    }
+
+    static gboolean separatorFunction(GtkTreeModel* pTreeModel, GtkTreeIter* pIter, gpointer widget)
+    {
+        GtkInstanceComboBox* pThis = static_cast<GtkInstanceComboBox*>(widget);
+        GtkTreePath* path = gtk_tree_model_get_path(pTreeModel, pIter);
+        int nIndex = gtk_tree_path_get_indices(path)[0];
+        gtk_tree_path_free(path);
+        return pThis->separator_function(nIndex);
     }
 
     // in the absence of a built-in solution for https://gitlab.gnome.org/GNOME/gtk/issues/310
@@ -5237,6 +5297,7 @@ public:
         GtkTreeIter iter;
         gtk_tree_model_iter_nth_child(m_pTreeModel, &iter, nullptr, pos);
         gtk_list_store_remove(GTK_LIST_STORE(m_pTreeModel), &iter);
+        m_aSeparatorRows.erase(std::remove(m_aSeparatorRows.begin(), m_aSeparatorRows.end(), pos), m_aSeparatorRows.end());
         enable_notify_events();
         bodge_wayland_menu_not_appearing();
     }
@@ -5246,6 +5307,19 @@ public:
         disable_notify_events();
         GtkTreeIter iter;
         insert_row(GTK_LIST_STORE(m_pTreeModel), iter, pos, pId, rText, pIconName, pImageSurface);
+        enable_notify_events();
+        bodge_wayland_menu_not_appearing();
+    }
+
+    virtual void insert_separator(int pos) override
+    {
+        disable_notify_events();
+        GtkTreeIter iter;
+        pos = pos == -1 ? get_count() : pos;
+        m_aSeparatorRows.push_back(pos);
+        if (!gtk_combo_box_get_row_separator_func(m_pComboBox))
+            gtk_combo_box_set_row_separator_func(m_pComboBox, separatorFunction, this, nullptr);
+        insert_row(GTK_LIST_STORE(m_pTreeModel), iter, pos, nullptr, "", nullptr, nullptr);
         enable_notify_events();
         bodge_wayland_menu_not_appearing();
     }
@@ -5269,6 +5343,8 @@ public:
     {
         disable_notify_events();
         gtk_list_store_clear(GTK_LIST_STORE(m_pTreeModel));
+        m_aSeparatorRows.clear();
+        gtk_combo_box_set_row_separator_func(m_pComboBox, nullptr, nullptr, nullptr);
         enable_notify_events();
         bodge_wayland_menu_not_appearing();
     }
@@ -5454,6 +5530,11 @@ public:
         assert(m_pEntry);
         GtkWidget* pWidget = m_pEntry->getWidget();
         m_nKeyPressSignalId = g_signal_connect(pWidget, "key-press-event", G_CALLBACK(signalKeyPress), this);
+    }
+
+    virtual void insert_separator(int /*pos*/) override
+    {
+        assert(false);
     }
 
     virtual void make_sorted() override

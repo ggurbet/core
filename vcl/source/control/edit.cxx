@@ -727,9 +727,10 @@ void Edit::ImplDelete( const Selection& rSelection, sal_uInt8 nDirection, sal_uI
         }
     }
 
-    maText.remove( static_cast<sal_Int32>(aSelection.Min()), static_cast<sal_Int32>(aSelection.Len()) );
-    maSelection.Min() = aSelection.Min();
-    maSelection.Max() = aSelection.Min();
+    const auto nSelectionMin = aSelection.Min();
+    maText.remove( static_cast<sal_Int32>(nSelectionMin), static_cast<sal_Int32>(aSelection.Len()) );
+    maSelection.Min() = nSelectionMin;
+    maSelection.Max() = nSelectionMin;
     ImplAlignAndPaint();
     mbInternModified = true;
 }
@@ -1310,7 +1311,7 @@ void Edit::MouseButtonDown( const MouseEvent& rMEvt )
     if ( rMEvt.GetClicks() < 4 )
     {
         mbClickedInSelection = false;
-        if ( rMEvt.GetClicks() == 3 || mbSelectAllSingleClick )
+        if ( rMEvt.GetClicks() == 3 )
         {
             ImplSetSelection( Selection( 0, EDIT_NOLIMIT) );
             ImplCopyToSelectionClipboard();
@@ -1835,7 +1836,11 @@ void Edit::GetFocus()
     else if ( !mbActivePopup )
     {
         maUndoText = maText.toString();
-
+        if(mbSelectAllSingleClick)
+        {
+            maSelection.Min() = 0;
+            maSelection.Max() = maText.getLength();
+        }
         SelectionOptions nSelOptions = GetSettings().GetStyleSettings().GetSelectionOptions();
         if ( !( GetStyle() & (WB_NOHIDESELECTION|WB_READONLY) )
                 && ( GetGetFocusFlags() & (GetFocusFlags::Init|GetFocusFlags::Tab|GetFocusFlags::CURSOR|GetFocusFlags::Mnemonic) ) )

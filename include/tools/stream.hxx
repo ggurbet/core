@@ -19,7 +19,6 @@
 #ifndef INCLUDED_TOOLS_STREAM_HXX
 #define INCLUDED_TOOLS_STREAM_HXX
 
-#include <limits>
 #include <tools/toolsdllapi.h>
 #include <tools/lineend.hxx>
 #include <tools/ref.hxx>
@@ -273,6 +272,7 @@ public:
     sal_uInt64      Seek( sal_uInt64 nPos );
     sal_uInt64      SeekRel( sal_Int64 nPos );
     sal_uInt64      Tell() const { return m_nBufFilePos + m_nBufActualPos;  }
+    sal_uInt64      TellEnd();
     // length between current (Tell()) pos and end of stream
     virtual sal_uInt64 remainingSize();
     void            Flush();
@@ -528,14 +528,6 @@ inline OString read_uInt8_lenPrefixed_uInt8s_ToOString(SvStream& rStrm)
     return read_uInt8s_ToOString(rStrm, nUnits);
 }
 
-/// Attempt to read a pascal-style length (of type prefix) prefixed sequence of
-/// 8bit units to an OUString
-inline OUString read_uInt32_lenPrefixed_uInt8s_ToOUString(SvStream& rStrm,
-                                                          rtl_TextEncoding eEnc)
-{
-    return OStringToOUString(read_uInt32_lenPrefixed_uInt8s_ToOString(rStrm), eEnc);
-}
-
 inline OUString read_uInt16_lenPrefixed_uInt8s_ToOUString(SvStream& rStrm,
                                                           rtl_TextEncoding eEnc)
 {
@@ -645,7 +637,7 @@ protected:
 
     /// AllocateMemory must update pBuf accordingly
     /// - pBuf: Address of new block
-    bool    AllocateMemory( std::size_t nSize );
+    void    AllocateMemory( std::size_t nSize );
 
     /// ReAllocateMemory must update the following variables:
     /// - pBuf: Address of new block

@@ -73,7 +73,7 @@
 using ::editeng::SvxBorderLine;
 using namespace ::com::sun::star;
 
-static HTMLOptionEnum<sal_Int16> aHTMLTableVAlignTable[] =
+static HTMLOptionEnum<sal_Int16> const aHTMLTableVAlignTable[] =
 {
     { OOO_STRING_SVTOOLS_HTML_VA_top,     text::VertOrientation::NONE       },
     { OOO_STRING_SVTOOLS_HTML_VA_middle,  text::VertOrientation::CENTER     },
@@ -2279,7 +2279,7 @@ void HTMLTable::MakeTable( SwTableBox *pBox, sal_uInt16 nAbsAvail,
     OSL_ENSURE( m_nRows>0 && m_nCols>0 && m_nCurrentRow==m_nRows,
             "Was CloseTable not called?" );
 
-    OSL_ENSURE(m_xLayoutInfo.get() == nullptr, "Table already has layout info");
+    OSL_ENSURE(m_xLayoutInfo == nullptr, "Table already has layout info");
 
     // Calculate borders of the table and all contained tables
     SetBorders();

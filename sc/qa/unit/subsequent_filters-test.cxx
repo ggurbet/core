@@ -44,6 +44,7 @@
 #include <dbdata.hxx>
 #include <validat.hxx>
 #include <formulacell.hxx>
+#include <formulaopt.hxx>
 #include <userdat.hxx>
 #include <stlsheet.hxx>
 #include <docfunc.hxx>
@@ -2304,8 +2305,8 @@ void ScFiltersTest::testCondFormatThemeColorXLSX()
     const ScDataBarFormatData* pDataBarFormatData = pDataBar->GetDataBarData();
 
     CPPUNIT_ASSERT_EQUAL(Color(157, 195, 230), pDataBarFormatData->maPositiveColor);
-    CPPUNIT_ASSERT(pDataBarFormatData->mpNegativeColor.get());
-    CPPUNIT_ASSERT_EQUAL(COL_LIGHTRED, *pDataBarFormatData->mpNegativeColor.get());
+    CPPUNIT_ASSERT(pDataBarFormatData->mpNegativeColor);
+    CPPUNIT_ASSERT_EQUAL(COL_LIGHTRED, *pDataBarFormatData->mpNegativeColor);
 
     CPPUNIT_ASSERT_EQUAL(size_t(1), rDoc.GetCondFormList(1)->size());
     pFormat = rDoc.GetCondFormat(0, 0, 1);
@@ -2343,8 +2344,8 @@ void ScFiltersTest::testCondFormatThemeColor2XLSX()
     const ScDataBarFormatData* pDataBarFormatData = pDataBar->GetDataBarData();
 
     CPPUNIT_ASSERT_EQUAL(Color(99, 142, 198), pDataBarFormatData->maPositiveColor);
-    CPPUNIT_ASSERT(pDataBarFormatData->mpNegativeColor.get());
-    CPPUNIT_ASSERT_EQUAL(Color(217, 217, 217), *pDataBarFormatData->mpNegativeColor.get());
+    CPPUNIT_ASSERT(pDataBarFormatData->mpNegativeColor);
+    CPPUNIT_ASSERT_EQUAL(Color(217, 217, 217), *pDataBarFormatData->mpNegativeColor);
     CPPUNIT_ASSERT_EQUAL(Color(197, 90, 17), pDataBarFormatData->maAxisColor);
 
     xDocSh->DoClose();
@@ -2762,7 +2763,7 @@ void ScFiltersTest::testFormulaDependency()
 
 void ScFiltersTest::testMiscRowHeights()
 {
-    TestParam::RowData DfltRowData[] =
+    static const TestParam::RowData DfltRowData[] =
     {
         // check rows at the beginning and end of document
         // and make sure they are reported as the default row
@@ -2771,7 +2772,7 @@ void ScFiltersTest::testMiscRowHeights()
         { 1048573, 1048575, 0, -1, 0, false  },
     };
 
-    TestParam::RowData MultiLineOptData[] =
+    static const TestParam::RowData MultiLineOptData[] =
     {
         // Row 0 is 12.63 mm, but optimal flag is set
         { 0, 0, 0, 1236, CHECK_OPTIMAL, true  },
@@ -2907,7 +2908,7 @@ void ScFiltersTest::testOutlineODS()
         size_t nIndex;
     };
 
-    OutlineData aRow[] =
+    static const OutlineData aRow[] =
     {
         { 1, 29, false, true, 0, 0 },
         { 2, 26, false, true, 1, 0 },

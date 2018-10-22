@@ -35,6 +35,7 @@
 #include <com/sun/star/accessibility/XAccessibleKeyBinding.hpp>
 #include <com/sun/star/accessibility/XAccessibleRelationSet.hpp>
 #include <com/sun/star/accessibility/XAccessibleStateSet.hpp>
+#include <com/sun/star/accessibility/XAccessibleText.hpp>
 #include <com/sun/star/accessibility/XAccessibleValue.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 
@@ -57,7 +58,11 @@ QString Qt5AccessibleText::attributes(int /* offset */, int* /* startOffset */,
 {
     return QString();
 }
-int Qt5AccessibleText::characterCount() const { return 0; }
+int Qt5AccessibleText::characterCount() const
+{
+    Reference<XAccessibleText> xText(m_xAccessible, UNO_QUERY);
+    return xText->getCharacterCount();
+}
 QRect Qt5AccessibleText::characterRect(int /* offset */) const { return QRect(); }
 int Qt5AccessibleText::cursorPosition() const { return 0; }
 int Qt5AccessibleText::offsetAtPoint(const QPoint& /* point */) const { return 0; }

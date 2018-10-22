@@ -59,7 +59,7 @@
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/accessibility/XAccessible.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
-#include <vcl/unowrap.hxx>
+#include <vcl/toolkit/unowrap.hxx>
 
 #include <vcl/unohelp.hxx>
 #include <vcl/configsettings.hxx>
@@ -356,19 +356,18 @@ void Menu::Select()
     ImplMenuDelData aDelData( this );
 
     ImplCallEventListeners( VclEventId::MenuSelect, GetItemPos( GetCurItemId() ) );
-    if ( !aDelData.isDeleted() && !aSelectHdl.Call( this ) )
-    {
-        if( !aDelData.isDeleted() )
-        {
-            Menu* pStartMenu = ImplGetStartMenu();
-            if ( pStartMenu && ( pStartMenu != this ) )
-            {
-                pStartMenu->nSelectedId = nSelectedId;
-                pStartMenu->sSelectedIdent = sSelectedIdent;
-                pStartMenu->aSelectHdl.Call( this );
-            }
-        }
-    }
+    if (aDelData.isDeleted())
+        return;
+    if (aSelectHdl.Call(this))
+        return;
+    if (aDelData.isDeleted())
+        return;
+    Menu* pStartMenu = ImplGetStartMenu();
+    if (!pStartMenu || (pStartMenu == this))
+        return;
+    pStartMenu->nSelectedId = nSelectedId;
+    pStartMenu->sSelectedIdent = sSelectedIdent;
+    pStartMenu->aSelectHdl.Call( this );
 }
 
 #if defined(MACOSX)
@@ -400,14 +399,10 @@ void Menu::ImplCallEventListeners( VclEventId nEvent, sal_uInt16 nPos )
     {
         // Copy the list, because this can be destroyed when calling a Link...
         std::list<Link<VclMenuEvent&,void>> aCopy( maEventListeners );
-        std::list<Link<VclMenuEvent&,void>>::iterator aIter( aCopy.begin() );
-        std::list<Link<VclMenuEvent&,void>>::const_iterator aEnd( aCopy.end() );
-        while ( aIter != aEnd )
+        for ( const auto& rLink : aCopy )
         {
-            Link<VclMenuEvent&,void> &rLink = *aIter;
             if( std::find(maEventListeners.begin(), maEventListeners.end(), rLink) != maEventListeners.end() )
                 rLink.Call( aEvent );
-            ++aIter;
         }
     }
 }
@@ -1314,7 +1309,7 @@ css::uno::Reference<css::accessibility::XAccessible> Menu::GetAccessible()
     }
     else if ( !mxAccessible.is() )
     {
-        UnoWrapperBase* pWrapper = Application::GetUnoWrapper();
+        UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper();
         if ( pWrapper )
             mxAccessible = pWrapper->CreateAccessible(this, IsMenuBar());
     }
@@ -2705,7 +2700,7 @@ void PopupMenu::ClosePopup(Menu* pMenu)
 {
     MenuFloatingWindow* p = dynamic_cast<MenuFloatingWindow*>(ImplGetWindow());
     PopupMenu *pPopup = dynamic_cast<PopupMenu*>(pMenu);
-    if (p && pMenu)
+    if (p && pPopup)
         p->KillActivePopup(pPopup);
 }
 
@@ -2956,8 +2951,8 @@ sal_uInt16 PopupMenu::ImplExecute( const VclPtr<vcl::Window>& pW, const tools::R
         {
             pWin->StopExecute();
             pWin->doShutdown();
-            pWindow->doLazyDelete();
-            pWindow = nullptr;
+            pWindow->SetParentToDefaultWindow();
+            pWindow.disposeAndClear();
             ImplClosePopupToolBox(pW);
             ImplFlushPendingSelect();
             return nSelectedId;
@@ -3017,8 +3012,8 @@ sal_uInt16 PopupMenu::ImplExecute( const VclPtr<vcl::Window>& pW, const tools::R
             }
         }
         pWin->doShutdown();
-        pWindow->doLazyDelete();
-        pWindow = nullptr;
+        pWindow->SetParentToDefaultWindow();
+        pWindow.disposeAndClear();
         ImplClosePopupToolBox(pW);
         ImplFlushPendingSelect();
     }

@@ -549,7 +549,7 @@ OUString SvNumberformat::ImpObtainCalendarAndNumerals( OUStringBuffer& rString, 
             break;
     }
     /** Reference language for each numeral ID */
-    const LanguageType aNumeralIDtoLanguage []=
+    static const LanguageType aNumeralIDtoLanguage []=
     {
         LANGUAGE_DONTKNOW,              // 0x00
         LANGUAGE_ENGLISH_US,            // 0x01
@@ -4212,14 +4212,7 @@ bool SvNumberformat::ImpGetNumberOutput(double fNumber,
     bool bSign;
     if (fNumber < 0.0)
     {
-        if (nIx == 0) // Not in the ones at the back
-        {
-            bSign = true; // Formats
-        }
-        else
-        {
-            bSign = false;
-        }
+        bSign = (nIx == 0); // Not in the ones at the back;
         fNumber = -fNumber;
     }
     else

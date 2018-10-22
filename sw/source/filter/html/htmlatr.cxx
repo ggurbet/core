@@ -560,14 +560,14 @@ static void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
     // If necessary, take the hard attribute from the style
     if( pFormatInfo->pItemSet )
     {
-        OSL_ENSURE( !rInfo.pItemSet.get(), "Where does this ItemSet come from?" );
+        OSL_ENSURE(!rInfo.pItemSet, "Where does this ItemSet come from?");
         rInfo.pItemSet.reset(new SfxItemSet( *pFormatInfo->pItemSet ));
     }
 
     // additionally, add the hard attribute from the paragraph
     if( pNodeItemSet )
     {
-        if( rInfo.pItemSet.get() )
+        if (rInfo.pItemSet)
             rInfo.pItemSet->Put( *pNodeItemSet );
         else
             rInfo.pItemSet.reset(new SfxItemSet( *pNodeItemSet ));
@@ -591,7 +591,7 @@ static void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
             else
                 aULSpaceItem.SetUpper( rHWrt.m_nHeaderFooterSpace );
 
-            if (!rInfo.pItemSet.get())
+            if (!rInfo.pItemSet)
             {
                 rInfo.pItemSet.reset(new SfxItemSet(*rFormat.GetAttrSet().GetPool(), svl::Items<RES_UL_SPACE, RES_UL_SPACE>{}));
             }
@@ -3049,7 +3049,7 @@ static Writer& OutHTML_SwFormatINetFormat( Writer& rWrt, const SfxPoolItem& rHt 
     if( rHTMLWrt.m_bTagOn )
     {
         // if necessary, temporarily close an attribute that is still open
-        if( rHTMLWrt.m_aINetFormats.size() )
+        if( !rHTMLWrt.m_aINetFormats.empty() )
         {
             SwFormatINetFormat *pINetFormat =
                 rHTMLWrt.m_aINetFormats.back();
@@ -3068,7 +3068,7 @@ static Writer& OutHTML_SwFormatINetFormat( Writer& rWrt, const SfxPoolItem& rHt 
         OutHTML_INetFormat( rWrt, rINetFormat, false );
 
         OSL_ENSURE( rHTMLWrt.m_aINetFormats.size(), "there must be a URL attribute missing" );
-        if( rHTMLWrt.m_aINetFormats.size() )
+        if( !rHTMLWrt.m_aINetFormats.empty() )
         {
             // get its own attribute from the stack
             SwFormatINetFormat *pINetFormat = rHTMLWrt.m_aINetFormats.back();

@@ -523,7 +523,7 @@ public:
 private:
     const FunctionParamInfo* mpParamInfo;
     const FunctionParamInfo* mpParamInfoEnd;
-    bool                mbParamPairs;
+    bool const                mbParamPairs;
 };
 
 // Base function provider =====================================================
@@ -540,8 +540,8 @@ public:
 
     FunctionProvider(FunctionProvider const &) = default;
     FunctionProvider(FunctionProvider &&) = default;
-    FunctionProvider & operator =(FunctionProvider const &) = default;
-    FunctionProvider & operator =(FunctionProvider &&) = default;
+    FunctionProvider & operator =(FunctionProvider const &) = delete;
+    FunctionProvider & operator =(FunctionProvider &&) = delete;
 
     /** Returns the function info for an OOXML function name, or 0 on error. */
     const FunctionInfo* getFuncInfoFromOoxFuncName( const OUString& rFuncName ) const;
@@ -563,7 +563,7 @@ protected:
 
 private:
     typedef std::shared_ptr< FunctionProviderImpl > FunctionProviderImplRef;
-    FunctionProviderImplRef mxFuncImpl;     /// Shared implementation between all copies of the provider.
+    FunctionProviderImplRef const mxFuncImpl;     /// Shared implementation between all copies of the provider.
 };
 
 // Op-code and function provider ==============================================
@@ -582,8 +582,8 @@ public:
 
     OpCodeProvider(OpCodeProvider const &) = default;
     OpCodeProvider(OpCodeProvider &&) = default;
-    OpCodeProvider & operator =(OpCodeProvider const &) = default;
-    OpCodeProvider & operator =(OpCodeProvider &&) = default;
+    OpCodeProvider & operator =(OpCodeProvider const &) = delete;
+    OpCodeProvider & operator =(OpCodeProvider &&) = delete;
 
     /** Returns the structure containing all token op-codes for operators and
         special tokens used by the Calc document and its formula parser. */
@@ -598,7 +598,7 @@ public:
 
 private:
     typedef std::shared_ptr< OpCodeProviderImpl > OpCodeProviderImplRef;
-    OpCodeProviderImplRef mxOpCodeImpl;     /// Shared implementation between all copies of the provider.
+    OpCodeProviderImplRef const mxOpCodeImpl;     /// Shared implementation between all copies of the provider.
 };
 
 // API formula parser wrapper =================================================

@@ -5552,7 +5552,7 @@ void SAL_CALL ScCellRangeObj::filter( const uno::Reference<sheet::XSheetFilterDe
 
     uno::Reference<beans::XPropertySet> xPropSet( xDescriptor, uno::UNO_QUERY );
     if (xPropSet.is())
-        lcl_CopyProperties( *xImpl.get(), *xPropSet.get() );
+        lcl_CopyProperties(*xImpl, *xPropSet.get());
 
     if (pDocSh)
     {
@@ -6555,8 +6555,7 @@ void ScCellObj::SetOnePropertyValue( const SfxItemPropertySimpleEntry* pEntry, c
         {
             OUString aStrVal;
             aValue >>= aStrVal;
-            OUString aString(aStrVal);
-            SetString_Impl(aString, true, false);   // interpret locally
+            SetString_Impl(aStrVal, true, false);   // interpret locally
         }
         else if ( pEntry->nWID == SC_WID_UNO_FORMRT || pEntry->nWID == SC_WID_UNO_FORMRT2
                   || pEntry->nWID == SC_WID_UNO_CELLCONTENTTYPE )
@@ -9396,7 +9395,7 @@ struct ScUniqueFormatsOrder
     bool operator()( const ScRangeList& rList1, const ScRangeList& rList2 ) const
     {
         // all range lists have at least one entry
-        OSL_ENSURE( rList1.size() > 0 && rList2.size() > 0, "ScUniqueFormatsOrder: empty list" );
+        OSL_ENSURE( !rList1.empty() && !rList2.empty(), "ScUniqueFormatsOrder: empty list" );
 
         // compare start positions using ScAddress comparison operator
         return ( rList1[ 0 ].aStart < rList2[ 0 ].aStart );
@@ -9480,7 +9479,7 @@ uno::Type SAL_CALL ScUniqueCellFormatsObj::getElementType()
 sal_Bool SAL_CALL ScUniqueCellFormatsObj::hasElements()
 {
     SolarMutexGuard aGuard;
-    return ( aRangeLists.size() != 0 );
+    return ( !aRangeLists.empty() );
 }
 
 // XEnumerationAccess

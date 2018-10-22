@@ -23,7 +23,6 @@
 #include <vcl/fixed.hxx>
 #include <vcl/field.hxx>
 #include <vcl/image.hxx>
-#include <vcl/group.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/button.hxx>
 #include <vcl/timer.hxx>
@@ -128,7 +127,7 @@ class SwColumnPage : public SfxTabPage
     std::unique_ptr<weld::Label> m_xLinePosLbl;
     std::unique_ptr<weld::ComboBox> m_xLinePosDLB;
     std::unique_ptr<weld::Label> m_xTextDirectionFT;
-    std::unique_ptr<svx::SvxFrameDirectionListBox> m_xTextDirectionLB;
+    std::unique_ptr<svx::FrameDirectionListBox> m_xTextDirectionLB;
     std::unique_ptr<ColorListBox> m_xLineColorDLB;
     std::unique_ptr<SvtLineListBox> m_xLineTypeDLB;
     std::unique_ptr<SwPercentField> m_xEd1;

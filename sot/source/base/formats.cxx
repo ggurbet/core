@@ -1405,7 +1405,7 @@ static sal_uInt16 GetTransferableAction_Impl(
 {
     try
     {
-        if( rDataFlavorExVector.size() )
+        if( !rDataFlavorExVector.empty() )
         {
             const SotAction_Impl*   pArrayStart = pArray;
             SotClipboardFormatId    nId = pArray->nFormatId;
@@ -1550,8 +1550,8 @@ sal_uInt8 SotExchange::GetExchangeAction( const DataFlavorExVector& rDataFlavorE
             }
             rDefaultAction = nUserAction;
     }
-      else
-            rDefaultAction = nUserAction;
+    else
+        rDefaultAction = nUserAction;
 
     switch( nUserAction )
     {

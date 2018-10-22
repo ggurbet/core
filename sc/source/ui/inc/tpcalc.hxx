@@ -23,7 +23,6 @@
 #include <sfx2/tabdlg.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/field.hxx>
-#include <vcl/group.hxx>
 #include "editfield.hxx"
 
 class ScDocOptions;
@@ -72,7 +71,7 @@ private:
 
     std::unique_ptr<ScDocOptions> pOldOptions;
     std::unique_ptr<ScDocOptions> pLocalOptions;
-    sal_uInt16             nWhichCalc;
+    sal_uInt16 const             nWhichCalc;
 
 private:
     void            Init();

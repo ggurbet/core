@@ -608,7 +608,7 @@ void ViewShell::MouseMove(const MouseEvent& rMEvt, ::sd::Window* pWin)
         {
             std::shared_ptr<ViewShell::Implementation::ToolBarManagerLock> pLock(
                 mpImpl->mpUpdateLockForMouse);
-            if (pLock.get() != nullptr)
+            if (pLock != nullptr)
                 pLock->Release();
         }
     }
@@ -665,7 +665,7 @@ void ViewShell::MouseButtonUp(const MouseEvent& rMEvt, ::sd::Window* pWin)
     {
         std::shared_ptr<ViewShell::Implementation::ToolBarManagerLock> pLock(
             mpImpl->mpUpdateLockForMouse);
-        if (pLock.get() != nullptr)
+        if (pLock != nullptr)
             pLock->Release();
     }
 }
@@ -1212,6 +1212,9 @@ class KeepSlideSorterInSyncWithPageChanges
     sd::slidesorter::controller::SlideSorterController::ModelChangeLock const m_aModelLock;
     sd::slidesorter::controller::PageSelector::UpdateLock const m_aUpdateLock;
     sd::slidesorter::controller::SelectionObserver::Context const m_aContext;
+
+    KeepSlideSorterInSyncWithPageChanges& operator=(const KeepSlideSorterInSyncWithPageChanges&) = delete;
+    KeepSlideSorterInSyncWithPageChanges(const KeepSlideSorterInSyncWithPageChanges&) = delete;
 
 public:
     explicit KeepSlideSorterInSyncWithPageChanges(sd::slidesorter::SlideSorter const & rSlideSorter)

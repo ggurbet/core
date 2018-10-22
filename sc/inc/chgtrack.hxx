@@ -29,6 +29,7 @@
 #include <tools/color.hxx>
 #include <tools/datetime.hxx>
 #include <tools/link.hxx>
+#include <tools/solar.h>
 #include <unotools/options.hxx>
 #include "global.hxx"
 #include "bigrange.hxx"
@@ -105,7 +106,7 @@ protected:
 
     ScChangeActionLinkEntry*    pNext;
     ScChangeActionLinkEntry**   ppPrev;
-    ScChangeAction*             pAction;
+    ScChangeAction* const       pAction;
     ScChangeActionLinkEntry*    pLink;
 
 public:
@@ -364,7 +365,7 @@ class ScChangeActionIns : public ScChangeAction
 {
     friend class ScChangeTrack;
 
-    bool mbEndOfList; /// whether or not a row was auto-inserted at the bottom.
+    bool const mbEndOfList; /// whether or not a row was auto-inserted at the bottom.
 
     ScChangeActionIns( const ScRange& rRange, bool bEndOfList = false );
 
@@ -402,8 +403,8 @@ class ScChangeActionDelMoveEntry : public ScChangeActionLinkEntry
     friend class ScChangeActionDel;
     friend class ScChangeTrack;
 
-    short               nCutOffFrom;
-    short               nCutOffTo;
+    short const               nCutOffFrom;
+    short const               nCutOffTo;
 
     inline ScChangeActionDelMoveEntry(
         ScChangeActionDelMoveEntry** ppPrevP,

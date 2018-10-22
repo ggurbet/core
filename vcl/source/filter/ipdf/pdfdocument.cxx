@@ -2274,8 +2274,9 @@ size_t PDFDictionaryElement::Parse(const std::vector<std::unique_ptr<PDFElement>
                     if (pThisDictionary)
                     {
                         pThisDictionary->SetKeyOffset(aName, nNameOffset);
-                        pThisDictionary->SetKeyValueLength(
-                            aName, pName->GetLocation() + pName->GetLength() - nNameOffset);
+                        pThisDictionary->SetKeyValueLength(aName, pName->GetLocation()
+                                                                      + PDFNameElement::GetLength()
+                                                                      - nNameOffset);
                     }
                     aName.clear();
                 }
@@ -2638,8 +2639,7 @@ void PDFObjectElement::ParseStoredObjects()
         return;
     }
 
-    aStream.Seek(STREAM_SEEK_TO_END);
-    nLength = aStream.Tell();
+    nLength = aStream.TellEnd();
     aStream.Seek(0);
     std::vector<size_t> aObjNums;
     std::vector<size_t> aOffsets;
@@ -2927,8 +2927,6 @@ bool PDFNameElement::Read(SvStream& rStream)
 const OString& PDFNameElement::GetValue() const { return m_aValue; }
 
 sal_uInt64 PDFNameElement::GetLocation() const { return m_nLocation; }
-
-sal_uInt64 PDFNameElement::GetLength() const { return m_nLength; }
 
 PDFStreamElement::PDFStreamElement(size_t nLength)
     : m_nLength(nLength)

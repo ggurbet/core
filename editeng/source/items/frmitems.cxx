@@ -2262,25 +2262,25 @@ SvxBoxInfoItem::SvxBoxInfoItem( const SvxBoxInfoItem& rCpy ) :
 {
 }
 
-
 SvxBoxInfoItem::~SvxBoxInfoItem()
 {
 }
 
-
 SvxBoxInfoItem &SvxBoxInfoItem::operator=( const SvxBoxInfoItem& rCpy )
 {
-    pHori.reset( rCpy.GetHori() ? new SvxBorderLine( *rCpy.GetHori() ) : nullptr );
-    pVert.reset( rCpy.GetVert() ? new SvxBorderLine( *rCpy.GetVert() ) : nullptr );
-    mbEnableHor = rCpy.mbEnableHor;
-    mbEnableVer = rCpy.mbEnableVer;
-    bDist       = rCpy.IsDist();
-    bMinDist    = rCpy.IsMinDist();
-    nValidFlags = rCpy.nValidFlags;
-    nDefDist    = rCpy.GetDefDist();
+    if (this != &rCpy)
+    {
+        pHori.reset( rCpy.GetHori() ? new SvxBorderLine( *rCpy.GetHori() ) : nullptr );
+        pVert.reset( rCpy.GetVert() ? new SvxBorderLine( *rCpy.GetVert() ) : nullptr );
+        mbEnableHor = rCpy.mbEnableHor;
+        mbEnableVer = rCpy.mbEnableVer;
+        bDist       = rCpy.IsDist();
+        bMinDist    = rCpy.IsMinDist();
+        nValidFlags = rCpy.nValidFlags;
+        nDefDist    = rCpy.GetDefDist();
+    }
     return *this;
 }
-
 
 bool SvxBoxInfoItem::operator==( const SfxPoolItem& rAttr ) const
 {
@@ -3309,7 +3309,8 @@ bool SvxBrushItem::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
 
         case MID_GRAPHIC_URL:
         {
-            throw uno::RuntimeException("Getting from this property is not supported");
+            SAL_INFO("editeng.items", "Getting GraphicURL property is not supported");
+            return false;
         }
         break;
         case MID_GRAPHIC:

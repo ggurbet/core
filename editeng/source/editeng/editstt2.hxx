@@ -56,12 +56,6 @@ public:
     bool    IsOutliner() const
                 { return bool( nControlBits & EEControlBits::OUTLINER ); }
 
-    bool    IsOutliner2() const
-                { return bool( nControlBits & EEControlBits::OUTLINER2 ); }
-
-    bool    IsAnyOutliner() const
-                { return IsOutliner() || IsOutliner2(); }
-
     bool    DoNotUseColors() const
                 { return bool( nControlBits & EEControlBits::NOCOLORS ); }
 

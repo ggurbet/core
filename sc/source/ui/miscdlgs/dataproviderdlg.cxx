@@ -12,6 +12,9 @@
 #include <document.hxx>
 #include <dataprovider.hxx>
 #include <datatransformation.hxx>
+#include <datamapper.hxx>
+#include <dbdata.hxx>
+#include <docsh.hxx>
 
 #include <comphelper/string.hxx>
 #include <sal/log.hxx>
@@ -35,7 +38,7 @@ class ScDataProviderBaseControl : public VclContainer,
     OUString maURL;
     OUString maID;
 
-    Link<Window*, void> maImportCallback;
+    Link<Window*, void> const maImportCallback;
 
     DECL_LINK(ProviderSelectHdl, ListBox&, void);
     DECL_LINK(IDEditHdl, Edit&, void);
@@ -182,9 +185,9 @@ namespace {
 
 struct MenuData
 {
-    int nMenuID;
+    int const nMenuID;
     const char* aMenuName;
-    std::function<void(ScDataProviderDlg*)> maCallback;
+    std::function<void(ScDataProviderDlg*)> const maCallback;
 };
 
 MenuData aStartData[] = {

@@ -97,7 +97,7 @@ struct GUIDCNamePair
 struct IdCntrlData
 {
     sal_Int16 nId;
-    GUIDCNamePair aData;
+    GUIDCNamePair const aData;
 };
 
 const sal_Int16 TOGGLEBUTTON = -1;
@@ -114,7 +114,7 @@ public:
 
 classIdToGUIDCNamePairMap::classIdToGUIDCNamePairMap()
 {
-    IdCntrlData initialCntrlData[] =
+    static IdCntrlData const initialCntrlData[] =
     {
         // Command button MUST be at index 0
         { FormComponentType::COMMANDBUTTON,
@@ -174,7 +174,7 @@ classIdToGUIDCNamePairMap::classIdToGUIDCNamePairMap()
         }
     };
     int const length = SAL_N_ELEMENTS( initialCntrlData );
-    IdCntrlData* pData = initialCntrlData;
+    IdCntrlData const * pData = initialCntrlData;
     for ( int index = 0; index < length; ++index, ++pData )
         mnIdToGUIDCNamePairMap[ pData->nId ] = pData->aData;
 };

@@ -9,7 +9,7 @@ dnl in order to create a configure script.
 # several non-alphanumeric characters, those are split off and used only for the
 # ABOUTBOXPRODUCTVERSIONSUFFIX in openoffice.lst. Why that is necessary, no idea.
 
-AC_INIT([LibreOffice],[6.2.0.0.alpha0+],[],[],[http://documentfoundation.org/])
+AC_INIT([LibreOffice],[6.2.0.0.alpha1+],[],[],[http://documentfoundation.org/])
 
 AC_PREREQ([2.59])
 
@@ -2137,7 +2137,7 @@ AC_ARG_WITH(branding,
                           bar from left,top. Comma separated decimal values.
                           PROGRESSFRAMECOLOR="20,136,3" Set color of progress
                           bar frame. Comma separated RGB decimal values.
-                          PROGRESSTEXTCOLOR="255,255,255" Set color of progress
+                          PROGRESSTEXTCOLOR="0,0,0" Set color of progress
                           bar text. Comma separated RGB decimal values.
                           PROGRESSTEXTBASELINE="287" Set vertical position of
                           progress bar text from top. Decimal value.
@@ -9106,7 +9106,7 @@ SYSTEM_GENBRK=
 SYSTEM_GENCCODE=
 SYSTEM_GENCMN=
 
-ICU_MAJOR=62
+ICU_MAJOR=63
 ICU_MINOR=1
 ICU_RECLASSIFIED_PREPEND_SET_EMPTY="TRUE"
 ICU_RECLASSIFIED_CONDITIONAL_JAPANESE_STARTER="TRUE"

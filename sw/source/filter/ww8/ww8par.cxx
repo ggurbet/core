@@ -253,7 +253,15 @@ void SwWW8ImplReader::ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocS
         // UNC path
     if( ::get_flag( nFlags, WW8_HLINK_UNC ) )
     {
-        xLongName.reset(new OUString(read_uInt32_lenPrefixed_uInt16s_ToOUString(rStrm)));
+        // MS-OSHARED: An unsigned integer that specifies the number of Unicode characters in the
+        // string field, including the null-terminating character.
+        sal_uInt32 nStrLen(0);
+        rStrm.ReadUInt32(nStrLen);
+        if (nStrLen)
+        {
+            xLongName.reset(new OUString(read_uInt16s_ToOUString(rStrm, nStrLen - 1)));
+            rStrm.SeekRel(sizeof(sal_Unicode)); // skip null-byte at end
+        }
         lclGetAbsPath( *xLongName, 0 , pDocShell);
     }
     // file link or URL
@@ -264,7 +272,16 @@ void SwWW8ImplReader::ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocS
         if( memcmp(aGuid, aGuidFileMoniker, 16) == 0 )
         {
             rStrm.ReadUInt16( nLevel );
-            xShortName.reset(new OUString(read_uInt32_lenPrefixed_uInt8s_ToOUString(rStrm, GetCharSetFromLanguage())));
+            // MS-OSHARED: An unsigned integer that specifies the number of
+            // ANSI characters in ansiPath, including the terminating NULL character
+            sal_uInt32 nUnits = 0;
+            rStrm.ReadUInt32(nUnits);
+            if (nUnits)
+            {
+                OString sStr(read_uInt8s_ToOString(rStrm, nUnits - 1));
+                rStrm.SeekRel(sizeof(sal_uInt8)); // skip null-byte at end
+                xShortName.reset(new OUString(sStr.getStr(), sStr.getLength(), GetCharSetFromLanguage()));
+            }
             rStrm.SeekRel( 24 );
 
             sal_uInt32 nStrLen(0);
@@ -275,7 +292,8 @@ void SwWW8ImplReader::ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocS
                 rStrm.ReadUInt32( nStrLen );
                 nStrLen /= 2;
                 rStrm.SeekRel( 2 );
-                xLongName.reset(new OUString(read_uInt32_lenPrefixed_uInt16s_ToOUString(rStrm)));
+                // MS-OSHARED: This array MUST not include a terminating NULL character.
+                xLongName.reset(new OUString(read_uInt16s_ToOUString(rStrm, nStrLen)));
                 lclGetAbsPath( *xLongName, nLevel, pDocShell);
             }
             else
@@ -283,10 +301,18 @@ void SwWW8ImplReader::ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocS
         }
         else if( memcmp(aGuid, aGuidUrlMoniker, 16) == 0 )
         {
+            // MS-OSHARED: An unsigned integer that specifies the size of this
+            // structure in bytes, excluding the size of the length field. The
+            // value of this field MUST be ... the byte size of the url
+            // field (including the terminating NULL character)
             sal_uInt32 nStrLen(0);
             rStrm.ReadUInt32( nStrLen );
             nStrLen /= 2;
-            xLongName.reset(new OUString(read_uInt32_lenPrefixed_uInt16s_ToOUString(rStrm)));
+            if (nStrLen)
+            {
+                xLongName.reset(new OUString(read_uInt16s_ToOUString(rStrm, nStrLen - 1)));
+                rStrm.SeekRel(sizeof(sal_Unicode)); // skip null-byte at end
+            }
             if( !::get_flag( nFlags, WW8_HLINK_ABS ) )
                 lclGetAbsPath( *xLongName, 0 ,pDocShell);
         }
@@ -302,17 +328,17 @@ void SwWW8ImplReader::ReadEmbeddedData(SvStream& rStrm, SwDocShell const * pDocS
         xTextMark.reset(new OUString(read_uInt32_lenPrefixed_uInt16s_ToOUString(rStrm)));
     }
 
-    if( !xLongName.get() && xShortName.get() )
+    if (!xLongName && xShortName.get())
     {
         xLongName.reset( new OUString );
         *xLongName += *xShortName;
     }
-    else if( !xLongName.get() && xTextMark.get() )
+    else if (!xLongName && xTextMark.get())
         xLongName.reset( new OUString );
 
-    if( xLongName.get() )
+    if (xLongName)
     {
-        if( xTextMark.get() )
+        if (xTextMark)
         {
             if (xLongName->isEmpty())
                 *xTextMark = xTextMark->replace('!', '.');
@@ -488,7 +514,7 @@ SdrObject* SwMSDffManager::ImportOLE( sal_uInt32 nOLEId,
     if( GetOLEStorageName( nOLEId, sStorageName, xSrcStg, xDstStg ))
     {
         tools::SvRef<SotStorage> xSrc = xSrcStg->OpenSotStorage( sStorageName );
-        OSL_ENSURE(rReader.m_xFormImpl.get(), "No Form Implementation!");
+        OSL_ENSURE(rReader.m_xFormImpl, "No Form Implementation!");
         css::uno::Reference< css::drawing::XShape > xShape;
         if ( (!(rReader.m_bIsHeader || rReader.m_bIsFooter)) &&
             rReader.m_xFormImpl->ReadOCXStream(xSrc,&xShape,true))
@@ -1071,8 +1097,7 @@ SdrObject* SwMSDffManager::ProcessObj(SvStream& rSt,
         if (rSt.ReadBytes(aBuffer.data(), nBufferSize) == nBufferSize)
         {
             aMemStream.WriteBytes(aBuffer.data(), nBufferSize);
-            aMemStream.Seek( STREAM_SEEK_TO_END );
-            sal_uInt8 nStreamSize = aMemStream.Tell();
+            sal_uInt8 nStreamSize = aMemStream.TellEnd();
             aMemStream.Seek( STREAM_SEEK_TO_BEGIN );
             bool bRet = 4 <= nStreamSize;
             if( bRet )
@@ -1880,22 +1905,14 @@ void SwWW8ImplReader::ImportDop()
 
     // disable form design mode to be able to use imported controls directly
     // #i31239# always disable form design mode, not only in protected docs
+    uno::Reference<beans::XPropertySet> xDocProps(m_pDocShell->GetModel(), uno::UNO_QUERY);
+    if (xDocProps.is())
     {
-        uno::Reference<lang::XComponent> xModelComp(m_pDocShell->GetModel(),
-           uno::UNO_QUERY);
-        uno::Reference<beans::XPropertySet> xDocProps(xModelComp,
-           uno::UNO_QUERY);
-        if (xDocProps.is())
+        uno::Reference<beans::XPropertySetInfo> xInfo = xDocProps->getPropertySetInfo();
+        if (xInfo.is())
         {
-            uno::Reference<beans::XPropertySetInfo> xInfo =
-                xDocProps->getPropertySetInfo();
-            if (xInfo.is())
-            {
-                if (xInfo->hasPropertyByName("ApplyFormDesignMode"))
-                {
-                    xDocProps->setPropertyValue("ApplyFormDesignMode", css::uno::makeAny(false));
-                }
-            }
+            if (xInfo->hasPropertyByName("ApplyFormDesignMode"))
+                xDocProps->setPropertyValue("ApplyFormDesignMode", css::uno::makeAny(false));
         }
     }
 
@@ -2336,7 +2353,7 @@ void SwWW8ImplReader::Read_HdFt(int nSect, const SwPageDesc *pPrev,
 
 bool wwSectionManager::SectionIsProtected(const wwSection &rSection) const
 {
-    return (mrReader.m_xWwFib->m_fReadOnlyRecommended && !rSection.IsNotProtected());
+    return ( mrReader.m_xWDop->fProtEnabled && !rSection.IsNotProtected() );
 }
 
 void wwSectionManager::SetHdFt(wwSection const &rSection, int nSect,
@@ -3903,7 +3920,7 @@ bool SwWW8ImplReader::IsParaEndInCPs(sal_Int32 nStart, sal_Int32 nEnd,bool bSdOD
 //Clear the para end position recorded in reader intermittently for the least impact on loading performance
 void SwWW8ImplReader::ClearParaEndPosition()
 {
-    if ( m_aEndParaPos.size() > 0 )
+    if ( !m_aEndParaPos.empty() )
         m_aEndParaPos.clear();
 }
 
@@ -4434,8 +4451,6 @@ SwFormatPageDesc wwSectionManager::SetSwFormatPageDesc(mySegIter const &rIter,
 
 void wwSectionManager::InsertSegments()
 {
-    const SvtFilterOptions& rOpt = SvtFilterOptions::Get();
-    bool bUseEnhFields = rOpt.IsUseEnhancedFields();
     mySegIter aEnd = maSegments.end();
     mySegIter aStart = maSegments.begin();
     for (mySegIter aIter = aStart; aIter != aEnd; ++aIter)
@@ -4465,12 +4480,6 @@ void wwSectionManager::InsertSegments()
             || aIter->maSep.dxaLeft != aPrev->maSep.dxaLeft || aIter->maSep.dxaRight != aPrev->maSep.dxaRight )
             bInsertPageDesc = true;
         bool bProtected = SectionIsProtected(*aIter); // do we really  need this ?? I guess I have a different logic in editshell which disables this...
-        if (bUseEnhFields && mrReader.m_xWDop->fProtEnabled && aIter->IsNotProtected())
-        {
-            // here we have the special case that the whole document is protected, with the exception of this section.
-            // I want to address this when I do the section rework, so for the moment we disable the overall protection then...
-            mrReader.m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::PROTECT_FORM, false );
-        }
 
         if (bInsertPageDesc)
         {
@@ -5301,6 +5310,9 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
     // stacks etc. are destroyed, and before fields
     // are updated
     m_aExtraneousParas.delete_all_from_doc();
+    // ofz#10994 remove any trailing fly paras before processing redlines
+    m_xWFlyPara.reset();
+    m_xSFlyPara.reset();
     m_xRedlineStack->closeall(*m_pPaM->GetPoint());
     while (!m_aFrameRedlines.empty())
         m_aFrameRedlines.pop();
@@ -5394,9 +5406,6 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
 
     UpdateFields();
 
-    m_xWFlyPara.reset();
-    m_xSFlyPara.reset();
-
     // delete the pam before the call for hide all redlines (Bug 73683)
     if (m_bNewDoc)
       m_rDoc.getIDocumentRedlineAccess().SetRedlineFlags(eMode);
@@ -5466,8 +5475,7 @@ namespace
 
     void DecryptRC4(msfilter::MSCodec97& rCtx, SvStream &rIn, SvStream &rOut)
     {
-        rIn.Seek(STREAM_SEEK_TO_END);
-        const std::size_t nLen = rIn.Tell();
+        const std::size_t nLen = rIn.TellEnd();
         rIn.Seek(0);
 
         sal_uInt8 in[WW_BLOCKSIZE];
@@ -5484,9 +5492,7 @@ namespace
     void DecryptXOR(msfilter::MSCodec_XorWord95 &rCtx, SvStream &rIn, SvStream &rOut)
     {
         std::size_t nSt = rIn.Tell();
-        rIn.Seek(STREAM_SEEK_TO_END);
-        std::size_t nLen = rIn.Tell();
-        rIn.Seek(nSt);
+        std::size_t nLen = rIn.TellEnd();
 
         rCtx.InitCipher();
         rCtx.Skip(nSt);
@@ -6256,7 +6262,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportWW2(SvStream &rStream)
 ErrCode WW8Reader::OpenMainStream( tools::SvRef<SotStorageStream>& rRef, sal_uInt16& rBuffSize )
 {
     ErrCode nRet = ERR_SWG_READ_ERROR;
-    OSL_ENSURE( m_pStorage.get(), "Where is my Storage?" );
+    OSL_ENSURE(m_pStorage, "Where is my Storage?");
     rRef = m_pStorage->OpenSotStream( "WordDocument", StreamMode::READ | StreamMode::SHARE_DENYALL);
 
     if( rRef.is() )

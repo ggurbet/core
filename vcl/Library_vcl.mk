@@ -182,14 +182,12 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/control/field \
     vcl/source/control/fixed \
     vcl/source/control/fixedhyper \
-    vcl/source/control/group \
     vcl/source/control/imgctrl \
     vcl/source/control/listctrl \
     vcl/source/control/longcurr \
     vcl/source/control/imp_listbox \
     vcl/source/control/listbox \
     vcl/source/control/menubtn \
-    vcl/source/control/morebtn \
     vcl/source/control/notebookbar \
     vcl/source/control/quickselectionengine \
     vcl/source/control/prgsbar \
@@ -207,6 +205,8 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/edit/textview \
     vcl/source/edit/txtattr \
     vcl/source/edit/xtextedt \
+    vcl/source/toolkit/group \
+    vcl/source/toolkit/morebtn \
     vcl/source/outdev/outdev \
     vcl/source/outdev/outdevstate \
     vcl/source/outdev/outdevstatestack \

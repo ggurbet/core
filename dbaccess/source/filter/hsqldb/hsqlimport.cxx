@@ -284,7 +284,7 @@ void HsqlImporter::parseTableRows(const IndexVector& rIndexes,
     Reference<XInputStream> xInput = xStream->getInputStream();
     rowInput.setInputStream(xInput);
 
-    if (rIndexes.size() > 0)
+    if (!rIndexes.empty())
     {
         HsqlBinaryNode aPrimaryNode{ rIndexes.at(0) };
         processTree(aPrimaryNode, rowInput, rColTypes, sTableName, rIndexes.size());
@@ -305,15 +305,12 @@ void HsqlImporter::importHsqlDatabase()
     }
     catch (SQLException& ex)
     {
-        // chain errors and keep going
-        if (pException)
-            ex.NextException <<= *pException;
         pException.reset(new SQLException{ std::move(ex) });
     }
 
     auto statements = parser.getCreateStatements();
 
-    if (statements.size() < 1 && !pException)
+    if (statements.empty() && !pException)
     {
         SAL_WARN("dbaccess", "dbashql: there is nothing to import");
         return; // there is nothing to import
@@ -329,6 +326,7 @@ void HsqlImporter::importHsqlDatabase()
         }
         catch (SQLException& ex)
         {
+            // chain errors and keep going
             if (pException)
                 ex.NextException <<= *pException;
             pException.reset(new SQLException{ std::move(ex) });
@@ -345,6 +343,7 @@ void HsqlImporter::importHsqlDatabase()
         }
         catch (SQLException& ex)
         {
+            // chain errors and keep going
             if (pException)
                 ex.NextException <<= *pException;
             pException.reset(new SQLException{ std::move(ex) });
@@ -361,6 +360,7 @@ void HsqlImporter::importHsqlDatabase()
         }
         catch (SQLException& ex)
         {
+            // chain errors and keep going
             if (pException)
                 ex.NextException <<= *pException;
             pException.reset(new SQLException{ std::move(ex) });

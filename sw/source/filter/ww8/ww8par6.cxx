@@ -1125,8 +1125,7 @@ void wwSectionManager::CreateSep(const long nTextPos)
         aNewSection.maSep.pgbPageDepth = (pgbProp & 0x0018) >> 3;
         aNewSection.maSep.pgbOffsetFrom = (pgbProp & 0x00E0) >> 5;
 
-        aNewSection.mnBorders =
-            ::lcl_ReadBorders(eVer <= ww::eWW7, aNewSection.brc, nullptr, nullptr, pSep);
+        aNewSection.mnBorders = ::lcl_ReadBorders(false, aNewSection.brc, nullptr, nullptr, pSep);
     }
 
     // check if Line Numbering must be activated or reset
@@ -2531,7 +2530,7 @@ void SwWW8ImplReader::StopApo()
     {
         if (!m_xSFlyPara->xMainTextPos)
         {
-            OSL_ENSURE(m_xSFlyPara->xMainTextPos.get(), "StopApo: xMainTextPos is nullptr");
+            OSL_ENSURE(m_xSFlyPara->xMainTextPos, "StopApo: xMainTextPos is nullptr");
             return;
         }
 
@@ -2573,7 +2572,7 @@ void SwWW8ImplReader::StopApo()
             if (rBrush.GetColor() != COL_AUTO)
                 aBg = rBrush.GetColor();
 
-            if (m_pLastAnchorPos.get())
+            if (m_pLastAnchorPos)
             {
                 //If the last anchor pos is here, then clear the anchor pos.
                 //This "last anchor pos" is only used for fixing up the

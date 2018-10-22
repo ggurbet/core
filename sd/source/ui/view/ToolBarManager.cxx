@@ -60,12 +60,10 @@ class ToolBarRules;
 
 /** Lock of the frame::XLayoutManager.
 */
-class LayouterLock
+struct LayouterLock
 {
-public:
     explicit LayouterLock (const Reference<frame::XLayoutManager>& rxLayouter);
     ~LayouterLock();
-private:
     Reference<frame::XLayoutManager> mxLayouter;
 };
 
@@ -368,13 +366,13 @@ ToolBarManager::~ToolBarManager()
 
 void ToolBarManager::Shutdown()
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
         mpImpl.reset();
 }
 
 void ToolBarManager::ResetToolBars (ToolBarGroup eGroup)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->ResetToolBars(eGroup);
@@ -383,7 +381,7 @@ void ToolBarManager::ResetToolBars (ToolBarGroup eGroup)
 
 void ToolBarManager::ResetAllToolBars()
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->ResetAllToolBars();
@@ -394,7 +392,7 @@ void ToolBarManager::AddToolBar (
     ToolBarGroup eGroup,
     const OUString& rsToolBarName)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->AddToolBar(eGroup,rsToolBarName);
@@ -405,7 +403,7 @@ void ToolBarManager::AddToolBarShell (
     ToolBarGroup eGroup,
     ShellId nToolBarId)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->AddToolBarShell(eGroup,nToolBarId);
@@ -416,7 +414,7 @@ void ToolBarManager::RemoveToolBar (
     ToolBarGroup eGroup,
     const OUString& rsToolBarName)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->RemoveToolBar(eGroup,rsToolBarName);
@@ -427,7 +425,7 @@ void ToolBarManager::SetToolBar (
     ToolBarGroup eGroup,
     const OUString& rsToolBarName)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->ResetToolBars(eGroup);
@@ -439,7 +437,7 @@ void ToolBarManager::SetToolBarShell (
     ToolBarGroup eGroup,
     ShellId nToolBarId)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         UpdateLock aLock (shared_from_this());
         mpImpl->ResetToolBars(eGroup);
@@ -449,37 +447,37 @@ void ToolBarManager::SetToolBarShell (
 
 void ToolBarManager::PreUpdate()
 {
-    if (mpImpl.get()!=nullptr)
+    if (mpImpl != nullptr)
         mpImpl->PreUpdate();
 }
 
 void ToolBarManager::RequestUpdate()
 {
-    if (mpImpl.get()!=nullptr)
+    if (mpImpl != nullptr)
         mpImpl->RequestUpdate();
 }
 
 void ToolBarManager::LockViewShellManager()
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
         mpImpl->LockViewShellManager();
 }
 
 void ToolBarManager::LockUpdate()
 {
-    if (mpImpl.get()!=nullptr)
+    if (mpImpl != nullptr)
         mpImpl->LockUpdate();
 }
 
 void ToolBarManager::UnlockUpdate()
 {
-    if (mpImpl.get()!=nullptr)
+    if (mpImpl != nullptr)
         mpImpl->UnlockUpdate();
 }
 
 void ToolBarManager::MainViewShellChanged ()
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         mpImpl->ReleaseAllToolBarShells();
         mpImpl->GetToolBarRules().MainViewShellChanged(ViewShell::ST_NONE);
@@ -488,7 +486,7 @@ void ToolBarManager::MainViewShellChanged ()
 
 void ToolBarManager::MainViewShellChanged (const ViewShell& rMainViewShell)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
     {
         mpImpl->ReleaseAllToolBarShells();
         mpImpl->GetToolBarRules().MainViewShellChanged(rMainViewShell);
@@ -499,13 +497,13 @@ void ToolBarManager::SelectionHasChanged (
     const ViewShell& rViewShell,
     const SdrView& rView)
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
         mpImpl->GetToolBarRules().SelectionHasChanged(rViewShell,rView);
 }
 
 void ToolBarManager::ToolBarsDestroyed()
 {
-    if (mpImpl.get() != nullptr)
+    if (mpImpl != nullptr)
         mpImpl->ToolBarsDestroyed();
 }
 
@@ -577,6 +575,10 @@ void ToolBarManager::Implementation::SetValid (bool bValid)
                 Reference<beans::XPropertySet> xFrameProperties (xFrame, UNO_QUERY_THROW);
                 Any aValue (xFrameProperties->getPropertyValue("LayoutManager"));
                 aValue >>= mxLayouter;
+                // tdf#119997 if mpSynchronousLayouterLock was created before mxLayouter was
+                // set then update it now that its available
+                if (mpSynchronousLayouterLock && !mpSynchronousLayouterLock->mxLayouter)
+                    mpSynchronousLayouterLock->mxLayouter = mxLayouter;
             }
             catch (const RuntimeException&)
             {
@@ -727,7 +729,7 @@ void ToolBarManager::Implementation::PostUpdate()
 
 void ToolBarManager::Implementation::LockViewShellManager()
 {
-    if (mpViewShellManagerLock.get() == nullptr)
+    if (mpViewShellManagerLock == nullptr)
         mpViewShellManagerLock.reset(
             new ViewShellManager::UpdateLock(mrBase.GetViewShellManager()));
 }
@@ -740,7 +742,7 @@ void ToolBarManager::Implementation::LockUpdate()
     DBG_ASSERT(mnLockCount<100, "ToolBarManager lock count unusually high");
     if (mnLockCount == 0)
     {
-        OSL_ASSERT(mpSynchronousLayouterLock.get()==nullptr);
+        OSL_ASSERT(mpSynchronousLayouterLock == nullptr);
 
         mpSynchronousLayouterLock.reset(new LayouterLock(mxLayouter));
     }
@@ -792,7 +794,7 @@ void ToolBarManager::Implementation::Update (
             // functionality. Those that are not used anymore are
             // deactivated now.  Those that are missing are activated in the
             // next step together with the view shells.
-            if (mpViewShellManagerLock.get() == nullptr)
+            if (mpViewShellManagerLock == nullptr)
                 mpViewShellManagerLock.reset(
                     new ViewShellManager::UpdateLock(mrBase.GetViewShellManager()));
             maToolBarShellList.UpdateShells(
@@ -817,11 +819,14 @@ void ToolBarManager::Implementation::Update (
             // Note that the lock count may have been increased since
             // entering this method.  In that case one of the next
             // UnlockUpdate() calls will post the UpdateCallback.
-            if (mnPendingUpdateCall==nullptr && mnLockCount==0)
+            if (mnLockCount==0)
             {
                 mpAsynchronousLayouterLock = std::move(pLocalLayouterLock);
-                mnPendingUpdateCall = Application::PostUserEvent(
-                    LINK(this,ToolBarManager::Implementation,UpdateCallback));
+                if (mnPendingUpdateCall==nullptr)
+                {
+                    mnPendingUpdateCall = Application::PostUserEvent(
+                        LINK(this,ToolBarManager::Implementation,UpdateCallback));
+                }
             }
         }
         else
@@ -1384,7 +1389,7 @@ void ToolBarShellList::UpdateShells (
     const std::shared_ptr<ViewShell>& rpMainViewShell,
     const std::shared_ptr<ViewShellManager>& rpManager)
 {
-    if (rpMainViewShell.get() != nullptr)
+    if (rpMainViewShell != nullptr)
     {
         GroupedShellList aList;
 

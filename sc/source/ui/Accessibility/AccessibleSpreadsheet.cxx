@@ -29,6 +29,7 @@
 #include <gridwin.hxx>
 
 #include <unotools/accessiblestatesethelper.hxx>
+#include <unotools/accessiblerelationsethelper.hxx>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
@@ -1689,9 +1690,9 @@ bool ScAccessibleSpreadsheet::GetFormulaCurrentFocusCell(ScAddress &addr)
 uno::Reference < XAccessible > ScAccessibleSpreadsheet::GetActiveCell()
 {
     if( m_mapSelectionSend.find( maActiveCell ) != m_mapSelectionSend.end() )
-            return m_mapSelectionSend[maActiveCell];
-        else
-            return getAccessibleCellAt(maActiveCell.Row(), maActiveCell .Col());
+        return m_mapSelectionSend[maActiveCell];
+    else
+        return getAccessibleCellAt(maActiveCell.Row(), maActiveCell .Col());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

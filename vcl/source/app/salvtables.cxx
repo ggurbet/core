@@ -45,7 +45,7 @@
 #include <vcl/sysdata.hxx>
 #include <vcl/tabctrl.hxx>
 #include <vcl/tabpage.hxx>
-#include <vcl/unowrap.hxx>
+#include <vcl/toolkit/unowrap.hxx>
 #include <vcl/weld.hxx>
 #include <bitmaps.hlst>
 
@@ -727,6 +727,16 @@ public:
         assert(false && "must be system or docking window");
     }
 
+    virtual void set_modal(bool bModal) override
+    {
+        if (::Dialog* pDialog = dynamic_cast<::Dialog*>(m_xWindow.get()))
+        {
+            pDialog->SetModalInputMode(bModal);
+            return;
+        }
+        m_xWindow->ImplGetFrame()->SetModal(bModal);
+    }
+
     virtual void window_move(int x, int y) override
     {
         m_xWindow->SetPosPixel(Point(x, y));
@@ -1015,6 +1025,8 @@ class SalInstanceNotebook : public SalInstanceContainer, public virtual weld::No
 private:
     VclPtr<TabControl> m_xNotebook;
     mutable std::vector<std::unique_ptr<SalInstanceContainer>> m_aPages;
+    std::vector<VclPtr<TabPage>> m_aAddedPages;
+    std::vector<VclPtr<VclGrid>> m_aAddedGrids;
 
     DECL_LINK(DeactivatePageHdl, TabControl*, bool);
     DECL_LINK(ActivatePageHdl, TabControl*, void);
@@ -1068,6 +1080,23 @@ public:
         m_xNotebook->RemovePage(m_xNotebook->GetPageId(rIdent));
     }
 
+    virtual void append_page(const OString& rIdent, const OUString& rLabel) override
+    {
+        sal_uInt16 nNewPageCount = m_xNotebook->GetPageCount() + 1;
+        sal_uInt16 nNewPageId = nNewPageCount;
+        m_xNotebook->InsertPage(nNewPageId, rLabel);
+        VclPtrInstance<TabPage> xPage(m_xNotebook);
+        VclPtrInstance<VclGrid> xGrid(xPage);
+        xPage->Show();
+        xGrid->set_hexpand(true);
+        xGrid->set_vexpand(true);
+        xGrid->Show();
+        m_xNotebook->SetTabPage(nNewPageId, xPage);
+        m_xNotebook->SetPageName(nNewPageId, rIdent);
+        m_aAddedPages.push_back(xPage);
+        m_aAddedGrids.push_back(xGrid);
+    }
+
     virtual int get_n_pages() const override
     {
         return m_xNotebook->GetPageCount();
@@ -1080,6 +1109,10 @@ public:
 
     virtual ~SalInstanceNotebook() override
     {
+        for (auto &rGrid : m_aAddedGrids)
+            rGrid.disposeAndClear();
+        for (auto &rPage : m_aAddedPages)
+            rPage.disposeAndClear();
         m_xNotebook->SetActivatePageHdl(Link<TabControl*,void>());
         m_xNotebook->SetDeactivatePageHdl(Link<TabControl*,bool>());
     }
@@ -2399,6 +2432,12 @@ public:
             m_xComboBox->SetEntryData(nInsertedAt, new OUString(*pId));
     }
 
+    virtual void insert_separator(int pos) override
+    {
+        auto nInsertPos = pos == -1 ? m_xComboBox->GetEntryCount() : pos;
+        m_xComboBox->AddSeparator(nInsertPos - 1);
+    }
+
     virtual bool has_entry() const override
     {
         return false;
@@ -2496,6 +2535,12 @@ public:
             m_xComboBox->SetEntryData(nInsertedAt, new OUString(*pId));
     }
 
+    virtual void insert_separator(int pos) override
+    {
+        auto nInsertPos = pos == -1 ? m_xComboBox->GetEntryCount() : pos;
+        m_xComboBox->AddSeparator(nInsertPos - 1);
+    }
+
     virtual void set_entry_text(const OUString& rText) override
     {
         m_xComboBox->SetText(rText);
@@ -2560,6 +2605,11 @@ public:
         Edit& rEntry = m_pEntry->getEntry();
         rEntry.SetAutocompleteHdl(LINK(this, SalInstanceEntryTreeView, AutocompleteHdl));
         rEntry.AddEventListener(LINK(this, SalInstanceEntryTreeView, KeyPressListener));
+    }
+
+    virtual void insert_separator(int /*pos*/) override
+    {
+        assert(false);
     }
 
     virtual void make_sorted() override
@@ -2889,7 +2939,7 @@ weld::MessageDialog* SalInstance::CreateMessageDialog(weld::Widget* pParent, Vcl
 
 weld::Window* SalInstance::GetFrameWeld(const css::uno::Reference<css::awt::XWindow>& rWindow)
 {
-    UnoWrapperBase* pWrapper = Application::GetUnoWrapper();
+    UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper();
     if (!pWrapper)
         return nullptr;
     VclPtr<vcl::Window> xWindow = pWrapper->GetWindow(rWindow);

@@ -306,7 +306,7 @@ SwUnoCursorHelper::SetPageDesc(
         pNewDesc.reset(new SwFormatPageDesc(
                     *static_cast<const SwFormatPageDesc*>(pItem)));
     }
-    if (!pNewDesc.get())
+    if (!pNewDesc)
     {
         pNewDesc.reset(new SwFormatPageDesc());
     }
@@ -324,7 +324,7 @@ SwUnoCursorHelper::SetPageDesc(
             {
                 throw lang::IllegalArgumentException();
             }
-            pNewDesc.get()->RegisterToPageDesc( *pPageDesc );
+            pNewDesc->RegisterToPageDesc(*pPageDesc);
             bPut = true;
         }
         if(!bPut)
@@ -425,7 +425,7 @@ lcl_setDropcapCharStyle(SwPaM const & rPam, SfxItemSet & rItemSet,
     {
         pDrop.reset(new SwFormatDrop(*static_cast<const SwFormatDrop*>(pItem)));
     }
-    if (!pDrop.get())
+    if (!pDrop)
     {
         pDrop.reset(new SwFormatDrop);
     }
@@ -450,7 +450,7 @@ lcl_setRubyCharstyle(SfxItemSet & rItemSet, uno::Any const& rValue)
     {
         pRuby.reset(new SwFormatRuby(*static_cast<const SwFormatRuby*>(pItem)));
     }
-    if (!pRuby.get())
+    if (!pRuby)
     {
         pRuby.reset(new SwFormatRuby(OUString()));
     }
@@ -1848,6 +1848,14 @@ void SwUnoCursorHelper::SetPropertyValues(
         throw beans::PropertyVetoException(aPropertyVetoExMsg, static_cast<cppu::OWeakObject *>(nullptr));
 }
 
+namespace
+{
+    bool NotInRange(sal_uInt16 nWID, sal_uInt16 nStart, sal_uInt16 nEnd)
+    {
+        return nWID < nStart || nWID > nEnd;
+    }
+}
+
 uno::Sequence< beans::PropertyState >
 SwUnoCursorHelper::GetPropertyStates(
             SwPaM& rPaM, const SfxItemPropertySet& rPropSet,
@@ -1889,10 +1897,8 @@ SwUnoCursorHelper::GetPropertyStates(
         }
         if (((SW_PROPERTY_STATE_CALLER_SWX_TEXT_PORTION == eCaller)  ||
              (SW_PROPERTY_STATE_CALLER_SWX_TEXT_PORTION_TOLERANT == eCaller)) &&
-            pEntry->nWID < FN_UNO_RANGE_BEGIN &&
-            pEntry->nWID > FN_UNO_RANGE_END  &&
-            pEntry->nWID < RES_CHRATR_BEGIN &&
-            pEntry->nWID > RES_TXTATR_END )
+            NotInRange(pEntry->nWID, FN_UNO_RANGE_BEGIN, FN_UNO_RANGE_END) &&
+            NotInRange(pEntry->nWID, RES_CHRATR_BEGIN, RES_TXTATR_END) )
         {
             pStates[i] = beans::PropertyState_DEFAULT_VALUE;
         }
@@ -1906,7 +1912,7 @@ SwUnoCursorHelper::GetPropertyStates(
             }
             else
             {
-                if (!pSet.get())
+                if (!pSet)
                 {
                     switch ( eCaller )
                     {

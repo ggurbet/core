@@ -1879,7 +1879,7 @@ ScDPLevel* ScDPLevels::getByIndex(long nIndex) const
 class ScDPGlobalMembersOrder
 {
     ScDPLevel&  rLevel;
-    bool        bAscending;
+    bool const  bAscending;
 
 public:
             ScDPGlobalMembersOrder( ScDPLevel& rLev, bool bAsc ) :
@@ -2367,7 +2367,7 @@ long ScDPMembers::getMinMembers() const
         {
             //  count only visible with details (default is true for both)
             const rtl::Reference<ScDPMember>& pMbr = *it;
-            if (!pMbr.get() || (pMbr->isVisible() && pMbr->getShowDetails()))
+            if (!pMbr || (pMbr->isVisible() && pMbr->getShowDetails()))
                 ++nVisCount;
         }
     }

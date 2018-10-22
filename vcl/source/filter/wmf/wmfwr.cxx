@@ -144,7 +144,6 @@ WMFWriter::WMFWriter()
     , nActRecordPos(0)
     , eSrcRasterOp(RasterOp::OverPaint)
     , eSrcTextAlign(ALIGN_BASELINE)
-    , bSrcIsClipping(false)
     , pAttrStack(nullptr)
     , eSrcHorTextAlign(W_TA_LEFT)
     , eDstROP2(RasterOp::OverPaint)
@@ -530,10 +529,9 @@ bool WMFWriter::WMFRecord_Escape_Unicode( const Point& rPoint, const OUString& r
                     aMemoryStream.WriteUInt32( nSkipActions );
                     WMFRecord_Escape( PRIVATE_ESCAPE_UNICODE, nStrmLen, static_cast<const sal_Int8*>(aMemoryStream.GetData()) );
 
-                    std::vector<tools::PolyPolygon>::iterator aIter( aPolyPolyVec.begin() );
-                    while ( aIter != aPolyPolyVec.end() )
+                    for ( const auto& rPolyPoly : aPolyPolyVec )
                     {
-                        tools::PolyPolygon aPolyPoly( *aIter++ );
+                        tools::PolyPolygon aPolyPoly( rPolyPoly );
                         aPolyPoly.Move( rPoint.X(), rPoint.Y() );
                         WMFRecord_PolyPolygon( aPolyPoly );
                     }
@@ -929,9 +927,8 @@ void WMFWriter::SetLineAndFillAttr()
         aDstFillColor = aSrcFillColor;
         CreateSelectDeleteBrush( aDstFillColor );
     }
-    if ( bDstIsClipping != bSrcIsClipping ||
-        (bSrcIsClipping && aDstClipRegion!=aSrcClipRegion)) {
-        bDstIsClipping=bSrcIsClipping;
+    if ( bDstIsClipping ) {
+        bDstIsClipping=false;
         aDstClipRegion=aSrcClipRegion;
     }
 }
@@ -1766,7 +1763,7 @@ bool WMFWriter::WriteWMF( const GDIMetaFile& rMTF, SvStream& rTargetStream,
     CreateSelectDeleteBrush( aDstFillColor );
 
     aDstClipRegion = aSrcClipRegion = vcl::Region();
-    bDstIsClipping = bSrcIsClipping = false;
+    bDstIsClipping = false;
 
     vcl::Font aFont;
     aFont.SetCharSet( GetExtendedTextEncoding( RTL_TEXTENCODING_MS_1252 ) );

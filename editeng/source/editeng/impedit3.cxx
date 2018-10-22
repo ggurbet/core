@@ -2695,10 +2695,7 @@ void ImpEditEngine::SeekCursor( ContentNode* pNode, sal_Int32 nPos, SvxFont& rFo
             pOut->SetTextLineColor( rTextLineColor.GetColor() );
         else
             pOut->SetTextLineColor();
-    }
 
-    if ( pOut )
-    {
         const SvxOverlineItem& rOverlineColor = pNode->GetContentAttribs().GetItem( EE_CHAR_OVERLINE );
         if ( rOverlineColor.GetColor() != COL_TRANSPARENT )
             pOut->SetOverlineColor( rOverlineColor.GetColor() );
@@ -3311,7 +3308,7 @@ void ImpEditEngine::Paint( OutputDevice* pOutDev, tools::Rectangle aClipRect, Po
                                     // longer done in Overlay mode and allows to *read* the URL).
                                     // It would be difficult to change this due to needed adaptions in
                                     // EditEngine (look for lineBreaksList creation)
-                                    if( nullptr == pActiveView && bStripOnly && !bParsingFields && pExtraInfo && pExtraInfo->lineBreaksList.size() )
+                                    if( nullptr == pActiveView && bStripOnly && !bParsingFields && pExtraInfo && !pExtraInfo->lineBreaksList.empty() )
                                     {
                                         bParsingFields = true;
                                         itSubLines = pExtraInfo->lineBreaksList.begin();
@@ -3494,7 +3491,7 @@ void ImpEditEngine::Paint( OutputDevice* pOutDev, tools::Rectangle aClipRect, Po
                                     // StripPortions() data callback
                                     GetEditEnginePtr()->DrawingText( aOutPos, aText, nTextStart, nTextLen, pDXArray,
                                         aTmpFont, n, rTextPortion.GetRightToLeftLevel(),
-                                        aWrongSpellVector.size() ? &aWrongSpellVector : nullptr,
+                                        !aWrongSpellVector.empty() ? &aWrongSpellVector : nullptr,
                                         pFieldData,
                                         bEndOfLine, bEndOfParagraph, // support for EOL/EOP TEXT comments
                                         &aLocale,

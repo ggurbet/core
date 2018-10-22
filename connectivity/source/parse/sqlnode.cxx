@@ -679,7 +679,7 @@ bool OSQLParseNode::impl_parseTableNameNodeToString_throw( OUStringBuffer& rStri
         {
             OUString sError;
             std::unique_ptr< OSQLParseNode > pSubQueryNode( rParam.pParser->parseTree( sError, sCommand ) );
-            if ( pSubQueryNode.get() )
+            if (pSubQueryNode)
             {
                 // parse the sub-select to SDBC level, too
                 OUStringBuffer sSubSelect;
@@ -876,8 +876,8 @@ OSQLParseNode* OSQLParser::convertNode(sal_Int32 nType, OSQLParseNode* pLiteral)
                 case DataType::DATE:
                 case DataType::TIME:
                 case DataType::TIMESTAMP:
-                if ( m_xFormatter.is() )
-                    pReturn = buildDate( nType, pReturn);
+                    if ( m_xFormatter.is() )
+                        pReturn = buildDate( nType, pReturn);
                     else
                         m_sErrorMessage = m_pContext->getErrorMessage(IParseContext::ErrorCode::InvalidDateCompare);
                     break;

@@ -143,7 +143,7 @@ class ImpSdrPdfImport final
             if (top > bottom)
                 bottom = std::max(leftBottomY, rightBottomY);
             else
-                bottom = std::max(leftBottomY, rightBottomY);
+                bottom = std::min(leftBottomY, rightBottomY);
         }
 
         std::string toString() const
@@ -170,7 +170,7 @@ class ImpSdrPdfImport final
     SdrLayerID const mnLayer;
     Color maOldLineColor;
     sal_Int32 mnLineWidth;
-    css::drawing::LineCap const maLineCap;
+    static constexpr css::drawing::LineCap gaLineCap = css::drawing::LineCap_BUTT;
     XDash const maDash;
 
     bool mbMov;

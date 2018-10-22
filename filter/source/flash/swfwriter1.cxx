@@ -773,7 +773,7 @@ sal_uInt16 Writer::defineBitmap( const BitmapEx &bmpSource, sal_Int32 nJPEGQuali
                                 aFilter.GetExportFormatNumberForShortName( JPG_SHORTNAME ), &aFilterData ) == ERRCODE_NONE )
     {
         pJpgData = static_cast<const sal_uInt8*>(aDstStm.GetData());
-        nJpgDataLength = aDstStm.Seek( STREAM_SEEK_TO_END );
+        nJpgDataLength = aDstStm.TellEnd();
     }
 
     // AS: Ok, now go ahead and use whichever is smaller.  If JPEG is smaller, then
@@ -998,12 +998,10 @@ void Writer::Impl_writeJPEG(sal_uInt16 nBitmapId, const sal_uInt8* pJpgData, sal
         }
     }
 
-    EncodingTableStream.Seek( STREAM_SEEK_TO_END );
-    sal_uInt32 nEncodingTableSize = EncodingTableStream.Tell();
+    sal_uInt32 nEncodingTableSize = EncodingTableStream.TellEnd();
     EncodingTableStream.Seek( STREAM_SEEK_TO_BEGIN );
 
-    ImageBitsStream.Seek( STREAM_SEEK_TO_END );
-    sal_uInt32 nImageBitsSize = ImageBitsStream.Tell();
+    sal_uInt32 nImageBitsSize = ImageBitsStream.TellEnd();
     ImageBitsStream.Seek( STREAM_SEEK_TO_BEGIN );
 
     // AS: If we need alpha support, use TAG_DEFINEBITSJPEG3.
@@ -1101,7 +1099,7 @@ bool Writer::Impl_writeStroke( SvtGraphicStroke const & rStroke )
 
     SvtGraphicStroke::DashArray aDashArray;
     rStroke.getDashArray( aDashArray );
-    if( 0 != aDashArray.size() )
+    if( !aDashArray.empty() )
         return false;       // todo: implement dashes
 
     Color aColor( mpVDev->GetLineColor() );

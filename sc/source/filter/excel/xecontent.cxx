@@ -1464,8 +1464,10 @@ XclExpDataBar::XclExpDataBar( const XclExpRoot& rRoot, const ScDataBarFormat& rF
     const ScRange & rRange = rFormat.GetRange().front();
     ScAddress aAddr = rRange.aStart;
     // exact position is not important, we allow only absolute refs
-    mpCfvoLowerLimit.reset( new XclExpCfvo( GetRoot(), *mrFormat.GetDataBarData()->mpLowerLimit.get(), aAddr, true ) );
-    mpCfvoUpperLimit.reset( new XclExpCfvo( GetRoot(), *mrFormat.GetDataBarData()->mpUpperLimit.get(), aAddr, false ) );
+    mpCfvoLowerLimit.reset(
+        new XclExpCfvo(GetRoot(), *mrFormat.GetDataBarData()->mpLowerLimit, aAddr, true));
+    mpCfvoUpperLimit.reset(
+        new XclExpCfvo(GetRoot(), *mrFormat.GetDataBarData()->mpUpperLimit, aAddr, false));
 
     mpCol.reset( new XclExpColScaleCol( GetRoot(), mrFormat.GetDataBarData()->maPositiveColor ) );
 }
@@ -1525,22 +1527,6 @@ XclExpIconSet::XclExpIconSet( const XclExpRoot& rRoot, const ScIconSetFormat& rF
     }
 }
 
-namespace {
-
-const char* getIconSetName( ScIconSetType eType )
-{
-    const ScIconSetMap* pMap = ScIconSetFormat::g_IconSetMap;
-    for(; pMap->pName; ++pMap)
-    {
-        if(pMap->eType == eType)
-            return pMap->pName;
-    }
-
-    return "";
-}
-
-}
-
 void XclExpIconSet::SaveXml( XclExpXmlStream& rStrm )
 {
     sax_fastparser::FSHelperPtr& rWorksheet = rStrm.GetCurrentStream();
@@ -1550,7 +1536,7 @@ void XclExpIconSet::SaveXml( XclExpXmlStream& rStrm )
             XML_priority, OString::number( mnPriority + 1 ).getStr(),
             FSEND );
 
-    const char* pIconSetName = getIconSetName(mrFormat.GetIconSetData()->eIconSetType);
+    const char* pIconSetName = ScIconSetFormat::getIconSetName(mrFormat.GetIconSetData()->eIconSetType);
     rWorksheet->startElement( XML_iconSet,
             XML_iconSet, pIconSetName,
             XML_showValue, mrFormat.GetIconSetData()->mbShowValue ? nullptr : "0",
@@ -1728,7 +1714,7 @@ XclExpDV::XclExpDV( const XclExpRoot& rRoot, sal_uLong nScHandle ) :
 
         // first formula
         xScTokArr.reset( pValData->CreateFlatCopiedTokenArray( 0 ) );
-        if( xScTokArr.get() )
+        if (xScTokArr)
         {
             if( pValData->GetDataMode() == SC_VALID_LIST )
             {
@@ -1801,7 +1787,7 @@ XclExpDV::XclExpDV( const XclExpRoot& rRoot, sal_uLong nScHandle ) :
 
         // second formula
         xScTokArr.reset( pValData->CreateFlatCopiedTokenArray( 1 ) );
-        if( xScTokArr.get() )
+        if (xScTokArr)
         {
             if(GetOutput() == EXC_OUTPUT_BINARY)
                 mxTokArr2 = rFmlaComp.CreateFormula( EXC_FMLATYPE_DATAVAL, *xScTokArr );

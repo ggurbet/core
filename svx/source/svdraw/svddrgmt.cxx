@@ -423,9 +423,9 @@ void SdrDragMethod::createSdrDragEntries_PolygonDrag()
         {
             const basegfx::B2DPolyPolygon aNewPolyPolygon(pM->GetMarkedSdrObj()->TakeXorPoly());
 
-            for(sal_uInt32 b(0); b < aNewPolyPolygon.count(); b++)
+            for(auto const& rPolygon : aNewPolyPolygon)
             {
-                nPointCount += aNewPolyPolygon.getB2DPolygon(b).count();
+                nPointCount += rPolygon.count();
             }
 
             if(nPointCount > SdrDragView::GetDragXorPointLimit())
@@ -705,7 +705,7 @@ void SdrDragMethod::CreateOverlayGeometry(sdr::overlay::OverlayManager& rOverlay
         }
 
         // #i54102# if there are edges, reconnect their ends to the corresponding clones (if found)
-        if(aEdges.size())
+        if(!aEdges.empty())
         {
             for(SdrEdgeObj* pSdrEdgeObj: aEdges)
             {

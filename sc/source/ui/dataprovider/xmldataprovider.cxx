@@ -13,6 +13,8 @@
 #include <comphelper/string.hxx>
 #include <filter.hxx>
 #include <document.hxx>
+#include <datamapper.hxx>
+#include <vcl/svapp.hxx>
 #include <orcusfilters.hxx>
 #include <utility>
 
@@ -23,12 +25,12 @@ namespace sc
 class XMLFetchThread : public salhelper::Thread
 {
     ScDocument& mrDocument;
-    OUString maURL;
-    OUString maID;
+    OUString const maURL;
+    OUString const maID;
     ScOrcusImportXMLParam maParam;
     std::unique_ptr<ScOrcusXMLContext> mpXMLContext;
     const std::vector<std::shared_ptr<sc::DataTransformation>> maDataTransformations;
-    std::function<void()> maImportFinishedHdl;
+    std::function<void()> const maImportFinishedHdl;
 
 public:
     XMLFetchThread(ScDocument& rDoc, const OUString&, const ScOrcusImportXMLParam& rParam,

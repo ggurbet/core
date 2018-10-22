@@ -401,10 +401,7 @@ namespace pcr
         m_bSuspendingPropertyHandlers = true;
         bool bHandlerVeto = !suspendPropertyHandlers_nothrow( true );
         m_bSuspendingPropertyHandlers = false;
-        if ( bHandlerVeto )
-            return false;
-
-        return true;
+        return !bHandlerVeto;
     }
 
 
@@ -861,7 +858,7 @@ namespace pcr
         impl_toggleInspecteeListening_nothrow( false );
 
         // handlers are obsolete, so is our "composer" for their UI requests
-        if ( m_pUIRequestComposer.get() )
+        if (m_pUIRequestComposer)
             m_pUIRequestComposer->dispose();
         m_pUIRequestComposer.reset();
 

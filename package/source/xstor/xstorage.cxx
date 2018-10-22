@@ -1729,7 +1729,7 @@ void OStorage_Impl::CommitRelInfo( const uno::Reference< container::XNameContain
                     uno::makeAny( OUString( "application/vnd.openxmlformats-package.relationships+xml" ) ) );
 
                 m_xNewRelInfoStream.clear();
-                  if ( m_nRelInfoStatus == RELINFO_CHANGED_STREAM )
+                if ( m_nRelInfoStatus == RELINFO_CHANGED_STREAM )
                 {
                     m_aRelInfo = uno::Sequence< uno::Sequence< beans::StringPair > >();
                     m_nRelInfoStatus = RELINFO_NO_INIT;
@@ -1842,10 +1842,10 @@ void OStorage::InternalDispose( bool bNotifyImpl )
 
     if ( m_pData->m_bReadOnlyWrap )
     {
-        OSL_ENSURE( !m_pData->m_aOpenSubComponentsVector.size() || m_pData->m_pSubElDispListener.get(),
+        OSL_ENSURE( m_pData->m_aOpenSubComponentsVector.empty() || m_pData->m_pSubElDispListener.get(),
                     "If any subelements are open the listener must exist!" );
 
-        if (m_pData->m_pSubElDispListener.get())
+        if (m_pData->m_pSubElDispListener)
         {
             m_pData->m_pSubElDispListener->OwnerIsDisposed();
 
@@ -1985,7 +1985,7 @@ void OStorage::BroadcastTransaction( sal_Int8 nMessage )
                 case STOR_MESS_PRECOMMIT:
                        static_cast<embed::XTransactionListener*>( pIterator.next( ) )->preCommit( aSource );
                     break;
-                case STOR_MESS_COMMITED:
+                case STOR_MESS_COMMITTED:
                        static_cast<embed::XTransactionListener*>( pIterator.next( ) )->commited( aSource );
                     break;
                 case STOR_MESS_PREREVERT:
@@ -2042,7 +2042,7 @@ void OStorage::MakeLinkToSubComponent_Impl( const uno::Reference< lang::XCompone
     if ( !xComponent.is() )
         throw uno::RuntimeException( THROW_WHERE );
 
-    if (!m_pData->m_pSubElDispListener.get())
+    if (!m_pData->m_pSubElDispListener)
     {
         m_pData->m_pSubElDispListener = new OChildDispListener_Impl( *this );
     }
@@ -3608,7 +3608,7 @@ void SAL_CALL OStorage::commit()
     if ( xParentModif.is() )
         xParentModif->setModified( true );
 
-    BroadcastTransaction( STOR_MESS_COMMITED );
+    BroadcastTransaction( STOR_MESS_COMMITTED );
 }
 
 void SAL_CALL OStorage::revert()
@@ -3930,7 +3930,7 @@ sal_Bool SAL_CALL OStorage::hasElements()
 
     try
     {
-        return ( m_pImpl->GetChildrenVector().size() != 0 );
+        return ( !m_pImpl->GetChildrenVector().empty() );
     }
     catch( const uno::RuntimeException& rRuntimeException )
     {

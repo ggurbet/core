@@ -859,7 +859,7 @@ SwSbxValue SwCalc::Term()
                 GetToken();
                 bool bR = Prim().GetBool();
                 bool bL = left.GetBool();
-                left.PutBool( (bL && !bR) || (!bL && bR) );
+                left.PutBool(bL != bR);
             }
             break;
 
@@ -1334,8 +1334,8 @@ bool SwCalc::Str2Double( const OUString& rCommand, sal_Int32& rCommandPos,
         }
     }
 
-    bool const bRet = lcl_Str2Double( rCommand, rCommandPos, rVal,
-            (pLclD.get()) ? pLclD.get() : aSysLocale.GetLocaleDataPtr() );
+    bool const bRet = lcl_Str2Double(rCommand, rCommandPos, rVal,
+                                     pLclD ? pLclD.get() : aSysLocale.GetLocaleDataPtr());
 
     return bRet;
 }

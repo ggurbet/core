@@ -1241,8 +1241,8 @@ struct BroadcastRecalcOnRefMoveHandler
     }
 
 private:
-    sc::AutoCalcSwitch aSwitch; // first for ctor/dtor order, destroy second
-    ScBulkBroadcast aBulk;      // second for ctor/dtor order, destroy first
+    sc::AutoCalcSwitch const aSwitch; // first for ctor/dtor order, destroy second
+    ScBulkBroadcast const aBulk;      // second for ctor/dtor order, destroy first
 };
 
 }
@@ -2075,7 +2075,7 @@ void ScDocument::CopyToDocument(SCCOL nCol1, SCROW nRow1, SCTAB nTab1,
             if (maTabs[i] && rDestDoc.maTabs[i])
                 maTabs[i]->CopyToTable(aCxt, nCol1, nRow1, nCol2, nRow2, nFlags,
                                       bOnlyMarked, rDestDoc.maTabs[i].get(), pMarks,
-                                      false, bColRowFlags );
+                                      false, bColRowFlags, /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true );
         }
         rDestDoc.SetAutoCalc(bOldAutoCalc);
     }
@@ -2134,7 +2134,8 @@ void ScDocument::CopyToDocument(const ScRange& rRange,
 
         pTab->CopyToTable(
             aCxt, aNewRange.aStart.Col(), aNewRange.aStart.Row(), aNewRange.aEnd.Col(), aNewRange.aEnd.Row(),
-            nFlags, bOnlyMarked, pDestTab, pMarks, false, bColRowFlags);
+            nFlags, bOnlyMarked, pDestTab, pMarks, false, bColRowFlags,
+            /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true);
     }
 
     rDestDoc.StartAllListeners(aNewRange);
@@ -2548,7 +2549,7 @@ void ScDocument::MergeNumberFormatter(const ScDocument* pSrcDoc)
 
 ScClipParam& ScDocument::GetClipParam()
 {
-    if (!mpClipParam.get())
+    if (!mpClipParam)
         mpClipParam.reset(new ScClipParam);
 
     return *mpClipParam;
@@ -3263,11 +3264,14 @@ void ScDocument::FillTab( const ScRange& rSrcArea, const ScMarkData& rMark,
                     // context used for copying content to the temporary mix document.
                     sc::CopyToDocContext aMixCxt(*pMixDoc);
                     maTabs[i]->CopyToTable(aMixCxt, nStartCol,nStartRow, nEndCol,nEndRow,
-                                            InsertDeleteFlags::CONTENTS, false, pMixDoc->maTabs[i].get() );
+                                           InsertDeleteFlags::CONTENTS, false, pMixDoc->maTabs[i].get(),
+                                           /*pMarkData*/nullptr, /*bAsLink*/false, /*bColRowFlags*/true,
+                                           /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true );
                 }
                 maTabs[i]->DeleteArea( nStartCol,nStartRow, nEndCol,nEndRow, nDelFlags);
                 maTabs[nSrcTab]->CopyToTable(aCxt, nStartCol,nStartRow, nEndCol,nEndRow,
-                                                 nFlags, false, maTabs[i].get(), nullptr, bAsLink );
+                                             nFlags, false, maTabs[i].get(), nullptr, bAsLink,
+                                             /*bColRowFlags*/true, /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true );
 
                 if (bDoMix)
                     maTabs[i]->MixData(aMixDocCxt, nStartCol,nStartRow, nEndCol,nEndRow,
@@ -3325,12 +3329,15 @@ void ScDocument::FillTabMarked( SCTAB nSrcTab, const ScMarkData& rMark,
 
                     sc::CopyToDocContext aMixCxt(*pMixDoc);
                     maTabs[i]->CopyToTable(aMixCxt, nStartCol,nStartRow, nEndCol,nEndRow,
-                                            InsertDeleteFlags::CONTENTS, true, pMixDoc->maTabs[i].get(), &rMark );
+                                            InsertDeleteFlags::CONTENTS, true, pMixDoc->maTabs[i].get(), &rMark,
+                                            /*bAsLink*/false, /*bColRowFlags*/true, /*bGlobalNamesToLocal*/false,
+                                            /*bCopyCaptions*/true );
                 }
 
                 maTabs[i]->DeleteSelection( nDelFlags, rMark );
                 maTabs[nSrcTab]->CopyToTable(aCxt, nStartCol,nStartRow, nEndCol,nEndRow,
-                                             nFlags, true, maTabs[i].get(), &rMark, bAsLink );
+                                             nFlags, true, maTabs[i].get(), &rMark, bAsLink,
+                                             /*bColRowFlags*/true, /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true );
 
                 if (bDoMix)
                     maTabs[i]->MixMarked(aMixDocCxt, rMark, nFunction, bSkipEmpty, pMixDoc->maTabs[i].get());
@@ -4960,7 +4967,7 @@ void ScDocument::StyleSheetChanged( const SfxStyleSheetBase* pStyleSheet, bool b
 
 bool ScDocument::IsStyleSheetUsed( const ScStyleSheet& rStyle ) const
 {
-    if ( bStyleSheetUsageInvalid || rStyle.GetUsage() == ScStyleSheet::UNKNOWN )
+    if ( bStyleSheetUsageInvalid || rStyle.GetUsage() == ScStyleSheet::Usage::UNKNOWN )
     {
         SfxStyleSheetIterator aIter( mxPoolHelper->GetStylePool(),
                     SfxStyleFamily::Para );
@@ -4970,7 +4977,7 @@ bool ScDocument::IsStyleSheetUsed( const ScStyleSheet& rStyle ) const
             if (pStyle->isScStyleSheet())
             {
                 const ScStyleSheet* pScStyle = static_cast<const ScStyleSheet*>( pStyle  );
-                pScStyle->SetUsage( ScStyleSheet::NOTUSED );
+                pScStyle->SetUsage( ScStyleSheet::Usage::NOTUSED );
             }
         }
 
@@ -4992,7 +4999,7 @@ bool ScDocument::IsStyleSheetUsed( const ScStyleSheet& rStyle ) const
         return bIsUsed;
     }
 
-    return rStyle.GetUsage() == ScStyleSheet::USED;
+    return rStyle.GetUsage() == ScStyleSheet::Usage::USED;
 }
 
 bool ScDocument::ApplyFlagsTab( SCCOL nStartCol, SCROW nStartRow,

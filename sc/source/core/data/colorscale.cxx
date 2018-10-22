@@ -936,7 +936,7 @@ std::unique_ptr<ScDataBarInfo> ScDataBarFormat::GetDataBarInfo(const ScAddress& 
     {
         if(mpFormatData->mpNegativeColor)
         {
-            pInfo->maColor = *mpFormatData->mpNegativeColor.get();
+            pInfo->maColor = *mpFormatData->mpNegativeColor;
         }
         else
         {
@@ -1322,7 +1322,7 @@ const OUStringLiteral a5Ratings[] = {
 };
 
 struct ScIconSetBitmapMap {
-    ScIconSetType eType;
+    ScIconSetType const eType;
     const OUStringLiteral* pBitmaps;
 };
 
@@ -1351,6 +1351,36 @@ static const ScIconSetBitmapMap aBitmapMap[] = {
     { IconSet_5Boxes, a5Boxes }
 };
 
+const ScIconSetMap* findIconSetType(ScIconSetType eType)
+{
+    const ScIconSetMap* pMap = ScIconSetFormat::g_IconSetMap;
+    for (; pMap->pName; ++pMap)
+    {
+        if (pMap->eType == eType)
+            return pMap;
+    }
+
+    return nullptr;
+}
+
+}
+
+const char* ScIconSetFormat::getIconSetName( ScIconSetType eType )
+{
+    const ScIconSetMap* pMap = findIconSetType(eType);
+    if (pMap)
+        return pMap->pName;
+
+    return "";
+}
+
+sal_Int32 ScIconSetFormat::getIconSetElements( ScIconSetType eType )
+{
+    const ScIconSetMap* pMap = findIconSetType(eType);
+    if (pMap)
+        return pMap->nElements;
+
+    return 0;
 }
 
 BitmapEx& ScIconSetFormat::getBitmap(sc::IconSetBitmapMap & rIconSetBitmapMap,

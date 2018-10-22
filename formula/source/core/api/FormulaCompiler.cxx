@@ -631,7 +631,7 @@ void FormulaCompiler::OpCodeMap::putOpCode( const OUString & rStr, const OpCode 
                     bPutOp = true;
                     bRemoveFromMap = (mpTable[eOp] != ";" &&
                             mpTable[ocArrayColSep] != mpTable[eOp] &&
-                            mpTable[ocArrayColSep] != mpTable[eOp]);
+                            mpTable[ocArrayRowSep] != mpTable[eOp]);
                 break;
                 // These OpCodes are known to be duplicates in the Excel
                 // external API mapping because of different parameter counts
@@ -1452,9 +1452,17 @@ void FormulaCompiler::Factor()
                 case ocConvertOOo :
                 case ocDde:
                 case ocMacro:
-                case ocExternal:
                 case ocWebservice:
                     pArr->AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
+                break;
+                    // RANDBETWEEN() is volatile like RAND(). Other Add-In
+                    // functions may have to be recalculated or not, we don't
+                    // know, classify as ONLOAD_LENIENT.
+                case ocExternal:
+                    if (mpToken->GetExternal() == "com.sun.star.sheet.addin.Analysis.getRandbetween")
+                        pArr->SetExclusiveRecalcModeAlways();
+                    else
+                        pArr->AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
                 break;
                     // If the referred cell is moved the value changes.
                 case ocColumn :

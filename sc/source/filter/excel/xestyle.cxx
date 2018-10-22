@@ -137,7 +137,7 @@ class XclListColor
 {
 private:
     Color               maColor;        /// The color value of this palette entry.
-    sal_uInt32          mnColorId;      /// Unique color ID for color reduction.
+    sal_uInt32 const    mnColorId;      /// Unique color ID for color reduction.
     sal_uInt32          mnWeight;       /// Weighting for color reduction.
     bool                mbBaseColor;    /// true = Handle as base color, (don't remove/merge).
 
@@ -1343,7 +1343,7 @@ size_t XclExpFontBuffer::Find( const XclFontData& rFontData )
 /** Predicate for search algorithm. */
 struct XclExpNumFmtPred
 {
-    sal_uInt32   mnScNumFmt;
+    sal_uInt32 const   mnScNumFmt;
     explicit     XclExpNumFmtPred( sal_uInt32 nScNumFmt ) : mnScNumFmt( nScNumFmt ) {}
     bool         operator()( const XclExpNumFmt& rFormat ) const
                             { return rFormat.mnScNumFmt == mnScNumFmt; }
@@ -2609,7 +2609,7 @@ sal_uInt16 XclExpXFBuffer::GetXFIndex( sal_uInt32 nXFId ) const
 sal_Int32 XclExpXFBuffer::GetXmlStyleIndex( sal_uInt32 nXFIndex ) const
 {
     OSL_ENSURE( nXFIndex < maStyleIndexes.size(), "XclExpXFBuffer::GetXmlStyleIndex - invalid index!" );
-    if( nXFIndex > maStyleIndexes.size() )
+    if( nXFIndex >= maStyleIndexes.size() )
         return 0;   // should be caught/debugged via above assert; return "valid" index.
     return maStyleIndexes[ nXFIndex ];
 }
@@ -2617,7 +2617,7 @@ sal_Int32 XclExpXFBuffer::GetXmlStyleIndex( sal_uInt32 nXFIndex ) const
 sal_Int32 XclExpXFBuffer::GetXmlCellIndex( sal_uInt32 nXFIndex ) const
 {
     OSL_ENSURE( nXFIndex < maCellIndexes.size(), "XclExpXFBuffer::GetXmlStyleIndex - invalid index!" );
-    if( nXFIndex > maCellIndexes.size() )
+    if( nXFIndex >= maCellIndexes.size() )
         return 0;   // should be caught/debugged via above assert; return "valid" index.
     return maCellIndexes[ nXFIndex ];
 }

@@ -20,9 +20,7 @@
 #ifndef INCLUDED_SC_SOURCE_UI_INC_HIGHRED_HXX
 #define INCLUDED_SC_SOURCE_UI_INC_HIGHRED_HXX
 
-#include <vcl/morebtn.hxx>
 #include <vcl/combobox.hxx>
-#include <vcl/group.hxx>
 #include <svtools/headbar.hxx>
 #include <svtools/simptabl.hxx>
 #include <svtools/svtabbx.hxx>

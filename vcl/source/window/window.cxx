@@ -38,7 +38,7 @@
 #include <vcl/button.hxx>
 #include <vcl/taskpanelist.hxx>
 #include <vcl/dialog.hxx>
-#include <vcl/unowrap.hxx>
+#include <vcl/toolkit/unowrap.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/lazydelete.hxx>
 #include <vcl/virdev.hxx>
@@ -225,7 +225,7 @@ void Window::dispose()
         }
     }
 
-    UnoWrapperBase* pWrapper = Application::GetUnoWrapper( false );
+    UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper( false );
     if ( pWrapper )
         pWrapper->WindowDestroyed( this );
 
@@ -571,8 +571,6 @@ void Window::dispose()
 
 Window::~Window()
 {
-    // FIXME: we should kill all LazyDeletor usage.
-    vcl::LazyDeletor::Undelete( this );
     disposeOnce();
 }
 
@@ -1758,16 +1756,10 @@ void Window::ImplNewInputContext()
     pFocusWin->ImplGetFrame()->SetInputContext( &aNewContext );
 }
 
-void Window::doLazyDelete()
+void Window::SetParentToDefaultWindow()
 {
-    SystemWindow* pSysWin = dynamic_cast<SystemWindow*>(this);
-    DockingWindow* pDockWin = dynamic_cast<DockingWindow*>(this);
-    if( pSysWin || ( pDockWin && pDockWin->IsFloatingMode() ) )
-    {
-        Show( false );
-        SetParent( ImplGetDefaultWindow() );
-    }
-    vcl::LazyDeletor::Delete( this );
+    Show(false);
+    SetParent(ImplGetDefaultWindow());
 }
 
 KeyIndicatorState Window::GetIndicatorState() const
@@ -3159,7 +3151,7 @@ Reference< css::awt::XWindowPeer > Window::GetComponentInterface( bool bCreate )
 {
     if ( !mpWindowImpl->mxWindowPeer.is() && bCreate )
     {
-        UnoWrapperBase* pWrapper = Application::GetUnoWrapper();
+        UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper();
         if ( pWrapper )
             mpWindowImpl->mxWindowPeer = pWrapper->GetWindowInterface( this );
     }
@@ -3168,7 +3160,7 @@ Reference< css::awt::XWindowPeer > Window::GetComponentInterface( bool bCreate )
 
 void Window::SetComponentInterface( Reference< css::awt::XWindowPeer > const & xIFace )
 {
-    UnoWrapperBase* pWrapper = Application::GetUnoWrapper();
+    UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper();
     SAL_WARN_IF( !pWrapper, "vcl.window", "SetComponentInterface: No Wrapper!" );
     if ( pWrapper )
         pWrapper->SetWindowInterface( this, xIFace );
@@ -3189,7 +3181,7 @@ LOKWindowsMap& GetLOKWindowsMap()
     if (!s_pLOKWindowsMap)
         s_pLOKWindowsMap.reset(new LOKWindowsMap);
 
-    return *s_pLOKWindowsMap.get();
+    return *s_pLOKWindowsMap;
 }
 
 }

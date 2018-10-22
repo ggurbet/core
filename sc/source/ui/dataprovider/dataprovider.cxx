@@ -19,6 +19,9 @@
 #include "xmldataprovider.hxx"
 #include "sqldataprovider.hxx"
 #include <datatransformation.hxx>
+#include <datamapper.hxx>
+#include <dbdata.hxx>
+#include <docsh.hxx>
 
 using namespace com::sun::star;
 
@@ -63,7 +66,6 @@ ExternalDataSource::ExternalDataSource(const OUString& rURL,
         const OUString& rProvider, ScDocument* pDoc)
     : maURL(rURL)
     , maProvider(rProvider)
-    , mnUpdateFrequency(0.0)
     , mpDoc(pDoc)
 {
 }
@@ -136,7 +138,7 @@ void ExternalDataSource::setDBData(const OUString& rDBName)
 
 double ExternalDataSource::getUpdateFrequency() const
 {
-    return mnUpdateFrequency;
+    return 0;
 }
 
 ScDBDataManager* ExternalDataSource::getDBManager()

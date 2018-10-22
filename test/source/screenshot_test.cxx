@@ -7,6 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <sal/config.h>
+
+#include <iostream>
+
 #include <test/screenshot_test.hxx>
 
 #include <com/sun/star/util/XCloseable.hpp>
@@ -133,7 +137,7 @@ void ScreenshotTest::dumpDialogToPath(VclAbstractDialog& rDialog)
 {
     const std::vector<OString> aPageDescriptions(rDialog.getAllPageUIXMLDescriptions());
 
-    if (aPageDescriptions.size())
+    if (!aPageDescriptions.empty())
     {
         for (size_t a(0); a < aPageDescriptions.size(); a++)
         {
@@ -157,7 +161,7 @@ void ScreenshotTest::dumpDialogToPath(Dialog& rDialog)
 {
     const std::vector<OString> aPageDescriptions(rDialog.getAllPageUIXMLDescriptions());
 
-    if (aPageDescriptions.size())
+    if (!aPageDescriptions.empty())
     {
         for (size_t a(0); a < aPageDescriptions.size(); a++)
         {
@@ -187,10 +191,7 @@ void ScreenshotTest::dumpDialogToPath(const OString& rUIXMLDescription)
             VclPtr<vcl::Window> aOwnedToplevel;
 
             bool bLegacy;
-            if (rUIXMLDescription == "cui/ui/textanimtabpage.ui" || rUIXMLDescription == "cui/ui/areatabpage.ui")
-                bLegacy = false;
-            else
-                bLegacy = true;
+            bLegacy = rUIXMLDescription != "cui/ui/textanimtabpage.ui" && rUIXMLDescription != "cui/ui/areatabpage.ui";
             std::unique_ptr<VclBuilder> xBuilder(new VclBuilder(pDialog, VclBuilderContainer::getUIRootDir(), OStringToOUString(rUIXMLDescription, RTL_TEXTENCODING_UTF8), OString(), css::uno::Reference<css::frame::XFrame>(), bLegacy));
             vcl::Window *pRoot = xBuilder->get_widget_root();
             Dialog *pRealDialog = dynamic_cast<Dialog*>(pRoot);
@@ -249,34 +250,27 @@ void ScreenshotTest::processDialogBatchFile(const OUString& rFile)
 
     while (aStream.ReadLine(aNextUIFile))
     {
-        try
+        if (!aNextUIFile.isEmpty() && !aNextUIFile.startsWith(aComment))
         {
-            if (!aNextUIFile.isEmpty() && !aNextUIFile.startsWith(aComment))
-            {
-                // first check if it's a known dialog
-                ScopedVclPtr<VclAbstractDialog> pDlg(createDialogByName(aNextUIFile));
+            std::cout << "processing " << aNextUIFile << ":\n";
 
-                if (pDlg)
-                {
-                    // known dialog, dump screenshot to path
-                    dumpDialogToPath(*pDlg);
-                }
-                else
-                {
-                    // unknown dialog, try fallback to generic created
-                    // VclBuilder-generated instance. Keep in mind that Dialogs
-                    // using this mechanism will probably not be layouted well
-                    // since the setup/initialization part is missing. Thus,
-                    // only use for fallback when only the UI file is available.
-                    dumpDialogToPath(aNextUIFile);
-                }
+            // first check if it's a known dialog
+            ScopedVclPtr<VclAbstractDialog> pDlg(createDialogByName(aNextUIFile));
+
+            if (pDlg)
+            {
+                // known dialog, dump screenshot to path
+                dumpDialogToPath(*pDlg);
             }
-        }
-        catch(...)
-        {
-            OString aMsg("Exception while processing ");
-            aMsg += aNextUIFile;
-            CPPUNIT_ASSERT_MESSAGE(aMsg.getStr(), false);
+            else
+            {
+                // unknown dialog, try fallback to generic created
+                // VclBuilder-generated instance. Keep in mind that Dialogs
+                // using this mechanism will probably not be layouted well
+                // since the setup/initialization part is missing. Thus,
+                // only use for fallback when only the UI file is available.
+                dumpDialogToPath(aNextUIFile);
+            }
         }
     }
 }

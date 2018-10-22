@@ -385,8 +385,6 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     , m_nPageNumber( -1 )
     , m_nPageNumberType( -1 )
     , m_nBreakType( -1 )
-    , m_nPaperBin( -1 )
-    , m_nFirstPaperBin( -1 )
     , m_nLeftMargin( 3175 )  // page left margin,  default 0x708 (1800) twip -> 3175 1/100 mm
     , m_nRightMargin( 3175 ) // page right margin,  default 0x708 (1800) twip -> 3175 1/100 mm
     , m_nTopMargin( 2540 )
@@ -1387,9 +1385,6 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
 
         HandleMarginsHeaderFooter(/*bFirstPage=*/false, rDM_Impl );
 
-        const OUString sTrayIndex = getPropertyName( PROP_PRINTER_PAPER_TRAY_INDEX );
-        if ( m_nPaperBin >= 0 )
-            xFollowPageStyle->setPropertyValue( sTrayIndex, uno::makeAny( m_nPaperBin ) );
         if ( rDM_Impl.GetSettingsTable()->GetMirrorMarginSettings() )
         {
             Insert( PROP_PAGE_STYLE_LAYOUT, uno::makeAny( style::PageStyleLayout_MIRRORED ) );
@@ -1504,9 +1499,6 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
             if ( rDM_Impl.IsNewDoc() )
                 ApplyProperties_( xFirstPageStyle );
 
-            sal_Int32 nPaperBin = m_nFirstPaperBin >= 0 ? m_nFirstPaperBin : m_nPaperBin >= 0 ? m_nPaperBin : 0;
-            if ( nPaperBin )
-                xFirstPageStyle->setPropertyValue( sTrayIndex, uno::makeAny( nPaperBin ) );
             if ( xColumns.is() )
                 xFirstPageStyle->setPropertyValue(
                     getPropertyName( PROP_TEXT_COLUMNS ), uno::makeAny( xColumns ) );
@@ -1584,7 +1576,7 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
     if ( m_nColumnCount > 0 )
     {
         // skip custom-width columns since we don't know what column the shape is in.
-        if ( m_aColWidth.size() )
+        if ( !m_aColWidth.empty() )
             nParagraphWidth = 0;
         else
             nParagraphWidth = (nParagraphWidth - (m_nColumnDistance * m_nColumnCount)) / (m_nColumnCount + 1);
@@ -1758,7 +1750,6 @@ ParagraphProperties::ParagraphProperties()
     , m_hRule( -1 )
     , m_xAlign( -1 )
     , m_yAlign( -1 )
-    , m_bAnchorLock( false )
     , m_nDropCapLength( 0 )
 {
 }
@@ -1781,8 +1772,7 @@ bool ParagraphProperties::operator==( const ParagraphProperties& rCompare )
              m_vSpace      == rCompare.m_vSpace &&
              m_hRule       == rCompare.m_hRule &&
              m_xAlign      == rCompare.m_xAlign &&
-             m_yAlign      == rCompare.m_yAlign &&
-             m_bAnchorLock == rCompare.m_bAnchorLock );
+             m_yAlign      == rCompare.m_yAlign );
 }
 
 void ParagraphProperties::ResetFrameProperties()
@@ -1804,7 +1794,6 @@ void ParagraphProperties::ResetFrameProperties()
     m_hRule          = -1;
     m_xAlign         = -1;
     m_yAlign         = -1;
-    m_bAnchorLock    = false;
     m_nDropCapLength = 0;
 }
 

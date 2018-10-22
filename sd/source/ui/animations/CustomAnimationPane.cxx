@@ -130,7 +130,6 @@ CustomAnimationPane::CustomAnimationPane( Window* pParent, ViewShellBase& rBase,
     mrBase( rBase ),
     mpCustomAnimationPresets(nullptr),
     mnPropertyType( nPropertyTypeNone ),
-    mnMotionPathPos( 3 ),
     mnCurvePathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnPolygonPathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnFreeformPathPos( LISTBOX_ENTRY_NOTFOUND ),
@@ -147,7 +146,6 @@ CustomAnimationPane::CustomAnimationPane( Window* pParent, ViewShellBase& rBase,
     mrBase( rBase ),
     mpCustomAnimationPresets(nullptr),
     mnPropertyType( nPropertyTypeNone ),
-    mnMotionPathPos( 3 ),
     mnCurvePathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnPolygonPathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnFreeformPathPos( LISTBOX_ENTRY_NOTFOUND ),
@@ -576,7 +574,7 @@ void CustomAnimationPane::updateControls()
             Any aValue;
 
             std::vector<OUString> aProperties( pDescriptor->getProperties() );
-            if( aProperties.size() >= 1 )
+            if( !aProperties.empty() )
             {
                 mnPropertyType = getPropertyType( aProperties.front() );
 
@@ -1211,7 +1209,7 @@ std::unique_ptr<STLPropertySet> CustomAnimationPane::createSelectionSet()
             sal_Int32 nType = nPropertyTypeNone;
 
             std::vector<OUString> aProperties( pDescriptor->getProperties() );
-            if( aProperties.size() >= 1 )
+            if( !aProperties.empty() )
                 nType = getPropertyType( aProperties.front() );
 
             if( nType != nPropertyTypeNone )
@@ -1616,7 +1614,7 @@ void CustomAnimationPane::changeSelection( STLPropertySet const * pResultSet, ST
                     // All the effects of the outline object is removed so we need to
                     // put it back. OTOH, the shape object that still has effects
                     // in the text group is fine.
-                    if (nTextGrouping == -1 && pTextGroup->getEffects().size() == 0)
+                    if (nTextGrouping == -1 && pTextGroup->getEffects().empty())
                     {
                         pEffect->setTarget(makeAny(pEffect->getTargetShape()));
                         pEffect->setGroupId(-1);
@@ -2010,7 +2008,7 @@ PathKind CustomAnimationPane::getCreatePathKind() const
     PathKind eKind = PathKind::NONE;
 
     if( ( mpLBAnimation->GetSelectedEntryCount() == 1 ) &&
-        ( mpLBCategory->GetSelectedEntryPos() == mnMotionPathPos ) )
+        ( mpLBCategory->GetSelectedEntryPos() == gnMotionPathPos ) )
     {
         const sal_Int32 nPos = mpLBAnimation->GetSelectedEntryPos();
         if( nPos == mnCurvePathPos )
@@ -2237,7 +2235,7 @@ sal_uInt32 CustomAnimationPane::fillAnimationLB( bool bHasText )
     const PresetCategoryList::const_iterator aCategoryEnd( rCategoryList.end() );
     mpLBAnimation->Clear();
 
-    if(nPosition == mnMotionPathPos)
+    if(nPosition == gnMotionPathPos)
     {
         OUString sMotionPathLabel( SdResId( STR_CUSTOMANIMATION_USERPATH ) );
         mpLBAnimation->InsertCategory( sMotionPathLabel );

@@ -41,6 +41,7 @@ struct MyFieldInfo
 {
     std::string parentClass;
     std::string fieldName;
+    std::string fieldType;
     std::string sourceLocation;
 };
 bool operator < (const MyFieldInfo &lhs, const MyFieldInfo &rhs)
@@ -83,7 +84,7 @@ public:
         for (const MyFieldAssignmentInfo & s : assignedSet)
             output += "asgn:\t" + s.parentClass + "\t" + s.fieldName + "\t" + s.value + "\n";
         for (const MyFieldInfo & s : definitionSet)
-            output += "defn:\t" + s.parentClass + "\t" + s.fieldName + "\t" + s.sourceLocation + "\n";
+            output += "defn:\t" + s.parentClass + "\t" + s.fieldName + "\t" + s.fieldType + "\t" + s.sourceLocation + "\n";
         std::ofstream myfile;
         myfile.open( WORKDIR "/loplugin.singlevalfields.log", std::ios::app | std::ios::out);
         myfile << output;
@@ -112,6 +113,7 @@ void SingleValFields::niceName(const FieldDecl* fieldDecl, MyFieldInfo& aInfo)
 {
     aInfo.parentClass = fieldDecl->getParent()->getQualifiedNameAsString();
     aInfo.fieldName = fieldDecl->getNameAsString();
+    aInfo.fieldType = fieldDecl->getType().getAsString();
 
     SourceLocation expansionLoc = compiler.getSourceManager().getExpansionLoc( fieldDecl->getLocation() );
     StringRef name = compiler.getSourceManager().getFilename(expansionLoc);
@@ -251,6 +253,9 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
         auto methodDecl = dyn_cast<CXXMethodDecl>(parentFunction);
         if (methodDecl && (methodDecl->isCopyAssignmentOperator() || methodDecl->isMoveAssignmentOperator()))
            return true;
+        if (methodDecl && methodDecl->getIdentifier()
+            && (methodDecl->getName().startswith("Clone") || methodDecl->getName().startswith("clone")))
+           return true;
         auto cxxConstructorDecl = dyn_cast<CXXConstructorDecl>(parentFunction);
         if (cxxConstructorDecl && cxxConstructorDecl->isCopyOrMoveConstructor())
            return true;
@@ -336,13 +341,19 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
         else if (isa<BinaryOperator>(parent))
         {
             const BinaryOperator* binaryOp = dyn_cast<BinaryOperator>(parent);
+            auto op = binaryOp->getOpcode();
             if ( binaryOp->getLHS() != child ) {
-                // do nothing
+                // if the expr is on the RHS, do nothing
             }
-            else if ( binaryOp->getOpcode() == BO_Assign ) {
+            else if ( op == BO_Assign ) {
                 assignValue = getExprValue(binaryOp->getRHS());
                 bPotentiallyAssignedTo = true;
-            } else {
+            } else if ( op == BO_MulAssign || op == BO_DivAssign
+                        || op == BO_RemAssign || op == BO_AddAssign
+                        || op == BO_SubAssign || op == BO_ShlAssign
+                        || op == BO_ShrAssign || op == BO_AndAssign
+                        || op == BO_XorAssign || op == BO_OrAssign )
+            {
                 bPotentiallyAssignedTo = true;
             }
             break;
@@ -467,11 +478,33 @@ std::string SingleValFields::getExprValue(const Expr* arg)
     if (!arg)
         return "?";
     arg = arg->IgnoreParenCasts();
+    arg = arg->IgnoreImplicit();
     // ignore this, it seems to trigger an infinite recursion
     if (isa<UnaryExprOrTypeTraitExpr>(arg))
         return "?";
     if (arg->isValueDependent())
         return "?";
+    if (auto constructExpr = dyn_cast<CXXConstructExpr>(arg))
+    {
+        if (constructExpr->getNumArgs() >= 1
+            && isa<clang::StringLiteral>(constructExpr->getArg(0)))
+        {
+            return dyn_cast<clang::StringLiteral>(constructExpr->getArg(0))->getString();
+        }
+    }
+#if CLANG_VERSION >= 50000
+    if (arg->getType()->isFloatingType())
+    {
+        APFloat x1(0.0f);
+        if (arg->EvaluateAsFloat(x1, compiler.getASTContext()))
+        {
+            std::string s;
+            llvm::raw_string_ostream os(s);
+            x1.print(os);
+            return os.str();
+        }
+    }
+#endif
     APSInt x1;
     if (arg->EvaluateAsInt(x1, compiler.getASTContext()))
         return x1.toString(10);

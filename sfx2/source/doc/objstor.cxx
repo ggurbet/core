@@ -1554,11 +1554,11 @@ bool SfxObjectShell::SaveTo_Impl
     if ( bOk )
     {
         // if ODF version of oasis format changes on saving the signature should not be preserved
-        if ( bOk && bTryToPreserveScriptSignature && bNoPreserveForOasis )
+        if ( bTryToPreserveScriptSignature && bNoPreserveForOasis )
             bTryToPreserveScriptSignature = ( SotStorage::GetVersion( rMedium.GetStorage() ) == SOFFICE_FILEFORMAT_60 );
 
         uno::Reference< security::XDocumentDigitalSignatures > xDDSigns;
-        if ( bOk && bTryToPreserveScriptSignature )
+        if (bTryToPreserveScriptSignature)
         {
             // if the scripting code was not changed and it is signed the signature should be preserved
             // unfortunately at this point we have only information whether the basic code has changed or not
@@ -3651,7 +3651,7 @@ bool SfxObjectShell::QueryAllowExoticFormat_Impl( const uno::Reference< task::XI
         rtl::Reference<ExoticFileLoadException> xException(new ExoticFileLoadException( rURL, rFilterUIName ));
         uno::Reference< task::XInteractionRequest > xReq( xException.get() );
         xHandler->handle( xReq );
-        return xException.get()->isApprove();
+        return xException->isApprove();
     }
     // No interaction handler, default is to continue to load
     return true;

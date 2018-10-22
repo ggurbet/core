@@ -56,7 +56,6 @@ struct ImplConfigData
     OUString        maFileName;
     sal_uInt32      mnDataUpdateId;
     sal_uInt32      mnTimeStamp;
-    LineEnd         meLineEnd;
     bool            mbModified;
     bool            mbRead;
     bool            mbIsUTF8BOM;
@@ -373,22 +372,9 @@ static sal_uInt8* ImplGetConfigBuffer( const ImplConfigData* pData, sal_uInt32& 
     sal_uInt32      nKeyLen;
     sal_uInt32      nLineEndLen;
 
-    if ( pData->meLineEnd == LINEEND_CR )
-    {
-        aLineEndBuf[0] = '\r';
-        nLineEndLen = 1;
-    }
-    else if ( pData->meLineEnd == LINEEND_LF )
-    {
-        aLineEndBuf[0] = '\n';
-        nLineEndLen = 1;
-    }
-    else
-    {
-        aLineEndBuf[0] = '\r';
-        aLineEndBuf[1] = '\n';
-        nLineEndLen = 2;
-    }
+    aLineEndBuf[0] = '\r';
+    aLineEndBuf[1] = '\n';
+    nLineEndLen = 2;
 
     nBufLen = 0;
     pGroup = pData->mpFirstGroup;
@@ -424,21 +410,14 @@ static sal_uInt8* ImplGetConfigBuffer( const ImplConfigData* pData, sal_uInt32& 
     if ( !nBufLen )
     {
         pWriteBuf = new sal_uInt8[nLineEndLen];
-        if ( pWriteBuf )
-        {
-            pWriteBuf[0] = aLineEndBuf[0];
-            if ( nLineEndLen == 2 )
-                pWriteBuf[1] = aLineEndBuf[1];
-            return pWriteBuf;
-        }
-        else
-            return nullptr;
+        pWriteBuf[0] = aLineEndBuf[0];
+        if ( nLineEndLen == 2 )
+            pWriteBuf[1] = aLineEndBuf[1];
+        return pWriteBuf;
     }
 
     // Allocate new write buffer (caller frees it)
     pWriteBuf = new sal_uInt8[nBufLen];
-    if ( !pWriteBuf )
-        return nullptr;
 
     // fill buffer
     pBuf = pWriteBuf;
@@ -584,7 +563,6 @@ static std::unique_ptr<ImplConfigData> ImplGetConfigData( const OUString& rFileN
     pData->maFileName       = rFileName;
     pData->mpFirstGroup     = nullptr;
     pData->mnDataUpdateId   = 0;
-    pData->meLineEnd        = LINEEND_CRLF;
     pData->mbRead           = false;
     pData->mbIsUTF8BOM      = false;
     ImplReadConfig( pData.get() );

@@ -273,7 +273,7 @@ void DocumentSettings::AssignURL( XPropertyListType t, const Any* pValue,
 static struct {
     const char *pName;
     XPropertyListType t;
-} aURLPropertyNames[] = {
+} const aURLPropertyNames[] = {
     { "ColorTableURL", XPropertyListType::Color },
     { "DashTableURL", XPropertyListType::Dash },
     { "LineEndTableURL", XPropertyListType::LineEnd },
@@ -1199,12 +1199,8 @@ DocumentSettings::_getPropertyValues(
                     {
                         SvMemoryStream aStream;
                         pTempPrinter->Store( aStream );
-                        aStream.Seek ( STREAM_SEEK_TO_END );
-                        sal_uInt32 nSize = aStream.Tell();
-                        aStream.Seek ( STREAM_SEEK_TO_BEGIN );
-                        Sequence < sal_Int8 > aSequence ( nSize );
-                        memcpy ( aSequence.getArray(), aStream.GetData(), nSize );
-                        *pValue <<= aSequence;
+                        *pValue <<= Sequence< sal_Int8 >( static_cast< const sal_Int8* >( aStream.GetData() ),
+                                                        aStream.TellEnd() );
                     }
                     else
                     {

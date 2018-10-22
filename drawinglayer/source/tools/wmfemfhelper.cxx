@@ -1050,13 +1050,8 @@ namespace wmfemfhelper
             return false;
         }
 
-        if((LANGUAGE_JAPANESE == rFont.GetLanguage()) || (LANGUAGE_JAPANESE == rFont.GetCJKContextLanguage()))
-        {
-            // the underline is right for Japanese only
-            return true;
-        }
-
-        return false;
+        // the underline is right for Japanese only
+        return (LANGUAGE_JAPANESE == rFont.GetLanguage()) || (LANGUAGE_JAPANESE == rFont.GetCJKContextLanguage());
     }
 
     static void createFontAttributeTransformAndAlignment(
@@ -3002,7 +2997,7 @@ namespace wmfemfhelper
                     }
                     else if (pA->GetComment().equalsIgnoreAsciiCase("EMF_PLUS_HEADER_INFO"))
                     {
-                        if (aEMFPlus.get())
+                        if (aEMFPlus)
                         {
                             // error: should not yet exist
                             SAL_INFO("drawinglayer", "Error: multiple EMF_PLUS_HEADER_INFO");
@@ -3021,7 +3016,7 @@ namespace wmfemfhelper
                     }
                     else if (pA->GetComment().equalsIgnoreAsciiCase("EMF_PLUS"))
                     {
-                        if (!aEMFPlus.get())
+                        if (!aEMFPlus)
                         {
                             // error: should exist
                             SAL_INFO("drawinglayer", "Error: EMF_PLUS before EMF_PLUS_HEADER_INFO");

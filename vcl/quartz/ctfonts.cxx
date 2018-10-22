@@ -40,7 +40,7 @@
 #include <sallayout.hxx>
 #include <hb-coretext.h>
 
-static inline double toRadian(int nDegree)
+static double toRadian(int nDegree)
 {
     return nDegree * (M_PI / 1800.0);
 }
@@ -537,10 +537,9 @@ void SystemFontList::AddFont( CoreTextFontFace* pFontData )
 
 void SystemFontList::AnnounceFonts( PhysicalFontCollection& rFontCollection ) const
 {
-    auto it = maFontContainer.cbegin();
-    for(; it != maFontContainer.cend(); ++it )
+    for(const auto& rEntry : maFontContainer )
     {
-        rFontCollection.Add( (*it).second.get() );
+        rFontCollection.Add( rEntry.second.get() );
     }
 }
 

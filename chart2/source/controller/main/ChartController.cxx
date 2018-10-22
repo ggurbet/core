@@ -990,7 +990,7 @@ namespace
 
 bool lcl_isFormatObjectCommand( const OUString& aCommand )
 {
-    if(    aCommand == "MainTitle"
+    return aCommand == "MainTitle"
         || aCommand == "SubTitle"
         || aCommand == "XTitle"
         || aCommand == "YTitle"
@@ -1036,12 +1036,7 @@ bool lcl_isFormatObjectCommand( const OUString& aCommand )
         || aCommand == "FormatStockLoss"
         || aCommand == "FormatStockGain"
         || aCommand == "FormatMajorGrid"
-        || aCommand == "FormatMinorGrid"
-        )
-        return true;
-
-    // else
-    return false;
+        || aCommand == "FormatMinorGrid";
 }
 
 } // anonymous namespace
@@ -1310,8 +1305,8 @@ void ChartController::executeDispatch_ChartType()
 
     SolarMutexGuard aSolarGuard;
     //prepare and open dialog
-    ScopedVclPtrInstance< ChartTypeDialog > aDlg( GetChartWindow(), getModel() );
-    if( aDlg->Execute() == RET_OK )
+    ChartTypeDialog aDlg(GetChartFrame(), getModel());
+    if (aDlg.run() == RET_OK)
     {
         impl_adaptDataSeriesAutoResize();
         aUndoGuard.commit();

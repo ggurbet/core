@@ -356,8 +356,7 @@ bool PSWriter::WritePS( const Graphic& rGraphic, SvStream& rTargetStream, Filter
 
         if ( nErrCode == ERRCODE_NONE )
         {
-            rTargetStream.Seek( STREAM_SEEK_TO_END );
-            nPSPosition = rTargetStream.Tell();
+            nPSPosition = rTargetStream.TellEnd();
             rTargetStream.Seek( nStreamPosition + 20 );
             rTargetStream.WriteUInt32( nPSPosition - 30 );  // size of tiff gfx
             rTargetStream.Seek( nPSPosition );
@@ -1261,7 +1260,7 @@ void PSWriter::ImplWriteActions( const GDIMetaFile& rMtf, VirtualDevice& rVDev )
                                 bSkipSequence = false;
                             if ( static_cast<sal_uInt32>(eJT) > 2 )
                                 bSkipSequence = false;
-                            if ( l_aDashArray.size() && ( fStrokeWidth != 0.0 ) )
+                            if ( !l_aDashArray.empty() && ( fStrokeWidth != 0.0 ) )
                                 bSkipSequence = false;
                             if ( bSkipSequence )
                             {

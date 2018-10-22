@@ -214,8 +214,8 @@ enum ScIconSetType
 
 struct ScIconSetMap {
     const char* pName;
-    ScIconSetType eType;
-    sal_Int32 nElements;
+    ScIconSetType const eType;
+    sal_Int32 const nElements;
 };
 
 class SC_DLLPUBLIC ScColorFormat : public ScFormatEntry
@@ -379,6 +379,8 @@ public:
     virtual Type GetType() const override;
 
     static const ScIconSetMap g_IconSetMap[];
+    static const char* getIconSetName( ScIconSetType eType );
+    static sal_Int32 getIconSetElements( ScIconSetType eType );
     static BitmapEx& getBitmap(sc::IconSetBitmapMap& rBitmapMap, ScIconSetType eType, sal_Int32 nIndex);
 
     typedef ScIconSetFormatData::Entries_t::iterator iterator;

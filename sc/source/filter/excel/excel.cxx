@@ -22,6 +22,7 @@
 #include <sfx2/app.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sot/storage.hxx>
 #include <sot/exchange.hxx>
 #include <filter/msfilter/classids.hxx>
@@ -141,7 +142,7 @@ ErrCode ScFormatFilterPluginImpl::ScImportExcel( SfxMedium& rMedium, ScDocument*
             default:    DBG_ERROR_BIFF();
         }
 
-        eRet = xFilter.get() ? xFilter->Read() : SCERR_IMPORT_INTERNAL;
+        eRet = xFilter ? xFilter->Read() : SCERR_IMPORT_INTERNAL;
     }
 
     return eRet;

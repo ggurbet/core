@@ -373,7 +373,7 @@ void SwGlossaries::UpdateGlosPath(bool bFull)
                     INetURLObject(),
                     m_aPath.getToken(0, SVT_SEARCHPATH_DELIMITER, nIndex),
                     URIHelper::GetMaybeFileHdl());
-                if (aDirArr.size() &&
+                if (!aDirArr.empty() &&
                     std::find(aDirArr.begin(), aDirArr.end(), sPth) != aDirArr.end())
                 {
                     continue;
@@ -611,7 +611,7 @@ Reference< text::XAutoTextEntry > SwGlossaries::GetAutoTextEntry(
     bool bCreate = ( rCompleteGroupName == GetDefName() );
     std::unique_ptr< SwTextBlocks > pGlosGroup( GetGroupDoc( rCompleteGroupName, bCreate ) );
 
-    if ( !pGlosGroup.get() || pGlosGroup->GetError() )
+    if (!pGlosGroup || pGlosGroup->GetError())
         throw lang::WrappedTargetException();
 
     sal_uInt16 nIdx = pGlosGroup->GetIndex( rEntryName );

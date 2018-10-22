@@ -182,21 +182,21 @@ SdPropertySubControl::~SdPropertySubControl()
 class SdPresetPropertyBox  : public SdPropertySubControl
 {
 public:
-    SdPresetPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const OUString& aPresetId, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdPresetPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const OUString& aPresetId, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& rPresetId ) override;
 
 private:
-    std::map< sal_uInt16, OUString > maPropertyValues;
+    std::vector<OUString> maPropertyValues;
     Link<LinkParamNone*,void> maModifyLink;
     std::unique_ptr<weld::ComboBox> mxControl;
 
     DECL_LINK(OnSelect, weld::ComboBox&, void);
 };
 
-SdPresetPropertyBox::SdPresetPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const OUString& aPresetId, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdPresetPropertyBox::SdPresetPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const OUString& aPresetId, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyLink(rModifyHdl)
     , mxControl(mxBuilder->weld_combo_box("combo"))
 {
@@ -235,9 +235,9 @@ void SdPresetPropertyBox::setValue( const Any& rValue, const OUString& rPresetId
             for( auto& aSubType : aSubTypes )
             {
                 mxControl->append_text(rPresets.getUINameForProperty(aSubType));
-                if(aSubType == aPropertyValue)
-                    nPos = mxControl->get_count() - 1;
-                maPropertyValues[nPos] = aSubType;
+                maPropertyValues.push_back(aSubType);
+                if (aSubType == aPropertyValue)
+                    nPos = maPropertyValues.size() - 1;
             }
         }
         else
@@ -252,7 +252,10 @@ void SdPresetPropertyBox::setValue( const Any& rValue, const OUString& rPresetId
 
 Any SdPresetPropertyBox::getValue()
 {
-    return makeAny(maPropertyValues[mxControl->get_active()]);
+    const int nIndex = mxControl->get_active();
+    if (nIndex == -1)
+        return Any();
+    return makeAny(maPropertyValues[nIndex]);
 }
 
 class ColorPropertyBox  : public PropertySubControl
@@ -319,7 +322,7 @@ Control* ColorPropertyBox::getControl()
 class SdColorPropertyBox  : public SdPropertySubControl
 {
 public:
-    SdColorPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, weld::Window* pTopLevel, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdColorPropertyBox(weld::Label* pLabel, weld::Container* pParent, weld::Window* pTopLevel, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& rPresetId  ) override;
@@ -331,8 +334,8 @@ private:
     DECL_LINK(OnSelect, ColorListBox&, void);
 };
 
-SdColorPropertyBox::SdColorPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, weld::Window* pTopLevel, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdColorPropertyBox::SdColorPropertyBox(weld::Label* pLabel, weld::Container* pParent, weld::Window* pTopLevel, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyLink(rModifyHdl)
     , mxControl(new ColorListBox(mxBuilder->weld_menu_button("color"), pTopLevel))
 {
@@ -451,7 +454,7 @@ Control* FontPropertyBox::getControl()
 class SdFontPropertyBox : public SdPropertySubControl
 {
 public:
-    SdFontPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdFontPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue(const Any& rValue, const OUString& rPresetId) override;
@@ -463,8 +466,8 @@ private:
     DECL_LINK(ControlSelectHdl, weld::ComboBox&, void);
 };
 
-SdFontPropertyBox::SdFontPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdFontPropertyBox::SdFontPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyHdl(rModifyHdl)
     , mxControl(mxBuilder->weld_combo_box("fontname"))
 {
@@ -690,7 +693,7 @@ Control* CharHeightPropertyBox::getControl()
 class SdCharHeightPropertyBox : public SdPropertySubControl
 {
 public:
-    SdCharHeightPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdCharHeightPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& ) override;
@@ -705,8 +708,8 @@ private:
     DECL_LINK(EditModifyHdl, weld::MetricSpinButton&, void);
 };
 
-SdCharHeightPropertyBox::SdCharHeightPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdCharHeightPropertyBox::SdCharHeightPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyHdl(rModifyHdl)
     , mxMetric(mxBuilder->weld_metric_spin_button("fontsize", FUNIT_PERCENT))
     , mxControl(mxBuilder->weld_menu_button("fontsizemenu"))
@@ -852,7 +855,7 @@ Control* TransparencyPropertyBox::getControl()
 class SdTransparencyPropertyBox : public SdPropertySubControl
 {
 public:
-    SdTransparencyPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdTransparencyPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& rPresetId  ) override;
@@ -869,8 +872,8 @@ private:
     std::unique_ptr<weld::MenuButton> mxControl;
 };
 
-SdTransparencyPropertyBox::SdTransparencyPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdTransparencyPropertyBox::SdTransparencyPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyHdl(rModifyHdl)
     , mxMetric(mxBuilder->weld_metric_spin_button("transparent", FUNIT_PERCENT))
     , mxControl(mxBuilder->weld_menu_button("transparentmenu"))
@@ -1056,7 +1059,7 @@ Control* RotationPropertyBox::getControl()
 class SdRotationPropertyBox : public SdPropertySubControl
 {
 public:
-    SdRotationPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdRotationPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& ) override;
@@ -1073,8 +1076,8 @@ private:
     std::unique_ptr<weld::MenuButton> mxControl;
 };
 
-SdRotationPropertyBox::SdRotationPropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdRotationPropertyBox::SdRotationPropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyHdl(rModifyHdl)
     , mxMetric(mxBuilder->weld_metric_spin_button("rotate", FUNIT_DEGREE))
     , mxControl(mxBuilder->weld_menu_button("rotatemenu"))
@@ -1333,7 +1336,7 @@ Control* ScalePropertyBox::getControl()
 class SdScalePropertyBox : public SdPropertySubControl
 {
 public:
-    SdScalePropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdScalePropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& ) override;
@@ -1351,8 +1354,8 @@ private:
     std::unique_ptr<weld::MenuButton> mxControl;
 };
 
-SdScalePropertyBox::SdScalePropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
-    : SdPropertySubControl(pParent, nControlType)
+SdScalePropertyBox::SdScalePropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl)
+    : SdPropertySubControl(pParent)
     , maModifyHdl( rModifyHdl )
     , mxMetric(mxBuilder->weld_metric_spin_button("scale", FUNIT_PERCENT))
     , mxControl(mxBuilder->weld_menu_button("scalemenu"))
@@ -1612,7 +1615,7 @@ Control* FontStylePropertyBox::getControl()
 class SdFontStylePropertyBox : public SdPropertySubControl
 {
 public:
-    SdFontStylePropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
+    SdFontStylePropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl);
 
     virtual Any getValue() override;
     virtual void setValue( const Any& rValue, const OUString& ) override;
@@ -1631,8 +1634,8 @@ private:
     std::unique_ptr<weld::MenuButton> mxControl;
 };
 
-SdFontStylePropertyBox::SdFontStylePropertyBox(sal_Int32 nControlType, weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl )
-    : SdPropertySubControl(pParent, nControlType)
+SdFontStylePropertyBox::SdFontStylePropertyBox(weld::Label* pLabel, weld::Container* pParent, const Any& rValue, const Link<LinkParamNone*,void>& rModifyHdl )
+    : SdPropertySubControl(pParent)
     , maModifyHdl( rModifyHdl )
     , mxEdit(mxBuilder->weld_entry("entry"))
     , mxControl(mxBuilder->weld_menu_button("entrymenu"))
@@ -2995,7 +2998,7 @@ std::unique_ptr<SdPropertySubControl> SdPropertySubControl::create(sal_Int32 nTy
     case nPropertyTypeDirection:
     case nPropertyTypeSpokes:
     case nPropertyTypeZoom:
-        pSubControl.reset( new SdPresetPropertyBox( nType, pLabel, pParent, rValue, rPresetId, rModifyHdl ) );
+        pSubControl.reset( new SdPresetPropertyBox( pLabel, pParent, rValue, rPresetId, rModifyHdl ) );
         break;
 
     case nPropertyTypeColor:
@@ -3003,31 +3006,31 @@ std::unique_ptr<SdPropertySubControl> SdPropertySubControl::create(sal_Int32 nTy
     case nPropertyTypeFirstColor:
     case nPropertyTypeCharColor:
     case nPropertyTypeLineColor:
-        pSubControl.reset( new SdColorPropertyBox( nType, pLabel, pParent, pTopLevel, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdColorPropertyBox( pLabel, pParent, pTopLevel, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeFont:
-        pSubControl.reset( new SdFontPropertyBox( nType, pLabel, pParent, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdFontPropertyBox( pLabel, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeCharHeight:
-        pSubControl.reset( new SdCharHeightPropertyBox( nType, pLabel, pParent, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdCharHeightPropertyBox( pLabel, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeRotate:
-        pSubControl.reset( new SdRotationPropertyBox( nType, pLabel, pParent, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdRotationPropertyBox( pLabel, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeTransparency:
-        pSubControl.reset( new SdTransparencyPropertyBox( nType, pLabel, pParent, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdTransparencyPropertyBox( pLabel, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeScale:
-        pSubControl.reset( new SdScalePropertyBox( nType, pLabel, pParent, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdScalePropertyBox( pLabel, pParent, rValue, rModifyHdl ) );
         break;
 
     case nPropertyTypeCharDecoration:
-        pSubControl.reset( new SdFontStylePropertyBox( nType, pLabel, pParent, rValue, rModifyHdl ) );
+        pSubControl.reset( new SdFontStylePropertyBox( pLabel, pParent, rValue, rModifyHdl ) );
         break;
     }
 

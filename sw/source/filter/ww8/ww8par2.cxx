@@ -480,7 +480,7 @@ ApoTestResults SwWW8ImplReader::TestApo(int nCellLevel, bool bTableRowEnd,
             {
                 if (!m_xTableDesc)
                 {
-                    OSL_ENSURE(m_xTableDesc.get(), "What!");
+                    OSL_ENSURE(m_xTableDesc, "What!");
                     bTestAllowed = false;
                 }
                 else
@@ -753,7 +753,7 @@ void SwWW8ImplReader::Read_ANLevelNo( sal_uInt16, const sal_uInt8* pData, short 
         {
             // Range WW:1..9 -> SW:0..8 no bullets / numbering
 
-            if (*pData <= MAXLEVEL && *pData <= 9)
+            if (*pData <= 9)
             {
                 m_nSwNumLevel = *pData - 1;
                 if (!m_bNoAttrImport)
@@ -798,8 +798,8 @@ void SwWW8ImplReader::Read_ANLevelDesc( sal_uInt16, const sal_uInt8* pData, shor
         return;
     }
 
-    if( m_nSwNumLevel <= MAXLEVEL         // Value range mapping WW:1..9 -> SW:0..8
-        && m_nSwNumLevel <= 9 ){          // No Bullets or Numbering
+    if (m_nSwNumLevel <= 9) // Value range mapping WW:1..9 -> SW:0..8
+    {
 
         // If NumRuleItems were set, either directly or through inheritance, disable them now
         m_pCurrentColl->SetFormatAttr( SwNumRuleItem() );
@@ -814,7 +814,8 @@ void SwWW8ImplReader::Read_ANLevelDesc( sal_uInt16, const sal_uInt8* pData, shor
 
         // Missing Levels need not be replenished
         m_rDoc.SetOutlineNumRule( aNR );
-    }else if( m_xStyles->mnWwNumLevel == 10 || m_xStyles->mnWwNumLevel == 11 ){
+    }
+    else if( m_xStyles->mnWwNumLevel == 10 || m_xStyles->mnWwNumLevel == 11 ){
         SwNumRule* pNR = GetStyRule();
         SetAnld(pNR, reinterpret_cast<WW8_ANLD const *>(pData), 0, false);
         m_pCurrentColl->SetFormatAttr( SwNumRuleItem( pNR->GetName() ) );
@@ -3481,7 +3482,7 @@ bool SwWW8ImplReader::StartTable(WW8_CP nStartCp)
     delete pTableWFlyPara;
     delete pTableSFlyPara;
 
-    return m_xTableDesc.get() != nullptr;
+    return m_xTableDesc != nullptr;
 }
 
 void SwWW8ImplReader::TabCellEnd()
@@ -3522,7 +3523,7 @@ void SwWW8ImplReader::PopTableDesc()
 
 void SwWW8ImplReader::StopTable()
 {
-    OSL_ENSURE(m_xTableDesc.get(), "Panic, stop table with no table!");
+    OSL_ENSURE(m_xTableDesc, "Panic, stop table with no table!");
     if (!m_xTableDesc)
         return;
 
@@ -3997,7 +3998,7 @@ void WW8RStyle::ScanStyles()        // investigate style dependencies
         rSI.m_nFilePos = mpStStrm->Tell();        // remember FilePos
         sal_uInt16 nSkip;
         std::unique_ptr<WW8_STD> xStd(Read1Style(nSkip, nullptr));  // read STD
-        rSI.m_bValid = xStd.get() != nullptr;
+        rSI.m_bValid = xStd != nullptr;
         if (rSI.m_bValid)
         {
             rSI.m_nBase = xStd->istdBase; // remember Basis
@@ -4445,7 +4446,7 @@ void WW8RStyle::ImportOldFormatStyles()
         ImportSprms(aPAPXOffsets[stcp].mnOffset, aPAPXOffsets[stcp].mnSize,
             true);
 
-        if (aConvertedChpx[stcp].size() > 0)
+        if (!aConvertedChpx[stcp].empty())
             ImportSprms(&(aConvertedChpx[stcp][0]),
                         static_cast< short >(aConvertedChpx[stcp].size()),
                         false);

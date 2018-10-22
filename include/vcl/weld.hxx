@@ -175,6 +175,7 @@ public:
     virtual void set_current_page(int nPage) = 0;
     virtual void set_current_page(const OString& rIdent) = 0;
     virtual void remove_page(const OString& rIdent) = 0;
+    virtual void append_page(const OString& rIdent, const OUString& rLabel) = 0;
     virtual OUString get_tab_label_text(const OString& rIdent) const = 0;
     virtual int get_n_pages() const = 0;
     virtual weld::Container* get_page(const OString& rIdent) const = 0;
@@ -194,6 +195,7 @@ public:
     virtual OUString get_title() const = 0;
     virtual void set_busy_cursor(bool bBusy) = 0;
     virtual void window_move(int x, int y) = 0;
+    virtual void set_modal(bool bModal) = 0;
     virtual bool get_extents_relative_to(Window& rRelative, int& x, int& y, int& width, int& height)
         = 0;
 
@@ -309,6 +311,8 @@ public:
     {
         insert(-1, rStr, &rId, nullptr, &rImage);
     }
+    virtual void insert_separator(int pos) = 0;
+    void append_separator() { insert_separator(-1); }
 
     virtual int get_count() const = 0;
     virtual void make_sorted() = 0;

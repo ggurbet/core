@@ -2243,7 +2243,7 @@ class ScTDistFunction : public ScDistFunc
 {
     ScInterpreter&  rInt;
     double          fp, fDF;
-    int             nT;
+    int const       nT;
 
 public:
             ScTDistFunction( ScInterpreter& rI, double fpVal, double fDFVal, int nType ) :
@@ -2868,8 +2868,10 @@ void ScInterpreter::ScKurt()
     if ( !CalculateSkew(fSum,fCount,vSum,values) )
         return;
 
-    if (fCount == 0.0)
+    // ODF 1.2 constraints: # of numbers >= 4
+    if (fCount < 4.0)
     {
+        // for interoperability with Excel
         PushError( FormulaError::DivisionByZero);
         return;
     }
@@ -3321,6 +3323,13 @@ void ScInterpreter::CalculateSkewOrSkewp( bool bSkewp )
     std::vector<double> values;
     if (!CalculateSkew( fSum, fCount, vSum, values))
         return;
+     // SKEW/SKEWP's constraints: they require at least three numbers
+    if (fCount < 3.0)
+    {
+        // for interoperability with Excel
+        PushError(FormulaError::DivisionByZero);
+        return;
+    }
 
     double fMean = fSum / fCount;
 

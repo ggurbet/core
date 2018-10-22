@@ -27,6 +27,7 @@
 #include <unordered_map>
 
 class ScDocument;
+struct ScLookupCacheMap;
 struct ScQueryEntry;
 
 /** Lookup cache for one range used with interpreter functions such as VLOOKUP
@@ -106,7 +107,7 @@ public:
     };
 
     /// MUST be new'd because Notify() deletes.
-                            ScLookupCache( ScDocument * pDoc, const ScRange & rRange );
+                            ScLookupCache( ScDocument * pDoc, const ScRange & rRange, ScLookupCacheMap & cacheMap );
     virtual                 ~ScLookupCache() override;
     /// Remove from document structure and delete (!) cache on modify hint.
     virtual void Notify( const SfxHint& rHint ) override;
@@ -129,6 +130,8 @@ public:
 
     const ScRange&  getRange() const { return maRange; }
 
+    ScLookupCacheMap & getCacheMap() const { return mCacheMap; }
+
     struct Hash
     {
         size_t operator()( const ScRange & rRange ) const
@@ -142,9 +145,9 @@ private:
 
     struct QueryKey
     {
-        SCROW           mnRow;
-        SCTAB           mnTab;
-        QueryOp         meOp;
+        SCROW const           mnRow;
+        SCTAB const           mnTab;
+        QueryOp const         meOp;
 
         QueryKey( const ScAddress & rAddress, const QueryOp eOp ) :
             mnRow( rAddress.Row()),
@@ -171,7 +174,7 @@ private:
 
     struct QueryCriteriaAndResult
     {
-        QueryCriteria   maCriteria;
+        QueryCriteria const   maCriteria;
         ScAddress       maAddress;
 
         QueryCriteriaAndResult( const QueryCriteria & rCriteria, const ScAddress & rAddress ) :
@@ -182,8 +185,9 @@ private:
     };
 
     std::unordered_map< QueryKey, QueryCriteriaAndResult, QueryKey::Hash > maQueryMap;
-    ScRange         maRange;
+    ScRange const   maRange;
     ScDocument *    mpDoc;
+    ScLookupCacheMap & mCacheMap;
 
     ScLookupCache( const ScLookupCache & ) = delete;
     ScLookupCache & operator=( const ScLookupCache & ) = delete;

@@ -41,31 +41,6 @@ class SfxViewFrame;
 class SfxTabPage;
 class SfxBindings;
 
-struct TabPageParent
-{
-    TabPageParent(vcl::Window* _pParent)
-        : pParent(_pParent)
-        , pPage(nullptr)
-        , pController(nullptr)
-    {
-    }
-    TabPageParent(weld::Container* _pPage, weld::DialogController* _pController)
-        : pParent(nullptr)
-        , pPage(_pPage)
-        , pController(_pController)
-    {
-    }
-    weld::Window* GetFrameWeld() const
-    {
-        if (pController)
-            return pController->getDialog();
-        return pParent->GetFrameWeld();
-    }
-    VclPtr<vcl::Window> pParent;
-    weld::Container* const pPage;
-    weld::DialogController* pController;
-};
-
 typedef VclPtr<SfxTabPage> (*CreateTabPage)(TabPageParent pParent, const SfxItemSet *rAttrSet);
 typedef const sal_uInt16*     (*GetTabPageRanges)(); // provides international Which-value
 struct TabPageImpl;
@@ -287,12 +262,21 @@ public:
                            const SfxItemSet * = nullptr, bool bEditFmt = false);
     virtual ~SfxTabDialogController() override;
 
-    void                AddTabPage(const OString& rName,           // Name of the label for the page in the notebook .ui
+    void                AddTabPage(const OString& rName,           // Name of the label for the existing page in the notebook .ui
                                    CreateTabPage pCreateFunc,      // != 0
                                    GetTabPageRanges pRangesFunc);  // can be 0
 
-    void                AddTabPage(const OString &rName,          // Name of the label for the page in the notebook .ui
-                                   sal_uInt16 nPageCreateId);     // Identifier of the Factory Method to create the page
+    void                AddTabPage(const OString& rName,           // Name of the label for the existing page in the notebook .ui
+                                   sal_uInt16 nPageCreateId);      // Identifier of the Factory Method to create the page
+
+    void                AddTabPage(const OString& rName,           // Name of the label for the new page to create
+                                   const OUString& rLabel,         // UI Label for the new page to create
+                                   CreateTabPage pCreateFunc,      // != 0
+                                   GetTabPageRanges pRangesFunc);  // can be 0
+
+    void                AddTabPage(const OString& rName,           // Name of the label for the new page to create
+                                   const OUString& rLabel,         // UI Label for the new page to create
+                                   sal_uInt16 nPageCreateId);      // Identifier of the Factory Method to create the page
 
     void                RemoveTabPage( const OString& rName ); // Name of the label for the page in the notebook .ui
 

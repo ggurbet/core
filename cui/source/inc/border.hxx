@@ -21,7 +21,6 @@
 
 #include <editeng/shaditem.hxx>
 #include <svtools/ctrlbox.hxx>
-#include <vcl/group.hxx>
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/weld.hxx>
@@ -48,6 +47,7 @@ public:
 
     SvxShadowItem GetControlValue(const SvxShadowItem& rItem) const;
     void SetControlValue(const SvxShadowItem& rItem);
+    void SetControlDontKnow();
 
 private:
     SvtValueSet&                        mrVsPos;
@@ -63,6 +63,7 @@ public:
 
     SvxMarginItem GetControlValue(const SvxMarginItem& rItem) const;
     void SetControlValue(const SvxMarginItem& rItem);
+    void SetControlDontKnow();
 
     bool get_value_changed_from_saved() const;
 

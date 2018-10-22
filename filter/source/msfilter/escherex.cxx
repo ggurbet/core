@@ -2479,19 +2479,14 @@ bool EscherPropertyContainer::IsDefaultObject(
             break;
     }
 
-    if(rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::Equations )
+    return rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::Equations )
         && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::Viewbox )
         && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::Path )
         && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::Gluepoints )
         && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::Segments )
         && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::StretchX )
         && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::StretchY )
-        && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::TextFrames ) )
-    {
-        return true;
-    }
-
-    return false;
+        && rSdrObjCustomShape.IsDefaultGeometry( SdrObjCustomShape::DefaultType::TextFrames );
 }
 
 void EscherPropertyContainer::LookForPolarHandles( const MSO_SPT eShapeType, sal_Int32& nAdjustmentsWhichNeedsToBeConverted )
@@ -4226,8 +4221,7 @@ sal_uInt32 EscherGraphicProvider::GetBlibID( SvStream& rPicOutStrm, GraphicObjec
                 if ( nErrCode == ERRCODE_NONE )
                 {
                     p_EscherBlibEntry->meBlibType = ( eGraphicType == GraphicType::Bitmap ) ? PNG : EMF;
-                    aStream.Seek( STREAM_SEEK_TO_END );
-                    p_EscherBlibEntry->mnSize = aStream.Tell();
+                    p_EscherBlibEntry->mnSize = aStream.TellEnd();
                     pGraphicAry = static_cast<sal_uInt8 const *>(aStream.GetData());
                 }
             }
@@ -4244,7 +4238,7 @@ sal_uInt32 EscherGraphicProvider::GetBlibID( SvStream& rPicOutStrm, GraphicObjec
                 rPicOutStrm.WriteUInt32( 0x7f90000 | static_cast<sal_uInt16>( mvBlibEntrys.size() << 4 ) )
                            .WriteUInt32( 0 );
                 nAtomSize = rPicOutStrm.Tell();
-                 if ( eBlibType == PNG )
+                if ( eBlibType == PNG )
                     rPicOutStrm.WriteUInt16( 0x0606 );
                 else if ( eBlibType == WMF )
                     rPicOutStrm.WriteUInt16( 0x0403 );
@@ -4293,8 +4287,7 @@ sal_uInt32 EscherGraphicProvider::GetBlibID( SvStream& rPicOutStrm, GraphicObjec
                 SvMemoryStream aDestStrm;
                 aZCodec.Write( aDestStrm, pGraphicAry, p_EscherBlibEntry->mnSize );
                 aZCodec.EndCompression();
-                aDestStrm.Seek( STREAM_SEEK_TO_END );
-                p_EscherBlibEntry->mnSize = aDestStrm.Tell();
+                p_EscherBlibEntry->mnSize = aDestStrm.TellEnd();
                 pGraphicAry = static_cast<sal_uInt8 const *>(aDestStrm.GetData());
                 if ( p_EscherBlibEntry->mnSize && pGraphicAry )
                 {
@@ -4961,8 +4954,7 @@ void EscherEx::InsertAtCurrentPos( sal_uInt32 nBytes )
         if ( offset > nCurPos )
             offset += nBytes;
     }
-    mpOutStrm->Seek( STREAM_SEEK_TO_END );
-    nSource = mpOutStrm->Tell();
+    nSource = mpOutStrm->TellEnd();
     nToCopy = nSource - nCurPos;                        // increase the size of the tream by nBytes
     std::unique_ptr<sal_uInt8[]> pBuf(new sal_uInt8[ 0x40000 ]); // 256KB Buffer
     while ( nToCopy )

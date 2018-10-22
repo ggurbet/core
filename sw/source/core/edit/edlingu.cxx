@@ -815,7 +815,7 @@ void SwEditShell::HyphIgnore()
 }
 
 void SwEditShell::HandleCorrectionError(const OUString& aText, SwPosition aPos, sal_Int32 nBegin,
-                                        sal_Int32 nLen, SwPaM* pCursor, const Point* pPt,
+                                        sal_Int32 nLen, const Point* pPt,
                                         SwRect& rSelectRect)
 {
     // save the start and end positions of the line and the starting point
@@ -840,7 +840,7 @@ void SwEditShell::HandleCorrectionError(const OUString& aText, SwPosition aPos, 
         ++nRight;
 
     aPos.nContent = nBegin + nLeft;
-    pCursor = GetCursor();
+    SwPaM* pCursor = GetCursor();
     *pCursor->GetPoint() = aPos;
     pCursor->SetMark();
     ExtendSelection( true, nLen - nLeft - nRight );
@@ -935,7 +935,7 @@ uno::Reference< XSpellAlternatives >
 
             if ( xSpellAlt.is() )   // error found?
             {
-                HandleCorrectionError( aText, aPos, nBegin, nLen, pCursor, pPt, rSelectRect );
+                HandleCorrectionError( aText, aPos, nBegin, nLen, pPt, rSelectRect );
             }
         }
     }
@@ -1014,7 +1014,7 @@ bool SwEditShell::GetGrammarCorrection(
 
             if (rResult.aErrors.getLength() > 0)    // error found?
             {
-                HandleCorrectionError( aText, aPos, nBegin, nLen, pCursor, pPt, rSelectRect );
+                HandleCorrectionError( aText, aPos, nBegin, nLen, pPt, rSelectRect );
             }
         }
     }
@@ -1074,12 +1074,12 @@ void SwEditShell::ApplyChangedSentence(const svx::SpellPortions& rNewPortions, b
 
     OSL_ENSURE(  g_pSpellIter, "SpellIter missing" );
     if (!g_pSpellIter ||
-        g_pSpellIter->GetLastPortions().size() <= 0) // no portions -> no text to be changed
+        g_pSpellIter->GetLastPortions().empty()) // no portions -> no text to be changed
         return;
 
     const SpellPortions& rLastPortions = g_pSpellIter->GetLastPortions();
     const SpellContentPositions  rLastPositions = g_pSpellIter->GetLastPositions();
-    OSL_ENSURE(rLastPortions.size() > 0 &&
+    OSL_ENSURE(!rLastPortions.empty() &&
             rLastPortions.size() == rLastPositions.size(),
             "last vectors of spelling results are not set or not equal");
 

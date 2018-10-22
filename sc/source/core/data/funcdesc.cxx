@@ -45,7 +45,7 @@ struct ScFuncDescCore
     /*
      * An opcode from include/formula/compiler.hxx
      */
-    sal_uInt16 nOpCode;
+    sal_uInt16 const nOpCode;
     /*
      * Pointer to list of strings
      */
@@ -53,7 +53,7 @@ struct ScFuncDescCore
     /*
      * Count of list of strings
      */
-    size_t nResourceLen;
+    size_t const nResourceLen;
     /*
      * 16-bit value:
      *
@@ -66,11 +66,11 @@ struct ScFuncDescCore
      * Bit 2: boolean flag whether function is hidden in the Function
      * Wizard unless used in an expression.
      */
-    sal_uInt16 nFunctionFlags;
+    sal_uInt16 const nFunctionFlags;
     /*
      * Function group (text, math, ...), one of ID_FUNCTION_GRP_...
      */
-    sal_uInt16 nCategory;
+    sal_uInt16 const nCategory;
     /*
      * Help ID, HID_FUNC_...
      */
@@ -82,12 +82,12 @@ struct ScFuncDescCore
      * paired parameters, or PAIRED_VAR_ARGS+number if number of fixed
      * parameters and variable paired arguments following.
      */
-    sal_uInt16 nArgs;
+    sal_uInt16 const nArgs;
     /*
      * For every parameter:
      *     Boolean flag whether the parameter is optional.
      */
-    sal_uInt8 aOptionalArgs[7];
+    sal_uInt8 const aOptionalArgs[7];
 };
 
 class ScFuncRes
@@ -415,7 +415,7 @@ ScFunctionList::ScFunctionList()
     // See ScFuncDescCore definition for format details.
     // This list must be sorted in order of the opcode, dbgutil builds enable _GLIBCXX_DEBUG
     // which will concept check that the list is sorted on first use to ensure this holds
-    ScFuncDescCore aDescs[] =
+    static const ScFuncDescCore aDescs[] =
     {
         { SC_OPCODE_IF, ENTRY(SC_OPCODE_IF_ARY), 0, ID_FUNCTION_GRP_LOGIC, HID_FUNC_WENN, 3, { 0, 1, 1 } },
         { SC_OPCODE_IF_ERROR, ENTRY(SC_OPCODE_IF_ERROR_ARY), 0, ID_FUNCTION_GRP_LOGIC, HID_FUNC_IFERROR, 2, { 0, 0 } },
@@ -818,10 +818,10 @@ ScFunctionList::ScFunctionList()
     // otherwise the sub resources within the resource blocks and the
     // resource blocks themselves would had to be ordered according to
     // OpCodes, which is utopian...
-    ScFuncDescCore* pDescsEnd = aDescs + SAL_N_ELEMENTS(aDescs);
+    ScFuncDescCore const * pDescsEnd = aDescs + SAL_N_ELEMENTS(aDescs);
     for (sal_uInt16 i = 0; i <= SC_OPCODE_LAST_OPCODE_ID; ++i)
     {
-        ScFuncDescCore *pEntry = std::lower_bound(aDescs, pDescsEnd, i,
+        const ScFuncDescCore *pEntry = std::lower_bound(aDescs, pDescsEnd, i,
             [](const ScFuncDescCore &rItem, sal_uInt16 key)
             {
                 return rItem.nOpCode < key;

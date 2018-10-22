@@ -350,11 +350,11 @@ public:
                 tools::Rectangle aBottom(aToplevelRegions[1].TopLeft(),
                                   aToplevelRegions[2].BottomRight());
                 DemoRenderer::clearRects(rDev,aSubRegions);
-                struct {
+                static struct {
                     bool const mbClip;
                     bool const mbArabicText;
                     bool const mbRotate;
-                } aRenderData[] = {
+                } const aRenderData[] = {
                     { false, false, false },
                     { false, true,  false },
                     { false, true,  true },
@@ -518,10 +518,10 @@ public:
                 0xf0, 0x9f, 0x82, 0xa1, 0xc2, 0xa2, 0xc2, 0xa2, 0
             };
 
-            struct {
+            static struct {
                 const char *mpFont;
                 const char *mpString;
-            } aRuns[] = {
+            } const aRuns[] = {
 #define SET(font,string) { font, reinterpret_cast<const char *>(string) }
                 SET("sans", "a"),           // logical font - no 'sans' font.
                 SET("opensymbol", "#$%"),   // font fallback - $ is missing.
@@ -927,9 +927,9 @@ public:
         virtual void RenderRegion(OutputDevice &rDev, tools::Rectangle r,
                                   const RenderContext &) override
         {
-            struct {
+            static struct {
                 double nX, nY;
-            } aPoints[] = { { 0.1, 0.1 }, { 0.9, 0.9 },
+            } const aPoints[] = { { 0.1, 0.1 }, { 0.9, 0.9 },
 #if FIXME_SELF_INTERSECTING_WORKING
                             { 0.9, 0.1 }, { 0.1, 0.9 },
                             { 0.1, 0.1 }
@@ -1504,14 +1504,9 @@ public:
     void addInvalidate(vcl::Window *pWindow) { maInvalidates.emplace_back(pWindow); };
     void removeInvalidate(vcl::Window *pWindow)
     {
-        for (auto aIt = maInvalidates.begin(); aIt != maInvalidates.end(); ++aIt)
-        {
-            if (*aIt == pWindow)
-            {
-                maInvalidates.erase(aIt);
-                return;
-            }
-        }
+        auto aIt = std::find(maInvalidates.begin(), maInvalidates.end(), pWindow);
+        if (aIt != maInvalidates.end())
+            maInvalidates.erase(aIt);
     }
     void Invalidate()
     {
@@ -2251,7 +2246,7 @@ public:
                 xWidgets = VclPtr< DemoWidgets >::Create ();
             else if (bPopup)
                 xPopup = VclPtrInstance< DemoPopup> ();
-            else if (aFontNames.size() > 0)
+            else if (!aFontNames.empty())
                 renderFonts(aFontNames);
             else
                 aMainWin->Show();

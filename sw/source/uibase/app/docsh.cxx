@@ -1141,7 +1141,7 @@ void SwDocShell::GetState(SfxItemSet& rSet)
         case FN_REDLINE_ACCEPT_ALL:
         case FN_REDLINE_REJECT_ALL:
         {
-            if (GetDoc()->getIDocumentRedlineAccess().GetRedlineTable().size() == 0)
+            if (GetDoc()->getIDocumentRedlineAccess().GetRedlineTable().empty())
                 rSet.DisableItem(nWhich);
         }
         break;
@@ -1353,7 +1353,7 @@ OUString SwDocShell::GetEventName( sal_Int32 nIndex )
 
 const ::sfx2::IXmlIdRegistry* SwDocShell::GetXmlIdRegistry() const
 {
-    return m_xDoc.get() ? &m_xDoc->GetXmlIdRegistry() : nullptr;
+    return m_xDoc ? &m_xDoc->GetXmlIdRegistry() : nullptr;
 }
 
 bool SwDocShell::IsChangeRecording() const

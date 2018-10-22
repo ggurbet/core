@@ -357,13 +357,9 @@ bool TextEngine::DoesKeyChangeText( const KeyEvent& rKeyEvent )
 
 bool TextEngine::IsSimpleCharInput( const KeyEvent& rKeyEvent )
 {
-    if( rKeyEvent.GetCharCode() >= 32 && rKeyEvent.GetCharCode() != 127 &&
+    return rKeyEvent.GetCharCode() >= 32 && rKeyEvent.GetCharCode() != 127 &&
         KEY_MOD1 != (rKeyEvent.GetKeyCode().GetModifier() & ~KEY_SHIFT) && // (ssa) #i45714#:
-        KEY_MOD2 != (rKeyEvent.GetKeyCode().GetModifier() & ~KEY_SHIFT) )  // check for Ctrl and Alt separately
-    {
-        return true;
-    }
-    return false;
+        KEY_MOD2 != (rKeyEvent.GetKeyCode().GetModifier() & ~KEY_SHIFT);  // check for Ctrl and Alt separately
 }
 
 void TextEngine::ImpInitDoc()
@@ -947,11 +943,8 @@ long TextEngine::ImpGetXPos( sal_uInt32 nPara, TextLine* pLine, sal_Int32 nIndex
                 if ( ( pPortion->GetKind() == PORTIONKIND_TAB ) && ( (nTextPortion+1) < pParaPortion->GetTextPortions().size() ) )
                 {
                     TETextPortion* pNextPortion = pParaPortion->GetTextPortions()[ nTextPortion+1 ];
-                    if ( ( pNextPortion->GetKind() != PORTIONKIND_TAB ) && (
-                              ( !IsRightToLeft() && pNextPortion->IsRightToLeft() ) ||
-                              ( IsRightToLeft() && !pNextPortion->IsRightToLeft() ) ) )
+                    if (pNextPortion->GetKind() != PORTIONKIND_TAB && IsRightToLeft() != pNextPortion->IsRightToLeft())
                     {
-//                        nX += pNextPortion->GetWidth();
                         // End of the tab portion, use start of next for cursor pos
                         SAL_WARN_IF( bPreferPortionStart, "vcl", "ImpGetXPos: How can we get here!" );
                         nX = ImpGetXPos( nPara, pLine, nIndex, true );
@@ -966,8 +959,7 @@ long TextEngine::ImpGetXPos( sal_uInt32 nPara, TextLine* pLine, sal_Int32 nIndex
 
             long nPosInPortion = CalcTextWidth( nPara, nTextPortionStart, nIndex-nTextPortionStart );
 
-            if ( ( !IsRightToLeft() && !pPortion->IsRightToLeft() ) ||
-                 ( IsRightToLeft() && pPortion->IsRightToLeft() ) )
+            if (IsRightToLeft() == pPortion->IsRightToLeft())
             {
                 nX += nPosInPortion;
             }
@@ -979,9 +971,7 @@ long TextEngine::ImpGetXPos( sal_uInt32 nPara, TextLine* pLine, sal_Int32 nIndex
     }
     else // if ( nIndex == pLine->GetStart() )
     {
-        if ( ( pPortion->GetKind() != PORTIONKIND_TAB ) &&
-                ( ( !IsRightToLeft() && pPortion->IsRightToLeft() ) ||
-                ( IsRightToLeft() && !pPortion->IsRightToLeft() ) ) )
+        if (pPortion->GetKind() != PORTIONKIND_TAB && IsRightToLeft() != pPortion->IsRightToLeft())
         {
             nX += nPortionTextWidth;
         }
@@ -2357,7 +2347,7 @@ bool TextEngine::CreateLines( sal_uInt32 nPara )
                                           pTEParaPortion->GetLines().end() );
     }
 
-    SAL_WARN_IF( !pTEParaPortion->GetLines().size(), "vcl", "CreateLines: No Line!" );
+    SAL_WARN_IF( pTEParaPortion->GetLines().empty(), "vcl", "CreateLines: No Line!" );
 
     pTEParaPortion->SetValid();
 

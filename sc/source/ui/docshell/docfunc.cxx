@@ -1043,8 +1043,8 @@ void ScDocFunc::NotifyInputHandler( const ScAddress& rPos )
 
         struct ScMyRememberItem
         {
-            sal_Int32   nIndex;
-            SfxItemSet  aItemSet;
+            sal_Int32 const   nIndex;
+            SfxItemSet const  aItemSet;
 
             ScMyRememberItem(const SfxItemSet& rItemSet, sal_Int32 nTempIndex) :
                 nIndex(nTempIndex), aItemSet(rItemSet) {}
@@ -1101,7 +1101,7 @@ void ScDocFunc::PutData( const ScAddress& rPos, ScEditEngineDefaulter& rEngine, 
             ScMyRememberItemVector::iterator aItr = aRememberItems.begin();
             while (aItr != aRememberItems.end())
             {
-                rEngine.SetParaAttribs((*aItr).get()->nIndex, (*aItr).get()->aItemSet);
+                rEngine.SetParaAttribs((*aItr)->nIndex, (*aItr)->aItemSet);
                 ++aItr;
             }
         }

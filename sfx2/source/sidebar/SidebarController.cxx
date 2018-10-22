@@ -752,6 +752,8 @@ void SidebarController::SwitchToDeck (
     if (bForceNewPanels && !bForceNewDeck) // already forced if bForceNewDeck
         CreatePanels(rDeckDescriptor.msId, rContext);
 
+    if (mpCurrentDeck && mpCurrentDeck != rDeckDescriptor.mpDeck)
+        mpCurrentDeck->Hide();
     mpCurrentDeck.reset(rDeckDescriptor.mpDeck);
 
     if ( ! mpCurrentDeck)
@@ -1111,12 +1113,7 @@ void SidebarController::RequestCloseDeck()
     mbIsDeckRequestedOpen = false;
     UpdateDeckOpenState();
 
-    if (mpCurrentDeck.get())
-    {
-        sal_Int32 nIndex(mpTabBar->GetDeckIndexForId(mpCurrentDeck->GetId()));
-        maFocusManager.GrabFocusButton(nIndex);
-    }
-    else
+    if (!mpCurrentDeck.get())
         mpTabBar->RemoveDeckHighlight();
 }
 

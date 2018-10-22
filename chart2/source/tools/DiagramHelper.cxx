@@ -280,26 +280,23 @@ void DiagramHelper::setStackMode(
             if( !xChartTypeContainer.is() )
                 continue;
             uno::Sequence< uno::Reference< XChartType > > aChartTypeList( xChartTypeContainer->getChartTypes() );
-            sal_Int32 nMax = aChartTypeList.getLength();
-            if( nMax >= 1 )
-                nMax = 1;
-            for( sal_Int32 nT = 0; nT < nMax; ++nT )
+            if (!aChartTypeList.getLength())
+                continue;
+
+            uno::Reference< XChartType > xChartType( aChartTypeList[0] );
+
+            //iterate through all series in this chart type
+            uno::Reference< XDataSeriesContainer > xDataSeriesContainer( xChartType, uno::UNO_QUERY );
+            OSL_ASSERT( xDataSeriesContainer.is());
+            if( !xDataSeriesContainer.is() )
+                continue;
+
+            uno::Sequence< uno::Reference< XDataSeries > > aSeriesList( xDataSeriesContainer->getDataSeries() );
+            for( sal_Int32 nS = 0; nS < aSeriesList.getLength(); ++nS )
             {
-                uno::Reference< XChartType > xChartType( aChartTypeList[nT] );
-
-                //iterate through all series in this chart type
-                uno::Reference< XDataSeriesContainer > xDataSeriesContainer( xChartType, uno::UNO_QUERY );
-                OSL_ASSERT( xDataSeriesContainer.is());
-                if( !xDataSeriesContainer.is() )
-                    continue;
-
-                uno::Sequence< uno::Reference< XDataSeries > > aSeriesList( xDataSeriesContainer->getDataSeries() );
-                for( sal_Int32 nS = 0; nS < aSeriesList.getLength(); ++nS )
-                {
-                    Reference< beans::XPropertySet > xProp( aSeriesList[nS], uno::UNO_QUERY );
-                    if(xProp.is())
-                        xProp->setPropertyValue( "StackingDirection", aNewDirection );
-                }
+                Reference< beans::XPropertySet > xProp( aSeriesList[nS], uno::UNO_QUERY );
+                if(xProp.is())
+                    xProp->setPropertyValue( "StackingDirection", aNewDirection );
             }
         }
     }
@@ -1182,7 +1179,7 @@ sal_Int32 DiagramHelper::getPercentNumberFormat( const Reference< util::XNumberF
     SvNumberFormatter* pNumFormatter = aNumberFormatterWrapper.getSvNumberFormatter();
     if( pNumFormatter )
     {
-        nRet = pNumFormatter->GetStandardFormat( SvNumFormatType::PERCENT, rLanguageTag.getLanguageType() );
+        nRet = pNumFormatter->GetFormatIndex( NF_PERCENT_INT, rLanguageTag.getLanguageType() );
     }
     else
     {
@@ -1193,6 +1190,10 @@ sal_Int32 DiagramHelper::getPercentNumberFormat( const Reference< util::XNumberF
                     rLanguageTag.getLocale(), true/*bCreate*/ );
             if( aKeySeq.getLength() )
             {
+                // This *assumes* the sequence is sorted as in
+                // NfIndexTableOffset and the first format is the integer 0%
+                // format by chance.. which usually is the case, but.. anyway,
+                // we usually also have a number formatter so don't reach here.
                 nRet = aKeySeq[0];
             }
         }

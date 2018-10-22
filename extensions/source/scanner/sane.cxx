@@ -860,8 +860,7 @@ bool Sane::Start( BitmapTransporter& rBitmap )
             bSuccess = false;
     }
     // get stream length
-    aConverter.Seek( STREAM_SEEK_TO_END );
-    int nPos = aConverter.Tell();
+    int nPos = aConverter.TellEnd();
 
     aConverter.Seek( 2 );
     aConverter.WriteUInt32( nPos+1 );
@@ -876,8 +875,7 @@ bool Sane::Start( BitmapTransporter& rBitmap )
         p_cancel( maHandle );
         CheckConsistency( "sane_cancel" );
     }
-    if( pBuffer )
-        delete [] pBuffer;
+    delete [] pBuffer;
 
     ReloadOptions();
 
@@ -978,9 +976,7 @@ OUString Sane::GetOptionUnitName( int n )
 bool Sane::ActivateButtonOption( int n )
 {
     SANE_Status nStatus = ControlOption( n, SANE_ACTION_SET_VALUE, nullptr );
-    if( nStatus != SANE_STATUS_GOOD )
-        return false;
-    return true;
+    return nStatus == SANE_STATUS_GOOD;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

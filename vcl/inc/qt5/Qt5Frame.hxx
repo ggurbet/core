@@ -26,6 +26,7 @@
 
 #include <headless/svpgdi.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/sysdata.hxx>
 
 #include <QtCore/QObject>
 
@@ -34,6 +35,8 @@ class Qt5Instance;
 class Qt5Menu;
 class QWidget;
 class Qt5MainWindow;
+class Qt5DragSource;
+class Qt5DropTarget;
 class QPaintDevice;
 class QScreen;
 class QImage;
@@ -66,7 +69,13 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     Qt5Frame* m_pParent;
     PointerStyle m_ePointerStyle;
 
+    SystemEnvData m_aSystemData;
+
     Qt5Menu* m_pSalMenu;
+
+    Qt5DragSource* m_pDragSource;
+    Qt5DropTarget* m_pDropTarget;
+    bool m_bInDrag;
 
     bool m_bDefaultSize;
     bool m_bDefaultPos;
@@ -121,6 +130,13 @@ public:
     virtual void SetMenu(SalMenu* pMenu) override;
     virtual void DrawMenuBar() override;
 
+    virtual void registerDragSource(Qt5DragSource* pDragSource);
+    virtual void deregisterDragSource(Qt5DragSource const* pDragSource);
+    virtual void registerDropTarget(Qt5DropTarget* pDropTarget);
+    virtual void deregisterDropTarget(Qt5DropTarget const* pDropTarget);
+    void draggingStarted(const int x, const int y);
+    void dropping(const int x, const int y);
+
     virtual void SetExtendedFrameStyle(SalExtStyle nExtStyle) override;
     virtual void Show(bool bVisible, bool bNoActivate = false) override;
     virtual void SetMinClientSize(long nWidth, long nHeight) override;
@@ -150,7 +166,7 @@ public:
     virtual LanguageType GetInputLanguage() override;
     virtual void UpdateSettings(AllSettings& rSettings) override;
     virtual void Beep() override;
-    virtual const SystemEnvData* GetSystemData() const override;
+    virtual const SystemEnvData* GetSystemData() const override { return &m_aSystemData; }
     virtual SalPointerState GetPointerState() override;
     virtual KeyIndicatorState GetIndicatorState() override;
     virtual void SimulateKeyPress(sal_uInt16 nKeyCode) override;

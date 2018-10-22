@@ -27,6 +27,7 @@
 #include <Qt5MainWindow.hxx>
 #include <Qt5Data.hxx>
 #include <Qt5Menu.hxx>
+#include <Qt5DragAndDrop.hxx>
 
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
@@ -45,6 +46,8 @@
 #include <vcl/layout.hxx>
 #include <vcl/syswin.hxx>
 
+#include <com/sun/star/datatransfer/dnd/DNDConstants.hpp>
+
 #include <cairo.h>
 #include <headless/svpgdi.hxx>
 
@@ -62,6 +65,9 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     , m_bNullRegion(true)
     , m_bGraphicsInUse(false)
     , m_ePointerStyle(PointerStyle::Arrow)
+    , m_pDragSource(nullptr)
+    , m_pDropTarget(nullptr)
+    , m_bInDrag(false)
     , m_bDefaultSize(true)
     , m_bDefaultPos(true)
 {
@@ -132,6 +138,14 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
         maGeometry.nLeftDecoration = 0;
         maGeometry.nRightDecoration = 0;
     }
+
+    m_aSystemData.nSize = sizeof(SystemEnvData);
+    m_aSystemData.aWindow = m_pQWidget->winId();
+    m_aSystemData.aShellWindow = reinterpret_cast<sal_IntPtr>(this);
+    //m_aSystemData.pSalFrame = this;
+    //m_aSystemData.pWidget = m_pQWidget;
+    //m_aSystemData.nScreen = m_nXScreen.getXScreen();
+    m_aSystemData.pToolkit = "qt5";
 }
 
 Qt5Frame::~Qt5Frame()
@@ -142,6 +156,7 @@ Qt5Frame::~Qt5Frame()
         delete m_pTopLevel;
     else
         delete m_pQWidget;
+    m_aSystemData.aShellWindow = 0;
 }
 
 void Qt5Frame::Damage(sal_Int32 nExtentsX, sal_Int32 nExtentsY, sal_Int32 nExtentsWidth,
@@ -779,8 +794,6 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
 
 void Qt5Frame::Beep() { QApplication::beep(); }
 
-const SystemEnvData* Qt5Frame::GetSystemData() const { return nullptr; }
-
 SalFrame::SalPointerState Qt5Frame::GetPointerState()
 {
     SalPointerState aState;
@@ -833,6 +846,86 @@ void Qt5Frame::SetScreenNumber(unsigned int nScreen)
 void Qt5Frame::SetApplicationID(const OUString&)
 {
     // So the hope is that QGuiApplication deals with this properly..
+}
+
+// Drag'n'drop foo
+void Qt5Frame::registerDragSource(Qt5DragSource* pDragSource)
+{
+    assert(!m_pDragSource);
+    m_pDragSource = pDragSource;
+}
+
+void Qt5Frame::deregisterDragSource(Qt5DragSource const* pDragSource)
+{
+    assert(m_pDragSource == pDragSource);
+    (void)pDragSource;
+    m_pDragSource = nullptr;
+}
+
+void Qt5Frame::registerDropTarget(Qt5DropTarget* pDropTarget)
+{
+    assert(!m_pDropTarget);
+    m_pDropTarget = pDropTarget;
+}
+
+void Qt5Frame::deregisterDropTarget(Qt5DropTarget const* pDropTarget)
+{
+    assert(m_pDropTarget == pDropTarget);
+    (void)pDropTarget;
+    m_pDropTarget = nullptr;
+}
+
+void Qt5Frame::draggingStarted(const int x, const int y)
+{
+    assert(m_pDropTarget);
+
+    css::datatransfer::dnd::DropTargetDragEnterEvent aEvent;
+    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(m_pDropTarget);
+    aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDragContext*>(m_pDropTarget);
+    aEvent.LocationX = x;
+    aEvent.LocationY = y;
+    aEvent.DropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE; //FIXME
+    aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
+
+    css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
+    xTransferable = m_pDragSource->GetTransferable();
+
+    if (!m_bInDrag && xTransferable.is())
+    {
+        css::uno::Sequence<css::datatransfer::DataFlavor> aFormats
+            = xTransferable->getTransferDataFlavors();
+        aEvent.SupportedDataFlavors = aFormats;
+
+        m_pDropTarget->fire_dragEnter(aEvent);
+        m_bInDrag = true;
+    }
+    else
+        m_pDropTarget->fire_dragOver(aEvent);
+}
+
+void Qt5Frame::dropping(const int x, const int y)
+{
+    assert(m_pDropTarget);
+
+    css::datatransfer::dnd::DropTargetDropEvent aEvent;
+    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(m_pDropTarget);
+    aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDropContext*>(m_pDropTarget);
+    aEvent.LocationX = x;
+    aEvent.LocationY = y;
+    aEvent.DropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE; //FIXME
+    aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
+
+    css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
+    xTransferable = m_pDragSource->GetTransferable();
+    aEvent.Transferable = xTransferable;
+
+    m_pDropTarget->fire_drop(aEvent);
+    m_bInDrag = false;
+
+    if (m_pDragSource)
+    {
+        m_pDragSource->fire_dragEnd();
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

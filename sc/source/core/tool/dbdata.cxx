@@ -158,51 +158,53 @@ ScDBData::ScDBData( const OUString& rName, const ScDBData& rData ) :
 
 ScDBData& ScDBData::operator= (const ScDBData& rData)
 {
-    // Don't modify the name.  The name is not mutable as it is used as a key
-    // in the container to keep the db ranges sorted by the name.
-
-    bool bHeaderRangeDiffers = (nTable != rData.nTable || nStartCol != rData.nStartCol ||
-            nEndCol != rData.nEndCol || nStartRow != rData.nStartRow);
-    bool bNeedsListening = ((bHasHeader && bHeaderRangeDiffers) || (!bHasHeader && rData.bHasHeader));
-    if (bHasHeader && (!rData.bHasHeader || bHeaderRangeDiffers))
+    if (this != &rData)
     {
-        EndTableColumnNamesListener();
+        // Don't modify the name.  The name is not mutable as it is used as a key
+        // in the container to keep the db ranges sorted by the name.
+
+        bool bHeaderRangeDiffers = (nTable != rData.nTable || nStartCol != rData.nStartCol ||
+                nEndCol != rData.nEndCol || nStartRow != rData.nStartRow);
+        bool bNeedsListening = ((bHasHeader && bHeaderRangeDiffers) || (!bHasHeader && rData.bHasHeader));
+        if (bHasHeader && (!rData.bHasHeader || bHeaderRangeDiffers))
+        {
+            EndTableColumnNamesListener();
+        }
+        ScRefreshTimer::operator=( rData );
+        mpSortParam.reset(new ScSortParam(*rData.mpSortParam));
+        mpQueryParam.reset(new ScQueryParam(*rData.mpQueryParam));
+        mpSubTotal.reset(new ScSubTotalParam(*rData.mpSubTotal));
+        mpImportParam.reset(new ScImportParam(*rData.mpImportParam));
+        // Keep mpContainer.
+        nTable              = rData.nTable;
+        nStartCol           = rData.nStartCol;
+        nStartRow           = rData.nStartRow;
+        nEndCol             = rData.nEndCol;
+        nEndRow             = rData.nEndRow;
+        bByRow              = rData.bByRow;
+        bHasHeader          = rData.bHasHeader;
+        bHasTotals          = rData.bHasTotals;
+        bDoSize             = rData.bDoSize;
+        bKeepFmt            = rData.bKeepFmt;
+        bStripData          = rData.bStripData;
+        bIsAdvanced         = rData.bIsAdvanced;
+        aAdvSource          = rData.aAdvSource;
+        bDBSelection        = rData.bDBSelection;
+        nIndex              = rData.nIndex;
+        bAutoFilter         = rData.bAutoFilter;
+        nFilteredRowCount   = rData.nFilteredRowCount;
+
+        if (bHeaderRangeDiffers)
+            InvalidateTableColumnNames( true);
+        else
+        {
+            maTableColumnNames  = rData.maTableColumnNames;
+            mbTableColumnNamesDirty = rData.mbTableColumnNamesDirty;
+        }
+
+        if (bNeedsListening)
+            StartTableColumnNamesListener();
     }
-    ScRefreshTimer::operator=( rData );
-    mpSortParam.reset(new ScSortParam(*rData.mpSortParam));
-    mpQueryParam.reset(new ScQueryParam(*rData.mpQueryParam));
-    mpSubTotal.reset(new ScSubTotalParam(*rData.mpSubTotal));
-    mpImportParam.reset(new ScImportParam(*rData.mpImportParam));
-    // Keep mpContainer.
-    nTable              = rData.nTable;
-    nStartCol           = rData.nStartCol;
-    nStartRow           = rData.nStartRow;
-    nEndCol             = rData.nEndCol;
-    nEndRow             = rData.nEndRow;
-    bByRow              = rData.bByRow;
-    bHasHeader          = rData.bHasHeader;
-    bHasTotals          = rData.bHasTotals;
-    bDoSize             = rData.bDoSize;
-    bKeepFmt            = rData.bKeepFmt;
-    bStripData          = rData.bStripData;
-    bIsAdvanced         = rData.bIsAdvanced;
-    aAdvSource          = rData.aAdvSource;
-    bDBSelection        = rData.bDBSelection;
-    nIndex              = rData.nIndex;
-    bAutoFilter         = rData.bAutoFilter;
-    nFilteredRowCount   = rData.nFilteredRowCount;
-
-    if (bHeaderRangeDiffers)
-        InvalidateTableColumnNames( true);
-    else
-    {
-        maTableColumnNames  = rData.maTableColumnNames;
-        mbTableColumnNamesDirty = rData.mbTableColumnNamesDirty;
-    }
-
-    if (bNeedsListening)
-        StartTableColumnNamesListener();
-
     return *this;
 }
 
@@ -744,7 +746,7 @@ public:
     }
 
 private:
-    OUString maSearchName;
+    OUString const maSearchName;
 };
 
 /** Set a numbered table column name at given nIndex, preventing duplicates,
@@ -941,7 +943,7 @@ namespace {
 
 class FindByTable
 {
-    SCTAB mnTab;
+    SCTAB const mnTab;
 public:
     explicit FindByTable(SCTAB nTab) : mnTab(nTab) {}
 
@@ -955,17 +957,17 @@ public:
 
 class UpdateRefFunc
 {
-    ScDocument* mpDoc;
-    UpdateRefMode meMode;
-    SCCOL mnCol1;
-    SCROW mnRow1;
-    SCTAB mnTab1;
-    SCCOL mnCol2;
-    SCROW mnRow2;
-    SCTAB mnTab2;
-    SCCOL mnDx;
-    SCROW mnDy;
-    SCTAB mnDz;
+    ScDocument* const mpDoc;
+    UpdateRefMode const meMode;
+    SCCOL const mnCol1;
+    SCROW const mnRow1;
+    SCTAB const mnTab1;
+    SCCOL const mnCol2;
+    SCROW const mnRow2;
+    SCTAB const mnTab2;
+    SCCOL const mnDx;
+    SCROW const mnDy;
+    SCTAB const mnDz;
 
 public:
     UpdateRefFunc(ScDocument* pDoc, UpdateRefMode eMode,
@@ -985,8 +987,8 @@ public:
 
 class UpdateMoveTabFunc
 {
-    SCTAB mnOldTab;
-    SCTAB mnNewTab;
+    SCTAB const mnOldTab;
+    SCTAB const mnNewTab;
 public:
     UpdateMoveTabFunc(SCTAB nOld, SCTAB nNew) : mnOldTab(nOld), mnNewTab(nNew) {}
     void operator() (std::unique_ptr<ScDBData> const& p)
@@ -997,10 +999,10 @@ public:
 
 class FindByCursor
 {
-    SCCOL mnCol;
-    SCROW mnRow;
-    SCTAB mnTab;
-    ScDBDataPortion mePortion;
+    SCCOL const mnCol;
+    SCROW const mnRow;
+    SCTAB const mnTab;
+    ScDBDataPortion const mePortion;
 public:
     FindByCursor(SCCOL nCol, SCROW nRow, SCTAB nTab, ScDBDataPortion ePortion) :
         mnCol(nCol), mnRow(nRow), mnTab(nTab), mePortion(ePortion) {}
@@ -1026,7 +1028,7 @@ public:
 
 class FindByIndex
 {
-    sal_uInt16 mnIndex;
+    sal_uInt16 const mnIndex;
 public:
     explicit FindByIndex(sal_uInt16 nIndex) : mnIndex(nIndex) {}
     bool operator() (std::unique_ptr<ScDBData> const& p) const

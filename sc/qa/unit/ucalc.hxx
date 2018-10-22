@@ -25,7 +25,7 @@ class ScUndoCut;
 class FormulaGrammarSwitch
 {
     ScDocument* mpDoc;
-    formula::FormulaGrammar::Grammar meOldGrammar;
+    formula::FormulaGrammar::Grammar const meOldGrammar;
 public:
     FormulaGrammarSwitch(ScDocument* pDoc, formula::FormulaGrammar::Grammar eGrammar);
     ~FormulaGrammarSwitch();
@@ -406,6 +406,7 @@ public:
     void testSharedFormulaUnshareAreaListeners();
     void testSharedFormulaListenerDeleteArea();
     void testSharedFormulaUpdateOnReplacement();
+    void testSharedFormulaDeleteTopCell();
     void testFormulaPosition();
     void testFormulaWizardSubformula();
 
@@ -755,6 +756,7 @@ public:
     CPPUNIT_TEST(testSharedFormulaUnshareAreaListeners);
     CPPUNIT_TEST(testSharedFormulaListenerDeleteArea);
     CPPUNIT_TEST(testSharedFormulaUpdateOnReplacement);
+    CPPUNIT_TEST(testSharedFormulaDeleteTopCell);
     CPPUNIT_TEST(testFormulaPosition);
     CPPUNIT_TEST(testFormulaWizardSubformula);
     CPPUNIT_TEST(testMixData);

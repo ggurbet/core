@@ -703,7 +703,7 @@ namespace
 
         //various stream names that can contain the real document contents for
         //this object in a straightforward direct way
-        const OUStringLiteral aStreamNames[] =
+        static const OUStringLiteral aStreamNames[] =
         {
             "CONTENTS",
             "Package",
@@ -837,11 +837,8 @@ void SAL_CALL OleEmbeddedObject::doVerb( sal_Int32 nVerbID )
     uno::Reference< embed::XEmbeddedObject > xWrappedObject = m_xWrappedObject;
     if ( xWrappedObject.is() )
     {
-        // open content in the window not in-place
-        nVerbID = embed::EmbedVerbs::MS_OLEVERB_OPEN;
-
         // the object was converted to OOo embedded object, the current implementation is now only a wrapper
-        xWrappedObject->doVerb( nVerbID );
+        xWrappedObject->doVerb(embed::EmbedVerbs::MS_OLEVERB_OPEN); // open content in the window not in-place
         return;
     }
     // end wrapping related part ====================

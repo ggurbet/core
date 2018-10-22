@@ -4361,7 +4361,7 @@ namespace {
 
 class ExternalFileInserter
 {
-    ScAddress maPos;
+    ScAddress const maPos;
     ScExternalRefManager& mrRefMgr;
 public:
     ExternalFileInserter(const ScAddress& rPos, ScExternalRefManager& rRefMgr) :
@@ -4766,7 +4766,7 @@ bool ScCompiler::HandleRange()
                     AdjustSheetLocalNameRelReferences( nSheetTab - aPos.Tab());
 
                 SetRelNameReference();
-                MoveRelWrap(pRangeData->GetMaxCol(), pRangeData->GetMaxRow());
+                MoveRelWrap(MAXCOL, MAXROW);
             }
             maArrIterator.Reset();
             if ( bAddPair )
@@ -5811,9 +5811,7 @@ bool ScCompiler::SkipImplicitIntersectionOptimization(const FormulaToken* token)
         return true;
     }
     formula::ParamClass returnType = ScParameterClassification::GetParameterType( token, SAL_MAX_UINT16 );
-    if( returnType == formula::Reference )
-        return true;
-    return false;
+    return returnType == formula::Reference;
 }
 
 void ScCompiler::HandleIIOpCode(FormulaToken* token, FormulaToken*** pppToken, sal_uInt8 nNumParams)

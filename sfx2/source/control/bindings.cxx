@@ -242,7 +242,7 @@ void SfxBindings::HidePopups( bool bHide )
     // Hide SfxChildWindows
     DBG_ASSERT( pDispatcher, "HidePopups not allowed without dispatcher" );
     if ( pImpl->pWorkWin )
-        pImpl->pWorkWin->HidePopups_Impl( bHide, true );
+        pImpl->pWorkWin->HidePopups_Impl( bHide );
 }
 
 void SfxBindings::Update_Impl(SfxStateCache& rCache /*The up to date SfxStatusCache*/)
@@ -1269,7 +1269,7 @@ bool SfxBindings::NextJob_Impl(Timer const * pTimer)
     pImpl->aAutoTimer.SetTimeout(TIMEOUT_UPDATING);
 
     // at least 10 loops and further if more jobs are available but no input
-    bool bPreEmptive = pTimer && !pSfxApp->Get_Impl()->nInReschedule;
+    bool bPreEmptive = pTimer;
     sal_uInt16 nLoops = 10;
     pImpl->bInNextJob = true;
     const std::size_t nCount = pImpl->pCaches.size();

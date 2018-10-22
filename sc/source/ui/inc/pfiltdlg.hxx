@@ -20,7 +20,6 @@
 #ifndef INCLUDED_SC_SOURCE_UI_INC_PFILTDLG_HXX
 #define INCLUDED_SC_SOURCE_UI_INC_PFILTDLG_HXX
 
-#include <vcl/morebtn.hxx>
 #include <vcl/button.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/dialog.hxx>
@@ -76,7 +75,7 @@ private:
     std::unique_ptr<ScQueryItem> pOutItem;
     ScViewData*         pViewData;
     ScDocument*         pDoc;
-    SCTAB               nSrcTab;
+    SCTAB const         nSrcTab;
 
     VclPtr<ComboBox>           aValueEdArr[3];
     VclPtr<ListBox>            aFieldLbArr[3];

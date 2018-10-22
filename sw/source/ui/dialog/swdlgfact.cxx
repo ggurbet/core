@@ -213,8 +213,17 @@ short AbstractJavaEditDialog_Impl::Execute()
 }
 
 IMPL_ABSTDLG_BASE(AbstractMailMergeDlg_Impl);
-IMPL_ABSTDLG_BASE(AbstractMailMergeCreateFromDlg_Impl);
-IMPL_ABSTDLG_BASE(AbstractMailMergeFieldConnectionsDlg_Impl);
+
+short AbstractMailMergeCreateFromDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
+short AbstractMailMergeFieldConnectionsDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 IMPL_ABSTDLG_BASE(AbstractMultiTOXTabDialog_Impl);
 IMPL_ABSTDLG_BASE(AbstractEditRegionDlg_Impl);
 IMPL_ABSTDLG_BASE(AbstractInsertSectionTabDialog_Impl);
@@ -632,12 +641,12 @@ OUString AbstractMailMergeDlg_Impl::GetTargetURL() const
 
 bool AbstractMailMergeCreateFromDlg_Impl::IsThisDocument() const
 {
-    return pDlg->IsThisDocument();
+    return m_xDlg->IsThisDocument();
 }
 
 bool AbstractMailMergeFieldConnectionsDlg_Impl::IsUseExistingConnections() const
 {
-    return pDlg->IsUseExistingConnections();
+    return m_xDlg->IsUseExistingConnections();
 }
 
 CurTOXType AbstractMultiTOXTabDialog_Impl::GetCurrentTOXType() const
@@ -1034,16 +1043,14 @@ VclPtr<AbstractMailMergeDlg> SwAbstractDialogFactory_Impl::CreateMailMergeDlg(
     return VclPtr<AbstractMailMergeDlg_Impl>::Create( pDlg );
 }
 
-VclPtr<AbstractMailMergeCreateFromDlg> SwAbstractDialogFactory_Impl::CreateMailMergeCreateFromDlg(vcl::Window* pParent)
+VclPtr<AbstractMailMergeCreateFromDlg> SwAbstractDialogFactory_Impl::CreateMailMergeCreateFromDlg(weld::Window* pParent)
 {
-    VclPtr<SwMailMergeCreateFromDlg> pDlg = VclPtr<SwMailMergeCreateFromDlg>::Create(pParent);
-    return VclPtr<AbstractMailMergeCreateFromDlg_Impl>::Create(pDlg);
+    return VclPtr<AbstractMailMergeCreateFromDlg_Impl>::Create(o3tl::make_unique<SwMailMergeCreateFromDlg>(pParent));
 }
 
-VclPtr<AbstractMailMergeFieldConnectionsDlg> SwAbstractDialogFactory_Impl::CreateMailMergeFieldConnectionsDlg(vcl::Window* pParent)
+VclPtr<AbstractMailMergeFieldConnectionsDlg> SwAbstractDialogFactory_Impl::CreateMailMergeFieldConnectionsDlg(weld::Window* pParent)
 {
-    VclPtr<SwMailMergeFieldConnectionsDlg> pDlg = VclPtr<SwMailMergeFieldConnectionsDlg>::Create( pParent );
-    return VclPtr<AbstractMailMergeFieldConnectionsDlg_Impl>::Create( pDlg );
+    return VclPtr<AbstractMailMergeFieldConnectionsDlg_Impl>::Create(o3tl::make_unique<SwMailMergeFieldConnectionsDlg>(pParent));
 }
 
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateMultiTOXMarkDlg(weld::Window* pParent, SwTOXMgr &rTOXMgr)
@@ -1211,10 +1218,10 @@ void SwAbstractDialogFactory_Impl::ExecuteMMResultPrintDialog(weld::Window* pPar
     aDialog.run();
 }
 
-void SwAbstractDialogFactory_Impl::ExecuteMMResultEmailDialog()
+void SwAbstractDialogFactory_Impl::ExecuteMMResultEmailDialog(weld::Window* pParent)
 {
-    ScopedVclPtrInstance<SwMMResultEmailDialog> pDialog;
-    pDialog->Execute();
+    SwMMResultEmailDialog aDialog(pParent);
+    aDialog.run();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

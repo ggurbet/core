@@ -24,7 +24,7 @@
 #include <vcl/metaact.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/outdev.hxx>
-#include <vcl/unowrap.hxx>
+#include <vcl/toolkit/unowrap.hxx>
 #include <vcl/sysdata.hxx>
 
 #include <salgdi.hxx>
@@ -144,7 +144,7 @@ void OutputDevice::dispose()
 {
     if ( GetUnoGraphicsList() )
     {
-        UnoWrapperBase* pWrapper = Application::GetUnoWrapper( false );
+        UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper( false );
         if ( pWrapper )
             pWrapper->ReleaseAllGraphics( this );
         delete mpUnoGraphicsList;
@@ -357,7 +357,7 @@ void OutputDevice::SetOutOffYPixel(long nOutOffY)
 
 css::uno::Reference< css::awt::XGraphics > OutputDevice::CreateUnoGraphics()
 {
-    UnoWrapperBase* pWrapper = Application::GetUnoWrapper();
+    UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper();
     return pWrapper ? pWrapper->CreateGraphics( this ) : css::uno::Reference< css::awt::XGraphics >();
 }
 

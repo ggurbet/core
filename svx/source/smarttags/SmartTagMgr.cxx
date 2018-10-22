@@ -160,10 +160,9 @@ void SmartTagMgr::GetActionSequences( std::vector< OUString >& rSmartTagTypes,
         Sequence< sal_Int32 > aIndices( nNumberOfActionRefs );
 
         sal_uInt16 i = 0;
-        auto aActionsIter = maSmartTagMap.lower_bound( rSmartTagType );
-        auto aEnd = maSmartTagMap.upper_bound( rSmartTagType );
+        auto iters = maSmartTagMap.equal_range( rSmartTagType );
 
-        for ( ; aActionsIter != aEnd; ++aActionsIter )
+        for ( auto aActionsIter = iters.first; aActionsIter != iters.second; ++aActionsIter )
         {
             aActions[ i ] = (*aActionsIter).second.mxSmartTagAction;
             aIndices[ i++ ] = (*aActionsIter).second.mnSmartTagIndex;
@@ -180,7 +179,7 @@ OUString SmartTagMgr::GetSmartTagCaption( const OUString& rSmartTagType, const c
 {
     OUString aRet;
 
-    auto aLower = maSmartTagMap.lower_bound( rSmartTagType );
+    auto aLower = maSmartTagMap.find( rSmartTagType );
 
     if ( aLower != maSmartTagMap.end() )
     {

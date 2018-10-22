@@ -1533,9 +1533,7 @@ void MSWordExportBase::SectionProperties( const WW8_SepInfo& rSepInfo, WW8_PdAtt
     AttrOutput().SectFootnoteEndnotePr();
 
     // forms
-    bool formProtection = m_pDoc->getIDocumentSettingAccess().get( DocumentSettingId::PROTECT_FORM );
-    formProtection |= rSepInfo.IsProtected();
-    AttrOutput().SectionFormProtection( formProtection );
+    AttrOutput().SectionFormProtection( rSepInfo.IsProtected() );
 
     // line numbers
     const SwLineNumberInfo& rLnNumInfo = m_pDoc->GetLineNumberInfo();
@@ -2224,7 +2222,7 @@ void WW8_WrPlcSubDoc::WriteGenericPlc( WW8Export& rWrt, sal_uInt8 nTTyp,
                 rFib.m_lcbGrpStAtnOwners = nFcStart - rFib.m_fcGrpStAtnOwners;
 
                 // Commented text ranges
-                if( aRangeStartPos.size() > 0 )
+                if( !aRangeStartPos.empty() )
                 {
                     // Commented text ranges starting positions (Plcfbkf.aCP)
                     rFib.m_fcPlcfAtnbkf = nFcStart;

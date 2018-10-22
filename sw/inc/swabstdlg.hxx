@@ -459,8 +459,8 @@ public:
                                                 const OUString& rTableName,
                                                 sal_Int32 nCommandType,
                                                 const css::uno::Reference< css::sdbc::XConnection>& xConnection ) = 0;
-    virtual VclPtr<AbstractMailMergeCreateFromDlg>   CreateMailMergeCreateFromDlg(vcl::Window* pParent) = 0;
-    virtual VclPtr<AbstractMailMergeFieldConnectionsDlg> CreateMailMergeFieldConnectionsDlg(vcl::Window* pParent) = 0;
+    virtual VclPtr<AbstractMailMergeCreateFromDlg>   CreateMailMergeCreateFromDlg(weld::Window* pParent) = 0;
+    virtual VclPtr<AbstractMailMergeFieldConnectionsDlg> CreateMailMergeFieldConnectionsDlg(weld::Window* pParent) = 0;
     virtual VclPtr<VclAbstractDialog>          CreateMultiTOXMarkDlg(weld::Window* pParent, SwTOXMgr &rTOXMgr) = 0;
     virtual VclPtr<SfxAbstractTabDialog>       CreateOutlineTabDialog(weld::Window* pParent,
                                                 const SfxItemSet* pSwItemSet,
@@ -499,7 +499,7 @@ public:
 
     virtual void ExecuteMMResultSaveDialog(weld::Window* pParent) = 0;
     virtual void ExecuteMMResultPrintDialog(weld::Window* pParent) = 0;
-    virtual void ExecuteMMResultEmailDialog() = 0;
+    virtual void ExecuteMMResultEmailDialog(weld::Window* pParent) = 0;
 
 protected:
     ~SwAbstractDialogFactory() {}

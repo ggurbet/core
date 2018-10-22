@@ -616,40 +616,24 @@ uno::Reference<XResultSet> SwMailMergeDlg::GetResultSet() const
     return xResSetClone;
 }
 
-SwMailMergeCreateFromDlg::SwMailMergeCreateFromDlg(vcl::Window* pParent)
-    : ModalDialog(pParent, "MailMergeDialog",
-                  "modules/swriter/ui/mailmergedialog.ui")
+SwMailMergeCreateFromDlg::SwMailMergeCreateFromDlg(weld::Window* pParent)
+    : GenericDialogController(pParent, "modules/swriter/ui/mailmergedialog.ui", "MailMergeDialog")
+    , m_xThisDocRB(m_xBuilder->weld_radio_button("document"))
 {
-    get(m_pThisDocRB, "document");
 }
 
 SwMailMergeCreateFromDlg::~SwMailMergeCreateFromDlg()
 {
-    disposeOnce();
 }
 
-void SwMailMergeCreateFromDlg::dispose()
+SwMailMergeFieldConnectionsDlg::SwMailMergeFieldConnectionsDlg(weld::Window* pParent)
+    : GenericDialogController(pParent, "modules/swriter/ui/mergeconnectdialog.ui", "MergeConnectDialog")
+    , m_xUseExistingRB(m_xBuilder->weld_radio_button("existing"))
 {
-    m_pThisDocRB.clear();
-    ModalDialog::dispose();
-}
-
-SwMailMergeFieldConnectionsDlg::SwMailMergeFieldConnectionsDlg(vcl::Window* pParent)
-    : ModalDialog(pParent, "MergeConnectDialog",
-                  "modules/swriter/ui/mergeconnectdialog.ui")
-{
-    get(m_pUseExistingRB, "existing");
 }
 
 SwMailMergeFieldConnectionsDlg::~SwMailMergeFieldConnectionsDlg()
 {
-    disposeOnce();
-}
-
-void SwMailMergeFieldConnectionsDlg::dispose()
-{
-    m_pUseExistingRB.clear();
-    ModalDialog::dispose();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

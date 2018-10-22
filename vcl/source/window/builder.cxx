@@ -160,11 +160,10 @@ namespace weld
         if (pList)
         {
             // return unit's default string (ie, the first one )
-            for (auto it = pList->begin(); it != pList->end(); ++it)
-            {
-                if (it->second == rUnit)
-                    return it->first;
-            }
+            auto it = std::find_if(pList->begin(), pList->end(),
+                [&rUnit](std::pair<OUString, FieldUnit>& rItem) { return rItem.second == rUnit; });
+            if (it != pList->end())
+                return it->first;
         }
 
         return OUString();
@@ -480,7 +479,10 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
             if (m_bLegacy)
                 pOne->group(*pOther);
             else
+            {
                 pOther->group(*pOne);
+                std::stable_sort(pOther->m_xGroup->begin(), pOther->m_xGroup->end(), sortIntoBestTabTraversalOrder(this));
+            }
         }
     }
 
@@ -2462,7 +2464,7 @@ void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &read
         sal_uInt16 nPageId = pTabControl->GetCurPageId();
         pTabControl->SetPageText(nPageId, aFind->second);
         pTabControl->SetPageName(nPageId, sID);
-        if (context.size() != 0)
+        if (!context.empty())
         {
             TabPage* pPage = pTabControl->GetTabPage(nPageId);
             pPage->SetContext(context);
@@ -3404,7 +3406,7 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
                     if (pPrioritable)
                         pPrioritable->SetPriority(nPriority);
                 }
-                if (aContext.size() != 0)
+                if (!aContext.empty())
                 {
                     vcl::IContext* pContextControl = dynamic_cast<vcl::IContext*>(pCurrentChild.get());
                     SAL_WARN_IF(!pContextControl, "vcl", "context set for not supported item");
@@ -3850,15 +3852,12 @@ void VclBuilder::set_response(const OString& sID, short nResponse)
 
 void VclBuilder::delete_by_name(const OString& sID)
 {
-    for (std::vector<WinAndId>::iterator aI = m_aChildren.begin(),
-         aEnd = m_aChildren.end(); aI != aEnd; ++aI)
+    auto aI = std::find_if(m_aChildren.begin(), m_aChildren.end(),
+        [&sID](WinAndId& rItem) { return rItem.m_sID == sID; });
+    if (aI != m_aChildren.end())
     {
-        if (aI->m_sID == sID)
-        {
-            aI->m_pWindow.disposeAndClear();
-            m_aChildren.erase(aI);
-            break;
-        }
+        aI->m_pWindow.disposeAndClear();
+        m_aChildren.erase(aI);
     }
 }
 
@@ -3870,15 +3869,10 @@ void VclBuilder::delete_by_window(vcl::Window *pWindow)
 
 void VclBuilder::drop_ownership(const vcl::Window *pWindow)
 {
-    for (std::vector<WinAndId>::iterator aI = m_aChildren.begin(),
-         aEnd = m_aChildren.end(); aI != aEnd; ++aI)
-    {
-        if (aI->m_pWindow == pWindow)
-        {
-            m_aChildren.erase(aI);
-            break;
-        }
-    }
+    auto aI = std::find_if(m_aChildren.begin(), m_aChildren.end(),
+        [&pWindow](WinAndId& rItem) { return rItem.m_pWindow == pWindow; });
+    if (aI != m_aChildren.end())
+        m_aChildren.erase(aI);
 }
 
 OString VclBuilder::get_by_window(const vcl::Window *pWindow) const

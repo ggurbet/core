@@ -444,7 +444,7 @@ bool SwEditRegionDlg::CheckPasswd(CheckBox* pBox)
 }
 
 // recursively look for child-sections
-void SwEditRegionDlg::RecurseList( const SwSectionFormat* pFormat, SvTreeListEntry* pEntry )
+void SwEditRegionDlg::RecurseList(const SwSectionFormat* pFormat, SvTreeListEntry* pEntry)
 {
     SvTreeListEntry* pSelEntry = nullptr;
     if (!pFormat)
@@ -461,13 +461,13 @@ void SwEditRegionDlg::RecurseList( const SwSectionFormat* pFormat, SvTreeListEnt
                 SwSection *pSect = pFormat->GetSection();
                 SectRepr* pSectRepr = new SectRepr( n, *pSect );
                 Image aImg = BuildBitmap( pSect->IsProtect(),pSect->IsHidden());
-                pEntry = m_pTree->InsertEntry(pSect->GetSectionName(), aImg, aImg);
-                pEntry->SetUserData(pSectRepr);
-                RecurseList( pFormat, pEntry );
-                if (pEntry->HasChildren())
-                    m_pTree->Expand(pEntry);
+                SvTreeListEntry* pNewEntry = m_pTree->InsertEntry(pSect->GetSectionName(), aImg, aImg);
+                pNewEntry->SetUserData(pSectRepr);
+                RecurseList( pFormat, pNewEntry );
+                if (pNewEntry->HasChildren())
+                    m_pTree->Expand(pNewEntry);
                 if (pCurrSect==pSect)
-                    m_pTree->Select(pEntry);
+                    m_pTree->Select(pNewEntry);
             }
         }
     }
@@ -1469,8 +1469,7 @@ void SwInsertSectionTabDialog::SetSectionData(SwSectionData const& rSect)
 short   SwInsertSectionTabDialog::Ok()
 {
     short nRet = SfxTabDialog::Ok();
-    OSL_ENSURE(m_pSectionData.get(),
-            "SwInsertSectionTabDialog: no SectionData?");
+    OSL_ENSURE(m_pSectionData, "SwInsertSectionTabDialog: no SectionData?");
     const SfxItemSet* pOutputItemSet = GetOutputItemSet();
     rWrtSh.InsertSection(*m_pSectionData, pOutputItemSet);
     SfxViewFrame* pViewFrame = rWrtSh.GetView().GetViewFrame();

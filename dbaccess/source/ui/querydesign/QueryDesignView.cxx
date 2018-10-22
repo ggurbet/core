@@ -735,7 +735,7 @@ namespace
                             // only show the messagebox the first time
                             if (!bCritsOnAsterikWarning)
                             {
-                                std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(_pView ? _pView->GetFrameWeld() : nullptr,
+                                std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(_pView->GetFrameWeld(),
                                                                           VclMessageType::Warning, VclButtonsType::Ok,
                                                                           DBA_RES(STR_QRY_CRITERIA_ON_ASTERISK)));
                                 xBox->run();
@@ -768,7 +768,7 @@ namespace
                             OUString aErrorMsg;
                             Reference<XPropertySet> xColumn;
                             std::unique_ptr< ::connectivity::OSQLParseNode> pParseNode(_pView->getPredicateTreeFromEntry(field,aCriteria,aErrorMsg,xColumn));
-                            if (pParseNode.get())
+                            if (pParseNode)
                             {
                                 if (bMulti && !(field->isOtherFunction() || (aFieldName.toChar() == '*')))
                                     pParseNode->replaceNodeValue(field->GetAlias(),aFieldName);
@@ -798,7 +798,7 @@ namespace
                             OUString aErrorMsg;
                             Reference<XPropertySet> xColumn;
                             std::unique_ptr< ::connectivity::OSQLParseNode> pParseNode( _pView->getPredicateTreeFromEntry(field,aCriteria,aErrorMsg,xColumn));
-                            if (pParseNode.get())
+                            if (pParseNode)
                             {
                                 if (bMulti && !(field->isOtherFunction() || (aFieldName.toChar() == '*')))
                                     pParseNode->replaceNodeValue(field->GetAlias(),aFieldName);
@@ -891,7 +891,7 @@ namespace
                         // only show the  MessageBox the first time
                         if (!bCritsOnAsterikWarning)
                         {
-                            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(_pView ? _pView->GetFrameWeld() : nullptr,
+                            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(_pView->GetFrameWeld(),
                                                                       VclMessageType::Warning, VclButtonsType::Ok,
                                                                       DBA_RES(STR_QRY_ORDERBY_ON_ASTERISK)));
                             xBox->run();
@@ -1125,7 +1125,7 @@ namespace
                         OUString aErrorMsg;
                         Reference<XPropertySet> xColumn;
                         std::unique_ptr< ::connectivity::OSQLParseNode> pParseNode(_pView->getPredicateTreeFromEntry(field,aTmp,aErrorMsg,xColumn));
-                        if (pParseNode.get())
+                        if (pParseNode)
                         {
                             OUString sGroupBy;
                             pParseNode->getChild(0)->parseNodeToStr(    sGroupBy,
@@ -2824,7 +2824,7 @@ OUString OQueryDesignView::getStatement()
         ::connectivity::OSQLParser& rParser( rController.getParser() );
         OUString sErrorMessage;
         std::unique_ptr<OSQLParseNode> pParseNode( rParser.parseTree( sErrorMessage, sSQL, true ) );
-        if ( pParseNode.get() )
+        if (pParseNode)
         {
             OSQLParseNode* pNode = pParseNode->getChild(3)->getChild(1);
             if ( pNode->count() > 1 )
@@ -2934,7 +2934,7 @@ OSQLParseNode* OQueryDesignView::getPredicateTreeFromEntry(const OTableFieldDesc
             sSql += "SELECT * FROM x WHERE " + pEntry->GetField() + _sCriteria;
             std::unique_ptr<OSQLParseNode> pParseNode( rParser.parseTree( _rsErrorMessage, sSql, true ) );
             nType = DataType::DOUBLE;
-            if ( pParseNode.get() )
+            if (pParseNode)
             {
                 OSQLParseNode* pColumnRef = pParseNode->getByRule(OSQLParseNode::column_ref);
                 if ( pColumnRef )
@@ -3372,7 +3372,7 @@ void OQueryDesignView::fillFunctionInfo(  const ::connectivity::OSQLParseNode* p
                 nDataType = DataType::FLOAT;
             else if ( SQL_ISTOKEN(pCastTarget, REAL) )
                 nDataType = DataType::REAL;
-           else if ( SQL_ISTOKEN(pCastTarget, DOUBLE) )
+            else if ( SQL_ISTOKEN(pCastTarget, DOUBLE) )
                 nDataType = DataType::DOUBLE;
             else if ( SQL_ISTOKEN(pCastTarget, BOOLEAN) )
                 nDataType = DataType::BOOLEAN;

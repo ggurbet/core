@@ -3388,7 +3388,7 @@ awt::DockingData SAL_CALL ToolbarLayoutManager::docking( const awt::DockingEvent
                                                    aNewDockingRect.getWidth(), aNewDockingRect.getHeight() );
                 aDockingData.TrackingRectangle = aNewTrackingRect;
             }
-            else if ( pToolBox && bDockingInProgress )
+            else if (pToolBox)
             {
                 bool bIsHorizontal = isToolboxHorizontalAligned( pToolBox );
                 awt::Size aFloatSize = aUIDockingElement.m_aFloatingData.m_aSize;
@@ -3917,7 +3917,7 @@ uno::Sequence< uno::Reference< ui::XUIElement > > ToolbarLayoutManager::getToolb
     uno::Sequence< uno::Reference< ui::XUIElement > > aSeq;
 
     SolarMutexGuard g;
-    if ( m_aUIElements.size() > 0 )
+    if ( !m_aUIElements.empty() )
     {
         sal_uInt32 nCount(0);
         for (auto const& elem : m_aUIElements)

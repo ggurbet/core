@@ -24,6 +24,7 @@
 #include <scresid.hxx>
 #include <viewdata.hxx>
 #include <dbfunc.hxx>
+#include <chgtrack.hxx>
 
 // struct ScConflictsListEntry
 
@@ -214,7 +215,7 @@ bool ScConflictsFinder::Find()
             pOwnAction = pOwnAction->GetNext();
         }
 
-        if ( aOwnActions.size() )
+        if ( !aOwnActions.empty() )
         {
             ScConflictsListEntry* pEntry = GetEntry( pSharedAction->GetActionNumber(), aOwnActions );
             for ( auto& aOwnAction : aOwnActions )

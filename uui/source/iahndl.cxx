@@ -245,7 +245,7 @@ UUIInteractionHelper::replaceMessageWithArguments(
 {
     OUString aMessage = _aMessage;
 
-    SAL_WARN_IF(rArguments.size() == 0, "uui", "replaceMessageWithArguments: No arguments passed!");
+    SAL_WARN_IF(rArguments.empty(), "uui", "replaceMessageWithArguments: No arguments passed!");
     for (size_t i = 0; i < rArguments.size(); ++i)
     {
         const OUString sReplaceTemplate = "$(ARG" + OUString::number(i+1) + ")";
@@ -284,15 +284,8 @@ UUIInteractionHelper::tryOtherInteractionHandler(
     InteractionHandlerDataList dataList;
     getInteractionHandlerList(dataList);
 
-    InteractionHandlerDataList::const_iterator aEnd(dataList.end());
-    for (InteractionHandlerDataList::const_iterator aIt(dataList.begin());
-         aIt != aEnd;
-         ++aIt)
-    {
-        if ( handleCustomRequest( rRequest, aIt->ServiceName ) )
-            return true;
-    }
-    return false;
+    return std::any_of(dataList.cbegin(), dataList.cend(),
+        [&](const InteractionHandlerData& rData) { return handleCustomRequest( rRequest, rData.ServiceName ); });
 }
 
 namespace

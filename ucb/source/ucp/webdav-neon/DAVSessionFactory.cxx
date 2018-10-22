@@ -49,26 +49,18 @@ rtl::Reference< DAVSession > DAVSessionFactory::createDAVSession(
 
     m_xContext = rxContext;
 
-    if ( !m_xProxyDecider.get() )
+    if (!m_xProxyDecider)
         m_xProxyDecider.reset( new ucbhelper::InternetProxyDecider( rxContext ) );
 
-    Map::iterator aIt( m_aMap.begin() );
-    Map::iterator aEnd( m_aMap.end() );
+    Map::iterator aIt = std::find_if(m_aMap.begin(), m_aMap.end(),
+        [&inUri, &rFlags](const Map::value_type& rEntry) { return rEntry.second->CanUse( inUri, rFlags ); });
 
-    while ( aIt != aEnd )
-    {
-        if ( (*aIt).second->CanUse( inUri, rFlags ) )
-            break;
-
-        ++aIt;
-    }
-
-    if ( aIt == aEnd )
+    if ( aIt == m_aMap.end() )
     {
         NeonUri aURI( inUri );
 
-        std::unique_ptr< DAVSession > xElement(
-            new NeonSession( this, inUri, rFlags, *m_xProxyDecider.get() ) );
+        std::unique_ptr<DAVSession> xElement(
+            new NeonSession(this, inUri, rFlags, *m_xProxyDecider));
 
         aIt = m_aMap.emplace( inUri, xElement.get() ).first;
         aIt->second->m_aContainerIt = aIt;
@@ -91,7 +83,7 @@ rtl::Reference< DAVSession > DAVSessionFactory::createDAVSession(
         // call a little:
         NeonUri aURI( inUri );
 
-        aIt->second = new NeonSession( this, inUri, rFlags, *m_xProxyDecider.get() );
+        aIt->second = new NeonSession(this, inUri, rFlags, *m_xProxyDecider);
         aIt->second->m_aContainerIt = aIt;
         return aIt->second;
     }

@@ -408,7 +408,7 @@ static struct
 }
 
 
-LineStyle[] =
+const LineStyle[] =
 {
     { 0.0, 0.0, 0.0 },
     {
@@ -1370,19 +1370,19 @@ void HwpReader::parseCharShape(CharShape const * cshape)
         padd("fo:font-style", sXML_CDATA, "italic");
         padd("style:font-style-asian", sXML_CDATA, "italic");
     }
-     else{
+    else{
         padd("fo:font-style", sXML_CDATA, "normal");
         padd("style:font-style-asian", sXML_CDATA, "normal");
-     }
+    }
     if (cshape->attr >> 1 & 0x01)
     {
         padd("fo:font-weight", sXML_CDATA, "bold");
         padd("style:font-weight-asian", sXML_CDATA, "bold");
     }
-     else{
+    else{
         padd("fo:font-weight", sXML_CDATA, "normal");
         padd("style:font-weight-asian", sXML_CDATA, "normal");
-     }
+    }
     if (cshape->attr >> 2 & 0x01)
         padd("style:text-underline", sXML_CDATA, "single");
     if (cshape->attr >> 3 & 0x01)
@@ -1463,7 +1463,7 @@ void HwpReader::parseParaShape(ParaShape const * pshape)
 
     if( pshape->pagebreak & 0x02 || pshape->pagebreak & 0x04)
         padd("fo:break-before", sXML_CDATA, "page");
-     else if( pshape->pagebreak & 0x01 )
+    else if( pshape->pagebreak & 0x01 )
         padd("fo:break-before", sXML_CDATA, "column");
 
 }
@@ -2908,7 +2908,7 @@ void HwpReader::make_text_p3(HWPPara * para,bool bParaStart)
     {
         if( para->hhstr[n]->hh == CH_END_PARA )
         {
-            if (str.size() > 0)
+            if (!str.empty())
             {
                 if( !pstart ){ STARTP;}
                 if( !tstart ){ STARTT;}
@@ -2998,7 +2998,7 @@ void HwpReader::make_text_p3(HWPPara * para,bool bParaStart)
                     break;
                 case CH_TAB:                      // 9
                     if( !pstart ) {STARTP;}
-                    if (str.size() > 0)
+                    if (!str.empty())
                     {
                         if( !tstart ) {STARTT;}
                         makeChars(str);
@@ -3019,7 +3019,7 @@ void HwpReader::make_text_p3(HWPPara * para,bool bParaStart)
                     else
                     {
                         if( !pstart ) {STARTP;}
-                        if (str.size() > 0)
+                        if (!str.empty())
                         {
                             if( !tstart ) {STARTT;}
                             makeChars(str);
@@ -3052,7 +3052,7 @@ void HwpReader::make_text_p3(HWPPara * para,bool bParaStart)
                     else
                     {
                         if( !pstart ) {STARTP;}
-                        if (str.size() > 0)
+                        if (!str.empty())
                         {
                             if( !tstart ) {STARTT;}
                             makeChars(str);
@@ -3064,7 +3064,7 @@ void HwpReader::make_text_p3(HWPPara * para,bool bParaStart)
                 }
                 case CH_LINE:                     // 14
                 {
-                    if (str.size() > 0)
+                    if (!str.empty())
                     {
                         if( !pstart ) {STARTP;}
                         if( !tstart ) {STARTT;}
@@ -3565,10 +3565,10 @@ void HwpReader::makeTextBox(TxtBox * hbox)
         rstartEl("text:p", mxList.get());
         mxList->clear();
     }
-     else{
+    else{
          padd("draw:z-index", sXML_CDATA,
               ascii(Int2Str(hbox->zorder, "%d", buf)));
-     }
+    }
 
     padd("draw:style-name", sXML_CDATA,
         ascii(Int2Str(hbox->style.boxnum, "Txtbox%d", buf)));
@@ -3731,7 +3731,7 @@ void HwpReader::makeHyperText(TxtBox * hbox)
               reinterpret_cast<uchar const *>(urltounix(reinterpret_cast<char *>(hypert->filename)).c_str())).c_str());
 #endif
           padd("xlink:type", sXML_CDATA, "simple");
-          if (tmp.size() > 0 && strcmp(tmp.c_str(), "[HTML]")) {
+          if (!tmp.empty() && strcmp(tmp.c_str(), "[HTML]")) {
               ::std::string tmp3(tmp2);
               tmp3.push_back('#');
               tmp3.append(tmp);

@@ -127,15 +127,6 @@ sal_Int32 MQueryHelper::getResultCount() const
 
 bool MQueryHelper::checkRowAvailable( sal_Int32 nDBRow )
 {
-/*
-    while (!queryComplete() && getResultCount() <= (sal_uInt32)nDBRow)
-    {
-        if ( !m_aQueryHelper->waitForRow( nDBRow ) ) {
-            m_aError = m_aQueryHelper->getError();
-            return sal_False;
-        }
-    }
-*/
     return getResultCount() > nDBRow;
 }
 
@@ -317,15 +308,14 @@ std::vector<bool> entryMatchedByExpression(MQueryHelper* _aQuery, MQueryExpressi
                     result = result || elem;
                 }
                 resultVector.push_back(result);
-            } else if (condition == MQueryExpression::AND) {
+            } else {
+                assert(condition == MQueryExpression::AND && "only OR or AND should exist");
                 bool result = true;
                 for (auto const& elem : subquery_result)
                 {
                     result = result && elem;
                 }
                 resultVector.push_back(result);
-            } else {
-                OSL_FAIL("Unknown Expression Type");
             }
         }
         else {

@@ -364,7 +364,7 @@ short DigitalSignaturesDialog::Execute()
     // consequences, as I noticed when I tried to use DocumentSignatureManager::IsXAdESRelevant()
     // (which now is in #if 0).
 
-    if (maSignatureManager.maCurrentSignatureInformations.size() > 0)
+    if (!maSignatureManager.maCurrentSignatureInformations.empty())
     {
         // If the document has only SHA-1 signatures we probably want it to stay that way?
     }
@@ -501,41 +501,40 @@ IMPL_STATIC_LINK(DigitalSignaturesDialog, CertMgrButtonHdl, Button*, pButton, vo
 #else
     const OUString aGUIServers[] = { OUString("kleopatra"), OUString("seahorse"),  OUString("gpa"), OUString("kgpg") };
     const char* cPath = getenv("PATH");
+    if (!cPath)
+        return;
 #endif
 
-    if (cPath)
+    OUString aPath(cPath, strlen(cPath), osl_getThreadTextEncoding());
+    OUString sFoundGUIServer, sExecutable;
+
+    for ( auto const &rServer : aGUIServers )
     {
-       OUString aPath(cPath, strlen(cPath), osl_getThreadTextEncoding());
-       OUString sFoundGUIServer, sExecutable;
+        osl::FileBase::RC searchError = osl::File::searchFileURL(rServer, aPath, sFoundGUIServer );
+        if (searchError == osl::FileBase::E_None)
+        {
+            osl::File::getSystemPathFromFileURL( sFoundGUIServer, sExecutable );
+            break;
+        }
 
-       for ( auto const &rServer : aGUIServers )
-       {
-           osl::FileBase::RC searchError = osl::File::searchFileURL(rServer, aPath, sFoundGUIServer );
-           if (searchError == osl::FileBase::E_None)
-           {
-               osl::File::getSystemPathFromFileURL( sFoundGUIServer, sExecutable );
-               break;
-           }
+    }
 
-       }
+    if ( !sExecutable.isEmpty() )
+    {
+        uno::Reference< uno::XComponentContext > xContext =
+            ::comphelper::getProcessComponentContext();
+        uno::Reference< css::system::XSystemShellExecute > xSystemShell(
+                 css::system::SystemShellExecute::create(xContext) );
 
-       if ( !sExecutable.isEmpty() )
-       {
-           uno::Reference< uno::XComponentContext > xContext =
-               ::comphelper::getProcessComponentContext();
-           uno::Reference< css::system::XSystemShellExecute > xSystemShell(
-                    css::system::SystemShellExecute::create(xContext) );
-
-           xSystemShell->execute( sExecutable, OUString(),
-               css::system::SystemShellExecuteFlags::DEFAULTS );
-       }
-       else
-       {
-           std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pButton->GetFrameWeld(),
-                                                         VclMessageType::Info, VclButtonsType::Ok,
-                                                         XsResId(STR_XMLSECDLG_NO_CERT_MANAGER)));
-           xInfoBox->run();
-       }
+        xSystemShell->execute( sExecutable, OUString(),
+            css::system::SystemShellExecuteFlags::DEFAULTS );
+    }
+    else
+    {
+        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pButton->GetFrameWeld(),
+                                                      VclMessageType::Info, VclButtonsType::Ok,
+                                                      XsResId(STR_XMLSECDLG_NO_CERT_MANAGER)));
+        xInfoBox->run();
     }
 }
 
@@ -571,7 +570,6 @@ void DigitalSignaturesDialog::ImplFillSignaturesBox()
             OUString aDescription;
             OUString aType;
 
-            bool bSigValid = false;
             bool bCertValid = false;
             if( xCert.is() )
             {
@@ -622,7 +620,7 @@ void DigitalSignaturesDialog::ImplFillSignaturesBox()
                     aType = "PDF";
             }
 
-            bSigValid = ( rInfo.nStatus == css::xml::crypto::SecurityOperationStatus_OPERATION_SUCCEEDED );
+            bool bSigValid = rInfo.nStatus == css::xml::crypto::SecurityOperationStatus_OPERATION_SUCCEEDED;
 
             if ( bSigValid )
             {
@@ -638,7 +636,7 @@ void DigitalSignaturesDialog::ImplFillSignaturesBox()
             {
                 aImage = m_pSigsInvalidImg->GetImage();
             }
-            else if (bSigValid && !bCertValid)
+            else if (!bCertValid)
             {
                 aImage = m_pSigsNotvalidatedImg->GetImage();
             }
@@ -647,20 +645,19 @@ void DigitalSignaturesDialog::ImplFillSignaturesBox()
             // If there is no storage, then it's pointless to check storage
             // stream references.
             else if (maSignatureManager.meSignatureMode == DocumentSignatureMode::Content
-                && bSigValid && bCertValid && (maSignatureManager.mxStore.is() && !DocumentSignatureHelper::isOOo3_2_Signature(
+                && (maSignatureManager.mxStore.is() && !DocumentSignatureHelper::isOOo3_2_Signature(
                 maSignatureManager.maCurrentSignatureInformations[n])))
             {
                 aImage = m_pSigsNotvalidatedImg->GetImage();
                 bAllNewSignatures = false;
             }
             else if (maSignatureManager.meSignatureMode == DocumentSignatureMode::Content
-                && bSigValid && bCertValid && DocumentSignatureHelper::isOOo3_2_Signature(
+                && DocumentSignatureHelper::isOOo3_2_Signature(
                 maSignatureManager.maCurrentSignatureInformations[n]))
             {
                 aImage = m_pSigsValidImg->GetImage();
             }
-            else if (maSignatureManager.meSignatureMode == DocumentSignatureMode::Macros
-                && bSigValid && bCertValid)
+            else if (maSignatureManager.meSignatureMode == DocumentSignatureMode::Macros)
             {
                 aImage = m_pSigsValidImg->GetImage();
             }

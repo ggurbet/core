@@ -350,12 +350,12 @@ void SwFrame::CheckDir( SvxFrameDirection nDir, bool bVert, bool bOnlyBiDi, bool
             mbVertLR = false;
         }
         else
-           {
+        {
             mbVertical = true;
             if(SvxFrameDirection::Vertical_RL_TB == nDir)
                 mbVertLR = false;
-               else if(SvxFrameDirection::Vertical_LR_TB==nDir)
-                       mbVertLR = true;
+            else if(SvxFrameDirection::Vertical_LR_TB==nDir)
+                mbVertLR = true;
         }
     }
     else
@@ -2881,8 +2881,7 @@ SwTwips SwLayoutFrame::ShrinkFrame( SwTwips nDist, bool bTst, bool bInfo )
                 SetRetouche();
             if ( IsTabFrame() )
             {
-                if( IsTabFrame() )
-                    static_cast<SwTabFrame*>(this)->SetComplete();
+                static_cast<SwTabFrame*>(this)->SetComplete();
                 if ( Lower() )  // Can also be in the Join and be empty!
                     InvalidateNextPos();
             }

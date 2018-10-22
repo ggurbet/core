@@ -45,7 +45,7 @@
 #include <vcl/wrkwin.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/cvtgrf.hxx>
-#include <vcl/unowrap.hxx>
+#include <vcl/toolkit/unowrap.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/scheduler.hxx>
 #include <vcl/unohelp.hxx>
@@ -89,65 +89,35 @@ void InitSettings(ImplSVData* pSVData);
 }
 
 // keycodes handled internally by VCL
-class ImplReservedKey
+static vcl::KeyCode const ReservedKeys[]
 {
-public:
-    explicit ImplReservedKey( vcl::KeyCode aKeyCode )
-        : mKeyCode(aKeyCode)
-    {
-    }
-
-    vcl::KeyCode mKeyCode;
-};
-
-typedef std::pair<ImplReservedKey*, size_t> ReservedKeys;
-namespace
-{
-    struct ImplReservedKeysImpl
-    {
-        ReservedKeys* operator()()
-        {
-            static ImplReservedKey ImplReservedKeys[] =
-            {
-                ImplReservedKey(vcl::KeyCode(KEY_F1,0)                  ),
-                ImplReservedKey(vcl::KeyCode(KEY_F1,KEY_SHIFT)          ),
-                ImplReservedKey(vcl::KeyCode(KEY_F1,KEY_MOD1)           ),
-                ImplReservedKey(vcl::KeyCode(KEY_F2,KEY_SHIFT)          ),
-                ImplReservedKey(vcl::KeyCode(KEY_F4,KEY_MOD1)           ),
-                ImplReservedKey(vcl::KeyCode(KEY_F4,KEY_MOD2)           ),
-                ImplReservedKey(vcl::KeyCode(KEY_F4,KEY_MOD1|KEY_MOD2)  ),
-                ImplReservedKey(vcl::KeyCode(KEY_F6,0)                  ),
-                ImplReservedKey(vcl::KeyCode(KEY_F6,KEY_MOD1)           ),
-                ImplReservedKey(vcl::KeyCode(KEY_F6,KEY_SHIFT)          ),
-                ImplReservedKey(vcl::KeyCode(KEY_F6,KEY_MOD1|KEY_SHIFT) ),
-                ImplReservedKey(vcl::KeyCode(KEY_F10,0)                 )
+                vcl::KeyCode(KEY_F1,0)                  ,
+                vcl::KeyCode(KEY_F1,KEY_SHIFT)          ,
+                vcl::KeyCode(KEY_F1,KEY_MOD1)           ,
+                vcl::KeyCode(KEY_F2,KEY_SHIFT)          ,
+                vcl::KeyCode(KEY_F4,KEY_MOD1)           ,
+                vcl::KeyCode(KEY_F4,KEY_MOD2)           ,
+                vcl::KeyCode(KEY_F4,KEY_MOD1|KEY_MOD2)  ,
+                vcl::KeyCode(KEY_F6,0)                  ,
+                vcl::KeyCode(KEY_F6,KEY_MOD1)           ,
+                vcl::KeyCode(KEY_F6,KEY_SHIFT)          ,
+                vcl::KeyCode(KEY_F6,KEY_MOD1|KEY_SHIFT) ,
+                vcl::KeyCode(KEY_F10,0)
 #ifdef UNX
                 ,
-                ImplReservedKey(vcl::KeyCode(KEY_1,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_2,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_3,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_4,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_5,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_6,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_7,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_8,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_9,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_0,KEY_SHIFT|KEY_MOD1)),
-                ImplReservedKey(vcl::KeyCode(KEY_ADD,KEY_SHIFT|KEY_MOD1))
+                vcl::KeyCode(KEY_1,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_2,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_3,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_4,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_5,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_6,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_7,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_8,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_9,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_0,KEY_SHIFT|KEY_MOD1),
+                vcl::KeyCode(KEY_ADD,KEY_SHIFT|KEY_MOD1)
 #endif
-            };
-            static ReservedKeys aKeys
-            (
-                &ImplReservedKeys[0],
-                SAL_N_ELEMENTS(ImplReservedKeys)
-            );
-            return &aKeys;
-        }
-    };
-
-    struct ImplReservedKeys
-        : public rtl::StaticAggregate<ReservedKeys, ImplReservedKeysImpl> {};
-}
+};
 
 extern "C" {
     typedef UnoWrapperBase* (*FN_TkCreateUnoWrapper)();
@@ -298,7 +268,7 @@ void Application::Abort( const OUString& rErrorText )
 
 sal_uLong Application::GetReservedKeyCodeCount()
 {
-    return ImplReservedKeys::get()->second;
+    return SAL_N_ELEMENTS(ReservedKeys);
 }
 
 const vcl::KeyCode* Application::GetReservedKeyCode( sal_uLong i )
@@ -306,7 +276,7 @@ const vcl::KeyCode* Application::GetReservedKeyCode( sal_uLong i )
     if( i >= GetReservedKeyCodeCount() )
         return nullptr;
     else
-        return &ImplReservedKeys::get()->first[i].mKeyCode;
+        return &ReservedKeys[i];
 }
 
 IMPL_STATIC_LINK_NOARG( ImplSVAppData, ImplEndAllPopupsMsg, void*, void )
@@ -458,10 +428,9 @@ static bool ImplYield(bool i_bWait, bool i_bAllEvents)
     SAL_INFO("vcl.schedule", "Enter ImplYield: " << (i_bWait ? "wait" : "no wait") <<
              ": " << (i_bAllEvents ? "all events" : "one event"));
 
-    // TODO: there's a data race here on WNT only because ImplYield may be
-    // called without SolarMutex; if we can get rid of LazyDelete (with VclPtr)
-    // then the only remaining use of mnDispatchLevel is in OSX specific code
-    // so that would effectively eliminate the race on WNT
+    // there's a data race here on WNT only because ImplYield may be
+    // called without SolarMutex; but the only remaining use of mnDispatchLevel
+    // is in OSX specific code
     pSVData->maAppData.mnDispatchLevel++;
 
     // do not wait for events if application was already quit; in that
@@ -472,10 +441,6 @@ static bool ImplYield(bool i_bWait, bool i_bAllEvents)
     pSVData->maAppData.mnDispatchLevel--;
 
     DBG_TESTSOLARMUTEX(); // must be locked on return from Yield
-
-    // flush lazy deleted objects
-    if( pSVData->maAppData.mnDispatchLevel == 0 )
-        vcl::LazyDelete::flush();
 
     SAL_INFO("vcl.schedule", "Leave ImplYield with return " << bProcessedEvent );
     return bProcessedEvent;
@@ -1394,7 +1359,7 @@ SystemWindowFlags Application::GetSystemWindowMode()
 css::uno::Reference< css::awt::XToolkit > Application::GetVCLToolkit()
 {
     css::uno::Reference< css::awt::XToolkit > xT;
-    UnoWrapperBase* pWrapper = Application::GetUnoWrapper();
+    UnoWrapperBase* pWrapper = UnoWrapperBase::GetUnoWrapper();
     if ( pWrapper )
         xT = pWrapper->GetVCLToolkit();
     return xT;
@@ -1410,7 +1375,7 @@ extern "C" { static void thisModule() {} }
 
 #endif
 
-UnoWrapperBase* Application::GetUnoWrapper( bool bCreateIfNotExist )
+UnoWrapperBase* UnoWrapperBase::GetUnoWrapper( bool bCreateIfNotExist )
 {
     ImplSVData* pSVData = ImplGetSVData();
     static bool bAlreadyTriedToCreate = false;
@@ -1437,7 +1402,7 @@ UnoWrapperBase* Application::GetUnoWrapper( bool bCreateIfNotExist )
     return pSVData->mpUnoWrapper;
 }
 
-void Application::SetUnoWrapper( UnoWrapperBase* pWrapper )
+void UnoWrapperBase::SetUnoWrapper( UnoWrapperBase* pWrapper )
 {
     ImplSVData* pSVData = ImplGetSVData();
     SAL_WARN_IF( pSVData->mpUnoWrapper, "vcl", "SetUnoWrapper: Wrapper already exists" );

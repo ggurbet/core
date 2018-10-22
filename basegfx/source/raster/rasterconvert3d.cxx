@@ -18,6 +18,7 @@
  */
 
 #include <basegfx/raster/rasterconvert3d.hxx>
+#include <basegfx/vector/b2dvector.hxx>
 #include <basegfx/polygon/b3dpolygon.hxx>
 #include <basegfx/polygon/b3dpolypolygon.hxx>
 #include <basegfx/point/b3dpoint.hxx>
@@ -73,7 +74,7 @@ namespace basegfx
             // get scanlines first LineNumber as start
             sal_Int32 nLineNumber(std::max(aCurrentEntry->getY(), nStartLine));
 
-            while((aCurrentLine.size() || aCurrentEntry != maLineEntries.end()) && (nLineNumber < nStopLine))
+            while((!aCurrentLine.empty() || aCurrentEntry != maLineEntries.end()) && (nLineNumber < nStopLine))
             {
                 // add all entries which start at current line to current scanline
                 while(aCurrentEntry != maLineEntries.end())

@@ -421,8 +421,8 @@ namespace basprov
                 bool bCreate = false;
                 if ( m_bIsAppScriptCtx )
                 {
-                    bool bShared = isLibraryShared( xLibContainer, pLibNames[i] );
-                    if ( ( m_bIsUserCtx && !bShared ) || ( !m_bIsUserCtx && bShared ) )
+                    const bool bShared = isLibraryShared( xLibContainer, pLibNames[i] );
+                    if (m_bIsUserCtx != bShared)
                         bCreate = true;
                 }
                 else
@@ -481,7 +481,7 @@ namespace basprov
     }
 
 
-    static struct ::cppu::ImplementationEntry s_component_entries [] =
+    static struct ::cppu::ImplementationEntry const s_component_entries [] =
     {
         {
             create_BasicProviderImpl, getImplementationName_BasicProviderImpl,

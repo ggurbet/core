@@ -153,11 +153,11 @@ sal_Int32 MasterPageContainerQueue::CalculatePriority (
 
     // The cost is used as a starting value.
     int nCost (0);
-    if (rpDescriptor->mpPreviewProvider.get() != nullptr)
+    if (rpDescriptor->mpPreviewProvider != nullptr)
     {
         nCost = rpDescriptor->mpPreviewProvider->GetCostIndex();
         if (rpDescriptor->mpPreviewProvider->NeedsPageObject())
-            if (rpDescriptor->mpPageObjectProvider.get() != nullptr)
+            if (rpDescriptor->mpPageObjectProvider != nullptr)
                 nCost += rpDescriptor->mpPageObjectProvider->GetCostIndex();
     }
 
@@ -220,14 +220,14 @@ IMPL_LINK(MasterPageContainerQueue, DelayedPreviewCreation, Timer*, pTimer, void
             if ( ! mpWeakContainer.expired())
             {
                 std::shared_ptr<ContainerAdapter> pContainer (mpWeakContainer);
-                if (pContainer.get() != nullptr)
+                if (pContainer != nullptr)
                     pContainer->UpdateDescriptor(aRequest.mpDescriptor,false,true,true);
             }
         }
     }
     while (false);
 
-    if (mpRequestQueue->size() > 0 && ! bWaitForMoreRequests)
+    if (!mpRequestQueue->empty() && ! bWaitForMoreRequests)
     {
         int nTimeout (snDelayedCreationTimeout);
         if (bIsShowingFullScreenShow)
@@ -253,7 +253,7 @@ bool MasterPageContainerQueue::IsEmpty() const
 void MasterPageContainerQueue::ProcessAllRequests()
 {
     snWaitForMoreRequestsCount = 0;
-    if (mpRequestQueue->size() > 0)
+    if (!mpRequestQueue->empty())
         maDelayedPreviewCreationTimer.Start();
 }
 

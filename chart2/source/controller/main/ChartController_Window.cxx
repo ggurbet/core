@@ -899,6 +899,10 @@ void ChartController::execute_MouseButtonUp( const MouseEvent& rMEvt )
             else
                 m_aSelection.resetPossibleSelectionAfterSingleClickWasEnsured();
         }
+
+        //@todo ForcePointer(&rMEvt);
+        pChartWindow->ReleaseMouse();
+
         // In tiled rendering drag mode could be not yet over on the call
         // that should handle the double-click, so better to perform this check
         // always.
@@ -907,9 +911,6 @@ void ChartController::execute_MouseButtonUp( const MouseEvent& rMEvt )
             Point aMousePixel = rMEvt.GetPosPixel();
             execute_DoubleClick( &aMousePixel );
         }
-
-        //@todo ForcePointer(&rMEvt);
-        pChartWindow->ReleaseMouse();
 
         if( m_aSelection.isSelectionDifferentFromBeforeMouseDown() )
             bNotifySelectionChange = true;
@@ -1311,15 +1312,15 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
 
     DrawViewWrapper* pDrawViewWrapper = m_pDrawViewWrapper.get();
     auto pChartWindow(GetChartWindow());
-    if(!pChartWindow || !pDrawViewWrapper)
+    if (!pChartWindow || !pDrawViewWrapper)
         return bReturn;
 
     // handle accelerators
-    if( ! m_apAccelExecute.get() && m_xFrame.is() && m_xCC.is() )
+    if (!m_apAccelExecute && m_xFrame.is() && m_xCC.is())
     {
         m_apAccelExecute = ::svt::AcceleratorExecute::createAcceleratorHelper();
-        OSL_ASSERT( m_apAccelExecute.get());
-        if( m_apAccelExecute.get() )
+        OSL_ASSERT(m_apAccelExecute);
+        if (m_apAccelExecute)
             m_apAccelExecute->init( m_xCC, m_xFrame );
     }
 
@@ -1328,7 +1329,7 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
     bool bAlternate = aKeyCode.IsMod2();
     bool bCtrl = aKeyCode.IsMod1();
 
-    if( m_apAccelExecute.get() )
+    if (m_apAccelExecute)
         bReturn = m_apAccelExecute->execute( aKeyCode );
     if( bReturn )
         return bReturn;
@@ -1432,7 +1433,7 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
                     // default 1 mm in each direction
                     double fGrowAmountX = 200.0;
                     double fGrowAmountY = 200.0;
-                    if( bAlternate && pChartWindow )
+                    if (bAlternate)
                     {
                         // together with Alt-key: 1 px in each direction
                         Size aPixelSize = pChartWindow->PixelToLogic( Size( 2, 2 ));
@@ -1459,7 +1460,7 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
                     // default 1 mm
                     double fShiftAmountX = 100.0;
                     double fShiftAmountY = 100.0;
-                    if( bAlternate && pChartWindow )
+                    if (bAlternate)
                     {
                         // together with Alt-key: 1 px
                         Size aPixelSize = pChartWindow->PixelToLogic( Size( 1, 1 ));
@@ -1561,7 +1562,7 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
         bReturn = executeDispatch_Delete();
         if( ! bReturn )
         {
-            std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pChartWindow ? pChartWindow->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pChartWindow->GetFrameWeld(),
                                                           VclMessageType::Info, VclButtonsType::Ok,
                                                           SchResId(STR_ACTION_NOTPOSSIBLE)));
             xInfoBox->run();

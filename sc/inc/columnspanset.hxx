@@ -27,8 +27,8 @@ class SingleColumnSpanSet;
 
 struct RowSpan
 {
-    SCROW mnRow1;
-    SCROW mnRow2;
+    SCROW const mnRow1;
+    SCROW const mnRow2;
 
     RowSpan(SCROW nRow1, SCROW nRow2);
 };
@@ -62,7 +62,7 @@ private:
     typedef std::vector<std::unique_ptr<ColumnType>> TableType;
 
     std::vector<std::unique_ptr<TableType>> maTables;
-    bool mbInit;
+    bool const mbInit;
 
     ColumnType& getColumn(SCTAB nTab, SCCOL nCol);
 
@@ -103,7 +103,6 @@ public:
 
     void executeAction(Action& ac) const;
     void executeColumnAction(ScDocument& rDoc, ColumnAction& ac) const;
-    void executeColumnAction(ScDocument& rDoc, ColumnAction& ac, double& fMem) const;
 };
 
 /**
@@ -162,7 +161,6 @@ class RangeColumnSpanSet
 public:
     RangeColumnSpanSet( const ScRange& spanRange )
          : range( spanRange ) {}
-    void executeAction(ScDocument& rDoc, sc::ColumnSpanSet::Action& ac) const;
     void executeColumnAction(ScDocument& rDoc, sc::ColumnSpanSet::ColumnAction& ac) const;
     void executeColumnAction(ScDocument& rDoc, sc::ColumnSpanSet::ColumnAction& ac, double& fMem) const;
 private:

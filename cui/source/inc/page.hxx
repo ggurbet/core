@@ -22,7 +22,6 @@
 #include <sfx2/tabdlg.hxx>
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
-#include <vcl/group.hxx>
 #include <vcl/lstbox.hxx>
 #include <svx/pagectrl.hxx>
 #include <svx/pagenumberlistbox.hxx>
@@ -106,7 +105,7 @@ private:
     std::unique_ptr<weld::RadioButton> m_xPortraitBtn;
     std::unique_ptr<weld::RadioButton> m_xLandscapeBtn;
     std::unique_ptr<weld::Label> m_xTextFlowLbl;
-    std::unique_ptr<svx::SvxFrameDirectionListBox>  m_xTextFlowBox;
+    std::unique_ptr<svx::FrameDirectionListBox>  m_xTextFlowBox;
     std::unique_ptr<weld::ComboBox> m_xPaperTrayBox;
     // Margins
     std::unique_ptr<weld::Label> m_xLeftMarginLbl;

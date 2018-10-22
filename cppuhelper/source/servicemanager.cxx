@@ -986,9 +986,8 @@ cppuhelper::ServiceManager::createInstanceWithContext(
 {
     std::shared_ptr< Data::Implementation > impl(
         findServiceImplementation(Context, aServiceSpecifier));
-    return impl.get() == nullptr
-        ? css::uno::Reference< css::uno::XInterface >()
-        : impl->createInstance(Context, false);
+    return impl == nullptr ? css::uno::Reference<css::uno::XInterface>()
+                           : impl->createInstance(Context, false);
 }
 
 css::uno::Reference< css::uno::XInterface >
@@ -999,9 +998,8 @@ cppuhelper::ServiceManager::createInstanceWithArgumentsAndContext(
 {
     std::shared_ptr< Data::Implementation > impl(
         findServiceImplementation(Context, ServiceSpecifier));
-    return impl.get() == nullptr
-        ? css::uno::Reference< css::uno::XInterface >()
-        : impl->createInstanceWithArguments(Context, false, Arguments);
+    return impl == nullptr ? css::uno::Reference<css::uno::XInterface>()
+                           : impl->createInstanceWithArguments(Context, false, Arguments);
 }
 
 css::uno::Type cppuhelper::ServiceManager::getElementType()
@@ -1995,7 +1993,7 @@ void cppuhelper::ServiceManager::preloadImplementations() {
     std::cerr << std::endl;
 
     // Various rather important uno mappings.
-    struct {
+    static struct {
         const char *mpFrom;
         const char *mpTo;
         const char *mpPurpose;

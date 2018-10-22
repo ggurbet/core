@@ -40,6 +40,8 @@ ifneq ($(ENABLE_JAVA),)
 $(eval $(call gb_Module_add_targets,connectivity,\
 	Configuration_hsqldb \
 	Configuration_jdbc \
+	Configuration_mysql_jdbc \
+	Library_mysql_jdbc \
 	Jar_sdbc_hsqldb \
 	Library_hsqldb \
 	Library_jdbc \
@@ -127,6 +129,12 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,connectivity,\
 # FIXME: Does not work. Convert to JUnit.
 # JunitTest_complex \
 
+endif
+
+ifneq ($(CONNECTIVITY_TEST_MYSQL_DRIVER),)
+$(eval $(call gb_Module_add_check_targets,connectivity,\
+    CppunitTest_connectivity_mysql_test \
+))
 endif
 
 # general tests
