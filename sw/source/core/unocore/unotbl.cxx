@@ -757,22 +757,24 @@ void sw_setValue( SwXCell &rCell, double nVal )
 
 SwXCell::SwXCell(SwFrameFormat* pTableFormat, SwTableBox* pBx, size_t const nPos) :
     SwXText(pTableFormat->GetDoc(), CursorType::TableText),
-    SwClient(pTableFormat),
     m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TABLE_CELL)),
     pBox(pBx),
     pStartNode(nullptr),
+    m_pTableFormat(pTableFormat),
     nFndPos(nPos)
 {
+    StartListening(pTableFormat->GetNotifier());
 }
 
 SwXCell::SwXCell(SwFrameFormat* pTableFormat, const SwStartNode& rStartNode) :
     SwXText(pTableFormat->GetDoc(), CursorType::TableText),
-    SwClient(pTableFormat),
     m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TABLE_CELL)),
     pBox(nullptr),
     pStartNode(&rStartNode),
+    m_pTableFormat(pTableFormat),
     nFndPos(NOTFOUND)
 {
+    StartListening(pTableFormat->GetNotifier());
 }
 
 SwXCell::~SwXCell()
@@ -1172,20 +1174,17 @@ sal_Bool SwXCell::hasElements()
     return true;
 }
 
-void SwXCell::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXCell::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-}
-
-void SwXCell::SwClientNotify(const SwModify& rModify, const SfxHint& rHint)
-{
-    if(auto pFindHint = dynamic_cast<const FindUnoInstanceHint<SwTableBox, SwXCell>*>(&rHint))
+    if(rHint.GetId() == SfxHintId::Dying)
+    {
+        m_pTableFormat = nullptr;
+    }
+    else if(auto pFindHint = dynamic_cast<const FindUnoInstanceHint<SwTableBox, SwXCell>*>(&rHint))
     {
         if(!pFindHint->m_pResult && pFindHint->m_pCore == GetTableBox())
             pFindHint->m_pResult = this;
     }
-    else
-        SwClient::SwClientNotify(rModify, rHint);
 }
 
 SwXCell* SwXCell::CreateXCell(SwFrameFormat* pTableFormat, SwTableBox* pBox, SwTable *pTable )
@@ -1199,7 +1198,7 @@ SwXCell* SwXCell::CreateXCell(SwFrameFormat* pTableFormat, SwTableBox* pBox, SwT
         return nullptr;
     size_t const nPos = it - pTable->GetTabSortBoxes().begin();
     FindUnoInstanceHint<SwTableBox, SwXCell> aHint{pBox};
-    pTableFormat->CallSwClientNotify(aHint);
+    pTableFormat->GetNotifier().Broadcast(aHint);
     return aHint.m_pResult ? aHint.m_pResult : new SwXCell(pTableFormat, pBox, nPos);
 }
 
@@ -1301,10 +1300,12 @@ uno::Sequence< OUString > SwXTextTableRow::getSupportedServiceNames()
 
 
 SwXTextTableRow::SwXTextTableRow(SwFrameFormat* pFormat, SwTableLine* pLn) :
-    SwClient(pFormat),
-    m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE_ROW)),
-    pLine(pLn)
-{ }
+    m_pFormat(pFormat),
+    pLine(pLn),
+    m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE_ROW))
+{
+    StartListening(m_pFormat->GetNotifier());
+}
 
 SwXTextTableRow::~SwXTextTableRow()
 {
@@ -1453,18 +1454,16 @@ void SwXTextTableRow::addVetoableChangeListener(const OUString& /*rPropertyName*
 void SwXTextTableRow::removeVetoableChangeListener(const OUString& /*rPropertyName*/, const uno::Reference< beans::XVetoableChangeListener > & /*xListener*/)
     { throw uno::RuntimeException("not implemented", static_cast<cppu::OWeakObject*>(this)); };
 
-void SwXTextTableRow::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
-    { ClientModify(this, pOld, pNew); }
-
-void SwXTextTableRow::SwClientNotify(const SwModify& rModify, const SfxHint& rHint)
+void SwXTextTableRow::Notify(const SfxHint& rHint)
 {
-    if(auto pFindHint = dynamic_cast<const FindUnoInstanceHint<SwTableLine, SwXTextTableRow>*>(&rHint))
+    if(rHint.GetId() == SfxHintId::Dying)
+    {
+        m_pFormat = nullptr;
+    } else if(auto pFindHint = dynamic_cast<const FindUnoInstanceHint<SwTableLine, SwXTextTableRow>*>(&rHint))
     {
         if(!pFindHint->m_pCore && pFindHint->m_pCore == pLine)
             pFindHint->m_pResult = this;
     }
-    else
-        SwClient::SwClientNotify(rModify, rHint);
 }
 
 SwTableLine* SwXTextTableRow::FindLine(SwTable* pTable, SwTableLine const * pLine)
@@ -2996,8 +2995,7 @@ uno::Any SwXTextTable::getPropertyValue(const OUString& rPropertyName)
                 case FN_UNO_TABLE_TEMPLATE_NAME:
                 {
                     SwTable* pTable = SwTable::FindTable(pFormat);
-                    OUString sName = pTable->GetTableStyleName();
-                    aRet <<= sName;
+                    aRet <<= pTable->GetTableStyleName();
                 }
                 break;
 
@@ -3565,7 +3563,7 @@ uno::Any SAL_CALL SwXCellRange::getPropertyValue(const OUString& rPropertyName)
                 SwFormatColl *const pTmpFormat =
                     SwUnoCursorHelper::GetCurTextFormatColl(*m_pImpl->m_pTableCursor, false);
                 OUString sRet;
-                if(pFormat)
+                if (pTmpFormat)
                     sRet = pTmpFormat->GetName();
                 aRet <<= sRet;
             }
@@ -3903,13 +3901,18 @@ void SwXCellRange::Impl::Modify(
     }
 }
 
-class SwXTableRows::Impl : public SwClient
+class SwXTableRows::Impl : public SvtListener
 {
+private:
+    SwFrameFormat* m_pFrameFormat;
+
 public:
-    explicit Impl(SwFrameFormat& rFrameFormat) : SwClient(&rFrameFormat) {}
-protected:
-    //SwClient
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+    explicit Impl(SwFrameFormat& rFrameFormat) : m_pFrameFormat(&rFrameFormat)
+    {
+        StartListening(rFrameFormat.GetNotifier());
+    }
+    SwFrameFormat* GetFrameFormat() { return m_pFrameFormat; }
+    virtual void Notify(const SfxHint&) override;
 };
 
 //  SwXTableRows
@@ -3933,7 +3936,7 @@ SwXTableRows::~SwXTableRows()
 
 SwFrameFormat* SwXTableRows::GetFrameFormat()
 {
-    return static_cast<SwFrameFormat*>(m_pImpl->GetRegisteredIn());
+    return m_pImpl->GetFrameFormat();
 }
 
 sal_Int32 SwXTableRows::getCount()
@@ -3958,7 +3961,7 @@ uno::Any SwXTableRows::getByIndex(sal_Int32 nIndex)
         throw lang::IndexOutOfBoundsException();
     SwTableLine* pLine = pTable->GetTabLines()[nIndex];
     FindUnoInstanceHint<SwTableLine,SwXTextTableRow> aHint{pLine};
-    pFrameFormat->CallSwClientNotify(aHint);
+    pFrameFormat->GetNotifier().Broadcast(aHint);
     if(!aHint.m_pResult)
         aHint.m_pResult = new SwXTextTableRow(pFrameFormat, pLine);
     uno::Reference<beans::XPropertySet> xRet = static_cast<beans::XPropertySet*>(aHint.m_pResult);
@@ -4062,18 +4065,24 @@ void SwXTableRows::removeByIndex(sal_Int32 nIndex, sal_Int32 nCount)
     }
 }
 
-void SwXTableRows::Impl::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
-    { ClientModify(this, pOld, pNew); }
+void SwXTableRows::Impl::Notify( const SfxHint& rHint)
+{
+    if(rHint.GetId() == SfxHintId::Dying)
+        m_pFrameFormat = nullptr;
+}
 
 // SwXTableColumns
 
-class SwXTableColumns::Impl : public SwClient
+class SwXTableColumns::Impl : public SvtListener
 {
-public:
-    explicit Impl(SwFrameFormat& rFrameFormat) : SwClient(&rFrameFormat) {}
-protected:
-    //SwClient
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+    SwFrameFormat* m_pFrameFormat;
+    public:
+        explicit Impl(SwFrameFormat& rFrameFormat) : m_pFrameFormat(&rFrameFormat)
+        {
+            StartListening(rFrameFormat.GetNotifier());
+        }
+        SwFrameFormat* GetFrameFormat() { return m_pFrameFormat; }
+        virtual void Notify(const SfxHint&) override;
 };
 
 OUString SwXTableColumns::getImplementationName()
@@ -4095,7 +4104,7 @@ SwXTableColumns::~SwXTableColumns()
 
 SwFrameFormat* SwXTableColumns::GetFrameFormat() const
 {
-    return static_cast<SwFrameFormat*>(m_pImpl->GetRegisteredIn());
+    return m_pImpl->GetFrameFormat();
 }
 
 sal_Int32 SwXTableColumns::getCount()
@@ -4213,7 +4222,10 @@ void SwXTableColumns::removeByIndex(sal_Int32 nIndex, sal_Int32 nCount)
     }
 }
 
-void SwXTableColumns::Impl::Modify(const SfxPoolItem* pOld, const SfxPoolItem *pNew)
-    { ClientModify(this, pOld, pNew); }
+void SwXTableColumns::Impl::Notify(const SfxHint& rHint)
+{
+    if(rHint.GetId() == SfxHintId::Dying)
+        m_pFrameFormat = nullptr;
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

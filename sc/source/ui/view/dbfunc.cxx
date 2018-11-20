@@ -21,6 +21,7 @@
 #include <sfx2/app.hxx>
 #include <sfx2/bindings.hxx>
 #include <vcl/weld.hxx>
+#include <unotools/charclass.hxx>
 
 #include <com/sun/star/sdbc/XResultSet.hpp>
 
@@ -38,6 +39,7 @@
 #include <queryentry.hxx>
 #include <markdata.hxx>
 #include <tabvwsh.hxx>
+#include <sortparam.hxx>
 
 ScDBFunc::ScDBFunc( vcl::Window* pParent, ScDocShell& rDocSh, ScTabViewShell* pViewShell ) :
     ScViewFunc( pParent, rDocSh, pViewShell )

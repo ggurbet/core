@@ -128,7 +128,7 @@ public:
 
     // Event must be destroyed, when Frame is destroyed
     // When Event is called, SalInstance::Yield() must be returned
-    virtual bool            PostEvent(ImplSVEvent* pData) = 0;
+    virtual bool            PostEvent(std::unique_ptr<ImplSVEvent> pData) = 0;
 
     virtual void            SetTitle( const OUString& rTitle ) = 0;
     virtual void            SetIcon( sal_uInt16 nIcon ) = 0;
@@ -238,6 +238,11 @@ public:
 
     virtual void            SetModal(bool /*bModal*/)
     {
+    }
+
+    virtual bool            GetModal() const
+    {
+        return false;
     }
 
     // return true to indicate tooltips are shown natively, false otherwise

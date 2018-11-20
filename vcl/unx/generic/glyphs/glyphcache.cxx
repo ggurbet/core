@@ -46,6 +46,8 @@ GlyphCache::~GlyphCache()
 
 void GlyphCache::ClearFontCache()
 {
+    for (auto &aFontPair : maFontList)
+        static_cast<FreetypeFontInstance*>(aFontPair.first.get())->SetFreetypeFont(nullptr);
     maFontList.clear();
     mpCurrentGCFont = nullptr;
     m_aFontInfoList.clear();
@@ -297,6 +299,22 @@ static hb_blob_t* getFontTable(hb_face_t* /*face*/, hb_tag_t nTableTag, void* pU
 hb_font_t* FreetypeFontInstance::ImplInitHbFont()
 {
     return InitHbFont(hb_face_create_for_tables(getFontTable, this, nullptr));
+}
+
+bool FreetypeFontInstance::ImplGetGlyphBoundRect(sal_GlyphId nId, tools::Rectangle& rRect, bool bVertical) const
+{
+    assert(mpFreetypeFont);
+    if (!mpFreetypeFont)
+        return false;
+    return mpFreetypeFont->GetGlyphBoundRect(nId, rRect, bVertical);
+}
+
+bool FreetypeFontInstance::GetGlyphOutline(sal_GlyphId nId, basegfx::B2DPolyPolygon& rPoly, bool bVertical) const
+{
+    assert(mpFreetypeFont);
+    if (!mpFreetypeFont)
+        return false;
+    return mpFreetypeFont->GetGlyphOutline(nId, rPoly, bVertical);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -723,9 +723,8 @@ namespace
             // look up the column in the select column, to find an possible alias
             if ( _pSelectColumns )
             {
-                for (auto const& lookupColumn : _pSelectColumns->get())
+                for (const Reference< XPropertySet >& xColumn : _pSelectColumns->get())
                 {
-                    Reference< XPropertySet > xColumn( lookupColumn );
                     try
                     {
                         OUString sName, sTableName;
@@ -1738,7 +1737,7 @@ OUString OSQLParseTreeIterator::getUniqueColumnName(const OUString & rColumnName
     sal_Int32 i=1;
     while(aIter != m_aSelectColumns->get().end())
     {
-        (aAlias = rColumnName) += OUString::number(i++);
+        aAlias = rColumnName + OUString::number(i++);
         aIter = find(
             m_aSelectColumns->get().begin(),
             m_aSelectColumns->get().end(),

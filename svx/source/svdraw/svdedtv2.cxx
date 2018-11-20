@@ -501,12 +501,12 @@ void SdrEditView::ImpCheckToTopBtmPossible()
             const size_t nRestrict=pRestrict->GetOrdNum();
             if (nRestrict>nMin) nMin=nRestrict;
         }
-        bToTopPossible=nObjNum<nMax-1;
-        bToBtmPossible=nObjNum>nMin;
+        m_bToTopPossible=nObjNum<nMax-1;
+        m_bToBtmPossible=nObjNum>nMin;
     } else { // multiple selection
         SdrObjList* pOL0=nullptr;
         size_t nPos0 = 0;
-        for (size_t nm = 0; !bToBtmPossible && nm<nCount; ++nm) { // check 'send to background'
+        for (size_t nm = 0; !m_bToBtmPossible && nm<nCount; ++nm) { // check 'send to background'
             SdrObject* pObj=GetMarkedObjectByIndex(nm);
             SdrObjList* pOL=pObj->getParentSdrObjListFromSdrObject();
             if (pOL!=pOL0) {
@@ -514,13 +514,13 @@ void SdrEditView::ImpCheckToTopBtmPossible()
                 pOL0=pOL;
             }
             const size_t nPos = pObj->GetOrdNum();
-            bToBtmPossible = nPos && (nPos-1 > nPos0);
+            m_bToBtmPossible = nPos && (nPos-1 > nPos0);
             nPos0 = nPos;
         }
 
         pOL0=nullptr;
         nPos0 = SAL_MAX_SIZE;
-        for (size_t nm=nCount; !bToTopPossible && nm>0; ) { // check 'bring to front'
+        for (size_t nm=nCount; !m_bToTopPossible && nm>0; ) { // check 'bring to front'
             --nm;
             SdrObject* pObj=GetMarkedObjectByIndex(nm);
             SdrObjList* pOL=pObj->getParentSdrObjListFromSdrObject();
@@ -529,7 +529,7 @@ void SdrEditView::ImpCheckToTopBtmPossible()
                 pOL0=pOL;
             }
             const size_t nPos = pObj->GetOrdNum();
-            bToTopPossible = nPos+1 < nPos0;
+            m_bToTopPossible = nPos+1 < nPos0;
             nPos0=nPos;
         }
     }
@@ -826,10 +826,8 @@ void SdrEditView::DistributeMarkedObjects(weld::Window* pParent)
                         default: break;
                     }
 
-                    for ( itEntryList = aEntryList.begin();
-                          itEntryList < aEntryList.end() && (*itEntryList)->mnPos < pNew->mnPos;
-                          ++itEntryList )
-                    {};
+                    itEntryList = std::find_if(aEntryList.begin(), aEntryList.end(),
+                        [&pNew](const ImpDistributeEntry* pEntry) { return pEntry->mnPos >= pNew->mnPos; });
                     if ( itEntryList < aEntryList.end() )
                         aEntryList.insert( itEntryList, pNew );
                     else
@@ -921,10 +919,8 @@ void SdrEditView::DistributeMarkedObjects(weld::Window* pParent)
                         default: break;
                     }
 
-                    for ( itEntryList = aEntryList.begin();
-                          itEntryList < aEntryList.end() && (*itEntryList)->mnPos < pNew->mnPos;
-                          ++itEntryList )
-                    {};
+                    itEntryList = std::find_if(aEntryList.begin(), aEntryList.end(),
+                        [&pNew](const ImpDistributeEntry* pEntry) { return pEntry->mnPos >= pNew->mnPos; });
                     if ( itEntryList < aEntryList.end() )
                         aEntryList.insert( itEntryList, pNew );
                     else
@@ -1412,7 +1408,7 @@ bool SdrEditView::ImpCanDismantle(const basegfx::B2DPolyPolygon& rPpolyPolygon, 
     else if(bMakeLines && 1 == nPolygonCount)
     {
         // #i69172# ..or with at least 2 edges (curves or lines)
-        const basegfx::B2DPolygon aPolygon(rPpolyPolygon.getB2DPolygon(0));
+        const basegfx::B2DPolygon& aPolygon(rPpolyPolygon.getB2DPolygon(0));
         const sal_uInt32 nPointCount(aPolygon.count());
 
         if(nPointCount > 2)

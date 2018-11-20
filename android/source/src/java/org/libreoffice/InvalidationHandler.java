@@ -132,7 +132,8 @@ public class InvalidationHandler implements Document.MessageCallback, Office.Mes
                 if (payloadObject.getString("success").equals("true")) {
                     mContext.saveFilesToCloud();
                 }
-            }else if(payloadObject.getString("commandName").equals(".uno:Name")){
+            }else if(payloadObject.getString("commandName").equals(".uno:Name") ||
+                    payloadObject.getString("commandName").equals(".uno:RenamePage")){
                 //success returns false even though its true for some reason,
                 LOKitShell.getMainHandler().post(new Runnable() {
                     @Override
@@ -144,7 +145,7 @@ public class InvalidationHandler implements Document.MessageCallback, Office.Mes
                     }
                 });
             } else if(payloadObject.getString("commandName").equals(".uno:Remove") ||
-                    payloadObject.getString("commandName").equals(".uno:DeletePage")  ) {
+                    payloadObject.getString("commandName").equals(".uno:DeletePage") ) {
                 LOKitShell.getMainHandler().post(new Runnable() {
                     @Override
                     public void run() {
@@ -320,7 +321,11 @@ public class InvalidationHandler implements Document.MessageCallback, Office.Mes
             mContext.getFormattingController().onToggleStateChanged(Document.NUMBERED_LIST, pressed);
         } else if (parts[0].equals(".uno:Color")) {
             mContext.getFontController().colorPaletteListener.updateColorPickerPosition(Integer.parseInt(value));
-        } else if (parts[0].equals(".uno:BackColor")) {
+        } else if (mContext.getTileProvider().isTextDocument() && parts[0].equals(".uno:BackColor")) {
+            mContext.getFontController().backColorPaletteListener.updateColorPickerPosition(Integer.parseInt(value));
+        } else if (mContext.getTileProvider().isPresentation() && parts[0].equals(".uno:CharBackColor")) {
+            mContext.getFontController().backColorPaletteListener.updateColorPickerPosition(Integer.parseInt(value));
+        } else if (mContext.getTileProvider().isSpreadsheet() && parts[0].equals(".uno:BackgroundColor")) {
             mContext.getFontController().backColorPaletteListener.updateColorPickerPosition(Integer.parseInt(value));
         } else if (parts[0].equals(".uno:StatePageNumber")) {
             // get the total page number and compare to the current value and update accordingly

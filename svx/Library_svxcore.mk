@@ -250,6 +250,7 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/sdr/primitive2d/sdrcaptionprimitive2d \
     svx/source/sdr/primitive2d/sdrconnectorprimitive2d \
     svx/source/sdr/primitive2d/sdrmeasureprimitive2d \
+    svx/source/sdr/primitive2d/sdrframeborderprimitive2d \
     svx/source/sdr/primitive2d/sdrattributecreator \
     svx/source/sdr/primitive2d/sdrdecompositiontools \
     svx/source/sdr/primitive3d/sdrattributecreator3d \
@@ -409,7 +410,6 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/xoutdev/xattr \
     svx/source/xoutdev/xattr2 \
     svx/source/xoutdev/xattrbmp \
-    svx/source/xoutdev/xexch \
     svx/source/xoutdev/_xoutbmp \
     svx/source/xoutdev/_xpoly \
     svx/source/xoutdev/xpool \
@@ -443,7 +443,6 @@ $(eval $(call gb_Library_add_exception_objects,svxcore,\
     svx/source/form/fmdpage \
     svx/source/form/fmexch \
     svx/source/form/fmexpl \
-    svx/source/form/fmitems \
     svx/source/form/fmmodel \
     svx/source/form/fmobj \
     svx/source/form/fmpage \

@@ -33,8 +33,6 @@
 #include <svl/typedwhich.hxx>
 
 class SfxItemPool;
-class SfxPoolItem;
-class SvStream;
 
 namespace svl {
 
@@ -194,9 +192,8 @@ public:
     inline void                 SetParent( const SfxItemSet* pNew );
 
     // add, delete items, work on items
-protected:
-    virtual const SfxPoolItem*  Put( const SfxPoolItem&, sal_uInt16 nWhich );
 public:
+    virtual const SfxPoolItem*  Put( const SfxPoolItem&, sal_uInt16 nWhich );
     const SfxPoolItem*          Put( const SfxPoolItem& rItem )
                                 { return Put(rItem, rItem.Which()); }
     bool                        Put( const SfxItemSet&,

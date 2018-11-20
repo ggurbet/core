@@ -71,6 +71,7 @@ public:
     void testTdf106217();
     void testAutoBackgroundXLSX();
     void testChartAreaStyleBackgroundXLSX();
+    void testChartHatchFillXLSX();
     void testAxisTextRotationXLSX();
     // void testTextCanOverlapXLSX(); // TODO : temporarily disabled.
     void testNumberFormatsXLSX();
@@ -111,6 +112,12 @@ public:
 
     void testTdf116163();
 
+    void testTdf121205();
+
+    void testTdf114179();
+    void testDeletedDataLabel();
+    void testDataPointInheritedColorDOCX();
+
     CPPUNIT_TEST_SUITE(Chart2ImportTest);
     CPPUNIT_TEST(Fdo60083);
     CPPUNIT_TEST(testSteppedLines);
@@ -144,6 +151,7 @@ public:
     CPPUNIT_TEST(testTdf106217);
     CPPUNIT_TEST(testAutoBackgroundXLSX);
     CPPUNIT_TEST(testChartAreaStyleBackgroundXLSX);
+    CPPUNIT_TEST(testChartHatchFillXLSX);
     CPPUNIT_TEST(testAxisTextRotationXLSX);
     // CPPUNIT_TEST(testTextCanOverlapXLSX); // TODO : temporarily disabled.
     CPPUNIT_TEST(testNumberFormatsXLSX);
@@ -174,6 +182,12 @@ public:
     CPPUNIT_TEST(testTdf115107_2);
 
     CPPUNIT_TEST(testTdf116163);
+
+    CPPUNIT_TEST(testTdf121205);
+
+    CPPUNIT_TEST(testTdf114179);
+    CPPUNIT_TEST(testDeletedDataLabel);
+    CPPUNIT_TEST(testDataPointInheritedColorDOCX);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -896,6 +910,48 @@ void Chart2ImportTest::testChartAreaStyleBackgroundXLSX()
         sal_Int32(0), nColor);
 }
 
+void Chart2ImportTest::testChartHatchFillXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "chart-hatch-fill.xlsx");
+    uno::Reference<chart2::XChartDocument> xChartDoc = getChartDocFromSheet(0, mxComponent);
+    CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChartDoc.is());
+
+    // Check the chart background FillStyle is HATCH
+    Reference<beans::XPropertySet> xPropSet = xChartDoc->getPageBackground();
+    CPPUNIT_ASSERT(xPropSet.is());
+    drawing::FillStyle eStyle = xPropSet->getPropertyValue("FillStyle").get<drawing::FillStyle>();
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Chart background fill in this xlsx should be loaded as hatch fill.",
+        drawing::FillStyle_HATCH, eStyle);
+
+    // Check the FillBackground of chart background
+    bool bBackgroundFill = false;
+    xPropSet->getPropertyValue("FillBackground") >>= bBackgroundFill;
+    CPPUNIT_ASSERT(bBackgroundFill);
+
+    sal_Int32 nBackgroundColor;
+    xPropSet->getPropertyValue("FillColor") >>= nBackgroundColor;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0xFFFFFF), nBackgroundColor);
+
+    // Check the datapoint has HatchName value
+    uno::Reference<chart2::XDataSeries> xDataSeries(getDataSeriesFromDoc(xChartDoc, 0));
+    CPPUNIT_ASSERT(xDataSeries.is());
+
+    uno::Reference<beans::XPropertySet> xPropertySet(xDataSeries->getDataPointByIndex(1), uno::UNO_QUERY_THROW);
+    OUString sHatchName;
+    xPropertySet->getPropertyValue("HatchName") >>= sHatchName;
+    CPPUNIT_ASSERT(!sHatchName.isEmpty());
+
+    // Check the FillBackground of datapoint
+    bool bBackgroundFillofDatapoint = false;
+    xPropertySet->getPropertyValue("FillBackground") >>= bBackgroundFillofDatapoint;
+    CPPUNIT_ASSERT(bBackgroundFillofDatapoint);
+
+    sal_Int32 nBackgroundColorofDatapoint;
+    xPropertySet->getPropertyValue("FillColor") >>= nBackgroundColorofDatapoint;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x00B050), nBackgroundColorofDatapoint);
+}
+
 void Chart2ImportTest::testAxisTextRotationXLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "axis-label-rotation.xlsx");
@@ -1557,6 +1613,76 @@ void Chart2ImportTest::testTdf116163()
     CPPUNIT_ASSERT_EQUAL(OUString("Ccc"), xLabel2->getString());
     uno::Reference<text::XTextRange> xLabel3(xIndexAccess->getByIndex(3), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("Dddd..."), xLabel3->getString());
+}
+
+void Chart2ImportTest::testTdf121205()
+{
+    load("/chart2/qa/extras/data/pptx/", "tdf121205.pptx");
+    Reference<chart2::XChartDocument> xChartDoc(getChartDocFromDrawImpress(0, 0), uno::UNO_QUERY);
+
+    uno::Reference<chart2::XTitled> xTitled(xChartDoc, uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("chart doc does not have title", xTitled.is());
+    OUString aTitle = getTitleString(xTitled);
+
+    // We expect title splitted in 3 lines
+    CPPUNIT_ASSERT_EQUAL(OUString("Firstline\nSecondline\nThirdline"), aTitle);
+}
+
+void Chart2ImportTest::testTdf114179()
+{
+    load( "/chart2/qa/extras/data/docx/", "testTdf114179.docx" );
+    uno::Reference< chart2::XChartDocument > xChartDoc ( getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT( xChartDoc.is() );
+    css::uno::Reference<chart2::XDiagram> xDiagram;
+    xDiagram.set( xChartDoc->getFirstDiagram() );
+    CPPUNIT_ASSERT_MESSAGE( "There is a Diagram." , xDiagram.is() );
+    awt::Size aPage = getPageSize( xChartDoc );
+    awt::Size aSize = getSize( xDiagram,aPage );
+    CPPUNIT_ASSERT( aSize.Width > 0);
+    CPPUNIT_ASSERT( aSize.Height > 0);
+}
+
+namespace {
+
+void checkDataLabelProperties(const Reference<chart2::XDataSeries>& xDataSeries, sal_Int32 nDataPointIndex, bool bValueVisible)
+{
+    uno::Reference<beans::XPropertySet> xPropertySet(xDataSeries->getDataPointByIndex(nDataPointIndex), uno::UNO_QUERY_THROW);
+    chart2::DataPointLabel aLabel;
+    xPropertySet->getPropertyValue("Label") >>= aLabel;
+    CPPUNIT_ASSERT_EQUAL(bValueVisible, static_cast<bool>(aLabel.ShowNumber));
+    CPPUNIT_ASSERT_EQUAL(false, static_cast<bool>(aLabel.ShowNumberInPercent));
+}
+
+}
+
+void Chart2ImportTest::testDeletedDataLabel()
+{
+    load("/chart2/qa/extras/data/xlsx/", "deleted_data_labels.xlsx");
+    uno::Reference< chart2::XChartDocument > xChartDoc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
+    Reference<chart2::XDataSeries> xDataSeries0 = getDataSeriesFromDoc(xChartDoc, 0);
+    CPPUNIT_ASSERT(xDataSeries0.is());
+    checkDataLabelProperties(xDataSeries0, 0, true);
+    checkDataLabelProperties(xDataSeries0, 1, false);
+    checkDataLabelProperties(xDataSeries0, 2, true);
+    Reference<chart2::XDataSeries> xDataSeries1 = getDataSeriesFromDoc(xChartDoc, 1);
+    CPPUNIT_ASSERT(xDataSeries1.is());
+    checkDataLabelProperties(xDataSeries1, 0, false);
+    checkDataLabelProperties(xDataSeries1, 1, false);
+    checkDataLabelProperties(xDataSeries1, 2, false);
+}
+
+void Chart2ImportTest::testDataPointInheritedColorDOCX()
+{
+    load( "/chart2/qa/extras/data/docx/", "data_point_inherited_color.docx" );
+    uno::Reference< chart2::XChartDocument > xChartDoc ( getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT( xChartDoc.is() );
+    css::uno::Reference<chart2::XDiagram> xDiagram(xChartDoc->getFirstDiagram(), UNO_QUERY_THROW);
+
+    Reference<chart2::XDataSeries> xDataSeries = getDataSeriesFromDoc(xChartDoc, 0);
+    uno::Reference<beans::XPropertySet> xPropertySet(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT(xPropertySet.is());
+    sal_Int32 nColor = xPropertySet->getPropertyValue("FillColor").get<sal_Int32>();
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(16776960), nColor);
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(Chart2ImportTest);

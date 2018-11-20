@@ -23,6 +23,8 @@
 #include <usrpref.hxx>
 
 #include <test/htmltesttools.hxx>
+#include <tools/urlobj.hxx>
+#include <svtools/rtfkeywd.hxx>
 
 class HtmlExportTest : public SwModelTestBase, public HtmlTestTools
 {
@@ -32,7 +34,7 @@ private:
 public:
     HtmlExportTest() :
         SwModelTestBase("/sw/qa/extras/htmlexport/data/", "HTML (StarWriter)"),
-        m_eUnit(FUNIT_NONE)
+        m_eUnit(FieldUnit::NONE)
     {}
 
     /**
@@ -93,7 +95,7 @@ private:
                 }));
             SwMasterUsrPref* pPref = const_cast<SwMasterUsrPref*>(SW_MOD()->GetUsrPref(false));
             m_eUnit = pPref->GetMetric();
-            pPref->SetMetric(FUNIT_CM);
+            pPref->SetMetric(FieldUnit::CM);
             return pResetter;
         }
         return nullptr;
@@ -555,10 +557,41 @@ DECLARE_HTMLEXPORT_ROUNDTRIP_TEST(testReqIfOle2, "reqif-ole2.xhtml")
     uno::Reference<io::XSeekable> xStream(xEmbeddedObject->getStream(), uno::UNO_QUERY);
     // This was 80913, the RTF hexdump -> OLE1 binary -> OLE2 conversion was
     // missing.
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int64>(38912), xStream->getLength());
+    // Also, this was 38912 when we re-generated the OLE2 preview, which is
+    // wrong, the OLE2 data is 38375 bytes in the ole2.ole (referenced by
+    // reqif-ole2.xhtml). To see that this is the correct value, convert the
+    // hexdump in ole2.ole to binary, remove the ole1 header and check the byte
+    // size.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int64>(38375), xStream->getLength());
     // Finally the export also failed as it tried to open the stream from the
     // document storage, but the embedded object already opened it, so an
     // exception of type com.sun.star.io.IOException was thrown.
+
+    if (mbExported)
+    {
+        // Check that the replacement graphic is exported at RTF level.
+        SvMemoryStream aStream;
+        wrapFragment(aStream);
+        xmlDocPtr pDoc = parseXmlStream(&aStream);
+        CPPUNIT_ASSERT(pDoc);
+        // Get the path of the RTF data.
+        OUString aOlePath = getXPath(
+            pDoc, "/reqif-xhtml:html/reqif-xhtml:div/reqif-xhtml:p/reqif-xhtml:object", "data");
+        OUString aOleSuffix(".ole");
+        CPPUNIT_ASSERT(aOlePath.endsWith(aOleSuffix));
+        INetURLObject aUrl(maTempFile.GetURL());
+        aUrl.setBase(aOlePath.copy(0, aOlePath.getLength() - aOleSuffix.getLength()));
+        aUrl.setExtension("ole");
+        OUString aOleUrl = aUrl.GetMainURL(INetURLObject::DecodeMechanism::NONE);
+
+        // Search for \result in the RTF data.
+        SvFileStream aOleStream(aOleUrl, StreamMode::READ);
+        CPPUNIT_ASSERT(aOleStream.IsOpen());
+        OString aOleString(read_uInt8s_ToOString(aOleStream, aOleStream.TellEnd()));
+        // Without the accompanying fix in place, this test would have failed,
+        // replacement graphic was missing at RTF level.
+        CPPUNIT_ASSERT(aOleString.indexOf(OOO_STRING_SVTOOLS_RTF_RESULT) != -1);
+    }
 }
 
 DECLARE_HTMLEXPORT_ROUNDTRIP_TEST(testReqIfOle2Odg, "reqif-ole-odg.xhtml")

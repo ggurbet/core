@@ -35,6 +35,7 @@
 
 #include <boost/optional.hpp>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <algorithm>
 
@@ -177,7 +178,7 @@ OUString SwTOXMark::GetText() const
         if( pEndIdx )
         {
             const sal_Int32 nStt = m_pTextAttr->GetStart();
-            return m_pTextAttr->GetpTextNd()->GetExpandText( nStt, *pEndIdx-nStt );
+            return m_pTextAttr->GetpTextNd()->GetExpandText(nullptr, nStt, *pEndIdx-nStt);
         }
     }
 

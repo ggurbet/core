@@ -19,6 +19,7 @@
 
 #include "eschesdo.hxx"
 #include <o3tl/any.hxx>
+#include <o3tl/clamp.hxx>
 #include <o3tl/make_unique.hxx>
 #include <svx/svdxcgv.hxx>
 #include <svx/svdomedia.hxx>
@@ -467,7 +468,7 @@ void EscherPropertyContainer::CreateGradientProperties(
         pGradient = o3tl::doAccess<awt::Gradient>(aAny);
 
         uno::Any aAnyTemp;
-        const rtl::OUString aPropName( "FillStyle" );
+        const OUString aPropName( "FillStyle" );
         if ( EscherPropertyValueHelper::GetPropertyValue(
             aAnyTemp, rXPropSet, aPropName ) )
         {
@@ -587,7 +588,7 @@ void    EscherPropertyContainer::CreateFillProperties(
         SdrObject* pObj = GetSdrObjectFromXShape( rXShape );
         if ( pObj )
         {
-            SfxItemSet aAttr( pObj->GetMergedItemSet() );
+            const SfxItemSet& aAttr( pObj->GetMergedItemSet() );
             // tranparency with gradient. Means the third setting in transparency page is set
             bool bTransparentGradient =  ( aAttr.GetItemState( XATTR_FILLFLOATTRANSPARENCE ) == SfxItemState::SET ) &&
                 aAttr.Get( XATTR_FILLFLOATTRANSPARENCE ).IsEnabled();
@@ -1601,18 +1602,15 @@ bool EscherPropertyContainer::CreateGraphicProperties(const uno::Reference<beans
                 }
             }
 
-            if (!bConverted)
+            if (!bConverted && pGraphicProvider )
             {
-                if ( pGraphicProvider )
+                const OUString& rBaseURI( pGraphicProvider->GetBaseURI() );
+                INetURLObject aBaseURI( rBaseURI );
+                if( aBaseURI.GetProtocol() == aTmp.GetProtocol() )
                 {
-                    const OUString& rBaseURI( pGraphicProvider->GetBaseURI() );
-                    INetURLObject aBaseURI( rBaseURI );
-                    if( aBaseURI.GetProtocol() == aTmp.GetProtocol() )
-                    {
-                        OUString aRelUrl( INetURLObject::GetRelURL( rBaseURI, aGraphicUrl ) );
-                        if ( !aRelUrl.isEmpty() )
-                            aGraphicUrl = aRelUrl;
-                    }
+                    OUString aRelUrl( INetURLObject::GetRelURL( rBaseURI, aGraphicUrl ) );
+                    if ( !aRelUrl.isEmpty() )
+                        aGraphicUrl = aRelUrl;
                 }
             }
         }
@@ -2268,20 +2266,17 @@ void EscherPropertyContainer::CreateShadowProperties(
         if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "Shadow", true ) )
         {
             bool bHasShadow = false; // shadow is possible only if at least a fillcolor, linecolor or graphic is set
-            if ( aAny >>= bHasShadow )
+            if ( (aAny >>= bHasShadow) && bHasShadow )
             {
-                if ( bHasShadow )
-                {
-                    nShadowFlags |= 2;
-                    if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowColor" ) )
-                        AddOpt( ESCHER_Prop_shadowColor, ImplGetColor( *o3tl::doAccess<sal_uInt32>(aAny) ) );
-                    if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowXDistance" ) )
-                        AddOpt( ESCHER_Prop_shadowOffsetX, *o3tl::doAccess<sal_Int32>(aAny) * 360 );
-                    if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowYDistance" ) )
-                        AddOpt( ESCHER_Prop_shadowOffsetY, *o3tl::doAccess<sal_Int32>(aAny) * 360 );
-                    if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowTransparence" ) )
-                        AddOpt( ESCHER_Prop_shadowOpacity,  0x10000 - (static_cast<sal_uInt32>(*o3tl::doAccess<sal_uInt16>(aAny)) * 655 ) );
-                }
+                nShadowFlags |= 2;
+                if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowColor" ) )
+                    AddOpt( ESCHER_Prop_shadowColor, ImplGetColor( *o3tl::doAccess<sal_uInt32>(aAny) ) );
+                if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowXDistance" ) )
+                    AddOpt( ESCHER_Prop_shadowOffsetX, *o3tl::doAccess<sal_Int32>(aAny) * 360 );
+                if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowYDistance" ) )
+                    AddOpt( ESCHER_Prop_shadowOffsetY, *o3tl::doAccess<sal_Int32>(aAny) * 360 );
+                if ( EscherPropertyValueHelper::GetPropertyValue( aAny, rXPropSet, "ShadowTransparence" ) )
+                    AddOpt( ESCHER_Prop_shadowOpacity,  0x10000 - (static_cast<sal_uInt32>(*o3tl::doAccess<sal_uInt16>(aAny)) * 655 ) );
             }
         }
     }
@@ -2932,9 +2927,15 @@ void EscherPropertyContainer::CreateCustomShapeProperties( const MSO_SPT eShapeT
                             for (auto const& equation : aEquations)
                             {
                                 aMemStrm.WriteUInt16( equation.nOperation )
-                                    .WriteInt16( equation.nPara[ 0 ] )
+                                    .WriteInt16(
+                                        o3tl::clamp(
+                                            equation.nPara[ 0 ], sal_Int32(SAL_MIN_INT16),
+                                            sal_Int32(SAL_MAX_INT16)) )
                                     .WriteInt16( equation.nPara[ 1 ] )
-                                    .WriteInt16( equation.nPara[ 2 ] );
+                                    .WriteInt16(
+                                        o3tl::clamp(
+                                            equation.nPara[ 2 ], sal_Int32(SAL_MIN_INT16),
+                                            sal_Int32(SAL_MAX_INT16)) );
                             }
 
                             AddOpt(DFF_Prop_pFormulas, true, 6, aMemStrm);
@@ -4577,7 +4578,8 @@ sal_uInt32 EscherConnectorListEntry::GetConnectorRule( bool bFirst )
 
                     if(0 != aPolyPoly.Count())
                     {
-                        sal_Int16 a, b, nIndex = 0;
+                        sal_Int16 nIndex = 0;
+                        sal_uInt16 a, b;
                         sal_uInt32 nDistance = 0xffffffff;
 
                         for ( a = 0; a < aPolyPoly.Count(); a++ )

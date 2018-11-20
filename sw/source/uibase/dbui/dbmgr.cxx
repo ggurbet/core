@@ -113,6 +113,7 @@
 #include <connectivity/dbtools.hxx>
 #include <connectivity/dbconversion.hxx>
 #include <o3tl/make_unique.hxx>
+#include <unotools/charclass.hxx>
 
 #include <unomailmerge.hxx>
 #include <sfx2/event.hxx>
@@ -2356,12 +2357,9 @@ bool SwDBManager::ToRecordId(sal_Int32 nSet)
         return false;
     bool bRet = false;
     sal_Int32 nAbsPos = nSet;
-
-    if(nAbsPos >= 0)
-    {
-        bRet = lcl_MoveAbsolute(pImpl->pMergeData, nAbsPos);
-        pImpl->pMergeData->bEndOfDB = !bRet;
-    }
+    assert(nAbsPos >= 0);
+    bRet = lcl_MoveAbsolute(pImpl->pMergeData, nAbsPos);
+    pImpl->pMergeData->bEndOfDB = !bRet;
     return bRet;
 }
 
@@ -2533,21 +2531,18 @@ SwDSParam* SwDBManager::FindDSData(const SwDBData& rData, bool bCreate)
                 break;
             }
     }
-    if(bCreate)
+    if(bCreate && !pFound)
     {
-        if(!pFound)
+        pFound = new SwDSParam(rData);
+        m_DataSourceParams.push_back(std::unique_ptr<SwDSParam>(pFound));
+        try
         {
-            pFound = new SwDSParam(rData);
-            m_DataSourceParams.push_back(std::unique_ptr<SwDSParam>(pFound));
-            try
-            {
-                uno::Reference<lang::XComponent> xComponent(pFound->xConnection, uno::UNO_QUERY);
-                if(xComponent.is())
-                    xComponent->addEventListener(pImpl->m_xDisposeListener.get());
-            }
-            catch(const uno::Exception&)
-            {
-            }
+            uno::Reference<lang::XComponent> xComponent(pFound->xConnection, uno::UNO_QUERY);
+            if(xComponent.is())
+                xComponent->addEventListener(pImpl->m_xDisposeListener.get());
+        }
+        catch(const uno::Exception&)
+        {
         }
     }
     return pFound;
@@ -2823,7 +2818,7 @@ OUString LoadAndRegisterDataSource_Impl(DBConnURIType type, const uno::Reference
                 OUString const sOutputExt = ".odb";
                 OUString sHomePath(SvtPathOptions().GetWorkPath());
                 utl::TempFile aTempFile(sNewName, true, &sOutputExt, pDestDir ? pDestDir : &sHomePath);
-                OUString sTmpName = aTempFile.GetURL();
+                const OUString& sTmpName = aTempFile.GetURL();
                 xStore->storeAsURL(sTmpName, uno::Sequence<beans::PropertyValue>());
             }
             else
@@ -3320,7 +3315,7 @@ void SwDBManager::RevokeLastRegistrations()
         SwView* pView = ( m_pDoc && m_pDoc->GetDocShell() ) ? m_pDoc->GetDocShell()->GetView() : nullptr;
         if (pView)
         {
-            std::shared_ptr<SwMailMergeConfigItem> xConfigItem = pView->GetMailMergeConfigItem();
+            const std::shared_ptr<SwMailMergeConfigItem>& xConfigItem = pView->GetMailMergeConfigItem();
             if (xConfigItem)
             {
                 xConfigItem->DisposeResultSet();

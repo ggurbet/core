@@ -168,10 +168,7 @@ void SdrDragEntrySdrObject::prepareCurrentState(SdrDragMethod& rDragMethod)
 
     if(mbModify)
     {
-        if(!mpClone)
-        {
-            mpClone = maOriginal.getFullDragClone();
-        }
+        mpClone = maOriginal.getFullDragClone();
 
         // apply original transformation, implemented at the DragMethods
         rDragMethod.applyCurrentTransformationToSdrObject(*mpClone);
@@ -475,14 +472,13 @@ void SdrDragMethod::createSdrDragEntries_PointDrag()
 
                 if(pPath)
                 {
-                    const basegfx::B2DPolyPolygon aPathXPP = pPath->GetPathPoly();
+                    const basegfx::B2DPolyPolygon& aPathXPP = pPath->GetPathPoly();
 
                     if(aPathXPP.count())
                     {
-                        for(SdrUShortCont::const_iterator it = rPts.begin(); it != rPts.end(); ++it)
+                        for(const sal_uInt16 nObjPt : rPts)
                         {
                             sal_uInt32 nPolyNum, nPointNum;
-                            const sal_uInt16 nObjPt = *it;
 
                             if(sdr::PolyPolygonEditor::GetRelativePolyPoint(aPathXPP, nObjPt, nPolyNum, nPointNum))
                             {
@@ -521,9 +517,8 @@ void SdrDragMethod::createSdrDragEntries_GlueDrag()
 
                 if (pGPL)
                 {
-                    for(SdrUShortCont::const_iterator it = rPts.begin(); it != rPts.end(); ++it)
+                    for(const sal_uInt16 nObjPt : rPts)
                     {
-                        const sal_uInt16 nObjPt = *it;
                         const sal_uInt16 nGlueNum(pGPL->FindGluePoint(nObjPt));
 
                         if(SDRGLUEPOINT_NOTFOUND != nGlueNum)
@@ -1387,21 +1382,18 @@ bool SdrDragObjOwn::EndSdrDrag(bool /*bCopy*/)
             pObj->SendUserCall( SdrUserCallType::Resize, aBoundRect0 );
         }
 
-        if(bRet)
+        if(bRet && bUndo )
         {
-            if( bUndo )
+            getSdrDragView().AddUndoActions( std::move(vConnectorUndoActions) );
+
+            if ( pUndo )
             {
-                getSdrDragView().AddUndoActions( std::move(vConnectorUndoActions) );
+                getSdrDragView().AddUndo(std::move(pUndo));
+            }
 
-                if ( pUndo )
-                {
-                    getSdrDragView().AddUndo(std::move(pUndo));
-                }
-
-                if ( pUndo2 )
-                {
-                    getSdrDragView().AddUndo(std::move(pUndo2));
-                }
+            if ( pUndo2 )
+            {
+                getSdrDragView().AddUndo(std::move(pUndo2));
             }
         }
 
@@ -1626,9 +1618,8 @@ void SdrDragMove::MoveSdrDrag(const Point& rNoSnapPnt_)
                     const SdrGluePointList* pGPL=pObj->GetGluePointList();
                     tools::Rectangle aBound(pObj->GetCurrentBoundRect());
 
-                    for (SdrUShortCont::const_iterator it = rPts.begin(); it != rPts.end(); ++it)
+                    for (sal_uInt16 nId : rPts)
                     {
-                        sal_uInt16 nId = *it;
                         sal_uInt16 nGlueNum=pGPL->FindGluePoint(nId);
 
                         if (nGlueNum!=SDRGLUEPOINT_NOTFOUND)
@@ -3436,20 +3427,17 @@ void SdrDragDistort::MovAllPoints(basegfx::B2DPolyPolygon& rTarget)
     {
         SdrPageView* pPV = getSdrDragView().GetSdrPageView();
 
-        if(pPV)
+        if(pPV && pPV->HasMarkedObjPageView())
         {
-            if (pPV->HasMarkedObjPageView())
-            {
-                basegfx::B2DPolyPolygon aDragPolygon(rTarget);
-                const basegfx::B2DRange aOriginalRange(aMarkRect.Left(), aMarkRect.Top(), aMarkRect.Right(), aMarkRect.Bottom());
-                const basegfx::B2DPoint aTopLeft(aDistortedRect[0].X(), aDistortedRect[0].Y());
-                const basegfx::B2DPoint aTopRight(aDistortedRect[1].X(), aDistortedRect[1].Y());
-                const basegfx::B2DPoint aBottomLeft(aDistortedRect[3].X(), aDistortedRect[3].Y());
-                const basegfx::B2DPoint aBottomRight(aDistortedRect[2].X(), aDistortedRect[2].Y());
+            basegfx::B2DPolyPolygon aDragPolygon(rTarget);
+            const basegfx::B2DRange aOriginalRange(aMarkRect.Left(), aMarkRect.Top(), aMarkRect.Right(), aMarkRect.Bottom());
+            const basegfx::B2DPoint aTopLeft(aDistortedRect[0].X(), aDistortedRect[0].Y());
+            const basegfx::B2DPoint aTopRight(aDistortedRect[1].X(), aDistortedRect[1].Y());
+            const basegfx::B2DPoint aBottomLeft(aDistortedRect[3].X(), aDistortedRect[3].Y());
+            const basegfx::B2DPoint aBottomRight(aDistortedRect[2].X(), aDistortedRect[2].Y());
 
-                aDragPolygon = basegfx::utils::distort(aDragPolygon, aOriginalRange, aTopLeft, aTopRight, aBottomLeft, aBottomRight);
-                rTarget = aDragPolygon;
-            }
+            aDragPolygon = basegfx::utils::distort(aDragPolygon, aOriginalRange, aTopLeft, aTopRight, aBottomLeft, aBottomRight);
+            rTarget = aDragPolygon;
         }
     }
 }

@@ -123,6 +123,9 @@ cmd/sc_tracechangemode.png cmd/sc_trackchanges.png
 cmd/lc_tracechangemode.png cmd/lc_trackchanges.png
 cmd/sc_shapesmenu.png cmd/sc_polygon_diagonal_unfilled.png
 cmd/sc_shapesmenu.png cmd/sc_basicshapes.round-quadrat.png
+cmd/sc_charactermenu.png cmd/sc_fontdialog.png
+cmd/sc_paragraphmenu.png cmd/sc_paragraphdialog.png
+cmd/sc_numberingmenu.png cmd/sc_outlinebullet.png
 
 # Zoom
 cmd/lc_previewzoom.png cmd/lc_zoomprevious.png
@@ -248,7 +251,6 @@ cmd/sc_objectalign.png cmd/sc_objectalignleft.png
 cmd/sc_alignvcenter.png cmd/sc_alignverticalcenter.png
 cmd/sc_sectionaligntop.png cmd/sc_alignup.png
 cmd/sc_sectionalignbottom.png cmd/sc_aligndown.png
-cmd/sc_alignframemenu.png cmd/sc_alignleft.png
 cmd/sc_alignhorizontalceter.png cmd/sc_alignhorizontalcenter.png
 
 # Graphic
@@ -778,7 +780,7 @@ cmd/sc_grafattrcrop.png cmd/sc_crop.png
 # Group
 cmd/sc_formatgroup.png cmd/sc_group.png
 
-# Extrusion Rotat
+# Extrusion Rotate
 cmd/lc_rulerrowsvertical.png cmd/lc_extrusiontiltright.png
 cmd/lc_rulerrows.png cmd/lc_extrusiontiltleft.png
 cmd/sc_rulerrowsvertical.png cmd/sc_extrusiontiltright.png
@@ -1724,3 +1726,23 @@ cmd/sc_rowoperations.png cmd/sc_entirerow.png
 
 cmd/sc_cellprotection.png cmd/sc_protect.png
 cmd/lc_cellprotection.png cmd/lc_protect.png
+
+# writer
+# ===============================================
+cmd/sc_addtextbox.png cmd/sc_insertfixedtext.png
+
+# draw
+# ===============================================
+cmd/sc_masterpage.png cmd/sc_slidemasterpage.png
+cmd/lc_masterpage.png cmd/lc_slidemasterpage.png
+
+cmd/sc_pagemode.png cmd/sc_normalmultipanegui.png
+cmd/lc_pagemode.png cmd/lc_normalmultipanegui.png
+
+# calc context menu rowheader
+# ==============================================
+cmd/sc_rowheight.png cmd/sc_setminimalrowheight.png
+cmd/sc_columnwidth.png cmd/sc_setminimalcolumnwidth.png
+
+cmd/lc_rowheight.png cmd/lc_setminimalrowheight.png
+cmd/lc_columnwidth.png cmd/lc_setminimalcolumnwidth.png

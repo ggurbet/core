@@ -225,9 +225,8 @@ std::set<Color> ScDocShell::GetDocColors()
 void ScDocShell::DoEnterHandler()
 {
     ScTabViewShell* pViewSh = ScTabViewShell::GetActiveViewShell();
-    if (pViewSh)
-        if (pViewSh->GetViewData().GetDocShell() == this)
-            SC_MOD()->InputEnterHandler();
+    if (pViewSh && pViewSh->GetViewData().GetDocShell() == this)
+        SC_MOD()->InputEnterHandler();
 }
 
 SCTAB ScDocShell::GetSaveTab()
@@ -779,7 +778,7 @@ void ScDocShell::Notify( SfxBroadcaster&, const SfxHint& rHint )
                             bool bChecked = aWarningBox.get_active();
                             if (bChecked)
                             {
-                                aAppOptions.SetShowSharedDocumentWarning( !bChecked );
+                                aAppOptions.SetShowSharedDocumentWarning(false);
                                 SC_MOD()->SetAppOptions( aAppOptions );
                             }
                         }
@@ -1772,17 +1771,11 @@ bool ScDocShell::Save()
 
     PrepareSaveGuard aPrepareGuard( *this);
 
-    SfxViewFrame* pFrame1 = SfxViewFrame::GetFirst( this );
-    if (pFrame1)
+    if (const auto pFrame1 = SfxViewFrame::GetFirst(this))
     {
-        vcl::Window* pWindow = &pFrame1->GetWindow();
-        if ( pWindow )
+        if (auto pSysWin = pFrame1->GetWindow().GetSystemWindow())
         {
-            vcl::Window* pSysWin = pWindow->GetSystemWindow();
-            if ( pSysWin )
-            {
-                pSysWin->SetAccessibleName(OUString());
-            }
+            pSysWin->SetAccessibleName(OUString());
         }
     }
     //  wait cursor is handled with progress bar
@@ -2944,13 +2937,10 @@ void ScDocShell::SetDrawModified()
     SetModified();
 
     SfxBindings* pBindings = GetViewBindings();
-    if (bUpdate)
+    if (bUpdate && pBindings)
     {
-        if (pBindings)
-        {
-            pBindings->Invalidate( SID_SAVEDOC );
-            pBindings->Invalidate( SID_DOC_MODIFIED );
-        }
+        pBindings->Invalidate( SID_SAVEDOC );
+        pBindings->Invalidate( SID_DOC_MODIFIED );
     }
 
     if (pBindings)

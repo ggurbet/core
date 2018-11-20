@@ -18,6 +18,7 @@
  */
 
 #include <svx/hexcolorcontrol.hxx>
+#include <rtl/character.hxx>
 
 namespace weld {
 
@@ -62,7 +63,7 @@ Color HexColorControl::GetColor()
     return Color(nColor);
 }
 
-IMPL_LINK(HexColorControl, ImplProcessInputHdl, OUString&, rTest, bool)
+IMPL_STATIC_LINK(HexColorControl, ImplProcessInputHdl, OUString&, rTest, bool)
 {
     const sal_Unicode* pTest = rTest.getStr();
     sal_Int32 nLen = rTest.getLength();

@@ -153,7 +153,7 @@ short AbstractSvxSearchSimilarityDialog_Impl::Execute()
 
 short AbstractSvxTransformTabDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 bool AbstractSvxTransformTabDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
@@ -163,7 +163,7 @@ bool AbstractSvxTransformTabDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
 
 short AbstractSvxCaptionDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 bool AbstractSvxCaptionDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
@@ -219,7 +219,7 @@ short AbstractGraphicFilterDialog_Impl::Execute()
 
 short AbstractSvxAreaTabDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 bool AbstractSvxAreaTabDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
@@ -234,7 +234,7 @@ short AbstractPasteDialog_Impl::Execute()
 
 short AbstractInsertObjectDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 IMPL_ABSTDLG_BASE(AbstractLinksDialog_Impl);
@@ -267,56 +267,16 @@ void AbstractSvxCharacterMapDialog_Impl::SetText(const OUString& rStr)
 
 short AbstractSignatureLineDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSignSignatureLineDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 IMPL_ABSTDLG_BASE(AbstractScreenshotAnnotationDlg_Impl);
 
-
-// VclAbstractDialog2_Impl
-
-
-// virtual
-VclAbstractDialog2_Impl::~VclAbstractDialog2_Impl()
-{
-    disposeOnce();
-}
-
-void VclAbstractDialog2_Impl::dispose()
-{
-    m_pDlg.disposeAndClear();
-    VclAbstractDialog2::dispose();
-}
-
-// virtual
-void  VclAbstractDialog2_Impl::StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl )
-{
-    m_aEndDlgHdl = rEndDialogHdl;
-    m_pDlg->StartExecuteModal(
-        LINK( this, VclAbstractDialog2_Impl, EndDialogHdl ) );
-}
-
-// virtual
-sal_Int32 VclAbstractDialog2_Impl::GetResult()
-{
-    return m_pDlg->GetResult();
-}
-
-IMPL_LINK( VclAbstractDialog2_Impl, EndDialogHdl, Dialog&, rDlg, void )
-{
-    if ( &rDlg != m_pDlg )
-    {
-        SAL_WARN( "cui.factory", "VclAbstractDialog2_Impl::EndDialogHdl(): wrong dialog" );
-    }
-
-    m_aEndDlgHdl.Call( *m_pDlg );
-    m_aEndDlgHdl = Link<Dialog&,void>();
-}
 
 void CuiAbstractTabDialog_Impl::SetCurPageId( const OString& rName )
 {
@@ -345,7 +305,7 @@ void CuiAbstractTabDialog_Impl::SetText( const OUString& rStr )
 
 short CuiAbstractTabController_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 bool CuiAbstractTabController_Impl::StartExecuteAsync(AsyncContext &rCtx)
@@ -1158,12 +1118,12 @@ VclPtr<AbstractGalleryIdDialog> AbstractDialogFactory_Impl::CreateGalleryIdDialo
    return VclPtr<AbstractGalleryIdDialog_Impl>::Create(o3tl::make_unique<GalleryIdDialog>(pParent, pThm));
 }
 
-VclPtr<VclAbstractDialog2> AbstractDialogFactory_Impl::CreateGalleryThemePropertiesDialog(vcl::Window* pParent,
+VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateGalleryThemePropertiesDialog(vcl::Window* pParent,
                                             ExchangeData* pData,
                                             SfxItemSet* pItemSet)
 {
     VclPtrInstance<GalleryThemeProperties> pDlg(pParent, pData, pItemSet);
-    return VclPtr<VclAbstractDialog2_Impl>::Create( pDlg );
+    return VclPtr<CuiVclAbstractDialog_Impl>::Create( pDlg );
 }
 
 VclPtr<AbstractURLDlg> AbstractDialogFactory_Impl::CreateURLDialog( vcl::Window* pParent,

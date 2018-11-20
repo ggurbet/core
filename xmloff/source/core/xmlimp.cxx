@@ -1288,20 +1288,17 @@ const Reference< container::XNameContainer > & SvXMLImport::GetMarkerHelper()
 
 const Reference< container::XNameContainer > & SvXMLImport::GetDashHelper()
 {
-    if( !mxDashHelper.is() )
+    if( !mxDashHelper.is() && mxModel.is() )
     {
-        if( mxModel.is() )
+        Reference< lang::XMultiServiceFactory > xServiceFact( mxModel, UNO_QUERY);
+        if( xServiceFact.is() )
         {
-            Reference< lang::XMultiServiceFactory > xServiceFact( mxModel, UNO_QUERY);
-            if( xServiceFact.is() )
+            try
             {
-                try
-                {
-                    mxDashHelper.set( xServiceFact->createInstance( "com.sun.star.drawing.DashTable" ), UNO_QUERY);
-                }
-                catch( lang::ServiceNotRegisteredException& )
-                {}
+                mxDashHelper.set( xServiceFact->createInstance( "com.sun.star.drawing.DashTable" ), UNO_QUERY);
             }
+            catch( lang::ServiceNotRegisteredException& )
+            {}
         }
     }
 
@@ -1627,26 +1624,15 @@ void SvXMLImport::SetAutoStyles( SvXMLStylesContext *pAutoStyles )
     if (pAutoStyles && mxNumberStyles.is() && (mnImportFlags & SvXMLImportFlags::CONTENT) )
     {
         uno::Reference<xml::sax::XAttributeList> xAttrList;
-        uno::Sequence< OUString > aNames = mxNumberStyles->getElementNames();
-        sal_uInt32 nCount(aNames.getLength());
-        if (nCount)
+        for (const auto& name : mxNumberStyles->getElementNames())
         {
-            const OUString* pNames = aNames.getConstArray();
-            if ( pNames )
+            uno::Any aAny(mxNumberStyles->getByName(name));
+            sal_Int32 nKey(0);
+            if (aAny >>= nKey)
             {
-                SvXMLStyleContext* pContext;
-                uno::Any aAny;
-                sal_Int32 nKey(0);
-                for (sal_uInt32 i = 0; i < nCount; i++, pNames++)
-                {
-                    aAny = mxNumberStyles->getByName(*pNames);
-                    if (aAny >>= nKey)
-                    {
-                        pContext = new SvXMLNumFormatContext( *this, XML_NAMESPACE_NUMBER,
-                                    *pNames, xAttrList, nKey, *pAutoStyles );
-                        pAutoStyles->AddStyle(*pContext);
-                    }
-                }
+                SvXMLStyleContext* pContext = new SvXMLNumFormatContext(
+                    *this, XML_NAMESPACE_NUMBER, name, xAttrList, nKey, *pAutoStyles);
+                pAutoStyles->AddStyle(*pContext);
             }
         }
     }

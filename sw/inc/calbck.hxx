@@ -20,17 +20,18 @@
 #ifndef INCLUDED_SW_INC_CALBCK_HXX
 #define INCLUDED_SW_INC_CALBCK_HXX
 
+#include <cassert>
+
 #include <svl/hint.hxx>
 #include <svl/broadcast.hxx>
-#include <svl/poolitem.hxx>
 #include "swdllapi.h"
 #include "ring.hxx"
-#include "hintids.hxx"
 #include <type_traits>
 #include <vector>
 #include <memory>
 
 class SwModify;
+class SfxPoolItem;
 
 /*
     SwModify and SwClient cooperate in propagating attribute changes.
@@ -182,7 +183,7 @@ class SW_DLLPUBLIC SwModify: public SwClient
     virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override
         { NotifyClients( pOld, pNew ); };
 
-    SwModify(SwModify&) = delete;
+    SwModify(SwModify const &) = delete;
     SwModify &operator =(const SwModify&) = delete;
 public:
     SwModify()
@@ -240,7 +241,7 @@ namespace sw
         ListenerEntry(SwClient *const pTellHim, SwModify *const pDepend)
             : SwClient(pDepend), m_pToTell(pTellHim)
         {}
-        ListenerEntry(ListenerEntry&) = delete;
+        ListenerEntry(ListenerEntry const &) = delete;
         ListenerEntry& operator=(ListenerEntry const&) = delete;
         ListenerEntry(ListenerEntry&& other) noexcept
             : SwClient(std::move(other))

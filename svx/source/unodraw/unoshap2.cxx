@@ -1120,7 +1120,7 @@ bool SvxShapePolyPolygon::getPropertyValueImpl( const OUString& rName, const Sfx
         if( nCount > 0 )
         {
             // get single polygon
-            const basegfx::B2DPolygon aPoly(aPolyPoly.getB2DPolygon(0));
+            const basegfx::B2DPolygon& aPoly(aPolyPoly.getB2DPolygon(0));
 
             // get pointer to arrays
             awt::Point* pSequence = aRetval.getArray();
@@ -1390,6 +1390,17 @@ bool SvxGraphicObject::setPropertyValueImpl( const OUString& rName, const SfxIte
         break;
     }
 
+    case OWN_ATTR_SIGNATURELINE_IS_SIGNED:
+    {
+        bool bIsSigned;
+        if (rValue >>= bIsSigned)
+        {
+            static_cast<SdrGrafObj*>(GetSdrObject())->setSignatureLineIsSigned(bIsSigned);
+            bOk = true;
+        }
+        break;
+    }
+
     default:
         return SvxShapeText::setPropertyValueImpl( rName, pProperty, rValue );
     }
@@ -1523,6 +1534,12 @@ bool SvxGraphicObject::getPropertyValueImpl( const OUString& rName, const SfxIte
         Reference<graphic::XGraphic> xGraphic(
             static_cast<SdrGrafObj*>(GetSdrObject())->getSignatureLineUnsignedGraphic());
         rValue <<= xGraphic;
+        break;
+    }
+
+    case OWN_ATTR_SIGNATURELINE_IS_SIGNED:
+    {
+        rValue <<= static_cast<SdrGrafObj*>(GetSdrObject())->isSignatureLineSigned();
         break;
     }
 

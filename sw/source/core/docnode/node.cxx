@@ -763,7 +763,8 @@ SwStartNode* SwNode::FindSttNodeByType( SwStartNodeType eTyp )
     return eTyp == pTmp->GetStartNodeType() ? pTmp : nullptr;
 }
 
-const SwTextNode* SwNode::FindOutlineNodeOfLevel( sal_uInt8 nLvl ) const
+const SwTextNode* SwNode::FindOutlineNodeOfLevel(sal_uInt8 const nLvl,
+        SwRootFrame const*const pLayout) const
 {
     const SwTextNode* pRet = nullptr;
     const SwOutlineNodes& rONds = GetNodes().GetOutLineNds();
@@ -774,17 +775,31 @@ const SwTextNode* SwNode::FindOutlineNodeOfLevel( sal_uInt8 nLvl ) const
         bool bCheckFirst = false;
         if( !rONds.Seek_Entry( pNd, &nPos ))
         {
-            if( nPos )
-                nPos = nPos-1;
-            else
+            if (nPos == 0)
                 bCheckFirst = true;
+        }
+        else
+        {
+            ++nPos;
         }
 
         if( bCheckFirst )
         {
-            // The first OutlineNode comes after the one asking. Test if it points to the same node.
+            // The first OutlineNode comes after the one asking.
+            // Test if both are on the same page.
             // If not it's invalid.
-            pRet = rONds[0]->GetTextNode();
+            for (nPos = 0; nPos < rONds.size(); ++nPos)
+            {
+                pRet = rONds[nPos]->GetTextNode();
+                if (!pLayout || sw::IsParaPropsNode(*pLayout, *pRet))
+                {
+                    break;
+                }
+            }
+            if (nPos == rONds.size())
+            {
+                return nullptr;
+            }
 
             const SwContentNode* pCNd = GetContentNode();
 
@@ -802,14 +817,16 @@ const SwTextNode* SwNode::FindOutlineNodeOfLevel( sal_uInt8 nLvl ) const
         }
         else
         {
-            // Or at the Field and get it from there!
-            while( nPos &&
-                   nLvl < ( pRet = rONds[nPos]->GetTextNode() )
-                    ->GetAttrOutlineLevel() - 1 )
-                --nPos;
-
-            if( !nPos )     // Get separately when 0
-                pRet = rONds[0]->GetTextNode();
+            for ( ; 0 < nPos; --nPos)
+            {
+                SwTextNode const*const pNode = rONds[nPos - 1]->GetTextNode();
+                if ((nPos == 1 /*as before*/ || pNode->GetAttrOutlineLevel() - 1 <= nLvl)
+                    && (!pLayout || sw::IsParaPropsNode(*pLayout, *pNode)))
+                {
+                    pRet = pNode;
+                    break;
+                }
+            }
         }
     }
     return pRet;
@@ -1349,8 +1366,6 @@ void SwContentNode::DelFrames(SwRootFrame const*const pLayout)
             {
                 if (this != pMerged->pFirstNode)
                 {
-                    // pointer should have been updated to a different node
-                    assert(this != pMerged->pParaPropsNode);
                     // SwNodes::RemoveNode iterates *backwards* - so
                     // ensure there are no more extents pointing to this
                     // node as SwFrame::InvalidatePage() will access them.
@@ -1358,6 +1373,8 @@ void SwContentNode::DelFrames(SwRootFrame const*const pLayout)
                     // because that would access deleted wrong-lists
                     sw::UpdateMergedParaForDelete(*pMerged, true,
                             *static_cast<SwTextNode*>(this), 0, Len());
+                    // pointer should have been updated to a different node
+                    assert(this != pMerged->pParaPropsNode);
                     if (this == pMerged->pLastNode)
                     {
                         pMerged->pLastNode = GetNodes()[GetIndex()-1]->GetTextNode();
@@ -1636,9 +1653,8 @@ bool SwContentNode::ResetAttr( const std::vector<sal_uInt16>& rWhichArr )
         SwAttrSet aOld( *GetpSwAttrSet()->GetPool(), GetpSwAttrSet()->GetRanges() ),
                   aNew( *GetpSwAttrSet()->GetPool(), GetpSwAttrSet()->GetRanges() );
 
-        std::vector<sal_uInt16>::const_iterator it;
-        for ( it = rWhichArr.begin(); it != rWhichArr.end(); ++it )
-            if( AttrSetHandleHelper::ClearItem_BC( mpAttrSet, *this, *it, &aOld, &aNew ))
+        for ( const auto& rWhich : rWhichArr )
+            if( AttrSetHandleHelper::ClearItem_BC( mpAttrSet, *this, rWhich, &aOld, &aNew ))
                 ++nDel;
 
         if( nDel )
@@ -1708,11 +1724,9 @@ sal_uInt16 SwContentNode::ClearItemsFromAttrSet( const std::vector<sal_uInt16>& 
 
     OSL_ENSURE( GetpSwAttrSet(), "no item set" );
     SwAttrSet aNewAttrSet( *GetpSwAttrSet() );
-    for ( std::vector<sal_uInt16>::const_iterator aIter = rWhichIds.begin();
-          aIter != rWhichIds.end();
-          ++aIter )
+    for ( const auto& rWhichId : rWhichIds )
     {
-        nRet = nRet + aNewAttrSet.ClearItem( *aIter );
+        nRet = nRet + aNewAttrSet.ClearItem( rWhichId );
     }
     if ( nRet )
         AttrSetHandleHelper::GetNewAutoStyle( mpAttrSet, *this, aNewAttrSet );

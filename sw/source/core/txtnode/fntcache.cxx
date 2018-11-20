@@ -54,6 +54,7 @@
 #include <svx/sdr/attribute/sdrallfillattributeshelper.hxx>
 #include <doc.hxx>
 #include <editeng/fhgtitem.hxx>
+#include <vcl/glyphitem.hxx>
 #include <vcl/vcllayout.hxx>
 #include <docsh.hxx>
 #include <strings.hrc>
@@ -104,7 +105,7 @@ long EvalGridWidthAdd( const SwTextGridItem *const pGrid, const SwDrawTextInfo &
 SalLayoutGlyphs* lcl_CreateLayout(SwTextGlyphsKey& rKey, SalLayoutGlyphs& rTextGlyphs)
 {
     // Use pre-calculated result.
-    if (!rTextGlyphs.empty())
+    if (rTextGlyphs.IsValid())
         return &rTextGlyphs;
 
     if (rKey.m_nIndex >= rKey.m_aText.getLength())
@@ -870,7 +871,7 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
         {
             OSL_ENSURE( bNoAdjust && !bUseScrFont, "Outdev Check failed" );
         }
-        else if ( OUTDEV_VIRDEV == rRefDev.GetOutDevType() )
+        else if ( rRefDev.IsVirtual() )
         {
             OSL_ENSURE( !bNoAdjust && bUseScrFont, "Outdev Check failed" );
         }
@@ -879,14 +880,14 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
             OSL_FAIL( "Outdev Check failed" );
         }
     }
-    else if ( OUTDEV_VIRDEV == rInf.GetOut().GetOutDevType() && ! pWin )
+    else if ( rInf.GetOut().IsVirtual() && ! pWin )
     {
         // PDF export
         if ( OUTDEV_PRINTER == rRefDev.GetOutDevType() )
         {
             OSL_ENSURE( !bNoAdjust && bUseScrFont, "Outdev Check failed" );
         }
-        else if ( OUTDEV_VIRDEV == rRefDev.GetOutDevType() )
+        else if ( rRefDev.IsVirtual() )
         {
             OSL_ENSURE( !bNoAdjust && bUseScrFont, "Outdev Check failed" );
         }
@@ -896,14 +897,14 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
         }
     }
     else if ( OUTDEV_WINDOW == rInf.GetOut().GetOutDevType() ||
-               ( OUTDEV_VIRDEV == rInf.GetOut().GetOutDevType() && pWin ) )
+               ( rInf.GetOut().IsVirtual() && pWin ) )
     {
         // Window or virtual window
         if ( OUTDEV_PRINTER == rRefDev.GetOutDevType() )
         {
             OSL_ENSURE( !bNoAdjust && bUseScrFont, "Outdev Check failed" );
         }
-        else if ( OUTDEV_VIRDEV == rRefDev.GetOutDevType() )
+        else if ( rRefDev.IsVirtual() )
         {
             OSL_ENSURE( !bNoAdjust && bUseScrFont, "Outdev Check failed" );
         }
@@ -1457,7 +1458,7 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
 
         // get screen array
         std::unique_ptr<long[]> pScrArray(new long[sal_Int32(rInf.GetLen())]);
-        SwTextGlyphsKey aGlyphsKey{ &rInf.GetOut(), rInf.GetText(), rInf.GetIdx(), rInf.GetLen() };
+        SwTextGlyphsKey aGlyphsKey{ &rInf.GetOut(), rInf.GetText(), sal_Int32(rInf.GetIdx()), sal_Int32(rInf.GetLen()) };
         SalLayoutGlyphs* pGlyphs = lcl_CreateLayout(aGlyphsKey, m_aTextGlyphs[aGlyphsKey]);
         rInf.GetOut().GetTextArray( rInf.GetText(), pScrArray.get(),
                         sal_Int32(rInf.GetIdx()), sal_Int32(rInf.GetLen()), nullptr, pGlyphs);
@@ -1472,7 +1473,7 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
                 if( !m_pPrtFont->IsSameInstance( m_pPrinter->GetFont() ) )
                     m_pPrinter->SetFont( *m_pPrtFont );
             }
-            aGlyphsKey = SwTextGlyphsKey{ m_pPrinter, rInf.GetText(), rInf.GetIdx(), rInf.GetLen() };
+            aGlyphsKey = SwTextGlyphsKey{ m_pPrinter, rInf.GetText(), sal_Int32(rInf.GetIdx()), sal_Int32(rInf.GetLen()) };
             pGlyphs = lcl_CreateLayout(aGlyphsKey, m_aTextGlyphs[aGlyphsKey]);
             m_pPrinter->GetTextArray(rInf.GetText(), pKernArray.get(),
                     sal_Int32(rInf.GetIdx()), sal_Int32(rInf.GetLen()), nullptr, pGlyphs);
@@ -1814,7 +1815,7 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
                 aGlyphsKey = SwTextGlyphsKey{ &rInf.GetOut(), *pStr, nTmpIdx, nLen };
                 pGlyphs = lcl_CreateLayout(aGlyphsKey, m_aTextGlyphs[aGlyphsKey]);
                 rInf.GetOut().DrawTextArray( aTextOriginPos, *pStr, pKernArray.get(),
-                                             nTmpIdx , nLen, SalLayoutFlags::NONE, nullptr, pGlyphs );
+                                             nTmpIdx , nLen, SalLayoutFlags::NONE, pGlyphs );
                 if (bBullet)
                 {
                     rInf.GetOut().Push();
@@ -2046,7 +2047,7 @@ Size SwFntObj::GetTextSize( SwDrawTextInfo& rInf )
         }
         else
         {
-            SwTextGlyphsKey aGlyphsKey{ &rInf.GetOut(), rInf.GetText(), rInf.GetIdx(), nLn };
+            SwTextGlyphsKey aGlyphsKey{ &rInf.GetOut(), rInf.GetText(), sal_Int32(rInf.GetIdx()), sal_Int32(nLn) };
             SalLayoutGlyphs* pGlyphs = lcl_CreateLayout(aGlyphsKey, m_aTextGlyphs[aGlyphsKey]);
             aTextSize.setWidth( rInf.GetOut().GetTextWidth( rInf.GetText(),
                                    sal_Int32(rInf.GetIdx()), sal_Int32(nLn),
@@ -2083,7 +2084,7 @@ TextFrameIndex SwFntObj::GetCursorOfst(SwDrawTextInfo &rInf)
     {
         m_pPrinter->SetLayoutMode( rInf.GetOut().GetLayoutMode() );
         m_pPrinter->SetDigitLanguage( rInf.GetOut().GetDigitLanguage() );
-        SwTextGlyphsKey aGlyphsKey{ m_pPrinter, rInf.GetText(), rInf.GetIdx(), rInf.GetLen() };
+        SwTextGlyphsKey aGlyphsKey{ m_pPrinter, rInf.GetText(), sal_Int32(rInf.GetIdx()), sal_Int32(rInf.GetLen()) };
         SalLayoutGlyphs* pGlyphs = lcl_CreateLayout(aGlyphsKey, m_aTextGlyphs[aGlyphsKey]);
         m_pPrinter->GetTextArray( rInf.GetText(), pKernArray.get(),
                 sal_Int32(rInf.GetIdx()), sal_Int32(rInf.GetLen()), nullptr, pGlyphs);
@@ -2498,7 +2499,7 @@ TextFrameIndex SwFont::GetTextBreak(SwDrawTextInfo const & rInf, long nTextWidth
         {
             SwFntAccess aFntAccess(m_aSub[m_nActual].m_nFontCacheId, m_aSub[m_nActual].m_nFontIndex,
                                    &m_aSub[m_nActual], rInf.GetShell());
-            SwTextGlyphsKey aGlyphsKey{ &rInf.GetOut(), *pTmpText, nTmpIdx, nTmpLen };
+            SwTextGlyphsKey aGlyphsKey{ &rInf.GetOut(), *pTmpText, sal_Int32(nTmpIdx), sal_Int32(nTmpLen) };
             SalLayoutGlyphs* pGlyphs
                 = lcl_CreateLayout(aGlyphsKey, aFntAccess.Get()->GetTextGlyphs()[aGlyphsKey]);
             nTextBreak = TextFrameIndex(rInf.GetOut().GetTextBreak(

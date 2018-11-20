@@ -160,7 +160,8 @@ void SwUnoCursorHelper::SelectPam(SwPaM & rPam, const bool bExpand)
     }
 }
 
-void SwUnoCursorHelper::GetTextFromPam(SwPaM & rPam, OUString & rBuffer)
+void SwUnoCursorHelper::GetTextFromPam(SwPaM & rPam, OUString & rBuffer,
+        SwRootFrame const*const pLayout)
 {
     if (!rPam.HasMark())
     {
@@ -188,6 +189,7 @@ void SwUnoCursorHelper::GetTextFromPam(SwPaM & rPam, OUString & rBuffer)
     // #i68522#
     const bool bOldShowProgress = xWrt->m_bShowProgress;
     xWrt->m_bShowProgress = false;
+    xWrt->m_bHideDeleteRedlines = pLayout && pLayout->IsHideRedlines();
 
     if( ! aWriter.Write( xWrt ).IsError() )
     {
@@ -540,12 +542,9 @@ SwUnoCursorHelper::SetCursorPropertyValue(
             else if (FN_UNO_IS_NUMBER == rEntry.nWID)
             {
                 bool bIsNumber(false);
-                if (rValue >>= bIsNumber)
+                if ((rValue >>= bIsNumber) && !bIsNumber)
                 {
-                    if (!bIsNumber)
-                    {
-                        pTextNd->SetCountedInList( false );
-                    }
+                    pTextNd->SetCountedInList( false );
                 }
             }
             //PROPERTY_MAYBEVOID!
@@ -1166,11 +1165,15 @@ SwXTextCursor::gotoRange(
 
         // now there are four SwPositions,
         // two of them are going to be used, but which ones?
-        *rOwnCursor.GetPoint() = (aOwnRight > rParamRight)
-            ? aOwnRight : *rOwnCursor.GetPoint() = rParamRight;
+        if (aOwnRight > rParamRight)
+            *rOwnCursor.GetPoint() = aOwnRight;
+        else
+            *rOwnCursor.GetPoint() = rParamRight;
         rOwnCursor.SetMark();
-        *rOwnCursor.GetMark() = (aOwnLeft < rParamLeft)
-            ? aOwnLeft : *rOwnCursor.GetMark() = rParamLeft;
+        if (aOwnLeft < rParamLeft)
+            *rOwnCursor.GetMark() = aOwnLeft;
+        else
+            *rOwnCursor.GetMark() = rParamLeft;
     }
     else
     {

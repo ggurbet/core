@@ -53,9 +53,10 @@
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/string.hxx>
 #include <svtools/imagemgr.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <unotools/configmgr.hxx>
 #include <dialmgr.hxx>
 #include <svl/stritem.hxx>
@@ -1077,7 +1078,7 @@ void SfxConfigGroupListBox::SelectMacro( const OUString& rBasic,
 {
     const OUString aBasicName(rBasic + " " + xImp->m_sMacros);
     const sal_Int32 nCount = comphelper::string::getTokenCount(rMacro, '.');
-    const OUString aMethod( rMacro.getToken( nCount-1, '.' ) );
+    const OUString aMethod( rMacro.copy(rMacro.lastIndexOf('.')+1) );
     OUString aLib;
     OUString aModule;
     if ( nCount > 2 )

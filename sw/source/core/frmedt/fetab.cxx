@@ -63,7 +63,7 @@
 #include <swerror.h>
 #include <swundo.hxx>
 #include <frmtool.hxx>
-
+#include <fmtrowsplt.hxx>
 #include <node.hxx>
 #include <sortedobjs.hxx>
 
@@ -718,9 +718,9 @@ void SwFEShell::SetRowSplit( const SwFormatRowSplit& rNew )
     EndAllActionAndCall();
 }
 
-void SwFEShell::GetRowSplit( SwFormatRowSplit*& rpSz ) const
+std::unique_ptr<SwFormatRowSplit> SwFEShell::GetRowSplit() const
 {
-    SwDoc::GetRowSplit( *getShellCursor( false ), rpSz );
+    return SwDoc::GetRowSplit( *getShellCursor( false ) );
 }
 
 void SwFEShell::SetRowHeight( const SwFormatFrameSize &rNew )
@@ -731,9 +731,9 @@ void SwFEShell::SetRowHeight( const SwFormatFrameSize &rNew )
     EndAllActionAndCall();
 }
 
-void SwFEShell::GetRowHeight( SwFormatFrameSize *& rpSz ) const
+std::unique_ptr<SwFormatFrameSize> SwFEShell::GetRowHeight() const
 {
-    SwDoc::GetRowHeight( *getShellCursor( false ), rpSz );
+    return SwDoc::GetRowHeight( *getShellCursor( false ) );
 }
 
 bool SwFEShell::BalanceRowHeight( bool bTstOnly, const bool bOptimize )
@@ -2279,12 +2279,8 @@ static bool lcl_IsFormulaSelBoxes( const SwTable& rTable, const SwTableBoxFormul
     for (size_t nSelBoxes = aBoxes.size(); nSelBoxes; )
     {
         SwTableBox* pBox = aBoxes[ --nSelBoxes ];
-        SwCellFrames::iterator iC;
-        for( iC = rCells.begin(); iC != rCells.end(); ++iC )
-            if( (*iC)->GetTabBox() == pBox )
-                break;      // found
 
-        if( iC == rCells.end() )
+        if( std::none_of(rCells.begin(), rCells.end(), [&pBox](SwCellFrame* pFrame) { return pFrame->GetTabBox() == pBox; }) )
             return false;
     }
 

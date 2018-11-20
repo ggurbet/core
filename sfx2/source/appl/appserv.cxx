@@ -319,9 +319,9 @@ namespace
         {
         }
 
-        short execute()
+        virtual short run() override
         {
-            short nRet = m_xDialog->run();
+            short nRet = GenericDialogController::run();
             if (nRet == RET_OK)
                 showDocument("LICENSE");
             return nRet;
@@ -336,9 +336,9 @@ namespace
         {
         }
 
-        short execute()
+        virtual short run() override
         {
-            short nRet = m_xDialog->run();
+            short nRet = MessageDialogController::run();
             if (nRet == RET_OK)
             {
                 sfx2::SafeMode::putFlag();
@@ -574,7 +574,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
         case SID_SHOW_LICENSE:
         {
             LicenseDialog aDialog(rReq.GetFrameWeld());
-            aDialog.execute();
+            aDialog.run();
             break;
         }
 
@@ -1035,7 +1035,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
         case SID_SAFE_MODE:
         {
             SafeModeQueryDialog aDialog(rReq.GetFrameWeld());
-            aDialog.execute();
+            aDialog.run();
             break;
         }
 
@@ -1198,9 +1198,10 @@ void SfxApplication::MiscState_Impl(SfxItemSet &rSet)
 
                     if ( xLayoutManager.is() )
                     {
-                        bool bState = true;
-                        bState = xLayoutManager->getElement( "private:resource/menubar/menubar" ).is()
-                            && xLayoutManager->isElementVisible( "private:resource/menubar/menubar" );
+                        const bool bState
+                            = xLayoutManager->getElement("private:resource/menubar/menubar").is()
+                              && xLayoutManager->isElementVisible(
+                                     "private:resource/menubar/menubar");
 
                         SfxBoolItem aItem( SID_MENUBAR, bState );
                         rSet.Put( aItem );
@@ -1228,17 +1229,17 @@ void SfxApplication::MiscState_Impl(SfxItemSet &rSet)
 
 #ifndef DISABLE_DYNLOADING
 
-typedef rtl_uString* (*basicide_choose_macro)(void*, void*, sal_Bool);
+typedef rtl_uString* (*basicide_choose_macro)(void*, void*, void*, sal_Bool);
 
 extern "C" { static void thisModule() {} }
 
 #else
 
-extern "C" rtl_uString* basicide_choose_macro(void*, void*, sal_Bool);
+extern "C" rtl_uString* basicide_choose_macro(void*, void*, void*, sal_Bool);
 
 #endif
 
-static OUString ChooseMacro( const Reference< XModel >& rxLimitToDocument, const Reference< XFrame >& xDocFrame, bool bChooseOnly )
+static OUString ChooseMacro(weld::Window* pParent, const Reference<XModel>& rxLimitToDocument, const Reference<XFrame>& xDocFrame, bool bChooseOnly)
 {
 #ifndef DISABLE_DYNLOADING
     osl::Module aMod;
@@ -1257,7 +1258,7 @@ static OUString ChooseMacro( const Reference< XModel >& rxLimitToDocument, const
 #endif
 
     // call basicide_choose_macro in basctl
-    rtl_uString* pScriptURL = pSymbol( rxLimitToDocument.get(), xDocFrame.get(), bChooseOnly );
+    rtl_uString* pScriptURL = pSymbol(pParent, rxLimitToDocument.get(), xDocFrame.get(), bChooseOnly);
     OUString aScriptURL( pScriptURL );
     rtl_uString_release( pScriptURL );
     return aScriptURL;
@@ -1492,7 +1493,7 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
             }
 
             Reference <XFrame> xFrame(GetRequestFrame(rReq));
-            rReq.SetReturnValue(SfxStringItem(rReq.GetSlot(), ChooseMacro(xLimitToModel, xFrame, bChooseOnly)));
+            rReq.SetReturnValue(SfxStringItem(rReq.GetSlot(), ChooseMacro(rReq.GetFrameWeld(), xLimitToModel, xFrame, bChooseOnly)));
             rReq.Done();
         }
         break;

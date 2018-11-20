@@ -21,7 +21,6 @@
   <menu:menuitem menu:id=".uno:OriginalSize"/>
   <menu:menuitem menu:id=".uno:FitCellSize"/>
   <menu:menuitem menu:id=".uno:TransformDialog"/>
-  <menu:menuitem menu:id=".uno:FormatLine"/>
   <menu:menuseparator/>
   <menu:menuitem menu:id=".uno:AnchorMenu"/>
   <menu:menu menu:id=".uno:ObjectAlign">
@@ -66,4 +65,7 @@
   <menu:menuitem menu:id=".uno:DeleteShapeHyperlink"/>
   <menu:menuitem menu:id=".uno:OpenHyperlinkOnCursor"/>
   <menu:menuitem menu:id=".uno:AssignMacro"/>
+  <menu:menuseparator/>
+  <menu:menuitem menu:id=".uno:EditSignatureLine"/>
+  <menu:menuitem menu:id=".uno:SignSignatureLine"/>
 </menu:menupopup>

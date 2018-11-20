@@ -444,10 +444,7 @@ void ScAccessibleSpreadsheet::Notify( SfxBroadcaster& rBC, const SfxHint& rHint 
                 {
                     OSL_ENSURE(!((nX > 0) && (nY > 0)), "should not be possible to add row and column at the same time");
                     nId = AccessibleTableModelChangeType::INSERT;
-                    if (nX < 0)
-                        nY = aRange.aEnd.Row() - aRange.aStart.Row();
-                    else
-                        nX = aRange.aEnd.Col() - aRange.aStart.Col();
+                    nX = aRange.aEnd.Col() - aRange.aStart.Col();
                 }
                 else
                 {
@@ -1071,11 +1068,8 @@ void SAL_CALL
 {
     SolarMutexGuard aGuard;
     IsObjectValid();
-    if (mpViewShell)
-    {
-        if (!IsFormulaMode())
-            mpViewShell->Unmark();
-    }
+    if (mpViewShell && !IsFormulaMode())
+        mpViewShell->Unmark();
 }
 
 void SAL_CALL ScAccessibleSpreadsheet::selectAllAccessibleChildren(  )

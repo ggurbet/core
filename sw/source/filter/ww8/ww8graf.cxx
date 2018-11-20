@@ -512,10 +512,9 @@ void SwWW8ImplReader::InsertTxbxStyAttrs( SfxItemSet& rS, sal_uInt16 nColl )
                     ( SfxItemState::SET != rS.GetItemState(nWhich, false) )
                    )
                 {
-                    SfxPoolItem* pCopy = pItem->Clone();
+                    std::unique_ptr<SfxPoolItem> pCopy(pItem->Clone());
                     pCopy->SetWhich( nWhich );
                     rS.Put( *pCopy );
-                    delete pCopy;
                 }
             }
         }
@@ -728,10 +727,9 @@ void SwWW8ImplReader::InsertAttrsAsDrawingAttrs(WW8_CP nStartCp, WW8_CP nEndCp,
                             nWhich != nSlotId
                         )
                         {
-                            SfxPoolItem* pCopy = pItem->Clone();
+                            std::unique_ptr<SfxPoolItem> pCopy(pItem->Clone());
                             pCopy->SetWhich( nWhich );
                             pS->Put( *pCopy );
-                            delete pCopy;
                         }
                     }
                 }
@@ -1148,28 +1146,25 @@ void SwWW8ImplReader::InsertTxbxText(SdrTextObj* pTextObj,
 
             if( bDone )
             {
-                if( pFlyFormat )
+                if( pFlyFormat && pRecord )
                 {
-                    if( pRecord )
-                    {
-                        SfxItemSet aFlySet( m_rDoc.GetAttrPool(),
-                            svl::Items<RES_FRMATR_BEGIN, RES_FRMATR_END-1>{} );
+                    SfxItemSet aFlySet( m_rDoc.GetAttrPool(),
+                        svl::Items<RES_FRMATR_BEGIN, RES_FRMATR_END-1>{} );
 
-                        tools::Rectangle aInnerDist(   pRecord->nDxTextLeft,
-                                                pRecord->nDyTextTop,
-                                                pRecord->nDxTextRight,
-                                                pRecord->nDyTextBottom  );
-                        MatchSdrItemsIntoFlySet( pTextObj,
-                                                 aFlySet,
-                                                 pRecord->eLineStyle,
-                                                 pRecord->eLineDashing,
-                                                 pRecord->eShapeType,
-                                                 aInnerDist );
+                    tools::Rectangle aInnerDist(   pRecord->nDxTextLeft,
+                                             pRecord->nDyTextTop,
+                                             pRecord->nDxTextRight,
+                                             pRecord->nDyTextBottom  );
+                    MatchSdrItemsIntoFlySet( pTextObj,
+                                             aFlySet,
+                                             pRecord->eLineStyle,
+                                             pRecord->eLineDashing,
+                                             pRecord->eShapeType,
+                                             aInnerDist );
 
-                        pFlyFormat->SetFormatAttr( aFlySet );
+                    pFlyFormat->SetFormatAttr( aFlySet );
 
-                        MapWrapIntoFlyFormat(pRecord, pFlyFormat);
-                    }
+                    MapWrapIntoFlyFormat(pRecord, pFlyFormat);
                 }
                 aString.clear();
                 rbEraseTextObj = (nullptr != pFlyFormat);

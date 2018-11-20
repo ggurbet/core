@@ -39,6 +39,7 @@
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
 #include <memory>
+#include <osl/diagnose.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -216,7 +217,7 @@ IMPL_LINK_NOARG(DocumentInserter, DialogClosedHdl, sfx2::FileDialogHelper*, void
                     // ask for the password
                     SfxPasswordDialog aPasswordDlg(m_pParent);
                     aPasswordDlg.ShowExtras( SfxShowExtras::CONFIRM );
-                    short nRet = aPasswordDlg.execute();
+                    short nRet = aPasswordDlg.run();
                     if ( RET_OK == nRet )
                     {
                         m_pItemSet->Put( SfxStringItem( SID_PASSWORD, aPasswordDlg.GetPassword() ) );

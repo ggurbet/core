@@ -33,6 +33,7 @@
 #include "editobj2.hxx"
 #include <i18nlangtag/lang.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <editxml.hxx>
 
@@ -1178,9 +1179,8 @@ EditSelection ImpEditEngine::InsertTextObject( const EditTextObject& rTextObject
             && ( pPortionInfo->GetStretchX() == nStretchX )
             && ( pPortionInfo->GetStretchY() == nStretchY ) )
     {
-        if ( ( pPortionInfo->GetRefDevPtr() == GetRefDevice() ) ||
-             ( ( pPortionInfo->GetRefDevType() == OUTDEV_VIRDEV ) &&
-               ( GetRefDevice()->GetOutDevType() == OUTDEV_VIRDEV ) ) )
+        if ( (pPortionInfo->GetRefDevPtr() == GetRefDevice()) ||
+             (pPortionInfo->RefDevIsVirtual() && GetRefDevice()->IsVirtual()) )
         bUsePortionInfo = true;
     }
 
@@ -1238,10 +1238,9 @@ EditSelection ImpEditEngine::InsertTextObject( const EditTextObject& rTextObject
                             pAttr = MakeCharAttrib( aEditDoc.GetItemPool(), *(rX.GetItem()), rX.GetStart()+nStartPos, rX.GetEnd()+nStartPos );
                         else
                         {
-                            SfxPoolItem* pNew = rX.GetItem()->Clone();
+                            std::unique_ptr<SfxPoolItem> pNew(rX.GetItem()->Clone());
                             ConvertItem( *pNew, eSourceUnit, eDestUnit );
                             pAttr = MakeCharAttrib( aEditDoc.GetItemPool(), *pNew, rX.GetStart()+nStartPos, rX.GetEnd()+nStartPos );
-                            delete pNew;
                         }
                         DBG_ASSERT( pAttr->GetEnd() <= aPaM.GetNode()->Len(), "InsertBinTextObject: Attribute does not fit! (1)" );
                         aPaM.GetNode()->GetCharAttribs().InsertAttrib( pAttr );
@@ -1263,7 +1262,7 @@ EditSelection ImpEditEngine::InsertTextObject( const EditTextObject& rTextObject
             pPortion->MarkSelectionInvalid( nStartPos );
         }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
         CharAttribList::DbgCheckAttribs(aPaM.GetNode()->GetCharAttribs());
 #endif
 

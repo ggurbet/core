@@ -91,6 +91,9 @@ class SharedStringPool;
 
 }
 
+/// Arbitrary 256MB result string length limit.
+constexpr sal_Int32 kScInterpreterMaxStrLen = SAL_MAX_INT32 / 8;
+
 #define MAXSTACK      (4096 / sizeof(formula::FormulaToken*))
 
 class ScTokenStack
@@ -472,14 +475,20 @@ private:
      */
     static inline bool CheckStringPositionArgument( double & fVal );
 
-    /** Obtain a double suitable as string position or length argument.
+    /** Obtain a sal_Int32 suitable as string position or length argument.
         Returns -1 if the number is Inf or NaN or less than 0 or greater than some
-        implementation defined max string length. */
-    inline double GetStringPositionArgument();
+        implementation defined max string length. In these cases also sets
+        nGlobalError to FormulaError::IllegalArgument, if not already set. */
+    inline sal_Int32 GetStringPositionArgument();
 
     // Check for String overflow of rResult+rAdd and set error and erase rResult
     // if so. Return true if ok, false if overflow
     inline bool CheckStringResultLen( OUString& rResult, const OUString& rAdd );
+
+    // Check for String overflow of rResult+rAdd and set error and erase rResult
+    // if so. Return true if ok, false if overflow
+    inline bool CheckStringResultLen( OUStringBuffer& rResult, const OUString& rAdd );
+
     // Set error according to rVal, and set rVal to 0.0 if there was an error.
     inline void TreatDoubleError( double& rVal );
     // Lookup using ScLookupCache, @returns true if found and result address
@@ -665,6 +674,7 @@ private:
     void ScText();
     void ScSubstitute();
     void ScRept();
+    void ScRegex();
     void ScConcat();
     void ScConcat_MS();
     void ScTextJoin_MS();
@@ -1077,30 +1087,42 @@ inline bool ScInterpreter::CheckStringPositionArgument( double & fVal )
         fVal = 0.0;
         return false;
     }
-    else if (fVal > SAL_MAX_UINT16)
+    else if (fVal > SAL_MAX_INT32)
     {
-        fVal = static_cast<double>(SAL_MAX_UINT16);
+        fVal = static_cast<double>(SAL_MAX_INT32);
         return false;
     }
     return true;
 }
 
-inline double ScInterpreter::GetStringPositionArgument()
+inline sal_Int32 ScInterpreter::GetStringPositionArgument()
 {
     double fVal = rtl::math::approxFloor( GetDouble());
     if (!CheckStringPositionArgument( fVal))
     {
         fVal = -1.0;
+        SetError( FormulaError::IllegalArgument);
     }
-    return fVal;
+    return static_cast<sal_Int32>(fVal);
 }
 
 inline bool ScInterpreter::CheckStringResultLen( OUString& rResult, const OUString& rAdd )
 {
-    if ( rResult.getLength() + rAdd.getLength() > SAL_MAX_UINT16 )
+    if (rAdd.getLength() > kScInterpreterMaxStrLen - rResult.getLength())
     {
         SetError( FormulaError::StringOverflow );
         rResult.clear();
+        return false;
+    }
+    return true;
+}
+
+inline bool ScInterpreter::CheckStringResultLen( OUStringBuffer& rResult, const OUString& rAdd )
+{
+    if (rAdd.getLength() > kScInterpreterMaxStrLen - rResult.getLength())
+    {
+        SetError( FormulaError::StringOverflow );
+        rResult = OUStringBuffer();
         return false;
     }
     return true;

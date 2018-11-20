@@ -85,7 +85,6 @@ void Calendar::ImplInit( WinBits nWinStyle )
     mbNextIn                = false;
     mbTravelSelect          = false;
     mbAllSel                = false;
-    mbDropPos               = false;
 
     OUString aGregorian( "gregorian");
     maCalendarWrapper.loadCalendar( aGregorian,
@@ -113,10 +112,6 @@ void Calendar::ImplInit( WinBits nWinStyle )
     // Tagestexte anlegen
     for (sal_Int32 i = 0; i < 31; ++i)
         maDayTexts[i] = OUString::number(i+1);
-
-    maDragScrollTimer.SetInvokeHandler( LINK( this, Calendar, ScrollHdl ) );
-    maDragScrollTimer.SetTimeout( GetSettings().GetMouseSettings().GetScrollRepeat() );
-    mnDragScrollHitTest = 0;
 
     ImplInitSettings();
 }
@@ -148,8 +143,7 @@ Calendar::Calendar( vcl::Window* pParent, WinBits nWinStyle ) :
     maOldFirstDate( 0, 0, 1900 ),
     maCurDate( Date::SYSTEM ),
     maOldCurDate( 0, 0, 1900 ),
-    maAnchorDate( maCurDate ),
-    maDropDate( 0, 0, 1900 )
+    maAnchorDate( maCurDate )
 {
     ImplInit( nWinStyle );
 }
@@ -607,9 +601,6 @@ void Calendar::ImplDrawDate(vcl::RenderContext& rRenderContext,
     // if needed do FocusRect
     if (bFocus && HasFocus())
         ShowFocus(aDateRect);
-
-    if (mbDropPos && maDropDate == Date(nDay, nMonth, nYear))
-        ImplInvertDropPos();
 }
 
 void Calendar::ImplDraw(vcl::RenderContext& rRenderContext)
@@ -879,14 +870,6 @@ void Calendar::ImplUpdate( bool bCalcNew )
     mbFormat = true;
 }
 
-void Calendar::ImplInvertDropPos()
-{
-    tools::Rectangle aRect = GetDateRect( maDropDate );//this is one Pixel to width and one to height
-    aRect.SetBottom( aRect.Top()+mnDayHeight-1 );
-    aRect.SetRight( aRect.Left()+mnDayWidth-1 );
-    Invert( aRect );
-}
-
 void Calendar::ImplScroll( bool bPrev )
 {
     Date aNewFirstMonth = GetFirstMonth();
@@ -1030,16 +1013,6 @@ void Calendar::ImplEndTracking( bool bCancel )
         GrabFocus();
 
     mpOldSelectTable.reset();
-}
-
-IMPL_LINK_NOARG( Calendar, ScrollHdl, Timer*, void )
-{
-    bool bPrevIn = (mnDragScrollHitTest & CALENDAR_HITTEST_PREV) != 0;
-    bool bNextIn = (mnDragScrollHitTest & CALENDAR_HITTEST_NEXT) != 0;
-    if( bNextIn || bPrevIn )
-    {
-        ImplScroll( bPrevIn );
-    }
 }
 
 void Calendar::MouseButtonDown( const MouseEvent& rMEvt )
@@ -1381,7 +1354,6 @@ void Calendar::SetFirstDate( const Date& rNewFirstDate )
     if ( maFirstDate != rNewFirstDate )
     {
         maFirstDate = Date( 1, rNewFirstDate.GetMonth(), rNewFirstDate.GetYear() );
-        mbDropPos = false;
         ImplUpdate();
     }
 }
@@ -1756,7 +1728,6 @@ CalendarField::CalendarField(vcl::Window* pParent, WinBits nWinStyle)
     , mpCalendar(nullptr)
     , mpTodayBtn(nullptr)
     , mpNoneBtn(nullptr)
-    , maDefaultDate( Date::EMPTY )
     , mbToday(false)
     , mbNone(false)
 {
@@ -1837,10 +1808,7 @@ bool CalendarField::ShowDropDown( bool bShow )
         Date aDate = GetDate();
         if ( IsEmptyDate() || !aDate.IsValidAndGregorian() )
         {
-            if ( maDefaultDate.IsValidAndGregorian() )
-                aDate = maDefaultDate;
-            else
-                aDate = Date( Date::SYSTEM );
+            aDate = Date( Date::SYSTEM );
         }
         pCalendar->SetCurDate( aDate );
         Point       aPos( GetParent()->OutputToScreenPixel( GetPosPixel() ) );

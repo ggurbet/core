@@ -453,9 +453,9 @@ SdrObjectUniquePtr XclImpDrawObjBase::CreateSdrObject( XclImpDffConverter& rDffC
             SdrUnoObj* pSdrUnoObj = dynamic_cast< SdrUnoObj* >( xSdrObj.get() );
             if( pSdrUnoObj != nullptr )
             {
-                Reference< XControlModel > xCtrlModel = pSdrUnoObj->GetUnoControlModel();
+                const Reference< XControlModel >& xCtrlModel = pSdrUnoObj->GetUnoControlModel();
                 Reference< XPropertySet > xPropSet(xCtrlModel,UNO_QUERY);
-                const static rtl::OUString sPropertyName("ControlTypeinMSO");
+                const static OUString sPropertyName("ControlTypeinMSO");
 
                 enum { eCreateFromOffice = 0, eCreateFromMSTBXControl, eCreateFromMSOCXControl };
 
@@ -475,7 +475,7 @@ SdrObjectUniquePtr XclImpDrawObjBase::CreateSdrObject( XclImpDffConverter& rDffC
                 if( mnObjType == 8 )//OCX
                 {
                     //Need summary type for export
-                    const static rtl::OUString sObjIdPropertyName("ObjIDinMSO");
+                    const static OUString sObjIdPropertyName("ObjIDinMSO");
                     const XclImpPictureObj* const pObj = dynamic_cast< const XclImpPictureObj* const >(this);
                     if( pObj != nullptr && pObj->IsOcxControl() )
                     {
@@ -1760,7 +1760,7 @@ void XclImpChartObj::DoPostProcessSdrObj( XclImpDffConverter& rDffConv, SdrObjec
     const SdrOle2Obj* pSdrOleObj = dynamic_cast< const SdrOle2Obj* >( &rSdrObj );
     if( mxChart && pSdrOleObj )
     {
-        Reference< XEmbeddedObject > xEmbObj = pSdrOleObj->GetObjRef();
+        const Reference< XEmbeddedObject >& xEmbObj = pSdrOleObj->GetObjRef();
         if( xEmbObj.is() && ::svt::EmbeddedObjectRef::TryRunningState( xEmbObj ) ) try
         {
             Reference< XEmbedPersist > xPersist( xEmbObj, UNO_QUERY_THROW );

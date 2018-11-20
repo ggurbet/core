@@ -55,6 +55,7 @@
 #include <vcl/settings.hxx>
 #include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
+#include <unotools/charclass.hxx>
 
 #include <output.hxx>
 #include <document.hxx>
@@ -2007,7 +2008,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                         // in Metafiles always use DrawTextArray to ensure that positions are
                         // recorded (for non-proportional resize):
 
-                        OUString aString = aVars.GetString();
+                        const OUString& aString = aVars.GetString();
                         if (!aString.isEmpty())
                         {
                             // If the string is clipped, make it shorter for
@@ -4878,14 +4879,11 @@ void ScOutputData::DrawRotated(bool bPixelToLogic)
                                 }
 
                                 long nClipStartY = nStartY;
-                                if (nArrY==0)
+                                if (nArrY==0 && nClipStartY < nRowPosY )
                                 {
-                                    if ( nClipStartY < nRowPosY )
-                                    {
-                                        long nDif = nRowPosY - nClipStartY;
-                                        nClipStartY = nRowPosY;
-                                        aClipSize.AdjustHeight( -nDif );
-                                    }
+                                    long nDif = nRowPosY - nClipStartY;
+                                    nClipStartY = nRowPosY;
+                                    aClipSize.AdjustHeight( -nDif );
                                 }
 
                                 if ( nAttrRotate /* && eRotMode != SVX_ROTATE_MODE_STANDARD */ )

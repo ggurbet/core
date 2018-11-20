@@ -24,6 +24,7 @@ Qt5Menu::Qt5Menu(bool bMenuBar)
     , mpFrame(nullptr)
     , mbMenuBar(bMenuBar)
 {
+    connect(this, &Qt5Menu::setFrameSignal, this, &Qt5Menu::SetFrame, Qt::BlockingQueuedConnection);
 }
 
 Qt5Menu::~Qt5Menu() { maItems.clear(); }
@@ -64,6 +65,12 @@ void Qt5Menu::SetSubMenu(SalMenuItem* pSalMenuItem, SalMenu* pSubMenu, unsigned)
 
 void Qt5Menu::SetFrame(const SalFrame* pFrame)
 {
+    if (qApp->thread() != QThread::currentThread())
+    {
+        SolarMutexReleaser aReleaser;
+        return Q_EMIT setFrameSignal(pFrame);
+    }
+
     SolarMutexGuard aGuard;
     assert(mbMenuBar);
     mpFrame = const_cast<Qt5Frame*>(static_cast<const Qt5Frame*>(pFrame));
@@ -72,9 +79,11 @@ void Qt5Menu::SetFrame(const SalFrame* pFrame)
 
     Qt5MainWindow* pMainWindow = mpFrame->GetTopLevelWindow();
     if (pMainWindow)
+    {
         mpQMenuBar = pMainWindow->menuBar();
 
-    DoFullMenuUpdate(mpVCLMenu);
+        DoFullMenuUpdate(mpVCLMenu);
+    }
 }
 
 void Qt5Menu::DoFullMenuUpdate(Menu* pMenuBar, QMenu* pParentMenu)
@@ -132,13 +141,14 @@ void Qt5Menu::DoFullMenuUpdate(Menu* pMenuBar, QMenu* pParentMenu)
                             pQAG->setExclusive(true);
                         }
                         pQAG->addAction(pAction);
+                        pAction->setChecked(bChecked);
                     }
 
                     pAction->setEnabled(pSalMenuItem->mbEnabled);
                     pAction->setVisible(pSalMenuItem->mbVisible);
 
                     connect(pAction, &QAction::triggered, this,
-                            [this, pSalMenuItem] { slotMenuTriggered(pSalMenuItem); });
+                            [pSalMenuItem] { slotMenuTriggered(pSalMenuItem); });
                 }
             }
         }
@@ -184,7 +194,7 @@ void Qt5Menu::EnableItem(unsigned nPos, bool bEnable)
     }
 }
 
-void Qt5Menu::SetItemText(unsigned, SalMenuItem* pItem, const rtl::OUString& rText)
+void Qt5Menu::SetItemText(unsigned, SalMenuItem* pItem, const OUString& rText)
 {
     Qt5MenuItem* pSalMenuItem = static_cast<Qt5MenuItem*>(pItem);
     if (pSalMenuItem->mpAction)
@@ -249,7 +259,13 @@ void Qt5Menu::slotMenuTriggered(Qt5MenuItem* pQItem)
     }
 }
 
-void Qt5Menu::NativeItemText(OUString& rItemText) { rItemText = rItemText.replace('~', '&'); }
+void Qt5Menu::NativeItemText(OUString& rItemText)
+{
+    // preserve literal '&'s in menu texts
+    rItemText = rItemText.replaceAll("&", "&&");
+
+    rItemText = rItemText.replace('~', '&');
+}
 
 Qt5MenuItem::Qt5MenuItem(const SalItemParams* pItemData)
     : mpParentMenu(nullptr)

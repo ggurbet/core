@@ -33,6 +33,7 @@
 #include <svl/ilstitem.hxx>
 #include <svl/int64item.hxx>
 #include <svl/srchitem.hxx>
+#include <svl/srchdefs.hxx>
 #include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/zformat.hxx>
@@ -483,10 +484,6 @@ void ScTabViewShell::ExecuteCellFormatDlg(SfxRequest& rReq, const OString &rName
     std::shared_ptr<SvxNumberInfoItem> pNumberInfoItem;
 
     pOldSet->MergeRange(XATTR_FILLSTYLE, XATTR_FILLCOLOR);
-
-    sal_uInt16 nWhich = pOldSet->GetPool()->GetWhich( SID_ATTR_BRUSH );
-    SvxBrushItem aBrushItem(static_cast<const SvxBrushItem&>(pOldSet->Get(nWhich)));
-    setSvxBrushItemAsFillAttributesToTargetSet(aBrushItem, *pOldSet);
 
     pOldSet->MergeRange(SID_ATTR_BORDER_STYLES, SID_ATTR_BORDER_DEFAULT_WIDTH);
 

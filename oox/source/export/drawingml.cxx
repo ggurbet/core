@@ -33,6 +33,7 @@
 #include <oox/token/tokens.hxx>
 #include <oox/drawingml/drawingmltypes.hxx>
 #include <svtools/unitconv.hxx>
+#include <sax/fastattribs.hxx>
 
 #include <cstdio>
 #include <com/sun/star/awt/CharSet.hpp>
@@ -661,14 +662,13 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet, Referenc
             if (GetProperty(rXPropSet, "LineDash"))
             {
                 aLineDash = mAny.get<drawing::LineDash>();
+                //this query is good for shapes, but in the case of charts it returns 0 values
                 if (aLineDash.Dots == 0 && aLineDash.DotLen == 0 && aLineDash.Dashes == 0 && aLineDash.DashLen == 0 && aLineDash.Distance == 0) {
                     OUString aLineDashName;
                     GET(aLineDashName, LineDashName);
-                    if (!aLineDashName.isEmpty()) {
-                        if (xModel) {
-                            css::uno::Any aAny = getLineDash(xModel, aLineDashName);
-                            aAny >>= aLineDash;
-                        }
+                    if (!aLineDashName.isEmpty() && xModel) {
+                        css::uno::Any aAny = getLineDash(xModel, aLineDashName);
+                        aAny >>= aLineDash;
                     }
                 }
                 bDashSet = true;
@@ -733,31 +733,12 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet, Referenc
         int relDotLen = nLineWidth ? aLineDash.DotLen / nLineWidth : 0;
         int relDashLen = nLineWidth ? aLineDash.DashLen / nLineWidth : 0;
         int relDistance = nLineWidth ? aLineDash.Distance / nLineWidth : 0;
-        // fixing relative values in the case of mso preset linewidths
-        //todo: fix relDotLen, relDashLen and relDistance in every case of 0-1 linewidth
-        switch (nLineWidth)
+        // fixing relative values in the case of linewidths smaller than 1 pt
+        if (0 < nLineWidth && nLineWidth < 35) //35 HMM == 1 pt
         {
-        case 9: // 1/4 pt
-            {
-            relDotLen = relDotLen ? (relDotLen + 1) / 4 : 0;
-            relDashLen = relDashLen ? (relDashLen + 1) / 4 : 0;
-            relDistance = relDistance ? (relDistance + 1) / 4 : 0;
-            break;
-            }
-        case 18: // 1/2 pt
-            {
-            relDotLen = relDotLen ? (relDotLen + 1) / 2 : 0;
-            relDashLen = relDashLen ? (relDashLen + 1) / 2 : 0;
-            relDistance = relDistance ? (relDistance + 1) / 2 : 0;
-            break;
-            }
-        case 26: // 3/4 pt
-            {
-            relDotLen = relDotLen ? (relDotLen + 1) * 3 / 4 : 0;
-            relDashLen = relDashLen ? (relDashLen + 1) * 3 / 4 : 0;
-            relDistance = relDistance ? (relDistance + 1) *3 / 4 : 0;
-            break;
-            }
+            relDotLen = relDotLen ? (relDotLen + 1) * (nLineWidth * 360.0 / 12700) : 0;
+            relDashLen = relDashLen ? (relDashLen + 1) * (nLineWidth * 360.0 / 12700) : 0;
+            relDistance = relDistance ? (relDistance + 1) * (nLineWidth * 360.0 / 12700) : 0;
         }
         // keep default mso preset linestyles (instead of custdash)
         if (aLineDash.Dots == 1 && relDotLen == 1 && aLineDash.Dashes == 0 && relDashLen == 0 && relDistance == 3)
@@ -2114,7 +2095,7 @@ void DrawingML::WriteParagraphNumbering(const Reference< XPropertySet >& rXPropS
     Graphic aGraphic(xGraphic);
     if (xGraphic.is() && aGraphic.GetType() != GraphicType::NONE)
     {
-        long nFirstCharHeightMm = TransformMetric(fFirstCharHeight * 100.f, FUNIT_POINT, FUNIT_MM);
+        long nFirstCharHeightMm = TransformMetric(fFirstCharHeight * 100.f, FieldUnit::POINT, FieldUnit::MM);
         float fBulletSizeRel = aGraphicSize.Height / static_cast<float>(nFirstCharHeightMm) / OOX_BULLET_LIST_SCALE_FACTOR;
 
         OUString sRelationId;
@@ -2192,7 +2173,7 @@ void DrawingML::WriteParagraphNumbering(const Reference< XPropertySet >& rXPropS
     }
 }
 
-bool DrawingML::IsGroupShape( const Reference< XShape >& rXShape ) const
+bool DrawingML::IsGroupShape( const Reference< XShape >& rXShape )
 {
     bool bRet = false;
     if ( rXShape.is() )
@@ -3450,7 +3431,7 @@ void DrawingML::WriteShapeEffects( const Reference< XPropertySet >& rXPropSet )
             aShadowAttribsGrabBag[0].Name = "dist";
             aShadowAttribsGrabBag[0].Value <<= lcl_CalculateDist(dX, dY);
             aShadowAttribsGrabBag[1].Name = "dir";
-            aShadowAttribsGrabBag[1].Value <<= lcl_CalculateDir(dX, dY);;
+            aShadowAttribsGrabBag[1].Value <<= lcl_CalculateDir(dX, dY);
 
             aShadowGrabBag[0].Name = "Attribs";
             aShadowGrabBag[0].Value <<= aShadowAttribsGrabBag;

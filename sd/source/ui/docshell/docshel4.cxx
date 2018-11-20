@@ -409,14 +409,6 @@ bool DrawDocShell::ImportFrom(SfxMedium &rMedium,
         mpDoc->SetSummationOfParagraphs();
     }
 
-    // Set this flag for MSO formats
-    if (aFilterName.startsWith("MS PowerPoint 97") ||
-        aFilterName.startsWith("Impress MS PowerPoint 2007 XML") ||
-        aFilterName.startsWith("Impress Office Open XML"))
-    {
-        mpDoc->SetHoriAlignIgnoreTrailingWhitespace(true);
-    }
-
     const bool bRet = SfxObjectShell::ImportFrom(rMedium, xInsertPosition);
 
     SfxItemSet* pSet = rMedium.GetItemSet();
@@ -512,14 +504,6 @@ bool DrawDocShell::ConvertFrom( SfxMedium& rMedium )
         bRet = SdGRFFilter( rMedium, *this ).Import();
     }
 
-    // Set this flag for MSO formats
-    if (aFilterName.startsWith("MS PowerPoint 97") ||
-        aFilterName.startsWith("Impress MS PowerPoint 2007 XML") ||
-        aFilterName.startsWith("Impress Office Open XML"))
-    {
-        mpDoc->SetHoriAlignIgnoreTrailingWhitespace(true);
-    }
-
     FinishedLoading();
 
     // tell SFX to change viewshell when in preview mode
@@ -568,17 +552,11 @@ bool DrawDocShell::Save()
 bool DrawDocShell::SaveAs( SfxMedium& rMedium )
 {
     mpDoc->setDocAccTitle(OUString());
-    SfxViewFrame* pFrame1 = SfxViewFrame::GetFirst( this );
-    if (pFrame1)
+    if (SfxViewFrame* pFrame1 = SfxViewFrame::GetFirst(this))
     {
-        vcl::Window* pWindow = &pFrame1->GetWindow();
-        if ( pWindow )
+        if (vcl::Window* pSysWin = pFrame1->GetWindow().GetSystemWindow())
         {
-            vcl::Window* pSysWin = pWindow->GetSystemWindow();
-            if ( pSysWin )
-            {
-                pSysWin->SetAccessibleName(OUString());
-            }
+            pSysWin->SetAccessibleName(OUString());
         }
     }
     mpDoc->StopWorkStartupDelay();

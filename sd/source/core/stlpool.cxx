@@ -639,7 +639,7 @@ void SdStyleSheetPool::CopySheets(SdStyleSheetPool& rSourcePool, SfxStyleFamily 
         SfxStyleSheetBase* pSheet = rSourcePool.GetStyleSheetByPositionInIndex( *it );
         if( !pSheet )
             continue;
-        rtl::OUString aName( pSheet->GetName() );
+        OUString aName( pSheet->GetName() );
 
         // now check whether we already have a sheet with the same name
         std::vector<unsigned> aSheetsWithName = GetIndexedStyleSheets().FindPositionsByName(aName);
@@ -651,7 +651,7 @@ void SdStyleSheetPool::CopySheets(SdStyleSheetPool& rSourcePool, SfxStyleFamily 
             pExistingSheet =
                 GetStyleSheetByPositionInIndex(aSheetsWithName.front());
             if (!rRenameSuffix.isEmpty() &&
-                pExistingSheet->GetItemSet().Equals(pSheet->GetItemSet(), false))
+                !pExistingSheet->GetItemSet().Equals(pSheet->GetItemSet(), false))
             {
                 // we have found a sheet with the same name, but different contents. Try to find a new name.
                 // If we already have a sheet with the new name, and it is equal to the one in the source pool,
@@ -663,7 +663,8 @@ void SdStyleSheetPool::CopySheets(SdStyleSheetPool& rSourcePool, SfxStyleFamily 
                     aTmpName = aName + rRenameSuffix + OUString::number(nSuffix);
                     pExistingSheet = Find(aTmpName, eFamily);
                     nSuffix++;
-                } while( pExistingSheet && pExistingSheet->GetItemSet().Equals(pSheet->GetItemSet(), false) );
+                } while (pExistingSheet &&
+                        !pExistingSheet->GetItemSet().Equals(pSheet->GetItemSet(), false));
                 aName = aTmpName;
                 bAddToList = true;
             }
@@ -897,13 +898,10 @@ void SdStyleSheetPool::CreatePseudosIfNecessary()
         {
             pSheet = &Make(aLevelName, SfxStyleFamily::Pseudo, nUsedMask);
 
-            if (pSheet)
-            {
-                if (pParent)
-                    pSheet->SetParent(pParent->GetName());
-                pParent = pSheet;
-                static_cast<SfxStyleSheet*>(pSheet)->StartListening(*this);
-            }
+            if (pParent)
+                pSheet->SetParent(pParent->GetName());
+            pParent = pSheet;
+            static_cast<SfxStyleSheet*>(pSheet)->StartListening(*this);
         }
         pSheet->SetHelpId( aHelpFile, HID_PSEUDOSHEET_OUTLINE + nLevel );
     }

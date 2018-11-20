@@ -23,7 +23,7 @@
 #include <vcl/keycodes.hxx>
 #include <vcl/settings.hxx>
 #include <sot/exchange.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <unotools/syslocale.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewsh.hxx>
@@ -39,7 +39,7 @@
 #include <sfx2/sfxsids.hrc>
 #include <svl/eitem.hxx>
 #include <svl/languageoptions.hxx>
-#include <svtools/svlbitm.hxx>
+#include <vcl/svlbitm.hxx>
 #include <svx/SmartTagMgr.hxx>
 #include <com/sun/star/smarttags/XSmartTagRecognizer.hpp>
 #include <com/sun/star/smarttags/XSmartTagAction.hpp>
@@ -95,8 +95,8 @@ OfaAutoCorrDlg::OfaAutoCorrDlg(vcl::Window* pParent, const SfxItemSet* _pSet )
     {
         // remove smart tag tab page if no extensions are installed
         SvxAutoCorrect* pAutoCorrect = SvxAutoCorrCfg::Get().GetAutoCorrect();
-        SvxSwAutoFormatFlags *pOpt = &pAutoCorrect->GetSwFlags();
-        if ( !pOpt || !pOpt->pSmartTagMgr || 0 == pOpt->pSmartTagMgr->NumberOfRecognizers() )
+        SvxSwAutoFormatFlags& rOpt = pAutoCorrect->GetSwFlags();
+        if (!rOpt.pSmartTagMgr || 0 == rOpt.pSmartTagMgr->NumberOfRecognizers())
             RemoveTabPage("smarttags");
 
         RemoveTabPage("options");
@@ -308,7 +308,7 @@ class OfaAutoFmtPrcntSet : public weld::GenericDialogController
 public:
     explicit OfaAutoFmtPrcntSet(weld::Window* pParent)
         : GenericDialogController(pParent, "cui/ui/percentdialog.ui", "PercentDialog")
-        , m_xPrcntMF(m_xBuilder->weld_metric_spin_button("margin", FUNIT_PERCENT))
+        , m_xPrcntMF(m_xBuilder->weld_metric_spin_button("margin", FieldUnit::PERCENT))
     {
     }
 
@@ -729,9 +729,9 @@ IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, EditHdl, Button*, void)
         ImpUserData* pUserData = static_cast<ImpUserData*>(m_pCheckLB->FirstSelected()->GetUserData());
         aMapDlg.SetCharFont(*pUserData->pFont);
         aMapDlg.SetChar( (*pUserData->pString)[0] );
-        if (RET_OK == aMapDlg.execute())
+        if (RET_OK == aMapDlg.run())
         {
-            vcl::Font aFont(aMapDlg.GetCharFont());
+            const vcl::Font& aFont(aMapDlg.GetCharFont());
             *pUserData->pFont = aFont;
             sal_UCS4 aChar = aMapDlg.GetChar();
             // using the UCS4 constructor
@@ -743,10 +743,10 @@ IMPL_LINK_NOARG(OfaSwAutoFmtOptionsPage, EditHdl, Button*, void)
     {
         // dialog for per cent settings
         OfaAutoFmtPrcntSet aDlg(GetFrameWeld());
-        aDlg.GetPrcntFld().set_value(nPercent, FUNIT_PERCENT);
+        aDlg.GetPrcntFld().set_value(nPercent, FieldUnit::PERCENT);
         if (aDlg.run() == RET_OK)
         {
-            nPercent = static_cast<sal_uInt16>(aDlg.GetPrcntFld().get_value(FUNIT_PERCENT));
+            nPercent = static_cast<sal_uInt16>(aDlg.GetPrcntFld().get_value(FieldUnit::PERCENT));
             sMargin = " " +
                 unicode::formatPercent(nPercent, Application::GetSettings().GetUILanguageTag());
         }
@@ -1652,10 +1652,11 @@ IMPL_LINK(OfaAutocorrExceptPage, NewDelButtonHdl, Button*, pBtn, void)
 
 IMPL_LINK(OfaAutocorrExceptPage, NewDelActionHdl, AutoCorrEdit&, rEdit, bool)
 {
-    return NewDelHdl(&rEdit);
+    NewDelHdl(&rEdit);
+    return false;
 }
 
-bool OfaAutocorrExceptPage::NewDelHdl(void const * pBtn)
+void OfaAutocorrExceptPage::NewDelHdl(void const * pBtn)
 {
     if((pBtn == m_pNewAbbrevPB || pBtn == m_pAbbrevED.get() )
         && !m_pAbbrevED->GetText().isEmpty())
@@ -1679,7 +1680,6 @@ bool OfaAutocorrExceptPage::NewDelHdl(void const * pBtn)
         m_pDoubleCapsLB->RemoveEntry(m_pDoubleCapsED->GetText());
         ModifyHdl(*m_pDoubleCapsED);
     }
-    return false;
 }
 
 IMPL_LINK(OfaAutocorrExceptPage, SelectHdl, ListBox&, rBox, void)
@@ -2077,7 +2077,7 @@ IMPL_LINK( OfaQuoteTabPage, QuoteHdl, Button*, pBtn, void )
     }
     aMap.SetChar(  cDlg );
     aMap.DisableFontSelection();
-    if (aMap.execute() == RET_OK)
+    if (aMap.run() == RET_OK)
     {
         sal_UCS4 cNewChar = aMap.GetChar();
         switch( nMode )
@@ -2525,7 +2525,7 @@ void OfaSmartTagOptionsTabPage::FillListBox( const SmartTagMgr& rSmartTagMgr )
 
     for ( sal_uInt32 i = 0; i < nNumberOfRecognizers; ++i )
     {
-        uno::Reference< smarttags::XSmartTagRecognizer > xRec = rSmartTagMgr.GetRecognizer(i);
+        const uno::Reference< smarttags::XSmartTagRecognizer >& xRec = rSmartTagMgr.GetRecognizer(i);
 
         const OUString aName = xRec->getName( aLocale );
         const sal_Int32 nNumberOfSupportedSmartTags = xRec->getSmartTagCount();

@@ -163,7 +163,7 @@ double SwTableBox::GetValue( SwTableCalcPara& rCalcPara ) const
             switch ( pField->GetTyp()->Which() )
             {
             case SwFieldIds::SetExp:
-                nRet = static_cast<const SwSetExpField*>(pField)->GetValue();
+                nRet = static_cast<const SwSetExpField*>(pField)->GetValue(rCalcPara.m_pLayout);
                 break;
             case SwFieldIds::User:
                 nRet = static_cast<const SwUserField*>(pField)->GetValue();
@@ -193,7 +193,7 @@ double SwTableBox::GetValue( SwTableCalcPara& rCalcPara ) const
                 break;
 
             default:
-                nRet = rCalcPara.m_rCalc.Calculate( pField->ExpandField(true) ).GetDouble();
+                nRet = rCalcPara.m_rCalc.Calculate( pField->ExpandField(true, nullptr) ).GetDouble();
             }
         }
         else if ( nSttPos < sText.getLength()
@@ -251,10 +251,15 @@ double SwTableBox::GetValue( SwTableCalcPara& rCalcPara ) const
 
 // structure needed for calculation of tables
 
-SwTableCalcPara::SwTableCalcPara( SwCalc& rCalculator, const SwTable& rTable )
-    : m_pLastTableBox( nullptr ), m_nStackCount( 0 ), m_nMaxSize( cMAXSTACKSIZE ),
-    m_pBoxStack( new SwTableSortBoxes ),
-    m_rCalc( rCalculator ), m_pTable( &rTable )
+SwTableCalcPara::SwTableCalcPara(SwCalc& rCalculator, const SwTable& rTable,
+        SwRootFrame const*const pLayout)
+    : m_pLastTableBox(nullptr)
+    , m_nStackCount( 0 )
+    , m_nMaxSize( cMAXSTACKSIZE )
+    , m_pLayout(pLayout)
+    , m_pBoxStack( new SwTableSortBoxes )
+    , m_rCalc( rCalculator )
+    , m_pTable( &rTable )
 {
 }
 
@@ -925,7 +930,8 @@ void SwTableFormula::GetBoxes( const SwTableBox& rSttBox,
     const SwLayoutFrame *pStt, *pEnd;
     const SwFrame* pFrame = lcl_GetBoxFrame( rSttBox );
     pStt = pFrame ? pFrame->GetUpper() : nullptr;
-    pEnd = ( nullptr != (pFrame = lcl_GetBoxFrame( rEndBox ))) ? pFrame->GetUpper() : nullptr;
+    pFrame = lcl_GetBoxFrame( rEndBox );
+    pEnd = pFrame ? pFrame->GetUpper() : nullptr;
     if( !pStt || !pEnd )
         return ;                        // no valid selection
 
@@ -1060,7 +1066,7 @@ void SwTableFormula::SplitMergeBoxNm_( const SwTable& rTable, OUStringBuffer& rN
     const sal_Int32 nLastBoxLen = pTableNmBox->getLength();
     const sal_Int32 nSeparator = pTableNmBox->indexOf('.');
     if ( nSeparator>=0 &&
-        // If there are dots in the name, than these appear in pairs (e.g. A1.1.1)!
+        // If there are dots in the name, then these appear in pairs (e.g. A1.1.1)!
         (comphelper::string::getTokenCount(*pTableNmBox, '.') - 1) & 1 )
     {
         sTableNm = pTableNmBox->copy( 0, nSeparator );

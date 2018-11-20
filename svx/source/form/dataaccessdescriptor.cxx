@@ -195,7 +195,7 @@ namespace svx
                 { OUString("Selection"),          DataAccessDescriptorProperty::Selection,             }
             };
 
-            for (unsigned i=0; i<SAL_N_ELEMENTS(s_aDescriptorProperties); ++i)
+            for (size_t i=0; i<SAL_N_ELEMENTS(s_aDescriptorProperties); ++i)
                 s_aProperties[ s_aDescriptorProperties[i].maName ] = &s_aDescriptorProperties[i];
         }
 
@@ -208,14 +208,10 @@ namespace svx
 
         DataAccessDescriptorProperty nNeededHandle = _rPos->first;
 
-        for ( MapString2PropertyEntry::const_iterator loop = rProperties.begin();
-              loop != rProperties.end();
-              ++loop
-            )
-        {
-            if ( nNeededHandle == loop->second->mnHandle )
-                return loop->second;
-        }
+        auto loop = std::find_if(rProperties.begin(), rProperties.end(),
+            [&nNeededHandle](const MapString2PropertyEntry::value_type& rProp) { return nNeededHandle == rProp.second->mnHandle; });
+        if (loop != rProperties.end())
+            return loop->second;
         throw RuntimeException();
     }
 

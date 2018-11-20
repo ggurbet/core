@@ -26,6 +26,7 @@
 #include <glob.hxx>
 #include <helpids.h>
 #include <pres.hxx>
+#include <sdmod.hxx>
 
 #include <sdpage.hxx>
 #include <sdresid.hxx>
@@ -382,9 +383,8 @@ void LayoutMenu::AssignLayoutToSelectedSlides (AutoLayout aLayout)
             case ViewShell::ST_IMPRESS:
             {
                 DrawViewShell* pDrawViewShell = static_cast<DrawViewShell*>(pMainViewShell);
-                if (pDrawViewShell != nullptr)
-                    if (pDrawViewShell->GetEditMode() == EditMode::MasterPage)
-                        bMasterPageMode = true;
+                if (pDrawViewShell->GetEditMode() == EditMode::MasterPage)
+                    bMasterPageMode = true;
                 break;
             }
             default:

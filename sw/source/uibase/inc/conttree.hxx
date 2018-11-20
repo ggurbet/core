@@ -20,8 +20,8 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_CONTTREE_HXX
 
 #include <svl/lstner.hxx>
-#include <svtools/treelistbox.hxx>
-#include <svtools/svlbitm.hxx>
+#include <vcl/treelistbox.hxx>
+#include <vcl/svlbitm.hxx>
 #include "swcont.hxx"
 
 #include <map>
@@ -76,8 +76,8 @@ class SwContentTree final
     OUString const      m_sSpace;
     AutoTimer           m_aUpdTimer;
 
-    o3tl::enumarray<ContentTypeId,SwContentType*>  m_aActiveContentArr;
-    o3tl::enumarray<ContentTypeId,SwContentType*>  m_aHiddenContentArr;
+    o3tl::enumarray<ContentTypeId,std::unique_ptr<SwContentType>>  m_aActiveContentArr;
+    o3tl::enumarray<ContentTypeId,std::unique_ptr<SwContentType>>  m_aHiddenContentArr;
     OUString            m_aContextStrings[CONTEXT_COUNT + 1];
     OUString const      m_sRemoveIdx;
     OUString const      m_sUpdateIdx;

@@ -20,8 +20,7 @@
 #ifndef INCLUDED_SC_SOURCE_UI_INC_TRANSOBJ_HXX
 #define INCLUDED_SC_SOURCE_UI_INC_TRANSOBJ_HXX
 
-#include <svtools/transfer.hxx>
-#include <global.hxx>
+#include <vcl/transfer.hxx>
 #include <address.hxx>
 #include <document.hxx>
 #include <sfx2/objsh.hxx>
@@ -29,7 +28,6 @@
 
 class ScDocShell;
 class ScMarkData;
-class SfxObjectShell;
 enum class ScDragSrc;
 
 namespace com { namespace sun { namespace star {

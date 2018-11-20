@@ -33,6 +33,7 @@
 #include <unotools/charclass.hxx>
 #include <unotools/fontoptions.hxx>
 
+#include <svtools/borderline.hxx>
 #include <svtools/sampletext.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/strings.hrc>
@@ -154,14 +155,14 @@ long BorderWidthImpl::GuessWidth( long nLine1, long nLine2, long nGap )
     double nWidth1 = lcl_getGuessedWidth( nLine1, m_nRate1, bLine1Change );
     if ( bLine1Change )
         aToCompare.push_back( nWidth1 );
-    else if ( !bLine1Change && nWidth1 < 0 )
+    else if (nWidth1 < 0)
         bInvalid = true;
 
     bool bLine2Change = bool( m_nFlags & BorderWidthImplFlags::CHANGE_LINE2 );
     double nWidth2 = lcl_getGuessedWidth( nLine2, m_nRate2, bLine2Change );
     if ( bLine2Change )
         aToCompare.push_back( nWidth2 );
-    else if ( !bLine2Change && nWidth2 < 0 )
+    else if (nWidth2 < 0)
         bInvalid = true;
 
     bool bGapChange = bool( m_nFlags & BorderWidthImplFlags::CHANGE_DIST );
@@ -289,7 +290,7 @@ static void lclDrawPolygon( OutputDevice& rDev, const basegfx::B2DPolygon& rPoly
 
     for ( sal_uInt32 i = 0; i < aPolygons.count( ); i++ )
     {
-        basegfx::B2DPolygon aDash = aPolygons.getB2DPolygon( i );
+        const basegfx::B2DPolygon& aDash = aPolygons.getB2DPolygon( i );
         basegfx::B2DPoint aStart = aDash.getB2DPoint( 0 );
         basegfx::B2DPoint aEnd = aDash.getB2DPoint( aDash.count() - 1 );
 
@@ -426,7 +427,7 @@ void LineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
     aSize.setHeight( aTxtSize.Height() );
 
     // SourceUnit to Twips
-    if ( eSourceUnit == FUNIT_POINT )
+    if ( eSourceUnit == FieldUnit::POINT )
     {
         nLine1      /= 5;
         nLine2      /= 5;
@@ -485,7 +486,7 @@ LineListBox::LineListBox( vcl::Window* pParent, WinBits nWinStyle ) :
 {
     aTxtSize.setWidth( GetTextWidth( " " ) );
     aTxtSize.setHeight( GetTextHeight() );
-    eSourceUnit = FUNIT_POINT;
+    eSourceUnit = FieldUnit::POINT;
 
     aVirDev->SetLineColor();
     aVirDev->SetMapMode( MapMode( MapUnit::MapTwip ) );
@@ -748,15 +749,12 @@ void FontNameBox::Fill( const FontList* pList )
     {
         const FontMetric& rFontMetric = pList->GetFontName( i );
         sal_Int32 nIndex = InsertEntry( rFontMetric.GetFamilyName() );
-        if ( nIndex != LISTBOX_ERROR )
-        {
-            if ( nIndex < static_cast<sal_Int32>(mpFontList->size()) ) {
-                ImplFontList::iterator it = mpFontList->begin();
-                ::std::advance( it, nIndex );
-                mpFontList->insert( it, rFontMetric );
-            } else {
-                mpFontList->push_back( rFontMetric );
-            }
+        if ( nIndex < static_cast<sal_Int32>(mpFontList->size()) ) {
+            ImplFontList::iterator it = mpFontList->begin();
+            ::std::advance( it, nIndex );
+            mpFontList->insert( it, rFontMetric );
+        } else {
+            mpFontList->push_back( rFontMetric );
         }
     }
 
@@ -851,7 +849,7 @@ void FontNameBox::UserDraw( const UserDrawEvent& rUDEvt )
         tools::Rectangle aTextRect;
 
         // Preview the font name
-        OUString sFontName = rFontMetric.GetFamilyName();
+        const OUString& sFontName = rFontMetric.GetFamilyName();
 
         //If it shouldn't or can't draw its own name because it doesn't have the glyphs
         if (!canRenderNameOfSelectedFont(*pRenderContext))
@@ -1262,7 +1260,6 @@ void FontSizeBox::ImplInit()
 {
     EnableAutocomplete( false );
 
-    bRelative       = false;
     bStdSize        = false;
 
     SetShowTrailingZeros( false );
@@ -1287,10 +1284,6 @@ void FontSizeBox::Reformat()
 
 void FontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
 {
-    // no font sizes need to be set for relative mode
-    if ( bRelative )
-        return;
-
     // query font sizes
     const sal_IntPtr* pTempAry;
     const sal_IntPtr* pAry = nullptr;
@@ -1360,7 +1353,7 @@ void FontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
     pTempAry = pAry;
     while ( *pTempAry )
     {
-        InsertValue( *pTempAry, FUNIT_NONE, nPos );
+        InsertValue( *pTempAry, FieldUnit::NONE, nPos );
         ComboBox::SetEntryData( nPos, reinterpret_cast<void*>(*pTempAry) );
         nPos++;
         pTempAry++;
@@ -1372,21 +1365,18 @@ void FontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
 
 void FontSizeBox::SetValue( sal_Int64 nNewValue, FieldUnit eInUnit )
 {
-    if ( !bRelative )
+    sal_Int64 nTempValue = MetricField::ConvertValue( nNewValue, GetBaseValue(), GetDecimalDigits(), eInUnit, GetUnit() );
+    FontSizeNames aFontSizeNames( GetSettings().GetUILanguageTag().getLanguageType() );
+    // conversion loses precision; however font sizes should
+    // never have a problem with that
+    OUString aName = aFontSizeNames.Size2Name( static_cast<long>(nTempValue) );
+    if ( !aName.isEmpty() && (GetEntryPos( aName ) != LISTBOX_ENTRY_NOTFOUND) )
     {
-        sal_Int64 nTempValue = MetricField::ConvertValue( nNewValue, GetBaseValue(), GetDecimalDigits(), eInUnit, GetUnit() );
-        FontSizeNames aFontSizeNames( GetSettings().GetUILanguageTag().getLanguageType() );
-        // conversion loses precision; however font sizes should
-        // never have a problem with that
-        OUString aName = aFontSizeNames.Size2Name( static_cast<long>(nTempValue) );
-        if ( !aName.isEmpty() && (GetEntryPos( aName ) != LISTBOX_ENTRY_NOTFOUND) )
-        {
-            mnLastValue = nTempValue;
-            SetText( aName );
-            mnFieldValue = mnLastValue;
-            SetEmptyFieldValueData( false );
-            return;
-        }
+        mnLastValue = nTempValue;
+        SetText( aName );
+        mnFieldValue = mnLastValue;
+        SetEmptyFieldValueData( false );
+        return;
     }
 
     MetricBox::SetValue( nNewValue, eInUnit );
@@ -1394,18 +1384,15 @@ void FontSizeBox::SetValue( sal_Int64 nNewValue, FieldUnit eInUnit )
 
 void FontSizeBox::SetValue( sal_Int64 nNewValue )
 {
-    SetValue( nNewValue, FUNIT_NONE );
+    SetValue( nNewValue, FieldUnit::NONE );
 }
 
 sal_Int64 FontSizeBox::GetValueFromStringUnit(const OUString& rStr, FieldUnit eOutUnit) const
 {
-    if ( !bRelative )
-    {
-        FontSizeNames aFontSizeNames( GetSettings().GetUILanguageTag().getLanguageType() );
-        sal_Int64 nValue = aFontSizeNames.Name2Size( rStr );
-        if ( nValue )
-            return MetricField::ConvertValue( nValue, GetBaseValue(), GetDecimalDigits(), GetUnit(), eOutUnit );
-    }
+    FontSizeNames aFontSizeNames( GetSettings().GetUILanguageTag().getLanguageType() );
+    sal_Int64 nValue = aFontSizeNames.Name2Size( rStr );
+    if ( nValue )
+        return MetricField::ConvertValue( nValue, GetBaseValue(), GetDecimalDigits(), GetUnit(), eOutUnit );
 
     return MetricBox::GetValueFromStringUnit( rStr, eOutUnit );
 }
@@ -1413,7 +1400,7 @@ sal_Int64 FontSizeBox::GetValueFromStringUnit(const OUString& rStr, FieldUnit eO
 SvtFontSizeBox::SvtFontSizeBox(std::unique_ptr<weld::ComboBox> p)
     : pFontList(nullptr)
     , nSavedValue(0)
-    , eUnit(FUNIT_POINT)
+    , eUnit(FieldUnit::POINT)
     , nDecimalDigits(1)
     , nRelMin(0)
     , nRelMax(0)
@@ -1591,7 +1578,7 @@ void SvtFontSizeBox::EnableRelativeMode( sal_uInt16 nNewMin, sal_uInt16 nNewMax,
     nRelMin       = nNewMin;
     nRelMax       = nNewMax;
     nRelStep      = nStep;
-    SetUnit(FUNIT_POINT);
+    SetUnit(FieldUnit::POINT);
 }
 
 void SvtFontSizeBox::EnablePtRelativeMode( short nNewMin, short nNewMax, short nStep )
@@ -1600,7 +1587,7 @@ void SvtFontSizeBox::EnablePtRelativeMode( short nNewMin, short nNewMax, short n
     nPtRelMin     = nNewMin;
     nPtRelMax     = nNewMax;
     nPtRelStep    = nStep;
-    SetUnit(FUNIT_POINT);
+    SetUnit(FieldUnit::POINT);
 }
 
 void SvtFontSizeBox::InsertValue(int i)
@@ -1628,7 +1615,7 @@ void SvtFontSizeBox::SetRelative( bool bNewRelative )
         if (bPtRelative)
         {
             SetDecimalDigits( 1 );
-            SetUnit(FUNIT_POINT);
+            SetUnit(FieldUnit::POINT);
 
             short i = nPtRelMin, n = 0;
             // JP 30.06.98: more than 100 values are not useful
@@ -1641,7 +1628,7 @@ void SvtFontSizeBox::SetRelative( bool bNewRelative )
         else
         {
             SetDecimalDigits(0);
-            SetUnit(FUNIT_PERCENT);
+            SetUnit(FieldUnit::PERCENT);
 
             sal_uInt16 i = nRelMin;
             while ( i <= nRelMax )
@@ -1657,7 +1644,7 @@ void SvtFontSizeBox::SetRelative( bool bNewRelative )
             m_xComboBox->clear();
         bRelative = bPtRelative = false;
         SetDecimalDigits(1);
-        SetUnit(FUNIT_POINT);
+        SetUnit(FieldUnit::POINT);
         if ( pFontList)
             Fill( &aFontMetric, pFontList );
     }
@@ -1671,7 +1658,7 @@ OUString SvtFontSizeBox::format_number(int nValue) const
     OUString sRet;
 
     //pawn percent off to icu to decide whether percent is separated from its number for this locale
-    if (eUnit == FUNIT_PERCENT)
+    if (eUnit == FieldUnit::PERCENT)
     {
         double fValue = nValue;
         fValue /= weld::SpinButton::Power10(nDecimalDigits);
@@ -1682,9 +1669,9 @@ OUString SvtFontSizeBox::format_number(int nValue) const
         const SvtSysLocale aSysLocale;
         const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
         sRet = rLocaleData.getNum(nValue, nDecimalDigits, true, false);
-        if (eUnit != FUNIT_NONE && eUnit != FUNIT_DEGREE)
+        if (eUnit != FieldUnit::NONE && eUnit != FieldUnit::DEGREE)
             sRet += " ";
-        assert(eUnit != FUNIT_PERCENT);
+        assert(eUnit != FieldUnit::PERCENT);
         sRet += weld::MetricSpinButton::MetricToString(eUnit);
     }
 
@@ -1763,7 +1750,7 @@ void SvtLineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
     Size aSize(getPreviewSize(*m_xControl));
 
     // SourceUnit to Twips
-    if ( eSourceUnit == FUNIT_POINT )
+    if ( eSourceUnit == FieldUnit::POINT )
     {
         nLine1      /= 5;
         nLine2      /= 5;
@@ -1862,7 +1849,7 @@ SvtLineListBox::SvtLineListBox(std::unique_ptr<weld::MenuButton> pControl)
     m_xControl->set_size_request(std::max(aNonePrefSize.Width(), aSolidPrefSize.Width()),
                                  std::max(aNonePrefSize.Height(), aSolidPrefSize.Height()));
 
-    eSourceUnit = FUNIT_POINT;
+    eSourceUnit = FieldUnit::POINT;
 
     aVirDev->SetLineColor();
     aVirDev->SetMapMode(MapMode(MapUnit::MapTwip));

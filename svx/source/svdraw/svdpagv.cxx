@@ -146,14 +146,12 @@ void SdrPageView::AddPaintWindowToPageView(SdrPaintWindow& rPaintWindow)
 
 void SdrPageView::RemovePaintWindowFromPageView(SdrPaintWindow& rPaintWindow)
 {
-    for(auto it = maPageWindows.begin(); it != maPageWindows.end(); ++it)
-    {
-        if(&((*it)->GetPaintWindow()) == &rPaintWindow)
-        {
-            maPageWindows.erase(it);
-            break;
-        }
-    }
+    auto it = std::find_if(maPageWindows.begin(), maPageWindows.end(),
+        [&rPaintWindow](const std::unique_ptr<SdrPageWindow>& rpWindow) {
+            return &(rpWindow->GetPaintWindow()) == &rPaintWindow;
+        });
+    if (it != maPageWindows.end())
+        maPageWindows.erase(it);
 }
 
 css::uno::Reference< css::awt::XControlContainer > SdrPageView::GetControlContainer( const OutputDevice& _rDevice ) const
@@ -788,7 +786,8 @@ bool SdrPageView::EnterGroup(SdrObject* pObj)
 
 void SdrPageView::LeaveOneGroup()
 {
-    if(!GetCurrentGroup())
+    SdrObject* pLastGroup = GetCurrentGroup();
+    if (!pLastGroup)
         return;
 
     bool bGlueInvalidate = GetView().ImpIsGlueVisible();
@@ -796,8 +795,7 @@ void SdrPageView::LeaveOneGroup()
     if(bGlueInvalidate)
         GetView().GlueInvalidate();
 
-    SdrObject* pLastGroup = GetCurrentGroup();
-    SdrObject* pParentGroup = GetCurrentGroup()->getParentSdrObjectFromSdrObject();
+    SdrObject* pParentGroup = pLastGroup->getParentSdrObjectFromSdrObject();
     SdrObjList* pParentList = GetPage();
 
     if(pParentGroup)
@@ -810,9 +808,8 @@ void SdrPageView::LeaveOneGroup()
     SetCurrentGroupAndList(pParentGroup, pParentList);
 
     // select the group we just left
-    if(pLastGroup)
-        if(GetView().GetSdrPageView())
-            GetView().MarkObj(pLastGroup, GetView().GetSdrPageView());
+    if (GetView().GetSdrPageView())
+        GetView().MarkObj(pLastGroup, GetView().GetSdrPageView());
 
     GetView().AdjustMarkHdl();
 
@@ -825,14 +822,12 @@ void SdrPageView::LeaveOneGroup()
 
 void SdrPageView::LeaveAllGroup()
 {
-    if(GetCurrentGroup())
+    if (SdrObject* pLastGroup = GetCurrentGroup())
     {
         bool bGlueInvalidate = GetView().ImpIsGlueVisible();
 
         if(bGlueInvalidate)
             GetView().GlueInvalidate();
-
-        SdrObject* pLastGroup = GetCurrentGroup();
 
         // deselect everything
         GetView().UnmarkAll();
@@ -841,14 +836,11 @@ void SdrPageView::LeaveAllGroup()
         SetCurrentGroupAndList(nullptr, GetPage());
 
         // find and select uppermost group
-        if(pLastGroup)
-        {
-            while(pLastGroup->getParentSdrObjectFromSdrObject())
-                pLastGroup = pLastGroup->getParentSdrObjectFromSdrObject();
+        while (pLastGroup->getParentSdrObjectFromSdrObject())
+            pLastGroup = pLastGroup->getParentSdrObjectFromSdrObject();
 
-            if(GetView().GetSdrPageView())
-                GetView().MarkObj(pLastGroup, GetView().GetSdrPageView());
-        }
+        if (GetView().GetSdrPageView())
+            GetView().MarkObj(pLastGroup, GetView().GetSdrPageView());
 
         GetView().AdjustMarkHdl();
 

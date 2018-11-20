@@ -16,6 +16,11 @@
  *   except in compliance with the License. You may obtain a copy of
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
+
+#include <sal/config.h>
+
+#include <cstdlib>
+
 #include <oox/vml/vmlformatting.hxx>
 
 #include <com/sun/star/beans/PropertyValue.hpp>
@@ -780,7 +785,7 @@ void FillModel::pushToPropMap( ShapePropertyMap& rPropMap, const GraphicHelper& 
                             behaviour is reversed. This means that in this case
                             a focus of 0% swaps the gradient. */
                         if( fFocus < -0.5 || fFocus > 0.5 )
-                            (nVmlAngle += 180) %= 360;
+                            nVmlAngle = (nVmlAngle + 180) % 360;
                         // set the start and stop colors
                         lcl_setGradientStop( aFillProps.maGradientProps.maGradientStops, 0.0, aColor1 );
                         lcl_setGradientStop( aFillProps.maGradientProps.maGradientStops, 1.0, aColor2 );
@@ -873,9 +878,11 @@ void ShadowModel::pushToPropMap(ShapePropertyMap& rPropMap, const GraphicHelper&
 
     table::ShadowFormat aFormat;
     aFormat.Color = sal_Int32(aColor.getColor(rGraphicHelper));
-    aFormat.Location = table::ShadowLocation_BOTTOM_RIGHT;
+    aFormat.Location = nOffsetX < 0
+        ? nOffsetY < 0 ? table::ShadowLocation_TOP_LEFT : table::ShadowLocation_BOTTOM_LEFT
+        : nOffsetY < 0 ? table::ShadowLocation_TOP_RIGHT : table::ShadowLocation_BOTTOM_RIGHT;
     // The width of the shadow is the average of the x and y values, see SwWW8ImplReader::MatchSdrItemsIntoFlySet().
-    aFormat.ShadowWidth = ((nOffsetX + nOffsetY) / 2);
+    aFormat.ShadowWidth = ((std::abs(nOffsetX) + std::abs(nOffsetY)) / 2);
     rPropMap.setProperty(PROP_ShadowFormat, aFormat);
 }
 

@@ -36,7 +36,7 @@
 #include <com/sun/star/ui/dialogs/XFilterManager.hpp>
 #include <o3tl/any.hxx>
 #include <svl/urihelper.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <sot/formats.hxx>
 #include <vcl/button.hxx>
 #include <vcl/svapp.hxx>
@@ -47,6 +47,7 @@
 #include <sfx2/opengrf.hxx>
 #include <sfx2/strings.hrc>
 #include <sfx2/sfxresid.hxx>
+#include <osl/diagnose.h>
 
 
 using namespace ::com::sun::star;

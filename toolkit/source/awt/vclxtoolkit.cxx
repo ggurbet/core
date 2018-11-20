@@ -761,13 +761,6 @@ static ComponentInfo const aComponentInfos [] =
     { OUStringLiteral("workwindow"),         WindowType::WORKWINDOW }
 };
 
-#if !defined NDEBUG
-bool ComponentInfoCompare( const ComponentInfo & lhs, const ComponentInfo & rhs)
-{
-    return rtl_str_compare_WithLength(lhs.sName.data, lhs.sName.size, rhs.sName.data, rhs.sName.size) < 0;
-}
-#endif
-
 bool ComponentInfoFindCompare( const ComponentInfo & lhs, const OUString & s)
 {
     return rtl_ustr_ascii_compareIgnoreAsciiCase_WithLengths(s.pData->buffer, s.pData->length,
@@ -780,7 +773,12 @@ WindowType ImplGetComponentType( const OUString& rServiceName )
     if( !bSorted )
     {
         assert( std::is_sorted( std::begin(aComponentInfos), std::end(aComponentInfos),
-                    ComponentInfoCompare ) );
+                    [](const ComponentInfo & lhs, const ComponentInfo & rhs) {
+                        return
+                            rtl_str_compare_WithLength(
+                                lhs.sName.data, lhs.sName.size, rhs.sName.data, rhs.sName.size)
+                            < 0;
+                    } ) );
         bSorted = true;
     }
 
@@ -815,7 +813,7 @@ static const MessageBoxTypeInfo aMessageBoxTypeInfo[] =
 };
 
 bool lcl_convertMessageBoxType(
-    rtl::OUString &sType,
+    OUString &sType,
     css::awt::MessageBoxType eType )
 {
     const MessageBoxTypeInfo *pMap = aMessageBoxTypeInfo;
@@ -826,7 +824,7 @@ bool lcl_convertMessageBoxType(
         if ( pMap->eType == eType )
         {
             eVal = eType;
-            sType = rtl::OUString( pMap->pName, pMap->nLen, RTL_TEXTENCODING_ASCII_US );
+            sType = OUString( pMap->pName, pMap->nLen, RTL_TEXTENCODING_ASCII_US );
             break;
         }
         pMap++;
@@ -840,32 +838,14 @@ static bool                                 bInitedByVCLToolkit = false;
 
 osl::Mutex & getInitMutex()
 {
-    static osl::Mutex * pM;
-    if( !pM )
-    {
-        osl::Guard< osl::Mutex > aGuard( osl::Mutex::getGlobalMutex() );
-        if( !pM )
-        {
-            static osl::Mutex aMutex;
-            pM = &aMutex;
-        }
-    }
-    return *pM;
+    static osl::Mutex aMutex;
+    return aMutex;
 }
 
 osl::Condition & getInitCondition()
 {
-    static osl::Condition * pC = nullptr;
-    if( !pC )
-    {
-        osl::Guard< osl::Mutex > aGuard( osl::Mutex::getGlobalMutex() );
-        if( !pC )
-        {
-            static osl::Condition aCondition;
-            pC = &aCondition;
-        }
-    }
-    return *pC;
+    static osl::Condition aCondition;
+    return aCondition;
 }
 
 extern "C"
@@ -1759,7 +1739,7 @@ css::uno::Reference< css::awt::XMessageBox > SAL_CALL VCLXToolkit::createMessage
     if ( sal_Int32( aButtons & 0xffff0000L ) == css::awt::MessageBoxButtons::DEFAULT_BUTTON_IGNORE )
         nAddWinBits |= MessBoxStyle::DefaultIgnore;
 
-    rtl::OUString aType;
+    OUString aType;
     lcl_convertMessageBoxType( aType, eType );
 
     aDescriptor.Type              = css::awt::WindowClass_MODALTOP;

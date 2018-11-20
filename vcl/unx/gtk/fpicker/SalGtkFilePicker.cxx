@@ -702,7 +702,7 @@ uno::Sequence<OUString> SAL_CALL SalGtkFilePicker::getFiles()
 namespace
 {
 
-bool lcl_matchFilter( const rtl::OUString& rFilter, const rtl::OUString& rExt )
+bool lcl_matchFilter( const OUString& rFilter, const OUString& rExt )
 {
     const sal_Unicode cSep {';'};
     sal_Int32 nIdx {0};
@@ -806,7 +806,16 @@ uno::Sequence<OUString> SAL_CALL SalGtkFilePicker::getSelectedFiles()
                             }
                         }
                         if( bChangeFilter && bExtensionTypedIn )
+                        {
+#if GTK_CHECK_VERSION(3,0,0)
+                            gchar* pCurrentName = gtk_file_chooser_get_current_name(GTK_FILE_CHOOSER(m_pDialog));
                             setCurrentFilter( aNewFilter );
+                            gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(m_pDialog), pCurrentName);
+                            g_free(pCurrentName);
+#else
+                            setCurrentFilter( aNewFilter );
+#endif
+                        }
                     }
                 }
 

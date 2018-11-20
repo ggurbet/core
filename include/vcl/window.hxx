@@ -443,6 +443,7 @@ class SystemWindow;
 class WorkWindow;
 class Dialog;
 class MessBox;
+class MessageDialog;
 class DockingWindow;
 class FloatingWindow;
 class GroupBox;
@@ -505,6 +506,7 @@ class VCL_DLLPUBLIC Window : public ::OutputDevice
     friend class ::WorkWindow;
     friend class ::Dialog;
     friend class ::MessBox;
+    friend class ::MessageDialog;
     friend class ::DockingWindow;
     friend class ::FloatingWindow;
     friend class ::GroupBox;
@@ -1181,7 +1183,7 @@ public:
     sal_uInt16                          GetChildCount() const;
     vcl::Window*                        GetChild( sal_uInt16 nChild ) const;
     vcl::Window*                        GetWindow( GetWindowType nType ) const;
-    bool                                IsChild( const vcl::Window* pWindow, bool bSystemWindow = false ) const;
+    bool                                IsChild( const vcl::Window* pWindow ) const;
     bool                                IsWindowOrChild( const vcl::Window* pWindow, bool bSystemWindow = false  ) const;
 
     /// Add all children to rAllChildren recursively.

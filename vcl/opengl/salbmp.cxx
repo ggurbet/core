@@ -20,6 +20,7 @@
 #include <memory>
 #include <sal/config.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <vcl/opengl/OpenGLHelper.hxx>
 
@@ -581,7 +582,7 @@ bool OpenGLSalBitmap::ReadTexture()
     xContext->state().scissor().disable();
     xContext->state().stencil().disable();
 
-    if (mnBits == 8 || mnBits == 16 || mnBits == 24 || mnBits == 32)
+    if ((mnBits == 8 && maPalette.IsGreyPalette()) || mnBits == 16 || mnBits == 24 || mnBits == 32)
     {
         determineTextureFormat(mnBits, nFormat, nType);
 
@@ -596,7 +597,7 @@ bool OpenGLSalBitmap::ReadTexture()
 
         maTexture.Read(nFormat, nType, pData);
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
         // If we read over the end of pData we have a real hidden memory
         // corruption problem !
         size_t nCanary = mnBytesPerRow * mnHeight;

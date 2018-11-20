@@ -75,14 +75,14 @@ namespace rtl
   stores also the length of the string, so that many operations are
   faster as the C-str-functions.
 
-  This class provide only readonly string handling. So you could create
+  This class provides only readonly string handling. So you could create
   a string and you could only query the content from this string.
-  It provide also functionality to change the string, but this results
+  It provides also functionality to change the string, but this results
   in every case in a new string instance (in the most cases with an
   memory allocation). You don't have functionality to change the
-  content of the string. If you want change the string content, than
-  you should us the OStringBuffer class, which provide these
-  functionality and avoid to much memory allocation.
+  content of the string. If you want to change the string content, then
+  you should use the OStringBuffer class, which provides these
+  functionalities and avoid too much memory allocation.
 
   The design of this class is similar to the string classes in Java
   and so more people should have fewer understanding problems when they
@@ -1804,6 +1804,10 @@ struct SAL_WARN_UNUSED OStringLiteral
 {
     template< int N >
     explicit OStringLiteral( const char (&str)[ N ] ) : size( N - 1 ), data( str ) { assert( strlen( str ) == N - 1 ); }
+#if defined __cpp_char8_t
+    template< int N >
+    explicit OStringLiteral( const char8_t (&str)[ N ] ) : size( N - 1 ), data( reinterpret_cast<char const *>(str) ) { assert( strlen( data ) == N - 1 ); }
+#endif
     int size;
     const char* data;
 };

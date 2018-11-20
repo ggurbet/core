@@ -168,6 +168,7 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 Q_SIGNALS:
+    sal_Int16 executeSignal();
     void setTitleSignal(const OUString& rTitle);
     void setDefaultNameSignal(const OUString& rName);
     void setDisplayDirectorySignal(const OUString& rDir);
@@ -184,6 +185,7 @@ Q_SIGNALS:
                                  const css::uno::Sequence<css::beans::StringPair>& rFilters);
     void setCurrentFilterSignal(const OUString& rFilter);
     OUString getCurrentFilterSignal();
+    css::uno::Sequence<OUString> getFilesSignal();
     css::uno::Sequence<OUString> getSelectedFilesSignal();
     void setMultiSelectionSignal(bool bMulti);
 

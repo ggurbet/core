@@ -20,6 +20,7 @@
 #include <memory>
 #include <map>
 #include <optasian.hxx>
+#include <osl/diagnose.h>
 #include <editeng/langitem.hxx>
 #include <editeng/unolingu.hxx>
 #include <o3tl/any.hxx>
@@ -292,7 +293,7 @@ IMPL_LINK_NOARG(SvxAsianLayoutPage, LanguageHdl, ListBox&, void)
     //set current value
     LanguageType eSelectLanguage = m_pLanguageLB->GetSelectedLanguage();
     LanguageTag aLanguageTag( eSelectLanguage);
-    Locale aLocale( aLanguageTag.getLocale());
+    const Locale& aLocale( aLanguageTag.getLocale());
 
     OUString sStart, sEnd;
     bool bAvail;

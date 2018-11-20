@@ -1081,7 +1081,7 @@ static OUString lcl_CreateOutlineString( size_t nIndex,
             sEntry.append(".");
         }
     sEntry.append( rOutlineNodes[ nIndex ]->
-                    GetTextNode()->GetExpandText() );
+                    GetTextNode()->GetExpandText(nullptr) );
     return sEntry.makeStringAndClear();
 }
 
@@ -3007,18 +3007,13 @@ void SAL_CALL SwXTextDocument::render(
             {
                 // the view shell should be SwView for documents PDF export
                 // or SwPagePreview for PDF export of the page preview
-                //!! (check for SwView first as in GuessViewShell) !!
-                OSL_ENSURE( pView, "!! view missing !!" );
                 SwViewShell* pVwSh = nullptr;
-                if (pView)
-                {
-                    // TODO/mba: we really need a generic way to get the SwViewShell!
-                    SwView* pSwView = dynamic_cast<SwView*>( pView );
-                    if ( pSwView )
-                        pVwSh = pSwView->GetWrtShellPtr();
-                    else
-                        pVwSh = static_cast<SwPagePreview*>(pView)->GetViewShell();
-                }
+                // TODO/mba: we really need a generic way to get the SwViewShell!
+                const SwView* pSwView = dynamic_cast<const SwView*>(pView);
+                if (pSwView)
+                    pVwSh = pSwView->GetWrtShellPtr();
+                else
+                    pVwSh = static_cast<SwPagePreview*>(pView)->GetViewShell();
 
                 // get output device to use
                 VclPtr< OutputDevice > pOut = lcl_GetOutputDevice( *m_pPrintUIOptions );
@@ -3029,8 +3024,8 @@ void SAL_CALL SwXTextDocument::render(
                     const bool bFirstPage           = m_pPrintUIOptions->getBoolValue( "IsFirstPage" );
                     bool bIsSkipEmptyPages          = !m_pPrintUIOptions->IsPrintEmptyPages( bIsPDFExport );
 
-                    OSL_ENSURE(( dynamic_cast< const SwView *>( pView ) !=  nullptr &&  m_pRenderData->IsViewOptionAdjust())
-                            || (dynamic_cast< const SwView *>( pView ) ==  nullptr && !m_pRenderData->IsViewOptionAdjust()),
+                    OSL_ENSURE((pSwView && m_pRenderData->IsViewOptionAdjust())
+                            || (!pSwView && !m_pRenderData->IsViewOptionAdjust()),
                             "SwView / SwViewOptionAdjust_Impl availability mismatch" );
 
                     // since printing now also use the API for PDF export this option
@@ -3043,9 +3038,7 @@ void SAL_CALL SwXTextDocument::render(
                     // During this process, additional information required for tagging
                     // the pdf file are collected, which are evaulated during painting.
 
-                    SwWrtShell* pWrtShell = dynamic_cast< const SwView *>( pView ) !=  nullptr ?
-                                            static_cast<SwView*>(pView)->GetWrtShellPtr() :
-                                            nullptr;
+                    SwWrtShell* pWrtShell = pSwView ? pSwView->GetWrtShellPtr() : nullptr;
 
                     SwPrintData const& rSwPrtOptions =
                         *m_pRenderData->GetSwPrtOptions();
@@ -3902,14 +3895,14 @@ uno::Sequence< lang::Locale > SAL_CALL SwXTextDocument::getDocumentLanguages(
     if (nMaxCount > 0)
     {
         sal_Int32 nCount = 0;
-        for (std::set< LanguageType >::const_iterator it = aAllLangs.begin(); it != aAllLangs.end(); ++it)
+        for (const auto& rLang : aAllLangs)
         {
             if (nCount >= nMaxCount)
                 break;
-            if (LANGUAGE_NONE != *it)
+            if (LANGUAGE_NONE != rLang)
             {
-                pLanguage[nCount] = LanguageTag::convertToLocale( *it );
-                pLanguage[nCount].Language = SvtLanguageTable::GetLanguageString( *it );
+                pLanguage[nCount] = LanguageTag::convertToLocale( rLang );
+                pLanguage[nCount].Language = SvtLanguageTable::GetLanguageString( rLang );
                 nCount += 1;
             }
         }

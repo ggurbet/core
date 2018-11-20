@@ -37,14 +37,14 @@
 #include <vcl/devicecoordinate.hxx>
 #include <vcl/vcllayout.hxx>
 
-#include "fontinstance.hxx"
+#include "impglyphitem.hxx"
 
 #define MAX_FALLBACK 16
 
 
 class SalGraphics;
 class PhysicalFontFace;
-struct GlyphItem;
+class GenericSalLayout;
 enum class SalLayoutFlags;
 namespace vcl {
     class TextLayoutCache;
@@ -130,15 +130,15 @@ public:
     sal_Int32       GetTextBreak(DeviceCoordinate nMaxWidth, DeviceCoordinate nCharExtra, int nFactor) const override;
     DeviceCoordinate FillDXArray(DeviceCoordinate* pDXArray) const override;
     void            GetCaretPositions(int nArraySize, long* pCaretXArray) const override;
-    bool            GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int&,
-                                 const PhysicalFontFace** pFallbackFont = nullptr) const override;
-    bool            GetOutline(SalGraphics&, basegfx::B2DPolyPolygonVector&) const override;
+    bool            GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int& nStart,
+                                 const PhysicalFontFace** pFallbackFont = nullptr,
+                                 int* const pFallbackLevel = nullptr) const override;
+    bool            GetOutline(basegfx::B2DPolyPolygonVector&) const override;
     bool            IsKashidaPosValid(int nCharPos) const override;
 
     // used only by OutputDevice::ImplLayout, TODO: make friend
     explicit        MultiSalLayout( std::unique_ptr<SalLayout> pBaseLayout );
-    void            AddFallback( std::unique_ptr<SalLayout> pFallbackLayout,
-                                 ImplLayoutRuns const &, const PhysicalFontFace* pFallbackFont );
+    void            AddFallback(std::unique_ptr<SalLayout> pFallbackLayout, ImplLayoutRuns const &);
     bool            LayoutText(ImplLayoutArgs&, const SalLayoutGlyphs*) override;
     void            AdjustLayout(ImplLayoutArgs&) override;
     void            InitFont() const override;
@@ -149,17 +149,10 @@ public:
     virtual         ~MultiSalLayout() override;
 
 private:
-    // dummy implementations
-    void            MoveGlyph(int, long) override {}
-    void            DropGlyph(int) override {}
-    void            Simplify(bool) override {}
-
                     MultiSalLayout( const MultiSalLayout& ) = delete;
                     MultiSalLayout& operator=( const MultiSalLayout& ) = delete;
 
-private:
-    std::unique_ptr<SalLayout> mpLayouts[ MAX_FALLBACK ];
-    const PhysicalFontFace* mpFallbackFonts[ MAX_FALLBACK ];
+    std::unique_ptr<GenericSalLayout> mpLayouts[ MAX_FALLBACK ];
     ImplLayoutRuns  maFallbackRuns[ MAX_FALLBACK ];
     int             mnLevel;
     bool            mbIncomplete;
@@ -167,6 +160,8 @@ private:
 
 class VCL_PLUGIN_PUBLIC GenericSalLayout : public SalLayout
 {
+    friend void MultiSalLayout::AdjustLayout(ImplLayoutArgs&);
+
 public:
                     GenericSalLayout(LogicalFontInstance&);
                     ~GenericSalLayout() override;
@@ -186,18 +181,19 @@ public:
     void            GetCaretPositions(int nArraySize, long* pCaretXArray) const final override;
 
     // used by display layers
-    LogicalFontInstance& GetFont() const { return *mpFont; }
+    LogicalFontInstance& GetFont() const
+        { return static_cast<SalGenericLayoutGlyphsImpl*>(m_GlyphItems.Impl())->GetFont(); }
 
-    bool            GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int&,
-                                 const PhysicalFontFace** pFallbackFont = nullptr) const final override;
-
-protected:
-    // for glyph+font+script fallback
-    void            MoveGlyph(int nStart, long nNewXPos) final override;
-    void            DropGlyph(int nStart) final override;
-    void            Simplify(bool bIsBase) final override;
+    bool            GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int& nStart,
+                                 const PhysicalFontFace** pFallbackFont = nullptr,
+                                 int* const pFallbackLevel = nullptr) const override;
 
 private:
+    // for glyph+font+script fallback
+    void            MoveGlyph(int nStart, long nNewXPos);
+    void            DropGlyph(int nStart);
+    void            Simplify(bool bIsBase);
+
                     GenericSalLayout( const GenericSalLayout& ) = delete;
                     GenericSalLayout& operator=( const GenericSalLayout& ) = delete;
 
@@ -213,7 +209,6 @@ private:
 
     void            ParseFeatures(const OUString& name);
 
-    rtl::Reference<LogicalFontInstance> const mpFont;
     css::uno::Reference<css::i18n::XBreakIterator> mxBreak;
 
     SalLayoutGlyphs m_GlyphItems;

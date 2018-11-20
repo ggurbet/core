@@ -24,17 +24,14 @@
 #include <vcl/dllapi.h>
 #include <vcl/image.hxx>
 #include <vcl/ctrl.hxx>
-#include <vcl/bitmap.hxx>
-#include <vcl/salnativewidgets.hxx>
 #include <vcl/vclenum.hxx>
-#include <vcl/vclptr.hxx>
 #include <memory>
 #include <vector>
 
-#include <com/sun/star/frame/FeatureStateEvent.hpp>
+namespace com { namespace sun { namespace star { namespace frame { struct FeatureStateEvent; } } } }
+template <class T> class VclPtr;
 
 class Color;
-class UserDrawEvent;
 class ImplCommonButtonData;
 enum class DrawButtonFlags;
 
@@ -163,6 +160,16 @@ public:
     virtual bool    set_property(const OString &rKey, const OUString &rValue) override;
     virtual void    ShowFocus(const tools::Rectangle& rRect) override;
 
+    void setStock(bool bIsStock)
+    {
+        mbIsStock = bIsStock;
+    }
+
+    bool isStock()
+    {
+        return mbIsStock;
+    }
+
 protected:
     PushButtonDropdownStyle mnDDStyle;
     bool            mbIsActive;
@@ -199,6 +206,7 @@ private:
     SymbolType      meSymbol;
     TriState        meState;
     bool            mbPressed;
+    bool            mbIsStock;
 };
 
 inline void PushButton::Check( bool bCheck )
@@ -280,7 +288,7 @@ private:
     bool            mbStateChanged;
     Link<RadioButton&,void> maToggleHdl;
     SAL_DLLPRIVATE void     ImplInitRadioButtonData();
-    SAL_DLLPRIVATE WinBits  ImplInitStyle( const vcl::Window* pPrevWindow, WinBits nStyle );
+    static SAL_DLLPRIVATE WinBits  ImplInitStyle( const vcl::Window* pPrevWindow, WinBits nStyle );
     SAL_DLLPRIVATE void     ImplInitSettings( bool bBackground );
     SAL_DLLPRIVATE void     ImplDrawRadioButtonState(vcl::RenderContext& rRenderContext);
     SAL_DLLPRIVATE void     ImplDraw( OutputDevice* pDev, DrawFlags nDrawFlags,

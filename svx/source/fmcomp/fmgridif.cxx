@@ -728,13 +728,17 @@ void SAL_CALL FmXGridControl::setDesignMode(sal_Bool bOn)
                 }
             }
 
+            // Avoid infinite recursion when calling XVclWindowPeer::setDesignMode below
             mbDesignMode = bOn;
 
             Reference< XVclWindowPeer >  xVclWindowPeer( getPeer(), UNO_QUERY );
             if (xVclWindowPeer.is())
                 xVclWindowPeer->setDesignMode(bOn);
         }
-        mbDesignMode = bOn;
+        else
+        {
+            mbDesignMode = bOn;
+        }
 
         // dispose our current AccessibleContext, if we have one
         // (changing the design mode implies having a new implementation for this context,
@@ -1592,7 +1596,7 @@ void FmXGridPeer::addColumnListeners(const Reference< XPropertySet >& xCol)
     // as not all properties have to be supported by all columns we have to check this
     // before adding a listener
     Reference< XPropertySetInfo > xInfo = xCol->getPropertySetInfo();
-    for (unsigned i=0; i<SAL_N_ELEMENTS(aPropsListenedTo); ++i)
+    for (size_t i=0; i<SAL_N_ELEMENTS(aPropsListenedTo); ++i)
     {
         if ( xInfo->hasPropertyByName( aPropsListenedTo[i] ) )
         {

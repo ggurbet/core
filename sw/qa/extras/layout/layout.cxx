@@ -60,6 +60,7 @@ public:
     void testTdf120287();
     void testTdf120287b();
     void testTdf120287c();
+    void testTdf116989();
 
     CPPUNIT_TEST_SUITE(SwLayoutWriter);
     CPPUNIT_TEST(testRedlineFootnotes);
@@ -92,6 +93,7 @@ public:
     CPPUNIT_TEST(testTdf120287);
     CPPUNIT_TEST(testTdf120287b);
     CPPUNIT_TEST(testTdf120287c);
+    CPPUNIT_TEST(testTdf116989);
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -135,7 +137,7 @@ void SwLayoutWriter::CheckRedlineFootnotesHidden()
     assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Text[1]", "nType", "POR_TXT");
     assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Text[1]", "Portion", "foaz");
     assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[2]", "nType", "POR_FTN");
-    assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[2]", "rText", "5"); // TODO 2
+    assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[2]", "rText", "2");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/merged", "paraPropsNodeIndex", "13");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "nType", "POR_FTNNUM");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "1");
@@ -143,7 +145,7 @@ void SwLayoutWriter::CheckRedlineFootnotesHidden()
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Text[1]", "Portion", "ac");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/merged", "paraPropsNodeIndex", "16");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/Special[1]", "nType", "POR_FTNNUM");
-    assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/Special[1]", "rText", "5"); // TODO 2
+    assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/Special[1]", "rText", "2");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/Text[1]", "nType", "POR_TXT");
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/Text[1]", "Portion", "mo");
 }
@@ -271,7 +273,7 @@ void SwLayoutWriter::testRedlineFlysInBody()
     SfxItemSet flySet(pDoc->GetAttrPool(),
                       svl::Items<RES_FRM_SIZE, RES_FRM_SIZE, RES_ANCHOR, RES_ANCHOR>{});
     SwFormatAnchor anchor(RndStdIds::FLY_AT_CHAR);
-    pWrtShell->SttDoc(false);
+    pWrtShell->StartOfSection(false);
     pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     flySet.Put(anchor);
@@ -368,7 +370,7 @@ void SwLayoutWriter::testRedlineFlysInBody()
     }
 
     // anchor to 2nd (deleted) paragraph
-    pWrtShell->SttDoc();
+    pWrtShell->StartOfSection();
     pWrtShell->Down(false, 1);
     anchor.SetType(RndStdIds::FLY_AT_CHAR);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -445,7 +447,7 @@ void SwLayoutWriter::testRedlineFlysInBody()
     }
 
     // anchor to 3rd paragraph
-    pWrtShell->EndDoc();
+    pWrtShell->EndOfSection();
     anchor.SetType(RndStdIds::FLY_AT_CHAR);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     pDoc->SetAttr(anchor, *const_cast<SwFrameFormat*>(pFly));
@@ -553,7 +555,7 @@ void SwLayoutWriter::testRedlineFlysInHeader()
     SfxItemSet flySet(pDoc->GetAttrPool(),
                       svl::Items<RES_FRM_SIZE, RES_FRM_SIZE, RES_ANCHOR, RES_ANCHOR>{});
     SwFormatAnchor anchor(RndStdIds::FLY_AT_CHAR);
-    pWrtShell->SttDoc(false);
+    pWrtShell->StartOfSection(false);
     pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     flySet.Put(anchor);
@@ -654,7 +656,7 @@ void SwLayoutWriter::testRedlineFlysInHeader()
     }
 
     // anchor to 2nd (deleted) paragraph
-    pWrtShell->SttDoc();
+    pWrtShell->StartOfSection();
     pWrtShell->Down(false, 1);
     anchor.SetType(RndStdIds::FLY_AT_CHAR);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -736,7 +738,7 @@ void SwLayoutWriter::testRedlineFlysInHeader()
     }
 
     // anchor to 3rd paragraph
-    pWrtShell->EndDoc();
+    pWrtShell->EndOfSection();
     anchor.SetType(RndStdIds::FLY_AT_CHAR);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     pDoc->SetAttr(anchor, *const_cast<SwFrameFormat*>(pFly));
@@ -860,7 +862,7 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
     pWrtShell->SplitNode(false);
     pWrtShell->Insert("baz");
 
-    pWrtShell->SttDoc(false);
+    pWrtShell->StartOfSection(false);
     CPPUNIT_ASSERT(pWrtShell->IsCursorInFootnote());
     pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -912,7 +914,7 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
         xmlDocPtr pXmlDoc = parseLayoutDump();
         assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/merged", "paraPropsNodeIndex", "25");
         assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "nType", "POR_FTN");
-        assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "rText", "2");
+        assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "rText", "1");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/merged", "paraPropsNodeIndex",
                     "7");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/anchored/fly[1]/txt[1]/merged",
@@ -923,7 +925,7 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
                     "Portion", "ahi");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "nType",
                     "POR_FTNNUM");
-        assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "2");
+        assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "1");
 
         lcl_dispatchCommand(mxComponent, ".uno:ShowTrackedChanges", {});
         CPPUNIT_ASSERT(!pLayout->IsHideRedlines());
@@ -1010,12 +1012,12 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
 
         assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/merged", "paraPropsNodeIndex", "25");
         assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "nType", "POR_FTN");
-        assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "rText", "2");
+        assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "rText", "1");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/merged", "paraPropsNodeIndex",
                     "7");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "nType",
                     "POR_FTNNUM");
-        assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "2");
+        assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "1");
 
         { // hide: no anchored object shown
             xmlXPathObjectPtr pXmlObj = getXPathNode(pXmlDoc, "//anchored");
@@ -1083,11 +1085,11 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
     }
 
     // anchor to 3rd paragraph
-    pWrtShell->EndDoc();
+    pWrtShell->EndOfSection();
     pWrtShell->SttEndDoc(false);
     pWrtShell->Left(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
     pWrtShell->GotoFootnoteText();
-    pWrtShell->EndDoc();
+    pWrtShell->EndOfSection();
     anchor.SetType(RndStdIds::FLY_AT_CHAR);
     anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     pDoc->SetAttr(anchor, *const_cast<SwFrameFormat*>(pFly));
@@ -1109,7 +1111,7 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
         xmlDocPtr pXmlDoc = parseLayoutDump();
         assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/merged", "paraPropsNodeIndex", "25");
         assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "nType", "POR_FTN");
-        assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "rText", "2");
+        assertXPath(pXmlDoc, "/root/page[1]/body/txt[1]/Special[1]", "rText", "1");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/merged", "paraPropsNodeIndex",
                     "7");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/anchored/fly[1]/txt[1]/merged",
@@ -1120,7 +1122,7 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
                     "Portion", "ahi");
         assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "nType",
                     "POR_FTNNUM");
-        assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "2");
+        assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[1]/txt[1]/Special[1]", "rText", "1");
 
         lcl_dispatchCommand(mxComponent, ".uno:ShowTrackedChanges", {});
         CPPUNIT_ASSERT(!pLayout->IsHideRedlines());
@@ -1211,7 +1213,7 @@ void SwLayoutWriter::testRedlineFlysInFlys()
                       svl::Items<RES_FRM_SIZE, RES_FRM_SIZE, RES_ANCHOR, RES_ANCHOR>{});
     SwFormatFrameSize size(ATT_MIN_SIZE, 1000, 1000);
     flySet.Put(size); // set a size, else we get 1 char per line...
-    pWrtShell->SttDoc(false);
+    pWrtShell->StartOfSection(false);
     pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
     SwFormatAnchor anchor1(RndStdIds::FLY_AT_CHAR);
     anchor1.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -1227,7 +1229,7 @@ void SwLayoutWriter::testRedlineFlysInFlys()
     pWrtShell->Insert("ghi");
 
     SwFormatAnchor anchor2(RndStdIds::FLY_AT_CHAR);
-    pWrtShell->SttDoc(false); // start of fly...
+    pWrtShell->StartOfSection(false); // start of fly...
     anchor2.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     flySet.Put(anchor2);
     SwFrameFormat const* pFly2 = pWrtShell->NewFlyFrame(flySet, /*bAnchValid=*/true);
@@ -1389,7 +1391,7 @@ void SwLayoutWriter::testRedlineFlysInFlys()
 
     // anchor to 2nd (deleted) paragraph
     // also, switch the in-fly anchoring to the other fly, for additional fun!
-    pWrtShell->SttDoc();
+    pWrtShell->StartOfSection();
     pWrtShell->Down(false, 1);
     anchor2.SetType(RndStdIds::FLY_AT_CHAR);
     anchor2.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -1522,7 +1524,7 @@ void SwLayoutWriter::testRedlineFlysInFlys()
     anchor1.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     pDoc->SetAttr(anchor1, *const_cast<SwFrameFormat*>(pFly1));
     pWrtShell->GotoFly(pFly1->GetName(), FLYCNTTYPE_FRM, /*bSelFrame=*/false);
-    pWrtShell->EndDoc();
+    pWrtShell->EndOfSection();
     anchor2.SetType(RndStdIds::FLY_AT_CHAR);
     anchor2.SetAnchor(pWrtShell->GetCursor()->GetPoint());
     pDoc->SetAttr(anchor2, *const_cast<SwFrameFormat*>(pFly2));
@@ -1687,7 +1689,7 @@ void SwLayoutWriter::testRedlineFlysAtFlys()
                       svl::Items<RES_FRM_SIZE, RES_FRM_SIZE, RES_ANCHOR, RES_ANCHOR>{});
     SwFormatFrameSize size(ATT_MIN_SIZE, 1000, 1000);
     flySet.Put(size); // set a size, else we get 1 char per line...
-    pWrtShell->SttDoc(false);
+    pWrtShell->StartOfSection(false);
     pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
     SwFormatAnchor anchor1(RndStdIds::FLY_AT_CHAR);
     anchor1.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -1835,7 +1837,7 @@ void SwLayoutWriter::testRedlineFlysAtFlys()
     assertXPath(pXmlDoc, "/root/page[1]/body/txt[3]/Text[2]", "Portion", "az");
 
     // anchor to 2nd (deleted) paragraph
-    pWrtShell->SttDoc();
+    pWrtShell->StartOfSection();
     pWrtShell->Down(false, 1);
     anchor1.SetType(RndStdIds::FLY_AT_CHAR);
     anchor1.SetAnchor(pWrtShell->GetCursor()->GetPoint());
@@ -2430,11 +2432,12 @@ void SwLayoutWriter::testTdf118672()
         }))
         return;
 
-    OUString aLine1("He heard quiet steps behind him. That didn't bode well. Who could be fol*1 2 "
-                    "3 4 5 6 7 8 9 10con-");
+    const OUString aLine1(
+        "He heard quiet steps behind him. That didn't bode well. Who could be fol*1 2 "
+        "3 4 5 6 7 8 9 10con-");
     // This ended as "fol*1 2 3 4 5 6 7 8 9", i.e. "10con-" was moved to the next line.
     assertXPath(pXmlDoc, "/root/page/body/txt[1]/LineBreak[1]", "Line", aLine1);
-    OUString aLine2("setetur");
+    const OUString aLine2("setetur");
     assertXPath(pXmlDoc, "/root/page/body/txt[1]/LineBreak[2]", "Line", aLine2);
 }
 
@@ -2580,6 +2583,28 @@ void SwLayoutWriter::testTdf120287c()
     // This was 2, the second line was not broken into a 2nd and a 3rd one,
     // rendering text outside the paragraph frame.
     assertXPath(pXmlDoc, "/root/page/body/txt[1]/LineBreak", 3);
+}
+
+void SwLayoutWriter::testTdf116989()
+{
+    createDoc("tdf116989.docx");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    // FIXME: the XPath should be adjusted when the proper floating table would be imported
+    const sal_Int32 nTblTop
+        = getXPath(pXmlDoc, "/root/page[1]/footer/tab/infos/bounds", "top").toInt32();
+    const sal_Int32 nFirstPageParaCount
+        = getXPathContent(pXmlDoc, "count(/root/page[1]/body/txt)").toInt32();
+    // FIXME: should be exactly 30, when proper floating tables in footers are supported
+    CPPUNIT_ASSERT_GREATEREQUAL(sal_Int32(30), nFirstPageParaCount);
+    for (sal_Int32 i = 1; i <= nFirstPageParaCount; ++i)
+    {
+        const OString xPath = "/root/page[1]/body/txt[" + OString::number(i) + "]/infos/bounds";
+        const sal_Int32 nTxtBottom = getXPath(pXmlDoc, xPath.getStr(), "top").toInt32()
+                                     + getXPath(pXmlDoc, xPath.getStr(), "height").toInt32();
+        // No body paragraphs should overlap the table in the footer
+        CPPUNIT_ASSERT_MESSAGE(OString("testing paragraph #" + OString::number(i)).getStr(),
+                               nTxtBottom <= nTblTop);
+    }
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SwLayoutWriter);

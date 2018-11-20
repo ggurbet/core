@@ -1382,8 +1382,8 @@ void SwWW8FltControlStack::SetAttrInDoc(const SwPosition& rTmpPos,
 
                         SwTextNode *pTextNode = static_cast<SwTextNode*>(pNode);
 
-                        const SwNumFormat *pNum = nullptr;
-                        pNum = GetNumFormatFromStack( *aRegion.GetPoint(), *pTextNode );
+                        const SwNumFormat* pNum
+                            = GetNumFormatFromStack(*aRegion.GetPoint(), *pTextNode);
                         if (!pNum)
                         {
                             pNum = GetNumFormatFromTextNode(*pTextNode);
@@ -1919,6 +1919,12 @@ void SwWW8ImplReader::ImportDop()
     // Still allow editing of form fields.
     if (!m_xWDop->fProtEnabled)
         m_pDocShell->SetModifyPasswordHash(m_xWDop->lKeyProtDoc);
+    else if ( xDocProps.is() )
+    {
+        comphelper::SequenceAsHashMap aGrabBag(xDocProps->getPropertyValue("InteropGrabBag"));
+        aGrabBag["FormPasswordHash"] <<= m_xWDop->lKeyProtDoc;
+        xDocProps->setPropertyValue("InteropGrabBag", uno::Any(aGrabBag.getAsConstPropertyValueList()));
+    }
 
     const SvtFilterOptions& rOpt = SvtFilterOptions::Get();
     if (rOpt.IsUseEnhancedFields())
@@ -3903,18 +3909,15 @@ bool SwWW8ImplReader::IsParaEndInCPs(sal_Int32 nStart, sal_Int32 nEnd,bool bSdOD
     if (nStart == -1 || nEnd == -1 || nEnd < nStart )
         return false;
 
-    for (cp_vector::const_reverse_iterator aItr = m_aEndParaPos.rbegin(); aItr!= m_aEndParaPos.rend(); ++aItr)
-    {
-        //Revised 2012.8.16,to the 0x0D,the attribute will have two situations
-        //*********within***********exact******
-        //*********but also sample with only left and the position of 0x0d is the edge of the right side***********
-        if ( bSdOD && ( (nStart < *aItr && nEnd > *aItr) || ( nStart == nEnd && *aItr == nStart)) )
-            return true;
-        else if ( !bSdOD &&  (nStart < *aItr && nEnd >= *aItr) )
-            return true;
-    }
-
-    return false;
+    return std::any_of(m_aEndParaPos.rbegin(), m_aEndParaPos.rend(),
+        [=](const WW8_CP& rPos) {
+            //Revised 2012.8.16,to the 0x0D,the attribute will have two situations
+            //*********within***********exact******
+            //*********but also sample with only left and the position of 0x0d is the edge of the right side***********
+            return (bSdOD && ((nStart < rPos && nEnd > rPos) || (nStart == nEnd && rPos == nStart))) ||
+                (!bSdOD && (nStart < rPos && nEnd >= rPos));
+        }
+    );
 }
 
 //Clear the para end position recorded in reader intermittently for the least impact on loading performance
@@ -4748,7 +4751,7 @@ void SwWW8ImplReader::ReadDocInfo()
                 SfxMedium* pMedium = m_pDocShell->GetMedium();
                 if ( pMedium )
                 {
-                    OUString aName = pMedium->GetName();
+                    const OUString& aName = pMedium->GetName();
                     INetURLObject aURL( aName );
                     sTemplateURL = aURL.GetMainURL(INetURLObject::DecodeMechanism::ToIUri);
                     if ( !sTemplateURL.isEmpty() )
@@ -4858,7 +4861,7 @@ void SwWW8ImplReader::ReadGlobalTemplateSettings( const OUString& sCreatedFrom, 
         return;
 
     SvtPathOptions aPathOpt;
-    OUString aAddinPath = aPathOpt.GetAddinPath();
+    const OUString& aAddinPath = aPathOpt.GetAddinPath();
     uno::Sequence< OUString > sGlobalTemplates;
 
     // first get the autoload addins in the directory STARTUP
@@ -5930,16 +5933,12 @@ void SwWW8ImplReader::SetOutlineStyles()
         }
 
         int nCurrentMaxCount = 0;
-        std::map<const SwNumRule*, int>::iterator aCountIterEnd
-            = aWW8ListStyleCounts.end();
-        for (std::map<const SwNumRule*, int>::iterator aIter
-             = aWW8ListStyleCounts.begin();
-             aIter != aCountIterEnd; ++aIter)
+        for (const auto& rEntry : aWW8ListStyleCounts)
         {
-            if (aIter->second > nCurrentMaxCount)
+            if (rEntry.second > nCurrentMaxCount)
             {
-                nCurrentMaxCount = aIter->second;
-                pChosenWW8ListStyle = aIter->first;
+                nCurrentMaxCount = rEntry.second;
+                pChosenWW8ListStyle = rEntry.first;
             }
         }
     }
@@ -5956,14 +5955,8 @@ void SwWW8ImplReader::SetOutlineStyles()
     //   its default outline level is applied.
     SwNumRule aOutlineRule(*m_rDoc.GetOutlineNumRule());
     bool bAppliedChangedOutlineStyle = false;
-    std::vector<SwWW8StyInf*>::iterator aStylesIterEnd
-        = aWW8BuiltInHeadingStyles.end();
-    for (std::vector<SwWW8StyInf*>::iterator aStyleIter
-         = aWW8BuiltInHeadingStyles.begin();
-         aStyleIter != aStylesIterEnd; ++aStyleIter)
+    for (const SwWW8StyInf* pStyleInf : aWW8BuiltInHeadingStyles)
     {
-        SwWW8StyInf* pStyleInf = (*aStyleIter);
-
         if (!pStyleInf->m_bColl) //Character Style
             continue;
 
@@ -6078,11 +6071,10 @@ void SwWW8ImplReader::GetSmartTagInfo(SwFltRDFMark& rMark)
 
     // Check if the smart tag bookmark refers to a valid factoid type.
     const MSOPropertyBag& rPropertyBag = m_pSmartTagData->m_aPropBags[rMark.GetHandle()];
-    auto itPropertyBag = m_pSmartTagData->m_aPropBagStore.m_aFactoidTypes.begin();
-    for (; itPropertyBag != m_pSmartTagData->m_aPropBagStore.m_aFactoidTypes.end(); ++itPropertyBag)
-        if (itPropertyBag->m_nId == rPropertyBag.m_nId)
-            break;
-    if (itPropertyBag == m_pSmartTagData->m_aPropBagStore.m_aFactoidTypes.end())
+    auto& rFactoidTypes = m_pSmartTagData->m_aPropBagStore.m_aFactoidTypes;
+    auto itPropertyBag = std::find_if(rFactoidTypes.begin(), rFactoidTypes.end(),
+        [&rPropertyBag](const MSOFactoidType& rType) { return rType.m_nId == rPropertyBag.m_nId; });
+    if (itPropertyBag == rFactoidTypes.end())
         return;
 
     // Check if the factoid is an RDF one.

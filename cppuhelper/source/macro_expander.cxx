@@ -45,30 +45,13 @@ using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 
 using rtl::Bootstrap;
-using rtl::OUString;
 
 namespace cppu
 {
 
 static Bootstrap const & get_unorc()
 {
-    static rtlBootstrapHandle s_bstrap = nullptr;
-    if (! s_bstrap)
-    {
-        OUString iniName(getUnoIniUri());
-        rtlBootstrapHandle bstrap = rtl_bootstrap_args_open( iniName.pData );
-
-        ClearableMutexGuard guard( Mutex::getGlobalMutex() );
-        if (s_bstrap)
-        {
-            guard.clear();
-            rtl_bootstrap_args_close( bstrap );
-        }
-        else
-        {
-            s_bstrap = bstrap;
-        }
-    }
+    static rtlBootstrapHandle s_bstrap = rtl_bootstrap_args_open(getUnoIniUri().pData);
     return *reinterpret_cast<Bootstrap const *>(&s_bstrap);
 }
 
@@ -76,8 +59,8 @@ static Bootstrap const & get_unorc()
 
 namespace cppuhelper { namespace detail {
 
-rtl::OUString expandMacros(rtl::OUString const & text) {
-    rtl::OUString t(text);
+OUString expandMacros(OUString const & text) {
+    OUString t(text);
     rtl_bootstrap_expandMacros_from_handle(
         cppu::get_unorc().getHandle(), &t.pData);
     return t;

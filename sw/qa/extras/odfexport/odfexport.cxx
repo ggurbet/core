@@ -1950,7 +1950,7 @@ DECLARE_ODFEXPORT_TEST(testReferenceLanguage, "referencelanguage.odt")
     // (used from LibreOffice 6.1, and proposed for next ODF)
     const char* aFieldTexts[] = { "A 2", "Az 50-esek",
         "A 2018-asok", "Az egyebek", "A fejezetek",
-        u8"Az „Őseinket...”", "a 2",
+        reinterpret_cast<char const *>(u8"Az „Őseinket...”"), "a 2",
         "Az v", "az 1", "Az e", "az 1",
         "Az (5)", "az 1", "A 2", "az 1" };
     uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
@@ -1962,7 +1962,7 @@ DECLARE_ODFEXPORT_TEST(testReferenceLanguage, "referencelanguage.odt")
 
     uno::Any aHu = uno::makeAny(OUString("Hu"));
     uno::Any ahu = uno::makeAny(OUString("hu"));
-    for (sal_uInt32 i = 0; i < SAL_N_ELEMENTS(aFieldTexts); i++)
+    for (size_t i = 0; i < SAL_N_ELEMENTS(aFieldTexts); i++)
     {
         uno::Any aField = xFields->nextElement();
         uno::Reference<lang::XServiceInfo> xServiceInfo(aField, uno::UNO_QUERY);
@@ -2020,9 +2020,9 @@ DECLARE_ODFEXPORT_TEST(testChapterNumberingNewLine, "chapter-number-new-line.odt
 DECLARE_ODFEXPORT_TEST(testSpellOutNumberingTypes, "spellout-numberingtypes.odt")
 {
     // ordinal indicator, ordinal and cardinal number numbering styles (from LibreOffice 6.1)
-    const char* aFieldTexts[] = { "1st", "Erste", "Eins",  "1.", "Premier", "Un", "1ᵉʳ", "First", "One" };
+    static const char* const aFieldTexts[] = { "1st", "Erste", "Eins",  "1.", "Premier", "Un", "1ᵉʳ", "First", "One" };
     // fallback for old platforms without std::codecvt and std::regex supports
-    const char* aFieldTextFallbacks[] = { "Ordinal-number 1", "Ordinal 1", "1" };
+    static const char* const aFieldTextFallbacks[] = { "Ordinal-number 1", "Ordinal 1", "1" };
     uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
     // update text field content
     uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
@@ -2030,7 +2030,7 @@ DECLARE_ODFEXPORT_TEST(testSpellOutNumberingTypes, "spellout-numberingtypes.odt"
     uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
     uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
 
-    for (sal_uInt32 i = 0; i < SAL_N_ELEMENTS(aFieldTexts); i++)
+    for (size_t i = 0; i < SAL_N_ELEMENTS(aFieldTexts); i++)
     {
         uno::Any aField = xFields->nextElement();
         uno::Reference<lang::XServiceInfo> xServiceInfo(aField, uno::UNO_QUERY);

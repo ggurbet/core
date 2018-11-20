@@ -439,7 +439,7 @@ Color ColorConfig::GetDefaultColor(ColorConfigEntry eEntry)
         COL_GREEN, // CALCFORMULA
         COL_BLACK, // CALCTEXT
         COL_LIGHTGRAY, // CALCPROTECTEDBACKGROUND
-        COL_LIGHTGRAY, // DRAWGRID
+        COL_GRAY7, // DRAWGRID
         COL_GREEN, // BASICIDENTIFIER,
         COL_GRAY, // BASICCOMMENT,
         COL_LIGHTRED, // BASICNUMBER,
@@ -498,11 +498,8 @@ ColorConfigValue ColorConfig::GetColorValue(ColorConfigEntry eEntry, bool bSmart
     if (m_pImpl)
         aRet = m_pImpl->GetColorConfigValue(eEntry);
 
-    if (bSmart)
-    {
-        if(aRet.nColor == COL_AUTO)
-            aRet.nColor = ColorConfig::GetDefaultColor(eEntry);
-    }
+    if (bSmart && aRet.nColor == COL_AUTO)
+        aRet.nColor = ColorConfig::GetDefaultColor(eEntry);
 
     return aRet;
 }

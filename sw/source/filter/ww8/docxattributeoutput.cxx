@@ -145,6 +145,7 @@
 #include <com/sun/star/embed/EmbedStates.hpp>
 
 #include <algorithm>
+#include <stdarg.h>
 
 using ::editeng::SvxBorderLine;
 
@@ -177,7 +178,11 @@ static const sal_Int32 Tag_StartSection = 17;
 class FFDataWriterHelper
 {
     ::sax_fastparser::FSHelperPtr m_pSerializer;
-    void writeCommonStart( const OUString& rName )
+    void writeCommonStart( const OUString& rName,
+                           const OUString& rEntryMacro,
+                           const OUString& rExitMacro,
+                           const OUString& rHelp,
+                           const OUString& rHint )
     {
         m_pSerializer->startElementNS( XML_w, XML_ffData, FSEND );
         m_pSerializer->singleElementNS( XML_w, XML_name,
@@ -187,6 +192,33 @@ class FFDataWriterHelper
         m_pSerializer->singleElementNS( XML_w, XML_calcOnExit,
             FSNS( XML_w, XML_val ),
             "0", FSEND );
+
+        if ( !rEntryMacro.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_entryMacro,
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rEntryMacro, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+
+        if ( !rExitMacro.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_exitMacro,
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rExitMacro, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+
+        if ( !rHelp.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_helpText,
+                FSNS(XML_w, XML_type), OString("text"),
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rHelp, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+
+        if ( !rHint.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_statusText,
+                FSNS(XML_w, XML_type), OString("text"),
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rHint, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+
     }
     void writeFinish()
     {
@@ -194,9 +226,14 @@ class FFDataWriterHelper
     }
 public:
     explicit FFDataWriterHelper( const ::sax_fastparser::FSHelperPtr& rSerializer ) : m_pSerializer( rSerializer ){}
-    void WriteFormCheckbox( const OUString& rName, bool bChecked )
+    void WriteFormCheckbox( const OUString& rName,
+                            const OUString& rEntryMacro,
+                            const OUString& rExitMacro,
+                            const OUString& rHelp,
+                            const OUString& rHint,
+                            bool bChecked )
     {
-       writeCommonStart( rName );
+       writeCommonStart( rName, rEntryMacro, rExitMacro, rHelp, rHint );
        // Checkbox specific bits
        m_pSerializer->startElementNS( XML_w, XML_checkBox, FSEND );
        // currently hardcoding autosize
@@ -208,9 +245,39 @@ public:
         m_pSerializer->endElementNS( XML_w, XML_checkBox );
        writeFinish();
     }
-    void WriteFormText(  const OUString& rName )
+    void WriteFormText(  const OUString& rName,
+                         const OUString& rEntryMacro,
+                         const OUString& rExitMacro,
+                         const OUString& rHelp,
+                         const OUString& rHint,
+                         const OUString& rType,
+                         const OUString& rDefaultText,
+                         sal_uInt16 nMaxLength,
+                         const OUString& rFormat )
     {
-       writeCommonStart( rName );
+        writeCommonStart( rName, rEntryMacro, rExitMacro, rHelp, rHint );
+
+        m_pSerializer->startElementNS( XML_w, XML_textInput, FSEND );
+        if ( !rType.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_type,
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rType, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+        if ( !rDefaultText.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_default,
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rDefaultText, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+        if ( nMaxLength )
+            m_pSerializer->singleElementNS( XML_w, XML_maxLength,
+                FSNS(XML_w, XML_val), OString::number(nMaxLength), FSEND );
+        if ( !rFormat.isEmpty() )
+            m_pSerializer->singleElementNS( XML_w, XML_format,
+                FSNS(XML_w, XML_val),
+                OUStringToOString( rFormat, RTL_TEXTENCODING_UTF8 ).getStr(),
+                FSEND );
+        m_pSerializer->endElementNS( XML_w, XML_textInput );
+
        writeFinish();
     }
 };
@@ -1356,12 +1423,12 @@ void DocxAttributeOutput::EndRun(const SwTextNode* pNode, sal_Int32 nPos, bool /
     // XML_r node should be surrounded with permission-begin and permission-end nodes if it has permission.
     DoWritePermissionsEnd();
 
-    for (std::vector<const SwOLENode*>::iterator it = m_aPostponedMaths.begin(); it != m_aPostponedMaths.end(); ++it)
-        WritePostponedMath(*it);
+    for (const auto& rpMath : m_aPostponedMaths)
+        WritePostponedMath(rpMath);
     m_aPostponedMaths.clear();
 
-    for (std::vector<const SdrObject*>::iterator it = m_aPostponedFormControls.begin(); it != m_aPostponedFormControls.end(); ++it)
-        WritePostponedFormControl(*it);
+    for (const auto& rpControl : m_aPostponedFormControls)
+        WritePostponedFormControl(rpControl);
     m_aPostponedFormControls.clear();
 
     WritePostponedActiveXControl(false);
@@ -1640,12 +1707,24 @@ void DocxAttributeOutput::DoWriteAnnotationMarks()
 void DocxAttributeOutput::WriteFFData(  const FieldInfos& rInfos )
 {
     const ::sw::mark::IFieldmark& rFieldmark = *rInfos.pFieldmark;
+    FieldMarkParamsHelper params( rFieldmark );
+
+    OUString sEntryMacro;
+    params.extractParam("EntryMacro", sEntryMacro);
+    OUString sExitMacro;
+    params.extractParam("ExitMacro", sExitMacro);
+    OUString sHelp;
+    params.extractParam("Help", sHelp);
+    OUString sHint;
+    params.extractParam("Hint", sHint); // .docx StatusText
+    if ( sHint.isEmpty() )
+        params.extractParam("Description", sHint); // .doc StatusText
+
     if ( rInfos.eType == ww::eFORMDROPDOWN )
     {
         uno::Sequence< OUString> vListEntries;
         OUString sName, sSelected;
 
-        FieldMarkParamsHelper params( rFieldmark );
         params.extractParam( ODF_FORMDROPDOWN_LISTENTRY, vListEntries );
         sName = params.getName();
         sal_Int32 nSelectedIndex = 0;
@@ -1663,7 +1742,6 @@ void DocxAttributeOutput::WriteFFData(  const FieldInfos& rInfos )
         OUString sName;
         bool bChecked = false;
 
-        FieldMarkParamsHelper params( rFieldmark );
         params.extractParam( ODF_FORMCHECKBOX_NAME, sName );
 
         const sw::mark::ICheckboxFieldmark* pCheckboxFm = dynamic_cast<const sw::mark::ICheckboxFieldmark*>(&rFieldmark);
@@ -1671,13 +1749,21 @@ void DocxAttributeOutput::WriteFFData(  const FieldInfos& rInfos )
             bChecked = true;
 
         FFDataWriterHelper ffdataOut( m_pSerializer );
-        ffdataOut.WriteFormCheckbox( sName, bChecked );
+        ffdataOut.WriteFormCheckbox( sName, sEntryMacro, sExitMacro, sHelp, sHint, bChecked );
     }
     else if ( rInfos.eType == ww::eFORMTEXT )
     {
-        FieldMarkParamsHelper params( rFieldmark );
+        OUString sType;
+        params.extractParam("Type", sType);
+        OUString sDefaultText;
+        params.extractParam("Content", sDefaultText);
+        sal_uInt16 nMaxLength = 0;
+        params.extractParam("MaxLength", nMaxLength);
+        OUString sFormat;
+        params.extractParam("Format", sFormat);
         FFDataWriterHelper ffdataOut( m_pSerializer );
-        ffdataOut.WriteFormText( params.getName() );
+        ffdataOut.WriteFormText( params.getName(), sEntryMacro, sExitMacro, sHelp, sHint,
+                                 sType, sDefaultText, nMaxLength, sFormat );
     }
 }
 
@@ -1939,11 +2025,11 @@ void DocxAttributeOutput::EndField_Impl( const SwTextNode* pNode, sal_Int32 nPos
         if(rInfos.eType == ww::eCITATION)
         {
             sExpand = static_cast<SwAuthorityField const*>(rInfos.pField.get())
-                        ->ExpandCitation(AUTH_FIELD_TITLE);
+                        ->ExpandCitation(AUTH_FIELD_TITLE, nullptr);
         }
         else
         {
-            sExpand = rInfos.pField->ExpandField( true );
+            sExpand = rInfos.pField->ExpandField(true, nullptr);
         }
         // newlines embedded in fields are 0x0B in MSO and 0x0A for us
         RunText(sExpand.replace(0x0A, 0x0B));
@@ -4749,8 +4835,7 @@ bool DocxAttributeOutput::WriteOLEChart( const SdrObject* pSdrObj, const Size& r
     if (!SotExchange::IsChart(aClassID))
         return false;
 
-    m_postponedChart = pSdrObj;
-    m_postponedChartSize = rSize;
+    m_aPostponedCharts.push_back(std::pair<const SdrObject*, Size>(pSdrObj, rSize));
     return true;
 }
 
@@ -4759,81 +4844,86 @@ bool DocxAttributeOutput::WriteOLEChart( const SdrObject* pSdrObj, const Size& r
  */
 void DocxAttributeOutput::WritePostponedChart()
 {
-    if(m_postponedChart == nullptr)
+    if (m_aPostponedCharts.empty())
         return;
-    uno::Reference< chart2::XChartDocument > xChartDoc;
-    uno::Reference< drawing::XShape > xShape( const_cast<SdrObject*>(m_postponedChart)->getUnoShape(), uno::UNO_QUERY );
-    if( xShape.is() )
+
+    for (const auto& itr : m_aPostponedCharts)
     {
-        uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_QUERY );
-        if( xPropSet.is() )
-            xChartDoc.set( xPropSet->getPropertyValue( "Model" ), uno::UNO_QUERY );
+        uno::Reference< chart2::XChartDocument > xChartDoc;
+        uno::Reference< drawing::XShape > xShape( const_cast<SdrObject*>(itr.first)->getUnoShape(), uno::UNO_QUERY );
+        if( xShape.is() )
+        {
+            uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_QUERY );
+            if( xPropSet.is() )
+                xChartDoc.set( xPropSet->getPropertyValue( "Model" ), uno::UNO_QUERY );
+        }
+
+        if( xChartDoc.is() )
+        {
+            SAL_INFO("sw.ww8", "DocxAttributeOutput::WriteOLE2Obj: export chart ");
+            m_pSerializer->startElementNS( XML_w, XML_drawing,
+                    FSEND );
+            m_pSerializer->startElementNS( XML_wp, XML_inline,
+                    XML_distT, "0", XML_distB, "0", XML_distL, "0", XML_distR, "0",
+                    FSEND );
+
+            OString aWidth( OString::number( TwipsToEMU( itr.second.Width() ) ) );
+            OString aHeight( OString::number( TwipsToEMU( itr.second.Height() ) ) );
+            m_pSerializer->singleElementNS( XML_wp, XML_extent,
+                    XML_cx, aWidth.getStr(),
+                    XML_cy, aHeight.getStr(),
+                    FSEND );
+            // TODO - the right effectExtent, extent including the effect
+            m_pSerializer->singleElementNS( XML_wp, XML_effectExtent,
+                    XML_l, "0", XML_t, "0", XML_r, "0", XML_b, "0",
+                    FSEND );
+
+            OUString sName("Object 1");
+            uno::Reference< container::XNamed > xNamed( xShape, uno::UNO_QUERY );
+            if( xNamed.is() )
+                sName = xNamed->getName();
+
+            /* If there is a scenario where a chart is followed by a shape
+               which is being exported as an alternate content then, the
+               docPr Id is being repeated, ECMA 20.4.2.5 says that the
+               docPr Id should be unique, ensuring the same here.
+               */
+            m_pSerializer->singleElementNS( XML_wp, XML_docPr,
+                    XML_id, I32S( m_anchorId++ ),
+                    XML_name, USS( sName ),
+                    FSEND );
+
+            m_pSerializer->singleElementNS( XML_wp, XML_cNvGraphicFramePr,
+                    FSEND );
+
+            m_pSerializer->startElementNS( XML_a, XML_graphic,
+                    FSNS( XML_xmlns, XML_a ), OUStringToOString(GetExport().GetFilter().getNamespaceURL(OOX_NS(dml)), RTL_TEXTENCODING_UTF8).getStr(),
+                    FSEND );
+
+            m_pSerializer->startElementNS( XML_a, XML_graphicData,
+                    XML_uri, "http://schemas.openxmlformats.org/drawingml/2006/chart",
+                    FSEND );
+
+            OString aRelId;
+            m_nChartCount++;
+            uno::Reference< frame::XModel > xModel( xChartDoc, uno::UNO_QUERY );
+            aRelId = m_rExport.OutputChart( xModel, m_nChartCount, m_pSerializer );
+
+            m_pSerializer->singleElementNS( XML_c, XML_chart,
+                    FSNS( XML_xmlns, XML_c ), OUStringToOString(GetExport().GetFilter().getNamespaceURL(OOX_NS(dmlChart)), RTL_TEXTENCODING_UTF8).getStr(),
+                    FSNS( XML_xmlns, XML_r ), OUStringToOString(GetExport().GetFilter().getNamespaceURL(OOX_NS(officeRel)), RTL_TEXTENCODING_UTF8).getStr(),
+                    FSNS( XML_r, XML_id ), aRelId.getStr(),
+                    FSEND );
+
+            m_pSerializer->endElementNS( XML_a, XML_graphicData );
+            m_pSerializer->endElementNS( XML_a, XML_graphic );
+            m_pSerializer->endElementNS( XML_wp, XML_inline );
+            m_pSerializer->endElementNS( XML_w, XML_drawing );
+
+        }
     }
 
-    if( xChartDoc.is() )
-    {
-        SAL_INFO("sw.ww8", "DocxAttributeOutput::WriteOLE2Obj: export chart ");
-        m_pSerializer->startElementNS( XML_w, XML_drawing,
-            FSEND );
-        m_pSerializer->startElementNS( XML_wp, XML_inline,
-            XML_distT, "0", XML_distB, "0", XML_distL, "0", XML_distR, "0",
-            FSEND );
-
-        OString aWidth( OString::number( TwipsToEMU( m_postponedChartSize.Width() ) ) );
-        OString aHeight( OString::number( TwipsToEMU( m_postponedChartSize.Height() ) ) );
-        m_pSerializer->singleElementNS( XML_wp, XML_extent,
-            XML_cx, aWidth.getStr(),
-            XML_cy, aHeight.getStr(),
-            FSEND );
-        // TODO - the right effectExtent, extent including the effect
-        m_pSerializer->singleElementNS( XML_wp, XML_effectExtent,
-            XML_l, "0", XML_t, "0", XML_r, "0", XML_b, "0",
-            FSEND );
-
-        OUString sName("Object 1");
-        uno::Reference< container::XNamed > xNamed( xShape, uno::UNO_QUERY );
-        if( xNamed.is() )
-            sName = xNamed->getName();
-
-        /* If there is a scenario where a chart is followed by a shape
-           which is being exported as an alternate content then, the
-           docPr Id is being repeated, ECMA 20.4.2.5 says that the
-           docPr Id should be unique, ensuring the same here.
-        */
-        m_pSerializer->singleElementNS( XML_wp, XML_docPr,
-            XML_id, I32S( m_anchorId++ ),
-            XML_name, USS( sName ),
-            FSEND );
-
-        m_pSerializer->singleElementNS( XML_wp, XML_cNvGraphicFramePr,
-            FSEND );
-
-        m_pSerializer->startElementNS( XML_a, XML_graphic,
-            FSNS( XML_xmlns, XML_a ), OUStringToOString(GetExport().GetFilter().getNamespaceURL(OOX_NS(dml)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSEND );
-
-        m_pSerializer->startElementNS( XML_a, XML_graphicData,
-            XML_uri, "http://schemas.openxmlformats.org/drawingml/2006/chart",
-            FSEND );
-
-        OString aRelId;
-        m_nChartCount++;
-        uno::Reference< frame::XModel > xModel( xChartDoc, uno::UNO_QUERY );
-        aRelId = m_rExport.OutputChart( xModel, m_nChartCount, m_pSerializer );
-
-        m_pSerializer->singleElementNS( XML_c, XML_chart,
-            FSNS( XML_xmlns, XML_c ), OUStringToOString(GetExport().GetFilter().getNamespaceURL(OOX_NS(dmlChart)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_r ), OUStringToOString(GetExport().GetFilter().getNamespaceURL(OOX_NS(officeRel)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_r, XML_id ), aRelId.getStr(),
-            FSEND );
-
-        m_pSerializer->endElementNS( XML_a, XML_graphicData );
-        m_pSerializer->endElementNS( XML_a, XML_graphic );
-        m_pSerializer->endElementNS( XML_wp, XML_inline );
-        m_pSerializer->endElementNS( XML_w, XML_drawing );
-
-    }
-    m_postponedChart = nullptr;
+    m_aPostponedCharts.clear();
 }
 
 bool DocxAttributeOutput::WriteOLEMath( const SwOLENode& rOLENode )
@@ -5843,7 +5933,8 @@ void DocxAttributeOutput::SectionBreak( sal_uInt8 nC, const WW8_SepInfo* pSectio
                     // footer, otherwise we go with the properties of the
                     // section (and not the page style), which never has
                     // headers/footers.
-                    if (const SwPageDesc* pPageDesc = pSectionInfo->pPageDesc)
+                    const SwPageDesc* pPageDesc = pSectionInfo->pPageDesc;
+                    if ( pPageDesc && pPageDesc != m_rExport.m_pCurrentPageDesc )
                     {
                         const auto& rMaster = pPageDesc->GetMaster();
                         bEmit = rMaster.GetHeader().IsActive() || rMaster.GetFooter().IsActive();
@@ -6089,7 +6180,7 @@ static OString impl_LevelNFC( sal_uInt16 nNumberingType , const SfxItemSet *pOut
         case style::NumberingType::NUMBER_LOWER_ZH:
             aType="taiwaneseCountingThousand";
             if (pOutSet) {
-                const SvxLanguageItem rLang = pOutSet->Get( RES_CHRATR_CJK_LANGUAGE);
+                const SvxLanguageItem& rLang = pOutSet->Get( RES_CHRATR_CJK_LANGUAGE);
                 const LanguageType eLang = rLang.GetLanguage();
 
                 if (LANGUAGE_CHINESE_SIMPLIFIED == eLang) {
@@ -6176,7 +6267,7 @@ void DocxAttributeOutput::SectionType( sal_uInt8 nBreakCode )
     /*  break code:   0 No break, 1 New column
         2 New page, 3 Even page, 4 Odd page
         */
-    const char* pType = nullptr;
+    const char* pType;
     switch ( nBreakCode )
     {
         case 1:  pType = "nextColumn"; break;
@@ -6186,10 +6277,7 @@ void DocxAttributeOutput::SectionType( sal_uInt8 nBreakCode )
         default: pType = "continuous"; break;
     }
 
-    if ( pType )
-        m_pSerializer->singleElementNS( XML_w, XML_type,
-                FSNS( XML_w, XML_val ), pType,
-                FSEND );
+    m_pSerializer->singleElementNS(XML_w, XML_type, FSNS(XML_w, XML_val), pType, FSEND);
 }
 
 void DocxAttributeOutput::TextVerticalAdjustment( const drawing::TextVerticalAdjust nVA )
@@ -6252,7 +6340,7 @@ void DocxAttributeOutput::FontCharset( sal_uInt8 nCharSet, rtl_TextEncoding nEnc
 
 void DocxAttributeOutput::FontFamilyType( FontFamily eFamily ) const
 {
-    const char *pFamily = nullptr;
+    const char* pFamily;
     switch ( eFamily )
     {
         case FAMILY_ROMAN:      pFamily = "roman"; break;
@@ -6263,15 +6351,12 @@ void DocxAttributeOutput::FontFamilyType( FontFamily eFamily ) const
         default:                pFamily = "auto"; break; // no font family
     }
 
-    if ( pFamily )
-        m_pSerializer->singleElementNS( XML_w, XML_family,
-                FSNS( XML_w, XML_val ), pFamily,
-                FSEND );
+    m_pSerializer->singleElementNS(XML_w, XML_family, FSNS(XML_w, XML_val), pFamily, FSEND);
 }
 
 void DocxAttributeOutput::FontPitchType( FontPitch ePitch ) const
 {
-    const char *pPitch = nullptr;
+    const char* pPitch;
     switch ( ePitch )
     {
         case PITCH_VARIABLE: pPitch = "variable"; break;
@@ -6279,10 +6364,7 @@ void DocxAttributeOutput::FontPitchType( FontPitch ePitch ) const
         default:             pPitch = "default"; break; // no info about the pitch
     }
 
-    if ( pPitch )
-        m_pSerializer->singleElementNS( XML_w, XML_pitch,
-                FSNS( XML_w, XML_val ), pPitch,
-                FSEND );
+    m_pSerializer->singleElementNS(XML_w, XML_pitch, FSNS(XML_w, XML_val), pPitch, FSEND);
 }
 
 void DocxAttributeOutput::EmbedFont( const OUString& name, FontFamily family, FontPitch pitch )
@@ -7434,13 +7516,13 @@ void DocxAttributeOutput::FootnotesEndnotes( bool bFootnotes )
     // if new special ones are added, update also WriteFootnoteEndnotePr()
 
     // footnotes/endnotes themselves
-    for ( FootnotesVector::const_iterator i = rVector.begin(); i != rVector.end(); ++i, ++nIndex )
+    for ( const auto& rpItem : rVector )
     {
         m_pSerializer->startElementNS( XML_w, nItem,
                 FSNS( XML_w, XML_id ), OString::number( nIndex ).getStr(),
                 FSEND );
 
-        const SwNodeIndex* pIndex = (*i)->GetTextFootnote()->GetStartNode();
+        const SwNodeIndex* pIndex = rpItem->GetTextFootnote()->GetStartNode();
         // tag required at the start of each footnote/endnote
         m_footnoteEndnoteRefTag = bFootnotes ? XML_footnoteRef : XML_endnoteRef;
 
@@ -7449,6 +7531,7 @@ void DocxAttributeOutput::FootnotesEndnotes( bool bFootnotes )
                 bFootnotes? TXT_FTN: TXT_EDN );
 
         m_pSerializer->endElementNS( XML_w, nItem );
+        ++nIndex;
     }
 
     m_pSerializer->endElementNS( XML_w, nBody );
@@ -8285,7 +8368,7 @@ void DocxAttributeOutput::FormatBackground( const SvxBrushItem& rBrush )
 void DocxAttributeOutput::FormatFillStyle( const XFillStyleItem& rFillStyle )
 {
     if (!m_bIgnoreNextFill)
-        m_oFillStyle.reset(rFillStyle.GetValue());
+        m_oFillStyle = rFillStyle.GetValue();
     else
         m_bIgnoreNextFill = false;
 
@@ -9071,7 +9154,6 @@ DocxAttributeOutput::DocxAttributeOutput( DocxExport &rExport, const FSHelperPtr
       m_nFieldsInHyperlink( 0 ),
       m_bExportingOutline(false),
       m_nChartCount(0),
-      m_postponedChart( nullptr ),
       pendingPlaceholder( nullptr ),
       m_postitFieldsMaxId( 0 ),
       m_anchorId( 1 ),

@@ -27,7 +27,6 @@
 
 #define LISTBOX_APPEND              (SAL_MAX_INT32)
 #define LISTBOX_ENTRY_NOTFOUND      (SAL_MAX_INT32)
-#define LISTBOX_ERROR               (SAL_MAX_INT32)
 #define LISTBOX_MAX_ENTRIES         (SAL_MAX_INT32 - 1)
 
 // the following defines can be used for the SetEntryFlags()
@@ -70,12 +69,10 @@ class ImplListBoxFloatingWindow;
 class ImplBtn;
 class ImplWin;
 class ImplListBoxWindow;
-class SalInstanceEntryTreeView;
 
 class VCL_DLLPUBLIC ListBox : public Control
 {
 private:
-    friend SalInstanceEntryTreeView;
     VclPtr<ImplListBox>                mpImplLB;
     VclPtr<ImplListBoxFloatingWindow>  mpFloatWin;
     VclPtr<ImplWin>                    mpImplWin;
@@ -140,8 +137,6 @@ public:
 
     tools::Rectangle           GetDropDownPosSizePixel() const;
 
-    long                CalcWindowSizePixel(sal_uInt16 nLines) const;
-
     void                AdaptDropDownLineCountToMaximum();
     void                SetDropDownLineCount( sal_uInt16 nLines );
     sal_uInt16          GetDropDownLineCount() const;
@@ -178,8 +173,6 @@ public:
     void                SetEntryData( sal_Int32  nPos, void* pNewData );
     void*               GetEntryData( sal_Int32  nPos ) const;
     void*               GetSelectedEntryData() const { return GetEntryData(GetSelectedEntryPos()); }
-
-    void                SetEntryTextColor(sal_Int32 nPos, const Color* pTextColor);
 
     /** this methods stores a combination of flags from the
         ListBoxEntryFlags::* defines at the given entry.

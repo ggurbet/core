@@ -206,12 +206,9 @@ SvxTextEditSourceImpl::SvxTextEditSourceImpl( SdrObject& rObject, SdrText* pText
             mpText = pTextObj->getText( 0 );
     }
 
-    if( mpModel )
-        StartListening( *mpModel );
-    if( mpView )
-        StartListening( *mpView );
-    if( mpObject )
-        mpObject->AddObjectUser( *this );
+    StartListening( *mpModel );
+    StartListening( *mpView );
+    mpObject->AddObjectUser( *this );
 
     // Init edit mode state from shape info (IsTextEditActive())
     mbShapeIsEditMode = IsEditMode();
@@ -311,7 +308,7 @@ void SvxTextEditSourceImpl::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
                         sdr::table::SdrTableObj* pTableObj = dynamic_cast< sdr::table::SdrTableObj* >( mpObject );
                         if(pTableObj)
                         {
-                            sdr::table::CellRef xCell = pTableObj->getActiveCell();
+                            const sdr::table::CellRef& xCell = pTableObj->getActiveCell();
                             if (xCell.is())
                             {
                                 sdr::table::Cell* pCellObj = dynamic_cast< sdr::table::Cell* >( mpText );

@@ -575,7 +575,7 @@ void ScPrintFunc::DrawToDev( ScDocument* pDoc, OutputDevice* pDev, double /* nPr
 
     //! SetUseStyleColor ??
 
-    if ( bMetaFile && pDev->GetOutDevType() == OUTDEV_VIRDEV )
+    if ( bMetaFile && pDev->IsVirtual() )
         aOutputData.SetSnapPixel();
 
     Point aLogStart = pDev->PixelToLogic(Point(nScrX, nScrY), MapMode(MapUnit::Map100thMM));
@@ -669,9 +669,8 @@ static void lcl_FillHFParam( ScPrintHFParam& rParam, const SfxItemSet* pHFSet )
 //   now back in the dialog:
 //      rParam.nHeight += rParam.nDistance;             // not in the dialog any more ???
 
-        if (rParam.pBorder)
-            rParam.nHeight += lcl_LineTotal( rParam.pBorder->GetTop() ) +
-                              lcl_LineTotal( rParam.pBorder->GetBottom() );
+        rParam.nHeight += lcl_LineTotal( rParam.pBorder->GetTop() ) +
+                          lcl_LineTotal( rParam.pBorder->GetBottom() );
 
         rParam.nManHeight = rParam.nHeight;
     }
@@ -1199,7 +1198,7 @@ static void lcl_DrawGraphic( const SvxBrushItem &rBrush, vcl::RenderContext *pOu
 
                         GraphicObject aObject( *pGraphic );
 
-                        if( pOut->GetPDFWriter() &&
+                        if( pOut->GetOutDevType() == OUTDEV_PDF &&
                             (aObject.GetType() == GraphicType::Bitmap || aObject.GetType() == GraphicType::Default) )
                         {
                             // For PDF export, every draw
@@ -1726,9 +1725,9 @@ void ScPrintFunc::MakeEditEngine()
         //  but for header/footer twips is needed, as in the PatternAttr:
         std::unique_ptr<SfxPoolItem> pNewItem(rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT));
         pEditDefaults->Put( *pNewItem );
-        pNewItem.reset(rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK));
+        pNewItem = rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK);
         pEditDefaults->Put( *pNewItem );
-        pNewItem.reset(rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL));
+        pNewItem = rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL);
         pEditDefaults->Put( *pNewItem );
         //  don't use font color, because background color is not used
         //! there's no way to set the background for note pages

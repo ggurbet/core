@@ -21,9 +21,10 @@
 #define INCLUDED_SC_SOURCE_UI_INC_SCUIIMOPTDLG_HXX
 
 #include <vcl/layout.hxx>
-#include "imoptdlg.hxx"
+#include <svx/txencbox.hxx>
 
 class ScDelimiterTable;
+class ScImportOptions;
 
 class ScImportOptionsDlg : public ModalDialog
 {

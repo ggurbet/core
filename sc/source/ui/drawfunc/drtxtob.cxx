@@ -53,7 +53,7 @@
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svtools/cliplistener.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <svl/whiter.hxx>
 #include <svl/languageoptions.hxx>
 
@@ -227,7 +227,7 @@ void ScDrawTextObjectBar::Execute( SfxRequest &rReq )
                     const SfxStringItem* pFontItem = dynamic_cast<const SfxStringItem*>( pFtItem  );
                     if ( pFontItem )
                     {
-                        OUString aFontName(pFontItem->GetValue());
+                        const OUString& aFontName(pFontItem->GetValue());
                         vcl::Font aFont(aFontName, Size(1,1)); // Size only because of CTOR
                         aNewItem = SvxFontItem( aFont.GetFamilyType(), aFont.GetFamilyName(),
                                     aFont.GetStyleName(), aFont.GetPitch(),
@@ -313,18 +313,12 @@ void ScDrawTextObjectBar::Execute( SfxRequest &rReq )
             break;
 
         case SID_OPEN_HYPERLINK:
+            if (const SvxFieldItem* pFieldItem = pOutView->GetFieldAtSelection())
             {
-                if ( pOutView )
+                const SvxFieldData* pField = pFieldItem->GetField();
+                if (const SvxURLField* pURLField = dynamic_cast<const SvxURLField*>(pField))
                 {
-                    const SvxFieldItem* pFieldItem = pOutView->GetFieldAtSelection();
-                    if ( pFieldItem )
-                    {
-                        const SvxFieldData* pField = pFieldItem->GetField();
-                        if (const SvxURLField* pURLField = dynamic_cast<const SvxURLField*>(pField))
-                        {
-                            ScGlobal::OpenURL( pURLField->GetURL(), pURLField->GetTargetFrame() );
-                        }
-                    }
+                    ScGlobal::OpenURL(pURLField->GetURL(), pURLField->GetTargetFrame());
                 }
             }
             break;

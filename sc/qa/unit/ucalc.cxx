@@ -63,6 +63,7 @@
 #include <docpool.hxx>
 #include <globalnames.hxx>
 #include <inputopt.hxx>
+#include <columnspanset.hxx>
 
 #include <editable.hxx>
 #include <bcaslot.hxx>
@@ -86,6 +87,7 @@
 #include <svx/svdocapt.hxx>
 #include <svl/srchitem.hxx>
 #include <svl/sharedstringpool.hxx>
+#include <unotools/collatorwrapper.hxx>
 
 #include <sfx2/docfile.hxx>
 #include <sfx2/sfxsids.hrc>
@@ -1653,7 +1655,7 @@ void Test::testCSV()
         { "+,123",     English,  false, 0.0 },
         { "-,123",     English,  false, 0.0 }
     };
-    for (sal_uInt32 i = 0; i < SAL_N_ELEMENTS(aTests); i++) {
+    for (size_t i = 0; i < SAL_N_ELEMENTS(aTests); i++) {
         OUString aStr(aTests[i].pStr, strlen (aTests[i].pStr), RTL_TEXTENCODING_UTF8);
         double nValue = 0.0;
         bool bResult = ScStringUtil::parseSimpleNumber
@@ -2654,6 +2656,7 @@ void Test::testFunctionLists()
         "MIDB",
         "NUMBERVALUE",
         "PROPER",
+        "REGEX",
         "REPLACE",
         "REPLACEB",
         "REPT",
@@ -6796,8 +6799,8 @@ void Test::checkPrecisionAsShown( OUString& rCode, double fValue, double fExpect
         CPPUNIT_ASSERT_EQUAL( sal_Int32(0), nCheckPos );
     }
     double fRoundValue = m_pDoc->RoundValueAsShown( fValue, nFormat );
-    rtl::OString aMessage = "Format \"";
-    aMessage += rtl::OUStringToOString( rCode, RTL_TEXTENCODING_ASCII_US );
+    OString aMessage = "Format \"";
+    aMessage += OUStringToOString( rCode, RTL_TEXTENCODING_ASCII_US );
     aMessage += "\" is not correctly rounded";
     CPPUNIT_ASSERT_EQUAL_MESSAGE( aMessage.getStr(), fExpectedRoundVal, fRoundValue );
 }

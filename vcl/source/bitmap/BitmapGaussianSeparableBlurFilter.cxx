@@ -86,7 +86,7 @@ bool BitmapGaussianSeparableBlurFilter::convolutionPass(Bitmap& rBitmap, Bitmap&
                                                         BitmapReadAccess const* pReadAcc,
                                                         int aNumberOfContributions,
                                                         const double* pWeights, int const* pPixels,
-                                                        const int* pCount) const
+                                                        const int* pCount)
 {
     if (!pReadAcc)
         return false;
@@ -115,7 +115,8 @@ bool BitmapGaussianSeparableBlurFilter::convolutionPass(Bitmap& rBitmap, Bitmap&
             for (int j = 0; j < pCount[nSourceX]; ++j)
             {
                 aIndex = aBaseIndex + j;
-                aSum += aWeight = pWeights[aIndex];
+                aWeight = pWeights[aIndex];
+                aSum += aWeight;
 
                 aColor = pReadAcc->GetColor(nSourceY, pPixels[aIndex]);
 

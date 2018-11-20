@@ -425,7 +425,8 @@ uno::Reference< uno::XAggregation> const & ScModelObj::GetFormatter()
         osl_atomic_increment( &m_refCount );
         // we need a reference to SvNumberFormatsSupplierObj during queryInterface,
         // otherwise it'll be deleted
-        uno::Reference<util::XNumberFormatsSupplier> xFormatter(new SvNumberFormatsSupplierObj(pDocShell->GetDocument().GetFormatTable() ));
+        uno::Reference<util::XNumberFormatsSupplier> xFormatter(
+            new SvNumberFormatsSupplierObj(pDocShell->GetDocument().GetThreadedContext().GetFormatTable() ));
         {
             xNumberAgg.set(uno::Reference<uno::XAggregation>( xFormatter, uno::UNO_QUERY ));
             // extra block to force deletion of the temporary before setDelegator
@@ -992,12 +993,12 @@ bool ScModelObj::isMimeTypeSupported()
     return EditEngine::HasValidData(aDataHelper.GetTransferable());
 }
 
-void ScModelObj::setClientZoom(int nTilePixelWidth_, int nTilePixelHeight_, int nTileTwipWidth_, int nTileTwipHeight_)
+void ScModelObj::setClientZoom(int /*nTilePixelWidth_*/, int /*nTilePixelHeight_*/, int /*nTileTwipWidth_*/, int /*nTileTwipHeight_*/)
 {
-    mnTilePixelWidth = nTilePixelWidth_;
-    mnTilePixelHeight = nTilePixelHeight_;
-    mnTileTwipWidth = nTileTwipWidth_;
-    mnTileTwipHeight = nTileTwipHeight_;
+    mnTilePixelWidth = 256;
+    mnTilePixelHeight = 256;
+    mnTileTwipWidth = mnTilePixelWidth * TWIPS_PER_PIXEL;
+    mnTileTwipHeight = mnTilePixelHeight * TWIPS_PER_PIXEL;
 }
 
 OUString ScModelObj::getRowColumnHeaders(const tools::Rectangle& rRectangle)
@@ -2591,8 +2592,7 @@ uno::Any SAL_CALL ScModelObj::getPropertyValue( const OUString& aPropertyName )
         }
         else if ( aPropertyName == SC_UNO_CODENAME )
         {
-            OUString sCodeName = rDoc.GetCodeName();
-            aRet <<= sCodeName;
+            aRet <<= rDoc.GetCodeName();
         }
 
         else if ( aPropertyName == SC_UNO_CJK_CLOCAL )
@@ -3125,12 +3125,14 @@ void ScModelObj::HandleCalculateEvents()
 
 sal_Bool ScModelObj::isOpenCLEnabled()
 {
-    return officecfg::Office::Common::Misc::UseOpenCL::get();
+    return ScCalcConfig::isOpenCLEnabled();
 }
 
 void ScModelObj::enableOpenCL(sal_Bool bEnable)
 {
     if (ScCalcConfig::isOpenCLEnabled() == static_cast<bool>(bEnable))
+        return;
+    if (ScCalcConfig::getForceCalculationType() != ForceCalculationNone)
         return;
 
     std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());

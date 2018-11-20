@@ -250,8 +250,7 @@ typedef LibreOfficeKit *(LokHookFunction2)( const char *install_path, const char
 typedef int             (LokHookPreInit)  ( const char *install_path, const char *user_profile_url );
 
 #if defined(IOS)
-extern __attribute__ ((visibility("default")))
-    LibreOfficeKit *libreofficekit_hook_2(const char* install_path, const char* user_profile_path);
+LibreOfficeKit *libreofficekit_hook_2(const char* install_path, const char* user_profile_path);
 #endif
 
 static LibreOfficeKit *lok_init_2( const char *install_path,  const char *user_profile_url )
@@ -289,6 +288,15 @@ static LibreOfficeKit *lok_init_2( const char *install_path,  const char *user_p
         // dlhandle is "leaked"
         // coverity[leaked_storage] - on purpose
         return pSym( install_path );
+    }
+
+    if (user_profile_url != NULL && user_profile_url[0] == '/')
+    {
+        // It should be either a file: URL or a vnd.sun.star.pathname: URL.
+        fprintf( stderr, "second parameter to lok_init_2 '%s' should be a URL, not a pathname\n", user_profile_url );
+        lok_dlclose( dlhandle );
+        free( imp_lib );
+        return NULL;
     }
 
     free( imp_lib );

@@ -275,17 +275,19 @@ const sal_uInt8 SC_DDE_IGNOREMODE    = 255;       /// For usage in FindDdeLink()
 struct ScDocumentThreadSpecific
 {
     ScRecursionHelper*      pRecursionHelper;               // information for recursive and iterative cell formulas
+    ScInterpreterContext* pContext;  // references the context passed around for easier access
 
-    ScDocumentThreadSpecific() :
-        pRecursionHelper(nullptr)
+    ScDocumentThreadSpecific()
+        : pRecursionHelper(nullptr)
+        , pContext(nullptr)
     {
     }
 
     // To be called in the thread at start
-    void SetupFromNonThreadedData(const ScDocumentThreadSpecific& rNonThreadedData);
+    static void SetupFromNonThreadedData(const ScDocumentThreadSpecific& rNonThreadedData);
 
     // To be called in the main thread after the thread has finished
-    void MergeBackIntoNonThreadedData(ScDocumentThreadSpecific& rNonThreadedData);
+    static void MergeBackIntoNonThreadedData(ScDocumentThreadSpecific& rNonThreadedData);
 };
 
 /// Enumeration to determine which pieces of the code should not be mutated when set.
@@ -455,7 +457,6 @@ private:
     mutable ScInterpreterContext maInterpreterContext;
 
     osl::Mutex mScLookupMutex; // protection for thread-unsafe parts of handling ScLookup
-    std::vector<ScLookupCacheMap*> mThreadStoredScLookupCaches; // temporarily stored for computation threads
 
     static const sal_uInt16 nSrcVer;                        // file version (load/save)
     sal_uInt16              nFormulaTrackCount;
@@ -582,7 +583,12 @@ public:
         maInterpreterContext.mpFormatter = GetFormatTable();
         return maInterpreterContext;
     }
-    void SetupFromNonThreadedContext( ScInterpreterContext& threadedContext, int threadNumber );
+    // Uses thread_local.
+    ScInterpreterContext& GetThreadedContext() const
+    {
+        return IsThreadedGroupCalcInProgress() ? *maThreadSpecific.pContext : GetNonThreadedContext();
+    }
+    static void SetupFromNonThreadedContext( ScInterpreterContext& threadedContext, int threadNumber );
     void MergeBackIntoNonThreadedContext( ScInterpreterContext& threadedContext, int threadNumber );
     void SetThreadedGroupCalcInProgress( bool set ) { (void)this; ScGlobal::bThreadedGroupCalcInProgress = set; }
     bool IsThreadedGroupCalcInProgress() const { (void)this; return ScGlobal::bThreadedGroupCalcInProgress; }

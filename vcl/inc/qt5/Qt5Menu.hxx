@@ -29,7 +29,7 @@ private:
     QMenuBar* mpQMenuBar;
 
     void DoFullMenuUpdate(Menu* pMenuBar, QMenu* pParentMenu = nullptr);
-    void NativeItemText(OUString& rItemText);
+    static void NativeItemText(OUString& rItemText);
 
 public:
     Qt5Menu(bool bMenuBar);
@@ -59,8 +59,11 @@ public:
     unsigned GetItemCount() { return maItems.size(); }
     Qt5MenuItem* GetItemAtPos(unsigned nPos) { return maItems[nPos]; }
 
+Q_SIGNALS:
+    void setFrameSignal(const SalFrame* pFrame);
+
 private slots:
-    void slotMenuTriggered(Qt5MenuItem* pQItem);
+    static void slotMenuTriggered(Qt5MenuItem* pQItem);
 };
 
 class Qt5MenuItem : public SalMenuItem

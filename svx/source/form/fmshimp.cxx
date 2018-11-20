@@ -20,7 +20,6 @@
 
 #include <sal/macros.h>
 #include <sal/log.hxx>
-#include <fmitems.hxx>
 #include <fmobj.hxx>
 #include <fmpgeimp.hxx>
 #include <svx/fmtools.hxx>
@@ -932,7 +931,6 @@ void FmXFormShell::disposing()
     m_xExternalViewController   = nullptr;
     m_xExtViewTriggerController = nullptr;
     m_xExternalDisplayedForm    = nullptr;
-    m_xLastGridFound            = nullptr;
 
     InterfaceBag aEmpty;
     m_aCurrentSelection.swap( aEmpty );
@@ -1004,10 +1002,10 @@ IMPL_LINK_NOARG(FmXFormShell, OnInvalidateSlots_Lock, void*,void)
 
     m_nInvalidationEvent = nullptr;
 
-    for (std::vector<InvalidSlotInfo>::const_iterator i = m_arrInvalidSlots.begin(); i < m_arrInvalidSlots.end(); ++i)
+    for (const auto& rInvalidSlot : m_arrInvalidSlots)
     {
-        if (i->id)
-            m_pShell->GetViewShell()->GetViewFrame()->GetBindings().Invalidate(i->id, true, (i->flags & 0x01));
+        if (rInvalidSlot.id)
+            m_pShell->GetViewShell()->GetViewFrame()->GetBindings().Invalidate(rInvalidSlot.id, true, (rInvalidSlot.flags & 0x01));
         else
             m_pShell->GetViewShell()->GetViewFrame()->GetBindings().InvalidateShell(*m_pShell);
     }
@@ -1320,7 +1318,7 @@ bool FmXFormShell::canConvertCurrentSelectionToControl_Lock(const OString& rIden
 
 void FmXFormShell::checkControlConversionSlotsForCurrentSelection_Lock(Menu& rMenu)
 {
-    for (sal_Int16 i = 0; i < rMenu.GetItemCount(); ++i)
+    for (sal_uInt16 i = 0; i < rMenu.GetItemCount(); ++i)
     {
         // the context is already of a type that corresponds to the entry -> disable
         const sal_uInt16 nId = rMenu.GetItemId(i);
@@ -1548,7 +1546,7 @@ void FmXFormShell::ExecuteSearch_Lock()
                 if (xCurrentCol.is())
                     strActiveField = ::comphelper::getString(xCurrentCol->getPropertyValue(FM_PROP_LABEL));
 
-                // the text fo the current column
+                // the text of the current column
                 Reference< XIndexAccess> xColControls(xGridPeer, UNO_QUERY);
                 Reference< XInterface> xCurControl;
                 xColControls->getByIndex(nViewCol) >>= xCurControl;
@@ -2003,12 +2001,9 @@ bool FmXFormShell::setCurrentSelection_Lock( const InterfaceBag& _rSelection )
 
     // determine the form which all the selected objects belong to, if any
     Reference< XForm > xNewCurrentForm;
-    for ( InterfaceBag::const_iterator loop = m_aCurrentSelection.begin();
-          loop != m_aCurrentSelection.end();
-          ++loop
-        )
+    for (const auto& rpSelection : m_aCurrentSelection)
     {
-        Reference< XForm > xThisRoundsForm( GetForm( *loop ) );
+        Reference< XForm > xThisRoundsForm( GetForm( rpSelection ) );
         OSL_ENSURE( xThisRoundsForm.is(), "FmXFormShell::setCurrentSelection: *everything* should belong to a form!" );
 
         if ( !xNewCurrentForm.is() )
@@ -2561,11 +2556,8 @@ void FmXFormShell::UpdateForms_Lock(bool _bInvalidate)
     Reference< XIndexAccess > xForms;
 
     FmFormPage* pPage = m_pShell->GetCurPage();
-    if ( pPage )
-    {
-        if ( m_pShell->m_bDesignMode )
-            xForms.set(pPage->GetForms( false ), css::uno::UNO_QUERY);
-    }
+    if ( pPage && m_pShell->m_bDesignMode )
+        xForms.set(pPage->GetForms( false ), css::uno::UNO_QUERY);
 
     if ( m_xForms != xForms )
     {
@@ -2960,12 +2952,9 @@ void FmXFormShell::startFiltering_Lock()
     if ( pAdapter.is() )
     {
         const ::std::vector< Reference< runtime::XFormController> >& rControllerList = pAdapter->GetList();
-        for (   ::std::vector< Reference< runtime::XFormController> >::const_iterator j = rControllerList.begin();
-                j != rControllerList.end();
-                ++j
-            )
+        for (const auto& rpController : rControllerList)
         {
-            Reference< XModeSelector> xModeSelector(*j, UNO_QUERY);
+            Reference< XModeSelector> xModeSelector(rpController, UNO_QUERY);
             if (xModeSelector.is())
                 xModeSelector->setMode( "FilterMode" );
         }
@@ -3042,36 +3031,32 @@ void FmXFormShell::stopFiltering_Lock(bool bSave)
 
         if (bSave)
         {
-            for (::std::vector< Reference< runtime::XFormController > > ::const_iterator j = rControllerList.begin();
-                 j != rControllerList.end(); ++j)
+            for (const auto& rpController : rControllerList)
             {
-                if (bSave)
-                {   // remember the current filter settings in case we're going to reload the forms below (which may fail)
-                    try
-                    {
-                        Reference< XPropertySet > xFormAsSet((*j)->getModel(), UNO_QUERY);
-                        aOriginalFilters.push_back(::comphelper::getString(xFormAsSet->getPropertyValue(FM_PROP_FILTER)));
-                        aOriginalApplyFlags.push_back(::comphelper::getBOOL(xFormAsSet->getPropertyValue(FM_PROP_APPLYFILTER)));
-                    }
-                    catch(Exception&)
-                    {
-                        OSL_FAIL("FmXFormShell::stopFiltering : could not get the original filter !");
-                        // put dummies into the arrays so the they have the right size
-
-                        if (aOriginalFilters.size() == aOriginalApplyFlags.size())
-                            // the first getPropertyValue failed -> use two dummies
-                            aOriginalFilters.emplace_back( );
-                        aOriginalApplyFlags.push_back( false );
-                    }
+                // remember the current filter settings in case we're going to reload the forms below (which may fail)
+                try
+                {
+                    Reference< XPropertySet > xFormAsSet(rpController->getModel(), UNO_QUERY);
+                    aOriginalFilters.push_back(::comphelper::getString(xFormAsSet->getPropertyValue(FM_PROP_FILTER)));
+                    aOriginalApplyFlags.push_back(::comphelper::getBOOL(xFormAsSet->getPropertyValue(FM_PROP_APPLYFILTER)));
                 }
-                saveFilter(*j);
+                catch(Exception&)
+                {
+                    OSL_FAIL("FmXFormShell::stopFiltering : could not get the original filter !");
+                    // put dummies into the arrays so the they have the right size
+
+                    if (aOriginalFilters.size() == aOriginalApplyFlags.size())
+                        // the first getPropertyValue failed -> use two dummies
+                        aOriginalFilters.emplace_back( );
+                    aOriginalApplyFlags.push_back( false );
+                }
+                saveFilter(rpController);
             }
         }
-        for (::std::vector< Reference< runtime::XFormController > > ::const_iterator j = rControllerList.begin();
-             j != rControllerList.end(); ++j)
+        for (const auto& rController : rControllerList)
         {
 
-            Reference< XModeSelector> xModeSelector(*j, UNO_QUERY);
+            Reference< XModeSelector> xModeSelector(rController, UNO_QUERY);
             if (xModeSelector.is())
                 xModeSelector->setMode( "DataMode" );
         }
@@ -3413,21 +3398,17 @@ void FmXFormShell::CreateExternalView_Lock()
             // properties describing the "direct" column properties
             const sal_Int16 nListBoxDescription = 6;
             Sequence< PropertyValue> aListBoxDescription(nListBoxDescription);
-            for (   FmMapUString2UString::const_iterator aCtrlSource = aRadioControlSources.begin();
-                    aCtrlSource != aRadioControlSources.end();
-                    ++aCtrlSource, ++nOffset
-                )
+            for (const auto& rCtrlSource : aRadioControlSources)
             {
-
                 PropertyValue* pListBoxDescription = aListBoxDescription.getArray();
                 // label
                 pListBoxDescription->Name = FM_PROP_LABEL;
-                pListBoxDescription->Value <<= (*aCtrlSource).first;
+                pListBoxDescription->Value <<= rCtrlSource.first;
                 ++pListBoxDescription;
 
                 // control source
                 pListBoxDescription->Name = FM_PROP_CONTROLSOURCE;
-                pListBoxDescription->Value <<= (*aCtrlSource).second;
+                pListBoxDescription->Value <<= rCtrlSource.second;
                 ++pListBoxDescription;
 
                 // bound column
@@ -3441,7 +3422,7 @@ void FmXFormShell::CreateExternalView_Lock()
                 ++pListBoxDescription;
 
                 // list source
-                MapUString2UstringSeq::const_iterator aCurrentListSource = aRadioListSources.find((*aCtrlSource).first);
+                MapUString2UstringSeq::const_iterator aCurrentListSource = aRadioListSources.find(rCtrlSource.first);
                 DBG_ASSERT(aCurrentListSource != aRadioListSources.end(),
                     "FmXFormShell::CreateExternalView : inconsistent radio descriptions !");
                 pListBoxDescription->Name = FM_PROP_LISTSOURCE;
@@ -3449,7 +3430,7 @@ void FmXFormShell::CreateExternalView_Lock()
                 ++pListBoxDescription;
 
                 // value list
-                MapUString2UstringSeq::const_iterator aCurrentValueList = aRadioValueLists.find((*aCtrlSource).first);
+                MapUString2UstringSeq::const_iterator aCurrentValueList = aRadioValueLists.find(rCtrlSource.first);
                 DBG_ASSERT(aCurrentValueList != aRadioValueLists.end(),
                     "FmXFormShell::CreateExternalView : inconsistent radio descriptions !");
                 pListBoxDescription->Name = FM_PROP_STRINGITEMLIST;
@@ -3473,7 +3454,7 @@ void FmXFormShell::CreateExternalView_Lock()
 
                 // column position
                 pDispatchArgs->Name = FMARG_ADDCOL_COLUMNPOS;
-                FmMapUString2Int16::const_iterator aOffset = aRadioPositions.find((*aCtrlSource).first);
+                FmMapUString2Int16::const_iterator aOffset = aRadioPositions.find(rCtrlSource.first);
                 DBG_ASSERT(aOffset != aRadioPositions.end(),
                     "FmXFormShell::CreateExternalView : inconsistent radio descriptions !");
                 sal_Int16 nPosition = (*aOffset).second;
@@ -3492,6 +3473,7 @@ void FmXFormShell::CreateExternalView_Lock()
                 // dispatch the "add column"
                 xAddColumnDispatch->dispatch(aAddColumnURL, aDispatchArgs);
                 ++nAddedColumns;
+                ++nOffset;
             }
 
 

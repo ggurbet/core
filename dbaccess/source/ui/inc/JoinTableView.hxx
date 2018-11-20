@@ -24,7 +24,7 @@
 #include <vcl/idle.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/vclptr.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 
 #include "callbacks.hxx"
 #include "TableConnectionData.hxx"
@@ -100,8 +100,6 @@ namespace dbaui
         VclPtr<OTableWindow>           m_pSizingWin;
         VclPtr<OTableConnection>       m_pSelectedConn;
 
-
-        bool                    m_bTrackingInitiallyMoved;
 
         DECL_LINK(OnDragScrollTimer, Timer*, void);
 

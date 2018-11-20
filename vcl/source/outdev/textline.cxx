@@ -32,19 +32,10 @@
 #include <salgdi.hxx>
 #include <impfont.hxx>
 #include <outdata.hxx>
+#include <impglyphitem.hxx>
 
 #define UNDERLINE_LAST      LINESTYLE_BOLDWAVE
 #define STRIKEOUT_LAST      STRIKEOUT_X
-
-bool OutputDevice::ImplIsUnderlineAbove( const vcl::Font& rFont )
-{
-    if ( !rFont.IsVertical() )
-        return false;
-
-    // the underline is right for Japanese only
-    return (LANGUAGE_JAPANESE == rFont.GetLanguage()) ||
-           (LANGUAGE_JAPANESE == rFont.GetCJKContextLanguage());
-}
 
 void OutputDevice::ImplInitTextLineSize()
 {
@@ -765,7 +756,7 @@ void OutputDevice::ImplDrawTextLines( SalLayout& rSalLayout, FontStrikeout eStri
                 }
 
                 // update the length of the textline
-                nWidth += pGlyph->mnNewWidth;
+                nWidth += pGlyph->m_nNewWidth;
             }
             else if( nWidth > 0 )
             {
@@ -940,10 +931,6 @@ void OutputDevice::DrawTextLine( const Point& rPos, long nWidth,
     if ( !IsDeviceOutputNecessary() || ImplIsRecordLayout() )
         return;
 
-    // we need a graphics
-    if( !mpGraphics && !AcquireGraphics() )
-        return;
-
     if( mbInitClipRegion )
         InitClipRegion();
 
@@ -952,11 +939,8 @@ void OutputDevice::DrawTextLine( const Point& rPos, long nWidth,
 
     // initialize font if needed to get text offsets
     // TODO: only needed for mnTextOff!=(0,0)
-    if( mbNewFont && !ImplNewFont() )
+    if (!InitFont())
         return;
-
-    if( mbInitFont )
-        InitFont();
 
     Point aPos = ImplLogicToDevicePixel( rPos );
     DeviceCoordinate fWidth;
@@ -985,7 +969,7 @@ void OutputDevice::DrawWaveLine( const Point& rStartPos, const Point& rEndPos )
     if ( mbOutputClipped )
         return;
 
-    if( mbNewFont && !ImplNewFont() )
+    if (!InitFont())
         return;
 
     Point   aStartPt = ImplLogicToDevicePixel( rStartPos );

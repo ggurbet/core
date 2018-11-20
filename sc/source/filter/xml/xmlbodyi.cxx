@@ -37,6 +37,7 @@
 #include "XMLDDELinksContext.hxx"
 #include "XMLCalculationSettingsContext.hxx"
 #include "XMLTrackedChangesContext.hxx"
+#include "XMLChangeTrackingImportHelper.hxx"
 #include "XMLEmptyContext.hxx"
 #include "XMLDetectiveContext.hxx"
 #include <scerrors.hxx>
@@ -75,7 +76,7 @@ ScXMLBodyContext::ScXMLBodyContext( ScXMLImport& rImport,
         // ODF 1.1 and earlier => GRAM_PODF; ODF 1.2 and later => GRAM_ODFF;
         // no version => earlier than 1.2 => GRAM_PODF.
         formula::FormulaGrammar::Grammar eGrammar = formula::FormulaGrammar::GRAM_ODFF;
-        OUString aVer( rImport.GetODFVersion());
+        const OUString& aVer( rImport.GetODFVersion());
         sal_Int32 nLen = aVer.getLength();
         SAL_INFO("sc.filter", "ScXMLBodyContext ODFVersion: nLen: " << nLen << " str : " << aVer);
         if (!nLen)

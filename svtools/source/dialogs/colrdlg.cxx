@@ -30,6 +30,7 @@
 
 #include <svtools/colrdlg.hxx>
 #include <vcl/weld.hxx>
+#include <osl/diagnose.h>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::lang;
@@ -65,7 +66,7 @@ short SvColorDialog::Execute(weld::Window* pParent)
 
         Reference<css::awt::XWindow> xParent;
         if (pParent)
-            xParent = pParent->GetXWindow();;
+            xParent = pParent->GetXWindow();
 
         Reference< XExecutableDialog > xDialog = css::cui::ColorPicker::createWithParent(xContext, xParent);
         Reference< XPropertyAccess > xPropertyAccess( xDialog, UNO_QUERY_THROW );

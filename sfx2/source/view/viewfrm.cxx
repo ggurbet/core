@@ -202,7 +202,7 @@ bool IsSignPDF(const SfxObjectShellRef& xObjSh)
     SfxMedium* pMedium = xObjSh->GetMedium();
     if (pMedium && !pMedium->IsOriginallyReadOnly())
     {
-        std::shared_ptr<const SfxFilter> pFilter = pMedium->GetFilter();
+        const std::shared_ptr<const SfxFilter>& pFilter = pMedium->GetFilter();
         if (pFilter && pFilter->GetName() == "draw_pdf_import")
             return true;
     }
@@ -1219,7 +1219,7 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                 // inform about the community involvement
                 const sal_Int64 nLastShown = officecfg::Setup::Product::LastTimeGetInvolvedShown::get();
                 const sal_Int64 nNow = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-                const sal_Int64 nPeriodSec(60 * 60 * 24 * 30); // 30 days in seconds
+                const sal_Int64 nPeriodSec(60 * 60 * 24 * 180); // 180 days in seconds
                 bool bUpdateLastTimeGetInvolvedShown = false;
 
                 if (nLastShown == 0)
@@ -1370,14 +1370,7 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
 
 IMPL_LINK_NOARG(SfxViewFrame, GetInvolvedHandler, Button*, void)
 {
-    try
-    {
-        OUString sURL("https://hub.libreoffice.org/joinus/?LOlocale=" + utl::ConfigManager::getUILocale());
-        sfx2::openUriExternally(sURL, false);
-    }
-    catch (const Exception&)
-    {
-    }
+    GetDispatcher()->Execute(SID_GETINVOLVED);
 }
 
 IMPL_LINK(SfxViewFrame, SwitchReadOnlyHandler, Button*, pButton, void)
@@ -1400,7 +1393,6 @@ void SfxViewFrame::Construct_Impl( SfxObjectShell *pObjSh )
 {
     m_pImpl->bResizeInToOut = true;
     m_pImpl->bObjLocked = false;
-    m_pImpl->pFocusWin = nullptr;
     m_pImpl->nCurViewId = SFX_INTERFACE_NONE;
     m_pImpl->bReloading = false;
     m_pImpl->bIsDowning = false;
@@ -1484,7 +1476,6 @@ SfxViewFrame::~SfxViewFrame()
         KillDispatcher_Impl();
 
     m_pImpl->pWindow.disposeAndClear();
-    m_pImpl->pFocusWin.clear();
 
     if ( GetFrame().GetCurrentViewFrame() == this )
         GetFrame().SetCurrentViewFrame_Impl( nullptr );
@@ -1729,38 +1720,35 @@ void SfxViewFrame::MakeActive_Impl( bool bGrabFocus )
     {
         if ( IsVisible() )
         {
-            if ( GetViewShell() )
+            bool bPreview = false;
+            if (GetObjectShell()->IsPreview())
             {
-                bool bPreview = false;
-                if ( GetObjectShell()->IsPreview() )
-                {
-                    bPreview = true;
-                }
+                bPreview = true;
+            }
 
-                css::uno::Reference< css::frame::XFrame > xFrame = GetFrame().GetFrameInterface();
-                if ( !bPreview )
-                {
-                    SetViewFrame( this );
-                    GetBindings().SetActiveFrame( css::uno::Reference< css::frame::XFrame >() );
-                    uno::Reference< frame::XFramesSupplier > xSupp( xFrame, uno::UNO_QUERY );
-                    if ( xSupp.is() )
-                        xSupp->setActiveFrame( uno::Reference < frame::XFrame >() );
+            css::uno::Reference<css::frame::XFrame> xFrame = GetFrame().GetFrameInterface();
+            if (!bPreview)
+            {
+                SetViewFrame(this);
+                GetBindings().SetActiveFrame(css::uno::Reference<css::frame::XFrame>());
+                uno::Reference<frame::XFramesSupplier> xSupp(xFrame, uno::UNO_QUERY);
+                if (xSupp.is())
+                    xSupp->setActiveFrame(uno::Reference<frame::XFrame>());
 
-                    css::uno::Reference< css::awt::XWindow > xContainerWindow = xFrame->getContainerWindow();
-                    VclPtr<vcl::Window> pWindow = VCLUnoHelper::GetWindow(xContainerWindow);
-                    if (pWindow && pWindow->HasChildPathFocus() && bGrabFocus)
-                    {
-                        SfxInPlaceClient *pCli = GetViewShell()->GetUIActiveClient();
-                        if ( !pCli || !pCli->IsObjectUIActive() )
-                                GetFrame().GrabFocusOnComponent_Impl();
-                    }
-                }
-                else
+                css::uno::Reference< css::awt::XWindow > xContainerWindow = xFrame->getContainerWindow();
+                VclPtr<vcl::Window> pWindow = VCLUnoHelper::GetWindow(xContainerWindow);
+                if (pWindow && pWindow->HasChildPathFocus() && bGrabFocus)
                 {
-                    GetBindings().SetDispatcher( GetDispatcher() );
-                    GetBindings().SetActiveFrame( css::uno::Reference< css::frame::XFrame > () );
-                    GetDispatcher()->Update_Impl();
+                    SfxInPlaceClient *pCli = GetViewShell()->GetUIActiveClient();
+                    if (!pCli || !pCli->IsObjectUIActive())
+                        GetFrame().GrabFocusOnComponent_Impl();
                 }
+            }
+            else
+            {
+                GetBindings().SetDispatcher(GetDispatcher());
+                GetBindings().SetActiveFrame(css::uno::Reference<css::frame::XFrame>());
+                GetDispatcher()->Update_Impl();
             }
         }
     }

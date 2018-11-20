@@ -21,7 +21,6 @@
 #define INCLUDED_SC_SOURCE_UI_INC_PVFUNDLG_HXX
 
 #include <com/sun/star/sheet/DataPilotFieldReference.hpp>
-#include <com/sun/star/sheet/DataPilotFieldSortInfo.hpp>
 #include <com/sun/star/sheet/DataPilotFieldOrientation.hpp>
 
 #include <vcl/fixed.hxx>
@@ -193,7 +192,7 @@ public:
                                css::sheet::DataPilotFieldOrientation nOrient);
     virtual ~ScDPShowDetailDlg() override;
 
-    short execute();
+    virtual short run() override;
 
     /**
      * @return String internal name of the selected field.  Note that this may

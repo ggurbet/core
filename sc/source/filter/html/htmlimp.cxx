@@ -18,14 +18,17 @@
  */
 
 #include <scitems.hxx>
+#include <osl/diagnose.h>
 #include <comphelper/string.hxx>
 #include <editeng/eeitem.hxx>
+#include <unotools/charclass.hxx>
 
 #include <editeng/lrspitem.hxx>
 #include <editeng/paperinf.hxx>
 #include <editeng/sizeitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/boxitem.hxx>
+#include <o3tl/make_unique.hxx>
 #include <vcl/svapp.hxx>
 
 #include <htmlimp.hxx>

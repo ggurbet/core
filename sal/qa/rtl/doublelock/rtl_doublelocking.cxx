@@ -46,9 +46,9 @@
 #define CONST_TEST_STRING "gregorian"
 
 namespace {
-struct Gregorian : public rtl::StaticWithInit<rtl::OUString, Gregorian> {
-    const rtl::OUString operator () () {
-        return rtl::OUString( CONST_TEST_STRING );
+struct Gregorian : public rtl::StaticWithInit<OUString, Gregorian> {
+    const OUString operator () () {
+        return OUString( CONST_TEST_STRING );
     }
 };
 }
@@ -80,10 +80,11 @@ namespace ThreadHelper
  */
 class OGetThread : public osl::Thread
 {
+    osl::Mutex m_mutex;
     sal_Int32 m_nOK;
     sal_Int32 m_nFails;
 
-    rtl::OUString m_sConstStr;
+    OUString m_sConstStr;
 public:
     OGetThread()
             :m_nOK(0),
@@ -92,8 +93,8 @@ public:
             m_sConstStr = CONST_TEST_STRING;
         }
 
-    sal_Int32 getOK() { return m_nOK; }
-    sal_Int32 getFails() {return m_nFails;}
+    sal_Int32 getOK() { osl::MutexGuard g(m_mutex); return m_nOK; }
+    sal_Int32 getFails() {osl::MutexGuard g(m_mutex); return m_nFails;}
 
 protected:
 
@@ -105,13 +106,15 @@ protected:
         {
             while(schedule())
             {
-                rtl::OUString aStr = Gregorian::get();
+                OUString aStr = Gregorian::get();
                 if (aStr == m_sConstStr)
                 {
+                    osl::MutexGuard g(m_mutex);
                     m_nOK++;
                 }
                 else
                 {
+                    osl::MutexGuard g(m_mutex);
                     m_nFails++;
                 }
                 ThreadHelper::thread_sleep_tenth_sec(1);
@@ -141,7 +144,7 @@ namespace rtl_DoubleLocking
 
         void getValue_001()
             {
-                rtl::OUString aStr = Gregorian::get();
+                OUString aStr = Gregorian::get();
 
                 CPPUNIT_ASSERT_MESSAGE(
                     "Gregorian::get() failed, wrong value expected.",

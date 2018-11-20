@@ -10,8 +10,6 @@
 #ifndef INCLUDED_SVL_INDEXEDSTYLESHEETS_HXX
 #define INCLUDED_SVL_INDEXEDSTYLESHEETS_HXX
 
-#include <sal/types.h>
-
 #include <svl/style.hxx>
 #include <rtl/ustring.hxx>
 #include <rtl/ref.hxx>
@@ -20,8 +18,6 @@
 
 #include <unordered_map>
 #include <vector>
-
-class SfxStyleSheetBase;
 
 namespace svl {
 
@@ -122,7 +118,7 @@ public:
     /** Obtain the positions of all styles which have a given name
      */
     std::vector<unsigned>
-    FindPositionsByName(const rtl::OUString& name) const;
+    FindPositionsByName(const OUString& name) const;
 
     enum class SearchBehavior { ReturnAll, ReturnFirst };
     /** Obtain the positions of all styles which have a certain name and fulfill a certain condition.
@@ -130,7 +126,7 @@ public:
      * This method is fast because it can use the name-based index
      */
     std::vector<unsigned>
-    FindPositionsByNameAndPredicate(const rtl::OUString& name, StyleSheetPredicate& predicate,
+    FindPositionsByNameAndPredicate(const OUString& name, StyleSheetPredicate& predicate,
             SearchBehavior behavior = SearchBehavior::ReturnAll) const;
 
     /** Obtain the positions of all styles which fulfill a certain condition.
@@ -178,7 +174,7 @@ private:
      *
      * @internal
      * Must be an unordered map. A regular map is too slow for some files. */
-    typedef std::unordered_multimap<rtl::OUString, unsigned> MapType;
+    typedef std::unordered_multimap<OUString, unsigned> MapType;
 
     /** A map which stores the positions of style sheets by their name */
     MapType mPositionsByName;

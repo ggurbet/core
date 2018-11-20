@@ -42,6 +42,7 @@
 #include <com/sun/star/util/XChangesBatch.hpp>
 #include <com/sun/star/util/XChangesNotifier.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <rtl/ustring.hxx>
 
 #include <com/sun/star/text/XTextRange.hpp>
@@ -82,10 +83,8 @@ void SmartTagMgr::RecognizeString( const OUString& rText,
                              const lang::Locale& rLocale,
                              sal_uInt32 nStart, sal_uInt32 nLen ) const
 {
-    for (const auto & i : maRecognizerList)
+    for (const Reference < smarttags::XSmartTagRecognizer >& xRecognizer : maRecognizerList)
     {
-        Reference < smarttags::XSmartTagRecognizer > xRecognizer = i;
-
         // if all smart tag types supported by this recognizer have been
         // disabled, we do not have to call the recognizer:
         bool bCallRecognizer = false;
@@ -104,7 +103,7 @@ void SmartTagMgr::RecognizeString( const OUString& rText,
             {
                 mxBreakIter.set( BreakIterator::create(mxContext) );
             }
-            i->recognize( rText, nStart, nLen,
+            xRecognizer->recognize( rText, nStart, nLen,
                                             smarttags::SmartTagRecognizerMode_PARAGRAPH,
                                             rLocale, xMarkup, maApplicationName, xController,
                                             mxBreakIter );
@@ -128,7 +127,7 @@ void SmartTagMgr::RecognizeTextRange(const Reference< text::XTextRange>& xRange,
         const sal_uInt32 nSmartTagCount = xRecognizer->getSmartTagCount();
         for ( sal_uInt32 j = 0; j < nSmartTagCount && !bCallRecognizer; ++j )
         {
-            const rtl::OUString aSmartTagName = xRecognizer->getSmartTagName(j);
+            const OUString aSmartTagName = xRecognizer->getSmartTagName(j);
             if ( IsSmartTagTypeEnabled( aSmartTagName ) )
                 bCallRecognizer = true;
         }
@@ -229,13 +228,7 @@ void SmartTagMgr::WriteConfiguration( const bool* pIsLabelTextWithSmartTags,
 
         if ( pDisabledTypes )
         {
-            const sal_Int32 nNumberOfDisabledSmartTagTypes = pDisabledTypes->size();
-            Sequence< OUString > aTypes( nNumberOfDisabledSmartTagTypes );
-
-            std::vector< OUString >::const_iterator aIter;
-            sal_Int32 nCount = 0;
-            for ( aIter = pDisabledTypes->begin(); aIter != pDisabledTypes->end(); ++aIter )
-                aTypes[ nCount++ ] = *aIter;
+            Sequence< OUString > aTypes = comphelper::containerToSequence(*pDisabledTypes);
 
             const Any aNewTypes = makeAny( aTypes );
 

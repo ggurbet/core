@@ -152,23 +152,6 @@ void Qt5Graphics::GetGlyphWidths(const PhysicalFontFace* /*pPFF*/, bool /*bVerti
 {
 }
 
-bool Qt5Graphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect)
-{
-    const int nLevel = rGlyph.mnFallbackLevel;
-    if (nLevel >= MAX_FALLBACK)
-        return false;
-
-    Qt5Font* pFont = m_pTextStyle[nLevel].get();
-    if (!pFont)
-        return false;
-
-    QRawFont aRawFont(QRawFont::fromFont(*pFont));
-    rRect = toRectangle(aRawFont.boundingRect(rGlyph.maGlyphId).toAlignedRect());
-    return true;
-}
-
-bool Qt5Graphics::GetGlyphOutline(const GlyphItem&, basegfx::B2DPolyPolygon&) { return false; }
-
 class Qt5CommonSalLayout : public GenericSalLayout
 {
 public:
@@ -182,9 +165,9 @@ public:
 
 std::unique_ptr<SalLayout> Qt5Graphics::GetTextLayout(ImplLayoutArgs&, int nFallbackLevel)
 {
-    if (m_pTextStyle[nFallbackLevel])
-        return std::unique_ptr<SalLayout>(new Qt5CommonSalLayout(*m_pTextStyle[nFallbackLevel]));
-    return std::unique_ptr<SalLayout>();
+    if (!m_pTextStyle[nFallbackLevel])
+        return nullptr;
+    return o3tl::make_unique<Qt5CommonSalLayout>(*m_pTextStyle[nFallbackLevel]);
 }
 
 void Qt5Graphics::DrawTextLayout(const GenericSalLayout& rLayout)
@@ -209,7 +192,7 @@ void Qt5Graphics::DrawTextLayout(const GenericSalLayout& rLayout)
     int nStart = 0;
     while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
     {
-        glyphIndexes.push_back(pGlyph->maGlyphId);
+        glyphIndexes.push_back(pGlyph->m_aGlyphId);
         positions.push_back(QPointF(aPos.X(), aPos.Y()));
     }
 

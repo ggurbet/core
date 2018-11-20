@@ -1354,9 +1354,9 @@ void GtkSalFrame::ReleaseGraphics( SalGraphics* pGraphics )
     m_bGraphics = false;
 }
 
-bool GtkSalFrame::PostEvent(ImplSVEvent* pData)
+bool GtkSalFrame::PostEvent(std::unique_ptr<ImplSVEvent> pData)
 {
-    getDisplay()->SendInternalEvent( this, pData );
+    getDisplay()->SendInternalEvent( this, pData.release() );
     return true;
 }
 
@@ -2467,6 +2467,13 @@ void GtkSalFrame::SetModal(bool bModal)
     gtk_window_set_modal(GTK_WINDOW(m_pWindow), bModal);
 }
 
+bool GtkSalFrame::GetModal() const
+{
+    if (!m_pWindow)
+        return false;
+    return gtk_window_get_modal(GTK_WINDOW(m_pWindow));
+}
+
 gboolean GtkSalFrame::signalTooltipQuery(GtkWidget*, gint /*x*/, gint /*y*/,
                                      gboolean /*keyboard_mode*/, GtkTooltip *tooltip,
                                      gpointer frame)
@@ -2493,6 +2500,12 @@ bool GtkSalFrame::ShowTooltip(const OUString& rHelpText, const tools::Rectangle&
     m_aHelpArea = rHelpArea;
     gtk_widget_trigger_tooltip_query(getMouseEventWidget());
     return true;
+}
+
+void GtkSalFrame::HideTooltip()
+{
+    m_aTooltip.clear();
+    gtk_widget_trigger_tooltip_query(getMouseEventWidget());
 }
 
 namespace
@@ -2618,6 +2631,15 @@ gboolean GtkSalFrame::signalButton( GtkWidget*, GdkEventButton* pEvent, gpointer
     GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
     GtkWidget* pEventWidget = pThis->getMouseEventWidget();
     bool bDifferentEventWindow = pEvent->window != widget_get_window(pEventWidget);
+
+    // tdf#120764 It isn't allowed under wayland to have two visible popups that share
+    // the same top level parent. The problem is that since gtk 3.24 tooltips are also
+    // implemented as popups, which means that we cannot show any popup if there is a
+    // visible tooltip. In fact, gtk will hide the tooltip by itself after this handler,
+    // in case of a button press event. But if we intend to show a popup on button press
+    // it will be too late, so just do it here:
+    if (pEvent->type == GDK_BUTTON_PRESS)
+        pThis->HideTooltip();
 
     SalMouseEvent aEvent;
     SalEvent nEventType = SalEvent::NONE;
@@ -4233,12 +4255,15 @@ gboolean GtkSalFrame::IMHandler::signalIMRetrieveSurrounding( GtkIMContext* pCon
     if (xText.is())
     {
         sal_Int32 nPosition = xText->getCaretPosition();
-        OUString sAllText = xText->getText();
-        OString sUTF = OUStringToOString(sAllText, RTL_TEXTENCODING_UTF8);
-        OUString sCursorText(sAllText.copy(0, nPosition));
-        gtk_im_context_set_surrounding(pContext, sUTF.getStr(), sUTF.getLength(),
-            OUStringToOString(sCursorText, RTL_TEXTENCODING_UTF8).getLength());
-        return true;
+        if (nPosition != -1)
+        {
+            OUString sAllText = xText->getText();
+            OString sUTF = OUStringToOString(sAllText, RTL_TEXTENCODING_UTF8);
+            OUString sCursorText(sAllText.copy(0, nPosition));
+            gtk_im_context_set_surrounding(pContext, sUTF.getStr(), sUTF.getLength(),
+                OUStringToOString(sCursorText, RTL_TEXTENCODING_UTF8).getLength());
+            return true;
+        }
     }
 
     return false;

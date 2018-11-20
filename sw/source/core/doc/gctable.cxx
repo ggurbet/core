@@ -18,10 +18,11 @@
  */
 
 #include <hintids.hxx>
-#include <editeng/boxitem.hxx>
 #include <tblrwcl.hxx>
 #include <swtblfmt.hxx>
 #include <algorithm>
+#include <editeng/boxitem.hxx>
+#include <osl/diagnose.h>
 
 using namespace ::editeng;
 
@@ -301,9 +302,8 @@ void sw_GC_Line_Border( const SwTableLine* pLine, SwGCLineBorder* pGCPara )
         } while( true );
     }
 
-    for( SwTableBoxes::const_iterator it = pLine->GetTabBoxes().begin();
-             it != pLine->GetTabBoxes().end(); ++it)
-        lcl_GC_Box_Border(*it, pGCPara );
+    for( const auto& rpBox : pLine->GetTabBoxes() )
+        lcl_GC_Box_Border(rpBox, pGCPara );
 
     ++pGCPara->nLinePos;
 }

@@ -285,14 +285,13 @@ static Reference< XFormController >  getControllerSearchChildren( const Referenc
 Reference< XFormController >  FormViewPageWindowAdapter::getController( const Reference< XForm > & xForm ) const
 {
     Reference< XTabControllerModel >  xModel(xForm, UNO_QUERY);
-    for (::std::vector< Reference< XFormController > >::const_iterator i = m_aControllerList.begin();
-         i != m_aControllerList.end(); ++i)
+    for (const auto& rpController : m_aControllerList)
     {
-        if ((*i)->getModel().get() == xModel.get())
-            return *i;
+        if (rpController->getModel().get() == xModel.get())
+            return rpController;
 
         // the current-round controller isn't the right one. perhaps one of its children ?
-        Reference< XFormController >  xChildSearch = getControllerSearchChildren(Reference< XIndexAccess > (*i, UNO_QUERY), xModel);
+        Reference< XFormController >  xChildSearch = getControllerSearchChildren(Reference< XIndexAccess > (rpController, UNO_QUERY), xModel);
         if (xChildSearch.is())
             return xChildSearch;
     }
@@ -442,12 +441,9 @@ FmXFormView::~FmXFormView()
     DBG_ASSERT( m_aPageWindowAdapters.empty(), "FmXFormView::~FmXFormView: Window list not empty!" );
     if ( !m_aPageWindowAdapters.empty() )
     {
-        for (   PageWindowAdapterList::const_iterator loop = m_aPageWindowAdapters.begin();
-                loop != m_aPageWindowAdapters.end();
-                ++loop
-            )
+        for (const auto& rpAdapter : m_aPageWindowAdapters)
         {
-            (*loop)->dispose();
+            rpAdapter->dispose();
         }
     }
 
@@ -527,14 +523,10 @@ void SAL_CALL FmXFormView::elementRemoved(const ContainerEvent& /*evt*/)
 
 PFormViewPageWindowAdapter FmXFormView::findWindow( const Reference< XControlContainer >& _rxCC )  const
 {
-    for (   PageWindowAdapterList::const_iterator i = m_aPageWindowAdapters.begin();
-            i != m_aPageWindowAdapters.end();
-            ++i
-        )
-    {
-        if ( _rxCC == (*i)->getControlContainer() )
-            return *i;
-    }
+    auto i = std::find_if(m_aPageWindowAdapters.begin(), m_aPageWindowAdapters.end(),
+        [&_rxCC](const PFormViewPageWindowAdapter& rpAdapter) { return _rxCC == rpAdapter->getControlContainer(); });
+    if (i != m_aPageWindowAdapters.end())
+        return *i;
     return nullptr;
 }
 
@@ -545,7 +537,7 @@ void FmXFormView::addWindow(const SdrPageWindow& rWindow)
     if ( !pFormPage )
         return;
 
-    Reference< XControlContainer > xCC = rWindow.GetControlContainer();
+    const Reference< XControlContainer >& xCC = rWindow.GetControlContainer();
     if  (   xCC.is()
         &&  ( !findWindow( xCC ).is() )
         )
@@ -568,21 +560,16 @@ void FmXFormView::removeWindow( const Reference< XControlContainer >& _rxCC )
     // - a window is deleted while in the design mode
     // - the control container for a window is removed while the active mode is on
 
-    for (   PageWindowAdapterList::iterator i = m_aPageWindowAdapters.begin();
-            i != m_aPageWindowAdapters.end();
-            ++i
-        )
+    auto i = std::find_if(m_aPageWindowAdapters.begin(), m_aPageWindowAdapters.end(),
+        [&_rxCC](const PFormViewPageWindowAdapter& rpAdapter) { return _rxCC == rpAdapter->getControlContainer(); });
+    if (i != m_aPageWindowAdapters.end())
     {
-        if ( _rxCC != (*i)->getControlContainer() )
-            continue;
-
         Reference< XContainer >  xContainer( _rxCC, UNO_QUERY );
         if ( xContainer.is() )
             xContainer->removeContainerListener( this );
 
         (*i)->dispose();
         m_aPageWindowAdapters.erase( i );
-        break;
     }
 }
 
@@ -624,21 +611,15 @@ void FmXFormView::resumeTabOrderUpdate()
     m_isTabOrderUpdateSuspended = false;
 
     // update the tab orders for all components which were collected since the suspendTabOrderUpdate call.
-    for (   MapControlContainerToSetOfForms::const_iterator container = m_aNeedTabOrderUpdate.begin();
-            container != m_aNeedTabOrderUpdate.end();
-            ++container
-        )
+    for (const auto& rContainer : m_aNeedTabOrderUpdate)
     {
-        PFormViewPageWindowAdapter pAdapter = findWindow( container->first );
+        PFormViewPageWindowAdapter pAdapter = findWindow( rContainer.first );
         if ( !pAdapter.is() )
             continue;
 
-        for (   SetOfForms::const_iterator form = container->second.begin();
-                form != container->second.end();
-                ++form
-            )
+        for (const auto& rForm : rContainer.second)
         {
-            pAdapter->updateTabOrder( *form );
+            pAdapter->updateTabOrder( rForm );
         }
     }
     m_aNeedTabOrderUpdate.clear();
@@ -727,24 +708,17 @@ IMPL_LINK_NOARG(FmXFormView, OnActivate, void*, void)
 
         vcl::Window* pWindow = const_cast<vcl::Window*>(static_cast<const vcl::Window*>(m_pView->GetActualOutDev()));
         PFormViewPageWindowAdapter pAdapter = m_aPageWindowAdapters.empty() ? nullptr : m_aPageWindowAdapters[0];
-        for (   PageWindowAdapterList::const_iterator i = m_aPageWindowAdapters.begin();
-                i != m_aPageWindowAdapters.end();
-                ++i
-            )
+        for (const auto& rpPageWindowAdapter : m_aPageWindowAdapters)
         {
-            if ( pWindow == (*i)->getWindow() )
-                pAdapter =*i;
+            if ( pWindow == rpPageWindowAdapter->getWindow() )
+                pAdapter = rpPageWindowAdapter;
         }
 
         if ( pAdapter.is() )
         {
             Reference< XFormController > xControllerToActivate;
-            for (   ::std::vector< Reference< XFormController > >::const_iterator i = pAdapter->GetList().begin();
-                    i != pAdapter->GetList().end();
-                    ++i
-                )
+            for (const Reference< XFormController > & xController : pAdapter->GetList())
             {
-                const Reference< XFormController > & xController = *i;
                 if ( !xController.is() )
                     continue;
 
@@ -915,12 +889,8 @@ Reference< XFormController > FmXFormView::getFormController( const Reference< XF
 {
     Reference< XFormController > xController;
 
-    for (   PageWindowAdapterList::const_iterator pos = m_aPageWindowAdapters.begin();
-            pos != m_aPageWindowAdapters.end();
-            ++pos
-        )
+    for (const PFormViewPageWindowAdapter& pAdapter : m_aPageWindowAdapters)
     {
-        const PFormViewPageWindowAdapter pAdapter( *pos );
         if ( !pAdapter.get() )
         {
             SAL_WARN( "svx.form", "FmXFormView::getFormController: invalid page window adapter!" );
@@ -1470,7 +1440,7 @@ SdrObjectUniquePtr FmXFormView::implCreateXFormsControl( const svx::OXFormsDescr
         else {
 
             // create a button control
-            const MapMode eTargetMode( pOutDev->GetMapMode() );
+            const MapMode& eTargetMode( pOutDev->GetMapMode() );
             const MapMode eSourceMode(MapUnit::Map100thMM);
             const sal_uInt16 nObjID = OBJ_FM_BUTTON;
             ::Size controlSize(4000, 500);
@@ -1526,8 +1496,6 @@ bool FmXFormView::createControlLabelPair( OutputDevice const & _rOutDev, sal_Int
         _rFieldPostfix,
         SdrInventor::FmForm,
         OBJ_FM_FIXEDTEXT,
-        nullptr,
-        nullptr,
 
         // tdf#118963 Hand over a SdrModel to SdrObject-creation. It uses the local m_pView
         // and already returning false when nullptr == getView() could be done, but m_pView
@@ -1559,7 +1527,7 @@ bool FmXFormView::createControlLabelPair( OutputDevice const & _rOutDev, sal_Int
     const Reference< XPropertySet >& _rxField,
     const Reference< XNumberFormats >& _rxNumberFormats, sal_uInt16 _nControlObjectID,
     const OUString& _rFieldPostfix, SdrInventor _nInventor, sal_uInt16 _nLabelObjectID,
-    SdrPage* _pLabelPage, SdrPage* _pControlPage, SdrModel& _rModel,
+    SdrModel& _rModel,
     std::unique_ptr<SdrUnoObj, SdrObjectFreeOp>& _rpLabel, std::unique_ptr<SdrUnoObj, SdrObjectFreeOp>& _rpControl)
 {
     sal_Int32 nDataType = 0;
@@ -1606,7 +1574,6 @@ bool FmXFormView::createControlLabelPair( OutputDevice const & _rOutDev, sal_Int
                 _rModel,
                 _nInventor,
                 _nLabelObjectID)));
-        _pLabelPage->NbcInsertObject(pLabel.get());
 
         OSL_ENSURE(pLabel, "FmXFormView::createControlLabelPair: could not create the label!");
 
@@ -1639,7 +1606,6 @@ bool FmXFormView::createControlLabelPair( OutputDevice const & _rOutDev, sal_Int
             _rModel,
              _nInventor,
              _nControlObjectID)));
-    _pControlPage->NbcInsertObject(pControl.get());
 
     OSL_ENSURE(pControl, "FmXFormView::createControlLabelPair: could not create the control!");
 

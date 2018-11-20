@@ -106,6 +106,8 @@ KDE5FilePicker::KDE5FilePicker(QFileDialog::FileMode eMode)
 
     connect(_dialog, &QFileDialog::filterSelected, this, &KDE5FilePicker::filterChanged);
     connect(_dialog, &QFileDialog::fileSelected, this, &KDE5FilePicker::selectionChanged);
+    connect(this, &KDE5FilePicker::executeSignal, this, &KDE5FilePicker::execute,
+            Qt::BlockingQueuedConnection);
 
     // XExecutableDialog
     connect(this, &KDE5FilePicker::setTitleSignal, this, &KDE5FilePicker::setTitleSlot,
@@ -146,6 +148,8 @@ KDE5FilePicker::KDE5FilePicker(QFileDialog::FileMode eMode)
     // XFilePicker2
     connect(this, &KDE5FilePicker::getSelectedFilesSignal, this,
             &KDE5FilePicker::getSelectedFilesSlot, Qt::BlockingQueuedConnection);
+    connect(this, &KDE5FilePicker::getFilesSignal, this, &KDE5FilePicker::getFiles,
+            Qt::BlockingQueuedConnection);
 
     qApp->installEventFilter(this);
 }
@@ -183,6 +187,12 @@ void SAL_CALL KDE5FilePicker::setTitle(const OUString& title)
 
 sal_Int16 SAL_CALL KDE5FilePicker::execute()
 {
+    if (qApp->thread() != QThread::currentThread())
+    {
+        //SolarMutexReleaser aReleaser;
+        return Q_EMIT executeSignal();
+    }
+
     if (!_filters.isEmpty())
         _dialog->setNameFilters(_filters);
     if (!_currentFilter.isEmpty())
@@ -202,7 +212,7 @@ void SAL_CALL KDE5FilePicker::setMultiSelectionMode(sal_Bool multiSelect)
         return Q_EMIT setMultiSelectionSignal(multiSelect);
     }
 
-    if (mbIsFolderPicker)
+    if (mbIsFolderPicker || _dialog->acceptMode() == QFileDialog::AcceptSave)
         return;
 
     _dialog->setFileMode(multiSelect ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
@@ -244,6 +254,12 @@ OUString SAL_CALL KDE5FilePicker::getDisplayDirectory()
 
 uno::Sequence<OUString> SAL_CALL KDE5FilePicker::getFiles()
 {
+    if (qApp->thread() != QThread::currentThread())
+    {
+        //SolarMutexReleaser aReleaser;
+        return Q_EMIT getFilesSignal();
+    }
+
     uno::Sequence<OUString> seq = getSelectedFiles();
     if (seq.getLength() > 1)
         seq.realloc(1);

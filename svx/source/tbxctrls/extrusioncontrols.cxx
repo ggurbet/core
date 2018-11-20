@@ -345,7 +345,7 @@ ExtrusionDepthDialog::ExtrusionDepthDialog(weld::Window* pParent, double fDepth,
     : GenericDialogController(pParent, "svx/ui/extrustiondepthdialog.ui", "ExtrustionDepthDialog")
     , m_xMtrDepth(m_xBuilder->weld_metric_spin_button("depth", eDefaultUnit))
 {
-    m_xMtrDepth->set_value(static_cast<int>(fDepth) * 100, FUNIT_100TH_MM);
+    m_xMtrDepth->set_value(static_cast<int>(fDepth) * 100, FieldUnit::MM_100TH);
 }
 
 ExtrusionDepthDialog::~ExtrusionDepthDialog()
@@ -354,7 +354,7 @@ ExtrusionDepthDialog::~ExtrusionDepthDialog()
 
 double ExtrusionDepthDialog::getDepth() const
 {
-    return static_cast<double>(m_xMtrDepth->get_value(FUNIT_100TH_MM)) / 100.0;
+    return static_cast<double>(m_xMtrDepth->get_value(FieldUnit::MM_100TH)) / 100.0;
 }
 
 double const aDepthListInch[] = { 0, 1270,2540,5080,10160 };
@@ -368,7 +368,7 @@ ExtrusionDepthWindow::ExtrusionDepthWindow(
     vcl::Window* pParentWindow
 )   : ToolbarMenu( rController.getFrameInterface(), pParentWindow, WB_STDPOPUP )
     , mrController( rController )
-    , meUnit(FUNIT_NONE)
+    , meUnit(FieldUnit::NONE)
     , mfDepth( -1.0 )
 {
     SetSelectHdl( LINK( this, ExtrusionDepthWindow, SelectHdl ) );
@@ -746,18 +746,15 @@ void ExtrusionLightingWindow::SelectHdl(void const * pControl)
     if( pControl == this )
     {
         int nLevel = getSelectedEntryId();
-        if( nLevel >= 0 )
+        if( nLevel >= 0 && nLevel != 3 )
         {
-            if( nLevel != 3 )
-            {
-                Sequence< PropertyValue > aArgs( 1 );
-                aArgs[0].Name = OUString(g_sExtrusionLightingIntensity).copy(5);
-                aArgs[0].Value <<= static_cast<sal_Int32>(nLevel);
+            Sequence< PropertyValue > aArgs( 1 );
+            aArgs[0].Name = OUString(g_sExtrusionLightingIntensity).copy(5);
+            aArgs[0].Value <<= static_cast<sal_Int32>(nLevel);
 
-                mrController.dispatchCommand( g_sExtrusionLightingIntensity, aArgs );
+            mrController.dispatchCommand( g_sExtrusionLightingIntensity, aArgs );
 
-                implSetIntensity( nLevel, true );
-            }
+            implSetIntensity( nLevel, true );
         }
     }
     else

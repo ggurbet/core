@@ -1383,7 +1383,7 @@ bool SwDoc::FieldHidesPara(const SwField& rField) const
             return static_cast<const SwHiddenParaField&>(rField).IsHidden();
         case SwFieldIds::Database:
             return FieldCanHideParaWeight(SwFieldIds::Database)
-                   && rField.ExpandField(true).isEmpty();
+                   && rField.ExpandField(true, nullptr).isEmpty();
         default:
             return false;
     }
@@ -1584,7 +1584,7 @@ bool SwDoc::RestoreInvisibleContent()
     return false;
 }
 
-bool SwDoc::ConvertFieldsToText()
+bool SwDoc::ConvertFieldsToText(SwRootFrame const& rLayout)
 {
     bool bRet = false;
     getIDocumentFieldsAccess().LockExpFields();
@@ -1605,11 +1605,9 @@ bool SwDoc::ConvertFieldsToText()
         for( SwFormatField* pCurFieldFormat = aIter.First(); pCurFieldFormat; pCurFieldFormat = aIter.Next() )
             aFieldFormats.push_back(pCurFieldFormat);
 
-        std::vector<const SwFormatField*>::iterator aBegin = aFieldFormats.begin();
-        std::vector<const SwFormatField*>::iterator aEnd = aFieldFormats.end();
-        while(aBegin != aEnd)
+        for(const auto& rpFieldFormat : aFieldFormats)
         {
-            const SwTextField *pTextField = (*aBegin)->GetTextField();
+            const SwTextField *pTextField = rpFieldFormat->GetTextField();
             // skip fields that are currently not in the document
             // e.g. fields in undo or redo array
 
@@ -1633,7 +1631,7 @@ bool SwDoc::ConvertFieldsToText()
                         nWhich != SwFieldIds::RefPageGet&&
                         nWhich != SwFieldIds::RefPageSet))
                 {
-                    OUString sText = pField->ExpandField(true);
+                    OUString sText = pField->ExpandField(true, &rLayout);
 
                     // database fields should not convert their command into text
                     if( SwFieldIds::Database == pCurType->Which() && !static_cast<const SwDBField*>(pField)->IsInitialized())
@@ -1677,7 +1675,6 @@ bool SwDoc::ConvertFieldsToText()
                     bRet = true;
                 }
             }
-            ++aBegin;
         }
     }
 

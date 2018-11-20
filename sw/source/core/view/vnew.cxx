@@ -85,7 +85,7 @@ void SwViewShell::Init( const SwViewOption *pNewOpt )
     SAL_INFO( "sw.core", "View::Init - before InitPrt" );
     OutputDevice* pPDFOut = nullptr;
 
-    if ( mpOut && mpOut->GetPDFWriter() )
+    if (mpOut && (OUTDEV_PDF == mpOut->GetOutDevType()))
         pPDFOut = mpOut;
 
     // Only setup the printer if we need one:
@@ -151,7 +151,6 @@ SwViewShell::SwViewShell( SwDoc& rDocument, vcl::Window *pWindow,
     mpOut( pOutput ? pOutput
                   : pWindow ? static_cast<OutputDevice*>(pWindow)
                             : static_cast<OutputDevice*>(rDocument.getIDocumentDeviceAccess().getPrinter( true ))),
-    mpTmpRef( nullptr ),
     mpAccOptions( new SwAccessibilityOptions ),
     mbShowHeaderSeparator( false ),
     mbShowFooterSeparator( false ),
@@ -222,7 +221,6 @@ SwViewShell::SwViewShell( SwViewShell& rShell, vcl::Window *pWindow,
     mpOut( pOutput ? pOutput
                   : pWindow ? static_cast<OutputDevice*>(pWindow)
                             : static_cast<OutputDevice*>(rShell.GetDoc()->getIDocumentDeviceAccess().getPrinter( true ))),
-    mpTmpRef( nullptr ),
     mpAccOptions( new SwAccessibilityOptions ),
     mbShowHeaderSeparator( false ),
     mbShowFooterSeparator( false ),
@@ -356,7 +354,6 @@ SwViewShell::~SwViewShell()
         }
     }
 
-    mpTmpRef.disposeAndClear();
     mpAccOptions.reset();
 }
 

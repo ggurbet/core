@@ -577,7 +577,7 @@ IMPL_LINK_NOARG(SfxTemplateManagerDlg, MoveClickHdl, Button*, void)
 
     if (aDlg.run() == RET_OK)
     {
-        OUString sCategory = aDlg.GetSelectedCategory();
+        const OUString& sCategory = aDlg.GetSelectedCategory();
         bool bIsNewCategory = aDlg.IsNewCategoryCreated();
         if(bIsNewCategory)
         {
@@ -616,7 +616,7 @@ IMPL_LINK_NOARG(SfxTemplateManagerDlg, ImportClickHdl, Button*, void)
 
     if (aDlg.run() == RET_OK)
     {
-        OUString sCategory = aDlg.GetSelectedCategory();
+        const OUString& sCategory = aDlg.GetSelectedCategory();
         bool bIsNewCategory = aDlg.IsNewCategoryCreated();
         if(bIsNewCategory)
         {
@@ -1176,7 +1176,7 @@ void SfxTemplateManagerDlg::OnCategoryDelete()
 
     if (aDlg.run() == RET_OK)
     {
-        OUString sCategory = aDlg.GetSelectedCategory();
+        const OUString& sCategory = aDlg.GetSelectedCategory();
         std::unique_ptr<weld::MessageDialog> popupDlg(Application::CreateMessageDialog(GetFrameWeld(), VclMessageType::Question, VclButtonsType::YesNo,
                                                       SfxResId(STR_QMSG_SEL_FOLDER_DELETE)));
         if (popupDlg->run() != RET_YES)
@@ -1328,6 +1328,7 @@ SfxTemplateCategoryDialog::SfxTemplateCategoryDialog(weld::Window* pParent)
     , mxCreateLabel(m_xBuilder->weld_label("create_label"))
     , mxOKButton(m_xBuilder->weld_button("ok"))
 {
+    mxLBCategory->append_text(SfxResId(STR_CATEGORY_NONE));
     mxNewCategoryEdit->connect_changed(LINK(this, SfxTemplateCategoryDialog, NewCategoryEditHdl));
     mxLBCategory->set_size_request(mxLBCategory->get_approximate_digit_width() * 32,
                                    mxLBCategory->get_height_rows(8));

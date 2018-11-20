@@ -34,7 +34,6 @@
 
 #include <osl/diagnose.h>
 #include <rtl/math.hxx>
-#include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 
 #include <math.h>
@@ -78,7 +77,6 @@ const char* aFuncStrIds[] =     // matching enum ScSubTotalFunc
 
 bool lcl_SearchMember( const std::vector<std::unique_ptr<ScDPResultMember>>& list, SCROW nOrder, SCROW& rIndex)
 {
-    rIndex = list.size();
     bool bFound = false;
     SCROW  nLo = 0;
     SCROW nHi = list.size() - 1;

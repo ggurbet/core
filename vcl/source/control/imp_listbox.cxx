@@ -32,6 +32,7 @@
 #include <controldata.hxx>
 #include <svdata.hxx>
 #include <window.h>
+#include <impglyphitem.hxx>
 
 #include <com/sun/star/i18n/XCollator.hpp>
 #include <com/sun/star/accessibility/XAccessible.hpp>
@@ -39,6 +40,7 @@
 
 #include <rtl/instance.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <comphelper/string.hxx>
 #include <comphelper/processfactory.hxx>
 
@@ -120,8 +122,8 @@ sal_Int32 ListBox::NaturalSortCompare(const OUString &rA, const OUString &rB)
 
 sal_Int32 ImplEntryList::InsertEntry( sal_Int32 nPos, ImplEntryType* pNewEntry, bool bSort )
 {
-    if (nPos < 0 || LISTBOX_MAX_ENTRIES <= maEntries.size())
-        return LISTBOX_ERROR;
+    assert(nPos >= 0);
+    assert(maEntries.size() < LISTBOX_MAX_ENTRIES);
 
     if ( !!pNewEntry->maImage )
         mnImages++;
@@ -369,19 +371,6 @@ void* ImplEntryList::GetEntryData( sal_Int32 nPos ) const
     return pImplEntry ? pImplEntry->mpUserData : nullptr;
 }
 
-void ImplEntryList::SetEntryTextColor(sal_Int32 nPos, const Color* pColor)
-{
-    ImplEntryType* pImplEntry = GetEntry(nPos);
-    if (pImplEntry)
-        pImplEntry->mxTextColor.reset(pColor ? new Color(*pColor) : nullptr);
-}
-
-const Color* ImplEntryList::GetEntryTextColor(sal_Int32 nPos) const
-{
-    ImplEntryType* pImplEntry = GetEntry(nPos);
-    return pImplEntry ? pImplEntry->mxTextColor.get() : nullptr;
-}
-
 void ImplEntryList::SetEntryFlags( sal_Int32 nPos, ListBoxEntryFlags nFlags )
 {
     ImplEntryType* pImplEntry = GetEntry( nPos );
@@ -617,7 +606,7 @@ struct ImplEntryMetrics
 
 SalLayoutGlyphs* ImplEntryType::GetTextGlyphs(OutputDevice* pOutputDevice)
 {
-    if (!maStrGlyphs.empty())
+    if (maStrGlyphs.IsValid())
         // Use pre-calculated result.
         return &maStrGlyphs;
 
@@ -763,8 +752,8 @@ void ImplListBoxWindow::ImplCallSelect()
 
 sal_Int32 ImplListBoxWindow::InsertEntry( sal_Int32 nPos, ImplEntryType* pNewEntry )
 {
-    if (nPos < 0 || LISTBOX_MAX_ENTRIES <= mpEntryList->GetEntryCount())
-        return LISTBOX_ERROR;
+    assert(nPos >= 0);
+    assert(mpEntryList->GetEntryCount() < LISTBOX_MAX_ENTRIES);
 
     ImplClearLayoutData();
     sal_Int32 nNewPos = mpEntryList->InsertEntry( nPos, pNewEntry, mbSort );
@@ -1505,16 +1494,13 @@ bool ImplListBoxWindow::ProcessKeyInput( const KeyEvent& rKEvt )
             {
                 SetTopEntry( 0 );
             }
-            else if ( !bCtrl && !bMod2 )
+            else if ( !bCtrl && !bMod2 &&  mnCurrentPos )
             {
-                if ( mnCurrentPos )
-                {
-                    nSelect = mpEntryList->FindFirstSelectable( mpEntryList->GetEntryCount() ? 0 : LISTBOX_ENTRY_NOTFOUND );
-                    if( mnTop != 0 )
-                        SetTopEntry( 0 );
+                nSelect = mpEntryList->FindFirstSelectable( mpEntryList->GetEntryCount() ? 0 : LISTBOX_ENTRY_NOTFOUND );
+                if( mnTop != 0 )
+                    SetTopEntry( 0 );
 
-                    bDone = true;
-                }
+                bDone = true;
             }
             maQuickSelectionEngine.Reset();
         }
@@ -1742,8 +1728,6 @@ void ImplListBoxWindow::ImplPaint(vcl::RenderContext& rRenderContext, sal_Int32 
         ApplySettings(rRenderContext);
         if (!IsEnabled())
             rRenderContext.SetTextColor(rStyleSettings.GetDisableColor());
-        else if (const Color* pTextColor = mpEntryList->GetEntryTextColor(nPos))
-            rRenderContext.SetTextColor(*pTextColor);
     }
     rRenderContext.SetTextFillColor();
 
@@ -2219,11 +2203,6 @@ sal_Int32 ImplListBox::InsertEntry( sal_Int32 nPos, const OUString& rStr )
 {
     ImplEntryType* pNewEntry = new ImplEntryType( rStr );
     sal_Int32 nNewPos = maLBWindow->InsertEntry( nPos, pNewEntry );
-    if (nNewPos == LISTBOX_ERROR)
-    {
-        delete pNewEntry;
-        return nNewPos;
-    }
     CompatStateChanged( StateChangedType::Data );
     return nNewPos;
 }
@@ -2232,11 +2211,6 @@ sal_Int32 ImplListBox::InsertEntry( sal_Int32 nPos, const OUString& rStr, const 
 {
     ImplEntryType* pNewEntry = new ImplEntryType( rStr, rImage );
     sal_Int32 nNewPos = maLBWindow->InsertEntry( nPos, pNewEntry );
-    if (nNewPos == LISTBOX_ERROR)
-    {
-        delete pNewEntry;
-        return nNewPos;
-    }
     CompatStateChanged( StateChangedType::Data );
     return nNewPos;
 }

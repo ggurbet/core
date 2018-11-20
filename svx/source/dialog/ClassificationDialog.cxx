@@ -506,7 +506,7 @@ void ClassificationDialog::toggleWidgetsDependingOnCategory()
     for (sal_Int32 nParagraph = 0; nParagraph < rEditEngine.GetParagraphCount(); ++nParagraph)
     {
         sal_uInt16 nFieldCount = rEditEngine.GetFieldCount(nParagraph);
-        for (sal_Int16 nField = 0; nField < nFieldCount; ++nField)
+        for (sal_uInt16 nField = 0; nField < nFieldCount; ++nField)
         {
             EFieldInfo aFieldInfo = rEditEngine.GetFieldInfo(nParagraph, nField);
             if (aFieldInfo.pFieldItem)
@@ -697,7 +697,7 @@ IMPL_LINK_NOARG(ClassificationDialog, EditWindowModifiedHdl, LinkParamNone*, voi
     toggleWidgetsDependingOnCategory();
 }
 
-IMPL_LINK(ClassificationDialog, ExpandedHdl, VclExpander&, rExpander, void)
+IMPL_STATIC_LINK(ClassificationDialog, ExpandedHdl, VclExpander&, rExpander, void)
 {
     std::shared_ptr<comphelper::ConfigurationChanges> aConfigurationChanges(comphelper::ConfigurationChanges::create());
     officecfg::Office::Common::Classification::IntellectualPropertySectionExpanded::set(rExpander.get_expanded(), aConfigurationChanges);

@@ -156,7 +156,7 @@ namespace drawinglayer
             }
 
             // get geometry data, prepare hairline data
-            basegfx::B2DPolygon aLocalPolygon(rSource.getB2DPolygon());
+            const basegfx::B2DPolygon& aLocalPolygon(rSource.getB2DPolygon());
             basegfx::B2DPolyPolygon aHairLinePolyPolygon;
 
             // simplify curve segments
@@ -220,7 +220,7 @@ namespace drawinglayer
 
             for(sal_uInt32 a(0); a < aHairLinePolyPolygon.count(); a++)
             {
-                const basegfx::B2DPolygon aSingle(aHairLinePolyPolygon.getB2DPolygon(a));
+                const basegfx::B2DPolygon& aSingle(aHairLinePolyPolygon.getB2DPolygon(a));
 
                 if(aSingle.count())
                 {
@@ -879,17 +879,36 @@ namespace drawinglayer
 
         void VclPixelProcessor2D::processBorderLinePrimitive2D(const drawinglayer::primitive2d::BorderLinePrimitive2D& rBorder)
         {
-            // process recursively, but switch off AntiAliasing for
+            // Process recursively, but switch off AntiAliasing for
             // horizontal/vertical lines (*not* diagonal lines).
             // Checked using AntialiasingFlags::PixelSnapHairline instead,
             // but with AntiAliasing on the display really is too 'ghosty' when
             // using fine stroking. Correct, but 'ghosty'.
 
-            if (rBorder.isHorizontalOrVertical(getViewInformation2D()))
+            // It has shown that there are quite some problems here:
+            // - vcl OutDev renderer methods still use fallbacks to paint
+            //   multiple single lines between discrete sizes of < 3.5 what
+            //   looks bad and does not match
+            // - mix of filled Polygons and Lines is bad when AA switched off
+            // - Alignment of AA with non-AA may be bad in diverse different
+            //   renderers
+            //
+            // Due to these reasons I change the strategy: Always draw AAed, but
+            // allow fallback to test/check and if needed. The normal case
+            // where BorderLines will be system-dependently snapped to have at
+            // least a single discrete width per partial line (there may be up to
+            // three) works well nowadays due to most renderers moving the AA stuff
+            // by 0.5 pixels (discrete units) to match well with the non-AAed parts.
+            //
+            // Env-Switch for steering this, default is off.
+            // Enable by setting at all (and to something)
+            static const char* pSwitchOffAntiAliasingForHorVerBorderlines(getenv("SAL_SWITCH_OFF_ANTIALIASING_FOR_HOR_VER_BORTDERLINES"));
+            static bool bSwitchOffAntiAliasingForHorVerBorderlines(nullptr != pSwitchOffAntiAliasingForHorVerBorderlines);
+
+            if (bSwitchOffAntiAliasingForHorVerBorderlines && rBorder.isHorizontalOrVertical(getViewInformation2D()))
             {
                 AntialiasingFlags nAntiAliasing = mpOutputDevice->GetAntialiasing();
                 mpOutputDevice->SetAntialiasing(nAntiAliasing & ~AntialiasingFlags::EnableB2dDraw);
-
                 process(rBorder);
                 mpOutputDevice->SetAntialiasing(nAntiAliasing);
             }

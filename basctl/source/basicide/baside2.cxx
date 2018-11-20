@@ -37,6 +37,7 @@
 #include <com/sun/star/ui/dialogs/FilePicker.hpp>
 #include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
 #include <comphelper/string.hxx>
+#include <svl/srchdefs.hxx>
 #include <sfx2/dinfdlg.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
@@ -338,18 +339,15 @@ void ModulWindow::BasicExecute()
             if ( !pMethod )
             {
                 // If not in a method then prompt the user
-                ChooseMacro( uno::Reference< frame::XModel >() );
+                ChooseMacro(GetFrameWeld(), uno::Reference<frame::XModel>());
                 return;
             }
-            if ( pMethod )
-            {
-                pMethod->SetDebugFlags( m_aStatus.nBasicFlags );
-                BasicDLL::SetDebugMode( true );
-                RunMethod( pMethod );
-                BasicDLL::SetDebugMode( false );
-                // if cancelled during Interactive=false
-                BasicDLL::EnableBreak( true );
-            }
+            pMethod->SetDebugFlags(m_aStatus.nBasicFlags);
+            BasicDLL::SetDebugMode(true);
+            RunMethod(pMethod);
+            BasicDLL::SetDebugMode(false);
+            // if cancelled during Interactive=false
+            BasicDLL::EnableBreak(true);
             ClearStatus( BASWIN_RUNNINGBASIC );
         }
         else
@@ -593,7 +591,7 @@ void ModulWindow::ManageBreakPoints()
     rBrkWin.Invalidate();
 }
 
-bool ModulWindow::BasicErrorHdl( StarBASIC const * pBasic )
+void ModulWindow::BasicErrorHdl( StarBASIC const * pBasic )
 {
     GetShell()->GetViewFrame()->ToTop();
 
@@ -630,11 +628,11 @@ bool ModulWindow::BasicErrorHdl( StarBASIC const * pBasic )
     // #i47002#
     VclPtr<vcl::Window> pWindow = VCLUnoHelper::GetWindow( xWindow );
     if ( !pWindow )
-        return false;
+        return;
 
     if ( bMarkError )
         m_aXEditorWindow->GetBrkWindow().SetNoMarker();
-    return false;
+    return;
 }
 
 BasicDebugFlags ModulWindow::BasicBreakHdl()

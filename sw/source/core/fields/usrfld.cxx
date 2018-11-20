@@ -25,6 +25,7 @@
 
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
+#include <unotools/charclass.hxx>
 
 #include <svx/svdmodel.hxx>
 
@@ -61,7 +62,7 @@ SwUserField::SwUserField(SwUserFieldType* pTyp, sal_uInt16 nSub, sal_uInt32 nFor
 {
 }
 
-OUString SwUserField::Expand() const
+OUString SwUserField::ExpandImpl(SwRootFrame const*const) const
 {
     if(!(nSubType & nsSwExtendedSubType::SUB_INVISIBLE))
         return static_cast<SwUserFieldType*>(GetTyp())->Expand(GetFormat(), nSubType, GetLanguage());
@@ -185,8 +186,7 @@ SwUserFieldType::SwUserFieldType( SwDoc* pDocPtr, const OUString& aNam )
     bValidValue = bDeleted = false;
     aName = aNam;
 
-    if (nType & nsSwGetSetExpType::GSE_STRING)
-        EnableFormat(false);    // Do not use a Numberformatter
+    EnableFormat(false); // Do not use a Numberformatter for nsSwGetSetExpType::GSE_STRING
 }
 
 OUString SwUserFieldType::Expand(sal_uInt32 nFormat, sal_uInt16 nSubType, LanguageType nLng)

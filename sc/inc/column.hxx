@@ -40,7 +40,6 @@ namespace formula { struct VectorRefArray; }
 
 namespace sc {
 
-struct FormulaGroupContext;
 struct FormulaGroupEntry;
 class StartListeningContext;
 class EndListeningContext;
@@ -49,7 +48,6 @@ class CopyToClipContext;
 class CopyToDocContext;
 class MixDocContext;
 class ColumnSpanSet;
-struct ColumnBlockPosition;
 class SingleColumnSpanSet;
 struct RefUpdateContext;
 struct RefUpdateInsertTabContext;
@@ -64,7 +62,6 @@ struct RowSpan;
 class RowHeightContext;
 class CompileFormulaContext;
 struct SetFormulaDirtyContext;
-class RefMovedHint;
 enum class MatrixEdge;
 class ColumnIterator;
 
@@ -369,7 +366,8 @@ public:
     ScFormulaCell * const * GetFormulaCellBlockAddress( SCROW nRow, size_t& rBlockSize ) const;
     CellType    GetCellType( SCROW nRow ) const;
     SCSIZE      GetCellCount() const;
-    sal_uInt32 GetWeightedCount() const;
+    sal_uLong GetWeightedCount() const;
+    sal_uLong GetWeightedCount(SCROW nStartRow, SCROW nEndRow) const;
     sal_uInt32 GetCodeCount() const;       // RPN-Code in formulas
     FormulaError  GetErrCode( SCROW nRow ) const;
 

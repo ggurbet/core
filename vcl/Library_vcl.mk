@@ -27,7 +27,7 @@ else ifeq ($(OS),WNT)
 $(eval $(call gb_Library_set_componentfile,vcl,vcl/vcl.windows))
 else ifeq ($(OS),ANDROID)
 $(eval $(call gb_Library_set_componentfile,vcl,vcl/vcl.android))
-else ifeq ($(OS),IOS)
+else ifeq ($(OS),iOS)
 $(eval $(call gb_Library_set_componentfile,vcl,vcl/vcl.ios))
 else ifeq ($(DISABLE_GUI),TRUE)
 $(eval $(call gb_Library_set_componentfile,vcl,vcl/vcl.headless))
@@ -182,6 +182,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/control/field \
     vcl/source/control/fixed \
     vcl/source/control/fixedhyper \
+    vcl/source/control/fmtfield \
     vcl/source/control/imgctrl \
     vcl/source/control/listctrl \
     vcl/source/control/longcurr \
@@ -229,9 +230,21 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/outdev/vclreferencebase \
     vcl/source/outdev/nativecontrols \
     vcl/source/outdev/map \
+    vcl/source/treelist/imap \
+    vcl/source/treelist/imap2 \
+    vcl/source/treelist/imap3 \
+    vcl/source/treelist/inetimg \
+    vcl/source/treelist/transfer \
+    vcl/source/treelist/transfer2 \
+    vcl/source/treelist/viewdataentry \
+    vcl/source/treelist/treelist \
+    vcl/source/treelist/treelistbox \
+    vcl/source/treelist/treelistentry \
+    vcl/source/treelist/svimpbox \
+    vcl/source/treelist/svlbitm \
+    vcl/source/treelist/uiobject \
     vcl/source/gdi/alpha \
     vcl/source/gdi/animate \
-    vcl/source/gdi/base14 \
     vcl/source/gdi/bitmap3 \
     vcl/source/gdi/bitmapex \
     vcl/source/gdi/bmpacc2 \
@@ -252,6 +265,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/graphictools \
     vcl/source/gdi/hatch \
     vcl/source/gdi/impanmvw \
+    vcl/source/gdi/impglyphitem \
     vcl/source/gdi/impgraph \
     vcl/source/gdi/impvect \
     vcl/source/gdi/jobset \
@@ -260,6 +274,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/metaact \
     vcl/source/gdi/octree \
     vcl/source/gdi/oldprintadaptor \
+    vcl/source/gdi/pdfbuildin_fonts \
     vcl/source/gdi/pdfextoutdevdata \
     vcl/source/gdi/pdffontcache \
     vcl/source/gdi/pdfwriter \
@@ -315,7 +330,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/bitmap/BitmapMedianFilter \
     vcl/source/bitmap/BitmapInterpolateScaleFilter \
     vcl/source/bitmap/BitmapSeparableUnsharpenFilter \
-	vcl/source/bitmap/BitmapFastScaleFilter \
+    vcl/source/bitmap/BitmapFastScaleFilter \
     vcl/source/bitmap/BitmapScaleSuperFilter \
     vcl/source/bitmap/BitmapScaleConvolutionFilter \
     vcl/source/bitmap/BitmapSymmetryCheck \
@@ -440,10 +455,11 @@ vcl_coretext_code= \
 
 vcl_headless_code= \
     vcl/headless/svpframe \
-    $(if $(filter-out IOS,$(OS)), \
+    $(if $(filter-out iOS,$(OS)), \
         vcl/headless/svpbmp \
         vcl/headless/svpgdi \
-        vcl/headless/svpdata) \
+        vcl/headless/svpdata \
+        vcl/headless/CustomWidgetDraw) \
     vcl/headless/svpdummies \
     vcl/headless/svpinst \
     vcl/headless/svpvd \
@@ -603,7 +619,7 @@ $(eval $(call gb_Library_use_externals,vcl,\
 endif
 
 
-ifeq ($(OS),IOS)
+ifeq ($(OS),iOS)
 $(eval $(call gb_Library_add_cxxflags,vcl,\
     $(gb_OBJCXXFLAGS) \
 ))

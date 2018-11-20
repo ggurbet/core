@@ -81,8 +81,8 @@
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 #include <salhelper/thread.hxx>
-#include <svtools/svlbitm.hxx>
-#include <svtools/treelistbox.hxx>
+#include <vcl/svlbitm.hxx>
+#include <vcl/treelistbox.hxx>
 #include <svtools/controldims.hxx>
 #include <svx/checklbx.hxx>
 #include <tools/gen.hxx>
@@ -849,7 +849,7 @@ void UpdateDialog::notifyMenubar( bool bPrepareOnly, bool bRecheckOnly )
     if ( ! bRecheckOnly )
     {
         sal_Int32 nCount = 0;
-        for ( sal_Int16 i = 0; i < m_pUpdates->getItemCount(); ++i )
+        for ( sal_uInt16 i = 0; i < m_pUpdates->getItemCount(); ++i )
         {
             uno::Sequence< OUString > aItem(2);
 

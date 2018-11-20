@@ -31,6 +31,7 @@
 #include <o3tl/make_unique.hxx>
 #include <svx/svdocapt.hxx>
 #include <sal/log.hxx>
+#include <unotools/charclass.hxx>
 
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/script/ModuleType.hpp>
@@ -93,6 +94,8 @@
 #include <undoconvert.hxx>
 #include <docfuncutil.hxx>
 #include <sheetevents.hxx>
+#include <conditio.hxx>
+#include <columnspanset.hxx>
 
 #include <memory>
 #include <utility>
@@ -1859,13 +1862,12 @@ bool ScDocFunc::InsertCells( const ScRange& rRange, const ScMarkData* pTabMark, 
             ScDocAttrIterator aTestIter( &rDoc, i, nMergeTestStartCol, nMergeTestStartRow, nMergeTestEndCol, nMergeTestEndRow );
             ScRange aExtendRange( nMergeTestStartCol, nMergeTestStartRow, i, nMergeTestEndCol, nMergeTestEndRow, i );
             const ScPatternAttr* pPattern = nullptr;
-            const ScMergeFlagAttr* pMergeFlagAttr = nullptr;
             while ( ( pPattern = aTestIter.GetNext( nTestCol, nTestRow1, nTestRow2 ) ) != nullptr )
             {
-                const ScMergeAttr* pMergeFlag = &pPattern->GetItem(ATTR_MERGE);
-                pMergeFlagAttr = &pPattern->GetItem(ATTR_MERGE_FLAG);
-                ScMF nNewFlags = pMergeFlagAttr->GetValue() & ( ScMF::Hor | ScMF::Ver );
-                if( ( pMergeFlag && pMergeFlag->IsMerged() ) || nNewFlags == ScMF::Hor || nNewFlags == ScMF::Ver )
+                const ScMergeAttr& rMergeFlag = pPattern->GetItem(ATTR_MERGE);
+                const ScMergeFlagAttr& rMergeFlagAttr = pPattern->GetItem(ATTR_MERGE_FLAG);
+                ScMF nNewFlags = rMergeFlagAttr.GetValue() & (ScMF::Hor | ScMF::Ver);
+                if (rMergeFlag.IsMerged() || nNewFlags == ScMF::Hor || nNewFlags == ScMF::Ver)
                 {
                     ScRange aRange( nTestCol, nTestRow1, i );
                     rDoc.ExtendOverlapped(aRange);
@@ -2335,13 +2337,12 @@ bool ScDocFunc::DeleteCells( const ScRange& rRange, const ScMarkData* pTabMark, 
             ScDocAttrIterator aTestIter( &rDoc, i, nUndoStartCol, nUndoStartRow, nMergeTestEndCol, nMergeTestEndRow );
             ScRange aExtendRange( nUndoStartCol, nUndoStartRow, i, nMergeTestEndCol, nMergeTestEndRow, i );
             const ScPatternAttr* pPattern = nullptr;
-            const ScMergeFlagAttr* pMergeFlagAttr = nullptr;
             while ( ( pPattern = aTestIter.GetNext( nTestCol, nTestRow1, nTestRow2 ) ) != nullptr )
             {
-                const ScMergeAttr* pMergeFlag = &pPattern->GetItem( ATTR_MERGE );
-                pMergeFlagAttr = &pPattern->GetItem( ATTR_MERGE_FLAG );
-                ScMF nNewFlags = pMergeFlagAttr->GetValue() & ( ScMF::Hor | ScMF::Ver );
-                if( ( pMergeFlag && pMergeFlag->IsMerged() ) || nNewFlags == ScMF::Hor || nNewFlags == ScMF::Ver )
+                const ScMergeAttr& rMergeFlag = pPattern->GetItem(ATTR_MERGE);
+                const ScMergeFlagAttr& rMergeFlagAttr = pPattern->GetItem(ATTR_MERGE_FLAG);
+                ScMF nNewFlags = rMergeFlagAttr.GetValue() & (ScMF::Hor | ScMF::Ver);
+                if (rMergeFlag.IsMerged() || nNewFlags == ScMF::Hor || nNewFlags == ScMF::Ver)
                 {
                     ScRange aRange( nTestCol, nTestRow1, i );
                     rDoc.ExtendOverlapped( aRange );

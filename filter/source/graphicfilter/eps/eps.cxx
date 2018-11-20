@@ -40,6 +40,7 @@
 #include <vcl/graphictools.hxx>
 #include <vcl/weld.hxx>
 #include <strings.hrc>
+#include <osl/diagnose.h>
 
 #include <math.h>
 #include <memory>
@@ -898,7 +899,7 @@ void PSWriter::ImplWriteActions( const GDIMetaFile& rMtf, VirtualDevice& rVDev )
             {
                 const MetaWallpaperAction* pA = static_cast<const MetaWallpaperAction*>(pMA);
                 tools::Rectangle   aRect = pA->GetRect();
-                Wallpaper   aWallpaper = pA->GetWallpaper();
+                const Wallpaper&   aWallpaper = pA->GetWallpaper();
 
                 if ( aWallpaper.IsBitmap() )
                 {
@@ -946,7 +947,7 @@ void PSWriter::ImplWriteActions( const GDIMetaFile& rMtf, VirtualDevice& rVDev )
             case MetaActionType::CLIPREGION:
             {
                 const MetaClipRegionAction* pA = static_cast<const MetaClipRegionAction*>(pMA);
-                vcl::Region aRegion( pA->GetRegion() );
+                const vcl::Region& aRegion( pA->GetRegion() );
                 ImplSetClipRegion( aRegion );
             }
             break;
@@ -954,7 +955,7 @@ void PSWriter::ImplWriteActions( const GDIMetaFile& rMtf, VirtualDevice& rVDev )
             case MetaActionType::ISECTREGIONCLIPREGION:
             {
                 const MetaISectRegionClipRegionAction* pA = static_cast<const MetaISectRegionClipRegionAction*>(pMA);
-                vcl::Region aRegion( pA->GetRegion() );
+                const vcl::Region& aRegion( pA->GetRegion() );
                 ImplSetClipRegion( aRegion );
             }
             break;
@@ -1672,11 +1673,8 @@ void PSWriter::ImplBmp( Bitmap const * pBitmap, Bitmap const * pMaskBitmap, cons
             bDoTrans = true;
             while (true)
             {
-                if ( mnLevel == 1 )
-                {
-                    if ( nHeight > 10 )
-                        nHeight = 8;
-                }
+                if ( mnLevel == 1 && nHeight > 10 )
+                    nHeight = 8;
                 aRect = tools::Rectangle( Point( 0, nHeightOrg - nHeightLeft ), Size( nWidth, nHeight ) );
                 aRegion = vcl::Region( pMaskBitmap->CreateRegion( COL_BLACK, aRect ) );
 
@@ -2510,7 +2508,8 @@ void PSWriter::StartCompression()
     for ( i = 0; i < 4096; i++ )
     {
         pTable[ i ].pBrother = pTable[ i ].pFirstChild = nullptr;
-        pTable[ i ].nValue = static_cast<sal_uInt8>( pTable[ i ].nCode = i );
+        pTable[ i ].nCode = i;
+        pTable[ i ].nValue = static_cast<sal_uInt8>( i );
     }
     pPrefix = nullptr;
     WriteBits( nClearCode, nCodeSize );

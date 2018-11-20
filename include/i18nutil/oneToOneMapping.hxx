@@ -19,12 +19,10 @@
 #ifndef INCLUDED_I18NUTIL_ONETOONEMAPPING_HXX
 #define INCLUDED_I18NUTIL_ONETOONEMAPPING_HXX
 
-#include <rtl/ustring.hxx>
 #include <i18nutil/i18nutildllapi.h>
+#include <memory>
 
 namespace i18nutil {
-
-class widthfolding;
 
 struct OneToOneMappingTable_t
 {
@@ -80,7 +78,7 @@ public:
 private:
     UnicodePairWithFlag const *mpTableWF;
     UnicodePairFlag       mnFlag;
-    UnicodePairWithFlag const **mpIndex[256];
+    std::unique_ptr<UnicodePairWithFlag const *[]> mpIndex[256];
     bool                  mbHasIndex;
 };
 

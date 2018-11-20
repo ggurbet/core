@@ -351,8 +351,8 @@ IMPL_LINK_NOARG(SvxSingleNumPickTabPage, NumSelectHdl_Impl, SvtValueSet*, void)
 IMPL_LINK_NOARG(SvxSingleNumPickTabPage, DoubleClickHdl_Impl, SvtValueSet*, void)
 {
     NumSelectHdl_Impl(m_xExamplesVS.get());
-    PushButton& rOk = GetTabDialog()->GetOKButton();
-    rOk.GetClickHdl().Call(&rOk);
+    weld::Button& rOk = GetDialogController()->GetOKButton();
+    rOk.clicked();
 }
 
 SvxBulletPickTabPage::SvxBulletPickTabPage(TabPageParent pParent, const SfxItemSet& rSet)
@@ -498,8 +498,8 @@ IMPL_LINK_NOARG(SvxBulletPickTabPage, NumSelectHdl_Impl, SvtValueSet*, void)
 IMPL_LINK_NOARG(SvxBulletPickTabPage, DoubleClickHdl_Impl, SvtValueSet*, void)
 {
     NumSelectHdl_Impl(m_xExamplesVS.get());
-    PushButton& rOk = GetTabDialog()->GetOKButton();
-    rOk.GetClickHdl().Call(&rOk);
+    weld::Button& rOk = GetDialogController()->GetOKButton();
+    rOk.clicked();
 }
 
 void SvxBulletPickTabPage::PageCreated(const SfxAllItemSet& aSet)
@@ -741,8 +741,8 @@ IMPL_LINK_NOARG(SvxNumPickTabPage, NumSelectHdl_Impl, SvtValueSet*, void)
 IMPL_LINK_NOARG(SvxNumPickTabPage, DoubleClickHdl_Impl, SvtValueSet*, void)
 {
     NumSelectHdl_Impl(m_xExamplesVS.get());
-    PushButton& rOk = GetTabDialog()->GetOKButton();
-    rOk.GetClickHdl().Call(&rOk);
+    weld::Button& rOk = GetDialogController()->GetOKButton();
+    rOk.clicked();
 }
 
 void SvxNumPickTabPage::PageCreated(const SfxAllItemSet& aSet)
@@ -944,8 +944,8 @@ IMPL_LINK_NOARG(SvxBitmapPickTabPage, NumSelectHdl_Impl, SvtValueSet*, void)
 IMPL_LINK_NOARG(SvxBitmapPickTabPage, DoubleClickHdl_Impl, SvtValueSet*, void)
 {
     NumSelectHdl_Impl(m_xExamplesVS.get());
-    PushButton& rOk = GetTabDialog()->GetOKButton();
-    rOk.GetClickHdl().Call(&rOk);
+    weld::Button& rOk = GetDialogController()->GetOKButton();
+    rOk.clicked();
 }
 
 IMPL_LINK_NOARG(SvxBitmapPickTabPage, ClickAddBrowseHdl_Impl, weld::Button&, void)
@@ -1070,7 +1070,7 @@ SvxNumOptionsTabPage::SvxNumOptionsTabPage(TabPageParent pParent,
     , m_xBulColorFT(m_xBuilder->weld_label("colorft"))
     , m_xBulColLB(new ColorListBox(m_xBuilder->weld_menu_button("color"), pParent.GetFrameWeld()))
     , m_xBulRelSizeFT(m_xBuilder->weld_label("relsizeft"))
-    , m_xBulRelSizeMF(m_xBuilder->weld_metric_spin_button("relsize", FUNIT_PERCENT))
+    , m_xBulRelSizeMF(m_xBuilder->weld_metric_spin_button("relsize", FieldUnit::PERCENT))
     , m_xAllLevelFT(m_xBuilder->weld_label("sublevelsft"))
     , m_xAllLevelNF(m_xBuilder->weld_spin_button("sublevels"))
     , m_xStartFT(m_xBuilder->weld_label("startatft"))
@@ -1080,9 +1080,9 @@ SvxNumOptionsTabPage::SvxNumOptionsTabPage(TabPageParent pParent,
     , m_xBitmapFT(m_xBuilder->weld_label("bitmapft"))
     , m_xBitmapMB(m_xBuilder->weld_menu_button("bitmap"))
     , m_xWidthFT(m_xBuilder->weld_label("widthft"))
-    , m_xWidthMF(m_xBuilder->weld_metric_spin_button("widthmf", FUNIT_CM))
+    , m_xWidthMF(m_xBuilder->weld_metric_spin_button("widthmf", FieldUnit::CM))
     , m_xHeightFT(m_xBuilder->weld_label("heightft"))
-    , m_xHeightMF(m_xBuilder->weld_metric_spin_button("heightmf", FUNIT_CM))
+    , m_xHeightMF(m_xBuilder->weld_metric_spin_button("heightmf", FieldUnit::CM))
     , m_xRatioCB(m_xBuilder->weld_check_button("keepratio"))
     , m_xOrientFT(m_xBuilder->weld_label("orientft"))
     , m_xOrientLB(m_xBuilder->weld_combo_box("orientlb"))
@@ -1091,8 +1091,8 @@ SvxNumOptionsTabPage::SvxNumOptionsTabPage(TabPageParent pParent,
     , m_xPreviewWIN(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWIN))
 {
     m_xBulColLB->SetSlotId(SID_ATTR_CHAR_COLOR);
-    m_xBulRelSizeMF->set_min(SVX_NUM_REL_SIZE_MIN, FUNIT_PERCENT);
-    m_xBulRelSizeMF->set_increments(5, 50, FUNIT_PERCENT);
+    m_xBulRelSizeMF->set_min(SVX_NUM_REL_SIZE_MIN, FieldUnit::PERCENT);
+    m_xBulRelSizeMF->set_increments(5, 50, FieldUnit::PERCENT);
     SetExchangeSupport();
     aActBulletFont = lcl_GetDefaultBulletFont();
 
@@ -1155,7 +1155,7 @@ void SvxNumOptionsTabPage::dispose()
 
 void SvxNumOptionsTabPage::SetMetric(FieldUnit eMetric)
 {
-    if(eMetric == FUNIT_MM)
+    if(eMetric == FieldUnit::MM)
     {
         m_xWidthMF->set_digits(1);
         m_xHeightMF->set_digits(1);
@@ -1478,7 +1478,7 @@ void SvxNumOptionsTabPage::InitControls()
     if(bBullRelSize)
     {
         if(bSameBulRelSize)
-            m_xBulRelSizeMF->set_value(aNumFmtArr[nLvl]->GetBulletRelSize(), FUNIT_PERCENT);
+            m_xBulRelSizeMF->set_value(aNumFmtArr[nLvl]->GetBulletRelSize(), FieldUnit::PERCENT);
         else
             m_xBulRelSizeMF->set_text("");
     }
@@ -1804,7 +1804,7 @@ IMPL_LINK(SvxNumOptionsTabPage, BulColorHdl_Impl, ColorListBox&, rColorBox, void
 
 IMPL_LINK(SvxNumOptionsTabPage, BulRelSizeHdl_Impl, weld::MetricSpinButton&, rField, void)
 {
-    sal_uInt16 nRelSize = rField.get_value(FUNIT_PERCENT);
+    sal_uInt16 nRelSize = rField.get_value(FieldUnit::PERCENT);
 
     sal_uInt16 nMask = 1;
     for(sal_uInt16 i = 0; i < pActNum->GetLevelCount(); i++)
@@ -1983,7 +1983,7 @@ IMPL_LINK_NOARG(SvxNumOptionsTabPage, BulletHdl_Impl, weld::Button&, void)
         aMap.SetCharFont(aActBulletFont);
     if (bSameBullet)
         aMap.SetChar(cBullet);
-    if (aMap.execute() == RET_OK)
+    if (aMap.run() == RET_OK)
     {
         // change Font Numrules
         aActBulletFont = aMap.GetCharFont();
@@ -2010,8 +2010,8 @@ IMPL_LINK( SvxNumOptionsTabPage, SizeHdl_Impl, weld::MetricSpinButton&, rField, 
     bool bWidth = &rField == m_xWidthMF.get();
     bLastWidthModified = bWidth;
     bool bRatio = m_xRatioCB->get_active();
-    long nWidthVal = static_cast<long>(m_xWidthMF->denormalize(m_xWidthMF->get_value(FUNIT_100TH_MM)));
-    long nHeightVal = static_cast<long>(m_xHeightMF->denormalize(m_xHeightMF->get_value(FUNIT_100TH_MM)));
+    long nWidthVal = static_cast<long>(m_xWidthMF->denormalize(m_xWidthMF->get_value(FieldUnit::MM_100TH)));
+    long nHeightVal = static_cast<long>(m_xHeightMF->denormalize(m_xHeightMF->get_value(FieldUnit::MM_100TH)));
     nWidthVal = OutputDevice::LogicToLogic( nWidthVal ,
                                                 MapUnit::Map100thMM, eCoreUnit );
     nHeightVal = OutputDevice::LogicToLogic( nHeightVal,
@@ -2044,7 +2044,7 @@ IMPL_LINK( SvxNumOptionsTabPage, SizeHdl_Impl, weld::MetricSpinButton&, rField, 
                         aSize.setHeight( aInitSize[i].Height() + static_cast<long>(static_cast<double>(nDelta) / fSizeRatio) );
                         m_xHeightMF->set_value(m_xHeightMF->normalize(
                             OutputDevice::LogicToLogic( aSize.Height(), eCoreUnit, MapUnit::Map100thMM )),
-                                FUNIT_100TH_MM);
+                                FieldUnit::MM_100TH);
                     }
                 }
                 else
@@ -2056,7 +2056,7 @@ IMPL_LINK( SvxNumOptionsTabPage, SizeHdl_Impl, weld::MetricSpinButton&, rField, 
                         aSize.setWidth( aInitSize[i].Width() + static_cast<long>(static_cast<double>(nDelta) * fSizeRatio) );
                         m_xWidthMF->set_value(m_xWidthMF->normalize(
                             OutputDevice::LogicToLogic( aSize.Width(), eCoreUnit, MapUnit::Map100thMM )),
-                                FUNIT_100TH_MM);
+                                FieldUnit::MM_100TH);
                     }
                 }
                 const SvxBrushItem* pBrushItem =  aNumFmt.GetBrush();
@@ -2489,24 +2489,24 @@ SvxNumPositionTabPage::SvxNumPositionTabPage(TabPageParent pParent, const SfxIte
     , bLabelAlignmentPosAndSpaceModeActive(false)
     , m_xLevelLB(m_xBuilder->weld_tree_view("levellb"))
     , m_xDistBorderFT(m_xBuilder->weld_label("indent"))
-    , m_xDistBorderMF(m_xBuilder->weld_metric_spin_button("indentmf", FUNIT_CM))
+    , m_xDistBorderMF(m_xBuilder->weld_metric_spin_button("indentmf", FieldUnit::CM))
     , m_xRelativeCB(m_xBuilder->weld_check_button("relative"))
     , m_xIndentFT(m_xBuilder->weld_label("numberingwidth"))
-    , m_xIndentMF(m_xBuilder->weld_metric_spin_button("numberingwidthmf", FUNIT_CM))
+    , m_xIndentMF(m_xBuilder->weld_metric_spin_button("numberingwidthmf", FieldUnit::CM))
     , m_xDistNumFT(m_xBuilder->weld_label("numdist"))
-    , m_xDistNumMF(m_xBuilder->weld_metric_spin_button("numdistmf", FUNIT_CM))
+    , m_xDistNumMF(m_xBuilder->weld_metric_spin_button("numdistmf", FieldUnit::CM))
     , m_xAlignFT(m_xBuilder->weld_label("numalign"))
     , m_xAlignLB(m_xBuilder->weld_combo_box("numalignlb"))
     , m_xLabelFollowedByFT(m_xBuilder->weld_label("numfollowedby"))
     , m_xLabelFollowedByLB(m_xBuilder->weld_combo_box("numfollowedbylb"))
     , m_xListtabFT(m_xBuilder->weld_label("at"))
-    , m_xListtabMF(m_xBuilder->weld_metric_spin_button("atmf", FUNIT_CM))
+    , m_xListtabMF(m_xBuilder->weld_metric_spin_button("atmf", FieldUnit::CM))
     , m_xAlign2FT(m_xBuilder->weld_label("num2align"))
     , m_xAlign2LB(m_xBuilder->weld_combo_box("num2alignlb"))
     , m_xAlignedAtFT(m_xBuilder->weld_label("alignedat"))
-    , m_xAlignedAtMF(m_xBuilder->weld_metric_spin_button("alignedatmf", FUNIT_CM))
+    , m_xAlignedAtMF(m_xBuilder->weld_metric_spin_button("alignedatmf", FieldUnit::CM))
     , m_xIndentAtFT(m_xBuilder->weld_label("indentat"))
-    , m_xIndentAtMF(m_xBuilder->weld_metric_spin_button("indentatmf", FUNIT_CM))
+    , m_xIndentAtMF(m_xBuilder->weld_metric_spin_button("indentatmf", FieldUnit::CM))
     , m_xStandardPB(m_xBuilder->weld_button("standard"))
     , m_xPreviewWIN(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWIN))
 {
@@ -2946,7 +2946,7 @@ VclPtr<SfxTabPage> SvxNumPositionTabPage::Create(TabPageParent pParent,
 
 void SvxNumPositionTabPage::SetMetric(FieldUnit eMetric)
 {
-    if (eMetric == FUNIT_MM)
+    if (eMetric == FieldUnit::MM)
     {
         m_xDistBorderMF->set_digits(1);
         m_xDistNumMF->set_digits(1);
@@ -3275,7 +3275,7 @@ IMPL_LINK_NOARG(SvxNumPositionTabPage, StandardHdl_Impl, weld::Button&, void)
         if(nActNumLvl & nMask)
         {
             SvxNumberFormat aNumFmt( pActNum->GetLevel( i ) );
-            SvxNumberFormat aTempFmt(aTmpNumRule.GetLevel( i ));
+            const SvxNumberFormat& aTempFmt(aTmpNumRule.GetLevel( i ));
             aNumFmt.SetPositionAndSpaceMode( aTempFmt.GetPositionAndSpaceMode() );
             if ( aTempFmt.GetPositionAndSpaceMode() == SvxNumberFormat::LABEL_WIDTH_AND_POSITION )
             {

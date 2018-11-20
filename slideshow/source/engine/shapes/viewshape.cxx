@@ -557,7 +557,7 @@ namespace slideshow
             {
                 // setup clip poly
                 if( pAttr->isClipValid() )
-                    aClip.reset( pAttr->getClip() );
+                    aClip = pAttr->getClip();
 
                 // emulate global shape alpha by first rendering into
                 // a temp bitmap, and then to screen (this would have
@@ -817,12 +817,10 @@ namespace slideshow
                                        nYBorder );
         }
 
-        bool ViewShape::enterAnimationMode()
+        void ViewShape::enterAnimationMode()
         {
             mbForceUpdate   = true;
             mbAnimationMode = true;
-
-            return true;
         }
 
         void ViewShape::leaveAnimationMode()

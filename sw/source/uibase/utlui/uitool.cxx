@@ -87,13 +87,13 @@ using namespace ::com::sun::star;
 
 void SetMetric(MetricFormatter& rCtrl, FieldUnit eUnit)
 {
-    SwTwips nMin = static_cast< SwTwips >(rCtrl.GetMin(FUNIT_TWIP));
-    SwTwips nMax = static_cast< SwTwips >(rCtrl.GetMax(FUNIT_TWIP));
+    SwTwips nMin = static_cast< SwTwips >(rCtrl.GetMin(FieldUnit::TWIP));
+    SwTwips nMax = static_cast< SwTwips >(rCtrl.GetMax(FieldUnit::TWIP));
 
     rCtrl.SetUnit(eUnit);
 
-    rCtrl.SetMin(nMin, FUNIT_TWIP);
-    rCtrl.SetMax(nMax, FUNIT_TWIP);
+    rCtrl.SetMin(nMin, FieldUnit::TWIP);
+    rCtrl.SetMax(nMax, FieldUnit::TWIP);
 }
 
 // Set boxinfo attribute
@@ -230,7 +230,7 @@ static UseOnPage lcl_convertUseFromSvx(SvxPageUsage nUse)
 void ItemSetToPageDesc( const SfxItemSet& rSet, SwPageDesc& rPageDesc )
 {
     SwFrameFormat& rMaster = rPageDesc.GetMaster();
-    int nFirstShare = -1;
+    bool bFirstShare = false;
 
     // Transfer all general frame attributes
     rMaster.SetFormatAttr(rSet);
@@ -278,12 +278,9 @@ void ItemSetToPageDesc( const SfxItemSet& rSet, SwPageDesc& rPageDesc )
             ::FillHdFt(pHeaderFormat, rHeaderSet);
 
             rPageDesc.ChgHeaderShare(rHeaderSet.Get(SID_ATTR_PAGE_SHARED).GetValue());
-            if (nFirstShare < 0)
-            {
-                rPageDesc.ChgFirstShare(static_cast<const SfxBoolItem&>(
+            rPageDesc.ChgFirstShare(static_cast<const SfxBoolItem&>(
                             rHeaderSet.Get(SID_ATTR_PAGE_SHARED_FIRST)).GetValue());
-                nFirstShare = rPageDesc.IsFirstShared() ? 1 : 0;
-            }
+            bFirstShare = true;
         }
         else
         {
@@ -317,7 +314,7 @@ void ItemSetToPageDesc( const SfxItemSet& rSet, SwPageDesc& rPageDesc )
             ::FillHdFt(pFooterFormat, rFooterSet);
 
             rPageDesc.ChgFooterShare(rFooterSet.Get(SID_ATTR_PAGE_SHARED).GetValue());
-            if (nFirstShare < 0)
+            if (!bFirstShare)
             {
                 rPageDesc.ChgFirstShare(static_cast<const SfxBoolItem&>(
                             rFooterSet.Get(SID_ATTR_PAGE_SHARED_FIRST)).GetValue());

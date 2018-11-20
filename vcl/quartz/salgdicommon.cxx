@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -981,7 +981,9 @@ bool AquaSalGraphics::drawPolyPolygon(
     // setup poly-polygon path
     CGMutablePathRef xPath = CGPathCreateMutable();
     SAL_INFO( "vcl.cg", "CGPathCreateMutable() = " << xPath );
-    for(auto const& rPolygon : rPolyPolygon)
+    // tdf#120252 Use the correct, already transformed PolyPolygon (as long as
+    // the transformation is not used here...)
+    for(auto const& rPolygon : aPolyPolygon)
     {
         AddPolygonToPath( xPath, rPolygon, true, !getAntiAliasB2DDraw(), IsPenVisible() );
     }
@@ -1401,6 +1403,10 @@ void AquaSalGraphics::GetResolution( sal_Int32& rDPIX, sal_Int32& rDPIY )
     rDPIX = mnRealDPIX;
     rDPIY = mnRealDPIY;
 #else
+    // This *must* be 96 or else the iOS app will behave very badly (tiles are scaled wrongly and
+    // don't match each others at their boundaries, and other issues). But *why* it must be 96 I
+    // have no idea. The commit that changed it to 96 from (the arbitrary) 200 did not say. If you
+    // know where else 96 is explicitly or implicitly hard-coded, please modify this comment.
     rDPIX = rDPIY = 96;
 #endif
 }

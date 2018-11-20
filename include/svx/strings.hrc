@@ -20,7 +20,7 @@
 #ifndef INCLUDED_SVX_INC_STRINGS_HRC
 #define INCLUDED_SVX_INC_STRINGS_HRC
 
-#define NC_(Context, String) (Context "\004" u8##String)
+#define NC_(Context, String) reinterpret_cast<char const *>(Context "\004" u8##String)
 
 #define STR_ObjNameSingulNONE                               NC_("STR_ObjNameSingulNONE", "Drawing object")
 #define STR_ObjNamePluralNONE                               NC_("STR_ObjNamePluralNONE", "Drawing objects")
@@ -258,7 +258,6 @@
 #define STR_UndoObjName                                     NC_("STR_UndoObjName", "Change object name of %1 to")
 #define STR_UndoObjTitle                                    NC_("STR_UndoObjTitle", "Change object title of %1")
 #define STR_UndoObjDescription                              NC_("STR_UndoObjDescription", "Change object description of %1")
-#define STR_StandardLayerName                               NC_("STR_StandardLayerName", "Standard")
 #define STR_ItemValON                                       NC_("STR_ItemValON", "on")
 #define STR_ItemValOFF                                      NC_("STR_ItemValOFF", "off")
 #define STR_ItemValYES                                      NC_("STR_ItemValYES", "yes")
@@ -553,6 +552,12 @@
 #define RID_SVXSTR_GRAFMODE_GREYS                           NC_("RID_SVXSTR_GRAFMODE_GREYS", "Grayscale")
 #define RID_SVXSTR_GRAFMODE_MONO                            NC_("RID_SVXSTR_GRAFMODE_MONO", "Black/White")
 #define RID_SVXSTR_GRAFMODE_WATERMARK                       NC_("RID_SVXSTR_GRAFMODE_WATERMARK", "Watermark")
+// Default colors
+#define RID_SVXSTR_COLOR_DEFAULT_FONT                       NC_("RID_SVXSTR_COLOR_DEFAULT_FONTCOLOR", "Dark Red 2")
+#define RID_SVXSTR_COLOR_DEFAULT_FRAMELINE                  NC_("RID_SVXSTR_COLOR_DEFAULT_FRAMELINE", "Blue")
+#define RID_SVXSTR_COLOR_DEFAULT_HIGHLIGHT                  NC_("RID_SVXSTR_COLOR_DEFAULT_HIGHLIGHT", "Yellow")
+#define RID_SVXSTR_COLOR_DEFAULT_SHAPE_STROKE               NC_("RID_SVXSTR_COLOR_DEFAULT_SHAPE_STROKE", "Dark Blue 1")
+#define RID_SVXSTR_COLOR_DEFAULT_SHAPE_FILLING              NC_("RID_SVXSTR_COLOR_DEFAULT_SHAPE_FILLING", "Light Blue 2")
 // Elements of the standard color palette
 #define RID_SVXSTR_COLOR_BLACK                              NC_("RID_SVXSTR_COLOR_BLACK", "Black")
 #define RID_SVXSTR_COLOR_GREY                               NC_("RID_SVXSTR_COLOR_GREY", "Gray")

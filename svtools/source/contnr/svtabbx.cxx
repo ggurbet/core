@@ -21,20 +21,22 @@
 #include <svtools/svtabbx.hxx>
 #include <svtools/headbar.hxx>
 #include <svtools/svtresid.hxx>
-#include <svtools/svlbitm.hxx>
+#include <vcl/svlbitm.hxx>
 #include <svtools/strings.hrc>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 #include <vcl/builderfactory.hxx>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <svtaccessiblefactory.hxx>
 #include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
+
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::accessibility;
 
-#define MYTABMASK \
-    SvLBoxTabFlags( SvLBoxTabFlags::ADJUST_RIGHT | SvLBoxTabFlags::ADJUST_LEFT | SvLBoxTabFlags::ADJUST_CENTER | SvLBoxTabFlags::ADJUST_NUMERIC )
+static constexpr SvLBoxTabFlags MYTABMASK =
+    SvLBoxTabFlags::ADJUST_RIGHT | SvLBoxTabFlags::ADJUST_LEFT | SvLBoxTabFlags::ADJUST_CENTER | SvLBoxTabFlags::ADJUST_NUMERIC;
 
 // SvTreeListBox callback
 

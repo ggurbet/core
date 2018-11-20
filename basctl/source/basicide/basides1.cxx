@@ -34,6 +34,7 @@
 #include <com/sun/star/script/ModuleType.hpp>
 #include <com/sun/star/script/XLibraryContainerPassword.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
+#include <svl/srchdefs.hxx>
 #include <sal/log.hxx>
 #include <sfx2/childwin.hxx>
 #include <sfx2/docfac.hxx>
@@ -330,7 +331,7 @@ void Shell::ExecuteGlobal( SfxRequest& rReq )
         break;
         case SID_BASICIDE_CHOOSEMACRO:
         {
-            ChooseMacro( nullptr );
+            ChooseMacro(rReq.GetFrameWeld(), nullptr);
         }
         break;
         case SID_BASICIDE_CREATEMACRO:
@@ -416,7 +417,7 @@ void Shell::ExecuteGlobal( SfxRequest& rReq )
                     bool bRenameOk = false;
                     if (ModulWindow* pModWin = dynamic_cast<ModulWindow*>(pWin.get()))
                     {
-                        OUString aLibName = pModWin->GetLibName();
+                        const OUString& aLibName = pModWin->GetLibName();
                         ScriptDocument aDocument( pWin->GetDocument() );
 
                         if (RenameModule(pModWin->GetFrameWeld(), aDocument, aLibName, aOldName, aNewName))
@@ -625,7 +626,7 @@ void Shell::ExecuteGlobal( SfxRequest& rReq )
             const SfxStringItem* pDocumentItem = rReq.GetArg<SfxStringItem>(SID_BASICIDE_ARG_DOCUMENT);
             if ( pDocumentItem )
             {
-                OUString sDocumentCaption = pDocumentItem->GetValue();
+                const OUString& sDocumentCaption = pDocumentItem->GetValue();
                 if ( !sDocumentCaption.isEmpty() )
                     pDocument.reset( new ScriptDocument( ScriptDocument::getDocumentWithURLOrCaption( sDocumentCaption ) ) );
             }
@@ -651,7 +652,7 @@ void Shell::ExecuteGlobal( SfxRequest& rReq )
             const SfxStringItem* pNameItem = rReq.GetArg<SfxStringItem>(SID_BASICIDE_ARG_NAME);
             if ( pNameItem )
             {
-                OUString aName( pNameItem->GetValue() );
+                const OUString& aName( pNameItem->GetValue() );
                 OUString aModType( "Module" );
                 OUString aType( aModType );
                 const SfxStringItem* pTypeItem = rReq.GetArg<SfxStringItem>(SID_BASICIDE_ARG_TYPE);
@@ -1242,11 +1243,10 @@ VclPtr<BaseWindow> Shell::FindWindow(
 
 bool Shell::CallBasicErrorHdl( StarBASIC const * pBasic )
 {
-    bool bRet = false;
     VclPtr<ModulWindow> pModWin = ShowActiveModuleWindow( pBasic );
     if ( pModWin )
-        bRet = pModWin->BasicErrorHdl( pBasic );
-    return bRet;
+        pModWin->BasicErrorHdl( pBasic );
+    return false;
 }
 
 BasicDebugFlags Shell::CallBasicBreakHdl( StarBASIC const * pBasic )
@@ -1297,7 +1297,7 @@ VclPtr<ModulWindow> Shell::ShowActiveModuleWindow( StarBASIC const * pBasic )
             if (BasicManager* pBasMgr = FindBasicManager(pLib))
             {
                 ScriptDocument aDocument( ScriptDocument::getDocumentForBasicManager( pBasMgr ) );
-                OUString aLibName = pLib->GetName();
+                const OUString& aLibName = pLib->GetName();
                 pWin = FindBasWin( aDocument, aLibName, pActiveModule->GetName(), true );
                 DBG_ASSERT( pWin, "Error/Step-Hdl: Window was not created/found!" );
                 SetCurLib( aDocument, aLibName );

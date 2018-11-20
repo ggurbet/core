@@ -723,9 +723,9 @@ sal_Int32 lcl_GetCountOrName<SfxStyleFamily::Cell>(const SwDoc& rDoc, OUString* 
         {
             const sal_Int32 nAutoFormat = nIndex / rTableTemplateMap.size();
             const sal_Int32 nBoxFormat = rTableTemplateMap[nIndex % rTableTemplateMap.size()];
-            const SwTableAutoFormat* pTableFormat = &rAutoFormats[nAutoFormat];
-            if (pTableFormat)
-                *pString = pTableFormat->GetName() + pTableFormat->GetTableTemplateCellSubName(pTableFormat->GetBoxFormat(nBoxFormat));
+            const SwTableAutoFormat& rTableFormat = rAutoFormats[nAutoFormat];
+            *pString = rTableFormat.GetName()
+                  + rTableFormat.GetTableTemplateCellSubName(rTableFormat.GetBoxFormat(nBoxFormat));
         }
         else
             *pString = rDoc.GetCellStyles()[nIndex-nUsedCellStylesCount].GetName();
@@ -4249,17 +4249,15 @@ uno::Sequence< beans::PropertyValue > SwXAutoStyle::getProperties()
 
         // TODO: Optimize - and fix! the old iteration filled each WhichId
         // only once but there are more properties than WhichIds
-        PropertyEntryVector_t::const_iterator aIt = aPropVector.begin();
-        while( aIt != aPropVector.end() )
+        for( const auto& rProp : aPropVector )
         {
-            if ( aIt->nWID == nWID )
+            if ( rProp.nWID == nWID )
             {
                 beans::PropertyValue aPropertyValue;
-                aPropertyValue.Name = aIt->sName;
-                pItem->QueryValue( aPropertyValue.Value, aIt->nMemberId );
+                aPropertyValue.Name = rProp.sName;
+                pItem->QueryValue( aPropertyValue.Value, rProp.nMemberId );
                 aPropertyVector.push_back( aPropertyValue );
             }
-            ++aIt;
         }
         pItem = aIter.NextItem();
     }

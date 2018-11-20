@@ -331,12 +331,20 @@ bool SwFEShell::SelectObj( const Point& rPt, sal_uInt8 nFlag, SdrObject *pObj )
  *  for the nearest fly frame in the given direction.
  */
 
-#define LESS_X( aPt1, aPt2, bOld ) ( aPt1.getX() < aPt2.getX() || \
-        ( aPt1.getX() == aPt2.getX() && ( aPt1.getY() < aPt2.getY() || \
-        ( aPt1.getY() == aPt2.getY() && bOld ) ) ) )
-#define LESS_Y( aPt1, aPt2, bOld ) ( aPt1.getY() < aPt2.getY() || \
-        ( aPt1.getY() == aPt2.getY() && ( aPt1.getX() < aPt2.getX() || \
-        ( aPt1.getX() == aPt2.getX() && bOld ) ) ) )
+static bool LessX( Point const & aPt1, Point const & aPt2, bool bOld )
+{
+    return aPt1.getX() < aPt2.getX()
+            || ( aPt1.getX() == aPt2.getX()
+                && ( aPt1.getY() < aPt2.getY()
+                    || ( aPt1.getY() == aPt2.getY() && bOld ) ) );
+}
+static bool LessY( Point const & aPt1, Point const & aPt2, bool bOld )
+{
+    return aPt1.getY() < aPt2.getY()
+            || ( aPt1.getY() == aPt2.getY()
+                && ( aPt1.getX() < aPt2.getX()
+                    || ( aPt1.getX() == aPt2.getX() && bOld ) ) );
+}
 
 bool SwFEShell::MoveAnchor( SwMove nDir )
 {
@@ -495,30 +503,30 @@ bool SwFEShell::MoveAnchor( SwMove nDir )
                                 switch( nDir ) {
                                     case SwMove::RIGHT:
                                     {
-                                        bAccept = LESS_X( aCenter, aNew, bOld )
+                                        bAccept = LessX( aCenter, aNew, bOld )
                                              && ( !pNewFly ||
-                                             LESS_X( aNew, aBest, false ) );
+                                             LessX( aNew, aBest, false ) );
                                         break;
                                     }
                                     case SwMove::LEFT:
                                     {
-                                        bAccept = LESS_X( aNew, aCenter, !bOld )
+                                        bAccept = LessX( aNew, aCenter, !bOld )
                                              && ( !pNewFly ||
-                                             LESS_X( aBest, aNew, true ) );
+                                             LessX( aBest, aNew, true ) );
                                         break;
                                     }
                                     case SwMove::UP:
                                     {
-                                        bAccept = LESS_Y( aNew, aCenter, !bOld )
+                                        bAccept = LessY( aNew, aCenter, !bOld )
                                              && ( !pNewFly ||
-                                             LESS_Y( aBest, aNew, true ) );
+                                             LessY( aBest, aNew, true ) );
                                         break;
                                     }
                                     case SwMove::DOWN:
                                     {
-                                        bAccept = LESS_Y( aCenter, aNew, bOld )
+                                        bAccept = LessY( aCenter, aNew, bOld )
                                              && ( !pNewFly ||
-                                             LESS_Y( aNew, aBest, false ) );
+                                             LessY( aNew, aBest, false ) );
                                         break;
                                     }
                                 }
@@ -695,7 +703,7 @@ void SwFEShell::StartCropImage()
     SetDragMode( SdrDragMode::Crop );
 }
 
-long SwFEShell::BeginDrag( const Point* pPt, bool bIsShift)
+void SwFEShell::BeginDrag( const Point* pPt, bool bIsShift)
 {
     SdrView *pView = Imp()->GetDrawView();
     if ( pView && pView->AreObjectsMarked() )
@@ -706,9 +714,7 @@ long SwFEShell::BeginDrag( const Point* pPt, bool bIsShift)
         if (pView->BegDragObj( *pPt, nullptr, pHdl ))
             pView->GetDragMethod()->SetShiftPressed( bIsShift );
         ::FrameNotify( this );
-        return 1;
     }
-    return 0;
 }
 
 void SwFEShell::Drag( const Point *pPt, bool )
@@ -2235,6 +2241,11 @@ RndStdIds SwFEShell::GetAnchorId() const
                 break;
             }
             SwDrawContact *pContact = static_cast<SwDrawContact*>(GetUserCall(pObj));
+            if (!pContact)
+            {
+                nRet = RndStdIds::UNKNOWN;
+                break;
+            }
             RndStdIds nId = pContact->GetFormat()->GetAnchor().GetAnchorId();
             if ( nRet == RndStdIds(SHRT_MAX) )
                 nRet = nId;
@@ -2339,11 +2350,13 @@ bool SwFEShell::IsGroupSelected()
             SdrObject *pObj = rMrkList.GetMark( i )->GetMarkedSdrObj();
             // consider 'virtual' drawing objects.
             // Thus, use corresponding method instead of checking type.
-            if ( pObj->IsGroupObject() &&
-                 // --> #i38505# No ungroup allowed for 3d objects
-                 !pObj->Is3DObj() &&
-                 RndStdIds::FLY_AS_CHAR != static_cast<SwDrawContact*>(GetUserCall(pObj))->
-                                      GetFormat()->GetAnchor().GetAnchorId() )
+            if (!pObj->IsGroupObject())
+                continue;
+            // --> #i38505# No ungroup allowed for 3d objects
+            if (pObj->Is3DObj())
+                continue;
+            SwDrawContact *pContact = static_cast<SwDrawContact*>(GetUserCall(pObj));
+            if (!pContact || RndStdIds::FLY_AS_CHAR != pContact->GetFormat()->GetAnchor().GetAnchorId())
             {
                 return true;
             }

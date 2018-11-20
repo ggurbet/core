@@ -31,6 +31,7 @@
 #include <com/sun/star/sdbcx/CompareBookmark.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
+#include <comphelper/seqstream.hxx>
 
 #include <sal/log.hxx>
 
@@ -48,6 +49,7 @@ using namespace com::sun::star::sdbc;
 using namespace com::sun::star::sdbcx;
 using namespace com::sun::star::container;
 using namespace com::sun::star::io;
+using namespace com::sun::star::uno;
 using namespace com::sun::star::util;
 using namespace ::comphelper;
 using ::osl::MutexGuard;
@@ -58,13 +60,13 @@ namespace
 {
 // copied from string misc, it should be replaced when library is not an
 // extension anymore
-std::vector<OUString> lcl_split(const OUString& rStr, sal_Unicode cSeparator)
+std::vector<OString> lcl_split(const OString& rStr, char cSeparator)
 {
-    std::vector<OUString> vec;
+    std::vector<OString> vec;
     sal_Int32 idx = 0;
     do
     {
-        OUString kw = rStr.getToken(0, cSeparator, idx);
+        OString kw = rStr.getToken(0, cSeparator, idx);
         kw = kw.trim();
         if (!kw.isEmpty())
         {
@@ -77,26 +79,37 @@ std::vector<OUString> lcl_split(const OUString& rStr, sal_Unicode cSeparator)
 
 void OResultSet::checkRowIndex()
 {
-    if (m_nRowPosition <= 0 || m_nRowPosition > m_nRowCount)
+    if (m_nRowPosition < 0 || m_nRowPosition >= m_nRowCount)
     {
-        throw SQLException("Cursor position out of range", *this, rtl::OUString(), 1, Any());
+        throw SQLException("Cursor position out of range", *this, OUString(), 1, Any());
     }
 }
 
-rtl::OUString SAL_CALL OResultSet::getImplementationName()
+bool OResultSet::checkNull(sal_Int32 column)
 {
-    return rtl::OUString("com.sun.star.sdbcx.mysqlc.ResultSet");
+    if (m_aRows[m_nRowPosition][column - 1].isEmpty())
+    {
+        m_bWasNull = true;
+        return true;
+    }
+    m_bWasNull = false;
+    return false;
 }
 
-uno::Sequence<rtl::OUString> SAL_CALL OResultSet::getSupportedServiceNames()
+OUString SAL_CALL OResultSet::getImplementationName()
 {
-    uno::Sequence<rtl::OUString> aSupported(2);
+    return OUString("com.sun.star.sdbcx.mysqlc.ResultSet");
+}
+
+uno::Sequence<OUString> SAL_CALL OResultSet::getSupportedServiceNames()
+{
+    uno::Sequence<OUString> aSupported(2);
     aSupported[0] = "com.sun.star.sdbc.ResultSet";
     aSupported[1] = "com.sun.star.sdbcx.ResultSet";
     return aSupported;
 }
 
-sal_Bool SAL_CALL OResultSet::supportsService(const rtl::OUString& _rServiceName)
+sal_Bool SAL_CALL OResultSet::supportsService(const OUString& _rServiceName)
 {
     return cppu::supportsService(this, _rServiceName);
 }
@@ -105,19 +118,55 @@ OResultSet::OResultSet(OConnection& rConn, OCommonStatement* pStmt, MYSQL_RES* p
                        rtl_TextEncoding _encoding)
     : OResultSet_BASE(m_aMutex)
     , OPropertySetHelper(OResultSet_BASE::rBHelper)
-    , m_rConnection(rConn)
-    , m_aRow(nullptr)
     , m_pMysql(rConn.getMysqlConnection())
     , m_aStatement(static_cast<OWeakObject*>(pStmt))
     , m_pResult(pResult)
-    , fieldCount(0)
     , m_encoding(_encoding)
 {
-    fieldCount = mysql_num_fields(pResult);
+    m_xMetaData = new OResultSetMetaData(rConn, m_pResult);
+}
+
+void OResultSet::ensureResultFetched()
+{
+    if (!m_bResultFetched)
+    {
+        fetchResult();
+    }
+}
+
+void OResultSet::fetchResult()
+{
+    // Mysql C API does not allow simultaneously opened result sets, but sdbc does.
+    // Because of that we need to fetch all of the data ASAP
 
     // it works only if result set is produced via mysql_store_result
     // TODO ensure that
-    m_nRowCount = mysql_num_rows(pResult);
+    m_nRowCount = mysql_num_rows(m_pResult);
+
+    // fetch all the data
+    m_aRows.reserve(m_nRowCount);
+
+    m_nFieldCount = mysql_num_fields(m_pResult);
+    MYSQL_FIELD* pFields = mysql_fetch_fields(m_pResult);
+    m_aFields.assign(pFields, pFields + m_nFieldCount);
+
+    for (sal_Int32 row = 0; row < m_nRowCount; ++row)
+    {
+        MYSQL_ROW data = mysql_fetch_row(m_pResult);
+        unsigned long* lengths = mysql_fetch_lengths(m_pResult);
+        m_aRows.push_back(DataFields{});
+        // MYSQL_ROW is char**, array of strings
+        for (unsigned col = 0; col < m_nFieldCount; ++col)
+        {
+            m_aRows.back().push_back(OString{ data[col], static_cast<sal_Int32>(lengths[col]) });
+        }
+    }
+    unsigned errorNum = mysql_errno(m_pMysql);
+    if (errorNum)
+        mysqlc_sdbc_driver::throwSQLExceptionWithMsg(mysql_error(m_pMysql), errorNum, *this,
+                                                     m_encoding);
+    m_bResultFetched = true;
+    mysql_free_result(m_pResult);
 }
 
 void OResultSet::disposing()
@@ -149,15 +198,14 @@ uno::Sequence<Type> SAL_CALL OResultSet::getTypes()
     return concatSequences(aTypes.getTypes(), OResultSet_BASE::getTypes());
 }
 
-sal_Int32 SAL_CALL OResultSet::findColumn(const rtl::OUString& columnName)
+sal_Int32 SAL_CALL OResultSet::findColumn(const OUString& columnName)
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    MYSQL_FIELD* pFields = mysql_fetch_fields(m_pResult);
-    for (unsigned int i = 0; i < fieldCount; ++i)
+    for (unsigned int i = 0; i < m_nFieldCount; ++i)
     {
-        if (columnName.equalsIgnoreAsciiCaseAscii(pFields[i].name))
+        if (columnName.equalsIgnoreAsciiCaseAscii(m_aFields[i].name))
             return i + 1; // sdbc indexes from 1
     }
 
@@ -171,9 +219,12 @@ uno::Reference<XInputStream> SAL_CALL OResultSet::getBinaryStream(sal_Int32 colu
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
+    if (checkNull(column))
+        return nullptr;
 
-    mysqlc_sdbc_driver::throwFeatureNotImplementedException("OResultSet::getBinaryStream", *this);
-    return nullptr;
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return new SequenceInputStream{ uno::Sequence<sal_Int8>(
+        reinterpret_cast<sal_Int8 const*>(sVal.getStr()), getDataLength(column - 1)) };
 }
 
 uno::Reference<XInputStream> SAL_CALL OResultSet::getCharacterStream(sal_Int32 column)
@@ -182,7 +233,6 @@ uno::Reference<XInputStream> SAL_CALL OResultSet::getCharacterStream(sal_Int32 c
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
     mysqlc_sdbc_driver::throwFeatureNotImplementedException("OResultSet::getCharacterStream",
                                                             *this);
     return nullptr;
@@ -194,16 +244,11 @@ sal_Bool SAL_CALL OResultSet::getBoolean(sal_Int32 column)
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return false;
-    }
 
-    m_bWasNull = false;
-    return static_cast<bool>(std::atoi(pValue));
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return sVal.toInt32() != 0;
 }
 
 sal_Int8 SAL_CALL OResultSet::getByte(sal_Int32 column)
@@ -212,32 +257,24 @@ sal_Int8 SAL_CALL OResultSet::getByte(sal_Int32 column)
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return 0;
-    }
 
-    m_bWasNull = false;
-    return static_cast<sal_Int8>(std::atoi(pValue));
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+
+    return static_cast<sal_Int8>(sVal.toInt32());
 }
 
 uno::Sequence<sal_Int8> SAL_CALL OResultSet::getBytes(sal_Int32 column)
 {
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     MutexGuard aGuard(m_aMutex);
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    if (checkNull(column))
         return uno::Sequence<sal_Int8>();
-    }
-    m_bWasNull = false;
-    return uno::Sequence<sal_Int8>(reinterpret_cast<sal_Int8 const*>(pValue),
-                                   m_aLengths[column - 1]);
+
+    return uno::Sequence<sal_Int8>(reinterpret_cast<sal_Int8 const*>(sVal.getStr()),
+                                   getDataLength(column - 1));
 }
 
 Date SAL_CALL OResultSet::getDate(sal_Int32 column)
@@ -247,16 +284,15 @@ Date SAL_CALL OResultSet::getDate(sal_Int32 column)
     checkColumnIndex(column);
     checkRowIndex();
 
-    Date d; // TODO initialize
-    char* dateStr = m_aRow[column - 1];
-    if (!dateStr)
-    {
-        m_bWasNull = true;
-        return d;
-    }
+    Date d;
 
-    rtl::OString dateString(dateStr);
-    rtl::OString token;
+    if (checkNull(column))
+        return d;
+
+    OString dateStr = m_aRows[m_nRowPosition][column - 1];
+
+    OString dateString(dateStr);
+    OString token;
     sal_Int32 nIndex = 0, i = 0;
     do
     {
@@ -276,7 +312,6 @@ Date SAL_CALL OResultSet::getDate(sal_Int32 column)
         }
         i++;
     } while (nIndex >= 0);
-    m_bWasNull = false;
     return d;
 }
 
@@ -287,15 +322,11 @@ double SAL_CALL OResultSet::getDouble(sal_Int32 column)
     checkColumnIndex(column);
     checkRowIndex();
 
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return 0.0;
-    }
 
-    m_bWasNull = false;
-    return std::strtod(pValue, nullptr);
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return sVal.toDouble();
 }
 
 float SAL_CALL OResultSet::getFloat(sal_Int32 column)
@@ -304,31 +335,22 @@ float SAL_CALL OResultSet::getFloat(sal_Int32 column)
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return 0.0f;
-    }
 
-    m_bWasNull = false;
-    return std::strtod(pValue, nullptr);
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return sVal.toFloat();
 }
 
 sal_Int32 SAL_CALL OResultSet::getInt(sal_Int32 column)
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return 0;
-    }
 
-    m_bWasNull = false;
-    return std::atoi(pValue);
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return sVal.toInt32();
 }
 
 sal_Int32 SAL_CALL OResultSet::getRow()
@@ -336,7 +358,7 @@ sal_Int32 SAL_CALL OResultSet::getRow()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    return m_nRowPosition;
+    return m_nRowPosition + 1; // indexed from 1
 }
 
 sal_Int64 SAL_CALL OResultSet::getLong(sal_Int32 column)
@@ -345,26 +367,17 @@ sal_Int64 SAL_CALL OResultSet::getLong(sal_Int32 column)
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return 0LL;
-    }
 
-    m_bWasNull = false;
-    return std::atol(pValue);
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return sVal.toInt64();
 }
 
 uno::Reference<XResultSetMetaData> SAL_CALL OResultSet::getMetaData()
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-    if (!m_xMetaData.is())
-    {
-        m_xMetaData = new OResultSetMetaData(m_rConnection, m_pResult);
-    }
     return m_xMetaData;
 }
 
@@ -432,32 +445,24 @@ sal_Int16 SAL_CALL OResultSet::getShort(sal_Int32 column)
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return 0;
-    }
-    m_bWasNull = false;
-    return std::atoi(pValue);
+
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return sVal.toInt32();
 }
 
-rtl::OUString SAL_CALL OResultSet::getString(sal_Int32 column)
+OUString SAL_CALL OResultSet::getString(sal_Int32 column)
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
     checkColumnIndex(column);
     checkRowIndex();
-
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    if (checkNull(column))
         return rtl::OUString{};
-    }
-    m_bWasNull = false;
-    return rtl::OUString(pValue, static_cast<sal_Int32>(m_aLengths[column - 1]), m_encoding);
+
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    return OStringToOUString(sVal, m_encoding);
 }
 
 Time SAL_CALL OResultSet::getTime(sal_Int32 column)
@@ -467,15 +472,13 @@ Time SAL_CALL OResultSet::getTime(sal_Int32 column)
 
     checkColumnIndex(column);
     checkRowIndex();
-    Time t; // initialize
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
+    Time t;
+    if (checkNull(column))
         return t;
-    }
-    rtl::OUString timeString{ pValue, static_cast<sal_Int32>(m_aLengths[column - 1]), m_encoding };
-    rtl::OUString token;
+
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
+    OString timeString{ sVal.getStr(), getDataLength(column - 1) };
+    OString token;
     sal_Int32 nIndex, i = 0;
 
     nIndex = timeString.indexOf(' ') + 1;
@@ -497,7 +500,6 @@ Time SAL_CALL OResultSet::getTime(sal_Int32 column)
         i++;
     } while (nIndex >= 0);
 
-    m_bWasNull = false;
     return t;
 }
 
@@ -508,19 +510,17 @@ DateTime SAL_CALL OResultSet::getTimestamp(sal_Int32 column)
     checkColumnIndex(column);
     checkRowIndex();
 
-    char* pValue = m_aRow[column - 1];
-    if (!pValue)
-    {
-        m_bWasNull = true;
-        return DateTime{}; // init
-    }
+    if (checkNull(column))
+        return DateTime{};
+
+    OString sVal = m_aRows[m_nRowPosition][column - 1];
 
     // YY-MM-DD HH:MM:SS
-    std::vector<rtl::OUString> dateAndTime = lcl_split(
-        rtl::OUString{ pValue, static_cast<sal_Int32>(m_aLengths[column - 1]), m_encoding }, u' ');
+    std::vector<OString> dateAndTime
+        = lcl_split(OString{ sVal.getStr(), getDataLength(column - 1) }, ' ');
 
-    auto dateParts = lcl_split(dateAndTime.at(0), u'-');
-    auto timeParts = lcl_split(dateAndTime.at(1), u':');
+    auto dateParts = lcl_split(dateAndTime.at(0), '-');
+    auto timeParts = lcl_split(dateAndTime.at(1), ':');
 
     DateTime dt;
 
@@ -530,7 +530,6 @@ DateTime SAL_CALL OResultSet::getTimestamp(sal_Int32 column)
     dt.Hours = timeParts.at(0).toUInt32();
     dt.Minutes = timeParts.at(1).toUInt32();
     dt.Seconds = timeParts.at(2).toUInt32();
-    m_bWasNull = false;
     return dt;
 }
 
@@ -539,7 +538,7 @@ sal_Bool SAL_CALL OResultSet::isBeforeFirst()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    return m_nRowPosition == 0;
+    return m_nRowPosition < 0;
 }
 
 sal_Bool SAL_CALL OResultSet::isAfterLast()
@@ -547,7 +546,7 @@ sal_Bool SAL_CALL OResultSet::isAfterLast()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    return m_nRowPosition > m_nRowCount;
+    return m_nRowPosition >= m_nRowCount;
 }
 
 sal_Bool SAL_CALL OResultSet::isFirst()
@@ -555,7 +554,7 @@ sal_Bool SAL_CALL OResultSet::isFirst()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    return m_nRowPosition == 1 && !isAfterLast();
+    return m_nRowPosition == 0 && !isAfterLast();
 }
 
 sal_Bool SAL_CALL OResultSet::isLast()
@@ -563,23 +562,21 @@ sal_Bool SAL_CALL OResultSet::isLast()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    return m_nRowPosition == m_nRowCount;
+    return m_nRowPosition == m_nRowCount - 1;
 }
 
 void SAL_CALL OResultSet::beforeFirst()
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-    mysql_data_seek(m_pResult, 0);
-    m_nRowPosition = 0;
+    m_nRowPosition = -1;
 }
 
 void SAL_CALL OResultSet::afterLast()
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-    mysql_data_seek(m_pResult, m_nRowCount + 1);
-    m_nRowPosition = m_nRowCount + 1;
+    m_nRowPosition = m_nRowCount;
 }
 
 void SAL_CALL OResultSet::close()
@@ -587,7 +584,6 @@ void SAL_CALL OResultSet::close()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    mysql_free_result(m_pResult);
     m_pResult = nullptr;
     dispose();
 }
@@ -596,10 +592,7 @@ sal_Bool SAL_CALL OResultSet::first()
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-
-    mysql_data_seek(m_pResult, 0);
     m_nRowPosition = 0;
-    next();
 
     return true;
 }
@@ -608,10 +601,7 @@ sal_Bool SAL_CALL OResultSet::last()
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-
-    mysql_data_seek(m_pResult, m_nRowCount - 1);
     m_nRowPosition = m_nRowCount - 1;
-    next();
 
     return true;
 }
@@ -621,7 +611,7 @@ sal_Bool SAL_CALL OResultSet::absolute(sal_Int32 row)
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    sal_Int32 nToGo = row < 0 ? m_nRowCount - row : row - 1;
+    sal_Int32 nToGo = row < 0 ? (m_nRowCount - 1) - row : row - 1;
 
     if (nToGo >= m_nRowCount)
         nToGo = m_nRowCount - 1;
@@ -629,8 +619,6 @@ sal_Bool SAL_CALL OResultSet::absolute(sal_Int32 row)
         nToGo = 0;
 
     m_nRowPosition = nToGo;
-    mysql_data_seek(m_pResult, nToGo);
-    next();
 
     return true;
 }
@@ -650,8 +638,6 @@ sal_Bool SAL_CALL OResultSet::relative(sal_Int32 row)
         nToGo = 0;
 
     m_nRowPosition = nToGo;
-    mysql_data_seek(m_pResult, nToGo);
-    next();
 
     return true;
 }
@@ -661,12 +647,10 @@ sal_Bool SAL_CALL OResultSet::previous()
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
-    if (m_nRowPosition <= 1)
+    if (m_nRowPosition <= 0)
         return false;
 
-    m_nRowPosition -= 2;
-    mysql_data_seek(m_pResult, m_nRowPosition);
-    next();
+    m_nRowPosition--;
     return true;
 }
 
@@ -706,17 +690,11 @@ sal_Bool SAL_CALL OResultSet::next()
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-
-    m_aRow = mysql_fetch_row(m_pResult);
-    m_aLengths = mysql_fetch_lengths(m_pResult);
-
-    unsigned errorNum = mysql_errno(m_pMysql);
-    if (errorNum)
-        mysqlc_sdbc_driver::throwSQLExceptionWithMsg(mysql_error(m_pMysql), errorNum, *this,
-                                                     m_encoding);
+    ensureResultFetched();
+    if (m_nRowPosition + 1 >= m_nRowCount)
+        return false;
     ++m_nRowPosition;
-
-    return m_aRow != nullptr;
+    return true;
 }
 
 sal_Bool SAL_CALL OResultSet::wasNull()
@@ -859,7 +837,7 @@ void SAL_CALL OResultSet::updateDouble(sal_Int32 column, double /* x */)
     mysqlc_sdbc_driver::throwFeatureNotImplementedException("OResultSet::updateDouble", *this);
 }
 
-void SAL_CALL OResultSet::updateString(sal_Int32 column, const rtl::OUString& /* x */)
+void SAL_CALL OResultSet::updateString(sal_Int32 column, const OUString& /* x */)
 {
     MutexGuard aGuard(m_aMutex);
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
@@ -1062,7 +1040,7 @@ void OResultSet::setFastPropertyValue_NoBroadcast(sal_Int32 nHandle, const Any& 
         case PROPERTY_ID_CURSORNAME:
         case PROPERTY_ID_RESULTSETCONCURRENCY:
         case PROPERTY_ID_RESULTSETTYPE:
-            throw uno::Exception("cannot set prop " + rtl::OUString::number(nHandle), nullptr);
+            throw uno::Exception("cannot set prop " + OUString::number(nHandle), nullptr);
         case PROPERTY_ID_FETCHDIRECTION:
             break;
         case PROPERTY_ID_FETCHSIZE:
@@ -1108,10 +1086,10 @@ css::uno::Reference<css::beans::XPropertySetInfo> SAL_CALL OResultSet::getProper
 
 void OResultSet::checkColumnIndex(sal_Int32 index)
 {
-    if (index < 1 || index > static_cast<int>(fieldCount))
+    if (index < 1 || index > static_cast<int>(m_nFieldCount))
     {
         /* static object for efficiency or thread safety is a problem ? */
-        throw SQLException("index out of range", *this, rtl::OUString(), 1, Any());
+        throw SQLException("index out of range", *this, OUString(), 1, Any());
     }
 }
 

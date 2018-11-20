@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <config_features.h>
+
 #include <memory>
 #include <unordered_map>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
@@ -18,10 +20,12 @@
 #include <sal/log.hxx>
 #include <unotools/resmgr.hxx>
 #include <vcl/builder.hxx>
+#include <vcl/builderfactory.hxx>
 #include <vcl/button.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/field.hxx>
+#include <vcl/fmtfield.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/fixedhyper.hxx>
 #include <vcl/IPrioritable.hxx>
@@ -36,6 +40,8 @@
 #include <vcl/tabpage.hxx>
 #include <vcl/throbber.hxx>
 #include <vcl/toolbox.hxx>
+#include <vcl/treelistbox.hxx>
+#include <vcl/treelistentry.hxx>
 #include <vcl/vclmedit.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/slider.hxx>
@@ -138,7 +144,7 @@ weld::Builder* Application::CreateBuilder(weld::Widget* pParent, const OUString 
 
 weld::Builder* Application::CreateInterimBuilder(vcl::Window* pParent, const OUString &rUIFile)
 {
-    return ImplGetSVData()->mpDefInst->CreateInterimBuilder(pParent, VclBuilderContainer::getUIRootDir(), rUIFile);
+    return SalInstance::CreateInterimBuilder(pParent, VclBuilderContainer::getUIRootDir(), rUIFile);
 }
 
 weld::MessageDialog* Application::CreateMessageDialog(weld::Widget* pParent, VclMessageType eMessageType,
@@ -156,15 +162,13 @@ namespace weld
 {
     OUString MetricSpinButton::MetricToString(FieldUnit rUnit)
     {
-        FieldUnitStringList* pList = ImplGetFieldUnits();
-        if (pList)
-        {
-            // return unit's default string (ie, the first one )
-            auto it = std::find_if(pList->begin(), pList->end(),
-                [&rUnit](std::pair<OUString, FieldUnit>& rItem) { return rItem.second == rUnit; });
-            if (it != pList->end())
-                return it->first;
-        }
+        const FieldUnitStringList& rList = ImplGetFieldUnits();
+        // return unit's default string (ie, the first one )
+        auto it = std::find_if(
+            rList.begin(), rList.end(),
+            [&rUnit](const std::pair<OUString, FieldUnit>& rItem) { return rItem.second == rUnit; });
+        if (it != rList.end())
+            return it->first;
 
         return OUString();
     }
@@ -217,26 +221,52 @@ namespace weld
     {
         OUString aStr;
 
+        const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetLocaleDataWrapper();
+
         unsigned int nDecimalDigits = m_xSpinButton->get_digits();
         //pawn percent off to icu to decide whether percent is separated from its number for this locale
-        if (m_eSrcUnit == FUNIT_PERCENT)
+        if (m_eSrcUnit == FieldUnit::PERCENT)
         {
             double fValue = nValue;
             fValue /= SpinButton::Power10(nDecimalDigits);
-            aStr = unicode::formatPercent(fValue, Application::GetSettings().GetUILanguageTag());
+            aStr = unicode::formatPercent(fValue, rLocaleData.getLanguageTag());
         }
         else
         {
-            const SvtSysLocale aSysLocale;
-            const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
             aStr = rLocaleData.getNum(nValue, nDecimalDigits, true, true);
-            if (m_eSrcUnit != FUNIT_NONE && m_eSrcUnit != FUNIT_DEGREE)
+            if (m_eSrcUnit != FieldUnit::NONE && m_eSrcUnit != FieldUnit::DEGREE)
                 aStr += " ";
-            assert(m_eSrcUnit != FUNIT_PERCENT);
+            assert(m_eSrcUnit != FieldUnit::PERCENT);
             aStr += MetricToString(m_eSrcUnit);
         }
 
         return aStr;
+    }
+
+    void MetricSpinButton::set_digits(unsigned int digits)
+    {
+        int step, page;
+        get_increments(step, page, m_eSrcUnit);
+        int value = get_value(m_eSrcUnit);
+        m_xSpinButton->set_digits(digits);
+        set_increments(step, page, m_eSrcUnit);
+        set_value(value, m_eSrcUnit);
+        update_width_chars();
+    }
+
+    void MetricSpinButton::set_unit(FieldUnit eUnit)
+    {
+        if (eUnit != m_eSrcUnit)
+        {
+            int step, page;
+            get_increments(step, page, m_eSrcUnit);
+            int value = get_value(m_eSrcUnit);
+            m_eSrcUnit = eUnit;
+            set_increments(step, page, m_eSrcUnit);
+            set_value(value, m_eSrcUnit);
+            spin_button_output(*m_xSpinButton);
+            update_width_chars();
+        }
     }
 
     int MetricSpinButton::ConvertValue(int nValue, FieldUnit eInUnit, FieldUnit eOutUnit) const
@@ -246,8 +276,7 @@ namespace weld
 
     IMPL_LINK(MetricSpinButton, spin_button_input, int*, result, bool)
     {
-        const SvtSysLocale aSysLocale;
-        const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
+        const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetLocaleDataWrapper();
         double fResult(0.0);
         bool bRet = MetricFormatter::TextToValue(get_text(), fResult, 0, m_xSpinButton->get_digits(), rLocaleData, m_eSrcUnit);
         if (bRet)
@@ -260,8 +289,7 @@ namespace weld
         int nStartPos, nEndPos;
         m_xSpinButton->get_selection_bounds(nStartPos, nEndPos);
 
-        const SvtSysLocale aSysLocale;
-        const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
+        const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetLocaleDataWrapper();
         const int nTimeArea = TimeFormatter::GetTimeArea(m_eFormat, m_xSpinButton->get_text(), nEndPos,
                                                          rLocaleData);
 
@@ -295,8 +323,7 @@ namespace weld
         int nStartPos, nEndPos;
         m_xSpinButton->get_selection_bounds(nStartPos, nEndPos);
 
-        const SvtSysLocale aSysLocale;
-        const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
+        const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetLocaleDataWrapper();
         tools::Time aResult(0);
         bool bRet = TimeFormatter::TextToTime(m_xSpinButton->get_text(), aResult, m_eFormat, true, rLocaleData);
         if (bRet)
@@ -314,22 +341,21 @@ namespace weld
         m_xSpinButton->set_width_chars(chars);
     }
 
-    tools::Time TimeSpinButton::ConvertValue(int nValue) const
+    tools::Time TimeSpinButton::ConvertValue(int nValue)
     {
         tools::Time aTime(0);
         aTime.MakeTimeFromMS(nValue);
         return aTime;
     }
 
-    int TimeSpinButton::ConvertValue(const tools::Time& rTime) const
+    int TimeSpinButton::ConvertValue(const tools::Time& rTime)
     {
         return rTime.GetMSFromTime();
     }
 
     OUString TimeSpinButton::format_number(int nValue) const
     {
-        const SvtSysLocale aSysLocale;
-        const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
+        const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetLocaleDataWrapper();
         return TimeFormatter::FormatTime(ConvertValue(nValue), m_eFormat, TimeFormat::Hour24, true, rLocaleData);
     }
 
@@ -492,13 +518,16 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
         vcl::Window* pTarget = get<vcl::Window>(elem.m_sID);
         ListBox *pListBoxTarget = dynamic_cast<ListBox*>(pTarget);
         ComboBox *pComboBoxTarget = dynamic_cast<ComboBox*>(pTarget);
+        SvTreeListBox *pTreeBoxTarget = dynamic_cast<SvTreeListBox*>(pTarget);
         // pStore may be empty
         const ListStore *pStore = get_model_by_name(elem.m_sValue.toUtf8());
-        SAL_WARN_IF(!pListBoxTarget && !pComboBoxTarget, "vcl", "missing elements of combobox");
+        SAL_WARN_IF(!pListBoxTarget && !pComboBoxTarget && !pTreeBoxTarget, "vcl", "missing elements of combobox");
         if (pListBoxTarget && pStore)
             mungeModel(*pListBoxTarget, *pStore, elem.m_nActiveId);
         else if (pComboBoxTarget && pStore)
             mungeModel(*pComboBoxTarget, *pStore, elem.m_nActiveId);
+        else if (pTreeBoxTarget && pStore)
+            mungeModel(*pTreeBoxTarget, *pStore, elem.m_nActiveId);
     }
 
     //Set TextView buffers when everything has been imported
@@ -517,6 +546,16 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
         NumericFormatter *pTarget = dynamic_cast<NumericFormatter*>(get<vcl::Window>(elem.m_sID));
         const Adjustment *pAdjustment = get_adjustment_by_name(elem.m_sValue.toUtf8());
         SAL_WARN_IF(!pTarget, "vcl", "missing NumericFormatter element of spinbutton/adjustment");
+        SAL_WARN_IF(!pAdjustment, "vcl", "missing Adjustment element of spinbutton/adjustment");
+        if (pTarget && pAdjustment)
+            mungeAdjustment(*pTarget, *pAdjustment);
+    }
+
+    for (auto const& elem : m_pParserState->m_aFormattedFormatterAdjustmentMaps)
+    {
+        FormattedField *pTarget = dynamic_cast<FormattedField*>(get<vcl::Window>(elem.m_sID));
+        const Adjustment *pAdjustment = get_adjustment_by_name(elem.m_sValue.toUtf8());
+        SAL_WARN_IF(!pTarget, "vcl", "missing FormattedField element of spinbutton/adjustment");
         SAL_WARN_IF(!pAdjustment, "vcl", "missing Adjustment element of spinbutton/adjustment");
         if (pTarget && pAdjustment)
             mungeAdjustment(*pTarget, *pAdjustment);
@@ -835,6 +874,18 @@ namespace
         return bResizable;
     }
 
+    bool extractModal(VclBuilder::stringmap &rMap)
+    {
+        bool bModal = false;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("modal"));
+        if (aFind != rMap.end())
+        {
+            bModal = toBool(aFind->second);
+            rMap.erase(aFind);
+        }
+        return bModal;
+    }
+
     bool extractDecorated(VclBuilder::stringmap &rMap)
     {
         bool bDecorated = true;
@@ -1112,6 +1163,9 @@ namespace
                 xWindow = VclPtr<PushButton>::Create(pParent, nBits);
                 xWindow->SetText(getStockText(sType));
             }
+            PushButton* pPushButton = dynamic_cast<PushButton*>(xWindow.get());
+            if (pPushButton)
+                pPushButton->setStock(true);
         }
 
         if (!xWindow)
@@ -1186,44 +1240,44 @@ namespace
 
     FieldUnit detectMetricUnit(const OUString& sUnit)
     {
-        FieldUnit eUnit = FUNIT_NONE;
+        FieldUnit eUnit = FieldUnit::NONE;
 
         if (sUnit == "mm")
-            eUnit = FUNIT_MM;
+            eUnit = FieldUnit::MM;
         else if (sUnit == "cm")
-            eUnit = FUNIT_CM;
+            eUnit = FieldUnit::CM;
         else if (sUnit == "m")
-            eUnit = FUNIT_M;
+            eUnit = FieldUnit::M;
         else if (sUnit == "km")
-            eUnit = FUNIT_KM;
+            eUnit = FieldUnit::KM;
         else if ((sUnit == "twips") || (sUnit == "twip"))
-            eUnit = FUNIT_TWIP;
+            eUnit = FieldUnit::TWIP;
         else if (sUnit == "pt")
-            eUnit = FUNIT_POINT;
+            eUnit = FieldUnit::POINT;
         else if (sUnit == "pc")
-            eUnit = FUNIT_PICA;
+            eUnit = FieldUnit::PICA;
         else if (sUnit == "\"" || (sUnit == "in") || (sUnit == "inch"))
-            eUnit = FUNIT_INCH;
+            eUnit = FieldUnit::INCH;
         else if ((sUnit == "'") || (sUnit == "ft") || (sUnit == "foot") || (sUnit == "feet"))
-            eUnit = FUNIT_FOOT;
+            eUnit = FieldUnit::FOOT;
         else if (sUnit == "mile" || (sUnit == "miles"))
-            eUnit = FUNIT_MILE;
+            eUnit = FieldUnit::MILE;
         else if (sUnit == "ch")
-            eUnit = FUNIT_CHAR;
+            eUnit = FieldUnit::CHAR;
         else if (sUnit == "line")
-            eUnit = FUNIT_LINE;
+            eUnit = FieldUnit::LINE;
         else if (sUnit == "%")
-            eUnit = FUNIT_PERCENT;
+            eUnit = FieldUnit::PERCENT;
         else if ((sUnit == "pixels") || (sUnit == "pixel") || (sUnit == "px"))
-            eUnit = FUNIT_PIXEL;
+            eUnit = FieldUnit::PIXEL;
         else if ((sUnit == "degrees") || (sUnit == "degree"))
-            eUnit = FUNIT_DEGREE;
+            eUnit = FieldUnit::DEGREE;
         else if ((sUnit == "sec") || (sUnit == "seconds") || (sUnit == "second"))
-            eUnit = FUNIT_SECOND;
+            eUnit = FieldUnit::SECOND;
         else if ((sUnit == "ms") || (sUnit == "milliseconds") || (sUnit == "millisecond"))
-            eUnit = FUNIT_MILLISECOND;
+            eUnit = FieldUnit::MILLISECOND;
         else if (sUnit != "0")
-            eUnit = FUNIT_CUSTOM;
+            eUnit = FieldUnit::CUSTOM;
 
         return eUnit;
     }
@@ -1271,6 +1325,12 @@ void VclBuilder::connectNumericFormatterAdjustment(const OString &id, const OUSt
 {
     if (!rAdjustment.isEmpty())
         m_pParserState->m_aNumericFormatterAdjustmentMaps.emplace_back(id, rAdjustment);
+}
+
+void VclBuilder::connectFormattedFormatterAdjustment(const OString &id, const OUString &rAdjustment)
+{
+    if (!rAdjustment.isEmpty())
+        m_pParserState->m_aFormattedFormatterAdjustmentMaps.emplace_back(id, rAdjustment);
 }
 
 void VclBuilder::connectTimeFormatterAdjustment(const OString &id, const OUString &rAdjustment)
@@ -1469,20 +1529,18 @@ void VclBuilder::preload()
     };
     for (auto & lib : aWidgetLibs)
     {
-        OUStringBuffer sModuleBuf;
-        sModuleBuf.append(SAL_DLLPREFIX);
-        sModuleBuf.append(OUString::createFromAscii(lib));
-        sModuleBuf.append(SAL_DLLEXTENSION);
-        NoAutoUnloadModule* pModule = new NoAutoUnloadModule;
-        OUString sModule = sModuleBuf.makeStringAndClear();
+        std::unique_ptr<NoAutoUnloadModule> pModule(new NoAutoUnloadModule);
+        OUString sModule = SAL_DLLPREFIX + OUString::createFromAscii(lib) + SAL_DLLEXTENSION;
         if (pModule->loadRelative(&thisModule, sModule))
-            g_aModuleMap.insert(std::make_pair(sModule, std::unique_ptr<NoAutoUnloadModule>(pModule)));
-        else
-            delete pModule;
+            g_aModuleMap.insert(std::make_pair(sModule, std::move(pModule)));
     }
 #endif // ENABLE_MERGELIBS
 #endif // DISABLE_DYNLOADING
 }
+
+#if defined DISABLE_DYNLOADING && !HAVE_FEATURE_DESKTOP
+extern "C" VclBuilder::customMakeWidget lo_get_custom_widget_func(const char* name);
+#endif
 
 VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &name, const OString &id,
     stringmap &rMap)
@@ -1492,30 +1550,34 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
 
     if (pParent && pParent->GetType() == WindowType::TABCONTROL)
     {
-        //We have to add a page
-
-        //make default pageid == position
-        TabControl *pTabControl = static_cast<TabControl*>(pParent);
-        sal_uInt16 nNewPageCount = pTabControl->GetPageCount()+1;
-        sal_uInt16 nNewPageId = nNewPageCount;
-        pTabControl->InsertPage(nNewPageId, OUString());
-        pTabControl->SetCurPageId(nNewPageId);
-        SAL_WARN_IF(bIsPlaceHolder, "vcl.layout", "we should have no placeholders for tabpages");
-        if (!bIsPlaceHolder)
+        bool bTopLevel(name == "GtkDialog" || name == "GtkMessageDialog" ||
+                       name == "GtkWindow" || name == "GtkPopover");
+        if (!bTopLevel)
         {
-            VclPtrInstance<TabPage> pPage(pTabControl);
-            pPage->Show();
+            //We have to add a page
+            //make default pageid == position
+            TabControl *pTabControl = static_cast<TabControl*>(pParent);
+            sal_uInt16 nNewPageCount = pTabControl->GetPageCount()+1;
+            sal_uInt16 nNewPageId = nNewPageCount;
+            pTabControl->InsertPage(nNewPageId, OUString());
+            pTabControl->SetCurPageId(nNewPageId);
+            SAL_WARN_IF(bIsPlaceHolder, "vcl.layout", "we should have no placeholders for tabpages");
+            if (!bIsPlaceHolder)
+            {
+                VclPtrInstance<TabPage> pPage(pTabControl);
+                pPage->Show();
 
-            //Make up a name for it
-            OString sTabPageId = get_by_window(pParent) +
-                OString("-page") +
-                OString::number(nNewPageCount);
-            m_aChildren.emplace_back(sTabPageId, pPage, false);
-            pPage->SetHelpId(m_sHelpRoot + sTabPageId);
+                //Make up a name for it
+                OString sTabPageId = get_by_window(pParent) +
+                    OString("-page") +
+                    OString::number(nNewPageCount);
+                m_aChildren.emplace_back(sTabPageId, pPage, false);
+                pPage->SetHelpId(m_sHelpRoot + sTabPageId);
 
-            pParent = pPage;
+                pParent = pPage;
 
-            pTabControl->SetTabPage(nNewPageId, pPage);
+                pTabControl->SetTabPage(nNewPageId, pPage);
+            }
         }
     }
 
@@ -1531,6 +1593,8 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
         if (extractResizable(rMap))
             nBits |= WB_SIZEABLE;
         xWindow = VclPtr<Dialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
+        if (!m_bLegacy && !extractModal(rMap))
+            xWindow->SetType(WindowType::MODELESSDIALOG);
     }
     else if (name == "GtkMessageDialog")
     {
@@ -1682,9 +1746,19 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
 
         if (sPattern.isEmpty())
         {
-            connectNumericFormatterAdjustment(id, sAdjustment);
             SAL_INFO("vcl.layout", "making numeric field for " << name << " " << sUnit);
-            xWindow = VclPtr<NumericField>::Create(pParent, nBits);
+            if (m_bLegacy)
+            {
+                connectNumericFormatterAdjustment(id, sAdjustment);
+                xWindow = VclPtr<NumericField>::Create(pParent, nBits);
+            }
+            else
+            {
+                connectFormattedFormatterAdjustment(id, sAdjustment);
+                VclPtrInstance<FormattedField> xField(pParent, nBits);
+                xField->SetMinValue(0);
+                xWindow = xField;
+            }
         }
         else
         {
@@ -1707,7 +1781,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                 SAL_INFO("vcl.layout", "making metric field for " << name << " " << sUnit);
                 VclPtrInstance<MetricField> xField(pParent, nBits);
                 xField->SetUnit(eUnit);
-                if (eUnit == FUNIT_CUSTOM)
+                if (eUnit == FieldUnit::CUSTOM)
                     xField->SetCustomUnitText(sUnit);
                 xWindow = xField;
             }
@@ -1741,7 +1815,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             xBox->EnableAutoSize(true);
             xBox->SetUnit(eUnit);
             xBox->SetDecimalDigits(extractDecimalDigits(sPattern));
-            if (eUnit == FUNIT_CUSTOM)
+            if (eUnit == FieldUnit::CUSTOM)
                 xBox->SetCustomUnitText(sUnit);
             xWindow = xBox;
         }
@@ -1781,7 +1855,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             xBox->EnableAutoSize(true);
             xBox->SetUnit(eUnit);
             xBox->SetDecimalDigits(extractDecimalDigits(sPattern));
-            if (eUnit == FUNIT_CUSTOM)
+            if (eUnit == FieldUnit::CUSTOM)
                 xBox->SetCustomUnitText(sUnit);
             xWindow = xBox;
         }
@@ -1798,11 +1872,10 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     else if (name == "GtkTreeView")
     {
         //To-Do
-        //a) move svtools SvTreeViewBox into vcl
-        //b) make that the default target for GtkTreeView
-        //c) remove the non-drop down mode of ListBox and convert
-        //   everything over to SvTreeViewBox
-        //d) remove the users of makeSvTreeViewBox
+        //a) make SvTreeListBox the default target for GtkTreeView
+        //b) remove the non-drop down mode of ListBox and convert
+        //   everything over to SvTreeListBox
+        //c) remove the users of makeSvTreeListBox
         extractModel(id, rMap);
         WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE;
         if (m_bLegacy)
@@ -1811,11 +1884,19 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             if (!sBorder.isEmpty())
                 nWinStyle |= WB_BORDER;
         }
-        //ListBox manages its own scrolling,
+        //ListBox/SvTreeListBox manages its own scrolling,
         vcl::Window *pRealParent = prepareWidgetOwnScrolling(pParent, nWinStyle);
         if (pRealParent != pParent)
             nWinStyle |= WB_BORDER;
-        xWindow = VclPtr<ListBox>::Create(pRealParent, nWinStyle);
+        if (m_bLegacy)
+            xWindow = VclPtr<ListBox>::Create(pRealParent, nWinStyle);
+        else
+        {
+            VclPtrInstance<SvTreeListBox> xBox(pRealParent, nWinStyle | WB_HASBUTTONS | WB_HASBUTTONSATROOT);
+            xBox->SetNoAutoCurEntry(true);
+            xBox->SetHighlightRange(); // select over the whole width
+            xWindow = xBox;
+        }
         if (pRealParent != pParent)
             cleanupWidgetOwnScrolling(pParent, xWindow, rMap);
     }
@@ -2034,6 +2115,10 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             }
             else
                 pFunction = reinterpret_cast<customMakeWidget>(aI->second->getFunctionSymbol(sFunction));
+#elif !HAVE_FEATURE_DESKTOP
+            pFunction = lo_get_custom_widget_func(sFunction.toUtf8().getStr());
+            SAL_WARN_IF(!pFunction, "vcl.layout", "Could not find " << sFunction);
+            assert(pFunction);
 #else
             pFunction = reinterpret_cast<customMakeWidget>(osl_getFunctionSymbol((oslModule) RTLD_DEFAULT, sFunction.pData));
 #endif
@@ -2824,10 +2909,9 @@ void VclBuilder::handleRow(xmlreader::XmlReader &reader, const OString &rID)
     m_pParserState->m_aModels[rID].m_aEntries.push_back(aRow);
 }
 
-void VclBuilder::handleListStore(xmlreader::XmlReader &reader, const OString &rID)
+void VclBuilder::handleListStore(xmlreader::XmlReader &reader, const OString &rID, const OString &rClass)
 {
     int nLevel = 1;
-    sal_Int32 nRowIndex = 0;
 
     while(true)
     {
@@ -2844,8 +2928,10 @@ void VclBuilder::handleListStore(xmlreader::XmlReader &reader, const OString &rI
         {
             if (name.equals("row"))
             {
-                handleRow(reader, rID);
-                nRowIndex++;
+                bool bNotTreeStore = rClass != "GtkTreeStore";
+                if (bNotTreeStore)
+                    handleRow(reader, rID);
+                assert(bNotTreeStore && "gtk, as the time of writing, doesn't support data in GtkTreeStore serialization");
             }
             else
                 ++nLevel;
@@ -3295,7 +3381,9 @@ void VclBuilder::insertMenuObject(PopupMenu *pParent, PopupMenu *pSubMenu, const
 
 /// Insert items to a ComboBox or a ListBox.
 /// They have no common ancestor that would have 'InsertEntry()', so use a template.
-template<typename T> static bool insertItems(vcl::Window *pWindow, VclBuilder::stringmap &rMap, const std::vector<ComboBoxTextItem> &rItems)
+template<typename T> static bool insertItems(vcl::Window *pWindow, VclBuilder::stringmap &rMap,
+                                             std::vector<std::unique_ptr<OUString>>& rUserData,
+                                             const std::vector<ComboBoxTextItem> &rItems)
 {
     T *pContainer = dynamic_cast<T*>(pWindow);
     if (!pContainer)
@@ -3306,7 +3394,10 @@ template<typename T> static bool insertItems(vcl::Window *pWindow, VclBuilder::s
     {
         sal_Int32 nPos = pContainer->InsertEntry(item.m_sItem);
         if (!item.m_sId.isEmpty())
-            pContainer->SetEntryData(nPos, new OUString(OUString::fromUtf8(item.m_sId)));
+        {
+            rUserData.emplace_back(o3tl::make_unique<OUString>(OUString::fromUtf8(item.m_sId)));
+            pContainer->SetEntryData(nPos, rUserData.back().get());
+        }
     }
     if (nActiveId < rItems.size())
         pContainer->SelectEntryPos(nActiveId);
@@ -3343,9 +3434,9 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
         }
     }
 
-    if (sClass == "GtkListStore")
+    if (sClass == "GtkListStore" || sClass == "GtkTreeStore")
     {
-        handleListStore(reader, sID);
+        handleListStore(reader, sID, sClass);
         return nullptr;
     }
     else if (sClass == "GtkMenu")
@@ -3459,8 +3550,8 @@ VclPtr<vcl::Window> VclBuilder::handleObject(vcl::Window *pParent, xmlreader::Xm
     if (!aItems.empty())
     {
         // try to fill-in the items
-        if (!insertItems<ComboBox>(pCurrentChild, aProperties, aItems))
-            insertItems<ListBox>(pCurrentChild, aProperties, aItems);
+        if (!insertItems<ComboBox>(pCurrentChild, aProperties, m_aUserData, aItems))
+            insertItems<ListBox>(pCurrentChild, aProperties, m_aUserData, aItems);
     }
 
     return pCurrentChild;
@@ -3952,7 +4043,10 @@ void VclBuilder::mungeModel(ComboBox &rTarget, const ListStore &rStore, sal_uInt
             else
             {
                 if (!rRow[1].isEmpty())
-                    rTarget.SetEntryData(nEntry, new OUString(rRow[1]));
+                {
+                    m_aUserData.emplace_back(o3tl::make_unique<OUString>(rRow[1]));
+                    rTarget.SetEntryData(nEntry, m_aUserData.back().get());
+                }
             }
         }
     }
@@ -3976,12 +4070,45 @@ void VclBuilder::mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt1
             else
             {
                 if (!rRow[1].isEmpty())
-                    rTarget.SetEntryData(nEntry, new OUString(rRow[1]));
+                {
+                    m_aUserData.emplace_back(o3tl::make_unique<OUString>(rRow[1]));
+                    rTarget.SetEntryData(nEntry, m_aUserData.back().get());
+                }
             }
         }
     }
     if (nActiveId < rStore.m_aEntries.size())
         rTarget.SelectEntryPos(nActiveId);
+}
+
+void VclBuilder::mungeModel(SvTreeListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId)
+{
+    for (auto const& entry : rStore.m_aEntries)
+    {
+        const ListStore::row &rRow = entry;
+        auto pEntry = rTarget.InsertEntry(rRow[0]);
+        if (rRow.size() > 1)
+        {
+            if (m_bLegacy)
+            {
+                sal_IntPtr nValue = rRow[1].toInt32();
+                pEntry->SetUserData(reinterpret_cast<void*>(nValue));
+            }
+            else
+            {
+                if (!rRow[1].isEmpty())
+                {
+                    m_aUserData.emplace_back(o3tl::make_unique<OUString>(rRow[1]));
+                    pEntry->SetUserData(m_aUserData.back().get());
+                }
+            }
+        }
+    }
+    if (nActiveId < rStore.m_aEntries.size())
+    {
+        SvTreeListEntry* pEntry = rTarget.GetEntry(nullptr, nActiveId);
+        rTarget.Select(pEntry);
+    }
 }
 
 void VclBuilder::mungeAdjustment(NumericFormatter &rTarget, const Adjustment &rAdjustment)
@@ -4014,6 +4141,36 @@ void VclBuilder::mungeAdjustment(NumericFormatter &rTarget, const Adjustment &rA
         {
             sal_Int64 nSpinSize = rValue.toDouble() * nMul;
             rTarget.SetSpinSize(nSpinSize);
+        }
+        else
+        {
+            SAL_INFO("vcl.layout", "unhandled property :" << rKey);
+        }
+    }
+}
+
+void VclBuilder::mungeAdjustment(FormattedField &rTarget, const Adjustment &rAdjustment)
+{
+    for (auto const& elem : rAdjustment)
+    {
+        const OString &rKey = elem.first;
+        const OUString &rValue = elem.second;
+
+        if (rKey == "upper")
+        {
+            rTarget.SetMaxValue(rValue.toDouble());
+        }
+        else if (rKey == "lower")
+        {
+            rTarget.SetMinValue(rValue.toDouble());
+        }
+        else if (rKey == "value")
+        {
+            rTarget.SetValue(rValue.toDouble());
+        }
+        else if (rKey == "step-increment")
+        {
+            rTarget.SetSpinSize(rValue.toDouble());
         }
         else
         {

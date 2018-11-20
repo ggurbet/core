@@ -24,6 +24,8 @@
 typedef css::uno::Reference<css::accessibility::XAccessible> a11yref;
 typedef css::uno::Reference<css::accessibility::XAccessibleRelationSet> a11yrelationset;
 
+class SvNumberFormatter;
+
 namespace vcl
 {
 class ILibreOfficeKitNotifier;
@@ -40,8 +42,8 @@ protected:
     Link<Widget&, void> m_aFocusInHdl;
     Link<Widget&, void> m_aFocusOutHdl;
 
-    void signal_focus_in() { return m_aFocusInHdl.Call(*this); }
-    void signal_focus_out() { return m_aFocusOutHdl.Call(*this); }
+    void signal_focus_in() { m_aFocusInHdl.Call(*this); }
+    void signal_focus_out() { m_aFocusOutHdl.Call(*this); }
 
 public:
     virtual void set_sensitive(bool sensitive) = 0;
@@ -196,8 +198,15 @@ public:
     virtual void set_busy_cursor(bool bBusy) = 0;
     virtual void window_move(int x, int y) = 0;
     virtual void set_modal(bool bModal) = 0;
+    virtual bool get_modal() const = 0;
     virtual bool get_extents_relative_to(Window& rRelative, int& x, int& y, int& width, int& height)
         = 0;
+    virtual bool get_resizable() const = 0;
+    virtual Size get_size() const = 0;
+    virtual Point get_position() const = 0;
+    virtual bool has_toplevel_focus() const = 0;
+    virtual void set_window_state(const OString& rStr) = 0;
+    virtual OString get_window_state(WindowStateMask nMask) const = 0;
 
     virtual css::uno::Reference<css::awt::XWindow> GetXWindow() = 0;
 
@@ -348,6 +357,8 @@ public:
     virtual bool get_entry_selection_bounds(int& rStartPos, int& rEndPos) = 0;
     virtual void set_entry_completion(bool bEnable) = 0;
 
+    virtual bool get_popup_shown() const = 0;
+
     void connect_entry_activate(const Link<ComboBox&, void>& rLink) { m_aEntryActivateHdl = rLink; }
 
     void save_value() { m_sSavedValue = get_active_text(); }
@@ -355,35 +366,65 @@ public:
     bool get_value_changed_from_saved() const { return m_sSavedValue != get_active_text(); }
 };
 
+class VCL_DLLPUBLIC TreeIter
+{
+private:
+    TreeIter(const TreeIter&) = delete;
+    TreeIter& operator=(const TreeIter&) = delete;
+
+public:
+    TreeIter() {}
+    virtual ~TreeIter() {}
+};
+
 class VCL_DLLPUBLIC TreeView : virtual public Container
 {
 protected:
     Link<TreeView&, void> m_aChangeHdl;
     Link<TreeView&, void> m_aRowActivatedHdl;
+    Link<TreeIter&, bool> m_aExpandingHdl;
 
     void signal_changed() { m_aChangeHdl.Call(*this); }
     void signal_row_activated() { m_aRowActivatedHdl.Call(*this); }
+    bool signal_expanding(TreeIter& rIter) { return m_aExpandingHdl.Call(rIter); }
 
 public:
-    virtual void insert(int pos, const OUString& rStr, const OUString* pId,
-                        const OUString* pIconName, VirtualDevice* pImageSurface)
+    virtual void insert(weld::TreeIter* pParent, int pos, const OUString& rStr, const OUString* pId,
+                        const OUString* pIconName, VirtualDevice* pImageSurface,
+                        const OUString* pExpanderName, bool bChildrenOnDemand)
         = 0;
+
+    virtual void set_expander_image(const weld::TreeIter& rIter, const OUString& rExpanderName) = 0;
+
+    void insert(int pos, const OUString& rStr, const OUString* pId, const OUString* pIconName,
+                VirtualDevice* pImageSurface)
+    {
+        insert(nullptr, pos, rStr, pId, pIconName, pImageSurface, nullptr, false);
+    }
     void insert_text(int pos, const OUString& rStr)
     {
-        insert(pos, rStr, nullptr, nullptr, nullptr);
+        insert(nullptr, pos, rStr, nullptr, nullptr, nullptr, nullptr, false);
     }
-    void append_text(const OUString& rStr) { insert(-1, rStr, nullptr, nullptr, nullptr); }
+    void append_text(const OUString& rStr)
+    {
+        insert(nullptr, -1, rStr, nullptr, nullptr, nullptr, nullptr, false);
+    }
     void append(const OUString& rId, const OUString& rStr)
     {
-        insert(-1, rStr, &rId, nullptr, nullptr);
+        insert(nullptr, -1, rStr, &rId, nullptr, nullptr, nullptr, false);
     }
     void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
     {
-        insert(-1, rStr, &rId, &rImage, nullptr);
+        insert(nullptr, -1, rStr, &rId, &rImage, nullptr, nullptr, false);
+    }
+    void append(weld::TreeIter* pParent, const OUString& rId, const OUString& rStr,
+                const OUString& rImage)
+    {
+        insert(pParent, -1, rStr, &rId, &rImage, nullptr, nullptr, false);
     }
     void append(const OUString& rId, const OUString& rStr, VirtualDevice& rImage)
     {
-        insert(-1, rStr, &rId, nullptr, &rImage);
+        insert(nullptr, -1, rStr, &rId, nullptr, &rImage, nullptr, false);
     }
 
     void connect_changed(const Link<TreeView&, void>& rLink) { m_aChangeHdl = rLink; }
@@ -424,11 +465,37 @@ public:
     OUString get_selected_id() const { return get_id(get_selected_index()); }
     void select_id(const OUString& rId) { select(find_id(rId)); }
 
+    //via iter
+    virtual std::unique_ptr<TreeIter> make_iterator(const TreeIter* pOrig = nullptr) const = 0;
+    virtual void copy_iterator(const TreeIter& rSource, TreeIter& rDest) const = 0;
+    virtual bool get_selected(TreeIter* pIter) const = 0;
+    virtual bool get_cursor(TreeIter* pIter) const = 0;
+    virtual void set_cursor(const TreeIter& rIter) = 0;
+    virtual bool get_iter_first(TreeIter& rIter) const = 0;
+    // set iter to point to next node at the current level
+    virtual bool iter_next_sibling(TreeIter& rIter) const = 0;
+    // set iter to point to next node, depth first, then sibling
+    virtual bool iter_next(TreeIter& rIter) const = 0;
+    virtual bool iter_children(TreeIter& rIter) const = 0;
+    virtual bool iter_parent(TreeIter& rIter) const = 0;
+    virtual int get_iter_depth(const TreeIter& rIter) const = 0;
+    virtual bool iter_has_child(const TreeIter& rIter) const = 0;
+    virtual void remove(const TreeIter& rIter) = 0;
+    virtual void select(const TreeIter& rIter) = 0;
+    virtual void unselect(const TreeIter& rIter) = 0;
+    virtual bool get_row_expanded(const TreeIter& rIter) const = 0;
+    virtual void expand_row(TreeIter& rIter) = 0;
+    virtual OUString get_text(const TreeIter& rIter) const = 0;
+    virtual OUString get_id(const TreeIter& rIter) const = 0;
+
+    void connect_expanding(const Link<TreeIter&, bool>& rLink) { m_aExpandingHdl = rLink; }
+
     //all of them
     void select_all() { unselect(-1); }
     void unselect_all() { select(-1); }
 
     virtual int n_children() const = 0;
+    virtual void make_sorted() = 0;
     virtual void clear() = 0;
     virtual int get_height_rows(int nRows) const = 0;
 
@@ -682,6 +749,36 @@ public:
     static unsigned int Power10(unsigned int n);
 };
 
+class VCL_DLLPUBLIC FormattedSpinButton : virtual public Entry
+{
+protected:
+    Link<FormattedSpinButton&, void> m_aValueChangedHdl;
+
+    void signal_value_changed() { m_aValueChangedHdl.Call(*this); }
+
+public:
+    virtual void set_value(double value) = 0;
+    virtual double get_value() const = 0;
+    virtual void set_range(double min, double max) = 0;
+    virtual void get_range(double& min, double& max) const = 0;
+
+    void set_max(double max)
+    {
+        double min, dummy;
+        get_range(min, dummy);
+        set_range(min, max);
+    }
+
+    virtual void set_formatter(SvNumberFormatter* pFormatter) = 0;
+    virtual sal_Int32 get_format_key() const = 0;
+    virtual void set_format_key(sal_Int32 nFormatKey) = 0;
+
+    void connect_value_changed(const Link<FormattedSpinButton&, void>& rLink)
+    {
+        m_aValueChangedHdl = rLink;
+    }
+};
+
 class VCL_DLLPUBLIC Image : virtual public Widget
 {
 public:
@@ -775,6 +872,8 @@ public:
         m_xTreeView->connect_row_activated(rLink);
     }
 
+    virtual bool get_popup_shown() const override { return false; }
+
     void set_height_request_by_rows(int nRows);
 };
 
@@ -812,11 +911,7 @@ public:
 
     FieldUnit get_unit() const { return m_eSrcUnit; }
 
-    void set_unit(FieldUnit eUnit)
-    {
-        m_eSrcUnit = eUnit;
-        update_width_chars();
-    }
+    void set_unit(FieldUnit eUnit);
 
     int convert_value_to(int nValue, FieldUnit eValueUnit) const
     {
@@ -914,7 +1009,7 @@ public:
     bool has_focus() const { return m_xSpinButton->has_focus(); }
     void show(bool bShow = true) { m_xSpinButton->show(bShow); }
     void hide() { m_xSpinButton->hide(); }
-    void set_digits(unsigned int digits) { m_xSpinButton->set_digits(digits); }
+    void set_digits(unsigned int digits);
     void set_accessible_name(const OUString& rName) { m_xSpinButton->set_accessible_name(rName); }
     unsigned int get_digits() const { return m_xSpinButton->get_digits(); }
     void save_value() { m_xSpinButton->save_value(); }
@@ -957,8 +1052,8 @@ protected:
 
     void signal_value_changed() { m_aValueChangedHdl.Call(*this); }
 
-    tools::Time ConvertValue(int nValue) const;
-    int ConvertValue(const tools::Time& rTime) const;
+    static tools::Time ConvertValue(int nValue);
+    static int ConvertValue(const tools::Time& rTime);
     OUString format_number(int nValue) const;
     void update_width_chars();
 
@@ -1190,11 +1285,10 @@ public:
     virtual std::unique_ptr<SpinButton> weld_spin_button(const OString& id,
                                                          bool bTakeOwnership = false)
         = 0;
-    std::unique_ptr<MetricSpinButton> weld_metric_spin_button(const OString& id, FieldUnit eUnit,
-                                                              bool bTakeOwnership = false)
-    {
-        return o3tl::make_unique<MetricSpinButton>(weld_spin_button(id, bTakeOwnership), eUnit);
-    }
+    virtual std::unique_ptr<MetricSpinButton>
+    weld_metric_spin_button(const OString& id, FieldUnit eUnit, bool bTakeOwnership = false) = 0;
+    virtual std::unique_ptr<FormattedSpinButton>
+    weld_formatted_spin_button(const OString& id, bool bTakeOwnership = false) = 0;
     virtual std::unique_ptr<TimeSpinButton>
     weld_time_spin_button(const OString& id, TimeFieldFormat eFormat, bool bTakeOwnership = false)
         = 0;
@@ -1235,7 +1329,7 @@ public:
     {
         return const_cast<DialogController*>(this)->getDialog();
     }
-    short run() { return getDialog()->run(); }
+    virtual short run() { return getDialog()->run(); }
     static bool runAsync(const std::shared_ptr<DialogController>& rController,
                          const std::function<void(sal_Int32)>&);
     void set_title(const OUString& rTitle) { getDialog()->set_title(rTitle); }

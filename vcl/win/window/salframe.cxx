@@ -812,8 +812,7 @@ namespace {
 
 void SetForegroundWindow_Impl(HWND hwnd)
 {
-    static bool bUseForegroundWindow = !std::getenv("VCL_HIDE_WINDOWS");
-    if (bUseForegroundWindow)
+    if (!Application::IsHeadlessModeEnabled())
         SetForegroundWindow(hwnd);
 }
 
@@ -1054,9 +1053,9 @@ void WinSalFrame::ReleaseGraphics( SalGraphics* pGraphics )
     mbGraphics = false;
 }
 
-bool WinSalFrame::PostEvent(ImplSVEvent* pData)
+bool WinSalFrame::PostEvent(std::unique_ptr<ImplSVEvent> pData)
 {
-    BOOL const ret = PostMessageW(mhWnd, SAL_MSG_USEREVENT, 0, reinterpret_cast<LPARAM>(pData));
+    BOOL const ret = PostMessageW(mhWnd, SAL_MSG_USEREVENT, 0, reinterpret_cast<LPARAM>(pData.release()));
     SAL_WARN_IF(0 == ret, "vcl", "ERROR: PostMessage() failed!");
     return static_cast<bool>(ret);
 }
@@ -1342,7 +1341,7 @@ void WinSalFrame::SetPosSize( long nX, long nY, long nWidth, long nHeight,
         // Search for TopLevel Frame
         while ( hWndParent && (GetWindowStyle( hWndParent ) & WS_CHILD) )
             hWndParent = ::GetParent( hWndParent );
-        // if the Window has a Parent, than center the window to
+        // if the Window has a Parent, then center the window to
         // the parent, in the other case to the screen
         if ( hWndParent && !IsIconic( hWndParent ) &&
              (GetWindowStyle( hWndParent ) & WS_VISIBLE) )
@@ -3481,8 +3480,6 @@ static bool ImplHandleKeyMsg( HWND hWnd, UINT nMsg,
 
             nLastModKeyCode = ModKeyFlags::NONE; // make sure no modkey messages are sent if they belong to a hotkey (see above)
             aKeyEvt.mnCharCode = 0;
-            aKeyEvt.mnCode = 0;
-
             aKeyEvt.mnCode = ImplSalGetKeyCode( wParam );
             if ( !bKeyUp )
             {
@@ -3558,7 +3555,7 @@ static bool ImplHandleKeyMsg( HWND hWnd, UINT nMsg,
 
                 bIgnoreCharMsg = false;
 
-                // char-message, than remove or ignore
+                // char-message, then remove or ignore
                 if ( bCharPeek )
                 {
                     nDeadChar = 0;
@@ -4357,7 +4354,7 @@ static int ImplGetSelectedIndex( HMENU hMenu )
         for(int i=0; i<n; i++ )
         {
             if( !GetMenuItemInfoW( hMenu, i, TRUE, &mi) )
-                SAL_WARN( "vcl", "GetMenuItemInfoW faled: " << WindowsErrorString( GetLastError() ) );
+                SAL_WARN( "vcl", "GetMenuItemInfoW failed: " << WindowsErrorString( GetLastError() ) );
             else
             {
                 if( mi.fState & MFS_HILITE )
@@ -4486,8 +4483,6 @@ static LRESULT ImplDrawItem(HWND, WPARAM wParam, LPARAM lParam )
 
         // Set the appropriate foreground and background colors.
         RECT aRect = pDI->rcItem;
-
-        clrPrevBkgnd = SetBkColor( pDI->hDC, GetSysColor( COLOR_MENU ) );
 
         if ( fDisabled )
             clrPrevText = SetTextColor( pDI->hDC, GetSysColor( COLOR_GRAYTEXT ) );
@@ -5690,7 +5685,10 @@ static LRESULT CALLBACK SalFrameWndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LP
                 // messages in the message queue and dispatch them before we return control to the system.
 
                 if ( nRet )
+                {
+                    SolarMutexGuard aGuard;
                     while ( Application::Reschedule( true ) );
+                }
             }
             else
             {

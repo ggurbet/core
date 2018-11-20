@@ -3968,7 +3968,7 @@ void HwpReader::makePicture(Picture * hbox)
               if( hbox->picinfo.picdraw.zorder > 0 )
                  padd("draw:z-index", sXML_CDATA,
                       ascii(Int2Str( hbox->picinfo.picdraw.zorder + 10000, "%d", buf)));
-            makePictureDRAW( static_cast<HWPDrawingObject *>(hbox->picinfo.picdraw.hdo), hbox);
+            makePictureDRAW(hbox->picinfo.picdraw.hdo, hbox);
             break;
         case PICTYPE_UNKNOWN:
             break;
@@ -4758,9 +4758,9 @@ void HwpReader::makeShowPageNum()
  * mail merge operation using hwp addressbook and hwp data form.
  * not support operation in OO writer.
  */
-void HwpReader::makeMailMerge(MailMerge * hbox)
+void HwpReader::makeMailMerge(MailMerge *)
 {
-    hchar_string const boxstr = hbox->GetString();
+    hchar_string const boxstr = MailMerge::GetString();
     rchars(reinterpret_cast<sal_Unicode const *>(hconv(boxstr.c_str())));
 }
 

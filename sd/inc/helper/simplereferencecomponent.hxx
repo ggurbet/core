@@ -22,9 +22,6 @@
 
 #include <osl/interlck.h>
 
-#include <cstddef>
-#include <new>
-
 #include <sddllapi.h>
 
 namespace sd {
@@ -59,9 +56,8 @@ protected:
 private:
     oslInterlockedCount m_nCount;
 
-    SimpleReferenceComponent(SimpleReferenceComponent &) = delete;
-
-    void operator =(SimpleReferenceComponent) = delete;
+    SimpleReferenceComponent(SimpleReferenceComponent const &) = delete;
+    void operator =(SimpleReferenceComponent const &) = delete;
 
     bool mbDisposed;
 };

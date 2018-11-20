@@ -217,7 +217,7 @@ bool LinkManager::GetDisplayNames( const SvBaseLink * pLink,
                                         OUString* pFilter )
 {
     bool bRet = false;
-    const OUString sLNm( pLink->GetLinkSourceName() );
+    const OUString& sLNm( pLink->GetLinkSourceName() );
     if( !sLNm.isEmpty() )
     {
         switch( pLink->GetObjType() )
@@ -651,7 +651,8 @@ bool SvxInternalLink::Connect( sfx2::SvBaseLink* pLink )
         // then try to download the file:
         INetURLObject aURL( sTopic );
         INetProtocol eOld = aURL.GetProtocol();
-        aURL.SetURL( sTopic = lcl_DDE_RelToAbs( sTopic, sReferer ) );
+        sTopic = lcl_DDE_RelToAbs( sTopic, sReferer );
+        aURL.SetURL( sTopic );
         if( INetProtocol::NotValid != eOld ||
             INetProtocol::Http != aURL.GetProtocol() )
         {

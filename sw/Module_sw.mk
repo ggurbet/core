@@ -26,7 +26,7 @@ $(eval $(call gb_Module_add_targets,sw,\
 	Library_msword \
 	Library_sw \
 	Library_swd \
-	$(call gb_Helper_optional,DESKTOP,Library_swui) \
+	Library_swui \
 	UIConfig_sglobal \
 	UIConfig_sweb \
 	UIConfig_swform \
@@ -35,7 +35,6 @@ $(eval $(call gb_Module_add_targets,sw,\
 	UIConfig_swxform \
 ))
 
-ifneq ($(OS),IOS)
 $(eval $(call gb_Module_add_l10n_targets,sw,\
     AllLangMoTarget_sw \
 ))
@@ -48,6 +47,7 @@ $(eval $(call gb_Module_add_targets,sw,\
 
 endif
 
+ifneq ($(OS),iOS)
 $(eval $(call gb_Module_add_check_targets,sw,\
     CppunitTest_sw_uibase_unit \
 ))
@@ -140,9 +140,12 @@ $(eval $(call gb_Module_add_uicheck_targets,sw,\
 	UITest_writer_tests2 \
 	UITest_writer_tests3 \
 	UITest_writer_tests4 \
+	UITest_writer_tests5 \
 	UITest_table \
 	UITest_findReplace \
 	UITest_chapterNumbering \
+	UITest_librelogo \
+	UITest_options \
 ))
 endif
 

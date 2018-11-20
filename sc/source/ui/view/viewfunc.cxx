@@ -40,6 +40,7 @@
 #include <vcl/wrkwin.hxx>
 #include <o3tl/make_unique.hxx>
 #include <stdlib.h>
+#include <unotools/charclass.hxx>
 
 #include <viewfunc.hxx>
 #include <tabvwsh.hxx>
@@ -82,6 +83,8 @@
 #include <docfuncutil.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <comphelper/lok.hxx>
+#include <conditio.hxx>
+#include <columnspanset.hxx>
 
 #include <memory>
 
@@ -652,7 +655,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
         OUString aString;
 
         const ScPatternAttr* pOldPattern = rDoc.GetPattern( nCol, nRow, nTab );
-        ScTabEditEngine aEngine( *pOldPattern, rDoc.GetEnginePool() );
+        ScTabEditEngine aEngine( *pOldPattern, rDoc.GetEnginePool(), &rDoc );
         aEngine.SetText(rData);
 
         if (bTestSimple)                    // test, if simple string without attribute

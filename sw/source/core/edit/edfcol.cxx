@@ -56,6 +56,7 @@
 #include <sfx2/classificationhelper.hxx>
 #include <svx/ClassificationCommon.hxx>
 #include <svl/cryptosign.hxx>
+#include <svl/sigstruct.hxx>
 #include <utility>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
@@ -1476,7 +1477,7 @@ static void lcl_placeWatermarkInHeader(const SfxWatermarkItem& rWatermark,
     if (!bSuccess || xWatermark.is() || bDeleteWatermark)
         return;
 
-    OUString sFont = rWatermark.GetFont();
+    const OUString& sFont = rWatermark.GetFont();
     sal_Int16 nAngle = rWatermark.GetAngle();
     sal_Int16 nTransparency = rWatermark.GetTransparency();
     Color nColor = rWatermark.GetColor();

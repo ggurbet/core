@@ -322,11 +322,8 @@ bool SwTextFrame::CalcFollow(TextFrameIndex const nTextOfst)
             }
         }
 
-        if ( pPage )
-        {
-            if ( !bOldInvaContent )
-                pPage->ValidateContent();
-        }
+        if ( pPage  && !bOldInvaContent )
+            pPage->ValidateContent();
 
 #if OSL_DEBUG_LEVEL > 0
         OSL_ENSURE( pOldUp == GetUpper(), "SwTextFrame::CalcFollow: heavy follow" );
@@ -993,13 +990,13 @@ bool SwTextFrame::CalcPreps()
 }
 
 // We rewire the footnotes and the character bound objects
-#define CHG_OFFSET( pFrame, nNew )\
-    {\
-        if( pFrame->GetOfst() < nNew )\
-            pFrame->MoveFlyInCnt( this, TextFrameIndex(0), nNew );\
-        else if( pFrame->GetOfst() > nNew )\
-            MoveFlyInCnt( pFrame, nNew, TextFrameIndex(COMPLETE_STRING) );\
-    }
+void SwTextFrame::ChangeOffset( SwTextFrame* pFrame, TextFrameIndex nNew )
+{
+    if( pFrame->GetOfst() < nNew )
+        pFrame->MoveFlyInCnt( this, TextFrameIndex(0), nNew );
+    else if( pFrame->GetOfst() > nNew )
+        MoveFlyInCnt( pFrame, nNew, TextFrameIndex(COMPLETE_STRING) );
+}
 
 void SwTextFrame::FormatAdjust( SwTextFormatter &rLine,
                              WidowsAndOrphans &rFrameBreak,
@@ -1077,7 +1074,7 @@ void SwTextFrame::FormatAdjust( SwTextFormatter &rLine,
         {
             if( nNew && nOld < nEnd )
                 RemoveFootnote( nOld, nEnd - nOld );
-            CHG_OFFSET( GetFollow(), nEnd )
+            ChangeOffset( GetFollow(), nEnd );
             if( !bDelta )
                 GetFollow()->ManipOfst( nEnd );
         }
@@ -1112,7 +1109,7 @@ void SwTextFrame::FormatAdjust( SwTextFormatter &rLine,
                 // for the paragraph mark.
                 nNew |= 1;
             }
-            CHG_OFFSET( GetFollow(), nEnd )
+            ChangeOffset( GetFollow(), nEnd );
             GetFollow()->ManipOfst( nEnd );
         }
         else
@@ -1448,8 +1445,8 @@ void SwTextFrame::Format_( SwTextFormatter &rLine, SwTextFormatInfo &rInf,
     bool bWatchMidHyph = false;
 
     const SwAttrSet& rAttrSet = GetTextNodeForParaProps()->GetSwAttrSet();
-    bool bMaxHyph = ( 0 !=
-        ( rInf.MaxHyph() = rAttrSet.GetHyphenZone().GetMaxHyphens() ) );
+    rInf.MaxHyph() = rAttrSet.GetHyphenZone().GetMaxHyphens();
+    bool bMaxHyph = 0 != rInf.MaxHyph();
     if ( bMaxHyph )
         rLine.InitCntHyph();
 

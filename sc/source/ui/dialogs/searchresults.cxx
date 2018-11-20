@@ -10,7 +10,7 @@
 #include <searchresults.hxx>
 
 #include <svtools/simptabl.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <dociter.hxx>
@@ -135,7 +135,7 @@ void SearchResultsDlg::FillResults( ScDocument* pDoc, const ScRangeList &rMatche
             ScCellIterator aIter(pDoc, rMatchedRanges[i]);
             for (bool bHas = aIter.first(); bHas; bHas = aIter.next())
             {
-                ScAddress aPos = aIter.GetPos();
+                const ScAddress& aPos = aIter.GetPos();
                 if (aPos.Tab() >= nTabCount)
                     // Out-of-bound sheet index.
                     continue;

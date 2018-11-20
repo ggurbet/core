@@ -27,9 +27,9 @@
 #include <vcl/tabdlg.hxx>
 #include <vcl/tabpage.hxx>
 #include <svtools/simptabl.hxx>
-#include <svtools/svlbitm.hxx>
+#include <vcl/svlbitm.hxx>
 #include <svtools/svmedit2.hxx>
-#include <svtools/treelistbox.hxx>
+#include <vcl/treelistbox.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
 #include <cppuhelper/implbase.hxx>
@@ -522,7 +522,7 @@ class RecoveryDialog : public Dialog
         virtual void start() override;
         virtual void end() override;
 
-        virtual short Execute() override;
+        short execute();
 
     // helper
     private:

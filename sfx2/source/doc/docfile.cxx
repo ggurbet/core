@@ -202,7 +202,7 @@ sal_uInt64 GetDefaultFileAttributes(const OUString& rURL)
 }
 
 /// Determines if rURL is safe to move or not.
-bool IsFileMovable(const OUString& rURL)
+bool IsFileMovable(const INetURLObject& rURL)
 {
 #ifdef MACOSX
     (void)rURL;
@@ -210,21 +210,24 @@ bool IsFileMovable(const OUString& rURL)
     return false;
 #else
 
-    if (!comphelper::isFileUrl(rURL))
+    if (rURL.GetProtocol() != INetProtocol::File)
         // Not a file:// URL.
         return false;
 
 #ifdef UNX
-    OUString rPath;
-    if (osl::FileBase::getSystemPathFromFileURL(rURL, rPath) != osl::FileBase::E_None)
+    OUString sPath = rURL.getFSysPath(FSysStyle::Unix);
+    if (sPath.isEmpty())
         return false;
 
     struct stat buf;
-    if (lstat(rPath.toUtf8().getStr(), &buf) != 0)
+    if (lstat(sPath.toUtf8().getStr(), &buf) != 0)
         return false;
 
     // Hardlink or symlink: osl::File::move() doesn't play with these nicely.
     if (buf.st_nlink > 1 || S_ISLNK(buf.st_mode))
+        return false;
+#elif defined _WIN32
+    if (tools::IsMappedWebDAVPath(rURL))
         return false;
 #endif
 
@@ -1543,10 +1546,10 @@ uno::Reference < embed::XStorage > SfxMedium::GetStorage( bool bCreateTempIfNo )
             // The versions are numbered starting with 1, versions with
             // negative versions numbers are counted backwards from the
             // current version
-            short nVersion = pVersion ? pVersion->GetValue() : 0;
+            short nVersion = pVersion->GetValue();
             if ( nVersion<0 )
                 nVersion = static_cast<short>(pImpl->aVersions.getLength()) + nVersion;
-            else if ( nVersion )
+            else // nVersion > 0; pVersion->GetValue() != 0 was the condition to this block
                 nVersion--;
 
             util::RevisionTag& rTag = pImpl->aVersions[nVersion];
@@ -1564,7 +1567,7 @@ uno::Reference < embed::XStorage > SfxMedium::GetStorage( bool bCreateTempIfNo )
                 {
                     // Unpack Stream  in TempDir
                     ::utl::TempFile aTempFile;
-                    OUString          aTmpName = aTempFile.GetURL();
+                    const OUString& aTmpName = aTempFile.GetURL();
                     SvFileStream    aTmpStream( aTmpName, SFX_STREAM_READWRITE );
 
                     pStream->ReadStream( aTmpStream );
@@ -1845,7 +1848,7 @@ void SfxMedium::TransactedTransferForFS_Impl( const INetURLObject& aSource,
                 OUString aDestMainURL = aDest.GetMainURL(INetURLObject::DecodeMechanism::NONE);
 
                 sal_uInt64 nAttributes = GetDefaultFileAttributes(aDestMainURL);
-                if (IsFileMovable(aDestMainURL)
+                if (IsFileMovable(aDest)
                     && osl::File::replace(aSourceMainURL, aDestMainURL) == osl::FileBase::E_None)
                 {
                     if (nAttributes)
@@ -3642,6 +3645,123 @@ void SfxMedium::CreateTempFileNoCopy()
 
     CloseOutStream_Impl();
     CloseStorage();
+}
+
+bool SfxMedium::SignDocumentContentUsingCertificate(bool bHasValidDocumentSignature,
+                                                    const Reference<XCertificate>& xCertificate)
+{
+    bool bChanges = false;
+
+    if (IsOpen() || GetError())
+    {
+        SAL_WARN("sfx.doc", "The medium must be closed by the signer!");
+        return bChanges;
+    }
+
+    // The component should know if there was a valid document signature, since
+    // it should show a warning in this case
+    OUString aODFVersion(comphelper::OStorageHelper::GetODFVersionFromStorage(GetStorage()));
+    uno::Reference< security::XDocumentDigitalSignatures > xSigner(
+        security::DocumentDigitalSignatures::createWithVersionAndValidSignature(
+            comphelper::getProcessComponentContext(), aODFVersion, bHasValidDocumentSignature ) );
+
+    uno::Reference< embed::XStorage > xWriteableZipStor;
+
+    // we can reuse the temporary file if there is one already
+    CreateTempFile( false );
+    GetMedium_Impl();
+
+    try
+    {
+        if ( !pImpl->xStream.is() )
+            throw uno::RuntimeException();
+
+        bool bODF = GetFilter()->IsOwnFormat();
+        try
+        {
+            xWriteableZipStor = ::comphelper::OStorageHelper::GetStorageOfFormatFromStream( ZIP_STORAGE_FORMAT_STRING, pImpl->xStream );
+        }
+        catch (const io::IOException& rException)
+        {
+            if (bODF)
+                SAL_WARN("sfx.doc", "ODF stream is not a zip storage: " << rException);
+        }
+
+        if ( !xWriteableZipStor.is() && bODF )
+            throw uno::RuntimeException();
+
+        uno::Reference< embed::XStorage > xMetaInf;
+        uno::Reference<container::XNameAccess> xNameAccess(xWriteableZipStor, uno::UNO_QUERY);
+        if (xNameAccess.is() && xNameAccess->hasByName("META-INF"))
+        {
+            xMetaInf = xWriteableZipStor->openStorageElement(
+                                            "META-INF",
+                                            embed::ElementModes::READWRITE );
+            if ( !xMetaInf.is() )
+                throw uno::RuntimeException();
+        }
+
+        {
+            if (xMetaInf.is())
+            {
+                // ODF.
+                uno::Reference< io::XStream > xStream;
+                if (GetFilter() && GetFilter()->IsOwnFormat())
+                    xStream.set(xMetaInf->openStreamElement(xSigner->getDocumentContentSignatureDefaultStreamName(), embed::ElementModes::READWRITE), uno::UNO_SET_THROW);
+
+                bool bSuccess = xSigner->signDocumentWithCertificate(xCertificate, GetZipStorageToSign_Impl(), xStream);
+
+                if (bSuccess)
+                {
+                    uno::Reference< embed::XTransactedObject > xTransact( xMetaInf, uno::UNO_QUERY_THROW );
+                    xTransact->commit();
+                    xTransact.set( xWriteableZipStor, uno::UNO_QUERY_THROW );
+                    xTransact->commit();
+
+                    // the temporary file has been written, commit it to the original file
+                    Commit();
+                    bChanges = true;
+                }
+            }
+            else if (xWriteableZipStor.is())
+            {
+                // OOXML.
+                uno::Reference<io::XStream> xStream;
+
+                    // We need read-write to be able to add the signature relation.
+                bool bSuccess =xSigner->signDocumentWithCertificate(
+                        xCertificate, GetZipStorageToSign_Impl(/*bReadOnly=*/false), xStream);
+
+                if (bSuccess)
+                {
+                    uno::Reference<embed::XTransactedObject> xTransact(xWriteableZipStor, uno::UNO_QUERY_THROW);
+                    xTransact->commit();
+
+                    // the temporary file has been written, commit it to the original file
+                    Commit();
+                    bChanges = true;
+                }
+            }
+            else
+            {
+                // Something not ZIP based: e.g. PDF.
+                std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(GetName(), StreamMode::READ | StreamMode::WRITE));
+                uno::Reference<io::XStream> xStream(new utl::OStreamWrapper(*pStream));
+                if (xSigner->signDocumentWithCertificate(xCertificate, uno::Reference<embed::XStorage>(), xStream))
+                    bChanges = true;
+            }
+        }
+    }
+    catch ( const uno::Exception& )
+    {
+        SAL_WARN( "sfx.doc", "Couldn't use signing functionality!" );
+    }
+
+    CloseAndRelease();
+
+    ResetError();
+
+    return bChanges;
 }
 
 bool SfxMedium::SignContents_Impl(bool bSignScriptingContent, bool bHasValidDocumentSignature,

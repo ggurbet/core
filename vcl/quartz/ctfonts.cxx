@@ -34,6 +34,7 @@
 #endif
 #include <fontinstance.hxx>
 #include <fontattributes.hxx>
+#include <impglyphitem.hxx>
 #include <PhysicalFontCollection.hxx>
 #include <quartz/salgdi.h>
 #include <quartz/utils.h>
@@ -137,12 +138,9 @@ void CoreTextStyle::GetFontMetric( ImplFontMetricDataRef const & rxFontMetric )
     rxFontMetric->SetMinKashida(GetKashidaWidth());
 }
 
-bool CoreTextStyle::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect )
+bool CoreTextStyle::ImplGetGlyphBoundRect(sal_GlyphId nId, tools::Rectangle& rRect, bool bVertical) const
 {
-    if (GetCachedGlyphBoundRect(rGlyph.maGlyphId, rRect))
-        return true;
-
-    CGGlyph nCGGlyph = rGlyph.maGlyphId;
+    CGGlyph nCGGlyph = nId;
     CTFontRef aCTFontRef = static_cast<CTFontRef>(CFDictionaryGetValue( mpStyleDict, kCTFontAttributeName ));
 
     SAL_WNODEPRECATED_DECLARATIONS_PUSH //TODO: 10.11 kCTFontDefaultOrientation
@@ -151,7 +149,7 @@ bool CoreTextStyle::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle&
     CGRect aCGRect = CTFontGetBoundingRectsForGlyphs(aCTFontRef, aFontOrientation, &nCGGlyph, nullptr, 1);
 
     // Apply font rotation to non-vertical glyphs.
-    if (mfFontRotation && !rGlyph.IsVertical())
+    if (mfFontRotation && !bVertical)
         aCGRect = CGRectApplyAffineTransform(aCGRect, CGAffineTransformMakeRotation(mfFontRotation));
 
     long xMin = floor(aCGRect.origin.x);
@@ -159,7 +157,6 @@ bool CoreTextStyle::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle&
     long xMax = ceil(aCGRect.origin.x + aCGRect.size.width);
     long yMax = ceil(aCGRect.origin.y + aCGRect.size.height);
     rRect = tools::Rectangle(xMin, -yMax, xMax, -yMin);
-    CacheGlyphBoundRect(rGlyph.maGlyphId, rRect);
     return true;
 }
 
@@ -215,11 +212,11 @@ static void MyCGPathApplierFunc( void* pData, const CGPathElement* pElement )
     }
 }
 
-bool CoreTextStyle::GetGlyphOutline(const GlyphItem& rGlyph, basegfx::B2DPolyPolygon& rResult) const
+bool CoreTextStyle::GetGlyphOutline(sal_GlyphId nId, basegfx::B2DPolyPolygon& rResult, bool) const
 {
     rResult.clear();
 
-    CGGlyph nCGGlyph = rGlyph.maGlyphId;
+    CGGlyph nCGGlyph = nId;
     CTFontRef pCTFont = static_cast<CTFontRef>(CFDictionaryGetValue( mpStyleDict, kCTFontAttributeName ));
 
     SAL_WNODEPRECATED_DECLARATIONS_PUSH

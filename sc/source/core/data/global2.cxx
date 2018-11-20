@@ -21,24 +21,17 @@
 #include <sfx2/objsh.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/pathoptions.hxx>
-#include <unotools/useroptions.hxx>
 #include <tools/urlobj.hxx>
-#include <unotools/charclass.hxx>
-#include <stdlib.h>
-#include <unotools/syslocale.hxx>
 #include <svl/zforlist.hxx>
 #include <formula/errorcodes.hxx>
 #include <sal/log.hxx>
+#include <rtl/character.hxx>
 
 #include <global.hxx>
 #include <rangeutl.hxx>
-#include <rechead.hxx>
 #include <compiler.hxx>
 #include <paramisc.hxx>
 #include <calcconfig.hxx>
-
-#include <sc.hrc>
-
 
 // struct ScImportParam:
 

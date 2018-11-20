@@ -26,6 +26,7 @@
 #include <math.h>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <unotools/fontdefs.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/unohelp.hxx>
@@ -469,7 +470,7 @@ bool SvxPostureItem::GetPresentation
 }
 
 
-OUString SvxPostureItem::GetValueTextByPos( sal_uInt16 nPos ) const
+OUString SvxPostureItem::GetValueTextByPos( sal_uInt16 nPos )
 {
     DBG_ASSERT( nPos <= sal_uInt16(ITALIC_NORMAL), "enum overflow!" );
 
@@ -615,7 +616,7 @@ bool SvxWeightItem::GetPresentation
     return true;
 }
 
-OUString SvxWeightItem::GetValueTextByPos( sal_uInt16 nPos ) const
+OUString SvxWeightItem::GetValueTextByPos( sal_uInt16 nPos )
 {
     static const char* RID_SVXITEMS_WEIGHTS[] =
     {
@@ -1043,7 +1044,7 @@ void SvxFontHeightItem::SetHeight( sal_uInt32 nNewHeight, const sal_uInt16 nNewP
 
     if( MapUnit::MapRelative != eUnit )
         nHeight = nNewHeight + ::ItemToControl( short(nNewProp), eUnit,
-                                                FUNIT_TWIP );
+                                                FieldUnit::TWIP );
     else if( 100 != nNewProp )
         nHeight = sal_uInt32(( nNewHeight * nNewProp ) / 100 );
     else
@@ -1061,7 +1062,7 @@ void SvxFontHeightItem::SetHeight( sal_uInt32 nNewHeight, sal_uInt16 nNewProp,
     if( MapUnit::MapRelative != eMetric )
         nHeight = nNewHeight +
                 ::ControlToItem( ::ItemToControl(static_cast<short>(nNewProp), eMetric,
-                                        FUNIT_TWIP ), FUNIT_TWIP,
+                                        FieldUnit::TWIP ), FieldUnit::TWIP,
                                         eCoreMetric );
     else if( 100 != nNewProp )
         nHeight = sal_uInt32(( nNewHeight * nNewProp ) / 100 );
@@ -1393,7 +1394,7 @@ bool SvxCrossedOutItem::GetPresentation
     return true;
 }
 
-OUString SvxCrossedOutItem::GetValueTextByPos( sal_uInt16 nPos ) const
+OUString SvxCrossedOutItem::GetValueTextByPos( sal_uInt16 nPos )
 {
     static const char* RID_SVXITEMS_STRIKEOUT[] =
     {
@@ -1864,7 +1865,7 @@ bool SvxCaseMapItem::GetPresentation
     return true;
 }
 
-OUString SvxCaseMapItem::GetValueTextByPos( sal_uInt16 nPos ) const
+OUString SvxCaseMapItem::GetValueTextByPos( sal_uInt16 nPos )
 {
     static const char* RID_SVXITEMS_CASEMAP[] =
     {
@@ -1988,7 +1989,7 @@ bool SvxEscapementItem::GetPresentation
     return true;
 }
 
-OUString SvxEscapementItem::GetValueTextByPos( sal_uInt16 nPos ) const
+OUString SvxEscapementItem::GetValueTextByPos( sal_uInt16 nPos )
 {
     static const char* RID_SVXITEMS_ESCAPEMENT[] =
     {
@@ -2725,7 +2726,7 @@ static const char* RID_SVXITEMS_RELIEF[] =
     RID_SVXITEMS_RELIEF_ENGRAVED
 };
 
-OUString SvxCharReliefItem::GetValueTextByPos(sal_uInt16 nPos) const
+OUString SvxCharReliefItem::GetValueTextByPos(sal_uInt16 nPos)
 {
     assert(nPos < SAL_N_ELEMENTS(RID_SVXITEMS_RELIEF) && "enum overflow");
     return EditResId(RID_SVXITEMS_RELIEF[nPos]);

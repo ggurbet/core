@@ -34,6 +34,7 @@
 #include <tools/stream.hxx>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <math.h>
 
@@ -1224,7 +1225,7 @@ public:
                 {
                     if (mbFirst)
                     {
-                        for (auto i = 0u; i < mpOp->size(); ++i)
+                        for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
                             (*(*mpOp)[i])(maRes[i].mfFirst, *it);
                         }
@@ -1232,7 +1233,7 @@ public:
                     }
                     else
                     {
-                        for (auto i = 0u; i < mpOp->size(); ++i)
+                        for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
                             (*(*mpOp)[i])(maRes[i].mfRest, *it);
                         }
@@ -1251,7 +1252,7 @@ public:
                 {
                     if (mbFirst)
                     {
-                        for (auto i = 0u; i < mpOp->size(); ++i)
+                        for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
                             (*(*mpOp)[i])(maRes[i].mfFirst, *it);
                         }
@@ -1259,7 +1260,7 @@ public:
                     }
                     else
                     {
-                        for (auto i = 0u; i < mpOp->size(); ++i)
+                        for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
                             (*(*mpOp)[i])(maRes[i].mfRest, *it);
                         }

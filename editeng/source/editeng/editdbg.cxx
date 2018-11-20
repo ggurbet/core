@@ -54,6 +54,7 @@
 #include "editdbg.hxx"
 
 #include <rtl/strbuf.hxx>
+#include <osl/diagnose.h>
 
 #if defined( DBG_UTIL ) || ( OSL_DEBUG_LEVEL > 1 )
 
@@ -500,7 +501,9 @@ bool ParaPortion::DbgCheckTextPortions(ParaPortion const& rPara)
     }
     return nXLen == rPara.pNode->Len();
 }
+#endif
 
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
 void CheckOrderedList(const CharAttribList::AttribsType& rAttribs)
 {
     sal_Int32 nPrev = 0;

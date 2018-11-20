@@ -18,6 +18,7 @@
  */
 
 #include <rtl/ustring.hxx>
+#include <osl/diagnose.h>
 
 #include <com/sun/star/util/MeasureUnit.hpp>
 
@@ -214,7 +215,7 @@ void SwXMLImportTableItemMapper_Impl::finished(
             // do we have an item?
             if (eState >= SfxItemState::DEFAULT && pItem)
             {
-                SfxPoolItem *const pNewItem = pItem->Clone();
+                std::unique_ptr<SfxPoolItem> pNewItem(pItem->Clone());
                 bool const bPut = PutXMLValue(
                         *pNewItem, m_FoMarginValue, Ids[i][1], rUnitConverter);
                 if (bPut)

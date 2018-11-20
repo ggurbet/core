@@ -30,13 +30,17 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <rtl/bootstrap.hxx>
 #include <sal/log.hxx>
+#include <svl/zforlist.hxx>
+#include <svl/zformat.hxx>
 #include <tools/fract.hxx>
 #include <tools/stream.hxx>
 #include <unotools/resmgr.hxx>
 #include <vcl/ImageTree.hxx>
 #include <vcl/quickselectionengine.hxx>
 #include <vcl/mnemonic.hxx>
+#include <vcl/syswin.hxx>
 #include <vcl/weld.hxx>
+#include <window.h>
 
 using namespace com::sun::star;
 using namespace com::sun::star::uno;
@@ -1185,6 +1189,7 @@ private:
     bool m_bFrozen;
     gulong m_nFocusInSignalId;
     gulong m_nFocusOutSignalId;
+    gulong m_nKeyPressSignalId;
 
     static void signalFocusIn(GtkWidget*, GdkEvent*, gpointer widget)
     {
@@ -1200,6 +1205,17 @@ private:
         pThis->signal_focus_out();
     }
 
+    static gboolean signalKeyPress(GtkWidget*, GdkEventKey* pEvent, gpointer)
+    {
+        // #i1820# use locale specific decimal separator
+        if (pEvent->keyval == GDK_KEY_KP_Decimal)
+        {
+            OUString aSep(Application::GetSettings().GetLocaleDataWrapper().getNumDecimalSep());
+            pEvent->keyval = aSep[0];
+        }
+        return false;
+    }
+
 public:
     GtkInstanceWidget(GtkWidget* pWidget, bool bTakeOwnership)
         : m_pWidget(pWidget)
@@ -1208,6 +1224,11 @@ public:
         , m_nFocusInSignalId(0)
         , m_nFocusOutSignalId(0)
     {
+        GdkEventMask eEventMask(static_cast<GdkEventMask>(gtk_widget_get_events(pWidget)));
+        if (eEventMask & GDK_BUTTON_PRESS_MASK)
+            m_nKeyPressSignalId = g_signal_connect(pWidget, "key-press-event", G_CALLBACK(signalKeyPress), this);
+        else
+            m_nKeyPressSignalId = 0;
     }
 
     virtual void set_sensitive(bool sensitive) override
@@ -1507,6 +1528,8 @@ public:
 
     virtual ~GtkInstanceWidget() override
     {
+        if (m_nKeyPressSignalId)
+            g_signal_handler_disconnect(m_pWidget, m_nKeyPressSignalId);
         if (m_nFocusInSignalId)
             g_signal_handler_disconnect(m_pWidget, m_nFocusInSignalId);
         if (m_nFocusOutSignalId)
@@ -2057,6 +2080,11 @@ public:
         gtk_window_set_modal(m_pWindow, bModal);
     }
 
+    virtual bool get_modal() const override
+    {
+        return gtk_window_get_modal(m_pWindow);
+    }
+
     virtual void resize_to_request() override
     {
         gtk_window_resize(m_pWindow, 1, 1);
@@ -2081,6 +2109,92 @@ public:
     {
         assert(false && "nothing should call this impl, yet anyway, if ever");
         return SystemEnvData();
+    }
+
+    virtual Size get_size() const override
+    {
+        int current_width, current_height;
+        gtk_window_get_size(m_pWindow, &current_width, &current_height);
+        return Size(current_width, current_height);
+    }
+
+    virtual Point get_position() const override
+    {
+        int current_x, current_y;
+        gtk_window_get_position(m_pWindow, &current_x, &current_y);
+        return Point(current_x, current_y);
+    }
+
+    virtual bool get_resizable() const override
+    {
+        return gtk_window_get_resizable(m_pWindow);
+    }
+
+    virtual bool has_toplevel_focus() const override
+    {
+        return gtk_window_has_toplevel_focus(m_pWindow);
+    }
+
+    virtual void set_window_state(const OString& rStr) override
+    {
+        WindowStateData aData;
+        ImplWindowStateFromStr( aData, rStr );
+
+        auto nMask = aData.GetMask();
+        auto nState = aData.GetState() & WindowStateState::SystemMask;
+
+        if (nMask & WindowStateMask::Width && nMask & WindowStateMask::Height)
+        {
+            gtk_window_set_default_size(m_pWindow, aData.GetWidth(), aData.GetHeight());
+        }
+        if (nMask & WindowStateMask::State)
+        {
+            if (nState & WindowStateState::Maximized)
+                gtk_window_maximize(m_pWindow);
+            else
+                gtk_window_unmaximize(m_pWindow);
+        }
+    }
+
+    virtual OString get_window_state(WindowStateMask nMask) const override
+    {
+        bool bPositioningAllowed = true;
+#if defined(GDK_WINDOWING_WAYLAND)
+        // drop x/y when under wayland
+        GdkDisplay *pDisplay = gtk_widget_get_display(m_pWidget);
+        bPositioningAllowed = !GDK_IS_WAYLAND_DISPLAY(pDisplay);
+#endif
+
+        WindowStateData aData;
+        WindowStateMask nAvailable = WindowStateMask::State |
+                                     WindowStateMask::Width | WindowStateMask::Height;
+        if (bPositioningAllowed)
+            nAvailable |= WindowStateMask::X | WindowStateMask::Y;
+        aData.SetMask(nMask & nAvailable);
+
+        if (nMask & WindowStateMask::State)
+        {
+            WindowStateState nState = WindowStateState::Normal;
+            if (gtk_window_is_maximized(m_pWindow))
+                nState |= WindowStateState::Maximized;
+            aData.SetState(nState);
+        }
+
+        if (bPositioningAllowed && (nMask & (WindowStateMask::X | WindowStateMask::Y)))
+        {
+            auto aPos = get_position();
+            aData.SetX(aPos.X());
+            aData.SetY(aPos.Y());
+        }
+
+        if (nMask & (WindowStateMask::Width | WindowStateMask::Height))
+        {
+            auto aSize = get_size();
+            aData.SetWidth(aSize.Width());
+            aData.SetHeight(aSize.Height());
+        }
+
+        return ImplWindowStateToStr(aData);
     }
 
     virtual ~GtkInstanceWindow() override
@@ -2232,11 +2346,7 @@ public:
         m_xDialogController = rDialogController;
         m_aFunc = func;
 
-        if (!gtk_widget_get_visible(m_pWidget))
-        {
-            sort_native_button_order(GTK_BOX(gtk_dialog_get_action_area(m_pDialog)));
-            gtk_widget_show(m_pWidget);
-        }
+        show();
 
         m_nResponseSignalId = g_signal_connect(m_pDialog, "response", G_CALLBACK(signalAsyncResponse), this);
 
@@ -2275,8 +2385,11 @@ public:
 
     virtual void show() override
     {
-        sort_native_button_order(GTK_BOX(gtk_dialog_get_action_area(m_pDialog)));
-        gtk_widget_show(m_pWidget);
+        if (!gtk_widget_get_visible(m_pWidget))
+        {
+            sort_native_button_order(GTK_BOX(gtk_dialog_get_action_area(m_pDialog)));
+            gtk_widget_show(m_pWidget);
+        }
     }
 
     static int VclToGtk(int nResponse)
@@ -3910,15 +4023,128 @@ namespace
             }
         }
     }
+
+    GdkPixbuf* getPixbuf(const OUString& rIconName)
+    {
+        GdkPixbuf* pixbuf = nullptr;
+
+        if (rIconName.lastIndexOf('.') != rIconName.getLength() - 4)
+        {
+            assert((rIconName== "dialog-warning" || rIconName== "dialog-error" || rIconName== "dialog-information") &&
+                   "unknown stock image");
+
+            GError *error = nullptr;
+            GtkIconTheme *icon_theme = gtk_icon_theme_get_default();
+            pixbuf = gtk_icon_theme_load_icon(icon_theme, OUStringToOString(rIconName, RTL_TEXTENCODING_UTF8).getStr(),
+                                              16, GTK_ICON_LOOKUP_USE_BUILTIN, &error);
+        }
+        else
+        {
+            const AllSettings& rSettings = Application::GetSettings();
+            pixbuf = load_icon_by_name(rIconName,
+                                       rSettings.GetStyleSettings().DetermineIconTheme(),
+                                       rSettings.GetUILanguageTag().getBcp47());
+        }
+
+        return pixbuf;
+    }
+
+    void insert_row(GtkTreeStore* pTreeStore, GtkTreeIter& iter, GtkTreeIter* parent, int pos, const OUString* pId, const OUString& rText,
+                    const OUString* pIconName, VirtualDevice* pDevice, const OUString* pExpanderName)
+    {
+        if (!pIconName && !pDevice)
+        {
+            gtk_tree_store_insert_with_values(pTreeStore, &iter, parent, pos,
+                                              0, OUStringToOString(rText, RTL_TEXTENCODING_UTF8).getStr(),
+                                              1, !pId ? nullptr : OUStringToOString(*pId, RTL_TEXTENCODING_UTF8).getStr(),
+                                              -1);
+        }
+        else
+        {
+            if (pIconName)
+            {
+                GdkPixbuf* pixbuf = getPixbuf(*pIconName);
+
+                gtk_tree_store_insert_with_values(pTreeStore, &iter, parent, pos,
+                                                  0, OUStringToOString(rText, RTL_TEXTENCODING_UTF8).getStr(),
+                                                  1, !pId ? nullptr : OUStringToOString(*pId, RTL_TEXTENCODING_UTF8).getStr(),
+                                                  2, pixbuf,
+                                                  -1);
+
+                if (pixbuf)
+                    g_object_unref(pixbuf);
+            }
+            else
+            {
+                cairo_surface_t* surface = get_underlying_cairo_surface(*pDevice);
+
+                Size aSize(pDevice->GetOutputSizePixel());
+                cairo_surface_t* target = cairo_surface_create_similar(surface,
+                                                                        cairo_surface_get_content(surface),
+                                                                        aSize.Width(),
+                                                                        aSize.Height());
+
+                cairo_t* cr = cairo_create(target);
+                cairo_set_source_surface(cr, surface, 0, 0);
+                cairo_paint(cr);
+                cairo_destroy(cr);
+
+                gtk_tree_store_insert_with_values(pTreeStore, &iter, parent, pos,
+                                                  0, OUStringToOString(rText, RTL_TEXTENCODING_UTF8).getStr(),
+                                                  1, !pId ? nullptr : OUStringToOString(*pId, RTL_TEXTENCODING_UTF8).getStr(),
+                                                  3, target,
+                                                  -1);
+                cairo_surface_destroy(target);
+            }
+        }
+
+        if (pExpanderName)
+        {
+            GdkPixbuf* pixbuf = getPixbuf(*pExpanderName);
+            gtk_tree_store_set(pTreeStore, &iter, 4, pixbuf, -1);
+            if (pixbuf)
+                g_object_unref(pixbuf);
+        }
+    }
 }
+
+namespace
+{
+    gint sort_func(GtkTreeModel* pModel, GtkTreeIter* a, GtkTreeIter* b, gpointer data)
+    {
+        comphelper::string::NaturalStringSorter* pSorter = static_cast<comphelper::string::NaturalStringSorter*>(data);
+        gchar* pName1;
+        gchar* pName2;
+        gtk_tree_model_get(pModel, a, 0, &pName1, -1);
+        gtk_tree_model_get(pModel, b, 0, &pName2, -1);
+        gint ret = pSorter->compare(OUString(pName1, strlen(pName1), RTL_TEXTENCODING_UTF8),
+                                    OUString(pName2, strlen(pName2), RTL_TEXTENCODING_UTF8));
+        g_free(pName1);
+        g_free(pName2);
+        return ret;
+    }
+}
+
+struct GtkInstanceTreeIter : public weld::TreeIter
+{
+    GtkInstanceTreeIter(const GtkInstanceTreeIter* pOrig)
+    {
+        if (!pOrig)
+            return;
+        iter = pOrig->iter;
+    }
+    GtkTreeIter iter;
+};
 
 class GtkInstanceTreeView : public GtkInstanceContainer, public virtual weld::TreeView
 {
 private:
     GtkTreeView* m_pTreeView;
-    GtkListStore* m_pListStore;
+    GtkTreeStore* m_pTreeStore;
+    std::unique_ptr<comphelper::string::NaturalStringSorter> m_xSorter;
     gulong m_nChangedSignalId;
     gulong m_nRowActivatedSignalId;
+    gulong m_nTestExpandRowSignalId;
 
     DECL_LINK(async_signal_changed, void*, void);
 
@@ -3944,7 +4170,7 @@ private:
     OUString get(int pos, int col) const
     {
         OUString sRet;
-        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pListStore);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
         GtkTreeIter iter;
         if (gtk_tree_model_iter_nth_child(pModel, &iter, nullptr, pos))
         {
@@ -3956,53 +4182,99 @@ private:
         return sRet;
     }
 
+    static gboolean signalTestExpandRow(GtkTreeView*, GtkTreeIter* iter, GtkTreePath*, gpointer widget)
+    {
+        GtkInstanceTreeView* pThis = static_cast<GtkInstanceTreeView*>(widget);
+        return !pThis->signal_test_expand_row(*iter);
+    }
+
+    bool signal_test_expand_row(GtkTreeIter& iter)
+    {
+        GtkInstanceTreeIter aIter(nullptr);
+
+        // if there's a preexisting placeholder child, required to make this
+        // potentially expandable in the first place, now we remove it
+        bool bPlaceHolder = false;
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreeIter tmp;
+        if (gtk_tree_model_iter_children(pModel, &tmp, &iter))
+        {
+            aIter.iter = tmp;
+            if (get_text(aIter) == "<dummy>")
+            {
+                gtk_tree_store_remove(m_pTreeStore, &tmp);
+                bPlaceHolder = true;
+            }
+        }
+
+        aIter.iter = iter;
+        bool bRet = signal_expanding(aIter);
+
+        //expand disallowed, restore placeholder
+        if (!bRet && bPlaceHolder)
+        {
+            GtkTreeIter subiter;
+            insert_row(m_pTreeStore, subiter, &iter, -1, nullptr, "<dummy>", nullptr, nullptr, nullptr);
+        }
+
+        return bRet;
+    }
+
 public:
     GtkInstanceTreeView(GtkTreeView* pTreeView, bool bTakeOwnership)
         : GtkInstanceContainer(GTK_CONTAINER(pTreeView), bTakeOwnership)
         , m_pTreeView(pTreeView)
-        , m_pListStore(GTK_LIST_STORE(gtk_tree_view_get_model(m_pTreeView)))
+        , m_pTreeStore(GTK_TREE_STORE(gtk_tree_view_get_model(m_pTreeView)))
         , m_nChangedSignalId(g_signal_connect(gtk_tree_view_get_selection(pTreeView), "changed",
                              G_CALLBACK(signalChanged), this))
         , m_nRowActivatedSignalId(g_signal_connect(pTreeView, "row-activated", G_CALLBACK(signalRowActivated), this))
+        , m_nTestExpandRowSignalId(g_signal_connect(pTreeView, "test-expand-row", G_CALLBACK(signalTestExpandRow), this))
     {
     }
 
-    virtual void insert(int pos, const OUString& rText, const OUString* pId, const OUString* pIconName, VirtualDevice* pImageSurface) override
+    virtual void insert(weld::TreeIter* pParent, int pos, const OUString& rText, const OUString* pId, const OUString* pIconName,
+                        VirtualDevice* pImageSurface, const OUString* pExpanderName, bool bChildrenOnDemand) override
     {
         disable_notify_events();
         GtkTreeIter iter;
-        insert_row(m_pListStore, iter, pos, pId, rText, pIconName, pImageSurface);
+        GtkInstanceTreeIter* pGtkIter = static_cast<GtkInstanceTreeIter*>(pParent);
+        insert_row(m_pTreeStore, iter, pGtkIter ? &pGtkIter->iter : nullptr, pos, pId, rText, pIconName, pImageSurface, pExpanderName);
+        if (bChildrenOnDemand)
+        {
+            GtkTreeIter subiter;
+            insert_row(m_pTreeStore, subiter, &iter, -1, nullptr, "<dummy>", nullptr, nullptr, nullptr);
+        }
         enable_notify_events();
     }
 
     virtual void set_font_color(int pos, const Color& rColor) const override
     {
         GtkTreeIter iter;
-        gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(m_pListStore), &iter, nullptr, pos);
+        gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(m_pTreeStore), &iter, nullptr, pos);
         GdkRGBA aColor{rColor.GetRed()/255.0, rColor.GetGreen()/255.0, rColor.GetBlue()/255.0, 0};
-        gtk_list_store_set(m_pListStore, &iter, 4, &aColor, -1);
+        gtk_tree_store_set(m_pTreeStore, &iter, 4, &aColor, -1);
     }
 
     virtual void remove(int pos) override
     {
         disable_notify_events();
         GtkTreeIter iter;
-        gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(m_pListStore), &iter, nullptr, pos);
-        gtk_list_store_remove(m_pListStore, &iter);
+        gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(m_pTreeStore), &iter, nullptr, pos);
+        gtk_tree_store_remove(m_pTreeStore, &iter);
         enable_notify_events();
     }
 
     virtual int find_text(const OUString& rText) const override
     {
         Search aSearch(rText, 0);
-        gtk_tree_model_foreach(GTK_TREE_MODEL(m_pListStore), foreach_find, &aSearch);
+        gtk_tree_model_foreach(GTK_TREE_MODEL(m_pTreeStore), foreach_find, &aSearch);
         return aSearch.index;
     }
 
     virtual int find_id(const OUString& rId) const override
     {
         Search aSearch(rId, 1);
-        gtk_tree_model_foreach(GTK_TREE_MODEL(m_pListStore), foreach_find, &aSearch);
+        gtk_tree_model_foreach(GTK_TREE_MODEL(m_pTreeStore), foreach_find, &aSearch);
         return aSearch.index;
     }
 
@@ -4011,14 +4283,16 @@ public:
         if (pos == before)
             return;
 
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+
         disable_notify_events();
         GtkTreeIter iter;
-        gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(m_pListStore), &iter, nullptr, pos);
+        gtk_tree_model_iter_nth_child(pModel, &iter, nullptr, pos);
 
         GtkTreeIter position;
-        gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(m_pListStore), &position, nullptr, before);
+        gtk_tree_model_iter_nth_child(pModel, &position, nullptr, before);
 
-        gtk_list_store_move_before(m_pListStore, &iter, &position);
+        gtk_tree_store_move_before(m_pTreeStore, &iter, &position);
         enable_notify_events();
     }
 
@@ -4032,13 +4306,23 @@ public:
     virtual void clear() override
     {
         disable_notify_events();
-        gtk_list_store_clear(m_pListStore);
+        gtk_tree_store_clear(m_pTreeStore);
         enable_notify_events();
+    }
+
+    virtual void make_sorted() override
+    {
+        m_xSorter.reset(new comphelper::string::NaturalStringSorter(
+                            ::comphelper::getProcessComponentContext(),
+                            Application::GetSettings().GetUILanguageTag().getLocale()));
+        GtkTreeSortable* pSortable = GTK_TREE_SORTABLE(m_pTreeStore);
+        gtk_tree_sortable_set_sort_func(pSortable, 0, sort_func, m_xSorter.get(), nullptr);
+        gtk_tree_sortable_set_sort_column_id(pSortable, 0, GTK_SORT_ASCENDING);
     }
 
     virtual int n_children() const override
     {
-        return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(m_pListStore), nullptr);
+        return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(m_pTreeStore), nullptr);
     }
 
     virtual void select(int pos) override
@@ -4116,21 +4400,230 @@ public:
         return nRet;
     }
 
+    virtual std::unique_ptr<weld::TreeIter> make_iterator(const weld::TreeIter* pOrig) const override
+    {
+        return std::unique_ptr<weld::TreeIter>(new GtkInstanceTreeIter(static_cast<const GtkInstanceTreeIter*>(pOrig)));
+    }
+
+    virtual void copy_iterator(const weld::TreeIter& rSource, weld::TreeIter& rDest) const override
+    {
+        const GtkInstanceTreeIter& rGtkSource(static_cast<const GtkInstanceTreeIter&>(rSource));
+        GtkInstanceTreeIter& rGtkDest(static_cast<GtkInstanceTreeIter&>(rDest));
+        rGtkDest.iter = rGtkSource.iter;
+    }
+
+    virtual bool get_selected(weld::TreeIter* pIter) const override
+    {
+        GtkInstanceTreeIter* pGtkIter = static_cast<GtkInstanceTreeIter*>(pIter);
+        return gtk_tree_selection_get_selected(gtk_tree_view_get_selection(m_pTreeView), nullptr, pGtkIter ? &pGtkIter->iter : nullptr);
+    }
+
+    virtual bool get_cursor(weld::TreeIter* pIter) const override
+    {
+        GtkInstanceTreeIter* pGtkIter = static_cast<GtkInstanceTreeIter*>(pIter);
+        GtkTreePath* path;
+        gtk_tree_view_get_cursor(m_pTreeView, &path, nullptr);
+        if (pGtkIter && path)
+        {
+            GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+            gtk_tree_model_get_iter(pModel, &pGtkIter->iter, path);
+        }
+        return path != nullptr;
+    }
+
+    virtual void set_cursor(const weld::TreeIter& rIter) override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreePath* path = gtk_tree_model_get_path(pModel, const_cast<GtkTreeIter*>(&rGtkIter.iter));
+        gtk_tree_view_set_cursor(m_pTreeView, path, nullptr, false);
+        gtk_tree_path_free(path);
+    }
+
+    virtual bool get_iter_first(weld::TreeIter& rIter) const override
+    {
+        GtkInstanceTreeIter& rGtkIter = static_cast<GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        return gtk_tree_model_get_iter_first(pModel, &rGtkIter.iter);
+    }
+
+    virtual bool iter_next_sibling(weld::TreeIter& rIter) const override
+    {
+        GtkInstanceTreeIter& rGtkIter = static_cast<GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        return gtk_tree_model_iter_next(pModel, &rGtkIter.iter);
+    }
+
+    virtual bool iter_next(weld::TreeIter& rIter) const override
+    {
+        GtkInstanceTreeIter& rGtkIter = static_cast<GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreeIter iter = rGtkIter.iter;
+        if (iter_children(rGtkIter))
+            return true;
+        GtkTreeIter tmp = iter;
+        if (gtk_tree_model_iter_next(pModel, &tmp))
+        {
+            rGtkIter.iter = tmp;
+            return true;
+        }
+        if (!gtk_tree_model_iter_parent(pModel, &tmp, &iter))
+            return false;
+        tmp = iter;
+        if (gtk_tree_model_iter_next(pModel, &tmp))
+        {
+            rGtkIter.iter = tmp;
+            return true;
+        }
+        return false;
+    }
+
+    virtual bool iter_children(weld::TreeIter& rIter) const override
+    {
+        GtkInstanceTreeIter& rGtkIter = static_cast<GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreeIter tmp;
+        gboolean ret = gtk_tree_model_iter_children(pModel, &tmp, &rGtkIter.iter);
+        rGtkIter.iter = tmp;
+        if (ret)
+        {
+            //on-demand dummy entry doesn't count
+            return get_text(rGtkIter) != "<dummy>";
+        }
+        return ret;
+    }
+
+    virtual bool iter_parent(weld::TreeIter& rIter) const override
+    {
+        GtkInstanceTreeIter& rGtkIter = static_cast<GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreeIter tmp;
+        auto ret = gtk_tree_model_iter_parent(pModel, &tmp, &rGtkIter.iter);
+        rGtkIter.iter = tmp;
+        return ret;
+    }
+
+    virtual void remove(const weld::TreeIter& rIter) override
+    {
+        disable_notify_events();
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        gtk_tree_store_remove(m_pTreeStore, const_cast<GtkTreeIter*>(&rGtkIter.iter));
+        enable_notify_events();
+    }
+
+    virtual void select(const weld::TreeIter& rIter) override
+    {
+        assert(gtk_tree_view_get_model(m_pTreeView) && "don't select when frozen");
+        disable_notify_events();
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        gtk_tree_selection_select_iter(gtk_tree_view_get_selection(m_pTreeView), const_cast<GtkTreeIter*>(&rGtkIter.iter));
+        enable_notify_events();
+    }
+
+    virtual void unselect(const weld::TreeIter& rIter) override
+    {
+        assert(gtk_tree_view_get_model(m_pTreeView) && "don't select when frozen");
+        disable_notify_events();
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        gtk_tree_selection_unselect_iter(gtk_tree_view_get_selection(m_pTreeView), const_cast<GtkTreeIter*>(&rGtkIter.iter));
+        enable_notify_events();
+    }
+
+    virtual int get_iter_depth(const weld::TreeIter& rIter) const override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreePath* path = gtk_tree_model_get_path(pModel, const_cast<GtkTreeIter*>(&rGtkIter.iter));
+        int ret = gtk_tree_path_get_depth(path) - 1;
+        gtk_tree_path_free(path);
+        return ret;
+    }
+
+    virtual bool iter_has_child(const weld::TreeIter& rIter) const override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        return gtk_tree_model_iter_has_child(pModel, const_cast<GtkTreeIter*>(&rGtkIter.iter));
+    }
+
+    virtual bool get_row_expanded(const weld::TreeIter& rIter) const override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreePath* path = gtk_tree_model_get_path(pModel, const_cast<GtkTreeIter*>(&rGtkIter.iter));
+        bool ret = gtk_tree_view_row_expanded(m_pTreeView, path);
+        gtk_tree_path_free(path);
+        return ret;
+    }
+
+    virtual void expand_row(weld::TreeIter& rIter) override
+    {
+        GtkInstanceTreeIter& rGtkIter = static_cast<GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        GtkTreePath* path = gtk_tree_model_get_path(pModel, &rGtkIter.iter);
+        if (!gtk_tree_view_row_expanded(m_pTreeView, path))
+            gtk_tree_view_expand_row(m_pTreeView, path, false);
+        gtk_tree_path_free(path);
+    }
+
+    virtual OUString get_text(const weld::TreeIter& rIter) const override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        gchar* pStr;
+        gtk_tree_model_get(pModel, const_cast<GtkTreeIter*>(&rGtkIter.iter), 0, &pStr, -1);
+        OUString sRet(pStr, pStr ? strlen(pStr) : 0, RTL_TEXTENCODING_UTF8);
+        g_free(pStr);
+        return sRet;
+    }
+
+    virtual OUString get_id(const weld::TreeIter& rIter) const override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        GtkTreeModel *pModel = GTK_TREE_MODEL(m_pTreeStore);
+        gchar* pStr;
+        gtk_tree_model_get(pModel, const_cast<GtkTreeIter*>(&rGtkIter.iter), 1, &pStr, -1);
+        OUString sRet(pStr, pStr ? strlen(pStr) : 0, RTL_TEXTENCODING_UTF8);
+        g_free(pStr);
+        return sRet;
+    }
+
+    virtual void set_expander_image(const weld::TreeIter& rIter, const OUString& rExpanderName) override
+    {
+        const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
+        disable_notify_events();
+        GdkPixbuf* pixbuf = getPixbuf(rExpanderName);
+        gtk_tree_store_set(m_pTreeStore, const_cast<GtkTreeIter*>(&rGtkIter.iter), 4, pixbuf, -1);
+        if (pixbuf)
+            g_object_unref(pixbuf);
+        enable_notify_events();
+    }
+
     virtual void freeze() override
     {
         disable_notify_events();
-        g_object_ref(m_pListStore);
+        g_object_ref(m_pTreeStore);
         GtkInstanceContainer::freeze();
         gtk_tree_view_set_model(m_pTreeView, nullptr);
+        if (m_xSorter)
+        {
+            GtkTreeSortable* pSortable = GTK_TREE_SORTABLE(m_pTreeStore);
+            gtk_tree_sortable_set_sort_column_id(pSortable, GTK_TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID, GTK_SORT_ASCENDING);
+        }
         enable_notify_events();
     }
 
     virtual void thaw() override
     {
         disable_notify_events();
-        gtk_tree_view_set_model(m_pTreeView, GTK_TREE_MODEL(m_pListStore));
+        if (m_xSorter)
+        {
+            GtkTreeSortable* pSortable = GTK_TREE_SORTABLE(m_pTreeStore);
+            gtk_tree_sortable_set_sort_column_id(pSortable, 0, GTK_SORT_ASCENDING);
+        }
+        gtk_tree_view_set_model(m_pTreeView, GTK_TREE_MODEL(m_pTreeStore));
         GtkInstanceContainer::thaw();
-        g_object_unref(m_pListStore);
+        g_object_unref(m_pTreeStore);
         enable_notify_events();
     }
 
@@ -4220,8 +4713,9 @@ public:
 
     virtual ~GtkInstanceTreeView() override
     {
-        g_signal_handler_disconnect(gtk_tree_view_get_selection(m_pTreeView), m_nChangedSignalId);
+        g_signal_handler_disconnect(m_pTreeView, m_nTestExpandRowSignalId);
         g_signal_handler_disconnect(m_pTreeView, m_nRowActivatedSignalId);
+        g_signal_handler_disconnect(gtk_tree_view_get_selection(m_pTreeView), m_nChangedSignalId);
     }
 };
 
@@ -4252,18 +4746,18 @@ private:
         return pThis->signal_output();
     }
 
-    static gboolean signalInput(GtkSpinButton*, gdouble* new_value, gpointer widget)
+    static gint signalInput(GtkSpinButton*, gdouble* new_value, gpointer widget)
     {
         GtkInstanceSpinButton* pThis = static_cast<GtkInstanceSpinButton*>(widget);
         SolarMutexGuard aGuard;
         int result;
         TriState eHandled = pThis->signal_input(&result);
         if (eHandled == TRISTATE_INDET)
-            return false;
+            return 0;
         if (eHandled == TRISTATE_TRUE)
         {
             *new_value = pThis->toGtk(result);
-            return true;
+            return 1;
         }
         return GTK_INPUT_ERROR;
     }
@@ -4355,6 +4849,169 @@ public:
     }
 
     virtual ~GtkInstanceSpinButton() override
+    {
+        g_signal_handler_disconnect(m_pButton, m_nInputSignalId);
+        g_signal_handler_disconnect(m_pButton, m_nOutputSignalId);
+        g_signal_handler_disconnect(m_pButton, m_nValueChangedSignalId);
+    }
+};
+
+class GtkInstanceFormattedSpinButton : public GtkInstanceEntry, public virtual weld::FormattedSpinButton
+{
+private:
+    GtkSpinButton* m_pButton;
+    SvNumberFormatter* m_pFormatter;
+    Color* m_pLastOutputColor;
+    sal_uInt32 m_nFormatKey;
+    gulong m_nValueChangedSignalId;
+    gulong m_nOutputSignalId;
+    gulong m_nInputSignalId;
+
+    bool signal_output()
+    {
+        if (!m_pFormatter)
+            return false;
+        double dVal = get_value();
+        OUString sNewText;
+        if (m_pFormatter->IsTextFormat(m_nFormatKey))
+        {
+            // first convert the number as string in standard format
+            OUString sTemp;
+            m_pFormatter->GetOutputString(dVal, 0, sTemp, &m_pLastOutputColor);
+            // then encode the string in the corresponding text format
+            m_pFormatter->GetOutputString(sTemp, m_nFormatKey, sNewText, &m_pLastOutputColor);
+        }
+        else
+        {
+            m_pFormatter->GetInputLineString(dVal, m_nFormatKey, sNewText);
+        }
+        set_text(sNewText);
+        return true;
+    }
+
+    static gboolean signalOutput(GtkSpinButton*, gpointer widget)
+    {
+        GtkInstanceFormattedSpinButton* pThis = static_cast<GtkInstanceFormattedSpinButton*>(widget);
+        SolarMutexGuard aGuard;
+        return pThis->signal_output();
+    }
+
+    gint signal_input(double* value)
+    {
+        if (!m_pFormatter)
+            return 0;
+
+        sal_uInt32 nFormatKey = m_nFormatKey; // IsNumberFormat changes the FormatKey!
+
+        if (m_pFormatter->IsTextFormat(nFormatKey))
+            // for detection of values like "1,1" in fields that are formatted as text
+            nFormatKey = 0;
+
+        OUString sText(get_text());
+
+        // special treatment for percentage formatting
+        if (m_pFormatter->GetType(m_nFormatKey) == SvNumFormatType::PERCENT)
+        {
+            // the language of our format
+            LanguageType eLanguage = m_pFormatter->GetEntry(m_nFormatKey)->GetLanguage();
+            // the default number format for this language
+            sal_uLong nStandardNumericFormat = m_pFormatter->GetStandardFormat(SvNumFormatType::NUMBER, eLanguage);
+
+            sal_uInt32 nTempFormat = nStandardNumericFormat;
+            double dTemp;
+            if (m_pFormatter->IsNumberFormat(sText, nTempFormat, dTemp) &&
+                SvNumFormatType::NUMBER == m_pFormatter->GetType(nTempFormat))
+                // the string is equivalent to a number formatted one (has no % sign) -> append it
+                sText += "%";
+            // (with this, a input of '3' becomes '3%', which then by the formatter is translated
+            // into 0.03. Without this, the formatter would give us the double 3 for an input '3',
+            // which equals 300 percent.
+        }
+        if (!m_pFormatter->IsNumberFormat(sText, nFormatKey, *value))
+            return GTK_INPUT_ERROR;
+
+        return 1;
+    }
+
+    static gint signalInput(GtkSpinButton*, gdouble* new_value, gpointer widget)
+    {
+        GtkInstanceFormattedSpinButton* pThis = static_cast<GtkInstanceFormattedSpinButton*>(widget);
+        SolarMutexGuard aGuard;
+        return pThis->signal_input(new_value);
+    }
+
+    static void signalValueChanged(GtkSpinButton*, gpointer widget)
+    {
+        GtkInstanceFormattedSpinButton* pThis = static_cast<GtkInstanceFormattedSpinButton*>(widget);
+        SolarMutexGuard aGuard;
+        pThis->signal_value_changed();
+    }
+
+public:
+    GtkInstanceFormattedSpinButton(GtkSpinButton* pButton, bool bTakeOwnership)
+        : GtkInstanceEntry(GTK_ENTRY(pButton), bTakeOwnership)
+        , m_pButton(pButton)
+        , m_pFormatter(nullptr)
+        , m_pLastOutputColor(nullptr)
+        , m_nFormatKey(0)
+        , m_nValueChangedSignalId(g_signal_connect(pButton, "value-changed", G_CALLBACK(signalValueChanged), this))
+        , m_nOutputSignalId(g_signal_connect(pButton, "output", G_CALLBACK(signalOutput), this))
+        , m_nInputSignalId(g_signal_connect(pButton, "input", G_CALLBACK(signalInput), this))
+    {
+    }
+
+    virtual double get_value() const override
+    {
+        return gtk_spin_button_get_value(m_pButton);
+    }
+
+    virtual void set_value(double value) override
+    {
+        disable_notify_events();
+        gtk_spin_button_set_value(m_pButton, value);
+        enable_notify_events();
+    }
+
+    virtual void set_range(double min, double max) override
+    {
+        disable_notify_events();
+        gtk_spin_button_set_range(m_pButton, min, max);
+        enable_notify_events();
+    }
+
+    virtual void get_range(double& min, double& max) const override
+    {
+        gtk_spin_button_get_range(m_pButton, &min, &max);
+    }
+
+    virtual void set_formatter(SvNumberFormatter* pFormatter) override
+    {
+        m_pFormatter = pFormatter;
+
+        // calc the default format key from the Office's UI locale
+        if (m_pFormatter)
+        {
+            // get the Office's locale and translate
+            LanguageType eSysLanguage = Application::GetSettings().GetUILanguageTag().getLanguageType( false);
+            // get the standard numeric format for this language
+            m_nFormatKey = m_pFormatter->GetStandardFormat( SvNumFormatType::NUMBER, eSysLanguage );
+        }
+        else
+            m_nFormatKey = 0;
+        signal_output();
+    }
+
+    virtual sal_Int32 get_format_key() const override
+    {
+        return m_nFormatKey;
+    }
+
+    virtual void set_format_key(sal_Int32 nFormatKey) override
+    {
+        m_nFormatKey = nFormatKey;
+    }
+
+    virtual ~GtkInstanceFormattedSpinButton() override
     {
         g_signal_handler_disconnect(m_pButton, m_nInputSignalId);
         g_signal_handler_disconnect(m_pButton, m_nOutputSignalId);
@@ -4852,23 +5509,6 @@ public:
         return *m_xDevice;
     }
 };
-
-namespace
-{
-    gint sort_func(GtkTreeModel* pModel, GtkTreeIter* a, GtkTreeIter* b, gpointer data)
-    {
-        comphelper::string::NaturalStringSorter* pSorter = static_cast<comphelper::string::NaturalStringSorter*>(data);
-        gchar* pName1;
-        gchar* pName2;
-        gtk_tree_model_get(pModel, a, 0, &pName1, -1);
-        gtk_tree_model_get(pModel, b, 0, &pName2, -1);
-        gint ret = pSorter->compare(OUString(pName1, strlen(pName1), RTL_TEXTENCODING_UTF8),
-                                    OUString(pName2, strlen(pName2), RTL_TEXTENCODING_UTF8));
-        g_free(pName1);
-        g_free(pName2);
-        return ret;
-    }
-}
 
 class GtkInstanceComboBox : public GtkInstanceContainer, public vcl::ISearchableStringList, public virtual weld::ComboBox
 {
@@ -5476,6 +6116,11 @@ public:
         bodge_wayland_menu_not_appearing();
     }
 
+    virtual bool get_popup_shown() const override
+    {
+        return m_bPopupActive;
+    }
+
     virtual ~GtkInstanceComboBox() override
     {
         if (GtkEntry* pEntry = get_entry())
@@ -5502,10 +6147,18 @@ private:
             gboolean ret;
             m_pTreeView->disable_notify_events();
             GtkWidget* pWidget = m_pTreeView->getWidget();
-            gtk_widget_grab_focus(pWidget);
-            g_signal_emit_by_name(pWidget, "key-press-event", pEvent, &ret);
-            m_xEntry->set_text(m_xTreeView->get_selected_text());
-            gtk_widget_grab_focus(m_pEntry->getWidget());
+            if (m_pTreeView->get_selected_index() == -1)
+            {
+                m_pTreeView->select(0);
+                m_xEntry->set_text(m_xTreeView->get_selected_text());
+            }
+            else
+            {
+                gtk_widget_grab_focus(pWidget);
+                g_signal_emit_by_name(pWidget, "key-press-event", pEvent, &ret);
+                m_xEntry->set_text(m_xTreeView->get_selected_text());
+                gtk_widget_grab_focus(m_pEntry->getWidget());
+            }
             m_xEntry->select_region(0, -1);
             m_pTreeView->enable_notify_events();
             m_pEntry->fire_signal_changed();
@@ -6071,6 +6724,21 @@ public:
             return nullptr;
         auto_add_parentless_widgets_to_container(GTK_WIDGET(pSpinButton));
         return o3tl::make_unique<GtkInstanceSpinButton>(pSpinButton, bTakeOwnership);
+    }
+
+    virtual std::unique_ptr<weld::MetricSpinButton> weld_metric_spin_button(const OString& id, FieldUnit eUnit,
+                                                                      bool bTakeOwnership) override
+    {
+        return o3tl::make_unique<weld::MetricSpinButton>(weld_spin_button(id, bTakeOwnership), eUnit);
+    }
+
+    virtual std::unique_ptr<weld::FormattedSpinButton> weld_formatted_spin_button(const OString &id, bool bTakeOwnership) override
+    {
+        GtkSpinButton* pSpinButton = GTK_SPIN_BUTTON(gtk_builder_get_object(m_pBuilder, id.getStr()));
+        if (!pSpinButton)
+            return nullptr;
+        auto_add_parentless_widgets_to_container(GTK_WIDGET(pSpinButton));
+        return o3tl::make_unique<GtkInstanceFormattedSpinButton>(pSpinButton, bTakeOwnership);
     }
 
     virtual std::unique_ptr<weld::TimeSpinButton> weld_time_spin_button(const OString& id, TimeFieldFormat eFormat,

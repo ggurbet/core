@@ -37,11 +37,12 @@
 #include <editeng/scripttypeitem.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/event.hxx>
-#include <svtools/imap.hxx>
+#include <vcl/imap.hxx>
 #include <svtools/htmltokn.h>
 #include <svtools/htmlkywd.hxx>
 #include <unotools/eventcfg.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <fmtornt.hxx>
 #include <fmturl.hxx>
@@ -1360,7 +1361,7 @@ bool SwHTMLParser::HasCurrentParaBookmarks( bool bIgnoreStack ) const
         for( auto i = m_aSetAttrTab.size(); i; )
         {
             HTMLAttr* pAttr = m_aSetAttrTab[ --i ];
-            if( RES_FLTR_BOOKMARK == pAttr->pItem->Which() )
+            if( RES_FLTR_BOOKMARK == pAttr->m_pItem->Which() )
             {
                 if( pAttr->GetSttParaIdx() == nNodeIdx )
                     bHasMarks = true;

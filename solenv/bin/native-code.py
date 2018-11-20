@@ -278,6 +278,8 @@ edit_constructor_list = [
 # starmath/util/sm.component
     "Math_XMLOasisMetaExporter_get_implementation",
     "Math_XMLOasisSettingsExporter_get_implementation",
+    "Math_XMLImporter_get_implementation",
+    "Math_XMLOasisMetaImporter_get_implementation",
 # sw/util/sw.component
     "com_sun_star_comp_Writer_XMLOasisContentExporter_get_implementation",
     "com_sun_star_comp_Writer_XMLOasisMetaExporter_get_implementation",
@@ -396,6 +398,137 @@ constructor_map = {
     'writer' : writer_constructor_list,
     }
 
+custom_widgets = [
+    'ArgEdit',
+    'AutoCompleteMultiListBox',
+    'AutoCorrEdit',
+    'BookmarksBox',
+    'CaptionComboBox',
+    'CategoryListBox',
+    'ClassificationEditView',
+    'ColorConfigCtrl',
+    'ColumnEdit',
+    'CommandCategoryListBox',
+    'ConditionEdit',
+    'ContentListBox',
+    'ContextVBox',
+    'CuiCustomMultilineEdit',
+    'CustomAnimationList',
+    'CustomPropertiesControl',
+    'DataTreeListBox',
+    'DriverListControl',
+    'DropdownBox',
+    'EditBox',
+    'EmojiView',
+    'ExtBoxWithBtns',
+    'ExtensionBox',
+    'FEdit',
+    'FontNameBox',
+    'FontSizeBox',
+    'FontStyleBox',
+    'FormulaListBox',
+    'GalleryPreview',
+    'IndexBox',
+    'IndexBox',
+    'IntellectualPropertyPartEdit',
+    'LightButton',
+    'LookUpComboBox',
+    'MacroEventListBox',
+    'ManagedMenuButton',
+    'MultiLineEditSyntaxHighlight',
+    'NumFormatListBox',
+    'OFileURLControl',
+    'OptionalBox',
+    'PageNumberListBox',
+    'PaperSizeListBox',
+    'PriorityHBox',
+    'PriorityMergedHBox',
+    'PropertyControl',
+    'RecentDocsView',
+    'RefButton',
+    'RefEdit',
+    'ReplaceEdit',
+    'ReturnActionEdit',
+    'RowEdit',
+    'RubyEdit',
+    'RubyPreview',
+    'RubyRadioButton',
+    'SFTreeListBox',
+    'SameContentListBox',
+    'ScAutoFmtPreview',
+    'ScCondFormatList',
+    'ScCsvTableBox',
+    'ScCursorRefEdit',
+    'ScDPFunctionListBox',
+    'ScDataTableView',
+    'ScDoubleField',
+    'ScEditWindow',
+    'ScPivotLayoutTreeList',
+    'ScPivotLayoutTreeListData',
+    'ScPivotLayoutTreeListLabel',
+    'ScRefButtonEx',
+    'SdPageObjsTLB',
+    'SearchBox',
+    'SearchResultsBox',
+    'SelectionListBox',
+    'SentenceEditWindow',
+    'SeriesListBox',
+    'SfxAccCfgTabListBox',
+    'SfxConfigFunctionListBox',
+    'SfxConfigGroupListBox',
+    'ShowNupOrderWindow',
+    'ShowNupOrderWindow',
+    'SidebarDialControl',
+    'SidebarToolBox',
+    'SmallButton',
+    'SpacingListBox',
+    'StatusBar',
+    'StructListBox',
+    'SuggestionDisplay',
+    'SuggestionEdit',
+    'SvSimpleTableContainer',
+    'SvTabListBox',
+    'SvTreeListBox',
+    'SvtFileView',
+    'SvtIconChoiceCtrl',
+    'SvtURLBox',
+    'Svx3DPreviewControl',
+    'SvxCharViewControl',
+    'SvxCheckListBox',
+    'SvxColorListBox',
+    'SvxColorValueSet',
+    'SvxDictEdit',
+    'SvxFillAttrBox',
+    'SvxFillTypeBox',
+    'SvxFontPrevWindow',
+    'SvxHlmarkTreeLBox',
+    'SvxHyperURLBox',
+    'SvxLanguageBox',
+    'SvxLanguageComboBox',
+    'SvxLightCtl3D',
+    'SvxNoSpaceEdit',
+    'SvxPathControl',
+    'SvxRelativeField',
+    'SvxSwFrameExample',
+    'SvxTextEncodingBox',
+    'SvxTextEncodingBox',
+    'SwAddressPreview',
+    'SwCaptionPreview',
+    'SwFieldRefTreeListBox',
+    'SwGlTreeListBox',
+    'SwGlossaryGroupTLB',
+    'SwIdxTreeListBox',
+    'SwMarkPreview',
+    'SwNavHelpToolBox',
+    'SwTokenWindow',
+    'TableValueSet',
+    'TemplateDefaultView',
+    'TemplateLocalView',
+    'TemplateSearchView',
+    'ThesaurusAlternativesCtrl',
+    'ValueSet',
+    ]
+
 def get_constructor_guard(constructor):
     if type(full_constructor_map[constructor]) is bool:
         return None
@@ -476,8 +609,10 @@ print ("""/*
  */
 
 #include <config_features.h>
+#include <config_fuzzers.h>
 #include <config_gpgme.h>
 #include <osl/detail/component-mapping.h>
+#include <string.h>
 
 """)
 if not options.pure_c:
@@ -500,6 +635,32 @@ for constructor in sorted(full_constructor_map.keys()):
     print ('void * '+constructor+'( void *, void * );')
     if constructor_guard:
         print ('#endif')
+
+print ('')
+for entry in sorted(custom_widgets):
+    print ('void make' + entry + '();')
+print ('typedef void (*custom_widget_func)();')
+print ('#if !ENABLE_FUZZERS')
+print ('static struct { const char *name; custom_widget_func func; } custom_widgets[] = {')
+for entry in sorted(custom_widgets):
+    print ('    { "make' + entry + '", make' + entry + ' },')
+print ('};')
+print ('#endif')
+print ('')
+print ("""
+custom_widget_func lo_get_custom_widget_func(const char* name)
+{
+#if ENABLE_FUZZERS
+    (void)name;
+    return nullptr;
+#else
+    for (size_t i = 0; i < sizeof(custom_widgets) / sizeof(custom_widgets[0]); i++)
+        if (strcmp(name, custom_widgets[i].name) == 0)
+            return custom_widgets[i].func;
+    return nullptr;
+#endif
+}
+""")
 
 print ("""
 const lib_to_factory_mapping *

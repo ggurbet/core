@@ -35,6 +35,7 @@
 #include <rtl/uri.hxx>
 #include <rtl/tencinfo.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <oox/helper/graphichelper.hxx>
 #include <vcl/wmfexternal.hxx>
 #include <vcl/graph.hxx>
@@ -3465,7 +3466,6 @@ RTFFrame::RTFFrame(RTFParserState* pParserState)
     , m_nVertAlign(0)
     , m_nVertAnchor(0)
     , m_nHRule(NS_ooxml::LN_Value_doc_ST_HeightRule_auto)
-    , m_nAnchorType(0)
 {
 }
 
@@ -3615,7 +3615,7 @@ bool RTFFrame::hasProperties()
 {
     return m_nX != 0 || m_nY != 0 || m_nW != 0 || m_nH != 0 || m_nHoriPadding != 0
            || m_nVertPadding != 0 || m_nHoriAlign != 0 || m_nHoriAnchor != 0 || m_nVertAlign != 0
-           || m_nVertAnchor != 0 || m_nAnchorType != 0;
+           || m_nVertAnchor != 0;
 }
 
 } // namespace rtftok

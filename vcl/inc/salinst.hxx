@@ -122,7 +122,6 @@ public:
 
     virtual void            GetPrinterQueueInfo( ImplPrnQueueList* pList ) = 0;
     virtual void            GetPrinterQueueState( SalPrinterQueueInfo* pInfo ) = 0;
-    virtual void            DeletePrinterQueueInfo( SalPrinterQueueInfo* pInfo ) = 0;
     virtual OUString        GetDefaultPrinter() = 0;
 
     // SalTimer
@@ -162,7 +161,7 @@ public:
     virtual OpenGLContext*  CreateOpenGLContext() = 0;
 
     virtual weld::Builder* CreateBuilder(weld::Widget* pParent, const OUString& rUIRoot, const OUString& rUIFile);
-            weld::Builder* CreateInterimBuilder(vcl::Window* pParent, const OUString& rUIRoot, const OUString& rUIFile);
+    static  weld::Builder* CreateInterimBuilder(vcl::Window* pParent, const OUString& rUIRoot, const OUString& rUIFile);
     virtual weld::MessageDialog* CreateMessageDialog(weld::Widget* pParent, VclMessageType eMessageType,
                                                      VclButtonsType eButtonType, const OUString& rPrimaryMessage);
     virtual weld::Window* GetFrameWeld(const css::uno::Reference<css::awt::XWindow>& rWindow);

@@ -10,6 +10,10 @@
 #ifndef INCLUDED_COMPHELPER_PROFILEZONE_HXX
 #define INCLUDED_COMPHELPER_PROFILEZONE_HXX
 
+#include <sal/config.h>
+
+#include <atomic>
+
 #include <com/sun/star/uno/Sequence.h>
 #include <comphelper/comphelperdllapi.h>
 #include <rtl/ustring.hxx>
@@ -36,12 +40,21 @@ private:
     const char * m_sProfileId;
     long long const m_aCreateTime;
 public:
+    static std::atomic<bool> g_bRecording; // true during recording
 
     // Note that the char pointer is stored as such in the ProfileZone object and used in the
     // destructor, so be sure to pass a pointer that stays valid for the duration of the object's
     // lifetime.
-    ProfileZone(const char * sProfileId);
-    ~ProfileZone();
+    ProfileZone(const char *sProfileId)
+        : m_sProfileId(sProfileId),
+          m_aCreateTime(g_bRecording ? ProfileRecording::addRecording(sProfileId, 0) : 0)
+    {
+    }
+    ~ProfileZone()
+    {
+        if (g_bRecording)
+            ProfileRecording::addRecording(m_sProfileId, m_aCreateTime);
+    }
 };
 
 } // namespace comphelper

@@ -18,6 +18,7 @@
  */
 
 #include <i18nutil/oneToOneMapping.hxx>
+#include <string.h>
 
 namespace i18nutil {
 
@@ -67,11 +68,6 @@ oneToOneMappingWithFlag::oneToOneMappingWithFlag( UnicodePairWithFlag const *rpT
 
 oneToOneMappingWithFlag::~oneToOneMappingWithFlag()
 {
-    if( mbHasIndex )
-    {
-        for (UnicodePairWithFlag const ** i : mpIndex)
-            delete [] i;
-    }
 }
 
 void oneToOneMappingWithFlag::makeIndex()
@@ -80,9 +76,6 @@ void oneToOneMappingWithFlag::makeIndex()
     {
         int current = -1;
 
-        for (UnicodePairWithFlag const **& i : mpIndex)
-            i = nullptr;
-
         for( size_t k = 0; k < mnSize; k++ )
         {
             const int high = (mpTableWF[k].first >> 8) & 0xFF;
@@ -90,7 +83,7 @@ void oneToOneMappingWithFlag::makeIndex()
             if( high != current )
             {
                 current = high;
-                mpIndex[high] = new UnicodePairWithFlag const *[256];
+                mpIndex[high].reset(new UnicodePairWithFlag const *[256]);
 
                 for (int j = 0; j < 256; ++j)
                     mpIndex[high][j] = nullptr;

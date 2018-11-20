@@ -866,10 +866,9 @@ void SwRedlineExtraData_Format::Reject( SwPaM& rPam ) const
     pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern(eOld & ~RedlineFlags(RedlineFlags::On | RedlineFlags::Ignore));
 
     // Actually we need to reset the Attribute here!
-    std::vector<sal_uInt16>::const_iterator it;
-    for( it = m_aWhichIds.begin(); it != m_aWhichIds.end(); ++it )
+    for( const auto& rWhichId : m_aWhichIds )
     {
-        pDoc->getIDocumentContentOperations().InsertPoolItem( rPam, *GetDfltAttr( *it ),
+        pDoc->getIDocumentContentOperations().InsertPoolItem( rPam, *GetDfltAttr( rWhichId ),
             SetAttrMode::DONTEXPAND );
     }
 
@@ -1454,7 +1453,7 @@ void SwRangeRedline::CopyToSection()
 
     if( pCSttNd )
     {
-        SwTextFormatColl* pColl = (pCSttNd && pCSttNd->IsTextNode() )
+        SwTextFormatColl* pColl = pCSttNd->IsTextNode()
                                 ? pCSttNd->GetTextNode()->GetTextColl()
                                 : pDoc->getIDocumentStylePoolAccess().GetTextCollFromPool(RES_POOLCOLL_STANDARD);
 
@@ -1672,7 +1671,8 @@ void SwRangeRedline::MoveFromSection(size_t nMyPos)
             if( m_bDelLastPara )
             {
                 ++GetPoint()->nNode;
-                GetPoint()->nContent.Assign( pCNd = GetContentNode(), 0 );
+                pCNd = GetContentNode();
+                GetPoint()->nContent.Assign( pCNd, 0 );
                 m_bDelLastPara = false;
             }
             else if( pColl )

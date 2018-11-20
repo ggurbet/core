@@ -55,11 +55,6 @@ LogicalFontInstance::LogicalFontInstance(const PhysicalFontFace& rFontFace, cons
 {
 }
 
-void LogicalFontInstance::SetNonAntialiased(bool bNonAntialiased)
-{
-    const_cast<FontSelectPattern*>(&m_aFontSelData)->mbNonAntialiased = bNonAntialiased;
-}
-
 LogicalFontInstance::~LogicalFontInstance()
 {
     mpUnicodeFallbackList.reset();
@@ -70,7 +65,7 @@ LogicalFontInstance::~LogicalFontInstance()
         hb_font_destroy(m_pHbFont);
 }
 
-hb_font_t* LogicalFontInstance::InitHbFont(hb_face_t* pHbFace) const
+hb_font_t* LogicalFontInstance::InitHbFont(hb_face_t* pHbFace)
 {
     assert(pHbFace);
     hb_font_t* pHbFont = hb_font_create(pHbFace);
@@ -147,18 +142,15 @@ void LogicalFontInstance::IgnoreFallbackForUnicode( sal_UCS4 cChar, FontWeight e
         mpUnicodeFallbackList->erase( it );
 }
 
-bool LogicalFontInstance::GetCachedGlyphBoundRect(sal_GlyphId nID, tools::Rectangle &rRect)
+bool LogicalFontInstance::GetGlyphBoundRect(sal_GlyphId nID, tools::Rectangle &rRect, bool bVertical) const
 {
-    if (!mpFontCache)
-        return false;
-    return mpFontCache->GetCachedGlyphBoundRect(this, nID, rRect);
-}
+    if (mpFontCache && mpFontCache->GetCachedGlyphBoundRect(this, nID, rRect))
+        return true;
 
-void LogicalFontInstance::CacheGlyphBoundRect(sal_GlyphId nID, tools::Rectangle &rRect)
-{
-    if (!mpFontCache)
-        return;
-    mpFontCache->CacheGlyphBoundRect(this, nID, rRect);
+    bool res = ImplGetGlyphBoundRect(nID, rRect, bVertical);
+    if (mpFontCache && res)
+        mpFontCache->CacheGlyphBoundRect(this, nID, rRect);
+    return res;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

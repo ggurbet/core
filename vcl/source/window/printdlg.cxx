@@ -42,6 +42,7 @@
 
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -523,11 +524,11 @@ void PrintDialog::NUpTabPage::initFromMultiPageSetup( const vcl::PrinterControll
 
     // setup field units for metric fields
     const LocaleDataWrapper& rLocWrap( mpPageMarginEdt->GetLocaleDataWrapper() );
-    FieldUnit eUnit = FUNIT_MM;
+    FieldUnit eUnit = FieldUnit::MM;
     sal_uInt16 nDigits = 0;
     if( rLocWrap.getMeasurementSystemEnum() == MeasurementSystem::US )
     {
-        eUnit = FUNIT_INCH;
+        eUnit = FieldUnit::INCH;
         nDigits = 2;
     }
     // set units
@@ -538,8 +539,10 @@ void PrintDialog::NUpTabPage::initFromMultiPageSetup( const vcl::PrinterControll
     mpPageMarginEdt->SetDecimalDigits( nDigits );
     mpSheetMarginEdt->SetDecimalDigits( nDigits );
 
-    mpSheetMarginEdt->SetValue( mpSheetMarginEdt->Normalize( i_rMPS.nLeftMargin ), FUNIT_100TH_MM );
-    mpPageMarginEdt->SetValue( mpPageMarginEdt->Normalize( i_rMPS.nHorizontalSpacing ), FUNIT_100TH_MM );
+    mpSheetMarginEdt->SetValue(mpSheetMarginEdt->Normalize(i_rMPS.nLeftMargin),
+                               FieldUnit::MM_100TH);
+    mpPageMarginEdt->SetValue(mpPageMarginEdt->Normalize(i_rMPS.nHorizontalSpacing),
+                              FieldUnit::MM_100TH);
     mpBorderCB->Check( i_rMPS.bDrawBorder );
     mpNupRowsEdt->SetValue( i_rMPS.nRows );
     mpNupColEdt->SetValue( i_rMPS.nColumns );
@@ -555,7 +558,7 @@ void PrintDialog::NUpTabPage::initFromMultiPageSetup( const vcl::PrinterControll
 PrintDialog::JobTabPage::JobTabPage( VclBuilder* pUIBuilder )
     : maCollateBmp(SV_PRINT_COLLATE_BMP)
     , maNoCollateBmp(SV_PRINT_NOCOLLATE_BMP)
-    , mnCollateUIMode(0)
+    , mbCollateAlwaysOff(false)
 {
     pUIBuilder->get(mpPrinters, "printers");
     pUIBuilder->get(mpStatusTxt, "status");
@@ -580,13 +583,13 @@ void PrintDialog::JobTabPage::readFromSettings()
                               "CollateBox" );
     if( aValue.equalsIgnoreAsciiCase("alwaysoff") )
     {
-        mnCollateUIMode = 1;
+        mbCollateAlwaysOff = true;
         mpCollateBox->Check( false );
         mpCollateBox->Enable( false );
     }
     else
     {
-        mnCollateUIMode = 0;
+        mbCollateAlwaysOff = false;
         aValue = pItem->getValue( "PrintDialog",
                                   "Collate" );
         mpCollateBox->Check( aValue.equalsIgnoreAsciiCase("true") );
@@ -1283,7 +1286,7 @@ void PrintDialog::DataChanged( const DataChangedEvent& i_rDCEvt )
 void PrintDialog::checkControlDependencies()
 {
     if( maJobPage.mpCopyCountField->GetValue() > 1 )
-        maJobPage.mpCollateBox->Enable( maJobPage.mnCollateUIMode == 0 );
+        maJobPage.mpCollateBox->Enable( !maJobPage.mbCollateAlwaysOff );
     else
         maJobPage.mpCollateBox->Enable( false );
 
@@ -1431,8 +1434,10 @@ void PrintDialog::updateNupFromPages()
     sal_IntPtr nPages = sal_IntPtr(maNUpPage.mpNupPagesBox->GetSelectedEntryData());
     int nRows   = int(maNUpPage.mpNupRowsEdt->GetValue());
     int nCols   = int(maNUpPage.mpNupColEdt->GetValue());
-    long nPageMargin  = maNUpPage.mpPageMarginEdt->Denormalize(maNUpPage.mpPageMarginEdt->GetValue( FUNIT_100TH_MM ));
-    long nSheetMargin = maNUpPage.mpSheetMarginEdt->Denormalize(maNUpPage.mpSheetMarginEdt->GetValue( FUNIT_100TH_MM ));
+    long nPageMargin = maNUpPage.mpPageMarginEdt->Denormalize(
+        maNUpPage.mpPageMarginEdt->GetValue(FieldUnit::MM_100TH));
+    long nSheetMargin = maNUpPage.mpSheetMarginEdt->Denormalize(
+        maNUpPage.mpSheetMarginEdt->GetValue(FieldUnit::MM_100TH));
     bool bCustom = false;
 
     if( nPages == 1 )
@@ -1497,8 +1502,8 @@ void PrintDialog::updateNupFromPages()
             nSheetMargin = nVertMax;
 
         maNUpPage.mpSheetMarginEdt->SetMax(
-                  maNUpPage.mpSheetMarginEdt->Normalize(
-                           std::min(nHorzMax, nVertMax) ), FUNIT_100TH_MM );
+            maNUpPage.mpSheetMarginEdt->Normalize(std::min(nHorzMax, nVertMax)),
+            FieldUnit::MM_100TH);
 
         // maximum page distance
         nHorzMax = (aSize.Width() - 2*nSheetMargin);
@@ -1514,14 +1519,16 @@ void PrintDialog::updateNupFromPages()
             nPageMargin = nVertMax;
 
         maNUpPage.mpPageMarginEdt->SetMax(
-                 maNUpPage.mpSheetMarginEdt->Normalize(
-                           std::min(nHorzMax, nVertMax ) ), FUNIT_100TH_MM );
+            maNUpPage.mpSheetMarginEdt->Normalize(std::min(nHorzMax, nVertMax)),
+            FieldUnit::MM_100TH);
     }
 
     maNUpPage.mpNupRowsEdt->SetValue( nRows );
     maNUpPage.mpNupColEdt->SetValue( nCols );
-    maNUpPage.mpPageMarginEdt->SetValue( maNUpPage.mpPageMarginEdt->Normalize( nPageMargin ), FUNIT_100TH_MM );
-    maNUpPage.mpSheetMarginEdt->SetValue( maNUpPage.mpSheetMarginEdt->Normalize( nSheetMargin ), FUNIT_100TH_MM );
+    maNUpPage.mpPageMarginEdt->SetValue(maNUpPage.mpPageMarginEdt->Normalize(nPageMargin),
+                                        FieldUnit::MM_100TH);
+    maNUpPage.mpSheetMarginEdt->SetValue(maNUpPage.mpSheetMarginEdt->Normalize(nSheetMargin),
+                                         FieldUnit::MM_100TH);
 
     maNUpPage.showAdvancedControls( bCustom );
 
@@ -1535,8 +1542,10 @@ void PrintDialog::updateNup()
 {
     int nRows         = int(maNUpPage.mpNupRowsEdt->GetValue());
     int nCols         = int(maNUpPage.mpNupColEdt->GetValue());
-    long nPageMargin  = maNUpPage.mpPageMarginEdt->Denormalize(maNUpPage.mpPageMarginEdt->GetValue( FUNIT_100TH_MM ));
-    long nSheetMargin = maNUpPage.mpSheetMarginEdt->Denormalize(maNUpPage.mpSheetMarginEdt->GetValue( FUNIT_100TH_MM ));
+    long nPageMargin = maNUpPage.mpPageMarginEdt->Denormalize(
+        maNUpPage.mpPageMarginEdt->GetValue(FieldUnit::MM_100TH));
+    long nSheetMargin = maNUpPage.mpSheetMarginEdt->Denormalize(
+        maNUpPage.mpSheetMarginEdt->GetValue(FieldUnit::MM_100TH));
 
     PrinterController::MultiPageSetup aMPS;
     aMPS.nRows         = nRows;

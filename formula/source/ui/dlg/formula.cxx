@@ -31,7 +31,7 @@
 #include <vcl/idle.hxx>
 
 #include <svtools/svmedit.hxx>
-#include <svtools/treelistbox.hxx>
+#include <vcl/treelistbox.hxx>
 #include <svl/stritem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/eitem.hxx>
@@ -753,6 +753,7 @@ void FormulaDlg_Impl::MakeTree( StructPage* _pTree, SvTreeListEntry* pParent, co
                                     aUnforcedResult.clear();
                             break;
                             case ParamClass::Reference:
+                            case ParamClass::ReferenceOrRefArray:
                             case ParamClass::Array:
                             case ParamClass::ForceArray:
                             case ParamClass::ReferenceOrForceArray:

@@ -181,12 +181,16 @@ sal_uInt32 SotStorageStream::GetSize() const
     return nSize;
 }
 
-sal_uInt64 SotStorageStream::remainingSize()
+sal_uInt64 SotStorageStream::TellEnd()
 {
-    if (pOwnStm)
-        return pOwnStm->GetSize() - Tell();
+    // Need to flush the buffer so we materialise the stream and return the correct answer
+    // otherwise we return a 0 value from StgEntry::GetSize
+    FlushBuffer();
 
-    return SvStream::remainingSize();
+    if (pOwnStm)
+        return pOwnStm->GetSize();
+
+    return SvStream::TellEnd();
 }
 
 void SotStorageStream::CopyTo( SotStorageStream * pDestStm )
@@ -505,11 +509,8 @@ bool SotStorage::IsStorageFile( SvStream* pStream )
 
 const OUString & SotStorage::GetName() const
 {
-    if( m_aName.isEmpty() )
-    {
-        if( m_pOwnStg )
-            const_cast<SotStorage *>(this)->m_aName = m_pOwnStg->GetName();
-    }
+    if( m_aName.isEmpty() && m_pOwnStg )
+        const_cast<SotStorage *>(this)->m_aName = m_pOwnStg->GetName();
     return m_aName;
 }
 

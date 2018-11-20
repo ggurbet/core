@@ -40,6 +40,7 @@
 #include <cairo.h>
 #include <cairo-ft.h>
 #include <sallayout.hxx>
+#include <o3tl/make_unique.hxx>
 
 namespace {
 
@@ -184,7 +185,7 @@ void CairoTextRender::DrawTextLayout(const GenericSalLayout& rLayout, const SalG
     while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
     {
         cairo_glyph_t aGlyph;
-        aGlyph.index = pGlyph->maGlyphId;
+        aGlyph.index = pGlyph->m_aGlyphId;
         aGlyph.x = aPos.X();
         aGlyph.y = aPos.Y();
         cairo_glyphs.push_back(aGlyph);
@@ -441,56 +442,11 @@ void CairoTextRender::GetFontMetric( ImplFontMetricDataRef& rxFontMetric, int nF
         mpFreetypeFont[nFallbackLevel]->GetFontMetric(rxFontMetric);
 }
 
-bool CairoTextRender::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect)
-{
-    const int nLevel = rGlyph.mnFallbackLevel;
-    if( nLevel >= MAX_FALLBACK )
-        return false;
-
-    FreetypeFont* pSF = mpFreetypeFont[ nLevel ];
-    if( !pSF )
-        return false;
-
-    tools::Rectangle aRect;
-    if (!pSF->GetGlyphBoundRect(rGlyph, aRect))
-        return false;
-
-    if ( pSF->mnCos != 0x10000 && pSF->mnSin != 0 )
-    {
-        double nCos = pSF->mnCos / 65536.0;
-        double nSin = pSF->mnSin / 65536.0;
-        rRect.SetLeft(  nCos*aRect.Left() + nSin*aRect.Top() );
-        rRect.SetTop( -nSin*aRect.Left() - nCos*aRect.Top() );
-
-        rRect.SetRight(  nCos*aRect.Right() + nSin*aRect.Bottom() );
-        rRect.SetBottom( -nSin*aRect.Right() - nCos*aRect.Bottom() );
-    }
-    else
-        rRect = aRect;
-
-    return true;
-}
-
-bool CairoTextRender::GetGlyphOutline(const GlyphItem& rGlyph,
-    basegfx::B2DPolyPolygon& rPolyPoly )
-{
-    const int nLevel = rGlyph.mnFallbackLevel;
-    if( nLevel >= MAX_FALLBACK )
-        return false;
-
-    const FreetypeFont* pSF = mpFreetypeFont[ nLevel ];
-    if( !pSF )
-        return false;
-
-    return pSF->GetGlyphOutline(rGlyph, rPolyPoly);
-}
-
 std::unique_ptr<SalLayout> CairoTextRender::GetTextLayout(ImplLayoutArgs& /*rArgs*/, int nFallbackLevel)
 {
-    if (mpFreetypeFont[nFallbackLevel])
-        return std::unique_ptr<SalLayout>(new GenericSalLayout(*mpFreetypeFont[nFallbackLevel]->GetFontInstance()));
-
-    return nullptr;
+    if (!mpFreetypeFont[nFallbackLevel])
+        return nullptr;
+    return o3tl::make_unique<GenericSalLayout>(*mpFreetypeFont[nFallbackLevel]->GetFontInstance());
 }
 
 #if ENABLE_CAIRO_CANVAS

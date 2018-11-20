@@ -650,7 +650,10 @@ void XclExpFmlaCompImpl::RecalcTokenClass( const XclExpTokenConvInfo& rConvInfo,
 
     // REF tokens in VALTYPE parameters behave like VAL tokens
     if( rConvInfo.mbValType && (nTokClass == EXC_TOKCLASS_REF) )
-        ChangeTokenClass( rnTokenId, nTokClass = EXC_TOKCLASS_VAL );
+    {
+        nTokClass = EXC_TOKCLASS_VAL;
+        ChangeTokenClass( rnTokenId, nTokClass );
+    }
 
     // replace RPO conversion of operator with parent conversion
     XclFuncParamConv eConv = (rConvInfo.meConv == EXC_PARAMCONV_RPO) ? ePrevConv : rConvInfo.meConv;
@@ -1636,7 +1639,11 @@ void XclExpFmlaCompImpl::AppendDefaultParam( XclExpFuncData& rFuncData )
             AppendEuroToolCallToken( rFuncData.GetExtFuncData() );
         break;
         case ocMacro:
-            AppendMacroCallToken( rFuncData.GetExtFuncData() );
+            // Do not write the OOXML <definedName> element.
+            if (GetOutput() == EXC_OUTPUT_XML_2007)
+                AppendNameToken( 0 );     // dummy to keep parameter count valid
+            else
+                AppendMacroCallToken( rFuncData.GetExtFuncData() );
         break;
         default:
         {

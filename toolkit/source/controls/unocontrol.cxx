@@ -412,8 +412,7 @@ void UnoControl::propertiesChange( const Sequence< PropertyChangeEvent >& rEvent
             for ( ; pEvents < pEventsEnd; )
                 if ( mpData->aSuspendedPropertyNotifications.find( pEvents->PropertyName ) != mpData->aSuspendedPropertyNotifications.end() )
                 {
-                    if ( pEvents != pEventsEnd )
-                        ::std::copy( pEvents + 1, pEventsEnd, pEvents );
+                    std::copy(pEvents + 1, pEventsEnd, pEvents);
                     --pEventsEnd;
                 }
                 else
@@ -644,13 +643,9 @@ void UnoControl::ImplModelPropertiesChanged( const Sequence< PropertyChangeEvent
     // setting peer properties may result in an attempt to acquire the solar mutex, 'cause the peers
     // usually don't have an own mutex but use the SolarMutex instead.
     // To prevent deadlocks resulting from this, we do this without our own mutex locked
-    std::vector< PropertyValue >::iterator aEnd = aPeerPropertiesToSet.end();
-    for (   std::vector< PropertyValue >::iterator aLoop = aPeerPropertiesToSet.begin();
-            aLoop != aEnd;
-            ++aLoop
-        )
+    for (const auto& rProp : aPeerPropertiesToSet)
     {
-        ImplSetPeerProperty( aLoop->Name, aLoop->Value );
+        ImplSetPeerProperty( rProp.Name, rProp.Value );
     }
 
 }

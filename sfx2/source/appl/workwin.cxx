@@ -543,6 +543,7 @@ void SfxWorkWindow::Lock_Impl( bool bLock )
     if ( m_nLock<0 )
     {
         OSL_FAIL("Lock count underflow!");
+        assert(m_nLock >= 0);
         m_nLock = 0;
     }
 
@@ -658,11 +659,8 @@ void SfxWorkWindow::ArrangeChildren_Impl( bool bForce )
         return;
 
     SvBorder aBorder;
-    if ( nChildren )
-    {
-        if ( IsVisible_Impl() )
-            aBorder = Arrange_Impl();
-    }
+    if ( nChildren && IsVisible_Impl() )
+        aBorder = Arrange_Impl();
     // If the current application document contains a IPClient, then the
     // object through SetTopToolFramePixel has to be assigned the available
     // space. The object will then point to its UITools and sets the app border
@@ -864,7 +862,6 @@ bool SfxWorkWindow::PrepareClose_Impl()
     return true;
 }
 
-
 SfxChild_Impl* SfxWorkWindow::RegisterChild_Impl( vcl::Window& rWindow,
                     SfxChildAlignment eAlign )
 {
@@ -885,6 +882,19 @@ SfxChild_Impl* SfxWorkWindow::RegisterChild_Impl( vcl::Window& rWindow,
     return aChildren.back();
 }
 
+SfxChild_Impl* SfxWorkWindow::RegisterChild_Impl(std::shared_ptr<SfxModelessDialogController>& rController,
+                    SfxChildAlignment eAlign )
+{
+    DBG_ASSERT( aChildren.size() < 255, "too many children" );
+    DBG_ASSERT( SfxChildAlignValid(eAlign), "invalid align" );
+
+    SfxChild_Impl *pChild = new SfxChild_Impl(rController, eAlign);
+
+    aChildren.push_back(pChild);
+    bSorted = false;
+    nChildren++;
+    return aChildren.back();
+}
 
 void SfxWorkWindow::ReleaseChild_Impl( vcl::Window& rWindow )
 {
@@ -910,6 +920,29 @@ void SfxWorkWindow::ReleaseChild_Impl( vcl::Window& rWindow )
     }
 }
 
+void SfxWorkWindow::ReleaseChild_Impl(SfxModelessDialogController& rController)
+{
+
+    SfxChild_Impl *pChild = nullptr;
+    decltype(aChildren)::size_type nPos;
+    for ( nPos = 0; nPos < aChildren.size(); ++nPos )
+    {
+        pChild = aChildren[nPos];
+        if (pChild && pChild->xController.get() == &rController)
+            break;
+    }
+
+    if ( nPos < aChildren.size() )
+    {
+        bSorted = false;
+        nChildren--;
+        aChildren.erase(aChildren.begin() + nPos);
+        delete pChild;
+    }
+    else {
+        OSL_FAIL( "releasing unregistered child" );
+    }
+}
 
 SfxChild_Impl* SfxWorkWindow::FindChild_Impl( const vcl::Window& rWindow ) const
 {
@@ -933,8 +966,10 @@ void SfxWorkWindow::ShowChildren_Impl()
 
     for (SfxChild_Impl* pCli : aChildren)
     {
+        if (!pCli)
+            continue;
         SfxChildWin_Impl* pCW = nullptr;
-        if ( pCli && pCli->pWin )
+        if (pCli->pWin || pCli->xController)
         {
             // We have to find the SfxChildWin_Impl to retrieve the
             // SFX_CHILDWIN flags that can influence visibility.
@@ -961,12 +996,27 @@ void SfxWorkWindow::ShowChildren_Impl()
             if ( SfxChildVisibility::VISIBLE == (pCli->nVisible & SfxChildVisibility::VISIBLE) && bVisible )
             {
                 ShowFlags nFlags = pCli->bSetFocus ? ShowFlags::NONE : ShowFlags::NoFocusChange | ShowFlags::NoActivate;
-                pCli->pWin->Show(true, nFlags);
+                if (pCli->xController)
+                {
+                    if (!pCli->xController->getDialog()->get_visible())
+                    {
+                        weld::DialogController::runAsync(pCli->xController,
+                            [=](sal_Int32 /*nResult*/){ pCli->xController->Close(); });
+                    }
+                }
+                else
+                    pCli->pWin->Show(true, nFlags);
                 pCli->bSetFocus = false;
             }
             else
             {
-                pCli->pWin->Hide();
+                if (pCli->xController)
+                {
+                    if (pCli->xController->getDialog()->get_visible())
+                        pCli->xController->response(RET_CLOSE);
+                }
+                else
+                    pCli->pWin->Hide();
             }
         }
     }
@@ -978,11 +1028,14 @@ void SfxWorkWindow::HideChildren_Impl()
     for ( sal_uInt16 nPos = aChildren.size(); nPos > 0; --nPos )
     {
         SfxChild_Impl *pChild = aChildren[nPos-1];
-        if (pChild && pChild->pWin)
+        if (!pChild)
+            continue;
+        if (pChild->xController)
+            pChild->xController->response(RET_CLOSE);
+        else if (pChild->pWin)
             pChild->pWin->Hide();
     }
 }
-
 
 void SfxWorkWindow::ResetObjectBars_Impl()
 {
@@ -1233,11 +1286,8 @@ void SfxWorkWindow::UpdateChildWindows_Impl()
                 if ( bCreate )
                     CreateChildWin_Impl( pCW, false );
 
-                if ( !bAllChildrenVisible )
-                {
-                    if ( pCW->pCli )
-                        pCW->pCli->nVisible &= ~SfxChildVisibility::ACTIVE;
-                }
+                if ( !bAllChildrenVisible && pCW->pCli )
+                    pCW->pCli->nVisible &= ~SfxChildVisibility::ACTIVE;
             }
             else if ( pChildWin )
             {
@@ -1324,7 +1374,10 @@ void SfxWorkWindow::CreateChildWin_Impl( SfxChildWin_Impl *pCW, bool bSetFocus )
         {
             // The window is not docked or docked outside of one split windows
             // and must therefore be registered explicitly as a Child
-            pCW->pCli = RegisterChild_Impl(*(pChildWin->GetWindow()), pChildWin->GetAlignment());
+            if (pChildWin->GetController())
+                pCW->pCli = RegisterChild_Impl(pChildWin->GetController(), pChildWin->GetAlignment());
+            else
+                pCW->pCli = RegisterChild_Impl(*(pChildWin->GetWindow()), pChildWin->GetAlignment());
             pCW->pCli->nVisible = SfxChildVisibility::VISIBLE;
             if ( pChildWin->GetAlignment() != SfxChildAlignment::NOALIGNMENT && bIsFullScreen )
                 pCW->pCli->nVisible ^= SfxChildVisibility::ACTIVE;
@@ -1363,7 +1416,10 @@ void SfxWorkWindow::RemoveChildWin_Impl( SfxChildWin_Impl *pCW )
         // Child window is a direct child window and must therefore unregister
         // itself from the  WorkWindow
         pCW->pCli = nullptr;
-        ReleaseChild_Impl(*pChildWin->GetWindow());
+        if (pChildWin->GetController())
+            ReleaseChild_Impl(*pChildWin->GetController());
+        else
+            ReleaseChild_Impl(*pChildWin->GetWindow());
     }
     else
     {
@@ -1532,8 +1588,7 @@ void SfxWorkWindow::ConfigChild_Impl(SfxChildIdentifier eChild,
     for ( n=0; n<aSortedList.size(); ++n )
     {
         SfxChild_Impl *pChild = aChildren[aSortedList[n]];
-        if ( pChild )
-            if ( pChild->pWin == pWin )
+        if ( pChild && pChild->pWin == pWin )
             break;
     }
 
@@ -2382,8 +2437,12 @@ void SfxWorkWindow::DataChanged_Impl()
     for (n=0; n<nCount; n++)
     {
         SfxChildWin_Impl*pCW = aChildWins[n].get();
-        if ( pCW && pCW->pWin )
-            pCW->pWin->GetWindow()->UpdateSettings( Application::GetSettings() );
+        if (pCW && pCW->pWin)
+        {
+            // TODO does this really have any meaning ?
+            if (pCW->pWin->GetWindow())
+                pCW->pWin->GetWindow()->UpdateSettings(Application::GetSettings());
+        }
     }
 
     ArrangeChildren_Impl();

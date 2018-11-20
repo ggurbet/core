@@ -20,6 +20,7 @@
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 
+#include <osl/diagnose.h>
 #include <docsh.hxx>
 #include <IDocumentFieldsAccess.hxx>
 #include <svtools/htmltokn.h>
@@ -621,8 +622,8 @@ void SwHTMLParser::InsertComment( const OUString& rComment, const sal_Char *pTag
                 pAttr->GetSttCnt() != nIdx )
                 break;
 
-            if( RES_TXTATR_FIELD == pAttr->pItem->Which() &&
-                SwFieldIds::Script == static_cast<const SwFormatField *>(pAttr->pItem.get())->GetField()->GetTyp()->Which() )
+            if( RES_TXTATR_FIELD == pAttr->m_pItem->Which() &&
+                SwFieldIds::Script == static_cast<const SwFormatField *>(pAttr->m_pItem.get())->GetField()->GetTyp()->Which() )
             {
                 bMoveFwd = false;
                 break;

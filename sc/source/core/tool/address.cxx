@@ -31,6 +31,8 @@
 #include <sfx2/objsh.hxx>
 #include <tools/urlobj.hxx>
 #include <sal/log.hxx>
+#include <rtl/character.hxx>
+#include <unotools/charclass.hxx>
 
 using namespace css;
 
@@ -791,14 +793,14 @@ static ScRefFlags lcl_ScRange_Parse_XL_R1C1( ScRange& r,
                 applyStartToEndFlags(nFlags);
                 r.aEnd.SetRow( r.aStart.Row() );
             }
-            else
+            else // pTmp != nullptr
             {
                 // Full row range successfully parsed.
                 applyStartToEndFlags(nFlags, nFlags2);
                 p = pTmp;
             }
 
-            if (p && p[0] != 0)
+            if (p[0] != 0)
             {
                 // any trailing invalid character must invalidate the whole address.
                 nFlags &= ~ScRefFlags(ScRefFlags::VALID | ScRefFlags::COL_VALID | ScRefFlags::ROW_VALID | ScRefFlags::TAB_VALID |
@@ -827,7 +829,7 @@ static ScRefFlags lcl_ScRange_Parse_XL_R1C1( ScRange& r,
         {
             // single cell reference
 
-            if (p && p[0] != 0)
+            if (p[0] != 0)
             {
                 // any trailing invalid character must invalidate the whole address.
                 nFlags &= ~ScRefFlags(ScRefFlags::VALID | ScRefFlags::COL_VALID | ScRefFlags::ROW_VALID | ScRefFlags::TAB_VALID);
@@ -836,11 +838,12 @@ static ScRefFlags lcl_ScRange_Parse_XL_R1C1( ScRange& r,
 
             return bOnlyAcceptSingle ? nFlags : ScRefFlags::ZERO;
         }
+        assert(pTmp);
         p = pTmp;
 
         // double reference
 
-        if (p && p[0] != 0)
+        if (p[0] != 0)
         {
             // any trailing invalid character must invalidate the whole range.
             nFlags &= ~ScRefFlags(ScRefFlags::VALID | ScRefFlags::COL_VALID | ScRefFlags::ROW_VALID | ScRefFlags::TAB_VALID |
@@ -862,13 +865,13 @@ static ScRefFlags lcl_ScRange_Parse_XL_R1C1( ScRange& r,
             applyStartToEndFlags(nFlags);
             r.aEnd.SetCol( r.aStart.Col() );
         }
-        else
+        else // pTmp != nullptr
         {
             applyStartToEndFlags(nFlags, nFlags2);
             p = pTmp;
         }
 
-        if (p && p[0] != 0)
+        if (p[0] != 0)
         {
             // any trailing invalid character must invalidate the whole address.
             nFlags &= ~ScRefFlags(ScRefFlags::VALID | ScRefFlags::COL_VALID | ScRefFlags::ROW_VALID | ScRefFlags::TAB_VALID |

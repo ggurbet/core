@@ -12,12 +12,11 @@ from libreoffice.calc.document import get_cell_by_position
 from libreoffice.uno.propertyvalue import mkPropertyValues
 from uitest.uihelper.common import get_state_as_dict, type_text
 from uitest.debug import sleep
-#import org.libreoffice.unotest
-#import pathlib
+import org.libreoffice.unotest
+import pathlib
 from uitest.path import get_srcdir_url
 def get_url_for_data_file(file_name):
-#    return pathlib.Path(org.libreoffice.unotest.makeCopyFromTDOC(file_name)).as_uri()
-    return get_srcdir_url() + "/sw/qa/uitest/writer_tests/data/" + file_name
+    return pathlib.Path(org.libreoffice.unotest.makeCopyFromTDOC(file_name)).as_uri()
 
 #tdf116242  ţ ț - DONE
 #Bug 98417 - FIND & REPLACE: Add 'Find Previous' button - DONE
@@ -98,6 +97,11 @@ class findReplace(UITestCase):
 
         self.ui_test.execute_blocking_action(format.executeAction, args=('CLICK', ()),
                 dialog_handler=handle_format_dlg)
+
+        # Verify these didn't get set again through SvxSearchController::StateChanged, timer-
+        # triggered from SfxBindings::NextJob while executing the Format dialog above:
+        self.assertEqual(get_state_as_dict(searchterm)["Text"], "")
+        self.assertEqual(get_state_as_dict(replaceterm)["Text"], "")
 
         xsearch = xDialog.getChild("search")
         xsearch.executeAction("CLICK", tuple())

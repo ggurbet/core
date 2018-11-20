@@ -615,6 +615,11 @@ void CanvasSettings::EnabledHardwareAcceleration( bool _bEnabled ) const
 
 // class OfaViewTabPage --------------------------------------------------
 
+static bool DisplayNameCompareLessThan(const vcl::IconThemeInfo& rInfo1, const vcl::IconThemeInfo& rInfo2)
+{
+    return rInfo1.GetDisplayName().compareTo(rInfo2.GetDisplayName()) < 0;
+}
+
 OfaViewTabPage::OfaViewTabPage(vcl::Window* pParent, const SfxItemSet& rSet)
     : SfxTabPage(pParent, "OptViewPage", "cui/ui/optviewpage.ui", &rSet)
     , nSizeLB_InitialSelection(0)
@@ -671,6 +676,7 @@ OfaViewTabPage::OfaViewTabPage(vcl::Window* pParent, const SfxItemSet& rSet)
     m_pIconStyleLB->Clear();
     StyleSettings aStyleSettings = Application::GetSettings().GetStyleSettings();
     mInstalledIconThemes = aStyleSettings.GetInstalledIconThemes();
+    std::sort(mInstalledIconThemes.begin(), mInstalledIconThemes.end(), DisplayNameCompareLessThan);
 
     // Start with the automatically chosen icon theme
     OUString autoThemeId = aStyleSettings.GetAutomaticallyChosenIconTheme();
@@ -1320,7 +1326,7 @@ static void lcl_Update(std::unique_ptr<SfxVoidItem> pInvalidItems[], std::unique
     while(pViewFrm)
     {
         SfxBindings& rBind = pViewFrm->GetBindings();
-        for(sal_Int16 i = 0; i < nCount; i++)
+        for(sal_uInt16 i = 0; i < nCount; i++)
         {
             if(pCurrentFrm == pViewFrm)
                 rBind.InvalidateAll(false);
@@ -1779,16 +1785,13 @@ IMPL_LINK( OfaLanguagesTabPage, LocaleSettingHdl, ListBox&, rListBox, void )
         SupportHdl( m_pAsianSupportCB );
     }
 
-    const NfCurrencyEntry* pCurr = &SvNumberFormatter::GetCurrencyEntry(
+    const NfCurrencyEntry& rCurr = SvNumberFormatter::GetCurrencyEntry(
             (eLang == LANGUAGE_USER_SYSTEM_CONFIG) ? MsLangId::getSystemLanguage() : eLang);
     sal_Int32 nPos = m_pCurrencyLB->GetEntryPos( nullptr );
-    if (pCurr)
-    {
-        // Update the "Default ..." currency.
-        m_pCurrencyLB->RemoveEntry( nPos );
-        OUString aDefaultCurr = m_sSystemDefaultString + " - " + pCurr->GetBankSymbol();
-        nPos = m_pCurrencyLB->InsertEntry( aDefaultCurr );
-    }
+    // Update the "Default ..." currency.
+    m_pCurrencyLB->RemoveEntry(nPos);
+    OUString aDefaultCurr = m_sSystemDefaultString + " - " + rCurr.GetBankSymbol();
+    nPos = m_pCurrencyLB->InsertEntry(aDefaultCurr);
     m_pCurrencyLB->SelectEntryPos( nPos );
 
     // obtain corresponding locale data

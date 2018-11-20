@@ -118,7 +118,7 @@ public:
                 if (!next(&url, false)) {
                     throw CommandLineArgs::Supplier::Exception();
                 }
-                m_cwdUrl.reset(url);
+                m_cwdUrl = url;
                 break;
             }
         case '2':
@@ -131,7 +131,7 @@ public:
                 if (osl::FileBase::getFileURLFromSystemPath(path, url) ==
                     osl::FileBase::E_None)
                 {
-                    m_cwdUrl.reset(url);
+                    m_cwdUrl = url;
                 }
                 break;
             }
@@ -427,8 +427,8 @@ struct DbusMessageHolder {
     DBusMessage * message;
 
 private:
-    DbusMessageHolder(DbusMessageHolder &) = delete;
-    void operator =(DbusMessageHolder) = delete;
+    DbusMessageHolder(DbusMessageHolder const &) = delete;
+    DbusMessageHolder& operator =(DbusMessageHolder const &) = delete;
 };
 
 }
@@ -947,19 +947,7 @@ bool IpcThread::process(OString const & arguments, bool * waitProcessed) {
     bool bDocRequestSent = false;
 
     OUString aUnknown( aCmdLineArgs->GetUnknown() );
-    if ( !aUnknown.isEmpty() || aCmdLineArgs->IsHelp() )
-    {
-        ApplicationEvent* pAppEvent =
-            new ApplicationEvent(ApplicationEvent::Type::Help, aUnknown);
-        ImplPostForeignAppEvent( pAppEvent );
-    }
-    else if ( aCmdLineArgs->IsVersion() )
-    {
-        ApplicationEvent* pAppEvent =
-            new ApplicationEvent(ApplicationEvent::Type::Version);
-        ImplPostForeignAppEvent( pAppEvent );
-    }
-    else
+    if (aUnknown.isEmpty() && !aCmdLineArgs->IsHelp() && !aCmdLineArgs->IsVersion())
     {
         const CommandLineArgs &rCurrentCmdLineArgs = Desktop::GetCommandLineArgs();
 

@@ -55,6 +55,7 @@
 #include <salbmp.hxx>
 #include <salprn.hxx>
 #include <sallayout.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace psp;
 
@@ -732,39 +733,11 @@ void GenPspGraphics::GetFontMetric(ImplFontMetricDataRef& rxFontMetric, int nFal
         m_pFreetypeFont[nFallbackLevel]->GetFontMetric(rxFontMetric);
 }
 
-bool GenPspGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect)
-{
-    const int nLevel = rGlyph.mnFallbackLevel;
-    if( nLevel >= MAX_FALLBACK )
-        return false;
-
-    FreetypeFont* pSF = m_pFreetypeFont[ nLevel ];
-    if( !pSF )
-        return false;
-
-    return pSF->GetGlyphBoundRect(rGlyph, rRect);
-}
-
-bool GenPspGraphics::GetGlyphOutline(const GlyphItem& rGlyph,
-    basegfx::B2DPolyPolygon& rB2DPolyPoly )
-{
-    const int nLevel = rGlyph.mnFallbackLevel;
-    if( nLevel >= MAX_FALLBACK )
-        return false;
-
-    FreetypeFont* pSF = m_pFreetypeFont[ nLevel ];
-    if( !pSF )
-        return false;
-
-    return pSF->GetGlyphOutline(rGlyph, rB2DPolyPoly);
-}
-
 std::unique_ptr<SalLayout> GenPspGraphics::GetTextLayout(ImplLayoutArgs& /*rArgs*/, int nFallbackLevel)
 {
-    if (m_pFreetypeFont[nFallbackLevel])
-        return std::unique_ptr<SalLayout>(new PspSalLayout(*m_pPrinterGfx, *m_pFreetypeFont[nFallbackLevel]));
-
-    return nullptr;
+    if (!m_pFreetypeFont[nFallbackLevel])
+        return nullptr;
+    return o3tl::make_unique<PspSalLayout>(*m_pPrinterGfx, *m_pFreetypeFont[nFallbackLevel]);
 }
 
 bool GenPspGraphics::CreateFontSubset(

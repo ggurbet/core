@@ -2018,11 +2018,11 @@ void SvxRuler::ApplyMargins()
     else
     {
         const long lOldNull = lLogicNullOffset;
-        mxULSpaceItem->SetUpper(
-            PixelVAdjust(
-                lLogicNullOffset =
+        lLogicNullOffset =
                 ConvertVPosLogic(GetFrameLeft()) -
-                lAppNullOffset, mxULSpaceItem->GetUpper()));
+                lAppNullOffset;
+        mxULSpaceItem->SetUpper(
+            PixelVAdjust(lLogicNullOffset, mxULSpaceItem->GetUpper()));
         if(bAppSetNullOffset)
         {
             lAppNullOffset += lLogicNullOffset - lOldNull;
@@ -3405,18 +3405,18 @@ void SvxRuler::Command( const CommandEvent& rCommandEvent )
                 aMenu->CheckItem(nId, eMenuUnit == eUnit);
                 if( bReduceMetric )
                 {
-                    if (eMenuUnit == FUNIT_M    ||
-                        eMenuUnit == FUNIT_KM   ||
-                        eMenuUnit == FUNIT_FOOT ||
-                        eMenuUnit == FUNIT_MILE)
+                    if (eMenuUnit == FieldUnit::M    ||
+                        eMenuUnit == FieldUnit::KM   ||
+                        eMenuUnit == FieldUnit::FOOT ||
+                        eMenuUnit == FieldUnit::MILE)
                     {
                         aMenu->RemoveItem(i - 1);
                     }
-                    else if (( eMenuUnit == FUNIT_CHAR ) && !bHorz )
+                    else if (( eMenuUnit == FieldUnit::CHAR ) && !bHorz )
                     {
                         aMenu->RemoveItem(i - 1);
                     }
-                    else if (( eMenuUnit == FUNIT_LINE ) && bHorz )
+                    else if (( eMenuUnit == FieldUnit::LINE ) && bHorz )
                     {
                         aMenu->RemoveItem(i - 1);
                     }
@@ -3518,7 +3518,7 @@ long SvxRuler::CalcPropMaxRight(sal_uInt16 nCol) const
                 lFences = mpBorders[nCol].nWidth;
             }
 
-            for(sal_uInt16 i = nStart; i < mpBorders.size() - 1; ++i)
+            for(size_t i = nStart; i < mpBorders.size() - 1; ++i)
             {
                 long lWidth = mpBorders[i].nPos - lOldPos;
                 lColumns += lWidth;
@@ -3599,7 +3599,7 @@ long SvxRuler::CalcPropMaxRight(sal_uInt16 nCol) const
         else
         {
             long lWidth = 0;
-            for(sal_uInt16 i = nCol; i < mpBorders.size() - 1; i++)
+            for(size_t i = nCol; i < mpBorders.size() - 1; i++)
             {
                 lWidth += glMinFrame + mpBorders[i].nWidth;
             }

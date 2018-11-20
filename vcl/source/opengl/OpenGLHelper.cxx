@@ -104,8 +104,8 @@ OString& getShaderSource(const OUString& rFilename)
 }
 
 namespace {
-    int LogCompilerError(GLuint nId, const rtl::OUString &rDetail,
-                         const rtl::OUString &rName, bool bShaderNotProgram)
+    int LogCompilerError(GLuint nId, const OUString &rDetail,
+                         const OUString &rName, bool bShaderNotProgram)
     {
         OpenGLZone aZone;
 
@@ -248,14 +248,14 @@ namespace
 
         osl::Directory::create(url);
 
-        return rtl::OUStringToOString(url, RTL_TEXTENCODING_UTF8);
+        return OUStringToOString(url, RTL_TEXTENCODING_UTF8);
     }
 
 
     bool writeProgramBinary( const OString& rBinaryFileName,
                              const std::vector<sal_uInt8>& rBinary )
     {
-        osl::File aFile(rtl::OStringToOUString(rBinaryFileName, RTL_TEXTENCODING_UTF8));
+        osl::File aFile(OStringToOUString(rBinaryFileName, RTL_TEXTENCODING_UTF8));
         osl::FileBase::RC eStatus = aFile.open(
                 osl_File_OpenFlag_Write | osl_File_OpenFlag_Create );
 
@@ -284,7 +284,7 @@ namespace
     bool readProgramBinary( const OString& rBinaryFileName,
                             std::vector<sal_uInt8>& rBinary )
     {
-        osl::File aFile( rtl::OStringToOUString( rBinaryFileName, RTL_TEXTENCODING_UTF8 ) );
+        osl::File aFile( OStringToOUString( rBinaryFileName, RTL_TEXTENCODING_UTF8 ) );
         if(aFile.open( osl_File_OpenFlag_Read ) == osl::FileBase::E_None)
         {
             sal_uInt64 nSize = 0;
@@ -311,10 +311,10 @@ namespace
     {
         OString aFileName;
         aFileName += getCacheFolder();
-        aFileName += rtl::OUStringToOString( rVertexShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
-        aFileName += rtl::OUStringToOString( rFragmentShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
+        aFileName += OUStringToOString( rVertexShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
+        aFileName += OUStringToOString( rFragmentShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
         if (!rGeometryShaderName.isEmpty())
-            aFileName += rtl::OUStringToOString( rGeometryShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
+            aFileName += OUStringToOString( rGeometryShaderName, RTL_TEXTENCODING_UTF8 ) + "-";
         aFileName += rDigest + ".bin";
         return aFileName;
     }
@@ -374,7 +374,7 @@ namespace
     }
 }
 
-rtl::OString OpenGLHelper::GetDigest( const OUString& rVertexShaderName,
+OString OpenGLHelper::GetDigest( const OUString& rVertexShaderName,
                                       const OUString& rFragmentShaderName,
                                       const OString& rPreamble )
 {
@@ -972,8 +972,6 @@ bool OpenGLHelper::isVCLOpenGLEnabled()
      * There are a number of cases that these environment variables cover:
      *  * SAL_FORCEGL forces OpenGL independent of any other option
      *  * SAL_DISABLEGL or a blacklisted driver avoid the use of OpenGL if SAL_FORCEGL is not set
-     *  * SAL_ENABLEGL overrides VCL_HIDE_WINDOWS and the configuration variable
-     *  * the configuration variable is checked if no environment variable is set
      */
 
     bSet = true;
@@ -989,17 +987,16 @@ bool OpenGLHelper::isVCLOpenGLEnabled()
     else if (bSupportsVCLOpenGL)
     {
         static bool bEnableGLEnv = !!getenv("SAL_ENABLEGL");
+        static bool bHeadlessPlugin = (getenv("SAL_USE_VCLPLUGIN") &&
+            0 == strcmp(getenv("SAL_USE_VCLPLUGIN"), "svp"));
 
         bEnable = bEnableGLEnv;
 
-        static bool bDuringBuild = getenv("VCL_HIDE_WINDOWS");
-        if (bDuringBuild && !bEnable /* env. enable overrides */)
-            bEnable = false;
-        else if (officecfg::Office::Common::VCL::UseOpenGL::get())
+        if (officecfg::Office::Common::VCL::UseOpenGL::get())
             bEnable = true;
 
-        // Force disable in safe mode
-        if (Application::IsSafeModeEnabled())
+        // Force disable in safe mode or when running with headless plugin
+        if (bHeadlessPlugin || Application::IsSafeModeEnabled())
             bEnable = false;
 
         bRet = bEnable;

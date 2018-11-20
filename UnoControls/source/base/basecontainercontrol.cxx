@@ -208,10 +208,10 @@ void SAL_CALL BaseContainerControl::addControl ( const OUString& rName, const Re
     pNewControl->xControl->setContext       ( static_cast<OWeakObject*>(this)    );
     pNewControl->xControl->addEventListener ( static_cast< XEventListener* >( static_cast< XWindowListener* >( this ) ) );
 
-    // when container has a peer ...
+    // when container has a peer...
     if (getPeer().is())
     {
-        // .. then create a peer on child
+        // ... then create a peer on child
         pNewControl->xControl->createPeer ( getPeer()->getToolkit(), getPeer() );
     }
 
@@ -364,20 +364,16 @@ void SAL_CALL BaseContainerControl::setVisible ( sal_Bool bVisible )
 
 //  protected method
 
-WindowDescriptor* BaseContainerControl::impl_getWindowDescriptor ( const Reference< XWindowPeer > & rParentPeer )
+WindowDescriptor BaseContainerControl::impl_getWindowDescriptor ( const Reference< XWindowPeer > & rParentPeer )
 {
-    // - used from "createPeer()" to set the values of a WindowDescriptor!!!
-    // - if you will change the descriptor-values, you must override this virtual function
-    // - the caller must release the memory for this dynamical descriptor!!!
+    WindowDescriptor aDescriptor;
 
-    WindowDescriptor    *   aDescriptor = new WindowDescriptor;
-
-    aDescriptor->Type               = WindowClass_CONTAINER;
-    aDescriptor->WindowServiceName  = "window";
-    aDescriptor->ParentIndex        = -1;
-    aDescriptor->Parent             = rParentPeer;
-    aDescriptor->Bounds             = getPosSize ();
-    aDescriptor->WindowAttributes   = 0;
+    aDescriptor.Type               = WindowClass_CONTAINER;
+    aDescriptor.WindowServiceName  = "window";
+    aDescriptor.ParentIndex        = -1;
+    aDescriptor.Parent             = rParentPeer;
+    aDescriptor.Bounds             = getPosSize ();
+    aDescriptor.WindowAttributes   = 0;
 
     return aDescriptor;
 }

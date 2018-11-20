@@ -481,7 +481,7 @@ SdPage* SdXImpressDocument::InsertSdPage( sal_uInt16 nPage, bool bDuplicate )
         // this is only used for clipboard where we only have one page
         pStandardPage = mpDoc->AllocSdPage(false);
 
-        Size aDefSize(21000, 29700);   // A4-Hochformat
+        Size aDefSize(21000, 29700);   // A4 portrait orientation
         pStandardPage->SetSize( aDefSize );
         mpDoc->InsertPage(pStandardPage, 0);
     }
@@ -797,13 +797,10 @@ uno::Reference< drawing::XDrawPage > SAL_CALL SdXImpressDocument::getHandoutMast
 
     uno::Reference< drawing::XDrawPage > xPage;
 
-    if( mpDoc )
-    {
-        initializeDocument();
-        SdPage* pPage = mpDoc->GetMasterSdPage( 0, PageKind::Handout );
-        if( pPage )
-            xPage.set( pPage->getUnoPage(), uno::UNO_QUERY );
-    }
+    initializeDocument();
+    SdPage* pPage = mpDoc->GetMasterSdPage(0, PageKind::Handout);
+    if (pPage)
+        xPage.set(pPage->getUnoPage(), uno::UNO_QUERY);
     return xPage;
 }
 
@@ -956,7 +953,7 @@ css::uno::Reference<css::uno::XInterface> SdXImpressDocument::create(
 
     if( aServiceSpecifier == "com.sun.star.document.ExportEmbeddedObjectResolver" )
     {
-        ::comphelper::IEmbeddedHelper *pPersist = mpDoc ? mpDoc->GetPersist() : nullptr;
+        comphelper::IEmbeddedHelper* pPersist = mpDoc->GetPersist();
         if( nullptr == pPersist )
             throw lang::DisposedException();
 
@@ -965,7 +962,7 @@ css::uno::Reference<css::uno::XInterface> SdXImpressDocument::create(
 
     if( aServiceSpecifier == "com.sun.star.document.ImportEmbeddedObjectResolver" )
     {
-        ::comphelper::IEmbeddedHelper *pPersist = mpDoc ? mpDoc->GetPersist() : nullptr;
+        comphelper::IEmbeddedHelper* pPersist = mpDoc->GetPersist();
         if( nullptr == pPersist )
             throw lang::DisposedException();
 
@@ -1834,7 +1831,7 @@ bool ImplRenderPaintProc::IsVisible( const SdrObject* pObj ) const
         const SdrLayer* pSdrLayer = rLayerAdmin.GetLayerPerID( nLayerId );
         if ( pSdrLayer )
         {
-            OUString aLayerName = pSdrLayer->GetName();
+            const OUString& aLayerName = pSdrLayer->GetName();
             bVisible = pSdrPageView->IsLayerVisible( aLayerName );
         }
     }
@@ -1849,7 +1846,7 @@ bool ImplRenderPaintProc::IsPrintable( const SdrObject* pObj ) const
         const SdrLayer* pSdrLayer = rLayerAdmin.GetLayerPerID( nLayerId );
         if ( pSdrLayer )
         {
-            OUString aLayerName = pSdrLayer->GetName();
+            const OUString& aLayerName = pSdrLayer->GetName();
             bPrintable = pSdrPageView->IsLayerPrintable( aLayerName );
         }
     }
@@ -1961,19 +1958,13 @@ void SAL_CALL SdXImpressDocument::render( sal_Int32 nRenderer, const uno::Any& r
                             SdrOutliner& rOutl = mpDoc->GetDrawOutliner();
                             bool bScreenDisplay(true);
 
-                            if(bScreenDisplay && pOut && OUTDEV_PRINTER == pOut->GetOutDevType())
-                            {
-                                // #i75566# printing; suppress AutoColor BackgroundColor generation
-                                // for visibility reasons by giving GetPageBackgroundColor()
-                                // the needed hint
+                            // #i75566# printing; suppress AutoColor BackgroundColor generation
+                            // for visibility reasons by giving GetPageBackgroundColor()
+                            // the needed hint
+                            // #i75566# PDF export; suppress AutoColor BackgroundColor generation (see printing)
+                            if (pOut && ((OUTDEV_PRINTER == pOut->GetOutDevType())
+                                    || (OUTDEV_PDF == pOut->GetOutDevType())))
                                 bScreenDisplay = false;
-                            }
-
-                            if(bScreenDisplay && pOut && pOut->GetPDFWriter())
-                            {
-                                // #i75566# PDF export; suppress AutoColor BackgroundColor generation (see above)
-                                bScreenDisplay = false;
-                            }
 
                             // #i75566# Name change GetBackgroundColor -> GetPageBackgroundColor and
                             // hint value if screen display. Only then the AutoColor mechanisms shall be applied
@@ -2405,10 +2396,8 @@ OUString SdXImpressDocument::getPostIts()
         pPage = static_cast<SdPage*>(mpDoc->GetPage(nPage));
         const sd::AnnotationVector& aPageAnnotations = pPage->getAnnotations();
 
-        for (const auto& aPageAnnotation : aPageAnnotations)
+        for (const uno::Reference<office::XAnnotation>& xAnnotation : aPageAnnotations)
         {
-            uno::Reference<office::XAnnotation> xAnnotation(aPageAnnotation);
-
             boost::property_tree::ptree aAnnotation;
             aAnnotation.put("id", sd::getAnnotationId(xAnnotation));
             aAnnotation.put("author", xAnnotation->getAuthor());

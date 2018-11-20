@@ -35,8 +35,6 @@ using namespace com::sun::star::beans;
 using namespace com::sun::star::lang;
 using namespace cppu;
 
-using ::rtl::OUString;
-
 namespace cppu {
 
 IPropertyArrayHelper::~IPropertyArrayHelper()
@@ -758,11 +756,7 @@ void OPropertySetHelper::fire
 
         if( !bVetoable )
         {
-            OInterfaceContainerHelper * pCont = nullptr;
-            pCont = rBHelper.aLC.getContainer(
-                                getPropertiesTypeIdentifier(  )
-                                             );
-            if( pCont )
+            if (auto pCont = rBHelper.aLC.getContainer(getPropertiesTypeIdentifier()))
             {
                 // Here is a Bug, unbound properties are also fired
                 OInterfaceIteratorHelper aIt( *pCont );

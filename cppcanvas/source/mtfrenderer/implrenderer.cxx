@@ -306,7 +306,7 @@ namespace cppcanvas
                     aCalculatedNewState.textOverlineStyle       = rNewState.textOverlineStyle;
                     aCalculatedNewState.textUnderlineStyle      = rNewState.textUnderlineStyle;
                     aCalculatedNewState.textStrikeoutStyle      = rNewState.textStrikeoutStyle;
-                    aCalculatedNewState.textEmphasisMarkStyle   = rNewState.textEmphasisMarkStyle;
+                    aCalculatedNewState.textEmphasisMark        = rNewState.textEmphasisMark;
                     aCalculatedNewState.isTextEffectShadowSet   = rNewState.isTextEffectShadowSet;
                     aCalculatedNewState.isTextWordUnderlineSet  = rNewState.isTextWordUnderlineSet;
                     aCalculatedNewState.isTextOutlineModeSet    = rNewState.isTextOutlineModeSet;
@@ -354,6 +354,12 @@ namespace cppcanvas
                 {
                     aCalculatedNewState.textLineColor      = rNewState.textLineColor;
                     aCalculatedNewState.isTextLineColorSet = rNewState.isTextLineColorSet;
+                }
+
+                if( aCalculatedNewState.pushFlags & PushFlags::OVERLINECOLOR )
+                {
+                    aCalculatedNewState.textOverlineColor = rNewState.textOverlineColor;
+                    aCalculatedNewState.isTextOverlineColorSet = rNewState.isTextOverlineColorSet;
                 }
 
                 if( aCalculatedNewState.pushFlags & PushFlags::TEXTLAYOUTMODE )
@@ -839,6 +845,16 @@ namespace cppcanvas
                     aFontMatrix.m11 *= nScaleY / nScaleX;
             }
             aFontRequest.CellSize = (rState.mapModeTransform * vcl::unotools::b2DSizeFromSize(rFontSizeLog)).getY();
+
+            if (rFont.GetEmphasisMark() != FontEmphasisMark::NONE)
+            {
+                uno::Sequence< beans::PropertyValue > aProperties(1);
+                aProperties[0].Name = "EmphasisMark";
+                aProperties[0].Value <<= sal_uInt32(rFont.GetEmphasisMark());
+                return rParms.mrCanvas->getUNOCanvas()->createFont(aFontRequest,
+                                                                aProperties,
+                                                                aFontMatrix);
+            }
 
             return rParms.mrCanvas->getUNOCanvas()->createFont( aFontRequest,
                                                                 uno::Sequence< beans::PropertyValue >(),
@@ -1463,6 +1479,22 @@ namespace cppcanvas
                         }
                         break;
 
+                    case MetaActionType::OVERLINECOLOR:
+                        if( !rParms.maTextColor.is_initialized() )
+                        {
+                            setStateColor( static_cast<MetaOverlineColorAction*>(pCurrAct),
+                                           rStates.getState().isTextOverlineColorSet,
+                                           rStates.getState().textOverlineColor,
+                                           rCanvas );
+                        }
+                        else
+                        {
+                            bool bSetting(static_cast<MetaOverlineColorAction*>(pCurrAct)->IsSetting());
+
+                            rStates.getState().isTextOverlineColorSet = bSetting;
+                        }
+                        break;
+
                     case MetaActionType::TEXTALIGN:
                     {
                         ::cppcanvas::internal::OutDevState& rState = rStates.getState();
@@ -1488,7 +1520,7 @@ namespace cppcanvas
                             (*rParms.maFontUnderline ? sal_Int8(LINESTYLE_SINGLE) : sal_Int8(LINESTYLE_NONE)) :
                             static_cast<sal_Int8>(rFont.GetUnderline());
                         rState.textStrikeoutStyle       = static_cast<sal_Int8>(rFont.GetStrikeout());
-                        rState.textEmphasisMarkStyle    = rFont.GetEmphasisMark() & FontEmphasisMark::Style;
+                        rState.textEmphasisMark         = rFont.GetEmphasisMark();
                         rState.isTextEffectShadowSet    = rFont.IsShadow();
                         rState.isTextWordUnderlineSet   = rFont.IsWordLineMode();
                         rState.isTextOutlineModeSet     = rFont.IsOutline();
@@ -2911,6 +2943,7 @@ namespace cppcanvas
                 // setup default text color to black
                 rState.textColor =
                     rState.textFillColor =
+                    rState.textOverlineColor =
                     rState.textLineColor = tools::intSRGBAToDoubleSequence( 0x000000FF );
             }
 
@@ -2931,9 +2964,11 @@ namespace cppcanvas
             {
                 ::cppcanvas::internal::OutDevState& rState = aStateStack.getState();
                 rState.isTextFillColorSet = true;
+                rState.isTextOverlineColorSet = true;
                 rState.isTextLineColorSet = true;
                 rState.textColor =
                     rState.textFillColor =
+                    rState.textOverlineColor =
                     rState.textLineColor = tools::intSRGBAToDoubleSequence( *rParams.maTextColor );
             }
             if( rParams.maFontName.is_initialized() ||

@@ -58,6 +58,7 @@
 #include <hints.hxx>
 #include <memory>
 #include "ndsect.hxx"
+#include <o3tl/make_unique.hxx>
 #include <tools/datetimeutils.hxx>
 
 // #i21457# - new implementation of local method <lcl_IsInSameTableBox(..)>.
@@ -1023,7 +1024,7 @@ SwFrame *SwSectionNode::MakeFrame( SwFrame *pSib )
 // The created ContentFrames are attached to the corresponding Layout
 void SwSectionNode::MakeFramesForAdjacentContentNode(const SwNodeIndex & rIdx)
 {
-    // Take my succsessive or preceding ContentFrame
+    // Take my successive or preceding ContentFrame
     SwNodes& rNds = GetNodes();
     if( rNds.IsDocNodes() && rNds.GetDoc()->getIDocumentLayoutAccess().GetCurrentViewShell() )
     {

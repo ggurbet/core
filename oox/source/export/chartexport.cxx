@@ -410,10 +410,16 @@ OUString ChartExport::parseFormula( const OUString& rRange )
     if( xParser.is() )
     {
         Reference< XPropertySet > xParserProps( xParser, uno::UNO_QUERY );
-        if( xParserProps.is() )
-        {
-            xParserProps->setPropertyValue("FormulaConvention", uno::makeAny(css::sheet::AddressConvention::OOO) );
-        }
+        // rRange is the result of a
+        // css::chart2::data::XDataSequence::getSourceRangeRepresentation()
+        // call that returns the range in the document's current UI notation.
+        // Creating a FormulaParser defaults to the same notation, for
+        // parseFormula() do not attempt to override the FormulaConvention
+        // property with css::sheet::AddressConvention::OOO or some such.
+        /* TODO: it would be much better to introduce a
+         * getSourceRangeRepresentation(css::sheet::AddressConvention) to
+         * return the ranges in a specific convention than converting them with
+         * the overhead of creating an XFormulaParser for each.. */
         uno::Sequence<sheet::FormulaToken> aTokens = xParser->parseFormula( rRange, CellAddress( 0, 0, 0 ) );
         if( xParserProps.is() )
         {
@@ -514,7 +520,7 @@ void ChartExport::WriteChartObj( const Reference< XShape >& xShape, sal_Int32 nI
             sRelativeStream,
             pFS->getOutputStream(),
             "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
-            rtl::OUStringToOString(oox::getRelationship(Relationship::CHART), RTL_TEXTENCODING_UTF8).getStr(),
+            OUStringToOString(oox::getRelationship(Relationship::CHART), RTL_TEXTENCODING_UTF8).getStr(),
             &sId );
 
     XmlFilterBase* pFB = GetFB();
@@ -3589,7 +3595,8 @@ void ChartExport::exportMarker(const Reference< chart2::XDataSeries >& xSeries)
 
     sal_Int32 nSymbol = aSymbol.StandardSymbol;
     // TODO: more properties support for marker
-    const char* pSymbolType = nullptr;
+    const char* pSymbolType; // no initialization here, to let compiler warn if we have a code path
+                             // where it stays uninitialized
     switch( nSymbol )
     {
         case 0:
@@ -3631,12 +3638,7 @@ void ChartExport::exportMarker(const Reference< chart2::XDataSeries >& xSeries)
         pSymbolType = "none";
     }
 
-    if( pSymbolType )
-    {
-        pFS->singleElement( FSNS( XML_c, XML_symbol ),
-            XML_val, pSymbolType,
-            FSEND );
-    }
+    pFS->singleElement(FSNS(XML_c, XML_symbol), XML_val, pSymbolType, FSEND);
 
     if (!bSkipFormatting)
     {

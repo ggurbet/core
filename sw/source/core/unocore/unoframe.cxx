@@ -1104,10 +1104,9 @@ bool SwGraphicProperties_Impl::AnyToItemSet(
         sal_uInt8 nMId = RES_GRFATR_CROPGRF == nIDs[nIndex] ? CONVERT_TWIPS : 0;
         if(GetProperty(nIDs[nIndex], nMId, pAny ))
         {
-            SfxPoolItem* pItem = ::GetDfltAttr( nIDs[nIndex] )->Clone();
+            std::unique_ptr<SfxPoolItem> pItem(::GetDfltAttr( nIDs[nIndex] )->Clone());
             bRet &= pItem->PutValue(*pAny, nMId );
             rGrSet.Put(*pItem);
-            delete pItem;
         }
     }
 
@@ -1667,7 +1666,7 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
                     pDoc->Unchain(*pFormat);
                 else
                 {
-                    SwFormatChain aChain( pFormat->GetChain() );
+                    const SwFormatChain& aChain( pFormat->GetChain() );
                     SwFrameFormat *pPrev = aChain.GetPrev();
                     if(pPrev)
                         pDoc->Unchain(*pPrev);
@@ -2022,7 +2021,7 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
                 }
                 else
                 {
-                    SfxItemSet aSet(pNoText->GetSwAttrSet());
+                    const SfxItemSet& aSet(pNoText->GetSwAttrSet());
                     m_pPropSet->getPropertyValue(*pEntry, aSet, aAny);
                 }
             }
@@ -2378,7 +2377,7 @@ uno::Sequence< beans::PropertyState > SwXFrame::getPropertyStates(
                     {
                         SwNodeIndex aIdx(*pIdx, 1);
                         SwNoTextNode* pNoText = aIdx.GetNode().GetNoTextNode();
-                        SfxItemSet aSet(pNoText->GetSwAttrSet());
+                        const SfxItemSet& aSet(pNoText->GetSwAttrSet());
                         aSet.GetItemState(pEntry->nWID);
                         if(SfxItemState::SET == aSet.GetItemState( pEntry->nWID, false ))
                             pStates[i] = beans::PropertyState_DIRECT_VALUE;
@@ -2483,7 +2482,7 @@ void SwXFrame::setPropertyToDefault( const OUString& rPropertyName )
                     pDoc->Unchain(*pFormat);
                 else
                 {
-                    SwFormatChain aChain( pFormat->GetChain() );
+                    const SwFormatChain& aChain( pFormat->GetChain() );
                     SwFrameFormat *pPrev = aChain.GetPrev();
                     if(pPrev)
                         pDoc->Unchain(*pPrev);
@@ -2705,12 +2704,12 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
         UnoActionContext aCont(pDoc);
         if(m_pCopySource)
         {
-            SwFormatAnchor* pAnchorItem = nullptr;
+            std::unique_ptr<SwFormatAnchor> pAnchorItem;
             // the frame is inserted bound to page
             // to prevent conflicts if the to-be-anchored position is part of the to-be-copied text
             if (eAnchorId != RndStdIds::FLY_AT_PAGE)
             {
-                pAnchorItem = static_cast<SwFormatAnchor*>(aFrameSet.Get(RES_ANCHOR).Clone());
+                pAnchorItem.reset(static_cast<SwFormatAnchor*>(aFrameSet.Get(RES_ANCHOR).Clone()));
                 aFrameSet.Put( SwFormatAnchor( RndStdIds::FLY_AT_PAGE, 1 ));
             }
 
@@ -2726,7 +2725,6 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
                 SfxItemSet aAnchorSet( pDoc->GetAttrPool(), svl::Items<RES_ANCHOR, RES_ANCHOR>{} );
                 aAnchorSet.Put( *pAnchorItem );
                 pDoc->SetFlyFrameAttr( *pFormat, aAnchorSet );
-                delete pAnchorItem;
             }
             m_pCopySource.reset();
         }
@@ -2911,8 +2909,8 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
             (*pStreamName) >>= sStreamName;
             pDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::INSERT, nullptr);
 
-            SwFlyFrameFormat* pFrameFormat = nullptr;
-            pFrameFormat = pDoc->getIDocumentContentOperations().InsertOLE( aPam, sStreamName, m_nDrawAspect, &aFrameSet, nullptr );
+            SwFlyFrameFormat* pFrameFormat = pDoc->getIDocumentContentOperations().InsertOLE(
+                aPam, sStreamName, m_nDrawAspect, &aFrameSet, nullptr);
 
             // store main document name to show in the title bar
             SwOLENode* pNd = nullptr;
@@ -2958,9 +2956,8 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
             OUString rName;
             rPers.GetEmbeddedObjectContainer().InsertEmbeddedObject( obj, rName );
 
-            SwFlyFrameFormat* pFrameFormat = nullptr;
-            pFrameFormat = pDoc->getIDocumentContentOperations().InsertEmbObject(
-                    aPam, xObj, &aFrameSet);
+            SwFlyFrameFormat* pFrameFormat
+                = pDoc->getIDocumentContentOperations().InsertEmbObject(aPam, xObj, &aFrameSet);
             pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT, nullptr);
             pFrameFormat->Add(this);
             if(!m_sName.isEmpty())

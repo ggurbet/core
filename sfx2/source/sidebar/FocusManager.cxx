@@ -27,6 +27,8 @@
 #include <vcl/toolbox.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 
+#include <sfx2/app.hxx>
+
 namespace sfx2 { namespace sidebar {
 
 FocusManager::FocusLocation::FocusLocation (const PanelComponent eComponent, const sal_Int32 nIndex)
@@ -41,10 +43,7 @@ FocusManager::FocusManager(const std::function<void(const Panel&)>& rShowPanelFu
       maPanels(),
       maButtons(),
       maShowPanelFunctor(rShowPanelFunctor),
-      mbIsDeckOpenFunctor(rIsDeckOpenFunctor),
-      mbObservingContentControlFocus(false),
-      mpFirstFocusedContentControl(nullptr),
-      mpLastFocusedWindow(nullptr)
+      mbIsDeckOpenFunctor(rIsDeckOpenFunctor)
 {
 }
 
@@ -61,16 +60,6 @@ void FocusManager::GrabFocus()
 void FocusManager::GrabFocusPanel()
 {
     FocusPanel(0, false);
-}
-
-void FocusManager::GrabFocusButton(const sal_Int32 nIndex)
-{
-    if (static_cast<size_t>(nIndex) >= maButtons.size())
-    {
-        SAL_WARN("sfx.sidebar", "invalid focus index, probably during teardown");
-        return;
-    }
-    FocusButton(nIndex);
 }
 
 void FocusManager::Clear()
@@ -275,11 +264,7 @@ void FocusManager::FocusPanelContent (const sal_Int32 nPanelIndex)
 
     VclPtr<vcl::Window> pWindow = VCLUnoHelper::GetWindow(maPanels[nPanelIndex]->GetElementWindow());
     if (pWindow)
-    {
-        mbObservingContentControlFocus = true;
         pWindow->GrabFocus();
-        mbObservingContentControlFocus = false;
-    }
 }
 
 void FocusManager::FocusButton (const sal_Int32 nButtonIndex)
@@ -385,10 +370,29 @@ void FocusManager::HandleKeyEvent (
     const vcl::Window& rWindow)
 {
     const FocusLocation aLocation (GetFocusLocation(rWindow));
-    mpLastFocusedWindow = nullptr;
 
     switch (rKeyCode.GetCode())
     {
+        case KEY_ESCAPE:
+            switch (aLocation.meComponent)
+            {
+                case PC_TabBar:
+                case PC_DeckTitle:
+                case PC_DeckToolBox:
+                case PC_PanelTitle:
+                case PC_PanelToolBox:
+                {
+                    vcl::Window* pFocusWin = Application::GetFocusWindow();
+                    if (pFocusWin)
+                        pFocusWin->GrabFocusToDocument();
+                    break;
+                }
+
+                default:
+                    break;
+            }
+            return;
+
         case KEY_SPACE:
             switch (aLocation.meComponent)
             {
@@ -463,21 +467,34 @@ void FocusManager::HandleKeyEvent (
                     else if (IsDeckTitleVisible())
                         FocusDeckTitle();
                     else
-                        FocusButton(maButtons.size()-1);
+                    {
+                        // Focus the last button.
+                        sal_Int32 nIndex(maButtons.size()-1);
+                        while(!maButtons[nIndex].get()->IsVisible() && --nIndex > 0);
+                        FocusButton(nIndex);
+                    }
                     break;
 
                 case PC_DeckTitle:
                 case PC_DeckToolBox:
+                {
                     // Focus the last button.
-                    FocusButton(maButtons.size()-1);
+                    sal_Int32 nIndex(maButtons.size()-1);
+                    while(!maButtons[nIndex].get()->IsVisible() && --nIndex > 0);
+                    FocusButton(nIndex);
                     break;
+                }
 
                 case PC_TabBar:
                     // Go to previous tab bar item.
                     if (aLocation.mnIndex == 0)
                         FocusPanel(maPanels.size()-1, true);
                     else
-                        FocusButton((aLocation.mnIndex + maButtons.size() - 1) % maButtons.size());
+                    {
+                        sal_Int32 nIndex((aLocation.mnIndex + maButtons.size() - 1) % maButtons.size());
+                        while(!maButtons[nIndex].get()->IsVisible() && --nIndex > 0);
+                        FocusButton(nIndex);
+                    }
                     break;
 
                 default:
@@ -511,13 +528,19 @@ void FocusManager::HandleKeyEvent (
                 case PC_TabBar:
                     // Go to next tab bar item.
                     if (aLocation.mnIndex < static_cast<sal_Int32>(maButtons.size())-1)
-                        FocusButton(aLocation.mnIndex + 1);
-                    else
                     {
-                        FocusPanel(0, true);
-                        if (IsDeckTitleVisible())
-                            FocusDeckTitle();
+                        sal_Int32 nIndex(aLocation.mnIndex + 1);
+                        while(!maButtons[nIndex].get()->IsVisible() && ++nIndex < static_cast<sal_Int32>(maButtons.size()));
+                        if (nIndex < static_cast<sal_Int32>(maButtons.size()))
+                        {
+                            FocusButton(nIndex);
+                            break;
+                        }
                     }
+                    if (IsDeckTitleVisible())
+                        FocusDeckTitle();
+                    else
+                        FocusPanel(0, true);
                     break;
 
                 default:
@@ -587,22 +610,11 @@ IMPL_LINK(FocusManager, ChildEventListener, VclWindowEvent&, rEvent, void)
                 switch (pKeyEvent->GetKeyCode().GetCode())
                 {
                     case KEY_ESCAPE:
-                        // Return focus back to the panel title.
-                        FocusPanel(aLocation.mnIndex, true);
-                        break;
-
-                    case KEY_TAB:
-                        {
-                        WindowType aWindowType = pSource->GetType();
-                        if (mpFirstFocusedContentControl!=nullptr
-                            && ( mpLastFocusedWindow == mpFirstFocusedContentControl
-                                 && !( WindowType::EDIT == aWindowType || WindowType::SPINFIELD == aWindowType ) ))
-                        {
-                            // Move focus back to panel (or deck)
-                            // title.
+                        // Return focus to tab bar sidebar settings button or panel title.
+                        if (!IsDeckTitleVisible() && maPanels.size() == 1)
+                            FocusButton(0);
+                        else
                             FocusPanel(aLocation.mnIndex, true);
-                        }
-                        }
                         break;
 
                     default:
@@ -611,16 +623,6 @@ IMPL_LINK(FocusManager, ChildEventListener, VclWindowEvent&, rEvent, void)
             }
             return;
         }
-
-        case VclEventId::WindowGetFocus:
-            // Keep track of focused controls in panel content.
-            // Remember the first focused control.  When it is later
-            // focused again due to pressing the TAB key then the
-            // focus is moved to the panel or deck title.
-            mpLastFocusedWindow = pSource;
-            if (mbObservingContentControlFocus)
-                mpFirstFocusedContentControl = pSource;
-            break;
 
         default:
             break;

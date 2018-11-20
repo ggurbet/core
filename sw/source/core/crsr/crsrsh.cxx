@@ -64,6 +64,7 @@
 #include <IDocumentLayoutAccess.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
+#include <comphelper/sequence.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <editeng/editview.hxx>
 #include <sal/log.hxx>
@@ -333,10 +334,15 @@ bool SwCursorShell::LeftRight( bool bLeft, sal_uInt16 nCnt, sal_uInt16 nMode,
     }
     // 2. CASE: Cursor is at beginning of numbered paragraph. A move
     // to the left will simply set the bInFrontOfLabel flag:
-    else if ( bLeft && 0 == pShellCursor->GetPoint()->nContent.GetIndex() &&
-             !pShellCursor->IsInFrontOfLabel() && !pShellCursor->HasMark() &&
-             nullptr != ( pTextNd = pShellCursor->GetNode().GetTextNode() ) &&
-             pTextNd->HasVisibleNumberingOrBullet() )
+    else if (bLeft
+        && pShellCursor->GetPoint()->nNode.GetNode().IsTextNode()
+        && static_cast<SwTextFrame const*>(
+            pShellCursor->GetPoint()->nNode.GetNode().GetTextNode()->getLayoutFrame(GetLayout())
+            )->MapModelToViewPos(*pShellCursor->GetPoint()) == TextFrameIndex(0)
+        && !pShellCursor->IsInFrontOfLabel()
+        && !pShellCursor->HasMark()
+        && nullptr != (pTextNd = sw::GetParaPropsNode(*GetLayout(), pShellCursor->GetPoint()->nNode))
+        && pTextNd->HasVisibleNumberingOrBullet())
     {
         SetInFrontOfLabel( true );
         bRet = true;
@@ -388,11 +394,12 @@ void SwCursorShell::MarkListLevel( const OUString& sListId,
 
 void SwCursorShell::UpdateMarkedListLevel()
 {
-    SwTextNode * pTextNd = GetCursor_()->GetNode().GetTextNode();
+    SwTextNode const*const pTextNd = sw::GetParaPropsNode(*GetLayout(),
+            GetCursor_()->GetPoint()->nNode);
 
     if ( pTextNd )
     {
-        if ( !pTextNd->IsNumbered() )
+        if (!pTextNd->IsNumbered(GetLayout()))
         {
             m_pCurrentCursor->SetInFrontOfLabel_( false );
             MarkListLevel( OUString(), 0 );
@@ -523,14 +530,14 @@ bool SwCursorShell::LRMargin( bool bLeft, bool bAPI)
     if( m_pBlockCursor )
         m_pBlockCursor->clearPoints();
 
-    const bool bWasAtLM =
-            ( 0 == GetCursor_()->GetPoint()->nContent.GetIndex() );
+    const bool bWasAtLM = GetCursor_()->IsAtLeftRightMargin(*GetLayout(), true, bAPI);
 
-    bool bRet = pTmpCursor->LeftRightMargin( bLeft, bAPI );
+    bool bRet = pTmpCursor->LeftRightMargin(*GetLayout(), bLeft, bAPI);
 
     if ( bLeft && !bTableMode && bRet && bWasAtLM && !GetCursor_()->HasMark() )
     {
         const SwTextNode * pTextNd = GetCursor_()->GetNode().GetTextNode();
+        assert(sw::GetParaPropsNode(*GetLayout(), GetCursor_()->GetPoint()->nNode) == pTextNd);
         if ( pTextNd && pTextNd->HasVisibleNumberingOrBullet() )
             SetInFrontOfLabel( true );
     }
@@ -549,7 +556,7 @@ bool SwCursorShell::LRMargin( bool bLeft, bool bAPI)
 bool SwCursorShell::IsAtLRMargin( bool bLeft, bool bAPI ) const
 {
     const SwShellCursor* pTmpCursor = getShellCursor( true );
-    return pTmpCursor->IsAtLeftRightMargin( bLeft, bAPI );
+    return pTmpCursor->IsAtLeftRightMargin(*GetLayout(), bLeft, bAPI);
 }
 
 bool SwCursorShell::SttEndDoc( bool bStt )
@@ -750,7 +757,7 @@ int SwCursorShell::SetCursor( const Point &rLPt, bool bOnlyText, bool bBlock )
                                     bOnlyText ?  MV_SETONLYTEXT : MV_NONE );
     aTmpState.m_bSetInReadOnly = IsReadOnlyAvailable();
 
-    SwTextNode * pTextNd = pCursor->GetNode().GetTextNode();
+    SwTextNode const*const pTextNd = sw::GetParaPropsNode(*GetLayout(), pCursor->GetPoint()->nNode);
 
     if ( pTextNd && !IsTableMode() &&
         // #i37515# No bInFrontOfLabel during selection
@@ -1707,7 +1714,7 @@ void SwCursorShell::UpdateCursor( sal_uInt16 eFlags, bool bIdleEnd )
                 m_pVisibleCursor->Show(); // show again
             }
             m_eMvState = MV_NONE;  // state for cursor travelling - GetCursorOfst
-            if( pTableFrame && Imp()->IsAccessible() )
+            if (Imp()->IsAccessible())
                 Imp()->InvalidateAccessibleCursorPosition( pTableFrame );
             return;
         }
@@ -1950,6 +1957,8 @@ void SwCursorShell::UpdateCursor( sal_uInt16 eFlags, bool bIdleEnd )
 
     } while( eFlags & SwCursorShell::SCROLLWIN );
 
+    assert(pFrame);
+
     if( m_pBlockCursor )
         RefreshBlockCursor();
 
@@ -1977,7 +1986,7 @@ void SwCursorShell::UpdateCursor( sal_uInt16 eFlags, bool bIdleEnd )
 
     m_eMvState = MV_NONE; // state for cursor travelling - GetCursorOfst
 
-    if( pFrame && Imp()->IsAccessible() )
+    if (Imp()->IsAccessible())
         Imp()->InvalidateAccessibleCursorPosition( pFrame );
 
     // switch from blinking cursor to read-only-text-selection cursor
@@ -2428,8 +2437,9 @@ OUString SwCursorShell::GetSelText() const
                             : 0);
                     sal_Int32 const nEnd(i == pEnd->nNode.GetIndex()
                             ? pEnd->nContent.GetIndex()
-                            : pEnd->nNode.GetNode().GetTextNode()->Len());
+                            : rNode.GetTextNode()->Len());
                     buf.append(rNode.GetTextNode()->GetExpandText(
+                                GetLayout(),
                                 nStart, nEnd - nStart, false, false, false,
                                 ExpandMode::HideDeletions));
 
@@ -2445,7 +2455,7 @@ OUString SwCursorShell::GetSelText() const
         if( pTextNd )
         {
             const sal_Int32 nStt = m_pCurrentCursor->Start()->nContent.GetIndex();
-            aText = pTextNd->GetExpandText( nStt,
+            aText = pTextNd->GetExpandText(GetLayout(), nStt,
                     m_pCurrentCursor->End()->nContent.GetIndex() - nStt );
         }
     }
@@ -2668,7 +2678,7 @@ void SwCursorShell::ParkPams( SwPaM* pDelRg, SwShellCursor** ppDelRing )
         const SwPosition *pTmpStt = pTmp->Start(),
                         *pTmpEnd = pTmp->GetPoint() == pTmpStt ?
                                         pTmp->GetMark() : pTmp->GetPoint();
-        // If a SPoint or GetMark are in a cursor area than cancel the old area.
+        // If a SPoint or GetMark are in a cursor area then cancel the old area.
         // During comparison keep in mind that End() is outside the area.
         if( *pStt <= *pTmpStt )
         {
@@ -3539,12 +3549,7 @@ static void lcl_FillRecognizerData( std::vector< OUString >& rSmartTagTypes,
 
     if ( !rSmartTagTypes.empty() )
     {
-        rStringKeyMaps.realloc( rSmartTagTypes.size() );
-
-        std::vector< uno::Reference< container::XStringKeyMap > >::const_iterator aMapsIter = aStringKeyMaps.begin();
-        sal_uInt16 i = 0;
-        for ( aMapsIter = aStringKeyMaps.begin(); aMapsIter != aStringKeyMaps.end(); ++aMapsIter )
-            rStringKeyMaps[i++] = *aMapsIter;
+        rStringKeyMaps = comphelper::containerToSequence(aStringKeyMaps);
     }
 }
 

@@ -77,9 +77,9 @@ public:
     void      SetCharacterStyle(const OUString& rStyle);
     OUString  GetCharacterStyle() const;
 
-    short execute()
+    virtual short run() override
     {
-        int nRet = run();
+        int nRet = GenericDialogController::run();
         if (nRet == RET_OK)
             Apply();
         return nRet;
@@ -161,7 +161,15 @@ SwCaptionDialog::SwCaptionDialog( vcl::Window *pParent, SwView &rV ) :
     if (eType & SelectionType::Graphic)
     {
         nPoolId = RES_POOLCOLL_LABEL_FIGURE;
-        sString = ::GetOldGrfCat();
+
+        SwSetExpFieldType* pTypeIll= static_cast<SwSetExpFieldType*>(rSh.GetFieldType(SwFieldIds::SetExp, SwResId(STR_POOLCOLL_LABEL_ABB)));
+        if(rSh.IsUsed(*pTypeIll)) //default to illustration for legacy docs
+        {
+            nPoolId = RES_POOLCOLL_LABEL_ABB;
+
+        }
+
+        sString = rView.GetOldGrfCat();
         bCopyAttributes = true;
         //if not OLE
         if(!xNameAccess.is())
@@ -174,26 +182,26 @@ SwCaptionDialog::SwCaptionDialog( vcl::Window *pParent, SwView &rV ) :
     else if( eType & SelectionType::Table )
     {
         nPoolId = RES_POOLCOLL_LABEL_TABLE;
-        sString = ::GetOldTabCat();
+        sString = rView.GetOldTabCat();
         uno::Reference< text::XTextTablesSupplier >  xTables(xModel, uno::UNO_QUERY);
         xNameAccess = xTables->getTextTables();
     }
     else if( eType & SelectionType::Frame )
     {
         nPoolId = RES_POOLCOLL_LABEL_FRAME;
-        sString = ::GetOldFrameCat();
+        sString = rView.GetOldFrameCat();
          uno::Reference< text::XTextFramesSupplier >  xFrames(xModel, uno::UNO_QUERY);
         xNameAccess = xFrames->getTextFrames();
     }
     else if( eType == SelectionType::Text )
     {
         nPoolId = RES_POOLCOLL_LABEL_FRAME;
-        sString = ::GetOldFrameCat();
+        sString = rView.GetOldFrameCat();
     }
     else if( eType & SelectionType::DrawObject )
     {
         nPoolId = RES_POOLCOLL_LABEL_DRAWING;
-        sString = ::GetOldDrwCat();
+        sString = rView.GetOldDrwCat();
     }
     if( nPoolId )
     {
@@ -297,7 +305,7 @@ IMPL_LINK_NOARG( SwCaptionDialog, OptionHdl, Button*, void )
     aDlg.SetApplyBorderAndShadow(bCopyAttributes);
     aDlg.SetCharacterStyle( sCharacterStyle );
     aDlg.SetOrderNumberingFirst( bOrderNumberingFirst );
-    aDlg.execute();
+    aDlg.run();
     bCopyAttributes = aDlg.IsApplyBorderAndShadow();
     sCharacterStyle = aDlg.GetCharacterStyle();
     //#i61007# order of captions

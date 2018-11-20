@@ -25,8 +25,8 @@
 #include <o3tl/any.hxx>
 #include <o3tl/safeint.hxx>
 #include <svtools/unoimap.hxx>
-#include <svtools/imap.hxx>
-#include <svtools/imapobj.hxx>
+#include <vcl/imap.hxx>
+#include <vcl/imapobj.hxx>
 #include <unotools/intlwrapper.hxx>
 #include <frmfmt.hxx>
 #include <unocoll.hxx>
@@ -3519,7 +3519,7 @@ bool IsFlyFrameFormatInHeader(const SwFrameFormat& rFormat)
 
 void CheckAnchoredFlyConsistency(SwDoc const& rDoc)
 {
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     SwNodes const& rNodes(rDoc.GetNodes());
     sal_uLong const count(rNodes.Count());
     for (sal_uLong i = 0; i != count; ++i)
@@ -3528,9 +3528,9 @@ void CheckAnchoredFlyConsistency(SwDoc const& rDoc)
         std::vector<SwFrameFormat*> const*const pFlys(pNode->GetAnchoredFlys());
         if (pFlys)
         {
-            for (auto it = pFlys->begin(); it != pFlys->end(); ++it)
+            for (const auto& rpFly : *pFlys)
             {
-                SwFormatAnchor const& rAnchor((**it).GetAnchor(false));
+                SwFormatAnchor const& rAnchor((*rpFly).GetAnchor(false));
                 assert(&rAnchor.GetContentAnchor()->nNode.GetNode() == pNode);
             }
         }

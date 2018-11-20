@@ -30,9 +30,11 @@
 #include <drawinglayer/primitive2d/unifiedtransparenceprimitive2d.hxx>
 #include <drawinglayer/primitive2d/polypolygonprimitive2d.hxx>
 #include <drawinglayer/primitive2d/svggradientprimitive2d.hxx>
+#include <drawinglayer/primitive2d/textdecoratedprimitive2d.hxx>
 #include <drawinglayer/primitive2d/textprimitive2d.hxx>
 #include <drawinglayer/primitive2d/bitmapprimitive2d.hxx>
 #include <drawinglayer/primitive2d/metafileprimitive2d.hxx>
+#include <drawinglayer/primitive2d/transformprimitive2d.hxx>
 #include <drawinglayer/attribute/fontattribute.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/polygon/b2dpolygonclipper.hxx>
@@ -156,15 +158,15 @@ namespace emfplushelper
         {
             case EmfPlusObjectTypeBrush:
             {
-                EMFPBrush *brush;
-                maEMFPObjects[index].reset(brush = new EMFPBrush());
+                EMFPBrush *brush = new EMFPBrush();
+                maEMFPObjects[index].reset(brush);
                 brush->Read(rObjectStream, *this);
                 break;
             }
             case EmfPlusObjectTypePen:
             {
-                EMFPPen *pen;
-                maEMFPObjects[index].reset(pen = new EMFPPen());
+                EMFPPen *pen = new EMFPPen();
+                maEMFPObjects[index].reset(pen);
                 pen->Read(rObjectStream, *this);
                 break;
             }
@@ -176,22 +178,22 @@ namespace emfplushelper
                 rObjectStream.ReadUInt32(header).ReadInt32(points).ReadUInt32(pathFlags);
                 SAL_INFO("drawinglayer", "EMF+\tpath");
                 SAL_INFO("drawinglayer", "EMF+\theader: 0x" << std::hex << header << " points: " << std::dec << points << " additional flags: 0x" << std::hex << pathFlags << std::dec);
-                EMFPPath *path;
-                maEMFPObjects[index].reset(path = new EMFPPath(points));
+                EMFPPath *path = new EMFPPath(points);
+                maEMFPObjects[index].reset(path);
                 path->Read(rObjectStream, pathFlags);
                 break;
             }
             case EmfPlusObjectTypeRegion:
             {
-                EMFPRegion *region;
-                maEMFPObjects[index].reset(region = new EMFPRegion());
+                EMFPRegion *region = new EMFPRegion();
+                maEMFPObjects[index].reset(region);
                 region->ReadRegion(rObjectStream, *this);
                 break;
             }
             case EmfPlusObjectTypeImage:
             {
-                EMFPImage *image;
-                maEMFPObjects[index].reset(image = new EMFPImage);
+                EMFPImage *image = new EMFPImage;
+                maEMFPObjects[index].reset(image);
                 image->type = 0;
                 image->width = 0;
                 image->height = 0;
@@ -202,8 +204,8 @@ namespace emfplushelper
             }
             case EmfPlusObjectTypeFont:
             {
-                EMFPFont *font;
-                maEMFPObjects[index].reset(font = new EMFPFont);
+                EMFPFont *font = new EMFPFont;
+                maEMFPObjects[index].reset(font);
                 font->emSize = 0;
                 font->sizeUnit = 0;
                 font->fontFlags = 0;
@@ -212,8 +214,8 @@ namespace emfplushelper
             }
             case EmfPlusObjectTypeStringFormat:
             {
-                EMFPStringFormat *stringFormat;
-                maEMFPObjects[index].reset(stringFormat = new EMFPStringFormat());
+                EMFPStringFormat *stringFormat = new EMFPStringFormat();
+                maEMFPObjects[index].reset(stringFormat);
                 stringFormat->Read(rObjectStream);
                 break;
             }
@@ -1318,11 +1320,6 @@ namespace emfplushelper
                                 break;
                             }
                             mrPropertyHolders.Current().setFont(vcl::Font(font->family, Size(font->emSize, font->emSize)));
-                            // done reading
-
-                            // transform to TextSimplePortionPrimitive2D
-                            // TODO add more decorations: underline, strikeout, etc
-                            //      and create a TextDecoratedPortionPrimitive2D
 
                             const OUString emptyString;
                             drawinglayer::attribute::FontAttribute fontAttribute(
@@ -1361,12 +1358,17 @@ namespace emfplushelper
                             }
                             else
                             {
+                                // By default LeadingMargin is 1/6 inch
+                                // TODO for typographic fonts set value to 0.
+                                stringAlignmentHorizontalOffset = 16.0;
+
                                 // use system default
                                 locale = Application::GetSettings().GetLanguageTag().getLocale();
                             }
 
                             const basegfx::B2DHomMatrix transformMatrix = basegfx::utils::createScaleTranslateB2DHomMatrix(
-                                        MapSize(font->emSize, font->emSize), Map(lx + stringAlignmentHorizontalOffset, ly + font->emSize));
+                                        ::basegfx::B2DSize(font->emSize, font->emSize),
+                                        ::basegfx::B2DPoint(lx + stringAlignmentHorizontalOffset, ly + font->emSize));
 
                             const Color color = EMFPGetBrushColorOrARGBColor(flags, brushId);
                             mrPropertyHolders.Current().setTextColor(color.getBColor());
@@ -1375,38 +1377,50 @@ namespace emfplushelper
                             if (color.GetTransparency() < 255)
                             {
                                 std::vector<double> emptyVector;
-                                if (color.GetTransparency() == 0)
+                                drawinglayer::primitive2d::BasePrimitive2D* pBaseText = nullptr;
+                                if (font->Underline() || font->Strikeout())
                                 {
-                                    // not transparent
-                                    mrTargetHolders.Current().append(
-                                                o3tl::make_unique<drawinglayer::primitive2d::TextSimplePortionPrimitive2D>(
-                                                    transformMatrix,
-                                                    text,
-                                                    0,             // text always starts at 0
-                                                    stringLength,
-                                                    emptyVector,   // EMF-PLUS has no DX-array
-                                                    fontAttribute,
-                                                    locale,
-                                                    color.getBColor()));
+                                    pBaseText = new drawinglayer::primitive2d::TextDecoratedPortionPrimitive2D(
+                                                transformMatrix,
+                                                text,
+                                                0,             // text always starts at 0
+                                                stringLength,
+                                                emptyVector,   // EMF-PLUS has no DX-array
+                                                fontAttribute,
+                                                locale,
+                                                color.getBColor(),
+                                                COL_TRANSPARENT,
+                                                color.getBColor(),
+                                                color.getBColor(),
+                                                drawinglayer::primitive2d::TEXT_LINE_NONE,
+                                                font->Underline() ? drawinglayer::primitive2d::TEXT_LINE_SINGLE : drawinglayer::primitive2d::TEXT_LINE_NONE,
+                                                false,
+                                                font->Strikeout() ? drawinglayer::primitive2d::TEXT_STRIKEOUT_SINGLE : drawinglayer::primitive2d::TEXT_STRIKEOUT_NONE);
                                 }
                                 else
                                 {
-                                    const drawinglayer::primitive2d::Primitive2DReference aPrimitive(
-                                                new drawinglayer::primitive2d::TextSimplePortionPrimitive2D(
-                                                    transformMatrix,
-                                                    text,
-                                                    0,             // text always starts at 0
-                                                    stringLength,
-                                                    emptyVector,   // EMF-PLUS has no DX-array
-                                                    fontAttribute,
-                                                    locale,
-                                                    color.getBColor()));
-
-                                    mrTargetHolders.Current().append(
-                                                o3tl::make_unique<drawinglayer::primitive2d::UnifiedTransparencePrimitive2D>(
-                                                    drawinglayer::primitive2d::Primitive2DContainer { aPrimitive },
-                                                    color.GetTransparency() / 255.0));
+                                    pBaseText = new drawinglayer::primitive2d::TextSimplePortionPrimitive2D(
+                                                transformMatrix,
+                                                text,
+                                                0,             // text always starts at 0
+                                                stringLength,
+                                                emptyVector,   // EMF-PLUS has no DX-array
+                                                fontAttribute,
+                                                locale,
+                                                color.getBColor());
                                 }
+                                drawinglayer::primitive2d::Primitive2DReference aPrimitiveText(pBaseText);
+                                if (color.GetTransparency() != 0)
+                                {
+                                    aPrimitiveText = new drawinglayer::primitive2d::UnifiedTransparencePrimitive2D(
+                                                drawinglayer::primitive2d::Primitive2DContainer { aPrimitiveText },
+                                                color.GetTransparency() / 255.0);
+                                }
+
+                                mrTargetHolders.Current().append(
+                                            o3tl::make_unique<drawinglayer::primitive2d::TransformPrimitive2D>(
+                                                maMapTransform,
+                                                drawinglayer::primitive2d::Primitive2DContainer { aPrimitiveText } ));
                             }
                         }
                         else
@@ -1774,8 +1788,8 @@ namespace emfplushelper
                             const Color color = EMFPGetBrushColorOrARGBColor(flags, brushIndexOrColor);
                             std::vector<double> aDXArray; // dummy for DX array (not used)
 
-                            // generate TextSimplePortionPrimitive2Ds for all portions of text with
-                            // the same charsPosY values
+                            // generate TextSimplePortionPrimitive2Ds or TextDecoratedPortionPrimitive2D
+                            // for all portions of text with the same charsPosY values
                             sal_uInt32 pos = 0;
                             while (pos < glyphsCount)
                             {
@@ -1786,53 +1800,64 @@ namespace emfplushelper
 
                                 // generate the DX-Array
                                 aDXArray.clear();
-                                double mappedPosX = Map(charsPosX[pos],charsPosY[pos]).getX();
-                                for (size_t i=0; i<aLength-1; i++)
+                                double mappedPosX = Map(charsPosX[pos], charsPosY[pos]).getX();
+                                for (size_t i = 0; i < aLength-1; i++)
                                 {
-                                    aDXArray.push_back(Map(charsPosX[pos+i+1],charsPosY[pos+i+1]).getX() - mappedPosX);
+                                    aDXArray.push_back(Map(charsPosX[pos + i + 1], charsPosY[pos + i + 1]).getX() - mappedPosX);
                                 }
                                 // last entry
                                 aDXArray.push_back(0);
 
-                                // prepare transform matrix
                                 basegfx::B2DHomMatrix transformMatrix = basegfx::utils::createScaleTranslateB2DHomMatrix(
-                                    MapSize(font->emSize,font->emSize),Map(charsPosX[pos],charsPosY[pos]));
+                                            ::basegfx::B2DSize(font->emSize, font->emSize),
+                                            ::basegfx::B2DPoint(charsPosX[pos], charsPosY[pos]));
                                 if (hasMatrix)
                                     transformMatrix *= transform;
                                 if (color.GetTransparency() < 255)
                                 {
-                                    if (color.GetTransparency() == 0)
+                                    drawinglayer::primitive2d::BasePrimitive2D* pBaseText = nullptr;
+                                    if (font->Underline() || font->Strikeout())
                                     {
-                                        // not transparent
-                                        mrTargetHolders.Current().append(
-                                                    o3tl::make_unique<drawinglayer::primitive2d::TextSimplePortionPrimitive2D>(
-                                                        transformMatrix,
-                                                        text,
-                                                        pos,            // take character at current pos
-                                                        aLength,        // use determined length
-                                                        aDXArray,       // generated DXArray
-                                                        fontAttribute,
-                                                        Application::GetSettings().GetLanguageTag().getLocale(),
-                                                        color.getBColor()));
+                                        pBaseText = new drawinglayer::primitive2d::TextDecoratedPortionPrimitive2D(
+                                                    transformMatrix,
+                                                    text,
+                                                    pos,            // take character at current pos
+                                                    aLength,        // use determined length
+                                                    aDXArray,       // generated DXArray
+                                                    fontAttribute,
+                                                    Application::GetSettings().GetLanguageTag().getLocale(),
+                                                    color.getBColor(),
+                                                    COL_TRANSPARENT,
+                                                    color.getBColor(),
+                                                    color.getBColor(),
+                                                    drawinglayer::primitive2d::TEXT_LINE_NONE,
+                                                    font->Underline() ? drawinglayer::primitive2d::TEXT_LINE_SINGLE : drawinglayer::primitive2d::TEXT_LINE_NONE,
+                                                    false,
+                                                    font->Strikeout() ? drawinglayer::primitive2d::TEXT_STRIKEOUT_SINGLE : drawinglayer::primitive2d::TEXT_STRIKEOUT_NONE);
                                     }
                                     else
                                     {
-                                        const drawinglayer::primitive2d::Primitive2DReference aPrimitive(
-                                                    new drawinglayer::primitive2d::TextSimplePortionPrimitive2D(
-                                                        transformMatrix,
-                                                        text,
-                                                        pos,            // take character at current pos
-                                                        aLength,        // use determined length
-                                                        aDXArray,       // generated DXArray
-                                                        fontAttribute,
-                                                        Application::GetSettings().GetLanguageTag().getLocale(),
-                                                        color.getBColor()));
-
-                                        mrTargetHolders.Current().append(
-                                                    o3tl::make_unique<drawinglayer::primitive2d::UnifiedTransparencePrimitive2D>(
-                                                        drawinglayer::primitive2d::Primitive2DContainer { aPrimitive },
-                                                        color.GetTransparency() / 255.0));
+                                        pBaseText = new drawinglayer::primitive2d::TextSimplePortionPrimitive2D(
+                                                    transformMatrix,
+                                                    text,
+                                                    pos,            // take character at current pos
+                                                    aLength,        // use determined length
+                                                    aDXArray,       // generated DXArray
+                                                    fontAttribute,
+                                                    Application::GetSettings().GetLanguageTag().getLocale(),
+                                                    color.getBColor());
                                     }
+                                    drawinglayer::primitive2d::Primitive2DReference aPrimitiveText(pBaseText);
+                                    if (color.GetTransparency() != 0)
+                                    {
+                                        aPrimitiveText = new drawinglayer::primitive2d::UnifiedTransparencePrimitive2D(
+                                                    drawinglayer::primitive2d::Primitive2DContainer { aPrimitiveText },
+                                                    color.GetTransparency() / 255.0);
+                                    }
+                                    mrTargetHolders.Current().append(
+                                                o3tl::make_unique<drawinglayer::primitive2d::TransformPrimitive2D>(
+                                                    maMapTransform,
+                                                    drawinglayer::primitive2d::Primitive2DContainer { aPrimitiveText } ));
                                 }
 
                                 // update pos

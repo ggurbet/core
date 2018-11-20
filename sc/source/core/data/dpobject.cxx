@@ -27,13 +27,10 @@
 #include <dpsdbtab.hxx>
 #include <dpgroup.hxx>
 #include <document.hxx>
-#include <rechead.hxx>
 #include <pivot.hxx>
 #include <dapiuno.hxx>
 #include <miscuno.hxx>
-#include <scerrors.hxx>
 #include <refupdat.hxx>
-#include <sc.hrc>
 #include <attrib.hxx>
 #include <scitems.hxx>
 #include <unonames.hxx>
@@ -66,11 +63,11 @@
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
 #include <com/sun/star/sheet/XDrillDownDataSupplier.hpp>
 
+#include <unotools/charclass.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/types.hxx>
 #include <sal/macros.h>
-#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <svl/zforlist.hxx>
 #include <vcl/svapp.hxx>
@@ -828,8 +825,7 @@ void ScDPObject::ReloadGroupTableData()
         if (pData)
         {
             // Replace the existing group table data with the source data.
-            shared_ptr<ScDPTableData> pSource = pData->GetSourceTableData();
-            mpTableData = pSource;
+            mpTableData = pData->GetSourceTableData();
         }
         return;
     }
@@ -839,7 +835,7 @@ void ScDPObject::ReloadGroupTableData()
     {
         // This is already a group table data. Salvage the source data and
         // re-create a new group data.
-        shared_ptr<ScDPTableData> pSource = pData->GetSourceTableData();
+        const shared_ptr<ScDPTableData>& pSource = pData->GetSourceTableData();
         shared_ptr<ScDPGroupTableData> pGroupData(new ScDPGroupTableData(pSource, pDoc));
         pDimData->WriteToData(*pGroupData);
         mpTableData = pGroupData;
@@ -3778,7 +3774,7 @@ void ScDPCollection::FreeTable(const ScDPObject* pDPObject)
     maTables.erase(std::remove_if(maTables.begin(), maTables.end(), funcRemoveCondition), maTables.end());
 }
 
-void ScDPCollection::InsertNewTable(std::unique_ptr<ScDPObject> pDPObj)
+ScDPObject* ScDPCollection::InsertNewTable(std::unique_ptr<ScDPObject> pDPObj)
 {
     const ScRange& rOutRange = pDPObj->GetOutRange();
     const ScAddress& s = rOutRange.aStart;
@@ -3786,6 +3782,7 @@ void ScDPCollection::InsertNewTable(std::unique_ptr<ScDPObject> pDPObj)
     mpDoc->ApplyFlagsTab(s.Col(), s.Row(), e.Col(), e.Row(), s.Tab(), ScMF::DpTable);
 
     maTables.push_back(std::move(pDPObj));
+    return maTables.back().get();
 }
 
 bool ScDPCollection::HasTable(const ScDPObject* pDPObj) const

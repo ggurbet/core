@@ -22,7 +22,6 @@
 #include <svx/algitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/editobj.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <svl/srchitem.hxx>
 #include <editeng/langitem.hxx>
 #include <sfx2/docfile.hxx>
@@ -33,42 +32,30 @@
 #include <svl/stritem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
-#include <vcl/image.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
-#include <sal/macros.h>
 #include <unotools/charclass.hxx>
 #include <unotools/securityoptions.hxx>
-#include <stdlib.h>
-#include <time.h>
-#include <numeric>
-#include <svx/svdmodel.hxx>
-#include <svtools/colorcfg.hxx>
 
 #include <i18nlangtag/mslangid.hxx>
-#include <com/sun/star/lang/Locale.hpp>
 #include <comphelper/doublecheckedinit.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <unotools/calendarwrapper.hxx>
 #include <unotools/collatorwrapper.hxx>
-#include <unotools/intlwrapper.hxx>
 #include <unotools/syslocale.hxx>
 #include <unotools/transliterationwrapper.hxx>
 
-#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
 
 #include <global.hxx>
 #include <scresid.hxx>
 #include <autoform.hxx>
-#include <document.hxx>
 #include <patattr.hxx>
 #include <addincol.hxx>
 #include <adiasync.hxx>
 #include <userlist.hxx>
 #include <interpre.hxx>
-#include <docpool.hxx>
 #include <unitconv.hxx>
 #include <compiler.hxx>
 #include <parclass.hxx>
@@ -76,7 +63,6 @@
 #include <globstr.hrc>
 #include <strings.hrc>
 #include <scmod.hxx>
-#include <appoptio.hxx>
 #include <editutil.hxx>
 #include <docsh.hxx>
 
@@ -108,7 +94,7 @@ SvxBrushItem*   ScGlobal::pEmbeddedBrushItem = nullptr;
 ScFunctionList* ScGlobal::pStarCalcFunctionList = nullptr;
 ScFunctionMgr*  ScGlobal::pStarCalcFunctionMgr  = nullptr;
 
-ScUnitConverter* ScGlobal::pUnitConverter = nullptr;
+std::atomic<ScUnitConverter*> ScGlobal::pUnitConverter(nullptr);
 SvNumberFormatter* ScGlobal::pEnglishFormatter = nullptr;
 ScFieldEditEngine* ScGlobal::pFieldEditEngine = nullptr;
 
@@ -523,18 +509,13 @@ void ScGlobal::InitTextHeight(const SfxItemPool* pPool)
         return;
     }
 
-    const ScPatternAttr* pPattern = &pPool->GetDefaultItem(ATTR_PATTERN);
-    if (!pPattern)
-    {
-        OSL_FAIL("ScGlobal::InitTextHeight: No default pattern");
-        return;
-    }
+    const ScPatternAttr& rPattern = pPool->GetDefaultItem(ATTR_PATTERN);
 
     OutputDevice* pDefaultDev = Application::GetDefaultDevice();
     ScopedVclPtrInstance< VirtualDevice > pVirtWindow( *pDefaultDev );
     pVirtWindow->SetMapMode(MapMode(MapUnit::MapPixel));
     vcl::Font aDefFont;
-    pPattern->GetFont(aDefFont, SC_AUTOCOL_BLACK, pVirtWindow); // Font color doesn't matter here
+    rPattern.GetFont(aDefFont, SC_AUTOCOL_BLACK, pVirtWindow); // Font color doesn't matter here
     pVirtWindow->SetFont(aDefFont);
     sal_uInt16 nTest = static_cast<sal_uInt16>(
         pVirtWindow->PixelToLogic(Size(0, pVirtWindow->GetTextHeight()), MapMode(MapUnit::MapTwip)).Height());
@@ -542,10 +523,10 @@ void ScGlobal::InitTextHeight(const SfxItemPool* pPool)
     if (nTest > nDefFontHeight)
         nDefFontHeight = nTest;
 
-    const SvxMarginItem* pMargin = &pPattern->GetItem(ATTR_MARGIN);
+    const SvxMarginItem& rMargin = rPattern.GetItem(ATTR_MARGIN);
 
-    nTest = static_cast<sal_uInt16>(
-        nDefFontHeight + pMargin->GetTopMargin() + pMargin->GetBottomMargin() - STD_ROWHEIGHT_DIFF);
+    nTest = static_cast<sal_uInt16>(nDefFontHeight + rMargin.GetTopMargin()
+                                    + rMargin.GetBottomMargin() - STD_ROWHEIGHT_DIFF);
 
     if (nTest > nStdRowHeight)
         nStdRowHeight = nTest;
@@ -584,7 +565,7 @@ void ScGlobal::Clear()
     delete pLocale.load(); pLocale = nullptr;
     DELETEZ(pStrClipDocName);
 
-    DELETEZ(pUnitConverter);
+    delete pUnitConverter.load(); pUnitConverter = nullptr;
     DELETEZ(pFieldEditEngine);
 
     DELETEZ(pEmptyOUString);
@@ -674,11 +655,8 @@ void ScGlobal::ResetFunctionList()
 
 ScUnitConverter* ScGlobal::GetUnitConverter()
 {
-    assert(!bThreadedGroupCalcInProgress);
-    if ( !pUnitConverter )
-        pUnitConverter = new ScUnitConverter;
-
-    return pUnitConverter;
+    return comphelper::doubleCheckedInit( pUnitConverter,
+        []() { return new ScUnitConverter; });
 }
 
 const sal_Unicode* ScGlobal::UnicodeStrChr( const sal_Unicode* pStr,

@@ -141,10 +141,11 @@ class FormattingController implements View.OnClickListener {
                 break;
             case R.id.button_insert_picture:
                 insertPicture();
+                break;
             case R.id.button_insert_table:
                 insertTable();
                 break;
-                case R.id.button_delete_table:
+            case R.id.button_delete_table:
                 deleteTable();
                 break;
         }
@@ -305,7 +306,7 @@ class FormattingController implements View.OnClickListener {
 
         AlertDialog.Builder insertBuilder = new AlertDialog.Builder(mContext);
         insertBuilder.setTitle(R.string.select_insert_options);
-        insertBuilder.setNeutralButton("Cancel", null);
+        insertBuilder.setNeutralButton(R.string.alert_cancel, null);
         final int[] selectedItem = new int[1];
         insertBuilder.setSingleChoiceItems(mContext.getResources().getStringArray(R.array.insertrowscolumns), -1, new DialogInterface.OnClickListener() {
             @Override
@@ -313,7 +314,7 @@ class FormattingController implements View.OnClickListener {
                 selectedItem[0] = which;
             }
         });
-        insertBuilder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+        insertBuilder.setPositiveButton(R.string.alert_ok, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 switch (selectedItem[0]){

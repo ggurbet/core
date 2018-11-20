@@ -25,6 +25,7 @@
 #include <com/sun/star/uri/XVndSunStarScriptUrl.hpp>
 #include <comphelper/processfactory.hxx>
 #include <o3tl/make_unique.hxx>
+#include <osl/diagnose.h>
 
 using namespace ::com::sun::star;
 
@@ -47,7 +48,7 @@ SwMacroField::SwMacroField(SwMacroFieldType* pInitType,
     m_bIsScriptURL = isScriptURL(m_aMacro);
 }
 
-OUString SwMacroField::Expand() const
+OUString SwMacroField::ExpandImpl(SwRootFrame const*const) const
 {
     return m_aText ;
 }

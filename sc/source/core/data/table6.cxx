@@ -18,6 +18,7 @@
  */
 
 #include <unotools/textsearch.hxx>
+#include <com/sun/star/util/SearchResult.hpp>
 #include <svl/srchitem.hxx>
 #include <editeng/editobj.hxx>
 #include <osl/diagnose.h>
@@ -30,9 +31,7 @@
 #include <stlsheet.hxx>
 #include <markdata.hxx>
 #include <editutil.hxx>
-#include <detfunc.hxx>
 #include <postit.hxx>
-#include <stringutil.hxx>
 
 namespace {
 

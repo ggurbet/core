@@ -1256,25 +1256,6 @@ int Desktop::Main()
 
     CommandLineArgs& rCmdLineArgs = GetCommandLineArgs();
 
-#if HAVE_FEATURE_DESKTOP
-    OUString aUnknown( rCmdLineArgs.GetUnknown() );
-    if ( !aUnknown.isEmpty() )
-    {
-        displayCmdlineHelp( aUnknown );
-        return EXIT_FAILURE;
-    }
-    if ( rCmdLineArgs.IsHelp() )
-    {
-        displayCmdlineHelp( OUString() );
-        return EXIT_SUCCESS;
-    }
-    if ( rCmdLineArgs.IsVersion() )
-    {
-        displayVersion();
-        return EXIT_SUCCESS;
-    }
-#endif
-
     Translate::SetReadStringHook(ReplaceStringHookProc);
 
     // Startup screen
@@ -1400,7 +1381,7 @@ int Desktop::Main()
                 batch->commit();
 
                 // make sure the change is written to the configuration before we start the update
-                css::uno::Reference<css::util::XFlushable> xFlushable(css::configuration::theDefaultProvider::get(xContext), UNO_QUERY);;
+                css::uno::Reference<css::util::XFlushable> xFlushable(css::configuration::theDefaultProvider::get(xContext), UNO_QUERY);
                 xFlushable->flush();
                 // avoid the old oosplash staying around
                 CloseSplashScreen();
@@ -1685,13 +1666,6 @@ int Desktop::doShutdown()
         isRestartRequested(true);
     if ( pExecGlobals->bRestartRequested )
         SetRestartState();
-
-    if (pExecGlobals->xGlobalBroadcaster.is())
-    {
-        css::document::DocumentEvent aEvent;
-        aEvent.EventName = "OnCloseApp";
-        pExecGlobals->xGlobalBroadcaster->documentEventOccured(aEvent);
-    }
 
     // Restore old value
     const CommandLineArgs& rCmdLineArgs = GetCommandLineArgs();
@@ -2347,12 +2321,6 @@ void Desktop::HandleAppEvent( const ApplicationEvent& rAppEvent )
                 }
             }
         }
-        break;
-    case ApplicationEvent::Type::Help:
-        displayCmdlineHelp(rAppEvent.GetStringData());
-        break;
-    case ApplicationEvent::Type::Version:
-        displayVersion();
         break;
     case ApplicationEvent::Type::Open:
         {

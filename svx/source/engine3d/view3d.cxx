@@ -168,7 +168,7 @@ void Impl3DMirrorConstructOverlay::SetMirrorAxis(Point aMirrorAxisA, Point aMirr
     for(sal_uInt32 a(0); a < mrView.PaintWindowCount(); a++)
     {
         SdrPaintWindow* pCandidate = mrView.GetPaintWindow(a);
-        rtl::Reference< sdr::overlay::OverlayManager > xTargetOverlay = pCandidate->GetOverlayManager();
+        const rtl::Reference< sdr::overlay::OverlayManager >& xTargetOverlay = pCandidate->GetOverlayManager();
 
         if(xTargetOverlay.is())
         {
@@ -1255,7 +1255,7 @@ bool E3dView::BegDragObj(const Point& rPnt, OutputDevice* pOut,
                         }
 
                         // do not mask the allowed rotations
-                        eConstraint = E3dDragConstraint(eConstraint& eDragConstraint);
+                        eConstraint &= E3dDragConstraint::XYZ;
                         pForcedMeth = new E3dDragRotate(*this, GetMarkedObjectList(), eConstraint, IsSolidDragging());
                     }
                     break;
@@ -1506,7 +1506,6 @@ void E3dView::ResetCreationActive ()
 
 void E3dView::InitView ()
 {
-    eDragConstraint          = E3dDragConstraint::XYZ;
     aDefaultLightColor       = COL_WHITE;
     aDefaultAmbientColor     = COL_BLACK;
     mpMirrorOverlay          = nullptr;
@@ -1590,7 +1589,7 @@ void E3dView::CheckPossibilities()
     SdrView::CheckPossibilities();
 
     // Set other flags
-    if(bGroupPossible || bUnGroupPossible || bGrpEnterPossible)
+    if(m_bGroupPossible || m_bUnGroupPossible || m_bGrpEnterPossible)
     {
         const size_t nMarkCnt = GetMarkedObjectCount();
         bool bCoumpound = false;
@@ -1606,14 +1605,14 @@ void E3dView::CheckPossibilities()
 
         // So far: there are two or more of any objects selected. See if
         // compound objects are involved. If yes, ban grouping.
-        if(bGroupPossible && bCoumpound)
-            bGroupPossible = false;
+        if(m_bGroupPossible && bCoumpound)
+            m_bGroupPossible = false;
 
-        if(bUnGroupPossible && b3DObject)
-            bUnGroupPossible = false;
+        if(m_bUnGroupPossible && b3DObject)
+            m_bUnGroupPossible = false;
 
-        if(bGrpEnterPossible && bCoumpound)
-            bGrpEnterPossible = false;
+        if(m_bGrpEnterPossible && bCoumpound)
+            m_bGrpEnterPossible = false;
     }
 }
 

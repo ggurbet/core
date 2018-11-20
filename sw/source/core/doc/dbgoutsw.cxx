@@ -19,6 +19,7 @@
 
 #ifdef DBG_UTIL
 
+#include <osl/diagnose.h>
 #include <rtl/ustring.hxx>
 #include <svl/poolitem.hxx>
 #include <svl/itemiter.hxx>
@@ -513,11 +514,9 @@ static OUString lcl_dbg_out(const SwNode & rNode)
     aTmpStr += OUString::number(rNode.GetIndex());
     aTmpStr += "\"";
 
-#ifdef DBG_UTIL
     aTmpStr += " serial=\"";
     aTmpStr += OUString::number(rNode.GetSerial());
     aTmpStr += "\"";
-#endif
 
     aTmpStr += " type=\"";
     aTmpStr += OUString::number(sal_Int32( rNode.GetNodeType() ) );

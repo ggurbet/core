@@ -337,7 +337,7 @@ public:
     /// Set size of draw objects.
     void SetObjRect( const SwRect& rRect );
 
-    long BeginDrag( const Point *pPt, bool bProp );
+    void BeginDrag( const Point *pPt, bool bProp );
     void Drag     ( const Point *pPt, bool bProp );
     void EndDrag  ();
     void BreakDrag();
@@ -647,10 +647,10 @@ public:
     void SetRowHeight( const SwFormatFrameSize &rSz );
 
     /// Pointer must be destroyed by caller != 0.
-    void GetRowHeight( SwFormatFrameSize *&rpSz ) const;
+    std::unique_ptr<SwFormatFrameSize> GetRowHeight() const;
 
     void SetRowSplit( const SwFormatRowSplit &rSz );
-    void GetRowSplit( SwFormatRowSplit *&rpSz ) const;
+    std::unique_ptr<SwFormatRowSplit> GetRowSplit() const;
 
     void   SetBoxAlign( sal_uInt16 nOrient );
     sal_uInt16 GetBoxAlign() const;         ///< USHRT_MAX if ambiguous.

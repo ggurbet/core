@@ -184,7 +184,7 @@ SvxCharacterMap::SvxCharacterMap(weld::Window* pParent, const SfxItemSet* pSet, 
     m_xSearchSet->Hide();
 }
 
-short SvxCharacterMap::execute()
+short SvxCharacterMap::run()
 {
     if( SvxShowCharSet::getSelectedChar() == ' ')
     {
@@ -202,7 +202,7 @@ short SvxCharacterMap::execute()
         m_xOKBtn->set_sensitive(true);
     }
 
-    return run();
+    return SfxDialogController::run();
 }
 
 void SvxCharacterMap::SetChar( sal_UCS4 c )
@@ -746,7 +746,7 @@ IMPL_LINK_NOARG(SvxCharacterMap, SubsetSelectHdl, weld::ComboBox&, void)
 
 IMPL_LINK(SvxCharacterMap, RecentClearClickHdl, SvxCharView*, rView, void)
 {
-    OUString sTitle = rView->GetText();
+    const OUString& sTitle = rView->GetText();
     auto itChar = std::find(maRecentCharList.begin(), maRecentCharList.end(), sTitle);
 
     OUString sFont = rView->GetFont().GetFamilyName();

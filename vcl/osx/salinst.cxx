@@ -19,6 +19,7 @@
 
 #include <sal/config.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <condition_variable>
 #include <mutex>
@@ -726,25 +727,20 @@ void AquaSalInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
         NSString* pType = i < nTypeCount ? [pTypes objectAtIndex: i] : nil;
         if( pName )
         {
-            SalPrinterQueueInfo* pInfo = new SalPrinterQueueInfo;
+            std::unique_ptr<SalPrinterQueueInfo> pInfo(new SalPrinterQueueInfo);
             pInfo->maPrinterName    = GetOUString( pName );
             if( pType )
                 pInfo->maDriver     = GetOUString( pType );
             pInfo->mnStatus         = PrintQueueFlags::NONE;
             pInfo->mnJobs           = 0;
 
-            pList->Add( pInfo );
+            pList->Add( std::move(pInfo) );
         }
     }
 }
 
 void AquaSalInstance::GetPrinterQueueState( SalPrinterQueueInfo* )
 {
-}
-
-void AquaSalInstance::DeletePrinterQueueInfo( SalPrinterQueueInfo* pInfo )
-{
-    delete pInfo;
 }
 
 OUString AquaSalInstance::GetDefaultPrinter()
@@ -953,7 +949,9 @@ NSImage* CreateNSImage( const Image& rImage )
     {
         [pImage lockFocusFlipped:YES];
         NSGraphicsContext* pContext = [NSGraphicsContext currentContext];
-        CGContextRef rCGContext = [pContext CGContext];
+SAL_WNODEPRECATED_DECLARATIONS_PUSH // 'graphicsPort' is deprecated: first deprecated in macOS 10.14
+        CGContextRef rCGContext = static_cast<CGContextRef>([pContext graphicsPort]);
+SAL_WNODEPRECATED_DECLARATIONS_POP
 
         const CGRect aDstRect = { {0, 0}, { static_cast<CGFloat>(aSize.Width()), static_cast<CGFloat>(aSize.Height()) } };
         CGContextDrawImage( rCGContext, aDstRect, xImage );

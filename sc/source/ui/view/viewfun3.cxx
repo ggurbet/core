@@ -461,7 +461,7 @@ void ScViewFunc::PasteDraw()
     const ScDrawTransferObj* pDrawClip = ScDrawTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(rViewData.GetActiveWin()));
     if (pDrawClip)
     {
-        OUString aSrcShellID = pDrawClip->GetShellID();
+        const OUString& aSrcShellID = pDrawClip->GetShellID();
         OUString aDestShellID = SfxObjectShell::CreateShellID(rViewData.GetDocShell());
         PasteDraw(aPos, pDrawClip->GetModel(), false, aSrcShellID, aDestShellID);
     }
@@ -853,7 +853,7 @@ bool checkDestRangeForOverwrite(const ScRangeList& rDestRanges, const ScDocument
     if (!bIsEmpty)
     {
         ScReplaceWarnBox aBox(pParentWnd);
-        if (aBox.execute() != RET_YES)
+        if (aBox.run() != RET_YES)
         {
             //  changing the configuration is within the ScReplaceWarnBox
             return false;

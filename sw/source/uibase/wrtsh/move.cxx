@@ -46,7 +46,8 @@ public:
     ShellMoveCursor( SwWrtShell* pWrtSh, bool bSel )
     {
         bAct = !pWrtSh->ActionPend() && (pWrtSh->GetFrameType(nullptr,false) & FrameTypeFlags::FLY_ANY);
-        ( pSh = pWrtSh )->MoveCursor( bSel );
+        pSh = pWrtSh;
+        pSh->MoveCursor( bSel );
         pWrtSh->GetView().GetViewFrame()->GetBindings().Invalidate(SID_HYPERLINK_GETLINK);
     }
     ~ShellMoveCursor() COVERITY_NOEXCEPT_FALSE
@@ -295,13 +296,13 @@ bool SwWrtShell::GoEnd(bool bKeepArea, const bool *pMoveTable)
            SwCursorShell::SttEndDoc(false);
 }
 
-bool SwWrtShell::SttDoc( bool bSelect )
+bool SwWrtShell::StartOfSection(bool const bSelect)
 {
     ShellMoveCursor aTmp( this, bSelect );
     return GoStart(false, nullptr, bSelect );
 }
 
-bool SwWrtShell::EndDoc( bool bSelect)
+bool SwWrtShell::EndOfSection(bool const bSelect)
 {
     ShellMoveCursor aTmp( this, bSelect );
     return GoEnd();

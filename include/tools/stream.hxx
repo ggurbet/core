@@ -156,9 +156,6 @@ private:
 
     // Error codes, conversion, compression, ...
     bool            m_isDirty;  ///< true: Stream != buffer content
-    bool            m_isConsistent; ///< false: Buffer contains data, which were
-                                ///< NOT allowed to be written by PutData
-                                ///< into the derived stream (cf. PutBack)
     bool            m_isSwap;
     bool            m_isEof;
     ErrCode         m_nError;
@@ -188,7 +185,7 @@ protected:
     virtual void    FlushData();
     virtual void    SetSize(sal_uInt64 nSize);
 
-    void            FlushBuffer(bool isConsistent);
+    void            FlushBuffer();
     void            ClearError();
     void            ClearBuffer();
 
@@ -272,9 +269,9 @@ public:
     sal_uInt64      Seek( sal_uInt64 nPos );
     sal_uInt64      SeekRel( sal_Int64 nPos );
     sal_uInt64      Tell() const { return m_nBufFilePos + m_nBufActualPos;  }
-    sal_uInt64      TellEnd();
+    virtual sal_uInt64 TellEnd();
     // length between current (Tell()) pos and end of stream
-    virtual sal_uInt64 remainingSize();
+    sal_uInt64      remainingSize();
     void            Flush();
     // next Tell() <= nSize
     bool            SetStreamSize( sal_uInt64 nSize );
@@ -669,7 +666,7 @@ public:
 
     void            ObjectOwnsMemory( bool bOwn ) { bOwnsData = bOwn; }
     void            SetResizeOffset( std::size_t nNewResize ) { nResize = nNewResize; }
-    virtual sal_uInt64 remainingSize() override { FlushBuffer(true); return GetEndOfData() - Tell(); }
+    virtual sal_uInt64 TellEnd() override { FlushBuffer(); return nEndOfData; }
 };
 
 #endif

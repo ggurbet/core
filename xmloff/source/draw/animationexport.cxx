@@ -54,6 +54,7 @@
 #include <o3tl/any.hxx>
 #include <sax/tools/converter.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
 #include "sdxmlexp_impl.hxx"
@@ -478,12 +479,12 @@ AnimationsExporterImpl::AnimationsExporterImpl( SvXMLExport& rExport, const Refe
 
 
 /** split a uri hierarchy into first segment and rest */
-static bool splitPath(::rtl::OUString const & i_rPath,
-    ::rtl::OUString & o_rDir, ::rtl::OUString& o_rRest)
+static bool splitPath(OUString const & i_rPath,
+    OUString & o_rDir, OUString& o_rRest)
 {
     const sal_Int32 idx(i_rPath.indexOf(u'/'));
     if (idx < 0 || idx >= i_rPath.getLength()) {
-        o_rDir = ::rtl::OUString();
+        o_rDir = OUString();
         o_rRest = i_rPath;
         return true;
     } else if (idx == 0 || idx == i_rPath.getLength() - 1) {
@@ -499,10 +500,10 @@ static bool splitPath(::rtl::OUString const & i_rPath,
 static void lcl_CopyStream(
         uno::Reference<embed::XStorage> const& xSource,
         uno::Reference<embed::XStorage> const& xTarget,
-         ::rtl::OUString const& rPath)
+         OUString const& rPath)
 {
-    ::rtl::OUString dir;
-    ::rtl::OUString rest;
+    OUString dir;
+    OUString rest;
     if (!splitPath(rPath, dir, rest))
         throw uno::RuntimeException();
 
@@ -880,13 +881,10 @@ void AnimationsExporterImpl::exportNode( const Reference< XAnimationNode >& xNod
         }
 
         aTemp = xNode->getEndSync();
-        if( aTemp.hasValue() )
+        if( aTemp.hasValue() && (aTemp >>= nTemp) )
         {
-            if( aTemp >>= nTemp )
-            {
-                SvXMLUnitConverter::convertEnum( sTmp, nTemp, aAnimations_EnumMap_Endsync );
-                mrExport.AddAttribute( XML_NAMESPACE_SMIL, XML_ENDSYNC, sTmp.makeStringAndClear() );
-            }
+            SvXMLUnitConverter::convertEnum( sTmp, nTemp, aAnimations_EnumMap_Endsync );
+            mrExport.AddAttribute( XML_NAMESPACE_SMIL, XML_ENDSYNC, sTmp.makeStringAndClear() );
         }
 
         sal_Int16 nContainerNodeType = EffectNodeType::DEFAULT;

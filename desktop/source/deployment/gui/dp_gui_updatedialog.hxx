@@ -27,7 +27,7 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <rtl/ref.hxx>
 #include <rtl/ustring.hxx>
-#include <svtools/svlbitm.hxx>
+#include <vcl/svlbitm.hxx>
 #include <svx/checklbx.hxx>
 #include <tools/link.hxx>
 #include <vcl/layout.hxx>
@@ -96,8 +96,8 @@ public:
         css::uno::Sequence< css::uno::Sequence< OUString > > const &rItemList );
 
 private:
-    UpdateDialog(UpdateDialog &) = delete;
-    void operator =(UpdateDialog &) = delete;
+    UpdateDialog(UpdateDialog const &) = delete;
+    UpdateDialog& operator =(UpdateDialog const &) = delete;
 
     struct DisabledUpdate;
     struct SpecificError;
@@ -115,8 +115,8 @@ private:
         sal_uInt16 getItemCount() const;
 
     private:
-        explicit CheckListBox(UpdateDialog::CheckListBox &) = delete;
-        void operator =(UpdateDialog::CheckListBox &) = delete;
+        explicit CheckListBox(UpdateDialog::CheckListBox const &) = delete;
+        void operator =(UpdateDialog::CheckListBox const &) = delete;
 
         virtual void MouseButtonDown(MouseEvent const & event) override;
         virtual void MouseButtonUp(MouseEvent const & event) override;

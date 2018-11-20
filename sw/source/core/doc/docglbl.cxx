@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <osl/diagnose.h>
 #include <hintids.hxx>
 #include <unotools/tempfile.hxx>
 #include <svl/urihelper.hxx>
@@ -291,7 +292,7 @@ bool SwDoc::SplitDoc( sal_uInt16 eDocType, const OUString& rPath, bool bOutline,
                     OUString sTitle( xDocProps->getTitle() );
                     if (!sTitle.isEmpty())
                         sTitle += ": ";
-                    sTitle += pStartNd->GetTextNode()->GetExpandText();
+                    sTitle += pStartNd->GetTextNode()->GetExpandText(nullptr);
                     xDocProps->setTitle( sTitle );
 
                     // Replace template

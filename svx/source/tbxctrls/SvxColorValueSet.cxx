@@ -22,6 +22,7 @@
 #include <vcl/builderfactory.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <osl/diagnose.h>
 
 SvxColorValueSet::SvxColorValueSet(vcl::Window* _pParent, WinBits nWinStyle)
 :   ValueSet(_pParent, nWinStyle)
@@ -39,9 +40,7 @@ VCL_BUILDER_FACTORY_CONSTRUCTOR(SvxColorValueSet, WB_TABSTOP)
 
 sal_uInt32 SvxColorValueSet::getMaxRowCount()
 {
-    const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
-
-    return rStyleSettings.GetColorValueSetMaximumRowCount();
+    return StyleSettings::GetColorValueSetMaximumRowCount();
 }
 
 sal_uInt32 SvxColorValueSet::getEntryEdgeLength()
@@ -101,18 +100,18 @@ void ColorValueSet::addEntriesForColorSet(const std::set<Color>& rColorSet, cons
     sal_uInt32 nStartIndex = 1;
     if(rNamePrefix.getLength() != 0)
     {
-        for(std::set<Color>::const_iterator it = rColorSet.begin();
-            it != rColorSet.end(); ++it, nStartIndex++)
+        for(const auto& rColor : rColorSet)
         {
-            InsertItem(nStartIndex, *it, rNamePrefix + OUString::number(nStartIndex));
+            InsertItem(nStartIndex, rColor, rNamePrefix + OUString::number(nStartIndex));
+            nStartIndex++;
         }
     }
     else
     {
-        for(std::set<Color>::const_iterator it = rColorSet.begin();
-            it != rColorSet.end(); ++it, nStartIndex++)
+        for(const auto& rColor : rColorSet)
         {
-            InsertItem(nStartIndex, *it, "");
+            InsertItem(nStartIndex, rColor, "");
+            nStartIndex++;
         }
     }
 }
@@ -122,18 +121,18 @@ void SvxColorValueSet::addEntriesForColorSet(const std::set<Color>& rColorSet, c
     sal_uInt32 nStartIndex = 1;
     if(rNamePrefix.getLength() != 0)
     {
-        for(std::set<Color>::const_iterator it = rColorSet.begin();
-            it != rColorSet.end(); ++it, nStartIndex++)
+        for(const auto& rColor : rColorSet)
         {
-            InsertItem(nStartIndex, *it, rNamePrefix + OUString::number(nStartIndex));
+            InsertItem(nStartIndex, rColor, rNamePrefix + OUString::number(nStartIndex));
+            nStartIndex++;
         }
     }
     else
     {
-        for(std::set<Color>::const_iterator it = rColorSet.begin();
-            it != rColorSet.end(); ++it, nStartIndex++)
+        for(const auto& rColor : rColorSet)
         {
-            InsertItem(nStartIndex, *it, "");
+            InsertItem(nStartIndex, rColor, "");
+            nStartIndex++;
         }
     }
 }

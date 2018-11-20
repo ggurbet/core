@@ -450,7 +450,6 @@ bool GraphicDescriptor::ImpDetectPCX( SvStream& rStm )
     if ( cByte == 0x0a )
     {
         nFormat = GraphicFileFormat::PCX;
-        bRet = true;
 
         sal_uInt16  nTemp16;
         sal_uInt16  nXmin;
@@ -644,7 +643,8 @@ bool GraphicDescriptor::ImpDetectTIF( SvStream& rStm, bool bExtendedInfo )
 
                     // Offset of the first IFD
                     rStm.ReadUInt32( nTemp32 );
-                    rStm.SeekRel( ( nCount = ( nTemp32 + 2 ) ) - 0x08 );
+                    nCount = nTemp32 + 2;
+                    rStm.SeekRel( nCount - 0x08 );
 
                     if ( nCount < nMax )
                     {

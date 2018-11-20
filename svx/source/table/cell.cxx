@@ -260,9 +260,9 @@ namespace sdr
                         SfxItemSet aSet(pOutliner->GetParaAttribs(nPara));
                         aSet.Put(rSet);
 
-                        for (std::vector<sal_uInt16>::const_iterator aI = aCharWhichIds.begin(); aI != aCharWhichIds.end(); ++aI)
+                        for (const auto& rWhichId : aCharWhichIds)
                         {
-                            pOutliner->RemoveCharAttribs(nPara, *aI);
+                            pOutliner->RemoveCharAttribs(nPara, rWhichId);
                         }
 
                         pOutliner->SetParaAttribs(nPara, aSet);
@@ -806,10 +806,11 @@ SdrTextHorzAdjust Cell::GetTextHorizontalAdjust() const
 
 void Cell::SetOutlinerParaObject( std::unique_ptr<OutlinerParaObject> pTextObject )
 {
+    bool bNullTextObject = pTextObject == nullptr;
     SdrText::SetOutlinerParaObject( std::move(pTextObject) );
     maSelection.nStartPara = EE_PARA_MAX_COUNT;
 
-    if( pTextObject == nullptr )
+    if( bNullTextObject )
         ForceOutlinerParaObject( OutlinerMode::TextObject );
 }
 

@@ -26,6 +26,7 @@
 #include <rtl/ref.hxx>
 #include <salhelper/simplereferenceobject.hxx>
 #include <tools/gen.hxx>
+#include <vcl/glyphitem.hxx>
 #include <vcl/vcllayout.hxx>
 
 #include <unordered_map>
@@ -63,15 +64,14 @@ public: // TODO: make data members private
 
     inline hb_font_t* GetHbFont();
     void SetAverageWidthFactor(double nFactor) { m_nAveWidthFactor = nFactor; }
-    void SetNonAntialiased(bool bNonAntialiased);
     double GetAverageWidthFactor() const { return m_nAveWidthFactor; }
     const FontSelectPattern& GetFontSelectPattern() const { return m_aFontSelData; }
 
     const PhysicalFontFace* GetFontFace() const { return m_pFontFace.get(); }
     const ImplFontCache* GetFontCache() const { return mpFontCache; }
 
-    bool GetCachedGlyphBoundRect(sal_GlyphId, tools::Rectangle &);
-    void CacheGlyphBoundRect(sal_GlyphId nID, tools::Rectangle &);
+    bool GetGlyphBoundRect(sal_GlyphId, tools::Rectangle&, bool) const;
+    virtual bool GetGlyphOutline(sal_GlyphId, basegfx::B2DPolyPolygon&, bool) const = 0;
 
     int GetKashidaWidth();
 
@@ -81,8 +81,10 @@ public: // TODO: make data members private
 protected:
     explicit LogicalFontInstance(const PhysicalFontFace&, const FontSelectPattern&);
 
+    virtual bool ImplGetGlyphBoundRect(sal_GlyphId, tools::Rectangle&, bool) const = 0;
+
     // Takes ownership of pHbFace.
-    hb_font_t* InitHbFont(hb_face_t* pHbFace) const;
+    static hb_font_t* InitHbFont(hb_face_t* pHbFace);
     virtual hb_font_t* ImplInitHbFont() { assert(false); return nullptr; }
     inline void ReleaseHbFont();
 
@@ -92,7 +94,7 @@ private:
     // TODO: at least the ones which just differ in orientation, stretching or height
     typedef ::std::unordered_map< ::std::pair<sal_UCS4,FontWeight>, OUString > UnicodeFallbackList;
     std::unique_ptr<UnicodeFallbackList> mpUnicodeFallbackList;
-    ImplFontCache * mpFontCache;
+    mutable ImplFontCache * mpFontCache;
     const FontSelectPattern m_aFontSelData;
     hb_font_t* m_pHbFont;
     double m_nAveWidthFactor;

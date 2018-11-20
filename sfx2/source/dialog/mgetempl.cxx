@@ -23,6 +23,7 @@
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/style.hxx>
+#include <osl/diagnose.h>
 
 #include <sfx2/styfitem.hxx>
 #include <sfx2/styledlg.hxx>
@@ -68,6 +69,7 @@ SfxManageStyleSheetPage::SfxManageStyleSheetPage(TabPageParent pParent, const Sf
     , m_xNameFt(m_xBuilder->weld_label("nameft"))
 {
     m_xFollowLb->make_sorted();
+    // tdf#120188 like SwCharURLPage limit the width of the style combos
     const int nMaxWidth(m_xFollowLb->get_approximate_digit_width() * 50);
     m_xFollowLb->set_size_request(nMaxWidth , -1);
     m_xBaseLb->make_sorted();
@@ -294,7 +296,7 @@ void SfxManageStyleSheetPage::SetDescriptionText_Impl()
 
 {
     MapUnit eUnit = MapUnit::MapCM;
-    FieldUnit eFieldUnit( FUNIT_CM );
+    FieldUnit eFieldUnit( FieldUnit::CM );
     SfxModule* pModule = SfxModule::GetActiveModule();
     if ( pModule )
     {
@@ -305,15 +307,15 @@ void SfxManageStyleSheetPage::SetDescriptionText_Impl()
 
     switch ( eFieldUnit )
     {
-        case FUNIT_MM:      eUnit = MapUnit::MapMM; break;
-        case FUNIT_CM:
-        case FUNIT_M:
-        case FUNIT_KM:      eUnit = MapUnit::MapCM; break;
-        case FUNIT_POINT:
-        case FUNIT_PICA:    eUnit = MapUnit::MapPoint; break;
-        case FUNIT_INCH:
-        case FUNIT_FOOT:
-        case FUNIT_MILE:    eUnit = MapUnit::MapInch; break;
+        case FieldUnit::MM:      eUnit = MapUnit::MapMM; break;
+        case FieldUnit::CM:
+        case FieldUnit::M:
+        case FieldUnit::KM:      eUnit = MapUnit::MapCM; break;
+        case FieldUnit::POINT:
+        case FieldUnit::PICA:    eUnit = MapUnit::MapPoint; break;
+        case FieldUnit::INCH:
+        case FieldUnit::FOOT:
+        case FieldUnit::MILE:    eUnit = MapUnit::MapInch; break;
 
         default:
             OSL_FAIL( "non supported field unit" );

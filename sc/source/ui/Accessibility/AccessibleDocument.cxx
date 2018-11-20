@@ -419,8 +419,7 @@ void ScChildrenShapes::Notify(SfxBroadcaster&, const SfxHint& rHint)
                     uno::Reference<drawing::XShape> xShape (pObj->getUnoShape(), uno::UNO_QUERY);
                     if (xShape.is())
                     {
-                        ScShapeDataLess aLess;
-                        std::sort(maZOrderedShapes.begin(), maZOrderedShapes.end(), aLess); // sort, because the z index or layer could be changed
+                        std::sort(maZOrderedShapes.begin(), maZOrderedShapes.end(), ScShapeDataLess()); // sort, because the z index or layer could be changed
                         CheckWhetherAnchorChanged(xShape);
                     }
                 }
@@ -958,8 +957,7 @@ bool ScChildrenShapes::FindSelectedShapesChanges(const uno::Reference<drawing::X
     {
         pFocusedObj = GetSdrObjectFromXShape(aShapesList[0]->xShape);
     }
-    ScShapeDataLess aLess;
-    std::sort(aShapesList.begin(), aShapesList.end(), aLess);
+    std::sort(aShapesList.begin(), aShapesList.end(), ScShapeDataLess());
     SortedShapes vecSelectedShapeAdd;
     SortedShapes vecSelectedShapeRemove;
     bool bHasSelect=false;
@@ -1066,35 +1064,32 @@ bool ScChildrenShapes::FindSelectedShapesChanges(const uno::Reference<drawing::X
             uno::Reference< drawing::XShape > xMarkedXShape (pMarkedObj->getUnoShape(), uno::UNO_QUERY);
             pUpObj = pMarkedObj->getParentSdrObjectFromSdrObject();
 
-            if( pMarkedObj == pFocusedObj )
+            if( pMarkedObj == pFocusedObj && pUpObj )
             {
-                if( pUpObj )
+                uno::Reference< drawing::XShape > xUpGroupXShape (pUpObj->getUnoShape(), uno::UNO_QUERY);
+                uno::Reference < XAccessible > xAccGroupShape =
+                    const_cast<ScChildrenShapes*>(this)->GetAccessibleCaption( xUpGroupXShape );
+                if( xAccGroupShape.is() )
                 {
-                    uno::Reference< drawing::XShape > xUpGroupXShape (pUpObj->getUnoShape(), uno::UNO_QUERY);
-                    uno::Reference < XAccessible > xAccGroupShape =
-                        const_cast<ScChildrenShapes*>(this)->GetAccessibleCaption( xUpGroupXShape );
-                    if( xAccGroupShape.is() )
+                    ::accessibility::AccessibleShape* pAccGroupShape =
+                        static_cast< ::accessibility::AccessibleShape* >(xAccGroupShape.get());
+                    if( pAccGroupShape )
                     {
-                        ::accessibility::AccessibleShape* pAccGroupShape =
-                            static_cast< ::accessibility::AccessibleShape* >(xAccGroupShape.get());
-                        if( pAccGroupShape )
+                        sal_Int32 nCount =  pAccGroupShape->getAccessibleChildCount();
+                        for( sal_Int32 i = 0; i < nCount; i++ )
                         {
-                            sal_Int32 nCount =  pAccGroupShape->getAccessibleChildCount();
-                            for( sal_Int32 i = 0; i < nCount; i++ )
+                            uno::Reference<XAccessible> xAccShape = pAccGroupShape->getAccessibleChild(i);
+                            if (xAccShape.is())
                             {
-                                uno::Reference<XAccessible> xAccShape = pAccGroupShape->getAccessibleChild(i);
-                                if (xAccShape.is())
+                                ::accessibility::AccessibleShape* pChildAccShape =  static_cast< ::accessibility::AccessibleShape* >(xAccShape.get());
+                                uno::Reference< drawing::XShape > xChildShape = pChildAccShape->GetXShape();
+                                if (xChildShape == xMarkedXShape)
                                 {
-                                    ::accessibility::AccessibleShape* pChildAccShape =  static_cast< ::accessibility::AccessibleShape* >(xAccShape.get());
-                                    uno::Reference< drawing::XShape > xChildShape = pChildAccShape->GetXShape();
-                                    if (xChildShape == xMarkedXShape)
-                                    {
-                                        pChildAccShape->SetState(AccessibleStateType::FOCUSED);
-                                    }
-                                    else
-                                    {
-                                        pChildAccShape->ResetState(AccessibleStateType::FOCUSED);
-                                    }
+                                    pChildAccShape->SetState(AccessibleStateType::FOCUSED);
+                                }
+                                else
+                                {
+                                    pChildAccShape->ResetState(AccessibleStateType::FOCUSED);
                                 }
                             }
                         }
@@ -1312,8 +1307,7 @@ bool ScChildrenShapes::FindShape(const uno::Reference<drawing::XShape>& xShape, 
     bool bResult(false);
     ScAccessibleShapeData aShape;
     aShape.xShape = xShape;
-    ScShapeDataLess aLess;
-    rItr = std::lower_bound(maZOrderedShapes.begin(), maZOrderedShapes.end(), &aShape, aLess);
+    rItr = std::lower_bound(maZOrderedShapes.begin(), maZOrderedShapes.end(), &aShape, ScShapeDataLess());
     if ((rItr != maZOrderedShapes.end()) && (*rItr != nullptr) && ((*rItr)->xShape.get() == xShape.get()))
         bResult = true; // if the shape is found
 
@@ -1860,17 +1854,13 @@ void SAL_CALL
         if (xAccessible.is())
         {
             bool bWasTableSelected(IsTableSelected());
-
-            if (mpChildrenShapes)
-                mpChildrenShapes->Select(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is too high
-
+            mpChildrenShapes->Select(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is too high
             if (bWasTableSelected)
                 mpViewShell->SelectAll();
         }
         else
         {
-            if (mpViewShell)
-                mpViewShell->SelectAll();
+            mpViewShell->SelectAll();
         }
     }
 }
@@ -1998,9 +1988,7 @@ void SAL_CALL
         uno::Reference < XAccessible > xAccessible = mpChildrenShapes->Get(nChildIndex);
         if (xAccessible.is())
         {
-            if (mpChildrenShapes)
-                mpChildrenShapes->Deselect(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is too high
-
+            mpChildrenShapes->Deselect(nChildIndex); // throws no lang::IndexOutOfBoundsException if Index is too high
             if (bTabMarked)
                 mpViewShell->SelectAll(); // select the table again
         }

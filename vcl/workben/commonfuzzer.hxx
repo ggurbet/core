@@ -66,10 +66,10 @@ namespace
             OUString sExecDir;
             osl::FileBase::getSystemPathFromFileURL(execdir, sExecDir);
 
-            rtl::OStringBuffer aBuffer("<?xml version=\"1.0\"?>\n<fontconfig><dir>");
+            OStringBuffer aBuffer("<?xml version=\"1.0\"?>\n<fontconfig><dir>");
             aBuffer.append(OUStringToOString(sExecDir + getExecutableName() + ".fonts", osl_getThreadTextEncoding()));
             aBuffer.append("</dir><cachedir>/tmp/cache/fontconfig</cachedir></fontconfig>");
-            rtl::OString aConf = aBuffer.makeStringAndClear();
+            OString aConf = aBuffer.makeStringAndClear();
             sal_uInt64 aBytesWritten;
             aFontConfig.write(aConf.getStr(), aConf.getLength(), aBytesWritten);
             assert(aBytesWritten == aConf.getLength());
@@ -120,7 +120,7 @@ void CommonInitialize(int *argc, char ***argv)
     comphelper::setProcessServiceFactory( xServiceManager );
     utl::ConfigManager::EnableFuzzing();
     InitVCL();
-    Application::SetDialogCancelMode( Application::DialogCancelMode::Silent );
+    Application::SetDialogCancelMode(DialogCancelMode::Silent);
 
     //we don't have a de-init, so inside this leak disabled region...
     //get the font info

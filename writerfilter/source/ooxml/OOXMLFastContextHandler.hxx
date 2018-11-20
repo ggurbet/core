@@ -147,7 +147,7 @@ public:
     void fieldSeparator();
     void endField();
     void lockField();
-    void ftnednref();
+    static void ftnednref();
     void ftnedncont();
     void ftnednsep();
     void pgNum();
@@ -233,7 +233,7 @@ protected:
     OOXMLValue::Pointer_t mpGridAfter;
 
 private:
-    void operator =(OOXMLFastContextHandler &) = delete;
+    void operator =(OOXMLFastContextHandler const &) = delete;
     /// Handles AlternateContent. Returns true, if children of the current element should be ignored.
     bool prepareMceContext(Token_t nElement, const css::uno::Reference<css::xml::sax::XFastAttributeList>& Attribs);
 

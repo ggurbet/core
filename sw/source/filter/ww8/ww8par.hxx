@@ -652,17 +652,16 @@ protected:
 public:
     WW8FormulaControl(const OUString& rN, SwWW8ImplReader &rRdr)
         : mrRdr(rRdr), mfUnknown(0), mfDropdownIndex(0),
-        mfToolTip(0), mfNoMark(0), mfUseSize(0), mfNumbersOnly(0), mfDateOnly(0),
-        mfUnused(0), mhpsCheckBox(20), mnChecked(0), mnMaxLen(0), msName( rN )
+        mfToolTip(0), mfNoMark(0), mfType(0),
+        mfUnused(0), mhpsCheckBox(20), mnChecked(0), mnMaxLen(0),
+        mbHelp(false), msName( rN )
     {
     }
     sal_uInt8 mfUnknown:2;
     sal_uInt8 mfDropdownIndex:6;
     sal_uInt8 mfToolTip:1;
     sal_uInt8 mfNoMark:1;
-    sal_uInt8 mfUseSize:1;
-    sal_uInt8 mfNumbersOnly:1;
-    sal_uInt8 mfDateOnly:1;
+    sal_uInt8 mfType:3;
     sal_uInt8 mfUnused:3;
 
     sal_uInt16 mhpsCheckBox;
@@ -673,8 +672,11 @@ public:
     OUString msTitle;
     OUString msDefault;
     OUString msFormatting;
+    bool mbHelp;
     OUString msHelp;
     OUString msToolTip;
+    OUString msEntryMcr;
+    OUString msExitMcr;
     std::vector<OUString> maListEntries;
     virtual ~WW8FormulaControl() {}
     void FormulaRead(SwWw8ControlType nWhich,SvStream *pD);
@@ -1041,7 +1043,7 @@ struct WW8TabBandDesc
     static void setcelldefaults(WW8_TCell *pCells, short nCells);
     void ReadDef(bool bVer67, const sal_uInt8* pS, short nLen);
     void ProcessDirection(const sal_uInt8* pParams);
-    void ProcessSprmTSetBRC(int nBrcVer, const sal_uInt8* pParamsTSetBRC);
+    void ProcessSprmTSetBRC(int nBrcVer, const sal_uInt8* pParamsTSetBRC, sal_uInt16 nParamsLen);
     void ProcessSprmTTableBorders(int nBrcVer, const sal_uInt8* pParams, sal_uInt16 nParamsLen);
     void ProcessSprmTDxaCol(const sal_uInt8* pParamsTDxaCol);
     void ProcessSprmTDelete(const sal_uInt8* pParamsTDelete);

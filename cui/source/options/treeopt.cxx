@@ -95,6 +95,7 @@
 #include <svx/xpool.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/urlobj.hxx>
+#include <unotools/configmgr.hxx>
 #include <unotools/linguprops.hxx>
 #include <unotools/misccfg.hxx>
 #include <unotools/moduleoptions.hxx>
@@ -105,7 +106,7 @@
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/settings.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 #include <sal/log.hxx>
 
 #ifdef LINUX
@@ -298,7 +299,9 @@ static VclPtr<SfxTabPage> CreateGeneralTabPage(sal_uInt16 nId, TabPageParent pPa
         case RID_SVXPAGE_INET_PROXY:                fnCreate = &SvxProxyTabPage::Create; break;
         case RID_SVXPAGE_INET_SECURITY:             fnCreate = &SvxSecurityTabPage::Create; break;
         case RID_SVXPAGE_INET_MAIL:                 fnCreate = &SvxEMailTabPage::Create; break;
+#if HAVE_FEATURE_DESKTOP
         case RID_SVXPAGE_PERSONALIZATION:           fnCreate = &SvxPersonalizationTabPage::Create; break;
+#endif
         case RID_SVXPAGE_COLORCONFIG:               fnCreate = &SvxColorOptionsTabPage::Create; break;
         case RID_OFAPAGE_HTMLOPT:                   fnCreate = &OfaHtmlTabPage::Create; break;
         case SID_OPTFILTER_MSOFFICE:                fnCreate = &OfaMSFilterTabPage::Create; break;
@@ -466,21 +469,18 @@ struct OptionsGroupInfo
     SfxShell*           m_pShell;       // used to create the page
     SfxModule*          m_pModule;      // used to create the ItemSet
     sal_uInt16          m_nDialogId;    // Id of the former dialog
-    bool            m_bLoadError;   // load fails?
     OUString       m_sPageURL;
-    VclPtr<ExtensionsTabPage>  m_pExtPage;
 
     OptionsGroupInfo( SfxShell* pSh, SfxModule* pMod, sal_uInt16 nId ) :
         m_pShell( pSh ),
-        m_pModule( pMod ), m_nDialogId( nId ), m_bLoadError( false ),
-        m_sPageURL( OUString() ), m_pExtPage( nullptr ) {}
+        m_pModule( pMod ), m_nDialogId( nId ),
+        m_sPageURL( OUString() ) {}
 };
 
 #define INI_LIST() \
     m_pParent           ( pParent ),\
     pCurrentPageEntry   ( nullptr ),\
     sTitle              ( GetText() ),\
-    sNotLoadedError     (       CuiResId( RID_SVXSTR_LOAD_ERROR ) ),\
     bForgetSelection    ( false ),\
     bIsFromExtensionManager( false ), \
     bIsForSetDocumentLanguage( false ), \
@@ -594,8 +594,6 @@ void OfaTreeOptionsDialog::dispose()
         if(!pTreeLB->GetParent(pEntry))
         {
             OptionsGroupInfo* pGroupInfo = static_cast<OptionsGroupInfo*>(pEntry->GetUserData());
-            if ( pGroupInfo )
-                pGroupInfo->m_pExtPage.disposeAndClear();
             delete pGroupInfo;
         }
         pEntry = pTreeLB->Next(pEntry);
@@ -990,69 +988,19 @@ void OfaTreeOptionsDialog::SelectHdl_Impl()
         pOptPageInfo->m_pExtPage->Hide();
         pOptPageInfo->m_pExtPage->DeactivatePage();
     }
-    else if ( pCurrentPageEntry && !pTreeLB->GetParent( pCurrentPageEntry ) )
-    {
-        OptionsGroupInfo* pGroupInfo = static_cast<OptionsGroupInfo*>(pCurrentPageEntry->GetUserData());
-        if ( pGroupInfo && pGroupInfo->m_pExtPage )
-        {
-            pGroupInfo->m_pExtPage->Hide();
-            pGroupInfo->m_pExtPage->DeactivatePage();
-        }
-    }
 
     OptionsPageInfo *pPageInfo = static_cast<OptionsPageInfo *>(pEntry->GetUserData());
     OptionsGroupInfo* pGroupInfo = static_cast<OptionsGroupInfo *>(pParent->GetUserData());
     if(!pPageInfo->m_pPage && pPageInfo->m_nPageId > 0)
     {
-        if(pGroupInfo->m_bLoadError)
-            return;
-        else
-        {
-            if(pGroupInfo->m_pModule /*&& !pGroupInfo->pModule->IsLoaded()*/)
-            {
-                SfxModule* pOldModule = pGroupInfo->m_pModule;
-                bool bIdentical = pGroupInfo->m_pModule == pGroupInfo->m_pShell;
-
-                WaitObject aWait(this);
-                //pGroupInfo->pModule = pGroupInfo->pModule->Load();
-                if(!pGroupInfo->m_pModule)
-                {
-                    pGroupInfo->m_bLoadError = true;
-                    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pBox->GetFrameWeld(),
-                                                                  VclMessageType::Info, VclButtonsType::Ok,
-                                                                  sNotLoadedError));
-                    xInfoBox->run();
-                    return;
-                }
-                if(bIdentical)
-                    pGroupInfo->m_pShell = pGroupInfo->m_pModule;
-                // now test whether there was the same module in other groups, too (e. g. Text+HTML)
-                SvTreeListEntry* pTemp = pTreeLB->First();
-                while(pTemp)
-                {
-                    if(!pTreeLB->GetParent(pTemp) && pTemp != pEntry)
-                    {
-                        OptionsGroupInfo* pTGInfo = static_cast<OptionsGroupInfo *>(pTemp->GetUserData());
-                        if(pTGInfo->m_pModule == pOldModule)
-                        {
-                            pTGInfo->m_pModule = pGroupInfo->m_pModule;
-                            if(bIdentical)
-                                pTGInfo->m_pShell = pGroupInfo->m_pModule;
-                        }
-                    }
-                    pTemp = pTreeLB->Next(pTemp);
-                }
-            }
-
-            if(!pGroupInfo->m_pInItemSet)
-                pGroupInfo->m_pInItemSet = pGroupInfo->m_pShell
-                    ? pGroupInfo->m_pShell->CreateItemSet( pGroupInfo->m_nDialogId )
-                    : CreateItemSet( pGroupInfo->m_nDialogId );
-            if(!pGroupInfo->m_pOutItemSet)
-                pGroupInfo->m_pOutItemSet = o3tl::make_unique<SfxItemSet>(
-                    *pGroupInfo->m_pInItemSet->GetPool(),
-                    pGroupInfo->m_pInItemSet->GetRanges());
-        }
+        if(!pGroupInfo->m_pInItemSet)
+            pGroupInfo->m_pInItemSet = pGroupInfo->m_pShell
+                ? pGroupInfo->m_pShell->CreateItemSet( pGroupInfo->m_nDialogId )
+                : CreateItemSet( pGroupInfo->m_nDialogId );
+        if(!pGroupInfo->m_pOutItemSet)
+            pGroupInfo->m_pOutItemSet = o3tl::make_unique<SfxItemSet>(
+                *pGroupInfo->m_pInItemSet->GetPool(),
+                pGroupInfo->m_pInItemSet->GetRanges());
 
         TabPageParent pPageParent(pTabBox);
 
@@ -1238,9 +1186,8 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
                 pRet->Put(aHyphen);
                 if(SfxItemState::DEFAULT <= pDispatch->QueryState(SID_AUTOSPELL_CHECK, pItem))
                 {
-                    SfxPoolItem* pClone = pItem->Clone();
+                    std::unique_ptr<SfxPoolItem> pClone(pItem->Clone());
                     pRet->Put(*pClone);
-                    delete pClone;
                 }
                 else
                 {
@@ -1522,7 +1469,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
     {
         setGroupName( "LoadSave", CuiResId(SID_FILTER_DLG_RES[0].first) );
         nGroup = AddGroup( CuiResId(SID_FILTER_DLG_RES[0].first), nullptr, nullptr, SID_FILTER_DLG );
-        for ( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_FILTER_DLG_RES); ++i )
+        for ( size_t i = 1; i < SAL_N_ELEMENTS(SID_FILTER_DLG_RES); ++i )
         {
             nPageId = static_cast<sal_uInt16>(SID_FILTER_DLG_RES[i].second);
             if ( !lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1536,7 +1483,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
     {
         setGroupName("LanguageSettings", CuiResId(SID_LANGUAGE_OPTIONS_RES[0].first));
         nGroup = AddGroup(CuiResId(SID_LANGUAGE_OPTIONS_RES[0].first), nullptr, nullptr, SID_LANGUAGE_OPTIONS );
-        for (sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_LANGUAGE_OPTIONS_RES); ++i)
+        for (size_t i = 1; i < SAL_N_ELEMENTS(SID_LANGUAGE_OPTIONS_RES); ++i)
         {
             nPageId = static_cast<sal_uInt16>(SID_LANGUAGE_OPTIONS_RES[i].second);
             if ( lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1568,7 +1515,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
                 else
                     setGroupName( "Writer", CuiResId(SID_SW_EDITOPTIONS_RES[0].first) );
                 nGroup = AddGroup(CuiResId(SID_SW_EDITOPTIONS_RES[0].first), pSwMod, pSwMod, SID_SW_EDITOPTIONS );
-                for ( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_SW_EDITOPTIONS_RES); ++i )
+                for ( size_t i = 1; i < SAL_N_ELEMENTS(SID_SW_EDITOPTIONS_RES); ++i )
                 {
                     nPageId = static_cast<sal_uInt16>(SID_SW_EDITOPTIONS_RES[i].second);
                     if ( lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1587,7 +1534,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
             if ( !lcl_isOptionHidden( SID_SW_ONLINEOPTIONS, aOptionsDlgOpt ) )
             {
                 nGroup = AddGroup(CuiResId(SID_SW_ONLINEOPTIONS_RES[0].first), pSwMod, pSwMod, SID_SW_ONLINEOPTIONS );
-                for( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_SW_ONLINEOPTIONS_RES); ++i )
+                for( size_t i = 1; i < SAL_N_ELEMENTS(SID_SW_ONLINEOPTIONS_RES); ++i )
                 {
                     nPageId = static_cast<sal_uInt16>(SID_SW_ONLINEOPTIONS_RES[i].second);
                     if ( !lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1678,7 +1625,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
                 SfxModule* pSmMod = SfxApplication::GetModule(SfxToolsModule::Math);
                 setGroupName( "Math", CuiResId(SID_SM_EDITOPTIONS_RES[0].first) );
                 nGroup = AddGroup(CuiResId(SID_SM_EDITOPTIONS_RES[0].first), pSmMod, pSmMod, SID_SM_EDITOPTIONS );
-                for ( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_SM_EDITOPTIONS_RES); ++i )
+                for ( size_t i = 1; i < SAL_N_ELEMENTS(SID_SM_EDITOPTIONS_RES); ++i )
                 {
                     nPageId = static_cast<sal_uInt16>(SID_SM_EDITOPTIONS_RES[i].second);
                     if ( !lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1697,7 +1644,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
     {
         setGroupName( "Base", CuiResId(SID_SB_STARBASEOPTIONS_RES[0].first) );
         nGroup = AddGroup( CuiResId(SID_SB_STARBASEOPTIONS_RES[0].first), nullptr, nullptr, SID_SB_STARBASEOPTIONS );
-        for ( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_SB_STARBASEOPTIONS_RES); ++i )
+        for ( size_t i = 1; i < SAL_N_ELEMENTS(SID_SB_STARBASEOPTIONS_RES); ++i )
         {
             nPageId = static_cast<sal_uInt16>(SID_SB_STARBASEOPTIONS_RES[i].second);
             if ( !lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1710,7 +1657,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
     {
         setGroupName( "Charts", CuiResId(SID_SCH_EDITOPTIONS_RES[0].first) );
         nGroup = AddGroup( CuiResId(SID_SCH_EDITOPTIONS_RES[0].first), nullptr, nullptr, SID_SCH_EDITOPTIONS );
-        for ( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_SCH_EDITOPTIONS_RES); ++i )
+        for ( size_t i = 1; i < SAL_N_ELEMENTS(SID_SCH_EDITOPTIONS_RES); ++i )
         {
             nPageId = static_cast<sal_uInt16>(SID_SCH_EDITOPTIONS_RES[i].second);
             if ( !lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )
@@ -1724,7 +1671,7 @@ void OfaTreeOptionsDialog::Initialize( const Reference< XFrame >& _xFrame )
         setGroupName("Internet", CuiResId(SID_INET_DLG_RES[0].first));
         nGroup = AddGroup(CuiResId(SID_INET_DLG_RES[0].first), nullptr, nullptr, SID_INET_DLG );
 
-        for ( sal_uInt32 i = 1; i < SAL_N_ELEMENTS(SID_INET_DLG_RES); ++i )
+        for ( size_t i = 1; i < SAL_N_ELEMENTS(SID_INET_DLG_RES); ++i )
         {
             nPageId = static_cast<sal_uInt16>(SID_INET_DLG_RES[i].second);
             if ( lcl_isOptionHidden( nPageId, aOptionsDlgOpt ) )

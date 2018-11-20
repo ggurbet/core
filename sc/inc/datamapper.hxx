@@ -24,7 +24,6 @@ namespace sc {
 
 class ScDBDataManager;
 class DataProvider;
-class ScDBDataManager;
 class DataTransformation;
 
 class SC_DLLPUBLIC ExternalDataSource
@@ -88,7 +87,7 @@ public:
     const OUString& getProvider() const;
     const OUString& getID() const;
     const ScOrcusImportXMLParam& getXMLImportParam() const;
-    double getUpdateFrequency() const;
+    static double getUpdateFrequency();
     OUString getDBName() const;
     void setDBData(const OUString& rDBName);
     ScDBDataManager* getDBManager();

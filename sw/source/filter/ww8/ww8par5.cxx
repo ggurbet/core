@@ -35,6 +35,8 @@
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <sfx2/linkmgr.hxx>
+#include <rtl/character.hxx>
+#include <unotools/charclass.hxx>
 
 #include <ucbhelper/content.hxx>
 #include <ucbhelper/commandenvironment.hxx>
@@ -1045,7 +1047,8 @@ void SwWW8ImplReader::MakeTagString( OUString& rStr, const OUString& rOrg )
             nI < rStr.getLength() && rStr.getLength() < (MAX_FIELDLEN - 4); ++nI )
     {
         bool bSetAsHex = false;
-        switch( cChar = rStr[ nI ] )
+        cChar = rStr[ nI ];
+        switch( cChar )
         {
             case 132:                       // Exchange typographical quotation marks for normal ones
             case 148:
@@ -1391,7 +1394,7 @@ eF_ResT SwWW8ImplReader::Read_F_ANumber( WW8FieldDesc*, OUString& rStr )
     }
     SwSetExpField aField( static_cast<SwSetExpFieldType*>(m_pNumFieldType), OUString(),
                         GetNumberPara( rStr ) );
-    aField.SetValue( ++m_nFieldNum );
+    aField.SetValue( ++m_nFieldNum, nullptr );
     m_rDoc.getIDocumentContentOperations().InsertPoolItem( *m_pPaM, SwFormatField( aField ) );
     return eF_ResT::OK;
 }
@@ -1465,7 +1468,7 @@ eF_ResT SwWW8ImplReader::Read_F_Seq( WW8FieldDesc*, OUString& rStr )
         aField.SetSubType(aField.GetSubType() | nsSwExtendedSubType::SUB_INVISIBLE);
 
     if (!sStart.isEmpty())
-        aField.SetFormula( ( aSequenceName += "=" ) += sStart );
+        aField.SetFormula( aSequenceName + "=" + sStart );
     else if (!bCountOn)
         aField.SetFormula(aSequenceName);
 
@@ -2723,21 +2726,18 @@ void SwWW8ImplReader::Read_SubF_Ruby( WW8ReadFieldParams& rReadParam)
     sal_uInt16 nScript = g_pBreakIt->GetBreakIter()->getScriptType(sRuby, 0);
 
     //Check to see if we already have a ruby charstyle that this fits
-    std::vector<const SwCharFormat*>::const_iterator aEnd =
-        m_aRubyCharFormats.end();
-    for(std::vector<const SwCharFormat*>::const_iterator aIter
-        = m_aRubyCharFormats.begin(); aIter != aEnd; ++aIter)
+    for(const auto& rpCharFormat : m_aRubyCharFormats)
     {
         const SvxFontHeightItem &rFH =
-            ItemGet<SvxFontHeightItem>(*(*aIter),
+            ItemGet<SvxFontHeightItem>(*rpCharFormat,
             GetWhichOfScript(RES_CHRATR_FONTSIZE,nScript));
         if (rFH.GetHeight() == nFontSize*10)
         {
-            const SvxFontItem &rF = ItemGet<SvxFontItem>(*(*aIter),
+            const SvxFontItem &rF = ItemGet<SvxFontItem>(*rpCharFormat,
                 GetWhichOfScript(RES_CHRATR_FONT,nScript));
             if (rF.GetFamilyName() == sFontName)
             {
-                pCharFormat=*aIter;
+                pCharFormat = rpCharFormat;
                 break;
             }
         }
@@ -3242,14 +3242,10 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
                 }
                 else
                 {
-                    for (SwFormTokens::iterator aItr = aPattern.begin();aItr!= aPattern.end();++aItr)
-                    {
-                        if (aItr->eTokenType == TOKEN_PAGE_NUMS)
-                        {
-                            aPattern.insert(aItr,aLinkStart);
-                            break;
-                        }
-                    }
+                    auto aItr = std::find_if(aPattern.begin(), aPattern.end(),
+                        [](const SwFormToken& rToken) { return rToken.eTokenType == TOKEN_PAGE_NUMS; });
+                    if (aItr != aPattern.end())
+                        aPattern.insert(aItr, aLinkStart);
                 }
                 aPattern.push_back(aLinkEnd);
                 aForm.SetPattern(nLevel, aPattern);
@@ -3518,7 +3514,7 @@ eF_ResT SwWW8ImplReader::Read_F_Hyperlink( WW8FieldDesc* /*pF*/, OUString& rStr 
    OSL_ENSURE(!sURL.isEmpty() || !sMark.isEmpty(), "WW8: Empty URL");
 
     if( !sMark.isEmpty() )
-        ( sURL += "#" ) += sMark;
+        sURL = sURL + "#" + sMark;
 
     SwFormatINetFormat aURL(sURL, sTarget);
     // If on loading TOC field, change the default style into the "index link"

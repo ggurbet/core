@@ -19,6 +19,7 @@
 
 #include <sal/config.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <memory>
 #include <string.h>
@@ -163,11 +164,11 @@ void WinSalInstance::GetPrinterQueueInfo( ImplPrnQueueList* pList )
         {
             for ( i = 0; i < nInfoPrn4; i++ )
             {
-                SalPrinterQueueInfo* pInfo = new SalPrinterQueueInfo;
+                std::unique_ptr<SalPrinterQueueInfo> pInfo(new SalPrinterQueueInfo);
                 pInfo->maPrinterName = o3tl::toU(pWinInfo4[i].pPrinterName);
                 pInfo->mnStatus      = PrintQueueFlags::NONE;
                 pInfo->mnJobs        = 0;
-                pList->Add( pInfo );
+                pList->Add( std::move(pInfo) );
             }
         }
         std::free( pWinInfo4 );
@@ -209,11 +210,6 @@ void WinSalInstance::GetPrinterQueueState( SalPrinterQueueInfo* pInfo )
         }
         ClosePrinter( hPrinter );
     }
-}
-
-void WinSalInstance::DeletePrinterQueueInfo( SalPrinterQueueInfo* pInfo )
-{
-    delete pInfo;
 }
 
 OUString WinSalInstance::GetDefaultPrinter()

@@ -44,9 +44,6 @@ using namespace com::sun::star::uno;
 using namespace com::sun::star::linguistic2;
 using namespace linguistic;
 
-using ::rtl::OUString;
-using ::rtl::OUStringBuffer;
-
 MacSpellChecker::MacSpellChecker() :
     aEvtListeners( GetLinguMutex() )
 {
@@ -396,9 +393,10 @@ sal_Bool SAL_CALL
     return (nFailure == -1);
 }
 
+namespace {
 
 Reference< XSpellAlternatives >
-    MacSpellChecker::GetProposals( const OUString &rWord, const Locale &rLocale )
+    GetProposals( const OUString &rWord, const Locale &rLocale )
 {
     // Retrieves the return values for the 'spell' function call in case
     // of a misspelled word.
@@ -461,8 +459,7 @@ Reference< XSpellAlternatives >
 
 }
 
-
-
+}
 
 Reference< XSpellAlternatives > SAL_CALL
     MacSpellChecker::spell( const OUString& rWord, const Locale& rLocale,

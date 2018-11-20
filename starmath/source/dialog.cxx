@@ -163,7 +163,7 @@ SmPrintOptionsTabPage::SmPrintOptionsTabPage(TabPageParent pPage, const SfxItemS
     , m_xSizeNormal(m_xBuilder->weld_radio_button("sizenormal"))
     , m_xSizeScaled(m_xBuilder->weld_radio_button("sizescaled"))
     , m_xSizeZoomed(m_xBuilder->weld_radio_button("sizezoomed"))
-    , m_xZoom(m_xBuilder->weld_metric_spin_button("zoom", FUNIT_PERCENT))
+    , m_xZoom(m_xBuilder->weld_metric_spin_button("zoom", FieldUnit::PERCENT))
     , m_xNoRightSpaces(m_xBuilder->weld_check_button("norightspaces"))
     , m_xSaveOnlyUsedSymbols(m_xBuilder->weld_check_button("saveonlyusedsymbols"))
     , m_xAutoCloseBrackets(m_xBuilder->weld_check_button("autoclosebrackets"))
@@ -190,7 +190,7 @@ bool SmPrintOptionsTabPage::FillItemSet(SfxItemSet* rSet)
         nPrintSize = PRINT_SIZE_ZOOMED;
 
     rSet->Put(SfxUInt16Item(GetWhich(SID_PRINTSIZE), nPrintSize));
-    rSet->Put(SfxUInt16Item(GetWhich(SID_PRINTZOOM), sal::static_int_cast<sal_uInt16>(m_xZoom->get_value(FUNIT_PERCENT))));
+    rSet->Put(SfxUInt16Item(GetWhich(SID_PRINTZOOM), sal::static_int_cast<sal_uInt16>(m_xZoom->get_value(FieldUnit::PERCENT))));
     rSet->Put(SfxBoolItem(GetWhich(SID_PRINTTITLE), m_xTitle->get_active()));
     rSet->Put(SfxBoolItem(GetWhich(SID_PRINTTEXT), m_xText->get_active()));
     rSet->Put(SfxBoolItem(GetWhich(SID_PRINTFRAME), m_xFrame->get_active()));
@@ -211,7 +211,7 @@ void SmPrintOptionsTabPage::Reset(const SfxItemSet* rSet)
 
     m_xZoom->set_sensitive(m_xSizeZoomed->get_active());
 
-    m_xZoom->set_value(static_cast<const SfxUInt16Item &>(rSet->Get(GetWhich(SID_PRINTZOOM))).GetValue(), FUNIT_PERCENT);
+    m_xZoom->set_value(static_cast<const SfxUInt16Item &>(rSet->Get(GetWhich(SID_PRINTZOOM))).GetValue(), FieldUnit::PERCENT);
 
     m_xTitle->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_PRINTTITLE))).GetValue());
     m_xNoRightSpaces->set_active(static_cast<const SfxBoolItem &>(rSet->Get(GetWhich(SID_NO_RIGHT_SPACES))).GetValue());
@@ -360,12 +360,12 @@ IMPL_LINK_NOARG( SmFontSizeDialog, DefaultButtonClickHdl, weld::Button&, void )
 
 SmFontSizeDialog::SmFontSizeDialog(weld::Window* pParent)
     : GenericDialogController(pParent, "modules/smath/ui/fontsizedialog.ui", "FontSizeDialog")
-    , m_xBaseSize(m_xBuilder->weld_metric_spin_button("spinB_baseSize", FUNIT_POINT))
-    , m_xTextSize(m_xBuilder->weld_metric_spin_button("spinB_text", FUNIT_PERCENT))
-    , m_xIndexSize(m_xBuilder->weld_metric_spin_button("spinB_index", FUNIT_PERCENT))
-    , m_xFunctionSize(m_xBuilder->weld_metric_spin_button("spinB_function", FUNIT_PERCENT))
-    , m_xOperatorSize(m_xBuilder->weld_metric_spin_button("spinB_operator", FUNIT_PERCENT))
-    , m_xBorderSize(m_xBuilder->weld_metric_spin_button("spinB_limit", FUNIT_PERCENT))
+    , m_xBaseSize(m_xBuilder->weld_metric_spin_button("spinB_baseSize", FieldUnit::POINT))
+    , m_xTextSize(m_xBuilder->weld_metric_spin_button("spinB_text", FieldUnit::PERCENT))
+    , m_xIndexSize(m_xBuilder->weld_metric_spin_button("spinB_index", FieldUnit::PERCENT))
+    , m_xFunctionSize(m_xBuilder->weld_metric_spin_button("spinB_function", FieldUnit::PERCENT))
+    , m_xOperatorSize(m_xBuilder->weld_metric_spin_button("spinB_operator", FieldUnit::PERCENT))
+    , m_xBorderSize(m_xBuilder->weld_metric_spin_button("spinB_limit", FieldUnit::PERCENT))
     , m_xDefaultButton(m_xBuilder->weld_button("default"))
 {
     m_xDefaultButton->connect_clicked(LINK(this, SmFontSizeDialog, DefaultButtonClickHdl));
@@ -379,24 +379,24 @@ void SmFontSizeDialog::ReadFrom(const SmFormat &rFormat)
 {
     //! watch out: round properly!
     m_xBaseSize->set_value( SmRoundFraction(
-        Sm100th_mmToPts( rFormat.GetBaseSize().Height() ) ), FUNIT_NONE );
+        Sm100th_mmToPts( rFormat.GetBaseSize().Height() ) ), FieldUnit::NONE );
 
-    m_xTextSize->set_value( rFormat.GetRelSize(SIZ_TEXT), FUNIT_NONE );
-    m_xIndexSize->set_value( rFormat.GetRelSize(SIZ_INDEX), FUNIT_NONE );
-    m_xFunctionSize->set_value( rFormat.GetRelSize(SIZ_FUNCTION), FUNIT_NONE );
-    m_xOperatorSize->set_value( rFormat.GetRelSize(SIZ_OPERATOR), FUNIT_NONE );
-    m_xBorderSize->set_value( rFormat.GetRelSize(SIZ_LIMITS), FUNIT_NONE );
+    m_xTextSize->set_value( rFormat.GetRelSize(SIZ_TEXT), FieldUnit::NONE );
+    m_xIndexSize->set_value( rFormat.GetRelSize(SIZ_INDEX), FieldUnit::NONE );
+    m_xFunctionSize->set_value( rFormat.GetRelSize(SIZ_FUNCTION), FieldUnit::NONE );
+    m_xOperatorSize->set_value( rFormat.GetRelSize(SIZ_OPERATOR), FieldUnit::NONE );
+    m_xBorderSize->set_value( rFormat.GetRelSize(SIZ_LIMITS), FieldUnit::NONE );
 }
 
 void SmFontSizeDialog::WriteTo(SmFormat &rFormat) const
 {
-    rFormat.SetBaseSize( Size(0, SmPtsTo100th_mm( static_cast< long >(m_xBaseSize->get_value(FUNIT_NONE)))) );
+    rFormat.SetBaseSize( Size(0, SmPtsTo100th_mm( static_cast< long >(m_xBaseSize->get_value(FieldUnit::NONE)))) );
 
-    rFormat.SetRelSize(SIZ_TEXT,     sal::static_int_cast<sal_uInt16>(m_xTextSize->get_value(FUNIT_NONE)));
-    rFormat.SetRelSize(SIZ_INDEX,    sal::static_int_cast<sal_uInt16>(m_xIndexSize->get_value(FUNIT_NONE)));
-    rFormat.SetRelSize(SIZ_FUNCTION, sal::static_int_cast<sal_uInt16>(m_xFunctionSize->get_value(FUNIT_NONE)));
-    rFormat.SetRelSize(SIZ_OPERATOR, sal::static_int_cast<sal_uInt16>(m_xOperatorSize->get_value(FUNIT_NONE)));
-    rFormat.SetRelSize(SIZ_LIMITS,   sal::static_int_cast<sal_uInt16>(m_xBorderSize->get_value(FUNIT_NONE)));
+    rFormat.SetRelSize(SIZ_TEXT,     sal::static_int_cast<sal_uInt16>(m_xTextSize->get_value(FieldUnit::NONE)));
+    rFormat.SetRelSize(SIZ_INDEX,    sal::static_int_cast<sal_uInt16>(m_xIndexSize->get_value(FieldUnit::NONE)));
+    rFormat.SetRelSize(SIZ_FUNCTION, sal::static_int_cast<sal_uInt16>(m_xFunctionSize->get_value(FieldUnit::NONE)));
+    rFormat.SetRelSize(SIZ_OPERATOR, sal::static_int_cast<sal_uInt16>(m_xOperatorSize->get_value(FieldUnit::NONE)));
+    rFormat.SetRelSize(SIZ_LIMITS,   sal::static_int_cast<sal_uInt16>(m_xBorderSize->get_value(FieldUnit::NONE)));
 
     const Size aTmp (rFormat.GetBaseSize());
     for (sal_uInt16  i = FNT_BEGIN;  i <= FNT_END;  i++)
@@ -594,7 +594,7 @@ SmCategoryDesc::~SmCategoryDesc()
 
 IMPL_LINK( SmDistanceDialog, GetFocusHdl, weld::Widget&, rControl, void )
 {
-    if (Categories[nActiveCategory])
+    if (m_xCategories[nActiveCategory])
     {
         sal_uInt16  i;
 
@@ -610,7 +610,7 @@ IMPL_LINK( SmDistanceDialog, GetFocusHdl, weld::Widget&, rControl, void )
             return;
         if (m_pCurrentImage)
             m_pCurrentImage->hide();
-        m_pCurrentImage = Categories[nActiveCategory]->GetGraphic(i);
+        m_pCurrentImage = m_xCategories[nActiveCategory]->GetGraphic(i);
         m_pCurrentImage->show();
     }
 }
@@ -679,11 +679,11 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
     // before switching to the new one
     if (nActiveCategory != CATEGORY_NONE)
     {
-        pCat = Categories[nActiveCategory];
-        pCat->SetValue(0, sal::static_int_cast<sal_uInt16>(m_xMetricField1->get_value(FUNIT_NONE)));
-        pCat->SetValue(1, sal::static_int_cast<sal_uInt16>(m_xMetricField2->get_value(FUNIT_NONE)));
-        pCat->SetValue(2, sal::static_int_cast<sal_uInt16>(m_xMetricField3->get_value(FUNIT_NONE)));
-        pCat->SetValue(3, sal::static_int_cast<sal_uInt16>(m_xMetricField4->get_value(FUNIT_NONE)));
+        pCat = m_xCategories[nActiveCategory].get();
+        pCat->SetValue(0, sal::static_int_cast<sal_uInt16>(m_xMetricField1->get_value(FieldUnit::NONE)));
+        pCat->SetValue(1, sal::static_int_cast<sal_uInt16>(m_xMetricField2->get_value(FieldUnit::NONE)));
+        pCat->SetValue(2, sal::static_int_cast<sal_uInt16>(m_xMetricField3->get_value(FieldUnit::NONE)));
+        pCat->SetValue(3, sal::static_int_cast<sal_uInt16>(m_xMetricField4->get_value(FieldUnit::NONE)));
 
         if (nActiveCategory == 5)
             bScaleAllBrackets = m_xCheckBox1->get_active();
@@ -712,12 +712,12 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
         sal_uInt16     nDigits;
         if (nCategory < 9)
         {
-            eUnit = FUNIT_PERCENT;
+            eUnit = FieldUnit::PERCENT;
             nDigits = 0;
         }
         else
         {
-            eUnit   = FUNIT_100TH_MM;
+            eUnit   = FieldUnit::MM_100TH;
             nDigits = 2;
         }
         pMF->set_unit(eUnit);            // changes the value
@@ -725,11 +725,11 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
 
         if (bActive)
         {
-            pCat = Categories[nCategory];
+            pCat = m_xCategories[nCategory].get();
             pFT->set_label(pCat->GetString(i));
 
-            pMF->set_range(pCat->GetMinimum(i), pCat->GetMaximum(i), FUNIT_NONE);
-            pMF->set_value(pCat->GetValue(i), FUNIT_NONE);
+            pMF->set_range(pCat->GetMinimum(i), pCat->GetMaximum(i), FieldUnit::NONE);
+            pMF->set_value(pCat->GetValue(i), FieldUnit::NONE);
 
             pMF->set_help_id(aCatMf2Hid[nCategory][i]);
         }
@@ -748,7 +748,7 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
     }
 
     m_xMenuButton->set_item_active("menuitem" + OString::number(nCategory + 1), true);
-    m_xFrame->set_label(Categories[nCategory]->GetName());
+    m_xFrame->set_label(m_xCategories[nCategory]->GetName());
 
     nActiveCategory = nCategory;
 
@@ -759,21 +759,21 @@ SmDistanceDialog::SmDistanceDialog(weld::Window *pParent)
     : GenericDialogController(pParent, "modules/smath/ui/spacingdialog.ui", "SpacingDialog")
     , m_xFrame(m_xBuilder->weld_frame("template"))
     , m_xFixedText1(m_xBuilder->weld_label("label1"))
-    , m_xMetricField1(m_xBuilder->weld_metric_spin_button("spinbutton1", FUNIT_CM))
+    , m_xMetricField1(m_xBuilder->weld_metric_spin_button("spinbutton1", FieldUnit::CM))
     , m_xFixedText2(m_xBuilder->weld_label("label2"))
-    , m_xMetricField2(m_xBuilder->weld_metric_spin_button("spinbutton2", FUNIT_CM))
+    , m_xMetricField2(m_xBuilder->weld_metric_spin_button("spinbutton2", FieldUnit::CM))
     , m_xFixedText3(m_xBuilder->weld_label("label3"))
-    , m_xMetricField3(m_xBuilder->weld_metric_spin_button("spinbutton3", FUNIT_CM))
+    , m_xMetricField3(m_xBuilder->weld_metric_spin_button("spinbutton3", FieldUnit::CM))
     , m_xCheckBox1(m_xBuilder->weld_check_button("checkbutton"))
     , m_xFixedText4(m_xBuilder->weld_label("label4"))
-    , m_xMetricField4(m_xBuilder->weld_metric_spin_button("spinbutton4", FUNIT_CM))
+    , m_xMetricField4(m_xBuilder->weld_metric_spin_button("spinbutton4", FieldUnit::CM))
     , m_xMenuButton(m_xBuilder->weld_menu_button("category"))
     , m_xDefaultButton(m_xBuilder->weld_button("default"))
     , m_xBitmap(m_xBuilder->weld_widget("image"))
     , m_pCurrentImage(m_xBitmap.get())
 {
     for (sal_uInt16 i = 0; i < NOCATEGORIES; ++i)
-        Categories[i] = new SmCategoryDesc(*m_xBuilder, i);
+        m_xCategories[i].reset( new SmCategoryDesc(*m_xBuilder, i) );
     nActiveCategory   = CATEGORY_NONE;
     bScaleAllBrackets = false;
 
@@ -791,36 +791,34 @@ SmDistanceDialog::SmDistanceDialog(weld::Window *pParent)
 
 SmDistanceDialog::~SmDistanceDialog()
 {
-    for (SmCategoryDesc* & rpDesc : Categories)
-        DELETEZ(rpDesc);
 }
 
 void SmDistanceDialog::ReadFrom(const SmFormat &rFormat)
 {
-    Categories[0]->SetValue(0, rFormat.GetDistance(DIS_HORIZONTAL));
-    Categories[0]->SetValue(1, rFormat.GetDistance(DIS_VERTICAL));
-    Categories[0]->SetValue(2, rFormat.GetDistance(DIS_ROOT));
-    Categories[1]->SetValue(0, rFormat.GetDistance(DIS_SUPERSCRIPT));
-    Categories[1]->SetValue(1, rFormat.GetDistance(DIS_SUBSCRIPT));
-    Categories[2]->SetValue(0, rFormat.GetDistance(DIS_NUMERATOR));
-    Categories[2]->SetValue(1, rFormat.GetDistance(DIS_DENOMINATOR));
-    Categories[3]->SetValue(0, rFormat.GetDistance(DIS_FRACTION));
-    Categories[3]->SetValue(1, rFormat.GetDistance(DIS_STROKEWIDTH));
-    Categories[4]->SetValue(0, rFormat.GetDistance(DIS_UPPERLIMIT));
-    Categories[4]->SetValue(1, rFormat.GetDistance(DIS_LOWERLIMIT));
-    Categories[5]->SetValue(0, rFormat.GetDistance(DIS_BRACKETSIZE));
-    Categories[5]->SetValue(1, rFormat.GetDistance(DIS_BRACKETSPACE));
-    Categories[5]->SetValue(3, rFormat.GetDistance(DIS_NORMALBRACKETSIZE));
-    Categories[6]->SetValue(0, rFormat.GetDistance(DIS_MATRIXROW));
-    Categories[6]->SetValue(1, rFormat.GetDistance(DIS_MATRIXCOL));
-    Categories[7]->SetValue(0, rFormat.GetDistance(DIS_ORNAMENTSIZE));
-    Categories[7]->SetValue(1, rFormat.GetDistance(DIS_ORNAMENTSPACE));
-    Categories[8]->SetValue(0, rFormat.GetDistance(DIS_OPERATORSIZE));
-    Categories[8]->SetValue(1, rFormat.GetDistance(DIS_OPERATORSPACE));
-    Categories[9]->SetValue(0, rFormat.GetDistance(DIS_LEFTSPACE));
-    Categories[9]->SetValue(1, rFormat.GetDistance(DIS_RIGHTSPACE));
-    Categories[9]->SetValue(2, rFormat.GetDistance(DIS_TOPSPACE));
-    Categories[9]->SetValue(3, rFormat.GetDistance(DIS_BOTTOMSPACE));
+    m_xCategories[0]->SetValue(0, rFormat.GetDistance(DIS_HORIZONTAL));
+    m_xCategories[0]->SetValue(1, rFormat.GetDistance(DIS_VERTICAL));
+    m_xCategories[0]->SetValue(2, rFormat.GetDistance(DIS_ROOT));
+    m_xCategories[1]->SetValue(0, rFormat.GetDistance(DIS_SUPERSCRIPT));
+    m_xCategories[1]->SetValue(1, rFormat.GetDistance(DIS_SUBSCRIPT));
+    m_xCategories[2]->SetValue(0, rFormat.GetDistance(DIS_NUMERATOR));
+    m_xCategories[2]->SetValue(1, rFormat.GetDistance(DIS_DENOMINATOR));
+    m_xCategories[3]->SetValue(0, rFormat.GetDistance(DIS_FRACTION));
+    m_xCategories[3]->SetValue(1, rFormat.GetDistance(DIS_STROKEWIDTH));
+    m_xCategories[4]->SetValue(0, rFormat.GetDistance(DIS_UPPERLIMIT));
+    m_xCategories[4]->SetValue(1, rFormat.GetDistance(DIS_LOWERLIMIT));
+    m_xCategories[5]->SetValue(0, rFormat.GetDistance(DIS_BRACKETSIZE));
+    m_xCategories[5]->SetValue(1, rFormat.GetDistance(DIS_BRACKETSPACE));
+    m_xCategories[5]->SetValue(3, rFormat.GetDistance(DIS_NORMALBRACKETSIZE));
+    m_xCategories[6]->SetValue(0, rFormat.GetDistance(DIS_MATRIXROW));
+    m_xCategories[6]->SetValue(1, rFormat.GetDistance(DIS_MATRIXCOL));
+    m_xCategories[7]->SetValue(0, rFormat.GetDistance(DIS_ORNAMENTSIZE));
+    m_xCategories[7]->SetValue(1, rFormat.GetDistance(DIS_ORNAMENTSPACE));
+    m_xCategories[8]->SetValue(0, rFormat.GetDistance(DIS_OPERATORSIZE));
+    m_xCategories[8]->SetValue(1, rFormat.GetDistance(DIS_OPERATORSPACE));
+    m_xCategories[9]->SetValue(0, rFormat.GetDistance(DIS_LEFTSPACE));
+    m_xCategories[9]->SetValue(1, rFormat.GetDistance(DIS_RIGHTSPACE));
+    m_xCategories[9]->SetValue(2, rFormat.GetDistance(DIS_TOPSPACE));
+    m_xCategories[9]->SetValue(3, rFormat.GetDistance(DIS_BOTTOMSPACE));
 
     bScaleAllBrackets = rFormat.IsScaleNormalBrackets();
 
@@ -837,30 +835,30 @@ void SmDistanceDialog::WriteTo(SmFormat &rFormat) /*const*/
     // if that's not the case 'const' could be used above!
     SetCategory(nActiveCategory);
 
-    rFormat.SetDistance( DIS_HORIZONTAL,        Categories[0]->GetValue(0) );
-    rFormat.SetDistance( DIS_VERTICAL,          Categories[0]->GetValue(1) );
-    rFormat.SetDistance( DIS_ROOT,              Categories[0]->GetValue(2) );
-    rFormat.SetDistance( DIS_SUPERSCRIPT,       Categories[1]->GetValue(0) );
-    rFormat.SetDistance( DIS_SUBSCRIPT,         Categories[1]->GetValue(1) );
-    rFormat.SetDistance( DIS_NUMERATOR,         Categories[2]->GetValue(0) );
-    rFormat.SetDistance( DIS_DENOMINATOR,       Categories[2]->GetValue(1) );
-    rFormat.SetDistance( DIS_FRACTION,          Categories[3]->GetValue(0) );
-    rFormat.SetDistance( DIS_STROKEWIDTH,       Categories[3]->GetValue(1) );
-    rFormat.SetDistance( DIS_UPPERLIMIT,        Categories[4]->GetValue(0) );
-    rFormat.SetDistance( DIS_LOWERLIMIT,        Categories[4]->GetValue(1) );
-    rFormat.SetDistance( DIS_BRACKETSIZE,       Categories[5]->GetValue(0) );
-    rFormat.SetDistance( DIS_BRACKETSPACE,      Categories[5]->GetValue(1) );
-    rFormat.SetDistance( DIS_MATRIXROW,         Categories[6]->GetValue(0) );
-    rFormat.SetDistance( DIS_MATRIXCOL,         Categories[6]->GetValue(1) );
-    rFormat.SetDistance( DIS_ORNAMENTSIZE,      Categories[7]->GetValue(0) );
-    rFormat.SetDistance( DIS_ORNAMENTSPACE,     Categories[7]->GetValue(1) );
-    rFormat.SetDistance( DIS_OPERATORSIZE,      Categories[8]->GetValue(0) );
-    rFormat.SetDistance( DIS_OPERATORSPACE,     Categories[8]->GetValue(1) );
-    rFormat.SetDistance( DIS_LEFTSPACE,         Categories[9]->GetValue(0) );
-    rFormat.SetDistance( DIS_RIGHTSPACE,        Categories[9]->GetValue(1) );
-    rFormat.SetDistance( DIS_TOPSPACE,          Categories[9]->GetValue(2) );
-    rFormat.SetDistance( DIS_BOTTOMSPACE,       Categories[9]->GetValue(3) );
-    rFormat.SetDistance( DIS_NORMALBRACKETSIZE, Categories[5]->GetValue(3) );
+    rFormat.SetDistance( DIS_HORIZONTAL,        m_xCategories[0]->GetValue(0) );
+    rFormat.SetDistance( DIS_VERTICAL,          m_xCategories[0]->GetValue(1) );
+    rFormat.SetDistance( DIS_ROOT,              m_xCategories[0]->GetValue(2) );
+    rFormat.SetDistance( DIS_SUPERSCRIPT,       m_xCategories[1]->GetValue(0) );
+    rFormat.SetDistance( DIS_SUBSCRIPT,         m_xCategories[1]->GetValue(1) );
+    rFormat.SetDistance( DIS_NUMERATOR,         m_xCategories[2]->GetValue(0) );
+    rFormat.SetDistance( DIS_DENOMINATOR,       m_xCategories[2]->GetValue(1) );
+    rFormat.SetDistance( DIS_FRACTION,          m_xCategories[3]->GetValue(0) );
+    rFormat.SetDistance( DIS_STROKEWIDTH,       m_xCategories[3]->GetValue(1) );
+    rFormat.SetDistance( DIS_UPPERLIMIT,        m_xCategories[4]->GetValue(0) );
+    rFormat.SetDistance( DIS_LOWERLIMIT,        m_xCategories[4]->GetValue(1) );
+    rFormat.SetDistance( DIS_BRACKETSIZE,       m_xCategories[5]->GetValue(0) );
+    rFormat.SetDistance( DIS_BRACKETSPACE,      m_xCategories[5]->GetValue(1) );
+    rFormat.SetDistance( DIS_MATRIXROW,         m_xCategories[6]->GetValue(0) );
+    rFormat.SetDistance( DIS_MATRIXCOL,         m_xCategories[6]->GetValue(1) );
+    rFormat.SetDistance( DIS_ORNAMENTSIZE,      m_xCategories[7]->GetValue(0) );
+    rFormat.SetDistance( DIS_ORNAMENTSPACE,     m_xCategories[7]->GetValue(1) );
+    rFormat.SetDistance( DIS_OPERATORSIZE,      m_xCategories[8]->GetValue(0) );
+    rFormat.SetDistance( DIS_OPERATORSPACE,     m_xCategories[8]->GetValue(1) );
+    rFormat.SetDistance( DIS_LEFTSPACE,         m_xCategories[9]->GetValue(0) );
+    rFormat.SetDistance( DIS_RIGHTSPACE,        m_xCategories[9]->GetValue(1) );
+    rFormat.SetDistance( DIS_TOPSPACE,          m_xCategories[9]->GetValue(2) );
+    rFormat.SetDistance( DIS_BOTTOMSPACE,       m_xCategories[9]->GetValue(3) );
+    rFormat.SetDistance( DIS_NORMALBRACKETSIZE, m_xCategories[5]->GetValue(3) );
 
     rFormat.SetScaleNormalBrackets( bScaleAllBrackets );
 
@@ -1221,7 +1219,7 @@ IMPL_LINK_NOARG(SmSymbolDialog, EditClickHdl, weld::Button&, void)
     sal_uInt16 nSymPos = m_xSymbolSetDisplay->GetSelectSymbol();
 
     // adapt dialog to data of the SymbolSet manager, which might have changed
-    if (aDialog.execute() == RET_OK && rSymbolMgr.IsModified())
+    if (aDialog.run() == RET_OK && rSymbolMgr.IsModified())
     {
         rSymbolMgr.Save();
         FillSymbolSets();
@@ -1759,9 +1757,9 @@ SmSymDefineDialog::~SmSymDefineDialog()
 {
 }
 
-short SmSymDefineDialog::execute()
+short SmSymDefineDialog::run()
 {
-    short nResult = m_xDialog->run();
+    short nResult = GenericDialogController::run();
 
     // apply changes if dialog was closed by clicking OK
     if (m_aSymbolMgrCopy.IsModified() && nResult == RET_OK)

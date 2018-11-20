@@ -21,6 +21,7 @@
 #define INCLUDED_SVTOOLS_RULER_HXX
 
 #include <memory>
+#include <map>
 #include <svtools/svtdllapi.h>
 #include <rtl/ref.hxx>
 #include <tools/link.hxx>
@@ -28,6 +29,7 @@
 #include <vcl/window.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/field.hxx>
+#include <vcl/glyphitem.hxx>
 #include <vcl/vcllayout.hxx>
 
 #include <svtools/accessibleruler.hxx>
@@ -109,15 +111,15 @@ The values are computed as described below:
 SetUnit() and SetZoom() configure which unit is used to display
 the values on the ruler. The following units are accepted:
 
-    FUNIT_MM
-    FUNIT_CM (Default)
-    FUNIT_M
-    FUNIT_KM
-    FUNIT_INCH
-    FUNIT_FOOT
-    FUNIT_MILE
-    FUNIT_POINT
-    FUNIT_PICA
+    FieldUnit::MM
+    FieldUnit::CM (Default)
+    FieldUnit::M
+    FieldUnit::KM
+    FieldUnit::INCH
+    FieldUnit::FOOT
+    FieldUnit::MILE
+    FieldUnit::POINT
+    FieldUnit::PICA
 
 --------------------------------------------------------------------------
 
@@ -548,7 +550,6 @@ struct RulerTab
 struct RulerLine
 {
     long    nPos;
-    sal_uInt16  nStyle;
 };
 
 
@@ -626,7 +627,6 @@ private:
     long            mnBorderWidth;
     long            mnStartDragPos;
     long            mnDragPos;
-    ImplSVEvent *   mnUpdateEvtId;
     std::unique_ptr<ImplRulerData>  mpSaveData;
     ImplRulerData*  mpData;
     std::unique_ptr<ImplRulerData>  mpDragData;

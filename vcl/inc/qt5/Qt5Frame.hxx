@@ -84,7 +84,7 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     Size CalcDefaultSize();
     void SetDefaultSize();
 
-    bool isChild(bool bPlug = true, bool bSysChild = true)
+    bool isChild(bool bPlug = true, bool bSysChild = true) const
     {
         SalFrameStyleFlags nMask = SalFrameStyleFlags::NONE;
         if (bPlug)
@@ -94,11 +94,11 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
         return bool(m_nStyle & nMask);
     }
 
-    bool isWindow();
-    QWindow* windowHandle();
-    QScreen* screen();
-    bool isMinimized();
-    bool isMaximized();
+    bool isWindow() const;
+    QWindow* windowHandle() const;
+    QScreen* screen() const;
+    bool isMinimized() const;
+    bool isMaximized() const;
 
     void TriggerPaintEvent();
     void TriggerPaintEvent(QRect aRect);
@@ -123,7 +123,7 @@ public:
     virtual SalGraphics* AcquireGraphics() override;
     virtual void ReleaseGraphics(SalGraphics* pGraphics) override;
 
-    virtual bool PostEvent(ImplSVEvent* pData) override;
+    virtual bool PostEvent(std::unique_ptr<ImplSVEvent> pData) override;
 
     virtual void SetTitle(const OUString& rTitle) override;
     virtual void SetIcon(sal_uInt16 nIcon) override;
@@ -147,6 +147,7 @@ public:
     virtual void GetWorkArea(tools::Rectangle& rRect) override;
     virtual SalFrame* GetParent() const override;
     virtual void SetModal(bool bModal) override;
+    virtual bool GetModal() const override;
     virtual void SetWindowState(const SalFrameState* pState) override;
     virtual bool GetWindowState(SalFrameState* pState) override;
     virtual void ShowFullScreen(bool bFullScreen, sal_Int32 nDisplay) override;

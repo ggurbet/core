@@ -56,9 +56,9 @@ OPageNumberDialog::~OPageNumberDialog()
 {
 }
 
-void OPageNumberDialog::execute()
+short OPageNumberDialog::run()
 {
-    short nRet = m_xDialog->run();
+    short nRet = GenericDialogController::run();
     if (nRet == RET_OK)
     {
         try
@@ -101,6 +101,7 @@ void OPageNumberDialog::execute()
         {
         }
     }
+    return nRet;
 }
 
 } // rptui

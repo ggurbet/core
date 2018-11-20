@@ -18,12 +18,11 @@
  */
 
 #include <svl/zforlist.hxx>
+#include <unotools/charclass.hxx>
 
 #include <dpcache.hxx>
 #include <dpshttab.hxx>
-#include <dptabres.hxx>
 #include <document.hxx>
-#include <formulacell.hxx>
 #include <dpfilteredcache.hxx>
 #include <dpobject.hxx>
 #include <globstr.hrc>
@@ -34,7 +33,6 @@
 #include <osl/diagnose.h>
 
 #include <vector>
-#include <set>
 
 using namespace ::com::sun::star;
 using ::com::sun::star::uno::Any;

@@ -18,7 +18,6 @@
  */
 
 #include <svx/fmgridif.hxx>
-#include <fmitems.hxx>
 #include <fmprop.hxx>
 #include <svx/fmtools.hxx>
 #include <fmservs.hxx>
@@ -61,7 +60,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/eitem.hxx>
-#include <svtools/fmtfield.hxx>
+#include <vcl/fmtfield.hxx>
 #include <svl/numuno.hxx>
 #include <tools/multisel.hxx>
 #include <tools/diagnose_ex.h>
@@ -789,7 +788,6 @@ void FmGridHeader::PostExecuteColumnContextMenu(sal_uInt16 nColId, const PopupMe
     OUString aFieldType;
     bool    bReplace = false;
     InspectorAction eInspectorAction = eNone;
-    Reference< XPropertySet > xColumnToInspect;
 
     OString sExecutionResult = rMenu.GetCurItemIdent();
     if (sExecutionResult.isEmpty())
@@ -826,7 +824,6 @@ void FmGridHeader::PostExecuteColumnContextMenu(sal_uInt16 nColId, const PopupMe
     else if (sExecutionResult == "column")
     {
         eInspectorAction = rMenu.IsItemChecked(rMenu.GetItemId("column")) ? eOpenInspector : eCloseInspector;
-        xColumnToInspect.set( xCols->getByIndex( nPos ), UNO_QUERY );
     }
     else if (sExecutionResult.startsWith(FM_COL_TEXTFIELD))
     {
@@ -943,7 +940,6 @@ void FmGridHeader::PostExecuteColumnContextMenu(sal_uInt16 nColId, const PopupMe
                 ::comphelper::disposeComponent( xReplaced );
 
                 eInspectorAction = eUpdateInspector;
-                xColumnToInspect = xNewCol;
             }
             else
             {
@@ -977,12 +973,11 @@ void FmGridHeader::PostExecuteColumnContextMenu(sal_uInt16 nColId, const PopupMe
 
         if ( eInspectorAction != eNone )
         {
-            FmInterfaceItem aIFaceItem( SID_FM_SHOW_PROPERTY_BROWSER, xColumnToInspect );
             SfxBoolItem aShowItem( SID_FM_SHOW_PROPERTIES, eInspectorAction != eCloseInspector );
 
             pCurrentFrame->GetBindings().GetDispatcher()->ExecuteList(
                     SID_FM_SHOW_PROPERTY_BROWSER, SfxCallMode::ASYNCHRON,
-                    { &aIFaceItem, &aShowItem });
+                    { &aShowItem });
         }
     }
 }
@@ -1502,7 +1497,7 @@ void FmGridControl::ColumnResized(sal_uInt16 nId)
 
     // transfer value to the model
     DbGridColumn* pCol = DbGridControl::GetColumns()[ GetModelColumnPos(nId) ].get();
-    Reference< css::beans::XPropertySet >  xColModel(pCol->getModel());
+    const Reference< css::beans::XPropertySet >&  xColModel(pCol->getModel());
     if (xColModel.is())
     {
         Any aWidth;

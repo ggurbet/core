@@ -50,12 +50,12 @@ class SFX2_DLLPUBLIC SfxModalDialog: public ModalDialog
     std::unique_ptr<SfxItemSet> pOutputSet;
 
 private:
-    SfxModalDialog(SfxModalDialog &) = delete;
-    void operator =(SfxModalDialog &) = delete;
+    SfxModalDialog(SfxModalDialog const &) = delete;
+    SfxModalDialog& operator =(SfxModalDialog const &) = delete;
 
     SAL_DLLPRIVATE void SetDialogData_Impl();
     SAL_DLLPRIVATE void GetDialogData_Impl();
-    DECL_DLLPRIVATE_LINK(InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*);
+    DECL_DLLPRIVATE_STATIC_LINK(SfxModalDialog, InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*);
 
 protected:
     SfxModalDialog(vcl::Window *pParent, const OUString& rID, const OUString& rUIXMLDescription);
@@ -81,12 +81,12 @@ class SFX2_DLLPUBLIC SfxModelessDialog: public ModelessDialog
     Size                    aSize;
     std::unique_ptr< SfxModelessDialog_Impl > pImpl;
 
-    SfxModelessDialog(SfxModelessDialog &) = delete;
-    void operator =(SfxModelessDialog &) = delete;
+    SfxModelessDialog(SfxModelessDialog const &) = delete;
+    SfxModelessDialog& operator =(SfxModelessDialog const &) = delete;
 
     void Init(SfxBindings *pBindinx, SfxChildWindow *pCW);
 
-    DECL_DLLPRIVATE_LINK(InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*);
+    DECL_DLLPRIVATE_STATIC_LINK(SfxModelessDialog, InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*);
 protected:
     SfxModelessDialog( SfxBindings*, SfxChildWindow*,
         vcl::Window*, const OUString& rID, const OUString& rUIXMLDescription );
@@ -107,6 +107,42 @@ public:
     DECL_LINK(TimerHdl, Timer *, void);
 };
 
+class SFX2_DLLPUBLIC SfxDialogController : public weld::GenericDialogController
+{
+private:
+    DECL_DLLPRIVATE_STATIC_LINK(SfxDialogController, InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*);
+public:
+    SfxDialogController(weld::Widget* pParent, const OUString& rUIFile, const OString& rDialogId);
+};
+
+class SfxModelessDialog_Impl;
+class SFX2_DLLPUBLIC SfxModelessDialogController : public SfxDialogController
+{
+    SfxBindings* m_pBindings;
+    std::unique_ptr<SfxModelessDialog_Impl> m_xImpl;
+
+    SfxModelessDialogController(SfxModelessDialogController&) = delete;
+    void operator =(SfxModelessDialogController&) = delete;
+
+    void Init(SfxBindings *pBindinx, SfxChildWindow *pCW);
+
+    DECL_DLLPRIVATE_LINK(FocusInHdl, weld::Widget&, void);
+    DECL_DLLPRIVATE_LINK(FocusOutHdl, weld::Widget&, void);
+protected:
+    SfxModelessDialogController(SfxBindings*, SfxChildWindow* pChildWin,
+        weld::Window* pParent, const OUString& rUIXMLDescription, const OString& rID);
+    virtual ~SfxModelessDialogController() override;
+
+public:
+    virtual void            FillInfo(SfxChildWinInfo&) const;
+    virtual void            Activate() {}
+    void                    Initialize (SfxChildWinInfo const * pInfo);
+    void                    Close();
+    void                    DeInit();
+    void                    EndDialog();
+    SfxBindings&            GetBindings() { return *m_pBindings; }
+};
+
 // class SfxFloatingWindow --------------------------------------------------
 class SfxFloatingWindow_Impl;
 class SFX2_DLLPUBLIC SfxFloatingWindow: public FloatingWindow
@@ -115,8 +151,8 @@ class SFX2_DLLPUBLIC SfxFloatingWindow: public FloatingWindow
     Size                    aSize;
     std::unique_ptr< SfxFloatingWindow_Impl > pImpl;
 
-    SfxFloatingWindow(SfxFloatingWindow &) = delete;
-    void operator =(SfxFloatingWindow &) = delete;
+    SfxFloatingWindow(SfxFloatingWindow const &) = delete;
+    SfxFloatingWindow& operator =(SfxFloatingWindow const &) = delete;
 
 protected:
                             SfxFloatingWindow( SfxBindings *pBindings,
@@ -186,14 +222,6 @@ protected:
 
 private:
     std::unique_ptr<SingleTabDlgImpl>   pImpl;
-};
-
-class SFX2_DLLPUBLIC SfxDialogController : public weld::GenericDialogController
-{
-private:
-    DECL_DLLPRIVATE_LINK(InstallLOKNotifierHdl, void*, vcl::ILibreOfficeKitNotifier*);
-public:
-    SfxDialogController(weld::Widget* pParent, const OUString& rUIFile, const OString& rDialogId);
 };
 
 class SFX2_DLLPUBLIC SfxSingleTabDialogController : public SfxDialogController

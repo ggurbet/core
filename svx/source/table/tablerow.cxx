@@ -73,9 +73,8 @@ void TableRow::dispose()
     mxTableModel.clear();
     if( !maCells.empty() )
     {
-        CellVector::iterator aIter( maCells.begin() );
-        while( aIter != maCells.end() )
-            (*aIter++)->dispose();
+        for( auto& rpCell : maCells )
+            rpCell->dispose();
         CellVector().swap(maCells);
     }
 }
@@ -128,8 +127,7 @@ void TableRow::removeColumns( sal_Int32 nIndex, sal_Int32 nCount )
         if( (nIndex + nCount) < static_cast< sal_Int32 >( maCells.size() ) )
         {
             CellVector::iterator aBegin( maCells.begin() );
-            while( nIndex-- && (aBegin != maCells.end()) )
-                ++aBegin;
+            std::advance(aBegin, nIndex);
 
             if( nCount > 1 )
             {
@@ -308,47 +306,41 @@ Any SAL_CALL TableRow::getFastPropertyValue( sal_Int32 nHandle )
 
 rtl::Reference< FastPropertySetInfo > TableRow::getStaticPropertySetInfo()
 {
-    static rtl::Reference< FastPropertySetInfo > xInfo;
-    if( !xInfo.is() )
-    {
-        ::osl::MutexGuard aGuard( ::osl::Mutex::getGlobalMutex() );
-        if( !xInfo.is() )
-        {
-            PropertyVector aProperties(6);
+    static rtl::Reference<FastPropertySetInfo> xInfo = []() {
+        PropertyVector aProperties(6);
 
-            aProperties[0].Name = "Height";
-            aProperties[0].Handle = Property_Height;
-            aProperties[0].Type = ::cppu::UnoType<sal_Int32>::get();
-            aProperties[0].Attributes = 0;
+        aProperties[0].Name = "Height";
+        aProperties[0].Handle = Property_Height;
+        aProperties[0].Type = ::cppu::UnoType<sal_Int32>::get();
+        aProperties[0].Attributes = 0;
 
-            aProperties[1].Name = "OptimalHeight";
-            aProperties[1].Handle = Property_OptimalHeight;
-            aProperties[1].Type = cppu::UnoType<bool>::get();
-            aProperties[1].Attributes = 0;
+        aProperties[1].Name = "OptimalHeight";
+        aProperties[1].Handle = Property_OptimalHeight;
+        aProperties[1].Type = cppu::UnoType<bool>::get();
+        aProperties[1].Attributes = 0;
 
-            aProperties[2].Name = "IsVisible";
-            aProperties[2].Handle = Property_IsVisible;
-            aProperties[2].Type = cppu::UnoType<bool>::get();
-            aProperties[2].Attributes = 0;
+        aProperties[2].Name = "IsVisible";
+        aProperties[2].Handle = Property_IsVisible;
+        aProperties[2].Type = cppu::UnoType<bool>::get();
+        aProperties[2].Attributes = 0;
 
-            aProperties[3].Name = "IsStartOfNewPage";
-            aProperties[3].Handle = Property_IsStartOfNewPage;
-            aProperties[3].Type = cppu::UnoType<bool>::get();
-            aProperties[3].Attributes = 0;
+        aProperties[3].Name = "IsStartOfNewPage";
+        aProperties[3].Handle = Property_IsStartOfNewPage;
+        aProperties[3].Type = cppu::UnoType<bool>::get();
+        aProperties[3].Attributes = 0;
 
-            aProperties[4].Name = "Size";
-            aProperties[4].Handle = Property_Height;
-            aProperties[4].Type = ::cppu::UnoType<sal_Int32>::get();
-            aProperties[4].Attributes = 0;
+        aProperties[4].Name = "Size";
+        aProperties[4].Handle = Property_Height;
+        aProperties[4].Type = ::cppu::UnoType<sal_Int32>::get();
+        aProperties[4].Attributes = 0;
 
-            aProperties[5].Name = "OptimalSize";
-            aProperties[5].Handle = Property_OptimalHeight;
-            aProperties[5].Type = cppu::UnoType<bool>::get();
-            aProperties[5].Attributes = 0;
+        aProperties[5].Name = "OptimalSize";
+        aProperties[5].Handle = Property_OptimalHeight;
+        aProperties[5].Type = cppu::UnoType<bool>::get();
+        aProperties[5].Attributes = 0;
 
-            xInfo.set( new FastPropertySetInfo(aProperties) );
-        }
-    }
+        return rtl::Reference<FastPropertySetInfo>(new FastPropertySetInfo(aProperties));
+    }();
 
     return xInfo;
 }

@@ -44,12 +44,13 @@
 #include <vcl/txtattr.hxx>
 #include <vcl/settings.hxx>
 #include <svtools/textwindowpeer.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 #include <vcl/taskpanelist.hxx>
 #include <vcl/help.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <vector>
 #include <com/sun/star/reflection/theCoreReflection.hpp>
+#include <unotools/charclass.hxx>
 
 namespace basctl
 {
@@ -147,10 +148,10 @@ void lcl_SeparateNameAndIndex( const OUString& rVName, OUString& rVar, OUString&
     if ( nIndexStart != -1 )
     {
         sal_Int32 nIndexEnd = rVar.indexOf( ')', nIndexStart );
-        if ( nIndexStart != -1 )
+        if (nIndexEnd != -1)
         {
-            rIndex = rVar.copy( nIndexStart+1, nIndexEnd-nIndexStart-1 );
-            rVar = rVar.copy( 0, nIndexStart );
+            rIndex = rVar.copy(nIndexStart + 1, nIndexEnd - nIndexStart - 1);
+            rVar = rVar.copy(0, nIndexStart);
             rVar = comphelper::string::stripEnd(rVar, ' ');
             rIndex = comphelper::string::strip(rIndex, ' ');
         }
@@ -2277,11 +2278,9 @@ bool WatchTreeListBox::EditedEntry( SvTreeListEntry* pEntry, const OUString& rNe
     if( cFirst == '\"' && cLast == '\"' )
         aResult = aResult.copy( 1, nResultLen - 2 );
 
-    return aResult != aEditingRes && ImplBasicEntryEdited(pEntry, aResult);
-}
+    if (aResult == aEditingRes)
+        return false;
 
-bool WatchTreeListBox::ImplBasicEntryEdited( SvTreeListEntry* pEntry, const OUString& rResult )
-{
     bool bArrayElement;
     SbxBase* pSBX = ImplGetSBXForEntry( pEntry, bArrayElement );
 
@@ -2293,7 +2292,7 @@ bool WatchTreeListBox::ImplBasicEntryEdited( SvTreeListEntry* pEntry, const OUSt
         {
             // If the type is variable, the conversion of the SBX does not matter,
             // else the string is converted.
-            pVar->PutStringExt( rResult );
+            pVar->PutStringExt( aResult );
         }
     }
 
@@ -2413,7 +2412,7 @@ void WatchTreeListBox::UpdateWatches( bool bBasicStopped )
                         SbxDimArray* pOldArray = pItem->mpArray.get();
 
                         bool bArrayChanged = false;
-                        if( pNewArray != nullptr && pOldArray != nullptr )
+                        if (pOldArray != nullptr)
                         {
                             // Compare Array dimensions to see if array has changed
                             // Can be a copy, so comparing pointers does not work
@@ -2440,27 +2439,21 @@ void WatchTreeListBox::UpdateWatches( bool bBasicStopped )
                                 }
                             }
                         }
-                        else if( pNewArray == nullptr || pOldArray == nullptr )
+                        else
                         {
                             bArrayChanged = true;
                         }
-                        if( pNewArray )
-                        {
-                            implEnableChildren( pEntry, true );
-                        }
+                        implEnableChildren(pEntry, true);
                         // #i37227 Clear always and replace array
                         if( pNewArray != pOldArray )
                         {
                             pItem->clearWatchItem();
-                            if( pNewArray )
-                            {
-                                implEnableChildren( pEntry, true );
+                            implEnableChildren(pEntry, true);
 
-                                pItem->mpArray = pNewArray;
-                                sal_uInt16 nDims = pNewArray->GetDims();
-                                pItem->nDimLevel = 0;
-                                pItem->nDimCount = nDims;
-                            }
+                            pItem->mpArray = pNewArray;
+                            sal_uInt16 nDims = pNewArray->GetDims();
+                            pItem->nDimLevel = 0;
+                            pItem->nDimCount = nDims;
                         }
                         if( bArrayChanged && pOldArray != nullptr )
                         {
@@ -2485,8 +2478,7 @@ void WatchTreeListBox::UpdateWatches( bool bBasicStopped )
                             for( sal_uInt16 i = 0 ; i < nPropCount - 3 ; i++ )
                             {
                                 SbxVariable* pVar_ = pProps->Get( i );
-                                OUString aName( pVar_->GetName() );
-                                if( pItem->maMemberList[i] != aName )
+                                if( pItem->maMemberList[i] != pVar_->GetName() )
                                 {
                                     bObjChanged = true;
                                     break;

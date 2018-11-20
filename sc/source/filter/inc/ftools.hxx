@@ -99,9 +99,9 @@ inline void set_flag( Type& rnBitField, Type nMask, bool bSet = true )
 template< typename Type, typename InsertType >
 void insert_value( Type& rnBitField, InsertType nValue, sal_uInt8 nStartBit, sal_uInt8 nBitCount )
 {
-    unsigned long nMask = ((1UL << nBitCount) - 1);
+    unsigned int nMask = ((1U << nBitCount) - 1);
     Type nNewValue = static_cast< Type >( nValue & nMask );
-    (rnBitField &= ~(nMask << nStartBit)) |= (nNewValue << nStartBit);
+    rnBitField = (rnBitField & ~(nMask << nStartBit)) | (nNewValue << nStartBit);
 }
 
 class Color;

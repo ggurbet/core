@@ -110,10 +110,9 @@ void lcl_DBGCheckStack()
      */
 
     sal_uInt16 nElement;
-    std::vector< sal_uInt16 >::iterator aIter;
-    for ( aIter = aStructStack.begin(); aIter != aStructStack.end(); ++aIter )
+    for ( const auto& rItem : aStructStack )
     {
-        nElement = *aIter;
+        nElement = rItem;
     }
     (void)nElement;
 }
@@ -227,7 +226,7 @@ void* lcl_GetKeyFromFrame( const SwFrame& rFrame )
     return pKey;
 }
 
-bool lcl_HasPreviousParaSameNumRule( const SwTextNode& rNode )
+bool lcl_HasPreviousParaSameNumRule(SwTextFrame const& rTextFrame, const SwTextNode& rNode)
 {
     bool bRet = false;
     SwNodeIndex aIdx( rNode );
@@ -238,11 +237,12 @@ bool lcl_HasPreviousParaSameNumRule( const SwTextNode& rNode )
 
     while (pNode != rNodes.DocumentSectionStartNode(const_cast<SwNode*>(static_cast<SwNode const *>(&rNode))) )
     {
-        --aIdx;
+        sw::GotoPrevLayoutTextFrame(aIdx, rTextFrame.getRootFrame());
 
         if (aIdx.GetNode().IsTextNode())
         {
-            const SwTextNode* pPrevTextNd = aIdx.GetNode().GetTextNode();
+            const SwTextNode *const pPrevTextNd = sw::GetParaPropsNode(
+                    *rTextFrame.getRootFrame(), *aIdx.GetNode().GetTextNode());
             const SwNumRule * pPrevNumRule = pPrevTextNd->GetNumRule();
 
             // We find the previous text node. Now check, if the previous text node
@@ -419,7 +419,7 @@ void SwTaggedPDFHelper::BeginTag( vcl::PDFWriter::StructElement eType, const OUS
     {
         const SwTextFrame& rTextFrame = static_cast<const SwTextFrame&>(mpNumInfo->mrFrame);
         SwTextNode const*const pTextNd = rTextFrame.GetTextNodeForParaProps();
-        const SwNodeNum* pNodeNum = pTextNd->GetNum();
+        const SwNodeNum* pNodeNum = pTextNd->GetNum(rTextFrame.getRootFrame());
 
         if ( vcl::PDFWriter::List == eType )
         {
@@ -806,16 +806,12 @@ void SwTaggedPDFHelper::SetAttributes( vcl::PDFWriter::StructElement eType )
             SwRect aPorRect;
             rInf.CalcRect( *pPor, &aPorRect );
             const Point aPorCenter = aPorRect.Center();
-            LinkIdMap::const_iterator aIter;
-            for ( aIter = rLinkIdMap.begin(); aIter != rLinkIdMap.end(); ++aIter )
+            auto aIter = std::find_if(rLinkIdMap.begin(), rLinkIdMap.end(),
+                [&aPorCenter](const IdMapEntry& rEntry) { return rEntry.first.IsInside(aPorCenter); });
+            if (aIter != rLinkIdMap.end())
             {
-                const SwRect& rLinkRect = (*aIter).first;
-                if ( rLinkRect.IsInside( aPorCenter ) )
-                {
-                    sal_Int32 nLinkId = (*aIter).second;
-                    mpPDFExtOutDevData->SetStructureAttributeNumerical( vcl::PDFWriter::LinkAnnotation, nLinkId );
-                    break;
-                }
+                sal_Int32 nLinkId = (*aIter).second;
+                mpPDFExtOutDevData->SetStructureAttributeNumerical( vcl::PDFWriter::LinkAnnotation, nLinkId );
             }
         }
     }
@@ -838,7 +834,7 @@ void SwTaggedPDFHelper::BeginNumberedListStructureElements()
 
     const SwTextNode *const pTextNd = rTextFrame.GetTextNodeForParaProps();
     const SwNumRule* pNumRule = pTextNd->GetNumRule();
-    const SwNodeNum* pNodeNum = pTextNd->GetNum();
+    const SwNodeNum* pNodeNum = pTextNd->GetNum(rTextFrame.getRootFrame());
 
     const bool bNumbered = !pTextNd->IsOutline() && pNodeNum && pNodeNum->GetParent() && pNumRule;
 
@@ -849,7 +845,7 @@ void SwTaggedPDFHelper::BeginNumberedListStructureElements()
         return;
 
     const SwNumberTreeNode* pParent = pNodeNum->GetParent();
-    const bool bSameNumbering = lcl_HasPreviousParaSameNumRule(*pTextNd);
+    const bool bSameNumbering = lcl_HasPreviousParaSameNumRule(rTextFrame, *pTextNd);
 
     // Second condition: current numbering is not 'interrupted'
     if ( bSameNumbering )
@@ -1107,7 +1103,8 @@ void SwTaggedPDFHelper::BeginBlockStructureElements()
 
                 // Heading: H1 - H6
 
-                if ( pTextNd->IsOutline() )
+                if (pTextNd->IsOutline()
+                    && sw::IsParaPropsNode(*pFrame->getRootFrame(), *pTextNd))
                 {
                     int nRealLevel = pTextNd->GetAttrOutlineLevel()-1;
                     nRealLevel = std::min(nRealLevel, 5);
@@ -2028,6 +2025,7 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
                 OSL_ENSURE( nullptr != pTNd, "Enhanced pdf export - text node is missing" );
 
                 if ( pTNd->IsHidden() ||
+                     !sw::IsParaPropsNode(*mrSh.GetLayout(), *pTNd) ||
                      // #i40292# Skip empty outlines:
                      pTNd->GetText().isEmpty())
                     continue;
@@ -2061,7 +2059,8 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
                         pPDFExtOutDevData->CreateDest(aRect, nDestPageNum);
 
                     // Outline entry text
-                    const OUString& rEntry = mrSh.getIDocumentOutlineNodesAccess()->getOutlineText( i, true, false, false );
+                    const OUString& rEntry = mrSh.getIDocumentOutlineNodesAccess()->getOutlineText(
+                        i, mrSh.GetLayout(), true, false, false );
 
                     // Create a new outline item:
                     const sal_Int32 nOutlineId =
@@ -2088,7 +2087,7 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
                 //get the name
                 const ::sw::mark::IMark* pBkmk = ppMark->get();
                 mrSh.SwCursorShell::ClearMark();
-                OUString sBkName = pBkmk->GetName();
+                const OUString& sBkName = pBkmk->GetName();
 
                 //jump to it
                 JumpToSwMark( &mrSh, sBkName );
@@ -2119,11 +2118,9 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
         // LINKS FROM EDITENGINE
 
         std::vector< vcl::PDFExtOutDevBookmarkEntry >& rBookmarks = pPDFExtOutDevData->GetBookmarks();
-        std::vector< vcl::PDFExtOutDevBookmarkEntry >::const_iterator aIBeg = rBookmarks.begin();
-        const std::vector< vcl::PDFExtOutDevBookmarkEntry >::const_iterator aIEnd = rBookmarks.end();
-        while ( aIBeg != aIEnd )
+        for ( const auto& rBookmark : rBookmarks )
         {
-            OUString aBookmarkName( aIBeg->aBookmark );
+            OUString aBookmarkName( rBookmark.aBookmark );
             const bool bIntern = '#' == aBookmarkName[0];
             if ( bIntern )
             {
@@ -2142,24 +2139,22 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
                 if ( -1 != nDestPageNum )
                 {
                     tools::Rectangle aRect(SwRectToPDFRect(pCurrPage, rDestRect.SVRect()));
-                    if ( aIBeg->nLinkId != -1 )
+                    if ( rBookmark.nLinkId != -1 )
                     {
                         // Destination Export
                         const sal_Int32 nDestId = pPDFExtOutDevData->CreateDest(aRect, nDestPageNum);
 
                         // Connect Link and Destination:
-                        pPDFExtOutDevData->SetLinkDest( aIBeg->nLinkId, nDestId );
+                        pPDFExtOutDevData->SetLinkDest( rBookmark.nLinkId, nDestId );
                     }
                     else
                     {
-                        pPDFExtOutDevData->DescribeRegisteredDest(aIBeg->nDestId, aRect, nDestPageNum);
+                        pPDFExtOutDevData->DescribeRegisteredDest(rBookmark.nDestId, aRect, nDestPageNum);
                     }
                 }
             }
             else
-                pPDFExtOutDevData->SetLinkURL( aIBeg->nLinkId, aBookmarkName );
-
-            ++aIBeg;
+                pPDFExtOutDevData->SetLinkURL( rBookmark.nLinkId, aBookmarkName );
         }
         rBookmarks.clear();
     }

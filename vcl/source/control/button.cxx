@@ -44,27 +44,28 @@
 #include <controldata.hxx>
 #include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <comphelper/dispatchcommand.hxx>
 
 
 using namespace css;
 
-#define PUSHBUTTON_VIEW_STYLE       (WB_3DLOOK |                        \
-                                     WB_LEFT | WB_CENTER | WB_RIGHT |   \
-                                     WB_TOP | WB_VCENTER | WB_BOTTOM |  \
-                                     WB_WORDBREAK | WB_NOLABEL |        \
-                                     WB_DEFBUTTON | WB_NOLIGHTBORDER |  \
-                                     WB_RECTSTYLE | WB_SMALLSTYLE |     \
-                                     WB_TOGGLE )
-#define RADIOBUTTON_VIEW_STYLE      (WB_3DLOOK |                        \
-                                     WB_LEFT | WB_CENTER | WB_RIGHT |   \
-                                     WB_TOP | WB_VCENTER | WB_BOTTOM |  \
-                                     WB_WORDBREAK | WB_NOLABEL)
-#define CHECKBOX_VIEW_STYLE         (WB_3DLOOK |                        \
-                                     WB_LEFT | WB_CENTER | WB_RIGHT |   \
-                                     WB_TOP | WB_VCENTER | WB_BOTTOM |  \
-                                     WB_WORDBREAK | WB_NOLABEL)
+static constexpr auto PUSHBUTTON_VIEW_STYLE = WB_3DLOOK |
+                                     WB_LEFT | WB_CENTER | WB_RIGHT |
+                                     WB_TOP | WB_VCENTER | WB_BOTTOM |
+                                     WB_WORDBREAK | WB_NOLABEL |
+                                     WB_DEFBUTTON | WB_NOLIGHTBORDER |
+                                     WB_RECTSTYLE | WB_SMALLSTYLE |
+                                     WB_TOGGLE;
+static constexpr auto RADIOBUTTON_VIEW_STYLE = WB_3DLOOK |
+                                     WB_LEFT | WB_CENTER | WB_RIGHT |
+                                     WB_TOP | WB_VCENTER | WB_BOTTOM |
+                                     WB_WORDBREAK | WB_NOLABEL;
+static constexpr auto CHECKBOX_VIEW_STYLE = WB_3DLOOK |
+                                     WB_LEFT | WB_CENTER | WB_RIGHT |
+                                     WB_TOP | WB_VCENTER | WB_BOTTOM |
+                                     WB_WORDBREAK | WB_NOLABEL;
 
 #define STYLE_RADIOBUTTON_MONO      (sal_uInt16(0x0001)) // legacy
 #define STYLE_CHECKBOX_MONO         (sal_uInt16(0x0001)) // legacy
@@ -634,6 +635,7 @@ void PushButton::ImplInitPushButtonData()
     mnDDStyle       = PushButtonDropdownStyle::NONE;
     mbIsActive    = false;
     mbPressed       = false;
+    mbIsStock       = false;
 }
 
 namespace
@@ -1044,6 +1046,8 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
     if (bNativeOK)
     {
         PushButtonValue aControlValue;
+        aControlValue.mbIsStock = isStock();
+
         tools::Rectangle aCtrlRegion(aInRect);
         ControlState nState = ControlState::NONE;
 
@@ -1697,7 +1701,8 @@ void PushButton::ShowFocus(const tools::Rectangle& rRect)
 {
     if (IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
     {
-        ImplControlValue aControlValue;
+        PushButtonValue aControlValue;
+        aControlValue.mbIsStock = isStock();
         tools::Rectangle aInRect(Point(), GetOutputSizePixel());
         GetOutDev()->DrawNativeControl(ControlType::Pushbutton, ControlPart::Focus, aInRect,
                                        ControlState::FOCUSED, aControlValue, OUString());
@@ -1854,12 +1859,7 @@ WinBits RadioButton::ImplInitStyle( const vcl::Window* pPrevWindow, WinBits nSty
          (!pPrevWindow || (pPrevWindow->GetType() != WindowType::RADIOBUTTON)) )
         nStyle |= WB_GROUP;
     if ( !(nStyle & WB_NOTABSTOP) )
-    {
-        if ( IsChecked() )
-            nStyle |= WB_TABSTOP;
-        else
-            nStyle &= ~WB_TABSTOP;
-    }
+        nStyle |= WB_TABSTOP;
     return nStyle;
 }
 
@@ -2256,9 +2256,8 @@ void RadioButton::ImplUncheckAllOther()
 
     std::vector<VclPtr<RadioButton> > aGroup(GetRadioButtonGroup(false));
     // iterate over radio button group and checked buttons
-    for (auto const& elem : aGroup)
+    for (VclPtr<RadioButton>& pWindow : aGroup)
     {
-        VclPtr<RadioButton> pWindow = elem;
         if ( pWindow->IsChecked() )
         {
             pWindow->SetState( false );
@@ -3809,12 +3808,8 @@ void DisclosureButton::ImplDrawCheckBoxState(vcl::RenderContext& rRenderContext)
     if (!rCtrlData.mpDisclosureMinus)
         rCtrlData.mpDisclosureMinus.reset(new Image(BitmapEx(SV_DISCLOSURE_MINUS)));
 
-    Image* pImg = nullptr;
-    pImg = IsChecked() ? rCtrlData.mpDisclosureMinus.get() : rCtrlData.mpDisclosurePlus.get();
-
-    SAL_WARN_IF(!pImg, "vcl", "no disclosure image");
-    if (!pImg)
-        return;
+    Image* pImg
+        = IsChecked() ? rCtrlData.mpDisclosureMinus.get() : rCtrlData.mpDisclosurePlus.get();
 
     DrawImageFlags nStyle = DrawImageFlags::NONE;
     if (!IsEnabled())
@@ -3826,7 +3821,6 @@ void DisclosureButton::ImplDrawCheckBoxState(vcl::RenderContext& rRenderContext)
                (aSize.Height() - aImgSize.Height()) / 2);
     aOff += aStateRect.TopLeft();
     rRenderContext.DrawImage(aOff, *pImg, nStyle);
-
 }
 
 void DisclosureButton::KeyInput( const KeyEvent& rKEvt )

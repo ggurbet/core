@@ -19,6 +19,7 @@
 
 #include "res_DataLabel.hxx"
 
+#include <TextDirectionListBox.hxx>
 #include <chartview/ChartSfxItemIds.hxx>
 #include "dlg_NumberFormat.hxx"
 
@@ -32,6 +33,7 @@
 #include <svx/svxids.hrc>
 #include <svl/zforlist.hxx>
 #include <svtools/controldims.hxx>
+#include <osl/diagnose.h>
 
 namespace chart
 {
@@ -316,7 +318,7 @@ void DataLabelResources::Reset(const SfxItemSet& rInAttrs)
 
     const SfxPoolItem *pPoolItem = nullptr;
     if( rInAttrs.GetItemState(SCHATTR_DATADESCR_SEPARATOR, true, &pPoolItem) == SfxItemState::SET )
-       for(sal_uInt32 i=0; i < SAL_N_ELEMENTS(our_aLBEntryMap); ++i )
+       for(size_t i=0; i < SAL_N_ELEMENTS(our_aLBEntryMap); ++i )
        {
           if( our_aLBEntryMap[i] == static_cast<const SfxStringItem*>(pPoolItem)->GetValue())
               m_xLB_Separator->set_active( i );

@@ -310,7 +310,8 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
                                 aSelection[nListPos] >>= nNextRow;
                                 if ( nRowsRead+1 < nNextRow )
                                     bRealSelection = true;
-                                bEnd = !xRowSet->absolute(nRowsRead = nNextRow);
+                                nRowsRead = nNextRow;
+                                bEnd = !xRowSet->absolute(nRowsRead);
                             }
                             ++nListPos;
                         }
@@ -580,7 +581,7 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
                                     nEndCol+nFormulaCols, nEndRow, nTab,
                                     InsertDeleteFlags::ALL & ~InsertDeleteFlags::NOTE, false, *pRedoDoc);
 
-            std::unique_ptr<ScDBData> pRedoDBData(pDBData ? new ScDBData( *pDBData ) : nullptr);
+            std::unique_ptr<ScDBData> pRedoDBData(new ScDBData(*pDBData));
 
             rDocShell.GetUndoManager()->AddUndoAction(
                 o3tl::make_unique<ScUndoImportData>( &rDocShell, nTab,

@@ -44,6 +44,7 @@
 #include <comphelper/lok.hxx>
 #include <bitmapwriteaccess.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 void OutputDevice::DrawBitmap( const Point& rDestPt, const Bitmap& rBitmap )
 {
@@ -136,9 +137,8 @@ void OutputDevice::DrawBitmap( const Point& rDestPt, const Size& rDestSize,
     if ( !IsDeviceOutputNecessary() )
         return;
 
-    if ( !mpGraphics )
-        if ( !AcquireGraphics() )
-            return;
+    if ( !mpGraphics && !AcquireGraphics() )
+        return;
 
     if ( mbInitClipRegion )
         InitClipRegion();
@@ -372,9 +372,8 @@ void OutputDevice::DrawBitmapEx( const Point& rDestPt, const Size& rDestSize,
         if ( !IsDeviceOutputNecessary() )
             return;
 
-        if ( !mpGraphics )
-            if ( !AcquireGraphics() )
-                return;
+        if ( !mpGraphics && !AcquireGraphics() )
+            return;
 
         if ( mbInitClipRegion )
             InitClipRegion();

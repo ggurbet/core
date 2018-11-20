@@ -35,6 +35,7 @@
 #include <basic/sbuno.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/sharedstringpool.hxx>
+#include <unotools/charclass.hxx>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -1489,6 +1490,7 @@ bool ScInterpreter::ConvertMatrixParameters()
                 {
                     formula::ParamClass eType = ScParameterClassification::GetParameterType( pCur, nParams - i);
                     if ( eType != formula::ParamClass::Reference &&
+                            eType != formula::ParamClass::ReferenceOrRefArray &&
                             eType != formula::ParamClass::ReferenceOrForceArray &&
                             // For scalar Value: convert to Array/JumpMatrix
                             // only if in array formula context, else (function
@@ -1553,6 +1555,7 @@ bool ScInterpreter::ConvertMatrixParameters()
                 {
                     formula::ParamClass eType = ScParameterClassification::GetParameterType( pCur, nParams - i);
                     if ( eType != formula::ParamClass::Reference &&
+                            eType != formula::ParamClass::ReferenceOrRefArray &&
                             eType != formula::ParamClass::ReferenceOrForceArray &&
                             eType != formula::ParamClass::ForceArray)
                     {
@@ -1703,8 +1706,7 @@ void ScInterpreter::QueryMatrixType(const ScMatrixRef& xMat, SvNumFormatType& rR
             }
             else
             {
-                svl::SharedString aStr( nMatVal.GetString());
-                FormulaTokenRef xRes = new FormulaStringToken( aStr);
+                FormulaTokenRef xRes = new FormulaStringToken( nMatVal.GetString() );
                 PushTempToken( new ScMatrixFormulaCellToken(nCols, nRows, xMat, xRes.get()));
                 rRetTypeExpr = SvNumFormatType::TEXT;
             }
@@ -3037,8 +3039,7 @@ void ScInterpreter::ScExternal()
             }
             else if ( aCall.HasMatrix() )
             {
-                ScMatrixRef xMat = aCall.GetMatrix();
-                PushMatrix( xMat );
+                PushMatrix( aCall.GetMatrix() );
             }
             else if ( aCall.HasString() )
             {
@@ -3960,11 +3961,11 @@ StackVar ScInterpreter::Interpret()
                     eOp = ocNone;       // JumpMatrix created
                     nStackBase = sp;
                 }
-                else
+                else if (sp >= pCur->GetParamCount())
                     nStackBase = sp - pCur->GetParamCount();
+                else
+                    nStackBase = sp;    // underflow?!?
             }
-            if ( nStackBase > sp )
-                nStackBase = sp;        // underflow?!?
 
             switch( eOp )
             {
@@ -4217,6 +4218,7 @@ StackVar ScInterpreter::Interpret()
                 case ocMid              : ScMid();                      break;
                 case ocText             : ScText();                     break;
                 case ocSubstitute       : ScSubstitute();               break;
+                case ocRegex            : ScRegex();                    break;
                 case ocRept             : ScRept();                     break;
                 case ocConcat           : ScConcat();                   break;
                 case ocConcat_MS        : ScConcat_MS();                break;

@@ -38,11 +38,12 @@ $(call gb_ExternalProject_get_state_target,harfbuzz,build) :
 			--with-glib=no \
 			--with-ucdn=no \
 			--with-graphite2=yes \
-			$(if $(filter IOS MACOSX,$(OS)),--with-coretext=yes) \
+			$(if $(filter iOS MACOSX,$(OS)),--with-coretext=yes) \
 			$(if $(verbose),--disable-silent-rules,--enable-silent-rules) \
 			--libdir=$(call gb_UnpackedTarball_get_dir,harfbuzz/src/.libs) \
 			$(if $(CROSS_COMPILING),--build=$(BUILD_PLATFORM) --host=$(HOST_PLATFORM)) \
 			CXXFLAGS=' \
+				$(if $(filter ANDROID,$(OS)),-DHB_NO_MMAP=1,) \
 				$(if $(filter $(true),$(gb_SYMBOL)),$(gb_DEBUGINFO_FLAGS)) \
 				$(if $(ENABLE_OPTIMIZED), \
 					$(gb_COMPILEROPTFLAGS),$(gb_COMPILERNOOPTFLAGS)) \

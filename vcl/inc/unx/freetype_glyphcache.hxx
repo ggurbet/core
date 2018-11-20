@@ -23,6 +23,7 @@
 #include <unx/glyphcache.hxx>
 #include <PhysicalFontFace.hxx>
 #include <fontinstance.hxx>
+#include <vcl/glyphitem.hxx>
 
 // FreetypeFontFile has the responsibility that a font file is only mapped once.
 // (#86621#) the old directly ft-managed solution caused it to be mapped
@@ -106,6 +107,7 @@ class VCL_DLLPUBLIC FreetypeFontInstance : public LogicalFontInstance
     FreetypeFont* mpFreetypeFont;
 
     virtual hb_font_t* ImplInitHbFont() override;
+    virtual bool ImplGetGlyphBoundRect(sal_GlyphId, tools::Rectangle&, bool) const override;
 
 protected:
     explicit FreetypeFontInstance(const PhysicalFontFace& rPFF, const FontSelectPattern& rFSP);
@@ -115,6 +117,8 @@ public:
 
     void SetFreetypeFont(FreetypeFont* p);
     FreetypeFont* GetFreetypeFont() const { return mpFreetypeFont; }
+
+    virtual bool GetGlyphOutline(sal_GlyphId, basegfx::B2DPolyPolygon&, bool) const override;
 };
 
 #endif // INCLUDED_VCL_GENERIC_GLYPHS_GCACH_FTYP_HXX

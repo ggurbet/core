@@ -821,20 +821,17 @@ bool ImplStdBorderWindowView::MouseButtonDown( const MouseEvent& rMEvt )
             {
                 if ( rMEvt.GetClicks() == 1 )
                 {
-                    if ( bTracking )
-                    {
-                        Point   aPos         = pBorderWindow->GetPosPixel();
-                        Size    aSize        = pBorderWindow->GetOutputSizePixel();
-                        maFrameData.mnTrackX      = aPos.X();
-                        maFrameData.mnTrackY      = aPos.Y();
-                        maFrameData.mnTrackWidth  = aSize.Width();
-                        maFrameData.mnTrackHeight = aSize.Height();
+                    Point aPos  = pBorderWindow->GetPosPixel();
+                    Size  aSize = pBorderWindow->GetOutputSizePixel();
+                    maFrameData.mnTrackX      = aPos.X();
+                    maFrameData.mnTrackY      = aPos.Y();
+                    maFrameData.mnTrackWidth  = aSize.Width();
+                    maFrameData.mnTrackHeight = aSize.Height();
 
-                        if ( maFrameData.mnHitTest & BorderWindowHitTest::Title )
-                            nDragFullTest = DragFullOptions::WindowMove;
-                        else
-                            nDragFullTest = DragFullOptions::WindowSize;
-                    }
+                    if (maFrameData.mnHitTest & BorderWindowHitTest::Title)
+                        nDragFullTest = DragFullOptions::WindowMove;
+                    else
+                        nDragFullTest = DragFullOptions::WindowSize;
                 }
                 else
                 {
@@ -1292,7 +1289,7 @@ void ImplStdBorderWindowView::Init( OutputDevice* pDev, long nWidth, long nHeigh
     else if ( pData->mnTitleType == BorderWindowTitleType::Tearoff )
         pData->mnBorderSize = 0;
     else
-        pData->mnBorderSize = rStyleSettings.GetBorderSize();
+        pData->mnBorderSize = StyleSettings::GetBorderSize();
     pData->mnLeftBorder     = aCalcRect.Left();
     pData->mnTopBorder      = aCalcRect.Top();
     pData->mnRightBorder    = aRect.Right()-aCalcRect.Right();
@@ -1782,7 +1779,7 @@ void ImplBorderWindow::Resize()
             long nNotebookBarHeight = mpNotebookBar->GetSizePixel().Height();
 
             const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
-            const BitmapEx aPersona = rStyleSettings.GetPersonaHeader();
+            const BitmapEx& aPersona = rStyleSettings.GetPersonaHeader();
             // since size of notebookbar changes, to make common persona for menubar
             // and notebookbar persona should be set again with changed coordinates
             if (!aPersona.IsEmpty())

@@ -108,7 +108,7 @@ ODesignView::ODesignView(   vcl::Window* pParent,
     m_aSplitWin->InsertItem( COLSET_ID,100,SPLITWINDOW_APPEND, 0, SplitWindowItemFlags::PercentSize | SplitWindowItemFlags::ColSet );
     m_aSplitWin->InsertItem( REPORT_ID, m_aScrollWindow.get(), 100, SPLITWINDOW_APPEND, COLSET_ID, SplitWindowItemFlags::PercentSize);
 
-    // Splitter einrichten
+    // set up splitter
     m_aSplitWin->SetSplitHdl(LINK(this, ODesignView,SplitHdl));
     m_aSplitWin->SetAlign(WindowAlign::Left);
     m_aSplitWin->Show();
@@ -231,7 +231,7 @@ void ODesignView::resizeDocumentView(tools::Rectangle& _rPlayground)
         if ( m_aSplitWin->IsItemValid(TASKPANE_ID) )
         {
             // normalize the split pos
-            const long nSplitterWidth = GetSettings().GetStyleSettings().GetSplitSize();
+            const long nSplitterWidth = StyleSettings::GetSplitSize();
             Point aTaskPanePos(nSplitPos + nSplitterWidth, _rPlayground.Top());
             if (m_pTaskPane && m_pTaskPane->IsVisible() && m_pPropWin)
             {
@@ -340,8 +340,7 @@ void ODesignView::UpdatePropertyBrowserDelayed(OSectionView& _rView)
         if ( m_pCurrentView )
             m_aScrollWindow->setMarked(m_pCurrentView,false);
         m_pCurrentView = &_rView;
-        if ( m_pCurrentView )
-            m_aScrollWindow->setMarked(m_pCurrentView,true);
+        m_aScrollWindow->setMarked(m_pCurrentView, true);
         m_xReportComponent.clear();
         DlgEdHint aHint( RPTUI_HINT_SELECTIONCHANGED );
         Broadcast( aHint );

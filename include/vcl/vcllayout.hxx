@@ -27,68 +27,15 @@
 #include <tools/gen.hxx>
 #include <vcl/devicecoordinate.hxx>
 #include <vcl/dllapi.h>
+#include <vcl/glyphitem.hxx>
 
 class ImplLayoutArgs;
 class PhysicalFontFace;
 class SalGraphics;
 namespace vcl
 {
-class TextLayoutCache;
+    class TextLayoutCache;
 }
-
-typedef sal_uInt16 sal_GlyphId;
-
-struct VCL_DLLPUBLIC GlyphItem
-{
-    int     mnFlags;
-    int     mnCharPos;      // index in string
-    int     mnCharCount;    // number of characters making up this glyph
-
-    int     mnOrigWidth;    // original glyph width
-    int     mnNewWidth;     // width after adjustments
-    int     mnXOffset;
-
-    sal_GlyphId maGlyphId;
-    Point   maLinearPos;    // absolute position of non rotated string
-
-    int     mnFallbackLevel;
-
-public:
-            GlyphItem(int nCharPos, int nCharCount, sal_GlyphId aGlyphId, const Point& rLinearPos,
-                long nFlags, int nOrigWidth, int nXOffset )
-            :   mnFlags(nFlags)
-            ,   mnCharPos(nCharPos)
-            ,   mnCharCount(nCharCount)
-            ,   mnOrigWidth(nOrigWidth)
-            ,   mnNewWidth(nOrigWidth)
-            ,   mnXOffset(nXOffset)
-            ,   maGlyphId(aGlyphId)
-            ,   maLinearPos(rLinearPos)
-            ,   mnFallbackLevel(0)
-            { }
-
-    enum {
-        IS_IN_CLUSTER = 0x001,
-        IS_RTL_GLYPH  = 0x002,
-        IS_DIACRITIC  = 0x004,
-        IS_VERTICAL   = 0x008,
-        IS_SPACING    = 0x010,
-        ALLOW_KASHIDA = 0x020,
-        IS_DROPPED    = 0x040,
-        IS_CLUSTER_START = 0x080
-    };
-
-    bool    IsInCluster() const     { return ((mnFlags & IS_IN_CLUSTER) != 0); }
-    bool    IsRTLGlyph() const      { return ((mnFlags & IS_RTL_GLYPH) != 0); }
-    bool    IsDiacritic() const     { return ((mnFlags & IS_DIACRITIC) != 0); }
-    bool    IsVertical() const      { return ((mnFlags & IS_VERTICAL) != 0); }
-    bool    IsSpacing() const       { return ((mnFlags & IS_SPACING) != 0); }
-    bool    AllowKashida() const    { return ((mnFlags & ALLOW_KASHIDA) != 0); }
-    bool    IsDropped() const       { return ((mnFlags & IS_DROPPED) != 0); }
-    bool    IsClusterStart() const  { return ((mnFlags & IS_CLUSTER_START) != 0); }
-};
-
-typedef std::vector<GlyphItem> SalLayoutGlyphs;
 
 // all positions/widths are in font units
 // one exception: drawposition is in pixel units
@@ -147,15 +94,11 @@ public:
     virtual bool    IsKashidaPosValid ( int /*nCharPos*/ ) const { return true; } // i60594
 
     // methods using glyph indexing
-    virtual bool    GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int&,
-                                 const PhysicalFontFace** pFallbackFont = nullptr) const = 0;
-    virtual bool    GetOutline( SalGraphics&, basegfx::B2DPolyPolygonVector& ) const;
-    virtual bool    GetBoundRect( SalGraphics&, tools::Rectangle& ) const;
-
-    // used by glyph+font+script fallback
-    virtual void    MoveGlyph( int nStart, long nNewXPos ) = 0;
-    virtual void    DropGlyph( int nStart ) = 0;
-    virtual void    Simplify( bool bIsBase ) = 0;
+    virtual bool    GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int& nStart,
+                                 const PhysicalFontFace** pFallbackFont = nullptr,
+                                 int* const pFallbackLevel = nullptr) const = 0;
+    virtual bool GetOutline(basegfx::B2DPolyPolygonVector&) const;
+    bool GetBoundRect(tools::Rectangle&) const;
 
     virtual std::shared_ptr<vcl::TextLayoutCache>
         CreateTextLayoutCache(OUString const&) const;
@@ -163,11 +106,11 @@ public:
 
 protected:
     // used by layout engines
-                    SalLayout();
+    SalLayout();
 
 private:
-                    SalLayout( const SalLayout& ) = delete;
-                    SalLayout& operator=( const SalLayout& ) = delete;
+    SalLayout(const SalLayout&) = delete;
+    SalLayout& operator=(const SalLayout&) = delete;
 
 protected:
     int             mnMinCharPos;

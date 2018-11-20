@@ -198,18 +198,12 @@ sal_uInt16 SwWrongList::GetWrongPos( sal_Int32 nValue ) const
         // position of the first smart tag which covers nValue
         if ( !maList[0].maType.isEmpty() || maList[0].mpSubList )
         {
-            for (std::vector<SwWrongArea>::const_iterator aIter(maList.begin()), aEnd(maList.end()); aIter != aEnd; ++aIter)
-            {
-                const sal_Int32 nSTPos = (*aIter).mnPos;
-                const sal_Int32 nSTLen = (*aIter).mnLen;
-                if ( nSTPos <= nValue && nValue < nSTPos + nSTLen )
-                    break;
-                if ( nSTPos > nValue )
-                    break;
-
-                ++nMin;
-            }
-            return nMin;
+            auto aIter = std::find_if(maList.begin(), maList.end(),
+                [nValue](const SwWrongArea& rST) {
+                    return (rST.mnPos <= nValue && nValue < rST.mnPos + rST.mnLen)
+                        || (rST.mnPos > nValue);
+                });
+            return static_cast<sal_uInt16>(std::distance(maList.begin(), aIter));
         }
 
         --nMax;
@@ -591,38 +585,36 @@ void SwWrongList::Remove(sal_uInt16 nIdx, sal_uInt16 nLen )
 }
 
 void SwWrongList::RemoveEntry( sal_Int32 nBegin, sal_Int32 nEnd ) {
-    sal_uInt16 nDelPos = 0;
-    sal_uInt16 nDel = 0;
-    std::vector<SwWrongArea>::const_iterator aIter(maList.begin()), aEnd(maList.end());
-    while( aIter != aEnd && (*aIter).mnPos < nBegin )
-    {
-        ++aIter;
-        ++nDelPos;
-    }
+    std::vector<SwWrongArea>::const_iterator aEnd(maList.end());
+    auto aDelIter = std::find_if(maList.cbegin(), aEnd,
+        [nBegin](const SwWrongArea& rST) { return rST.mnPos >= nBegin; });
+    auto aIter = aDelIter;
     if( WRONGLIST_GRAMMAR == GetWrongListType() )
     {
-        while( aIter != aEnd && nBegin < nEnd && nEnd > (*aIter).mnPos )
+        if( nBegin < nEnd )
         {
-            ++aIter;
-            ++nDel;
+            aIter = std::find_if(aDelIter, aEnd,
+                [nEnd](const SwWrongArea& rST) { return rST.mnPos >= nEnd; });
         }
     }
     else
     {
-        while( aIter != aEnd && nBegin == (*aIter).mnPos && nEnd == (*aIter).mnPos +(*aIter).mnLen )
-        {
-            ++aIter;
-            ++nDel;
-        }
+        aIter = std::find_if(aDelIter, aEnd,
+            [nBegin, nEnd](const SwWrongArea& rST) {
+                return (rST.mnPos != nBegin) || ((rST.mnPos + rST.mnLen) != nEnd);
+            });
     }
+    auto nDel = static_cast<sal_uInt16>(std::distance(aDelIter, aIter));
     if( nDel )
+    {
+        auto nDelPos = static_cast<sal_uInt16>(std::distance(maList.cbegin(), aDelIter));
         Remove( nDelPos, nDel );
+    }
 }
 
 bool SwWrongList::LookForEntry( sal_Int32 nBegin, sal_Int32 nEnd ) {
-    std::vector<SwWrongArea>::iterator aIter = maList.begin();
-    while( aIter != maList.end() && (*aIter).mnPos < nBegin )
-        ++aIter;
+    auto aIter = std::find_if(maList.begin(), maList.end(),
+        [nBegin](const SwWrongArea& rST) { return rST.mnPos >= nBegin; });
     return aIter != maList.end()
            && nBegin == (*aIter).mnPos
            && nEnd == (*aIter).mnPos + (*aIter).mnLen;
@@ -632,31 +624,14 @@ void SwWrongList::Insert( const OUString& rType,
                           css::uno::Reference< css::container::XStringKeyMap > const & xPropertyBag,
                           sal_Int32 nNewPos, sal_Int32 nNewLen )
 {
-    std::vector<SwWrongArea>::iterator aIter = maList.begin();
-
-    while ( aIter != maList.end() )
+    auto aIter = std::find_if(maList.begin(), maList.end(),
+        [nNewPos](const SwWrongArea& rST) { return nNewPos <= rST.mnPos; });
+    if ( aIter != maList.end() && nNewPos == (*aIter).mnPos )
     {
         const sal_Int32 nSTPos = (*aIter).mnPos;
 
-        if ( nNewPos < nSTPos )
-        {
-            // insert at current position
-            break;
-        }
-        else if ( nNewPos == nSTPos )
-        {
-            while ( aIter != maList.end() && (*aIter).mnPos == nSTPos )
-            {
-                if ( nNewLen < (*aIter).mnLen )
-                {
-                    // insert at current position
-                    break;
-                }
-                ++aIter;
-            }
-            break;
-        }
-        ++aIter;
+        aIter = std::find_if(aIter, maList.end(),
+            [nSTPos, nNewLen](const SwWrongArea& rST) { return rST.mnPos != nSTPos || nNewLen < rST.mnLen; });
     }
 
     maList.insert(aIter, SwWrongArea( rType, meType, xPropertyBag, nNewPos, nNewLen) );
@@ -664,7 +639,7 @@ void SwWrongList::Insert( const OUString& rType,
 
 namespace sw {
 
-WrongListIterator::WrongListIterator(SwTextFrame const& rFrame,
+WrongListIteratorBase::WrongListIteratorBase(SwTextFrame const& rFrame,
         SwWrongList const* (SwTextNode::*pGetWrongList)() const)
     : m_pGetWrongList(pGetWrongList)
     , m_pMergedPara(rFrame.GetMergedPara())
@@ -676,12 +651,23 @@ WrongListIterator::WrongListIterator(SwTextFrame const& rFrame,
 {
 }
 
-WrongListIterator::WrongListIterator(SwWrongList const& rWrongList)
+WrongListIteratorBase::WrongListIteratorBase(SwWrongList const& rWrongList)
     : m_pGetWrongList(nullptr)
     , m_pMergedPara(nullptr)
     , m_CurrentExtent(0)
     , m_CurrentIndex(0)
     , m_pWrongList(&rWrongList)
+{
+}
+
+WrongListIterator::WrongListIterator(SwTextFrame const& rFrame,
+        SwWrongList const* (SwTextNode::*pGetWrongList)() const)
+    : WrongListIteratorBase(rFrame, pGetWrongList)
+{
+}
+
+WrongListIterator::WrongListIterator(SwWrongList const& rWrongList)
+    : WrongListIteratorBase(rWrongList)
 {
 }
 
@@ -836,6 +822,118 @@ WrongListIterator::GetWrongElement(TextFrameIndex const nStart)
         return m_pWrongList->GetElement(nPos);
     }
     return nullptr;
+}
+
+WrongListIteratorCounter::WrongListIteratorCounter(SwTextFrame const& rFrame,
+        SwWrongList const* (SwTextNode::*pGetWrongList)() const)
+    : WrongListIteratorBase(rFrame, pGetWrongList)
+{
+}
+
+WrongListIteratorCounter::WrongListIteratorCounter(SwWrongList const& rWrongList)
+    : WrongListIteratorBase(rWrongList)
+{
+}
+
+sal_uInt16 WrongListIteratorCounter::GetElementCount()
+{
+    if (m_pMergedPara)
+    {
+        sal_uInt16 nRet(0);
+        m_CurrentExtent = 0;
+        m_CurrentIndex = TextFrameIndex(0);
+        SwNode const* pNode(nullptr);
+        sal_uInt16 InCurrentNode(0);
+        while (m_CurrentExtent < m_pMergedPara->extents.size())
+        {
+            sw::Extent const& rExtent(m_pMergedPara->extents[m_CurrentExtent]);
+            if (rExtent.pNode != pNode)
+            {
+                InCurrentNode = 0;
+                pNode = rExtent.pNode;
+            }
+            SwWrongList const*const pWrongList((rExtent.pNode->*m_pGetWrongList)());
+            for (; pWrongList && InCurrentNode < pWrongList->Count(); ++InCurrentNode)
+            {
+                SwWrongArea const*const pWrong(pWrongList->GetElement(InCurrentNode));
+                TextFrameIndex const nExtentEnd(
+                    m_CurrentIndex + TextFrameIndex(rExtent.nEnd - rExtent.nStart));
+                if (nExtentEnd <= TextFrameIndex(pWrong->mnPos))
+                {
+                    break; // continue outer loop
+                }
+                if (m_CurrentIndex < TextFrameIndex(pWrong->mnPos + pWrong->mnLen))
+                {
+                    ++nRet;
+                }
+            }
+            m_CurrentIndex += TextFrameIndex(rExtent.nEnd - rExtent.nStart);
+            ++m_CurrentExtent;
+        }
+        return nRet;
+    }
+    else if (m_pWrongList)
+    {
+        return m_pWrongList->Count();
+    }
+    return 0;
+}
+
+boost::optional<std::pair<TextFrameIndex, TextFrameIndex>>
+WrongListIteratorCounter::GetElementAt(sal_uInt16 nIndex)
+{
+    if (m_pMergedPara)
+    {
+        m_CurrentExtent = 0;
+        m_CurrentIndex = TextFrameIndex(0);
+        SwNode const* pNode(nullptr);
+        sal_uInt16 InCurrentNode(0);
+        while (m_CurrentExtent < m_pMergedPara->extents.size())
+        {
+            sw::Extent const& rExtent(m_pMergedPara->extents[m_CurrentExtent]);
+            if (rExtent.pNode != pNode)
+            {
+                InCurrentNode = 0;
+                pNode = rExtent.pNode;
+            }
+            SwWrongList const*const pWrongList((rExtent.pNode->*m_pGetWrongList)());
+            for (; pWrongList && InCurrentNode < pWrongList->Count(); ++InCurrentNode)
+            {
+                SwWrongArea const*const pWrong(pWrongList->GetElement(InCurrentNode));
+                TextFrameIndex const nExtentEnd(
+                    m_CurrentIndex + TextFrameIndex(rExtent.nEnd - rExtent.nStart));
+                if (nExtentEnd <= TextFrameIndex(pWrong->mnPos))
+                {
+                    break; // continue outer loop
+                }
+                if (m_CurrentIndex < TextFrameIndex(pWrong->mnPos + pWrong->mnLen))
+                {
+                    if (nIndex == 0)
+                    {
+                        return boost::optional<std::pair<TextFrameIndex, TextFrameIndex>>(
+                            std::pair<TextFrameIndex, TextFrameIndex>(
+                                m_CurrentIndex - TextFrameIndex(rExtent.nStart -
+                                    std::max(rExtent.nStart, pWrong->mnPos)),
+                                m_CurrentIndex - TextFrameIndex(rExtent.nStart -
+                                    std::min(pWrong->mnPos + pWrong->mnLen, rExtent.nEnd))));
+                    }
+                    --nIndex;
+                }
+            }
+            m_CurrentIndex += TextFrameIndex(rExtent.nEnd - rExtent.nStart);
+            ++m_CurrentExtent;
+        }
+        return boost::optional<std::pair<TextFrameIndex, TextFrameIndex>>();
+    }
+    else if (m_pWrongList)
+    {
+        SwWrongArea const*const pWrong(m_pWrongList->GetElement(nIndex));
+        return boost::optional<std::pair<TextFrameIndex, TextFrameIndex>>(
+            std::pair<TextFrameIndex, TextFrameIndex>(
+                    TextFrameIndex(pWrong->mnPos),
+                    TextFrameIndex(pWrong->mnPos + pWrong->mnLen)));
+    }
+    return boost::optional<std::pair<TextFrameIndex, TextFrameIndex>>();
 }
 
 } // namespace sw

@@ -380,19 +380,7 @@ SdDrawDocument::~SdDrawDocument()
     }
 
     maFrameViewList.clear();
-
-    if (mpCustomShowList)
-    {
-        for (sal_uLong j = 0; j < mpCustomShowList->size(); j++)
-        {
-            // If necessary, delete CustomShows
-            SdCustomShow* pCustomShow = (*mpCustomShowList)[j];
-            delete pCustomShow;
-        }
-
-        mpCustomShowList.reset();
-    }
-
+    mpCustomShowList.reset();
     mpOutliner.reset();
     mpInternalOutliner.reset();
     mpCharClass.reset();
@@ -624,7 +612,8 @@ SdDrawDocument* SdDrawDocument::AllocSdDrawDocument() const
             mpCreatingTransferable->SetDocShell( new ::sd::GraphicDocShell(
                 SfxObjectCreateMode::EMBEDDED ) );
 
-        pNewDocSh = static_cast< ::sd::DrawDocShell*>( pObj = mpCreatingTransferable->GetDocShell().get() );
+        pObj = mpCreatingTransferable->GetDocShell().get();
+        pNewDocSh = static_cast< ::sd::DrawDocShell*>( pObj );
         pNewDocSh->DoInitNew();
         pNewModel = pNewDocSh->GetDoc();
 
@@ -1144,10 +1133,10 @@ void SdDrawDocument::InitLayoutVector()
         ::comphelper::getProcessComponentContext() );
 
     // get file list from configuration
-    Sequence< rtl::OUString > aFiles(
+    Sequence< OUString > aFiles(
         officecfg::Office::Impress::Misc::LayoutListFiles::get(xContext) );
 
-    rtl::OUString sFilename;
+    OUString sFilename;
     for( sal_Int32 i=0; i < aFiles.getLength(); ++i )
     {
         sFilename = comphelper::getExpandedUri(xContext, aFiles[i]);
@@ -1183,10 +1172,10 @@ void SdDrawDocument::InitObjectVector()
         ::comphelper::getProcessComponentContext() );
 
     // get file list from configuration
-    Sequence< rtl::OUString > aFiles(
+    Sequence< OUString > aFiles(
        officecfg::Office::Impress::Misc::PresObjListFiles::get(xContext) );
 
-    rtl::OUString sFilename;
+    OUString sFilename;
     for( sal_Int32 i=0; i < aFiles.getLength(); ++i )
     {
         sFilename = comphelper::getExpandedUri(xContext, aFiles[i]);

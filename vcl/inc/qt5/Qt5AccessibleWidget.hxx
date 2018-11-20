@@ -19,6 +19,7 @@
 #include <QtGui/QAccessible>
 #include <QtGui/QAccessibleActionInterface>
 #include <QtGui/QAccessibleInterface>
+#include <QtGui/QAccessibleTableInterface>
 #include <QtGui/QAccessibleTextInterface>
 #include <QtGui/QAccessibleValueInterface>
 #include <QtGui/QColor>
@@ -31,7 +32,11 @@ class Qt5Widget;
 
 class VCLPLUG_QT5_PUBLIC Qt5AccessibleWidget : public QObject,
                                                public QAccessibleInterface,
-                                               public QAccessibleActionInterface
+                                               public QAccessibleActionInterface,
+                                               public QAccessibleTextInterface,
+                                               public QAccessibleEditableTextInterface,
+                                               public QAccessibleTableInterface,
+                                               public QAccessibleValueInterface
 {
     Q_OBJECT
 
@@ -68,8 +73,63 @@ public:
     void doAction(const QString& actionName) override;
     QStringList keyBindingsForAction(const QString& actionName) const override;
 
-    QAccessibleValueInterface* valueInterface();
-    QAccessibleTextInterface* textInterface();
+    static QAccessibleValueInterface* valueInterface();
+    static QAccessibleTextInterface* textInterface();
+
+    // QAccessibleTextInterface
+    void addSelection(int startOffset, int endOffset) override;
+    QString attributes(int offset, int* startOffset, int* endOffset) const override;
+    int characterCount() const override;
+    QRect characterRect(int offset) const override;
+    int cursorPosition() const override;
+    int offsetAtPoint(const QPoint& point) const override;
+    void removeSelection(int selectionIndex) override;
+    void scrollToSubstring(int startIndex, int endIndex) override;
+    void selection(int selectionIndex, int* startOffset, int* endOffset) const override;
+    int selectionCount() const override;
+    void setCursorPosition(int position) override;
+    void setSelection(int selectionIndex, int startOffset, int endOffset) override;
+    QString text(int startOffset, int endOffset) const override;
+    QString textAfterOffset(int offset, QAccessible::TextBoundaryType boundaryType,
+                            int* startOffset, int* endOffset) const override;
+    QString textAtOffset(int offset, QAccessible::TextBoundaryType boundaryType, int* startOffset,
+                         int* endOffset) const override;
+    QString textBeforeOffset(int offset, QAccessible::TextBoundaryType boundaryType,
+                             int* startOffset, int* endOffset) const override;
+
+    // QAccessibleEditableTextInterface
+    virtual void deleteText(int startOffset, int endOffset) override;
+    virtual void insertText(int offset, const QString& text) override;
+    virtual void replaceText(int startOffset, int endOffset, const QString& text) override;
+
+    // QAccessibleValueInterface
+    QVariant currentValue() const override;
+    QVariant maximumValue() const override;
+    QVariant minimumStepSize() const override;
+    QVariant minimumValue() const override;
+    void setCurrentValue(const QVariant& value) override;
+
+    // QAccessibleTableInterface
+    virtual QAccessibleInterface* caption() const override;
+    virtual QAccessibleInterface* cellAt(int row, int column) const override;
+    virtual int columnCount() const override;
+    virtual QString columnDescription(int column) const override;
+    virtual bool isColumnSelected(int column) const override;
+    virtual bool isRowSelected(int row) const override;
+    virtual void modelChange(QAccessibleTableModelChangeEvent* event) override;
+    virtual int rowCount() const override;
+    virtual QString rowDescription(int row) const override;
+    virtual bool selectColumn(int column) override;
+    virtual bool selectRow(int row) override;
+    virtual int selectedCellCount() const override;
+    virtual QList<QAccessibleInterface*> selectedCells() const override;
+    virtual int selectedColumnCount() const override;
+    virtual QList<int> selectedColumns() const override;
+    virtual int selectedRowCount() const override;
+    virtual QList<int> selectedRows() const override;
+    virtual QAccessibleInterface* summary() const override;
+    virtual bool unselectColumn(int column) override;
+    virtual bool unselectRow(int row) override;
 
     // Factory
     static QAccessibleInterface* customFactory(const QString& classname, QObject* object);

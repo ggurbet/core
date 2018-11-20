@@ -207,7 +207,6 @@ bool SdrDragView::BegDragObj(const Point& rPnt, OutputDevice* pOut, SdrHdl* pHdl
         SetDragWithCopy(false);
         //TODO: aAni.Reset();
         mpCurrentSdrDragMethod=nullptr;
-        mbDragLimit=false;
         SdrDragMode eTmpMode=meDragMode;
         if (eTmpMode==SdrDragMode::Move && pHdl!=nullptr && pHdl->GetKind()!=SdrHdlKind::Move) {
             eTmpMode=SdrDragMode::Resize;
@@ -784,7 +783,7 @@ void SdrDragView::ShowDragObj()
         for(sal_uInt32 a(0); a < PaintWindowCount(); a++)
         {
             SdrPaintWindow* pCandidate = GetPaintWindow(a);
-            rtl::Reference<sdr::overlay::OverlayManager> xOverlayManager = pCandidate->GetOverlayManager();
+            const rtl::Reference<sdr::overlay::OverlayManager>& xOverlayManager = pCandidate->GetOverlayManager();
 
             if (xOverlayManager.is())
             {
@@ -855,7 +854,7 @@ bool SdrDragView::IsOrthoDesired() const
     if( dynamic_cast< const SdrDragObjOwn* >( mpCurrentSdrDragMethod.get() )
        || dynamic_cast< const SdrDragResize* >(mpCurrentSdrDragMethod.get() ))
     {
-        return bOrthoDesiredOnMarked;
+        return m_bOrthoDesiredOnMarked;
     }
 
     return false;

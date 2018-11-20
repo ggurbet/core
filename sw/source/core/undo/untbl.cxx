@@ -534,7 +534,7 @@ SwTableNode* SwNodes::UndoTableToText( sal_uLong nSttNd, sal_uLong nEndNd,
     }
 
     // than create table structure partially. First a single line that contains
-    // all boxes. The correct structure is than taken from SaveStruct.
+    // all boxes. The correct structure is then taken from SaveStruct.
     SwTableBoxFormat* pBoxFormat = GetDoc()->MakeTableBoxFormat();
     SwTableLineFormat* pLineFormat = GetDoc()->MakeTableLineFormat();
     SwTableLine* pLine = new SwTableLine( pLineFormat, rSavedData.size(), nullptr );
@@ -1811,10 +1811,9 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
     CHECK_TABLE( pTableNd->GetTable() )
 
     SwSelBoxes aSelBoxes;
-    for (std::set<sal_uLong>::iterator it = m_Boxes.begin();
-            it != m_Boxes.end(); ++it)
+    for (const auto& rBox : m_Boxes)
     {
-        SwTableBox* pBox = pTableNd->GetTable().GetTableBox( *it );
+        SwTableBox* pBox = pTableNd->GetTable().GetTableBox( rBox );
         aSelBoxes.insert( pBox );
     }
 
@@ -1962,10 +1961,9 @@ CHECKTABLE(pTableNd->GetTable())
     SwSelBoxes aSelBoxes;
     SwTextFormatColl* pColl = rDoc.getIDocumentStylePoolAccess().GetTextCollFromPool( RES_POOLCOLL_STANDARD );
 
-    std::set<sal_uLong>::iterator it;
-    for (it = m_Boxes.begin(); it != m_Boxes.end(); ++it)
+    for (const auto& rBox : m_Boxes)
     {
-        aIdx = *it;
+        aIdx = rBox;
         SwStartNode* pSttNd = rDoc.GetNodes().MakeTextSection( aIdx,
                                             SwTableBoxStartNode, pColl );
         pBox = new SwTableBox( static_cast<SwTableBoxFormat*>(pCpyBox->GetFrameFormat()), *pSttNd,
@@ -2228,7 +2226,7 @@ void SwUndoTableNumFormat::UndoImpl(::sw::UndoRedoContext & rContext)
         return;
 
     SwTextNode* pTextNd = rDoc.GetNodes()[ m_nNodePos ]->GetTextNode();
-    // If more than one node was deleted than all "node" attributes were also
+    // If more than one node was deleted then all "node" attributes were also
     // saved
     if( pTextNd->HasSwAttrSet() )
         pTextNd->ResetAllAttr();
@@ -2453,7 +2451,7 @@ void SwUndoTableCpyTable::UndoImpl(::sw::UndoRedoContext & rContext)
                 {
                     // The old content was not empty or he has been merged with the new content
                     bDeleteCompleteParagraph = !pEntry->bJoin; // bJoin is set when merged
-                    // Set aTmpIdx to the beginning fo the old content
+                    // Set aTmpIdx to the beginning of the old content
                     SwNodeIndex aTmpIdx( *pEndNode,
                             pUndoRedlineDelete->NodeDiff()-1 );
                     SwTextNode *pText = aTmpIdx.GetNode().GetTextNode();
@@ -2689,7 +2687,7 @@ void SwUndoTableCpyTable::AddBoxAfter( const SwTableBox& rBox, const SwNodeIndex
 {
     UndoTableCpyTable_Entry *const pEntry = m_vArr.back().get();
 
-    // If the content was deleted than remove also the temporarily created node
+    // If the content was deleted then remove also the temporarily created node
     if( bDelContent )
     {
         SwDoc* pDoc = rBox.GetFrameFormat()->GetDoc();

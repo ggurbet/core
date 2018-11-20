@@ -24,6 +24,7 @@
 
 #include <comphelper/windowserrorstring.hxx>
 #include <comphelper/scopeguard.hxx>
+#include <o3tl/make_unique.hxx>
 
 #include <opengl/texture.hxx>
 #include <opengl/win/gdiimpl.hxx>
@@ -134,21 +135,10 @@ bool WinFontInstance::CacheGlyphToAtlas(HDC hDC, HFONT hFont, int nGlyphIndex, S
 
     UINT nPos = 0;
 
-    // FIXME: really I don't get why 'vertical' makes any difference [!] what does it mean !?
-    if (aElement.mbVertical)
-    {
-        aElement.maLocation.SetLeft(0);
-        aElement.maLocation.SetRight(nBitmapWidth);
-        aElement.maLocation.SetTop(nPos);
-        aElement.maLocation.SetBottom( nPos + aGlyphAdv[0] + aElement.maLeftOverhangs );
-    }
-    else
-    {
-        aElement.maLocation.SetLeft(nPos);
-        aElement.maLocation.SetRight(aEnds[0]);
-        aElement.maLocation.SetTop(0);
-        aElement.maLocation.SetBottom( bounds.getHeight() + aElement.getExtraSpace() );
-    }
+    aElement.maLocation.SetLeft(nPos);
+    aElement.maLocation.SetRight(aEnds[0]);
+    aElement.maLocation.SetTop(0);
+    aElement.maLocation.SetBottom(bounds.getHeight() + aElement.getExtraSpace());
     nPos = aEnds[0];
 
     OpenGLCompatibleDC aDC(rGraphics, 0, 0, nBitmapWidth, nBitmapHeight);
@@ -273,7 +263,7 @@ bool ExTextOutRenderer::operator ()(GenericSalLayout const &rLayout,
     const GlyphItem* pGlyph;
     while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
     {
-        WORD glyphWStr[] = { pGlyph->maGlyphId };
+        WORD glyphWStr[] = { pGlyph->m_aGlyphId };
         if (hAltFont && pGlyph->IsVertical() == bUseAltFont)
         {
             bUseAltFont = !bUseAltFont;
@@ -305,8 +295,7 @@ std::unique_ptr<SalLayout> WinSalGraphics::GetTextLayout(ImplLayoutArgs& /*rArgs
     assert(mpWinFontEntry[nFallbackLevel]->GetFontFace());
 
     mpWinFontEntry[nFallbackLevel]->SetGraphics(this);
-    GenericSalLayout *aLayout = new GenericSalLayout(*mpWinFontEntry[nFallbackLevel]);
-    return std::unique_ptr<SalLayout>(aLayout);
+    return o3tl::make_unique<GenericSalLayout>(*mpWinFontEntry[nFallbackLevel]);
 }
 
 WinFontInstance::WinFontInstance(const WinFontFace& rPFF, const FontSelectPattern& rFSP)
@@ -415,9 +404,9 @@ bool WinSalGraphics::CacheGlyphs(const GenericSalLayout& rLayout)
     const GlyphItem* pGlyph;
     while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
     {
-        if (!rFont.GetOpenGLGlyphCache().IsGlyphCached(pGlyph->maGlyphId))
+        if (!rFont.GetOpenGLGlyphCache().IsGlyphCached(pGlyph->m_aGlyphId))
         {
-            if (!rFont.CacheGlyphToAtlas(hDC, hFONT, pGlyph->maGlyphId, *this))
+            if (!rFont.CacheGlyphToAtlas(hDC, hFONT, pGlyph->m_aGlyphId, *this))
                 return false;
         }
     }
@@ -430,7 +419,7 @@ bool WinSalGraphics::DrawCachedGlyphs(const GenericSalLayout& rLayout)
     HDC hDC = getHDC();
 
     tools::Rectangle aRect;
-    rLayout.GetBoundRect(*this, aRect);
+    rLayout.GetBoundRect(aRect);
 
     COLORREF color = GetTextColor(hDC);
     Color salColor = Color(GetRValue(color), GetGValue(color), GetBValue(color));
@@ -446,7 +435,7 @@ bool WinSalGraphics::DrawCachedGlyphs(const GenericSalLayout& rLayout)
     const GlyphItem* pGlyph;
     while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
     {
-        OpenGLGlyphDrawElement& rElement(rFont.GetOpenGLGlyphCache().GetDrawElement(pGlyph->maGlyphId));
+        OpenGLGlyphDrawElement& rElement(rFont.GetOpenGLGlyphCache().GetDrawElement(pGlyph->m_aGlyphId));
         OpenGLTexture& rTexture = rElement.maTexture;
 
         if (!rTexture)
@@ -522,7 +511,7 @@ void WinSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
         // switch to that if it performs well.
 
         tools::Rectangle aRect;
-        rLayout.GetBoundRect(*this, aRect);
+        rLayout.GetBoundRect(aRect);
 
         WinOpenGLSalGraphicsImpl *pImpl = dynamic_cast<WinOpenGLSalGraphicsImpl*>(mpImpl.get());
 

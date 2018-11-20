@@ -25,6 +25,7 @@
 #include <vcl/weld.hxx>
 #include <svl/zforlist.hxx>
 #include <sfx2/app.hxx>
+#include <unotools/collatorwrapper.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/sheet/DataPilotFieldFilter.hpp>
@@ -68,6 +69,7 @@
 #include <stringutil.hxx>
 #include <tabvwsh.hxx>
 #include <generalfunction.hxx>
+#include <sortparam.hxx>
 
 #include <sfx2/lokhelper.hxx>
 #include <comphelper/lok.hxx>
@@ -1697,29 +1699,26 @@ void ScDBFunc::DataPilotSort(ScDPObject* pDPObj, long nDimIndex, bool bAscending
         typedef std::unordered_map<OUString, sal_uInt16> UserSortMap;
         UserSortMap aSubStrs;
         sal_uInt16 nSubCount = 0;
-        if (pUserListId)
+        ScUserList* pUserList = ScGlobal::GetUserList();
+        if (!pUserList)
+            return;
+
         {
-            ScUserList* pUserList = ScGlobal::GetUserList();
-            if (!pUserList)
+            size_t n = pUserList->size();
+            if (!n || *pUserListId >= static_cast<sal_uInt16>(n))
                 return;
+        }
 
-            {
-                size_t n = pUserList->size();
-                if (!n || *pUserListId >= static_cast<sal_uInt16>(n))
-                    return;
-            }
+        const ScUserListData& rData = (*pUserList)[*pUserListId];
+        sal_uInt16 n = rData.GetSubCount();
+        for (sal_uInt16 i = 0; i < n; ++i)
+        {
+            OUString aSub = rData.GetSubStr(i);
+            if (!aMemberSet.count(aSub))
+                // This string doesn't exist in the member name set.  Don't add this.
+                continue;
 
-            const ScUserListData& rData = (*pUserList)[*pUserListId];
-            sal_uInt16 n = rData.GetSubCount();
-            for (sal_uInt16 i = 0; i < n; ++i)
-            {
-                OUString aSub = rData.GetSubStr(i);
-                if (!aMemberSet.count(aSub))
-                    // This string doesn't exist in the member name set.  Don't add this.
-                    continue;
-
-                aSubStrs.emplace(aSub, nSubCount++);
-            }
+            aSubStrs.emplace(aSub, nSubCount++);
         }
 
         // Rank all members.

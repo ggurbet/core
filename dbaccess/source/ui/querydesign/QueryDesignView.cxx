@@ -334,7 +334,7 @@ namespace
                 bBrace = true;
                 _rJoin = _rJoin.replaceAt(_rJoin.getLength()-1,1,OUString(' '));
             }
-            (_rJoin += C_AND) += BuildJoinCriteria(_xConnection,&pData->GetConnLineDataList(),pData);
+            _rJoin += C_AND + BuildJoinCriteria(_xConnection,&pData->GetConnLineDataList(),pData);
             if(bBrace)
                 _rJoin += ")";
             _pEntryConn->SetVisited(true);
@@ -2405,7 +2405,7 @@ namespace
     }
 }
 
-// end of anonymouse namespace
+// end of anonymous namespace
 
 OQueryDesignView::OQueryDesignView( OQueryContainerWindow* _pParent,
                                     OQueryController& _rController,
@@ -2923,7 +2923,7 @@ OSQLParseNode* OQueryDesignView::getPredicateTreeFromEntry(const OTableFieldDesc
         if ( sFunction.isEmpty() )
             sFunction = pEntry->GetField();
 
-        if (comphelper::string::getTokenCount(sFunction, '(') > 1)
+        if (sFunction.indexOf('(')>=0) // sFunctions has at least 2 tokens
             sFunction = sFunction.getToken(0,'('); // this should be the name of the function
 
         sal_Int32 nType = ::connectivity::OSQLParser::getFunctionReturnType(sFunction,&rParser.getContext());

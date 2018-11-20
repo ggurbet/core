@@ -364,7 +364,7 @@ IMPL_LINK_NOARG( SbaXGridPeer, OnDispatchEvent, void*, void )
     VclPtr< SbaGridControl > pGrid = GetAs< SbaGridControl >();
     if ( pGrid )    // if this fails, we were disposing before arriving here
     {
-        if ( Application::GetMainThreadIdentifier() != ::osl::Thread::getCurrentIdentifier() )
+        if ( !Application::IsMainThread() )
         {
             // still not in the main thread (see SbaXGridPeer::dispatch). post an event, again
             // without moving the special even to the back of the queue
@@ -400,7 +400,7 @@ void SAL_CALL SbaXGridPeer::dispatch(const URL& aURL, const Sequence< PropertyVa
     if (!pGrid)
         return;
 
-    if ( Application::GetMainThreadIdentifier() != ::osl::Thread::getCurrentIdentifier() )
+    if ( !Application::IsMainThread() )
     {
         // we're not in the main thread. This is bad, as we want to raise windows here,
         // and VCL does not like windows to be opened in non-main threads (at least on Win32).
@@ -1262,7 +1262,7 @@ sal_Int8 SbaGridControl::AcceptDrop( const BrowserAcceptDropEvent& rEvt )
         if (IsCurrentAppending())
             --nCorrectRowCount; // the current data record doesn't really exist, we are appending a new one
 
-        if ((nCol == BROWSER_INVALIDID) || (nRow >= nCorrectRowCount) || nCol == 0  || nCol == BROWSER_INVALIDID )
+        if ( (nCol == BROWSER_INVALIDID) || (nRow >= nCorrectRowCount) || (nCol == 0) )
             // no valid cell under the mouse cursor
             break;
 
@@ -1445,7 +1445,7 @@ IMPL_LINK_NOARG(SbaGridControl, AsynchDropEvent, void*, void)
             if (m_pMasterListener)
                 m_pMasterListener->AfterDrop();
             Show();
-            ::dbaui::showError( ::dbtools::SQLExceptionInfo(e), this, getContext() );
+            ::dbtools::showError( ::dbtools::SQLExceptionInfo(e), VCLUnoHelper::GetInterface(this), getContext() );
         }
         catch(const Exception& )
         {

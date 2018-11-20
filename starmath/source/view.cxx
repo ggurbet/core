@@ -42,7 +42,7 @@
 #include <svl/itemset.hxx>
 #include <svl/poolitem.hxx>
 #include <svl/stritem.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <svtools/miscopt.hxx>
 #include <svl/whiter.hxx>
 #include <svx/zoomslideritem.hxx>
@@ -1608,7 +1608,7 @@ void SmViewShell::Execute(SfxRequest& rReq)
                     if (aDataHelper.HasFormat(nId = SotClipboardFormatId::STRING))
                     {
                         // In case of FORMAT_STRING no stream exists, need to generate one
-                        ::rtl::OUString aString;
+                        OUString aString;
                         if (aDataHelper.GetString( nId, aString))
                         {
                             std::unique_ptr<SfxMedium> pClipboardMedium(new SfxMedium());
@@ -1694,8 +1694,8 @@ void SmViewShell::Execute(SfxRequest& rReq)
         }
 
         case SID_GETEDITTEXT:
-            if (pWin)
-                if (!pWin->GetText().isEmpty()) GetDoc()->SetText( pWin->GetText() );
+            if (pWin && !pWin->GetText().isEmpty())
+                GetDoc()->SetText( pWin->GetText() );
             break;
 
         case SID_ATTR_ZOOM:

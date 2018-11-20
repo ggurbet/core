@@ -59,7 +59,7 @@
 
 #include <rtl/math.hxx>
 #include <svtools/calendar.hxx>
-#include <svtools/fmtfield.hxx>
+#include <vcl/fmtfield.hxx>
 #include <svl/numuno.hxx>
 #include <svtools/svmedit.hxx>
 #include <svx/dialmgr.hxx>
@@ -3079,9 +3079,8 @@ void DbFilterField::Update()
     }
 
     // filling the entries for the combobox
-    for (::std::vector< OUString >::const_iterator iter = aStringList.begin();
-         iter != aStringList.end(); ++iter)
-        static_cast<ComboBox*>(m_pWindow.get())->InsertEntry(*iter);
+    for (const auto& rString : aStringList)
+        static_cast<ComboBox*>(m_pWindow.get())->InsertEntry(rString);
 }
 
 
@@ -3100,19 +3099,26 @@ void DbFilterField::UpdateFromField(const Reference< XColumn >& /*_rxField*/, co
 IMPL_LINK_NOARG(DbFilterField, OnClick, VclPtr<CheckBox>, void)
 {
     TriState eState = static_cast<CheckBoxControl*>(m_pWindow.get())->GetBox().GetState();
-    OUString aText;
+    OUStringBuffer aTextBuf;
+
+    Reference< XRowSet > xDataSourceRowSet(
+                    Reference< XInterface >(*m_rColumn.GetParent().getDataSource()), UNO_QUERY);
+    Reference< XConnection >  xConnection(getConnection(xDataSourceRowSet));
+    const sal_Int32 nBooleanComparisonMode = ::dbtools::DatabaseMetaData( xConnection ).getBooleanComparisonMode();
 
     switch (eState)
     {
         case TRISTATE_TRUE:
-            aText = "1";
+            ::dbtools::getBooleanComparisonPredicate("", true, nBooleanComparisonMode, aTextBuf);
             break;
         case TRISTATE_FALSE:
-            aText = "0";
+            ::dbtools::getBooleanComparisonPredicate("", false, nBooleanComparisonMode, aTextBuf);
             break;
         case TRISTATE_INDET:
             break;
     }
+
+    const OUString aText(aTextBuf.makeStringAndClear());
 
     if (m_aText != aText)
     {
@@ -4521,7 +4527,7 @@ FmXFilterCell::FmXFilterCell(DbGridColumn* pColumn, std::unique_ptr<DbFilterFiel
               :FmXGridCell( pColumn, std::move(pControl) )
               ,m_aTextListeners(m_aMutex)
 {
-    pControl->SetCommitHdl( LINK( this, FmXFilterCell, OnCommit ) );
+    static_cast<DbFilterField*>(m_pCellControl.get())->SetCommitHdl( LINK( this, FmXFilterCell, OnCommit ) );
 }
 
 

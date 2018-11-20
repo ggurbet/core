@@ -88,7 +88,7 @@ namespace rptui
         sal_uInt16                  m_nFontColorId;
         sal_uInt16                  m_nFontDialogId;
         std::shared_ptr<PaletteManager> m_xPaletteManager;
-        BorderColorStatus           m_aBorderColorStatus;
+        ColorStatus                 m_aColorStatus;
         ConditionColorWrapper       m_aColorWrapper;
 
         ::rptui::OReportController& m_rController;
@@ -162,7 +162,7 @@ namespace rptui
 
         /** forward to the parent class
         */
-        void    ApplyCommand(sal_uInt16 _nCommandId, const ::Color& _aColor );
+        void    ApplyCommand( sal_uInt16 _nCommandId, const NamedColor& rNamedColor );
 
         ::rptui::OReportController& getController() const { return m_rController; }
 

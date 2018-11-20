@@ -3228,6 +3228,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Open Hyperlink</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:OpenSmartTagMenuOnCursor" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -6271,6 +6274,21 @@
           <value>1</value>
         </prop>
       </node>
+      <node oor:name=".uno:TableInsertMenu" oor:op="replace">
+        <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">~Insert</value>
+        </prop>
+      </node>
+      <node oor:name=".uno:TableDeleteMenu" oor:op="replace">
+        <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">~Delete</value>
+        </prop>
+      </node>
+      <node oor:name=".uno:TableAutoFitMenu" oor:op="replace">
+        <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">Si~ze</value>
+        </prop>
+      </node>
       <node oor:name=".uno:PickList" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">~File</value>
@@ -6348,6 +6366,11 @@
       <node oor:name=".uno:SendToMenu" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Sen~d</value>
+        </prop>
+      </node>
+      <node oor:name=".uno:TableMenu" oor:op="replace">
+        <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">T~able</value>
         </prop>
       </node>
       <node oor:name=".uno:SignaturesMenu" oor:op="replace">
@@ -6468,6 +6491,9 @@
       <node oor:name=".uno:RotateFlipMenu" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Rot~ate or Flip</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:AnchorMenu" oor:op="replace">
@@ -6689,6 +6715,9 @@
       <node oor:name=".uno:NameGroup" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Name...</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:ObjectTitleDescription" oor:op="replace">

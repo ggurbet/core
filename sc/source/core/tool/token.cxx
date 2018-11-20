@@ -1284,6 +1284,7 @@ void ScTokenArray::CheckForThreading( const FormulaToken& r )
         ocOffset,
         ocTableOp,
         ocCell,
+        ocMatch,
         ocInfo,
         ocStyle,
         ocDBAverage,
@@ -1299,6 +1300,7 @@ void ScTokenArray::CheckForThreading( const FormulaToken& r )
         ocDBVar,
         ocDBVarP,
         ocText,
+        ocSheet,
         ocExternal,
         ocDde,
         ocWebservice,
@@ -1333,6 +1335,8 @@ void ScTokenArray::CheckForThreading( const FormulaToken& r )
         {
             case svExternalDoubleRef:
             case svExternalSingleRef:
+            case svExternalName:
+            case svMatrix:
                 SAL_INFO("sc.core.formulagroup", "opcode ocPush: variable type " << StackVarEnumToString(r.GetType())
                     << " disables threaded calculation of formula group");
                 mbThreadingEnabled = false;
@@ -2385,7 +2389,7 @@ namespace {
 
 void GetExternalTableData(const ScDocument* pOldDoc, const ScDocument* pNewDoc, const SCTAB nTab, OUString& rTabName, sal_uInt16& rFileId)
 {
-    OUString aFileName = pOldDoc->GetFileURL();
+    const OUString& aFileName = pOldDoc->GetFileURL();
     rFileId = pNewDoc->GetExternalRefManager()->getExternalFileId(aFileName);
     rTabName = pOldDoc->GetCopyTabName(nTab);
     if (rTabName.isEmpty())

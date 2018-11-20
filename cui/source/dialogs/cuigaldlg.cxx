@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include <sal/config.h>
 
 #include <algorithm>
@@ -236,7 +238,6 @@ IMPL_LINK_NOARG(SearchProgress, CleanUpHdl, void*, void)
     disposeOnce();
 }
 
-
 short SearchProgress::Execute()
 {
     OSL_FAIL( "SearchProgress cannot be executed via Dialog::Execute!\n"
@@ -245,16 +246,14 @@ short SearchProgress::Execute()
     return RET_CANCEL;
 }
 
-
-void SearchProgress::StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl )
+bool SearchProgress::StartExecuteAsync(VclAbstractDialog::AsyncContext &rCtx)
 {
     assert(!maSearchThread.is());
     maSearchThread = new SearchThread(
         this, static_cast< TPGalleryThemeProperties * >(parent_.get()), startUrl_);
     maSearchThread->launch();
-    ModalDialog::StartExecuteModal( rEndDialogHdl );
+    return ModalDialog::StartExecuteAsync(rCtx);
 }
-
 
 TakeThread::TakeThread(
     TakeProgress* pProgress,
@@ -400,7 +399,6 @@ IMPL_LINK_NOARG(TakeProgress, CleanUpHdl, void*, void)
     disposeOnce();
 }
 
-
 short TakeProgress::Execute()
 {
     OSL_FAIL( "TakeProgress cannot be executed via Dialog::Execute!\n"
@@ -409,16 +407,14 @@ short TakeProgress::Execute()
     return RET_CANCEL;
 }
 
-
-void TakeProgress::StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl )
+bool TakeProgress::StartExecuteAsync(VclAbstractDialog::AsyncContext &rCtx)
 {
     assert(!maTakeThread.is());
     maTakeThread = new TakeThread(
         this, static_cast< TPGalleryThemeProperties * >(window_.get()), maTakenList);
     maTakeThread->launch();
-    ModalDialog::StartExecuteModal( rEndDialogHdl );
+    return ModalDialog::StartExecuteAsync(rCtx);
 }
-
 
 ActualizeProgress::ActualizeProgress(vcl::Window* pWindow, GalleryTheme* pThm)
     : ModalDialog(pWindow, "GalleryUpdateProgress",
@@ -566,10 +562,10 @@ GalleryThemeProperties::GalleryThemeProperties(vcl::Window* pParent,
     if( pData->pTheme->IsReadOnly() )
         RemoveTabPage(nFilesPageId);
 
-    OUString aText = GetText() + pData->pTheme->GetName();
+    OUString aText = GetText().replaceFirst( "%1",  pData->pTheme->GetName() );
 
     if( pData->pTheme->IsReadOnly() )
-        aText +=  CuiResId( RID_SVXSTR_GALLERY_READONLY );
+        aText +=  " " + CuiResId( RID_SVXSTR_GALLERY_READONLY );
 
     SetText( aText );
 }
@@ -816,6 +812,7 @@ void TPGalleryThemeProperties::FillFilterList()
         }
     }
 
+#if HAVE_FEATURE_AVMEDIA
     // media filters
     static const char aWildcard[] = "*.";
     ::avmedia::FilterNameVector     aFilters;
@@ -829,11 +826,9 @@ void TPGalleryThemeProperties::FillFilterList()
 
             std::unique_ptr<FilterEntry> pFilterEntry(new FilterEntry);
             pFilterEntry->aFilterName = aFilter.second.getToken( 0, ';', nIndex );
+            aFilterWildcard += pFilterEntry->aFilterName;
             nFirstExtFilterPos = m_pCbbFileType->InsertEntry(
-                addExtension(
-                    aFilter.first,
-                    aFilterWildcard += pFilterEntry->aFilterName
-                )
+                addExtension( aFilter.first, aFilterWildcard )
             );
             if ( nFirstExtFilterPos < aFilterEntryList.size() ) {
                 aFilterEntryList.insert(
@@ -845,6 +840,9 @@ void TPGalleryThemeProperties::FillFilterList()
             }
         }
     }
+#else
+    (void) nFirstExtFilterPos;
+#endif
 
     // 'All' filters
     OUString aExtensions;
@@ -869,6 +867,7 @@ void TPGalleryThemeProperties::FillFilterList()
         }
     }
 
+#if HAVE_FEATURE_AVMEDIA
     // media filters
     for(std::pair<OUString,OUString> & aFilter : aFilters)
     {
@@ -879,6 +878,7 @@ void TPGalleryThemeProperties::FillFilterList()
             aExtensions += aWildcard + aFilter.second.getToken( 0, ';', nIndex );
         }
      }
+#endif
 
 #if defined(_WIN32)
     if (aExtensions.getLength() > 240)
@@ -923,7 +923,9 @@ void TPGalleryThemeProperties::SearchFiles()
     pProgress->SetDirectory( INetURLObject() );
     pProgress->Update();
 
-    pProgress->StartExecuteModal( LINK( this, TPGalleryThemeProperties, EndSearchProgressHdl ) );
+    pProgress->StartExecuteAsync([=](sal_Int32 nResult){
+        EndSearchProgressHdl(nResult);
+    });
 }
 
 
@@ -962,7 +964,6 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, ClickSearchHdl, Button*, void)
     }
 }
 
-
 void TPGalleryThemeProperties::TakeFiles()
 {
     if( m_pLbxFound->GetSelectedEntryCount() || ( bTakeAll && bEntriesFound ) )
@@ -970,9 +971,10 @@ void TPGalleryThemeProperties::TakeFiles()
         VclPtrInstance<TakeProgress> pTakeProgress( this );
         pTakeProgress->Update();
 
-        pTakeProgress->StartExecuteModal(
-            Link<Dialog&,void>() /* no postprocessing needed, pTakeProgress
-                      will be disposed in TakeProgress::CleanupHdl */ );
+        pTakeProgress->StartExecuteAsync([=](sal_Int32 /*nResult*/){
+            /* no postprocessing needed, pTakeProgress
+               will be disposed in TakeProgress::CleanupHdl */
+        });
     }
 }
 
@@ -1011,13 +1013,14 @@ void TPGalleryThemeProperties::DoPreview()
             ErrorHandler::HandleError( ERRCODE_IO_NOTEXISTSPATH );
             GetParent()->EnterWait();
         }
+#if HAVE_FEATURE_AVMEDIA
         else if( ::avmedia::MediaWindow::isMediaURL( _aURL.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous ), "" ) )
         {
             xMediaPlayer = ::avmedia::MediaWindow::createPlayer( _aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), "" );
             if( xMediaPlayer.is() )
                 xMediaPlayer->start();
         }
-
+#endif
         bInputAllowed = true;
         aPreviewString = aString;
     }
@@ -1107,8 +1110,7 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, PreviewTimerHdl, Timer *, void)
     DoPreview();
 }
 
-
-IMPL_LINK_NOARG(TPGalleryThemeProperties, EndSearchProgressHdl, Dialog&, void)
+void TPGalleryThemeProperties::EndSearchProgressHdl(sal_Int32 /*nResult*/)
 {
   if( !aFoundList.empty() )
   {
@@ -1125,7 +1127,6 @@ IMPL_LINK_NOARG(TPGalleryThemeProperties, EndSearchProgressHdl, Dialog&, void)
       bEntriesFound = false;
   }
 }
-
 
 IMPL_LINK( TPGalleryThemeProperties, DialogClosedHdl, css::ui::dialogs::DialogClosedEvent*, pEvt, void )
 {

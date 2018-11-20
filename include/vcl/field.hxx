@@ -46,7 +46,6 @@ private:
     bool                    mbStrictFormat;
     bool                    mbEmptyFieldValue;
     bool                    mbEmptyFieldValueEnabled;
-    bool                    mbDefaultLocale;
 
 protected:
     SAL_DLLPRIVATE void     ImplSetText( const OUString& rText, Selection const * pNewSel = nullptr );
@@ -55,16 +54,15 @@ protected:
     void                    SetEmptyFieldValueData( bool bValue ) { mbEmptyFieldValue = bValue; }
 
     SAL_DLLPRIVATE LocaleDataWrapper& ImplGetLocaleDataWrapper() const;
-    bool                    IsDefaultLocale() const { return mbDefaultLocale; }
+
+    Edit*                   GetField() const            { return mpField; }
+    void                    ClearField() { mpField.clear(); }
 
 public:
-    explicit                FormatterBase();
+    explicit                FormatterBase(Edit* pField);
     virtual                 ~FormatterBase();
 
     const LocaleDataWrapper& GetLocaleDataWrapper() const;
-
-    void                    SetField( Edit* pField )    { mpField = pField; }
-    Edit*                   GetField() const            { return mpField; }
 
     bool                    MustBeReformatted() const   { return mbReformat; }
     void                    MarkToBeReformatted( bool b ) { mbReformat = b; }
@@ -97,7 +95,7 @@ private:
     bool                   mbInPattKeyInput;
 
 protected:
-                            PatternFormatter();
+                            PatternFormatter(Edit* pEdit);
 
     SAL_DLLPRIVATE void ImplSetMask(const OString& rEditMask,
         const OUString& rLiteralMask);
@@ -148,8 +146,6 @@ public:
     void                    SetShowTrailingZeros( bool bShowTrailingZeros );
     bool                    IsShowTrailingZeros() const { return mbShowTrailingZeros; }
 
-    void                    DisableRemainderFactor();
-
     void                    SetUserValue( sal_Int64 nNewValue );
     virtual void            SetValue( sal_Int64 nNewValue );
     sal_Int64               GetValue() const;
@@ -159,8 +155,6 @@ public:
     sal_Int64               Normalize( sal_Int64 nValue ) const;
     sal_Int64               Denormalize( sal_Int64 nValue ) const;
 
-    void  SetInputHdl(const Link<sal_Int64*,TriState>& rLink) { m_aInputHdl = rLink; }
-    void  SetOutputHdl(const Link<Edit&, bool>& rLink) { m_aOutputHdl = rLink; }
 protected:
     sal_Int64               mnFieldValue;
     sal_Int64               mnLastValue;
@@ -168,7 +162,6 @@ protected:
     sal_Int64               mnMax;
     bool                    mbWrapOnLimits;
     bool                    mbFormatting;
-    bool                    mbDisableRemainderFactor;
 
     // the members below are used in all derivatives of NumericFormatter
     // not in NumericFormatter itself.
@@ -176,7 +169,7 @@ protected:
     sal_Int64               mnFirst;
     sal_Int64               mnLast;
 
-                            NumericFormatter();
+                            NumericFormatter(Edit* pEdit);
 
     void                    FieldUp();
     void                    FieldDown();
@@ -193,8 +186,6 @@ protected:
 private:
     SAL_DLLPRIVATE void     ImplInit();
 
-    Link<sal_Int64*, TriState> m_aInputHdl;
-    Link<Edit&, bool>       m_aOutputHdl;
     sal_uInt16              mnDecimalDigits;
     bool                    mbThousandSep;
     bool                    mbShowTrailingZeros;
@@ -224,7 +215,7 @@ public:
     void                    SetMin( sal_Int64 nNewMin, FieldUnit eInUnit );
     using NumericFormatter::GetMin;
     sal_Int64               GetMin( FieldUnit eOutUnit ) const;
-    void                    SetBaseValue( sal_Int64 nNewBase, FieldUnit eInUnit = FUNIT_NONE );
+    void                    SetBaseValue( sal_Int64 nNewBase, FieldUnit eInUnit = FieldUnit::NONE );
     sal_Int64               GetBaseValue() const;
 
     virtual void            SetValue( sal_Int64 nNewValue, FieldUnit eInUnit );
@@ -246,7 +237,7 @@ protected:
     FieldUnit               meUnit;
     Link<MetricFormatter&,void> maCustomConvertLink;
 
-                            MetricFormatter();
+                            MetricFormatter(Edit* pEdit);
 
     SAL_DLLPRIVATE void     ImplMetricReformat( const OUString& rStr, double& rValue, OUString& rOutStr );
 
@@ -264,7 +255,7 @@ private:
 class VCL_DLLPUBLIC CurrencyFormatter : public NumericFormatter
 {
 protected:
-                            CurrencyFormatter();
+                            CurrencyFormatter(Edit* pEdit);
     SAL_DLLPRIVATE void     ImplCurrencyReformat( const OUString& rStr, OUString& rOutStr );
     virtual sal_Int64       GetValueFromString(const OUString& rStr) const override;
 
@@ -294,7 +285,7 @@ private:
     SAL_DLLPRIVATE void     ImplInit();
 
 protected:
-                            DateFormatter();
+                            DateFormatter(Edit* pEdit);
 
     SAL_DLLPRIVATE const Date& ImplGetFieldDate() const    { return maFieldDate; }
     SAL_DLLPRIVATE void     ImplDateReformat( const OUString& rStr, OUString& rOutStr );
@@ -374,7 +365,7 @@ private:
 protected:
     tools::Time             maFieldTime;
 
-                            TimeFormatter();
+                            TimeFormatter(Edit* pEdit);
 
     SAL_DLLPRIVATE void     ImplTimeReformat( const OUString& rStr, OUString& rOutStr );
     SAL_DLLPRIVATE void     ImplNewFieldValue( const tools::Time& rTime );
@@ -488,10 +479,10 @@ public:
     virtual void            SetUnit( FieldUnit meUnit ) override;
 
     void                    SetFirst( sal_Int64 nNewFirst, FieldUnit eInUnit );
-    void             SetFirst(sal_Int64 first) { SetFirst(first, FUNIT_NONE); }
+    void             SetFirst(sal_Int64 first) { SetFirst(first, FieldUnit::NONE); }
     sal_Int64               GetFirst( FieldUnit eOutUnit ) const;
     void                    SetLast( sal_Int64 nNewLast, FieldUnit eInUnit );
-    void             SetLast(sal_Int64 last) { SetLast(last, FUNIT_NONE); }
+    void             SetLast(sal_Int64 last) { SetLast(last, FieldUnit::NONE); }
     sal_Int64               GetLast( FieldUnit eOutUnit ) const;
 
     static void             SetDefaultUnit( FieldUnit eDefaultUnit );
@@ -662,7 +653,7 @@ public:
     virtual void            CustomConvert() override;
     virtual void            ReformatAll() override;
 
-    void                    InsertValue( sal_Int64 nValue, FieldUnit eInUnit = FUNIT_NONE,
+    void                    InsertValue( sal_Int64 nValue, FieldUnit eInUnit = FieldUnit::NONE,
                                          sal_Int32  nPos = COMBOBOX_APPEND );
 
     // Needed, because GetValue() with nPos hide these functions

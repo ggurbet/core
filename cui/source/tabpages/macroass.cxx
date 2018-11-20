@@ -19,6 +19,7 @@
 
 #include <macroass.hxx>
 
+#include <osl/diagnose.h>
 #include <basic/basmgr.hxx>
 #include <comphelper/string.hxx>
 #include <svl/macitem.hxx>
@@ -31,8 +32,8 @@
 #include <sfx2/objsh.hxx>
 #include <vcl/fixed.hxx>
 #include <headertablistbox.hxx>
-#include <svtools/svlbitm.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/svlbitm.hxx>
+#include <vcl/treelistentry.hxx>
 #include <o3tl/make_unique.hxx>
 
 using ::com::sun::star::uno::Reference;
@@ -307,17 +308,18 @@ IMPL_LINK( SfxMacroTabPage, AssignDeleteClickHdl_Impl, Button*, pBtn, void )
 
 IMPL_LINK( SfxMacroTabPage, AssignDeleteHdl_Impl, SvTreeListBox*, pBtn, bool )
 {
-    return AssignDeleteHdl(pBtn);
+    AssignDeleteHdl(pBtn);
+    return false;
 }
 
-bool SfxMacroTabPage::AssignDeleteHdl(Control const * pBtn)
+void SfxMacroTabPage::AssignDeleteHdl(Control const * pBtn)
 {
     SvHeaderTabListBox& rListBox = mpImpl->pEventLB->GetListBox();
     SvTreeListEntry* pE = rListBox.FirstSelected();
     if( !pE || LISTBOX_ENTRY_NOTFOUND == rListBox.GetModel()->GetAbsPos( pE ) )
     {
         DBG_ASSERT( pE, "Where does the empty entry come from?" );
-        return false;
+        return;
     }
 
     const bool bAssEnabled = pBtn != mpImpl->pDeletePB && mpImpl->pAssignPB->IsEnabled();
@@ -351,7 +353,6 @@ bool SfxMacroTabPage::AssignDeleteHdl(Control const * pBtn)
     rListBox.SetUpdateMode( true );
 
     EnableButtons();
-    return false;
 }
 
 IMPL_LINK( SfxMacroTabPage, TimeOut_Impl, Timer*,, void )
@@ -424,7 +425,7 @@ void SfxMacroTabPage::FillEvents()
             SvLBoxString&     rLItem = static_cast<SvLBoxString&>( pE->GetItem( LB_MACROS_ITEMPOS ) );
             DBG_ASSERT( SvLBoxItemType::String == rLItem.GetType(), "SfxMacroTabPage::FillEvents(): no LBoxString" );
 
-            OUString          sOld( rLItem.GetText() );
+            const OUString&   sOld( rLItem.GetText() );
             OUString          sNew;
             SvMacroItemId     nEventId = static_cast<SvMacroItemId>(reinterpret_cast<sal_uLong>( pE->GetUserData() ));
             if( aTbl.IsKeyValid( nEventId ) )

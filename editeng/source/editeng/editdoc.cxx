@@ -52,6 +52,7 @@
 
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <svl/grabbagitem.hxx>
 #include <tools/stream.hxx>
@@ -784,7 +785,7 @@ ParaPortion* ParaPortionList::SafeGetObject(sal_Int32 nPos)
     return 0 <= nPos && nPos < static_cast<sal_Int32>(maPortions.size()) ? maPortions[nPos].get() : nullptr;
 }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
 void
 ParaPortionList::DbgCheck(ParaPortionList const& rParas, EditDoc const& rDoc)
 {
@@ -896,11 +897,10 @@ void ConvertAndPutItems( SfxItemSet& rDest, const SfxItemSet& rSource, const Map
             MapUnit eDestUnit = pDestUnit ? *pDestUnit : pDestPool->GetMetric( nWhich );
             if ( eSourceUnit != eDestUnit )
             {
-                SfxPoolItem* pItem = rSource.Get( nSourceWhich ).Clone();
+                std::unique_ptr<SfxPoolItem> pItem(rSource.Get( nSourceWhich ).Clone());
                 ConvertItem( *pItem, eSourceUnit, eDestUnit );
                 pItem->SetWhich(nWhich);
                 rDest.Put( *pItem );
-                delete pItem;
             }
             else
             {
@@ -1203,7 +1203,7 @@ void ContentNode::ExpandAttribs( sal_Int32 nIndex, sal_Int32 nNew, SfxItemPool& 
     if ( !nNew )
         return;
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
 #endif
 
@@ -1333,7 +1333,7 @@ void ContentNode::ExpandAttribs( sal_Int32 nIndex, sal_Int32 nNew, SfxItemPool& 
         mpWrongList->TextInserted( nIndex, nNew, bSep );
     }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
 #endif
 }
@@ -1343,7 +1343,7 @@ void ContentNode::CollapseAttribs( sal_Int32 nIndex, sal_Int32 nDeleted, SfxItem
     if ( !nDeleted )
         return;
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
 #endif
 
@@ -1427,7 +1427,7 @@ void ContentNode::CollapseAttribs( sal_Int32 nIndex, sal_Int32 nDeleted, SfxItem
     if (mpWrongList)
         mpWrongList->TextDeleted(nIndex, nDeleted);
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
 #endif
 }
@@ -1436,7 +1436,7 @@ void ContentNode::CopyAndCutAttribs( ContentNode* pPrevNode, SfxItemPool& rPool,
 {
     assert(pPrevNode);
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
     CharAttribList::DbgCheckAttribs(pPrevNode->aCharAttribList);
 #endif
@@ -1485,7 +1485,7 @@ void ContentNode::CopyAndCutAttribs( ContentNode* pPrevNode, SfxItemPool& rPool,
         pAttrib = GetAttrib(rPrevAttribs, nAttr);
     }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
     CharAttribList::DbgCheckAttribs(pPrevNode->aCharAttribList);
 #endif
@@ -1497,7 +1497,7 @@ void ContentNode::AppendAttribs( ContentNode* pNextNode )
 
     sal_Int32 nNewStart = maString.getLength();
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
     CharAttribList::DbgCheckAttribs(pNextNode->aCharAttribList);
 #endif
@@ -1555,7 +1555,7 @@ void ContentNode::AppendAttribs( ContentNode* pNextNode )
     // For the Attributes that just moved over:
     rNextAttribs.clear();
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(aCharAttribList);
     CharAttribList::DbgCheckAttribs(pNextNode->aCharAttribList);
 #endif
@@ -2101,7 +2101,7 @@ void EditDoc::Release(sal_Int32 nPos)
         SAL_WARN( "editeng", "EditDoc::Release - out of bounds pos " << nPos);
         return;
     }
-    maContents[nPos].release();
+    (void)maContents[nPos].release();
     maContents.erase(maContents.begin() + nPos);
 }
 
@@ -2396,7 +2396,7 @@ bool EditDoc::RemoveAttribs( ContentNode* pNode, sal_Int32 nStart, sal_Int32 nEn
 
     DBG_ASSERT( nStart <= nEnd, "Small miscalculations in InsertAttribInSelection" );
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(pNode->GetCharAttribs());
 #endif
 
@@ -2491,7 +2491,7 @@ bool EditDoc::RemoveAttribs( ContentNode* pNode, sal_Int32 nStart, sal_Int32 nEn
         SetModified(true);
     }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(pNode->GetCharAttribs());
 #endif
 
@@ -2721,7 +2721,7 @@ void CharAttribList::InsertAttrib( EditCharAttrib* pAttrib )
 
     const sal_Int32 nStart = pAttrib->GetStart(); // may be better for Comp.Opt.
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(*this);
 #endif
 
@@ -2742,7 +2742,7 @@ void CharAttribList::InsertAttrib( EditCharAttrib* pAttrib )
 
     if (bInsert) aAttribs.push_back(std::unique_ptr<EditCharAttrib>(pAttrib));
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(*this);
 #endif
 }
@@ -2751,14 +2751,14 @@ void CharAttribList::ResortAttribs()
 {
     std::sort(aAttribs.begin(), aAttribs.end(), LessByStart());
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(*this);
 #endif
 }
 
 void CharAttribList::OptimizeRanges( SfxItemPool& rItemPool )
 {
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(*this);
 #endif
     for (sal_Int32 i = 0; i < static_cast<sal_Int32>(aAttribs.size()); ++i)
@@ -2783,7 +2783,7 @@ void CharAttribList::OptimizeRanges( SfxItemPool& rItemPool )
             }
         }
     }
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
     CharAttribList::DbgCheckAttribs(*this);
 #endif
 }
@@ -2964,7 +2964,7 @@ void CharAttribList::DeleteEmptyAttribs( SfxItemPool& rItemPool )
     bHasEmptyAttribs = false;
 }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
 void CharAttribList::DbgCheckAttribs(CharAttribList const& rAttribs)
 {
     std::set<std::pair<sal_Int32, sal_uInt16>> zero_set;

@@ -18,20 +18,14 @@
  */
 
 #include <scitems.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
-#include <editeng/brushitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/justifyitem.hxx>
-#include <unotools/transliterationwrapper.hxx>
+#include <osl/diagnose.h>
+#include <svl/itemset.hxx>
 
 #include <dpoutput.hxx>
-#include <dptabsrc.hxx>
-#include <dpfilteredcache.hxx>
 #include <document.hxx>
-#include <patattr.hxx>
-#include <docpool.hxx>
-#include <markdata.hxx>
 #include <attrib.hxx>
 #include <formula/errorcodes.hxx>
 #include <miscuno.hxx>
@@ -53,7 +47,14 @@
 #include <com/sun/star/sheet/DataResultFlags.hpp>
 #include <com/sun/star/sheet/DataPilotTablePositionType.hpp>
 #include <com/sun/star/sheet/GeneralFunction2.hpp>
-
+#include <com/sun/star/sheet/MemberResult.hpp>
+#include <com/sun/star/sheet/XDataPilotMemberResults.hpp>
+#include <com/sun/star/sheet/XDataPilotResults.hpp>
+#include <com/sun/star/sheet/XDimensionsSupplier.hpp>
+#include <com/sun/star/sheet/XHierarchiesSupplier.hpp>
+#include <com/sun/star/sheet/XLevelsSupplier.hpp>
+#include <com/sun/star/sheet/XMembersAccess.hpp>
+#include <com/sun/star/sheet/XMembersSupplier.hpp>
 #include <vector>
 
 using namespace com::sun::star;

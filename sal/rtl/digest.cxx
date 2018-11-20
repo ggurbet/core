@@ -36,10 +36,10 @@
      *((c)++) = static_cast<sal_uInt8>(((l)       ) & 0xff))
 
 #define RTL_DIGEST_LTOC(l,c) \
-    (*((c)++) = static_cast<sal_uInt8>(((l)       ) & 0xff), \
-     *((c)++) = static_cast<sal_uInt8>(((l) >>  8) & 0xff), \
-     *((c)++) = static_cast<sal_uInt8>(((l) >> 16) & 0xff), \
-     *((c)++) = static_cast<sal_uInt8>(((l) >> 24) & 0xff))
+    *((c)++) = static_cast<sal_uInt8>(((l)      ) & 0xff); \
+    *((c)++) = static_cast<sal_uInt8>(((l) >>  8) & 0xff); \
+    *((c)++) = static_cast<sal_uInt8>(((l) >> 16) & 0xff); \
+    *((c)++) = static_cast<sal_uInt8>(((l) >> 24) & 0xff);
 
 typedef rtlDigestError (Digest_init_t) (
     void *ctx, const sal_uInt8 *Data, sal_uInt32 DatLen);
@@ -326,8 +326,7 @@ rtlDigestError SAL_CALL rtl_digest_MD2(
 
 rtlDigest SAL_CALL rtl_digest_createMD2() SAL_THROW_EXTERN_C()
 {
-    DigestMD2_Impl *pImpl = nullptr;
-    pImpl = RTL_DIGEST_CREATE(DigestMD2_Impl);
+    DigestMD2_Impl *pImpl = RTL_DIGEST_CREATE(DigestMD2_Impl);
     if (pImpl)
     {
         pImpl->m_digest = MD2;
@@ -664,8 +663,7 @@ rtlDigestError SAL_CALL rtl_digest_MD5(
 
 rtlDigest SAL_CALL rtl_digest_createMD5() SAL_THROW_EXTERN_C()
 {
-    DigestMD5_Impl *pImpl = nullptr;
-    pImpl = RTL_DIGEST_CREATE(DigestMD5_Impl);
+    DigestMD5_Impl *pImpl = RTL_DIGEST_CREATE(DigestMD5_Impl);
     if (pImpl)
     {
         pImpl->m_digest = MD5;
@@ -1107,8 +1105,7 @@ rtlDigestError SAL_CALL rtl_digest_SHA(
 
 rtlDigest SAL_CALL rtl_digest_createSHA() SAL_THROW_EXTERN_C()
 {
-    DigestSHA_Impl *pImpl = nullptr;
-    pImpl = RTL_DIGEST_CREATE(DigestSHA_Impl);
+    DigestSHA_Impl *pImpl = RTL_DIGEST_CREATE(DigestSHA_Impl);
     if (pImpl)
     {
         pImpl->m_digest = SHA_0;
@@ -1267,8 +1264,7 @@ rtlDigestError SAL_CALL rtl_digest_SHA1(
 
 rtlDigest SAL_CALL rtl_digest_createSHA1() SAL_THROW_EXTERN_C()
 {
-    DigestSHA_Impl *pImpl = nullptr;
-    pImpl = RTL_DIGEST_CREATE(DigestSHA_Impl);
+    DigestSHA_Impl *pImpl = RTL_DIGEST_CREATE(DigestSHA_Impl);
     if (pImpl)
     {
         pImpl->m_digest = SHA_1;
@@ -1482,8 +1478,7 @@ rtlDigestError SAL_CALL rtl_digest_HMAC_MD5(
 
 rtlDigest SAL_CALL rtl_digest_createHMAC_MD5() SAL_THROW_EXTERN_C()
 {
-    DigestHMAC_MD5_Impl *pImpl = nullptr;
-    pImpl = RTL_DIGEST_CREATE(DigestHMAC_MD5_Impl);
+    DigestHMAC_MD5_Impl *pImpl = RTL_DIGEST_CREATE(DigestHMAC_MD5_Impl);
     if (pImpl)
     {
         pImpl->m_digest = HMAC_MD5;
@@ -1678,8 +1673,7 @@ rtlDigestError SAL_CALL rtl_digest_HMAC_SHA1(
 
 rtlDigest SAL_CALL rtl_digest_createHMAC_SHA1() SAL_THROW_EXTERN_C()
 {
-    DigestHMAC_SHA1_Impl *pImpl = nullptr;
-    pImpl = RTL_DIGEST_CREATE(DigestHMAC_SHA1_Impl);
+    DigestHMAC_SHA1_Impl *pImpl = RTL_DIGEST_CREATE(DigestHMAC_SHA1_Impl);
     if (pImpl)
     {
         pImpl->m_digest = HMAC_SHA1;

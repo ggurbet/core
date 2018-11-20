@@ -73,10 +73,10 @@ SvxTextAttrPage::SvxTextAttrPage(TabPageParent pPage, const SfxItemSet& rInAttrs
     , m_xTsbWordWrapText(m_xBuilder->weld_check_button("TSB_WORDWRAP_TEXT"))
     , m_xTsbAutoGrowSize(m_xBuilder->weld_check_button("TSB_AUTOGROW_SIZE"))
     , m_xFlDistance(m_xBuilder->weld_frame("FL_DISTANCE"))
-    , m_xMtrFldLeft(m_xBuilder->weld_metric_spin_button("MTR_FLD_LEFT", FUNIT_CM))
-    , m_xMtrFldRight(m_xBuilder->weld_metric_spin_button("MTR_FLD_RIGHT", FUNIT_CM))
-    , m_xMtrFldTop(m_xBuilder->weld_metric_spin_button("MTR_FLD_TOP", FUNIT_CM))
-    , m_xMtrFldBottom(m_xBuilder->weld_metric_spin_button("MTR_FLD_BOTTOM", FUNIT_CM))
+    , m_xMtrFldLeft(m_xBuilder->weld_metric_spin_button("MTR_FLD_LEFT", FieldUnit::CM))
+    , m_xMtrFldRight(m_xBuilder->weld_metric_spin_button("MTR_FLD_RIGHT", FieldUnit::CM))
+    , m_xMtrFldTop(m_xBuilder->weld_metric_spin_button("MTR_FLD_TOP", FieldUnit::CM))
+    , m_xMtrFldBottom(m_xBuilder->weld_metric_spin_button("MTR_FLD_BOTTOM", FieldUnit::CM))
     , m_xFlPosition(m_xBuilder->weld_frame("FL_POSITION"))
     , m_xCtlPosition(new weld::CustomWeld(*m_xBuilder, "CTL_POSITION", m_aCtlPosition))
     , m_xTsbFullWidth(m_xBuilder->weld_check_button("TSB_FULL_WIDTH"))
@@ -116,52 +116,31 @@ void SvxTextAttrPage::Reset( const SfxItemSet* rAttrs )
     MapUnit eUnit = pPool->GetMetric( SDRATTR_TEXT_LEFTDIST );
 
     const SfxPoolItem* pItem = GetItem( *rAttrs, SDRATTR_TEXT_LEFTDIST );
-
     if( !pItem )
         pItem = &pPool->GetDefaultItem( SDRATTR_TEXT_LEFTDIST );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldLeft, nValue, eUnit );
-    }
-    else
-        m_xMtrFldLeft->set_text("");
+
+    SetMetricValue(*m_xMtrFldLeft, static_cast<const SdrMetricItem*>(pItem)->GetValue(), eUnit);
     m_xMtrFldLeft->save_value();
 
     pItem = GetItem( *rAttrs, SDRATTR_TEXT_RIGHTDIST );
     if( !pItem )
         pItem = &pPool->GetDefaultItem( SDRATTR_TEXT_RIGHTDIST );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldRight, nValue, eUnit );
-    }
-    else
-        m_xMtrFldRight->set_text("");
+
+    SetMetricValue(*m_xMtrFldRight, static_cast<const SdrMetricItem*>(pItem)->GetValue(), eUnit);
     m_xMtrFldRight->save_value();
 
     pItem = GetItem( *rAttrs, SDRATTR_TEXT_UPPERDIST );
     if( !pItem )
         pItem = &pPool->GetDefaultItem( SDRATTR_TEXT_UPPERDIST );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldTop, nValue, eUnit );
-    }
-    else
-        m_xMtrFldTop->set_text("");
+
+    SetMetricValue(*m_xMtrFldTop, static_cast<const SdrMetricItem*>(pItem)->GetValue(), eUnit);
     m_xMtrFldTop->save_value();
 
     pItem = GetItem( *rAttrs, SDRATTR_TEXT_LOWERDIST );
     if( !pItem )
         pItem = &pPool->GetDefaultItem( SDRATTR_TEXT_LOWERDIST );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>(pItem)->GetValue();
-        SetMetricValue( *m_xMtrFldBottom, nValue, eUnit );
-    }
-    else
-        m_xMtrFldBottom->set_text("");
+
+    SetMetricValue(*m_xMtrFldBottom, static_cast<const SdrMetricItem*>(pItem)->GetValue(), eUnit);
     m_xMtrFldBottom->save_value();
 
     // adjust to height and autogrowsize
@@ -650,10 +629,10 @@ IMPL_LINK(SvxTextAttrPage, ClickHdl_Impl, weld::Button&, rButton, void)
 
     if( bContour && bContourEnabled )
     {
-        m_xMtrFldLeft->set_value(0, FUNIT_NONE);
-        m_xMtrFldRight->set_value(0, FUNIT_NONE);
-        m_xMtrFldTop->set_value(0, FUNIT_NONE);
-        m_xMtrFldBottom->set_value(0, FUNIT_NONE);
+        m_xMtrFldLeft->set_value(0, FieldUnit::NONE);
+        m_xMtrFldRight->set_value(0, FieldUnit::NONE);
+        m_xMtrFldTop->set_value(0, FieldUnit::NONE);
+        m_xMtrFldBottom->set_value(0, FieldUnit::NONE);
     }
 
     // #103516# Do the setup based on states of hor/ver adjust

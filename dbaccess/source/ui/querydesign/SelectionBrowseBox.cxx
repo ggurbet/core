@@ -41,7 +41,7 @@
 #include <sqlmessage.hxx>
 #include <UITools.hxx>
 #include <osl/diagnose.h>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 
 using namespace ::svt;
 using namespace ::dbaui;
@@ -185,7 +185,7 @@ void OSelectionBrowseBox::initialize()
             ,IParseContext::InternationalKeyCode::Intersection
         };
 
-        OUString sGroup = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);;
+        OUString sGroup = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);
         m_aFunctionStrings = m_aFunctionStrings.getToken(0, ';');
 
         for (IParseContext::InternationalKeyCode eFunction : eFunctions)
@@ -662,9 +662,8 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
     ::connectivity::OSQLParser& rParser( rController.getParser() );
     {
         // automatically add parentheses around subqueries
-        OSQLParseNode *pParseNode = nullptr;
         OUString devnull;
-        pParseNode = rParser.parseTree( devnull, _sFieldName, true );
+        OSQLParseNode *pParseNode = rParser.parseTree( devnull, _sFieldName, true );
         if (pParseNode == nullptr)
             pParseNode = rParser.parseTree( devnull, _sFieldName );
         if (pParseNode != nullptr && SQL_ISRULE(pParseNode, select_statement))
@@ -950,7 +949,7 @@ bool OSelectionBrowseBox::SaveModified()
                             OUString sTableAlias = aFieldName.getToken(0,'.');
                             pEntry->SetAlias(sTableAlias);
                             OUString sColumnName = aFieldName.copy(sTableAlias.getLength()+1);
-                            Reference<XConnection> xConnection = rController.getConnection();
+                            const Reference<XConnection>& xConnection = rController.getConnection();
                             if ( !xConnection.is() )
                                 return false;
                             bError = fillColumnRef( sColumnName, sTableAlias, xConnection->getMetaData(), pEntry, bListAction );
@@ -1685,7 +1684,7 @@ void OSelectionBrowseBox::DuplicateConditionLevel( const sal_uInt16 nLevel)
     const sal_uInt16 nNewLevel = nLevel +1;
     for (auto const& field : getFields())
     {
-        OTableFieldDescRef pEntry = field;
+        const OTableFieldDescRef& pEntry = field;
         OUString sValue = pEntry->GetCriteria(nLevel);
         if ( !sValue.isEmpty() )
         {
@@ -1715,7 +1714,7 @@ void OSelectionBrowseBox::AddCondition( const OTableFieldDescRef& rInfo, const O
     bool bAllFieldsSearched = true;
     for (auto const& field : getFields())
     {
-        OTableFieldDescRef pEntry = field;
+        const OTableFieldDescRef& pEntry = field;
         const OUString   aField = pEntry->GetField();
         const OUString   aAlias = pEntry->GetAlias();
 
@@ -2047,11 +2046,8 @@ long OSelectionBrowseBox::GetRealRow(long nRowId) const
     const long nCount = m_bVisibleRow.size();
     for(i=0;i < nCount; ++i)
     {
-        if(m_bVisibleRow[i])
-        {
-            if(nErg++ == nRowId)
-                break;
-        }
+        if(m_bVisibleRow[i] && nErg++ == nRowId)
+            break;
     }
     OSL_ENSURE(nErg <= long(m_bVisibleRow.size()),"nErg cannot be greater than BROW_ROW_CNT!");
     return i;
@@ -2602,18 +2598,22 @@ void OSelectionBrowseBox::setFunctionCell(OTableFieldDescRef const & _pEntry)
         // Aggregate functions in general only available with Core SQL
         if ( lcl_SupportsCoreSQLGrammar(xConnection) )
         {
+            sal_Int32 nIdx {0};
             // if we have an asterisk, no other function than count is allowed
             m_pFunctionCell->Clear();
-            m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(0, ';'));
+            m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(0, ';', nIdx));
             if ( isFieldNameAsterisk(_pEntry->GetField()) )
-                m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(2, ';')); // 2 -> COUNT
+                m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(1, ';', nIdx)); // 2nd token: COUNT
             else
             {
-                sal_Int32 nCount = comphelper::string::getTokenCount(m_aFunctionStrings, ';');
-                if ( _pEntry->isNumeric() )
-                    --nCount;
-                for( sal_Int32 nIdx = 1; nIdx < nCount; nIdx++ )
-                    m_pFunctionCell->InsertEntry(m_aFunctionStrings.getToken(nIdx, ';'));
+                const bool bSkipLastToken {_pEntry->isNumeric()};
+                while (nIdx>0)
+                {
+                    const OUString sTok {m_aFunctionStrings.getToken(0, ';', nIdx)};
+                    if (bSkipLastToken && nIdx<0)
+                        break;
+                    m_pFunctionCell->InsertEntry(sTok);
+                }
             }
 
             if ( _pEntry->IsGroupBy() )

@@ -62,6 +62,7 @@
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <strings.hrc>
 #include <frmatr.hxx>
 #include <com/sun/star/table/BorderLineStyle.hpp>
@@ -1967,12 +1968,14 @@ SwNumRule* DocumentStylePoolManager::GetNumRuleFromPool( sal_uInt16 nId )
             {
                 if ( eNumberFormatPositionAndSpaceMode == SvxNumberFormat::LABEL_WIDTH_AND_POSITION )
                 {
-                    aFormat.SetAbsLSpace( nSpace = nSpace + pArr[ n ] );
+                    nSpace += pArr[ n ];
+                    aFormat.SetAbsLSpace( nSpace );
                     aFormat.SetFirstLineOffset( - pArr[ n ] );
                 }
                 else if ( eNumberFormatPositionAndSpaceMode == SvxNumberFormat::LABEL_ALIGNMENT )
                 {
-                    aFormat.SetListtabPos( nSpace = nSpace + pArr[ n ] );
+                    nSpace += pArr[ n ];
+                    aFormat.SetListtabPos( nSpace );
                     aFormat.SetIndentAt( nSpace );
                     aFormat.SetFirstLineIndent( - pArr[ n ] );
                 }

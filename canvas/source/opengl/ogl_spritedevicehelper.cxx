@@ -77,7 +77,6 @@ namespace oglcanvas
 {
 
     SpriteDeviceHelper::SpriteDeviceHelper() :
-        mpDevice(nullptr),
         mpSpriteCanvas(nullptr),
         maActiveSprites(),
         maLastUpdate(),
@@ -138,7 +137,6 @@ namespace oglcanvas
     {
         // release all references
         mpSpriteCanvas = nullptr;
-        mpDevice = nullptr;
         mpTextureCache.reset();
 
         if( mxContext->isInitialized() )
@@ -275,8 +273,7 @@ namespace oglcanvas
         if( !bIsVisible || !mxContext->isInitialized() || !mpSpriteCanvas )
             return false;
 
-        if( !activateWindowContext() )
-            return false;
+        mxContext->makeCurrent();
 
         SystemChildWindow* pChildWindow = mxContext->getChildWindow();
         const ::Size& rOutputSize = pChildWindow->GetSizePixel();
@@ -503,12 +500,6 @@ namespace oglcanvas
             setupUniforms(mnRectangularMultiColorGradientProgram, pColors, rStops, rTexTransform);
         else
             setupUniforms(mnRectangularTwoColorGradientProgram, pColors[0], pColors[1], rTexTransform);
-    }
-
-    bool SpriteDeviceHelper::activateWindowContext()
-    {
-        mxContext->makeCurrent();
-        return true;
     }
 
     namespace

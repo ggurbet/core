@@ -200,7 +200,7 @@ protected:
 public:
     virtual void        UpdateCounts() = 0;
     virtual void        SetCounts(const SwDocStat &rCurrCnt, const SwDocStat &rDocStat) = 0;
-    virtual vcl::Window *    GetWindow() = 0; //this method is added for return a Window type pointer
+    virtual std::shared_ptr<SfxModelessDialogController> GetController() = 0;
 };
 
 class AbstractSwInsertAbstractDlg : public VclAbstractDialog
@@ -335,7 +335,7 @@ protected:
     virtual ~AbstractMarkFloatDlg() override = default;
 public:
     virtual void    ReInitDlg(SwWrtShell& rWrtShell) = 0;
-    virtual vcl::Window *    GetWindow() = 0; //this method is added for return a Window type pointer
+    virtual std::shared_ptr<SfxModelessDialogController> GetController() = 0;
 };
 
 #define RET_LOAD_DOC            100
@@ -344,7 +344,7 @@ public:
 
 class SwMailMergeConfigItem;
 
-class AbstractMailMergeWizard : public VclAbstractDialog2
+class AbstractMailMergeWizard : public VclAbstractDialog
 {
 protected:
     virtual ~AbstractMailMergeWizard() override = default;
@@ -364,7 +364,7 @@ public:
     virtual VclPtr<SfxAbstractDialog> CreateSwBackgroundDialog(weld::Window* pParent, const SfxItemSet& rSet) = 0;
 
     virtual VclPtr<AbstractSwWordCountFloatDlg> CreateSwWordCountDialog(SfxBindings* pBindings,
-        SfxChildWindow* pChild, vcl::Window *pParent, SfxChildWinInfo* pInfo) = 0;
+        SfxChildWindow* pChild, weld::Window *pParent, SfxChildWinInfo* pInfo) = 0;
 
     virtual VclPtr<AbstractSwInsertAbstractDlg> CreateSwInsertAbstractDlg() = 0;
     virtual VclPtr<SfxAbstractDialog> CreateSwAddressAbstractDlg(vcl::Window* pParent, const SfxItemSet& rSet) = 0;
@@ -400,7 +400,7 @@ public:
                                                          bool bDraw,
                                                          const OString& sDefPage = OString() ) = 0;
 
-    virtual VclPtr<VclAbstractDialog> CreateSwAutoMarkDialog(vcl::Window *pParent, SwWrtShell &rSh) = 0;
+    virtual VclPtr<VclAbstractDialog> CreateSwAutoMarkDialog(weld::Window *pParent, SwWrtShell &rSh) = 0;
 
     virtual VclPtr<AbstractSwSelGlossaryDlg> CreateSwSelGlossaryDlg(weld::Window *pParent, const OUString &rShortName) = 0;
 
@@ -479,15 +479,15 @@ public:
     virtual VclPtr<AbstractMarkFloatDlg>       CreateIndexMarkFloatDlg(
                                                        SfxBindings* pBindings,
                                                        SfxChildWindow* pChild,
-                                                       vcl::Window *pParent,
+                                                       weld::Window *pParent,
                                                        SfxChildWinInfo* pInfo) = 0;
     virtual VclPtr<AbstractMarkFloatDlg>       CreateAuthMarkFloatDlg(
                                                        SfxBindings* pBindings,
                                                        SfxChildWindow* pChild,
-                                                       vcl::Window *pParent,
+                                                       weld::Window *pParent,
                                                        SfxChildWinInfo* pInfo) = 0;
     virtual VclPtr<VclAbstractDialog>         CreateIndexMarkModalDlg(
-                                                vcl::Window *pParent, SwWrtShell& rSh, SwTOXMark* pCurTOXMark) = 0;
+                                                weld::Window *pParent, SwWrtShell& rSh, SwTOXMark* pCurTOXMark) = 0;
 
     virtual VclPtr<AbstractMailMergeWizard>    CreateMailMergeWizard(SwView& rView, std::shared_ptr<SwMailMergeConfigItem>& rConfigItem) = 0;
 

@@ -51,31 +51,31 @@ enum class ShapeProperty
     LineWidth,
     LineColor,
     LineTransparency,
-    LineDash,                     /// Explicit line dash or name of a line dash stored in a global container.
+    LineDash,                     ///< Explicit line dash or name of a line dash stored in a global container.
     LineJoint,
-    LineStart,                    /// Explicit line start marker or name of a line marker stored in a global container.
+    LineStart,                    ///< Explicit line start marker or name of a line marker stored in a global container.
     LineStartWidth,
     LineStartCenter,
-    LineEnd,                      /// Explicit line end marker or name of a line marker stored in a global container.
+    LineEnd,                      ///< Explicit line end marker or name of a line marker stored in a global container.
     LineEndWidth,
     LineEndCenter,
     FillStyle,
     FillColor,
     FillTransparency,
     GradientTransparency,
-    FillGradient,                 /// Explicit fill gradient or name of a fill gradient stored in a global container.
-    FillBitmap,                   /// Explicit fill bitmap or name of a fill bitmap stored in a global container.
+    FillGradient,                 ///< Explicit fill gradient or name of a fill gradient stored in a global container.
+    FillBitmap,                   ///< Explicit fill bitmap or name of a fill bitmap stored in a global container.
     FillBitmapMode,
     FillBitmapSizeX,
     FillBitmapSizeY,
     FillBitmapOffsetX,
     FillBitmapOffsetY,
     FillBitmapRectanglePoint,
-    FillHatch,
-    ShadowXDistance,
-    FillBitmapName,
+    FillHatch,                    ///< Explicit fill hatch or name of a fill hatch stored in a global container.
     FillBackground,
-    LAST = FillBackground
+    FillBitmapName,
+    ShadowXDistance,
+    LAST = ShadowXDistance
 };
 
 typedef o3tl::enumarray<ShapeProperty, sal_Int32> ShapePropertyIds;
@@ -87,12 +87,13 @@ struct OOX_DLLPUBLIC ShapePropertyInfo
     bool const mbNamedLineDash;        /// True = use named line dash instead of explicit line dash.
     bool const mbNamedFillGradient;    /// True = use named fill gradient instead of explicit fill gradient.
     bool const mbNamedFillBitmap;      /// True = use named fill bitmap instead of explicit fill bitmap.
+    bool const mbNamedFillHatch;       /// True = use named fill hatch instead of explicit fill hatch.
 
     static ShapePropertyInfo DEFAULT;           /// Default property info (used as default parameter of other methods).
 
     explicit ShapePropertyInfo(const ShapePropertyIds& rnPropertyIds,
                                bool bNamedLineMarker, bool bNamedLineDash,
-                               bool bNamedFillGradient, bool bNamedFillBitmap);
+                               bool bNamedFillGradient, bool bNamedFillBitmap, bool bNamedFillHatch);
 
     bool has(ShapeProperty ePropId) const
     {
@@ -147,6 +148,8 @@ private:
     bool setFillBitmap( sal_Int32 nPropId, const css::uno::Any& rValue );
     /** Sets an explicit fill bitmap and pushes the name to FillBitmapName */
     bool setFillBitmapName( const css::uno::Any& rValue );
+    /** Sets an explicit fill hatch, or creates a named fill hatch. */
+    bool setFillHatch( sal_Int32 nPropId, const css::uno::Any& rValue );
 
     // not implemented, to prevent implicit conversion from enum to int
     css::uno::Any& operator[]( ShapeProperty ePropId ) = delete;

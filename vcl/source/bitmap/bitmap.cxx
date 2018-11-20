@@ -459,14 +459,14 @@ bool Bitmap::CopyPixel( const tools::Rectangle& rRectDst,
             {
                 int nNextIndex = 0;
 
-                if( ( nSrcBitCount == 24 ) && ( nDstBitCount < 24 ) )
+                if (nSrcBitCount == 24)
                     Convert( BmpConversion::N24Bit );
-                else if( ( nSrcBitCount == 8 ) && ( nDstBitCount < 8 ) )
+                else if (nSrcBitCount == 8)
                 {
                     Convert( BmpConversion::N8BitColors );
                     nNextIndex = 16;
                 }
-                else if( ( nSrcBitCount == 4 ) && ( nDstBitCount < 4 ) )
+                else if (nSrcBitCount == 4)
                 {
                     Convert( BmpConversion::N4BitColors );
                     nNextIndex = 2;
@@ -852,15 +852,7 @@ Bitmap Bitmap::CreateDisplayBitmap( OutputDevice* pDisplay )
 
 bool Bitmap::GetSystemData( BitmapSystemData& rData ) const
 {
-    bool bRet = false;
-    if (mxSalBmp)
-    {
-        SalBitmap* pSalBitmap = mxSalBmp.get();
-        if( pSalBitmap )
-            bRet = pSalBitmap->GetSystemData( rData );
-    }
-
-    return bRet;
+    return mxSalBmp && mxSalBmp->GetSystemData(rData);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

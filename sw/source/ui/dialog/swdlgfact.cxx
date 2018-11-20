@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include "swdlgfact.hxx"
 #include <svl/style.hxx>
 #include <svx/svxids.hrc>
@@ -87,7 +89,11 @@ using namespace ::com::sun::star;
 using namespace css::frame;
 using namespace css::uno;
 
-IMPL_ABSTDLG_BASE(AbstractSwWordCountFloatDlg_Impl);
+short AbstractSwWordCountFloatDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
 IMPL_ABSTDLG_BASE(AbstractSwInsertAbstractDlg_Impl);
 IMPL_ABSTDLG_BASE(SwAbstractSfxDialog_Impl);
 
@@ -105,27 +111,27 @@ IMPL_ABSTDLG_BASE(VclAbstractDialog_Impl);
 
 short AbstractSplitTableDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSwBreakDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSwTableWidthDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSwTableHeightDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSwMergeTableDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractGenericDialog_Impl::Execute()
@@ -140,17 +146,17 @@ bool AbstractGenericDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
 
 short AbstractSwSortDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractMultiTOXMarkDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractTabController_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 IMPL_ABSTDLG_BASE(AbstractTabDialog_Impl);
@@ -164,12 +170,12 @@ IMPL_ABSTDLG_BASE(AbstractSwInsertDBColAutoPilot_Impl);
 
 short AbstractDropDownFieldDialog_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSwLabDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractSwSelGlossaryDlg_Impl::Execute()
@@ -179,7 +185,7 @@ short AbstractSwSelGlossaryDlg_Impl::Execute()
 
 short AbstractSwAutoFormatDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 IMPL_ABSTDLG_BASE(AbstractSwFieldDlg_Impl);
@@ -194,12 +200,12 @@ IMPL_ABSTDLG_BASE(AbstractGlossaryDlg_Impl);
 
 short AbstractFieldInputDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractInsFootNoteDlg_Impl::Execute()
 {
-    return m_xDlg->execute();
+    return m_xDlg->run();
 }
 
 short AbstractInsTableDlg_Impl::Execute()
@@ -227,8 +233,16 @@ short AbstractMailMergeFieldConnectionsDlg_Impl::Execute()
 IMPL_ABSTDLG_BASE(AbstractMultiTOXTabDialog_Impl);
 IMPL_ABSTDLG_BASE(AbstractEditRegionDlg_Impl);
 IMPL_ABSTDLG_BASE(AbstractInsertSectionTabDialog_Impl);
-IMPL_ABSTDLG_BASE(AbstractIndexMarkFloatDlg_Impl);
-IMPL_ABSTDLG_BASE(AbstractAuthMarkFloatDlg_Impl);
+
+short AbstractIndexMarkFloatDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
+short AbstractAuthMarkFloatDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
 
 void AbstractTabDialog_Impl::SetCurPageId( const OString &rName )
 {
@@ -377,7 +391,14 @@ void AbstractSwInsertDBColAutoPilot_Impl::DataToDoc( const uno::Sequence< uno::A
         uno::Reference< sdbc::XConnection> xConnection,
         uno::Reference< sdbc::XResultSet > xResultSet)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     pDlg->DataToDoc(rSelection, rxSource, xConnection, xResultSet);
+#else
+    (void) rSelection;
+    (void) rxSource;
+    (void) xConnection;
+    (void) xResultSet;
+#endif
 }
 
 bool AbstractDropDownFieldDialog_Impl::PrevButtonPressed() const
@@ -677,37 +698,37 @@ AbstractInsertSectionTabDialog_Impl::SetSectionData(SwSectionData const& rSect)
 
 void AbstractIndexMarkFloatDlg_Impl::ReInitDlg(SwWrtShell& rWrtShell)
 {
-    pDlg->ReInitDlg( rWrtShell);
+    m_xDlg->ReInitDlg( rWrtShell);
 }
 
-vcl::Window* AbstractIndexMarkFloatDlg_Impl::GetWindow()
+std::shared_ptr<SfxModelessDialogController> AbstractIndexMarkFloatDlg_Impl::GetController()
 {
-    return static_cast<vcl::Window*>(pDlg);
+    return m_xDlg;
 }
 
 void AbstractAuthMarkFloatDlg_Impl::ReInitDlg(SwWrtShell& rWrtShell)
 {
-    pDlg->ReInitDlg( rWrtShell);
+    m_xDlg->ReInitDlg(rWrtShell);
 }
 
-vcl::Window* AbstractAuthMarkFloatDlg_Impl::GetWindow()
+std::shared_ptr<SfxModelessDialogController> AbstractAuthMarkFloatDlg_Impl::GetController()
 {
-    return static_cast<vcl::Window*>(pDlg);
+    return m_xDlg;
 }
 
-vcl::Window* AbstractSwWordCountFloatDlg_Impl::GetWindow()
+std::shared_ptr<SfxModelessDialogController> AbstractSwWordCountFloatDlg_Impl::GetController()
 {
-    return static_cast<vcl::Window*>(pDlg);
+    return m_xDlg;
 }
 
 void AbstractSwWordCountFloatDlg_Impl::UpdateCounts()
 {
-    pDlg->UpdateCounts();
+    m_xDlg->UpdateCounts();
 }
 
 void AbstractSwWordCountFloatDlg_Impl::SetCounts(const SwDocStat &rCurrCnt, const SwDocStat &rDocStat)
 {
-    pDlg->SetCounts(rCurrCnt, rDocStat);
+    m_xDlg->SetCounts(rCurrCnt, rDocStat);
 }
 
 AbstractMailMergeWizard_Impl::~AbstractMailMergeWizard_Impl()
@@ -721,25 +742,17 @@ void AbstractMailMergeWizard_Impl::dispose()
     AbstractMailMergeWizard::dispose();
 }
 
-void AbstractMailMergeWizard_Impl::StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl )
+bool AbstractMailMergeWizard_Impl::StartExecuteAsync(AsyncContext &rCtx)
 {
-    aEndDlgHdl = rEndDialogHdl;
-    pDlg->StartExecuteModal(
-        LINK( this, AbstractMailMergeWizard_Impl, EndDialogHdl ) );
+    // SwMailMergeWizardExecutor wants to run the lifecycle of this dialog
+    // so clear mxOwner here and leave it up to SwMailMergeWizardExecutor
+    rCtx.mxOwner.clear();
+    return pDlg->StartExecuteAsync(rCtx);
 }
 
-sal_Int32 AbstractMailMergeWizard_Impl::GetResult()
+short AbstractMailMergeWizard_Impl::Execute()
 {
-    return pDlg->GetResult();
-}
-
-IMPL_LINK( AbstractMailMergeWizard_Impl, EndDialogHdl, Dialog&, rDialog, void )
-{
-    OSL_ENSURE( &rDialog == pDlg, "wrong dialog passed to EndDialogHdl!" );
-    (void) rDialog; // unused in non-debug
-
-    aEndDlgHdl.Call( *pDlg );
-    aEndDlgHdl = Link<Dialog&,void>();
+    return pDlg->Execute();
 }
 
 OUString AbstractMailMergeWizard_Impl::GetReloadDocument() const
@@ -808,8 +821,13 @@ VclPtr<AbstractSwBreakDlg> SwAbstractDialogFactory_Impl::CreateSwBreakDlg(weld::
 
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwChangeDBDlg(SwView& rVw)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     VclPtr<Dialog> pDlg = VclPtr<SwChangeDBDlg>::Create(rVw);
     return VclPtr<VclAbstractDialog_Impl>::Create(pDlg);
+#else
+    (void) rVw;
+    return nullptr;
+#endif
 }
 
 VclPtr<SfxAbstractTabDialog>  SwAbstractDialogFactory_Impl::CreateSwCharDlg(weld::Window* pParent, SwView& pVw,
@@ -834,8 +852,16 @@ VclPtr<AbstractSwInsertDBColAutoPilot> SwAbstractDialogFactory_Impl::CreateSwIns
         uno::Reference<sdbcx::XColumnsSupplier> xColSupp,
         const SwDBData& rData)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     VclPtr<SwInsertDBColAutoPilot> pDlg = VclPtr<SwInsertDBColAutoPilot>::Create( rView, rxSource, xColSupp, rData );
     return VclPtr<AbstractSwInsertDBColAutoPilot_Impl>::Create( pDlg );
+#else
+    (void) rView;
+    (void) rxSource;
+    (void) xColSupp;
+    (void) rData;
+    return nullptr;
+#endif
 }
 
 VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwFootNoteOptionDlg(weld::Window *pParent, SwWrtShell &rSh)
@@ -875,10 +901,9 @@ VclPtr<SfxAbstractTabDialog> SwAbstractDialogFactory_Impl::CreateSwParaDlg(weld:
     return VclPtr<AbstractTabController_Impl>::Create(o3tl::make_unique<SwParaDlg>(pParent, rVw, rCoreSet, DLG_STD, nullptr, bDraw, sDefPage));
 }
 
-VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwAutoMarkDialog(vcl::Window *pParent, SwWrtShell &rSh)
+VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwAutoMarkDialog(weld::Window *pParent, SwWrtShell &rSh)
 {
-    VclPtr<Dialog> pDlg = VclPtr<SwAuthMarkModalDlg>::Create( pParent, rSh );
-    return VclPtr<VclAbstractDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGenericDialog_Impl>::Create(o3tl::make_unique<SwAuthMarkModalDlg>(pParent, rSh));
 }
 
 VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateSwColumnDialog(weld::Window *pParent, SwWrtShell &rSh)
@@ -983,7 +1008,7 @@ VclPtr<SfxAbstractApplyTabDialog> SwAbstractDialogFactory_Impl::CreateTemplateDi
                                                 SwWrtShell*         pActShell,
                                                 bool                bNew )
 {
-    if (nRegion == SfxStyleFamily::Page)
+    if (nRegion == SfxStyleFamily::Page || nRegion == SfxStyleFamily::Pseudo)
     {
         return VclPtr<AbstractApplyTabController_Impl>::Create(o3tl::make_unique<SwTemplateDlgController>(pParent ? pParent->GetFrameWeld() : nullptr, rBase, nRegion, sPage, pActShell, bNew));
     }
@@ -1098,44 +1123,45 @@ VclPtr<AbstractInsertSectionTabDialog> SwAbstractDialogFactory_Impl::CreateInser
 VclPtr<AbstractMarkFloatDlg> SwAbstractDialogFactory_Impl::CreateIndexMarkFloatDlg(
                                                        SfxBindings* pBindings,
                                                        SfxChildWindow* pChild,
-                                                       vcl::Window *pParent,
+                                                       weld::Window *pParent,
                                                        SfxChildWinInfo* pInfo )
 {
-    VclPtr<SwIndexMarkFloatDlg> pDlg = VclPtr<SwIndexMarkFloatDlg>::Create(pBindings, pChild, pParent, pInfo, true/*bNew*/);
-    return VclPtr<AbstractIndexMarkFloatDlg_Impl>::Create(pDlg);
+    return VclPtr<AbstractIndexMarkFloatDlg_Impl>::Create(o3tl::make_unique<SwIndexMarkFloatDlg>(pBindings, pChild, pParent, pInfo, true/*bNew*/));
 }
 
 VclPtr<AbstractMarkFloatDlg> SwAbstractDialogFactory_Impl::CreateAuthMarkFloatDlg(
                                                        SfxBindings* pBindings,
                                                        SfxChildWindow* pChild,
-                                                       vcl::Window *pParent,
+                                                       weld::Window *pParent,
                                                        SfxChildWinInfo* pInfo)
 {
-    VclPtr<SwAuthMarkFloatDlg> pDlg = VclPtr<SwAuthMarkFloatDlg>::Create( pBindings, pChild, pParent, pInfo, true/*bNew*/ );
-    return VclPtr<AbstractAuthMarkFloatDlg_Impl>::Create( pDlg );
+    return VclPtr<AbstractAuthMarkFloatDlg_Impl>::Create(o3tl::make_unique<SwAuthMarkFloatDlg>(pBindings, pChild, pParent, pInfo, true/*bNew*/));
 }
 
 VclPtr<AbstractSwWordCountFloatDlg> SwAbstractDialogFactory_Impl::CreateSwWordCountDialog(
                                                                               SfxBindings* pBindings,
                                                                               SfxChildWindow* pChild,
-                                                                              vcl::Window *pParent,
+                                                                              weld::Window *pParent,
                                                                               SfxChildWinInfo* pInfo)
 {
-    VclPtr<SwWordCountFloatDlg> pDlg = VclPtr<SwWordCountFloatDlg>::Create( pBindings, pChild, pParent, pInfo );
-    return VclPtr<AbstractSwWordCountFloatDlg_Impl>::Create( pDlg );
+    return VclPtr<AbstractSwWordCountFloatDlg_Impl>::Create(o3tl::make_unique<SwWordCountFloatDlg>(pBindings, pChild, pParent, pInfo));
 }
 
-VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateIndexMarkModalDlg(
-                                                vcl::Window *pParent, SwWrtShell& rSh, SwTOXMark* pCurTOXMark )
+VclPtr<VclAbstractDialog> SwAbstractDialogFactory_Impl::CreateIndexMarkModalDlg(weld::Window *pParent, SwWrtShell& rSh, SwTOXMark* pCurTOXMark )
 {
-    VclPtr<Dialog> pDlg = VclPtr<SwIndexMarkModalDlg>::Create( pParent, rSh, pCurTOXMark );
-    return VclPtr<VclAbstractDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractGenericDialog_Impl>::Create(o3tl::make_unique<SwIndexMarkModalDlg>(pParent, rSh, pCurTOXMark));
 }
 
 VclPtr<AbstractMailMergeWizard> SwAbstractDialogFactory_Impl::CreateMailMergeWizard(
                                     SwView& rView, std::shared_ptr<SwMailMergeConfigItem>& rConfigItem)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     return VclPtr<AbstractMailMergeWizard_Impl>::Create( VclPtr<SwMailMergeWizard>::Create(rView, rConfigItem));
+#else
+    (void) rView;
+    (void) rConfigItem;
+    return nullptr;
+#endif
 }
 
 GlossaryGetCurrGroup    SwAbstractDialogFactory_Impl::GetGlossaryCurrGroupFunc()
@@ -1208,20 +1234,32 @@ CreateTabPage SwAbstractDialogFactory_Impl::GetTabPageCreatorFunc( sal_uInt16 nI
 
 void SwAbstractDialogFactory_Impl::ExecuteMMResultSaveDialog(weld::Window* pParent)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     SwMMResultSaveDialog aDialog(pParent);
     aDialog.run();
+#else
+    (void) pParent;
+#endif
 }
 
 void SwAbstractDialogFactory_Impl::ExecuteMMResultPrintDialog(weld::Window* pParent)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     SwMMResultPrintDialog aDialog(pParent);
     aDialog.run();
+#else
+    (void) pParent;
+#endif
 }
 
 void SwAbstractDialogFactory_Impl::ExecuteMMResultEmailDialog(weld::Window* pParent)
 {
+#if HAVE_FEATURE_DBCONNECTIVITY
     SwMMResultEmailDialog aDialog(pParent);
     aDialog.run();
+#else
+    (void) pParent;
+#endif
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

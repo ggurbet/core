@@ -88,6 +88,7 @@
 #include <comphelper/lok.hxx>
 #include <mergecellsdialog.hxx>
 #include <sheetevents.hxx>
+#include <columnspanset.hxx>
 
 #include <vector>
 #include <memory>
@@ -808,7 +809,7 @@ void ScViewFunc::EnterBlock( const OUString& rString, const EditTextObject* pDat
     if ( pData )
     {
         const ScPatternAttr* pOldPattern = pDoc->GetPattern( nCol, nRow, nTab );
-        ScTabEditEngine aEngine( *pOldPattern, pDoc->GetEnginePool() );
+        ScTabEditEngine aEngine( *pOldPattern, pDoc->GetEnginePool(), pDoc );
         aEngine.SetText(*pData);
 
         ScEditAttrTester aTester( &aEngine );
@@ -2396,12 +2397,9 @@ bool ScViewFunc::DeleteTables(const vector<SCTAB> &TheTabs, bool bRecord )
         if (rDoc.DeleteTab(TheTabs[i]))
         {
             bDelDone = true;
-            if( bVbaEnabled )
+            if( bVbaEnabled && bHasCodeName )
             {
-                if( bHasCodeName )
-                {
-                    VBA_DeleteModule( *pDocSh, sCodeName );
-                }
+                VBA_DeleteModule( *pDocSh, sCodeName );
             }
             pDocSh->Broadcast( ScTablesHint( SC_TAB_DELETED, TheTabs[i] ) );
         }
@@ -3047,7 +3045,8 @@ void ScViewFunc::HideTable( const ScMarkData& rMark )
         ScMarkData::MarkedTabsType::const_iterator it;
         std::vector<SCTAB> undoTabs;
 
-        ScMarkData::MarkedTabsType selectedTabs = rMark.GetSelectedTabs();
+        // need to take a copy of selectedtabs since it is modified in the loop
+        const ScMarkData::MarkedTabsType selectedTabs = rMark.GetSelectedTabs();
         for (it=selectedTabs.begin(); it!=selectedTabs.end(); ++it)
         {
             nTab = *it;

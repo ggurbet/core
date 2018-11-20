@@ -22,8 +22,8 @@
 #include <vcl/print.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/svapp.hxx>
-#include <svtools/imapobj.hxx>
-#include <svtools/imap.hxx>
+#include <vcl/imapobj.hxx>
+#include <vcl/imap.hxx>
 #include <svl/urihelper.hxx>
 #include <svtools/soerr.hxx>
 #include <sfx2/progress.hxx>
@@ -690,13 +690,10 @@ bool SwNoTextFrame::GetCharRect( SwRect &rRect, const SwPosition& rPos,
     else
         rRect.Intersection_( aFrameRect );
 
-    if ( pCMS )
+    if ( pCMS && pCMS->m_bRealHeight )
     {
-        if ( pCMS->m_bRealHeight )
-        {
-            pCMS->m_aRealHeight.setY(rRect.Height());
-            pCMS->m_aRealHeight.setX(0);
-        }
+        pCMS->m_aRealHeight.setY(rRect.Height());
+        pCMS->m_aRealHeight.setX(0);
     }
 
     return true;
@@ -711,13 +708,14 @@ bool SwNoTextFrame::GetCursorOfst(SwPosition* pPos, Point& ,
     return true;
 }
 
-#define CLEARCACHE {\
-    SwFlyFrame* pFly = FindFlyFrame();\
-    if( pFly && pFly->GetFormat()->GetSurround().IsContour() )\
-    {\
-        ClrContourCache( pFly->GetVirtDrawObj() );\
-        pFly->NotifyBackground( FindPageFrame(), getFramePrintArea(), PREP_FLY_ATTR_CHG );\
-    }\
+void SwNoTextFrame::ClearCache()
+{
+    SwFlyFrame* pFly = FindFlyFrame();
+    if( pFly && pFly->GetFormat()->GetSurround().IsContour() )
+    {
+        ClrContourCache( pFly->GetVirtDrawObj() );
+        pFly->NotifyBackground( FindPageFrame(), getFramePrintArea(), PREP_FLY_ATTR_CHG );
+    }
 }
 
 void SwNoTextFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
@@ -755,7 +753,7 @@ void SwNoTextFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
         }
         SAL_FALLTHROUGH;
     case RES_FMT_CHG:
-        CLEARCACHE
+        ClearCache();
         break;
 
     case RES_ATTRSET_CHG:
@@ -765,7 +763,7 @@ void SwNoTextFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
                 if( SfxItemState::SET == static_cast<const SwAttrSetChg*>(pOld)->GetChgSet()->
                                 GetItemState( n, false ))
                 {
-                    CLEARCACHE
+                    ClearCache();
 
                     if(RES_GRFATR_ROTATION == n)
                     {
@@ -814,7 +812,7 @@ void SwNoTextFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
             bComplete = false;
             SwGrfNode* pNd = static_cast<SwGrfNode*>( GetNode());
 
-            CLEARCACHE
+            ClearCache();
 
             SwRect aRect( getFrameArea() );
 
@@ -1108,8 +1106,7 @@ void SwNoTextFrame::PaintPicture( vcl::RenderContext* pOut, const SwRect &rGrfAr
                         pVout = pOut;
                         pOut = pShell->GetOut();
                     }
-                    else if( pShell->GetWin() &&
-                             OUTDEV_VIRDEV == pOut->GetOutDevType() )
+                    else if( pShell->GetWin() && pOut->IsVirtual() )
                     {
                         pVout = pOut;
                         pOut = pShell->GetWin();
@@ -1117,7 +1114,7 @@ void SwNoTextFrame::PaintPicture( vcl::RenderContext* pOut, const SwRect &rGrfAr
                     else
                         pVout = nullptr;
 
-                    OSL_ENSURE( OUTDEV_VIRDEV != pOut->GetOutDevType() ||
+                    OSL_ENSURE( !pOut->IsVirtual() ||
                             pShell->GetViewOptions()->IsPDFExport() || pShell->isOutputToWindow(),
                             "pOut should not be a virtual device" );
 

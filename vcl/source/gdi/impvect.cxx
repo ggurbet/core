@@ -42,11 +42,20 @@
 #define VECT_POLY_OUTLINE_INNER 4UL
 #define VECT_POLY_OUTLINE_OUTER 8UL
 
-#define VECT_MAP( _def_pIn, _def_pOut, _def_nVal )  _def_pOut[_def_nVal]=(_def_pIn[_def_nVal]=((_def_nVal)*4)+1)+5;
-#define BACK_MAP( _def_nVal )                       ((((_def_nVal)+2)>>2)-1)
-#define VECT_PROGRESS( _def_pProgress, _def_nVal ) \
-  if(_def_pProgress)      \
-      (_def_pProgress->Call(_def_nVal));
+static void VECT_MAP( std::unique_ptr<long []> & pMapIn, std::unique_ptr<long []>& pMapOut, long nVal )
+{
+    pMapIn[nVal] = (nVal * 4) + 1;
+    pMapOut[nVal] = pMapIn[nVal] + 5;
+}
+static constexpr long BACK_MAP( long _def_nVal )
+{
+    return ((_def_nVal + 2) >> 2) - 1;
+}
+static void VECT_PROGRESS( const Link<long, void>* pProgress, long _def_nVal )
+{
+    if(pProgress)
+      pProgress->Call(_def_nVal);
+}
 
 class ImplVectMap;
 class ImplChain;
@@ -230,7 +239,8 @@ ImplVectMap::~ImplVectMap()
 inline void ImplVectMap::Set( long nY, long nX, sal_uInt8 cVal )
 {
     const sal_uInt8 cShift = sal::static_int_cast<sal_uInt8>(6 - ( ( nX & 3 ) << 1 ));
-    ( ( mpScan[ nY ][ nX >> 2 ] ) &= ~( 3 << cShift ) ) |= ( cVal << cShift );
+    auto & rPixel = mpScan[ nY ][ nX >> 2 ];
+    rPixel = (rPixel & ~( 3 << cShift ) ) | ( cVal << cShift );
 }
 
 inline sal_uInt8    ImplVectMap::Get( long nY, long nX ) const
@@ -330,7 +340,8 @@ void ImplChain::ImplEndAdd( sal_uLong nFlag )
             nFirstY = nLastY = maStartPt.Y();
             aArr.ImplSetSize( mnCount << 1 );
 
-            sal_uInt16 i, nPolyPos;
+            sal_uInt16 nPolyPos;
+            sal_uLong i;
             for( i = 0, nPolyPos = 0; i < ( mnCount - 1 ); i++ )
             {
                 const sal_uInt8             cMove = mpCodes[ i ];
@@ -437,7 +448,8 @@ void ImplChain::ImplEndAdd( sal_uLong nFlag )
             nFirstY = nLastY = maStartPt.Y();
             aArr.ImplSetSize( mnCount << 1 );
 
-            sal_uInt16 i, nPolyPos;
+            sal_uInt16 nPolyPos;
+            sal_uLong i;
             for( i = 0, nPolyPos = 0; i < ( mnCount - 1 ); i++ )
             {
                 const sal_uInt8             cMove = mpCodes[ i ];
@@ -587,7 +599,8 @@ void ImplChain::ImplPostProcess( const ImplPointArray& rArr )
         }
     }
 
-    aNewArr1.ImplSetRealSize( nCount = nNewPos );
+    nCount = nNewPos;
+    aNewArr1.ImplSetRealSize( nCount );
 
     // pass 2
     aNewArr2.ImplSetSize( nCount );
@@ -609,7 +622,8 @@ void ImplChain::ImplPostProcess( const ImplPointArray& rArr )
                 pLeast = &( aNewArr1[ n++ ] );
         }
 
-        aNewArr2[ nNewPos++ ] = *( pLast = pLeast );
+        pLast = pLeast;
+        aNewArr2[ nNewPos++ ] = *pLast;
     }
 
     aNewArr2.ImplSetRealSize( nNewPos );
@@ -664,7 +678,8 @@ bool ImplVectorize( const Bitmap& rColorBmp, GDIMetaFile& rMtf,
         if( n )
             fPercentStep_2 = 45.0 / n;
 
-        VECT_PROGRESS( pProgress, FRound( fPercent += 10.0 ) );
+        fPercent += 10.0;
+        VECT_PROGRESS( pProgress, FRound( fPercent ) );
 
         for( sal_uInt16 i = 0; i < n; i++ )
         {
@@ -672,7 +687,8 @@ bool ImplVectorize( const Bitmap& rColorBmp, GDIMetaFile& rMtf,
             const Color         aFindColor( aBmpCol.GetRed(), aBmpCol.GetGreen(), aBmpCol.GetBlue() );
             std::unique_ptr<ImplVectMap> xMap(ImplExpand( pRAcc.get(), aFindColor ));
 
-            VECT_PROGRESS( pProgress, FRound( fPercent += fPercentStep_2 ) );
+            fPercent += fPercentStep_2;
+            VECT_PROGRESS( pProgress, FRound( fPercent ) );
 
             if( xMap )
             {
@@ -695,7 +711,8 @@ bool ImplVectorize( const Bitmap& rColorBmp, GDIMetaFile& rMtf,
                 }
             }
 
-            VECT_PROGRESS( pProgress, FRound( fPercent += fPercentStep_2 ) );
+            fPercent += fPercentStep_2;
+            VECT_PROGRESS( pProgress, FRound( fPercent ) );
         }
 
         delete[] pColorSet;
@@ -924,7 +941,9 @@ bool ImplGetChain(  ImplVectMap* pMap, const Point& rStartPt, ImplChain& rChain 
         if( pMap->IsCont( nTryY, nTryX ) )
         {
             rChain.ImplAdd( static_cast<sal_uInt8>(nLastDir) );
-            pMap->Set( nActY = nTryY, nActX = nTryX, VECT_DONE_INDEX );
+            nActY = nTryY;
+            nActX = nTryX;
+            pMap->Set( nActY, nActX, VECT_DONE_INDEX );
             nFound = 1;
         }
         else
@@ -941,7 +960,9 @@ bool ImplGetChain(  ImplVectMap* pMap, const Point& rStartPt, ImplChain& rChain 
                     if( pMap->IsCont( nTryY, nTryX ) )
                     {
                         rChain.ImplAdd( static_cast<sal_uInt8>(nDir) );
-                        pMap->Set( nActY = nTryY, nActX = nTryX, VECT_DONE_INDEX );
+                        nActY = nTryY;
+                        nActX = nTryX;
+                        pMap->Set( nActY, nActX, VECT_DONE_INDEX );
                         nFound = 1;
                         nLastDir = nDir;
                         break;

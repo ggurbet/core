@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include <sal/config.h>
 
 #include <hintids.hxx>
@@ -1283,13 +1285,11 @@ IMPL_LINK_NOARG(SwBaseShell, GraphicArrivedHdl, SwCursorShell&, void)
     {
         bool bProtect = FlyProtectFlags::NONE != rSh.IsSelObjProtected(FlyProtectFlags::Content|FlyProtectFlags::Parent);
         SfxViewFrame* pVFrame = GetView().GetViewFrame();
-        sal_uInt16 nSlot;
-        std::set<sal_uInt16>::iterator it;
-        for( it = aGrfUpdateSlots.begin(); it != aGrfUpdateSlots.end(); ++it )
+        for( const auto nSlot : aGrfUpdateSlots )
         {
             bool bSetState = false;
             bool bState = false;
-            switch( nSlot = *it )
+            switch( nSlot )
             {
             case SID_IMAP:
             case SID_IMAP_EXEC:
@@ -1917,7 +1917,7 @@ void SwBaseShell::SetWrapMode( sal_uInt16 nSlot )
             bOpaque = !rSh.GetLayerId();
         else
         {
-            const SvxOpaqueItem aOpaque( aSet.Get(RES_OPAQUE) );
+            const SvxOpaqueItem& aOpaque( aSet.Get(RES_OPAQUE) );
             bOpaque = !aOpaque.GetValue();
         }
     }
@@ -2870,6 +2870,7 @@ void SwBaseShell::ExecField( SfxRequest const & rReq )
     sal_uInt16 nSlot = rReq.GetSlot();
     switch( nSlot )
     {
+#if HAVE_FEATURE_DBCONNECTIVITY
         case FN_CHANGE_DBFIELD:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
@@ -2877,6 +2878,7 @@ void SwBaseShell::ExecField( SfxRequest const & rReq )
             pDlg->Execute();
         }
         break;
+#endif
         default:
             OSL_FAIL("wrong dispatcher");
     }

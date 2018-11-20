@@ -23,6 +23,7 @@
 #include <vcl/button.hxx>
 #include <vcl/floatwin.hxx>
 #include <vcl/quickselectionengine.hxx>
+#include <vcl/glyphitem.hxx>
 #include <vcl/vcllayout.hxx>
 
 #include <set>
@@ -47,7 +48,6 @@ struct ImplEntryType
 {
     OUString const    maStr;
     SalLayoutGlyphs   maStrGlyphs;
-    std::unique_ptr<Color> mxTextColor;
     Image const       maImage;
     void*       mpUserData;
     bool        mbIsSelected;
@@ -134,9 +134,6 @@ public:
     void              SetEntryFlags( sal_Int32  nPos, ListBoxEntryFlags nFlags );
     ListBoxEntryFlags GetEntryFlags( sal_Int32  nPos ) const;
 
-    void            SetEntryTextColor(sal_Int32 nPos, const Color* pColor);
-    const Color*    GetEntryTextColor(sal_Int32 nPos) const;
-
     void            SelectEntry( sal_Int32  nPos, bool bSelect );
 
     sal_Int32       GetSelectedEntryCount() const;
@@ -218,8 +215,8 @@ private:
     bool mbInUserDraw : 1;       ///< In UserDraw
     bool mbReadOnly : 1;         ///< ReadOnly
     bool mbMirroring : 1;        ///< pb: #106948# explicit mirroring for calc
-    bool mbRight : 1;            ///< right align Text output
     bool mbCenter : 1;           ///< center Text output
+    bool mbRight : 1;            ///< right align Text output
     bool mbEdgeBlending : 1;
 
     Link<ImplListBoxWindow*,void>  maScrollHdl;
@@ -426,8 +423,6 @@ public:
     void            Clear();
 
     void            SetEntryFlags( sal_Int32  nPos, ListBoxEntryFlags nFlags );
-
-    void            SetEntryTextColor(sal_Int32 nPos, const Color* pTextColor) { maLBWindow->GetEntryList()->SetEntryTextColor(nPos, pTextColor); }
 
     void            SelectEntry( sal_Int32  nPos, bool bSelect );
     void            SetNoSelection();

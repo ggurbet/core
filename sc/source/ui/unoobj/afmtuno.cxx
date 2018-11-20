@@ -17,8 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <osl/diagnose.h>
 #include <scitems.hxx>
 #include <editeng/memberids.h>
+#include <osl/diagnose.h>
 #include <svl/poolitem.hxx>
 #include <svl/eitem.hxx>
 #include <vcl/svapp.hxx>
@@ -659,11 +661,10 @@ void SAL_CALL ScAutoFormatFieldObj::setPropertyValue(
                     }
                     break;
                     default:
-                        SfxPoolItem* pNewItem = pItem->Clone();
+                        std::unique_ptr<SfxPoolItem> pNewItem(pItem->Clone());
                         bDone = pNewItem->PutValue( aValue, pEntry->nMemberId );
                         if (bDone)
                             pData->PutItem( nFieldIndex, *pNewItem );
-                        delete pNewItem;
                 }
 
                 if (bDone)

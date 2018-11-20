@@ -44,6 +44,7 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <miscuno.hxx>
 #include <tools/urlobj.hxx>
+#include <osl/diagnose.h>
 
 //! TODO make dynamic
 const SCSIZE ASCIIDLG_MAXROWS                = MAXROWCOUNT;
@@ -247,12 +248,10 @@ static void lcl_LoadSeparators( OUString& rFieldSeparators, OUString& rTextSepar
 }
 
 static void lcl_SaveSeparators(
-    const OUString& rSeparators, const OUString& rTxtSep, bool bMergeDelimiters, bool bQuotedAsText,
+    const OUString& sFieldSeparators, const OUString& sTextSeparators, bool bMergeDelimiters, bool bQuotedAsText,
     bool bDetectSpecialNum, bool bFixedWidth, sal_Int32 nFromRow,
     sal_Int32 nCharSet, sal_Int32 nLanguage, bool bSkipEmptyCells, bool bRemoveSpace, ScImportAsciiCall eCall )
 {
-    OUString sFieldSeparators = rSeparators;
-    OUString sTextSeparators = rTxtSep;
     Sequence<Any> aValues;
     Any *pProperties;
     Sequence<OUString> aNames;

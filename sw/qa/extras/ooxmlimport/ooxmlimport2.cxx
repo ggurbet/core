@@ -36,6 +36,14 @@ DECLARE_OOXMLIMPORT_TEST(testTdf108545_embeddedDocxIcon, "tdf108545_embeddedDocx
     CPPUNIT_ASSERT_EQUAL(embed::Aspects::MSOLE_ICON, xSupplier->getAspect());
 }
 
+DECLARE_OOXMLIMPORT_TEST(testTdf121203, "tdf121203.docx")
+{
+    // Make sure that the date SDT's content is imported as plain text, as it
+    // has no ISO date, so we have no idea how to represent that with our date
+    // control.
+    CPPUNIT_ASSERT_EQUAL(OUString("17-Oct-2018 09:00"), getRun(getParagraph(1), 1)->getString());
+}
+
 DECLARE_OOXMLIMPORT_TEST(testTdf109053, "tdf109053.docx")
 {
     // Table was imported into a text frame which led to a one page document
@@ -82,6 +90,14 @@ DECLARE_OOXMLIMPORT_TEST(testGroupShapeFontName, "groupshape-fontname.docx")
     CPPUNIT_ASSERT_EQUAL(
         OUString(""),
         getProperty<OUString>(getRun(getParagraphOfText(1, xText), 1), "CharFontNameAsian"));
+}
+
+DECLARE_OOXMLIMPORT_TEST(test120551, "tdf120551.docx")
+{
+    auto nHoriOrientPosition = getProperty<sal_Int32>(getShape(1), "HoriOrientPosition");
+    // Without the accompanying fix in place, this test would have failed with
+    // 'Expected: 436, Actual  : -2542'.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(436), nHoriOrientPosition);
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf111550, "tdf111550.docx")
@@ -221,6 +237,26 @@ DECLARE_OOXMLIMPORT_TEST(testTdf119200, "tdf119200.docx")
     CPPUNIT_ASSERT_EQUAL(OUString(u" size 12{ func \u2284 } {}"), getFormula(getRun(xPara, 5)));
     CPPUNIT_ASSERT_EQUAL(OUString(u" size 12{ func \u2286 } {}"), getFormula(getRun(xPara, 6)));
     CPPUNIT_ASSERT_EQUAL(OUString(u" size 12{ func \u2287 } {}"), getFormula(getRun(xPara, 7)));
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf115094, "tdf115094.docx")
+{
+    // anchor of graphic has to be the text in the text frame
+    // xray ThisComponent.DrawPage(1).Anchor.Text
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(),
+                                                      uno::UNO_QUERY);
+    uno::Reference<text::XTextContent> xShape(xDrawPage->getByIndex(1), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xText1(xShape->getAnchor()->getText(), uno::UNO_QUERY);
+
+    // xray ThisComponent.TextTables(0).getCellByName("A1")
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xText2(xTable->getCellByName("A1"), uno::UNO_QUERY);
+
+    CPPUNIT_ASSERT_EQUAL(xText1.get(), xText2.get());
 }
 
 // tests should only be added to ooxmlIMPORT *if* they fail round-tripping in ooxmlEXPORT

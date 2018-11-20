@@ -26,6 +26,7 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/range/b2drectangle.hxx>
+#include <o3tl/make_unique.hxx>
 #include <osl/file.hxx>
 #include <osl/process.h>
 #include <rtl/bootstrap.h>
@@ -369,28 +370,6 @@ bool AquaSalGraphics::AddTempDevFont( PhysicalFontCollection*,
     return ::AddTempDevFont(rFontFileURL);
 }
 
-bool AquaSalGraphics::GetGlyphOutline(const GlyphItem& rGlyph, basegfx::B2DPolyPolygon& rPolyPoly)
-{
-    const int nFallbackLevel = rGlyph.mnFallbackLevel;
-    if (nFallbackLevel < MAX_FALLBACK && mpTextStyle[nFallbackLevel])
-    {
-        const bool bRC = mpTextStyle[nFallbackLevel]->GetGlyphOutline(rGlyph, rPolyPoly);
-        return bRC;
-    }
-    return false;
-}
-
-bool AquaSalGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect )
-{
-    const int nFallbackLevel = rGlyph.mnFallbackLevel;
-    if (nFallbackLevel < MAX_FALLBACK && mpTextStyle[nFallbackLevel])
-    {
-        const bool bRC = mpTextStyle[nFallbackLevel]->GetGlyphBoundRect(rGlyph, rRect);
-        return bRC;
-    }
-    return false;
-}
-
 void AquaSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
 {
 #ifdef IOS
@@ -440,7 +419,7 @@ void AquaSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
             }
         }
 
-        aGlyphIds.push_back(pGlyph->maGlyphId);
+        aGlyphIds.push_back(pGlyph->m_aGlyphId);
         aGlyphPos.push_back(aGCPos);
         aGlyphOrientation.push_back(bUprightGlyph);
     }
@@ -529,10 +508,9 @@ void AquaSalGraphics::SetFont(LogicalFontInstance* pReqFont, int nFallbackLevel)
 
 std::unique_ptr<SalLayout> AquaSalGraphics::GetTextLayout(ImplLayoutArgs& /*rArgs*/, int nFallbackLevel)
 {
-    if (mpTextStyle[nFallbackLevel])
-        return std::unique_ptr<SalLayout>(new GenericSalLayout(*mpTextStyle[nFallbackLevel]));
-
-    return nullptr;
+    if (!mpTextStyle[nFallbackLevel])
+        return nullptr;
+    return o3tl::make_unique<GenericSalLayout>(*mpTextStyle[nFallbackLevel]);
 }
 
 const FontCharMapRef AquaSalGraphics::GetFontCharMap() const

@@ -601,10 +601,9 @@ void SwDoc::SetDefault( const SfxItemSet& rSet )
                 0 != (nEdtWhich = pSdrPool->GetWhich( nSlotId )) &&
                 nSlotId != nEdtWhich )
             {
-                SfxPoolItem* pCpy = pItem->Clone();
+                std::unique_ptr<SfxPoolItem> pCpy(pItem->Clone());
                 pCpy->SetWhich( nEdtWhich );
                 pSdrPool->SetPoolDefaultItem( *pCpy );
-                delete pCpy;
             }
         }
 
@@ -1723,7 +1722,10 @@ SwTableNumFormatMerge::SwTableNumFormatMerge( const SwDoc& rSrc, SwDoc& rDest )
     // a different Doc -> Number formatter needs to be merged
     SvNumberFormatter* pN;
     if( &rSrc != &rDest && nullptr != ( pN = const_cast<SwDoc&>(rSrc).GetNumberFormatter( false ) ))
-        ( pNFormat = rDest.GetNumberFormatter())->MergeFormatter( *pN );
+    {
+        pNFormat = rDest.GetNumberFormatter();
+        pNFormat->MergeFormatter( *pN );
+    }
 
     if( &rSrc != &rDest )
         static_cast<SwGetRefFieldType*>(rSrc.getIDocumentFieldsAccess().GetSysFieldType( SwFieldIds::GetRef ))->

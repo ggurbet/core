@@ -25,7 +25,6 @@
 #include <compiler.hxx>
 #include <compiler.hrc>
 #include <global.hxx>
-#include <sc.hrc>
 #include <scfuncs.hrc>
 #include <scmod.hxx>
 #include <scresid.hxx>
@@ -33,12 +32,11 @@
 
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <unotools/resmgr.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <formula/funcvarargs.h>
+#include <osl/diagnose.h>
 
 #include <memory>
-#include <numeric>
 
 struct ScFuncDescCore
 {
@@ -104,7 +102,6 @@ ScFuncDesc::ScFuncDesc() :
         nArgCount       (0),
         nVarArgsStart   (0),
         bIncomplete     (false),
-        bHasSuppressedArgs(false),
         mbHidden        (false)
 {}
 
@@ -137,7 +134,6 @@ void ScFuncDesc::Clear()
     nCategory = 0;
     sHelpId.clear();
     bIncomplete = false;
-    bHasSuppressedArgs = false;
     mbHidden = false;
 }
 
@@ -275,20 +271,7 @@ OUString ScFuncDesc::getFormula( const ::std::vector< OUString >& _aArguments ) 
 
 sal_uInt16 ScFuncDesc::GetSuppressedArgCount() const
 {
-    if (!bHasSuppressedArgs || !pDefArgFlags)
-        return nArgCount;
-
-    sal_uInt16 nArgs = nArgCount;
-    if (nArgs >= PAIRED_VAR_ARGS)
-        nArgs -= PAIRED_VAR_ARGS - 2;
-    else if (nArgs >= VAR_ARGS)
-        nArgs -= VAR_ARGS - 1;
-    sal_uInt16 nCount = nArgs;
-    if (nArgCount >= PAIRED_VAR_ARGS)
-        nCount += PAIRED_VAR_ARGS - 2;
-    else if (nArgCount >= VAR_ARGS)
-        nCount += VAR_ARGS - 1;
-    return nCount;
+    return nArgCount;
 }
 
 OUString ScFuncDesc::getFunctionName() const
@@ -319,15 +302,11 @@ sal_Int32 ScFuncDesc::getSuppressedArgumentCount() const
 
 void ScFuncDesc::fillVisibleArgumentMapping(::std::vector<sal_uInt16>& _rArguments) const
 {
-    if (!bHasSuppressedArgs || !pDefArgFlags)
-    {
-        _rArguments.resize( nArgCount);
-        sal_uInt16 value = 0;
-        for (auto & argument : _rArguments)
-            argument = value++;
-    }
+    _rArguments.resize( nArgCount);
+    sal_uInt16 value = 0;
+    for (auto & argument : _rArguments)
+        argument = value++;
 
-    _rArguments.reserve( nArgCount);
     sal_uInt16 nArgs = nArgCount;
     if (nArgs >= PAIRED_VAR_ARGS)
         nArgs -= PAIRED_VAR_ARGS - 2;
@@ -807,7 +786,8 @@ ScFunctionList::ScFunctionList()
         { SC_OPCODE_ROUNDSIG, ENTRY(SC_OPCODE_ROUNDSIG_ARY), 0, ID_FUNCTION_GRP_MATH, HID_FUNC_ROUNDSIG, 2, { 0, 0 } },
         { SC_OPCODE_REPLACEB, ENTRY(SC_OPCODE_REPLACEB_ARY), 0, ID_FUNCTION_GRP_TEXT, HID_FUNC_REPLACEB, 4, { 0, 0, 0, 0 } },
         { SC_OPCODE_FINDB, ENTRY(SC_OPCODE_FINDB_ARY), 0, ID_FUNCTION_GRP_TEXT, HID_FUNC_FINDB, 3, { 0, 0, 1 } },
-        { SC_OPCODE_SEARCHB, ENTRY(SC_OPCODE_SEARCHB_ARY), 0, ID_FUNCTION_GRP_TEXT, HID_FUNC_SEARCHB, 3, { 0, 0, 1 } }
+        { SC_OPCODE_SEARCHB, ENTRY(SC_OPCODE_SEARCHB_ARY), 0, ID_FUNCTION_GRP_TEXT, HID_FUNC_SEARCHB, 3, { 0, 0, 1 } },
+        { SC_OPCODE_REGEX, ENTRY(SC_OPCODE_REGEX_ARY), 0, ID_FUNCTION_GRP_TEXT, HID_FUNC_REGEX, 4, { 0, 0, 1, 1 } }
     };
 
     ScFuncDesc* pDesc = nullptr;

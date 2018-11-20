@@ -79,18 +79,8 @@ namespace
 {
     const Sequence< OUString >& lcl_getLanguageDependentProperties()
     {
-        static Sequence< OUString > s_aLanguageDependentProperties;
-        if ( s_aLanguageDependentProperties.getLength() == 0 )
-        {
-            ::osl::MutexGuard aGuard( ::osl::Mutex::getGlobalMutex() );
-            if ( s_aLanguageDependentProperties.getLength() == 0 )
-            {
-                s_aLanguageDependentProperties.realloc( 2 );
-                s_aLanguageDependentProperties[0] = "HelpText";
-                s_aLanguageDependentProperties[1] = "Title";
-                // note: properties must be sorted
-            }
-        }
+        // note: properties must be sorted
+        static Sequence<OUString> s_aLanguageDependentProperties{ "HelpText", "Title" };
         return s_aLanguageDependentProperties;
     }
 }
@@ -707,10 +697,9 @@ Sequence< Reference< XControlModel > > SAL_CALL ControlModelContainerBase::getCo
     ::std::vector< Reference< XControlModel > > aUnindexedModels;
         // will be the container of all models which do not have a tab index property
 
-    UnoControlModelHolderVector::const_iterator aLoop = maModels.begin();
-    for ( ; aLoop != maModels.end(); ++aLoop )
+    for ( const auto& rModel : maModels )
     {
-        Reference< XControlModel > xModel( aLoop->first );
+        Reference< XControlModel > xModel( rModel.first );
 
         // see if the model has a TabIndex property
         Reference< XPropertySet > xControlProps( xModel, UNO_QUERY );

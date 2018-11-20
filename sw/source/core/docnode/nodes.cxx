@@ -358,15 +358,6 @@ void SwNodes::ChgNode( SwNodeIndex const & rDelPos, sal_uLong nSz,
         SwNode* pFrameNd = rNds.FindPrvNxtFrameNode( aFrameNdIdx,
                                         rNds[ rInsPos.GetIndex() - 1 ] );
 
-        if( !pFrameNd && aFrameNdIdx > rNds.GetEndOfExtras().GetIndex() )
-        {
-            OSL_ENSURE( false, "here, something wrong happened" );
-            aFrameNdIdx = rNds.GetEndOfContent();
-            pFrameNd = SwNodes::GoPrevSection( &aFrameNdIdx, true, false );
-            if( pFrameNd && !static_cast<SwContentNode*>(pFrameNd)->HasWriterListeners() )
-                pFrameNd = nullptr;
-            OSL_ENSURE( pFrameNd, "ChgNode() - no FrameNode found" );
-        }
         if( pFrameNd )
             while( aIdx != rInsPos )
             {
@@ -461,7 +452,9 @@ bool SwNodes::MoveNodes( const SwNodeRange& aRange, SwNodes & rNodes,
 
     // continue until everything has been moved
     while( aRg.aStart < aRg.aEnd )
-        switch( (pCurrentNode = &aRg.aEnd.GetNode())->GetNodeType() )
+    {
+        pCurrentNode = &aRg.aEnd.GetNode();
+        switch( pCurrentNode->GetNodeType() )
         {
         case SwNodeType::End:
             {
@@ -850,6 +843,7 @@ bool SwNodes::MoveNodes( const SwNodeRange& aRange, SwNodes & rNodes,
             OSL_FAIL( "Unknown node type" );
             break;
         }
+    }
 
     if( nInsPos ) // copy remaining rest
     {
@@ -1259,7 +1253,7 @@ void SwNodes::GoStartOfSection(SwNodeIndex *pIdx)
     // after the next start node
     SwNodeIndex aTmp( *pIdx->GetNode().StartOfSectionNode(), +1 );
 
-    // If index points to no ContentNode, than go to one.
+    // If index points to no ContentNode, then go to one.
     // If there is no further available, do not change the index' position!
     while( !aTmp.GetNode().IsContentNode() )
     {   // go from this StartNode (can only be one) to its end
@@ -1464,7 +1458,7 @@ void SwNodes::MoveRange( SwPaM & rPam, SwPosition & rPos, SwNodes& rNodes )
 
     if( pSrcNd )
     {
-        // if the first node is a TextNode, than there must
+        // if the first node is a TextNode, then there must
         // be also a TextNode in the NodesArray to store the content
         if( !pDestNd )
         {

@@ -405,12 +405,11 @@ void XRMResMerge::WorkOnDesc(
             OString sDescFilename = GetAttribute ( rOpenTag, "xlink:href" );
             for( size_t n = 0; n < aLanguages.size(); n++ ){
                 sCur = aLanguages[ n ];
-                OString sContent;
+                OString sText;
                 if ( !sCur.equalsIgnoreAsciiCase("en-US")  &&
-                    ( pEntrys->GetText( sContent, sCur, true )) &&
-                    !sContent.isEmpty())
+                    ( pEntrys->GetText( sText, sCur, true )) &&
+                    !sText.isEmpty())
                 {
-                    OString sText( sContent );
                     OString sAdditionalLine( "\n        " );
                     sAdditionalLine += rOpenTag;
                     OString sSearch = sLangAttribute;
@@ -466,11 +465,9 @@ void XRMResMerge::WorkOnText(
     const OString &,
     OString & )
 {
-    if ( pMergeDataFile ) {
-        if ( !pResData ) {
-            pResData.reset( new ResData( GetGID(), sFilename ) );
-            pResData->sResTyp = sResourceType;
-        }
+    if ( pMergeDataFile && !pResData ) {
+        pResData.reset( new ResData( GetGID(), sFilename ) );
+        pResData->sResTyp = sResourceType;
     }
 }
 
@@ -498,7 +495,7 @@ void XRMResMerge::EndOfText(
                     !sContent.isEmpty() &&
                     helper::isWellFormedXML( sContent ))
                 {
-                    OString sText( sContent );
+                    const OString& sText( sContent );
                     OString sAdditionalLine( "\n        " );
                     sAdditionalLine += rOpenTag;
                     OString sSearch = sLangAttribute;

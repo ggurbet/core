@@ -26,6 +26,7 @@
 #include <vcl/i18nhelp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/window.hxx>
+#include <impglyphitem.hxx>
 
 using namespace css;
 using namespace vcl;
@@ -40,7 +41,7 @@ MenuItemData::~MenuItemData()
 
 SalLayoutGlyphs* MenuItemData::GetTextGlyphs(OutputDevice* pOutputDevice)
 {
-    if (!aTextGlyphs.empty())
+    if (aTextGlyphs.IsValid())
         // Use pre-calculated result.
         return &aTextGlyphs;
 

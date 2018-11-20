@@ -22,6 +22,7 @@
 #include <osl/module.h>
 #include <osl/file.hxx>
 #include <osl/thread.h>
+#include <osl/module.hxx>
 
 #include <rtl/tencinfo.h>
 #include <rtl/instance.hxx>
@@ -74,6 +75,7 @@
 #include <com/sun/star/uno/XNamingService.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <comphelper/lok.hxx>
 #include <comphelper/solarmutex.hxx>
 #include <osl/process.h>
 
@@ -518,9 +520,9 @@ comphelper::SolarMutex& Application::GetSolarMutex()
     return *(pSVData->mpDefInst->GetYieldMutex());
 }
 
-oslThreadIdentifier Application::GetMainThreadIdentifier()
+bool Application::IsMainThread()
 {
-    return ImplGetSVData()->mnMainThreadId;
+    return ImplGetSVData()->mnMainThreadId == osl::Thread::getCurrentIdentifier();
 }
 
 sal_uInt32 Application::ReleaseSolarMutex()
@@ -948,7 +950,11 @@ void Application::RemoveMouseAndKeyEvents( vcl::Window* pWin )
 ImplSVEvent * Application::PostUserEvent( const Link<void*,void>& rLink, void* pCaller,
                                           bool bReferenceLink )
 {
-    ImplSVEvent* pSVEvent = new ImplSVEvent;
+    vcl::Window* pDefWindow = ImplGetDefaultWindow();
+    if ( pDefWindow == nullptr )
+        return nullptr;
+
+    std::unique_ptr<ImplSVEvent> pSVEvent(new ImplSVEvent);
     pSVEvent->mpData    = pCaller;
     pSVEvent->maLink    = rLink;
     pSVEvent->mpWindow  = nullptr;
@@ -963,13 +969,10 @@ ImplSVEvent * Application::PostUserEvent( const Link<void*,void>& rLink, void* p
         pSVEvent->mpInstanceRef = static_cast<vcl::Window *>(rLink.GetInstance());
     }
 
-    vcl::Window* pDefWindow = ImplGetDefaultWindow();
-    if ( pDefWindow == nullptr || !pDefWindow->ImplGetFrame()->PostEvent( pSVEvent ) )
-    {
-        delete pSVEvent;
-        pSVEvent = nullptr;
-    }
-    return pSVEvent;
+    auto pTmpEvent = pSVEvent.get();
+    if (!pDefWindow->ImplGetFrame()->PostEvent( std::move(pSVEvent) ))
+        return nullptr;
+    return pTmpEvent;
 }
 
 void Application::RemoveUserEvent( ImplSVEvent * nUserEvent )
@@ -1331,7 +1334,7 @@ vcl::Window* Application::GetDefDialogParent()
     return nullptr;
 }
 
-Application::DialogCancelMode Application::GetDialogCancelMode()
+DialogCancelMode Application::GetDialogCancelMode()
 {
     return ImplGetSVData()->maAppData.meDialogCancel;
 }
@@ -1440,7 +1443,7 @@ void Application::EnableHeadlessMode( bool dialogsAreFatal )
 
 bool Application::IsHeadlessModeEnabled()
 {
-    return IsDialogCancelEnabled();
+    return IsDialogCancelEnabled() || comphelper::LibreOfficeKit::isActive();
 }
 
 static bool bConsoleOnly = false;

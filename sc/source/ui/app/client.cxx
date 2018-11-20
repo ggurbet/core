@@ -171,15 +171,9 @@ void ScClient::ObjectAreaChanged()
         pDrawObj->setSuppressSetVisAreaSize(false);
 
         //  set document modified (SdrModel::SetChanged is not used)
-        // TODO/LATER: is there a reason that this code is not executed in Draw?
-//        SfxViewShell* pSfxViewSh = GetViewShell();
-//        ScTabViewShell* pViewSh = dynamic_cast<ScTabViewShell*>( pSfxViewSh  );
-        if (pViewSh)
-            pViewSh->GetViewData().GetDocShell()->SetDrawModified();
+        pViewSh->GetViewData().GetDocShell()->SetDrawModified();
+        pViewSh->ScrollToObject(pDrawObj);
     }
-
-    if (pDrawObj)
-        pViewSh->ScrollToObject( pDrawObj );
 }
 
 void ScClient::ViewChanged()

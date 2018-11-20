@@ -22,8 +22,8 @@ $(eval $(call gb_Library_set_include,mysqlc,\
 ))
 
 $(eval $(call gb_Library_add_libs,mysqlc,\
-	$(if $(filter-out WNT,$(OS)),$(if $(filter MACOSX SOLARIS,$(OS)),-lz -lm,\
-	-rdynamic -lz -lcrypt -lm)) \
+	$(if $(filter-out WNT,$(OS)),$(if $(filter HAIKU MACOSX SOLARIS,$(OS)),\
+	-lz -lm,-rdynamic -lz -lcrypt -lm)) \
 	$(if $(filter LINUX,$(OS)),-lpthread -ldl,) \
 ))
 
@@ -33,6 +33,7 @@ $(eval $(call gb_Library_use_libraries,mysqlc,\
 	cppu \
 	sal \
 	salhelper \
+	comphelper \
 	cppuhelper \
 ))
 

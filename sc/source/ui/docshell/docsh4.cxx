@@ -60,6 +60,7 @@ using namespace ::com::sun::star;
 #include <unotools/securityoptions.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <sal/log.hxx>
+#include <unotools/charclass.hxx>
 
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
@@ -115,6 +116,8 @@ using namespace ::com::sun::star;
 #include <memory>
 #include <sfx2/notebookbar/SfxNotebookBar.hxx>
 #include <helpids.h>
+
+#include <svx/xdef.hxx>
 
 void ScDocShell::ReloadAllLinks()
 {
@@ -596,7 +599,7 @@ void ScDocShell::Execute( SfxRequest& rReq )
         case SID_GET_COLORLIST:
             {
                 const SvxColorListItem* pColItem = GetItem(SID_COLOR_TABLE);
-                XColorListRef pList = pColItem->GetColorList();
+                const XColorListRef& pList = pColItem->GetColorList();
                 rReq.SetReturnValue(OfaRefItem<XColorList>(SID_GET_COLORLIST, pList));
             }
             break;
@@ -863,7 +866,7 @@ void ScDocShell::Execute( SfxRequest& rReq )
                 {
                     if (const SfxStringItem* pStringItem = dynamic_cast<const SfxStringItem*>(pItem))
                     {
-                        OUString aName = pStringItem->GetValue();
+                        const OUString& aName = pStringItem->GetValue();
                         SCTAB nTab;
                         if (m_aDocument.GetTable( aName, nTab ))
                         {
@@ -1286,7 +1289,7 @@ bool ScDocShell::ExecuteChangeProtectionDialog( bool bJustQueryIfProtected )
         aDlg.SetEditHelpId( HID_CHG_PROTECT );
         if ( !bProtected )
             aDlg.ShowExtras(SfxShowExtras::CONFIRM);
-        if (aDlg.execute() == RET_OK)
+        if (aDlg.run() == RET_OK)
             aPassword = aDlg.GetPassword();
 
         if (!aPassword.isEmpty())
@@ -1445,7 +1448,7 @@ void ScDocShell::NotifyStyle( const SfxStyleSheetHint& rHint )
         {
             ScDocShellModificator aModificator( *this );
 
-            OUString aNewName = pStyle->GetName();
+            const OUString& aNewName = pStyle->GetName();
             OUString aOldName = aNewName;
             const SfxStyleSheetModifiedHint* pExtendedHint = dynamic_cast<const SfxStyleSheetModifiedHint*>(&rHint); // name changed?
             if (pExtendedHint)
@@ -1483,7 +1486,7 @@ void ScDocShell::NotifyStyle( const SfxStyleSheetHint& rHint )
     {
         if ( nId == SfxHintId::StyleSheetModified)
         {
-            OUString aNewName = pStyle->GetName();
+            const OUString& aNewName = pStyle->GetName();
             OUString aOldName = aNewName;
             const SfxStyleSheetModifiedHint* pExtendedHint = dynamic_cast<const SfxStyleSheetModifiedHint*>(&rHint);
             if (pExtendedHint)
@@ -1688,6 +1691,7 @@ void ScDocShell::ExecutePageStyle( const SfxViewShell& rCaller,
                             aOldData.InitFromStyle( pStyleSheet );
 
                         SfxItemSet&     rStyleSet = pStyleSheet->GetItemSet();
+                        rStyleSet.MergeRange( XATTR_FILL_FIRST, XATTR_FILL_LAST );
 
                         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 

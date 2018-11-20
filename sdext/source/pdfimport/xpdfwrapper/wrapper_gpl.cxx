@@ -81,7 +81,7 @@ int main(int argc, char **argv)
         aPwBuf[0] = 0; // mark as empty
     else
     {
-        for( unsigned int i = 0; i < sizeof(aPwBuf); i++ )
+        for( size_t i = 0; i < sizeof(aPwBuf); i++ )
         {
             if( aPwBuf[i] == '\n' )
             {
@@ -101,9 +101,11 @@ int main(int argc, char **argv)
                                  : (ownerPassword[0] != '\001'
                                     ? new GooString(ownerPassword)
                                     : nullptr ) );
-    GooString* pUserPasswordStr(  userPassword[0] != '\001'
+    GooString* pUserPasswordStr( aPwBuf[0] != 0
+                                ? new GooString( aPwBuf )
+                                : (userPassword[0] != '\001'
                                   ? new GooString(userPassword)
-                                  : nullptr );
+                                  : nullptr ) );
     if( outputFile[0] != '\001' )
         g_binary_out = fopen(outputFile,"wb");
 

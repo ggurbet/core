@@ -283,7 +283,6 @@ uno::Sequence< beans::Property > Content::getProperties(
         xProvider.set( m_pProvider );
     }
 
-    typedef std::set< OUString > StringSet;
     std::set< OUString > aPropSet;
 
     // No server access for just created (not yet committed) objects.
@@ -543,7 +542,7 @@ uno::Sequence< ucb::CommandInfo > Content::getCommands(
             ucb::CommandInfo(
                 "removeProperty",
                 -1,
-                cppu::UnoType<rtl::OUString>::get() );
+                cppu::UnoType<OUString>::get() );
 
     bool bFolder = false;
 

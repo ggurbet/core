@@ -18,10 +18,13 @@
  */
 
 #include <memory>
+#ifndef IOS
 #include <headless/svpgdi.hxx>
+#endif
 #include <headless/svpbmp.hxx>
 #include <headless/svpframe.hxx>
 #include <headless/svpcairotextrender.hxx>
+#include <headless/CustomWidgetDraw.hxx>
 #include <saldatabasic.hxx>
 
 #include <sal/log.hxx>
@@ -38,6 +41,7 @@
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/utils/systemdependentdata.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
+#include <comphelper/lok.hxx>
 #include <unx/gendata.hxx>
 
 #if ENABLE_CAIRO_CANVAS
@@ -597,6 +601,8 @@ SvpSalGraphics::SvpSalGraphics()
     , m_ePaintMode(PaintMode::Over)
     , m_aTextRenderImpl(*this)
 {
+    if (comphelper::LibreOfficeKit::isActive())
+        m_pWidgetDraw.reset(new vcl::CustomWidgetDraw(*this));
 }
 
 SvpSalGraphics::~SvpSalGraphics()
@@ -1657,11 +1663,11 @@ void SvpSalGraphics::drawMask( const SalTwoRect& rTR,
     }
     sal_Int32 nStride;
     unsigned char *mask_data = aSurface.getBits(nStride);
-    for (sal_Int32 y = rTR.mnSrcY ; y < rTR.mnSrcY + rTR.mnSrcHeight; ++y)
+    for (long y = rTR.mnSrcY ; y < rTR.mnSrcY + rTR.mnSrcHeight; ++y)
     {
         unsigned char *row = mask_data + (nStride*y);
         unsigned char *data = row + (rTR.mnSrcX * 4);
-        for (sal_Int32 x = rTR.mnSrcX; x < rTR.mnSrcX + rTR.mnSrcWidth; ++x)
+        for (long x = rTR.mnSrcX; x < rTR.mnSrcX + rTR.mnSrcWidth; ++x)
         {
             sal_uInt8 b = unpremultiply(data[SVP_CAIRO_BLUE], data[SVP_CAIRO_ALPHA]);
             sal_uInt8 g = unpremultiply(data[SVP_CAIRO_GREEN], data[SVP_CAIRO_ALPHA]);
@@ -1889,6 +1895,69 @@ void SvpSalGraphics::invert(sal_uInt32 nPoints, const SalPoint* pPtAry, SalInver
 bool SvpSalGraphics::drawEPS( long, long, long, long, void*, sal_uLong )
 {
     return false;
+}
+
+/* Widget drawing */
+
+bool SvpSalGraphics::IsNativeControlSupported(ControlType eType, ControlPart ePart)
+{
+    if (hasWidgetDraw())
+        return m_pWidgetDraw->isNativeControlSupported(eType, ePart);
+
+    return false;
+}
+
+bool SvpSalGraphics::hitTestNativeControl(ControlType eType, ControlPart ePart,
+                                       const tools::Rectangle& rBoundingControlRegion,
+                                       const Point& rPosition, bool& rIsInside)
+{
+    if (hasWidgetDraw())
+    {
+        return m_pWidgetDraw->hitTestNativeControl(eType, ePart, rBoundingControlRegion, rPosition, rIsInside);
+    }
+
+    return false;
+}
+
+bool SvpSalGraphics::drawNativeControl(ControlType eType, ControlPart ePart,
+                                   const tools::Rectangle& rControlRegion,
+                                   ControlState eState, const ImplControlValue& aValue,
+                                   const OUString& aCaptions)
+{
+    if (hasWidgetDraw())
+    {
+        bool bReturn = m_pWidgetDraw->drawNativeControl(eType, ePart, rControlRegion,
+                                                        eState, aValue, aCaptions);
+        return bReturn;
+    }
+
+    return false;
+}
+
+bool SvpSalGraphics::getNativeControlRegion(ControlType eType, ControlPart ePart,
+                                         const tools::Rectangle& rBoundingControlRegion,
+                                         ControlState eState,
+                                         const ImplControlValue& aValue,
+                                         const OUString& aCaption,
+                                         tools::Rectangle& rNativeBoundingRegion,
+                                         tools::Rectangle& rNativeContentRegion)
+{
+    if (hasWidgetDraw())
+    {
+        return m_pWidgetDraw->getNativeControlRegion(eType, ePart, rBoundingControlRegion,
+                                                     eState, aValue, aCaption,
+                                                     rNativeBoundingRegion, rNativeContentRegion);
+    }
+
+    return false;
+}
+
+void SvpSalGraphics::updateSettings(AllSettings& rSettings)
+{
+    if (hasWidgetDraw())
+    {
+        m_pWidgetDraw->updateSettings(rSettings);
+    }
 }
 
 namespace

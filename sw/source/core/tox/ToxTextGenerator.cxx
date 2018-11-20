@@ -178,11 +178,9 @@ ToxTextGenerator::GenerateText(SwDoc* pDoc, const std::vector<std::unique_ptr<Sw
         // create an enumerator
         // #i21237#
         SwFormTokens aPattern = mToxForm.GetPattern(nLvl);
-        SwFormTokens::iterator aIt = aPattern.begin();
         // remove text from node
-        while(aIt != aPattern.end()) // #i21237#
+        for(const auto& aToken : aPattern) // #i21237#
         {
-            SwFormToken aToken = *aIt; // #i21237#
             sal_Int32 nStartCharStyle = rText.getLength();
             switch( aToken.eTokenType )
             {
@@ -259,8 +257,6 @@ ToxTextGenerator::GenerateText(SwDoc* pDoc, const std::vector<std::unique_ptr<Sw
                         rText.getLength(), SetAttrMode::DONTEXPAND );
                 }
             }
-
-            ++aIt; // #i21237#
         }
 
         pTOXNd->SetAttr( aTStops );
@@ -283,7 +279,7 @@ ToxTextGenerator::CollectAttributesForTox(const SwTextAttr& hint, SwAttrPool& po
             pItem->Which() == RES_CHRATR_POSTURE ||
             pItem->Which() == RES_CHRATR_CJK_POSTURE ||
             pItem->Which() == RES_CHRATR_CTL_POSTURE) {
-            SfxPoolItem* clonedItem = pItem->Clone();
+            std::unique_ptr<SfxPoolItem> clonedItem(pItem->Clone());
             retval->Put(*clonedItem);
         }
         if (aIter.IsAtEnd()) {
@@ -320,7 +316,7 @@ ToxTextGenerator::HandleTextToken(const SwTOXSortTabBase& source, SwAttrPool& po
 
         result.autoFormats.push_back(std::move(clone));
 
-        ModelToViewHelper aConversionMap( *pSrc, ExpandMode::ExpandFields );
+        ModelToViewHelper aConversionMap(*pSrc, nullptr, ExpandMode::ExpandFields);
         result.startPositions.push_back(
                 stripper.GetPositionInStrippedString(aConversionMap.ConvertToViewPosition(
                         hint->GetStart() )));
@@ -372,7 +368,7 @@ ToxTextGenerator::ObtainChapterField(SwChapterFieldType* chapterFieldType,
     SwChapterField retval(chapterFieldType, chapterToken->nChapterFormat);
     retval.SetLevel(static_cast<sal_uInt8>(chapterToken->nOutlineLevel - 1));
     // #i53420#
-    retval.ChangeExpansion(contentFrame, contentNode, true);
+    retval.ChangeExpansion(*contentFrame, contentNode, true);
     return retval;
 }
 } // end namespace sw

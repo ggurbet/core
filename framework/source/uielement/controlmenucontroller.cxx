@@ -176,7 +176,7 @@ ControlMenuController::ControlMenuController(const css::uno::Reference< css::uno
 // private function
 void ControlMenuController::updateImagesPopupMenu( PopupMenu* pPopupMenu )
 {
-    for (sal_uInt32 i=0; i < SAL_N_ELEMENTS(aCommands); ++i)
+    for (size_t i=0; i < SAL_N_ELEMENTS(aCommands); ++i)
     {
         //ident is .uno:Command without .uno:
         OString sIdent = OString(aCommands[i]).copy(5);
@@ -226,7 +226,7 @@ void SAL_CALL ControlMenuController::statusChanged( const FeatureStateEvent& Eve
     osl::ResettableMutexGuard aLock( m_aMutex );
 
     OString sIdent;
-    for (sal_uInt32 i=0; i < SAL_N_ELEMENTS(aCommands); ++i)
+    for (size_t i=0; i < SAL_N_ELEMENTS(aCommands); ++i)
     {
         if ( Event.FeatureURL.Complete.equalsAscii( aCommands[i] ))
         {
@@ -292,9 +292,8 @@ void SAL_CALL ControlMenuController::itemActivated( const css::awt::MenuEvent& )
         // Check if some modes have changed so we have to update our menu images
         const StyleSettings& rSettings = Application::GetSettings().GetStyleSettings();
         bool bShowMenuImages    = rSettings.GetUseImagesInMenus();
-        bool bUpdateImages      = (bShowMenuImages != m_bShowMenuImages);
 
-        if ( bUpdateImages )
+        if (bShowMenuImages != m_bShowMenuImages)
         {
             m_bShowMenuImages   = bShowMenuImages;
 
@@ -302,7 +301,7 @@ void SAL_CALL ControlMenuController::itemActivated( const css::awt::MenuEvent& )
             if ( pPopupMenu )
             {
                 PopupMenu* pVCLPopupMenu = static_cast<PopupMenu *>(pPopupMenu->GetMenu());
-                if ( pVCLPopupMenu && bUpdateImages )
+                if (pVCLPopupMenu)
                     updateImagesPopupMenu( pVCLPopupMenu );
             }
         }

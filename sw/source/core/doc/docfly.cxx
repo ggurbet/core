@@ -62,6 +62,7 @@
 #include <undoflystrattr.hxx>
 #include <calbck.hxx>
 #include <memory>
+#include <o3tl/make_unique.hxx>
 #include <svx/xbtmpit.hxx>
 #include <svx/xflftrit.hxx>
 #include <svx/xlndsit.hxx>
@@ -561,12 +562,9 @@ bool SwDoc::SetFlyFrameAttr( SwFrameFormat& rFlyFormat, SfxItemSet& rSet )
 
     bool const bRet = lcl_SetFlyFrameAttr(*this, &SwDoc::SetFlyFrameAnchor, rFlyFormat, rSet);
 
-    if (pSaveUndo)
+    if (pSaveUndo && pSaveUndo->GetUndo() )
     {
-        if ( pSaveUndo->GetUndo() )
-        {
-            GetIDocumentUndoRedo().AppendUndo( pSaveUndo->ReleaseUndo() );
-        }
+        GetIDocumentUndoRedo().AppendUndo( pSaveUndo->ReleaseUndo() );
     }
 
     getIDocumentState().SetModified();

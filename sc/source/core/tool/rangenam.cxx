@@ -21,6 +21,7 @@
 #include <memory>
 #include <unotools/collatorwrapper.hxx>
 #include <unotools/transliterationwrapper.hxx>
+#include <unotools/charclass.hxx>
 #include <com/sun/star/sheet/NamedRangeFlag.hpp>
 #include <osl/diagnose.h>
 #include <o3tl/make_unique.hxx>
@@ -262,7 +263,7 @@ void ScRangeData::UpdateSymbol( OUStringBuffer& rBuffer, const ScAddress& rPos )
 {
     std::unique_ptr<ScTokenArray> pTemp( pCode->Clone() );
     ScCompiler aComp(pDoc, rPos, *pTemp, formula::FormulaGrammar::GRAM_DEFAULT);
-    aComp.MoveRelWrap(MAXCOL, MAXROW);
+    aComp.MoveRelWrap();
     aComp.CreateStringFromTokenArray( rBuffer );
 }
 

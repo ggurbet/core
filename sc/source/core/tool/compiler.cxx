@@ -29,12 +29,16 @@
 #include <svl/sharedstringpool.hxx>
 #include <sal/macros.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
+#include <rtl/character.hxx>
 #include <tools/solar.h>
 #include <unotools/charclass.hxx>
 #include <unotools/configmgr.hxx>
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/sheet/FormulaOpCodeMapEntry.hpp>
 #include <com/sun/star/sheet/FormulaLanguage.hpp>
+#include <com/sun/star/i18n/KParseTokens.hpp>
+#include <com/sun/star/i18n/KParseType.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <unotools/transliterationwrapper.hxx>
@@ -2640,10 +2644,14 @@ Label_MaskStateMachine:
             ParseResult aRes = pConv->parseAnyToken( aFormula, nSrcPos, pCharClass );
 
             if ( !aRes.TokenType )
-                SetError( nErr = FormulaError::IllegalChar );      // parsed chars as string
+            {
+                nErr = FormulaError::IllegalChar;
+                SetError( nErr );      // parsed chars as string
+            }
             if ( aRes.EndPos <= nSrcPos )
             {   // ?!?
-                SetError( nErr = FormulaError::IllegalChar );
+                nErr = FormulaError::IllegalChar;
+                SetError( nErr );
                 nSrcPos = aFormula.getLength();
                 aSymbol.truncate();
             }
@@ -4766,7 +4774,7 @@ bool ScCompiler::HandleRange()
                     AdjustSheetLocalNameRelReferences( nSheetTab - aPos.Tab());
 
                 SetRelNameReference();
-                MoveRelWrap(MAXCOL, MAXROW);
+                MoveRelWrap();
             }
             maArrIterator.Reset();
             if ( bAddPair )
@@ -4823,7 +4831,7 @@ bool ScCompiler::HandleExternalReference(const FormulaToken& _aToken)
             if (FormulaTokenArrayPlainIterator(*pNew).GetNextReference() != nullptr)
             {
                 SetRelNameReference();
-                MoveRelWrap(MAXCOL, MAXROW);
+                MoveRelWrap();
             }
             maArrIterator.Reset();
             return GetToken();
@@ -4871,14 +4879,14 @@ void ScCompiler::SetRelNameReference()
 
 // Wrap-adjust relative references of a RangeName to current position,
 // don't call for other token arrays!
-void ScCompiler::MoveRelWrap( SCCOL nMaxCol, SCROW nMaxRow )
+void ScCompiler::MoveRelWrap()
 {
     for ( auto t: pArr->References() )
     {
         if ( t->GetType() == svSingleRef || t->GetType() == svExternalSingleRef )
-            ScRefUpdate::MoveRelWrap( pDoc, aPos, nMaxCol, nMaxRow, SingleDoubleRefModifier( *t->GetSingleRef() ).Ref() );
+            ScRefUpdate::MoveRelWrap( pDoc, aPos, MAXCOL, MAXROW, SingleDoubleRefModifier( *t->GetSingleRef() ).Ref() );
         else
-            ScRefUpdate::MoveRelWrap( pDoc, aPos, nMaxCol, nMaxRow, *t->GetDoubleRef() );
+            ScRefUpdate::MoveRelWrap( pDoc, aPos, MAXCOL, MAXROW, *t->GetDoubleRef() );
     }
 }
 
@@ -5806,7 +5814,8 @@ bool ScCompiler::SkipImplicitIntersectionOptimization(const FormulaToken* token)
     formula::ParamClass paramClass = token->GetInForceArray();
     if (paramClass == formula::ForceArray
         || paramClass == formula::ReferenceOrForceArray
-        || paramClass == formula::SuppressedReferenceOrForceArray)
+        || paramClass == formula::SuppressedReferenceOrForceArray
+        || paramClass == formula::ReferenceOrRefArray)
     {
         return true;
     }

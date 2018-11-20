@@ -79,14 +79,14 @@ using namespace com::sun::star::accessibility;
 
 #define ROWSTATUS(row) (!row.is() ? "NULL" : row->GetStatus() == GridRowStatus::Clean ? "CLEAN" : row->GetStatus() == GridRowStatus::Modified ? "MODIFIED" : row->GetStatus() == GridRowStatus::Deleted ? "DELETED" : "INVALID")
 
-#define DEFAULT_BROWSE_MODE             \
-              BrowserMode::COLUMNSELECTION   \
-            | BrowserMode::MULTISELECTION    \
-            | BrowserMode::KEEPHIGHLIGHT     \
-            | BrowserMode::TRACKING_TIPS     \
-            | BrowserMode::HLINES        \
-            | BrowserMode::VLINES        \
-            | BrowserMode::HEADERBAR_NEW     \
+static constexpr auto DEFAULT_BROWSE_MODE =
+              BrowserMode::COLUMNSELECTION
+            | BrowserMode::MULTISELECTION
+            | BrowserMode::KEEPHIGHLIGHT
+            | BrowserMode::TRACKING_TIPS
+            | BrowserMode::HLINES
+            | BrowserMode::VLINES
+            | BrowserMode::HEADERBAR_NEW;
 
 class RowSetEventListener : public ::cppu::WeakImplHelper<XRowsChangeListener>
 {
@@ -861,7 +861,7 @@ DbGridRow::DbGridRow(CursorWrapper* pCur, bool bPaintCursor)
                 m_eStatus = (pCur->isAfterLast() || pCur->isBeforeFirst()) ? GridRowStatus::Invalid : GridRowStatus::Clean;
             else
             {
-                Reference< XPropertySet > xSet = pCur->getPropertySet();
+                const Reference< XPropertySet >& xSet = pCur->getPropertySet();
                 if (xSet.is())
                 {
                     m_bIsNew = ::comphelper::getBOOL(xSet->getPropertyValue(FM_PROP_ISNEW));
@@ -903,7 +903,7 @@ void DbGridRow::SetState(CursorWrapper* pCur, bool bPaintCursor)
             m_eStatus = GridRowStatus::Clean;
             if (!bPaintCursor)
             {
-                Reference< XPropertySet > xSet = pCur->getPropertySet();
+                const Reference< XPropertySet >& xSet = pCur->getPropertySet();
                 DBG_ASSERT(xSet.is(), "DbGridRow::SetState : invalid cursor !");
 
                 if (::comphelper::getBOOL(xSet->getPropertyValue(FM_PROP_ISMODIFIED)))
@@ -2666,7 +2666,7 @@ sal_uInt32 DbGridControl::GetTotalCellWidth(long nRow, sal_uInt16 nColId)
 void DbGridControl::PreExecuteRowContextMenu(sal_uInt16 /*nRow*/, PopupMenu& rMenu)
 {
     bool bDelete = (m_nOptions & DbGridControlOptions::Delete) && GetSelectRowCount() && !IsCurrentAppending();
-    // if only a blank row is selected than do not delete
+    // if only a blank row is selected then do not delete
     bDelete = bDelete && !((m_nOptions & DbGridControlOptions::Insert) && GetSelectRowCount() == 1 && IsRowSelected(GetRowCount() - 1));
 
     rMenu.EnableItem(rMenu.GetItemId("delete"), bDelete);
@@ -3423,7 +3423,7 @@ void DbGridControl::implAdjustInSolarThread(bool _bRows)
 {
     SAL_INFO("svx.fmcomp", "DbGridControl::implAdjustInSolarThread");
     ::osl::MutexGuard aGuard(m_aAdjustSafety);
-    if (::osl::Thread::getCurrentIdentifier() != Application::GetMainThreadIdentifier())
+    if (!Application::IsMainThread())
     {
         m_nAsynAdjustEvent = PostUserEvent(LINK(this, DbGridControl, OnAsyncAdjust), reinterpret_cast< void* >( _bRows ), true);
         m_bPendingAdjustRows = _bRows;
@@ -3467,13 +3467,11 @@ void DbGridControl::BeginCursorAction()
     if (m_pFieldListeners)
     {
         ColumnFieldValueListeners* pListeners = static_cast<ColumnFieldValueListeners*>(m_pFieldListeners);
-        ColumnFieldValueListeners::const_iterator aIter = pListeners->begin();
-        while (aIter != pListeners->end())
+        for (const auto& rListener : *pListeners)
         {
-            GridFieldValueListener* pCurrent = (*aIter).second;
+            GridFieldValueListener* pCurrent = rListener.second;
             if (pCurrent)
                 pCurrent->suspend();
-            ++aIter;
         }
     }
 
@@ -3486,13 +3484,11 @@ void DbGridControl::EndCursorAction()
     if (m_pFieldListeners)
     {
         ColumnFieldValueListeners* pListeners = static_cast<ColumnFieldValueListeners*>(m_pFieldListeners);
-        ColumnFieldValueListeners::const_iterator aIter = pListeners->begin();
-        while (aIter != pListeners->end())
+        for (const auto& rListener : *pListeners)
         {
-            GridFieldValueListener* pCurrent = (*aIter).second;
+            GridFieldValueListener* pCurrent = rListener.second;
             if (pCurrent)
                 pCurrent->resume();
-            ++aIter;
         }
     }
 

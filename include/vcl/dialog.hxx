@@ -138,17 +138,12 @@ public:
 
     virtual FactoryFunction GetUITestFactory() const override;
 
-    // Dialog::Execute replacement API
-public:
-    virtual void    StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl );
-    long            GetResult() const;
 private:
-    bool            ImplStartExecuteModal();
+    bool            ImplStartExecute();
     static void     ImplEndExecuteModal();
     void            ImplSetModalInputMode(bool bModal);
 public:
 
-    // FIXME: Need to remove old StartExecuteModal in favour of this one.
     /// Returns true if the dialog successfully starts
     bool StartExecuteAsync(const std::function<void(sal_Int32)> &rEndDialogFn)
     {
@@ -179,6 +174,9 @@ public:
     void            GrabFocusToFirstControl();
     virtual void    Resize() override;
 
+    void            Activate() override;
+
+
     void            SetInstallLOKNotifierHdl(const Link<void*, vcl::ILibreOfficeKitNotifier*>& rLink);
 
     void            add_button(PushButton* pButton, int nResponse, bool bTransferOwnership);
@@ -193,8 +191,6 @@ class VCL_DLLPUBLIC ModelessDialog : public Dialog
 
 public:
     explicit        ModelessDialog( vcl::Window* pParent, const OUString& rID, const OUString& rUIXMLDescription, Dialog::InitFlag eFlag = Dialog::InitFlag::Default );
-
-    void            Activate() override;
 };
 
 class VCL_DLLPUBLIC ModalDialog : public Dialog

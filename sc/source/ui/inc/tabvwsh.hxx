@@ -21,23 +21,18 @@
 #define INCLUDED_SC_SOURCE_UI_INC_TABVWSH_HXX
 
 #include <formula/errorcodes.hxx>
-#include <o3tl/deleter.hxx>
 #include <svx/fmshell.hxx>
-#include <svtools/htmlcfg.hxx>
 #include <sfx2/viewsh.hxx>
-#include <sfx2/viewfac.hxx>
 #include <editeng/svxenum.hxx>
 #include <scdllapi.h>
 #include "dbfunc.hxx"
 #include "target.hxx"
-#include <rangelst.hxx>
 #include <shellids.hxx>
 #include <tabprotection.hxx>
 
 #include <memory>
 #include <map>
 
-class SbxObject;
 class SdrOle2Obj;
 class SfxBindings;
 class SfxChildWindow;
@@ -64,6 +59,8 @@ class ScNavigatorSettings;
 class ScRangeName;
 
 struct ScHeaderFieldData;
+
+namespace o3tl { template <typename T> struct default_delete; }
 
 namespace editeng { class SvxBorderLine; }
 
@@ -175,6 +172,7 @@ private:
     void            DoReadUserData( const OUString& rData );
     void            DoReadUserDataSequence( const css::uno::Sequence< css::beans::PropertyValue >& rSettings );
     bool            IsSignatureLineSelected();
+    bool            IsSignatureLineSigned();
 
     DECL_LINK( SimpleRefClose, const OUString*, void );
     DECL_LINK( SimpleRefDone, const OUString&, void );

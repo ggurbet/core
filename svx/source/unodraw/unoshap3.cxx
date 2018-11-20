@@ -126,9 +126,7 @@ void SAL_CALL Svx3DSceneObject::add( const Reference< drawing::XShape >& xShape 
     if( dynamic_cast<const E3dObject* >(pSdrShape) !=  nullptr )
     {
         GetSdrObject()->GetSubList()->NbcInsertObject( pSdrShape );
-
-        if(pShape)
-            pShape->Create( pSdrShape, mxPage.get()  );
+        pShape->Create(pSdrShape, mxPage.get());
     }
     else
     {
@@ -707,7 +705,7 @@ static void B3dPolyPolygon_to_PolyPolygonShape3D( const basegfx::B3DPolyPolygon&
     drawing::DoubleSequence* pOuterSequenceZ = aRetval.SequenceZ.getArray();
     for(sal_uInt32 a(0);a<rSourcePolyPolygon.count();a++)
     {
-        const basegfx::B3DPolygon aPoly(rSourcePolyPolygon.getB3DPolygon(a));
+        const basegfx::B3DPolygon& aPoly(rSourcePolyPolygon.getB3DPolygon(a));
         sal_Int32 nPointCount(aPoly.count());
         if(aPoly.isClosed()) nPointCount++;
         pOuterSequenceX->realloc(nPointCount);

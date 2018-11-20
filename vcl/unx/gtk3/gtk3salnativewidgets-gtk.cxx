@@ -20,6 +20,8 @@
 #include <vcl/decoview.hxx>
 #include <vcl/settings.hxx>
 #include <unx/fontmanager.hxx>
+#include <headless/CustomWidgetDraw.hxx>
+
 #include "cairo_gtk3_cairo.hxx"
 #if defined(GDK_WINDOWING_WAYLAND)
 #   include <gdk/gdkwayland.h>
@@ -2166,8 +2168,19 @@ static gfloat getArrowSize(GtkStyleContext* context)
 
 bool GtkSalGraphics::drawNativeControl( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion,
                                             ControlState nState, const ImplControlValue& rValue,
-                                            const OUString& )
+                                            const OUString& aCaptions)
 {
+    if (m_pWidgetDraw)
+    {
+        bool bReturn = SvpSalGraphics::drawNativeControl(nType, nPart, rControlRegion,
+                                                         nState, rValue, aCaptions);
+
+        if (bReturn && !rControlRegion.IsEmpty())
+            mpFrame->damaged(rControlRegion.Left(), rControlRegion.Top(), rControlRegion.GetWidth(), rControlRegion.GetHeight());
+
+        return bReturn;
+    }
+
     RenderType renderType = nPart == ControlPart::Focus ? RenderType::Focus : RenderType::BackgroundAndFrame;
     GtkStyleContext *context = nullptr;
     const gchar *styleClass = nullptr;
@@ -2604,10 +2617,17 @@ static tools::Rectangle AdjustRectForTextBordersPadding(GtkStyleContext* pStyle,
     return aEditRect;
 }
 
-bool GtkSalGraphics::getNativeControlRegion( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState,
-                                                const ImplControlValue& rValue, const OUString&,
+bool GtkSalGraphics::getNativeControlRegion( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState eState,
+                                                const ImplControlValue& rValue, const OUString& aCaption,
                                                 tools::Rectangle &rNativeBoundingRegion, tools::Rectangle &rNativeContentRegion )
 {
+    if (hasWidgetDraw())
+    {
+        return m_pWidgetDraw->getNativeControlRegion(nType, nPart, rControlRegion,
+                                                     eState, rValue, aCaption,
+                                                     rNativeBoundingRegion, rNativeContentRegion);
+    }
+
     /* TODO: all this functions needs improvements */
     tools::Rectangle aEditRect = rControlRegion;
     gint indicator_size, indicator_spacing, point;
@@ -2856,8 +2876,14 @@ vcl::Font pango_to_vcl(const PangoFontDescription* font, const css::lang::Locale
     return aFont;
 }
 
-void GtkSalGraphics::updateSettings( AllSettings& rSettings )
+void GtkSalGraphics::updateSettings(AllSettings& rSettings)
 {
+    if (m_pWidgetDraw)
+    {
+        m_pWidgetDraw->updateSettings(rSettings);
+        return;
+    }
+
     GtkStyleContext* pStyle = gtk_widget_get_style_context( mpWindow );
     GtkSettings* pSettings = gtk_widget_get_settings( mpWindow );
     StyleSettings aStyleSet = rSettings.GetStyleSettings();
@@ -3182,6 +3208,11 @@ void GtkSalGraphics::updateSettings( AllSettings& rSettings )
 
 bool GtkSalGraphics::IsNativeControlSupported( ControlType nType, ControlPart nPart )
 {
+    if (m_pWidgetDraw)
+    {
+        return m_pWidgetDraw->isNativeControlSupported(nType, nPart);
+    }
+
     switch(nType)
     {
         case ControlType::Pushbutton:

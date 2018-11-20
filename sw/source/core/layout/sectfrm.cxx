@@ -423,14 +423,11 @@ void SwSectionFrame::Paste( SwFrame* pParent, SwFrame* pSibling )
     if( nFrameHeight )
         pParent->Grow( nFrameHeight );
 
-    if ( GetPrev() )
+    if ( GetPrev() && !IsFollow() )
     {
-        if ( !IsFollow() )
-        {
-            GetPrev()->InvalidateSize();
-            if ( GetPrev()->IsContentFrame() )
-                GetPrev()->InvalidatePage( pPage );
-        }
+        GetPrev()->InvalidateSize();
+        if ( GetPrev()->IsContentFrame() )
+            GetPrev()->InvalidatePage( pPage );
     }
 }
 
@@ -594,15 +591,22 @@ static SwContentFrame* lcl_GetNextContentFrame( const SwLayoutFrame* pLay, bool 
         const SwFrame *p = nullptr;
         bool bGoingFwdOrBwd = false;
 
-        bool bGoingDown = !bGoingUp && ( nullptr !=  ( p = pFrame->IsLayoutFrame() ? static_cast<const SwLayoutFrame*>(pFrame)->Lower() : nullptr ) );
+        bool bGoingDown = !bGoingUp && pFrame->IsLayoutFrame();
+        if (bGoingDown)
+        {
+            p = static_cast<const SwLayoutFrame*>(pFrame)->Lower();
+            bGoingDown = nullptr != p;
+        }
         if ( !bGoingDown )
         {
-            bGoingFwdOrBwd = ( nullptr != ( p = pFrame->IsFlyFrame() ?
-                                          ( bFwd ? static_cast<const SwFlyFrame*>(pFrame)->GetNextLink() : static_cast<const SwFlyFrame*>(pFrame)->GetPrevLink() ) :
-                                          ( bFwd ? pFrame->GetNext() :pFrame->GetPrev() ) ) );
+            p = pFrame->IsFlyFrame() ?
+                ( bFwd ? static_cast<const SwFlyFrame*>(pFrame)->GetNextLink() : static_cast<const SwFlyFrame*>(pFrame)->GetPrevLink() ) :
+                ( bFwd ? pFrame->GetNext() :pFrame->GetPrev() );
+            bGoingFwdOrBwd = nullptr != p;
             if ( !bGoingFwdOrBwd )
             {
-                bGoingUp = (nullptr != (p = pFrame->GetUpper() ) );
+                p = pFrame->GetUpper();
+                bGoingUp = nullptr != p;
                 if ( !bGoingUp )
                     return nullptr;
             }

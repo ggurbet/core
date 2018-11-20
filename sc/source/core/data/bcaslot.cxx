@@ -20,14 +20,13 @@
 #include <sfx2/objsh.hxx>
 #include <svl/listener.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <document.hxx>
 #include <brdcst.hxx>
 #include <bcaslot.hxx>
 #include <scerrors.hxx>
-#include <docoptio.hxx>
 #include <refupdat.hxx>
-#include <table.hxx>
 #include <bulkdatahint.hxx>
 #include <columnspanset.hxx>
 
@@ -587,7 +586,7 @@ void ScBroadcastAreaSlot::Dump() const
         const SvtBroadcaster::ListenersType& rListeners = rBC.GetAllListeners();
         size_t n = rListeners.size();
 
-        cout << "  * range: " << rtl::OUStringToOString(pArea->GetRange().Format(ScRefFlags::VALID|ScRefFlags::TAB_3D, pDoc), RTL_TEXTENCODING_UTF8).getStr()
+        cout << "  * range: " << OUStringToOString(pArea->GetRange().Format(ScRefFlags::VALID|ScRefFlags::TAB_3D, pDoc), RTL_TEXTENCODING_UTF8).getStr()
             << ", group: " << pArea->IsGroupListening()
             << ", listener count: " << n << endl;
 
@@ -597,7 +596,7 @@ void ScBroadcastAreaSlot::Dump() const
             if (pFC)
             {
                 cout << "    * listener: formula cell: "
-                     << rtl::OUStringToOString(pFC->aPos.Format(ScRefFlags::VALID|ScRefFlags::TAB_3D, pDoc), RTL_TEXTENCODING_UTF8).getStr()
+                     << OUStringToOString(pFC->aPos.Format(ScRefFlags::VALID|ScRefFlags::TAB_3D, pDoc), RTL_TEXTENCODING_UTF8).getStr()
                      << endl;
                 continue;
             }
@@ -606,7 +605,7 @@ void ScBroadcastAreaSlot::Dump() const
             if (pFGListener)
             {
                 cout << "    * listener: formula group: (pos: "
-                     << rtl::OUStringToOString(pFGListener->getTopCellPos().Format(ScRefFlags::VALID | ScRefFlags::TAB_3D, pDoc), RTL_TEXTENCODING_UTF8).getStr()
+                     << OUStringToOString(pFGListener->getTopCellPos().Format(ScRefFlags::VALID | ScRefFlags::TAB_3D, pDoc), RTL_TEXTENCODING_UTF8).getStr()
                      << ", length: " << pFGListener->getGroupLength()
                      << ")" << endl;
                 continue;

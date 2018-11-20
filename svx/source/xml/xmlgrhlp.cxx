@@ -20,7 +20,6 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
-#include <comphelper/string.hxx>
 #include <sal/macros.h>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -56,6 +55,7 @@ using namespace com::sun::star;
 using namespace com::sun::star::uno;
 using namespace com::sun::star::io;
 
+namespace com { namespace sun { namespace star { namespace uno { class XComponentContext; } } } }
 
 #define XML_GRAPHICSTORAGE_NAME     "Pictures"
 #define XML_GRAPHICOBJECT_URL_BASE  "vnd.sun.star.GraphicObject:"
@@ -104,10 +104,8 @@ public:
 };
 
 
-GraphicInputStream::GraphicInputStream(GraphicObject const & raGraphicObject, const OUString & rMimeType)
+GraphicInputStream::GraphicInputStream(GraphicObject const & aGraphicObject, const OUString & rMimeType)
 {
-    GraphicObject aGraphicObject(raGraphicObject);
-
     maTempFile.EnableKillingFile();
 
     if (aGraphicObject.GetType() != GraphicType::NONE)
@@ -116,7 +114,7 @@ GraphicInputStream::GraphicInputStream(GraphicObject const & raGraphicObject, co
 
         if (pStream)
         {
-            Graphic aGraphic(aGraphicObject.GetGraphic());
+            const Graphic& aGraphic(aGraphicObject.GetGraphic());
             const GfxLink aGfxLink(aGraphic.GetGfxLink());
             bool bRet = false;
 
@@ -398,7 +396,7 @@ bool SvXMLGraphicHelper::ImplGetStreamNames( const OUString& rURLStr,
 
     const OUString aURLStr {rURLStr.copy(rURLStr.lastIndexOf(':')+1)};
 
-    if( comphelper::string::getTokenCount(aURLStr, '/') == 1 )
+    if( !aURLStr.isEmpty() && aURLStr.indexOf('/')<0 ) // just one token?
     {
         rPictureStorageName = XML_GRAPHICSTORAGE_NAME;
         rPictureStreamName = aURLStr;
@@ -418,8 +416,9 @@ uno::Reference < embed::XStorage > SvXMLGraphicHelper::ImplGetGraphicStorage( co
     {
         try
         {
+            maCurStorageName = rStorageName;
             xRetStorage = mxRootStorage->openStorageElement(
-                maCurStorageName = rStorageName,
+                maCurStorageName,
                 ( SvXMLGraphicHelperMode::Write == meCreateMode )
                     ? embed::ElementModes::READWRITE
                     : embed::ElementModes::READ );
@@ -432,7 +431,8 @@ uno::Reference < embed::XStorage > SvXMLGraphicHelper::ImplGetGraphicStorage( co
         {
             try
             {
-                xRetStorage = mxRootStorage->openStorageElement( maCurStorageName = rStorageName, embed::ElementModes::READ );
+                maCurStorageName = rStorageName;
+                xRetStorage = mxRootStorage->openStorageElement( maCurStorageName, embed::ElementModes::READ );
             }
             catch ( uno::Exception& )
             {
@@ -891,12 +891,13 @@ Reference< XOutputStream > SAL_CALL SvXMLGraphicHelper::createOutputStream()
 
     if( SvXMLGraphicHelperMode::Read == meCreateMode )
     {
-        SvXMLGraphicOutputStream* pOutputStream = new SvXMLGraphicOutputStream;
+        std::unique_ptr<SvXMLGraphicOutputStream> pOutputStream(new SvXMLGraphicOutputStream);
 
         if( pOutputStream->Exists() )
-            maGrfStms.push_back( xRet = pOutputStream );
-        else
-            delete pOutputStream;
+        {
+            xRet = pOutputStream.release();
+            maGrfStms.push_back( xRet );
+        }
     }
 
     return xRet;

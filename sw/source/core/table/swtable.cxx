@@ -1086,8 +1086,8 @@ static void lcl_CalcNewWidths( std::list<sal_uInt16> &rSpanPos, ChangeList& rCha
         if( pCurr != rChanges.end() && pCurr->first <= nPos &&
             pCurr->first != pCurr->second )
         {
-            while( pSpan != rSpanPos.end() && *pSpan < nCurr )
-                ++pSpan;
+            pSpan = std::find_if(pSpan, rSpanPos.end(),
+                [nCurr](const sal_uInt16 nSpan) { return nSpan >= nCurr; });
             if( pSpan != rSpanPos.end() && *pSpan == nCurr )
             {
                 aNewChanges.push_back( *pCurr );
@@ -1217,12 +1217,10 @@ void SwTable::NewSetTabCols( Parm &rParm, const SwTabCols &rNew,
         if( nCurr )
         {
             ChangeList aCopy;
-            ChangeList::iterator pCop = aOldNew.begin();
             sal_uInt16 nPos = 0;
-            while( pCop != aOldNew.end() )
+            for( const auto& rCop : aOldNew )
             {
-                aCopy.push_back( *pCop );
-                ++pCop;
+                aCopy.push_back( rCop );
                 aRowSpanPos.push_back( nPos++ );
             }
             lcl_CalcNewWidths( aRowSpanPos, aCopy, rLines[nCurr],
@@ -1241,12 +1239,10 @@ void SwTable::NewSetTabCols( Parm &rParm, const SwTabCols &rNew,
         if( nCurr+1 < static_cast<sal_uInt16>(rLines.size()) )
         {
             ChangeList aCopy;
-            ChangeList::iterator pCop = aOldNew.begin();
             sal_uInt16 nPos = 0;
-            while( pCop != aOldNew.end() )
+            for( const auto& rCop : aOldNew )
             {
-                aCopy.push_back( *pCop );
-                ++pCop;
+                aCopy.push_back( rCop );
                 aRowSpanPos.push_back( nPos++ );
             }
             lcl_CalcNewWidths( aRowSpanPos, aCopy, rLines[nCurr],
@@ -1838,13 +1834,15 @@ OUString SwTableBox::GetName() const
         const SwTableLines* pLines = pLine->GetUpper()
                 ? &pLine->GetUpper()->GetTabLines() : &rTable.GetTabLines();
 
-        sTmp = OUString::number( nPos = pLines->GetPos( pLine ) + 1 );
+        nPos = pLines->GetPos( pLine ) + 1;
+        sTmp = OUString::number( nPos );
         if( !sNm.isEmpty() )
             sNm = sTmp + "." + sNm;
         else
             sNm = sTmp;
 
-        sTmp = OUString::number(( nPos = pBox->GetUpper()->GetBoxPos( pBox )) + 1 );
+        nPos = pBox->GetUpper()->GetBoxPos( pBox );
+        sTmp = OUString::number(nPos + 1);
         if( nullptr != ( pBox = pLine->GetUpper()) )
             sNm = sTmp + "." + sNm;
         else

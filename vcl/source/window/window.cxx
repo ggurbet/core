@@ -86,20 +86,18 @@ using namespace ::com::sun::star::datatransfer::dnd;
 
 namespace vcl {
 
-Window::Window( WindowType nType ) :
-    mpWindowImpl(new WindowImpl( nType ))
+Window::Window( WindowType nType )
+    : OutputDevice(OUTDEV_WINDOW)
+    , mpWindowImpl(new WindowImpl( nType ))
 {
-    meOutDevType = OUTDEV_WINDOW;
-
     // true: this outdev will be mirrored if RTL window layout (UI mirroring) is globally active
     mbEnableRTL = AllSettings::GetLayoutRTL();
 }
 
-Window::Window( vcl::Window* pParent, WinBits nStyle ) :
-    mpWindowImpl(new WindowImpl( WindowType::WINDOW ))
+Window::Window( vcl::Window* pParent, WinBits nStyle )
+    : OutputDevice(OUTDEV_WINDOW)
+    , mpWindowImpl(new WindowImpl( WindowType::WINDOW ))
 {
-    meOutDevType = OUTDEV_WINDOW;
-
     // true: this outdev will be mirrored if RTL window layout (UI mirroring) is globally active
     mbEnableRTL = AllSettings::GetLayoutRTL();
 
@@ -2037,7 +2035,7 @@ long Window::CalcTitleWidth() const
         long nTitleWidth = GetTextWidth( GetText() );
         const_cast<vcl::Window*>(this)->SetFont( aFont );
         nTitleWidth += rStyleSettings.GetTitleHeight() * 3;
-        nTitleWidth += rStyleSettings.GetBorderSize() * 2;
+        nTitleWidth += StyleSettings::GetBorderSize() * 2;
         nTitleWidth += 10;
         return nTitleWidth;
     }
@@ -2324,7 +2322,7 @@ void Window::Show(bool bVisible, ShowFlags nFlags)
             mpWindowImpl->mbSuppressAccessibilityEvents = false;
 
             mpWindowImpl->mbPaintFrame = true;
-            if (!Application::GetSettings().GetMiscSettings().GetPseudoHeadless())
+            if (!Application::IsHeadlessModeEnabled())
             {
                 bool bNoActivate(nFlags & (ShowFlags::NoActivate|ShowFlags::NoFocusChange));
                 mpWindowImpl->mpFrame->Show( true, bNoActivate );
@@ -2551,7 +2549,7 @@ void Window::EnableInput( bool bEnable, const vcl::Window* pExcludeWindow )
     EnableInput( bEnable );
 
     // pExecuteWindow is the first Overlap-Frame --> if this
-    // shouldn't be the case, than this must be changed in dialog.cxx
+    // shouldn't be the case, then this must be changed in dialog.cxx
     if( pExcludeWindow )
         pExcludeWindow = pExcludeWindow->ImplGetFirstOverlapWindow();
     vcl::Window* pSysWin = mpWindowImpl->mpFrameWindow->mpWindowImpl->mpFrameData->mpFirstOverlap;
@@ -2561,7 +2559,7 @@ void Window::EnableInput( bool bEnable, const vcl::Window* pExcludeWindow )
         if ( ImplGetFirstOverlapWindow()->ImplIsWindowOrChild( pSysWin, true ) )
         {
             // Is Window not in the exclude window path or not the
-            // exclude window, than change the status
+            // exclude window, then change the status
             if ( !pExcludeWindow || !pExcludeWindow->ImplIsWindowOrChild( pSysWin, true ) )
                 pSysWin->EnableInput( bEnable );
         }
@@ -2578,7 +2576,7 @@ void Window::EnableInput( bool bEnable, const vcl::Window* pExcludeWindow )
             if ( ImplGetFirstOverlapWindow()->ImplIsWindowOrChild( pFrameWin, true ) )
             {
                 // Is Window not in the exclude window path or not the
-                // exclude window, than change the status
+                // exclude window, then change the status
                 if ( !pExcludeWindow || !pExcludeWindow->ImplIsWindowOrChild( pFrameWin, true ) )
                     pFrameWin->EnableInput( bEnable );
             }
@@ -2596,7 +2594,7 @@ void Window::EnableInput( bool bEnable, const vcl::Window* pExcludeWindow )
             if ( ImplGetFirstOverlapWindow()->ImplIsWindowOrChild( elem, true ) )
             {
                 // Is Window not in the exclude window path or not the
-                // exclude window, than change the status
+                // exclude window, then change the status
                 if ( !pExcludeWindow || !pExcludeWindow->ImplIsWindowOrChild( elem, true ) )
                     elem->EnableInput( bEnable );
             }
@@ -2613,9 +2611,7 @@ void Window::AlwaysEnableInput( bool bAlways, bool bChild )
     if( bAlways && mpWindowImpl->meAlwaysInputMode != AlwaysInputEnabled )
     {
         mpWindowImpl->meAlwaysInputMode = AlwaysInputEnabled;
-
-        if ( bAlways )
-            EnableInput( true, false );
+        EnableInput(true, false);
     }
     else if( ! bAlways && mpWindowImpl->meAlwaysInputMode == AlwaysInputEnabled )
     {
@@ -2642,9 +2638,7 @@ void Window::AlwaysDisableInput( bool bAlways, bool bChild )
     if( bAlways && mpWindowImpl->meAlwaysInputMode != AlwaysInputDisabled )
     {
         mpWindowImpl->meAlwaysInputMode = AlwaysInputDisabled;
-
-        if ( bAlways )
-            EnableInput( false, false );
+        EnableInput(false, false);
     }
     else if( ! bAlways && mpWindowImpl->meAlwaysInputMode == AlwaysInputDisabled )
     {
@@ -3080,11 +3074,8 @@ const Wallpaper& Window::GetDisplayBackground() const
     // FIXME: fix issue 52349, need to fix this really in
     // all NWF enabled controls
     const ToolBox* pTB = dynamic_cast<const ToolBox*>(this);
-    if( pTB )
-    {
-        if( IsNativeWidgetEnabled() )
-            return pTB->ImplGetToolBoxPrivateData()->maDisplayBackground;
-    }
+    if( pTB && IsNativeWidgetEnabled() )
+        return pTB->ImplGetToolBoxPrivateData()->maDisplayBackground;
 
     if( !IsBackground() )
     {

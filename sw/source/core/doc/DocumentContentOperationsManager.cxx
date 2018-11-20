@@ -258,11 +258,8 @@ namespace
         // We have to count the "non-copied" nodes..
         sal_uLong nDelCount;
         SwNodeIndex aCorrIdx(InitDelCount(rPam, nDelCount));
-        for(mark_vector_t::const_iterator ppMark = vMarksToCopy.begin();
-            ppMark != vMarksToCopy.end();
-            ++ppMark)
+        for(const sw::mark::IMark* const pMark : vMarksToCopy)
         {
-            const ::sw::mark::IMark* const pMark = *ppMark;
             SwPaM aTmpPam(*pCpyStt);
             lcl_NonCopyCount(rPam, aCorrIdx, pMark->GetMarkPos().nNode.GetIndex(), nDelCount);
             lcl_SetCpyPos( pMark->GetMarkPos(), rStt, *pCpyStt, *aTmpPam.GetPoint(), nDelCount);
@@ -302,10 +299,9 @@ namespace
                 pNewFieldmark->SetFieldHelptext(pOldFieldmark->GetFieldHelptext());
                 ::sw::mark::IFieldmark::parameter_map_t* pNewParams = pNewFieldmark->GetParameters();
                 const ::sw::mark::IFieldmark::parameter_map_t* pOldParams = pOldFieldmark->GetParameters();
-                ::sw::mark::IFieldmark::parameter_map_t::const_iterator pIt = pOldParams->begin();
-                for (; pIt != pOldParams->end(); ++pIt )
+                for (const auto& rEntry : *pOldParams )
                 {
-                    pNewParams->insert( *pIt );
+                    pNewParams->insert( rEntry );
                 }
             }
 
@@ -450,7 +446,7 @@ namespace
                     bRet = false;
                     break;
                 }
-            } while ( pTextNd && pTextNd != pEndTextNd );
+            } while (pTextNd != pEndTextNd);
         }
 
         return bRet;
@@ -826,6 +822,10 @@ namespace
         {
             rSvRedLine.SetPos( nInsPos );
             pDoc->getIDocumentRedlineAccess().AppendRedline( rSvRedLine.pRedl, true );
+            if (rSvRedLine.pRedl->GetType() == nsRedlineType_t::REDLINE_DELETE)
+            {
+                UpdateFramesForAddDeleteRedline(*pDoc, *rSvRedLine.pRedl);
+            }
         }
 
         pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
@@ -2164,11 +2164,8 @@ bool DocumentContentOperationsManager::MoveRange( SwPaM& rPaM, SwPosition& rPos,
 
     // Insert the Bookmarks back into the Document.
     *rPaM.GetMark() = *aSavePam.Start();
-    for(
-        std::vector< ::sw::mark::SaveBookmark>::iterator pBkmk = aSaveBkmks.begin();
-        pBkmk != aSaveBkmks.end();
-        ++pBkmk)
-        pBkmk->SetInDoc(
+    for(auto& rBkmk : aSaveBkmks)
+        rBkmk.SetInDoc(
             &m_rDoc,
             rPaM.GetMark()->nNode,
             &rPaM.GetMark()->nContent);
@@ -2284,11 +2281,8 @@ bool DocumentContentOperationsManager::MoveNodeRange( SwNodeRange& rRange, SwNod
         RestFlyInRange( aSaveFlyArr, aIdx, nullptr );
 
     // Add the Bookmarks back to the Document
-    for(
-        std::vector< ::sw::mark::SaveBookmark>::iterator pBkmk = aSaveBkmks.begin();
-        pBkmk != aSaveBkmks.end();
-        ++pBkmk)
-        pBkmk->SetInDoc(&m_rDoc, aIdx);
+    for(auto& rBkmk : aSaveBkmks)
+        rBkmk.SetInDoc(&m_rDoc, aIdx);
 
     if( !aSavRedlInsPosArr.empty() )
     {
@@ -2631,12 +2625,9 @@ void DocumentContentOperationsManager::TransliterateText(
     else if( pTNd && nSttCnt < nEndCnt )
         pTNd->TransliterateText( rTrans, nSttCnt, nEndCnt, pUndo.get() );
 
-    if( pUndo )
+    if( pUndo && pUndo->HasData() )
     {
-        if( pUndo->HasData() )
-        {
-            m_rDoc.GetIDocumentUndoRedo().AppendUndo(std::move(pUndo));
-        }
+        m_rDoc.GetIDocumentUndoRedo().AppendUndo(std::move(pUndo));
     }
     m_rDoc.getIDocumentState().SetModified();
 }
@@ -3497,16 +3488,16 @@ void DocumentContentOperationsManager::CopyFlyInFlyImpl(
     if ( aSet.size() == aVecSwFrameFormat.size() )
     {
         size_t n = 0;
-        for (std::set< ZSortFly >::const_iterator nIt=aSet.begin() ; nIt != aSet.end(); ++nIt, ++n )
+        for (const auto& rFlyN : aSet)
         {
-            const SwFrameFormat *pFormatN = (*nIt).GetFormat();
+            const SwFrameFormat *pFormatN = rFlyN.GetFormat();
             const SwFormatChain &rChain = pFormatN->GetChain();
             int nCnt = int(nullptr != rChain.GetPrev());
             nCnt += rChain.GetNext() ? 1: 0;
             size_t k = 0;
-            for (std::set< ZSortFly >::const_iterator kIt=aSet.begin() ; kIt != aSet.end(); ++kIt, ++k )
+            for (const auto& rFlyK : aSet)
             {
-                const SwFrameFormat *pFormatK = (*kIt).GetFormat();
+                const SwFrameFormat *pFormatK = rFlyK.GetFormat();
                 if ( rChain.GetPrev() == pFormatK )
                 {
                     ::lcl_ChainFormats( static_cast< SwFlyFrameFormat* >(aVecSwFrameFormat[k]),
@@ -3519,7 +3510,9 @@ void DocumentContentOperationsManager::CopyFlyInFlyImpl(
                                      static_cast< SwFlyFrameFormat* >(aVecSwFrameFormat[k]) );
                     --nCnt;
                 }
+                ++k;
             }
+            ++n;
         }
 
         // Re-create content property of draw formats, knowing how old shapes
@@ -3690,7 +3683,7 @@ bool DocumentContentOperationsManager::DeleteAndJoinWithRedlineImpl( SwPaM & rPa
         // sw_redlinehide: 2 reasons why this is needed:
         // 1. it's the first redline in node => RedlineDelText was sent but ignored
         // 2. redline spans multiple nodes => must merge text frames
-        sw::UpdateFramesForAddDeleteRedline(*pCursor);
+        sw::UpdateFramesForAddDeleteRedline(m_rDoc, *pCursor);
     }
     m_rDoc.getIDocumentState().SetModified();
 
@@ -4337,11 +4330,11 @@ bool DocumentContentOperationsManager::CopyImpl( SwPaM& rPam, SwPosition& rPos,
     // Keep also the <ListId> value for possible propagation.
     OUString aListIdToPropagate;
     const SwNumRule* pNumRuleToPropagate =
-        pDoc->SearchNumRule( rPos, false, true, false, 0, aListIdToPropagate, true );
+        pDoc->SearchNumRule( rPos, false, true, false, 0, aListIdToPropagate, nullptr, true );
     if ( !pNumRuleToPropagate )
     {
         pNumRuleToPropagate =
-            pDoc->SearchNumRule( rPos, false, false, false, 0, aListIdToPropagate, true );
+            pDoc->SearchNumRule( rPos, false, false, false, 0, aListIdToPropagate, nullptr, true );
     }
     // #i86492#
     // Do not propagate previous found list, if
@@ -4662,7 +4655,7 @@ bool DocumentContentOperationsManager::CopyImpl( SwPaM& rPam, SwPosition& rPos,
         // #i86492# - use <SwDoc::SetNumRule(..)>, because it also handles the <ListId>
         // Don't reset indent attributes, that would mean loss of direct
         // formatting.
-        pDoc->SetNumRule( *pCopyPam, *pNumRuleToPropagate, false,
+        pDoc->SetNumRule( *pCopyPam, *pNumRuleToPropagate, false, nullptr,
                           aListIdToPropagate, true, /*bResetIndentAttrs=*/false );
     }
 

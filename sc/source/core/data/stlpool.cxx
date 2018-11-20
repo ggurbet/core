@@ -21,31 +21,24 @@
 #include <scitems.hxx>
 #include <editeng/eeitem.hxx>
 #include <i18nlangtag/mslangid.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/editdata.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editobj.hxx>
-#include <editeng/fhgtitem.hxx>
 #include <editeng/flditem.hxx>
 #include <editeng/fontitem.hxx>
 #include <svx/pageitem.hxx>
-#include <editeng/postitem.hxx>
-#include <editeng/udlnitem.hxx>
-#include <editeng/wghtitem.hxx>
-#include <editeng/justifyitem.hxx>
 #include <svl/itemset.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/IndexedStyleSheets.hxx>
 #include <unotools/charclass.hxx>
-#include <unotools/fontcvt.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <osl/diagnose.h>
 
 #include <sc.hrc>
-#include <helpids.h>
 #include <attrib.hxx>
 #include <global.hxx>
 #include <globstr.hrc>
@@ -54,9 +47,7 @@
 #include <docpool.hxx>
 #include <stlpool.hxx>
 #include <stlsheet.hxx>
-#include <rechead.hxx>
 #include <editutil.hxx>
-#include <patattr.hxx>
 
 ScStyleSheetPool::ScStyleSheetPool( const SfxItemPool& rPoolP,
                                     ScDocument*     pDocument )
@@ -388,7 +379,7 @@ namespace {
 
 struct CaseInsensitiveNamePredicate : svl::StyleSheetPredicate
 {
-    CaseInsensitiveNamePredicate(const rtl::OUString& rName, SfxStyleFamily eFam)
+    CaseInsensitiveNamePredicate(const OUString& rName, SfxStyleFamily eFam)
     : mFamily(eFam)
     {
         mUppercaseName = ScGlobal::pCharClass->uppercase(rName);
@@ -399,7 +390,7 @@ struct CaseInsensitiveNamePredicate : svl::StyleSheetPredicate
     {
         if (rStyleSheet.GetFamily() == mFamily)
         {
-            rtl::OUString aUpName = ScGlobal::pCharClass->uppercase(rStyleSheet.GetName());
+            OUString aUpName = ScGlobal::pCharClass->uppercase(rStyleSheet.GetName());
             if (mUppercaseName == aUpName)
             {
                 return true;
@@ -408,7 +399,7 @@ struct CaseInsensitiveNamePredicate : svl::StyleSheetPredicate
         return false;
     }
 
-    rtl::OUString mUppercaseName;
+    OUString mUppercaseName;
     SfxStyleFamily const mFamily;
 };
 

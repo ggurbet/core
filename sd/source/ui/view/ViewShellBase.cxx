@@ -52,6 +52,7 @@
 #include <DocumentRenderer.hxx>
 #include <sdattr.hxx>
 #include <optsitem.hxx>
+#include <sdmod.hxx>
 
 #include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/document/XViewDataSupplier.hpp>
@@ -1409,7 +1410,7 @@ void CurrentPageSetter::operator() (bool)
     }
 }
 
-} // end of anonymouse namespace
+} // end of anonymous namespace
 
 //===== FocusForwardingWindow =================================================
 
@@ -1465,7 +1466,7 @@ void FocusForwardingWindow::Command (const CommandEvent& rEvent)
     }
 }
 
-} // end of anonymouse namespace
+} // end of anonymous namespace
 
 } // end of namespace sd
 

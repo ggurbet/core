@@ -30,7 +30,7 @@
 #include <vcl/graphicfilter.hxx>
 #include <vcl/settings.hxx>
 
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 #include <sfx2/docinsert.hxx>
 #include <sfx2/filedlghelper.hxx>
 
@@ -1085,8 +1085,7 @@ void    SwGlobalTree::ExecCommand(const OUString &rCmd)
             }
             else if (rCmd == "up")
             {
-                if(nSource)
-                    bMove = 0 != nSource;
+                bMove = 0 != nSource;
                 nDest--;
             }
             if( bMove && m_pActiveShell->MoveGlobalDocContent(

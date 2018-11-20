@@ -561,7 +561,7 @@ void SdrHdl::CreateB2dIAObject()
                             aMoveOutsideOffset.AdjustX(aOffset.Height() );
                     }
 
-                    rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                    const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                     if (xManager.is())
                     {
                         basegfx::B2DPoint aPosition(aPos.X(), aPos.Y());
@@ -1107,7 +1107,7 @@ void SdrHdlColor::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is())
                         {
                             BitmapEx aBmpCol(CreateColorDropper(aMarkerColor));
@@ -1257,7 +1257,7 @@ void SdrHdlGradient::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is())
                         {
                             // striped line in between
@@ -1413,7 +1413,7 @@ void SdrHdlLine::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is())
                         {
                             basegfx::B2DPoint aPosition1(pHdl1->GetPos().X(), pHdl1->GetPos().Y());
@@ -1469,7 +1469,7 @@ void SdrHdlBezWgt::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is())
                         {
                             basegfx::B2DPoint aPosition1(pHdl1->GetPos().X(), pHdl1->GetPos().Y());
@@ -1525,7 +1525,7 @@ void E3dVolumeMarker::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is() && aWireframePoly.count())
                         {
                             std::unique_ptr<sdr::overlay::OverlayObject> pNewOverlayObject(new
@@ -1587,7 +1587,7 @@ void ImpEdgeHdl::CreateB2dIAObject()
 
                         if(rPageWindow.GetPaintWindow().OutputToWindow())
                         {
-                            rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                            const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                             if (xManager.is())
                             {
                                 basegfx::B2DPoint aPosition(aPos.X(), aPos.Y());
@@ -1703,7 +1703,7 @@ void ImpMeasureHdl::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is())
                         {
                             basegfx::B2DPoint aPosition(aPos.X(), aPos.Y());
@@ -1765,7 +1765,7 @@ void ImpTextframeHdl::CreateB2dIAObject()
 
                     if(rPageWindow.GetPaintWindow().OutputToWindow())
                     {
-                        rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                         if (xManager.is())
                         {
                             const basegfx::B2DPoint aTopLeft(maRect.Left(), maRect.Top());
@@ -1955,7 +1955,9 @@ void SdrHdlList::TravelFocusHdl(bool bForward)
 
     // take care of old handle
     const size_t nOldHdlNum(mnFocusIndex);
-    SdrHdl* pOld = GetHdl(nOldHdlNum);
+    SdrHdl* pOld = nullptr;
+    if (nOldHdlNum < GetHdlCount())
+        pOld = GetHdl(nOldHdlNum);
 
     if(pOld)
     {
@@ -2061,10 +2063,9 @@ void SdrHdlList::TravelFocusHdl(bool bForward)
     if(nOldHdlNum != nNewHdlNum)
     {
         mnFocusIndex = nNewHdlNum;
-        SdrHdl* pNew = GetHdl(mnFocusIndex);
-
-        if(pNew)
+        if (mnFocusIndex < GetHdlCount())
         {
+            SdrHdl* pNew = GetHdl(mnFocusIndex);
             pNew->Touch();
         }
     }
@@ -2097,11 +2098,7 @@ void SdrHdlList::SetFocusHdl(SdrHdl* pNew)
                     pActual->Touch();
                 }
 
-                if(pNew)
-                {
-                    pNew->Touch();
-                }
-
+                pNew->Touch();
             }
         }
     }
@@ -2187,13 +2184,9 @@ std::unique_ptr<SdrHdl> SdrHdlList::RemoveHdl(size_t nNum)
 
 void SdrHdlList::RemoveAllByKind(SdrHdlKind eKind)
 {
-    for(auto it = maList.begin(); it != maList.end(); )
-    {
-        if ((*it)->GetKind() == eKind)
-            it = maList.erase( it );
-        else
-            ++it;
-    }
+    maList.erase(std::remove_if(maList.begin(), maList.end(),
+        [&eKind](std::unique_ptr<SdrHdl>& rItem) { return rItem->GetKind() == eKind; }),
+        maList.end());
 }
 
 void SdrHdlList::Clear()
@@ -2359,7 +2352,7 @@ void SdrCropHdl::CreateB2dIAObject()
 
             if(rPageWindow.GetPaintWindow().OutputToWindow())
             {
-                rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                 if (xManager.is())
                 {
                     basegfx::B2DPoint aPosition(aPos.X(), aPos.Y());
@@ -2607,7 +2600,7 @@ void SdrCropViewHdl::CreateB2dIAObject()
 
         if(rPageWindow.GetPaintWindow().OutputToWindow())
         {
-            rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+            const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
             if(xManager.is())
             {
                 std::unique_ptr<sdr::overlay::OverlayObject> pNew(new sdr::overlay::OverlayPrimitive2DSequenceObject(aSequence));

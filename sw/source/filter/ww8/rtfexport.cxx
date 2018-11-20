@@ -333,7 +333,7 @@ void RtfExport::DoComboBox(const OUString& /*rName*/, const OUString& /*rHelp*/,
 
 void RtfExport::DoFormText(const SwInputField* pField)
 {
-    OUString sResult = pField->ExpandField(true);
+    OUString sResult = pField->ExpandField(true, nullptr);
     const OUString& rHelp = pField->GetHelp();
     OUString sName = pField->GetPar2();
     const OUString& rStatus = pField->GetToolTip();
@@ -1153,11 +1153,20 @@ void RtfExport::InsColorLine(const SvxBoxItem& rBox)
     const editeng::SvxBorderLine* pLine = nullptr;
 
     if (rBox.GetTop())
-        InsColor((pLine = rBox.GetTop())->GetColor());
+    {
+        pLine = rBox.GetTop();
+        InsColor(pLine->GetColor());
+    }
     if (rBox.GetBottom() && pLine != rBox.GetBottom())
-        InsColor((pLine = rBox.GetBottom())->GetColor());
+    {
+        pLine = rBox.GetBottom();
+        InsColor(pLine->GetColor());
+    }
     if (rBox.GetLeft() && pLine != rBox.GetLeft())
-        InsColor((pLine = rBox.GetLeft())->GetColor());
+    {
+        pLine = rBox.GetLeft();
+        InsColor(pLine->GetColor());
+    }
     if (rBox.GetRight() && pLine != rBox.GetRight())
         InsColor(rBox.GetRight()->GetColor());
 }

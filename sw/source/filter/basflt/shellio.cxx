@@ -59,6 +59,7 @@
 #include <swerror.h>
 #include <paratr.hxx>
 #include <pausethreadstarting.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 
@@ -349,14 +350,11 @@ ErrCode SwReader::Read( const Reader& rOptions )
     mxDoc->GetCellStyles().clear();
 
     mxDoc->GetIDocumentUndoRedo().DoUndo(bDocUndo);
-    if (!bReadPageDescs)
+    if (!bReadPageDescs && bSaveUndo )
     {
-        if( bSaveUndo )
-        {
-            mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
-            mxDoc->GetIDocumentUndoRedo().EndUndo( SwUndoId::INSDOKUMENT, nullptr );
-            mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( RedlineFlags::Ignore );
-        }
+        mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
+        mxDoc->GetIDocumentUndoRedo().EndUndo( SwUndoId::INSDOKUMENT, nullptr );
+        mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( RedlineFlags::Ignore );
     }
 
     // delete Pam if it was created only for reading

@@ -44,6 +44,7 @@
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/ui/XUIElement.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/scopeguard.hxx>
 #include <svl/itempool.hxx>
 #include <svl/intitem.hxx>
 
@@ -244,7 +245,7 @@ void SearchAttrItemList::Remove(size_t nPos)
     if ( nPos + nLen > size() )
         nLen = size() - nPos;
 
-    for ( sal_uInt16 i = nPos; i < nPos + nLen; ++i )
+    for ( size_t i = nPos; i < nPos + nLen; ++i )
         if ( !IsInvalidItem( (*this)[i].pItem ) )
             delete (*this)[i].pItem;
 
@@ -413,7 +414,6 @@ void SvxSearchDialog::dispose()
 
 void SvxSearchDialog::Construct_Impl()
 {
-    // temporary to avoid incompatibility
     pImpl.reset( new SearchDlg_Impl() );
     pImpl->aSelectionTimer.SetTimeout( 500 );
     pImpl->aSelectionTimer.SetInvokeHandler(
@@ -1424,7 +1424,7 @@ IMPL_LINK( SvxSearchDialog, CommandHdl_Impl, Button *, pBtn, void )
                                                                     pSearchItem->GetLEVOther(),
                                                                     pSearchItem->GetLEVShorter(),
                                                                     pSearchItem->GetLEVLonger() ));
-        if ( pDlg->Execute() == RET_OK )
+        if ( executeSubDialog(pDlg.get()) == RET_OK )
         {
             pSearchItem->SetLEVRelaxed( pDlg->IsRelaxed() );
             pSearchItem->SetLEVOther( pDlg->GetOther() );
@@ -1440,7 +1440,7 @@ IMPL_LINK( SvxSearchDialog, CommandHdl_Impl, Button *, pBtn, void )
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
         ScopedVclPtr<AbstractSvxJSearchOptionsDialog> aDlg(pFact->CreateSvxJSearchOptionsDialog(GetFrameWeld(), aSet,
                 pSearchItem->GetTransliterationFlags() ));
-        int nRet = aDlg->Execute();
+        int nRet = executeSubDialog(aDlg.get());
         if (RET_OK == nRet) //! true only if FillItemSet of SvxJSearchOptionsPage returns true
         {
             TransliterationFlags nFlags = aDlg->GetTransliterationFlags();
@@ -1918,7 +1918,8 @@ void SvxSearchDialog::EnableControl_Impl( Control const * pCtrl )
 
 void SvxSearchDialog::SetItem_Impl( const SvxSearchItem* pItem )
 {
-    if ( pItem )
+    //TODO: save pItem and process later if m_executingSubDialog?
+    if ( pItem && !m_executingSubDialog )
     {
         pSearchItem.reset(static_cast<SvxSearchItem*>(pItem->Clone()));
         Init_Impl( pSearchItem->GetPattern() &&
@@ -2042,7 +2043,7 @@ IMPL_LINK_NOARG(SvxSearchDialog, FormatHdl_Impl, Button*, void)
     ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTabItemDialog(GetFrameWeld(), aSet));
     pDlg->SetText( aTxt );
 
-    if ( pDlg->Execute() == RET_OK )
+    if ( executeSubDialog(pDlg.get()) == RET_OK )
     {
         DBG_ASSERT( pDlg->GetOutputItemSet(), "invalid Output-Set" );
         SfxItemSet aOutSet( *pDlg->GetOutputItemSet() );
@@ -2133,7 +2134,7 @@ IMPL_LINK_NOARG(SvxSearchDialog, AttributeHdl_Impl, Button*, void)
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
     ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSvxSearchAttributeDialog( this, *pSearchList, pImpl->pRanges.get() ));
-    pDlg->Execute();
+    executeSubDialog(pDlg.get());
     PaintAttrText_Impl();
 }
 
@@ -2178,17 +2179,17 @@ OUString& SvxSearchDialog::BuildAttrText_Impl( OUString& rStr,
     FieldUnit eFieldUnit = pSh->GetModule()->GetFieldUnit();
     switch ( eFieldUnit )
     {
-        case FUNIT_MM:          eMapUnit = MapUnit::MapMM; break;
-        case FUNIT_CM:
-        case FUNIT_M:
-        case FUNIT_KM:          eMapUnit = MapUnit::MapCM; break;
-        case FUNIT_TWIP:        eMapUnit = MapUnit::MapTwip; break;
-        case FUNIT_POINT:
-        case FUNIT_PICA:        eMapUnit = MapUnit::MapPoint; break;
-        case FUNIT_INCH:
-        case FUNIT_FOOT:
-        case FUNIT_MILE:        eMapUnit = MapUnit::MapInch; break;
-        case FUNIT_100TH_MM:    eMapUnit = MapUnit::Map100thMM; break;
+        case FieldUnit::MM:          eMapUnit = MapUnit::MapMM; break;
+        case FieldUnit::CM:
+        case FieldUnit::M:
+        case FieldUnit::KM:          eMapUnit = MapUnit::MapCM; break;
+        case FieldUnit::TWIP:        eMapUnit = MapUnit::MapTwip; break;
+        case FieldUnit::POINT:
+        case FieldUnit::PICA:        eMapUnit = MapUnit::MapPoint; break;
+        case FieldUnit::INCH:
+        case FieldUnit::FOOT:
+        case FieldUnit::MILE:        eMapUnit = MapUnit::MapInch; break;
+        case FieldUnit::MM_100TH:    eMapUnit = MapUnit::Map100thMM; break;
         default: ;//prevent warning
     }
 
@@ -2375,6 +2376,13 @@ css::uno::Reference< css::awt::XWindowPeer >
     }
     else
         return xPeer;
+}
+
+short SvxSearchDialog::executeSubDialog(VclAbstractDialog * dialog) {
+    assert(!m_executingSubDialog);
+    comphelper::ScopeGuard g([this] { m_executingSubDialog = false; });
+    m_executingSubDialog = true;
+    return dialog->Execute();
 }
 
 SFX_IMPL_CHILDWINDOW_WITHID(SvxSearchDialogWrapper, SID_SEARCH_DLG);

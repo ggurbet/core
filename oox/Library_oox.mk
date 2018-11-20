@@ -256,8 +256,6 @@ $(eval $(call gb_Library_add_exception_objects,oox,\
     oox/source/ppt/commontimenodecontext \
     oox/source/ppt/conditioncontext \
     oox/source/ppt/customshowlistcontext \
-    oox/source/ppt/dgmimport \
-    oox/source/ppt/dgmlayout \
     oox/source/ppt/headerfootercontext \
     oox/source/ppt/layoutfragmenthandler \
     oox/source/ppt/pptfilterhelpers \
@@ -301,7 +299,7 @@ $(eval $(call gb_Library_add_exception_objects,oox,\
     oox/source/vml/vmltextbox \
 ))
 
-ifeq ($(OS),IOS)
+ifeq ($(OS),iOS)
 # Either a compiler bug in Xcode 5.1.1 or some hard-to-spot undefined
 # behaviour in the source code... Compiling this source file with
 # optimization causes some Smart Art images to end up with completely

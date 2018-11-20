@@ -166,9 +166,6 @@ DWORD IsValidFilePath(rtl_uString *path, DWORD dwFlags, rtl_uString **corrected)
         if ( dwFlags & VALIDATEPATH_ALLOW_RELATIVE )
             dwFlags |= VALIDATEPATH_ALLOW_ELLIPSE;
 
-        if ( !lpszPath )
-            bValid = false;
-
         DWORD   dwCandidatPathType = PATHTYPE_ERROR;
 
         if ( 0 == rtl_ustr_shortenedCompareIgnoreAsciiCase_WithLength( path->buffer, nLength, o3tl::toU(WSTR_LONG_PATH_PREFIX_UNC), SAL_N_ELEMENTS(WSTR_LONG_PATH_PREFIX_UNC) - 1, SAL_N_ELEMENTS(WSTR_LONG_PATH_PREFIX_UNC) - 1 ) )
@@ -637,7 +634,7 @@ oslFileError osl_getSystemPathFromFileURL_( rtl_uString *strURL, rtl_uString **p
         strUTF8->length != strURL->length &&
         0 == rtl_ustr_ascii_shortenedCompareIgnoreAsciiCase_WithLength( strURL->buffer, strURL->length, "file:\\\\", 7 )
         , "sal.osl"
-        ,"osl_getSystemPathFromFileURL: \"" << rtl::OUString(strURL) << "\" is not encoded !!!");
+        ,"osl_getSystemPathFromFileURL: \"" << OUString(strURL) << "\" is not encoded !!!");
 
     bValidEncoded = osl_decodeURL_( strUTF8, &strDecodedURL );
 
@@ -734,7 +731,7 @@ oslFileError osl_getSystemPathFromFileURL_( rtl_uString *strURL, rtl_uString **p
         }
         else
           SAL_INFO_IF(nError, "sal.osl",
-              "osl_getSystemPathFromFileURL: \"" << rtl::OUString(strURL) << "\" is not an absolute FileURL");
+              "osl_getSystemPathFromFileURL: \"" << OUString(strURL) << "\" is not an absolute FileURL");
 
     }
 
@@ -748,7 +745,7 @@ oslFileError osl_getSystemPathFromFileURL_( rtl_uString *strURL, rtl_uString **p
         rtl_uString_release( strTempPath );
 
     SAL_INFO_IF(nError, "sal.osl",
-        "osl_getSystemPathFromFileURL: \"" << rtl::OUString(strURL) << "\" is not a FileURL");
+        "osl_getSystemPathFromFileURL: \"" << OUString(strURL) << "\" is not a FileURL");
 
     return nError;
 }
@@ -854,7 +851,7 @@ oslFileError osl_getFileURLFromSystemPath( rtl_uString* strPath, rtl_uString** p
         rtl_uString_release( strTempURL );
 
     SAL_INFO_IF(nError, "sal.osl",
-        "osl_getFileURLFromSystemPath: \"" << rtl::OUString(strPath) << "\" is not a systemPath");
+        "osl_getFileURLFromSystemPath: \"" << OUString(strPath) << "\" is not a systemPath");
     return nError;
 }
 

@@ -50,7 +50,7 @@ class DetailsContainer
     protected:
         void notifyChange( );
         DECL_LINK(ValueChangeHdl, weld::Entry&, void);
-        DECL_LINK(FormatPortHdl, weld::SpinButton&, void);
+        DECL_STATIC_LINK(DetailsContainer, FormatPortHdl, weld::SpinButton&, void);
 };
 
 class HostDetailsContainer : public DetailsContainer
@@ -93,6 +93,9 @@ class DavDetailsContainer : public HostDetailsContainer
 
 class SmbDetailsContainer : public DetailsContainer
 {
+    private:
+        OUString m_sHost;
+
     public:
         SmbDetailsContainer(PlaceEditDialog* pDialog);
 

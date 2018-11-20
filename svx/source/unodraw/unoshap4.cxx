@@ -160,7 +160,7 @@ bool SvxOle2Shape::setPropertyValueImpl( const OUString& rName, const SfxItemPro
             if( pOle )
             {
                 GraphicObject aGrafObj( xGraphic );
-                const Graphic aGraphic( aGrafObj.GetGraphic() );
+                const Graphic& aGraphic( aGrafObj.GetGraphic() );
                 pOle->SetGraphicToObj( aGraphic );
             }
             return true;
@@ -426,7 +426,8 @@ bool SvxOle2Shape::createObject( const SvGlobalName &aClassName )
         }
 
         // connect the object after the visual area is set
-        SvxShape::setPropertyValue( UNO_NAME_OLE2_PERSISTNAME, Any( aTmpStr = aPersistName ) );
+        aTmpStr = aPersistName;
+        SvxShape::setPropertyValue( UNO_NAME_OLE2_PERSISTNAME, Any( aTmpStr ) );
 
         // the object is inserted during setting of PersistName property usually
         if( pOle2Obj->IsEmpty() )
@@ -540,7 +541,7 @@ const SvGlobalName SvxOle2Shape::GetClassName_Impl(OUString& rHexCLSID)
 
         if (rHexCLSID.isEmpty())
         {
-            uno::Reference < embed::XEmbeddedObject > xObj( pOle2Obj->GetObjRef() );
+            const uno::Reference < embed::XEmbeddedObject >& xObj( pOle2Obj->GetObjRef() );
             if ( xObj.is() )
             {
                 aClassName = SvGlobalName( xObj->getClassID() );

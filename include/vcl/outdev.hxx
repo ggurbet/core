@@ -31,6 +31,7 @@
 #include <vcl/devicecoordinate.hxx>
 #include <vcl/dllapi.h>
 #include <vcl/font.hxx>
+#include <vcl/glyphitem.hxx>
 #include <vcl/region.hxx>
 #include <vcl/mapmod.hxx>
 #include <vcl/wall.hxx>
@@ -150,8 +151,6 @@ namespace o3tl
 }
 
 typedef std::vector< tools::Rectangle > MetricVector;
-struct GlyphItem;
-typedef std::vector<GlyphItem> SalLayoutGlyphs;
 
 // OutputDevice-Types
 
@@ -298,7 +297,7 @@ namespace o3tl
     template<> struct typed_flags<InvertFlags> : is_typed_flags<InvertFlags, 0x0007> {};
 }
 
-enum OutDevType { OUTDEV_DONTKNOW, OUTDEV_WINDOW, OUTDEV_PRINTER, OUTDEV_VIRDEV };
+enum OutDevType { OUTDEV_WINDOW, OUTDEV_PRINTER, OUTDEV_VIRDEV, OUTDEV_PDF };
 
 enum class OutDevViewType { DontKnow, PrintPreview, SlideShow };
 
@@ -328,7 +327,6 @@ class VCL_DLLPUBLIC OutputDevice : public virtual VclReferenceBase
     friend class VirtualDevice;
     friend class vcl::Window;
     friend class WorkWindow;
-    friend class vcl::PDFWriterImpl;
     friend void ImplHandleResize( vcl::Window* pWindow, long nNewWidth, long nNewHeight );
 
 private:
@@ -347,7 +345,6 @@ private:
     std::unique_ptr<OutDevStateStack>               mpOutDevStateStack;
     std::unique_ptr<ImplOutDevData>                 mpOutDevData;
     std::vector< VCLXGraphics* >*   mpUnoGraphicsList;
-    vcl::PDFWriterImpl*             mpPDFWriter;
     vcl::ExtOutDevData*             mpExtOutDevData;
 
     // TEMP TEMP TEMP
@@ -379,7 +376,7 @@ private:
     ComplexTextLayoutFlags           mnTextLayoutMode;
     ImplMapRes                      maMapRes;
     ImplThresholdRes                maThresRes;
-    OutDevType                      meOutDevType;
+    const OutDevType                meOutDevType;
     OutDevViewType                  meOutDevViewType;
     vcl::Region                     maRegion;           // contains the clip region, see SetClipRegion(...)
     Color                           maLineColor;
@@ -421,7 +418,7 @@ private:
     ///@{
 
 protected:
-                                OutputDevice();
+                                OutputDevice(OutDevType eOutDevType);
     virtual                     ~OutputDevice() override;
     virtual void                dispose() override;
 
@@ -543,14 +540,16 @@ public:
     }
 
     OutDevType                  GetOutDevType() const { return meOutDevType; }
+    bool IsVirtual() const
+    {
+        return (meOutDevType == OUTDEV_VIRDEV) || (meOutDevType == OUTDEV_PDF);
+    }
 
     /** Query an OutputDevice to see whether it supports a specific operation
 
      @returns true if operation supported, else false
     */
     bool                        SupportsOperation( OutDevSupportType ) const;
-
-    vcl::PDFWriterImpl*         GetPDFWriter() const { return mpPDFWriter; }
 
     void                        SetExtOutDevData( vcl::ExtOutDevData* pExtOutDevData ) { mpExtOutDevData = pExtOutDevData; }
     vcl::ExtOutDevData*         GetExtOutDevData() const { return mpExtOutDevData; }
@@ -1156,7 +1155,6 @@ public:
                                                sal_Int32 nIndex = 0,
                                                sal_Int32 nLen = -1,
                                                SalLayoutFlags flags = SalLayoutFlags::NONE,
-                                               vcl::TextLayoutCache const* = nullptr,
                                                const SalLayoutGlyphs* pLayoutCache = nullptr);
     long                        GetTextArray( const OUString& rStr, long* pDXAry,
                                               sal_Int32 nIndex = 0, sal_Int32 nLen = -1,
@@ -1181,12 +1179,13 @@ public:
                                               vcl::TextLayoutCache const* = nullptr) const;
     std::shared_ptr<vcl::TextLayoutCache> CreateTextLayoutCache(OUString const&) const;
 
-private:
-    SAL_DLLPRIVATE void         ImplInitTextColor();
-
+protected:
     SAL_DLLPRIVATE void         ImplInitTextLineSize();
     SAL_DLLPRIVATE void         ImplInitAboveTextLineSize();
-
+    static
+    SAL_DLLPRIVATE long         ImplGetTextLines( ImplMultiTextLineInfo& rLineInfo, long nWidth, const OUString& rStr, DrawTextFlags nStyle, const vcl::ITextLayout& _rLayout );
+private:
+    SAL_DLLPRIVATE void         ImplInitTextColor();
 
     SAL_DLLPRIVATE void         ImplDrawTextDirect( SalLayout&, bool bTextLines);
     SAL_DLLPRIVATE void         ImplDrawSpecialText( SalLayout& );
@@ -1201,10 +1200,7 @@ private:
     SAL_DLLPRIVATE void         ImplDrawStrikeoutChar( long nBaseX, long nBaseY, long nX, long nY, long nWidth, FontStrikeout eStrikeout, Color aColor );
     SAL_DLLPRIVATE void         ImplDrawMnemonicLine( long nX, long nY, long nWidth );
 
-    SAL_DLLPRIVATE static bool  ImplIsUnderlineAbove( const vcl::Font& );
 
-    static
-    SAL_DLLPRIVATE long         ImplGetTextLines( ImplMultiTextLineInfo& rLineInfo, long nWidth, const OUString& rStr, DrawTextFlags nStyle, const vcl::ITextLayout& _rLayout );
     ///@}
 
 
@@ -1290,11 +1286,13 @@ public:
     SAL_DLLPRIVATE static void  ImplUpdateAllFontData( bool bNewFontLists );
 
 protected:
+    SAL_DLLPRIVATE const LogicalFontInstance* GetFontInstance() const;
+    SAL_DLLPRIVATE long GetEmphasisAscent() const { return mnEmphasisAscent; }
+    SAL_DLLPRIVATE long GetEmphasisDescent() const { return mnEmphasisDescent; }
 
-    virtual void                InitFont() const;
+    SAL_DLLPRIVATE bool InitFont() const;
     virtual void                SetFontOrientation( LogicalFontInstance* const pFontInstance ) const;
     virtual long                GetFontExtLeading() const;
-
 
 private:
 
@@ -1345,7 +1343,7 @@ public:
                                 ImplGlyphFallbackLayout( std::unique_ptr<SalLayout>, ImplLayoutArgs& ) const;
     // tells whether this output device is RTL in an LTR UI or LTR in a RTL UI
     SAL_DLLPRIVATE std::unique_ptr<SalLayout>
-                                getFallbackFont(
+                                getFallbackLayout(
                                     LogicalFontInstance* pLogicalFont, int nFallbackLevel,
                                     ImplLayoutArgs& rLayoutArgs) const;
 
@@ -1809,8 +1807,6 @@ public:
     SAL_DLLPRIVATE long         ImplLogicWidthToDevicePixel( long nWidth ) const;
 
     SAL_DLLPRIVATE DeviceCoordinate LogicWidthToDeviceCoordinate( long nWidth ) const;
-
-private:
 
     /** Convert a logical X coordinate to a device pixel's X coordinate.
 

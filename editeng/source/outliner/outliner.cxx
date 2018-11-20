@@ -52,6 +52,7 @@
 #include <svl/itempool.hxx>
 #include <libxml/xmlwriter.h>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <o3tl/make_unique.hxx>
 
 // calculate if it's RTL or not
@@ -364,11 +365,6 @@ sal_Int32 Outliner::GetBulletsNumberingStatus() const
     return pParaList->GetParagraphCount() > 0
            ? GetBulletsNumberingStatus( 0, pParaList->GetParagraphCount()-1 )
            : 2;
-}
-
-void Outliner::SetHoriAlignIgnoreTrailingWhitespace(bool bEnabled)
-{
-    pEditEngine->SetHoriAlignIgnoreTrailingWhitespace( bEnabled );
 }
 
 std::unique_ptr<OutlinerParaObject> Outliner::CreateParaObject( sal_Int32 nStartPara, sal_Int32 nCount ) const
@@ -969,7 +965,7 @@ void Outliner::PaintBullet( sal_Int32 nPara, const Point& rStartPos,
 
                 if(bStrippingPortions)
                 {
-                    const vcl::Font aSvxFont(pOutDev->GetFont());
+                    const vcl::Font& aSvxFont(pOutDev->GetFont());
                     std::unique_ptr<long[]> pBuf(new long[ pPara->GetText().getLength() ]);
                     pOutDev->GetTextArray( pPara->GetText(), pBuf.get() );
 

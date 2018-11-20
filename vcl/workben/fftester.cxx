@@ -43,6 +43,7 @@
 #include <vcl/wrkwin.hxx>
 #include <vcl/fltcall.hxx>
 #include <osl/file.hxx>
+#include <osl/module.hxx>
 
 #include "../source/filter/igif/gifread.hxx"
 #include "../source/filter/ixbm/xbmread.hxx"
@@ -103,7 +104,7 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv)
 
         InitVCL();
 
-        Application::SetDialogCancelMode(Application::DialogCancelMode::Silent);
+        Application::SetDialogCancelMode(DialogCancelMode::Silent);
 
         if (strcmp(argv[2], "wmf") == 0 || strcmp(argv[2], "emf") == 0)
         {

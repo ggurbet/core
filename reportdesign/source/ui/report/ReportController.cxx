@@ -592,7 +592,7 @@ FeatureState OReportController::GetState(sal_uInt16 _nId) const
             break;
         case SID_INSERT_DIAGRAM:
             aReturn.bEnabled = isEditable();
-            aReturn.bInvisible = optional< bool >(!m_bChartEnabled);
+            aReturn.bInvisible = !m_bChartEnabled;
             aReturn.bChecked = getDesignView()->GetInsertObj() == OBJ_OLE2;
             break;
         case SID_FM_FIXEDTEXT:
@@ -1555,7 +1555,7 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
                 if ( !aArgs.getLength() )
                 {
                     ODateTimeDialog aDlg(getFrameWeld(), getDesignView()->getCurrentSection(), this);
-                    aDlg.execute();
+                    aDlg.run();
                 }
                 else
                     createDateTime(aArgs);
@@ -1567,7 +1567,7 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
                 if ( !aArgs.getLength() )
                 {
                     OPageNumberDialog aDlg(getFrameWeld(), m_xReportDefinition, this);
-                    aDlg.execute();
+                    aDlg.run();
                 }
                 else
                     createPageNumber(aArgs);
@@ -2339,7 +2339,7 @@ void OReportController::openPageDialog(const uno::Reference<report::XSection>& _
     };
 
     MeasurementSystem eSystem = SvtSysLocale().GetLocaleData().getMeasurementSystemEnum();
-    FieldUnit eUserMetric = MeasurementSystem::Metric == eSystem ? FUNIT_CM : FUNIT_INCH;
+    FieldUnit eUserMetric = MeasurementSystem::Metric == eSystem ? FieldUnit::CM : FieldUnit::INCH;
     static const sal_uInt16 pRanges[] =
     {
         RPTUI_ID_LRSPACE, XATTR_FILL_LAST,
@@ -2427,7 +2427,7 @@ void OReportController::openPageDialog(const uno::Reference<report::XSection>& _
                 getFrameWeld(), pDescriptor.get(),_xSection.is()
                            ? OUString("BackgroundDialog")
                            : OUString("PageDialog"));
-            if (aDlg.execute() == RET_OK)
+            if (aDlg.run() == RET_OK)
             {
 
                 // ItemSet->UNO
@@ -3147,8 +3147,6 @@ void OReportController::createControl(const Sequence< PropertyValue >& _aArgs,co
             _nObjectId,
             SdrInventor::ReportDesign,
             OBJ_DLG_FIXEDTEXT,
-            nullptr,
-            pSectionWindow->getReportSection().getPage(),
 
             // tdf#118963 Need a SdrModel for SdrObject creation. Dereferencing
             // m_aReportModel seems pretty safe, it's done in other places, initialized
@@ -3456,8 +3454,6 @@ void OReportController::addPairControls(const Sequence< PropertyValue >& aArgs)
                 nOBJID,
                 SdrInventor::ReportDesign,
                 OBJ_DLG_FIXEDTEXT,
-                pSectionWindow[1]->getReportSection().getPage(),
-                pSectionWindow[0]->getReportSection().getPage(),
 
                 // tdf#118963 Need a SdrModel for SdrObject creation. Dereferencing
                 // m_aReportModel seems pretty safe, it's done in other places, initialized

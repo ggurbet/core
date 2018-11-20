@@ -37,6 +37,7 @@
 #include <com/sun/star/rdf/XDocumentRepository.hpp>
 
 #include <rtl/ustrbuf.hxx>
+#include <osl/diagnose.h>
 
 #include <functional>
 #include <algorithm>
@@ -155,7 +156,7 @@ RDFaExportHelper::AddRDFa(
                 xContent->getValue());
         }
 
-        ::std::vector<::rtl::OUString> curies;
+        ::std::vector<OUString> curies;
         for (rdf::Statement const& rStatement : rStatements)
         {
             curies.push_back(makeCURIE(&m_rExport, rStatement.Predicate));

@@ -187,7 +187,6 @@ void Qt5Frame::InitSvpSalGraphics(SvpSalGraphics* pSvpSalGraphics)
     m_pSvpGraphics->setSurface(m_pSurface.get(), basegfx::B2IVector(width, height));
     cairo_surface_set_user_data(m_pSurface.get(), SvpSalGraphics::getDamageKey(), &m_aDamageHandler,
                                 nullptr);
-    TriggerPaintEvent();
 }
 
 SalGraphics* Qt5Frame::AcquireGraphics()
@@ -212,8 +211,8 @@ SalGraphics* Qt5Frame::AcquireGraphics()
         {
             m_pQt5Graphics.reset(new Qt5Graphics(this));
             m_pQImage.reset(new QImage(m_pQWidget->size(), Qt5_DefaultFormat32));
+            m_pQImage->fill(Qt::transparent);
             m_pQt5Graphics->ChangeQImage(m_pQImage.get());
-            TriggerPaintEvent();
         }
         return m_pQt5Graphics.get();
     }
@@ -229,14 +228,14 @@ void Qt5Frame::ReleaseGraphics(SalGraphics* pSalGraph)
     m_bGraphicsInUse = false;
 }
 
-bool Qt5Frame::PostEvent(ImplSVEvent* pData)
+bool Qt5Frame::PostEvent(std::unique_ptr<ImplSVEvent> pData)
 {
     Qt5Instance* pInst = static_cast<Qt5Instance*>(GetSalData()->m_pInstance);
-    pInst->PostEvent(this, pData, SalEvent::UserEvent);
+    pInst->PostEvent(this, pData.release(), SalEvent::UserEvent);
     return true;
 }
 
-bool Qt5Frame::isWindow()
+bool Qt5Frame::isWindow() const
 {
     if (m_pTopLevel)
         return m_pTopLevel->isWindow();
@@ -244,7 +243,7 @@ bool Qt5Frame::isWindow()
         return m_pQWidget->isWindow();
 }
 
-QWindow* Qt5Frame::windowHandle()
+QWindow* Qt5Frame::windowHandle() const
 {
     if (m_pTopLevel)
         return m_pTopLevel->windowHandle();
@@ -252,7 +251,7 @@ QWindow* Qt5Frame::windowHandle()
         return m_pQWidget->windowHandle();
 }
 
-QScreen* Qt5Frame::screen()
+QScreen* Qt5Frame::screen() const
 {
     QWindow* const pWindow = windowHandle();
     if (pWindow)
@@ -261,7 +260,7 @@ QScreen* Qt5Frame::screen()
         return nullptr;
 }
 
-bool Qt5Frame::isMinimized()
+bool Qt5Frame::isMinimized() const
 {
     if (m_pTopLevel)
         return m_pTopLevel->isMinimized();
@@ -269,7 +268,7 @@ bool Qt5Frame::isMinimized()
         return m_pQWidget->isMinimized();
 }
 
-bool Qt5Frame::isMaximized()
+bool Qt5Frame::isMaximized() const
 {
     if (m_pTopLevel)
         return m_pTopLevel->isMaximized();
@@ -400,10 +399,12 @@ void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt1
         m_bDefaultSize = false;
         if (isChild(false) || !m_pQWidget->isMaximized())
         {
-            if (m_pTopLevel)
-                m_pTopLevel->resize(nWidth, nHeight);
+            QWidget* const pWidget = (m_pTopLevel) ? m_pTopLevel : m_pQWidget;
+
+            if (m_nStyle & SalFrameStyleFlags::SIZEABLE)
+                pWidget->resize(nWidth, nHeight);
             else
-                m_pQWidget->resize(nWidth, nHeight);
+                pWidget->setFixedSize(nWidth, nHeight);
         }
     }
     else if (m_bDefaultSize)
@@ -429,7 +430,10 @@ void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt1
         maGeometry.nY = nY;
 
         m_bDefaultPos = false;
-        m_pQWidget->move(nX, nY);
+        if (m_pTopLevel)
+            m_pTopLevel->move(nX, nY);
+        else
+            m_pQWidget->move(nX, nY);
     }
     else if (m_bDefaultPos)
         Center();
@@ -470,6 +474,8 @@ void Qt5Frame::SetModal(bool bModal)
         windowHandle()->show();
     }
 }
+
+bool Qt5Frame::GetModal() const { return isWindow() && windowHandle()->isModal(); }
 
 void Qt5Frame::SetWindowState(const SalFrameState* pState)
 {
@@ -530,7 +536,7 @@ bool Qt5Frame::GetWindowState(SalFrameState* pState)
     pState->mnMask = WindowStateMask::State;
     if (isMinimized() /*|| !windowHandle()*/)
         pState->mnState |= WindowStateState::Minimized;
-    else if (m_pQWidget->isMaximized())
+    else if (isMaximized())
     {
         pState->mnState |= WindowStateState::Maximized;
     }
@@ -550,17 +556,16 @@ bool Qt5Frame::GetWindowState(SalFrameState* pState)
 
 void Qt5Frame::ShowFullScreen(bool bFullScreen, sal_Int32 nScreen)
 {
+    // only top-level windows can go fullscreen
     assert(m_pTopLevel);
 
-    if (isWindow())
-    {
-        QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
-        pWidget->show();
+    // show it if it isn't shown yet
+    if (!isWindow())
+        m_pTopLevel->show();
 
-        // do that before going fullscreen
-        SetScreenNumber(nScreen);
-        bFullScreen ? windowHandle()->showFullScreen() : windowHandle()->showNormal();
-    }
+    // do that before going fullscreen
+    SetScreenNumber(nScreen);
+    bFullScreen ? windowHandle()->showFullScreen() : windowHandle()->showNormal();
 }
 
 void Qt5Frame::StartPresentation(bool)
@@ -644,10 +649,152 @@ void Qt5Frame::EndExtTextInput(EndExtTextInputFlags /*nFlags*/)
     // TODO fwd to IM handler
 }
 
-OUString Qt5Frame::GetKeyName(sal_uInt16 /*nKeyCode*/)
+OUString Qt5Frame::GetKeyName(sal_uInt16 nKeyCode)
 {
-    // TODO retrieve key cap / modifier names
-    return OUString();
+    vcl::KeyCode vclKeyCode(nKeyCode);
+    int nCode = vclKeyCode.GetCode();
+    int nRetCode = 0;
+
+    if (nCode >= KEY_0 && nCode <= KEY_9)
+        nRetCode = (nCode - KEY_0) + Qt::Key_0;
+    else if (nCode >= KEY_A && nCode <= KEY_Z)
+        nRetCode = (nCode - KEY_A) + Qt::Key_A;
+    else if (nCode >= KEY_F1 && nCode <= KEY_F26)
+        nRetCode = (nCode - KEY_F1) + Qt::Key_F1;
+    else
+    {
+        switch (nCode)
+        {
+            case KEY_DOWN:
+                nRetCode = Qt::Key_Down;
+                break;
+            case KEY_UP:
+                nRetCode = Qt::Key_Up;
+                break;
+            case KEY_LEFT:
+                nRetCode = Qt::Key_Left;
+                break;
+            case KEY_RIGHT:
+                nRetCode = Qt::Key_Right;
+                break;
+            case KEY_HOME:
+                nRetCode = Qt::Key_Home;
+                break;
+            case KEY_END:
+                nRetCode = Qt::Key_End;
+                break;
+            case KEY_PAGEUP:
+                nRetCode = Qt::Key_PageUp;
+                break;
+            case KEY_PAGEDOWN:
+                nRetCode = Qt::Key_PageDown;
+                break;
+            case KEY_RETURN:
+                nRetCode = Qt::Key_Return;
+                break;
+            case KEY_ESCAPE:
+                nRetCode = Qt::Key_Escape;
+                break;
+            case KEY_TAB:
+                nRetCode = Qt::Key_Tab;
+                break;
+            case KEY_BACKSPACE:
+                nRetCode = Qt::Key_Backspace;
+                break;
+            case KEY_SPACE:
+                nRetCode = Qt::Key_Space;
+                break;
+            case KEY_INSERT:
+                nRetCode = Qt::Key_Insert;
+                break;
+            case KEY_DELETE:
+                nRetCode = Qt::Key_Delete;
+                break;
+            case KEY_ADD:
+                nRetCode = Qt::Key_Plus;
+                break;
+            case KEY_SUBTRACT:
+                nRetCode = Qt::Key_Minus;
+                break;
+            case KEY_MULTIPLY:
+                nRetCode = Qt::Key_Asterisk;
+                break;
+            case KEY_DIVIDE:
+                nRetCode = Qt::Key_Slash;
+                break;
+            case KEY_POINT:
+                nRetCode = Qt::Key_Period;
+                break;
+            case KEY_COMMA:
+                nRetCode = Qt::Key_Comma;
+                break;
+            case KEY_LESS:
+                nRetCode = Qt::Key_Less;
+                break;
+            case KEY_GREATER:
+                nRetCode = Qt::Key_Greater;
+                break;
+            case KEY_EQUAL:
+                nRetCode = Qt::Key_Equal;
+                break;
+            case KEY_FIND:
+                nRetCode = Qt::Key_Find;
+                break;
+            case KEY_CONTEXTMENU:
+                nRetCode = Qt::Key_Menu;
+                break;
+            case KEY_HELP:
+                nRetCode = Qt::Key_Help;
+                break;
+            case KEY_UNDO:
+                nRetCode = Qt::Key_Undo;
+                break;
+            case KEY_REPEAT:
+                nRetCode = Qt::Key_Redo;
+                break;
+            case KEY_TILDE:
+                nRetCode = Qt::Key_AsciiTilde;
+                break;
+            case KEY_QUOTELEFT:
+                nRetCode = Qt::Key_QuoteLeft;
+                break;
+            case KEY_BRACKETLEFT:
+                nRetCode = Qt::Key_BracketLeft;
+                break;
+            case KEY_BRACKETRIGHT:
+                nRetCode = Qt::Key_BracketRight;
+                break;
+            case KEY_SEMICOLON:
+                nRetCode = Qt::Key_Semicolon;
+                break;
+
+            // Special cases
+            case KEY_COPY:
+                nRetCode = Qt::Key_Copy;
+                break;
+            case KEY_CUT:
+                nRetCode = Qt::Key_Cut;
+                break;
+            case KEY_PASTE:
+                nRetCode = Qt::Key_Paste;
+                break;
+            case KEY_OPEN:
+                nRetCode = Qt::Key_Open;
+                break;
+        }
+    }
+
+    if (vclKeyCode.IsShift())
+        nRetCode += Qt::SHIFT;
+    if (vclKeyCode.IsMod1())
+        nRetCode += Qt::CTRL;
+    if (vclKeyCode.IsMod2())
+        nRetCode += Qt::ALT;
+
+    QKeySequence keySeq(nRetCode);
+    OUString sKeyName = toOUString(keySeq.toString());
+
+    return sKeyName;
 }
 
 bool Qt5Frame::MapUnicodeToKeyCode(sal_Unicode /*aUnicode*/, LanguageType /*aLangType*/,
@@ -839,7 +986,25 @@ void Qt5Frame::SetScreenNumber(unsigned int nScreen)
     {
         QWindow* const pWindow = windowHandle();
         if (pWindow)
-            pWindow->setScreen(QApplication::screens()[nScreen]);
+        {
+            QList<QScreen*> screens = QApplication::screens();
+            if (static_cast<int>(nScreen) < screens.size())
+            {
+                QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+                pWindow->setScreen(QApplication::screens()[nScreen]);
+
+                // setScreen by itself has no effect, explicitly move the widget to
+                // the new screen
+                QRect screenGeo = QApplication::desktop()->screenGeometry(nScreen);
+                pWidget->move(screenGeo.topLeft());
+            }
+            else
+            {
+                // index outta bounds, use primary screen
+                QScreen* primaryScreen = QApplication::primaryScreen();
+                pWindow->setScreen(primaryScreen);
+            }
+        }
     }
 }
 

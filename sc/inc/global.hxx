@@ -25,7 +25,7 @@
 #include <svx/svdtypes.hxx>
 #include <tools/ref.hxx>
 #include <sal/types.h>
-#include <com/sun/star/uno/Reference.hxx>
+#include <com/sun/star/i18n/CollatorOptions.hpp>
 #include "scdllapi.h"
 #include <rtl/ustring.hxx>
 
@@ -35,6 +35,8 @@
 #undef bool
 #include <map>
 #include <memory>
+
+namespace com { namespace sun { namespace star { namespace uno { template <typename > class Reference; } } } }
 
 class SfxItemSet;
 class SfxViewShell;
@@ -515,7 +517,7 @@ class ScGlobal
     static ScFunctionList*  pStarCalcFunctionList;
     static ScFunctionMgr*   pStarCalcFunctionMgr;
 
-    static ScUnitConverter* pUnitConverter;
+    static std::atomic<ScUnitConverter*> pUnitConverter;
 
     static  SvNumberFormatter*  pEnglishFormatter;          // for UNO / XML export
 

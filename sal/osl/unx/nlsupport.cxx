@@ -807,8 +807,8 @@ rtl_TextEncoding osl_getTextEncodingFromLocale( rtl_Locale * pLocale )
 
 void imp_getProcessLocale( rtl_Locale ** ppLocale )
 {
-    rtl::OUString loc16(macosx_getLocale());
-    rtl::OString locale;
+    OUString loc16(macosx_getLocale());
+    OString locale;
     if (!loc16.convertToString(
             &locale, RTL_TEXTENCODING_UTF8,
             (RTL_UNICODETOTEXT_FLAGS_UNDEFINED_ERROR
@@ -836,9 +836,11 @@ void imp_getProcessLocale( rtl_Locale ** ppLocale )
     /* return the locale */
     *ppLocale = parse_locale( locale.getStr() );
 
+#ifndef IOS
     setenv( "LC_ALL", locale.getStr(), 1);
     setenv("LC_CTYPE", locale.getStr(), 1 );
     setenv("LANG", locale.getStr(), 1 );
+#endif
 }
 #else
 /*****************************************************************************

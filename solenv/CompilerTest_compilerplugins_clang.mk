@@ -12,7 +12,9 @@ $(eval $(call gb_CompilerTest_CompilerTest,compilerplugins_clang))
 $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/badstatics \
     compilerplugins/clang/test/blockblock \
+    compilerplugins/clang/test/buriedassign \
     compilerplugins/clang/test/casttovoid \
+    compilerplugins/clang/test/collapseif \
     compilerplugins/clang/test/commaoperator \
     $(if $(filter-out WNT,$(OS)),compilerplugins/clang/test/constfields) \
     compilerplugins/clang/test/constparams \
@@ -50,7 +52,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/simplifybool \
     compilerplugins/clang/test/simplifyconstruct \
     compilerplugins/clang/test/simplifydynamiccast \
-    compilerplugins/clang/test/staticconstfield \
+    compilerplugins/clang/test/singlevalfields \
     compilerplugins/clang/test/staticvar \
     compilerplugins/clang/test/stringbuffer \
     compilerplugins/clang/test/stringconstant \

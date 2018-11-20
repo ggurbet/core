@@ -24,6 +24,7 @@
 #include <tools/svlibrary.h>
 
 #include <osl/module.h>
+#include <osl/diagnose.h>
 
 namespace svt
 {
@@ -104,15 +105,6 @@ namespace svt
             virtual css::uno::Reference< css::accessibility::XAccessibleContext >
                 createAccessibleTextWindowContext(
                     VCLXWindow* /*pVclXWindow*/, TextEngine& /*rEngine*/, TextView& /*rView*/
-                ) const override
-            {
-                return nullptr;
-            }
-
-            virtual css::uno::Reference< css::accessibility::XAccessible >
-                createAccessibleTreeListBox(
-                    SvTreeListBox& /*_rListBox*/,
-                    const css::uno::Reference< css::accessibility::XAccessible >& /*_xParent*/
                 ) const override
             {
                 return nullptr;

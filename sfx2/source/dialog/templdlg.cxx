@@ -28,6 +28,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <unotools/intlwrapper.hxx>
+#include <unotools/collatorwrapper.hxx>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
@@ -62,8 +63,8 @@
 #include <appdata.hxx>
 #include <sfx2/viewfrm.hxx>
 
-#include <svtools/svlbitm.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/svlbitm.hxx>
+#include <vcl/treelistentry.hxx>
 #include <comphelper/string.hxx>
 
 #include <sfx2/StyleManager.hxx>
@@ -1396,8 +1397,7 @@ IMPL_LINK_NOARG( SfxCommonTemplateDialog_Impl, TimeOut, Timer *, void )
             SfxTemplateItem *pState = pFamilyState[nActFamily-1].get();
             if(pState)
             {
-                const OUString aStyle(pState->GetStyleName());
-                SelectStyle(aStyle);
+                SelectStyle(pState->GetStyleName());
                 EnableDelete();
             }
         }

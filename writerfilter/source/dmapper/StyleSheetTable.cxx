@@ -1411,7 +1411,7 @@ OUString StyleSheetTable::ConvertStyleName( const OUString& rWWName, bool bExten
     // create a map only once
     if(m_pImpl->m_aStyleNameMap.empty())
     {
-        for( sal_uInt32 nPair = 0; nPair < SAL_N_ELEMENTS(aStyleNamePairs)/2; ++nPair)
+        for( size_t nPair = 0; nPair < SAL_N_ELEMENTS(aStyleNamePairs)/2; ++nPair)
         {
             OUString aFrom = OUString::createFromAscii(aStyleNamePairs[2 * nPair]);
             OUString aTo = OUString::createFromAscii(aStyleNamePairs[2 * nPair + 1]);
@@ -1535,11 +1535,8 @@ OUString StyleSheetTable::getOrCreateCharStyle( PropertyValueVector_t& rCharProp
         if( pStyleNames[nStyle].startsWith( cListLabel, &sSuffix ) )
         {
             sal_Int32 nSuffix = sSuffix.toInt32();
-            if( nSuffix > 0 )
-            {
-                if( nSuffix > nStyleFound )
-                    nStyleFound = nSuffix;
-            }
+            if( nSuffix > 0 && nSuffix > nStyleFound )
+                nStyleFound = nSuffix;
         }
     }
     sListLabel = cListLabel + OUString::number( ++nStyleFound );

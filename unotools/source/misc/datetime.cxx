@@ -18,12 +18,14 @@
  */
 
 #include <unotools/datetime.hxx>
+#include <unotools/syslocale.hxx>
 #include <tools/date.hxx>
 #include <tools/time.hxx>
 #include <tools/datetime.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/math.hxx>
 #include <osl/diagnose.h>
+#include <vcl/svapp.hxx>
 #include <sstream>
 
 namespace
@@ -193,6 +195,36 @@ namespace
 
 namespace utl
 {
+const LocaleDataWrapper& GetLocaleData()
+{
+    static SvtSysLocale ourSysLocale;
+    return ourSysLocale.GetLocaleData();
+}
+
+DateTime GetDateTime(const css::util::DateTime& _rDT) { return DateTime(_rDT); }
+
+OUString GetDateTimeString(const css::util::DateTime& _rDT)
+{
+    // String with date and time information (#i20172#)
+    DateTime aDT(GetDateTime(_rDT));
+    const LocaleDataWrapper& rLoDa = GetLocaleData();
+
+    return rLoDa.getDate(aDT) + " " + rLoDa.getTime(aDT);
+}
+
+OUString GetDateTimeString(sal_Int32 _nDate, sal_Int32 _nTime)
+{
+    const LocaleDataWrapper& rLoDa = GetLocaleData();
+
+    Date aDate(_nDate);
+    tools::Time aTime(_nTime * tools::Time::nanoPerCenti);
+    return rLoDa.getDate(aDate) + ", " + rLoDa.getTime(aTime);
+}
+
+OUString GetDateString(const css::util::DateTime& _rDT)
+{
+    return GetLocaleData().getDate(GetDateTime(_rDT));
+}
 
 void typeConvert(const Date& _rDate, css::util::Date& _rOut)
 {
@@ -280,7 +312,7 @@ bool ISO8601parseDateTime(const OUString &rString, css::util::DateTime& rDateTim
 {
     bool bSuccess = true;
 
-    rtl::OUString aDateStr, aTimeStr;
+    OUString aDateStr, aTimeStr;
     css::util::Date aDate;
     css::util::Time aTime;
     sal_Int32 nPos = rString.indexOf( 'T' );

@@ -393,11 +393,11 @@ void ScModule::Execute( SfxRequest& rReq )
                     FieldUnit eUnit = static_cast<FieldUnit>(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
                     switch( eUnit )
                     {
-                        case FUNIT_MM:      // Just the units that are also in the dialog
-                        case FUNIT_CM:
-                        case FUNIT_INCH:
-                        case FUNIT_PICA:
-                        case FUNIT_POINT:
+                        case FieldUnit::MM:      // Just the units that are also in the dialog
+                        case FieldUnit::CM:
+                        case FieldUnit::INCH:
+                        case FieldUnit::PICA:
+                        case FieldUnit::POINT:
                             {
                                 PutItem( *pItem );
                                 ScAppOptions aNewOpts( GetAppOptions() );
@@ -2095,7 +2095,7 @@ IMPL_LINK( ScModule, CalcFieldValueHdl, EditFieldInfo*, pInfo, void )
     if (const SvxURLField* pURLField = dynamic_cast<const SvxURLField*>(pField))
     {
         // URLField
-        OUString aURL = pURLField->GetURL();
+        const OUString& aURL = pURLField->GetURL();
 
         switch ( pURLField->GetFormat() )
         {

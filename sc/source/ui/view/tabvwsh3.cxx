@@ -337,7 +337,10 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                     if ( nResult & ScRefFlags::TAB_3D )
                     {
                         if( aScRange.aStart.Tab() != nTab )
-                            SetTabNo( nTab = aScRange.aStart.Tab() );
+                        {
+                            nTab = aScRange.aStart.Tab();
+                            SetTabNo( nTab );
+                        }
                     }
                     else
                     {
@@ -351,7 +354,10 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                     if ( nResult & ScRefFlags::TAB_3D )
                     {
                         if( aScAddress.Tab() != nTab )
-                            SetTabNo( nTab = aScAddress.Tab() );
+                        {
+                            nTab = aScAddress.Tab();
+                            SetTabNo( nTab );
+                        }
                     }
                     else
                         aScAddress.SetTab( nTab );
@@ -370,7 +376,10 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                     {
                         nResult |= ScRefFlags::VALID;
                         if( aScRange.aStart.Tab() != nTab )
-                            SetTabNo( nTab = aScRange.aStart.Tab() );
+                        {
+                            nTab = aScRange.aStart.Tab();
+                            SetTabNo( nTab );
+                        }
                     }
                 }
 
@@ -875,7 +884,10 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                 // special case: only hidden tables selected -> do nothing
                 bool bVisSelected = false;
                 for( nSelIx = 0; !bVisSelected && (nSelIx < nSelCount); ++nSelIx )
-                    bVisSelected = rDoc.IsVisible( nFirstVisTab = static_cast<SCTAB>(aIndexList[nSelIx]) );
+                {
+                    nFirstVisTab = static_cast<SCTAB>(aIndexList[nSelIx]);
+                    bVisSelected = rDoc.IsVisible( nFirstVisTab );
+                }
                 if( !bVisSelected )
                     nSelCount = 0;
 
@@ -1055,7 +1067,7 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                         aDlg.set_help_id(GetStaticInterface()->GetSlot(FID_PROTECT_DOC)->GetCommand());
                         aDlg.SetEditHelpId(HID_PASSWD_DOC);
 
-                        if (aDlg.execute() == RET_OK)
+                        if (aDlg.run() == RET_OK)
                             aPassword = aDlg.GetPassword();
                         else
                             bCancel = true;
@@ -1079,7 +1091,7 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                     aDlg.ShowExtras(SfxShowExtras::CONFIRM);
                     aDlg.SetConfirmHelpId(HID_PASSWD_DOC_CONFIRM);
 
-                    if (aDlg.execute() == RET_OK)
+                    if (aDlg.run() == RET_OK)
                     {
                         OUString aPassword = aDlg.GetPassword();
                         Protect( TABLEID_DOC, aPassword );
@@ -1125,7 +1137,7 @@ void ScTabViewShell::Execute( SfxRequest& rReq )
                     aDlg.set_help_id(GetStaticInterface()->GetSlot(FID_PROTECT_TABLE)->GetCommand());
                     aDlg.SetEditHelpId(HID_PASSWD_TABLE);
 
-                    if (aDlg.execute() == RET_OK)
+                    if (aDlg.run() == RET_OK)
                     {
                         OUString aPassword = aDlg.GetPassword();
                         Unprotect(nTab, aPassword);

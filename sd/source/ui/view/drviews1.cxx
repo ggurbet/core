@@ -211,7 +211,7 @@ void DrawViewShell::SelectionHasChanged()
             }
             else
             {
-                uno::Reference < embed::XEmbeddedObject > xObj = pOleObj->GetObjRef();
+                const uno::Reference < embed::XEmbeddedObject >& xObj = pOleObj->GetObjRef();
                 if ( xObj.is() )
                 {
                     rBase.SetVerbs( xObj->getSupportedVerbs() );
@@ -226,7 +226,7 @@ void DrawViewShell::SelectionHasChanged()
         {
             if ( pOleObj )
             {
-                uno::Reference < embed::XEmbeddedObject > xObj = pOleObj->GetObjRef();
+                const uno::Reference < embed::XEmbeddedObject >& xObj = pOleObj->GetObjRef();
                 if ( xObj.is() )
                 {
                     rBase.SetVerbs( xObj->getSupportedVerbs() );
@@ -343,6 +343,12 @@ void DrawViewShell::ChangeEditMode(EditMode eEMode, bool bIsLayerModeActive)
 
         sal_uInt16 nActualPageId = maTabControl->GetPageId(0);
 
+        if (mePageKind == PageKind::Handout)
+        {
+            // at handouts only allow MasterPage
+            eEMode = EditMode::MasterPage;
+        }
+
         GetViewShellBase().GetDrawController().FireChangeEditMode (eEMode == EditMode::MasterPage);
         GetViewShellBase().GetDrawController().FireChangeLayerMode (bIsLayerModeActive);
 
@@ -355,12 +361,6 @@ void DrawViewShell::ChangeEditMode(EditMode eEMode, bool bIsLayerModeActive)
         if (pLayerBar != nullptr)
             pLayerBar->EndEditMode();
         maTabControl->EndEditMode();
-
-        if (mePageKind == PageKind::Handout)
-        {
-            // at handouts only allow MasterPage
-            eEMode = EditMode::MasterPage;
-        }
 
         GetViewShellBase().GetDrawController().BroadcastContextChange();
 

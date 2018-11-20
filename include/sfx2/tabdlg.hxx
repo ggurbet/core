@@ -121,6 +121,7 @@ protected:
      */
     void SavePosAndId();
 
+    void SetPageName(sal_uInt16 nPageId, const OString& rName) const;
 public:
     SfxTabDialog(vcl::Window* pParent,
                  const OUString& rID, const OUString& rUIXMLDescription,
@@ -139,9 +140,6 @@ public:
                                     const OUString &rRiderText,
                                     CreateTabPage pCreateFunc,      // != 0
                                     sal_uInt16 nPos = TAB_APPEND);
-
-    void                AddTabPage( sal_uInt16 nId,
-                                    const OUString &rRiderText);
 
     void                RemoveTabPage( const OString& rName ); // Name of the label for the page in the notebook .ui
     void                RemoveTabPage( sal_uInt16 nId );
@@ -183,11 +181,9 @@ public:
     const CancelButton& GetCancelButton() const { return *m_pCancelBtn; }
     CancelButton&       GetCancelButton() { return *m_pCancelBtn; }
 
-    void                RemoveResetButton();
     void                RemoveStandardButton();
 
     short               Execute() override;
-    void                StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl ) override;
     bool                StartExecuteAsync( VclAbstractDialog::AsyncContext &rCtx ) override;
     void                Start();
 
@@ -234,6 +230,7 @@ private:
 
     DECL_DLLPRIVATE_LINK(ActivatePageHdl, const OString&, void);
     DECL_DLLPRIVATE_LINK(DeactivatePageHdl, const OString&, bool);
+    SAL_DLLPRIVATE void Start_Impl();
     SAL_DLLPRIVATE void CreatePages();
     SAL_DLLPRIVATE void setPreviewsToSamePlace();
 
@@ -255,8 +252,6 @@ protected:
     /** save the position of the TabDialog and which tab page is the currently active one
      */
     void SavePosAndId();
-
-    void Start_Impl();
 public:
     SfxTabDialogController(weld::Window* pParent, const OUString& rUIXMLDescription, const OString& rID,
                            const SfxItemSet * = nullptr, bool bEditFmt = false);
@@ -271,8 +266,7 @@ public:
 
     void                AddTabPage(const OString& rName,           // Name of the label for the new page to create
                                    const OUString& rLabel,         // UI Label for the new page to create
-                                   CreateTabPage pCreateFunc,      // != 0
-                                   GetTabPageRanges pRangesFunc);  // can be 0
+                                   CreateTabPage pCreateFunc);     // != 0
 
     void                AddTabPage(const OString& rName,           // Name of the label for the new page to create
                                    const OUString& rLabel,         // UI Label for the new page to create
@@ -299,7 +293,7 @@ public:
     void                RemoveResetButton();
     void                RemoveStandardButton();
 
-    short               execute();
+    virtual short       run() override;
     static bool runAsync(const std::shared_ptr<SfxTabDialogController>& rController,
                          const std::function<void(sal_Int32)>&);
 

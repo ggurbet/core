@@ -1733,10 +1733,8 @@ void ScInterpreter::ScSumXMY2()
     if ( !MustHaveParamCount( GetByte(), 2 ) )
         return;
 
-    ScMatrixRef pMat1 = nullptr;
-    ScMatrixRef pMat2 = nullptr;
-    pMat2 = GetMatrix();
-    pMat1 = GetMatrix();
+    ScMatrixRef pMat2 = GetMatrix();
+    ScMatrixRef pMat1 = GetMatrix();
     if (!pMat2 || !pMat1)
     {
         PushIllegalParameter();
@@ -1863,8 +1861,11 @@ double lcl_GetColumnMaximumNorm(const ScMatrixRef& pMatA, SCSIZE nC, SCSIZE nR, 
 {
     double fNorm = 0.0;
     for (SCSIZE row=nR; row<nN; row++)
-        if (fNorm < fabs(pMatA->GetDouble(nC,row)))
-            fNorm = fabs(pMatA->GetDouble(nC,row));
+    {
+        double fVal = fabs(pMatA->GetDouble(nC,row));
+        if (fNorm < fVal)
+            fNorm = fVal;
+    }
     return fNorm;
 }
 
@@ -1874,8 +1875,11 @@ double lcl_TGetColumnMaximumNorm(const ScMatrixRef& pMatA, SCSIZE nR, SCSIZE nC,
 {
     double fNorm = 0.0;
     for (SCSIZE col=nC; col<nN; col++)
-        if (fNorm < fabs(pMatA->GetDouble(col,nR)))
-            fNorm = fabs(pMatA->GetDouble(col,nR));
+    {
+        double fVal = fabs(pMatA->GetDouble(col,nR));
+        if (fNorm < fVal)
+            fNorm = fVal;
+    }
     return fNorm;
 }
 

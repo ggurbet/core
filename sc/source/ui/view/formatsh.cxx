@@ -842,9 +842,12 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
 
                 pTabViewShell->SetInFormatDialog(true);
 
+                SfxItemSet& rStyleSet = pStyleSheet->GetItemSet();
+                rStyleSet.MergeRange( XATTR_FILL_FIRST, XATTR_FILL_LAST );
+
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                pDlg.disposeAndReset(pFact->CreateScStyleDlg(rReq.GetFrameWeld(), *pStyleSheet, bPage));
+                pDlg.disposeAndReset(pFact->CreateScStyleDlg(pTabViewShell->GetFrameWeld(), *pStyleSheet, bPage));
                 short nResult = pDlg->Execute();
                 pTabViewShell->SetInFormatDialog(false);
 
@@ -1965,7 +1968,7 @@ void ScFormatShell::ExecuteAttr( SfxRequest& rReq )
             // ATTR_BACKGROUND (=SID_ATTR_BRUSH) has to be set to two IDs:
             case SID_BACKGROUND_COLOR:
                 {
-                    const SvxColorItem  rNewColorItem = pNewAttrs->Get( SID_BACKGROUND_COLOR );
+                    const SvxColorItem&  rNewColorItem = pNewAttrs->Get( SID_BACKGROUND_COLOR );
 
                     SvxBrushItem        aBrushItem(
                                             pTabViewShell->GetSelectionPattern()->
@@ -2000,9 +2003,8 @@ void ScFormatShell::ExecuteAttr( SfxRequest& rReq )
             break;
         }
 
-        if( ! rReq.IsAPI() )
-            if( ! rReq.IsDone() )
-                rReq.Done();
+        if( ! rReq.IsAPI() && ! rReq.IsDone() )
+            rReq.Done();
     }
 }
 
@@ -2020,7 +2022,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
     SvtScriptType nScript = SvtScriptType::NONE;      // GetSelectionScriptType never returns 0
     if ( rSet.GetItemState( ATTR_FONT ) != SfxItemState::UNKNOWN )
     {
-        if (nScript == SvtScriptType::NONE) nScript = pTabViewShell->GetSelectionScriptType();
+        nScript = pTabViewShell->GetSelectionScriptType();
         ScViewUtil::PutItemScript( rSet, rAttrSet, ATTR_FONT, nScript );
     }
     if ( rSet.GetItemState( ATTR_FONT_HEIGHT ) != SfxItemState::UNKNOWN )
@@ -2237,7 +2239,7 @@ void ScFormatShell::GetTextAttrState( SfxItemSet& rSet )
     SvtScriptType nScript = SvtScriptType::NONE;      // GetSelectionScriptType never returns 0
     if ( rSet.GetItemState( ATTR_FONT_WEIGHT ) != SfxItemState::UNKNOWN )
     {
-        if (nScript == SvtScriptType::NONE) nScript = pTabViewShell->GetSelectionScriptType();
+        nScript = pTabViewShell->GetSelectionScriptType();
         ScViewUtil::PutItemScript( rSet, rAttrSet, ATTR_FONT_WEIGHT, nScript );
     }
     if ( rSet.GetItemState( ATTR_FONT_POSTURE ) != SfxItemState::UNKNOWN )

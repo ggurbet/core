@@ -113,11 +113,6 @@ class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
 
     VclPtr<vcl::Window>   mpWin;     ///< = 0 during printing or pdf export
     VclPtr<OutputDevice>  mpOut;     ///< Window, Printer, VirtDev, ...
-    VclPtr<OutputDevice>  mpTmpRef;  // Temporary reference device. Is used
-                                     // during (printer depending) prospect
-                                     // and page preview printing
-                                     // (because a scaling has to be set at
-                                     // the original printer)
 
     std::unique_ptr<SwViewOption> mpOpt;
     std::unique_ptr<SwAccessibilityOptions> mpAccOptions;
@@ -170,7 +165,7 @@ class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
 protected:
     static ShellResource*      mpShellRes;      ///< Resources for the Shell.
     static vcl::DeleteOnDeinit< VclPtr<vcl::Window> > mpCareWindow;    ///< Avoid this window.
-    static vcl::DeleteOnDeinit< std::shared_ptr<weld::Dialog> > mpCareDialog;    ///< Avoid this window.
+    static vcl::DeleteOnDeinit< std::shared_ptr<weld::Window> > mpCareDialog;    ///< Avoid this window.
 
     SwRect                  maVisArea;       ///< The modern version of VisArea.
     rtl::Reference<SwDoc>   mxDoc;          ///< The document; never 0.
@@ -432,12 +427,12 @@ public:
     static ShellResource* GetShellRes();
 
     static void           SetCareWin( vcl::Window* pNew );
-    static vcl::Window*   GetCareWin(SwViewShell const & rVSh)
-                          { return (*mpCareWindow.get()) ? mpCareWindow.get()->get() : CareChildWin(rVSh); }
-    static vcl::Window*   CareChildWin(SwViewShell const & rVSh);
-    static void           SetCareDialog(const std::shared_ptr<weld::Dialog>& rNew);
-    static weld::Dialog*  GetCareDialog()
-                          { return (*mpCareDialog.get()) ? mpCareDialog.get()->get() : nullptr; }
+    static vcl::Window*   GetCareWin()
+                          { return (*mpCareWindow.get()) ? mpCareWindow.get()->get() : nullptr; }
+    static weld::Window*   CareChildWin(SwViewShell const & rVSh);
+    static void           SetCareDialog(const std::shared_ptr<weld::Window>& rNew);
+    static weld::Window*  GetCareDialog(SwViewShell const & rVSh)
+                          { return (*mpCareDialog.get()) ? mpCareDialog.get()->get() : CareChildWin(rVSh); }
 
     SfxViewShell   *GetSfxViewShell() const { return mpSfxViewShell; }
     void           SetSfxViewShell(SfxViewShell *pNew) { mpSfxViewShell = pNew; }

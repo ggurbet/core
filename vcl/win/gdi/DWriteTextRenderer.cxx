@@ -272,7 +272,7 @@ bool D2DWriteTextOutRenderer::performRender(GenericSalLayout const & rLayout, Sa
         return false;
 
     tools::Rectangle bounds;
-    bool succeeded = rLayout.GetBoundRect(rGraphics, bounds);
+    bool succeeded = rLayout.GetBoundRect(bounds);
     if (succeeded)
     {
         hr = BindDC(hDC, bounds);   // Update the bounding rect.
@@ -296,8 +296,8 @@ bool D2DWriteTextOutRenderer::performRender(GenericSalLayout const & rLayout, Sa
         const GlyphItem* pGlyph;
         while (rLayout.GetNextGlyph(&pGlyph, aPos, nStart))
         {
-            UINT16 glyphIndices[] = { pGlyph->maGlyphId };
-            FLOAT glyphAdvances[] = { static_cast<FLOAT>(pGlyph->mnNewWidth) };
+            UINT16 glyphIndices[] = { pGlyph->m_aGlyphId };
+            FLOAT glyphAdvances[] = { static_cast<FLOAT>(pGlyph->m_nNewWidth) };
             DWRITE_GLYPH_OFFSET glyphOffsets[] = { { 0.0f, 0.0f }, };
             D2D1_POINT_2F baseline = { static_cast<FLOAT>(aPos.X() - bounds.Left()), static_cast<FLOAT>(aPos.Y() - bounds.Top()) };
             DWRITE_GLYPH_RUN glyphs = {

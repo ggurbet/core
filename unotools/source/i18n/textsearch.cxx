@@ -263,6 +263,16 @@ bool TextSearch::SearchForward( const OUString &rStr,
     return bRet;
 }
 
+bool TextSearch::searchForward( const OUString &rStr )
+{
+    sal_Int32 pStart = 0;
+    sal_Int32 pEnd = rStr.getLength();
+
+    bool bResult = SearchForward(rStr, &pStart, &pEnd);
+
+    return bResult;
+}
+
 bool TextSearch::SearchBackward( const OUString & rStr, sal_Int32* pStart,
                                 sal_Int32* pEnde, SearchResult* pRes )
 {
@@ -329,7 +339,11 @@ void TextSearch::ReplaceBackReferences( OUString& rReplaceStr, const OUString &r
                         {
                             sal_Int32 nSttReg = rResult.startOffset[j];
                             sal_Int32 nRegLen = rResult.endOffset[j];
-                            if( nRegLen > nSttReg )
+                            if (nSttReg < 0 || nRegLen < 0) // A "not found" optional capture
+                            {
+                                nSttReg = nRegLen = 0; // Copy empty string
+                            }
+                            else if (nRegLen >= nSttReg)
                             {
                                 nRegLen = nRegLen - nSttReg;
                             }

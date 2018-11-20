@@ -35,8 +35,8 @@ SwEnvPrtPage::SwEnvPrtPage(TabPageParent pParent, const SfxItemSet& rSet)
     , m_xLower(m_xBuilder->weld_widget("lower"))
     , m_xTopButton(m_xBuilder->weld_radio_button("top"))
     , m_xBottomButton(m_xBuilder->weld_radio_button("bottom"))
-    , m_xRightField(m_xBuilder->weld_metric_spin_button("right", FUNIT_CM))
-    , m_xDownField(m_xBuilder->weld_metric_spin_button("down", FUNIT_CM))
+    , m_xRightField(m_xBuilder->weld_metric_spin_button("right", FieldUnit::CM))
+    , m_xDownField(m_xBuilder->weld_metric_spin_button("down", FieldUnit::CM))
     , m_xPrinterInfo(m_xBuilder->weld_label("printername"))
     , m_xPrtSetup(m_xBuilder->weld_button("setup"))
     , m_aIdsL { m_xBuilder->weld_radio_button("horileftl"),
@@ -120,7 +120,7 @@ IMPL_LINK(SwEnvPrtPage, ButtonHdl, weld::Button&, rBtn, void)
         {
             PrinterSetupDialog aDlg(GetDialogFrameWeld());
             aDlg.SetPrinter(m_xPrt);
-            aDlg.execute();
+            aDlg.run();
             rBtn.grab_focus();
             m_xPrinterInfo->set_label(m_xPrt->GetName());
         }

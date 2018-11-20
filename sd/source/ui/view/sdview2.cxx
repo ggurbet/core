@@ -21,12 +21,12 @@
 
 #include <vector>
 #include <com/sun/star/embed/XEmbedPersist.hpp>
+#include <comphelper/sequenceashashmap.hxx>
 #include <tools/urlobj.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdograf.hxx>
 #include <vcl/graph.hxx>
-#include <svx/xexch.hxx>
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
 #include <sfx2/docfile.hxx>
@@ -349,7 +349,7 @@ void View::StartDrag( const Point& rStartPos, vcl::Window* pWindow )
 
         if( pDrawViewShell )
         {
-            rtl::Reference<FuPoor> xFunction( pDrawViewShell->GetCurrentFunction() );
+            const rtl::Reference<FuPoor>& xFunction( pDrawViewShell->GetCurrentFunction() );
 
             if( xFunction.is() && nullptr != dynamic_cast< const FuDraw *>( xFunction.get() ) )
                 static_cast<FuDraw*>(xFunction.get())->ForcePointer();
@@ -666,14 +666,19 @@ sal_Int8 View::ExecuteDrop( const ExecuteDropEvent& rEvt,
                     {
                         if(pIAOHandle->getOverlayObjectList().isHitPixel(rEvt.maPosPixel))
                         {
-                            ::tools::SvRef<SotStorageStream> xStm;
-
-                            if( aDataHelper.GetSotStorageStream( SotClipboardFormatId::XFA, xStm ) && xStm.is() )
+                            uno::Any const data(aDataHelper.GetAny(SotClipboardFormatId::XFA, ""));
+                            uno::Sequence<beans::NamedValue> props;
+                            if (data >>= props)
                             {
-                                XFillExchangeData aFillData( XFillAttrSetItem( &mrDoc.GetPool() ) );
-
-                                ReadXFillExchangeData( *xStm, aFillData );
-                                const Color aColor( aFillData.GetXFillAttrSetItem()->GetItemSet().Get( XATTR_FILLCOLOR ).GetColorValue() );
+                                ::comphelper::SequenceAsHashMap const map(props);
+                                Color aColor(COL_BLACK);
+                                auto const it = map.find("FillColor");
+                                if (it != map.end())
+                                {
+                                    XFillColorItem color;
+                                    color.PutValue(it->second, 0);
+                                    aColor = color.GetColorValue();
+                                }
                                 static_cast< SdrHdlColor* >( pIAOHandle )->SetColor( aColor, true );
                                 nRet = nDropAction;
                             }
@@ -804,7 +809,7 @@ IMPL_LINK( View, ExecuteNavigatorDrop, void*, p, void )
         if( pSdNavigatorDropEvent->mpTargetWindow )
             aPos = pSdNavigatorDropEvent->mpTargetWindow->PixelToLogic( pSdNavigatorDropEvent->maPosPixel );
 
-        const OUString aURL( aINetBookmark.GetURL() );
+        const OUString& aURL( aINetBookmark.GetURL() );
         sal_Int32 nIndex = aURL.indexOf( '#' );
         if( nIndex != -1 )
             aBookmark = aURL.copy( nIndex+1 );

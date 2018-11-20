@@ -22,25 +22,18 @@
 #include <scitems.hxx>
 #include <formulacell.hxx>
 #include <document.hxx>
-#include <docpool.hxx>
 #include <drwlayer.hxx>
 #include <attarray.hxx>
 #include <patattr.hxx>
 #include <cellform.hxx>
-#include <stlsheet.hxx>
-#include <rechead.hxx>
-#include <brdcst.hxx>
 #include <editutil.hxx>
 #include <subtotal.hxx>
 #include <markdata.hxx>
-#include <compiler.hxx>
-#include <dbdata.hxx>
 #include <fillinfo.hxx>
 #include <segmenttree.hxx>
 #include <docparam.hxx>
 #include <cellvalue.hxx>
 #include <tokenarray.hxx>
-#include <globalnames.hxx>
 #include <formulagroup.hxx>
 #include <listenercontext.hxx>
 #include <mtvcellfunc.hxx>
@@ -57,9 +50,7 @@
 #include <editeng/editstat.hxx>
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/fhgtitem.hxx>
-#include <editeng/forbiddencharacterstable.hxx>
 #include <svx/rotmodit.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <editeng/unolingu.hxx>
 #include <editeng/justifyitem.hxx>
 #include <svl/zforlist.hxx>
@@ -727,13 +718,10 @@ sal_uInt16 ScColumn::GetOptimalColWidth(
                     pOldPattern = pPattern;
                     sal_uInt16 nThis = static_cast<sal_uInt16>(GetNeededSize(
                         nRow, pDev, nPPTX, nPPTY, rZoomX, rZoomY, true, aOptions, &pOldPattern));
-                    if (nThis)
+                    if (nThis && (nThis > nWidth || !bFound))
                     {
-                        if (nThis > nWidth || !bFound)
-                        {
-                            nWidth = nThis;
-                            bFound = true;
-                        }
+                        nWidth = nThis;
+                        bFound = true;
                     }
                 }
             }
@@ -2914,8 +2902,11 @@ void ScColumn::SetFormulaResults( SCROW nRow, const double* pResults, size_t nLe
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
     sc::CellStoreType::iterator it = aPos.first;
     if (it->type != sc::element_type_formula)
+    {
         // This is not a formula block.
+        assert( false );
         return;
+    }
 
     size_t nBlockLen = it->size - aPos.second;
     if (nBlockLen < nLen)
@@ -2946,8 +2937,11 @@ void ScColumn::CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, si
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
     sc::CellStoreType::iterator it = aPos.first;
     if (it->type != sc::element_type_formula)
+    {
         // This is not a formula block.
+        assert( false );
         return;
+    }
 
     size_t nBlockLen = it->size - aPos.second;
     if (nBlockLen < nLen)
@@ -2974,8 +2968,11 @@ void ScColumn::HandleStuffAfterParallelCalculation( SCROW nRow, size_t nLen )
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
     sc::CellStoreType::iterator it = aPos.first;
     if (it->type != sc::element_type_formula)
+    {
         // This is not a formula block.
+        assert( false );
         return;
+    }
 
     size_t nBlockLen = it->size - aPos.second;
     if (nBlockLen < nLen)
@@ -3471,48 +3468,91 @@ namespace {
 
 class WeightedCounter
 {
-    size_t mnCount;
+    sal_uLong mnCount;
 public:
     WeightedCounter() : mnCount(0) {}
 
     void operator() (const sc::CellStoreType::value_type& node)
     {
+        mnCount += getWeight(node);
+    }
+
+    static sal_uLong getWeight(const sc::CellStoreType::value_type& node)
+    {
         switch (node.type)
         {
             case sc::element_type_numeric:
             case sc::element_type_string:
-                mnCount += node.size;
+                return node.size;
             break;
             case sc::element_type_formula:
             {
+                size_t nCount = 0;
                 // Each formula cell is worth its code length plus 5.
                 sc::formula_block::const_iterator it = sc::formula_block::begin(*node.data);
                 sc::formula_block::const_iterator itEnd = sc::formula_block::end(*node.data);
                 for (; it != itEnd; ++it)
                 {
                     const ScFormulaCell* p = *it;
-                    mnCount += 5 + p->GetCode()->GetCodeLen();
+                    nCount += 5 + p->GetCode()->GetCodeLen();
                 }
+
+                return nCount;
             }
             break;
             case sc::element_type_edittext:
                 // each edit-text cell is worth 50.
-                mnCount += node.size * 50;
+                return node.size * 50;
             break;
             default:
-                ;
+                return 0;
         }
     }
 
-    size_t getCount() const { return mnCount; }
+    sal_uLong getCount() const { return mnCount; }
+};
+
+class WeightedCounterWithRows
+{
+    const SCROW mnStartRow;
+    const SCROW mnEndRow;
+    sal_uLong mnCount;
+
+public:
+    WeightedCounterWithRows(SCROW nStartRow, SCROW nEndRow)
+        : mnStartRow(nStartRow)
+        , mnEndRow(nEndRow)
+        , mnCount(0)
+    {
+    }
+
+    void operator() (const sc::CellStoreType::value_type& node)
+    {
+        const SCROW nRow1 = node.position;
+        const SCROW nRow2 = nRow1 + 1;
+
+        if (! ((nRow2 < mnStartRow) || (nRow1 > mnEndRow)))
+        {
+            mnCount += WeightedCounter::getWeight(node);
+        }
+    }
+
+    sal_uLong getCount() const { return mnCount; }
 };
 
 }
 
-sal_uInt32 ScColumn::GetWeightedCount() const
+sal_uLong ScColumn::GetWeightedCount() const
 {
-    WeightedCounter aFunc;
-    std::for_each(maCells.begin(), maCells.end(), aFunc);
+    const WeightedCounter aFunc = std::for_each(maCells.begin(), maCells.end(),
+        WeightedCounter());
+    return aFunc.getCount();
+}
+
+sal_uLong ScColumn::GetWeightedCount(SCROW nStartRow, SCROW nEndRow) const
+{
+    const WeightedCounterWithRows aFunc = std::for_each(maCells.begin(), maCells.end(),
+        WeightedCounterWithRows(nStartRow, nEndRow));
     return aFunc.getCount();
 }
 

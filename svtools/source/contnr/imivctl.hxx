@@ -156,7 +156,6 @@ class SvxIconChoiceCtrl_Impl
     VclPtr<ScrollBarBox>    aScrBarBox;
     tools::Rectangle               aCurSelectionRect;
     std::vector<tools::Rectangle> aSelectedRectList;
-    Idle                    aEditIdle;                 // for editing in place
     Idle                    aAutoArrangeIdle;
     Idle                    aDocRectChangedIdle;
     Idle                    aVisRectChangedIdle;
@@ -172,13 +171,11 @@ class SvxIconChoiceCtrl_Impl
     long                    nMaxVirtHeight; // max. height aVirtOutputSize for ALIGN_LEFT
     std::vector< SvxIconChoiceCtrlEntry* > maZOrderList;
     std::unique_ptr<SvxIconChoiceCtrlColumnInfoMap> m_pColumns;
-    VclPtr<IcnViewEdit_Impl>   pEdit;
     WinBits                 nWinBits;
     long                    nMaxBoundHeight;            // height of highest BoundRects
     IconChoiceFlags         nFlags;
     DrawTextFlags           nCurTextDrawFlags;
     ImplSVEvent *           nUserEventAdjustScrBars;
-    ImplSVEvent *           nUserEventShowCursor;
     SvxIconChoiceCtrlEntry* pCurHighlightFrame;
     bool                    bHighlightFramePressed;
     SvxIconChoiceCtrlEntry* pHead;                      // top left entry
@@ -199,7 +196,6 @@ class SvxIconChoiceCtrl_Impl
     SvxIconChoiceCtrlPositionMode ePositionMode;
     bool                    bBoundRectsDirty;
     bool                    bUpdateMode;
-    bool                    bEntryEditingEnabled;
 
     void                ShowCursor( bool bShow );
 
@@ -210,7 +206,6 @@ class SvxIconChoiceCtrl_Impl
 
                         DECL_LINK( ScrollUpDownHdl, ScrollBar*, void );
                         DECL_LINK( ScrollLeftRightHdl, ScrollBar*, void );
-                        DECL_LINK( EditTimeoutHdl, Timer *, void);
                         DECL_LINK( UserEventHdl, void*, void );
                         DECL_LINK( AutoArrangeHdl, Timer*, void );
                         DECL_LINK( DocRectChangedHdl, Timer*, void );
@@ -236,8 +231,6 @@ class SvxIconChoiceCtrl_Impl
     void                ToggleSelection( SvxIconChoiceCtrlEntry* );
     void                DeselectAllBut( SvxIconChoiceCtrlEntry const * );
     void                Center( SvxIconChoiceCtrlEntry* pEntry ) const;
-    void                StopEditTimer() { aEditIdle.Stop(); }
-    void                StartEditTimer() { aEditIdle.Start(); }
     void                CallSelectHandler();
     void                SelectRect(
                             SvxIconChoiceCtrlEntry* pEntry1,
@@ -419,7 +412,6 @@ public:
                             std::vector<tools::Rectangle>* pOtherRects
                         );
 
-    bool               IsTextHit( SvxIconChoiceCtrlEntry* pEntry, const Point& rDocPos );
     void               MakeVisible(
                             const tools::Rectangle& rDocPos,
                             bool bInScrollBarEvent=false
@@ -432,8 +424,6 @@ public:
                         );
 #endif
     bool                IsEntryEditing() const { return (pCurEditedEntry!=nullptr); }
-    void                EditEntry( SvxIconChoiceCtrlEntry* pEntry );
-    void                StopEntryEditing();
     size_t              GetEntryCount() const { return aEntries.size(); }
     SvxIconChoiceCtrlEntry* GetEntry( size_t nPos )
                             {

@@ -36,6 +36,7 @@
 #include <com/sun/star/script/provider/theMasterScriptProviderFactory.hpp>
 #include <com/sun/star/script/provider/XScriptProviderSupplier.hpp>
 #include <com/sun/star/script/provider/XScriptProvider.hpp>
+#include <com/sun/star/io/XInputStreamProvider.hpp>
 
 #include <basic/basicmanagerrepository.hxx>
 #include <basic/basmgr.hxx>
@@ -185,7 +186,7 @@ void BasicScriptListener_Impl::firing_impl( const ScriptEvent& aScriptEvent, Any
         if( comphelper::string::getTokenCount(aMacro, '.') == 3 )
         {
             sal_Int32 nLast = 0;
-            OUString aFullLibName = aMacro.getToken( sal_Int32(0), '.', nLast );
+            OUString aFullLibName = aMacro.getToken( 0, '.', nLast );
 
             sal_Int32 nIndex = aFullLibName.indexOf( ':' );
             if (nIndex >= 0)

@@ -1699,7 +1699,7 @@ static void InsertSpecialChar( WW8Export& rWrt, sal_uInt8 c,
 
 static OUString lcl_GetExpandedField(const SwField &rField)
 {
-    OUString sRet(rField.ExpandField(true));
+    OUString sRet(rField.ExpandField(true, nullptr));
 
     //replace LF 0x0A with VT 0x0B
     return sRet.replace(0x0A, 0x0B);
@@ -2030,7 +2030,7 @@ void AttributeOutputBase::GenerateBookmarksForSequenceField(const SwTextNode& rN
                                 {
                                     // Need to create a separate run for separator character
                                     SwWW8AttrIter aLocalAttrIter( GetExport(), rNode ); // We need a local iterator having the right number of runs
-                                    const OUString aText = rNode.GetText();
+                                    const OUString& aText = rNode.GetText();
                                     const sal_Int32 nCategoryStart = aText.indexOf(pRefField->GetSetRefName());
                                     const sal_Int32 nPosBeforeSeparator = std::max(nCategoryStart, pHt->GetStart());
                                     bool bCategoryFirst = nCategoryStart < pHt->GetStart();
@@ -2210,7 +2210,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                 if(SwTOXElement::IndexEntryType & pTOX->GetCreateType())
                 {
                     sStr += "\\f ";
-                    OUString sName = pTOX->GetEntryTypeName();
+                    const OUString& sName = pTOX->GetEntryTypeName();
                     if(!sName.isEmpty())
                     {
                        sStr += sName;
@@ -2248,7 +2248,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                     sStr = FieldString(eCode);
 
                     sStr += "\\c ";
-                    OUString seqName = pTOX->GetSequenceName();
+                    const OUString& seqName = pTOX->GetSequenceName();
                     if(!seqName.isEmpty())
                     {
                         sStr += "\"";
@@ -2311,7 +2311,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                     if(SwTOXElement::Bookmark & pTOX->GetCreateType())
                     {
                         sStr += "\\b \"";
-                        OUString bName = pTOX->GetBookmarkName();
+                        const OUString& bName = pTOX->GetBookmarkName();
                         sStr += bName;
                         sStr += sEntryEnd;
                     }
@@ -2993,7 +2993,7 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
     case SwFieldIds::TableOfAuthorities:
     {
         OUString sRet(static_cast<SwAuthorityField const*>(pField)
-                        ->ExpandCitation(AUTH_FIELD_IDENTIFIER));
+                        ->ExpandCitation(AUTH_FIELD_IDENTIFIER, nullptr));
         // FIXME: DomainMapper_Impl::CloseFieldCommand() stuffs fully formed
         // field instructions in here, but if the field doesn't originate
         // from those filters it won't have that
@@ -4709,8 +4709,8 @@ void AttributeOutputBase::ParaLineSpacing( const SvxLineSpacingItem& rSpacing )
 void WW8AttributeOutput::ParaAdjust( const SvxAdjustItem& rAdjust )
 {
     // sprmPJc
-    sal_uInt8 nAdj = 255;
-    sal_uInt8 nAdjBiDi = 255;
+    sal_uInt8 nAdj;
+    sal_uInt8 nAdjBiDi;
     switch ( rAdjust.GetAdjust() )
     {
         case SvxAdjust::Left:
@@ -4732,46 +4732,43 @@ void WW8AttributeOutput::ParaAdjust( const SvxAdjustItem& rAdjust )
             return;    // not a supported Attribute
     }
 
-    if ( 255 != nAdj )        // supported Attribute?
+    m_rWW8Export.InsUInt16(NS_sprm::sprmPJc80);
+    m_rWW8Export.pO->push_back(nAdj);
+
+    /*
+    Sadly for left to right paragraphs both these values are the same,
+    for right to left paragraphs the bidi one is the reverse of the
+    normal one.
+    */
+    m_rWW8Export.InsUInt16(NS_sprm::sprmPJc); //bidi version ?
+    bool bBiDiSwap = false;
+    if (m_rWW8Export.m_pOutFormatNode)
     {
-        m_rWW8Export.InsUInt16( NS_sprm::sprmPJc80 );
-        m_rWW8Export.pO->push_back( nAdj );
-
-        /*
-        Sadly for left to right paragraphs both these values are the same,
-        for right to left paragraphs the bidi one is the reverse of the
-        normal one.
-        */
-        m_rWW8Export.InsUInt16( NS_sprm::sprmPJc ); //bidi version ?
-        bool bBiDiSwap = false;
-        if ( m_rWW8Export.m_pOutFormatNode )
+        SvxFrameDirection nDirection = SvxFrameDirection::Horizontal_LR_TB;
+        if (dynamic_cast<const SwTextNode*>(m_rWW8Export.m_pOutFormatNode) != nullptr)
         {
-            SvxFrameDirection nDirection = SvxFrameDirection::Horizontal_LR_TB;
-            if ( dynamic_cast< const SwTextNode *>( m_rWW8Export.m_pOutFormatNode )  != nullptr )
-            {
-                SwPosition aPos(*static_cast<const SwContentNode*>(m_rWW8Export.m_pOutFormatNode));
-                nDirection = m_rWW8Export.m_pDoc->GetTextDirection(aPos);
-            }
-            else if ( dynamic_cast< const SwTextFormatColl *>( m_rWW8Export.m_pOutFormatNode ) != nullptr  )
-            {
-                const SwTextFormatColl* pC =
-                    static_cast<const SwTextFormatColl*>(m_rWW8Export.m_pOutFormatNode);
-                const SvxFrameDirectionItem &rItem =
-                    ItemGet<SvxFrameDirectionItem>(*pC, RES_FRAMEDIR);
-                nDirection = rItem.GetValue();
-            }
-            if ( ( nDirection == SvxFrameDirection::Horizontal_RL_TB ) ||
-                 ( nDirection == SvxFrameDirection::Environment && AllSettings::GetLayoutRTL() ) )
-            {
-                bBiDiSwap = true;
-            }
+            SwPosition aPos(*static_cast<const SwContentNode*>(m_rWW8Export.m_pOutFormatNode));
+            nDirection = m_rWW8Export.m_pDoc->GetTextDirection(aPos);
         }
-
-        if ( bBiDiSwap )
-            m_rWW8Export.pO->push_back( nAdjBiDi );
-        else
-            m_rWW8Export.pO->push_back( nAdj );
+        else if (dynamic_cast<const SwTextFormatColl*>(m_rWW8Export.m_pOutFormatNode) != nullptr)
+        {
+            const SwTextFormatColl* pC =
+                static_cast<const SwTextFormatColl*>(m_rWW8Export.m_pOutFormatNode);
+            const SvxFrameDirectionItem &rItem =
+                ItemGet<SvxFrameDirectionItem>(*pC, RES_FRAMEDIR);
+            nDirection = rItem.GetValue();
+        }
+        if ( ( nDirection == SvxFrameDirection::Horizontal_RL_TB ) ||
+             ( nDirection == SvxFrameDirection::Environment && AllSettings::GetLayoutRTL() ) )
+        {
+            bBiDiSwap = true;
+        }
     }
+
+    if (bBiDiSwap)
+        m_rWW8Export.pO->push_back(nAdjBiDi);
+    else
+        m_rWW8Export.pO->push_back(nAdj);
 }
 
 void WW8AttributeOutput::FormatFrameDirection( const SvxFrameDirectionItem& rDirection )

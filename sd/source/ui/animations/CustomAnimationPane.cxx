@@ -197,11 +197,11 @@ void CustomAnimationPane::initialize()
     maStrProperty = mpFTProperty->GetText();
 
     //fillDurationMetricComboBox
-    mpCBXDuration->InsertValue(50, FUNIT_CUSTOM);
-    mpCBXDuration->InsertValue(100, FUNIT_CUSTOM);
-    mpCBXDuration->InsertValue(200, FUNIT_CUSTOM);
-    mpCBXDuration->InsertValue(300, FUNIT_CUSTOM);
-    mpCBXDuration->InsertValue(500, FUNIT_CUSTOM);
+    mpCBXDuration->InsertValue(50, FieldUnit::CUSTOM);
+    mpCBXDuration->InsertValue(100, FieldUnit::CUSTOM);
+    mpCBXDuration->InsertValue(200, FieldUnit::CUSTOM);
+    mpCBXDuration->InsertValue(300, FieldUnit::CUSTOM);
+    mpCBXDuration->InsertValue(500, FieldUnit::CUSTOM);
     mpCBXDuration->AdaptDropDownLineCountToMaximum();
 
 
@@ -827,9 +827,8 @@ void CustomAnimationPane::updateMotionPathTags()
         bChanges = updateMotionPathImpl( *this, *pView, mpMainSequence->getBegin(), mpMainSequence->getEnd(), aTags, maMotionPathTags );
 
         auto rInteractiveSequenceVector = mpMainSequence->getInteractiveSequenceVector();
-        for (auto const& interactiveSequence : rInteractiveSequenceVector)
+        for (InteractiveSequencePtr const& pIS : rInteractiveSequenceVector)
         {
-            InteractiveSequencePtr pIS(interactiveSequence);
             bChanges |= updateMotionPathImpl( *this, *pView, pIS->getBegin(), pIS->getEnd(), aTags, maMotionPathTags );
         }
     }
@@ -2509,6 +2508,39 @@ void CustomAnimationPane::onSelect()
         }
     }
 }
+
+// ICustomAnimationListController
+// pEffectInsertBefore may be null if moving to end of list.
+void CustomAnimationPane::onDragNDropComplete(CustomAnimationEffectPtr pEffectDragged, CustomAnimationEffectPtr pEffectInsertBefore)
+{
+    if ( mpMainSequence.get() )
+    {
+        addUndo();
+
+        MainSequenceRebuildGuard aGuard( mpMainSequence );
+
+        // Move the dragged effect and any hidden sub-effects
+        EffectSequence::iterator aIter = mpMainSequence->find( pEffectDragged );
+        const EffectSequence::iterator aEnd( mpMainSequence->getEnd() );
+
+        while( aIter != aEnd )
+        {
+            CustomAnimationEffectPtr pEffect = (*aIter++);
+
+            // Update model with new location (function triggers a rebuild)
+            // target may be null, which will insert at the end.
+            mpMainSequence->moveToBeforeEffect( pEffect, pEffectInsertBefore );
+
+            // Done moving effect and its hidden sub-effects when *next* effect is visible.
+            if ( mpCustomAnimationList->isVisible( *aIter ) )
+                break;
+        }
+
+        updateControls();
+        mrBase.GetDocShell()->SetModified();
+    }
+}
+
 
 void CustomAnimationPane::updatePathFromMotionPathTag( const rtl::Reference< MotionPathTag >& xTag )
 {

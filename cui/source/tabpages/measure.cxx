@@ -86,11 +86,11 @@ SvxMeasurePage::SvxMeasurePage(TabPageParent pWindow, const SfxItemSet& rInAttrs
     , eUnit(MapUnit::Map100thMM)
     , bPositionModified(false)
     , m_aCtlPosition(this)
-    , m_xMtrFldLineDist(m_xBuilder->weld_metric_spin_button("MTR_LINE_DIST", FUNIT_MM))
-    , m_xMtrFldHelplineOverhang(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE_OVERHANG", FUNIT_MM))
-    , m_xMtrFldHelplineDist(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE_DIST", FUNIT_MM))
-    , m_xMtrFldHelpline1Len(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE1_LEN", FUNIT_MM))
-    , m_xMtrFldHelpline2Len(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE2_LEN", FUNIT_MM))
+    , m_xMtrFldLineDist(m_xBuilder->weld_metric_spin_button("MTR_LINE_DIST", FieldUnit::MM))
+    , m_xMtrFldHelplineOverhang(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE_OVERHANG", FieldUnit::MM))
+    , m_xMtrFldHelplineDist(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE_DIST", FieldUnit::MM))
+    , m_xMtrFldHelpline1Len(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE1_LEN", FieldUnit::MM))
+    , m_xMtrFldHelpline2Len(m_xBuilder->weld_metric_spin_button("MTR_FLD_HELPLINE2_LEN", FieldUnit::MM))
     , m_xTsbBelowRefEdge(m_xBuilder->weld_check_button("TSB_BELOW_REF_EDGE"))
     , m_xMtrFldDecimalPlaces(m_xBuilder->weld_spin_button("MTR_FLD_DECIMALPLACES"))
     , m_xTsbAutoPosV(m_xBuilder->weld_check_button("TSB_AUTOPOSV"))
@@ -112,13 +112,13 @@ SvxMeasurePage::SvxMeasurePage(TabPageParent pWindow, const SfxItemSet& rInAttrs
     SetFieldUnit( *m_xMtrFldHelplineDist, eFUnit );
     SetFieldUnit( *m_xMtrFldHelpline1Len, eFUnit );
     SetFieldUnit( *m_xMtrFldHelpline2Len, eFUnit );
-    if( eFUnit == FUNIT_MM )
+    if( eFUnit == FieldUnit::MM )
     {
-        m_xMtrFldLineDist->set_increments(50, 500, FUNIT_NONE);
-        m_xMtrFldHelplineOverhang->set_increments(50, 500, FUNIT_NONE);
-        m_xMtrFldHelplineDist->set_increments(50, 500, FUNIT_NONE);
-        m_xMtrFldHelpline1Len->set_increments(50, 500, FUNIT_NONE);
-        m_xMtrFldHelpline2Len->set_increments(50, 500, FUNIT_NONE);
+        m_xMtrFldLineDist->set_increments(50, 500, FieldUnit::NONE);
+        m_xMtrFldHelplineOverhang->set_increments(50, 500, FieldUnit::NONE);
+        m_xMtrFldHelplineDist->set_increments(50, 500, FieldUnit::NONE);
+        m_xMtrFldHelpline1Len->set_increments(50, 500, FieldUnit::NONE);
+        m_xMtrFldHelpline2Len->set_increments(50, 500, FieldUnit::NONE);
     }
 
     m_xTsbAutoPosV->connect_toggled(LINK( this, SvxMeasurePage, ClickAutoPosHdl_Impl));
@@ -166,75 +166,39 @@ void SvxMeasurePage::Reset( const SfxItemSet* rAttrs )
     // SdrMeasureLineDistItem
     if( pItem == nullptr )
         pItem = &pPool->GetDefaultItem( SDRATTR_MEASURELINEDIST );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldLineDist, nValue, eUnit );
-    }
-    else
-    {
-        m_xMtrFldLineDist->set_text(OUString());
-    }
+    SetMetricValue(*m_xMtrFldLineDist, static_cast<const SdrMetricItem*>(pItem)->GetValue(), eUnit);
     m_xMtrFldLineDist->save_value();
 
     // SdrMeasureHelplineOverhangItem
     pItem = GetItem( *rAttrs, SDRATTR_MEASUREHELPLINEOVERHANG );
     if( pItem == nullptr )
         pItem = &pPool->GetDefaultItem( SDRATTR_MEASUREHELPLINEOVERHANG );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldHelplineOverhang, nValue, eUnit );
-    }
-    else
-    {
-        m_xMtrFldHelplineOverhang->set_text(OUString());
-    }
+    SetMetricValue(*m_xMtrFldHelplineOverhang, static_cast<const SdrMetricItem*>(pItem)->GetValue(),
+                   eUnit);
     m_xMtrFldHelplineOverhang->save_value();
 
     // SdrMeasureHelplineDistItem
     pItem = GetItem( *rAttrs, SDRATTR_MEASUREHELPLINEDIST );
     if( pItem == nullptr )
         pItem = &pPool->GetDefaultItem( SDRATTR_MEASUREHELPLINEDIST );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldHelplineDist, nValue, eUnit );
-    }
-    else
-    {
-        m_xMtrFldHelplineDist->set_text(OUString());
-    }
+    SetMetricValue(*m_xMtrFldHelplineDist, static_cast<const SdrMetricItem*>(pItem)->GetValue(),
+                   eUnit);
     m_xMtrFldHelplineDist->save_value();
 
     // SdrMeasureHelpline1LenItem
     pItem = GetItem( *rAttrs, SDRATTR_MEASUREHELPLINE1LEN );
     if( pItem == nullptr )
         pItem = &pPool->GetDefaultItem( SDRATTR_MEASUREHELPLINE1LEN );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldHelpline1Len, nValue, eUnit );
-    }
-    else
-    {
-        m_xMtrFldHelpline1Len->set_text(OUString());
-    }
+    SetMetricValue(*m_xMtrFldHelpline1Len, static_cast<const SdrMetricItem*>(pItem)->GetValue(),
+                   eUnit);
     m_xMtrFldHelpline1Len->save_value();
 
     // SdrMeasureHelpline2LenItem
     pItem = GetItem( *rAttrs, SDRATTR_MEASUREHELPLINE2LEN );
     if( pItem == nullptr )
         pItem = &pPool->GetDefaultItem( SDRATTR_MEASUREHELPLINE2LEN );
-    if( pItem )
-    {
-        long nValue = static_cast<const SdrMetricItem*>( pItem )->GetValue();
-        SetMetricValue( *m_xMtrFldHelpline2Len, nValue, eUnit );
-    }
-    else
-    {
-        m_xMtrFldHelpline2Len->set_text(OUString());
-    }
+    SetMetricValue(*m_xMtrFldHelpline2Len, static_cast<const SdrMetricItem*>(pItem)->GetValue(),
+                   eUnit);
     m_xMtrFldHelpline2Len->save_value();
 
     // SdrMeasureBelowRefEdgeItem
@@ -253,15 +217,8 @@ void SvxMeasurePage::Reset( const SfxItemSet* rAttrs )
     pItem = GetItem( *rAttrs, SDRATTR_MEASUREDECIMALPLACES );
     if( pItem == nullptr )
         pItem = &pPool->GetDefaultItem( SDRATTR_MEASUREDECIMALPLACES );
-    if( pItem )
-    {
-        sal_Int16 nValue = static_cast<const SdrMeasureDecimalPlacesItem*>( pItem )->GetValue();
-        m_xMtrFldDecimalPlaces->set_value(nValue);
-    }
-    else
-    {
-        m_xMtrFldDecimalPlaces->set_text(OUString());
-    }
+    m_xMtrFldDecimalPlaces->set_value(
+      static_cast<const SdrMeasureDecimalPlacesItem*>(pItem)->GetValue());
     m_xMtrFldDecimalPlaces->save_value();
 
     // SdrMeasureTextRota90Item
@@ -789,15 +746,15 @@ void SvxMeasurePage::FillUnitLB()
 {
     // fill ListBox with metrics
 
-    FieldUnit nUnit = FUNIT_NONE;
+    FieldUnit nUnit = FieldUnit::NONE;
     OUString aStrMetric(m_xFtAutomatic->get_label());
-    m_xLbUnit->append(OUString::number(nUnit), aStrMetric);
+    m_xLbUnit->append(OUString::number(sal_uInt32(nUnit)), aStrMetric);
 
     for( sal_uInt32 i = 0; i < SvxFieldUnitTable::Count(); ++i )
     {
         aStrMetric = SvxFieldUnitTable::GetString(i);
         nUnit = SvxFieldUnitTable::GetValue(i);
-        m_xLbUnit->append(OUString::number(nUnit), aStrMetric);
+        m_xLbUnit->append(OUString::number(sal_uInt32(nUnit)), aStrMetric);
     }
 }
 

@@ -23,7 +23,7 @@
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -263,13 +263,11 @@ void GalleryThemePopup::ExecutePopup( vcl::Window *pWindow, const ::Point &aPos 
         GalleryBrowser2::GetFrame(), css::uno::UNO_QUERY );
     css::uno::Reference< css::util::XURLTransformer > xTransformer(
         mpBrowser->GetURLTransformer() );
-    CommandInfoMap::const_iterator aEnd = m_aCommandInfo.end();
-    for ( CommandInfoMap::iterator it = m_aCommandInfo.begin();
-         it != aEnd; ++it )
+    for ( auto& rInfo : m_aCommandInfo )
     {
         try
         {
-            CommandInfo &rCmdInfo = it->second;
+            CommandInfo &rCmdInfo = rInfo.second;
             if ( xTransformer.is() )
                 xTransformer->parseStrict( rCmdInfo.URL );
 
@@ -364,7 +362,10 @@ GalleryToolBox::GalleryToolBox( GalleryBrowser2* pParent ) :
 void GalleryToolBox::KeyInput( const KeyEvent& rKEvt )
 {
     if( !static_cast< GalleryBrowser2* >( GetParent() )->KeyInput( rKEvt, this ) )
-        ToolBox::KeyInput( rKEvt );
+    {
+        if( KEY_ESCAPE != rKEvt.GetKeyCode().GetCode() )
+            ToolBox::KeyInput(rKEvt);
+    }
 }
 
 

@@ -50,6 +50,8 @@
 #include <unotools/useroptions.hxx>
 #include <usrfld.hxx>
 #include <viewsh.hxx>
+#include <com/sun/star/i18n/KParseTokens.hpp>
+#include <com/sun/star/i18n/KParseType.hpp>
 
 using namespace ::com::sun::star;
 
@@ -653,7 +655,8 @@ SwCalcOper SwCalc::GetToken()
             CalcOp* pFnd = ::FindOperator( sLowerCaseName );
             if( pFnd )
             {
-                switch( ( m_eCurrOper = pFnd->eOp ) )
+                m_eCurrOper = pFnd->eOp;
+                switch( m_eCurrOper )
                 {
                 case CALC_SUM:
                 case CALC_MEAN:

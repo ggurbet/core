@@ -64,38 +64,6 @@ private:
     std::unique_ptr<weld::RadioButton> m_xRbtBottom;
 };
 
-
-class SchLegendPositionResources final
-{
-
-public:
-    //constructor without Display checkbox
-    SchLegendPositionResources(weld::Builder& rBuilder);
-    //constructor inclusive Display checkbox
-    SchLegendPositionResources(weld::Builder& rBuilder, const css::uno::Reference<
-                       css::uno::XComponentContext>& xCC );
-    ~SchLegendPositionResources();
-
-    void writeToResources( const css::uno::Reference< css::frame::XModel >& xChartModel );
-    void writeToModel( const css::uno::Reference< css::frame::XModel >& xChartModel ) const;
-
-    void initFromItemSet( const SfxItemSet& rInAttrs );
-    void writeToItemSet( SfxItemSet& rOutAttrs ) const;
-
-    void SetChangeHdl( const Link<LinkParamNone*,void>& rLink );
-
-    DECL_LINK(PositionEnableHdl, weld::ToggleButton&, void);
-
-private:
-    css::uno::Reference< css::uno::XComponentContext>    m_xCC;
-
-    std::unique_ptr<weld::CheckButton> m_xCbxShow;
-    std::unique_ptr<weld::RadioButton> m_xRbtLeft;
-    std::unique_ptr<weld::RadioButton> m_xRbtRight;
-    std::unique_ptr<weld::RadioButton> m_xRbtTop;
-    std::unique_ptr<weld::RadioButton> m_xRbtBottom;
-};
-
 } //namespace chart
 
 #endif

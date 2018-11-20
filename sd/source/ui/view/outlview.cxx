@@ -1474,8 +1474,7 @@ void OutlineView::UpdateDocument()
         mrOutlineViewShell.UpdateTitleObject( pPage, pPara );
         mrOutlineViewShell.UpdateOutlineObject( pPage, pPara );
 
-        if( pPara )
-            pPara = GetNextTitle(pPara);
+        pPara = GetNextTitle(pPara);
     }
 }
 
@@ -1522,10 +1521,9 @@ void OutlineView::TryToMergeUndoActions()
                     // the top EditUndo of the previous undo list
 
                     // first remove the merged undo action
-                    DBG_ASSERT( pListAction->GetUndoAction(nEditPos) == pEditUndo,
+                    assert( pListAction->GetUndoAction(nEditPos) == pEditUndo &&
                         "sd::OutlineView::TryToMergeUndoActions(), wrong edit pos!" );
                     pListAction->Remove(nEditPos);
-                    delete pEditUndo;
 
                     if ( !pListAction->maUndoActions.empty() )
                     {
@@ -1536,10 +1534,8 @@ void OutlineView::TryToMergeUndoActions()
                         size_t nDestAction = pPrevListAction->maUndoActions.size();
                         while( nCount-- )
                         {
-                            SfxUndoAction* pTemp = pListAction->GetUndoAction(0);
-                            pListAction->Remove(0);
-                            if( pTemp )
-                                pPrevListAction->Insert( pTemp, nDestAction++ );
+                            std::unique_ptr<SfxUndoAction> pTemp = pListAction->Remove(0);
+                            pPrevListAction->Insert( std::move(pTemp), nDestAction++ );
                         }
                         pPrevListAction->nCurUndoAction = pPrevListAction->maUndoActions.size();
                     }
@@ -1668,8 +1664,7 @@ void OutlineView::OnEndPasteOrDrop( PasteOrDropInfos* pInfo )
             SdStyleSheet* pStyleSheet = dynamic_cast< SdStyleSheet* >( mrOutliner.GetStyleSheet( nPara ) );
             if( pStyleSheet )
             {
-                const OUString aName( pStyleSheet->GetApiName() );
-                if ( aName == "title" )
+                if ( pStyleSheet->GetApiName() == "title" )
                     bPage = true;
             }
         }

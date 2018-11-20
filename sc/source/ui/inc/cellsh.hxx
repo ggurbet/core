@@ -28,11 +28,14 @@
 #include "formatsh.hxx"
 #include <rtl/ref.hxx>
 #include <sot/formats.hxx>
+#include <vcl/vclptr.hxx>
+#include <tools/solar.h>
 
 class SvxClipboardFormatItem;
 class TransferableDataHelper;
 class TransferableClipboardListener;
 class AbstractScLinkedAreaDlg;
+class Dialog;
 
 struct CellShell_Impl
 {

@@ -1370,7 +1370,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                             // if ChangeTrack MoveMode disable
                             pDlg->SetChangeTrack( pDoc->GetChangeTrack() != nullptr );
                             // fdo#56098  disable shift if necessary
-                            if ( !bOtherDoc  && pOwnClip )
+                            if (!bOtherDoc)
                             {
                                 ScViewData* pData = GetViewData();
                                 if ( pData->GetMarkData().GetTableSelect( pData->GetTabNo() ) )
@@ -1523,7 +1523,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
                     if ( bRet )
                     {
-                        rReq.SetReturnValue(SfxInt16Item(nSlot, bRet ? 1 : 0)); // 1 = success, 0 = fail
+                        rReq.SetReturnValue(SfxInt16Item(nSlot, 1)); // 1 = success, 0 = fail
                         rReq.Done();
                     }
                     else
@@ -2397,7 +2397,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
             if ( pReqArgs && pReqArgs->HasItem( SID_ATTR_POSTIT_ID, &pId) )
             {
                 const SvxPostItIdItem* pIdItem = static_cast<const SvxPostItIdItem*>(pId);
-                OUString aCellId = pIdItem->GetValue();
+                const OUString& aCellId = pIdItem->GetValue();
                 if (!aCellId.isEmpty())
                 {
                     SetTabNoAndCursor( GetViewData(), aCellId );
@@ -2482,20 +2482,12 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
                 if ( pReqArgs )
                 {
-                    const SfxStringItem* pItem =
-                        static_cast<const SfxStringItem*>(&pReqArgs->Get( SID_SELECT_SCENARIO ));
-
-                    if( pItem )
-                    {
-                        pTabViewShell->UseScenario( pItem->GetValue() );
-                        //! why should the return value be valid?!?!
-                        rReq.SetReturnValue( SfxStringItem( SID_SELECT_SCENARIO, pItem->GetValue() ) );
-                        rReq.Done();
-                    }
-                    else
-                    {
-                        OSL_FAIL("nullptr");
-                    }
+                    const SfxStringItem& rItem
+                        = static_cast<const SfxStringItem&>(pReqArgs->Get(SID_SELECT_SCENARIO));
+                    pTabViewShell->UseScenario(rItem.GetValue());
+                    //! why should the return value be valid?!?!
+                    rReq.SetReturnValue(SfxStringItem(SID_SELECT_SCENARIO, rItem.GetValue()));
+                    rReq.Done();
                 }
             }
             break;

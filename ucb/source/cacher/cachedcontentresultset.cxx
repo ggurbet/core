@@ -485,11 +485,6 @@ CCRS_PropertySetInfo::CCRS_PropertySetInfo(
         rMyProp.Type = cppu::UnoType<sal_Bool>::get();
         rMyProp.Attributes = PropertyAttribute::BOUND | PropertyAttribute::MAYBEDEFAULT;
 
-        if( nFetchDirection != -1 )
-            m_nFetchDirectionPropertyHandle = (*pOrigProps)[nFetchDirection].Handle;
-        else
-            m_nFetchDirectionPropertyHandle = impl_getRemainedHandle();
-
         m_nFetchDirectionPropertyHandle = rMyProp.Handle;
     }
 }
@@ -1527,7 +1522,7 @@ sal_Bool SAL_CALL CachedContentResultSet
 
         aGuard.reset();
         m_nRow = nNewRow;
-        m_bAfterLast = !bValid && nNewRow > 0;
+        m_bAfterLast = !bValid; // only nNewRow > 0 possible here
         return bValid;
     }
 }
@@ -1684,7 +1679,7 @@ sal_Bool SAL_CALL CachedContentResultSet
     if( m_nRow )
         return false;
     if( m_nKnownCount )
-        return !m_nRow;
+        return true;
     if( m_bFinalCount )
         return false;
 
@@ -1722,7 +1717,7 @@ sal_Bool SAL_CALL CachedContentResultSet
         if( m_nRow != 1 )
             return false;
         if( m_nKnownCount )
-            return m_nRow == 1;
+            return true;
         if( m_bFinalCount )
             return false;
 

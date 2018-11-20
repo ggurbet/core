@@ -639,6 +639,11 @@ void XMLImpRubyContext_Impl::EndElement()
         GetImport().GetTextImport());
     const Reference < XTextCursor > xAttrCursor(
         xTextImport->GetText()->createTextCursorByRange( m_xStart ));
+    if (!xAttrCursor.is())
+    {
+        SAL_WARN("xmloff.text", "cannot insert ruby");
+        return;
+    }
     xAttrCursor->gotoRange(xTextImport->GetCursorAsRange()->getStart(),
             true);
     xTextImport->SetRuby( GetImport(), xAttrCursor,
@@ -2127,7 +2132,7 @@ void XMLParaContext::EndElement()
                     const XMLDrawHint_Impl *pDHint =
                         static_cast<const XMLDrawHint_Impl*>(pHint);
                     // Improvement: hint directly provides the shape. (#i33242#)
-                    Reference < XShape > xShape = pDHint->GetShape();
+                    const Reference < XShape >& xShape = pDHint->GetShape();
                     if ( xShape.is() )
                     {
                         // determine anchor type

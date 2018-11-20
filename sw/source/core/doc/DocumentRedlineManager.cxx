@@ -22,12 +22,15 @@
 #include <txtfrm.hxx>
 #include <doc.hxx>
 #include <IDocumentUndoRedo.hxx>
+#include <IDocumentFieldsAccess.hxx>
 #include <IDocumentState.hxx>
 #include <redline.hxx>
 #include <UndoRedline.hxx>
 #include <docary.hxx>
 #include <ndtxt.hxx>
 #include <unocrsr.hxx>
+#include <ftnidx.hxx>
+#include <authfld.hxx>
 #include <strings.hrc>
 #include <swmodule.hxx>
 #include <editsh.hxx>
@@ -118,8 +121,25 @@ using namespace com::sun::star;
 
 namespace sw {
 
-void UpdateFramesForAddDeleteRedline(SwPaM const& rPam)
+static void UpdateFieldsForRedline(IDocumentFieldsAccess & rIDFA)
 {
+    auto const pAuthType(static_cast<SwAuthorityFieldType*>(rIDFA.GetFieldType(
+        SwFieldIds::TableOfAuthorities, OUString(), false)));
+    if (pAuthType) // created on demand...
+    {
+        pAuthType->DelSequenceArray();
+    }
+    rIDFA.GetFieldType(SwFieldIds::RefPageGet, OUString(), false)->UpdateFields();
+    rIDFA.GetSysFieldType(SwFieldIds::Chapter)->UpdateFields();
+    rIDFA.UpdateExpFields(nullptr, false);
+    rIDFA.UpdateRefFields();
+}
+
+void UpdateFramesForAddDeleteRedline(SwDoc & rDoc, SwPaM const& rPam)
+{
+    // no need to call UpdateFootnoteNums for FTNNUM_PAGE:
+    // the AppendFootnote/RemoveFootnote will do it by itself!
+    rDoc.GetFootnoteIdxs().UpdateFootnote(rPam.Start()->nNode);
     SwTextNode *const pStartNode(rPam.Start()->nNode.GetNode().GetTextNode());
     std::vector<SwTextFrame*> frames;
     SwIterator<SwTextFrame, SwTextNode, sw::IteratorMode::UnwrapMulti> aIter(*pStartNode);
@@ -144,10 +164,13 @@ void UpdateFramesForAddDeleteRedline(SwPaM const& rPam)
         // node of the merged frame, there could be another redline nearby
         sw::AddRemoveFlysAnchoredToFrameStartingAtNode(*pFrame, *pStartNode, nullptr);
     }
+    // fields last - SwGetRefField::UpdateField requires up-to-date frames
+    UpdateFieldsForRedline(rDoc.getIDocumentFieldsAccess()); // after footnotes
 }
 
 void UpdateFramesForRemoveDeleteRedline(SwDoc & rDoc, SwPaM const& rPam)
 {
+    rDoc.GetFootnoteIdxs().UpdateFootnote(rPam.Start()->nNode);
     SwTextNode *const pStartNode(rPam.Start()->nNode.GetNode().GetTextNode());
     std::vector<SwTextFrame*> frames;
     std::set<SwRootFrame*> layouts;
@@ -200,6 +223,8 @@ void UpdateFramesForRemoveDeleteRedline(SwDoc & rDoc, SwPaM const& rPam)
             AppendAllObjs(rDoc.GetSpzFrameFormats(), pLayout);
         }
     }
+    // fields last - SwGetRefField::UpdateField requires up-to-date frames
+    UpdateFieldsForRedline(rDoc.getIDocumentFieldsAccess()); // after footnotes
 }
 
 } // namespace sw
@@ -729,7 +754,8 @@ void DocumentRedlineManager::SetRedlineFlags( RedlineFlags eMode )
             bool bSaveInXMLImportFlag = m_rDoc.IsInXMLImport();
             m_rDoc.SetInXMLImport( false );
             // and then hide/display everything
-            void (SwRangeRedline::*pFnc)(sal_uInt16, size_t) = nullptr;
+            void (SwRangeRedline::*pFnc)(sal_uInt16, size_t); // Allow compiler warn if use of
+                                                              // uninitialized ptr is possible
 
             RedlineFlags eShowMode = RedlineFlags::ShowMask & eMode;
             if (eShowMode == (RedlineFlags::ShowInsert | RedlineFlags::ShowDelete))
@@ -747,16 +773,21 @@ void DocumentRedlineManager::SetRedlineFlags( RedlineFlags eMode )
             CheckAnchoredFlyConsistency(m_rDoc);
             CHECK_REDLINE( *this )
 
-            if (pFnc)
-            {
-                for (sal_uInt16 nLoop = 1; nLoop <= 2; ++nLoop)
-                    for (size_t i = 0; i < mpRedlineTable->size(); ++i)
-                        ((*mpRedlineTable)[i]->*pFnc)(nLoop, i);
+            for (sal_uInt16 nLoop = 1; nLoop <= 2; ++nLoop)
+                for (size_t i = 0; i < mpRedlineTable->size(); ++i)
+                {
+                    SwRangeRedline *const pRedline((*mpRedlineTable)[i]);
+                    (pRedline->*pFnc)(nLoop, i);
+                    while (mpRedlineTable->size() <= i
+                        || (*mpRedlineTable)[i] != pRedline)
+                    {        // ensure current position
+                        --i; // a previous redline may have been deleted
+                    }
+                }
 
-                //SwRangeRedline::MoveFromSection routinely changes
-                //the keys that mpRedlineTable is sorted by
-                mpRedlineTable->Resort();
-            }
+            //SwRangeRedline::MoveFromSection routinely changes
+            //the keys that mpRedlineTable is sorted by
+            mpRedlineTable->Resort();
 
             CheckAnchoredFlyConsistency(m_rDoc);
             CHECK_REDLINE( *this )
@@ -2311,7 +2342,10 @@ bool DocumentRedlineManager::AcceptRedline( SwRedlineTable::size_type nPos, bool
                 if( SwRedlineTable::npos != nFndPos || ( 0 != ( --nLoopCnt ) &&
                     SwRedlineTable::npos != ( nFndPos =
                         mpRedlineTable->FindPrevSeqNo( nSeqNo, nPos ))) )
-                    pTmp = (*mpRedlineTable)[ nPos = nFndPos ];
+                {
+                    nPos = nFndPos;
+                    pTmp = (*mpRedlineTable)[ nPos ];
+                }
                 else
                     nLoopCnt = 0;
             }
@@ -2450,7 +2484,10 @@ bool DocumentRedlineManager::RejectRedline( SwRedlineTable::size_type nPos, bool
                 if( SwRedlineTable::npos != nFndPos || ( 0 != ( --nLoopCnt ) &&
                     SwRedlineTable::npos != ( nFndPos =
                             mpRedlineTable->FindPrevSeqNo( nSeqNo, nPos ))) )
-                    pTmp = (*mpRedlineTable)[ nPos = nFndPos ];
+                {
+                    nPos = nFndPos;
+                    pTmp = (*mpRedlineTable)[ nPos ];
+                }
                 else
                     nLoopCnt = 0;
             }

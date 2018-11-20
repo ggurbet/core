@@ -49,7 +49,7 @@ public:
                       const css::uno::Reference< css::report::XReportDefinition>& _xHoldAlive,
                       ::rptui::OReportController* _pController);
     virtual ~OPageNumberDialog() override;
-    void execute();
+    virtual short run() override;
 };
 
 } // namespace rptui

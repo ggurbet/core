@@ -18,27 +18,18 @@
  */
 
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 
 #include <editeng/boxitem.hxx>
-#include <editeng/frmdiritem.hxx>
 #include <editeng/editobj.hxx>
-#include <svx/pageitem.hxx>
-#include <editeng/editeng.hxx>
 #include <svx/sdrundomanager.hxx>
 #include <svx/svditer.hxx>
-#include <svx/svdpage.hxx>
-#include <svx/svdocapt.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/docfile.hxx>
 #include <svl/poolcach.hxx>
-#include <unotools/saveopt.hxx>
 #include <svl/zforlist.hxx>
 #include <unotools/charclass.hxx>
 #include <unotools/transliterationwrapper.hxx>
-#include <tools/tenccvt.hxx>
 #include <tools/urlobj.hxx>
 #include <sal/log.hxx>
 
@@ -52,7 +43,6 @@
 #include <column.hxx>
 #include <attrib.hxx>
 #include <attarray.hxx>
-#include <markarr.hxx>
 #include <patattr.hxx>
 #include <rangenam.hxx>
 #include <poolhelp.hxx>
@@ -61,19 +51,14 @@
 #include <stlsheet.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
-#include <rechead.hxx>
 #include <dbdata.hxx>
-#include <pivot.hxx>
 #include <chartlis.hxx>
 #include <rangelst.hxx>
 #include <markdata.hxx>
 #include <drwlayer.hxx>
-#include <conditio.hxx>
-#include <colorscale.hxx>
 #include <validat.hxx>
 #include <prnsave.hxx>
 #include <chgtrack.hxx>
-#include <sc.hrc>
 #include <hints.hxx>
 #include <detdata.hxx>
 #include <dpobject.hxx>
@@ -84,8 +69,6 @@
 #include <autonamecache.hxx>
 #include <bcaslot.hxx>
 #include <postit.hxx>
-#include <externalrefmgr.hxx>
-#include <tabprotection.hxx>
 #include <clipparam.hxx>
 #include <defaultsoptions.hxx>
 #include <editutil.hxx>
@@ -97,7 +80,6 @@
 #include <scopetools.hxx>
 #include <refupdatecontext.hxx>
 #include <formulagroup.hxx>
-#include <tokenarray.hxx>
 #include <tokenstringcontext.hxx>
 #include <compressedarray.hxx>
 #include <docsh.hxx>
@@ -106,7 +88,6 @@
 #include <formula/vectortoken.hxx>
 
 #include <limits>
-#include <map>
 #include <memory>
 #include <utility>
 
@@ -4985,13 +4966,8 @@ bool ScDocument::IsStyleSheetUsed( const ScStyleSheet& rStyle ) const
 
         for (const auto& a : maTabs)
         {
-            if (a)
-            {
-                if ( a->IsStyleSheetUsed( rStyle ) )
-                {
-                    bIsUsed = true;
-                }
-            }
+            if (a && a->IsStyleSheetUsed( rStyle ) )
+                bIsUsed = true;
         }
 
         bStyleSheetUsageInvalid = false;
@@ -5665,18 +5641,15 @@ bool ScDocument::RefreshAutoFilter( SCCOL nStartCol, SCROW nStartRow,
         pData = maTabs[nTab]->GetAnonymousDBData();
     else
         pData=nullptr;
-    if (pData)
+    if (pData && pData->HasAutoFilter())
     {
-        if (pData->HasAutoFilter())
+        pData->GetArea( nDBTab, nDBStartCol,nDBStartRow, nDBEndCol,nDBEndRow );
+        if ( nDBTab==nTab && nDBStartRow<=nEndRow && nDBEndRow>=nStartRow &&
+                                nDBStartCol<=nEndCol && nDBEndCol>=nStartCol )
         {
-            pData->GetArea( nDBTab, nDBStartCol,nDBStartRow, nDBEndCol,nDBEndRow );
-            if ( nDBTab==nTab && nDBStartRow<=nEndRow && nDBEndRow>=nStartRow &&
-                                    nDBStartCol<=nEndCol && nDBEndCol>=nStartCol )
-            {
-                if (ApplyFlagsTab( nDBStartCol,nDBStartRow, nDBEndCol,nDBStartRow,
-                                    nDBTab, ScMF::Auto ))
-                    bChange = true;
-            }
+            if (ApplyFlagsTab( nDBStartCol,nDBStartRow, nDBEndCol,nDBStartRow,
+                                nDBTab, ScMF::Auto ))
+                bChange = true;
         }
     }
     return bChange;
@@ -6778,20 +6751,12 @@ void ScDocumentThreadSpecific::MergeBackIntoNonThreadedData(ScDocumentThreadSpec
     // What about recursion helper and lookup cache?
 }
 
-void ScDocument::SetupFromNonThreadedContext(ScInterpreterContext& threadedContext, int threadNumber)
+void ScDocument::SetupFromNonThreadedContext(ScInterpreterContext& /*threadedContext*/, int /*threadNumber*/)
 {
-    if(int(mThreadStoredScLookupCaches.size()) >= threadNumber + 1 ) // 0-indexed
-    {
-        // It is necessary to store the VLOOKUP cache between threaded formula runs, because the results
-        // are to be shared between different formula group cells (it caches the same row for different
-        // columns). Therefore also use the thread index to make sure each thread gets back its cache,
-        // as it is decided based on thread number which rows in a formula group it handles.
-        threadedContext.mScLookupCache = mThreadStoredScLookupCaches[ threadNumber ];
-        mThreadStoredScLookupCaches[ threadNumber ] = nullptr;
-    }
+    // lookup cache is now only in pooled ScInterpreterContext's
 }
 
-void ScDocument::MergeBackIntoNonThreadedContext(ScInterpreterContext& threadedContext, int threadNumber)
+void ScDocument::MergeBackIntoNonThreadedContext(ScInterpreterContext& threadedContext, int /*threadNumber*/)
 {
     // Move data from a context used by a calculation thread to the main thread's context.
     // Called from the main thread after the calculation thread has already finished.
@@ -6800,13 +6765,7 @@ void ScDocument::MergeBackIntoNonThreadedContext(ScInterpreterContext& threadedC
         maInterpreterContext.maDelayedSetNumberFormat.end(),
         std::make_move_iterator(threadedContext.maDelayedSetNumberFormat.begin()),
         std::make_move_iterator(threadedContext.maDelayedSetNumberFormat.end()));
-    if( threadedContext.mScLookupCache )
-    {
-        if(int(mThreadStoredScLookupCaches.size()) < threadNumber + 1 ) // 0-indexed
-            mThreadStoredScLookupCaches.resize( threadNumber + 1 );
-        mThreadStoredScLookupCaches[ threadNumber ] = threadedContext.mScLookupCache;
-        threadedContext.mScLookupCache = nullptr;
-    }
+    // lookup cache is now only in pooled ScInterpreterContext's
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

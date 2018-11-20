@@ -307,7 +307,7 @@ bool ScTransferObj::GetData( const datatransfer::DataFlavor& rFlavor, const OUSt
             ScAddress aPos(nCol, nRow, nTab);
 
             const ScPatternAttr* pPattern = m_pDoc->GetPattern( nCol, nRow, nTab );
-            ScTabEditEngine aEngine( *pPattern, m_pDoc->GetEditPool() );
+            ScTabEditEngine aEngine( *pPattern, m_pDoc->GetEditPool(), m_pDoc.get() );
             ScRefCellValue aCell(*m_pDoc, aPos);
             if (aCell.meType == CELLTYPE_EDIT)
             {
@@ -495,11 +495,8 @@ bool ScTransferObj::WriteObject( tools::SvRef<SotStorageStream>& rxOStm, void* p
         case SCTRANS_TYPE_EDIT_ODF_TEXT_FLAT:
             {
                 ScTabEditEngine* pEngine = static_cast<ScTabEditEngine*>(pUserObject);
-                if ( nUserObjectId == SCTRANS_TYPE_EDIT_ODF_TEXT_FLAT )
-                {
-                    pEngine->Write( *rxOStm, EETextFormat::Xml );
-                    bRet = ( rxOStm->GetError() == ERRCODE_NONE );
-                }
+                pEngine->Write(*rxOStm, EETextFormat::Xml);
+                bRet = (rxOStm->GetError() == ERRCODE_NONE);
             }
             break;
 
@@ -693,6 +690,12 @@ void ScTransferObj::InitDocShell(bool bLimitToPageSize)
             else
                 rDestDoc.SetColWidth( nCol, 0, m_pDoc->GetColWidth( nCol, nSrcTab ) );
 
+        if (nStartY > 0)
+        {
+            // Set manual height for all previous rows so we can ensure
+            // that visible area will not change due to autoheight
+            rDestDoc.SetManualHeight(0, nStartY - 1, 0, true);
+        }
         for (SCROW nRow = nStartY; nRow <= nEndY; ++nRow)
         {
             if ( m_pDoc->RowHidden(nRow, nSrcTab) )

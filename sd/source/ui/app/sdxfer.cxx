@@ -179,7 +179,7 @@ void SdTransferable::CreateObjectReplacement( SdrObject* pObj )
 
             if (pUnoCtrl && SdrInventor::FmForm == pUnoCtrl->GetObjInventor())
             {
-                Reference< css::awt::XControlModel > xControlModel( pUnoCtrl->GetUnoControlModel() );
+                const Reference< css::awt::XControlModel >& xControlModel( pUnoCtrl->GetUnoControlModel() );
 
                 if( !xControlModel.is() )
                     return;
@@ -312,7 +312,8 @@ void SdTransferable::CreateData()
         {
             // #112978# need to use GetAllMarkedBoundRect instead of GetAllMarkedRect to get
             // fat lines correctly
-            Point   aOrigin( ( maVisArea = mpSdViewIntern->GetAllMarkedBoundRect() ).TopLeft() );
+            maVisArea = mpSdViewIntern->GetAllMarkedBoundRect();
+            Point   aOrigin( maVisArea.TopLeft() );
             Size    aVector( -aOrigin.X(), -aOrigin.Y() );
 
             for( size_t nObj = 0, nObjCount = pPage->GetObjCount(); nObj < nObjCount; ++nObj )
@@ -626,7 +627,7 @@ bool SdTransferable::WriteObject( tools::SvRef<SotStorageStream>& rxOStm, void* 
                 pEmbObj->SetupStorage( xWorkStore, SOFFICE_FILEFORMAT_CURRENT, false );
                 // mba: no relative URLs for clipboard!
                 SfxMedium aMedium( xWorkStore, OUString() );
-                bRet = pEmbObj->DoSaveObjectAs( aMedium, false );
+                pEmbObj->DoSaveObjectAs( aMedium, false );
                 pEmbObj->DoSaveCompleted();
 
                 uno::Reference< embed::XTransactedObject > xTransact( xWorkStore, uno::UNO_QUERY );

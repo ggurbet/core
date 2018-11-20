@@ -33,7 +33,9 @@ private:
     std::vector<OString>    m_sReferences;
     OString    m_sMsgCtxt;
     OString    m_sMsgId;
+    OString    m_sMsgIdPlural;
     OString    m_sMsgStr;
+    std::vector<OString>    m_sMsgStrPlural;
     bool       m_bFuzzy;
     bool       m_bCFormat;
     bool       m_bNull;
@@ -118,7 +120,9 @@ GenPoEntry::GenPoEntry()
     , m_sReferences( std::vector<OString>() )
     , m_sMsgCtxt( OString() )
     , m_sMsgId( OString() )
+    , m_sMsgIdPlural( OString() )
     , m_sMsgStr( OString() )
+    , m_sMsgStrPlural( std::vector<OString>() )
     , m_bFuzzy( false )
     , m_bCFormat( false )
     , m_bNull( false )
@@ -148,8 +152,16 @@ void GenPoEntry::writeToFile(std::ofstream& rOFStream) const
                   << std::endl;
     rOFStream << "msgid "
               << lcl_GenMsgString(m_sMsgId) << std::endl;
-    rOFStream << "msgstr "
-              << lcl_GenMsgString(m_sMsgStr) << std::endl;
+    if ( !m_sMsgIdPlural.isEmpty() )
+        rOFStream << "msgid_plural "
+                  << lcl_GenMsgString(m_sMsgIdPlural)
+                  << std::endl;
+    if ( !m_sMsgStrPlural.empty() )
+        for(auto & line : m_sMsgStrPlural)
+            rOFStream << line.copy(0,10) << lcl_GenMsgString(line.copy(10)) << std::endl;
+    else
+        rOFStream << "msgstr "
+                  << lcl_GenMsgString(m_sMsgStr) << std::endl;
 }
 
 void GenPoEntry::readFromFile(std::ifstream& rIFStream)
@@ -196,10 +208,21 @@ void GenPoEntry::readFromFile(std::ifstream& rIFStream)
             m_sMsgId = lcl_GenNormString(sLine.copy(6));
             pLastMsg = &m_sMsgId;
         }
+        else if (sLine.startsWith("msgid_plural "))
+        {
+            m_sMsgIdPlural = lcl_GenNormString(sLine.copy(13));
+            pLastMsg = &m_sMsgIdPlural;
+        }
         else if (sLine.startsWith("msgstr "))
         {
             m_sMsgStr = lcl_GenNormString(sLine.copy(7));
             pLastMsg = &m_sMsgStr;
+        }
+        else if (sLine.startsWith("msgstr["))
+        {
+            // assume there are no more than 10 plural forms...
+            // and that plural strings are never split to multi-line in po
+            m_sMsgStrPlural.push_back(sLine.copy(0,10) + lcl_GenNormString(sLine.copy(10)));
         }
         else if (sLine.startsWith("\"") && pLastMsg)
         {
@@ -419,8 +442,18 @@ namespace
         struct tm* pNow = localtime(&aNow);
         char pBuff[50];
         strftime( pBuff, sizeof pBuff, "%Y-%m-%d %H:%M%z", pNow );
-        return pBuff;
+        return OString(pBuff);
     }
+}
+
+// when updating existing files (pocheck), reuse provided po-header
+PoHeader::PoHeader( const OString& rExtSrc, const OString& rPoHeaderMsgStr )
+    : m_pGenPo( new GenPoEntry() )
+    , m_bIsInitialized( false )
+{
+    m_pGenPo->setExtractCom("extracted from " + rExtSrc);
+    m_pGenPo->setMsgStr(rPoHeaderMsgStr);
+    m_bIsInitialized = true;
 }
 
 PoHeader::PoHeader( const OString& rExtSrc )
@@ -439,8 +472,8 @@ PoHeader::PoHeader( const OString& rExtSrc )
         "MIME-Version: 1.0\n"
         "Content-Type: text/plain; charset=UTF-8\n"
         "Content-Transfer-Encoding: 8bit\n"
-        "X-Generator: LibreOffice\n"
-        "X-Accelerator-Marker: ~\n"));
+        "X-Accelerator-Marker: ~\n"
+        "X-Generator: LibreOffice\n"));
     m_bIsInitialized = true;
 }
 
@@ -537,6 +570,28 @@ PoIfstream::~PoIfstream()
     {
        close();
     }
+}
+
+void PoIfstream::open( const OString& rFileName, OString& rPoHeader )
+{
+    assert( !isOpen() );
+    m_aInPut.open( rFileName.getStr(), std::ios_base::in );
+
+    // capture header, updating timestamp and generator
+    std::string sTemp;
+    std::getline(m_aInPut,sTemp);
+    while( !sTemp.empty() && !m_aInPut.eof() )
+    {
+        std::getline(m_aInPut,sTemp);
+        OString sLine = OString(sTemp.data(),sTemp.length());
+        if (sLine.startsWith("\"PO-Revision-Date"))
+            rPoHeader += "PO-Revision-Date: " + lcl_GetTime() + "\n";
+        else if (sLine.startsWith("\"X-Generator"))
+            rPoHeader += "X-Generator: LibreOffice\n";
+        else if (sLine.startsWith("\""))
+            rPoHeader += lcl_GenNormString(sLine);
+    }
+    m_bEof = false;
 }
 
 void PoIfstream::open( const OString& rFileName )

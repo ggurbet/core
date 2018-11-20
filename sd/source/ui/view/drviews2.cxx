@@ -182,6 +182,7 @@
 #include <unmodpg.hxx>
 #include <sfx2/sidebar/Sidebar.hxx>
 #include <sfx2/classificationhelper.hxx>
+#include <sdmod.hxx>
 
 #include <ViewShellBase.hxx>
 #include <memory>
@@ -279,7 +280,7 @@ private:
                 nullptr;
             if (pCustomPropertyField)
             {
-                OUString aKey = pCustomPropertyField->GetName();
+                const OUString& aKey = pCustomPropertyField->GetName();
                 if (m_aKeyCreator.isMarkingTextKey(aKey))
                 {
                     OUString aValue = svx::classification::getProperty(m_xPropertyContainer, aKey);
@@ -785,28 +786,38 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
 
                 OUString aTitle = SdResId(STR_TITLE_RENAMESLIDE);
                 OUString aDescr = SdResId(STR_DESC_RENAMESLIDE);
-                OUString aPageName = pCurrentPage->GetName();
+                const OUString& aPageName = pCurrentPage->GetName();
 
-                SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                ScopedVclPtr<AbstractSvxNameDialog> aNameDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aPageName, aDescr));
-                aNameDlg->SetText( aTitle );
-                aNameDlg->SetCheckNameHdl( LINK( this, DrawViewShell, RenameSlideHdl ), true );
-                aNameDlg->SetEditHelpId( HID_SD_NAMEDIALOG_PAGE );
-
-                if( aNameDlg->Execute() == RET_OK )
+                if(rReq.GetArgs())
                 {
-                    OUString aNewName;
-                    aNameDlg->GetName( aNewName );
-                    if (aNewName != aPageName)
+                    OUString aName;
+                    aName = rReq.GetArgs()->GetItem<const SfxStringItem>(SID_RENAMEPAGE)->GetValue();
+
+                    bool bResult = RenameSlide( maTabControl->GetPageId(nPage), aName );
+                    DBG_ASSERT( bResult, "Couldn't rename slide" );
+                }
+                else
+                {
+                    SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
+                    ScopedVclPtr<AbstractSvxNameDialog> aNameDlg(pFact->CreateSvxNameDialog(GetFrameWeld(), aPageName, aDescr));
+                    aNameDlg->SetText( aTitle );
+                    aNameDlg->SetCheckNameHdl( LINK( this, DrawViewShell, RenameSlideHdl ), true );
+                    aNameDlg->SetEditHelpId( HID_SD_NAMEDIALOG_PAGE );
+
+                    if( aNameDlg->Execute() == RET_OK )
                     {
-                        bool bResult = RenameSlide( maTabControl->GetPageId(nPage), aNewName );
-                        DBG_ASSERT( bResult, "Couldn't rename slide" );
+                        OUString aNewName;
+                        aNameDlg->GetName( aNewName );
+                        if (aNewName != aPageName)
+                        {
+                            bool bResult = RenameSlide( maTabControl->GetPageId(nPage), aNewName );
+                            DBG_ASSERT( bResult, "Couldn't rename slide" );
+                        }
                     }
                 }
             }
-
             Cancel();
-            rReq.Ignore ();
+            rReq.Ignore();
         }
         break;
 
@@ -831,19 +842,18 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         {
             const SfxItemSet *pArgs = rReq.GetArgs ();
 
-            if (pArgs)
-                if (pArgs->Count () == 3)
-                {
-                    const SfxUInt32Item* pWidth = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGEWIDTH);
-                    const SfxUInt32Item* pHeight = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGEHEIGHT);
-                    const SfxBoolItem* pScaleAll = rReq.GetArg<SfxBoolItem>(ID_VAL_SCALEOBJECTS);
+            if (pArgs && pArgs->Count () == 3)
+            {
+                const SfxUInt32Item* pWidth = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGEWIDTH);
+                const SfxUInt32Item* pHeight = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGEHEIGHT);
+                const SfxBoolItem* pScaleAll = rReq.GetArg<SfxBoolItem>(ID_VAL_SCALEOBJECTS);
 
-                    Size aSize (pWidth->GetValue (), pHeight->GetValue ());
+                Size aSize (pWidth->GetValue (), pHeight->GetValue ());
 
-                    SetupPage (aSize, 0, 0, 0, 0, true, false, pScaleAll->GetValue ());
-                    rReq.Ignore ();
-                    break;
-                }
+                SetupPage (aSize, 0, 0, 0, 0, true, false, pScaleAll->GetValue ());
+                rReq.Ignore ();
+                break;
+            }
 #if HAVE_FEATURE_SCRIPTING
             StarBASIC::FatalError (ERRCODE_BASIC_WRONG_ARGS);
 #endif
@@ -855,23 +865,22 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         {
             const SfxItemSet *pArgs = rReq.GetArgs ();
 
-            if (pArgs)
-                if (pArgs->Count () == 5)
-                {
-                    const SfxUInt32Item* pLeft = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGELEFT);
-                    const SfxUInt32Item* pRight = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGERIGHT);
-                    const SfxUInt32Item* pUpper = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGETOP);
-                    const SfxUInt32Item* pLower = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGEBOTTOM);
-                    const SfxBoolItem* pScaleAll = rReq.GetArg<SfxBoolItem>(ID_VAL_SCALEOBJECTS);
+            if (pArgs && pArgs->Count () == 5)
+            {
+                const SfxUInt32Item* pLeft = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGELEFT);
+                const SfxUInt32Item* pRight = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGERIGHT);
+                const SfxUInt32Item* pUpper = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGETOP);
+                const SfxUInt32Item* pLower = rReq.GetArg<SfxUInt32Item>(ID_VAL_PAGEBOTTOM);
+                const SfxBoolItem* pScaleAll = rReq.GetArg<SfxBoolItem>(ID_VAL_SCALEOBJECTS);
 
-                    Size aEmptySize (0, 0);
+                Size aEmptySize (0, 0);
 
-                    SetupPage (aEmptySize, pLeft->GetValue (), pRight->GetValue (),
-                               pUpper->GetValue (), pLower->GetValue (),
-                               false, true, pScaleAll->GetValue ());
-                    rReq.Ignore ();
-                    break;
-                }
+                SetupPage (aEmptySize, pLeft->GetValue (), pRight->GetValue (),
+                           pUpper->GetValue (), pLower->GetValue (),
+                           false, true, pScaleAll->GetValue ());
+                rReq.Ignore ();
+                break;
+            }
 #if HAVE_FEATURE_SCRIPTING
             StarBASIC::FatalError (ERRCODE_BASIC_WRONG_ARGS);
 #endif
@@ -1310,7 +1319,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                     }
                     else if (nState == RET_NO)
                     {
-                        GraphicObject aGraphicObject(pObj->GetGraphicObject());
+                        const GraphicObject& aGraphicObject(pObj->GetGraphicObject());
                         GraphicHelper::ExportGraphic(pFrame, aGraphicObject.GetGraphic(), "");
                     }
                 }

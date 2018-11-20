@@ -43,6 +43,7 @@
 #include <rtl/instance.hxx>
 #include <rtl/math.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <rtl/character.hxx>
 
 #include <svl/zforlist.hxx>
 
@@ -3155,7 +3156,7 @@ bool SbiRuntime::implIsClass( SbxObject const * pObj, const OUString& aClass )
             bRet = aClass.equalsIgnoreAsciiCase( "object" );
         if( !bRet )
         {
-            OUString aObjClass = pObj->GetClassName();
+            const OUString& aObjClass = pObj->GetClassName();
             SbModule* pClassMod = GetSbData()->pClassFac->FindClass( aObjClass );
             if( pClassMod && pClassMod->pClassData )
             {
@@ -3203,11 +3204,8 @@ bool SbiRuntime::checkClass_Impl( const SbxVariableRef& refVal,
                     bOk = checkUnoObjectType(*pUnoObj, aClass);
                 else
                     bOk = false;
-                if ( !bOk )
-                {
-                    if( bRaiseErrors )
-                        Error( ERRCODE_BASIC_INVALID_USAGE_OBJECT );
-                }
+                if ( !bOk && bRaiseErrors )
+                    Error( ERRCODE_BASIC_INVALID_USAGE_OBJECT );
             }
             else
             {
@@ -3221,12 +3219,9 @@ bool SbiRuntime::checkClass_Impl( const SbxVariableRef& refVal,
     }
     else
     {
-        if ( !bVBAEnabled )
-        {
-            if( bRaiseErrors )
-                Error( ERRCODE_BASIC_NEEDS_OBJECT );
-            bOk = false;
-        }
+        if( bRaiseErrors )
+            Error( ERRCODE_BASIC_NEEDS_OBJECT );
+        bOk = false;
     }
     return bOk;
 }
@@ -3336,12 +3331,9 @@ SbxVariable* SbiRuntime::FindElement( SbxObject* pObj, sal_uInt32 nOp1, sal_uInt
         }
         if( bLocal )
         {
-            if ( bStatic )
+            if ( bStatic && pMeth )
             {
-                if ( pMeth )
-                {
-                    pElem = pMeth->GetStatics()->Find( aName, SbxClassType::DontCare );
-                }
+                pElem = pMeth->GetStatics()->Find( aName, SbxClassType::DontCare );
             }
 
             if ( !pElem )

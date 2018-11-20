@@ -43,6 +43,7 @@
 #include <viewopt.hxx>
 #include <svtools/ctrlbox.hxx>
 #include <globals.hrc>
+#include <outline.hrc>
 #include <strings.hrc>
 #include <paratr.hxx>
 
@@ -120,6 +121,9 @@ SwNumNamesDlg::SwNumNamesDlg(weld::Window *pParent)
     , m_xFormBox(m_xBuilder->weld_tree_view("form"))
     , m_xOKBtn(m_xBuilder->weld_button("ok"))
 {
+    for (size_t i = 0; i < SAL_N_ELEMENTS(OUTLINE_STYLE); ++i)
+        m_xFormBox->append_text(SwResId(OUTLINE_STYLE[i]));
+
     m_xFormEdit->connect_changed(LINK(this, SwNumNamesDlg, ModifyHdl));
     m_xFormBox->connect_changed(LINK(this, SwNumNamesDlg, SelectHdl));
     m_xFormBox->connect_row_activated(LINK(this, SwNumNamesDlg, DoubleClickHdl));
@@ -351,25 +355,22 @@ short SwOutlineTabDialog::Ok()
         ::SwStyleNameMapper::FillUIName( static_cast< sal_uInt16 >(RES_POOLCOLL_HEADLINE1 + i),
                                          sHeadline );
         SwTextFormatColl* pColl = rWrtSh.FindTextFormatCollByName( sHeadline );
-        if( !pColl )
+        if( !pColl && aCollNames[i] != sHeadline)
         {
-            if(aCollNames[i] != sHeadline)
-            {
-                SwTextFormatColl* pTextColl = rWrtSh.GetTextCollFromPool(
-                    static_cast< sal_uInt16 >(RES_POOLCOLL_HEADLINE1 + i) );
-                pTextColl->DeleteAssignmentToListLevelOfOutlineStyle();
-                pTextColl->ResetFormatAttr(RES_PARATR_NUMRULE);
+            SwTextFormatColl* pTextColl = rWrtSh.GetTextCollFromPool(
+                static_cast< sal_uInt16 >(RES_POOLCOLL_HEADLINE1 + i) );
+            pTextColl->DeleteAssignmentToListLevelOfOutlineStyle();
+            pTextColl->ResetFormatAttr(RES_PARATR_NUMRULE);
 
-                if( !aCollNames[i].isEmpty() )
+            if( !aCollNames[i].isEmpty() )
+            {
+                pTextColl = rWrtSh.GetParaStyle(
+                            aCollNames[i], SwWrtShell::GETSTYLE_CREATESOME);
+                if(pTextColl)
                 {
-                    pTextColl = rWrtSh.GetParaStyle(
-                                aCollNames[i], SwWrtShell::GETSTYLE_CREATESOME);
-                    if(pTextColl)
-                    {
-                        pTextColl->AssignToListLevelOfOutlineStyle(i);
-                        SwNumRuleItem aItem(pOutlineRule->GetName());
-                        pTextColl->SetFormatAttr(aItem);
-                    }
+                    pTextColl->AssignToListLevelOfOutlineStyle(i);
+                    SwNumRuleItem aItem(pOutlineRule->GetName());
+                    pTextColl->SetFormatAttr(aItem);
                 }
             }
         }

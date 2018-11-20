@@ -29,7 +29,6 @@
 #include <osx/salframe.h>
 #else
 #include "headless/svpframe.hxx"
-#include "headless/svpgdi.hxx"
 #include "headless/svpinst.hxx"
 #include "headless/svpvd.hxx"
 #endif
@@ -264,7 +263,9 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
                 NSGraphicsContext* pNSContext = [NSGraphicsContext graphicsContextWithWindow: pNSWindow];
                 if( pNSContext )
                 {
-                    xCGContext = [pNSContext CGContext];
+SAL_WNODEPRECATED_DECLARATIONS_PUSH // 'graphicsPort' is deprecated: first deprecated in macOS 10.14
+                    xCGContext = static_cast<CGContextRef>([pNSContext graphicsPort]);
+SAL_WNODEPRECATED_DECLARATIONS_POP
                 }
             }
             // At least on macOS 10.14 during CppunitTests (that have hidden windows), it happens
@@ -281,12 +282,6 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
 
                 const int nBytesPerRow = (mnBitmapDepth * nDX) / 8;
                 void* pRawData = std::malloc( nBytesPerRow * nDY );
-#ifdef DBG_UTIL
-                for (ssize_t i = 0; i < nBytesPerRow * nDY; i++)
-                {
-                    static_cast<sal_uInt8*>(pRawData)[i] = (i & 0xFF);
-                }
-#endif
                 mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
                                                          8, nBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaNoneSkipFirst );
                 SAL_INFO( "vcl.cg",  "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );
@@ -298,12 +293,6 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
 
         const int nBytesPerRow = (mnBitmapDepth * nDX) / 8;
         void* pRawData = std::malloc( nBytesPerRow * nDY );
-#ifdef DBG_UTIL
-        for (ssize_t i = 0; i < nBytesPerRow * nDY; i++)
-        {
-            ((sal_uInt8*)pRawData)[i] = (i & 0xFF);
-        }
-#endif
         mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
                                                  8, nBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little );
         SAL_INFO( "vcl.cg",  "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );

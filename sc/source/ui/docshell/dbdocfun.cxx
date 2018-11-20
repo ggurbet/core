@@ -25,6 +25,7 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdoole2.hxx>
 #include <com/sun/star/sdb/CommandType.hpp>
+#include <unotools/charclass.hxx>
 
 #include <dbdocfun.hxx>
 #include <sc.hrc>
@@ -1241,14 +1242,11 @@ bool ScDBDocFunc::DataPilotUpdate( ScDPObject* pOldObj, const ScDPObject* pNewOb
         return CreatePivotTable(*pNewObj, bRecord, bApi);
     }
 
-    if (pOldObj)
-    {
-        if (!pNewObj)
-            return RemovePivotTable(*pOldObj, bRecord, bApi);
+    if (!pNewObj)
+        return RemovePivotTable(*pOldObj, bRecord, bApi);
 
-        if (pOldObj == pNewObj)
-            return UpdatePivotTable(*pOldObj, bRecord, bApi);
-    }
+    if (pOldObj == pNewObj)
+        return UpdatePivotTable(*pOldObj, bRecord, bApi);
 
     OSL_ASSERT(pOldObj && pNewObj && pOldObj != pNewObj);
 
@@ -1447,9 +1445,8 @@ bool ScDBDocFunc::CreatePivotTable(const ScDPObject& rDPObj, bool bRecord, bool 
 
     // Synchronize groups between linked tables
     {
-        bool bRefFound = false;
         const ScDPDimensionSaveData* pGroups = nullptr;
-        bRefFound = rDoc.GetDPCollection()->GetReferenceGroups(rDestObj, &pGroups);
+        bool bRefFound = rDoc.GetDPCollection()->GetReferenceGroups(rDestObj, &pGroups);
         if (bRefFound)
         {
             ScDPSaveData* pSaveData = rDestObj.GetSaveData();

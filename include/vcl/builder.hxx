@@ -11,7 +11,6 @@
 #define INCLUDED_VCL_BUILDER_HXX
 
 #include <typeinfo>
-#include <osl/module.hxx>
 #include <sal/log.hxx>
 #include <unotools/resmgr.hxx>
 #include <tools/fldunit.hxx>
@@ -23,19 +22,15 @@
 
 #include <memory>
 #include <map>
-#include <set>
-#include <stack>
 #include <vector>
 #ifdef check
 #  //some problem with MacOSX and a check define
 #  undef check
 #endif
 
-#include <com/sun/star/frame/XFrame.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
-
 class Button;
 class ComboBox;
+class FormattedField;
 class ListBox;
 class MessageDialog;
 class NumericFormatter;
@@ -43,12 +38,14 @@ class PopupMenu;
 class SalInstanceBuilder;
 class ScreenshotTest;
 class ScrollBar;
+class SvTreeListBox;
 class Slider;
 class DateField;
 class TimeField;
 class VclExpander;
 class VclMultiLineEdit;
 namespace xmlreader { class XmlReader; }
+namespace com { namespace sun { namespace star { namespace frame { class XFrame; } } } }
 
 struct ComboBoxTextItem
 {
@@ -114,6 +111,9 @@ public:
 private:
     VclBuilder(const VclBuilder&) = delete;
     VclBuilder& operator=(const VclBuilder&) = delete;
+
+    // owner for ListBox/ComboBox UserData
+    std::vector<std::unique_ptr<OUString>> m_aUserData;
 
     //If the toplevel window has any properties which need to be set on it,
     //but the toplevel is the owner of the builder, then its ctor
@@ -220,6 +220,7 @@ private:
     const ListStore* get_model_by_name(const OString& sID) const;
     void     mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
     void     mungeModel(ComboBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
+    void     mungeModel(SvTreeListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId);
 
     typedef stringmap TextBuffer;
     const TextBuffer* get_buffer_by_name(const OString& sID) const;
@@ -230,6 +231,7 @@ private:
     const Adjustment* get_adjustment_by_name(const OString& sID) const;
 
     static void     mungeAdjustment(NumericFormatter &rTarget, const Adjustment &rAdjustment);
+    static void     mungeAdjustment(FormattedField &rTarget, const Adjustment &rAdjustment);
     static void     mungeAdjustment(DateField &rTarget, const Adjustment &rAdjustment);
     static void     mungeAdjustment(TimeField &rTarget, const Adjustment &rAdjustment);
     static void     mungeAdjustment(ScrollBar &rTarget, const Adjustment &rAdjustment);
@@ -266,6 +268,7 @@ private:
         std::map<OString, TextBuffer> m_aTextBuffers;
 
         std::vector<WidgetAdjustmentMap> m_aNumericFormatterAdjustmentMaps;
+        std::vector<WidgetAdjustmentMap> m_aFormattedFormatterAdjustmentMaps;
         std::vector<WidgetAdjustmentMap> m_aTimeFormatterAdjustmentMaps;
         std::vector<WidgetAdjustmentMap> m_aDateFormatterAdjustmentMaps;
         std::vector<WidgetAdjustmentMap> m_aScrollAdjustmentMaps;
@@ -337,6 +340,7 @@ private:
                     stringmap &rVec);
 
     void        connectNumericFormatterAdjustment(const OString &id, const OUString &rAdjustment);
+    void        connectFormattedFormatterAdjustment(const OString &id, const OUString &rAdjustment);
     void        connectTimeFormatterAdjustment(const OString &id, const OUString &rAdjustment);
     void        connectDateFormatterAdjustment(const OString &id, const OUString &rAdjustment);
 
@@ -371,7 +375,7 @@ private:
     void        handleMenuChild(PopupMenu *pParent, xmlreader::XmlReader &reader);
     void        handleMenuObject(PopupMenu *pParent, xmlreader::XmlReader &reader);
 
-    void        handleListStore(xmlreader::XmlReader &reader, const OString &rID);
+    void        handleListStore(xmlreader::XmlReader &reader, const OString &rID, const OString &rClass);
     void        handleRow(xmlreader::XmlReader &reader, const OString &rID);
     void        handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &reader);
     void        handleMenu(xmlreader::XmlReader &reader, const OString &rID);

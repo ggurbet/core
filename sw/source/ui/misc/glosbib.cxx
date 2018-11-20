@@ -26,7 +26,8 @@
 #include <unotools/transliterationwrapper.hxx>
 #include <unotools/tempfile.hxx>
 #include <unotools/pathoptions.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
+#include <osl/diagnose.h>
 
 #include <swtypes.hxx>
 #include <glosbib.hxx>

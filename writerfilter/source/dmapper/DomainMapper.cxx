@@ -106,6 +106,7 @@ DomainMapper::DomainMapper( const uno::Reference< uno::XComponentContext >& xCon
     LoggedStream("DomainMapper"),
     m_pImpl(new DomainMapper_Impl(*this, xContext, xModel, eDocumentType, rMediaDesc)),
     mbIsSplitPara(false)
+    ,mbHasControls(false)
 {
     // #i24363# tab stops relative to indent
     m_pImpl->SetDocumentSettingsProperty(
@@ -193,12 +194,14 @@ DomainMapper::~DomainMapper()
                 xEnumeration->nextElement();
             }
         }
-        if( nIndexes || m_pImpl->m_pSdtHelper->hasElements())
+
+        mbHasControls |= m_pImpl->m_pSdtHelper->hasElements();
+        if ( nIndexes || mbHasControls )
         {
             //index update has to wait until first view is created
             uno::Reference< document::XEventBroadcaster > xBroadcaster(xIndexesSupplier, uno::UNO_QUERY);
             if (xBroadcaster.is())
-                xBroadcaster->addEventListener(uno::Reference< document::XEventListener >(new ModelEventListener(nIndexes, m_pImpl->m_pSdtHelper->hasElements())));
+                xBroadcaster->addEventListener(uno::Reference< document::XEventListener >(new ModelEventListener(nIndexes, mbHasControls)));
         }
 
 
@@ -1028,7 +1031,7 @@ void DomainMapper::lcl_attribute(Id nName, Value & val)
         break;
         case NS_ooxml::LN_CT_Background_color:
             if (m_pImpl->GetSettingsTable()->GetDisplayBackgroundShape())
-                m_pImpl->m_oBackgroundColor.reset(nIntValue);
+                m_pImpl->m_oBackgroundColor = nIntValue;
         break;
         case NS_ooxml::LN_CT_PageNumber_start:
             if (pSectionContext != nullptr)
@@ -1126,7 +1129,7 @@ void DomainMapper::lcl_attribute(Id nName, Value & val)
         }
         case NS_ooxml::LN_CT_DocPartGallery_val:
         {
-            OUString sGlossaryEntryGallery = sStringValue;
+            const OUString& sGlossaryEntryGallery = sStringValue;
             if(m_pImpl->GetTopContext().get())
             {
                 OUString sName = sGlossaryEntryGallery + ":" + m_sGlossaryEntryName;
@@ -1555,7 +1558,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
                     uno::Any aStyleVal = m_pImpl->GetPropertyFromStyleSheet(ePropertyId);
                     if( !aStyleVal.hasValue() )
                     {
-                        nIntValue = 0x83a == nSprmId ?
+                        nIntValue = NS_ooxml::LN_EG_RPrBase_smallCaps == nSprmId ?
                             4 : 1;
                     }
                     else if(aStyleVal.getValueTypeClass() == uno::TypeClass_FLOAT )
@@ -1568,7 +1571,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
                     else if((aStyleVal >>= nStyleValue) ||
                             (nStyleValue = static_cast<sal_Int16>(comphelper::getEnumAsINT32(aStyleVal))) >= 0 )
                     {
-                        nIntValue = 0x83a == nSprmId ?
+                        nIntValue = NS_ooxml::LN_EG_RPrBase_smallCaps == nSprmId ?
                             nStyleValue ? 0 : 4 :
                             nStyleValue ? 0 : 1;
                     }
@@ -2342,7 +2345,11 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
     case NS_ooxml::LN_CT_PPrBase_mirrorIndents: // mirrorIndents
         rContext->Insert(PROP_MIRROR_INDENTS, uno::makeAny( nIntValue != 0 ), true, PARA_GRAB_BAG);
     break;
-    case NS_ooxml::LN_EG_SectPrContents_formProt: //section protection, only form editing is enabled - unsupported
+    case NS_ooxml::LN_EG_SectPrContents_formProt: //section protection
+    {
+        if( pSectionContext )
+            pSectionContext->Insert( PROP_IS_PROTECTED, uno::makeAny( bool(nIntValue) ) );
+    }
     break;
     case NS_ooxml::LN_EG_SectPrContents_vAlign:
     {
@@ -3195,7 +3202,7 @@ void DomainMapper::lcl_utext(const sal_uInt8 * data_, size_t len)
         }
     }
     // Form controls are not allowed in headers / footers; see sw::DocumentContentOperationsManager::InsertDrawObj()
-    else if (!m_pImpl->m_pSdtHelper->getDateFormat().isEmpty() && !IsInHeaderFooter())
+    else if (m_pImpl->m_pSdtHelper->validateDateFormat() && !IsInHeaderFooter())
     {
         /*
          * Here we assume w:sdt only contains a single text token. We need to

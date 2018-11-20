@@ -26,15 +26,16 @@
 #include <vcl/decoview.hxx>
 #include <vcl/settings.hxx>
 #include <tools/wintypes.hxx>
+#include <unotools/charclass.hxx>
 
 #include <AccessibleFilterMenu.hxx>
 #include <AccessibleFilterTopWindow.hxx>
 
 #include <com/sun/star/accessibility/XAccessible.hpp>
 #include <com/sun/star/accessibility/XAccessibleContext.hpp>
-#include <svtools/fmtfield.hxx>
-#include <svtools/svlbitm.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/fmtfield.hxx>
+#include <vcl/svlbitm.hxx>
+#include <vcl/treelistentry.hxx>
 #include <document.hxx>
 
 using namespace com::sun::star;

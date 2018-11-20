@@ -61,6 +61,7 @@
 #include <fmtfld.hxx>
 
 #include <IDocumentMarkAccess.hxx>
+#include <txtfrm.hxx>
 #include <ndtxt.hxx>
 
 static OUString lcl_GetRedlineHelp( const SwRangeRedline& rRedl, bool bBalloon )
@@ -119,14 +120,11 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
 
     SdrView *pSdrView = rSh.GetDrawView();
 
-    if( bQuickBalloon )
+    if( bQuickBalloon && pSdrView )
     {
-        if( pSdrView )
-        {
-            SdrPageView* pPV = pSdrView->GetSdrPageView();
-            SwDPage* pPage = pPV ? static_cast<SwDPage*>(pPV->GetPage()) : nullptr;
-            bContinue = pPage && pPage->RequestHelp(this, pSdrView, rEvt);
-        }
+        SdrPageView* pPV = pSdrView->GetSdrPageView();
+        SwDPage* pPage = pPV ? static_cast<SwDPage*>(pPV->GetPage()) : nullptr;
+        bContinue = pPage && pPage->RequestHelp(this, pSdrView, rEvt);
     }
 
     if( bContinue && bQuickBalloon)
@@ -201,7 +199,7 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                         SwTextNode* pTextNode = ppBkmk->get()->GetMarkStart().nNode.GetNode().GetTextNode();
                         if ( pTextNode )
                         {
-                            sText = pTextNode->GetExpandText( 0, pTextNode->Len(), true, true );
+                            sText = sw::GetExpandTextMerged(rSh.GetLayout(), *pTextNode, true, false, ExpandMode(0));
 
                             if( !sText.isEmpty() )
                             {
@@ -248,8 +246,7 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                 if( aContentAtPos.pFndTextAttr && aContentAtPos.aFnd.pAttr )
                 {
                     const SwFormatFootnote* pFootnote = static_cast<const SwFormatFootnote*>(aContentAtPos.aFnd.pAttr);
-                    OUString sTmp;
-                    pFootnote->GetFootnoteText( sTmp );
+                    OUString sTmp(pFootnote->GetFootnoteText(*rSh.GetLayout()));
                     sText = SwResId( pFootnote->IsEndNote()
                                     ? STR_ENDNOTE : STR_FTNNOTE ) + sTmp;
                     bBalloon = true;
@@ -304,7 +301,7 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                         {
                             sal_uInt16 nOldSubType = pField->GetSubType();
                             const_cast<SwField*>(pField)->SetSubType(nsSwExtendedSubType::SUB_CMD);
-                            sText = pField->ExpandField(true);
+                            sText = pField->ExpandField(true, rSh.GetLayout());
                             const_cast<SwField*>(pField)->SetSubType(nOldSubType);
                         }
                         break;
@@ -348,7 +345,7 @@ void SwEditWin::RequestHelp(const HelpEvent &rEvt)
                                 if ( pRefField->IsRefToHeadingCrossRefBookmark() ||
                                      pRefField->IsRefToNumItemCrossRefBookmark() )
                                 {
-                                    sText = pRefField->GetExpandedTextOfReferencedTextNode();
+                                    sText = pRefField->GetExpandedTextOfReferencedTextNode(*rSh.GetLayout());
                                     if ( sText.getLength() > 80  )
                                     {
                                         sText = sText.copy(0, 80) + "...";

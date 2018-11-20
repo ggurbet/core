@@ -47,6 +47,13 @@ static const char* const publicFunc =
  "\n"
  "double CreateDoubleError(ulong nErr)\n"
  "{\n"
+ // nVidia OpenCL, at least on Linux, seems to ignore the argument to nan(),
+ // so using that would not propagate the type of error, work that around
+ // by directly constructing the proper IEEE double NaN value
+ // TODO: maybe use a better way to detect such systems?
+ "#ifdef cl_nv_pragma_unroll\n"
+ "    return as_double(0x7FF8000000000000+nErr);\n"
+ "#endif\n"
  "    return nan(nErr);\n"
  "}\n"
  "\n"
@@ -300,7 +307,7 @@ public:
             throw Unhandled(__FILE__, __LINE__);
         }
 
-        const rtl::OUString s = ref->GetString().getString().toAsciiUpperCase();
+        const OUString s = ref->GetString().getString().toAsciiUpperCase();
         hashCode = s.hashCode();
 
         // Pass the scalar result back to the rest of the formula kernel
@@ -1451,7 +1458,7 @@ public:
 
         ss << "\tint i;\n\t";
         ss << "int currentCount0;\n";
-        for (unsigned i = 0; i < vSubArguments.size() - 1; i++)
+        for (size_t i = 0; i < vSubArguments.size() - 1; i++)
             ss << "int currentCount" << i + 1 << ";\n";
         std::stringstream temp3, temp4;
         int outLoopSize = UNROLLING_FACTOR;
@@ -3593,6 +3600,8 @@ DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScToken
             sal_uInt8 nParamCount =  pCur->GetParamCount();
             for (sal_uInt8 i = 0; i < nParamCount; i++)
             {
+                if( aTokenVector.empty())
+                    return nullptr;
                 FormulaToken* pTempFormula = aTokenVector.back();
                 aTokenVector.pop_back();
                 if (pTempFormula->GetOpCode() != ocPush)
@@ -3833,6 +3842,9 @@ bool FormulaGroupInterpreterOpenCL::interpret( ScDocument& rDoc,
     MergeCalcConfig(rDoc);
 
     genRPNTokens(rDoc, rTopPos, rCode);
+
+    if( rCode.GetCodeLen() == 0 )
+        return false;
 
     CLInterpreterContext aCxt = createCLInterpreterContext(maCalcConfig, xGroup, rCode);
     if (!aCxt.isValid())

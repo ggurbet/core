@@ -20,6 +20,10 @@
 #ifndef INCLUDED_VCL_INC_HEADLESS_SVPGDI_HXX
 #define INCLUDED_VCL_INC_HEADLESS_SVPGDI_HXX
 
+#ifdef IOS
+#error This file is not for iOS
+#endif
+
 #include <osl/endian.h>
 #include <vcl/sysdata.hxx>
 #include <vcl/metric.hxx>
@@ -27,14 +31,8 @@
 
 #include <salgdi.hxx>
 #include <sallayout.hxx>
-#ifndef IOS
 #include "svpcairotextrender.hxx"
-#endif
 #include <impfontmetricdata.hxx>
-
-#ifdef IOS
-#define SvpSalGraphics AquaSalGraphics
-#else
 
 #include <cairo.h>
 
@@ -119,11 +117,12 @@ public:
         double fMiterMinimumAngle,
         bool bPixelSnapHairline);
 
-private:
-    void invert(const basegfx::B2DPolygon &rPoly, SalInvert nFlags);
     void copySource(const SalTwoRect& rTR, cairo_surface_t* source);
     void copyWithOperator(const SalTwoRect& rTR, cairo_surface_t* source,
                           cairo_operator_t eOp = CAIRO_OPERATOR_SOURCE);
+
+private:
+    void invert(const basegfx::B2DPolygon &rPoly, SalInvert nFlags);
     void applyColor(cairo_t *cr, Color rColor);
 
 protected:
@@ -191,8 +190,6 @@ public:
                                             bool bVertical,
                                             std::vector< sal_Int32 >& rWidths,
                                             Ucs2UIntMap& rUnicodeEnc ) override;
-    virtual bool            GetGlyphBoundRect(const GlyphItem&, tools::Rectangle&) override;
-    virtual bool            GetGlyphOutline(const GlyphItem&, basegfx::B2DPolyPolygon&) override;
     virtual std::unique_ptr<SalLayout>
                             GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
     virtual void            DrawTextLayout( const GenericSalLayout& ) override;
@@ -262,6 +259,28 @@ public:
 
     virtual SystemGraphicsData GetGraphicsData() const override;
 
+    // Native Widget Drawing interface
+    bool IsNativeControlSupported(ControlType eType, ControlPart ePart) override;
+
+    bool hitTestNativeControl(ControlType eType, ControlPart ePart,
+                               const tools::Rectangle& rBoundingControlRegion,
+                               const Point& rPosition, bool& rIsInside) override;
+
+    bool drawNativeControl(ControlType eType, ControlPart ePart,
+                           const tools::Rectangle& rBoundingControlRegion,
+                           ControlState eState, const ImplControlValue& aValue,
+                           const OUString& aCaptions) override;
+
+    bool getNativeControlRegion(ControlType eType, ControlPart ePart,
+                                 const tools::Rectangle& rBoundingControlRegion,
+                                 ControlState eState,
+                                 const ImplControlValue& aValue,
+                                 const OUString& aCaption,
+                                 tools::Rectangle& rNativeBoundingRegion,
+                                 tools::Rectangle& rNativeContentRegion) override;
+
+    virtual void updateSettings(AllSettings& rSettings);
+
 #if ENABLE_CAIRO_CANVAS
     virtual bool            SupportsCairo() const override;
     virtual cairo::SurfaceSharedPtr CreateSurface(const cairo::CairoSurfaceSharedPtr& rSurface) const override;
@@ -276,8 +295,6 @@ public:
     static cairo_surface_t* createCairoSurface(const BitmapBuffer *pBuffer);
     void                    clipRegion(cairo_t* cr);
 };
-
-#endif
 
 #endif // INCLUDED_VCL_INC_HEADLESS_SVPGDI_HXX
 

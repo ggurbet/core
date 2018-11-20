@@ -124,13 +124,6 @@ sal_Int32 MQueryHelper::getResultCount() const
     return result;
 }
 
-
-bool MQueryHelper::checkRowAvailable( sal_Int32 nDBRow )
-{
-    return getResultCount() > nDBRow;
-}
-
-
 bool MQueryHelper::getRowValue( ORowSetValue& rValue, sal_Int32 nDBRow,const OUString& aDBColumnName, sal_Int32 nType )
 {
     MQueryHelperResultEntry* pResEntry = getByIndex( nDBRow );
@@ -258,7 +251,7 @@ std::vector<bool> entryMatchedByExpression(MQueryHelper* _aQuery, MQueryExpressi
             if (bRequiresValue)
             {
                 SAL_INFO("connectivity.mork", "Value = " << evStr->getValue() );
-                OUString searchedValue = evStr->getValue();
+                const OUString& searchedValue = evStr->getValue();
                 if (evStr->getCond() == MQueryOp::Is) {
                     SAL_INFO("connectivity.mork", "MQueryOp::Is; done");
                     resultVector.push_back(currentValue == searchedValue);

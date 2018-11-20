@@ -1578,9 +1578,9 @@ vcl::Window *VclFrame::get_label_widget()
 
 const vcl::Window *VclFrame::get_child() const
 {
-    assert(GetChildCount() == 2);
     //The child widget is the normally the last (of two) children
     const WindowImpl* pWindowImpl = ImplGetWindowImpl();
+    assert(GetChildCount() == 2 || pWindowImpl->mbInDispose);
     if (!m_pLabel)
         return pWindowImpl->mpLastChild;
     if (pWindowImpl->mpFirstChild == pWindowImpl->mpLastChild) //only label exists
@@ -1858,8 +1858,8 @@ IMPL_LINK_NOARG(VclScrolledWindow, ScrollBarHdl, ScrollBar*, void)
 
 const vcl::Window *VclScrolledWindow::get_child() const
 {
-    assert(GetChildCount() == 4);
     const WindowImpl* pWindowImpl = ImplGetWindowImpl();
+    assert(GetChildCount() == 4 || pWindowImpl->mbInDispose);
     return pWindowImpl->mpLastChild;
 }
 
@@ -2477,6 +2477,20 @@ void MessageDialog::set_secondary_text(const OUString &rSecondaryString)
         m_pSecondaryMessage->Show(!m_sSecondaryString.isEmpty());
         MessageDialog::SetMessagesWidths(this, m_pPrimaryMessage, !m_sSecondaryString.isEmpty() ? m_pSecondaryMessage.get() : nullptr);
     }
+}
+
+void MessageDialog::StateChanged(StateChangedType nType)
+{
+    if (nType == StateChangedType::InitShow)
+    {
+        // MessageBox should be at least as wide as to see the title
+        auto nTitleWidth = CalcTitleWidth();
+        // Extra-Width for Close button
+        nTitleWidth += mpWindowImpl->mnTopBorder;
+        if (get_preferred_size().Width() < nTitleWidth)
+            set_width_request(nTitleWidth);
+    }
+    Dialog::StateChanged(nType);
 }
 
 VclVPaned::VclVPaned(vcl::Window *pParent)

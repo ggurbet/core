@@ -58,6 +58,7 @@
 #include "xmlstyli.hxx"
 #include <ViewSettingsSequenceDefines.hxx>
 
+#include <compiler.hxx>
 #include <patattr.hxx>
 
 #include "XMLConverter.hxx"
@@ -79,6 +80,7 @@
 #include <numformat.hxx>
 #include <sizedev.hxx>
 #include <scdll.hxx>
+#include "xmlstyle.hxx"
 
 #include <comphelper/base64.hxx>
 #include <comphelper/extract.hxx>
@@ -97,6 +99,7 @@
 #include <com/sun/star/sheet/XLabelRanges.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/sheet/XSheetCellRangeContainer.hpp>
 
 #include <memory>
 #include <utility>
@@ -1073,23 +1076,20 @@ void ScXMLImport::SetViewSettings(const uno::Sequence<beans::PropertyValue>& aVi
                 SetChangeTrackingViewSettings(aChangeProps);
         }
     }
-    if (nHeight && nWidth)
+    if (nHeight && nWidth && GetModel().is())
     {
-        if (GetModel().is())
+        ScModelObj* pDocObj(ScModelObj::getImplementation( GetModel() ));
+        if (pDocObj)
         {
-            ScModelObj* pDocObj(ScModelObj::getImplementation( GetModel() ));
-            if (pDocObj)
+            SfxObjectShell* pEmbeddedObj = pDocObj->GetEmbeddedObject();
+            if (pEmbeddedObj)
             {
-                SfxObjectShell* pEmbeddedObj = pDocObj->GetEmbeddedObject();
-                if (pEmbeddedObj)
-                {
-                    tools::Rectangle aRect;
-                    aRect.setX( nLeft );
-                    aRect.setY( nTop );
-                    aRect.setWidth( nWidth );
-                    aRect.setHeight( nHeight );
-                    pEmbeddedObj->SetVisArea(aRect);
-                }
+                tools::Rectangle aRect;
+                aRect.setX( nLeft );
+                aRect.setY( nTop );
+                aRect.setWidth( nWidth );
+                aRect.setHeight( nHeight );
+                pEmbeddedObj->SetVisArea(aRect);
             }
         }
     }

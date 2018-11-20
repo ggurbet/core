@@ -46,6 +46,7 @@
 #include <vcl/metric.hxx>
 #include <vcl/fontcharmap.hxx>
 #include <vcl/opengl/OpenGLWrapper.hxx>
+#include <comphelper/scopeguard.hxx>
 
 #include <fontsubset.hxx>
 #include <outdev.h>
@@ -57,6 +58,7 @@
 #include <win/winlayout.hxx>
 #include <impfontcharmap.hxx>
 #include <impfontmetricdata.hxx>
+#include <impglyphitem.hxx>
 
 using namespace vcl;
 
@@ -765,8 +767,8 @@ void ImplGetLogFontFromFontSelect( HDC hDC,
         aName = rFont.GetFamilyName().getToken( 0, ';' );
 
     UINT nNameLen = aName.getLength();
-    if ( nNameLen > (sizeof( rLogFont.lfFaceName )/sizeof( wchar_t ))-1 )
-        nNameLen = (sizeof( rLogFont.lfFaceName )/sizeof( wchar_t ))-1;
+    if (nNameLen >= LF_FACESIZE)
+        nNameLen = LF_FACESIZE - 1;
     memcpy( rLogFont.lfFaceName, aName.getStr(), nNameLen*sizeof( wchar_t ) );
     rLogFont.lfFaceName[nNameLen] = 0;
 
@@ -827,8 +829,7 @@ void ImplGetLogFontFromFontSelect( HDC hDC,
         {
             // restore non-vertical name if not vertical mode isn't available
             memcpy( &rLogFont.lfFaceName[0], aName.getStr(), nNameLen*sizeof(wchar_t) );
-            if( nNameLen < LF_FACESIZE )
-                rLogFont.lfFaceName[nNameLen] = '\0';
+            rLogFont.lfFaceName[nNameLen] = '\0';
             // keep it upright and create the font for sideway glyphs later.
             rLogFont.lfEscapement = rLogFont.lfEscapement - 2700;
             rLogFont.lfOrientation = rLogFont.lfEscapement;
@@ -1326,23 +1327,18 @@ void WinSalGraphics::ClearDevFontCache()
     //anything to do here ?
 }
 
-bool WinSalGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle& rRect)
+bool WinFontInstance::ImplGetGlyphBoundRect(sal_GlyphId nId, tools::Rectangle& rRect, bool) const
 {
-    rtl::Reference<WinFontInstance> pFont = mpWinFontEntry[rGlyph.mnFallbackLevel];
-    assert(pFont.is());
+    assert(m_pGraphics);
+    HDC hDC = m_pGraphics->getHDC();
+    const HFONT hOrigFont = static_cast<HFONT>(GetCurrentObject(hDC, OBJ_FONT));
+    const HFONT hFont = GetHFONT();
+    if (hFont != hOrigFont)
+        SelectObject(hDC, hFont);
 
-    if (pFont.is() && pFont->GetCachedGlyphBoundRect(rGlyph.maGlyphId, rRect))
-        return true;
-
-    HDC hDC = getHDC();
-    HFONT hFont = static_cast<HFONT>(GetCurrentObject(hDC, OBJ_FONT));
-    float fFontScale = 1.0;
-    if (pFont.is())
-    {
-        if (hFont != pFont->GetHFONT())
-            SelectObject(hDC, pFont->GetHFONT());
-        fFontScale = pFont->GetScale();
-    }
+    const ::comphelper::ScopeGuard aFontRestoreScopeGuard([hFont, hOrigFont, hDC]()
+        { if (hFont != hOrigFont) SelectObject(hDC, hOrigFont); });
+    const float fFontScale = GetScale();
 
     // use unity matrix
     MAT2 aMat;
@@ -1355,10 +1351,8 @@ bool WinSalGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle
     GLYPHMETRICS aGM;
     aGM.gmptGlyphOrigin.x = aGM.gmptGlyphOrigin.y = 0;
     aGM.gmBlackBoxX = aGM.gmBlackBoxY = 0;
-    DWORD nSize = ::GetGlyphOutlineW(hDC, rGlyph.maGlyphId, nGGOFlags, &aGM, 0, nullptr, &aMat);
-    if (pFont.is() && hFont != pFont->GetHFONT())
-        SelectObject(hDC, hFont);
-    if( nSize == GDI_ERROR )
+    DWORD nSize = ::GetGlyphOutlineW(hDC, nId, nGGOFlags, &aGM, 0, nullptr, &aMat);
+    if (nSize == GDI_ERROR)
         return false;
 
     rRect = tools::Rectangle( Point( +aGM.gmptGlyphOrigin.x, -aGM.gmptGlyphOrigin.y ),
@@ -1367,18 +1361,22 @@ bool WinSalGraphics::GetGlyphBoundRect(const GlyphItem& rGlyph, tools::Rectangle
     rRect.SetRight(static_cast<int>( fFontScale * rRect.Right() ) + 1);
     rRect.SetTop(static_cast<int>( fFontScale * rRect.Top() ));
     rRect.SetBottom(static_cast<int>( fFontScale * rRect.Bottom() ) + 1);
-
-    pFont->CacheGlyphBoundRect(rGlyph.maGlyphId, rRect);
-
     return true;
 }
 
-bool WinSalGraphics::GetGlyphOutline(const GlyphItem& rGlyph,
-    basegfx::B2DPolyPolygon& rB2DPolyPoly )
+bool WinFontInstance::GetGlyphOutline(sal_GlyphId nId, basegfx::B2DPolyPolygon& rB2DPolyPoly, bool) const
 {
     rB2DPolyPoly.clear();
 
-    HDC  hDC = getHDC();
+    assert(m_pGraphics);
+    HDC hDC = m_pGraphics->getHDC();
+    const HFONT hOrigFont = static_cast<HFONT>(GetCurrentObject(hDC, OBJ_FONT));
+    const HFONT hFont = GetHFONT();
+    if (hFont != hOrigFont)
+        SelectObject(hDC, hFont);
+
+    const ::comphelper::ScopeGuard aFontRestoreScopeGuard([hFont, hOrigFont, hDC]()
+        { if (hFont != hOrigFont) SelectObject(hDC, hOrigFont); });
 
     // use unity matrix
     MAT2 aMat;
@@ -1389,14 +1387,14 @@ bool WinSalGraphics::GetGlyphOutline(const GlyphItem& rGlyph,
     nGGOFlags |= GGO_GLYPH_INDEX;
 
     GLYPHMETRICS aGlyphMetrics;
-    const DWORD nSize1 = ::GetGlyphOutlineW(hDC, rGlyph.maGlyphId, nGGOFlags, &aGlyphMetrics, 0, nullptr, &aMat);
+    const DWORD nSize1 = ::GetGlyphOutlineW(hDC, nId, nGGOFlags, &aGlyphMetrics, 0, nullptr, &aMat);
     if( !nSize1 )       // blank glyphs are ok
         return true;
     else if( nSize1 == GDI_ERROR )
         return false;
 
     BYTE* pData = new BYTE[ nSize1 ];
-    const DWORD nSize2 = ::GetGlyphOutlineW(hDC, rGlyph.maGlyphId, nGGOFlags,
+    const DWORD nSize2 = ::GetGlyphOutlineW(hDC, nId, nGGOFlags,
               &aGlyphMetrics, nSize1, pData, &aMat );
 
     if( nSize1 != nSize2 )
@@ -1546,10 +1544,7 @@ bool WinSalGraphics::GetGlyphOutline(const GlyphItem& rGlyph,
     // rescaling needed for the tools::PolyPolygon conversion
     if( rB2DPolyPoly.count() )
     {
-        rtl::Reference<WinFontInstance> pFont = mpWinFontEntry[rGlyph.mnFallbackLevel];
-        assert(pFont.is());
-        float fFontScale = pFont.is() ? pFont->GetScale() : 1.0;
-        const double fFactor(fFontScale/256);
+        const double fFactor(GetScale()/256);
         rB2DPolyPoly.transform(basegfx::utils::createScaleB2DHomMatrix(fFactor, fFactor));
     }
 
@@ -1658,8 +1653,6 @@ bool WinSalGraphics::CreateFontSubset( const OUString& rToFile,
     if( aRawCffData.get() )
     {
         pWinFontData->UpdateFromHDC( getHDC() );
-        FontCharMapRef xFontCharMap = pWinFontData->GetFontCharMap();
-        xFontCharMap = nullptr;
 
         // provide a font subset from the CFF-table
         FILE* pOutFile = fopen( aToFile.getStr(), "wb" );

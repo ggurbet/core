@@ -14,12 +14,13 @@
 #include <vcl/button.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/timer.hxx>
-#include <svtools/svlbitm.hxx>
+#include <vcl/svlbitm.hxx>
 
 #include <memory>
 #include <unordered_set>
 #include <unordered_map>
 #include <map>
+#include <set>
 
 namespace com { namespace sun { namespace star {
 

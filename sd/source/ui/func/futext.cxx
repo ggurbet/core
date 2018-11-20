@@ -669,14 +669,11 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
             **************************************************************/
             SdrPageView* pPV;
             SdrObject* pObj = mpView->PickObj(aMDPos, mpView->getHitTolLog(), pPV, SdrSearchOptions::ALSOONMASTER | SdrSearchOptions::BEFOREMARK);
-            if (pObj)
+            if (pObj && pPV->IsObjMarkable(pObj))
             {
-                if (pPV->IsObjMarkable(pObj))
-                {
-                    mpView->UnmarkAllObj();
-                    mpView->MarkObj(pObj,pPV);
-                    return bReturn;
-                }
+                mpView->UnmarkAllObj();
+                mpView->MarkObj(pObj,pPV);
+                return bReturn;
             }
         }
     }
@@ -1085,7 +1082,7 @@ void FuText::SetInEditMode(const MouseEvent& rMEvt, bool bQuickDrag)
                             const SdrPageWindow& rPageWindow = *pPV->GetPageWindow(b);
                             if (!rPageWindow.GetPaintWindow().OutputToWindow())
                                 continue;
-                            rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                            const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                             if (!xManager.is())
                                 continue;
                             xManager->flush();
@@ -1288,7 +1285,7 @@ void FuText::ReceiveRequest(SfxRequest& rReq)
 
             && static_cast<const SfxUInt16Item&>( pArgs->Get(SID_TEXTEDIT)).GetValue() == 2)
         {
-            // selection wit double click -> do not allow QuickDrag
+            // selection with double click -> do not allow QuickDrag
             bQuickDrag = false;
         }
 

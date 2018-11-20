@@ -24,6 +24,7 @@
 #include <sfx2/objsh.hxx>
 #include <unotools/charclass.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
 #include <com/sun/star/lang/XServiceName.hpp>
@@ -146,7 +147,7 @@ bool ScUnoAddInFuncData::GetExcelName( LanguageType eDestLang, OUString& rRetExc
     if ( !rCompNames.empty() )
     {
         LanguageTag aLanguageTag( eDestLang);
-        const OUString aSearch( aLanguageTag.getBcp47());
+        const OUString& aSearch( aLanguageTag.getBcp47());
 
         // First, check exact match without fallback overhead.
         ::std::vector<LocalizedName>::const_iterator itNames( rCompNames.begin());

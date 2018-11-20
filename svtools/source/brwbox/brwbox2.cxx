@@ -18,6 +18,7 @@
  */
 
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <tools/debug.hxx>
 #include <svtools/brwbox.hxx>
 #include "datwin.hxx"
@@ -453,7 +454,7 @@ void BrowseBox::ExpandRowSelection( const BrowserMouseEvent& rEvt )
         }
     }
     else
-        if ( !bMultiSelection || !IsRowSelected( rEvt.GetRow() ) )
+        if (!IsRowSelected(rEvt.GetRow()))
             SelectRow( rEvt.GetRow() );
 
     GoToRow( rEvt.GetRow(), false );

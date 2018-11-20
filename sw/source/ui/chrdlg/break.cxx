@@ -35,9 +35,9 @@
 #include <strings.hrc>
 #include <SwStyleNameMapper.hxx>
 
-short SwBreakDlg::execute()
+short SwBreakDlg::run()
 {
-    short nRet = m_xDialog->run();
+    short nRet = GenericDialogController::run();
     if (nRet == RET_OK)
     {
         nKind = 0;
@@ -52,7 +52,7 @@ short SwBreakDlg::execute()
             if (nPos != 0 && nPos != -1)
             {
                 m_aTemplate = m_xPageCollBox->get_active_text();
-                oPgNum = boost::none;
+                oPgNum.reset();
                 if (m_xPageNumBox->get_active())
                 {
                     oPgNum = static_cast<sal_uInt16>(m_xPageNumEdit->get_value());

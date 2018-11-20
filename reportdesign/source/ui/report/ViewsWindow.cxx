@@ -204,8 +204,7 @@ void OViewsWindow::impl_resizeSectionWindow(OSectionWindow& _rSectionWindow,Poin
     {
         aSectionSize.setHeight( nMinHeight );
     }
-    const StyleSettings& rSettings = GetSettings().GetStyleSettings();
-    aSectionSize.AdjustHeight(static_cast<long>(rSettings.GetSplitSize() * static_cast<double>(_rSectionWindow.GetMapMode().GetScaleY())) );
+    aSectionSize.AdjustHeight(static_cast<long>(StyleSettings::GetSplitSize() * static_cast<double>(_rSectionWindow.GetMapMode().GetScaleY())) );
 
     if ( _bSet )
         _rSectionWindow.SetPosSizePixel(_rStartPoint,aSectionSize);
@@ -716,7 +715,7 @@ void OViewsWindow::collectBoundResizeRect(const TRectangleMap& _rSortRectangles,
                 {
                     bOnlyOnce = true;
                     OReportSection* pReportSection = aRectIter->second.second->getReportSection();
-                    const uno::Reference< report::XSection> xSection = pReportSection->getSection();
+                    const uno::Reference< report::XSection>& xSection = pReportSection->getSection();
                     try
                     {
                         uno::Reference<report::XReportDefinition> xReportDefinition = xSection->getReportDefinition();
@@ -1401,11 +1400,8 @@ void OViewsWindow::MovAction(const Point& _aPnt,const OSectionView* _pSection, b
     {
         OReportSection& rReportSection = (*aIter)->getReportSection();
         SdrHdl* pCurrentHdl = rReportSection.getSectionView().GetDragHdl();
-        if ( pCurrentHdl )
-        {
-            if ( aRealMousePos.Y() > 0 )
-                aRealMousePos = _aPnt + pCurrentHdl->GetPos() - aHdlPos;
-        }
+        if ( pCurrentHdl && aRealMousePos.Y() > 0 )
+            aRealMousePos = _aPnt + pCurrentHdl->GetPos() - aHdlPos;
         rReportSection.getSectionView().MovAction ( aRealMousePos );
         const long nSectionHeight = (*aIter)->PixelToLogic((*aIter)->GetOutputSizePixel()).Height();
         aRealMousePos.AdjustY( -nSectionHeight );

@@ -35,6 +35,7 @@
 #include <svl/inethist.hxx>
 #include <unotools/syslocale.hxx>
 #include <sfx2/objsh.hxx>
+#include <osl/diagnose.h>
 
 #include <com/sun/star/text/textfield/Type.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
@@ -160,7 +161,7 @@ void ScEditUtil::RemoveCharAttribs( EditTextObject& rEditText, const ScPatternAt
 
     const SfxItemSet& rSet = rAttr.GetItemSet();
     const SfxPoolItem* pItem;
-    for (sal_uInt16 i = 0; i < SAL_N_ELEMENTS(AttrTypeMap); ++i)
+    for (size_t i = 0; i < SAL_N_ELEMENTS(AttrTypeMap); ++i)
     {
         if ( rSet.GetItemState(AttrTypeMap[i].nAttrType, false, &pItem) == SfxItemState::SET )
             rEditText.RemoveCharAttribs(AttrTypeMap[i].nCharType);
@@ -694,15 +695,15 @@ void ScEditEngineDefaulter::RemoveParaAttribs()
 }
 
 ScTabEditEngine::ScTabEditEngine( ScDocument* pDoc )
-        : ScEditEngineDefaulter( pDoc->GetEnginePool() )
+        : ScFieldEditEngine( pDoc, pDoc->GetEnginePool() )
 {
     SetEditTextObjectPool( pDoc->GetEditPool() );
     Init(pDoc->GetPool()->GetDefaultItem(ATTR_PATTERN));
 }
 
 ScTabEditEngine::ScTabEditEngine( const ScPatternAttr& rPattern,
-            SfxItemPool* pEnginePoolP, SfxItemPool* pTextObjectPool )
-        : ScEditEngineDefaulter( pEnginePoolP )
+            SfxItemPool* pEngineItemPool, ScDocument* pDoc, SfxItemPool* pTextObjectPool )
+        : ScFieldEditEngine( pDoc, pEngineItemPool, pTextObjectPool )
 {
     if ( pTextObjectPool )
         SetEditTextObjectPool( pTextObjectPool );

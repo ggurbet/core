@@ -180,7 +180,6 @@ public:
     void testTdf115394();
     void testTdf115394PPT();
     void testTdf51340();
-    void testTdf115639();
     void testTdf116899();
     void testTdf77747();
     void testTdf116266();
@@ -267,7 +266,6 @@ public:
     CPPUNIT_TEST(testTdf115394);
     CPPUNIT_TEST(testTdf115394PPT);
     CPPUNIT_TEST(testTdf51340);
-    CPPUNIT_TEST(testTdf115639);
     CPPUNIT_TEST(testTdf116899);
     CPPUNIT_TEST(testTdf77747);
     CPPUNIT_TEST(testTdf116266);
@@ -1377,7 +1375,7 @@ void SdImportTest::testTdf99729()
 {
     const OUString filenames[] = { "/sd/qa/unit/data/odp/tdf99729-new.odp", "/sd/qa/unit/data/odp/tdf99729-legacy.odp" };
     int nonwhitecounts[] = { 0, 0 };
-    for (unsigned int i = 0; i < SAL_N_ELEMENTS(filenames); ++i)
+    for (size_t i = 0; i < SAL_N_ELEMENTS(filenames); ++i)
     {
         // 1st check for new behaviour - having AnchoredTextOverflowLegacy compatibility flag set to false in settings.xml
         uno::Reference<lang::XComponent> xComponent
@@ -1837,8 +1835,8 @@ bool checkPatternValues(std::vector<sal_uInt8>& rExpected, Bitmap& rBitmap)
 {
     bool bResult = true;
 
-    Color aFGColor(0xFF0000);
-    Color aBGColor(0xFFFFFF);
+    const Color aFGColor(0xFF0000);
+    const Color aBGColor(0xFFFFFF);
 
     Bitmap::ScopedReadAccess pAccess(rBitmap);
     for (long y = 0; y < pAccess->Height(); ++y)
@@ -2460,36 +2458,6 @@ void SdImportTest::testTdf51340()
     CPPUNIT_ASSERT_EQUAL( static_cast<sal_Int16>(190), aSpacing.Height );
 
     xDocShRef->DoClose();
-}
-
-void SdImportTest::testTdf115639()
-{
-    // Check whether the new compatibility option is loaded correctly
-    // For PPTX we have the flag enabled by default
-    {
-        sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf115639.pptx"), PPTX);
-        SdDrawDocument *pDoc = xDocShRef->GetDoc();
-        CPPUNIT_ASSERT_MESSAGE( "no document", pDoc != nullptr );
-        CPPUNIT_ASSERT( pDoc->IsHoriAlignIgnoreTrailingWhitespace() );
-    }
-
-    // For PPT we have the flag enabled by default
-    {
-        sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/ppt/tdf115639.ppt"), PPT);
-        SdDrawDocument *pDoc = xDocShRef->GetDoc();
-        CPPUNIT_ASSERT_MESSAGE( "no document", pDoc != nullptr );
-        CPPUNIT_ASSERT( pDoc->IsHoriAlignIgnoreTrailingWhitespace() );
-        xDocShRef->DoClose();
-    }
-
-    // For ODP we have the flag disabled by default
-    {
-        sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/odp/tdf115639.odp"), ODP);
-        SdDrawDocument *pDoc = xDocShRef->GetDoc();
-        CPPUNIT_ASSERT_MESSAGE( "no document", pDoc != nullptr );
-        CPPUNIT_ASSERT( !pDoc->IsHoriAlignIgnoreTrailingWhitespace() );
-        xDocShRef->DoClose();
-    }
 }
 
 void SdImportTest::testTdf116899()

@@ -1576,7 +1576,7 @@ vcl::Window* SfxObjectShell::GetDialogParent( SfxMedium const * pLoadingMedium )
     const SfxUnoFrameItem* pUnoItem = SfxItemSet::GetItem<SfxUnoFrameItem>(pSet, SID_FILLFRAME, false);
     if ( pUnoItem )
     {
-        uno::Reference < frame::XFrame > xFrame( pUnoItem->GetFrame() );
+        const uno::Reference < frame::XFrame >& xFrame( pUnoItem->GetFrame() );
         pWindow = VCLUnoHelper::GetWindow( xFrame->getContainerWindow() );
     }
 
@@ -1758,7 +1758,7 @@ bool SfxObjectShell_Impl::hasTrustedScriptingSignature( bool bAllowUIToAddAuthor
           || nScriptingSignatureState == SignatureState::OK
           || nScriptingSignatureState == SignatureState::NOTVALIDATED )
         {
-            uno::Sequence< security::DocumentSignatureInformation > aInfo = rDocShell.ImplAnalyzeSignature( true, xSigner );
+            uno::Sequence< security::DocumentSignatureInformation > aInfo = rDocShell.GetDocumentSignatureInformation( true, xSigner );
 
             if ( aInfo.getLength() )
             {
@@ -1804,7 +1804,7 @@ bool SfxObjectShell::IsContinueImportOnFilterExceptions(const OUString& aErrMess
 {
     if (mbContinueImportOnFilterExceptions == undefined)
     {
-        if (Application::GetDialogCancelMode() == Application::DialogCancelMode::Off)
+        if (Application::GetDialogCancelMode() == DialogCancelMode::Off)
         {
             // Ask the user to try to continue or abort loading
             OUString aMessage = SfxResId(STR_QMSG_ERROR_OPENING_FILE);

@@ -34,7 +34,7 @@
 #include <sfx2/filedlghelper.hxx>
 #include <editeng/sizeitem.hxx>
 #include <svtools/htmlcfg.hxx>
-#include <svtools/treelistentry.hxx>
+#include <vcl/treelistentry.hxx>
 
 #include <uitool.hxx>
 #include <IMark.hxx>
@@ -62,8 +62,6 @@
 #include <svx/svxdlg.hxx>
 #include <svx/flagsdef.hxx>
 #include <memory>
-
-#include <svx/unobrushitemhelper.hxx>
 
 using namespace ::com::sun::star;
 
@@ -409,7 +407,7 @@ bool SwEditRegionDlg::CheckPasswd(CheckBox* pBox)
         {
             SfxPasswordDialog aPasswdDlg(GetFrameWeld());
             bRet = false;
-            if (aPasswdDlg.execute())
+            if (aPasswdDlg.run())
             {
                 const OUString sNewPasswd(aPasswdDlg.GetPassword());
                 css::uno::Sequence <sal_Int8 > aNewPasswd;
@@ -1072,8 +1070,6 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OptionsHdl, Button*, void)
     aSet.Put( pSectRepr->GetFrameDir() );
     aSet.Put( pSectRepr->GetLRSpace() );
 
-    setSvxBrushItemAsFillAttributesToTargetSet(pSectRepr->GetBackground(), aSet);
-
     const SwSectionFormats& rDocFormats = rSh.GetDoc()->GetSections();
     SwSectionFormats aOrigArray(rDocFormats);
 
@@ -1264,7 +1260,7 @@ IMPL_LINK( SwEditRegionDlg, ChangePasswdHdl, Button *, pBox, void )
             {
                 SfxPasswordDialog aPasswdDlg(GetFrameWeld());
                 aPasswdDlg.ShowExtras(SfxShowExtras::CONFIRM);
-                if (RET_OK == aPasswdDlg.execute())
+                if (RET_OK == aPasswdDlg.run())
                 {
                     const OUString sNewPasswd(aPasswdDlg.GetPassword());
                     if (aPasswdDlg.GetConfirm() == sNewPasswd)
@@ -1701,7 +1697,7 @@ IMPL_LINK( SwInsertSectionTabPage, ChangePasswdHdl, Button *, pButton, void )
         {
             SfxPasswordDialog aPasswdDlg(GetFrameWeld());
             aPasswdDlg.ShowExtras(SfxShowExtras::CONFIRM);
-            if (RET_OK == aPasswdDlg.execute())
+            if (RET_OK == aPasswdDlg.run())
             {
                 const OUString sNewPasswd(aPasswdDlg.GetPassword());
                 if (aPasswdDlg.GetConfirm() == sNewPasswd)
@@ -2104,8 +2100,8 @@ void SwSectionPropertyTabDialog::PageCreated( sal_uInt16 nId, SfxTabPage &rPage 
 
 SwSectionIndentTabPage::SwSectionIndentTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
     : SfxTabPage(pParent, "modules/swriter/ui/indentpage.ui", "IndentPage", &rAttrSet)
-    , m_xBeforeMF(m_xBuilder->weld_metric_spin_button("before", FUNIT_CM))
-    , m_xAfterMF(m_xBuilder->weld_metric_spin_button("after", FUNIT_CM))
+    , m_xBeforeMF(m_xBuilder->weld_metric_spin_button("before", FieldUnit::CM))
+    , m_xAfterMF(m_xBuilder->weld_metric_spin_button("after", FieldUnit::CM))
     , m_xPreviewWin(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin))
 {
     Link<weld::MetricSpinButton&,void> aLk = LINK(this, SwSectionIndentTabPage, IndentModifyHdl);
@@ -2122,8 +2118,8 @@ bool SwSectionIndentTabPage::FillItemSet(SfxItemSet* rSet)
     if (m_xBeforeMF->get_value_changed_from_saved() || m_xAfterMF->get_value_changed_from_saved())
     {
         SvxLRSpaceItem aLRSpace(
-                m_xBeforeMF->denormalize(m_xBeforeMF->get_value(FUNIT_TWIP)) ,
-                m_xAfterMF->denormalize(m_xAfterMF->get_value(FUNIT_TWIP)), 0, 0, RES_LR_SPACE);
+                m_xBeforeMF->denormalize(m_xBeforeMF->get_value(FieldUnit::TWIP)) ,
+                m_xAfterMF->denormalize(m_xAfterMF->get_value(FieldUnit::TWIP)), 0, 0, RES_LR_SPACE);
         rSet->Put(aLRSpace);
     }
     return true;
@@ -2142,8 +2138,8 @@ void SwSectionIndentTabPage::Reset( const SfxItemSet* rSet)
         const SvxLRSpaceItem& rSpace =
             rSet->Get( RES_LR_SPACE );
 
-        m_xBeforeMF->set_value(m_xBeforeMF->normalize(rSpace.GetLeft()), FUNIT_TWIP);
-        m_xAfterMF->set_value(m_xAfterMF->normalize(rSpace.GetRight()), FUNIT_TWIP);
+        m_xBeforeMF->set_value(m_xBeforeMF->normalize(rSpace.GetLeft()), FieldUnit::TWIP);
+        m_xAfterMF->set_value(m_xAfterMF->normalize(rSpace.GetRight()), FieldUnit::TWIP);
     }
     else
     {
@@ -2172,8 +2168,8 @@ void SwSectionIndentTabPage::SetWrtShell(SwWrtShell const & rSh)
 
 IMPL_LINK_NOARG(SwSectionIndentTabPage, IndentModifyHdl, weld::MetricSpinButton&, void)
 {
-    m_aPreviewWin.SetLeftMargin(m_xBeforeMF->denormalize(m_xBeforeMF->get_value(FUNIT_TWIP)));
-    m_aPreviewWin.SetRightMargin(m_xAfterMF->denormalize(m_xAfterMF->get_value(FUNIT_TWIP)));
+    m_aPreviewWin.SetLeftMargin(m_xBeforeMF->denormalize(m_xBeforeMF->get_value(FieldUnit::TWIP)));
+    m_aPreviewWin.SetRightMargin(m_xAfterMF->denormalize(m_xAfterMF->get_value(FieldUnit::TWIP)));
     m_aPreviewWin.Invalidate();
 }
 

@@ -29,6 +29,7 @@
 #include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/text/XTextContent.hpp>
 #include <com/sun/star/text/XTextCursor.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <osl/diagnose.h>
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -537,7 +538,7 @@ double HeaderFooterParser::parse( const Reference<sheet::XHeaderFooterContent>& 
                 eState = STATE_TEXT;
                 // ignore case of token codes
                 if( ('a' <= cChar) && (cChar <= 'z') )
-                    (cChar -= 'a') += 'A';
+                    cChar = (cChar - 'a') + 'A';
                 switch( cChar )
                 {
                     case '&':   maBuffer.append( cChar );   break;  // the '&' character

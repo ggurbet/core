@@ -54,7 +54,7 @@
 #include <svtools/cliplistener.hxx>
 #include <svl/whiter.hxx>
 #include <sot/formats.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <svl/stritem.hxx>
 
 #include <editsh.hxx>
@@ -406,7 +406,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
                     const SfxStringItem* pFontItem = dynamic_cast<const SfxStringItem*>( pFtItem  );
                     if ( pFontItem )
                     {
-                        OUString aFontName(pFontItem->GetValue());
+                        const OUString& aFontName(pFontItem->GetValue());
                         vcl::Font aFont(aFontName, Size(1,1)); // Size just because CTOR
                         aNewItem = SvxFontItem( aFont.GetFamilyType(), aFont.GetFamilyName(),
                                     aFont.GetStyleName(), aFont.GetPitch(),
@@ -535,7 +535,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
                     aFinder.ToggleRel( aSel.nStartPos, aSel.nEndPos );
                     if (aFinder.GetFound())
                     {
-                        OUString aNew = aFinder.GetText();
+                        const OUString& aNew = aFinder.GetText();
                         ESelection aNewSel( 0,aFinder.GetSelStart(), 0,aFinder.GetSelEnd() );
                         pEngine->SetText( aNew );
                         pTableView->SetSelection( aNewSel );

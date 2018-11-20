@@ -21,6 +21,7 @@
 #include "textattributelistener.hxx"
 #include "richtextengine.hxx"
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/eeitem.hxx>
@@ -225,10 +226,9 @@ namespace frm
         WhichId nNormalizedWhichId = _rScriptSetItem.GetItemSet().GetPool()->GetWhich( _rScriptSetItem.Which() );
         if ( pNormalizedItem )
         {
-            SfxPoolItem* pProperWhich = pNormalizedItem->Clone();
+            std::unique_ptr<SfxPoolItem> pProperWhich(pNormalizedItem->Clone());
             pProperWhich->SetWhich( nNormalizedWhichId );
             _rScriptSetItem.GetItemSet().Put( *pProperWhich );
-            DELETEZ( pProperWhich );
         }
         else
             _rScriptSetItem.GetItemSet().InvalidateItem( nNormalizedWhichId );

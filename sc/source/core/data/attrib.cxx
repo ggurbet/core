@@ -21,21 +21,15 @@
 
 #include <scitems.hxx>
 
-#include <editeng/eeitem.hxx>
-
-#include <editeng/boxitem.hxx>
-#include <editeng/editdata.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editobj.hxx>
-#include <editeng/flditem.hxx>
-#include <sal/log.hxx>
+#include <editeng/borderline.hxx>
 
 #include <libxml/xmlwriter.h>
 
 #include <attrib.hxx>
 #include <global.hxx>
 #include <editutil.hxx>
-#include <sc.hrc>
 #include <mid.h>
 #include <globstr.hrc>
 #include <scresid.hxx>
@@ -45,7 +39,6 @@ using namespace com::sun::star;
 
 
 SfxPoolItem* ScProtectionAttr::CreateDefault() { return new ScProtectionAttr; }
-SfxPoolItem* ScDoubleItem::CreateDefault() { SAL_WARN( "sc", "No ScDoubleItem factory available"); return nullptr; }
 
 /**
  * General Help Function
@@ -568,37 +561,6 @@ SfxPoolItem* ScViewObjectModeItem::Clone( SfxItemPool* ) const
 sal_uInt16 ScViewObjectModeItem::GetVersion( sal_uInt16 /* nFileVersion */ ) const
 {
     return 1;
-}
-
-/**
- * Double
- */
-ScDoubleItem::ScDoubleItem( sal_uInt16 nWhichP, double nVal )
-    :   SfxPoolItem ( nWhichP ),
-        nValue  ( nVal )
-{
-}
-
-ScDoubleItem::ScDoubleItem( const ScDoubleItem& rItem )
-    :   SfxPoolItem ( rItem )
-{
-        nValue = rItem.nValue;
-}
-
-bool ScDoubleItem::operator==( const SfxPoolItem& rItem ) const
-{
-    assert(SfxPoolItem::operator==(rItem));
-    const ScDoubleItem& _rItem = static_cast<const ScDoubleItem&>(rItem);
-    return nValue == _rItem.nValue;
-}
-
-SfxPoolItem* ScDoubleItem::Clone( SfxItemPool* ) const
-{
-    return new ScDoubleItem( *this );
-}
-
-ScDoubleItem::~ScDoubleItem()
-{
 }
 
 ScPageScaleToItem::ScPageScaleToItem() :

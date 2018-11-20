@@ -22,6 +22,7 @@
 #include <svl/itemset.hxx>
 #include <oox/export/drawingml.hxx>
 #include <oox/export/vmlexport.hxx>
+#include <sax/fastattribs.hxx>
 
 #include <oox/token/tokens.hxx>
 
@@ -666,7 +667,7 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
                             XFastAttributeListRef(pAttrListSignatureLine));
 
                         // Get signature line graphic
-                        const uno::Reference<graphic::XGraphic> xGraphic
+                        const uno::Reference<graphic::XGraphic>& xGraphic
                             = pSdrGrafObj->getSignatureLineUnsignedGraphic();
                         Graphic aGraphic(xGraphic);
 

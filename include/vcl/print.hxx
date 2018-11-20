@@ -44,11 +44,11 @@ struct SalPrinterQueueInfo;
 class SalPrinter;
 class VirtualDevice;
 enum class SalPrinterError;
-namespace vcl { class Window; }
 
 namespace vcl {
     class PrinterController;
     class PrintDialog;
+    class Window;
 }
 
 namespace weld { class Window; }
@@ -261,7 +261,6 @@ protected:
     virtual void                EmulateDrawTransparent( const tools::PolyPolygon& rPolyPoly,
                                     sal_uInt16 nTransparencePercent ) override;
 
-    virtual void                InitFont() const override;
     virtual void                SetFontOrientation( LogicalFontInstance* const pFontInstance ) const override;
 
 public:

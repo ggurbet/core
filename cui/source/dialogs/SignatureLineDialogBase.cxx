@@ -23,9 +23,9 @@ SignatureLineDialogBase::SignatureLineDialogBase(weld::Widget* pParent, Referenc
 {
 }
 
-short SignatureLineDialogBase::execute()
+short SignatureLineDialogBase::run()
 {
-    short nRet = run();
+    short nRet = GenericDialogController::run();
     if (nRet == RET_OK)
         Apply();
     return nRet;
@@ -213,7 +213,8 @@ OUString SignatureLineDialogBase::getSignatureImage()
         "XTEXT_EOC</desc><desc id=\"desc550\">512: XTEXT_EOC</desc><desc id=\"desc552\">512: "
         "XTEXT_EOW</desc><desc id=\"desc554\">512: XTEXT_EOL</desc><desc id=\"desc556\">512: "
         "XTEXT_EOP</desc><desc id=\"desc558\">512: "
-        "XTEXT_PAINTSHAPE_END</desc></tspan></tspan></text></g></g></g></g></g></g></g></svg>");
+        "XTEXT_PAINTSHAPE_END</desc></tspan></tspan></text></g></g></g></g></g></"
+        "g>[SIGNATURE_IMAGE]</g></svg>");
     return svg;
 }
 

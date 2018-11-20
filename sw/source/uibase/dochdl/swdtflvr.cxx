@@ -45,12 +45,11 @@
 #include <vcl/weld.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svl/stritem.hxx>
-#include <svtools/imap.hxx>
+#include <vcl/imap.hxx>
 #include <sot/storage.hxx>
 #include <vcl/graph.hxx>
 #include <svl/urihelper.hxx>
 #include <svx/svdmodel.hxx>
-#include <svx/xexch.hxx>
 #include <svx/xmlexchg.hxx>
 #include <svx/dbaexchange.hxx>
 #include <svx/clipfmtitem.hxx>
@@ -60,12 +59,12 @@
 #include <svl/urlbmk.hxx>
 #include <svtools/htmlout.hxx>
 #include <svx/hlnkitem.hxx>
-#include <svtools/inetimg.hxx>
+#include <vcl/inetimg.hxx>
 #include <editeng/paperinf.hxx>
 #include <svx/fmview.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <sfx2/docfilt.hxx>
-#include <svtools/imapobj.hxx>
+#include <vcl/imapobj.hxx>
 #include <sfx2/docfile.hxx>
 #include <unotools/transliterationwrapper.hxx>
 #include <unotools/streamwrap.hxx>
@@ -836,10 +835,9 @@ int SwTransferable::PrepareForCopy( bool bIsCut )
             if ( aD.GetTransferable().is() )
             {
                 DataFlavorExVector              aVector( aD.GetDataFlavorExVector() );
-                DataFlavorExVector::iterator    aIter( aVector.begin() ), aEnd( aVector.end() );
 
-                while( aIter != aEnd )
-                    AddFormat( *aIter++ );
+                for( const auto& rItem : aVector )
+                    AddFormat( rItem );
             }
         }
         m_eBufferType = TransferBufferType::Ole;
@@ -878,10 +876,8 @@ int SwTransferable::PrepareForCopy( bool bIsCut )
                     vDdeMarks.push_back(ppMark->get());
             }
             // remove all DDE-Bookmarks, they are invalid inside the clipdoc!
-            for(std::vector< ::sw::mark::IMark* >::iterator ppMark = vDdeMarks.begin();
-                ppMark != vDdeMarks.end();
-                ++ppMark)
-                pMarkAccess->deleteMark(*ppMark);
+            for(const auto& rpMark : vDdeMarks)
+                pMarkAccess->deleteMark(rpMark);
         }
 
         // a new one was created in CORE (OLE objects copied!)
@@ -1282,7 +1278,15 @@ bool SwTransferable::PasteData( TransferableDataHelper& rData,
     SwTransferable *pTrans=nullptr, *pTunneledTrans=GetSwTransferable( rData );
 
     // check for private drop
-    bool bPrivateDrop(pPt && (bPasteSelection ? nullptr != (pTrans = pMod->m_pXSelection) : nullptr != (pTrans = pMod->m_pDragDrop)));
+    bool bPrivateDrop(pPt);
+    if (bPrivateDrop)
+    {
+        if (bPasteSelection)
+            pTrans = pMod->m_pXSelection;
+        else
+            pTrans = pMod->m_pDragDrop;
+        bPrivateDrop = nullptr != pTrans;
+    }
     bool bNeedToSelectBeforePaste(false);
 
     if(bPrivateDrop && DND_ACTION_LINK == nDropAction)

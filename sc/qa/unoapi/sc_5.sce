@@ -15,18 +15,6 @@
 #   except in compliance with the License. You may obtain a copy of
 #   the License at http://www.apache.org/licenses/LICENSE-2.0 .
 #
--o sc.ScIndexEnumeration_DataPilotFieldsEnumeration
 -o sc.ScIndexEnumeration_DataPilotItemsEnumeration
--o sc.ScIndexEnumeration_DataPilotTablesEnumeration
--o sc.ScIndexEnumeration_DatabaseRangesEnumeration
--o sc.ScIndexEnumeration_FunctionDescriptionEnumeration
--o sc.ScIndexEnumeration_LabelRangesEnumeration
--o sc.ScIndexEnumeration_NamedRangesEnumeration
--o sc.ScIndexEnumeration_ScenariosEnumeration
--o sc.ScIndexEnumeration_SheetCellRangesEnumeration
--o sc.ScIndexEnumeration_SheetLinksEnumeration
--o sc.ScIndexEnumeration_SpreadsheetViewPanesEnumeration
--o sc.ScIndexEnumeration_SpreadsheetsEnumeration
 -o sc.ScIndexEnumeration_SubTotalFieldsEnumeration
--o sc.ScIndexEnumeration_TableAutoFormatEnumeration
 -o sc.ScIndexEnumeration_TableChartsEnumeration

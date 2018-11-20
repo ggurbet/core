@@ -38,13 +38,17 @@
 #include <vcl/lstbox.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/fixed.hxx>
+#include <vcl/fmtfield.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/menubtn.hxx>
 #include <vcl/prgsbar.hxx>
 #include <vcl/slider.hxx>
 #include <vcl/sysdata.hxx>
+#include <vcl/svlbitm.hxx>
 #include <vcl/tabctrl.hxx>
 #include <vcl/tabpage.hxx>
+#include <vcl/treelistbox.hxx>
+#include <vcl/treelistentry.hxx>
 #include <vcl/toolkit/unowrap.hxx>
 #include <vcl/weld.hxx>
 #include <bitmaps.hlst>
@@ -730,11 +734,15 @@ public:
     virtual void set_modal(bool bModal) override
     {
         if (::Dialog* pDialog = dynamic_cast<::Dialog*>(m_xWindow.get()))
-        {
-            pDialog->SetModalInputMode(bModal);
-            return;
-        }
-        m_xWindow->ImplGetFrame()->SetModal(bModal);
+            return pDialog->SetModalInputMode(bModal);
+        return m_xWindow->ImplGetFrame()->SetModal(bModal);
+    }
+
+    virtual bool get_modal() const override
+    {
+        if (const ::Dialog* pDialog = dynamic_cast<const ::Dialog*>(m_xWindow.get()))
+            return pDialog->IsModalInputMode();
+        return m_xWindow->ImplGetFrame()->GetModal();
     }
 
     virtual void window_move(int x, int y) override
@@ -755,6 +763,40 @@ public:
         width = aRect.GetWidth();
         height = aRect.GetHeight();
         return true;
+    }
+
+    virtual Size get_size() const override
+    {
+        return m_xWindow->GetSizePixel();
+    }
+
+    virtual Point get_position() const override
+    {
+        return m_xWindow->GetPosPixel();
+    }
+
+    virtual bool get_resizable() const override
+    {
+        return m_xWindow->GetStyle() & WB_SIZEABLE;
+    }
+
+    virtual bool has_toplevel_focus() const override
+    {
+        return m_xWindow->HasChildPathFocus();
+    }
+
+    virtual void set_window_state(const OString& rStr) override
+    {
+        SystemWindow* pSysWin = dynamic_cast<SystemWindow*>(m_xWindow.get());
+        assert(pSysWin);
+        pSysWin->SetWindowState(rStr);
+    }
+
+    virtual OString get_window_state(WindowStateMask nMask) const override
+    {
+        SystemWindow* pSysWin = dynamic_cast<SystemWindow*>(m_xWindow.get());
+        assert(pSysWin);
+        return pSysWin->GetWindowState(nMask);
     }
 
     virtual SystemEnvData get_system_data() const override
@@ -1708,77 +1750,128 @@ IMPL_LINK(SalInstanceEntry, CursorListener, VclWindowEvent&, rEvent, void)
         signal_cursor_position();
 }
 
+struct SalInstanceTreeIter : public weld::TreeIter
+{
+    SalInstanceTreeIter(const SalInstanceTreeIter* pOrig)
+    {
+        if (!pOrig)
+            return;
+        iter = pOrig->iter;
+    }
+    SvTreeListEntry* iter;
+};
+
 class SalInstanceTreeView : public SalInstanceContainer, public virtual weld::TreeView
 {
 private:
-    VclPtr<ListBox> m_xTreeView;
+    // owner for UserData
+    std::vector<std::unique_ptr<OUString>> m_aUserData;
+    VclPtr<SvTreeListBox> m_xTreeView;
 
-    DECL_LINK(SelectHdl, ListBox&, void);
-    DECL_LINK(DoubleClickHdl, ListBox&, void);
+    DECL_LINK(SelectHdl, SvTreeListBox*, void);
+    DECL_LINK(DoubleClickHdl, SvTreeListBox*, bool);
+    DECL_LINK(ExpandingHdl, SvTreeListBox*, bool);
 
 public:
-    SalInstanceTreeView(ListBox* pTreeView, bool bTakeOwnership)
+    SalInstanceTreeView(SvTreeListBox* pTreeView, bool bTakeOwnership)
         : SalInstanceContainer(pTreeView, bTakeOwnership)
         , m_xTreeView(pTreeView)
     {
+        m_xTreeView->SetNodeDefaultImages();
         m_xTreeView->SetSelectHdl(LINK(this, SalInstanceTreeView, SelectHdl));
         m_xTreeView->SetDoubleClickHdl(LINK(this, SalInstanceTreeView, DoubleClickHdl));
+        m_xTreeView->SetExpandingHdl(LINK(this, SalInstanceTreeView, ExpandingHdl));
     }
 
-    virtual void insert(int pos, const OUString& rStr, const OUString* pId, const OUString* pIconName, VirtualDevice* pImageSurface) override
+    virtual void insert(weld::TreeIter* pParent, int pos, const OUString& rStr, const OUString* pId,
+                        const OUString* pIconName, VirtualDevice* pImageSurface, const OUString* pExpanderName,
+                        bool bChildrenOnDemand) override
     {
-        auto nInsertPos = pos == -1 ? COMBOBOX_APPEND : pos;
-        sal_Int32 nInsertedAt;
-        if (!pIconName && !pImageSurface)
-            nInsertedAt = m_xTreeView->InsertEntry(rStr, nInsertPos);
-        else if (pIconName)
-            nInsertedAt = m_xTreeView->InsertEntry(rStr, createImage(*pIconName), nInsertPos);
-        else
-            nInsertedAt = m_xTreeView->InsertEntry(rStr, createImage(*pImageSurface), nInsertPos);
+        SalInstanceTreeIter* pVclIter = static_cast<SalInstanceTreeIter*>(pParent);
+        SvTreeListEntry* iter = pVclIter ? pVclIter->iter : nullptr;
+        auto nInsertPos = pos == -1 ? TREELIST_APPEND : pos;
+        void* pUserData;
         if (pId)
-            m_xTreeView->SetEntryData(nInsertedAt, new OUString(*pId));
+        {
+            m_aUserData.emplace_back(o3tl::make_unique<OUString>(*pId));
+            pUserData = m_aUserData.back().get();
+        }
+        else
+            pUserData = nullptr;
+
+        SvTreeListEntry* pResult;
+        if (!pIconName && !pImageSurface)
+            pResult = m_xTreeView->InsertEntry(rStr, iter, false, nInsertPos, pUserData);
+        else
+        {
+            SvTreeListEntry* pEntry = new SvTreeListEntry;
+            Image aImage(pIconName ? createImage(*pIconName) : createImage(*pImageSurface));
+            pEntry->AddItem(o3tl::make_unique<SvLBoxContextBmp>(aImage, aImage, false));
+            pEntry->AddItem(o3tl::make_unique<SvLBoxString>(rStr));
+            pEntry->SetUserData(pUserData);
+            m_xTreeView->Insert(pEntry, iter, nInsertPos);
+            pResult = pEntry;
+        }
+
+        if (pExpanderName)
+        {
+            Image aImage(createImage(*pExpanderName));
+            m_xTreeView->SetExpandedEntryBmp(pResult, aImage);
+            m_xTreeView->SetCollapsedEntryBmp(pResult, aImage);
+        }
+
+        if (bChildrenOnDemand)
+        {
+            m_xTreeView->InsertEntry("<dummy>", pResult, false, 0, nullptr);
+        }
     }
 
     virtual void set_font_color(int pos, const Color& rColor) const override
     {
-        m_xTreeView->SetEntryTextColor(pos, &rColor);
+        SvTreeListEntry* pEntry = m_xTreeView->GetEntry(nullptr, pos);
+        pEntry->SetTextColor(&rColor);
     }
 
     virtual void remove(int pos) override
     {
-        m_xTreeView->RemoveEntry(pos);
+        SvTreeListEntry* pEntry = m_xTreeView->GetEntry(nullptr, pos);
+        m_xTreeView->RemoveEntry(pEntry);
     }
 
     virtual int find_text(const OUString& rText) const override
     {
-        sal_Int32 nRet = m_xTreeView->GetEntryPos(rText);
-        if (nRet == LISTBOX_ENTRY_NOTFOUND)
-            return -1;
-        return nRet;
+        for (SvTreeListEntry* pEntry = m_xTreeView->First(); pEntry; pEntry = m_xTreeView->Next(pEntry))
+        {
+            if (m_xTreeView->GetEntryText(pEntry) == rText)
+                return m_xTreeView->GetAbsPos(pEntry);
+        }
+        return -1;
     }
 
     virtual int find_id(const OUString& rId) const override
     {
-        sal_Int32 nCount = m_xTreeView->GetEntryCount();
-        for (sal_Int32 nPos = 0; nPos < nCount; ++nPos)
+        for (SvTreeListEntry* pEntry = m_xTreeView->First(); pEntry; pEntry = m_xTreeView->Next(pEntry))
         {
-            OUString* pId = static_cast<OUString*>(m_xTreeView->GetEntryData(nPos));
+            const OUString* pId = static_cast<const OUString*>(pEntry->GetUserData());
             if (!pId)
                 continue;
             if (rId == *pId)
-                return nPos;
+                return m_xTreeView->GetAbsPos(pEntry);
         }
         return -1;
     }
 
     virtual void set_top_entry(int pos) override
     {
-        m_xTreeView->SetTopEntry(pos);
+        SvTreeList* pModel = m_xTreeView->GetModel();
+        SvTreeListEntry* pEntry = pModel->GetEntry(nullptr, pos);
+        pModel->Move(pEntry, nullptr, 0);
     }
 
     virtual void clear() override
     {
         m_xTreeView->Clear();
+        m_aUserData.clear();
     }
 
     virtual int n_children() const override
@@ -1789,44 +1882,52 @@ public:
     virtual void select(int pos) override
     {
         assert(m_xTreeView->IsUpdateMode() && "don't select when frozen");
+        disable_notify_events();
         if (pos == -1)
-            m_xTreeView->SetNoSelection();
+            m_xTreeView->SelectAll(false);
         else
-            m_xTreeView->SelectEntryPos(pos);
+        {
+            SvTreeListEntry* pEntry = m_xTreeView->GetEntry(nullptr, pos);
+            m_xTreeView->Select(pEntry, true);
+        }
+        enable_notify_events();
     }
 
     virtual void unselect(int pos) override
     {
         assert(m_xTreeView->IsUpdateMode() && "don't select when frozen");
+        disable_notify_events();
         if (pos == -1)
-        {
-            for (sal_Int32 i = 0; i < m_xTreeView->GetEntryCount(); ++i)
-                m_xTreeView->SelectEntryPos(i);
-        }
+            m_xTreeView->SelectAll(true);
         else
-            m_xTreeView->SelectEntryPos(pos, false);
+        {
+            SvTreeListEntry* pEntry = m_xTreeView->GetEntry(nullptr, pos);
+            m_xTreeView->Select(pEntry, false);
+        }
+        enable_notify_events();
     }
 
     virtual std::vector<int> get_selected_rows() const override
     {
         std::vector<int> aRows;
 
-        sal_Int32 nCount = m_xTreeView->GetSelectedEntryCount();
-        aRows.reserve(nCount);
-        for (sal_Int32 i = 0; i < nCount; ++i)
-            aRows.push_back(m_xTreeView->GetSelectedEntryPos(i));
+        aRows.reserve(m_xTreeView->GetSelectionCount());
+        for (SvTreeListEntry* pEntry = m_xTreeView->FirstSelected(); pEntry; pEntry = m_xTreeView->NextSelected(pEntry))
+            aRows.push_back(m_xTreeView->GetAbsPos(pEntry));
 
         return aRows;
     }
 
     virtual OUString get_text(int pos) const override
     {
-        return m_xTreeView->GetEntry(pos);
+        SvTreeListEntry* pEntry = m_xTreeView->GetEntry(nullptr, pos);
+        return m_xTreeView->GetEntryText(pEntry);
     }
 
     const OUString* getEntryData(int index) const
     {
-        return static_cast<const OUString*>(m_xTreeView->GetEntryData(index));
+        SvTreeListEntry* pEntry = m_xTreeView->GetEntry(nullptr, index);
+        return static_cast<const OUString*>(pEntry->GetUserData());
     }
 
     virtual OUString get_id(int pos) const override
@@ -1839,68 +1940,272 @@ public:
 
     virtual int get_selected_index() const override
     {
-        const sal_Int32 nRet = m_xTreeView->GetSelectedEntryPos();
-        if (nRet == LISTBOX_ENTRY_NOTFOUND)
+        SvTreeListEntry* pEntry = m_xTreeView->FirstSelected();
+        if (!pEntry)
             return -1;
-        return nRet;
+        return m_xTreeView->GetAbsPos(pEntry);
+    }
+
+    virtual std::unique_ptr<weld::TreeIter> make_iterator(const weld::TreeIter* pOrig) const override
+    {
+        return std::unique_ptr<weld::TreeIter>(new SalInstanceTreeIter(static_cast<const SalInstanceTreeIter*>(pOrig)));
+    }
+
+    virtual void copy_iterator(const weld::TreeIter& rSource, weld::TreeIter& rDest) const override
+    {
+        const SalInstanceTreeIter& rVclSource(static_cast<const SalInstanceTreeIter&>(rSource));
+        SalInstanceTreeIter& rVclDest(static_cast<SalInstanceTreeIter&>(rDest));
+        rVclDest.iter = rVclSource.iter;
+    }
+
+    virtual bool get_selected(weld::TreeIter* pIter) const override
+    {
+        SvTreeListEntry* pEntry = m_xTreeView->FirstSelected();
+        auto pVclIter = static_cast<SalInstanceTreeIter*>(pIter);
+        if (pVclIter)
+            pVclIter->iter = pEntry;
+        return pEntry != nullptr;
+    }
+
+    virtual bool get_cursor(weld::TreeIter* pIter) const override
+    {
+        SvTreeListEntry* pEntry = m_xTreeView->GetCurEntry();
+        auto pVclIter = static_cast<SalInstanceTreeIter*>(pIter);
+        if (pVclIter)
+            pVclIter->iter = pEntry;
+        return pEntry != nullptr;
+    }
+
+    virtual void set_cursor(const weld::TreeIter& rIter) override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        m_xTreeView->SetCurEntry(rVclIter.iter);
+    }
+
+    virtual bool get_iter_first(weld::TreeIter& rIter) const override
+    {
+        SalInstanceTreeIter& rVclIter = static_cast<SalInstanceTreeIter&>(rIter);
+        rVclIter.iter = m_xTreeView->GetEntry(0);
+        return rVclIter.iter != nullptr;
+    }
+
+    virtual bool iter_next_sibling(weld::TreeIter& rIter) const override
+    {
+        SalInstanceTreeIter& rVclIter = static_cast<SalInstanceTreeIter&>(rIter);
+        rVclIter.iter = rVclIter.iter->NextSibling();
+        return rVclIter.iter != nullptr;
+    }
+
+    virtual bool iter_next(weld::TreeIter& rIter) const override
+    {
+        SalInstanceTreeIter& rVclIter = static_cast<SalInstanceTreeIter&>(rIter);
+        rVclIter.iter = m_xTreeView->Next(rVclIter.iter);
+        if (rVclIter.iter && m_xTreeView->GetEntryText(rVclIter.iter) == "<dummy>")
+            return iter_next(rVclIter);
+        return rVclIter.iter != nullptr;
+    }
+
+    virtual bool iter_children(weld::TreeIter& rIter) const override
+    {
+        SalInstanceTreeIter& rVclIter = static_cast<SalInstanceTreeIter&>(rIter);
+        rVclIter.iter = m_xTreeView->FirstChild(rVclIter.iter);
+        bool bRet = rVclIter.iter != nullptr;
+        if (bRet)
+        {
+            //on-demand dummy entry doesn't count
+            return m_xTreeView->GetEntryText(rVclIter.iter) != "<dummy>";
+        }
+        return bRet;
+    }
+
+    virtual bool iter_parent(weld::TreeIter& rIter) const override
+    {
+        SalInstanceTreeIter& rVclIter = static_cast<SalInstanceTreeIter&>(rIter);
+        rVclIter.iter = m_xTreeView->GetParent(rVclIter.iter);
+        return rVclIter.iter != nullptr;
+    }
+
+    virtual void remove(const weld::TreeIter& rIter) override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        m_xTreeView->RemoveEntry(rVclIter.iter);
+    }
+
+    virtual void select(const weld::TreeIter& rIter) override
+    {
+        assert(m_xTreeView->IsUpdateMode() && "don't select when frozen");
+        disable_notify_events();
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        m_xTreeView->Select(rVclIter.iter, true);
+        enable_notify_events();
+    }
+
+    virtual void unselect(const weld::TreeIter& rIter) override
+    {
+        assert(m_xTreeView->IsUpdateMode() && "don't unselect when frozen");
+        disable_notify_events();
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        m_xTreeView->Select(rVclIter.iter, false);
+        enable_notify_events();
+    }
+
+    virtual int get_iter_depth(const weld::TreeIter& rIter) const override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        return m_xTreeView->GetModel()->GetDepth(rVclIter.iter);
+    }
+
+    virtual bool iter_has_child(const weld::TreeIter& rIter) const override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        return rVclIter.iter->HasChildren();
+    }
+
+    virtual bool get_row_expanded(const weld::TreeIter& rIter) const override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        return m_xTreeView->IsExpanded(rVclIter.iter);
+    }
+
+    virtual void expand_row(weld::TreeIter& rIter) override
+    {
+        SalInstanceTreeIter& rVclIter = static_cast<SalInstanceTreeIter&>(rIter);
+        if (!m_xTreeView->IsExpanded(rVclIter.iter) && signal_expanding(rIter))
+            m_xTreeView->Expand(rVclIter.iter);
+    }
+
+    virtual OUString get_text(const weld::TreeIter& rIter) const override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        return m_xTreeView->GetEntryText(rVclIter.iter);
+    }
+
+    virtual OUString get_id(const weld::TreeIter& rIter) const override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        const OUString* pStr = static_cast<const OUString*>(rVclIter.iter->GetUserData());
+        if (pStr)
+            return *pStr;
+        return OUString();
+    }
+
+    virtual void set_expander_image(const weld::TreeIter& rIter, const OUString& rImage) override
+    {
+        const SalInstanceTreeIter& rVclIter = static_cast<const SalInstanceTreeIter&>(rIter);
+        Image aImage(createImage(rImage));
+        m_xTreeView->SetExpandedEntryBmp(rVclIter.iter, aImage);
+        m_xTreeView->SetCollapsedEntryBmp(rVclIter.iter, aImage);
     }
 
     virtual void set_selection_mode(bool bMultiple) override
     {
-        m_xTreeView->EnableMultiSelection(bMultiple);
+        m_xTreeView->SetSelectionMode(bMultiple ? SelectionMode::Multiple : SelectionMode::Single);
     }
 
     virtual int count_selected_rows() const override
     {
-        return m_xTreeView->GetSelectedEntryCount();
+        return m_xTreeView->GetSelectionCount();
     }
 
     virtual int get_height_rows(int nRows) const override
     {
-        return m_xTreeView->CalcWindowSizePixel(nRows);
+        return m_xTreeView->GetEntryHeight() * nRows;
     }
 
-    ListBox& getTreeView()
+    virtual void make_sorted() override
+    {
+        m_xTreeView->SetStyle(m_xTreeView->GetStyle() | WB_SORT);
+    }
+
+    SvTreeListBox& getTreeView()
     {
         return *m_xTreeView;
     }
 
     virtual ~SalInstanceTreeView() override
     {
-        m_xTreeView->SetDoubleClickHdl(Link<ListBox&, void>());
-        m_xTreeView->SetSelectHdl(Link<ListBox&, void>());
+        m_xTreeView->SetExpandingHdl(Link<SvTreeListBox*, bool>());
+        m_xTreeView->SetDoubleClickHdl(Link<SvTreeListBox*, bool>());
+        m_xTreeView->SetSelectHdl(Link<SvTreeListBox*, void>());
     }
 };
 
-IMPL_LINK_NOARG(SalInstanceTreeView, SelectHdl, ListBox&, void)
+IMPL_LINK_NOARG(SalInstanceTreeView, SelectHdl, SvTreeListBox*, void)
 {
     if (notify_events_disabled())
         return;
     signal_changed();
 }
 
-IMPL_LINK_NOARG(SalInstanceTreeView, DoubleClickHdl, ListBox&, void)
+IMPL_LINK_NOARG(SalInstanceTreeView, DoubleClickHdl, SvTreeListBox*, bool)
 {
     if (notify_events_disabled())
-        return;
+        return false;
     signal_row_activated();
+    return false;
+}
+
+IMPL_LINK_NOARG(SalInstanceTreeView, ExpandingHdl, SvTreeListBox*, bool)
+{
+    SvTreeListEntry* pEntry = m_xTreeView->GetHdlEntry();
+    if (m_xTreeView->IsExpanded(pEntry))
+    {
+        //collapsing;
+        return true;
+    }
+
+    // if there's a preexisting placeholder child, required to make this
+    // potentially expandable in the first place, now we remove it
+    bool bPlaceHolder = false;
+    if (pEntry->HasChildren())
+    {
+        auto pChild = m_xTreeView->FirstChild(pEntry);
+        if (m_xTreeView->GetEntryText(pChild) == "<dummy>")
+        {
+            m_xTreeView->RemoveEntry(pChild);
+            bPlaceHolder = true;
+        }
+    }
+
+    SalInstanceTreeIter aIter(nullptr);
+    aIter.iter = pEntry;
+    bool bRet = signal_expanding(aIter);
+
+    //expand disallowed, restore placeholder
+    if (!bRet && bPlaceHolder)
+    {
+        m_xTreeView->InsertEntry("<dummy>", pEntry, false, 0, nullptr);
+    }
+
+    return bRet;
 }
 
 class SalInstanceSpinButton : public SalInstanceEntry, public virtual weld::SpinButton
 {
 private:
-    VclPtr<NumericField> m_xButton;
+    VclPtr<FormattedField> m_xButton;
 
     DECL_LINK(UpDownHdl, SpinField&, void);
     DECL_LINK(LoseFocusHdl, Control&, void);
     DECL_LINK(OutputHdl, Edit&, bool);
     DECL_LINK(InputHdl, sal_Int64*, TriState);
 
+    double toField(int nValue) const
+    {
+        return static_cast<double>(nValue) / Power10(get_digits());
+    }
+
+    int fromField(double fValue) const
+    {
+        return FRound(fValue * Power10(get_digits()));
+    }
+
 public:
-    SalInstanceSpinButton(NumericField* pButton, bool bTakeOwnership)
+    SalInstanceSpinButton(FormattedField* pButton, bool bTakeOwnership)
         : SalInstanceEntry(pButton, bTakeOwnership)
         , m_xButton(pButton)
     {
+        m_xButton->SetThousandsSep(false);  //off by default, MetricSpinButton enables it
         m_xButton->SetUpHdl(LINK(this, SalInstanceSpinButton, UpDownHdl));
         m_xButton->SetDownHdl(LINK(this, SalInstanceSpinButton, UpDownHdl));
         m_xButton->SetLoseFocusHdl(LINK(this, SalInstanceSpinButton, LoseFocusHdl));
@@ -1910,37 +2215,35 @@ public:
 
     virtual int get_value() const override
     {
-        return m_xButton->GetValue();
+        return fromField(m_xButton->GetValue());
     }
 
     virtual void set_value(int value) override
     {
-        m_xButton->SetValue(value);
+        m_xButton->SetValue(toField(value));
     }
 
     virtual void set_range(int min, int max) override
     {
-        m_xButton->SetMin(min);
-        m_xButton->SetFirst(min);
-        m_xButton->SetMax(max);
-        m_xButton->SetLast(max);
+        m_xButton->SetMinValue(toField(min));
+        m_xButton->SetMaxValue(toField(max));
     }
 
     virtual void get_range(int& min, int& max) const override
     {
-        min = m_xButton->GetMin();
-        max = m_xButton->GetMax();
+        min = fromField(m_xButton->GetMinValue());
+        max = fromField(m_xButton->GetMaxValue());
     }
 
     virtual void set_increments(int step, int /*page*/) override
     {
-        m_xButton->SetSpinSize(step);
+        m_xButton->SetSpinSize(toField(step));
     }
 
     virtual void get_increments(int& step, int& page) const override
     {
-        step = m_xButton->GetSpinSize();
-        page = m_xButton->GetSpinSize();
+        step = fromField(m_xButton->GetSpinSize());
+        page = fromField(m_xButton->GetSpinSize());
     }
 
     virtual void set_digits(unsigned int digits) override
@@ -1948,9 +2251,16 @@ public:
         m_xButton->SetDecimalDigits(digits);
     }
 
+    //so with hh::mm::ss, incrementing mm will not reset ss
     void DisableRemainderFactor()
     {
         m_xButton->DisableRemainderFactor();
+    }
+
+    //off by default for direct SpinButtons, MetricSpinButton enables it
+    void SetUseThousandSep()
+    {
+        m_xButton->SetThousandsSep(true);
     }
 
     virtual unsigned int get_digits() const override
@@ -1991,6 +2301,61 @@ IMPL_LINK(SalInstanceSpinButton, InputHdl, sal_Int64*, pResult, TriState)
         *pResult = nResult;
     return eRet;
 }
+
+class SalInstanceFormattedSpinButton : public SalInstanceEntry, public virtual weld::FormattedSpinButton
+{
+private:
+    VclPtr<FormattedField> m_xButton;
+
+public:
+    SalInstanceFormattedSpinButton(FormattedField* pButton, bool bTakeOwnership)
+        : SalInstanceEntry(pButton, bTakeOwnership)
+        , m_xButton(pButton)
+    {
+        // #i6278# allow more decimal places than the output format.  As
+        // the numbers shown in the edit fields are used for input, it makes more
+        // sense to display the values in the input format rather than the output
+        // format.
+        m_xButton->UseInputStringForFormatting();
+    }
+
+    virtual double get_value() const override
+    {
+        return m_xButton->GetValue();
+    }
+
+    virtual void set_value(double value) override
+    {
+        m_xButton->SetValue(value);
+    }
+
+    virtual void set_range(double min, double max) override
+    {
+        m_xButton->SetMinValue(min);
+        m_xButton->SetMaxValue(max);
+    }
+
+    virtual void get_range(double& min, double& max) const override
+    {
+        min = m_xButton->GetMinValue();
+        max = m_xButton->GetMaxValue();
+    }
+
+    virtual void set_formatter(SvNumberFormatter* pFormatter) override
+    {
+        m_xButton->SetFormatter(pFormatter);
+    }
+
+    virtual sal_Int32 get_format_key() const override
+    {
+        return m_xButton->GetFormatKey();
+    }
+
+    virtual void set_format_key(sal_Int32 nFormatKey) override
+    {
+        m_xButton->SetFormatKey(nFormatKey);
+    }
+};
 
 class SalInstanceLabel : public SalInstanceWidget, public virtual weld::Label
 {
@@ -2271,6 +2636,8 @@ template <class vcl_type>
 class SalInstanceComboBox : public SalInstanceContainer, public virtual weld::ComboBox
 {
 protected:
+    // owner for ListBox/ComboBox UserData
+    std::vector<std::unique_ptr<OUString>> m_aUserData;
     VclPtr<vcl_type> m_xComboBox;
 
 public:
@@ -2377,12 +2744,8 @@ public:
 
     virtual void clear() override
     {
-        for (int i = 0; i < get_count(); ++i)
-        {
-            const OUString* pId = getEntryData(i);
-            delete pId;
-        }
-        return m_xComboBox->Clear();
+        m_xComboBox->Clear();
+        m_aUserData.clear();
     }
 
     virtual void make_sorted() override
@@ -2390,9 +2753,9 @@ public:
         m_xComboBox->SetStyle(m_xComboBox->GetStyle() | WB_SORT);
     }
 
-    virtual ~SalInstanceComboBox() override
+    virtual bool get_popup_shown() const override
     {
-        clear();
+        return m_xComboBox->IsInDropDown();
     }
 };
 
@@ -2429,7 +2792,10 @@ public:
         else
             nInsertedAt = m_xComboBox->InsertEntry(rStr, createImage(*pImageSurface), nInsertPos);
         if (pId)
-            m_xComboBox->SetEntryData(nInsertedAt, new OUString(*pId));
+        {
+            m_aUserData.emplace_back(o3tl::make_unique<OUString>(*pId));
+            m_xComboBox->SetEntryData(nInsertedAt, m_aUserData.back().get());
+        }
     }
 
     virtual void insert_separator(int pos) override
@@ -2532,7 +2898,10 @@ public:
         else
             nInsertedAt = m_xComboBox->InsertEntryWithImage(rStr, createImage(*pImageSurface), nInsertPos);
         if (pId)
-            m_xComboBox->SetEntryData(nInsertedAt, new OUString(*pId));
+        {
+            m_aUserData.emplace_back(o3tl::make_unique<OUString>(*pId));
+            m_xComboBox->SetEntryData(nInsertedAt, m_aUserData.back().get());
+        }
     }
 
     virtual void insert_separator(int pos) override
@@ -2654,9 +3023,11 @@ IMPL_LINK(SalInstanceEntryTreeView, KeyPressListener, VclWindowEvent&, rEvent, v
     if (nKeyCode == KEY_UP || nKeyCode == KEY_DOWN || nKeyCode == KEY_PAGEUP || nKeyCode == KEY_PAGEDOWN)
     {
         m_pTreeView->disable_notify_events();
-        ListBox& rListBox = m_pTreeView->getTreeView();
-        NotifyEvent aNotifyEvt(MouseNotifyEvent::KEYINPUT, reinterpret_cast<vcl::Window*>(rListBox.mpImplWin.get()), &rKeyEvent);
-        rListBox.PreNotify(aNotifyEvt);
+        auto& rListBox = m_pTreeView->getTreeView();
+        if (!rListBox.FirstSelected())
+            rListBox.Select(rListBox.First(), true);
+        else
+            rListBox.KeyInput(rKeyEvent);
         m_xEntry->set_text(m_xTreeView->get_selected_text());
         m_xEntry->select_region(0, -1);
         m_pTreeView->enable_notify_events();
@@ -2827,8 +3198,27 @@ public:
 
     virtual std::unique_ptr<weld::SpinButton> weld_spin_button(const OString &id, bool bTakeOwnership) override
     {
-        NumericField* pSpinButton = m_xBuilder->get<NumericField>(id);
+        FormattedField* pSpinButton = m_xBuilder->get<FormattedField>(id);
         return pSpinButton ? o3tl::make_unique<SalInstanceSpinButton>(pSpinButton, bTakeOwnership) : nullptr;
+    }
+
+    virtual std::unique_ptr<weld::MetricSpinButton> weld_metric_spin_button(const OString& id, FieldUnit eUnit,
+                                                                            bool bTakeOwnership) override
+    {
+        std::unique_ptr<weld::SpinButton> xButton(weld_spin_button(id, bTakeOwnership));
+        if (xButton)
+        {
+            SalInstanceSpinButton& rButton = dynamic_cast<SalInstanceSpinButton&>(*xButton);
+            rButton.SetUseThousandSep();
+        }
+        return o3tl::make_unique<weld::MetricSpinButton>(std::move(xButton), eUnit);
+    }
+
+    virtual std::unique_ptr<weld::FormattedSpinButton> weld_formatted_spin_button(const OString& id,
+                                                                                  bool bTakeOwnership) override
+    {
+        FormattedField* pSpinButton = m_xBuilder->get<FormattedField>(id);
+        return pSpinButton ? o3tl::make_unique<SalInstanceFormattedSpinButton>(pSpinButton, bTakeOwnership) : nullptr;
     }
 
     virtual std::unique_ptr<weld::TimeSpinButton> weld_time_spin_button(const OString& id, TimeFieldFormat eFormat,
@@ -2859,7 +3249,7 @@ public:
 
     virtual std::unique_ptr<weld::TreeView> weld_tree_view(const OString &id, bool bTakeOwnership) override
     {
-        ListBox* pTreeView = m_xBuilder->get<ListBox>(id);
+        SvTreeListBox* pTreeView = m_xBuilder->get<SvTreeListBox>(id);
         return pTreeView ? o3tl::make_unique<SalInstanceTreeView>(pTreeView, bTakeOwnership) : nullptr;
     }
 

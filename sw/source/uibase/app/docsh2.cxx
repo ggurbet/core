@@ -21,7 +21,8 @@
 
 #include <com/sun/star/drawing/ModuleDispatcher.hpp>
 #include <com/sun/star/frame/DispatchHelper.hpp>
-
+#include <ooo/vba/XSinkCaller.hpp>
+#include <ooo/vba/word/XDocument.hpp>
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 
@@ -39,7 +40,7 @@
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <unotools/pathoptions.hxx>
-#include <svtools/transfer.hxx>
+#include <vcl/transfer.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/dinfdlg.hxx>
 #include <sfx2/request.hxx>
@@ -636,10 +637,14 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 if( !aFileName.isEmpty() )
                 {
                     SwgReaderOption aOpt;
-                    aOpt.SetTextFormats(    bText  = bool(nFlags & SfxTemplateFlags::LOAD_TEXT_STYLES ));
-                    aOpt.SetFrameFormats(    bFrame = bool(nFlags & SfxTemplateFlags::LOAD_FRAME_STYLES));
-                    aOpt.SetPageDescs(  bPage  = bool(nFlags & SfxTemplateFlags::LOAD_PAGE_STYLES ));
-                    aOpt.SetNumRules(   bNum   = bool(nFlags & SfxTemplateFlags::LOAD_NUM_STYLES  ));
+                    bText  = bool(nFlags & SfxTemplateFlags::LOAD_TEXT_STYLES );
+                    aOpt.SetTextFormats(bText);
+                    bFrame = bool(nFlags & SfxTemplateFlags::LOAD_FRAME_STYLES);
+                    aOpt.SetFrameFormats(bFrame);
+                    bPage  = bool(nFlags & SfxTemplateFlags::LOAD_PAGE_STYLES );
+                    aOpt.SetPageDescs(bPage);
+                    bNum   = bool(nFlags & SfxTemplateFlags::LOAD_NUM_STYLES  );
+                    aOpt.SetNumRules(bNum);
                     //different meaning between SFX_MERGE_STYLES and aOpt.SetMerge!
                     bMerge = bool(nFlags & SfxTemplateFlags::MERGE_STYLES);
                     aOpt.SetMerge( !bMerge );
@@ -746,7 +751,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                     GetDoc()->getIDocumentDeviceAccess().setPrinter( pSavePrinter, true, true);
                     //pSavePrinter must not be deleted again
                 }
-                pViewFrame->GetBindings().SetState(SfxBoolItem(SID_SOURCEVIEW, nSlot == SID_VIEWSHELL2));
+                pViewFrame->GetBindings().SetState(SfxBoolItem(SID_SOURCEVIEW, false)); // not SID_VIEWSHELL2
                 pViewFrame->GetBindings().Invalidate( SID_NEWWINDOW );
                 pViewFrame->GetBindings().Invalidate( SID_BROWSER_MODE );
                 pViewFrame->GetBindings().Invalidate( FN_PRINT_LAYOUT );
@@ -755,7 +760,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
             case SID_GET_COLORLIST:
             {
                 const SvxColorListItem* pColItem = GetItem(SID_COLOR_TABLE);
-                XColorListRef pList = pColItem->GetColorList();
+                const XColorListRef& pList = pColItem->GetColorList();
                 rReq.SetReturnValue(OfaRefItem<XColorList>(SID_GET_COLORLIST, pList));
             }
             break;

@@ -45,6 +45,7 @@
 #include <vcl/settings.hxx>
 #include <svl/stritem.hxx>
 #include <o3tl/make_unique.hxx>
+#include <unotools/charclass.hxx>
 
 #include <inputwin.hxx>
 #include <scmod.hxx>
@@ -1299,6 +1300,8 @@ ScTextWnd::ScTextWnd(ScInputBarGroup* pParent, ScTabViewShell* pViewSh)
     Size aBorder;
     aBorder = CalcWindowSize(aBorder);
     mnBorderHeight = aBorder.Height();
+
+    set_id("sc_input_window");
 }
 
 ScTextWnd::~ScTextWnd()

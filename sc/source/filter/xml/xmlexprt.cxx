@@ -70,6 +70,7 @@
 #include <tokenstringcontext.hxx>
 #include <cellform.hxx>
 #include <datamapper.hxx>
+#include <datatransformation.hxx>
 
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlnmspe.hxx>
@@ -1478,14 +1479,9 @@ void ScXMLExport::OpenRow(const sal_Int32 nTable, const sal_Int32 nStartRow, con
                 else
                 {
                     assert(nPrevIndex >= 0 && "coverity#1438402");
-                    if (nRow < nEndRow)
-                    {
-                        ScRowFormatRanges* pTempRowFormatRanges = new ScRowFormatRanges(pRowFormatRanges.get());
-                        OpenAndCloseRow(nPrevIndex, nRow - nEqualRows, nEqualRows, bPrevHidden, bPrevFiltered);
-                        pRowFormatRanges.reset(pTempRowFormatRanges);
-                    }
-                    else
-                        OpenAndCloseRow(nPrevIndex, nRow - nEqualRows, nEqualRows, bPrevHidden, bPrevFiltered);
+                    ScRowFormatRanges* pTempRowFormatRanges = new ScRowFormatRanges(pRowFormatRanges.get());
+                    OpenAndCloseRow(nPrevIndex, nRow - nEqualRows, nEqualRows, bPrevHidden, bPrevFiltered);
+                    pRowFormatRanges.reset(pTempRowFormatRanges);
                     nEqualRows = 1;
                     nPrevIndex = nIndex;
                     bPrevHidden = bHidden;
@@ -2394,7 +2390,7 @@ void ScXMLExport::collectAutoStyles()
                     OSL_ENSURE( pNote, "note not found" );
                     if (pNote)
                     {
-                        std::shared_ptr< SdrCaptionObj > pDrawObj = pNote->GetOrCreateCaption( aPos );
+                        const std::shared_ptr< SdrCaptionObj >& pDrawObj = pNote->GetOrCreateCaption( aPos );
                         // all uno shapes are created anyway in CollectSharedData
                         uno::Reference<beans::XPropertySet> xShapeProperties( pDrawObj->getUnoShape(), uno::UNO_QUERY );
                         if (xShapeProperties.is())
@@ -2438,7 +2434,7 @@ void ScXMLExport::collectAutoStyles()
                     OSL_ENSURE( pNote, "note not found" );
                     if (pNote)
                     {
-                        std::shared_ptr< SdrCaptionObj > pDrawObj = pNote->GetOrCreateCaption( aPos );
+                        const std::shared_ptr< SdrCaptionObj >& pDrawObj = pNote->GetOrCreateCaption( aPos );
                         uno::Reference<container::XEnumerationAccess> xCellText(pDrawObj->getUnoShape(), uno::UNO_QUERY);
                         uno::Reference<beans::XPropertySet> xParaProp(
                             lcl_GetEnumerated( xCellText, aNoteParaIter->maSelection.nStartPara ), uno::UNO_QUERY );
@@ -2472,7 +2468,7 @@ void ScXMLExport::collectAutoStyles()
                     OSL_ENSURE( pNote, "note not found" );
                     if (pNote)
                     {
-                        std::shared_ptr< SdrCaptionObj > pDrawObj = pNote->GetOrCreateCaption( aPos );
+                        const std::shared_ptr< SdrCaptionObj >& pDrawObj = pNote->GetOrCreateCaption( aPos );
                         uno::Reference<text::XSimpleText> xCellText(pDrawObj->getUnoShape(), uno::UNO_QUERY);
                         uno::Reference<beans::XPropertySet> xCursorProp(xCellText->createTextCursor(), uno::UNO_QUERY);
                         ScDrawTextCursor* pCursor = ScDrawTextCursor::getImplementation( xCursorProp );
@@ -2578,74 +2574,70 @@ void ScXMLExport::collectAutoStyles()
                 }
             }
             uno::Reference<table::XColumnRowRange> xColumnRowRange (xTable, uno::UNO_QUERY);
-            if (xColumnRowRange.is())
+            if (xColumnRowRange.is() && pDoc)
             {
-                if (pDoc)
+                pDoc->SyncColRowFlags();
+                uno::Reference<table::XTableColumns> xTableColumns(xColumnRowRange->getColumns());
+                if (xTableColumns.is())
                 {
-                    pDoc->SyncColRowFlags();
-                    uno::Reference<table::XTableColumns> xTableColumns(xColumnRowRange->getColumns());
-                    if (xTableColumns.is())
+                    sal_Int32 nColumns(pDoc->GetLastChangedCol(sal::static_int_cast<SCTAB>(nTable)));
+                    pSharedData->SetLastColumn(nTable, nColumns);
+                    table::CellRangeAddress aCellAddress(GetEndAddress(xTable));
+                    if (aCellAddress.EndColumn > nColumns)
                     {
-                        sal_Int32 nColumns(pDoc->GetLastChangedCol(sal::static_int_cast<SCTAB>(nTable)));
-                        pSharedData->SetLastColumn(nTable, nColumns);
-                        table::CellRangeAddress aCellAddress(GetEndAddress(xTable));
-                        if (aCellAddress.EndColumn > nColumns)
-                        {
-                            ++nColumns;
-                            pColumnStyles->AddNewTable(nTable, aCellAddress.EndColumn);
-                        }
-                        else
-                            pColumnStyles->AddNewTable(nTable, nColumns);
-                        sal_Int32 nColumn = 0;
-                        while (nColumn <= MAXCOL)
-                        {
-                            sal_Int32 nIndex(-1);
-                            bool bIsVisible(true);
-                            uno::Reference <beans::XPropertySet> xColumnProperties(xTableColumns->getByIndex(nColumn), uno::UNO_QUERY);
-                            if (xColumnProperties.is())
-                            {
-                                AddStyleFromColumn( xColumnProperties, nullptr, nIndex, bIsVisible );
-                                pColumnStyles->AddFieldStyleName(nTable, nColumn, nIndex, bIsVisible);
-                            }
-                            sal_Int32 nOld(nColumn);
-                            nColumn = pDoc->GetNextDifferentChangedCol(sal::static_int_cast<SCTAB>(nTable), static_cast<SCCOL>(nColumn));
-                            for (sal_Int32 i = nOld + 1; i < nColumn; ++i)
-                                pColumnStyles->AddFieldStyleName(nTable, i, nIndex, bIsVisible);
-                        }
-                        if (aCellAddress.EndColumn > nColumns)
-                        {
-                            bool bIsVisible(true);
-                            sal_Int32 nIndex(pColumnStyles->GetStyleNameIndex(nTable, nColumns, bIsVisible));
-                            for (sal_Int32 i = nColumns + 1; i <= aCellAddress.EndColumn; ++i)
-                                pColumnStyles->AddFieldStyleName(nTable, i, nIndex, bIsVisible);
-                        }
+                        ++nColumns;
+                        pColumnStyles->AddNewTable(nTable, aCellAddress.EndColumn);
                     }
-                    uno::Reference<table::XTableRows> xTableRows(xColumnRowRange->getRows());
-                    if (xTableRows.is())
+                    else
+                        pColumnStyles->AddNewTable(nTable, nColumns);
+                    sal_Int32 nColumn = 0;
+                    while (nColumn <= MAXCOL)
                     {
-                        sal_Int32 nRows(pDoc->GetLastChangedRow(sal::static_int_cast<SCTAB>(nTable)));
-                        pSharedData->SetLastRow(nTable, nRows);
-
-                        pRowStyles->AddNewTable(nTable, MAXROW);
-                        sal_Int32 nRow = 0;
-                        while (nRow <= MAXROW)
+                        sal_Int32 nIndex(-1);
+                        bool bIsVisible(true);
+                        uno::Reference <beans::XPropertySet> xColumnProperties(xTableColumns->getByIndex(nColumn), uno::UNO_QUERY);
+                        if (xColumnProperties.is())
                         {
-                            sal_Int32 nIndex = 0;
-                            uno::Reference <beans::XPropertySet> xRowProperties(xTableRows->getByIndex(nRow), uno::UNO_QUERY);
-                            if(xRowProperties.is())
-                            {
-                                AddStyleFromRow( xRowProperties, nullptr, nIndex );
-                                pRowStyles->AddFieldStyleName(nTable, nRow, nIndex);
-                            }
-                            sal_Int32 nOld(nRow);
-                            nRow = pDoc->GetNextDifferentChangedRow(sal::static_int_cast<SCTAB>(nTable), static_cast<SCROW>(nRow));
-                            if (nRow > nOld + 1)
-                                pRowStyles->AddFieldStyleName(nTable, nOld + 1, nIndex, nRow - 1);
+                            AddStyleFromColumn( xColumnProperties, nullptr, nIndex, bIsVisible );
+                            pColumnStyles->AddFieldStyleName(nTable, nColumn, nIndex, bIsVisible);
                         }
+                        sal_Int32 nOld(nColumn);
+                        nColumn = pDoc->GetNextDifferentChangedCol(sal::static_int_cast<SCTAB>(nTable), static_cast<SCCOL>(nColumn));
+                        for (sal_Int32 i = nOld + 1; i < nColumn; ++i)
+                            pColumnStyles->AddFieldStyleName(nTable, i, nIndex, bIsVisible);
+                    }
+                    if (aCellAddress.EndColumn > nColumns)
+                    {
+                        bool bIsVisible(true);
+                        sal_Int32 nIndex(pColumnStyles->GetStyleNameIndex(nTable, nColumns, bIsVisible));
+                        for (sal_Int32 i = nColumns + 1; i <= aCellAddress.EndColumn; ++i)
+                            pColumnStyles->AddFieldStyleName(nTable, i, nIndex, bIsVisible);
+                    }
+                }
+                uno::Reference<table::XTableRows> xTableRows(xColumnRowRange->getRows());
+                if (xTableRows.is())
+                {
+                    sal_Int32 nRows(pDoc->GetLastChangedRow(sal::static_int_cast<SCTAB>(nTable)));
+                    pSharedData->SetLastRow(nTable, nRows);
+
+                    pRowStyles->AddNewTable(nTable, MAXROW);
+                    sal_Int32 nRow = 0;
+                    while (nRow <= MAXROW)
+                    {
+                        sal_Int32 nIndex = 0;
+                        uno::Reference <beans::XPropertySet> xRowProperties(xTableRows->getByIndex(nRow), uno::UNO_QUERY);
+                        if(xRowProperties.is())
+                        {
+                            AddStyleFromRow( xRowProperties, nullptr, nIndex );
+                            pRowStyles->AddFieldStyleName(nTable, nRow, nIndex);
+                        }
+                        sal_Int32 nOld(nRow);
+                        nRow = pDoc->GetNextDifferentChangedRow(sal::static_int_cast<SCTAB>(nTable), static_cast<SCROW>(nRow));
+                        if (nRow > nOld + 1)
+                            pRowStyles->AddFieldStyleName(nTable, nOld + 1, nIndex, nRow - 1);
                     }
                 }
             }
-
             ExportCellTextAutoStyles(nTable);
         }
 
@@ -3072,10 +3064,10 @@ void writeContent(
                 // <text:a xlink:href="url" xlink:type="simple">value</text:a>
 
                 const SvxURLField* pURLField = static_cast<const SvxURLField*>(pField);
-                OUString aURL = pURLField->GetURL();
+                const OUString& aURL = pURLField->GetURL();
                 rExport.AddAttribute(XML_NAMESPACE_XLINK, XML_HREF, rExport.GetRelativeReference(aURL));
                 rExport.AddAttribute(XML_NAMESPACE_XLINK, XML_TYPE, "simple");
-                OUString aTargetFrame = pURLField->GetTargetFrame();
+                const OUString& aTargetFrame = pURLField->GetTargetFrame();
                 if (!aTargetFrame.isEmpty())
                     rExport.AddAttribute(XML_NAMESPACE_OFFICE, XML_TARGET_FRAME_NAME, aTargetFrame);
 
@@ -3628,12 +3620,12 @@ void ScXMLExport::exportAnnotationMeta( const uno::Reference < drawing::XShape >
         // TODO : notes
         //is it still useful, as this call back is only called from ScXMLExport::WriteAnnotation
         // and should be in sync with pCurrentCell
-        std::shared_ptr< SdrCaptionObj > pNoteCaption = pNote->GetOrCreateCaption(pCurrentCell->maCellAddress);
+        const std::shared_ptr< SdrCaptionObj >& pNoteCaption = pNote->GetOrCreateCaption(pCurrentCell->maCellAddress);
         uno::Reference<drawing::XShape> xCurrentShape( pNoteCaption->getUnoShape(), uno::UNO_QUERY );
         if (xCurrentShape.get()!=xShape.get())
             return;
 
-        OUString sAuthor(pNote->GetAuthor());
+        const OUString& sAuthor(pNote->GetAuthor());
         if (!sAuthor.isEmpty())
         {
             SvXMLElementExport aCreatorElem( *this, XML_NAMESPACE_DC,
@@ -3642,7 +3634,7 @@ void ScXMLExport::exportAnnotationMeta( const uno::Reference < drawing::XShape >
             Characters(sAuthor);
         }
 
-        OUString aDate(pNote->GetDate());
+        const OUString& aDate(pNote->GetDate());
         if (pDoc)
         {
             SvNumberFormatter* pNumForm = pDoc->GetFormatTable();
@@ -3685,7 +3677,7 @@ void ScXMLExport::WriteAnnotation(ScMyCell& rMyCell)
 
         pCurrentCell = &rMyCell;
 
-        std::shared_ptr< SdrCaptionObj > pNoteCaption = pNote->GetOrCreateCaption(rMyCell.maCellAddress);
+        const std::shared_ptr< SdrCaptionObj >& pNoteCaption = pNote->GetOrCreateCaption(rMyCell.maCellAddress);
         if (pNoteCaption)
         {
             uno::Reference<drawing::XShape> xShape( pNoteCaption->getUnoShape(), uno::UNO_QUERY );
@@ -4080,7 +4072,7 @@ void ScXMLExport::WriteExternalDataMapping()
         {
             AddAttribute(XML_NAMESPACE_XLINK, XML_HREF, itr.getURL());
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_PROVIDER, itr.getProvider());
-            AddAttribute(XML_NAMESPACE_CALC_EXT, XML_DATA_FREQUENCY, OUString::number(itr.getUpdateFrequency()));
+            AddAttribute(XML_NAMESPACE_CALC_EXT, XML_DATA_FREQUENCY, OUString::number(sc::ExternalDataSource::getUpdateFrequency()));
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_ID, itr.getID());
             AddAttribute(XML_NAMESPACE_CALC_EXT, XML_DATABASE_NAME, itr.getDBName());
 
@@ -5116,73 +5108,65 @@ void ScXMLExport::GetChangeTrackViewSettings(uno::Sequence<beans::PropertyValue>
         sal_Int32 nChangePos(rProps.getLength());
         rProps.realloc(nChangePos + 1);
         beans::PropertyValue* pProps(rProps.getArray());
-        if (pProps)
-        {
-            uno::Sequence<beans::PropertyValue> aChangeProps(SC_VIEWCHANGES_COUNT);
-            beans::PropertyValue* pChangeProps(aChangeProps.getArray());
-            if (pChangeProps)
-            {
-                pChangeProps[SC_SHOW_CHANGES].Name = "ShowChanges";
-                pChangeProps[SC_SHOW_CHANGES].Value <<= pViewSettings->ShowChanges();
-                pChangeProps[SC_SHOW_ACCEPTED_CHANGES].Name = "ShowAcceptedChanges";
-                pChangeProps[SC_SHOW_ACCEPTED_CHANGES].Value <<= pViewSettings->IsShowAccepted();
-                pChangeProps[SC_SHOW_REJECTED_CHANGES].Name = "ShowRejectedChanges";
-                pChangeProps[SC_SHOW_REJECTED_CHANGES].Value <<= pViewSettings->IsShowRejected();
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME].Name = "ShowChangesByDatetime";
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME].Value <<= pViewSettings->HasDate();
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_MODE].Name = "ShowChangesByDatetimeMode";
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_MODE].Value <<= static_cast<sal_Int16>(pViewSettings->GetTheDateMode());
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_FIRST_DATETIME].Name = "ShowChangesByDatetimeFirstDatetime";
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_FIRST_DATETIME].Value <<= pViewSettings->GetTheFirstDateTime().GetUNODateTime();
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_SECOND_DATETIME].Name = "ShowChangesByDatetimeSecondDatetime";
-                pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_SECOND_DATETIME].Value <<= pViewSettings->GetTheLastDateTime().GetUNODateTime();
-                pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR].Name = "ShowChangesByAuthor";
-                pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR].Value <<= pViewSettings->HasAuthor();
-                pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR_NAME].Name = "ShowChangesByAuthorName";
-                pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR_NAME].Value <<= pViewSettings->GetTheAuthorToShow();
-                pChangeProps[SC_SHOW_CHANGES_BY_COMMENT].Name = "ShowChangesByComment";
-                pChangeProps[SC_SHOW_CHANGES_BY_COMMENT].Value <<= pViewSettings->HasComment();
-                pChangeProps[SC_SHOW_CHANGES_BY_COMMENT_TEXT].Name = "ShowChangesByCommentText";
-                pChangeProps[SC_SHOW_CHANGES_BY_COMMENT_TEXT].Value <<= pViewSettings->GetTheComment();
-                pChangeProps[SC_SHOW_CHANGES_BY_RANGES].Name = "ShowChangesByRanges";
-                pChangeProps[SC_SHOW_CHANGES_BY_RANGES].Value <<= pViewSettings->HasRange();
-                OUString sRangeList;
-                ScRangeStringConverter::GetStringFromRangeList(sRangeList, &(pViewSettings->GetTheRangeList()), GetDocument(), FormulaGrammar::CONV_OOO);
-                pChangeProps[SC_SHOW_CHANGES_BY_RANGES_LIST].Name = "ShowChangesByRangesList";
-                pChangeProps[SC_SHOW_CHANGES_BY_RANGES_LIST].Value <<= sRangeList;
 
-                pProps[nChangePos].Name = "TrackedChangesViewSettings";
-                pProps[nChangePos].Value <<= aChangeProps;
-            }
-        }
+        uno::Sequence<beans::PropertyValue> aChangeProps(SC_VIEWCHANGES_COUNT);
+        beans::PropertyValue* pChangeProps(aChangeProps.getArray());
+        pChangeProps[SC_SHOW_CHANGES].Name = "ShowChanges";
+        pChangeProps[SC_SHOW_CHANGES].Value <<= pViewSettings->ShowChanges();
+        pChangeProps[SC_SHOW_ACCEPTED_CHANGES].Name = "ShowAcceptedChanges";
+        pChangeProps[SC_SHOW_ACCEPTED_CHANGES].Value <<= pViewSettings->IsShowAccepted();
+        pChangeProps[SC_SHOW_REJECTED_CHANGES].Name = "ShowRejectedChanges";
+        pChangeProps[SC_SHOW_REJECTED_CHANGES].Value <<= pViewSettings->IsShowRejected();
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME].Name = "ShowChangesByDatetime";
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME].Value <<= pViewSettings->HasDate();
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_MODE].Name = "ShowChangesByDatetimeMode";
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_MODE].Value <<= static_cast<sal_Int16>(pViewSettings->GetTheDateMode());
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_FIRST_DATETIME].Name = "ShowChangesByDatetimeFirstDatetime";
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_FIRST_DATETIME].Value <<= pViewSettings->GetTheFirstDateTime().GetUNODateTime();
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_SECOND_DATETIME].Name = "ShowChangesByDatetimeSecondDatetime";
+        pChangeProps[SC_SHOW_CHANGES_BY_DATETIME_SECOND_DATETIME].Value <<= pViewSettings->GetTheLastDateTime().GetUNODateTime();
+        pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR].Name = "ShowChangesByAuthor";
+        pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR].Value <<= pViewSettings->HasAuthor();
+        pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR_NAME].Name = "ShowChangesByAuthorName";
+        pChangeProps[SC_SHOW_CHANGES_BY_AUTHOR_NAME].Value <<= pViewSettings->GetTheAuthorToShow();
+        pChangeProps[SC_SHOW_CHANGES_BY_COMMENT].Name = "ShowChangesByComment";
+        pChangeProps[SC_SHOW_CHANGES_BY_COMMENT].Value <<= pViewSettings->HasComment();
+        pChangeProps[SC_SHOW_CHANGES_BY_COMMENT_TEXT].Name = "ShowChangesByCommentText";
+        pChangeProps[SC_SHOW_CHANGES_BY_COMMENT_TEXT].Value <<= pViewSettings->GetTheComment();
+        pChangeProps[SC_SHOW_CHANGES_BY_RANGES].Name = "ShowChangesByRanges";
+        pChangeProps[SC_SHOW_CHANGES_BY_RANGES].Value <<= pViewSettings->HasRange();
+        OUString sRangeList;
+        ScRangeStringConverter::GetStringFromRangeList(sRangeList, &(pViewSettings->GetTheRangeList()), GetDocument(), FormulaGrammar::CONV_OOO);
+        pChangeProps[SC_SHOW_CHANGES_BY_RANGES_LIST].Name = "ShowChangesByRangesList";
+        pChangeProps[SC_SHOW_CHANGES_BY_RANGES_LIST].Value <<= sRangeList;
+
+        pProps[nChangePos].Name = "TrackedChangesViewSettings";
+        pProps[nChangePos].Value <<= aChangeProps;
     }
 }
 
 void ScXMLExport::GetViewSettings(uno::Sequence<beans::PropertyValue>& rProps)
 {
-    rProps.realloc(4);
-    beans::PropertyValue* pProps(rProps.getArray());
-    if(pProps)
+    if (GetModel().is())
     {
-        if (GetModel().is())
+        rProps.realloc(4);
+        beans::PropertyValue* pProps(rProps.getArray());
+        ScModelObj* pDocObj(ScModelObj::getImplementation( GetModel() ));
+        if (pDocObj)
         {
-            ScModelObj* pDocObj(ScModelObj::getImplementation( GetModel() ));
-            if (pDocObj)
+            SfxObjectShell* pEmbeddedObj = pDocObj->GetEmbeddedObject();
+            if (pEmbeddedObj)
             {
-                SfxObjectShell* pEmbeddedObj = pDocObj->GetEmbeddedObject();
-                if (pEmbeddedObj)
-                {
-                    tools::Rectangle aRect(pEmbeddedObj->GetVisArea());
-                    sal_uInt16 i(0);
-                    pProps[i].Name = "VisibleAreaTop";
-                    pProps[i].Value <<= static_cast<sal_Int32>(aRect.getY());
-                    pProps[++i].Name = "VisibleAreaLeft";
-                    pProps[i].Value <<= static_cast<sal_Int32>(aRect.getX());
-                    pProps[++i].Name = "VisibleAreaWidth";
-                    pProps[i].Value <<= static_cast<sal_Int32>(aRect.getWidth());
-                    pProps[++i].Name = "VisibleAreaHeight";
-                    pProps[i].Value <<= static_cast<sal_Int32>(aRect.getHeight());
-                }
+                tools::Rectangle aRect(pEmbeddedObj->GetVisArea());
+                sal_uInt16 i(0);
+                pProps[i].Name = "VisibleAreaTop";
+                pProps[i].Value <<= static_cast<sal_Int32>(aRect.getY());
+                pProps[++i].Name = "VisibleAreaLeft";
+                pProps[i].Value <<= static_cast<sal_Int32>(aRect.getX());
+                pProps[++i].Name = "VisibleAreaWidth";
+                pProps[i].Value <<= static_cast<sal_Int32>(aRect.getWidth());
+                pProps[++i].Name = "VisibleAreaHeight";
+                pProps[i].Value <<= static_cast<sal_Int32>(aRect.getHeight());
             }
         }
     }

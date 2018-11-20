@@ -19,20 +19,7 @@
 
 #include <scitems.hxx>
 #include <comphelper/string.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
-#include <editeng/brushitem.hxx>
-#include <editeng/contouritem.hxx>
-#include <editeng/colritem.hxx>
-#include <editeng/crossedoutitem.hxx>
-#include <editeng/fhgtitem.hxx>
-#include <editeng/fontitem.hxx>
-#include <editeng/langitem.hxx>
-#include <editeng/postitem.hxx>
-#include <editeng/shdditem.hxx>
-#include <editeng/udlnitem.hxx>
-#include <editeng/wghtitem.hxx>
-#include <svx/rotmodit.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/eeitem.hxx>
@@ -53,10 +40,8 @@
 #include <zforauto.hxx>
 #include <subtotal.hxx>
 #include <formula/errorcodes.hxx>
-#include <rangenam.hxx>
 #include <docpool.hxx>
 #include <progress.hxx>
-#include <segmenttree.hxx>
 #include <conditio.hxx>
 #include <editutil.hxx>
 #include <listenercontext.hxx>
@@ -154,14 +139,16 @@ void setSuffixCell(
     OUString aValue = lcl_ValueString(nValue, nDigits);
     if (!bIsOrdinalSuffix)
     {
-        rColumn.SetRawString(nRow, aValue += rSuffix);
+        aValue += rSuffix;
+        rColumn.SetRawString(nRow, aValue);
         return;
     }
 
     OUString aOrdinalSuffix = ScGlobal::GetOrdinalSuffix(nValue);
     if (eCellType != CELLTYPE_EDIT)
     {
-        rColumn.SetRawString(nRow, aValue += aOrdinalSuffix);
+        aValue += aOrdinalSuffix;
+        rColumn.SetRawString(nRow, aValue);
         return;
     }
 

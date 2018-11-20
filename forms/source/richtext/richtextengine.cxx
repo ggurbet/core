@@ -31,6 +31,7 @@
 #include <vcl/settings.hxx>
 #include <unotools/lingucfg.hxx>
 #include <svl/undo.hxx>
+#include <osl/diagnose.h>
 
 #include <algorithm>
 #include <memory>
@@ -49,7 +50,7 @@ namespace frm
 
         RichTextEngine* pReturn = new RichTextEngine( pPool );
         OutputDevice* pOutputDevice = pReturn->GetRefDevice();
-        MapMode aDeviceMapMode( pOutputDevice->GetMapMode() );
+        const MapMode& aDeviceMapMode( pOutputDevice->GetMapMode() );
 
         pReturn->SetStatusEventHdl( LINK( pReturn, RichTextEngine, EditEngineStatusChanged ) );
 

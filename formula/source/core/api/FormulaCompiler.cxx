@@ -30,6 +30,7 @@
 
 #include <svl/zforlist.hxx>
 #include <unotools/resmgr.hxx>
+#include <unotools/charclass.hxx>
 #include <com/sun/star/sheet/FormulaOpCodeMapEntry.hpp>
 #include <com/sun/star/sheet/FormulaMapGroup.hpp>
 #include <com/sun/star/sheet/FormulaMapGroupSpecialOffset.hpp>
@@ -466,14 +467,10 @@ uno::Sequence< sheet::FormulaOpCodeMapEntry > FormulaCompiler::OpCodeMap::create
         };
         const size_t nCount = SAL_N_ELEMENTS(aMap);
         // Preallocate vector elements.
-        if (aVec.size() < nCount)
-        {
-            FormulaOpCodeMapEntry aEntry;
-            aEntry.Token.OpCode = getOpCodeUnknown();
-            aVec.resize( nCount, aEntry);
-        } // if (aVec.size() < nCount)
-
         FormulaOpCodeMapEntry aEntry;
+        aEntry.Token.OpCode = getOpCodeUnknown();
+        aVec.resize(nCount, aEntry);
+
         for (auto& i : aMap)
         {
             size_t nIndex = static_cast< size_t >( i.nOff );
@@ -2104,11 +2101,8 @@ bool FormulaCompiler::CompileTokenArray()
         FormulaToken** pData = pDataArray + 1;
         pCode = pData;
         bool bWasForced = pArr->IsRecalcModeForced();
-        if ( bWasForced )
-        {
-            if ( bAutoCorrect )
-                aCorrectedFormula = "=";
-        }
+        if ( bWasForced && bAutoCorrect )
+            aCorrectedFormula = "=";
         pArr->ClearRecalcMode();
         maArrIterator.Reset();
         eLastOp = ocOpen;
@@ -2699,6 +2693,13 @@ formula::ParamClass FormulaCompiler::GetForceArrayParameter( const FormulaToken*
 
 void FormulaCompiler::ForceArrayOperator( FormulaTokenRef const & rCurr )
 {
+    if (rCurr->GetInForceArray() != ParamClass::Unknown)
+        // Already set, unnecessary to evaluate again. This happens by calls to
+        // CurrentFactor::operator=() while descending through Factor() and
+        // then ascending back (and down and up, ...),
+        // CheckSetForceArrayParameter() and later PutCode().
+        return;
+
     if (!pCurrentFactorToken || (pCurrentFactorToken.get() == rCurr.get()))
         return;
 
@@ -2706,27 +2707,37 @@ void FormulaCompiler::ForceArrayOperator( FormulaTokenRef const & rCurr )
         return;
 
     // Inherited parameter class.
-    formula::ParamClass eType = pCurrentFactorToken->GetInForceArray();
-    if (eType == formula::ParamClass::ForceArray)
+    const formula::ParamClass eForceType = pCurrentFactorToken->GetInForceArray();
+    if (eForceType == ParamClass::ForceArray || eForceType == ParamClass::ReferenceOrRefArray)
     {
-        rCurr->SetInForceArray( eType);
+        // ReferenceOrRefArray was set only if in ForceArray context already,
+        // it is valid for the one function only to indicate the preferred
+        // return type. Propagate as ForceArray if not another parameter
+        // handling ReferenceOrRefArray.
+        if (nCurrentFactorParam > 0
+                && (GetForceArrayParameter( pCurrentFactorToken.get(), static_cast<sal_uInt16>(nCurrentFactorParam - 1))
+                    == ParamClass::ReferenceOrRefArray))
+            rCurr->SetInForceArray( ParamClass::ReferenceOrRefArray);
+        else
+            rCurr->SetInForceArray( ParamClass::ForceArray);
         return;
     }
-    else if (eType == formula::ParamClass::ReferenceOrForceArray)
+    else if (eForceType == ParamClass::ReferenceOrForceArray)
     {
         // Inherit further only if the return class of the nested function is
         // not Reference. Else flag as suppressed.
         if (GetForceArrayParameter( rCurr.get(), SAL_MAX_UINT16) != ParamClass::Reference)
-            rCurr->SetInForceArray( eType);
+            rCurr->SetInForceArray( eForceType);
         else
-            rCurr->SetInForceArray( formula::ParamClass::SuppressedReferenceOrForceArray);
+            rCurr->SetInForceArray( ParamClass::SuppressedReferenceOrForceArray);
         return;
     }
 
     if (nCurrentFactorParam > 0)
     {
         // Actual current parameter's class.
-        eType = GetForceArrayParameter( pCurrentFactorToken.get(), static_cast<sal_uInt16>(nCurrentFactorParam - 1));
+        const formula::ParamClass eType = GetForceArrayParameter(
+                pCurrentFactorToken.get(), static_cast<sal_uInt16>(nCurrentFactorParam - 1));
         if (eType == ParamClass::ForceArray)
             rCurr->SetInForceArray( eType);
         else if (eType == ParamClass::ReferenceOrForceArray)

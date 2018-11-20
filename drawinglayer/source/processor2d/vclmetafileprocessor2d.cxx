@@ -128,7 +128,7 @@ namespace
 
             for(sal_uInt32 a(0); a < nPolyCount; a++)
             {
-                const basegfx::B2DPolygon aCandidate(rPolyPolygon.getB2DPolygon(a));
+                const basegfx::B2DPolygon& aCandidate(rPolyPolygon.getB2DPolygon(a));
                 const sal_uInt32 nPointCount(aCandidate.count());
                 bool bNeedToSplit(false);
 
@@ -221,7 +221,7 @@ namespace
         sal_uInt32 nCount(rPoly.count());
         for( sal_uInt32 i=0; i<nCount; ++i )
         {
-            basegfx::B2DPolygon aCandidate(rPoly.getB2DPolygon(i));
+            const basegfx::B2DPolygon& aCandidate(rPoly.getB2DPolygon(i));
             if( !aCandidate.isClosed() || aCandidate.count() > 1 )
                 aPoly.append(aCandidate);
         }
@@ -1390,7 +1390,7 @@ namespace drawinglayer
 
                     for(sal_uInt32 a(0); a < aHairLinePolyPolygon.count(); a++)
                     {
-                        const basegfx::B2DPolygon aCandidate(aHairLinePolyPolygon.getB2DPolygon(a));
+                        const basegfx::B2DPolygon& aCandidate(aHairLinePolyPolygon.getB2DPolygon(a));
 
                         if(aCandidate.count() > 1)
                         {
@@ -1491,7 +1491,7 @@ namespace drawinglayer
 
             if(!mnSvtGraphicFillCount && aLocalPolyPolygon.count())
             {
-                // #121194# Changed implementation and checked usages fo convert to metafile,
+                // #121194# Changed implementation and checked usages of convert to metafile,
                 // presentation start (uses SvtGraphicFill) and printing.
 
                 // calculate transformation. Get real object size, all values in FillGraphicAttribute

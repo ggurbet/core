@@ -551,7 +551,7 @@ SdrObject* SdPage::CreatePresObj(PresObjKind eObjKind, bool bVertical, const ::t
                 SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>(getSdrModelFromSdrPage().GetStyleSheetPool()->Find(aName, SfxStyleFamily::Page));
                 DBG_ASSERT(pSheet, "StyleSheet for outline object not found");
                 if (pSheet)
-                    pSdrObj->StartListening(*pSheet);
+                    pSdrObj->StartListening(*pSheet, DuplicateHandling::Allow);
             }
         }
 
@@ -726,40 +726,42 @@ void SdPage::Changed(const SdrObject& rObj, SdrUserCallType eType, const ::tools
                 if ( getSdrModelFromSdrPage().isLocked())
                     break;
 
-                SdrObject* pObj = const_cast<SdrObject*>(&rObj);
-
-                if (pObj)
+                if (!mbMaster)
                 {
-                    if (!mbMaster)
+                    if (rObj.GetUserCall())
                     {
-                        if( pObj->GetUserCall() )
-                        {
-                            SfxUndoManager* pUndoManager = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetUndoManager();
-                            const bool bUndo = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
+                        SdrObject& _rObj = const_cast<SdrObject&>(rObj);
+                        SfxUndoManager* pUndoManager
+                            = static_cast<SdDrawDocument&>(getSdrModelFromSdrPage())
+                                  .GetUndoManager();
+                        const bool bUndo
+                            = pUndoManager && pUndoManager->IsInListAction() && IsInserted();
 
-                            if( bUndo )
-                                pUndoManager->AddUndoAction( o3tl::make_unique<UndoObjectUserCall>(*pObj) );
+                        if (bUndo)
+                            pUndoManager->AddUndoAction(
+                                o3tl::make_unique<UndoObjectUserCall>(_rObj));
 
-                            // Object was resized by user and does not listen to its slide anymore
-                            pObj->SetUserCall(nullptr);
-                        }
+                        // Object was resized by user and does not listen to its slide anymore
+                        _rObj.SetUserCall(nullptr);
                     }
-                    else
+                }
+                else
+                {
+                    // Object of the master page changed, therefore adjust
+                    // object on all pages
+                    sal_uInt16 nPageCount = static_cast<SdDrawDocument&>(getSdrModelFromSdrPage())
+                                                .GetSdPageCount(mePageKind);
+
+                    for (sal_uInt16 i = 0; i < nPageCount; i++)
                     {
-                        // Object of the master page changed, therefore adjust
-                        // object on all pages
-                        sal_uInt16 nPageCount = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetSdPageCount(mePageKind);
+                        SdPage* pLoopPage = static_cast<SdDrawDocument&>(getSdrModelFromSdrPage())
+                                                .GetSdPage(i, mePageKind);
 
-                        for (sal_uInt16 i = 0; i < nPageCount; i++)
+                        if (pLoopPage && this == &(pLoopPage->TRG_GetMasterPage()))
                         {
-                            SdPage* pLoopPage = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetSdPage(i, mePageKind);
-
-                            if (pLoopPage && this == &(pLoopPage->TRG_GetMasterPage()))
-                            {
-                                // Page listens to this master page, therefore
-                                // adjust AutoLayout
-                                pLoopPage->SetAutoLayout(pLoopPage->GetAutoLayout());
-                            }
+                            // Page listens to this master page, therefore
+                            // adjust AutoLayout
+                            pLoopPage->SetAutoLayout(pLoopPage->GetAutoLayout());
                         }
                     }
                 }
@@ -910,7 +912,7 @@ void getPresObjProp( const SdPage& rPage, const char* sObjKind, const char* sPag
             Reference<XNode> objectNode = *aIter;      //get i'th object element
             Reference<XNamedNodeMap> objectattrlist = objectNode->getAttributes();
             Reference<XNode> objectattr = objectattrlist->getNamedItem("type");
-            rtl::OUString sObjType = objectattr->getNodeValue();
+            OUString sObjType = objectattr->getNodeValue();
 
             if (sObjType.equalsAscii(sObjKind))
             {
@@ -920,19 +922,19 @@ void getPresObjProp( const SdPage& rPage, const char* sObjKind, const char* sPag
                 for( int j=0; j< objSize; j++)
                 {
                     Reference<XNode> obj = objectChildren->item(j);
-                    rtl::OUString nodename = obj->getNodeName();
+                    OUString nodename = obj->getNodeName();
 
                     //check whether children is blank 'text-node' or 'object-prop' node
                     if(nodename == "object-prop")
                     {
                         Reference<XNamedNodeMap> ObjAttributes = obj->getAttributes();
                         Reference<XNode> ObjPageKind = ObjAttributes->getNamedItem("pagekind");
-                        rtl::OUString sObjPageKind = ObjPageKind->getNodeValue();
+                        OUString sObjPageKind = ObjPageKind->getNodeValue();
 
                         if (sObjPageKind.equalsAscii(sPageKind))
                         {
                             Reference<XNode> ObjSizeHeight = ObjAttributes->getNamedItem("relative-height");
-                            rtl::OUString sValue = ObjSizeHeight->getNodeValue();
+                            OUString sValue = ObjSizeHeight->getNodeValue();
                             presObjPropValue[0] = sValue.toDouble();
 
                             Reference<XNode> ObjSizeWidth = ObjAttributes->getNamedItem("relative-width");
@@ -1273,9 +1275,9 @@ static const LayoutDescriptor& GetLayoutDescriptor( AutoLayout eLayout )
     return aLayouts[ eLayout - AUTOLAYOUT_START ];
 }
 
-static rtl::OUString enumtoString(AutoLayout aut)
+static OUString enumtoString(AutoLayout aut)
 {
-    rtl::OUString retstr;
+    OUString retstr;
     switch (aut)
     {
         case AUTOLAYOUT_TITLE_CONTENT:
@@ -1331,7 +1333,7 @@ static rtl::OUString enumtoString(AutoLayout aut)
     return retstr;
 }
 
-static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* rRectangle ,const rtl::OUString& sLayoutType )
+static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* rRectangle ,const OUString& sLayoutType )
 {
     ::tools::Rectangle aTitleRect;
     ::tools::Rectangle aLayoutRect;
@@ -1373,7 +1375,7 @@ static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* r
         Reference<XNamedNodeMap> layoutAttrList =layoutNode->getAttributes();
 
         // get the attribute value of layout (i.e it's type)
-        rtl::OUString sLayoutAttName =
+        OUString sLayoutAttName =
             layoutAttrList->getNamedItem("type")->getNodeValue();
         if(sLayoutAttName == sLayoutType)
         {
@@ -1382,7 +1384,7 @@ static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* r
             const int presobjsize = layoutChildren->getLength();
             for( int j=0; j< presobjsize ; j++)
             {
-                rtl::OUString nodename;
+                OUString nodename;
                 Reference<XNode> presobj = layoutChildren->item(j);
                 nodename=presobj->getNodeName();
 
@@ -1395,7 +1397,7 @@ static void CalcAutoLayoutRectangles( SdPage const & rPage,::tools::Rectangle* r
                     Reference<XNamedNodeMap> presObjAttributes = presobj->getAttributes();
 
                     Reference<XNode> presObjSizeHeight = presObjAttributes->getNamedItem("relative-height");
-                    rtl::OUString sValue = presObjSizeHeight->getNodeValue();
+                    OUString sValue = presObjSizeHeight->getNodeValue();
                     propvalue[0] = sValue.toDouble();
 
                     Reference<XNode> presObjSizeWidth = presObjAttributes->getNamedItem("relative-width");
@@ -1618,7 +1620,7 @@ void SdPage::SetAutoLayout(AutoLayout eLayout, bool bInit, bool bCreate )
 
     ::tools::Rectangle aRectangle[MAX_PRESOBJS];
     const LayoutDescriptor& aDescriptor = GetLayoutDescriptor( meAutoLayout );
-    rtl::OUString sLayoutName( enumtoString(meAutoLayout) );
+    OUString sLayoutName( enumtoString(meAutoLayout) );
     CalcAutoLayoutRectangles( *this, aRectangle, sLayoutName);
 
     std::set< SdrObject* > aUsedPresentationObjects;
@@ -2102,17 +2104,12 @@ static SdrObject* convertPresentationObjectImpl(SdPage& rPage, SdrObject* pSourc
                 OUString aName( rPage.GetLayoutName() + " " + OUString::number( nLevel ) );
                 SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>( rModel.GetStyleSheetPool()->Find(aName, SfxStyleFamily::Page) );
 
-                if (pSheet)
+                if (pSheet && nLevel == 1)
                 {
-                    if (nLevel == 1)
-                    {
-                        SfxStyleSheet* pSubtitleSheet = rPage.GetStyleSheetForPresObj(PRESOBJ_TEXT);
+                    SfxStyleSheet* pSubtitleSheet = rPage.GetStyleSheetForPresObj(PRESOBJ_TEXT);
 
-                        if (pSubtitleSheet)
-                            pOutlParaObj->ChangeStyleSheetName(SfxStyleFamily::Page, pSubtitleSheet->GetName(), pSheet->GetName());
-                    }
-
-                    pNewObj->StartListening(*pSheet);
+                    if (pSubtitleSheet)
+                        pOutlParaObj->ChangeStyleSheetName(SfxStyleFamily::Page, pSubtitleSheet->GetName(), pSheet->GetName());
                 }
             }
 

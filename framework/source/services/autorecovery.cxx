@@ -737,7 +737,7 @@ private:
                 Note further: it patches the info struct
                 more than ones. E.g. the new temp URL is set
                 before the file is saved. And the old URL is removed
-                only if removing oft he old file was successfully.
+                only if removing of the old file was successfully.
                 If this method returns without an exception - everything
                 was OK. Otherwise the info struct can be analyzed to
                 get more information, e.g. when the problem occurs.
@@ -1092,8 +1092,8 @@ class CacheLockGuard
         // this variable knows the state of the "cache lock"
         sal_Int32& m_rCacheLock;
 
-        // to prevent increasing/decreasing of m_rCacheLock more than ones
-        // we must know if THIS guard has an actual lock set there !
+        // to prevent increasing/decreasing of m_rCacheLock more than once
+        // we must know if THIS guard has an actual lock set there!
         bool m_bLockedByThisGuard;
 
     public:

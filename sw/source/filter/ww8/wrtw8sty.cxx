@@ -179,8 +179,8 @@ sal_uInt16 MSWordStyles::GetSlot( const SwFormat* pFormat ) const
 
 sal_uInt16 MSWordStyles::BuildGetSlot( const SwFormat& rFormat )
 {
-    sal_uInt16 nRet;
-    switch ( nRet = rFormat.GetPoolFormatId() )
+    sal_uInt16 nRet = rFormat.GetPoolFormatId();
+    switch ( nRet )
     {
         case RES_POOLCOLL_STANDARD:
             nRet = 0;
@@ -953,10 +953,9 @@ void WW8_WrPlc0::Append( sal_uLong nStartCpOrFc )
 
 void WW8_WrPlc0::Write( SvStream& rStrm )
 {
-    std::vector<sal_uLong>::const_iterator iter;
-    for( iter = aPos.begin(); iter != aPos.end(); ++iter )
+    for( const auto& rPos : aPos )
     {
-        rStrm.WriteUInt32(*iter);
+        rStrm.WriteUInt32(rPos);
     }
 }
 
@@ -1057,12 +1056,6 @@ sal_uInt16 MSWordSections::NumberOfColumns( const SwDoc &rDoc, const WW8_SepInfo
     const SwPageDesc* pPd = rInfo.pPageDesc;
     if ( !pPd )
         pPd = &rDoc.GetPageDesc( 0 );
-
-    if ( !pPd )
-    {
-        OSL_ENSURE( pPd, "totally impossible" );
-        return 1;
-    }
 
     const SfxItemSet &rSet = pPd->GetMaster().GetAttrSet();
     SfxItemSet aSet( *rSet.GetPool(), svl::Items<RES_COL, RES_COL>{} );
@@ -1258,10 +1251,9 @@ void MSWordSections::CheckForFacinPg( WW8Export& rWrt ) const
     // 2 values getting set
     //      Dop.fFacingPages            == Header and Footer different
     //      Dop.fSwapBordersFacingPgs   == mirrored borders
-    std::vector<WW8_SepInfo>::const_iterator iter = aSects.begin();
-    for( sal_uInt16 nEnde = 0; iter != aSects.end(); ++iter )
+    sal_uInt16 nEnde = 0;
+    for( const WW8_SepInfo& rSepInfo : aSects )
     {
-        const WW8_SepInfo& rSepInfo = *iter;
         if( !rSepInfo.pSectionFormat )
         {
             const SwPageDesc* pPd = rSepInfo.pPageDesc;

@@ -64,7 +64,6 @@ public:
     */
     void GrabFocus();
     void GrabFocusPanel();
-    void GrabFocusButton(const sal_Int32 nIndex);
 
     void SetDeckTitle(DeckTitleBar* pDeckTitleBar);
     void SetPanels(const SharedPanelContainer& rPanels);
@@ -76,9 +75,6 @@ private:
     std::vector<VclPtr<Button> > maButtons;
     const std::function<void(const Panel&)> maShowPanelFunctor;
     const std::function<bool(const sal_Int32)> mbIsDeckOpenFunctor;
-    bool mbObservingContentControlFocus;
-    VclPtr<vcl::Window> mpFirstFocusedContentControl;
-    VclPtr<vcl::Window> mpLastFocusedWindow;
 
     enum PanelComponent
     {

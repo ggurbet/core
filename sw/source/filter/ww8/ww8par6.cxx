@@ -663,20 +663,15 @@ SwSectionFormat *wwSectionManager::InsertSection(
         return nullptr;
 
     SwPageDesc *pPage = nullptr;
-    auto aEnd = maSegments.rend();
-    for (auto aIter = maSegments.rbegin(); aIter != aEnd; ++aIter)
-    {
-        if (nullptr != (pPage = aIter->mpPage))
-            break;
-    }
+    auto aIter = std::find_if(maSegments.rbegin(), maSegments.rend(),
+        [](const wwSection& rSegment) { return rSegment.mpPage != nullptr; });
+    if (aIter != maSegments.rend())
+        pPage = aIter->mpPage;
 
     OSL_ENSURE(pPage, "no page outside this section!");
 
     if (!pPage)
         pPage = &mrReader.m_rDoc.GetPageDesc(0);
-
-    if (!pPage)
-        return nullptr;
 
     SwSectionFormat *pFormat = rSection.mpSection->GetFormat();
     OSL_ENSURE(pFormat, "impossible");
@@ -3540,14 +3535,13 @@ void SwWW8ImplReader::Read_UnderlineColor(sal_uInt16, const sal_uInt8* pData, sh
         {
             if( SfxItemState::SET == m_pCurrentColl->GetItemState( RES_CHRATR_UNDERLINE, false ) )
             {
-                const SwAttrSet& aSet = m_pCurrentColl->GetAttrSet();
-                SvxUnderlineItem *pUnderline
-                    = static_cast<SvxUnderlineItem *>(aSet.Get( RES_CHRATR_UNDERLINE, false ).Clone());
-                if (pUnderline && nLen >= 4)
+                if (nLen >= 4)
                 {
+                    const SwAttrSet& aSet = m_pCurrentColl->GetAttrSet();
+                    std::unique_ptr<SvxUnderlineItem> pUnderline(
+                            static_cast<SvxUnderlineItem *>(aSet.Get( RES_CHRATR_UNDERLINE, false ).Clone()));
                     pUnderline->SetColor( msfilter::util::BGRToRGB(SVBT32ToUInt32(pData)) );
                     m_pCurrentColl->SetFormatAttr( *pUnderline );
-                    delete pUnderline;
                 }
             }
         }
@@ -3555,13 +3549,11 @@ void SwWW8ImplReader::Read_UnderlineColor(sal_uInt16, const sal_uInt8* pData, sh
         {
             if ( SfxItemState::SET == m_xCurrentItemSet->GetItemState( RES_CHRATR_UNDERLINE, false ) )
             {
-                SvxUnderlineItem *pUnderline
-                    = static_cast<SvxUnderlineItem*>(m_xCurrentItemSet->Get(RES_CHRATR_UNDERLINE, false).Clone());
-                if (pUnderline && nLen >= 4)
+                if (nLen >= 4)
                 {
+                    std::unique_ptr<SvxUnderlineItem> pUnderline(static_cast<SvxUnderlineItem*>(m_xCurrentItemSet->Get(RES_CHRATR_UNDERLINE, false).Clone()));
                     pUnderline->SetColor( msfilter::util::BGRToRGB(SVBT32ToUInt32(pData)) );
                     m_xCurrentItemSet->Put( *pUnderline );
-                    delete pUnderline;
                 }
             }
         }
@@ -4266,7 +4258,7 @@ void SwWW8ImplReader::Read_LineSpace( sal_uInt16, const sal_uInt8* pData, short 
     {
         long n = nSpace * 10 / 24;  // WW: 240 = 100%, SW: 100 = 100%
 
-        if( n>SAL_MAX_UINT16 ) n = SAL_MAX_UINT16;
+        // here n is in [0..13653]
         aLSpc.SetPropLineSpace( static_cast<sal_uInt16>(n) );
         const SvxFontHeightItem* pH = static_cast<const SvxFontHeightItem*>(
             GetFormatAttr( RES_CHRATR_FONTSIZE ));
@@ -4541,10 +4533,9 @@ void SwWW8ImplReader::Read_BoolItem( sal_uInt16 nId, const sal_uInt8* pData, sho
         m_xCtrlStck->SetAttr( *m_pPaM->GetPoint(), nId );
     else
     {
-        SfxBoolItem* pI = static_cast<SfxBoolItem*>(GetDfltAttr( nId )->Clone());
+        std::unique_ptr<SfxBoolItem> pI(static_cast<SfxBoolItem*>(GetDfltAttr( nId )->Clone()));
         pI->SetValue( 0 != *pData );
         NewAttr( *pI );
-        delete pI;
     }
 }
 

@@ -107,6 +107,7 @@
 #include <o3tl/typed_flags_set.hxx>
 #include <bitmaps.hlst>
 #include <sal/log.hxx>
+#include <unotools/collatorwrapper.hxx>
 
 #define MAX_MRU_FONTNAME_ENTRIES    5
 
@@ -1254,7 +1255,7 @@ void SvxFontNameBox_Impl::Select()
 
 SvxColorWindow::SvxColorWindow(const OUString&            rCommand,
                                std::shared_ptr<PaletteManager> const & rPaletteManager,
-                               BorderColorStatus&         rBorderColorStatus,
+                               ColorStatus&               rColorStatus,
                                sal_uInt16                 nSlotId,
                                const Reference< XFrame >& rFrame,
                                vcl::Window*               pParentWindow,
@@ -1266,7 +1267,7 @@ SvxColorWindow::SvxColorWindow(const OUString&            rCommand,
     maCommand( rCommand ),
     mxParentWindow(pParentWindow),
     mxPaletteManager( rPaletteManager ),
-    mrBorderColorStatus( rBorderColorStatus ),
+    mrColorStatus( rColorStatus ),
     maColorSelectFunction(aFunction),
     mbReuseParentForPicker(bReuseParentForPicker)
 {
@@ -1326,9 +1327,9 @@ SvxColorWindow::SvxColorWindow(const OUString&            rCommand,
     mpPaletteListBox->SetSelectHdl( LINK( this, SvxColorWindow, SelectPaletteHdl ) );
     mpPaletteListBox->AdaptDropDownLineCountToMaximum();
     std::vector<OUString> aPaletteList = mxPaletteManager->GetPaletteList();
-    for( std::vector<OUString>::iterator it = aPaletteList.begin(); it != aPaletteList.end(); ++it )
+    for (const auto& rPalette : aPaletteList )
     {
-        mpPaletteListBox->InsertEntry( *it );
+        mpPaletteListBox->InsertEntry( rPalette );
     }
     OUString aPaletteName( officecfg::Office::Common::UserColors::PaletteName::get() );
     mpPaletteListBox->SelectEntry( aPaletteName );
@@ -1366,7 +1367,7 @@ SvxColorWindow::SvxColorWindow(const OUString&            rCommand,
 }
 
 ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager,
-                         BorderColorStatus&         rBorderColorStatus,
+                         ColorStatus&               rColorStatus,
                          sal_uInt16                 nSlotId,
                          const Reference< XFrame >& rFrame,
                          weld::Window*              pParentWindow,
@@ -1380,7 +1381,7 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
     , mpParentWindow(pParentWindow)
     , mpMenuButton(pMenuButton)
     , mxPaletteManager(rPaletteManager)
-    , mrBorderColorStatus(rBorderColorStatus)
+    , mrColorStatus(rColorStatus)
     , maColorSelectFunction(aFunction)
     , mxColorSet(new ColorValueSet(m_xBuilder->weld_scrolled_window("colorsetwin")))
     , mxRecentColorSet(new ColorValueSet(nullptr))
@@ -1438,8 +1439,8 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
     mxPaletteListBox->connect_changed(LINK(this, ColorWindow, SelectPaletteHdl));
     std::vector<OUString> aPaletteList = mxPaletteManager->GetPaletteList();
     mxPaletteListBox->freeze();
-    for (std::vector<OUString>::iterator it = aPaletteList.begin(); it != aPaletteList.end(); ++it)
-        mxPaletteListBox->append_text(*it);
+    for (const auto& rPalette : aPaletteList)
+        mxPaletteListBox->append_text(rPalette);
     mxPaletteListBox->thaw();
     OUString aPaletteName( officecfg::Office::Common::UserColors::PaletteName::get() );
     mxPaletteListBox->set_active_text(aPaletteName);
@@ -1771,20 +1772,8 @@ void SvxColorWindow::statusChanged( const css::frame::FeatureStateEvent& rEvent 
     }
     else
     {
-        Color aColor(COL_TRANSPARENT);
-
-        if (mrBorderColorStatus.statusChanged(rEvent))
-        {
-            aColor = mrBorderColorStatus.GetColor();
-        }
-        else if (rEvent.IsEnabled)
-        {
-            sal_Int32 nValue;
-            if (rEvent.State >>= nValue)
-                aColor = Color(nValue);
-        }
-
-        SelectEntry(aColor);
+        mrColorStatus.statusChanged(rEvent);
+        SelectEntry(mrColorStatus.GetColor());
     }
 }
 
@@ -1800,20 +1789,8 @@ void ColorWindow::statusChanged( const css::frame::FeatureStateEvent& rEvent )
     }
     else
     {
-        Color aColor(COL_TRANSPARENT);
-
-        if (mrBorderColorStatus.statusChanged(rEvent))
-        {
-            aColor = mrBorderColorStatus.GetColor();
-        }
-        else if (rEvent.IsEnabled)
-        {
-            sal_Int32 nValue;
-            if (rEvent.State >>= nValue)
-                aColor = Color(nValue);
-        }
-
-        SelectEntry(aColor);
+        mrColorStatus.statusChanged(rEvent);
+        SelectEntry(mrColorStatus.GetColor());
     }
 }
 
@@ -1925,89 +1902,59 @@ void ColorWindow::SelectEntry(const Color& rColor)
     ColorWindow::SelectEntry(std::make_pair(rColor, sColorName));
 }
 
-BorderColorStatus::BorderColorStatus() :
+ColorStatus::ColorStatus() :
     maColor( COL_TRANSPARENT ),
     maTLBRColor( COL_TRANSPARENT ),
     maBLTRColor( COL_TRANSPARENT )
 {
 }
 
-BorderColorStatus::~BorderColorStatus()
+ColorStatus::~ColorStatus()
 {
 }
 
-bool BorderColorStatus::statusChanged( const css::frame::FeatureStateEvent& rEvent )
+void ColorStatus::statusChanged( const css::frame::FeatureStateEvent& rEvent )
 {
     Color aColor( COL_TRANSPARENT );
+    css::table::BorderLine2 aTable;
 
-    if ( rEvent.FeatureURL.Complete == ".uno:FrameLineColor" )
+    if ( rEvent.State >>= aTable )
     {
-        if ( rEvent.IsEnabled )
-            rEvent.State >>= aColor;
-
-        maColor = aColor;
-        return true;
+        SvxBorderLine aLine;
+        SvxBoxItem::LineToSvxLine( aTable, aLine, false );
+        if ( !aLine.isEmpty() )
+            aColor = aLine.GetColor();
     }
     else
-    {
-        css::table::BorderLine2 aTable;
-        if ( rEvent.IsEnabled && ( rEvent.State >>= aTable ) )
-            aColor = Color(aTable.Color);
+        rEvent.State >>= aColor;
 
-        if ( rEvent.FeatureURL.Complete == ".uno:BorderTLBR" )
-        {
-            maTLBRColor = aColor;
-            return true;
-        }
-        else if ( rEvent.FeatureURL.Complete == ".uno:BorderBLTR" )
-        {
-            maBLTRColor = aColor;
-            return true;
-        }
-    }
-
-    return false;
+    if ( rEvent.FeatureURL.Path == "BorderTLBR" )
+        maTLBRColor = aColor;
+    else if ( rEvent.FeatureURL.Path == "BorderBLTR" )
+        maBLTRColor = aColor;
+    else
+        maColor = aColor;
 }
 
-Color BorderColorStatus::GetColor()
+Color ColorStatus::GetColor()
 {
-    bool bHasColor = maColor != COL_TRANSPARENT;
-    bool bHasTLBRColor = maTLBRColor != COL_TRANSPARENT;
-    bool bHasBLTRColor = maBLTRColor != COL_TRANSPARENT;
+    Color aColor( maColor );
 
-    if ( !bHasColor && bHasTLBRColor && !bHasBLTRColor )
-        return maTLBRColor;
-    else if ( !bHasColor && !bHasTLBRColor && bHasBLTRColor )
-        return maBLTRColor;
-    else if ( bHasColor && bHasTLBRColor && !bHasBLTRColor )
+    if ( maTLBRColor != COL_TRANSPARENT )
     {
-        if ( maColor == maTLBRColor )
-            return maColor;
-        else
-            return maBLTRColor;
-    }
-    else if ( bHasColor && !bHasTLBRColor && bHasBLTRColor )
-    {
-        if ( maColor == maBLTRColor )
-            return maColor;
-        else
-            return maTLBRColor;
-    }
-    else if ( !bHasColor && bHasTLBRColor && bHasBLTRColor )
-    {
-        if ( maTLBRColor == maBLTRColor )
-            return maTLBRColor;
-        else
-            return maColor;
-    }
-    else if ( bHasColor && bHasTLBRColor && bHasBLTRColor )
-    {
-        if ( maColor == maTLBRColor && maColor == maBLTRColor )
-            return maColor;
-        else
+        if ( aColor != maTLBRColor && aColor != COL_TRANSPARENT )
             return COL_TRANSPARENT;
+        aColor = maTLBRColor;
     }
-    return maColor;
+
+    if ( maBLTRColor != COL_TRANSPARENT )
+    {
+        if ( aColor != maBLTRColor && aColor != COL_TRANSPARENT )
+            return COL_TRANSPARENT;
+        return maBLTRColor;
+    }
+
+    return aColor;
 }
 
 
@@ -2314,12 +2261,12 @@ SvxCurrencyList_Impl::SvxCurrencyList_Impl(
     bool bIsSymbol;
     NfWSStringsDtor aStringsDtor;
 
-    for( std::vector< OUString >::iterator i = aList.begin(); i != aList.end(); ++i, ++nCount )
+    for( const auto& rItem : aList )
     {
         sal_uInt16& rCurrencyIndex = aCurrencyList[ nCount ];
         if ( rCurrencyIndex < nLen )
         {
-            m_pCurrencyLb->InsertEntry( *i );
+            m_pCurrencyLb->InsertEntry( rItem );
             const NfCurrencyEntry& aCurrencyEntry = rCurrencyTable[ rCurrencyIndex ];
 
             bIsSymbol = nPos >= nLen;
@@ -2331,6 +2278,7 @@ SvxCurrencyList_Impl::SvxCurrencyList_Impl(
                 nSelectedPos = nPos;
             ++nPos;
         }
+        ++nCount;
     }
     m_pCurrencyLb->SetSelectHdl( LINK( this, SvxCurrencyList_Impl, SelectHdl ) );
     SetText( SvxResId( RID_SVXSTR_TBLAFMT_CURRENCY ) );
@@ -2363,7 +2311,7 @@ SvxLineWindow_Impl::SvxLineWindow_Impl( svt::ToolboxController& rController, vcl
     m_aLineStyleLb->setPosSizePixel( 2, 2, 110, 140 );
     SetOutputSizePixel( Size( 114, 144 ) );
 
-    m_aLineStyleLb->SetSourceUnit( FUNIT_TWIP );
+    m_aLineStyleLb->SetSourceUnit( FieldUnit::TWIP );
     m_aLineStyleLb->SetNone( SvxResId(RID_SVXSTR_NONE) );
 
     m_aLineStyleLb->InsertEntry( SvxBorderLine::getWidthImpl( SvxBorderLineStyle::SOLID ), SvxBorderLineStyle::SOLID );
@@ -3110,7 +3058,9 @@ void SvxColorToolBoxControl::initialize( const css::uno::Sequence<css::uno::Any>
         // Sidebar uses wide buttons for those.
         m_bSplitButton = typeid( *pToolBox ) != typeid( sfx2::sidebar::SidebarToolBox );
 
-    m_xBtnUpdater.reset( new svx::ToolboxButtonColorUpdater( m_nSlotId, nId, pToolBox, !m_bSplitButton ) );
+    OUString aCommandLabel = vcl::CommandInfoProvider::GetLabelForCommand( getCommandURL(), getModuleName() );
+
+    m_xBtnUpdater.reset( new svx::ToolboxButtonColorUpdater( m_nSlotId, nId, pToolBox, !m_bSplitButton,  aCommandLabel ) );
     pToolBox->SetItemBits( nId, pToolBox->GetItemBits( nId ) | ( m_bSplitButton ? ToolBoxItemBits::DROPDOWN : ToolBoxItemBits::DROPDOWNONLY ) );
 }
 
@@ -3164,7 +3114,7 @@ VclPtr<vcl::Window> SvxColorToolBoxControl::createPopupWindow( vcl::Window* pPar
     VclPtrInstance<SvxColorWindow> pColorWin(
                             m_aCommandURL,
                             m_xPaletteManager,
-                            m_aBorderColorStatus,
+                            m_aColorStatus,
                             m_nSlotId,
                             m_xFrame,
                             pParent,
@@ -3181,7 +3131,7 @@ VclPtr<vcl::Window> SvxColorToolBoxControl::createPopupWindow( vcl::Window* pPar
 
 IMPL_LINK(SvxColorToolBoxControl, SelectedHdl, const NamedColor&, rColor, void)
 {
-    m_xBtnUpdater->Update(rColor.first);
+    m_xBtnUpdater->Update(rColor);
 }
 
 void SvxColorToolBoxControl::statusChanged( const css::frame::FeatureStateEvent& rEvent )
@@ -3197,17 +3147,8 @@ void SvxColorToolBoxControl::statusChanged( const css::frame::FeatureStateEvent&
     bool bValue;
     if ( !m_bSplitButton )
     {
-        Color aColor( COL_TRANSPARENT );
-
-        if ( m_aBorderColorStatus.statusChanged( rEvent ) )
-        {
-            aColor = m_aBorderColorStatus.GetColor();
-        }
-        else if ( rEvent.IsEnabled )
-        {
-            rEvent.State >>= aColor;
-        }
-        m_xBtnUpdater->Update( aColor );
+        m_aColorStatus.statusChanged( rEvent );
+        m_xBtnUpdater->Update( m_aColorStatus.GetColor() );
     }
     else if ( rEvent.State >>= bValue )
         pToolBox->CheckItem( nId, bValue );
@@ -3702,7 +3643,7 @@ void SvxColorListBox::createColorWindow()
     m_xColorWindow = VclPtr<SvxColorWindow>::Create(
                             OUString() /*m_aCommandURL*/,
                             m_xPaletteManager,
-                            m_aBorderColorStatus,
+                            m_aColorStatus,
                             m_nSlotId,
                             xFrame,
                             this,
@@ -3802,7 +3743,7 @@ void ColorListBox::createColorWindow()
 
     m_xColorWindow.reset(new ColorWindow(
                             m_xPaletteManager,
-                            m_aBorderColorStatus,
+                            m_aColorStatus,
                             m_nSlotId,
                             xFrame,
                             m_pTopLevel,

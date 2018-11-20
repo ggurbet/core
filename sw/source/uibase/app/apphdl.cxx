@@ -66,6 +66,7 @@
 #include <com/sun/star/sdbc/XDataSource.hpp>
 #include <org/freedesktop/PackageKit/SyncDbusSessionHelper.hpp>
 #include <swabstdlg.hxx>
+#include <comphelper/dispatchcommand.hxx>
 
 #include <salhelper/simplereferenceobject.hxx>
 #include <rtl/ref.hxx>
@@ -330,7 +331,7 @@ class SwMailMergeWizardExecutor : public salhelper::SimpleReferenceObject
     VclPtr<AbstractMailMergeWizard> m_pWizard;     // always owner
     VclPtr<AbstractMailMergeWizard> m_pWizardToDestroyInCallback;
 
-    DECL_LINK( EndDialogHdl, Dialog&, void );
+    void EndDialogHdl(sal_Int32 nResponse);
     DECL_LINK( DestroyDialogHdl, void*, void );
     DECL_LINK( DestroyWizardHdl, void*, void );
     DECL_LINK( CancelHdl, void*, void );
@@ -454,13 +455,13 @@ void SwMailMergeWizardExecutor::ExecutionFinished()
 
 void SwMailMergeWizardExecutor::ExecuteWizard()
 {
-    m_pWizard->StartExecuteModal(
-        LINK( this, SwMailMergeWizardExecutor, EndDialogHdl ) );
+    m_pWizard->StartExecuteAsync([=](sal_Int32 nResult){
+        EndDialogHdl(nResult);
+    });
 }
 
-IMPL_LINK_NOARG( SwMailMergeWizardExecutor, EndDialogHdl, Dialog&, void )
+void SwMailMergeWizardExecutor::EndDialogHdl(sal_Int32 nRet)
 {
-    long nRet = m_pWizard->GetResult();
     sal_uInt16 nRestartPage = m_pWizard->GetRestartPage();
 
     switch ( nRet )
@@ -658,11 +659,11 @@ void SwModule::ExecOther(SfxRequest& rReq)
             FieldUnit eUnit = static_cast<FieldUnit>(static_cast<const SfxUInt16Item*>(pItem)->GetValue());
             switch( eUnit )
             {
-                case FUNIT_MM:
-                case FUNIT_CM:
-                case FUNIT_INCH:
-                case FUNIT_PICA:
-                case FUNIT_POINT:
+                case FieldUnit::MM:
+                case FieldUnit::CM:
+                case FieldUnit::INCH:
+                case FieldUnit::PICA:
+                case FieldUnit::POINT:
                 {
                     SwView* pActView = ::GetActiveView();
                     bool bWebView = dynamic_cast<SwWebView*>( pActView ) !=  nullptr;
@@ -703,7 +704,7 @@ void SwModule::ExecOther(SfxRequest& rReq)
         case FN_MAILMERGE_CURRENT_ENTRY:
         {
             SwView* pView = ::GetActiveView();
-            std::shared_ptr<SwMailMergeConfigItem> xConfigItem = pView->GetMailMergeConfigItem();
+            const std::shared_ptr<SwMailMergeConfigItem>& xConfigItem = pView->GetMailMergeConfigItem();
             if (!xConfigItem)
                 return;
 
@@ -814,7 +815,7 @@ void SwModule::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                         bUpdateFields = false;
                     if(bUpdateFields)
                     {
-                        pWrtSh->UpdateInputFields();
+                        comphelper::dispatchCommand(".uno:UpdateInputFields", {});
 
                         // Are database fields contained?
                         // Get all used databases for the first time

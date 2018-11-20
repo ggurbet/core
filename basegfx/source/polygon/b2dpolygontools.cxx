@@ -1451,7 +1451,7 @@ namespace basegfx
         bool isInEpsilonRange(const B2DPolygon& rCandidate, const B2DPoint& rTestPosition, double fDistance)
         {
             // force to non-bezier polygon
-            const B2DPolygon aCandidate(rCandidate.getDefaultAdaptiveSubdivision());
+            const B2DPolygon& aCandidate(rCandidate.getDefaultAdaptiveSubdivision());
             const sal_uInt32 nPointCount(aCandidate.count());
 
             if(nPointCount)
@@ -1768,9 +1768,9 @@ namespace basegfx
             }
         }
 
-        B2DPolygon createPolygonFromEllipse( const B2DPoint& rCenter, double fRadiusX, double fRadiusY )
+        B2DPolygon createPolygonFromEllipse( const B2DPoint& rCenter, double fRadiusX, double fRadiusY, sal_uInt32 nStartQuadrant)
         {
-            B2DPolygon aRetval(createPolygonFromUnitCircle());
+            B2DPolygon aRetval(createPolygonFromUnitCircle(nStartQuadrant));
             const B2DHomMatrix aMatrix(createScaleTranslateB2DHomMatrix(fRadiusX, fRadiusY, rCenter.getX(), rCenter.getY()));
 
             aRetval.transform(aMatrix);

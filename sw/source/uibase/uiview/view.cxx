@@ -729,7 +729,6 @@ SwView::SwView( SfxViewFrame *_pFrame, SfxViewShell* pOldSh )
                                 SvxRulerSupportFlags::BORDERS | SvxRulerSupportFlags::REDUCED_METRIC,
                             GetViewFrame()->GetBindings(),
                             WB_VSCROLL |  WB_EXTRAFIELD | WB_BORDER )),
-    m_pTogglePageBtn(nullptr),
     m_pLastTableFormat(nullptr),
     m_pFormatClipboard(new SwFormatClipboard()),
     m_nSelectionType( SelectionType::All ),
@@ -1094,7 +1093,6 @@ SwView::~SwView()
     m_pVScrollbar.disposeAndClear();
     m_pHRuler.disposeAndClear();
     m_pVRuler.disposeAndClear();
-    m_pTogglePageBtn.disposeAndClear();
     m_pGlosHdl.reset();
     m_pViewImpl.reset();
 
@@ -1162,7 +1160,7 @@ static bool lcl_IsOwnDocument( SwView& rView )
 
 void SwView::ReadUserData( const OUString &rUserData, bool bBrowse )
 {
-    if ( comphelper::string::getTokenCount(rUserData, ';') > 1 &&
+    if ( rUserData.indexOf(';')>=0 && // more than one token
         // For document without layout only in the onlinelayout or
         // while forward/backward
          (!m_pWrtShell->IsNewLayout() || m_pWrtShell->GetViewOptions()->getBrowseMode() || bBrowse) )

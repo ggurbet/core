@@ -17,7 +17,6 @@
 #
 -o sc.ScDataPilotItemObj
 -o sc.ScDataPilotItemsObj
--o sc.ScDataPilotTableObj
 -o sc.ScDataPilotTablesObj
 -o sc.ScDatabaseRangeObj
 # -o sc.ScDatabaseRangesObj
@@ -36,5 +35,3 @@
 # already gone. If just this test is disabled, later tests of this object fail
 # too, so this disables the whole interface.
 # -o sc.ScHeaderFooterTextObj
--o sc.ScIndexEnumeration_CellAnnotationsEnumeration
--o sc.ScIndexEnumeration_CellAreaLinksEnumeration

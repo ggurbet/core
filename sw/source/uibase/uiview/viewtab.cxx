@@ -402,7 +402,7 @@ void SwView::ExecTabWin( SfxRequest const & rReq )
     case SID_ATTR_PAGE_LRSPACE:
         if ( pReqArgs )
         {
-            const SvxLongLRSpaceItem aLongLR( pReqArgs->Get( SID_ATTR_PAGE_LRSPACE ) );
+            const SvxLongLRSpaceItem& aLongLR( pReqArgs->Get( SID_ATTR_PAGE_LRSPACE ) );
 
             SwPageDesc aDesc( rDesc );
             {
@@ -543,7 +543,7 @@ void SwView::ExecTabWin( SfxRequest const & rReq )
     case SID_ATTR_PAGE_ULSPACE:
         if ( pReqArgs )
         {
-            SvxLongULSpaceItem aLongULSpace( pReqArgs->Get( SID_ATTR_PAGE_ULSPACE ) );
+            const SvxLongULSpaceItem& aLongULSpace( pReqArgs->Get( SID_ATTR_PAGE_ULSPACE ) );
 
             SwPageDesc aDesc( rDesc );
             {
@@ -1329,18 +1329,9 @@ void SwView::StateTabWin(SfxItemSet& rSet)
                     aLongLR.SetRight(rPageRect.Right() - aRect.Right());
                 }
             }
-            if( nWhich == SID_ATTR_LONG_LRSPACE )
-                rSet.Put( aLongLR );
-            else
-            {
-                SvxLRSpaceItem aLR( aLongLR.GetLeft(),
-                                    aLongLR.GetRight(),
-                                    0, 0,
-                                    nWhich);
-                rSet.Put(aLR);
-            }
-            break;
+            rSet.Put( aLongLR );
         }
+        break;
 
         // provide left and right margins of current page style
         case SID_ATTR_PAGE_LRSPACE:
@@ -1387,17 +1378,9 @@ void SwView::StateTabWin(SfxItemSet& rSet)
                 aLongUL.SetUpper(rPagePrtRect.Top());
                 aLongUL.SetLower(nPageHeight - rPagePrtRect.Bottom());
             }
-            if( nWhich == SID_ATTR_LONG_ULSPACE )
-                rSet.Put( aLongUL );
-            else
-            {
-                SvxULSpaceItem aULTmp(static_cast<sal_uInt16>(aLongUL.GetUpper()),
-                                      static_cast<sal_uInt16>(aLongUL.GetLower()),
-                                      nWhich);
-                rSet.Put(aULTmp);
-            }
-            break;
+            rSet.Put( aLongUL );
         }
+        break;
 
         // provide top and bottom margins of current page style
         case SID_ATTR_PAGE_ULSPACE:

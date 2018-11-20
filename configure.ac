@@ -9,7 +9,7 @@ dnl in order to create a configure script.
 # several non-alphanumeric characters, those are split off and used only for the
 # ABOUTBOXPRODUCTVERSIONSUFFIX in openoffice.lst. Why that is necessary, no idea.
 
-AC_INIT([LibreOffice],[6.2.0.0.alpha1+],[],[],[http://documentfoundation.org/])
+AC_INIT([LibreOffice],[6.3.0.0.alpha0+],[],[],[http://documentfoundation.org/])
 
 AC_PREREQ([2.59])
 
@@ -122,7 +122,7 @@ add_warning()
     echo "$COLORWARN $@" >> warn
 }
 
-dnl Some Mac User have the bad habbit of letting a lot fo crap
+dnl Some Mac User have the bad habit of letting a lot of crap
 dnl accumulate in their PATH and even adding stuff in /usr/local/bin
 dnl that confuse the build.
 dnl For the ones that use LODE, let's be nice and protect them
@@ -548,7 +548,7 @@ test_fontconfig=yes
 test_cairo=no
 
 # Default values, as such probably valid just for Linux, set
-# differently below just for Mac OSX,but at least better than
+# differently below just for Mac OSX, but at least better than
 # hardcoding these as we used to do. Much of this is duplicated also
 # in solenv for old build system and for gbuild, ideally we should
 # perhaps define stuff like this only here in configure.ac?
@@ -664,7 +664,6 @@ darwin*) # Mac OS X or iOS
         enable_postgresql_sdbc=no
         enable_extension_integration=no
         enable_report_builder=no
-        with_theme="tango"
         with_ppds=no
         if test "$enable_ios_simulator" = "yes"; then
             host=x86_64-apple-darwin
@@ -1576,7 +1575,8 @@ AC_ARG_WITH(galleries,
 AC_ARG_WITH(theme,
     AS_HELP_STRING([--with-theme="theme1 theme2..."],
         [Choose which themes to include. By default those themes with an '*' are included.
-         Possible choices: *breeze, *breeze_dark, *colibre, *elementary, *karasa_jaga, *sifr, *sifr_dark, *tango.]),
+         Possible choices: *breeze, *breeze_dark, *breeze_svg, *colibre, *colibre_svg, *elementary,
+         *elementary_svg, *karasa_jaga, *sifr, *sifr_dark, *tango.]),
 ,)
 
 libo_FUZZ_ARG_WITH(helppack-integration,
@@ -2522,7 +2522,7 @@ if test $_os = iOS -o $_os = Android; then
     # Disable dynamic_loading always for iOS and Android
     enable_dynamic_loading=no
 elif test -z "$enable_dynamic_loading"; then
-    # Otherwise enable it unless speficically disabled
+    # Otherwise enable it unless specifically disabled
     enable_dynamic_loading=yes
 fi
 
@@ -2843,7 +2843,7 @@ if test $_os = Darwin -o $_os = iOS; then
 
     AC_MSG_CHECKING([that macosx-version-min-required is coherent with macosx-version-max-allowed])
     if test $MAC_OS_X_VERSION_MIN_REQUIRED -gt $MAC_OS_X_VERSION_MAX_ALLOWED; then
-        AC_MSG_ERROR([the version minimumn required, $MAC_OS_X_VERSION_MIN_REQUIRED, must be <= the version maximum allowed, $MAC_OS_X_VERSION_MAX_ALLOWED])
+        AC_MSG_ERROR([the version minimum required, $MAC_OS_X_VERSION_MIN_REQUIRED, must be <= the version maximum allowed, $MAC_OS_X_VERSION_MAX_ALLOWED])
     else
         AC_MSG_RESULT([ok])
     fi
@@ -2948,20 +2948,20 @@ dnl ===================================================================
 
 if test $_os = iOS; then
     AC_MSG_CHECKING([what iOS SDK to use])
-    current_sdk_ver=12.0
+    current_sdk_ver=12.1
+    older_sdk_vers="12.0 11.4"
     if test "$enable_ios_simulator" = "yes"; then
         platform=iPhoneSimulator
-        versionmin=-mios-simulator-version-min=$current_sdk_ver
+        versionmin=-mios-simulator-version-min=11.0
     else
         platform=iPhoneOS
         versionmin=-miphoneos-version-min=11.0
     fi
     xcode_developer=`xcode-select -print-path`
 
-    for sdkver in $current_sdk_ver; do
+    for sdkver in $current_sdk_ver $older_sdk_vers; do
         t=$xcode_developer/Platforms/$platform.platform/Developer/SDKs/$platform$sdkver.sdk
         if test -d $t; then
-            ios_sdk=$sdkver
             sysroot=$t
             break
         fi
@@ -2972,9 +2972,6 @@ if test $_os = iOS; then
     fi
 
     AC_MSG_RESULT($sysroot)
-
-    IOS_SDK=`echo $platform | tr A-Z a-z`$ios_sdk
-    IOS_DEPLOYMENT_VERSION=$current_sdk_ver
 
     # LTO is not really recommended for iOS builds,
     # the link time will be astronomical
@@ -2994,9 +2991,6 @@ if test $_os = iOS; then
     LIBTOOL=`xcrun -find libtool`
     RANLIB=`xcrun -find ranlib`
 fi
-
-AC_SUBST(IOS_SDK)
-AC_SUBST(IOS_DEPLOYMENT_VERSION)
 
 AC_MSG_CHECKING([whether to treat the installation as read-only])
 
@@ -4031,7 +4025,7 @@ darwin*)
         AC_MSG_ERROR([Can't build 32-bit code for iOS])
         ;;
     arm64)
-        OS=IOS
+        OS=iOS
         if test "$enable_ios_simulator" = "yes"; then
             AC_MSG_ERROR([iOS simulator is only available in OSX not iOS])
         else
@@ -4045,7 +4039,7 @@ darwin*)
         ;;
     x86_64)
         if test "$enable_ios_simulator" = "yes"; then
-            OS=IOS
+            OS=iOS
         fi
         CPUNAME=X86_64
         RTL_ARCH=X86_64
@@ -5926,8 +5920,8 @@ if test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
 
     AC_MSG_CHECKING([whether $CC supports -fstack-protector-strong])
     save_CFLAGS=$CFLAGS
-    CFLAGS="$CFLAGS -Werror -fstack-protector-strong"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ char a[8]; return 0; ]])],[ HAVE_GCC_STACK_PROTECTOR_STRONG=TRUE ],[])
+    CFLAGS="$CFLAGS -O0 -Werror -fstack-protector-strong"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ char a[8]; a[7] = 0; ]])],[ HAVE_GCC_STACK_PROTECTOR_STRONG=TRUE ],[])
     CFLAGS=$save_CFLAGS
     if test "$HAVE_GCC_STACK_PROTECTOR_STRONG" = "TRUE"; then
         AC_MSG_RESULT([yes])
@@ -6198,7 +6192,7 @@ elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
     printf 'foo\n' | $GPERF -L C++ > conftest.inc
     my_flags='-std=gnu++14 -std=gnu++1y -std=c++14 -std=c++1y -std=gnu++11 -std=gnu++0x -std=c++11 -std=c++0x'
     if test "$enable_c__17" != no; then
-        my_flags="-std=gnu++17 -std=gnu++1z -std=c++17 -std=c++1z $my_flags"
+        my_flags="-std=gnu++2a -std=c++2a -std=gnu++17 -std=gnu++1z -std=c++17 -std=c++1z $my_flags"
     fi
     for flag in $my_flags; do
         if test "$COM" = MSC; then
@@ -6721,9 +6715,9 @@ if test "$COM_IS_CLANG" = "TRUE"; then
         save_CPPFLAGS=$CPPFLAGS
         save_CXX=$CXX
         # compiler plugins must be built with "native" compiler that was used to build Clang itself:
-        : "${COMPILER_PLUGINS_CXX=g++}"
+        : "${COMPILER_PLUGINS_CXX=g++ -std=c++11}"
         CXX=$COMPILER_PLUGINS_CXX
-        CPPFLAGS="$CPPFLAGS $CXXFLAGS_CXX11 -I$CLANGDIR/include -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
+        CPPFLAGS="$CPPFLAGS -I$CLANGDIR/include -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
         AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
             [COMPILER_PLUGINS=TRUE],
             [
@@ -8758,7 +8752,7 @@ AC_SUBST(POSTGRESQL_LIB)
 dnl ===================================================================
 dnl Check for Firebird stuff
 dnl ===================================================================
-ENABLE_FIREBIRD_SDBC=""
+ENABLE_FIREBIRD_SDBC=
 if test "$enable_firebird_sdbc" = "yes" ; then
     SCPDEFS="$SCPDEFS -DWITH_FIREBIRD_SDBC"
 
@@ -8806,7 +8800,8 @@ int fb_api_is_30(void) { return 0; }
 #endif]])],AC_MSG_RESULT([OK]),AC_MSG_ERROR([Ensure firebird 3.0.x is installed]))
             CFLAGS="${__save_CFLAGS}"
         fi
-        ENABLE_FIREBIRD_SDBC="TRUE"
+        ENABLE_FIREBIRD_SDBC=TRUE
+        AC_DEFINE([ENABLE_FIREBIRD_SDBC],1)
     elif test "$enable_database_connectivity" != yes; then
         AC_MSG_RESULT([none])
     elif test "$cross_compiling" = "yes"; then
@@ -8852,8 +8847,8 @@ int fb_api_is_30(void) { return 0; }
         fi
 
         BUILD_TYPE="$BUILD_TYPE FIREBIRD"
-        ENABLE_FIREBIRD_SDBC="TRUE"
-        AC_DEFINE(ENABLE_FIREBIRD_SDBC)
+        ENABLE_FIREBIRD_SDBC=TRUE
+        AC_DEFINE([ENABLE_FIREBIRD_SDBC],1)
     fi
 fi
 AC_SUBST(ENABLE_FIREBIRD_SDBC)
@@ -9242,7 +9237,7 @@ if test "$enable_fuzzers" != yes; then
 else
     AC_MSG_RESULT([yes])
     ENABLE_FUZZERS="TRUE"
-    AC_DEFINE(ENABLE_FUZZERS)
+    AC_DEFINE([ENABLE_FUZZERS],1)
     BUILD_TYPE="$BUILD_TYPE FUZZERS"
 fi
 AC_SUBST(ENABLE_FUZZERS)
@@ -9619,7 +9614,7 @@ else
     if test "$COM" = "MSC"; then
         HUNSPELL_LIBS="${WORKDIR}/LinkTarget/StaticLibrary/hunspell.lib"
     else
-        HUNSPELL_LIBS="-L${WORKDIR}/UnpackedTarball/hunspell/src/hunspell/.libs -lhunspell-1.6"
+        HUNSPELL_LIBS="-L${WORKDIR}/UnpackedTarball/hunspell/src/hunspell/.libs -lhunspell-1.7"
     fi
     BUILD_TYPE="$BUILD_TYPE HUNSPELL"
 fi
@@ -10560,6 +10555,7 @@ elif test "$_os" = "Linux" -o "$_os" = "Darwin" -o "$_os" = "WINNT" ; then
           if $GPGCONF --dump-options | grep -q create-socketdir ; then
 	    AC_MSG_RESULT([yes])
             AC_DEFINE([HAVE_GPGCONF_SOCKETDIR])
+            AC_DEFINE_UNQUOTED([GPGME_GPGCONF], ["$GPGCONF"])
           else
             AC_MSG_RESULT([no])
           fi
@@ -10579,8 +10575,6 @@ AC_SUBST(LIBASSUAN_CFLAGS)
 AC_SUBST(LIBASSUAN_LIBS)
 AC_SUBST(GPGMEPP_CFLAGS)
 AC_SUBST(GPGMEPP_LIBS)
-AC_SUBST(GPGCONF)
-AC_SUBST(HAVE_GPGCONF_SOCKETDIR)
 
 AC_MSG_CHECKING([whether to build the Wiki Publisher extension])
 if test "x$enable_ext_wiki_publisher" = "xyes" -a "x$enable_extension_integration" != "xno" -a "$with_java" != "no"; then
@@ -11374,14 +11368,14 @@ dnl ===================================================================
 AC_MSG_CHECKING([which themes to include])
 # if none given use default subset of available themes
 if test "x$with_theme" = "x" -o "x$with_theme" = "xyes"; then
-    with_theme="breeze breeze_dark colibre elementary karasa_jaga sifr sifr_dark tango"
+    with_theme="breeze breeze_dark breeze_svg colibre colibre_svg elementary elementary_svg karasa_jaga sifr sifr_dark tango"
 fi
 
 WITH_THEMES=""
 if test "x$with_theme" != "xno"; then
     for theme in $with_theme; do
         case $theme in
-        breeze|breeze_dark|colibre|elementary|karasa_jaga|sifr|sifr_dark|tango) real_theme="$theme" ;;
+        breeze|breeze_dark|breeze_svg|colibre|colibre_svg|elementary|elementary_svg|karasa_jaga|sifr|sifr_dark|tango) real_theme="$theme" ;;
         default) real_theme=colibre ;;
         *) AC_MSG_ERROR([Unknown value for --with-theme: $theme]) ;;
         esac
@@ -11390,7 +11384,7 @@ if test "x$with_theme" != "xno"; then
 fi
 AC_MSG_RESULT([$WITH_THEMES])
 AC_SUBST([WITH_THEMES])
-# FIXME: remove this, and the convenience default->colibre remapping after a crace period
+# FIXME: remove this, and the convenience default->colibre remapping after a grace period
 for theme in $with_theme; do
     case $theme in
     default) AC_MSG_WARN([--with-theme=default is deprecated and will be removed, use --with-theme=colibre]) ;;
@@ -12860,6 +12854,7 @@ AC_CONFIG_HEADERS([config_host/config_dbus.h])
 AC_CONFIG_HEADERS([config_host/config_features.h])
 AC_CONFIG_HEADERS([config_host/config_firebird.h])
 AC_CONFIG_HEADERS([config_host/config_folders.h])
+AC_CONFIG_HEADERS([config_host/config_fuzzers.h])
 AC_CONFIG_HEADERS([config_host/config_gio.h])
 AC_CONFIG_HEADERS([config_host/config_global.h])
 AC_CONFIG_HEADERS([config_host/config_gpgme.h])

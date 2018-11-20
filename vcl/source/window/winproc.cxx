@@ -448,7 +448,7 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
             // change immediately to the copy mode
             const MouseSettings& rMSettings = pMouseDownWin->GetSettings().GetMouseSettings();
             if ( (nCode & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE)) ==
-                 (rMSettings.GetStartDragCode() & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE)) )
+                 (MouseSettings::GetStartDragCode() & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE)) )
             {
                 if ( !pMouseDownWin->ImplGetFrameData()->mbStartDragCalled )
                 {
@@ -535,11 +535,8 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
                 pWinFrameData->mpMouseMoveWin = nullptr;
                 pWinFrameData->mbInMouseMove = false;
 
-                if ( pChild )
-                {
-                    if ( pChild->IsDisposed() )
-                        pChild = nullptr;
-                }
+                if ( pChild && pChild->IsDisposed() )
+                    pChild = nullptr;
                 if ( pMouseMoveWin->IsDisposed() )
                     return true;
             }
@@ -589,7 +586,7 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
                     pChild->ImplGetFrameData()->mnFirstMouseY      = nMouseY;
                     pChild->ImplGetFrameData()->mnFirstMouseCode   = nCode;
                     pChild->ImplGetFrameData()->mbStartDragCalled  = (nCode & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE)) !=
-                                                                     (rMSettings.GetStartDragCode() & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE));
+                                                                     (MouseSettings::GetStartDragCode() & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE));
                 }
                 pChild->ImplGetFrameData()->mnMouseDownTime = nMsgTime;
             }
@@ -766,9 +763,8 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
         else
         {
             // ContextMenu
-            const MouseSettings& rMSettings = pChild->GetSettings().GetMouseSettings();
-            if ( (nCode == rMSettings.GetContextMenuCode()) &&
-                 (nClicks == rMSettings.GetContextMenuClicks()) )
+            if ( (nCode == MouseSettings::GetContextMenuCode()) &&
+                 (nClicks == MouseSettings::GetContextMenuClicks()) )
             {
                 bool bContextMenu = (nSVEvent == MouseNotifyEvent::MOUSEBUTTONDOWN);
                 if ( bContextMenu )
@@ -821,6 +817,13 @@ static vcl::Window* ImplGetKeyInputWindow( vcl::Window* pWindow )
             if (static_cast<FloatingWindow *>(pChild)->GrabsFocus())
                 break;
         }
+        else if (pChild->ImplGetWindowImpl()->mbDockWin)
+        {
+            vcl::Window* pParent = pChild->GetWindow(GetWindowType::RealParent);
+            if (pParent && pParent->ImplGetWindowImpl()->mbFloatWin &&
+                static_cast<FloatingWindow *>(pParent)->GrabsFocus())
+                break;
+        }
         pChild = pChild->GetParent();
     }
 
@@ -829,7 +832,7 @@ static vcl::Window* ImplGetKeyInputWindow( vcl::Window* pWindow )
 
     pChild = pChild->ImplGetWindowImpl()->mpFrameData->mpFocusWin;
 
-    // no child - than no input
+    // no child - then no input
     if ( !pChild )
         return nullptr;
 
@@ -1077,7 +1080,7 @@ static bool ImplHandleKey( vcl::Window* pWindow, MouseNotifyEvent nSVEvent,
     }
 
     // #105591# send keyinput to parent if we are a floating window and the key was not processed yet
-    if( !bRet && pWindow->ImplGetWindowImpl()->mbFloatWin && pWindow->GetParent() && (pWindow->ImplGetWindowImpl()->mpFrame != pWindow->GetParent()->ImplGetWindowImpl()->mpFrame) )
+    if( !bRet && pWindow->ImplGetWindowImpl() && pWindow->ImplGetWindowImpl()->mbFloatWin && pWindow->GetParent() && (pWindow->ImplGetWindowImpl()->mpFrame != pWindow->GetParent()->ImplGetWindowImpl()->mpFrame) )
     {
         pChild = pWindow->GetParent();
 
@@ -1766,19 +1769,15 @@ IMPL_LINK_NOARG(vcl::Window, ImplAsyncFocusHdl, void*, void)
                     pFocusWin->ImplGetWindowImpl()->mpCursor->ImplHide();
 
                 // call the Deactivate
-                vcl::Window* pOldFocusWindow = pFocusWin;
-                if ( pOldFocusWindow )
-                {
-                    vcl::Window* pOldOverlapWindow = pOldFocusWindow->ImplGetFirstOverlapWindow();
-                    vcl::Window* pOldRealWindow = pOldOverlapWindow->ImplGetWindow();
+                vcl::Window* pOldOverlapWindow = pFocusWin->ImplGetFirstOverlapWindow();
+                vcl::Window* pOldRealWindow = pOldOverlapWindow->ImplGetWindow();
 
-                    pOldOverlapWindow->ImplGetWindowImpl()->mbActive = false;
-                    pOldOverlapWindow->Deactivate();
-                    if ( pOldRealWindow != pOldOverlapWindow )
-                    {
-                        pOldRealWindow->ImplGetWindowImpl()->mbActive = false;
-                        pOldRealWindow->Deactivate();
-                    }
+                pOldOverlapWindow->ImplGetWindowImpl()->mbActive = false;
+                pOldOverlapWindow->Deactivate();
+                if ( pOldRealWindow != pOldOverlapWindow )
+                {
+                    pOldRealWindow->ImplGetWindowImpl()->mbActive = false;
+                    pOldRealWindow->Deactivate();
                 }
 
                 // TrackingMode is ended in ImplHandleLoseFocus

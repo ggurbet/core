@@ -511,7 +511,7 @@ bool SwUndoDelete::SaveContent( const SwPosition* pStt, const SwPosition* pEnd,
             : pEndTextNd->CreateUndo();
     }
 
-    // if there are only two Nodes than we're done
+    // if there are only two Nodes then we're done
     if( ( pSttTextNd || pEndTextNd ) && nSttNode + 1 == nEndNode )
         return false;           // do not move any Node
 
@@ -1113,10 +1113,13 @@ void SwUndoDelete::UndoImpl(::sw::UndoRedoContext & rContext)
     // create frames after SetSaveData has recreated redlines
     if (0 != m_nNode)
     {
+        // tdf#121031 if the start node is a text node, it already has a frame;
+        // if it's a table, it does not
+        SwNodeIndex const start(rDoc.GetNodes(), nSttNode +
+            ((m_bDelFullPara || !rDoc.GetNodes()[nSttNode]->IsTextNode()) ? 0 : 1));
         // don't include end node in the range: it may have been merged already
         // by the start node, or it may be merged by one of the moved nodes,
         // but if it isn't merged, its current frame(s) should be good...
-        SwNodeIndex const start(rDoc.GetNodes(), nSttNode + (m_bDelFullPara ? 0 : 1));
         SwNodeIndex const end(rDoc.GetNodes(), m_bDelFullPara ? delFullParaEndNode : nEndNode);
         ::MakeFrames(&rDoc, start, end);
     }

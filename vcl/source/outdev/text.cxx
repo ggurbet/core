@@ -43,6 +43,7 @@
 #include <svdata.hxx>
 #include <textlayout.hxx>
 #include <textlineinfo.hxx>
+#include <impglyphitem.hxx>
 
 #define TEXT_DRAW_ELLIPSIS  (DrawTextFlags::EndEllipsis | DrawTextFlags::PathEllipsis | DrawTextFlags::NewsEllipsis)
 
@@ -200,7 +201,7 @@ bool OutputDevice::ImplDrawRotateText( SalLayout& rSalLayout )
     tools::Rectangle aBoundRect;
     rSalLayout.DrawBase() = Point( 0, 0 );
     rSalLayout.DrawOffset() = Point( 0, 0 );
-    if( !rSalLayout.GetBoundRect( *mpGraphics, aBoundRect ) )
+    if (!rSalLayout.GetBoundRect(aBoundRect))
     {
         // guess vertical text extents if GetBoundRect failed
         long nRight = rSalLayout.GetTextWidth();
@@ -225,8 +226,8 @@ bool OutputDevice::ImplDrawRotateText( SalLayout& rSalLayout )
     pVDev->SetFont( aFont );
     pVDev->SetTextColor( COL_BLACK );
     pVDev->SetTextFillColor();
-    pVDev->ImplNewFont();
-    pVDev->InitFont();
+    if (!pVDev->InitFont())
+        return false;
     pVDev->ImplInitTextColor();
 
     // draw text into upper left corner
@@ -274,7 +275,7 @@ void OutputDevice::ImplDrawTextDirect( SalLayout& rSalLayout,
     long nOldX = rSalLayout.DrawBase().X();
     if( HasMirroredGraphics() )
     {
-        long w = meOutDevType == OUTDEV_VIRDEV ? mnOutWidth : mpGraphics->GetGraphicsWidth();
+        long w = IsVirtual() ? mnOutWidth : mpGraphics->GetGraphicsWidth();
         long x = rSalLayout.DrawBase().X();
            rSalLayout.DrawBase().setX( w - 1 - x );
         if( !IsRTLEnabled() )
@@ -300,7 +301,7 @@ void OutputDevice::ImplDrawTextDirect( SalLayout& rSalLayout,
     if( bTextLines )
         ImplDrawTextLines( rSalLayout,
             maFont.GetStrikeout(), maFont.GetUnderline(), maFont.GetOverline(),
-            maFont.IsWordLineMode(), ImplIsUnderlineAbove( maFont ) );
+            maFont.IsWordLineMode(), maFont.IsUnderlineAbove() );
 
     // emphasis marks
     if( maFont.GetEmphasisMark() & FontEmphasisMark::Style )
@@ -896,13 +897,8 @@ long OutputDevice::GetTextWidth( const OUString& rStr, sal_Int32 nIndex, sal_Int
 
 long OutputDevice::GetTextHeight() const
 {
-
-    if( mbNewFont )
-        if( !ImplNewFont() )
-            return 0;
-    if( mbInitFont )
-        if( !ImplNewFont() )
-            return 0;
+    if (!InitFont())
+        return 0;
 
     long nHeight = mpFontInstance->mnLineHeight + mnEmphasisAscent + mnEmphasisDescent;
 
@@ -928,7 +924,6 @@ float OutputDevice::approximate_digit_width() const
 void OutputDevice::DrawTextArray( const Point& rStartPt, const OUString& rStr,
                                   const long* pDXAry,
                                   sal_Int32 nIndex, sal_Int32 nLen, SalLayoutFlags flags,
-                                  vcl::TextLayoutCache const*const pLayoutCache,
                                   const SalLayoutGlyphs* pSalLayoutCache )
 {
     assert(!is_double_buffered_window());
@@ -949,7 +944,7 @@ void OutputDevice::DrawTextArray( const Point& rStartPt, const OUString& rStr,
     if( mbOutputClipped )
         return;
 
-    std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen, rStartPt, 0, pDXAry, flags, pLayoutCache, pSalLayoutCache);
+    std::unique_ptr<SalLayout> pSalLayout = ImplLayout(rStr, nIndex, nLen, rStartPt, 0, pDXAry, flags, nullptr, pSalLayoutCache);
     if( pSalLayout )
     {
         ImplDrawText( *pSalLayout );
@@ -1252,17 +1247,8 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
          vcl::TextLayoutCache const* pLayoutCache,
          const SalLayoutGlyphs* pGlyphs) const
 {
-    // we need a graphics
-    if( !mpGraphics )
-        if( !AcquireGraphics() )
-            return nullptr;
-
-    // initialize font if needed
-    if( mbNewFont )
-        if( !ImplNewFont() )
-            return nullptr;
-    if( mbInitFont )
-        InitFont();
+    if (!InitFont())
+        return nullptr;
 
     // check string index and length
     if( -1 == nLen || nMinIndex + nLen > rOrigStr.getLength() )
@@ -1716,21 +1702,15 @@ void OutputDevice::ImplDrawText( OutputDevice& rTargetDevice, const tools::Recta
             rTargetDevice.Push( PushFlags::CLIPREGION );
             rTargetDevice.IntersectClipRegion( rRect );
             _rLayout.DrawText( aPos, aStr, 0, aStr.getLength(), pVector, pDisplayText );
-            if ( bDrawMnemonics )
-            {
-                if ( nMnemonicPos != -1 )
-                    rTargetDevice.ImplDrawMnemonicLine( nMnemonicX, nMnemonicY, nMnemonicWidth );
-            }
+            if ( bDrawMnemonics && nMnemonicPos != -1 )
+                rTargetDevice.ImplDrawMnemonicLine( nMnemonicX, nMnemonicY, nMnemonicWidth );
             rTargetDevice.Pop();
         }
         else
         {
             _rLayout.DrawText( aPos, aStr, 0, aStr.getLength(), pVector, pDisplayText );
-            if ( bDrawMnemonics )
-            {
-                if ( nMnemonicPos != -1 )
-                    rTargetDevice.ImplDrawMnemonicLine( nMnemonicX, nMnemonicY, nMnemonicWidth );
-            }
+            if ( bDrawMnemonics && nMnemonicPos != -1 )
+                rTargetDevice.ImplDrawMnemonicLine( nMnemonicX, nMnemonicY, nMnemonicWidth );
         }
     }
 
@@ -2325,14 +2305,12 @@ SystemTextLayoutData OutputDevice::GetSysTextLayoutData(const Point& rStartPt, c
     Point aPos;
     const GlyphItem* pGlyph;
     int nStart = 0;
-    while (pLayout->GetNextGlyph(&pGlyph, aPos, nStart))
+    SystemGlyphData aSystemGlyph;
+    while (pLayout->GetNextGlyph(&pGlyph, aPos, nStart, nullptr, &aSystemGlyph.fallbacklevel))
     {
-        SystemGlyphData aSystemGlyph;
-        aSystemGlyph.index = pGlyph->maGlyphId;
+        aSystemGlyph.index = pGlyph->m_aGlyphId;
         aSystemGlyph.x = aPos.X();
         aSystemGlyph.y = aPos.Y();
-        int nLevel = pGlyph->mnFallbackLevel;
-        aSystemGlyph.fallbacklevel = nLevel < MAX_FALLBACK ? nLevel : 0;
         aSysLayoutData.rGlyphData.push_back(aSystemGlyph);
     }
 
@@ -2375,7 +2353,7 @@ bool OutputDevice::GetTextBoundRect( tools::Rectangle& rRect,
     tools::Rectangle aPixelRect;
     if( pSalLayout )
     {
-        bRet = pSalLayout->GetBoundRect( *mpGraphics, aPixelRect );
+        bRet = pSalLayout->GetBoundRect(aPixelRect);
 
         if( bRet )
         {
@@ -2411,12 +2389,7 @@ bool OutputDevice::GetTextOutlines( basegfx::B2DPolyPolygonVector& rVector,
                                         sal_Int32 nIndex, sal_Int32 nLen,
                                         sal_uLong nLayoutWidth, const long* pDXArray ) const
 {
-    // the fonts need to be initialized
-    if( mbNewFont )
-        ImplNewFont();
-    if( mbInitFont )
-        InitFont();
-    if( !mpFontInstance )
+    if (!InitFont())
         return false;
 
     bool bRet = false;
@@ -2458,7 +2431,7 @@ bool OutputDevice::GetTextOutlines( basegfx::B2DPolyPolygonVector& rVector,
     pSalLayout = ImplLayout( rStr, nIndex, nLen, Point(0,0), nLayoutWidth, pDXArray );
     if( pSalLayout )
     {
-        bRet = pSalLayout->GetOutline( *mpGraphics, rVector );
+        bRet = pSalLayout->GetOutline(rVector);
         if( bRet )
         {
             // transform polygon to pixel units

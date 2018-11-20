@@ -170,8 +170,8 @@ static RelationMap const aAsCharRelationMap[] =
 };
 
 // site anchored
-#define HORI_PAGE_REL   (LB::RelPageFrame|LB::RelPagePrintArea|LB::RelPageLeft| \
-                        LB::RelPageRight)
+static constexpr auto HORI_PAGE_REL = LB::RelPageFrame | LB::RelPagePrintArea | LB::RelPageLeft |
+                        LB::RelPageRight;
 
 static FrameMap const aHPageMap[] =
 {
@@ -202,8 +202,8 @@ static FrameMap const aVPageHtmlMap[] =
 };
 
 // frame anchored
-#define HORI_FRAME_REL  (LB::FlyRelPageFrame|LB::FlyRelPagePrintArea| \
-                        LB::FlyRelPageLeft|LB::FlyRelPageRight)
+static constexpr auto HORI_FRAME_REL = LB::FlyRelPageFrame | LB::FlyRelPagePrintArea |
+                                       LB::FlyRelPageLeft | LB::FlyRelPageRight;
 
 static FrameMap const aHFrameMap[] =
 {
@@ -237,9 +237,9 @@ static FrameMap const aVFlyHtmlMap[] =
 };
 
 // paragraph anchored
-#define HORI_PARA_REL   (LB::Frame|LB::PrintArea|LB::RelPageLeft|LB::RelPageRight| \
-                        LB::RelPageFrame|LB::RelPagePrintArea|LB::RelFrameLeft| \
-                        LB::RelFrameRight)
+static constexpr auto HORI_PARA_REL = LB::Frame | LB::PrintArea | LB::RelPageLeft | LB::RelPageRight |
+                        LB::RelPageFrame | LB::RelPagePrintArea | LB::RelFrameLeft |
+                        LB::RelFrameRight;
 
 static FrameMap const aHParaMap[] =
 {
@@ -264,8 +264,8 @@ static FrameMap const aHParaHtmlAbsMap[] =
 };
 
 // allow vertical alignment at page areas
-#define VERT_PARA_REL   (LB::VertFrame|LB::VertPrintArea| \
-                         LB::RelPageFrame|LB::RelPagePrintArea)
+static constexpr auto VERT_PARA_REL = LB::VertFrame | LB::VertPrintArea |
+                                      LB::RelPageFrame | LB::RelPagePrintArea;
 
 static FrameMap const aVParaMap[] =
 {
@@ -281,9 +281,9 @@ static FrameMap const aVParaHtmlMap[] =
 };
 
 // anchored relative to the character
-#define HORI_CHAR_REL   (LB::Frame|LB::PrintArea|LB::RelPageLeft|LB::RelPageRight| \
-                        LB::RelPageFrame|LB::RelPagePrintArea|LB::RelFrameLeft| \
-                        LB::RelFrameRight|LB::RelChar)
+static constexpr auto HORI_CHAR_REL = LB::Frame|LB::PrintArea | LB::RelPageLeft | LB::RelPageRight |
+                                      LB::RelPageFrame | LB::RelPagePrintArea | LB::RelFrameLeft |
+                                      LB::RelFrameRight | LB::RelChar;
 
 static FrameMap const aHCharMap[] =
 {
@@ -309,8 +309,8 @@ static FrameMap const aHCharHtmlAbsMap[] =
 };
 
 // allow vertical alignment at page areas
-#define VERT_CHAR_REL   (LB::VertFrame|LB::VertPrintArea| \
-                         LB::RelPageFrame|LB::RelPagePrintArea)
+static constexpr auto VERT_CHAR_REL = LB::VertFrame | LB::VertPrintArea |
+                                      LB::RelPageFrame | LB::RelPagePrintArea;
 
 static FrameMap const aVCharMap[] =
 {
@@ -441,25 +441,24 @@ static void lcl_InsertVectors(weld::ComboBox& rBox,
     const std::vector< OUString >& rPrev, const std::vector< OUString >& rThis,
     const std::vector< OUString >& rNext, const std::vector< OUString >& rRemain)
 {
-    std::vector< OUString >::const_iterator aIt;
-    for(aIt = rPrev.begin(); aIt != rPrev.end(); ++aIt)
-        rBox.append_text(*aIt);
-    for(aIt = rThis.begin(); aIt != rThis.end(); ++aIt)
-        rBox.append_text(*aIt);
-    for(aIt = rNext.begin(); aIt != rNext.end(); ++aIt)
-        rBox.append_text(*aIt);
+    for(const auto& rItem : rPrev)
+        rBox.append_text(rItem);
+    for(const auto& rItem : rThis)
+        rBox.append_text(rItem);
+    for(const auto& rItem : rNext)
+        rBox.append_text(rItem);
     rBox.append_separator();
     //now insert all strings sorted
     const auto nStartPos = rBox.get_count();
 
-    for(aIt = rPrev.begin(); aIt != rPrev.end(); ++aIt)
-        ::InsertStringSorted("", *aIt, rBox, nStartPos );
-    for(aIt = rThis.begin(); aIt != rThis.end(); ++aIt)
-        ::InsertStringSorted("", *aIt, rBox, nStartPos );
-    for(aIt = rNext.begin(); aIt != rNext.end(); ++aIt)
-        ::InsertStringSorted("", *aIt, rBox, nStartPos );
-    for(aIt = rRemain.begin(); aIt != rRemain.end(); ++aIt)
-        ::InsertStringSorted("", *aIt, rBox, nStartPos );
+    for(const auto& rItem : rPrev)
+        ::InsertStringSorted("", rItem, rBox, nStartPos );
+    for(const auto& rItem : rThis)
+        ::InsertStringSorted("", rItem, rBox, nStartPos );
+    for(const auto& rItem : rNext)
+        ::InsertStringSorted("", rItem, rBox, nStartPos );
+    for(const auto& rItem : rRemain)
+        ::InsertStringSorted("", rItem, rBox, nStartPos );
 }
 
 // --> OD 2009-08-31 #mongolianlayout#
@@ -812,10 +811,9 @@ void SwFramePage::setOptimalFrameWidth()
     std::sort(aFrames.begin(), aFrames.end());
     aFrames.erase(std::unique(aFrames.begin(), aFrames.end()), aFrames.end());
 
-    for (std::vector<SvxSwFramePosString::StringId>::const_iterator aI = aFrames.begin(), aEnd = aFrames.end();
-        aI != aEnd; ++aI)
+    for (const auto& rFrame : aFrames)
     {
-        m_pHorizontalDLB->InsertEntry(SvxSwFramePosString::GetString(*aI));
+        m_pHorizontalDLB->InsertEntry(SvxSwFramePosString::GetString(rFrame));
     }
 
     Size aBiggest(m_pHorizontalDLB->GetOptimalSize());
@@ -853,10 +851,9 @@ void SwFramePage::setOptimalRelWidth()
     std::sort(aRels.begin(), aRels.end());
     aRels.erase(std::unique(aRels.begin(), aRels.end()), aRels.end());
 
-    for (std::vector<SvxSwFramePosString::StringId>::const_iterator aI = aRels.begin(), aEnd = aRels.end();
-        aI != aEnd; ++aI)
+    for (const auto& rRel : aRels)
     {
-        m_pHoriRelationLB->InsertEntry(SvxSwFramePosString::GetString(*aI));
+        m_pHoriRelationLB->InsertEntry(SvxSwFramePosString::GetString(rRel));
     }
 
     Size aBiggest(m_pHoriRelationLB->GetOptimalSize());
@@ -968,8 +965,8 @@ void SwFramePage::Reset( const SfxItemSet *rSet )
     }
 
     // entering procent value made possible
-    m_aWidthED.SetBaseValue( m_aWidthED.Normalize(m_aGrfSize.Width()), FUNIT_TWIP );
-    m_aHeightED.SetBaseValue( m_aHeightED.Normalize(m_aGrfSize.Height()), FUNIT_TWIP );
+    m_aWidthED.SetBaseValue( m_aWidthED.Normalize(m_aGrfSize.Width()), FieldUnit::TWIP );
+    m_aHeightED.SetBaseValue( m_aHeightED.Normalize(m_aGrfSize.Height()), FieldUnit::TWIP );
     //the available space is not yet known so the RefValue has to be calculated from size and relative size values
     //this is needed only if relative values are already set
 
@@ -1062,8 +1059,8 @@ void SwFramePage::Reset( const SfxItemSet *rSet )
     m_pAutoHeightCB->SaveValue();
     m_pAutoWidthCB->SaveValue();
 
-    SwTwips nWidth  = static_cast< SwTwips >(m_aWidthED.DenormalizePercent(m_aWidthED.GetValue(FUNIT_TWIP)));
-    SwTwips nHeight = static_cast< SwTwips >(m_aHeightED.DenormalizePercent(m_aHeightED.GetValue(FUNIT_TWIP)));
+    SwTwips nWidth  = static_cast< SwTwips >(m_aWidthED.DenormalizePercent(m_aWidthED.GetValue(FieldUnit::TWIP)));
+    SwTwips nHeight = static_cast< SwTwips >(m_aHeightED.DenormalizePercent(m_aHeightED.GetValue(FieldUnit::TWIP)));
     m_fWidthHeightRatio = nHeight ? double(nWidth) / double(nHeight) : 1.0;
 }
 
@@ -1107,7 +1104,7 @@ bool SwFramePage::FillItemSet(SfxItemSet *rSet)
         if ( eHOri == text::HoriOrientation::NONE &&
              (m_bNew || (m_bAtHorzPosModified || bMod) || m_nOldH != eHOri ) )
         {
-            SwTwips nX = static_cast< SwTwips >(m_pAtHorzPosED->Denormalize(m_pAtHorzPosED->GetValue(FUNIT_TWIP)));
+            SwTwips nX = static_cast< SwTwips >(m_pAtHorzPosED->Denormalize(m_pAtHorzPosED->GetValue(FieldUnit::TWIP)));
             aHoriOrient.SetPos( nX );
         }
 
@@ -1142,7 +1139,7 @@ bool SwFramePage::FillItemSet(SfxItemSet *rSet)
         {
             // vertical position
             // recalculate offset for character bound frames
-            SwTwips nY = static_cast< SwTwips >(m_pAtVertPosED->Denormalize(m_pAtVertPosED->GetValue(FUNIT_TWIP)));
+            SwTwips nY = static_cast< SwTwips >(m_pAtVertPosED->Denormalize(m_pAtVertPosED->GetValue(FieldUnit::TWIP)));
             if (eAnchorId == RndStdIds::FLY_AS_CHAR)
             {
                 nY *= -1;
@@ -1200,19 +1197,19 @@ bool SwFramePage::FillItemSet(SfxItemSet *rSet)
 
     if ((m_bNew && !m_bFormat) || ((bValueModified || bCheckChanged) && bLegalValue))
     {
-        sal_Int64 nNewWidth  = m_aWidthED.DenormalizePercent(m_aWidthED.GetRealValue(FUNIT_TWIP));
-        sal_Int64 nNewHeight = m_aHeightED.DenormalizePercent(m_aHeightED.GetRealValue(FUNIT_TWIP));
+        sal_Int64 nNewWidth  = m_aWidthED.DenormalizePercent(m_aWidthED.GetRealValue(FieldUnit::TWIP));
+        sal_Int64 nNewHeight = m_aHeightED.DenormalizePercent(m_aHeightED.GetRealValue(FieldUnit::TWIP));
         aSz.SetWidth (static_cast< SwTwips >(nNewWidth));
         aSz.SetHeight(static_cast< SwTwips >(nNewHeight));
 
         if (m_pRelWidthCB->IsChecked())
         {
-            aSz.SetWidthPercent(static_cast<sal_uInt8>(std::min( static_cast< sal_Int64 >(MAX_PERCENT_WIDTH), m_aWidthED.Convert(m_aWidthED.NormalizePercent(nNewWidth), FUNIT_TWIP, FUNIT_CUSTOM))));
+            aSz.SetWidthPercent(static_cast<sal_uInt8>(std::min( static_cast< sal_Int64 >(MAX_PERCENT_WIDTH), m_aWidthED.Convert(m_aWidthED.NormalizePercent(nNewWidth), FieldUnit::TWIP, FieldUnit::CUSTOM))));
         }
         else
             aSz.SetWidthPercent(0);
         if (m_pRelHeightCB->IsChecked())
-            aSz.SetHeightPercent(static_cast<sal_uInt8>(std::min(static_cast< sal_Int64 >(MAX_PERCENT_HEIGHT), m_aHeightED.Convert(m_aHeightED.NormalizePercent(nNewHeight), FUNIT_TWIP, FUNIT_CUSTOM))));
+            aSz.SetHeightPercent(static_cast<sal_uInt8>(std::min(static_cast< sal_Int64 >(MAX_PERCENT_HEIGHT), m_aHeightED.Convert(m_aHeightED.NormalizePercent(nNewHeight), FieldUnit::TWIP, FieldUnit::CUSTOM))));
         else
             aSz.SetHeightPercent(0);
 
@@ -1360,14 +1357,14 @@ void SwFramePage::InitPos(RndStdIds eId,
     bEnable = nH == text::HoriOrientation::NONE && eId != RndStdIds::FLY_AS_CHAR;
     if (!bEnable)
     {
-        m_pAtHorzPosED->SetValue( 0, FUNIT_TWIP );
+        m_pAtHorzPosED->SetValue( 0, FieldUnit::TWIP );
         if (nX != LONG_MAX && m_bHtmlMode)
             m_pAtHorzPosED->SetModifyFlag();
     }
     else
     {
         if (nX != LONG_MAX)
-            m_pAtHorzPosED->SetValue( m_pAtHorzPosED->Normalize(nX), FUNIT_TWIP );
+            m_pAtHorzPosED->SetValue( m_pAtHorzPosED->Normalize(nX), FieldUnit::TWIP );
     }
     m_pAtHorzPosFT->Enable( bEnable );
     m_pAtHorzPosED->Enable( bEnable );
@@ -1375,7 +1372,7 @@ void SwFramePage::InitPos(RndStdIds eId,
     bEnable = nV == text::VertOrientation::NONE;
     if ( !bEnable )
     {
-        m_pAtVertPosED->SetValue( 0, FUNIT_TWIP );
+        m_pAtVertPosED->SetValue( 0, FieldUnit::TWIP );
         if(nY != LONG_MAX && m_bHtmlMode)
             m_pAtVertPosED->SetModifyFlag();
     }
@@ -1389,7 +1386,7 @@ void SwFramePage::InitPos(RndStdIds eId,
                 nY *= -1;
         }
         if ( nY != LONG_MAX )
-            m_pAtVertPosED->SetValue( m_pAtVertPosED->Normalize(nY), FUNIT_TWIP );
+            m_pAtVertPosED->SetValue( m_pAtVertPosED->Normalize(nY), FieldUnit::TWIP );
     }
     m_pAtVertPosFT->Enable( bEnable && m_bAllowVertPositioning );
     m_pAtVertPosED->Enable( bEnable && m_bAllowVertPositioning );
@@ -1841,9 +1838,9 @@ void SwFramePage::RangeModifyHdl()
         aVal.nVertOrient = text::VertOrientation::NONE;
 
     const long nAtHorzPosVal = static_cast< long >(
-                    m_pAtHorzPosED->Denormalize(m_pAtHorzPosED->GetValue(FUNIT_TWIP)) );
+                    m_pAtHorzPosED->Denormalize(m_pAtHorzPosED->GetValue(FieldUnit::TWIP)) );
     const long nAtVertPosVal = static_cast< long >(
-                    m_pAtVertPosED->Denormalize(m_pAtVertPosED->GetValue(FUNIT_TWIP)) );
+                    m_pAtVertPosED->Denormalize(m_pAtVertPosED->GetValue(FieldUnit::TWIP)) );
 
     aVal.nHPos = nAtHorzPosVal;
     aVal.nVPos = nAtVertPosVal;
@@ -1855,8 +1852,8 @@ void SwFramePage::RangeModifyHdl()
     m_aHeightED.SetRefValue(aVal.aPercentSize.Height());
 
     // ... and correctly convert width and height with it
-    SwTwips nWidth  = static_cast< SwTwips >(m_aWidthED. DenormalizePercent(m_aWidthED.GetValue(FUNIT_TWIP)));
-    SwTwips nHeight = static_cast< SwTwips >(m_aHeightED.DenormalizePercent(m_aHeightED.GetValue(FUNIT_TWIP)));
+    SwTwips nWidth  = static_cast< SwTwips >(m_aWidthED. DenormalizePercent(m_aWidthED.GetValue(FieldUnit::TWIP)));
+    SwTwips nHeight = static_cast< SwTwips >(m_aHeightED.DenormalizePercent(m_aHeightED.GetValue(FieldUnit::TWIP)));
     aVal.nWidth  = nWidth;
     aVal.nHeight = nHeight;
 
@@ -1883,8 +1880,8 @@ void SwFramePage::RangeModifyHdl()
     nHeight = aVal.nHeight;
 
     // minimum range also for template
-    m_aHeightED.SetMin(m_aHeightED.NormalizePercent(aVal.nMinHeight), FUNIT_TWIP);
-    m_aWidthED. SetMin(m_aWidthED.NormalizePercent(aVal.nMinWidth), FUNIT_TWIP);
+    m_aHeightED.SetMin(m_aHeightED.NormalizePercent(aVal.nMinHeight), FieldUnit::TWIP);
+    m_aWidthED. SetMin(m_aWidthED.NormalizePercent(aVal.nMinWidth), FieldUnit::TWIP);
 
     SwTwips nMaxWidth(aVal.nMaxWidth);
     SwTwips nMaxHeight(aVal.nMaxHeight);
@@ -1892,34 +1889,34 @@ void SwFramePage::RangeModifyHdl()
     if (aVal.bAutoHeight && (m_sDlgType == "PictureDialog" || m_sDlgType == "ObjectDialog"))
     {
         SwTwips nTmp = std::min(nWidth * nMaxHeight / std::max(nHeight, 1L), nMaxHeight);
-        m_aWidthED.SetMax(m_aWidthED.NormalizePercent(nTmp), FUNIT_TWIP);
+        m_aWidthED.SetMax(m_aWidthED.NormalizePercent(nTmp), FieldUnit::TWIP);
 
         nTmp = std::min(nHeight * nMaxWidth / std::max(nWidth, 1L), nMaxWidth);
-        m_aHeightED.SetMax(m_aWidthED.NormalizePercent(nTmp), FUNIT_TWIP);
+        m_aHeightED.SetMax(m_aWidthED.NormalizePercent(nTmp), FieldUnit::TWIP);
     }
     else
     {
         SwTwips nTmp = static_cast< SwTwips >(m_aHeightED.NormalizePercent(nMaxHeight));
-        m_aHeightED.SetMax(nTmp, FUNIT_TWIP);
+        m_aHeightED.SetMax(nTmp, FieldUnit::TWIP);
 
         nTmp = static_cast< SwTwips >(m_aWidthED.NormalizePercent(nMaxWidth));
-        m_aWidthED.SetMax(nTmp, FUNIT_TWIP);
+        m_aWidthED.SetMax(nTmp, FieldUnit::TWIP);
     }
 
-    m_pAtHorzPosED->SetMin(m_pAtHorzPosED->Normalize(aVal.nMinHPos), FUNIT_TWIP);
-    m_pAtHorzPosED->SetMax(m_pAtHorzPosED->Normalize(aVal.nMaxHPos), FUNIT_TWIP);
+    m_pAtHorzPosED->SetMin(m_pAtHorzPosED->Normalize(aVal.nMinHPos), FieldUnit::TWIP);
+    m_pAtHorzPosED->SetMax(m_pAtHorzPosED->Normalize(aVal.nMaxHPos), FieldUnit::TWIP);
     if ( aVal.nHPos != nAtHorzPosVal )
-        m_pAtHorzPosED->SetValue(m_pAtHorzPosED->Normalize(aVal.nHPos), FUNIT_TWIP);
+        m_pAtHorzPosED->SetValue(m_pAtHorzPosED->Normalize(aVal.nHPos), FieldUnit::TWIP);
 
     const SwTwips nUpperOffset = (aVal.nAnchorType == RndStdIds::FLY_AS_CHAR)
         ? m_nUpperBorder : 0;
     const SwTwips nLowerOffset = (aVal.nAnchorType == RndStdIds::FLY_AS_CHAR)
         ? m_nLowerBorder : 0;
 
-    m_pAtVertPosED->SetMin(m_pAtVertPosED->Normalize(aVal.nMinVPos + nLowerOffset + nUpperOffset), FUNIT_TWIP);
-    m_pAtVertPosED->SetMax(m_pAtVertPosED->Normalize(aVal.nMaxVPos), FUNIT_TWIP);
+    m_pAtVertPosED->SetMin(m_pAtVertPosED->Normalize(aVal.nMinVPos + nLowerOffset + nUpperOffset), FieldUnit::TWIP);
+    m_pAtVertPosED->SetMax(m_pAtVertPosED->Normalize(aVal.nMaxVPos), FieldUnit::TWIP);
     if ( aVal.nVPos != nAtVertPosVal )
-        m_pAtVertPosED->SetValue(m_pAtVertPosED->Normalize(aVal.nVPos), FUNIT_TWIP);
+        m_pAtVertPosED->SetValue(m_pAtVertPosED->Normalize(aVal.nVPos), FieldUnit::TWIP);
 }
 
 IMPL_LINK_NOARG(SwFramePage, AnchorTypeHdl, Button*, void)
@@ -2082,8 +2079,8 @@ IMPL_LINK( SwFramePage, RelHdl, ListBox&, rLB, void )
 
 IMPL_LINK_NOARG(SwFramePage, RealSizeHdl, Button*, void)
 {
-    m_aWidthED.SetUserValue( m_aWidthED. NormalizePercent(m_aGrfSize.Width() ), FUNIT_TWIP);
-    m_aHeightED.SetUserValue(m_aHeightED.NormalizePercent(m_aGrfSize.Height()), FUNIT_TWIP);
+    m_aWidthED.SetUserValue( m_aWidthED. NormalizePercent(m_aGrfSize.Width() ), FieldUnit::TWIP);
+    m_aHeightED.SetUserValue(m_aHeightED.NormalizePercent(m_aGrfSize.Height()), FieldUnit::TWIP);
     m_fWidthHeightRatio = m_aGrfSize.Height() ? double(m_aGrfSize.Width()) / double(m_aGrfSize.Height()) : 1.0;
     UpdateExample();
 }
@@ -2102,19 +2099,19 @@ IMPL_LINK_NOARG(SwFramePage, AutoHeightClickHdl, Button*, void)
 
 IMPL_LINK( SwFramePage, ModifyHdl, Edit&, rEdit, void )
 {
-    SwTwips nWidth  = static_cast< SwTwips >(m_aWidthED.DenormalizePercent(m_aWidthED.GetValue(FUNIT_TWIP)));
-    SwTwips nHeight = static_cast< SwTwips >(m_aHeightED.DenormalizePercent(m_aHeightED.GetValue(FUNIT_TWIP)));
+    SwTwips nWidth  = static_cast< SwTwips >(m_aWidthED.DenormalizePercent(m_aWidthED.GetValue(FieldUnit::TWIP)));
+    SwTwips nHeight = static_cast< SwTwips >(m_aHeightED.DenormalizePercent(m_aHeightED.GetValue(FieldUnit::TWIP)));
     if ( m_pFixedRatioCB->IsChecked() )
     {
         if (&rEdit == m_aWidthED.get())
         {
             nHeight = SwTwips(static_cast<double>(nWidth) / m_fWidthHeightRatio);
-            m_aHeightED.SetPrcntValue(m_aHeightED.NormalizePercent(nHeight), FUNIT_TWIP);
+            m_aHeightED.SetPrcntValue(m_aHeightED.NormalizePercent(nHeight), FieldUnit::TWIP);
         }
         else if (&rEdit == m_aHeightED.get())
         {
             nWidth = SwTwips(static_cast<double>(nHeight) * m_fWidthHeightRatio);
-            m_aWidthED.SetPrcntValue(m_aWidthED.NormalizePercent(nWidth), FUNIT_TWIP);
+            m_aWidthED.SetPrcntValue(m_aWidthED.NormalizePercent(nWidth), FieldUnit::TWIP);
         }
     }
     m_fWidthHeightRatio = nHeight ? double(nWidth) / double(nHeight) : 1.0;
@@ -2140,8 +2137,8 @@ void SwFramePage::UpdateExample()
     }
 
     // size
-    long nXPos = static_cast< long >(m_pAtHorzPosED->Denormalize(m_pAtHorzPosED->GetValue(FUNIT_TWIP)));
-    long nYPos = static_cast< long >(m_pAtVertPosED->Denormalize(m_pAtVertPosED->GetValue(FUNIT_TWIP)));
+    long nXPos = static_cast< long >(m_pAtHorzPosED->Denormalize(m_pAtHorzPosED->GetValue(FieldUnit::TWIP)));
+    long nYPos = static_cast< long >(m_pAtVertPosED->Denormalize(m_pAtVertPosED->GetValue(FieldUnit::TWIP)));
     m_pExampleWN->SetRelPos(Point(nXPos, nYPos));
 
     m_pExampleWN->SetAnchor(GetAnchor());
@@ -2203,28 +2200,28 @@ void SwFramePage::Init(const SfxItemSet& rSet, bool bReset)
     sal_Int64 nWidth  = m_aWidthED.NormalizePercent(rSize.GetWidth());
     sal_Int64 nHeight = m_aHeightED.NormalizePercent(rSize.GetHeight());
 
-    if (nWidth != m_aWidthED.GetValue(FUNIT_TWIP))
+    if (nWidth != m_aWidthED.GetValue(FieldUnit::TWIP))
     {
         if(!bReset)
         {
             // value was changed by circulation-Tabpage and
             // has to be set with Modify-Flag
-            m_aWidthED.SetUserValue(nWidth, FUNIT_TWIP);
+            m_aWidthED.SetUserValue(nWidth, FieldUnit::TWIP);
         }
         else
-            m_aWidthED.SetPrcntValue(nWidth, FUNIT_TWIP);
+            m_aWidthED.SetPrcntValue(nWidth, FieldUnit::TWIP);
     }
 
-    if (nHeight != m_aHeightED.GetValue(FUNIT_TWIP))
+    if (nHeight != m_aHeightED.GetValue(FieldUnit::TWIP))
     {
         if (!bReset)
         {
             // values was changed by circulation-Tabpage and
             // has to be set with Modify-Flag
-            m_aHeightED.SetUserValue(nHeight, FUNIT_TWIP);
+            m_aHeightED.SetUserValue(nHeight, FieldUnit::TWIP);
         }
         else
-            m_aHeightED.SetPrcntValue(nHeight, FUNIT_TWIP);
+            m_aHeightED.SetPrcntValue(nHeight, FieldUnit::TWIP);
     }
 
     if (!IsInGraficMode())
@@ -2327,14 +2324,14 @@ void SwFramePage::Init(const SfxItemSet& rSet, bool bReset)
     {
         m_pRelWidthCB->Check();
         RelSizeClickHdl(m_pRelWidthCB);
-        m_aWidthED.SetPrcntValue(rSize.GetWidthPercent(), FUNIT_CUSTOM);
+        m_aWidthED.SetPrcntValue(rSize.GetWidthPercent(), FieldUnit::CUSTOM);
     }
     if (rSize.GetHeightPercent() && rSize.GetHeightPercent() != SwFormatFrameSize::SYNCED &&
         !m_pRelHeightCB->IsChecked())
     {
         m_pRelHeightCB->Check();
         RelSizeClickHdl(m_pRelHeightCB);
-        m_aHeightED.SetPrcntValue(rSize.GetHeightPercent(), FUNIT_CUSTOM);
+        m_aHeightED.SetPrcntValue(rSize.GetHeightPercent(), FieldUnit::CUSTOM);
     }
     m_pRelWidthCB->SaveValue();
     m_pRelHeightCB->SaveValue();

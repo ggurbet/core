@@ -82,14 +82,14 @@ public:
     ImplFontCache();
     ~ImplFontCache();
 
-    rtl::Reference<LogicalFontInstance> GetFontInstance( PhysicalFontCollection const *,
-                             const vcl::Font&, const Size& rPixelSize, float fExactHeight);
+    rtl::Reference<LogicalFontInstance> GetFontInstance(PhysicalFontCollection const *,
+                             const vcl::Font&, const Size& rPixelSize, float fExactHeight, bool bNonAntialias = false);
     rtl::Reference<LogicalFontInstance> GetGlyphFallbackFont( PhysicalFontCollection const *, FontSelectPattern&,
                             LogicalFontInstance* pLogicalFont,
                             int nFallbackLevel, OUString& rMissingCodes );
 
-    bool GetCachedGlyphBoundRect(LogicalFontInstance *, sal_GlyphId, tools::Rectangle &);
-    void CacheGlyphBoundRect(LogicalFontInstance *, sal_GlyphId, tools::Rectangle &);
+    bool GetCachedGlyphBoundRect(const LogicalFontInstance *, sal_GlyphId, tools::Rectangle &);
+    void CacheGlyphBoundRect(const LogicalFontInstance *, sal_GlyphId, tools::Rectangle &);
 
     void                Invalidate();
 };

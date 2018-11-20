@@ -707,14 +707,6 @@ void ScCellShell::GetState(SfxItemSet &rSet)
                 rSet.Put( SfxInt16Item( nWhich, nTab+1 ) );
                 break;
 
-            case SID_RANGE_VALUE:
-                {
-                    double nValue;
-                    pDoc->GetValue( nPosX, nPosY, nTab, nValue );
-                    rSet.Put( ScDoubleItem( nWhich, nValue ) );
-                }
-                break;
-
             case SID_RANGE_FORMULA:
                 {
                     OUString aString;
@@ -777,9 +769,14 @@ void ScCellShell::GetState(SfxItemSet &rSet)
                     nRow2 = aMarkRange.aEnd.Row();
                     if( nCol2 != nCol1 || nRow1 != nRow2 )
                     {
-                        OUString aStr = ScResId( STR_ROWCOL_SELCOUNT );
-                        aStr = aStr.replaceAll( "$1", OUString::number( nRow2 - nRow1 + 1 ));
-                        aStr = aStr.replaceAll( "$2", OUString::number( nCol2 - nCol1 + 1 ));
+                        const auto nRows = nRow2 - nRow1 + 1;
+                        const auto nCols = nCol2 - nCol1 + 1;
+                        const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetUILocaleDataWrapper();
+                        OUString aRowArg = ScResId(STR_SELCOUNT_ROWARG, nRows).replaceAll("$1", rLocaleData.getNum(nRows, 0));
+                        OUString aColArg = ScResId(STR_SELCOUNT_COLARG, nCols).replaceAll("$1", rLocaleData.getNum(nCols, 0));
+                        OUString aStr = ScResId(STR_SELCOUNT);
+                        aStr = aStr.replaceAll("$1", aRowArg);
+                        aStr = aStr.replaceAll("$2", aColArg);
                         rSet.Put( SfxStringItem( nWhich, aStr ) );
                     }
                     else
@@ -813,11 +810,8 @@ void ScCellShell::GetState(SfxItemSet &rSet)
                     {
                         FormulaError nErrCode = FormulaError::NONE;
                         ScFormulaCell* pCell = pDoc->GetFormulaCell(ScAddress(nPosX, nPosY, nTab));
-                        if (pCell)
-                        {
-                            if (!pCell->IsRunning())
-                                nErrCode = pCell->GetErrCode();
-                        }
+                        if (pCell && !pCell->IsRunning())
+                            nErrCode = pCell->GetErrCode();
 
                         OUString aFuncStr;
                         if ( pTabViewShell->GetFunction( aFuncStr, nErrCode ) )
@@ -894,6 +888,15 @@ void ScCellShell::GetState(SfxItemSet &rSet)
             case FID_FILL_TAB:
                 if ( nTabSelCount < 2 )
                     rSet.DisableItem( nWhich );
+                break;
+
+            case SID_INSERT_CURRENT_DATE:
+            case SID_INSERT_CURRENT_TIME:
+                {
+                    if ( pDoc->IsTabProtected(nTab) &&
+                            pDoc->HasAttrib(nPosX, nPosY, nTab, nPosX, nPosY, nTab, HasAttrFlags::Protected))
+                        rSet.DisableItem( nWhich );
+                }
                 break;
 
             case SID_SELECT_SCENARIO:

@@ -45,24 +45,21 @@ Size lcl_TwipsToHMM( const Size& rSize )
 
 css::uno::Reference<css::frame::XController>& LokChartHelper::GetXController()
 {
-    if(!mxController.is() )
+    if(!mxController.is() && mpViewShell)
     {
-        if (mpViewShell)
+        SfxInPlaceClient* pIPClient = mpViewShell->GetIPClient();
+        if (pIPClient)
         {
-            SfxInPlaceClient* pIPClient = mpViewShell->GetIPClient();
-            if (pIPClient)
+            const css::uno::Reference< ::css::embed::XEmbeddedObject >& xEmbObj = pIPClient->GetObject();
+            if( xEmbObj.is() )
             {
-                css::uno::Reference< ::css::embed::XEmbeddedObject > xEmbObj = pIPClient->GetObject();
-                if( xEmbObj.is() )
+                ::css::uno::Reference< ::css::chart2::XChartDocument > xChart( xEmbObj->getComponent(), uno::UNO_QUERY );
+                if( xChart.is() )
                 {
-                    ::css::uno::Reference< ::css::chart2::XChartDocument > xChart( xEmbObj->getComponent(), uno::UNO_QUERY );
-                    if( xChart.is() )
+                    ::css::uno::Reference< ::css::frame::XController > xChartController = xChart->getCurrentController();
+                    if( xChartController.is() )
                     {
-                        ::css::uno::Reference< ::css::frame::XController > xChartController = xChart->getCurrentController();
-                        if( xChartController.is() )
-                        {
-                            mxController = xChartController;
-                        }
+                        mxController = xChartController;
                     }
                 }
             }
@@ -138,7 +135,7 @@ tools::Rectangle LokChartHelper::GetChartBoundingBox()
                 {
                     // In all cases, the following code fragment
                     // returns the chart bounding box in twips.
-                    MapMode aCWMapMode = pWindow->GetMapMode();
+                    const MapMode& aCWMapMode = pWindow->GetMapMode();
                     double fXScale( aCWMapMode.GetScaleX() );
                     double fYScale( aCWMapMode.GetScaleY() );
                     Point aOffset = pWindow->GetOffsetPixelFrom(*pRootWin);

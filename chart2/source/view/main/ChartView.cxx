@@ -745,7 +745,7 @@ void SeriesPlotterContainer::setNumberFormatsFromAxes()
         if(pVCooSys)
         {
             AxesNumberFormats aAxesNumberFormats;
-            uno::Reference< XCoordinateSystem > xCooSys = pVCooSys->getModel();
+            const uno::Reference< XCoordinateSystem >& xCooSys = pVCooSys->getModel();
             sal_Int32 nDimensionCount = xCooSys->getDimension();
             for(sal_Int32 nDimensionIndex=0; nDimensionIndex<nDimensionCount; ++nDimensionIndex)
             {
@@ -1434,9 +1434,9 @@ sal_Int16 lcl_getDefaultWritingModeFromPool( const std::shared_ptr<DrawModelWrap
     if(!pDrawModelWrapper)
         return nWritingMode;
 
-    const SfxPoolItem* pItem = &(pDrawModelWrapper->GetItemPool().GetDefaultItem( EE_PARA_WRITINGDIR ));
-    if( pItem )
-        nWritingMode = static_cast< sal_Int16 >(static_cast< const SvxFrameDirectionItem * >( pItem )->GetValue());
+    const SfxPoolItem& rItem = pDrawModelWrapper->GetItemPool().GetDefaultItem(EE_PARA_WRITINGDIR);
+    nWritingMode
+        = static_cast<sal_Int16>(static_cast<const SvxFrameDirectionItem&>(rItem).GetValue());
     return nWritingMode;
 }
 
@@ -2508,7 +2508,7 @@ void ChartView::createShapes()
     {
         OSL_FAIL("could not set page size correctly");
     }
-    pShapeFactory->setPageSize(mxRootShape, aPageSize);
+    ShapeFactory::setPageSize(mxRootShape, aPageSize);
 
     createShapes2D(aPageSize);
 

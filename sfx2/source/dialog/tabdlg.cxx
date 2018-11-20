@@ -555,12 +555,6 @@ void SfxTabDialog::Init_Impl(bool bFmtFlag)
     }
 }
 
-void SfxTabDialog::RemoveResetButton()
-{
-    m_pResetBtn->Hide();
-    m_pImpl->bHideResetBtn = true;
-}
-
 void SfxTabDialog::RemoveStandardButton()
 {
     m_pBaseFmtBtn->Hide();
@@ -585,15 +579,6 @@ bool SfxTabDialog::StartExecuteAsync( VclAbstractDialog::AsyncContext &rCtx )
     Start_Impl();
     return TabDialog::StartExecuteAsync( rCtx );
 }
-
-void SfxTabDialog::StartExecuteModal( const Link<Dialog&,void>& rEndDialogHdl )
-{
-    if ( !m_pTabCtrl->GetPageCount() )
-        return;
-    Start_Impl();
-    TabDialog::StartExecuteModal( rEndDialogHdl );
-}
-
 
 void SfxTabDialog::Start()
 {
@@ -641,11 +626,6 @@ void SfxTabDialog::Start_Impl()
 
     m_pTabCtrl->SetCurPageId( nActPage );
     ActivatePageHdl( m_pTabCtrl );
-}
-
-void SfxTabDialog::AddTabPage( sal_uInt16 nId, const OUString &rRiderText )
-{
-    AddTabPage( nId, rRiderText, nullptr );
 }
 
 /*
@@ -1383,6 +1363,10 @@ const sal_uInt16* SfxTabDialog::GetInputRanges( const SfxItemPool& rPool )
     return m_pRanges.get();
 }
 
+void SfxTabDialog::SetPageName(sal_uInt16 nPageId, const OString& rName) const
+{
+    m_pTabCtrl->SetPageName(nPageId, rName);
+}
 
 void SfxTabDialog::SetInputSet( const SfxItemSet* pInSet )
 
@@ -2020,12 +2004,11 @@ void SfxTabDialogController::AddTabPage(const OString &rName /* Page ID */,
 
 void SfxTabDialogController::AddTabPage(const OString &rName, /* Page ID */
                                         const OUString& rRiderText,
-                                        CreateTabPage pCreateFunc  /* Pointer to the Factory Method */,
-                                        GetTabPageRanges pRangesFunc /* Pointer to the Method for querying Ranges onDemand */)
+                                        CreateTabPage pCreateFunc  /* Pointer to the Factory Method */)
 {
     assert(!m_xTabCtrl->get_page(rName) && "Double Page-Ids in the Tabpage");
     m_xTabCtrl->append_page(rName, rRiderText);
-    AddTabPage(rName, pCreateFunc, pRangesFunc);
+    AddTabPage(rName, pCreateFunc, nullptr);
 }
 
 void SfxTabDialogController::AddTabPage(const OString &rName, const OUString& rRiderText,
@@ -2161,10 +2144,10 @@ OString SfxTabDialogController::GetCurPageId() const
     return m_xTabCtrl->get_current_page_ident();
 }
 
-short SfxTabDialogController::execute()
+short SfxTabDialogController::run()
 {
     Start_Impl();
-    return m_xDialog->run();
+    return SfxDialogController::run();
 }
 
 bool SfxTabDialogController::runAsync(const std::shared_ptr<SfxTabDialogController>& rController,

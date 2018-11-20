@@ -26,6 +26,7 @@
 #include "salgdiimpl.hxx"
 #include "sallayout.hxx"
 #include <basegfx/matrix/b2dhommatrix.hxx>
+#include "WidgetDrawInterface.hxx"
 
 #include <config_cairo_canvas.h>
 
@@ -188,9 +189,6 @@ public:
                                     bool bVertical,
                                     std::vector< sal_Int32 >& rWidths,
                                     Ucs2UIntMap& rUnicodeEnc ) = 0;
-
-    virtual bool                GetGlyphBoundRect(const GlyphItem&, tools::Rectangle&) = 0;
-    virtual bool                GetGlyphOutline(const GlyphItem&, basegfx::B2DPolyPolygon&) = 0;
 
     virtual std::unique_ptr<SalLayout>
                                 GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) = 0;
@@ -665,6 +663,14 @@ protected:
     /// flags which hold the SetAntialiasing() value from OutputDevice
     bool                        m_bAntiAliasB2DDraw : 1;
 
+    inline long GetDeviceWidth(const OutputDevice* pOutDev) const;
+
+    bool hasWidgetDraw()
+    {
+        return bool(m_pWidgetDraw);
+    }
+
+    std::unique_ptr<vcl::WidgetDrawInterface> m_pWidgetDraw;
 };
 
 #endif // INCLUDED_VCL_INC_SALGDI_HXX

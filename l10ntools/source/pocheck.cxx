@@ -45,7 +45,7 @@ static void checkStyleNames(const OString& aLanguage)
 
         if( !aPoEntry.isFuzzy() && aPoEntry.getMsgCtxt().startsWith("STR_POOLCOLL") )
         {
-            OString aMsgStr = aPoEntry.getMsgStr();
+            const OString& aMsgStr = aPoEntry.getMsgStr();
             if( aMsgStr.isEmpty() )
                 continue;
             if( aLocalizedStyleNames.find(aMsgStr) == aLocalizedStyleNames.end() )
@@ -57,7 +57,7 @@ static void checkStyleNames(const OString& aLanguage)
         }
         if( !aPoEntry.isFuzzy() && aPoEntry.getMsgCtxt().startsWith("STR_POOLNUMRULE") )
         {
-            OString aMsgStr = aPoEntry.getMsgStr();
+            const OString& aMsgStr = aPoEntry.getMsgStr();
             if( aMsgStr.isEmpty() )
                 continue;
             if( aLocalizedNumStyleNames.find(aMsgStr) == aLocalizedNumStyleNames.end() )
@@ -90,7 +90,8 @@ static void checkStyleNames(const OString& aLanguage)
                 "\nSee STR_POOLNUMRULE_*\n\n";
         }
     }
-    aPoInput.open(aPoPath);
+    OString sPoHdrMsg;
+    aPoInput.open(aPoPath, sPoHdrMsg);
     if( !aPoInput.isOpen() )
     {
         std::cerr << "Warning: Cannot open " << aPoPath << std::endl;
@@ -98,7 +99,7 @@ static void checkStyleNames(const OString& aLanguage)
     }
     PoOfstream aPoOutput;
     aPoOutput.open(aPoPath+".new");
-    PoHeader aTmp("sw/inc");
+    PoHeader aTmp("sw/inc", sPoHdrMsg);
     aPoOutput.writeHeader(aTmp);
     bool bAnyError = false;
 
@@ -163,7 +164,7 @@ static void checkFunctionNames(const OString& aLanguage)
             break;
         if( !aPoEntry.isFuzzy() && aPoEntry.getMsgCtxt() == "RID_STRLIST_FUNCTION_NAMES" )
         {
-            OString aMsgStr = aPoEntry.getMsgStr();
+            const OString& aMsgStr = aPoEntry.getMsgStr();
             if( aMsgStr.isEmpty() )
                 continue;
             if( aLocalizedCoreFunctionNames.find(aMsgStr) == aLocalizedCoreFunctionNames.end() )

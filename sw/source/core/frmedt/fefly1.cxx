@@ -20,7 +20,7 @@
 #include <hintids.hxx>
 #include <o3tl/any.hxx>
 #include <svl/itemiter.hxx>
-#include <svtools/imapobj.hxx>
+#include <vcl/imapobj.hxx>
 #include <svtools/soerr.hxx>
 #include <editeng/protitem.hxx>
 #include <svx/svdogrp.hxx>
@@ -193,7 +193,8 @@ static bool lcl_FindAnchorPos(
             }
         }
 
-        aNewAnch.SetType( nNew = RndStdIds::FLY_AT_PAGE );
+        nNew = RndStdIds::FLY_AT_PAGE;
+        aNewAnch.SetType( nNew );
         SAL_FALLTHROUGH;
 
     case RndStdIds::FLY_AT_PAGE:
@@ -1526,8 +1527,8 @@ const SwFrameFormat* SwFEShell::IsURLGrfAtPos( const Point& rPt, OUString* pURL,
                         // without MapMode-Offset, without Offset, o ... !!!!!
                         aPt = GetOut()->LogicToPixel(
                                 aPt, MapMode( MapUnit::MapTwip ) );
-                        ((( *pURL += "?" ) += OUString::number( aPt.getX() ))
-                                  += "," ) += OUString::number(aPt.getY() );
+                        *pURL = *pURL + "?" + OUString::number( aPt.getX() )
+                                + "," + OUString::number(aPt.getY() );
                     }
                 }
                 pRet = pFly->GetFormat();
@@ -1719,7 +1720,10 @@ ObjCntType SwFEShell::GetObjCntType( const Point &rPt, SdrObject *&rpObj ) const
 
         SdrObject* pObj = pDView->PickObj(rPt, pDView->getHitTolLog(), pPView, SdrSearchOptions::PICKMARKABLE);
         if (pObj)
-            eType = GetObjCntType( *(rpObj = pObj) );
+        {
+            rpObj = pObj;
+            eType = GetObjCntType( *rpObj );
+        }
 
         pDView->SetHitTolerancePixel( nOld );
     }
@@ -1887,18 +1891,16 @@ void SwFEShell::GetConnectableFrameFormats(SwFrameFormat & rFormat,
         /* number of page rFormat resides on */
         sal_uInt16 nPageNum = SwFormatGetPageNum(static_cast<SwFlyFrameFormat *>(&rFormat));
 
-        std::vector< const SwFrameFormat * >::const_iterator aIt;
-
-        for (aIt = aTmpSpzArray.begin(); aIt != aTmpSpzArray.end(); ++aIt)
+        for (const auto& rpFormat : aTmpSpzArray)
         {
-            const OUString aString = (*aIt)->GetName();
+            const OUString aString = rpFormat->GetName();
 
             /* rFormat is not a valid successor or predecessor of
                itself */
             if (aString != rReference && aString != rFormat.GetName())
             {
                 sal_uInt16 nNum1 =
-                    SwFormatGetPageNum(static_cast<const SwFlyFrameFormat *>(*aIt));
+                    SwFormatGetPageNum(static_cast<const SwFlyFrameFormat *>(rpFormat));
 
                 if (nNum1 == nPageNum -1)
                     aPrevPageVec.push_back(aString);

@@ -46,6 +46,7 @@
 #include <bitmaps.hlst>
 #include <sdresid.hxx>
 #include <EventMultiplexer.hxx>
+#include <ViewShellBase.hxx>
 #include <ViewShellManager.hxx>
 #include <sdpage.hxx>
 #include <drawdoc.hxx>
@@ -93,7 +94,7 @@ static BitmapEx* getButtonImage( int index, bool large )
 
     if( !gSmallButtonImages[0].get() )
     {
-        for (sal_uInt16 i = 0; i < SAL_N_ELEMENTS(aSmallPlaceHolders); i++ )
+        for (size_t i = 0; i < SAL_N_ELEMENTS(aSmallPlaceHolders); i++ )
         {
             gSmallButtonImages[i].set(o3tl::make_unique<BitmapEx>(aSmallPlaceHolders[i]));
             gLargeButtonImages[i].set(o3tl::make_unique<BitmapEx>(aBigPlaceHolders[i]));
@@ -242,7 +243,7 @@ void ImageButtonHdl::CreateB2dIAObject()
                     const SdrPageWindow& rPageWindow = *pPageView->GetPageWindow(b);
 
                     SdrPaintWindow& rPaintWindow = rPageWindow.GetPaintWindow();
-                    rtl::Reference< sdr::overlay::OverlayManager > xManager = rPageWindow.GetOverlayManager();
+                    const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
                     if(rPaintWindow.OutputToWindow() && xManager.is() )
                     {
                         std::unique_ptr<sdr::overlay::OverlayObject> pOverlayObject(

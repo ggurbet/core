@@ -259,7 +259,7 @@ namespace svt
         {
             // use the base class operator with the local name of the content
             OUString sURL = _rxContent->getURL();
-            // #116281# Keep office installtion relocatable. Never store
+            // #116281# Keep office installation relocatable. Never store
             // any direct references to office installation directory.
             sURL = m_xOfficeInstDirs->makeRelocatableURL( sURL );
             m_rStorage.WriteUniOrByteString( sURL, m_rStorage.GetStreamCharSet() );
@@ -437,12 +437,10 @@ namespace svt
 
     sal_Int32 TemplateFolderCacheImpl::getMagicNumber()
     {
-        sal_Int32 nMagic = 0;
-        ( nMagic += sal_Int8('T') ) <<= 4;
-        ( nMagic += sal_Int8('D') ) <<= 4;
-        ( nMagic += sal_Int8('S') ) <<= 4;
-        ( nMagic += sal_Int8('C') ) <<= 0;
-        return nMagic;
+        return (sal_Int8('T') << 12)
+                | (sal_Int8('D') << 8)
+                | (sal_Int8('S') << 4)
+                | (sal_Int8('C'));
     }
 
 
@@ -662,7 +660,7 @@ namespace svt
         while ( nRootDirectories-- )
         {
             OUString sURL = m_pCacheStream->ReadUniOrByteString(m_pCacheStream->GetStreamCharSet());
-            // #116281# Keep office installtion relocatable. Never store
+            // #116281# Keep office installation relocatable. Never store
             // any direct references to office installation directory.
             sURL = getOfficeInstDirs()->makeAbsoluteURL( sURL );
             m_aPreviousState.push_back(

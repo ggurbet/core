@@ -48,7 +48,7 @@ void FontFeatureTest::testGetFontFeatures()
         return; // Can't test this because the font is not available, so exit
 
     vcl::Font aFont = aVDev->GetFont();
-    aFont.SetFamilyName("Linux Libertine G");
+    aFont.SetFamilyName(aFontName);
     aFont.SetWeight(FontWeight::WEIGHT_NORMAL);
     aFont.SetItalic(FontItalic::ITALIC_NORMAL);
     aFont.SetWidthType(FontWidth::WIDTH_NORMAL);
@@ -84,10 +84,13 @@ void FontFeatureTest::testGetFontFeatures()
 
     // periodically fails on windows tinderbox like tb72 with a missing "ss02"
     CPPUNIT_ASSERT_EQUAL(aExpectedFeaturesString, aFeaturesString);
-#endif
 
     // Check C2SC feature
     {
+        // periodically fails on the Windows tb72 tinderbox with
+        // equality assertion failed
+        //- Expected: 1664250723
+        //- Actual  : 1684826471
         vcl::font::Feature& rFeature = rDefaultFontFeatures[0];
         CPPUNIT_ASSERT_EQUAL(vcl::font::featureCode("c2sc"), rFeature.m_aID.m_aFeatureCode);
 
@@ -99,6 +102,7 @@ void FontFeatureTest::testGetFontFeatures()
 
         CPPUNIT_ASSERT_EQUAL(size_t(0), rFracFeatureDefinition.getEnumParameters().size());
     }
+#endif
 
     // Check FRAC feature
     {

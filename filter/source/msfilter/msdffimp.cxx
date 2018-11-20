@@ -647,56 +647,53 @@ void SvxMSDffManager::SolveSolver( const SvxMSDffSolverContainer& rSolver )
                                     sal_uInt32 k, nPt = nC;
                                     css::uno::Sequence< css::drawing::EnhancedCustomShapeSegment > aSegments;
                                     pAny = aGeometryItem.GetPropertyValueByName( sPath, sSegments );
-                                    if ( pAny )
+                                    if ( pAny && (*pAny >>= aSegments) )
                                     {
-                                        if ( *pAny >>= aSegments )
+                                        for ( nPt = 0, k = 1; nC && ( k < static_cast<sal_uInt32>(aSegments.getLength()) ); k++ )
                                         {
-                                            for ( nPt = 0, k = 1; nC && ( k < static_cast<sal_uInt32>(aSegments.getLength()) ); k++ )
+                                            sal_Int16 j, nCnt2 = aSegments[ k ].Count;
+                                            if ( aSegments[ k ].Command != EnhancedCustomShapeSegmentCommand::UNKNOWN )
                                             {
-                                                sal_Int16 j, nCnt2 = aSegments[ k ].Count;
-                                                if ( aSegments[ k ].Command != EnhancedCustomShapeSegmentCommand::UNKNOWN )
+                                                for ( j = 0; nC && ( j < nCnt2 ); j++ )
                                                 {
-                                                    for ( j = 0; nC && ( j < nCnt2 ); j++ )
+                                                    switch( aSegments[ k ].Command )
                                                     {
-                                                        switch( aSegments[ k ].Command )
+                                                        case EnhancedCustomShapeSegmentCommand::ENDSUBPATH :
+                                                        case EnhancedCustomShapeSegmentCommand::CLOSESUBPATH :
+                                                        case EnhancedCustomShapeSegmentCommand::LINETO :
+                                                        case EnhancedCustomShapeSegmentCommand::MOVETO :
                                                         {
-                                                            case EnhancedCustomShapeSegmentCommand::ENDSUBPATH :
-                                                            case EnhancedCustomShapeSegmentCommand::CLOSESUBPATH :
-                                                            case EnhancedCustomShapeSegmentCommand::LINETO :
-                                                            case EnhancedCustomShapeSegmentCommand::MOVETO :
-                                                            {
-                                                                nC--;
-                                                                nPt++;
-                                                            }
-                                                            break;
-                                                            case EnhancedCustomShapeSegmentCommand::ELLIPTICALQUADRANTX :
-                                                            case EnhancedCustomShapeSegmentCommand::ELLIPTICALQUADRANTY :
-                                                            break;
-
-                                                            case EnhancedCustomShapeSegmentCommand::CURVETO :
-                                                            {
-                                                                nC--;
-                                                                nPt += 3;
-                                                            }
-                                                            break;
-
-                                                            case EnhancedCustomShapeSegmentCommand::ANGLEELLIPSETO :
-                                                            case EnhancedCustomShapeSegmentCommand::ANGLEELLIPSE :
-                                                            {
-                                                                nC--;
-                                                                nPt += 3;
-                                                            }
-                                                            break;
-                                                            case EnhancedCustomShapeSegmentCommand::ARCTO :
-                                                            case EnhancedCustomShapeSegmentCommand::ARC :
-                                                            case EnhancedCustomShapeSegmentCommand::CLOCKWISEARCTO :
-                                                            case EnhancedCustomShapeSegmentCommand::CLOCKWISEARC :
-                                                            {
-                                                                nC--;
-                                                                nPt += 4;
-                                                            }
-                                                            break;
+                                                            nC--;
+                                                            nPt++;
                                                         }
+                                                        break;
+                                                        case EnhancedCustomShapeSegmentCommand::ELLIPTICALQUADRANTX :
+                                                        case EnhancedCustomShapeSegmentCommand::ELLIPTICALQUADRANTY :
+                                                        break;
+
+                                                        case EnhancedCustomShapeSegmentCommand::CURVETO :
+                                                        {
+                                                            nC--;
+                                                            nPt += 3;
+                                                        }
+                                                        break;
+
+                                                        case EnhancedCustomShapeSegmentCommand::ANGLEELLIPSETO :
+                                                        case EnhancedCustomShapeSegmentCommand::ANGLEELLIPSE :
+                                                        {
+                                                            nC--;
+                                                            nPt += 3;
+                                                        }
+                                                        break;
+                                                        case EnhancedCustomShapeSegmentCommand::ARCTO :
+                                                        case EnhancedCustomShapeSegmentCommand::ARC :
+                                                        case EnhancedCustomShapeSegmentCommand::CLOCKWISEARCTO :
+                                                        case EnhancedCustomShapeSegmentCommand::CLOCKWISEARC :
+                                                        {
+                                                            nC--;
+                                                            nPt += 4;
+                                                        }
+                                                        break;
                                                     }
                                                 }
                                             }
@@ -4566,7 +4563,12 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                             {
                                 double fNumber;
                                 seqAdjustmentValues[ 0 ].Value >>= fNumber;
-                                nEndAngle = NormAngle36000( - static_cast<sal_Int32>(fNumber) * 100 );
+                                sal_Int32 nValue;
+                                bool bFail = o3tl::checked_multiply<sal_Int32>(fNumber, 100, nValue);
+                                if (!bFail)
+                                    SAL_WARN("filter.ms", "nEndAngle too large: " << fNumber);
+                                else
+                                    nEndAngle = NormAngle36000(-nValue);
                             }
                             else
                             {

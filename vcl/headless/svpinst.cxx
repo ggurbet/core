@@ -38,9 +38,10 @@
 #include <quartz/salbmp.h>
 #include <quartz/salgdi.h>
 #include <quartz/salvd.h>
+#else
+#include <headless/svpgdi.hxx>
 #endif
 #include <headless/svpbmp.hxx>
-#include <headless/svpgdi.hxx>
 
 #include <salframe.hxx>
 #include <svdata.hxx>
@@ -298,7 +299,9 @@ void SvpSalInstance::ProcessEvent( SalUserEvent aEvent )
 
 SvpSalYieldMutex::SvpSalYieldMutex()
 {
+#ifndef IOS
     m_FeedbackFDs[0] = m_FeedbackFDs[1] = -1;
+#endif
 }
 
 SvpSalYieldMutex::~SvpSalYieldMutex()
@@ -396,7 +399,10 @@ bool SvpSalInstance::IsMainThread() const
 void SvpSalInstance::updateMainThread()
 {
     if (!IsMainThread())
+    {
         m_MainThread = osl::Thread::getCurrentIdentifier();
+        ImplGetSVData()->mnMainThreadId = osl::Thread::getCurrentIdentifier();
+    }
 }
 
 bool SvpSalInstance::DoYield(bool bWait, bool bHandleAllCurrentEvents)

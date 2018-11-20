@@ -71,7 +71,7 @@ namespace
 SalLayoutGlyphs* lcl_GetRulerTextGlyphs(vcl::RenderContext& rRenderContext, const OUString& rText,
                                         SalLayoutGlyphs& rTextGlyphs)
 {
-    if (!rTextGlyphs.empty())
+    if (rTextGlyphs.IsValid())
         // Use pre-calculated result.
         return &rTextGlyphs;
 
@@ -198,7 +198,6 @@ void Ruler::ImplInit( WinBits nWinBits )
     mnVirWidth      = 0;                    // width or height from VirtualDevice
     mnVirHeight     = 0;                    // height of width from VirtualDevice
     mnDragPos       = 0;                    // Drag-Position (Null point)
-    mnUpdateEvtId   = nullptr;                    // Update event was not sent yet
     mnDragAryPos    = 0;                    // Drag-Array-Index
     mnDragSize      = RulerDragSize::Move;  // Did size change at dragging
     mnDragModifier  = 0;                    // Modifier key at dragging
@@ -219,7 +218,7 @@ void Ruler::ImplInit( WinBits nWinBits )
 
     // Initialize Units
     mnUnitIndex     = RULER_UNIT_CM;
-    meUnit          = FUNIT_CM;
+    meUnit          = FieldUnit::CM;
     maZoom          = Fraction( 1, 1 );
 
     // Recalculate border widths
@@ -287,8 +286,6 @@ Ruler::~Ruler()
 
 void Ruler::dispose()
 {
-    if ( mnUpdateEvtId )
-        Application::RemoveUserEvent( mnUpdateEvtId );
     mpSaveData.reset();
     mpDragData.reset();
     mxAccContext.clear();
@@ -2387,37 +2384,37 @@ void Ruler::SetUnit( FieldUnit eNewUnit )
     meUnit = eNewUnit;
     switch ( meUnit )
     {
-        case FUNIT_MM:
+        case FieldUnit::MM:
             mnUnitIndex = RULER_UNIT_MM;
             break;
-        case FUNIT_CM:
+        case FieldUnit::CM:
             mnUnitIndex = RULER_UNIT_CM;
             break;
-        case FUNIT_M:
+        case FieldUnit::M:
             mnUnitIndex = RULER_UNIT_M;
             break;
-        case FUNIT_KM:
+        case FieldUnit::KM:
             mnUnitIndex = RULER_UNIT_KM;
             break;
-        case FUNIT_INCH:
+        case FieldUnit::INCH:
             mnUnitIndex = RULER_UNIT_INCH;
             break;
-        case FUNIT_FOOT:
+        case FieldUnit::FOOT:
             mnUnitIndex = RULER_UNIT_FOOT;
             break;
-        case FUNIT_MILE:
+        case FieldUnit::MILE:
             mnUnitIndex = RULER_UNIT_MILE;
             break;
-        case FUNIT_POINT:
+        case FieldUnit::POINT:
             mnUnitIndex = RULER_UNIT_POINT;
             break;
-        case FUNIT_PICA:
+        case FieldUnit::PICA:
             mnUnitIndex = RULER_UNIT_PICA;
             break;
-        case FUNIT_CHAR:
+        case FieldUnit::CHAR:
             mnUnitIndex = RULER_UNIT_CHAR;
             break;
-        case FUNIT_LINE:
+        case FieldUnit::LINE:
             mnUnitIndex = RULER_UNIT_LINE;
             break;
         default:
@@ -2516,8 +2513,7 @@ void Ruler::SetLines( sal_uInt32 aLineArraySize, const RulerLine* pLineArray )
         const RulerLine* pAry2 = pLineArray;
         while ( i )
         {
-            if ( (aItr1->nPos   != pAry2->nPos)   ||
-                 (aItr1->nStyle != pAry2->nStyle) )
+            if ( aItr1->nPos   != pAry2->nPos )
                 break;
             ++aItr1;
             ++pAry2;

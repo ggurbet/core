@@ -32,6 +32,7 @@
 #include <svx/flagsdef.hxx>
 #include <editeng/flstitem.hxx>
 #include <sfx2/app.hxx>
+#include <osl/diagnose.h>
 
 ScAttrDlg::ScAttrDlg(weld::Window* pParent, const SfxItemSet* pCellAttrs)
     : SfxTabDialogController(pParent, "modules/scalc/ui/formatcellsdialog.ui",
@@ -80,6 +81,10 @@ void ScAttrDlg::PageCreated(const OString& rPageId, SfxTabPage& rTabPage)
         const SfxPoolItem* pInfoItem = pDocSh->GetItem( SID_ATTR_CHAR_FONTLIST );
         assert(pInfoItem && "FontListItem  not found :-(");
         aSet.Put (SvxFontListItem(static_cast<const SvxFontListItem*>(pInfoItem)->GetFontList(), SID_ATTR_CHAR_FONTLIST ));
+        rTabPage.PageCreated(aSet);
+    }
+    else if (rPageId == "background")
+    {
         rTabPage.PageCreated(aSet);
     }
 }

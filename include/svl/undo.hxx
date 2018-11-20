@@ -24,11 +24,8 @@
 #include <tools/datetime.hxx>
 #include <o3tl/strong_int.hxx>
 
-#include <limits>
 #include <memory>
 #include <vector>
-
-struct MarkedUndoAction;
 
 typedef o3tl::strong_int<sal_Int32, struct ViewShellIdTag> ViewShellId;
 
@@ -83,10 +80,10 @@ typedef sal_Int32 UndoStackMark;
 
 struct MarkedUndoAction
 {
-    SfxUndoAction*                  pAction;
+    std::unique_ptr<SfxUndoAction>  pAction;
     ::std::vector< UndoStackMark >  aMarks;
 
-    MarkedUndoAction(SfxUndoAction* p) : pAction(p) {}
+    MarkedUndoAction(std::unique_ptr<SfxUndoAction> p) : pAction(std::move(p)) {}
 };
 
 /** do not make use of these implementation details, unless you
@@ -102,10 +99,13 @@ struct SVL_DLLPUBLIC SfxUndoArray
         nMaxUndoActions(nMax), nCurUndoAction(0), pFatherUndoArray(nullptr) {}
     virtual ~SfxUndoArray();
 
-    SfxUndoAction* GetUndoAction(size_t idx) { return maUndoActions[idx].pAction; }
-    void Remove(int idx);
+    SfxUndoArray& operator=( SfxUndoArray const & ) = delete; // MSVC2017 workaround
+    SfxUndoArray( SfxUndoArray const & ) = delete; // MSVC2017 workaround
+
+    SfxUndoAction* GetUndoAction(size_t idx) { return maUndoActions[idx].pAction.get(); }
+    std::unique_ptr<SfxUndoAction> Remove(int idx);
     void Remove( size_t i_pos, size_t i_count );
-    void Insert( SfxUndoAction* i_action, size_t i_pos );
+    void Insert( std::unique_ptr<SfxUndoAction> i_action, size_t i_pos );
 };
 
 
@@ -313,7 +313,7 @@ protected:
 
 private:
     size_t  ImplLeaveListAction( const bool i_merge, ::svl::undo::impl::UndoManagerGuard& i_guard );
-    bool    ImplAddUndoAction_NoNotify( SfxUndoAction* pAction, bool bTryMerge, bool bClearRedo, ::svl::undo::impl::UndoManagerGuard& i_guard );
+    bool    ImplAddUndoAction_NoNotify( std::unique_ptr<SfxUndoAction> pAction, bool bTryMerge, bool bClearRedo, ::svl::undo::impl::UndoManagerGuard& i_guard );
     void    ImplClearRedo( ::svl::undo::impl::UndoManagerGuard& i_guard, bool const i_currentLevel );
     void    ImplClearUndo( ::svl::undo::impl::UndoManagerGuard& i_guard );
     void    ImplClearCurrentLevel_NoNotify( ::svl::undo::impl::UndoManagerGuard& i_guard );

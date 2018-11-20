@@ -18,32 +18,26 @@
  */
 
 #include <scitems.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <unotools/textsearch.hxx>
-#include <sfx2/objsh.hxx>
+#include <unotools/charclass.hxx>
 
-#include <attrib.hxx>
 #include <patattr.hxx>
-#include <formulacell.hxx>
 #include <table.hxx>
 #include <document.hxx>
 #include <drwlayer.hxx>
 #include <olinetab.hxx>
-#include <stlsheet.hxx>
 #include <global.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <refupdat.hxx>
 #include <markdata.hxx>
 #include <progress.hxx>
-#include <hints.hxx>
 #include <prnsave.hxx>
 #include <tabprotection.hxx>
 #include <sheetevents.hxx>
 #include <segmenttree.hxx>
 #include <dbdata.hxx>
-#include <colorscale.hxx>
 #include <conditio.hxx>
 #include <globalnames.hxx>
 #include <cellvalue.hxx>
@@ -51,6 +45,7 @@
 #include <refupdatecontext.hxx>
 #include <rowheightcontext.hxx>
 #include <compressedarray.hxx>
+#include <vcl/svapp.hxx>
 
 #include <formula/vectortoken.hxx>
 #include <token.hxx>
@@ -85,7 +80,7 @@ ScProgress* GetProgressBar(
 
 void GetOptimalHeightsInColumn(
     sc::RowHeightContext& rCxt, ScColContainer& rCol, SCROW nStartRow, SCROW nEndRow,
-    ScProgress* pProgress, sal_uInt32 nProgressStart )
+    ScProgress* pProgress, sal_uLong nProgressStart )
 {
     assert(nStartRow <= nEndRow);
 
@@ -110,20 +105,24 @@ void GetOptimalHeightsInColumn(
             break;
     }
 
-    SCROW nMinStart = nPos;
+    const SCROW nMinStart = nPos;
 
-    sal_uLong nWeightedCount = 0;
-    for (SCCOL nCol=0; nCol<(rCol.size()-1); nCol++)     // last col done already above
+    sal_uLong nWeightedCount = nProgressStart + rCol.back().GetWeightedCount(nStartRow, nEndRow);
+    const SCCOL maxCol = (rCol.size() - 1); // last col done already above
+    const SCCOL progressUpdateStep = rCol.size() / 10;
+    for (SCCOL nCol=0; nCol<maxCol; nCol++)
     {
         rCol[nCol].GetOptimalHeight(rCxt, nStartRow, nEndRow, nMinHeight, nMinStart);
 
         if (pProgress)
         {
-            sal_uLong nWeight = rCol[nCol].GetWeightedCount();
-            if (nWeight)        // does not have to be the same Status
+            nWeightedCount += rCol[nCol].GetWeightedCount(nStartRow, nEndRow);
+            pProgress->SetState( nWeightedCount );
+
+            if ((nCol % progressUpdateStep) == 0)
             {
-                nWeightedCount += nWeight;
-                pProgress->SetState( nWeightedCount + nProgressStart );
+                // try to make sure the progress dialog is painted before continuing
+                Application::Reschedule(true);
             }
         }
     }
@@ -578,21 +577,18 @@ bool ScTable::GetPrintArea( SCCOL& rEndCol, SCROW& rEndRow, bool bNotes ) const
                 if (nColY > nMaxY)
                     nMaxY = nColY;
             }
-            if (bNotes)
+            if (bNotes && aCol[i].HasCellNotes() )
             {
-                if ( aCol[i].HasCellNotes() )
+                SCROW maxNoteRow = aCol[i].GetCellNotesMaxRow();
+                if (maxNoteRow >= nMaxY)
                 {
-                    SCROW maxNoteRow = aCol[i].GetCellNotesMaxRow();
-                    if (maxNoteRow >= nMaxY)
-                    {
-                        bFound = true;
-                        nMaxY = maxNoteRow;
-                    }
-                    if (i>nMaxX)
-                    {
-                        bFound = true;
-                        nMaxX = i;
-                    }
+                    bFound = true;
+                    nMaxY = maxNoteRow;
+                }
+                if (i>nMaxX)
+                {
+                    bFound = true;
+                    nMaxX = i;
                 }
             }
         }
@@ -716,16 +712,13 @@ bool ScTable::GetPrintAreaVer( SCCOL nStartCol, SCCOL nEndCol,
             if (nColY > nMaxY)
                 nMaxY = nColY;
         }
-        if (bNotes)
+        if (bNotes && aCol[i].HasCellNotes() )
         {
-            if ( aCol[i].HasCellNotes() )
+            SCROW maxNoteRow =aCol[i].GetCellNotesMaxRow();
+            if (maxNoteRow > nMaxY)
             {
-                SCROW maxNoteRow =aCol[i].GetCellNotesMaxRow();
-                if (maxNoteRow > nMaxY)
-                {
-                    bFound = true;
-                    nMaxY = maxNoteRow;
-                }
+                bFound = true;
+                nMaxY = maxNoteRow;
             }
         }
     }

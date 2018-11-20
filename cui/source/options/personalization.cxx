@@ -30,7 +30,6 @@
 #include <vcl/mnemonic.hxx>
 #include <dialmgr.hxx>
 #include <strings.hrc>
-#include <personalization.hrc>
 
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
@@ -169,21 +168,10 @@ SelectPersonaDialog::SelectPersonaDialog( vcl::Window *pParent )
     get( m_pSearchButton, "search_personas" );
     m_pSearchButton->SetClickHdl( LINK( this, SelectPersonaDialog, SearchPersonas ) );
 
-    get( m_vSearchSuggestions[0], "suggestion1" );
-    get( m_vSearchSuggestions[1], "suggestion2" );
-    get( m_vSearchSuggestions[2], "suggestion3" );
-    get( m_vSearchSuggestions[3], "suggestion4" );
-    get( m_vSearchSuggestions[4], "suggestion5" );
-    get( m_vSearchSuggestions[5], "suggestion6" );
-
-    assert(SAL_N_ELEMENTS(RID_SVXSTR_PERSONA_CATEGORIES) >= CATEGORYCOUNT);
-    for(sal_uInt32 i = 0; i < CATEGORYCOUNT; ++i)
-    {
-        m_vSearchSuggestions[i]->SetText(CuiResId(RID_SVXSTR_PERSONA_CATEGORIES[i]));
-        m_vSearchSuggestions[i]->SetClickHdl( LINK( this, SelectPersonaDialog, SearchPersonas ) );
-    }
-
     get( m_pEdit, "search_term" );
+
+    get( m_pCategories, "categoriesCB" );
+    m_pCategories->SetSelectHdl( LINK( this, SelectPersonaDialog, SelectCategory ) );
 
     get( m_pProgressLabel, "progress_label" );
 
@@ -208,7 +196,8 @@ SelectPersonaDialog::SelectPersonaDialog( vcl::Window *pParent )
         nIndex->Disable();
     }
 
-    m_vSearchSuggestions[DEFAULT_PERSONA_CATEGORY]->Click();
+    m_pCategories->SelectEntry("Featured");
+    m_pCategories->GetSelectHdl().Call(*m_pCategories);
 }
 
 SelectPersonaDialog::~SelectPersonaDialog()
@@ -227,12 +216,11 @@ void SelectPersonaDialog::dispose()
         m_pSearchThread->join();
     }
 
+    m_pCategories.clear();
     m_pEdit.clear();
     m_pSearchButton.clear();
     m_pProgressLabel.clear();
     for (VclPtr<PushButton>& vp : m_vResultList)
-        vp.clear();
-    for (VclPtr<PushButton>& vp : m_vSearchSuggestions)
         vp.clear();
     m_pOkButton.clear();
     m_pCancelButton.clear();
@@ -247,43 +235,15 @@ OUString SelectPersonaDialog::GetSelectedPersona() const
     return OUString();
 }
 
-IMPL_LINK( SelectPersonaDialog, SearchPersonas, Button*, pButton, void )
+IMPL_LINK_NOARG( SelectPersonaDialog, SearchPersonas, Button*, void )
 {
-    /*
-     * English category names should be used for search.
-     * These strings should be in sync with the strings of
-     * RID_SVXSTR_PERSONA_CATEGORIES in personalization.hrc
-     */
-    /* FIXME: These categories are actual categories of Mozilla themes/personas,
-     * but we are using them just as regular search terms, and bringing the first
-     * 9 (MAX_RESULTS) personas which have all the fields set. We should instead bring
-     * results from the actual categories; maybe the most downloaded one, or the ones with
-     * the highest ratings.
-     */
-    static const OUStringLiteral vSuggestionCategories[] =
-        {"LibreOffice", "Abstract", "Color", "Music", "Nature", "Solid"};
-
-    OUString searchTerm;
-    if( m_pSearchThread.is() )
-        m_pSearchThread->StopExecution();
-
-    if( pButton ==  m_pSearchButton )
-        searchTerm = m_pEdit->GetText();
-    else
-    {
-        for ( sal_uInt32 i = 0; i < CATEGORYCOUNT; ++i)
-        {
-            if( pButton == m_vSearchSuggestions[i] )
-            {
-                // Use the category name in English as search term
-                searchTerm = vSuggestionCategories[i];
-                break;
-            }
-        }
-    }
+    OUString searchTerm = m_pEdit->GetText();
 
     if( searchTerm.isEmpty( ) )
         return;
+
+    if( m_pSearchThread.is() )
+        m_pSearchThread->StopExecution();
 
     // Direct url of a persona given
     if ( searchTerm.startsWith( "https://addons.mozilla.org/" ) )
@@ -352,6 +312,28 @@ IMPL_LINK_NOARG( SelectPersonaDialog, ActionCancel, Button*, void )
     EndDialog();
 }
 
+IMPL_LINK_NOARG( SelectPersonaDialog, SelectCategory, ListBox&, void )
+{
+    OUString searchTerm = *static_cast<OUString*>(m_pCategories->GetSelectedEntryData());
+    OUString rSearchURL;
+
+    if (searchTerm.isEmpty())
+        return;
+
+    if( m_pSearchThread.is() )
+        m_pSearchThread->StopExecution();
+
+    // 15 results so that invalid and duplicate search results whose names, textcolors etc. are null can be skipped
+    if (searchTerm == "featured")
+        rSearchURL = "https://addons.mozilla.org/api/v3/addons/search/?type=persona&app=firefox&status=public&sort=users&featured=true&page_size=15";
+    else
+        rSearchURL = "https://addons.mozilla.org/api/v3/addons/search/?type=persona&app=firefox&category=" + searchTerm + "&status=public&sort=downloads&page_size=15";
+
+    m_pSearchThread = new SearchAndParseThread( this, rSearchURL, false );
+
+    m_pSearchThread->launch();
+}
+
 IMPL_LINK( SelectPersonaDialog, SelectPersona, Button*, pButton, void )
 {
     if( m_pSearchThread.is() )
@@ -401,10 +383,11 @@ void SelectPersonaDialog::SetProgress( const OUString& rProgress )
     }
 }
 
-void SelectPersonaDialog::SetImages( const Image& aImage, sal_Int32 nIndex )
+void SelectPersonaDialog::SetImages( const Image& aImage, const OUString& sName, const sal_Int32& nIndex )
 {
     m_vResultList[nIndex]->Enable();
     m_vResultList[nIndex]->SetModeImage( aImage );
+    m_vResultList[nIndex]->SetQuickHelpText( sName );
 }
 
 void SelectPersonaDialog::AddPersonaSetting( OUString const & rPersonaSetting )
@@ -610,8 +593,6 @@ void SvxPersonalizationTabPage::LoadDefaultImages()
         if (aPreviewFile.isEmpty())
             break;
 
-        // There is no room for the preview file in the PersonaSettings currently
-        aPersonaSetting = aPersonaSetting.replaceFirst( aPreviewFile + ";", "" );
         m_vDefaultPersonaSettings.push_back( aPersonaSetting );
 
         INetURLObject aURLObj( gallery + aPreviewFile );
@@ -912,11 +893,12 @@ void SearchAndParseThread::execute()
 
                 INetURLObject aURLObj( aPreviewFile );
 
-                OUString aPersonaSetting = personaInfos[nIndex].sSlug
-                        + ";" + personaInfos[nIndex].sName
-                        + ";" + personaInfos[nIndex].sHeaderURL
-                        + ";" + personaInfos[nIndex].sFooterURL
-                        + ";" + personaInfos[nIndex].sTextColor;
+                OUString aPersonaSetting = personaInfo.sSlug
+                        + ";" + personaInfo.sName
+                        + ";" + personaInfo.sPreviewURL
+                        + ";" + personaInfo.sHeaderURL
+                        + ";" + personaInfo.sFooterURL
+                        + ";" + personaInfo.sTextColor;
 
                 m_pPersonaDialog->AddPersonaSetting( aPersonaSetting );
 
@@ -925,10 +907,10 @@ void SearchAndParseThread::execute()
                 aFilter.ImportGraphic( aGraphic, aURLObj );
                 BitmapEx aBmp = aGraphic.GetBitmapEx();
 
-                m_pPersonaDialog->SetImages( Image( aBmp ), nIndex++ );
+                m_pPersonaDialog->SetImages( Image( aBmp ), personaInfo.sName, nIndex );
                 m_pPersonaDialog->setOptimalLayoutSize();
 
-                if (nIndex >= MAX_RESULTS)
+                if (++nIndex >= MAX_RESULTS)
                     break;
             }
 
@@ -976,6 +958,7 @@ void SearchAndParseThread::execute()
 
             OUString aPersonaSetting = aPersonaInfo.sSlug
                     + ";" + aPersonaInfo.sName
+                    + ";" + aPersonaInfo.sPreviewURL
                     + ";" + aPersonaInfo.sHeaderURL
                     + ";" + aPersonaInfo.sFooterURL
                     + ";" + aPersonaInfo.sTextColor;
@@ -987,7 +970,7 @@ void SearchAndParseThread::execute()
             aFilter.ImportGraphic( aGraphic, aURLObj );
             BitmapEx aBmp = aGraphic.GetBitmapEx();
 
-            m_pPersonaDialog->SetImages( Image( aBmp ), 0 );
+            m_pPersonaDialog->SetImages( Image( aBmp ), aPersonaInfo.sName, 0 );
             m_pPersonaDialog->setOptimalLayoutSize();
         }
 
@@ -1025,7 +1008,7 @@ void GetPersonaThread::execute()
     if ( !xFileAccess.is() )
         return;
 
-    OUString aSlug, aName, aHeaderURL, aFooterURL, aTextColor;
+    OUString aSlug, aName, aPreviewURL, aHeaderURL, aFooterURL, aTextColor;
     OUString aPersonaSetting;
 
     // get the required fields from m_aSelectedPersona
@@ -1033,6 +1016,7 @@ void GetPersonaThread::execute()
 
     aSlug = m_aSelectedPersona.getToken(0, ';', nIndex);
     aName = m_aSelectedPersona.getToken(0, ';', nIndex);
+    aPreviewURL = m_aSelectedPersona.getToken(0, ';', nIndex);
     aHeaderURL = m_aSelectedPersona.getToken(0, ';', nIndex);
     aFooterURL = m_aSelectedPersona.getToken(0, ';', nIndex);
     aTextColor = m_aSelectedPersona.getToken(0, ';', nIndex);
@@ -1042,6 +1026,7 @@ void GetPersonaThread::execute()
     rtl::Bootstrap::expandMacros( gallery );
     gallery += "/user/gallery/personas/";
 
+    OUString aPreviewFile( aSlug + "/" + INetURLObject( aPreviewURL ).getName() );
     OUString aHeaderFile( aSlug + "/" + INetURLObject( aHeaderURL ).getName() );
     OUString aFooterFile( aSlug + "/" + INetURLObject( aFooterURL ).getName() );
 
@@ -1072,7 +1057,7 @@ void GetPersonaThread::execute()
 
     SolarMutexGuard aGuard;
 
-    aPersonaSetting = aSlug + ";" + aName + ";" + aHeaderFile + ";" + aFooterFile
+    aPersonaSetting = aSlug + ";" + aName + ";" + aPreviewFile + ";" + aHeaderFile + ";" + aFooterFile
             + ";" + aTextColor;
 
     m_pPersonaDialog->SetAppliedPersonaSetting( aPersonaSetting );

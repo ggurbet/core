@@ -193,7 +193,7 @@ static const ServiceIdResId aServiceToRes[] =
 
 static SwFieldIds lcl_ServiceIdToResId(SwServiceType nServiceId)
 {
-    for (unsigned i=0; i<SAL_N_ELEMENTS(aServiceToRes); ++i)
+    for (size_t i=0; i<SAL_N_ELEMENTS(aServiceToRes); ++i)
         if (aServiceToRes[i].nServiceId == nServiceId)
             return aServiceToRes[i].nResId;
 #if OSL_DEBUG_LEVEL > 0
@@ -1305,7 +1305,7 @@ OUString SAL_CALL SwXTextField::getPresentation(sal_Bool bShowCommand)
     {
         throw uno::RuntimeException();
     }
-    return bShowCommand ? pField->GetFieldName() : pField->ExpandField(true);
+    return bShowCommand ? pField->GetFieldName() : pField->ExpandField(true, nullptr);
 }
 
 void SAL_CALL SwXTextField::attach(
@@ -1594,7 +1594,7 @@ void SAL_CALL SwXTextField::attach(
                     static_cast<SwRefPageGetFieldType*>(pFieldType),
                     m_pImpl->m_pProps->nUSHORT1 );
             xField.reset(pRGField);
-            pRGField->SetText(m_pImpl->m_pProps->sPar1);
+            pRGField->SetText(m_pImpl->m_pProps->sPar1, nullptr);
         }
         break;
         case SwServiceType::FieldTypePageNum:
@@ -1730,7 +1730,7 @@ void SAL_CALL SwXTextField::attach(
             pSEField->SetInputFlag(m_pImpl->m_pProps->bBool1);
             pSEField->SetPromptText(m_pImpl->m_pProps->sPar3);
             if (!m_pImpl->m_pProps->sPar4.isEmpty())
-                pSEField->ChgExpStr(m_pImpl->m_pProps->sPar4);
+                pSEField->ChgExpStr(m_pImpl->m_pProps->sPar4, nullptr);
 
         }
         break;
@@ -1772,7 +1772,7 @@ void SAL_CALL SwXTextField::attach(
             xField.reset(pGEField);
             //TODO: evaluate SubType!
             if (!m_pImpl->m_pProps->sPar4.isEmpty())
-                pGEField->ChgExpStr(m_pImpl->m_pProps->sPar4);
+                pGEField->ChgExpStr(m_pImpl->m_pProps->sPar4, nullptr);
             // #i82544#
             if (bSetGetExpFieldUninitialized)
                 pGEField->SetLateInitialization();
@@ -2107,7 +2107,7 @@ SwXTextField::getPropertySetInfo()
     }
     const SfxItemPropertySet* pPropSet = aSwMapProvider.GetPropertySet(
                     lcl_GetPropertyMapOfService(m_pImpl->m_nServiceId));
-    uno::Reference<beans::XPropertySetInfo> xInfo = pPropSet->getPropertySetInfo();
+    const uno::Reference<beans::XPropertySetInfo>& xInfo = pPropSet->getPropertySetInfo();
     // extend PropertySetInfo!
     const uno::Sequence<beans::Property> aPropSeq = xInfo->getProperties();
     aRef = new SfxExtItemPropertySetInfo(

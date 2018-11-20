@@ -22,7 +22,7 @@
 
 #include <pres.hxx>
 #include <sddllapi.h>
-#include <svtools/treelistbox.hxx>
+#include <vcl/treelistbox.hxx>
 #include <svl/urlbmk.hxx>
 #include <tools/ref.hxx>
 #include "sdxfer.hxx"
@@ -57,9 +57,6 @@ namespace svt {
 class SD_DLLPUBLIC SdPageObjsTLB final : public SvTreeListBox
 {
     static bool  SAL_DLLPRIVATE bIsInDrag;      ///< static, in the case the navigator is deleted in ExecuteDrag
-
-    // set contenttree in SdNavigatorWin
-    bool                           bisInSdNavigatorWin;
 
     ::std::unique_ptr< ::svt::AcceleratorExecute> m_pAccel;
 
@@ -119,7 +116,7 @@ public:
 
 private:
 
-    VclPtr<vcl::Window>     mpParent;
+    VclPtr<SdNavigatorWin>  mpNavigator;
     const SdDrawDocument*   mpDoc;
     SdDrawDocument*         mpBookmarkDoc;
     SfxMedium*              mpMedium;
@@ -129,8 +126,6 @@ private:
     bool                    mbLinkableSelected;
     OUString                maDocName;
     ::sd::DrawDocShellRef   mxBookmarkDocShRef; ///< for the loading of bookmarks
-    VclPtr<SdNavigatorWin>  mpDropNavWin;
-    SfxViewFrame*           mpFrame;
     std::vector<OUString>   maTreeItem;
     bool                    mbSaveTreeItemState;
     OUString                maSelectionEntryText;
@@ -210,7 +205,7 @@ public:
     OUString                GetSelectedEntry();
 
     //Mark Current Entry
-    void                    SetSdNavigatorWinFlag(bool isInSdNavigatorWin){bisInSdNavigatorWin =isInSdNavigatorWin;};
+    void                    SetSdNavigator(SdNavigatorWin* pNavigator);
 
     void                    Clear();
     void                    SetSaveTreeItemStateFlag(bool bState){mbSaveTreeItemState = bState;}

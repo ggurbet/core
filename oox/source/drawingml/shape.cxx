@@ -175,6 +175,8 @@ Shape::Shape( const ShapePtr& pSourceShape )
 , maLinkedTxbxAttr()
 , mbHasLinkedTxbx(false)
 , maDiagramDoms( pSourceShape->maDiagramDoms )
+, mnZOrder(pSourceShape->mnZOrder)
+, mnZOrderOff(pSourceShape->mnZOrderOff)
 {}
 
 Shape::~Shape()
@@ -324,14 +326,6 @@ void Shape::applyShapeReference( const Shape& rReferencedShape, bool bUseText )
     mbFlipH = rReferencedShape.mbFlipH;
     mbFlipV = rReferencedShape.mbFlipV;
     mbHidden = rReferencedShape.mbHidden;
-}
-
-void Shape::addChildren( ::oox::core::XmlFilterBase& rFilterBase,
-                         const Theme* pTheme,
-                         const Reference< XShapes >& rxShapes,
-                         basegfx::B2DHomMatrix const & aTransformation )
-{
-    addChildren(rFilterBase, *this, pTheme, rxShapes, nullptr, aTransformation);
 }
 
 struct ActionLockGuard

@@ -79,6 +79,7 @@ public:
 
     virtual bool EventNotify( NotifyEvent& rNEvt ) override;
 
+    virtual void SetPos(const ScAddress& rPos) { maPos = rPos; };
     bool IsSelected() const { return mbActive;}
     void SetIndex(sal_Int32 nIndex);
     void SetHeight();
@@ -180,6 +181,9 @@ class ScColorScale2FrmtEntry : public ScCondFrmtEntry
     VclPtr<SvxColorListBox> maLbColMin;
     VclPtr<SvxColorListBox> maLbColMax;
 
+    VclPtr<FixedText> maFtMin;
+    VclPtr<FixedText> maFtMax;
+
     ScFormatEntry* createColorscaleEntry() const;
 
     virtual OUString GetExpressionString() override;
@@ -215,6 +219,9 @@ class ScColorScale3FrmtEntry : public ScCondFrmtEntry
     VclPtr<SvxColorListBox> maLbColMiddle;
     VclPtr<SvxColorListBox> maLbColMax;
 
+    VclPtr<FixedText> maFtMin;
+    VclPtr<FixedText> maFtMax;
+
     ScFormatEntry* createColorscaleEntry() const;
 
     virtual OUString GetExpressionString() override;
@@ -243,6 +250,9 @@ class ScDataBarFrmtEntry : public ScCondFrmtEntry
     VclPtr<Edit> maEdDataBarMax;
 
     VclPtr<PushButton> maBtOptions;
+
+    VclPtr<FixedText> maFtMin;
+    VclPtr<FixedText> maFtMax;
 
     std::unique_ptr<ScDataBarFormatData> mpDataBarData;
 

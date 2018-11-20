@@ -60,6 +60,7 @@
 #include <sortedobjs.hxx>
 #include <flyfrms.hxx>
 #include <UndoManager.hxx>
+#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 
@@ -387,10 +388,8 @@ void SwDrawView::MoveRepeatedObjs( const SwAnchoredObject& _rMovedAnchoredObj,
         }
 
         // move 'repeated' ones of 'child' objects
-        for ( std::vector<SdrObject*>::const_iterator aObjIter = _rMovedChildObjs.begin();
-              aObjIter != _rMovedChildObjs.end(); ++aObjIter )
+        for ( SdrObject* pChildObj : _rMovedChildObjs )
         {
-            SdrObject* pChildObj = (*aObjIter);
             {
                 const SwContact* pContact = ::GetUserCall( pChildObj );
                 assert(pContact && "SwDrawView::MoveRepeatedObjs(..) - missing contact object -> crash.");
@@ -856,7 +855,7 @@ void SwDrawView::CheckPossibilities()
                                     && RndStdIds::FLY_AS_CHAR == pFly->GetFormat()->GetAnchor().GetAnchorId()
                                     && pDoc->GetDocumentSettingManager().get( DocumentSettingId::MATH_BASELINE_ALIGNMENT );
                             if (bProtectMathPos)
-                                bMoveProtect = true;
+                                m_bMoveProtect = true;
                         }
                     }
                     else if(pGrfNd)
@@ -891,12 +890,12 @@ void SwDrawView::CheckPossibilities()
             }
         }
     }
-    bMoveProtect    |= bProtect;
-    bResizeProtect  |= bProtect || bSzProtect;
+    m_bMoveProtect    |= bProtect;
+    m_bResizeProtect  |= bProtect || bSzProtect;
 
     // RotGrfFlyFrame: allow rotation when SwGrfNode is selected and not size protected
-    bRotateFreeAllowed |= bRotate && !bProtect;
-    bRotate90Allowed |= bRotateFreeAllowed;
+    m_bRotateFreeAllowed |= bRotate && !bProtect;
+    m_bRotate90Allowed |= m_bRotateFreeAllowed;
 }
 
 /// replace marked <SwDrawVirtObj>-objects by its reference object for delete marked objects.
@@ -954,16 +953,9 @@ void SwDrawView::DeleteMarked()
         pTmpRoot->StartAllAction();
     pDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::EMPTY, nullptr);
     // replace marked <SwDrawVirtObj>-objects by its reference objects.
+    if (SdrPageView* pDrawPageView = m_rImp.GetPageView())
     {
-        SdrPageView* pDrawPageView = m_rImp.GetPageView();
-        if ( pDrawPageView )
-        {
-            SdrMarkView* pMarkView = &(pDrawPageView->GetView());
-            if ( pMarkView )
-            {
-                ReplaceMarkedDrawVirtObjs( *pMarkView );
-            }
-        }
+        ReplaceMarkedDrawVirtObjs(pDrawPageView->GetView());
     }
 
     // Check what textboxes have to be deleted afterwards.
@@ -984,8 +976,8 @@ void SwDrawView::DeleteMarked()
         ::FrameNotify( Imp().GetShell(), FLY_DRAG_END );
 
         // Only delete these now: earlier deletion would clear the mark list as well.
-        for (std::vector<SwFrameFormat*>::iterator i = aTextBoxesToDelete.begin(); i != aTextBoxesToDelete.end(); ++i)
-            pDoc->getIDocumentLayoutAccess().DelLayoutFormat(*i);
+        for (auto& rpTextBox : aTextBoxesToDelete)
+            pDoc->getIDocumentLayoutAccess().DelLayoutFormat(rpTextBox);
     }
     pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::EMPTY, nullptr);
     if( pTmpRoot )

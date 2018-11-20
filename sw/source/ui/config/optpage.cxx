@@ -141,18 +141,18 @@ SwContentOptPage::SwContentOptPage( vcl::Window* pParent,
 
         switch ( eFUnit )
         {
-            case FUNIT_MM:
-            case FUNIT_CM:
-            case FUNIT_POINT:
-            case FUNIT_PICA:
-            case FUNIT_INCH:
-            case FUNIT_CHAR:    // add two units , 'character' and 'line' , their ticks are not fixed
-            case FUNIT_LINE:
+            case FieldUnit::MM:
+            case FieldUnit::CM:
+            case FieldUnit::POINT:
+            case FieldUnit::PICA:
+            case FieldUnit::INCH:
+            case FieldUnit::CHAR:    // add two units , 'character' and 'line' , their ticks are not fixed
+            case FieldUnit::LINE:
             {
                 // only use these metrics
                 // a horizontal ruler has not the 'line' unit
                 // there isn't 'line' unit in HTML format
-                if ( eFUnit != FUNIT_LINE )
+                if ( eFUnit != FieldUnit::LINE )
                 {
                    sal_Int32 nPos = m_pMetricLB->InsertEntry( sMetric );
                    m_pMetricLB->SetEntryData( nPos, reinterpret_cast<void*>(static_cast<sal_IntPtr>(eFUnit)) );
@@ -160,7 +160,7 @@ SwContentOptPage::SwContentOptPage( vcl::Window* pParent,
                    m_pHMetric->SetEntryData( nPos, reinterpret_cast<void*>(static_cast<sal_IntPtr>(eFUnit)) );
                 }
                 // a vertical ruler has not the 'character' unit
-                if ( eFUnit != FUNIT_CHAR )
+                if ( eFUnit != FieldUnit::CHAR )
                 {
                    sal_Int32 nPos = m_pVMetric->InsertEntry( sMetric );
                    m_pVMetric->SetEntryData( nPos, reinterpret_cast<void*>(static_cast<sal_IntPtr>(eFUnit)) );
@@ -534,11 +534,8 @@ SwStdFontTabPage::SwStdFontTabPage( vcl::Window* pParent,
     m_bSetIdxDefault(true),
 
     m_bListHeightDefault    (false),
-    m_bSetListHeightDefault (false),
     m_bLabelHeightDefault   (false),
-    m_bSetLabelHeightDefault(false),
     m_bIndexHeightDefault     (false),
-    m_bSetIndexHeightDefault  (false),
 
     m_nFontGroup(FONT_GROUP_DEFAULT),
 
@@ -576,13 +573,6 @@ SwStdFontTabPage::SwStdFontTabPage( vcl::Window* pParent,
     m_pListBox    ->SetLoseFocusHdl( aFocusLink );
     m_pLabelBox   ->SetLoseFocusHdl( aFocusLink );
     m_pIdxBox     ->SetLoseFocusHdl( aFocusLink );
-
-    Link<Edit&,void> aModifyHeightLink( LINK( this, SwStdFontTabPage, ModifyHeightHdl));
-    m_pStandardHeightLB->SetModifyHdl( aModifyHeightLink );
-    m_pTitleHeightLB->   SetModifyHdl( aModifyHeightLink );
-    m_pListHeightLB->    SetModifyHdl( aModifyHeightLink );
-    m_pLabelHeightLB->   SetModifyHdl( aModifyHeightLink );
-    m_pIndexHeightLB->   SetModifyHdl( aModifyHeightLink );
 }
 
 SwStdFontTabPage::~SwStdFontTabPage()
@@ -648,9 +638,9 @@ bool SwStdFontTabPage::FillItemSet( SfxItemSet* )
 
     bool bStandardHeightChanged = m_pStandardHeightLB->IsValueChangedFromSaved();
     bool bTitleHeightChanged = m_pTitleHeightLB->IsValueChangedFromSaved();
-    bool bListHeightChanged = m_pListHeightLB->IsValueChangedFromSaved() && (!m_bListHeightDefault || !m_bSetListHeightDefault );
-    bool bLabelHeightChanged = m_pLabelHeightLB->IsValueChangedFromSaved() && (!m_bLabelHeightDefault || !m_bSetLabelHeightDefault );
-    bool bIndexHeightChanged = m_pIndexHeightLB->IsValueChangedFromSaved() && (!m_bIndexHeightDefault || !m_bSetIndexHeightDefault );
+    bool bListHeightChanged = m_pListHeightLB->IsValueChangedFromSaved() && !m_bListHeightDefault;
+    bool bLabelHeightChanged = m_pLabelHeightLB->IsValueChangedFromSaved() && !m_bLabelHeightDefault;
+    bool bIndexHeightChanged = m_pIndexHeightLB->IsValueChangedFromSaved() && !m_bIndexHeightDefault;
 
     m_pFontConfig->SetFontStandard(sStandard, m_nFontGroup);
     m_pFontConfig->SetFontOutline(sTitle, m_nFontGroup);
@@ -808,14 +798,13 @@ void SwStdFontTabPage::Reset( const SfxItemSet* rSet)
         }
 
         // insert to listboxes
-        for( std::set< OUString >::const_iterator it = aFontNames.begin();
-             it != aFontNames.end(); ++it )
+        for( const auto& rFontName : aFontNames )
         {
-            m_pStandardBox->InsertEntry( *it );
-            m_pTitleBox->InsertEntry( *it );
-            m_pListBox->InsertEntry( *it );
-            m_pLabelBox->InsertEntry( *it );
-            m_pIdxBox->InsertEntry( *it );
+            m_pStandardBox->InsertEntry( rFontName );
+            m_pTitleBox->InsertEntry( rFontName );
+            m_pListBox->InsertEntry( rFontName );
+            m_pLabelBox->InsertEntry( rFontName );
+            m_pIdxBox->InsertEntry( rFontName );
         }
     }
     if(SfxItemState::SET == rSet->GetItemState(FN_PARAM_STDFONTS, false, &pItem))
@@ -1007,32 +996,6 @@ IMPL_LINK( SwStdFontTabPage, ModifyHdl, Edit&, rBox, void )
     }
 }
 
-IMPL_LINK( SwStdFontTabPage, ModifyHeightHdl, Edit&, rBox, void )
-{
-    if(&rBox == m_pStandardHeightLB)
-    {
-        sal_Int64 nValue = static_cast<FontSizeBox&>(rBox).GetValue(FUNIT_TWIP);
-        if(m_bSetListHeightDefault && m_bListHeightDefault)
-            m_pListHeightLB->SetValue(nValue, FUNIT_TWIP);
-        if(m_bSetLabelHeightDefault && m_bLabelHeightDefault)
-            m_pLabelHeightLB->SetValue(nValue, FUNIT_TWIP);
-        if(m_bSetIndexHeightDefault && m_bIndexHeightDefault)
-            m_pIndexHeightLB->SetValue(nValue, FUNIT_TWIP);
-    }
-    else if(&rBox == m_pListHeightLB)
-    {
-        m_bSetListHeightDefault = false;
-    }
-    else if(&rBox == m_pLabelHeightLB)
-    {
-        m_bSetLabelHeightDefault = false;
-    }
-    else if(&rBox == m_pIndexHeightLB)
-    {
-        m_bSetIndexHeightDefault = false;
-    }
-}
-
 IMPL_LINK( SwStdFontTabPage, LoseFocusHdl, Control&, rControl, void )
 {
     ComboBox* pBox = static_cast<ComboBox*>(&rControl);
@@ -1131,16 +1094,16 @@ bool SwTableOptionsTabPage::FillItemSet( SfxItemSet* )
     SwModuleOptions* pModOpt = SW_MOD()->GetModuleConfig();
 
     if(m_pRowMoveMF->IsModified())
-        pModOpt->SetTableHMove( static_cast<sal_uInt16>(m_pRowMoveMF->Denormalize( m_pRowMoveMF->GetValue(FUNIT_TWIP))));
+        pModOpt->SetTableHMove( static_cast<sal_uInt16>(m_pRowMoveMF->Denormalize( m_pRowMoveMF->GetValue(FieldUnit::TWIP))));
 
     if(m_pColMoveMF->IsModified())
-        pModOpt->SetTableVMove( static_cast<sal_uInt16>(m_pColMoveMF->Denormalize( m_pColMoveMF->GetValue(FUNIT_TWIP))));
+        pModOpt->SetTableVMove( static_cast<sal_uInt16>(m_pColMoveMF->Denormalize( m_pColMoveMF->GetValue(FieldUnit::TWIP))));
 
     if(m_pRowInsertMF->IsModified())
-        pModOpt->SetTableHInsert(static_cast<sal_uInt16>(m_pRowInsertMF->Denormalize( m_pRowInsertMF->GetValue(FUNIT_TWIP))));
+        pModOpt->SetTableHInsert(static_cast<sal_uInt16>(m_pRowInsertMF->Denormalize( m_pRowInsertMF->GetValue(FieldUnit::TWIP))));
 
     if(m_pColInsertMF->IsModified())
-        pModOpt->SetTableVInsert(static_cast<sal_uInt16>(m_pColInsertMF->Denormalize( m_pColInsertMF->GetValue(FUNIT_TWIP))));
+        pModOpt->SetTableVInsert(static_cast<sal_uInt16>(m_pColInsertMF->Denormalize( m_pColInsertMF->GetValue(FieldUnit::TWIP))));
 
     TableChgMode eMode;
     if(m_pFixRB->IsChecked())
@@ -1225,10 +1188,10 @@ void SwTableOptionsTabPage::Reset( const SfxItemSet* rSet)
         ::SetFieldUnit( *m_pColInsertMF, eFieldUnit );
     }
 
-    m_pRowMoveMF->SetValue(m_pRowMoveMF->Normalize(pModOpt->GetTableHMove()), FUNIT_TWIP);
-    m_pColMoveMF->SetValue(m_pColMoveMF->Normalize(pModOpt->GetTableVMove()), FUNIT_TWIP);
-    m_pRowInsertMF->SetValue(m_pRowInsertMF->Normalize(pModOpt->GetTableHInsert()), FUNIT_TWIP);
-    m_pColInsertMF->SetValue(m_pColInsertMF->Normalize(pModOpt->GetTableVInsert()), FUNIT_TWIP);
+    m_pRowMoveMF->SetValue(m_pRowMoveMF->Normalize(pModOpt->GetTableHMove()), FieldUnit::TWIP);
+    m_pColMoveMF->SetValue(m_pColMoveMF->Normalize(pModOpt->GetTableVMove()), FieldUnit::TWIP);
+    m_pRowInsertMF->SetValue(m_pRowInsertMF->Normalize(pModOpt->GetTableHInsert()), FieldUnit::TWIP);
+    m_pColInsertMF->SetValue(m_pColInsertMF->Normalize(pModOpt->GetTableVInsert()), FieldUnit::TWIP);
 
     switch(pModOpt->GetTableMode())
     {
