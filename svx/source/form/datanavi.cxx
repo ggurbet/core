@@ -80,15 +80,6 @@ using namespace ::svx;
 namespace svxform
 {
 
-#if !HAVE_CPP_INLINE_VARIABLES
-constexpr OUStringLiteral ReplaceString::m_sDoc_API;
-constexpr OUStringLiteral ReplaceString::m_sInstance_API;
-constexpr OUStringLiteral ReplaceString::m_sNone_API;
-constexpr OUStringLiteral MethodString::m_sPost_API;
-constexpr OUStringLiteral MethodString::m_sPut_API;
-constexpr OUStringLiteral MethodString::m_sGet_API;
-#endif
-
     // properties of instance
     #define PN_INSTANCE_MODEL       "Instance"
     #define PN_INSTANCE_ID          "ID"
@@ -348,11 +339,11 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
         m_pItemList->SetToolBoxItemIds(m_nAddId, m_nAddElementId, m_nAddAttributeId, m_nEditId, m_nRemoveId);
 
         m_pToolBox->InsertSeparator(4,5);
-        m_pToolBox->SetItemImage(m_nAddId, Image(BitmapEx(RID_SVXBMP_ADD)));
-        m_pToolBox->SetItemImage(m_nAddElementId, Image(BitmapEx(RID_SVXBMP_ADD_ELEMENT)));
-        m_pToolBox->SetItemImage(m_nAddAttributeId, Image(BitmapEx(RID_SVXBMP_ADD_ATTRIBUTE)));
-        m_pToolBox->SetItemImage(m_nEditId, Image(BitmapEx(RID_SVXBMP_EDIT)));
-        m_pToolBox->SetItemImage(m_nRemoveId, Image(BitmapEx(RID_SVXBMP_REMOVE)));
+        m_pToolBox->SetItemImage(m_nAddId, Image(StockImage::Yes, RID_SVXBMP_ADD));
+        m_pToolBox->SetItemImage(m_nAddElementId, Image(StockImage::Yes, RID_SVXBMP_ADD_ELEMENT));
+        m_pToolBox->SetItemImage(m_nAddAttributeId, Image(StockImage::Yes, RID_SVXBMP_ADD_ATTRIBUTE));
+        m_pToolBox->SetItemImage(m_nEditId, Image(StockImage::Yes, RID_SVXBMP_EDIT));
+        m_pToolBox->SetItemImage(m_nRemoveId, Image(StockImage::Yes, RID_SVXBMP_REMOVE));
 
         if ( DGTInstance == m_eGroup )
             m_pToolBox->RemoveItem( m_pToolBox->GetItemPos( m_nAddId ) );
@@ -436,16 +427,16 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                     switch ( eChildType )
                     {
                         case css::xml::dom::NodeType_ATTRIBUTE_NODE:
-                            aExpImg = aCollImg = Image(BitmapEx(RID_SVXBMP_ATTRIBUTE));
+                            aExpImg = aCollImg = Image(StockImage::Yes, RID_SVXBMP_ATTRIBUTE);
                             break;
                         case css::xml::dom::NodeType_ELEMENT_NODE:
-                            aExpImg = aCollImg = Image(BitmapEx(RID_SVXBMP_ELEMENT));
+                            aExpImg = aCollImg = Image(StockImage::Yes, RID_SVXBMP_ELEMENT);
                             break;
                         case css::xml::dom::NodeType_TEXT_NODE:
-                            aExpImg = aCollImg = Image(BitmapEx(RID_SVXBMP_TEXT));
+                            aExpImg = aCollImg = Image(StockImage::Yes, RID_SVXBMP_TEXT);
                             break;
                         default:
-                            aExpImg = aCollImg = Image(BitmapEx(RID_SVXBMP_OTHER));
+                            aExpImg = aCollImg = Image(StockImage::Yes, RID_SVXBMP_OTHER);
                     }
 
                     OUString sName = m_xUIHelper->getNodeDisplayName( xChild, bShowDetails );
@@ -459,7 +450,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                             Reference< css::xml::dom::XNamedNodeMap > xMap = xChild->getAttributes();
                             if ( xMap.is() )
                             {
-                                aExpImg = aCollImg = Image(BitmapEx(RID_SVXBMP_ATTRIBUTE));
+                                aExpImg = aCollImg = Image(StockImage::Yes, RID_SVXBMP_ATTRIBUTE);
                                 sal_Int32 j, nMapLen = xMap->getLength();
                                 for ( j = 0; j < nMapLen; ++j )
                                 {
@@ -521,7 +512,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
             {
                 DataItemType eType = DITElement;
                 SvTreeListEntry* pEntry = m_pItemList->FirstSelected();
-                ItemNode* pNode = nullptr;
+                std::unique_ptr<ItemNode> pNode;
                 Reference< css::xml::dom::XNode > xParentNode;
                 Reference< XPropertySet > xNewBinding;
                 const char* pResId = nullptr;
@@ -606,7 +597,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                     {
                         SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while get binding for node" );
                     }
-                    pNode = new ItemNode( xNewNode );
+                    pNode.reset(new ItemNode( xNewNode ));
                 }
                 else
                 {
@@ -616,7 +607,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                         xNewBinding = xModel->createBinding();
                         Reference< XSet > xBindings( xModel->getBindings(), UNO_QUERY );
                         xBindings->insert( makeAny( xNewBinding ) );
-                        pNode = new ItemNode( xNewBinding );
+                        pNode.reset(new ItemNode( xNewBinding ));
                         eType = DITBinding;
                     }
                     catch ( Exception& )
@@ -625,7 +616,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                     }
                 }
 
-                ScopedVclPtrInstance< AddDataItemDialog > aDlg( this, pNode, m_xUIHelper );
+                ScopedVclPtrInstance< AddDataItemDialog > aDlg( this, pNode.get(), m_xUIHelper );
                 aDlg->SetText( SvxResId( pResId ) );
                 aDlg->InitText( eType );
                 short nReturn = aDlg->Execute();
@@ -633,7 +624,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                 {
                     if ( RET_OK == nReturn )
                     {
-                        SvTreeListEntry* pNewEntry = AddEntry( pNode, bIsElement );
+                        SvTreeListEntry* pNewEntry = AddEntry( std::move(pNode), bIsElement );
                         m_pItemList->MakeVisible( pNewEntry );
                         m_pItemList->Select( pNewEntry );
                         bIsDocModified = true;
@@ -648,7 +639,6 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                             if ( xNode.is() )
                                 xPNode = xNode->getParentNode();
                             DBG_ASSERT( !xPNode.is(), "XFormsPage::RemoveEntry(): node not removed" );
-                            delete pNode;
                         }
                         catch ( Exception& )
                         {
@@ -676,7 +666,6 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                             SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
                         }
                     }
-                    delete pNode;
                 }
             }
         }
@@ -796,10 +785,10 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
         return bHandled;
     }
 
-    SvTreeListEntry* XFormsPage::AddEntry( ItemNode* _pNewNode, bool _bIsElement )
+    SvTreeListEntry* XFormsPage::AddEntry( std::unique_ptr<ItemNode> _pNewNode, bool _bIsElement )
     {
         SvTreeListEntry* pParent = m_pItemList->FirstSelected();
-        Image aImage(BitmapEx(_bIsElement ? OUString(RID_SVXBMP_ELEMENT) : OUString(RID_SVXBMP_ATTRIBUTE)));
+        Image aImage(StockImage::Yes, _bIsElement ? OUString(RID_SVXBMP_ELEMENT) : OUString(RID_SVXBMP_ATTRIBUTE));
         OUString sName;
         try
         {
@@ -811,13 +800,13 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
             DBG_UNHANDLED_EXCEPTION("svx");
         }
         return m_pItemList->InsertEntry(
-            sName, aImage, aImage, pParent, false, TREELIST_APPEND, _pNewNode );
+            sName, aImage, aImage, pParent, false, TREELIST_APPEND, _pNewNode.release() );
     }
 
     SvTreeListEntry* XFormsPage::AddEntry( const Reference< XPropertySet >& _rEntry )
     {
         SvTreeListEntry* pEntry = nullptr;
-        Image aImage(BitmapEx(RID_SVXBMP_ELEMENT));
+        Image aImage(StockImage::Yes, RID_SVXBMP_ELEMENT);
 
         ItemNode* pNode = new ItemNode( _rEntry );
         OUString sTemp;
@@ -1168,7 +1157,7 @@ constexpr OUStringLiteral MethodString::m_sGet_API;
                         Reference < XEnumeration > xNum = xNumAccess->createEnumeration();
                         if ( xNum.is() && xNum->hasMoreElements() )
                         {
-                            Image aImage(BitmapEx(RID_SVXBMP_ELEMENT));
+                            Image aImage(StockImage::Yes, RID_SVXBMP_ELEMENT);
                             while ( xNum->hasMoreElements() )
                             {
                                 Reference< XPropertySet > xPropSet;

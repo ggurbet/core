@@ -281,7 +281,7 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
     m_nContextStAttrMin( 0 ),
     m_nSelectEntryCnt( 0 ),
     m_nOpenParaToken( HtmlTokenId::NONE ),
-    m_eJumpTo( JUMPTO_NONE ),
+    m_eJumpTo( JumpToMarks::NONE ),
 #ifdef DBG_UTIL
     m_nContinue( 0 ),
 #endif
@@ -382,7 +382,7 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
             m_sJmpMark = pMed->GetURLObject().GetMark();
             if( !m_sJmpMark.isEmpty() )
             {
-                m_eJumpTo = JUMPTO_MARK;
+                m_eJumpTo = JumpToMarks::Mark;
                 sal_Int32 nLastPos = m_sJmpMark.lastIndexOf( cMarkSeparator );
                 sal_Int32 nPos =  nLastPos != -1 ? nLastPos : 0;
 
@@ -396,15 +396,15 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
                 {
                     sCmp = sCmp.toAsciiLowerCase();
                     if( sCmp == "region" )
-                        m_eJumpTo = JUMPTO_REGION;
+                        m_eJumpTo = JumpToMarks::Region;
                     else if( sCmp == "table" )
-                        m_eJumpTo = JUMPTO_TABLE;
+                        m_eJumpTo = JumpToMarks::Table;
                     else if( sCmp == "graphic" )
-                        m_eJumpTo = JUMPTO_GRAPHIC;
+                        m_eJumpTo = JumpToMarks::Graphic;
                     else if( sCmp == "outline" ||
                             sCmp == "text" ||
                             sCmp == "frame" )
-                        m_eJumpTo = JUMPTO_NONE;  // this is nothing valid!
+                        m_eJumpTo = JumpToMarks::NONE;  // this is nothing valid!
                     else
                         // otherwise this is a normal (book)mark
                         nPos = -1;
@@ -415,7 +415,7 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
                 if( nPos != -1 )
                     m_sJmpMark = m_sJmpMark.copy( 0, nPos );
                 if( m_sJmpMark.isEmpty() )
-                    m_eJumpTo = JUMPTO_NONE;
+                    m_eJumpTo = JumpToMarks::NONE;
             }
         }
     }
@@ -1256,7 +1256,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
             case HtmlTokenId::UNKNOWNCONTROL_OFF:
                 if( m_aUnknownToken != sSaveToken )
                     return;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case HtmlTokenId::FRAMESET_ON:
             case HtmlTokenId::HEAD_OFF:
             case HtmlTokenId::BODY_ON:
@@ -1447,7 +1447,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
         else
             bGetIDOption = true;
             // <BR>s in <PRE> resemble true LFs, hence no break
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case HtmlTokenId::NEWPARA:
         // CR in PRE/LISTING/XMP
@@ -2069,7 +2069,7 @@ void SwHTMLParser::NextToken( HtmlTokenId nToken )
             !sSaveToken.isEmpty() && '!' != sSaveToken[0] &&
             '%' != sSaveToken[0] )
             m_aUnknownToken = sSaveToken;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     default:
         bInsertUnknown = m_bKeepUnknown;
@@ -2473,7 +2473,7 @@ void SwHTMLParser::AddParSpace()
             bool bIsCJK = false;
             bool bIsCTL = false;
 
-            const size_t nCntAttr = (pTextNode  && pTextNode->GetpSwpHints())
+            const size_t nCntAttr = pTextNode->GetpSwpHints()
                             ? pTextNode->GetSwpHints().Count() : 0;
 
             for(size_t i = 0; i < nCntAttr; ++i)
@@ -2862,10 +2862,10 @@ void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
                             ::sw::mark::InsertMode::New);
 
                         // jump to bookmark
-                        if( JUMPTO_MARK == m_eJumpTo && pNewMark->GetName() == m_sJmpMark )
+                        if( JumpToMarks::Mark == m_eJumpTo && pNewMark->GetName() == m_sJmpMark )
                         {
                             m_bChkJumpMark = true;
-                            m_eJumpTo = JUMPTO_NONE;
+                            m_eJumpTo = JumpToMarks::NONE;
                         }
                     }
                     break;
@@ -2893,8 +2893,7 @@ void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
 
                 case RES_LR_SPACE:
                     if( pAttrPam->GetPoint()->nNode.GetIndex() ==
-                        pAttrPam->GetMark()->nNode.GetIndex() &&
-                        pCNd )
+                        pAttrPam->GetMark()->nNode.GetIndex())
                     {
                         // because of numbering set this attribute directly at node
                         pCNd->SetAttr( *pAttr->m_pItem );
@@ -2902,7 +2901,7 @@ void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
                     }
                     OSL_ENSURE( false,
                             "LRSpace set over multiple paragraphs!" );
-                    SAL_FALLTHROUGH; // (shouldn't reach this point anyway)
+                    [[fallthrough]]; // (shouldn't reach this point anyway)
 
                 // tdf#94088 expand RES_BACKGROUND to the new fill attribute
                 // definitions in the range [XATTR_FILL_FIRST .. XATTR_FILL_LAST].
@@ -2921,11 +2920,11 @@ void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
 
                     // maybe jump to a bookmark
                     if( RES_TXTATR_INETFMT == nWhich &&
-                        JUMPTO_MARK == m_eJumpTo &&
+                        JumpToMarks::Mark == m_eJumpTo &&
                         m_sJmpMark == static_cast<SwFormatINetFormat*>(pAttr->m_pItem.get())->GetName() )
                     {
                         m_bChkJumpMark = true;
-                        m_eJumpTo = JUMPTO_NONE;
+                        m_eJumpTo = JumpToMarks::NONE;
                     }
 
                     m_xDoc->getIDocumentContentOperations().InsertPoolItem( *pAttrPam, *pAttr->m_pItem, SetAttrMode::DONTREPLACE );
@@ -3924,12 +3923,12 @@ void SwHTMLParser::NewPara()
 
     // parse styles (Don't consider class. This is only possible as long as none of
     // the CSS1 properties of the class must be formatted hard!!!)
-    if( HasStyleOptions( aStyle, aId, aEmptyOUStr, &aLang, &aDir ) )
+    if (HasStyleOptions(aStyle, aId, OUString(), &aLang, &aDir))
     {
         SfxItemSet aItemSet( m_xDoc->GetAttrPool(), m_pCSS1Parser->GetWhichMap() );
         SvxCSS1PropertyInfo aPropInfo;
 
-        if( ParseStyleOptions( aStyle, aId, aEmptyOUStr, aItemSet, aPropInfo, &aLang, &aDir ) )
+        if (ParseStyleOptions(aStyle, aId, OUString(), aItemSet, aPropInfo, &aLang, &aDir))
         {
             OSL_ENSURE( aClass.isEmpty() || !m_pCSS1Parser->GetClass( aClass ),
                     "Class is not considered" );
@@ -4058,12 +4057,12 @@ void SwHTMLParser::NewHeading( HtmlTokenId nToken )
     std::unique_ptr<HTMLAttrContext> xCntxt(new HTMLAttrContext(nToken, nTextColl, aClass));
 
     // parse styles (regarding class see also NewPara)
-    if( HasStyleOptions( aStyle, aId, aEmptyOUStr, &aLang, &aDir ) )
+    if (HasStyleOptions(aStyle, aId, OUString(), &aLang, &aDir))
     {
         SfxItemSet aItemSet( m_xDoc->GetAttrPool(), m_pCSS1Parser->GetWhichMap() );
         SvxCSS1PropertyInfo aPropInfo;
 
-        if( ParseStyleOptions( aStyle, aId, aEmptyOUStr, aItemSet, aPropInfo, &aLang, &aDir ) )
+        if (ParseStyleOptions(aStyle, aId, OUString(), aItemSet, aPropInfo, &aLang, &aDir))
         {
             OSL_ENSURE( aClass.isEmpty() || !m_pCSS1Parser->GetClass( aClass ),
                     "Class is not considered" );
@@ -4167,8 +4166,8 @@ void SwHTMLParser::NewTextFormatColl( HtmlTokenId nToken, sal_uInt16 nColl )
         // These both tags will be mapped to the PRE style. For the case that a
         // a CLASS exists we will delete it so that we don't get the CLASS of
         // the PRE style.
-        aClass = aEmptyOUStr;
-        SAL_FALLTHROUGH;
+        aClass.clear();
+        [[fallthrough]];
     case HtmlTokenId::BLOCKQUOTE_ON:
     case HtmlTokenId::BLOCKQUOTE30_ON:
     case HtmlTokenId::PREFORMTXT_ON:
@@ -4194,12 +4193,12 @@ void SwHTMLParser::NewTextFormatColl( HtmlTokenId nToken, sal_uInt16 nColl )
     std::unique_ptr<HTMLAttrContext> xCntxt(new HTMLAttrContext(nToken, nColl, aClass));
 
     // parse styles (regarding class see also NewPara)
-    if( HasStyleOptions( aStyle, aId, aEmptyOUStr, &aLang, &aDir ) )
+    if (HasStyleOptions(aStyle, aId, OUString(), &aLang, &aDir))
     {
         SfxItemSet aItemSet( m_xDoc->GetAttrPool(), m_pCSS1Parser->GetWhichMap() );
         SvxCSS1PropertyInfo aPropInfo;
 
-        if( ParseStyleOptions( aStyle, aId, aEmptyOUStr, aItemSet, aPropInfo, &aLang, &aDir ) )
+        if (ParseStyleOptions(aStyle, aId, OUString(), aItemSet, aPropInfo, &aLang, &aDir))
         {
             OSL_ENSURE( aClass.isEmpty() || !m_pCSS1Parser->GetClass( aClass ),
                     "Class is not considered" );
@@ -4334,7 +4333,7 @@ void SwHTMLParser::NewDefList()
 
         // and the one of the DT-style of the current level
         SvxLRSpaceItem rLRSpace =
-            m_pCSS1Parser->GetTextFormatColl( RES_POOLCOLL_HTML_DD, aEmptyOUStr )
+            m_pCSS1Parser->GetTextFormatColl(RES_POOLCOLL_HTML_DD, OUString())
                        ->GetLRSpace();
         nLeft = nLeft + static_cast< sal_uInt16 >(rLRSpace.GetTextLeft());
     }
@@ -4554,7 +4553,7 @@ void SwHTMLParser::SetTextCollAttrs( HTMLAttrContext *pContext )
     SwTextFormatColl *pCollToSet = nullptr; // the style to set
     SfxItemSet *pItemSet = nullptr;         // set of hard attributes
     sal_uInt16 nTopColl = pContext ? pContext->GetTextFormatColl() : 0;
-    const OUString& rTopClass = pContext ? pContext->GetClass() : aEmptyOUStr;
+    const OUString rTopClass = pContext ? pContext->GetClass() : OUString();
     sal_uInt16 nDfltColl = RES_POOLCOLL_TEXT;
 
     bool bInPRE=false;                          // some context info
@@ -4682,7 +4681,7 @@ void SwHTMLParser::SetTextCollAttrs( HTMLAttrContext *pContext )
             if( RES_POOLCOLL_HTML_DD == nTopColl )
             {
                 const SvxLRSpaceItem& rDTLRSpace = m_pCSS1Parser
-                    ->GetTextFormatColl( RES_POOLCOLL_HTML_DT, aEmptyOUStr )
+                    ->GetTextFormatColl(RES_POOLCOLL_HTML_DT, OUString())
                     ->GetLRSpace();
                 nLeft -= rDTLRSpace.GetTextLeft();
                 nRight -= rDTLRSpace.GetRight();
@@ -4722,13 +4721,9 @@ void SwHTMLParser::SetTextCollAttrs( HTMLAttrContext *pContext )
     }
 
     // remove previous hard attribution of paragraph
-    if( !m_aParaAttrs.empty() )
-    {
-        for( auto pParaAttr : m_aParaAttrs )
-            pParaAttr->Invalidate();
-
-        m_aParaAttrs.clear();
-    }
+    for( auto pParaAttr : m_aParaAttrs )
+        pParaAttr->Invalidate();
+    m_aParaAttrs.clear();
 
     // set the style
     m_xDoc->SetTextFormatColl( *m_pPam, pCollToSet );
@@ -4804,12 +4799,12 @@ void SwHTMLParser::NewCharFormat( HtmlTokenId nToken )
     OSL_ENSURE( pCFormat, "No character format found for token" );
 
     // parse styles (regarding class see also NewPara)
-    if( HasStyleOptions( aStyle, aId, aEmptyOUStr, &aLang, &aDir ) )
+    if (HasStyleOptions(aStyle, aId, OUString(), &aLang, &aDir))
     {
         SfxItemSet aItemSet( m_xDoc->GetAttrPool(), m_pCSS1Parser->GetWhichMap() );
         SvxCSS1PropertyInfo aPropInfo;
 
-        if( ParseStyleOptions( aStyle, aId, aEmptyOUStr, aItemSet, aPropInfo, &aLang, &aDir ) )
+        if (ParseStyleOptions(aStyle, aId, OUString(), aItemSet, aPropInfo, &aLang, &aDir))
         {
             OSL_ENSURE( aClass.isEmpty() || !m_pCSS1Parser->GetClass( aClass ),
                     "Class is not considered" );
@@ -4916,7 +4911,7 @@ void SwHTMLParser::InsertSpacer()
     case HTML_SPTYPE_VERT:
         if( nSize > 0 )
         {
-            if( nSize && Application::GetDefaultDevice() )
+            if (Application::GetDefaultDevice())
             {
                 nSize = Application::GetDefaultDevice()
                             ->PixelToLogic( Size(0,nSize),
@@ -4964,7 +4959,7 @@ void SwHTMLParser::InsertSpacer()
             // If the paragraph is still empty, set first line
             // indentation, otherwise apply letter spacing over a space.
 
-            if( nSize && Application::GetDefaultDevice() )
+            if (Application::GetDefaultDevice())
             {
                 nSize = Application::GetDefaultDevice()
                             ->PixelToLogic( Size(nSize,0),
@@ -5264,7 +5259,7 @@ void SwHTMLParser::InsertHorzRule()
 
     // ...and save in a context
     std::unique_ptr<HTMLAttrContext> xCntxt(
-        new HTMLAttrContext(HtmlTokenId::HORZRULE, RES_POOLCOLL_HTML_HR, aEmptyOUStr));
+        new HTMLAttrContext(HtmlTokenId::HORZRULE, RES_POOLCOLL_HTML_HR, OUString()));
 
     PushContext(xCntxt);
 
@@ -5432,7 +5427,7 @@ void SwHTMLParser::ParseMoreMetaOptions()
 
     SwPostItField aPostItField(
         static_cast<SwPostItFieldType*>(m_xDoc->getIDocumentFieldsAccess().GetSysFieldType( SwFieldIds::Postit )),
-        aEmptyOUStr, sText.makeStringAndClear(), aEmptyOUStr, aEmptyOUStr, DateTime( DateTime::SYSTEM ) );
+        OUString(), sText.makeStringAndClear(), OUString(), OUString(), DateTime(DateTime::SYSTEM));
     SwFormatField aFormatField( aPostItField );
     InsertAttr( aFormatField,  false );
 }

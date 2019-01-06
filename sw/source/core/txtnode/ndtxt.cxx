@@ -187,7 +187,7 @@ SwTextNode *SwNodes::MakeTextNode( const SwNodeIndex & rWhere,
                 aTmp = *pNd->StartOfSectionNode();
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             if( rWhere == aTmp )
                 aTmp -= 2;
@@ -846,16 +846,22 @@ void MoveDeletedPrevFrames(SwTextNode & rDeletedPrev, SwTextNode & rNode)
     SwIterator<SwTextFrame, SwTextNode, sw::IteratorMode::UnwrapMulti> aIter(rDeletedPrev);
     for (SwTextFrame* pFrame = aIter.First(); pFrame; pFrame = aIter.Next())
     {
-        frames.push_back(pFrame);
+        if (pFrame->getRootFrame()->IsHideRedlines())
+        {
+            frames.push_back(pFrame);
+        }
     }
     {
         auto frames2(frames);
         SwIterator<SwTextFrame, SwTextNode, sw::IteratorMode::UnwrapMulti> aIt(rNode);
         for (SwTextFrame* pFrame = aIt.First(); pFrame; pFrame = aIt.Next())
         {
-            auto const it(std::find(frames2.begin(), frames2.end(), pFrame));
-            assert(it != frames2.end());
-            frames2.erase(it);
+            if (pFrame->getRootFrame()->IsHideRedlines())
+            {
+                auto const it(std::find(frames2.begin(), frames2.end(), pFrame));
+                assert(it != frames2.end());
+                frames2.erase(it);
+            }
         }
         assert(frames2.empty());
     }
@@ -905,6 +911,7 @@ void CheckResetRedlineMergeFlag(SwTextNode & rNode, Recreate const eRecreateMerg
                 frames.push_back(pFrame);
             }
         }
+        auto eMode(sw::FrameMode::Existing);
         for (SwTextFrame * pFrame : frames)
         {
             SwTextNode & rFirstNode(pFrame->GetMergedPara()
@@ -912,10 +919,11 @@ void CheckResetRedlineMergeFlag(SwTextNode & rNode, Recreate const eRecreateMerg
                 : *pMergeNode);
             assert(rFirstNode.GetIndex() <= rNode.GetIndex());
             pFrame->SetMergedPara(sw::CheckParaRedlineMerge(
-                        *pFrame, rFirstNode, sw::FrameMode::Existing));
+                        *pFrame, rFirstNode, eMode));
             assert(pFrame->GetMergedPara());
             assert(pFrame->GetMergedPara()->listener.IsListeningTo(&rNode));
             assert(rNode.GetIndex() <= pFrame->GetMergedPara()->pLastNode->GetIndex());
+            eMode = sw::FrameMode::New; // Existing is not idempotent!
         }
     }
     else if (rNode.GetRedlineMergeFlag() != SwNode::Merge::None)
@@ -1535,7 +1543,7 @@ void SwTextNode::Update(
     // Update the paragraph signatures.
     if (SwEditShell* pEditShell = GetDoc()->GetEditShell())
     {
-        pEditShell->ValidateCurrentParagraphSignatures(true);
+        pEditShell->ValidateParagraphSignatures(this, true);
     }
 
     // Inform LOK clients about change in position of redlines (if any)
@@ -2012,7 +2020,7 @@ void SwTextNode::CopyText( SwTextNode *const pDest,
 {
     CHECK_SWPHINTS_IF_FRM(this);
     CHECK_SWPHINTS(pDest);
-    sal_Int32 nTextStartIdx = rStart.GetIndex();
+    const sal_Int32 nTextStartIdx = rStart.GetIndex();
     sal_Int32 nDestStart = rDestStart.GetIndex();      // remember old Pos
 
     if (pDest->GetDoc()->IsClipBoard() && GetNum())
@@ -2103,7 +2111,6 @@ void SwTextNode::CopyText( SwTextNode *const pDest,
 
     // Fetch end only now, because copying into self updates the start index
     // and all attributes
-    nTextStartIdx = rStart.GetIndex();
     const sal_Int32 nEnd = nTextStartIdx + nLen;
 
     // 2. copy attributes
@@ -2251,8 +2258,10 @@ void SwTextNode::CopyText( SwTextNode *const pDest,
         std::reverse(metaFieldRanges.begin(), metaFieldRanges.end());
         for (const auto& pair : metaFieldRanges)
         {
-            const SwIndex aIdx(pDest, pair.first);
-            pDest->EraseText(aIdx, pair.second - pair.first);
+            const SwIndex aIdx(pDest, std::max<sal_Int32>(pair.first - nTextStartIdx, 0));
+            const sal_Int32 nCount = pair.second - pair.first;
+            if (nCount > 0)
+                pDest->EraseText(aIdx, nCount);
         }
     }
 
@@ -3390,6 +3399,10 @@ OUString SwTextNode::GetExpandText(SwRootFrame const*const pLayout,
 
 {
     ExpandMode eMode = ExpandMode::ExpandFields | eAdditionalMode;
+    if (pLayout && pLayout->IsHideRedlines())
+    {
+        eMode |= ExpandMode::HideDeletions;
+    }
 
     ModelToViewHelper aConversionMap(*this, pLayout, eMode);
     const OUString aExpandText = aConversionMap.getViewText();
@@ -4284,8 +4297,7 @@ void SwTextNode::AddToList()
         {
             if (pFrame->getRootFrame()->IsHideRedlines())
             {
-                sw::MergedPara const*const pMerged = pFrame->GetMergedPara();
-                if (!pMerged || this == pMerged->pParaPropsNode)
+                if (pFrame->GetTextNodeForParaProps() == this)
                 {
                     AddToListRLHidden();
                 }
@@ -4342,8 +4354,6 @@ void SwTextNode::RemoveFromListRLHidden()
 
 bool SwTextNode::IsInList() const
 {
-    // it looks like an unconnected Num can't happen, except in the undo-array
-    assert(!GetNum() || GetNum()->GetParent() || !GetNodes().IsDocNodes());
     return GetNum() != nullptr && GetNum()->GetParent() != nullptr;
 }
 
@@ -4939,7 +4949,7 @@ namespace {
         public:
             HandleResetAttrAtTextNode( SwTextNode& rTextNode,
                                       const sal_uInt16 nWhich1,
-                                      const sal_uInt16 nWhich2 );
+                                      sal_uInt16 nWhich2 );
             HandleResetAttrAtTextNode( SwTextNode& rTextNode,
                                       const std::vector<sal_uInt16>& rWhichArr );
             explicit HandleResetAttrAtTextNode( SwTextNode& rTextNode );
@@ -4952,105 +4962,26 @@ namespace {
             bool mbUpdateListLevel;
             bool mbUpdateListRestart;
             bool mbUpdateListCount;
+
+            void init( const std::vector<sal_uInt16>& rWhichArr );
     };
 
     HandleResetAttrAtTextNode::HandleResetAttrAtTextNode( SwTextNode& rTextNode,
                                                         const sal_uInt16 nWhich1,
-                                                        const sal_uInt16 nWhich2 )
+                                                        sal_uInt16 nWhich2 )
         : mrTextNode( rTextNode ),
           mbListStyleOrIdReset( false ),
           mbUpdateListLevel( false ),
           mbUpdateListRestart( false ),
           mbUpdateListCount( false )
     {
-        bool bRemoveFromList( false );
-        if ( nWhich2 != 0 && nWhich2 > nWhich1 )
-        {
-            // RES_PARATR_NUMRULE and RES_PARATR_LIST_ID
-            if ( nWhich1 <= RES_PARATR_NUMRULE && RES_PARATR_NUMRULE <= nWhich2 )
-            {
-                bRemoveFromList = mrTextNode.GetNumRule() != nullptr;
-                mbListStyleOrIdReset = true;
-            }
-            else if ( nWhich1 <= RES_PARATR_LIST_ID && RES_PARATR_LIST_ID <= nWhich2 )
-            {
-                bRemoveFromList = mrTextNode.GetpSwAttrSet() &&
-                    mrTextNode.GetpSwAttrSet()->GetItemState( RES_PARATR_LIST_ID, false ) == SfxItemState::SET;
-                // #i92898#
-                mbListStyleOrIdReset = true;
-            }
+        if ( nWhich2 < nWhich1 )
+            nWhich2 = nWhich1;
+        std::vector<sal_uInt16> rWhichArr;
+        for ( sal_uInt16 nWhich = nWhich1; nWhich <= nWhich2; ++nWhich )
+            rWhichArr.push_back( nWhich );
 
-            if ( !bRemoveFromList )
-            {
-                // RES_PARATR_LIST_LEVEL
-                mbUpdateListLevel = ( nWhich1 <= RES_PARATR_LIST_LEVEL &&
-                                      RES_PARATR_LIST_LEVEL <= nWhich2 &&
-                                      mrTextNode.HasAttrListLevel() );
-
-                // RES_PARATR_LIST_ISRESTART and RES_PARATR_LIST_RESTARTVALUE
-                mbUpdateListRestart =
-                    ( nWhich1 <= RES_PARATR_LIST_ISRESTART && RES_PARATR_LIST_ISRESTART <= nWhich2 &&
-                      mrTextNode.IsListRestart() ) ||
-                    ( nWhich1 <= RES_PARATR_LIST_RESTARTVALUE && RES_PARATR_LIST_RESTARTVALUE <= nWhich2 &&
-                      mrTextNode.HasAttrListRestartValue() );
-
-                // RES_PARATR_LIST_ISCOUNTED
-                mbUpdateListCount =
-                    ( nWhich1 <= RES_PARATR_LIST_ISCOUNTED && RES_PARATR_LIST_ISCOUNTED <= nWhich2 &&
-                      !mrTextNode.IsCountedInList() );
-            }
-
-            // #i70748#
-            // RES_PARATR_OUTLINELEVEL
-            if ( nWhich1 <= RES_PARATR_OUTLINELEVEL && RES_PARATR_OUTLINELEVEL <= nWhich2 )
-            {
-                mrTextNode.ResetEmptyListStyleDueToResetOutlineLevelAttr();
-            }
-        }
-        else
-        {
-            // RES_PARATR_NUMRULE and RES_PARATR_LIST_ID
-            if ( nWhich1 == RES_PARATR_NUMRULE )
-            {
-                bRemoveFromList = mrTextNode.GetNumRule() != nullptr;
-                mbListStyleOrIdReset = true;
-            }
-            else if ( nWhich1 == RES_PARATR_LIST_ID )
-            {
-                bRemoveFromList = mrTextNode.GetpSwAttrSet() &&
-                    mrTextNode.GetpSwAttrSet()->GetItemState( RES_PARATR_LIST_ID, false ) == SfxItemState::SET;
-                // #i92898#
-                mbListStyleOrIdReset = true;
-            }
-            // #i70748#
-            // RES_PARATR_OUTLINELEVEL
-            else if ( nWhich1 == RES_PARATR_OUTLINELEVEL )
-            {
-                mrTextNode.ResetEmptyListStyleDueToResetOutlineLevelAttr();
-            }
-
-            if ( !bRemoveFromList )
-            {
-                // RES_PARATR_LIST_LEVEL
-                mbUpdateListLevel = nWhich1 == RES_PARATR_LIST_LEVEL &&
-                                    mrTextNode.HasAttrListLevel();
-
-                // RES_PARATR_LIST_ISRESTART and RES_PARATR_LIST_RESTARTVALUE
-                mbUpdateListRestart = ( nWhich1 == RES_PARATR_LIST_ISRESTART &&
-                                        mrTextNode.IsListRestart() ) ||
-                                      ( nWhich1 == RES_PARATR_LIST_RESTARTVALUE &&
-                                        mrTextNode.HasAttrListRestartValue() );
-
-                // RES_PARATR_LIST_ISCOUNTED
-                mbUpdateListCount = nWhich1 == RES_PARATR_LIST_ISCOUNTED &&
-                                    !mrTextNode.IsCountedInList();
-            }
-        }
-
-        if ( bRemoveFromList && mrTextNode.IsInList() )
-        {
-            mrTextNode.RemoveFromList();
-        }
+        init( rWhichArr );
     }
 
     HandleResetAttrAtTextNode::HandleResetAttrAtTextNode( SwTextNode& rTextNode,
@@ -5061,11 +4992,30 @@ namespace {
           mbUpdateListRestart( false ),
           mbUpdateListCount( false )
     {
+        init( rWhichArr );
+    }
+
+    HandleResetAttrAtTextNode::HandleResetAttrAtTextNode( SwTextNode& rTextNode )
+        : mrTextNode( rTextNode ),
+          mbListStyleOrIdReset( true ),
+          mbUpdateListLevel( false ),
+          mbUpdateListRestart( false ),
+          mbUpdateListCount( false )
+    {
+        if ( rTextNode.IsInList() )
+        {
+            rTextNode.RemoveFromList();
+        }
+        // #i70748#
+        mrTextNode.ResetEmptyListStyleDueToResetOutlineLevelAttr();
+    }
+
+    void HandleResetAttrAtTextNode::init( const std::vector<sal_uInt16>& rWhichArr )
+    {
         bool bRemoveFromList( false );
         {
             for (const auto& rWhich : rWhichArr)
             {
-                // RES_PARATR_NUMRULE and RES_PARATR_LIST_ID
                 if ( rWhich == RES_PARATR_NUMRULE )
                 {
                     bRemoveFromList = bRemoveFromList ||
@@ -5077,15 +5027,10 @@ namespace {
                     bRemoveFromList = bRemoveFromList ||
                         ( mrTextNode.GetpSwAttrSet() &&
                           mrTextNode.GetpSwAttrSet()->GetItemState( RES_PARATR_LIST_ID, false ) == SfxItemState::SET );
-                    // #i92898#
                     mbListStyleOrIdReset = true;
                 }
-                // #i70748#
-                // RES_PARATR_OUTLINELEVEL
                 else if ( rWhich == RES_PARATR_OUTLINELEVEL )
-                {
                     mrTextNode.ResetEmptyListStyleDueToResetOutlineLevelAttr();
-                }
 
                 if ( !bRemoveFromList )
                 {
@@ -5113,22 +5058,6 @@ namespace {
         {
             mrTextNode.RemoveFromList();
         }
-    }
-
-    HandleResetAttrAtTextNode::HandleResetAttrAtTextNode( SwTextNode& rTextNode )
-        : mrTextNode( rTextNode ),
-          mbListStyleOrIdReset( false ),
-          mbUpdateListLevel( false ),
-          mbUpdateListRestart( false ),
-          mbUpdateListCount( false )
-    {
-        mbListStyleOrIdReset = true;
-        if ( rTextNode.IsInList() )
-        {
-            rTextNode.RemoveFromList();
-        }
-        // #i70748#
-        mrTextNode.ResetEmptyListStyleDueToResetOutlineLevelAttr();
     }
 
     HandleResetAttrAtTextNode::~HandleResetAttrAtTextNode() COVERITY_NOEXCEPT_FALSE
@@ -5285,7 +5214,7 @@ void SwTextNode::dumpAsXml(xmlTextWriterPtr pWriter) const
 sal_uInt32 SwTextNode::GetRsid( sal_Int32 nStt, sal_Int32 nEnd ) const
 {
     SfxItemSet aSet( const_cast<SfxItemPool&>(static_cast<SfxItemPool const &>(GetDoc()->GetAttrPool())), svl::Items<RES_CHRATR_RSID, RES_CHRATR_RSID>{} );
-    if ( GetAttr(aSet, nStt, nEnd) )
+    if (GetParaAttr(aSet, nStt, nEnd))
     {
         const SvxRsidItem* pRsid = aSet.GetItem<SvxRsidItem>(RES_CHRATR_RSID);
         if( pRsid )

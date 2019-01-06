@@ -39,6 +39,7 @@
 #include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/util/NumberFormatsSupplier.hpp>
 #include <comphelper/types.hxx>
+#include <comphelper/processfactory.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/itempool.hxx>
 #include <svx/sdrpaintwindow.hxx>
@@ -1172,8 +1173,8 @@ void DlgEditor::Print( Printer* pPrinter, const OUString& rTitle )    // not wor
     double nPaperSzHeight = aPaperSz.Height();
     double nBmpSzWidth = aBmpSz.Width();
     double nBmpSzHeight = aBmpSz.Height();
-    double nScaleX = (nPaperSzWidth / nBmpSzWidth );
-    double nScaleY = (nPaperSzHeight / nBmpSzHeight );
+    double nScaleX = nPaperSzWidth / nBmpSzWidth;
+    double nScaleY = nPaperSzHeight / nBmpSzHeight;
 
     Size aOutputSz;
     if( nBmpSzHeight * nScaleX <= nPaperSzHeight )

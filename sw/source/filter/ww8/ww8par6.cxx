@@ -169,7 +169,7 @@ void wwSection::SetDirection()
     {
         default:
             OSL_ENSURE(false, "Unknown layout type");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 0:
             meDir=SvxFrameDirection::Horizontal_LR_TB;
             break;
@@ -242,7 +242,7 @@ void SwWW8ImplReader::SetDocumentGrid(SwFrameFormat &rFormat, const wwSection &r
             break;
         default:
             OSL_ENSURE(false, "Unknown grid type");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 3:
             eType = GRID_LINES_CHARS;
             aGrid.SetSnapToChars(true);
@@ -310,6 +310,59 @@ void SwWW8ImplReader::SetDocumentGrid(SwFrameFormat &rFormat, const wwSection &r
     rFormat.SetFormatAttr(aGrid);
 }
 
+void SwWW8ImplReader::SetRelativeJustify( bool bRel )
+{
+    if ( m_pCurrentColl && StyleExists(m_nCurrentColl) ) // importing style
+        m_vColl[m_nCurrentColl].m_nRelativeJustify = bRel ? 1 : 0;
+    else if ( m_xPlcxMan && m_xPlcxMan->GetPap() ) // importing paragraph
+        m_xPlcxMan->GetPap()->nRelativeJustify = bRel ? 1 : 0;
+}
+
+bool SwWW8ImplReader::IsRelativeJustify()
+{
+    bool bRet = m_xWwFib->GetFIBVersion() >= ww::eWW8;
+    if ( bRet )
+    {
+        // if relativeJustify is undefined (-1), then check the parent style.
+        if ( m_pCurrentColl && StyleExists(m_nCurrentColl) )
+        {
+            sal_Int16 nRelative = m_vColl[m_nCurrentColl].m_nRelativeJustify;
+            if ( nRelative < 0 && m_nCurrentColl )
+                bRet = IsRelativeJustify( m_vColl[m_nCurrentColl].m_nBase );
+            else
+                bRet = nRelative > 0;
+        }
+        else if ( m_xPlcxMan && m_xPlcxMan->GetPap() )
+        {
+            sal_Int16 nRelative = m_xPlcxMan->GetPap()->nRelativeJustify;
+            if ( nRelative < 0 )
+                bRet = IsRelativeJustify( m_nCurrentColl );
+            else
+                bRet = nRelative > 0;
+        }
+    }
+
+    return bRet;
+}
+
+bool SwWW8ImplReader::IsRelativeJustify( sal_uInt16 nColl )
+{
+    assert( m_xWwFib->GetFIBVersion() >= ww::eWW8
+        && "pointless to search styles if relative justify is impossible");
+    bool bRet = true;
+    if ( StyleExists(nColl) )
+    {
+        // if relativeJustify is undefined (-1), then check the parent style.
+        sal_Int16 nRelative = m_vColl[nColl].m_nRelativeJustify;
+        if ( nColl == 0 || nRelative >= 0 )
+            bRet = nRelative > 0;
+        else if ( nColl != m_vColl[nColl].m_nBase )
+            bRet = IsRelativeJustify( m_vColl[nColl].m_nBase );
+    }
+
+    return bRet;
+}
+
 void SwWW8ImplReader::Read_ParaBiDi(sal_uInt16, const sal_uInt8* pData, short nLen)
 {
     if (nLen < 1)
@@ -319,11 +372,17 @@ void SwWW8ImplReader::Read_ParaBiDi(sal_uInt16, const sal_uInt8* pData, short nL
         SvxFrameDirection eDir =
             *pData ? SvxFrameDirection::Horizontal_RL_TB : SvxFrameDirection::Horizontal_LR_TB;
 
-        // Previous adjust or bidi values require changing paraAdjust.
-        // Only change if ParaBiDi doesn't match previous setting.
-        const bool bParentRTL = IsRightToLeft();
-        if ( (eDir == SvxFrameDirection::Horizontal_RL_TB && !bParentRTL) ||
-             (eDir == SvxFrameDirection::Horizontal_LR_TB && bParentRTL) )
+        // In eWW8+, justify can be absolute, or relative to BiDi
+        bool bBiDiSwap = IsRelativeJustify();
+        if ( bBiDiSwap )
+        {
+            // Only change if ParaBiDi doesn't match previous setting.
+            const bool bParentRTL = IsRightToLeft();
+            bBiDiSwap = (eDir == SvxFrameDirection::Horizontal_RL_TB && !bParentRTL)
+                     || (eDir == SvxFrameDirection::Horizontal_LR_TB && bParentRTL);
+        }
+
+        if ( bBiDiSwap )
         {
             const SvxAdjustItem* pItem = static_cast<const SvxAdjustItem*>(GetFormatAttr(RES_PARATR_ADJUST));
             if ( !pItem )
@@ -1577,8 +1636,19 @@ WW8FlyPara::WW8FlyPara(bool bIsVer67, const WW8FlyPara* pSrc /* = 0 */)
         memcpy( this, pSrc, sizeof( WW8FlyPara ) ); // Copy-Ctor
     else
     {
-        memset( this, 0, sizeof( WW8FlyPara ) );    // Default-Ctor
+        nSp26 = 0;
+        nSp27 = 0;
+        nSp45 = 0;
+        nSp28 = 0;
+        nLeMgn = 0;
+        nRiMgn = 0;
+        nUpMgn = 0;
+        nLoMgn = 0;
+        nSp29 = 0;
         nSp37 = 2;                                  // Default: wrapping
+        bBorderLines = false;
+        bGrafApo = false;
+        mbVertSet = false;
     }
     bVer67 = bIsVer67;
 }
@@ -2056,8 +2126,7 @@ WW8FlySet::WW8FlySet(SwWW8ImplReader& rReader, const WW8FlyPara* pFW,
     const WW8SwFlyPara* pFS, bool bGraf)
     : SfxItemSet(rReader.m_rDoc.GetAttrPool(),svl::Items<RES_FRMATR_BEGIN,RES_FRMATR_END-1>{})
 {
-    if (!rReader.m_bNewDoc)
-        Reader::ResetFrameFormatAttrs(*this);    // remove distance/border
+    Reader::ResetFrameFormatAttrs(*this);    // remove distance/border
                                             // position
     Put(SvxFrameDirectionItem(SvxFrameDirection::Horizontal_LR_TB, RES_FRAMEDIR));
 
@@ -2144,8 +2213,7 @@ WW8FlySet::WW8FlySet( SwWW8ImplReader& rReader, const SwPaM* pPaM,
 
 void WW8FlySet::Init(const SwWW8ImplReader& rReader, const SwPaM* pPaM)
 {
-    if (!rReader.m_bNewDoc)
-        Reader::ResetFrameFormatAttrs(*this);  // remove distance/borders
+    Reader::ResetFrameFormatAttrs(*this);  // remove distance/borders
 
     Put(SvxLRSpaceItem(RES_LR_SPACE)); //inline writer ole2 objects start with 0.2cm l/r
     SwFormatAnchor aAnchor(RndStdIds::FLY_AS_CHAR);
@@ -3407,7 +3475,7 @@ void SwWW8ImplReader::Read_Underline( sal_uInt16, const sal_uInt8* pData, short 
         switch( *pData )
         {
             case 2: bWordLine = true;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case 1: eUnderline = LINESTYLE_SINGLE;       break;
             case 3: eUnderline = LINESTYLE_DOUBLE;       break;
             case 4: eUnderline = LINESTYLE_DOTTED;       break;
@@ -4414,7 +4482,7 @@ void SwWW8ImplReader::Read_IdctHint( sal_uInt16, const sal_uInt8* pData, short n
     }
 }
 
-void SwWW8ImplReader::Read_Justify( sal_uInt16, const sal_uInt8* pData, short nLen )
+void SwWW8ImplReader::Read_Justify( sal_uInt16 nId, const sal_uInt8* pData, short nLen )
 {
     if (nLen < 1)
     {
@@ -4448,6 +4516,7 @@ void SwWW8ImplReader::Read_Justify( sal_uInt16, const sal_uInt8* pData, short nL
         aAdjust.SetLastBlock(SvxAdjust::Block);
 
     NewAttr(aAdjust);
+    SetRelativeJustify( nId != NS_sprm::sprmPJc80 );
 }
 
 bool SwWW8ImplReader::IsRightToLeft()
@@ -4468,7 +4537,7 @@ bool SwWW8ImplReader::IsRightToLeft()
     return bRTL;
 }
 
-void SwWW8ImplReader::Read_RTLJustify( sal_uInt16, const sal_uInt8* pData, short nLen )
+void SwWW8ImplReader::Read_RTLJustify( sal_uInt16 nId, const sal_uInt8* pData, short nLen )
 {
     if (nLen < 1)
     {
@@ -4479,7 +4548,7 @@ void SwWW8ImplReader::Read_RTLJustify( sal_uInt16, const sal_uInt8* pData, short
     //If we are in a ltr paragraph this is the same as normal Justify,
     //If we are in a rtl paragraph the meaning is reversed.
     if (!IsRightToLeft())
-        Read_Justify(NS_sprm::sprmPJc80 /*dummy*/, pData, nLen);
+        Read_Justify(nId, pData, nLen);
     else
     {
         SvxAdjust eAdjust(SvxAdjust::Right);
@@ -4508,6 +4577,7 @@ void SwWW8ImplReader::Read_RTLJustify( sal_uInt16, const sal_uInt8* pData, short
             aAdjust.SetLastBlock(SvxAdjust::Block);
 
         NewAttr(aAdjust);
+        SetRelativeJustify( true );
     }
 }
 

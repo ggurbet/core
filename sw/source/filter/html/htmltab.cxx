@@ -1007,7 +1007,7 @@ void HTMLTable::InitCtor(const HTMLTableOptions& rOptions)
 
     m_xBackgroundBrush.reset(m_pParser->CreateBrushItem(
                     rOptions.bBGColor ? &(rOptions.aBGColor) : nullptr,
-                    rOptions.aBGImage, aEmptyOUStr, aEmptyOUStr, aEmptyOUStr));
+                    rOptions.aBGImage, OUString(), OUString(), OUString()));
 
     m_pContext = nullptr;
     m_xParentContents.reset();
@@ -1482,7 +1482,7 @@ void HTMLTable::FixFrameFormat( SwTableBox *pBox,
                 pTableFormat->UpdateToSet(nPos,
                                           const_cast<SfxItemSet&>(static_cast<SfxItemSet const&>(
                                               pFrameFormat->GetAttrSet())),
-                                          SwTableAutoFormat::UPDATE_BOX,
+                                          SwTableAutoFormatUpdateFlags::Box,
                                           pFrameFormat->GetDoc()->GetNumberFormatter());
             }
         }
@@ -2820,7 +2820,7 @@ void SectionSaveStruct::Restore( SwHTMLParser& rParser )
 
 class CellSaveStruct : public SectionSaveStruct
 {
-    OUString m_aStyle, m_aId, m_aClass, m_aLang, m_aDir;
+    OUString m_aStyle, m_aId, m_aClass;
     OUString m_aBGImage;
     Color m_aBGColor;
     std::shared_ptr<SvxBoxItem> m_xBoxItem;
@@ -2886,7 +2886,7 @@ CellSaveStruct::CellSaveStruct( SwHTMLParser& rParser, HTMLTable const *pCurTabl
     m_bNoWrap( false ),
     m_bNoBreak( false )
 {
-    OUString aNumFormat, aValue;
+    OUString aNumFormat, aValue, aDir, aLang;
     SvxAdjust eAdjust( pCurTable->GetInheritedAdjust() );
 
     if( bReadOpt )
@@ -2952,10 +2952,10 @@ CellSaveStruct::CellSaveStruct( SwHTMLParser& rParser, HTMLTable const *pCurTabl
                 m_aClass = rOption.GetString();
                 break;
             case HtmlOptionId::LANG:
-                m_aLang = rOption.GetString();
+                aLang = rOption.GetString();
                 break;
             case HtmlOptionId::DIR:
-                m_aDir = rOption.GetString();
+                aDir = rOption.GetString();
                 break;
             case HtmlOptionId::SDNUM:
                 aNumFormat = rOption.GetString();
@@ -2998,19 +2998,19 @@ CellSaveStruct::CellSaveStruct( SwHTMLParser& rParser, HTMLTable const *pCurTabl
         nToken = HtmlTokenId::TABLEDATA_ON;
         nColl = RES_POOLCOLL_TABLE;
     }
-    std::unique_ptr<HTMLAttrContext> xCntxt(new HTMLAttrContext(nToken, nColl, aEmptyOUStr, true));
+    std::unique_ptr<HTMLAttrContext> xCntxt(new HTMLAttrContext(nToken, nColl, OUString(), true));
     if( SvxAdjust::End != eAdjust )
         rParser.InsertAttr(&rParser.m_xAttrTab->pAdjust, SvxAdjustItem(eAdjust, RES_PARATR_ADJUST),
                            xCntxt.get());
 
-    if( SwHTMLParser::HasStyleOptions( m_aStyle, m_aId, m_aClass, &m_aLang, &m_aDir ) )
+    if( SwHTMLParser::HasStyleOptions( m_aStyle, m_aId, m_aClass, &aLang, &aDir ) )
     {
         SfxItemSet aItemSet( rParser.m_xDoc->GetAttrPool(),
                              rParser.m_pCSS1Parser->GetWhichMap() );
         SvxCSS1PropertyInfo aPropInfo;
 
         if( rParser.ParseStyleOptions( m_aStyle, m_aId, m_aClass, aItemSet,
-                                       aPropInfo, &m_aLang, &m_aDir ) )
+                                       aPropInfo, &aLang, &aDir ) )
         {
             SfxPoolItem const* pItem;
             if (SfxItemState::SET == aItemSet.GetItemState(RES_BOX, false, &pItem))
@@ -3424,7 +3424,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
                         break;
                     case SvxAdjust::Left:
                         eSurround = css::text::WrapTextMode_RIGHT;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     default:
                         eHori = text::HoriOrientation::LEFT;
                         break;
@@ -3604,7 +3604,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
         case HtmlTokenId::TBODY_OFF:
         case HtmlTokenId::TABLE_OFF:
             SkipToken();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case HtmlTokenId::TABLEHEADER_OFF:
         case HtmlTokenId::TABLEDATA_OFF:
             bDone = true;
@@ -3753,7 +3753,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
             if( !xSaveStruct->IsInSection() && 1==aToken.getLength() &&
                 ' '==aToken[0] )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             if( !xSaveStruct->IsInSection() )
             {
@@ -4008,7 +4008,7 @@ void SwHTMLParser::BuildTableRow( HTMLTable *pCurTable, bool bReadOptions,
         case HtmlTokenId::TFOOT_OFF:
         case HtmlTokenId::TABLE_OFF:
             SkipToken();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case HtmlTokenId::TABLEROW_OFF:
             bDone = true;
             break;
@@ -4056,7 +4056,7 @@ void SwHTMLParser::BuildTableRow( HTMLTable *pCurTable, bool bReadOptions,
                  !pCurTable->HasParentSection()) &&
                 1==aToken.getLength() && ' '==aToken[0] )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             pCurTable->MakeParentContents();
             NextToken( nToken );
@@ -4176,7 +4176,7 @@ void SwHTMLParser::BuildTableSection( HTMLTable *pCurTable,
         case HtmlTokenId::TBODY_ON:
         case HtmlTokenId::TABLE_OFF:
             SkipToken();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case HtmlTokenId::THEAD_OFF:
         case HtmlTokenId::TBODY_OFF:
         case HtmlTokenId::TFOOT_OFF:
@@ -4215,7 +4215,7 @@ void SwHTMLParser::BuildTableSection( HTMLTable *pCurTable,
                  !pCurTable->HasParentSection()) &&
                 1==aToken.getLength() && ' ' == aToken[0] )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             pCurTable->MakeParentContents();
             NextToken( nToken );
@@ -4375,7 +4375,7 @@ void SwHTMLParser::BuildTableColGroup( HTMLTable *pCurTable,
         case HtmlTokenId::TABLEROW_ON:
         case HtmlTokenId::TABLE_OFF:
             SkipToken();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case HtmlTokenId::COLGROUP_OFF:
             bDone = true;
             break;
@@ -4436,7 +4436,7 @@ void SwHTMLParser::BuildTableColGroup( HTMLTable *pCurTable,
                  !pCurTable->HasParentSection()) &&
                 1==aToken.getLength() && ' '==aToken[0] )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             pCurTable->MakeParentContents();
             NextToken( nToken );
@@ -5105,7 +5105,7 @@ std::shared_ptr<HTMLTable> SwHTMLParser::BuildTable(SvxAdjust eParentAdjust,
                  !xCurTable->HasParentSection()) &&
                 1==aToken.getLength() && ' '==aToken[0] )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             xCurTable->MakeParentContents();
             NextToken( nToken );
@@ -5219,11 +5219,11 @@ std::shared_ptr<HTMLTable> SwHTMLParser::BuildTable(SvxAdjust eParentAdjust,
             m_nParaCnt = m_nParaCnt - std::min(m_nParaCnt, nTableBoxSize);
 
             // Jump to a table if needed
-            if( JUMPTO_TABLE == m_eJumpTo && m_xTable->GetSwTable() &&
+            if( JumpToMarks::Table == m_eJumpTo && m_xTable->GetSwTable() &&
                 m_xTable->GetSwTable()->GetFrameFormat()->GetName() == m_sJmpMark )
             {
                 m_bChkJumpMark = true;
-                m_eJumpTo = JUMPTO_NONE;
+                m_eJumpTo = JumpToMarks::NONE;
             }
 
             // If the import was canceled, don't call Show again here since

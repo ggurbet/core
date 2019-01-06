@@ -65,7 +65,7 @@ using namespace com::sun::star::xml::dom;
 using namespace xforms;
 
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
 #define DBG_INVARIANT_TYPE(TYPE) class DBG_##TYPE { const TYPE* mpT; void check() { mpT->dbg_assertInvariant(); } public: DBG_##TYPE(const TYPE* pT) : mpT(pT) { check(); } ~DBG_##TYPE() { check(); } } _DBG_##TYPE(this);
 
 #define DBG_INVARIANT() DBG_INVARIANT_TYPE(Model)
@@ -177,7 +177,7 @@ void Model::setExternalData( bool _bData )
     mbExternalData = _bData;
 }
 
-#if OSL_DEBUG_LEVEL > 0
+#if OSL_DEBUG_LEVEL > 0 && !defined NDEBUG
 void Model::dbg_assertInvariant() const
 {
     assert(mxInstances && "no instances found");
@@ -302,7 +302,7 @@ bool Model::setSimpleContent( const XNode_t& xConstNode,
             OSL_ENSURE( xNode.is() &&
                         xNode->getNodeType() == NodeType_TEXT_NODE,
                         "text node creation failed?" );
-            SAL_FALLTHROUGH; // continue as with text node:
+            [[fallthrough]]; // continue as with text node:
         }
 
         case NodeType_TEXT_NODE:
@@ -345,7 +345,7 @@ void Model::loadInstance( sal_Int32 nInstance )
         try
         {
             Reference<XInputStream> xInput =
-                Reference<XSimpleFileAccess3>( SimpleFileAccess::create( ::comphelper::getProcessComponentContext() ) )->openFileRead( sURL );
+                SimpleFileAccess::create( ::comphelper::getProcessComponentContext() )->openFileRead( sURL );
             if( xInput.is() )
             {
                 Reference<XDocument> xInstance =

@@ -323,6 +323,12 @@ OExceptionChainDialog::OExceptionChainDialog(weld::Window* pParent, const Except
 
         lcl_insertExceptionEntry(*m_xExceptionList, m_aExceptions.size() - 1, aInfo22018);
     }
+
+    if (m_xExceptionList->n_children())
+    {
+        m_xExceptionList->select(0);
+        OnExceptionSelected(*m_xExceptionList);
+    }
 }
 
 IMPL_LINK_NOARG(OExceptionChainDialog, OnExceptionSelected, weld::TreeView&, void)
@@ -532,7 +538,7 @@ void OSQLMessageBox::Construct(weld::Window* pParent, MessBoxStyle _nStyle, Mess
     {
         default:
             OSL_FAIL( "OSQLMessageBox::impl_initImage: unsupported image type!" );
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case Info:
             eMessageType = VclMessageType::Info;
             break;

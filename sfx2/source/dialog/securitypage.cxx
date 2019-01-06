@@ -28,9 +28,6 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/passwd.hxx>
 
-#include <vcl/button.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/eitem.hxx>
@@ -45,7 +42,6 @@ using namespace ::com::sun::star;
 namespace
 {
     enum RedliningMode  { RL_NONE, RL_WRITER, RL_CALC };
-    enum RedlineFunc    { RF_ON, RF_PROTECT };
 
     bool QueryState( sal_uInt16 _nSlot, bool& _rValue )
     {

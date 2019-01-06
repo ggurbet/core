@@ -1360,8 +1360,8 @@ IMPL_LINK( SvxSearchDialog, CommandHdl_Impl, Button *, pBtn, void )
         pSearchItem->SetUseAsianOptions(GetCheckBoxValue(m_pJapOptionsCB));
         TransliterationFlags nFlags = GetTransliterationFlags();
         if( !pSearchItem->IsUseAsianOptions())
-            nFlags &= (TransliterationFlags::IGNORE_CASE |
-                       TransliterationFlags::IGNORE_WIDTH );
+            nFlags &= TransliterationFlags::IGNORE_CASE |
+                      TransliterationFlags::IGNORE_WIDTH;
         if (GetNegatedCheckBoxValue(m_pIncludeDiacritics))
             nFlags |= TransliterationFlags::IGNORE_DIACRITICS_CTL;
         if (GetNegatedCheckBoxValue(m_pIncludeKashida))
@@ -1627,11 +1627,8 @@ void SvxSearchDialog::Remember_Impl( const OUString &rStr, bool _bSearch )
     ComboBox* pListBox = _bSearch ? m_pSearchLB.get() : m_pReplaceLB.get();
 
     // ignore identical strings
-    for (std::vector<OUString>::const_iterator i = pArr->begin(); i != pArr->end(); ++i)
-    {
-        if ((*i) == rStr)
-            return;
-    }
+    if (std::find(pArr->begin(), pArr->end(), rStr) != pArr->end())
+        return;
 
     // delete oldest entry at maximum occupancy (ListBox and Array)
     if(REMEMBER_SIZE < pArr->size())
@@ -2340,8 +2337,8 @@ void SvxSearchDialog::SaveToModule_Impl()
 
     TransliterationFlags nFlags = GetTransliterationFlags();
     if( !pSearchItem->IsUseAsianOptions())
-        nFlags &= (TransliterationFlags::IGNORE_CASE |
-                   TransliterationFlags::IGNORE_WIDTH );
+        nFlags &= TransliterationFlags::IGNORE_CASE |
+                   TransliterationFlags::IGNORE_WIDTH;
     if (GetNegatedCheckBoxValue(m_pIncludeDiacritics))
         nFlags |= TransliterationFlags::IGNORE_DIACRITICS_CTL;
     if (GetNegatedCheckBoxValue(m_pIncludeKashida))

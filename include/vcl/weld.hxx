@@ -41,9 +41,9 @@ class VCL_DLLPUBLIC Widget
 protected:
     Link<Widget&, void> m_aFocusInHdl;
     Link<Widget&, void> m_aFocusOutHdl;
-
-    void signal_focus_in() { m_aFocusInHdl.Call(*this); }
-    void signal_focus_out() { m_aFocusOutHdl.Call(*this); }
+    Link<const Size&, void> m_aSizeAllocateHdl;
+    Link<const KeyEvent&, bool> m_aKeyPressHdl;
+    Link<const KeyEvent&, bool> m_aKeyReleaseHdl;
 
 public:
     virtual void set_sensitive(bool sensitive) = 0;
@@ -89,6 +89,9 @@ public:
     virtual void set_margin_top(int nMargin) = 0;
     virtual void set_margin_bottom(int nMargin) = 0;
 
+    virtual bool get_extents_relative_to(Widget& rRelative, int& x, int& y, int& width, int& height)
+        = 0;
+
     virtual void set_accessible_name(const OUString& rName) = 0;
     virtual OUString get_accessible_name() const = 0;
 
@@ -98,14 +101,32 @@ public:
 
     virtual void connect_focus_in(const Link<Widget&, void>& rLink)
     {
-        assert(!m_aFocusInHdl.IsSet());
+        assert(!m_aFocusInHdl.IsSet() || !rLink.IsSet());
         m_aFocusInHdl = rLink;
     }
 
     virtual void connect_focus_out(const Link<Widget&, void>& rLink)
     {
-        assert(!m_aFocusOutHdl.IsSet());
+        assert(!m_aFocusOutHdl.IsSet() || !rLink.IsSet());
         m_aFocusOutHdl = rLink;
+    }
+
+    virtual void connect_size_allocate(const Link<const Size&, void>& rLink)
+    {
+        assert(!m_aSizeAllocateHdl.IsSet() || !rLink.IsSet());
+        m_aSizeAllocateHdl = rLink;
+    }
+
+    virtual void connect_key_press(const Link<const KeyEvent&, bool>& rLink)
+    {
+        assert(!m_aKeyPressHdl.IsSet() || !rLink.IsSet());
+        m_aKeyPressHdl = rLink;
+    }
+
+    virtual void connect_key_release(const Link<const KeyEvent&, bool>& rLink)
+    {
+        assert(!m_aKeyReleaseHdl.IsSet() || !rLink.IsSet());
+        m_aKeyReleaseHdl = rLink;
     }
 
     virtual void grab_add() = 0;
@@ -135,11 +156,30 @@ class VCL_DLLPUBLIC ScrolledWindow : virtual public Container
 {
 protected:
     Link<ScrolledWindow&, void> m_aVChangeHdl;
+    Link<ScrolledWindow&, void> m_aHChangeHdl;
 
     void signal_vadjustment_changed() { m_aVChangeHdl.Call(*this); }
+    void signal_hadjustment_changed() { m_aHChangeHdl.Call(*this); }
 
 public:
     virtual void set_user_managed_scrolling() = 0;
+
+    virtual void hadjustment_configure(int value, int lower, int upper, int step_increment,
+                                       int page_increment, int page_size)
+        = 0;
+    virtual int hadjustment_get_value() const = 0;
+    virtual void hadjustment_set_value(int value) = 0;
+    virtual int hadjustment_get_upper() const = 0;
+    virtual void hadjustment_set_upper(int upper) = 0;
+    virtual int hadjustment_get_page_size() const = 0;
+    virtual void set_hpolicy(VclPolicyType eHPolicy) = 0;
+    virtual VclPolicyType get_hpolicy() const = 0;
+    void connect_hadjustment_changed(const Link<ScrolledWindow&, void>& rLink)
+    {
+        m_aHChangeHdl = rLink;
+    }
+    virtual int get_hscroll_height() const = 0;
+
     virtual void vadjustment_configure(int value, int lower, int upper, int step_increment,
                                        int page_increment, int page_size)
         = 0;
@@ -147,8 +187,7 @@ public:
     virtual void vadjustment_set_value(int value) = 0;
     virtual int vadjustment_get_upper() const = 0;
     virtual void vadjustment_set_upper(int upper) = 0;
-    virtual void set_hpolicy(VclPolicyType eHPolicy) = 0;
-    virtual VclPolicyType get_hpolicy() const = 0;
+    virtual int vadjustment_get_page_size() const = 0;
     virtual void set_vpolicy(VclPolicyType eVPolicy) = 0;
     virtual VclPolicyType get_vpolicy() const = 0;
     void connect_vadjustment_changed(const Link<ScrolledWindow&, void>& rLink)
@@ -199,8 +238,6 @@ public:
     virtual void window_move(int x, int y) = 0;
     virtual void set_modal(bool bModal) = 0;
     virtual bool get_modal() const = 0;
-    virtual bool get_extents_relative_to(Window& rRelative, int& x, int& y, int& width, int& height)
-        = 0;
     virtual bool get_resizable() const = 0;
     virtual Size get_size() const = 0;
     virtual Point get_position() const = 0;
@@ -293,7 +330,8 @@ private:
 
 protected:
     Link<ComboBox&, void> m_aChangeHdl;
-    Link<ComboBox&, void> m_aEntryActivateHdl;
+    Link<ComboBox&, bool> m_aEntryActivateHdl;
+    Link<OUString&, bool> m_aEntryInsertTextHdl;
 
     void signal_changed() { m_aChangeHdl.Call(*this); }
 
@@ -343,6 +381,7 @@ public:
     virtual OUString get_active_id() const = 0;
     virtual void set_active_id(const OUString& rStr) = 0;
     virtual OUString get_id(int pos) const = 0;
+    virtual void set_id(int row, const OUString& rId) = 0;
     virtual int find_id(const OUString& rId) const = 0;
     void remove_id(const OUString& rId) { remove(find_id(rId)); }
 
@@ -353,13 +392,20 @@ public:
     virtual void set_entry_error(bool bError) = 0;
     virtual void set_entry_text(const OUString& rStr) = 0;
     virtual void set_entry_width_chars(int nChars) = 0;
+    virtual void set_entry_max_length(int nChars) = 0;
     virtual void select_entry_region(int nStartPos, int nEndPos) = 0;
     virtual bool get_entry_selection_bounds(int& rStartPos, int& rEndPos) = 0;
     virtual void set_entry_completion(bool bEnable) = 0;
 
     virtual bool get_popup_shown() const = 0;
 
-    void connect_entry_activate(const Link<ComboBox&, void>& rLink) { m_aEntryActivateHdl = rLink; }
+    void connect_entry_insert_text(const Link<OUString&, bool>& rLink)
+    {
+        m_aEntryInsertTextHdl = rLink;
+    }
+
+    // callback returns true to indicated no further processing of activate wanted
+    void connect_entry_activate(const Link<ComboBox&, bool>& rLink) { m_aEntryActivateHdl = rLink; }
 
     void save_value() { m_sSavedValue = get_active_text(); }
     OUString const& get_saved_value() const { return m_sSavedValue; }
@@ -382,14 +428,20 @@ class VCL_DLLPUBLIC TreeView : virtual public Container
 protected:
     Link<TreeView&, void> m_aChangeHdl;
     Link<TreeView&, void> m_aRowActivatedHdl;
+    Link<const std::pair<int, int>&, void> m_aRadioToggleHdl;
+    // if handler returns false, the expansion of the row is refused
     Link<TreeIter&, bool> m_aExpandingHdl;
+
+    std::vector<int> m_aRadioIndexes;
 
     void signal_changed() { m_aChangeHdl.Call(*this); }
     void signal_row_activated() { m_aRowActivatedHdl.Call(*this); }
     bool signal_expanding(TreeIter& rIter) { return m_aExpandingHdl.Call(rIter); }
+    // arg is pair<row,col>
+    void signal_toggled(const std::pair<int, int>& rRowCol) { m_aRadioToggleHdl.Call(rRowCol); }
 
 public:
-    virtual void insert(weld::TreeIter* pParent, int pos, const OUString& rStr, const OUString* pId,
+    virtual void insert(weld::TreeIter* pParent, int pos, const OUString* pStr, const OUString* pId,
                         const OUString* pIconName, VirtualDevice* pImageSurface,
                         const OUString* pExpanderName, bool bChildrenOnDemand)
         = 0;
@@ -399,48 +451,58 @@ public:
     void insert(int pos, const OUString& rStr, const OUString* pId, const OUString* pIconName,
                 VirtualDevice* pImageSurface)
     {
-        insert(nullptr, pos, rStr, pId, pIconName, pImageSurface, nullptr, false);
+        insert(nullptr, pos, &rStr, pId, pIconName, pImageSurface, nullptr, false);
     }
     void insert_text(int pos, const OUString& rStr)
     {
-        insert(nullptr, pos, rStr, nullptr, nullptr, nullptr, nullptr, false);
+        insert(nullptr, pos, &rStr, nullptr, nullptr, nullptr, nullptr, false);
     }
     void append_text(const OUString& rStr)
     {
-        insert(nullptr, -1, rStr, nullptr, nullptr, nullptr, nullptr, false);
+        insert(nullptr, -1, &rStr, nullptr, nullptr, nullptr, nullptr, false);
     }
     void append(const OUString& rId, const OUString& rStr)
     {
-        insert(nullptr, -1, rStr, &rId, nullptr, nullptr, nullptr, false);
+        insert(nullptr, -1, &rStr, &rId, nullptr, nullptr, nullptr, false);
     }
     void append(const OUString& rId, const OUString& rStr, const OUString& rImage)
     {
-        insert(nullptr, -1, rStr, &rId, &rImage, nullptr, nullptr, false);
+        insert(nullptr, -1, &rStr, &rId, &rImage, nullptr, nullptr, false);
     }
     void append(weld::TreeIter* pParent, const OUString& rId, const OUString& rStr,
                 const OUString& rImage)
     {
-        insert(pParent, -1, rStr, &rId, &rImage, nullptr, nullptr, false);
+        insert(pParent, -1, &rStr, &rId, &rImage, nullptr, nullptr, false);
     }
     void append(const OUString& rId, const OUString& rStr, VirtualDevice& rImage)
     {
-        insert(nullptr, -1, rStr, &rId, nullptr, &rImage, nullptr, false);
+        insert(nullptr, -1, &rStr, &rId, nullptr, &rImage, nullptr, false);
     }
 
     void connect_changed(const Link<TreeView&, void>& rLink) { m_aChangeHdl = rLink; }
     void connect_row_activated(const Link<TreeView&, void>& rLink) { m_aRowActivatedHdl = rLink; }
+    void connect_toggled(const Link<const std::pair<int, int>&, void>& rLink)
+    {
+        m_aRadioToggleHdl = rLink;
+    }
 
     //by index
     virtual int get_selected_index() const = 0;
     virtual void select(int pos) = 0;
     virtual void unselect(int pos) = 0;
     virtual void remove(int pos) = 0;
+    virtual OUString get_text(int row, int col = -1) const = 0;
+    virtual void set_text(int row, const OUString& rText, int col = -1) = 0;
+    virtual void set_id(int row, const OUString& rId) = 0;
+    virtual void set_toggle(int row, bool bOn, int col = -1) = 0;
+    virtual bool get_toggle(int row, int col = -1) const = 0;
     virtual void set_top_entry(int pos) = 0;
     virtual std::vector<int> get_selected_rows() const = 0;
     virtual void set_font_color(int pos, const Color& rColor) const = 0;
+    virtual void scroll_to_row(int pos) = 0;
+    virtual void set_cursor(int pos) = 0;
 
     //by text
-    virtual OUString get_text(int pos) const = 0;
     virtual int find_text(const OUString& rText) const = 0;
     OUString get_selected_text() const
     {
@@ -485,8 +547,10 @@ public:
     virtual void unselect(const TreeIter& rIter) = 0;
     virtual bool get_row_expanded(const TreeIter& rIter) const = 0;
     virtual void expand_row(TreeIter& rIter) = 0;
+    virtual void collapse_row(TreeIter& rIter) = 0;
     virtual OUString get_text(const TreeIter& rIter) const = 0;
     virtual OUString get_id(const TreeIter& rIter) const = 0;
+    virtual void scroll_to_row(const TreeIter& rIter) = 0;
 
     void connect_expanding(const Link<TreeIter&, bool>& rLink) { m_aExpandingHdl = rLink; }
 
@@ -499,8 +563,14 @@ public:
     virtual void clear() = 0;
     virtual int get_height_rows(int nRows) const = 0;
 
-    virtual void set_selection_mode(bool bMultiple) = 0;
+    virtual void set_column_fixed_widths(const std::vector<int>& rWidths) = 0;
+    virtual OUString get_column_title(int nColumn) const = 0;
+    virtual void set_column_title(int nColumn, const OUString& rTitle) = 0;
+
+    virtual void set_selection_mode(SelectionMode eMode) = 0;
     virtual int count_selected_rows() const = 0;
+
+    void set_toggle_columns_as_radio(const std::vector<int>& rCols) { m_aRadioIndexes = rCols; }
 };
 
 class VCL_DLLPUBLIC Button : virtual public Container
@@ -516,6 +586,7 @@ public:
     virtual void set_image(VirtualDevice* pDevice) = 0;
     virtual void set_from_icon_name(const OUString& rIconName) = 0;
     virtual OUString get_label() const = 0;
+    virtual void set_label_line_wrap(bool wrap) = 0;
     void clicked() { signal_clicked(); }
 
     void connect_clicked(const Link<Button&, void>& rLink) { m_aClickHdl = rLink; }
@@ -599,6 +670,7 @@ public:
     {
         insert_item(-1, rId, rStr, nullptr, &rImage, false);
     }
+    virtual void set_item_sensitive(const OString& rIdent, bool bSensitive) = 0;
     virtual void set_item_active(const OString& rIdent, bool bActive) = 0;
     virtual void set_item_label(const OString& rIdent, const OUString& rLabel) = 0;
     virtual void set_item_help_id(const OString& rIdent, const OString& rHelpId) = 0;
@@ -645,6 +717,7 @@ protected:
     Link<Entry&, void> m_aChangeHdl;
     Link<OUString&, bool> m_aInsertTextHdl;
     Link<Entry&, void> m_aCursorPositionHdl;
+    Link<Entry&, bool> m_aActivateHdl;
 
     void signal_changed() { m_aChangeHdl.Call(*this); }
     void signal_cursor_position() { m_aCursorPositionHdl.Call(*this); }
@@ -670,6 +743,8 @@ public:
 
     void connect_changed(const Link<Entry&, void>& rLink) { m_aChangeHdl = rLink; }
     void connect_insert_text(const Link<OUString&, bool>& rLink) { m_aInsertTextHdl = rLink; }
+    // callback returns true to indicated no further processing of activate wanted
+    void connect_activate(const Link<Entry&, bool>& rLink) { m_aActivateHdl = rLink; }
     virtual void connect_cursor_position(const Link<Entry&, void>& rLink)
     {
         m_aCursorPositionHdl = rLink;
@@ -850,6 +925,7 @@ public:
         m_xEntry->set_text(m_xTreeView->get_selected_text());
     }
     virtual OUString get_id(int pos) const override { return m_xTreeView->get_id(pos); }
+    virtual void set_id(int pos, const OUString& rId) override { m_xTreeView->set_id(pos, rId); }
     virtual int find_id(const OUString& rId) const override { return m_xTreeView->find_id(rId); }
 
     //entry related
@@ -857,6 +933,7 @@ public:
     virtual void set_entry_error(bool bError) override { m_xEntry->set_error(bError); }
     virtual void set_entry_text(const OUString& rStr) override { m_xEntry->set_text(rStr); }
     virtual void set_entry_width_chars(int nChars) override { m_xEntry->set_width_chars(nChars); }
+    virtual void set_entry_max_length(int nChars) override { m_xEntry->set_max_length(nChars); }
     virtual void select_entry_region(int nStartPos, int nEndPos) override
     {
         m_xEntry->select_region(nStartPos, nEndPos);
@@ -1147,12 +1224,9 @@ public:
 
 protected:
     Link<draw_args, void> m_aDrawHdl;
-    Link<const Size&, void> m_aSizeAllocateHdl;
     Link<const MouseEvent&, void> m_aMousePressHdl;
     Link<const MouseEvent&, void> m_aMouseMotionHdl;
     Link<const MouseEvent&, void> m_aMouseReleaseHdl;
-    Link<const KeyEvent&, bool> m_aKeyPressHdl;
-    Link<const KeyEvent&, bool> m_aKeyReleaseHdl;
     Link<Widget&, void> m_aStyleUpdatedHdl;
     Link<const Point&, bool> m_aPopupMenuHdl;
     Link<Widget&, tools::Rectangle> m_aGetFocusRectHdl;
@@ -1165,7 +1239,6 @@ protected:
 
 public:
     void connect_draw(const Link<draw_args, void>& rLink) { m_aDrawHdl = rLink; }
-    void connect_size_allocate(const Link<const Size&, void>& rLink) { m_aSizeAllocateHdl = rLink; }
     void connect_mouse_press(const Link<const MouseEvent&, void>& rLink)
     {
         m_aMousePressHdl = rLink;
@@ -1178,8 +1251,6 @@ public:
     {
         m_aMouseReleaseHdl = rLink;
     }
-    void connect_key_press(const Link<const KeyEvent&, bool>& rLink) { m_aKeyPressHdl = rLink; }
-    void connect_key_release(const Link<const KeyEvent&, bool>& rLink) { m_aKeyReleaseHdl = rLink; }
     void connect_style_updated(const Link<Widget&, void>& rLink) { m_aStyleUpdatedHdl = rLink; }
     void connect_popup_menu(const Link<const Point&, bool>& rLink) { m_aPopupMenuHdl = rLink; }
     void connect_focus_rect(const Link<Widget&, tools::Rectangle>& rLink)

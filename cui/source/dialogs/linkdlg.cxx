@@ -26,11 +26,10 @@
 #include <vcl/dialog.hxx>
 #include <vcl/button.hxx>
 #include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <vcl/treelistentry.hxx>
 
 #include <strings.hrc>

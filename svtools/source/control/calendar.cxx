@@ -26,6 +26,7 @@
 #include <vcl/button.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 #include <comphelper/processfactory.hxx>
 #include <unotools/calendarwrapper.hxx>
 #include <unotools/localedatawrapper.hxx>
@@ -221,7 +222,7 @@ void Calendar::ImplFormat()
         mnMonthPerLine  = aOutSize.Width() / mnMonthWidth;
         if ( !mnMonthPerLine )
             mnMonthPerLine = 1;
-        long nOver      = ((aOutSize.Width()-(mnMonthPerLine*mnMonthWidth)) / mnMonthPerLine);
+        long nOver      = (aOutSize.Width()-(mnMonthPerLine*mnMonthWidth)) / mnMonthPerLine;
         mnMonthWidth   += nOver;
         mnDaysOffX      = MONTH_BORDERX;
         mnDaysOffX     += nOver/2;

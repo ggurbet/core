@@ -759,7 +759,6 @@ void SvXMLExportPropertyMapper::exportXML(
                         nPropMapStartIdx, nPropMapEndIdx );
 
             if( rExport.GetAttrList().getLength() > 0 ||
-                (nFlags & SvXmlExportFlags::EMPTY) ||
                 !aIndexArray.empty() )
             {
                 SvXMLElementExport aElem( rExport, nNamespace,
@@ -871,7 +870,7 @@ void SvXMLExportPropertyMapper::_exportXML(
         uno::Reference< container::XNameContainer > xAttrContainer;
         if( (rProperty.maValue >>= xAttrContainer) && xAttrContainer.is() )
         {
-            SvXMLNamespaceMap *pNewNamespaceMap = nullptr;
+            std::unique_ptr<SvXMLNamespaceMap> pNewNamespaceMap;
             const SvXMLNamespaceMap *pNamespaceMap = &rNamespaceMap;
 
             uno::Sequence< OUString > aAttribNames( xAttrContainer->getElementNames() );
@@ -946,8 +945,8 @@ void SvXMLExportPropertyMapper::_exportXML(
                         {
                             if( !pNewNamespaceMap )
                             {
-                                pNewNamespaceMap = new SvXMLNamespaceMap( rNamespaceMap );
-                                pNamespaceMap = pNewNamespaceMap;
+                                pNewNamespaceMap.reset(new SvXMLNamespaceMap( rNamespaceMap ));
+                                pNamespaceMap = pNewNamespaceMap.get();
                             }
                             pNewNamespaceMap->Add( sPrefix, sNamespace );
                             sNameBuffer.append( GetXMLToken(XML_XMLNS) ).append( ":" ).append( sPrefix );
@@ -962,8 +961,6 @@ void SvXMLExportPropertyMapper::_exportXML(
                 if( sOldValue.isEmpty() )
                     rAttrList.AddAttribute( sAttribName, aData.Value );
             }
-
-            delete pNewNamespaceMap;
         }
         else
         {

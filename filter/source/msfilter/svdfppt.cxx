@@ -774,11 +774,11 @@ SdrObject* SdrEscherImport::ProcessObj( SvStream& rSt, DffObjData& rObjData, Svx
                             switch ( aPlaceholderAtom.nPlaceholderId )
                             {
                                 case PptPlaceholder::MASTERSLIDENUMBER :    nHeaderFooterInstance++;
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
                                 case PptPlaceholder::MASTERFOOTER :         nHeaderFooterInstance++;
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
                                 case PptPlaceholder::MASTERHEADER :         nHeaderFooterInstance++;
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
                                 case PptPlaceholder::MASTERDATE :           nHeaderFooterInstance++; break;
                                 default: break;
 
@@ -1972,9 +1972,9 @@ SdrObject* SdrPowerPointImport::ImportOLE( sal_uInt32 nOLEId,
     return pRet;
 }
 
-SvMemoryStream* SdrPowerPointImport::ImportExOleObjStg( sal_uInt32 nPersistPtr, sal_uInt32& nOleId ) const
+std::unique_ptr<SvMemoryStream> SdrPowerPointImport::ImportExOleObjStg( sal_uInt32 nPersistPtr, sal_uInt32& nOleId ) const
 {
-    SvMemoryStream* pRet = nullptr;
+    std::unique_ptr<SvMemoryStream> pRet;
     if ( nPersistPtr && ( nPersistPtr < nPersistPtrCnt ) )
     {
         sal_uInt32 nOldPos, nOfs = pPersistPtr[ nPersistPtr ];
@@ -1988,14 +1988,13 @@ SvMemoryStream* SdrPowerPointImport::ImportExOleObjStg( sal_uInt32 nPersistPtr, 
             if ( static_cast<sal_Int32>(nLen) > 0 )
             {
                 rStCtrl.ReadUInt32( nOleId );
-                pRet = new SvMemoryStream;
+                pRet.reset(new SvMemoryStream);
                 ZCodec aZCodec( 0x8000, 0x8000 );
                 aZCodec.BeginCompression();
                 aZCodec.Decompress( rStCtrl, *pRet );
                 if ( !aZCodec.EndCompression() )
                 {
-                    delete pRet;
-                    pRet = nullptr;
+                    pRet.reset();
                 }
             }
         }
@@ -2028,10 +2027,10 @@ void SdrPowerPointImport::SeekOle( SfxObjectShell* pShell, sal_uInt32 nFilterOpt
                                .ReadUInt32( nIDoNotKnow2 );
 
                         sal_uInt32 nOleId;
-                        SvMemoryStream* pBas = ImportExOleObjStg( nPersistPtr, nOleId );
+                        std::unique_ptr<SvMemoryStream> pBas = ImportExOleObjStg( nPersistPtr, nOleId );
                         if ( pBas )
                         {
-                            tools::SvRef<SotStorage> xSource( new SotStorage( pBas, true ) );
+                            tools::SvRef<SotStorage> xSource( new SotStorage( pBas.release(), true ) );
                             tools::SvRef<SotStorage> xDest( new SotStorage( new SvMemoryStream(), true ) );
                             if ( xSource.is() && xDest.is() )
                             {
@@ -2704,6 +2703,7 @@ static void ImportComment10( SvxMSDffManager const & rMan, SvStream& rStCtrl, Sd
 
             case PPT_PST_CommentAtom10 :
             {
+                sal_uInt16 millisec = 0;
                 rStCtrl.ReadInt32( nIndex )
                        .ReadInt16( aDateTime.Year )
                        .ReadUInt16( aDateTime.Month )
@@ -2712,11 +2712,11 @@ static void ImportComment10( SvxMSDffManager const & rMan, SvStream& rStCtrl, Sd
                        .ReadUInt16( aDateTime.Hours )
                        .ReadUInt16( aDateTime.Minutes )
                        .ReadUInt16( aDateTime.Seconds )
-                       .ReadUInt32( aDateTime.NanoSeconds )
+                       .ReadUInt16( millisec )
                        .ReadInt32( nPosX )
                        .ReadInt32( nPosY );
 
-                aDateTime.NanoSeconds *= ::tools::Time::nanoPerMilli;
+                aDateTime.NanoSeconds = millisec * ::tools::Time::nanoPerMilli;
             }
             break;
         }
@@ -4379,8 +4379,7 @@ PPTStyleSheet::PPTStyleSheet( const DffRecordHeader& rSlideHd, SvStream& rIn, Sd
                 eNumRuleType = SvxNumRuleType::NUMBERING;
             break;
         }
-        SvxNumRule aRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::BULLET_COLOR |
-                        SvxNumRuleFlags::CHAR_TEXT_DISTANCE,
+        SvxNumRule aRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::BULLET_COLOR,
                         nLevels, false, eNumRuleType );
         for ( sal_uInt16 nCount = 0; nDepth < nLevels; nCount++ )
         {
@@ -5708,7 +5707,7 @@ void PPTPortionObj::ApplyTo(  SfxItemSet& rSet, SdrPowerPointImport& rManager, T
                                 }
                             }
                             pAcc.reset();
-                            sal_uInt32 nC = ( aSize.Width() * aSize.Height() );
+                            sal_uInt32 nC = aSize.Width() * aSize.Height();
                             nRt /= nC;
                             nGn /= nC;
                             nBl /= nC;
@@ -6426,13 +6425,13 @@ void PPTFieldEntry::GetDateTime( const sal_uInt32 nVal, SvxDateFormat& eDateForm
         break;
         case 7:
             eDateFormat = SvxDateFormat::A;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 9:
             eTimeFormat = SvxTimeFormat::HH24_MM;
         break;
         case 8:
             eDateFormat = SvxDateFormat::A;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 11:
             eTimeFormat = SvxTimeFormat::HH12_MM;
         break;
@@ -6539,7 +6538,7 @@ PPTTextObj::PPTTextObj( SvStream& rIn, SdrPowerPointImport& rSdrPowerPointImport
                 {
                     case PPT_NOTEPAGE :
                         nInstance++;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case PPT_MASTERPAGE :
                         nInstance++;
                         break;

@@ -82,7 +82,7 @@ static bool IsValidFilePathComponent(
                             break;
                         }
                     }
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case 0:
                 case ' ':
                     if ( dwFlags & VALIDATEPATH_ALLOW_INVALID_SPACE_AND_PERIOD )
@@ -307,11 +307,12 @@ DWORD IsValidFilePath(rtl_uString *path, DWORD dwFlags, rtl_uString **corrected)
         return bValid ? dwPathType : PATHTYPE_ERROR;
 }
 
+// Expects a proper absolute or relative path
 static sal_Int32 PathRemoveFileSpec(LPWSTR lpPath, LPWSTR lpFileName, sal_Int32 nFileBufLen )
 {
     sal_Int32 nRemoved = 0;
 
-    if ( nFileBufLen )
+    if (nFileBufLen && wcscmp(lpPath, L"\\\\") != 0) // tdf#98343 do not remove leading UNC backslashes!
     {
         lpFileName[0] = 0;
         LPWSTR  lpLastBkSlash = wcsrchr( lpPath, '\\' );
@@ -361,7 +362,39 @@ static LPWSTR PathAddBackslash(LPWSTR lpPath, sal_uInt32 nBufLen)
     return lpEndPath;
 }
 
-// Same as GetLongPathName but also 95/NT4
+// True if the szPath + szFile is just a special prefix, not a path which we may test for existence.
+// E.g., \\ or \\server or \\server\share or \\? or \\?\UNC or \\?\UNC\server or \\?\UNC\server\share
+static bool IsPathSpecialPrefix(LPWSTR szPath, LPWSTR szFile)
+{
+    if (szPath[0] == '\\' && szPath[1] == '\\')
+    {
+        if (szPath[2] == 0)
+            return true; // "\\" -> now the server name or "." or "?" will append
+        else if (szPath[2] == '?' && szPath[3] == '\\')
+        {
+            if (szPath[4] == 0)
+                return wcscmp(szFile, L"UNC") == 0; // "\\?\" -> now "UNC" will append
+            else
+            {
+                if (wcsncmp(szPath + 4, L"UNC\\", 4) == 0)
+                {
+                    if (szPath[8] == 0)
+                        return true; // "\\?\UNC\" -> now the server name will append
+                    else if (const wchar_t* pBackSlash = wcschr(szPath + 8, '\\'))
+                        return *(pBackSlash + 1) == 0; // "\\?\UNC\Server\" -> now share name will append
+                }
+            }
+        }
+        else if (szPath[2] != '.')
+        {
+            if (const wchar_t* pBackSlash = wcschr(szPath + 2, '\\'))
+                return *(pBackSlash + 1) == 0; // "\\Server\" -> now share name will append
+        }
+    }
+    return false;
+}
+
+// Expects a proper absolute or relative path. NB: It is different from GetLongPathName WinAPI!
 static DWORD GetCaseCorrectPathNameEx(
     LPWSTR  lpszPath,   // path buffer to convert
     sal_uInt32 cchBuffer,      // size of path buffer
@@ -409,21 +442,32 @@ static DWORD GetCaseCorrectPathNameEx(
             {
                 if ( bCheckExistence )
                 {
-                    ::osl::LongPathBuffer< WCHAR > aShortPath( MAX_LONG_PATH );
-                    wcscpy( aShortPath, lpszPath );
-                    wcscat( aShortPath, szFile );
 
-                    WIN32_FIND_DATAW aFindFileData;
-                    HANDLE  hFind = FindFirstFileW( aShortPath, &aFindFileData );
-
-                    if ( IsValidHandle(hFind) )
+                    if (IsPathSpecialPrefix(lpszPath, szFile))
                     {
-                        wcscat( lpszPath, aFindFileData.cFileName[0] ? aFindFileData.cFileName : aFindFileData.cAlternateFileName );
-
-                        FindClose( hFind );
+                        /* add the segment name back */
+                        wcscat(lpszPath, szFile);
                     }
                     else
-                        lpszPath[0] = 0;
+                    {
+                        osl::LongPathBuffer<WCHAR> aShortPath(MAX_LONG_PATH);
+                        wcscpy(aShortPath, lpszPath);
+                        wcscat(aShortPath, szFile);
+
+                        WIN32_FIND_DATAW aFindFileData;
+                        HANDLE hFind = FindFirstFileW(aShortPath, &aFindFileData);
+
+                        if (IsValidHandle(hFind))
+                        {
+                            wcscat(lpszPath, aFindFileData.cFileName[0]
+                                                 ? aFindFileData.cFileName
+                                                 : aFindFileData.cAlternateFileName);
+
+                            FindClose(hFind);
+                        }
+                        else
+                            lpszPath[0] = 0;
+                    }
                 }
                 else
                 {
@@ -577,7 +621,7 @@ static void osl_encodeURL_( rtl_uString *strURL, rtl_String **pstrEncodedURL )
                 pURLDest += 3;
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case '!':
         case '\'':
         case '(':

@@ -902,14 +902,7 @@ EditSelection const & ImpEditEngine::MoveCursor( const KeyEvent& rKeyEvent, Edit
     if ( aOldPaM != aPaM )
     {
         CursorMoved( aOldPaM.GetNode() );
-        if ( aStatus.NotifyCursorMovements() && ( aOldPaM.GetNode() != aPaM.GetNode() ) )
-        {
-            aStatus.GetStatusWord() = aStatus.GetStatusWord() | EditStatusFlags::CRSRLEFTPARA;
-            aStatus.GetPrevParagraph() = aEditDoc.GetPos( aOldPaM.GetNode() );
-        }
     }
-    else
-        aStatus.GetStatusWord() = aStatus.GetStatusWord() | EditStatusFlags::CRSRMOVEFAIL;
 
     // May cause, an CreateAnchor or deselection all
     aSelEngine.SetCurView( pEditView );
@@ -2304,7 +2297,7 @@ EditPaM ImpEditEngine::ImpConnectParagraphs( ContentNode* pLeft, ContentNode* pR
 
 EditPaM ImpEditEngine::DeleteLeftOrRight( const EditSelection& rSel, sal_uInt8 nMode, DeleteMode nDelMode )
 {
-    OSL_ENSURE( !EditSelection( rSel ).DbgIsBuggy( aEditDoc ), "Index out of range in DeleteLeftOrRight" );
+    OSL_ENSURE( !rSel.DbgIsBuggy( aEditDoc ), "Index out of range in DeleteLeftOrRight" );
 
     if ( rSel.HasRange() )  // only then Delete Selection
         return ImpDeleteSelection( rSel );
@@ -4111,7 +4104,7 @@ void ImpEditEngine::CalcHeight( ParaPortion* pPortion )
             }
 
             sal_Int32 nPortion = GetParaPortions().GetPos( pPortion );
-            if ( nPortion || aStatus.ULSpaceFirstParagraph() )
+            if ( nPortion )
             {
                 sal_uInt16 nUpper = GetYValue( rULItem.GetUpper() );
                 pPortion->nHeight += nUpper;
@@ -4291,65 +4284,6 @@ void ImpEditEngine::SetValidPaperSize( const Size& rNewSz )
         aPaperSize.setHeight( nMinHeight );
     else if ( aPaperSize.Height() > nMaxHeight )
         aPaperSize.setHeight( nMaxHeight );
-}
-
-void ImpEditEngine::IndentBlock( EditView* pEditView, bool bRight )
-{
-    ESelection aESel( CreateESel( pEditView->pImpEditView->GetEditSelection() ) );
-    aESel.Adjust();
-
-    // Only if more selected Paragraphs ...
-    if ( aESel.nEndPara > aESel.nStartPara )
-    {
-        ESelection aNewSel = aESel;
-        aNewSel.nStartPos = 0;
-        aNewSel.nEndPos = EE_TEXTPOS_ALL;
-
-        if ( aESel.nEndPos == 0 )
-        {
-            aESel.nEndPara--;       // then not this paragraph ...
-            aNewSel.nEndPos = 0;
-        }
-
-        pEditView->pImpEditView->DrawSelectionXOR();
-        pEditView->pImpEditView->SetEditSelection(
-                        pEditView->pImpEditView->GetEditSelection().Max() );
-        UndoActionStart( bRight ? EDITUNDO_INDENTBLOCK : EDITUNDO_UNINDENTBLOCK );
-
-        for ( sal_Int32 nPara = aESel.nStartPara; nPara <= aESel.nEndPara; nPara++ )
-        {
-            ContentNode* pNode = GetEditDoc().GetObject( nPara );
-            if ( bRight )
-            {
-                // Insert Tabs
-                EditPaM aPaM( pNode, 0 );
-                InsertTab( aPaM );
-            }
-            else
-            {
-                // Remove Tabs
-                const EditCharAttrib* pFeature = pNode->GetCharAttribs().FindFeature( 0 );
-                if ( pFeature && ( pFeature->GetStart() == 0 ) &&
-                   ( pFeature->GetItem()->Which() == EE_FEATURE_TAB ) )
-                {
-                    EditPaM aStartPaM( pNode, 0 );
-                    EditPaM aEndPaM( pNode, 1 );
-                    ImpDeleteSelection( EditSelection( aStartPaM, aEndPaM ) );
-                }
-            }
-        }
-
-        UndoActionEnd();
-        UpdateSelections();
-        FormatAndUpdate( pEditView );
-
-        ContentNode* pLastNode = GetEditDoc().GetObject( aNewSel.nEndPara );
-        if ( pLastNode->Len() < aNewSel.nEndPos )
-            aNewSel.nEndPos = pLastNode->Len();
-        pEditView->pImpEditView->SetEditSelection( CreateSel( aNewSel ) );
-        pEditView->pImpEditView->DrawSelectionXOR();
-        pEditView->pImpEditView->ShowCursor( false, true );
-    }
 }
 
 std::shared_ptr<SvxForbiddenCharactersTable> const & ImpEditEngine::GetForbiddenCharsTable()

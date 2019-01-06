@@ -9,11 +9,12 @@
 
 #include <memory>
 #include "ucalc.hxx"
+#include "helper/debughelper.hxx"
+#include "helper/qahelper.hxx"
 #include <editutil.hxx>
 #include <formulacell.hxx>
 #include <cellvalue.hxx>
 #include <docsh.hxx>
-#include <clipparam.hxx>
 #include <undoblk.hxx>
 #include <scopetools.hxx>
 #include <docfunc.hxx>
@@ -26,6 +27,7 @@
 #include <sharedformula.hxx>
 
 #include <svl/sharedstring.hxx>
+#include <sfx2/docfile.hxx>
 
 #include <formula/grammar.hxx>
 
@@ -705,6 +707,17 @@ void Test::testSharedFormulasRefUpdateRangeDeleteRow()
 
     // Undo the deletion of row 3.
     pUndoMgr->Undo();
+
+    // Make sure that C1:C2 and C4:C5 are formula groups again.
+    pFC = m_pDoc->GetFormulaCell(ScAddress(2,0,0));
+    CPPUNIT_ASSERT(pFC);
+    CPPUNIT_ASSERT_EQUAL(static_cast<SCROW>(0), pFC->GetSharedTopRow());
+    CPPUNIT_ASSERT_EQUAL(static_cast<SCROW>(2), pFC->GetSharedLength());
+
+    pFC = m_pDoc->GetFormulaCell(ScAddress(2,3,0));
+    CPPUNIT_ASSERT(pFC);
+    CPPUNIT_ASSERT_EQUAL(static_cast<SCROW>(3), pFC->GetSharedTopRow());
+    CPPUNIT_ASSERT_EQUAL(static_cast<SCROW>(2), pFC->GetSharedLength());
 
     // Check the values of formula cells again.
     CPPUNIT_ASSERT_EQUAL( 3.0, m_pDoc->GetValue(ScAddress(2,0,0)));

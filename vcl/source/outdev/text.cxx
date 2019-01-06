@@ -27,6 +27,7 @@
 #include <comphelper/processfactory.hxx>
 #include <osl/file.h>
 #include <sal/log.hxx>
+#include <tools/lineend.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/textrectinfo.hxx>
@@ -35,7 +36,9 @@
 #include <vcl/sysdata.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/controllayout.hxx>
-#include <vcl/opengl/OpenGLHelper.hxx>
+#ifdef MACOSX
+# include <vcl/opengl/OpenGLHelper.hxx>
+#endif
 
 #include <outdata.hxx>
 #include <outdev.h>
@@ -459,7 +462,7 @@ long OutputDevice::ImplGetTextLines( ImplMultiTextLineInfo& rLineInfo,
 
     long nMaxLineWidth  = 0;
     rLineInfo.Clear();
-    if ( !rStr.isEmpty() && (nWidth > 0) )
+    if (!rStr.isEmpty())
     {
         const bool bHyphenate = (nStyle & DrawTextFlags::WordBreakHyphenation) == DrawTextFlags::WordBreakHyphenation;
         css::uno::Reference< css::linguistic2::XHyphenator > xHyph;
@@ -661,7 +664,7 @@ void OutputDevice::SetTextColor( const Color& rColor )
     Color aColor( rColor );
 
     if ( mnDrawMode & ( DrawModeFlags::BlackText | DrawModeFlags::WhiteText |
-                        DrawModeFlags::GrayText | DrawModeFlags::GhostedText |
+                        DrawModeFlags::GrayText |
                         DrawModeFlags::SettingsText ) )
     {
         if ( mnDrawMode & DrawModeFlags::BlackText )
@@ -675,13 +678,6 @@ void OutputDevice::SetTextColor( const Color& rColor )
         }
         else if ( mnDrawMode & DrawModeFlags::SettingsText )
             aColor = GetSettings().GetStyleSettings().GetFontColor();
-
-        if ( mnDrawMode & DrawModeFlags::GhostedText )
-        {
-            aColor = Color( (aColor.GetRed() >> 1) | 0x80,
-                            (aColor.GetGreen() >> 1) | 0x80,
-                            (aColor.GetBlue() >> 1) | 0x80 );
-        }
     }
 
     if ( mpMetaFile )
@@ -722,7 +718,7 @@ void OutputDevice::SetTextFillColor( const Color& rColor )
     {
         if ( mnDrawMode & ( DrawModeFlags::BlackFill | DrawModeFlags::WhiteFill |
                             DrawModeFlags::GrayFill | DrawModeFlags::NoFill |
-                            DrawModeFlags::GhostedFill | DrawModeFlags::SettingsFill ) )
+                            DrawModeFlags::SettingsFill ) )
         {
             if ( mnDrawMode & DrawModeFlags::BlackFill )
                 aColor = COL_BLACK;
@@ -739,13 +735,6 @@ void OutputDevice::SetTextFillColor( const Color& rColor )
             {
                 aColor = COL_TRANSPARENT;
                 bTransFill = true;
-            }
-
-            if ( !bTransFill && (mnDrawMode & DrawModeFlags::GhostedFill) )
-            {
-                aColor = Color( (aColor.GetRed() >> 1) | 0x80,
-                                (aColor.GetGreen() >> 1) | 0x80,
-                                (aColor.GetBlue() >> 1) | 0x80 );
             }
         }
     }
@@ -1247,6 +1236,12 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
          vcl::TextLayoutCache const* pLayoutCache,
          const SalLayoutGlyphs* pGlyphs) const
 {
+    if (pGlyphs && !pGlyphs->IsValid())
+    {
+        SAL_WARN("vcl", "Trying to setup invalid cached glyphs - falling back to relayout!");
+        pGlyphs = nullptr;
+    }
+
     if (!InitFont())
         return nullptr;
 
@@ -2182,7 +2177,7 @@ void OutputDevice::DrawCtrlText( const Point& rPos, const OUString& rStr,
             SetTextColor( GetSettings().GetStyleSettings().GetDisableColor() );
 
         DrawText( rPos, aStr, nIndex, nLen, pVector, pDisplayText );
-        if ( !(GetSettings().GetStyleSettings().GetOptions() & StyleSettingsOptions::NoMnemonics) && !pVector
+        if (!(GetSettings().GetStyleSettings().GetOptions() & StyleSettingsOptions::NoMnemonics)
             && accel && (!autoacc || !(nStyle & DrawTextFlags::HideMnemonic)) )
         {
             if ( nMnemonicPos != -1 )
@@ -2218,7 +2213,7 @@ long OutputDevice::GetCtrlTextWidth( const OUString& rStr, const SalLayoutGlyphs
     {
         if ( nMnemonicPos < nIndex )
             nIndex--;
-        else if ( (nMnemonicPos >= nIndex) && (static_cast<sal_uLong>(nMnemonicPos) < static_cast<sal_uLong>(nIndex+nLen)) )
+        else if (static_cast<sal_uLong>(nMnemonicPos) < static_cast<sal_uLong>(nIndex+nLen))
             nLen--;
     }
     return GetTextWidth( aStr, nIndex, nLen, nullptr, pGlyphs );

@@ -126,9 +126,7 @@ namespace svt
                   ,m_pFocusWhileRequest(nullptr)
                   ,nPaintRow(-1)
                   ,nEditRow(-1)
-                  ,nOldEditRow(-1)
                   ,nEditCol(0)
-                  ,nOldEditCol(0)
                   ,bHasFocus(false)
                   ,bPaintStatus(true)
                   ,bActiveBeforeTracking( false )
@@ -167,8 +165,8 @@ namespace svt
     void EditBrowseBox::RemoveRows()
     {
         BrowseBox::Clear();
-        nOldEditRow = nEditRow = nPaintRow = -1;
-        nEditCol = nOldEditCol = 0;
+        nEditRow = nPaintRow = -1;
+        nEditCol = 0;
     }
 
 
@@ -418,7 +416,7 @@ namespace svt
                         Control::KeyInput(rEvt);
                     return;
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             default:
                 BrowseBox::KeyInput(rEvt);
         }
@@ -1019,9 +1017,6 @@ return;
         if (bUpdate)
             Update();
 
-        nOldEditCol = nEditCol;
-        nOldEditRow = nEditRow;
-
         // release the controller (asynchronously)
         if (nEndEvent)
             Application::RemoveUserEvent(nEndEvent);
@@ -1046,8 +1041,6 @@ return;
         nEndEvent = nullptr;
 
         aOldController  = CellControllerRef();
-        nOldEditRow     = -1;
-        nOldEditCol     =  0;
     }
 
 
@@ -1101,7 +1094,7 @@ return;
         if (!w)
             w = GetDefaultColumnWidth(rName);
 
-        InsertDataColumn(nId, rName, w, (HeaderBarItemBits::CENTER | HeaderBarItemBits::VCENTER | HeaderBarItemBits::CLICKABLE), nPos);
+        InsertDataColumn(nId, rName, w, (HeaderBarItemBits::CENTER | HeaderBarItemBits::CLICKABLE), nPos);
         return nId;
     }
 

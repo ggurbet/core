@@ -277,7 +277,7 @@ static void lcl_formatReferenceLanguage( OUString& rRefText,
         // ASCII 1-letter numbering
         // az a), e), f) ... x)
         // az i., v. (but, a x.)
-        static OUString sLettersStartingWithVowels = "aefilmnorsuxyAEFILMNORSUXY";
+        static const OUString sLettersStartingWithVowels = "aefilmnorsuxyAEFILMNORSUXY";
         if (sLettersStartingWithVowels.indexOf(sNumbering[0]) != -1)
         {
             // x),  X) are letters, but x. and X. etc. are Roman numbers
@@ -294,7 +294,7 @@ static void lcl_formatReferenceLanguage( OUString& rRefText,
             0x00E1, 0x00C1, 0x00E9, 0x00C9, 0x00ED, 0x00CD,
             0x00F3, 0x00D3, 0x00F6, 0x00D6, 0x0151, 0x0150,
             0x00FA, 0x00DA, 0x00FC, 0x00DC, 0x0171, 0x0170, 0 };
-        static OUString sVowels = "aAeEoOuU" + OUString(sVowelsWithDiacritic);
+        static OUString sVowels = "aAeEiIoOuU" + OUString(sVowelsWithDiacritic);
 
         // handle more than 1-letter long Roman numbers and
         // their possible combinations with letters:
@@ -560,7 +560,7 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
                 default:
                     assert(false); // fall through to appease MSVC C4701
 #ifdef NDEBUG
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
 #endif
                 // "Reference" (whole Text)
                 case REF_CONTENT:
@@ -604,7 +604,7 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
             default:
                 assert(false); // fall through to appease MSVC C4701
 #ifdef NDEBUG
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
 #endif
             case REF_SETREFATTR:
                 nStart = nNumStart;
@@ -1104,19 +1104,54 @@ void SwGetRefFieldType::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew
     NotifyClients( pOld, pNew );
 }
 
+namespace sw {
+
+bool IsMarkHintHidden(SwRootFrame const& rLayout,
+        SwTextNode const& rNode, SwTextAttrEnd const& rHint)
+{
+    if (!rLayout.IsHideRedlines())
+    {
+        return false;
+    }
+    SwTextFrame const*const pFrame(static_cast<SwTextFrame const*>(
+        rNode.getLayoutFrame(&rLayout)));
+    if (!pFrame)
+    {
+        return true;
+    }
+    sal_Int32 const*const pEnd(const_cast<SwTextAttrEnd &>(rHint).GetEnd());
+    if (pEnd)
+    {
+        return pFrame->MapModelToView(&rNode, rHint.GetStart())
+            == pFrame->MapModelToView(&rNode, *pEnd);
+    }
+    else
+    {
+        assert(rHint.HasDummyChar());
+        return pFrame->MapModelToView(&rNode, rHint.GetStart())
+            == pFrame->MapModelToView(&rNode, rHint.GetStart() + 1);
+    }
+}
+
+} // namespace sw
+
 SwTextNode* SwGetRefFieldType::FindAnchor( SwDoc* pDoc, const OUString& rRefMark,
                                         sal_uInt16 nSubType, sal_uInt16 nSeqNo,
-                                        sal_Int32* pStt, sal_Int32* pEnd )
+                                        sal_Int32* pStt, sal_Int32* pEnd,
+                                        SwRootFrame const*const pLayout)
 {
     OSL_ENSURE( pStt, "Why did no one check the StartPos?" );
 
+    IDocumentRedlineAccess & rIDRA(pDoc->getIDocumentRedlineAccess());
     SwTextNode* pTextNd = nullptr;
     switch( nSubType )
     {
     case REF_SETREFATTR:
         {
             const SwFormatRefMark *pRef = pDoc->GetRefMark( rRefMark );
-            if( pRef && pRef->GetTextRefMark() )
+            SwTextRefMark const*const pRefMark(pRef ? pRef->GetTextRefMark() : nullptr);
+            if (pRefMark && (!pLayout || !sw::IsMarkHintHidden(*pLayout,
+                                           pRefMark->GetTextNode(), *pRefMark)))
             {
                 pTextNd = const_cast<SwTextNode*>(&pRef->GetTextRefMark()->GetTextNode());
                 *pStt = pRef->GetTextRefMark()->GetStart();
@@ -1135,10 +1170,12 @@ SwTextNode* SwGetRefFieldType::FindAnchor( SwDoc* pDoc, const OUString& rRefMark
                 SwIterator<SwFormatField,SwFieldType> aIter( *pFieldType );
                 for( SwFormatField* pFormatField = aIter.First(); pFormatField; pFormatField = aIter.Next() )
                 {
-                    if( pFormatField->GetTextField() && nSeqNo ==
-                        static_cast<SwSetExpField*>(pFormatField->GetField())->GetSeqNumber() )
+                    SwTextField *const pTextField(pFormatField->GetTextField());
+                    if (pTextField && nSeqNo ==
+                        static_cast<SwSetExpField*>(pFormatField->GetField())->GetSeqNumber()
+                        && (!pLayout || !pLayout->IsHideRedlines()
+                            || !sw::IsFieldDeletedInModel(rIDRA, *pTextField)))
                     {
-                        SwTextField* pTextField = pFormatField->GetTextField();
                         pTextNd = pTextField->GetpTextNode();
                         *pStt = pTextField->GetStart();
                         if( pEnd )
@@ -1153,7 +1190,9 @@ SwTextNode* SwGetRefFieldType::FindAnchor( SwDoc* pDoc, const OUString& rRefMark
     case REF_BOOKMARK:
         {
             IDocumentMarkAccess::const_iterator_t ppMark = pDoc->getIDocumentMarkAccess()->findMark(rRefMark);
-            if(ppMark != pDoc->getIDocumentMarkAccess()->getAllMarksEnd())
+            if (ppMark != pDoc->getIDocumentMarkAccess()->getAllMarksEnd()
+                && (!pLayout || !pLayout->IsHideRedlines()
+                    || !sw::IsMarkHidden(*pLayout, **ppMark)))
             {
                 const ::sw::mark::IMark* pBkmk = ppMark->get();
                 const SwPosition* pPos = &pBkmk->GetMarkStart();
@@ -1191,6 +1230,13 @@ SwTextNode* SwGetRefFieldType::FindAnchor( SwDoc* pDoc, const OUString& rRefMark
             for( auto pFootnoteIdx : pDoc->GetFootnoteIdxs() )
                 if( nSeqNo == pFootnoteIdx->GetSeqRefNo() )
                 {
+                    if (pLayout && pLayout->IsHideRedlines()
+                        && sw::IsFootnoteDeleted(rIDRA, *pFootnoteIdx))
+                    {
+                        return nullptr;
+                    }
+                    // otherwise: the position at the start of the footnote
+                    // will be mapped to something visible at least...
                     SwNodeIndex* pIdx = pFootnoteIdx->GetStartNode();
                     if( pIdx )
                     {
@@ -1384,7 +1430,7 @@ void SwGetRefFieldType::MergeWithOtherDoc( SwDoc& rDestDoc )
 
         // then there are RefFields in the DescDox - so all RefFields in the SourceDoc
         // need to be converted to have unique IDs for both documents
-        RefIdsMap aFntMap( aEmptyOUStr );
+        RefIdsMap aFntMap = RefIdsMap(OUString());
         std::vector<std::unique_ptr<RefIdsMap>> aFieldMap;
 
         SwIterator<SwFormatField,SwFieldType> aIter( *this );

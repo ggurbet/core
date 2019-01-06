@@ -737,7 +737,10 @@ const OUString&  SwDocStyleSheet::GetParent() const
         case SfxStyleFamily::Page:
         case SfxStyleFamily::Pseudo:
         default:
-            return aEmptyOUStr;       // there's no parent
+            {
+                static const OUString sEmpty;
+                return sEmpty; // there's no parent
+            }
         }
 
         OUString sTmp;
@@ -982,7 +985,7 @@ OUString  SwDocStyleSheet::GetDescription(MapUnit eUnit)
                                     aItemPresentation = SwResId(STR_WESTERN_FONT) + aItemPresentation;
                                     bHasWesternFontPrefix = true;
                                 }
-                                SAL_FALLTHROUGH;
+                                [[fallthrough]];
                                 default:
                                     bIsDefault = true;
                             }

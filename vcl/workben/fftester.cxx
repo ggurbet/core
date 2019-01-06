@@ -44,6 +44,8 @@
 #include <vcl/fltcall.hxx>
 #include <osl/file.hxx>
 #include <osl/module.hxx>
+#include <tools/stream.hxx>
+#include <vcl/gdimtf.hxx>
 
 #include "../source/filter/igif/gifread.hxx"
 #include "../source/filter/ixbm/xbmread.hxx"
@@ -102,9 +104,8 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv)
             createInstanceWithArguments("com.sun.star.ucb.FileContentProvider", aArgs), css::uno::UNO_QUERY_THROW);
         xUcb->registerContentProvider(xFileProvider, "file", true);
 
+        Application::EnableHeadlessMode(false);
         InitVCL();
-
-        Application::SetDialogCancelMode(DialogCancelMode::Silent);
 
         if (strcmp(argv[2], "wmf") == 0 || strcmp(argv[2], "emf") == 0)
         {

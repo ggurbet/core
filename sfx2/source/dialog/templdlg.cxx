@@ -65,6 +65,7 @@
 
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
+#include <vcl/viewdataentry.hxx>
 #include <comphelper/string.hxx>
 
 #include <sfx2/StyleManager.hxx>
@@ -1438,7 +1439,7 @@ void SfxCommonTemplateDialog_Impl::Notify(SfxBroadcaster& /*rBC*/, const SfxHint
                 if( pStyleSheetPool )
                 {
                     OUString aStr = GetSelectedEntry();
-                    if( !aStr.isEmpty() && pStyleSheetPool )
+                    if (!aStr.isEmpty())
                     {
                         const SfxStyleFamilyItem *pItem = GetFamilyItem_Impl();
                         if( !pItem ) break;
@@ -1556,7 +1557,7 @@ bool SfxCommonTemplateDialog_Impl::Execute_Impl(
     DeletionWatcher aDeleted(*this);
     sal_uInt16 nModi = pModifier ? *pModifier : 0;
     const SfxPoolItem* pItem = rDispatcher.Execute(
-        nId, SfxCallMode::SYNCHRON | SfxCallMode::RECORD | SfxCallMode::MODAL,
+        nId, SfxCallMode::SYNCHRON | SfxCallMode::RECORD,
         pItems, nModi );
 
     // Dialog can be destroyed while in Execute() because started
@@ -2140,13 +2141,13 @@ SfxTemplateDialog_Impl::SfxTemplateDialog_Impl(SfxBindings* pB, SfxTemplatePanel
     , m_aActionTbL(VclPtrInstance<DropToolBox_Impl>(pDlgWindow, this))
     , m_aActionTbR(VclPtrInstance<ToolBox>(pDlgWindow))
 {
-    m_aActionTbR->InsertItem(SID_STYLE_WATERCAN, Image(BitmapEx(RID_SFXBMP_WATERCAN)), SfxResId(STR_STYLE_FILL_FORMAT_MODE));
+    m_aActionTbR->InsertItem(SID_STYLE_WATERCAN, Image(StockImage::Yes, RID_SFXBMP_WATERCAN), SfxResId(STR_STYLE_FILL_FORMAT_MODE));
     m_aActionTbR->SetHelpId(SID_STYLE_WATERCAN, HID_TEMPLDLG_WATERCAN);
 
-    m_aActionTbR->InsertItem(SID_STYLE_NEW_BY_EXAMPLE, Image(BitmapEx(RID_SFXBMP_NEW_BY_EXAMPLE)), SfxResId(STR_STYLE_NEW_STYLE_FROM_SELECTION));
+    m_aActionTbR->InsertItem(SID_STYLE_NEW_BY_EXAMPLE, Image(StockImage::Yes, RID_SFXBMP_NEW_BY_EXAMPLE), SfxResId(STR_STYLE_NEW_STYLE_FROM_SELECTION));
     m_aActionTbR->SetHelpId(SID_STYLE_NEW_BY_EXAMPLE, HID_TEMPLDLG_NEWBYEXAMPLE);
 
-    m_aActionTbR->InsertItem(SID_STYLE_UPDATE_BY_EXAMPLE, Image(BitmapEx(RID_SFXBMP_UPDATE_BY_EXAMPLE)), SfxResId(STR_STYLE_UPDATE_STYLE));
+    m_aActionTbR->InsertItem(SID_STYLE_UPDATE_BY_EXAMPLE, Image(StockImage::Yes, RID_SFXBMP_UPDATE_BY_EXAMPLE), SfxResId(STR_STYLE_UPDATE_STYLE));
     m_aActionTbR->SetHelpId(SID_STYLE_UPDATE_BY_EXAMPLE, HID_TEMPLDLG_UPDATEBYEXAMPLE);
 
     Initialize();
@@ -2322,7 +2323,7 @@ void SfxTemplateDialog_Impl::EnableItem(sal_uInt16 nMesId, bool bCheck)
         case SID_STYLE_WATERCAN :
             if(!bCheck && IsCheckedItem(SID_STYLE_WATERCAN))
                 Execute_Impl(SID_STYLE_WATERCAN, "", "", 0);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SID_STYLE_NEW_BY_EXAMPLE:
         case SID_STYLE_UPDATE_BY_EXAMPLE:
             m_aActionTbR->EnableItem(nMesId,bCheck);

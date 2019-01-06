@@ -9,6 +9,7 @@
 
 #include "qahelper.hxx"
 #include "csv_handler.hxx"
+#include "debughelper.hxx"
 #include <drwlayer.hxx>
 #include <compiler.hxx>
 #include <conditio.hxx>
@@ -24,13 +25,16 @@
 #include <cppunit/AdditionalMessage.h>
 #include <sal/log.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <svl/gridprinter.hxx>
+#include <sfx2/docfilt.hxx>
+#include <sfx2/docfile.hxx>
+#include <unotools/tempfile.hxx>
+#include <scitems.hxx>
 
 #include <orcus/csv_parser.hpp>
 
 #include <fstream>
 
-#include <com/sun/star/frame/XModel.hpp>
-#include <com/sun/star/text/textfield/Type.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
 #include <com/sun/star/document/MacroExecMode.hpp>
@@ -83,7 +87,8 @@ const FileFormat ScBootstrapFixture::aFileFormats[] = {
     { "xml", "MS Excel 2003 XML Orcus", "calc_MS_Excel_2003_XML", XLS_XML_FORMAT_TYPE },
     { "xlsb", "Calc MS Excel 2007 Binary", "MS Excel 2007 Binary", XLSB_XML_FORMAT_TYPE },
     { "fods", "OpenDocument Spreadsheet Flat XML", "calc_ODS_FlatXML", FODS_FORMAT_TYPE },
-    { "gnumeric", "Gnumeric Spreadsheet", "Gnumeric XML", GNUMERIC_FORMAT_TYPE }
+    { "gnumeric", "Gnumeric Spreadsheet", "Gnumeric XML", GNUMERIC_FORMAT_TYPE },
+    { "xltx", "Calc Office Open XML Template", "Office Open XML Spreadsheet Template", XLTX_FORMAT_TYPE }
 };
 
 bool testEqualsWithTolerance( long nVal1, long nVal2, long nTol )
@@ -755,8 +760,7 @@ void ScBootstrapFixture::miscRowHeightsTest( TestParam const * aTestValues, unsi
                     bool bOpt = !(rDoc.GetRowFlags( nRow, nTab ) & CRFlags::ManualSize);
                     CPPUNIT_ASSERT_EQUAL(aTestValues[ index ].pData[ i ].bOptimal, bOpt);
                 }
-                // Due to some minor differences on Mac this comparison is made bit fuzzy
-                CPPUNIT_ASSERT_LESSEQUAL( 15, abs( nHeight - nExpectedHeight ) );
+                CPPUNIT_ASSERT_EQUAL(nExpectedHeight, nHeight);
             }
         }
         xShell->DoClose();

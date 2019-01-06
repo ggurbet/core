@@ -18,6 +18,7 @@
  */
 
 
+#include <vcl/commandevent.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/event.hxx>
@@ -34,6 +35,7 @@
 #include <controldata.hxx>
 #include <listbox.hxx>
 #include <dndeventdispatcher.hxx>
+#include <comphelper/lok.hxx>
 
 #include <com/sun/star/datatransfer/dnd/XDropTarget.hpp>
 
@@ -341,8 +343,8 @@ void ListBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, Dr
     // Border/Background
     pDev->SetLineColor();
     pDev->SetFillColor();
-    bool bBorder = !(nFlags & DrawFlags::NoBorder ) && (GetStyle() & WB_BORDER);
-    bool bBackground = !(nFlags & DrawFlags::NoBackground) && IsControlBackground();
+    bool bBorder = (GetStyle() & WB_BORDER);
+    bool bBackground = IsControlBackground();
     if ( bBorder || bBackground )
     {
         tools::Rectangle aRect( aPos, aSize );
@@ -364,7 +366,7 @@ void ListBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, Dr
     }
     else
     {
-        if ( !(nFlags & DrawFlags::NoDisable ) && !IsEnabled() )
+        if ( !IsEnabled() )
         {
             const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
             pDev->SetTextColor( rStyleSettings.GetDisableColor() );
@@ -536,8 +538,12 @@ void ListBox::SetDropDownLineCount( sal_uInt16 nLines )
 
 void ListBox::AdaptDropDownLineCountToMaximum()
 {
-    // adapt to maximum allowed number
-    SetDropDownLineCount(GetSettings().GetStyleSettings().GetListBoxMaximumLineCount());
+    // Adapt to maximum allowed number.
+    // Limit for LOK as we can't render outside of the dialog canvas.
+    if (comphelper::LibreOfficeKit::isActive())
+        SetDropDownLineCount(11);
+    else
+        SetDropDownLineCount(GetSettings().GetStyleSettings().GetListBoxMaximumLineCount());
 }
 
 sal_uInt16 ListBox::GetDropDownLineCount() const
@@ -945,7 +951,6 @@ void ListBox::SetNoSelection()
         mpImplWin->SetImage( aImage );
         mpImplWin->Invalidate();
     }
-    CallEventListeners(VclEventId::ListboxStateUpdate);
 }
 
 sal_Int32 ListBox::InsertEntry( const OUString& rStr, sal_Int32 nPos )
@@ -1065,11 +1070,8 @@ void ListBox::SelectEntryPos( sal_Int32 nPos, bool bSelect )
 
     if ( 0 <= nPos && nPos < mpImplLB->GetEntryList()->GetEntryCount() )
     {
-        sal_Int32 oldSelectCount = GetSelectedEntryCount(), newSelectCount = 0, nCurrentPos = mpImplLB->GetCurrentPos();
+        sal_Int32 nCurrentPos = mpImplLB->GetCurrentPos();
         mpImplLB->SelectEntry( nPos + mpImplLB->GetEntryList()->GetMRUCount(), bSelect );
-        newSelectCount = GetSelectedEntryCount();
-        if (oldSelectCount == 0 && newSelectCount > 0)
-            CallEventListeners(VclEventId::ListboxStateUpdate);
         //Only when bSelect == true, send both Selection & Focus events
         if (nCurrentPos != nPos && bSelect)
         {

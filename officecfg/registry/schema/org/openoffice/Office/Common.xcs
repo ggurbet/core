@@ -1417,12 +1417,13 @@
           <!-- OldPath: AutoCorrect/Options/All -->
           <!-- OldLocation: Soffice.cfg -->
           <!-- UIHints: Tools - AutoCorrect/AutoFormat - Exceptions - Words with
-               2 initial capitals -->
+               2 initial capitals or small initial -->
           <info>
             <desc>Specifies if defined words with two initial capital letters
-            should not be included in the AutoCorrect replacement.</desc>
-            <label>Words with two initial capital letters - Add
-            automatically</label>
+            or a small initial letter should not be included in the AutoCorrect
+            replacement.</desc>
+            <label>Words with two initial capital letters or a small initial -
+            Add automatically</label>
           </info>
           <value>true</value>
         </prop>
@@ -1616,7 +1617,7 @@
           </info>
           <value>$(insturl)/@LIBO_SHARE_FOLDER@/config</value>
         </prop>
-        <prop oor:name="Dictionary" oor:type="xs:string" oor:nillable="false">
+        <prop oor:name="Dictionary" oor:type="xs:string">
           <info>
             <desc>Contains the provided dictionaries.</desc>
           </info>
@@ -5353,6 +5354,15 @@
         <info>
           <desc>Allows to specify whether the OOo document file locking
           mechanics should use the system file locking.</desc>
+        </info>
+        <value>true</value>
+      </prop>
+      <prop oor:name="UseWebDAVFileLocking" oor:type="xs:boolean" oor:nillable="false">
+        <info>
+          <desc>Determines if WebDAV-specific file locking is used for documents
+	  on WebDAV shares. It is not recommended to set this option to 'false' in
+	  scenarios where multi-user, concurrent read/write access to WebDAV share
+	  is required</desc>
         </info>
         <value>true</value>
       </prop>

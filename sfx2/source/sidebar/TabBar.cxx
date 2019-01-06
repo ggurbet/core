@@ -30,6 +30,8 @@
 
 #include <sfx2/sfxresid.hxx>
 
+#include <comphelper/processfactory.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/image.hxx>
 #include <vcl/wrkwin.hxx>

@@ -46,6 +46,7 @@
 #include <vcl/builder.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <svx/strings.hrc>
 
@@ -1217,12 +1218,12 @@ namespace
 
         if ( _bHideScrollbars )
         {
-            _rMode |= ( BrowserMode::NO_HSCROLL | BrowserMode::NO_VSCROLL );
+            _rMode |= BrowserMode::NO_HSCROLL | BrowserMode::NO_VSCROLL;
             _rMode &= ~BrowserMode( BrowserMode::AUTO_HSCROLL | BrowserMode::AUTO_VSCROLL );
         }
         else
         {
-            _rMode |= ( BrowserMode::AUTO_HSCROLL | BrowserMode::AUTO_VSCROLL );
+            _rMode |= BrowserMode::AUTO_HSCROLL | BrowserMode::AUTO_VSCROLL;
             _rMode &= ~BrowserMode( BrowserMode::NO_HSCROLL | BrowserMode::NO_VSCROLL );
         }
 
@@ -2351,7 +2352,7 @@ bool DbGridControl::SeekCursor(long nRow, bool bAbsolute)
                 DBG_ASSERT( !m_pSeekCursor->isAfterLast() && !m_pSeekCursor->isBeforeFirst(),
                     "DbGridControl::SeekCursor: how did the seek cursor get to this position?!" );
                 nSteps = nRow - (m_pSeekCursor->getRow() - 1);
-                bAbsolute = bAbsolute || (std::abs(nSteps) > 100);
+                bAbsolute = std::abs(nSteps) > 100;
             }
 
             if ( bAbsolute )
@@ -2840,7 +2841,7 @@ void DbGridControl::Command(const CommandEvent& rEvt)
                 return;
             }
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         default:
             EditBrowseBox::Command(rEvt);
@@ -3252,7 +3253,7 @@ bool DbGridControl::PreNotify(NotifyEvent& rEvt)
                 }
             }
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         default:
             return EditBrowseBox::PreNotify(rEvt);
@@ -3376,7 +3377,7 @@ void DbGridControl::ShowColumn(sal_uInt16 nId)
 
     OUString aName;
     pColumn->getModel()->getPropertyValue(FM_PROP_LABEL) >>= aName;
-    InsertDataColumn(nId, aName, CalcZoom(pColumn->m_nLastVisibleWidth), HeaderBarItemBits::CENTER | HeaderBarItemBits::VCENTER | HeaderBarItemBits::CLICKABLE, nNewViewPos);
+    InsertDataColumn(nId, aName, CalcZoom(pColumn->m_nLastVisibleWidth), HeaderBarItemBits::CENTER | HeaderBarItemBits::CLICKABLE, nNewViewPos);
     pColumn->m_bHidden = false;
 
     ActivateCell();

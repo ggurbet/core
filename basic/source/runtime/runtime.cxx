@@ -1337,14 +1337,12 @@ void SbiRuntime::StepCompare( SbxOperator eOp )
     // I dumbly follow the pattern :-/
     if ( bVBAEnabled && ( p1->IsNull() || p2->IsNull() ) )
     {
-        static SbxVariable* pNULL = nullptr;
-
-        if( !pNULL )
-        {
-            pNULL = new SbxVariable;
-            pNULL->PutNull();
-            pNULL->AddFirstRef();
-        }
+        static SbxVariable* pNULL = [&]() {
+            SbxVariable* p = new SbxVariable;
+            p->PutNull();
+            p->AddFirstRef();
+            return p;
+        }();
         PushVar( pNULL );
     }
     else if( p2->Compare( eOp, *p1 ) )
@@ -1893,7 +1891,7 @@ void SbiRuntime::StepSET_Impl( SbxVariableRef& refVal, SbxVariableRef& refVar, b
 
         // lhs is a property who's value is currently (Empty e.g. no broadcast yet)
         // in this case if there is a default prop involved the value of the
-        // default property may infact be void so the type will also be SbxEMPTY
+        // default property may in fact be void so the type will also be SbxEMPTY
         // in this case we do not want to call checkUnoStructCopy 'cause that will
         // cause an error also
         if ( !checkUnoStructCopy( bHandleDefaultProp, refVal, refVar ) )

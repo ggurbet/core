@@ -468,7 +468,7 @@ void Dialog::ImplInit( vcl::Window* pParent, WinBits nStyle, InitFlag eFlag )
     }
     else
     {
-        VclPtrInstance<ImplBorderWindow> pBorderWin( pParent, nStyle, BorderWindowStyle::Overlap | BorderWindowStyle::Border );
+        VclPtrInstance<ImplBorderWindow> pBorderWin( pParent, nStyle, BorderWindowStyle::Overlap );
         SystemWindow::ImplInit( pBorderWin, nStyle & ~WB_BORDER, nullptr );
         pBorderWin->mpWindowImpl->mpClientWindow = this;
         pBorderWin->GetBorder( mpWindowImpl->mnLeftBorder, mpWindowImpl->mnTopBorder, mpWindowImpl->mnRightBorder, mpWindowImpl->mnBottomBorder );
@@ -1086,7 +1086,7 @@ void Dialog::RemoveFromDlgList()
     auto& rExecuteDialogs = pSVData->maWinData.mpExecuteDialogs;
 
     // remove dialog from the list of dialogs which are being executed
-    rExecuteDialogs.erase(std::remove_if(rExecuteDialogs.begin(), rExecuteDialogs.end(), [=](VclPtr<Dialog>& dialog){ return dialog.get() == this; }), rExecuteDialogs.end());
+    rExecuteDialogs.erase(std::remove_if(rExecuteDialogs.begin(), rExecuteDialogs.end(), [this](VclPtr<Dialog>& dialog){ return dialog.get() == this; }), rExecuteDialogs.end());
 }
 
 void Dialog::EndDialog( long nResult )
@@ -1435,6 +1435,43 @@ vcl::Window* Dialog::get_widget_for_response(int response)
     }
 
     return nullptr;
+}
+
+int Dialog::get_default_response()
+{
+    //copy explicit responses
+    std::map<VclPtr<vcl::Window>, short> aResponses(mpDialogImpl->maResponses);
+
+    //add implicit responses
+    for (vcl::Window* pChild = mpActionArea->GetWindow(GetWindowType::FirstChild); pChild;
+         pChild = pChild->GetWindow(GetWindowType::Next))
+    {
+        if (aResponses.find(pChild) != aResponses.end())
+            continue;
+        switch (pChild->GetType())
+        {
+            case WindowType::OKBUTTON:
+                aResponses[pChild] = RET_OK;
+                break;
+            case WindowType::CANCELBUTTON:
+                aResponses[pChild] = RET_CANCEL;
+                break;
+            case WindowType::HELPBUTTON:
+                aResponses[pChild] = RET_HELP;
+                break;
+            default:
+                break;
+        }
+    }
+
+    for (auto& a : aResponses)
+    {
+        if (a.first->GetStyle() & WB_DEFBUTTON)
+        {
+            return a.second;
+        }
+    }
+    return RET_CANCEL;
 }
 
 void Dialog::set_default_response(int response)

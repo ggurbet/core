@@ -62,6 +62,7 @@
 #include <sal/macros.h>
 #include <sal/log.hxx>
 
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/unohelp2.hxx>
 
@@ -441,7 +442,7 @@ void Edit::ImplInvalidateOrRepaint()
     if( IsPaintTransparent() )
     {
         Invalidate();
-        // FIXME: this is currently only on OS X
+        // FIXME: this is currently only on macOS
         if( ImplGetSVData()->maNWFData.mbNoFocusRects )
             Update();
     }
@@ -1534,7 +1535,7 @@ bool Edit::ImplHandleKeyEvent( const KeyEvent& rKEvt )
                     case css::awt::Key::SELECT_TO_BEGIN_OF_PARAGRAPH:
                     case css::awt::Key::SELECT_TO_BEGIN_OF_DOCUMENT:
                         bSelect = true;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case css::awt::Key::MOVE_TO_BEGIN_OF_LINE:
                     case css::awt::Key::MOVE_TO_BEGIN_OF_PARAGRAPH:
                     case css::awt::Key::MOVE_TO_BEGIN_OF_DOCUMENT:
@@ -1543,7 +1544,7 @@ bool Edit::ImplHandleKeyEvent( const KeyEvent& rKEvt )
                     case css::awt::Key::SELECT_TO_END_OF_PARAGRAPH:
                     case css::awt::Key::SELECT_TO_END_OF_DOCUMENT:
                         bSelect = true;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case css::awt::Key::MOVE_TO_END_OF_LINE:
                     case css::awt::Key::MOVE_TO_END_OF_PARAGRAPH:
                     case css::awt::Key::MOVE_TO_END_OF_DOCUMENT:
@@ -1672,8 +1673,7 @@ bool Edit::ImplHandleKeyEvent( const KeyEvent& rKEvt )
             case KEY_RETURN:
                 if (maActivateHdl.IsSet())
                 {
-                    maActivateHdl.Call(*this);
-                    bDone = true;
+                    bDone = maActivateHdl.Call(*this);
                 }
             break;
 
@@ -1710,7 +1710,7 @@ void Edit::KeyInput( const KeyEvent& rKEvt )
         mpUpdateDataTimer->Start();//do not update while the user is still travelling in the control
 
     if ( mpSubEdit || !ImplHandleKeyEvent( rKEvt ) )
-        Control::KeyInput( rKEvt );
+        GetParent()->KeyInput( rKEvt );
 }
 
 void Edit::FillLayoutData() const
@@ -1755,8 +1755,8 @@ void Edit::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, DrawF
     // Border/Background
     pDev->SetLineColor();
     pDev->SetFillColor();
-    bool bBorder = !(nFlags & DrawFlags::NoBorder ) && (GetStyle() & WB_BORDER);
-    bool bBackground = !(nFlags & DrawFlags::NoBackground) && IsControlBackground();
+    bool bBorder = (GetStyle() & WB_BORDER);
+    bool bBackground = IsControlBackground();
     if ( bBorder || bBackground )
     {
         tools::Rectangle aRect( aPos, aSize );
@@ -1776,7 +1776,7 @@ void Edit::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, DrawF
         pDev->SetTextColor( COL_BLACK );
     else
     {
-        if ( !(nFlags & DrawFlags::NoDisable ) && !IsEnabled() )
+        if ( !IsEnabled() )
         {
             const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
             pDev->SetTextColor( rStyleSettings.GetDisableColor() );
@@ -1874,7 +1874,7 @@ void Edit::GetFocus()
 
         ImplShowCursor();
 
-        // FIXME: this is currently only on OS X
+        // FIXME: this is currently only on macOS
         // check for other platforms that need similar handling
         if( ImplGetSVData()->maNWFData.mbNoFocusRects &&
             IsNativeWidgetEnabled() &&
@@ -1908,7 +1908,7 @@ void Edit::LoseFocus()
 
     if ( !mpSubEdit )
     {
-        // FIXME: this is currently only on OS X
+        // FIXME: this is currently only on macOS
         // check for other platforms that need similar handling
         if( ImplGetSVData()->maNWFData.mbNoFocusRects &&
             IsNativeWidgetEnabled() &&
@@ -2359,7 +2359,7 @@ void Edit::Modify()
 
         // #i13677# notify edit listeners about caret position change
         CallEventListeners( VclEventId::EditCaretChanged );
-        // FIXME: this is currently only on OS X
+        // FIXME: this is currently only on macOS
         // check for other platforms that need similar handling
         if( ImplGetSVData()->maNWFData.mbNoFocusRects &&
             IsNativeWidgetEnabled() &&

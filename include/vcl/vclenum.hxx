@@ -23,6 +23,8 @@
 #include <sal/types.h>
 #include <tools/fontenum.hxx>
 
+enum class SelectionMode { NONE, Single, Range, Multiple };
+
 enum class TimeFieldFormat : sal_Int32 { F_NONE, F_SEC, F_SEC_CS };
 
 enum class MenuItemType { DONTKNOW, STRING, IMAGE, STRINGIMAGE, SEPARATOR };
@@ -187,12 +189,6 @@ enum class LineStyle
 };
 
 enum class RasterOp { OverPaint, Xor, N0, N1, Invert };
-
-enum class FontAutoHint { DontKnow, No, Yes };
-
-enum class FontHinting { DontKnow, No, Yes };
-
-enum class FontHintStyle { NONE, Slight, Medium, Full };
 
 typedef sal_uInt32 sal_UCS4;    // TODO: this should be moved to rtl
 

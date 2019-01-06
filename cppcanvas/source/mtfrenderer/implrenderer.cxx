@@ -1273,7 +1273,6 @@ namespace cppcanvas
                         break;
 
                     case MetaActionType::TEXTLANGUAGE:
-                        // FALLTHROUGH intended
                     case MetaActionType::REFPOINT:
                         // handled via pCurrAct->Execute( &rVDev )
                         break;
@@ -1789,18 +1788,7 @@ namespace cppcanvas
                         }
                         // Handle drawing layer fills
                         else if( pAct->GetComment() == "EMF_PLUS" ) {
-                            static int count = -1, limit = 0x7fffffff;
-                            if (count == -1) {
-                                count = 0;
-                                if (char *env = getenv ("EMF_PLUS_LIMIT")) {
-                                    limit = atoi (env);
-                                    SAL_INFO ("cppcanvas.emf", "EMF+ records limit: " << limit);
-                                }
-                            }
-                            SAL_INFO ("cppcanvas.emf", "EMF+ passed to canvas mtf renderer, size: " << pAct->GetDataSize ());
-                            if (count < limit)
-                                processEMFPlus( pAct, rFactoryParms, rStates.getState(), rCanvas );
-                            count ++;
+                            SAL_WARN ("cppcanvas.emf", "EMF+ code was refactored and removed");
                         } else if( pAct->GetComment() == "EMF_PLUS_HEADER_INFO" ) {
                             SAL_INFO ("cppcanvas.emf", "EMF+ passed to canvas mtf renderer - header info, size: " << pAct->GetDataSize ());
 
@@ -2798,7 +2786,7 @@ namespace cppcanvas
                     aSubset.mnSubsetBegin = 0;
                     aSubset.mnSubsetEnd   = nEndIndex - aRangeEnd->mnOrigIndex;
 
-                    ENSURE_OR_RETURN_FALSE( aSubset.mnSubsetBegin >= 0 && aSubset.mnSubsetEnd >= 0,
+                    ENSURE_OR_RETURN_FALSE(aSubset.mnSubsetEnd >= 0,
                                       "ImplRenderer::forSubsetRange(): Invalid indices" );
 
                     rFunctor( *aRangeEnd, aSubset );
@@ -2864,11 +2852,6 @@ namespace cppcanvas
                                     const Parameters&       rParams )
             : CanvasGraphicHelper(rCanvas)
             , maActions()
-            , fPageScale(0.0)
-            , nOriginX(0)
-            , nOriginY(0)
-            , nHDPI(0)
-            , nVDPI(0)
             , nFrameLeft(0)
             , nFrameTop(0)
             , nFrameRight(0)
@@ -2877,11 +2860,7 @@ namespace cppcanvas
             , nPixY(0)
             , nMmX(0)
             , nMmY(0)
-            , mbMultipart(false)
-            , mMFlags(0)
         {
-            memset (aObjects, 0, sizeof (aObjects));
-
             SAL_INFO( "cppcanvas.emf", "::cppcanvas::internal::ImplRenderer::ImplRenderer(mtf)" );
 
             OSL_ENSURE( rCanvas.get() != nullptr && rCanvas->getUNOCanvas().is(),

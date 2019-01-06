@@ -18,6 +18,7 @@
  */
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/table/XCell.hpp>
+#include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/table/XColumnRowRange.hpp>
 #include <com/sun/star/beans/XIntrospection.hpp>
 #include <com/sun/star/beans/XIntrospectionAccess.hpp>
@@ -295,12 +296,10 @@ ScVbaWSFunction::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaWSFunction::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.WorksheetFunction";
-    }
+        "ooo.vba.excel.WorksheetFunction"
+    };
     return aServiceNames;
 }
 

@@ -39,6 +39,7 @@
 #include <vcl/wrkwin.hxx>
 #include <tools/stream.hxx>
 #include <tools/zcodec.hxx>
+#include <tools/urlobj.hxx>
 #include <svx/svdopath.hxx>
 #include <stdlib.h>
 #include <vcl/graphicfilter.hxx>
@@ -1084,7 +1085,7 @@ void EscherPropertyContainer::CreateLineProperties(
                         AddOpt( ESCHER_Prop_lineDashing, eDash );
                     }
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
                 case drawing::LineStyle_SOLID :
                 default:
                 {
@@ -1318,7 +1319,7 @@ bool EscherPropertyContainer::CreateGraphicProperties(const uno::Reference<drawi
             if ( EscherPropertyValueHelper::GetPropertyValue( aAny, aXPropSet, "VisibleArea" ) )
             {
                 pVisArea.reset(new awt::Rectangle);
-                aAny >>= (*pVisArea);
+                aAny >>= *pVisArea;
             }
             sal_uInt32 nBlibId = pGraphicProvider->GetBlibID( *pPicOutStrm, rGraphicObj, pVisArea.get() );
             if ( nBlibId )
@@ -3905,7 +3906,7 @@ EscherBlibEntry::EscherBlibEntry( sal_uInt32 nPictureOffset, const GraphicObject
     sal_uInt32      nLen = static_cast<sal_uInt32>(rId.getLength());
     const sal_Char* pData = rId.getStr();
     GraphicType     eType( rObject.GetType() );
-    if ( nLen && pData && ( eType != GraphicType::NONE ) )
+    if (nLen && (eType != GraphicType::NONE))
     {
         mnIdentifier[ 0 ] = rtl_crc32( 0,pData, nLen );
         mnIdentifier[ 1 ] = 0;

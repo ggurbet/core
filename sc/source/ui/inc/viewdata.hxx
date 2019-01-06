@@ -19,6 +19,7 @@
 #ifndef INCLUDED_SC_SOURCE_UI_INC_VIEWDATA_HXX
 #define INCLUDED_SC_SOURCE_UI_INC_VIEWDATA_HXX
 
+#include <tools/fract.hxx>
 #include <sfx2/zoomitem.hxx>
 #include <rangelst.hxx>
 #include <scdllapi.h>
@@ -263,7 +264,7 @@ private:
         we want this function to be const to be able to call the check from
         anywhere.
      */
-    SAL_WARN_UNUSED_RESULT ScSplitPos SanitizeWhichActive() const;
+    [[nodiscard]] ScSplitPos SanitizeWhichActive() const;
 };
 
 class SC_DLLPUBLIC ScViewData

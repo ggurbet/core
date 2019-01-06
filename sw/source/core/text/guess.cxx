@@ -93,7 +93,7 @@ bool SwTextGuess::Guess( const SwTextPortion& rPor, SwTextFormatInfo &rInf,
             if ( rAdjust == SvxAdjust::Right || rAdjust == SvxAdjust::Center )
             {
                 TextFrameIndex nSpaceCnt(0);
-                for (sal_Int32 i = (rInf.GetText().getLength() - 1);
+                for (sal_Int32 i = rInf.GetText().getLength() - 1;
                      sal_Int32(rInf.GetIdx()) <= i; --i)
                 {
                     sal_Unicode cChar = rInf.GetText()[i];
@@ -156,7 +156,7 @@ bool SwTextGuess::Guess( const SwTextPortion& rPor, SwTextFormatInfo &rInf,
         .getIDocumentSettingAccess().get(DocumentSettingId::UNBREAKABLE_NUMBERINGS);
 
     // first check if everything fits to line
-    if ( ( nLineWidth * 2 > SwTwips(nMaxLen) * nPorHeight ) ||
+    if ( ( nLineWidth * 2 > SwTwips(sal_Int32(nMaxLen)) * nPorHeight ) ||
          ( bUnbreakableNumberings && rPor.IsNumberPortion() ) )
     {
         // call GetTextSize with maximum compression (for kanas)
@@ -202,7 +202,7 @@ bool SwTextGuess::Guess( const SwTextPortion& rPor, SwTextFormatInfo &rInf,
         nCutPos = rInf.GetTextBreak( nLineWidth, nMaxLen, nMaxComp, rInf.GetCachedVclData().get() );
 
 #if OSL_DEBUG_LEVEL > 1
-        if ( COMPLETE_STRING != nCutPos )
+        if ( TextFrameIndex(COMPLETE_STRING) != nCutPos )
         {
             sal_uInt16 nMinSize;
             rInf.GetTextSize( &rSI, rInf.GetIdx(), nCutPos - rInf.GetIdx(),
@@ -314,8 +314,9 @@ bool SwTextGuess::Guess( const SwTextPortion& rPor, SwTextFormatInfo &rInf,
                 aDebugString = rInf.GetText();
 #endif
 
+                // this is pretty nutso... reverted at the end...
                 OUString& rOldText = const_cast<OUString&> (rInf.GetText());
-                rOldText = rOldText.replaceAt( rInf.GetIdx() - 1, 1, aText );
+                rOldText = rOldText.replaceAt(sal_Int32(rInf.GetIdx()) - 1, 1, aText);
                 rInf.SetIdx( rInf.GetIdx() + nFieldDiff );
             }
             else
@@ -518,7 +519,7 @@ bool SwTextGuess::Guess( const SwTextPortion& rPor, SwTextFormatInfo &rInf,
 
             OUString& rOldText = const_cast<OUString&> (rInf.GetText());
             OUString aReplacement( cFieldChr );
-            rOldText = rOldText.replaceAt( nOldIdx - 1, nFieldDiff + 1, aReplacement);
+            rOldText = rOldText.replaceAt(sal_Int32(nOldIdx) - 1, sal_Int32(nFieldDiff) + 1, aReplacement);
             rInf.SetIdx( nOldIdx );
 
 #if OSL_DEBUG_LEVEL > 0

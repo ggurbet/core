@@ -20,6 +20,7 @@
 #include <vcl/pngwrite.hxx>
 #include <vcl/svapp.hxx>
 #include <unotools/configmgr.hxx>
+#include <tools/stream.hxx>
 
 
 namespace {
@@ -87,7 +88,7 @@ void ScreenshotTest::implSaveScreenshot(const BitmapEx& rScreenshot, const OStri
     SvFileStream aNew(pngUrl, StreamMode::WRITE | StreamMode::TRUNC);
     CPPUNIT_ASSERT_MESSAGE(OUStringToOString("Failed to open <" + pngUrl + ">: " + OUString::number(sal_uInt32(aNew.GetErrorCode())), RTL_TEXTENCODING_UTF8).getStr(), aNew.IsOpen());
 
-    vcl::PNGWriter aPNGWriter((BitmapEx(rScreenshot)));
+    vcl::PNGWriter aPNGWriter(rScreenshot);
     aPNGWriter.Write(aNew);
 }
 

@@ -429,7 +429,7 @@ SbModule::SbModule( const OUString& rName, bool bVBACompat )
     SetFlag( SbxFlagBits::ExtSearch | SbxFlagBits::GlobalSearch );
     SetModuleType( script::ModuleType::NORMAL );
 
-    // #i92642: Set name property to intitial name
+    // #i92642: Set name property to initial name
     SbxVariable* pNameProp = pProps->Find( "Name", SbxClassType::Property );
     if( pNameProp != nullptr )
     {
@@ -973,7 +973,6 @@ static void ClearUnoObjectsInRTL_Impl( StarBASIC* pBasic )
 {
     // #67781 Delete return values of the Uno-methods
     clearUnoMethods();
-    clearUnoServiceCtors();
 
     ClearUnoObjectsInRTL_Impl_Rek( pBasic );
 
@@ -1106,12 +1105,12 @@ void SbModule::Run( SbMethod* pMeth )
 
             SbModule* pOldMod = GetSbData()->pMod;
             GetSbData()->pMod = this;
-            SbiRuntime* pRt = new SbiRuntime( this, pMeth, pMeth->nStart );
+            std::unique_ptr<SbiRuntime> pRt(new SbiRuntime( this, pMeth, pMeth->nStart ));
 
             pRt->pNext = GetSbData()->pInst->pRun;
             if( pRt->pNext )
                 pRt->pNext->block();
-            GetSbData()->pInst->pRun = pRt;
+            GetSbData()->pInst->pRun = pRt.get();
             if ( mbVBACompat )
             {
                 GetSbData()->pInst->EnableCompatibility( true );
@@ -1145,7 +1144,7 @@ void SbModule::Run( SbMethod* pMeth )
             if( pRtNext && (pRt->GetDebugFlags() & BasicDebugFlags::Break) )
                 pRtNext->SetDebugFlags( BasicDebugFlags::Break );
 
-            delete pRt;
+            pRt.reset();
             GetSbData()->pMod = pOldMod;
             if( bDelInst )
             {
@@ -1224,14 +1223,14 @@ void SbModule::RunInit()
         SbModule* pOldMod = GetSbData()->pMod;
         GetSbData()->pMod = this;
         // The init code starts always here
-        SbiRuntime* pRt = new SbiRuntime( this, nullptr, 0 );
+        std::unique_ptr<SbiRuntime> pRt(new SbiRuntime( this, nullptr, 0 ));
 
         pRt->pNext = GetSbData()->pInst->pRun;
-        GetSbData()->pInst->pRun = pRt;
+        GetSbData()->pInst->pRun = pRt.get();
         while( pRt->Step() ) {}
 
         GetSbData()->pInst->pRun = pRt->pNext;
-        delete pRt;
+        pRt.reset();
         GetSbData()->pMod = pOldMod;
         pImage->bInit = true;
         pImage->bFirstInit = false;
@@ -2554,7 +2553,7 @@ void SbUserFormModule::Unload()
         pMeth->Get( aVals);
         if ( !bWaitForDispose )
         {
-            // we've either already got a dispose or we'er never going to get one
+            // we've either already got a dispose or we are never going to get one
             ResetApiObj();
         } // else wait for dispose
         SAL_INFO("basic", "UnloadObject completed ( we hope )");

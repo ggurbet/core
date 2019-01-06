@@ -26,6 +26,7 @@
 #include <scrwnd.hxx>
 
 #include <vcl/timer.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
 #include <sal/log.hxx>
 
@@ -115,12 +116,12 @@ void ImplWheelWindow::ImplSetRegion( const Bitmap& rRegionBmp )
 
 void ImplWheelWindow::ImplCreateImageList()
 {
-    maImgList.emplace_back(BitmapEx(SV_RESID_BITMAP_SCROLLVH));
-    maImgList.emplace_back(BitmapEx(SV_RESID_BITMAP_SCROLLV));
-    maImgList.emplace_back(BitmapEx(SV_RESID_BITMAP_SCROLLH));
-    maImgList.emplace_back(BitmapEx(SV_RESID_BITMAP_WHEELVH));
-    maImgList.emplace_back(BitmapEx(SV_RESID_BITMAP_WHEELV));
-    maImgList.emplace_back(BitmapEx(SV_RESID_BITMAP_WHEELH));
+    maImgList.emplace_back(Image(StockImage::Yes, SV_RESID_BITMAP_SCROLLVH));
+    maImgList.emplace_back(Image(StockImage::Yes, SV_RESID_BITMAP_SCROLLV));
+    maImgList.emplace_back(Image(StockImage::Yes, SV_RESID_BITMAP_SCROLLH));
+    maImgList.emplace_back(Image(StockImage::Yes, SV_RESID_BITMAP_WHEELVH));
+    maImgList.emplace_back(Image(StockImage::Yes, SV_RESID_BITMAP_WHEELV));
+    maImgList.emplace_back(Image(StockImage::Yes, SV_RESID_BITMAP_WHEELH));
 }
 
 void ImplWheelWindow::ImplSetWheelMode( WheelMode nWheelMode )

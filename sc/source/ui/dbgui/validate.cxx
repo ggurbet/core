@@ -93,9 +93,9 @@ ScValidationDlg::ScValidationDlg(vcl::Window* pParent, const SfxItemSet* pArgSet
     , m_bOwnRefHdlr(false)
     , m_bRefInputting(false)
 {
-    m_nValuePageId = AddTabPage("criteria", ScTPValidationValue::Create, nullptr);
-    AddTabPage("inputhelp", ScTPValidationHelp::Create, nullptr);
-    AddTabPage("erroralert", ScTPValidationError::Create, nullptr);
+    m_nValuePageId = AddTabPage("criteria", ScTPValidationValue::Create);
+    AddTabPage("inputhelp", ScTPValidationHelp::Create);
+    AddTabPage("erroralert", ScTPValidationError::Create);
     get(m_pHBox, "refinputbox");
 }
 
@@ -299,14 +299,13 @@ void lclGetFormulaFromStringList( OUString& rFmlaStr, const OUString& rStringLis
     @return  true = Conversion successful. */
 bool lclGetStringListFromFormula( OUString& rStringList, const OUString& rFmlaStr, sal_Unicode cFmlaSep )
 {
-    OUString aQuotes( "\"\"" );
-    sal_Int32 nTokenCnt = ScStringUtil::GetQuotedTokenCount(rFmlaStr, aQuotes, cFmlaSep );
+    const OUString aQuotes( "\"\"" );
 
     rStringList.clear();
-    bool bIsStringList = (nTokenCnt > 0);
+    bool bIsStringList = !rFmlaStr.isEmpty();
     bool bTokenAdded = false;
 
-    for( sal_Int32 nToken = 0, nStringIx = 0; bIsStringList && (nToken < nTokenCnt); ++nToken )
+    for ( sal_Int32 nStringIx = 0; bIsStringList && nStringIx>=0; )
     {
         OUString aToken( ScStringUtil::GetQuotedToken(rFmlaStr, 0, aQuotes, cFmlaSep, nStringIx ) );
         aToken = comphelper::string::strip(aToken, ' ');
@@ -655,7 +654,7 @@ IMPL_LINK_NOARG(ScTPValidationValue, SelectHdl, ListBox&, void)
 
             case SC_VALIDDLG_DATA_VALIDRANGE:
             case SC_VALIDDLG_DATA_INVALIDRANGE:   bShowMax = true;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case SC_VALIDDLG_DATA_GREATER:
             case SC_VALIDDLG_DATA_EQGREATER:    m_pFtMin->SetText( maStrMin );    break;
 

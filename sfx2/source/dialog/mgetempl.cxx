@@ -48,7 +48,7 @@
  */
 SfxManageStyleSheetPage::SfxManageStyleSheetPage(TabPageParent pParent, const SfxItemSet& rAttrSet)
     : SfxTabPage(pParent, "sfx/ui/managestylepage.ui", "ManageStylePage", &rAttrSet)
-    , pStyle(pParent.pPage ? &static_cast<SfxStyleDialogController*>(pParent.pController)->GetStyleSheet() : &static_cast<SfxStyleDialog*>(GetParentDialog())->GetStyleSheet())
+    , pStyle(&static_cast<SfxStyleDialogController*>(pParent.pController)->GetStyleSheet())
     , pItem(nullptr)
     , bModified(false)
     , aName(pStyle->GetName())
@@ -372,7 +372,7 @@ bool SfxManageStyleSheetPage::Execute_Impl(
     pItems[ nCount++ ] = nullptr;
 
     const SfxPoolItem* pItem = rDispatcher.Execute(
-        nId, SfxCallMode::SYNCHRON | SfxCallMode::RECORD | SfxCallMode::MODAL,
+        nId, SfxCallMode::SYNCHRON | SfxCallMode::RECORD,
         pItems );
 
     return pItem != nullptr;

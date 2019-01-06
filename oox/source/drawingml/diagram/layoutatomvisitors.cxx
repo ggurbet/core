@@ -48,10 +48,19 @@ void ShapeCreationVisitor::visit(AlgAtom& rAtom)
 
 void ShapeCreationVisitor::visit(ForEachAtom& rAtom)
 {
+    if (rAtom.iterator().mnAxis == XML_followSib)
+    {
+        // If the axis is the follow sibling, then the last atom should not be
+        // visited.
+        if (mnCurrIdx + mnCurrStep >= mnCurrCnt)
+            return;
+    }
+
     const std::vector<LayoutAtomPtr>& rChildren=rAtom.getChildren();
 
     sal_Int32 nChildren=1;
-    if( rAtom.iterator().mnPtType == XML_node )
+    // Approximate the non-assistant type with the node type.
+    if (rAtom.iterator().mnPtType == XML_node || rAtom.iterator().mnPtType == XML_nonAsst)
     {
         // count child data nodes - check all child Atoms for "name"
         // attribute that is contained in diagram's
@@ -67,7 +76,11 @@ void ShapeCreationVisitor::visit(ForEachAtom& rAtom)
         rAtom.iterator().mnCnt==-1 ? nChildren : rAtom.iterator().mnCnt);
 
     const sal_Int32 nOldIdx=mnCurrIdx;
+    const sal_Int32 nOldStep = mnCurrStep;
+    const sal_Int32 nOldCnt = mnCurrCnt;
     const sal_Int32 nStep=rAtom.iterator().mnStep;
+    mnCurrStep = nStep;
+    mnCurrCnt = nCnt;
     for( mnCurrIdx=0; mnCurrIdx<nCnt && nStep>0; mnCurrIdx+=nStep )
     {
         // TODO there is likely some conditions
@@ -77,6 +90,8 @@ void ShapeCreationVisitor::visit(ForEachAtom& rAtom)
 
     // and restore idx
     mnCurrIdx = nOldIdx;
+    mnCurrStep = nOldStep;
+    mnCurrCnt = nOldCnt;
 }
 
 void ShapeCreationVisitor::visit(ConditionAtom& rAtom)
@@ -269,7 +284,7 @@ void ShapeLayoutingVisitor::defaultVisit(LayoutAtom const & rAtom)
 void ShapeLayoutingVisitor::visit(ConstraintAtom& rAtom)
 {
     if (meLookFor == CONSTRAINT)
-        rAtom.parseConstraint(maConstraints);
+        rAtom.parseConstraint(maConstraints, /*bRequireForName=*/true);
 }
 
 void ShapeLayoutingVisitor::visit(AlgAtom& rAtom)

@@ -21,7 +21,6 @@
 #include <com/sun/star/i18n/UnicodeType.hpp>
 #include <com/sun/star/i18n/KParseTokens.hpp>
 #include <com/sun/star/i18n/KParseType.hpp>
-#include <config_global.h>
 #include <i18nlangtag/lang.h>
 #include <tools/lineend.hxx>
 #include <unotools/configmgr.hxx>
@@ -30,6 +29,7 @@
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <rtl/character.hxx>
+#include <node.hxx>
 #include <parse.hxx>
 #include <strings.hrc>
 #include <smmod.hxx>
@@ -68,11 +68,7 @@ SmToken::SmToken(SmTokenType eTokenType,
 
 static const SmTokenTableEntry aTokenTable[] =
 {
-    { "Im" , TIM, MS_IM, TG::Standalone, 5 },
-    { "Re" , TRE, MS_RE, TG::Standalone, 5 },
     { "abs", TABS, '\0', TG::UnOper, 13 },
-    { "arcosh", TACOSH, '\0', TG::Function, 5 },
-    { "arcoth", TACOTH, '\0', TG::Function, 5 },
     { "acute", TACUTE, MS_ACUTE, TG::Attribute, 5 },
     { "aleph" , TALEPH, MS_ALEPH, TG::Standalone, 5 },
     { "alignb", TALIGNC, '\0', TG::Align, 0},
@@ -86,6 +82,8 @@ static const SmTokenTableEntry aTokenTable[] =
     { "aqua", TAQUA, '\0', TG::Color, 0},
     { "arccos", TACOS, '\0', TG::Function, 5},
     { "arccot", TACOT, '\0', TG::Function, 5},
+    { "arcosh", TACOSH, '\0', TG::Function, 5 },
+    { "arcoth", TACOTH, '\0', TG::Function, 5 },
     { "arcsin", TASIN, '\0', TG::Function, 5},
     { "arctan", TATAN, '\0', TG::Function, 5},
     { "arsinh", TASINH, '\0', TG::Function, 5},
@@ -131,7 +129,6 @@ static const SmTokenTableEntry aTokenTable[] =
     { "emptyset" , TEMPTYSET, MS_EMPTYSET, TG::Standalone, 5},
     { "equiv", TEQUIV, MS_EQUIV, TG::Relation, 0},
     { "exists", TEXISTS, MS_EXISTS, TG::Standalone, 5},
-    { "notexists", TNOTEXISTS, MS_NOTEXISTS, TG::Standalone, 5},
     { "exp", TEXP, '\0', TG::Function, 5},
     { "fact", TFACT, MS_FACT, TG::UnOper, 5},
     { "fixed", TFIXED, '\0', TG::Font, 0},
@@ -151,6 +148,7 @@ static const SmTokenTableEntry aTokenTable[] =
     { "hbar" , THBAR, MS_HBAR, TG::Standalone, 5},
     { "iiint", TIIINT, MS_IIINT, TG::Oper, 5},
     { "iint", TIINT, MS_IINT, TG::Oper, 5},
+    { "im" , TIM, MS_IM, TG::Standalone, 5 },
     { "in", TIN, MS_IN, TG::Relation, 0},
     { "infinity" , TINFINITY, MS_INFINITY, TG::Standalone, 5},
     { "infty" , TINFINITY, MS_INFINITY, TG::Standalone, 5},
@@ -200,11 +198,14 @@ static const SmTokenTableEntry aTokenTable[] =
     { "nitalic", TNITALIC, '\0', TG::FontAttr, 5},
     { "none", TNONE, '\0', TG::LBrace | TG::RBrace, 0},
     { "nospace", TNOSPACE, '\0', TG::Standalone, 5},
+    { "notexists", TNOTEXISTS, MS_NOTEXISTS, TG::Standalone, 5},
     { "notin", TNOTIN, MS_NOTIN, TG::Relation, 0},
+    { "nprec", TNOTPRECEDES, MS_NOTPRECEDES, TG::Relation, 0 },
     { "nroot", TNROOT, MS_SQRT, TG::UnOper, 5},
     { "nsubset", TNSUBSET, MS_NSUBSET, TG::Relation, 0 },
-    { "nsupset", TNSUPSET, MS_NSUPSET, TG::Relation, 0 },
     { "nsubseteq", TNSUBSETEQ, MS_NSUBSETEQ, TG::Relation, 0 },
+    { "nsucc", TNOTSUCCEEDS, MS_NOTSUCCEEDS, TG::Relation, 0 },
+    { "nsupset", TNSUPSET, MS_NSUPSET, TG::Relation, 0 },
     { "nsupseteq", TNSUPSETEQ, MS_NSUPSETEQ, TG::Relation, 0 },
     { "odivide", TODIVIDE, MS_ODIVIDE, TG::Product, 0},
     { "odot", TODOT, MS_ODOT, TG::Product, 0},
@@ -227,7 +228,6 @@ static const SmTokenTableEntry aTokenTable[] =
     { "prec", TPRECEDES, MS_PRECEDES, TG::Relation, 0 },
     { "preccurlyeq", TPRECEDESEQUAL, MS_PRECEDESEQUAL, TG::Relation, 0 },
     { "precsim", TPRECEDESEQUIV, MS_PRECEDESEQUIV, TG::Relation, 0 },
-    { "nprec", TNOTPRECEDES, MS_NOTPRECEDES, TG::Relation, 0 },
     { "prod", TPROD, MS_PROD, TG::Oper, 5},
     { "prop", TPROP, MS_PROP, TG::Relation, 0},
     { "purple", TPURPLE, '\0', TG::Color, 0},
@@ -236,6 +236,7 @@ static const SmTokenTableEntry aTokenTable[] =
     { "rceil", TRCEIL, MS_RCEIL, TG::RBrace, 0},
     { "rdbracket", TRDBRACKET, MS_RDBRACKET, TG::RBrace, 0},
     { "rdline", TRDLINE, MS_DVERTLINE, TG::RBrace, 0},
+    { "re" , TRE, MS_RE, TG::Standalone, 5 },
     { "red", TRED, '\0', TG::Color, 0},
     { "rfloor", TRFLOOR, MS_RFLOOR, TG::RBrace, 0},  //! 0 to terminate expression
     { "right", TRIGHT, '\0', TG::NONE, 0},
@@ -246,11 +247,11 @@ static const SmTokenTableEntry aTokenTable[] =
     { "sans", TSANS, '\0', TG::Font, 0},
     { "serif", TSERIF, '\0', TG::Font, 0},
     { "setC" , TSETC, MS_SETC, TG::Standalone, 5},
+    { "setminus", TBACKSLASH, MS_BACKSLASH, TG::Product, 0 },
     { "setN" , TSETN, MS_SETN, TG::Standalone, 5},
     { "setQ" , TSETQ, MS_SETQ, TG::Standalone, 5},
     { "setR" , TSETR, MS_SETR, TG::Standalone, 5},
     { "setZ" , TSETZ, MS_SETZ, TG::Standalone, 5},
-    { "setminus", TBACKSLASH, MS_BACKSLASH, TG::Product, 0 },
     { "silver", TSILVER, '\0', TG::Color, 0},
     { "sim", TSIM, MS_SIM, TG::Relation, 0},
     { "simeq", TSIMEQ, MS_SIMEQ, TG::Relation, 0},
@@ -262,11 +263,10 @@ static const SmTokenTableEntry aTokenTable[] =
     { "stack", TSTACK, '\0', TG::NONE, 5},
     { "sub", TRSUB, '\0', TG::Power, 0},
     { "subset", TSUBSET, MS_SUBSET, TG::Relation, 0},
+    { "subseteq", TSUBSETEQ, MS_SUBSETEQ, TG::Relation, 0},
     { "succ", TSUCCEEDS, MS_SUCCEEDS, TG::Relation, 0 },
     { "succcurlyeq", TSUCCEEDSEQUAL, MS_SUCCEEDSEQUAL, TG::Relation, 0 },
     { "succsim", TSUCCEEDSEQUIV, MS_SUCCEEDSEQUIV, TG::Relation, 0 },
-    { "nsucc", TNOTSUCCEEDS, MS_NOTSUCCEEDS, TG::Relation, 0 },
-    { "subseteq", TSUBSETEQ, MS_SUBSETEQ, TG::Relation, 0},
     { "sum", TSUM, MS_SUM, TG::Oper, 5},
     { "sup", TRSUP, '\0', TG::Power, 0},
     { "supset", TSUPSET, MS_SUPSET, TG::Relation, 0},
@@ -289,23 +289,39 @@ static const SmTokenTableEntry aTokenTable[] =
     { "white", TWHITE, '\0', TG::Color, 0},
     { "widebslash", TWIDEBACKSLASH, MS_BACKSLASH, TG::Product, 0 },
     { "widehat", TWIDEHAT, MS_HAT, TG::Attribute, 5},
-    { "widetilde", TWIDETILDE, MS_TILDE, TG::Attribute, 5},
     { "wideslash", TWIDESLASH, MS_SLASH, TG::Product, 0 },
+    { "widetilde", TWIDETILDE, MS_TILDE, TG::Attribute, 5},
     { "widevec", TWIDEVEC, MS_VEC, TG::Attribute, 5},
     { "wp" , TWP, MS_WP, TG::Standalone, 5},
     { "yellow", TYELLOW, '\0', TG::Color, 0}
 };
 
+#if !defined NDEBUG
+static bool sortCompare(const SmTokenTableEntry & lhs, const SmTokenTableEntry & rhs)
+{
+    return OUString::createFromAscii(lhs.pIdent).compareToIgnoreAsciiCase(OUString::createFromAscii(rhs.pIdent)) < 0;
+}
+#endif
+static bool findCompare(const SmTokenTableEntry & lhs, const OUString & s)
+{
+    return s.compareToIgnoreAsciiCaseAscii(lhs.pIdent) > 0;
+}
 const SmTokenTableEntry * SmParser::GetTokenTableEntry( const OUString &rName )
 {
-    if (!rName.isEmpty())
+    static bool bSortKeyWords = false;
+    if( !bSortKeyWords )
     {
-        for (auto const &token : aTokenTable)
-        {
-            if (rName.equalsIgnoreAsciiCaseAscii( token.pIdent ))
-                return &token;
-        }
+        assert( std::is_sorted( std::begin(aTokenTable), std::end(aTokenTable), sortCompare ) );
+        bSortKeyWords = true;
     }
+
+    if (rName.isEmpty())
+        return nullptr;
+
+    auto findIter = std::lower_bound( std::begin(aTokenTable), std::end(aTokenTable), rName, findCompare );
+    if ( findIter != std::end(aTokenTable) && rName.equalsIgnoreAsciiCaseAscii( findIter->pIdent ))
+        return &*findIter;
+
     return nullptr;
 }
 
@@ -1000,11 +1016,7 @@ std::unique_ptr<SmNode> SmParser::DoAlign(bool bUseExtraSpaces)
     if (xSNode)
     {
         xSNode->SetSubNode(0, pNode.release());
-#if HAVE_CXX_CWG1579_FIX
         return xSNode;
-#else
-        return std::move(xSNode);
-#endif
     }
     return pNode;
 }
@@ -1039,11 +1051,7 @@ std::unique_ptr<SmNode> SmParser::DoLine()
 
     auto xSNode = o3tl::make_unique<SmLineNode>(m_aCurToken);
     xSNode->SetSubNodes(buildNodeArray(ExpressionArray));
-#if HAVE_CXX_CWG1579_FIX
     return xSNode;
-#else
-    return std::move(xSNode);
-#endif
 }
 
 std::unique_ptr<SmNode> SmParser::DoExpression(bool bUseExtraSpaces)
@@ -1062,11 +1070,7 @@ std::unique_ptr<SmNode> SmParser::DoExpression(bool bUseExtraSpaces)
         std::unique_ptr<SmExpressionNode> xSNode(new SmExpressionNode(m_aCurToken));
         xSNode->SetSubNodes(buildNodeArray(RelationArray));
         xSNode->SetUseExtraSpaces(bUseExtraSpaces);
-#if HAVE_CXX_CWG1579_FIX
         return xSNode;
-#else
-        return std::move(xSNode);
-#endif
     }
     else
     {
@@ -1087,7 +1091,7 @@ std::unique_ptr<SmNode> SmParser::DoRelation()
         std::unique_ptr<SmStructureNode> xSNode(new SmBinHorNode(m_aCurToken));
         auto xSecond = DoOpSubSup();
         auto xThird = DoSum();
-        xSNode->SetSubNodes(xFirst.release(), xSecond.release(), xThird.release());
+        xSNode->SetSubNodes(std::move(xFirst), std::move(xSecond), std::move(xThird));
         xFirst = std::move(xSNode);
     }
     return xFirst;
@@ -1105,7 +1109,7 @@ std::unique_ptr<SmNode> SmParser::DoSum()
         std::unique_ptr<SmStructureNode> xSNode(new SmBinHorNode(m_aCurToken));
         auto xSecond = DoOpSubSup();
         auto xThird = DoProduct();
-        xSNode->SetSubNodes(xFirst.release(), xSecond.release(), xThird.release());
+        xSNode->SetSubNodes(std::move(xFirst), std::move(xSecond), std::move(xThird));
         xFirst = std::move(xSNode);
     }
     return xFirst;
@@ -1186,11 +1190,11 @@ std::unique_ptr<SmNode> SmParser::DoProduct()
         if (bSwitchArgs)
         {
             //! vgl siehe SmBinDiagonalNode::Arrange
-            xSNode->SetSubNodes(xFirst.release(), xArg.release(), xOper.release());
+            xSNode->SetSubNodes(std::move(xFirst), std::move(xArg), std::move(xOper));
         }
         else
         {
-            xSNode->SetSubNodes(xFirst.release(), xOper.release(), xArg.release());
+            xSNode->SetSubNodes(std::move(xFirst), std::move(xOper), std::move(xArg));
         }
         xFirst = std::move(xSNode);
         ++nDepthLimit;
@@ -1271,11 +1275,7 @@ std::unique_ptr<SmNode> SmParser::DoSubSup(TG nActiveGroup, SmNode *pGivenNode)
     }
 
     pNode->SetSubNodes(buildNodeArray(aSubNodes));
-#if HAVE_CXX_CWG1579_FIX
     return pNode;
-#else
-    return std::move(pNode);
-#endif
 }
 
 std::unique_ptr<SmNode> SmParser::DoOpSubSup()
@@ -1291,11 +1291,7 @@ std::unique_ptr<SmNode> SmParser::DoOpSubSup()
     // get sub- supscripts if any
     if (m_aCurToken.nGroup == TG::Power)
         return DoSubSup(TG::Power, pNode.release());
-#if HAVE_CXX_CWG1579_FIX
     return pNode;
-#else
-    return std::move(pNode);
-#endif
 }
 
 std::unique_ptr<SmNode> SmParser::DoPower()
@@ -1376,7 +1372,7 @@ std::unique_ptr<SmNode> SmParser::DoTerm(bool bGroupNumberIdent)
             }
             auto xSNode = o3tl::make_unique<SmExpressionNode>(m_aCurToken);
             std::unique_ptr<SmNode> xError(DoError(SmParseError::RgroupExpected));
-            xSNode->SetSubNodes(pNode.release(), xError.release());
+            xSNode->SetSubNodes(std::move(pNode), std::move(xError));
             return std::unique_ptr<SmNode>(xSNode.release());
         }
 
@@ -1540,7 +1536,7 @@ std::unique_ptr<SmNode> SmParser::DoTerm(bool bGroupNumberIdent)
                 {
                     std::unique_ptr<SmStructureNode> xNode = std::move(aStack.top());
                     aStack.pop();
-                    xNode->SetSubNodes(nullptr, xFirstNode.release());
+                    xNode->SetSubNodes(nullptr, std::move(xFirstNode));
                     xFirstNode = std::move(xNode);
                 }
                 return xFirstNode;
@@ -1610,7 +1606,7 @@ std::unique_ptr<SmOperNode> SmParser::DoOperator()
     // get argument
     auto xArg = DoPower();
 
-    xSNode->SetSubNodes(xOperator.release(), xArg.release());
+    xSNode->SetSubNodes(std::move(xOperator), std::move(xArg));
     return xSNode;
 }
 
@@ -1739,23 +1735,23 @@ std::unique_ptr<SmStructureNode> SmParser::DoUnOper()
         std::unique_ptr<SmNode> xLeft(new SmMathSymbolNode(aNodeToken));
         std::unique_ptr<SmNode> xRight(new SmMathSymbolNode(aNodeToken));
 
-        xSNode->SetSubNodes(xLeft.release(), xArg.release(), xRight.release());
+        xSNode->SetSubNodes(std::move(xLeft), std::move(xArg), std::move(xRight));
     }
     else if (eType == TSQRT  ||  eType == TNROOT)
     {
         xSNode.reset(new SmRootNode(aNodeToken));
         xOper.reset(new SmRootSymbolNode(aNodeToken));
-        xSNode->SetSubNodes(xExtra.release(), xOper.release(), xArg.release());
+        xSNode->SetSubNodes(std::move(xExtra), std::move(xOper), std::move(xArg));
     }
     else
     {
         xSNode.reset(new SmUnHorNode(aNodeToken));
         if (bIsPostfix)
-            xSNode->SetSubNodes(xArg.release(), xOper.release());
+            xSNode->SetSubNodes(std::move(xArg), std::move(xOper));
         else
         {
             // prefix operator
-            xSNode->SetSubNodes(xOper.release(), xArg.release());
+            xSNode->SetSubNodes(std::move(xOper), std::move(xArg));
         }
     }
     return xSNode;
@@ -1795,13 +1791,9 @@ std::unique_ptr<SmStructureNode> SmParser::DoAttribut()
 
     NextToken();
 
-    xSNode->SetSubNodes(xAttr.release(), nullptr); // the body will be filled later
+    xSNode->SetSubNodes(std::move(xAttr), nullptr); // the body will be filled later
     xSNode->SetScaleMode(eScaleMode);
-#if HAVE_CXX_CWG1579_FIX
     return xSNode;
-#else
-    return std::move(xSNode);
-#endif
 }
 
 std::unique_ptr<SmStructureNode> SmParser::DoFontAttribut()
@@ -1822,11 +1814,7 @@ std::unique_ptr<SmStructureNode> SmParser::DoFontAttribut()
             {
                 auto pNode = o3tl::make_unique<SmFontNode>(m_aCurToken);
                 NextToken();
-#if HAVE_CXX_CWG1579_FIX
                 return pNode;
-#else
-                return std::move(pNode);
-#endif
             }
 
         case TSIZE :
@@ -1986,11 +1974,7 @@ std::unique_ptr<SmStructureNode> SmParser::DoFontSize()
     NextToken();
 
     pFontNode->SetSizeParameter(aValue, Type);
-#if HAVE_CXX_CWG1579_FIX
     return pFontNode;
-#else
-    return std::move(pFontNode);
-#endif
 }
 
 std::unique_ptr<SmStructureNode> SmParser::DoBrace()
@@ -2074,7 +2058,7 @@ std::unique_ptr<SmStructureNode> SmParser::DoBrace()
     {
         assert(pLeft);
         assert(pRight);
-        xSNode->SetSubNodes(pLeft.release(), pBody.release(), pRight.release());
+        xSNode->SetSubNodes(std::move(pLeft), std::move(pBody), std::move(pRight));
         xSNode->SetScaleMode(eScaleMode);
         return xSNode;
     }
@@ -2141,7 +2125,7 @@ std::unique_ptr<SmTextNode> SmParser::DoFunction()
     {
         case TFUNC:
             NextToken();    // skip "FUNC"-statement
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case TSIN :
         case TCOS :
@@ -2186,7 +2170,7 @@ std::unique_ptr<SmTableNode> SmParser::DoBinom()
 
     auto xFirst = DoSum();
     auto xSecond = DoSum();
-    xSNode->SetSubNodes(xFirst.release(), xSecond.release());
+    xSNode->SetSubNodes(std::move(xFirst), std::move(xSecond));
     return xSNode;
 }
 
@@ -2338,8 +2322,8 @@ std::unique_ptr<SmExpressionNode> SmParser::DoError(SmParseError eError)
         throw std::range_error("parser depth limit");
 
     auto xSNode = o3tl::make_unique<SmExpressionNode>(m_aCurToken);
-    SmErrorNode     *pErr   = new SmErrorNode(m_aCurToken);
-    xSNode->SetSubNodes(pErr, nullptr);
+    std::unique_ptr<SmErrorNode> pErr(new SmErrorNode(m_aCurToken));
+    xSNode->SetSubNodes(std::move(pErr), nullptr);
 
     AddError(eError, xSNode.get());
 

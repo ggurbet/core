@@ -21,14 +21,12 @@
 
 #include <oox/helper/attributelist.hxx>
 #include <oox/helper/binaryinputstream.hxx>
-#include <oox/helper/propertyset.hxx>
 #include <oox/token/namespaces.hxx>
 #include <oox/token/tokens.hxx>
 #include <addressconverter.hxx>
 #include <biffhelper.hxx>
 #include <formulaparser.hxx>
 #include <richstringcontext.hxx>
-#include <unitconverter.hxx>
 #include <sal/log.hxx>
 
 namespace oox {
@@ -275,7 +273,7 @@ void SheetDataContext::importRow( const AttributeList& rAttribs )
         mnRow = nRow-1; // to 0-based row index.
     }
     else
-        aModel.mnRow = ++mnRow;
+        aModel.mnRow = (++mnRow + 1);   // increment 0-based row index, to 1-based model row
     mrAddressConv.checkRow( mnRow, true);
     mnCol = -1;
 

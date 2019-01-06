@@ -666,7 +666,7 @@ OUString SdStyleSheet::GetFamilyString( SfxStyleFamily eFamily )
         return OUString( "cell" );
     default:
         OSL_FAIL( "SdStyleSheet::GetFamilyString(), illegal family!" );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case SfxStyleFamily::Para:
         return OUString( "graphics" );
     }
@@ -958,9 +958,7 @@ void SAL_CALL SdStyleSheet::setParentStyle( const OUString& rParentName  )
 Reference< XPropertySetInfo > SdStyleSheet::getPropertySetInfo()
 {
     throwIfDisposed();
-    static Reference< XPropertySetInfo > xInfo;
-    if( !xInfo.is() )
-        xInfo = GetStylePropertySet().getPropertySetInfo();
+    static Reference< XPropertySetInfo > xInfo = GetStylePropertySet().getPropertySetInfo();
     return xInfo;
 }
 

@@ -23,14 +23,11 @@
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
 
-#include <oox/helper/binaryinputstream.hxx>
-#include <excelchartconverter.hxx>
 #include <excelvbaproject.hxx>
 #include <stylesbuffer.hxx>
 #include <themebuffer.hxx>
 #include <workbookfragment.hxx>
 #include <xestream.hxx>
-#include <xlstream.hxx>
 
 #include <addressconverter.hxx>
 #include <document.hxx>
@@ -39,6 +36,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/sfxecode.hxx>
+#include <svtools/ehdl.hxx>
 #include <tools/urlobj.hxx>
 
 namespace oox {
@@ -227,7 +225,7 @@ sal_Bool SAL_CALL ExcelFilter::filter( const css::uno::Sequence< css::beans::Pro
     {
         bool bExportVBA = exportVBA();
         Reference< XExporter > xExporter(
-            new XclExpXmlStream( getComponentContext(), bExportVBA ) );
+            new XclExpXmlStream( getComponentContext(), bExportVBA, isExportTemplate() ) );
 
         Reference< XComponent > xDocument( getModel(), UNO_QUERY );
         Reference< XFilter > xFilter( xExporter, UNO_QUERY );

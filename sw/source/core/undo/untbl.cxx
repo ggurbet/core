@@ -300,6 +300,7 @@ void SwUndoInsTable::RedoImpl(::sw::UndoRedoContext & rContext)
     const SwTable* pTable = rDoc.InsertTable( aInsTableOpts, aPos, nRows, nCols,
                                             nAdjust,
                                             pAutoFormat.get(), pColWidth.get() );
+    rDoc.GetEditShell()->MoveTable( GotoPrevTable, fnTableStart );
     static_cast<SwFrameFormat*>(pTable->GetFrameFormat())->SetName( sTableNm );
     SwTableNode* pTableNode = rDoc.GetNodes()[nSttNode]->GetTableNode();
 
@@ -397,7 +398,7 @@ SwUndoTableToText::SwUndoTableToText( const SwTable& rTable, sal_Unicode cCh )
     : SwUndo( SwUndoId::TABLETOTEXT, rTable.GetFrameFormat()->GetDoc() ),
     sTableNm( rTable.GetFrameFormat()->GetName() ),
     nSttNd( 0 ), nEndNd( 0 ),
-    cTrenner( cCh ), nHdlnRpt( rTable.GetRowsToRepeat() )
+    cSeparator( cCh ), nHdlnRpt( rTable.GetRowsToRepeat() )
 {
     pTableSave.reset( new SaveTable( rTable ) );
     m_vBoxSaves.reserve(rTable.GetTabSortBoxes().size());
@@ -642,7 +643,7 @@ void SwUndoTableToText::RedoImpl(::sw::UndoRedoContext & rContext)
     if( auto pDDETable = dynamic_cast<const SwDDETable *>(&pTableNd->GetTable()) )
         pDDEFieldType.reset( static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy()) );
 
-    rDoc.TableToText( pTableNd, cTrenner );
+    rDoc.TableToText( pTableNd, cSeparator );
 
     ++aSaveIdx;
     SwContentNode* pCNd = aSaveIdx.GetNode().GetContentNode();
@@ -671,7 +672,7 @@ void SwUndoTableToText::RepeatImpl(::sw::RepeatContext & rContext)
         pPam->SetMark();
         pPam->DeleteMark();
 
-        rContext.GetDoc().TableToText( pTableNd, cTrenner );
+        rContext.GetDoc().TableToText( pTableNd, cSeparator );
     }
 }
 
@@ -691,7 +692,7 @@ SwUndoTextToTable::SwUndoTextToTable( const SwPaM& rRg,
                                 sal_Unicode cCh, sal_uInt16 nAdj,
                                 const SwTableAutoFormat* pAFormat )
     : SwUndo( SwUndoId::TEXTTOTABLE, rRg.GetDoc() ), SwUndRng( rRg ), aInsTableOpts( rInsTableOpts ),
-      pHistory( nullptr ), cTrenner( cCh ), nAdjust( nAdj )
+      pHistory( nullptr ), cSeparator( cCh ), nAdjust( nAdj )
 {
     if( pAFormat )
         pAutoFormat.reset( new SwTableAutoFormat( *pAFormat ) );
@@ -745,7 +746,7 @@ void SwUndoTextToTable::UndoImpl(::sw::UndoRedoContext & rContext)
     }
 
     SwNodeIndex aEndIdx( *pTNd->EndOfSectionNode() );
-    rDoc.TableToText( pTNd, 0x0b == cTrenner ? 0x09 : cTrenner );
+    rDoc.TableToText( pTNd, 0x0b == cSeparator ? 0x09 : cSeparator );
 
     // join again at start?
     SwPaM aPam(rDoc.GetNodes().GetEndOfContent());
@@ -794,7 +795,7 @@ void SwUndoTextToTable::RedoImpl(::sw::UndoRedoContext & rContext)
     SetPaM(rPam);
 
     SwTable const*const pTable = rContext.GetDoc().TextToTable(
-                aInsTableOpts, rPam, cTrenner, nAdjust, pAutoFormat.get() );
+                aInsTableOpts, rPam, cSeparator, nAdjust, pAutoFormat.get() );
     static_cast<SwFrameFormat*>(pTable->GetFrameFormat())->SetName( sTableNm );
 }
 
@@ -804,7 +805,7 @@ void SwUndoTextToTable::RepeatImpl(::sw::RepeatContext & rContext)
     if (!rContext.GetRepeatPaM().GetNode().FindTableNode())
     {
         rContext.GetDoc().TextToTable( aInsTableOpts, rContext.GetRepeatPaM(),
-                                        cTrenner, nAdjust,
+                                        cSeparator, nAdjust,
                                         pAutoFormat.get() );
     }
 }
@@ -1470,29 +1471,11 @@ SwUndoTableNdsChg::SwUndoTableNdsChg( SwUndoId nAction,
                                     sal_uInt16 nCnt, bool bFlg, bool bSmHght )
     : SwUndo( nAction, rTableNd.GetDoc() ),
     m_nMin( nMn ), m_nMax( nMx ),
-    m_nSttNode( rTableNd.GetIndex() ), m_nCurrBox( 0 ),
-    m_nCount( nCnt ), m_nRelDiff( 0 ), m_nAbsDiff( 0 ),
+    m_nSttNode( rTableNd.GetIndex() ),
+    m_nCount( nCnt ),
     m_nSetColType( TableChgWidthHeightType::InvalidPos ),
     m_bFlag( bFlg ),
     m_bSameHeight( bSmHght )
-{
-    const SwTable& rTable = rTableNd.GetTable();
-    m_pSaveTable.reset( new SaveTable( rTable ) );
-
-    // and remember selection
-    ReNewBoxes( rBoxes );
-}
-
-SwUndoTableNdsChg::SwUndoTableNdsChg( SwUndoId nAction,
-                                    const SwSelBoxes& rBoxes,
-                                    const SwTableNode& rTableNd )
-    : SwUndo( nAction, rTableNd.GetDoc() ),
-    m_nMin( 0 ), m_nMax( 0 ),
-    m_nSttNode( rTableNd.GetIndex() ), m_nCurrBox( 0 ),
-    m_nCount( 0 ), m_nRelDiff( 0 ), m_nAbsDiff( 0 ),
-    m_nSetColType( TableChgWidthHeightType::InvalidPos ),
-    m_bFlag( false ),
-    m_bSameHeight( false )
 {
     const SwTable& rTable = rTableNd.GetTable();
     m_pSaveTable.reset( new SaveTable( rTable ) );
@@ -1825,9 +1808,8 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
             rDoc.InsertCol( aSelBoxes, m_nCount, m_bFlag );
         else
         {
-            SwTableBox* pBox = pTableNd->GetTable().GetTableBox( m_nCurrBox );
-            rDoc.SetColRowWidthHeight( *pBox, m_nSetColType, m_nAbsDiff,
-                                        m_nRelDiff );
+            SwTableBox* pBox = pTableNd->GetTable().GetTableBox( 0 );
+            rDoc.SetColRowWidthHeight( *pBox, m_nSetColType, 0, 0 );
         }
         break;
 
@@ -1837,10 +1819,10 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
         else
         {
             SwTable& rTable = pTableNd->GetTable();
-            SwTableBox* pBox = rTable.GetTableBox( m_nCurrBox );
+            SwTableBox* pBox = rTable.GetTableBox( 0 );
             TableChgMode eOldMode = rTable.GetTableChgMode();
             rTable.SetTableChgMode( static_cast<TableChgMode>(m_nCount) );
-            rDoc.SetColRowWidthHeight( *pBox, m_nSetColType, m_nAbsDiff, m_nRelDiff );
+            rDoc.SetColRowWidthHeight( *pBox, m_nSetColType, 0, 0 );
             rTable.SetTableChgMode( eOldMode );
         }
         break;
@@ -1869,7 +1851,7 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
             aMsgHint.m_eFlags = TBL_BOXPTR;
             rDoc.getIDocumentFieldsAccess().UpdateTableFields( &aMsgHint );
 
-            SwTableBox* pBox = rTable.GetTableBox( m_nCurrBox );
+            SwTableBox* pBox = rTable.GetTableBox( 0 );
             TableChgMode eOldMode = rTable.GetTableChgMode();
             rTable.SetTableChgMode( static_cast<TableChgMode>(m_nCount) );
 
@@ -1883,14 +1865,12 @@ void SwUndoTableNdsChg::RedoImpl(::sw::UndoRedoContext & rContext)
             case TableChgWidthHeightType::ColRight:
             case TableChgWidthHeightType::CellLeft:
             case TableChgWidthHeightType::CellRight:
-                 rTable.SetColWidth( *pBox, m_nSetColType, m_nAbsDiff,
-                                    m_nRelDiff, &pUndo );
+                 rTable.SetColWidth( *pBox, m_nSetColType, 0, 0, &pUndo );
                 break;
             case TableChgWidthHeightType::RowBottom:
             case TableChgWidthHeightType::CellTop:
             case TableChgWidthHeightType::CellBottom:
-                rTable.SetRowHeight( *pBox, m_nSetColType, m_nAbsDiff,
-                                    m_nRelDiff, &pUndo );
+                rTable.SetRowHeight( *pBox, m_nSetColType, 0, 0, &pUndo );
                 break;
             default: break;
             }
@@ -2858,7 +2838,7 @@ SwUndoSplitTable::SwUndoSplitTable( const SwTableNode& rTableNd,
     {
     case SplitTable_HeadlineOption::BoxAttrAllCopy:
             pHistory.reset(new SwHistory);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
     case SplitTable_HeadlineOption::BorderCopy:
     case SplitTable_HeadlineOption::BoxAttrCopy:
         pSavTable.reset(new SaveTable( rTableNd.GetTable(), 1, false ));
@@ -2910,7 +2890,7 @@ void SwUndoSplitTable::UndoImpl(::sw::UndoRedoContext & rContext)
     case SplitTable_HeadlineOption::BoxAttrAllCopy:
         if( pHistory )
             pHistory->TmpRollback( pDoc, nFormulaEnd );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case SplitTable_HeadlineOption::BoxAttrCopy:
     case SplitTable_HeadlineOption::BorderCopy:
         {

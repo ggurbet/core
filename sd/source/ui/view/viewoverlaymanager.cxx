@@ -34,6 +34,7 @@
 #include <svx/sdr/overlay/overlayanimatedbitmapex.hxx>
 #include <svx/sdr/overlay/overlaybitmapex.hxx>
 #include <svx/sdr/overlay/overlaymanager.hxx>
+#include <svx/sdr/contact/objectcontact.hxx>
 #include <svx/svxids.hrc>
 
 #include <view/viewoverlaymanager.hxx>
@@ -248,8 +249,12 @@ void ImageButtonHdl::CreateB2dIAObject()
                     {
                         std::unique_ptr<sdr::overlay::OverlayObject> pOverlayObject(
                             new sdr::overlay::OverlayBitmapEx( aPosition, aBitmapEx, 0, 0 ));
-                        xManager->add(*pOverlayObject);
-                        maOverlayGroup.append(std::move(pOverlayObject));
+
+                        // OVERLAYMANAGER
+                        insertNewlyCreatedOverlayObjectForSdrHdl(
+                            std::move(pOverlayObject),
+                            rPageWindow.GetObjectContact(),
+                            *xManager.get());
                     }
                 }
             }
@@ -466,11 +471,11 @@ bool ViewOverlayManager::CreateTags()
     {
         const std::list< SdrObject* >& rShapes = pPage->GetPresentationShapeList().getList();
 
-        for( std::list< SdrObject* >::const_iterator iter( rShapes.begin() ); iter != rShapes.end(); ++iter )
+        for( SdrObject* pShape : rShapes )
         {
-            if( (*iter)->IsEmptyPresObj() && ((*iter)->GetObjIdentifier() == OBJ_OUTLINETEXT) && (mrBase.GetDrawView()->GetTextEditObject() != (*iter)) )
+            if( pShape->IsEmptyPresObj() && (pShape->GetObjIdentifier() == OBJ_OUTLINETEXT) && (mrBase.GetDrawView()->GetTextEditObject() != pShape) )
             {
-                rtl::Reference< SmartTag > xTag( new ChangePlaceholderTag( *mrBase.GetMainViewShell()->GetView(), *(*iter) ) );
+                rtl::Reference< SmartTag > xTag( new ChangePlaceholderTag( *mrBase.GetMainViewShell()->GetView(), *pShape ) );
                 maTagVector.push_back(xTag);
                 bChanges = true;
             }
@@ -487,12 +492,8 @@ bool ViewOverlayManager::DisposeTags()
         ViewTagVector vec;
         vec.swap( maTagVector );
 
-        ViewTagVector::iterator iter = vec.begin();
-        do
-        {
-            (*iter++)->Dispose();
-        }
-        while( iter != vec.end() );
+        for (auto& rxViewTag : vec)
+            rxViewTag->Dispose();
         return true;
     }
 

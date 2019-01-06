@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <comphelper/lok.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/aeitem.hxx>
@@ -210,6 +211,9 @@ void ScTabViewShell::ExecDraw(SfxRequest& rReq)
 
     assert(nNewId != SID_DRAW_CHART); //#i71254# handled already above
 
+    // for LibreOfficeKit - choosing a shape should construct it directly
+    bool bCreateDirectly = false;
+
     switch (nNewId)
     {
         case SID_OBJECT_SELECT:
@@ -279,6 +283,9 @@ void ScTabViewShell::ExecDraw(SfxRequest& rReq)
         case SID_DRAW_CS_ID :
         {
             pTabView->SetDrawFuncPtr(new FuConstCustomShape(*this, pWin, pView, pDoc, aNewReq));
+
+            bCreateDirectly = comphelper::LibreOfficeKit::isActive();
+
             if ( nNewId != SID_DRAW_CS_ID )
             {
                 const SfxStringItem* pEnumCommand = rReq.GetArg<SfxStringItem>(nNewId);
@@ -309,7 +316,7 @@ void ScTabViewShell::ExecDraw(SfxRequest& rReq)
     // with qualifier construct directly
     FuPoor* pFuActual = GetDrawFuncPtr();
 
-    if(pFuActual && (rReq.GetModifier() & KEY_MOD1))
+    if(pFuActual && ((rReq.GetModifier() & KEY_MOD1) || bCreateDirectly))
     {
         // Create default drawing objects via keyboard
         const ScAppOptions& rAppOpt = SC_MOD()->GetAppOptions();
@@ -317,11 +324,21 @@ void ScTabViewShell::ExecDraw(SfxRequest& rReq)
         sal_uInt32 nDefaultObjectSizeHeight = rAppOpt.GetDefaultObjectSizeHeight();
 
         // calc position and size
-        tools::Rectangle aVisArea = pWin->PixelToLogic(tools::Rectangle(Point(0,0), pWin->GetOutputSizePixel()));
-        Point aPagePos = aVisArea.Center();
-        aPagePos.AdjustX( -sal_Int32(nDefaultObjectSizeWidth / 2) );
-        aPagePos.AdjustY( -sal_Int32(nDefaultObjectSizeHeight / 2) );
-        tools::Rectangle aNewObjectRectangle(aPagePos, Size(nDefaultObjectSizeWidth, nDefaultObjectSizeHeight));
+        bool bLOKIsActive = comphelper::LibreOfficeKit::isActive();
+        Point aInsertPos;
+        if(!bLOKIsActive)
+        {
+            tools::Rectangle aVisArea = pWin->PixelToLogic(tools::Rectangle(Point(0,0), pWin->GetOutputSizePixel()));
+            aInsertPos = aVisArea.Center();
+            aInsertPos.AdjustX( -sal_Int32(nDefaultObjectSizeWidth / 2) );
+            aInsertPos.AdjustY( -sal_Int32(nDefaultObjectSizeHeight / 2) );
+        }
+        else
+        {
+            aInsertPos = GetInsertPos();
+        }
+
+        tools::Rectangle aNewObjectRectangle(aInsertPos, Size(nDefaultObjectSizeWidth, nDefaultObjectSizeHeight));
 
         ScDrawView* pDrView = GetScDrawView();
 

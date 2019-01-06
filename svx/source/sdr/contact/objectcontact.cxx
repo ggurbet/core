@@ -31,6 +31,26 @@ using namespace com::sun::star;
 
 namespace sdr { namespace contact {
 
+bool ObjectContact::supportsGridOffsets() const
+{
+    // default does not support GridOffset
+    return false;
+}
+
+void ObjectContact::calculateGridOffsetForViewOjectContact(
+    basegfx::B2DVector& /*rTarget*/,
+    const ViewObjectContact& /*rClient*/) const
+{
+    // default does not on-demand calculate GridOffset
+}
+
+void ObjectContact::calculateGridOffsetForB2DRange(
+    basegfx::B2DVector& /*rTarget*/,
+    const basegfx::B2DRange& /*rB2DRange*/) const
+{
+    // default does not on-demand calculate GridOffset
+}
+
 ObjectContact::ObjectContact()
 :   maViewObjectContactVector(),
     maPrimitiveAnimator(),
@@ -46,20 +66,14 @@ ObjectContact::~ObjectContact() COVERITY_NOEXCEPT_FALSE
     // #i84257# To avoid that each 'delete pCandidate' again uses
     // the local RemoveViewObjectContact with a search and removal in the
     // vector, simply copy and clear local vector.
-    std::vector< ViewObjectContact* > aLocalVOCList(maViewObjectContactVector);
-    maViewObjectContactVector.clear();
+    std::vector< ViewObjectContact* > aLocalVOCList;
+    aLocalVOCList.swap(maViewObjectContactVector);
 
-    while(!aLocalVOCList.empty())
-    {
-        ViewObjectContact* pCandidate = aLocalVOCList.back();
-        aLocalVOCList.pop_back();
-        DBG_ASSERT(pCandidate, "Corrupted ViewObjectContactList (!)");
-
+    for (auto & pCandidate : aLocalVOCList)
         // ViewObjectContacts only make sense with View and Object contacts.
         // When the contact to the SdrObject is deleted like in this case,
         // all ViewObjectContacts can be deleted, too.
         delete pCandidate;
-    }
 
     // assert when there were new entries added during deletion
     DBG_ASSERT(maViewObjectContactVector.empty(), "Corrupted ViewObjectContactList (!)");
@@ -189,23 +203,15 @@ OutputDevice* ObjectContact::TryToGetOutputDevice() const
     return nullptr;
 }
 
-void ObjectContact::resetViewPort()
+void ObjectContact::resetAllGridOffsets()
 {
-    const drawinglayer::geometry::ViewInformation2D& rCurrentVI2D = getViewInformation2D();
+    const sal_uInt32 nVOCCount(getViewObjectContactCount());
 
-    if(!rCurrentVI2D.getViewport().isEmpty())
+    for(sal_uInt32 a(0); a < nVOCCount; a++)
     {
-        const basegfx::B2DRange aEmptyRange;
-
-        drawinglayer::geometry::ViewInformation2D aNewVI2D(
-            rCurrentVI2D.getObjectTransformation(),
-            rCurrentVI2D.getViewTransformation(),
-            aEmptyRange,
-            rCurrentVI2D.getVisualizedPage(),
-            rCurrentVI2D.getViewTime(),
-            rCurrentVI2D.getExtendedInformationSequence());
-
-        updateViewInformation2D(aNewVI2D);
+        ViewObjectContact* pVOC(getViewObjectContact(a));
+        assert(pVOC && "ObjectContact: ViewObjectContact list Corrupt (!)");
+        pVOC->resetGridOffset();
     }
 }
 

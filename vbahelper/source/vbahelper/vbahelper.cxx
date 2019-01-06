@@ -41,6 +41,7 @@
 
 #include <comphelper/automationinvokedzone.hxx>
 #include <comphelper/processfactory.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -100,12 +101,7 @@ nViewNo && !pView->GetObjectShell()->IsInPlaceActive() )
 uno::Reference< beans::XIntrospectionAccess >
 getIntrospectionAccess( const uno::Any& aObject )
 {
-    static uno::Reference< beans::XIntrospection > xIntrospection;
-    if( !xIntrospection.is() )
-    {
-        uno::Reference< uno::XComponentContext > xContext( comphelper::getProcessComponentContext() );
-        xIntrospection.set( beans::theIntrospection::get( xContext ) );
-    }
+    static uno::Reference< beans::XIntrospection > xIntrospection( beans::theIntrospection::get( comphelper::getProcessComponentContext() ) );
     return xIntrospection->inspect( aObject );
 }
 
@@ -368,7 +364,7 @@ void PrintOutHelper( SfxViewShell const * pViewShell, const uno::Any& From, cons
     if ( nFrom || nTo )
     {
         if ( nFrom )
-            sRange = ( OUString::number( nFrom ) + sRange );
+            sRange = OUString::number( nFrom ) + sRange;
         if ( nTo )
             sRange += OUString::number( nTo );
     }

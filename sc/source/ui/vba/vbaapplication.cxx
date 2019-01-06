@@ -29,6 +29,7 @@
 #include <com/sun/star/task/XStatusIndicator.hpp>
 #include <com/sun/star/util/PathSettings.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
+#include <ooo/vba/XCommandBars.hpp>
 #include <ooo/vba/XExecutableDialog.hpp>
 #include <ooo/vba/excel/XApplicationOutgoing.hpp>
 #include <ooo/vba/excel/XlCalculation.hpp>
@@ -916,11 +917,7 @@ ScVbaApplication::Calculate()
 /// @throws uno::RuntimeException
 static uno::Reference< util::XPathSettings > const & lcl_getPathSettingsService( const uno::Reference< uno::XComponentContext >& xContext )
 {
-    static uno::Reference< util::XPathSettings >  xPathSettings;
-    if ( !xPathSettings.is() )
-    {
-        xPathSettings.set( util::PathSettings::create( xContext ) );
-    }
+    static uno::Reference< util::XPathSettings > xPathSettings( util::PathSettings::create( xContext ) );
     return xPathSettings;
 }
 
@@ -1288,7 +1285,7 @@ uno::Reference< excel::XRange > SAL_CALL ScVbaApplication::Union(
 double
 ScVbaApplication::InchesToPoints( double Inches )
 {
-   double result = ( Inches * 72.0 );
+   double result = Inches * 72.0;
    return result;
 }
 
@@ -1476,12 +1473,10 @@ ScVbaApplication::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaApplication::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.Application";
-    }
+        "ooo.vba.excel.Application"
+    };
     return aServiceNames;
 }
 

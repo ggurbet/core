@@ -27,33 +27,24 @@ namespace connectivity
     {
         OSL_ENSURE( m_bAutoRetrievingEnabled,"Illegal call here. isAutoRetrievingEnabled is false!");
         OUString sStmt = _sInsertStatement.toAsciiUpperCase();
-        OUString sStatement;
         if ( sStmt.startsWith("INSERT") )
         {
-            sStatement = m_sGeneratedValueStatement;
             static const char sTable[] = "$table";
-            sal_Int32 nIndex = 0;
-            nIndex = sStatement.indexOf("$column",nIndex);
-            if ( -1 != nIndex )
+            const sal_Int32 nColumnIndex {m_sGeneratedValueStatement.indexOf("$column")};
+            if ( nColumnIndex>=0 )
             { // we need a column
             }
-            nIndex = 0;
-            nIndex = sStatement.indexOf(sTable,nIndex);
-            if ( -1 != nIndex )
+            const sal_Int32 nTableIndex {m_sGeneratedValueStatement.indexOf(sTable)};
+            if ( nTableIndex>=0 )
             { // we need a table name
-                sal_Int32 nIntoIndex = sStmt.indexOf("INTO ");
-                sStmt = sStmt.copy(nIntoIndex+5);
-                while (sStmt.startsWith(" "))
-                {
-                    sStmt = sStmt.copy(1);
-                }
-
-                nIntoIndex = 0;
-                OUString sTableName = sStmt.getToken(0,' ',nIntoIndex);
-                sStatement = sStatement.replaceAt(nIndex, strlen(sTable), sTableName);
+                sal_Int32 nIntoIndex = sStmt.indexOf("INTO ") + 5;
+                while (nIntoIndex<sStmt.getLength() && sStmt[nIntoIndex]==' ') ++nIntoIndex;
+                const OUString sTableName = sStmt.getToken(0, ' ', nIntoIndex);
+                return m_sGeneratedValueStatement.replaceAt(nTableIndex, strlen(sTable), sTableName);
             }
+            return m_sGeneratedValueStatement;
         }
-        return sStatement;
+        return OUString();
     }
 }
 

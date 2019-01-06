@@ -281,6 +281,21 @@ void ScInterpreter:: ScLCM()
     }
 }
 
+void ScInterpreter::MakeMatNew(ScMatrixRef& rMat, SCSIZE nC, SCSIZE nR)
+{
+    rMat->SetErrorInterpreter( this);
+    // A temporary matrix is mutable and ScMatrix::CloneIfConst() returns the
+    // very matrix.
+    rMat->SetMutable();
+    SCSIZE nCols, nRows;
+    rMat->GetDimensions( nCols, nRows);
+    if ( nCols != nC || nRows != nR )
+    {   // arbitrary limit of elements exceeded
+        SetError( FormulaError::MatrixSize);
+        rMat.reset();
+    }
+}
+
 ScMatrixRef ScInterpreter::GetNewMat(SCSIZE nC, SCSIZE nR, bool bEmpty)
 {
     ScMatrixRef pMat;
@@ -288,18 +303,14 @@ ScMatrixRef ScInterpreter::GetNewMat(SCSIZE nC, SCSIZE nR, bool bEmpty)
         pMat = new ScMatrix(nC, nR);
     else
         pMat = new ScMatrix(nC, nR, 0.0);
+    MakeMatNew(pMat, nC, nR);
+    return pMat;
+}
 
-    pMat->SetErrorInterpreter( this);
-    // A temporary matrix is mutable and ScMatrix::CloneIfConst() returns the
-    // very matrix.
-    pMat->SetMutable();
-    SCSIZE nCols, nRows;
-    pMat->GetDimensions( nCols, nRows);
-    if ( nCols != nC || nRows != nR )
-    {   // arbitrary limit of elements exceeded
-        SetError( FormulaError::MatrixSize);
-        pMat.reset();
-    }
+ScMatrixRef ScInterpreter::GetNewMat(SCSIZE nC, SCSIZE nR, const std::vector<double>& rValues)
+{
+    ScMatrixRef pMat(new ScMatrix(nC, nR, rValues));
+    MakeMatNew(pMat, nC, nR);
     return pMat;
 }
 
@@ -427,10 +438,7 @@ ScMatrixRef ScInterpreter::GetMatrix()
             PopExternalSingleRef(pToken);
             pMat = GetNewMat( 1, 1, true);
             if (!pMat)
-            {
-                SetError( FormulaError::IllegalArgument);
                 break;
-            }
             if (nGlobalError != FormulaError::NONE)
             {
                 pMat->PutError( nGlobalError, 0, 0);
@@ -740,7 +748,7 @@ static int lcl_LUP_decompose( ScMatrix* mA, const SCSIZE n,
 
     bool bSingular=false;
     for (SCSIZE i=0; i<n && !bSingular; i++)
-        bSingular = bSingular || ((mA->GetDouble(i,i))==0.0);
+        bSingular = (mA->GetDouble(i,i)) == 0.0;
     if (bSingular)
         nSign = 0;
 
@@ -1672,7 +1680,7 @@ void ScInterpreter::ScSumProduct()
             return;
         }
 
-        pMat->MergeDoubleArray(aResArray, ScMatrix::Mul);
+        pMat->MergeDoubleArrayMultiply(aResArray);
     }
 
     double fSum = std::for_each(aResArray.begin(), aResArray.end(), SumValues()).getValue();
@@ -2520,7 +2528,7 @@ void ScInterpreter::CalculateRGPRKP(bool _bRKP)
             // that they aren't zero.
             bool bIsSingular=false;
             for (SCSIZE row=0; row < K && !bIsSingular; row++)
-                bIsSingular = bIsSingular || aVecR[row]==0.0;
+                bIsSingular = aVecR[row] == 0.0;
             if (bIsSingular)
             {
                 PushNoValue();
@@ -2677,7 +2685,7 @@ void ScInterpreter::CalculateRGPRKP(bool _bRKP)
             // that they aren't zero.
             bool bIsSingular=false;
             for (SCSIZE row=0; row < K && !bIsSingular; row++)
-                bIsSingular = bIsSingular || aVecR[row]==0.0;
+                bIsSingular = aVecR[row] == 0.0;
             if (bIsSingular)
             {
                 PushNoValue();
@@ -3018,7 +3026,7 @@ void ScInterpreter::CalculateTrendGrowth(bool _bGrowth)
             // that they aren't zero.
             bool bIsSingular=false;
             for (SCSIZE row=0; row < K && !bIsSingular; row++)
-                bIsSingular = bIsSingular || aVecR[row]==0.0;
+                bIsSingular = aVecR[row] == 0.0;
             if (bIsSingular)
             {
                 PushNoValue();
@@ -3077,7 +3085,7 @@ void ScInterpreter::CalculateTrendGrowth(bool _bGrowth)
             // that they aren't zero.
             bool bIsSingular=false;
             for (SCSIZE row=0; row < K && !bIsSingular; row++)
-                bIsSingular = bIsSingular || aVecR[row]==0.0;
+                bIsSingular = aVecR[row] == 0.0;
             if (bIsSingular)
             {
                 PushNoValue();

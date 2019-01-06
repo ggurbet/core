@@ -44,45 +44,6 @@
 
 #endif
 
-class AquaBlinker : public Timer
-{
-    AquaSalFrame*       mpFrame;
-    tools::Rectangle           maInvalidateRect;
-
-    AquaBlinker( AquaSalFrame* pFrame, const tools::Rectangle& rRect )
-        : Timer( "AquaBlinker" )
-        , mpFrame( pFrame )
-        , maInvalidateRect( rRect )
-    {
-        mpFrame->maBlinkers.push_back( this );
-    }
-
-public:
-    static void Blink( AquaSalFrame*, const tools::Rectangle&, int nTimeout = 80 );
-
-    virtual void Invoke() override
-    {
-        if( AquaSalFrame::isAlive( mpFrame ) && mpFrame->mbShown )
-        {
-            mpFrame->maBlinkers.remove( this );
-            mpFrame->SendPaintEvent( &maInvalidateRect );
-        }
-        delete this;
-    }
-};
-
-void AquaBlinker::Blink( AquaSalFrame* pFrame, const tools::Rectangle& rRect, int nTimeout )
-{
-    // prevent repeated paints from triggering themselves all the time
-    auto isRepeated = std::any_of(pFrame->maBlinkers.begin(), pFrame->maBlinkers.end(),
-        [&rRect](AquaBlinker* pBlinker) { return pBlinker->maInvalidateRect == rRect; });
-    if( isRepeated )
-        return;
-    AquaBlinker* pNew = new AquaBlinker( pFrame, rRect );
-    pNew->SetTimeout( nTimeout );
-    pNew->Start();
-}
-
 // Helper returns an HIRect
 
 static HIRect ImplGetHIRectFromRectangle(tools::Rectangle aRect)
@@ -514,13 +475,6 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 // avoid clipping when focused
                 rc.origin.x += FOCUS_RING_WIDTH/2;
                 rc.size.width -= FOCUS_RING_WIDTH;
-
-                if( nState & ControlState::DEFAULT )
-                {
-                    AquaBlinker::Blink( mpFrame, buttonRect );
-                    // show correct animation phase
-                    aPushInfo.animation.time.current = CFAbsoluteTimeGetCurrent();
-                }
             }
             else
                 aPushInfo.kind = kThemeBevelButton;
@@ -849,7 +803,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 aTextDrawInfo.state=getState( nState );
                 aTextDrawInfo.isFocused=false;
 
-                rc.size.width+=1;//else there's a white space because an OS X theme has no 3D border
+                rc.size.width+=1; // else there's a white space because a macOS theme has no 3D border
                 rc.size.height+=1;
                 HIThemeDrawFrame(&rc, &aTextDrawInfo, mrContext, kHIThemeOrientationNormal);
 
@@ -871,7 +825,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             aTextDrawInfo.state=getState( nState );
             aTextDrawInfo.isFocused=false;
 
-            rc.size.width  += 1; // else there may be a white space because an OS X theme has no 3D border
+            rc.size.width  += 1; // else there may be a white space because a macOS theme has no 3D border
             // change rc so that the frame will encompass only the content region
             // see counterpart in GetNativeControlRegion
             rc.size.width  += 2;

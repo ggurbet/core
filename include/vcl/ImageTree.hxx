@@ -22,9 +22,11 @@
 
 #include <memory>
 #include <sal/config.h>
-#include <tools/stream.hxx>
 #include <vcl/dllapi.h>
-#include <vcl/bitmapex.hxx>
+#include <rtl/ustring.hxx>
+#include <o3tl/typed_flags_set.hxx>
+
+namespace com { namespace sun { namespace star { namespace uno { template <class interface_type> class Reference; } } } }
 
 enum class ImageLoadFlags : sal_uInt16
 {
@@ -42,6 +44,8 @@ namespace com { namespace sun { namespace star { namespace container {
 }}}}
 
 class ImplImageTree;
+class BitmapEx;
+class SvMemoryStream;
 
 class ImageTree
 {
@@ -62,6 +66,12 @@ public:
     VCL_DLLPUBLIC bool loadImage(
         OUString const & name, OUString const & style,
         BitmapEx & bitmap, bool localized,
+        const ImageLoadFlags eFlags = ImageLoadFlags::NONE);
+
+    VCL_DLLPUBLIC bool loadImage(
+        OUString const & name, OUString const & style,
+        BitmapEx & bitmap, bool localized,
+        sal_Int32 nScalePercentage,
         const ImageLoadFlags eFlags = ImageLoadFlags::NONE);
 
     VCL_DLLPUBLIC css::uno::Reference<css::container::XNameAccess> const & getNameAccess();

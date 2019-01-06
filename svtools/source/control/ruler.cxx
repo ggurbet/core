@@ -575,7 +575,7 @@ void Ruler::ImplDrawTicks(vcl::RenderContext& rRenderContext, long nMin, long nM
                 n = aPixSize.Height();
 
             // Tick4 - Output (Text)
-            double aStep = (nTick / nTick4);
+            double aStep = nTick / nTick4;
             double aRest = std::abs(aStep - std::floor(aStep));
             double nAcceptanceDelta = 0.0001;
 
@@ -725,18 +725,11 @@ void Ruler::ImplDrawBorders(vcl::RenderContext& rRenderContext, long nMin, long 
                 n = n1 + ((n2 - n1) / 2);
                 rRenderContext.SetLineColor(rStyleSettings.GetShadowColor());
 
-                if (mpData->pBorders[i].nStyle & RulerBorderStyle::Snap)
-                    ImplVDrawLine(rRenderContext, n, nVirTop, n, nVirBottom);
-                else if (mpData->pBorders[i].nStyle & RulerBorderStyle::Margin)
-                    ImplVDrawLine(rRenderContext, n, nVirTop, n, nVirBottom);
-                else
-                {
-                    ImplVDrawLine(rRenderContext, n - 1, nVirTop, n - 1, nVirBottom);
-                    ImplVDrawLine(rRenderContext, n + 1, nVirTop, n + 1, nVirBottom);
-                    rRenderContext.SetLineColor();
-                    rRenderContext.SetFillColor(rStyleSettings.GetWindowColor());
-                    ImplVDrawRect(rRenderContext, n, nVirTop, n, nVirBottom);
-                }
+                ImplVDrawLine(rRenderContext, n - 1, nVirTop, n - 1, nVirBottom);
+                ImplVDrawLine(rRenderContext, n + 1, nVirTop, n + 1, nVirBottom);
+                rRenderContext.SetLineColor();
+                rRenderContext.SetFillColor(rStyleSettings.GetWindowColor());
+                ImplVDrawRect(rRenderContext, n, nVirTop, n, nVirBottom);
             }
         }
     }

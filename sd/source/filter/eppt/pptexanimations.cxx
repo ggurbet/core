@@ -409,27 +409,18 @@ void AnimationExporter::processAfterEffectNodes( const Reference< XAnimationNode
 
 bool AnimationExporter::isAfterEffectNode( const Reference< XAnimationNode >& xNode ) const
 {
-    const std::vector< AfterEffectNodePtr >::const_iterator aEnd( maAfterEffectNodes.end() );
-    for (std::vector< AfterEffectNodePtr >::const_iterator aIter( maAfterEffectNodes.begin() );
-         aIter != aEnd ; ++aIter)
-    {
-        if( (*aIter)->mxNode == xNode )
-            return true;
-    }
-    return false;
+    return std::any_of(maAfterEffectNodes.begin(), maAfterEffectNodes.end(),
+        [&xNode](const AfterEffectNodePtr& rxNode) { return rxNode->mxNode == xNode; });
 }
 
 bool AnimationExporter::hasAfterEffectNode( const Reference< XAnimationNode >& xNode, Reference< XAnimationNode >& xAfterEffectNode ) const
 {
-    const std::vector< AfterEffectNodePtr >::const_iterator aEnd( maAfterEffectNodes.end() );
-    for (std::vector< AfterEffectNodePtr >::const_iterator aIter( maAfterEffectNodes.begin() );
-        aIter != aEnd ; ++aIter)
+    auto aIter = std::find_if(maAfterEffectNodes.begin(), maAfterEffectNodes.end(),
+        [&xNode](const AfterEffectNodePtr& rxNode) { return rxNode->mxMaster == xNode; });
+    if (aIter != maAfterEffectNodes.end())
     {
-        if( (*aIter)->mxMaster == xNode )
-        {
-            xAfterEffectNode = (*aIter)->mxNode;
-            return true;
-        }
+        xAfterEffectNode = (*aIter)->mxNode;
+        return true;
     }
 
     return false;
@@ -826,7 +817,7 @@ void AnimationExporter::exportAnimNode( SvStream& rStrm, const Reference< XAnima
     {
         case AnimationNodeType::PAR :
             aAnim.mnGroupType = mso_Anim_GroupType_PAR;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case AnimationNodeType::SEQ :
         {
             sal_Int16 nType = 0;

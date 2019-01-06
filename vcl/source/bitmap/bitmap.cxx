@@ -18,6 +18,7 @@
  */
 
 #include <osl/diagnose.h>
+#include <tools/helpers.hxx>
 #include <vcl/bitmap.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/outdev.hxx>
@@ -347,41 +348,38 @@ void Bitmap::ImplSetSalBitmap(const std::shared_ptr<SalBitmap>& xImpBmp)
 
 BitmapInfoAccess* Bitmap::AcquireInfoAccess()
 {
-    BitmapInfoAccess* pInfoAccess = new BitmapInfoAccess( *this );
+    std::unique_ptr<BitmapInfoAccess> pInfoAccess(new BitmapInfoAccess( *this ));
 
     if( !*pInfoAccess )
     {
-        delete pInfoAccess;
-        pInfoAccess = nullptr;
+        return nullptr;
     }
 
-    return pInfoAccess;
+    return pInfoAccess.release();
 }
 
 BitmapReadAccess* Bitmap::AcquireReadAccess()
 {
-    BitmapReadAccess* pReadAccess = new BitmapReadAccess( *this );
+    std::unique_ptr<BitmapReadAccess> pReadAccess(new BitmapReadAccess( *this ));
 
     if( !*pReadAccess )
     {
-        delete pReadAccess;
-        pReadAccess = nullptr;
+        return nullptr;
     }
 
-    return pReadAccess;
+    return pReadAccess.release();
 }
 
 BitmapWriteAccess* Bitmap::AcquireWriteAccess()
 {
-    BitmapWriteAccess* pWriteAccess = new BitmapWriteAccess( *this );
+    std::unique_ptr<BitmapWriteAccess> pWriteAccess(new BitmapWriteAccess( *this ));
 
     if( !*pWriteAccess )
     {
-        delete pWriteAccess;
-        pWriteAccess = nullptr;
+        return nullptr;
     }
 
-    return pWriteAccess;
+    return pWriteAccess.release();
 }
 
 void Bitmap::ReleaseAccess( BitmapInfoAccess* pBitmapAccess )

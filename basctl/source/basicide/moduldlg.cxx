@@ -39,6 +39,7 @@
 #include <tools/diagnose_ex.h>
 #include <xmlscript/xmldlg_imexp.hxx>
 #include <vcl/treelistentry.hxx>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 namespace basctl
 {
@@ -707,8 +708,7 @@ IMPL_LINK( ObjectPage, ButtonHdl, Button *, pButton, void )
                 // extract the module name from the string like "Sheet1 (Example1)"
                 if( aDesc.GetLibSubName() == IDEResId(RID_STR_DOCUMENT_OBJECTS) )
                 {
-                    sal_Int32 nIndex = 0;
-                    aModName = aModName.getToken( 0, ' ', nIndex );
+                    aModName = aModName.getToken( 0, ' ' );
                 }
                 SbxItem aSbxItem( SID_BASICIDE_ARG_SBX, aDesc.GetDocument(), aDesc.GetLibName(),
                                   aModName, TreeListBox::ConvertType( aDesc.GetType() ) );
@@ -803,7 +803,7 @@ void ObjectPage::NewModule()
     if ( GetSelection( aDocument, aLibName ) )
     {
         createModImpl(GetFrameWeld(), aDocument,
-                      *m_pBasicBox, aLibName, OUString(), true);
+                      *m_pBasicBox, aLibName, true);
     }
 }
 
@@ -860,7 +860,7 @@ void ObjectPage::NewDialog()
                         {
                             pEntry = m_pBasicBox->AddEntry(
                                 aDlgName,
-                                Image(BitmapEx(RID_BMP_DIALOG)),
+                                Image(StockImage::Yes, RID_BMP_DIALOG),
                                 pLibEntry, false,
                                 o3tl::make_unique<Entry>(OBJ_TYPE_DIALOG));
                             DBG_ASSERT( pEntry, "Insert entry failed!" );
@@ -960,7 +960,7 @@ void LibDialog::SetStorageName( const OUString& rName )
 
 // Helper function
 SbModule* createModImpl(weld::Window* pWin, const ScriptDocument& rDocument,
-    TreeListBox& rBasicBox, const OUString& rLibName, const OUString& _aModName, bool bMain )
+    TreeListBox& rBasicBox, const OUString& rLibName, bool bMain )
 {
     OSL_ENSURE( rDocument.isAlive(), "createModImpl: invalid document!" );
     if ( !rDocument.isAlive() )
@@ -972,9 +972,7 @@ SbModule* createModImpl(weld::Window* pWin, const ScriptDocument& rDocument,
     if ( aLibName.isEmpty() )
         aLibName = "Standard" ;
     rDocument.getOrCreateLibrary( E_SCRIPTS, aLibName );
-    OUString aModName = _aModName;
-    if ( aModName.isEmpty() )
-        aModName = rDocument.createObjectName( E_SCRIPTS, aLibName );
+    OUString aModName = rDocument.createObjectName( E_SCRIPTS, aLibName );
 
     NewObjectDialog aNewDlg(pWin, ObjectMode::Module, true);
     aNewDlg.SetObjectName(aModName);
@@ -1031,7 +1029,7 @@ SbModule* createModImpl(weld::Window* pWin, const ScriptDocument& rDocument,
                     {
                         pEntry = rBasicBox.AddEntry(
                             aModName,
-                            Image(BitmapEx(RID_BMP_MODULE)),
+                            Image(StockImage::Yes, RID_BMP_MODULE),
                             pSubRootEntry, false,
                             o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
                         DBG_ASSERT( pEntry, "Insert entry failed!" );

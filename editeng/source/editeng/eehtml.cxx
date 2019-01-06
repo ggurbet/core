@@ -287,7 +287,7 @@ void EditHTMLParser::NextToken( HtmlTokenId nToken )
     case HtmlTokenId::TABLEHEADER_ON:
     case HtmlTokenId::TABLEDATA_ON:
         nInCell++;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case HtmlTokenId::BLOCKQUOTE_ON:
     case HtmlTokenId::BLOCKQUOTE_OFF:
     case HtmlTokenId::BLOCKQUOTE30_ON:
@@ -311,7 +311,7 @@ void EditHTMLParser::NextToken( HtmlTokenId nToken )
     {
         if ( nInCell )
             nInCell--;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     }
     case HtmlTokenId::LISTHEADER_OFF:
     case HtmlTokenId::LI_OFF:
@@ -625,7 +625,7 @@ void EditHTMLParser::ImpSetStyleSheet( sal_uInt16 nHLevel )
         aItems.Put( aHeightItemCTL );
 
         // Paragraph margins, when Heading:
-        if ( !nHLevel || ((nHLevel >= 1) && (nHLevel <= 6)) )
+        if (nHLevel <= 6)
         {
             SvxULSpaceItem aULSpaceItem( EE_PARA_ULSPACE );
             aULSpaceItem.SetUpper( static_cast<sal_uInt16>(OutputDevice::LogicToLogic( 42, MapUnit::Map10thMM, eUnit )) );

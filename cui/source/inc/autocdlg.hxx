@@ -22,7 +22,7 @@
 #include <sfx2/tabdlg.hxx>
 #include <svtools/langtab.hxx>
 #include <svtools/simptabl.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <vcl/treelistentry.hxx>
 #include <svx/checklbx.hxx>
 #include <svx/langbox.hxx>
@@ -40,63 +40,27 @@ namespace editeng { class SortedAutoCompleteStrings; }
 
 // class OfaAutoCorrDlg --------------------------------------------------
 
-class OfaAutoCorrDlg : public SfxTabDialog
+class OfaAutoCorrDlg : public SfxTabDialogController
 {
-    VclPtr<VclContainer> m_pLanguageBox;
-    VclPtr<SvxLanguageBox>  m_pLanguageLB;
+    std::unique_ptr<weld::Widget> m_xLanguageBox;
+    std::unique_ptr<LanguageBox>  m_xLanguageLB;
 
-    sal_uInt16 m_nReplacePageId;
-    sal_uInt16 m_nExceptionsPageId;
-
-    DECL_LINK(SelectLanguageHdl, ListBox&, void);
+    DECL_LINK(SelectLanguageHdl, weld::ComboBox&, void);
 public:
 
-    OfaAutoCorrDlg(vcl::Window* pParent, const SfxItemSet *pSet);
+    OfaAutoCorrDlg(weld::Window* pParent, const SfxItemSet *pSet);
     virtual ~OfaAutoCorrDlg() override;
-    virtual void dispose() override;
 
     void EnableLanguage(bool bEnable);
 };
 
-// class OfaACorrCheckListBox ------------------------------------------
-
-class OfaACorrCheckListBox : public SvSimpleTable
-{
-    using SvSimpleTable::SetTabs;
-    using SvTreeListBox::GetCheckButtonState;
-    using SvTreeListBox::SetCheckButtonState;
-
-    protected:
-        virtual void    SetTabs() override;
-        virtual void    HBarClick() override;
-        virtual void    KeyInput( const KeyEvent& rKEvt ) override;
-
-    public:
-        OfaACorrCheckListBox(SvSimpleTableContainer& rParent)
-            : SvSimpleTable(rParent, WB_BORDER)
-        {
-        }
-
-        void *GetUserData(sal_uLong nPos) { return GetEntry(nPos)->GetUserData(); }
-        void SetUserData(sal_uLong nPos, void *pData ) { GetEntry(nPos)->SetUserData(pData); }
-        sal_uLong GetSelectedEntryPos() { return GetModel()->GetAbsPos(FirstSelected()); }
-
-        bool            IsChecked(sal_uLong nPos, sal_uInt16 nCol = 0);
-        void            CheckEntryPos(sal_uLong nPos, sal_uInt16 nCol, bool bChecked);
-        static SvButtonState GetCheckButtonState( SvTreeListEntry*, sal_uInt16 nCol );
-        void            SetCheckButtonState( SvTreeListEntry*, sal_uInt16 nCol, SvButtonState );
-};
-
 // class OfaAutocorrOptionsPage ------------------------------------------
-
 
 class OfaAutocorrOptionsPage : public SfxTabPage
 {
     using TabPage::ActivatePage;
 
 private:
-    VclPtr<SvxCheckListBox> m_pCheckLB;
-
     OUString m_sInput;
     OUString m_sDoubleCaps;
     OUString m_sStartCap;
@@ -106,10 +70,13 @@ private:
     OUString m_sDash;
     OUString m_sAccidentalCaps;
 
+    std::unique_ptr<weld::TreeView> m_xCheckLB;
+
+    void InsertEntry(const OUString& rTxt);
+
 public:
-    OfaAutocorrOptionsPage(vcl::Window* pParent, const SfxItemSet& rSet);
+    OfaAutocorrOptionsPage(TabPageParent pParent, const SfxItemSet& rSet);
     virtual ~OfaAutocorrOptionsPage() override;
-    virtual void dispose() override;
 
     static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
                                 const SfxItemSet* rAttrSet);
@@ -126,9 +93,6 @@ class OfaSwAutoFmtOptionsPage : public SfxTabPage
 {
     friend class VclPtr<OfaSwAutoFmtOptionsPage>;
     using TabPage::ActivatePage;
-
-    VclPtr<OfaACorrCheckListBox>   m_pCheckLB;
-    VclPtr<PushButton>     m_pEditPB;
 
     OUString        sDeleteEmptyPara;
     OUString        sUseReplaceTbl;
@@ -157,16 +121,16 @@ class OfaSwAutoFmtOptionsPage : public SfxTabPage
     vcl::Font        aByInputBulletFont;
     sal_uInt16       nPercent;
 
-    std::unique_ptr<SvLBoxButtonData> m_xCheckButtonData;
+    std::unique_ptr<weld::TreeView> m_xCheckLB;
+    std::unique_ptr<weld::Button> m_xEditPB;
 
-    DECL_LINK(SelectHdl, SvTreeListBox*, void);
-    DECL_LINK(EditHdl, Button*, void);
-    DECL_LINK(DoubleClickEditHdl, SvTreeListBox*, bool);
-    SvTreeListEntry* CreateEntry(OUString& rTxt, sal_uInt16 nCol);
+    DECL_LINK(SelectHdl, weld::TreeView&, void);
+    DECL_LINK(EditHdl, weld::Button&, void);
+    DECL_LINK(DoubleClickEditHdl, weld::TreeView&, void);
 
+    void CreateEntry(const OUString& rTxt, sal_uInt16 nCol);
 
-    OfaSwAutoFmtOptionsPage( vcl::Window* pParent,
-                        const SfxItemSet& rSet );
+    OfaSwAutoFmtOptionsPage(TabPageParent pParent, const SfxItemSet& rSet);
     virtual ~OfaSwAutoFmtOptionsPage() override;
     virtual void dispose() override;
 
@@ -178,41 +142,7 @@ public:
     virtual void        ActivatePage( const SfxItemSet& ) override;
 };
 
-// class AutoCorrEdit ----------------------------------------------------
-
-class AutoCorrEdit : public Edit
-{
-    Link<AutoCorrEdit&,bool>  aActionLink;
-    VclPtr<SvTabListBox> m_xReplaceTLB;
-    sal_Int32 m_nCol;
-    bool bSpaces;
-
-    void dispose() override;
-
-public:
-    AutoCorrEdit(vcl::Window* pParent)
-        : Edit(pParent)
-        , m_nCol(0)
-        , bSpaces(false)
-    {
-    }
-
-    virtual ~AutoCorrEdit() override;
-
-    void            SetActionHdl( const Link<AutoCorrEdit&,bool>& rLink )
-                                { aActionLink = rLink;}
-
-    void            ConnectColumn(const VclPtr<SvTabListBox>& rTable, sal_Int32 nCol);
-
-    void            SetSpaces(bool bSet)
-                                {bSpaces = bSet;}
-
-    virtual void    KeyInput( const KeyEvent& rKEvent ) override;
-    virtual void    Resize() override;
-};
-
 // class OfaAutocorrReplacePage ------------------------------------------
-
 
 struct DoubleString
 {
@@ -233,49 +163,51 @@ typedef std::map<LanguageType, StringChangeList> StringChangeTable;
 
 class OfaAutocorrReplacePage : public SfxTabPage
 {
-        using TabPage::ActivatePage;
-        using TabPage::DeactivatePage;
+    using TabPage::ActivatePage;
+    using TabPage::DeactivatePage;
 
 private:
 
-        StringChangeTable aChangesTable;
+    StringChangeTable aChangesTable;
 
-        VclPtr<CheckBox>       m_pTextOnlyCB;
-        VclPtr<AutoCorrEdit>   m_pShortED;
-        VclPtr<AutoCorrEdit>   m_pReplaceED;
-        VclPtr<SvTabListBox>   m_pReplaceTLB;
-        VclPtr<PushButton>     m_pNewReplacePB;
-        VclPtr<PushButton>     m_pDeleteReplacePB;
+    OUString        sModify;
+    OUString        sNew;
 
-        OUString        sModify;
-        OUString        sNew;
+    std::set<OUString>      aFormatText;
+    std::map<LanguageType, DoubleStringArray>
+                            aDoubleStringTable;
+    std::unique_ptr<CollatorWrapper>  pCompareClass;
+    std::unique_ptr<CharClass>        pCharClass;
+    LanguageType            eLang;
 
-        std::set<OUString>      aFormatText;
-        std::map<LanguageType, DoubleStringArray>
-                                aDoubleStringTable;
-        std::unique_ptr<CollatorWrapper>  pCompareClass;
-        std::unique_ptr<CharClass>        pCharClass;
-        LanguageType            eLang;
+    bool bHasSelectionText;
+    bool bFirstSelect:1;
+    bool bReplaceEditChanged:1;
+    bool bSWriter:1;
 
-        bool bHasSelectionText;
-        bool bFirstSelect:1;
-        bool bReplaceEditChanged:1;
-        bool bSWriter:1;
+    std::unique_ptr<weld::CheckButton> m_xTextOnlyCB;
+    std::unique_ptr<weld::Entry> m_xShortED;
+    std::unique_ptr<weld::Entry> m_xReplaceED;
+    std::unique_ptr<weld::TreeView> m_xReplaceTLB;
+    std::unique_ptr<weld::Button> m_xNewReplacePB;
+    std::unique_ptr<weld::Button> m_xReplacePB;
+    std::unique_ptr<weld::Button> m_xDeleteReplacePB;
 
-        DECL_LINK(SelectHdl, SvTreeListBox*, void);
-        DECL_LINK(NewDelButtonHdl, Button*, void);
-        DECL_LINK(NewDelActionHdl, AutoCorrEdit&, bool);
-        DECL_LINK(ModifyHdl, Edit&, void);
-        bool NewDelHdl(void const *);
+    DECL_LINK(SelectHdl, weld::TreeView&, void);
+    DECL_LINK(NewDelButtonHdl, weld::Button&, void);
+    DECL_LINK(NewDelActionHdl, weld::Entry&, bool);
+    DECL_LINK(EntrySizeAllocHdl, const Size&, void);
+    DECL_LINK(ModifyHdl, weld::Entry&, void);
+    bool NewDelHdl(const weld::Widget*);
 
-        void RefillReplaceBox(  bool bFromReset,
-                                LanguageType eOldLanguage,
-                                LanguageType eNewLanguage);
+    void RefillReplaceBox(  bool bFromReset,
+                            LanguageType eOldLanguage,
+                            LanguageType eNewLanguage);
 
 public:
-                        OfaAutocorrReplacePage( vcl::Window* pParent, const SfxItemSet& rSet );
-                        virtual ~OfaAutocorrReplacePage() override;
-    virtual void        dispose() override;
+    OfaAutocorrReplacePage(TabPageParent pParent, const SfxItemSet& rSet);
+    virtual ~OfaAutocorrReplacePage() override;
+    virtual void dispose() override;
 
     static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
 
@@ -306,34 +238,34 @@ class OfaAutocorrExceptPage : public SfxTabPage
     using TabPage::DeactivatePage;
 
 private:
-    VclPtr<AutoCorrEdit>   m_pAbbrevED;
-    VclPtr<ListBox>        m_pAbbrevLB;
-    VclPtr<PushButton>     m_pNewAbbrevPB;
-    VclPtr<PushButton>     m_pDelAbbrevPB;
-    VclPtr<CheckBox>       m_pAutoAbbrevCB;
-
-    VclPtr<AutoCorrEdit>   m_pDoubleCapsED;
-    VclPtr<ListBox>        m_pDoubleCapsLB;
-    VclPtr<PushButton>     m_pNewDoublePB;
-    VclPtr<PushButton>     m_pDelDoublePB;
-    VclPtr<CheckBox>       m_pAutoCapsCB;
-
     StringsTable    aStringsTable;
     std::unique_ptr<CollatorWrapper> pCompareClass;
     LanguageType    eLang;
 
-    DECL_LINK(NewDelButtonHdl, Button*, void);
-    DECL_LINK(NewDelActionHdl, AutoCorrEdit&, bool);
-    DECL_LINK(SelectHdl, ListBox&, void);
-    DECL_LINK(ModifyHdl, Edit&, void);
-    void            NewDelHdl(void const *);
+    std::unique_ptr<weld::Entry> m_xAbbrevED;
+    std::unique_ptr<weld::TreeView> m_xAbbrevLB;
+    std::unique_ptr<weld::Button> m_xNewAbbrevPB;
+    std::unique_ptr<weld::Button> m_xDelAbbrevPB;
+    std::unique_ptr<weld::CheckButton> m_xAutoAbbrevCB;
+
+    std::unique_ptr<weld::Entry> m_xDoubleCapsED;
+    std::unique_ptr<weld::TreeView> m_xDoubleCapsLB;
+    std::unique_ptr<weld::Button> m_xNewDoublePB;
+    std::unique_ptr<weld::Button> m_xDelDoublePB;
+    std::unique_ptr<weld::CheckButton> m_xAutoCapsCB;
+
+    DECL_LINK(NewDelButtonHdl, weld::Button&, void);
+    DECL_LINK(NewDelActionHdl, weld::Entry&, bool);
+    DECL_LINK(SelectHdl, weld::TreeView&, void);
+    DECL_LINK(ModifyHdl, weld::Entry&, void);
+    void            NewDelHdl(const weld::Widget*);
                     /// Box filled with new language
     void            RefillReplaceBoxes(bool bFromReset,
                                         LanguageType eOldLanguage,
                                         LanguageType eNewLanguage);
 public:
-                        OfaAutocorrExceptPage( vcl::Window* pParent, const SfxItemSet& rSet );
-                        virtual ~OfaAutocorrExceptPage() override;
+    OfaAutocorrExceptPage(TabPageParent pParent, const SfxItemSet& rSet);
+    virtual ~OfaAutocorrExceptPage() override;
     virtual void        dispose() override;
 
     static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
@@ -355,33 +287,8 @@ class OfaQuoteTabPage : public SfxTabPage
     using TabPage::ActivatePage;
 
 private:
-    /// For anything but writer
-    VclPtr<SvxCheckListBox> m_pCheckLB;
-
-    /// Just for writer
-    VclPtr<OfaACorrCheckListBox>   m_pSwCheckLB;
-
     OUString        sNonBrkSpace;
     OUString        sOrdinal;
-
-    std::unique_ptr<SvLBoxButtonData> m_xCheckButtonData;
-
-    VclPtr<CheckBox>   m_pSingleTypoCB;
-    VclPtr<PushButton> m_pSglStartQuotePB;
-    VclPtr<FixedText>  m_pSglStartExFT;
-    VclPtr<PushButton> m_pSglEndQuotePB;
-    VclPtr<FixedText>  m_pSglEndExFT;
-    VclPtr<PushButton> m_pSglStandardPB;
-
-    VclPtr<CheckBox>   m_pDoubleTypoCB;
-    VclPtr<PushButton> m_pDblStartQuotePB;
-    VclPtr<FixedText>  m_pDblStartExFT;
-    VclPtr<PushButton> m_pDblEndQuotePB;
-    VclPtr<FixedText>  m_pDblEndExFT;
-    VclPtr<PushButton> m_pDblStandardPB;
-
-    OUString    m_sStandard;
-
 
     sal_UCS4    cSglStartQuote;
     sal_UCS4    cSglEndQuote;
@@ -389,20 +296,39 @@ private:
     sal_UCS4    cStartQuote;
     sal_UCS4    cEndQuote;
 
-    DECL_LINK( QuoteHdl, Button*, void );
-    DECL_LINK( StdQuoteHdl, Button*, void );
+    std::unique_ptr<weld::CheckButton> m_xSingleTypoCB;
+    std::unique_ptr<weld::Button> m_xSglStartQuotePB;
+    std::unique_ptr<weld::Label> m_xSglStartExFT;
+    std::unique_ptr<weld::Button> m_xSglEndQuotePB;
+    std::unique_ptr<weld::Label> m_xSglEndExFT;
+    std::unique_ptr<weld::Button> m_xSglStandardPB;
+    std::unique_ptr<weld::CheckButton> m_xDoubleTypoCB;
+    std::unique_ptr<weld::Button> m_xDblStartQuotePB;
+    std::unique_ptr<weld::Label> m_xDblStartExFT;
+    std::unique_ptr<weld::Button> m_xDblEndQuotePB;
+    std::unique_ptr<weld::Label> m_xDblEndExFT;
+    std::unique_ptr<weld::Button> m_xDblStandardPB;
+    std::unique_ptr<weld::Label> m_xStandard;
+    /// For anything but writer
+    std::unique_ptr<weld::TreeView> m_xCheckLB;
+    /// Just for writer
+    std::unique_ptr<weld::TreeView> m_xSwCheckLB;
+
+
+    DECL_LINK(QuoteHdl, weld::Button&, void);
+    DECL_LINK(StdQuoteHdl, weld::Button&, void);
 
     OUString            ChangeStringExt_Impl( sal_UCS4 );
 
-    SvTreeListEntry* CreateEntry(OUString& rTxt, sal_uInt16 nCol);
+    static void CreateEntry(weld::TreeView& rLstBox, const OUString& rTxt,
+                            sal_uInt16 nCol, sal_uInt16 nTextCol);
 
-                        OfaQuoteTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    OfaQuoteTabPage(TabPageParent pParent, const SfxItemSet& rSet);
 public:
-                        virtual ~OfaQuoteTabPage() override;
-    virtual void        dispose() override;
+    virtual ~OfaQuoteTabPage() override;
 
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
-                                const SfxItemSet* rAttrSet);
+    static VclPtr<SfxTabPage> Create(TabPageParent pParent,
+                                     const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
@@ -414,55 +340,39 @@ public:
 class OfaAutoCompleteTabPage : public SfxTabPage
 {
     friend class VclPtr<OfaAutoCompleteTabPage>;
-public:
-    class AutoCompleteMultiListBox : public MultiListBox
-    {
-        VclPtr<OfaAutoCompleteTabPage> m_pPage;
-    public:
-        AutoCompleteMultiListBox(vcl::Window *pParent, WinBits nBits)
-            : MultiListBox(pParent, nBits)
-            , m_pPage(nullptr)
-        {
-        }
-        virtual ~AutoCompleteMultiListBox() override;
-        virtual void dispose() override;
-        void SetPage(OfaAutoCompleteTabPage *pPage) { m_pPage = pPage; }
-        virtual bool PreNotify( NotifyEvent& rNEvt ) override;
-    };
-
 private:
     using TabPage::ActivatePage;
-    VclPtr<CheckBox>       m_pCBActiv; ///<Enable word completion
-    VclPtr<CheckBox>       m_pCBAppendSpace;///<Append space
-    VclPtr<CheckBox>       m_pCBAsTip; ///<Show as tip
-
-    VclPtr<CheckBox>       m_pCBCollect;///<Collect words
-    VclPtr<CheckBox>       m_pCBRemoveList;///<...save the list for later use...
-
-    VclPtr<ListBox>        m_pDCBExpandKey;
-    VclPtr<NumericField>   m_pNFMinWordlen;
-    VclPtr<NumericField>   m_pNFMaxEntries;
-    VclPtr<AutoCompleteMultiListBox> m_pLBEntries;
-    VclPtr<PushButton>     m_pPBEntries;
     editeng::SortedAutoCompleteStrings* m_pAutoCompleteList;
     sal_uInt16      m_nAutoCmpltListCnt;
 
-    DECL_LINK( CheckHdl, CheckBox&, void );
+    std::unique_ptr<weld::CheckButton> m_xCBActiv; ///<Enable word completion
+    std::unique_ptr<weld::CheckButton> m_xCBAppendSpace;///<Append space
+    std::unique_ptr<weld::CheckButton> m_xCBAsTip; ///<Show as tip
 
-                        OfaAutoCompleteTabPage( vcl::Window* pParent,
-                                                const SfxItemSet& rSet );
+    std::unique_ptr<weld::CheckButton> m_xCBCollect;///<Collect words
+    std::unique_ptr<weld::CheckButton> m_xCBRemoveList;///<...save the list for later use...
+
+    std::unique_ptr<weld::ComboBox> m_xDCBExpandKey;
+    std::unique_ptr<weld::SpinButton> m_xNFMinWordlen;
+    std::unique_ptr<weld::SpinButton> m_xNFMaxEntries;
+    std::unique_ptr<weld::TreeView> m_xLBEntries;
+    std::unique_ptr<weld::Button> m_xPBEntries;
+
+    DECL_LINK(CheckHdl, weld::ToggleButton&, void);
+    DECL_LINK(KeyReleaseHdl, const KeyEvent&, bool);
+
+    OfaAutoCompleteTabPage(TabPageParent pParent, const SfxItemSet& rSet);
 public:
     virtual ~OfaAutoCompleteTabPage() override;
-    virtual void dispose() override;
-    static VclPtr<SfxTabPage>  Create( TabPageParent pParent,
-                                const SfxItemSet* rAttrSet);
+    static VclPtr<SfxTabPage> Create(TabPageParent pParent,
+                                     const SfxItemSet* rAttrSet);
 
     virtual bool        FillItemSet( SfxItemSet* rSet ) override;
     virtual void        Reset( const SfxItemSet* rSet ) override;
     virtual void        ActivatePage( const SfxItemSet& ) override;
 
     void CopyToClipboard() const;
-    DECL_LINK(DeleteHdl, Button*, void);
+    DECL_LINK(DeleteHdl, weld::Button&, void);
 };
 
 // class OfaSmartTagOptionsTabPage ---------------------------------------------
@@ -478,9 +388,9 @@ class OfaSmartTagOptionsTabPage : public SfxTabPage
 private:
 
     // controls
-    VclPtr<CheckBox>               m_pMainCB;
-    VclPtr<SvxCheckListBox>        m_pSmartTagTypesLB;
-    VclPtr<PushButton>             m_pPropertiesPB;
+    std::unique_ptr<weld::CheckButton> m_xMainCB;
+    std::unique_ptr<weld::TreeView> m_xSmartTagTypesLB;
+    std::unique_ptr<weld::Button> m_xPropertiesPB;
 
     /** Inserts items into m_aSmartTagTypesLB
 
@@ -498,27 +408,26 @@ private:
         Enables/disables all controls in the tab page (except from the
         check box.
     */
-    DECL_LINK(CheckHdl, CheckBox&, void);
+    DECL_LINK(CheckHdl, weld::ToggleButton&, void);
 
     /** Handler for the push button
 
         Calls the displayPropertyPage function of the smart tag recognizer
         associated with the currently selected smart tag type.
     */
-    DECL_LINK(ClickHdl, Button*, void);
+    DECL_LINK(ClickHdl, weld::Button&, void);
 
     /** Handler for the list box
 
         Enables/disables the properties push button if selection in the
         smart tag types list box changes.
     */
-    DECL_LINK(SelectHdl, SvTreeListBox*, void);
+    DECL_LINK(SelectHdl, weld::TreeView&, void);
 
 public:
     /// construction via Create()
-    OfaSmartTagOptionsTabPage( vcl::Window* pParent, const SfxItemSet& rSet );
+    OfaSmartTagOptionsTabPage(TabPageParent pParent, const SfxItemSet& rSet);
     virtual ~OfaSmartTagOptionsTabPage() override;
-    virtual void dispose() override;
 
     static VclPtr<SfxTabPage>  Create( TabPageParent pParent, const SfxItemSet* rAttrSet);
 

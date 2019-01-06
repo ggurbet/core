@@ -44,6 +44,7 @@
 #include <nameuno.hxx>
 #include <docoptio.hxx>
 #include <unonames.hxx>
+#include <docsh.hxx>
 
 // Much of the impl. for the equivalent UNO module is
 // sc/source/ui/unoobj/docuno.cxx, viewuno.cxx
@@ -405,12 +406,10 @@ ScVbaWorkbook::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaWorkbook::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.Workbook";
-    }
+        "ooo.vba.excel.Workbook"
+    };
     return aServiceNames;
 }
 

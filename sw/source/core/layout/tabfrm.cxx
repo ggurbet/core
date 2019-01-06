@@ -853,6 +853,11 @@ bool SwTabFrame::RemoveFollowFlowLine()
     // #140081# Make code robust.
     if ( !pFollowFlowLine || !pLastLine )
         return true;
+    if (pFollowFlowLine->IsDeleteForbidden())
+    {
+        SAL_WARN("sw.layout", "Cannot remove in-use Follow Flow Line");
+        return true;
+    }
 
     // Move content
     lcl_MoveRowContent( *pFollowFlowLine, *static_cast<SwRowFrame*>(pLastLine) );
@@ -1930,7 +1935,11 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
         SwFrame *pPre = GetPrev();
         if ( pPre && pPre->IsTabFrame() && static_cast<SwTabFrame*>(pPre)->GetFollow() == this)
         {
-            if ( !MoveFwd( bMakePage, false ) )
+            // don't make the effort to move fwd if its known
+            // conditions that are known not to work
+            if (IsInFootnote() && ForbiddenForFootnoteCntFwd())
+                bMakePage = false;
+            else if (!MoveFwd(bMakePage, false))
                 bMakePage = false;
             bMovedFwd = true;
         }
@@ -2434,7 +2443,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                     }
 
                     const bool bSplitError = !Split( nDeadLine, bTryToSplit, ( bTableRowKeep && !(bAllowSplitOfRow || !bEmulateTableKeepFwdMoveAllowed) ) );
-                    if( !bTryToSplit && !bSplitError && nUnSplitted > 0 )
+                    if (!bTryToSplit && !bSplitError)
                     {
                         --nUnSplitted;
                     }
@@ -2555,8 +2564,15 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
         const SwFrame* pOldUpper = GetUpper();
 
         //Let's see if we find some place anywhere...
-        if ( !bMovedFwd && !MoveFwd( bMakePage, false ) )
-            bMakePage = false;
+        if (!bMovedFwd)
+        {
+            // don't make the effort to move fwd if its known
+            // conditions that are known not to work
+            if (IsInFootnote() && ForbiddenForFootnoteCntFwd())
+                bMakePage = false;
+            else if (!MoveFwd(bMakePage, false))
+                bMakePage = false;
+        }
 
         // #i29771# Reset bSplitError flag on change of upper
         if ( GetUpper() != pOldUpper )
@@ -3258,7 +3274,7 @@ void SwTabFrame::UpdateAttr_( const SfxPoolItem *pOld, const SfxPoolItem *pNew,
             break;
         case RES_UL_SPACE:
             rInvFlags |= 0x1C;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         default:
             bClear = false;
@@ -5197,7 +5213,7 @@ void SwCellFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
         }
     }
 
-    if ( ( bAttrSetChg && pNew &&
+    if ( ( bAttrSetChg &&
            SfxItemState::SET == static_cast<const SwAttrSetChg*>(pNew)->GetChgSet()->GetItemState( RES_PROTECT, false ) ) ||
          ( pNew && RES_PROTECT == pNew->Which()) )
     {
@@ -5206,7 +5222,7 @@ void SwCellFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
             pSh->Imp()->InvalidateAccessibleEditableState( true, this );
     }
 
-    if ( bAttrSetChg && pNew &&
+    if ( bAttrSetChg &&
          SfxItemState::SET == static_cast<const SwAttrSetChg*>(pNew)->GetChgSet()->GetItemState( RES_FRAMEDIR, false, &pItem ) )
     {
         SetDerivedVert( false );
@@ -5214,7 +5230,7 @@ void SwCellFrame::Modify( const SfxPoolItem* pOld, const SfxPoolItem * pNew )
     }
 
     // #i29550#
-    if ( bAttrSetChg && pNew &&
+    if ( bAttrSetChg &&
          SfxItemState::SET == static_cast<const SwAttrSetChg*>(pNew)->GetChgSet()->GetItemState( RES_BOX, false, &pItem ) )
     {
         SwFrame* pTmpUpper = GetUpper();

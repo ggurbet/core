@@ -610,48 +610,15 @@ bool ScDocument::GetSelectionFunction( ScSubTotalFunc eFunc,
     SCTAB nMax = static_cast<SCTAB>(maTabs.size());
     ScMarkData::const_iterator itr = aMark.begin(), itrEnd = aMark.end();
 
-    for (; itr != itrEnd && *itr < nMax && !aData.bError; ++itr)
+    for (; itr != itrEnd && *itr < nMax && !aData.getError(); ++itr)
         if (maTabs[*itr])
             maTabs[*itr]->UpdateSelectionFunction(aData, aMark);
 
-            //TODO: pass rMark to UpdateSelection Function !!!!!
-
-    if (!aData.bError)
-        switch (eFunc)
-        {
-            case SUBTOTAL_FUNC_SUM:
-                rResult = aData.nVal;
-                break;
-            case SUBTOTAL_FUNC_SELECTION_COUNT:
-                rResult = aData.nCount;
-                break;
-            case SUBTOTAL_FUNC_CNT:
-            case SUBTOTAL_FUNC_CNT2:
-                rResult = aData.nCount;
-                break;
-            case SUBTOTAL_FUNC_AVE:
-                if (aData.nCount)
-                    rResult = aData.nVal / static_cast<double>(aData.nCount);
-                else
-                    aData.bError = true;
-                break;
-            case SUBTOTAL_FUNC_MAX:
-            case SUBTOTAL_FUNC_MIN:
-                if (aData.nCount)
-                    rResult = aData.nVal;
-                else
-                    aData.bError = true;
-                break;
-            default:
-            {
-                // added to avoid warnings
-            }
-        }
-
-    if (aData.bError)
+    rResult = aData.getResult();
+    if (aData.getError())
         rResult = 0.0;
 
-    return !aData.bError;
+    return !aData.getError();
 }
 
 double ScDocument::RoundValueAsShown( double fVal, sal_uInt32 nFormat, const ScInterpreterContext* pContext ) const

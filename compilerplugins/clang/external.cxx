@@ -251,13 +251,7 @@ private:
         {
             return true;
         }
-        if (decl->getLinkageInternal() <
-#if CLANG_VERSION >= 40000
-            ModuleLinkage
-#else
-            ExternalLinkage
-#endif
-        )
+        if (decl->getLinkageInternal() < ModuleLinkage)
         {
             return true;
         }

@@ -261,13 +261,20 @@ void SdrObjEditView::ModelHasChanged()
                 tools::Rectangle aEditArea1;
                 tools::Rectangle aMinArea1;
                 pTextObj->TakeTextEditArea(&aPaperMin1,&aPaperMax1,&aEditArea1,&aMinArea1);
-
                 Point aPvOfs(pTextObj->GetTextEditOffset());
-                // Hack for calc, transform position of edit object according
-                // to current zoom so as objects relative position to grid
-                // appears stable
-                aEditArea1 += pTextObj->GetGridOffset();
-                aMinArea1 += pTextObj->GetGridOffset();
+
+                // add possible GridOffset to up-to-now view-independent EditAreas
+                basegfx::B2DVector aGridOffset(0.0, 0.0);
+                if(getPossibleGridOffsetForSdrObject(aGridOffset, pTextObj, GetSdrPageView()))
+                {
+                    const Point aOffset(
+                        basegfx::fround(aGridOffset.getX()),
+                        basegfx::fround(aGridOffset.getY()));
+
+                    aEditArea1 += aOffset;
+                    aMinArea1 += aOffset;
+                }
+
                 aEditArea1.Move(aPvOfs.X(),aPvOfs.Y());
                 aMinArea1.Move(aPvOfs.X(),aPvOfs.Y());
                 tools::Rectangle aNewArea(aMinArea1);
@@ -494,7 +501,7 @@ namespace
             if (!maRange.equal(maLastRange) || maLastTextPrimitives != maTextPrimitives)
             {
                 // conditions of last local decomposition have changed, delete to force new evaluation
-                const_cast<TextEditOverlayObject*>(this)->setPrimitive2DSequence(drawinglayer::primitive2d::Primitive2DContainer());
+                const_cast<TextEditOverlayObject*>(this)->resetPrimitive2DSequence();
             }
         }
 
@@ -706,7 +713,7 @@ void SdrObjEditView::ImpPaintOutlinerView(OutlinerView& rOutlView, const tools::
     const SdrTextObj* pText = GetTextEditObject();
     bool bTextFrame(pText && pText->IsTextFrame());
     bool bFitToSize(pTextEditOutliner->GetControlWord() & EEControlBits::STRETCHING);
-    bool bModifyMerk(pTextEditOutliner->IsModified());
+    bool bModified(pTextEditOutliner->IsModified());
     tools::Rectangle aBlankRect(rOutlView.GetOutputArea());
     aBlankRect.Union(aMinTextEditArea);
     tools::Rectangle aPixRect(rTargetDevice.LogicToPixel(aBlankRect));
@@ -722,7 +729,7 @@ void SdrObjEditView::ImpPaintOutlinerView(OutlinerView& rOutlView, const tools::
     rOutlView.GetOutliner()->SetUpdateMode(true); // Bugfix #22596#
     rOutlView.Paint(aBlankRect, &rTargetDevice);
 
-    if(!bModifyMerk)
+    if(!bModified)
     {
         pTextEditOutliner->ClearModifyFlag();
     }
@@ -737,7 +744,7 @@ void SdrObjEditView::ImpPaintOutlinerView(OutlinerView& rOutlView, const tools::
 
         if (xProcessor)
         {
-            const bool bMerk(rTargetDevice.IsMapModeEnabled());
+            const bool bMapModeEnabled(rTargetDevice.IsMapModeEnabled());
             const basegfx::B2DRange aRange(aPixRect.Left(), aPixRect.Top(), aPixRect.Right(), aPixRect.Bottom());
             const SvtOptionsDrawinglayer aSvtOptionsDrawinglayer;
             const Color aHilightColor(aSvtOptionsDrawinglayer.getHilightColor());
@@ -755,7 +762,7 @@ void SdrObjEditView::ImpPaintOutlinerView(OutlinerView& rOutlView, const tools::
 
             rTargetDevice.EnableMapMode(false);
             xProcessor->process(aSequence);
-            rTargetDevice.EnableMapMode(bMerk);
+            rTargetDevice.EnableMapMode(bMapModeEnabled);
         }
     }
 
@@ -803,10 +810,10 @@ void SdrObjEditView::ImpInvalidateOutlinerView(OutlinerView const & rOutlView) c
             aOuterPix.AdjustRight(nPixSiz );
             aOuterPix.AdjustBottom(nPixSiz );
 
-            bool bMerk(pWin->IsMapModeEnabled());
+            bool bMapModeEnabled(pWin->IsMapModeEnabled());
             pWin->EnableMapMode(false);
             pWin->Invalidate(aOuterPix);
-            pWin->EnableMapMode(bMerk);
+            pWin->EnableMapMode(bMapModeEnabled);
         }
     }
 }
@@ -1148,14 +1155,20 @@ bool SdrObjEditView::SdrBeginTextEdit(
 
             aTextEditArea = aTextRect;
 
-            // Hack for calc, transform position of edit object according
-            // to current zoom so as objects relative position to grid
-            // appears stable
+            // add possible GridOffset to up-to-now view-independent EditAreas
+            basegfx::B2DVector aGridOffset(0.0, 0.0);
+            if(getPossibleGridOffsetForSdrObject(aGridOffset, pTextObj, pPV))
+            {
+                const Point aOffset(
+                    basegfx::fround(aGridOffset.getX()),
+                    basegfx::fround(aGridOffset.getY()));
+
+                aTextEditArea += aOffset;
+                aMinTextEditArea += aOffset;
+            }
 
             Point aPvOfs(pTextObj->GetTextEditOffset());
-            aTextEditArea += pTextObj->GetGridOffset();
             aTextEditArea.Move(aPvOfs.X(),aPvOfs.Y());
-            aMinTextEditArea += pTextObj->GetGridOffset();
             aMinTextEditArea.Move(aPvOfs.X(),aPvOfs.Y());
             pTextEditCursorBuffer=pWin->GetCursor();
 
@@ -1463,7 +1476,8 @@ SdrEndTextEditKind SdrObjEditView::SdrEndTextEdit(bool bDontDeleteReally)
 
             pTEObj->EndTextEdit(*pTEOutliner);
 
-            if( (pTEObj->GetRotateAngle() != 0) || (pTEObj && dynamic_cast<const SdrTextObj*>( pTEObj) !=  nullptr && pTEObj->IsFontwork())  )
+            if ((pTEObj->GetRotateAngle() != 0)
+                || (dynamic_cast<const SdrTextObj*>(pTEObj) != nullptr && pTEObj->IsFontwork()))
             {
                 pTEObj->ActionChanged();
             }
@@ -1479,7 +1493,7 @@ SdrEndTextEditKind SdrObjEditView::SdrEndTextEdit(bool bDontDeleteReally)
             // check deletion of entire TextObj
             std::unique_ptr<SdrUndoAction> pDelUndo;
             bool bDelObj=false;
-            if (pTEObj!=nullptr && bTextEditNewObj)
+            if (bTextEditNewObj)
             {
                 bDelObj=pTEObj->IsTextFrame() &&
                         !pTEObj->HasText() &&
@@ -1689,7 +1703,8 @@ bool SdrObjEditView::IsTextEditFrameHit(const Point& rHit) const
         if( pOLV )
         {
             vcl::Window* pWin=pOLV->GetWindow();
-            if (pText!=nullptr && pText->IsTextFrame() && pOLV!=nullptr && pWin!=nullptr) {
+            if (pText != nullptr && pText->IsTextFrame() && pWin != nullptr)
+            {
                 sal_uInt16 nPixSiz=pOLV->GetInvalidateMore();
                 tools::Rectangle aEditArea(aMinTextEditArea);
                 aEditArea.Union(pOLV->GetOutputArea());
@@ -2114,9 +2129,9 @@ bool SdrObjEditView::SetAttributes(const SfxItemSet& rSet, bool bReplaceAll)
             // Otherwise split Set, if necessary.
             // Now we build an ItemSet aSet that doesn't contain EE_Items from
             // *pSet (otherwise it would be a copy).
-            sal_uInt16* pNewWhichTable=RemoveWhichRange(pSet->GetRanges(),EE_ITEMS_START,EE_ITEMS_END);
-            SfxItemSet aSet(mpModel->GetItemPool(),pNewWhichTable);
-            delete[] pNewWhichTable;
+            std::unique_ptr<sal_uInt16[]> pNewWhichTable=RemoveWhichRange(pSet->GetRanges(),EE_ITEMS_START,EE_ITEMS_END);
+            SfxItemSet aSet(mpModel->GetItemPool(),pNewWhichTable.get());
+            pNewWhichTable.reset();
             SfxWhichIter aIter(aSet);
             sal_uInt16 nWhich=aIter.FirstWhich();
             while (nWhich!=0)

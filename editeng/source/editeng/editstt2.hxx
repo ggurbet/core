@@ -35,9 +35,6 @@ public:
     bool    UseCharAttribs() const
                 { return bool( nControlBits & EEControlBits::USECHARATTRIBS ); }
 
-    bool    NotifyCursorMovements() const
-                { return bool( nControlBits & EEControlBits::CRSRLEFTPARA ); }
-
     bool    UseIdleFormatter() const
                 { return bool( nControlBits & EEControlBits::DOIDLEFORMAT); }
 
@@ -81,9 +78,6 @@ public:
     bool    MarkUrlFields() const
                 { return bool( nControlBits & EEControlBits::MARKURLFIELDS ); }
 
-    bool    DoRestoreFont() const
-                { return bool( nControlBits & EEControlBits::RESTOREFONT ); }
-
     bool    DoImportRTFStyleSheets() const
                 { return bool( nControlBits & EEControlBits::RTFSTYLESHEETS ); }
 
@@ -93,17 +87,11 @@ public:
     bool    DoAutoComplete() const
                 { return bool( nControlBits & EEControlBits::AUTOCOMPLETE ); }
 
-    bool    DoTabIndenting() const
-                { return bool( nControlBits & EEControlBits::TABINDENTING ); }
-
     bool    DoFormat100() const
                 { return bool( nControlBits & EEControlBits::FORMAT100 ); }
 
     bool    ULSpaceSummation() const
                 { return bool( nControlBits & EEControlBits::ULSPACESUMMATION ); }
-
-    bool    ULSpaceFirstParagraph() const
-                { return bool( nControlBits & EEControlBits::ULSPACEFIRSTPARA ); }
 };
 
 #endif // INCLUDED_EDITENG_SOURCE_EDITENG_EDITSTT2_HXX

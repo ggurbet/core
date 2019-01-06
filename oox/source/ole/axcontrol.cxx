@@ -50,6 +50,10 @@
 #include <rtl/tencinfo.h>
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
+#include <vcl/font.hxx>
+#include <vcl/outdev.hxx>
+#include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <oox/helper/attributelist.hxx>
 #include <oox/helper/binaryinputstream.hxx>
 #include <oox/helper/containerhelper.hxx>
@@ -531,7 +535,7 @@ void ControlConverter::convertToAxState( PropertySet const & rPropSet,
 
     sal_Int16 nState = API_STATE_DONTKNOW;
 
-    bool bTmp = false;
+    bool bTriStateEnabled = false;
     // need to use State for current state ( I think this is regardless of whether
     // control is awt or not )
     rPropSet.getProperty( nState, PROP_State );
@@ -543,8 +547,12 @@ void ControlConverter::convertToAxState( PropertySet const & rPropSet,
         rValue = "1";
 
     // tristate
-    if( bSupportsTriState && rPropSet.getProperty( bTmp, PROP_TriState ) )
-        nMultiSelect = AX_SELECTION_MULTI;
+    if( bSupportsTriState )
+    {
+        bool bPropertyExists = rPropSet.getProperty( bTriStateEnabled, PROP_TriState );
+        if( bPropertyExists && bTriStateEnabled )
+            nMultiSelect = AX_SELECTION_MULTI;
+    }
 }
 
 void ControlConverter::convertAxOrientation( PropertyMap& rPropMap,
@@ -922,14 +930,21 @@ void AxFontDataModel::convertFromProperties( PropertySet& rPropSet, const Contro
 
     sal_Int16 nUnderLine = awt::FontUnderline::NONE;
     if ( rPropSet.getProperty( nUnderLine, PROP_FontUnderline ) )
-        setFlag( maFontData.mnFontEffects, AxFontFlags::Underline, nUnderLine != awt::FontUnderline::NONE );
+        setFlag( maFontData.mnFontEffects, AxFontFlags::Underline, nUnderLine != awt::FontUnderline::NONE && nUnderLine != awt::FontUnderline::DONTKNOW);
     sal_Int16 nStrikeout = awt::FontStrikeout::NONE ;
     if ( rPropSet.getProperty( nStrikeout, PROP_FontStrikeout ) )
-        setFlag( maFontData.mnFontEffects, AxFontFlags::Strikeout, nStrikeout != awt::FontStrikeout::NONE );
+        setFlag( maFontData.mnFontEffects, AxFontFlags::Strikeout, nStrikeout != awt::FontStrikeout::NONE && nStrikeout != awt::FontStrikeout::DONTKNOW);
 
     float fontHeight = 0.0;
     if ( rPropSet.getProperty( fontHeight, PROP_FontHeight ) )
+    {
+        if ( fontHeight == 0 )  // tdf#118684
+        {
+            vcl::Font aDefaultVCLFont = Application::GetDefaultDevice()->GetSettings().GetStyleSettings().GetAppFont();
+            fontHeight = static_cast< float >( aDefaultVCLFont.GetFontHeight() );
+        }
         maFontData.setHeightPoints( static_cast< sal_Int16 >( fontHeight ) );
+    }
 
     // TODO - handle textencoding
     sal_Int16 nAlign = 0;
@@ -1510,7 +1525,7 @@ void AxMorphDataModelBase::exportBinaryModel( BinaryOutputStream& rOutStrm )
     aWriter.skipProperty(); // mnShowDropButton );
     aWriter.skipProperty();
     aWriter.skipProperty(); // drop down style
-    if ( mnDisplayStyle == AX_DISPLAYSTYLE_LISTBOX && mnMultiSelect != AX_SELECTION_SINGLE )
+    if ( (mnDisplayStyle == AX_DISPLAYSTYLE_LISTBOX || mnDisplayStyle == AX_DISPLAYSTYLE_CHECKBOX) && mnMultiSelect != AX_SELECTION_SINGLE )
         aWriter.writeIntProperty< sal_uInt8 >( mnMultiSelect );
     // although CheckBox, ListBox, OptionButton, ToggleButton are also supported
     // they can only have the fileformat default
@@ -1663,7 +1678,7 @@ void AxCheckBoxModel::convertFromProperties( PropertySet& rPropSet, const Contro
     ControlConverter::convertToMSColor( rPropSet, PROP_BackgroundColor, mnBackColor );
     ControlConverter::convertToMSColor( rPropSet, PROP_TextColor, mnTextColor );
     // need to process the image if one exists
-    ControlConverter::convertToAxState( rPropSet, maValue, mnMultiSelect, API_DEFAULTSTATE_BOOLEAN );
+    ControlConverter::convertToAxState( rPropSet, maValue, mnMultiSelect, API_DEFAULTSTATE_TRISTATE );
     AxMorphDataModelBase::convertFromProperties( rPropSet, rConv );
 }
 

@@ -134,8 +134,8 @@ namespace svxform
         SetHelpId( HID_FORM_NAVIGATOR );
 
         SetNodeBitmaps(
-            Image(BitmapEx(RID_SVXBMP_COLLAPSEDNODE)),
-            Image(BitmapEx(RID_SVXBMP_EXPANDEDNODE))
+            Image(StockImage::Yes, RID_SVXBMP_COLLAPSEDNODE),
+            Image(StockImage::Yes, RID_SVXBMP_EXPANDEDNODE)
         );
 
         SetDragDropMode(DragDropMode::ALL);
@@ -363,12 +363,12 @@ namespace svxform
                     // 'New'\'Form' under the same terms
                     const sal_uInt16 nFormId = pSubMenuNew->GetItemId("form");
                     pSubMenuNew->EnableItem(nFormId, bSingleSelection && (m_nFormsSelected || m_bRootSelected));
-                    pSubMenuNew->SetItemImage(nFormId, Image(BitmapEx(RID_SVXBMP_FORM)));
+                    pSubMenuNew->SetItemImage(nFormId, Image(StockImage::Yes, RID_SVXBMP_FORM));
 
                     // 'New'\'hidden...', if exactly one form is selected
                     const sal_uInt16 nHiddenId = pSubMenuNew->GetItemId("hidden");
                     pSubMenuNew->EnableItem(nHiddenId, bSingleSelection && m_nFormsSelected);
-                    pSubMenuNew->SetItemImage(nHiddenId, Image(BitmapEx(RID_SVXBMP_HIDDEN)));
+                    pSubMenuNew->SetItemImage(nHiddenId, Image(StockImage::Yes, RID_SVXBMP_HIDDEN));
 
                     // 'Delete': everything which is not root can be removed
                     aContextMenu->EnableItem(aContextMenu->GetItemId("delete"), !m_bRootSelected);
@@ -576,7 +576,7 @@ namespace svxform
             SvTreeListBox::Clear();
 
             // default-entry "Forms"
-            Image aRootImage(BitmapEx(RID_SVXBMP_FORMS));
+            Image aRootImage(StockImage::Yes, RID_SVXBMP_FORMS);
             m_pRootEntry = InsertEntry( SvxResId(RID_STR_FORMS), aRootImage, aRootImage,
                 nullptr, false, 0 );
         }
@@ -713,7 +713,7 @@ namespace svxform
         {   // bHasHiddenControlsFormat means that only hidden controls are part of the data
 
             // hidden controls can be copied to a form only
-            if ( !_pTargetEntry || ( _pTargetEntry == m_pRootEntry ) || !IsFormEntry( _pTargetEntry ) )
+            if ((_pTargetEntry == m_pRootEntry) || !IsFormEntry(_pTargetEntry))
                 return DND_ACTION_NONE;
 
             return bSelfSource ? ( DND_ACTION_COPYMOVE & _nAction ) : DND_ACTION_COPY;
@@ -853,8 +853,8 @@ namespace svxform
                     bNeedTrigger = true;
                 } else
                 {   // on an entry with children, not swang open
-                    SvTreeListEntry* pDropppedOn = GetEntry(aDropPos);
-                    if (pDropppedOn && (GetChildCount(pDropppedOn) > 0) && !IsExpanded(pDropppedOn))
+                    SvTreeListEntry* pDroppedOn = GetEntry(aDropPos);
+                    if (pDroppedOn && (GetChildCount(pDroppedOn) > 0) && !IsExpanded(pDroppedOn))
                     {
                         // -> swing open
                         m_aDropActionType = DA_EXPANDNODE;
@@ -1000,7 +1000,7 @@ namespace svxform
         DBG_ASSERT( DND_ACTION_COPY != _nAction, "NavigatorTree::implExecuteDataTransfer: somebody changed the logics!" );
 
         // list of dragged entries
-        const ListBoxEntrySet& aDropped = _rData.selected();
+        const ListBoxEntrySet aDropped = _rData.selected();
         DBG_ASSERT(!aDropped.empty(), "NavigatorTree::implExecuteDataTransfer: no entries!");
 
         // shell and model
@@ -1044,9 +1044,9 @@ namespace svxform
 
             // remove from parent
             if (pCurrentParentUserData)
-                pCurrentParentUserData->GetChildList()->remove( pCurrentUserData );
+                pCurrentParentUserData->GetChildList()->removeNoDelete( pCurrentUserData );
             else
-                GetNavModel()->GetRootList()->remove( pCurrentUserData );
+                GetNavModel()->GetRootList()->removeNoDelete( pCurrentUserData );
 
             // remove from container
             sal_Int32 nIndex = getElementPos(xContainer, xCurrentChild);

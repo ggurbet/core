@@ -678,7 +678,7 @@ else # !SYSTEM_LIBCMIS
 
 define gb_LinkTarget__use_libcmis
 $(call gb_LinkTarget_set_include,$(1),\
-	-I$(call gb_UnpackedTarball_get_dir,libcmis)/src \
+	-I$(call gb_UnpackedTarball_get_dir,libcmis)/inc \
 	$$(INCLUDE) \
 )
 $(call gb_LinkTarget_use_static_libraries,$(1),\
@@ -3071,33 +3071,6 @@ endef
 
 endif # SYSTEM_POSTGRESQL
 
-ifeq ($(ENABLE_KDE4),TRUE)
-
-define gb_LinkTarget__use_kde4
-$(call gb_LinkTarget_set_include,$(1),\
-	$(subst -isystem/,-isystem /,$(filter -I% -isystem%,$(subst -isystem /,-isystem/,$(KDE4_CFLAGS)))) \
-	$$(INCLUDE) \
-)
-
-$(call gb_LinkTarget_add_defs,$(1),\
-	$(filter-out -I% -isystem%,$(subst -isystem /,-isystem/,$(KDE4_CFLAGS))) \
-)
-
-$(call gb_LinkTarget_add_libs,$(1),\
-	$(KDE4_LIBS) \
-)
-
-endef
-
-else # !ENABLE_KDE4
-
-define gb_LinkTarget__use_kde4
-
-endef
-
-endif # ENABLE_KDE4
-
-
 ifeq ($(ENABLE_KDE5),TRUE)
 
 define gb_LinkTarget__use_kde5
@@ -3170,7 +3143,7 @@ ifneq ($(SYSTEM_PYTHON),)
 
 define gb_LinkTarget__use_python_headers
 $(call gb_LinkTarget_add_defs,$(1),\
-	$(filter-out -I% -isystem%,$(subst -isystem /,-isystem/,$(PYHTON_CFLAGS)))) \
+	$(filter-out -I% -isystem%,$(subst -isystem /,-isystem/,$(PYTHON_CFLAGS)))) \
 )
 
 $(call gb_LinkTarget_set_include,$(1),\

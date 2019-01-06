@@ -207,9 +207,6 @@ $(eval $(call gb_Rdb_add_components,services,\
 	$(if $(ENABLE_VLC), \
 		avmedia/source/vlc/avmediavlc \
 	) \
-	$(if $(ENABLE_KDE4), \
-		shell/source/backends/kde4be/kde4be1 \
-	) \
 	$(if $(ENABLE_KDE5), \
 		shell/source/backends/kde5be/kde5be1 \
 	) \
@@ -261,8 +258,8 @@ $(eval $(call gb_Rdb_add_components,services,\
 	$(if $(ENABLE_JAVA), \
 		connectivity/source/drivers/hsqldb/hsqldb \
 		connectivity/source/drivers/jdbc/jdbc \
-		connectivity/source/drivers/mysql_jdbc/mysql_jdbc \
 	) \
+	connectivity/source/drivers/mysql_jdbc/mysql_jdbc \
 	connectivity/source/manager/sdbc2 \
 	connectivity/source/drivers/writer/writer \
 	dbaccess/source/ext/macromigration/dbmm \

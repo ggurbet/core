@@ -52,6 +52,7 @@
 #include <ndtxt.hxx>
 #include <redline.hxx>
 #include <docary.hxx>
+#include <rootfrm.hxx>
 #include <SwRewriter.hxx>
 #include <tools/color.hxx>
 #include <unotools/datetime.hxx>
@@ -240,14 +241,16 @@ SwPostItMgr::~SwPostItMgr()
 
 void SwPostItMgr::CheckForRemovedPostIts()
 {
+    IDocumentRedlineAccess const& rIDRA(mpWrtShell->getIDocumentRedlineAccess());
     bool bRemoved = false;
     auto currentIt = mvPostItFields.begin();
     while(currentIt != mvPostItFields.end())
     {
         auto it = currentIt++;
-        if ( !(*it)->UseElement() )
+        if (!(*it)->UseElement(*mpWrtShell->GetLayout(), rIDRA))
         {
-            SwSidebarItem* p = (*it);
+            EndListening(const_cast<SfxBroadcaster&>(*(*it)->GetBroadCaster()));
+            SwSidebarItem* p = *it;
             currentIt = mvPostItFields.erase(std::remove(mvPostItFields.begin(), mvPostItFields.end(), *it), mvPostItFields.end());
             if (GetActiveSidebarWin() == p->pPostIt)
                 SetActiveSidebarWin(nullptr);
@@ -303,7 +306,7 @@ void SwPostItMgr::RemoveItem( SfxBroadcaster* pBroadcast )
         [&pBroadcast](const SwSidebarItem* pField) { return pField->GetBroadCaster() == pBroadcast; });
     if (i != mvPostItFields.end())
     {
-        SwSidebarItem* p = (*i);
+        SwSidebarItem* p = *i;
         if (GetActiveSidebarWin() == p->pPostIt)
             SetActiveSidebarWin(nullptr);
         // tdf#120487 remove from list before dispose, so comment window
@@ -531,9 +534,10 @@ bool SwPostItMgr::CalcRects()
     PreparePageContainer();
     if ( !mvPostItFields.empty() )
     {
+        IDocumentRedlineAccess const& rIDRA(mpWrtShell->getIDocumentRedlineAccess());
         for (auto const& pItem : mvPostItFields)
         {
-            if ( !pItem->UseElement() )
+            if (!pItem->UseElement(*mpWrtShell->GetLayout(), rIDRA))
             {
                 OSL_FAIL("PostIt is not in doc or other wrong use");
                 bRepair = true;
@@ -887,10 +891,11 @@ void SwPostItMgr::LayoutPostIts()
 
         if (!ShowNotes())
         {       // we do not want to see the notes anymore -> Options-Writer-View-Notes
+            IDocumentRedlineAccess const& rIDRA(mpWrtShell->getIDocumentRedlineAccess());
             bool bRepair = false;
             for (auto const& postItField : mvPostItFields)
             {
-                if ( !postItField->UseElement() )
+                if (!postItField->UseElement(*mpWrtShell->GetLayout(), rIDRA))
                 {
                     OSL_FAIL("PostIt is not in doc!");
                     bRepair = true;
@@ -1298,8 +1303,13 @@ void SwPostItMgr::AddPostIts(bool bCheckExistence, bool bFocus)
     {
         if ( pSwFormatField->GetTextField())
         {
-            if ( pSwFormatField->IsFieldInDoc() )
+            IDocumentRedlineAccess const& rIDRA(mpWrtShell->getIDocumentRedlineAccess());
+            if (pSwFormatField->IsFieldInDoc()
+                && (!mpWrtShell->GetLayout()->IsHideRedlines()
+                    || !sw::IsFieldDeletedInModel(rIDRA, *pSwFormatField->GetTextField())))
+            {
                 InsertItem(pSwFormatField,bCheckExistence,bFocus);
+            }
         }
         pSwFormatField = aIter.Next();
     }
@@ -1311,16 +1321,13 @@ void SwPostItMgr::AddPostIts(bool bCheckExistence, bool bFocus)
 
 void SwPostItMgr::RemoveSidebarWin()
 {
-    if (!mvPostItFields.empty())
+    for (auto const& postItField : mvPostItFields)
     {
-        for (auto const& postItField : mvPostItFields)
-        {
-            EndListening( *const_cast<SfxBroadcaster*>(postItField->GetBroadCaster()) );
-            postItField->pPostIt.disposeAndClear();
-            delete postItField;
-        }
-        mvPostItFields.clear();
+        EndListening( *const_cast<SfxBroadcaster*>(postItField->GetBroadCaster()) );
+        postItField->pPostIt.disposeAndClear();
+        delete postItField;
     }
+    mvPostItFields.clear();
 
     // all postits removed, no items should be left in pages
     PreparePageContainer();

@@ -867,7 +867,7 @@ void OViewsWindow::alignMarkedObjects(ControlModification _nControlModification,
                         else if ( _nControlModification == ControlModification::WIDTH_GREATEST )
                             nYMov = aObjRect.getHeight();
                         lcl_getNewRectSize(aObjRect,nXMov,nYMov,pObj,pView,_nControlModification);
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case ControlModification::WIDTH_SMALLEST:
                     case ControlModification::HEIGHT_SMALLEST:
                         pView->AddUndo( pView->GetModel()->GetSdrUndoFactory().CreateUndoGeoObject(*pObj));
@@ -1319,7 +1319,7 @@ void OViewsWindow::EndDragObj(bool _bControlKeyPressed, const OSectionView* _pSe
                             // bring aNewPos to the position of the next object
                             uno::Reference< report::XReportComponent> xRCNext(*(pColIter + 1),uno::UNO_QUERY);
                             Point aNextPosition = VCLPoint(xRCNext->getPosition());
-                            aNewPos += (aNextPosition - aPrevious);
+                            aNewPos += aNextPosition - aPrevious;
                         }
                     }
                 }

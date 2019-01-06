@@ -254,7 +254,7 @@ class SW_DLLPUBLIC SwDBManager
     OUString     m_sEmbeddedName;
 
     /// Store last registrations to revoke or commit
-    static std::vector<std::pair<SwDocShell*, OUString>> m_aUncommitedRegistrations;
+    static std::vector<std::pair<SwDocShell*, OUString>> m_aUncommittedRegistrations;
 
     /// Not used connections.
     std::vector<OUString> m_aNotUsedConnections;
@@ -386,7 +386,8 @@ public:
 
     static css::uno::Reference< css::sdbc::XConnection>
             GetConnection(const OUString& rDataSource,
-                css::uno::Reference< css::sdbc::XDataSource>& rxSource);
+                css::uno::Reference< css::sdbc::XDataSource>& rxSource,
+                SwView* pView);
 
     static css::uno::Reference< css::sdbcx::XColumnsSupplier>
             GetColumnSupplier(css::uno::Reference< css::sdbc::XConnection> const & xConnection,
@@ -444,11 +445,11 @@ public:
 
     */
     static css::uno::Reference< css::sdbc::XResultSet>
-            createCursor(   const OUString& _sDataSourceName,
-                            const OUString& _sCommand,
-                            sal_Int32 _nCommandType,
-                            const css::uno::Reference< css::sdbc::XConnection>& _xConnection
-                            );
+            createCursor(const OUString& _sDataSourceName,
+                         const OUString& _sCommand,
+                         sal_Int32 _nCommandType,
+                         const css::uno::Reference< css::sdbc::XConnection>& _xConnection,
+                         SwView* pView);
 
     void setEmbeddedName(const OUString& rEmbeddedName, SwDocShell& rDocShell);
     const OUString& getEmbeddedName() const;

@@ -27,14 +27,12 @@
 #include <com/sun/star/style/GraphicLocation.hpp>
 #include <com/sun/star/text/FilenameDisplayFormat.hpp>
 #include <com/sun/star/text/XText.hpp>
-#include <com/sun/star/text/XTextContent.hpp>
 #include <com/sun/star/text/XTextCursor.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <osl/diagnose.h>
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sax/tools/converter.hxx>
-#include <oox/core/xmlfilterbase.hxx>
 #include <oox/helper/attributelist.hxx>
 #include <oox/helper/binaryinputstream.hxx>
 #include <oox/helper/graphichelper.hxx>
@@ -43,14 +41,13 @@
 #include <oox/token/namespaces.hxx>
 #include <oox/token/properties.hxx>
 #include <oox/token/tokens.hxx>
-#include <excelhandlers.hxx>
+#include <oox/core/filterbase.hxx>
+#include <oox/core/relations.hxx>
 #include <stylesbuffer.hxx>
 #include <unitconverter.hxx>
 #include <document.hxx>
 #include <biffhelper.hxx>
 #include <filter/msfilter/util.hxx>
-
-namespace oox { class AttributeList; }
 
 namespace oox {
 namespace xls {
@@ -965,12 +962,12 @@ void PageSettingsConverter::writePageSettingsProperties(
     aPropMap.setProperty( PROP_CenterVertically, rModel.mbVerCenter);
     aPropMap.setProperty( PROP_PrintGrid, (!bChartSheet && rModel.mbPrintGrid));     // no gridlines in chart sheets
     aPropMap.setProperty( PROP_PrintHeaders, (!bChartSheet && rModel.mbPrintHeadings)); // no column/row headings in chart sheets
-    aPropMap.setProperty( PROP_LeftMargin, rUnitConv.scaleToMm100( rModel.mfLeftMargin, UNIT_INCH ));
-    aPropMap.setProperty( PROP_RightMargin, rUnitConv.scaleToMm100( rModel.mfRightMargin, UNIT_INCH ));
+    aPropMap.setProperty( PROP_LeftMargin, rUnitConv.scaleToMm100( rModel.mfLeftMargin, Unit::Inch ));
+    aPropMap.setProperty( PROP_RightMargin, rUnitConv.scaleToMm100( rModel.mfRightMargin, Unit::Inch ));
     // #i23296# In Calc, "TopMargin" property is distance to top of header if enabled
-    aPropMap.setProperty( PROP_TopMargin, rUnitConv.scaleToMm100( maHeaderData.mbHasContent ? rModel.mfHeaderMargin : rModel.mfTopMargin, UNIT_INCH ));
+    aPropMap.setProperty( PROP_TopMargin, rUnitConv.scaleToMm100( maHeaderData.mbHasContent ? rModel.mfHeaderMargin : rModel.mfTopMargin, Unit::Inch ));
     // #i23296# In Calc, "BottomMargin" property is distance to bottom of footer if enabled
-    aPropMap.setProperty( PROP_BottomMargin, rUnitConv.scaleToMm100( maFooterData.mbHasContent ? rModel.mfFooterMargin : rModel.mfBottomMargin, UNIT_INCH ));
+    aPropMap.setProperty( PROP_BottomMargin, rUnitConv.scaleToMm100( maFooterData.mbHasContent ? rModel.mfFooterMargin : rModel.mfBottomMargin, Unit::Inch ));
     aPropMap.setProperty( PROP_HeaderIsOn, maHeaderData.mbHasContent);
     aPropMap.setProperty( PROP_HeaderIsShared, maHeaderData.mbShareOddEven);
     aPropMap.setProperty( PROP_HeaderIsDynamicHeight, maHeaderData.mbDynamicHeight);
@@ -1015,7 +1012,7 @@ void PageSettingsConverter::convertHeaderFooterData(
         /*  Calc contains distance between bottom of header and top of page
             body in "HeaderBodyDistance" property, and distance between bottom
             of page body and top of footer in "FooterBodyDistance" property */
-        orHFData.mnBodyDist = getUnitConverter().scaleToMm100( fPageMargin - fContentMargin, UNIT_INCH ) - orHFData.mnHeight;
+        orHFData.mnBodyDist = getUnitConverter().scaleToMm100( fPageMargin - fContentMargin, Unit::Inch ) - orHFData.mnHeight;
         /*  #i23296# Distance less than 0 means, header or footer overlays page
             body. As this is not possible in Calc, set fixed header or footer
             height (crop header/footer) to get correct top position of page body. */
@@ -1042,7 +1039,7 @@ sal_Int32 PageSettingsConverter::writeHeaderFooter(
         {
             double fTotalHeight = mxHFParser->parse( xHFContent, rContent );
             rPropSet.setProperty( nPropId, xHFContent );
-            nHeight = getUnitConverter().scaleToMm100( fTotalHeight, UNIT_POINT );
+            nHeight = getUnitConverter().scaleToMm100( fTotalHeight, Unit::Point );
         }
     }
     return nHeight;

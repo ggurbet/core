@@ -94,8 +94,6 @@ struct SvLockBytesStat
     SvLockBytesStat() : nSize(0) {}
 };
 
-enum SvLockBytesStatFlag { SVSTATFLAG_DEFAULT };
-
 class TOOLS_DLLPUBLIC SvLockBytes: public virtual SvRefBase
 {
     SvStream * m_pStream;
@@ -128,7 +126,7 @@ public:
 
     virtual ErrCode SetSize(sal_uInt64 nSize);
 
-    virtual ErrCode Stat(SvLockBytesStat * pStat, SvLockBytesStatFlag) const;
+    virtual ErrCode Stat(SvLockBytesStat * pStat) const;
 };
 
 typedef tools::SvRef<SvLockBytes> SvLockBytesRef;
@@ -566,7 +564,7 @@ inline std::size_t write_uInt16_lenPrefixed_uInt8s_FromOUString(SvStream& rStrm,
     return write_uInt16_lenPrefixed_uInt8s_FromOString(rStrm, OUStringToOString(rStr, eEnc));
 }
 
-SAL_WARN_UNUSED_RESULT TOOLS_DLLPUBLIC bool checkSeek(SvStream &rSt, sal_uInt64 nOffset);
+[[nodiscard]] TOOLS_DLLPUBLIC bool checkSeek(SvStream &rSt, sal_uInt64 nOffset);
 
 // FileStream
 

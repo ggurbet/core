@@ -54,18 +54,15 @@
 */
 static void lcl_MakeAutoFrames( const SwFrameFormats& rSpzArr, sal_uLong nMovedIndex )
 {
-    if( !rSpzArr.empty() )
+    for( size_t n = 0; n < rSpzArr.size(); ++n )
     {
-        for( size_t n = 0; n < rSpzArr.size(); ++n )
+        SwFrameFormat * pFormat = rSpzArr[n];
+        const SwFormatAnchor* pAnchor = &pFormat->GetAnchor();
+        if (pAnchor->GetAnchorId() == RndStdIds::FLY_AT_CHAR)
         {
-            SwFrameFormat * pFormat = rSpzArr[n];
-            const SwFormatAnchor* pAnchor = &pFormat->GetAnchor();
-            if (pAnchor->GetAnchorId() == RndStdIds::FLY_AT_CHAR)
-            {
-                const SwPosition* pAPos = pAnchor->GetContentAnchor();
-                if( pAPos && nMovedIndex == pAPos->nNode.GetIndex() )
-                    pFormat->MakeFrames();
-            }
+            const SwPosition* pAPos = pAnchor->GetContentAnchor();
+            if( pAPos && nMovedIndex == pAPos->nNode.GetIndex() )
+                pFormat->MakeFrames();
         }
     }
 }
@@ -1095,6 +1092,7 @@ void SwUndoDelete::UndoImpl(::sw::UndoRedoContext & rContext)
                 frames.push_back(pFrame);
             }
         }
+        auto eMode(sw::FrameMode::Existing);
         for (SwTextFrame * pFrame : frames)
         {
             // SplitNode could have moved the original frame to the start node
@@ -1105,7 +1103,8 @@ void SwUndoDelete::UndoImpl(::sw::UndoRedoContext & rContext)
                 : *pStartNode);
             assert(rFirstNode.GetIndex() <= pStartNode->GetIndex());
             pFrame->SetMergedPara(sw::CheckParaRedlineMerge(
-                        *pFrame, rFirstNode, sw::FrameMode::Existing));
+                        *pFrame, rFirstNode, eMode));
+            eMode = sw::FrameMode::New; // Existing is not idempotent!
             // note: this may or may not delete frames on the end node
         }
     }

@@ -23,11 +23,11 @@
 #include <vcl/imapobj.hxx>
 #include <vcl/dllapi.h>
 #include <tools/stream.hxx>
+#include <tools/solar.h>
 #include <memory>
 #include <vector>
 
 class Point;
-namespace tools { class Rectangle; }
 class Size;
 class Fraction;
 class IMapObject;

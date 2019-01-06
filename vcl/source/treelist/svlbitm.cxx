@@ -29,10 +29,11 @@
 struct SvLBoxButtonData_Impl
 {
     SvTreeListEntry*    pEntry;
+    SvLBoxButton*       pBox;
     bool                bDefaultImages;
     bool                bShowRadioButton;
 
-    SvLBoxButtonData_Impl() : pEntry( nullptr ), bDefaultImages( false ), bShowRadioButton( false ) {}
+    SvLBoxButtonData_Impl() : pEntry(nullptr), pBox(nullptr), bDefaultImages(false), bShowRadioButton(false) {}
 };
 
 void SvLBoxButtonData::InitData( bool _bRadioBtn, const Control* pCtrl )
@@ -97,17 +98,17 @@ void SvLBoxButtonData::SetWidthAndHeight()
     bDataOk = true;
 }
 
-
-void SvLBoxButtonData::StoreButtonState( SvTreeListEntry* pActEntry )
+void SvLBoxButtonData::StoreButtonState(SvTreeListEntry* pActEntry, SvLBoxButton* pActBox)
 {
     pImpl->pEntry = pActEntry;
+    pImpl->pBox = pActBox;
 }
 
 SvButtonState SvLBoxButtonData::ConvertToButtonState( SvItemStateFlags nItemFlags )
 {
-    nItemFlags &= (SvItemStateFlags::UNCHECKED |
-                   SvItemStateFlags::CHECKED |
-                   SvItemStateFlags::TRISTATE);
+    nItemFlags &= SvItemStateFlags::UNCHECKED |
+                  SvItemStateFlags::CHECKED |
+                  SvItemStateFlags::TRISTATE;
     switch( nItemFlags )
     {
         case SvItemStateFlags::UNCHECKED:
@@ -125,6 +126,12 @@ SvTreeListEntry* SvLBoxButtonData::GetActEntry() const
 {
     assert(pImpl && "-SvLBoxButtonData::GetActEntry(): don't use me that way!");
     return pImpl->pEntry;
+}
+
+SvLBoxButton* SvLBoxButtonData::GetActBox() const
+{
+    assert(pImpl && "-SvLBoxButtonData::GetActBox(): don't use me that way!");
+    return pImpl->pBox;
 }
 
 void SvLBoxButtonData::SetDefaultImages( const Control* pCtrl )
@@ -256,7 +263,7 @@ void SvLBoxButton::ClickHdl( SvTreeListEntry* pEntry )
             SetStateUnchecked();
         else
             SetStateChecked();
-        pData->StoreButtonState( pEntry );
+        pData->StoreButtonState(pEntry, this);
         pData->CallLink();
     }
 }

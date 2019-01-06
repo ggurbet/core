@@ -41,13 +41,10 @@
 #include <UndoDelete.hxx>
 #include <UndoInsert.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/window.hxx>
 #include <vcl/graph.hxx>
 #include <viscrs.hxx>
 
 using namespace com::sun::star;
-
-OUString aEmptyOUStr;  // remove once aEmptyOUStr can be changed to OUString
 
 Size GetGraphicSizeTwip(const Graphic& rGraphic, vcl::RenderContext* pOutDev)
 {

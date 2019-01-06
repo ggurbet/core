@@ -119,7 +119,7 @@ static void impl_execute( SfxRequest const & rReq, SdrCustomShapeGeometryItem& r
     sal_uInt16 nSID = rReq.GetSlot();
     switch( nSID )
     {
-    case SID_EXTRUSION_TOOGLE:
+    case SID_EXTRUSION_TOGGLE:
     {
         css::uno::Any* pAny = rGeometryItem.GetPropertyValueByName( sExtrusion, sExtrusion );
 
@@ -458,71 +458,71 @@ void ExtrusionBar::execute( SdrView* pSdrView, SfxRequest const & rReq, SfxBindi
 
     switch( nSID )
     {
-        case SID_EXTRUSION_TOOGLE:
+        case SID_EXTRUSION_TOGGLE:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_ON_OFF;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_TILT_DOWN:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_ROTATE_DOWN;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_TILT_UP:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_ROTATE_UP;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_TILT_LEFT:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_ROTATE_LEFT;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_TILT_RIGHT:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_ROTATE_RIGHT;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_DIRECTION:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_ORIENTATION;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_PROJECTION:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_PROJECTION;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_DEPTH:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_DEPTH;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_3D_COLOR:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_COLOR;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_SURFACE:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_SURFACE;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_LIGHTING_INTENSITY:
         {
             if ( !pStrResId )
                 pStrResId = RID_SVXSTR_UNDO_APPLY_EXTRUSION_BRIGHTNESS;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_EXTRUSION_LIGHTING_DIRECTION:
         {
@@ -584,7 +584,7 @@ void ExtrusionBar::execute( SdrView* pSdrView, SfxRequest const & rReq, SfxBindi
             break;
     }
 
-    if( nSID == SID_EXTRUSION_TOOGLE )
+    if( nSID == SID_EXTRUSION_TOGGLE )
     {
             static const sal_uInt16 SidArray[] = {
                 SID_EXTRUSION_TILT_DOWN,
@@ -1285,10 +1285,10 @@ void ExtrusionBar::getState( SdrView const * pSdrView, SfxItemSet& rSet )
         if(! bOnlyExtrudedCustomShapes)
             rSet.DisableItem( SID_EXTRUSION_SURFACE_FLOATER );
     }
-    if (rSet.GetItemState(SID_EXTRUSION_TOOGLE) != SfxItemState::UNKNOWN)
+    if (rSet.GetItemState(SID_EXTRUSION_TOGGLE) != SfxItemState::UNKNOWN)
     {
         if( !checkForSelectedCustomShapes( pSdrView, false ) )
-            rSet.DisableItem( SID_EXTRUSION_TOOGLE );
+            rSet.DisableItem( SID_EXTRUSION_TOGGLE );
     }
     if (rSet.GetItemState(SID_EXTRUSION_DEPTH) != SfxItemState::UNKNOWN)
     {

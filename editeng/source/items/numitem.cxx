@@ -43,10 +43,12 @@
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 #include <tools/mapunit.hxx>
+#include <tools/stream.hxx>
 #include <unotools/configmgr.hxx>
 #include <libxml/xmlwriter.h>
 #include <editeng/unonrule.hxx>
 #include <sal/log.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 #define DEF_WRITER_LSPACE   500     //Standard Indentation
 #define DEF_DRAW_LSPACE     800     //Standard Indentation
@@ -524,8 +526,8 @@ OUString SvxNumberFormat::CreateRomanString( sal_uLong nNo, bool bUpper )
         }
         switch( nNumber )
         {
-        case 3:     { sRet.append(*cRomanArr); SAL_FALLTHROUGH; }
-        case 2:     { sRet.append(*cRomanArr); SAL_FALLTHROUGH; }
+        case 3:     { sRet.append(*cRomanArr); [[fallthrough]]; }
+        case 2:     { sRet.append(*cRomanArr); [[fallthrough]]; }
         case 1:     { sRet.append(*cRomanArr); }
                     break;
 
@@ -951,15 +953,14 @@ bool SvxNumBulletItem::PutValue( const css::uno::Any& rVal, sal_uInt8 /*nMemberI
     {
         try
         {
-            SvxNumRule* pNewRule = new SvxNumRule( SvxGetNumRule( xRule ) );
+            std::unique_ptr<SvxNumRule> pNewRule(new SvxNumRule( SvxGetNumRule( xRule ) ));
             if( pNewRule->GetLevelCount() != pNumRule->GetLevelCount() ||
                 pNewRule->GetNumRuleType() != pNumRule->GetNumRuleType() )
             {
-                SvxNumRule* pConverted = SvxConvertNumRule( pNewRule, pNumRule->GetLevelCount(), pNumRule->GetNumRuleType() );
-                delete pNewRule;
-                pNewRule = pConverted;
+                std::unique_ptr<SvxNumRule> pConverted = SvxConvertNumRule( pNewRule.get(), pNumRule->GetLevelCount(), pNumRule->GetNumRuleType() );
+                pNewRule = std::move(pConverted);
             }
-            pNumRule.reset( pNewRule );
+            pNumRule = std::move( pNewRule );
             return true;
         }
         catch(const lang::IllegalArgumentException&)
@@ -977,10 +978,10 @@ void SvxNumBulletItem::dumpAsXml(struct _xmlTextWriter* pWriter) const
     xmlTextWriterEndElement(pWriter);
 }
 
-SvxNumRule* SvxConvertNumRule( const SvxNumRule* pRule, sal_uInt16 nLevels, SvxNumRuleType eType )
+std::unique_ptr<SvxNumRule> SvxConvertNumRule( const SvxNumRule* pRule, sal_uInt16 nLevels, SvxNumRuleType eType )
 {
     const sal_uInt16 nSrcLevels = pRule->GetLevelCount();
-    SvxNumRule* pNewRule = new SvxNumRule( pRule->GetFeatureFlags(), nLevels, pRule->IsContinuousNumbering(), eType );
+    std::unique_ptr<SvxNumRule> pNewRule(new SvxNumRule( pRule->GetFeatureFlags(), nLevels, pRule->IsContinuousNumbering(), eType ));
 
     for( sal_uInt16 nLevel = 0; (nLevel < nLevels) && (nLevel < nSrcLevels); nLevel++ )
         pNewRule->SetLevel( nLevel, pRule->GetLevel( nLevel ) );

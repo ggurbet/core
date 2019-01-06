@@ -2883,7 +2883,7 @@ void VCLXFixedHyperlink::ProcessWindowEvent( const VclWindowEvent& rVclWindowEve
                     }
                 }
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         default:
             VCLXWindow::ProcessWindowEvent( rVclWindowEvent );
@@ -6489,6 +6489,18 @@ css::uno::Reference< css::accessibility::XAccessibleContext > VCLXToolBox::Creat
     return getAccessibleFactory().createAccessibleContext( this );
 }
 
+VCLXHeaderBar::VCLXHeaderBar()
+{
+}
+
+VCLXHeaderBar::~VCLXHeaderBar()
+{
+}
+
+css::uno::Reference< css::accessibility::XAccessibleContext > VCLXHeaderBar::CreateAccessibleContext()
+{
+    return getAccessibleFactory().createAccessibleContext( this );
+}
 
 //  class VCLXFrame
 

@@ -20,14 +20,11 @@
 #ifndef INCLUDED_VCL_FIXED_HXX
 #define INCLUDED_VCL_FIXED_HXX
 
-#include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <vcl/bitmapex.hxx>
 #include <vcl/ctrl.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/image.hxx>
-
-class UserDrawEvent;
 
 
 class VCL_DLLPUBLIC FixedText : public Control
@@ -156,7 +153,7 @@ private:
     SAL_DLLPRIVATE static WinBits ImplInitStyle( WinBits nStyle );
 
 protected:
-    SAL_DLLPRIVATE void    ImplDraw( OutputDevice* pDev, DrawFlags nDrawFlags,
+    SAL_DLLPRIVATE void    ImplDraw( OutputDevice* pDev,
                               const Point& rPos, const Size& rSize );
 public:
     explicit        FixedImage( vcl::Window* pParent, WinBits nStyle = 0 );

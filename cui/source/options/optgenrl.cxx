@@ -18,6 +18,7 @@
  */
 
 #include <comphelper/string.hxx>
+#include <comphelper/processfactory.hxx>
 
 #include <config_gpgme.h>
 #if HAVE_FEATURE_GPGME
@@ -25,6 +26,7 @@
 # include <com/sun/star/xml/crypto/XXMLSecurityContext.hpp>
 #endif
 
+#include <i18nlangtag/languagetag.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <vcl/svapp.hxx>
 #include <unotools/saveopt.hxx>

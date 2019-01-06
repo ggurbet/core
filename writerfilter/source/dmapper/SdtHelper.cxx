@@ -18,6 +18,7 @@
 #include <cppuhelper/exc_hlp.hxx>
 #include <editeng/unoprnms.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/outdev.hxx>
 #include <unotools/datetime.hxx>
 #include <comphelper/sequence.hxx>
 
@@ -150,8 +151,7 @@ void SdtHelper::createDateControl(OUString const& rContentText, const beans::Pro
         SAL_WARN("writerfilter", "unhandled w:dateFormat value");
         if (m_sDate.isEmpty())
             return;
-        else
-            nDateFormat = 0;
+        nDateFormat = 0;
     }
     xPropertySet->setPropertyValue("DateFormat", uno::makeAny(nDateFormat));
 

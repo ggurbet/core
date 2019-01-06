@@ -19,7 +19,6 @@
 
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <vcl/window.hxx>
-
 #include <swtypes.hxx>
 #include <shdwcrsr.hxx>
 
@@ -49,7 +48,7 @@ void SwShadowCursor::SetPos( const Point& rPt, long nHeight, sal_uInt16 nMode )
 
 void SwShadowCursor::DrawTri( const Point& rPt, long nHeight, bool bLeft )
 {
-    long nLineDiff = ( nHeight / 2 );
+    long nLineDiff = nHeight / 2;
     long nLineDiffHalf = nLineDiff / 2;
 
     // Dot above

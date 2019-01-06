@@ -33,6 +33,7 @@
 #include <com/sun/star/util/XModeChangeListener.hpp>
 #include <com/sun/star/util/XCloseListener.hpp>
 #include <com/sun/star/util/XModifyListener.hpp>
+#include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/frame/XLayoutManagerListener.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -51,7 +52,6 @@ namespace com { namespace sun { namespace star { namespace awt { class XWindow; 
 namespace com { namespace sun { namespace star { namespace awt { class XWindowListener; } } } }
 namespace com { namespace sun { namespace star { namespace awt { struct Point; } } } }
 namespace com { namespace sun { namespace star { namespace document { class XUndoManager; } } } }
-namespace com { namespace sun { namespace star { namespace frame { class XController; } } } }
 namespace com { namespace sun { namespace star { namespace frame { class XDispatch; } } } }
 namespace com { namespace sun { namespace star { namespace frame { class XLayoutManagerEventBroadcaster; } } } }
 namespace com { namespace sun { namespace star { namespace lang { class XInitialization; } } } }

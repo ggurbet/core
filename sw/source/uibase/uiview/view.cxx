@@ -271,8 +271,8 @@ void SwView::SelectShell()
     m_pLastTableFormat = pCurTableFormat;
 
     //SEL_TBL and SEL_TBL_CELLS can be ORed!
-    SelectionType nNewSelectionType = (m_pWrtShell->GetSelectionType()
-                                & ~SelectionType::TableCell);
+    SelectionType nNewSelectionType = m_pWrtShell->GetSelectionType()
+                                & ~SelectionType::TableCell;
 
     if ( m_pFormShell && m_pFormShell->IsActiveControl() )
         nNewSelectionType |= SelectionType::FormControl;
@@ -1643,7 +1643,7 @@ void SwView::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                     m_pVRuler->SetActive( !bModal );
                 }
 
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
 
             case SfxHintId::TitleChanged:
                 if ( GetDocShell()->IsReadOnly() != GetWrtShell().GetViewOptions()->IsReadonly() )

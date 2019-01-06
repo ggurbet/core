@@ -4100,7 +4100,7 @@ static void ImpExportEnhancedPath( SvXMLExport& rExport,
     }
     aStr = aStrBuffer.makeStringAndClear();
     rExport.AddAttribute( bExtended ? XML_NAMESPACE_DRAW_EXT : XML_NAMESPACE_DRAW, XML_ENHANCED_PATH, aStr );
-    if ( !bExtended && bNeedExtended )
+    if ( !bExtended && bNeedExtended && (rExport.getDefaultVersion() > SvtSaveOptions::ODFVER_012) )
         ImpExportEnhancedPath( rExport, rCoordinates, rSegments, true );
 }
 
@@ -4571,6 +4571,11 @@ static void ImpExportEnhancedGeometry( SvXMLExport& rExport, const uno::Referenc
                                 {
                                     case EAS_SubViewSize:
                                     {
+                                        // export draw:sub-view-size (do not export in ODF 1.2 or older)
+                                        if (rExport.getDefaultVersion() <= SvtSaveOptions::ODFVER_012)
+                                        {
+                                            continue;
+                                        }
                                         uno::Sequence< awt::Size > aSubViewSizes;
                                         rProp.Value >>= aSubViewSizes;
 

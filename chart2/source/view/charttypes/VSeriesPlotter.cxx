@@ -21,12 +21,9 @@
 #include <VSeriesPlotter.hxx>
 #include <VLineProperties.hxx>
 #include <ShapeFactory.hxx>
-#include <chartview/ExplicitValueProvider.hxx>
-#include <svl/zformat.hxx>
 
 #include <CommonConverters.hxx>
 #include <ExplicitCategoriesProvider.hxx>
-#include <ViewDefines.hxx>
 #include <ObjectIdentifier.hxx>
 #include <StatisticsHelper.hxx>
 #include <PlottingPositionHelper.hxx>
@@ -43,6 +40,7 @@
 #include <DateHelper.hxx>
 #include <DiagramHelper.hxx>
 #include <defines.hxx>
+#include <ChartModel.hxx>
 
 //only for creation: @todo remove if all plotter are uno components and instantiated via servicefactory
 #include "BarChart.hxx"
@@ -69,19 +67,12 @@
 #include <basegfx/vector/b2dvector.hxx>
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
+#include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
 
-#include <com/sun/star/container/XEnumerationAccess.hpp>
-#include <com/sun/star/container/XEnumeration.hpp>
-#include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/text/XText.hpp>
-#include <com/sun/star/text/XSimpleText.hpp>
-#include <com/sun/star/text/XTextContent.hpp>
-#include <com/sun/star/text/XTextRange.hpp>
-#include <com/sun/star/text/XTextCursor.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
-#include <com/sun/star/drawing/TextFitToSizeType.hpp>
+#include <com/sun/star/drawing/XShapes.hpp>
 
-#include <svx/unoshape.hxx>
+#include <unotools/localedatawrapper.hxx>
 #include <comphelper/sequence.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -1463,10 +1454,17 @@ long VSeriesPlotter::calculateTimeResolutionOnXAxis()
         if( !rDateCategories.empty() )
         {
             std::vector< double >::const_iterator aIt = rDateCategories.begin(), aEnd = rDateCategories.end();
+            while (rtl::math::isNan(*aIt) && aIt != aEnd)
+            {
+                ++aIt;
+            }
             Date aPrevious(aNullDate); aPrevious.AddDays(rtl::math::approxFloor(*aIt));
             ++aIt;
             for(;aIt!=aEnd;++aIt)
             {
+                if (rtl::math::isNan(*aIt))
+                    continue;
+
                 Date aCurrent(aNullDate); aCurrent.AddDays(rtl::math::approxFloor(*aIt));
                 if( nRet == css::chart::TimeUnit::YEAR )
                 {
@@ -2193,12 +2191,26 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntries(
             , const Reference< drawing::XShapes >& xTarget
             , const Reference< lang::XMultiServiceFactory >& xShapeFactory
             , const Reference< uno::XComponentContext >& xContext
+            , ChartModel& rModel
             )
 {
     std::vector< ViewLegendEntry > aResult;
 
     if( xTarget.is() )
     {
+        uno::Reference< XCoordinateSystemContainer > xCooSysCnt( rModel.getFirstDiagram(), uno::UNO_QUERY );
+        Reference< chart2::XCoordinateSystem > xCooSys(xCooSysCnt->getCoordinateSystems()[0]);
+        Reference< beans::XPropertySet > xProp( xCooSys, uno::UNO_QUERY );
+        bool bSwapXAndY = false;
+
+        if( xProp.is()) try
+        {
+            xProp->getPropertyValue( "SwapXAndYAxis" ) >>= bSwapXAndY;
+        }
+        catch( const uno::Exception& )
+        {
+        }
+
         //iterate through all series
         bool bBreak = false;
         bool bFirstSeries = true;
@@ -2212,6 +2224,11 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntries(
                 {
                     if (!pSeries)
                         continue;
+
+                    if (!pSeries->getPropertiesOfSeries()->getPropertyValue("ShowLegendEntry").get<sal_Bool>())
+                    {
+                        continue;
+                    }
 
                     std::vector<ViewLegendEntry> aSeriesEntries(
                             createLegendEntriesForSeries(
@@ -2234,7 +2251,10 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntries(
                         StackingDirection eStackingDirection( pSeries->getStackingDirection() );
                         bReverse = ( eStackingDirection == StackingDirection_Y_STACKING );
 
-                        //todo: respect direction of axis in future
+                        if( bSwapXAndY )
+                        {
+                            bReverse = !bReverse;
+                        }
                     }
 
                     if (bReverse)
@@ -2420,7 +2440,7 @@ Reference< drawing::XShape > VSeriesPlotter::createLegendSymbolForPoint(
     if( rSeries.isAttributedDataPoint( nPointIndex ) )
         xPointSet.set( rSeries.getPropertiesOfPoint( nPointIndex ));
 
-    // if a data point has no own color use a color fom the diagram's color scheme
+    // if a data point has no own color use a color from the diagram's color scheme
     if( ! rSeries.hasPointOwnColor( nPointIndex ))
     {
         Reference< util::XCloneable > xCloneable( xPointSet,uno::UNO_QUERY );

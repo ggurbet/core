@@ -92,6 +92,7 @@
 #include <fmthdft.hxx>
 #include <vcl/svapp.hxx>
 #include <unotools/syslocale.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <fmtflcnt.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/unolingu.hxx>
@@ -1831,7 +1832,10 @@ void SwUnoCursorHelper::SetPropertyValues(
 
             // we need to get up-to-date item set from nodes
             if (i == 0 || bPreviousPropertyCausesSideEffectsInNodes)
+            {
+                aItemSet.ClearItem();
                 SwUnoCursorHelper::GetCursorAttr(rPaM, aItemSet);
+            }
 
             const uno::Any &rValue = rPropertyValues[i].Value;
             // this can set some attributes in nodes' mpAttrSet
@@ -2068,8 +2072,7 @@ SwXTextCursor::getPropertySetInfo()
 {
     SolarMutexGuard g;
 
-    static uno::Reference< beans::XPropertySetInfo >  xRef;
-    if(!xRef.is())
+    static uno::Reference< beans::XPropertySetInfo >  xRef = [&]()
     {
         static SfxItemPropertyMapEntry const aCursorExtMap_Impl[] =
         {
@@ -2081,10 +2084,10 @@ SwXTextCursor::getPropertySetInfo()
             m_pImpl->m_rPropSet.getPropertySetInfo();
         // extend PropertySetInfo!
         const uno::Sequence<beans::Property> aPropSeq = xInfo->getProperties();
-        xRef = new SfxExtItemPropertySetInfo(
+        return new SfxExtItemPropertySetInfo(
             aCursorExtMap_Impl,
             aPropSeq );
-    }
+    }();
     return xRef;
 }
 

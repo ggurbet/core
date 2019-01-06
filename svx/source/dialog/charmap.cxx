@@ -532,9 +532,8 @@ void SvxShowCharSet::DrawChars_Impl(vcl::RenderContext& rRenderContext, int n1, 
         int x = pix.X();
         int y = pix.Y();
 
-        OUStringBuffer buf;
-        buf.appendUtf32(mxFontCharMap->GetCharFromIndex(i));
-        OUString aCharStr(buf.makeStringAndClear());
+        sal_UCS4 nChar = mxFontCharMap->GetCharFromIndex(i);
+        OUString aCharStr(&nChar, 1);
         int nTextWidth = rRenderContext.GetTextWidth(aCharStr);
         int tx = x + (nX - nTextWidth + 1) / 2;
         int ty = y + (nY - nTextHeight + 1) / 2;
@@ -624,6 +623,7 @@ void SvxShowCharSet::InitSettings(vcl::RenderContext& rRenderContext)
     if (mbUpdateBackground)
     {
         rRenderContext.SetBackground(rStyleSettings.GetWindowColor());
+        rRenderContext.Erase();
         mbUpdateBackground = false;
     }
 
@@ -878,12 +878,9 @@ inline Subset::Subset(sal_UCS4 nMin, sal_UCS4 nMax, const OUString& rName)
 
 void SubsetMap::InitList()
 {
-    static SubsetVec aAllSubsets;
-    static bool bInit = true;
-    if( bInit )
+    static SubsetVec s_aAllSubsets = [&]()
     {
-        bInit = false;
-
+        SubsetVec aAllSubsets;
         //I wish icu had a way to give me the block ranges
         for (int i = UBLOCK_BASIC_LATIN; i < UBLOCK_COUNT; ++i)
         {
@@ -1798,9 +1795,10 @@ void SubsetMap::InitList()
         }
 
         std::stable_sort(aAllSubsets.begin(), aAllSubsets.end());
-    }
+        return aAllSubsets;
+    }();
 
-    maSubsets = aAllSubsets;
+    maSubsets = s_aAllSubsets;
 }
 
 void SubsetMap::ApplyCharMap( const FontCharMapRef& rxFontCharMap )
@@ -1809,19 +1807,14 @@ void SubsetMap::ApplyCharMap( const FontCharMapRef& rxFontCharMap )
         return;
 
     // remove subsets that are not matched in any range
-    auto it = maSubsets.begin();
-    while(it != maSubsets.end())
-    {
-        const Subset& rSubset = *it;
-        sal_uInt32 cMin = rSubset.GetRangeMin();
-        sal_uInt32 cMax = rSubset.GetRangeMax();
-
-        int nCount =  rxFontCharMap->CountCharsInRange( cMin, cMax );
-        if( nCount <= 0 )
-            it = maSubsets.erase(it);
-        else
-            ++it;
-    }
+    maSubsets.erase(std::remove_if(maSubsets.begin(), maSubsets.end(),
+        [&rxFontCharMap](const Subset& rSubset) {
+            sal_uInt32 cMin = rSubset.GetRangeMin();
+            sal_uInt32 cMax = rSubset.GetRangeMax();
+            int nCount = rxFontCharMap->CountCharsInRange( cMin, cMax );
+            return nCount <= 0;
+        }),
+        maSubsets.end());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

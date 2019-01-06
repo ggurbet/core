@@ -21,10 +21,12 @@
 #define INCLUDED_SD_SOURCE_UI_FRAMEWORK_CONFIGURATION_CONFIGURATIONCLASSIFIER_HXX
 
 #include "debugtrace.hxx"
-
-#include <com/sun/star/drawing/framework/XConfiguration.hpp>
+#include <com/sun/star/uno/Reference.hxx>
 
 #include <vector>
+
+namespace com { namespace sun { namespace star { namespace drawing { namespace framework { class XConfiguration; } } } } }
+namespace com { namespace sun { namespace star { namespace drawing { namespace framework { class XResourceId; } } } } }
 
 namespace sd { namespace framework {
 
@@ -105,11 +107,6 @@ private:
         mxConfiguration2 that are not in mxConfiguration1.
     */
     ResourceIdVector maC2minusC1;
-
-    /** After the call to Classify() this vector holds all elements that are
-        member both of mxConfiguration1 and mxConfiguration2.
-    */
-    ResourceIdVector maC1andC2;
 
     /** Put all the elements in the two given sequences of resource ids and
         copy them into one of the resource id result vectors maC1minusC2,

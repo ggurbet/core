@@ -263,7 +263,7 @@ void TreeListBox::ImpCreateLibEntries( SvTreeListEntry* pDocumentRootEntry, cons
             SvTreeListEntry* pLibRootEntry = FindEntry( pDocumentRootEntry, aLibName, OBJ_TYPE_LIBRARY );
             if ( pLibRootEntry )
             {
-                SetEntryBitmaps(pLibRootEntry, Image(BitmapEx(sId)));
+                SetEntryBitmaps(pLibRootEntry, Image(StockImage::Yes, sId));
                 if ( IsExpanded(pLibRootEntry))
                     ImpCreateLibSubEntries( pLibRootEntry, rDocument, aLibName );
             }
@@ -271,7 +271,7 @@ void TreeListBox::ImpCreateLibEntries( SvTreeListEntry* pDocumentRootEntry, cons
             {
                 AddEntry(
                     aLibName,
-                    Image(BitmapEx(sId)),
+                    Image(StockImage::Yes, sId),
                     pDocumentRootEntry, true,
                     o3tl::make_unique<Entry>(OBJ_TYPE_LIBRARY));
             }
@@ -307,7 +307,7 @@ void TreeListBox::ImpCreateLibSubEntries( SvTreeListEntry* pLibRootEntry, const 
                         {
                             pModuleEntry = AddEntry(
                                 aModName,
-                                Image(BitmapEx(RID_BMP_MODULE)),
+                                Image(StockImage::Yes, RID_BMP_MODULE),
                                 pLibRootEntry, false,
                                 o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
                         }
@@ -363,7 +363,7 @@ void TreeListBox::ImpCreateLibSubEntriesInVBAMode( SvTreeListEntry* pLibRootEntr
         SvTreeListEntry* pLibSubRootEntry = FindEntry( pLibRootEntry, aEntryName, eType );
         if( pLibSubRootEntry )
         {
-            SetEntryBitmaps(pLibSubRootEntry, Image(BitmapEx(RID_BMP_MODLIB)));
+            SetEntryBitmaps(pLibSubRootEntry, Image(StockImage::Yes, RID_BMP_MODLIB));
             if ( IsExpanded( pLibSubRootEntry ) )
                 ImpCreateLibSubSubEntriesInVBAMode( pLibSubRootEntry, rDocument, rLibName );
         }
@@ -371,7 +371,7 @@ void TreeListBox::ImpCreateLibSubEntriesInVBAMode( SvTreeListEntry* pLibRootEntr
         {
             AddEntry(
                 aEntryName,
-                Image(BitmapEx(RID_BMP_MODLIB)),
+                Image(StockImage::Yes, RID_BMP_MODLIB),
                 pLibRootEntry, true, o3tl::make_unique<Entry>(eType));
         }
     }
@@ -432,7 +432,7 @@ void TreeListBox::ImpCreateLibSubSubEntriesInVBAMode( SvTreeListEntry* pLibSubRo
             {
                 pModuleEntry = AddEntry(
                     aEntryName,
-                    Image(BitmapEx(RID_BMP_MODULE)),
+                    Image(StockImage::Yes, RID_BMP_MODULE),
                     pLibSubRootEntry, false,
                     o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
             }
@@ -620,31 +620,6 @@ bool TreeListBox::ExpandingHdl()
     return bOK;
 }
 
-bool TreeListBox::IsEntryProtected( SvTreeListEntry* pEntry )
-{
-    bool bProtected = false;
-    if ( pEntry && ( GetModel()->GetDepth( pEntry ) == 1 ) )
-    {
-        EntryDescriptor aDesc( GetEntryDescriptor( pEntry ) );
-        const ScriptDocument& aDocument( aDesc.GetDocument() );
-        OSL_ENSURE( aDocument.isAlive(), "TreeListBox::IsEntryProtected: no document, or document is dead!" );
-        if ( aDocument.isAlive() )
-        {
-            const OUString& aOULibName( aDesc.GetLibName() );
-            Reference< script::XLibraryContainer > xModLibContainer( aDocument.getLibraryContainer( E_SCRIPTS ) );
-            if ( xModLibContainer.is() && xModLibContainer->hasByName( aOULibName ) )
-            {
-                Reference< script::XLibraryContainerPassword > xPasswd( xModLibContainer, UNO_QUERY );
-                if ( xPasswd.is() && xPasswd->isLibraryPasswordProtected( aOULibName ) && !xPasswd->isLibraryPasswordVerified( aOULibName ) )
-                {
-                    bProtected = true;
-                }
-            }
-        }
-    }
-    return bProtected;
-}
-
 //Fills up treelist for macros and dialogs
 void TreeListBox::FillTreeListBox( SvTreeListEntry* pRootEntry, const Sequence< OUString >& rNames,
                             const EntryType& eType, const OUString& aBmpMacro )
@@ -661,7 +636,7 @@ void TreeListBox::FillTreeListBox( SvTreeListEntry* pRootEntry, const Sequence< 
         {
             AddEntry(
                 aName,
-                Image(BitmapEx( aBmpMacro )),
+                Image(StockImage::Yes, aBmpMacro),
                 pRootEntry, false,
                 o3tl::make_unique<Entry>( eType ));
         }
@@ -748,12 +723,12 @@ void TreeListBox::GetRootEntryBitmaps( const ScriptDocument& rDocument, Image& r
         else
         {
             // default icon
-            rImage = Image(BitmapEx(RID_BMP_DOCUMENT));
+            rImage = Image(StockImage::Yes, RID_BMP_DOCUMENT);
         }
     }
     else
     {
-        rImage = Image(BitmapEx(RID_BMP_INSTALLATION));
+        rImage = Image(StockImage::Yes, RID_BMP_INSTALLATION);
     }
 }
 
@@ -1377,7 +1352,7 @@ void SbTreeListBox::AddEntry(
     std::unique_ptr<Entry>&& rUserData)
 {
     OUString sId(OUString::number(reinterpret_cast<sal_uInt64>(rUserData.release())));
-    m_xControl->insert(pParent, -1, rText, &sId, nullptr, nullptr, &rImage, bChildrenOnDemand);
+    m_xControl->insert(pParent, -1, &rText, &sId, nullptr, nullptr, &rImage, bChildrenOnDemand);
 }
 
 void SbTreeListBox::SetEntryBitmaps(weld::TreeIter& rIter, const OUString& rImage)
@@ -1574,7 +1549,10 @@ IMPL_LINK_NOARG(SbTreeListBox, OpenCurrentHdl, weld::TreeView&, void)
             break;
 
         default:
-            m_xControl->expand_row(*m_xIter);
+            if (!m_xControl->get_row_expanded(*m_xIter))
+                m_xControl->expand_row(*m_xIter);
+            else
+                m_xControl->collapse_row(*m_xIter);
             break;
     }
 }

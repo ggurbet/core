@@ -226,8 +226,12 @@ void GtkSalMenu::ImplUpdate(bool bRecurse, bool bRemoveDisabledEntries)
     if (mbNeedsUpdate)
     {
         mbNeedsUpdate = false;
-        if (mbMenuBar)
+        if (mbMenuBar && maUpdateMenuBarIdle.IsActive())
+        {
             maUpdateMenuBarIdle.Stop();
+            maUpdateMenuBarIdle.Invoke();
+            return;
+        }
     }
 
     Menu* pVCLMenu = mpVCLMenu;
@@ -506,6 +510,8 @@ bool GtkSalMenu::ShowNativePopupMenu(FloatingWindow* pWin, const tools::Rectangl
     g_object_unref(mpActionGroup);
     ClearActionGroupAndMenuModel();
 
+    mpFrame = nullptr;
+
     return true;
 #else
     (void)pWin;
@@ -526,6 +532,7 @@ GtkSalMenu::GtkSalMenu( bool bMenuBar ) :
     mbReturnFocusToDocument( false ),
     mbAddedGrab( false ),
     mpMenuBarContainerWidget( nullptr ),
+    mpMenuAllowShrinkWidget( nullptr ),
     mpMenuBarWidget( nullptr ),
     mpCloseButton( nullptr ),
     mpVCLMenu( nullptr ),
@@ -553,13 +560,17 @@ IMPL_LINK_NOARG(GtkSalMenu, MenuBarHierarchyChangeHandler, Timer *, void)
 void GtkSalMenu::SetNeedsUpdate()
 {
     GtkSalMenu* pMenu = this;
+    // start that the menu and its parents are in need of an update
+    // on the next activation
     while (pMenu && !pMenu->mbNeedsUpdate)
     {
         pMenu->mbNeedsUpdate = true;
-        if (mbMenuBar)
-            maUpdateMenuBarIdle.Start();
         pMenu = pMenu->mpParentSalMenu;
     }
+    // only if a menubar is directly updated do we force in a full
+    // structure update
+    if (mbMenuBar && !maUpdateMenuBarIdle.IsActive())
+        maUpdateMenuBarIdle.Start();
 }
 
 void GtkSalMenu::SetMenuModel(GMenuModel* pMenuModel)
@@ -581,6 +592,9 @@ GtkSalMenu::~GtkSalMenu()
         g_object_unref(mpMenuModel);
 
     maItems.clear();
+
+    if (mpFrame)
+        mpFrame->SetMenu(nullptr);
 }
 
 bool GtkSalMenu::VisibleMenuBar()
@@ -810,10 +824,21 @@ void GtkSalMenu::CreateMenuBarWidget()
     gtk_grid_insert_row(pGrid, 0);
     gtk_grid_attach(pGrid, mpMenuBarContainerWidget, 0, 0, 1, 1);
 
+    mpMenuAllowShrinkWidget = gtk_scrolled_window_new(nullptr, nullptr);
+    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(mpMenuAllowShrinkWidget), GTK_SHADOW_NONE);
+    // tdf#116290 external policy on scrolledwindow will not show a scrollbar,
+    // but still allow scrolled window to not be sized to the child content.
+    // So the menubar can be shrunk past its nominal smallest width.
+    // Unlike a hack using GtkFixed/GtkLayout the correct placement of the menubar occurs under RTL
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(mpMenuAllowShrinkWidget), GTK_POLICY_EXTERNAL, GTK_POLICY_NEVER);
+    gtk_grid_attach(GTK_GRID(mpMenuBarContainerWidget), mpMenuAllowShrinkWidget, 0, 0, 1, 1);
+
     mpMenuBarWidget = gtk_menu_bar_new_from_model(mpMenuModel);
     gtk_widget_insert_action_group(mpMenuBarWidget, "win", mpActionGroup);
     gtk_widget_set_hexpand(GTK_WIDGET(mpMenuBarWidget), true);
-    gtk_grid_attach(GTK_GRID(mpMenuBarContainerWidget), mpMenuBarWidget, 0, 0, 1, 1);
+    gtk_widget_set_hexpand(mpMenuAllowShrinkWidget, true);
+    gtk_container_add(GTK_CONTAINER(mpMenuAllowShrinkWidget), mpMenuBarWidget);
+
     g_signal_connect(G_OBJECT(mpMenuBarWidget), "deactivate", G_CALLBACK(MenuBarReturnFocus), this);
     g_signal_connect(G_OBJECT(mpMenuBarWidget), "key-press-event", G_CALLBACK(MenuBarSignalKey), this);
 
@@ -821,6 +846,7 @@ void GtkSalMenu::CreateMenuBarWidget()
 
     ShowCloseButton( static_cast<MenuBar*>(mpVCLMenu.get())->HasCloseButton() );
 #else
+    (void)mpMenuAllowShrinkWidget;
     (void)mpMenuBarContainerWidget;
 #endif
 }

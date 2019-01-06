@@ -21,6 +21,7 @@
 #define INCLUDED_VCL_INC_SALGDI_HXX
 
 #include <vcl/metric.hxx>
+#include <vcl/outdev.hxx>
 
 #include "impfontmetricdata.hxx"
 #include "salgdiimpl.hxx"
@@ -113,7 +114,7 @@ public:
     virtual void                SetFillColor( Color nColor ) = 0;
 
     // enable/disable XOR drawing
-    virtual void                SetXORMode( bool bSet ) = 0;
+    virtual void                SetXORMode( bool bSet, bool bInvertOnly ) = 0;
 
     // set line color for raster operations
     virtual void                SetROPLineColor( SalROPColor nROPColor ) = 0;
@@ -202,7 +203,7 @@ public:
 
     void                        mirror( long& nX, const OutputDevice *pOutDev ) const;
     // only called mirror2 to avoid ambiguity
-    SAL_WARN_UNUSED_RESULT
+    [[nodiscard]]
     long                        mirror2( long nX, const OutputDevice *pOutDev ) const;
     void                        mirror( long& nX, long nWidth, const OutputDevice *pOutDev, bool bBack = false ) const;
     bool                        mirror( sal_uInt32 nPoints, const SalPoint *pPtAry, SalPoint *pPtAry2, const OutputDevice *pOutDev ) const;

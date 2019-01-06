@@ -133,6 +133,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Te~xt...</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:PagesPerRow" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -715,6 +718,9 @@
       <node oor:name=".uno:PasteSpecial" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Paste ~Special...</value>
+        </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
         </prop>
       </node>
       <node oor:name=".uno:CopyObjects" oor:op="replace">
@@ -1592,6 +1598,9 @@
         <prop oor:name="Label" oor:type="xs:string">
           <value xml:lang="en-US">Master Objects</value>
         </prop>
+        <prop oor:name="Properties" oor:type="xs:int">
+          <value>1</value>
+        </prop>
       </node>
       <node oor:name=".uno:EditStyle" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
@@ -1658,6 +1667,9 @@
       </node>
       <node oor:name=".uno:ZoomMode" oor:op="replace">
         <prop oor:name="Label" oor:type="xs:string">
+          <value xml:lang="en-US">Zoom &amp; Pan</value>
+        </prop>
+        <prop oor:name="TooltipLabel" oor:type="xs:string">
           <value xml:lang="en-US">Zoom &amp; Pan (CTRL to Zoom Out, SHIFT to Pan)</value>
         </prop>
         <prop oor:name="Properties" oor:type="xs:int">

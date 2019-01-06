@@ -91,6 +91,7 @@
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
 #include <com/sun/star/util/XFlushable.hpp>
+#include <com/sun/star/util/XURLTransformer.hpp>
 #include <com/sun/star/document/MacroExecMode.hpp>
 #include <com/sun/star/ui/XContextMenuInterceptor.hpp>
 
@@ -101,6 +102,7 @@
 #include <connectivity/dbexception.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/typeprovider.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sot/storage.hxx>
@@ -698,7 +700,7 @@ void SbaTableQueryBrowser::InitializeGridModel(const Reference< css::form::XForm
                     case DataType::LONGVARCHAR:
                     case DataType::CLOB:
                         aInitialValues.emplace_back( "MultiLine", makeAny( true ) );
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case DataType::BINARY:
                     case DataType::VARBINARY:
                     case DataType::LONGVARBINARY:
@@ -709,7 +711,7 @@ void SbaTableQueryBrowser::InitializeGridModel(const Reference< css::form::XForm
                     case DataType::VARCHAR:
                     case DataType::CHAR:
                         bFormattedIsNumeric = false;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     default:
                         aCurrentModelType = "FormattedField";
                         sDefaultProperty = PROPERTY_EFFECTIVEDEFAULT;
@@ -1639,7 +1641,7 @@ FeatureState SbaTableQueryBrowser::GetState(sal_uInt16 nId) const
             if ( !m_pTreeView->HasChildPathFocus() )
                 // handled below
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case ID_TREE_CLOSE_CONN:
         case ID_TREE_EDIT_DATABASE:
         {
@@ -1788,7 +1790,7 @@ FeatureState SbaTableQueryBrowser::GetState(sal_uInt16 nId) const
                         aReturn.bEnabled = pControl->canCopyCellText(pControl->GetCurRow(), pControl->GetCurColumnId());
                     break;
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             default:
                 return SbaXDataBrowserController::GetState(nId);
         }
@@ -1847,7 +1849,7 @@ void SbaTableQueryBrowser::Execute(sal_uInt16 nId, const Sequence< PropertyValue
                 SbaXDataBrowserController::Execute(nId,aArgs);
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
 
         case ID_BROWSER_REFRESH_REBUILD:

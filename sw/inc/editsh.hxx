@@ -366,14 +366,20 @@ public:
     /// Sign the paragraph at the cursor.
     void SignParagraph();
 
-    /// Validate current paragraph signatures, if any, at the cursor start.
+    /// Validate the paragraph signatures, if any, of the current text node.
+    void ValidateParagraphSignatures(SwTextNode* pNode, bool updateDontRemove);
+
+    /// Validate the current paragraph signatures, if any, at the cursor start.
     void ValidateCurrentParagraphSignatures(bool updateDontRemove);
 
     /// Validate all paragraph signatures.
     void ValidateAllParagraphSignatures(bool updateDontRemove);
 
-    /// Restore the metadata fields, if missing, from the RDF metadata.
-    void RestoreMetadataFields();
+    /// Restore the metadata fields, if missing, from the RDF metadata
+    /// and validate the signatures and update the signature metadata fields.
+    /// Needed since deleting the metadata field doesn't remove the RDF
+    /// and editing docs using software that don't support paragraph signing.
+    void RestoreMetadataFieldsAndValidateParagraphSignatures();
 
     /// Ensure that the classification of the doc is never lower than
     /// the paragraph with the highest classification.
@@ -394,7 +400,7 @@ public:
 
     void Insert2(SwField const &, const bool bForceExpandHints);
 
-    void UpdateFields( SwField & );   ///< One single field.
+    void UpdateOneField(SwField &);   ///< One single field.
 
     size_t GetFieldTypeCount(SwFieldIds nResId = SwFieldIds::Unknown) const;
     SwFieldType* GetFieldType(size_t nField, SwFieldIds nResId = SwFieldIds::Unknown) const;

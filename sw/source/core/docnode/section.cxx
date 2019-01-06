@@ -82,8 +82,7 @@ public:
         const OUString& rMimeType, const css::uno::Any & rValue ) override;
 
     virtual const SwNode* GetAnchor() const override;
-    virtual bool IsInRange( sal_uLong nSttNd, sal_uLong nEndNd, sal_Int32 nStt = 0,
-                            sal_Int32 nEnd = -1 ) const override;
+    virtual bool IsInRange( sal_uLong nSttNd, sal_uLong nEndNd ) const override;
 
     SwSectionNode* GetSectNode()
     {
@@ -596,10 +595,9 @@ void SwSection::MakeChildLinksVisible( const SwSectionNode& rSectNd )
     const ::sfx2::SvBaseLinks& rLnks = rSectNd.GetDoc()->getIDocumentLinksAdministration().GetLinkManager().GetLinks();
     for( auto n = rLnks.size(); n; )
     {
-        ::sfx2::SvBaseLink* pBLnk = &(*rLnks[ --n ]);
-        if( pBLnk && !pBLnk->IsVisible() &&
-            dynamic_cast< const SwBaseLink *>( pBLnk ) !=  nullptr &&
-            nullptr != ( pNd = static_cast<SwBaseLink*>(pBLnk)->GetAnchor() ) )
+        sfx2::SvBaseLink& rBLnk = *rLnks[--n];
+        if (!rBLnk.IsVisible() && dynamic_cast<const SwBaseLink*>(&rBLnk) != nullptr
+            && nullptr != (pNd = static_cast<SwBaseLink&>(rBLnk).GetAnchor()))
         {
             pNd = pNd->StartOfSectionNode(); // If it's a SectionNode
             const SwSectionNode* pParent;
@@ -610,7 +608,7 @@ void SwSection::MakeChildLinksVisible( const SwSectionNode& rSectNd )
 
             // It's within a normal Section, so show again
             if( !pParent )
-                pBLnk->SetVisible( true );
+                rBLnk.SetVisible(true);
         }
     }
 }
@@ -780,7 +778,7 @@ void SwSectionFormat::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
 
     case RES_FTN_AT_TXTEND:
     case RES_END_AT_TXTEND : bClients = true;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case RES_SECTION_HIDDEN:
     case RES_SECTION_NOT_HIDDEN:
         {
@@ -1135,7 +1133,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
         SwBaseLink* pBLink;
 
         ::sfx2::SvBaseLink* pLnk = &(*rLnks[ --n ]);
-        if( pLnk && pLnk != &rUpdLnk &&
+        if( pLnk != &rUpdLnk &&
             OBJECT_CLIENT_FILE == pLnk->GetObjType() &&
             dynamic_cast< const SwBaseLink *>( pLnk ) !=  nullptr &&
             ( pBLink = static_cast<SwBaseLink*>(pLnk) )->IsInRange( rSectNd.GetIndex(),
@@ -1457,7 +1455,6 @@ void SwIntrnlSectRefLink::Closed()
                 SwSectionData aSectionData(*rSectFormat.GetSection());
                 aSectionData.SetType( CONTENT_SECTION );
                 aSectionData.SetLinkFileName( OUString() );
-                aSectionData.SetHidden( false );
                 aSectionData.SetProtectFlag( false );
                 // edit in readonly sections
                 aSectionData.SetEditInReadonlyFlag( false );
@@ -1578,8 +1575,7 @@ const SwNode* SwIntrnlSectRefLink::GetAnchor() const
     return rSectFormat.GetSectionNode();
 }
 
-bool SwIntrnlSectRefLink::IsInRange( sal_uLong nSttNd, sal_uLong nEndNd,
-                                     sal_Int32 , sal_Int32 ) const
+bool SwIntrnlSectRefLink::IsInRange( sal_uLong nSttNd, sal_uLong nEndNd ) const
 {
     SwStartNode* pSttNd = rSectFormat.GetSectionNode();
     return pSttNd &&

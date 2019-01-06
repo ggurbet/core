@@ -18,6 +18,7 @@
  */
 
 #include <rtl/ustring.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/wrkwin.hxx>
@@ -159,8 +160,8 @@ SvxSpellWrapper::SvxSpellWrapper( vcl::Window* pWn,
     bOtherCntnt ( bOther ),
     bHyphen     ( false ),
     bReverse    ( false ),
-    bStartDone  ( bOther || ( !bReverse && bStart ) ),
-    bEndDone    ( bReverse && bStart && !bOther ),
+    bStartDone  ( bOther || bStart ),
+    bEndDone    ( false ),
     bStartChk   ( bOther ),
     bRevAllowed ( false ),
     bAllRight   ( true )

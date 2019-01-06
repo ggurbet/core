@@ -278,7 +278,7 @@ ScPrintUIOptions::ScPrintUIOptions()
     // show Subgroup for print content
     vcl::PrinterOptionsHelper::UIControlOptions aPrintRangeOpt;
     aPrintRangeOpt.maGroupHint = "PrintRange";
-    m_aUIProperties[nIdx++].Value = setSubgroupControlOpt("printrange", ScResId( SCSTR_PRINTOPT_PRNTCONTENT ),
+    m_aUIProperties[nIdx++].Value = setSubgroupControlOpt("printrange", ScResId( SCSTR_PRINTOPT_PAGES ),
                                                       OUString(),
                                                       aPrintRangeOpt);
 
@@ -288,14 +288,8 @@ ScPrintUIOptions::ScPrintUIOptions()
         ScResId( SCSTR_PRINTOPT_SELECTEDSHEETS ),
         ScResId( SCSTR_PRINTOPT_SELECTEDCELLS )};
     uno::Sequence< OUString > aHelpIds{
-        ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:0",
-        ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:1",
-        ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:2"};
-    uno::Sequence< OUString > aWidgetIds{
-        "printallsheets",
-        "printselectedsheets",
-        "printselectedcells"};
-    m_aUIProperties[nIdx++].Value = setChoiceRadiosControlOpt(aWidgetIds, OUString(),
+        ".HelpID:vcl:PrintDialog:PrintContent:ListBox"};
+    m_aUIProperties[nIdx++].Value = setChoiceListControlOpt( "printpagesbox", OUString(),
                                                     aHelpIds, "PrintContent",
                                                     aChoices, nContent );
 
@@ -307,16 +301,14 @@ ScPrintUIOptions::ScPrintUIOptions()
 
     // create a choice for the range to print
     OUString aPrintRangeName( "PrintRange" );
-    aChoices.realloc( 2 );
-    aHelpIds.realloc( 2 );
-    aWidgetIds.realloc( 2 );
-    aChoices[0] = ScResId( SCSTR_PRINTOPT_ALLPAGES );
-    aHelpIds[0] = ".HelpID:vcl:PrintDialog:PrintRange:RadioButton:0";
-    aWidgetIds[0] = "printallpages";
-    aChoices[1] = ScResId( SCSTR_PRINTOPT_PAGES_ );
-    aHelpIds[1] = ".HelpID:vcl:PrintDialog:PrintRange:RadioButton:1";
-    aWidgetIds[1] = "printpages";
-    m_aUIProperties[nIdx++].Value = setChoiceRadiosControlOpt(aWidgetIds, OUString(),
+    aChoices.realloc( 4 );
+    aHelpIds.realloc( 1 );
+    aChoices[0] = ScResId( SCSTR_PRINTOPT_PRINTALLPAGES );
+    aChoices[1] = ScResId( SCSTR_PRINTOPT_PRINTPAGES );
+    aChoices[2] = ScResId( SCSTR_PRINTOPT_PRINTEVENPAGES );
+    aChoices[3] = ScResId( SCSTR_PRINTOPT_PRINTODDPAGES );
+    aHelpIds[0] = ".HelpID:vcl:PrintDialog:PrintRange:ListBox";
+    m_aUIProperties[nIdx++].Value = setChoiceListControlOpt( "printextrabox", OUString(),
                                                     aHelpIds,
                                                     aPrintRangeName,
                                                     aChoices,
@@ -1265,13 +1257,8 @@ void SAL_CALL ScModelObj::release() throw()
 
 uno::Sequence<uno::Type> SAL_CALL ScModelObj::getTypes()
 {
-    static uno::Sequence<uno::Type> aTypes;
-    if ( aTypes.getLength() == 0 )
+    static const uno::Sequence<uno::Type> aTypes = [&]()
     {
-        uno::Sequence<uno::Type> aParentTypes(SfxBaseModel::getTypes());
-        long nParentLen = aParentTypes.getLength();
-        const uno::Type* pParentPtr = aParentTypes.getConstArray();
-
         uno::Sequence<uno::Type> aAggTypes;
         if ( GetFormatter().is() )
         {
@@ -1283,36 +1270,29 @@ uno::Sequence<uno::Type> SAL_CALL ScModelObj::getTypes()
                 aAggTypes = (*xNumProv)->getTypes();
             }
         }
-        long nAggLen = aAggTypes.getLength();
-        const uno::Type* pAggPtr = aAggTypes.getConstArray();
-
-        const long nThisLen = 16;
-        aTypes.realloc( nParentLen + nAggLen + nThisLen );
-        uno::Type* pPtr = aTypes.getArray();
-        pPtr[nParentLen + 0] = cppu::UnoType<sheet::XSpreadsheetDocument>::get();
-        pPtr[nParentLen + 1] = cppu::UnoType<document::XActionLockable>::get();
-        pPtr[nParentLen + 2] = cppu::UnoType<sheet::XCalculatable>::get();
-        pPtr[nParentLen + 3] = cppu::UnoType<util::XProtectable>::get();
-        pPtr[nParentLen + 4] = cppu::UnoType<drawing::XDrawPagesSupplier>::get();
-        pPtr[nParentLen + 5] = cppu::UnoType<sheet::XGoalSeek>::get();
-        pPtr[nParentLen + 6] = cppu::UnoType<sheet::XConsolidatable>::get();
-        pPtr[nParentLen + 7] = cppu::UnoType<sheet::XDocumentAuditing>::get();
-        pPtr[nParentLen + 8] = cppu::UnoType<style::XStyleFamiliesSupplier>::get();
-        pPtr[nParentLen + 9] = cppu::UnoType<view::XRenderable>::get();
-        pPtr[nParentLen +10] = cppu::UnoType<document::XLinkTargetSupplier>::get();
-        pPtr[nParentLen +11] = cppu::UnoType<beans::XPropertySet>::get();
-        pPtr[nParentLen +12] = cppu::UnoType<lang::XMultiServiceFactory>::get();
-        pPtr[nParentLen +13] = cppu::UnoType<lang::XServiceInfo>::get();
-        pPtr[nParentLen +14] = cppu::UnoType<util::XChangesNotifier>::get();
-        pPtr[nParentLen +15] = cppu::UnoType<sheet::opencl::XOpenCLSelection>::get();
-
-        long i;
-        for (i=0; i<nParentLen; i++)
-            pPtr[i] = pParentPtr[i];                    // parent types first
-
-        for (i=0; i<nAggLen; i++)
-            pPtr[nParentLen+nThisLen+i] = pAggPtr[i];   // aggregated types last
-    }
+        return comphelper::concatSequences(
+            SfxBaseModel::getTypes(),
+            aAggTypes,
+            uno::Sequence<uno::Type>
+            {
+                cppu::UnoType<sheet::XSpreadsheetDocument>::get(),
+                cppu::UnoType<document::XActionLockable>::get(),
+                cppu::UnoType<sheet::XCalculatable>::get(),
+                cppu::UnoType<util::XProtectable>::get(),
+                cppu::UnoType<drawing::XDrawPagesSupplier>::get(),
+                cppu::UnoType<sheet::XGoalSeek>::get(),
+                cppu::UnoType<sheet::XConsolidatable>::get(),
+                cppu::UnoType<sheet::XDocumentAuditing>::get(),
+                cppu::UnoType<style::XStyleFamiliesSupplier>::get(),
+                cppu::UnoType<view::XRenderable>::get(),
+                cppu::UnoType<document::XLinkTargetSupplier>::get(),
+                cppu::UnoType<beans::XPropertySet>::get(),
+                cppu::UnoType<lang::XMultiServiceFactory>::get(),
+                cppu::UnoType<lang::XServiceInfo>::get(),
+                cppu::UnoType<util::XChangesNotifier>::get(),
+                cppu::UnoType<sheet::opencl::XOpenCLSelection>::get(),
+            } );
+    }();
     return aTypes;
 }
 
@@ -1530,7 +1510,7 @@ bool ScModelObj::FillRenderMarkData( const uno::Any& aSelection,
 
     bool bHasPrintContent = false;
     sal_Int32 nPrintContent = 0;        // all sheets / selected sheets / selected cells
-    sal_Int32 nPrintRange = 0;          // all pages / pages
+    sal_Int32 nPrintRange = 0;          // all pages / pages / even pages / odd pages
     OUString aPageRange;           // "pages" edit value
 
     for( sal_Int32 i = 0, nLen = rOptions.getLength(); i < nLen; i++ )
@@ -1715,8 +1695,32 @@ sal_Int32 SAL_CALL ScModelObj::getRendererCount(const uno::Any& aSelection,
     sal_Int32 nPages = pPrintFuncCache->GetPageCount();
 
     m_pPrintState.reset();
+    maValidPages.clear();
 
-    sal_Int32 nSelectCount = nPages;
+    sal_Int32 nContent = 0;
+    for ( const auto& rValue : rOptions)
+    {
+        if ( rValue.Name == "PrintRange" )
+        {
+            rValue.Value >>= nContent;
+            break;
+        }
+    }
+
+    bool bIsPrintEvenPages = nContent != 3;
+    bool bIsPrintOddPages = nContent != 2;
+
+    for ( sal_Int32 nPage = 1; nPage <= nPages; nPage++ )
+    {
+        if ( (bIsPrintEvenPages && IsOnEvenPage( nPage )) || (bIsPrintOddPages && !IsOnEvenPage( nPage )) )
+            maValidPages.push_back( nPage );
+    }
+
+    sal_Int32 nSelectCount = static_cast<sal_Int32>( maValidPages.size() );
+
+    if ( nContent == 2 || nContent == 3 ) // even pages / odd pages
+        return nSelectCount;
+
     if ( !aPagesStr.isEmpty() )
     {
         StringRangeEnumerator aRangeEnum( aPagesStr, 0, nPages-1 );
@@ -1812,7 +1816,12 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
 
     //  printer is used as device (just for page layout), draw view is not needed
 
-    SCTAB nTab = pPrintFuncCache->GetTabForPage( nRenderer );
+    SCTAB nTab;
+    if ( !maValidPages.empty() )
+        nTab = pPrintFuncCache->GetTabForPage( maValidPages.at( nRenderer )-1 );
+    else
+        nTab = pPrintFuncCache->GetTabForPage( nRenderer );
+
 
     ScRange aRange;
     const ScRange* pSelRange = nullptr;
@@ -1845,10 +1854,27 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
                                              pPrintFuncCache->GetFirstAttr(nTab), nTotalPages, pSelRange, &aStatus.GetOptions()));
         pPrintFunc->SetRenderFlag( true );
 
-        Range aPageRange( nRenderer+1, nRenderer+1 );
-        MultiSelection aPage( aPageRange );
-        aPage.SetTotalRange( Range(0,RANGE_MAX) );
-        aPage.Select( aPageRange );
+        sal_Int32 nContent = 0;
+        for ( const auto& rValue : rOptions)
+        {
+            if ( rValue.Name == "PrintRange" )
+            {
+                rValue.Value >>= nContent;
+                break;
+            }
+        }
+
+        MultiSelection aPage;
+        if ( nContent == 2 || nContent == 3 ) // even pages or odd pages
+        {
+            aPage.SetTotalRange( Range(0,RANGE_MAX) );
+            aPage.Select( maValidPages.at( nRenderer ) );
+        }
+        else
+        {
+            aPage.SetTotalRange( Range(0,RANGE_MAX) );
+            aPage.Select( nRenderer+1 );
+        }
 
         long nDisplayStart = pPrintFuncCache->GetDisplayStart( nTab );
         long nTabStart = pPrintFuncCache->GetTabStart( nTab );
@@ -1968,7 +1994,12 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
         }
     } aDrawViewKeeper;
 
-    SCTAB nTab = pPrintFuncCache->GetTabForPage( nRenderer );
+    SCTAB nTab;
+    if ( !maValidPages.empty() )
+        nTab = pPrintFuncCache->GetTabForPage( maValidPages.at( nRenderer )-1 );
+    else
+        nTab = pPrintFuncCache->GetTabForPage( nRenderer );
+
     ScDrawLayer* pModel = rDoc.GetDrawLayer();
 
     if( pModel )
@@ -1995,10 +2026,27 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
     if( aStatus.GetMode() == SC_PRINTSEL_RANGE_EXCLUSIVELY_OLE_AND_DRAW_OBJECTS )
         pPrintFunc->SetExclusivelyDrawOleAndDrawObjects();
 
-    Range aPageRange( nRenderer+1, nRenderer+1 );
-    MultiSelection aPage( aPageRange );
-    aPage.SetTotalRange( Range(0,RANGE_MAX) );
-    aPage.Select( aPageRange );
+    sal_Int32 nContent = 0;
+    for ( const auto& rValue : rOptions)
+    {
+        if ( rValue.Name == "PrintRange" )
+        {
+            rValue.Value >>= nContent;
+            break;
+        }
+    }
+
+    MultiSelection aPage;
+    if ( nContent == 2 || nContent == 3 ) // even pages or odd pages
+    {
+        aPage.SetTotalRange( Range(0,RANGE_MAX) );
+        aPage.Select( maValidPages.at( nRenderer ) );
+    }
+    else
+    {
+        aPage.SetTotalRange( Range(0,RANGE_MAX) );
+        aPage.Select( nRenderer+1 );
+    }
 
     long nDisplayStart = pPrintFuncCache->GetDisplayStart( nTab );
     long nTabStart = pPrintFuncCache->GetTabStart( nTab );

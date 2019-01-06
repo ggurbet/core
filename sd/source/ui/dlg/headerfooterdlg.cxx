@@ -28,7 +28,6 @@
 #include <sfx2/viewfrm.hxx>
 
 #include <vcl/button.hxx>
-#include <vcl/combobox.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/layout.hxx>
@@ -662,7 +661,7 @@ void HeaderFooterTabPage::GetOrSetDateTimeLanguage( LanguageType &rLanguage, boo
             for (sal_Int32 nPara = 0; (nPara < nParaCount) && !bHasDateFieldItem; ++nPara)
             {
                 sal_uInt16 nFieldCount = pEdit->GetFieldCount(nPara);
-                for (sal_uInt16 nField = 0; (nField < nFieldCount) && !bHasDateFieldItem; ++nField)
+                for (sal_uInt16 nField = 0; (nField < nFieldCount); ++nField)
                 {
                     EFieldInfo aFieldInfo = pEdit->GetFieldInfo(nPara, nField);
                     if (aFieldInfo.pFieldItem)
@@ -764,7 +763,7 @@ void PresLayoutPreview::Paint(vcl::RenderContext& rRenderContext, SdrTextObj con
     if (bDotted)
     {
         std::vector<double> aPattern;
-        static double fFactor(1.0);
+        static const double fFactor(1.0);
         aPattern.push_back(3.0 * fFactor);
         aPattern.push_back(1.0 * fFactor);
 

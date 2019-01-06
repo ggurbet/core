@@ -755,12 +755,13 @@ OUString SfxObjectShell::GetTitle( sal_uInt16  nMaxLength ) const
         // Document called "Untitled" for the time being
         return aNoName;
     }
+    assert(pMed);
 
     const INetURLObject aURL( IsDocShared() ? GetSharedFileURL() : GetMedium()->GetName() );
     if ( nMaxLength > SFX_TITLE_CAPTION && nMaxLength <= SFX_TITLE_HISTORY )
     {
         sal_uInt16 nRemote;
-        if( !pMed || aURL.GetProtocol() == INetProtocol::File )
+        if (aURL.GetProtocol() == INetProtocol::File)
             nRemote = 0;
         else
             nRemote = 1;
@@ -984,13 +985,12 @@ void SfxObjectShell::CheckForBrokenDocSignatures_Impl()
 void SfxObjectShell::SetAutoLoad(
     const INetURLObject& rUrl, sal_uInt32 nTime, bool bReload )
 {
-    if ( pImpl->pReloadTimer )
-        DELETEZ(pImpl->pReloadTimer);
+    pImpl->pReloadTimer.reset();
     if ( bReload )
     {
-        pImpl->pReloadTimer = new AutoReloadTimer_Impl(
+        pImpl->pReloadTimer.reset(new AutoReloadTimer_Impl(
                                 rUrl.GetMainURL( INetURLObject::DecodeMechanism::ToIUri ),
-                                nTime, this );
+                                nTime, this ));
         pImpl->pReloadTimer->Start();
     }
 }
@@ -1284,14 +1284,14 @@ void AutoReloadTimer_Impl::Invoke()
                 SfxStringItem(SID_REFERER, pObjSh->GetMedium()->GetName()));
         }
         SfxRequest aReq( SID_RELOAD, SfxCallMode::SLOT, aSet );
-        pObjSh->Get_Impl()->pReloadTimer = nullptr;
-        delete this;
+        // this will delete this
+        pObjSh->Get_Impl()->pReloadTimer.reset();
         pFrame->ExecReload_Impl( aReq );
         return;
     }
 
-    pObjSh->Get_Impl()->pReloadTimer = nullptr;
-    delete this;
+    // this will delete this
+    pObjSh->Get_Impl()->pReloadTimer.reset();
 }
 
 SfxModule* SfxObjectShell::GetModule() const
@@ -1416,13 +1416,6 @@ ErrCode SfxObjectShell::CallXScript( const OUString& rScriptURL,
         const css::uno::Any* pCaller )
 {
     return CallXScript( GetModel(), rScriptURL, aParams, aRet, aOutParamIndex, aOutParam, bRaiseError, pCaller );
-}
-
-SfxObjectShellFlags SfxObjectShell::GetFlags() const
-{
-    if( pImpl->eFlags == SfxObjectShellFlags::UNDEFINED )
-        pImpl->eFlags = GetFactory().GetFlags();
-    return pImpl->eFlags;
 }
 
 void SfxHeaderAttributes_Impl::SetAttributes()

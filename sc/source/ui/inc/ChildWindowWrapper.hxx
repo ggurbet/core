@@ -40,12 +40,11 @@ public:
             pViewShell->GetViewFrame()->SetChildWindow( nId, false );
     }
 
-    static SfxChildWindow* CreateImpl(
+    static std::unique_ptr<SfxChildWindow> CreateImpl(
                 vcl::Window *pParent, sal_uInt16 nId,
                 SfxBindings *pBindings, SfxChildWinInfo* pInfo )
     {
-        SfxChildWindow* pWindow = new ChildWindowWrapper(pParent, nId, pBindings, pInfo);
-        return pWindow;
+        return o3tl::make_unique<ChildWindowWrapper>(pParent, nId, pBindings, pInfo);
     }
 
     static void RegisterChildWindow (
@@ -53,10 +52,10 @@ public:
                     SfxModule* pModule  = nullptr,
                     SfxChildWindowFlags nFlags = SfxChildWindowFlags::NONE)
     {
-        SfxChildWinFactory* pFactory = new SfxChildWinFactory(ChildWindowWrapper::CreateImpl, WindowID, CHILDWIN_NOPOS );
+        auto pFactory = o3tl::make_unique<SfxChildWinFactory>(ChildWindowWrapper::CreateImpl, WindowID, CHILDWIN_NOPOS );
         pFactory->aInfo.nFlags |= nFlags;
         pFactory->aInfo.bVisible = bVisible;
-        SfxChildWindow::RegisterChildWindow(pModule, pFactory);
+        SfxChildWindow::RegisterChildWindow(pModule, std::move(pFactory));
     }
 
     virtual SfxChildWinInfo GetInfo() const override

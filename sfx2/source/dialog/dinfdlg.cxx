@@ -38,6 +38,7 @@
 
 #include <memory>
 
+#include <comphelper/sequence.hxx>
 #include <comphelper/string.hxx>
 #include <com/sun/star/security/DocumentSignatureInformation.hpp>
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
@@ -918,7 +919,7 @@ bool SfxDocumentPage::FillItemSet( SfxItemSet* rSet )
             const SfxDocumentInfoItem* pInfoItem = static_cast<const SfxDocumentInfoItem*>(pItem);
             bool bUseData = ( TRISTATE_TRUE == m_pUseUserDataCB->GetState() );
             const_cast<SfxDocumentInfoItem*>(pInfoItem)->SetUseUserData( bUseData );
-            rSet->Put( SfxDocumentInfoItem( *pInfoItem ) );
+            rSet->Put( *pInfoItem );
             bRet = true;
         }
     }
@@ -955,7 +956,7 @@ bool SfxDocumentPage::FillItemSet( SfxItemSet* rSet )
             const SfxDocumentInfoItem* pInfoItem = static_cast<const SfxDocumentInfoItem*>(pItem);
             bool bUseThumbnail = ( TRISTATE_TRUE == m_pUseThumbnailSaveCB->GetState() );
             const_cast<SfxDocumentInfoItem*>(pInfoItem)->SetUseThumbnailSave( bUseThumbnail );
-            rSet->Put( SfxDocumentInfoItem( *pInfoItem ) );
+            rSet->Put( *pInfoItem );
             bRet = true;
         }
     }
@@ -1164,11 +1165,11 @@ SfxDocumentInfoDialog::SfxDocumentInfoDialog( vcl::Window* pParent,
     SetText( aTitle );
 
     // Property Pages
-    m_nDocInfoId = AddTabPage("general", SfxDocumentPage::Create, nullptr);
-    AddTabPage("description", SfxDocumentDescPage::Create, nullptr);
-    AddTabPage("customprops", SfxCustomPropertiesPage::Create, nullptr);
-    AddTabPage("cmisprops", SfxCmisPropertiesPage::Create, nullptr);
-    AddTabPage("security", SfxSecurityPage::Create, nullptr);
+    m_nDocInfoId = AddTabPage("general", SfxDocumentPage::Create);
+    AddTabPage("description", SfxDocumentDescPage::Create);
+    AddTabPage("customprops", SfxCustomPropertiesPage::Create);
+    AddTabPage("cmisprops", SfxCmisPropertiesPage::Create);
+    AddTabPage("security", SfxSecurityPage::Create);
 }
 
 
@@ -1420,7 +1421,7 @@ CustomPropertyLine::CustomPropertyLine( vcl::Window* pParent ) :
     m_aTimeField->SetExtFormat( ExtTimeFieldFormat::Long24H );
     m_aDateField->SetExtDateFormat( ExtDateFieldFormat::SystemShortYYYY );
 
-    m_aRemoveButton->SetModeImage(Image(BitmapEx(SFX_BMP_PROPERTY_REMOVE)));
+    m_aRemoveButton->SetModeImage(Image(StockImage::Yes, SFX_BMP_PROPERTY_REMOVE));
     m_aRemoveButton->SetQuickHelpText(SfxResId(STR_SFX_REMOVE_PROPERTY));
 
     m_aEditButton->SetText(SFX_ST_EDIT);
@@ -1481,7 +1482,10 @@ void CustomPropertiesWindow::dispose()
 {
     m_aEditLoseFocusIdle.Stop();
     m_aBoxLoseFocusIdle.Stop();
-    ClearAllLines();
+
+    m_aCustomPropertiesLines.clear();
+    m_pCurrentLine = nullptr;
+
     m_pHeaderBar.clear();
     m_pScrollBar.clear();
     m_pHeaderAccName.clear();
@@ -1588,7 +1592,7 @@ bool CustomPropertiesWindow::IsLineValid( CustomPropertyLine* pLine ) const
 
 void CustomPropertiesWindow::ValidateLine( CustomPropertyLine* pLine, bool bIsFromTypeBox )
 {
-    if ( !IsLineValid( pLine ) )
+    if (pLine && !IsLineValid(pLine))
     {
         if ( bIsFromTypeBox ) // LoseFocus of TypeBox
             pLine->m_bTypeLostFocus = true;
@@ -1713,7 +1717,11 @@ bool CustomPropertiesWindow::AreAllLinesValid() const
 
 void CustomPropertiesWindow::ClearAllLines()
 {
-    m_aCustomPropertiesLines.clear();
+    for (auto& pLine : m_aCustomPropertiesLines)
+    {
+        pLine->Clear();
+    }
+    m_pCurrentLine = nullptr;
     m_aCustomProperties.clear();
     m_nScrollPos = 0;
 }
@@ -1984,7 +1992,7 @@ void CustomPropertiesControl::Init(VclBuilderContainer& rBuilder)
 
     m_pHeaderBar->set_height_request(GetTextHeight() + 6);
 
-    const HeaderBarItemBits nHeadBits = HeaderBarItemBits::VCENTER | HeaderBarItemBits::FIXED | HeaderBarItemBits::FIXEDPOS | HeaderBarItemBits::LEFT;
+    const HeaderBarItemBits nHeadBits = HeaderBarItemBits::FIXED | HeaderBarItemBits::FIXEDPOS | HeaderBarItemBits::LEFT;
 
     m_pHeaderBar->InsertItem( HI_NAME, sName, 0, nHeadBits );
     m_pHeaderBar->InsertItem( HI_TYPE, sType, 0, nHeadBits );
@@ -2352,10 +2360,9 @@ Sequence< document::CmisProperty > CmisPropertiesWindow::GetCmisProperties() con
 {
     Sequence< document::CmisProperty > aPropertiesSeq( m_aCmisPropertiesLines.size() );
     sal_Int32 i = 0;
-    for ( auto pIter = m_aCmisPropertiesLines.begin();
-            pIter != m_aCmisPropertiesLines.end(); ++pIter, ++i )
+    for ( auto& rxLine : m_aCmisPropertiesLines )
     {
-        CmisPropertyLine* pLine = pIter->get();
+        CmisPropertyLine* pLine = rxLine.get();
 
         aPropertiesSeq[i].Id = pLine->m_sId;
         aPropertiesSeq[i].Type = pLine->m_sType;
@@ -2375,15 +2382,15 @@ Sequence< document::CmisProperty > CmisPropertiesWindow::GetCmisProperties() con
                     m_aNumberFormatter ).GetFormatIndex( NF_NUMBER_SYSTEM );
                 Sequence< double > seqValue( pLine->m_aValues.size( ) );
                 sal_Int32 k = 0;
-                for ( auto it = pLine->m_aValues.begin();
-                    it != pLine->m_aValues.end(); ++it, ++k)
+                for ( auto& rxValue : pLine->m_aValues )
                 {
                     double dValue = 0.0;
-                    OUString sValue( (*it)->m_aValueEdit->GetText() );
+                    OUString sValue( rxValue->m_aValueEdit->GetText() );
                     bool bIsNum = const_cast< SvNumberFormatter& >( m_aNumberFormatter ).
                     IsNumberFormat( sValue, nIndex, dValue );
                     if ( bIsNum )
                         seqValue[k] = dValue;
+                    ++k;
                 }
                 aPropertiesSeq[i].Value <<= seqValue;
             }
@@ -2393,15 +2400,15 @@ Sequence< document::CmisProperty > CmisPropertiesWindow::GetCmisProperties() con
                     m_aNumberFormatter ).GetFormatIndex( NF_NUMBER_SYSTEM );
                 Sequence< sal_Int64 > seqValue( pLine->m_aValues.size( ) );
                 sal_Int32 k = 0;
-                for ( auto it = pLine->m_aValues.begin();
-                    it != pLine->m_aValues.end(); ++it, ++k)
+                for ( auto& rxValue : pLine->m_aValues )
                 {
                     double dValue = 0;
-                    OUString sValue( (*it)->m_aValueEdit->GetText() );
+                    OUString sValue( rxValue->m_aValueEdit->GetText() );
                     bool bIsNum = const_cast< SvNumberFormatter& >( m_aNumberFormatter ).
                     IsNumberFormat( sValue, nIndex, dValue );
                     if ( bIsNum )
                         seqValue[k] = static_cast<sal_Int64>(dValue);
+                    ++k;
                 }
                 aPropertiesSeq[i].Value <<= seqValue;
             }
@@ -2409,11 +2416,11 @@ Sequence< document::CmisProperty > CmisPropertiesWindow::GetCmisProperties() con
             {
                 Sequence<sal_Bool> seqValue( pLine->m_aYesNos.size( ) );
                 sal_Int32 k = 0;
-                for ( auto it = pLine->m_aYesNos.begin();
-                    it != pLine->m_aYesNos.end(); ++it, ++k)
+                for ( auto& rxYesNo : pLine->m_aYesNos )
                 {
-                    bool bValue = (*it)->m_aYesButton->IsChecked();
+                    bool bValue = rxYesNo->m_aYesButton->IsChecked();
                     seqValue[k] = bValue;
+                    ++k;
                 }
                 aPropertiesSeq[i].Value <<= seqValue;
 
@@ -2422,16 +2429,16 @@ Sequence< document::CmisProperty > CmisPropertiesWindow::GetCmisProperties() con
             {
                 Sequence< util::DateTime > seqValue( pLine->m_aDateTimes.size( ) );
                 sal_Int32 k = 0;
-                for ( auto it = pLine->m_aDateTimes.begin();
-                    it != pLine->m_aDateTimes.end(); ++it, ++k)
+                for ( auto& rxDateTime : pLine->m_aDateTimes )
                 {
-                    Date aTmpDate = (*it)->m_aDateField->GetDate();
-                    tools::Time aTmpTime = (*it)->m_aTimeField->GetTime();
+                    Date aTmpDate = rxDateTime->m_aDateField->GetDate();
+                    tools::Time aTmpTime = rxDateTime->m_aTimeField->GetTime();
                     util::DateTime aDateTime( aTmpTime.GetNanoSec(), aTmpTime.GetSec(),
                                               aTmpTime.GetMin(), aTmpTime.GetHour(),
                                               aTmpDate.GetDay(), aTmpDate.GetMonth(),
                                               aTmpDate.GetYear(), true );
                     seqValue[k] = aDateTime;
+                    ++k;
                 }
                 aPropertiesSeq[i].Value <<= seqValue;
             }
@@ -2439,15 +2446,16 @@ Sequence< document::CmisProperty > CmisPropertiesWindow::GetCmisProperties() con
             {
                 Sequence< OUString > seqValue( pLine->m_aValues.size( ) );
                 sal_Int32 k = 0;
-                for ( auto it = pLine->m_aValues.begin();
-                    it != pLine->m_aValues.end(); ++it, ++k)
+                for ( auto& rxValue : pLine->m_aValues )
                 {
-                    OUString sValue( (*it)->m_aValueEdit->GetText() );
+                    OUString sValue( rxValue->m_aValueEdit->GetText() );
                     seqValue[k] = sValue;
+                    ++k;
                 }
                 aPropertiesSeq[i].Value <<= seqValue;
             }
         }
+        ++i;
     }
 
     return aPropertiesSeq;
@@ -2591,11 +2599,7 @@ bool SfxCmisPropertiesPage::FillItemSet( SfxItemSet* rSet )
                 }
             }
         }
-        Sequence< document::CmisProperty> aModifiedProps( modifiedNum );
-        sal_Int32 nCount = 0;
-        for( std::vector< document::CmisProperty>::const_iterator pIter = changedProps.begin();
-            pIter != changedProps.end( ); ++pIter )
-                aModifiedProps[ nCount++ ] = *pIter;
+        Sequence< document::CmisProperty> aModifiedProps( comphelper::containerToSequence(changedProps) );
         pInfo->SetCmisProperties( aModifiedProps );
         rSet->Put( *pInfo );
         if ( bMustDelete )

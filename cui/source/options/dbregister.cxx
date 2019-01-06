@@ -34,7 +34,7 @@
 #include <com/sun/star/ui/dialogs/XFilePicker.hpp>
 #include <com/sun/star/ui/dialogs/XFilterManager.hpp>
 #include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <svl/itemset.hxx>
 #include "doclinkdialog.hxx"
 #include <unotools/localfilehelper.hxx>
@@ -132,11 +132,11 @@ DbRegistrationOptionsPage::DbRegistrationOptionsPage( vcl::Window* pParent, cons
     aSz.setWidth( TAB_WIDTH1 );
     rBar.InsertItem( ITEMID_TYPE, CuiResId( RID_SVXSTR_TYPE ),
                             LogicToPixel( aSz, MapMode( MapUnit::MapAppFont ) ).Width(),
-                            HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER | HeaderBarItemBits::CLICKABLE | HeaderBarItemBits::UPARROW );
+                            HeaderBarItemBits::LEFT | HeaderBarItemBits::CLICKABLE | HeaderBarItemBits::UPARROW );
     aSz.setWidth( TAB_WIDTH2 );
     rBar.InsertItem( ITEMID_PATH, CuiResId( RID_SVXSTR_PATH ),
                             LogicToPixel( aSz, MapMode( MapUnit::MapAppFont ) ).Width(),
-                            HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
+                            HeaderBarItemBits::LEFT );
 
     static long aTabs[] = {0, TAB_WIDTH1, TAB_WIDTH1 + TAB_WIDTH2 };
     Size aHeadSize = rBar.GetSizePixel();
@@ -230,12 +230,12 @@ void DbRegistrationOptionsPage::Reset( const SfxItemSet* rSet )
     if ( !aUserData.isEmpty() )
     {
         HeaderBar &rBar = m_pPathBox->GetTheHeaderBar();
-
+        sal_Int32 nIdx {0};
         // restore column width
-        rBar.SetItemSize( ITEMID_TYPE, aUserData.getToken(0, ';').toInt32() );
+        rBar.SetItemSize( ITEMID_TYPE, aUserData.getToken(0, ';', nIdx).toInt32() );
         HeaderEndDrag_Impl( &rBar );
         // restore sort direction
-        bool bUp = aUserData.getToken(1, ';').toInt32() != 0;
+        bool bUp = aUserData.getToken(0, ';', nIdx).toInt32() != 0;
         HeaderBarItemBits nBits = rBar.GetItemBits(ITEMID_TYPE);
 
         if ( bUp )
@@ -389,7 +389,7 @@ void DbRegistrationOptionsPage::insertNewEntry( const OUString& _sName,const OUS
     SvTreeListEntry* pEntry = nullptr;
     if ( _bReadOnly )
     {
-        Image aLocked(BitmapEx(RID_SVXBMP_LOCK));
+        Image aLocked(StockImage::Yes, RID_SVXBMP_LOCK);
         pEntry = m_pPathBox->InsertEntry( aStr, aLocked, aLocked );
     }
     else

@@ -352,10 +352,9 @@ void SfxItemPool::Free(SfxItemPool* pPool)
         return;
 
     // tell all the registered SfxItemPoolUsers that the pool is in destruction
-    std::vector<SfxItemPoolUser*> aListCopy(pPool->pImpl->maSfxItemPoolUsers.begin(), pPool->pImpl->maSfxItemPoolUsers.end());
-    for(std::vector<SfxItemPoolUser*>::const_iterator aIterator = aListCopy.begin(); aIterator != aListCopy.end(); ++aIterator)
+    std::vector<SfxItemPoolUser*> aListCopy(pPool->pImpl->maSfxItemPoolUsers);
+    for(SfxItemPoolUser* pSfxItemPoolUser : aListCopy)
     {
-        SfxItemPoolUser* pSfxItemPoolUser = *aIterator;
         DBG_ASSERT(pSfxItemPoolUser, "corrupt SfxItemPoolUser list (!)");
         pSfxItemPoolUser->ObjectInDestruction(*pPool);
     }
@@ -766,9 +765,16 @@ void SfxItemPool::Remove( const SfxPoolItem& rItem )
         SfxPoolItem*& p = (*pItemArr)[nIdx];
         assert(p == &rItem);
 
-        assert(p->GetRefCount() && "removing Item without ref");
+        if ( p->GetRefCount() ) //!
+            ReleaseRef( *p );
+        else
+        {
+            assert(false && "removing Item without ref");
+        }
 
-        if (0 == ReleaseRef(*p))
+        // FIXME: Hack, for as long as we have problems with the Outliner
+        // See other MI-REF
+        if ( 0 == p->GetRefCount() && nWhich < 4000 )
         {
             DELETEZ(p);
 

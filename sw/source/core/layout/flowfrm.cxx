@@ -1247,7 +1247,7 @@ bool SwFlowFrame::HasParaSpaceAtPages( bool bSct ) const
                 ( pTmp->IsFootnoteFrame() && !static_cast<const SwFootnoteFrame*>(pTmp)->GetMaster() ) )
                 return true;
             if( pTmp->IsPageFrame() )
-                return !( pTmp->GetPrev() && !IsPageBreak(true) );
+                return !pTmp->GetPrev() || IsPageBreak(true);
             if( pTmp->IsColumnFrame() && pTmp->GetPrev() )
                 return IsColBreak( true );
             if( pTmp->IsSctFrame() && ( !bSct || pTmp->GetPrev() ) )
@@ -1822,6 +1822,11 @@ bool SwFlowFrame::CheckMoveFwd( bool& rbMakePage, bool bKeep, bool bIgnoreMyOwnK
     return bMovedFwd;
 }
 
+bool SwFlowFrame::ForbiddenForFootnoteCntFwd() const
+{
+    return m_rThis.IsTabFrame() || m_rThis.IsInTab();
+}
+
 /// Return value tells us whether the Frame has changed the page.
 bool SwFlowFrame::MoveFwd( bool bMakePage, bool bPageBreak, bool bMoveAlways )
 {
@@ -1829,8 +1834,7 @@ bool SwFlowFrame::MoveFwd( bool bMakePage, bool bPageBreak, bool bMoveAlways )
     SwFootnoteBossFrame *pOldBoss = m_rThis.FindFootnoteBossFrame();
     if (m_rThis.IsInFootnote())
     {
-        assert(!m_rThis.IsTabFrame()); // prevented by IsMoveable()
-        assert(!m_rThis.IsInTab());
+        assert(!ForbiddenForFootnoteCntFwd()); // prevented by IsMoveable()
         if (!m_rThis.IsContentFrame() || !pOldBoss)
         {
             SAL_WARN("sw.core", "Tables in footnotes are not truly supported");

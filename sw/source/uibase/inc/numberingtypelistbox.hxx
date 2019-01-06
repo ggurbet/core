@@ -20,7 +20,6 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_NUMBERINGTYPELISTBOX_HXX
 
 #include <memory>
-#include <vcl/lstbox.hxx>
 #include <vcl/weld.hxx>
 #include <swdllapi.h>
 #include <o3tl/typed_flags_set.hxx>
@@ -29,14 +28,11 @@
 enum class SwInsertNumTypes
 {
     NoNumbering              = 0x01,
-    PageStyleNumbering       = 0x02,
-    Bitmap                   = 0x04,
-    Bullet                   = 0x08,
-    Extended                 = 0x10
+    Extended                 = 0x02
 };
 
 namespace o3tl {
-   template<> struct typed_flags<SwInsertNumTypes> : is_typed_flags<SwInsertNumTypes, 0x1f> {};
+   template<> struct typed_flags<SwInsertNumTypes> : is_typed_flags<SwInsertNumTypes, 0x03> {};
 };
 
 struct SwNumberingTypeListBox_Impl;

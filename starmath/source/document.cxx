@@ -62,6 +62,7 @@
 #include <format.hxx>
 #include <starmath.hrc>
 #include <strings.hrc>
+#include <smmod.hxx>
 #include <symbol.hxx>
 #include <unomodel.hxx>
 #include <utility.hxx>
@@ -96,7 +97,7 @@ void SmDocShell::InitInterface_Impl()
     GetStaticInterface()->RegisterPopupMenu("view");
 }
 
-SFX_IMPL_OBJECTFACTORY(SmDocShell, SvGlobalName(SO3_SM_CLASSID), SfxObjectShellFlags::STD_NORMAL, "smath" )
+SFX_IMPL_OBJECTFACTORY(SmDocShell, SvGlobalName(SO3_SM_CLASSID), "smath" )
 
 void SmDocShell::Notify(SfxBroadcaster&, const SfxHint& rHint)
 {

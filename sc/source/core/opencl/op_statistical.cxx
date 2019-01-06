@@ -2548,6 +2548,7 @@ void OpStDevP::GenSlidingWindowFunction(std::stringstream &ss,
 void OpSlope::GenSlidingWindowFunction(std::stringstream &ss,
             const std::string &sSymName, SubArguments &vSubArguments)
 {
+    CHECK_PARAMETER_COUNT(2,2);
     ss << "\ndouble " << sSymName;
     ss << "_" << BinFuncName() << "(";
     for (size_t i = 0; i < vSubArguments.size(); i++)
@@ -2567,12 +2568,6 @@ void OpSlope::GenSlidingWindowFunction(std::stringstream &ss,
     ss << "    double fCount = 0.0;\n";
     ss << "    double argX = 0.0;\n";
     ss << "    double argY = 0.0;\n";
-    if(vSubArguments.size() != 2)
-    {
-        ss << "    return NAN;\n";
-        ss << "}\n";
-        return ;
-    }
     FormulaToken *pCur = vSubArguments[1]->GetFormulaToken();
     FormulaToken *pCur1 = vSubArguments[0]->GetFormulaToken();
     assert(pCur);
@@ -2591,11 +2586,7 @@ void OpSlope::GenSlidingWindowFunction(std::stringstream &ss,
                pDVR1->GetArrayLength() ? pDVR->GetArrayLength():
                     pDVR1->GetArrayLength();
         if(nCurWindowSize != nCurWindowSize1)
-        {
-            ss << "    return NAN;\n";
-            ss << "}\n";
-            return ;
-        }
+            throw Unhandled(__FILE__, __LINE__);
         ss << "    for (int i = ";
         if ((!pDVR->IsStartFixed() && pDVR->IsEndFixed())
             &&(!pDVR1->IsStartFixed() && pDVR1->IsEndFixed()))
@@ -2626,13 +2617,7 @@ void OpSlope::GenSlidingWindowFunction(std::stringstream &ss,
         }
         else
         {
-            ss << "0; i < " << nCurWindowSize << "; i++)\n";
-            ss << "    {\n";
-            ss << "        break;\n";
-            ss << "    }";
-            ss << "    return NAN;\n";
-            ss << "}\n";
-            return ;
+            throw Unhandled(__FILE__, __LINE__);
         }
 
         ss << "        argX = ";
@@ -2701,8 +2686,7 @@ void OpSlope::GenSlidingWindowFunction(std::stringstream &ss,
     }
     else
     {
-        ss << "    return NAN;\n";
-        ss << "}\n";
+        throw Unhandled(__FILE__, __LINE__);
     }
 }
 void OpSTEYX::GenSlidingWindowFunction(std::stringstream &ss,
@@ -3274,11 +3258,14 @@ void OpPearson::GenSlidingWindowFunction(
     ss << ";\n";
     ss << "          fIny = "<<vSubArguments[1]->GenSlidingWindowDeclRef(true);
     ss << "  ;\n";
-    ss << " if(isnan(fInx)||isnan(fIny)){fInx=0.0;fIny=0.0;fCount = fCount-1;}\n";
+    ss << " if(!isnan(fInx)&&!isnan(fIny)){\n";
     ss << "       fSumX += fInx;\n";
     ss << "       fSumY += fIny;\n";
     ss << "       fCount = fCount + 1;\n";
+    ss << "      }\n";
     ss << "     }\n";
+    ss << " if(fCount < 1)\n";
+    ss << "   return CreateDoubleError(NoValue);\n";
     ss << "       double fMeanX = fSumX / fCount;\n";
     ss << "       double fMeanY = fSumY / fCount;\n";
     ss << "       fSumX = 0.0;\n";
@@ -3301,15 +3288,15 @@ void OpPearson::GenSlidingWindowFunction(
     ss << " ;\n";
     ss << "           fIny = "<<vSubArguments[1]->GenSlidingWindowDeclRef(true);
     ss << " ;\n";
-    ss << " if(isnan(fInx)||isnan(fIny)){fInx=0.0;fIny=0.0;}\n";
+    ss << " if(!isnan(fInx)&&!isnan(fIny)){\n";
     ss << "           fSumDeltaXDeltaY += (fInx - fMeanX) * (fIny - fMeanY);\n";
-    ss << "           fSumX += pow(fInx - fMeanX,2);\n";
-    ss << "           fSumY += pow(fIny - fMeanY,2);\n";
+    ss << "           fSumX += (fInx - fMeanX) * (fInx - fMeanX);\n";
+    ss << "           fSumY += (fIny - fMeanY) * (fIny - fMeanY);\n";
+    ss << "         }\n";
     ss << "       }\n";
-    ss << "      double tmp = ( fSumDeltaXDeltaY / ";
-    ss << "sqrt( fSumX * fSumY));\n\t";
-    ss << "      if (isnan(tmp))\n";
-    ss << "          return CreateDoubleError(NoValue);\n";
+    ss << "      if (fSumX == 0 || fSumY == 0)\n";
+    ss << "          return CreateDoubleError(DivisionByZero);\n";
+    ss << "      double tmp = ( fSumDeltaXDeltaY / sqrt( fSumX * fSumY));\n";
     ss << "      return tmp;\n";
     ss << "}\n";
 }
@@ -4013,6 +4000,7 @@ void OpNormdist::GenSlidingWindowFunction(
     std::stringstream &ss, const std::string &sSymName,
     SubArguments &vSubArguments)
 {
+    CHECK_PARAMETER_COUNT(3,4);
     ss << "\ndouble " << sSymName;
     ss << "_"<< BinFuncName() <<"(";
     for (size_t i = 0; i < vSubArguments.size(); i++)
@@ -4025,7 +4013,8 @@ void OpNormdist::GenSlidingWindowFunction(
     ss << "{\n";
     ss << "    double x,mue,sigma,c;\n";
     ss << "    int gid0=get_global_id(0);\n";
-    ss << "    double tmp0,tmp1,tmp2,tmp3;\n";
+    ss << "    double tmp0,tmp1,tmp2;\n";
+    ss << "    double tmp3 = 0;\n"; // optional argument
     ss <<"\n    ";
     for (size_t i = 0; i < vSubArguments.size(); i++)
     {
@@ -4062,6 +4051,8 @@ void OpNormdist::GenSlidingWindowFunction(
     ss << "mue = tmp1;\n";
     ss << "sigma = tmp2;\n";
     ss << "c = tmp3;\n";
+    ss << "if(sigma <= 0)\n";
+    ss << "    return CreateDoubleError(IllegalArgument);\n";
     ss << "double mid,tmp;\n";
     ss << "mid = (x - mue)/sigma;\n";
     ss << "if(c)\n";
@@ -6854,6 +6845,7 @@ void OpPoisson::GenSlidingWindowFunction(
 void OpCovar::GenSlidingWindowFunction(std::stringstream& ss,
     const std::string &sSymName, SubArguments& vSubArguments)
 {
+        CHECK_PARAMETER_COUNT(2,2);
         ss << "\ndouble " << sSymName;
         ss << "_"<< BinFuncName() <<"(";
         for (size_t i = 0; i < vSubArguments.size(); i++)
@@ -6955,7 +6947,7 @@ void OpCovar::GenSlidingWindowFunction(std::stringstream& ss,
             else {
                 ss << "int i = 0; i < " << nCurWindowSizeX << " && ";
                 ss << " i + gid0 < " << pCurDVRX->GetArrayLength();
-                ss << " && i + gid0 < " << pCurDVRX->GetArrayLength();
+                ss << " && i + gid0 < " << pCurDVRY->GetArrayLength();
                 ss << "; i++) {\n";
                 ss << "if ((isnan(";
                 ss << vSubArguments[0]->GenSlidingWindowDeclRef() << ")) || ";
@@ -7064,6 +7056,10 @@ void OpCovar::GenSlidingWindowFunction(std::stringstream& ss,
             ss << "    return vSum / cnt;\n";
             ss << "    }\n";
             ss << "}";
+        }
+        else
+        {
+            throw Unhandled(__FILE__, __LINE__);
         }
         }
         else {

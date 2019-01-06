@@ -21,6 +21,7 @@ $(eval $(call gb_Helper_register_executables,NONE, \
 	HelpIndexer \
 	HelpLinker \
 	bestreversemap \
+	canvasdemo \
 	cfgex \
 	concat-deps \
 	cpp \
@@ -145,10 +146,12 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,brand, \
 	soffice_bin \
 	$(if $(filter DESKTOP,$(BUILD_TYPE)),unopkg_bin) \
 	$(if $(filter WNT,$(OS)), \
-		soffice \
+		soffice_exe \
+		soffice_com \
 		unoinfo \
 		unopkg \
 		unopkg_com \
+		twain32shim \
 	) \
 ))
 
@@ -293,18 +296,16 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,gnome, \
 ))
 
 $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,kde, \
-	$(if $(ENABLE_KDE4),kde4be1) \
 	$(if $(ENABLE_KDE5),kde5be1) \
 	$(if $(USING_X11), \
-		$(if $(ENABLE_KDE4),vclplug_kde4) \
-		$(if $(ENABLE_KDE5),vclplug_kde5) \
+        $(if $(ENABLE_KDE5),vclplug_kde5) \
         $(if $(ENABLE_QT5),vclplug_qt5) \
-		$(if $(ENABLE_GTK3_KDE5),vclplug_gtk3_kde5) \
+        $(if $(ENABLE_GTK3_KDE5),vclplug_gtk3_kde5) \
 	) \
 ))
 ifneq ($(ENABLE_GTK3_KDE5),)
 $(eval $(call gb_Helper_register_executables_for_install,OOO,kde, \
-	lo_kde5filepicker \
+       lo_kde5filepicker \
 ))
 endif
 
@@ -403,7 +404,7 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	msfilter \
 	$(call gb_Helper_optional,SCRIPTING,msforms) \
 	mtfrenderer \
-	$(if $(ENABLE_JAVA),mysql_jdbc) \
+	$(call gb_Helper_optional,DBCONNECTIVITY,mysql_jdbc) \
 	$(call gb_Helper_optional,DBCONNECTIVITY,mysqlc) \
 	numbertext \
 	odbc \
@@ -957,7 +958,6 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 	)) \
 	sfx2_classification \
     $(if $(filter OPENCL,$(BUILD_TYPE)),sc_opencl_runtimetest) \
-    $(if $(and $(filter WNT,$(OS)), $(filter X86_64,$(CPUNAME))),twain_dsm) \
 	$(if $(ENABLE_HTMLHELP),\
 		helpcontent2_html_dynamic \
 		helpcontent2_html_media \

@@ -24,6 +24,7 @@
 #include <numpages.hxx>
 #include <dialmgr.hxx>
 #include <tools/mapunit.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <editeng/numitem.hxx>
 #include <svl/eitem.hxx>
@@ -156,17 +157,16 @@ static bool lcl_IsNumFmtSet(SvxNumRule const * pNum, sal_uInt16 nLevelMask)
 
 static const vcl::Font& lcl_GetDefaultBulletFont()
 {
-    static bool bInit = false;
-    static vcl::Font aDefBulletFont("OpenSymbol", "", Size(0, 14));
-    if(!bInit)
+    static vcl::Font aDefBulletFont = [&]()
     {
-        aDefBulletFont.SetCharSet( RTL_TEXTENCODING_SYMBOL );
-        aDefBulletFont.SetFamily( FAMILY_DONTKNOW );
-        aDefBulletFont.SetPitch( PITCH_DONTKNOW );
-        aDefBulletFont.SetWeight( WEIGHT_DONTKNOW );
-        aDefBulletFont.SetTransparent( true );
-        bInit = true;
-    }
+        vcl::Font tmp("OpenSymbol", "", Size(0, 14));
+        tmp.SetCharSet( RTL_TEXTENCODING_SYMBOL );
+        tmp.SetFamily( FAMILY_DONTKNOW );
+        tmp.SetPitch( PITCH_DONTKNOW );
+        tmp.SetWeight( WEIGHT_DONTKNOW );
+        tmp.SetTransparent( true );
+        return tmp;
+    }();
     return aDefBulletFont;
 }
 
@@ -845,7 +845,7 @@ void  SvxBitmapPickTabPage::ActivatePage(const SfxItemSet& rSet)
     }
 
     if(!aGrfNames.empty() &&
-        (pActNum && (lcl_IsNumFmtSet(pActNum.get(), nActNumLvl) || bIsPreset)))
+        (pActNum && (!lcl_IsNumFmtSet(pActNum.get(), nActNumLvl) || bIsPreset)))
     {
         m_xExamplesVS->SelectItem(1);
         NumSelectHdl_Impl(m_xExamplesVS.get());
@@ -1100,7 +1100,7 @@ SvxNumOptionsTabPage::SvxNumOptionsTabPage(TabPageParent pParent,
     m_xFmtLB->connect_changed(LINK(this, SvxNumOptionsTabPage, NumberTypeSelectHdl_Impl));
     m_xBitmapMB->connect_selected(LINK(this, SvxNumOptionsTabPage, GraphicHdl_Impl));
     m_xBitmapMB->connect_toggled(LINK(this, SvxNumOptionsTabPage, PopupActivateHdl_Impl));
-    m_xLevelLB->set_selection_mode(true);
+    m_xLevelLB->set_selection_mode(SelectionMode::Multiple);
     m_xLevelLB->connect_changed(LINK(this, SvxNumOptionsTabPage, LevelHdl_Impl));
     m_xCharFmtLB->connect_changed(LINK(this, SvxNumOptionsTabPage, CharFmtHdl_Impl));
     m_xWidthMF->connect_value_changed(LINK(this, SvxNumOptionsTabPage, SizeHdl_Impl));
@@ -2436,23 +2436,33 @@ void SvxNumberingPreview::Paint(vcl::RenderContext& rRenderContext, const ::tool
                 }
                 else
                 {
-                    vcl::Font aColorFont(aStdFont);
+                    vcl::Font aFont(aStdFont);
+                    Size aTmpSize(aStdFont.GetFontSize());
+                    aTmpSize.setWidth( aTmpSize.Width() * ( rFmt.GetBulletRelSize()) );
+                    aTmpSize.setWidth( aTmpSize.Width() / 100 ) ;
+                    aTmpSize.setHeight( aTmpSize.Height() * ( rFmt.GetBulletRelSize()) );
+                    aTmpSize.setHeight( aTmpSize.Height() / 100 ) ;
+                    if(!aTmpSize.Height())
+                        aTmpSize.setHeight( 1 );
+                    aFont.SetFontSize(aTmpSize);
                     Color aTmpBulletColor = rFmt.GetBulletColor();
                     if (aTmpBulletColor == COL_AUTO)
                         aTmpBulletColor = aBackColor.IsDark() ? COL_WHITE : COL_BLACK;
                     else if (aTmpBulletColor == aBackColor)
                         aTmpBulletColor.Invert();
-                    aColorFont.SetColor(aTmpBulletColor);
-                    pVDev->SetFont(aColorFont);
+                    aFont.SetColor(aTmpBulletColor);
+                    pVDev->SetFont(aFont);
                     aNum.SetLevel( nLevel );
                     if (pActNum->IsContinuousNumbering())
                         aNum.GetLevelVal()[nLevel] = nPreNum;
                     OUString aText(pActNum->MakeNumString(aNum));
-                    pVDev->DrawText(Point(nXStart, nYStart), aText);
-                    pVDev->SetFont(aStdFont);
+                    long nY = nYStart;
+                    nY -= (pVDev->GetTextHeight() - nTextHeight - pVDev->GetFontMetric().GetDescent());
+                    pVDev->DrawText(Point(nXStart, nY), aText);
                     nTextOffset = pVDev->GetTextWidth(aText);
                     nTextOffset = nTextOffset + nXStep;
                     nPreNum++;
+                    pVDev->SetFont(aStdFont);
                 }
                 //#i5153# the selected rectangle(s) should be black
                 if (0 != (nActLevel & (1<<nLevel)))
@@ -2531,7 +2541,7 @@ SvxNumPositionTabPage::SvxNumPositionTabPage(TabPageParent pParent, const SfxIte
     m_xAlignedAtMF->connect_value_changed(LINK(this, SvxNumPositionTabPage, AlignAtHdl_Impl));
     m_xIndentAtMF->connect_value_changed(LINK(this, SvxNumPositionTabPage, IndentAtHdl_Impl));
 
-    m_xLevelLB->set_selection_mode(true);
+    m_xLevelLB->set_selection_mode(SelectionMode::Multiple);
     m_xLevelLB->connect_changed(LINK(this, SvxNumPositionTabPage, LevelHdl_Impl));
     m_xRelativeCB->connect_toggled(LINK(this, SvxNumPositionTabPage, RelativeHdl_Impl));
     m_xStandardPB->connect_clicked(LINK(this, SvxNumPositionTabPage, StandardHdl_Impl));

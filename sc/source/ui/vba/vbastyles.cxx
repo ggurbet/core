@@ -21,6 +21,8 @@
 #include <basic/sberrors.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <ooo/vba/excel/XRange.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 using namespace ::ooo::vba;
 using namespace ::com::sun::star;
@@ -187,12 +189,10 @@ ScVbaStyles::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaStyles::getServiceNames()
 {
-        static uno::Sequence< OUString > aServiceNames;
-        if ( aServiceNames.getLength() == 0 )
+        static uno::Sequence< OUString > const aServiceNames
         {
-                aServiceNames.realloc( 1 );
-                aServiceNames[ 0 ] = "ooo.vba.excel.XStyles";
-        }
+            "ooo.vba.excel.XStyles"
+        };
         return aServiceNames;
 }
 

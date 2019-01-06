@@ -298,7 +298,7 @@ bool QuartzSalBitmap::AllocateUserData()
     }
     if (!alloc)
     {
-        SAL_WARN( "vcl.quartz", "bad alloc " << mnBytesPerRow << "x" << mnHeight);
+        SAL_WARN( "vcl.quartz", "bad_alloc: " << mnWidth << "x" << mnHeight << " (" << mnBytesPerRow * mnHeight << " bytes)");
         m_pUserBuffer.reset( static_cast<sal_uInt8*>(nullptr) );
         mnBytesPerRow = 0;
     }
@@ -955,6 +955,11 @@ bool QuartzSalBitmap::GetSystemData( BitmapSystemData& rData )
         {
             /**
              * We need to hack things because VCL does not use kCGBitmapByteOrder32Host, while Cairo requires it.
+             *
+             * Not sure what the above comment means. We don't use Cairo on macOS or iOS.
+             *
+             * This whole if statement was originally (before 2011) inside #ifdef CAIRO. Did we use Cairo on Mac back then?
+             * Anyway, nowadays (since many years, I think) we don't, so should this if statement be dropped? Fun.
              */
             SAL_INFO("vcl.cg", "QuartzSalBitmap::" << __func__ << "(): kCGBitmapByteOrder32Host not found => inserting it.");
 
@@ -994,7 +999,6 @@ bool QuartzSalBitmap::GetSystemData( BitmapSystemData& rData )
             mxGraphicContext = mxGraphicContextNew;
         }
 
-        rData.rImageContext = static_cast<void *>(mxGraphicContext);
         rData.mnWidth = mnWidth;
         rData.mnHeight = mnHeight;
     }

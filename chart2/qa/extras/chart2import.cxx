@@ -69,6 +69,7 @@ public:
     void testTdf86624(); // manually placed legends
     void testTdf105517();
     void testTdf106217();
+    void testTdf108021();
     void testAutoBackgroundXLSX();
     void testChartAreaStyleBackgroundXLSX();
     void testChartHatchFillXLSX();
@@ -117,6 +118,8 @@ public:
     void testTdf114179();
     void testDeletedDataLabel();
     void testDataPointInheritedColorDOCX();
+    void testExternalStrRefsXLSX();
+    void testSourceNumberFormatComplexCategoriesXLS();
 
     CPPUNIT_TEST_SUITE(Chart2ImportTest);
     CPPUNIT_TEST(Fdo60083);
@@ -149,6 +152,7 @@ public:
     CPPUNIT_TEST(testTdf86624);
     CPPUNIT_TEST(testTdf105517);
     CPPUNIT_TEST(testTdf106217);
+    CPPUNIT_TEST(testTdf108021);
     CPPUNIT_TEST(testAutoBackgroundXLSX);
     CPPUNIT_TEST(testChartAreaStyleBackgroundXLSX);
     CPPUNIT_TEST(testChartHatchFillXLSX);
@@ -188,6 +192,8 @@ public:
     CPPUNIT_TEST(testTdf114179);
     CPPUNIT_TEST(testDeletedDataLabel);
     CPPUNIT_TEST(testDataPointInheritedColorDOCX);
+    CPPUNIT_TEST(testExternalStrRefsXLSX);
+    CPPUNIT_TEST(testSourceNumberFormatComplexCategoriesXLS);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -847,6 +853,24 @@ void Chart2ImportTest::testTdf106217()
     awt::Size aSize = xCircle->getSize();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2701), aSize.Width);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2700), aSize.Height);
+}
+
+void Chart2ImportTest::testTdf108021()
+{
+    // Tdf108021 : To check TextBreak value is true.
+    load("/chart2/qa/extras/data/ods/", "tdf108021.ods");
+    uno::Reference< chart::XDiagram > mxDiagram;
+    uno::Reference< beans::XPropertySet > xAxisProp;
+    bool bTextBreak = false;
+    uno::Reference< chart::XChartDocument > xChartDoc ( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW);
+    mxDiagram.set(xChartDoc->getDiagram());
+    CPPUNIT_ASSERT(mxDiagram.is());
+    uno::Reference< chart::XAxisXSupplier > xAxisXSupp( mxDiagram, uno::UNO_QUERY );
+    CPPUNIT_ASSERT(xAxisXSupp.is());
+    xAxisProp = xAxisXSupp->getXAxis();
+    xAxisProp->getPropertyValue("TextBreak") >>= bTextBreak;
+    // Expected value of 'TextBreak' is true
+    CPPUNIT_ASSERT(bTextBreak);
 }
 
 void Chart2ImportTest::testTransparentBackground(OUString const & filename)
@@ -1527,7 +1551,7 @@ void Chart2ImportTest::testTdf115107_2()
     CPPUNIT_ASSERT_EQUAL(OUString("Bars"), aFields[2]->getString());
 
     // Second series
-    xDataSeries = uno::Reference<chart2::XDataSeries>(getDataSeriesFromDoc(xChartDoc, 0, 1));
+    xDataSeries = getDataSeriesFromDoc(xChartDoc, 0, 1);
     CPPUNIT_ASSERT(xDataSeries.is());
 
     xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
@@ -1683,6 +1707,31 @@ void Chart2ImportTest::testDataPointInheritedColorDOCX()
     CPPUNIT_ASSERT(xPropertySet.is());
     sal_Int32 nColor = xPropertySet->getPropertyValue("FillColor").get<sal_Int32>();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(16776960), nColor);
+}
+
+void Chart2ImportTest::testExternalStrRefsXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "external_str_ref.xlsx");
+    uno::Reference< chart2::XChartDocument > xChartDoc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    Reference<chart2::XAxis> xAxis = getAxisFromDoc(xChartDoc, 0, 0, 0);
+    chart2::ScaleData aScaleData = xAxis->getScaleData();
+    css::uno::Sequence<css::uno::Any> aValues = aScaleData.Categories->getValues()->getData();
+    CPPUNIT_ASSERT_EQUAL(OUString("test1"), aValues[0].get<OUString>());
+    CPPUNIT_ASSERT_EQUAL(OUString("test2"), aValues[1].get<OUString>());
+}
+
+void Chart2ImportTest::testSourceNumberFormatComplexCategoriesXLS()
+{
+    load("/chart2/qa/extras/data/xls/", "source_number_format_axis.xls");
+    uno::Reference< chart2::XChartDocument > xChartDoc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
+    CPPUNIT_ASSERT(xChartDoc.is());
+
+    Reference<chart2::XAxis> xAxis = getAxisFromDoc(xChartDoc, 0, 0, 0);
+    chart2::ScaleData aScaleData = xAxis->getScaleData();
+    sal_Int32 nNumberFormat =  aScaleData.Categories->getValues()->getNumberFormatKeyByIndex(-1);
+    CPPUNIT_ASSERT(nNumberFormat != 0);
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(Chart2ImportTest);

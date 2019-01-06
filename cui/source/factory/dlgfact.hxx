@@ -85,10 +85,16 @@ class CuiVclAbstractDialog_Impl : public VclAbstractDialog
     DECL_ABSTDLG_BASE(CuiVclAbstractDialog_Impl,Dialog)
 };
 
-class VclAbstractRefreshableDialog_Impl : public VclAbstractRefreshableDialog
+class CuiAbstractController_Impl : public VclAbstractDialog
 {
-    DECL_ABSTDLG_BASE(VclAbstractRefreshableDialog_Impl,Dialog)
-    virtual void        Update() override ;
+protected:
+    std::unique_ptr<weld::DialogController> m_xDlg;
+public:
+    explicit CuiAbstractController_Impl(std::unique_ptr<weld::DialogController> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
 };
 
 class CuiAbstractSfxDialog_Impl : public SfxAbstractDialog
@@ -100,12 +106,12 @@ class CuiAbstractSfxDialog_Impl : public SfxAbstractDialog
     virtual void          SetText( const OUString& rStr ) override;
 };
 
-class CuiAbstractController_Impl : public SfxAbstractDialog
+class CuiAbstractSingleTabController_Impl : public SfxAbstractDialog
 {
 protected:
     std::unique_ptr<SfxSingleTabDialogController> m_xDlg;
 public:
-    explicit CuiAbstractController_Impl(std::unique_ptr<SfxSingleTabDialogController> p)
+    explicit CuiAbstractSingleTabController_Impl(std::unique_ptr<SfxSingleTabDialogController> p)
         : m_xDlg(std::move(p))
     {
     }
@@ -115,7 +121,6 @@ public:
     //From class Window.
     virtual void          SetText( const OUString& rStr ) override;
 };
-
 
 class CuiAbstractTabDialog_Impl : public SfxAbstractTabDialog
 {
@@ -677,14 +682,13 @@ public:
     virtual VclPtr<SfxAbstractDialog>    CreateCharMapDialog(weld::Window* pParent,
                                                              const SfxItemSet& rAttr,
                                                              bool bInsert) override;
-    virtual VclPtr<SfxAbstractDialog>    CreateEventConfigDialog( vcl::Window* pParent,
-                                                             const SfxItemSet& rAttr,
-                                                             const css::uno::Reference< css::frame::XFrame >& _rxFrame
-                                                             ) override;
+    virtual VclPtr<SfxAbstractDialog>    CreateEventConfigDialog(weld::Window* pParent,
+                                                                 const SfxItemSet& rAttr,
+                                                                 const css::uno::Reference< css::frame::XFrame >& _rxFrame) override;
     virtual VclPtr<VclAbstractDialog>    CreateFrameDialog(vcl::Window* pParent, const css::uno::Reference< css::frame::XFrame >& rxFrame,
                                                            sal_uInt32 nResId,
                                                            const OUString& rParameter ) override;
-    virtual VclPtr<SfxAbstractTabDialog> CreateAutoCorrTabDialog(vcl::Window* pParent, const SfxItemSet* pAttrSet) override;
+    virtual VclPtr<SfxAbstractTabDialog> CreateAutoCorrTabDialog(weld::Window* pParent, const SfxItemSet* pAttrSet) override;
     virtual VclPtr<SfxAbstractTabDialog> CreateCustomizeTabDialog(
                                             const SfxItemSet* pAttrSet,
                                             const css::uno::Reference< css::frame::XFrame >& xViewFrame ) override;
@@ -738,11 +742,11 @@ public:
                             SfxBindings* pBindings,
                             svx::SpellDialogChildWindow* pSpellChildWindow ) override;
 
-    virtual VclPtr<VclAbstractRefreshableDialog> CreateActualizeProgressDialog( vcl::Window* pParent, GalleryTheme* pThm ) override;
+    virtual VclPtr<VclAbstractDialog> CreateActualizeProgressDialog(weld::Window* pParent, GalleryTheme* pThm) override;
     virtual VclPtr<AbstractTitleDialog> CreateTitleDialog(weld::Window* pParent, const OUString& rOldText) override;
     virtual VclPtr<AbstractGalleryIdDialog> CreateGalleryIdDialog(weld::Window* pParent,
                                             GalleryTheme* pThm) override;
-    virtual VclPtr<VclAbstractDialog> CreateGalleryThemePropertiesDialog(vcl::Window* pParent,
+    virtual VclPtr<VclAbstractDialog> CreateGalleryThemePropertiesDialog(weld::Window* pParent,
                                             ExchangeData* pData,
                                             SfxItemSet* pItemSet) override;
     virtual VclPtr<AbstractURLDlg> CreateURLDialog( vcl::Window* pParent,

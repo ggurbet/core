@@ -31,6 +31,7 @@
 #include <vcl/taskpanelist.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <svtools/framestatuslistener.hxx>
 #include <svtools/valueset.hxx>
@@ -1198,7 +1199,7 @@ void ToolbarMenu::implPaint(vcl::RenderContext& rRenderContext, ToolbarMenuEntry
 
             if( aPos.Y() >= 0 )
             {
-                long nTextOffsetY = ((pEntry->maSize.Height() - nFontHeight) / 2);
+                long nTextOffsetY = (pEntry->maSize.Height() - nFontHeight) / 2;
 
                 DrawTextFlags   nTextStyle   = DrawTextFlags::NONE;
                 DrawSymbolFlags nSymbolStyle = DrawSymbolFlags::NONE;

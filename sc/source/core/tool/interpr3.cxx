@@ -218,7 +218,7 @@ double ScInterpreter::gauss(double x)
           0.00000000011301172,  0.00000000000511243, -0.00000000000021218 };
         nVal = taylor(t0, 11, (xAbs * xAbs)) * xAbs;
     }
-    else if ((xShort >= 1) && (xShort <= 2))
+    else if (xShort <= 2)
     {
         static const double t2[] =
         { 0.47724986805182079,  0.05399096651318805, -0.05399096651318805,
@@ -231,7 +231,7 @@ double ScInterpreter::gauss(double x)
          -0.00000000000172127, -0.00000000000008634,  0.00000000000007894 };
         nVal = taylor(t2, 23, (xAbs - 2.0));
     }
-    else if ((xShort >= 3) && (xShort <= 4))
+    else if (xShort <= 4)
     {
         static const double t4[] =
        { 0.49996832875816688,  0.00013383022576489, -0.00026766045152977,
@@ -2696,7 +2696,7 @@ void ScInterpreter::ScTTest()
             return;
         }
         double fSumD = fSum1 - fSum2;
-        double fDivider = (fCount*fSumSqrD - fSumD*fSumD);
+        double fDivider = fCount*fSumSqrD - fSumD*fSumD;
         if ( fDivider == 0.0 )
         {
             PushError(FormulaError::DivisionByZero);
@@ -2745,9 +2745,9 @@ void ScInterpreter::ScFTest()
     double fSum2    = 0.0;
     double fSumSqr2 = 0.0;
 
-    std::vector<std::unique_ptr<sc::op::Op>> aOp;
-    aOp.emplace_back(new sc::op::Op(0.0, [](double& rAccum, double fVal){rAccum += fVal;}));
-    aOp.emplace_back(new sc::op::Op(0.0, [](double& rAccum, double fVal){rAccum += fVal * fVal;}));
+    std::vector<sc::op::Op> aOp;
+    aOp.emplace_back(sc::op::Op(0.0, [](double& rAccum, double fVal){rAccum += fVal;}));
+    aOp.emplace_back(sc::op::Op(0.0, [](double& rAccum, double fVal){rAccum += fVal * fVal;}));
 
     auto aVal1 = pMat1->Collect(aOp);
     fSum1 = aVal1[0].mfFirst + aVal1[0].mfRest;
@@ -3639,14 +3639,15 @@ void ScInterpreter::CalculateSmallLarge(bool bSmall)
     if ( !MustHaveParamCount( GetByte(), 2 )  )
         return;
 
-    std::vector<double> aArray;
-    GetNumberSequenceArray(1, aArray, false);
+    SCSIZE nCol = 0, nRow = 0;
+    auto aArray = GetTopNumberArray(nCol, nRow);
     auto aArraySize = aArray.size();
     if (aArraySize == 0 || nGlobalError != FormulaError::NONE)
     {
         PushNoValue();
         return;
     }
+    assert(aArraySize == nCol * nRow);
     for (double fArg : aArray)
     {
         double f = ::rtl::math::approxFloor(fArg);
@@ -3701,8 +3702,7 @@ void ScInterpreter::CalculateSmallLarge(bool bSmall)
         aArray.clear();
         for (SCSIZE n : aRankArray)
             aArray.push_back(aSortArray[bSmall ? n-1 : nSize-n]);
-        ScMatrixRef pResult = GetNewMat(1, aArraySize, true);
-        pResult->PutDoubleVector(aArray, 0, 0);
+        ScMatrixRef pResult = GetNewMat(nCol, nRow, aArray);
         PushMatrix(pResult);
     }
 }
@@ -3839,6 +3839,91 @@ void ScInterpreter::ScTrimMean()
             fSum += aSortArray[i];
         PushDouble(fSum/static_cast<double>(nSize-2*nIndex));
     }
+}
+
+std::vector<double> ScInterpreter::GetTopNumberArray( SCSIZE& rCol, SCSIZE& rRow )
+{
+    std::vector<double> aArray;
+    switch (GetStackType())
+    {
+        case svDouble:
+            aArray.push_back(PopDouble());
+            rCol = rRow = 1;
+        break;
+        case svSingleRef:
+        {
+            ScAddress aAdr;
+            PopSingleRef(aAdr);
+            ScRefCellValue aCell(*pDok, aAdr);
+            if (aCell.hasNumeric())
+            {
+                aArray.push_back(GetCellValue(aAdr, aCell));
+                rCol = rRow = 1;
+            }
+        }
+        break;
+        case svDoubleRef:
+        {
+            ScRange aRange;
+            PopDoubleRef(aRange, true);
+            if (nGlobalError != FormulaError::NONE)
+                break;
+
+            // give up unless the start and end are in the same sheet
+            if (aRange.aStart.Tab() != aRange.aEnd.Tab())
+            {
+                SetError(FormulaError::IllegalParameter);
+                break;
+            }
+
+            // the range already is in order
+            assert(aRange.aStart.Col() <= aRange.aEnd.Col());
+            assert(aRange.aStart.Row() <= aRange.aEnd.Row());
+            rCol = aRange.aEnd.Col() - aRange.aStart.Col() + 1;
+            rRow = aRange.aEnd.Row() - aRange.aStart.Row() + 1;
+            aArray.reserve(rCol * rRow);
+
+            FormulaError nErr = FormulaError::NONE;
+            double fCellVal;
+            ScValueIterator aValIter(pDok, aRange, mnSubTotalFlags);
+            if (aValIter.GetFirst(fCellVal, nErr))
+            {
+                do
+                    aArray.push_back(fCellVal);
+                while (aValIter.GetNext(fCellVal, nErr) && nErr == FormulaError::NONE);
+            }
+            if (aArray.size() != rCol * rRow)
+            {
+                aArray.clear();
+                SetError(nErr);
+            }
+        }
+        break;
+        case svMatrix:
+        case svExternalSingleRef:
+        case svExternalDoubleRef:
+        {
+            ScMatrixRef pMat = GetMatrix();
+            if (!pMat)
+                break;
+
+            if (pMat->IsNumeric())
+            {
+                SCSIZE nCount = pMat->GetElementCount();
+                aArray.reserve(nCount);
+                for (SCSIZE i = 0; i < nCount; ++i)
+                    aArray.push_back(pMat->GetDouble(i));
+                pMat->GetDimensions(rCol, rRow);
+            }
+            else
+                SetError(FormulaError::IllegalParameter);
+        }
+        break;
+        default:
+            SetError(FormulaError::IllegalParameter);
+        break;
+    }
+    return aArray;
 }
 
 void ScInterpreter::GetNumberSequenceArray( sal_uInt8 nParamCount, vector<double>& rArray, bool bConvertTextInArray )
@@ -4083,7 +4168,7 @@ void ScInterpreter::ScRank( bool bAverage )
             double fFirstPos = -1.0;
             bool bFinished = false;
             SCSIZE i;
-            for ( i = 0; i < nSize && !bFinished && nGlobalError == FormulaError::NONE; i++ )
+            for (i = 0; i < nSize && !bFinished; i++)
             {
                 if ( aSortArray[ i ] == fVal )
                 {

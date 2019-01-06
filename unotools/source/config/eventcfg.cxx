@@ -120,7 +120,7 @@ public:
 
 
 GlobalEventConfig_Impl::GlobalEventConfig_Impl()
-    :   ConfigItem( "Office.Events/ApplicationEvents", ConfigItemMode::ImmediateUpdate )
+    :   ConfigItem( "Office.Events/ApplicationEvents", ConfigItemMode::NONE )
 {
     // the supported event names
     for (const GlobalEventId id : o3tl::enumrange<GlobalEventId>())
@@ -293,7 +293,7 @@ Type const & GlobalEventConfig_Impl::getElementType(  )
 
 bool GlobalEventConfig_Impl::hasElements() const
 {
-    return m_eventBindingHash.empty();
+    return !m_eventBindingHash.empty();
 }
 
 // and now the wrapper

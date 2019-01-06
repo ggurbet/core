@@ -193,6 +193,31 @@ DECLARE_RTFEXPORT_TEST(testTdf112520, "tdf112520.docx")
                          getProperty<text::TextContentAnchorType>(getShape(3), "AnchorType"));
 }
 
+DECLARE_RTFEXPORT_TEST(testTdf121623, "tdf121623.rtf")
+{
+    // This was 2, multicolumn section was ignored at the table.
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+}
+
+DECLARE_RTFEXPORT_TEST(testTdf66543, "tdf66543.rtf")
+{
+    // Without the accompanying fix in place, this test would have failed with
+    // 'Expected: 2; Actual  : 3' after import (off-by-one), then with
+    // 'Expected: 2; Actual  : 0' (export not implemented).
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(2),
+                         getProperty<sal_Int32>(getParagraph(1), "ParaLineNumberStartValue"));
+}
+
+DECLARE_RTFEXPORT_TEST(testTdf122424_textOutsideCellInATableRow, "tdf122424.rtf")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A2"), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_EQUAL(OUString("cell3"), xCell->getString());
+}
+
 CPPUNIT_PLUGIN_IMPLEMENT();
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

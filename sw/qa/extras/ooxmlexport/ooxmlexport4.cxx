@@ -369,14 +369,30 @@ DECLARE_OOXMLEXPORT_TEST(testFDO74215, "FDO74215.docx")
         return;
     // tdf#106849 NumPicBullet xShape should not to be resized.
 
-// Seems this is dependent on the running system, which is - unfortunate
-// see: MSWordExportBase::BulletDefinitions
-// FIXME: the size of a bullet is defined by GraphicSize property
-// (stored in SvxNumberFormat::aGraphicSize) so use that for the size
-// (properly convert from 100mm to pt (1 inch is 72 pt, 1 pt is 20 twips).
-#if !defined(MACOSX)
-    assertXPath(pXmlDoc, "/w:numbering/w:numPicBullet[2]/w:pict/v:shape", "style", "width:11.25pt;height:11.25pt");
-#endif
+    // This is dependent on the running system: see MSWordExportBase::BulletDefinitions
+    // FIXME: the size of a bullet is defined by GraphicSize property
+    // (stored in SvxNumberFormat::aGraphicSize) so use that for the size
+    // (properly convert from 100mm to pt (1 inch is 72 pt, 1 pt is 20 twips).
+
+    // On 96 DPI "width:11.25pt;height:11.25pt"; on 120 DPI "width:9pt;height:9pt"
+    const OUString sStyle
+        = getXPath(pXmlDoc, "/w:numbering/w:numPicBullet[2]/w:pict/v:shape", "style");
+    {
+        const OUString sWidth = sStyle.getToken(0, ';');
+        CPPUNIT_ASSERT(sWidth.startsWith("width:"));
+        CPPUNIT_ASSERT(sWidth.endsWith("pt"));
+        const double fWidth = sWidth.copy(6, sWidth.getLength() - 8).toDouble();
+        const double fXScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIX();
+        CPPUNIT_ASSERT_DOUBLES_EQUAL(11.25 * fXScaleFactor, fWidth, 0.001);
+    }
+    {
+        const OUString sHeight = sStyle.getToken(1, ';');
+        CPPUNIT_ASSERT(sHeight.startsWith("height:"));
+        CPPUNIT_ASSERT(sHeight.endsWith("pt"));
+        const double fHeight = sHeight.copy(7, sHeight.getLength() - 9).toDouble();
+        const double fYScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIY();
+        CPPUNIT_ASSERT_DOUBLES_EQUAL(11.25 * fYScaleFactor, fHeight, 0.001);
+    }
 }
 
 DECLARE_OOXMLEXPORT_TEST(testColumnBreak_ColumnCountIsZero,"fdo74153.docx")
@@ -971,9 +987,6 @@ DECLARE_OOXMLEXPORT_TEST(test76108, "test76108.docx")
     if (!pXmlDoc) return;
     //docx file after RT is getting corrupted.
     assertXPath(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[1]/w:fldChar[1]", "fldCharType", "begin");
-
-    // tdf#70195 the default header should start at 720, not 0
-    assertXPath(pXmlDoc, "//w:pgMar", "header", "720");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTCTagMisMatch, "TCTagMisMatch.docx")

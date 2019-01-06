@@ -21,10 +21,11 @@
 #define INCLUDED_SVTOOLS_SIMPTABL_HXX
 
 #include <svtools/svtdllapi.h>
-#include <svtools/headbar.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/headbar.hxx>
+#include <vcl/svtabbx.hxx>
 #include <unotools/intlwrapper.hxx>
 #include <unotools/collatorwrapper.hxx>
+#include <vcl/commandevent.hxx>
 
 class SvSimpleTable;
 class SVT_DLLPUBLIC SvSimpleTableContainer : public Control
@@ -104,8 +105,6 @@ public:
     void            ClearHeader();
 
     void            ShowTable();
-    void            HideTable();
-    bool            IsVisible() const;
 
     void            EnableTable();
     void            DisableTable();

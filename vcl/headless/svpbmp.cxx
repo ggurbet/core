@@ -29,6 +29,7 @@
 #include <basegfx/vector/b2ivector.hxx>
 #include <basegfx/range/b2ibox.hxx>
 #include <o3tl/safeint.hxx>
+#include <tools/helpers.hxx>
 #include <vcl/salbtype.hxx>
 #include <vcl/bitmap.hxx>
 
@@ -102,7 +103,7 @@ static std::unique_ptr<BitmapBuffer> ImplCreateDIB(
             break;
         default:
             nBitCount = 32;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 32:
             pDIB->mnFormat = SVP_CAIRO_FORMAT;
             break;

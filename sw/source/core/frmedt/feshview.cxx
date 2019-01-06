@@ -235,7 +235,11 @@ bool SwFEShell::SelectObj( const Point& rPt, sal_uInt8 nFlag, SdrObject *pObj )
             }
         }
         if ( bUnmark )
+        {
             pDView->UnmarkAll();
+            if (pOldSelFly)
+                pOldSelFly->SelectionHasChanged(this);
+        }
     }
     else
     {
@@ -273,6 +277,13 @@ bool SwFEShell::SelectObj( const Point& rPt, sal_uInt8 nFlag, SdrObject *pObj )
                 break;
             }
         }
+    }
+
+    if ( rMrkList.GetMarkCount() == 1 )
+    {
+        SwFlyFrame *pSelFly = ::GetFlyFromMarked( &rMrkList, this );
+        if (pSelFly)
+            pSelFly->SelectionHasChanged(this);
     }
 
     if (!(nFlag & SW_ALLOW_TEXTBOX))
@@ -348,14 +359,14 @@ static bool LessY( Point const & aPt1, Point const & aPt2, bool bOld )
 
 bool SwFEShell::MoveAnchor( SwMove nDir )
 {
-    const SdrMarkList* pMrkList;
-    if( !Imp()->GetDrawView() ||
-        nullptr == (pMrkList = &Imp()->GetDrawView()->GetMarkedObjectList()) ||
-        1 != pMrkList->GetMarkCount())
+    if (!Imp()->GetDrawView())
+        return false;
+    const SdrMarkList& pMrkList = Imp()->GetDrawView()->GetMarkedObjectList();
+    if (1 != pMrkList.GetMarkCount())
         return false;
     SwFrame* pOld;
     SwFlyFrame* pFly = nullptr;
-    SdrObject *pObj = pMrkList->GetMark( 0 )->GetMarkedSdrObj();
+    SdrObject *pObj = pMrkList.GetMark( 0 )->GetMarkedSdrObj();
     if (SwVirtFlyDrawObj* pVirtO = dynamic_cast<SwVirtFlyDrawObj*>(pObj))
     {
         pFly = pVirtO->GetFlyFrame();
@@ -440,7 +451,7 @@ bool SwFEShell::MoveAnchor( SwMove nDir )
                     if( pos != *aAnch.GetContentAnchor())
                         aAnch.SetAnchor( &pos );
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
             case RndStdIds::FLY_AT_PARA:
             {
@@ -720,7 +731,7 @@ void SwFEShell::BeginDrag( const Point* pPt, bool bIsShift)
 void SwFEShell::Drag( const Point *pPt, bool )
 {
     OSL_ENSURE( Imp()->HasDrawView(), "Drag without DrawView?" );
-    if ( Imp()->GetDrawView()->IsDragObj() )
+    if ( HasDrawViewDrag() )
     {
         ScrollTo( *pPt );
         Imp()->GetDrawView()->MovDragObj( *pPt );
@@ -772,7 +783,7 @@ void SwFEShell::EndDrag()
 void SwFEShell::BreakDrag()
 {
     OSL_ENSURE( Imp()->HasDrawView(), "BreakDrag without DrawView?" );
-    if ( Imp()->GetDrawView()->IsDragObj() )
+    if( HasDrawViewDrag() )
         Imp()->GetDrawView()->BrkDragObj();
     SetChainMarker();
 }
@@ -1546,7 +1557,7 @@ const SdrObject* SwFEShell::GetBestObject( bool bNext, GotoObjFlags eType, bool 
                 (pVirtO && pVirtO->IsTextBox()) ||
                 ( eType == GotoObjFlags::DrawSimple && lcl_IsControlGroup( pObj ) ) ||
                 ( eType == GotoObjFlags::DrawControl && !lcl_IsControlGroup( pObj ) ) ||
-                ( pFilter && !pFilter->includeObject( *pObj ) ) )
+                !pFilter->includeObject( *pObj ) )
                 continue;
             if (pVirtO)
             {
@@ -2241,11 +2252,6 @@ RndStdIds SwFEShell::GetAnchorId() const
                 break;
             }
             SwDrawContact *pContact = static_cast<SwDrawContact*>(GetUserCall(pObj));
-            if (!pContact)
-            {
-                nRet = RndStdIds::UNKNOWN;
-                break;
-            }
             RndStdIds nId = pContact->GetFormat()->GetAnchor().GetAnchorId();
             if ( nRet == RndStdIds(SHRT_MAX) )
                 nRet = nId;
@@ -2350,13 +2356,11 @@ bool SwFEShell::IsGroupSelected()
             SdrObject *pObj = rMrkList.GetMark( i )->GetMarkedSdrObj();
             // consider 'virtual' drawing objects.
             // Thus, use corresponding method instead of checking type.
-            if (!pObj->IsGroupObject())
-                continue;
-            // --> #i38505# No ungroup allowed for 3d objects
-            if (pObj->Is3DObj())
-                continue;
-            SwDrawContact *pContact = static_cast<SwDrawContact*>(GetUserCall(pObj));
-            if (!pContact || RndStdIds::FLY_AS_CHAR != pContact->GetFormat()->GetAnchor().GetAnchorId())
+            if ( pObj->IsGroupObject() &&
+                 // --> #i38505# No ungroup allowed for 3d objects
+                 !pObj->Is3DObj() &&
+                 RndStdIds::FLY_AS_CHAR != static_cast<SwDrawContact*>(GetUserCall(pObj))->
+                                      GetFormat()->GetAnchor().GetAnchorId() )
             {
                 return true;
             }

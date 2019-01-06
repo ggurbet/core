@@ -38,7 +38,6 @@
 #include <xltools.hxx>
 #include <tokenarray.hxx>
 #include <formula/errorcodes.hxx>
-#include <thread>
 #include <comphelper/threadpool.hxx>
 #include <oox/token/tokens.hxx>
 #include <oox/export/utils.hxx>
@@ -2582,7 +2581,7 @@ XclExpCellTable::XclExpCellTable( const XclExpRoot& rRoot ) :
 
             default:
                 OSL_FAIL( "XclExpCellTable::XclExpCellTable - unknown cell type" );
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case CELLTYPE_NONE:
             {
                 xCell.reset( new XclExpBlankCell(

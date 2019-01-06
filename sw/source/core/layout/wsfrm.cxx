@@ -512,7 +512,7 @@ void SwFrame::UpdateAttrFrame( const SfxPoolItem *pOld, const SfxPoolItem *pNew,
         case RES_BOX:
         case RES_SHADOW:
             Prepare( PREP_FIXSIZE_CHG );
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case RES_LR_SPACE:
         case RES_UL_SPACE:
             rInvFlags |= 0x0B;
@@ -979,10 +979,10 @@ void SwFrame::RemoveFromLayout()
 {
     OSL_ENSURE( mpUpper, "Remove without upper?" );
 
-    if( mpPrev )
+    if (mpPrev)
         // one out of the middle is removed
         mpPrev->mpNext = mpNext;
-    else
+    else if (mpUpper)
     {   // the first in a list is removed //TODO
         OSL_ENSURE( mpUpper->m_pLower == this, "Layout is inconsistent." );
         mpUpper->m_pLower = mpNext;
@@ -2367,7 +2367,7 @@ void SwContentFrame::UpdateAttr_( const SfxPoolItem* pOld, const SfxPoolItem* pN
     {
         case RES_FMT_CHG:
             rInvFlags = 0xFF;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case RES_PAGEDESC:                      //attribute changes (on/off)
             if ( IsInDocBody() && !IsInTab() )
@@ -2417,7 +2417,7 @@ void SwContentFrame::UpdateAttr_( const SfxPoolItem* pOld, const SfxPoolItem* pN
                 }
                 Prepare( PREP_UL_SPACE );   //TextFrame has to correct line spacing.
                 rInvFlags |= 0x80;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
         case RES_LR_SPACE:
         case RES_BOX:
@@ -2487,7 +2487,7 @@ void SwContentFrame::UpdateAttr_( const SfxPoolItem* pOld, const SfxPoolItem* pN
 
         case RES_FRM_SIZE:
             rInvFlags |= 0x01;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         default:
             bClear = false;
@@ -4157,6 +4157,42 @@ void SwRootFrame::InvalidateAllObjPos()
     }
 }
 
+static void AddRemoveFlysForNode(
+        SwTextFrame & rFrame, SwTextNode & rTextNode,
+        std::set<sal_uLong> *const pSkipped,
+        SwFrameFormats & rTable,
+        SwPageFrame *const pPage,
+        SwTextNode const*const pNode,
+        std::vector<sw::Extent>::const_iterator & rIterFirst,
+        std::vector<sw::Extent>::const_iterator const& rIterEnd)
+{
+    if (pNode == &rTextNode)
+    {   // remove existing hidden at-char anchored flys
+        RemoveHiddenObjsOfNode(rTextNode, &rIterFirst, &rIterEnd);
+    }
+    else if (rTextNode.GetIndex() < pNode->GetIndex())
+    {
+        // pNode's frame has been deleted by CheckParaRedlineMerge()
+        AppendObjsOfNode(&rTable,
+            pNode->GetIndex(), &rFrame, pPage, rTextNode.GetDoc(),
+            &rIterFirst, &rIterEnd);
+        if (pSkipped)
+        {
+            // if a fly has been added by AppendObjsOfNode, it must be skipped; if not, then it doesn't matter if it's skipped or not because it has no frames and because of that it would be skipped anyway
+            if (auto const pFlys = pNode->GetAnchoredFlys())
+            {
+                for (auto const pFly : *pFlys)
+                {
+                    if (pFly->Which() != RES_DRAWFRMFMT)
+                    {
+                        pSkipped->insert(pFly->GetContent().GetContentIdx()->GetIndex());
+                    }
+                }
+            }
+        }
+    }
+}
+
 namespace sw {
 
 /// rTextNode is the first one of the "new" merge - if rTextNode isn't the same
@@ -4186,30 +4222,20 @@ void AddRemoveFlysAnchoredToFrameStartingAtNode(
             if (iter == pMerged->extents.end()
                 || iter->pNode != pNode)
             {
-                if (pNode == &rTextNode)
-                {   // remove existing hidden at-char anchored flys
-                    RemoveHiddenObjsOfNode(
-                        rTextNode, &iterFirst, &iter);
-                }
-                else if (rTextNode.GetIndex() < pNode->GetIndex())
+                AddRemoveFlysForNode(rFrame, rTextNode, pSkipped, rTable, pPage,
+                        pNode, iterFirst, iter);
+                sal_uLong const until = iter == pMerged->extents.end()
+                    ? pMerged->pLastNode->GetIndex() + 1
+                    : iter->pNode->GetIndex();
+                for (sal_uLong i = pNode->GetIndex() + 1; i < until; ++i)
                 {
-                    // pNode's frame has been deleted by CheckParaRedlineMerge()
-                    AppendObjsOfNode(&rTable,
-                        pNode->GetIndex(), &rFrame, pPage, rTextNode.GetDoc(),
-                        &iterFirst, &iter);
-                    if (pSkipped)
+                    // let's show at-para flys on nodes that contain start/end of
+                    // redline too, even if there's no text there
+                    SwNode const*const pTmp(pNode->GetNodes()[i]);
+                    if (pTmp->GetRedlineMergeFlag() == SwNode::Merge::NonFirst)
                     {
-                        // if a fly has been added by AppendObjsOfNode, it must be skipped; if not, then it doesn't matter if it's skipped or not because it has no frames and because of that it would be skipped anyway
-                        if (auto const pFlys = pNode->GetAnchoredFlys())
-                        {
-                            for (auto const pFly : *pFlys)
-                            {
-                                if (pFly->Which() != RES_DRAWFRMFMT)
-                                {
-                                    pSkipped->insert(pFly->GetContent().GetContentIdx()->GetIndex());
-                                }
-                            }
-                        }
+                        AddRemoveFlysForNode(rFrame, rTextNode, pSkipped,
+                            rTable, pPage, pTmp->GetTextNode(), iter, iter);
                     }
                 }
                 if (iter == pMerged->extents.end())
@@ -4256,6 +4282,7 @@ static void UnHideRedlines(SwRootFrame & rLayout,
                 }
             }
             // this messes with pRegisteredIn so do it outside SwIterator
+            auto eMode(sw::FrameMode::Existing);
             for (SwTextFrame * pFrame : frames)
             {
                 if (rLayout.IsHideRedlines())
@@ -4266,7 +4293,7 @@ static void UnHideRedlines(SwRootFrame & rLayout,
                     {
                         {
                             auto pMerged(CheckParaRedlineMerge(*pFrame,
-                                    rTextNode, sw::FrameMode::Existing));
+                                    rTextNode, eMode));
                             pFrame->SetMergedPara(std::move(pMerged));
                         }
                         auto const pMerged(pFrame->GetMergedPara());
@@ -4285,6 +4312,8 @@ static void UnHideRedlines(SwRootFrame & rLayout,
                             }
                         }
                         sw::AddRemoveFlysAnchoredToFrameStartingAtNode(*pFrame, rTextNode, pSkipped);
+                        // only *first* frame of node gets Existing because it
+                        eMode = sw::FrameMode::New; // is not idempotent!
                     }
                 }
                 else
@@ -4324,7 +4353,7 @@ static void UnHideRedlines(SwRootFrame & rLayout,
                                 }
                                 else if (pNode->IsTextNode())
                                 {
-                                    sw::RemoveFootnotesForNode(*pFrame, *pNode->GetTextNode(), nullptr);
+                                    sw::RemoveFootnotesForNode(rLayout, *pNode->GetTextNode(), nullptr);
                                     // similarly, remove the anchored flys
                                     if (auto const pFlys = pNode->GetAnchoredFlys())
                                     {
@@ -4347,6 +4376,24 @@ static void UnHideRedlines(SwRootFrame & rLayout,
             if (rTextNode.IsNumbered(nullptr)) // a preceding merged one...
             {   // notify frames so they reformat numbering portions
                 rTextNode.NumRuleChgd();
+            }
+        }
+        else if (rNode.IsTableNode() && rLayout.IsHideRedlines())
+        {
+            SwPosition const tmp(rNode);
+            SwRangeRedline const*const pRedline(
+                rLayout.GetFormat()->GetDoc()->getIDocumentRedlineAccess().GetRedline(tmp, nullptr));
+            // pathology: redline that starts on a TableNode; cannot
+            // be created in UI but by import filters...
+            if (pRedline
+                && pRedline->GetType() == nsRedlineType_t::REDLINE_DELETE
+                && &pRedline->Start()->nNode.GetNode() == &rNode)
+            {
+                for (sal_uLong j = rNode.GetIndex(); j <= rNode.EndOfSectionIndex(); ++j)
+                {
+                    rNode.GetNodes()[j]->SetRedlineMergeFlag(SwNode::Merge::Hidden);
+                }
+                rNode.GetTableNode()->DelFrames(&rLayout);
             }
         }
         if (!rNode.IsCreateFrameWhenHidingRedlines())
@@ -4437,11 +4484,17 @@ void SwRootFrame::SetHideRedlines(bool const bHideRedlines)
     }
     mbHideRedlines = bHideRedlines;
     SwDoc & rDoc(*GetFormat()->GetDoc());
-    if (!bHideRedlines // Show->Hide must init hidden number trees
+    // don't do early return if there are no redlines:
+    // Show->Hide must init hidden number trees
+    // Hide->Show may be called after all redlines have been deleted but there
+    //            may still be MergedParas because those aren't deleted yet...
+#if 0
+    if (!bHideRedlines
         && rDoc.getIDocumentRedlineAccess().GetRedlineTable().empty())
     {
         return;
     }
+#endif
     // Hide->Show: clear MergedPara, create frames
     // Show->Hide: call CheckParaRedlineMerge, delete frames
     // Traverse the document via the nodes-array; traversing via the layout
@@ -4517,6 +4570,13 @@ void SwRootFrame::SetHideRedlines(bool const bHideRedlines)
     rIDFA.GetSysFieldType(SwFieldIds::Chapter)->UpdateFields();
     rIDFA.UpdateExpFields(nullptr, false);
     rIDFA.UpdateRefFields();
+
+    // update SwPostItMgr / notes in the margin
+    // note: as long as all shells share layout, broadcast to all shells!
+    rDoc.GetDocShell()->Broadcast( SwFormatFieldHint(nullptr, bHideRedlines
+            ? SwFormatFieldHintWhich::REMOVED
+            : SwFormatFieldHintWhich::INSERTED) );
+
 
 //    InvalidateAllContent(SwInvalidateFlags::Size); // ??? TODO what to invalidate?  this is the big hammer
 }

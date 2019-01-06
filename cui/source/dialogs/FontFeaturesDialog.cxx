@@ -10,7 +10,9 @@
 
 #include <FontFeaturesDialog.hxx>
 #include <vcl/font/FeatureParser.hxx>
+#include <svtools/colorcfg.hxx>
 #include <svx/dialmgr.hxx>
+#include <unordered_set>
 
 using namespace css;
 
@@ -23,6 +25,9 @@ FontFeaturesDialog::FontFeaturesDialog(weld::Window* pParent, OUString const& rF
     , m_xContentGrid(m_xBuilder->weld_container("contentGrid"))
     , m_xPreviewWindow(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWindow))
 {
+    svtools::ColorConfig aColorConfig;
+    Color aFillColor(aColorConfig.GetColorValue(svtools::DOCCOLOR).nColor);
+    m_aPreviewWindow.SetBackColor(aFillColor);
     initialize();
 }
 
@@ -123,11 +128,6 @@ void FontFeaturesDialog::fillGrid(std::vector<vcl::font::Feature> const& rFontFe
 
         i++;
     }
-
-    Size aSize(m_xContentWindow->get_preferred_size());
-    Size aMaxSize(std::min<int>(aSize.Width(), m_xContentGrid->get_approximate_digit_width() * 100),
-                  std::min<int>(aSize.Height(), m_xContentGrid->get_text_height() * 20));
-    m_xContentWindow->set_size_request(aMaxSize.Width(), aMaxSize.Height());
 }
 
 void FontFeaturesDialog::updateFontPreview()

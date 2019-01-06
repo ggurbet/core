@@ -20,10 +20,12 @@
 
 #include <svtools/ivctrl.hxx>
 #include "imivctl.hxx"
+#include <vcl/accessiblefactory.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/controllayout.hxx>
 #include <vcl/mnemonic.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 
 using namespace ::com::sun::star::accessibility;
 
@@ -96,7 +98,7 @@ SvxIconChoiceCtrlEntry* SvtIconChoiceCtrl::InsertEntry( const OUString& rText, c
 {
     SvxIconChoiceCtrlEntry* pEntry = new SvxIconChoiceCtrlEntry( rText, rImage);
 
-    _pImpl->InsertEntry(pEntry, _pImpl->GetEntryCount());
+    _pImpl->InsertEntry(std::unique_ptr<SvxIconChoiceCtrlEntry>(pEntry), _pImpl->GetEntryCount());
 
     return pEntry;
 }
@@ -175,13 +177,6 @@ void SvtIconChoiceCtrl::Resize()
 {
     _pImpl->Resize();
     Control::Resize();
-}
-
-Point SvtIconChoiceCtrl::GetPixelPos( const Point& rPosLogic ) const
-{
-    Point aPos( rPosLogic );
-    aPos += GetMapMode().GetOrigin();
-    return aPos;
 }
 
 void SvtIconChoiceCtrl::GetFocus()
@@ -291,11 +286,7 @@ void SvtIconChoiceCtrl::KeyInput( const KeyEvent& rKEvt )
 }
 bool SvtIconChoiceCtrl::DoKeyInput( const KeyEvent& rKEvt )
 {
-    // under OS/2, we get key up/down even while editing
-    if( _pImpl->IsEntryEditing() )
-        return true;
-    bool bHandled = _pImpl->KeyInput( rKEvt );
-    return bHandled;
+    return _pImpl->KeyInput( rKEvt );
 }
 sal_Int32 SvtIconChoiceCtrl::GetEntryListPos( SvxIconChoiceCtrlEntry const * pEntry ) const
 {

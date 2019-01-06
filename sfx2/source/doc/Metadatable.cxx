@@ -20,6 +20,7 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
+#include <rtl/ustrbuf.hxx>
 #include <osl/diagnose.h>
 #include <sfx2/Metadatable.hxx>
 #include <sfx2/XmlIdRegistry.hxx>
@@ -1385,7 +1386,7 @@ Metadatable::RegisterAsCopyOf(Metadatable const & i_rSource,
                 // may happen if src got its id via UNO call
                 if (!pLink) return;
                 // only register copy if clipboard content is from this SwDoc!
-                if (pLink && (&GetRegistryConst(*pLink) == pRegDoc))
+                if (&GetRegistryConst(*pLink) == pRegDoc)
                 {
                     // this is a copy _from_ the clipboard; check if the
                     // element is still in the same stream

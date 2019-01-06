@@ -27,6 +27,7 @@
 #include <unotextcursor.hxx>
 #include <unotextrange.hxx>
 #include <unocrsr.hxx>
+#include <ndtxt.hxx>
 #include <doc.hxx>
 #include <IDocumentContentOperations.hxx>
 #include <IDocumentStylePoolAccess.hxx>
@@ -343,19 +344,12 @@ XMLRedlineImportHelper::~XMLRedlineImportHelper()
         aAny <<= bShowChanges;
         if ( bHandleShowChanges )
         {
-            if (!utl::ConfigManager::IsFuzzing() && officecfg::Office::Common::Misc::ExperimentalMode::get(comphelper::getProcessComponentContext()))
-            {
-                aAny <<= true;
-                xModelPropertySet->setPropertyValue( g_sShowChanges, aAny );
-                // TODO maybe we need some property for the view-setting?
-                SwDoc *const pDoc(SwImport::GetDocFromXMLImport(m_rImport));
-                assert(pDoc);
-                pDoc->GetDocumentRedlineManager().SetHideRedlines(!bShowChanges);
-            }
-            else
-            {
-                xModelPropertySet->setPropertyValue( g_sShowChanges, aAny );
-            }
+            aAny <<= true;
+            xModelPropertySet->setPropertyValue( g_sShowChanges, aAny );
+            // TODO maybe we need some property for the view-setting?
+            SwDoc *const pDoc(SwImport::GetDocFromXMLImport(m_rImport));
+            assert(pDoc);
+            pDoc->GetDocumentRedlineManager().SetHideRedlines(!bShowChanges);
         }
         else
             xImportInfoPropertySet->setPropertyValue( g_sShowChanges, aAny );
@@ -619,7 +613,9 @@ void XMLRedlineImportHelper::InsertIntoDocument(RedlineInfo* pRedlineInfo)
     // 2) check for:
     //    a) bIgnoreRedline (e.g. insert mode)
     //    b) illegal PaM range (CheckNodesRange())
+    //    c) redline with empty content section (quite useless)
     // 3) normal case: insert redline
+    SwTextNode const* pTempNode(nullptr);
     if( !aPaM.HasMark() && (pRedlineInfo->pContentIndex == nullptr) )
     {
         // these redlines have no function, and will thus be ignored (just as
@@ -628,7 +624,14 @@ void XMLRedlineImportHelper::InsertIntoDocument(RedlineInfo* pRedlineInfo)
     else if ( bIgnoreRedlines ||
          !CheckNodesRange( aPaM.GetPoint()->nNode,
                            aPaM.GetMark()->nNode,
-                           true ) )
+                           true )
+         || (pRedlineInfo->pContentIndex
+             && (pRedlineInfo->pContentIndex->GetIndex() + 2
+                 == pRedlineInfo->pContentIndex->GetNode().EndOfSectionIndex())
+             && (pTempNode = pDoc->GetNodes()[pRedlineInfo->pContentIndex->GetIndex() + 1]->GetTextNode()) != nullptr
+             && pTempNode->GetText().isEmpty()
+             && !pTempNode->GetpSwpHints()
+             && !pTempNode->GetAnchoredFlys()))
     {
         // ignore redline (e.g. file loaded in insert mode):
         // delete 'deleted' redlines and forget about the whole thing

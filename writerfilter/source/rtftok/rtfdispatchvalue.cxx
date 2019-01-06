@@ -501,7 +501,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_DEFLANG:
         case RTF_ADEFLANG:
         {
-            LanguageTag aTag((LanguageType(nParam)));
+            LanguageTag aTag((LanguageType(static_cast<sal_uInt16>(nParam))));
             auto pValue = new RTFValue(aTag.getBcp47());
             putNestedAttribute(m_aStates.top().aCharacterSprms,
                                (nKeyword == RTF_DEFLANG ? NS_ooxml::LN_EG_RPrBase_lang
@@ -965,7 +965,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_PAPERH:
             putNestedAttribute(m_aDefaultState.aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgSz,
                                NS_ooxml::LN_CT_PageSz_h, pIntValue);
-            SAL_FALLTHROUGH; // set the default + current value
+            [[fallthrough]]; // set the default + current value
         case RTF_PGHSXN:
             putNestedAttribute(m_aStates.top().aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgSz,
                                NS_ooxml::LN_CT_PageSz_h, pIntValue);
@@ -973,7 +973,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_PAPERW:
             putNestedAttribute(m_aDefaultState.aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgSz,
                                NS_ooxml::LN_CT_PageSz_w, pIntValue);
-            SAL_FALLTHROUGH; // set the default + current value
+            [[fallthrough]]; // set the default + current value
         case RTF_PGWSXN:
             putNestedAttribute(m_aStates.top().aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgSz,
                                NS_ooxml::LN_CT_PageSz_w, pIntValue);
@@ -981,7 +981,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_MARGL:
             putNestedAttribute(m_aDefaultState.aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_left, pIntValue);
-            SAL_FALLTHROUGH; // set the default + current value
+            [[fallthrough]]; // set the default + current value
         case RTF_MARGLSXN:
             putNestedAttribute(m_aStates.top().aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_left, pIntValue);
@@ -989,7 +989,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_MARGR:
             putNestedAttribute(m_aDefaultState.aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_right, pIntValue);
-            SAL_FALLTHROUGH; // set the default + current value
+            [[fallthrough]]; // set the default + current value
         case RTF_MARGRSXN:
             putNestedAttribute(m_aStates.top().aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_right, pIntValue);
@@ -997,7 +997,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_MARGT:
             putNestedAttribute(m_aDefaultState.aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_top, pIntValue);
-            SAL_FALLTHROUGH; // set the default + current value
+            [[fallthrough]]; // set the default + current value
         case RTF_MARGTSXN:
             putNestedAttribute(m_aStates.top().aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_top, pIntValue);
@@ -1005,7 +1005,7 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         case RTF_MARGB:
             putNestedAttribute(m_aDefaultState.aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_bottom, pIntValue);
-            SAL_FALLTHROUGH; // set the default + current value
+            [[fallthrough]]; // set the default + current value
         case RTF_MARGBSXN:
             putNestedAttribute(m_aStates.top().aSectionSprms, NS_ooxml::LN_EG_SectPrContents_pgMar,
                                NS_ooxml::LN_CT_PageMar_bottom, pIntValue);
@@ -1033,10 +1033,14 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
                                    NS_ooxml::LN_CT_LineNumber_distance, pIntValue);
             break;
         case RTF_LINESTARTS:
+        {
+            // OOXML <w:lnNumType w:start="..."/> is 0-based, RTF is 1-based.
+            auto pStart = tools::make_ref<RTFValue>(nParam - 1);
             putNestedAttribute(m_aStates.top().aSectionSprms,
                                NS_ooxml::LN_EG_SectPrContents_lnNumType,
-                               NS_ooxml::LN_CT_LineNumber_start, pIntValue);
-            break;
+                               NS_ooxml::LN_CT_LineNumber_start, pStart);
+        }
+        break;
         case RTF_REVAUTH:
         case RTF_REVAUTHDEL:
         {

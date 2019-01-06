@@ -369,6 +369,15 @@ void SwTextShell::Execute(SfxRequest &rReq)
             OUString sReplacement = aToggle.ReplacementString();
             if( !sReplacement.isEmpty() )
             {
+                if (rWrtSh.HasReadonlySel() && !rWrtSh.CursorInsideInputField())
+                {
+                    // Only break if there's something to do; don't nag with the dialog otherwise
+                    auto xInfo(o3tl::make_unique<weld::GenericDialogController>(
+                        rWrtSh.GetView().GetFrameWeld(), "modules/swriter/ui/inforeadonlydialog.ui",
+                        "InfoReadonlyDialog"));
+                    xInfo->run();
+                    break;
+                }
                 SwRewriter aRewriter;
                 aRewriter.AddRule( UndoArg1, aToggle.StringToReplace() );
                 aRewriter.AddRule( UndoArg2, SwResId(STR_YIELDS) );
@@ -902,7 +911,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
             const sal_uInt16 nWhich = GetPool().GetWhich( nSlot );
             if ( pArgs && pArgs->GetItemState( nWhich ) == SfxItemState::SET )
                 bUseDialog = false;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_CHAR_DLG:
         case SID_CHAR_DLG_EFFECT:
@@ -935,7 +944,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
             const sal_uInt16 nWhich = GetPool().GetWhich( nSlot );
             if ( pArgs && pArgs->GetItemState( nWhich ) == SfxItemState::SET )
                 bUseDialog = false;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case SID_PARA_DLG:
         {

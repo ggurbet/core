@@ -25,58 +25,13 @@ class SfxItemSet;
 class SwWrtShell;
 
 // the tab dialog carrier of TabPages
-class SwTemplateDlg: public SfxStyleDialog
-{
-
-    SfxStyleFamily const  nType;
-    sal_uInt16      nHtmlMode;
-    SwWrtShell*     pWrtShell;
-    bool const      bNewStyle;
-
-    sal_uInt16 m_nIndentsId;
-    sal_uInt16 m_nAlignId;
-    sal_uInt16 m_nFontId;
-    sal_uInt16 m_nFontEffectId;
-    sal_uInt16 m_nPositionId;
-    sal_uInt16 m_nAsianLayoutId;
-    sal_uInt16 m_nOutlineId;
-    sal_uInt16 m_nBackgroundId;
-    sal_uInt16 m_nAreaId;
-    sal_uInt16 m_nTransparenceId;
-    sal_uInt16 m_nBorderId;
-    sal_uInt16 m_nConditionId;
-    sal_uInt16 m_nTypeId;
-    sal_uInt16 m_nOptionsId;
-    sal_uInt16 m_nWrapId;
-    sal_uInt16 m_nColumnId;
-    sal_uInt16 m_nMacroId;
-    sal_uInt16 m_nHeaderId;
-    sal_uInt16 m_nFooterId;
-    sal_uInt16 m_nPageId;
-
-public:
-    /// @param sPage
-    /// Identifies name of page to open at by default
-    SwTemplateDlg(  vcl::Window*        pParent,
-                    SfxStyleSheetBase&  rBase,
-                    SfxStyleFamily      nRegion,
-                    const OString&      sPage,
-                    SwWrtShell*         pActShell,
-                    bool                bNew );
-
-    virtual void RefreshInputSet() override;
-
-    virtual void PageCreated( sal_uInt16 nId, SfxTabPage &rPage ) override;
-    virtual short Ok() override;
-};
-
-// the tab dialog carrier of TabPages
 class SwTemplateDlgController : public SfxStyleDialogController
 {
 
     SfxStyleFamily const  nType;
     sal_uInt16      nHtmlMode;
     SwWrtShell*     pWrtShell;
+    bool            bNewStyle;
 
 public:
     /// @param sPage

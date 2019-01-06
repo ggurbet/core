@@ -22,7 +22,6 @@
 #include <DateHelper.hxx>
 #include "DateScaling.hxx"
 #include <AxisHelper.hxx>
-#include "VAxisProperties.hxx"
 #include <com/sun/star/chart/TimeUnit.hpp>
 #include <com/sun/star/chart2/AxisType.hpp>
 
@@ -613,7 +612,7 @@ void ScaleAutomatism::calculateExplicitIncrementAndScaleForDateTimeAxis(
         nMaxMainIncrementCount--;
 
     //choose major time interval:
-    long nDayCount = (aMaxDate-aMinDate);
+    long nDayCount = aMaxDate - aMinDate;
     long nMainIncrementCount = 1;
     if( !bAutoMajor )
     {

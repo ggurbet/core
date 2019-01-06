@@ -27,6 +27,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewsh.hxx>
 #include <vcl/svapp.hxx>
+#include <osl/thread.hxx>
 #include <document.hxx>
 #include <attrib.hxx>
 #include <table.hxx>
@@ -71,6 +72,7 @@
 #include <globalnames.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
+#include <config_fuzzers.h>
 #include <memory>
 
 using namespace com::sun::star;
@@ -558,6 +560,9 @@ bool ScDocument::LinkExternalTab( SCTAB& rTab, const OUString& aDocTab,
         return false;
     }
     rTab = 0;
+#if ENABLE_FUZZERS
+    return false;
+#endif
     OUString  aFilterName; // Is filled by the Loader
     OUString  aOptions; // Filter options
     sal_uInt32 nLinkCnt = pExtDocOptions ? pExtDocOptions->GetDocSettings().mnLinkCnt : 0;

@@ -20,7 +20,6 @@
 #ifndef INCLUDED_VCL_SALNATIVEWIDGETS_HXX
 #define INCLUDED_VCL_SALNATIVEWIDGETS_HXX
 
-#include <rtl/ustring.hxx>
 #include <vcl/dllapi.h>
 #include <tools/gen.hxx>
 #include <o3tl/typed_flags_set.hxx>
@@ -497,7 +496,7 @@ public:
         : ImplControlValue( ControlType::Pushbutton, 0 )
         , mbBevelButton(false)
         , mbSingleLine(true)
-        , mbIsStock(false)
+        , mbIsAction(false)
     {}
 
     virtual ~PushButtonValue() override;
@@ -510,7 +509,7 @@ public:
 
     bool mbBevelButton:1; // only used on OSX
     bool mbSingleLine:1;  // only used on OSX
-    bool mbIsStock:1;
+    bool mbIsAction:1;
 };
 
 

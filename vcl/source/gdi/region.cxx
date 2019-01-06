@@ -128,7 +128,7 @@ namespace
                 // in other places (but seems to be the wrong way.)
                 const long nTop (::std::min(aStart.Y(), aEnd.Y()));
                 const long nBottom (::std::max(aStart.Y(), aEnd.Y()));
-                const LineType eLineType (aStart.Y() > aEnd.Y() ? LINE_DESCENDING : LINE_ASCENDING);
+                const LineType eLineType (aStart.Y() > aEnd.Y() ? LineType::Descending : LineType::Ascending);
 
                 // Make sure that the current line is covered by bands.
                 pRegionBand->ImplAddMissingBands(nTop,nBottom);
@@ -146,7 +146,7 @@ namespace
                        // this allows the lowest pixel of the band to be split off
                     && pBand->mnYBottom>=nTop
                        // do not split a band that is just one pixel high
-                    && pBand->mnYTop<pBand->mnYBottom)
+                    && pBand->mnYTop<pBand->mnYBottom-1)
                 {
                     // Split the top band.
                     pTopBand = pBand->SplitBand(nTop);
@@ -163,7 +163,7 @@ namespace
                        // prevent splitting off a band that is 0 pixel high
                     && pBand->mnYBottom>nBottom
                        // do not split a band that is just one pixel high
-                    && pBand->mnYTop<pBand->mnYBottom)
+                    && pBand->mnYTop<pBand->mnYBottom-1)
                 {
                     // Split the bottom band.
                     pBand->SplitBand(nBottom+1);

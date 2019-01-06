@@ -99,7 +99,7 @@ class ScStyleSheet;
 class ScTableProtection;
 class ScUserListData;
 struct RowInfo;
-struct ScFunctionData;
+class ScFunctionData;
 class CollatorWrapper;
 class ScFlatUInt16RowSegments;
 class ScFlatBoolRowSegments;
@@ -313,15 +313,15 @@ public:
     bool        IsStreamValid() const                        { return bStreamValid; }
     void        SetStreamValid( bool bSet, bool bIgnoreLock = false );
 
-    SAL_WARN_UNUSED_RESULT bool IsColValid( const SCCOL nScCol ) const
+    [[nodiscard]] bool IsColValid( const SCCOL nScCol ) const
     {
         return nScCol >= static_cast< SCCOL >( 0 ) && nScCol < aCol.size();
     }
-    SAL_WARN_UNUSED_RESULT bool IsColRowValid( const SCCOL nScCol, const SCROW nScRow ) const
+    [[nodiscard]] bool IsColRowValid( const SCCOL nScCol, const SCROW nScRow ) const
     {
         return IsColValid( nScCol ) && ValidRow( nScRow );
     }
-    SAL_WARN_UNUSED_RESULT bool IsColRowTabValid( const SCCOL nScCol, const SCROW nScRow, const SCTAB nScTab ) const
+    [[nodiscard]] bool IsColRowTabValid( const SCCOL nScCol, const SCROW nScRow, const SCTAB nScTab ) const
     {
         return IsColValid( nScCol ) && ValidRow( nScRow ) && ValidTab( nScTab );
     }
@@ -575,6 +575,8 @@ public:
 
     void        GetDataArea( SCCOL& rStartCol, SCROW& rStartRow, SCCOL& rEndCol, SCROW& rEndRow,
                              bool bIncludeOld, bool bOnlyDown ) const;
+
+    bool        GetDataAreaSubrange( ScRange& rRange ) const;
 
     bool        ShrinkToUsedDataArea( bool& o_bShrunk, SCCOL& rStartCol, SCROW& rStartRow,
                                       SCCOL& rEndCol, SCROW& rEndRow, bool bColumnsOnly,
@@ -942,7 +944,7 @@ public:
 
     void GetFilterEntries(SCCOL nCol, SCROW nRow1, SCROW nRow2, ScFilterEntries& rFilterEntries );
     void GetFilteredFilterEntries(SCCOL nCol, SCROW nRow1, SCROW nRow2, const ScQueryParam& rParam, ScFilterEntries& rFilterEntries );
-    SAL_WARN_UNUSED_RESULT
+    [[nodiscard]]
     bool GetDataEntries(SCCOL nCol, SCROW nRow, std::set<ScTypedStrData>& rStrings, bool bLimit);
 
     bool        HasColHeader( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW nEndRow ) const;
@@ -992,6 +994,9 @@ public:
     formula::FormulaTokenRef ResolveStaticReference( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2 );
     formula::VectorRefArray FetchVectorRefArray( SCCOL nCol, SCROW nRow1, SCROW nRow2 );
     bool HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup );
+#ifdef DBG_UTIL
+    void AssertNoInterpretNeeded( SCCOL nCol, SCROW nRow1, SCROW nRow2 );
+#endif
 
     void SplitFormulaGroups( SCCOL nCol, std::vector<SCROW>& rRows );
     void UnshareFormulaCells( SCCOL nCol, std::vector<SCROW>& rRows );

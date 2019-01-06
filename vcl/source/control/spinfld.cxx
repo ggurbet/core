@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/spinfld.hxx>
@@ -847,7 +848,7 @@ bool SpinField::PreNotify(NotifyEvent& rNEvt)
                 tools::Rectangle* pLastRect = ImplFindPartRect( GetLastPointerPosPixel() );
                 if( pRect != pLastRect || (pMouseEvt->IsLeaveWindow() || pMouseEvt->IsEnterWindow()) )
                 {
-                    // FIXME: this is currently only on OS X
+                    // FIXME: this is currently only on macOS
                     // check for other platforms that need similar handling
                     if (ImplGetSVData()->maNWFData.mbNoFocusRects && IsNativeWidgetEnabled() &&
                         IsNativeControlSupported(ControlType::Editbox, ControlPart::Entire))
@@ -1000,7 +1001,7 @@ void SpinField::Draw(OutputDevice* pDev, const Point& rPos, const Size& rSize, D
     {
         DecorationView aView( pDev );
         tools::Rectangle aInnerRect = aView.DrawButton( aDD, DrawButtonFlags::NoLightBorder );
-        DrawSymbolFlags nSymbolStyle = (IsEnabled() || (nFlags & DrawFlags::NoDisable)) ? DrawSymbolFlags::NONE : DrawSymbolFlags::Disable;
+        DrawSymbolFlags nSymbolStyle = IsEnabled() ? DrawSymbolFlags::NONE : DrawSymbolFlags::Disable;
         aView.DrawSymbol(aInnerRect, SymbolType::SPIN_DOWN, aButtonTextColor, nSymbolStyle);
     }
 

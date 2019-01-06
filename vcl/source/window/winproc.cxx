@@ -75,8 +75,8 @@ static bool ImplHandleMouseFloatMode( vcl::Window* pChild, const Point& rMousePo
          *  #93895# since floats are system windows, coordinates have
          *  to be converted to float relative for the hittest
          */
-        HitTest         nHitTest = HITTEST_OUTSIDE;
-        FloatingWindow* pFloat = pSVData->maWinData.mpFirstFloat->ImplFloatHitTest( pChild, rMousePos, nHitTest );
+        bool            bHitTestInsideRect = false;
+        FloatingWindow* pFloat = pSVData->maWinData.mpFirstFloat->ImplFloatHitTest( pChild, rMousePos, bHitTestInsideRect );
         FloatingWindow* pLastLevelFloat;
         FloatWinPopupFlags nPopupFlags;
         if ( nSVEvent == MouseNotifyEvent::MOUSEMOVE )
@@ -84,7 +84,7 @@ static bool ImplHandleMouseFloatMode( vcl::Window* pChild, const Point& rMousePo
             if ( bMouseLeave )
                 return true;
 
-            if ( !pFloat || (nHitTest == HITTEST_RECT) )
+            if ( !pFloat || bHitTestInsideRect )
             {
                 if ( pSVData->maHelpData.mpHelpWin && !pSVData->maHelpData.mbKeyboardHelp )
                     ImplDestroyHelpWindow( true );
@@ -104,7 +104,7 @@ static bool ImplHandleMouseFloatMode( vcl::Window* pChild, const Point& rMousePo
                         pLastLevelFloat->EndPopupMode( FloatWinPopupEndFlags::Cancel | FloatWinPopupEndFlags::CloseAll );
                         return true;
                     }
-                    else if ( nHitTest == HITTEST_RECT )
+                    else if ( bHitTestInsideRect )
                     {
                         pFloat->ImplSetMouseDown();
                         return true;
@@ -114,7 +114,7 @@ static bool ImplHandleMouseFloatMode( vcl::Window* pChild, const Point& rMousePo
                 {
                     if ( pFloat )
                     {
-                        if ( nHitTest == HITTEST_RECT )
+                        if ( bHitTestInsideRect )
                         {
                             if ( pFloat->ImplIsMouseDown() )
                                 pFloat->EndPopupMode( FloatWinPopupEndFlags::Cancel );
@@ -687,8 +687,7 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
         }
         else if ( nSVEvent == MouseNotifyEvent::MOUSEBUTTONDOWN )
         {
-            if ( pSVData->maWinData.mpTrackWin &&
-                 !(pSVData->maWinData.mnTrackFlags & StartTrackingFlags::MouseButtonDown) )
+            if ( pSVData->maWinData.mpTrackWin )
                 bRet = true;
             else
             {
@@ -919,7 +918,7 @@ static bool ImplHandleKey( vcl::Window* pWindow, MouseNotifyEvent nSVEvent,
         {
             sal_uInt16 nOrigCode = aKeyCode.GetCode();
 
-            if ( (nOrigCode == KEY_ESCAPE) && !(pSVData->maWinData.mnTrackFlags & StartTrackingFlags::NoKeyCancel) )
+            if ( nOrigCode == KEY_ESCAPE )
             {
                 pSVData->maWinData.mpTrackWin->EndTracking( TrackingEventFlags::Cancel | TrackingEventFlags::Key );
                 if ( pSVData->maWinData.mpFirstFloat )
@@ -940,7 +939,7 @@ static bool ImplHandleKey( vcl::Window* pWindow, MouseNotifyEvent nSVEvent,
                 pSVData->maWinData.mpTrackWin->EndTracking( TrackingEventFlags::Key );
                 return true;
             }
-            else if ( !(pSVData->maWinData.mnTrackFlags & StartTrackingFlags::KeyInput) )
+            else
                 return true;
         }
 
@@ -1349,8 +1348,8 @@ vcl::Window* HandleGestureEventBase::FindTarget()
     if (m_pSVData->maWinData.mpFirstFloat && !m_pSVData->maWinData.mpCaptureWin &&
          !m_pSVData->maWinData.mpFirstFloat->ImplIsFloatPopupModeWindow( m_pWindow ) )
     {
-        HitTest nHitTest = HITTEST_OUTSIDE;
-        pMouseWindow = m_pSVData->maWinData.mpFirstFloat->ImplFloatHitTest( m_pWindow, m_aMousePos, nHitTest );
+        bool bHitTestInsideRect = false;
+        pMouseWindow = m_pSVData->maWinData.mpFirstFloat->ImplFloatHitTest( m_pWindow, m_aMousePos, bHitTestInsideRect );
         if (!pMouseWindow)
             pMouseWindow = m_pSVData->maWinData.mpFirstFloat;
     }
@@ -1843,6 +1842,11 @@ static void ImplHandleLoseFocus( vcl::Window* pWindow )
     vcl::Window* pFocusWin = pWindow->ImplGetWindowImpl()->mpFrameData->mpFocusWin;
     if ( pFocusWin && pFocusWin->ImplGetWindowImpl()->mpCursor )
         pFocusWin->ImplGetWindowImpl()->mpCursor->ImplHide();
+
+    // Make sure that no menu is visible when a toplevel window loses focus.
+    VclPtr<FloatingWindow> pFirstFloat = pSVData->maWinData.mpFirstFloat;
+    if (pFirstFloat && !pWindow->GetParent())
+        pFirstFloat->EndPopupMode(FloatWinPopupEndFlags::Cancel | FloatWinPopupEndFlags::CloseAll);
 }
 
 struct DelayedCloseEvent
@@ -2514,7 +2518,7 @@ bool ImplWindowFrameProc( vcl::Window* _pWindow, SalEvent nEvent, const void* pE
             ImplHandleSurroundingTextSelectionChange( pWindow,
                               pEvt->mnStart,
                               pEvt->mnEnd );
-            SAL_FALLTHROUGH; // TODO: Fallthrough really intended?
+            [[fallthrough]]; // TODO: Fallthrough really intended?
         }
         case SalEvent::StartReconversion:
             ImplHandleStartReconversion( pWindow );

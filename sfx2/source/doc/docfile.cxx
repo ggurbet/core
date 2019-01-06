@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -171,6 +171,13 @@ bool IsLockingUsed()
     return officecfg::Office::Common::Misc::UseLocking::get();
 }
 
+#endif
+
+#if HAVE_FEATURE_MULTIUSER_ENVIRONMENT
+bool IsWebDAVLockingUsed()
+{
+    return officecfg::Office::Common::Misc::UseWebDAVFileLocking::get();
+}
 #endif
 
 /// Gets default attributes of a file:// URL.
@@ -730,7 +737,7 @@ bool SfxMedium::Commit()
         GetInitFileDate( true );
 
     // remove truncation mode from the flags
-    pImpl->m_nStorOpenMode &= (~StreamMode::TRUNC);
+    pImpl->m_nStorOpenMode &= ~StreamMode::TRUNC;
     return bResult;
 }
 
@@ -885,8 +892,103 @@ void SfxMedium::SetEncryptionDataToStorage_Impl()
 // that. Clearly the knowledge whether lock files should be used or
 // not for some URL scheme belongs in UCB, not here.
 
+namespace
+{
+OUString tryMSOwnerFile(const INetURLObject& aLockfileURL)
+{
+    try
+    {
+        static osl::Mutex aMutex;
+        osl::MutexGuard aGuard(aMutex);
+        css::uno::Reference<css::ucb::XCommandEnvironment> xEnv;
+        ucbhelper::Content aSourceContent(
+            aLockfileURL.GetMainURL(INetURLObject::DecodeMechanism::NONE), xEnv,
+            comphelper::getProcessComponentContext());
 
-SfxMedium::ShowLockResult SfxMedium::ShowLockedDocumentDialog( const LockFileEntry& aData, bool bIsLoading, bool bOwnLock, bool bHandleSysLocked )
+        // Excel creates Owner Files with FILE_FLAG_DELETE_ON_CLOSE, so we need to open it with
+        // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE share mode
+        css::uno::Reference<css::io::XInputStream> xStream = aSourceContent.openStreamNoLock();
+        if (!xStream)
+            return OUString();
+
+        const sal_Int32 nBufLen = 256;
+        css::uno::Sequence<sal_Int8> aBuf(nBufLen);
+        const sal_Int32 nRead = xStream->readBytes(aBuf, nBufLen);
+        xStream->closeInput();
+        if (nRead >= 162)
+        {
+            // Reverse engineering of MS Office Owner Files format (MS Office 2016 tested).
+            // It starts with a single byte with name length, after which characters of username go
+            // in current Windows 8-bit codepage.
+            // For Word lockfiles, the name is followed by zero bytes up to position 54.
+            // For PowerPoint lockfiles, the name is followed by a single zero byte, and then 0x20
+            // bytes up to position 55.
+            // For Excel lockfiles, the name is followed by 0x20 bytes up to position 55.
+            // At those positions in each type of lockfile, a name length 2-byte word goes, followed
+            // by UTF-16-LE-encoded copy of username. Spaces or some garbage follow up to the end of
+            // the lockfile (total 162 bytes for Word, 165 bytes for Excel/PowerPoint).
+            // Apparently MS Office does not allow username to be longer than 52 characters (trying
+            // to enter more in its options dialog results in error messages stating this limit).
+            const int nACPLen = aBuf[0];
+            if (nACPLen > 0 && nACPLen <= 52) // skip wrong format
+            {
+                const sal_Int8* pBuf = aBuf.getConstArray() + 54;
+                int nUTF16Len = *pBuf; // try Word position
+                // If UTF-16 length is 0x20, then ACP length is also less than maximal, which means
+                // that in Word lockfile case, at least two preceeding bytes would be zero. Both
+                // Excel and PowerPoint lockfiles would have at least one of those bytes non-zero.
+                if (nUTF16Len == 0x20 && (*(pBuf - 1) != 0 || *(pBuf - 2) != 0))
+                    nUTF16Len = *++pBuf; // use Excel/PowerPoint position
+
+                if (nUTF16Len > 0 && nUTF16Len <= 52) // skip wrong format
+                    return OUString(reinterpret_cast<const sal_Unicode*>(pBuf + 2), nUTF16Len);
+            }
+        }
+    }
+    catch (...) {} // we don't ever need to care about any exceptions here
+
+    return OUString();
+}
+
+OUString tryMSOwnerFiles(const OUString& sDocURL)
+{
+    INetURLObject aURL(sDocURL);
+    if (aURL.HasError())
+        return OUString();
+    const OUString sFileName = aURL.GetLastName(INetURLObject::DecodeMechanism::WithCharset);
+    if (sFileName.isEmpty())
+        return OUString();
+    const OUString sFileExt = aURL.GetFileExtension();
+    const sal_Int32 nFileNameLen
+        = sFileName.getLength() - sFileExt.getLength() - (sFileExt.isEmpty() ? 0 : 1);
+    // Word, Excel, PowerPoint all prepend the filename with "~$".
+    aURL.SetName("~$" + sFileName, INetURLObject::EncodeMechanism::All);
+    OUString sUserData = tryMSOwnerFile(aURL);
+    // Additionally, Word strips first chars of the filename: 1 for length 7, 2 for length >=8.
+    if (sUserData.isEmpty() && nFileNameLen > 6)
+    {
+        aURL.SetName("~$" + sFileName.copy((nFileNameLen == 7) ? 1 : 2),
+                     INetURLObject::EncodeMechanism::All);
+        sUserData = tryMSOwnerFile(aURL);
+    }
+
+    if (!sUserData.isEmpty())
+        sUserData += " (MS Office)"; // Mention the used office suite
+
+    return sUserData;
+}
+
+OUString tryForeignLockfiles(const OUString& sDocURL)
+{
+    OUString sUserData = tryMSOwnerFiles(sDocURL);
+    // here we can test for empty result, and add other known applications' lockfile testing
+    return sUserData.trim();
+}
+}
+
+SfxMedium::ShowLockResult SfxMedium::ShowLockedDocumentDialog(const LockFileEntry& aData,
+                                                              bool bIsLoading, bool bOwnLock,
+                                                              bool bHandleSysLocked)
 {
     ShowLockResult nResult = ShowLockResult::NoLock;
 
@@ -897,9 +999,10 @@ SfxMedium::ShowLockResult SfxMedium::ShowLockedDocumentDialog( const LockFileEnt
     // show the interaction regarding the document opening
     uno::Reference< task::XInteractionHandler > xHandler = GetInteractionHandler();
 
-    if ( ::svt::DocumentLockFile::IsInteractionAllowed() && xHandler.is() && ( bIsLoading || !bHandleSysLocked || bOwnLock ) )
+    if ( xHandler.is() && ( bIsLoading || !bHandleSysLocked || bOwnLock ) )
     {
-        OUString aDocumentURL = GetURLObject().GetLastName();
+        OUString aDocumentURL
+            = GetURLObject().GetLastName(INetURLObject::DecodeMechanism::WithCharset);
         OUString aInfo;
         ::rtl::Reference< ::ucbhelper::InteractionRequest > xInteractionRequestImpl;
 
@@ -923,6 +1026,11 @@ SfxMedium::ShowLockResult SfxMedium::ShowLockedDocumentDialog( const LockFileEnt
                 aInfo = aData[LockFileComponent::OOOUSERNAME];
             else
                 aInfo = aData[LockFileComponent::SYSUSERNAME];
+
+            if (aInfo.isEmpty() && !GetURLObject().isAnyKnownWebDAVScheme())
+                // Try to get name of user who has locked the file using other applications
+                aInfo = tryForeignLockfiles(
+                    GetURLObject().GetMainURL(INetURLObject::DecodeMechanism::NONE));
 
             if ( !aInfo.isEmpty() && !aData[LockFileComponent::EDITTIME].isEmpty() )
                 aInfo += " ( " + aData[LockFileComponent::EDITTIME] + " )";
@@ -1088,6 +1196,10 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
 
     if ( GetURLObject().isAnyKnownWebDAVScheme() )
     {
+        // do nothing if WebDAV locking is disabled
+        if (!IsWebDAVLockingUsed())
+            return LockFileResult::Succeeded;
+
         try
         {
             bool bResult = pImpl->m_bLocked;
@@ -1153,7 +1265,8 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
 
                             if ( !bResult && !bNoUI )
                             {
-                                bUIStatus = ShowLockedDocumentDialog( aLockData, bLoading, false , true );
+                                bUIStatus
+                                    = ShowLockedDocumentDialog(aLockData, bLoading, false, true);
                             }
                         }
                         catch( ucb::InteractiveNetworkWriteException& )
@@ -1375,7 +1488,8 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                                 if ( !bResult && !bIoErr)
                                 {
                                     if (!bNoUI)
-                                        bUIStatus = ShowLockedDocumentDialog(aData, bLoading, bOwnLock, bHandleSysLocked);
+                                        bUIStatus = ShowLockedDocumentDialog(
+                                            aData, bLoading, bOwnLock, bHandleSysLocked);
                                     else if (bLoading && bTryIgnoreLockFile && !bHandleSysLocked)
                                         bUIStatus = ShowLockResult::Succeeded;
 
@@ -2866,6 +2980,12 @@ void SfxMedium::UnlockFile( bool bReleaseLockStream )
     // check if webdav
     if ( GetURLObject().isAnyKnownWebDAVScheme() )
     {
+        // do nothing if WebDAV locking if disabled
+        // (shouldn't happen because we already skipped locking,
+        // see LockOrigFileOnDemand, but just in case ...)
+        if (!IsWebDAVLockingUsed())
+            return;
+
         if ( pImpl->m_bLocked )
         {
             // an interaction handler should be used for authentication, if needed
@@ -3052,10 +3172,10 @@ void SfxMedium::CompleteReOpen()
     bool bUseInteractionHandler = pImpl->bUseInteractionHandler;
     pImpl->bUseInteractionHandler = false;
 
-    ::utl::TempFile* pTmpFile = nullptr;
+    std::unique_ptr<::utl::TempFile> pTmpFile;
     if ( pImpl->pTempFile )
     {
-        pTmpFile = pImpl->pTempFile.release();
+        pTmpFile = std::move(pImpl->pTempFile);
         pImpl->m_aName.clear();
     }
 
@@ -3068,15 +3188,14 @@ void SfxMedium::CompleteReOpen()
             pImpl->pTempFile->EnableKillingFile();
             pImpl->pTempFile.reset();
         }
-        pImpl->pTempFile.reset( pTmpFile );
+        pImpl->pTempFile = std::move( pTmpFile );
         if ( pImpl->pTempFile )
             pImpl->m_aName = pImpl->pTempFile->GetFileName();
     }
     else if (pTmpFile)
     {
         pTmpFile->EnableKillingFile();
-        delete pTmpFile;
-
+        pTmpFile.reset();
     }
 
     pImpl->bUseInteractionHandler = bUseInteractionHandler;
@@ -3506,6 +3625,11 @@ OUString GetLogicBase(std::unique_ptr<SfxMedium_Impl> const & pImpl)
 {
     OUString aLogicBase;
 
+// In a sandboxed environment we don't want to attempt to create temporary files in the same
+// directory where the user has selected an output file to be stored. The sandboxed process has
+// permission only to create the specifically named output file in that directory.
+#if !HAVE_FEATURE_MACOSX_SANDBOX
+
     if (comphelper::isFileUrl(pImpl->m_aLogicName) && !pImpl->m_pInStream)
     {
         // Try to create the temp file in the same directory when storing.
@@ -3520,6 +3644,8 @@ OUString GetLogicBase(std::unique_ptr<SfxMedium_Impl> const & pImpl)
     if (pImpl->m_bHasEmbeddedObjects)
         // Embedded objects would mean a special base, ignore that.
         aLogicBase.clear();
+
+#endif // !HAVE_FEATURE_MACOSX_SANDBOX
 
     return aLogicBase;
 }
@@ -3590,7 +3716,7 @@ void SfxMedium::CreateTempFile( bool bReplace )
             GetOutStream();
             if ( pImpl->m_pOutStream )
             {
-                char        *pBuf = new char [8192];
+                std::unique_ptr<char[]> pBuf(new char [8192]);
                 ErrCode      nErr = ERRCODE_NONE;
 
                 pImpl->m_pInStream->Seek(0);
@@ -3598,13 +3724,12 @@ void SfxMedium::CreateTempFile( bool bReplace )
 
                 while( !pImpl->m_pInStream->eof() && nErr == ERRCODE_NONE )
                 {
-                    sal_uInt32 nRead = pImpl->m_pInStream->ReadBytes(pBuf, 8192);
+                    sal_uInt32 nRead = pImpl->m_pInStream->ReadBytes(pBuf.get(), 8192);
                     nErr = pImpl->m_pInStream->GetError();
-                    pImpl->m_pOutStream->WriteBytes( pBuf, nRead );
+                    pImpl->m_pOutStream->WriteBytes( pBuf.get(), nRead );
                 }
 
                 bTransferSuccess = true;
-                delete[] pBuf;
                 CloseInStream();
             }
             CloseOutStream_Impl();

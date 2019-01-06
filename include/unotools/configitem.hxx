@@ -26,6 +26,7 @@
 #include <com/sun/star/uno/Reference.h>
 #include <unotools/unotoolsdllapi.h>
 #include <unotools/options.hxx>
+#include <o3tl/typed_flags_set.hxx>
 
 namespace com{ namespace sun{ namespace star{
     namespace uno{
@@ -44,13 +45,10 @@ namespace com{ namespace sun{ namespace star{
 
 enum class ConfigItemMode
 {
-    ImmediateUpdate    = 0x00,
-    DelayedUpdate      = 0x01,
+    NONE               = 0x00,
     AllLocales         = 0x02,
     ReleaseTree        = 0x04,
 };
-
-namespace o3tl { template <typename T> struct typed_flags; }
 
 namespace o3tl
 {
@@ -111,7 +109,7 @@ namespace utl
 
         protected:
             explicit ConfigItem(const OUString &rSubTree,
-                        ConfigItemMode nMode = ConfigItemMode::DelayedUpdate);
+                        ConfigItemMode nMode = ConfigItemMode::NONE);
 
             void                    SetModified  (); // mark item as modified
             void                    ClearModified(); // reset state after commit!

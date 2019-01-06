@@ -698,7 +698,7 @@ OUString SvNumberformat::ImpObtainCalendarAndNumerals( OUStringBuffer& rString, 
                     nLang = maLocale.meLanguage = nReferenceLanguage;
                 }
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 0x1E : // simple Asian numerals, Chinese-PRC
         case 0x1F : // financial Asian numerals, Chinese-PRC
         case 0x20 : // Arabic fullwidth numerals, Chinese-PRC
@@ -2038,6 +2038,27 @@ void SvNumberformat::ImpGetOutputStandard(double& fNumber, OUString& rOutString)
     }
 }
 
+namespace
+{
+
+template<typename T>
+bool checkForAll0s(const T& rString, sal_Int32 nIdx=0)
+{
+    if (nIdx>=rString.getLength())
+        return false;
+
+    do
+    {
+        if (rString[nIdx]!='0')
+            return false;
+    }
+    while (++nIdx<rString.getLength());
+
+    return true;
+}
+
+}
+
 void SvNumberformat::ImpGetOutputStdToPrecision(double& rNumber, OUString& rOutString, sal_uInt16 nPrecision) const
 {
     // Make sure the precision doesn't go over the maximum allowable precision.
@@ -2051,8 +2072,7 @@ void SvNumberformat::ImpGetOutputStdToPrecision(double& rNumber, OUString& rOutS
     rOutString = ::rtl::math::doubleToUString( rNumber,
                                                rtl_math_StringFormat_F, nPrecision /*2*/,
                                                GetFormatter().GetNumDecimalSep()[0], true );
-    if (rOutString[0] == '-' &&
-        comphelper::string::getTokenCount(rOutString, '0') == rOutString.getLength())
+    if (rOutString[0] == '-' && checkForAll0s(rOutString, 1))
     {
         rOutString = comphelper::string::stripStart(rOutString, '-'); // not -0
     }
@@ -2591,7 +2611,7 @@ bool SvNumberformat::ImpGetScientificOutput(double fNumber,
         {
         case '-' :
             nExpSign = -1;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case '+' :
             ++nExpStart;
             break;
@@ -4302,8 +4322,7 @@ bool SvNumberformat::ImpGetNumberOutput(double fNumber,
             }
             sStr.remove( nDecPos, 1 ); //  Remove .
         }
-        if (bSign && (sStr.isEmpty() ||
-                      comphelper::string::getTokenCount(sStr.toString(), '0') == sStr.getLength()+1))   // Only 00000
+        if (bSign && (sStr.isEmpty() || checkForAll0s(sStr)))   // Only 00000
         {
             bSign = false;              // Not -0.00
         }
@@ -4469,7 +4488,7 @@ bool SvNumberformat::ImpNumberFillWithThousands( OUStringBuffer& sBuff,  // numb
         {
         case NF_SYMBOLTYPE_DECSEP:
             aGrouping.reset();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case NF_SYMBOLTYPE_STRING:
         case NF_SYMBOLTYPE_CURRENCY:
         case NF_SYMBOLTYPE_PERCENT:

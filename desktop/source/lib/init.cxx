@@ -48,6 +48,7 @@
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/scopeguard.hxx>
 #include <comphelper/threadpool.hxx>
+#include <comphelper/base64.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -93,6 +94,7 @@
 #include <sfx2/msgpool.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/lokhelper.hxx>
+#include <sfx2/DocumentSigner.hxx>
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
@@ -120,6 +122,7 @@
 #include <unotools/mediadescriptor.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/tempfile.hxx>
+#include <unotools/streamwrap.hxx>
 #include <osl/module.hxx>
 #include <comphelper/sequence.hxx>
 #include <sfx2/sfxbasemodel.hxx>
@@ -526,6 +529,48 @@ int lcl_getViewId(const std::string& payload)
     return 0;
 }
 
+std::string extractCertificate(const std::string & certificate)
+{
+    const std::string header("-----BEGIN CERTIFICATE-----");
+    const std::string footer("-----END CERTIFICATE-----");
+
+    std::string result;
+
+    size_t pos1 = certificate.find(header);
+    if (pos1 == std::string::npos)
+        return result;
+
+    size_t pos2 = certificate.find(footer, pos1 + 1);
+    if (pos2 == std::string::npos)
+        return result;
+
+    pos1 = pos1 + header.length();
+    pos2 = pos2 - pos1;
+
+    return certificate.substr(pos1, pos2);
+}
+
+std::string extractPrivateKey(const std::string & privateKey)
+{
+    const std::string header("-----BEGIN PRIVATE KEY-----");
+    const std::string footer("-----END PRIVATE KEY-----");
+
+    std::string result;
+
+    size_t pos1 = privateKey.find(header);
+    if (pos1 == std::string::npos)
+        return result;
+
+    size_t pos2 = privateKey.find(footer, pos1 + 1);
+    if (pos2 == std::string::npos)
+        return result;
+
+    pos1 = pos1 + header.length();
+    pos2 = pos2 - pos1;
+
+    return privateKey.substr(pos1, pos2);
+}
+
 }  // end anonymous namespace
 
 // Could be anonymous in principle, but for the unit testing purposes, we
@@ -707,6 +752,8 @@ static bool doc_addCertificate(LibreOfficeKitDocument* pThis,
 
 static int doc_getSignatureState(LibreOfficeKitDocument* pThis);
 
+static size_t doc_renderShapeSelection(LibreOfficeKitDocument* pThis, char** pOutput);
+
 LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XComponent> &xComponent)
     : mxComponent(xComponent)
 {
@@ -771,6 +818,8 @@ LibLODocument_Impl::LibLODocument_Impl(const uno::Reference <css::lang::XCompone
         m_pDocumentClass->insertCertificate = doc_insertCertificate;
         m_pDocumentClass->addCertificate = doc_addCertificate;
         m_pDocumentClass->getSignatureState = doc_getSignatureState;
+
+        m_pDocumentClass->renderShapeSelection = doc_renderShapeSelection;
 
         gDocumentClass = m_pDocumentClass;
     }
@@ -1375,6 +1424,13 @@ static void                    lo_setDocumentPassword(LibreOfficeKit* pThis,
 static char*                   lo_getVersionInfo(LibreOfficeKit* pThis);
 static int                     lo_runMacro      (LibreOfficeKit* pThis, const char* pURL);
 
+static bool lo_signDocument(LibreOfficeKit* pThis,
+                                   const char* pUrl,
+                                   const unsigned char* pCertificateBinary,
+                                   const int nCertificateBinarySize,
+                                   const unsigned char* pPrivateKeyBinary,
+                                   const int nPrivateKeyBinarySize);
+
 LibLibreOffice_Impl::LibLibreOffice_Impl()
     : m_pOfficeClass( gOfficeClass.lock() )
     , maThread(nullptr)
@@ -1397,6 +1453,7 @@ LibLibreOffice_Impl::LibLibreOffice_Impl()
         m_pOfficeClass->setDocumentPassword = lo_setDocumentPassword;
         m_pOfficeClass->getVersionInfo = lo_getVersionInfo;
         m_pOfficeClass->runMacro = lo_runMacro;
+        m_pOfficeClass->signDocument = lo_signDocument;
 
         gOfficeClass = m_pOfficeClass;
     }
@@ -1622,6 +1679,75 @@ static int lo_runMacro(LibreOfficeKit* pThis, const char *pURL)
     }
 
     return false;
+}
+
+static bool lo_signDocument(LibreOfficeKit* /*pThis*/,
+                                       const char* pURL,
+                                       const unsigned char* pCertificateBinary,
+                                       const int nCertificateBinarySize,
+                                       const unsigned char* pPrivateKeyBinary,
+                                       const int nPrivateKeyBinarySize)
+{
+    OUString aURL(getAbsoluteURL(pURL));
+    if (aURL.isEmpty())
+       return false;
+
+    if (!xContext.is())
+        return false;
+
+    uno::Sequence<sal_Int8> aCertificateSequence;
+
+    std::string aCertificateString(reinterpret_cast<const char*>(pCertificateBinary), nCertificateBinarySize);
+    std::string aCertificateBase64String = extractCertificate(aCertificateString);
+    if (!aCertificateBase64String.empty())
+    {
+        OUString aBase64OUString = OUString::createFromAscii(aCertificateBase64String.c_str());
+        comphelper::Base64::decode(aCertificateSequence, aBase64OUString);
+    }
+    else
+    {
+        aCertificateSequence.realloc(nCertificateBinarySize);
+        std::copy(pCertificateBinary, pCertificateBinary + nCertificateBinarySize, aCertificateSequence.begin());
+    }
+
+    uno::Sequence<sal_Int8> aPrivateKeySequence;
+    std::string aPrivateKeyString(reinterpret_cast<const char*>(pPrivateKeyBinary), nPrivateKeyBinarySize);
+    std::string aPrivateKeyBase64String = extractPrivateKey(aPrivateKeyString);
+    if (!aPrivateKeyBase64String.empty())
+    {
+        OUString aBase64OUString = OUString::createFromAscii(aPrivateKeyBase64String.c_str());
+        comphelper::Base64::decode(aPrivateKeySequence, aBase64OUString);
+    }
+    else
+    {
+        aPrivateKeySequence.realloc(nPrivateKeyBinarySize);
+        std::copy(pPrivateKeyBinary, pPrivateKeyBinary + nPrivateKeyBinarySize, aPrivateKeySequence.begin());
+    }
+
+    uno::Reference<xml::crypto::XSEInitializer> xSEInitializer = xml::crypto::SEInitializer::create(xContext);
+    uno::Reference<xml::crypto::XXMLSecurityContext> xSecurityContext;
+    xSecurityContext = xSEInitializer->createSecurityContext(OUString());
+    if (!xSecurityContext.is())
+        return false;
+
+    uno::Reference<xml::crypto::XSecurityEnvironment> xSecurityEnvironment;
+    xSecurityEnvironment = xSecurityContext->getSecurityEnvironment();
+    uno::Reference<xml::crypto::XCertificateCreator> xCertificateCreator(xSecurityEnvironment, uno::UNO_QUERY);
+
+    if (!xCertificateCreator.is())
+        return false;
+
+    uno::Reference<security::XCertificate> xCertificate;
+    xCertificate = xCertificateCreator->createDERCertificateWithPrivateKey(aCertificateSequence, aPrivateKeySequence);
+
+    if (!xCertificate.is())
+        return false;
+
+    sfx2::DocumentSigner aDocumentSigner(aURL);
+    if (!aDocumentSigner.signDocument(xCertificate))
+        return false;
+
+    return true;
 }
 
 static void lo_registerCallback (LibreOfficeKit* pThis,
@@ -1863,7 +1989,8 @@ static void doc_iniUnoCommands ()
         OUString(".uno:TransformDialog"),
         OUString(".uno:InsertPageHeader"),
         OUString(".uno:InsertPageFooter"),
-        OUString(".uno:OnlineAutoFormat")
+        OUString(".uno:OnlineAutoFormat"),
+        OUString(".uno:InsertSymbol")
     };
 
     util::URL aCommandURL;
@@ -2134,15 +2261,16 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 
 #if defined(UNX) && !defined(MACOSX) && !defined(ENABLE_HEADLESS)
 
-    // Painting of zoomed or hi-dpi spreadsheets is special, we actually draw
-    // everything at 100%, and only set cairo's scale factor accordingly, so
-    // that everything is painted bigger or smaller.  This is different to
-    // what Calc's internal scaling would do - because that one is trying to
-    // fit the lines between cells to integer multiples of pixels.
+    // Painting of zoomed or hi-dpi spreadsheets is special, we actually draw everything at 100%,
+    // and only set cairo's (or CoreGraphic's, in the iOS case) scale factor accordingly, so that
+    // everything is painted bigger or smaller. This is different to what Calc's internal scaling
+    // would do - because that one is trying to fit the lines between cells to integer multiples of
+    // pixels.
     comphelper::ScopeGuard dpiScaleGuard([]() { comphelper::LibreOfficeKit::setDPIScale(1.0); });
+    double fDPIScaleX = 1;
     if (doc_getDocumentType(pThis) == LOK_DOCTYPE_SPREADSHEET)
     {
-        double fDPIScaleX = (nCanvasWidth * 3840.0) / (256.0 * nTileWidth);
+        fDPIScaleX = (nCanvasWidth * 3840.0) / (256.0 * nTileWidth);
         assert(fabs(fDPIScaleX - ((nCanvasHeight * 3840.0) / (256.0 * nTileHeight))) < 0.0001);
         comphelper::LibreOfficeKit::setDPIScale(fDPIScaleX);
     }
@@ -2151,7 +2279,7 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
     CGContextRef cgc = CGBitmapContextCreate(pBuffer, nCanvasWidth, nCanvasHeight, 8, nCanvasWidth*4, CGColorSpaceCreateDeviceRGB(), kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little);
 
     CGContextTranslateCTM(cgc, 0, nCanvasHeight);
-    CGContextScaleCTM(cgc, 1, -1);
+    CGContextScaleCTM(cgc, fDPIScaleX, -fDPIScaleX);
 
     doc_paintTileToCGContext(pThis, (void*) cgc, nCanvasWidth, nCanvasHeight, nTilePosX, nTilePosY, nTileWidth, nTileHeight);
 
@@ -2551,6 +2679,62 @@ static void doc_postWindowKeyEvent(LibreOfficeKitDocument* /*pThis*/, unsigned n
             assert(false);
             break;
     }
+}
+
+static size_t doc_renderShapeSelection(LibreOfficeKitDocument* pThis, char** pOutput)
+{
+    SolarMutexGuard aGuard;
+    if (gImpl)
+        gImpl->maLastExceptionMsg.clear();
+
+    try
+    {
+        LibLODocument_Impl* pDocument = static_cast<LibLODocument_Impl*>(pThis);
+
+        uno::Reference<frame::XStorable> xStorable(pDocument->mxComponent, uno::UNO_QUERY_THROW);
+
+        SvMemoryStream aOutStream;
+        uno::Reference<io::XOutputStream> xOut = new utl::OOutputStreamWrapper(aOutStream);
+
+        utl::MediaDescriptor aMediaDescriptor;
+        switch (doc_getDocumentType(pThis))
+        {
+            case LOK_DOCTYPE_PRESENTATION:
+                aMediaDescriptor["FilterName"] <<= OUString("impress_svg_Export");
+                break;
+            case LOK_DOCTYPE_TEXT:
+                aMediaDescriptor["FilterName"] <<= OUString("writer_svg_Export");
+                break;
+            case LOK_DOCTYPE_SPREADSHEET:
+                aMediaDescriptor["FilterName"] <<= OUString("calc_svg_Export");
+                break;
+            default:
+                SAL_WARN("lok", "Failed to render shape selection: Document type is not supported");
+        }
+        aMediaDescriptor["SelectionOnly"] <<= true;
+        aMediaDescriptor["OutputStream"] <<= xOut;
+
+        xStorable->storeToURL("private:stream", aMediaDescriptor.getAsConstPropertyValueList());
+
+        if (pOutput)
+        {
+            const size_t nOutputSize = aOutStream.GetEndOfData();
+            *pOutput = static_cast<char*>(malloc(nOutputSize));
+            if (*pOutput)
+            {
+                std::memcpy(*pOutput, aOutStream.GetData(), nOutputSize);
+                return nOutputSize;
+            }
+        }
+    }
+    catch (const uno::Exception& exception)
+    {
+        if (gImpl)
+            gImpl->maLastExceptionMsg = exception.Message;
+        SAL_WARN("lok", "Failed to render shape selection: " << exception);
+    }
+
+    return 0;
 }
 
 /** Class to react on finishing of a dispatched command.
@@ -3618,8 +3802,8 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
         return;
     }
 
-    // Setup cairo to draw with the changed DPI scale (and return back to 1.0
-    // when the painting finishes)
+    // Setup cairo (or CoreGraphics, in the iOS case) to draw with the changed DPI scale (and return
+    // back to 1.0 when the painting finishes)
     comphelper::ScopeGuard dpiScaleGuard([]() { comphelper::LibreOfficeKit::setDPIScale(1.0); });
     comphelper::LibreOfficeKit::setDPIScale(fDPIScale);
 
@@ -3628,7 +3812,7 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
     CGContextRef cgc = CGBitmapContextCreate(pBuffer, nWidth, nHeight, 8, nWidth*4, CGColorSpaceCreateDeviceRGB(), kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little);
 
     CGContextTranslateCTM(cgc, 0, nHeight);
-    CGContextScaleCTM(cgc, 1, -1);
+    CGContextScaleCTM(cgc, fDPIScale, -fDPIScale);
 
     SystemGraphicsData aData;
     aData.rCGContext = cgc;
@@ -3639,7 +3823,7 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
     pDevice->SetOutputSizePixel(Size(nWidth, nHeight));
 
     MapMode aMapMode(pDevice->GetMapMode());
-    aMapMode.SetOrigin(Point(-nX, -nY));
+    aMapMode.SetOrigin(Point(-(nX / fDPIScale), -(nY / fDPIScale)));
     pDevice->SetMapMode(aMapMode);
 
     comphelper::LibreOfficeKit::setDialogPainting(true);
@@ -3723,17 +3907,42 @@ static bool doc_insertCertificate(LibreOfficeKitDocument* pThis,
     if (!xCertificateCreator.is())
         return false;
 
-    uno::Sequence<sal_Int8> aCertificateSequence(nCertificateBinarySize);
-    std::copy(pCertificateBinary, pCertificateBinary + nCertificateBinarySize, aCertificateSequence.begin());
+    uno::Sequence<sal_Int8> aCertificateSequence;
 
-    uno::Sequence<sal_Int8> aPrivateKeySequence(nPrivateKeySize);
-    std::copy(pPrivateKeyBinary, pPrivateKeyBinary + nPrivateKeySize, aPrivateKeySequence.begin());
+    std::string aCertificateString(reinterpret_cast<const char*>(pCertificateBinary), nCertificateBinarySize);
+    std::string aCertificateBase64String = extractCertificate(aCertificateString);
+    if (!aCertificateBase64String.empty())
+    {
+        OUString aBase64OUString = OUString::createFromAscii(aCertificateBase64String.c_str());
+        comphelper::Base64::decode(aCertificateSequence, aBase64OUString);
+    }
+    else
+    {
+        aCertificateSequence.realloc(nCertificateBinarySize);
+        std::copy(pCertificateBinary, pCertificateBinary + nCertificateBinarySize, aCertificateSequence.begin());
+    }
+
+    uno::Sequence<sal_Int8> aPrivateKeySequence;
+    std::string aPrivateKeyString(reinterpret_cast<const char*>(pPrivateKeyBinary), nPrivateKeySize);
+    std::string aPrivateKeyBase64String = extractPrivateKey(aPrivateKeyString);
+    if (!aPrivateKeyBase64String.empty())
+    {
+        OUString aBase64OUString = OUString::createFromAscii(aPrivateKeyBase64String.c_str());
+        comphelper::Base64::decode(aPrivateKeySequence, aBase64OUString);
+    }
+    else
+    {
+        aPrivateKeySequence.realloc(nPrivateKeySize);
+        std::copy(pPrivateKeyBinary, pPrivateKeyBinary + nPrivateKeySize, aPrivateKeySequence.begin());
+    }
 
     uno::Reference<security::XCertificate> xCertificate;
     xCertificate = xCertificateCreator->createDERCertificateWithPrivateKey(aCertificateSequence, aPrivateKeySequence);
 
     if (!xCertificate.is())
         return false;
+
+    SolarMutexGuard aGuard;
 
     return pObjectShell->SignDocumentContentUsingCertificate(xCertificate);
 }
@@ -3771,8 +3980,20 @@ static bool doc_addCertificate(LibreOfficeKitDocument* pThis,
     if (!xCertificateCreator.is())
         return false;
 
-    uno::Sequence<sal_Int8> aCertificateSequence(nCertificateBinarySize);
-    std::copy(pCertificateBinary, pCertificateBinary + nCertificateBinarySize, aCertificateSequence.begin());
+    uno::Sequence<sal_Int8> aCertificateSequence;
+
+    std::string aCertificateString(reinterpret_cast<const char*>(pCertificateBinary), nCertificateBinarySize);
+    std::string aCertificateBase64String = extractCertificate(aCertificateString);
+    if (!aCertificateBase64String.empty())
+    {
+        OUString aBase64OUString = OUString::createFromAscii(aCertificateBase64String.c_str());
+        comphelper::Base64::decode(aCertificateSequence, aBase64OUString);
+    }
+    else
+    {
+        aCertificateSequence.realloc(nCertificateBinarySize);
+        std::copy(pCertificateBinary, pCertificateBinary + nCertificateBinarySize, aCertificateSequence.begin());
+    }
 
     uno::Reference<security::XCertificate> xCertificate;
     xCertificate = xCertificateCreator->addDERCertificateToTheDatabase(aCertificateSequence, "TCu,Cu,Tu");
@@ -3799,6 +4020,8 @@ static int doc_getSignatureState(LibreOfficeKitDocument* pThis)
     SfxObjectShell* pObjectShell = pBaseModel->GetObjectShell();
     if (!pObjectShell)
         return int(SignatureState::UNKNOWN);
+
+    SolarMutexGuard aGuard;
 
     pObjectShell->RecheckSignature(false);
 

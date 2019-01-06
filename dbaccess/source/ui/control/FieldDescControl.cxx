@@ -132,10 +132,10 @@ OFieldDescControl::OFieldDescControl( vcl::Window* pParent, OTableDesignHelpBar*
     ,m_bRightAligned(false)
     ,pActFieldDescr(nullptr)
 {
-    Contruct();
+    Construct();
 }
 
-void OFieldDescControl::Contruct()
+void OFieldDescControl::Construct()
 {
     m_pVertScroll = VclPtr<ScrollBar>::Create(this, WB_VSCROLL | WB_REPEAT | WB_DRAG);
     m_pHorzScroll = VclPtr<ScrollBar>::Create(this, WB_HSCROLL | WB_REPEAT | WB_DRAG);
@@ -1184,7 +1184,7 @@ void OFieldDescControl::DisplayData(OFieldDescription* pFieldDescr )
                     DeactivateAggregate( tpBoolDefault );
                     break;
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case DataType::BOOLEAN:
                 DeactivateAggregate( tpTextLen );
                 DeactivateAggregate( tpFormat );

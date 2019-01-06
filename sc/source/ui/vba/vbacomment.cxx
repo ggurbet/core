@@ -29,6 +29,7 @@
 #include <com/sun/star/table/CellAddress.hpp>
 #include <com/sun/star/table/XCell.hpp>
 #include <com/sun/star/text/XText.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <ooo/vba/office/MsoShapeType.hpp>
 
 #include <vbahelper/vbashape.hxx>
@@ -223,12 +224,10 @@ ScVbaComment::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaComment::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.ScVbaComment";
-    }
+       "ooo.vba.excel.ScVbaComment"
+    };
     return aServiceNames;
 }
 

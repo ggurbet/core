@@ -17,7 +17,6 @@
 #include <com/sun/star/util/XModifyBroadcaster.hpp>
 #include <com/sun/star/chart2/XDiagram.hpp>
 
-#include <editeng/memberids.h>
 #include <svx/xfltrit.hxx>
 #include <svx/xflftrit.hxx>
 #include <svx/xbtmpit.hxx>
@@ -458,7 +457,7 @@ void ChartAreaPanel::updateData()
         xPropSet->getPropertyValue("FillBitmapName") >>= aBitmapName;
         GraphicObject aBitmap = getXBitmapFromName(mxModel, aBitmapName);
         XFillBitmapItem aBitmapItem(aBitmapName, aBitmap);
-        XFillBitmapItem* pBitmapItem = nullptr;
+        std::unique_ptr<XFillBitmapItem> pBitmapItem;
         DrawModelWrapper* pModelWrapper = nullptr;
         try
         {
@@ -471,8 +470,7 @@ void ChartAreaPanel::updateData()
         catch (...)
         {
         }
-        updateFillBitmap(false, true, pBitmapItem ? pBitmapItem : &aBitmapItem);
-        delete pBitmapItem;
+        updateFillBitmap(false, true, pBitmapItem ? pBitmapItem.get() : &aBitmapItem);
     }
 
     if (xInfo->hasPropertyByName("FillTransparenceGradientName"))

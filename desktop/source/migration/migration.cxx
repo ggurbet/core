@@ -339,7 +339,8 @@ static void insertSorted(migrations_available& rAvailableMigrations, supported_m
 {
     bool                           bInserted( false );
     migrations_available::iterator pIter = rAvailableMigrations.begin();
-    while ( !bInserted && pIter != rAvailableMigrations.end()) {
+    while (pIter != rAvailableMigrations.end())
+    {
         if ( pIter->nPriority < aSupportedMigration.nPriority ) {
             rAvailableMigrations.insert(pIter, aSupportedMigration );
             bInserted = true;
@@ -417,12 +418,6 @@ migrations_vr MigrationImpl::readMigrationSteps(const OUString& rMigrationName)
         if (tmpAccess->getByName("ExcludedNodes") >>= tmpSeq) {
             for (const OUString& rSeqEntry : tmpSeq)
                 tmpStep.excludeConfig.push_back(rSeqEntry);
-        }
-
-        // included extensions...
-        if (tmpAccess->getByName("IncludedExtensions") >>= tmpSeq) {
-            for (const OUString& rSeqEntry : tmpSeq)
-                tmpStep.includeExtensions.push_back(rSeqEntry);
         }
 
         // excluded extensions...

@@ -43,9 +43,6 @@
 #include <comphelper/lok.hxx>
 #include <comphelper/configurationlistener.hxx>
 
-#ifdef DBG_UTIL
-bool SwViewOption::s_bTest9 = false;        //DrawingLayerNotLoading
-#endif
 Color SwViewOption::s_aDocBoundColor(COL_LIGHTGRAY);
 Color SwViewOption::s_aObjectBoundColor(COL_LIGHTGRAY);
 Color SwViewOption::s_aDocColor(COL_LIGHTGRAY);
@@ -573,9 +570,7 @@ bool SwViewOption::IsAppearanceFlag(ViewOptFlags nFlag)
 namespace{
 rtl::Reference<comphelper::ConfigurationListener> const & getWCOptionListener()
 {
-    static rtl::Reference<comphelper::ConfigurationListener> xListener;
-    if (!xListener.is())
-        xListener.set(new comphelper::ConfigurationListener("/org.openoffice.Office.Writer/Cursor/Option"));
+    static rtl::Reference<comphelper::ConfigurationListener> xListener(new comphelper::ConfigurationListener("/org.openoffice.Office.Writer/Cursor/Option"));
     return xListener;
 }
 }

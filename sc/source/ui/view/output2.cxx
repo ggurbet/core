@@ -585,7 +585,7 @@ void ScDrawStringsVars::RepeatToFill( long nColWidth )
         nTextWidth = pOutput->mpRefDevice->PixelToLogic(Size(nTextWidth,0)).Width();
     }
 
-    long nSpaceToFill = ( nColWidth - nTextWidth );
+    long nSpaceToFill = nColWidth - nTextWidth;
     if ( nSpaceToFill <= nCharWidth )
         return;
 
@@ -2186,9 +2186,8 @@ static void lcl_ScaleFonts( EditEngine& rEngine, long nPercent )
         rEngine.GetPortions( nPar, aPortions );
 
         sal_Int32 nStart = 0;
-        for ( std::vector<sal_Int32>::const_iterator it(aPortions.begin()); it != aPortions.end(); ++it )
+        for ( const sal_Int32 nEnd : aPortions )
         {
-            sal_Int32 nEnd = *it;
             ESelection aSel( nPar, nStart, nPar, nEnd );
             SfxItemSet aAttribs = rEngine.GetAttribs( aSel );
 
@@ -2619,7 +2618,7 @@ void ScOutputData::DrawEditParam::setAlignmentToEngine()
                     case SvxCellHorJustify::Repeat:            // repeat is not yet implemented
                     case SvxCellHorJustify::Standard:
                         SAL_WARN("sc.ui","meHorJustResult does not match getAlignmentFromContext()");
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case SvxCellHorJustify::Left:
                         eSvxAdjust = SvxAdjust::Left;
                         break;

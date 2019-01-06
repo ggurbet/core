@@ -19,8 +19,7 @@
 
 #include <extended/AccessibleGridControlTable.hxx>
 #include <extended/AccessibleGridControlTableCell.hxx>
-#include <svtools/accessibletable.hxx>
-
+#include <vcl/accessibletable.hxx>
 
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::uno::Sequence;
@@ -28,8 +27,8 @@ using ::com::sun::star::uno::Any;
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
-using namespace ::svt;
-using namespace ::svt::table;
+using namespace ::vcl;
+using namespace ::vcl::table;
 
 
 namespace accessibility {
@@ -223,7 +222,7 @@ void SAL_CALL AccessibleGridControlTable::selectAccessibleChild( sal_Int32 nChil
     ensureIsAlive();
     ensureIsValidIndex( nChildIndex );
     sal_Int32 nColumns = m_aTable.GetColumnCount();
-    sal_Int32 nRow = (nChildIndex / nColumns);
+    sal_Int32 nRow = nChildIndex / nColumns;
     m_aTable.SelectRow( nRow, true );
 }
 sal_Bool SAL_CALL AccessibleGridControlTable::isAccessibleChildSelected( sal_Int32 nChildIndex )
@@ -233,7 +232,7 @@ sal_Bool SAL_CALL AccessibleGridControlTable::isAccessibleChildSelected( sal_Int
     ensureIsAlive();
     ensureIsValidIndex( nChildIndex );
     sal_Int32 nColumns = m_aTable.GetColumnCount();
-    sal_Int32 nRow = (nChildIndex / nColumns);
+    sal_Int32 nRow = nChildIndex / nColumns;
     return isAccessibleRowSelected(nRow);
 }
 void SAL_CALL AccessibleGridControlTable::clearAccessibleSelection()

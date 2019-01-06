@@ -1229,7 +1229,6 @@ static void lcl_DrawGraphic( const SvxBrushItem &rBrush, vcl::RenderContext *pOu
                             const double    Abitmap( k1/k2 * aSize.Width()*aSize.Height() );
 
                             aObject.DrawTiled( pOut, rOrg, aGrfSize, Size(0,0),
-                                               GraphicManagerDrawFlags::STANDARD,
                                                ::std::max( 128, static_cast<int>( sqrt(sqrt( Abitmap)) + .5 ) ) );
                         }
                         else
@@ -2773,7 +2772,7 @@ void ScPrintFunc::CalcZoom( sal_uInt16 nRangeNo )                       // calcu
 {
     sal_uInt16 nRCount = pDoc->GetPrintRangeCount( nPrintTab );
     const ScRange* pThisRange = nullptr;
-    if ( nRangeNo != RANGENO_NORANGE || nRangeNo < nRCount )
+    if (nRangeNo != RANGENO_NORANGE && nRangeNo < nRCount)
         pThisRange = pDoc->GetPrintRange( nPrintTab, nRangeNo );
     if ( pThisRange )
     {
@@ -3038,7 +3037,7 @@ bool PrintPageRanges::checkIfAlreadyCalculatedAndSet(
     m_aInput.m_nStartCol  = nStartCol;
     m_aInput.m_nEndCol    = nEndCol;
     m_aInput.m_nPrintTab  = nPrintTab;
-    m_aInput.m_aDocSize   = Size(rDocSize);
+    m_aInput.m_aDocSize   = rDocSize;
 
     return false;
 }

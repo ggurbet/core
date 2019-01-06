@@ -1662,7 +1662,7 @@ void ChartExport::exportLineChart( const Reference< chart2::XChartType >& xChart
                     FSEND );
         }
 
-        exportAxesId(bPrimaryAxes);
+        exportAxesId(bPrimaryAxes, true);
 
         pFS->endElement( FSNS( XML_c, nTypeId ) );
     }
@@ -2366,10 +2366,22 @@ void ChartExport::exportTextProps(const Reference<XPropertySet>& xPropSet)
 
         if (fMultiplier)
         {
-            double fTextRotation = 0;
+            double fTextRotation = 0.0;
             uno::Any aAny = xPropSet->getPropertyValue("TextRotation");
             if (aAny.hasValue() && (aAny >>= fTextRotation))
+            {
+                // The MS Office UI allows values only in range of [-90,90].
+                if (fTextRotation > 9000.0 && fTextRotation < 27000.0)
+                {
+                    // Reflect the angle if the value is between 90° and 270°
+                    fTextRotation -= 18000.0;
+                }
+                else if (fTextRotation >=27000.0)
+                {
+                    fTextRotation -= 36000.0;
+                }
                 nRotation = std::round(fTextRotation * fMultiplier);
+            }
         }
     }
 
@@ -3369,14 +3381,24 @@ void ChartExport::exportDataPoints(
     }
 }
 
-void ChartExport::exportAxesId(bool bPrimaryAxes)
+void ChartExport::exportAxesId(bool bPrimaryAxes, bool bCheckCombinedAxes)
 {
-    sal_Int32 nAxisIdx = lcl_generateRandomValue();
-    sal_Int32 nAxisIdy = lcl_generateRandomValue();
-    AxesType eXAxis = bPrimaryAxes ? AXIS_PRIMARY_X : AXIS_SECONDARY_X;
-    AxesType eYAxis = bPrimaryAxes ? AXIS_PRIMARY_Y : AXIS_SECONDARY_Y;
-    maAxes.emplace_back( eXAxis, nAxisIdx, nAxisIdy );
-    maAxes.emplace_back( eYAxis, nAxisIdy, nAxisIdx );
+    sal_Int32 nAxisIdx, nAxisIdy;
+    // tdf#114181 keep axes of combined charts
+    if ( bCheckCombinedAxes && bPrimaryAxes && maAxes.size() == 2 )
+    {
+        nAxisIdx = maAxes[0].nAxisId;
+        nAxisIdy = maAxes[1].nAxisId;
+    }
+    else
+    {
+        nAxisIdx = lcl_generateRandomValue();
+        nAxisIdy = lcl_generateRandomValue();
+        AxesType eXAxis = bPrimaryAxes ? AXIS_PRIMARY_X : AXIS_SECONDARY_X;
+        AxesType eYAxis = bPrimaryAxes ? AXIS_PRIMARY_Y : AXIS_SECONDARY_Y;
+        maAxes.emplace_back( eXAxis, nAxisIdx, nAxisIdy );
+        maAxes.emplace_back( eYAxis, nAxisIdy, nAxisIdx );
+    }
     FSHelperPtr pFS = GetFS();
     pFS->singleElement( FSNS( XML_c, XML_axId ),
             XML_val, I32S( nAxisIdx ),

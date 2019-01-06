@@ -22,6 +22,7 @@
 
 #include <utility>
 #include <vcl/lstbox.hxx>
+#include <vcl/fixed.hxx>
 
 constexpr int MENU_START = 0;
 constexpr int MENU_COLUMN = 1;
@@ -90,7 +91,7 @@ ScDataProviderBaseControl::ScDataProviderBaseControl(vcl::Window* pParent,
     mpApplyBtn->SetControlForeground(COL_GREEN);
     mpApplyBtn->SetControlBackground(COL_GREEN);
     mpApplyBtn->SetBackground(Wallpaper(COL_LIGHTGREEN));
-    mpApplyBtn->SetModeImage(Image(BitmapEx("sc/res/xml_element.png")));
+    mpApplyBtn->SetModeImage(Image(StockImage::Yes, "sc/res/xml_element.png"));
     mpApplyBtn->Show();
     mpApplyBtn->SetClickHdl(LINK(this, ScDataProviderBaseControl, ApplyBtnHdl));
     SetSizePixel(GetOptimalSize());

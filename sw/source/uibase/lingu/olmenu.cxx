@@ -451,7 +451,7 @@ SwSpellPopup::SwSpellPopup(
     m_xPopupMenu->InsertSeparator(OString(), nPos++);
     m_xPopupMenu->InsertItem(MN_SHORT_COMMENT, aMessageText, MenuItemBits::NOSELECT, OString(), nPos++);
     if (bUseImagesInMenus)
-        m_xPopupMenu->SetItemImage(MN_SHORT_COMMENT, Image(BitmapEx(BMP_INFO_16)));
+        m_xPopupMenu->SetItemImage(MN_SHORT_COMMENT, Image(StockImage::Yes, BMP_INFO_16));
 
     // Add an item to show detailed infos if the FullCommentURL property is defined
     beans::PropertyValues  aProperties = rResult.aErrors[ nErrorInResult ].aProperties;
@@ -637,8 +637,8 @@ void SwSpellPopup::Execute( sal_uInt16 nId )
     {
         sal_Int32 nAltIdx = (MN_SUGGESTION_START <= nId && nId <= MN_SUGGESTION_END) ?
                 nId - MN_SUGGESTION_START : nId - MN_AUTOCORR_START;
-        OSL_ENSURE( 0 <= nAltIdx && nAltIdx < m_aSuggestions.getLength(), "index out of range" );
-        if (0 <= nAltIdx && nAltIdx < m_aSuggestions.getLength() && (m_bGrammarResults || m_xSpellAlt.is()))
+        OSL_ENSURE(nAltIdx < m_aSuggestions.getLength(), "index out of range");
+        if (nAltIdx < m_aSuggestions.getLength() && (m_bGrammarResults || m_xSpellAlt.is()))
         {
             bool bOldIns = m_pSh->IsInsMode();
             m_pSh->SetInsMode();

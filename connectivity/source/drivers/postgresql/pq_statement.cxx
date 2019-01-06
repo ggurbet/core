@@ -138,9 +138,7 @@ static ::cppu::IPropertyArrayHelper & getStatementPropertyArrayHelper()
                 ::cppu::UnoType<sal_Int32>::get() , 0 )},
         true );
 
-    static ::cppu::IPropertyArrayHelper *pArrayHelper = &arrayHelper;
-
-    return *pArrayHelper;
+    return arrayHelper;
 }
 
 Statement::Statement( const ::rtl::Reference< comphelper::RefCountedMutex > & refMutex,
@@ -237,10 +235,6 @@ void Statement::raiseSQLException(
 
 Reference< XResultSet > Statement::executeQuery(const OUString& sql )
 {
-    Reference< XCloseable > lastResultSetHolder = m_lastResultset;
-    if( lastResultSetHolder.is() )
-        lastResultSetHolder->close();
-
     if( ! execute( sql ) )
     {
         raiseSQLException( sql, "not a query" );
@@ -807,6 +801,10 @@ sal_Bool Statement::execute( const OUString& sql )
     checkClosed();
     OString cmd = OUStringToOString( sql, m_pSettings );
 
+    Reference< XCloseable > lastResultSetHolder = m_lastResultset;
+    if( lastResultSetHolder.is() )
+        lastResultSetHolder->close();
+
     m_lastResultset.clear();
     m_lastTableInserted.clear();
 
@@ -938,6 +936,15 @@ sal_Int32 Statement::getUpdateCount(  )
 
 sal_Bool Statement::getMoreResults(  )
 {
+    // The PostgreSQL C interface always returns a single result,
+    // so we will never have multiple ones.
+    // Implicitly close the open resultset (if any) as per spec,
+    // and setup to signal "no more result, neither as resultset,
+    // nor as update count".
+    Reference< XCloseable > lastResultSetHolder = m_lastResultset;
+    if( lastResultSetHolder.is() )
+        lastResultSetHolder->close();
+    m_multipleResultUpdateCount = -1;
     return false;
 }
 

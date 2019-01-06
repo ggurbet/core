@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 #include <comphelper/string.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/ppdparser.hxx>
 #include <vcl/strhelper.hxx>
 #include <vcl/svapp.hxx>
@@ -710,7 +711,7 @@ PPDParser::PPDParser( const OUString& rFile ) :
             OString aCurLine = aStream.ReadLine();
             if( aCurLine.startsWith("*") )
             {
-                if (aCurLine.matchIgnoreAsciiCase(OString("*include:")))
+                if (aCurLine.matchIgnoreAsciiCase("*include:"))
                 {
                     aCurLine = aCurLine.copy(9);
                     aCurLine = comphelper::string::stripStart(aCurLine, ' ');
@@ -726,7 +727,7 @@ PPDParser::PPDParser( const OUString& rFile ) :
                     continue;
                 }
                 else if( ! bLanguageEncoding &&
-                         aCurLine.matchIgnoreAsciiCase(OString("*languageencoding")) )
+                         aCurLine.matchIgnoreAsciiCase("*languageencoding") )
                 {
                     bLanguageEncoding = true; // generally only the first one counts
                     OString aLower = aCurLine.toAsciiLowerCase();
@@ -848,13 +849,22 @@ PPDParser::PPDParser( const OUString& rFile ) :
     }
 
     // fill in direct values
-    if( (pKey = getKey( OUString( "ColorDevice" ) )) )
-        m_bColorDevice = pKey->getValue( 0 )->m_aValue.startsWithIgnoreAsciiCase( "true" );
+    if ((pKey = getKey(OUString("ColorDevice"))))
+    {
+        if (const PPDValue* pValue = pKey->getValue(0))
+            m_bColorDevice = pValue->m_aValue.startsWithIgnoreAsciiCase("true");
+    }
 
-    if( (pKey = getKey( OUString( "LanguageLevel" ) )) )
-        m_nLanguageLevel = pKey->getValue( 0 )->m_aValue.toInt32();
-    if( (pKey = getKey( OUString( "TTRasterizer" ) )) )
-        m_bType42Capable = pKey->getValue( 0 )->m_aValue.equalsIgnoreAsciiCase( "Type42" );
+    if ((pKey = getKey(OUString("LanguageLevel"))))
+    {
+        if (const PPDValue* pValue = pKey->getValue(0))
+            m_nLanguageLevel = pValue->m_aValue.toInt32();
+    }
+    if ((pKey = getKey(OUString("TTRasterizer"))))
+    {
+        if (const PPDValue* pValue = pKey->getValue(0))
+            m_bType42Capable = pValue->m_aValue.equalsIgnoreAsciiCase( "Type42" );
+    }
 }
 
 PPDParser::~PPDParser()

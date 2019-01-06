@@ -22,6 +22,7 @@
 #include <ooo/vba/excel/XFormatCondition.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/sheet/XCellRangeAddressable.hpp>
+#include <com/sun/star/sheet/XSheetCondition.hpp>
 #include <basic/sberrors.hxx>
 
 using namespace ::ooo::vba;
@@ -131,7 +132,7 @@ ScVbaCondition< Ifc... >::Operator(bool _bIncludeFormulaValue)
                 retvalue = ISFORMULA;
                 break;
             }
-            SAL_FALLTHROUGH; //TODO ???
+            [[fallthrough]]; //TODO ???
         case sheet::ConditionOperator_NONE:
         default:
             DebugHelper::basicexception(ERRCODE_BASIC_METHOD_FAILED, "Operator not supported");

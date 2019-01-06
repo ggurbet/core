@@ -55,6 +55,7 @@
 #include <vcl/tabpage.hxx>
 #include <vcl/button.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 #include <comphelper/asyncnotification.hxx>
 #include <comphelper/flagguard.hxx>
 #include <comphelper/profilezone.hxx>
@@ -1775,7 +1776,7 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
                 case WindowType::CANCELBUTTON:
                 case WindowType::HELPBUTTON:
                     nAlign = PROPERTY_ALIGN_CENTER;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case WindowType::FIXEDTEXT:
                 case WindowType::EDIT:
                 case WindowType::MULTILINEEDIT:

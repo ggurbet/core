@@ -584,7 +584,7 @@ void SwSrcView::StartSearchAndReplace(const SvxSearchItem& rSearchItem,
         break;
 
     case SvxSearchCmd::REPLACE_ALL: bAll = true;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case SvxSearchCmd::REPLACE:
         nFound = pTextView->Replace( aSearchOpt, bAll, bForward );
         break;
@@ -829,7 +829,7 @@ void SwSrcView::Load(SwDocShell* pDocShell)
             ErrCode nRes = aWriter.Write(xWriter, &sWriteName);
             if(nRes)
             {
-                ErrorHandler::HandleError(ErrCode(nRes));
+                ErrorHandler::HandleError(nRes);
                 aEditWin->SetReadonly(true);
             }
             aMedium.Commit();

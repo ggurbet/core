@@ -19,7 +19,6 @@
 
 #include <hintids.hxx>
 #include <vcl/metric.hxx>
-#include <vcl/window.hxx>
 #include <vcl/svapp.hxx>
 #include <paratr.hxx>
 #include <txtfrm.hxx>
@@ -250,8 +249,7 @@ bool SwTextNode::GetDropSize(int& rFontHeight, int& rDropHeight, int& rDropDesce
     {
         // Only (master-) text frames can have a drop cap.
         if (!pLastFrame->IsFollow() &&
-            // sw_redlinehide: paraPropsNode has the first text of the frame
-            (!pLastFrame->GetMergedPara() || pLastFrame->GetMergedPara()->pParaPropsNode == this))
+            pLastFrame->GetTextNodeForFirstText() == this)
         {
 
             if( !pLastFrame->HasPara() )

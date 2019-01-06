@@ -108,7 +108,7 @@ void GetOptimalHeightsInColumn(
     const SCROW nMinStart = nPos;
 
     sal_uLong nWeightedCount = nProgressStart + rCol.back().GetWeightedCount(nStartRow, nEndRow);
-    const SCCOL maxCol = (rCol.size() - 1); // last col done already above
+    const SCCOL maxCol = rCol.size() - 1; // last col done already above
     const SCCOL progressUpdateStep = rCol.size() / 10;
     for (SCCOL nCol=0; nCol<maxCol; nCol++)
     {
@@ -902,6 +902,47 @@ void ScTable::GetDataArea( SCCOL& rStartCol, SCROW& rStartRow, SCCOL& rEndCol, S
                 rEndRow = std::max( rStartRow, nLastDataRow);
         }
     }
+}
+
+bool ScTable::GetDataAreaSubrange( ScRange& rRange ) const
+{
+    SCCOL nCol1 = rRange.aStart.Col(), nCol2 = rRange.aEnd.Col();
+
+    if ( nCol1 >= aCol.size() )
+        return false;
+
+    nCol2 = std::min<SCCOL>( nCol2, aCol.size()-1 );
+
+    SCROW nRow1 = rRange.aStart.Row(), nRow2 = rRange.aEnd.Row();
+
+    SCCOL nFirstNonEmptyCol = -1, nLastNonEmptyCol = -1;
+    SCROW nRowStart = nRow2, nRowEnd = nRow1;
+
+    for ( SCCOL nCol = nCol1; nCol <= nCol2; ++nCol )
+    {
+        SCROW nRowStartThis = nRow1, nRowEndThis = nRow2;
+        bool bTrimmed = aCol[nCol].TrimEmptyBlocks(nRowStartThis, nRowEndThis);
+        if ( bTrimmed )
+        {
+            if ( nFirstNonEmptyCol == -1 )
+                nFirstNonEmptyCol = nCol;
+            nLastNonEmptyCol = nCol;
+
+            nRowStart = std::min<SCROW>(nRowStart, nRowStartThis);
+            nRowEnd = std::max<SCROW>(nRowEnd, nRowEndThis);
+        }
+    }
+
+    if ( nFirstNonEmptyCol == -1 )
+        return false;
+
+    assert(nFirstNonEmptyCol <= nLastNonEmptyCol);
+    assert(nRowStart <= nRowEnd);
+
+    rRange.aStart.Set(nFirstNonEmptyCol, nRowStart, rRange.aStart.Tab());
+    rRange.aEnd.Set(nLastNonEmptyCol, nRowEnd, rRange.aEnd.Tab());
+
+    return true;
 }
 
 bool ScTable::ShrinkToUsedDataArea( bool& o_bShrunk, SCCOL& rStartCol, SCROW& rStartRow,
@@ -2335,6 +2376,15 @@ formula::VectorRefArray ScTable::FetchVectorRefArray( SCCOL nCol, SCROW nRow1, S
 
     return aCol[nCol].FetchVectorRefArray(nRow1, nRow2);
 }
+
+#ifdef DBG_UTIL
+void ScTable::AssertNoInterpretNeeded( SCCOL nCol, SCROW nRow1, SCROW nRow2 )
+{
+    assert( nRow2 >= nRow1 );
+    assert( IsColValid( nCol ) && ValidRow( nRow1 ) && ValidRow( nRow2 ) );
+    return aCol[nCol].AssertNoInterpretNeeded(nRow1, nRow2);
+}
+#endif
 
 bool ScTable::HandleRefArrayForParallelism( SCCOL nCol, SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup )
 {

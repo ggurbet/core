@@ -19,6 +19,7 @@
 
 #include <comphelper/threadpool.hxx>
 
+#include <tools/helpers.hxx>
 #include <vcl/bitmapaccess.hxx>
 
 #include <bitmapwriteaccess.hxx>
@@ -51,8 +52,7 @@ void generateMap(long nW, long nDstW, bool bHMirr, long* pMapIX, long* pMapFX)
 struct ScaleContext {
     BitmapReadAccess  * const mpSrc;
     BitmapWriteAccess *mpDest;
-    long mnSrcW, mnDestW;
-    long mnSrcH, mnDestH;
+    long mnDestW;
     bool mbHMirr, mbVMirr;
     std::unique_ptr<long[]> mpMapIX;
     std::unique_ptr<long[]> mpMapIY;
@@ -64,8 +64,7 @@ struct ScaleContext {
                   long nSrcH, long nDestH,
                   bool bHMirr, bool bVMirr)
         : mpSrc( pSrc ), mpDest( pDest )
-        , mnSrcW( nSrcW ), mnDestW( nDestW )
-        , mnSrcH( nSrcH ), mnDestH( nDestH )
+        , mnDestW( nDestW )
         , mbHMirr( bHMirr ), mbVMirr( bVMirr )
         , mpMapIX( new long[ nDestW ] )
         , mpMapIY( new long[ nDestH ] )
@@ -360,7 +359,7 @@ void scalePallete8bit2(ScaleContext &rCtx, long nStartY, long nEndY)
                     }
                     else if( j == 0 )
                     {
-                        long nWeightX = (nMax- rCtx.mpMapFX[ nLeft ]) ;
+                        long nWeightX = nMax- rCtx.mpMapFX[ nLeft ];
                         nSumRowB += ( nWeightX *rCol.GetBlue()) ;
                         nSumRowG += ( nWeightX *rCol.GetGreen()) ;
                         nSumRowR += ( nWeightX *rCol.GetRed()) ;
@@ -487,7 +486,7 @@ void scalePalleteGeneral2(ScaleContext &rCtx, long nStartY, long nEndY)
                     else if( j == 0 )
                     {
 
-                        long nWeightX = (nMax- rCtx.mpMapFX[ nLeft ]) ;
+                        long nWeightX = nMax- rCtx.mpMapFX[ nLeft ];
                         nSumRowB += ( nWeightX *aCol0.GetBlue()) ;
                         nSumRowG += ( nWeightX *aCol0.GetGreen()) ;
                         nSumRowR += ( nWeightX *aCol0.GetRed()) ;
@@ -615,7 +614,7 @@ void scale24bitBGR2(ScaleContext &rCtx, long nStartY, long nEndY)
                     }
                     else if( j == 0 )
                     {
-                        long nWeightX = (nMax- rCtx.mpMapFX[ nLeft ]) ;
+                        long nWeightX = nMax- rCtx.mpMapFX[ nLeft ];
                         nSumRowB += ( nWeightX *( *pTmpX )) ;pTmpX++;
                         nSumRowG += ( nWeightX *( *pTmpX )) ;pTmpX++;
                         nSumRowR += ( nWeightX *( *pTmpX )) ;pTmpX++;
@@ -737,7 +736,7 @@ void scale24bitRGB2(ScaleContext &rCtx, long nStartY, long nEndY)
                     }
                     else if( j == 0 )
                     {
-                        long nWeightX = (nMax- rCtx.mpMapFX[ nLeft ]) ;
+                        long nWeightX = nMax- rCtx.mpMapFX[ nLeft ];
                         nSumRowR += ( nWeightX *( *pTmpX )) ;pTmpX++;
                         nSumRowG += ( nWeightX *( *pTmpX )) ;pTmpX++;
                         nSumRowB += ( nWeightX *( *pTmpX )) ;pTmpX++;
@@ -862,7 +861,7 @@ void scaleNonPalleteGeneral2(ScaleContext &rCtx, long nStartY, long nEndY)
                     else if( j == 0 )
                     {
 
-                        long nWeightX = (nMax- rCtx.mpMapFX[ nLeft ]) ;
+                        long nWeightX = nMax- rCtx.mpMapFX[ nLeft ];
                         nSumRowB += ( nWeightX *aCol0.GetBlue()) ;
                         nSumRowG += ( nWeightX *aCol0.GetGreen()) ;
                         nSumRowR += ( nWeightX *aCol0.GetRed()) ;

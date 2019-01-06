@@ -20,23 +20,15 @@
 #ifndef INCLUDED_VCL_EVENT_HXX
 #define INCLUDED_VCL_EVENT_HXX
 
-#include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <tools/gen.hxx>
 #include <vcl/keycod.hxx>
-#include <vcl/commandevent.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/vclptr.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/window.hxx>
 
-class AllSettings;
-struct IDataObject;
-
-namespace com { namespace sun { namespace star { namespace awt {
-    struct KeyEvent;
-    struct MouseEvent;
-} } } }
+class CommandEvent;
 
 enum class TextDirectionality {
     LeftToRight_TopToBottom,
@@ -178,13 +170,12 @@ enum class HelpEventMode
 {
     NONE           = 0x0000,
     CONTEXT        = 0x0001,
-    EXTENDED       = 0x0002,
-    BALLOON        = 0x0004,
-    QUICK          = 0x0008
+    BALLOON        = 0x0002,
+    QUICK          = 0x0004
 };
 namespace o3tl
 {
-    template<> struct typed_flags<HelpEventMode> : is_typed_flags<HelpEventMode, 0x0f> {};
+    template<> struct typed_flags<HelpEventMode> : is_typed_flags<HelpEventMode, 0x07> {};
 }
 
 class VCL_DLLPUBLIC HelpEvent
@@ -285,9 +276,7 @@ enum class MouseNotifyEvent
     GETFOCUS         = 6,
     LOSEFOCUS        = 7,
     COMMAND          = 8,
-    DESTROY          = 9,
     INPUTENABLE      = 10,
-    INPUTDISABLE     = 11,
     EXECUTEDIALOG    = 100,
     ENDEXECUTEDIALOG = 101
 };
@@ -343,8 +332,7 @@ enum class DataChangedEventType {
     DISPLAY            = 2,
     FONTS              = 4,
     PRINTER            = 5,
-    FONTSUBSTITUTION   = 6,
-    USER               = 10000
+    FONTSUBSTITUTION   = 6
 };
 
 class VCL_DLLPUBLIC DataChangedEvent

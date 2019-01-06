@@ -114,22 +114,16 @@ Impl3DMirrorConstructOverlay::Impl3DMirrorConstructOverlay(const E3dView& rView)
 
             if(pPV && pPV->PageWindowCount())
             {
-                sdr::contact::ObjectContact& rOC = pPV->GetPageWindow(0)->GetObjectContact();
-                sdr::contact::DisplayInfo aDisplayInfo;
-
-                // Do not use the last ViewPort set at the OC at the last ProcessDisplay()
-                rOC.resetViewPort();
-
                 for(size_t a = 0; a < mnCount; ++a)
                 {
                     SdrObject* pObject = mrView.GetMarkedObjectByIndex(a);
 
                     if(pObject)
                     {
-                        sdr::contact::ViewContact& rVC = pObject->GetViewContact();
-                        sdr::contact::ViewObjectContact& rVOC = rVC.GetViewObjectContact(rOC);
-
-                        const drawinglayer::primitive2d::Primitive2DContainer aNewSequence(rVOC.getPrimitive2DSequenceHierarchy(aDisplayInfo));
+                        // use the view-independent primitive representation (without
+                        // evtl. GridOffset, that may be applied to the DragEntry individually)
+                        const drawinglayer::primitive2d::Primitive2DContainer aNewSequence(
+                            pObject->GetViewContact().getViewIndependentPrimitive2DContainer());
                         maFullOverlay.append(aNewSequence);
                     }
                 }
@@ -1066,23 +1060,20 @@ void E3dView::DoDepthArrange(E3dScene const * pScene, double fDepth)
                 {
                     // do we have overlap with an object of this layer?
                     bool bOverlap(false);
-                    auto itAct = pLayer->mvNeighbours.begin();
 
-                    while(!bOverlap && itAct != pLayer->mvNeighbours.end())
+                    for(const auto& rAct : pLayer->mvNeighbours)
                     {
-                        // do itAct->mpObj and pExtrudeObj overlap? Check by
+                        // do rAct.mpObj and pExtrudeObj overlap? Check by
                         // using logical AND clipping
                         const basegfx::B2DPolyPolygon aAndPolyPolygon(
                             basegfx::utils::solvePolygonOperationAnd(
                                 aExtrudePoly,
-                                itAct->maPreparedPolyPolygon));
+                                rAct.maPreparedPolyPolygon));
 
-                        bOverlap = (0 != aAndPolyPolygon.count());
-
-                        if(bOverlap)
+                        if(aAndPolyPolygon.count() != 0)
                         {
                             // second criteria: is another fillstyle or color used?
-                            const SfxItemSet& rCompareSet = itAct->mpObj->GetMergedItemSet();
+                            const SfxItemSet& rCompareSet = rAct.mpObj->GetMergedItemSet();
 
                             drawing::FillStyle eCompareFillStyle = rCompareSet.Get(XATTR_FILLSTYLE).GetValue();
 
@@ -1094,17 +1085,18 @@ void E3dView::DoDepthArrange(E3dScene const * pScene, double fDepth)
 
                                     if(aCompareColor == aLocalColor)
                                     {
-                                        bOverlap = false;
+                                        continue;
                                     }
                                 }
                                 else if(eLocalFillStyle == drawing::FillStyle_NONE)
                                 {
-                                    bOverlap = false;
+                                    continue;
                                 }
                             }
-                        }
 
-                        ++itAct;
+                            bOverlap = true;
+                            break;
+                        }
                     }
 
                     if(bOverlap)
@@ -1143,15 +1135,10 @@ void E3dView::DoDepthArrange(E3dScene const * pScene, double fDepth)
             while(pLayer)
             {
                 // move along layer
-                auto itAct = pLayer->mvNeighbours.begin();
-
-                while(itAct != pLayer->mvNeighbours.end())
+                for(auto& rAct : pLayer->mvNeighbours)
                 {
                     // adapt extrude value
-                    itAct->mpObj->SetMergedItem(SfxUInt32Item(SDRATTR_3DOBJ_DEPTH, sal_uInt32(fMinDepth + 0.5)));
-
-                    // next
-                    ++itAct;
+                    rAct.mpObj->SetMergedItem(SfxUInt32Item(SDRATTR_3DOBJ_DEPTH, sal_uInt32(fMinDepth + 0.5)));
                 }
 
                 // next layer

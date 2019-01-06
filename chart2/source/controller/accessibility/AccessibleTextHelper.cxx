@@ -20,7 +20,6 @@
 #include <sal/config.h>
 
 #include <memory>
-#include <utility>
 
 #include <AccessibleTextHelper.hxx>
 #include <DrawViewWrapper.hxx>
@@ -32,6 +31,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/window.hxx>
 
+#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <o3tl/make_unique.hxx>
 using namespace ::com::sun::star;

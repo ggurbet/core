@@ -22,6 +22,7 @@
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/BitmapTools.hxx>
+#include <tools/stream.hxx>
 
 //============================ PBMReader ==================================
 
@@ -146,7 +147,7 @@ bool PBMReader::ImplReadHeader()
     {
         case '1' :
             mbRaw = false;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case '4' :
             mnMode = 0;
             nMax = 2;               // number of parameters in Header
@@ -154,14 +155,14 @@ bool PBMReader::ImplReadHeader()
             break;
         case '2' :
             mbRaw = false;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case '5' :
             mnMode = 1;
             nMax = 3;
             break;
         case '3' :
             mbRaw = false;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case '6' :
             mnMode = 2;
             nMax = 3;

@@ -51,6 +51,16 @@ DECLARE_OOXMLIMPORT_TEST(testTdf109053, "tdf109053.docx")
     CPPUNIT_ASSERT_EQUAL(2, getPages());
 }
 
+DECLARE_OOXMLIMPORT_TEST(testTdf121664, "tdf121664.docx")
+{
+    uno::Reference<text::XLineNumberingProperties> xLineNumbering(mxComponent, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xLineNumbering.is());
+    // Without the accompanying fix in place, numbering did not restart on the
+    // second page.
+    CPPUNIT_ASSERT(
+        getProperty<bool>(xLineNumbering->getLineNumberingProperties(), "RestartAtEachPage"));
+}
+
 DECLARE_OOXMLIMPORT_TEST(testTdf108849, "tdf108849.docx")
 {
     // sectPr element that is child element of body must be the last child. However, Word accepts it
@@ -207,9 +217,27 @@ DECLARE_OOXMLIMPORT_TEST(testTdf113946, "tdf113946.docx")
     // tdf#106792 Checked loading of tdf113946.docx. Before the change, the expected
     // value of this test was "1696". Opening the file shows a single short line anchored
     // at the doc start. Only diff is that in 'old' version it is slightly rotated, in 'new'
-    // version line is strict hiorizontal. Checked against MSWord2013, there the line
+    // version line is strict horizontal. Checked against MSWord2013, there the line
     // is also not rotated -> the change is to the better, correct the expected result here.
     CPPUNIT_ASSERT_EQUAL(OUString("1695"), aTop);
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf121804, "tdf121804.docx")
+{
+    uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xShape(xGroup->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xFirstPara = getParagraphOfText(1, xShape->getText());
+    uno::Reference<text::XTextRange> xFirstRun = getRun(xFirstPara, 1);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0),
+                         getProperty<sal_Int32>(xFirstRun, "CharEscapement"));
+    // This failed with a NoSuchElementException, super/subscript property was
+    // lost on import, so the whole paragraph was a single run.
+    uno::Reference<text::XTextRange> xSecondRun = getRun(xFirstPara, 2);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(30),
+                         getProperty<sal_Int32>(xSecondRun, "CharEscapement"));
+    uno::Reference<text::XTextRange> xThirdRun = getRun(xFirstPara, 3);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(-25),
+                         getProperty<sal_Int32>(xThirdRun, "CharEscapement"));
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf114217, "tdf114217.docx")
@@ -257,6 +285,14 @@ DECLARE_OOXMLIMPORT_TEST(testTdf115094, "tdf115094.docx")
     uno::Reference<text::XTextRange> xText2(xTable->getCellByName("A1"), uno::UNO_QUERY);
 
     CPPUNIT_ASSERT_EQUAL(xText1.get(), xText2.get());
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf115094v2, "tdf115094v2.docx")
+{
+    // Introduce new attribute "layoutInCell"
+
+    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 18"), "IsLayoutInCell"));
+    CPPUNIT_ASSERT(getProperty<bool>(getShapeByName("Grafik 19"), "IsLayoutInCell"));
 }
 
 // tests should only be added to ooxmlIMPORT *if* they fail round-tripping in ooxmlEXPORT

@@ -43,6 +43,7 @@
 #include <svl/poolitem.hxx>
 #include <svl/stritem.hxx>
 #include <vcl/transfer.hxx>
+#include <svtools/colorcfg.hxx>
 #include <svtools/miscopt.hxx>
 #include <svl/whiter.hxx>
 #include <svx/zoomslideritem.hxx>
@@ -64,6 +65,7 @@
 #include <document.hxx>
 #include <starmath.hrc>
 #include <strings.hrc>
+#include <smmod.hxx>
 #include "mathmlimport.hxx"
 #include <cursor.hxx>
 #include "accessibility.hxx"
@@ -1611,6 +1613,10 @@ void SmViewShell::Execute(SfxRequest& rReq)
                         OUString aString;
                         if (aDataHelper.GetString( nId, aString))
                         {
+                            // tdf#117091 force xml declaration to exist
+                            if (!aString.startsWith("<?xml"))
+                                aString = "<?xml version=\"1.0\"?>\n" + aString;
+
                             std::unique_ptr<SfxMedium> pClipboardMedium(new SfxMedium());
                             pClipboardMedium->GetItemSet(); //generates initial itemset, not sure if necessary
                             std::shared_ptr<const SfxFilter> pMathFilter =
@@ -1843,7 +1849,7 @@ void SmViewShell::GetState(SfxItemSet &rSet)
 
         case SID_ATTR_ZOOM:
             rSet.Put(SvxZoomItem( SvxZoomType::PERCENT, mpGraphic->GetZoom()));
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SID_ZOOMIN:
         case SID_ZOOMOUT:
         case SID_ZOOM_OPTIMAL:

@@ -171,7 +171,7 @@ lcl_SetDfltBoxAttr(SwTableBox& rBox, DfltBoxAttrList_t & rBoxFormatArr,
 
         if( pAutoFormat )
             pAutoFormat->UpdateToSet( nId, const_cast<SfxItemSet&>(static_cast<SfxItemSet const &>(pNewTableBoxFormat->GetAttrSet())),
-                                    SwTableAutoFormat::UPDATE_BOX,
+                                    SwTableAutoFormatUpdateFlags::Box,
                                     pDoc->GetNumberFormatter() );
         else
             ::lcl_SetDfltBoxAttr( *pNewTableBoxFormat, nId );
@@ -204,7 +204,7 @@ static SwTableBoxFormat *lcl_CreateAFormatBoxFormat( SwDoc &rDoc, std::vector<Sw
     {
         SwTableBoxFormat* pBoxFormat = rDoc.MakeTableBoxFormat();
         rAutoFormat.UpdateToSet( nId, const_cast<SfxItemSet&>(static_cast<SfxItemSet const &>(pBoxFormat->GetAttrSet())),
-                                SwTableAutoFormat::UPDATE_BOX,
+                                SwTableAutoFormatUpdateFlags::Box,
                                 rDoc.GetNumberFormatter( ) );
         if( USHRT_MAX != nCols )
             pBoxFormat->SetFormatAttr( SwFormatFrameSize( ATT_VAR_SIZE,
@@ -503,7 +503,7 @@ const SwTable* SwDoc::InsertTable( const SwInsertTableOptions& rInsTableOpts,
                 {
                     aCharSet.ClearItem();
                     pTAFormat->UpdateToSet( nId, aCharSet,
-                                        SwTableAutoFormat::UPDATE_CHAR, nullptr );
+                                        SwTableAutoFormatUpdateFlags::Char, nullptr );
                     if( aCharSet.Count() )
                         GetNodes()[ aNdIdx.GetIndex()+1 ]->GetContentNode()->
                             SetAttr( aCharSet );
@@ -802,7 +802,7 @@ const SwTable* SwDoc::TextToTable( const SwInsertTableOptions& rInsTableOpts,
                     {
                         aCharSet.ClearItem();
                         pTAFormat->UpdateToSet( nId, aCharSet,
-                                            SwTableAutoFormat::UPDATE_CHAR, nullptr );
+                                            SwTableAutoFormatUpdateFlags::Char, nullptr );
                         if( aCharSet.Count() )
                         {
                             sal_uLong nSttNd = pBox->GetSttIdx()+1;
@@ -3644,8 +3644,8 @@ static bool lcl_SetAFormatBox(FndBox_ & rBox, SetAFormatTabPara *pSetPara, bool 
             SfxItemSet aCharSet(pDoc->GetAttrPool(), svl::Items<RES_CHRATR_BEGIN, RES_PARATR_LIST_END-1>{});
             SfxItemSet aBoxSet(pDoc->GetAttrPool(), aTableBoxSetRange);
             sal_uInt8 nPos = pSetPara->nAFormatLine * 4 + pSetPara->nAFormatBox;
-            pSetPara->rTableFormat.UpdateToSet(nPos, aCharSet, SwTableAutoFormat::UPDATE_CHAR, nullptr);
-            pSetPara->rTableFormat.UpdateToSet(nPos, aBoxSet, SwTableAutoFormat::UPDATE_BOX, pDoc->GetNumberFormatter());
+            pSetPara->rTableFormat.UpdateToSet(nPos, aCharSet, SwTableAutoFormatUpdateFlags::Char, nullptr);
+            pSetPara->rTableFormat.UpdateToSet(nPos, aBoxSet, SwTableAutoFormatUpdateFlags::Box, pDoc->GetNumberFormatter());
 
             if (aCharSet.Count())
             {
@@ -3834,9 +3834,9 @@ bool SwDoc::GetTableAutoFormat( const SwSelBoxes& rBoxes, SwTableAutoFormat& rGe
 
             if( pCNd )
                 rGet.UpdateFromSet( nPos, pCNd->GetSwAttrSet(),
-                                    SwTableAutoFormat::UPDATE_CHAR, nullptr );
+                                    SwTableAutoFormatUpdateFlags::Char, nullptr );
             rGet.UpdateFromSet( nPos, pFBox->GetFrameFormat()->GetAttrSet(),
-                                SwTableAutoFormat::UPDATE_BOX,
+                                SwTableAutoFormatUpdateFlags::Box,
                                 GetNumberFormatter() );
         }
     }
@@ -3934,9 +3934,6 @@ bool SwDoc::SetColRowWidthHeight( SwTableBox& rCurrentBox, TableChgWidthHeightTy
     SwTableNode* pTableNd = const_cast<SwTableNode*>(rCurrentBox.GetSttNd()->FindTableNode());
     std::unique_ptr<SwUndo> pUndo;
 
-    if( (TableChgWidthHeightType::InsertDeleteMode & eType) && dynamic_cast<const SwDDETable*>( &pTableNd->GetTable()) !=  nullptr)
-        return false;
-
     SwTableFormulaUpdate aMsgHint( &pTableNd->GetTable() );
     aMsgHint.m_eFlags = TBL_BOXPTR;
     getIDocumentFieldsAccess().UpdateTableFields( &aMsgHint );
@@ -3974,8 +3971,6 @@ bool SwDoc::SetColRowWidthHeight( SwTableBox& rCurrentBox, TableChgWidthHeightTy
     if( bRet )
     {
         getIDocumentState().SetModified();
-        if( TableChgWidthHeightType::InsertDeleteMode & eType )
-            getIDocumentFieldsAccess().SetFieldsDirty( true, nullptr, 0 );
     }
     return bRet;
 }

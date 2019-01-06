@@ -21,6 +21,11 @@
 #include <basic/sberrors.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <ooo/vba/excel/XWorksheet.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/sheet/XSheetPageBreak.hpp>
+#include <com/sun/star/table/XColumnRowRange.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
+
 using namespace ::com::sun::star;
 using namespace ::ooo::vba;
 
@@ -250,12 +255,10 @@ ScVbaHPageBreaks::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaHPageBreaks::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.HPageBreaks";
-    }
+        "ooo.vba.excel.HPageBreaks"
+    };
     return aServiceNames;
 }
 
@@ -309,12 +312,10 @@ ScVbaVPageBreaks::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaVPageBreaks::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.VPageBreaks";
-    }
+        "ooo.vba.excel.VPageBreaks"
+    };
     return aServiceNames;
 }
 

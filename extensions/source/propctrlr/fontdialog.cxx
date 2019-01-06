@@ -23,6 +23,7 @@
 #include "modulepcr.hxx"
 #include <vcl/svapp.hxx>
 #include <vcl/unohelp.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/types.hxx>
 #include <comphelper/extract.hxx>
@@ -559,7 +560,7 @@ namespace pcr
         SfxAllItemSet aSet(*(GetInputSetImpl()->GetPool()));
         if (rId == "font")
         {
-            aSet.Put (SvxFontListItem(static_cast<const SvxFontListItem&>(GetInputSetImpl()->Get(CFID_FONTLIST))));
+            aSet.Put (static_cast<const SvxFontListItem&>(GetInputSetImpl()->Get(CFID_FONTLIST)));
             aSet.Put (SfxUInt16Item(SID_DISABLE_CTL,DISABLE_HIDE_LANGUAGE));
             rPage.PageCreated(aSet);
         }

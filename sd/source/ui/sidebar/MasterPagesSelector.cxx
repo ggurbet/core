@@ -139,18 +139,15 @@ void MasterPagesSelector::UpdateLocks (const ItemList& rItemList)
     // deletion and re-creation of MasterPageDescriptor objects.
 
     // Lock the master pages in the given list.
-    ItemList::const_iterator iItem;
-    for (iItem=rItemList.begin(); iItem!=rItemList.end(); ++iItem)
+    for (const auto& rItem : rItemList)
     {
-        mpContainer->AcquireToken(*iItem);
-        aNewLockList.push_back(*iItem);
+        mpContainer->AcquireToken(rItem);
+        aNewLockList.push_back(rItem);
     }
 
     // Release the previously locked master pages.
-    ItemList::const_iterator iPage;
-    ItemList::const_iterator iEnd (maLockedMasterPages.end());
-    for (iPage=maLockedMasterPages.begin(); iPage!=iEnd; ++iPage)
-        mpContainer->ReleaseToken(*iPage);
+    for (const auto& rPage : maLockedMasterPages)
+        mpContainer->ReleaseToken(rPage);
 
     maLockedMasterPages.swap(aNewLockList);
 }
@@ -453,17 +450,12 @@ MasterPagesSelector::UserData* MasterPagesSelector::GetUserData (int nIndex) con
         return nullptr;
 }
 
-void MasterPagesSelector::SetUserData (int nIndex, UserData* pData)
+void MasterPagesSelector::SetUserData (int nIndex, std::unique_ptr<UserData> pData)
 {
     const ::osl::MutexGuard aGuard (maMutex);
 
-    if (nIndex>0 && static_cast<unsigned int>(nIndex)<=PreviewValueSet::GetItemCount())
-    {
-        UserData* pOldData = GetUserData(nIndex);
-        if (pOldData!=nullptr && pOldData!=pData)
-            delete pOldData;
-        PreviewValueSet::SetItemData(static_cast<sal_uInt16>(nIndex), pData);
-    }
+    delete GetUserData(nIndex);
+    PreviewValueSet::SetItemData(static_cast<sal_uInt16>(nIndex), pData.release());
 }
 
 void MasterPagesSelector::SetItem (
@@ -496,7 +488,7 @@ void MasterPagesSelector::SetItem (
                         mpContainer->GetPageNameForToken(aToken),
                         nIndex);
                 }
-                SetUserData(nIndex, new UserData(nIndex,aToken));
+                SetUserData(nIndex, o3tl::make_unique<UserData>(nIndex,aToken));
 
                 AddTokenToIndexEntry(nIndex,aToken);
             }
@@ -622,15 +614,9 @@ void MasterPagesSelector::InvalidateItem (MasterPageContainer::Token aToken)
 {
     const ::osl::MutexGuard aGuard (maMutex);
 
-    ItemList::iterator iItem;
-    for (iItem=maCurrentItemList.begin(); iItem!=maCurrentItemList.end(); ++iItem)
-    {
-        if (*iItem == aToken)
-        {
-            *iItem = MasterPageContainer::NIL_TOKEN;
-            break;
-        }
-    }
+    auto iItem = std::find(maCurrentItemList.begin(), maCurrentItemList.end(), aToken);
+    if (iItem != maCurrentItemList.end())
+        *iItem = MasterPageContainer::NIL_TOKEN;
 }
 
 void MasterPagesSelector::UpdateItemList (::std::unique_ptr<ItemList> && pNewItemList)

@@ -38,6 +38,7 @@
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 
 #include <osl/diagnose.h>
+#include <o3tl/make_unique.hxx>
 #include <rtl/tencinfo.h>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/strbuf.hxx>
@@ -219,11 +220,10 @@ Sequence< OUString > StringResourceImpl::implGetResourceIDs( LocaleItem* pLocale
         aIDSeq.realloc( nResourceIDCount );
         OUString* pStrings = aIDSeq.getArray();
 
-        IdToStringMap::const_iterator it;
         int iTarget = 0;
-        for( it = rHashMap.begin(); it != rHashMap.end(); ++it )
+        for( const auto& rEntry : rHashMap )
         {
-            OUString aStr = (*it).first;
+            OUString aStr = rEntry.first;
             pStrings[iTarget] = aStr;
             iTarget++;
         }
@@ -337,8 +337,8 @@ void StringResourceImpl::setDefaultLocale( const Locale& locale )
     {
         if( m_pDefaultLocaleItem )
         {
-            LocaleItem* pChangedDefaultLocaleItem = new LocaleItem( m_pDefaultLocaleItem->m_locale );
-            m_aChangedDefaultLocaleVector.push_back( pChangedDefaultLocaleItem );
+            m_aChangedDefaultLocaleVector.push_back(
+                o3tl::make_unique<LocaleItem>( m_pDefaultLocaleItem->m_locale ) );
         }
 
         m_pDefaultLocaleItem = pLocaleItem;
@@ -444,21 +444,19 @@ void StringResourceImpl::newLocale( const Locale& locale )
     {
         const IdToStringMap& rSourceMap = pCopyFromItem->m_aIdToStringMap;
         IdToStringMap& rTargetMap = pLocaleItem->m_aIdToStringMap;
-        IdToStringMap::const_iterator it;
-        for( it = rSourceMap.begin(); it != rSourceMap.end(); ++it )
+        for( const auto& rEntry : rSourceMap )
         {
-            OUString aId  = (*it).first;
-            OUString aStr = (*it).second;
+            OUString aId  = rEntry.first;
+            OUString aStr = rEntry.second;
             rTargetMap[ aId ] = aStr;
         }
 
         const IdToIndexMap& rSourceIndexMap = pCopyFromItem->m_aIdToIndexMap;
         IdToIndexMap& rTargetIndexMap = pLocaleItem->m_aIdToIndexMap;
-        IdToIndexMap::const_iterator it_index;
-        for( it_index = rSourceIndexMap.begin(); it_index != rSourceIndexMap.end(); ++it_index )
+        for( const auto& rIndex : rSourceIndexMap )
         {
-            OUString aId  = (*it_index).first;
-            sal_Int32 nIndex = (*it_index).second;
+            OUString aId = rIndex.first;
+            sal_Int32 nIndex = rIndex.second;
             rTargetIndexMap[ aId ] = nIndex;
         }
         pLocaleItem->m_nNextIndex = pCopyFromItem->m_nNextIndex;
@@ -510,31 +508,29 @@ void StringResourceImpl::removeLocale( const Locale& locale )
                 }
             }
         }
-        for( auto it = m_aLocaleItemVector.begin(); it != m_aLocaleItemVector.end(); ++it )
+        auto it = std::find_if(m_aLocaleItemVector.begin(), m_aLocaleItemVector.end(),
+            [&pRemoveItem](const std::unique_ptr<LocaleItem>& rxItem) { return rxItem.get() == pRemoveItem; });
+        if (it != m_aLocaleItemVector.end())
         {
-            if( it->get() == pRemoveItem )
+            // Remember locale item to delete file while storing
+            m_aDeletedLocaleItemVector.push_back( std::move(*it) );
+
+            // Last locale?
+            if( nLocaleCount == 1 )
             {
-                // Remember locale item to delete file while storing
-                m_aDeletedLocaleItemVector.push_back( std::move(*it) );
-
-                // Last locale?
-                if( nLocaleCount == 1 )
+                m_nNextUniqueNumericId = 0;
+                if( m_pDefaultLocaleItem )
                 {
-                    m_nNextUniqueNumericId = 0;
-                    if( m_pDefaultLocaleItem )
-                    {
-                        LocaleItem* pChangedDefaultLocaleItem = new LocaleItem( m_pDefaultLocaleItem->m_locale );
-                        m_aChangedDefaultLocaleVector.push_back( pChangedDefaultLocaleItem );
-                    }
-                    m_pCurrentLocaleItem = nullptr;
-                    m_pDefaultLocaleItem = nullptr;
+                    m_aChangedDefaultLocaleVector.push_back(
+                            o3tl::make_unique<LocaleItem>( m_pDefaultLocaleItem->m_locale ) );
                 }
-
-                m_aLocaleItemVector.erase( it );
-
-                implModified();
-                break;
+                m_pCurrentLocaleItem = nullptr;
+                m_pDefaultLocaleItem = nullptr;
             }
+
+            m_aLocaleItemVector.erase( it );
+
+            implModified();
         }
     }
 }
@@ -937,20 +933,17 @@ void StringResourcePersistenceImpl::implStoreAtStorage
     {
         for( auto& pLocaleItem : m_aChangedDefaultLocaleVector )
         {
-            if( pLocaleItem != nullptr )
+            OUString aStreamName = implGetFileNameForLocaleItem( pLocaleItem.get(), m_aNameBase );
+            aStreamName += ".default";
+
+            try
             {
-                OUString aStreamName = implGetFileNameForLocaleItem( pLocaleItem, m_aNameBase );
-                aStreamName += ".default";
-
-                try
-                {
-                    Storage->removeElement( aStreamName );
-                }
-                catch( Exception& )
-                {}
-
-                delete pLocaleItem;
+                Storage->removeElement( aStreamName );
             }
+            catch( Exception& )
+            {}
+
+            pLocaleItem.reset();
         }
         m_aChangedDefaultLocaleVector.clear();
     }
@@ -1019,15 +1012,11 @@ void StringResourcePersistenceImpl::implKillChangedDefaultFiles
     // Delete files for changed defaults
     for( auto& pLocaleItem : m_aChangedDefaultLocaleVector )
     {
-        if( pLocaleItem != nullptr )
-        {
-            OUString aCompleteFileName =
-                implGetPathForLocaleItem( pLocaleItem, aNameBase, Location, true );
-            if( xFileAccess->exists( aCompleteFileName ) )
-                xFileAccess->kill( aCompleteFileName );
-
-            delete pLocaleItem;
-        }
+        OUString aCompleteFileName =
+            implGetPathForLocaleItem( pLocaleItem.get(), aNameBase, Location, true );
+        if( xFileAccess->exists( aCompleteFileName ) )
+            xFileAccess->kill( aCompleteFileName );
+        pLocaleItem.reset();
     }
     m_aChangedDefaultLocaleVector.clear();
 }
@@ -1984,7 +1973,7 @@ static void implWriteCharToBuffer( OUStringBuffer& aBuf, sal_Unicode cu, bool bK
 static void implWriteStringWithEncoding( const OUString& aStr,
     Reference< io::XTextOutputStream2 > const & xTextOutputStream, bool bKey )
 {
-    static sal_Unicode cLineFeed = 0xa;
+    static const sal_Unicode cLineFeed = 0xa;
 
     OUStringBuffer aBuf;
     sal_Int32 nLen = aStr.getLength();
@@ -2025,29 +2014,22 @@ bool StringResourcePersistenceImpl::implWritePropertiesFile( LocaleItem const * 
     {
         // Sort ids according to read order
         const IdToIndexMap& rIndexMap = pLocaleItem->m_aIdToIndexMap;
-        IdToIndexMap::const_iterator it_index;
 
         // Find max/min index
-        sal_Int32 nMinIndex = -1;
-        sal_Int32 nMaxIndex = -1;
-        for( it_index = rIndexMap.begin(); it_index != rIndexMap.end(); ++it_index )
-        {
-            sal_Int32 nIndex = (*it_index).second;
-            if( nMinIndex > nIndex || nMinIndex == -1 )
-                nMinIndex = nIndex;
-            if( nMaxIndex < nIndex )
-                nMaxIndex = nIndex;
-        }
+        auto itMinMax = std::minmax_element(rIndexMap.begin(), rIndexMap.end(),
+            [](const IdToIndexMap::value_type& a, const IdToIndexMap::value_type& b) { return a.second < b.second; });
+        sal_Int32 nMinIndex = itMinMax.first->second;
+        sal_Int32 nMaxIndex = itMinMax.second->second;
         sal_Int32 nTabSize = nMaxIndex - nMinIndex + 1;
 
         // Create sorted array of pointers to the id strings
         std::unique_ptr<const OUString*[]> pIdPtrs( new const OUString*[nTabSize] );
         for(sal_Int32 i = 0 ; i < nTabSize ; i++ )
             pIdPtrs[i] = nullptr;
-        for( it_index = rIndexMap.begin(); it_index != rIndexMap.end(); ++it_index )
+        for( const auto& rIndex : rIndexMap )
         {
-            sal_Int32 nIndex = (*it_index).second;
-            pIdPtrs[nIndex - nMinIndex] = &((*it_index).first);
+            sal_Int32 nIndex = rIndex.second;
+            pIdPtrs[nIndex - nMinIndex] = &(rIndex.first);
         }
 
         // Write lines in correct order

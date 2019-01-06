@@ -101,18 +101,6 @@ public:
     virtual SfxBindings& GetBindings() = 0;
 };
 
-class AbstractSearchProgress :public VclAbstractRefreshableDialog
-{
-protected:
-    virtual ~AbstractSearchProgress() override = default;
-};
-
-class AbstractTakeProgress :public VclAbstractRefreshableDialog
-{
-protected:
-    virtual ~AbstractTakeProgress() override = default;
-};
-
 class AbstractTitleDialog :public VclAbstractDialog
 {
 protected:
@@ -353,13 +341,13 @@ public:
                                             SfxBindings* pBindings,
                                             svx::SpellDialogChildWindow* pSpellChildWindow )=0;
 
-    virtual VclPtr<VclAbstractRefreshableDialog> CreateActualizeProgressDialog( vcl::Window* pParent,
-                                            GalleryTheme* pThm ) = 0;
+    virtual VclPtr<VclAbstractDialog> CreateActualizeProgressDialog(weld::Window* pParent,
+                                            GalleryTheme* pThm) = 0;
     virtual VclPtr<AbstractTitleDialog> CreateTitleDialog(weld::Window* pParent,
                                              const OUString& rOldText) = 0;
     virtual VclPtr<AbstractGalleryIdDialog> CreateGalleryIdDialog(weld::Window* pParent,
                                             GalleryTheme* pThm) = 0;
-    virtual VclPtr<VclAbstractDialog> CreateGalleryThemePropertiesDialog(vcl::Window* pParent,
+    virtual VclPtr<VclAbstractDialog> CreateGalleryThemePropertiesDialog(weld::Window* pParent,
                                             ExchangeData* pData,
                                             SfxItemSet* pItemSet ) = 0;
     virtual VclPtr<AbstractURLDlg> CreateURLDialog( vcl::Window* pParent,
@@ -438,9 +426,8 @@ public:
                                                                         const SdrView* pView,
                                                                         sal_uInt32 nResId )=0;
     virtual VclPtr<SfxAbstractDialog>       CreateCharMapDialog(weld::Window* pParent, const SfxItemSet& rAttr, bool bInsert) = 0;
-    virtual VclPtr<SfxAbstractDialog>       CreateEventConfigDialog( vcl::Window* pParent,
-                                                                        const SfxItemSet& rAttr,
-                                    const css::uno::Reference< css::frame::XFrame >& _rxFrame )=0;
+    virtual VclPtr<SfxAbstractDialog>       CreateEventConfigDialog(weld::Window* pParent, const SfxItemSet& rAttr,
+                                                                    const css::uno::Reference< css::frame::XFrame >& _rxFrame) = 0;
     virtual VclPtr<AbstractSvxPostItDialog>    CreateSvxPostItDialog(weld::Window* pParent, const SfxItemSet& rCoreSet, bool bPrevNext = false) = 0;
     virtual VclPtr<VclAbstractDialog>          CreateSvxScriptOrgDialog( vcl::Window* pParent, const OUString& rLanguage ) override = 0;
 

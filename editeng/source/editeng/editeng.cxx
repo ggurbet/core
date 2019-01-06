@@ -872,11 +872,6 @@ EditPaM EditEngine::CursorRight(const EditPaM& rPaM, sal_uInt16 nCharacterIterat
     return pImpEditEngine->CursorRight(rPaM, nCharacterIteratorMode);
 }
 
-sal_uInt16 EditEngine::GetOnePixelInRef() const
-{
-    return pImpEditEngine->nOnePixelInRef;
-}
-
 InternalEditStatus& EditEngine::GetInternalEditStatus()
 {
     return pImpEditEngine->GetStatus();
@@ -1208,12 +1203,7 @@ bool EditEngine::PostKeyEvent( const KeyEvent& rKeyEvent, EditView* pEditView, v
                 if ( !bReadOnly && !rKeyEvent.GetKeyCode().IsMod1() && !rKeyEvent.GetKeyCode().IsMod2() )
                 {
                     bool bShift = rKeyEvent.GetKeyCode().IsShift();
-                    if ( pImpEditEngine->GetStatus().DoTabIndenting() &&
-                        ( aCurSel.Min().GetNode() != aCurSel.Max().GetNode() ) )
-                    {
-                        pImpEditEngine->IndentBlock( pEditView, !bShift );
-                    }
-                    else if ( !bShift )
+                    if ( !bShift )
                     {
                         bool bSel = pEditView->HasSelection();
                         if ( bSel )
@@ -1716,14 +1706,13 @@ void EditEngine::InsertParagraph(sal_Int32 nPara, const OUString& rTxt)
 
 void EditEngine::SetText(sal_Int32 nPara, const OUString& rTxt)
 {
-    EditSelection* pSel = pImpEditEngine->SelectParagraph( nPara );
+    std::unique_ptr<EditSelection> pSel = pImpEditEngine->SelectParagraph( nPara );
     if ( pSel )
     {
         pImpEditEngine->UndoActionStart( EDITUNDO_INSERT );
         pImpEditEngine->ImpInsertText( *pSel, rTxt );
         pImpEditEngine->UndoActionEnd();
         pImpEditEngine->FormatAndUpdate();
-        delete pSel;
     }
 }
 
@@ -1854,18 +1843,15 @@ void EditEngine::SetControlWord( EEControlBits nWord )
         {
             // possibly reformat:
             if ( ( nChanges & EEControlBits::USECHARATTRIBS ) ||
-                 ( nChanges & EEControlBits::USEPARAATTRIBS ) ||
                  ( nChanges & EEControlBits::ONECHARPERLINE ) ||
                  ( nChanges & EEControlBits::STRETCHING ) ||
                  ( nChanges & EEControlBits::OUTLINER ) ||
                  ( nChanges & EEControlBits::NOCOLORS ) ||
                  ( nChanges & EEControlBits::OUTLINER2 ) )
             {
-                if ( ( nChanges & EEControlBits::USECHARATTRIBS ) ||
-                     ( nChanges & EEControlBits::USEPARAATTRIBS ) )
+                if ( nChanges & EEControlBits::USECHARATTRIBS )
                 {
-                    bool bUseCharAttribs = bool( nWord & EEControlBits::USECHARATTRIBS );
-                    pImpEditEngine->GetEditDoc().CreateDefFont( bUseCharAttribs );
+                    pImpEditEngine->GetEditDoc().CreateDefFont( true );
                 }
 
                 pImpEditEngine->FormatFullDoc();

@@ -21,6 +21,7 @@
 
 #include <com/sun/star/style/XStyle.hpp>
 #include <com/sun/star/drawing/LineStyle.hpp>
+#include <i18nlangtag/languagetag.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/dispatch.hxx>
@@ -1081,7 +1082,7 @@ OUString SdDrawDocument::CreatePageNumValue(sal_uInt16 nNum) const
             break;
         case css::style::NumberingType::ROMAN_UPPER:
             bUpper = true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case css::style::NumberingType::ROMAN_LOWER:
             aPageNumValue += SvxNumberFormat::CreateRomanString(nNum, bUpper);
             break;
@@ -1167,9 +1168,8 @@ void SdDrawDocument::RenameLayoutTemplate(const OUString& rOldLayoutName, const 
 
                             if (pOPO)
                             {
-                                std::vector<StyleReplaceData>::iterator it;
-                                for (it = aReplList.begin(); it != aReplList.end(); ++it)
-                                    pOPO->ChangeStyleSheets( it->aName, it->nFamily, it->aNewName, it->nNewFamily );
+                                for (const auto& rRepl : aReplList)
+                                    pOPO->ChangeStyleSheets( rRepl.aName, rRepl.nFamily, rRepl.aNewName, rRepl.nNewFamily );
                             }
                         }
                         break;
@@ -1210,9 +1210,8 @@ void SdDrawDocument::RenameLayoutTemplate(const OUString& rOldLayoutName, const 
 
                             if (pOPO)
                             {
-                                std::vector<StyleReplaceData>::iterator it;
-                                for (it = aReplList.begin(); it != aReplList.end(); ++it)
-                                    pOPO->ChangeStyleSheets( it->aName, it->nFamily, it->aNewName, it->nNewFamily );
+                                for (const auto& rRepl : aReplList)
+                                    pOPO->ChangeStyleSheets( rRepl.aName, rRepl.nFamily, rRepl.aNewName, rRepl.nNewFamily );
                             }
                         }
                         break;
@@ -1249,7 +1248,7 @@ void SdDrawDocument::SetTextDefaults() const
     aNumberFormat.SetStart(1);
     aNumberFormat.SetNumAdjust(SvxAdjust::Left);
 
-    SvxNumRule aNumRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::BULLET_COLOR | SvxNumRuleFlags::CHAR_TEXT_DISTANCE, SVX_MAX_NUM, false);
+    SvxNumRule aNumRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::BULLET_COLOR, SVX_MAX_NUM, false);
 
     //aNumberFormat.SetAbsLSpace( 0 );
     //aNumberFormat.SetFirstLineOffset( 0 );

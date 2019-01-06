@@ -544,7 +544,7 @@ void SwLineRects::AddLineRect( const SwRect &rRect, const Color *pCol, const Svx
     for (reverse_iterator it = aLineRects.rbegin(); it != aLineRects.rend();
          ++it)
     {
-        SwLineRect &rLRect = (*it);
+        SwLineRect &rLRect = *it;
         // Test for the orientation, color, table
         if ( rLRect.GetTab() == pTab &&
              !rLRect.IsPainted() && rLRect.GetSubColor() == nSCol &&
@@ -596,7 +596,7 @@ void SwLineRects::ConnectEdges( OutputDevice const *pOut, SwPaintProperties cons
         // Collect all lines to possibly link with i1
         for (iterator it2 = aLineRects.begin(); it2 != aLineRects.end(); ++it2)
         {
-            SwLineRect &rL2 = (*it2);
+            SwLineRect &rL2 = *it2;
             if ( rL2.GetTab() != rL1.GetTab() ||
                  rL2.IsPainted()              ||
                  rL2.IsLocked()               ||
@@ -734,7 +734,7 @@ void SwSubsRects::RemoveSuperfluousSubsidiaryLines( const SwLineRects &rRects, S
     {
         // get a copy instead of a reference, because an <insert> may destroy
         // the object due to a necessary array resize.
-        const SwLineRect aSubsLineRect = SwLineRect(aLineRects[i]);
+        const SwLineRect aSubsLineRect(aLineRects[i]);
 
         // add condition <aSubsLineRect.IsLocked()> in order to consider only
         // border lines, which are *not* locked.
@@ -1714,8 +1714,8 @@ bool DrawFillAttributes(
                 // is not full opacity but 0.75 opacity) we need some overlap here to avoid paint
                 // artifacts. Checked experimentally - a little bit more in Y is needed, probably
                 // due to still existing integer alignment and crunching in writer.
-                static double fExpandX = 0.55;
-                static double fExpandY = 0.70;
+                static const double fExpandX = 0.55;
+                static const double fExpandY = 0.70;
                 const basegfx::B2DVector aSingleUnit(rOut.GetInverseViewTransformation() * basegfx::B2DVector(fExpandX, fExpandY));
 
                 aPaintRange.expand(aPaintRange.getMinimum() - aSingleUnit);
@@ -1927,7 +1927,6 @@ void DrawGraphic(
                                         aAlignedPaintRect.SVRect(),
                                         aGrf.SSize(),
                                         Size( aPaintOffset.X(), aPaintOffset.Y() ),
-                                        GraphicManagerDrawFlags::STANDARD,
                                         std::max( 128, static_cast<int>( sqrt(sqrt( Abitmap)) + .5 ) ) );
             }
             // reset clipping at output device
@@ -2112,7 +2111,7 @@ void DrawGraphic(
     {
         const BitmapEx& rBmp = rSh.GetReplacementBitmap(false);
         vcl::Font aTmp( pOutDev->GetFont() );
-        Graphic::DrawEx( pOutDev, aEmptyOUStr, aTmp, rBmp, rOrg.Pos(), rOrg.SSize() );
+        Graphic::DrawEx(pOutDev, OUString(), aTmp, rBmp, rOrg.Pos(), rOrg.SSize());
     }
 }
 
@@ -2278,7 +2277,7 @@ SwLineEntry::OverlapType SwLineEntry::Overlaps( const SwLineEntry& rNew )  const
         eRet = OVERLAP1;
 
     // 4, 5, 6, 7
-    else if ( mnStartPos <= rNew.mnStartPos && mnEndPos >= rNew.mnEndPos )
+    else if (mnStartPos <= rNew.mnStartPos)
         eRet = OVERLAP2;
 
     // 8, 9
@@ -3576,9 +3575,9 @@ void SwColumnFrame::PaintBreak( ) const
                                 aRect.Left() + nTextOff, aRect.Top() ) );
                     if ( IsVertical() )
                     {
-                        aTextMatrix = basegfx::B2DHomMatrix( basegfx::utils::createScaleShearXRotateTranslateB2DHomMatrix (
+                        aTextMatrix = basegfx::utils::createScaleShearXRotateTranslateB2DHomMatrix (
                                 aFontSize.getX(), aFontSize.getY(), 0.0, M_PI_2,
-                                aRect.Right(), aRect.Top() + nTextOff ) );
+                                aRect.Right(), aRect.Top() + nTextOff );
                     }
 
                     drawinglayer::primitive2d::TextSimplePortionPrimitive2D * pText =
@@ -4089,10 +4088,22 @@ void SwFlyFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect const& 
     // have to paint frame borders added in heaven layer here...
     ProcessPrimitives(gProp.pBLines->GetBorderLines_Clear());
 
+    PaintDecorators();
+
     rRenderContext.Pop();
 
     if ( gProp.pSProgress && pNoText )
         SfxProgress::Reschedule();
+}
+
+void SwFlyFrame::PaintDecorators() const
+{
+    // Show the un-float button
+    SwWrtShell* pWrtSh = dynamic_cast< SwWrtShell* >( gProp.pSGlobalShell );
+    if ( pWrtSh )
+    {
+        UpdateUnfloatButton(pWrtSh, IsShowUnfloatButton(pWrtSh));
+    }
 }
 
 void SwTabFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect const& rRect, SwPrintData const*const) const
@@ -6179,7 +6190,15 @@ void SwFrame::PaintSwFrameBackground( const SwRect &rRect, const SwPageFrame *pP
             }
             else
             {
-                ::lcl_CalcBorderRect( aRect, this, rAttrs, false, gProp);
+                if ( bPageFrame )
+                {
+                    aRect = getFrameArea();
+                }
+                else
+                {
+                   ::lcl_CalcBorderRect( aRect, this, rAttrs, false, gProp);
+                }
+
                 if ( (IsTextFrame() || IsTabFrame()) && GetPrev() )
                 {
                     if ( GetPrev()->GetAttrSet()->GetBackground() == GetAttrSet()->GetBackground() &&
@@ -6965,20 +6984,20 @@ const Color SwPageFrame::GetDrawBackgrdColor() const
 /// create/return font used to paint the "empty page" string
 const vcl::Font& SwPageFrame::GetEmptyPageFont()
 {
-    static vcl::Font* pEmptyPgFont = nullptr;
-    if ( nullptr == pEmptyPgFont )
+    static vcl::Font aEmptyPgFont = [&]()
     {
-        pEmptyPgFont = new vcl::Font;
-        pEmptyPgFont->SetFontSize( Size( 0, 80 * 20 )); // == 80 pt
-        pEmptyPgFont->SetWeight( WEIGHT_BOLD );
-        pEmptyPgFont->SetStyleName( aEmptyOUStr );
-        pEmptyPgFont->SetFamilyName("Helvetica");
-        pEmptyPgFont->SetFamily( FAMILY_SWISS );
-        pEmptyPgFont->SetTransparent( true );
-        pEmptyPgFont->SetColor( COL_GRAY );
-    }
+        vcl::Font tmp;
+        tmp.SetFontSize( Size( 0, 80 * 20 )); // == 80 pt
+        tmp.SetWeight( WEIGHT_BOLD );
+        tmp.SetStyleName(OUString());
+        tmp.SetFamilyName("Helvetica");
+        tmp.SetFamily( FAMILY_SWISS );
+        tmp.SetTransparent( true );
+        tmp.SetColor( COL_GRAY );
+        return tmp;
+    }();
 
-    return *pEmptyPgFont;
+    return aEmptyPgFont;
 }
 
 /**

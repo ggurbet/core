@@ -18,7 +18,6 @@
  */
 
 #include "ChartDropTargetHelper.hxx"
-#include <DiagramHelper.hxx>
 #include <DataSourceHelper.hxx>
 
 #include <com/sun/star/chart2/XChartDocument.hpp>
@@ -148,7 +147,7 @@ sal_Int8 ChartDropTargetHelper::ExecuteDrop( const ExecuteDropEvent& rEvt )
                                     {
                                         // @todo: using implicit knowledge that ranges can be
                                         // merged with ";". This should be done more general
-                                        pCellRange->Value <<= (aOldRange + ";" + aRangeString );
+                                        pCellRange->Value <<= aOldRange + ";" + aRangeString;
                                     }
                                     // move means replace range
                                     else

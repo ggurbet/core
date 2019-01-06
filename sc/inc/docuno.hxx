@@ -48,6 +48,7 @@
 #include <com/sun/star/sheet/XCellRangesAccess.hpp>
 #include <com/sun/star/sheet/opencl/XOpenCLSelection.hpp>
 #include <com/sun/star/util/XChangesNotifier.hpp>
+#include <com/sun/star/uno/XAggregation.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <svl/itemprop.hxx>
@@ -119,7 +120,10 @@ private:
         OUString const & aServiceSpecifier,
         css::uno::Sequence<css::uno::Any> const * arguments);
 
-    OUString           maBuildId;
+    static bool             IsOnEvenPage( sal_Int32 nPage ) { return nPage % 2 == 0; };
+
+    OUString                maBuildId;
+    std::vector<sal_Int32>  maValidPages;
 protected:
     const SfxItemPropertySet&   GetPropertySet() const { return aPropSet; }
 

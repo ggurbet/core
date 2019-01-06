@@ -20,6 +20,7 @@
 #include <svl/lckbitem.hxx>
 #include <svl/poolitem.hxx>
 #include <tools/stream.hxx>
+#include <tools/solar.h>
 #include <osl/diagnose.h>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -129,7 +130,7 @@ bool SfxLockBytesItem::QueryValue( css::uno::Any& rVal, sal_uInt8 ) const
         sal_uInt32 nLen;
         SvLockBytesStat aStat;
 
-        if ( _xVal->Stat( &aStat, SVSTATFLAG_DEFAULT ) == ERRCODE_NONE )
+        if ( _xVal->Stat( &aStat ) == ERRCODE_NONE )
             nLen = aStat.nSize;
         else
             return false;

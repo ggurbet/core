@@ -21,6 +21,7 @@
 #define INCLUDED_SW_SOURCE_CORE_INC_ACORRECT_HXX
 
 #include <memory>
+
 #include <tools/solar.h>
 #include <editeng/svxacorr.hxx>
 #include <swundo.hxx>
@@ -53,6 +54,7 @@ class SwAutoCorrDoc : public SvxAutoCorrDoc
     bool    bUndoIdInitialized;
 
     void DeleteSel( SwPaM& rDelPam );
+    void DeleteSelImpl(SwPaM & rDelPam);
 
 public:
     SwAutoCorrDoc( SwEditShell& rEditShell, SwPaM& rPam, sal_Unicode cIns = 0 );

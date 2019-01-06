@@ -628,7 +628,7 @@ void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
         auto iter( aOptimalColumns.begin() );
         while( iter != aOptimalColumns.end() )
         {
-            sal_Int32 nOptCol = (*iter++);
+            sal_Int32 nOptCol = *iter++;
             if( iter == aOptimalColumns.end() )
                 nDistribute = nLeft;
 
@@ -664,7 +664,9 @@ void TableLayouter::LayoutTableWidth( tools::Rectangle& rArea, bool bFit )
         }
 
         if( bChanges )
-            nCurrentWidth += maColumns[nCol].mnSize - nOldSize;
+        {
+            nCurrentWidth = o3tl::saturating_add(nCurrentWidth, maColumns[nCol].mnSize - nOldSize);
+        }
     }
 
     // now scale if wanted and needed
@@ -786,7 +788,7 @@ void TableLayouter::LayoutTableHeight( tools::Rectangle& rArea, bool bFit )
         auto iter( aOptimalRows.begin() );
         while( iter != aOptimalRows.end() )
         {
-            sal_Int32 nOptRow = (*iter++);
+            sal_Int32 nOptRow = *iter++;
             if( iter == aOptimalRows.end() )
                 nDistribute = nLeft;
 
@@ -1210,7 +1212,7 @@ void TableLayouter::DistributeRows( ::tools::Rectangle& rArea,
             nAllHeight += maRows[nRow].mnSize;
         }
 
-        const sal_Int32 nRows = (nLastRow-nFirstRow+1);
+        const sal_Int32 nRows = nLastRow-nFirstRow+1;
         sal_Int32 nHeight = nAllHeight / nRows;
 
         if ( !bMinimize && nHeight < nMaxHeight )

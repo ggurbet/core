@@ -642,11 +642,15 @@ void ScDrawLayer::ResizeLastRectFromAnchor(const SdrObject* pObj, ScDrawObjData&
     aPos.setX(TwipsToHmm(aPos.X()));
     aPos.setY(TwipsToHmm(aPos.Y()));
     aPos += lcl_calcAvailableDiff(*pDoc, nCol1, nRow1, nTab1, rData.maStartOffset);
+
+    // this sets the needed changed position (translation)
     aRect.SetPos(aPos);
 
     if (bCanResize)
     {
-        tools::Rectangle aLastCellRect = rData.getLastCellRect();
+        // all this stuff is additional stuff to evtl. not only translate the
+        // range (Rectangle), but also check for and evtl. do corrections for it's size
+        const tools::Rectangle aLastCellRect(rData.getLastCellRect());
 
         // If the row was hidden before, or we don't have a valid cell rect, calculate the
         // new rect based on the end point.
@@ -666,61 +670,105 @@ void ScDrawLayer::ResizeLastRectFromAnchor(const SdrObject* pObj, ScDrawObjData&
             // We calculate based on the last cell rect to be able to scale the image
             // as much as the cell was scaled.
             // Still, we keep the image in its current cell (to keep start anchor == end anchor)
-            tools::Rectangle aCurrentCellRect = GetCellRect(*GetDocument(), rData.maStart, true);
-            double fWidthFactor = static_cast<double>(aCurrentCellRect.GetWidth())
-                                  / static_cast<double>(aLastCellRect.GetWidth());
-            double fHeightFactor = static_cast<double>(aCurrentCellRect.GetHeight())
-                                   / static_cast<double>(aLastCellRect.GetHeight());
+            const tools::Rectangle aCurrentCellRect(GetCellRect(*GetDocument(), rData.maStart, true));
+            long nCurrentWidth(aCurrentCellRect.GetWidth());
+            long nCurrentHeight(aCurrentCellRect.GetHeight());
+            const long nLastWidth(aLastCellRect.GetWidth());
+            const long nLastHeight(aLastCellRect.GetHeight());
 
-            bool bIsGrowingLarger = aLastCellRect.GetWidth() * aLastCellRect.GetHeight()
-                                    < aCurrentCellRect.GetWidth() * aCurrentCellRect.GetHeight();
+            // tdf#116931 Avoid and correct nifty numerical problems with the integer
+            // based and converted values (GetCellRect uses multiplies with HMM_PER_TWIPS)
+            if(nCurrentWidth + 1 == nLastWidth || nCurrentWidth == nLastWidth + 1)
+            {
+                nCurrentWidth = nLastWidth;
+            }
 
-            if (pObj->shouldKeepAspectRatio())
+            if(nCurrentHeight + 1 == nLastHeight || nCurrentHeight == nLastHeight + 1)
+            {
+                nCurrentHeight = nLastHeight;
+            }
+
+            // get intial ScalingFactors
+            double fWidthFactor(nCurrentWidth == nLastWidth || 0 == nLastWidth
+                ? 1.0
+                : static_cast<double>(nCurrentWidth) / static_cast<double>(nLastWidth));
+            double fHeightFactor(nCurrentHeight == nLastHeight || 0 == nLastHeight
+                ? 1.0
+                : static_cast<double>(nCurrentHeight) / static_cast<double>(nLastHeight));
+
+            // check if we grow or shrink - and at all
+            const bool bIsGrowing(nCurrentWidth > nLastWidth || nCurrentHeight > nLastHeight);
+            const bool bIsShrinking(nCurrentWidth < nLastWidth || nCurrentHeight < nLastHeight);
+            const bool bIsSizeChanged(bIsGrowing || bIsShrinking);
+
+            // handle AspectRatio, only needed if size does change
+            if(bIsSizeChanged && pObj->shouldKeepAspectRatio())
             {
                 tools::Rectangle aRectIncludingOffset = aRect;
                 aRectIncludingOffset.setWidth(aRect.GetWidth() + rData.maStartOffset.X());
                 aRectIncludingOffset.setHeight(aRect.GetHeight() + rData.maStartOffset.Y());
                 long nWidth = aRectIncludingOffset.GetWidth();
                 assert(nWidth && "div-by-zero");
-                double fMaxWidthFactor = static_cast<double>(aCurrentCellRect.GetWidth())
+                double fMaxWidthFactor = static_cast<double>(nCurrentWidth)
                                          / static_cast<double>(nWidth);
                 long nHeight = aRectIncludingOffset.GetHeight();
                 assert(nHeight && "div-by-zero");
-                double fMaxHeightFactor = static_cast<double>(aCurrentCellRect.GetHeight())
+                double fMaxHeightFactor = static_cast<double>(nCurrentHeight)
                                           / static_cast<double>(nHeight);
                 double fMaxFactor = std::min(fMaxHeightFactor, fMaxWidthFactor);
 
-                if (bIsGrowingLarger) // cell is growing larger
+                if(bIsGrowing) // cell is growing larger
                 {
                     // To actually grow the image, we need to take the max
                     fWidthFactor = fHeightFactor = std::max(fWidthFactor, fHeightFactor);
                 }
-                else // cell is growing smaller, take the min
+                else if(bIsShrinking) // cell is growing smaller, take the min
                 {
                     fWidthFactor = fHeightFactor = std::min(fWidthFactor, fHeightFactor);
                 }
+
                 // We don't want the image to become larger than the current cell
                 fWidthFactor = fHeightFactor = std::min(fWidthFactor, fMaxFactor);
             }
 
-            // When shrinking the cell, and the image still fits in the smaller cell, don't resize it at all
-            if (bIsGrowingLarger
-                || rData.getShapeRect().GetUnion(aCurrentCellRect) != aCurrentCellRect)
+            if(bIsSizeChanged)
             {
-                aRect.setWidth(
-                    rtl::math::round(static_cast<double>(aRect.GetWidth()) * fWidthFactor));
-                aRect.setHeight(
-                    rtl::math::round(static_cast<double>(aRect.GetHeight()) * fHeightFactor));
+                // tdf#116931 re-organized scaling (if needed)
+                // Check if we need to scale at all. Always scale on growing.
+                bool bNeedToScale(bIsGrowing);
 
-                // Reduce offset also when shrinking
-                if (!bIsGrowingLarger)
+                if(!bNeedToScale && bIsShrinking)
                 {
-                    Point aAvailableSpaceInCell = Point(aRect.getX() - aLastCellRect.TopLeft().X(),
-                                                        aRect.getY() - aLastCellRect.TopLeft().Y());
-                    aRect.setX(rtl::math::round(static_cast<double>(aRect.getX())
-                                                + aAvailableSpaceInCell.X() * fWidthFactor));
-                    aRect.setY(rtl::math::round(static_cast<double>(aRect.getY())
-                                                + aAvailableSpaceInCell.Y() * fHeightFactor));
+                    // Check if original still fits into space. Do *not* forget to
+                    // compare with evtl. numerically corrected aCurrentCellRect
+                    const bool bFitsInX(aRect.Right() <= aCurrentCellRect.Left() + nCurrentWidth);
+                    const bool bFitsInY(aRect.Bottom() <= aCurrentCellRect.Top() + nCurrentHeight);
+
+                    // If the image still fits in the smaller cell, don't resize it at all
+                    bNeedToScale = (!bFitsInX || !bFitsInY);
+                }
+
+                if(bNeedToScale)
+                {
+                    // tdf#116931 use transformations now. Translation is already applied
+                    // (see aRect.SetPos above), so only scale needs to be applied - relative
+                    // to *new* CellRect (which is aCurrentCellRect).
+                    // Prepare scale relative to top-left of aCurrentCellRect
+                    basegfx::B2DHomMatrix aChange;
+
+                    aChange.translate(-aCurrentCellRect.getX(), -aCurrentCellRect.getY());
+                    aChange.scale(fWidthFactor, fHeightFactor);
+                    aChange.translate(aCurrentCellRect.getX(), aCurrentCellRect.getY());
+
+                    // create B2DRange and transform by prepared scale
+                    basegfx::B2DRange aNewRange(aRect.Left(), aRect.Top(), aRect.Right(), aRect.Bottom());
+
+                    aNewRange.transform(aChange);
+
+                    // apply to aRect
+                    aRect = tools::Rectangle(
+                        basegfx::fround(aNewRange.getMinX()), basegfx::fround(aNewRange.getMinY()),
+                        basegfx::fround(aNewRange.getMaxX()), basegfx::fround(aNewRange.getMaxY()));
                 }
             }
         }
@@ -947,7 +995,14 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
             // Ok, here is more nastiness, from xml the Anchor is in terms of the LogicRect which is the
             // untransformed unrotated shape, here we swap out that initial anchor and from now on use
             // an Anchor based on the SnapRect ( which is what you see on the screen )
-            ScDrawLayer::GetCellAnchorFromPosition( *pObj, rData, *pDoc, nTab1, false, false );
+            const tools::Rectangle aObjRect(pObj->GetSnapRect());
+            ScDrawLayer::GetCellAnchorFromPosition(
+                aObjRect,
+                rData,
+                *pDoc,
+                nTab1,
+                false);
+
             // reset shape to true 'maybe affected by hidden rows/cols' size calculated previously
             pObj->SetLogicRect(rNoRotatedAnchor.getShapeRect());
         }
@@ -1967,13 +2022,25 @@ void ScDrawLayer::SetCellAnchoredFromPosition( SdrObject &rObj, const ScDocument
     ScDrawObjData aAnchor;
     // set anchor in terms of the visual ( SnapRect )
     // object ( e.g. for when object is rotated )
-    GetCellAnchorFromPosition( rObj, aAnchor, rDoc, nTab, false );
+    const tools::Rectangle aObjRect(rObj.GetSnapRect());
+    GetCellAnchorFromPosition(
+        aObjRect,
+        aAnchor,
+        rDoc,
+        nTab);
+
     aAnchor.mbResizeWithCell = bResizeWithCell;
     SetCellAnchored( rObj, aAnchor );
     // - keep also an anchor in terms of the Logic ( untransformed ) object
     // because that's what we stored ( and still do ) to xml
     ScDrawObjData aVisAnchor;
-    GetCellAnchorFromPosition( rObj, aVisAnchor, rDoc, nTab );
+    const tools::Rectangle aObjRect2(rObj.GetLogicRect());
+    GetCellAnchorFromPosition(
+        aObjRect2,
+        aVisAnchor,
+        rDoc,
+        nTab);
+
     aVisAnchor.mbResizeWithCell = bResizeWithCell;
     SetVisualCellAnchored( rObj, aVisAnchor );
     // absolutely necessary to set flag that in order to prevent ScDrawLayer::RecalcPos
@@ -1984,31 +2051,34 @@ void ScDrawLayer::SetCellAnchoredFromPosition( SdrObject &rObj, const ScDocument
     }
 }
 
-void ScDrawLayer::GetCellAnchorFromPosition( const SdrObject &rObj, ScDrawObjData &rAnchor, const ScDocument &rDoc, SCTAB nTab, bool bUseLogicRect, bool bHiddenAsZero )
+void ScDrawLayer::GetCellAnchorFromPosition(
+    const tools::Rectangle &rObjRect,
+    ScDrawObjData &rAnchor,
+    const ScDocument &rDoc,
+    SCTAB nTab,
+    bool bHiddenAsZero)
 {
-    tools::Rectangle aObjRect( bUseLogicRect ? rObj.GetLogicRect() : rObj.GetSnapRect() );
-    ScRange aRange = rDoc.GetRange( nTab, aObjRect, bHiddenAsZero );
+    ScRange aRange = rDoc.GetRange( nTab, rObjRect, bHiddenAsZero );
 
     tools::Rectangle aCellRect;
 
     rAnchor.maStart = aRange.aStart;
     aCellRect = rDoc.GetMMRect( aRange.aStart.Col(), aRange.aStart.Row(),
       aRange.aStart.Col(), aRange.aStart.Row(), aRange.aStart.Tab(), bHiddenAsZero );
-    rAnchor.maStartOffset.setY( aObjRect.Top()-aCellRect.Top() );
+    rAnchor.maStartOffset.setY( rObjRect.Top()-aCellRect.Top() );
     if (!rDoc.IsNegativePage(nTab))
-        rAnchor.maStartOffset.setX( aObjRect.Left()-aCellRect.Left() );
+        rAnchor.maStartOffset.setX( rObjRect.Left()-aCellRect.Left() );
     else
-        rAnchor.maStartOffset.setX( aCellRect.Right()-aObjRect.Right() );
+        rAnchor.maStartOffset.setX( aCellRect.Right()-rObjRect.Right() );
 
     rAnchor.maEnd = aRange.aEnd;
     aCellRect = rDoc.GetMMRect( aRange.aEnd.Col(), aRange.aEnd.Row(),
       aRange.aEnd.Col(), aRange.aEnd.Row(), aRange.aEnd.Tab(), bHiddenAsZero );
-    rAnchor.maEndOffset.setY( aObjRect.Bottom()-aCellRect.Top() );
+    rAnchor.maEndOffset.setY( rObjRect.Bottom()-aCellRect.Top() );
     if (!rDoc.IsNegativePage(nTab))
-        rAnchor.maEndOffset.setX( aObjRect.Right()-aCellRect.Left() );
+        rAnchor.maEndOffset.setX( rObjRect.Right()-aCellRect.Left() );
     else
-        rAnchor.maEndOffset.setX( aCellRect.Right()-aObjRect.Left() );
-
+        rAnchor.maEndOffset.setX( aCellRect.Right()-rObjRect.Left() );
 }
 
 void ScDrawLayer::UpdateCellAnchorFromPositionEnd( const SdrObject &rObj, ScDrawObjData &rAnchor, const ScDocument &rDoc, SCTAB nTab, bool bUseLogicRect )

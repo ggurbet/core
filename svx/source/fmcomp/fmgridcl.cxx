@@ -100,8 +100,7 @@ struct FmGridHeaderData
 
 static void SetMenuItem(const OUString& rImgID, const OString &rID, Menu& rMenu, bool bDesignMode)
 {
-    BitmapEx aBitmap(rImgID);
-    Image aImage(aBitmap);
+    Image aImage(StockImage::Yes, rImgID);
     sal_uInt16 nID = rMenu.GetItemId(rID);
     rMenu.SetItemImage(nID, aImage);
     rMenu.EnableItem(nID, bDesignMode);
@@ -1898,12 +1897,12 @@ namespace
 }
 
 // Object data and state
-OUString FmGridControl::GetAccessibleObjectName( ::svt::AccessibleBrowseBoxObjType _eObjType,sal_Int32 _nPosition ) const
+OUString FmGridControl::GetAccessibleObjectName( ::vcl::AccessibleBrowseBoxObjType _eObjType,sal_Int32 _nPosition ) const
 {
     OUString sRetText;
     switch( _eObjType )
     {
-        case ::svt::BBTYPE_BROWSEBOX:
+        case ::vcl::BBTYPE_BROWSEBOX:
             if ( GetPeer() )
             {
                 Reference<XPropertySet> xProp(GetPeer()->getColumns(),UNO_QUERY);
@@ -1911,7 +1910,7 @@ OUString FmGridControl::GetAccessibleObjectName( ::svt::AccessibleBrowseBoxObjTy
                     xProp->getPropertyValue(FM_PROP_NAME) >>= sRetText;
             }
             break;
-        case ::svt::BBTYPE_COLUMNHEADERCELL:
+        case ::vcl::BBTYPE_COLUMNHEADERCELL:
             sRetText = getColumnPropertyFromPeer(
                 GetPeer(),
                 GetModelColumnPos(
@@ -1924,12 +1923,12 @@ OUString FmGridControl::GetAccessibleObjectName( ::svt::AccessibleBrowseBoxObjTy
     return sRetText;
 }
 
-OUString FmGridControl::GetAccessibleObjectDescription( ::svt::AccessibleBrowseBoxObjType _eObjType,sal_Int32 _nPosition ) const
+OUString FmGridControl::GetAccessibleObjectDescription( ::vcl::AccessibleBrowseBoxObjType _eObjType,sal_Int32 _nPosition ) const
 {
     OUString sRetText;
     switch( _eObjType )
     {
-        case ::svt::BBTYPE_BROWSEBOX:
+        case ::vcl::BBTYPE_BROWSEBOX:
             if ( GetPeer() )
             {
                 Reference<XPropertySet> xProp(GetPeer()->getColumns(),UNO_QUERY);
@@ -1941,7 +1940,7 @@ OUString FmGridControl::GetAccessibleObjectDescription( ::svt::AccessibleBrowseB
                 }
             }
             break;
-        case ::svt::BBTYPE_COLUMNHEADERCELL:
+        case ::vcl::BBTYPE_COLUMNHEADERCELL:
             sRetText = getColumnPropertyFromPeer(
                 GetPeer(),
                 GetModelColumnPos(

@@ -183,7 +183,7 @@ SfxInfoBarWindow::SfxInfoBarWindow(vcl::Window* pParent, const OUString& sId,
     long nWidth = pParent->GetSizePixel().getWidth();
     SetPosSizePixel(Point(0, 0), Size(nWidth, INFO_BAR_BASE_HEIGHT * fScaleFactor));
 
-    m_pImage->SetImage(Image(BitmapEx(GetInfoBarIconName(ibType))));
+    m_pImage->SetImage(Image(StockImage::Yes, GetInfoBarIconName(ibType)));
     m_pImage->SetPaintTransparent(true);
     m_pImage->Show();
 
@@ -222,8 +222,8 @@ void SfxInfoBarWindow::SetForeAndBackgroundColors(InfoBarType eType)
 
 void SfxInfoBarWindow::dispose()
 {
-    for ( auto it = m_aActionBtns.begin( ); it != m_aActionBtns.end( ); ++it )
-        it->disposeAndClear();
+    for ( auto& rxBtn : m_aActionBtns )
+        rxBtn.disposeAndClear();
 
     m_pImage.disposeAndClear();
     m_pMessage.disposeAndClear();
@@ -305,7 +305,7 @@ void SfxInfoBarWindow::Update( const OUString &sNewMessage, InfoBarType eType )
     {
         m_eType = eType;
         SetForeAndBackgroundColors(m_eType);
-        m_pImage->SetImage(Image(BitmapEx(GetInfoBarIconName(eType))));
+        m_pImage->SetImage(Image(StockImage::Yes, GetInfoBarIconName(eType)));
     }
 
     m_pMessage->SetText( sNewMessage );
@@ -382,14 +382,11 @@ bool SfxInfoBarContainerWindow::hasInfoBarWithID( const OUString &sId )
 void SfxInfoBarContainerWindow::removeInfoBar(VclPtr<SfxInfoBarWindow> const & pInfoBar)
 {
     // Remove
-    for (auto it = m_pInfoBars.begin(); it != m_pInfoBars.end(); ++it)
+    auto it = std::find(m_pInfoBars.begin(), m_pInfoBars.end(), pInfoBar);
+    if (it != m_pInfoBars.end())
     {
-        if (pInfoBar == *it)
-        {
-            it->disposeAndClear();
-            m_pInfoBars.erase(it);
-            break;
-        }
+        it->disposeAndClear();
+        m_pInfoBars.erase(it);
     }
 
     // Resize
@@ -412,12 +409,12 @@ void SfxInfoBarContainerWindow::Resize()
     // Only need to change the width of the infobars
     long nWidth = GetSizePixel().getWidth();
 
-    for (auto it = m_pInfoBars.begin(); it != m_pInfoBars.end(); ++it)
+    for (auto& rxInfoBar : m_pInfoBars)
     {
-        Size aSize = (*it)->GetSizePixel();
+        Size aSize = rxInfoBar->GetSizePixel();
         aSize.setWidth(nWidth);
-        (*it)->SetSizePixel(aSize);
-        (*it)->Resize();
+        rxInfoBar->SetSizePixel(aSize);
+        rxInfoBar->Resize();
     }
 }
 

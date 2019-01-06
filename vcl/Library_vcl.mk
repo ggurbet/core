@@ -230,10 +230,12 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/outdev/vclreferencebase \
     vcl/source/outdev/nativecontrols \
     vcl/source/outdev/map \
+    vcl/source/treelist/headbar \
     vcl/source/treelist/imap \
     vcl/source/treelist/imap2 \
     vcl/source/treelist/imap3 \
     vcl/source/treelist/inetimg \
+    vcl/source/treelist/svtabbx \
     vcl/source/treelist/transfer \
     vcl/source/treelist/transfer2 \
     vcl/source/treelist/viewdataentry \
@@ -258,6 +260,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/embeddedfontshelper \
     vcl/source/gdi/extoutdevdata \
     vcl/source/gdi/gdimtf \
+    vcl/source/gdi/mtfxmldump \
     vcl/source/gdi/gdimetafiletools \
     vcl/source/gdi/gfxlink \
     vcl/source/gdi/gradient \
@@ -351,6 +354,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/helper/evntpost \
     vcl/source/helper/lazydelete \
     vcl/source/helper/strhelper \
+    vcl/source/helper/svtaccessiblefactory \
     vcl/source/helper/threadex \
     vcl/source/app/brand \
     vcl/source/app/customweld \
@@ -377,6 +381,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/app/unohelp2 \
     vcl/source/app/unohelp \
     vcl/source/app/vclevent \
+    vcl/source/app/winscheduler \
     vcl/source/components/dtranscomp \
     vcl/source/components/factory \
     vcl/source/components/fontident \

@@ -21,9 +21,11 @@
 #include <sfx2/inputdlg.hxx>
 
 #include <sal/log.hxx>
+#include <vcl/accel.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
+#include <vcl/fixed.hxx>
 
 #include <unotools/dynamicmenuoptions.hxx>
 #include <unotools/historyoptions.hxx>
@@ -770,9 +772,9 @@ void BackingWindow::dispatchURL( const OUString& i_rURL,
         // dispatch the URL
         if ( xDispatch.is() )
         {
-            ImplDelayedDispatch* pDisp = new ImplDelayedDispatch( xDispatch, aDispatchURL, i_rArgs );
-            if( Application::PostUserEvent( Link<void*,void>( nullptr, implDispatchDelayed ), pDisp ) == nullptr )
-                delete pDisp; // event could not be posted for unknown reason, at least don't leak
+            std::unique_ptr<ImplDelayedDispatch> pDisp(new ImplDelayedDispatch( xDispatch, aDispatchURL, i_rArgs ));
+            if( Application::PostUserEvent( Link<void*,void>( nullptr, implDispatchDelayed ), pDisp.get() ) )
+                pDisp.release();
         }
     }
     catch (const css::uno::RuntimeException&)

@@ -28,6 +28,8 @@
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <unotools/fontdefs.hxx>
+#include <unotools/intlwrapper.hxx>
+#include <unotools/syslocale.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/unohelp.hxx>
 #include <editeng/eeitem.hxx>
@@ -97,8 +99,6 @@
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::text;
-
-bool SvxFontItem::bEnableStoreUnicodeNames = false;
 
 SfxPoolItem* SvxFontItem::CreateDefault() {return new SvxFontItem(0);}
 SfxPoolItem* SvxPostureItem::CreateDefault() { return new SvxPostureItem(ITALIC_NONE, 0);}
@@ -343,14 +343,6 @@ SvStream& SvxFontItem::Store( SvStream& rStrm , sal_uInt16 /*nItemVersion*/ ) co
         aStoreFamilyName = "StarBats";
     rStrm.WriteUniOrByteString(aStoreFamilyName, rStrm.GetStreamCharSet());
     rStrm.WriteUniOrByteString(GetStyleName(), rStrm.GetStreamCharSet());
-
-    // catch for EditEngine, only set while creating clipboard stream.
-    if ( bEnableStoreUnicodeNames )
-    {
-        rStrm.WriteUInt32( STORE_UNICODE_MAGIC_MARKER );
-        rStrm.WriteUniOrByteString( aStoreFamilyName, RTL_TEXTENCODING_UNICODE );
-        rStrm.WriteUniOrByteString( GetStyleName(), RTL_TEXTENCODING_UNICODE );
-    }
 
     return rStrm;
 }
@@ -1745,6 +1737,18 @@ bool SvxColorItem::GetPresentation
     return true;
 }
 
+void SvxColorItem::dumpAsXml(xmlTextWriterPtr pWriter) const
+{
+    xmlTextWriterStartElement(pWriter, BAD_CAST("SvxColorItem"));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("whichId"), BAD_CAST(OString::number(Which()).getStr()));
+    OUString aStr;
+    IntlWrapper aIntlWrapper(SvtSysLocale().GetUILanguageTag());
+    GetPresentation( SfxItemPresentation::Complete, MapUnit::Map100thMM, MapUnit::Map100thMM, aStr, aIntlWrapper);
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("value"), BAD_CAST(OUStringToOString(aStr, RTL_TEXTENCODING_UTF8).getStr()));
+    xmlTextWriterEndElement(pWriter);
+}
+
+
 
 void SvxColorItem::SetValue( const Color& rNewCol )
 {
@@ -2922,7 +2926,7 @@ void SvxScriptSetItem::GetSlotIds( sal_uInt16 nSlotId, sal_uInt16& rLatin,
     {
     default:
         SAL_WARN( "editeng.items", "wrong SlotId for class SvxScriptSetItem" );
-        SAL_FALLTHROUGH; // default to font - Id Range !!
+        [[fallthrough]]; // default to font - Id Range !!
 
     case SID_ATTR_CHAR_FONT:
         rLatin = SID_ATTR_CHAR_FONT;

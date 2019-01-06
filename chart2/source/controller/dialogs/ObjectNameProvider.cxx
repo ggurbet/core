@@ -26,7 +26,6 @@
 #include <DiagramHelper.hxx>
 #include <DataSeriesHelper.hxx>
 #include <TitleHelper.hxx>
-#include <AxisIndexDefines.hxx>
 #include <ExplicitCategoriesProvider.hxx>
 #include <CommonConverters.hxx>
 #include <NumberFormatterWrapper.hxx>
@@ -36,6 +35,7 @@
 #include <sal/log.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
+#include <unotools/localedatawrapper.hxx>
 
 #include <com/sun/star/chart2/XTitle.hpp>
 #include <com/sun/star/chart2/XRegressionCurveContainer.hpp>

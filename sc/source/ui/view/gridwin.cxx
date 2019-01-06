@@ -37,7 +37,7 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/ipclient.hxx>
 #include <svl/stritem.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <svl/urlbmk.hxx>
 #include <svl/sharedstringpool.hxx>
 #include <vcl/cursor.hxx>
@@ -684,15 +684,14 @@ void ScGridWindow::LaunchAutoFilterMenu(SCCOL nCol, SCROW nRow)
 
     mpAutoFilterPopup->setHasDates(aFilterEntries.mbHasDates);
     mpAutoFilterPopup->setMemberSize(aFilterEntries.size());
-    std::vector<ScTypedStrData>::const_iterator it = aFilterEntries.begin(), itEnd = aFilterEntries.end();
-    for (; it != itEnd; ++it)
+    for (const auto& rEntry : aFilterEntries)
     {
-        const OUString& aVal = it->GetString();
+        const OUString& aVal = rEntry.GetString();
         bool bSelected = true;
         if (!aSelected.empty())
             bSelected = aSelected.count(aVal) > 0;
-        if ( it->IsDate() )
-            mpAutoFilterPopup->addDateMember( aVal, it->GetValue(), bSelected );
+        if ( rEntry.IsDate() )
+            mpAutoFilterPopup->addDateMember( aVal, rEntry.GetValue(), bSelected );
         else
             mpAutoFilterPopup->addMember(aVal, bSelected);
     }
@@ -1134,9 +1133,8 @@ void ScGridWindow::LaunchDataSelectMenu( SCCOL nCol, SCROW nRow )
         if (bWait)
             EnterWait();
 
-        std::vector<ScTypedStrData>::const_iterator it = aStrings.begin(), itEnd = aStrings.end();
-        for (; it != itEnd; ++it)
-            mpFilterBox->InsertEntry(it->GetString());
+        for (const auto& rString : aStrings)
+            mpFilterBox->InsertEntry(rString.GetString());
 
         if (bWait)
             LeaveWait();
@@ -1162,25 +1160,17 @@ void ScGridWindow::LaunchDataSelectMenu( SCCOL nCol, SCROW nRow )
             else
                 pNew.reset(new ScTypedStrData(aDocStr, 0.0, ScTypedStrData::Standard));
 
-            bool bSortList = ( pData->GetListType() == css::sheet::TableValidationVisibility::SORTEDASCENDING);
-            if ( bSortList )
+            if (pData->GetListType() == css::sheet::TableValidationVisibility::SORTEDASCENDING)
             {
-                std::vector<ScTypedStrData>::const_iterator itBeg = aStrings.begin(), itEnd = aStrings.end();
-                std::vector<ScTypedStrData>::const_iterator it =
-                    std::find_if(itBeg, itEnd, FindTypedStrData(*pNew, true));
-                if (it != itEnd)
-                    // Found!
-                    nSelPos = std::distance(itBeg, it);
+                auto it = std::lower_bound(aStrings.begin(), aStrings.end(), *pNew, ScTypedStrData::LessCaseSensitive());
+                if (it != aStrings.end() && ScTypedStrData::EqualCaseSensitive()(*it, *pNew))
+                    nSelPos = static_cast<sal_Int32>(std::distance(aStrings.begin(), it));
             }
             else
             {
-                std::vector<ScTypedStrData>::const_iterator itBeg = aStrings.begin(), itEnd = aStrings.end();
-                std::vector<ScTypedStrData>::const_iterator it = itBeg;
-                for (; it != itEnd && LISTBOX_ENTRY_NOTFOUND == nSelPos; ++it)
-                {
-                    if (ScTypedStrData::EqualCaseSensitive()(*it, *pNew))
-                        nSelPos = std::distance(itBeg, it);
-                }
+                auto it = std::find_if(aStrings.begin(), aStrings.end(), FindTypedStrData(*pNew, true));
+                if (it != aStrings.end())
+                    nSelPos = static_cast<sal_Int32>(std::distance(aStrings.begin(), it));
             }
         }
     }

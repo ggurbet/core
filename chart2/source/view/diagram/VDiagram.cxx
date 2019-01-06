@@ -25,15 +25,10 @@
 #include <ObjectIdentifier.hxx>
 #include <DiagramHelper.hxx>
 #include <BaseGFXHelper.hxx>
-#include <CommonConverters.hxx>
 #include <ChartTypeHelper.hxx>
 #include <ThreeDHelper.hxx>
 #include <defines.hxx>
 #include <editeng/unoprnms.hxx>
-#include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/drawing/LineStyle.hpp>
-#include <com/sun/star/drawing/ProjectionMode.hpp>
-#include <com/sun/star/drawing/ShadeMode.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/lang/XTypeProvider.hpp>
 #include <svx/unoshape.hxx>
@@ -126,11 +121,11 @@ void VDiagram::createShapes( const awt::Point& rPos, const awt::Size& rSize )
         //do not change aspect ratio
         awt::Size  aAspectRatio( static_cast<sal_Int32>(m_aPreferredAspectRatio.DirectionX*FIXED_SIZE_FOR_3D_CHART_VOLUME),
                                  static_cast<sal_Int32>(m_aPreferredAspectRatio.DirectionY*FIXED_SIZE_FOR_3D_CHART_VOLUME ));
-        m_aCurrentSizeWithoutAxes = awt::Size( ShapeFactory::calculateNewSizeRespectingAspectRatio(
-                        rAvailableSize, aAspectRatio ) );
+        m_aCurrentSizeWithoutAxes = ShapeFactory::calculateNewSizeRespectingAspectRatio(
+                        rAvailableSize, aAspectRatio );
         //center diagram position
-        m_aCurrentPosWithoutAxes = awt::Point( ShapeFactory::calculateTopLeftPositionToCenterObject(
-            rPos, rAvailableSize, m_aCurrentSizeWithoutAxes ) );
+        m_aCurrentPosWithoutAxes = ShapeFactory::calculateTopLeftPositionToCenterObject(
+            rPos, rAvailableSize, m_aCurrentSizeWithoutAxes );
 
     }
 

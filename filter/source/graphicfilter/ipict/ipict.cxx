@@ -22,8 +22,10 @@
 #include <sal/log.hxx>
 #include <vcl/BitmapTools.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/gdimtf.hxx>
 #include <tools/poly.hxx>
 #include <tools/fract.hxx>
+#include <tools/stream.hxx>
 #include <vcl/virdev.hxx>
 #include <math.h>
 
@@ -68,7 +70,7 @@ namespace PictReaderInternal {
     bool isDefault() const { return !isRead; }
 
     enum PenStyle { PEN_NULL, PEN_SOLID, PEN_DOT, PEN_DASH, PEN_DASHDOT };
-    enum BrushStyle { BRUSH_NULL, BRUSH_SOLID, BRUSH_HORZ, BRUSH_VERT,
+    enum BrushStyle { BRUSH_SOLID, BRUSH_HORZ, BRUSH_VERT,
               BRUSH_CROSS, BRUSH_DIAGCROSS, BRUSH_UPDIAG, BRUSH_DOWNDIAG,
               BRUSH_25, BRUSH_50, BRUSH_75 };
     // Data
@@ -303,9 +305,8 @@ static void SetByte(sal_uInt16& nx, sal_uInt16 ny, vcl::bitmap::RawBitmap& rBitm
 
 //=================== methods of PictReader ==============================
 rtl_TextEncoding PictReader::GetTextEncoding (sal_uInt16 fId) {
-  static bool first = true;
-  static rtl_TextEncoding enc = RTL_TEXTENCODING_APPLE_ROMAN;
-  if (first) {
+  static rtl_TextEncoding enc = [&]()
+  {
     rtl_TextEncoding def = osl_getThreadTextEncoding();
     // we keep osl_getThreadTextEncoding only if it is a mac encoding
     switch(def) {
@@ -329,11 +330,12 @@ rtl_TextEncoding PictReader::GetTextEncoding (sal_uInt16 fId) {
     case RTL_TEXTENCODING_APPLE_CHINTRAD:
     case RTL_TEXTENCODING_APPLE_JAPANESE:
     case RTL_TEXTENCODING_APPLE_KOREAN:
-      enc = def; break;
-    default: break;
+      return def; break;
+    default:
+        break;
     }
-    first = false;
-  }
+    return RTL_TEXTENCODING_APPLE_ROMAN;
+  }();
   if (fId == 13) return RTL_TEXTENCODING_ADOBE_DINGBATS; // CHECKME
   if (fId == 23) return RTL_TEXTENCODING_ADOBE_SYMBOL;
   return enc;

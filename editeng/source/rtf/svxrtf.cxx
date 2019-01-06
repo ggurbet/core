@@ -24,6 +24,7 @@
 #include <svl/whiter.hxx>
 #include <svtools/rtftoken.h>
 #include <svl/itempool.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 #include <comphelper/string.hxx>
 
@@ -170,7 +171,7 @@ void SvxRTFParser::NextToken( int nToken )
     case RTF_RDBLQUOTE:     cCh = 0x201D;   goto INSINGLECHAR;
 INSINGLECHAR:
         aToken = OUString(cCh);
-        SAL_FALLTHROUGH; // aToken is set as Text
+        [[fallthrough]]; // aToken is set as Text
     case RTF_TEXTTOKEN:
         {
             InsertText();
@@ -315,7 +316,7 @@ void SvxRTFParser::ReadStyleTable()
             break;
 
         case RTF_SBASEDON:  pStyle->nBasedOn = sal_uInt16(nTokenValue); break;
-        case RTF_SNEXT:     pStyle->nNext = sal_uInt16(nTokenValue);    break;
+        case RTF_SNEXT:     break;
         case RTF_OUTLINELEVEL:
         case RTF_SOUTLVL:   pStyle->nOutlineNo = sal_uInt8(nTokenValue);    break;
         case RTF_S:         nStyleNo = static_cast<short>(nTokenValue);
@@ -412,7 +413,7 @@ void SvxRTFParser::ReadColorTable()
                     : -1 == aToken.indexOf( ";" ) )
                 break;      // At least the ';' must be found
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case ';':
             if( IsParserWorking() )
@@ -503,7 +504,7 @@ void SvxRTFParser::ReadFontTable()
             // for technical/symbolic font of the rtl_TextEncoding is changed!
             case RTF_FTECH:
                 pFont->SetCharSet( RTL_TEXTENCODING_SYMBOL );
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case RTF_FNIL:
                 pFont->SetFamily( FAMILY_DONTKNOW );
                 break;
@@ -925,7 +926,6 @@ SvxRTFStyleType::SvxRTFStyleType( SfxItemPool& rPool, const sal_uInt16* pWhichRa
 {
     nOutlineNo = sal_uInt8(-1);         // not set
     nBasedOn = 0;
-    nNext = 0;
 }
 
 

@@ -60,6 +60,25 @@ public:
     int const mLineNumber;
 };
 
+class InvalidParameterCount
+{
+public:
+    InvalidParameterCount( int parameterCount, const std::string& file, int ln );
+
+    int mParameterCount;
+    std::string mFile;
+    int const mLineNumber;
+};
+
+// Helper macro to be used in code emitting OpenCL code for Calc functions.
+// Requires the vSubArguments parameter.
+#define CHECK_PARAMETER_COUNT(min, max) \
+    do { \
+        const int count = vSubArguments.size(); \
+        if( count < ( min ) || count > ( max )) \
+            throw InvalidParameterCount( count, __FILE__, __LINE__ ); \
+    } while( false )
+
 typedef std::shared_ptr<FormulaTreeNode> FormulaTreeNodeRef;
 
 class FormulaTreeNode
@@ -180,6 +199,8 @@ public:
         std::set<std::string>& ) { }
     virtual bool takeString() const = 0;
     virtual bool takeNumeric() const = 0;
+    // Whether DoubleRef containing more than one column is handled properly.
+    virtual bool canHandleMultiVector() const { return false; }
     //Continue process 'Zero' or Not(like OpMul, not continue process when meet
     // 'Zero'
     virtual bool ZeroReturnZero() { return false;}

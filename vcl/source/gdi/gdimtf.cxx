@@ -22,6 +22,7 @@
 #include <memory>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/helpers.hxx>
 #include <tools/stream.hxx>
 #include <tools/vcompat.hxx>
 #include <tools/fract.hxx>
@@ -36,6 +37,7 @@
 #include <comphelper/fileformat.h>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <vcl/canvastools.hxx>
+#include <vcl/mtfxmldump.hxx>
 
 #include <svmconverter.hxx>
 
@@ -2831,6 +2833,13 @@ bool GDIMetaFile::CreateThumbnail(BitmapEx& rBitmapEx, BmpConversion eColorConve
 void GDIMetaFile::UseCanvas( bool _bUseCanvas )
 {
     m_bUseCanvas = _bUseCanvas;
+}
+
+void GDIMetaFile::dumpAsXml() const
+{
+    SvFileStream aStream("metafile.xml", StreamMode::STD_READWRITE | StreamMode::TRUNC);
+    MetafileXmlDump aDumper;
+    aDumper.dump(*this, aStream);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

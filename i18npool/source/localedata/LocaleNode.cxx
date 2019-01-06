@@ -699,7 +699,7 @@ void LCFormatNode::generateCode (const OFileWriter &of) const
                                 sTheCompatibleCurrency = aCode.copy( nStart + 2, nHyphen - nStart - 2);
                         }
                     }
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case cssi::NumberFormatIndex::CURRENCY_1000INT :
                 case cssi::NumberFormatIndex::CURRENCY_1000INT_RED :
                 case cssi::NumberFormatIndex::CURRENCY_1000DEC2_RED :
@@ -1050,7 +1050,7 @@ void LCFormatNode::generateCode (const OFileWriter &of) const
                     // separators and generate a second pattern with the
                     // format's separator at the current position.
                     cDateSep2 = cChar;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 default:
                 handleDefault:
                     if (!cDateSep)
@@ -2025,7 +2025,7 @@ void LCMiscNode::generateCode (const OFileWriter &of) const
         }
         of.writeParameter("ReservedWord", str, nbOfWords);
         // "true", ..., "below" trigger untranslated warning.
-        if (!bEnglishLocale && curNode && (0 <= i && i <= 7) &&
+        if (!bEnglishLocale && curNode && i <= 7 &&
                 str.equalsIgnoreAsciiCaseAscii( ReserveWord[i].value))
         {
             fprintf( stderr,

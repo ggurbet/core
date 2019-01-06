@@ -179,7 +179,7 @@ public:
 };
 
 SwMailMergeConfigItem_Impl::SwMailMergeConfigItem_Impl() :
-    ConfigItem("Office.Writer/MailMergeWizard", ConfigItemMode::ImmediateUpdate),
+    ConfigItem("Office.Writer/MailMergeWizard", ConfigItemMode::NONE),
         m_nResultSetCursorPos(-1),
         m_nCurrentAddressBlock(0),
         m_bIsAddressBlock(true),
@@ -863,7 +863,7 @@ Reference< XResultSet> const & SwMailMergeConfigItem::GetResultSet() const
     if(!m_pImpl->m_xConnection.is() && !m_pImpl->m_aDBData.sDataSource.isEmpty())
     {
         m_pImpl->m_xConnection.reset(
-            SwDBManager::GetConnection( m_pImpl->m_aDBData.sDataSource, m_pImpl->m_xSource ),
+            SwDBManager::GetConnection(m_pImpl->m_aDBData.sDataSource, m_pImpl->m_xSource, m_pSourceView),
             SharedConnection::TakeOwnership
         );
     }

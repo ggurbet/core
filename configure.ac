@@ -34,7 +34,7 @@ FilterLibs()
             -L/lib|-L/lib/|-L/lib64|-L/lib64/|-L/usr/lib|-L/usr/lib/|-L/usr/lib64|-L/usr/lib64/)
                 # ignore it: on UNIXoids it is searched by default anyway
                 # but if it's given explicitly then it may override other paths
-                # (on Mac OS X it would be an error to use it instead of SDK)
+                # (on macOS it would be an error to use it instead of SDK)
                 ;;
             *)
                 filteredlibs="$filteredlibs $f"
@@ -469,7 +469,7 @@ if test -n "$with_android_ndk"; then
         ndk_build_os=darwin
         ;;
     *)
-        AC_MSG_ERROR([We only support building for Android from Linux or OS X])
+        AC_MSG_ERROR([We only support building for Android from Linux or macOS])
         ;;
     esac
     ANDROID_COMPILER_BIN=$ANDROID_COMPILER_DIR/prebuilt/$ndk_build_os-x86_64/bin
@@ -490,22 +490,14 @@ if test -n "$with_android_ndk"; then
     ANDROIDCFLAGS="$ANDROIDCFLAGS -D__ANDROID_API__=$ANDROID_API_LEVEL -isystem $ANDROID_NDK_HOME/sysroot/usr/include"
     ANDROIDCFLAGS="$ANDROIDCFLAGS -isystem $ANDROID_NDK_HOME/sysroot/usr/include/$android_gnu_prefix"
     ANDROIDCFLAGS="$ANDROIDCFLAGS --sysroot=$SYSBASE -ffunction-sections -fdata-sections -Qunused-arguments"
-    if test "$ANDROID_APP_ABI" = "armeabi-v7a"; then
-    ANDROIDCFLAGS="$ANDROIDCFLAGS -L$ANDROID_NDK_HOME/sources/cxx-stl/gnu-libstdc++/4.9/libs/$ANDROID_APP_ABI -D_GTHREAD_USE_MUTEX_INIT_FUNC=1"
-    else
     ANDROIDCFLAGS="$ANDROIDCFLAGS -L$ANDROID_NDK_HOME/sources/cxx-stl/llvm-libc++/libs/$ANDROID_APP_ABI"
-    fi
     if test "$ENABLE_LTO" = TRUE; then
         # -flto comes from com_GCC_defs.mk, too, but we need to make sure it gets passed as part of
         # $CC and $CXX when building external libraries
         ANDROIDCFLAGS="$ANDROIDCFLAGS -flto -fuse-linker-plugin -O2"
     fi
 
-    if test "$ANDROID_APP_ABI" = "armeabi-v7a"; then
-    ANDROIDCXXFLAGS="$ANDROIDCFLAGS -I$ANDROID_NDK_HOME/sources/cxx-stl/gnu-libstdc++/4.9/include -I$ANDROID_NDK_HOME/sources/cxx-stl/gnu-libstdc++/4.9/libs/$ANDROID_APP_ABI/include -std=c++11"
-    else
     ANDROIDCXXFLAGS="$ANDROIDCFLAGS -I$ANDROID_NDK_HOME/sources/cxx-stl/llvm-libc++/include -I$ANDROID_NDK_HOME/sources/cxx-stl/llvm-libc++abi/include -I$ANDROID_NDK_HOME/sources/android/support/include -std=c++11"
-    fi
 
     if test -z "$CC"; then
         CC="$ANDROID_COMPILER_BIN/clang $ANDROIDCFLAGS"
@@ -533,6 +525,16 @@ if test -n "$with_android_sdk"; then
     PATH="$ANDROID_SDK_HOME/platform-tools:$ANDROID_SDK_HOME/tools:$PATH"
 fi
 AC_SUBST(ANDROID_SDK_HOME)
+
+libo_FUZZ_ARG_ENABLE([android-editing],
+    AS_HELP_STRING([--enable-android-editing],
+        [Enable the experimental editing feature on Android.])
+)
+ENABLE_ANDROID_EDITING=
+if test "$enable_android_editing" = yes; then
+    ENABLE_ANDROID_EDITING=TRUE
+fi
+AC_SUBST([ENABLE_ANDROID_EDITING])
 
 dnl ===================================================================
 dnl The following is a list of supported systems.
@@ -596,7 +598,6 @@ linux-gnu*|k*bsd*-gnu*)
     test_gtk=yes
     build_gstreamer_1_0=yes
     build_gstreamer_0_10=yes
-    test_kde4=yes
     test_kde5=yes
     test_gtk3_kde5=yes
     if test "$enable_fuzzers" != yes; then
@@ -641,7 +642,7 @@ cygwin*|interix*)
     LINKFLAGSNOUNDEFS=
     ;;
 
-darwin*) # Mac OS X or iOS
+darwin*) # macOS or iOS
     test_gtk=yes
     test_randr=no
     test_xrender=no
@@ -690,7 +691,6 @@ freebsd*)
     test_gtk=yes
     build_gstreamer_1_0=yes
     build_gstreamer_0_10=yes
-    test_kde4=yes
     test_kde5=yes
     test_gtk3_kde5=yes
     test_freetype=yes
@@ -720,7 +720,6 @@ freebsd*)
     test_gtk=yes
     build_gstreamer_1_0=yes
     build_gstreamer_0_10=yes
-    test_kde4=yes
     test_kde5=yes
     test_gtk3_kde5=yes
     test_freetype=yes
@@ -747,7 +746,6 @@ dragonfly*)
     test_gtk=yes
     build_gstreamer_1_0=yes
     build_gstreamer_0_10=yes
-    test_kde4=yes
     test_kde5=yes
     test_gtk3_kde5=yes
     test_freetype=yes
@@ -772,7 +770,6 @@ linux-android*)
     test_fontconfig=no
     test_freetype=no
     test_gtk=no
-    test_kde4=no
     test_kde5=no
     test_gtk3_kde5=no
     test_randr=no
@@ -1253,12 +1250,6 @@ libo_FUZZ_ARG_ENABLE(gio,
         [Determines whether to use the GIO support.]),
 ,test "${enable_gio+set}" = set || enable_gio=yes)
 
-AC_ARG_ENABLE(kde4,
-    AS_HELP_STRING([--enable-kde4],
-        [Determines whether to use Qt4/KDE4 vclplug on platforms where Qt4 and
-         KDE4 are available.]),
-,)
-
 AC_ARG_ENABLE(qt5,
     AS_HELP_STRING([--enable-qt5],
         [Determines whether to use Qt5 vclplug on platforms where Qt5 is
@@ -1437,7 +1428,7 @@ AC_ARG_ENABLE(macosx-sandbox,
 
 AC_ARG_WITH(macosx-bundle-identifier,
     AS_HELP_STRING([--with-macosx-bundle-identifier=tld.mumble.orifice.TheOffice],
-        [Define the OS X bundle identifier. Default is the somewhat weird
+        [Define the macOS bundle identifier. Default is the somewhat weird
          org.libreoffice.script ("script", huh?).]),
 ,with_macosx_bundle_identifier=org.libreoffice.script)
 
@@ -1989,7 +1980,7 @@ AC_ARG_WITH(jvm-path,
 
 AC_ARG_WITH(ant-home,
     AS_HELP_STRING([--with-ant-home=<absolute path to Ant home>],
-        [If you have installed Jakarta Ant on your system, please supply the path here.
+        [If you have installed Apache Ant on your system, please supply the path here.
          Note that this is not the location of the Ant binary but the location
          of the entire distribution.]),
 ,)
@@ -2297,7 +2288,7 @@ AC_ARG_WITH(macosx-sdk,
                           not terribly useful. It works fine to build with a new SDK and run the result
                           on an older OS.
 
-                          e. g.: --with-macosx-sdk=10.9
+                          e. g.: --with-macosx-sdk=10.10
 
                           there are 3 options to control the MacOSX build:
                           --with-macosx-sdk (referred as 'sdk' below)
@@ -2311,15 +2302,15 @@ AC_ARG_WITH(macosx-sdk,
                           ==========================================
                            command line      || config result
                           ==========================================
-                          min  | max  | sdk  || min  | max  | sdk  |
-                          ?    | ?    | ?    || 10.9 | 10.s | 10.s |
-                          ?    | ?    | 10.x || 10.9 | 10.x | 10.x |
-                          ?    | 10.x | ?    || 10.9 | 10.s | 10.s |
-                          ?    | 10.x | 10.y || 10.9 | 10.x | 10.y |
-                          10.x | ?    | ?    || 10.x | 10.s | 10.s |
-                          10.x | ?    | 10.y || 10.x | 10.y | 10.y |
-                          10.x | 10.y | ?    || 10.x | 10.y | 10.y |
-                          10.x | 10.y | 10.z || 10.x | 10.y | 10.z |
+                          min  | max  | sdk  || min   | max  | sdk  |
+                          ?    | ?    | ?    || 10.10 | 10.s | 10.s |
+                          ?    | ?    | 10.x || 10.10 | 10.x | 10.x |
+                          ?    | 10.x | ?    || 10.10 | 10.s | 10.s |
+                          ?    | 10.x | 10.y || 10.10 | 10.x | 10.y |
+                          10.x | ?    | ?    || 10.x  | 10.s | 10.s |
+                          10.x | ?    | 10.y || 10.x  | 10.y | 10.y |
+                          10.x | 10.y | ?    || 10.x  | 10.y | 10.y |
+                          10.x | 10.y | 10.z || 10.x  | 10.y | 10.z |
 
 
                           see: http://developer.apple.com/library/mac/#technotes/tn2064/_index.html
@@ -2333,7 +2324,7 @@ AC_ARG_WITH(macosx-version-min-required,
     AS_HELP_STRING([--with-macosx-version-min-required=<version>],
         [set the minimum OS version needed to run the built LibreOffice])
     [
-                          e. g.: --with-macos-version-min-required=10.9
+                          e. g.: --with-macos-version-min-required=10.10
                           see --with-macosx-sdk for more info
     ],
 ,)
@@ -2342,7 +2333,7 @@ AC_ARG_WITH(macosx-version-max-allowed,
     AS_HELP_STRING([--with-macosx-version-max-allowed=<version>],
         [set the maximum allowed OS version the LibreOffice compilation can use APIs from])
     [
-                          e. g.: --with-macos-version-max-allowed=10.9
+                          e. g.: --with-macos-version-max-allowed=10.10
                           see --with-macosx-sdk for more info
     ],
 ,)
@@ -2534,7 +2525,7 @@ else
 fi
 AC_SUBST(DISABLE_DYNLOADING)
 
-# remenber SYSBASE value
+# remember SYSBASE value
 AC_SUBST(SYSBASE)
 
 dnl ===================================================================
@@ -2701,7 +2692,7 @@ dnl ENABLE_JAVA="TRUE" if we want there to be *run-time* (and build-time) suppor
 dnl ENABLE_JAVA="" indicate no Java support at all
 
 dnl ===================================================================
-dnl Check OS X SDK and compiler
+dnl Check macOS SDK and compiler
 dnl ===================================================================
 
 if test $_os = Darwin -o $_os = iOS; then
@@ -2714,7 +2705,7 @@ if test $_os = Darwin -o $_os = iOS; then
     # For developers with a current Xcode, the lowest-numbered SDK
     # higher than or equal to the minimum required should be found.
 
-    AC_MSG_CHECKING([what Mac OS X SDK to use])
+    AC_MSG_CHECKING([what macOS SDK to use])
     for _macosx_sdk in ${with_macosx_sdk-10.14 10.13 10.12}; do
         MACOSX_SDK_PATH=`xcrun --sdk macosx${_macosx_sdk} --show-sdk-path 2> /dev/null`
         if test -d "$MACOSX_SDK_PATH"; then
@@ -2729,7 +2720,7 @@ if test $_os = Darwin -o $_os = iOS; then
         fi
     done
     if test ! -d "$MACOSX_SDK_PATH"; then
-        AC_MSG_ERROR([Could not find an appropriate Mac OS X SDK])
+        AC_MSG_ERROR([Could not find an appropriate macOS SDK])
     fi
 
     if test $_os = iOS; then
@@ -2759,7 +2750,7 @@ if test $_os = Darwin -o $_os = iOS; then
     esac
 
     if test "$with_macosx_version_min_required" = "" ; then
-        with_macosx_version_min_required="10.9";
+        with_macosx_version_min_required="10.10";
     fi
 
     if test "$with_macosx_version_max_allowed" = "" ; then
@@ -2773,10 +2764,17 @@ if test $_os = Darwin -o $_os = iOS; then
     FRAMEWORKSHOME="$MACOSX_SDK_PATH/System/Library/Frameworks"
     MACOSX_DEPLOYMENT_TARGET="$with_macosx_version_min_required"
 
+    AC_MSG_CHECKING([whether Xcode is new enough])
+    my_xcode_ver1=$(xcrun xcodebuild -version | head -n 1)
+    my_xcode_ver2=${my_xcode_ver1#Xcode }
+    my_xcode_ver3=$(printf %s "$my_xcode_ver2" | $AWK -F. '{ print $1*100+($2<100?$2:99) }')
+    if test "$my_xcode_ver3" -ge 903; then
+        AC_MSG_RESULT([yes ($my_xcode_ver2)])
+    else
+        AC_MSG_ERROR(["$my_xcode_ver1" is too old or unrecognized, must be at least Xcode 9.3])
+    fi
+
     case "$with_macosx_version_min_required" in
-    10.9)
-        MAC_OS_X_VERSION_MIN_REQUIRED="1090"
-        ;;
     10.10)
         MAC_OS_X_VERSION_MIN_REQUIRED="101000"
         ;;
@@ -2793,7 +2791,7 @@ if test $_os = Darwin -o $_os = iOS; then
         MAC_OS_X_VERSION_MIN_REQUIRED="101400"
         ;;
     *)
-        AC_MSG_ERROR([with-macosx-version-min-required $with_macosx_version_min_required is not a supported value, supported values are 10.9--14])
+        AC_MSG_ERROR([with-macosx-version-min-required $with_macosx_version_min_required is not a supported value, supported values are 10.10--14])
         ;;
     esac
     MAC_OS_X_VERSION_MIN_REQUIRED_DOTS=$with_macosx_version_min_required
@@ -2818,9 +2816,6 @@ if test $_os = Darwin -o $_os = iOS; then
     fi
 
     case "$with_macosx_version_max_allowed" in
-    10.9)
-        MAC_OS_X_VERSION_MAX_ALLOWED="1090"
-        ;;
     10.10)
         MAC_OS_X_VERSION_MAX_ALLOWED="101000"
         ;;
@@ -2837,7 +2832,7 @@ if test $_os = Darwin -o $_os = iOS; then
         MAC_OS_X_VERSION_MAX_ALLOWED="101400"
         ;;
     *)
-        AC_MSG_ERROR([with-macosx-version-max-allowed $with_macosx_version_max_allowed is not a supported value, supported values are 10.9--14])
+        AC_MSG_ERROR([with-macosx-version-max-allowed $with_macosx_version_max_allowed is not a supported value, supported values are 10.10--14])
         ;;
     esac
 
@@ -2915,9 +2910,9 @@ if test $_os = Darwin -o $_os = iOS; then
     AC_MSG_CHECKING([whether to sandbox the application])
 
     if test -z "$MACOSX_CODESIGNING_IDENTITY" -a "$enable_macosx_sandbox" = yes; then
-        AC_MSG_ERROR([OS X sandboxing requires code signing])
+        AC_MSG_ERROR([macOS sandboxing requires code signing])
     elif test -n "$ENABLE_JAVA" -a "$enable_macosx_sandbox" = yes; then
-        AC_MSG_ERROR([OS X sandboxing (actually App Store rules) disallows use of Java])
+        AC_MSG_ERROR([macOS sandboxing (actually App Store rules) disallows use of Java])
     elif test -n "$MACOSX_CODESIGNING_IDENTITY" -a "$enable_macosx_sandbox" = yes; then
         ENABLE_MACOSX_SANDBOX=TRUE
         AC_DEFINE(HAVE_FEATURE_MACOSX_SANDBOX)
@@ -2926,7 +2921,7 @@ if test $_os = Darwin -o $_os = iOS; then
         AC_MSG_RESULT([no])
     fi
 
-    AC_MSG_CHECKING([what OS X app bundle identifier to use])
+    AC_MSG_CHECKING([what macOS app bundle identifier to use])
     MACOSX_BUNDLE_IDENTIFIER=$with_macosx_bundle_identifier
     AC_MSG_RESULT([$MACOSX_BUNDLE_IDENTIFIER])
 fi
@@ -2936,7 +2931,7 @@ AC_SUBST(MAC_OS_X_VERSION_MIN_REQUIRED)
 AC_SUBST(MAC_OS_X_VERSION_MIN_REQUIRED_DOTS)
 AC_SUBST(MAC_OS_X_VERSION_MAX_ALLOWED)
 AC_SUBST(INSTALL_NAME_TOOL)
-AC_SUBST(LIBTOOL) # Note that the OS X libtool command is unrelated to GNU libtool
+AC_SUBST(LIBTOOL) # Note that the macOS libtool command is unrelated to GNU libtool
 AC_SUBST(MACOSX_CODESIGNING_IDENTITY)
 AC_SUBST(MACOSX_PACKAGE_SIGNING_IDENTITY)
 AC_SUBST(ENABLE_MACOSX_SANDBOX)
@@ -3480,14 +3475,8 @@ if test "$_os" = "WINNT"; then
     dnl Save the true MSVC cl.exe for use when CC/CXX is actually clang-cl,
     dnl needed when building CLR code:
     if test -z "$MSVC_CXX"; then
-        if test "$BITNESS_OVERRIDE" = ""; then
-            if test -f "$VC_PRODUCT_DIR/$CL_DIR/cl.exe"; then
-                MSVC_CXX="$VC_PRODUCT_DIR/$CL_DIR/cl.exe"
-            fi
-        else
-            if test -f "$VC_PRODUCT_DIR/$CL_DIR/cl.exe"; then
-                MSVC_CXX="$VC_PRODUCT_DIR/$CL_DIR/cl.exe"
-            fi
+        if test -f "$VC_PRODUCT_DIR/$CL_DIR/cl.exe"; then
+            MSVC_CXX="$VC_PRODUCT_DIR/$CL_DIR/cl.exe"
         fi
 
         # This gives us a posix path with 8.3 filename restrictions
@@ -3557,6 +3546,15 @@ if test "$_os" = "WINNT"; then
         AC_MSG_ERROR([Visual C++ not found after all, huh])
     fi
 
+    AC_MSG_CHECKING([$CC is at least Visual Studio 2017 version 15.7])
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+        // See <https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros> for mapping
+        // between Visual Studio versions and _MSC_VER:
+        #if _MSC_VER < 1914
+        #error
+        #endif
+    ]])],[AC_MSG_RESULT([yes])],[AC_MSG_ERROR([no])])
+
     # Check for 64-bit (cross-)compiler to use to build the 64-bit
     # version of the Explorer extension (and maybe other small
     # bits, too) needed when installing a 32-bit LibreOffice on a
@@ -3602,6 +3600,29 @@ if test "$_os" = "WINNT"; then
     # These are passed to the environment and then used in gbuild/platform/com_MSC_class.mk
     AC_SUBST(CXX_X64_BINARY)
     AC_SUBST(LINK_X64_BINARY)
+
+    # Check for 32-bit compiler to use to build the 32-bit TWAIN shim
+    # needed to support TWAIN scan on both 32- and 64-bit systems
+
+    BUILD_X86=
+    CXX_X86_BINARY=
+
+    if test "$BITNESS_OVERRIDE" = "64"; then
+        AC_MSG_CHECKING([for a x86 compiler and libraries for 32-bit binaries required for TWAIN support])
+        if "$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86/cl.exe" -? </dev/null >/dev/null 2>&1; then
+            BUILD_X86=TRUE
+            CXX_X86_BINARY="$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86/cl.exe -arch:SSE"
+            AC_MSG_RESULT([found])
+        else
+            AC_MSG_RESULT([not found])
+            AC_MSG_WARN([Installation set will not contain 32-bit binaries required for TWAIN support])
+        fi
+    else
+        BUILD_X86=TRUE
+        CXX_X86_BINARY=$MSVC_CXX
+    fi
+    AC_SUBST(BUILD_X86)
+    AC_SUBST(CXX_X86_BINARY)
 fi
 AC_SUBST(VCVER)
 AC_SUBST(DEVENV)
@@ -3626,38 +3647,51 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
     [AC_MSG_RESULT([yes])
      COM_IS_CLANG=TRUE],
     [AC_MSG_RESULT([no])])
+AC_SUBST(COM_IS_CLANG)
 
 CC_PLAIN=$CC
+CLANGVER=
 if test "$COM_IS_CLANG" = TRUE; then
-    AC_MSG_CHECKING([the Clang version])
-    if test "$_os" = WINNT; then
-        dnl In which case, assume clang-cl:
-        my_args="/EP /TC"
-        dnl Filter out -FIIntrin.h, which needs to be explicitly stated for
-        dnl clang-cl:
-        CC_PLAIN=
-        for i in $CC; do
-            case $i in
-            -FIIntrin.h)
-                ;;
-            *)
-                CC_PLAIN="$CC_PLAIN $i"
-                ;;
-            esac
-        done
+    AC_MSG_CHECKING([whether Clang is new enough])
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+        #if !defined __apple_build_version__
+        #error
+        #endif
+        ]])],
+        [my_apple_clang=yes],[my_apple_clang=])
+    if test "$my_apple_clang" = yes; then
+        AC_MSG_RESULT([assumed yes (Apple Clang)])
     else
-        my_args="-E -P"
+        if test "$_os" = WINNT; then
+            dnl In which case, assume clang-cl:
+            my_args="/EP /TC"
+            dnl Filter out -FIIntrin.h, which needs to be explicitly stated for
+            dnl clang-cl:
+            CC_PLAIN=
+            for i in $CC; do
+                case $i in
+                -FIIntrin.h)
+                    ;;
+                *)
+                    CC_PLAIN="$CC_PLAIN $i"
+                    ;;
+                esac
+            done
+        else
+            my_args="-E -P"
+        fi
+        clang_version=`echo __clang_major__.__clang_minor__.__clang_patchlevel__ | $CC_PLAIN $my_args -`
+        CLANGVER=`echo $clang_version \
+            | $AWK -F. '{ print \$1*10000+(\$2<100?\$2:99)*100+(\$3<100?\$3:99) }'`
+        if test "$CLANGVER" -ge 50002; then
+            AC_MSG_RESULT([yes ($clang_version)])
+        else
+            CLANG_FULL_VERSION=`echo __clang_version__ | $CC_PLAIN $my_args -`
+            AC_MSG_ERROR(["$CLANG_FULL_VERSION" is too old or unrecognized, must be at least Clang 5.0.2])
+        fi
+        AC_DEFINE_UNQUOTED(CLANG_VERSION,$CLANGVER)
     fi
-    clang_version=`echo __clang_major__.__clang_minor__.__clang_patchlevel__ | $CC_PLAIN $my_args -`
-    CLANG_FULL_VERSION=`echo __clang_version__ | $CC_PLAIN $my_args -`
-    CLANGVER=`echo $clang_version \
-        | $AWK -F. '{ print \$1*10000+(\$2<100?\$2:99)*100+(\$3<100?\$3:99) }'`
-    AC_MSG_RESULT([Clang $CLANG_FULL_VERSION, $CLANGVER])
-    AC_DEFINE_UNQUOTED(CLANG_VERSION,$CLANGVER)
-    AC_DEFINE_UNQUOTED(CLANG_FULL_VERSION,$CLANG_FULL_VERSION)
 fi
-AC_SUBST(COM_IS_CLANG)
-AC_SUBST(CLANGVER)
 
 SHOWINCLUDES_PREFIX=
 if test "$_os" = WINNT; then
@@ -3770,8 +3804,8 @@ if test "$GCC" = "yes" -a -z "$COM_IS_CLANG"; then
 
     AC_MSG_RESULT([gcc $_gcc_version ($gcc_full_version)])
 
-    if test "$gcc_full_version" -lt 40801; then
-        AC_MSG_ERROR([GCC $_gcc_version is too old, must be at least GCC 4.8.1])
+    if test "$gcc_full_version" -lt 70000; then
+        AC_MSG_ERROR([GCC $_gcc_version is too old, must be at least GCC 7.0.0])
     fi
 else
     # Explicitly force GCC_VERSION to be empty, even for Clang, to check incorrect uses.
@@ -4456,7 +4490,7 @@ rpm - RedHat software distribution
 
 LibreOffice additionally supports:
 archive - .tar.gz or .zip
-dmg - Mac OS X .dmg
+dmg - macOS .dmg
 installed - installation tree
 msi - Windows .msi
         ])
@@ -4504,7 +4538,6 @@ if test "$cross_compiling" = "yes"; then
         config_host.mk.in \
         config_host_lang.mk.in \
         Makefile.in \
-        lo.xcent.in \
         bin/bffvalidator.sh.in \
         bin/odfvalidator.sh.in \
         bin/officeotron.sh.in \
@@ -4535,6 +4568,9 @@ if test "$cross_compiling" = "yes"; then
     # Don't bother having configure look for stuff not needed for the build platform anyway
     ./configure \
         --disable-cups \
+        --disable-gstreamer-1-0 \
+        --disable-gstreamer-0-10 \
+        --disable-gtk \
         --disable-gtk3 \
         --disable-pdfimport \
         --disable-postgresql-sdbc \
@@ -4670,7 +4706,6 @@ if test "$USING_X11" != TRUE; then
     test_gtk=no
     build_gstreamer_1_0=no
     build_gstreamer_0_10=no
-    test_kde4=no
     test_kde5=no
     test_qt5=no
     test_gtk3_kde5=no
@@ -4812,7 +4847,7 @@ else
 fi
 AC_SUBST(WITH_MYSPELL_DICTS)
 
-# There are no "system" myspell, hyphen or mythes dictionaries on OS X, Windows, Android or iOS.
+# There are no "system" myspell, hyphen or mythes dictionaries on macOS, Windows, Android or iOS.
 if test $_os = Darwin -o $_os = WINNT -o $_os = iOS -o $_os = Android; then
     if test "$with_system_dicts" = yes; then
         AC_MSG_ERROR([There are no system dicts on this OS in the formats the 3rd-party libs we use expect]);
@@ -5136,7 +5171,7 @@ AC_SUBST(STRIP)
 AC_SUBST(WINDRES)
 
 dnl ===================================================================
-dnl pkg-config checks on Mac OS X
+dnl pkg-config checks on macOS
 dnl ===================================================================
 
 if test $_os = Darwin; then
@@ -6152,11 +6187,14 @@ fi
 if test "$GNUMAKE_WIN_NATIVE" = "TRUE" ; then
     GPERF=`cygpath -m $GPERF`
 fi
-AC_MSG_CHECKING([gperf version])
-if test "`$GPERF --version | $EGREP ^GNU\ gperf | $AWK '{ print $3 }' | cut -d. -f1`" -ge "3"; then
-    AC_MSG_RESULT([OK])
+AC_MSG_CHECKING([whether gperf is new enough])
+my_gperf_ver1=$($GPERF --version | head -n 1)
+my_gperf_ver2=${my_gperf_ver1#GNU gperf }
+my_gperf_ver3=$(printf %s "$my_gperf_ver2" | $AWK -F. '{ print $1*100+($2<100?$2:99) }')
+if test "$my_gperf_ver3" -ge 301; then
+    AC_MSG_RESULT([yes ($my_gperf_ver2)])
 else
-    AC_MSG_ERROR([too old, you need at least 3.0.0])
+    AC_MSG_ERROR(["$my_gperf_ver1" is too old or unrecognized, must be at least gperf 3.1])
 fi
 AC_SUBST(GPERF)
 
@@ -6176,24 +6214,12 @@ dnl ===================================================================
 dnl C++11
 dnl ===================================================================
 
-my_cxx17switches=
-libo_FUZZ_ARG_ENABLE(c++17,
-    AS_HELP_STRING([--disable-c++17],
-        [Do not attempt to run GCC/Clang in C++17 mode (needed for Coverity).])
-)
-
-AC_MSG_CHECKING([whether $CXX supports C++17, C++14, or C++11])
+AC_MSG_CHECKING([whether $CXX supports C++17])
 CXXFLAGS_CXX11=
 if test "$COM" = MSC -a "$COM_IS_CLANG" != TRUE; then
-    CXXFLAGS_CXX11=-std:c++17
+    CXXFLAGS_CXX11='-std:c++17 -Zc:__cplusplus'
 elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
-    dnl But only use C++17 if the gperf that is being used knows not to emit
-    dnl "register" in C++ output:
-    printf 'foo\n' | $GPERF -L C++ > conftest.inc
-    my_flags='-std=gnu++14 -std=gnu++1y -std=c++14 -std=c++1y -std=gnu++11 -std=gnu++0x -std=c++11 -std=c++0x'
-    if test "$enable_c__17" != no; then
-        my_flags="-std=gnu++2a -std=c++2a -std=gnu++17 -std=gnu++1z -std=c++17 -std=c++1z $my_flags"
-    fi
+    my_flags='-std=gnu++2a -std=c++2a -std=gnu++17 -std=gnu++1z -std=c++17 -std=c++1z'
     for flag in $my_flags; do
         if test "$COM" = MSC; then
             flag="-Xclang $flag"
@@ -6239,24 +6265,15 @@ elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
             #include <functional>
             #include <vector>
 
-            #include <string.h>
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wpragmas"
-                // make GCC not warn about next pragma
-            #pragma GCC diagnostic ignored "-Wdeprecated-register"
-                // make Clang with -std < C++17 not even warn about register
-            #include "conftest.inc"
-            #pragma GCC diagnostic pop
-
             #if defined SYSTEM_LIBCMIS
             // See ucb/source/ucp/cmis/auth_provider.hxx:
-            #if __GNUC__ >= 7
+            #if !defined __clang__
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wdeprecated"
             #pragma GCC diagnostic ignored "-Wunused-but-set-parameter"
             #endif
             #include <libcmis/libcmis.hxx>
-            #if __GNUC__ >= 7
+            #if !defined __clang__
             #pragma GCC diagnostic pop
             #endif
             #endif
@@ -6271,7 +6288,6 @@ elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
             break
         fi
     done
-    rm conftest.inc
 fi
 if test -n "$CXXFLAGS_CXX11"; then
     AC_MSG_RESULT([yes ($CXXFLAGS_CXX11)])
@@ -6340,7 +6356,8 @@ return !(i != 0 && j != 0);
 AC_LANG_POP([C++])
 CXXFLAGS=$save_CXXFLAGS
 
-AC_MSG_CHECKING([whether $CXX supports C++14 constexpr])
+dnl This check can eventually be removed completely (e.g., after libreoffice-6-3 branch off):
+AC_MSG_CHECKING([that $CXX supports C++14 constexpr])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
 AC_LANG_PUSH([C++])
@@ -6368,13 +6385,9 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         }
     };
     constexpr auto v2 = S{10}.f();
-    ]])], [cxx14_constexpr=yes], [cxx14_constexpr=no])
+    ]])], AC_MSG_RESULT([yes]), AC_MSG_ERROR([$CXX lacks required C++14 constexpr support]))
 AC_LANG_POP([C++])
 CXXFLAGS=$save_CXXFLAGS
-AC_MSG_RESULT([$cxx14_constexpr])
-if test "$cxx14_constexpr" = yes; then
-    AC_DEFINE([HAVE_CXX14_CONSTEXPR])
-fi
 
 dnl _Pragma support (may require C++11)
 if test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
@@ -6409,7 +6422,8 @@ if test "$GCC" = yes; then
 fi
 AC_SUBST([HAVE_GCC_FNO_SIZED_DEALLOCATION])
 
-AC_MSG_CHECKING([[whether $CXX supports [[fallthrough]]]])
+dnl This check can eventually be removed completely (e.g., after libreoffice-6-3 branch off):
+AC_MSG_CHECKING([[that $CXX supports [[fallthrough]]]])
 AC_LANG_PUSH([C++])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
@@ -6437,14 +6451,13 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
             }
         }
         #endif
-    ]])], [
-        AC_DEFINE([HAVE_CPP_ATTRIBUTE_FALLTHROUGH],[1])
-        AC_MSG_RESULT([yes])
-    ], [AC_MSG_RESULT([no])])
+    ]])],
+    AC_MSG_RESULT([yes]), AC_MSG_ERROR([$CXX lacks required [[fallthrough]] support]))
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
 
-AC_MSG_CHECKING([[whether $CXX supports [[nodiscard]]]])
+dnl This check can eventually be removed completely (e.g., after libreoffice-6-3 branch off):
+AC_MSG_CHECKING([[that $CXX supports [[nodiscard]]]])
 AC_LANG_PUSH([C++])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
@@ -6464,10 +6477,8 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
         #else
         [[nodiscard]] int f();
         #endif
-    ]])], [
-        AC_DEFINE([HAVE_CPP_ATTRIBUTE_NODISCARD],[1])
-        AC_MSG_RESULT([yes])
-    ], [AC_MSG_RESULT([no])])
+    ]])],
+    AC_MSG_RESULT([yes]), AC_MSG_ERROR([$CXX lacks required [[nodiscard]] support]))
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
 
@@ -6496,7 +6507,8 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
 
-AC_MSG_CHECKING([whether $CXX has a fix for CWG1579])
+dnl This check can eventually be removed completely (e.g., after libreoffice-6-3 branch off):
+AC_MSG_CHECKING([that $CXX has a fix for CWG1579])
 AC_LANG_PUSH([C++])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
@@ -6508,10 +6520,8 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([
             std::unique_ptr<S2> s2(new S2);
             return s2;
         }
-    ])], [
-        AC_DEFINE([HAVE_CXX_CWG1579_FIX],[1])
-        AC_MSG_RESULT([yes])
-    ], [AC_MSG_RESULT([no])])
+    ])],
+    AC_MSG_RESULT([yes]), AC_MSG_ERROR([$CXX lacks a required fix for CWG1579]))
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
 
@@ -6698,9 +6708,9 @@ if test "$COM_IS_CLANG" = "TRUE"; then
     else
         compiler_plugins=no
     fi
-    if test "$compiler_plugins" != no -a "$CLANGVER" -lt 30800; then
+    if test "$compiler_plugins" != no -a "$CLANGVER" -lt 50002; then
         if test "$compiler_plugins" = yes; then
-            AC_MSG_ERROR([Clang $CLANGVER is too old to build compiler plugins; need >= 3.8.0.])
+            AC_MSG_ERROR([Clang $CLANGVER is too old to build compiler plugins; need >= 5.0.2.])
         else
             compiler_plugins=no
         fi
@@ -6875,7 +6885,7 @@ if test "$ENABLE_JAVA" != ""; then
         fi
     fi
 
-    # MacOS X: /usr/libexec/java_home helps to set the current JDK_HOME. Actually JDK_HOME should NOT be set where java (/usr/bin/java) is located.
+    # macOS: /usr/libexec/java_home helps to set the current JDK_HOME. Actually JDK_HOME should NOT be set where java (/usr/bin/java) is located.
     # /usr/bin/java -> /System/Library/Frameworks/JavaVM.framework/Versions/Current/Commands/java, but /usr does not contain the JDK libraries
     if test -z "$with_jdk_home" -a "$_os" = "Darwin" -a -x /usr/libexec/java_home; then
         with_jdk_home=`/usr/libexec/java_home`
@@ -7304,6 +7314,58 @@ if test -n "$ENABLE_JAVA" -a -z "$JAVAINC"; then
 fi
 SOLARINC="$SOLARINC $JAVAINC"
 
+if test "$ENABLE_JAVA" != "" -a "x" != "x$JAVACOMPILER"; then
+    url_check_unknown=0
+    java_base="testurlcheck"
+    java_src="${java_base}.java"
+    java_cls="${java_base}.class"
+    cat > "${java_src}" <<_ACEOF
+[import jdk.internal.loader.URLClassPath;
+import java.lang.reflect.Field;
+import java.net.URL;
+
+class ${java_base}
+{
+    public static void main(String args[])
+    {
+        try {
+            URLClassPath cp = new URLClassPath(new URL[0], null);
+            Field field = cp.getClass().getDeclaredField("DISABLE_CP_URL_CHECK");
+            field.setAccessible(true);
+            System.out.println(field.get(cp).toString());
+        } catch(Exception e) {
+            System.out.println("unknown");
+        }
+    }
+}]
+_ACEOF
+    AC_MSG_CHECKING([if jdk.net.URLClassPath.ClassPathURLCheck is disabled])
+    java_cmd="$JAVACOMPILER --add-exports java.base/jdk.internal.loader=ALL-UNNAMED ${java_src} 1>&2"
+    AC_TRY_EVAL(java_cmd)
+    if test $? = 0 -a -f "./${java_cls}"; then
+        java_res=`$JAVAINTERPRETER --add-opens java.base/jdk.internal.loader=ALL-UNNAMED ${java_base} 2>/dev/null`
+        if test $? = 0; then
+            case "${java_res}" in
+            true) AC_MSG_RESULT([yes]) ;;
+            false)
+                rm -f "./${java_src}" "./${java_cls}"
+                AC_MSG_ERROR([no - Java unit tests will break!])
+                ;;
+            *) url_check_unknown=1 ;;
+            esac
+        else
+            url_check_unknown=1
+        fi
+    else
+        url_check_unknown=1
+    fi
+    if test $url_check_unknown -eq 1; then
+        AC_MSG_RESULT([unknown - assuming yes])
+        add_warning "Unable to find the default value for jdk.net.URLClassPath.ClassPathURLCheck - java tests might fail!"
+    fi
+    rm -f "./${java_src}" "./${java_cls}"
+fi
+
 AC_SUBST(JAVACOMPILER)
 AC_SUBST(JAVADOC)
 AC_SUBST(JAVAINTERPRETER)
@@ -7688,7 +7750,7 @@ if test "$with_system_zlib" = "auto"; then
     esac
 fi
 
-dnl we want to use libo_CHECK_SYSTEM_MODULE here too, but OS X is too stupid
+dnl we want to use libo_CHECK_SYSTEM_MODULE here too, but macOS is too stupid
 dnl and has no pkg-config for it at least on some tinderboxes,
 dnl so leaving that out for now
 dnl libo_CHECK_SYSTEM_MODULE([zlib],[ZLIB],[zlib])
@@ -8256,6 +8318,9 @@ fully-internal)
     ;;
 system)
     AC_MSG_RESULT([system])
+    if test "$_os" = Darwin; then
+        AC_MSG_ERROR([--enable-python=system doesn't work on macOS: /System/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7/unicodeobject.h is known to contain uses of "register", which is removed from C++17])
+    fi
     ;;
 *)
     AC_MSG_ERROR([Incorrect --enable-python option])
@@ -8267,17 +8332,6 @@ if test $enable_python != no; then
 fi
 
 if test $enable_python = system; then
-    if test -z "$PYTHON_CFLAGS" -a $_os = Darwin; then
-        python_version=2.7
-        PYTHON=python$python_version
-        if test -d "$FRAMEWORKSHOME/Python.framework/Versions/${python_version}/include/python${python_version}"; then
-            PYTHON_CFLAGS="-I$FRAMEWORKSHOME/Python.framework/Versions/${python_version}/include/python${python_version}"
-            PYTHON_LIBS="-framework Python"
-        else
-            PYTHON_CFLAGS="`$PYTHON-config --includes`"
-            PYTHON_LIBS="`$PYTHON-config --libs`"
-        fi
-    fi
     if test -n "$PYTHON_CFLAGS" -a -n "$PYTHON_LIBS"; then
         # Fallback: Accept these in the environment, or as set above
         # for MacOSX.
@@ -8631,7 +8685,7 @@ if test "x$enable_postgresql_sdbc" != "xno"; then
         WITH_GSSAPI=
         case "$_os" in
         Darwin)
-            # MacOS X has system MIT Kerberos 5 since 10.4
+            # macOS has system MIT Kerberos 5 since 10.4
             if test "$with_krb5" != "no"; then
                 WITH_KRB5=TRUE
                 save_LIBS=$LIBS
@@ -9856,8 +9910,8 @@ if test -z "$FLEX"; then
 else
     AC_MSG_CHECKING([the flex version])
     _flex_version=$($FLEX --version | $SED -e 's/^.*\([[[:digit:]]]\{1,\}\.[[[:digit:]]]\{1,\}\.[[[:digit:]]]\{1,\}\).*$/\1/')
-    if test $(echo $_flex_version | $AWK -F. '{printf("%d%03d%03d", $1, $2, $3)}') -lt 2005035; then
-        AC_MSG_ERROR([failed ($FLEX $_flex_version found, but need at least 2.5.35)])
+    if test $(echo $_flex_version | $AWK -F. '{printf("%d%03d%03d", $1, $2, $3)}') -lt 2006000; then
+        AC_MSG_ERROR([failed ($FLEX $_flex_version found, but need at least 2.6.0)])
     fi
 fi
 AC_SUBST([FLEX])
@@ -9869,7 +9923,7 @@ if test -z "$PATCH"; then
     AC_MSG_ERROR(["patch" not found in \$PATH, install it])
 fi
 
-dnl On Solaris, FreeBSD or MacOS X, check if --with-gnu-patch was used
+dnl On Solaris, FreeBSD or macOS, check if --with-gnu-patch was used
 if test "$_os" = "SunOS" -o "$_os" = "FreeBSD" -o "$_os" = "Darwin"; then
     if test -z "$with_gnu_patch"; then
         GNUPATCH=$PATCH
@@ -10072,14 +10126,6 @@ if test "x$enable_gtk" = "xyes"; then
     R="gtk $R"
 fi
 AC_SUBST(ENABLE_GTK)
-
-ENABLE_KDE4=""
-if test "x$enable_kde4" = "xyes"; then
-    ENABLE_KDE4="TRUE"
-    AC_DEFINE(ENABLE_KDE4)
-    R="$R kde4"
-fi
-AC_SUBST(ENABLE_KDE4)
 
 ENABLE_QT5=""
 if test "x$enable_qt5" = "xyes"; then
@@ -10374,7 +10420,7 @@ ENABLE_OPENGL_CANVAS=
 if test $_os = iOS -o $_os = Android -o "$ENABLE_FUZZERS" = "TRUE"; then
    : # disable
 elif test "$_os" = "Darwin"; then
-    # We use frameworks on Mac OS X, no need for detail checks
+    # We use frameworks on macOS, no need for detail checks
     ENABLE_OPENGL_TRANSITIONS=TRUE
     AC_DEFINE(HAVE_FEATURE_OPENGL,1)
     ENABLE_OPENGL_CANVAS=TRUE
@@ -10847,307 +10893,6 @@ fi
 AC_SUBST(ENABLE_SCRIPTING_JAVASCRIPT)
 AC_SUBST(SYSTEM_RHINO)
 AC_SUBST(RHINO_JAR)
-
-# This is only used in KDE3/KDE4 checks to determine if /usr/lib64
-# paths should be added to library search path. So lets put all 64-bit
-# platforms there.
-supports_multilib=
-case "$host_cpu" in
-x86_64 | powerpc64 | powerpc64le | s390x | aarch64 | mips64 | mips64el)
-    if test "$SAL_TYPES_SIZEOFLONG" = "8"; then
-        supports_multilib="yes"
-    fi
-    ;;
-*)
-    ;;
-esac
-
-dnl ===================================================================
-dnl KDE4 Integration
-dnl ===================================================================
-
-KDE4_CFLAGS=""
-KDE4_LIBS=""
-QMAKE4="qmake"
-MOC4="moc"
-KDE4_GLIB_CFLAGS=""
-KDE4_GLIB_LIBS=""
-KDE4_HAVE_GLIB=""
-if test "$test_kde4" = "yes" -a "$ENABLE_KDE4" = "TRUE"; then
-    qt4_incdirs="$QT4INC /usr/include/qt4 /usr/include $x_includes"
-    qt4_libdirs="$QT4LIB /usr/lib/qt4 /usr/lib $x_libraries"
-
-    kde4_incdirs="/usr/include /usr/include/kde4 $x_includes"
-    kde4_libdirs="/usr/lib /usr/lib/kde4 /usr/lib/kde4/devel $x_libraries"
-
-    if test -n "$supports_multilib"; then
-        qt4_libdirs="$qt4_libdirs /usr/lib64/qt4 /usr/lib64/qt /usr/lib64"
-        kde4_libdirs="$kde4_libdirs /usr/lib64 /usr/lib64/kde4 /usr/lib64/kde4/devel"
-    fi
-
-    if test -n "$QTDIR"; then
-        qt4_incdirs="$QTDIR/include $qt4_incdirs"
-        if test -z "$supports_multilib"; then
-            qt4_libdirs="$QTDIR/lib $qt4_libdirs"
-        else
-            qt4_libdirs="$QTDIR/lib64 $QTDIR/lib $qt4_libdirs"
-        fi
-    fi
-    if test -n "$QT4DIR"; then
-        qt4_incdirs="$QT4DIR/include $qt4_incdirs"
-        if test -z "$supports_multilib"; then
-            qt4_libdirs="$QT4DIR/lib $qt4_libdirs"
-        else
-            qt4_libdirs="$QT4DIR/lib64 $QT4DIR/lib $qt4_libdirs"
-        fi
-    fi
-
-    if test -n "$KDEDIR"; then
-        kde4_incdirs="$KDEDIR/include $kde4_incdirs"
-        if test -z "$supports_multilib"; then
-            kde4_libdirs="$KDEDIR/lib $kde4_libdirs"
-        else
-            kde4_libdirs="$KDEDIR/lib64 $KDEDIR/lib $kde4_libdirs"
-        fi
-    fi
-    if test -n "$KDE4DIR"; then
-        kde4_incdirs="$KDE4DIR/include $KDE4DIR/include/kde4 $kde4_incdirs"
-        if test -z "$supports_multilib"; then
-            kde4_libdirs="$KDE4DIR/lib $kde4_libdirs"
-        else
-            kde4_libdirs="$KDE4DIR/lib64 $KDE4DIR/lib $kde4_libdirs"
-        fi
-    fi
-
-    qt4_test_include="Qt/qobject.h"
-    qt4_test_library="libQtNetwork.so"
-    kde4_test_include="kwindowsystem.h"
-    kde4_test_library="libsolid.so"
-
-    AC_MSG_CHECKING([for Qt4 headers])
-    qt4_header_dir="no"
-    for inc_dir in $qt4_incdirs; do
-        if test -r "$inc_dir/$qt4_test_include"; then
-            qt4_header_dir="$inc_dir"
-            break
-        fi
-    done
-
-    AC_MSG_RESULT([$qt4_header_dir])
-    if test "x$qt4_header_dir" = "xno"; then
-        AC_MSG_ERROR([Qt4 headers not found.  Please specify the root of your Qt4 installation by exporting QT4DIR before running "configure".])
-    fi
-
-    dnl Check for qmake
-    AC_PATH_PROGS( QMAKE4, [qmake-qt4 qmake], no, [`dirname $qt4_header_dir`/bin:$QT4DIR/bin:$PATH] )
-    if test "$QMAKE4" = "no"; then
-        AC_MSG_ERROR([Qmake not found.  Please specify the root of your Qt4 installation by exporting QT4DIR before running "configure".])
-    else
-        qmake4_test_ver="`$QMAKE4 -v 2>&1 | sed -n -e '/^Using Qt version 4\./p'`"
-        if test -z "$qmake4_test_ver"; then
-            AC_MSG_ERROR([Wrong qmake for Qt4 found. Please specify the root of your Qt installation by exporting QT4DIR before running "configure".])
-        fi
-    fi
-
-    qt4_libdirs="`$QMAKE4 -query QT_INSTALL_LIBS` $qt4_libdirs"
-    AC_MSG_CHECKING([for Qt4 libraries])
-    qt4_lib_dir="no"
-    for lib_dir in $qt4_libdirs; do
-        if test -r "$lib_dir/$qt4_test_library"; then
-            qt4_lib_dir="$lib_dir"
-            PKG_CONFIG_PATH="$qt4_lib_dir"/pkgconfig:$PKG_CONFIG_PATH
-            break
-        fi
-    done
-
-    AC_MSG_RESULT([$qt4_lib_dir])
-
-    if test "x$qt4_lib_dir" = "xno"; then
-        AC_MSG_ERROR([Qt4 libraries not found.  Please specify the root of your Qt4 installation by exporting QT4DIR before running "configure".])
-    fi
-
-    dnl Check for Meta Object Compiler
-
-    AC_PATH_PROG( MOCQT4, moc-qt4, no, [`dirname $qt4_lib_dir`/bin:$QT4DIR/bin:$PATH] )
-    MOC4="$MOCQT4"
-    if test "$MOC4" = "no"; then
-        AC_PATH_PROG( MOC4, moc, no, [`dirname $qt4_lib_dir`/bin:$QT4DIR/bin:$PATH] )
-        if test "$MOC4" = "no"; then
-            AC_MSG_ERROR([Qt Meta Object Compiler not found.  Please specify
-the root of your Qt installation by exporting QT4DIR before running "configure".])
-        fi
-    fi
-
-    dnl Check for KDE4 headers
-    AC_MSG_CHECKING([for KDE4 headers])
-    kde4_incdir="no"
-    for kde4_check in $kde4_incdirs; do
-        if test -r "$kde4_check/$kde4_test_include"; then
-            kde4_incdir="$kde4_check"
-            break
-        fi
-    done
-    AC_MSG_RESULT([$kde4_incdir])
-    if test "x$kde4_incdir" = "xno"; then
-        AC_MSG_ERROR([KDE4 headers not found.  Please specify the root of your KDE4 installation by exporting KDE4DIR before running "configure".])
-    fi
-    if test "$kde4_incdir" = "/usr/include"; then kde4_incdir=; fi
-
-    dnl Check for KDE4 libraries
-    AC_MSG_CHECKING([for KDE4 libraries])
-    kde4_libdir="no"
-    for kde4_check in $kde4_libdirs; do
-        if test -r "$kde4_check/$kde4_test_library"; then
-            kde4_libdir="$kde4_check"
-            break
-        fi
-    done
-
-    AC_MSG_RESULT([$kde4_libdir])
-    if test "x$kde4_libdir" = "xno"; then
-        AC_MSG_ERROR([KDE4 libraries not found.  Please specify the root of your KDE4 installation by exporting KDE4DIR before running "configure".])
-    fi
-
-    PKG_CHECK_MODULES([QT4],[QtNetwork QtGui])
-    if ! test -z "$kde4_incdir"; then
-    	KDE4_CFLAGS="-I$kde4_incdir $QT4_CFLAGS -DQT_CLEAN_NAMESPACE -DQT_THREAD_SUPPORT"
-    else
-    	KDE4_CFLAGS="$QT4_CFLAGS -DQT_CLEAN_NAMESPACE -DQT_THREAD_SUPPORT"
-    fi
-
-    KDE4_LIBS="-L$kde4_libdir -lkio -lkfile -lkdeui -lkdecore -L$qt4_lib_dir $QT4_LIBS"
-    KDE4_CFLAGS=$(printf '%s' "$KDE4_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
-    FilterLibs "$KDE4_LIBS"
-    KDE4_LIBS="$filteredlibs"
-
-    AC_LANG_PUSH([C++])
-    save_CXXFLAGS=$CXXFLAGS
-    CXXFLAGS="$CXXFLAGS $KDE4_CFLAGS"
-    AC_MSG_CHECKING([whether KDE is >= 4.2])
-       AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <kdeversion.h>
-
-int main(int argc, char **argv) {
-       if (KDE_VERSION_MAJOR == 4 && KDE_VERSION_MINOR >= 2) return 0;
-       else return 1;
-}
-]])],[AC_MSG_RESULT([yes])],[AC_MSG_ERROR([KDE version too old])],[AC_MSG_ERROR([KDE support not tested with cross-compilation])])
-    CXXFLAGS=$save_CXXFLAGS
-    AC_LANG_POP([C++])
-
-    # Glib is needed for properly handling Qt event loop with Qt's Glib integration enabled.
-    # Sets also KDE4_GLIB_CFLAGS/KDE4_GLIB_LIBS if successful.
-    PKG_CHECK_MODULES(KDE4_GLIB,[glib-2.0 >= 2.4],
-        [
-            KDE4_HAVE_GLIB=TRUE
-            AC_DEFINE(KDE4_HAVE_GLIB,1)
-            KDE4_GLIB_CFLAGS=$(printf '%s' "$KDE4_GLIB_CFLAGS" | sed -e "s/-I/${ISYSTEM?}/g")
-            FilterLibs "${KDE4_GLIB_LIBS}"
-            KDE4_GLIB_LIBS="${filteredlibs}"
-
-            qt4_fix_warning=
-
-            AC_LANG_PUSH([C++])
-            # tst_exclude_socket_notifiers.moc:70:28: runtime error: member access within address 0x60d00000bb20 which does not point to an object of type 'QObjectData'
-            # 0x60d00000bb20: note: object is of type 'QObjectPrivate'
-            #  02 00 80 3a  90 8a 4e d2 3a 00 00 00  f0 b4 b9 a7 ff 7f 00 00  00 00 00 00 00 00 00 00  20 d8 4e d2
-            #               ^~~~~~~~~~~~~~~~~~~~~~~
-            #               vptr for 'QObjectPrivate'
-            # so temporarily ignore here whichever way would be used to make such errors fatal
-            # (-fno-sanitize-recover=... or UBSAN_OPTIONS halt_on_error=1):
-            save_CXX=$CXX
-            CXX=$(printf %s "$CXX" \
-                | sed -e 's/-fno-sanitize-recover\(=[[0-9A-Za-z,_-]]*\)*//')
-            save_UBSAN_OPTIONS=$UBSAN_OPTIONS
-            UBSAN_OPTIONS=$UBSAN_OPTIONS:halt_on_error=0
-            save_CXXFLAGS=$CXXFLAGS
-            CXXFLAGS="$CXXFLAGS $KDE4_CFLAGS"
-            save_LIBS=$LIBS
-            LIBS="$LIBS $KDE4_LIBS"
-            AC_MSG_CHECKING([whether Qt has fixed ExcludeSocketNotifiers])
-
-            # Prepare meta object data
-            TSTBASE="tst_exclude_socket_notifiers"
-            TSTMOC="${SRC_ROOT}/vcl/unx/kde4/${TSTBASE}"
-            ln -fs "${TSTMOC}.hxx"
-            $MOC4 "${TSTBASE}.hxx" -o "${TSTBASE}.moc"
-
-            AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <cstdlib>
-#include "tst_exclude_socket_notifiers.moc"
-
-int main(int argc, char *argv[])
-{
-    QCoreApplication app(argc, argv);
-    exit(tst_processEventsExcludeSocket());
-    return 0;
-}
-            ]])],[
-                AC_MSG_RESULT([yes])
-            ],[
-                AC_MSG_RESULT([no])
-                AC_MSG_WARN([native KDE4 file pickers will be disabled at runtime])
-                if test -z "$qt4_fix_warning"; then
-                    add_warning "native KDE4 file pickers will be disabled at runtime, Qt4 fixes needed"
-                fi
-                qt4_fix_warning=1
-                add_warning "  https://bugreports.qt.io/browse/QTBUG-37380 (needed)"
-                ],[AC_MSG_ERROR([KDE4 file pickers not tested with cross-compilation])])
-
-            # Remove meta object data
-            rm -f "${TSTBASE}."*
-
-            AC_MSG_CHECKING([whether Qt avoids QClipboard recursion caused by posted events])
-
-            # Prepare meta object data
-            TSTBASE="tst_exclude_posted_events"
-            TSTMOC="${SRC_ROOT}/vcl/unx/kde4/${TSTBASE}"
-            ln -fs "${TSTMOC}.hxx"
-            $MOC4 "${TSTBASE}.hxx" -o "${TSTBASE}.moc"
-
-            AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <cstdlib>
-#include "tst_exclude_posted_events.moc"
-
-int main(int argc, char *argv[])
-{
-    QCoreApplication app(argc, argv);
-    exit(tst_excludePostedEvents());
-    return 0;
-}
-            ]])],[
-                AC_MSG_RESULT([yes])
-            ],[
-                AC_MSG_RESULT([no])
-                AC_MSG_WARN([native KDE4 file pickers will be disabled at runtime])
-                if test -z "$qt4_fix_warning"; then
-                    add_warning "native KDE4 file pickers will be disabled at runtime, Qt4 fixes needed"
-                fi
-                qt4_fix_warning=1
-                add_warning "  https://bugreports.qt.io/browse/QTBUG-34614 (needed)"
-            ],[AC_MSG_ERROR([KDE4 file pickers not tested with cross-compilation])])
-
-            # Remove meta object data
-            rm -f "${TSTBASE}."*
-
-            if test -n "$qt4_fix_warning"; then
-                add_warning "  https://bugreports.qt.io/browse/QTBUG-38585 (recommended)"
-            fi
-
-            LIBS=$save_LIBS
-            CXXFLAGS=$save_CXXFLAGS
-            UBSAN_OPTIONS=$save_UBSAN_OPTIONS
-            CXX=$save_CXX
-            AC_LANG_POP([C++])
-        ],
-        AC_MSG_WARN([[No Glib found, KDE4 support will not use native file pickers!]]))
-fi
-AC_SUBST(KDE4_CFLAGS)
-AC_SUBST(KDE4_LIBS)
-AC_SUBST(MOC4)
-AC_SUBST(KDE4_GLIB_CFLAGS)
-AC_SUBST(KDE4_GLIB_LIBS)
-AC_SUBST(KDE4_HAVE_GLIB)
 
 dnl ===================================================================
 dnl QT5 Integration
@@ -11750,7 +11495,7 @@ if test "$ENABLE_JAVA" != "" -a "$NEED_ANT" = "TRUE"; then
         fi
     fi
     if test -z "$with_ant_home"; then
-        AC_PATH_PROGS(ANT, [jakarta-ant ant ant.sh ant.bat ant.cmd])
+        AC_PATH_PROGS(ANT, [ant ant.sh ant.bat ant.cmd])
     else
         if test "$_os" = "WINNT"; then
             # AC_PATH_PROGS needs unix path
@@ -11758,7 +11503,7 @@ if test "$ENABLE_JAVA" != "" -a "$NEED_ANT" = "TRUE"; then
         fi
         AbsolutePath "$with_ant_home"
         with_ant_home=$absolute_path
-        AC_PATH_PROGS(ANT, [jakarta-ant ant ant.sh ant.bat ant.cmd],,$with_ant_home/bin:$PATH)
+        AC_PATH_PROGS(ANT, [ant ant.sh ant.bat ant.cmd],,$with_ant_home/bin:$PATH)
         WITH_ANT_HOME=$with_ant_home
         ANT_HOME=$with_ant_home
     fi
@@ -12479,7 +12224,8 @@ if test "$build_os" = "cygwin"; then
     AC_SUBST(ILIB)
 fi
 
-AC_MSG_CHECKING([whether $CXX supports inline variables])
+dnl This check can eventually be removed completely (e.g., after libreoffice-6-3 branch off):
+AC_MSG_CHECKING([that $CXX supports inline variables])
 AC_LANG_PUSH([C++])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
@@ -12495,23 +12241,17 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
         struct T { static constexpr S s{}; };
         S const * f() { return &T::s; }
         #endif
-    ]])], [
-        AC_DEFINE([HAVE_CPP_INLINE_VARIABLES],[1])
-        AC_MSG_RESULT([yes])
-    ], [AC_MSG_RESULT([no])])
+    ]])],
+    AC_MSG_RESULT([yes]), AC_MSG_ERROR([$CXX lacks required inline variable support]))
 CXXFLAGS=$save_CXXFLAGS
 if test "$build_os" = cygwin; then
     LIB=$save_LIB
 fi
 AC_LANG_POP([C++])
 
-dnl We should be able to drop the below check when bumping the GCC baseline to
-dnl 4.9, as <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54577>
-dnl "deque<T>::erase() still takes iterator instead of const_iterator" should be
-dnl fixed there with <https://gcc.gnu.org/git/?p=gcc.git;a=commit;
-dnl h=6b0e18ca48bb4b4c01e7b5be2b98849943fdcf91>:
+dnl This check can eventually be removed completely (e.g., after libreoffice-6-3 branch off):
 AC_MSG_CHECKING(
-    [whether C++11 use of const_iterator in standard containers is broken])
+    [that C++11 use of const_iterator in standard containers is not broken])
 save_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
 AC_LANG_PUSH([C++])
@@ -12521,48 +12261,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         std::list<int> l;
         l.erase(l.cbegin());
     ]])],
-    [broken=no], [broken=yes])
+    AC_MSG_RESULT([yes]),
+    AC_MSG_ERROR([C++11 use of const_iterator in standard containers must not broken]))
 AC_LANG_POP([C++])
 CXXFLAGS=$save_CXXFLAGS
-AC_MSG_RESULT([$broken])
-if test "$broken" = yes; then
-    AC_DEFINE([HAVE_BROKEN_CONST_ITERATORS])
-fi
-
-
-AC_MSG_CHECKING([whether $CXX has broken static initializer_list support])
-save_CXXFLAGS=$CXXFLAGS
-CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11"
-save_LIBS=$LIBS
-if test -n "$ILIB1"; then
-    LIBS="$LIBS $ILIB1"
-fi
-AC_LANG_PUSH([C++])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-    // Exit with failure if the static initializer_list is stored on the
-    // stack (as done by Clang < 3.4):
-    #include <initializer_list>
-    struct S {};
-    bool g(void const * p1, void const * p2) {
-        int n;
-        return !((p1 > p2 && p2 > &n) || (p1 < p2 && p2 < &n));
-    }
-    bool f(void const * p1) {
-        static std::initializer_list<S> s { S() };
-        return g(p1, s.begin());
-    }
-    ]],[[
-        int n;
-        return f(&n) ? 0 : 1;
-    ]])], [broken=no], [broken=yes],[broken='assuming not (cross-compiling)'])
-AC_LANG_POP([C++])
-LIBS=$save_LIBS
-CXXFLAGS=$save_CXXFLAGS
-AC_MSG_RESULT([$broken])
-if test "$broken" = yes -a "$_os" != "iOS"; then
-    AC_MSG_ERROR([working support for static initializer_list needed])
-fi
-
 
 # ===================================================================
 # Creating bigger shared library to link against
@@ -12837,7 +12539,6 @@ CPPFLAGS=$my_original_CPPFLAGS
 AC_CONFIG_FILES([config_host.mk
                  config_host_lang.mk
                  Makefile
-                 lo.xcent
                  bin/bffvalidator.sh
                  bin/odfvalidator.sh
                  bin/officeotron.sh
@@ -12866,7 +12567,6 @@ AC_CONFIG_HEADERS([config_host/config_liblangtag.h])
 AC_CONFIG_HEADERS([config_host/config_libnumbertext.h])
 AC_CONFIG_HEADERS([config_host/config_locales.h])
 AC_CONFIG_HEADERS([config_host/config_mpl.h])
-AC_CONFIG_HEADERS([config_host/config_kde4.h])
 AC_CONFIG_HEADERS([config_host/config_qt5.h])
 AC_CONFIG_HEADERS([config_host/config_kde5.h])
 AC_CONFIG_HEADERS([config_host/config_gtk3_kde5.h])

@@ -17,6 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#ifndef INCLUDED_VCL_WIN_GDI_GDIIMPL_HXX
+#define INCLUDED_VCL_WIN_GDI_GDIIMPL_HXX
+
 #include <salgdiimpl.hxx>
 #include <win/salgdi.h>
 
@@ -46,9 +49,16 @@ private:
     Color                maLineColor;
     Color                maFillColor;
 
-    bool tryDrawBitmapGdiPlus(const SalTwoRect& rTR, const SalBitmap& rSrcBitmap);
-    void drawPixelImpl( long nX, long nY, COLORREF crColor );
+    bool TryDrawBitmapGDIPlus(const SalTwoRect& rTR, const SalBitmap& rSrcBitmap);
+    void DrawPixelImpl(long nX, long nY, COLORREF crColor);
 
+    HPEN SearchStockPen(COLORREF nPenColor);
+    HPEN MakePen(Color nColor);
+    void ResetPen(HPEN hNewPen);
+
+    HBRUSH SearchStockBrush(COLORREF nBrushColor);
+    HBRUSH MakeBrush(Color nColor);
+    void ResetBrush(HBRUSH hNewBrush);
 public:
 
     explicit WinSalGraphicsImpl(WinSalGraphics& rParent);
@@ -85,7 +95,7 @@ public:
     virtual void SetFillColor( Color nColor ) override;
 
     // enable/disable XOR drawing
-    virtual void SetXORMode( bool bSet) override;
+    virtual void SetXORMode( bool bSet, bool bInvertOnly ) override;
 
     // set line color for raster operations
     virtual void SetROPLineColor( SalROPColor nROPColor ) override;
@@ -233,5 +243,7 @@ public:
     virtual bool RenderAndCacheNativeControl(OpenGLCompatibleDC& rWhite, OpenGLCompatibleDC& rBlack,
                                              int nX, int nY , ControlCacheKey& aControlCacheKey);
 };
+
+#endif // INCLUDED_VCL_WIN_GDI_GDIIMPL_HXX
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

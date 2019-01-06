@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -45,6 +45,7 @@
 #include <bitmapwriteaccess.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/helpers.hxx>
 
 void OutputDevice::DrawBitmap( const Point& rDestPt, const Bitmap& rBitmap )
 {
@@ -71,10 +72,6 @@ void OutputDevice::DrawBitmap( const Point& rDestPt, const Size& rDestSize,
     if( ImplIsRecordLayout() )
         return;
 
-    if ( mnDrawMode & DrawModeFlags::NoBitmap )
-    {
-        return;
-    }
     if ( RasterOp::Invert == meRasterOp )
     {
         DrawRect( tools::Rectangle( rDestPt, rDestSize ) );
@@ -84,14 +81,14 @@ void OutputDevice::DrawBitmap( const Point& rDestPt, const Size& rDestSize,
     Bitmap aBmp( rBitmap );
 
     if ( mnDrawMode & ( DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap |
-                             DrawModeFlags::GrayBitmap  | DrawModeFlags::GhostedBitmap ) )
+                             DrawModeFlags::GrayBitmap ) )
     {
         if ( mnDrawMode & ( DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap ) )
         {
             sal_uInt8 cCmpVal;
 
             if ( mnDrawMode & DrawModeFlags::BlackBitmap )
-                cCmpVal = ( mnDrawMode & DrawModeFlags::GhostedBitmap ) ? 0x80 : 0;
+                cCmpVal = 0;
             else
                 cCmpVal = 255;
 
@@ -107,9 +104,6 @@ void OutputDevice::DrawBitmap( const Point& rDestPt, const Size& rDestSize,
         {
             if ( mnDrawMode & DrawModeFlags::GrayBitmap )
                 aBmp.Convert( BmpConversion::N8BitGreys );
-
-            if ( mnDrawMode & DrawModeFlags::GhostedBitmap )
-                aBmp.Convert( BmpConversion::Ghosted );
         }
     }
 
@@ -296,9 +290,6 @@ void OutputDevice::DrawBitmapEx( const Point& rDestPt, const Size& rDestSize,
     }
     else
     {
-        if ( mnDrawMode & DrawModeFlags::NoBitmap )
-            return;
-
         if ( RasterOp::Invert == meRasterOp )
         {
             DrawRect( tools::Rectangle( rDestPt, rDestSize ) );
@@ -308,15 +299,15 @@ void OutputDevice::DrawBitmapEx( const Point& rDestPt, const Size& rDestSize,
         BitmapEx aBmpEx( rBitmapEx );
 
         if ( mnDrawMode & ( DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap |
-                                 DrawModeFlags::GrayBitmap | DrawModeFlags::GhostedBitmap ) )
+                                 DrawModeFlags::GrayBitmap ) )
         {
             if ( mnDrawMode & ( DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap ) )
             {
-                Bitmap  aColorBmp( aBmpEx.GetSizePixel(), ( mnDrawMode & DrawModeFlags::GhostedBitmap ) ? 4 : 1 );
+                Bitmap  aColorBmp( aBmpEx.GetSizePixel(), 1 );
                 sal_uInt8   cCmpVal;
 
                 if ( mnDrawMode & DrawModeFlags::BlackBitmap )
-                    cCmpVal = ( mnDrawMode & DrawModeFlags::GhostedBitmap ) ? 0x80 : 0;
+                    cCmpVal = 0;
                 else
                     cCmpVal = 255;
 
@@ -342,9 +333,6 @@ void OutputDevice::DrawBitmapEx( const Point& rDestPt, const Size& rDestSize,
             {
                 if ( mnDrawMode & DrawModeFlags::GrayBitmap )
                     aBmpEx.Convert( BmpConversion::N8BitGreys );
-
-                if ( mnDrawMode & DrawModeFlags::GhostedBitmap )
-                    aBmpEx.Convert( BmpConversion::Ghosted );
             }
         }
 
@@ -655,6 +643,12 @@ void OutputDevice::DrawDeviceAlphaBitmap( const Bitmap& rBmp, const AlphaMask& r
         static const char* pDisableNative = getenv( "SAL_DISABLE_NATIVE_ALPHA");
         // #i83087# Naturally, system alpha blending cannot work with
         // separate alpha VDev
+
+        // Not clear how the above comment relates to the following declaration and initialisation
+        // of bTryDirectPaint. Does bTryDirectPaint being true mean that we can use "system alpha
+        // blending"? Or that we can't? Or are the two not related at all, and should the above
+        // comment actually be better located below, before the "if (mpAlphaVDev)" test?
+
         bool bTryDirectPaint(!pDisableNative && !bHMirr && !bVMirr);
 
         if (bTryDirectPaint)
@@ -1175,9 +1169,6 @@ void OutputDevice::DrawTransformedBitmapEx(
     if(rBitmapEx.IsEmpty())
         return;
 
-    if ( mnDrawMode & DrawModeFlags::NoBitmap )
-        return;
-
     // decompose matrix to check rotation and shear
     basegfx::B2DVector aScale, aTranslate;
     double fRotate, fShearX;
@@ -1218,7 +1209,7 @@ void OutputDevice::DrawTransformedBitmapEx(
     // we have rotation,shear or mirror, check if some crazy mode needs the
     // created transformed bitmap
     const bool bInvert(RasterOp::Invert == meRasterOp);
-    const bool bBitmapChangedColor(mnDrawMode & (DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap | DrawModeFlags::GrayBitmap | DrawModeFlags::GhostedBitmap));
+    const bool bBitmapChangedColor(mnDrawMode & (DrawModeFlags::BlackBitmap | DrawModeFlags::WhiteBitmap | DrawModeFlags::GrayBitmap ));
     bool bDone(false);
     const basegfx::B2DHomMatrix aFullTransform(GetViewTransformation() * rTransformation);
     const bool bTryDirectPaint(!bInvert && !bBitmapChangedColor && !bMetafile );

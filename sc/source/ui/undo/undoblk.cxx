@@ -73,7 +73,7 @@ ScUndoInsertCells::ScUndoInsertCells( ScDocShell* pNewDocShell,
                                 SCTAB nNewCount, std::unique_ptr<SCTAB[]> pNewTabs, std::unique_ptr<SCTAB[]> pNewScenarios,
                                 InsCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData,
                                 bool bNewPartOfPaste ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST ),
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData) ),
     aEffRange( rRange ),
     nCount( nNewCount ),
     pTabs( std::move(pNewTabs) ),
@@ -246,7 +246,7 @@ void ScUndoInsertCells::DoChange( const bool bUndo )
         case INS_INSCOLS_BEFORE:
         case INS_INSCOLS_AFTER:
             nPaint |= PaintPartFlags::Top;                // top bar
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case INS_CELLSRIGHT:
             for( i=0; i<nCount; i++ )
             {
@@ -341,7 +341,7 @@ ScUndoDeleteCells::ScUndoDeleteCells( ScDocShell* pNewDocShell,
                                 const ScRange& rRange,
                                 SCTAB nNewCount, std::unique_ptr<SCTAB[]> pNewTabs, std::unique_ptr<SCTAB[]> pNewScenarios,
                                 DelCellCmd eNewCmd, ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST ),
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData) ),
     aEffRange( rRange ),
     nCount( nNewCount ),
     pTabs( std::move(pNewTabs) ),
@@ -504,7 +504,7 @@ void ScUndoDeleteCells::DoChange( const bool bUndo )
             break;
         case DelCellCmd::Cols:
             nPaint |= PaintPartFlags::Top;                // top bar
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case DelCellCmd::CellsLeft:
             for( i=0; i<nCount; i++ )
             {
@@ -626,7 +626,7 @@ ScUndoDeleteMulti::ScUndoDeleteMulti(
     bool bNewRows, bool bNeedsRefresh, SCTAB nNewTab,
     const std::vector<sc::ColRowSpan>& rSpans,
     ScDocumentUniquePtr pUndoDocument, std::unique_ptr<ScRefUndoData> pRefData ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData), SC_UNDO_REFLAST ),
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), std::move(pRefData) ),
     mbRows(bNewRows),
     mbRefresh(bNeedsRefresh),
     nTab( nNewTab ),
@@ -1172,7 +1172,7 @@ bool ScUndoPaste::CanRepeat(SfxRepeatTarget& rTarget) const
 ScUndoDragDrop::ScUndoDragDrop( ScDocShell* pNewDocShell,
                     const ScRange& rRange, const ScAddress& aNewDestPos, bool bNewCut,
                     ScDocumentUniquePtr pUndoDocument, bool bScenario ) :
-    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), nullptr, SC_UNDO_REFLAST ),
+    ScMoveUndo( pNewDocShell, std::move(pUndoDocument), nullptr ),
     mnPaintExtFlags( 0 ),
     aSrcRange( rRange ),
     bCut( bNewCut ),

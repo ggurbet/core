@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -221,7 +221,6 @@ sal_uInt32 SfxViewShell_Impl::m_nLastViewShellId = 0;
 SfxViewShell_Impl::SfxViewShell_Impl(SfxViewShellFlags const nFlags)
 : aInterceptorContainer( aMutex )
 ,   m_bHasPrintOptions(nFlags & SfxViewShellFlags::HAS_PRINTOPTIONS)
-,   m_bIsShowView(!(nFlags & SfxViewShellFlags::NO_SHOW))
 ,   m_nFamily(0xFFFF)   // undefined, default set by TemplateDialog
 ,   m_pLibreOfficeKitViewCallback(nullptr)
 ,   m_pLibreOfficeKitViewData(nullptr)
@@ -361,14 +360,9 @@ void SfxViewShell::IPClientGone_Impl( SfxInPlaceClient const *pIPClient )
 {
     std::vector< SfxInPlaceClient* > *pClients = pImpl->GetIPClients_Impl();
 
-    for(std::vector< SfxInPlaceClient* >::iterator it = pClients->begin(); it != pClients->end(); ++it)
-    {
-        if ( *it == pIPClient )
-        {
-            pClients->erase( it );
-            break;
-        }
-    }
+    auto it = std::find(pClients->begin(), pClients->end(), pIPClient);
+    if (it != pClients->end())
+        pClients->erase( it );
 }
 
 
@@ -1501,8 +1495,17 @@ vcl::Window* SfxViewShell::GetEditWindowForActiveOLEObj() const
 
 void SfxViewShell::SetLOKLanguageTag(const OUString& rBcp47LanguageTag)
 {
+    LanguageTag aTag = LanguageTag(rBcp47LanguageTag, true);
+
     css::uno::Sequence<OUString> inst(officecfg::Setup::Office::InstalledLocales::get()->getElementNames());
-    maLOKLanguageTag = LanguageTag(getInstalledLocaleForSystemUILanguage(inst, /* bRequestInstallIfMissing */ false, rBcp47LanguageTag), true).makeFallback();
+    LanguageTag aFallbackTag = LanguageTag(getInstalledLocaleForSystemUILanguage(inst, /* bRequestInstallIfMissing */ false, rBcp47LanguageTag), true).makeFallback();
+
+    // If we want de-CH, and the de localisation is available, we don't want to use de-DE as then
+    // the magic in Translate::get() won't turn ess-zet into double s. Possibly other similar cases?
+    if (comphelper::LibreOfficeKit::isActive() && aTag.getLanguage() == aFallbackTag.getLanguage())
+        maLOKLanguageTag = aTag;
+    else
+        maLOKLanguageTag = aFallbackTag;
 }
 
 void SfxViewShell::NotifyCursor(SfxViewShell* /*pViewShell*/) const
@@ -1719,11 +1722,6 @@ void SfxViewShell::SetMargin( const Size& rSize )
 
 void SfxViewShell::MarginChanged()
 {
-}
-
-bool SfxViewShell::IsShowView_Impl() const
-{
-    return pImpl->m_bIsShowView;
 }
 
 void SfxViewShell::JumpToMark( const OUString& rMark )

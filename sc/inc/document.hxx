@@ -40,6 +40,7 @@
 #include <svl/typedwhich.hxx>
 #include <svl/zforlist.hxx>
 #include <tools/gen.hxx>
+#include <tools/solar.h>
 
 #include <cassert>
 #include <memory>
@@ -501,6 +502,9 @@ private:
     bool                bExpandRefs;
     // for detective update, is set for each change of a formula
     bool                bDetectiveDirty;
+    // If the pointer is set, formula cells will not be automatically grouped into shared formula groups,
+    // instead the range will be extended to contain all such cells.
+    std::unique_ptr< ScRange > pDelayedFormulaGrouping;
 
     bool                bLinkFormulaNeedingCheck; // valid only after loading, for ocDde and ocWebservice
 
@@ -1013,7 +1017,7 @@ public:
 
     void            BeginUnoRefUndo();
     bool            HasUnoRefUndo() const       { return ( pUnoRefUndoList != nullptr ); }
-    SAL_WARN_UNUSED_RESULT
+    [[nodiscard]]
     std::unique_ptr<ScUnoRefList> EndUnoRefUndo();            // must be deleted by caller!
     sal_Int64       GetNewUnoId() { return ++nUnoObjectId; }
     void            AddUnoRefChange( sal_Int64 nId, const ScRangeList& rOldRanges );
@@ -1316,6 +1320,12 @@ public:
     bool            IsForcedFormulaPending() const { return bForcedFormulaPending; }
                     // if CalcFormulaTree() is currently running
     bool            IsCalculatingFormulaTree() { return bCalculatingFormulaTree; }
+    /// If set, joining cells into shared formula groups will be delayed until reset again
+    /// (RegroupFormulaCells() will be called as needed).
+    void            DelayFormulaGrouping( bool delay );
+    bool            IsDelayedFormulaGrouping() const { return pDelayedFormulaGrouping.get() != nullptr; }
+    /// To be used only by SharedFormulaUtil::joinFormulaCells().
+    void            AddDelayedFormulaGroupingCell( ScFormulaCell* cell );
 
     FormulaError    GetErrCode( const ScAddress& ) const;
 
@@ -1383,6 +1393,15 @@ public:
     SC_DLLPUBLIC void           GetDataArea( SCTAB nTab, SCCOL& rStartCol, SCROW& rStartRow,
                                              SCCOL& rEndCol, SCROW& rEndRow,
                                              bool bIncludeOld, bool bOnlyDown ) const;
+
+    /**
+     * Returns true if there is a non-empty subrange in the range given as input.
+     * In that case it also modifies rRange to largest subrange that does not
+     * have empty col/row inrange-segments in the beginning/end.
+     * It returns false if rRange is completely empty and in this case rRange is
+     * left unmodified.
+    */
+    bool                        GetDataAreaSubrange(ScRange& rRange) const;
 
     SC_DLLPUBLIC bool           GetCellArea( SCTAB nTab, SCCOL& rEndCol, SCROW& rEndRow ) const;
     SC_DLLPUBLIC bool           GetTableArea( SCTAB nTab, SCCOL& rEndCol, SCROW& rEndRow ) const;
@@ -2389,6 +2408,7 @@ public:
      */
     void UnshareFormulaCells( SCTAB nTab, SCCOL nCol, std::vector<SCROW>& rRows );
     void RegroupFormulaCells( SCTAB nTab, SCCOL nCol );
+    void RegroupFormulaCells( const ScRange& range );
 
     ScFormulaVectorState GetFormulaVectorState( const ScAddress& rPos ) const;
 
@@ -2397,6 +2417,9 @@ public:
 
     formula::VectorRefArray FetchVectorRefArray( const ScAddress& rPos, SCROW nLength );
     bool HandleRefArrayForParallelism( const ScAddress& rPos, SCROW nLength, const ScFormulaCellGroupRef& mxGroup );
+#ifdef DBG_UTIL
+    void AssertNoInterpretNeeded( const ScAddress& rPos, SCROW nLength );
+#endif
 
     /**
      * Call this before any operations that might trigger one or more formula

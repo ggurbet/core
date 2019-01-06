@@ -619,6 +619,16 @@ public:
         return mpDoc->pClass->getSignatureState(mpDoc);
     }
 
+    /**
+     * Gets an image of the selected shapes.
+     * @param pOutput contains the result; use free to deallocate.
+     * @return the size ouf *pOutput in bytes.
+     */
+    size_t renderShapeSelection(char** pOutput)
+    {
+        return mpDoc->pClass->renderShapeSelection(mpDoc, pOutput);
+    }
+
 #endif // defined LOK_USE_UNSTABLE_API || defined LIBO_INTERNAL_ONLY
 };
 
@@ -780,6 +790,18 @@ public:
     bool runMacro( const char* pURL)
     {
         return mpThis->pClass->runMacro( mpThis, pURL );
+    }
+
+    /**
+     * Exports the document and signes its content.
+     */
+    bool signDocument(const char* pURL,
+                       const unsigned char* pCertificateBinary, const int nCertificateBinarySize,
+                       const unsigned char* pPrivateKeyBinary, const int nPrivateKeyBinarySize)
+    {
+        return mpThis->pClass->signDocument(mpThis, pURL,
+                                            pCertificateBinary, nCertificateBinarySize,
+                                            pPrivateKeyBinary, nPrivateKeyBinarySize);
     }
 };
 

@@ -29,7 +29,9 @@
 #include <vcl/edit.hxx>
 #include <vcl/image.hxx>
 #include <vcl/settings.hxx>
-#include <svtaccessiblefactory.hxx>
+#include <vcl/commandevent.hxx>
+#include <vcl/svtaccessiblefactory.hxx>
+#include <vcl/accessiblefactory.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/strings.hrc>
 #include <limits>
@@ -494,7 +496,7 @@ struct TabBar_Impl
     ScopedVclPtr<TabBarEdit>    mpEdit;
     std::vector<std::unique_ptr<ImplTabBarItem>> mpItemList;
 
-    svt::AccessibleFactoryAccess  maAccessibleFactory;
+    vcl::AccessibleFactoryAccess  maAccessibleFactory;
 
     sal_uInt16 getItemSize()
     {
@@ -1390,18 +1392,6 @@ void TabBar::RequestHelp(const HelpEvent& rHEvt)
                 return;
             }
         }
-        else if (rHEvt.GetMode() & HelpEventMode::EXTENDED)
-        {
-            OUString aHelpId(OStringToOUString(GetHelpId(nItemId), RTL_TEXTENCODING_UTF8));
-            if ( !aHelpId.isEmpty() )
-            {
-                // trigger Help if available
-                Help* pHelp = Application::GetHelp();
-                if (pHelp)
-                    pHelp->Start(aHelpId, this);
-                return;
-            }
-        }
 
         // show text for quick- or balloon-help
         // if this is isolated or not fully visible
@@ -2269,14 +2259,6 @@ OUString TabBar::GetHelpText(sal_uInt16 nPageId) const
         return pItem->maHelpText;
     }
     return OUString();
-}
-
-OString TabBar::GetHelpId(sal_uInt16 nPageId) const
-{
-    sal_uInt16 nPos = GetPagePos(nPageId);
-    if (nPos != PAGE_NOT_FOUND)
-        return mpImpl->mpItemList[nPos]->maHelpId;
-    return OString();
 }
 
 bool TabBar::StartDrag(const CommandEvent& rCEvt, vcl::Region& rRegion)

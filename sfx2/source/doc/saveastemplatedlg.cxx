@@ -16,8 +16,6 @@
 #include <sfx2/docfac.hxx>
 #include <sfx2/doctempl.hxx>
 #include <sfx2/docfilt.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/lstbox.hxx>
 #include <vcl/weld.hxx>
 #include <sot/storage.hxx>
 
@@ -115,11 +113,8 @@ void SfxSaveAsTemplateDialog::initialize()
 
 void SfxSaveAsTemplateDialog::SetCategoryLBEntries(const std::vector<OUString>& rFolderNames)
 {
-    if (!rFolderNames.empty())
-    {
-        for (size_t i = 0, n = rFolderNames.size(); i < n; ++i)
-            m_xLBCategory->insert_text(i+1, rFolderNames[i]);
-    }
+    for (size_t i = 0, n = rFolderNames.size(); i < n; ++i)
+        m_xLBCategory->insert_text(i+1, rFolderNames[i]);
     m_xLBCategory->select(0);
 }
 

@@ -21,7 +21,9 @@
 #include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/script/BasicErrorException.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <basic/sberrors.hxx>
+#include <docsh.hxx>
 #include "vbachartobject.hxx"
 #include "vbachartobjects.hxx"
 
@@ -136,12 +138,10 @@ ScVbaChartObject::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaChartObject::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.ChartObject";
-    }
+        "ooo.vba.excel.ChartObject"
+    };
     return aServiceNames;
 }
 

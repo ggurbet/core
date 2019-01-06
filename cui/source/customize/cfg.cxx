@@ -98,6 +98,7 @@
 #include <com/sun/star/util/thePathSettings.hpp>
 #include <comphelper/documentinfo.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <comphelper/processfactory.hxx>
 
 #include <dlgname.hxx>
 
@@ -219,11 +220,11 @@ SvxConfigDialog::SvxConfigDialog(vcl::Window * pParent, const SfxItemSet* pInSet
 {
     SvxConfigPageHelper::InitImageType();
 
-    m_nMenusPageId = AddTabPage("menus", CreateSvxMenuConfigPage, nullptr);
-    m_nToolbarsPageId = AddTabPage("toolbars", CreateSvxToolbarConfigPage, nullptr);
-    m_nContextMenusPageId = AddTabPage("contextmenus", CreateSvxContextMenuConfigPage, nullptr);
-    m_nKeyboardPageId = AddTabPage("keyboard", CreateKeyboardConfigPage, nullptr);
-    m_nEventsPageId = AddTabPage("events", CreateSvxEventConfigPage, nullptr);
+    m_nMenusPageId = AddTabPage("menus", CreateSvxMenuConfigPage);
+    m_nToolbarsPageId = AddTabPage("toolbars", CreateSvxToolbarConfigPage);
+    m_nContextMenusPageId = AddTabPage("contextmenus", CreateSvxContextMenuConfigPage);
+    m_nKeyboardPageId = AddTabPage("keyboard", CreateKeyboardConfigPage);
+    m_nEventsPageId = AddTabPage("events", CreateSvxEventConfigPage);
 
     const SfxPoolItem* pItem =
         pInSet->GetItem( pInSet->GetPool()->GetWhich( SID_CONFIG ) );
@@ -1599,8 +1600,9 @@ SvTreeListEntry* SvxConfigPage::AddFunction(
     SvTreeListEntry* pTarget, bool bFront, bool bAllowDuplicates )
 {
     OUString aURL = GetScriptURL();
+    SvxConfigEntry* pParent = GetTopLevelSelection();
 
-    if ( aURL.isEmpty() )
+    if ( aURL.isEmpty() || pParent == nullptr )
     {
         return nullptr;
     }
@@ -1623,8 +1625,6 @@ SvTreeListEntry* SvxConfigPage::AddFunction(
         pNewEntryData->SetName( GetSelectedDisplayName() );
 
     // check that this function is not already in the menu
-    SvxConfigEntry* pParent = GetTopLevelSelection();
-
     if ( !bAllowDuplicates )
     {
         for (auto const& entry : *pParent->GetEntries())
@@ -1648,8 +1648,13 @@ SvTreeListEntry* SvxConfigPage::InsertEntry(
     SvTreeListEntry* pTarget,
     bool bFront )
 {
+    SvxConfigEntry* pTopLevelSelection = GetTopLevelSelection();
+
+    if (pTopLevelSelection == nullptr)
+        return nullptr;
+
     // Grab the entries list for the currently selected menu
-    SvxEntries* pEntries = GetTopLevelSelection()->GetEntries();
+    SvxEntries* pEntries = pTopLevelSelection->GetEntries();
 
     SvTreeListEntry* pNewEntry = nullptr;
     SvTreeListEntry* pCurEntry =

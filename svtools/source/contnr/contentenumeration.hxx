@@ -62,7 +62,6 @@ namespace svt
         inline const OUString&   GetLowerTitle() const;
         inline const OUString&   GetFileName() const;
         inline void                     SetNewTitle( const OUString& rNewTitle );        // new maTitle is set -> maFilename is set to same!
-        inline void                     ChangeTitle( const OUString& rChangedTitle );    // maTitle is changed, maFilename is unchanged!
 
     private:
         inline void                     SetTitles( const OUString& rNewTitle );
@@ -101,28 +100,11 @@ namespace svt
         maFilename = rNewTitle.toAsciiUpperCase();
     }
 
-    inline void SortingData_Impl::ChangeTitle( const OUString& rChangedTitle )
-    {
-        SetTitles( rChangedTitle );
-    }
-
     inline void SortingData_Impl::SetTitles( const OUString& rNewTitle )
     {
         maTitle = rNewTitle;
         maLowerTitle = rNewTitle.toAsciiLowerCase();
     }
-
-
-    //= IContentTitleTranslation
-
-    class IContentTitleTranslation
-    {
-    public:
-        virtual bool    GetTranslation( const OUString& _rOriginalName, OUString& _rTranslatedName ) const = 0;
-
-    protected:
-        ~IContentTitleTranslation() {}
-    };
 
 
     //= EnumerationResult
@@ -191,9 +173,6 @@ namespace svt
         IEnumerationResultHandler*      m_pResultHandler;
         bool                            m_bCancelled;
 
-        mutable css::uno::Reference< css::document::XDocumentProperties>
-                                        m_xDocProps;
-
         css::uno::Sequence< OUString > m_rBlackList;
 
         bool URLOnBlackList ( const OUString& sRealURL );
@@ -251,8 +230,6 @@ namespace svt
         // Thread overridables
         virtual void execute() override;
 
-    private:
-        bool implGetDocTitle( const OUString& _rTargetURL, OUString& _rRet ) const;
     };
 
 

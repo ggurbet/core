@@ -338,10 +338,10 @@ void SwHTMLParser::NewDivision( HtmlTokenId nToken )
         m_xDoc->InsertSwSection( *m_pPam, aSection, nullptr, &aFrameItemSet, false );
 
         // maybe jump to section
-        if( JUMPTO_REGION == m_eJumpTo && aName == m_sJmpMark )
+        if( JumpToMarks::Region == m_eJumpTo && aName == m_sJmpMark )
         {
             m_bChkJumpMark = true;
-            m_eJumpTo = JUMPTO_NONE;
+            m_eJumpTo = JumpToMarks::NONE;
         }
 
         SwTextNode* pOldTextNd =
@@ -642,7 +642,7 @@ void SwHTMLParser::NewMultiCol( sal_uInt16 columnsFromCss )
 
         // Insert fly frame. If the are columns, the fly frame's name is not
         // the sections name but a generated one.
-        OUString aFlyName( aEmptyOUStr );
+        OUString aFlyName;
         if( nCols < 2 )
         {
             aFlyName = aId;
@@ -724,10 +724,10 @@ void SwHTMLParser::NewMultiCol( sal_uInt16 columnsFromCss )
         m_xDoc->InsertSwSection( *m_pPam, aSection, nullptr, &aFrameItemSet, false );
 
         // Jump to section, if this is requested.
-        if( JUMPTO_REGION == m_eJumpTo && aName == m_sJmpMark )
+        if( JumpToMarks::Region == m_eJumpTo && aName == m_sJmpMark )
         {
             m_bChkJumpMark = true;
-            m_eJumpTo = JUMPTO_NONE;
+            m_eJumpTo = JumpToMarks::NONE;
         }
 
         SwTextNode* pOldTextNd =
@@ -783,7 +783,7 @@ void SwHTMLParser::InsertFlyFrame( const SfxItemSet& rItemSet,
                             ->GetContentNode();
 
     SwPosition aNewPos( SwNodeIndex( rFlyCntIdx, 1 ), SwIndex( pCNd, 0 ) );
-    const HtmlContextFlags nFlags = (HtmlContextFlags::ProtectStack|HtmlContextFlags::StripPara);
+    const HtmlContextFlags nFlags = HtmlContextFlags::ProtectStack|HtmlContextFlags::StripPara;
     SaveDocContext( pCntxt, nFlags, &aNewPos );
 }
 

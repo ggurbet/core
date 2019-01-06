@@ -23,7 +23,6 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
-#include <config_global.h>
 #include <o3tl/numeric.hxx>
 #include <o3tl/make_unique.hxx>
 #include <o3tl/safeint.hxx>
@@ -1227,10 +1226,6 @@ public:
     }
 };
 
-#if !HAVE_CPP_INLINE_VARIABLES
-constexpr sal_Int32 SwXMLTableContext::MAX_WIDTH;
-#endif
-
 const SwXMLTableCell_Impl *SwXMLTableContext::GetCell( sal_uInt32 nRow,
                                                  sal_uInt32 nCol ) const
 {
@@ -1443,7 +1438,7 @@ SvXMLImportContextRef SwXMLTableContext::CreateChildContext( sal_uInt16 nPrefix,
         break;
     case XML_TOK_TABLE_HEADER_ROWS:
         bHeader = true;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case XML_TOK_TABLE_ROWS:
         pContext = new SwXMLTableRowsContext_Impl( GetSwImport(), nPrefix,
                                                    rLocalName,

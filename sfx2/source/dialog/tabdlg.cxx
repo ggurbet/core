@@ -379,9 +379,8 @@ SfxTabDialog::SfxTabDialog
 (
     vcl::Window* pParent,              // Parent Window
     const OUString& rID, const OUString& rUIXMLDescription, //Dialog Name, Dialog .ui path
-    const SfxItemSet* pItemSet,   // Itemset with the data;
+    const SfxItemSet* pItemSet    // Itemset with the data;
                                   // can be NULL, when Pages are onDemand
-    bool bEditFmt                 // when yes -> additional Button for standard
 )
     : TabDialog(pParent, rID, rUIXMLDescription)
     , m_pSet(pItemSet ? new SfxItemSet(*pItemSet) : nullptr)
@@ -389,7 +388,7 @@ SfxTabDialog::SfxTabDialog
     , m_bStandardPushed(false)
     , m_pExampleSet(nullptr)
 {
-    Init_Impl(bEditFmt);
+    Init_Impl(/*bEditFmt*/false);
 
     sal_uInt16 nPageCount = m_pTabCtrl->GetPageCount();
     for (sal_uInt16 nPage = 0; nPage < nPageCount; ++nPage)
@@ -555,11 +554,6 @@ void SfxTabDialog::Init_Impl(bool bFmtFlag)
     }
 }
 
-void SfxTabDialog::RemoveStandardButton()
-{
-    m_pBaseFmtBtn->Hide();
-}
-
 short SfxTabDialog::Execute()
 {
     if ( !m_pTabCtrl->GetPageCount() )
@@ -589,14 +583,6 @@ void SfxTabDialog::Start()
 
     if ( IsVisible() && ( !HasChildPathFocus() || HasFocus() ) )
         GrabFocusToFirstControl();
-}
-
-
-void SfxTabDialog::SetApplyHandler(const Link<Button*, void>& _rHdl)
-{
-    DBG_ASSERT( m_pApplyBtn, "SfxTabDialog::GetApplyHandler: no apply button enabled!" );
-    if ( m_pApplyBtn )
-        m_pApplyBtn->SetClickHdl( _rHdl );
 }
 
 
@@ -635,35 +621,13 @@ void SfxTabDialog::Start_Impl()
 sal_uInt16 SfxTabDialog::AddTabPage
 (
     const OString &rName,          // Page ID
-    CreateTabPage pCreateFunc,     // Pointer to the Factory Method
-    GetTabPageRanges pRangesFunc   // Pointer to the Method for querying
-                                   // Ranges onDemand
+    CreateTabPage pCreateFunc     // Pointer to the Factory Method
 )
 {
     sal_uInt16 nId = m_pTabCtrl->GetPageId(rName);
-    m_pImpl->aData.push_back(new Data_Impl(nId, rName, pCreateFunc, pRangesFunc));
+    m_pImpl->aData.push_back(new Data_Impl(nId, rName, pCreateFunc, nullptr));
     return nId;
 }
-
-/*
-    Adds a page to the dialog. The Name must correspond to a entry in the
-    TabControl in the dialog .ui
- */
-sal_uInt16 SfxTabDialog::AddTabPage
-(
-    const OString &rName,          // Page ID
-    sal_uInt16 nPageCreateId       // Identifier of the Factory Method to create the page
-)
-{
-    SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    CreateTabPage pCreateFunc = pFact->GetTabPageCreatorFunc(nPageCreateId);
-    assert(pCreateFunc);
-    GetTabPageRanges pRangesFunc = pFact->GetTabPageRangesFunc(nPageCreateId);
-    sal_uInt16 nPageId = m_pTabCtrl->GetPageId(rName);
-    m_pImpl->aData.push_back(new Data_Impl(nPageId, rName, pCreateFunc, pRangesFunc));
-    return nPageId;
-}
-
 
 void SfxTabDialog::AddTabPage
 
@@ -872,20 +836,6 @@ SfxItemSet* SfxTabDialog::CreateInputItemSet( sal_uInt16 )
 }
 
 
-void SfxTabDialog::RefreshInputSet()
-
-/*  [Description]
-
-    Default implementation of the virtual Method.
-    This is called, when <SfxTabPage::DeactivatePage(SfxItemSet *)>
-    returns <DeactivateRC::RefreshSet>.
-*/
-
-{
-    SAL_INFO ( "sfx.dialog", "RefreshInputSet not implemented" );
-}
-
-
 IMPL_LINK_NOARG(SfxTabDialog, OkHdl, Button*, void)
 
 /*  [Description]
@@ -908,26 +858,6 @@ IMPL_LINK_NOARG(SfxTabDialog, OkHdl, Button*, void)
         }
     }
 }
-
-bool SfxTabDialog::Apply()
-{
-    bool bApplied = false;
-    if (PrepareLeaveCurrentPage())
-    {
-         bApplied = (Ok() == RET_OK);
-         //let the pages update their saved values
-         GetInputSetImpl()->Put(*GetOutputItemSet());
-         sal_uInt16 pageCount = m_pTabCtrl->GetPageCount();
-         for (sal_uInt16 pageIdx = 0; pageIdx < pageCount; ++pageIdx)
-         {
-             SfxTabPage* pPage = dynamic_cast<SfxTabPage*> (m_pTabCtrl->GetTabPage(m_pTabCtrl->GetPageId(pageIdx)));
-             if (pPage)
-                pPage->ChangesApplied();
-         }
-    }
-    return bApplied;
-}
-
 
 bool SfxTabDialog::PrepareLeaveCurrentPage()
 {
@@ -1259,7 +1189,6 @@ IMPL_LINK( SfxTabDialog, DeactivatePageHdl, TabControl *, pTabCtrl, bool )
 
     if ( nRet & DeactivateRC::RefreshSet )
     {
-        RefreshInputSet();
         // Flag all Pages as to be initialized as new
 
         for (auto const& elem : m_pImpl->aData)

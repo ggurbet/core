@@ -120,7 +120,7 @@ void SvTreeListEntry::EnableChildrenOnDemand( bool bEnable )
     if ( bEnable )
         nEntryFlags |= SvTLEntryFlags::CHILDREN_ON_DEMAND;
     else
-        nEntryFlags &= (~SvTLEntryFlags::CHILDREN_ON_DEMAND);
+        nEntryFlags &= ~SvTLEntryFlags::CHILDREN_ON_DEMAND;
 }
 
 void SvTreeListEntry::ReplaceItem(std::unique_ptr<SvLBoxItem> pNewItem, size_t const nPos)
@@ -201,12 +201,6 @@ bool SvTreeListEntry::HasChildrenOnDemand() const
 {
     return static_cast<bool>(nEntryFlags & SvTLEntryFlags::CHILDREN_ON_DEMAND);
 }
-
-bool SvTreeListEntry::HasInUseEmphasis() const
-{
-    return static_cast<bool>(nEntryFlags & SvTLEntryFlags::IN_USE);
-}
-
 
 void SvTreeListEntry::SetFlags( SvTLEntryFlags nFlags )
 {

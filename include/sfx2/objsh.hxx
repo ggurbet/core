@@ -113,19 +113,6 @@ namespace com { namespace sun { namespace star {
     }
 } } }
 
-enum class SfxObjectShellFlags
-{
-    STD_NORMAL      = 0x0000000,
-    HASMENU         = 0x0000004,
-    DONTCLOSE       = 0x0000010,
-    NODOCINFO       = 0x0000020,
-    UNDEFINED       = 0xf000000
-};
-namespace o3tl
-{
-    template<> struct typed_flags<SfxObjectShellFlags> : is_typed_flags<SfxObjectShellFlags, 0xf000034> {};
-}
-
 #define SFX_TITLE_TITLE    0
 #define SFX_TITLE_FILENAME 1
 #define SFX_TITLE_FULLNAME 2
@@ -261,8 +248,6 @@ public:
     static void                 SetCurrentComponent( const css::uno::Reference< css::uno::XInterface >& _rxComponent );
 
     virtual void                Invalidate(sal_uInt16 nId = 0) override;
-
-    SfxObjectShellFlags         GetFlags( ) const;
 
     SfxModule*                  GetModule() const;
 
@@ -604,7 +589,7 @@ public:
      */
     void            SetupStorage(
                         const css::uno::Reference< css::embed::XStorage >& xStorage,
-                        sal_Int32 nVersion, bool bTemplate, bool bChart = false ) const;
+                        sal_Int32 nVersion, bool bTemplate ) const;
 
     css::uno::Reference< css::embed::XStorage > const & GetStorage();
 

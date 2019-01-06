@@ -250,8 +250,7 @@ void ScContentTree::InitRoot( ScContentId nType )
         return;
     }
 
-    BitmapEx aBitmap(aContentBmps[static_cast<int>(nType) - 1]);
-    Image aImage(aBitmap);
+    Image aImage(StockImage::Yes, aContentBmps[static_cast<int>(nType) - 1]);
     OUString aName(ScResId(SCSTR_CONTENT_ARY[static_cast<int>(nType)]));
     // back to the correct position:
     sal_uInt16 nPos = nRootType != ScContentId::ROOT ? 0 : pPosList[nType]-1;
@@ -891,14 +890,11 @@ void ScContentTree::GetAreaNames()
     ScRange aDummy;
     std::set<OUString> aSet;
     ScRangeName* pRangeNames = pDoc->GetRangeName();
-    if (!pRangeNames->empty())
+    ScRangeName::const_iterator itrBeg = pRangeNames->begin(), itrEnd = pRangeNames->end();
+    for (ScRangeName::const_iterator itr = itrBeg; itr != itrEnd; ++itr)
     {
-        ScRangeName::const_iterator itrBeg = pRangeNames->begin(), itrEnd = pRangeNames->end();
-        for (ScRangeName::const_iterator itr = itrBeg; itr != itrEnd; ++itr)
-        {
-            if (itr->second->IsValidReference(aDummy))
-                aSet.insert(itr->second->GetName());
-        }
+        if (itr->second->IsValidReference(aDummy))
+            aSet.insert(itr->second->GetName());
     }
     for (SCTAB i = 0; i < pDoc->GetTableCount(); ++i)
     {
@@ -915,13 +911,10 @@ void ScContentTree::GetAreaNames()
         }
     }
 
-    if (!aSet.empty())
+    for (std::set<OUString>::iterator itr = aSet.begin();
+            itr != aSet.end(); ++itr)
     {
-        for (std::set<OUString>::iterator itr = aSet.begin();
-                itr != aSet.end(); ++itr)
-        {
-            InsertContent(ScContentId::RANGENAME, *itr);
-        }
+        InsertContent(ScContentId::RANGENAME, *itr);
     }
 }
 

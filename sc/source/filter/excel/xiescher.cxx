@@ -28,7 +28,6 @@
 #include <com/sun/star/awt/PushButtonType.hpp>
 #include <com/sun/star/awt/ScrollBarOrientation.hpp>
 #include <com/sun/star/awt/VisualEffect.hpp>
-#include <com/sun/star/style/HorizontalAlignment.hpp>
 #include <com/sun/star/style/VerticalAlignment.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/form/XForm.hpp>
@@ -47,7 +46,6 @@
 #include <vcl/dibtools.hxx>
 #include <vcl/wmf.hxx>
 #include <comphelper/classids.hxx>
-#include <config_global.h>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
@@ -60,24 +58,27 @@
 #include <svx/svdoashp.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
-#include <svx/svdocapt.hxx>
 #include <svx/svdouno.hxx>
 #include <svx/svdpage.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/outliner.hxx>
 #include <editeng/outlobj.hxx>
-#include <svx/unoapi.hxx>
 #include <svx/svditer.hxx>
 #include <editeng/writingmodeitem.hxx>
-#include <svx/charthelper.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnedcit.hxx>
+#include <svx/xlnedit.hxx>
+#include <svx/xlnedwit.hxx>
+#include <svx/xlnstcit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnstwit.hxx>
+#include <svx/xlnwtit.hxx>
 
-#include <scitems.hxx>
 #include <editeng/eeitem.hxx>
-#include <editeng/colritem.hxx>
 #include <svx/xflclit.hxx>
 #include <sal/macros.h>
 #include <editeng/adjustitem.hxx>
-#include <svx/xlineit.hxx>
 #include <svx/xlinjoit.hxx>
 #include <svx/xlntrit.hxx>
 #include <svx/xbtmpit.hxx>
@@ -88,8 +89,6 @@
 #include <document.hxx>
 #include <drwlayer.hxx>
 #include <userdat.hxx>
-#include <chartarr.hxx>
-#include <detfunc.hxx>
 #include <unonames.hxx>
 #include <convuno.hxx>
 #include <postit.hxx>
@@ -1022,11 +1021,7 @@ SdrObjectUniquePtr XclImpGroupObj::DoCreateSdrObj( XclImpDffConverter& rDffConv,
     for( ::std::vector< XclImpDrawObjRef >::const_iterator aIt = maChildren.begin(), aEnd = maChildren.end(); aIt != aEnd; ++aIt )
         rDffConv.ProcessObject( rObjList, **aIt );
     rDffConv.Progress();
-#if HAVE_CXX_CWG1579_FIX
     return xSdrObj;
-#else
-    return std::move(xSdrObj);
-#endif
 }
 
 XclImpLineObj::XclImpLineObj( const XclImpRoot& rRoot ) :
@@ -1461,11 +1456,7 @@ SdrObjectUniquePtr XclImpTextObj::DoCreateSdrObj( XclImpDffConverter& rDffConv, 
     xSdrObj->SetMergedItem( makeSdrTextAutoGrowHeightItem( bAutoSize ) );
     xSdrObj->SetMergedItem( makeSdrTextWordWrapItem( true ) );
     rDffConv.Progress();
-#if HAVE_CXX_CWG1579_FIX
     return xSdrObj;
-#else
-    return std::move(xSdrObj);
-#endif
 }
 
 void XclImpTextObj::DoPreProcessSdrObj( XclImpDffConverter& rDffConv, SdrObject& rSdrObj ) const
@@ -1573,7 +1564,7 @@ void XclImpTextObj::DoPreProcessSdrObj( XclImpDffConverter& rDffConv, SdrObject&
                 case EXC_OBJ_ORIENT_STACKED:
                 {
                     // sj: STACKED is not supported, maybe it can be optimized here a bit
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 }
                 case EXC_OBJ_ORIENT_90CW:
                 {

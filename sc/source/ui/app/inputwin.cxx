@@ -189,11 +189,11 @@ ScInputWindow::ScInputWindow( vcl::Window* pParent, const SfxBindings* pBind ) :
     // Position window, 3 buttons, input window
     InsertWindow    (1, aWndPos.get(), ToolBoxItemBits::NONE, 0);
     InsertSeparator (1);
-    InsertItem      (SID_INPUT_FUNCTION, Image(BitmapEx(RID_BMP_INPUT_FUNCTION)), ToolBoxItemBits::NONE, 2);
-    InsertItem      (SID_INPUT_SUM,      Image(BitmapEx(RID_BMP_INPUT_SUM)), ToolBoxItemBits::NONE, 3);
-    InsertItem      (SID_INPUT_EQUAL,    Image(BitmapEx(RID_BMP_INPUT_EQUAL)), ToolBoxItemBits::NONE, 4);
-    InsertItem      (SID_INPUT_CANCEL,   Image(BitmapEx(RID_BMP_INPUT_CANCEL)), ToolBoxItemBits::NONE, 5);
-    InsertItem      (SID_INPUT_OK,       Image(BitmapEx(RID_BMP_INPUT_OK)), ToolBoxItemBits::NONE, 6);
+    InsertItem      (SID_INPUT_FUNCTION, Image(StockImage::Yes, RID_BMP_INPUT_FUNCTION), ToolBoxItemBits::NONE, 2);
+    InsertItem      (SID_INPUT_SUM,      Image(StockImage::Yes, RID_BMP_INPUT_SUM), ToolBoxItemBits::NONE, 3);
+    InsertItem      (SID_INPUT_EQUAL,    Image(StockImage::Yes, RID_BMP_INPUT_EQUAL), ToolBoxItemBits::NONE, 4);
+    InsertItem      (SID_INPUT_CANCEL,   Image(StockImage::Yes, RID_BMP_INPUT_CANCEL), ToolBoxItemBits::NONE, 5);
+    InsertItem      (SID_INPUT_OK,       Image(StockImage::Yes, RID_BMP_INPUT_OK), ToolBoxItemBits::NONE, 6);
     InsertSeparator (7);
     InsertWindow    (7, &aTextWindow, ToolBoxItemBits::NONE, 8);
 
@@ -642,16 +642,16 @@ void ScInputWindow::DataChanged( const DataChangedEvent& rDCEvt )
     if ( rDCEvt.GetType() == DataChangedEventType::SETTINGS && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
     {
         //  update item images
-        SetItemImage(SID_INPUT_FUNCTION, Image(BitmapEx(RID_BMP_INPUT_FUNCTION)));
+        SetItemImage(SID_INPUT_FUNCTION, Image(StockImage::Yes, RID_BMP_INPUT_FUNCTION));
         if ( bIsOkCancelMode )
         {
-            SetItemImage(SID_INPUT_CANCEL, Image(BitmapEx(RID_BMP_INPUT_CANCEL)));
-            SetItemImage(SID_INPUT_OK,     Image(BitmapEx(RID_BMP_INPUT_OK)));
+            SetItemImage(SID_INPUT_CANCEL, Image(StockImage::Yes, RID_BMP_INPUT_CANCEL));
+            SetItemImage(SID_INPUT_OK,     Image(StockImage::Yes, RID_BMP_INPUT_OK));
         }
         else
         {
-            SetItemImage(SID_INPUT_SUM,   Image(BitmapEx(RID_BMP_INPUT_SUM)));
-            SetItemImage(SID_INPUT_EQUAL, Image(BitmapEx(RID_BMP_INPUT_EQUAL)));
+            SetItemImage(SID_INPUT_SUM,   Image(StockImage::Yes, RID_BMP_INPUT_SUM));
+            SetItemImage(SID_INPUT_EQUAL, Image(StockImage::Yes, RID_BMP_INPUT_EQUAL));
         }
     }
 
@@ -677,7 +677,7 @@ void ScInputWindow::MouseMove( const MouseEvent& rMEvt )
     if (bInResize)
     {
         // detect direction
-        long nResizeThreshold = (long(TBX_WINDOW_HEIGHT) * 0.7);
+        long nResizeThreshold = long(TBX_WINDOW_HEIGHT * 0.7);
         bool bResetPointerPos = false;
 
         // Detect attempt to expand toolbar too much
@@ -1808,7 +1808,7 @@ ScPosWnd::ScPosWnd( vcl::Window* pParent ) :
     Size aSize( GetTextWidth( "GW99999:GW99999" ),
                 GetTextHeight() );
     aSize.AdjustWidth(25 );    // FIXME: ??
-    aSize.setHeight( CalcWindowSizePixel(11) ); // Functions: 10 MRU + "others..."
+    aSize.setHeight( CalcWindowSizePixel(21) ); // Functions: 20 MRU + "others..."
     SetSizePixel( aSize );
 
     FillRangeNames();
@@ -1882,14 +1882,11 @@ void ScPosWnd::FillRangeNames()
         ScRange aDummy;
         std::set<OUString> aSet;
         ScRangeName* pRangeNames = rDoc.GetRangeName();
-        if (!pRangeNames->empty())
+        ScRangeName::const_iterator itrBeg = pRangeNames->begin(), itrEnd = pRangeNames->end();
+        for (ScRangeName::const_iterator itr = itrBeg; itr != itrEnd; ++itr)
         {
-            ScRangeName::const_iterator itrBeg = pRangeNames->begin(), itrEnd = pRangeNames->end();
-            for (ScRangeName::const_iterator itr = itrBeg; itr != itrEnd; ++itr)
-            {
-                if (itr->second->IsValidReference(aDummy))
-                    aSet.insert(itr->second->GetName());
-            }
+            if (itr->second->IsValidReference(aDummy))
+                aSet.insert(itr->second->GetName());
         }
         for (SCTAB i = 0; i < rDoc.GetTableCount(); ++i)
         {
@@ -1906,13 +1903,10 @@ void ScPosWnd::FillRangeNames()
             }
         }
 
-        if (!aSet.empty())
+        for (std::set<OUString>::iterator itr = aSet.begin();
+                itr != aSet.end(); ++itr)
         {
-            for (std::set<OUString>::iterator itr = aSet.begin();
-                    itr != aSet.end(); ++itr)
-            {
-                InsertEntry(*itr);
-            }
+            InsertEntry(*itr);
         }
     }
     SetText(aPosStr);

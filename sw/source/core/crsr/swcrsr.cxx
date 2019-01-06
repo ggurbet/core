@@ -776,8 +776,8 @@ static sal_uLong lcl_FindSelection( SwFindParas& rParas, SwCursor* pCurrentCurso
 
         // as long as found and not at same position
         while(  *pSttPos <= *pEndPos &&
-                0 != ( nFndRet = rParas.Find( pCurrentCursor, fnMove,
-                                            &aRegion, bInReadOnly )) &&
+                0 != ( nFndRet = rParas.DoFind(*pCurrentCursor, fnMove,
+                                            aRegion, bInReadOnly)) &&
                 ( !pFndRing ||
                     *pFndRing->GetPoint() != *pCurrentCursor->GetPoint() ||
                     *pFndRing->GetMark() != *pCurrentCursor->GetMark() ))
@@ -1063,9 +1063,8 @@ sal_uLong SwCursor::FindAll( SwFindParas& rParas,
         SwPosition aMarkPos( *GetMark() );
         const bool bMarkPos = HasMark() && (eFndRngs == FindRanges::InBody);
 
-        if( 0 != (nFound = rParas.Find( this, fnMove,
-                                        &aRegion, bInReadOnly ) ? 1 : 0)
-            && bMarkPos )
+        nFound = rParas.DoFind(*this, fnMove, aRegion, bInReadOnly) ? 1 : 0;
+        if (0 != nFound && bMarkPos)
             *GetMark() = aMarkPos;
     }
 
@@ -1442,11 +1441,11 @@ bool SwCursor::SelectWordWT( SwViewShell const * pViewShell, sal_Int16 nWordType
                 --w.m_nPtIndex;
                 w.AssignBack(pTextNd, nPtPos);
 
-                aBndry = Boundary( g_pBreakIt->GetBreakIter()->getWordBoundary(
+                aBndry = g_pBreakIt->GetBreakIter()->getWordBoundary(
                                     *w.m_pText, w.m_nPtIndex,
                                     g_pBreakIt->GetLocale( pTextNd->GetLang( nPtPos ) ),
                                     nWordType,
-                                    bForward ));
+                                    bForward );
 
             }
 

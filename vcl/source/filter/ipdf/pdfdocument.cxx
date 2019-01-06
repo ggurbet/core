@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <com/sun/star/uno/Sequence.hxx>
+#include <com/sun/star/security/XCertificate.hpp>
 
 #include <comphelper/scopeguard.hxx>
 #include <comphelper/string.hxx>
@@ -2295,12 +2296,9 @@ size_t PDFDictionaryElement::Parse(const std::vector<std::unique_ptr<PDFElement>
         auto pEndArr = dynamic_cast<PDFEndArrayElement*>(rElements[i].get());
         if (pArray && pEndArr)
         {
-            if (!aNumbers.empty())
-            {
-                for (auto& pNumber : aNumbers)
-                    pArray->PushBack(pNumber);
-                aNumbers.clear();
-            }
+            for (auto& pNumber : aNumbers)
+                pArray->PushBack(pNumber);
+            aNumbers.clear();
             rDictionary[aName] = pArray;
             if (pThisDictionary)
             {

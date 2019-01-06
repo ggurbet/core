@@ -65,10 +65,10 @@ namespace svx
 const int nColCount = 4;
 const int nLineCount = 4;
 
-FontWorkGalleryDialog::FontWorkGalleryDialog(weld::Window* pParent, SdrView* pSdrView)
+FontWorkGalleryDialog::FontWorkGalleryDialog(weld::Window* pParent, SdrView& rSdrView)
     : GenericDialogController(pParent, "svx/ui/fontworkgallerydialog.ui", "FontworkGalleryDialog")
     , mnThemeId(0xffff)
-    , mpSdrView(pSdrView)
+    , mrSdrView(rSdrView)
     , mppSdrObject(nullptr)
     , mpDestModel(nullptr)
     , maCtlFavorites(m_xBuilder->weld_scrolled_window("ctlFavoriteswin"))
@@ -191,20 +191,19 @@ void FontWorkGalleryDialog::insertSelectedFontwork()
                 // only caller of ::SetSdrObjectRef. Only in that case mpDestModel seems
                 // to be the correct target SdrModel.
                 // If this is not used, the correct SdrModel seems to be the one from
-                // the mpSdrView that is used to insert (InsertObjectAtView below) the
+                // the mrSdrView that is used to insert (InsertObjectAtView below) the
                 // cloned SdrObject.
                 const bool bUseSpecialCalcMode(nullptr != mppSdrObject && nullptr != mpDestModel);
-                const bool bSdrViewInsertMode(nullptr != mpSdrView);
 
                 // center shape on current view
-                OutputDevice* pOutDev(mpSdrView->GetFirstOutputDevice());
+                OutputDevice* pOutDev(mrSdrView.GetFirstOutputDevice());
 
-                if(pOutDev && (bUseSpecialCalcMode || bSdrViewInsertMode))
+                if (pOutDev)
                 {
                     // Clone directly to target SdrModel (may be different due to user/caller (!))
                     SdrObject* pNewObject(
                         pPage->GetObj(0)->CloneSdrObject(
-                            bUseSpecialCalcMode ? *mpDestModel : mpSdrView->getSdrModelFromSdrView()));
+                            bUseSpecialCalcMode ? *mpDestModel : mrSdrView.getSdrModelFromSdrView()));
 
                     // tdf#117629
                     // Since the 'old' ::CloneSdrObject also copies the SdrPage* the
@@ -226,17 +225,17 @@ void FontWorkGalleryDialog::insertSelectedFontwork()
                     tools::Rectangle aNewObjectRectangle(aPagePos, aObjRect.GetSize());
                     pNewObject->SetLogicRect(aNewObjectRectangle);
 
-                    if(bUseSpecialCalcMode)
+                    if (bUseSpecialCalcMode)
                     {
                         *mppSdrObject = pNewObject;
                     }
-                    else // bSdrViewInsertMode
+                    else
                     {
-                        SdrPageView* pPV(mpSdrView->GetSdrPageView());
+                        SdrPageView* pPV(mrSdrView.GetSdrPageView());
 
-                        if(nullptr != pPV)
+                        if (nullptr != pPV)
                         {
-                            mpSdrView->InsertObjectAtView( pNewObject, *pPV );
+                            mrSdrView.InsertObjectAtView( pNewObject, *pPV );
                         }
                         else
                         {
@@ -285,11 +284,11 @@ FontworkAlignmentWindow::FontworkAlignmentWindow(svt::ToolboxController& rContro
 {
     SetSelectHdl( LINK( this, FontworkAlignmentWindow, SelectHdl ) );
 
-    Image aImgAlgin1(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_LEFT));
-    Image aImgAlgin2(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_CENTER));
-    Image aImgAlgin3(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_RIGHT));
-    Image aImgAlgin4(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_WORD));
-    Image aImgAlgin5(BitmapEx(RID_SVXBMP_FONTWORK_ALIGN_STRETCH));
+    Image aImgAlgin1(StockImage::Yes, RID_SVXBMP_FONTWORK_ALIGN_LEFT);
+    Image aImgAlgin2(StockImage::Yes, RID_SVXBMP_FONTWORK_ALIGN_CENTER);
+    Image aImgAlgin3(StockImage::Yes, RID_SVXBMP_FONTWORK_ALIGN_RIGHT);
+    Image aImgAlgin4(StockImage::Yes, RID_SVXBMP_FONTWORK_ALIGN_WORD);
+    Image aImgAlgin5(StockImage::Yes, RID_SVXBMP_FONTWORK_ALIGN_STRETCH);
 
     appendEntry(0, SvxResId(RID_SVXSTR_ALIGN_LEFT), aImgAlgin1);
     appendEntry(1, SvxResId(RID_SVXSTR_ALIGN_CENTER), aImgAlgin2);

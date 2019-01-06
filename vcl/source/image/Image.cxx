@@ -58,17 +58,11 @@ Image::Image(const OUString & rFileUrl)
     sal_Int32 nIndex = 0;
     if (rFileUrl.getToken( 0, '/', nIndex ) == "private:graphicrepository")
     {
-        OUString sPathName(rFileUrl.copy(nIndex));
-        BitmapEx aBitmapEx;
-        if (vcl::ImageRepository::loadImage(sPathName, aBitmapEx))
-        {
-            ImplInit(aBitmapEx);
-        }
+        mpImplData.reset(new ImplImage(rFileUrl.copy(nIndex)));
     }
     else
     {
         Graphic aGraphic;
-
         if (ERRCODE_NONE == GraphicFilter::LoadGraphic(rFileUrl, IMP_PNG, aGraphic))
         {
             ImplInit(aGraphic.GetBitmapEx());
@@ -76,36 +70,31 @@ Image::Image(const OUString & rFileUrl)
     }
 }
 
+Image::Image(StockImage, const OUString & rFileUrl)
+    : mpImplData(new ImplImage(rFileUrl))
+{
+}
+
 void Image::ImplInit(const BitmapEx& rBitmapEx)
 {
     if (!rBitmapEx.IsEmpty())
-    {
         mpImplData.reset(new ImplImage(rBitmapEx));
-    }
 }
 
 Size Image::GetSizePixel() const
 {
-    Size aRet;
-
     if (mpImplData)
-    {
-        aRet = mpImplData->maBitmapEx.GetSizePixel();
-    }
-
-    return aRet;
+        return mpImplData->getSizePixel();
+    else
+        return Size();
 }
 
 BitmapEx Image::GetBitmapEx() const
 {
-    BitmapEx aRet;
-
     if (mpImplData)
-    {
-        aRet = mpImplData->maBitmapEx;
-    }
-
-    return aRet;
+        return mpImplData->getBitmapEx();
+    else
+        return BitmapEx();
 }
 
 bool Image::operator==(const Image& rImage) const
@@ -117,7 +106,7 @@ bool Image::operator==(const Image& rImage) const
     else if (!rImage.mpImplData || !mpImplData)
         bRet = false;
     else
-        bRet = rImage.mpImplData->maBitmapEx == mpImplData->maBitmapEx;
+        bRet = rImage.mpImplData->isEqual(*mpImplData);
 
     return bRet;
 }
@@ -127,64 +116,46 @@ void Image::Draw(OutputDevice* pOutDev, const Point& rPos, DrawImageFlags nStyle
     if (!mpImplData || (!pOutDev->IsDeviceOutputNecessary() && pOutDev->GetConnectMetaFile() == nullptr))
         return;
 
-    const Point aSrcPos(0, 0);
-    Size aBitmapSizePixel = mpImplData->maBitmapEx.GetSizePixel();
+    Size aOutSize = pSize ? *pSize : pOutDev->PixelToLogic(mpImplData->getSizePixel());
 
-    Size aOutSize = pSize ? *pSize : pOutDev->PixelToLogic(aBitmapSizePixel);
+    BitmapEx aRenderBmp = mpImplData->getBitmapExForHiDPI(!!(nStyle & DrawImageFlags::Disable));
 
-    if (nStyle & DrawImageFlags::Disable)
+    if (!(nStyle & DrawImageFlags::Disable) &&
+        (nStyle & (DrawImageFlags::ColorTransform | DrawImageFlags::Highlight |
+                   DrawImageFlags::Deactive | DrawImageFlags::SemiTransparent)))
     {
-        BitmapChecksum aChecksum = mpImplData->maBitmapEx.GetChecksum();
-        if (mpImplData->maBitmapChecksum != aChecksum)
-        {
-            BitmapEx aDisabledBmpEx(mpImplData->maBitmapEx);
-            BitmapFilter::Filter(aDisabledBmpEx, BitmapDisabledImageFilter());
+        BitmapEx aTempBitmapEx(aRenderBmp);
 
-            mpImplData->maBitmapChecksum = aChecksum;
-            mpImplData->maDisabledBitmapEx = aDisabledBmpEx;
+        if (nStyle & (DrawImageFlags::Highlight | DrawImageFlags::Deactive))
+        {
+            const StyleSettings& rSettings = pOutDev->GetSettings().GetStyleSettings();
+            Color aColor;
+            if (nStyle & DrawImageFlags::Highlight)
+                aColor = rSettings.GetHighlightColor();
+            else
+                aColor = rSettings.GetDeactiveColor();
+
+            BitmapFilter::Filter(aTempBitmapEx, BitmapColorizeFilter(aColor));
         }
-        pOutDev->DrawBitmapEx(rPos, aOutSize, aSrcPos, aBitmapSizePixel, mpImplData->maDisabledBitmapEx);
-    }
-    else
-    {
-        if (nStyle & (DrawImageFlags::ColorTransform | DrawImageFlags::Highlight |
-                      DrawImageFlags::Deactive | DrawImageFlags::SemiTransparent))
-        {
-            BitmapEx aTempBitmapEx(mpImplData->maBitmapEx);
 
-            if (nStyle & (DrawImageFlags::Highlight | DrawImageFlags::Deactive))
+        if (nStyle & DrawImageFlags::SemiTransparent)
+        {
+            if (aTempBitmapEx.IsTransparent())
             {
-                const StyleSettings& rSettings = pOutDev->GetSettings().GetStyleSettings();
-                Color aColor;
-                if (nStyle & DrawImageFlags::Highlight)
-                    aColor = rSettings.GetHighlightColor();
-                else
-                    aColor = rSettings.GetDeactiveColor();
-
-                BitmapFilter::Filter(aTempBitmapEx, BitmapColorizeFilter(aColor));
+                Bitmap aAlphaBmp(aTempBitmapEx.GetAlpha().GetBitmap());
+                aAlphaBmp.Adjust(50);
+                aTempBitmapEx = BitmapEx(aTempBitmapEx.GetBitmap(), AlphaMask(aAlphaBmp));
             }
-
-            if (nStyle & DrawImageFlags::SemiTransparent)
+            else
             {
-                if (aTempBitmapEx.IsTransparent())
-                {
-                    Bitmap aAlphaBmp(aTempBitmapEx.GetAlpha().GetBitmap());
-                    aAlphaBmp.Adjust(50);
-                    aTempBitmapEx = BitmapEx(aTempBitmapEx.GetBitmap(), AlphaMask(aAlphaBmp));
-                }
-                else
-                {
-                    sal_uInt8 cErase = 128;
-                    aTempBitmapEx = BitmapEx(aTempBitmapEx.GetBitmap(), AlphaMask(aTempBitmapEx.GetSizePixel(), &cErase));
-                }
+                sal_uInt8 cErase = 128;
+                aTempBitmapEx = BitmapEx(aTempBitmapEx.GetBitmap(), AlphaMask(aTempBitmapEx.GetSizePixel(), &cErase));
             }
-            pOutDev->DrawBitmapEx(rPos, aOutSize, aSrcPos, aTempBitmapEx.GetSizePixel(), aTempBitmapEx);
         }
-        else
-        {
-            pOutDev->DrawBitmapEx(rPos, aOutSize, aSrcPos, mpImplData->maBitmapEx.GetSizePixel(), mpImplData->maBitmapEx);
-        }
+        aRenderBmp = aTempBitmapEx;
     }
+
+    pOutDev->DrawBitmapEx(rPos, aOutSize, aRenderBmp);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

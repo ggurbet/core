@@ -403,7 +403,6 @@ bool DrawDocShell::ImportFrom(SfxMedium &rMedium,
         SdrOutliner& rOutl = mpDoc->GetDrawOutliner();
         EEControlBits nControlWord = rOutl.GetEditEngine().GetControlWord();
         nControlWord |=  EEControlBits::ULSPACESUMMATION;
-        nControlWord &=~ EEControlBits::ULSPACEFIRSTPARA;
         const_cast<EditEngine&>(rOutl.GetEditEngine()).SetControlWord( nControlWord );
 
         mpDoc->SetSummationOfParagraphs();
@@ -636,10 +635,6 @@ bool DrawDocShell::ConvertTo( SfxMedium& rMedium )
 
         if (xFilter)
         {
-            const SdrSwapGraphicsMode nOldSwapMode = mpDoc->GetSwapGraphicsMode();
-
-            mpDoc->SetSwapGraphicsMode( SdrSwapGraphicsMode::TEMP );
-
             if ( mpViewShell )
             {
                 ::sd::View* pView = mpViewShell->GetView();
@@ -648,8 +643,6 @@ bool DrawDocShell::ConvertTo( SfxMedium& rMedium )
             }
 
             bRet = xFilter->Export();
-            if( !bRet )
-                mpDoc->SetSwapGraphicsMode( nOldSwapMode );
         }
     }
 

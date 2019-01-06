@@ -1086,7 +1086,7 @@ void SwEditWin::ChangeFly( sal_uInt8 nDir, bool bWeb )
             if( aTmp.Width() < aSnap.Width() + MINFLY )
                 break;
             nRight = aSnap.Width();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case MOVE_RIGHT_HUGE:
         case MOVE_RIGHT_BIG: aTmp.Left( aTmp.Left() + nRight );
             break;
@@ -1095,7 +1095,7 @@ void SwEditWin::ChangeFly( sal_uInt8 nDir, bool bWeb )
             if( aTmp.Height() < aSnap.Height() + MINFLY )
                 break;
             nDown = aSnap.Height();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case MOVE_DOWN_HUGE:
         case MOVE_DOWN_BIG: aTmp.Top( aTmp.Top() + nDown );
             break;
@@ -1284,7 +1284,7 @@ void SwEditWin::ChangeDrawing( sal_uInt8 nDir )
         else
         {
             // move handle with index nHandleIndex
-            if(pHdl && (nX || nY))
+            if (nX || nY)
             {
                 if( SdrHdlKind::Anchor == pHdl->GetKind() ||
                     SdrHdlKind::Anchor_TR == pHdl->GetKind() )
@@ -1567,8 +1567,8 @@ void SwEditWin::KeyInput(const KeyEvent &rKEvt)
                        CheckAutoCorrect, EditFormula,
                        ColLeftBig, ColRightBig,
                        ColLeftSmall, ColRightSmall,
-                       ColTopBig, ColBottomBig,
-                       ColTopSmall, ColBottomSmall,
+                       ColBottomBig,
+                       ColBottomSmall,
                        CellLeftBig, CellRightBig,
                        CellLeftSmall, CellRightSmall,
                        CellTopBig, CellBottomBig,
@@ -2354,7 +2354,7 @@ KEYINPUT_CHECKTABLE_INSDEL:
                 break;
             }
             aCh = '\t';
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SwKeyState::InsChar:
             if (rSh.GetChar(false)==CH_TXT_ATR_FORMELEMENT)
             {
@@ -3114,8 +3114,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                     // only try to select frame, if pointer already was
                     // switched accordingly
                     if ( m_aActHitType != SdrHitKind::NONE && !rSh.IsSelFrameMode() &&
-                        !GetView().GetViewFrame()->GetDispatcher()->IsLocked() &&
-                        !bExecDrawTextLink)
+                        !GetView().GetViewFrame()->GetDispatcher()->IsLocked())
                     {
                         // Test if there is a draw object at that position and if it should be selected.
                         bool bShould = rSh.ShouldObjectBeSelected(aDocPos);
@@ -3389,7 +3388,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                         return;
                 }
 
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
             case MOUSE_LEFT + KEY_SHIFT:
             case MOUSE_LEFT + KEY_SHIFT + KEY_MOD1:
@@ -3939,13 +3938,13 @@ void SwEditWin::MouseMove(const MouseEvent& _rMEvt)
             if (pWrdCnt)
                 pWrdCnt->UpdateCounts();
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case MOUSE_LEFT + KEY_SHIFT:
         case MOUSE_LEFT + KEY_SHIFT + KEY_MOD1:
             if ( !m_bMBPressed )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case MOUSE_LEFT + KEY_MOD1:
             if ( g_bFrameDrag && rSh.IsSelFrameMode() )
             {
@@ -4121,7 +4120,7 @@ void SwEditWin::MouseMove(const MouseEvent& _rMEvt)
             }
             else
                 m_rView.GetPostItMgr()->SetShadowState(nullptr,false);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case KEY_SHIFT:
         case KEY_MOD2:
@@ -4387,7 +4386,7 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                 bCallBase = false;
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case MOUSE_LEFT + KEY_MOD1:
         case MOUSE_LEFT + KEY_MOD2:
         case MOUSE_LEFT + KEY_SHIFT + KEY_MOD1:
@@ -4477,7 +4476,7 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                 break;
             }
             bPopMode = true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case MOUSE_LEFT + KEY_SHIFT:
             if (rSh.IsSelFrameMode())
             {
@@ -4757,12 +4756,12 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                     rSh.EnterStdMode();
                     rSh.SetVisibleCursor(aDocPt);
                     bCallBase = false;
-                    m_aTemplateIdle.Stop();
+                    m_aTemplateTimer.Stop();
                 }
                 else if(rMEvt.GetClicks() == 1)
                 {
                     // no selection -> so turn off watering can
-                    m_aTemplateIdle.Start();
+                    m_aTemplateTimer.Start();
                 }
             }
         }
@@ -4998,9 +4997,9 @@ SwEditWin::SwEditWin(vcl::Window *pParent, SwView &rMyView):
     m_aKeyInputFlushTimer.SetInvokeHandler(LINK(this, SwEditWin, KeyInputFlushHandler));
 
     // TemplatePointer for colors should be resetted without
-    // selection after single click
-    m_aTemplateIdle.SetPriority(TaskPriority::LOWEST);
-    m_aTemplateIdle.SetInvokeHandler(LINK(this, SwEditWin, TemplateTimerHdl));
+    // selection after single click, but not after double-click (tdf#122442)
+    m_aTemplateTimer.SetTimeout(GetSettings().GetMouseSettings().GetDoubleClickTime());
+    m_aTemplateTimer.SetInvokeHandler(LINK(this, SwEditWin, TemplateTimerHdl));
 
     // temporary solution!!! Should set the font of the current
     // insert position at every cursor movement!

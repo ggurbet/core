@@ -918,11 +918,22 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
 
     // #i18732#
     const ::uno::Any* pFollowTextFlow = nullptr;
-    GetProperty(RES_FOLLOW_TEXT_FLOW, 0, pFollowTextFlow);
-    if ( pFollowTextFlow )
+    const ::uno::Any* pLayOutinCell = nullptr;
+    GetProperty(RES_FOLLOW_TEXT_FLOW, MID_FOLLOW_TEXT_FLOW, pFollowTextFlow);
+    GetProperty(RES_FOLLOW_TEXT_FLOW, MID_FTF_LAYOUT_IN_CELL, pLayOutinCell);
+
+    if ( pFollowTextFlow || pLayOutinCell)
     {
         SwFormatFollowTextFlow aFormatFollowTextFlow;
-        aFormatFollowTextFlow.PutValue(*pFollowTextFlow, 0);
+        if( pFollowTextFlow )
+        {
+            aFormatFollowTextFlow.PutValue(*pFollowTextFlow, MID_FOLLOW_TEXT_FLOW);
+        }
+
+        if ( pLayOutinCell )
+        {
+            aFormatFollowTextFlow.PutValue(*pLayOutinCell, MID_FTF_LAYOUT_IN_CELL);
+        }
         rToSet.Put(aFormatFollowTextFlow);
     }
 
@@ -1127,7 +1138,9 @@ bool SwOLEProperties_Impl::AnyToItemSet(
 {
     const ::uno::Any* pTemp;
     if(!GetProperty(FN_UNO_CLSID, 0, pTemp) && !GetProperty(FN_UNO_STREAM_NAME, 0, pTemp)
-         && !GetProperty(FN_EMBEDDED_OBJECT, 0, pTemp) )
+         && !GetProperty(FN_EMBEDDED_OBJECT, 0, pTemp)
+         && !GetProperty(FN_UNO_VISIBLE_AREA_WIDTH, 0, pTemp)
+         && !GetProperty(FN_UNO_VISIBLE_AREA_HEIGHT, 0, pTemp) )
         return false;
     SwFrameProperties_Impl::AnyToItemSet( pDoc, rFrameSet, rSet, rSizeFound);
 
@@ -1194,6 +1207,8 @@ SwXFrame::SwXFrame(FlyCntType eSet, const ::SfxItemPropertySet* pSet, SwDoc *pDo
     , eType(eSet)
     , bIsDescriptor(true)
     , m_nDrawAspect(embed::Aspects::MSOLE_CONTENT)
+    , m_nVisibleAreaWidth(0)
+    , m_nVisibleAreaHeight(0)
 {
     // Register ourselves as a listener to the document (via the page descriptor)
     pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->Add(this);
@@ -1247,6 +1262,8 @@ SwXFrame::SwXFrame(SwFrameFormat& rFrameFormat, FlyCntType eSet, const ::SfxItem
     , eType(eSet)
     , bIsDescriptor(false)
     , m_nDrawAspect(embed::Aspects::MSOLE_CONTENT)
+    , m_nVisibleAreaWidth(0)
+    , m_nVisibleAreaHeight(0)
 {
 }
 
@@ -1949,6 +1966,18 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
             else if (sAspect == "Content")
                 m_nDrawAspect = embed::Aspects::MSOLE_CONTENT;
         }
+        else if (FN_UNO_VISIBLE_AREA_WIDTH == pEntry->nWID)
+        {
+            OUString sAspect = "";
+            aValue >>= sAspect;
+            m_nVisibleAreaWidth = sAspect.toInt64();
+        }
+        else if (FN_UNO_VISIBLE_AREA_HEIGHT == pEntry->nWID)
+        {
+            OUString sAspect = "";
+            aValue >>= sAspect;
+            m_nVisibleAreaHeight = sAspect.toInt64();
+        }
     }
     else
         throw uno::RuntimeException();
@@ -2451,7 +2480,7 @@ void SwXFrame::setPropertyToDefault( const OUString& rPropertyName )
                 SwFlyFrameFormat& rFlyFormat = dynamic_cast<SwFlyFrameFormat&>(*pFormat);
                 // assure that <SdrObject> instance exists.
                 GetOrCreateSdrObject(rFlyFormat);
-                rFlyFormat.GetDoc()->SetFlyFrameTitle(rFlyFormat, aEmptyOUStr);
+                rFlyFormat.GetDoc()->SetFlyFrameTitle(rFlyFormat, OUString());
             }
             // New attribute Description
             else if( FN_UNO_DESCRIPTION == pEntry->nWID )
@@ -2459,7 +2488,7 @@ void SwXFrame::setPropertyToDefault( const OUString& rPropertyName )
                 SwFlyFrameFormat& rFlyFormat = dynamic_cast<SwFlyFrameFormat&>(*pFormat);
                 // assure that <SdrObject> instance exists.
                 GetOrCreateSdrObject(rFlyFormat);
-                rFlyFormat.GetDoc()->SetFlyFrameDescription(rFlyFormat, aEmptyOUStr);
+                rFlyFormat.GetDoc()->SetFlyFrameDescription(rFlyFormat, OUString());
             }
             else
             {
@@ -2845,6 +2874,21 @@ void SwXFrame::attachToRange(const uno::Reference< text::XTextRange > & xTextRan
             {
                 UnoActionContext aAction(pDoc);
                 pDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::INSERT, nullptr);
+
+                // tdf#99631 set imported VisibleArea settings of embedded XLSX OLE objects
+                if ( m_nDrawAspect == embed::Aspects::MSOLE_CONTENT
+                        && m_nVisibleAreaWidth && m_nVisibleAreaHeight )
+                {
+                    sal_Int64 nAspect = m_nDrawAspect;
+                    MapUnit aUnit = VCLUnoHelper::UnoEmbed2VCLMapUnit( xIPObj->getMapUnit( nAspect ) );
+                    Size aSize( OutputDevice::LogicToLogic(Size( m_nVisibleAreaWidth, m_nVisibleAreaHeight),
+                        MapMode(MapUnit::MapTwip), MapMode(aUnit)));
+                    awt::Size aSz;
+                    aSz.Width = aSize.Width();
+                    aSz.Height = aSize.Height();
+                    xIPObj->setVisualAreaSize(m_nDrawAspect, aSz);
+                }
+
                 if(!bSizeFound)
                 {
                     //TODO/LATER: how do I transport it to the OLENode?

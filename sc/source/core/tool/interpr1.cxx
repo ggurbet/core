@@ -2745,7 +2745,7 @@ void ScInterpreter::ScIsFormula()
                 PushMatrix( pResMat);
                 return;
             }
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
         case svSingleRef :
         {
             ScAddress aAdr;
@@ -2815,7 +2815,7 @@ void ScInterpreter::ScFormula()
                 PushMatrix( pResMat);
                 return;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case svSingleRef :
         {
             ScAddress aAdr;
@@ -3325,7 +3325,7 @@ void ScInterpreter::ScValue()
                 {
                     case ScMatValType::Empty:
                         fVal = 0.0;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case ScMatValType::Value:
                     case ScMatValType::Boolean:
                         PushDouble( fVal);
@@ -3676,7 +3676,7 @@ void ScInterpreter::ScMin( bool bTextAsZero )
                     nRefArrayPos = nRefInList;
                 }
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
             case svDoubleRef :
             {
                 FormulaError nErr = FormulaError::NONE;
@@ -3834,7 +3834,7 @@ void ScInterpreter::ScMax( bool bTextAsZero )
                     nRefArrayPos = nRefInList;
                 }
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
             case svDoubleRef :
             {
                 FormulaError nErr = FormulaError::NONE;
@@ -4035,7 +4035,7 @@ void ScInterpreter::GetStVarParams( bool bTextAsZero, double(*VarResult)( double
                     break;
                 }
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
             case svDoubleRef :
             {
                 FormulaError nErr = FormulaError::NONE;
@@ -5708,7 +5708,7 @@ void ScInterpreter::ScCountIf()
             {
                 case svRefList :
                     nRefListArrayPos = nRefInList;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case svDoubleRef :
                     {
                         ScRange aRange;
@@ -5842,6 +5842,55 @@ void ScInterpreter::IterateParametersIfs( double(*ResultFunc)( const sc::ParamIf
     // with a single InterpretTail() call it results in evaluation of all the cells in the
     // matrix formula.
     vConditions.clear();
+
+    SCCOL nStartColDiff = 0;
+    SCCOL nEndColDiff = 0;
+    SCROW nStartRowDiff = 0;
+    SCROW nEndRowDiff = 0;
+    bool bRangeReduce = false;
+
+    // Range-reduce optimization
+    if (nParamCount % 2) // Not COUNTIFS
+    {
+        bool bHasDoubleRefCriteriaRanges = true;
+        // Do not attempt main-range reduce if any of the criteria-ranges are not double-refs.
+        for (sal_uInt16 nParamIdx = 2; nParamIdx < nParamCount; nParamIdx += 2 )
+        {
+            const formula::FormulaToken* pCriteriaRangeToken = pStack[ sp-nParamIdx ];
+            if (pCriteriaRangeToken->GetType() != svDoubleRef )
+            {
+                bHasDoubleRefCriteriaRanges = false;
+                break;
+            }
+        }
+
+        // Probe the main range token, and try if we can shrink the range without altering results.
+        const formula::FormulaToken* pMainRangeToken = pStack[ sp-nParamCount ];
+        if (pMainRangeToken->GetType() == svDoubleRef && bHasDoubleRefCriteriaRanges)
+        {
+            const ScComplexRefData* pRefData = pMainRangeToken->GetDoubleRef();
+            if (!pRefData->IsDeleted())
+            {
+                ScRange aMainRange, aSubRange;
+                DoubleRefToRange( *pRefData, aMainRange);
+
+                if (aMainRange.aStart.Tab() == aMainRange.aEnd.Tab())
+                {
+                    // Shrink the range to actual data content.
+                    aSubRange = aMainRange;
+                    pDok->GetDataAreaSubrange(aSubRange);
+
+                    nStartColDiff = aSubRange.aStart.Col() - aMainRange.aStart.Col();
+                    nStartRowDiff = aSubRange.aStart.Row() - aMainRange.aStart.Row();
+
+                    nEndColDiff = aSubRange.aEnd.Col() - aMainRange.aEnd.Col();
+                    nEndRowDiff = aSubRange.aEnd.Row() - aMainRange.aEnd.Row();
+                    bRangeReduce = nStartColDiff || nStartRowDiff || nEndColDiff || nEndRowDiff;
+                }
+            }
+        }
+    }
+
     double fVal = 0.0;
     SCCOL nDimensionCols = 0;
     SCROW nDimensionRows = 0;
@@ -6022,6 +6071,15 @@ void ScInterpreter::IterateParametersIfs( double(*ResultFunc)( const sc::ParamIf
             {
                 PushError( FormulaError::IllegalArgument);
                 return;
+            }
+
+            if (bRangeReduce)
+            {
+                nCol1 += nStartColDiff;
+                nRow1 += nStartRowDiff;
+
+                nCol2 += nEndColDiff;
+                nRow2 += nEndRowDiff;
             }
 
             // All reference ranges must be of same dimension and size.
@@ -6260,6 +6318,15 @@ void ScInterpreter::IterateParametersIfs( double(*ResultFunc)( const sc::ParamIf
             {
                 PushError( FormulaError::IllegalArgument);
                 return;
+            }
+
+            if (bRangeReduce)
+            {
+                nMainCol1 += nStartColDiff;
+                nMainRow1 += nStartRowDiff;
+
+                nMainCol2 += nEndColDiff;
+                nMainRow2 += nEndRowDiff;
             }
 
             // All reference ranges must be of same dimension and size.
@@ -6719,7 +6786,7 @@ void ScInterpreter::ScLookup()
                     break;
                 case svDoubleRef:
                     aResAdr.Set( nResCol1, nResRow1, nResTab);
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case svSingleRef:
                     PushCellResultToken( true, aResAdr, nullptr, nullptr);
                     break;
@@ -7982,7 +8049,7 @@ void ScInterpreter::ScIndirect()
         // to determine which syntax to use during doc import
         bool bTryXlA1 = (eConv == FormulaGrammar::CONV_A1_XL_A1);
 
-        if (nParamCount == 2 && 0.0 == ::rtl::math::approxFloor( GetDouble()))
+        if (nParamCount == 2 && 0.0 == GetDouble() )
         {
             // Overwrite the config and try Excel R1C1.
             eConv = FormulaGrammar::CONV_XL_R1C1;
@@ -9226,17 +9293,48 @@ void ScInterpreter::ScSearch()
 
 void ScInterpreter::ScRegex()
 {
-    sal_uInt8 nParamCount = GetByte();
-    if (MustHaveParamCount( nParamCount, 2, 4))
+    const sal_uInt8 nParamCount = GetByte();
+    if (!MustHaveParamCount( nParamCount, 2, 4))
+        return;
+
+    // Flags are supported only for replacement, search match flags can be
+    // individually and much more flexible set in the regular expression
+    // pattern using (?ismwx-ismwx)
+    bool bGlobalReplacement = false;
+    sal_Int32 nOccurrence = 1;  // default first occurrence, if any
+    if (nParamCount == 4)
     {
-        // Flags are supported only for replacement, search match flags can be
-        // individually and much more flexible set in the regular expression
-        // pattern using (?ismwx-ismwx)
-        bool bGlobalReplacement = false;
-        if (nParamCount == 4)
+        // Argument can be either string or double.
+        double fOccurrence;
+        svl::SharedString aFlagsString;
+        bool bDouble;
+        if (!IsMissing())
+            bDouble = GetDoubleOrString( fOccurrence, aFlagsString);
+        else
         {
+            // For an omitted argument keep the default.
+            PopError();
+            bDouble = true;
+            fOccurrence = nOccurrence;
+        }
+        if (nGlobalError != FormulaError::NONE)
+        {
+            PushError( nGlobalError);
+            return;
+        }
+        if (bDouble)
+        {
+            if (!CheckStringPositionArgument( fOccurrence))
+            {
+                PushError( FormulaError::IllegalArgument);
+                return;
+            }
+            nOccurrence = static_cast<sal_Int32>(fOccurrence);
+        }
+        else
+        {
+            const OUString aFlags( aFlagsString.getString());
             // Empty flags string is valid => no flag set.
-            OUString aFlags( GetString().getString());
             if (aFlags.getLength() > 1)
             {
                 // Only one flag supported.
@@ -9255,87 +9353,126 @@ void ScInterpreter::ScRegex()
                 }
             }
         }
-
-        bool bReplacement = false;
-        OUString aReplacement;
-        if (nParamCount >= 3)
-        {
-            // A missing argument is not an empty string to replace the match.
-            if (IsMissing())
-                Pop();
-            else
-            {
-                aReplacement = GetString().getString();
-                bReplacement = true;
-            }
-        }
-        // If bGlobalReplacement==true and bReplacement==false then
-        // bGlobalReplacement is silently ignored.
-
-        OUString aExpression = GetString().getString();
-        OUString aText = GetString().getString();
-
-        if (nGlobalError != FormulaError::NONE)
-        {
-            PushError( nGlobalError);
-            return;
-        }
-
-        const icu::UnicodeString aIcuExpression(
-                reinterpret_cast<const UChar*>(aExpression.getStr()), aExpression.getLength());
-        UErrorCode status = U_ZERO_ERROR;
-        icu::RegexMatcher aRegexMatcher( aIcuExpression, 0, status);
-        if (U_FAILURE(status))
-        {
-            // Invalid regex.
-            PushIllegalArgument();
-            return;
-        }
-        // Guard against pathological patterns, limit steps of engine, see
-        // https://ssl.icu-project.org/apiref/icu4c/classicu_1_1RegexMatcher.html#a6ebcfcab4fe6a38678c0291643a03a00
-        aRegexMatcher.setTimeLimit ( 23*1000, status);
-
-        const icu::UnicodeString aIcuText( reinterpret_cast<const UChar*>(aText.getStr()), aText.getLength());
-        aRegexMatcher.reset( aIcuText);
-
-        if (!bReplacement)
-        {
-            // Find first occurrence.
-            if (!aRegexMatcher.find())
-            {
-                PushError( FormulaError::NotAvailable);
-                return;
-            }
-            // Extract matched text.
-            icu::UnicodeString aMatch( aRegexMatcher.group( status));
-            if (U_FAILURE(status))
-            {
-                // Some error.
-                PushIllegalArgument();
-                return;
-            }
-            OUString aResult( reinterpret_cast<const sal_Unicode*>(aMatch.getBuffer()), aMatch.length());
-            PushString( aResult);
-            return;
-        }
-
-        // Replace first occurrence of match with replacement.
-        const icu::UnicodeString aIcuReplacement(
-                reinterpret_cast<const UChar*>(aReplacement.getStr()), aReplacement.getLength());
-        icu::UnicodeString aReplaced;
-        if (bGlobalReplacement)
-            aReplaced = aRegexMatcher.replaceAll( aIcuReplacement, status);
-        else
-            aReplaced = aRegexMatcher.replaceFirst( aIcuReplacement, status);
-        if (U_FAILURE(status))
-        {
-            // Some error, e.g. extraneous $1 without group.
-            PushIllegalArgument();
-            return;
-        }
-        OUString aResult( reinterpret_cast<const sal_Unicode*>(aReplaced.getBuffer()), aReplaced.length());
-        PushString( aResult);
     }
+
+    bool bReplacement = false;
+    OUString aReplacement;
+    if (nParamCount >= 3)
+    {
+        // A missing argument is not an empty string to replace the match.
+        // nOccurrence==0 forces no replacement, so simply discard the
+        // argument.
+        if (IsMissing() || nOccurrence == 0)
+            PopError();
+        else
+        {
+            aReplacement = GetString().getString();
+            bReplacement = true;
+        }
+    }
+    // If bGlobalReplacement==true and bReplacement==false then
+    // bGlobalReplacement is silently ignored.
+
+    OUString aExpression = GetString().getString();
+    OUString aText = GetString().getString();
+
+    if (nGlobalError != FormulaError::NONE)
+    {
+        PushError( nGlobalError);
+        return;
+    }
+
+    // 0-th match or replacement is none, return original string early.
+    if (nOccurrence == 0)
+    {
+        PushString( aText);
+        return;
+    }
+
+    const icu::UnicodeString aIcuExpression(
+            reinterpret_cast<const UChar*>(aExpression.getStr()), aExpression.getLength());
+    UErrorCode status = U_ZERO_ERROR;
+    icu::RegexMatcher aRegexMatcher( aIcuExpression, 0, status);
+    if (U_FAILURE(status))
+    {
+        // Invalid regex.
+        PushIllegalArgument();
+        return;
+    }
+    // Guard against pathological patterns, limit steps of engine, see
+    // https://ssl.icu-project.org/apiref/icu4c/classicu_1_1RegexMatcher.html#a6ebcfcab4fe6a38678c0291643a03a00
+    aRegexMatcher.setTimeLimit( 23*1000, status);
+
+    const icu::UnicodeString aIcuText( reinterpret_cast<const UChar*>(aText.getStr()), aText.getLength());
+    aRegexMatcher.reset( aIcuText);
+
+    if (!bReplacement)
+    {
+        // Find n-th occurrence.
+        sal_Int32 nCount = 0;
+        while (aRegexMatcher.find( status) && U_SUCCESS(status) && ++nCount < nOccurrence)
+            ;
+        if (U_FAILURE(status))
+        {
+            // Some error.
+            PushIllegalArgument();
+            return;
+        }
+        // n-th match found?
+        if (nCount != nOccurrence)
+        {
+            PushError( FormulaError::NotAvailable);
+            return;
+        }
+        // Extract matched text.
+        icu::UnicodeString aMatch( aRegexMatcher.group( status));
+        if (U_FAILURE(status))
+        {
+            // Some error.
+            PushIllegalArgument();
+            return;
+        }
+        OUString aResult( reinterpret_cast<const sal_Unicode*>(aMatch.getBuffer()), aMatch.length());
+        PushString( aResult);
+        return;
+    }
+
+    const icu::UnicodeString aIcuReplacement(
+            reinterpret_cast<const UChar*>(aReplacement.getStr()), aReplacement.getLength());
+    icu::UnicodeString aReplaced;
+    if (bGlobalReplacement)
+        // Replace all occurrences of match with replacement.
+        aReplaced = aRegexMatcher.replaceAll( aIcuReplacement, status);
+    else if (nOccurrence == 1)
+        // Replace first occurrence of match with replacement.
+        aReplaced = aRegexMatcher.replaceFirst( aIcuReplacement, status);
+    else
+    {
+        // Replace n-th occurrence of match with replacement.
+        sal_Int32 nCount = 0;
+        while (aRegexMatcher.find( status) && U_SUCCESS(status))
+        {
+            // XXX NOTE: After several RegexMatcher::find() the
+            // RegexMatcher::appendReplacement() still starts at the
+            // beginning (or after the last appendReplacement() position
+            // which is none here) and copies the original text up to the
+            // current found match and then replaces the found match.
+            if (++nCount == nOccurrence)
+            {
+                aRegexMatcher.appendReplacement( aReplaced, aIcuReplacement, status);
+                break;
+            }
+        }
+        aRegexMatcher.appendTail( aReplaced);
+    }
+    if (U_FAILURE(status))
+    {
+        // Some error, e.g. extraneous $1 without group.
+        PushIllegalArgument();
+        return;
+    }
+    OUString aResult( reinterpret_cast<const sal_Unicode*>(aReplaced.getBuffer()), aReplaced.length());
+    PushString( aResult);
 }
 
 void ScInterpreter::ScMid()
@@ -9763,6 +9900,44 @@ static bool lcl_LookupQuery( ScAddress & o_rResultPos, ScDocument * pDoc, const 
     return bFound;
 }
 
+// tdf#121052:
+// =VLOOKUP(SearchCriterion; RangeArray; Index; Sorted)
+//  [SearchCriterion] is the value searched for in the first column of the array.
+//  [RangeArray] is the reference, which is to comprise at least two columns.
+//  [Index] is the number of the column in the array that contains the value to be returned. The first column has the number 1.
+//
+// Prerequisite of lcl_getPrevRowWithEmptyValueLookup():
+//      Value referenced by [SearchCriterion] is empty.
+// lcl_getPrevRowWithEmptyValueLookup() performs following checks:
+// - if we run query with "exact match" mode (i.e. VLOOKUP)
+// - and if we already have the same lookup done before but for another row
+//   which is also had empty [SearchCriterion]
+//
+// then
+//   we could say, that for current row we could reuse results of the cached call which was done for the row2
+//   In this case we return row index, which is >= 0.
+//
+// Elsewhere
+//   -1 is returned, which will lead to default behavior =>
+//   complete lookup will be done in RangeArray inside lcl_LookupQuery() method.
+//
+// This method was added only for speed up to avoid several useless complete
+// lookups inside [RangeArray] for searching empty strings.
+//
+static SCROW lcl_getPrevRowWithEmptyValueLookup( const ScLookupCache& rCache,
+        const ScLookupCache::QueryCriteria& rCriteria, const ScQueryParam & rParam)
+{
+    // is lookup value empty?
+    const ScQueryEntry& rEntry = rParam.GetEntry(0);
+    const ScQueryEntry::Item& rItem = rEntry.GetQueryItem();
+    if (! rItem.maString.getString().isEmpty())
+        return -1; // not found
+
+    // try to find the row index for which we have already performed lookup
+    // and have some result of it inside cache
+    return rCache.lookup( rCriteria );
+}
+
 bool ScInterpreter::LookupQueryWithCache( ScAddress & o_rResultPos,
         const ScQueryParam & rParam ) const
 {
@@ -9786,6 +9961,24 @@ bool ScInterpreter::LookupQueryWithCache( ScAddress & o_rResultPos,
         ScLookupCache::QueryCriteria aCriteria( rEntry);
         ScLookupCache::Result eCacheResult = rCache.lookup( o_rResultPos,
                 aCriteria, aPos);
+
+        // tdf#121052: Slow load of cells with VLOOKUP with references to empty cells
+        // This check was added only for speed up to avoid several useless complete
+        // lookups inside [RangeArray] for searching empty strings.
+        if (eCacheResult == ScLookupCache::NOT_CACHED && aCriteria.isEmptyStringQuery())
+        {
+            const SCROW nPrevRowWithEmptyValueLookup = lcl_getPrevRowWithEmptyValueLookup(rCache, aCriteria, rParam);
+            if (nPrevRowWithEmptyValueLookup >= 0)
+            {
+                // make the same lookup using cache with different row index
+                // (this lookup was already cached)
+                ScAddress aPosPrev(aPos);
+                aPosPrev.SetRow(nPrevRowWithEmptyValueLookup);
+
+                eCacheResult = rCache.lookup( o_rResultPos, aCriteria, aPosPrev );
+            }
+        }
+
         switch (eCacheResult)
         {
             case ScLookupCache::NOT_CACHED :

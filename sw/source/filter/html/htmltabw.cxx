@@ -694,7 +694,7 @@ void SwHTMLWrtTable::Write( SwHTMLWriter& rWrt, sal_Int16 eAlign,
     {
         rWrt.OutBackground( pFrameFormat->GetAttrSet(), false );
 
-        if( rWrt.m_bCfgOutStyles && pFrameFormat )
+        if (rWrt.m_bCfgOutStyles)
             rWrt.OutCSS1_TableFrameFormatOptions( *pFrameFormat );
     }
 
@@ -960,7 +960,7 @@ Writer& OutHTML_SwTableNode( Writer& rWrt, SwTableNode & rNode,
     case text::HoriOrientation::LEFT_AND_WIDTH:
         eTabHoriOri = text::HoriOrientation::LEFT;
         bCheckDefList = true;
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     default:
         // In all other case it's possible to use directly an absolute
         // or relative width.

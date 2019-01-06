@@ -19,9 +19,15 @@
 #ifndef INCLUDED_CHART2_SOURCE_INC_CHARTVIEW_CHARTSFXITEMIDS_HXX
 #define INCLUDED_CHART2_SOURCE_INC_CHARTVIEW_CHARTSFXITEMIDS_HXX
 
-#include <svl/ilstitem.hxx>
-#include <svx/chrtitem.hxx>
-#include <editeng/brushitem.hxx>
+class SvxSizeItem;
+class SfxIntegerListItem;
+class SfxBoolItem;
+class SfxStringItem;
+class SfxInt32Item;
+class SfxUInt32Item;
+class SvxChartIndicateItem;
+class SvxDoubleItem;
+class SvxBrushItem;
 
 // SCHATTR
 
@@ -152,8 +158,9 @@
 #define SCHATTR_MISSING_VALUE_TREATMENT     TypedWhichId<SfxInt32Item>(SCHATTR_CHARTTYPE_START + 9)
 #define SCHATTR_AVAILABLE_MISSING_VALUE_TREATMENTS TypedWhichId<SfxIntegerListItem>(SCHATTR_CHARTTYPE_START + 10)
 #define SCHATTR_INCLUDE_HIDDEN_CELLS    TypedWhichId<SfxBoolItem>(SCHATTR_CHARTTYPE_START + 11)
+#define SCHATTR_HIDE_LEGEND_ENTRY       TypedWhichId<SfxBoolItem>(SCHATTR_CHARTTYPE_START + 12)
 
-#define SCHATTR_CHARTTYPE_END           SCHATTR_INCLUDE_HIDDEN_CELLS
+#define SCHATTR_CHARTTYPE_END           SCHATTR_HIDE_LEGEND_ENTRY
 
 // items for transporting information to dialogs
 #define SCHATTR_MISC_START              (SCHATTR_CHARTTYPE_END + 1)

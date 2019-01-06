@@ -19,6 +19,7 @@
 
 #include <com/sun/star/util/SearchAlgorithms2.hpp>
 #include <com/sun/star/util/SearchFlags.hpp>
+#include <i18nlangtag/languagetag.hxx>
 #include <i18nutil/transliteration.hxx>
 #include <i18nutil/searchopt.hxx>
 #include <svl/fstathelper.hxx>
@@ -136,7 +137,7 @@ void SwEditShell::InsertTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
 
     // Insert listing
     const SwTOXBaseSection* pTOX = mxDoc->InsertTableOf(
-                                        *GetCursor()->GetPoint(), rTOX, pSet, true );
+                *GetCursor()->GetPoint(), rTOX, pSet, true, GetLayout() );
     OSL_ENSURE(pTOX, "No current TOx");
 
     // start formatting
@@ -154,17 +155,16 @@ void SwEditShell::InsertTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
 }
 
 /// update tables of content
-void SwEditShell::UpdateTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
+void SwEditShell::UpdateTableOf(const SwTOXBase& rTOX, const SfxItemSet* pSet)
 {
-    OSL_ENSURE( dynamic_cast<const SwTOXBaseSection*>( &rTOX) !=  nullptr,  "no TOXBaseSection!" );
-    SwTOXBaseSection* pTOX = const_cast<SwTOXBaseSection*>(static_cast<const SwTOXBaseSection*>(&rTOX));
-    OSL_ENSURE(pTOX, "no current listing");
-    if( pTOX && nullptr != pTOX->GetFormat()->GetSectionNode() )
+    assert(dynamic_cast<const SwTOXBaseSection*>(&rTOX) && "no TOXBaseSection!");
+    SwTOXBaseSection& rTOXSect = static_cast<SwTOXBaseSection&>(const_cast<SwTOXBase&>(rTOX));
+    if (rTOXSect.GetFormat()->GetSectionNode())
     {
         SwDoc* pMyDoc = GetDoc();
         SwDocShell* pDocSh = pMyDoc->GetDocShell();
 
-        bool bInIndex = pTOX == GetCurTOX();
+        bool bInIndex = &rTOX == GetCurTOX();
         SET_CURR_SHELL( this );
         StartAllAction();
 
@@ -174,17 +174,17 @@ void SwEditShell::UpdateTableOf( const SwTOXBase& rTOX, const SfxItemSet* pSet )
         pMyDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::TOXCHANGE, nullptr);
 
         // create listing stub
-        pTOX->Update(pSet);
+        rTOXSect.Update(pSet, GetLayout());
 
         // correct Cursor
         if( bInIndex )
-            pTOX->SetPosAtStartEnd( *GetCursor()->GetPoint() );
+            rTOXSect.SetPosAtStartEnd(*GetCursor()->GetPoint());
 
         // start formatting
         CalcLayout();
 
         // insert page numbering
-        pTOX->UpdatePageNum();
+        rTOXSect.UpdatePageNum();
 
         pMyDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::TOXCHANGE, nullptr);
 
@@ -215,7 +215,7 @@ const SwTOXType* SwEditShell::GetTOXType(TOXTypes eTyp, sal_uInt16 nId) const
 
 void SwEditShell::GetTOIKeys( SwTOIKeyType eTyp, std::vector<OUString>& rArr ) const
 {
-    GetDoc()->GetTOIKeys( eTyp, rArr );
+    GetDoc()->GetTOIKeys( eTyp, rArr, *GetLayout() );
 }
 
 sal_uInt16 SwEditShell::GetTOXCount() const
@@ -366,7 +366,7 @@ void SwEditShell::ApplyAutoMark()
                     bool bCancel;
 
                     // todo/mba: assuming that notes shouldn't be searched
-                    sal_uLong nRet = Find( aSearchOpt, false/*bSearchInNotes*/, SwDocPositions::Start, SwDocPositions::End, bCancel,
+                    sal_uLong nRet = Find_Text(aSearchOpt, false/*bSearchInNotes*/, SwDocPositions::Start, SwDocPositions::End, bCancel,
                                     FindRanges::InSelAll );
 
                     if(nRet)

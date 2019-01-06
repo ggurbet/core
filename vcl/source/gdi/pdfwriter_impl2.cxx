@@ -30,6 +30,7 @@
 
 #include <unotools/streamwrap.hxx>
 
+#include <tools/helpers.hxx>
 #include <tools/fract.hxx>
 #include <tools/stream.hxx>
 
@@ -41,6 +42,7 @@
 #include <com/sun/star/io/XSeekable.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
+#include <com/sun/star/beans/XMaterialHolder.hpp>
 
 #include <cppuhelper/implbase.hxx>
 

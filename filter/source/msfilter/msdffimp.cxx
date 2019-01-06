@@ -2157,11 +2157,13 @@ void DffPropertyReader::ApplyCustomShapeGeometryAttributes( SvStream& rIn, SfxIt
             {
                 sal_uInt16 nNumElemMemVert = 0;
                 rIn.ReadUInt16( nNumElemVert ).ReadUInt16( nNumElemMemVert ).ReadUInt16( nElemSizeVert );
+                // If this value is 0xFFF0 then this record is an array of truncated 8 byte elements. Only the 4
+                // low-order bytes are recorded
+                if (nElemSizeVert == 0xFFF0)
+                    nElemSizeVert = 4;
             }
-            if (nElemSizeVert != 8)
-                nElemSizeVert = 4;
             //sanity check that the stream is long enough to fulfill nNumElem * nElemSize;
-            bool bImport = rIn.remainingSize() / nElemSizeVert >= nNumElemVert;
+            bool bImport = nElemSizeVert && (rIn.remainingSize() / nElemSizeVert >= nNumElemVert);
             if (bImport)
             {
                 aCoordinates.realloc( nNumElemVert );
@@ -2390,15 +2392,16 @@ void DffPropertyReader::ApplyCustomShapeGeometryAttributes( SvStream& rIn, SfxIt
             sal_uInt16 nElemSizeVert = 8;
 
             if ( SeekToContent( DFF_Prop_connectorPoints, rIn ) )
-                rIn.ReadUInt16( nNumElemVert ).ReadUInt16( nNumElemMemVert ).ReadUInt16( nElemSizeVert );
-
-            bool bImport = false;
-            if (nNumElemVert && nElemSizeVert)
             {
-                //sanity check that the stream is long enough to fulfill nNumElemVert * nElemSizeVert;
-                bImport = rIn.remainingSize() / nElemSizeVert >= nNumElemVert;
+                rIn.ReadUInt16( nNumElemVert ).ReadUInt16( nNumElemMemVert ).ReadUInt16( nElemSizeVert );
+                // If this value is 0xFFF0 then this record is an array of truncated 8 byte elements. Only the 4
+                // low-order bytes are recorded
+                if (nElemSizeVert == 0xFFF0)
+                    nElemSizeVert = 4;
             }
 
+            // sanity check that the stream is long enough to fulfill nNumElemVert * nElemSizeVert;
+            bool bImport = nElemSizeVert && (rIn.remainingSize() / nElemSizeVert >= nNumElemVert);
             if (bImport)
             {
                 aGluePoints.realloc( nNumElemVert );
@@ -4538,7 +4541,7 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                                 aP.setY( nY );
                                 aXP[ static_cast<sal_uInt16>(nPtNum) ] = aP;
                             }
-                            aPolyBoundRect = tools::Rectangle( aXP.GetBoundRect() );
+                            aPolyBoundRect = aXP.GetBoundRect();
                             if ( nNumElemVert >= 3 )
                             { // arc first command is always wr -- clockwise arc
                                 // the parameters are : (left,top),(right,bottom),start(x,y),end(x,y)
@@ -4565,7 +4568,7 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                                 seqAdjustmentValues[ 0 ].Value >>= fNumber;
                                 sal_Int32 nValue;
                                 bool bFail = o3tl::checked_multiply<sal_Int32>(fNumber, 100, nValue);
-                                if (!bFail)
+                                if (bFail)
                                     SAL_WARN("filter.ms", "nEndAngle too large: " << fNumber);
                                 else
                                     nEndAngle = NormAngle36000(-nValue);
@@ -5513,13 +5516,15 @@ SdrObject* SvxMSDffManager::ProcessObj(SvStream& rSt,
         if (SeekToContent(DFF_Prop_pWrapPolygonVertices, rSt))
         {
             pTextImpRec->pWrapPolygon.reset();
-            sal_uInt16 nNumElemVert(0), nNumElemMemVert(0), nElemSizeVert(0);
+            sal_uInt16 nNumElemVert(0), nNumElemMemVert(0), nElemSizeVert(8);
             rSt.ReadUInt16( nNumElemVert ).ReadUInt16( nNumElemMemVert ).ReadUInt16( nElemSizeVert );
-            bool bOk = false;
-            if (nNumElemVert && ((nElemSizeVert == 8) || (nElemSizeVert == 4)))
-            {
-                bOk = rSt.remainingSize() / nElemSizeVert >= nNumElemVert;
-            }
+            // If this value is 0xFFF0 then this record is an array of truncated 8 byte elements. Only the 4
+            // low-order bytes are recorded
+            if (nElemSizeVert == 0xFFF0)
+                nElemSizeVert = 4;
+
+            // sanity check that the stream is long enough to fulfill nNumElemVert * nElemSizeVert;
+            bool bOk = nElemSizeVert && (rSt.remainingSize() / nElemSizeVert >= nNumElemVert);
             if (bOk)
             {
                 pTextImpRec->pWrapPolygon.reset(new tools::Polygon(nNumElemVert));
@@ -6351,7 +6356,7 @@ bool SvxMSDffManager::GetBLIP( sal_uLong nIdx_, Graphic& rGraphic, tools::Rectan
         if (iter != aEscherBlipCache.end())
         {
             /* if this entry is available */
-            rGraphic = Graphic(iter->second);
+            rGraphic = iter->second;
             if (rGraphic.GetType() != GraphicType::NONE)
                 bOk = true;
             else

@@ -16,6 +16,7 @@
 #include <rtl/strbuf.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
+#include <tools/stream.hxx>
 #include <config_folders.h>
 #include <vcl/salbtype.hxx>
 #include <vcl/bitmapaccess.hxx>
@@ -955,12 +956,12 @@ bool OpenGLHelper::isVCLOpenGLEnabled()
     static bool bEnable = false;
     static bool bForceOpenGL = false;
 
-    // If we are a console app, then we don't use OpenGL
-    if ( Application::IsConsoleOnly() )
+    // No hardware rendering, so no OpenGL
+    if (Application::IsBitmapRendering())
         return false;
 
     //tdf#106155, disable GL while loading certain bitmaps needed for the initial toplevel windows
-    //under raw X (kde4) vclplug
+    //under raw X (kde) vclplug
     if (bTempOpenGLDisabled)
         return false;
 
@@ -987,16 +988,14 @@ bool OpenGLHelper::isVCLOpenGLEnabled()
     else if (bSupportsVCLOpenGL)
     {
         static bool bEnableGLEnv = !!getenv("SAL_ENABLEGL");
-        static bool bHeadlessPlugin = (getenv("SAL_USE_VCLPLUGIN") &&
-            0 == strcmp(getenv("SAL_USE_VCLPLUGIN"), "svp"));
 
         bEnable = bEnableGLEnv;
 
         if (officecfg::Office::Common::VCL::UseOpenGL::get())
             bEnable = true;
 
-        // Force disable in safe mode or when running with headless plugin
-        if (bHeadlessPlugin || Application::IsSafeModeEnabled())
+        // Force disable in safe mode
+        if (Application::IsSafeModeEnabled())
             bEnable = false;
 
         bRet = bEnable;

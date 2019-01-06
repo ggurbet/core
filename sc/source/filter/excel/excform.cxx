@@ -21,8 +21,6 @@
 
 #include <formulacell.hxx>
 #include <document.hxx>
-#include <rangenam.hxx>
-#include <global.hxx>
 #include <scmatrix.hxx>
 
 #include <formula/errorcodes.hxx>
@@ -34,7 +32,6 @@
 #include <root.hxx>
 #include <xltracer.hxx>
 #include <xihelper.hxx>
-#include <xilink.hxx>
 #include <xiname.hxx>
 #include <xistyle.hxx>
 #include <documentimport.hxx>
@@ -408,7 +405,7 @@ ConvErr ExcelToSc::Convert( std::unique_ptr<ScTokenArray>& pResult, XclImpStream
                     case EXC_BIFF4: aIn.Ignore( 10 );   break;
                     case EXC_BIFF5:
                         SAL_INFO( "sc", "-ExcelToSc::Convert(): 0x1A does not exist in Biff5!" );
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     default:
                         SAL_INFO( "sc", "-ExcelToSc::Convert(): A little oblivious?" );
                 }
@@ -421,7 +418,7 @@ ConvErr ExcelToSc::Convert( std::unique_ptr<ScTokenArray>& pResult, XclImpStream
                     case EXC_BIFF4: aIn.Ignore( 4 );    break;
                     case EXC_BIFF5:
                         SAL_INFO( "sc", "-ExcelToSc::Convert(): 0x1B does not exist in Biff5!" );
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     default:
                         SAL_INFO( "sc", "-ExcelToSc::Convert(): A little oblivious?" );
                 }
@@ -619,7 +616,7 @@ ConvErr ExcelToSc::Convert( std::unique_ptr<ScTokenArray>& pResult, XclImpStream
             case 0x66:
             case 0x26: // Constant Reference Subexpression      [321 271]
                 aExtensions.push_back( EXTENSION_MEMAREA );
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
 
             case 0x47:
             case 0x67:
@@ -990,7 +987,7 @@ ConvErr ExcelToSc::Convert( ScRangeListTabs& rRangeList, XclImpStream& aIn, std:
                     case EXC_BIFF3:
                     case EXC_BIFF4: nIgnore = 10;   break;
                     case EXC_BIFF5: SAL_INFO( "sc", "-ExcelToSc::Convert(): 0x1A does not exist in Biff5!" );
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
                     default:        SAL_INFO( "sc", "-ExcelToSc::Convert(): A little oblivious?" );
                 }
                 break;
@@ -1001,7 +998,7 @@ ConvErr ExcelToSc::Convert( ScRangeListTabs& rRangeList, XclImpStream& aIn, std:
                     case EXC_BIFF3:
                     case EXC_BIFF4: nIgnore = 4;        break;
                     case EXC_BIFF5: SAL_INFO( "sc", "-ExcelToSc::Convert(): 0x1B does not exist in Biff5!" );
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
                     default:        SAL_INFO( "sc", "-ExcelToSc::Convert(): A little oblivious?" );
                 }
                 break;

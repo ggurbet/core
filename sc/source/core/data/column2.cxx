@@ -1405,6 +1405,52 @@ bool ScColumn::GetNextDataPos(SCROW& rRow) const        // greater than rRow
     return true;
 }
 
+bool ScColumn::TrimEmptyBlocks(SCROW& rRowStart, SCROW& rRowEnd) const
+{
+    assert(rRowStart <= rRowEnd);
+    SCROW nRowStartNew = rRowStart, nRowEndNew = rRowEnd;
+
+    // Trim down rRowStart first
+    std::pair<sc::CellStoreType::const_iterator,size_t> aPos = maCells.position(rRowStart);
+    sc::CellStoreType::const_iterator it = aPos.first;
+    if (it == maCells.end())
+        return false;
+
+    if (it->type == sc::element_type_empty)
+    {
+        // This block is empty. Skip ahead to the next block (if exists).
+        nRowStartNew += it->size - aPos.second;
+        if (nRowStartNew > rRowEnd)
+            return false;
+        ++it;
+        if (it == maCells.end())
+            // No more next block.
+            return false;
+    }
+
+    // Trim up rRowEnd next
+    aPos = maCells.position(rRowEnd);
+    it = aPos.first;
+    if (it == maCells.end())
+    {
+        rRowStart = nRowStartNew;
+        return true; // Because trimming of rRowStart is ok
+    }
+
+    if (it->type == sc::element_type_empty)
+    {
+        // rRowEnd cannot be in the first block which is empty !
+        assert(it != maCells.begin());
+        // This block is empty. Skip to the previous block (it exists).
+        nRowEndNew -= aPos.second + 1; // Last row position of the previous block.
+        assert(nRowStartNew <= nRowEndNew);
+    }
+
+    rRowStart = nRowStartNew;
+    rRowEnd = nRowEndNew;
+    return true;
+}
+
 SCROW ScColumn::FindNextVisibleRow(SCROW nRow, bool bForward) const
 {
     if(bForward)
@@ -2834,6 +2880,35 @@ formula::VectorRefArray ScColumn::FetchVectorRefArray( SCROW nRow1, SCROW nRow2 
     return formula::VectorRefArray(formula::VectorRefArray::Invalid);
 }
 
+#ifdef DBG_UTIL
+static void assertNoInterpretNeededHelper( const sc::CellStoreType::value_type& node,
+    size_t nOffset, size_t nDataSize )
+{
+    switch (node.type)
+    {
+        case sc::element_type_formula:
+        {
+            sc::formula_block::const_iterator it = sc::formula_block::begin(*node.data);
+            std::advance(it, nOffset);
+            sc::formula_block::const_iterator itEnd = it;
+            std::advance(itEnd, nDataSize);
+            for (; it != itEnd; ++it)
+            {
+                const ScFormulaCell* pCell = *it;
+                assert( !pCell->NeedsInterpret());
+            }
+            break;
+        }
+    }
+}
+void ScColumn::AssertNoInterpretNeeded( SCROW nRow1, SCROW nRow2 )
+{
+    assert(nRow2 >= nRow1);
+    sc::ParseBlock( maCells.begin(), maCells, assertNoInterpretNeededHelper, 0, nRow2 );
+}
+#endif
+
+
 bool ScColumn::HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup )
 {
     if (nRow1 > nRow2)
@@ -3303,55 +3378,17 @@ class UpdateSubTotalHandler
 
     void update(double fVal, bool bVal)
     {
-        if (mrData.bError)
+        if (mrData.getError())
             return;
 
-        switch (mrData.eFunc)
+        switch (mrData.getFunc())
         {
-            case SUBTOTAL_FUNC_SUM:
-            case SUBTOTAL_FUNC_AVE:
-            {
-                if (!bVal)
-                    return;
-
-                ++mrData.nCount;
-                if (!SubTotal::SafePlus(mrData.nVal, fVal))
-                    mrData.bError = true;
-            }
+            case SUBTOTAL_FUNC_CNT2:    // everything
+                mrData.update( fVal);
             break;
-            case SUBTOTAL_FUNC_CNT:             // only the value
-            {
-                if (!bVal)
-                    return;
-
-                ++mrData.nCount;
-            }
-            break;
-            case SUBTOTAL_FUNC_CNT2:            // everything
-                ++mrData.nCount;
-            break;
-            case SUBTOTAL_FUNC_MAX:
-            {
-                if (!bVal)
-                    return;
-
-                if (++mrData.nCount == 1 || fVal > mrData.nVal)
-                    mrData.nVal = fVal;
-            }
-            break;
-            case SUBTOTAL_FUNC_MIN:
-            {
-                if (!bVal)
-                    return;
-
-                if (++mrData.nCount == 1 || fVal < mrData.nVal)
-                    mrData.nVal = fVal;
-            }
-            break;
-            default:
-            {
-                // added to avoid warnings
-            }
+            default:                    // only numeric values
+                if (bVal)
+                    mrData.update( fVal);
         }
     }
 
@@ -3377,13 +3414,13 @@ public:
     {
         double fVal = 0.0;
         bool bVal = false;
-        if (mrData.eFunc != SUBTOTAL_FUNC_CNT2) // it doesn't interest us
+        if (mrData.getFunc() != SUBTOTAL_FUNC_CNT2) // it doesn't interest us
         {
 
             if (pCell->GetErrCode() != FormulaError::NONE)
             {
-                if (mrData.eFunc != SUBTOTAL_FUNC_CNT) // simply remove from count
-                    mrData.bError = true;
+                if (mrData.getFunc() != SUBTOTAL_FUNC_CNT) // simply remove from count
+                    mrData.setError();
             }
             else if (pCell->IsValue())
             {
@@ -3429,13 +3466,13 @@ void ScColumn::UpdateSelectionFunction(
 
     sc::SingleColumnSpanSet::SpansType::const_iterator it = aSpans.begin(), itEnd = aSpans.end();
 
-    switch (rData.eFunc)
+    switch (rData.getFunc())
     {
         case SUBTOTAL_FUNC_SELECTION_COUNT:
         {
             // Simply count selected rows regardless of cell contents.
             for (; it != itEnd; ++it)
-                rData.nCount += it->mnRow2 - it->mnRow1 + 1;
+                rData.update( it->mnRow2 - it->mnRow1 + 1);
         }
         break;
         case SUBTOTAL_FUNC_CNT2:

@@ -1098,6 +1098,18 @@ void ScDocument::GetDataArea( SCTAB nTab, SCCOL& rStartCol, SCROW& rStartRow,
         maTabs[nTab]->GetDataArea( rStartCol, rStartRow, rEndCol, rEndRow, bIncludeOld, bOnlyDown );
 }
 
+bool ScDocument::GetDataAreaSubrange(ScRange& rRange) const
+{
+    SCTAB nTab = rRange.aStart.Tab();
+    if (nTab != rRange.aEnd.Tab())
+        return true;
+
+    if (ValidTab(nTab) && nTab < static_cast<SCTAB> (maTabs.size()) && maTabs[nTab])
+        return maTabs[nTab]->GetDataAreaSubrange(rRange);
+
+    return true;
+}
+
 void ScDocument::LimitChartArea( SCTAB nTab, SCCOL& rStartCol, SCROW& rStartRow,
                                     SCCOL& rEndCol, SCROW& rEndRow )
 {
@@ -1774,6 +1786,15 @@ formula::VectorRefArray ScDocument::FetchVectorRefArray( const ScAddress& rPos, 
     return maTabs[nTab]->FetchVectorRefArray(rPos.Col(), rPos.Row(), rPos.Row()+nLength-1);
 }
 
+#ifdef DBG_UTIL
+void ScDocument::AssertNoInterpretNeeded( const ScAddress& rPos, SCROW nLength )
+{
+    SCTAB nTab = rPos.Tab();
+    assert(TableExists(nTab));
+    return maTabs[nTab]->AssertNoInterpretNeeded(rPos.Col(), rPos.Row(), rPos.Row()+nLength-1);
+}
+#endif
+
 void ScDocument::UnlockAdjustHeight()
 {
     assert(nAdjustHeightLock > 0);
@@ -2102,6 +2123,11 @@ void ScDocument::CopyToDocument(const ScRange& rRange,
 
     sc::AutoCalcSwitch aACSwitch(rDestDoc, false); // avoid multiple calculations
 
+    // tdf#102364 - in some pathological cases CopyToDocument() replacing cells with new cells
+    // can lead to repetitive splitting and rejoining of the same formula group, which can get
+    // quadratically expensive with large groups. So do the grouping just once at the end.
+    sc::DelayFormulaGroupingSwitch delayGrouping( rDestDoc, true );
+
     sc::CopyToDocContext aCxt(rDestDoc);
     aCxt.setStartListening(false);
 
@@ -2119,6 +2145,7 @@ void ScDocument::CopyToDocument(const ScRange& rRange,
             /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true);
     }
 
+    delayGrouping.reset(); // groups need to be updated before setting up listeners
     rDestDoc.StartAllListeners(aNewRange);
 }
 

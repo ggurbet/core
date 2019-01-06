@@ -20,29 +20,19 @@
 #include <memory>
 #include <xestyle.hxx>
 
-#include <iostream>
 #include <algorithm>
 #include <iterator>
-#include <set>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <comphelper/processfactory.hxx>
 #include <rtl/tencinfo.h>
 #include <vcl/font.hxx>
-#include <svl/zformat.hxx>
-#include <svl/itempool.hxx>
 #include <svl/languageoptions.hxx>
-#include <sfx2/printer.hxx>
 #include <scitems.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lineitem.hxx>
-#include <svx/rotmodit.hxx>
-#include <editeng/colritem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <editeng/fontitem.hxx>
-#include <editeng/eeitem.hxx>
-#include <editeng/escapementitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <editeng/langitem.hxx>
 #include <document.hxx>
@@ -1502,7 +1492,7 @@ bool XclExpCellAlign::FillFromItemSet(
             SetScFrameDir( rItemSet.Get( ATTR_WRITINGDIR ).GetValue() );
             bUsed |= ScfTools::CheckItem( rItemSet, ATTR_WRITINGDIR, bStyle );
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
 
         case EXC_BIFF5: // attributes new in BIFF5
@@ -1528,7 +1518,7 @@ bool XclExpCellAlign::FillFromItemSet(
             }
             mnOrient = XclTools::GetXclOrientFromRot( mnRotation );
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
 
         case EXC_BIFF3: // attributes new in BIFF3
@@ -1537,7 +1527,7 @@ bool XclExpCellAlign::FillFromItemSet(
             mbLineBreak = bForceLineBreak || rItemSet.Get( ATTR_LINEBREAK ).GetValue();
             bUsed |= bForceLineBreak || ScfTools::CheckItem( rItemSet, ATTR_LINEBREAK, bStyle );
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
 
         case EXC_BIFF2: // attributes new in BIFF2
@@ -1769,7 +1759,7 @@ bool XclExpCellBorder::FillFromItemSet(
             bUsed |= ScfTools::CheckItem( rItemSet, ATTR_BORDER_TLBR, bStyle ) ||
                      ScfTools::CheckItem( rItemSet, ATTR_BORDER_BLTR, bStyle );
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
 
         case EXC_BIFF5:

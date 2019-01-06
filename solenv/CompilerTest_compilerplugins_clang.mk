@@ -28,6 +28,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/emptyif \
     compilerplugins/clang/test/externvar \
     compilerplugins/clang/test/expressionalwayszero \
+    compilerplugins/clang/test/intvsfloat \
     compilerplugins/clang/test/faileddyncast \
     compilerplugins/clang/test/finalprotected \
     compilerplugins/clang/test/flatten \
@@ -53,6 +54,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/simplifyconstruct \
     compilerplugins/clang/test/simplifydynamiccast \
     compilerplugins/clang/test/singlevalfields \
+    compilerplugins/clang/test/staticconstfield \
     compilerplugins/clang/test/staticvar \
     compilerplugins/clang/test/stringbuffer \
     compilerplugins/clang/test/stringconstant \
@@ -64,15 +66,13 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/unoany \
     compilerplugins/clang/test/unreffun \
     compilerplugins/clang/test/unusedindex \
+    compilerplugins/clang/test/unusedenumconstants \
+    compilerplugins/clang/test/unusedfields \
     compilerplugins/clang/test/unusedvariablecheck \
     compilerplugins/clang/test/unusedvariablemore \
     compilerplugins/clang/test/useuniqueptr \
     compilerplugins/clang/test/vclwidgets \
 ))
-
-# clang-3.8 and clang trunk differ in how they represent ranged-for
-# which leads to a test failure
-#    compilerplugins/clang/test/unusedfields \
 
 $(eval $(call gb_CompilerTest_use_externals,compilerplugins_clang, \
     boost_headers \

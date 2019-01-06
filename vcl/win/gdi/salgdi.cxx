@@ -45,14 +45,32 @@
 #define DITHER_MAX_SYSCOLOR             16
 #define DITHER_EXTRA_COLORS             1
 
+namespace
+{
+
 struct SysColorEntry
 {
     DWORD           nRGB;
     SysColorEntry*  pNext;
 };
 
-static SysColorEntry* pFirstSysColor = nullptr;
-static SysColorEntry* pActSysColor = nullptr;
+SysColorEntry* pFirstSysColor = nullptr;
+SysColorEntry* pActSysColor = nullptr;
+
+void DeleteSysColorList()
+{
+    SysColorEntry* pEntry = pFirstSysColor;
+    pActSysColor = pFirstSysColor = nullptr;
+
+    while( pEntry )
+    {
+        SysColorEntry* pTmp = pEntry->pNext;
+        delete pEntry;
+        pEntry = pTmp;
+    }
+}
+
+} // namespace
 
 // Blue7
 static PALETTEENTRY aImplExtraColor1 =
@@ -315,15 +333,7 @@ void ImplFreeSalGDI()
         delete[] pSalData->mpDitherHigh;
     }
 
-    // delete SysColorList
-    SysColorEntry* pEntry = pFirstSysColor;
-    while( pEntry )
-    {
-        SysColorEntry* pTmp = pEntry->pNext;
-        delete pEntry;
-        pEntry = pTmp;
-    }
-    pFirstSysColor = nullptr;
+    DeleteSysColorList();
 
     // delete icon cache
     SalIcon* pIcon = pSalData->mpFirstIcon;
@@ -409,15 +419,7 @@ static void ImplInsertSysColorEntry( int nSysIndex )
 
 void ImplUpdateSysColorEntries()
 {
-    // delete old SysColorList
-    SysColorEntry* pEntry = pFirstSysColor;
-    while( pEntry )
-    {
-        SysColorEntry* pTmp = pEntry->pNext;
-        delete pEntry;
-        pEntry = pTmp;
-    }
-    pActSysColor = pFirstSysColor = nullptr;
+    DeleteSysColorList();
 
     // create new sys color list
     ImplInsertSysColorEntry( COLOR_ACTIVEBORDER );
@@ -739,9 +741,9 @@ void WinSalGraphics::SetFillColor( Color nColor )
     mpImpl->SetFillColor( nColor );
 }
 
-void WinSalGraphics::SetXORMode( bool bSet)
+void WinSalGraphics::SetXORMode( bool bSet, bool bInvertOnly )
 {
-    mpImpl->SetXORMode( bSet);
+    mpImpl->SetXORMode( bSet, bInvertOnly );
 }
 
 void WinSalGraphics::SetROPLineColor( SalROPColor nROPColor )

@@ -20,8 +20,6 @@
 #include "VCartesianAxis.hxx"
 #include <PlottingPositionHelper.hxx>
 #include <ShapeFactory.hxx>
-#include <CommonConverters.hxx>
-#include <ViewDefines.hxx>
 #include <PropertyMapper.hxx>
 #include <NumberFormatterWrapper.hxx>
 #include <LabelPositionHelper.hxx>
@@ -33,9 +31,6 @@
 
 #include <rtl/math.hxx>
 #include <tools/color.hxx>
-#include <com/sun/star/text/XText.hpp>
-#include <com/sun/star/text/WritingMode2.hpp>
-#include <editeng/unoprnms.hxx>
 #include <svx/unoshape.hxx>
 #include <svx/unoshtxt.hxx>
 #include <sal/log.hxx>
@@ -526,7 +521,9 @@ bool VCartesianAxis::isBreakOfLabelsAllowed(
     //no break for value axis
     if( !m_bUseTextLabels )
         return false;
-    if( rAxisLabelProperties.fRotationAngleDegree != 0.0 )
+    if( !( rAxisLabelProperties.fRotationAngleDegree == 0.0 ||
+           rAxisLabelProperties.fRotationAngleDegree == 90.0 ||
+           rAxisLabelProperties.fRotationAngleDegree == 270.0 ) )
         return false;
     //break only for horizontal axis
     return bIsHorizontalAxis;

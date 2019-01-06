@@ -9,6 +9,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
@@ -29,6 +30,7 @@
 #include <strings.hrc>
 
 #include <iostream>
+#include <map>
 
 using namespace ::com::sun::star;
 

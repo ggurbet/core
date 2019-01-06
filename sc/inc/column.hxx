@@ -85,7 +85,7 @@ class ScStyleSheet;
 class SvtBroadcaster;
 class ScTypedStrData;
 class ScProgress;
-struct ScFunctionData;
+class ScFunctionData;
 class ScFlatBoolRowSegments;
 struct ScSetStringParam;
 struct ScColWidthParam;
@@ -222,6 +222,7 @@ public:
                                 bool bConsiderCellDrawObjects=false ) const;
     bool        GetPrevDataPos(SCROW& rRow) const;
     bool        GetNextDataPos(SCROW& rRow) const;
+    bool        TrimEmptyBlocks(SCROW& rRowStart, SCROW& rRowEnd) const;
     void        FindDataAreaPos(SCROW& rRow, bool bDown) const; // (without Broadcaster)
     void        FindUsed( SCROW nStartRow, SCROW nEndRow, mdds::flat_segment_tree<SCROW, bool>& rUsed ) const;
 
@@ -575,6 +576,9 @@ public:
     void FillMatrix( ScMatrix& rMat, size_t nMatCol, SCROW nRow1, SCROW nRow2, svl::SharedStringPool* pPool ) const;
     formula::VectorRefArray FetchVectorRefArray( SCROW nRow1, SCROW nRow2 );
     bool HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup );
+#ifdef DBG_UTIL
+    void AssertNoInterpretNeeded( SCROW nRow1, SCROW nRow2 );
+#endif
     void SetFormulaResults( SCROW nRow, const double* pResults, size_t nLen );
 
     void CalculateInThread( ScInterpreterContext& rContext, SCROW nRow, size_t nLen, unsigned nThisThread, unsigned nThreadsTotal );

@@ -21,7 +21,7 @@
 #define INCLUDED_BASCTL_SOURCE_BASICIDE_MODULDLG_HXX
 
 #include <bastype2.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/tabctrl.hxx>
@@ -252,7 +252,7 @@ public:
 SbModule* createModImpl(weld::Window* pWin, const ScriptDocument& rDocument,
                         SbTreeListBox& rBasicBox, const OUString& rLibName, const OUString& aModName, bool bMain);
 SbModule* createModImpl(weld::Window* pWin, const ScriptDocument& rDocument,
-                        TreeListBox& rBasicBox, const OUString& rLibName, const OUString& aModName, bool bMain);
+                        TreeListBox& rBasicBox, const OUString& rLibName, bool bMain);
 void createLibImpl(weld::Window* pWin, const ScriptDocument& rDocument,
                    CheckBox* pLibBox, TreeListBox* pBasicBox);
 void createLibImpl(weld::Window* pWin, const ScriptDocument& rDocument,

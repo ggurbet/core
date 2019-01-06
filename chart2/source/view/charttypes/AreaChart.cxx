@@ -22,7 +22,6 @@
 #include <ShapeFactory.hxx>
 #include <CommonConverters.hxx>
 #include <ExplicitCategoriesProvider.hxx>
-#include <ViewDefines.hxx>
 #include <ObjectIdentifier.hxx>
 #include "Splines.hxx"
 #include <ChartTypeHelper.hxx>
@@ -36,15 +35,12 @@
 #include <com/sun/star/chart/DataLabelPlacement.hpp>
 #include <com/sun/star/chart/MissingValueTreatment.hpp>
 
-#include <editeng/unoprnms.hxx>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 
 #include <com/sun/star/drawing/DoubleSequence.hpp>
-#include <com/sun/star/drawing/NormalsKind.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
-#include <com/sun/star/lang/XServiceName.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 
 namespace chart
@@ -722,7 +718,12 @@ void AreaChart::createShapes()
                     //collect data point information (logic coordinates, style ):
                     double fLogicX = pSeries->getXValue(nIndex);
                     if (bDateCategory)
+                    {
+                        if (rtl::math::isNan(fLogicX))
+                            continue;
+
                         fLogicX = DateHelper::RasterizeDateValue( fLogicX, m_aNullDate, m_nTimeResolution );
+                    }
                     double fLogicY = pSeries->getYValue(nIndex);
 
                     if( m_nDimension==3 && m_bArea && rXSlot.m_aSeriesVector.size()!=1 )
@@ -930,8 +931,8 @@ void AreaChart::createShapes()
                             {
                                 if(eAlignment==LABEL_ALIGN_CENTER || m_nDimension == 3 )
                                     nOffset = 0;
-                                aScreenPosition2D = awt::Point( LabelPositionHelper(m_nDimension,m_xLogicTarget,m_pShapeFactory)
-                                        .transformSceneToScreenPosition( aScenePosition3D ) );
+                                aScreenPosition2D = LabelPositionHelper(m_nDimension,m_xLogicTarget,m_pShapeFactory)
+                                        .transformSceneToScreenPosition( aScenePosition3D );
                             }
 
                             createDataLabel( m_xTextTarget, *pSeries, nIndex

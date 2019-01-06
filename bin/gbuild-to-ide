@@ -1488,7 +1488,7 @@ class QtCreatorIntegrationGenerator(IdeIntegrationGenerator):
                     headers_list.append(lopath(file_ + ext))
 
             # List all include paths
-            for hdir in lib.include:
+            for hdir in (lib.include + lib.include_sys):
                 hf_lopath = lopath(hdir)
                 includepath_list.append(hf_lopath)
 
@@ -1507,7 +1507,7 @@ class QtCreatorIntegrationGenerator(IdeIntegrationGenerator):
                     define += '=' + value
                 defines_list.append(define)
 
-            # All datas are prepared, store them for the lib.
+            # All data are prepared, store them for the lib.
             if lib_folder in self.data_libs:
                 self.data_libs[lib_folder]['sources'] |= set(sources_list)
                 self.data_libs[lib_folder]['headers'] |= set(headers_list)

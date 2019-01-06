@@ -78,7 +78,7 @@ class SwUndoTextToTable : public SwUndo, public SwUndRng
     std::vector<sal_uLong> mvDelBoxes;
     std::unique_ptr<SwTableAutoFormat> pAutoFormat;
     SwHistory* pHistory;
-    sal_Unicode const cTrenner;
+    sal_Unicode const cSeparator;
     sal_uInt16 const nAdjust;
     bool bSplitEnd : 1;
 
@@ -105,7 +105,7 @@ class SwUndoTableToText : public SwUndo
     SwTableToTextSaves m_vBoxSaves;
     std::unique_ptr<SwHistory> pHistory;
     sal_uLong nSttNd, nEndNd;
-    sal_Unicode const cTrenner;
+    sal_Unicode const cSeparator;
     sal_uInt16 const nHdlnRpt;
     bool bCheckNumFormat : 1;
 
@@ -178,8 +178,8 @@ class SwUndoTableNdsChg : public SwUndo
     std::unique_ptr< std::set<BoxMove> > m_pNewSttNds;
     std::unique_ptr<SwUndoSaveSections> m_pDelSects;
     long m_nMin, m_nMax;        // for redo of delete column
-    sal_uLong m_nSttNode, m_nCurrBox;
-    sal_uInt16 m_nCount, m_nRelDiff, m_nAbsDiff;
+    sal_uLong m_nSttNode;
+    sal_uInt16 m_nCount;
     TableChgWidthHeightType m_nSetColType;
     bool const m_bFlag;
     bool const m_bSameHeight;                   // only used for SplitRow
@@ -194,10 +194,6 @@ public:
                     long nMn, long nMx,
                     sal_uInt16 nCnt, bool bFlg, bool bSameHeight );
 
-    // for SetColWidth
-    SwUndoTableNdsChg( SwUndoId UndoId, const SwSelBoxes& rBoxes,
-                    const SwTableNode& rTableNd );
-
     virtual ~SwUndoTableNdsChg() override;
 
     virtual void UndoImpl( ::sw::UndoRedoContext & ) override;
@@ -209,15 +205,6 @@ public:
     void SaveSection( SwStartNode* pSttNd );
     void ReNewBoxes( const SwSelBoxes& rBoxes );
 
-    void SetColWidthParam( sal_uLong nBoxIdx, sal_uInt16 nMode, TableChgWidthHeightType nType,
-                            SwTwips nAbsDif, SwTwips nRelDif )
-    {
-        m_nCurrBox = nBoxIdx;
-        m_nCount = nMode;
-        m_nSetColType = nType;
-        m_nAbsDiff = static_cast<sal_uInt16>(nAbsDif);
-        m_nRelDiff = static_cast<sal_uInt16>(nRelDif);
-    }
 };
 
 class SwUndoMove;

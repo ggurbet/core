@@ -19,6 +19,7 @@
 
 #include <officecfg/Office/Common.hxx>
 
+#include <vcl/gdimtf.hxx>
 #include <vcl/print.hxx>
 #include <sal/macros.h>
 #include <osl/diagnose.h>
@@ -548,9 +549,7 @@ SalGraphics* AquaSalInfoPrinter::StartPage( ImplJobSetup* i_pSetupData, bool i_b
     if( i_bNewJobData && i_pSetupData )
         SetPrinterData( i_pSetupData );
 
-SAL_WNODEPRECATED_DECLARATIONS_PUSH // 'graphicsPort' is deprecated: first deprecated in macOS 10.14
-    CGContextRef rContext = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-SAL_WNODEPRECATED_DECLARATIONS_POP
+    CGContextRef rContext = [[NSGraphicsContext currentContext] CGContext];
 
     SetupPrinterGraphics( rContext );
 

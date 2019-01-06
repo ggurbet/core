@@ -186,11 +186,20 @@ const Any& SfxPrinterController::getSelectionObject() const
         return bSel ? maSelection : maCompleteSelection;
     }
 
+    bool bIsCalc = false;
+    pVal = getValue( OUString( "PrintRange" ) );
+    if ( pVal )
+        bIsCalc = true;
+
     sal_Int32 nChoice = 0;
-    pVal = getValue( OUString( "PrintContent"  ) );
+    pVal = getValue( OUString( "PrintContent" ) );
     if( pVal )
         pVal->Value >>= nChoice;
-    return (nChoice > 1) ? maSelection : maCompleteSelection;
+
+    if ( bIsCalc )
+        return (nChoice > 1) ? maSelection : maCompleteSelection;
+    else
+        return (nChoice > 3) ? maSelection : maCompleteSelection;
 }
 
 Sequence< beans::PropertyValue > SfxPrinterController::getMergedOptions() const
@@ -341,7 +350,7 @@ void SfxPrinterController::jobFinished( css::view::PrintableState nState )
                                                                              aMsg));
                     xBox->run();
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
             case view::PrintableState_JOB_ABORTED :
             {

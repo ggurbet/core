@@ -1365,18 +1365,6 @@ void TabControl::RequestHelp( const HelpEvent& rHEvt )
                 return;
             }
         }
-        else if ( rHEvt.GetMode() & HelpEventMode::EXTENDED )
-        {
-            OUString aHelpId( OStringToOUString( GetHelpId( nItemId ), RTL_TEXTENCODING_UTF8 ) );
-            if ( !aHelpId.isEmpty() )
-            {
-                // call Help if existing
-                Help* pHelp = Application::GetHelp();
-                if ( pHelp )
-                    pHelp->Start( aHelpId, this );
-                return;
-            }
-        }
 
         // for Quick or Ballon Help, we show the text, if it is cut
         if ( rHEvt.GetMode() & (HelpEventMode::QUICK | HelpEventMode::BALLOON) )
@@ -1970,16 +1958,6 @@ void TabControl::SetHelpId( sal_uInt16 nPageId, const OString& rId ) const
         pItem->maHelpId = rId;
 }
 
-OString TabControl::GetHelpId( sal_uInt16 nPageId ) const
-{
-    ImplTabItem* pItem = ImplGetItem( nPageId );
-
-    if (pItem)
-        return pItem->maHelpId;
-
-    return OString();
-}
-
 void TabControl::SetPageName( sal_uInt16 nPageId, const OString& rName ) const
 {
     ImplTabItem* pItem = ImplGetItem( nPageId );
@@ -2196,12 +2174,10 @@ NotebookbarTabControlBase::NotebookbarTabControlBase(vcl::Window* pParent)
     , bLastContextWasSupported(true)
     , eLastContext(vcl::EnumContext::Context::Any)
 {
-    BitmapEx aBitmap(SV_RESID_BITMAP_NOTEBOOKBAR);
-
     m_pOpenMenu = VclPtr<PushButton>::Create( this , WB_CENTER | WB_VCENTER );
     m_pOpenMenu->SetSizePixel(Size(HAMBURGER_DIM, HAMBURGER_DIM));
     m_pOpenMenu->SetClickHdl(LINK(this, NotebookbarTabControlBase, OpenMenu));
-    m_pOpenMenu->SetModeImage(Image(aBitmap));
+    m_pOpenMenu->SetModeImage(Image(StockImage::Yes, SV_RESID_BITMAP_NOTEBOOKBAR));
     m_pOpenMenu->Show();
 }
 

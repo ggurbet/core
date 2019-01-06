@@ -130,12 +130,8 @@ void RecoveryCore::saveBrokenTempEntries(const OUString& rPath)
     // changed or removed element. And that will change our m_lURLs list.
     // That's not a good idea, if we use a stl iterator inbetween .-)
     TURLList lURLs = m_lURLs;
-    TURLList::const_iterator pIt;
-    for (  pIt  = lURLs.begin();
-           pIt != lURLs.end()  ;
-         ++pIt                 )
+    for (const TURLInfo& rInfo : lURLs)
     {
-        const TURLInfo& rInfo = *pIt;
         if (!RecoveryCore::isBrokenTempEntry(rInfo))
             continue;
 
@@ -168,12 +164,8 @@ void RecoveryCore::saveAllTempEntries(const OUString& rPath)
     // changed or removed element. And that will change our m_lURLs list.
     // That's not a good idea, if we use a stl iterator inbetween .-)
     TURLList lURLs = m_lURLs;
-    TURLList::const_iterator pIt;
-    for (  pIt  = lURLs.begin();
-           pIt != lURLs.end()  ;
-         ++pIt                 )
+    for (const TURLInfo& rInfo : lURLs)
     {
-        const TURLInfo& rInfo = *pIt;
         if (rInfo.TempURL.isEmpty())
             continue;
 
@@ -200,12 +192,8 @@ void RecoveryCore::forgetBrokenTempEntries()
     // changed or removed element. And that will change our m_lURLs list.
     // That's not a good idea, if we use a stl iterator inbetween .-)
     TURLList lURLs = m_lURLs;
-    TURLList::const_iterator pIt;
-    for (  pIt  = lURLs.begin();
-           pIt != lURLs.end()  ;
-         ++pIt                 )
+    for (const TURLInfo& rInfo : lURLs)
     {
-        const TURLInfo& rInfo = *pIt;
         if (!RecoveryCore::isBrokenTempEntry(rInfo))
             continue;
 
@@ -232,12 +220,8 @@ void RecoveryCore::forgetAllRecoveryEntries()
     // changed or removed element. And that will change our m_lURLs list.
     // That's not a good idea, if we use a stl iterator inbetween .-)
     TURLList lURLs = m_lURLs;
-    TURLList::const_iterator pIt;
-    for (  pIt  = lURLs.begin();
-           pIt != lURLs.end()  ;
-         ++pIt                 )
+    for (const TURLInfo& rInfo : lURLs)
     {
-        const TURLInfo& rInfo = *pIt;
         lRemoveArgs[1].Value <<= rInfo.ID;
         m_xRealCore->dispatch(aRemoveURL, lRemoveArgs);
     }
@@ -261,12 +245,8 @@ void RecoveryCore::forgetBrokenRecoveryEntries()
     // changed or removed element. And that will change our m_lURLs list.
     // That's not a good idea, if we use a stl iterator inbetween .-)
     TURLList lURLs = m_lURLs;
-    TURLList::const_iterator pIt;
-    for (  pIt  = lURLs.begin();
-           pIt != lURLs.end()  ;
-         ++pIt                 )
+    for (const TURLInfo& rInfo : lURLs)
     {
-        const TURLInfo& rInfo = *pIt;
         if (!RecoveryCore::isBrokenTempEntry(rInfo))
             continue;
 
@@ -419,12 +399,8 @@ void SAL_CALL RecoveryCore::statusChanged(const css::frame::FeatureStateEvent& a
     }
 
     // search for already existing items and update her nState value ...
-    TURLList::iterator pIt;
-    for (  pIt  = m_lURLs.begin();
-           pIt != m_lURLs.end()  ;
-         ++pIt                   )
+    for (TURLInfo& aOld : m_lURLs)
     {
-        TURLInfo& aOld = *pIt;
         if (aOld.ID == aNew.ID)
         {
             // change existing
@@ -639,13 +615,9 @@ SaveDialog::SaveDialog(vcl::Window* pParent, RecoveryCore* pCore)
     m_pFileListLB->Clear();
 
     TURLList&                rURLs = m_pCore->getURLListAccess();
-    TURLList::const_iterator pIt;
 
-    for (  pIt  = rURLs.begin();
-           pIt != rURLs.end()  ;
-         ++pIt                  )
+    for (const TURLInfo& rInfo : rURLs)
     {
-        const TURLInfo& rInfo = *pIt;
         m_pFileListLB->InsertEntry( rInfo.DisplayName, rInfo.StandardImage );
     }
 }
@@ -804,9 +776,9 @@ void RecovDocListEntry::Paint(const Point& aPos, SvTreeListBox& aDevice, vcl::Re
 
 RecovDocList::RecovDocList(SvSimpleTableContainer& rParent)
     : SvSimpleTable      ( rParent )
-    , m_aGreenCheckImg    (BitmapEx(RID_SVXBMP_GREENCHECK))
-    , m_aYellowCheckImg   (BitmapEx(RID_SVXBMP_YELLOWCHECK))
-    , m_aRedCrossImg      (BitmapEx(RID_SVXBMP_REDCROSS))
+    , m_aGreenCheckImg    (StockImage::Yes, RID_SVXBMP_GREENCHECK)
+    , m_aYellowCheckImg   (StockImage::Yes, RID_SVXBMP_YELLOWCHECK)
+    , m_aRedCrossImg      (StockImage::Yes, RID_SVXBMP_REDCROSS)
     , m_aSuccessRecovStr  (SvxResId(RID_SVXSTR_SUCCESSRECOV))
     , m_aOrigDocRecovStr  (SvxResId(RID_SVXSTR_ORIGDOCRECOV))
     , m_aRecovFailedStr   (SvxResId(RID_SVXSTR_RECOVFAILED))
@@ -878,13 +850,8 @@ RecoveryDialog::RecoveryDialog(vcl::Window* pParent, RecoveryCore* pCore)
 
     // fill list box first time
     TURLList&                rURLList = m_pCore->getURLListAccess();
-    TURLList::const_iterator pIt;
-    for (  pIt  = rURLList.begin();
-           pIt != rURLList.end()  ;
-         ++pIt                     )
+    for (const TURLInfo& rInfo : rURLList)
     {
-        const TURLInfo& rInfo = *pIt;
-
         OUString sName( rInfo.DisplayName );
         sName += "\t";
         sName += impl_getStatusString( rInfo );
@@ -1238,13 +1205,8 @@ void BrokenRecoveryDialog::impl_refresh()
 {
                              m_bExecutionNeeded = false;
     TURLList&                rURLList           = m_pCore->getURLListAccess();
-    TURLList::const_iterator pIt;
-    for (  pIt  = rURLList.begin();
-           pIt != rURLList.end()  ;
-         ++pIt                     )
+    for (const TURLInfo& rInfo : rURLList)
     {
-        const TURLInfo& rInfo = *pIt;
-
         if (m_bBeforeRecovery)
         {
             // "Cancel" before recovery ->

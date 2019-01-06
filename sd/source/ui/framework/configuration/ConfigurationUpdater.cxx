@@ -21,9 +21,11 @@
 #include "ConfigurationTracer.hxx"
 #include "ConfigurationClassifier.hxx"
 #include "ConfigurationControllerBroadcaster.hxx"
+#include "ConfigurationControllerResourceManager.hxx"
 #include <framework/Configuration.hxx>
 #include <framework/FrameworkHelper.hxx>
 
+#include <com/sun/star/drawing/framework/XControllerManager.hpp>
 #include <comphelper/scopeguard.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
@@ -198,10 +200,9 @@ void ConfigurationUpdater::CleanRequestedConfiguration()
         {
             Reference<XConfigurationController> xCC (
                 mxControllerManager->getConfigurationController());
-            vector<Reference<XResourceId> >::iterator iId;
-            for (iId=aResourcesToDeactivate.begin(); iId!=aResourcesToDeactivate.end(); ++iId)
-                if (iId->is())
-                    xCC->requestResourceDeactivation(*iId);
+            for (auto& rxId : aResourcesToDeactivate)
+                if (rxId.is())
+                    xCC->requestResourceDeactivation(rxId);
         }
     }
 }

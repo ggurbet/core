@@ -31,6 +31,7 @@
 #include <vcl/graphicfilter.hxx>
 #include <vcl/graphictools.hxx>
 #include <sal/log.hxx>
+#include <tools/helpers.hxx>
 
 #include <zlib.h>
 
@@ -593,7 +594,7 @@ void Writer::Impl_writeText( const Point& rPos, const OUString& rText, const lon
         }
 
         basegfx::B2DHomMatrix m(basegfx::utils::createRotateB2DHomMatrix(static_cast<double>(nOrientation) * F_PI1800));
-        m.translate( double(aPt.X() / scale), double(aPt.Y()) );
+        m.translate( aPt.X() / scale, double(aPt.Y()) );
         m.scale( scale, scale );
 
         sal_Int16 nHeight = Int16_( map( Size( 0, aFont.GetFontHeight() ) ).Height() );
@@ -1266,7 +1267,7 @@ void Writer::Impl_handleLineInfoPolyPolygons(const LineInfo& rInfo, const basegf
             for(sal_uInt32 a(0); a < aFillPolyPolygon.count(); a++)
             {
                 const tools::Polygon aPolygon(aFillPolyPolygon.getB2DPolygon(a));
-                Impl_writePolyPolygon(tools::PolyPolygon(tools::Polygon(aPolygon)), true );
+                Impl_writePolyPolygon(tools::PolyPolygon(aPolygon), true );
             }
 
             mpVDev->SetLineColor(aOldLineColor);
@@ -1695,7 +1696,7 @@ void Writer::Impl_writeActions( const GDIMetaFile& rMtf )
             {
                 const MetaISectRectClipRegionAction* pA = static_cast<const MetaISectRectClipRegionAction*>(pAction);
                 clipRect = pA->GetRect();
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
             case MetaActionType::CLIPREGION:
             case MetaActionType::ISECTREGIONCLIPREGION:
@@ -1708,7 +1709,7 @@ void Writer::Impl_writeActions( const GDIMetaFile& rMtf )
             case MetaActionType::MAPMODE:
             {
                 bMap++;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
             case MetaActionType::REFPOINT:
             case MetaActionType::LINECOLOR:

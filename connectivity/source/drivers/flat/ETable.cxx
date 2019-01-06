@@ -28,6 +28,7 @@
 #include <svl/zforlist.hxx>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
+#include <tools/solar.h>
 #include <cppuhelper/queryinterface.hxx>
 #include <comphelper/numbers.hxx>
 #include <comphelper/processfactory.hxx>
@@ -723,7 +724,7 @@ bool OFlatTable::seekRow(IResultSetHelper::Movement eCursorPosition, sal_Int32 n
     {
         case IResultSetHelper::FIRST:
             m_nRowPos = 0;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case IResultSetHelper::NEXT:
             {
                 assert(m_nRowPos >= 0);

@@ -358,7 +358,7 @@ void SwDocShell::ExecStyleSheet( SfxRequest& rReq )
                 }
             }
 
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case SID_STYLE_EDIT:
         case SID_STYLE_DELETE:
@@ -495,7 +495,7 @@ void SwDocShell::ExecStyleSheet( SfxRequest& rReq )
                 switch(nSlot)
                 {
                     case SID_STYLE_EDIT:
-                        Edit(aParam, aEmptyOUStr, nFamily, nMask, false, OString(), pActShell);
+                        Edit(aParam, OUString(), nFamily, nMask, false, OString(), pActShell);
                         break;
                     case SID_STYLE_DELETE:
                         Delete(aParam, nFamily);
@@ -700,7 +700,7 @@ void SwDocShell::Edit(
                         respectively "".*/
                     if (pColl && pColl->IsAssignedToListLevelOfOutlineStyle())
                     {
-                        SwNumRuleItem aItem(aEmptyOUStr);
+                        SwNumRuleItem aItem;
                         pDStyle->GetCollection()->SetFormatAttr( aItem );
                         pDStyle->GetCollection()->SetAttrOutlineLevel( 0 );
                     }
@@ -818,7 +818,7 @@ void SwDocShell::Edit(
         FieldUnit eMetric = ::GetDfltMetric(0 != (HTMLMODE_ON&nHtmlMode));
         SW_MOD()->PutItem(SfxUInt16Item(SID_ATTR_METRIC, static_cast< sal_uInt16 >(eMetric)));
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractApplyTabDialog> pDlg(pFact->CreateTemplateDialog(&GetView()->GetViewFrame()->GetWindow(),
+        ScopedVclPtr<SfxAbstractApplyTabDialog> pDlg(pFact->CreateTemplateDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(),
                                                     *(xTmp.get()), nFamily, sPage, pCurrShell, bNew));
         std::shared_ptr<ApplyStyle> pApplyStyleHelper(new ApplyStyle(*this, bNew, xTmp, nFamily, pDlg.get(), m_xBasePool, bModified));
         pDlg->SetApplyHdl(LINK(pApplyStyleHelper.get(), ApplyStyle, ApplyHdl));
@@ -830,7 +830,7 @@ void SwDocShell::Edit(
             pReq->Ignore(); // the 'old' request is not relevant any more
         }
 
-        pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+        pDlg->StartExecuteAsync([bModified, bNew, nFamily, nSlot, nNewStyleUndoId, pApplyStyleHelper, pRequest, xTmp, this](sal_Int32 nResult){
             if (RET_OK == nResult)
                 pApplyStyleHelper->apply();
 
@@ -1374,7 +1374,7 @@ void SwDocShell::FormatPage(
     SwWrtShell& rActShell,
     SfxRequest* pRequest)
 {
-    Edit(rPage, aEmptyOUStr, SfxStyleFamily::Page, SfxStyleSearchBits::Auto, false, rPageId, &rActShell, pRequest);
+    Edit(rPage, OUString(), SfxStyleFamily::Page, SfxStyleSearchBits::Auto, false, rPageId, &rActShell, pRequest);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -97,7 +97,6 @@ void BrowseBox::ConstructImpl( BrowserMode nMode )
 
     aHScroll->SetLineSize(1);
     aHScroll->SetScrollHdl( LINK( this, BrowseBox, ScrollHdl ) );
-    aHScroll->SetEndScrollHdl( LINK( this, BrowseBox, EndScrollHdl ) );
     pDataWin->Show();
 
     SetMode( nMode );
@@ -111,7 +110,7 @@ BrowseBox::BrowseBox( vcl::Window* pParent, WinBits nBits, BrowserMode nMode )
     :Control( pParent, nBits | WB_3DLOOK )
     ,DragSourceHelper( this )
     ,DropTargetHelper( this )
-    ,aHScroll( VclPtr<ScrollBar>::Create(this, WinBits( WB_HSCROLL )) )
+    ,aHScroll( VclPtr<ScrollBar>::Create(this, WB_HSCROLL) )
 {
     ConstructImpl( nMode );
 }
@@ -742,13 +741,13 @@ void BrowseBox::RemoveColumns()
     commitBrowseBoxEvent(
         CHILD,
         Any(),
-        makeAny(m_pImpl->getAccessibleHeaderBar(BBTYPE_COLUMNHEADERBAR))
+        makeAny(m_pImpl->getAccessibleHeaderBar(vcl::BBTYPE_COLUMNHEADERBAR))
     );
 
     // and now append it again
     commitBrowseBoxEvent(
         CHILD,
-        makeAny(m_pImpl->getAccessibleHeaderBar(BBTYPE_COLUMNHEADERBAR)),
+        makeAny(m_pImpl->getAccessibleHeaderBar(vcl::BBTYPE_COLUMNHEADERBAR)),
         Any()
     );
 
@@ -961,11 +960,6 @@ long BrowseBox::ScrollColumns( long nCols )
 
 long BrowseBox::ScrollRows( long nRows )
 {
-
-    // out of range?
-    if ( pDataWin->bNoScrollBack && nRows < 0 )
-        return 0;
-
     // compute new top row
     long nTmpMin = std::min( static_cast<long>(nTopRow + nRows), static_cast<long>(nRowCount - 1) );
 
@@ -1076,13 +1070,13 @@ void BrowseBox::Clear()
     commitBrowseBoxEvent(
         CHILD,
         Any(),
-        makeAny( m_pImpl->getAccessibleHeaderBar( BBTYPE_ROWHEADERBAR ) )
+        makeAny( m_pImpl->getAccessibleHeaderBar( vcl::BBTYPE_ROWHEADERBAR ) )
     );
 
     // and now append it again
     commitBrowseBoxEvent(
         CHILD,
-        makeAny( m_pImpl->getAccessibleHeaderBar( BBTYPE_ROWHEADERBAR ) ),
+        makeAny( m_pImpl->getAccessibleHeaderBar( vcl::BBTYPE_ROWHEADERBAR ) ),
         Any()
     );
 
@@ -1319,13 +1313,13 @@ void BrowseBox::RowRemoved( long nRow, long nNumRows, bool bDoPaint )
             commitBrowseBoxEvent(
                 CHILD,
                 Any(),
-                makeAny( m_pImpl->getAccessibleHeaderBar( BBTYPE_ROWHEADERBAR ) )
+                makeAny( m_pImpl->getAccessibleHeaderBar( vcl::BBTYPE_ROWHEADERBAR ) )
             );
 
             // and now append it again
             commitBrowseBoxEvent(
                 CHILD,
-                makeAny(m_pImpl->getAccessibleHeaderBar(BBTYPE_ROWHEADERBAR)),
+                makeAny(m_pImpl->getAccessibleHeaderBar(vcl::BBTYPE_ROWHEADERBAR)),
                 Any()
             );
             commitBrowseBoxEvent(
@@ -1399,9 +1393,6 @@ bool BrowseBox::GoToRow( long nRow, bool bRowColMove, bool bKeepSelection )
     // not allowed?
     if ( !bRowColMove && !IsCursorMoveAllowed( nRow, nCurColId ) )
         return false;
-
-    if ( pDataWin->bNoScrollBack && nRow < nTopRow )
-        nRow = nTopRow;
 
     // compute the last visible row
     Size aSz( pDataWin->GetSizePixel() );
@@ -2114,9 +2105,6 @@ void BrowseBox::SetMode( BrowserMode nMode )
 
     nControlAreaWidth = USHRT_MAX;
 
-    pDataWin->bNoScrollBack =
-            BrowserMode::NO_SCROLLBACK == ( nMode & BrowserMode::NO_SCROLLBACK);
-
     long nOldRowSel = bMultiSelection ? uRow.pSel->FirstSelected() : uRow.nSel;
     MultiSelection *pOldRowSel = bMultiSelection ? uRow.pSel : nullptr;
 
@@ -2130,11 +2118,7 @@ void BrowseBox::SetMode( BrowserMode nMode )
     // default: do not hide the cursor at all (untaken scrolling and such)
     bHideCursor = TRISTATE_FALSE;
 
-    if ( BrowserMode::SMART_HIDECURSOR == ( nMode & BrowserMode::SMART_HIDECURSOR ) )
-    {   // smart cursor hide overrules hard cursor hide
-        bHideCursor = TRISTATE_INDET;
-    }
-    else if ( BrowserMode::HIDECURSOR == ( nMode & BrowserMode::HIDECURSOR ) )
+    if ( BrowserMode::HIDECURSOR == ( nMode & BrowserMode::HIDECURSOR ) )
     {
         bHideCursor = TRISTATE_TRUE;
     }
@@ -2146,19 +2130,15 @@ void BrowseBox::SetMode( BrowserMode nMode )
 
     WinBits nVScrollWinBits =
         WB_VSCROLL | ( ( nMode & BrowserMode::THUMBDRAGGING ) ? WB_DRAG : 0 );
-    pVScroll = VclPtr<ScrollBar>(
-                ( nMode & BrowserMode::TRACKING_TIPS ) == BrowserMode::TRACKING_TIPS
+    pVScroll = ( nMode & BrowserMode::TRACKING_TIPS ) == BrowserMode::TRACKING_TIPS
                 ? VclPtr<BrowserScrollBar>::Create( this, nVScrollWinBits, pDataWin.get() )
-                : VclPtr<ScrollBar>::Create( this, nVScrollWinBits ));
+                : VclPtr<ScrollBar>::Create( this, nVScrollWinBits );
     pVScroll->SetLineSize( 1 );
     pVScroll->SetPageSize(1);
     pVScroll->SetScrollHdl( LINK( this, BrowseBox, ScrollHdl ) );
-    pVScroll->SetEndScrollHdl( LINK( this, BrowseBox, EndScrollHdl ) );
 
     pDataWin->bAutoSizeLastCol =
             BrowserMode::AUTOSIZE_LASTCOL == ( nMode & BrowserMode::AUTOSIZE_LASTCOL );
-    pDataWin->bOwnDataChangedHdl =
-            BrowserMode::OWN_DATACHANGED == ( nMode & BrowserMode::OWN_DATACHANGED );
 
     // create a headerbar. what happens, if a headerbar has to be created and
     // there already are columns?

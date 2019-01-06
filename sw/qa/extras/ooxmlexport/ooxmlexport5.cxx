@@ -51,6 +51,8 @@
 
 #include <string>
 #include <config_features.h>
+#include <unocrsr.hxx>
+#include <ndtxt.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -693,7 +695,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo77129, "fdo77129.docx")
        return;
 
     // Data was lost from this paragraph.
-    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p[5]/w:r[1]/w:t", "Abstract");
+    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p[4]/w:r[1]/w:t", "Abstract");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testfdo79969_xlsm, "fdo79969_xlsm.docx")
@@ -1031,11 +1033,34 @@ DECLARE_OOXMLEXPORT_TEST(tdf66398_permissions, "tdf66398_permissions.docx")
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("permission-for-group:267014232:everyone"));
 }
 
+DECLARE_OOXMLEXPORT_TEST(tdf122201_editUnprotectedText, "tdf122201_editUnprotectedText.odt")
+{
+    // get the document
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    CPPUNIT_ASSERT(pDoc);
+
+    // get two different nodes
+    SwNodeIndex aDocEnd(pDoc->GetNodes().GetEndOfContent());
+    SwNodeIndex aDocStart(*aDocEnd.GetNode().StartOfSectionNode(), 3);
+
+    // check protected area
+    SwPaM aPaMPortected(aDocStart);
+    CPPUNIT_ASSERT(aPaMPortected.HasReadonlySel(false));
+
+    // check unprotected area
+    SwPaM aPaMUnprotected(aDocEnd);
+    CPPUNIT_ASSERT(!aPaMUnprotected.HasReadonlySel(false));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testSectionHeader, "sectionprot.odt")
 {
     if (xmlDocPtr pXmlDoc = parseExport("word/document.xml"))
     {
-        assertXPath(pXmlDoc, "//w:headerReference", 1);
+        // this test must not be zero
+        assertXPath(pXmlDoc, "//w:headerReference", 2);
     }
 }
 

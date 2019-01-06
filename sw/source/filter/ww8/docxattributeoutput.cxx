@@ -133,6 +133,7 @@
 #include <txtatr.hxx>
 
 #include <osl/file.hxx>
+#include <utility>
 #include <vcl/embeddedfontshelper.hxx>
 #include <svtools/miscopt.hxx>
 
@@ -146,6 +147,8 @@
 
 #include <algorithm>
 #include <stdarg.h>
+
+#include <toolkit/helper/vclunohelper.hxx>
 
 using ::editeng::SvxBorderLine;
 
@@ -207,14 +210,14 @@ class FFDataWriterHelper
 
         if ( !rHelp.isEmpty() )
             m_pSerializer->singleElementNS( XML_w, XML_helpText,
-                FSNS(XML_w, XML_type), OString("text"),
+                FSNS(XML_w, XML_type), "text",
                 FSNS(XML_w, XML_val),
                 OUStringToOString( rHelp, RTL_TEXTENCODING_UTF8 ).getStr(),
                 FSEND );
 
         if ( !rHint.isEmpty() )
             m_pSerializer->singleElementNS( XML_w, XML_statusText,
-                FSNS(XML_w, XML_type), OString("text"),
+                FSNS(XML_w, XML_type), "text",
                 FSNS(XML_w, XML_val),
                 OUStringToOString( rHint, RTL_TEXTENCODING_UTF8 ).getStr(),
                 FSEND );
@@ -225,7 +228,7 @@ class FFDataWriterHelper
         m_pSerializer->endElementNS( XML_w, XML_ffData );
     }
 public:
-    explicit FFDataWriterHelper( const ::sax_fastparser::FSHelperPtr& rSerializer ) : m_pSerializer( rSerializer ){}
+    explicit FFDataWriterHelper( ::sax_fastparser::FSHelperPtr  rSerializer ) : m_pSerializer(std::move( rSerializer )){}
     void WriteFormCheckbox( const OUString& rName,
                             const OUString& rEntryMacro,
                             const OUString& rExitMacro,
@@ -366,15 +369,18 @@ void DocxAttributeOutput::StartParagraph( ww8::WW8TableNodeInfo::Pointer_t pText
     // would normally arrive, it would be too late (would be after the
     // paragraph start has been written).
     bool bEndParaSdt = false;
-    SwTextNode* pTextNode = m_rExport.m_pCurPam->GetNode().GetTextNode();
-    if (pTextNode && pTextNode->GetpSwAttrSet())
+    if (m_bStartedParaSdt)
     {
-        const SfxItemSet* pSet = pTextNode->GetpSwAttrSet();
-        if (const SfxPoolItem* pItem = pSet->GetItem(RES_PARATR_GRABBAG))
+        SwTextNode* pTextNode = m_rExport.m_pCurPam->GetNode().GetTextNode();
+        if (pTextNode && pTextNode->GetpSwAttrSet())
         {
-            const SfxGrabBagItem& rParaGrabBag = static_cast<const SfxGrabBagItem&>(*pItem);
-            const std::map<OUString, css::uno::Any>& rMap = rParaGrabBag.GetGrabBag();
-            bEndParaSdt = m_bStartedParaSdt && rMap.find("ParaSdtEndBefore") != rMap.end();
+            const SfxItemSet* pSet = pTextNode->GetpSwAttrSet();
+            if (const SfxPoolItem* pItem = pSet->GetItem(RES_PARATR_GRABBAG))
+            {
+                const SfxGrabBagItem& rParaGrabBag = static_cast<const SfxGrabBagItem&>(*pItem);
+                const std::map<OUString, css::uno::Any>& rMap = rParaGrabBag.GetGrabBag();
+                bEndParaSdt = m_bStartedParaSdt && rMap.find("ParaSdtEndBefore") != rMap.end();
+            }
         }
     }
     // TODO also avoid multiline paragraphs in those SDT types for shape text
@@ -649,17 +655,14 @@ void DocxAttributeOutput::EndParagraph( ww8::WW8TableNodeInfoInner::Pointer_t pT
     m_pSerializer->mergeTopMarks(Tag_StartParagraph_1);
 
     // Write framePr
-    if(!aFramePrTextbox.empty())
+    for ( const auto & pFrame : aFramePrTextbox )
     {
-        for ( const auto & pFrame : aFramePrTextbox )
-        {
-            DocxTableExportContext aTableExportContext(*this);
-            m_pCurrentFrame = pFrame.get();
-            m_rExport.SdrExporter().writeOnlyTextOfFrame(pFrame.get());
-            m_pCurrentFrame = nullptr;
-        }
-        aFramePrTextbox.clear();
+        DocxTableExportContext aTableExportContext(*this);
+        m_pCurrentFrame = pFrame.get();
+        m_rExport.SdrExporter().writeOnlyTextOfFrame(pFrame.get());
+        m_pCurrentFrame = nullptr;
     }
+    aFramePrTextbox.clear();
     // Check for end of cell, rows, tables here
     FinishTableRowCell( pTextNodeInfoInner );
 
@@ -871,7 +874,7 @@ void DocxAttributeOutput::SectionBreaks(const SwNode& rNode)
     // paragraph, and detect the section breaks there.
     SwNodeIndex aNextIndex( rNode, 1 );
 
-    if (rNode.IsTextNode())
+    if (rNode.IsTextNode() || rNode.IsSectionNode())
     {
         if (aNextIndex.GetNode().IsTextNode())
         {
@@ -1145,7 +1148,7 @@ void DocxAttributeOutput::EndParagraphProperties(const SfxItemSet& rParagraphMar
         m_nColBreakStatus = COLBRK_NONE;
     }
 
-    if ( m_bPostponedPageBreak )
+    if ( m_bPostponedPageBreak && !m_bWritingHeaderFooter )
     {
         m_pSerializer->startElementNS( XML_w, XML_r, FSEND );
         m_pSerializer->singleElementNS( XML_w, XML_br,
@@ -2376,20 +2379,17 @@ void DocxAttributeOutput::WriteCollectedRunProperties()
         m_pSerializer->singleElementNS( XML_w, XML_lang, xAttrList );
     }
 
-    if (!m_aTextEffectsGrabBag.empty())
+    for (beans::PropertyValue & i : m_aTextEffectsGrabBag)
     {
-        for (beans::PropertyValue & i : m_aTextEffectsGrabBag)
+        boost::optional<sal_Int32> aElementId = lclGetElementIdForName(i.Name);
+        if(aElementId)
         {
-            boost::optional<sal_Int32> aElementId = lclGetElementIdForName(i.Name);
-            if(aElementId)
-            {
-                uno::Sequence<beans::PropertyValue> aGrabBagSeq;
-                i.Value >>= aGrabBagSeq;
-                lclProcessRecursiveGrabBag(*aElementId, aGrabBagSeq, m_pSerializer);
-            }
+            uno::Sequence<beans::PropertyValue> aGrabBagSeq;
+            i.Value >>= aGrabBagSeq;
+            lclProcessRecursiveGrabBag(*aElementId, aGrabBagSeq, m_pSerializer);
         }
-        m_aTextEffectsGrabBag.clear();
     }
+    m_aTextEffectsGrabBag.clear();
 }
 
 void DocxAttributeOutput::EndRunProperties( const SwRedlineData* pRedlineData )
@@ -3188,10 +3188,10 @@ static void impl_borders( FSHelperPtr const & pSerializer,
             // If there is a shadow, and it's not the regular 'Bottom-Right',
             // then write only the 'shadowed' sides of the border
             if  (
-                    ( ( rOptions.aShadowLocation == SvxShadowLocation::TopLeft     || rOptions.aShadowLocation == SvxShadowLocation::TopRight      )    &&  *pBrd == SvxBoxItemLine::TOP   )  ||
-                    ( ( rOptions.aShadowLocation == SvxShadowLocation::TopLeft     || rOptions.aShadowLocation == SvxShadowLocation::BottomLeft    )    &&  *pBrd == SvxBoxItemLine::LEFT  )  ||
-                    ( ( rOptions.aShadowLocation == SvxShadowLocation::BottomLeft  || rOptions.aShadowLocation == SvxShadowLocation::BottomRight   )    &&  *pBrd == SvxBoxItemLine::BOTTOM)  ||
-                    ( ( rOptions.aShadowLocation == SvxShadowLocation::TopRight    || rOptions.aShadowLocation == SvxShadowLocation::BottomRight   )    &&  *pBrd == SvxBoxItemLine::RIGHT )
+                    ((rOptions.aShadowLocation == SvxShadowLocation::TopLeft    || rOptions.aShadowLocation == SvxShadowLocation::TopRight  ) && *pBrd == SvxBoxItemLine::TOP   ) ||
+                    ((rOptions.aShadowLocation == SvxShadowLocation::TopLeft    || rOptions.aShadowLocation == SvxShadowLocation::BottomLeft) && *pBrd == SvxBoxItemLine::LEFT  ) ||
+                    ((rOptions.aShadowLocation == SvxShadowLocation::BottomLeft                                                             ) && *pBrd == SvxBoxItemLine::BOTTOM) ||
+                    ((rOptions.aShadowLocation == SvxShadowLocation::TopRight                                                               ) && *pBrd == SvxBoxItemLine::RIGHT )
                 )
             {
                 bWriteShadow = true;
@@ -5314,7 +5314,31 @@ void DocxAttributeOutput::WriteOLE( SwOLENode& rNode, const Size& rSize, const S
     m_rDrawingML.SetFS(m_pSerializer);
     OUString sImageId = m_rDrawingML.WriteImage( *pGraphic );
 
-    m_pSerializer->startElementNS( XML_w, XML_object, FSEND );
+    if ( sDrawAspect == "Content" )
+    {
+        awt::Size aSize;
+        try
+        {
+            aSize = xObj->getVisualAreaSize( rNode.GetAspect() );
+
+            MapUnit aUnit = VCLUnoHelper::UnoEmbed2VCLMapUnit( xObj->getMapUnit( rNode.GetAspect() ) );
+            Size aOriginalSize( OutputDevice::LogicToLogic(Size( aSize.Width, aSize.Height),
+                                                MapMode(aUnit), MapMode(MapUnit::MapTwip)));
+
+            m_pSerializer->startElementNS( XML_w, XML_object,
+                                   FSNS(XML_w, XML_dxaOrig), OString::number(aOriginalSize.Width()),
+                                   FSNS(XML_w, XML_dyaOrig), OString::number(aOriginalSize.Height()),
+                                   FSEND );
+        }
+        catch ( uno::Exception& )
+        {
+            m_pSerializer->startElementNS( XML_w, XML_object, FSEND );
+        }
+    }
+    else
+    {
+        m_pSerializer->startElementNS( XML_w, XML_object, FSEND );
+    }
 
     OStringBuffer sShapeStyle, sShapeId;
     sShapeStyle.append( "width:" ).append( double( rSize.Width() ) / 20 )
@@ -5686,20 +5710,19 @@ static bool lcl_guessQFormat(const OUString& rName, sal_uInt16 nWwId)
             nWwId == ww::stiEmphasis )
         return true;
 
-    static std::set<OUString, OUStringIgnoreCase> aWhitelist;
-    if (aWhitelist.empty())
+    static std::set<OUString, OUStringIgnoreCase> const aWhitelist
     {
-        aWhitelist.insert("No Spacing");
-        aWhitelist.insert("List Paragraph");
-        aWhitelist.insert("Quote");
-        aWhitelist.insert("Intense Quote");
-        aWhitelist.insert("Subtle Emphasis,");
-        aWhitelist.insert("Intense Emphasis");
-        aWhitelist.insert("Subtle Reference");
-        aWhitelist.insert("Intense Reference");
-        aWhitelist.insert("Book Title");
-        aWhitelist.insert("TOC Heading");
-    }
+        "No Spacing",
+        "List Paragraph",
+        "Quote",
+        "Intense Quote",
+        "Subtle Emphasis,",
+        "Intense Emphasis",
+        "Subtle Reference",
+        "Intense Reference",
+        "Book Title",
+        "TOC Heading",
+    };
     // Not custom style? Then we have a list of standard styles which should be qFormat.
     return aWhitelist.find(rName) != aWhitelist.end();
 }
@@ -5927,20 +5950,6 @@ void DocxAttributeOutput::SectionBreak( sal_uInt8 nC, const WW8_SepInfo* pSectio
                     bEmit = (nColumns > 1 && bBalance);
                 }
 
-                if (!bEmit)
-                {
-                    // Also need to emit if the page desc contains a header or
-                    // footer, otherwise we go with the properties of the
-                    // section (and not the page style), which never has
-                    // headers/footers.
-                    const SwPageDesc* pPageDesc = pSectionInfo->pPageDesc;
-                    if ( pPageDesc && pPageDesc != m_rExport.m_pCurrentPageDesc )
-                    {
-                        const auto& rMaster = pPageDesc->GetMaster();
-                        bEmit = rMaster.GetHeader().IsActive() || rMaster.GetFooter().IsActive();
-                    }
-                }
-
                 // don't add section properties if this will be the first
                 // paragraph in the document
                 if ( !m_bParagraphOpened && !m_bIsFirstParagraph && bEmit )
@@ -6061,8 +6070,9 @@ void DocxAttributeOutput::SectionLineNumbering( sal_uLong nRestartNo, const SwLi
     pAttr->add( FSNS( XML_w, XML_restart ), rLnNumInfo.IsRestartEachPage() ? "newPage" : "continuous" );
     if( rLnNumInfo.GetPosFromLeft())
         pAttr->add( FSNS( XML_w, XML_distance ), OString::number(rLnNumInfo.GetPosFromLeft()).getStr());
-    if( nRestartNo )
-        pAttr->add( FSNS( XML_w, XML_start ), OString::number( nRestartNo).getStr());
+    if (nRestartNo > 0)
+        // Writer is 1-based, Word is 0-based.
+        pAttr->add(FSNS(XML_w, XML_start), OString::number(nRestartNo - 1).getStr());
     XFastAttributeListRef xAttrs( pAttr );
     m_pSerializer->singleElementNS( XML_w, XML_lnNumType, xAttrs );
 }
@@ -6776,14 +6786,14 @@ void DocxAttributeOutput::CharEscapement( const SvxEscapementItem& rEscapement )
            FSNS( XML_w, XML_val ), sIss.getStr(), FSEND );
 
     const SvxFontHeightItem& rItem = m_rExport.GetItem(RES_CHRATR_FONTSIZE);
-    if (sIss.isEmpty() || sIss.match(OString("baseline")))
+    if (sIss.isEmpty() || sIss.match("baseline"))
     {
         long nHeight = rItem.GetHeight();
         OString sPos = OString::number( ( nHeight * nEsc + 500 ) / 1000 );
         m_pSerializer->singleElementNS( XML_w, XML_position,
                 FSNS( XML_w, XML_val ), sPos.getStr( ), FSEND );
 
-        if( ( 100 != nProp || sIss.match( OString( "baseline" ) ) ) && !m_rExport.m_bFontSizeWritten )
+        if( ( 100 != nProp || sIss.match( "baseline" ) ) && !m_rExport.m_bFontSizeWritten )
         {
             OString sSize = OString::number( ( nHeight * nProp + 500 ) / 1000 );
                 m_pSerializer->singleElementNS( XML_w, XML_sz,
@@ -7707,7 +7717,7 @@ void DocxAttributeOutput::ParaWidows( const SvxWidowsItem& rWidows )
 }
 
 static void impl_WriteTabElement( FSHelperPtr const & pSerializer,
-                                  const SvxTabStop& rTab )
+                                  const SvxTabStop& rTab, long tabsOffset )
 {
     FastAttributeList *pTabElementAttrList = FastSerializerHelper::createAttrList();
 
@@ -7729,9 +7739,11 @@ static void impl_WriteTabElement( FSHelperPtr const & pSerializer,
         break;
     }
 
-    // Because GetTabPos already includes indent, we don't need to add nCurrentLeft (CurrentLeft is indentation information)
-    //pTabElementAttrList->add( FSNS( XML_w, XML_pos ), OString::valueOf( rTab.GetTabPos() + nCurrentLeft ) );
-    pTabElementAttrList->add( FSNS( XML_w, XML_pos ), OString::number( rTab.GetTabPos()                ) );
+    // Write position according to used offset of the whole paragraph.
+    // In DOCX, w:pos specifies the position of the current custom tab stop with respect to the current page margins.
+    // But in ODT, zero position could be page margins or paragraph indent according to used settings.
+    // This is handled outside of this method and provided for us in tabsOffset parameter.
+    pTabElementAttrList->add( FSNS( XML_w, XML_pos ), OString::number( rTab.GetTabPos() + tabsOffset ) );
 
     sal_Unicode cFillChar = rTab.GetFill();
 
@@ -7770,6 +7782,13 @@ void DocxAttributeOutput::ParaTabStop( const SvxTabStopItem& rTabStop )
 
     m_pSerializer->startElementNS( XML_w, XML_tabs, FSEND );
 
+    // Get offset for tabs
+    // In DOCX, w:pos specifies the position of the current custom tab stop with respect to the current page margins.
+    // But in ODT, zero position could be page margins or paragraph indent according to used settings.
+    long tabsOffset = 0;
+    if (m_rExport.m_pDoc->getIDocumentSettingAccess().get(DocumentSettingId::TABS_RELATIVE_TO_INDENT))
+        tabsOffset = m_rExport.GetItem(RES_LR_SPACE).GetTextLeft();
+
     // clear unused inherited tabs - otherwise the style will add them back in
     sal_Int32 nCurrTab = 0;
     for ( sal_uInt16 i = 0; i < nInheritedTabCount; ++i )
@@ -7780,7 +7799,7 @@ void DocxAttributeOutput::ParaTabStop( const SvxTabStopItem& rTabStop )
         if ( nCurrTab == nCount || pInheritedTabs->At(i) < rTabStop[nCurrTab] )
         {
             m_pSerializer->singleElementNS( XML_w, XML_tab,
-                FSNS( XML_w, XML_val ), OString("clear"),
+                FSNS( XML_w, XML_val ), "clear",
                 FSNS( XML_w, XML_pos ), OString::number(pInheritedTabs->At(i).GetTabPos()),
                 FSEND );
         }
@@ -7789,7 +7808,7 @@ void DocxAttributeOutput::ParaTabStop( const SvxTabStopItem& rTabStop )
     for (sal_uInt16 i = 0; i < nCount; i++ )
     {
         if( rTabStop[i].GetAdjustment() != SvxTabAdjust::Default )
-            impl_WriteTabElement( m_pSerializer, rTabStop[i] );
+            impl_WriteTabElement( m_pSerializer, rTabStop[i], tabsOffset );
         else
             GetExport().setDefaultTabStop( rTabStop[i].GetTabPos());
     }
@@ -8007,14 +8026,14 @@ void DocxAttributeOutput::FormatULSpace( const SvxULSpaceItem& rULSpace )
 
         HdFtDistanceGlue aDistances( *m_rExport.GetCurItemSet() );
 
-        sal_Int32 nHeader = 720;
+        sal_Int32 nHeader = 0;
         if ( aDistances.HasHeader() )
             nHeader = sal_Int32( aDistances.dyaHdrTop );
 
         // Page top
         m_pageMargins.nTop = aDistances.dyaTop;
 
-        sal_Int32 nFooter = 720;
+        sal_Int32 nFooter = 0;
         if ( aDistances.HasFooter() )
             nFooter = sal_Int32( aDistances.dyaHdrBottom );
 
@@ -8286,7 +8305,7 @@ static boost::optional<sal_Int32> lcl_getDmlAlpha(const SvxBrushItem& rBrush)
 
         // Calculate alpha value
         // Consider oox/source/drawingml/color.cxx : getTransparency() function.
-        sal_Int32 nAlpha = (::oox::drawingml::MAX_PERCENT - ( ::oox::drawingml::PER_PERCENT * nTransparencyPercent ) );
+        sal_Int32 nAlpha = ::oox::drawingml::MAX_PERCENT - ( ::oox::drawingml::PER_PERCENT * nTransparencyPercent );
         oRet = nAlpha;
     }
     return oRet;

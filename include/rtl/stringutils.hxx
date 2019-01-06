@@ -16,10 +16,6 @@
 
 #include "sal/types.h"
 
-#if defined LIBO_INTERNAL_ONLY
-#include "config_global.h"
-#endif
-
 // The unittest uses slightly different code to help check that the proper
 // calls are made. The class is put into a different namespace to make
 // sure the compiler generates a different (if generating also non-inline)
@@ -65,12 +61,7 @@ namespace rtl
 
     Instances of OUStringLiteral1 need to be const, as those literal-optimized
     functions take the literal argument by non-const lvalue reference, for
-    technical reasons.  Except with MSVC, at least up to Visual Studio 2013:
-    For one, it fails to take that const-ness into account when trying to match
-    "OUStringLiteral1_ const" against T in a "T & literal" parameter of a
-    function template.  But for another, as a language extension, it allows to
-    bind non-const temporary OUStringLiteral1_ instances to non-const lvalue
-    references, but also with a warning that thus needs to be disabled.
+    technical reasons.
 
     @since LibreOffice 5.0
 */
@@ -78,13 +69,7 @@ struct SAL_WARN_UNUSED OUStringLiteral1_ {
     constexpr OUStringLiteral1_(sal_Unicode theC): c(theC) {}
     sal_Unicode const c;
 };
-#if defined _MSC_VER && _MSC_VER <= 1900 && !defined __clang__
-    // Visual Studio 2015
-using OUStringLiteral1 = OUStringLiteral1_;
-#pragma warning(disable: 4239) // nonstandard extension used: 'argument': conversion from 'rtl::OUStringLiteral1_' to 'rtl::OUStringLiteral1_ &'
-#else
 using OUStringLiteral1 = OUStringLiteral1_ const;
-#endif
 
 /// @endcond
 #endif
@@ -168,7 +153,7 @@ struct ConstCharArrayDetector< const char[ N ], T >
     typedef T Type;
     static const std::size_t length = N - 1;
     static const bool ok = true;
-#if defined LIBO_INTERNAL_ONLY && HAVE_CXX14_CONSTEXPR
+#if defined LIBO_INTERNAL_ONLY
     constexpr
 #endif
     static bool isValid(char const (& literal)[N]) {
@@ -194,7 +179,7 @@ struct ConstCharArrayDetector< const char[ 1 ], T >
     typedef T Type;
     static const std::size_t length = 0;
     static const bool ok = true;
-#if defined LIBO_INTERNAL_ONLY && HAVE_CXX14_CONSTEXPR
+#if defined LIBO_INTERNAL_ONLY
     constexpr
 #endif
     static bool isValid(char const (& literal)[1]) {
@@ -213,10 +198,7 @@ struct ConstCharArrayDetector<char8_t const [N], T> {
     using Type = T;
     static constexpr bool const ok = true;
     static constexpr std::size_t const length = N - 1;
-#if HAVE_CXX14_CONSTEXPR
-    constexpr
-#endif
-    static bool isValid(char8_t const (& literal)[N]) {
+    static constexpr bool isValid(char8_t const (& literal)[N]) {
         for (std::size_t i = 0; i != N - 1; ++i) {
             if (literal[i] == u8'\0') {
                 return false;
@@ -240,12 +222,7 @@ struct ConstCharArrayDetector<sal_Unicode const [N], T> {
     { return literal; }
 };
 template<typename T> struct ConstCharArrayDetector<
-#if defined __GNUC__ && __GNUC__ == 4 && __GNUC_MINOR__ <= 8 \
-        && !defined __clang__
-    OUStringLiteral1_ const,
-#else
     OUStringLiteral1,
-#endif
     T>
 {
     using TypeUtf16 = T;
@@ -271,12 +248,7 @@ struct ExceptConstCharArrayDetector< const char[ N ] >
 template<std::size_t N>
 struct ExceptConstCharArrayDetector<sal_Unicode const[N]> {};
 template<> struct ExceptConstCharArrayDetector<
-#if defined __GNUC__ && __GNUC__ == 4 && __GNUC_MINOR__ <= 8 \
-        && !defined __clang__
-    OUStringLiteral1_ const
-#else
     OUStringLiteral1
-#endif
     >
 {};
 #endif

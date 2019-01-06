@@ -188,7 +188,7 @@ namespace drawinglayer
                         {
                             default:
                                 SAL_WARN("drawinglayer", "Unknown EmphasisMark style " << pTCPP->getTextEmphasisMark() );
-                                SAL_FALLTHROUGH;
+                                [[fallthrough]];
                             case primitive2d::TEXT_FONT_EMPHASIS_MARK_NONE:   eFontEmphasisMark = FontEmphasisMark::NONE; break;
                             case primitive2d::TEXT_FONT_EMPHASIS_MARK_DOT:    eFontEmphasisMark = FontEmphasisMark::Dot; break;
                             case primitive2d::TEXT_FONT_EMPHASIS_MARK_CIRCLE: eFontEmphasisMark = FontEmphasisMark::Circle; break;
@@ -213,7 +213,7 @@ namespace drawinglayer
                         {
                             default:
                                 SAL_WARN( "drawinglayer", "Unknown Relief style " << pTCPP->getTextRelief() );
-                                SAL_FALLTHROUGH;
+                                [[fallthrough]];
                             case primitive2d::TEXT_RELIEF_NONE:     eFontRelief = FontRelief::NONE; break;
                             case primitive2d::TEXT_RELIEF_EMBOSSED: eFontRelief = FontRelief::Embossed; break;
                             case primitive2d::TEXT_RELIEF_ENGRAVED: eFontRelief = FontRelief::Engraved; break;
@@ -1308,7 +1308,7 @@ namespace drawinglayer
         {
             const DrawModeFlags nOriginalDrawMode(mpOutputDevice->GetDrawMode());
 
-            if(nOriginalDrawMode & (DrawModeFlags::BlackLine|DrawModeFlags::GrayLine|DrawModeFlags::GhostedLine|DrawModeFlags::WhiteLine|DrawModeFlags::SettingsLine))
+            if(nOriginalDrawMode & (DrawModeFlags::BlackLine|DrawModeFlags::GrayLine|DrawModeFlags::WhiteLine|DrawModeFlags::SettingsLine))
             {
                 DrawModeFlags nAdaptedDrawMode(nOriginalDrawMode);
 
@@ -1328,15 +1328,6 @@ namespace drawinglayer
                 else
                 {
                     nAdaptedDrawMode &= ~DrawModeFlags::GrayFill;
-                }
-
-                if(nOriginalDrawMode & DrawModeFlags::GhostedLine)
-                {
-                    nAdaptedDrawMode |= DrawModeFlags::GhostedFill;
-                }
-                else
-                {
-                    nAdaptedDrawMode &= ~DrawModeFlags::GhostedFill;
                 }
 
                 if(nOriginalDrawMode & DrawModeFlags::WhiteLine)
@@ -1364,7 +1355,7 @@ namespace drawinglayer
         void VclProcessor2D::adaptTextToFillDrawMode() const
         {
             const DrawModeFlags nOriginalDrawMode(mpOutputDevice->GetDrawMode());
-            if(nOriginalDrawMode & (DrawModeFlags::BlackText|DrawModeFlags::GrayText|DrawModeFlags::GhostedText|DrawModeFlags::WhiteText|DrawModeFlags::SettingsText))
+            if(nOriginalDrawMode & (DrawModeFlags::BlackText|DrawModeFlags::GrayText|DrawModeFlags::WhiteText|DrawModeFlags::SettingsText))
             {
                 DrawModeFlags nAdaptedDrawMode(nOriginalDrawMode);
 
@@ -1384,15 +1375,6 @@ namespace drawinglayer
                 else
                 {
                     nAdaptedDrawMode &= ~DrawModeFlags::GrayFill;
-                }
-
-                if(nOriginalDrawMode & DrawModeFlags::GhostedText)
-                {
-                    nAdaptedDrawMode |= DrawModeFlags::GhostedFill;
-                }
-                else
-                {
-                    nAdaptedDrawMode &= ~DrawModeFlags::GhostedFill;
                 }
 
                 if(nOriginalDrawMode & DrawModeFlags::WhiteText)

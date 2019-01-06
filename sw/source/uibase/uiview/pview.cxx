@@ -19,11 +19,8 @@
 
 #include <sfx2/objface.hxx>
 #include <vcl/timer.hxx>
-#include <vcl/field.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/help.hxx>
 #include <vcl/commandevent.hxx>
-#include <vcl/button.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/weld.hxx>
 
@@ -867,7 +864,7 @@ void  SwPagePreview::Execute( SfxRequest &rReq )
         case FN_START_OF_LINE:
         case FN_START_OF_DOCUMENT:
             eMvMode = SwPagePreviewWin::MV_DOC_STT;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case FN_END_OF_LINE:
         case FN_END_OF_DOCUMENT:
             m_pViewWin->SetSelectedPage(eMvMode == SwPagePreviewWin::MV_DOC_STT ? 1 : mnPageCount);

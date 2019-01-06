@@ -516,8 +516,8 @@ IMPL_LINK( SwGlossaryDlg, MenuHdl, Menu *, pMn, bool )
     {
         SfxItemSet aSet( pSh->GetAttrPool(), svl::Items<RES_FRMMACRO, RES_FRMMACRO, SID_EVENTCONFIG, SID_EVENTCONFIG>{} );
 
-        SvxMacro aStart(aEmptyOUStr, aEmptyOUStr, STARBASIC);
-        SvxMacro aEnd(aEmptyOUStr, aEmptyOUStr, STARBASIC);
+        SvxMacro aStart(OUString(), OUString(), STARBASIC);
+        SvxMacro aEnd(OUString(), OUString(), STARBASIC);
         pGlossaryHdl->GetMacros(m_pShortNameEdit->GetText(), aStart, aEnd );
 
         SvxMacroItem aItem(RES_FRMMACRO);
@@ -531,7 +531,7 @@ IMPL_LINK( SwGlossaryDlg, MenuHdl, Menu *, pMn, bool )
 
         const SfxPoolItem* pItem;
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractDialog> pMacroDlg(pFact->CreateEventConfigDialog( this, aSet,
+        ScopedVclPtr<SfxAbstractDialog> pMacroDlg(pFact->CreateEventConfigDialog(GetFrameWeld(), aSet,
             pSh->GetView().GetViewFrame()->GetFrame().GetFrameInterface() ));
         if ( pMacroDlg && pMacroDlg->Execute() == RET_OK &&
             SfxItemState::SET == pMacroDlg->GetOutputItemSet()->GetItemState( RES_FRMMACRO, false, &pItem ) )
@@ -632,12 +632,12 @@ IMPL_LINK_NOARG(SwGlossaryDlg, BibHdl, Button*, void)
         if(bIsWritable)
         {
 
-            ScopedVclPtrInstance< SwGlossaryGroupDlg > pDlg( this, pGloss->GetPathArray(), pGlossaryHdl );
-            if ( RET_OK == pDlg->Execute() )
+            SwGlossaryGroupDlg aDlg(GetFrameWeld(), pGloss->GetPathArray(), pGlossaryHdl);
+            if (aDlg.run() == RET_OK)
             {
                 Init();
                 //if new groups were created - select one of them
-                const OUString sNewGroup = pDlg->GetCreatedGroupName();
+                const OUString sNewGroup = aDlg.GetCreatedGroupName();
                 SvTreeListEntry* pEntry = m_pCategoryBox->First();
                 while (!sNewGroup.isEmpty() && pEntry)
                 {

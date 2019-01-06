@@ -23,6 +23,7 @@
 #include <rtl/math.hxx>
 
 #include <sal/log.hxx>
+#include <utility>
 #include <vcl/metaact.hxx>
 #include <vcl/gdimtf.hxx>
 #include <basegfx/numeric/ftools.hxx>
@@ -73,7 +74,7 @@ namespace slideshow
                         MetaCommentAction* pAct = static_cast<MetaCommentAction*>(pCurrAct);
 
                         // skip comment if not a special XTEXT... comment
-                        if( pAct->GetComment().matchIgnoreAsciiCase( OString("XTEXT") ) )
+                        if( pAct->GetComment().matchIgnoreAsciiCase( "XTEXT" ) )
                         {
                             // fill classification vector with NOOPs,
                             // then insert corresponding classes at
@@ -153,7 +154,7 @@ namespace slideshow
                         SAL_INFO("slideshow.verbose", "Shape text \"" <<
                                  (static_cast<MetaTextAction*>(pCurrAct))->GetText() <<
                                  "\" at action #" << nActionIndex );
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     default:
                         // comment action and all actions not
                         // explicitly handled here:
@@ -261,9 +262,9 @@ namespace slideshow
         }
 
         DrawShapeSubsetting::DrawShapeSubsetting( const DocTreeNode&            rShapeSubset,
-                                                  const GDIMetaFileSharedPtr&   rMtf ) :
+                                                  GDIMetaFileSharedPtr    rMtf ) :
             maActionClassVector(),
-            mpMtf( rMtf ),
+            mpMtf(std::move( rMtf )),
             maSubset( rShapeSubset ),
             maSubsetShapes(),
             maCurrentSubsets(),
@@ -518,7 +519,7 @@ namespace slideshow
                             }
 
                             ++nCurrShapeCount;
-                            SAL_FALLTHROUGH; // shape end also ends lines
+                            [[fallthrough]]; // shape end also ends lines
                         case DrawShapeSubsetting::CLASS_PARAGRAPH_END:
                             if( !io_rFunctor( DrawShapeSubsetting::CLASS_PARAGRAPH_END,
                                               nCurrParaCount,
@@ -530,7 +531,7 @@ namespace slideshow
 
                             ++nCurrParaCount;
                             aLastParaStart = aNext;
-                            SAL_FALLTHROUGH; // para end also ends line
+                            [[fallthrough]]; // para end also ends line
                         case DrawShapeSubsetting::CLASS_LINE_END:
                             if( !io_rFunctor( DrawShapeSubsetting::CLASS_LINE_END,
                                               nCurrLineCount,
@@ -557,7 +558,7 @@ namespace slideshow
                                 // character cell, OTOH?
                                 break;
                             }
-                            SAL_FALLTHROUGH;
+                            [[fallthrough]];
                         case DrawShapeSubsetting::CLASS_SENTENCE_END:
                             if( !io_rFunctor( DrawShapeSubsetting::CLASS_SENTENCE_END,
                                               nCurrSentenceCount,
@@ -569,7 +570,7 @@ namespace slideshow
 
                             ++nCurrSentenceCount;
                             aLastSentenceStart = aNext;
-                            SAL_FALLTHROUGH;
+                            [[fallthrough]];
                         case DrawShapeSubsetting::CLASS_WORD_END:
                             if( !io_rFunctor( DrawShapeSubsetting::CLASS_WORD_END,
                                               nCurrWordCount,
@@ -581,7 +582,7 @@ namespace slideshow
 
                             ++nCurrWordCount;
                             aLastWordStart = aNext;
-                            SAL_FALLTHROUGH;
+                            [[fallthrough]];
                         case DrawShapeSubsetting::CLASS_CHARACTER_CELL_END:
                             if( !io_rFunctor( DrawShapeSubsetting::CLASS_CHARACTER_CELL_END,
                                               nCurrCharCount,
@@ -604,8 +605,6 @@ namespace slideshow
             {
                 switch( eNodeType )
                 {
-                    case DocTreeNode::NodeType::Invalid:
-                        // FALLTHROUGH intended
                     default:
                         SAL_WARN( "slideshow", "DrawShapeSubsetting::mapDocTreeNode(): unexpected node type");
                         return DrawShapeSubsetting::CLASS_NOOP;

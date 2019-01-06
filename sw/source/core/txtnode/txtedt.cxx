@@ -1387,7 +1387,7 @@ SwRect SwTextFrame::AutoSpell_(SwTextNode & rNode, sal_Int32 nActPos)
                                 break;
                             case SwWrongList::FreshState::CURSOR:
                                 bPending = true;
-                                SAL_FALLTHROUGH; // to mark as invalid
+                                [[fallthrough]]; // to mark as invalid
                             case SwWrongList::FreshState::NOTHING:
                                 nInvStart = nBegin;
                                 nInvEnd = nBegin + nLen;
@@ -1573,7 +1573,7 @@ SwRect SwTextFrame::SmartTagScan(SwTextNode & rNode)
 
 void SwTextFrame::CollectAutoCmplWrds(SwTextNode & rNode, sal_Int32 nActPos)
 {
-    assert(sw::FrameContainsNode(*this, rNode.GetIndex()));
+    assert(sw::FrameContainsNode(*this, rNode.GetIndex())); (void) this;
     SwTextNode *const pNode(&rNode);
     if (!nActPos)
         nActPos = COMPLETE_STRING;

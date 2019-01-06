@@ -31,6 +31,11 @@ chart2/res/selectrange.png formula/res/refinp1.png
 # cmd
 # ==============================================
 
+# Label
+cmd/32/addname.png cmd/32/label.png
+cmd/lc_addname.png cmd/lc_label.png
+cmd/sc_addname.png cmd/sc_label.png
+
 # Add
 cmd/lc_adddatefield.png cmd/lc_datefield.png
 cmd/lc_addons.png cmd/lc_insertplugin.png
@@ -467,18 +472,14 @@ cmd/sc_quickedit.png cmd/sc_editdoc.png
 cmd/sc_dsbeditdoc.png cmd/sc_editdoc.png
 
 # Quit
-cmd/lc_closemasterview.png cmd/lc_quit.png
-cmd/lc_closewin.png cmd/lc_quit.png
-cmd/sc_closemasterview.png cmd/sc_quit.png
-cmd/sc_closewin.png cmd/sc_quit.png
+cmd/lc_closewin.png cmd/lc_closepreview.png
+cmd/sc_closewin.png cmd/sc_closepreview.png
 
 # Close
 cmd/lc_closedocs.png cmd/lc_closedoc.png
 cmd/lc_exitsearch.png cmd/lc_closedoc.png
-cmd/lc_closepreview.png cmd/lc_closedoc.png
 cmd/sc_closedocs.png cmd/sc_closedoc.png
 cmd/sc_exitsearch.png cmd/sc_closedoc.png
-cmd/sc_closepreview.png cmd/sc_closedoc.png
 
 # arc
 cmd/lc_basicshapes.block-arc.png cmd/lc_arc.png
@@ -738,12 +739,10 @@ cmd/lc_hyphenation.png cmd/lc_hyphenate.png
 cmd/sc_hyphenation.png cmd/sc_hyphenate.png
 
 # Currency
-cmd/lc_currencyfield.png cmd/lc_formattedfield.png
-cmd/sc_currencyfield.png cmd/sc_formattedfield.png
-cmd/lc_numberformatcurrency.png cmd/lc_formattedfield.png
-cmd/sc_numberformatcurrency.png cmd/sc_formattedfield.png
-cmd/lc_numberformatcurrencysimple.png cmd/lc_formattedfield.png
-cmd/sc_numberformatcurrencysimple.png cmd/sc_formattedfield.png
+cmd/lc_numberformatcurrency.png cmd/lc_currencyfield.png
+cmd/sc_numberformatcurrency.png cmd/sc_currencyfield.png
+cmd/lc_numberformatcurrencysimple.png cmd/lc_currencyfield.png
+cmd/sc_numberformatcurrencysimple.png cmd/sc_currencyfield.png
 
 # Fontwork
 cmd/lc_fontworkshapetype.png cmd/lc_fontwork.png
@@ -1726,6 +1725,8 @@ cmd/sc_rowoperations.png cmd/sc_entirerow.png
 
 cmd/sc_cellprotection.png cmd/sc_protect.png
 cmd/lc_cellprotection.png cmd/lc_protect.png
+cmd/sc_toolprotectiondocument.png cmd/sc_protect.png
+cmd/lc_toolprotectiondocument.png cmd/lc_protect.png
 
 # writer
 # ===============================================
@@ -1739,6 +1740,20 @@ cmd/lc_masterpage.png cmd/lc_slidemasterpage.png
 cmd/sc_pagemode.png cmd/sc_normalmultipanegui.png
 cmd/lc_pagemode.png cmd/lc_normalmultipanegui.png
 
+# calc context menu sheettab
+# ==============================================
+cmd/sc_tableselectall.png cmd/sc_selecttable.png
+cmd/sc_tabledeselectall.png cmd/sc_dbviewtablenames.png
+cmd/sc_settabbgcolor.png cmd/sc_backgroundcolor.png
+cmd/sc_sheetrighttoleft.png cmd/sc_pararighttoleft.png
+cmd/sc_tableevents.png cmd/sc_animationeffects.png
+
+cmd/lc_tableselectall.png cmd/lc_selecttable.png
+cmd/lc_tabledeselectall.png cmd/lc_dbviewtablenames.png
+cmd/lc_settabbgcolor.png cmd/lc_backgroundcolor.png
+cmd/lc_sheetrighttoleft.png cmd/lc_pararighttoleft.png
+cmd/lc_tableevents.png cmd/lc_animationeffects.png
+
 # calc context menu rowheader
 # ==============================================
 cmd/sc_rowheight.png cmd/sc_setminimalrowheight.png
@@ -1746,3 +1761,43 @@ cmd/sc_columnwidth.png cmd/sc_setminimalcolumnwidth.png
 
 cmd/lc_rowheight.png cmd/lc_setminimalrowheight.png
 cmd/lc_columnwidth.png cmd/lc_setminimalcolumnwidth.png
+
+# calc toolbar previewbar
+# ==============================================
+cmd/sc_margins.png cmd/sc_pagemargin.png
+cmd/sc_exportasgraphic.png cmd/sc_gallery.png
+cmd/sc_namegroup.png cmd/sc_label.png
+cmd/lc_namegroup.png cmd/lc_label.png
+
+cmd/lc_margins.png cmd/lc_pagemargin.png
+cmd/lc_exportasgraphic.png cmd/lc_gallery.png
+
+# calc toolbar draw
+# ===============================================
+cmd/sc_assignmacro.png cmd/sc_choosemacro.png
+cmd/sc_editshapehyperlink.png cmd/sc_inserthyperlink.png
+cmd/sc_deleteshapehyperlink.png cmd/sc_removehyperlink.png
+cmd/sc_openhyperlinkoncursor.png cmd/sc_inserthyperlink.png
+
+cmd/lc_assignmacro.png cmd/lc_choosemacro.png
+cmd/lc_editshapehyperlink.png cmd/lc_inserthyperlink.png
+cmd/lc_deleteshapehyperlink.png cmd/lc_removehyperlink.png
+cmd/lc_openhyperlinkoncursor.png cmd/lc_inserthyperlink.png
+
+cmd/sc_rotateflipmenu.png cmd/sc_rotateleft.png
+cmd/sc_mirrormenu.png cmd/sc_rotateleft.png
+cmd/sc_convertmenu.png cmd/sc_bezierconvert.png
+
+# Macro
+cmd/32/macrosmenu.png cmd/32/choosemacro.png
+cmd/32/basicideappear.png cmd/32/toolsmacroedit.png
+
+cmd/lc_macrosmenu.png cmd/lc_choosemacro.png
+cmd/lc_basicideappear.png cmd/lc_toolsmacroedit.png
+
+cmd/sc_macrosmenu.png cmd/sc_choosemacro.png
+cmd/sc_basicideappear.png cmd/sc_toolsmacroedit.png
+
+cmd/sc_macrosmenu.png res/im30821.png
+cmd/sc_macrodialog.png cmd/sc_scriptorganizer.png
+cmd/lc_macrodialog.png cmd/lc_scriptorganizer.png

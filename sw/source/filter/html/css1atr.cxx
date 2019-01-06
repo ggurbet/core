@@ -111,14 +111,13 @@ enum class Css1Background {
 enum class Css1FrameSize {
     NONE       = 0x00,
     Width      = 0x01,
-    VarHeight  = 0x02,
-    MinHeight  = 0x04,
-    FixHeight  = 0x08,
-    AnyHeight  = 0x0e,
+    MinHeight  = 0x02,
+    FixHeight  = 0x04,
+    AnyHeight  = 0x06,
     Pixel      = 0x10,
 };
 namespace o3tl {
-    template<> struct typed_flags<Css1FrameSize> : is_typed_flags<Css1FrameSize, 0x1f> {};
+    template<> struct typed_flags<Css1FrameSize> : is_typed_flags<Css1FrameSize, 0x17> {};
 }
 
 #define DOT_LEADERS_MAX_WIDTH   18
@@ -372,7 +371,7 @@ static void AddUnitPropertyValue(OStringBuffer &rOut, long nVal,
     {
     case FieldUnit::MM_100TH:
         OSL_ENSURE( FieldUnit::MM == eUnit, "Measuring unit not supported" );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case FieldUnit::MM:
         // 0.01mm = 0.57twip
         nMul = 25400;   // 25.4 * 1000
@@ -384,7 +383,7 @@ static void AddUnitPropertyValue(OStringBuffer &rOut, long nVal,
     case FieldUnit::M:
     case FieldUnit::KM:
         OSL_ENSURE( FieldUnit::CM == eUnit, "Measuring unit not supported" );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case FieldUnit::CM:
         // 0.01cm = 5.7twip (not exact, but the UI is also not exact)
         nMul = 2540;    // 2.54 * 1000
@@ -395,7 +394,7 @@ static void AddUnitPropertyValue(OStringBuffer &rOut, long nVal,
 
     case FieldUnit::TWIP:
         OSL_ENSURE( FieldUnit::POINT == eUnit, "Measuring unit not supported" );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case FieldUnit::POINT:
         // 0.1pt = 2.0twip (not exact, but the UI is also not exact)
         nMul = 100;
@@ -1092,7 +1091,7 @@ void SwHTMLWriter::PrepareFontList( const SvxFontItem& rFontItem,
                                     OUString& rNames,
                                     sal_Unicode cQuote, bool bGeneric )
 {
-    rNames = aEmptyOUStr;
+    rNames.clear();
     const OUString& rName = rFontItem.GetFamilyName();
     bool bContainsKeyword = false;
     if( !rName.isEmpty() )
@@ -1917,7 +1916,7 @@ void SwHTMLWriter::OutCSS1_FrameFormatOptions( const SwFrameFormat& rFrameFormat
                 }
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case RndStdIds::FLY_AT_PAGE:
         case RndStdIds::FLY_AT_FLY:
@@ -2038,7 +2037,7 @@ void SwHTMLWriter::OutCSS1_FrameFormatOptions( const SwFrameFormat& rFrameFormat
             if( nFrameOpts & HtmlFrmOpts::SWidth )
                 nMode |= Css1FrameSize::Width;
             if( nFrameOpts & HtmlFrmOpts::SHeight )
-                nMode |= (Css1FrameSize::MinHeight|Css1FrameSize::FixHeight);
+                nMode |= Css1FrameSize::MinHeight|Css1FrameSize::FixHeight;
             if( nFrameOpts & HtmlFrmOpts::SPixSize )
                 nMode |= Css1FrameSize::Pixel;
 
@@ -2883,9 +2882,6 @@ static Writer& OutCSS1_SwFormatFrameSize( Writer& rWrt, const SfxPoolItem& rHt,
             break;
         case ATT_MIN_SIZE:
             bOutHeight = bool(nMode & Css1FrameSize::MinHeight);
-            break;
-        case ATT_VAR_SIZE:
-            bOutHeight = bool(nMode & Css1FrameSize::VarHeight);
             break;
         default:
             OSL_ENSURE( bOutHeight, "Height will not be exported" );

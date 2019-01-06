@@ -801,25 +801,6 @@ void StatusBar::RequestHelp( const HelpEvent& rHEvt )
                 return;
             }
         }
-        else if ( rHEvt.GetMode() & HelpEventMode::EXTENDED )
-        {
-            OUString aCommand = GetItemCommand( nItemId );
-            OString aHelpId( GetHelpId( nItemId ) );
-
-            if ( !aCommand.isEmpty() || !aHelpId.isEmpty() )
-            {
-                // show help text if there is one
-                Help* pHelp = Application::GetHelp();
-                if ( pHelp )
-                {
-                    if ( !aCommand.isEmpty() )
-                        pHelp->Start( aCommand, this );
-                    else if ( !aHelpId.isEmpty() )
-                        pHelp->Start( OStringToOUString( aHelpId, RTL_TEXTENCODING_UTF8 ), this );
-                }
-                return;
-            }
-        }
     }
 
     Window::RequestHelp( rHEvt );
@@ -893,13 +874,11 @@ void StatusBar::DataChanged( const DataChangedEvent& rDCEvt )
 
 void StatusBar::Click()
 {
-    CallEventListeners( VclEventId::StatusbarClick );
     maClickHdl.Call( this );
 }
 
 void StatusBar::DoubleClick()
 {
-    CallEventListeners( VclEventId::StatusbarDoubleClick );
     maDoubleClickHdl.Call( this );
 }
 
@@ -1328,23 +1307,6 @@ void StatusBar::SetHelpId( sal_uInt16 nItemId, const OString& rHelpId )
         mvItemList[ nPos ]->maHelpId = rHelpId;
 }
 
-OString StatusBar::GetHelpId( sal_uInt16 nItemId ) const
-{
-    sal_uInt16 nPos = GetItemPos( nItemId );
-
-    OString aRet;
-    if ( nPos != STATUSBAR_ITEM_NOTFOUND )
-    {
-        ImplStatusItem* pItem = mvItemList[ nPos ].get();
-        if ( !pItem->maHelpId.isEmpty() )
-            aRet = pItem->maHelpId;
-        else
-            aRet = OUStringToOString( pItem->maCommand, RTL_TEXTENCODING_UTF8 );
-    }
-
-    return aRet;
-}
-
 void StatusBar::StartProgressMode( const OUString& rText )
 {
     SAL_WARN_IF( mbProgressMode, "vcl", "StatusBar::StartProgressMode(): progress mode is active" );
@@ -1430,7 +1392,7 @@ Size StatusBar::CalcWindowSizePixel() const
     size_t  i = 0;
     size_t  nCount = mvItemList.size();
     long    nOffset = 0;
-    long    nCalcWidth = (STATUSBAR_OFFSET_X*2);
+    long    nCalcWidth = STATUSBAR_OFFSET_X*2;
     long    nCalcHeight;
 
     while ( i < nCount )

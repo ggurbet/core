@@ -161,7 +161,7 @@ void Plugin::registerPlugin( Plugin* (*create)( const InstantiationData& ), cons
 
 bool Plugin::evaluate(const Expr* expr, APSInt& x)
 {
-    if (expr->EvaluateAsInt(x, compiler.getASTContext()))
+    if (compat::EvaluateAsInt(expr, x, compiler.getASTContext()))
     {
         return true;
     }
@@ -351,7 +351,6 @@ Plugin::IdenticalDefaultArgumentsResult Plugin::checkIdenticalDefaultArguments(
             ? IdenticalDefaultArgumentsResult::Yes
             : IdenticalDefaultArgumentsResult::No;
     }
-#if CLANG_VERSION >= 30900
     APFloat f1(0.0f), f2(0.0f);
     if (argument1->EvaluateAsFloat(f1, compiler.getASTContext())
         && argument2->EvaluateAsFloat(f2, compiler.getASTContext()))
@@ -360,7 +359,6 @@ Plugin::IdenticalDefaultArgumentsResult Plugin::checkIdenticalDefaultArguments(
             ? IdenticalDefaultArgumentsResult::Yes
             : IdenticalDefaultArgumentsResult::No;
     }
-#endif
     auto const desugared1 = argument1->IgnoreParenImpCasts();
     auto const desugared2 = argument2->IgnoreParenImpCasts();
     if (auto const lit1 = dyn_cast<clang::StringLiteral>(desugared1)) {

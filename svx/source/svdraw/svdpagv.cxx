@@ -35,7 +35,7 @@
 #include <svx/svdtypes.hxx>
 #include <svx/svdoole2.hxx>
 
-#include <sdr/contact/objectcontactofpageview.hxx>
+#include <svx/sdr/contact/objectcontactofpageview.hxx>
 #include <svx/sdr/contact/viewobjectcontactredirector.hxx>
 #include <svx/fmview.hxx>
 
@@ -239,25 +239,18 @@ void SdrPageView::CompleteRedraw(
     if(GetPage())
     {
         SdrPageWindow* pPageWindow = FindPageWindow(rPaintWindow);
-        bool bIsTempTarget(false);
+        std::unique_ptr<SdrPageWindow> pTempPageWindow;
 
         if(!pPageWindow)
         {
             // create temp PageWindow
-            pPageWindow = new SdrPageWindow(*this, rPaintWindow);
-            bIsTempTarget = true;
+            pTempPageWindow.reset(new SdrPageWindow(*this, rPaintWindow));
+            pPageWindow = pTempPageWindow.get();
         }
 
         // do the redraw
         pPageWindow->PrepareRedraw(rReg);
         pPageWindow->RedrawAll(pRedirector);
-
-        // get rid of temp PageWindow
-        if(bIsTempTarget)
-        {
-            delete pPageWindow;
-            pPageWindow = nullptr;
-        }
     }
 }
 

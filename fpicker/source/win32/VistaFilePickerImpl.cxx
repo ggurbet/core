@@ -147,8 +147,17 @@ bailout:
     return sURL;
 }
 
+// Vista file picker shows the filter mask next to filter name in the list; so we need to remove the
+// mask from the filter name to avoid duplicating masks
+static OUString lcl_AdjustFilterName(const OUString& sName)
+{
+    const sal_Int32 idx = sName.indexOf("(.");
+    return (idx > 0) ? sName.copy(0, idx).trim() : sName;
+}
 
-static ::std::vector< COMDLG_FILTERSPEC > lcl_buildFilterList(CFilterContainer& rContainer)
+// rvStrings holds the OUStrings, pointers to which data are stored in returned COMDLG_FILTERSPEC
+static ::std::vector<COMDLG_FILTERSPEC> lcl_buildFilterList(CFilterContainer& rContainer,
+                                                            std::vector<OUString>& rvStrings)
 {
           ::std::vector< COMDLG_FILTERSPEC > lList  ;
           CFilterContainer::FILTER_ENTRY_T   aFilter;
@@ -158,7 +167,8 @@ static ::std::vector< COMDLG_FILTERSPEC > lcl_buildFilterList(CFilterContainer& 
     {
         COMDLG_FILTERSPEC aSpec;
 
-        aSpec.pszName = o3tl::toW(aFilter.first.getStr()) ;
+        rvStrings.push_back(lcl_AdjustFilterName(aFilter.first)); // to avoid dangling pointer
+        aSpec.pszName = o3tl::toW(rvStrings.back().getStr());
         aSpec.pszSpec = o3tl::toW(aFilter.second.getStr());
 
         lList.push_back(aSpec);
@@ -360,22 +370,11 @@ void VistaFilePickerImpl::impl_sta_appendFilter(const RequestRef& rRequest)
 {
     const OUString sTitle  = rRequest->getArgumentOrDefault(PROP_FILTER_TITLE, OUString());
     const OUString sFilter = rRequest->getArgumentOrDefault(PROP_FILTER_VALUE, OUString());
+
     // SYNCHRONIZED->
     ::osl::ResettableMutexGuard aLock(m_aMutex);
 
-    const sal_Int32 idx = sTitle.indexOf("(.");
-    if (idx > 0)
-    {
-        const OUString sTitle_ = sTitle.copy(0, idx);
-        m_mapRealFilter[sTitle_] = std::make_pair(sTitle, sFilter);
-        m_lFilters.addFilter(sTitle_, sFilter);
-    }
-    else
-    {
-        m_mapRealFilter[sTitle] = std::make_pair(sTitle, sFilter);
-        m_lFilters.addFilter(sTitle, sFilter);
-    }
-
+    m_lFilters.addFilter(sTitle, sFilter);
 }
 
 
@@ -395,20 +394,7 @@ void VistaFilePickerImpl::impl_sta_appendFilterGroup(const RequestRef& rRequest)
     for (i=0; i<c; ++i)
     {
         const css::beans::StringPair& rFilter = aFilterGroup[i];
-        const OUString sTitle = rFilter.First;
-        const OUString sFilter = rFilter.Second;
-        const sal_Int32 idx = sTitle.indexOf("(.");
-        if (idx > 0)
-        {
-            const OUString sTitle_ = sTitle.copy(0, idx);
-            m_mapRealFilter[sTitle_] = std::make_pair(sTitle, sFilter);
-            m_lFilters.addFilter(sTitle_, sFilter);
-        }
-        else
-        {
-            m_mapRealFilter[sTitle] = std::make_pair(sTitle, sFilter);
-            m_lFilters.addFilter(sTitle, sFilter);
-        }
+        m_lFilters.addFilter(rFilter.First, rFilter.Second);
     }
 }
 
@@ -441,15 +427,10 @@ void VistaFilePickerImpl::impl_sta_getCurrentFilter(const RequestRef& rRequest)
     OUString sTitle;
     ::sal_Int32     nRealIndex = (nIndex-1); // COM dialog base on 1 ... filter container on 0 .-)
     if (
-        (nRealIndex >= 0) &&
-        (m_lFilters.getFilter(nRealIndex, sTitle))
-        )
-    {
-        if (m_mapRealFilter.find(sTitle) != m_mapRealFilter.end())
-            sTitle = m_mapRealFilter[sTitle].first;
-
+        (nRealIndex >= 0                         ) &&
+        (m_lFilters.getFilterNameByIndex(nRealIndex, sTitle))
+       )
         rRequest->setArgument(PROP_FILTER_TITLE, sTitle);
-    }
     else if ( nRealIndex == -1 ) // Dialog not visible yet
     {
         sTitle = m_lFilters.getCurrentFilter();
@@ -853,7 +834,9 @@ void VistaFilePickerImpl::impl_sta_setFiltersOnDialog()
     // SYNCHRONIZED->
     ::osl::ResettableMutexGuard aLock(m_aMutex);
 
-    ::std::vector< COMDLG_FILTERSPEC > lFilters       = lcl_buildFilterList(m_lFilters);
+    std::vector<OUString> vStrings; // to hold the adjusted filter names, pointers to which will be
+                                    // stored in lFilters
+    ::std::vector< COMDLG_FILTERSPEC > lFilters       = lcl_buildFilterList(m_lFilters, vStrings);
     OUString                    sCurrentFilter = m_lFilters.getCurrentFilter();
     sal_Int32                          nCurrentFilter = m_lFilters.getFilterPos(sCurrentFilter);
     TFileDialog                        iDialog        = impl_getBaseDialogInterface();
@@ -1020,14 +1003,12 @@ void VistaFilePickerImpl::impl_sta_ShowDialogModal(const RequestRef& rRequest)
                     {
                         // COM dialog base on 1 ... filter container on 0 .-)
                         ::size_t nRealIndex = (nFileType-1);
-                        ::std::vector< COMDLG_FILTERSPEC > lFilters = lcl_buildFilterList(m_lFilters);
-                        if ( nRealIndex < lFilters.size() )
+                        OUString sFilter;
+                        if (m_lFilters.getFilterByIndex(nRealIndex, sFilter))
                         {
-                            PCWSTR lpFilterExt = lFilters[nRealIndex].pszSpec;
-
-                            lpFilterExt = wcsrchr( lpFilterExt, '.' );
-                            if ( lpFilterExt )
-                                aFileURL += o3tl::toU(lpFilterExt);
+                            const sal_Int32 idx = sFilter.indexOf('.');
+                            if (idx >= 0)
+                                aFileURL += sFilter.copy(idx);
                         }
                     }
                 }
@@ -1300,7 +1281,7 @@ void VistaFilePickerImpl::impl_SetDefaultExtension( const OUString& currentFilte
    if (currentFilter.getLength())
    {
         OUString FilterExt;
-        m_lFilters.getFilter(currentFilter, FilterExt);
+        m_lFilters.getFilterByName(currentFilter, FilterExt);
 
         sal_Int32 posOfPoint = FilterExt.indexOf(L'.');
         const sal_Unicode* pFirstExtStart = FilterExt.getStr() + posOfPoint + 1;
@@ -1321,7 +1302,7 @@ void VistaFilePickerImpl::onAutoExtensionChanged (bool bChecked)
 
     const OUString sFilter = m_lFilters.getCurrentFilter ();
           OUString sExt    ;
-    if ( !m_lFilters.getFilter (sFilter, sExt))
+    if (!m_lFilters.getFilterByName(sFilter, sExt))
         return;
 
     TFileDialog iDialog = impl_getBaseDialogInterface();

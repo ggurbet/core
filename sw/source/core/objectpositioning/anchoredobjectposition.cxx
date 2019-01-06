@@ -112,6 +112,7 @@ void SwAnchoredObjectPosition::GetInfoAboutObj()
     // #i62875# - determine attribute value of <Follow-Text-Flow>
     {
         mbFollowTextFlow = mpFrameFormat->GetFollowTextFlow().GetValue();
+        mbLayoutInCell = mpFrameFormat->GetFollowTextFlow().GetLayoutInCell();
     }
 
     // determine, if anchored object has not to be captured on the page.
@@ -455,11 +456,12 @@ SwTwips SwAnchoredObjectPosition::ImplAdjustVertRelPos( const SwTwips nTopOfAnch
         }
         else
         {
-            /// tdf#112443 if position is completely off-page
-            // return the proposed position and do not adjust it.
+            // tdf#112443 if position is completely off-page
+            // return the proposed position and do not adjust it...
+            // tdf#120839 .. unless anchored to char (anchor can jump on other page)
             bool bDisablePositioning = mpFrameFormat->getIDocumentSettingAccess().get(DocumentSettingId::DISABLE_OFF_PAGE_POSITIONING);
 
-            if ( bDisablePositioning && nTopOfAnch + nAdjustedRelPosY > aPgAlignArea.Right() )
+            if ( bDisablePositioning && !IsAnchoredToChar() && nTopOfAnch + nAdjustedRelPosY > aPgAlignArea.Right() )
             {
                 return nProposedRelPosY;
             }
@@ -481,10 +483,11 @@ SwTwips SwAnchoredObjectPosition::ImplAdjustVertRelPos( const SwTwips nTopOfAnch
     else
     {
         // tdf#112443 if position is completely off-page
-        // return the proposed position and do not adjust it.
+        // return the proposed position and do not adjust it...
+        // tdf#120839 .. unless anchored to char (anchor can jump on other page)
         bool bDisablePositioning =  mpFrameFormat->getIDocumentSettingAccess().get(DocumentSettingId::DISABLE_OFF_PAGE_POSITIONING);
 
-        if ( bDisablePositioning && nTopOfAnch + nAdjustedRelPosY > aPgAlignArea.Bottom() )
+        if ( bDisablePositioning && !IsAnchoredToChar() && nTopOfAnch + nAdjustedRelPosY > aPgAlignArea.Bottom() )
         {
             return nProposedRelPosY;
         }
@@ -674,7 +677,7 @@ void SwAnchoredObjectPosition::GetHoriAlignmentValues( const SwFrame&  _rHoriOri
                             aRectFnSet.GetLeft(ToCharOrientFrame()->getFrameArea()) );
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case text::RelOrientation::PAGE_PRINT_AREA:
         {

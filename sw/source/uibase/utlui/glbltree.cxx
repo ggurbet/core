@@ -174,7 +174,6 @@ SwGlobalTree::SwGlobalTree(vcl::Window* pParent, SwNavigationPI* pDialog)
     , m_pActiveShell(nullptr)
     , m_pEmphasisEntry(nullptr)
     , m_pDDSource(nullptr)
-    , m_pDocContent(nullptr)
     , m_bIsInternalDrag(false)
     , m_bLastEntryEmphasis(false)
 {
@@ -697,14 +696,14 @@ void SwGlobalTree::Display(bool bOnlyUpdateUserData)
                 {
                     const SwTOXBase* pBase = pCont->GetTOX();
                     sEntry = pBase->GetTitle();
-                    aImage = Image(BitmapEx(RID_BMP_NAVI_INDEX));
+                    aImage = Image(StockImage::Yes, RID_BMP_NAVI_INDEX);
                 }
                 break;
                 case GLBLDOC_SECTION:
                 {
                     const SwSection* pSect = pCont->GetSection();
                     sEntry = pSect->GetSectionName();
-                    aImage = Image(BitmapEx(RID_BMP_DROP_REGION));
+                    aImage = Image(StockImage::Yes, RID_BMP_DROP_REGION);
                 }
                 break;
             }
@@ -796,12 +795,11 @@ void    SwGlobalTree::ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry )
     // If a RequestHelp is called during the dialogue,
     // then the content gets lost. Because of that a copy
     // is created in which only the DocPos is set correctly.
-    SwGlblDocContent* pContCopy = nullptr;
+    std::unique_ptr<SwGlblDocContent> pContCopy;
     if(pCont)
-        pContCopy = new SwGlblDocContent(pCont->GetDocPos());
+        pContCopy.reset(new SwGlblDocContent(pCont->GetDocPos()));
     SfxDispatcher& rDispatch = *m_pActiveShell->GetView().GetViewFrame()->GetDispatcher();
     sal_uInt16 nSlot = 0;
-    bool bDeleteContentCopy = true;
     switch( nSelectedPopupEntry )
     {
         case CTX_UPDATE_SEL:
@@ -925,9 +923,8 @@ void    SwGlobalTree::ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry )
         break;
         case CTX_INSERT_FILE:
         {
-            bDeleteContentCopy = false;
-            m_pDocContent = pContCopy;
-            InsertRegion( pContCopy );
+            m_pDocContent = std::move(pContCopy);
+            InsertRegion( m_pDocContent.get() );
             pCont = nullptr;
         }
         break;
@@ -1016,8 +1013,6 @@ void    SwGlobalTree::ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry )
         rDispatch.Execute(nSlot);
     if(Update( false ))
         Display();
-    if ( bDeleteContentCopy )
-        delete pContCopy;
 }
 
 IMPL_LINK_NOARG(SwGlobalTree, Timeout, Timer *, void)
@@ -1361,13 +1356,13 @@ IMPL_LINK( SwGlobalTree, DialogClosedHdl, sfx2::FileDialogHelper*, _pFileDlg, vo
     if ( ERRCODE_NONE != _pFileDlg->GetError() )
         return;
 
-    std::unique_ptr<SfxMediumList> pMedList(m_pDocInserter->CreateMediumList());
-    if ( pMedList )
+    SfxMediumList aMedList(m_pDocInserter->CreateMediumList());
+    if ( !aMedList.empty() )
     {
-        Sequence< OUString >aFileNames( pMedList->size() );
+        Sequence< OUString >aFileNames( aMedList.size() );
         OUString* pFileNames = aFileNames.getArray();
         sal_Int32 nPos = 0;
-        for (SfxMedium* pMed : *pMedList)
+        for (std::unique_ptr<SfxMedium>& pMed : aMedList)
         {
             OUString sFileName = pMed->GetURLObject().GetMainURL( INetURLObject::DecodeMechanism::NONE )
                 + OUStringLiteral1(sfx2::cTokenSeparator)
@@ -1375,9 +1370,8 @@ IMPL_LINK( SwGlobalTree, DialogClosedHdl, sfx2::FileDialogHelper*, _pFileDlg, vo
                 + OUStringLiteral1(sfx2::cTokenSeparator);
             pFileNames[nPos++] = sFileName;
         }
-        pMedList.reset();
-        InsertRegion( m_pDocContent, aFileNames );
-        DELETEZ( m_pDocContent );
+        InsertRegion( m_pDocContent.get(), aFileNames );
+        m_pDocContent.reset();
     }
 }
 

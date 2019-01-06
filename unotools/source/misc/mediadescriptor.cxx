@@ -326,6 +326,12 @@ const OUString& MediaDescriptor::PROP_DOCUMENTBASEURL()
     return sProp;
 }
 
+const OUString& MediaDescriptor::PROP_SUGGESTEDSAVEASNAME()
+{
+    static const OUString sProp("SuggestedSaveAsName");
+    return sProp;
+}
+
 MediaDescriptor::MediaDescriptor()
     : SequenceAsHashMap()
 {
@@ -338,9 +344,7 @@ MediaDescriptor::MediaDescriptor(const css::uno::Sequence< css::beans::PropertyV
 
 bool MediaDescriptor::isStreamReadOnly() const
 {
-    static bool READONLY_FALLBACK = false;
-
-    bool bReadOnly = READONLY_FALLBACK;
+    bool bReadOnly = false;
 
     // check for explicit readonly state
     const_iterator pIt = find(MediaDescriptor::PROP_READONLY());

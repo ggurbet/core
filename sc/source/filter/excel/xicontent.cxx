@@ -22,8 +22,6 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/docfile.hxx>
 #include <tools/urlobj.hxx>
-#include <editeng/editeng.hxx>
-#include <editeng/editobj.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <svl/itemset.hxx>
 #include <scitems.hxx>
@@ -31,26 +29,19 @@
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
 #include <editeng/flditem.hxx>
-#include <editeng/fhgtitem.hxx>
-#include <editeng/wghtitem.hxx>
-#include <editeng/udlnitem.hxx>
-#include <editeng/postitem.hxx>
-#include <editeng/colritem.hxx>
-#include <editeng/crossedoutitem.hxx>
+#include <editeng/editobj.hxx>
 #include <unotools/charclass.hxx>
 #include <stringutil.hxx>
 #include <cellform.hxx>
 #include <cellvalue.hxx>
 #include <document.hxx>
 #include <editutil.hxx>
-#include <formulacell.hxx>
 #include <validat.hxx>
 #include <patattr.hxx>
 #include <docpool.hxx>
 #include <rangenam.hxx>
 #include <arealink.hxx>
 #include <stlsheet.hxx>
-#include <scextopt.hxx>
 #include <xlcontent.hxx>
 #include <xlformula.hxx>
 #include <xltracer.hxx>
@@ -1010,11 +1001,9 @@ void XclImpWebQuery::ReadWqtables( XclImpStream& rStrm )
         OUString aTables( rStrm.ReadUniString() );
 
         const sal_Unicode cSep = ';';
-        OUString aQuotedPairs( "\"\"" );
-        sal_Int32 nTokenCnt = ScStringUtil::GetQuotedTokenCount( aTables, aQuotedPairs, ',' );
+        const OUString aQuotedPairs( "\"\"" );
         maTables.clear();
-        sal_Int32 nStringIx = 0;
-        for( sal_Int32 nToken = 0; nToken < nTokenCnt; ++nToken )
+        for ( sal_Int32 nStringIx {aTables.isEmpty() ? -1 : 0}; nStringIx>=0; )
         {
             OUString aToken( ScStringUtil::GetQuotedToken( aTables, 0, aQuotedPairs, ',', nStringIx ) );
             sal_Int32 nTabNum = CharClass::isAsciiNumeric( aToken ) ? aToken.toInt32() : 0;

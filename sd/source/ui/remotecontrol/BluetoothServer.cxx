@@ -15,6 +15,7 @@
 #include <new>
 
 #include <sal/log.hxx>
+#include <osl/socket.hxx>
 
 #ifdef LINUX_BLUETOOTH
   #include <glib.h>
@@ -1148,9 +1149,8 @@ void BluetoothServer::doRestoreDiscoverable()
 // re-bind to the same port number it appears.
 void BluetoothServer::cleanupCommunicators()
 {
-    for (std::vector<Communicator *>::iterator it = mpCommunicators->begin();
-         it != mpCommunicators->end(); ++it)
-        (*it)->forceClose();
+    for (auto& rpCommunicator : *mpCommunicators)
+        rpCommunicator->forceClose();
     // the hope is that all the threads then terminate cleanly and
     // clean themselves up.
 }

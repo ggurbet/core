@@ -439,12 +439,9 @@ void FmXFormView::notifyViewDying( )
 FmXFormView::~FmXFormView()
 {
     DBG_ASSERT( m_aPageWindowAdapters.empty(), "FmXFormView::~FmXFormView: Window list not empty!" );
-    if ( !m_aPageWindowAdapters.empty() )
+    for (const auto& rpAdapter : m_aPageWindowAdapters)
     {
-        for (const auto& rpAdapter : m_aPageWindowAdapters)
-        {
-            rpAdapter->dispose();
-        }
+        rpAdapter->dispose();
     }
 
     cancelEvents();
@@ -1218,8 +1215,7 @@ SdrObjectUniquePtr FmXFormView::implCreateFieldControl( const svx::ODataAccessDe
             pOutDev = const_cast<OutputDevice*>(m_pView->GetActualOutDev());
         else
         {// find OutDev
-            SdrPageView* pPageView = m_pView->GetSdrPageView();
-            if( pPageView && !pOutDev )
+            if (SdrPageView* pPageView = m_pView->GetSdrPageView())
             {
                 // const SdrPageViewWinList& rWinList = pPageView->GetWinList();
                 // const SdrPageViewWindows& rPageViewWindows = pPageView->GetPageViewWindows();
@@ -1287,7 +1283,7 @@ SdrObjectUniquePtr FmXFormView::implCreateFieldControl( const svx::ODataAccessDe
                 case DataType::TIMESTAMP:
                     bDateNTimeField = true;
                     sLabelPostfix = SvxResId(RID_STR_POSTFIX_DATE);
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case DataType::DATE:
                     nOBJID = OBJ_FM_DATEFIELD;
                     break;
@@ -1368,8 +1364,7 @@ SdrObjectUniquePtr FmXFormView::implCreateXFormsControl( const svx::OXFormsDescr
             pOutDev = const_cast<OutputDevice*>(m_pView->GetActualOutDev());
         else
         {// find OutDev
-            SdrPageView* pPageView = m_pView->GetSdrPageView();
-            if( pPageView && !pOutDev )
+            if (SdrPageView* pPageView = m_pView->GetSdrPageView())
             {
                 // const SdrPageViewWinList& rWinList = pPageView->GetWinList();
                 // const SdrPageViewWindows& rPageViewWindows = pPageView->GetPageViewWindows();

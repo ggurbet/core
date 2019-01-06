@@ -52,6 +52,7 @@ enum class RubyPosition : sal_uInt16
 
 struct SwMultiCreator
 {
+    TextFrameIndex nStartOfAttr;
     const SwTextAttr* pAttr;
     const SfxPoolItem* pItem;
     SwMultiCreatorId nId;
@@ -106,7 +107,7 @@ protected:
         , nDirection(0)
     {
         SetWhichPor(POR_MULTI);
-        SetLen(TextFrameIndex(nEnd));
+        SetLen(nEnd);
     }
     void SetDouble() { bDouble = true; }
     void SetRuby() { bRuby = true; }

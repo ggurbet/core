@@ -105,7 +105,7 @@ sal_uInt16 GtkSalFrame::GetKeyModCode( guint state )
         nCode |= KEY_MOD2;
 
     // Map Meta/Super keys to MOD3 modifier on all Unix systems
-    // except Mac OS X
+    // except macOS
     if ( (state & GDK_META_MASK ) || ( state & GDK_SUPER_MASK ) )
         nCode |= KEY_MOD3;
     return nCode;
@@ -2473,8 +2473,8 @@ void GtkSalFrame::createNewWindow( ::Window aNewParent, bool bXEmbed, SalX11Scre
     if( bWasVisible )
         Show( true );
 
-    std::list< GtkSalFrame* > aChildren = m_aChildren;
-    m_aChildren.clear();
+    std::list< GtkSalFrame* > aChildren;
+    aChildren.swap(m_aChildren);
     for (auto const& child : aChildren)
         child->createNewWindow( None, false, m_nXScreen );
 
@@ -3025,7 +3025,7 @@ gboolean GtkSalFrame::signalKey( GtkWidget*, GdkEventKey* pEvent, gpointer frame
                 nModMask = KEY_SHIFT;
                 break;
             // Map Meta/Super to MOD3 modifier on all Unix systems
-            // except Mac OS X
+            // except macOS
             case GDK_KEY_Meta_L:
             case GDK_KEY_Super_L:
                 nExtModMask = ModKeyFlags::LeftMod3;
@@ -3659,6 +3659,13 @@ static uno::Reference<accessibility::XAccessibleEditableText>
                 return uno::Reference< accessibility::XAccessibleEditableText >();
         }
     }
+
+    bool bSafeToIterate = true;
+    sal_Int32 nCount = xContext->getAccessibleChildCount();
+    if (nCount < 0 || nCount > SAL_MAX_UINT16 /* slow enough for anyone */)
+        bSafeToIterate = false;
+    if (!bSafeToIterate)
+        return uno::Reference< accessibility::XAccessibleEditableText >();
 
     for (sal_Int32 i = 0; i < xContext->getAccessibleChildCount(); ++i)
     {

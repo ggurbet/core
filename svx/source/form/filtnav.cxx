@@ -113,12 +113,9 @@ void OFilterItemExchange::AddSupportedFormats()
 
 SotClipboardFormatId OFilterItemExchange::getFormatId()
 {
-    static SotClipboardFormatId s_nFormat = static_cast<SotClipboardFormatId>(-1);
-    if (static_cast<SotClipboardFormatId>(-1) == s_nFormat)
-    {
-        s_nFormat = SotExchange::RegisterFormatName("application/x-openoffice;windows_formatname=\"form.FilterControlExchange\"");
-        DBG_ASSERT(static_cast<SotClipboardFormatId>(-1) != s_nFormat, "OFilterExchangeHelper::getFormatId: bad exchange id!");
-    }
+    static SotClipboardFormatId s_nFormat =
+         SotExchange::RegisterFormatName("application/x-openoffice;windows_formatname=\"form.FilterControlExchange\"");
+    DBG_ASSERT(static_cast<SotClipboardFormatId>(-1) != s_nFormat, "OFilterExchangeHelper::getFormatId: bad exchange id!");
     return s_nFormat;
 }
 
@@ -140,7 +137,7 @@ FmParentData::~FmParentData()
 
 Image FmFormItem::GetImage() const
 {
-    return Image(BitmapEx(RID_SVXBMP_FORM));
+    return Image(StockImage::Yes, RID_SVXBMP_FORM);
 }
 
 FmFilterItem* FmFilterItems::Find( const ::sal_Int32 _nFilterComponentIndex ) const
@@ -156,7 +153,7 @@ FmFilterItem* FmFilterItems::Find( const ::sal_Int32 _nFilterComponentIndex ) co
 
 Image FmFilterItems::GetImage() const
 {
-    return Image(BitmapEx(RID_SVXBMP_FILTER));
+    return Image(StockImage::Yes, RID_SVXBMP_FILTER);
 }
 
 FmFilterItem::FmFilterItem( FmFilterItems* pParent,
@@ -171,7 +168,7 @@ FmFilterItem::FmFilterItem( FmFilterItems* pParent,
 
 Image FmFilterItem::GetImage() const
 {
-    return Image(BitmapEx(RID_SVXBMP_FIELD));
+    return Image(StockImage::Yes, RID_SVXBMP_FIELD);
 }
 
 // Hints for communication between model and view
@@ -808,7 +805,7 @@ bool FmFilterModel::ValidateText(FmFilterItem const * pItem, OUString& rText, OU
 
         // parse the given text as filter predicate
         OUString aErr, aTxt( rText );
-        std::shared_ptr< OSQLParseNode > pParseNode = predicateTree( aErr, aTxt, xFormatter, xField );
+        std::unique_ptr< OSQLParseNode > pParseNode = predicateTree( aErr, aTxt, xFormatter, xField );
         rErrorMsg = aErr;
         rText = aTxt;
         if ( pParseNode != nullptr )
@@ -1056,8 +1053,8 @@ FmFilterNavigator::FmFilterNavigator( vcl::Window* pParent )
     SetHelpId( HID_FILTER_NAVIGATOR );
 
     SetNodeBitmaps(
-        Image(BitmapEx(RID_SVXBMP_COLLAPSEDNODE)),
-        Image(BitmapEx(RID_SVXBMP_EXPANDEDNODE))
+        Image(StockImage::Yes, RID_SVXBMP_COLLAPSEDNODE),
+        Image(StockImage::Yes, RID_SVXBMP_EXPANDEDNODE)
     );
 
     m_pModel.reset( new FmFilterModel() );
@@ -1231,8 +1228,8 @@ sal_Int8 FmFilterNavigator::AcceptDrop( const AcceptDropEvent& rEvt )
             }
             else
             {   // is it an entry with children, and not yet expanded?
-                SvTreeListEntry* pDropppedOn = GetEntry(aDropPos);
-                if (pDropppedOn && (GetChildCount(pDropppedOn) > 0) && !IsExpanded(pDropppedOn))
+                SvTreeListEntry* pDroppedOn = GetEntry(aDropPos);
+                if (pDroppedOn && (GetChildCount(pDroppedOn) > 0) && !IsExpanded(pDroppedOn))
                 {
                     // -> expand
                     m_aDropActionType = DA_EXPANDNODE;

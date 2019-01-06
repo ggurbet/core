@@ -45,6 +45,7 @@
 #include "updater.hxx"
 #endif
 
+#include <i18nlangtag/languagetag.hxx>
 #include <o3tl/runtimetooustring.hxx>
 #include <svl/languageoptions.hxx>
 #include <svtools/javacontext.hxx>
@@ -108,6 +109,7 @@
 #include <vcl/help.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
+#include <sfx2/sfxhelp.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/app.hxx>
 #include <sfx2/safemode.hxx>
@@ -115,6 +117,7 @@
 #include <svl/eitem.hxx>
 #include <basic/sbstar.hxx>
 #include <desktop/crashreport.hxx>
+#include <tools/urlobj.hxx>
 
 #include <svtools/fontsubstconfig.hxx>
 #include <svtools/accessibilityoptions.hxx>
@@ -1100,7 +1103,7 @@ void restartOnMac(bool passArguments) {
     }
     argPtrs.push_back(nullptr);
     execv(execPath8.getStr(), const_cast< char ** >(&argPtrs[0]));
-    if (errno == ENOTSUP) { // happens when multithreaded on OS X < 10.6
+    if (errno == ENOTSUP) { // happens when multithreaded on macOS < 10.6
         pid_t pid = fork();
         if (pid == 0) {
             execv(execPath8.getStr(), const_cast< char ** >(&argPtrs[0]));
@@ -1692,6 +1695,7 @@ int Desktop::doShutdown()
 
     // remove temp directory
     RemoveTemporaryDirectory();
+    SfxHelp::removeFlatpakHelpTemporaryDirectory();
 
     // flush evtl. configuration changes so that all config files in user
     // dir are written
@@ -1842,7 +1846,7 @@ bool Desktop::InitializeQuickstartMode( const Reference< XComponentContext >& rx
         // unfortunately this broke the Mac behavior which is to always run
         // in quickstart mode since Mac applications do not usually quit
         // when the last document closes.
-        // Note that this claim that on OS X we "always run in quickstart mode"
+        // Note that this claim that on macOS we "always run in quickstart mode"
         // has nothing to do with (quick) *starting* (i.e. starting automatically
         // when the user logs in), though, but with not quitting when no documents
         // are open.

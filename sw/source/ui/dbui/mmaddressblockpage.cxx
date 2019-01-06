@@ -21,17 +21,19 @@
 #include <mailmergewizard.hxx>
 #include <swtypes.hxx>
 #include "addresslistdialog.hxx"
+#include <vcl/fixed.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/txtattr.hxx>
 #include <vcl/xtextedt.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/lstbox.hxx>
+#include <vcl/treelistentry.hxx>
 #include <mmconfigitem.hxx>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <com/sun/star/sdb/XColumn.hpp>
 #include <comphelper/string.hxx>
-#include <vcl/treelistentry.hxx>
 #include <sal/log.hxx>
 
 #include <vector>
@@ -1171,7 +1173,7 @@ SwAssignFieldsDialog::SwAssignFieldsDialog(
     Size aOutputSize(m_pFieldsControl->m_aHeaderHB->GetSizePixel());
     sal_Int32 nFirstWidth;
     sal_Int32 nSecondWidth = nFirstWidth = aOutputSize.Width() / 3;
-    const HeaderBarItemBits nHeadBits = HeaderBarItemBits::VCENTER | HeaderBarItemBits::FIXED| HeaderBarItemBits::FIXEDPOS;
+    const HeaderBarItemBits nHeadBits = HeaderBarItemBits::FIXED| HeaderBarItemBits::FIXEDPOS;
     m_pFieldsControl->m_aHeaderHB->InsertItem( 1, sAddressElement, nFirstWidth, nHeadBits|HeaderBarItemBits::LEFT);
     m_pFieldsControl->m_aHeaderHB->InsertItem( 2, sMatchesTo,      nSecondWidth, nHeadBits|HeaderBarItemBits::LEFT);
     m_pFieldsControl->m_aHeaderHB->InsertItem( 3, sPreview,

@@ -264,17 +264,17 @@ void GalleryBrowser1::ImplGalleryThemeProperties( const OUString & rThemeName, b
     ImplFillExchangeData( pTheme, *mpExchangeData );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    mpThemePropertiesDialog = pFact->CreateGalleryThemePropertiesDialog(this, mpExchangeData.get(), mpThemePropsDlgItemSet.get());
+    mpThemePropertiesDialog = pFact->CreateGalleryThemePropertiesDialog(GetFrameWeld(), mpExchangeData.get(), mpThemePropsDlgItemSet.get());
 
     if ( bCreateNew )
     {
-        mpThemePropertiesDialog->StartExecuteAsync([=](sal_Int32 nResult){
+        mpThemePropertiesDialog->StartExecuteAsync([this](sal_Int32 nResult){
             EndNewThemePropertiesDlgHdl(nResult);
         });
     }
     else
     {
-        mpThemePropertiesDialog->StartExecuteAsync([=](sal_Int32 nResult){
+        mpThemePropertiesDialog->StartExecuteAsync([this](sal_Int32 nResult){
             EndThemePropertiesDlgHdl(nResult);
         });
     }
@@ -341,9 +341,8 @@ void GalleryBrowser1::ImplExecute(const OString &rIdent)
         GalleryTheme*       pTheme = mpGallery->AcquireTheme( GetSelectedTheme(), *this );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<VclAbstractRefreshableDialog> aActualizeProgress(pFact->CreateActualizeProgressDialog( this, pTheme ));
+        ScopedVclPtr<VclAbstractDialog> aActualizeProgress(pFact->CreateActualizeProgressDialog(GetFrameWeld(), pTheme));
 
-        aActualizeProgress->Update();
         aActualizeProgress->Execute();
         mpGallery->ReleaseTheme( pTheme, *this );
     }

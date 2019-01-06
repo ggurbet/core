@@ -165,10 +165,8 @@ std::vector<OUString> CustomAnimationPreset::getSubTypes()
 
     if( maSubTypes.size() > 1 )
     {
-        EffectsSubTypeMap::iterator aIter( maSubTypes.begin() );
-        const EffectsSubTypeMap::iterator aEnd( maSubTypes.end() );
-        while( aIter != aEnd )
-            aSubTypes.push_back( (*aIter++).first );
+        std::transform(maSubTypes.begin(), maSubTypes.end(), std::back_inserter(aSubTypes),
+            [](EffectsSubTypeMap::value_type& rEntry) -> OUString { return rEntry.first; });
     }
 
     return aSubTypes;
@@ -333,7 +331,7 @@ void CustomAnimationPresets::importEffects()
 
                 while( aIter != aEnd )
                 {
-                    CustomAnimationEffectPtr pEffect = (*aIter);
+                    CustomAnimationEffectPtr pEffect = *aIter;
 
                     const OUString aPresetId( pEffect->getPresetId() );
                     CustomAnimationPresetPtr pDescriptor = getEffectDescriptor( aPresetId );

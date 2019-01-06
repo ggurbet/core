@@ -94,6 +94,16 @@ struct _LibreOfficeKitClass
         @since LibreOffice 6.0
      */
     int (*runMacro) (LibreOfficeKit *pThis, const char* pURL);
+
+    /** @see lok::Office::signDocument().
+        @since LibreOffice 6.2
+     */
+     bool (*signDocument) (LibreOfficeKit* pThis,
+                           const char* pUrl,
+                           const unsigned char* pCertificateBinary,
+                           const int nCertificateBinarySize,
+                           const unsigned char* pPrivateKeyBinary,
+                           const int nPrivateKeyBinarySize);
 };
 
 #define LIBREOFFICEKIT_DOCUMENT_HAS(pDoc,member) LIBREOFFICEKIT_HAS_MEMBER(LibreOfficeKitDocumentClass,member,(pDoc)->pClass->nSize)
@@ -346,6 +356,9 @@ struct _LibreOfficeKitDocumentClass
 
     /// @see lok::Document::getSignatureState().
     int (*getSignatureState) (LibreOfficeKitDocument* pThis);
+
+    /// @see lok::Document::renderShapeSelection
+    size_t (*renderShapeSelection)(LibreOfficeKitDocument* pThis, char** pOutput);
 
 #endif // defined LOK_USE_UNSTABLE_API || defined LIBO_INTERNAL_ONLY
 };

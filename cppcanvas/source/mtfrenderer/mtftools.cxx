@@ -338,34 +338,34 @@ namespace cppcanvas
                 {
                     case LINESTYLE_BOLDDOTTED:
                         bIsBold = true;
-                        BOOST_FALLTHROUGH;
+                        [[fallthrough]];
                     case LINESTYLE_DOTTED:
                         pArray = aDottedArray;
                     break;
 
                     case LINESTYLE_BOLDDASH:
                         bIsBold = true;
-                        BOOST_FALLTHROUGH;
+                        [[fallthrough]];
                     case LINESTYLE_DASH:
                         pArray = aDashedArray;
                     break;
 
                     case LINESTYLE_BOLDLONGDASH:
                         bIsBold = true;
-                        BOOST_FALLTHROUGH;
+                        [[fallthrough]];
                     case LINESTYLE_LONGDASH:
                         pArray = aLongDashArray;
                     break;
 
                     case LINESTYLE_BOLDDASHDOT:
                         bIsBold = true;
-                        BOOST_FALLTHROUGH;
+                        [[fallthrough]];
                     case LINESTYLE_DASHDOT:
                         pArray = aDotDashArray;
                     break;
                     case LINESTYLE_BOLDDASHDOTDOT:
                         bIsBold = true;
-                        BOOST_FALLTHROUGH;
+                        [[fallthrough]];
                     case LINESTYLE_DASHDOTDOT:
                         pArray = aDashDotDotArray;
                     break;
@@ -416,16 +416,12 @@ namespace cppcanvas
                 switch( rTextLineInfo.mnOverlineStyle )
                 {
                     case LINESTYLE_NONE:          // nothing to do
-                        // FALLTHROUGH intended
                     case LINESTYLE_DONTKNOW:
                         break;
 
                     case LINESTYLE_DOUBLEWAVE:
-                        // FALLTHROUGH intended
                     case LINESTYLE_SMALLWAVE:
-                        // FALLTHROUGH intended
                     case LINESTYLE_BOLDWAVE:
-                        // FALLTHROUGH intended
                     case LINESTYLE_WAVE:
                         appendWaveline(
                             rTextLinesPolyPoly,
@@ -498,16 +494,12 @@ namespace cppcanvas
                 switch( rTextLineInfo.mnUnderlineStyle )
                 {
                     case LINESTYLE_NONE:          // nothing to do
-                        // FALLTHROUGH intended
                     case LINESTYLE_DONTKNOW:
                         break;
 
                     case LINESTYLE_DOUBLEWAVE:
-                        // FALLTHROUGH intended
                     case LINESTYLE_SMALLWAVE:
-                        // FALLTHROUGH intended
                     case LINESTYLE_BOLDWAVE:
-                        // FALLTHROUGH intended
                     case LINESTYLE_WAVE:
                         appendWaveline(
                             rTextLinesPolyPoly,
@@ -579,12 +571,10 @@ namespace cppcanvas
                 switch( rTextLineInfo.mnStrikeoutStyle )
                 {
                     case STRIKEOUT_NONE:    // nothing to do
-                        // FALLTHROUGH intended
                     case STRIKEOUT_DONTKNOW:
                         break;
 
                     case STRIKEOUT_SLASH:   // TODO(Q1): we should handle this in the text layer
-                        // FALLTHROUGH intended
                     case STRIKEOUT_X:
                         break;
 

@@ -415,21 +415,6 @@ TaskManager::endTask( sal_Int32 CommandId,
 }
 
 
-void
-TaskManager::abort( sal_Int32 CommandId )
-{
-    if( CommandId )
-    {
-        osl::MutexGuard aGuard( m_aMutex );
-        TaskMap::iterator it = m_aTaskMap.find( CommandId );
-        if( it == m_aTaskMap.end() )
-            return;
-        else
-            it->second.abort();
-    }
-}
-
-
 void TaskManager::clearError( sal_Int32 CommandId )
 {
     osl::MutexGuard aGuard( m_aMutex );
@@ -733,7 +718,7 @@ TaskManager::open( sal_Int32 CommandId,
              const OUString& aUnqPath,
              bool bLock )
 {
-    XInputStream_impl* pInputStream = new XInputStream_impl( aUnqPath, bLock ); // from filinpstr.hxx
+    std::unique_ptr<XInputStream_impl> pInputStream(new XInputStream_impl( aUnqPath, bLock )); // from filinpstr.hxx
 
     sal_Int32 ErrorCode = pInputStream->CtorSuccess();
 
@@ -743,11 +728,10 @@ TaskManager::open( sal_Int32 CommandId,
                       ErrorCode,
                       pInputStream->getMinorError() );
 
-        delete pInputStream;
-        pInputStream = nullptr;
+        pInputStream.reset();
     }
 
-    return uno::Reference< io::XInputStream >( pInputStream );
+    return uno::Reference< io::XInputStream >( pInputStream.release() );
 }
 
 
@@ -766,7 +750,7 @@ TaskManager::open_rw( sal_Int32 CommandId,
                 const OUString& aUnqPath,
                 bool bLock )
 {
-    XStream_impl* pStream = new XStream_impl( aUnqPath, bLock );  // from filstr.hxx
+    std::unique_ptr<XStream_impl> pStream(new XStream_impl( aUnqPath, bLock ));  // from filstr.hxx
 
     sal_Int32 ErrorCode = pStream->CtorSuccess();
 
@@ -776,10 +760,9 @@ TaskManager::open_rw( sal_Int32 CommandId,
                       ErrorCode,
                       pStream->getMinorError() );
 
-        delete pStream;
-        pStream = nullptr;
+        pStream.reset();
     }
-    return uno::Reference< io::XStream >( pStream );
+    return uno::Reference< io::XStream >( pStream.release() );
 }
 
 
@@ -800,7 +783,7 @@ TaskManager::ls( sal_Int32 CommandId,
            const uno::Sequence< beans::Property >& seq,
            const uno::Sequence< NumberedSortingInfo >& seqSort )
 {
-    XResultSet_impl* p = new XResultSet_impl( this,aUnqPath,OpenMode,seq,seqSort );
+    std::unique_ptr<XResultSet_impl> p(new XResultSet_impl( this,aUnqPath,OpenMode,seq,seqSort ));
 
     sal_Int32 ErrorCode = p->CtorSuccess();
 
@@ -810,11 +793,10 @@ TaskManager::ls( sal_Int32 CommandId,
                       ErrorCode,
                       p->getMinorError() );
 
-        delete p;
-        p = nullptr;
+        p.reset();
     }
 
-    return uno::Reference< XDynamicResultSet > ( p );
+    return uno::Reference< XDynamicResultSet > ( p.release() );
 }
 
 
@@ -2105,7 +2087,7 @@ bool TaskManager::ensuredir( sal_Int32 CommandId,
     // arbitrary (?) directory does not seem to cause any sandbox
     // violation, while opendir() does. (Sorry I could not be bothered
     // to use some complex cross-platform abstraction over stat() here
-    // in this OS X specific code block.)
+    // in this macOS specific code block.)
 
     OUString aDirName;
     struct stat s;

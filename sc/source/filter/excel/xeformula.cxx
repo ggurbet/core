@@ -17,21 +17,18 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <list>
 #include <map>
 #include <addincol.hxx>
 #include <compiler.hxx>
 #include <document.hxx>
 #include <externalrefmgr.hxx>
 #include <rangelst.hxx>
-#include <token.hxx>
 #include <tokenarray.hxx>
 #include <scmatrix.hxx>
 #include <xeformula.hxx>
 #include <xehelper.hxx>
 #include <xelink.hxx>
 #include <xename.hxx>
-#include <xestream.hxx>
 #include <xestring.hxx>
 #include <xllink.hxx>
 #include <xltools.hxx>
@@ -1755,7 +1752,7 @@ void XclExpFmlaCompImpl::AppendTrailingParam( XclExpFuncData& rFuncData )
                     PrepareParam( rFuncData );
                     AppendIntToken( 0 );
                     FinishParam( rFuncData );
-                    SAL_FALLTHROUGH; // add next default parameter
+                    [[fallthrough]]; // add next default parameter
                 case 2:
                     PrepareParam( rFuncData );
                     AppendIntToken( 1 );

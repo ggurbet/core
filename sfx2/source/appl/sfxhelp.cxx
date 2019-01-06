@@ -22,6 +22,8 @@
 
 #include <set>
 #include <algorithm>
+#include <cassert>
+
 #include <sal/log.hxx>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/frame/Desktop.hpp>
@@ -47,12 +49,14 @@
 #include <tools/urlobj.hxx>
 #include <ucbhelper/content.hxx>
 #include <unotools/pathoptions.hxx>
+#include <rtl/byteseq.hxx>
 #include <rtl/ustring.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <osl/process.h>
 #include <osl/file.hxx>
 #include <unotools/bootstrap.hxx>
 #include <unotools/tempfile.hxx>
+#include <unotools/ucbhelper.hxx>
 #include <rtl/uri.hxx>
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/layout.hxx>
@@ -110,32 +114,31 @@ IMPL_STATIC_LINK_NOARG(NoHelpErrorBox, HelpRequestHdl, weld::Widget&, bool)
     return false;
 }
 
-static OUString HelpLocaleString();
+static OUString const & HelpLocaleString();
 
 namespace {
 
 /// Root path of the help.
 OUString const & getHelpRootURL()
 {
-    static OUString s_instURL;
-    if (!s_instURL.isEmpty())
-        return s_instURL;
-
-    s_instURL = officecfg::Office::Common::Path::Current::Help::get(comphelper::getProcessComponentContext());
-    if (s_instURL.isEmpty())
+    static OUString const s_instURL = [&]()
     {
-        // try to determine path from default
-        s_instURL = "$(instpath)/" LIBO_SHARE_HELP_FOLDER;
-    }
+        OUString tmp = officecfg::Office::Common::Path::Current::Help::get(comphelper::getProcessComponentContext());
+        if (tmp.isEmpty())
+        {
+            // try to determine path from default
+            tmp = "$(instpath)/" LIBO_SHARE_HELP_FOLDER;
+        }
 
-    // replace anything like $(instpath);
-    SvtPathOptions aOptions;
-    s_instURL = aOptions.SubstituteVariable(s_instURL);
+        // replace anything like $(instpath);
+        SvtPathOptions aOptions;
+        tmp = aOptions.SubstituteVariable(tmp);
 
-    OUString url;
-    if (osl::FileBase::getFileURLFromSystemPath(s_instURL, url) == osl::FileBase::E_None)
-        s_instURL = url;
-
+        OUString url;
+        if (osl::FileBase::getFileURLFromSystemPath(tmp, url) == osl::FileBase::E_None)
+            tmp = url;
+        return tmp;
+    }();
     return s_instURL;
 }
 
@@ -161,13 +164,8 @@ bool impl_hasHelpInstalled()
     if (comphelper::LibreOfficeKit::isActive())
         return false;
 
-    static OUString aLocaleStr;
-
-    if (aLocaleStr.isEmpty())
-    {
         // detect installed locale
-        aLocaleStr = HelpLocaleString();
-    }
+    static OUString const aLocaleStr = HelpLocaleString();
 
     OUString helpRootURL = getHelpRootURL() + "/" + aLocaleStr + "/err.html";
     bool bOK = false;
@@ -187,13 +185,8 @@ bool impl_hasHTMLHelpInstalled()
     if (comphelper::LibreOfficeKit::isActive())
         return false;
 
-    static OUString aLocaleStr;
-
-    if (aLocaleStr.isEmpty())
-    {
-        // detect installed locale
-        aLocaleStr = HelpLocaleString();
-    }
+    // detect installed locale
+    static OUString const aLocaleStr = HelpLocaleString();
 
     OUString helpRootURL = getHelpRootURL() + "/" + aLocaleStr + "/text";
     bool bOK = impl_checkHelpLocalePath( helpRootURL );
@@ -204,70 +197,67 @@ bool impl_hasHTMLHelpInstalled()
 } // namespace
 
 /// Return the locale we prefer for displaying help
-// static OUString const & HelpLocaleString()
-static OUString  HelpLocaleString()
+static OUString const & HelpLocaleString()
 {
     if (comphelper::LibreOfficeKit::isActive())
         return comphelper::LibreOfficeKit::getLanguageTag().getBcp47();
 
     static OUString aLocaleStr;
-    if (aLocaleStr.isEmpty())
+    if (!aLocaleStr.isEmpty())
+        return aLocaleStr;
+
+    const OUString aEnglish("en-US");
+    // detect installed locale
+    aLocaleStr = utl::ConfigManager::getUILocale();
+
+    if ( aLocaleStr.isEmpty() )
     {
-        const OUString aEnglish("en-US");
-        // detect installed locale
-        aLocaleStr = utl::ConfigManager::getUILocale();
-
-        if ( aLocaleStr.isEmpty() )
-            aLocaleStr = aEnglish;
-        else
-        {
-            // get fall-back language (country)
-            OUString sLang = aLocaleStr ;
-            sal_Int32 nSepPos = sLang.indexOf( '-' );
-            if (nSepPos != -1)
-            {
-                sLang = sLang.copy( 0, nSepPos );
-            }
-            OUString sHelpPath("");
-            sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + aLocaleStr;
-            if (impl_checkHelpLocalePath(sHelpPath))
-            {
-                return aLocaleStr;
-            }
-            sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + sLang;
-            if (impl_checkHelpLocalePath(sHelpPath))
-            {
-                aLocaleStr = sLang;
-                return aLocaleStr;
-            }
-            sHelpPath = getHelpRootURL() + "/" + aLocaleStr;
-            if (impl_checkHelpLocalePath(sHelpPath))
-            {
-                return aLocaleStr;
-            }
-            sHelpPath = getHelpRootURL() + "/" + sLang;
-            if (impl_checkHelpLocalePath(sHelpPath))
-            {
-                aLocaleStr = sLang;
-                return aLocaleStr;
-            }
-
-            sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + aEnglish;
-            if (impl_checkHelpLocalePath(sHelpPath))
-            {
-                return aEnglish;
-            }
-            sHelpPath = getHelpRootURL() + "/" + aEnglish;
-            if (impl_checkHelpLocalePath(sHelpPath))
-            {
-                aLocaleStr = sLang;
-                return aEnglish;
-            }
-            aLocaleStr = utl::ConfigManager::getUILocale();
-            return aLocaleStr;
-        }
+        aLocaleStr = aEnglish;
+        return aLocaleStr;
     }
 
+    // get fall-back language (country)
+    OUString sLang = aLocaleStr;
+    sal_Int32 nSepPos = sLang.indexOf( '-' );
+    if (nSepPos != -1)
+    {
+        sLang = sLang.copy( 0, nSepPos );
+    }
+    OUString sHelpPath("");
+    sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + aLocaleStr;
+    if (impl_checkHelpLocalePath(sHelpPath))
+    {
+        return aLocaleStr;
+    }
+    sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + sLang;
+    if (impl_checkHelpLocalePath(sHelpPath))
+    {
+        aLocaleStr = sLang;
+        return aLocaleStr;
+    }
+    sHelpPath = getHelpRootURL() + "/" + aLocaleStr;
+    if (impl_checkHelpLocalePath(sHelpPath))
+    {
+        return aLocaleStr;
+    }
+    sHelpPath = getHelpRootURL() + "/" + sLang;
+    if (impl_checkHelpLocalePath(sHelpPath))
+    {
+        aLocaleStr = sLang;
+        return aLocaleStr;
+    }
+    sHelpPath = getHelpRootURL() + "/" + utl::ConfigManager::getProductVersion() + "/" + aEnglish;
+    if (impl_checkHelpLocalePath(sHelpPath))
+    {
+        aLocaleStr = aEnglish;
+        return aLocaleStr;
+    }
+    sHelpPath = getHelpRootURL() + "/" + aEnglish;
+    if (impl_checkHelpLocalePath(sHelpPath))
+    {
+        aLocaleStr = aEnglish;
+        return aLocaleStr;
+    }
     return aLocaleStr;
 }
 
@@ -634,6 +624,49 @@ OUString SfxHelp::GetHelpText( const OUString& aCommandURL, const vcl::Window* p
     return sHelpText;
 }
 
+OUString SfxHelp::GetHelpText(const OUString& aCommandURL, const weld::Widget* pWidget)
+{
+    OUString sModuleName = GetHelpModuleName_Impl(aCommandURL);
+    OUString sRealCommand = vcl::CommandInfoProvider::GetRealCommandForCommand( aCommandURL, getCurrentModuleIdentifier_Impl() );
+    OUString sHelpText = SfxHelp_Impl::GetHelpText( sRealCommand.isEmpty() ? aCommandURL : sRealCommand, sModuleName );
+
+    OString aNewHelpId;
+
+    if (pWidget && sHelpText.isEmpty())
+    {
+        // no help text found -> try with parent help id.
+        std::unique_ptr<weld::Widget> xParent(pWidget->weld_parent());
+        while (xParent)
+        {
+            aNewHelpId = xParent->get_help_id();
+            sHelpText = SfxHelp_Impl::GetHelpText( OStringToOUString(aNewHelpId, RTL_TEXTENCODING_UTF8), sModuleName );
+            if (!sHelpText.isEmpty())
+                xParent.reset();
+            else
+                xParent.reset(xParent->weld_parent());
+        }
+
+        if (bIsDebug && sHelpText.isEmpty())
+            aNewHelpId.clear();
+    }
+
+    // add some debug information?
+    if ( bIsDebug )
+    {
+        sHelpText += "\n-------------\n";
+        sHelpText += sModuleName;
+        sHelpText += ": ";
+        sHelpText += aCommandURL;
+        if ( !aNewHelpId.isEmpty() )
+        {
+            sHelpText += " - ";
+            sHelpText += OStringToOUString(aNewHelpId, RTL_TEXTENCODING_UTF8);
+        }
+    }
+
+    return sHelpText;
+}
+
 void SfxHelp::SearchKeyword( const OUString& rKeyword )
 {
     Start_Impl(OUString(), static_cast<vcl::Window*>(nullptr), rKeyword);
@@ -684,6 +717,232 @@ static bool impl_showOnlineHelp( const OUString& rURL )
     return false;
 }
 
+namespace {
+
+bool isFlatpak() {
+    static auto const flatpak = [] { return std::getenv("LIBO_FLATPAK") != nullptr; }();
+    return flatpak;
+}
+
+bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
+    assert(helpRootUrl != nullptr);
+    //TODO: this function for now assumes that the passed-in *helpRootUrl references
+    // /app/libreoffice/help (which belongs to the org.libreoffice.LibreOffice.Help
+    // extension); it replaces it with the corresponding file URL as seen outside the flatpak
+    // sandbox:
+    struct Failure: public std::exception {};
+    try {
+        static auto const url = [] {
+            // From /.flatpak-info [Instance] section, read
+            //   app-path=<path>
+            //   app-extensions=...;org.libreoffice.LibreOffice.Help=<sha>;...
+            // lines:
+            osl::File ini("file:///.flatpak-info");
+            auto err = ini.open(osl_File_OpenFlag_Read);
+            if (err != osl::FileBase::E_None) {
+                SAL_WARN("sfx.appl", "LIBO_FLATPAK mode failure opening /.flatpak-info: " << err);
+                throw Failure();
+            }
+            OUString path;
+            OUString extensions;
+            bool havePath = false;
+            bool haveExtensions = false;
+            for (bool instance = false; !(havePath && haveExtensions);) {
+                rtl::ByteSequence bytes;
+                err = ini.readLine(bytes);
+                if (err != osl::FileBase::E_None) {
+                    SAL_WARN(
+                        "sfx.appl",
+                        "LIBO_FLATPAK mode reading /.flatpak-info fails with " << err
+                            << " before [Instance] app-path");
+                    throw Failure();
+                }
+                o3tl::string_view const line(
+                    reinterpret_cast<char const *>(bytes.getConstArray()), bytes.getLength());
+                if (instance) {
+                    static constexpr auto keyPath = OUStringLiteral("app-path=");
+                    static constexpr auto keyExtensions = OUStringLiteral("app-extensions=");
+                    if (!havePath && line.length() >= unsigned(keyPath.size)
+                        && line.substr(0, keyPath.size) == keyPath.data)
+                    {
+                        auto const value = line.substr(keyPath.size);
+                        if (!rtl_convertStringToUString(
+                                &path.pData, value.data(), value.length(),
+                                osl_getThreadTextEncoding(),
+                                (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR
+                                 | RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR
+                                 | RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR)))
+                        {
+                            SAL_WARN(
+                                "sfx.appl",
+                                "LIBO_FLATPAK mode failure converting app-path \"" << value
+                                    << "\" encoding");
+                            throw Failure();
+                        }
+                        havePath = true;
+                    } else if (!haveExtensions && line.length() >= unsigned(keyExtensions.size)
+                               && line.substr(0, keyExtensions.size) == keyExtensions.data)
+                    {
+                        auto const value = line.substr(keyExtensions.size);
+                        if (!rtl_convertStringToUString(
+                                &extensions.pData, value.data(), value.length(),
+                                osl_getThreadTextEncoding(),
+                                (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR
+                                 | RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR
+                                 | RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR)))
+                        {
+                            SAL_WARN(
+                                "sfx.appl",
+                                "LIBO_FLATPAK mode failure converting app-extensions \"" << value
+                                    << "\" encoding");
+                            throw Failure();
+                        }
+                        haveExtensions = true;
+                    } else if (line.length() > 0 && line[0] == '[') {
+                        SAL_WARN(
+                            "sfx.appl",
+                            "LIBO_FLATPAK mode /.flatpak-info lacks [Instance] app-path and"
+                                " app-extensions");
+                        throw Failure();
+                    }
+                } else if (line == "[Instance]") {
+                    instance = true;
+                }
+            }
+            ini.close();
+            // Extract <sha> from ...;org.libreoffice.LibreOffice.Help=<sha>;...:
+            OUString sha;
+            for (sal_Int32 i = 0;;) {
+                OUString elem;
+                elem = extensions.getToken(0, ';', i);
+                if (elem.startsWith("org.libreoffice.LibreOffice.Help=", &sha)) {
+                    break;
+                }
+                if (i == -1) {
+                    SAL_WARN(
+                        "sfx.appl",
+                        "LIBO_FLATPAK mode /.flatpak-info [Instance] app-extensions \""
+                            << extensions << "\" org.libreoffice.LibreOffice.Help");
+                    throw Failure();
+                }
+            }
+            // Assuming that <path> is of the form
+            //   /.../app/org.libreoffice.LibreOffice/<arch>/<branch>/<sha'>/files
+            // rewrite it as
+            //   /.../runtime/org.libreoffice.LibreOffice.Help/<arch>/<branch>/<sha>/files
+            // because the extension's files are stored at a different place than the app's files,
+            // so use this hack until flatpak itself provides a better solution:
+            static constexpr auto segments = OUStringLiteral("/app/org.libreoffice.LibreOffice/");
+            auto const i1 = path.lastIndexOf(segments);
+                // use lastIndexOf instead of indexOf, in case the user-controlled prefix /.../
+                // happens to contain such segments
+            if (i1 == -1) {
+                SAL_WARN(
+                    "sfx.appl",
+                    "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
+                        << "\" doesn't contain /app/org.libreoffice.LibreOffice/");
+                    throw Failure();
+            }
+            auto const i2 = i1 + segments.size;
+            auto i3 = path.indexOf('/', i2);
+            if (i3 == -1) {
+                SAL_WARN(
+                    "sfx.appl",
+                    "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
+                        << "\" doesn't contain branch segment");
+                    throw Failure();
+            }
+            i3 = path.indexOf('/', i3 + 1);
+            if (i3 == -1) {
+                SAL_WARN(
+                    "sfx.appl",
+                    "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
+                        << "\" doesn't contain sha segment");
+                    throw Failure();
+            }
+            ++i3;
+            auto const i4 = path.indexOf('/', i3);
+            if (i4 == -1) {
+                SAL_WARN(
+                    "sfx.appl",
+                    "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
+                        << "\" doesn't contain files segment");
+                    throw Failure();
+            }
+            path = path.copy(0, i1) + "/runtime/org.libreoffice.LibreOffice.Help/"
+                + path.copy(i2, i3 - i2) + sha + path.copy(i4);
+            // Turn <path> into a file URL:
+            OUString url_;
+            err = osl::FileBase::getFileURLFromSystemPath(path, url_);
+            if (err != osl::FileBase::E_None) {
+                SAL_WARN(
+                    "sfx.appl",
+                    "LIBO_FLATPAK mode failure converting app-path \"" << path << "\" to URL: "
+                        << err);
+                throw Failure();
+            }
+            return url_;
+        }();
+        *helpRootUrl = url;
+        return true;
+    } catch (Failure &) {
+        return false;
+    }
+}
+
+// Must only be accessed with SolarMutex locked:
+static struct {
+    bool created = false;
+    OUString url;
+} flatpakHelpTemporaryDirectoryStatus;
+
+bool createFlatpakHelpTemporaryDirectory(OUString ** url) {
+    assert(url != nullptr);
+    DBG_TESTSOLARMUTEX();
+    if (!flatpakHelpTemporaryDirectoryStatus.created) {
+        auto const env = std::getenv("XDG_CACHE_HOME");
+        if (env == nullptr) {
+            SAL_WARN("sfx.appl", "LIBO_FLATPAK mode but unset XDG_CACHE_HOME");
+            return false;
+        }
+        OUString path;
+        if (!rtl_convertStringToUString(
+                &path.pData, env, std::strlen(env), osl_getThreadTextEncoding(),
+                (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR | RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR
+                 | RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR)))
+        {
+            SAL_WARN(
+                "sfx.appl",
+                "LIBO_FLATPAK mode failure converting XDG_CACHE_HOME \"" << env << "\" encoding");
+            return false;
+        }
+        OUString parent;
+        auto const err = osl::FileBase::getFileURLFromSystemPath(path, parent);
+        if (err != osl::FileBase::E_None) {
+            SAL_WARN(
+                "sfx.appl",
+                "LIBO_FLATPAK mode failure converting XDG_CACHE_HOME \"" << path << "\" to URL: "
+                    << err);
+            return false;
+        }
+        if (!parent.endsWith("/")) {
+            parent += "/";
+        }
+        auto const tmp = utl::TempFile(&parent, true);
+        if (!tmp.IsValid()) {
+            SAL_WARN(
+                "sfx.appl", "LIBO_FLATPAK mode failure creating temp dir at <" << parent << ">");
+            return false;
+        }
+        flatpakHelpTemporaryDirectoryStatus.url = tmp.GetURL();
+        flatpakHelpTemporaryDirectoryStatus.created = true;
+    }
+    *url = &flatpakHelpTemporaryDirectoryStatus.url;
+    return true;
+}
+
+}
+
 #define SHTML1 "<!DOCTYPE HTML><html lang=\"en-US\"><head><meta charset=\"UTF-8\">"
 #define SHTML2 "<meta http-equiv=\"refresh\" content=\"1\" url=\""
 #define SHTML3 "\"><script type=\"text/javascript\"> window.location.href = \""
@@ -691,17 +950,26 @@ static bool impl_showOnlineHelp( const OUString& rURL )
 
 static bool impl_showOfflineHelp( const OUString& rURL )
 {
-    const OUString& aBaseInstallPath = getHelpRootURL();
-    OUString const aInternal( "vnd.sun.star.help://"  );
+    OUString aBaseInstallPath = getHelpRootURL();
+    // For the flatpak case, find the pathname outside the flatpak sandbox that corresponds to
+    // aBaseInstallPath, because that is what needs to be stored in aTempFile below:
+    if (isFlatpak() && !rewriteFlatpakHelpRootUrl(&aBaseInstallPath)) {
+        return false;
+    }
 
     OUString aHelpLink( aBaseInstallPath + "/index.html?" );
-    OUString aTarget = "Target=" + rURL.copy(aInternal.getLength());
+    OUString aTarget = "Target=" + rURL.copy(RTL_CONSTASCII_LENGTH("vnd.sun.star.help://"));
     aTarget = aTarget.replaceAll("%2F","/").replaceAll("?","&");
     aHelpLink += aTarget;
 
-    // get a html tempfile
+    // Get a html tempfile (for the flatpak case, create it in XDG_CACHE_HOME instead of /tmp for
+    // technical reasons, so that it can be accessed by the browser running outside the sandbox):
     OUString const aExtension(".html");
-    ::utl::TempFile aTempFile("NewHelp", true, &aExtension, nullptr, false );
+    OUString * parent = nullptr;
+    if (isFlatpak() && !createFlatpakHelpTemporaryDirectory(&parent)) {
+        return false;
+    }
+    ::utl::TempFile aTempFile("NewHelp", true, &aExtension, parent, false );
 
     SvStream* pStream = aTempFile.GetStream(StreamMode::WRITE);
     pStream->SetStreamCharSet(RTL_TEXTENCODING_UTF8);
@@ -835,9 +1103,8 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
     // display" code below:
     if (SfxContentHelper::IsHelpErrorDocument(aHelpURL))
     {
-        if ( impl_hasHTMLHelpInstalled() )
+        if ( impl_hasHTMLHelpInstalled() && impl_showOfflineHelp(aHelpURL) )
         {
-            impl_showOfflineHelp(aHelpURL);
             return true;
         }
 
@@ -993,9 +1260,8 @@ bool SfxHelp::Start_Impl(const OUString& rURL, weld::Widget* pWidget, const OUSt
     // display" code below:
     if (SfxContentHelper::IsHelpErrorDocument(aHelpURL))
     {
-        if ( impl_hasHTMLHelpInstalled() )
+        if ( impl_hasHTMLHelpInstalled() && impl_showOfflineHelp(aHelpURL) )
         {
-            impl_showOfflineHelp(aHelpURL);
             return true;
         }
 
@@ -1090,6 +1356,18 @@ OUString SfxHelp::GetCurrentModuleIdentifier()
 bool SfxHelp::IsHelpInstalled()
 {
     return impl_hasHelpInstalled();
+}
+
+void SfxHelp::removeFlatpakHelpTemporaryDirectory() {
+    DBG_TESTSOLARMUTEX();
+    if (flatpakHelpTemporaryDirectoryStatus.created) {
+        if (!utl::UCBContentHelper::Kill(flatpakHelpTemporaryDirectoryStatus.url)) {
+            SAL_INFO(
+                "sfx.appl",
+                "LIBO_FLATPAK mode failure removing directory <"
+                    << flatpakHelpTemporaryDirectoryStatus.url << ">");
+        }
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

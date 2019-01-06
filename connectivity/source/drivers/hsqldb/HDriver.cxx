@@ -266,8 +266,9 @@ namespace connectivity
                                 {
                                     if ( sLine.isEmpty() )
                                         continue;
-                                    const OString sIniKey = sLine.getToken(0, '=');
-                                    const OString sValue = sLine.getToken(1, '=');
+                                    sal_Int32 nIdx {0};
+                                    const OString sIniKey = sLine.getToken(0, '=', nIdx);
+                                    const OString sValue = sLine.getToken(0, '=', nIdx);
                                     if( sIniKey == "hsqldb.compatible_version" )
                                     {
                                         sVersionString = sValue;
@@ -282,9 +283,10 @@ namespace connectivity
                                 }
                                 if (!sVersionString.isEmpty())
                                 {
-                                    const sal_Int32 nMajor = sVersionString.getToken(0, '.').toInt32();
-                                    const sal_Int32 nMinor = sVersionString.getToken(1, '.').toInt32();
-                                    const sal_Int32 nMicro = sVersionString.getToken(2, '.').toInt32();
+                                    sal_Int32 nIdx {0};
+                                    const sal_Int32 nMajor = sVersionString.getToken(0, '.', nIdx).toInt32();
+                                    const sal_Int32 nMinor = sVersionString.getToken(0, '.', nIdx).toInt32();
+                                    const sal_Int32 nMicro = sVersionString.getToken(0, '.', nIdx).toInt32();
                                     if (     nMajor > 1
                                         || ( nMajor == 1 && nMinor > 8 )
                                         || ( nMajor == 1 && nMinor == 8 && nMicro > 0 ) )
@@ -353,14 +355,14 @@ namespace connectivity
                         xComp->addEventListener(this);
 
                     // we want to close all connections when the office shuts down
-                    static Reference< XTerminateListener> s_xTerminateListener;
-                    if( !s_xTerminateListener.is() )
+                    static Reference< XTerminateListener> s_xTerminateListener = [&]()
                     {
                         Reference< XDesktop2 > xDesktop = Desktop::create( m_xContext );
 
-                        s_xTerminateListener = new OConnectionController(this);
-                        xDesktop->addTerminateListener(s_xTerminateListener);
-                    }
+                        auto tmp = new OConnectionController(this);
+                        xDesktop->addTerminateListener(tmp);
+                        return tmp;
+                    }();
                     Reference< XComponent> xIfc = new OHsqlConnection( this, xOrig, m_xContext );
                     xConnection.set(xIfc,UNO_QUERY);
                     m_aConnections.push_back(TWeakPair(WeakReferenceHelper(xOrig),TWeakConnectionPair(sKey,TWeakRefPair(WeakReferenceHelper(xConnection),WeakReferenceHelper()))));

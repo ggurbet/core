@@ -1043,7 +1043,7 @@ StarBASIC* BasicManager::AddLib( SotStorage& rStorage, const OUString& rLibName,
         aNewLibName += "_";
     }
     BasicLibInfo* pLibInfo = CreateLibInfo();
-    // Use original name otherwise ImpLoadLibrary failes...
+    // Use original name otherwise ImpLoadLibrary fails...
     pLibInfo->SetLibName( rLibName );
     // but doesn't work this way if name exists twice
     sal_uInt16 nLibId = static_cast<sal_uInt16>(mpImpl->aLibs.size()) - 1;
@@ -1462,8 +1462,8 @@ namespace
     SbMethod* lcl_queryMacro( BasicManager* i_manager, OUString const& i_fullyQualifiedName )
     {
         sal_Int32 nLast = 0;
-        OUString sLibName = i_fullyQualifiedName.getToken( sal_Int32(0), '.', nLast );
-        OUString sModule = i_fullyQualifiedName.getToken( sal_Int32(0), '.', nLast );
+        const OUString sLibName {i_fullyQualifiedName.getToken( 0, '.', nLast )};
+        const OUString sModule {i_fullyQualifiedName.getToken( 0, '.', nLast )};
         OUString sMacro;
         if(nLast >= 0)
         {

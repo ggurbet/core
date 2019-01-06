@@ -27,9 +27,6 @@
 #include <vector>
 
 #include <vcl/ctrl.hxx>
-#include <vcl/seleng.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/timer.hxx>
 #include <vcl/accel.hxx>
 #include <vcl/mnemonicengine.hxx>
 #include <vcl/quickselectionengine.hxx>
@@ -39,20 +36,19 @@
 #include <vcl/treelist.hxx>
 #include <vcl/transfer.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/menu.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
-class Application;
 class SvTreeListBox;
 class SvTreeListEntry;
 struct SvViewDataItem;
 class SvViewDataEntry;
 class SvInplaceEdit2;
 class SvLBoxString;
-class SvLBoxButton;
-class SvLBoxContextBmp;
 class SvImpLBox;
 class SvLBoxButtonData;
-struct SvLBoxDDInfo;
+class Timer;
+class Edit;
 
 namespace utl {
     class AccessibleStateSetHelper;
@@ -78,21 +74,18 @@ enum class SvLBoxTabFlags
     ADJUST_RIGHT     = 0x0002, // Item's right margin at the tabulator
     ADJUST_LEFT      = 0x0004, // Left margin
     ADJUST_CENTER    = 0x0008, // Center the item at the tabulator
-    ADJUST_NUMERIC   = 0x0010, // Decimal point at the tabulator (strings)
 
-    SHOW_SELECTION   = 0x0040, // Visualize selection state
+    SHOW_SELECTION   = 0x0010, // Visualize selection state
                                            // Item needs to be able to return the surrounding polygon (D'n'D cursor)
-    EDITABLE         = 0x0100, // Item editable at the tabulator
-    PUSHABLE         = 0x0200, // Item acts like a Button
-    INV_ALWAYS       = 0x0400, // Always delete the background
-    FORCE            = 0x0800, // Switch off the default calculation of the first tabulator
+    EDITABLE         = 0x0020, // Item editable at the tabulator
+    FORCE            = 0x0040, // Switch off the default calculation of the first tabulator
                                // (on which Abo Tabpage/Extras/Option/Customize, etc. rely on)
                                // The first tab's position corresponds precisely to the Flags set
                                // and column widths
 };
 namespace o3tl
 {
-    template<> struct typed_flags<SvLBoxTabFlags> : is_typed_flags<SvLBoxTabFlags, 0x0f5f> {};
+    template<> struct typed_flags<SvLBoxTabFlags> : is_typed_flags<SvLBoxTabFlags, 0x007f> {};
 }
 
 #define SV_TAB_BORDER 8
@@ -189,8 +182,6 @@ namespace o3tl
 }
 
 struct SvTreeListBoxImpl;
-class SalInstanceTreeView;
-class SalInstanceEntryTreeView;
 
 class VCL_DLLPUBLIC SvTreeListBox
                 :public Control
@@ -260,8 +251,6 @@ protected:
     sal_uInt16              nCurEntrySelPos;
 
 private:
-    void SetBaseModel(SvTreeList* pNewModel);
-
     DECL_DLLPRIVATE_LINK( CheckButtonClick, SvLBoxButtonData *, void );
     DECL_DLLPRIVATE_LINK( TextEditEndedHdl_Impl, SvInplaceEdit2&, void );
     // Handler that is called by TreeList to clone an Entry
@@ -298,8 +287,6 @@ protected:
     void            CancelTextEditing();
     bool            EditingCanceled() const;
 
-    // Return value must be derived from SvViewDataEntry!
-    virtual std::unique_ptr<SvViewDataEntry> CreateViewData( SvTreeListEntry* ) override;
     // InitViewData is called right after CreateViewData
     // The Entry is has not yet been added to the View in InitViewData!
     virtual void InitViewData( SvViewDataEntry*, SvTreeListEntry* pEntry ) override;
@@ -338,12 +325,8 @@ public:
 
     SvTreeList* GetModel() const
     {
-        return pModel;
+        return pModel.get();
     }
-
-    using SvListView::SetModel;
-
-    void SetModel(SvTreeList* pNewModel) override;
 
     sal_uLong GetEntryCount() const
     {
@@ -492,6 +475,9 @@ public:
         sal_uLong&        rNewChildPos); // The TargetParent's position in Childlist
 
     // ACCESSIBILITY ==========================================================
+
+    /** Creates and returns the accessible object of the Box. */
+    virtual css::uno::Reference< css::accessibility::XAccessible > CreateAccessible() override;
 
     /** Fills the StateSet of one entry. */
     void FillAccessibleEntryStateSet( SvTreeListEntry* pEntry, ::utl::AccessibleStateSetHelper& rStateSet ) const;
@@ -749,8 +735,6 @@ public:
     virtual void    ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry );
 
     void            EnableContextMenuHandling();
-
-    void            EnableList( bool _bEnable );
 
     long            getPreferredDimensions(std::vector<long> &rWidths) const;
 

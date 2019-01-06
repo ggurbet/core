@@ -23,18 +23,19 @@
 #include <vcl/dllapi.h>
 #include <vcl/seleng.hxx>
 #include <vcl/scrbar.hxx>
+#include <vcl/idle.hxx>
+#include <vcl/image.hxx>
+#include <vcl/svtaccessiblefactory.hxx>
 #include <vcl/vclevent.hxx>
-#include <unotools/intlwrapper.hxx>
+#include <vcl/treelistbox.hxx>
 #include <o3tl/enumarray.hxx>
 #include <memory>
 #include <vector>
 
-class SvTreeListBox;
-class Point;
+class SvLBoxButton;
 class SvTreeList;
 class SvImpLBox;
 class SvTreeListEntry;
-class SvLBoxTab;
 namespace comphelper
 {
     namespace string
@@ -99,6 +100,9 @@ private:
 
     VclPtr<ScrollBar>    aHorSBar;
     VclPtr<ScrollBarBox> aScrBarBox;
+
+    ::vcl::AccessibleFactoryAccess
+                        m_aFactoryAccess;
 
     static Image*       s_pDefCollapsed;
     static Image*       s_pDefExpanded;

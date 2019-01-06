@@ -766,9 +766,11 @@ public:
             {
                 auto aRegions = partition(rCtx, 2, 2);
                 doInvert(rDev, aRegions[0], InvertFlags::NONE);
+                rDev.DrawText(aRegions[0], "InvertFlags::NONE");
                 doInvert(rDev, aRegions[1], InvertFlags::N50);
-                doInvert(rDev, aRegions[2], InvertFlags::Highlight);
+                rDev.DrawText(aRegions[1], "InvertFlags::N50");
                 doInvert(rDev, aRegions[3], InvertFlags::TrackFrame);
+                rDev.DrawText(aRegions[3], "InvertFlags::TrackFrame");
             }
         }
     };
@@ -887,7 +889,7 @@ public:
 
             // An offset background for alpha rendering
             rDev.SetFillColor(COL_BLUE);
-            tools::Rectangle aSurround(r.Center(), Size(aPageShadowMask.GetSizePixel()));
+            tools::Rectangle aSurround(r.Center(), aPageShadowMask.GetSizePixel());
             rDev.DrawRect(aSurround);
             rDev.DrawBitmapEx(aRenderPt, aWhole);
         }

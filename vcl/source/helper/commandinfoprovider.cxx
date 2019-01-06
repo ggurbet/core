@@ -25,6 +25,7 @@
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/weakref.hxx>
 
+#include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/theUICommandDescription.hpp>
 #include <com/sun/star/ui/GlobalAcceleratorConfiguration.hpp>
@@ -193,7 +194,7 @@ static Sequence<beans::PropertyValue> GetCommandProperties(const OUString& rsCom
         {
             Reference<container::XNameAccess> xNameAccess(GetCommandDescription());
             Reference<container::XNameAccess> xUICommandLabels;
-            if (xNameAccess->getByName(rsModuleName) >>= xUICommandLabels)
+            if ((xNameAccess->getByName(rsModuleName) >>= xUICommandLabels) && xUICommandLabels->hasByName(rsCommandName))
                 xUICommandLabels->getByName(rsCommandName) >>= aProperties;
         }
     }

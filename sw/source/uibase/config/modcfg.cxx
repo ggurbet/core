@@ -27,6 +27,7 @@
 #include <editeng/svxenum.hxx>
 #include <osl/diagnose.h>
 
+#include <tools/mapunit.hxx>
 #include <tools/globname.hxx>
 #include <swtypes.hxx>
 #include <itabenum.hxx>
@@ -218,13 +219,8 @@ OUString SwModuleOptions::ConvertWordDelimiter(const OUString& rDelim, bool bFro
 
 const Sequence<OUString>& SwRevisionConfig::GetPropertyNames()
 {
-    static Sequence<OUString> aNames;
-    if(!aNames.getLength())
+    static Sequence<OUString> const aNames
     {
-        const int nCount = 8;
-        aNames.realloc(nCount);
-        static const char* aPropNames[] =
-        {
             "TextDisplay/Insert/Attribute",             // 0
             "TextDisplay/Insert/Color",                 // 1
             "TextDisplay/Delete/Attribute",             // 2
@@ -233,17 +229,12 @@ const Sequence<OUString>& SwRevisionConfig::GetPropertyNames()
             "TextDisplay/ChangedAttribute/Color",       // 5
             "LinesChanged/Mark",                        // 6
             "LinesChanged/Color"                        // 7
-        };
-        OUString* pNames = aNames.getArray();
-        for(int i = 0; i < nCount; i++)
-            pNames[i] = OUString::createFromAscii(aPropNames[i]);
-    }
+    };
     return aNames;
 }
 
 SwRevisionConfig::SwRevisionConfig() :
-    ConfigItem("Office.Writer/Revision",
-        ConfigItemMode::DelayedUpdate|ConfigItemMode::ReleaseTree)
+    ConfigItem("Office.Writer/Revision", ConfigItemMode::ReleaseTree)
 {
     m_aInsertAttr.m_nItemId = SID_ATTR_CHAR_UNDERLINE;
     m_aInsertAttr.m_nAttr = LINESTYLE_SINGLE;
@@ -466,12 +457,8 @@ enum InsertConfigProp
 };
 const Sequence<OUString>& SwInsertConfig::GetPropertyNames()
 {
-    static Sequence<OUString> aNames;
-    static Sequence<OUString> aWebNames;
-    if(!aNames.getLength())
+    static Sequence<OUString> aNames
     {
-        static const char* aPropNames[] =
-        {
             "Table/Header",                                                 // 0
             "Table/RepeatHeader",                                           // 1
             "Table/Border",                                                 // 2
@@ -566,25 +553,14 @@ const Sequence<OUString>& SwInsertConfig::GetPropertyNames()
             "Caption/OfficeObject/OLEMisc/Settings/Position",               //91
             "Caption/OfficeObject/OLEMisc/Settings/CharacterStyle",         //92
             "Caption/OfficeObject/OLEMisc/Settings/ApplyAttributes"         //93
-        };
-        const int nCount = INS_PROP_CAP_OBJECT_OLEMISC_APPLYATTRIBUTES + 1;
-        const int nWebCount = INS_PROP_TABLE_BORDER + 1;
-        aNames.realloc(nCount);
-        aWebNames.realloc(nWebCount);
-        OUString* pNames = aNames.getArray();
-        OUString* pWebNames = aWebNames.getArray();
-        int i;
-        for(i = 0; i < nCount; i++)
-            pNames[i] = OUString::createFromAscii(aPropNames[i]);
-        for(i = 0; i < nWebCount; i++)
-            pWebNames[i] = OUString::createFromAscii(aPropNames[i]);
-    }
+    };
+    static Sequence<OUString> const aWebNames(aNames.getArray(), INS_PROP_TABLE_BORDER + 1);
     return m_bIsWeb ? aWebNames : aNames;
 }
 
 SwInsertConfig::SwInsertConfig(bool bWeb) :
     ConfigItem(bWeb ? OUString("Office.WriterWeb/Insert") : OUString("Office.Writer/Insert"),
-        ConfigItemMode::DelayedUpdate|ConfigItemMode::ReleaseTree),
+        ConfigItemMode::ReleaseTree),
     m_bInsWithCaption( false ),
     m_bCaptionOrderNumberingFirst( false ),
     m_aInsTableOpts(SwInsertTableFlags::NONE,0),
@@ -1089,9 +1065,7 @@ void SwInsertConfig::Load()
 
 const Sequence<OUString>& SwTableConfig::GetPropertyNames()
 {
-    const int nCount = 8;
-    static Sequence<OUString> aNames(nCount);
-    static const char* aPropNames[] =
+    static Sequence<OUString> const aNames
     {
         "Shift/Row",                    //  0
         "Shift/Column",                 //  1
@@ -1102,15 +1076,12 @@ const Sequence<OUString>& SwTableConfig::GetPropertyNames()
         "Input/NumberFormatRecognition",//  6
         "Input/Alignment"               //  7
     };
-    OUString* pNames = aNames.getArray();
-    for(int i = 0; i < nCount; i++)
-        pNames[i] = OUString::createFromAscii(aPropNames[i]);
     return aNames;
 }
 
 SwTableConfig::SwTableConfig(bool bWeb)
     : ConfigItem(bWeb ? OUString("Office.WriterWeb/Table") : OUString("Office.Writer/Table"),
-        ConfigItemMode::DelayedUpdate|ConfigItemMode::ReleaseTree)
+        ConfigItemMode::ReleaseTree)
     , m_nTableHMove(0)
     , m_nTableVMove(0)
     , m_nTableHInsert(0)
@@ -1179,8 +1150,7 @@ void SwTableConfig::Load()
 }
 
 SwMiscConfig::SwMiscConfig() :
-    ConfigItem("Office.Writer",
-        ConfigItemMode::DelayedUpdate|ConfigItemMode::ReleaseTree),
+    ConfigItem("Office.Writer", ConfigItemMode::ReleaseTree),
     m_bDefaultFontsInCurrDocOnly(false),
     m_bShowIndexPreview(false),
     m_bGrfToGalleryAsLnk(true),
@@ -1199,13 +1169,8 @@ SwMiscConfig::~SwMiscConfig()
 
 const Sequence<OUString>& SwMiscConfig::GetPropertyNames()
 {
-    static Sequence<OUString> aNames;
-    if(!aNames.getLength())
+    static Sequence<OUString> const aNames
     {
-        const int nCount = 12;
-        aNames.realloc(nCount);
-        static const char* aPropNames[] =
-        {
             "Statistics/WordNumber/Delimiter",          // 0
             "DefaultFont/Document",                     // 1
             "Index/ShowPreview",                        // 2
@@ -1218,11 +1183,7 @@ const Sequence<OUString>& SwMiscConfig::GetPropertyNames()
             "FormLetter/FileOutput/FileName/FromManualSetting",   // 9
             "FormLetter/FileOutput/FileName/Generation",//10
             "FormLetter/PrintOutput/AskForMerge"        //11
-        };
-        OUString* pNames = aNames.getArray();
-        for(int i = 0; i < nCount; i++)
-            pNames[i] = OUString::createFromAscii(aPropNames[i]);
-    }
+    };
     return aNames;
 }
 
@@ -1292,29 +1253,19 @@ void SwMiscConfig::Load()
 
 const Sequence<OUString>& SwCompareConfig::GetPropertyNames()
 {
-    static Sequence<OUString> aNames;
-    if(!aNames.getLength())
+    static Sequence<OUString> const aNames
     {
-        const int nCount = 5;
-        aNames.realloc(nCount);
-        static const char* aPropNames[] =
-        {
             "Mode",                         // 0
             "UseRSID",                      // 1
             "IgnorePieces",             // 2
             "IgnoreLength", // 3
             "StoreRSID" // 4
-        };
-        OUString* pNames = aNames.getArray();
-        for(int i = 0; i < nCount; i++)
-            pNames[i] = OUString::createFromAscii(aPropNames[i]);
-    }
+    };
     return aNames;
 }
 
 SwCompareConfig::SwCompareConfig() :
-    ConfigItem("Office.Writer/Comparison",
-        ConfigItemMode::DelayedUpdate|ConfigItemMode::ReleaseTree)
+    ConfigItem("Office.Writer/Comparison", ConfigItemMode::ReleaseTree)
     ,m_bStoreRsid(true)
 {
     m_eCmpMode = SwCompareMode::Auto;

@@ -66,6 +66,7 @@
 #include <vcl/settings.hxx>
 
 #include <comphelper/anytostring.hxx>
+#include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <rtl/ref.hxx>
 #include <sal/log.hxx>
@@ -1183,13 +1184,10 @@ void SlideshowImpl::removeShapeEvents()
 {
     if( mxShow.is() && mxListenerProxy.is() ) try
     {
-        WrappedShapeEventImplMap::iterator aIter;
-        const WrappedShapeEventImplMap::iterator aEnd( maShapeEventMap.end() );
-
-        for( aIter = maShapeEventMap.begin(); aIter != aEnd; ++aIter )
+        for( const auto& rEntry : maShapeEventMap )
         {
-            mxListenerProxy->removeShapeEventListener( (*aIter).first );
-            mxShow->setShapeCursor( (*aIter).first, awt::SystemPointer::ARROW );
+            mxListenerProxy->removeShapeEventListener( rEntry.first );
+            mxShow->setShapeCursor( rEntry.first, awt::SystemPointer::ARROW );
         }
 
         maShapeEventMap.clear();
@@ -1742,7 +1740,7 @@ bool SlideshowImpl::keyInput(const KeyEvent& rKEvt)
                     gotoNextSlide();
                     break;
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case KEY_SPACE:
             case KEY_RIGHT:
             case KEY_DOWN:
@@ -1788,7 +1786,7 @@ bool SlideshowImpl::keyInput(const KeyEvent& rKEvt)
                     gotoPreviousSlide();
                     break;
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case KEY_LEFT:
             case KEY_UP:
             case KEY_P:
@@ -2283,11 +2281,9 @@ void SlideshowImpl::createSlideList( bool bAll, const OUString& rPresSlide )
                     mpSlideController->insertSlideNumber( static_cast<sal_uInt16>(nSlide) );
             }
 
-            sal_Int32 nSlideIndex = 0;
-            for( SdCustomShow::PageVec::iterator it = pCustomShow->PagesVector().begin();
-                 it != pCustomShow->PagesVector().end(); ++it, nSlideIndex++ )
+            for( const auto& rpPage : pCustomShow->PagesVector() )
             {
-                const sal_uInt16 nSdSlide = ( (*it)->GetPageNum() - 1 ) / 2;
+                const sal_uInt16 nSdSlide = ( rpPage->GetPageNum() - 1 ) / 2;
 
                 if( ! mpDoc->GetSdPage( nSdSlide, PageKind::Standard )->IsExcluded())
                     mpSlideController->insertSlideNumber( nSdSlide );

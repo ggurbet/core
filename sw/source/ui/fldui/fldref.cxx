@@ -402,9 +402,9 @@ IMPL_LINK_NOARG(SwFieldRefPage, TypeHdl, ListBox&, void)
     if ( ( !IsFieldEdit() || m_pSelectionLB->GetEntryCount() ) &&
          nOld != LISTBOX_ENTRY_NOTFOUND )
     {
-        m_pNameED->SetText(aEmptyOUStr);
-        m_pValueED->SetText(aEmptyOUStr);
-        m_pFilterED->SetText(aEmptyOUStr);
+        m_pNameED->SetText(OUString());
+        m_pValueED->SetText(OUString());
+        m_pFilterED->SetText(OUString());
     }
 
     switch (nTypeId)
@@ -422,7 +422,7 @@ IMPL_LINK_NOARG(SwFieldRefPage, TypeHdl, ListBox&, void)
 
         case REFFLDFLAG_BOOKMARK:
             bName = true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             if( REFFLDFLAG & nTypeId )
             {
@@ -807,7 +807,7 @@ sal_Int32 SwFieldRefPage::FillFormatLB(sal_uInt16 nTypeId)
         case REFFLDFLAG_HEADING:
         case REFFLDFLAG_NUMITEM:
             bAddCrossRefFormats = true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case TYP_GETREFFLD:
         case REFFLDFLAG_BOOKMARK:

@@ -9,7 +9,6 @@
 
 #include <swmodeltestbase.hxx>
 #include <comphelper/propertysequence.hxx>
-#include <test/mtfxmldump.hxx>
 #include <com/sun/star/linguistic2/LinguServiceManager.hpp>
 #include <com/sun/star/frame/DispatchHelper.hpp>
 #include <officecfg/Office/Common.hxx>
@@ -40,6 +39,8 @@ public:
     void testRedlineTables();
     void testRedlineCharAttributes();
     void testTdf116830();
+    void testTdf114163();
+    void testTdf108021();
     void testTdf116925();
     void testTdf117028();
     void testTdf106390();
@@ -53,6 +54,8 @@ public:
     void testUserFieldTypeLanguage();
     void testTdf109137();
     void testForcepoint72();
+    void testForcepoint75();
+    void testForcepoint76();
     void testTdf118058();
     void testTdf117188();
     void testTdf117187();
@@ -61,6 +64,7 @@ public:
     void testTdf120287b();
     void testTdf120287c();
     void testTdf116989();
+    void testTdf115094();
 
     CPPUNIT_TEST_SUITE(SwLayoutWriter);
     CPPUNIT_TEST(testRedlineFootnotes);
@@ -73,6 +77,8 @@ public:
     CPPUNIT_TEST(testRedlineTables);
     CPPUNIT_TEST(testRedlineCharAttributes);
     CPPUNIT_TEST(testTdf116830);
+    CPPUNIT_TEST(testTdf114163);
+    CPPUNIT_TEST(testTdf108021);
     CPPUNIT_TEST(testTdf116925);
     CPPUNIT_TEST(testTdf117028);
     CPPUNIT_TEST(testTdf106390);
@@ -86,6 +92,8 @@ public:
     CPPUNIT_TEST(testUserFieldTypeLanguage);
     CPPUNIT_TEST(testTdf109137);
     CPPUNIT_TEST(testForcepoint72);
+    CPPUNIT_TEST(testForcepoint75);
+    CPPUNIT_TEST(testForcepoint76);
     CPPUNIT_TEST(testTdf118058);
     CPPUNIT_TEST(testTdf117188);
     CPPUNIT_TEST(testTdf117187);
@@ -94,6 +102,7 @@ public:
     CPPUNIT_TEST(testTdf120287b);
     CPPUNIT_TEST(testTdf120287c);
     CPPUNIT_TEST(testTdf116989);
+    CPPUNIT_TEST(testTdf115094);
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -2280,7 +2289,7 @@ void SwLayoutWriter::testTdf116830()
     // Dump the rendering of the first page as an XML file.
     std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(*xMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
 
     // Assert that the yellow rectangle (cell background) is painted after the
@@ -2299,6 +2308,42 @@ void SwLayoutWriter::testTdf116830()
     assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/rect", 1);
 }
 
+void SwLayoutWriter::testTdf114163()
+{
+    SwDoc* pDoc = createDoc("tdf114163.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPathContent(
+        pXmlDoc,
+        "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[12]/text",
+        "Data3");
+    // This failed, if the legend first label is not "Data3".
+}
+
+void SwLayoutWriter::testTdf108021()
+{
+    SwDoc* pDoc = createDoc("tdf108021.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(
+        pXmlDoc,
+        "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[@length='17']",
+        8);
+    // This failed, if the textarray length of the first axis label not 17.
+}
+
 void SwLayoutWriter::testTdf116925()
 {
     SwDoc* pDoc = createDoc("tdf116925.docx");
@@ -2307,7 +2352,7 @@ void SwLayoutWriter::testTdf116925()
     // Dump the rendering of the first page as an XML file.
     std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(*xMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
 
     assertXPathContent(pXmlDoc,
@@ -2327,7 +2372,7 @@ void SwLayoutWriter::testTdf117028()
     // Dump the rendering of the first page as an XML file.
     std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(*xMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
 
     // The only polypolygon in the rendering result was the white background we
@@ -2349,7 +2394,7 @@ void SwLayoutWriter::testTdf106390()
     // Dump the rendering of the first page as an XML file.
     std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(*xMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
     sal_Int32 nBottom = getXPath(pXmlDoc, "//sectrectclipregion", "bottom").toInt32();
 
@@ -2367,10 +2412,10 @@ void SwLayoutWriter::testTableExtrusion1()
     // Dump the rendering of the first page as an XML file.
     std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(*xMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
     sal_Int32 nRight = getXPath(pXmlDoc, "//sectrectclipregion", "right").toInt32();
-    sal_Int32 nLeft = (nRight + getXPath(pXmlDoc, "(//rect)[1]", "right").toInt32()) / 2;
+    sal_Int32 nLeft = static_cast<sal_Int32>(nRight * 0.95);
 
     // Expect table borders in right page margin.
     const OString sXPath = "//polyline/point[@x>" + OString::number(nLeft) + " and @x<"
@@ -2387,7 +2432,7 @@ void SwLayoutWriter::testTableExtrusion2()
     // Dump the rendering of the first page as an XML file.
     std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(*xMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
     CPPUNIT_ASSERT(pXmlDoc);
     // End point position of the outer table.
     sal_Int32 nX = getXPath(pXmlDoc, "(//polyline[1]/point)[2]", "x").toInt32();
@@ -2503,8 +2548,23 @@ void SwLayoutWriter::testTdf109137()
                 /*nNumberOfNodes=*/1);
 }
 
-//just care it doesn't crash
+//just care it doesn't crash/assert
 void SwLayoutWriter::testForcepoint72() { createDoc("forcepoint72-1.rtf"); }
+
+//just care it doesn't crash/assert
+void SwLayoutWriter::testForcepoint75()
+{
+    try
+    {
+        createDoc("forcepoint75-1.rtf");
+    }
+    catch (...)
+    {
+    }
+}
+
+//just care it doesn't crash/assert
+void SwLayoutWriter::testForcepoint76() { createDoc("forcepoint76-1.rtf"); }
 
 void SwLayoutWriter::testTdf118058()
 {
@@ -2605,6 +2665,33 @@ void SwLayoutWriter::testTdf116989()
         CPPUNIT_ASSERT_MESSAGE(OString("testing paragraph #" + OString::number(i)).getStr(),
                                nTxtBottom <= nTblTop);
     }
+}
+
+void SwLayoutWriter::testTdf115094()
+{
+    createDoc("tdf115094.docx");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+
+    sal_Int32 nTopOfD1
+        = getXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/tab/row[1]/cell[4]/infos/bounds",
+                   "top")
+              .toInt32();
+    sal_Int32 nTopOfD1Anchored = getXPath(pXmlDoc,
+                                          "/root/page/body/txt/anchored/fly/tab/row[1]/cell[4]/"
+                                          "txt[2]/anchored/fly/infos/bounds",
+                                          "top")
+                                     .toInt32();
+    CPPUNIT_ASSERT_LESS(nTopOfD1Anchored, nTopOfD1);
+    sal_Int32 nTopOfB2
+        = getXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/tab/row[2]/cell[2]/infos/bounds",
+                   "top")
+              .toInt32();
+    sal_Int32 nTopOfB2Anchored = getXPath(pXmlDoc,
+                                          "/root/page/body/txt/anchored/fly/tab/row[2]/cell[2]/"
+                                          "txt[1]/anchored/fly/infos/bounds",
+                                          "top")
+                                     .toInt32();
+    CPPUNIT_ASSERT_LESS(nTopOfB2Anchored, nTopOfB2);
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SwLayoutWriter);

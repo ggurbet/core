@@ -22,6 +22,7 @@
 #include <com/sun/star/view/XControlAccess.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
+#include <com/sun/star/lang/XMultiComponentFactory.hpp>
 #include <ooo/vba/XControlProvider.hpp>
 
 #include "vbaoleobject.hxx"
@@ -145,12 +146,10 @@ ScVbaOLEObject::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaOLEObject::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.OLEObject";
-    }
+        "ooo.vba.excel.OLEObject"
+    };
     return aServiceNames;
 }
 

@@ -417,6 +417,48 @@ isPartOfType(struct DocumentMetadataAccess_Impl const & i_rImpl,
     }
 }
 
+static ::std::vector<uno::Reference<rdf::XURI>>
+getAllParts(struct DocumentMetadataAccess_Impl const& i_rImpl,
+            const uno::Reference<rdf::XURI>& i_xType)
+{
+    ::std::vector<uno::Reference<rdf::XURI>> ret;
+    try
+    {
+        const uno::Reference<container::XEnumeration> xEnum(
+            i_rImpl.m_xManifest->getStatements(i_rImpl.m_xBaseURI.get(),
+                                               getURI<rdf::URIs::PKG_HASPART>(i_rImpl.m_xContext),
+                                               nullptr),
+            uno::UNO_SET_THROW);
+        while (xEnum->hasMoreElements())
+        {
+            rdf::Statement stmt;
+            if (!(xEnum->nextElement() >>= stmt))
+            {
+                throw uno::RuntimeException();
+            }
+            const uno::Reference<rdf::XURI> xPart(stmt.Object, uno::UNO_QUERY);
+            if (!xPart.is())
+                continue;
+
+            const uno::Reference<container::XEnumeration> xEnum2(
+                i_rImpl.m_xManifest->getStatements(
+                    xPart.get(), getURI<rdf::URIs::RDF_TYPE>(i_rImpl.m_xContext), i_xType.get()),
+                uno::UNO_SET_THROW);
+            if (xEnum2->hasMoreElements())
+                ret.emplace_back(xPart);
+        }
+        return ret;
+    }
+    catch (const uno::RuntimeException&)
+    {
+        throw;
+    }
+    catch (const uno::Exception& e)
+    {
+        throw lang::WrappedTargetRuntimeException("getAllParts: exception", nullptr,
+                                                  uno::makeAny(e));
+    }
+}
 
 static ucb::InteractiveAugmentedIOException
 mkException( OUString const & i_rMessage,
@@ -856,26 +898,17 @@ DocumentMetadataAccess::getElementByURI(
     return getElementByMetadataReference( beans::StringPair(path, idref) );
 }
 
-
-uno::Sequence< uno::Reference< rdf::XURI > > SAL_CALL
-DocumentMetadataAccess::getMetadataGraphsWithType(
-    const uno::Reference<rdf::XURI> & i_xType)
+uno::Sequence<uno::Reference<rdf::XURI>> SAL_CALL
+DocumentMetadataAccess::getMetadataGraphsWithType(const uno::Reference<rdf::XURI>& i_xType)
 {
-    if (!i_xType.is()) {
-        throw lang::IllegalArgumentException(
-            "DocumentMetadataAccess::getMetadataGraphsWithType: "
-            "type is null", *this, 0);
+    if (!i_xType.is())
+    {
+        throw lang::IllegalArgumentException("DocumentMetadataAccess::getMetadataGraphsWithType: "
+                                             "type is null",
+                                             *this, 0);
     }
 
-    ::std::vector< uno::Reference< rdf::XURI > > ret;
-    const ::std::vector< uno::Reference< rdf::XURI > > parts(
-        getAllParts(*m_pImpl) );
-    ::std::remove_copy_if(parts.begin(), parts.end(),
-        ::std::back_inserter(ret),
-        [this, &i_xType](uno::Reference< rdf::XURI > aPart) {
-            return !isPartOfType(*m_pImpl, aPart, i_xType);
-        } );
-    return ::comphelper::containerToSequence(ret);
+    return ::comphelper::containerToSequence(getAllParts(*m_pImpl, i_xType));
 }
 
 uno::Reference<rdf::XURI> SAL_CALL
@@ -1079,10 +1112,8 @@ void SAL_CALL DocumentMetadataAccess::loadMetadataFromStorage(
         const uno::Reference<rdf::XURI>& xMetadataFile(
             getURI<rdf::URIs::PKG_METADATAFILE>(m_pImpl->m_xContext));
         const sal_Int32 len( baseURI.getLength() );
-        for (::std::vector< uno::Reference< rdf::XURI > >::const_iterator it
-                = parts.begin();
-                it != parts.end(); ++it) {
-            const OUString name((*it)->getStringValue());
+        for (const auto& rxPart : parts) {
+            const OUString name(rxPart->getStringValue());
             if (!name.match(baseURI)) {
                 SAL_WARN("sfx", "loadMetadataFromStorage: graph not in document: " << name);
                 continue;
@@ -1095,7 +1126,7 @@ void SAL_CALL DocumentMetadataAccess::loadMetadataFromStorage(
             // remove found items from StgFiles
             StgFiles.erase(relName);
             if (isContentFile(relName)) {
-                if (!isPartOfType(*m_pImpl, *it, xContentFile)) {
+                if (!isPartOfType(*m_pImpl, rxPart, xContentFile)) {
                     const uno::Reference <rdf::XURI> xName(
                         getURIForStream(*m_pImpl, relName) );
                     // add missing type statement
@@ -1104,7 +1135,7 @@ void SAL_CALL DocumentMetadataAccess::loadMetadataFromStorage(
                         xContentFile.get());
                 }
             } else if (isStylesFile(relName)) {
-                if (!isPartOfType(*m_pImpl, *it, xStylesFile)) {
+                if (!isPartOfType(*m_pImpl, rxPart, xStylesFile)) {
                     const uno::Reference <rdf::XURI> xName(
                         getURIForStream(*m_pImpl, relName) );
                     // add missing type statement
@@ -1115,7 +1146,7 @@ void SAL_CALL DocumentMetadataAccess::loadMetadataFromStorage(
             } else if (isReservedFile(relName)) {
                 SAL_WARN("sfx", "loadMetadataFromStorage: reserved file name in manifest");
             } else {
-                if (isPartOfType(*m_pImpl, *it, xMetadataFile)) {
+                if (isPartOfType(*m_pImpl, rxPart, xMetadataFile)) {
                     MfstMetadataFiles.push_back(relName);
                 }
                 // do not add statement for MetadataFile; it could be

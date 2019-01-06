@@ -1099,14 +1099,11 @@ void ScDocFunc::PutData( const ScAddress& rPos, ScEditEngineDefaulter& rEngine, 
         bRet = SetEditCell(rPos, *pNewData, !bApi);
 
         // Set the paragraph attributes back to the EditEngine.
-        if (!aRememberItems.empty())
+        ScMyRememberItemVector::iterator aItr = aRememberItems.begin();
+        while (aItr != aRememberItems.end())
         {
-            ScMyRememberItemVector::iterator aItr = aRememberItems.begin();
-            while (aItr != aRememberItems.end())
-            {
-                rEngine.SetParaAttribs((*aItr)->nIndex, (*aItr)->aItemSet);
-                ++aItr;
-            }
+            rEngine.SetParaAttribs((*aItr)->nIndex, (*aItr)->aItemSet);
+            ++aItr;
         }
 
         // #i61702# if the content isn't accessed, there's no need to set the UpdateMode again
@@ -1469,7 +1466,7 @@ bool canInsertCellsByPivot(const ScRange& rRange, const ScMarkData& rMarkData, I
         {
             aRange.aStart.SetCol(0);
             aRange.aEnd.SetCol(MAXCOL);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case INS_CELLSDOWN:
         {
@@ -1505,7 +1502,7 @@ bool canInsertCellsByPivot(const ScRange& rRange, const ScMarkData& rMarkData, I
         {
             aRange.aStart.SetRow(0);
             aRange.aEnd.SetRow(MAXROW);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case INS_CELLSRIGHT:
         {
@@ -1567,7 +1564,7 @@ bool canDeleteCellsByPivot(const ScRange& rRange, const ScMarkData& rMarkData, D
         {
             aRange.aStart.SetCol(0);
             aRange.aEnd.SetCol(MAXCOL);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case DelCellCmd::CellsUp:
         {
@@ -1592,7 +1589,7 @@ bool canDeleteCellsByPivot(const ScRange& rRange, const ScMarkData& rMarkData, D
         {
             aRange.aStart.SetRow(0);
             aRange.aEnd.SetRow(MAXROW);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         }
         case DelCellCmd::CellsLeft:
         {

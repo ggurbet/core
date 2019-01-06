@@ -393,7 +393,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                     pStyleSheet = &(pStylePool->Make( aStyleName, eFamily,
                                                       SfxStyleSearchBits::UserDefined ) );
 
-                    if ( pStyleSheet && pStyleSheet->HasParentSupport() )
+                    if (pStyleSheet->HasParentSupport())
                         pStyleSheet->SetParent(aRefName);
                 }
                 break;
@@ -421,7 +421,7 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                     {
                     }
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             }
             case SID_STYLE_EDIT:
             case SID_STYLE_DELETE:
@@ -703,17 +703,18 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                         {
                             std::unique_ptr<ScUndoApplyPageStyle> pUndoAction;
                             SCTAB nTabCount = rDoc.GetTableCount();
-                            ScMarkData::iterator itr = rMark.begin(), itrEnd = rMark.end();
-                            for (; itr != itrEnd && *itr < nTabCount; ++itr)
+                            for (const auto& rTab : rMark)
                             {
-                                OUString aOldName = rDoc.GetPageStyle( *itr );
+                                if (rTab >= nTabCount)
+                                    break;
+                                OUString aOldName = rDoc.GetPageStyle( rTab );
                                 if ( aOldName != aStyleName )
                                 {
-                                    rDoc.SetPageStyle( *itr, aStyleName );
-                                    ScPrintFunc( pDocSh, pTabViewShell->GetPrinter(true), *itr ).UpdatePages();
+                                    rDoc.SetPageStyle( rTab, aStyleName );
+                                    ScPrintFunc( pDocSh, pTabViewShell->GetPrinter(true), rTab ).UpdatePages();
                                     if( !pUndoAction )
                                         pUndoAction.reset(new ScUndoApplyPageStyle( pDocSh, aStyleName ));
-                                    pUndoAction->AddSheetAction( *itr, aOldName );
+                                    pUndoAction->AddSheetAction( rTab, aOldName );
                                 }
                             }
                             if( pUndoAction )
@@ -2180,7 +2181,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                         rSet.Put( SvxColorItem(aCol, SID_FRAME_LINECOLOR ) );
                         rSet.InvalidateItem(SID_FRAME_LINECOLOR);
                     }
-                    else if( !bCol && !bColDisable) // if no line available
+                    else if (!bCol) // if no line available
                     {
                         aCol = COL_AUTO;
                         rSet.Put( SvxColorItem(aCol, SID_FRAME_LINECOLOR ) );
@@ -2545,7 +2546,7 @@ void ScFormatShell::GetNumFormatState( SfxItemSet& rSet )
                             bThousand = nIntegerDigits > 0 && ((nIntegerDigits % 3) == 0);
                         }
                         OUString aFormat;
-                        static OUString sBreak = ",";
+                        static const OUString sBreak = ",";
                         const OUString sThousand = OUString::number(static_cast<sal_Int32>(bThousand));
                         const OUString sNegRed = OUString::number(static_cast<sal_Int32>(bNegRed));
                         const OUString sPrecision = OUString::number(nPrecision);

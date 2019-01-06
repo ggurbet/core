@@ -20,9 +20,6 @@
 #include <SeriesOptionsItemConverter.hxx>
 #include "SchWhichPairs.hxx"
 
-#include <ItemPropertyMap.hxx>
-#include <GraphicPropertyItemConverter.hxx>
-#include <MultipleItemConverter.hxx>
 #include <ChartModelHelper.hxx>
 #include <AxisHelper.hxx>
 #include <DiagramHelper.hxx>
@@ -30,18 +27,13 @@
 #include <DataSeriesHelper.hxx>
 #include <ChartModel.hxx>
 
-#include <com/sun/star/chart/MissingValueTreatment.hpp>
 #include <com/sun/star/chart2/XDataSeries.hpp>
 
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/ilstitem.hxx>
-#include <rtl/math.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
-
-#include <functional>
-#include <algorithm>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::chart2;
@@ -74,6 +66,7 @@ SeriesOptionsItemConverter::SeriesOptionsItemConverter(
         , m_nMissingValueTreatment(0)
         , m_bSupportingPlottingOfHiddenCells(false)
         , m_bIncludeHiddenCells(true)
+        , m_bHideLegendEntry(false)
 {
     try
     {
@@ -156,6 +149,8 @@ SeriesOptionsItemConverter::SeriesOptionsItemConverter(
             {
             }
         }
+
+        m_bHideLegendEntry = !xPropertySet->getPropertyValue("ShowLegendEntry").get<bool>();
     }
     catch( const uno::Exception & )
     {
@@ -351,6 +346,15 @@ bool SeriesOptionsItemConverter::ApplySpecialItem( sal_uInt16 nWhichId, const Sf
             }
         }
         break;
+        case SCHATTR_HIDE_LEGEND_ENTRY:
+        {
+            bool bHideLegendEntry = static_cast<const SfxBoolItem &>(rItemSet.Get(nWhichId)).GetValue();
+            if (bHideLegendEntry != m_bHideLegendEntry)
+            {
+                GetPropertySet()->setPropertyValue("ShowLegendEntry", css::uno::makeAny(!bHideLegendEntry));
+            }
+        }
+        break;
     }
     return bChanged;
 }
@@ -420,6 +424,11 @@ void SeriesOptionsItemConverter::FillSpecialItem(
         {
             if( m_bSupportingPlottingOfHiddenCells )
                 rOutItemSet.Put( SfxBoolItem(nWhichId, m_bIncludeHiddenCells) );
+            break;
+        }
+        case SCHATTR_HIDE_LEGEND_ENTRY:
+        {
+            rOutItemSet.Put(SfxBoolItem(nWhichId, m_bHideLegendEntry));
             break;
         }
         default:

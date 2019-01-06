@@ -25,6 +25,7 @@
 #include <vcl/decoview.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/button.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/uitest/uiobject.hxx>
@@ -33,7 +34,7 @@
 #include <svdata.hxx>
 #include <listbox.hxx>
 #include <controldata.hxx>
-
+#include <comphelper/lok.hxx>
 
 struct ComboBoxBounds
 {
@@ -529,8 +530,12 @@ void ComboBox::SetDropDownLineCount( sal_uInt16 nLines )
 
 void ComboBox::AdaptDropDownLineCountToMaximum()
 {
-    // adapt to maximum allowed number
-    SetDropDownLineCount(GetSettings().GetStyleSettings().GetListBoxMaximumLineCount());
+    // Adapt to maximum allowed number.
+    // Limit for LOK as we can't render outside of the dialog canvas.
+    if (comphelper::LibreOfficeKit::isActive())
+        SetDropDownLineCount(11);
+    else
+        SetDropDownLineCount(GetSettings().GetStyleSettings().GetListBoxMaximumLineCount());
 }
 
 sal_uInt16 ComboBox::GetDropDownLineCount() const
@@ -916,8 +921,10 @@ void ComboBox::RemoveEntryAt(sal_Int32 const nPos)
 {
     const sal_Int32 nMRUCount = m_pImpl->m_pImplLB->GetEntryList()->GetMRUCount();
     if (nPos < 0 || nPos > COMBOBOX_MAX_ENTRIES - nMRUCount)
+    {
+        assert("bad position");
         return;
-
+    }
     m_pImpl->m_pImplLB->RemoveEntry( nPos + nMRUCount );
     CallEventListeners( VclEventId::ComboboxItemRemoved, reinterpret_cast<void*>(nPos) );
 }
@@ -998,7 +1005,7 @@ void ComboBox::SetDoubleClickHdl(const Link<ComboBox&,void>& rLink) { m_pImpl->m
 
 const Link<ComboBox&,void>& ComboBox::GetDoubleClickHdl() const { return m_pImpl->m_DoubleClickHdl; }
 
-void ComboBox::SetEntryActivateHdl(const Link<Edit&,void>& rLink)
+void ComboBox::SetEntryActivateHdl(const Link<Edit&,bool>& rLink)
 {
     if (!m_pImpl->m_pSubEdit)
         return;
@@ -1177,8 +1184,8 @@ void ComboBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, D
     // Border/Background
     pDev->SetLineColor();
     pDev->SetFillColor();
-    bool bBorder = !(nFlags & DrawFlags::NoBorder ) && (GetStyle() & WB_BORDER);
-    bool bBackground = !(nFlags & DrawFlags::NoBackground) && IsControlBackground();
+    bool bBorder = (GetStyle() & WB_BORDER);
+    bool bBackground = IsControlBackground();
     if ( bBorder || bBackground )
     {
         tools::Rectangle aRect( aPos, aSize );
@@ -1219,7 +1226,7 @@ void ComboBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, D
         }
         else
         {
-            if ( !(nFlags & DrawFlags::NoDisable ) && !IsEnabled() )
+            if ( !IsEnabled() )
             {
                 const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
                 pDev->SetTextColor( rStyleSettings.GetDisableColor() );

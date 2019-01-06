@@ -29,6 +29,7 @@
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/controllayout.hxx>
 #include <vcl/settings.hxx>
@@ -437,7 +438,7 @@ namespace accessibility
         {
             return getListBox()->GetEntryLongDescription( pEntry );
         }
-        //want to cout the real column number in the list box.
+        //want to count the real column number in the list box.
         sal_uInt16 iRealItemCount = 0;
         sal_uInt16 iCount = 0;
         sal_uInt16 iTotleItemCount = pEntry->ItemCount();
@@ -1095,7 +1096,7 @@ namespace accessibility
     {
         ::osl::MutexGuard aGuard( m_aMutex );
         Any aValue;
-        sal_Int32 level = (static_cast<sal_Int32>(m_aEntryPath.size()) - 1);
+        sal_Int32 level = static_cast<sal_Int32>(m_aEntryPath.size()) - 1;
         level = level < 0 ?  0: level;
         aValue <<= level;
         return aValue;

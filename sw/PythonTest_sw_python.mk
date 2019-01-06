@@ -19,6 +19,7 @@ $(eval $(call gb_PythonTest_add_modules,sw_python,$(SRCDIR)/sw/qa/python,\
 	check_index \
 	check_flies \
 	check_fields \
+	check_xcloseable \
 	check_cross_references \
 	check_named_property_values \
 	check_indexed_property_values \
@@ -26,7 +27,9 @@ $(eval $(call gb_PythonTest_add_modules,sw_python,$(SRCDIR)/sw/qa/python,\
 	check_xtexttable \
 	check_table \
 	check_xautotextcontainer \
+	check_xautotextgroup \
 	check_xmodifiable2 \
+	check_xmodel \
 	check_xnamedgraph \
 	check_xrefreshable \
 	check_xtextrangecompare \
@@ -38,6 +41,9 @@ $(eval $(call gb_PythonTest_add_modules,sw_python,$(SRCDIR)/sw/qa/python,\
 	xtextfieldssupplier \
 	xcontrolshape \
 	xtextcontent \
+	xtextrange \
+	xtext \
+	xtextcursor \
 ))
 
 # vim: set noet sw=4 ts=4:

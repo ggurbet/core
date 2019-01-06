@@ -97,7 +97,7 @@ SalInstance* tryInstance( const OUString& rModuleBase, bool bForce = false )
                  * #i109007# KDE3 seems to have the same problem.
                  * And same applies for KDE4.
                  */
-                if( rModuleBase == "gtk" || rModuleBase == "gtk3" || rModuleBase == "kde4" || rModuleBase == "gtk3_kde5" || rModuleBase == "win" )
+                if( rModuleBase == "gtk" || rModuleBase == "gtk3" || rModuleBase == "gtk3_kde5" || rModuleBase == "win" )
                 {
                     pCloseModule = nullptr;
                 }
@@ -155,9 +155,6 @@ SalInstance* autodetect_plugin()
 #endif
 #if ENABLE_GTK3_KDE5
         "gtk3_kde5",
-#endif
-#if ENABLE_KDE4
-        "kde4",
 #endif
         "gtk3", "gtk", "gen", nullptr
     };
@@ -236,13 +233,20 @@ SalInstance *CreateSalInstance()
     SalInstance *pInst = nullptr;
 
     OUString aUsePlugin;
+    rtl::Bootstrap::get("SAL_USE_VCLPLUGIN", aUsePlugin);
+    SAL_INFO_IF(!aUsePlugin.isEmpty(), "vcl", "Requested VCL plugin: " << aUsePlugin);
 #ifdef HEADLESS_VCLPLUG
-    if( IsHeadlessModeRequested() )
+    if (Application::IsBitmapRendering() || (aUsePlugin.isEmpty() && IsHeadlessModeRequested()))
         aUsePlugin = "svp";
-    else
 #endif
-        rtl::Bootstrap::get( "SAL_USE_VCLPLUGIN", aUsePlugin );
 
+    if (aUsePlugin == "svp")
+    {
+        Application::EnableBitmapRendering();
+#ifndef HEADLESS_VCLPLUG
+        aUsePlugin.clear();
+#endif
+    }
     if( !aUsePlugin.isEmpty() )
         pInst = tryInstance( aUsePlugin, true );
 

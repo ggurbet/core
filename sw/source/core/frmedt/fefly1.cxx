@@ -195,7 +195,7 @@ static bool lcl_FindAnchorPos(
 
         nNew = RndStdIds::FLY_AT_PAGE;
         aNewAnch.SetType( nNew );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case RndStdIds::FLY_AT_PAGE:
         pNewAnch = rFrame.FindPageFrame();
@@ -266,6 +266,9 @@ void SwFEShell::SelectFlyFrame( SwFlyFrame& rFrame )
 
         pImpl->GetDrawView()->MarkObj( rFrame.GetVirtDrawObj(),
                                       pImpl->GetPageView() );
+
+        rFrame.SelectionHasChanged(this);
+
         KillPams();
         ClearMark();
         SelFlyGrabCursor();
@@ -978,7 +981,6 @@ void SwFEShell::SetPageObjsNewPage( std::vector<SwFrameFormat*>& rFillArr )
     StartAllAction();
     StartUndo();
 
-    long nNewPage;
     SwRootFrame* pTmpRootFrame = GetLayout();
     sal_uInt16 nMaxPage = pTmpRootFrame->GetPageNum();
     bool bTmpAssert = false;
@@ -989,13 +991,11 @@ void SwFEShell::SetPageObjsNewPage( std::vector<SwFrameFormat*>& rFillArr )
             // FlyFormat is still valid, therefore process
 
             SwFormatAnchor aNewAnchor( pFormat->GetAnchor() );
-            if ((RndStdIds::FLY_AT_PAGE != aNewAnchor.GetAnchorId()) ||
-                0 >= ( nNewPage = aNewAnchor.GetPageNum() + 1 ) )
-                // Anchor has been changed or invalid page number,
-                // therefore: do not change!
+            if (RndStdIds::FLY_AT_PAGE != aNewAnchor.GetAnchorId())
+                // Anchor has been changed, therefore: do not change!
                 continue;
-
-            if( sal_uInt16(nNewPage) > nMaxPage )
+            sal_uInt16 nNewPage = aNewAnchor.GetPageNum() + 1;
+            if (nNewPage > nMaxPage)
             {
                 if ( RES_DRAWFRMFMT == pFormat->Which() )
                     pFormat->CallSwClientNotify(sw::DrawFrameFormatHint(sw::DrawFrameFormatHintId::PAGE_OUT_OF_BOUNDS));
@@ -1003,7 +1003,7 @@ void SwFEShell::SetPageObjsNewPage( std::vector<SwFrameFormat*>& rFillArr )
                     pFormat->DelFrames();
                 bTmpAssert = true;
             }
-            aNewAnchor.SetPageNum( sal_uInt16(nNewPage) );
+            aNewAnchor.SetPageNum(nNewPage);
             mxDoc->SetAttr( aNewAnchor, *pFormat );
         }
     }

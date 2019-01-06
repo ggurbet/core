@@ -55,6 +55,7 @@
 #include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
+#include <com/sun/star/util/InvalidStateException.hpp>
 #include <comphelper/enumhelper.hxx>
 
 #include <cppuhelper/implbase.hxx>
@@ -76,6 +77,7 @@
 #include <osl/mutex.hxx>
 #include <vcl/errcode.hxx>
 #include <vcl/salctype.hxx>
+#include <vcl/gdimtf.hxx>
 #include <comphelper/classids.hxx>
 #include <sot/storinfo.hxx>
 #include <comphelper/fileformat.h>
@@ -1036,6 +1038,37 @@ Sequence< beans::PropertyValue > SAL_CALL SfxBaseModel::getArgs()
     return m_pData->m_seqArguments;
 }
 
+void SAL_CALL SfxBaseModel::setArgs(const Sequence<beans::PropertyValue>& aArgs)
+{
+    SfxModelGuard aGuard( *this );
+
+    SfxMedium* pMedium = m_pData->m_pObjectShell->GetMedium();
+    if (!pMedium)
+    {
+        throw util::InvalidStateException(
+            "Medium could not be retrieved, unable to execute setArgs");
+    }
+
+    for (int i = 0; i < aArgs.getLength(); i++)
+    {
+        OUString sValue;
+        aArgs[i].Value >>= sValue;
+
+        if (aArgs[i].Name == "SuggestedSaveAsName")
+        {
+            pMedium->GetItemSet()->Put(SfxStringItem(SID_SUGGESTEDSAVEASNAME, sValue));
+        }
+        else if (aArgs[i].Name == "SuggestedSaveAsDir")
+        {
+            pMedium->GetItemSet()->Put(SfxStringItem(SID_SUGGESTEDSAVEASDIR, sValue));
+        }
+        else
+        {
+            throw lang::IllegalArgumentException("Setting property not supported: " + aArgs[i].Name,
+                                                 comphelper::getProcessComponentContext(), 0);
+        }
+    }
+}
 
 //  frame::XModel
 
@@ -1514,7 +1547,7 @@ void SAL_CALL SfxBaseModel::storeSelf( const    Sequence< beans::PropertyValue >
             }
         }
 
-        SfxAllItemSet *pParams = new SfxAllItemSet( SfxGetpApp()->GetPool() );
+        std::unique_ptr<SfxAllItemSet> pParams(new SfxAllItemSet( SfxGetpApp()->GetPool() ));
         TransformParameters( nSlotId, aArgs, *pParams );
 
         SfxGetpApp()->NotifyEvent( SfxEventHint( SfxEventHintId::SaveDoc, GlobalEventConfig::GetEventName(GlobalEventId::SAVEDOC), m_pData->m_pObjectShell.get() ) );
@@ -1536,18 +1569,18 @@ void SAL_CALL SfxBaseModel::storeSelf( const    Sequence< beans::PropertyValue >
             }
             else
             {
-                bRet = m_pData->m_pObjectShell->Save_Impl( pParams );
+                bRet = m_pData->m_pObjectShell->Save_Impl( pParams.get() );
             }
         }
         else
         {
             // Tell the SfxMedium if we are in checkin instead of normal save
             m_pData->m_pObjectShell->GetMedium( )->SetInCheckIn( nSlotId == SID_CHECKIN );
-            bRet = m_pData->m_pObjectShell->Save_Impl( pParams );
+            bRet = m_pData->m_pObjectShell->Save_Impl( pParams.get() );
             m_pData->m_pObjectShell->GetMedium( )->SetInCheckIn( nSlotId != SID_CHECKIN );
         }
 
-        DELETEZ( pParams );
+        pParams.reset();
 
         ErrCode nErrCode = m_pData->m_pObjectShell->GetError() ? m_pData->m_pObjectShell->GetError()
                                                                : ERRCODE_IO_CANTWRITE;
@@ -1918,11 +1951,10 @@ Any SAL_CALL SfxBaseModel::getTransferData( const datatransfer::DataFlavor& aFla
                 utl::TempFile aTmp;
                 aTmp.EnableKillingFile();
                 storeToURL( aTmp.GetURL(), Sequence < beans::PropertyValue >() );
-                SvStream* pStream = aTmp.GetStream( StreamMode::READ );
+                std::unique_ptr<SvStream> pStream(aTmp.GetStream( StreamMode::READ ));
                 const sal_uInt32 nLen = pStream->TellEnd();
                 Sequence< sal_Int8 > aSeq( nLen );
                 pStream->ReadBytes(aSeq.getArray(), nLen);
-                delete pStream;
                 if( aSeq.getLength() )
                     aAny <<= aSeq;
             }
@@ -1976,7 +2008,7 @@ Any SAL_CALL SfxBaseModel::getTransferData( const datatransfer::DataFlavor& aFla
 
                 if (xMetaFile)
                 {
-                    std::shared_ptr<SvMemoryStream> xStream(
+                    std::unique_ptr<SvMemoryStream> xStream(
                         GraphicHelper::getFormatStrFromGDI_Impl(
                             xMetaFile.get(), ConvertDataFormat::EMF ) );
                     if (xStream)
@@ -2011,7 +2043,7 @@ Any SAL_CALL SfxBaseModel::getTransferData( const datatransfer::DataFlavor& aFla
 
                 if (xMetaFile)
                 {
-                    std::shared_ptr<SvMemoryStream> xStream(
+                    std::unique_ptr<SvMemoryStream> xStream(
                         GraphicHelper::getFormatStrFromGDI_Impl(
                             xMetaFile.get(), ConvertDataFormat::WMF ) );
 
@@ -2052,7 +2084,7 @@ Any SAL_CALL SfxBaseModel::getTransferData( const datatransfer::DataFlavor& aFla
 
             if (xMetaFile)
             {
-                std::shared_ptr<SvMemoryStream> xStream(
+                std::unique_ptr<SvMemoryStream> xStream(
                     GraphicHelper::getFormatStrFromGDI_Impl(
                         xMetaFile.get(), ConvertDataFormat::BMP ) );
 
@@ -2074,7 +2106,7 @@ Any SAL_CALL SfxBaseModel::getTransferData( const datatransfer::DataFlavor& aFla
 
             if (xMetaFile)
             {
-                std::shared_ptr<SvMemoryStream> xStream(
+                std::unique_ptr<SvMemoryStream> xStream(
                     GraphicHelper::getFormatStrFromGDI_Impl(
                         xMetaFile.get(), ConvertDataFormat::PNG ) );
 

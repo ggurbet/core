@@ -71,9 +71,8 @@ IndexedStyleSheets::Reindex()
     }
 
     unsigned i = 0;
-    for (VectorType::const_iterator it = mStyleSheets.begin();
-                                    it != mStyleSheets.end(); ++it) {
-        SfxStyleSheetBase* p = it->get();
+    for (const auto& rxStyleSheet : mStyleSheets) {
+        SfxStyleSheetBase* p = rxStyleSheet.get();
         Register(*p, i);
         ++i;
     }
@@ -98,24 +97,18 @@ IndexedStyleSheets::AddStyleSheet(const rtl::Reference< SfxStyleSheetBase >& sty
 bool
 IndexedStyleSheets::RemoveStyleSheet(const rtl::Reference< SfxStyleSheetBase >& style)
 {
-    OUString styleName = style->GetName();
-    std::vector<unsigned> positions = FindPositionsByName(styleName);
-    bool found = false;
-    unsigned stylePosition = 0;
-    for (std::vector<unsigned>::const_iterator it = positions.begin();
-                                               it != positions.end(); ++it) {
-        if (mStyleSheets.at(*it) == style) {
-            found = true;
-            stylePosition = *it;
-            break;
+    std::pair<MapType::const_iterator, MapType::const_iterator> range = mPositionsByName.equal_range(style->GetName());
+    for (MapType::const_iterator it = range.first; it != range.second; ++it)
+    {
+        unsigned pos = it->second;
+        if (mStyleSheets.at(pos) == style)
+        {
+            mStyleSheets.erase(mStyleSheets.begin() + pos);
+            Reindex();
+            return true;
         }
     }
-
-    if (found) {
-        mStyleSheets.erase(mStyleSheets.begin() + stylePosition);
-        Reindex();
-    }
-    return found;
+    return false;
 }
 
 std::vector<unsigned>
@@ -152,14 +145,11 @@ IndexedStyleSheets::FindPositionsByNameAndPredicate(const OUString& name,
 unsigned
 IndexedStyleSheets::GetNumberOfStyleSheetsWithPredicate(StyleSheetPredicate& predicate) const
 {
-    unsigned r = 0;
-    for (VectorType::const_iterator it = mStyleSheets.begin(); it != mStyleSheets.end(); ++it) {
-        const SfxStyleSheetBase *ssheet = it->get();
-        if (predicate.Check(*ssheet)) {
-            ++r;
-        }
-    }
-    return r;
+    return std::count_if(mStyleSheets.begin(), mStyleSheets.end(),
+        [&predicate](const rtl::Reference<SfxStyleSheetBase>& rxStyleSheet) {
+            const SfxStyleSheetBase *ssheet = rxStyleSheet.get();
+            return predicate.Check(*ssheet);
+        });
 }
 
 SfxStyleSheetBase*
@@ -196,8 +186,8 @@ IndexedStyleSheets::FindStyleSheetPosition(const SfxStyleSheetBase& style) const
 void
 IndexedStyleSheets::Clear(StyleSheetDisposer& disposer)
 {
-    for (VectorType::iterator it = mStyleSheets.begin(); it != mStyleSheets.end(); ++it) {
-        disposer.Dispose(*it);
+    for (auto& rxStyleSheet : mStyleSheets) {
+        disposer.Dispose(rxStyleSheet);
     }
     mStyleSheets.clear();
     mPositionsByName.clear();
@@ -210,13 +200,11 @@ IndexedStyleSheets::~IndexedStyleSheets()
 bool
 IndexedStyleSheets::HasStyleSheet(const rtl::Reference< SfxStyleSheetBase >& style) const
 {
-    OUString styleName = style->GetName();
-    std::vector<unsigned> positions = FindPositionsByName(styleName);
-    for (std::vector<unsigned>::const_iterator it = positions.begin();
-                                               it != positions.end(); ++it) {
-        if (mStyleSheets.at(*it) == style) {
+    std::pair<MapType::const_iterator, MapType::const_iterator> range = mPositionsByName.equal_range(style->GetName());
+    for (MapType::const_iterator it = range.first; it != range.second; ++it)
+    {
+        if (mStyleSheets.at(it->second) == style)
             return true;
-        }
     }
     return false;
 }
@@ -232,8 +220,8 @@ IndexedStyleSheets::GetStyleSheetByPosition(unsigned pos)
 void
 IndexedStyleSheets::ApplyToAllStyleSheets(StyleSheetCallback& callback) const
 {
-    for (VectorType::const_iterator it = mStyleSheets.begin(); it != mStyleSheets.end(); ++it) {
-        callback.DoIt(**it);
+    for (const auto& rxStyleSheet : mStyleSheets) {
+        callback.DoIt(*rxStyleSheet);
     }
 }
 

@@ -30,6 +30,7 @@
 #include <tools/debug.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/gdimtf.hxx>
 #include <sfx2/lnkbase.hxx>
 #include <sfx2/app.hxx>
 #include <vcl/graph.hxx>
@@ -91,10 +92,9 @@ void LinkManager::InsertCachedComp(const Reference<XComponent>& xComp)
 
 void LinkManager::CloseCachedComps()
 {
-    CompVector::iterator itr = maCachedComps.begin(), itrEnd = maCachedComps.end();
-    for (; itr != itrEnd; ++itr)
+    for (const auto& rxCachedComp : maCachedComps)
     {
-        Reference<XCloseable> xCloseable(*itr, UNO_QUERY);
+        Reference<XCloseable> xCloseable(rxCachedComp, UNO_QUERY);
         if (!xCloseable.is())
             continue;
 
@@ -471,14 +471,15 @@ void LinkManager::InsertFileLink(
 void LinkManager::CancelTransfers()
 {
     SvFileObject* pFileObj;
-    sfx2::SvBaseLink* pLnk;
 
     const sfx2::SvBaseLinks& rLnks = GetLinks();
     for( size_t n = rLnks.size(); n; )
-        if( nullptr != ( pLnk = &(*rLnks[ --n ])) &&
-            OBJECT_CLIENT_FILE == (OBJECT_CLIENT_FILE & pLnk->GetObjType()) &&
-            nullptr != ( pFileObj = static_cast<SvFileObject*>(pLnk->GetObj()) ) )
+    {
+        const sfx2::SvBaseLink& rLnk = *rLnks[--n];
+        if (OBJECT_CLIENT_FILE == (OBJECT_CLIENT_FILE & rLnk.GetObjType())
+            && nullptr != (pFileObj = static_cast<SvFileObject*>(rLnk.GetObj())))
             pFileObj->CancelTransfers();
+    }
 }
 
 // For the purpose of sending Status information from the file object to

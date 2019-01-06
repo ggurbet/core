@@ -357,6 +357,7 @@ static const char* STR_POOLCOLL_LISTS_ARY[]
 static const char* STR_POOLCOLL_EXTRA_ARY[]
 {
     // Subcategory Header
+    STR_POOLCOLL_HEADERFOOTER,
     STR_POOLCOLL_HEADER,
     STR_POOLCOLL_HEADERL,
     STR_POOLCOLL_HEADERR,
@@ -875,6 +876,7 @@ SwTextFormatColl* DocumentStylePoolManager::GetTextCollFromPool( sal_uInt16 nId,
 
         // Special sections:
         // Header
+        case RES_POOLCOLL_HEADERFOOTER:
         case RES_POOLCOLL_HEADER:
         case RES_POOLCOLL_HEADERL:
         case RES_POOLCOLL_HEADERR:
@@ -894,6 +896,11 @@ SwTextFormatColl* DocumentStylePoolManager::GetTextCollFromPool( sal_uInt16 nId,
                 aTStops.Insert( SvxTabStop( nRightMargin, SvxTabAdjust::Right ) );
 
                 aSet.Put( aTStops );
+
+                if ( (nId==RES_POOLCOLL_HEADERR) || (nId==RES_POOLCOLL_FOOTERR) ) {
+                    SvxAdjustItem aAdjust(SvxAdjust::Right, RES_PARATR_ADJUST );
+                    aSet.Put(aAdjust);
+                }
             }
             break;
 
@@ -978,34 +985,34 @@ SwTextFormatColl* DocumentStylePoolManager::GetTextCollFromPool( sal_uInt16 nId,
                 aSet.Put( aLN );
             }
             break;
-        case RES_POOLCOLL_TOX_USER1:            // 1. Level
+        case RES_POOLCOLL_TOX_USER1:            // 1st level
             lcl_SetRegister( &m_rDoc, aSet, 0, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER2:            // 2. Level
+        case RES_POOLCOLL_TOX_USER2:            // 2nd level
             lcl_SetRegister( &m_rDoc, aSet, 1, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER3:            // 3. Level
+        case RES_POOLCOLL_TOX_USER3:            // 3rd level
             lcl_SetRegister( &m_rDoc, aSet, 2, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER4:            // 4. Level
+        case RES_POOLCOLL_TOX_USER4:            // 4th level
             lcl_SetRegister( &m_rDoc, aSet, 3, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER5:            // 5. Level
+        case RES_POOLCOLL_TOX_USER5:            // 5th level
             lcl_SetRegister( &m_rDoc, aSet, 4, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER6:            // 6. Level
+        case RES_POOLCOLL_TOX_USER6:            // 6th level
             lcl_SetRegister( &m_rDoc, aSet, 5, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER7:            // 7. Level
+        case RES_POOLCOLL_TOX_USER7:            // 7th level
             lcl_SetRegister( &m_rDoc, aSet, 6, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER8:            // 8. Level
+        case RES_POOLCOLL_TOX_USER8:            // 8th level
             lcl_SetRegister( &m_rDoc, aSet, 7, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER9:            // 9. Level
+        case RES_POOLCOLL_TOX_USER9:            // 9th level
             lcl_SetRegister( &m_rDoc, aSet, 8, false, true );
             break;
-        case RES_POOLCOLL_TOX_USER10:           // 10. Level
+        case RES_POOLCOLL_TOX_USER10:           // 10th level
             lcl_SetRegister( &m_rDoc, aSet, 9, false, true );
             break;
 
@@ -1018,16 +1025,16 @@ SwTextFormatColl* DocumentStylePoolManager::GetTextCollFromPool( sal_uInt16 nId,
                 aSet.Put( aLN );
             }
             break;
-        case RES_POOLCOLL_TOX_IDX1:         // 1. Level
+        case RES_POOLCOLL_TOX_IDX1:         // 1st level
             lcl_SetRegister( &m_rDoc, aSet, 0, false, false );
             break;
-        case RES_POOLCOLL_TOX_IDX2:         // 2. Level
+        case RES_POOLCOLL_TOX_IDX2:         // 2nd level
             lcl_SetRegister( &m_rDoc, aSet, 1, false, false );
             break;
-        case RES_POOLCOLL_TOX_IDX3:         // 3. Level
+        case RES_POOLCOLL_TOX_IDX3:         // 3rd level
             lcl_SetRegister( &m_rDoc, aSet, 2, false, false );
             break;
-        case RES_POOLCOLL_TOX_IDXBREAK:     // Trenner
+        case RES_POOLCOLL_TOX_IDXBREAK:     // Separator
             lcl_SetRegister( &m_rDoc, aSet, 0, false, false );
             break;
 
@@ -1040,34 +1047,34 @@ SwTextFormatColl* DocumentStylePoolManager::GetTextCollFromPool( sal_uInt16 nId,
                 aSet.Put( aLN );
             }
             break;
-        case RES_POOLCOLL_TOX_CNTNT1:       // 1. Level
+        case RES_POOLCOLL_TOX_CNTNT1:       // 1st level
             lcl_SetRegister( &m_rDoc, aSet, 0, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT2:       // 2. Level
+        case RES_POOLCOLL_TOX_CNTNT2:       // 2nd level
             lcl_SetRegister( &m_rDoc, aSet, 1, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT3:       // 3. Level
+        case RES_POOLCOLL_TOX_CNTNT3:       // 3rd level
             lcl_SetRegister( &m_rDoc, aSet, 2, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT4:       // 4. Level
+        case RES_POOLCOLL_TOX_CNTNT4:       // 4th level
             lcl_SetRegister( &m_rDoc, aSet, 3, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT5:       // 5. Level
+        case RES_POOLCOLL_TOX_CNTNT5:       // 5th level
             lcl_SetRegister( &m_rDoc, aSet, 4, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT6:       // 6. Level
+        case RES_POOLCOLL_TOX_CNTNT6:       // 6th level
             lcl_SetRegister( &m_rDoc, aSet, 5, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT7:       // 7. Level
+        case RES_POOLCOLL_TOX_CNTNT7:       // 7th level
             lcl_SetRegister( &m_rDoc, aSet, 6, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT8:       // 8. Level
+        case RES_POOLCOLL_TOX_CNTNT8:       // 8th level
             lcl_SetRegister( &m_rDoc, aSet, 7, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT9:       // 9. Level
+        case RES_POOLCOLL_TOX_CNTNT9:       // 9th level
             lcl_SetRegister( &m_rDoc, aSet, 8, false, true );
             break;
-        case RES_POOLCOLL_TOX_CNTNT10:      // 10. Level
+        case RES_POOLCOLL_TOX_CNTNT10:      // 10th level
             lcl_SetRegister( &m_rDoc, aSet, 9, false, true );
             break;
 

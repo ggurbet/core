@@ -38,6 +38,7 @@
 #include <vcl/scrbar.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
@@ -592,7 +593,7 @@ void ThumbnailView::KeyInput( const KeyEvent& rKEvt )
                 if ( bFoundLast )
                     OnItemDblClicked( mFilteredItemList[nLastPos] );
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             Control::KeyInput( rKEvt );
     }

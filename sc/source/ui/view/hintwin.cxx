@@ -33,8 +33,10 @@
 #include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
+#include <tools/lineend.hxx>
 #include <svtools/colorcfg.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/metric.hxx>
 
 #define HINT_LINESPACE  2
 #define HINT_INDENT     3

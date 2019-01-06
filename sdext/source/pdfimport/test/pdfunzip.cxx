@@ -311,9 +311,8 @@ static int write_addStreams( const char* pInFile, const char* pOutFile, PDFFile*
 
 static int write_fonts( const char* i_pInFile, const char* i_pOutFile, PDFFile* i_pPDFFile )
 {
-    int nRet = 0;
     unsigned int nElements = i_pPDFFile->m_aSubElements.size();
-    for( unsigned i = 0; i < nElements && nRet == 0; i++ )
+    for (unsigned i = 0; i < nElements; i++)
     {
         // search FontDescriptors
         PDFObject* pObj = dynamic_cast<PDFObject*>(i_pPDFFile->m_aSubElements[i].get());
@@ -390,16 +389,15 @@ static int write_fonts( const char* i_pInFile, const char* i_pOutFile, PDFFile* 
         aContext.m_bDecrypt = i_pPDFFile->isEncrypted();
         pStream->writeStream( aContext, i_pPDFFile );
     }
-    return nRet;
+    return 0;
 }
 
 static std::vector< std::pair< sal_Int32, sal_Int32 > > s_aEmitObjects;
 
 static int write_objects( const char* i_pInFile, const char* i_pOutFile, PDFFile* i_pPDFFile )
 {
-    int nRet = 0;
     unsigned int nElements = s_aEmitObjects.size();
-    for( unsigned i = 0; i < nElements && nRet == 0; i++ )
+    for (unsigned i = 0; i < nElements; i++)
     {
         sal_Int32 nObject     = s_aEmitObjects[i].first;
         sal_Int32 nGeneration = s_aEmitObjects[i].second;
@@ -419,7 +417,7 @@ static int write_objects( const char* i_pInFile, const char* i_pOutFile, PDFFile
         aContext.m_bDecrypt = i_pPDFFile->isEncrypted();
         pStream->writeStream( aContext, i_pPDFFile );
     }
-    return nRet;
+    return 0;
 }
 
 SAL_IMPLEMENT_MAIN_WITH_ARGS( argc, argv )
@@ -508,7 +506,7 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS( argc, argv )
         {
             if( aFile.getLength() > 4 )
             {
-                if( aFile.matchIgnoreAsciiCase( OString( ".pdf" ), aFile.getLength()-4 ) )
+                if( aFile.matchIgnoreAsciiCase( ".pdf", aFile.getLength()-4 ) )
                     aOutFile.append( pInFile, aFile.getLength() - 4 );
                 else
                     aOutFile.append( aFile );

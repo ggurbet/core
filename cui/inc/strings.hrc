@@ -317,7 +317,6 @@
 
 #define RID_SVXSTR_JRE_NOT_RECOGNIZED               NC_("RID_SVXSTR_JRE_NOT_RECOGNIZED", "The folder you selected does not contain a Java runtime environment.\nPlease select a different folder.")
 #define RID_SVXSTR_JRE_FAILED_VERSION               NC_("RID_SVXSTR_JRE_FAILED_VERSION", "The Java runtime environment you selected is not the required version.\nPlease select a different folder.")
-#define RID_SVXSTR_OPTIONS_RESTART                  NC_("RID_SVXSTR_OPTIONS_RESTART", "Please restart %PRODUCTNAME now so the new or modified values can take effect.")
 #define RID_SVXSTR_JAVA_START_PARAM                 NC_("RID_SVXSTR_JAVA_START_PARAM", "Edit Parameter")
 
 #define RID_SVXSTR_OPT_PROXYPORTS                   NC_("RID_SVXSTR_OPT_PROXYPORTS", "Invalid value!\n\nThe maximum value for a port number is 65535.")
@@ -352,9 +351,10 @@
 #define RID_SVXSTR_ORDINAL                          NC_("RID_SVXSTR_ORDINAL", "Format ordinal numbers suffixes (1st -> 1^st)")
 #define RID_SVXSTR_DEL_EMPTY_PARA                   NC_("RID_SVXSTR_DEL_EMPTY_PARA", "Remove blank paragraphs")
 #define RID_SVXSTR_USER_STYLE                       NC_("RID_SVXSTR_USER_STYLE", "Replace Custom Styles")
-#define RID_SVXSTR_BULLET                           NC_("RID_SVXSTR_BULLET", "Replace bullets with: ")
-#define RID_SVXSTR_RIGHT_MARGIN                     NC_("RID_SVXSTR_RIGHT_MARGIN", "Combine single line paragraphs if length greater than")
-#define RID_SVXSTR_NUM                              NC_("RID_SVXSTR_NUM", "Bulleted and numbered lists. Bullet symbol: ")
+#define RID_SVXSTR_BULLET                           NC_("RID_SVXSTR_BULLET", "Replace bullets with: %1")
+// To translators: %1 will be replaced with a percentage, e.g. "10%"
+#define RID_SVXSTR_RIGHT_MARGIN                     NC_("RID_SVXSTR_RIGHT_MARGIN", "Combine single line paragraphs if length greater than %1")
+#define RID_SVXSTR_NUM                              NC_("RID_SVXSTR_NUM", "Bulleted and numbered lists. Bullet symbol: %1")
 #define RID_SVXSTR_BORDER                           NC_("RID_SVXSTR_BORDER", "Apply border")
 #define RID_SVXSTR_CREATE_TABLE                     NC_("RID_SVXSTR_CREATE_TABLE", "Create table")
 #define RID_SVXSTR_REPLACE_TEMPLATES                NC_("RID_SVXSTR_REPLACE_TEMPLATES", "Apply Styles")
@@ -390,7 +390,9 @@
 #define RID_SVXSTR_SHADOW_STYLE_BOTTOMLEFT          NC_("RID_SVXSTR_SHADOW_STYLE_BOTTOMLEFT", "Cast Shadow to Bottom Left")
 #define RID_SVXSTR_SHADOW_STYLE_TOPLEFT             NC_("RID_SVXSTR_SHADOW_STYLE_TOPLEFT", "Cast Shadow to Top Left")
 #define RID_SVXSTR_SIGNATURELINE_SIGNED_BY          NC_("RID_SVXSTR_SIGNATURELINE_SIGNED_BY", "Signed by: %1")
-#define RID_SVXSTR_OPENCL_RESTART                   NC_("RID_SVXSTR_OPENCL_RESTART", "For the OpenCL changes to take effect, %PRODUCTNAME must be restarted.")
+
+#define RID_SVXSTR_FILTER_ALL                       NC_("RID_SVXSTR_FILTER_ALL", "All files")
+
 #endif
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

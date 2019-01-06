@@ -42,7 +42,6 @@ class AquaSalFrame;
 class AquaSalTimer;
 class AquaSalInstance;
 class AquaSalMenu;
-class AquaBlinker;
 
 typedef struct SalFrame::SalPointerState SalPointerState;
 
@@ -86,8 +85,6 @@ public:
 
     CGMutablePathRef                mrClippingPath;         // used for "shaping"
     std::vector< CGRect >           maClippingRects;
-
-    std::list<AquaBlinker*>         maBlinkers;
 
     tools::Rectangle                       maInvalidRect;
 
@@ -195,6 +192,9 @@ public:
 
     // called by VCL_NSApplication to indicate screen settings have changed
     void screenParametersChanged();
+
+protected:
+    SalEvent PreparePosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt16 nFlags);
 
 private: // methods
     /** do things on initial show (like centering on parent or on screen)

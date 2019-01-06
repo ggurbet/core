@@ -67,6 +67,7 @@
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/mimeconfighelper.hxx>
+#include <comphelper/lok.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/window.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
@@ -355,27 +356,6 @@ ModelData_Impl::ModelData_Impl( SfxStoringHelper& aOwner,
 , m_bRecommendReadOnly( false )
 {
     CheckInteractionHandler();
-    try
-    {
-        uno::Reference< lang::XComponent > xCurrentComponent = frame::Desktop::create( comphelper::getProcessComponentContext() )->getCurrentComponent();
-        if (aOwner.GetModuleManager()->identify(xCurrentComponent) == "com.sun.star.chart2.ChartDocument")
-        {
-            // let us switch the model and set the xStorable and
-            // XStorable2 to the old model.
-            // This is an ugly hack because we have no SfxObjectShell for chart2 yet.
-            // We need SfxObjectShell for the heavy work around ODF document creation
-            // because chart2 only writes the basic stream out.
-            // In future in might make sense to implement a full scale object shell in
-            // chart2 and make chart2 an own program.
-            m_xModel.set(xCurrentComponent, uno::UNO_QUERY_THROW );
-            m_xStorable.set(xModel, uno::UNO_QUERY_THROW );
-            m_xStorable2.set(xModel, uno::UNO_QUERY_THROW );
-        }
-    }
-    catch(...)
-    {
-        // we don't want to pass on any errors;
-    }
 }
 
 
@@ -981,18 +961,17 @@ bool ModelData_Impl::OutputFileDialog( sal_Int16 nStoreMode,
 
     // generate SidSet from MediaDescriptor and provide it into FileDialog
     // than merge changed SidSet back
-    SfxAllItemSet aDialogParams( SfxGetpApp()->GetPool() );
-    SfxItemSet* pDialogParams = &aDialogParams;
+    std::unique_ptr<SfxItemSet> pDialogParams(new SfxAllItemSet( SfxGetpApp()->GetPool() ));
     TransformParameters( nSlotID,
                          GetMediaDescr().getAsConstPropertyValueList(),
-                         aDialogParams );
+                         static_cast<SfxAllItemSet&>(*pDialogParams) );
 
     const SfxPoolItem* pItem = nullptr;
-    if ( bPreselectPassword && aDialogParams.GetItemState( SID_ENCRYPTIONDATA, true, &pItem ) != SfxItemState::SET )
+    if ( bPreselectPassword && pDialogParams->GetItemState( SID_ENCRYPTIONDATA, true, &pItem ) != SfxItemState::SET )
     {
         // the file dialog preselects the password checkbox if the provided mediadescriptor has encryption data entry
         // after dialog execution the password interaction flag will be either removed or not
-        aDialogParams.Put( SfxBoolItem( SID_PASSWORDINTERACTION, true ) );
+        pDialogParams->Put( SfxBoolItem( SID_PASSWORDINTERACTION, true ) );
     }
 
     // aFilterName is a pure output parameter, pDialogParams is an in/out parameter
@@ -1006,7 +985,7 @@ bool ModelData_Impl::OutputFileDialog( sal_Int16 nStoreMode,
 
     // the following two arguments can not be converted in MediaDescriptor,
     // so they should be removed from the ItemSet after retrieving
-    const SfxBoolItem* pRecommendReadOnly = SfxItemSet::GetItem<SfxBoolItem>(pDialogParams, SID_RECOMMENDREADONLY, false);
+    const SfxBoolItem* pRecommendReadOnly = SfxItemSet::GetItem<SfxBoolItem>(pDialogParams.get(), SID_RECOMMENDREADONLY, false);
     m_bRecommendReadOnly = ( pRecommendReadOnly && pRecommendReadOnly->GetValue() );
     pDialogParams->ClearItem( SID_RECOMMENDREADONLY );
 
@@ -1390,7 +1369,7 @@ bool SfxStoringHelper::GUIStoreModel( const uno::Reference< frame::XModel >& xMo
         }
     }
 
-    if ( !( nStoreMode & EXPORT_REQUESTED ) )
+    if (!comphelper::LibreOfficeKit::isActive() && !( nStoreMode & EXPORT_REQUESTED ) )
     {
         // if it is no export, warn user that the signature will be removed
         if (  SignatureState::OK == nDocumentSignatureState
@@ -1404,7 +1383,7 @@ bool SfxStoringHelper::GUIStoreModel( const uno::Reference< frame::XModel >& xMo
             {
                 // the user has decided not to store the document
                 throw task::ErrorCodeIOException(
-                    "SfxStoringHelper::GUIStoreModel: ERRCODE_IO_ABORT",
+                    "SfxStoringHelper::GUIStoreModel: ERRCODE_IO_ABORT (Preserve Signature)",
                     uno::Reference< uno::XInterface >(), sal_uInt32(ERRCODE_IO_ABORT));
             }
         }

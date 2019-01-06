@@ -18,6 +18,7 @@
  */
 
 #include "vbafiledialog.hxx"
+#include "vbafiledialogitems.hxx"
 
 #include <osl/file.hxx>
 
@@ -152,12 +153,10 @@ ScVbaFileDialog::getServiceImplName()
 uno::Sequence<OUString>
 ScVbaFileDialog::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.FileDialog";
-    }
+        "ooo.vba.FileDialog"
+    };
     return aServiceNames;
 }
 

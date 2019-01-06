@@ -64,6 +64,15 @@ public:
 namespace __cxxabiv1 {
     struct __cxa_exception
     {
+#if defined _LIBCPPABI_VERSION // detect libc++abi
+#if defined __LP64__ || defined __ARM_EABI__
+        // Quoting android-ndk-r18b/sources/cxx-stl/llvm-libc++abi/src/cxa_exception.hpp: "This is a
+        // new field to support C++ 0x exception_ptr. For binary compatibility it is at the start of
+        // this struct which is prepended to the object thrown in __cxa_allocate_exception."
+        std::size_t referenceCount;
+#endif
+#endif
+
         std::type_info *exceptionType;
         void (*exceptionDestructor)(void *);
 
@@ -96,11 +105,15 @@ namespace CPPU_CURRENT_NAMESPACE
 
     // -- following decl from libstdc++-v3/libsupc++/unwind-cxx.h and unwind.h
 
+#if !HAVE_CXXABI_H_CXA_ALLOCATE_EXCEPTION
     extern "C" void *__cxa_allocate_exception(
         std::size_t thrown_size ) throw();
+#endif
+#if !HAVE_CXXABI_H_CXA_THROW
     extern "C" void __cxa_throw (
         void *thrown_exception, std::type_info *tinfo,
         void (*dest) (void *) ) __attribute__((noreturn));
+#endif
 
 }
 

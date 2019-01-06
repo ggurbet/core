@@ -263,41 +263,29 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
                 NSGraphicsContext* pNSContext = [NSGraphicsContext graphicsContextWithWindow: pNSWindow];
                 if( pNSContext )
                 {
-SAL_WNODEPRECATED_DECLARATIONS_PUSH // 'graphicsPort' is deprecated: first deprecated in macOS 10.14
-                    xCGContext = static_cast<CGContextRef>([pNSContext graphicsPort]);
-SAL_WNODEPRECATED_DECLARATIONS_POP
+                    xCGContext = [pNSContext CGContext];
                 }
             }
-            // At least on macOS 10.14 during CppunitTests (that have hidden windows), it happens
-            // that the above
-            //
-            //   [NSGraphicsContext graphicsContextWithWindow: pNSWindow]
-            //
-            // returns nil for unclear reasons; so use the below fallback even if there is a
-            // pNSWindow but obtaining a graphics context for it fails:
-            if (xCGContext == nullptr)
-            {
-                // fall back to a bitmap context
-                mnBitmapDepth = 32;
-
-                const int nBytesPerRow = (mnBitmapDepth * nDX) / 8;
-                void* pRawData = std::malloc( nBytesPerRow * nDY );
-                mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
-                                                         8, nBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaNoneSkipFirst );
-                SAL_INFO( "vcl.cg",  "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );
-                xCGContext = mxBitmapContext;
-            }
         }
-#else
-        mnBitmapDepth = 32;
-
-        const int nBytesPerRow = (mnBitmapDepth * nDX) / 8;
-        void* pRawData = std::malloc( nBytesPerRow * nDY );
-        mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
-                                                 8, nBytesPerRow, GetSalData()->mxRGBSpace, kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little );
-        SAL_INFO( "vcl.cg",  "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );
-        xCGContext = mxBitmapContext;
 #endif
+
+        if (!xCGContext)
+        {
+            // assert(Application::IsBitmapRendering());
+            mnBitmapDepth = 32;
+
+            const int nBytesPerRow = (mnBitmapDepth * nDX) / 8;
+            void* pRawData = std::malloc( nBytesPerRow * nDY );
+#ifdef MACOSX
+            const int nFlags = kCGImageAlphaNoneSkipFirst;
+#else
+            const int nFlags = kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little;
+#endif
+            mxBitmapContext = CGBitmapContextCreate(pRawData, nDX, nDY, 8, nBytesPerRow,
+                                                    GetSalData()->mxRGBSpace, nFlags);
+            SAL_INFO( "vcl.cg", "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );
+            xCGContext = mxBitmapContext;
+        }
     }
 
     SAL_WARN_IF( !xCGContext, "vcl.quartz", "No context" );

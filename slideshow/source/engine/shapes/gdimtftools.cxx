@@ -87,7 +87,7 @@ static bool hasUnsupportedActions( const GDIMetaFile& rMtf )
                 {
                     break;
                 }
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case MetaActionType::MOVECLIPREGION:
             case MetaActionType::REFPOINT:
             case MetaActionType::WALLPAPER:
@@ -409,7 +409,7 @@ bool getRectanglesFromScrollMtf( ::basegfx::B2DRectangle&       o_rScrollRect,
             MetaCommentAction * pAct =
                 static_cast<MetaCommentAction *>(pCurrAct);
             // skip comment if not a special XTEXT... comment
-            if( pAct->GetComment().matchIgnoreAsciiCase( OString("XTEXT") ) )
+            if( pAct->GetComment().matchIgnoreAsciiCase( "XTEXT" ) )
             {
                 if (pAct->GetComment().equalsIgnoreAsciiCase("XTEXT_SCROLLRECT"))
                 {

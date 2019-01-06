@@ -247,7 +247,6 @@ bool ImplSdPPTImport::Import()
     SdrOutliner& rOutl = mpDoc->GetDrawOutliner();
     EEControlBits nControlWord = rOutl.GetEditEngine().GetControlWord();
     nControlWord |=  EEControlBits::ULSPACESUMMATION;
-    nControlWord &= ~EEControlBits::ULSPACEFIRSTPARA;
     const_cast<EditEngine&>(rOutl.GetEditEngine()).SetControlWord( nControlWord );
 
     SdrLayerAdmin& rAdmin = mpDoc->GetLayerAdmin();
@@ -1256,7 +1255,7 @@ bool ImplSdPPTImport::Import()
                 break;
                 case PptViewTypeEnum::TitleMaster:
                     nSelectedPage = 1;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case PptViewTypeEnum::SlideMaster:
                 {
                     ePageKind = PageKind::Standard;
@@ -1265,7 +1264,7 @@ bool ImplSdPPTImport::Import()
                 break;
                 case PptViewTypeEnum::NotesMaster:
                     eEditMode = EditMode::MasterPage;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case PptViewTypeEnum::Notes:
                     ePageKind = PageKind::Notes;
                 break;
@@ -1493,14 +1492,12 @@ struct Ppt97AnimationStlSortHelper
 bool Ppt97AnimationStlSortHelper::operator()( const std::pair< SdrObject*, Ppt97AnimationPtr >& p1, const std::pair< SdrObject*, Ppt97AnimationPtr >& p2 )
 {
     if( !p1.second.get() || !p2.second.get() )
-        return true;
+        return p1.second.get() < p2.second.get();
     if( *p1.second < *p2.second )
         return true;
     if( *p1.second > *p2.second )
         return false;
-    if( p1.first->GetOrdNum() < p2.first->GetOrdNum() )
-        return true;
-    return false;
+    return p1.first->GetOrdNum() < p2.first->GetOrdNum();
 }
 
 void ImplSdPPTImport::ImportPageEffect( SdPage* pPage, const bool bNewAnimationsUsed )
@@ -1857,14 +1854,11 @@ void ImplSdPPTImport::ImportPageEffect( SdPage* pPage, const bool bNewAnimations
 
         std::sort( aAnimationsOnThisPage.begin(), aAnimationsOnThisPage.end(), Ppt97AnimationStlSortHelper() );
 
-        tAnimationVector::iterator aIter( aAnimationsOnThisPage.begin() );
-        const tAnimationVector::iterator aEnd( aAnimationsOnThisPage.end() );
-
-        for( ;aIter != aEnd; ++aIter )
+        for( auto& rEntry : aAnimationsOnThisPage )
         {
-            Ppt97AnimationPtr pPpt97Animation = (*aIter).second;
+            Ppt97AnimationPtr pPpt97Animation = rEntry.second;
             if( pPpt97Animation.get() )
-                pPpt97Animation->createAndSetCustomAnimationEffect( (*aIter).first );
+                pPpt97Animation->createAndSetCustomAnimationEffect( rEntry.first );
         }
     }
     rStCtrl.Seek( nFilePosMerk );
@@ -2373,11 +2367,11 @@ SdrObject* ImplSdPPTImport::ApplyTextObj( PPTTextObj* pTextObj, SdrTextObj* pObj
                         case PptPlaceholder::NOTESBODY :            ePresObjKind = PRESOBJ_NOTES;   break;
                         case PptPlaceholder::VERTICALTEXTTITLE :
                             bVertical = true;
-                            SAL_FALLTHROUGH;
+                            [[fallthrough]];
                         case PptPlaceholder::TITLE :                ePresObjKind = PRESOBJ_TITLE;   break;
                         case PptPlaceholder::VERTICALTEXTBODY :
                             bVertical = true;
-                            SAL_FALLTHROUGH;
+                            [[fallthrough]];
                         case PptPlaceholder::BODY :                 ePresObjKind = PRESOBJ_OUTLINE; break;
                         case PptPlaceholder::CENTEREDTITLE :        ePresObjKind = PRESOBJ_TITLE;   break;
                         case PptPlaceholder::SUBTITLE :             ePresObjKind = PRESOBJ_TEXT;    break;      // PRESOBJ_OUTLINE

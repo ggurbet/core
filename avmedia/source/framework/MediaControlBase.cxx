@@ -26,6 +26,7 @@
 #include <svtools/miscopt.hxx>
 #include <tools/time.hxx>
 #include <vcl/lstbox.hxx>
+#include <unotools/localedatawrapper.hxx>
 #include <bitmaps.hlst>
 #include <strings.hrc>
 #include <helpids.h>
@@ -332,7 +333,7 @@ Image MediaControlBase::GetImage(sal_Int32 nImageId)
         }
     }
 
-    return Image(BitmapEx(sImageId));
+    return Image(StockImage::Yes, sImageId);
 }
 
 }

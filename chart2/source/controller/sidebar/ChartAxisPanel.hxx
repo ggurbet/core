@@ -23,6 +23,7 @@
 namespace com { namespace sun { namespace star { namespace util { class XModifyListener; } } } }
 namespace com { namespace sun { namespace star { namespace view { class XSelectionChangeListener; } } } }
 
+class Edit;
 class ListBox;
 class MetricField;
 

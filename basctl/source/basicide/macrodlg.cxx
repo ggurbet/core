@@ -45,7 +45,7 @@ using std::map;
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 
-MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame >& xDocFrame, bool bCreateEntries)
+MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame >& xDocFrame)
     : SfxDialogController(pParnt, "modules/BasicIDE/ui/basicmacrodialog.ui", "BasicMacroDialog")
     , m_xDocumentFrame(xDocFrame)
     // the Sfx doesn't ask the BasicManager whether modified or not
@@ -102,8 +102,7 @@ MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame 
     if (SfxDispatcher* pDispatcher = GetDispatcher())
         pDispatcher->Execute( SID_BASICIDE_STOREALLMODULESOURCES );
 
-    if (bCreateEntries)
-        m_xBasicBox->ScanAllEntries();
+    m_xBasicBox->ScanAllEntries();
 }
 
 MacroChooser::~MacroChooser()
@@ -320,8 +319,7 @@ SbMethod* MacroChooser::CreateMacro()
             // extract the module name from the string like "Sheet1 (Example1)"
             if( aDesc.GetLibSubName() == IDEResId(RID_STR_DOCUMENT_OBJECTS) )
             {
-                sal_Int32 nIndex = 0;
-                aModName = aModName.getToken( 0, ' ', nIndex );
+                aModName = aModName.getToken( 0, ' ' );
             }
             pModule = pBasic->FindModule( aModName );
         }
@@ -628,8 +626,7 @@ IMPL_LINK(MacroChooser, ButtonHdl, weld::Button&, rButton, void)
         // extract the module name from the string like "Sheet1 (Example1)"
         if( aDesc.GetLibSubName() == IDEResId(RID_STR_DOCUMENT_OBJECTS) )
         {
-            sal_Int32 nIndex = 0;
-            aMod = aMod.getToken( 0, ' ', nIndex );
+            aMod = aMod.getToken( 0, ' ' );
         }
         const OUString& aSub( aDesc.GetMethodName() );
         SfxMacroInfoItem aInfoItem( SID_BASICIDE_ARG_MACROINFO, pBasMgr, aLib, aMod, aSub, OUString() );
@@ -745,20 +742,19 @@ IMPL_LINK(MacroChooser, ButtonHdl, weld::Button&, rButton, void)
         m_xBasicBox->get_selected(m_xBasicBoxIter.get());
         EntryDescriptor aDesc = m_xBasicBox->GetEntryDescriptor(m_xBasicBoxIter.get());
         VclPtrInstance< OrganizeDialog > pDlg( nullptr, 0, aDesc ); //TODO
-        sal_uInt16 nRet = pDlg->Execute();
-        pDlg.reset();
+        pDlg->StartExecuteAsync([this](sal_Int32 nRet){
+                if ( nRet ) // not only closed
+                {
+                    m_xDialog->response(Macro_Edit);
+                    return;
+                }
 
-        if ( nRet ) // not only closed
-        {
-            m_xDialog->response(Macro_Edit);
-            return;
-        }
+                Shell* pShell = GetShell();
+                if ( pShell && pShell->IsAppBasicModified() )
+                    bForceStoreBasic = true;
 
-        Shell* pShell = GetShell();
-        if ( pShell && pShell->IsAppBasicModified() )
-            bForceStoreBasic = true;
-
-        m_xBasicBox->UpdateEntries();
+                m_xBasicBox->UpdateEntries();
+            });
     }
 }
 

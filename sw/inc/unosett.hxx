@@ -30,6 +30,7 @@
 #include <cppuhelper/implbase2.hxx>
 #include <cppuhelper/implbase4.hxx>
 #include <cppuhelper/implbase5.hxx>
+#include <tools/color.hxx>
 #include "unobaseclass.hxx"
 
 class SwDoc;
@@ -46,7 +47,7 @@ class SwXFootnoteProperties : public cppu::WeakAggImplHelper2
     css::lang::XServiceInfo
 >
 {
-    SwDoc*                      pDoc;
+    SwDoc*                      m_pDoc;
     const SfxItemPropertySet*   m_pPropertySet;
 protected:
     virtual ~SwXFootnoteProperties() override;
@@ -67,7 +68,7 @@ public:
     virtual sal_Bool SAL_CALL supportsService(const OUString& ServiceName) override;
     virtual css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override;
 
-    void            Invalidate() {pDoc = nullptr;}
+    void            Invalidate() {m_pDoc = nullptr;}
 };
 
 class SwXEndnoteProperties : public cppu::WeakAggImplHelper2
@@ -76,7 +77,7 @@ class SwXEndnoteProperties : public cppu::WeakAggImplHelper2
     css::lang::XServiceInfo
 >
 {
-    SwDoc*                      pDoc;
+    SwDoc*                      m_pDoc;
     const SfxItemPropertySet*   m_pPropertySet;
 protected:
     virtual ~SwXEndnoteProperties() override;
@@ -97,7 +98,7 @@ public:
     virtual sal_Bool SAL_CALL supportsService(const OUString& ServiceName) override;
     virtual css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override;
 
-    void            Invalidate() {pDoc = nullptr;}
+    void            Invalidate() {m_pDoc = nullptr;}
 };
 
 class SwXLineNumberingProperties : public cppu::WeakAggImplHelper2
@@ -106,7 +107,7 @@ class SwXLineNumberingProperties : public cppu::WeakAggImplHelper2
     css::lang::XServiceInfo
 >
 {
-    SwDoc*                      pDoc;
+    SwDoc*                      m_pDoc;
     const SfxItemPropertySet*   m_pPropertySet;
 protected:
     virtual ~SwXLineNumberingProperties() override;
@@ -127,7 +128,7 @@ public:
     virtual sal_Bool SAL_CALL supportsService(const OUString& ServiceName) override;
     virtual css::uno::Sequence< OUString > SAL_CALL getSupportedServiceNames() override;
 
-    void            Invalidate() {pDoc = nullptr;}
+    void            Invalidate() {m_pDoc = nullptr;}
 };
 
 class SwXNumberingRules : public cppu::WeakAggImplHelper5
@@ -146,11 +147,11 @@ private:
     OUString                    m_sNewCharStyleNames[MAXLEVEL];
     OUString                    m_sNewBulletFontNames[MAXLEVEL];
     OUString                    m_sCreatedNumRuleName; //connects to a numbering in SwDoc
-    SwDoc*                      pDoc;
-    SwDocShell*                 pDocShell; // Only if used as chapter numbering.
-    SwNumRule*                  pNumRule;
+    SwDoc*                      m_pDoc;
+    SwDocShell*                 m_pDocShell; // Only if used as chapter numbering.
+    SwNumRule*                  m_pNumRule;
     const SfxItemPropertySet*   m_pPropertySet;
-    bool const                  bOwnNumRuleCreated;
+    bool const                  m_bOwnNumRuleCreated;
 protected:
     virtual ~SwXNumberingRules() override;
 
@@ -201,10 +202,10 @@ public:
 
     const OUString*         GetNewCharStyleNames() const {return m_sNewCharStyleNames;}
     const OUString*         GetBulletFontNames() const {return m_sNewBulletFontNames;}
-    const SwNumRule*        GetNumRule() {return pNumRule;}
+    const SwNumRule*        GetNumRule() {return m_pNumRule;}
 
     static bool             isInvalidStyle(const OUString &rName);
-    void    Invalidate()    {pDocShell = nullptr;}
+    void    Invalidate()    {m_pDocShell = nullptr;}
     const OUString&   GetCreatedNumRuleName() const {return m_sCreatedNumRuleName;}
 
     static css::uno::Sequence<css::beans::PropertyValue> GetPropertiesForNumFormat(

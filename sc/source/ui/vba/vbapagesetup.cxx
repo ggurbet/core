@@ -20,6 +20,7 @@
 #include <cellsuno.hxx>
 #include <convuno.hxx>
 #include <rangelst.hxx>
+#include <docsh.hxx>
 #include "excelvbahelper.hxx"
 #include "vbarange.hxx"
 #include <com/sun/star/sheet/XPrintAreas.hpp>
@@ -30,6 +31,7 @@
 #include <ooo/vba/excel/XlPageOrientation.hpp>
 #include <ooo/vba/excel/XlOrder.hpp>
 #include <ooo/vba/excel/Constants.hpp>
+#include <ooo/vba/excel/XRange.hpp>
 #include <basic/sberrors.hxx>
 #include <i18nutil/paper.hxx>
 #include <sal/macros.h>
@@ -624,12 +626,10 @@ ScVbaPageSetup::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaPageSetup::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.PageSetup";
-    }
+        "ooo.vba.excel.PageSetup"
+    };
     return aServiceNames;
 }
 

@@ -129,14 +129,7 @@ static long GetDayDiff( const Date& rDate );
 
 static const CharClass& GetCharClass()
 {
-    static bool bNeedsInit = true;
-    static LanguageTag aLanguageTag( LANGUAGE_SYSTEM);
-    if( bNeedsInit )
-    {
-        bNeedsInit = false;
-        aLanguageTag = Application::GetSettings().GetLanguageTag();
-    }
-    static CharClass aCharClass( aLanguageTag );
+    static CharClass aCharClass( Application::GetSettings().GetLanguageTag() );
     return aCharClass;
 }
 
@@ -169,11 +162,7 @@ OUString getFullPath( const OUString& aRelPath )
 // TODO: -> SbiGlobals
 static uno::Reference< ucb::XSimpleFileAccess3 > const & getFileAccess()
 {
-    static uno::Reference< ucb::XSimpleFileAccess3 > xSFI;
-    if( !xSFI.is() )
-    {
-        xSFI = ucb::SimpleFileAccess::create( comphelper::getProcessComponentContext() );
-    }
+    static uno::Reference< ucb::XSimpleFileAccess3 > xSFI = ucb::SimpleFileAccess::create( comphelper::getProcessComponentContext() );
     return xSFI;
 }
 
@@ -2519,10 +2508,10 @@ void SbRtl_IsMissing(StarBASIC *, SbxArray & rPar, bool)
 // Function looks for wildcards, removes them and always returns the pure path
 static OUString implSetupWildcard(const OUString& rFileParam, SbiRTLData& rRTLData)
 {
-    static sal_Char cDelim1 = '/';
-    static sal_Char cDelim2 = '\\';
-    static sal_Char cWild1 = '*';
-    static sal_Char cWild2 = '?';
+    static const sal_Char cDelim1 = '/';
+    static const sal_Char cDelim2 = '\\';
+    static const sal_Char cWild1 = '*';
+    static const sal_Char cWild2 = '?';
 
     rRTLData.pWildCard.reset();
     rRTLData.sFullNameToBeChecked.clear();
@@ -3637,7 +3626,7 @@ void SbRtl_Shell(StarBASIC *, SbxArray & rPar, bool)
             pParamList.reset( new rtl_uString*[nParamCount]);
             for(int iVector = 0; iter != aTokenVector.end(); ++iVector, ++iter)
             {
-                const OUString& rParamStr = (*iter);
+                const OUString& rParamStr = *iter;
                 pParamList[iVector] = nullptr;
                 rtl_uString_assign(&(pParamList[iVector]), rParamStr.pData);
             }
@@ -4647,7 +4636,7 @@ void SbRtl_Partition(StarBASIC *, SbxArray & rPar, bool)
     if( nLen > nLen1 )
     {
         // appending the leading spaces for the lowervalue
-        for ( sal_Int32 i= (nLen - nLen1) ; i > 0; --i )
+        for ( sal_Int32 i= nLen - nLen1; i > 0; --i )
         {
             aRetStr.append(" ");
         }
@@ -4656,7 +4645,7 @@ void SbRtl_Partition(StarBASIC *, SbxArray & rPar, bool)
     if( nLen > nLen2 )
     {
         // appending the leading spaces for the uppervalue
-        for ( sal_Int32 i= (nLen - nLen2) ; i > 0; --i )
+        for ( sal_Int32 i= nLen - nLen2; i > 0; --i )
         {
             aRetStr.append(" ");
         }

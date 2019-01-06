@@ -428,15 +428,7 @@ void ScDPAggData::Update( const ScDPValue& rNext, ScSubTotalFunc eFunc, const Sc
         case SUBTOTAL_FUNC_STDP:
         case SUBTOTAL_FUNC_VAR:
         case SUBTOTAL_FUNC_VARP:
-            {
-                // fAux is used to sum up squares
-                if ( !SubTotal::SafePlus( fVal, rNext.mfValue ) )
-                    nCount = -1;                            // -1 for error
-                double fAdd = rNext.mfValue;
-                if ( !SubTotal::SafeMult( fAdd, rNext.mfValue ) ||
-                     !SubTotal::SafePlus( fAux, fAdd ) )
-                    nCount = -1;                            // -1 for error
-            }
+            maWelford.update( rNext.mfValue);
             break;
         case SUBTOTAL_FUNC_MED:
             {
@@ -486,14 +478,19 @@ void ScDPAggData::Calculate( ScSubTotalFunc eFunc, const ScDPSubTotalState& rSub
         case SUBTOTAL_FUNC_MED:
         case SUBTOTAL_FUNC_MAX:
         case SUBTOTAL_FUNC_MIN:
+            bError = ( nCount <= 0 );       // no data is an error
+            break;
+
         case SUBTOTAL_FUNC_STDP:
         case SUBTOTAL_FUNC_VARP:
             bError = ( nCount <= 0 );       // no data is an error
+            assert(bError || nCount == static_cast<sal_Int64>(maWelford.getCount()));
             break;
 
         case SUBTOTAL_FUNC_STD:
         case SUBTOTAL_FUNC_VAR:
             bError = ( nCount < 2 );        // need at least 2 values
+            assert(bError || nCount == static_cast<sal_Int64>(maWelford.getCount()));
             break;
 
         default:
@@ -525,23 +522,33 @@ void ScDPAggData::Calculate( ScSubTotalFunc eFunc, const ScDPSubTotalState& rSub
                     fResult = fVal / static_cast<double>(nCount);
                 break;
 
-            //TODO: use safe mul for fVal * fVal
-
             case SUBTOTAL_FUNC_STD:
                 if ( nCount >= 2 )
-                    fResult = sqrt((fAux - fVal*fVal/static_cast<double>(nCount)) / static_cast<double>(nCount-1));
+                {
+                    fResult = maWelford.getVarianceSample();
+                    if (fResult < 0.0)
+                        bError = true;
+                    else
+                        fResult = sqrt( fResult);
+                }
                 break;
             case SUBTOTAL_FUNC_VAR:
                 if ( nCount >= 2 )
-                    fResult = (fAux - fVal*fVal/static_cast<double>(nCount)) / static_cast<double>(nCount-1);
+                    fResult = maWelford.getVarianceSample();
                 break;
             case SUBTOTAL_FUNC_STDP:
                 if ( nCount > 0 )
-                    fResult = sqrt((fAux - fVal*fVal/static_cast<double>(nCount)) / static_cast<double>(nCount));
+                {
+                    fResult = maWelford.getVariancePopulation();
+                    if (fResult < 0.0)
+                        bError = true;
+                    else
+                        fResult = sqrt( fResult);
+                }
                 break;
             case SUBTOTAL_FUNC_VARP:
                 if ( nCount > 0 )
-                    fResult = (fAux - fVal*fVal/static_cast<double>(nCount)) / static_cast<double>(nCount);
+                    fResult = maWelford.getVariancePopulation();
                 break;
             case SUBTOTAL_FUNC_MED:
                 {
@@ -590,42 +597,42 @@ bool ScDPAggData::IsCalculated() const
 
 double ScDPAggData::GetResult() const
 {
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     return fVal;        // use calculated value
 }
 
 bool ScDPAggData::HasError() const
 {
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     return ( nCount == SC_DPAGG_RESULT_ERROR );
 }
 
 bool ScDPAggData::HasData() const
 {
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     return ( nCount != SC_DPAGG_RESULT_EMPTY );     // values or error
 }
 
 void ScDPAggData::SetResult( double fNew )
 {
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     fVal = fNew;        // don't reset error flag
 }
 
 void ScDPAggData::SetError()
 {
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     nCount = SC_DPAGG_RESULT_ERROR;
 }
 
 void ScDPAggData::SetEmpty( bool bSet )
 {
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     if ( bSet )
         nCount = SC_DPAGG_RESULT_EMPTY;
@@ -636,7 +643,7 @@ void ScDPAggData::SetEmpty( bool bSet )
 double ScDPAggData::GetAuxiliary() const
 {
     // after Calculate, fAux is used as auxiliary value for running totals and reference values
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     return fAux;
 }
@@ -644,7 +651,7 @@ double ScDPAggData::GetAuxiliary() const
 void ScDPAggData::SetAuxiliary( double fNew )
 {
     // after Calculate, fAux is used as auxiliary value for running totals and reference values
-    OSL_ENSURE( IsCalculated(), "ScDPAggData not calculated" );
+    assert( IsCalculated() && "ScDPAggData not calculated" );
 
     fAux = fNew;
 }
@@ -658,6 +665,7 @@ ScDPAggData* ScDPAggData::GetChild()
 
 void ScDPAggData::Reset()
 {
+    maWelford = WelfordRunner();
     fVal = 0.0;
     fAux = 0.0;
     nCount = SC_DPAGG_EMPTY;

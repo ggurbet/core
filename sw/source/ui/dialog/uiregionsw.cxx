@@ -70,8 +70,8 @@ namespace {
 Image BuildBitmap(bool bProtect, bool bHidden)
 {
     if (bProtect)
-        return Image(BitmapEx(bHidden ? OUString(RID_BMP_PROT_HIDE) : OUString(RID_BMP_PROT_NO_HIDE)));
-    return Image(BitmapEx(bHidden ? OUString(RID_BMP_HIDE) : OUString(RID_BMP_NO_HIDE)));
+        return Image(StockImage::Yes, bHidden ? OUString(RID_BMP_PROT_HIDE) : OUString(RID_BMP_PROT_NO_HIDE));
+    return Image(StockImage::Yes, bHidden ? OUString(RID_BMP_HIDE) : OUString(RID_BMP_NO_HIDE));
 }
 
 }
@@ -474,29 +474,26 @@ void SwEditRegionDlg::RecurseList(const SwSectionFormat* pFormat, SvTreeListEntr
         SwSections aTmpArr;
         SvTreeListEntry* pNEntry;
         pFormat->GetChildSections(aTmpArr, SectionSort::Pos);
-        if( !aTmpArr.empty() )
+        for( const auto pSect : aTmpArr )
         {
-            for( const auto pSect : aTmpArr )
+            SectionType eTmpType;
+            pFormat = pSect->GetFormat();
+            if( pFormat->IsInNodesArr() &&
+                (eTmpType = pFormat->GetSection()->GetType()) != TOX_CONTENT_SECTION
+                && TOX_HEADER_SECTION != eTmpType )
             {
-                SectionType eTmpType;
-                pFormat = pSect->GetFormat();
-                if( pFormat->IsInNodesArr() &&
-                    (eTmpType = pFormat->GetSection()->GetType()) != TOX_CONTENT_SECTION
-                    && TOX_HEADER_SECTION != eTmpType )
-                {
-                    SectRepr* pSectRepr=new SectRepr(
-                                    FindArrPos( pSect->GetFormat() ), *pSect );
-                    Image aImage = BuildBitmap( pSect->IsProtect(),
-                                            pSect->IsHidden());
-                    pNEntry = m_pTree->InsertEntry(
-                        pSect->GetSectionName(), aImage, aImage, pEntry);
-                    pNEntry->SetUserData(pSectRepr);
-                    RecurseList( pSect->GetFormat(), pNEntry );
-                    if( pNEntry->HasChildren())
-                        m_pTree->Expand(pNEntry);
-                    if (pCurrSect==pSect)
-                        pSelEntry = pNEntry;
-                }
+                SectRepr* pSectRepr=new SectRepr(
+                                FindArrPos( pSect->GetFormat() ), *pSect );
+                Image aImage = BuildBitmap( pSect->IsProtect(),
+                                        pSect->IsHidden());
+                pNEntry = m_pTree->InsertEntry(
+                    pSect->GetSectionName(), aImage, aImage, pEntry);
+                pNEntry->SetUserData(pSectRepr);
+                RecurseList( pSect->GetFormat(), pNEntry );
+                if( pNEntry->HasChildren())
+                    m_pTree->Expand(pNEntry);
+                if (pCurrSect==pSect)
+                    pSelEntry = pNEntry;
             }
         }
     }
@@ -1000,9 +997,9 @@ IMPL_LINK( SwEditRegionDlg, UseFileHdl, Button *, pButton, void )
                 pSectRepr->SetContent(false);
             else
             {
-                pSectRepr->SetFile(aEmptyOUStr);
-                pSectRepr->SetSubRegion(aEmptyOUStr);
-                pSectRepr->GetSectionData().SetLinkFilePassword(aEmptyOUStr);
+                pSectRepr->SetFile(OUString());
+                pSectRepr->SetSubRegion(OUString());
+                pSectRepr->GetSectionData().SetLinkFilePassword(OUString());
             }
 
             pEntry = m_pTree->NextSelected(pEntry);
@@ -1181,7 +1178,7 @@ IMPL_LINK( SwEditRegionDlg, FileNameHdl, Edit&, rEdit, void )
                     aAbs, sTmp, URIHelper::GetMaybeFileHdl() );
             }
             pSectRepr->SetFile( sTmp );
-            pSectRepr->GetSectionData().SetLinkFilePassword( aEmptyOUStr );
+            pSectRepr->GetSectionData().SetLinkFilePassword(OUString());
         }
     }
     else
@@ -1412,11 +1409,11 @@ SwInsertSectionTabDialog::SwInsertSectionTabDialog(
     , rWrtSh(rSh)
 {
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    m_nSectionPageId = AddTabPage("section", SwInsertSectionTabPage::Create, nullptr);
-    m_nColumnPageId = AddTabPage("columns",   SwColumnPage::Create,    nullptr);
-    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ), nullptr);
-    m_nNotePageId = AddTabPage("notes", SwSectionFootnoteEndTabPage::Create, nullptr);
-    m_nIndentPage = AddTabPage("indents", SwSectionIndentTabPage::Create, nullptr);
+    m_nSectionPageId = AddTabPage("section", SwInsertSectionTabPage::Create);
+    m_nColumnPageId = AddTabPage("columns",   SwColumnPage::Create);
+    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ));
+    m_nNotePageId = AddTabPage("notes", SwSectionFootnoteEndTabPage::Create);
+    m_nIndentPage = AddTabPage("indents", SwSectionIndentTabPage::Create);
 
     SvxHtmlOptions& rHtmlOpt = SvxHtmlOptions::Get();
     long nHtmlMode = rHtmlOpt.GetExportMode();
@@ -1813,7 +1810,10 @@ IMPL_LINK( SwInsertSectionTabPage, DlgClosedHdl, sfx2::FileDialogHelper *, _pFil
         }
     }
     else
-        m_sFilterName = m_sFilePasswd = aEmptyOUStr;
+    {
+        m_sFilterName.clear();
+        m_sFilePasswd.clear();
+    }
 }
 
 SwSectionFootnoteEndTabPage::SwSectionFootnoteEndTabPage(TabPageParent pParent, const SfxItemSet &rAttrSet)
@@ -1871,7 +1871,7 @@ bool SwSectionFootnoteEndTabPage::FillItemSet( SfxItemSet* rSet )
         aFootnote.SetNumType( m_xFootnoteNumViewBox->GetSelectedNumberingType() );
         aFootnote.SetPrefix( m_xFootnotePrefixED->get_text().replaceAll("\\t", "\t") ); // fdo#65666
         aFootnote.SetSuffix( m_xFootnoteSuffixED->get_text().replaceAll("\\t", "\t") );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
         aFootnote.SetOffset( static_cast< sal_uInt16 >( m_xFootnoteOffsetField->get_value()-1 ) );
@@ -1893,7 +1893,7 @@ bool SwSectionFootnoteEndTabPage::FillItemSet( SfxItemSet* rSet )
         aEnd.SetNumType( m_xEndNumViewBox->GetSelectedNumberingType() );
         aEnd.SetPrefix( m_xEndPrefixED->get_text().replaceAll("\\t", "\t") );
         aEnd.SetSuffix( m_xEndSuffixED->get_text().replaceAll("\\t", "\t") );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
         aEnd.SetOffset( static_cast< sal_uInt16 >( m_xEndOffsetField->get_value()-1 ) );
@@ -1949,11 +1949,11 @@ void SwSectionFootnoteEndTabPage::ResetState( bool bFootnote,
     {
     case FTNEND_ATTXTEND_OWNNUMANDFMT:
         pNtNumFormatCB->set_state( TRISTATE_TRUE );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
         pNtNumCB->set_state( TRISTATE_TRUE );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case FTNEND_ATTXTEND:
         pNtAtTextEndCB->set_state( TRISTATE_TRUE );
@@ -1969,13 +1969,13 @@ void SwSectionFootnoteEndTabPage::ResetState( bool bFootnote,
     {
     case FTNEND_ATPGORDOCEND:
         pNtNumCB->set_sensitive( false );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case FTNEND_ATTXTEND:
         pNtNumFormatCB->set_sensitive( false );
         pOffsetField->set_sensitive( false );
         pOffsetText->set_sensitive( false );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
 
     case FTNEND_ATTXTEND_OWNNUMSEQ:
         pNumViewBox->Enable( false );
@@ -2060,10 +2060,10 @@ SwSectionPropertyTabDialog::SwSectionPropertyTabDialog(
     , rWrtSh(rSh)
 {
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    m_nColumnPageId = AddTabPage("columns",   SwColumnPage::Create,    nullptr);
-    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ), nullptr );
-    m_nNotePageId = AddTabPage("notes", SwSectionFootnoteEndTabPage::Create, nullptr);
-    m_nIndentPage = AddTabPage("indents", SwSectionIndentTabPage::Create, nullptr);
+    m_nColumnPageId = AddTabPage("columns",   SwColumnPage::Create);
+    m_nBackPageId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ) );
+    m_nNotePageId = AddTabPage("notes", SwSectionFootnoteEndTabPage::Create);
+    m_nIndentPage = AddTabPage("indents", SwSectionIndentTabPage::Create);
 
     SvxHtmlOptions& rHtmlOpt = SvxHtmlOptions::Get();
     long nHtmlMode = rHtmlOpt.GetExportMode();

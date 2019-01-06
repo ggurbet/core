@@ -952,22 +952,17 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScAccessibleSpreadsheet \
     qadevOOo/tests/java/mod/_sc/ScAnnotationObj \
     qadevOOo/tests/java/mod/_sc/ScAnnotationShapeObj \
-    qadevOOo/tests/java/mod/_sc/ScAnnotationsObj \
     qadevOOo/tests/java/mod/_sc/ScAnnotationTextCursor \
     qadevOOo/tests/java/mod/_sc/ScAreaLinkObj \
-    qadevOOo/tests/java/mod/_sc/ScAreaLinksObj \
     qadevOOo/tests/java/mod/_sc/ScAutoFormatFieldObj \
     qadevOOo/tests/java/mod/_sc/ScAutoFormatObj \
     qadevOOo/tests/java/mod/_sc/ScAutoFormatsObj \
     qadevOOo/tests/java/mod/_sc/ScCellCursorObj \
     qadevOOo/tests/java/mod/_sc/ScCellFieldObj \
-    qadevOOo/tests/java/mod/_sc/ScCellFieldsObj \
-    qadevOOo/tests/java/mod/_sc/ScCellFormatsObj \
     qadevOOo/tests/java/mod/_sc/ScCellObj \
     qadevOOo/tests/java/mod/_sc/ScCellRangeObj \
     qadevOOo/tests/java/mod/_sc/ScCellRangesObj \
     qadevOOo/tests/java/mod/_sc/ScCellSearchObj \
-    qadevOOo/tests/java/mod/_sc/ScCellsObj \
     qadevOOo/tests/java/mod/_sc/ScCellTextCursor \
     qadevOOo/tests/java/mod/_sc/ScChartObj \
     qadevOOo/tests/java/mod/_sc/ScChartsObj \
@@ -981,7 +976,6 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScDataPilotItemObj \
     qadevOOo/tests/java/mod/_sc/ScDataPilotItemsObj \
     qadevOOo/tests/java/mod/_sc/ScDataPilotTablesObj \
-    qadevOOo/tests/java/mod/_sc/ScDDELinkObj \
     qadevOOo/tests/java/mod/_sc/ScDDELinksObj \
     qadevOOo/tests/java/mod/_sc/ScDocumentConfiguration \
     qadevOOo/tests/java/mod/_sc/ScDrawPageObj \
@@ -992,13 +986,8 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScHeaderFieldsObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFooterTextCursor \
     qadevOOo/tests/java/mod/_sc/ScHeaderFooterTextObj \
-    qadevOOo/tests/java/mod/_sc/ScIndexEnumeration_DataPilotItemsEnumeration \
-    qadevOOo/tests/java/mod/_sc/ScIndexEnumeration_SubTotalFieldsEnumeration \
-    qadevOOo/tests/java/mod/_sc/ScIndexEnumeration_TableChartsEnumeration \
-    qadevOOo/tests/java/mod/_sc/ScLabelRangesObj \
     qadevOOo/tests/java/mod/_sc/ScModelObj \
     qadevOOo/tests/java/mod/_sc/ScNamedRangesObj \
-    qadevOOo/tests/java/mod/_sc/ScScenariosObj \
     qadevOOo/tests/java/mod/_sc/ScShapeObj \
     qadevOOo/tests/java/mod/_sc/ScSheetLinkObj \
     qadevOOo/tests/java/mod/_sc/ScSheetLinksObj \
@@ -1012,12 +1001,10 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScTableColumnsObj \
     qadevOOo/tests/java/mod/_sc/ScTableConditionalFormat \
     qadevOOo/tests/java/mod/_sc/ScTableRowObj \
-    qadevOOo/tests/java/mod/_sc/ScTableRowsObj \
     qadevOOo/tests/java/mod/_sc/ScTableSheetObj \
     qadevOOo/tests/java/mod/_sc/ScTableSheetsObj \
     qadevOOo/tests/java/mod/_sc/ScTableValidationObj \
     qadevOOo/tests/java/mod/_sc/ScTabViewObj \
-    qadevOOo/tests/java/mod/_sc/ScUniqueCellFormatsObj \
     qadevOOo/tests/java/mod/_sc/ScViewPaneObj \
     qadevOOo/tests/java/mod/_sc/XMLContentExporter \
     qadevOOo/tests/java/mod/_sc/XMLContentImporter \

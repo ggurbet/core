@@ -791,7 +791,7 @@ sal_Int32 SwXTextDocument::replaceAll(const Reference< util::XSearchDescriptor >
         pSearch->FillSearchItemSet(aSearch);
         pSearch->FillReplaceItemSet(aReplace);
         bool bCancel;
-        nResult = static_cast<sal_Int32>(pUnoCursor->Find( aSearch, !pSearch->m_bStyles,
+        nResult = static_cast<sal_Int32>(pUnoCursor->FindAttrs(aSearch, !pSearch->m_bStyles,
                     eStart, eEnd, bCancel,
                     static_cast<FindRanges>(eRanges),
                     !pSearch->m_sSearchText.isEmpty() ? &aSearchOpt : nullptr,
@@ -803,7 +803,7 @@ sal_Int32 SwXTextDocument::replaceAll(const Reference< util::XSearchDescriptor >
         SwTextFormatColl *pReplaceColl = lcl_GetParaStyle(pSearch->m_sReplaceText, pUnoCursor->GetDoc());
 
         bool bCancel;
-        nResult = pUnoCursor->Find( *pSearchColl,
+        nResult = pUnoCursor->FindFormat(*pSearchColl,
                     eStart, eEnd, bCancel,
                     static_cast<FindRanges>(eRanges), pReplaceColl );
 
@@ -812,7 +812,7 @@ sal_Int32 SwXTextDocument::replaceAll(const Reference< util::XSearchDescriptor >
     {
         //todo/mba: assuming that notes should be omitted
         bool bCancel;
-        nResult = pUnoCursor->Find( aSearchOpt, false/*bSearchInNotes*/,
+        nResult = pUnoCursor->Find_Text(aSearchOpt, false/*bSearchInNotes*/,
             eStart, eEnd, bCancel,
             static_cast<FindRanges>(eRanges),
             true );
@@ -920,7 +920,7 @@ SwUnoCursor* SwXTextDocument::FindAny(const Reference< util::XSearchDescriptor >
                     RES_FRMATR_BEGIN, RES_FRMATR_END - 1>{});
             pSearch->FillSearchItemSet(aSearch);
             bool bCancel;
-            nResult = static_cast<sal_Int32>(pUnoCursor->Find( aSearch, !pSearch->m_bStyles,
+            nResult = static_cast<sal_Int32>(pUnoCursor->FindAttrs(aSearch, !pSearch->m_bStyles,
                         eStart, eEnd, bCancel,
                         eRanges,
                         !pSearch->m_sSearchText.isEmpty() ? &aSearchOpt : nullptr ));
@@ -931,7 +931,7 @@ SwUnoCursor* SwXTextDocument::FindAny(const Reference< util::XSearchDescriptor >
             //pSearch->sReplaceText
             SwTextFormatColl *pReplaceColl = nullptr;
             bool bCancel;
-            nResult = static_cast<sal_Int32>(pUnoCursor->Find( *pSearchColl,
+            nResult = static_cast<sal_Int32>(pUnoCursor->FindFormat(*pSearchColl,
                         eStart, eEnd, bCancel,
                         eRanges, pReplaceColl ));
         }
@@ -939,7 +939,7 @@ SwUnoCursor* SwXTextDocument::FindAny(const Reference< util::XSearchDescriptor >
         {
             //todo/mba: assuming that notes should be omitted
             bool bCancel;
-            nResult = static_cast<sal_Int32>(pUnoCursor->Find( aSearchOpt, false/*bSearchInNotes*/,
+            nResult = static_cast<sal_Int32>(pUnoCursor->Find_Text(aSearchOpt, false/*bSearchInNotes*/,
                     eStart, eEnd, bCancel,
                     eRanges ));
         }
@@ -2368,6 +2368,43 @@ static bool lcl_SeqHasProperty(
     return bRes;
 }
 
+static bool lcl_GetBoolProperty(
+    const uno::Sequence< beans::PropertyValue >& rOptions,
+    const sal_Char *pPropName )
+{
+    bool bRes = false;
+    const sal_Int32 nLen = rOptions.getLength();
+    const beans::PropertyValue *pProps = rOptions.getConstArray();
+    for ( sal_Int32 i = 0;  i < nLen;  ++i )
+    {
+        if ( pProps[i].Name.equalsAscii( pPropName ) )
+        {
+            pProps[i].Value >>= bRes;
+            break;
+        }
+    }
+    return bRes;
+}
+
+static sal_Int32 lcl_GetIntProperty(
+    const uno::Sequence< beans::PropertyValue >& rOptions,
+    const sal_Char *pPropName,
+    sal_Int32 nDefault )
+{
+    sal_Int32 nRes = nDefault;
+    const sal_Int32 nLen = rOptions.getLength();
+    const beans::PropertyValue *pProps = rOptions.getConstArray();
+    for ( sal_Int32 i = 0;  i < nLen;  ++i )
+    {
+        if ( pProps[i].Name.equalsAscii( pPropName ) )
+        {
+            pProps[i].Value >>= nRes;
+            break;
+        }
+    }
+    return nRes;
+}
+
 SfxViewShell * SwXTextDocument::GetRenderView(
     bool &rbIsSwSrcView,
     const uno::Sequence< beans::PropertyValue >& rOptions,
@@ -2561,6 +2598,13 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
         if (!pViewShell || !pViewShell->GetLayout())
             return 0;
 
+        // make sure document orientation matches printer paper orientation
+        sal_Int32 nLandscape = lcl_GetIntProperty( rxOptions, "IsLandscape", -1 );
+        if ( nLandscape == 1 )
+            pViewShell->ChgAllPageOrientation( Orientation::Landscape );
+        else if ( nLandscape == 0 )
+            pViewShell->ChgAllPageOrientation( Orientation::Portrait );
+
         if (bFormat)
         {
             // #i38289
@@ -2603,18 +2647,7 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
                     ? nullptr : m_pRenderData->GetSwPrtOptions();
                 bool setShowPlaceHoldersInPDF = false;
                 if(bIsPDFExport)
-                {
-                    const sal_Int32 nLen = rxOptions.getLength();
-                    const beans::PropertyValue *pProps = rxOptions.getConstArray();
-                    for (sal_Int32 i = 0;  i < nLen;  ++i)
-                    {
-                        if (pProps[i].Name == "ExportPlaceholders")
-                        {
-                            pProps[i].Value >>= setShowPlaceHoldersInPDF;
-                            break;
-                        }
-                    }
-                }
+                    setShowPlaceHoldersInPDF = lcl_GetBoolProperty( rxOptions, "ExportPlaceholders" );
                 m_pRenderData->ViewOptionAdjust( pPrtOptions, setShowPlaceHoldersInPDF );
             }
 
@@ -2630,8 +2663,6 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
                 bStateChanged = true;
             }
 
-            // #122919# Force field update before PDF export
-            pViewShell->SwViewShell::UpdateFields(true);
             if( bStateChanged )
                 pRenderDocShell->EnableSetModified();
 
@@ -2640,6 +2671,9 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
             //TODO: check what exactly needs to be done and make just one function for that
             pViewShell->CalcLayout();
             pViewShell->CalcPagesForPrint( pViewShell->GetPageCount() );
+
+            // #122919# Force field update before PDF export, but after layout init (tdf#121962)
+            pViewShell->SwViewShell::UpdateFields(true);
 
             pViewShell->SetPDFExportOption( false );
 
@@ -2768,6 +2802,7 @@ uno::Sequence< beans::PropertyValue > SAL_CALL SwXTextDocument::getRenderer(
         }
 
         awt::Size aPageSize;
+        awt::Point aPagePos;
         awt::Size aPreferredPageSize;
         Size aTmpSize;
         if (bIsSwSrcView || bPrintProspect)
@@ -2824,14 +2859,18 @@ uno::Sequence< beans::PropertyValue > SAL_CALL SwXTextDocument::getRenderer(
             aTmpSize = pVwSh->GetPageSize( nPage, bIsSkipEmptyPages );
             aPageSize = awt::Size ( convertTwipToMm100( aTmpSize.Width() ),
                                     convertTwipToMm100( aTmpSize.Height() ));
+            Point aPoint = pVwSh->GetPagePos(nPage);
+            aPagePos = awt::Point(convertTwipToMm100(aPoint.X()), convertTwipToMm100(aPoint.Y()));
         }
 
-        sal_Int32 nLen = 2;
-        aRenderer.realloc(2);
+        sal_Int32 nLen = 3;
+        aRenderer.realloc(3);
         aRenderer[0].Name  = "PageSize";
         aRenderer[0].Value <<= aPageSize;
         aRenderer[1].Name  = "PageIncludesNonprintableArea";
         aRenderer[1].Value <<= true;
+        aRenderer[2].Name = "PagePos";
+        aRenderer[2].Value <<= aPagePos;
         if (aPreferredPageSize.Width && aPreferredPageSize.Height)
         {
             ++nLen;
@@ -3275,40 +3314,53 @@ Pointer SwXTextDocument::getPointer()
 
 OUString SwXTextDocument::getTrackedChanges()
 {
-    const SwRedlineTable& rRedlineTable = pDocShell->GetDoc()->getIDocumentRedlineAccess().GetRedlineTable();
     boost::property_tree::ptree aTrackedChanges;
-    for (SwRedlineTable::size_type i = 0; i < rRedlineTable.size(); ++i)
+
+    // Disable since usability is very low beyond some small number of changes.
+    static bool bDisableRedlineComments = getenv("DISABLE_REDLINE") != nullptr;
+    if (!bDisableRedlineComments)
     {
-        boost::property_tree::ptree aTrackedChange;
-        aTrackedChange.put("index", rRedlineTable[i]->GetId());
-        aTrackedChange.put("author", rRedlineTable[i]->GetAuthorString(1).toUtf8().getStr());
-        aTrackedChange.put("type", nsRedlineType_t::SwRedlineTypeToOUString(rRedlineTable[i]->GetRedlineData().GetType()).toUtf8().getStr());
-        aTrackedChange.put("comment", rRedlineTable[i]->GetRedlineData().GetComment().toUtf8().getStr());
-        aTrackedChange.put("description", rRedlineTable[i]->GetDescr().toUtf8().getStr());
-        OUString sDateTime = utl::toISO8601(rRedlineTable[i]->GetRedlineData().GetTimeStamp().GetUNODateTime());
-        aTrackedChange.put("dateTime", sDateTime.toUtf8().getStr());
-
-        SwContentNode* pContentNd = rRedlineTable[i]->GetContentNode();
-        SwView* pView = dynamic_cast<SwView*>(SfxViewShell::Current());
-        if (pView && pContentNd)
+        const SwRedlineTable& rRedlineTable
+            = pDocShell->GetDoc()->getIDocumentRedlineAccess().GetRedlineTable();
+        for (SwRedlineTable::size_type i = 0; i < rRedlineTable.size(); ++i)
         {
-            SwShellCursor aCursor(pView->GetWrtShell(), *(rRedlineTable[i]->Start()));
-            aCursor.SetMark();
-            aCursor.GetMark()->nNode = *pContentNd;
-            aCursor.GetMark()->nContent.Assign(pContentNd, rRedlineTable[i]->End()->nContent.GetIndex());
+            boost::property_tree::ptree aTrackedChange;
+            aTrackedChange.put("index", rRedlineTable[i]->GetId());
+            aTrackedChange.put("author", rRedlineTable[i]->GetAuthorString(1).toUtf8().getStr());
+            aTrackedChange.put("type", nsRedlineType_t::SwRedlineTypeToOUString(
+                                           rRedlineTable[i]->GetRedlineData().GetType())
+                                           .toUtf8()
+                                           .getStr());
+            aTrackedChange.put("comment",
+                               rRedlineTable[i]->GetRedlineData().GetComment().toUtf8().getStr());
+            aTrackedChange.put("description", rRedlineTable[i]->GetDescr().toUtf8().getStr());
+            OUString sDateTime = utl::toISO8601(
+                rRedlineTable[i]->GetRedlineData().GetTimeStamp().GetUNODateTime());
+            aTrackedChange.put("dateTime", sDateTime.toUtf8().getStr());
 
-            aCursor.FillRects();
+            SwContentNode* pContentNd = rRedlineTable[i]->GetContentNode();
+            SwView* pView = dynamic_cast<SwView*>(SfxViewShell::Current());
+            if (pView && pContentNd)
+            {
+                SwShellCursor aCursor(pView->GetWrtShell(), *(rRedlineTable[i]->Start()));
+                aCursor.SetMark();
+                aCursor.GetMark()->nNode = *pContentNd;
+                aCursor.GetMark()->nContent.Assign(pContentNd,
+                                                   rRedlineTable[i]->End()->nContent.GetIndex());
 
-            SwRects* pRects(&aCursor);
-            std::vector<OString> aRects;
-            for(SwRect& rNextRect : *pRects)
-                aRects.push_back(rNextRect.SVRect().toString());
+                aCursor.FillRects();
 
-            const OString sRects = comphelper::string::join("; ", aRects);
-            aTrackedChange.put("textRange", sRects.getStr());
+                SwRects* pRects(&aCursor);
+                std::vector<OString> aRects;
+                for (SwRect& rNextRect : *pRects)
+                    aRects.push_back(rNextRect.SVRect().toString());
+
+                const OString sRects = comphelper::string::join("; ", aRects);
+                aTrackedChange.put("textRange", sRects.getStr());
+            }
+
+            aTrackedChanges.push_back(std::make_pair("", aTrackedChange));
         }
-
-        aTrackedChanges.push_back(std::make_pair("", aTrackedChange));
     }
 
     boost::property_tree::ptree aTree;

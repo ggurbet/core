@@ -36,7 +36,7 @@ public:
     size_t size() const;
     const SfxChildWinContextFactory& operator []( size_t i ) const;
     SfxChildWinContextFactory& operator []( size_t i );
-    void push_back( SfxChildWinContextFactory* p );
+    void push_back( std::unique_ptr<SfxChildWinContextFactory> p );
 };
 
 class SfxChildWinFactArr_Impl
@@ -51,7 +51,7 @@ public:
     size_t size() const;
     const SfxChildWinFactory& operator []( size_t i ) const;
     SfxChildWinFactory& operator []( size_t i );
-    void push_back( SfxChildWinFactory* p );
+    void push_back( std::unique_ptr<SfxChildWinFactory> p );
     void erase( const iterator& it );
 
     iterator begin();

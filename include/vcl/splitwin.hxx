@@ -24,7 +24,6 @@
 #include <vcl/dockwin.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
-class Wallpaper;
 class ImplSplitSet;
 
 enum class SplitWindowItemFlags
@@ -34,11 +33,10 @@ enum class SplitWindowItemFlags
     RelativeSize   = 0x0002,
     PercentSize    = 0x0004,
     ColSet         = 0x0008,
-    Invisible      = 0x0010,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<SplitWindowItemFlags> : is_typed_flags<SplitWindowItemFlags, 0x1f> {};
+    template<> struct typed_flags<SplitWindowItemFlags> : is_typed_flags<SplitWindowItemFlags, 0x0f> {};
 }
 
 #define SPLITWINDOW_APPEND          (sal_uInt16(0xFFFF))

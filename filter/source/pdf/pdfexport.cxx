@@ -72,6 +72,8 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
+#include <com/sun/star/security/XCertificate.hpp>
+#include <com/sun/star/beans/XMaterialHolder.hpp>
 
 #include <memory>
 
@@ -672,7 +674,7 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
                 default:
                 case 2:
                     aContext.Encryption.CanPrintFull            = true;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case 1:
                     aContext.Encryption.CanPrintTheDocument     = true;
                     break;

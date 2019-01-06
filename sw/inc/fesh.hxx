@@ -149,8 +149,8 @@ enum class CurRectType
 struct SwGetCurColNumPara
 {
     const SwFrameFormat* pFrameFormat;
-    const SwRect* pPrtRect, *pFrameRect;
-    SwGetCurColNumPara() : pFrameFormat( nullptr ), pPrtRect( nullptr ), pFrameRect( nullptr ) {}
+    const SwRect* pPrtRect;
+    SwGetCurColNumPara() : pFrameFormat( nullptr ), pPrtRect( nullptr ) {}
 };
 
 enum class SwPasteSdr
@@ -226,8 +226,6 @@ private:
     SAL_DLLPRIVATE void GetTabRows_(SwTabCols &rToFill, const SwFrame *pBox) const;
 
     SAL_DLLPRIVATE bool ImpEndCreate();
-
-    SAL_DLLPRIVATE static ObjCntType GetObjCntType( const SdrObject& rObj );
 
     /// Methods for copying of draw objects.
     SAL_DLLPRIVATE bool CopyDrawSel( SwFEShell* pDestShell, const Point& rSttPt,
@@ -311,6 +309,7 @@ public:
      * drag&drop of controls into header */
     bool IsSelContainsControl() const;
 
+    static ObjCntType GetObjCntType( const SdrObject& rObj );
     ObjCntType GetObjCntType( const Point &rPt, SdrObject *&rpObj ) const;
     ObjCntType GetObjCntTypeOfSelection() const;
 

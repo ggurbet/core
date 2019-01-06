@@ -38,6 +38,7 @@
 
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <memory>
 
 
@@ -463,7 +464,7 @@ void GraphicObject::SetUserData( const OUString& rUserData )
 }
 
 bool GraphicObject::Draw( OutputDevice* pOut, const Point& rPt, const Size& rSz,
-                          const GraphicAttr* pAttr, GraphicManagerDrawFlags nFlags )
+                          const GraphicAttr* pAttr )
 {
     GraphicAttr         aAttr( pAttr ? *pAttr : GetAttr() );
     Point               aPt( rPt );
@@ -475,8 +476,7 @@ bool GraphicObject::Draw( OutputDevice* pOut, const Point& rPt, const Size& rSz,
     // #i29534# Provide output rects for PDF writer
     tools::Rectangle           aCropRect;
 
-    if( !( GraphicManagerDrawFlags::USE_DRAWMODE_SETTINGS & nFlags ) )
-        pOut->SetDrawMode( nOldDrawMode & ~DrawModeFlags( DrawModeFlags::SettingsLine | DrawModeFlags::SettingsFill | DrawModeFlags::SettingsText | DrawModeFlags::SettingsGradient ) );
+    pOut->SetDrawMode( nOldDrawMode & ~DrawModeFlags( DrawModeFlags::SettingsLine | DrawModeFlags::SettingsFill | DrawModeFlags::SettingsText | DrawModeFlags::SettingsGradient ) );
 
     // mirrored horizontically
     if( aSz.Width() < 0 )
@@ -529,7 +529,7 @@ bool GraphicObject::Draw( OutputDevice* pOut, const Point& rPt, const Size& rSz,
 }
 
 void GraphicObject::DrawTiled( OutputDevice* pOut, const tools::Rectangle& rArea, const Size& rSize,
-                               const Size& rOffset, GraphicManagerDrawFlags nFlags, int nTileCacheSize1D )
+                               const Size& rOffset, int nTileCacheSize1D )
 {
     if( pOut == nullptr || rSize.Width() == 0 || rSize.Height() == 0 )
         return;
@@ -547,7 +547,7 @@ void GraphicObject::DrawTiled( OutputDevice* pOut, const tools::Rectangle& rArea
     while ((static_cast<sal_Int64>(rSize.Height()) * nTileCacheSize1D) > SAL_MAX_UINT16)
         nTileCacheSize1D /= 2;
 
-    ImplDrawTiled( pOut, rArea, aOutTileSize, rOffset, nullptr, nFlags, nTileCacheSize1D );
+    ImplDrawTiled( pOut, rArea, aOutTileSize, rOffset, nullptr, nTileCacheSize1D );
 }
 
 bool GraphicObject::StartAnimation( OutputDevice* pOut, const Point& rPt, const Size& rSz,

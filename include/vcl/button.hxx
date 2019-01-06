@@ -49,9 +49,9 @@ private:
 public:
     SAL_DLLPRIVATE DrawButtonFlags  ImplGetButtonState() const;
     SAL_DLLPRIVATE DrawButtonFlags& ImplGetButtonState();
-    SAL_DLLPRIVATE DrawTextFlags    ImplGetTextStyle( OUString& rText, WinBits nWinStyle, DrawFlags nDrawFlags );
+    SAL_DLLPRIVATE DrawTextFlags    ImplGetTextStyle( WinBits nWinStyle, DrawFlags nDrawFlags );
     SAL_DLLPRIVATE void             ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos, Size& rSize,
-                                              sal_uLong nImageSep, DrawFlags nDrawFlags,
+                                              sal_uLong nImageSep,
                                               DrawTextFlags nTextStyle, tools::Rectangle *pSymbolRect=nullptr, bool bAddImageSep = false );
     SAL_DLLPRIVATE void             ImplSetFocusRect( const tools::Rectangle &rFocusRect );
     SAL_DLLPRIVATE const tools::Rectangle& ImplGetFocusRect() const;
@@ -160,14 +160,14 @@ public:
     virtual bool    set_property(const OString &rKey, const OUString &rValue) override;
     virtual void    ShowFocus(const tools::Rectangle& rRect) override;
 
-    void setStock(bool bIsStock)
+    void setAction(bool bIsAction)
     {
-        mbIsStock = bIsStock;
+        mbIsAction = bIsAction;
     }
 
-    bool isStock()
+    bool isAction()
     {
-        return mbIsStock;
+        return mbIsAction;
     }
 
 protected:
@@ -206,7 +206,7 @@ private:
     SymbolType      meSymbol;
     TriState        meState;
     bool            mbPressed;
-    bool            mbIsStock;
+    bool            mbIsAction;
 };
 
 inline void PushButton::Check( bool bCheck )

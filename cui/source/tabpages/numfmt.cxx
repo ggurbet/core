@@ -168,8 +168,17 @@ void SvxNumberPreview::Paint(vcl::RenderContext& rRenderContext, const ::tools::
                 aTmpStr = aTmpStr.replaceAt(mnPos, 0, OUString(mnChar));
         }
     }
-    Point aPosText = Point((mnPos != -1) ? 0 : nLeadSpace,
-                           (aSzWnd.Height() - GetTextHeight()) / 2);
+    long nX;
+    if (mnPos != -1)
+        nX = 0;
+    else
+    {
+        //tdf#122120 if it won't fit anyway, then left align it
+        if (nLeadSpace > 0)
+            nX = nLeadSpace;
+        nX = 0;
+    }
+    Point aPosText = Point(nX, (aSzWnd.Height() - GetTextHeight()) / 2);
     rRenderContext.DrawText(aPosText, aTmpStr);
     rRenderContext.Pop();
 }
@@ -226,7 +235,6 @@ SvxNumberFormatTabPage::SvxNumberFormatTabPage(TabPageParent pParent,
     m_xLbCategory->set_size_request(nWidth, m_xLbCategory->get_height_rows(7));
     m_xLbFormat->set_size_request(nWidth, m_xLbFormat->get_height_rows(5));
     m_xLbCurrency->set_size_request(1, -1);  // width of 1, so real width will be that of its LbFormat sibling
-    m_xWndPreview->set_size_request(GetTextHeight()*3, -1);
 
     // Initially remove the "Automatically" entry.
     m_xLbCurrency->set_active(-1); // First ensure that nothing is selected.
@@ -916,7 +924,7 @@ void SvxNumberFormatTabPage::UpdateOptions_Impl( bool bCheckCatChange /*= sal_Fa
                 m_xBtnEngineering->set_sensitive(true);
                 m_xBtnEngineering->set_active( bThousand );
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case CAT_NUMBER:
         case CAT_PERCENT:
         case CAT_CURRENCY:
@@ -1612,7 +1620,9 @@ IMPL_LINK_NOARG(SvxNumberFormatTabPage, LostFocusHdl_Impl, weld::Widget&, void)
     {
         sal_uInt16 nSelPos = m_xLbFormat->get_selected_index();
         pNumFmtShell->SetComment4Entry(nSelPos, m_xEdComment->get_text());
-        m_xEdComment->set_text(m_xLbCategory->get_text(1));    // String for user defined
+        // String for user defined, if present
+        OUString sEntry = m_xLbCategory->n_children() > 1 ? m_xLbCategory->get_text(1) : OUString();
+        m_xEdComment->set_text(sEntry);
     }
 }
 

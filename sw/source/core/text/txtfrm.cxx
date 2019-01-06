@@ -368,6 +368,54 @@ namespace sw {
         return std::make_pair(pTextNode, pTextNode);
     }
 
+    SwTextNode const& GetAttrMerged(SfxItemSet & rFormatSet,
+            SwTextNode const& rNode, SwRootFrame const*const pLayout)
+    {
+        rNode.SwContentNode::GetAttr(rFormatSet);
+        if (pLayout && pLayout->IsHideRedlines())
+        {
+            if (sw::MergedPara const*const pMerged =
+                static_cast<SwTextFrame*>(rNode.getLayoutFrame(pLayout))->GetMergedPara())
+            {
+                if (pMerged->pFirstNode != &rNode)
+                {
+                    rFormatSet.ClearItem(RES_PAGEDESC);
+                    rFormatSet.ClearItem(RES_BREAK);
+                    static_assert(RES_PAGEDESC + 1 == sal_uInt16(RES_BREAK),
+                            "first-node items must be adjacent");
+                    SfxItemSet firstSet(*rFormatSet.GetPool(),
+                            svl::Items<RES_PAGEDESC, RES_BREAK>{});
+                    pMerged->pFirstNode->SwContentNode::GetAttr(firstSet);
+                    rFormatSet.Put(firstSet);
+
+                }
+                if (pMerged->pParaPropsNode != &rNode)
+                {
+                    for (sal_uInt16 i = RES_PARATR_BEGIN; i != RES_FRMATR_END; ++i)
+                    {
+                        if (i != RES_PAGEDESC && i != RES_BREAK)
+                        {
+                            rFormatSet.ClearItem(i);
+                        }
+                    }
+                    for (sal_uInt16 i = XATTR_FILL_FIRST; i <= XATTR_FILL_LAST; ++i)
+                    {
+                        rFormatSet.ClearItem(i);
+                    }
+                    SfxItemSet propsSet(*rFormatSet.GetPool(),
+                        svl::Items<RES_PARATR_BEGIN, RES_PAGEDESC,
+                                   RES_BREAK+1, RES_FRMATR_END,
+                                   XATTR_FILL_FIRST, XATTR_FILL_LAST+1>{});
+                    pMerged->pParaPropsNode->SwContentNode::GetAttr(propsSet);
+                    rFormatSet.Put(propsSet);
+                    return *pMerged->pParaPropsNode;
+                }
+                // keep all the CHRATR/UNKNOWNATR anyway...
+            }
+        }
+        return rNode;
+    }
+
 } // namespace sw
 
 /// Switches width and height of the text frame
@@ -690,7 +738,7 @@ SwTextFrame::SwTextFrame(SwTextNode * const pNode, SwFrame* pSib )
 namespace sw {
 
 void RemoveFootnotesForNode(
-        SwTextFrame const& rTextFrame, SwTextNode const& rTextNode,
+        SwRootFrame const& rLayout, SwTextNode const& rTextNode,
         std::vector<std::pair<sal_Int32, sal_Int32>> const*const pExtents)
 {
     if (pExtents && pExtents->empty())
@@ -729,7 +777,7 @@ void RemoveFootnotesForNode(
                 continue;
             }
         }
-        pTextFootnote->DelFrames( &rTextFrame );
+        pTextFootnote->DelFrames(&rLayout);
     }
 }
 
@@ -754,7 +802,7 @@ void SwTextFrame::DestroyImpl()
                     // sw_redlinehide: not sure if it's necessary to check
                     // if the nodes are still alive here, which would require
                     // accessing WriterMultiListener::m_vDepends
-                    sw::RemoveFootnotesForNode(*this, *pNode, nullptr);
+                    sw::RemoveFootnotesForNode(*getRootFrame(), *pNode, nullptr);
                 }
             }
         }
@@ -763,7 +811,7 @@ void SwTextFrame::DestroyImpl()
             SwTextNode *const pNode(static_cast<SwTextNode*>(GetDep()));
             if (pNode)
             {
-                sw::RemoveFootnotesForNode(*this, *pNode, nullptr);
+                sw::RemoveFootnotesForNode(*getRootFrame(), *pNode, nullptr);
             }
         }
     }
@@ -792,7 +840,7 @@ static TextFrameIndex UpdateMergedParaForInsert(MergedPara & rMerged,
         return TextFrameIndex(0);
     }
     OUStringBuffer text(rMerged.mergedText);
-    sal_Int32 nTFIndex(0);
+    sal_Int32 nTFIndex(0); // index used for insertion at the end
     sal_Int32 nInserted(0);
     bool bInserted(false);
     bool bFoundNode(false);
@@ -874,10 +922,16 @@ static TextFrameIndex UpdateMergedParaForInsert(MergedPara & rMerged,
         }
         else if (rNode.GetIndex() < it->pNode->GetIndex() || bFoundNode)
         {
-            itInsert = it;
+            if (itInsert == rMerged.extents.end())
+            {
+                itInsert = it;
+            }
             break;
         }
-        nTFIndex += it->nEnd - it->nStart;
+        if (itInsert == rMerged.extents.end())
+        {
+            nTFIndex += it->nEnd - it->nStart;
+        }
     }
 //    assert((bFoundNode || rMerged.extents.empty()) && "text node not found - why is it sending hints to us");
     if (!bInserted)
@@ -1013,6 +1067,7 @@ TextFrameIndex UpdateMergedParaForDelete(MergedPara & rMerged,
     // pFirstNode is never updated
     if (nErased && nErased == nFoundNode)
     {   // all visible text from node was erased
+#if 0
         if (rMerged.pParaPropsNode == &rNode)
         {
             rMerged.pParaPropsNode->RemoveFromListRLHidden();
@@ -1021,6 +1076,7 @@ TextFrameIndex UpdateMergedParaForDelete(MergedPara & rMerged,
                 : rMerged.extents.front().pNode;
             rMerged.pParaPropsNode->AddToListRLHidden();
         }
+#endif
 // NOPE must listen on all non-hidden nodes; particularly on pLastNode        rMerged.listener.EndListening(&const_cast<SwTextNode&>(rNode));
     }
     rMerged.mergedText = text.makeStringAndClear();
@@ -1089,7 +1145,7 @@ TextFrameIndex MapModelToView(MergedPara const& rMerged, SwTextNode const*const 
         assert(nIndex <= pNode->Len());
         return TextFrameIndex(0);
     }
-    return TextFrameIndex(COMPLETE_STRING);
+    return TextFrameIndex(rMerged.mergedText.getLength());
 }
 
 } // namespace sw
@@ -1171,7 +1227,21 @@ SwTextNode const* SwTextFrame::GetTextNodeForParaProps() const
 //nope    assert(GetPara());
     sw::MergedPara const*const pMerged(GetMergedPara());
     if (pMerged)
+    {
+        assert(pMerged->pFirstNode == pMerged->pParaPropsNode); // surprising news!
         return pMerged->pParaPropsNode;
+    }
+    else
+        return static_cast<SwTextNode const*>(SwFrame::GetDep());
+}
+
+SwTextNode const* SwTextFrame::GetTextNodeForFirstText() const
+{
+    sw::MergedPara const*const pMerged(GetMergedPara());
+    if (pMerged)
+        return pMerged->extents.empty()
+            ? pMerged->pFirstNode
+            : pMerged->extents.front().pNode;
     else
         return static_cast<SwTextNode const*>(SwFrame::GetDep());
 }
@@ -2079,9 +2149,8 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
             if( IsIdxInside( nPos, nLen ) )
             {
                 // We need to reformat anyways, even if the invalidated
-                // area is NULL.
+                // range is empty.
                 // E.g.: empty line, set 14 pt!
-                // if( !nLen ) nLen = 1;
 
                 // FootnoteNumbers need to be formatted
                 if( !nLen )
@@ -2344,6 +2413,11 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
                                 aNewSet.ClearItem(i);
                             }
                         }
+                        for (sal_uInt16 i = XATTR_FILL_FIRST; i <= XATTR_FILL_LAST; ++i)
+                        {
+                            aOldSet.ClearItem(i);
+                            aNewSet.ClearItem(i);
+                        }
                     }
                     if (m_pMergedPara && m_pMergedPara->pFirstNode != &rModify)
                     {
@@ -2568,7 +2642,7 @@ bool SwTextFrame::Prepare( const PrepareHint ePrep, const void* pVoid,
         {
             case PREP_BOSS_CHGD:
                 SetInvalidVert( true ); // Test
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case PREP_WIDOWS_ORPHANS:
             case PREP_WIDOWS:
             case PREP_FTN_GONE :    return bParaPossiblyInvalid;
@@ -2640,7 +2714,7 @@ bool SwTextFrame::Prepare( const PrepareHint ePrep, const void* pVoid,
 
             InvalidatePrt_();
             InvalidateSize_();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case PREP_ADJUST_FRM :
             pPara->SetPrepAdjust();
             if( IsFootnoteNumFrame() != pPara->IsFootnoteNum() ||
@@ -2653,7 +2727,7 @@ bool SwTextFrame::Prepare( const PrepareHint ePrep, const void* pVoid,
             break;
         case PREP_MUST_FIT :
             pPara->SetPrepMustFit(true);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case PREP_WIDOWS_ORPHANS :
             pPara->SetPrepAdjust();
             break;
@@ -2897,7 +2971,7 @@ bool SwTextFrame::Prepare( const PrepareHint ePrep, const void* pVoid,
                 InvalidateRange(SwCharRange(nWhere, TextFrameIndex(1)));
                 return bParaPossiblyInvalid;
             }
-            SAL_FALLTHROUGH; // else: continue with default case block
+            [[fallthrough]]; // else: continue with default case block
         }
         case PREP_CLEAR:
         default:

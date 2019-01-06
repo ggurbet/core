@@ -60,13 +60,16 @@
 #include <uinums.hxx>
 #include <dbconfig.hxx>
 #include <mmconfigitem.hxx>
+#include <strings.hrc>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdb/TextConnectionSettings.hpp>
 #include <com/sun/star/sdbc/XDataSource.hpp>
+#include <com/sun/star/task/OfficeRestartManager.hpp>
 #include <org/freedesktop/PackageKit/SyncDbusSessionHelper.hpp>
 #include <swabstdlg.hxx>
 #include <comphelper/dispatchcommand.hxx>
+#include <comphelper/processfactory.hxx>
 
 #include <salhelper/simplereferenceobject.hxx>
 #include <rtl/ref.hxx>
@@ -156,7 +159,8 @@ void SwModule::StateOther(SfxItemSet &rSet)
                     xConfigItem = pView->GetMailMergeConfigItem();
                 if (!xConfigItem)
                     rSet.DisableItem(nWhich);
-                else
+                else if (xConfigItem->GetConnection().is()
+                         && !xConfigItem->GetConnection()->isClosed())
                 {
                     bool bFirst, bLast;
                     bool bValid = xConfigItem->IsResultSetFirstLast(bFirst, bLast);
@@ -185,12 +189,32 @@ void SwModule::StateOther(SfxItemSet &rSet)
             {
                 SwView* pView = ::GetActiveView();
                 std::shared_ptr<SwMailMergeConfigItem> xConfigItem;
+                bool bUnLockDispatcher = false;
+                SfxDispatcher* pDispatcher = nullptr;
                 if (pView)
+                {
                     xConfigItem = pView->EnsureMailMergeConfigItem();
+
+                    // tdf#121607 lock the dispatcher while processing
+                    // this request, and release it afterwards,
+                    // that means that if this request pops up a dialog
+                    // any other pending requests will be deferred
+                    // until this request is finished, i.e. they won't
+                    // be dispatched by the dispatcher timeout until
+                    // unlock is called, serializing the password dialogs
+                    pDispatcher = pView->GetViewFrame()->GetDispatcher();
+                    if (!pDispatcher->IsLocked())
+                    {
+                        pDispatcher->Lock(true);
+                        bUnLockDispatcher = true;
+                    }
+                }
 
                 // #i51949# hide e-Mail option if e-Mail is not supported
                 // #i63267# printing might be disabled
                 if (!xConfigItem ||
+                    !xConfigItem->GetConnection().is() ||
+                    xConfigItem->GetConnection()->isClosed() ||
                     !xConfigItem->GetResultSet().is() ||
                     xConfigItem->GetCurrentDBData().sDataSource.isEmpty() ||
                     xConfigItem->GetCurrentDBData().sCommand.isEmpty() ||
@@ -199,6 +223,9 @@ void SwModule::StateOther(SfxItemSet &rSet)
                 {
                     rSet.DisableItem(nWhich);
                 }
+
+                if (bUnLockDispatcher)
+                    pDispatcher->Lock(false);
             }
             break;
             default:
@@ -393,6 +420,17 @@ void SwMailMergeWizardExecutor::ExecuteMailMergeWizard( const SfxItemSet * pArgs
             SAL_INFO(
                 "sw.core",
                 "trying to install LibreOffice Base, caught " << e);
+            auto xRestartManager
+                = css::task::OfficeRestartManager::get(comphelper::getProcessComponentContext());
+            if (!xRestartManager->isRestartRequested(false))
+            {
+                // Base is absent, and could not initiate its install - ask user to do that manually
+                // Only show the dialog if restart is not initiated yet
+                std::unique_ptr<weld::MessageDialog> xWarnBox(Application::CreateMessageDialog(
+                    nullptr, VclMessageType::Info, VclButtonsType::Ok,
+                    SwResId(STR_NO_BASE_FOR_MERGE)));
+                xWarnBox->run();
+            }
         }
         return;
     }
@@ -455,7 +493,7 @@ void SwMailMergeWizardExecutor::ExecutionFinished()
 
 void SwMailMergeWizardExecutor::ExecuteWizard()
 {
-    m_pWizard->StartExecuteAsync([=](sal_Int32 nResult){
+    m_pWizard->StartExecuteAsync([this](sal_Int32 nResult){
         EndDialogHdl(nResult);
     });
 }
@@ -708,6 +746,9 @@ void SwModule::ExecOther(SfxRequest& rReq)
             if (!xConfigItem)
                 return;
 
+            const bool bHadConnection
+                = xConfigItem->GetConnection().is() && !xConfigItem->GetConnection()->isClosed();
+
             sal_Int32 nPos = xConfigItem->GetResultSetPosition();
             switch (nWhich)
             {
@@ -745,6 +786,15 @@ void SwModule::ExecOther(SfxRequest& rReq)
             rBindings.Invalidate(FN_MAILMERGE_LAST_ENTRY);
             rBindings.Invalidate(FN_MAILMERGE_CURRENT_ENTRY);
             rBindings.Invalidate(FN_MAILMERGE_EXCLUDE_ENTRY);
+            if (!bHadConnection && xConfigItem->GetConnection().is()
+                && !xConfigItem->GetConnection()->isClosed())
+            {
+                // The connection has been activated. Update controls that were disabled
+                rBindings.Invalidate(FN_MAILMERGE_CREATE_DOCUMENTS);
+                rBindings.Invalidate(FN_MAILMERGE_SAVE_DOCUMENTS);
+                rBindings.Invalidate(FN_MAILMERGE_PRINT_DOCUMENTS);
+                rBindings.Invalidate(FN_MAILMERGE_EMAIL_DOCUMENTS);
+            }
             rBindings.Update();
         }
         break;
@@ -847,36 +897,36 @@ void SwModule::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
     {
         if (rHint.GetId() == SfxHintId::Deinitializing)
         {
-            DELETEZ(m_pWebUsrPref);
-            DELETEZ(m_pUsrPref);
-            DELETEZ(m_pModuleConfig);
-            DELETEZ(m_pPrintOptions);
-            DELETEZ(m_pWebPrintOptions);
-            DELETEZ(m_pChapterNumRules);
-            DELETEZ(m_pStdFontConfig);
-            DELETEZ(m_pNavigationConfig);
-            DELETEZ(m_pToolbarConfig);
-            DELETEZ(m_pWebToolbarConfig);
-            DELETEZ(m_pDBConfig);
+            m_pWebUsrPref.reset();
+            m_pUsrPref.reset();
+            m_pModuleConfig.reset();
+            m_pPrintOptions.reset();
+            m_pWebPrintOptions.reset();
+            m_pChapterNumRules.reset();
+            m_pStdFontConfig.reset();
+            m_pNavigationConfig.reset();
+            m_pToolbarConfig.reset();
+            m_pWebToolbarConfig.reset();
+            m_pDBConfig.reset();
             if( m_pColorConfig )
             {
                 m_pColorConfig->RemoveListener(this);
-                DELETEZ(m_pColorConfig);
+                m_pColorConfig.reset();
             }
             if( m_pAccessibilityOptions )
             {
                 m_pAccessibilityOptions->RemoveListener(this);
-                DELETEZ(m_pAccessibilityOptions);
+                m_pAccessibilityOptions.reset();
             }
             if( m_pCTLOptions )
             {
                 m_pCTLOptions->RemoveListener(this);
-                DELETEZ(m_pCTLOptions);
+                m_pCTLOptions.reset();
             }
             if( m_pUserOptions )
             {
                 m_pUserOptions->RemoveListener(this);
-                DELETEZ(m_pUserOptions);
+                m_pUserOptions.reset();
             }
         }
     }
@@ -884,14 +934,14 @@ void SwModule::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
 
 void SwModule::ConfigurationChanged( utl::ConfigurationBroadcaster* pBrdCst, ConfigurationHints )
 {
-    if( pBrdCst == m_pUserOptions )
+    if( pBrdCst == m_pUserOptions.get() )
     {
         m_bAuthorInitialised = false;
     }
-    else if ( pBrdCst == m_pColorConfig || pBrdCst == m_pAccessibilityOptions )
+    else if ( pBrdCst == m_pColorConfig.get() || pBrdCst == m_pAccessibilityOptions.get() )
     {
         bool bAccessibility = false;
-        if( pBrdCst == m_pColorConfig )
+        if( pBrdCst == m_pColorConfig.get() )
             SwViewOption::ApplyColorConfigValues(*m_pColorConfig);
         else
             bAccessibility = true;
@@ -919,7 +969,7 @@ void SwModule::ConfigurationChanged( utl::ConfigurationBroadcaster* pBrdCst, Con
             pViewShell = SfxViewShell::GetNext( *pViewShell );
         }
     }
-    else if( pBrdCst == m_pCTLOptions )
+    else if( pBrdCst == m_pCTLOptions.get() )
     {
         const SfxObjectShell* pObjSh = SfxObjectShell::GetFirst();
         while( pObjSh )
@@ -940,15 +990,15 @@ void SwModule::ConfigurationChanged( utl::ConfigurationBroadcaster* pBrdCst, Con
 SwDBConfig* SwModule::GetDBConfig()
 {
     if(!m_pDBConfig)
-        m_pDBConfig = new SwDBConfig;
-    return m_pDBConfig;
+        m_pDBConfig.reset(new SwDBConfig);
+    return m_pDBConfig.get();
 }
 
 svtools::ColorConfig& SwModule::GetColorConfig()
 {
     if(!m_pColorConfig)
     {
-        m_pColorConfig = new svtools::ColorConfig;
+        m_pColorConfig.reset(new svtools::ColorConfig);
         SwViewOption::ApplyColorConfigValues(*m_pColorConfig);
         m_pColorConfig->AddListener(this);
     }
@@ -959,7 +1009,7 @@ SvtAccessibilityOptions& SwModule::GetAccessibilityOptions()
 {
     if(!m_pAccessibilityOptions)
     {
-        m_pAccessibilityOptions = new SvtAccessibilityOptions;
+        m_pAccessibilityOptions.reset(new SvtAccessibilityOptions);
         m_pAccessibilityOptions->AddListener(this);
     }
     return *m_pAccessibilityOptions;
@@ -969,7 +1019,7 @@ SvtCTLOptions& SwModule::GetCTLOptions()
 {
     if(!m_pCTLOptions)
     {
-        m_pCTLOptions = new SvtCTLOptions;
+        m_pCTLOptions.reset(new SvtCTLOptions);
         m_pCTLOptions->AddListener(this);
     }
     return *m_pCTLOptions;
@@ -979,7 +1029,7 @@ SvtUserOptions& SwModule::GetUserOptions()
 {
     if(!m_pUserOptions)
     {
-        m_pUserOptions = new SvtUserOptions;
+        m_pUserOptions.reset(new SvtUserOptions);
         m_pUserOptions->AddListener(this);
     }
     return *m_pUserOptions;
@@ -992,13 +1042,13 @@ const SwMasterUsrPref *SwModule::GetUsrPref(bool bWeb) const
     {
         // The SpellChecker is needed in SwMasterUsrPref's Load, but it must not
         // be created there #58256#
-        pNonConstModule->m_pWebUsrPref = new SwMasterUsrPref(true);
+        pNonConstModule->m_pWebUsrPref.reset(new SwMasterUsrPref(true));
     }
     else if(!bWeb && !m_pUsrPref)
     {
-        pNonConstModule->m_pUsrPref = new SwMasterUsrPref(false);
+        pNonConstModule->m_pUsrPref.reset(new SwMasterUsrPref(false));
     }
-    return  bWeb ? m_pWebUsrPref : m_pUsrPref;
+    return  bWeb ? m_pWebUsrPref.get() : m_pUsrPref.get();
 }
 
 void NewXForms( SfxRequest& rReq )

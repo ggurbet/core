@@ -18,6 +18,7 @@
  */
 
 #include "ConfigurationControllerBroadcaster.hxx"
+#include <com/sun/star/drawing/framework/XConfigurationChangeListener.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <tools/diagnose_ex.h>
@@ -61,18 +62,13 @@ void ConfigurationControllerBroadcaster::RemoveListener(
             mxConfigurationController,
             0);
 
-    ListenerMap::iterator iMap;
     ListenerList::iterator iList;
-    for (iMap=maListenerMap.begin(); iMap!=maListenerMap.end(); ++iMap)
+    for (auto& rMap : maListenerMap)
     {
-        for (iList=iMap->second.begin(); iList!=iMap->second.end(); ++iList)
-        {
-            if (iList->mxListener == rxListener)
-            {
-                iMap->second.erase(iList);
-                break;
-            }
-        }
+        iList = std::find_if(rMap.second.begin(), rMap.second.end(),
+            [&rxListener](const ListenerDescriptor& rList) { return rList.mxListener == rxListener; });
+        if (iList != rMap.second.end())
+            rMap.second.erase(iList);
     }
 }
 
@@ -84,20 +80,19 @@ void ConfigurationControllerBroadcaster::NotifyListeners (
     // for every listener.
     ConfigurationChangeEvent aEvent (rEvent);
 
-    ListenerList::const_iterator iListener;
-    for (iListener=rList.begin(); iListener!=rList.end(); ++iListener)
+    for (const auto& rListener : rList)
     {
         try
         {
-            aEvent.UserData = iListener->maUserData;
-            iListener->mxListener->notifyConfigurationChange(aEvent);
+            aEvent.UserData = rListener.maUserData;
+            rListener.mxListener->notifyConfigurationChange(aEvent);
         }
         catch (const lang::DisposedException& rException)
         {
             // When the exception comes from the listener itself then
             // unregister it.
-            if (rException.Context == iListener->mxListener)
-                RemoveListener(iListener->mxListener);
+            if (rException.Context == rListener.mxListener)
+                RemoveListener(rListener.mxListener);
         }
         catch (const RuntimeException&)
         {

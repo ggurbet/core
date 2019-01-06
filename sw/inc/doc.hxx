@@ -39,6 +39,7 @@
 #include "tblenum.hxx"
 #include "ndarr.hxx"
 #include "ndtyp.hxx"
+#include <atomic>
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -258,7 +259,7 @@ class SW_DLLPUBLIC SwDoc final
     std::unique_ptr<SwAutoCorrExceptWord> mpACEWord;               /**< For the automated takeover of
                                                    auto-corrected words that are "re-corrected". */
     std::unique_ptr<SwURLStateChanged> mpURLStateChgd;             //< SfxClient for changes in INetHistory
-    std::unique_ptr<SvNumberFormatter> mpNumberFormatter;          //< NumFormatter for tables / fields
+    std::atomic<SvNumberFormatter*> mpNumberFormatter;             //< NumFormatter for tables / fields
 
     mutable std::unique_ptr<SwNumRuleTable> mpNumRuleTable;     //< List of all named NumRules.
 
@@ -347,7 +348,7 @@ private:
                                 const OUString& rFormula,
                                 std::vector<OUString>& rUsedDBNames );
 
-    void CreateNumberFormatter();
+    void EnsureNumberFormatter();
 
     bool UnProtectTableCells( SwTable& rTable );
 
@@ -692,8 +693,10 @@ public:
     void ResetAttrs( const SwPaM &rRg,
                      bool bTextAttr = true,
                      const std::set<sal_uInt16> &rAttrs = std::set<sal_uInt16>(),
-                     const bool bSendDataChangedEvents = true );
-    void RstTextAttrs(const SwPaM &rRg, bool bInclRefToxMark = false, bool bExactRange = false );
+                     const bool bSendDataChangedEvents = true,
+                     SwRootFrame const* pLayout = nullptr);
+    void RstTextAttrs(const SwPaM &rRg, bool bInclRefToxMark = false,
+            bool bExactRange = false, SwRootFrame const* pLayout = nullptr);
 
     /** Set attribute in given format.1y
      *  If Undo is enabled, the old values is added to the Undo history. */
@@ -782,7 +785,8 @@ public:
      that <bReset = true> and the paragraph style has a list style attribute set. */
     bool SetTextFormatColl(const SwPaM &rRg, SwTextFormatColl *pFormat,
                        const bool bReset = true,
-                       const bool bResetListAttrs = false);
+                       const bool bResetListAttrs = false,
+                       SwRootFrame const* pLayout = nullptr);
     SwTextFormatColl* FindTextFormatCollByName( const OUString& rName ) const
         {   return static_cast<SwTextFormatColl*>(FindFormatByName( *mpTextFormatCollTable, rName )); }
 
@@ -911,7 +915,8 @@ public:
     SwTOXBaseSection* InsertTableOf( const SwPosition& rPos,
                                             const SwTOXBase& rTOX,
                                             const SfxItemSet* pSet = nullptr,
-                                            bool bExpand = false );
+                                            bool bExpand = false,
+                                    SwRootFrame const* pLayout = nullptr);
     void              InsertTableOf( sal_uLong nSttNd, sal_uLong nEndNd,
                                             const SwTOXBase& rTOX,
                                             const SfxItemSet* pSet );
@@ -957,7 +962,8 @@ public:
     void                SetDefaultTOXBase(const SwTOXBase& rBase);
 
     // Key for management of index.
-    void GetTOIKeys( SwTOIKeyType eTyp, std::vector<OUString>& rArr ) const;
+    void GetTOIKeys(SwTOIKeyType eTyp, std::vector<OUString>& rArr,
+            SwRootFrame const& rLayout) const;
 
     // Sort table text.
     bool SortTable(const SwSelBoxes& rBoxes, const SwSortOptions&);
@@ -1027,7 +1033,7 @@ public:
                      const OUString& sContinuedListId = OUString(),
                      bool bSetItem = true,
                      const bool bResetIndentAttrs = false );
-    void SetCounted( const SwPaM&, bool bCounted);
+    void SetCounted(const SwPaM&, bool bCounted, SwRootFrame const* pLayout);
 
     void MakeUniqueNumRules(const SwPaM & rPaM);
 
@@ -1375,11 +1381,21 @@ public:
     /** Adjust left margin via object bar (similar to adjustment of numerations).
      One can either change the margin "by" adding or subtracting a given
      offset or set it "to" this position (bModulus = true). */
-    void MoveLeftMargin( const SwPaM& rPam, bool bRight, bool bModulus );
+    void MoveLeftMargin(const SwPaM& rPam, bool bRight, bool bModulus,
+            SwRootFrame const* pLayout = nullptr);
 
     // Query NumberFormatter.
-    inline       SvNumberFormatter* GetNumberFormatter( bool bCreate = true );
-    inline const SvNumberFormatter* GetNumberFormatter( bool bCreate = true ) const;
+    SvNumberFormatter* GetNumberFormatter(bool bCreate = true)
+    {
+        if (bCreate)
+            EnsureNumberFormatter();
+        return mpNumberFormatter;
+    }
+
+    const SvNumberFormatter* GetNumberFormatter(bool bCreate = true) const
+    {
+        return const_cast<SwDoc*>(this)->GetNumberFormatter(bCreate);
+    }
 
     bool HasInvisibleContent() const;
     // delete invisible content, like hidden sections and paragraphs
@@ -1532,7 +1548,7 @@ public:
                    bool bBroadcast = false);
 
     // Change a TOX undoable.
-    void ChgTOX(SwTOXBase & rTOX, const SwTOXBase & rNew);
+    void ChangeTOX(SwTOXBase & rTOX, const SwTOXBase & rNew, SwRootFrame const& rLayout);
 
     /**
        Returns a textual description of a PaM.
@@ -1628,18 +1644,6 @@ void ClrContourCache();
 inline const SwTableNode* SwDoc::IsIdxInTable( const SwNodeIndex& rIdx ) const
 {
     return const_cast<SwDoc*>(this)->IsIdxInTable( rIdx );
-}
-
-inline SvNumberFormatter* SwDoc::GetNumberFormatter( bool bCreate )
-{
-    if( bCreate && !mpNumberFormatter )
-        CreateNumberFormatter();
-    return mpNumberFormatter.get();
-}
-
-inline const SvNumberFormatter* SwDoc::GetNumberFormatter( bool bCreate ) const
-{
-    return const_cast<SwDoc*>(this)->GetNumberFormatter( bCreate );
 }
 
 inline void SwDoc::SetOLEPrtNotifyPending( bool bSet )

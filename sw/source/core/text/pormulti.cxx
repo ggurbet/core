@@ -285,7 +285,7 @@ SwDoubleLinePortion::SwDoubleLinePortion(
     else
     {
         const SwTextAttr& rAttr = *rCreate.pAttr;
-        pBracket->nStart = rAttr.GetStart();
+        pBracket->nStart = rCreate.nStartOfAttr;
 
         const SfxPoolItem * const pItem =
             CharFormat::GetItem( rAttr, RES_CHRATR_TWO_LINES );
@@ -659,10 +659,10 @@ void SwRubyPortion::Adjust_( SwTextFormatInfo &rInf )
     switch ( nAdjustment )
     {
         case css::text::RubyAdjust_CENTER: nRight = static_cast<sal_uInt16>(nLineDiff / 2);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case css::text::RubyAdjust_RIGHT: nLeft  = static_cast<sal_uInt16>(nLineDiff - nRight); break;
         case css::text::RubyAdjust_BLOCK: nSub   = TextFrameIndex(1);
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case css::text::RubyAdjust_INDENT_BLOCK:
         {
             TextFrameIndex nCharCnt(0);
@@ -941,6 +941,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
         std::unique_ptr<SwMultiCreator> pRet(new SwMultiCreator);
         pRet->pItem = nullptr;
         pRet->pAttr = nullptr;
+        pRet->nStartOfAttr = TextFrameIndex(-1);
         pRet->nId = SwMultiCreatorId::Bidi;
         pRet->nLevel = nCurrLevel + 1;
         return pRet;
@@ -1046,6 +1047,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
         std::unique_ptr<SwMultiCreator> pRet(new SwMultiCreator);
         pRet->pItem = nullptr;
         pRet->pAttr = pRuby;
+        pRet->nStartOfAttr = m_pFrame->MapModelToView(startPos.first, pRet->pAttr->GetStart());
         pRet->nId = SwMultiCreatorId::Ruby;
         pRet->nLevel = GetTextFrame()->IsRightToLeft() ? 1 : 0;
         return pRet;
@@ -1069,6 +1071,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
         {
             pRet->pItem = nullptr;
             pRet->pAttr = pActiveTwoLinesHint;
+            pRet->nStartOfAttr = m_pFrame->MapModelToView(startPos.first, pRet->pAttr->GetStart());
             if (pNodeTwoLinesItem)
             {
                 aEnd.push_front(m_pFrame->MapModelToView(startPos.first, startPos.first->Len()));
@@ -1086,6 +1089,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
         {
             pRet->pItem = pNodeTwoLinesItem;
             pRet->pAttr = nullptr;
+            pRet->nStartOfAttr = TextFrameIndex(-1);
             aEnd.push_front(m_pFrame->MapModelToView(startPos.first, startPos.first->Len()));
         }
         pRet->nId = SwMultiCreatorId::Double;
@@ -1298,6 +1302,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
         {
             pRet->pItem = nullptr;
             pRet->pAttr = pActiveRotateHint;
+            pRet->nStartOfAttr = m_pFrame->MapModelToView(startPos.first, pRet->pAttr->GetStart());
             if (pNodeRotateItem)
             {
                 aEnd.push_front(m_pFrame->MapModelToView(startPos.first, startPos.first->Len()));
@@ -1313,6 +1318,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
         {
             pRet->pItem = pNodeRotateItem;
             pRet->pAttr = nullptr;
+            pRet->nStartOfAttr = TextFrameIndex(-1);
             aEnd.push_front(m_pFrame->MapModelToView(startPos.first, startPos.first->Len()));
         }
         for (sw::MergedAttrIterMulti iter = iterAtStartOfNode; ; )

@@ -70,6 +70,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     , m_bInDrag(false)
     , m_bDefaultSize(true)
     , m_bDefaultPos(true)
+    , m_bFullScreen(false)
 {
     Qt5Instance* pInst = static_cast<Qt5Instance*>(GetSalData()->m_pInstance);
     pInst->insertFrame(this);
@@ -115,7 +116,10 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     }
     else
         m_pQWidget = new Qt5Widget(*this, aWinFlags);
+
     connect(this, SIGNAL(setVisibleSignal(bool)), SLOT(setVisible(bool)));
+    connect(this, &Qt5Frame::tooltipRequest, static_cast<Qt5Widget*>(m_pQWidget),
+            &Qt5Widget::showTooltip);
 
     if (pParent && !(pParent->m_nStyle & SalFrameStyleFlags::PLUG))
     {
@@ -377,7 +381,11 @@ Size Qt5Frame::CalcDefaultSize()
     else
         qSize = QApplication::desktop()->screenGeometry(0).size();
 
-    return bestmaxFrameSizeForScreenSize(toSize(qSize));
+    Size aSize = toSize(qSize);
+    if (!m_bFullScreen)
+        aSize = bestmaxFrameSizeForScreenSize(aSize);
+
+    return aSize;
 }
 
 void Qt5Frame::SetDefaultSize()
@@ -559,13 +567,15 @@ void Qt5Frame::ShowFullScreen(bool bFullScreen, sal_Int32 nScreen)
     // only top-level windows can go fullscreen
     assert(m_pTopLevel);
 
+    m_bFullScreen = bFullScreen;
+
     // show it if it isn't shown yet
     if (!isWindow())
         m_pTopLevel->show();
 
     // do that before going fullscreen
     SetScreenNumber(nScreen);
-    bFullScreen ? windowHandle()->showFullScreen() : windowHandle()->showNormal();
+    m_bFullScreen ? windowHandle()->showFullScreen() : windowHandle()->showNormal();
 }
 
 void Qt5Frame::StartPresentation(bool)
@@ -637,11 +647,23 @@ void Qt5Frame::Flush()
     // destroyed, so that state should be safely flushed.
 }
 
+bool Qt5Frame::ShowTooltip(const OUString& rText, const tools::Rectangle& /*rHelpArea*/)
+{
+    emit tooltipRequest(rText);
+    return true;
+}
+
 // do we even need it? void Qt5Frame::Flush(const tools::Rectangle& /*rRect*/) {}
 
-void Qt5Frame::SetInputContext(SalInputContext* /*pContext*/)
+void Qt5Frame::SetInputContext(SalInputContext* pContext)
 {
-    // TODO some IM handler setup
+    if (!pContext)
+        return;
+
+    if (!(pContext->mnOptions & InputContextFlags::Text))
+        return;
+
+    m_pQWidget->setAttribute(Qt::WA_InputMethodEnabled);
 }
 
 void Qt5Frame::EndExtTextInput(EndExtTextInputFlags /*nFlags*/)
@@ -827,12 +849,6 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
 
     style.SetToolbarIconSize(ToolbarIconSize::Large);
 
-    style.SetActiveColor(toColor(pal.color(QPalette::Active, QPalette::Window)));
-    style.SetDeactiveColor(toColor(pal.color(QPalette::Inactive, QPalette::Window)));
-
-    style.SetActiveTextColor(toColor(pal.color(QPalette::Active, QPalette::WindowText)));
-    style.SetDeactiveTextColor(toColor(pal.color(QPalette::Inactive, QPalette::WindowText)));
-
     Color aFore = toColor(pal.color(QPalette::Active, QPalette::WindowText));
     Color aBack = toColor(pal.color(QPalette::Active, QPalette::Window));
     Color aText = toColor(pal.color(QPalette::Active, QPalette::Text));
@@ -1014,6 +1030,9 @@ void Qt5Frame::SetApplicationID(const OUString&)
 }
 
 // Drag'n'drop foo
+
+Qt5DragSource* Qt5DragSource::m_ActiveDragSource;
+
 void Qt5Frame::registerDragSource(Qt5DragSource* pDragSource)
 {
     assert(!m_pDragSource);
@@ -1049,11 +1068,11 @@ void Qt5Frame::draggingStarted(const int x, const int y)
     aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDragContext*>(m_pDropTarget);
     aEvent.LocationX = x;
     aEvent.LocationY = y;
-    aEvent.DropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE; //FIXME
+    aEvent.DropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
     aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
 
     css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
-    xTransferable = m_pDragSource->GetTransferable();
+    xTransferable = Qt5DragSource::m_ActiveDragSource->GetTransferable();
 
     if (!m_bInDrag && xTransferable.is())
     {
@@ -1077,11 +1096,12 @@ void Qt5Frame::dropping(const int x, const int y)
     aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDropContext*>(m_pDropTarget);
     aEvent.LocationX = x;
     aEvent.LocationY = y;
-    aEvent.DropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE; //FIXME
+    aEvent.DropAction = m_pDropTarget->proposedDragAction()
+                        | css::datatransfer::dnd::DNDConstants::ACTION_DEFAULT;
     aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
 
     css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
-    xTransferable = m_pDragSource->GetTransferable();
+    xTransferable = Qt5DragSource::m_ActiveDragSource->GetTransferable();
     aEvent.Transferable = xTransferable;
 
     m_pDropTarget->fire_drop(aEvent);
@@ -1089,7 +1109,7 @@ void Qt5Frame::dropping(const int x, const int y)
 
     if (m_pDragSource)
     {
-        m_pDragSource->fire_dragEnd();
+        m_pDragSource->fire_dragEnd(m_pDropTarget->proposedDragAction());
     }
 }
 

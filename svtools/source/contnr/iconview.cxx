@@ -19,6 +19,7 @@
 
 #include <svtools/iconview.hxx>
 #include <vcl/treelistentry.hxx>
+#include <vcl/viewdataentry.hxx>
 #include <svtools/fileview.hxx>
 #include <iconviewimpl.hxx>
 
@@ -101,7 +102,6 @@ void IconView::PaintEntry(SvTreeListEntry& rEntry, long nX, long nY,
     Color aBackupColor = rRenderContext.GetFillColor();
 
     bool bCurFontIsSel = false;
-    bool bInUse = rEntry.HasInUseEmphasis();
     const WinBits nWindowStyle = GetStyle();
     const bool bHideSelection = (nWindowStyle & WB_HIDESELECTION) !=0 && !HasFocus();
     const StyleSettings& rSettings = rRenderContext.GetSettings().GetStyleSettings();
@@ -142,22 +142,19 @@ void IconView::PaintEntry(SvTreeListEntry& rEntry, long nX, long nY,
         if (pViewDataEntry->IsHighlighted())
         {
             Color aNewWallColor = rSettings.GetHighlightColor();
-            if (!bInUse)
+            // if the face color is bright then the deactivate color is also bright
+            // -> so you can't see any deactivate selection
+            if (bHideSelection && !rSettings.GetFaceColor().IsBright()
+               && aWallpaper.GetColor().IsBright() != rSettings.GetDeactiveColor().IsBright())
             {
-                // if the face color is bright then the deactive color is also bright
-                // -> so you can't see any deactive selection
-                if (bHideSelection && !rSettings.GetFaceColor().IsBright()
-                   && aWallpaper.GetColor().IsBright() != rSettings.GetDeactiveColor().IsBright())
-                {
-                    aNewWallColor = rSettings.GetDeactiveColor();
-                }
-                // set font color to highlight
-                if (!bCurFontIsSel)
-                {
-                    rRenderContext.SetTextColor(aHighlightTextColor);
-                    rRenderContext.SetFont(aHighlightFont);
-                    bCurFontIsSel = true;
-                }
+                aNewWallColor = rSettings.GetDeactiveColor();
+            }
+            // set font color to highlight
+            if (!bCurFontIsSel)
+            {
+                rRenderContext.SetTextColor(aHighlightTextColor);
+                rRenderContext.SetFont(aHighlightFont);
+                bCurFontIsSel = true;
             }
             aWallpaper.SetColor(aNewWallColor);
         }

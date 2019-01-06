@@ -179,6 +179,7 @@ private:
     static bool     AdjustFontForItemHeight(OutputDevice* pDevice, tools::Rectangle const & rTextRect, long nHeight);
     void            SetOptimalSize();
     DECL_LINK( MenuSelectHdl, Menu *, bool );
+    DECL_STATIC_LINK(SvxStyleBox_Impl, ShowMoreHdl, void*, void);
 };
 
 class SvxFontNameBox_Impl : public FontNameBox
@@ -431,6 +432,16 @@ IMPL_LINK( SvxStyleBox_Impl, MenuSelectHdl, Menu*, pMenu, bool)
     return false;
 }
 
+IMPL_STATIC_LINK_NOARG(SvxStyleBox_Impl, ShowMoreHdl, void*, void)
+{
+    SfxViewFrame* pViewFrm = SfxViewFrame::Current();
+    DBG_ASSERT( pViewFrm, "SvxStyleBox_Impl::Select(): no viewframe" );
+    if (!pViewFrm)
+        return;
+    pViewFrm->ShowChildWindow(SID_SIDEBAR);
+    ::sfx2::sidebar::Sidebar::ShowPanel("StyleListPanel", pViewFrm->GetFrame().GetFrameInterface());
+}
+
 void SvxStyleBox_Impl::Select()
 {
     // Tell base class about selection so that AT get informed about it.
@@ -454,11 +465,7 @@ void SvxStyleBox_Impl::Select()
         }
         else if( aSearchEntry == aMoreKey && GetSelectedEntryPos() == ( GetEntryCount() - 1 ) )
         {
-            SfxViewFrame* pViewFrm = SfxViewFrame::Current();
-            DBG_ASSERT( pViewFrm, "SvxStyleBox_Impl::Select(): no viewframe" );
-            pViewFrm->ShowChildWindow( SID_SIDEBAR );
-            ::sfx2::sidebar::Sidebar::ShowPanel("StyleListPanel",
-                                                pViewFrm->GetFrame().GetFrameInterface());
+            Application::PostUserEvent(LINK(nullptr, SvxStyleBox_Impl, ShowMoreHdl));
             //tdf#113214 change text back to previous entry
             SetText(GetSavedValue());
             bDoIt = false;
@@ -1857,7 +1864,7 @@ void SvxColorWindow::SelectEntry(const NamedColor& rNamedColor)
 
 void SvxColorWindow::SelectEntry(const Color& rColor)
 {
-    OUString sColorName = ("#" + rColor.AsRGBHexString().toAsciiUpperCase());
+    OUString sColorName = "#" + rColor.AsRGBHexString().toAsciiUpperCase();
     SvxColorWindow::SelectEntry(std::make_pair(rColor, sColorName));
 }
 
@@ -1898,7 +1905,7 @@ void ColorWindow::SelectEntry(const NamedColor& rNamedColor)
 
 void ColorWindow::SelectEntry(const Color& rColor)
 {
-    OUString sColorName = ("#" + rColor.AsRGBHexString().toAsciiUpperCase());
+    OUString sColorName = "#" + rColor.AsRGBHexString().toAsciiUpperCase();
     ColorWindow::SelectEntry(std::make_pair(rColor, sColorName));
 }
 
@@ -3183,7 +3190,7 @@ void SvxColorToolBoxControl::execute(sal_Int16 /*nSelectModifier*/)
     dispatchCommand( aCommand, aArgs );
 
     EnsurePaletteManager();
-    OUString sColorName = ("#" + aColor.AsRGBHexString().toAsciiUpperCase());
+    OUString sColorName = "#" + aColor.AsRGBHexString().toAsciiUpperCase();
     m_xPaletteManager->AddRecentColor(aColor, sColorName);
 }
 

@@ -62,6 +62,9 @@ public:
         case svtools::RESTART_REASON_OPENGL:
             reason_ = m_xBuilder->weld_widget("reason_opengl");
             break;
+        case svtools::RESTART_REASON_OPENCL:
+            reason_ = m_xBuilder->weld_widget("reason_opencl");
+            break;
         default:
             assert(false); // this cannot happen
         }
@@ -90,15 +93,20 @@ IMPL_LINK_NOARG(RestartDialog, hdlNo, weld::Button&, void)
 
 }
 
-void svtools::executeRestartDialog(
+bool svtools::executeRestartDialog(
     css::uno::Reference< css::uno::XComponentContext > const & context,
     weld::Window* parent, RestartReason reason)
 {
+    auto xRestartManager = css::task::OfficeRestartManager::get(context);
+    if (xRestartManager->isRestartRequested(false))
+        return true; // don't try to show another dialog when restart is already in progress
     RestartDialog aDlg(parent, reason);
     if (aDlg.run()) {
-        css::task::OfficeRestartManager::get(context)->requestRestart(
+        xRestartManager->requestRestart(
             css::uno::Reference< css::task::XInteractionHandler >());
+        return true;
     }
+    return false;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

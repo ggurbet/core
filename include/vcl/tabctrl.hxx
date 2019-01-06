@@ -30,7 +30,6 @@
 struct ImplTabItem;
 struct ImplTabCtrlData;
 class TabPage;
-class PushButton;
 class ListBox;
 
 #ifndef TAB_APPEND
@@ -110,7 +109,7 @@ public:
     virtual bool        PreNotify( NotifyEvent& rNEvt ) override;
 
     virtual void        ActivatePage();
-    virtual bool        DeactivatePage();
+    bool                DeactivatePage();
 
     virtual Size GetOptimalSize() const override;
 
@@ -149,7 +148,6 @@ public:
     const OUString&     GetHelpText( sal_uInt16 nPageId ) const;
 
     void                SetHelpId( sal_uInt16 nPageId, const OString& rId ) const;
-    OString             GetHelpId( sal_uInt16 nPageId ) const;
 
     void                SetPageName( sal_uInt16 nPageId, const OString& rName ) const;
     OString             GetPageName( sal_uInt16 nPageId ) const;
@@ -203,6 +201,7 @@ public:
     void SetIconClickHdl( Link<NotebookBar*, void> aHdl );
     void SetToolBox( ToolBox* pToolBox );
     ToolBox* GetToolBox() { return m_pShortcuts; }
+    PushButton* GetOpenMenu() { return m_pOpenMenu; }
 
     virtual sal_uInt16  GetPageId( const Point& rPos ) const override;
     virtual void        SelectTabPage( sal_uInt16 nPageId ) override;

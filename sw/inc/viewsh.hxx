@@ -28,6 +28,7 @@
 #include <vcl/mapmod.hxx>
 #include <vcl/vclptr.hxx>
 #include <vcl/lazydelete.hxx>
+#include <vcl/window.hxx>
 
 namespace com { namespace sun { namespace star { namespace accessibility {
            class XAccessible; } } } }
@@ -466,6 +467,9 @@ public:
     // Get/set DrawView and PageView.
     bool HasDrawView() const;
     void MakeDrawView();
+
+    // Are we dragging draw shapes around.
+    bool HasDrawViewDrag() const;
 
     // DrawView may be used at UI.
           SdrView *GetDrawView();

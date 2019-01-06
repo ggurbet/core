@@ -259,16 +259,15 @@ static void lcl_DrawHighlight( ScOutputData& rOutputData, const ScViewData* pVie
                         const std::vector<ScHighlightEntry>& rHighlightRanges )
 {
     SCTAB nTab = pViewData->GetTabNo();
-    std::vector<ScHighlightEntry>::const_iterator pIter;
-    for ( pIter = rHighlightRanges.begin(); pIter != rHighlightRanges.end(); ++pIter)
+    for ( const auto& rHighlightRange : rHighlightRanges)
     {
-        ScRange aRange = pIter->aRef;
+        ScRange aRange = rHighlightRange.aRef;
         if ( nTab >= aRange.aStart.Tab() && nTab <= aRange.aEnd.Tab() )
         {
             rOutputData.DrawRefMark(
                                 aRange.aStart.Col(), aRange.aStart.Row(),
                                 aRange.aEnd.Col(), aRange.aEnd.Row(),
-                                pIter->aColor, false );
+                                rHighlightRange.aColor, false );
         }
     }
 }
@@ -1112,10 +1111,10 @@ void ScGridWindow::PaintTile( VirtualDevice& rDevice,
     // not care about any zoom settings.
     //
     // But until that happens, we actually draw everything at 100%, and only
-    // set cairo's scale factor accordingly, so that everything is painted
-    // bigger or smaller.  This is different to what Calc's internal scaling
-    // would do - because that one is trying to fit the lines between cells to
-    // integer multiples of pixels.
+    // set cairo's or CoreGraphic's scale factor accordingly, so that everything
+    // is painted  bigger or smaller. This is different to what Calc's internal
+    // scaling would do - because that one is trying to fit the lines between
+    // cells to integer multiples of pixels.
     //
     // See also desktop/source/lib/init.cxx for details, where we have to set
     // the stuff accordingly for the VirtualDevice creation.
@@ -1126,8 +1125,8 @@ void ScGridWindow::PaintTile( VirtualDevice& rDevice,
     Fraction aFracY(long(256 * TWIPS_PER_PIXEL), 3840);
     pViewData->SetZoom(aFracX, aFracY, true);
 
-    // Cairo scales for us, we have to compensate for that, otherwise we are
-    // painting too far away
+    // Cairo or CoreGraphics scales for us, we have to compensate for that,
+    // otherwise we are painting too far away
     const double fDPIScale = comphelper::LibreOfficeKit::getDPIScale();
 
     const double fTilePosXPixel = static_cast<double>(nTilePosX) * nOutputWidth / (nTileWidth * fDPIScale);

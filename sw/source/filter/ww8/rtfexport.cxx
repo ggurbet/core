@@ -692,7 +692,7 @@ ErrCode RtfExport::ExportDocument_Impl()
     // Font table
     WriteFonts();
 
-    m_pStyles = new MSWordStyles(*this);
+    m_pStyles.reset(new MSWordStyles(*this));
     // Color and stylesheet table
     WriteStyles();
 
@@ -706,7 +706,7 @@ ErrCode RtfExport::ExportDocument_Impl()
     WriteUserProps();
     // Default TabSize
     Strm()
-        .WriteCharPtr(m_pAttrOutput->m_aTabStop.makeStringAndClear().getStr())
+        .WriteCharPtr(m_pAttrOutput->GetTabStop().makeStringAndClear().getStr())
         .WriteCharPtr(SAL_NEWLINE_STRING);
 
     // Automatic hyphenation: it's a global setting in Word, it's a paragraph setting in Writer.
@@ -852,7 +852,13 @@ ErrCode RtfExport::ExportDocument_Impl()
     // line numbering
     const SwLineNumberInfo& rLnNumInfo = m_pDoc->GetLineNumberInfo();
     if (rLnNumInfo.IsPaintLineNumbers())
-        AttrOutput().SectionLineNumbering(0, rLnNumInfo);
+    {
+        sal_uLong nLnNumRestartNo = 0;
+        if (const WW8_SepInfo* pSectionInfo = m_pSections->CurrentSectionInfo())
+            nLnNumRestartNo = pSectionInfo->nLnNumRestartNo;
+
+        AttrOutput().SectionLineNumbering(nLnNumRestartNo, rLnNumInfo);
+    }
 
     {
         // write the footnotes and endnotes-out Info
@@ -966,8 +972,8 @@ void RtfExport::PrepareNewPageDesc(const SfxItemSet* pSet, const SwNode& rNd,
         m_pSections->AppendSection(pNewPgDesc, rNd, pFormat, nLnNm);
 
     // Don't insert a page break, when we're changing page style just because the next page has to be a different one.
-    if (!m_pAttrOutput->m_pPrevPageDesc
-        || m_pAttrOutput->m_pPrevPageDesc->GetFollow() != pNewPgDesc)
+    if (!m_pAttrOutput->GetPrevPageDesc()
+        || m_pAttrOutput->GetPrevPageDesc()->GetFollow() != pNewPgDesc)
         AttrOutput().SectionBreak(msword::PageBreak, m_pSections->CurrentSectionInfo());
 }
 

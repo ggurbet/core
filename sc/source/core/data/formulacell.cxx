@@ -1457,13 +1457,13 @@ class RecursionCounter
 {
     ScRecursionHelper&  rRec;
     bool                bStackedInIteration;
-#ifdef DBG_UTIL
+#if defined DBG_UTIL && !defined NDEBUG
     const ScFormulaCell* cell;
 #endif
 public:
     RecursionCounter( ScRecursionHelper& r, ScFormulaCell* p )
         : rRec(r)
-#ifdef DBG_UTIL
+#if defined DBG_UTIL && !defined NDEBUG
         , cell(p)
 #endif
     {
@@ -1477,7 +1477,7 @@ public:
         rRec.DecRecursionCount();
         if (bStackedInIteration)
         {
-#ifdef DBG_UTIL
+#if defined DBG_UTIL && !defined NDEBUG
             assert(rRec.GetRecursionInIterationStack().top() == cell);
 #endif
             rRec.GetRecursionInIterationStack().pop();
@@ -1523,8 +1523,10 @@ void ScFormulaCell::Interpret()
 
     ScFormulaCell* pTopCell = mxGroup ? mxGroup->mpTopCell : this;
 
-    if (pTopCell->mbSeenInPath && rRecursionHelper.GetDepComputeLevel())
+    if (pTopCell->mbSeenInPath && rRecursionHelper.GetDepComputeLevel() && !bRunning)
     {
+        // This call arose from a dependency calculation and we just found a cycle.
+        // This will mark all elements in the cycle as parts-of-cycle.
         ScFormulaGroupCycleCheckGuard aCycleCheckGuard(rRecursionHelper, pTopCell);
         return;
     }
@@ -3219,7 +3221,7 @@ bool ScFormulaCell::UpdateReferenceOnShift(
     if (!bHasRefs)
     {
         bHasColRowNames = (formula::FormulaTokenArrayPlainIterator(*pCode).GetNextColRowName() != nullptr);
-        bHasRefs = bHasRefs || bHasColRowNames;
+        bHasRefs = bHasColRowNames;
     }
     bool bOnRefMove = pCode->IsRecalcModeOnRefMove();
 
@@ -3347,7 +3349,7 @@ bool ScFormulaCell::UpdateReferenceOnMove(
     if (!bHasRefs)
     {
         bHasColRowNames = (formula::FormulaTokenArrayPlainIterator(*pCode).GetNextColRowName() != nullptr);
-        bHasRefs = bHasRefs || bHasColRowNames;
+        bHasRefs = bHasColRowNames;
     }
     bool bOnRefMove = pCode->IsRecalcModeOnRefMove();
 
@@ -4233,17 +4235,24 @@ struct ScDependantsCalculator
     const ScFormulaCellGroupRef& mxGroup;
     const SCROW mnLen;
     const ScAddress& mrPos;
+    const bool mFromFirstRow;
 
-    ScDependantsCalculator(ScDocument& rDoc, const ScTokenArray& rCode, const ScFormulaCell& rCell, const ScAddress& rPos) :
+    ScDependantsCalculator(ScDocument& rDoc, const ScTokenArray& rCode, const ScFormulaCell& rCell,
+            const ScAddress& rPos, bool fromFirstRow) :
         mrDoc(rDoc),
         mrCode(rCode),
         mxGroup(rCell.GetCellGroup()),
         mnLen(mxGroup->mnLength),
-        mrPos(rPos)
+        mrPos(rPos),
+        // ScColumn::FetchVectorRefArray() always fetches data from row 0, even if the data is used
+        // only from further rows. This data fetching could also lead to Interpret() calls, so
+        // in OpenCL mode the formula in practice depends on those cells too.
+        mFromFirstRow(fromFirstRow)
     {
     }
 
     // FIXME: copy-pasted from ScGroupTokenConverter. factor out somewhere else
+    // (note already modified a bit, mFromFirstRow)
 
     // I think what this function does is to check whether the relative row reference nRelRow points
     // to a row that is inside the range of rows covered by the formula group.
@@ -4268,6 +4277,9 @@ struct ScDependantsCalculator
             nTest += nRelRow;
             if (nTest <= nEndRow)
                 return true;
+            // If pointing below the formula, it's always included if going from first row.
+            if (mFromFirstRow)
+                return true;
         }
 
         return false;
@@ -4288,7 +4300,8 @@ struct ScDependantsCalculator
         if (rRefPos.Row() < mrPos.Row())
             return false;
 
-        if (rRefPos.Row() > nEndRow)
+        // If pointing below the formula, it's always included if going from first row.
+        if (rRefPos.Row() > nEndRow && !mFromFirstRow)
             return false;
 
         return true;
@@ -4322,6 +4335,11 @@ struct ScDependantsCalculator
 
         if (!bIsRef2RowRel &&
             nRefStartRow <= nStartRow && nRefEndRow >= nEndRow)
+            return true;
+
+        // If going from first row, the referenced range must be entirely above the formula,
+        // otherwise the formula would be included.
+        if (mFromFirstRow && nRefEndRow >= nStartRow)
             return true;
 
         return false;
@@ -4480,8 +4498,15 @@ struct ScDependantsCalculator
             assert(rRange.aStart.Tab() == rRange.aEnd.Tab());
             for (auto nCol = rRange.aStart.Col(); nCol <= rRange.aEnd.Col(); nCol++)
             {
-                if (!mrDoc.HandleRefArrayForParallelism(ScAddress(nCol, rRange.aStart.Row(), rRange.aStart.Tab()),
-                                                        rRange.aEnd.Row() - rRange.aStart.Row() + 1, mxGroup))
+                SCROW nStartRow = rRange.aStart.Row();
+                SCROW nLength = rRange.aEnd.Row() - rRange.aStart.Row() + 1;
+                if( mFromFirstRow )
+                {   // include also all previous rows
+                    nLength += nStartRow;
+                    nStartRow = 0;
+                }
+                if (!mrDoc.HandleRefArrayForParallelism(ScAddress(nCol, nStartRow, rRange.aStart.Tab()),
+                                                        nLength, mxGroup))
                     return false;
             }
         }
@@ -4562,7 +4587,7 @@ bool ScFormulaCell::InterpretFormulaGroup()
     return false;
 }
 
-bool ScFormulaCell::CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope)
+bool ScFormulaCell::CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope, bool fromFirstRow)
 {
     ScRecursionHelper& rRecursionHelper = pDocument->GetRecursionHelper();
     // iterate over code in the formula ...
@@ -4580,7 +4605,7 @@ bool ScFormulaCell::CheckComputeDependencies(sc::FormulaLogger::GroupScope& rSco
         }
 
         ScFormulaGroupDependencyComputeGuard aDepComputeGuard(rRecursionHelper);
-        ScDependantsCalculator aCalculator(*pDocument, *pCode, *this, mxGroup->mpTopCell->aPos);
+        ScDependantsCalculator aCalculator(*pDocument, *pCode, *this, mxGroup->mpTopCell->aPos, fromFirstRow);
         bOKToParallelize = aCalculator.DoIt();
     }
 
@@ -4732,9 +4757,6 @@ bool ScFormulaCell::InterpretFormulaGroupOpenCL(sc::FormulaLogger::GroupScope& a
         case FormulaVectorDisabledByOpCode:
             aScope.addMessage("group calc disabled due to vector state (non-vector-supporting opcode)");
             break;
-        case FormulaVectorDisabledNotInSoftwareSubset:
-            aScope.addMessage("group calc disabled due to vector state (opcode not in software subset)");
-            break;
         case FormulaVectorDisabledByStackVariable:
             aScope.addMessage("group calc disabled due to vector state (non-vector-supporting stack variable)");
             break;
@@ -4757,10 +4779,14 @@ bool ScFormulaCell::InterpretFormulaGroupOpenCL(sc::FormulaLogger::GroupScope& a
         return false;
     }
 
+    // TableOp does tricks with using a cell with different values, just bail out.
+    if(pDocument->IsInInterpreterTableOp())
+        return false;
+
     if (bDependencyCheckFailed)
         return false;
 
-    if(!bDependencyComputed && !CheckComputeDependencies(aScope))
+    if(!bDependencyComputed && !CheckComputeDependencies(aScope, true))
     {
         bDependencyComputed = true;
         bDependencyCheckFailed = true;

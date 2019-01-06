@@ -38,6 +38,7 @@
 #include <vcl/vclptr.hxx>
 #include <tools/fract.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <vcl/dndhelp.hxx>
 #include <svl/ondemand.hxx>
@@ -381,7 +382,6 @@ public:
 
     bool        DoSingleLinePaste() const       { return bool( nControl & EVControlBits::SINGLELINEPASTE ); }
     bool        DoAutoScroll() const            { return bool( nControl & EVControlBits::AUTOSCROLL ); }
-    bool        DoBigScroll() const             { return bool( nControl & EVControlBits::BIGSCROLL ); }
     bool        DoAutoSize() const              { return bool( nControl & EVControlBits::AUTOSIZE ); }
     bool        DoAutoWidth() const             { return bool( nControl & EVControlBits::AUTOSIZEX); }
     bool        DoAutoHeight() const            { return bool( nControl & EVControlBits::AUTOSIZEY); }
@@ -861,8 +861,6 @@ public:
 
     bool            IsInSelectionMode() { return bInSelection; }
 
-    void            IndentBlock( EditView* pView, bool bRight );
-
 //  For Undo/Redo
     void            Undo( EditView* pView );
     void            Redo( EditView* pView );
@@ -870,7 +868,7 @@ public:
 //  OV-Special
     void            InvalidateFromParagraph( sal_Int32 nFirstInvPara );
     EditPaM         InsertParagraph( sal_Int32 nPara );
-    EditSelection*  SelectParagraph( sal_Int32 nPara );
+    std::unique_ptr<EditSelection> SelectParagraph( sal_Int32 nPara );
 
     void            SetStatusEventHdl( const Link<EditStatus&, void>& rLink ) { aStatusHdlLink = rLink; }
     const Link<EditStatus&,void>& GetStatusEventHdl() const               { return aStatusHdlLink; }

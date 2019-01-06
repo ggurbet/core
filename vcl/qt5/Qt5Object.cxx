@@ -22,13 +22,19 @@
 #include <Qt5Frame.hxx>
 
 #include <QtWidgets/QWidget>
+#include <QtGui/QWindow>
 
 Qt5Object::Qt5Object(Qt5Frame* pParent, bool bShow)
     : m_pParent(pParent)
+    , m_pQWidget(nullptr)
+    , m_pQWindow(nullptr)
 {
     if (!m_pParent || !pParent->GetQWidget())
         return;
-    m_pQWidget.reset(new QWidget(pParent->GetQWidget()));
+
+    m_pQWindow = new QWindow;
+    m_pQWidget = QWidget::createWindowContainer(m_pQWindow, pParent->GetQWidget());
+
     if (bShow)
         m_pQWidget->show();
 
@@ -43,7 +49,7 @@ Qt5Object::Qt5Object(Qt5Frame* pParent, bool bShow)
 
 void Qt5Object::ResetClipRegion()
 {
-    if (m_pQWidget.get())
+    if (m_pQWidget)
         m_pRegion = QRegion(m_pQWidget->geometry());
     else
         m_pRegion = QRegion();
@@ -58,11 +64,18 @@ void Qt5Object::UnionClipRegion(long nX, long nY, long nWidth, long nHeight)
 
 void Qt5Object::EndSetClipRegion()
 {
-    if (m_pQWidget.get())
+    if (m_pQWidget)
         m_pRegion = m_pRegion.intersected(m_pQWidget->geometry());
 }
 
-void Qt5Object::SetPosSize(long /*nX*/, long /*nY*/, long /*nWidth*/, long /*nHeight*/) {}
+void Qt5Object::SetPosSize(long nX, long nY, long nWidth, long nHeight)
+{
+    if (m_pQWidget)
+    {
+        m_pQWidget->move(nX, nY);
+        m_pQWidget->setFixedSize(nWidth, nHeight);
+    }
+}
 
 void Qt5Object::Show(bool bVisible)
 {

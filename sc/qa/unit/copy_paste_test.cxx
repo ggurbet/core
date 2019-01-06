@@ -8,8 +8,8 @@
  */
 
 #include <sal/config.h>
-#include <unotest/filters-test.hxx>
 #include <test/bootstrapfixture.hxx>
+#include <comphelper/processfactory.hxx>
 
 #include <docsh.hxx>
 #include <tabvwsh.hxx>

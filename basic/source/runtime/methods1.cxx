@@ -70,13 +70,7 @@ using namespace com::sun::star::uno;
 
 static Reference< XCalendar4 > const & getLocaleCalendar()
 {
-    static Reference< XCalendar4 > xCalendar;
-    if( !xCalendar.is() )
-    {
-        Reference< XComponentContext > xContext = getProcessComponentContext();
-        xCalendar = LocaleCalendar2::create(xContext);
-    }
-
+    static Reference< XCalendar4 > xCalendar = LocaleCalendar2::create(getProcessComponentContext());
     static css::lang::Locale aLastLocale;
     static bool bNeedsInit = true;
 
@@ -1484,7 +1478,7 @@ void SbRtl_ConvertToUrl(StarBASIC *, SbxArray & rPar, bool)
         OUString aFileURL = aURLObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
         if( aFileURL.isEmpty() )
         {
-            ::osl::File::getFileURLFromSystemPath( aFileURL, aFileURL );
+            osl::File::getFileURLFromSystemPath(aStr, aFileURL);
         }
         if( aFileURL.isEmpty() )
         {

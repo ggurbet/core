@@ -28,6 +28,7 @@
 #include <com/sun/star/ucb/AlreadyInitializedException.hpp>
 #include <com/sun/star/util/XModifyBroadcaster.hpp>
 #include <com/sun/star/form/runtime/FormFeature.hpp>
+#include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/awt/XControl.hpp>
@@ -445,7 +446,7 @@ namespace frm
                 {
                     case RET_NO:
                         shouldCommit = false;
-                        SAL_FALLTHROUGH; // don't ask again!
+                        [[fallthrough]]; // don't ask again!
                     case RET_YES:
                         needConfirmation = false;
                         return true;
@@ -1188,19 +1189,13 @@ namespace frm
             // nobody's interested in ...
             return;
 
-        static Sequence< sal_Int16 > s_aModifyDependentFeatures;
-        if ( s_aModifyDependentFeatures.getLength() == 0 )
+        static Sequence< sal_Int16 > const s_aModifyDependentFeatures
         {
-            sal_Int16 pModifyDependentFeatures[] =
-            {
-                FormFeature::MoveToNext,
-                FormFeature::MoveToInsertRow,
-                FormFeature::SaveRecordChanges,
-                FormFeature::UndoRecordChanges
-            };
-            size_t const nFeatureCount = SAL_N_ELEMENTS( pModifyDependentFeatures );
-            s_aModifyDependentFeatures = Sequence< sal_Int16 >( pModifyDependentFeatures, nFeatureCount );
-        }
+            FormFeature::MoveToNext,
+            FormFeature::MoveToInsertRow,
+            FormFeature::SaveRecordChanges,
+            FormFeature::UndoRecordChanges
+        };
 
         Reference< XFeatureInvalidation > xInvalidation = m_xFeatureInvalidation;
         _rClearForCallback.clear();
@@ -1691,17 +1686,31 @@ namespace frm
             return;
         try
         {
+            css::uno::Reference<css::awt::XWindow> xDialogParent;
+
+            //tdf#122152 extract parent for dialog
+            css::uno::Reference<css::awt::XTabController> xTabController(m_xController, css::uno::UNO_QUERY);
+            if (xTabController.is())
+            {
+                css::uno::Reference<css::awt::XControl> xContainerControl(xTabController->getContainer(), css::uno::UNO_QUERY);
+                if (xContainerControl.is())
+                {
+                    css::uno::Reference<css::awt::XWindowPeer> xContainerPeer(xContainerControl->getPeer(), css::uno::UNO_QUERY);
+                    xDialogParent = css::uno::Reference<css::awt::XWindow>(xContainerPeer, css::uno::UNO_QUERY);
+                }
+            }
+
             Reference< XExecutableDialog> xDialog;
             if ( _bFilter )
             {
                 xDialog = css::sdb::FilterDialog::createWithQuery(m_xContext, m_xParser, m_xCursor,
-                              Reference<css::awt::XWindow>());
+                                                                  xDialogParent);
             }
             else
             {
-                xDialog = css::sdb::OrderDialog::createWithQuery(m_xContext, m_xParser, m_xCursorProperties);
+                xDialog = css::sdb::OrderDialog::createWithQuery(m_xContext, m_xParser, m_xCursorProperties,
+                                                                 xDialogParent);
             }
-
 
             if ( RET_OK == xDialog->execute() )
             {

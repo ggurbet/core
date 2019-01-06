@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <svl/zformat.hxx>
 #include <svl/zforlist.hxx>
 
 #include "DataBrowser.hxx"
@@ -25,7 +24,6 @@
 #include <strings.hrc>
 #include <DataSeriesHelper.hxx>
 #include <DiagramHelper.hxx>
-#include <ChartModelHelper.hxx>
 #include <CommonConverters.hxx>
 #include <NumberFormatterWrapper.hxx>
 #include <servicenames_charttypes.hxx>
@@ -34,6 +32,7 @@
 #include <helpids.h>
 
 #include <vcl/fixed.hxx>
+#include <vcl/dialog.hxx>
 #include <vcl/image.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/weld.hxx>
@@ -46,10 +45,8 @@
 #include <com/sun/star/chart2/XChartType.hpp>
 
 #include <com/sun/star/container/XIndexReplace.hpp>
-#include <com/sun/star/util/XNumberFormats.hpp>
 
 #include <algorithm>
-#include <functional>
 
 
 using namespace ::com::sun::star;
@@ -357,40 +354,40 @@ Image SeriesHeader::GetChartTypeImage(
 
     if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_AREA )
     {
-        aResult = Image(BitmapEx(BMP_TYPE_AREA));
+        aResult = Image(StockImage::Yes, BMP_TYPE_AREA);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_COLUMN )
     {
         if( bSwapXAndYAxis )
-            aResult = Image(BitmapEx(BMP_TYPE_BAR));
+            aResult = Image(StockImage::Yes, BMP_TYPE_BAR);
         else
-            aResult = Image(BitmapEx(BMP_TYPE_COLUMN));
+            aResult = Image(StockImage::Yes, BMP_TYPE_COLUMN);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_LINE )
     {
-        aResult = Image(BitmapEx(BMP_TYPE_LINE));
+        aResult = Image(StockImage::Yes, BMP_TYPE_LINE);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_SCATTER )
     {
-        aResult = Image(BitmapEx(BMP_TYPE_XY));
+        aResult = Image(StockImage::Yes, BMP_TYPE_XY);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_PIE )
     {
-        aResult = Image(BitmapEx(BMP_TYPE_PIE));
+        aResult = Image(StockImage::Yes, BMP_TYPE_PIE);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_NET
           || aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_FILLED_NET )
     {
-        aResult = Image(BitmapEx(BMP_TYPE_NET));
+        aResult = Image(StockImage::Yes, BMP_TYPE_NET);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_CANDLESTICK )
     {
         // @todo: correct image for candle-stick type
-        aResult = Image(BitmapEx(BMP_TYPE_STOCK));
+        aResult = Image(StockImage::Yes, BMP_TYPE_STOCK);
     }
     else if( aChartTypeName == CHART2_SERVICE_NAME_CHARTTYPE_BUBBLE )
     {
-        aResult = Image(BitmapEx(BMP_TYPE_BUBBLE));
+        aResult = Image(StockImage::Yes, BMP_TYPE_BUBBLE);
     }
 
     return aResult;

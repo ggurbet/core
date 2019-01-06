@@ -27,6 +27,7 @@
 
 #include <rtl/ref.hxx>
 #include <com/sun/star/mail/XSmtpService.hpp>
+#include <vcl/fixed.hxx>
 #include <vcl/idle.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
@@ -259,10 +260,10 @@ SwSendMailDialog::SwSendMailDialog(vcl::Window *pParent, SwMailMergeConfigItem& 
     long nPos2 = aSize.Width()/3;
     m_pStatusHB->InsertItem( ITEMID_TASK, sTask,
                             nPos1,
-                            HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
+                            HeaderBarItemBits::LEFT );
     m_pStatusHB->InsertItem( ITEMID_STATUS, sStatus,
                             nPos2,
-                            HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
+                            HeaderBarItemBits::LEFT );
 
     static long nTabs[] = {0, nPos1};
     m_pStatus->SetStyle( m_pStatus->GetStyle() | WB_SORT | WB_HSCROLL | WB_CLIPCHILDREN | WB_TABSTOP );
@@ -411,7 +412,7 @@ void  SwSendMailDialog::SendMails()
     uno::Reference< mail::XSmtpService > xSmtpServer =
                 SwMailMergeHelper::ConnectToSmtpServer( *m_pConfigItem,
                                             m_pImpl->xConnectedInMailService,
-                                            aEmptyOUStr, aEmptyOUStr, GetFrameWeld() );
+                                            OUString(), OUString(), GetFrameWeld());
     bool bIsLoggedIn = xSmtpServer.is() && xSmtpServer->isConnected();
     LeaveWait();
     if(!bIsLoggedIn)
@@ -436,7 +437,7 @@ void  SwSendMailDialog::IterateMails()
     {
         if(!SwMailMergeHelper::CheckMailAddress( pCurrentMailDescriptor->sEMail ))
         {
-            Image aInsertImg(BitmapEx(RID_BMP_FORMULA_CANCEL));
+            Image aInsertImg(StockImage::Yes, RID_BMP_FORMULA_CANCEL);
 
             OUString sMessage = m_sSendingTo;
             OUString sTmp(pCurrentMailDescriptor->sEMail);
@@ -522,7 +523,7 @@ void SwSendMailDialog::DocumentSent( uno::Reference< mail::XMailMessage> const &
         Application::PostUserEvent( LINK( this, SwSendMailDialog,
                                           StopSendMails ), this, true );
     }
-    Image aInsertImg(BitmapEx(bResult ? OUString(RID_BMP_FORMULA_APPLY) : OUString(RID_BMP_FORMULA_CANCEL)));
+    Image aInsertImg(StockImage::Yes, bResult ? OUString(RID_BMP_FORMULA_APPLY) : OUString(RID_BMP_FORMULA_CANCEL));
 
     OUString sMessage = m_sSendingTo;
     OUString sTmp(xMessage->getRecipients()[0]);

@@ -30,15 +30,54 @@ public:
     static bool SafeDiv( double& fVal1, double fVal2);
 };
 
-struct ScFunctionData                   // to calculate single functions
-{
-    ScSubTotalFunc const  eFunc;
-    double          nVal;
-    long            nCount;
-    bool            bError;
+class ScFunctionData;
 
-    ScFunctionData( ScSubTotalFunc eFn ) :
-        eFunc(eFn), nVal(0.0), nCount(0), bError(false) {}
+/** Implements the Welford Online one-pass algorithm.
+    See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm
+    and Donald E. Knuth, TAoCP vol.2, 3rd edn., p. 232
+ */
+class WelfordRunner
+{
+public:
+    WelfordRunner() : mfMean(0.0), mfM2(0.0), mnCount(0) {}
+    void        update( double fVal );
+    sal_uInt64  getCount() const                { return mnCount; }
+    double      getVarianceSample() const       { return mnCount > 1 ? mfM2 / (mnCount-1) : 0.0; }
+    double      getVariancePopulation() const   { return mnCount > 0 ? mfM2 / mnCount : 0.0; }
+
+    // The private variables can be abused by ScFunctionData as general
+    // sum/min/max/ave/count/... variables to reduce memory footprint for that
+    // ScFunctionData may be a mass object during consolidation.
+    // ScFunctionData::update() and getResult() take care that purposes are not
+    // mixed.
+    friend class ScFunctionData;
+private:
+    double      mfMean;
+    double      mfM2;
+    sal_uInt64  mnCount;
+};
+
+/** To calculate a single subtotal function. */
+class ScFunctionData
+{
+public:
+    ScFunctionData() : meFunc(SUBTOTAL_FUNC_NONE), mbError(false) {}
+    ScFunctionData( ScSubTotalFunc eFn ) : meFunc(eFn), mbError(false) {}
+
+    void            update( double fNewVal );
+    /// Check getError() after (!) obtaining the result.
+    double          getResult();
+    bool            getError() const    { return mbError; }
+    ScSubTotalFunc  getFunc() const     { return meFunc; }
+    void            setError()          { mbError = true; }
+
+private:
+    WelfordRunner   maWelford;
+    ScSubTotalFunc  meFunc;
+    bool            mbError;
+
+    double&         getValueRef()   { return maWelford.mfMean; }
+    sal_uInt64&     getCountRef()   { return maWelford.mnCount; }
 };
 
 #endif

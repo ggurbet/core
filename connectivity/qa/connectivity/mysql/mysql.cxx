@@ -13,7 +13,10 @@
 #include <com/sun/star/sdbc/XColumnLocate.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdbc/XResultSet.hpp>
+#include <com/sun/star/sdbc/XResultSetMetaData.hpp>
+#include <com/sun/star/sdbc/XResultSetMetaDataSupplier.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XParameters.hpp>
 #include <com/sun/star/sdbc/XStatement.hpp>
 #include <com/sun/star/sdbc/XDriver.hpp>
@@ -40,17 +43,36 @@ public:
     {
     }
     virtual void setUp() override;
+    virtual void tearDown() override;
     void testDBConnection();
     void testCreateAndDropTable();
     void testIntegerInsertAndQuery();
     void testDBPositionChange();
+    void testMultipleResultsets();
+    void testDBMetaData();
 
     CPPUNIT_TEST_SUITE(MysqlTestDriver);
     CPPUNIT_TEST(testDBConnection);
     CPPUNIT_TEST(testCreateAndDropTable);
     CPPUNIT_TEST(testIntegerInsertAndQuery);
+    CPPUNIT_TEST(testMultipleResultsets);
+    CPPUNIT_TEST(testDBMetaData);
     CPPUNIT_TEST_SUITE_END();
 };
+
+void MysqlTestDriver::tearDown()
+{
+    Reference<XConnection> xConnection = m_xDriver->connect(m_sUrl, m_infos);
+    if (!xConnection.is())
+    {
+        CPPUNIT_ASSERT_MESSAGE("cannot connect to data source!", xConnection.is());
+    }
+    uno::Reference<XStatement> xStatement = xConnection->createStatement();
+    CPPUNIT_ASSERT(xStatement.is());
+    xStatement->executeUpdate("DROP TABLE IF EXISTS myTestTable");
+    xStatement->executeUpdate("DROP TABLE IF EXISTS otherTable");
+    test::BootstrapFixture::tearDown();
+}
 
 void MysqlTestDriver::setUp()
 {
@@ -165,6 +187,7 @@ void MysqlTestDriver::testIntegerInsertAndQuery()
     Reference<XResultSet> xResultSet = xStatement->executeQuery("SELECT id from myTestTable");
     CPPUNIT_ASSERT_MESSAGE("result set cannot be instantiated after query", xResultSet.is());
     Reference<XRow> xRow(xResultSet, UNO_QUERY);
+    Reference<XColumnLocate> xColumnLocate(xResultSet, UNO_QUERY);
     CPPUNIT_ASSERT_MESSAGE("cannot extract row from result set!", xRow.is());
 
     for (long i = 0; i < ROW_COUNT; ++i)
@@ -172,10 +195,18 @@ void MysqlTestDriver::testIntegerInsertAndQuery()
         bool hasRow = xResultSet->next();
         CPPUNIT_ASSERT_MESSAGE("not enough result after query", hasRow);
         CPPUNIT_ASSERT_EQUAL(i, xRow->getLong(1)); // first and only column
+        CPPUNIT_ASSERT_EQUAL(i, xRow->getLong(xColumnLocate->findColumn("id"))); // test findColumn
     }
-    bool hasRow = xResultSet->next();
-    // no more rows
+    CPPUNIT_ASSERT_MESSAGE("Cursor is not on last position.",
+                           xResultSet->isLast()); // cursor is on last position
+    CPPUNIT_ASSERT_EQUAL(ROW_COUNT, xResultSet->getRow()); // which is the last position
+
+    bool hasRow = xResultSet->next(); // go to afterlast
+    // no more rows, next should return false
     CPPUNIT_ASSERT_MESSAGE("next returns true after last row", !hasRow);
+    // cursor should be in afterlast position
+    CPPUNIT_ASSERT_EQUAL(ROW_COUNT + 1, xResultSet->getRow());
+    CPPUNIT_ASSERT_MESSAGE("Cursor is not on after-last position.", xResultSet->isAfterLast());
 
     nUpdateCount = xStatement->executeUpdate("DROP TABLE myTestTable");
     CPPUNIT_ASSERT_EQUAL(0, nUpdateCount); // it's a DDL statement
@@ -227,6 +258,77 @@ void MysqlTestDriver::testDBPositionChange()
 
     nUpdateCount = xStatement->executeUpdate("DROP TABLE myTestTable");
     CPPUNIT_ASSERT_EQUAL(0, nUpdateCount); // it's a DDL statement
+}
+
+void MysqlTestDriver::testMultipleResultsets()
+{
+    Reference<XConnection> xConnection = m_xDriver->connect(m_sUrl, m_infos);
+    CPPUNIT_ASSERT(xConnection.is());
+    Reference<XStatement> xStatement = xConnection->createStatement();
+    CPPUNIT_ASSERT(xStatement.is());
+    // create two tables
+    xStatement->executeUpdate("DROP TABLE IF EXISTS myTestTable");
+    xStatement->executeUpdate("DROP TABLE IF EXISTS otherTable");
+    xStatement->executeUpdate("CREATE TABLE myTestTable (id INTEGER PRIMARY KEY)");
+    xStatement->executeUpdate("INSERT INTO myTestTable VALUES (1)");
+    xStatement->executeUpdate("CREATE TABLE otherTable (id INTEGER PRIMARY KEY)");
+    xStatement->executeUpdate("INSERT INTO otherTable VALUES (2)");
+
+    // create first result set
+    Reference<XResultSet> xResultSet = xStatement->executeQuery("SELECT id from myTestTable");
+    CPPUNIT_ASSERT_MESSAGE("result set cannot be instantiated after query", xResultSet.is());
+    // use it
+    xResultSet->next();
+    Reference<XRow> xRowFirst(xResultSet, UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(1l, xRowFirst->getLong(1));
+    // create second result set
+    Reference<XResultSet> xResultSet2 = xStatement->executeQuery("SELECT id from otherTable");
+    // use second result set
+    xResultSet2->next();
+    Reference<XRow> xRowSecond(xResultSet2, UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(2l, xRowSecond->getLong(1));
+    // now use the first result set again
+    CPPUNIT_ASSERT_EQUAL(1l, xRowFirst->getLong(1));
+
+    xStatement->executeUpdate("DROP TABLE myTestTable");
+    xStatement->executeUpdate("DROP TABLE otherTable");
+}
+
+void MysqlTestDriver::testDBMetaData()
+{
+    Reference<XConnection> xConnection = m_xDriver->connect(m_sUrl, m_infos);
+    if (!xConnection.is())
+        CPPUNIT_ASSERT_MESSAGE("cannot connect to data source!", xConnection.is());
+    uno::Reference<XStatement> xStatement = xConnection->createStatement();
+    CPPUNIT_ASSERT(xStatement.is());
+    xStatement->executeUpdate("DROP TABLE IF EXISTS myTestTable");
+
+    auto nUpdateCount = xStatement->executeUpdate(
+        "CREATE TABLE myTestTable (id INTEGER PRIMARY KEY, name VARCHAR(20))");
+    Reference<XPreparedStatement> xPrepared
+        = xConnection->prepareStatement(OUString{ "INSERT INTO myTestTable VALUES (?, ?)" });
+    Reference<XParameters> xParams(xPrepared, UNO_QUERY);
+    constexpr int ROW_COUNT = 3;
+    for (int i = 0; i < ROW_COUNT; ++i)
+    {
+        xParams->setLong(1, i);
+        xParams->setString(2, "lorem");
+        xPrepared->executeUpdate();
+    }
+
+    Reference<XResultSet> xResultSet = xStatement->executeQuery("SELECT * from myTestTable");
+    Reference<XResultSetMetaDataSupplier> xMetaDataSupplier(xResultSet, UNO_QUERY);
+    Reference<XResultSetMetaData> xMetaData = xMetaDataSupplier->getMetaData();
+    CPPUNIT_ASSERT_EQUAL(OUString{ "id" }, xMetaData->getColumnName(1));
+    CPPUNIT_ASSERT_EQUAL(OUString{ "name" }, xMetaData->getColumnName(2));
+    CPPUNIT_ASSERT(!xMetaData->isAutoIncrement(1));
+    CPPUNIT_ASSERT(!xMetaData->isCaseSensitive(2)); // default collation should be case insensitive
+    xResultSet->next(); // use it
+    // test that meta data is usable even after fetching result set
+    CPPUNIT_ASSERT_EQUAL(OUString{ "name" }, xMetaData->getColumnName(2));
+    CPPUNIT_ASSERT_THROW_MESSAGE("exception expected when indexing out of range",
+                                 xMetaData->getColumnName(3), sdbc::SQLException);
+    nUpdateCount = xStatement->executeUpdate("DROP TABLE myTestTable");
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(MysqlTestDriver);

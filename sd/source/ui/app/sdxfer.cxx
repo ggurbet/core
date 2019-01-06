@@ -177,7 +177,7 @@ void SdTransferable::CreateObjectReplacement( SdrObject* pObj )
         {
             SdrUnoObj* pUnoCtrl = static_cast< SdrUnoObj* >( pObj );
 
-            if (pUnoCtrl && SdrInventor::FmForm == pUnoCtrl->GetObjInventor())
+            if (SdrInventor::FmForm == pUnoCtrl->GetObjInventor())
             {
                 const Reference< css::awt::XControlModel >& xControlModel( pUnoCtrl->GetUnoControlModel() );
 
@@ -389,10 +389,9 @@ void SdTransferable::AddSupportedFormats()
             AddFormat( SotClipboardFormatId::EMBED_SOURCE );
 
             DataFlavorExVector              aVector( mpOLEDataHelper->GetDataFlavorExVector() );
-            DataFlavorExVector::iterator    aIter( aVector.begin() ), aEnd( aVector.end() );
 
-            while( aIter != aEnd )
-                AddFormat( *aIter++ );
+            for( const auto& rItem : aVector )
+                AddFormat( rItem );
         }
         else if( mpGraphic )
         {
@@ -457,22 +456,11 @@ bool SdTransferable::GetData( const DataFlavor& rFlavor, const OUString& rDestDo
     }
     else if( mpOLEDataHelper && mpOLEDataHelper->HasFormat( rFlavor ) )
     {
-        SdrSwapGraphicsMode nOldSwapMode(SdrSwapGraphicsMode::DEFAULT);
-
-        if( mpSdDrawDocumentIntern )
-        {
-            nOldSwapMode = mpSdDrawDocumentIntern->GetSwapGraphicsMode();
-            mpSdDrawDocumentIntern->SetSwapGraphicsMode( SdrSwapGraphicsMode::PURGE );
-        }
-
         // TODO/LATER: support all the graphical formats, the embedded object scenario should not have separated handling
         if( nFormat == SotClipboardFormatId::GDIMETAFILE && mpGraphic )
             bOK = SetGDIMetaFile( mpGraphic->GetGDIMetaFile() );
         else
             bOK = SetAny( mpOLEDataHelper->GetAny(rFlavor, rDestDoc) );
-
-        if( mpSdDrawDocumentIntern )
-            mpSdDrawDocumentIntern->SetSwapGraphicsMode( nOldSwapMode );
     }
     else if( HasFormat( nFormat ) )
     {
@@ -551,9 +539,6 @@ bool SdTransferable::GetData( const DataFlavor& rFlavor, const OUString& rDestDo
         {
             if( mpSdDrawDocumentIntern )
             {
-                SdrSwapGraphicsMode nOldSwapMode = mpSdDrawDocumentIntern->GetSwapGraphicsMode();
-                mpSdDrawDocumentIntern->SetSwapGraphicsMode( SdrSwapGraphicsMode::PURGE );
-
                 if( !maDocShellRef.is() )
                 {
                     maDocShellRef = new ::sd::DrawDocShell(
@@ -567,8 +552,6 @@ bool SdTransferable::GetData( const DataFlavor& rFlavor, const OUString& rDestDo
 
                 maDocShellRef->SetVisArea( maVisArea );
                 bOK = SetObject( maDocShellRef.get(), SDTRANSFER_OBJECTTYPE_DRAWOLE, rFlavor );
-
-                mpSdDrawDocumentIntern->SetSwapGraphicsMode( nOldSwapMode );
             }
         }
     }

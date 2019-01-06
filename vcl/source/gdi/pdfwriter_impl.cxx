@@ -24,15 +24,7 @@
 #include <math.h>
 #include <algorithm>
 
-#if defined __GNUC__ && __cplusplus > 201402L
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpragmas"
-#pragma GCC diagnostic ignored "-Wregister"
-#endif
 #include <lcms2.h>
-#if defined __GNUC__ && __cplusplus > 201402L
-#pragma GCC diagnostic pop
-#endif
 
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
@@ -41,6 +33,7 @@
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <memory>
+#include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/util/URL.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
@@ -59,6 +52,7 @@
 #include <svl/urihelper.hxx>
 #include <tools/debug.hxx>
 #include <tools/fract.hxx>
+#include <tools/helpers.hxx>
 #include <tools/stream.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/zcodec.hxx>
@@ -2938,7 +2932,7 @@ static void appendSubsetName( int nSubsetID, const OUString& rPSName, OStringBuf
     {
         for( int i = 0; i < 6; i++ )
         {
-            int nOffset = (nSubsetID % 26);
+            int nOffset = nSubsetID % 26;
             nSubsetID /= 26;
             rBuffer.append( static_cast<sal_Char>('A'+nOffset) );
         }
@@ -4624,7 +4618,7 @@ bool PDFWriterImpl::emitWidgetAnnotations()
                         else
                             appendName( rWidget.m_aValue, aValue );
                     }
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case PDFWriter::PushButton:
                     aLine.append( "Btn" );
                     break;
@@ -6327,7 +6321,7 @@ void PDFWriterImpl::drawVerticalGlyphs(
             fSkewA = -fSkewB;
             fSkewB = 0.0;
         }
-        aDeltaPos += (PixelToLogic( Point( static_cast<int>(static_cast<double>(nXOffset)/fXScale), 0 ) ) - PixelToLogic( Point() ) );
+        aDeltaPos += PixelToLogic( Point( static_cast<int>(static_cast<double>(nXOffset)/fXScale), 0 ) ) - PixelToLogic( Point() );
         if( i < rGlyphs.size()-1 )
         // #i120627# the text on the Y axis is reversed when export ppt file to PDF format
         {
@@ -8688,7 +8682,7 @@ bool PDFWriterImpl::writeGradientFunction( GradientEmit const & rObject )
             aCol[1] = rObject.m_aGradient.GetEndColor().GetGreen();
             aCol[2] = rObject.m_aGradient.GetEndColor().GetBlue();
             CHECK_RETURN( writeBuffer( aCol, 3 ) );
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case GradientStyle::Linear:
         {
             aCol[0] = rObject.m_aGradient.GetStartColor().GetRed();
@@ -9733,7 +9727,7 @@ void PDFWriterImpl::drawJPGBitmap( SvStream& rDCTData, bool bIsTrueColor, const 
         return;
     }
 
-    SvMemoryStream* pStream = new SvMemoryStream;
+    std::unique_ptr<SvMemoryStream> pStream(new SvMemoryStream);
     pStream->WriteStream( rDCTData );
     pStream->Seek( STREAM_SEEK_TO_END );
 
@@ -9754,7 +9748,7 @@ void PDFWriterImpl::drawJPGBitmap( SvStream& rDCTData, bool bIsTrueColor, const 
         if (!rGraphic.hasPdfData() || m_aContext.UseReferenceXObject)
             rEmit.m_nObject = createObject();
         rEmit.m_aID         = aID;
-        rEmit.m_pStream.reset( pStream );
+        rEmit.m_pStream = std::move( pStream );
         rEmit.m_bTrueColor  = bIsTrueColor;
         if( !! rMask && rMask.GetSizePixel() == rSizePixel )
             rEmit.m_aMask   = rMask;
@@ -9762,8 +9756,6 @@ void PDFWriterImpl::drawJPGBitmap( SvStream& rDCTData, bool bIsTrueColor, const 
 
         it = m_aJPGs.begin();
     }
-    else
-        delete pStream;
 
     aLine.append( "q " );
     sal_Int32 nCheckWidth = 0;

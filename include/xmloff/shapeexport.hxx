@@ -52,9 +52,7 @@ enum class XMLShapeExportFlags {
      POSITION = 0x0003,
      WIDTH    = 0x0004,
      HEIGHT   = 0x0008,
-     SIZE     = 0x000c,
-// when you set this flag a chart does NOT export its own data as table element
-     NO_CHART_DATA = 0x0010,
+     SIZE     = WIDTH | HEIGHT,
 // When setting the flag below no ignorableWhiteSpace will be called around
 // the drawing object elements
      NO_WS    = 0x0020,
@@ -63,7 +61,7 @@ enum class XMLShapeExportFlags {
 };
 namespace o3tl
 {
-    template<> struct typed_flags<XMLShapeExportFlags> : is_typed_flags<XMLShapeExportFlags, 0x7f> {};
+    template<> struct typed_flags<XMLShapeExportFlags> : is_typed_flags<XMLShapeExportFlags, 0x6f> {};
 }
 
 #define SEF_DEFAULT         XMLShapeExportFlags::POSITION|XMLShapeExportFlags::SIZE

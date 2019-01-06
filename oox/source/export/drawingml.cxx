@@ -34,6 +34,7 @@
 #include <oox/drawingml/drawingmltypes.hxx>
 #include <svtools/unitconv.hxx>
 #include <sax/fastattribs.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 #include <cstdio>
 #include <com/sun/star/awt/CharSet.hpp>
@@ -460,7 +461,7 @@ void DrawingML::WriteGrabBagGradientFill( const Sequence< PropertyValue >& aGrad
         if( sSchemeClr.isEmpty() )
         {
             // Calculate alpha value (see oox/source/drawingml/color.cxx : getTransparency())
-            sal_Int32 nAlpha = (MAX_PERCENT - ( PER_PERCENT * nTransparency ) );
+            sal_Int32 nAlpha = MAX_PERCENT - ( PER_PERCENT * nTransparency );
             WriteColor( nRgbClr, nAlpha );
         }
         else
@@ -671,16 +672,27 @@ void DrawingML::WriteOutline( const Reference<XPropertySet>& rXPropSet, Referenc
                         aAny >>= aLineDash;
                     }
                 }
-                bDashSet = true;
-                if (aLineDash.Style == DashStyle_ROUND || aLineDash.Style == DashStyle_ROUNDRELATIVE)
-                {
-                    cap = "rnd";
-                }
-
-                SAL_INFO("oox.shape", "dash dots: " << aLineDash.Dots << " dashes: " << aLineDash.Dashes
-                        << " dotlen: " << aLineDash.DotLen << " dashlen: " << aLineDash.DashLen <<  " distance: " <<  aLineDash.Distance);
             }
-            SAL_FALLTHROUGH;
+            else
+            {
+                //export the linestyle of chart wall (plot area) and chart page
+                OUString aLineDashName;
+                GET(aLineDashName, LineDashName);
+                if (!aLineDashName.isEmpty() && xModel) {
+                    css::uno::Any aAny = getLineDash(xModel, aLineDashName);
+                    aAny >>= aLineDash;
+                }
+            }
+            bDashSet = true;
+            if (aLineDash.Style == DashStyle_ROUND || aLineDash.Style == DashStyle_ROUNDRELATIVE)
+            {
+                cap = "rnd";
+            }
+
+            SAL_INFO("oox.shape", "dash dots: " << aLineDash.Dots << " dashes: " << aLineDash.Dashes
+                    << " dotlen: " << aLineDash.DotLen << " dashlen: " << aLineDash.DashLen << " distance: " <<  aLineDash.Distance);
+
+            [[fallthrough]];
         case drawing::LineStyle_SOLID:
         default:
             if ( GETA( LineColor ) )

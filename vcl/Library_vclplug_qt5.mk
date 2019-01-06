@@ -99,6 +99,7 @@ $(eval $(call gb_Library_add_exception_objects,vclplug_qt5,\
     vcl/qt5/Qt5MainWindow \
     vcl/qt5/Qt5Menu \
     vcl/qt5/Qt5Object \
+    vcl/qt5/Qt5OpenGLContext \
     vcl/qt5/Qt5Painter \
     vcl/qt5/Qt5Printer \
     vcl/qt5/Qt5System \
@@ -114,6 +115,14 @@ $(eval $(call gb_Library_add_libs,vclplug_qt5,\
 	-lm \
 	-ldl \
 	-lpthread \
+))
+endif
+
+# Workaround for clang+icecream (clang's -frewrite-includes
+# doesn't handle Qt5's QT_HAS_INCLUDE that Qt5 uses for <chrono>).
+ifeq ($(COM_IS_CLANG),TRUE)
+$(eval $(call gb_Library_add_defs,vclplug_qt5, \
+    -include chrono \
 ))
 endif
 

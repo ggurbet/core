@@ -34,10 +34,12 @@
 #include <tools/urlobj.hxx>
 #include <unotools/securityoptions.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <com/sun/star/awt/SystemPointer.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/media/XManager.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <vcl/sysdata.hxx>
 #if HAVE_FEATURE_OPENGL
 #include <vcl/opengl/OpenGLContext.hxx>

@@ -31,6 +31,7 @@
 #include <tools/color.hxx>
 #include <tools/fract.hxx>
 #include <tools/gen.hxx>
+#include <vcl/metric.hxx>
 #include <vcl/outdev.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
@@ -204,8 +205,7 @@ void SmNode::SetSize(const Fraction &rSize)
 
 void SmNode::SetRectHorAlign(RectHorAlign eHorAlign, bool bApplyToSubTree )
 {
-    if (!(Flags() & FontChangeMask::HorAlign))
-        meRectHorAlign = eHorAlign;
+    meRectHorAlign = eHorAlign;
 
     if (bApplyToSubTree)
         ForEachNonNull(this, [eHorAlign](SmNode *pNode){pNode->SetRectHorAlign(eHorAlign);});
@@ -385,16 +385,16 @@ void SmStructureNode::ClearSubNodes()
     maSubNodes.clear();
 }
 
-void SmStructureNode::SetSubNodes(SmNode *pFirst, SmNode *pSecond, SmNode *pThird)
+void SmStructureNode::SetSubNodes(std::unique_ptr<SmNode> pFirst, std::unique_ptr<SmNode> pSecond, std::unique_ptr<SmNode> pThird)
 {
     size_t nSize = pThird ? 3 : (pSecond ? 2 : (pFirst ? 1 : 0));
     maSubNodes.resize( nSize );
     if (pFirst)
-        maSubNodes[0] = pFirst;
+        maSubNodes[0] = pFirst.release();
     if (pSecond)
-        maSubNodes[1] = pSecond;
+        maSubNodes[1] = pSecond.release();
     if (pThird)
-        maSubNodes[2] = pThird;
+        maSubNodes[2] = pThird.release();
 
     ClaimPaternity();
 }

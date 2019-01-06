@@ -31,6 +31,7 @@
 #include <osl/endian.h>
 #include <sal/log.hxx>
 
+#include <tools/helpers.hxx>
 #include <vcl/bitmap.hxx>
 #include <vcl/salbtype.hxx>
 #include <com/sun/star/beans/XFastPropertySet.hpp>
@@ -180,7 +181,7 @@ std::unique_ptr<BitmapBuffer> X11SalBitmap::ImplCreateDIB(
 #endif
         default:
             nBitCount = 24;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 24:
             pDIB->mnFormat |= ScanlineFormat::N24BitTcBgr;
         break;

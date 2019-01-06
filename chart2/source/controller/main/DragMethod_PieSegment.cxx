@@ -23,8 +23,6 @@
 #include <strings.hrc>
 #include <ResId.hxx>
 #include <ObjectIdentifier.hxx>
-#include <rtl/math.hxx>
-#include <svx/svdpagv.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <tools/diagnose_ex.h>
@@ -87,7 +85,7 @@ void DragMethod_PieSegment::MoveSdrDrag(const Point& rPnt)
     if( DragStat().CheckMinMoved(rPnt) )
     {
         //calculate new offset
-        B2DVector aShiftVector(( B2DVector( rPnt.X(), rPnt.Y() ) - m_aStartVector ));
+        B2DVector aShiftVector( B2DVector( rPnt.X(), rPnt.Y() ) - m_aStartVector );
         m_fAdditionalOffset = m_aDragDirection.scalar( aShiftVector )/m_fDragRange; // projection
 
         if( m_fAdditionalOffset < -m_fInitialOffset )

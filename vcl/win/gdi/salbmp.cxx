@@ -28,6 +28,7 @@
 #include <vcl/timer.hxx>
 #include <cppuhelper/basemutex.hxx>
 #include <sal/log.hxx>
+#include <tools/helpers.hxx>
 #include <map>
 
 #if defined _MSC_VER
@@ -1034,7 +1035,6 @@ bool WinSalBitmap::GetSystemData( BitmapSystemData& rData )
     {
         bRet = true;
         rData.pDIB = mhDIB;
-        rData.pDDB = mhDDB;
         const Size& rSize = GetSize ();
         rData.mnWidth = rSize.Width();
         rData.mnHeight = rSize.Height();

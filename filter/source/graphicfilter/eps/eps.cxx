@@ -21,6 +21,7 @@
 #include <tools/stream.hxx>
 #include <tools/poly.hxx>
 #include <tools/fract.hxx>
+#include <tools/helpers.hxx>
 #include <unotools/resmgr.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/metaact.hxx>
@@ -41,6 +42,7 @@
 #include <vcl/weld.hxx>
 #include <strings.hrc>
 #include <osl/diagnose.h>
+#include <com/sun/star/task/XStatusIndicator.hpp>
 
 #include <math.h>
 #include <memory>
@@ -1676,7 +1678,7 @@ void PSWriter::ImplBmp( Bitmap const * pBitmap, Bitmap const * pMaskBitmap, cons
                 if ( mnLevel == 1 && nHeight > 10 )
                     nHeight = 8;
                 aRect = tools::Rectangle( Point( 0, nHeightOrg - nHeightLeft ), Size( nWidth, nHeight ) );
-                aRegion = vcl::Region( pMaskBitmap->CreateRegion( COL_BLACK, aRect ) );
+                aRegion = pMaskBitmap->CreateRegion( COL_BLACK, aRect );
 
                 if( mnLevel == 1 )
                 {

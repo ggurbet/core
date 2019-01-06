@@ -319,7 +319,7 @@ public:
     ScMatrixRef CompareMatrix( sc::Compare& rComp, size_t nMatPos, sc::CompareOptions* pOptions ) const;
 
     void GetDoubleArray( std::vector<double>& rArray, bool bEmptyAsZero ) const;
-    void MergeDoubleArray( std::vector<double>& rArray, ScMatrix::Op eOp ) const;
+    void MergeDoubleArrayMultiply( std::vector<double>& rArray ) const;
 
     template<typename T>
     void ApplyOperation(T aOp, ScMatrixImpl& rMat);
@@ -330,7 +330,7 @@ public:
             const ScMatrix::EmptyOpFunction& aEmptyFunc) const;
 
     template<typename T>
-    std::vector<ScMatrix::IterateResult> ApplyCollectOperation(const std::vector<std::unique_ptr<T>>& aOp);
+    std::vector<ScMatrix::IterateResult> ApplyCollectOperation(const std::vector<T>& aOp);
 
     void MatConcat(SCSIZE nMaxCol, SCSIZE nMaxRow, const ScMatrixRef& xMat1, const ScMatrixRef& xMat2,
             SvNumberFormatter& rFormatter, svl::SharedStringPool& rPool);
@@ -655,7 +655,7 @@ svl::SharedString ScMatrixImpl::GetString(SCSIZE nC, SCSIZE nR) const
             case mdds::mtm::element_numeric:
             case mdds::mtm::element_boolean:
                 fErr = maMat.get_numeric(aPos);
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             default:
                 OSL_FAIL("ScMatrixImpl::GetString: access error, no string");
         }
@@ -1181,16 +1181,16 @@ public:
 template<typename Op>
 class WalkElementBlocksMultipleValues
 {
-    const std::vector<std::unique_ptr<Op>>* mpOp;
+    const std::vector<Op>* mpOp;
     std::vector<ScMatrix::IterateResult> maRes;
     bool mbFirst:1;
 public:
-    WalkElementBlocksMultipleValues(const std::vector<std::unique_ptr<Op>>& aOp) :
+    WalkElementBlocksMultipleValues(const std::vector<Op>& aOp) :
         mpOp(&aOp), mbFirst(true)
     {
         for (const auto& rpOp : *mpOp)
         {
-            maRes.emplace_back(rpOp->mInitVal, rpOp->mInitVal, 0);
+            maRes.emplace_back(rpOp.mInitVal, rpOp.mInitVal, 0);
         }
         maRes.emplace_back(0.0, 0.0, 0); // count
     }
@@ -1227,7 +1227,7 @@ public:
                     {
                         for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
-                            (*(*mpOp)[i])(maRes[i].mfFirst, *it);
+                            (*mpOp)[i](maRes[i].mfFirst, *it);
                         }
                         mbFirst = false;
                     }
@@ -1235,7 +1235,7 @@ public:
                     {
                         for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
-                            (*(*mpOp)[i])(maRes[i].mfRest, *it);
+                            (*mpOp)[i](maRes[i].mfRest, *it);
                         }
                     }
                 }
@@ -1254,7 +1254,7 @@ public:
                     {
                         for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
-                            (*(*mpOp)[i])(maRes[i].mfFirst, *it);
+                            (*mpOp)[i](maRes[i].mfFirst, *it);
                         }
                         mbFirst = false;
                     }
@@ -1262,7 +1262,7 @@ public:
                     {
                         for (size_t i = 0u; i < mpOp->size(); ++i)
                         {
-                            (*(*mpOp)[i])(maRes[i].mfRest, *it);
+                            (*mpOp)[i](maRes[i].mfRest, *it);
                         }
                     }
                 }
@@ -2181,24 +2181,15 @@ void ScMatrixImpl::GetDoubleArray( std::vector<double>& rArray, bool bEmptyAsZer
     aFunc.swap(rArray);
 }
 
-void ScMatrixImpl::MergeDoubleArray( std::vector<double>& rArray, ScMatrix::Op eOp ) const
+void ScMatrixImpl::MergeDoubleArrayMultiply( std::vector<double>& rArray ) const
 {
     MatrixImplType::size_pair_type aSize = maMat.size();
     size_t nSize = aSize.row*aSize.column;
     if (nSize != rArray.size())
         return;
 
-    switch (eOp)
-    {
-        case ScMatrix::Mul:
-        {
-            MergeDoubleArrayFunc<ArrayMul> aFunc(rArray);
-            maMat.walk(std::move(aFunc));
-        }
-        break;
-        default:
-            ;
-    }
+    MergeDoubleArrayFunc<ArrayMul> aFunc(rArray);
+    maMat.walk(std::move(aFunc));
 }
 
 namespace Op {
@@ -2442,7 +2433,7 @@ void ScMatrixImpl::ApplyOperation(T aOp, ScMatrixImpl& rMat)
 }
 
 template<typename T>
-std::vector<ScMatrix::IterateResult> ScMatrixImpl::ApplyCollectOperation(const std::vector<std::unique_ptr<T>>& aOp)
+std::vector<ScMatrix::IterateResult> ScMatrixImpl::ApplyCollectOperation(const std::vector<T>& aOp)
 {
     WalkElementBlocksMultipleValues<T> aFunc(aOp);
     aFunc = maMat.walk(std::move(aFunc));
@@ -3289,9 +3280,9 @@ void ScMatrix::GetDoubleArray( std::vector<double>& rArray, bool bEmptyAsZero ) 
     pImpl->GetDoubleArray(rArray, bEmptyAsZero);
 }
 
-void ScMatrix::MergeDoubleArray( std::vector<double>& rArray, Op eOp ) const
+void ScMatrix::MergeDoubleArrayMultiply( std::vector<double>& rArray ) const
 {
-    pImpl->MergeDoubleArray(rArray, eOp);
+    pImpl->MergeDoubleArrayMultiply(rArray);
 }
 
 namespace matop {
@@ -3469,7 +3460,7 @@ void ScMatrix::ExecuteOperation(const std::pair<size_t, size_t>& rStartPos,
     pImpl->ExecuteOperation(rStartPos, rEndPos, aDoubleFunc, aBoolFunc, aStringFunc, aEmptyFunc);
 }
 
-std::vector<ScMatrix::IterateResult> ScMatrix::Collect(const std::vector<std::unique_ptr<sc::op::Op>>& aOp)
+std::vector<ScMatrix::IterateResult> ScMatrix::Collect(const std::vector<sc::op::Op>& aOp)
 {
     return pImpl->ApplyCollectOperation(aOp);
 }

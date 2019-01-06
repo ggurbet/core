@@ -369,25 +369,6 @@ void ScTabViewShell::ExecDrawIns(SfxRequest& rReq)
                 break;
             }
 
-        case SID_INSERT_DIAGRAM_FROM_FILE:
-            try
-            {
-                sfx2::FileDialogHelper aDlg(ui::dialogs::TemplateDescription::FILEOPEN_SIMPLE,
-                        FileDialogFlags::NONE, "com.sun.star.chart2.ChartDocument",
-                        SfxFilterFlags::NONE, SfxFilterFlags::NONE, pWin ? pWin->GetFrameWeld() : nullptr);
-                if(aDlg.Execute() == ERRCODE_NONE )
-                {
-                    INetURLObject aURLObj( aDlg.GetPath() );
-                    OUString aURL = aURLObj.GetURLNoPass();
-                    FuInsertChartFromFile(*this, pWin, pView, pDrModel, rReq, aURL);
-                }
-            }
-            catch (const uno::Exception& e)
-            {
-                SAL_WARN( "sc", "Cannot Insert Chart: " << e);
-            }
-            break;
-
         case SID_OBJECTRESIZE:
             {
                 //         the server would like to change the client size
@@ -489,7 +470,7 @@ void ScTabViewShell::ExecDrawIns(SfxRequest& rReq)
             break;
 
         case SID_FONTWORK_GALLERY_FLOATER:
-            svx::FontworkBar::execute( pView, rReq, GetViewFrame()->GetBindings() );
+            svx::FontworkBar::execute(*pView, rReq, GetViewFrame()->GetBindings());
             rReq.Ignore();
             break;
     }

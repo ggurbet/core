@@ -271,10 +271,6 @@ public:
     OUString maCategoriesRange;
 };
 
-#if !HAVE_CPP_INLINE_VARIABLES
-constexpr OUStringLiteral SchXMLExportHelper_Impl::gsTableName;
-#endif
-
 namespace
 {
 
@@ -1202,7 +1198,7 @@ void SchXMLExportHelper_Impl::parseDocument( Reference< chart::XChartDocument > 
         }
 
         Reference<chart2::data::XPivotTableDataProvider> xPivotTableDataProvider(xNewDoc->getDataProvider(), uno::UNO_QUERY);
-        if (xPivotTableDataProvider.is())
+        if (xPivotTableDataProvider.is() && nCurrentODFVersion > SvtSaveOptions::ODFVER_012)
         {
             OUString sPivotTableName = xPivotTableDataProvider->getPivotTableName();
             mrExport.AddAttribute(XML_NAMESPACE_LO_EXT, XML_DATA_PILOT_SOURCE, sPivotTableName);
@@ -2264,7 +2260,7 @@ void SchXMLExportHelper_Impl::exportAxis(
     bool bExportContent )
 {
     std::vector< XMLPropertyState > aPropertyStates;
-    SvXMLElementExport* pAxis = nullptr;
+    std::unique_ptr<SvXMLElementExport> pAxis;
 
     // get property states for autostyles
     if( rAxisProps.is() && mxExpPropMapper.is() )
@@ -2291,7 +2287,7 @@ void SchXMLExportHelper_Impl::exportAxis(
             bExportDateScale = lcl_exportAxisType( rChart2Axis, mrExport );
 
         // open axis element
-        pAxis = new SvXMLElementExport( mrExport, XML_NAMESPACE_CHART, XML_AXIS, true, true );
+        pAxis.reset(new SvXMLElementExport( mrExport, XML_NAMESPACE_CHART, XML_AXIS, true, true ));
     }
     else
     {
@@ -2327,13 +2323,6 @@ void SchXMLExportHelper_Impl::exportAxis(
     // grid
     exportGrid( xMajorGridProps, true, bExportContent );
     exportGrid( xMinorGridProps, false, bExportContent );
-
-    if( pAxis )
-    {
-        //close axis element
-        delete pAxis;
-        pAxis = nullptr;
-    }
 }
 
 void SchXMLExportHelper_Impl::exportAxes(
@@ -2573,7 +2562,7 @@ void SchXMLExportHelper_Impl::exportSeries(
                 Reference< chart2::data::XDataSource > xSource( aSeriesSeq[nSeriesIdx], uno::UNO_QUERY );
                 if( xSource.is())
                 {
-                    SvXMLElementExport* pSeries = nullptr;
+                    std::unique_ptr<SvXMLElementExport> pSeries;
                     Sequence< Reference< chart2::data::XLabeledDataSequence > > aSeqCnt(
                         xSource->getDataSequences());
                     sal_Int32 nMainSequenceIndex = -1;
@@ -2673,6 +2662,19 @@ void SchXMLExportHelper_Impl::exportSeries(
                                     // #i75297# allow empty series, export empty range to have all ranges on import
                                     mrExport.AddAttribute( XML_NAMESPACE_CHART, XML_VALUES_CELL_RANGE_ADDRESS, OUString());
 
+                                const SvtSaveOptions::ODFDefaultVersion nCurrentODFVersion( SvtSaveOptions().GetODFDefaultVersion() );
+                                if( nCurrentODFVersion >= SvtSaveOptions::ODFVER_012 )
+                                {
+                                    if (xPropSet.is())
+                                    {
+                                        Any aAny = xPropSet->getPropertyValue("ShowLegendEntry");
+                                        if (!aAny.get<bool>())
+                                        {
+                                            mrExport.AddAttribute(XML_NAMESPACE_LO_EXT, XML_HIDE_LEGEND, OUString::boolean(true));
+                                        }
+                                    }
+                                }
+
                                 if (xLabelSeq.is())
                                 {
                                     // Check if the label is direct string value rather than a reference.
@@ -2715,7 +2717,7 @@ void SchXMLExportHelper_Impl::exportSeries(
                                                            XML_NAMESPACE_CHART, GetXMLToken( eCTToken )));
 
                                 // open series element until end of for loop
-                                pSeries = new SvXMLElementExport( mrExport, XML_NAMESPACE_CHART, XML_SERIES, true, true );
+                                pSeries.reset(new SvXMLElementExport( mrExport, XML_NAMESPACE_CHART, XML_SERIES, true, true ));
                             }
                             else    // autostyles
                             {
@@ -2839,7 +2841,7 @@ void SchXMLExportHelper_Impl::exportSeries(
                     }
 
                     // close series element
-                    delete pSeries;
+                    pSeries.reset();
                 }
             }
             aPropertyStates.clear();

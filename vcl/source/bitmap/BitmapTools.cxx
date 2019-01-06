@@ -14,6 +14,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/seqstream.hxx>
 #include <vcl/canvastools.hxx>
+#include <basegfx/matrix/b2dhommatrix.hxx>
 
 #include <com/sun/star/graphic/SvgTools.hpp>
 #include <com/sun/star/graphic/Primitive2DTools.hpp>
@@ -34,6 +35,8 @@
 #endif
 #include <tools/diagnose_ex.h>
 #include <tools/fract.hxx>
+#include <tools/helpers.hxx>
+#include <tools/stream.hxx>
 #include <bitmapwriteaccess.hxx>
 
 using namespace css;
@@ -266,6 +269,7 @@ BitmapEx* CreateFromCairoSurface(Size aSize, cairo_surface_t * pSurface)
     cairo_surface_flush(pPixels);
     unsigned char *pSrc = cairo_image_surface_get_data( pPixels );
     unsigned int nStride = cairo_image_surface_get_stride( pPixels );
+    vcl::bitmap::lookup_table unpremultiply_table = vcl::bitmap::get_unpremultiply_table();
     for( unsigned long y = 0; y < static_cast<unsigned long>(aSize.Height()); y++ )
     {
         sal_uInt32 *pPix = reinterpret_cast<sal_uInt32 *>(pSrc + nStride * y);
@@ -285,9 +289,9 @@ BitmapEx* CreateFromCairoSurface(Size aSize, cairo_surface_t * pSurface)
             if( nAlpha != 0 && nAlpha != 255 )
             {
                 // Cairo uses pre-multiplied alpha - we do not => re-multiply
-                nR = static_cast<sal_uInt8>(MinMax( (static_cast<sal_uInt32>(nR) * 255) / nAlpha, 0, 255 ));
-                nG = static_cast<sal_uInt8>(MinMax( (static_cast<sal_uInt32>(nG) * 255) / nAlpha, 0, 255 ));
-                nB = static_cast<sal_uInt8>(MinMax( (static_cast<sal_uInt32>(nB) * 255) / nAlpha, 0, 255 ));
+                nR = unpremultiply_table[nAlpha][nR];
+                nG = unpremultiply_table[nAlpha][nG];
+                nB = unpremultiply_table[nAlpha][nB];
             }
             pRGBWrite->SetPixel( y, x, BitmapColor( nR, nG, nB ) );
             pMaskWrite->SetPixelIndex( y, x, 255 - nAlpha );
@@ -724,6 +728,7 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
     ::Color aColor;
     unsigned int nAlpha = 255;
 
+    vcl::bitmap::lookup_table premultiply_table = vcl::bitmap::get_premultiply_table();
     for( nY = 0; nY < nHeight; nY++ )
     {
         ::Scanline pReadScan;
@@ -752,13 +757,13 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                 aColor = pBitmapReadAcc->GetPaletteColor(*pReadScan++).GetColor();
 
 #ifdef OSL_BIGENDIAN
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( aColor.GetRed() ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( aColor.GetGreen() ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( aColor.GetBlue() ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetRed()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetGreen()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetBlue()];
 #else
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( aColor.GetBlue() ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( aColor.GetGreen() ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( aColor.GetRed() ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetBlue()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetGreen()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetRed()];
                 nOff++;
 #endif
             }
@@ -776,18 +781,18 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                     nAlpha = data[ nOff ];
                 else
                     nAlpha = data[ nOff ] = 255;
-                data[ nOff + 3 ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff + 2 ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff + 1 ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
+                data[ nOff + 3 ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff + 2 ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff + 1 ] = premultiply_table[nAlpha][*pReadScan++];
                 nOff += 4;
 #else
                 if( pAlphaReadAcc )
                     nAlpha = data[ nOff + 3 ];
                 else
                     nAlpha = data[ nOff + 3 ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
                 nOff++;
 #endif
             }
@@ -805,17 +810,17 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                     nAlpha = data[ nOff++ ];
                 else
                     nAlpha = data[ nOff++ ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
 #else
                 if( pAlphaReadAcc )
                     nAlpha = data[ nOff + 3 ];
                 else
                     nAlpha = data[ nOff + 3 ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 2 ] ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 1 ] ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 0 ] ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 2 ]];
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 1 ]];
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 0 ]];
                 pReadScan += 3;
                 nOff++;
 #endif
@@ -834,18 +839,18 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                     nAlpha = data[ nOff++ ];
                 else
                     nAlpha = data[ nOff++ ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 2 ] ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 1 ] ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 0 ] ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 2 ]];
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 1 ]];
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 0 ]];
                 pReadScan += 4;
 #else
                 if( pAlphaReadAcc )
                     nAlpha = data[ nOff + 3 ];
                 else
                     nAlpha = data[ nOff + 3 ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
                 pReadScan++;
                 nOff++;
 #endif
@@ -864,18 +869,18 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                     nAlpha = data[ nOff ++ ];
                 else
                     nAlpha = data[ nOff ++ ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( *pReadScan++ ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
+                data[ nOff++ ] = premultiply_table[nAlpha][*pReadScan++];
                 pReadScan++;
 #else
                 if( pAlphaReadAcc )
                     nAlpha = data[ nOff + 3 ];
                 else
                     nAlpha = data[ nOff + 3 ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 2 ] ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 1 ] ) )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*( pReadScan[ 0 ] ) )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 2 ]];
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 1 ]];
+                data[ nOff++ ] = premultiply_table[nAlpha][pReadScan[ 0 ]];
                 pReadScan += 4;
                 nOff++;
 #endif
@@ -899,17 +904,17 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                     nAlpha = data[ nOff++ ];
                 else
                     nAlpha = data[ nOff++ ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*aColor.GetRed() )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*aColor.GetGreen() )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*aColor.GetBlue() )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetRed()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetGreen()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetBlue()];
 #else
                 if( pAlphaReadAcc )
                     nAlpha = data[ nOff + 3 ];
                 else
                     nAlpha = data[ nOff + 3 ] = 255;
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*aColor.GetBlue() )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*aColor.GetGreen() )/255 );
-                data[ nOff++ ] = sal::static_int_cast<unsigned char>(( nAlpha*aColor.GetRed() )/255 );
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetBlue()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetGreen()];
+                data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetRed()];
                 nOff ++;
 #endif
             }
@@ -1041,6 +1046,49 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
 
         return bRet;
     }
+
+    static sal_uInt8 unpremultiply(sal_uInt8 c, sal_uInt8 a)
+    {
+        return (a == 0) ? 0 : (c * 255 + a / 2) / a;
+    }
+
+    static sal_uInt8 premultiply(sal_uInt8 c, sal_uInt8 a)
+    {
+        return (c * a + 127) / 255;
+    }
+
+    lookup_table get_unpremultiply_table()
+    {
+        static bool inited;
+        static sal_uInt8 unpremultiply_table[256][256];
+
+        if (!inited)
+        {
+            for (int a = 0; a < 256; ++a)
+                for (int c = 0; c < 256; ++c)
+                    unpremultiply_table[a][c] = unpremultiply(c, a);
+            inited = true;
+        }
+
+        return unpremultiply_table;
+    }
+
+    lookup_table get_premultiply_table()
+    {
+        static bool inited;
+        static sal_uInt8 premultiply_table[256][256];
+
+        if (!inited)
+        {
+            for (int a = 0; a < 256; ++a)
+                for (int c = 0; c < 256; ++c)
+                    premultiply_table[a][c] = premultiply(c, a);
+            inited = true;
+        }
+
+        return premultiply_table;
+    }
+
 
 }} // end vcl::bitmap
 

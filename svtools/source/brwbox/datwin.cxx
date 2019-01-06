@@ -20,6 +20,7 @@
 
 #include "datwin.hxx"
 #include <o3tl/numeric.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
 #include <vcl/image.hxx>
@@ -173,7 +174,7 @@ void BrowserColumn::ZoomChanged(const Fraction& rNewZoom)
 
 
 BrowserDataWin::BrowserDataWin( BrowseBox* pParent )
-    :Control( pParent, WinBits(WB_CLIPCHILDREN) )
+    :Control( pParent, WB_CLIPCHILDREN )
     ,DragSourceHelper( this )
     ,DropTargetHelper( this )
     ,pHeaderBar( nullptr )
@@ -182,7 +183,6 @@ BrowserDataWin::BrowserDataWin( BrowseBox* pParent )
     ,bInDtor( false )
     ,bInPaint( false )
     ,bInCommand( false )
-    ,bNoScrollBack( false )
     ,bNoHScroll( false )
     ,bNoVScroll( false )
     ,bAutoHScroll(false)
@@ -193,7 +193,6 @@ BrowserDataWin::BrowserDataWin( BrowseBox* pParent )
     ,bUpdateOnUnlock( false )
     ,bInUpdateScrollbars( false )
     ,bHadRecursion( false )
-    ,bOwnDataChangedHdl( false )
     ,bCallingDropCallback( false )
     ,nUpdateLock( 0 )
     ,nCursorHidden( 0 )
@@ -261,14 +260,11 @@ void BrowserDataWin::DataChanged( const DataChangedEvent& rDCEvt )
     if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) &&
          (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
     {
-        if( !bOwnDataChangedHdl )
-        {
-            InitSettings_Impl(this);
-            Invalidate();
-            InitSettings_Impl(GetParent());
-            GetParent()->Invalidate();
-            GetParent()->Resize();
-        }
+        InitSettings_Impl(this);
+        Invalidate();
+        InitSettings_Impl(GetParent());
+        GetParent()->Invalidate();
+        GetParent()->Resize();
     }
     else
         Control::DataChanged( rDCEvt );

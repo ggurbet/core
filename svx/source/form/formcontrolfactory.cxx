@@ -45,6 +45,7 @@
 #include <tools/gen.hxx>
 #include <tools/diagnose_ex.h>
 #include <connectivity/dbtools.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 #include <set>
 
@@ -400,7 +401,7 @@ namespace svxform
             {
                 case FormComponentType::SCROLLBAR:
                     _rxControlModel->setPropertyValue("LiveScroll", makeAny( true ) );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case FormComponentType::SPINBUTTON:
                 {
                     sal_Int32 eOrientation = ScrollBarOrientation::HORIZONTAL;

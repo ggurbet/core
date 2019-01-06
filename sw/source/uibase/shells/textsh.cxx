@@ -474,7 +474,7 @@ void SwTextShell::ExecInsert(SfxRequest &rReq)
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
             ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateFrameTabDialog("FrameDialog",
                                                   GetView().GetViewFrame(),
-                                                  &GetView().GetViewFrame()->GetWindow(),
+                                                  GetView().GetFrameWeld(),
                                                   aSet));
             if(pDlg->Execute() == RET_OK && pDlg->GetOutputItemSet())
             {
@@ -843,6 +843,7 @@ SfxItemSet SwTextShell::CreateInsertFrameItemSet(SwFlyFrameAttrMgr& rMgr)
         FN_SET_FRM_NAME,        FN_SET_FRM_NAME,
         SID_HTML_MODE,          SID_HTML_MODE,
         SID_COLOR_TABLE,        SID_PATTERN_LIST,
+        XATTR_FILL_FIRST,       XATTR_FILL_LAST, // tdf#95003
         0
     };
 

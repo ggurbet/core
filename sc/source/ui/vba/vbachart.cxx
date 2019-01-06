@@ -18,6 +18,7 @@
  */
 #include "vbachart.hxx"
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sheet/XCellRangeAddressable.hpp>
 #include <com/sun/star/chart/XAxisXSupplier.hpp>
 #include <com/sun/star/chart/XAxisYSupplier.hpp>
@@ -39,6 +40,7 @@
 #include "vbarange.hxx"
 #include "vbacharttitle.hxx"
 #include "vbaaxes.hxx"
+#include <document.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::ooo::vba;
@@ -1051,12 +1053,10 @@ ScVbaChart::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaChart::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.Chart";
-    }
+        "ooo.vba.excel.Chart"
+    };
     return aServiceNames;
 }
 

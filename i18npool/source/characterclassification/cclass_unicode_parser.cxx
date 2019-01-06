@@ -355,7 +355,7 @@ sal_Int32 cclass_Unicode::getParseTokensType(sal_uInt32 const c, bool const isFi
             case U_OTHER_LETTER :
                 // Non_Spacing_Mark could not be as leading character
                 if (isFirst) break;
-                SAL_FALLTHROUGH; // treat it as Other_Letter.
+                [[fallthrough]]; // treat it as Other_Letter.
             case U_NON_SPACING_MARK :
                 return KParseTokens::UNI_OTHER_LETTER;
             case U_DECIMAL_DIGIT_NUMBER :
@@ -441,8 +441,15 @@ void cclass_Unicode::initParserTable( const Locale& rLocale, sal_Int32 startChar
         cDecimalSepAlt = aItem.decimalSeparatorAlternative.toChar();
     }
 
-    if ( cGroupSep < nDefCnt )
-        pTable[cGroupSep] |= ParserFlags::VALUE;
+    if (nContTypes & KParseTokens::GROUP_SEPARATOR_IN_NUMBER)
+    {
+        if ( cGroupSep < nDefCnt )
+            pTable[cGroupSep] |= ParserFlags::VALUE;
+    }
+    else
+    {
+        cGroupSep = 0;
+    }
     if ( cDecimalSep < nDefCnt )
         pTable[cDecimalSep] |= ParserFlags::CHAR_VALUE | ParserFlags::VALUE;
     if ( cDecimalSepAlt && cDecimalSepAlt < nDefCnt )
@@ -623,7 +630,7 @@ ParserFlags cclass_Unicode::getFlagsExtended(sal_uInt32 const c)
             // nor can a spacing combining mark.
             if (bStart)
                 return ParserFlags::ILLEGAL;
-            SAL_FALLTHROUGH; // treat it as Other_Letter.
+            [[fallthrough]]; // treat it as Other_Letter.
         case U_OTHER_LETTER :
             return (nTypes & KParseTokens::UNI_OTHER_LETTER) ?
                 (bStart ? ParserFlags::CHAR_WORD : ParserFlags::WORD) :
@@ -814,7 +821,19 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                 }
                 if ( nMask & ParserFlags::VALUE )
                 {
-                    if ((current == cDecimalSep || (bDecSepAltUsed = (cDecimalSepAlt && current == cDecimalSepAlt))) &&
+                    if (current == cGroupSep)
+                    {
+                        if (getFlags(nextChar) & ParserFlags::VALUE_DIGIT)
+                            nParseTokensType |= KParseTokens::GROUP_SEPARATOR_IN_NUMBER;
+                        else
+                        {
+                            // Trailing group separator character is not a
+                            // group separator.
+                            eState = ssStopBack;
+                        }
+                    }
+                    else if ((current == cDecimalSep ||
+                                (bDecSepAltUsed = (cDecimalSepAlt && current == cDecimalSepAlt))) &&
                             ++nDecSeps > 1)
                     {
                         if (nCodePoints == 2)
@@ -872,7 +891,7 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
             break;
             case ssGetWordFirstChar :
                 eState = ssGetWord;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case ssGetWord :
             {
                 if ( nMask & ParserFlags::WORD )

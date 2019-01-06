@@ -23,6 +23,8 @@
 #include <vcl/outdev.hxx>
 #include <sal/log.hxx>
 #include <tools/fract.hxx>
+#include <tools/helpers.hxx>
+#include <tools/stream.hxx>
 #include <memory>
 
 class FilterConfigItem;
@@ -180,7 +182,7 @@ bool PSDReader::ImplReadHeader()
         {
             case 5 :
                 mbTransparent = true;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case 4 :
                 mnDestBitDepth = 24;
             break;
@@ -197,7 +199,7 @@ bool PSDReader::ImplReadHeader()
             break;
         case 4 :
             mbTransparent = true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case 3 :
             mnDestBitDepth = 24;
             break;
@@ -226,7 +228,7 @@ bool PSDReader::ImplReadHeader()
         case PSD_DUOTONE :                  // we'll handle the duotone color like a normal grayscale picture
             m_rPSD.SeekRel( nColorLength );
             nColorLength = 0;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case PSD_GRAYSCALE :
         {
             if ( nColorLength )

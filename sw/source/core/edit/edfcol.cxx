@@ -77,6 +77,7 @@
 #include <unoprnms.hxx>
 #include <rootfrm.hxx>
 #include <pagefrm.hxx>
+#include <txtfrm.hxx>
 #include <rdfhelper.hxx>
 #include <sfx2/watermarkitem.hxx>
 
@@ -92,6 +93,7 @@
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <tools/diagnose_ex.h>
+#include <IDocumentRedlineAccess.hxx>
 
 #define WATERMARK_NAME "PowerPlusWaterMarkObject"
 #define WATERMARK_AUTO_SIZE sal_uInt32(1)
@@ -358,14 +360,16 @@ SignatureDescr lcl_getSignatureDescr(const uno::Reference<frame::XModel>& xModel
     SignatureDescr aDescr;
     aDescr.msId = sFieldId;
 
+    const OUString prefix = ParagraphSignatureRDFNamespace + sFieldId;
     const std::map<OUString, OUString> aStatements = lcl_getRDFStatements(xModel, xParagraph);
-    const auto itSig = aStatements.find(ParagraphSignatureRDFNamespace + sFieldId + ParagraphSignatureDigestRDFName);
+
+    const auto itSig = aStatements.find(prefix + ParagraphSignatureDigestRDFName);
     aDescr.msSignature = (itSig != aStatements.end() ? itSig->second : OUString());
 
-    const auto itDate = aStatements.find(ParagraphSignatureRDFNamespace + sFieldId + ParagraphSignatureDateRDFName);
+    const auto itDate = aStatements.find(prefix + ParagraphSignatureDateRDFName);
     aDescr.msDate = (itDate != aStatements.end() ? itDate->second : OUString());
 
-    const auto itUsage = aStatements.find(ParagraphSignatureRDFNamespace + sFieldId + ParagraphSignatureUsageRDFName);
+    const auto itUsage = aStatements.find(prefix + ParagraphSignatureUsageRDFName);
     aDescr.msUsage = (itUsage != aStatements.end() ? itUsage->second : OUString());
 
     return aDescr;
@@ -375,14 +379,16 @@ SignatureDescr lcl_getSignatureDescr(const uno::Reference<frame::XModel>& xModel
                                      const uno::Reference<css::text::XTextContent>& xParagraph,
                                      const uno::Reference<css::text::XTextField>& xField)
 {
-    const std::pair<OUString, OUString> pair = lcl_getRDF(xModel, xField, ParagraphSignatureIdRDFName);
-    return (!pair.second.isEmpty() ? lcl_getSignatureDescr(xModel, xParagraph, pair.second) : SignatureDescr());
+    const OUString sFieldId = lcl_getRDF(xModel, xField, ParagraphSignatureIdRDFName).second;
+    if (!sFieldId.isEmpty())
+        return lcl_getSignatureDescr(xModel, xParagraph, sFieldId);
+
+    return SignatureDescr();
 }
 
 /// Validate and create the signature field display text from the fields.
-std::pair<bool, OUString>
-lcl_MakeParagraphSignatureFieldText(const SignatureDescr& aDescr,
-                                    const OString& utf8Text)
+std::pair<bool, OUString> lcl_MakeParagraphSignatureFieldText(const SignatureDescr& aDescr,
+                                                              const OString& utf8Text)
 {
     OUString msg = SwResId(STR_INVALID_SIGNATURE);
     bool valid = false;
@@ -398,7 +404,8 @@ lcl_MakeParagraphSignatureFieldText(const SignatureDescr& aDescr,
             const std::vector<unsigned char> sig(svl::crypto::DecodeHexString(encSignature));
             SignatureInformation aInfo(0);
             valid = svl::crypto::Signing::Verify(data, false, sig, aInfo);
-            valid = valid && aInfo.nStatus == css::xml::crypto::SecurityOperationStatus_OPERATION_SUCCEEDED;
+            valid = valid
+                    && aInfo.nStatus == xml::crypto::SecurityOperationStatus_OPERATION_SUCCEEDED;
 
             msg = SwResId(STR_SIGNED_BY) + ": " + aInfo.ouSubject + ", ";
             msg += aDescr.msDate;
@@ -409,7 +416,6 @@ lcl_MakeParagraphSignatureFieldText(const SignatureDescr& aDescr,
 
     return std::make_pair(valid, msg);
 }
-
 
 /// Validate and return validation result and signature field display text.
 std::pair<bool, OUString>
@@ -426,10 +432,9 @@ lcl_MakeParagraphSignatureFieldText(const uno::Reference<frame::XModel>& xModel,
 OUString lcl_getNextSignatureId(const uno::Reference<frame::XModel>& xModel,
                                 const uno::Reference<text::XTextContent>& xParagraph)
 {
-    const std::pair<OUString, OUString> pair = lcl_getRDF(xModel, xParagraph, ParagraphSignatureLastIdRDFName);
-    return OUString::number(!pair.second.isEmpty() ? pair.second.toInt32() + 1 : 1);
+    const OUString sFieldId = lcl_getRDF(xModel, xParagraph, ParagraphSignatureLastIdRDFName).second;
+    return OUString::number(!sFieldId.isEmpty() ? sFieldId.toInt32() + 1 : 1);
 }
-
 
 /// Creates and inserts Paragraph Signature Metadata field and creates the RDF entry
 uno::Reference<text::XTextField> lcl_InsertParagraphSignature(const uno::Reference<frame::XModel>& xModel,
@@ -464,10 +469,11 @@ uno::Reference<text::XTextField> lcl_InsertParagraphSignature(const uno::Referen
 
     // Now set the RDF on the paragraph, since that's what is preserved in .doc(x).
     const css::uno::Reference<css::rdf::XResource> xParaSubject(xParagraph, uno::UNO_QUERY);
+    const OUString prefix = ParagraphSignatureRDFNamespace + sId;
     SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, ParagraphSignatureLastIdRDFName, sId);
-    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, ParagraphSignatureRDFNamespace + sId + ParagraphSignatureDigestRDFName, signature);
-    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, ParagraphSignatureRDFNamespace + sId + ParagraphSignatureUsageRDFName, usage);
-    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, ParagraphSignatureRDFNamespace + sId + ParagraphSignatureDateRDFName, rBuffer.makeStringAndClear());
+    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, prefix + ParagraphSignatureDigestRDFName, signature);
+    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, prefix + ParagraphSignatureUsageRDFName, usage);
+    SwRDFHelper::addStatement(xModel, MetaNS, MetaFilename, xParaSubject, prefix + ParagraphSignatureDateRDFName, rBuffer.makeStringAndClear());
 
     return xField;
 }
@@ -510,8 +516,9 @@ bool lcl_UpdateParagraphSignatureField(SwDoc* pDoc,
                                        const uno::Reference<css::text::XTextField>& xField,
                                        const OString& utf8Text)
 {
-    const std::pair<bool, OUString> res = lcl_MakeParagraphSignatureFieldText(xModel, xParagraph, xField, utf8Text);
-    return lcl_DoUpdateParagraphSignatureField(pDoc, xField, res.second);
+    const OUString sDisplayText
+        = lcl_MakeParagraphSignatureFieldText(xModel, xParagraph, xField, utf8Text).second;
+    return lcl_DoUpdateParagraphSignatureField(pDoc, xField, sDisplayText);
 }
 
 void lcl_RemoveParagraphMetadataField(const uno::Reference<css::text::XTextField>& xField)
@@ -542,6 +549,7 @@ uno::Reference<text::XTextField> lcl_FindParagraphClassificationField(const uno:
     if (!xTextPortionEnumerationAccess.is())
         return xTextField;
 
+    // Enumerate text portions to find metadata fields. This is expensive, best to enumerate fields only.
     uno::Reference<container::XEnumeration> xTextPortions = xTextPortionEnumerationAccess->createEnumeration();
     while (xTextPortions->hasMoreElements())
     {
@@ -559,7 +567,6 @@ uno::Reference<text::XTextField> lcl_FindParagraphClassificationField(const uno:
         uno::Reference<text::XTextField> xField(xServiceInfo, uno::UNO_QUERY);
         if (lcl_IsParagraphClassificationField(xModel, xField, sKey))
         {
-            uno::Reference<css::text::XTextRange> xText(xField, uno::UNO_QUERY);
             xTextField = xField;
             break;
         }
@@ -1155,10 +1162,6 @@ static void lcl_ApplyParagraphClassification(SwDoc* pDoc,
     if (!xNodeSubject.is())
         return;
 
-    uno::Reference<lang::XMultiServiceFactory> xMultiServiceFactory(xModel, uno::UNO_QUERY);
-
-    sfx::ClassificationKeyCreator aKeyCreator(SfxClassificationHelper::getPolicyType());
-
     // Remove all paragraph classification fields.
     for (;;)
     {
@@ -1181,13 +1184,14 @@ static void lcl_ApplyParagraphClassification(SwDoc* pDoc,
                                             { return rResult.meType == svx::ClassificationType::PARAGRAPH; }),
                                   aResults.end());
 
+    sfx::ClassificationKeyCreator aKeyCreator(SfxClassificationHelper::getPolicyType());
     std::vector<OUString> aFieldNames;
     for (size_t nIndex = 0; nIndex < aResults.size(); ++nIndex)
     {
         const svx::ClassificationResult& rResult = aResults[nIndex];
 
         const bool isLast = nIndex == 0;
-        const bool isFirst = nIndex == aResults.size() - 1;
+        const bool isFirst = (nIndex == aResults.size() - 1);
         OUString sKey;
         OUString sValue = rResult.msName;
         switch (rResult.meType)
@@ -1602,6 +1606,7 @@ void SwEditShell::SetWatermark(const SfxWatermarkItem& rWatermark)
     SwDocShell* pDocShell = GetDoc()->GetDocShell();
     if (!pDocShell)
         return;
+    const bool bNoWatermark = rWatermark.GetText().isEmpty();
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<style::XStyleFamiliesSupplier> xStyleFamiliesSupplier(xModel, uno::UNO_QUERY);
@@ -1617,7 +1622,12 @@ void SwEditShell::SetWatermark(const SfxWatermarkItem& rWatermark)
         bool bHeaderIsOn = false;
         xPageStyle->getPropertyValue(UNO_NAME_HEADER_IS_ON) >>= bHeaderIsOn;
         if (!bHeaderIsOn)
+        {
+            if (bNoWatermark)
+                continue; // the style doesn't have any watermark - no need to do anything
+
             xPageStyle->setPropertyValue(UNO_NAME_HEADER_IS_ON, uno::makeAny(true));
+        }
 
         // backup header height
         bool bDynamicHeight = true;
@@ -1806,6 +1816,25 @@ void SwEditShell::SignParagraph()
     GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::PARA_SIGN_ADD, nullptr);
 }
 
+void SwEditShell::ValidateParagraphSignatures(SwTextNode* pNode, bool updateDontRemove)
+{
+    if (!pNode || !IsParagraphSignatureValidationEnabled())
+        return;
+
+    // Table text signing is not supported.
+    if (pNode->FindTableNode() != nullptr)
+        return;
+
+    // Prevent recursive validation since this is triggered on node updates, which we do below.
+    const bool bOldValidationFlag = SetParagraphSignatureValidation(false);
+    comphelper::ScopeGuard const g([this, bOldValidationFlag] () {
+            SetParagraphSignatureValidation(bOldValidationFlag);
+        });
+
+    uno::Reference<text::XTextContent> xParentText = SwXParagraph::CreateXParagraph(*GetDoc(), pNode);
+    lcl_ValidateParagraphSignatures(GetDoc(), xParentText, updateDontRemove);
+}
+
 void SwEditShell::ValidateCurrentParagraphSignatures(bool updateDontRemove)
 {
     SwDocShell* pDocShell = GetDoc()->GetDocShell();
@@ -1815,21 +1844,7 @@ void SwEditShell::ValidateCurrentParagraphSignatures(bool updateDontRemove)
     SwPaM* pPaM = GetCursor();
     const SwPosition* pPosStart = pPaM->Start();
     SwTextNode* pNode = pPosStart->nNode.GetNode().GetTextNode();
-    if (!pNode)
-        return;
-
-    // Prevent recursive validation since this is triggered on node updates, which we do below.
-    const bool bOldValidationFlag = SetParagraphSignatureValidation(false);
-    comphelper::ScopeGuard const g([this, bOldValidationFlag] () {
-            SetParagraphSignatureValidation(bOldValidationFlag);
-        });
-
-    // Table text signing is not supported.
-    if (pNode->FindTableNode() != nullptr)
-        return;
-
-    uno::Reference<text::XTextContent> xParentText = SwXParagraph::CreateXParagraph(*pNode->GetDoc(), pNode);
-    lcl_ValidateParagraphSignatures(GetDoc(), xParentText, updateDontRemove);
+    ValidateParagraphSignatures(pNode, updateDontRemove);
 }
 
 void SwEditShell::ValidateAllParagraphSignatures(bool updateDontRemove)
@@ -1887,7 +1902,7 @@ static uno::Reference<text::XTextField> lcl_GetParagraphMetadataFieldAtIndex(con
     return xTextField;
 }
 
-void SwEditShell::RestoreMetadataFields()
+void SwEditShell::RestoreMetadataFieldsAndValidateParagraphSignatures()
 {
     SwDocShell* pDocShell = GetDoc()->GetDocShell();
     if (!pDocShell || !IsParagraphSignatureValidationEnabled())
@@ -1908,19 +1923,23 @@ void SwEditShell::RestoreMetadataFields()
     uno::Reference<container::XEnumeration> xParagraphs = xParagraphEnumerationAccess->createEnumeration();
     if (!xParagraphs.is())
         return;
+
+    static const OUString sBlank("");
+    const sfx::ClassificationKeyCreator aKeyCreator(SfxClassificationHelper::getPolicyType());
+    const css::uno::Sequence<css::uno::Reference<rdf::XURI>> aGraphNames = SwRDFHelper::getGraphNames(xModel, MetaNS);
+
     while (xParagraphs->hasMoreElements())
     {
         uno::Reference<text::XTextContent> xParagraph(xParagraphs->nextElement(), uno::UNO_QUERY);
 
-        std::map<OUString, SignatureDescr> aSignatures;
-        std::vector<svx::ClassificationResult> aResults;
-
         try
         {
-            const sfx::ClassificationKeyCreator aKeyCreator(SfxClassificationHelper::getPolicyType());
-            const OUString sBlank("");
+            const css::uno::Reference<css::rdf::XResource> xSubject(xParagraph, uno::UNO_QUERY);
+            const std::map<OUString, OUString> aStatements = SwRDFHelper::getStatements(xModel, aGraphNames, xSubject);
 
-            const OUString sFieldNames = lcl_getRDF(xModel, xParagraph, ParagraphClassificationFieldNamesRDFName).second;
+            const auto it = aStatements.find(ParagraphClassificationFieldNamesRDFName);
+            const OUString sFieldNames = (it != aStatements.end() ? it->second : sBlank);
+            std::vector<svx::ClassificationResult> aResults;
             if (!sFieldNames.isEmpty())
             {
                 // Order the fields
@@ -1930,9 +1949,10 @@ void SwEditShell::RestoreMetadataFields()
                     const OUString sCurFieldName = sFieldNames.getToken(0, '/', nIndex);
                     if (sCurFieldName.isEmpty())
                         break;
-                    std::pair<OUString, OUString> fieldNameValue = lcl_getRDF(xModel, xParagraph, sCurFieldName);
-                    const OUString sName = fieldNameValue.first;
-                    const OUString sValue = fieldNameValue.second;
+
+                    const auto it2 = aStatements.find(sCurFieldName);
+                    const OUString sName = (it2 != aStatements.end() ? it->first : sBlank);
+                    const OUString sValue = (it2 != aStatements.end() ? it->second : sBlank);
 
                     if (aKeyCreator.isMarkingTextKey(sName))
                     {
@@ -1940,14 +1960,14 @@ void SwEditShell::RestoreMetadataFields()
                     }
                     else if (aKeyCreator.isCategoryNameKey(sName))
                     {
-                        const std::pair<OUString, OUString> pairAbbr = lcl_getRDF(xModel, xParent, ParagraphClassificationAbbrRDFName);
-                        const OUString sAbbreviatedName = (!pairAbbr.second.isEmpty() ? pairAbbr.second : sValue);
+                        const auto it3 = aStatements.find(ParagraphClassificationAbbrRDFName);
+                        const OUString sAbbreviatedName = (it3 != aStatements.end() && !it3->second.isEmpty() ? it3->second : sValue);
                         aResults.push_back({ svx::ClassificationType::CATEGORY, sValue, sAbbreviatedName, sBlank });
                     }
                     else if (aKeyCreator.isCategoryIdentifierKey(sName))
                     {
-                        const std::pair<OUString, OUString> pairAbbr = lcl_getRDF(xModel, xParent, ParagraphClassificationAbbrRDFName);
-                        const OUString sAbbreviatedName = (!pairAbbr.second.isEmpty() ? pairAbbr.second : sValue);
+                        const auto it3 = aStatements.find(ParagraphClassificationAbbrRDFName);
+                        const OUString sAbbreviatedName = (it3 != aStatements.end() && !it3->second.isEmpty() ? it3->second : sValue);
                         aResults.push_back({ svx::ClassificationType::CATEGORY, sBlank, sAbbreviatedName, sValue });
                     }
                     else if (aKeyCreator.isMarkingKey(sName))
@@ -1962,21 +1982,23 @@ void SwEditShell::RestoreMetadataFields()
                 while (nIndex >= 0);
             }
 
+            // Update classification based on results.
             lcl_ApplyParagraphClassification(GetDoc(), xModel, xParagraph, aResults);
 
             // Get Signatures
+            std::map<OUString, SignatureDescr> aSignatures;
             for (const auto& pair : lcl_getRDFStatements(xModel, xParagraph))
             {
-                const OUString sName = pair.first;
-                const OUString sValue = pair.second;
+                const OUString& sName = pair.first;
                 if (sName.startsWith(ParagraphSignatureRDFNamespace))
                 {
-                    OUString sSuffix = sName.copy(ParagraphSignatureRDFNamespace.getLength());
-                    sal_Int32 index = sSuffix.indexOf(":");
+                    const OUString sSuffix = sName.copy(ParagraphSignatureRDFNamespace.getLength());
+                    const sal_Int32 index = sSuffix.indexOf(":");
                     if (index >= 0)
                     {
-                        OUString id = sSuffix.copy(0, index);
-                        OUString type = sSuffix.copy(index);
+                        const OUString id = sSuffix.copy(0, index);
+                        const OUString type = sSuffix.copy(index);
+                        const OUString& sValue = pair.second;
                         if (type == ParagraphSignatureDateRDFName)
                             aSignatures[id].msDate = sValue;
                         else if (type == ParagraphSignatureUsageRDFName)
@@ -2005,6 +2027,8 @@ void SwEditShell::RestoreMetadataFields()
                     lcl_UpdateParagraphSignatureField(GetDoc(), xModel, xParagraph, xField, utf8Text);
                 }
             }
+
+            lcl_ValidateParagraphSignatures(GetDoc(), xParagraph, true); // Validate and Update signatures.
         }
         catch (const std::exception&)
         {
@@ -2065,8 +2089,7 @@ static OUString lcl_GetParagraphClassification(SfxClassificationHelper & rHelper
     xTextField = lcl_FindParagraphClassificationField(xModel, xParagraph, rKeyCreator.makeCategoryNameKey());
     if (xTextField.is())
     {
-        const std::pair<OUString, OUString> rdfValuePair = lcl_getRDF(xModel, xTextField, ParagraphClassificationNameRDFName);
-        return rdfValuePair.second;
+        return lcl_getRDF(xModel, xTextField, ParagraphClassificationNameRDFName).second;
     }
 
     return OUString();
@@ -2096,7 +2119,7 @@ static OUString lcl_GetHighestClassificationParagraphClass(SwPaM* pCursor)
     while (xParagraphs->hasMoreElements())
     {
         uno::Reference<text::XTextContent> xParagraph(xParagraphs->nextElement(), uno::UNO_QUERY);
-        OUString sCurrentClass = lcl_GetParagraphClassification(aHelper, aKeyCreator, xModel, xParagraph);
+        const OUString sCurrentClass = lcl_GetParagraphClassification(aHelper, aKeyCreator, xModel, xParagraph);
         sHighestClass = aHelper.GetHigherClass(sHighestClass, sCurrentClass);
     }
 
@@ -2109,7 +2132,7 @@ void SwEditShell::ClassifyDocPerHighestParagraphClass()
     if (!pDocShell)
         return;
 
-    // bail out as early as possible if we don't have paragraph classification
+    // Bail out as early as possible if we don't have paragraph classification.
     if (!SwRDFHelper::hasMetadataGraph(pDocShell->GetBaseModel(), MetaNS))
         return;
 
@@ -2138,6 +2161,12 @@ void SwEditShell::ClassifyDocPerHighestParagraphClass()
 
     const SfxClassificationPolicyType eHighestClassType = SfxClassificationHelper::stringToPolicyType(sHighestClass);
 
+    // Prevent paragraph signature validation since the below changes (f.e. watermarking) are benign.
+    const bool bOldValidationFlag = SetParagraphSignatureValidation(false);
+    comphelper::ScopeGuard const g([this, bOldValidationFlag]() {
+        SetParagraphSignatureValidation(bOldValidationFlag);
+    });
+
     // Check the origin, if "manual" (created via advanced classification dialog),
     // then we just need to set the category name.
     if (sfx::getCreationOriginProperty(xPropertyContainer, aKeyCreator) == sfx::ClassificationCreationOrigin::MANUAL)
@@ -2158,6 +2187,8 @@ void SwEditShell::SetTextFormatColl(SwTextFormatColl *pFormat,
     SwTextFormatColl *pLocal = pFormat? pFormat: (*GetDoc()->GetTextFormatColls())[0];
     StartAllAction();
 
+    RedlineFlags eRedlMode = GetDoc()->getIDocumentRedlineAccess().GetRedlineFlags(), eOldMode = eRedlMode;
+
     SwRewriter aRewriter;
     aRewriter.AddRule(UndoArg1, pLocal->GetName());
 
@@ -2167,8 +2198,19 @@ void SwEditShell::SetTextFormatColl(SwTextFormatColl *pFormat,
 
         if ( !rPaM.HasReadonlySel( GetViewOptions()->IsFormView() ) )
         {
+            // tdf#105413 turn off ShowChanges mode for the next loops to apply styles permanently with redlining,
+            // ie. in all directly preceding deleted paragraphs at the actual cursor positions
+            if ( IDocumentRedlineAccess::IsShowChanges(eRedlMode) &&
+               // is there redlining at beginning of the position (possible redline block before the modified node)
+               GetDoc()->getIDocumentRedlineAccess().GetRedlinePos( (*rPaM.Start()).nNode.GetNode(), USHRT_MAX ) <
+                   GetDoc()->getIDocumentRedlineAccess().GetRedlineTable().size() )
+            {
+                eRedlMode = RedlineFlags::ShowInsert | RedlineFlags::Ignore;
+                GetDoc()->getIDocumentRedlineAccess().SetRedlineFlags( eRedlMode );
+            }
+
             // Change the paragraph style to pLocal and remove all direct paragraph formatting.
-            GetDoc()->SetTextFormatColl( rPaM, pLocal, true, bResetListAttrs );
+            GetDoc()->SetTextFormatColl(rPaM, pLocal, true, bResetListAttrs, GetLayout());
 
             // If there are hints on the nodes which cover the whole node, then remove those, too.
             SwPaM aPaM(*rPaM.Start(), *rPaM.End());
@@ -2177,12 +2219,14 @@ void SwEditShell::SetTextFormatColl(SwTextFormatColl *pFormat,
                 aPaM.Start()->nContent = 0;
                 aPaM.End()->nContent = pEndTextNode->GetText().getLength();
             }
-            GetDoc()->RstTextAttrs(aPaM, /*bInclRefToxMark=*/false, /*bExactRange=*/true);
+            GetDoc()->RstTextAttrs(aPaM, /*bInclRefToxMark=*/false, /*bExactRange=*/true, GetLayout());
         }
 
     }
     GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::SETFMTCOLL, &aRewriter);
     EndAllAction();
+
+    GetDoc()->getIDocumentRedlineAccess().SetRedlineFlags( eOldMode );
 }
 
 SwTextFormatColl* SwEditShell::MakeTextFormatColl(const OUString& rFormatCollName,
@@ -2203,6 +2247,10 @@ void SwEditShell::FillByEx(SwTextFormatColl* pColl)
 {
     SwPaM * pCursor = GetCursor();
     SwContentNode * pCnt = pCursor->GetContentNode();
+    if (pCnt->IsTextNode()) // uhm... what nonsense would happen if not?
+    {   // only need properties-node because BREAK/PAGEDESC filtered anyway!
+        pCnt = sw::GetParaPropsNode(*GetLayout(), pCursor->GetPoint()->nNode);
+    }
     const SfxItemSet* pSet = pCnt->GetpSwAttrSet();
     if( pSet )
     {
@@ -2213,22 +2261,22 @@ void SwEditShell::FillByEx(SwTextFormatColl* pColl)
         // Do NOT copy AutoNumRules into the template
         const SfxPoolItem* pItem;
         const SwNumRule* pRule = nullptr;
-        if( SfxItemState::SET == pSet->GetItemState( RES_BREAK, false ) ||
-            SfxItemState::SET == pSet->GetItemState( RES_PAGEDESC,false ) ||
-            ( SfxItemState::SET == pSet->GetItemState( RES_PARATR_NUMRULE,
-                false, &pItem ) && nullptr != (pRule = GetDoc()->FindNumRulePtr(
-                static_cast<const SwNumRuleItem*>(pItem)->GetValue() )) &&
-                pRule && pRule->IsAutoRule() )
-            )
+        if (SfxItemState::SET == pSet->GetItemState(RES_BREAK, false)
+            || SfxItemState::SET == pSet->GetItemState(RES_PAGEDESC, false)
+            || (SfxItemState::SET == pSet->GetItemState(RES_PARATR_NUMRULE, false, &pItem)
+                && nullptr != (pRule = GetDoc()->FindNumRulePtr(
+                        static_cast<const SwNumRuleItem*>(pItem)->GetValue()))
+                && pRule->IsAutoRule()))
         {
             SfxItemSet aSet( *pSet );
             aSet.ClearItem( RES_BREAK );
             aSet.ClearItem( RES_PAGEDESC );
 
-            if( pRule || (SfxItemState::SET == pSet->GetItemState( RES_PARATR_NUMRULE,
-                false, &pItem ) && nullptr != (pRule = GetDoc()->FindNumRulePtr(
-                static_cast<const SwNumRuleItem*>(pItem)->GetValue() )) &&
-                pRule && pRule->IsAutoRule() ))
+            if (pRule
+                || (SfxItemState::SET == pSet->GetItemState(RES_PARATR_NUMRULE, false, &pItem)
+                    && nullptr != (pRule = GetDoc()->FindNumRulePtr(
+                            static_cast<const SwNumRuleItem*>(pItem)->GetValue()))
+                    && pRule->IsAutoRule()))
                 aSet.ClearItem( RES_PARATR_NUMRULE );
 
             if( aSet.Count() )

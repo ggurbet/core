@@ -101,10 +101,10 @@ private:
     typedef long (SwWrtShell::*SELECTFUNC)(const Point *, bool bProp );
     typedef void (SwWrtShell::*SELECTFUNC2)(const Point *, bool bProp );
 
-    SELECTFUNC2  m_fnDrag;
-    SELECTFUNC   m_fnSetCursor;
-    SELECTFUNC2  m_fnEndDrag;
-    SELECTFUNC   m_fnKillSel;
+    SELECTFUNC2 m_fnDrag      = &SwWrtShell::BeginDrag;
+    SELECTFUNC  m_fnSetCursor = &SwWrtShell::SetCursor;
+    SELECTFUNC2 m_fnEndDrag   = &SwWrtShell::DefaultEndDrag;
+    SELECTFUNC  m_fnKillSel   = &SwWrtShell::Ignore;
 
 public:
 
@@ -362,7 +362,7 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
 
     enum DoType { UNDO, REDO, REPEAT };
 
-    enum FieldDialogPressedButton { BTN_NONE, BTN_EDIT, BTN_PREV, BTN_NEXT };
+    enum class FieldDialogPressedButton { NONE, Previous, Next };
 
     void    Do( DoType eDoType, sal_uInt16 nCnt = 1 );
     OUString  GetDoString( DoType eDoType ) const;
@@ -404,7 +404,7 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
 
     // jump to bookmark and set the "selections-flags" correctly again
     void GotoMark( const ::sw::mark::IMark* const pMark );
-    void GotoMark( const ::sw::mark::IMark* const pMark, bool bSelect );
+    bool GotoMark( const ::sw::mark::IMark* const pMark, bool bSelect );
     void GotoMark( const OUString& rName );
     bool GoNextBookmark(); // true when there still was one
     bool GoPrevBookmark();
@@ -498,7 +498,7 @@ private:
             bExt(_bExt),
             bIns(_bIns)
              {}
-    } *m_pModeStack;
+    } *m_pModeStack = nullptr;
 
     // carry cursor along when PageUp / -Down
     enum PageMove
@@ -506,7 +506,7 @@ private:
         MV_NO,
         MV_PAGE_UP,
         MV_PAGE_DOWN
-    }  m_ePageMove;
+    } m_ePageMove = MV_NO;
 
     struct CursorStack
     {
@@ -533,7 +533,7 @@ private:
     SwNavigationMgr m_aNavigationMgr;
 
     Point   m_aDest;
-    bool    m_bDestOnStack;
+    bool    m_bDestOnStack = false;
     bool    HasCursorStack() const { return nullptr != m_pCursorStack; }
     SAL_DLLPRIVATE bool  PushCursor(SwTwips lOffset, bool bSelect);
     SAL_DLLPRIVATE bool  PopCursor(bool bUpdate, bool bSelect = false);

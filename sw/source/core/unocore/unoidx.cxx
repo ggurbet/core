@@ -35,6 +35,7 @@
 #include <comphelper/interfacecontainer2.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <vcl/svapp.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <editeng/unolingu.hxx>
 #include <editeng/memberids.h>
 #include <hints.hxx>
@@ -1271,7 +1272,7 @@ void SAL_CALL SwXDocumentIndex::refresh()
                     "SwXDocumentIndex::refresh: must be in attached state",
                      static_cast< ::cppu::OWeakObject*>(this));
         }
-        pTOXBase->Update();
+        pTOXBase->Update(nullptr, m_pImpl->m_pDoc->getIDocumentLayoutAccess().GetCurrentLayout());
 
         // the insertion of TOC will affect the document layout
         lcl_CalcLayout(m_pImpl->m_pDoc);
@@ -1353,7 +1354,8 @@ SwXDocumentIndex::attach(const uno::Reference< text::XTextRange > & xTextRange)
     }
     //TODO: apply Section attributes (columns and background)
     SwTOXBaseSection *const pTOX =
-        pDoc->InsertTableOf( *aPam.GetPoint(), rTOXBase );
+        pDoc->InsertTableOf( *aPam.GetPoint(), rTOXBase, nullptr, false,
+                m_pImpl->m_pDoc->getIDocumentLayoutAccess().GetCurrentLayout());
 
     pDoc->SetTOXBaseName(*pTOX, m_pImpl->m_pProps->GetTOXBase().GetTOXName());
 

@@ -107,7 +107,7 @@ void TreeListBox::RequestingChildren( SvTreeListEntry* pEntry )
 
                 // exchange image
                 const bool bDlgMode = (nMode & BrowseMode::Dialogs) && !(nMode & BrowseMode::Modules);
-                Image aImage(BitmapEx(bDlgMode ? OUStringLiteral(RID_BMP_DLGLIB) : OUStringLiteral(RID_BMP_MODLIB)));
+                Image aImage(StockImage::Yes, bDlgMode ? OUStringLiteral(RID_BMP_DLGLIB) : OUStringLiteral(RID_BMP_MODLIB));
                 SetEntryBitmaps( pEntry, aImage );
             }
             else
@@ -257,99 +257,6 @@ void SbTreeListBox::ScanAllEntries()
     }
 }
 
-SbxVariable* TreeListBox::FindVariable( SvTreeListEntry* pEntry )
-{
-    if ( !pEntry )
-        return nullptr;
-
-    ScriptDocument aDocument( ScriptDocument::getApplicationScriptDocument() );
-    EntryArray aEntries;
-
-    while ( pEntry )
-    {
-        sal_uInt16 nDepth = GetModel()->GetDepth( pEntry );
-        switch ( nDepth )
-        {
-            case 4:
-            case 3:
-            case 2:
-            case 1:
-            {
-                aEntries.push_front( pEntry );
-            }
-            break;
-            case 0:
-            {
-                aDocument = static_cast<DocumentEntry*>(pEntry->GetUserData())->GetDocument();
-            }
-            break;
-        }
-        pEntry = GetParent( pEntry );
-    }
-
-    SbxVariable* pVar = nullptr;
-    if ( !aEntries.empty() )
-    {
-        bool bDocumentObjects = false;
-        for (SvTreeListEntry* pLE : aEntries)
-        {
-            assert(pLE && "Can not find entry in array");
-            Entry* pBE = static_cast<Entry*>(pLE->GetUserData());
-            assert(pBE && "The data in the entry not found!");
-            OUString aName( GetEntryText( pLE ) );
-
-            switch ( pBE->GetType() )
-            {
-            case OBJ_TYPE_LIBRARY:
-                if (BasicManager* pBasMgr = aDocument.getBasicManager())
-                    pVar = pBasMgr->GetLib( aName );
-                break;
-            case OBJ_TYPE_MODULE:
-                DBG_ASSERT(dynamic_cast<StarBASIC*>(pVar), "FindVariable: invalid Basic");
-                if(!pVar)
-                {
-                    break;
-                }
-                // extract the module name from the string like "Sheet1 (Example1)"
-                if( bDocumentObjects )
-                {
-                    sal_Int32 nIndex = 0;
-                    aName = aName.getToken( 0, ' ', nIndex );
-                }
-                pVar = static_cast<StarBASIC*>(pVar)->FindModule( aName );
-                break;
-            case OBJ_TYPE_METHOD:
-                DBG_ASSERT(dynamic_cast<SbxObject*>(pVar), "FindVariable: invalid module/object");
-                if(!pVar)
-                {
-                    break;
-                }
-                pVar = static_cast<SbxObject*>(pVar)->GetMethods()->Find(aName, SbxClassType::Method);
-                break;
-            case OBJ_TYPE_DIALOG:
-                // sbx dialogs removed
-                break;
-            case OBJ_TYPE_DOCUMENT_OBJECTS:
-                bDocumentObjects = true;
-                SAL_FALLTHROUGH;
-            case OBJ_TYPE_USERFORMS:
-            case OBJ_TYPE_NORMAL_MODULES:
-            case OBJ_TYPE_CLASS_MODULES:
-                // skip, to find the child entry.
-                continue;
-            default:
-                OSL_FAIL( "FindVariable: unknown type" );
-                pVar = nullptr;
-                break;
-            }
-            if ( !pVar )
-                break;
-        }
-    }
-
-    return pVar;
-}
-
 SbxVariable* SbTreeListBox::FindVariable(weld::TreeIter* pEntry)
 {
     if ( !pEntry )
@@ -408,8 +315,7 @@ SbxVariable* SbTreeListBox::FindVariable(weld::TreeIter* pEntry)
                 // extract the module name from the string like "Sheet1 (Example1)"
                 if( bDocumentObjects )
                 {
-                    sal_Int32 nIndex = 0;
-                    aName = aName.getToken( 0, ' ', nIndex );
+                    aName = aName.getToken( 0, ' ' );
                 }
                 pVar = static_cast<StarBASIC*>(pVar)->FindModule( aName );
                 break;
@@ -426,7 +332,7 @@ SbxVariable* SbTreeListBox::FindVariable(weld::TreeIter* pEntry)
                 break;
             case OBJ_TYPE_DOCUMENT_OBJECTS:
                 bDocumentObjects = true;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case OBJ_TYPE_USERFORMS:
             case OBJ_TYPE_NORMAL_MODULES:
             case OBJ_TYPE_CLASS_MODULES:
@@ -486,60 +392,57 @@ EntryDescriptor TreeListBox::GetEntryDescriptor( SvTreeListEntry* pEntry )
         pEntry = GetParent( pEntry );
     }
 
-    if ( !aEntries.empty() )
+    for (SvTreeListEntry* pLE : aEntries)
     {
-        for (SvTreeListEntry* pLE : aEntries)
+        assert(pLE && "Entry not found in array");
+        Entry* pBE = static_cast<Entry*>(pLE->GetUserData());
+        assert(pBE && "No data found in entry!");
+
+        switch ( pBE->GetType() )
         {
-            assert(pLE && "Entry not found in array");
-            Entry* pBE = static_cast<Entry*>(pLE->GetUserData());
-            assert(pBE && "No data found in entry!");
-
-            switch ( pBE->GetType() )
+            case OBJ_TYPE_LIBRARY:
             {
-                case OBJ_TYPE_LIBRARY:
-                {
-                    aLibName = GetEntryText( pLE );
-                    eType = pBE->GetType();
-                }
-                break;
-                case OBJ_TYPE_MODULE:
-                {
-                    aName = GetEntryText( pLE );
-                    eType = pBE->GetType();
-                }
-                break;
-                case OBJ_TYPE_METHOD:
-                {
-                    aMethodName = GetEntryText( pLE );
-                    eType = pBE->GetType();
-                }
-                break;
-                case OBJ_TYPE_DIALOG:
-                {
-                    aName = GetEntryText( pLE );
-                    eType = pBE->GetType();
-                }
-                break;
-                case OBJ_TYPE_DOCUMENT_OBJECTS:
-                case OBJ_TYPE_USERFORMS:
-                case OBJ_TYPE_NORMAL_MODULES:
-                case OBJ_TYPE_CLASS_MODULES:
-                {
-                    aLibSubName = GetEntryText( pLE );
-                    eType = pBE->GetType();
-                }
-                break;
-                default:
-                {
-                    OSL_FAIL( "GetEntryDescriptor: unknown type" );
-                    eType = OBJ_TYPE_UNKNOWN;
-                }
-                break;
+                aLibName = GetEntryText( pLE );
+                eType = pBE->GetType();
             }
-
-            if ( eType == OBJ_TYPE_UNKNOWN )
-                break;
+            break;
+            case OBJ_TYPE_MODULE:
+            {
+                aName = GetEntryText( pLE );
+                eType = pBE->GetType();
+            }
+            break;
+            case OBJ_TYPE_METHOD:
+            {
+                aMethodName = GetEntryText( pLE );
+                eType = pBE->GetType();
+            }
+            break;
+            case OBJ_TYPE_DIALOG:
+            {
+                aName = GetEntryText( pLE );
+                eType = pBE->GetType();
+            }
+            break;
+            case OBJ_TYPE_DOCUMENT_OBJECTS:
+            case OBJ_TYPE_USERFORMS:
+            case OBJ_TYPE_NORMAL_MODULES:
+            case OBJ_TYPE_CLASS_MODULES:
+            {
+                aLibSubName = GetEntryText( pLE );
+                eType = pBE->GetType();
+            }
+            break;
+            default:
+            {
+                OSL_FAIL( "GetEntryDescriptor: unknown type" );
+                eType = OBJ_TYPE_UNKNOWN;
+            }
+            break;
         }
+
+        if ( eType == OBJ_TYPE_UNKNOWN )
+            break;
     }
 
     return EntryDescriptor( aDocument, eLocation, aLibName, aLibSubName, aName, aMethodName, eType );
@@ -560,9 +463,7 @@ EntryDescriptor SbTreeListBox::GetEntryDescriptor(weld::TreeIter* pEntry)
 
     std::vector<std::pair<Entry*, OUString>> aEntries;
 
-    m_xControl->get_text(*pEntry);
     std::unique_ptr<weld::TreeIter> xIter(m_xControl->make_iterator(pEntry));
-    m_xControl->get_text(*xIter);
     bool bValidIter = true;
     do
     {
@@ -594,6 +495,7 @@ EntryDescriptor SbTreeListBox::GetEntryDescriptor(weld::TreeIter* pEntry)
 
     if ( !aEntries.empty() )
     {
+        std::reverse(aEntries.begin(), aEntries.end());
         for (auto& pair : aEntries)
         {
             Entry* pBE = pair.first;
@@ -786,11 +688,6 @@ bool SbTreeListBox::IsValidEntry(weld::TreeIter& rEntry)
     }
 
     return bIsValid;
-}
-
-SbModule* TreeListBox::FindModule( SvTreeListEntry* pEntry )
-{
-    return dynamic_cast<SbModule*>(FindVariable(pEntry));
 }
 
 SbModule* SbTreeListBox::FindModule(weld::TreeIter* pEntry)

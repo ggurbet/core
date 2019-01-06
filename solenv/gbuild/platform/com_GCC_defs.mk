@@ -100,7 +100,9 @@ gb_CXXFLAGS_COMMON += -ffunction-sections -fdata-sections
 gb_LinkTarget_LDFLAGS += -Wl,--gc-sections
 endif
 
-ifeq ($(shell expr '$(GCC_VERSION)' '>=' 600),1)
+ifeq ($(COM_IS_CLANG),TRUE)
+gb_CXXFLAGS_COMMON += -Wimplicit-fallthrough
+else
 gb_CFLAGS_COMMON += \
     -Wduplicated-cond \
     -Wlogical-op \
@@ -118,16 +120,6 @@ ifeq ($(shell expr '$(GCC_VERSION)' '>=' 800),1)
 gb_CXXFLAGS_COMMON += \
     -Wno-cast-function-type
 endif
-
-ifeq ($(COM_IS_CLANG),TRUE)
-gb_CXXFLAGS_COMMON += -Wimplicit-fallthrough
-else
-# GCC 4.8, at least, is confused by boost 1.66 optional assignments
-ifeq ($(shell expr '$(GCC_VERSION)' '<' 409),1)
-gb_CXXFLAGS_COMMON += -Wno-maybe-uninitialized
-endif
-endif
-
 
 # If CC or CXX already include -fvisibility=hidden, don't duplicate it
 ifeq (,$(filter -fvisibility=hidden,$(CC)))
@@ -251,8 +243,14 @@ gb_COMPILER_PLUGINS_SETUP := ICECC_EXTRAFILES=$(SRCDIR)/include/sal/log-areas.do
 gb_COMPILER_PLUGINS_WARNINGS_AS_ERRORS := \
     -Xclang -plugin-arg-loplugin -Xclang --warnings-as-errors
 else
-gb_COMPILER_TEST_FLAGS :=
+# Set CCACHE_CPP2 to prevent GCC -Werror=implicit-fallthrough= when ccache strips comments from C
+# code (which still needs /*fallthrough*/-style comments to silence that warning):
+ifeq ($(ENABLE_WERROR),TRUE)
+gb_COMPILER_SETUP := CCACHE_CPP2=1
+else
 gb_COMPILER_SETUP :=
+endif
+gb_COMPILER_TEST_FLAGS :=
 gb_COMPILER_PLUGINS :=
 gb_COMPILER_PLUGINS_SETUP :=
 gb_COMPILER_PLUGINS_WARNINGS_AS_ERRORS :=

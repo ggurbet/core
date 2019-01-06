@@ -118,11 +118,10 @@ enum class TrackingEventFlags
     Focus          = 0x0004,
     Repeat         = 0x0100,
     End            = 0x1000,
-    DontCallHdl    = 0x8000,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<TrackingEventFlags> : is_typed_flags<TrackingEventFlags, 0x9107> {};
+    template<> struct typed_flags<TrackingEventFlags> : is_typed_flags<TrackingEventFlags, 0x1107> {};
 }
 
 
@@ -169,14 +168,13 @@ namespace o3tl
 enum class ShowFlags
 {
     NONE                       = 0x0000,
-    NoParentUpdate             = 0x0001,
     NoFocusChange              = 0x0002,
     NoActivate                 = 0x0004,
     ForegroundTask             = 0x0008,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<ShowFlags> : is_typed_flags<ShowFlags, 0x000f> {};
+    template<> struct typed_flags<ShowFlags> : is_typed_flags<ShowFlags, 0x000e> {};
 }
 
 // Flags for SetZOrder()
@@ -294,19 +292,15 @@ namespace o3tl
 // Flags for StartTracking()
 enum class StartTrackingFlags
 {
-    NONE                 = 0x0000,
-    KeyInput             = 0x0001,
+    NONE                 = 0x0001,
     KeyMod               = 0x0002,
-    NoKeyCancel          = 0x0004,
-    ScrollRepeat         = 0x0008,
-    ButtonRepeat         = 0x0010,
-    MouseButtonDown      = 0x0020,
-    FocusCancel          = 0x0040,
+    ScrollRepeat         = 0x0004,
+    ButtonRepeat         = 0x0008,
 };
 
 namespace o3tl
 {
-    template<> struct typed_flags<StartTrackingFlags> : is_typed_flags<StartTrackingFlags, 0x007f> {};
+    template<> struct typed_flags<StartTrackingFlags> : is_typed_flags<StartTrackingFlags, 0x000f> {};
 }
 
 // Flags for StartAutoScroll()
@@ -337,7 +331,6 @@ enum class StateChangedType : sal_uInt16
     ControlForeground  = 14,
     ControlBackground  = 15,
     ReadOnly           = 16,
-    ExtendedStyle      = 17,
     Mirroring          = 18,
     Layout             = 19,
     ControlFocus       = 20
@@ -370,16 +363,11 @@ enum class DrawFlags
 {
     NONE                = 0x0000,
     Mono                = 0x0001,
-    NoBorder            = 0x0002,
     NoControls          = 0x0004,
-    NoDisable           = 0x0008,
-    NoMnemonic          = 0x0010,
-    NoSelection         = 0x0020,
-    NoBackground        = 0x0040,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<DrawFlags> : is_typed_flags<DrawFlags, 0x007f> {};
+    template<> struct typed_flags<DrawFlags> : is_typed_flags<DrawFlags, 0x0005> {};
 }
 
 // DialogControl-Flags

@@ -333,6 +333,7 @@ PowerPointExport::PowerPointExport(const Reference< XComponentContext >& rContex
 {
     comphelper::SequenceAsHashMap aArgumentsMap(rArguments);
     mbPptm = aArgumentsMap.getUnpackedValueOrDefault("IsPPTM", false);
+    mbExportTemplate = aArgumentsMap.getUnpackedValueOrDefault("IsTemplate", false);
 }
 
 PowerPointExport::~PowerPointExport()
@@ -379,10 +380,29 @@ bool PowerPointExport::exportDocument()
 
     addRelation(oox::getRelationship(Relationship::OFFICEDOCUMENT), "ppt/presentation.xml");
 
-    // PPTM needs a different media type for the presentation.xml stream.
-    OUString aMediaType("application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml");
+    OUString aMediaType;
     if (mbPptm)
-        aMediaType = "application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml";
+    {
+        if (mbExportTemplate)
+        {
+            aMediaType = "application/vnd.ms-powerpoint.template.macroEnabled.main+xml";
+        }
+        else
+        {
+            aMediaType = "application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml";
+        }
+    }
+    else
+    {
+        if (mbExportTemplate)
+        {
+            aMediaType = "application/vnd.openxmlformats-officedocument.presentationml.template.main+xml";
+        }
+        else
+        {
+            aMediaType = "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml";
+        }
+    }
 
     mPresentationFS = openFragmentStreamWithSerializer("ppt/presentation.xml", aMediaType);
 
@@ -610,7 +630,7 @@ void PowerPointExport::WriteTransition(const FSHelperPtr& pFS)
                 break;
             case animations::TransitionSubType::CORNERSIN: // Inside turning cube
                 pInverted = "true";
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case animations::TransitionSubType::CORNERSOUT: // Outside turning cube
                 nTransition = XML_fade;
                 nTransition14 = XML_prism;

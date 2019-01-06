@@ -17,9 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 #include "vbacomments.hxx"
+#include "vbacomment.hxx"
 
+#include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/sheet/XSheetAnnotation.hpp>
+#include <com/sun/star/table/XCellRange.hpp>
 
 #include "vbaglobals.hxx"
 
@@ -98,12 +101,10 @@ ScVbaComments::getServiceImplName()
 css::uno::Sequence<OUString>
 ScVbaComments::getServiceNames()
 {
-    static uno::Sequence< OUString > sNames;
-    if ( sNames.getLength() == 0 )
+    static uno::Sequence< OUString > const sNames
     {
-        sNames.realloc( 1 );
-        sNames[0] = "ooo.vba.excel.Comments";
-    }
+        "ooo.vba.excel.Comments"
+    };
     return sNames;
 }
 

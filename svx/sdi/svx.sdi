@@ -4789,25 +4789,6 @@ SfxVoidItem InsertObjectChart SID_INSERT_DIAGRAM
 ]
 
 
-SfxVoidItem InsertObjectChartFromFile SID_INSERT_DIAGRAM_FROM_FILE
-()
-[
-    AutoUpdate = FALSE,
-    FastCall = FALSE,
-    ReadOnlyDoc = FALSE,
-    Toggle = FALSE,
-    Container = FALSE,
-    RecordAbsolute = FALSE,
-    RecordPerSet;
-    Asynchron;
-
-    AccelConfig = TRUE,
-    MenuConfig = TRUE,
-    ToolBoxConfig = TRUE,
-    GroupId = SfxGroupId::Insert;
-]
-
-
 SfxVoidItem InsertSymbol SID_CHARMAP
 (SfxStringItem Symbols SID_CHARMAP, SfxStringItem FontName SID_ATTR_SPECIALCHAR)
 [
@@ -8523,7 +8504,7 @@ SvxULSpaceItem TopBottomMargin SID_ATTR_ULSPACE
 
 
 SfxVoidItem TransformDialog SID_ATTR_TRANSFORM
-()
+(SfxUInt32Item TransformPosX SID_ATTR_TRANSFORM_POS_X,SfxUInt32Item TransformPosY SID_ATTR_TRANSFORM_POS_Y,SfxUInt32Item TransformWidth SID_ATTR_TRANSFORM_WIDTH, SfxUInt32Item TransformHeight SID_ATTR_TRANSFORM_HEIGHT,SfxUInt32Item TransformRotationDeltaAngle SID_ATTR_TRANSFORM_DELTA_ANGLE,SfxUInt32Item TransformRotationAngle SID_ATTR_TRANSFORM_ANGLE,SfxUInt32Item TransformRotationX SID_ATTR_TRANSFORM_ROT_X,SfxUInt32Item TransformRotationY SID_ATTR_TRANSFORM_ROT_Y)
 [
     AutoUpdate = FALSE,
     FastCall = TRUE,
@@ -9505,7 +9486,7 @@ SfxVoidItem FontNameList SID_ATTR_CHAR_FONTLIST
 ]
 
 
-SfxBoolItem ExtrusionToggle SID_EXTRUSION_TOOGLE
+SfxBoolItem ExtrusionToggle SID_EXTRUSION_TOGGLE
 
 [
     AutoUpdate = TRUE,

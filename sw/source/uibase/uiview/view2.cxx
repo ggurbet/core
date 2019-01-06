@@ -56,6 +56,7 @@
 #include <sfx2/bindings.hxx>
 #include <editeng/lrspitem.hxx>
 #include <unotools/textsearch.hxx>
+#include <unotools/localedatawrapper.hxx>
 #include <editeng/unolingu.hxx>
 #include <vcl/weld.hxx>
 #include <editeng/tstpitem.hxx>
@@ -286,13 +287,21 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
 {
     bool bReturn = false;
     SwDocShell* pDocShell = GetDocShell();
-    const sal_uInt16 nHtmlMode = ::GetHtmlMode(pDocShell);
+    SwDoc* pDoc = pDocShell->GetDoc();
+
+    OUString sGraphicFormat = SwResId(STR_POOLFRM_GRAPHIC);
+
+// No file pickers in a non-desktop (mobile app) build.
+
+#if HAVE_FEATURE_DESKTOP
     // when in HTML mode insert only as a link
+    const sal_uInt16 nHtmlMode = ::GetHtmlMode(pDocShell);
     std::unique_ptr<FileDialogHelper> pFileDlg(new FileDialogHelper(
         ui::dialogs::TemplateDescription::FILEOPEN_LINK_PREVIEW_IMAGE_TEMPLATE,
         FileDialogFlags::Graphic, GetFrameWeld()));
     pFileDlg->SetTitle(SwResId(STR_INSERT_GRAPHIC ));
     pFileDlg->SetContext( FileDialogHelper::SW_INSERT_GRAPHIC );
+
     uno::Reference < XFilePicker3 > xFP = pFileDlg->GetFilePicker();
     uno::Reference < XFilePickerControlAccess > xCtrlAcc(xFP, UNO_QUERY);
     if(nHtmlMode & HTMLMODE_ON)
@@ -302,7 +311,6 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
     }
 
     std::vector<OUString> aFormats;
-    SwDoc* pDoc = pDocShell->GetDoc();
     const size_t nArrLen = pDoc->GetFrameFormats()->size();
     for( size_t i = 0; i < nArrLen; ++i )
     {
@@ -327,7 +335,6 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
     Sequence<OUString> aListBoxEntries(aFormats.size());
     OUString* pEntries = aListBoxEntries.getArray();
     sal_Int16 nSelect = 0;
-    OUString sGraphicFormat = SwResId(STR_POOLFRM_GRAPHIC);
     for( size_t i = 0; i < aFormats.size(); ++i )
     {
         pEntries[i] = aFormats[i];
@@ -349,10 +356,15 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
     {
         OSL_FAIL("control access failed");
     }
+#endif
 
     const SfxStringItem* pName = rReq.GetArg<SfxStringItem>(SID_INSERT_GRAPHIC);
     bool bShowError = !pName;
-    if( pName || ERRCODE_NONE == pFileDlg->Execute() )
+    if( pName
+#if HAVE_FEATURE_DESKTOP
+        || ERRCODE_NONE == pFileDlg->Execute()
+#endif
+        )
     {
 
         OUString aFileName, aFilterName;
@@ -363,6 +375,7 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
             if ( pFilter )
                 aFilterName = pFilter->GetValue();
         }
+#if HAVE_FEATURE_DESKTOP
         else
         {
             aFileName = pFileDlg->GetPath();
@@ -394,11 +407,13 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
             }
             rReq.AppendItem( SfxBoolItem( FN_PARAM_1, bAsLink ) );
         }
-
         const SfxBoolItem* pAsLink = rReq.GetArg<SfxBoolItem>(FN_PARAM_1);
         const SfxStringItem* pStyle = rReq.GetArg<SfxStringItem>(FN_PARAM_2);
+#endif
 
         bool bAsLink = false;
+
+#if HAVE_FEATURE_DESKTOP
         if( nHtmlMode & HTMLMODE_ON )
             bAsLink = true;
         else
@@ -434,6 +449,7 @@ bool SwView::InsertGraphicDlg( SfxRequest& rReq )
                     bAsLink=false; // don't store as link
             }
         }
+#endif
 
         SwWrtShell& rSh = GetWrtShell();
         rSh.LockPaint();
@@ -638,17 +654,10 @@ void SwView::Execute(SfxRequest &rReq)
                 if( static_cast<const SfxBoolItem*>(pItem)->GetValue() )
                     nMode |= RedlineFlags::ShowDelete;
 
-                uno::Reference<uno::XComponentContext> const xContext(
-                        comphelper::getProcessComponentContext());
-                if (officecfg::Office::Common::Misc::ExperimentalMode::get(xContext))
-                {
-                    m_pWrtShell->GetLayout()->SetHideRedlines(
-                        !static_cast<const SfxBoolItem*>(pItem)->GetValue());
-                    if (m_pWrtShell->IsRedlineOn())
-                        m_pWrtShell->SetInsMode();
-                }
-                else
-                    m_pWrtShell->SetRedlineFlagsAndCheckInsMode( nMode );
+                m_pWrtShell->GetLayout()->SetHideRedlines(
+                    !static_cast<const SfxBoolItem*>(pItem)->GetValue());
+                if (m_pWrtShell->IsRedlineOn())
+                    m_pWrtShell->SetInsMode();
             }
             break;
         case FN_MAILMERGE_SENDMAIL_CHILDWINDOW:
@@ -804,7 +813,7 @@ void SwView::Execute(SfxRequest &rReq)
         break;
         case FN_ESCAPE:
         {
-            if ( m_pWrtShell->HasDrawView() && m_pWrtShell->GetDrawView()->IsDragObj() )
+            if ( m_pWrtShell->HasDrawViewDrag() )
             {
                 m_pWrtShell->BreakDrag();
                 m_pWrtShell->EnterSelFrameMode();
@@ -1142,7 +1151,7 @@ void SwView::Execute(SfxRequest &rReq)
                 xDictionary->clear();
             // put cursor to the start of the document
             m_pWrtShell->StartOfSection();
-            SAL_FALLTHROUGH; // call spell/grammar dialog
+            [[fallthrough]]; // call spell/grammar dialog
         }
         case FN_SPELL_GRAMMAR_DIALOG:
         {
@@ -1986,8 +1995,7 @@ bool SwView::JumpToSwMark( const OUString& rMark )
             }
             else if( pMarkAccess->getAllMarksEnd() != (ppMark = pMarkAccess->findMark(sMark)) )
             {
-                m_pWrtShell->GotoMark( ppMark->get(), false );
-                bRet = true;
+                bRet = m_pWrtShell->GotoMark( ppMark->get(), false );
             }
             else if( nullptr != ( pINet = m_pWrtShell->FindINetAttr( sMark ) )) {
                 m_pWrtShell->addCurrentPosition();
@@ -2013,8 +2021,7 @@ bool SwView::JumpToSwMark( const OUString& rMark )
         }
         else if( pMarkAccess->getAllMarksEnd() != (ppMark = pMarkAccess->findMark(sMark)))
         {
-            m_pWrtShell->GotoMark( ppMark->get(), false );
-            bRet = true;
+            bRet = m_pWrtShell->GotoMark( ppMark->get(), false );
         }
         else if( nullptr != ( pINet = m_pWrtShell->FindINetAttr( sMark ) ))
             bRet = m_pWrtShell->GotoINetAttr( *pINet->GetTextINetFormat() );

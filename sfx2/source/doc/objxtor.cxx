@@ -233,12 +233,10 @@ SfxObjectShell_Impl::SfxObjectShell_Impl( SfxObjectShell& _rDocShell )
     ,m_bConfigOptionsChecked( false )
     ,lErr(ERRCODE_NONE)
     ,nEventId ( SfxEventHintId::NONE )
-    ,pReloadTimer ( nullptr)
     ,nLoadedFlags ( SfxLoadedFlags::ALL )
     ,nFlagsInProgress( SfxLoadedFlags::NONE )
     ,bModalMode( false )
     ,bRunningMacro( false )
-    ,eFlags( SfxObjectShellFlags::UNDEFINED )
     ,bReadOnlyUI( false )
     ,nStyleFilter( 0 )
     ,m_bEnableSetModified( true )
@@ -311,7 +309,7 @@ SfxObjectShell::~SfxObjectShell()
     SfxObjectShell::CloseInternal();
     pImpl->pBaseModel.set( nullptr );
 
-    DELETEZ( pImpl->pReloadTimer );
+    pImpl->pReloadTimer.reset();
 
     SfxApplication *pSfxApp = SfxGetpApp();
     if ( USHRT_MAX != pImpl->nVisualDocumentNumber && pSfxApp )
@@ -343,7 +341,7 @@ SfxObjectShell::~SfxObjectShell()
         pMedium->CloseAndReleaseStreams_Impl();
 
 #if HAVE_FEATURE_MULTIUSER_ENVIRONMENT
-        if ( IsDocShared() && pMedium )
+        if (IsDocShared())
             FreeSharedFile( pMedium->GetURLObject().GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
 #endif
         DELETEZ( pMedium );

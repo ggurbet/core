@@ -33,6 +33,7 @@ $(eval $(call gb_CppunitTest_use_libraries,sw_unowriter, \
     unotest \
     vcl \
     tl \
+    tk \
     utl \
 ))
 
@@ -44,6 +45,7 @@ $(eval $(call gb_CppunitTest_use_externals,sw_unowriter,\
 $(eval $(call gb_CppunitTest_set_include,sw_unowriter,\
     -I$(SRCDIR)/sw/inc \
     -I$(SRCDIR)/sw/source/core/inc \
+    -I$(SRCDIR)/sw/source/uibase/inc \
     -I$(SRCDIR)/sw/qa/extras/inc \
     $$(INCLUDE) \
 ))

@@ -17,13 +17,13 @@ android/
 	+ Android backend
 
 osx/
-	+ OS X backend
+	+ macOS backend
 
 ios/
 	+ iOS backend
 
 quartz/
-	+ code common to OS X and iOS
+	+ code common to macOS and iOS
 
 win/
 	+ Windows backend
@@ -38,12 +38,10 @@ unx/
 		+ GTK2 support
 	gtk3/
 		+ GTK3 support
-	kde4/
-		+ KDE4 support
 	kde5/
-		+ KDE5 support (under construction)
+		+ KDE5 support
 	gtk3_kde5/
-		+ GTK3 support with KDE5 file pickers (until kde5 is finished)
+		+ GTK3 support with KDE5 file pickers (alternative to native kde5 one)
 	generic/
 		+ raw X11 support
 
@@ -90,13 +88,9 @@ GDIMetafile is a vector drawing representation that corresponds directly
 to the SVM (StarView Metafile) format; it is extremely important as
 an intermediate format in all sorts of drawing and printing operations.
 
-There is a class MetafileXmlDump in include/test/mtfxmldump.hxx that
+There is a class MetafileXmlDump in include/vcl/mtfxmldump.hxx that
 can store a GDIMetafile as XML, which makes debugging much easier
 since you can just use "diff" to see changes.
-
-To use it you need to link against "test" library and then (because
-"test" is not part of the installation) run with:
-LD_LIBRARY_PATH=workdir/LinkTarget/Library:workdir/UnpackedTarball/cppunit/src/cppunit/.libs instdir/program/soffice
 
 == EMF+ ==
 

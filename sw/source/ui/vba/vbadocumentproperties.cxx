@@ -625,12 +625,10 @@ SwVbaBuiltInDocumentProperty::getServiceImplName()
 uno::Sequence<OUString>
 SwVbaBuiltInDocumentProperty::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.word.DocumentProperty";
-    }
+        "ooo.vba.word.DocumentProperty"
+    };
     return aServiceNames;
 }
 typedef ::cppu::WeakImplHelper< css::container::XIndexAccess
@@ -777,12 +775,10 @@ SwVbaBuiltinDocumentProperties::getServiceImplName()
 uno::Sequence<OUString>
 SwVbaBuiltinDocumentProperties::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.word.DocumentProperties";
-    }
+        "ooo.vba.word.DocumentProperties"
+    };
     return aServiceNames;
 }
 
@@ -831,7 +827,7 @@ public:
         uno::Sequence< beans::Property > aProps = mxUserDefinedProp->getPropertySetInfo()->getProperties();
         uno::Sequence< OUString > aNames( aProps.getLength() );
         OUString* pString = aNames.getArray();
-        OUString* pEnd = ( pString + aNames.getLength() );
+        OUString* pEnd = pString + aNames.getLength();
         beans::Property* pProp = aProps.getArray();
         for ( ; pString != pEnd; ++pString, ++pProp )
             *pString = pProp->Name;

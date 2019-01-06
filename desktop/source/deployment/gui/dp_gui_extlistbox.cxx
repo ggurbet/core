@@ -34,8 +34,10 @@
 #include <com/sun/star/deployment/DeploymentException.hpp>
 #include <com/sun/star/deployment/ExtensionRemovedException.hpp>
 #include <cppuhelper/weakref.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/commandevent.hxx>
 #include <algorithm>
 
 #define USER_PACKAGE_MANAGER    "user"
@@ -183,10 +185,10 @@ ExtensionBox_Impl::ExtensionBox_Impl(vcl::Window* pParent) :
     m_nActive( 0 ),
     m_nTopIndex( 0 ),
     m_nActiveHeight( 0 ),
-    m_aSharedImage(BitmapEx(RID_BMP_SHARED)),
-    m_aLockedImage(BitmapEx(RID_BMP_LOCKED)),
-    m_aWarningImage(BitmapEx(RID_BMP_WARNING)),
-    m_aDefaultImage(BitmapEx(RID_BMP_EXTENSION)),
+    m_aSharedImage(StockImage::Yes, RID_BMP_SHARED),
+    m_aLockedImage(StockImage::Yes, RID_BMP_LOCKED),
+    m_aWarningImage(StockImage::Yes, RID_BMP_WARNING),
+    m_aDefaultImage(StockImage::Yes, RID_BMP_EXTENSION),
     m_pScrollBar( nullptr ),
     m_pManager( nullptr )
 {

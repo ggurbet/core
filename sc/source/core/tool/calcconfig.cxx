@@ -29,17 +29,13 @@ using comphelper::ConfigurationListener;
 
 static rtl::Reference<ConfigurationListener> const & getMiscListener()
 {
-    static rtl::Reference<ConfigurationListener> xListener;
-    if (!xListener.is())
-        xListener.set(new ConfigurationListener("/org.openoffice.Office.Common/Misc"));
+    static rtl::Reference<ConfigurationListener> xListener(new ConfigurationListener("/org.openoffice.Office.Common/Misc"));
     return xListener;
 }
 
 static rtl::Reference<ConfigurationListener> const & getFormulaCalculationListener()
 {
-    static rtl::Reference<ConfigurationListener> xListener;
-    if (!xListener.is())
-        xListener.set(new ConfigurationListener("/org.openoffice.Office.Calc/Formula/Calculation"));
+    static rtl::Reference<ConfigurationListener> xListener(new ConfigurationListener("/org.openoffice.Office.Calc/Formula/Calculation"));
     return xListener;
 }
 
@@ -63,7 +59,8 @@ static ForceCalculationType forceCalculationTypeInit()
             SAL_INFO("sc.core.formulagroup", "Forcing calculations to use core");
             return ForceCalculationCore;
         }
-        SAL_WARN("sc.core.formulagroup", "Unrecognized value of SC_TEST_CALCULATION");
+        SAL_WARN("sc.core.formulagroup", "Unrecognized value of SC_FORCE_CALCULATION");
+        abort();
     }
     return ForceCalculationNone;
 }
@@ -114,8 +111,10 @@ void ScCalcConfig::setOpenCLConfigToDefault()
     static OpCodeSet pDefaultOpenCLSubsetOpCodes(new std::set<OpCode>({
         ocAdd,
         ocSub,
+        ocNegSub,
         ocMul,
         ocDiv,
+        ocPow,
         ocRandom,
         ocSin,
         ocCos,
@@ -239,6 +238,9 @@ ScCalcConfig::OpCodeSet ScStringToOpCodeSet(const OUString& rOpCodes)
         }
         fromIndex = semicolon+1;
     }
+    // HACK: Both unary and binary minus have the same string but different opcodes.
+    if( result->find( ocSub ) != result->end())
+        result->insert( ocNegSub );
     return result;
 }
 

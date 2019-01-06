@@ -594,7 +594,7 @@ void SwFieldMgr::GetSubTypes(sal_uInt16 nTypeId, std::vector<OUString>& rToFill)
             case TYP_INPUTFLD:
             {
                 rToFill.push_back(SwResId(aSwFields[nPos].pSubTypeResIds[0]));
-                SAL_FALLTHROUGH; // move on at generic types
+                [[fallthrough]]; // move on at generic types
             }
             case TYP_DDEFLD:
             case TYP_SEQFLD:
@@ -883,7 +883,7 @@ bool SwFieldMgr::GoNextPrev( bool bNext, SwFieldType* pTyp )
         return pSh->MoveFieldType( nullptr, bNext, SwFieldIds::Database );
     }
 
-    return pTyp && pSh && pSh->MoveFieldType( pTyp, bNext );
+    return pTyp && pSh->MoveFieldType(pTyp, bNext);
 }
 
 // insert field types
@@ -1518,7 +1518,7 @@ bool SwFieldMgr::InsertField(
     if(bTable)
     {
         pCurShell->Left(CRSR_SKIP_CHARS, false, 1, false );
-        pCurShell->UpdateFields(*pField);
+        pCurShell->UpdateOneField(*pField);
         pCurShell->Right(CRSR_SKIP_CHARS, false, 1, false );
     }
     else if( bPageVar )
@@ -1690,7 +1690,7 @@ void SwFieldMgr::UpdateCurField(sal_uInt32 nFormat,
     }
     else {
         // mb: #32157
-        pSh->SwEditShell::UpdateFields(*pTmpField);
+        pSh->SwEditShell::UpdateOneField(*pTmpField);
         GetCurField();
     }
 

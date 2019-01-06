@@ -579,7 +579,6 @@ namespace vclcanvas
             switch( textDirection )
             {
                 case rendering::TextDirection::WEAK_LEFT_TO_RIGHT:
-                    // FALLTHROUGH intended
                 case rendering::TextDirection::STRONG_LEFT_TO_RIGHT:
                     nLayoutMode |= ComplexTextLayoutFlags::BiDiStrong;
                     nLayoutMode |= ComplexTextLayoutFlags::TextOriginLeft;
@@ -587,7 +586,7 @@ namespace vclcanvas
 
                 case rendering::TextDirection::WEAK_RIGHT_TO_LEFT:
                     nLayoutMode |= ComplexTextLayoutFlags::BiDiRtl;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case rendering::TextDirection::STRONG_RIGHT_TO_LEFT:
                     nLayoutMode |= ComplexTextLayoutFlags::BiDiRtl | ComplexTextLayoutFlags::BiDiStrong;
                     nLayoutMode |= ComplexTextLayoutFlags::TextOriginRight;
@@ -907,7 +906,7 @@ namespace vclcanvas
                        beFast ? BmpScaleFlag::Default : BmpScaleFlag::BestQuality );
 
         return uno::Reference< rendering::XBitmap >(
-            new CanvasBitmap( BitmapEx(aBitmap), *mpDevice, mpOutDevProvider ) );
+            new CanvasBitmap( aBitmap, *mpDevice, mpOutDevProvider ) );
     }
 
     uno::Sequence< sal_Int8 > CanvasHelper::getData( rendering::IntegerBitmapLayout&     rLayout,

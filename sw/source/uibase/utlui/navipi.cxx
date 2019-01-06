@@ -63,20 +63,19 @@ using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::frame;
 
 //! soon obsolete !
-SfxChildWindowContext* SwNavigationChild::CreateImpl( vcl::Window *pParent,
+std::unique_ptr<SfxChildWindowContext> SwNavigationChild::CreateImpl( vcl::Window *pParent,
         SfxBindings *pBindings, SfxChildWinInfo* /*pInfo*/ )
 {
-    SfxChildWindowContext *pContext = new SwNavigationChild(pParent,
+    return o3tl::make_unique<SwNavigationChild>(pParent,
             /* cast is safe here! */static_cast< sal_uInt16 >(SwView::GetInterfaceId()),
             pBindings);
-    return pContext;
 }
 void    SwNavigationChild::RegisterChildWindowContext(SfxModule* pMod)
 {
-    SfxChildWinContextFactory *pFact = new SfxChildWinContextFactory(
+    auto pFact = o3tl::make_unique<SfxChildWinContextFactory>(
        SwNavigationChild::CreateImpl,
        /* cast is safe here! */static_cast< sal_uInt16 >(SwView::GetInterfaceId()) );
-    SfxChildWindowContext::RegisterChildWindowContext(pMod, SID_NAVIGATOR, pFact);
+    SfxChildWindowContext::RegisterChildWindowContext(pMod, SID_NAVIGATOR, std::move(pFact));
 }
 
 
@@ -1054,7 +1053,7 @@ OUString SwNavigationPI::CreateDropFileName( TransferableDataHelper& rData )
                 rData.HasFormat( nFormat = SotClipboardFormatId::FILEGRPDESCRIPTOR ) ||
                 rData.HasFormat( nFormat = SotClipboardFormatId::UNIFORMRESOURCELOCATOR ))
     {
-        INetBookmark aBkmk( aEmptyOUStr, aEmptyOUStr );
+        INetBookmark aBkmk = INetBookmark(OUString(), OUString());
         if (rData.GetINetBookmark(nFormat, aBkmk))
             sFileName = aBkmk.GetURL();
     }
@@ -1139,7 +1138,7 @@ void SwNavigationPI::SetRegionDropMode(RegionMode nNewMode)
             sImageId = RID_BMP_DROP_COPY;
             break;
     }
-    m_aContentToolBox->SetItemImage(m_aContentToolBox->GetItemId("dragmode"), Image(BitmapEx(sImageId)));
+    m_aContentToolBox->SetItemImage(m_aContentToolBox->GetItemId("dragmode"), Image(StockImage::Yes, sImageId));
 }
 
 void SwNavigationPI::ToggleTree()

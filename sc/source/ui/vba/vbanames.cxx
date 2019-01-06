@@ -20,7 +20,10 @@
 
 #include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/sheet/XCellRangeAddressable.hpp>
+#include <com/sun/star/sheet/XNamedRange.hpp>
+#include <com/sun/star/sheet/XNamedRanges.hpp>
 
+#include "excelvbahelper.hxx"
 #include "vbanames.hxx"
 #include "vbaname.hxx"
 #include "vbarange.hxx"
@@ -248,12 +251,10 @@ ScVbaNames::getServiceImplName()
 css::uno::Sequence<OUString>
 ScVbaNames::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.NamedRanges";
-    }
+        "ooo.vba.excel.NamedRanges"
+    };
     return aServiceNames;
 }
 

@@ -21,7 +21,7 @@
 #include <extended/accessibletablistboxtable.hxx>
 #include <extended/AccessibleBrowseBoxTableCell.hxx>
 #include <extended/AccessibleBrowseBoxCheckBoxCell.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 
 
@@ -65,8 +65,7 @@ namespace accessibility
     {
         if ( isAlive() )
         {
-            VclEventId nEventId = rVclWindowEvent.GetId();
-            switch ( nEventId )
+            switch ( VclEventId nEventId = rVclWindowEvent.GetId(); nEventId )
             {
                 case  VclEventId::ObjectDying :
                 {

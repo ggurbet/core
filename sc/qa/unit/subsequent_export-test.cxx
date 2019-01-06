@@ -9,17 +9,15 @@
 
 #include <officecfg/Office/Common.hxx>
 #include <sal/config.h>
-#include <rtl/strbuf.hxx>
-#include <osl/file.hxx>
 #include <config_features.h>
 
-#include <sfx2/app.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/sfxmodelfactory.hxx>
-#include <svl/stritem.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <sfx2/docfilt.hxx>
 
+#include "helper/debughelper.hxx"
 #include "helper/qahelper.hxx"
 #include "helper/xpath.hxx"
 #include "helper/shared_test_impl.hxx"
@@ -30,23 +28,19 @@
 #include <docpool.hxx>
 #include <scitems.hxx>
 #include <document.hxx>
-#include <cellform.hxx>
 #include <formulacell.hxx>
 #include <tokenarray.hxx>
 #include <editutil.hxx>
 #include <scopetools.hxx>
 #include <cellvalue.hxx>
-#include <docfunc.hxx>
-#include <generalfunction.hxx>
 #include <postit.hxx>
 #include <tokenstringcontext.hxx>
 #include <chgtrack.hxx>
 #include <validat.hxx>
-#include <attrib.hxx>
 #include <global.hxx>
 #include <scmod.hxx>
+#include <dpobject.hxx>
 
-#include <svx/svdoole2.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdograf.hxx>
 #include <tabprotection.hxx>
@@ -69,11 +63,8 @@
 #include <svl/zformat.hxx>
 
 #include <test/xmltesttools.hxx>
-#include <com/sun/star/table/BorderLineStyle.hpp>
-#include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/graphic/GraphicType.hpp>
 #include <comphelper/storagehelper.hxx>
 
@@ -216,6 +207,9 @@ public:
     void testKeepSettingsOfBlankRows();
 
     void testTdf118990();
+    void testTdf121612();
+
+    void testXltxExport();
 
     CPPUNIT_TEST_SUITE(ScExportTest);
     CPPUNIT_TEST(test);
@@ -329,6 +323,9 @@ public:
     CPPUNIT_TEST(testKeepSettingsOfBlankRows);
 
     CPPUNIT_TEST(testTdf118990);
+    CPPUNIT_TEST(testTdf121612);
+
+    CPPUNIT_TEST(testXltxExport);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -363,6 +360,7 @@ void ScExportTest::registerNamespaces(xmlXPathContextPtr& pXmlXPathCtx)
         { BAD_CAST("r"), BAD_CAST("http://schemas.openxmlformats.org/package/2006/relationships") },
         { BAD_CAST("number"), BAD_CAST("urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0") },
         { BAD_CAST("loext"), BAD_CAST("urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0") },
+        { BAD_CAST("ContentType"), BAD_CAST("http://schemas.openxmlformats.org/package/2006/content-types") },
     };
     for(size_t i = 0; i < SAL_N_ELEMENTS(aNamespaces); ++i)
     {
@@ -761,7 +759,7 @@ void ScExportTest::testCommentExportXLSX_2_XLSX()
 #if HAVE_MORE_FONTS
 void ScExportTest::testCustomColumnWidthExportXLSX()
 {
-    //tdf#100946 FILESAVE Excel on OS X ignored column widths in XLSX last saved by LO
+    //tdf#100946 FILESAVE Excel on macOS ignored column widths in XLSX last saved by LO
     ScDocShellRef xShell = loadDoc("custom_column_width.", FORMAT_ODS);
     CPPUNIT_ASSERT(xShell.is());
 
@@ -4177,6 +4175,39 @@ void ScExportTest::testTdf118990()
                          "Wrong Windows share (using hostname) URL in A3");
 
     xDocSh->DoClose();
+}
+
+void ScExportTest::testTdf121612()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf121612.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+    xDocSh = saveAndReload(xDocSh.get(), FORMAT_XLSX);
+
+    ScDocument& rDoc = xDocSh->GetDocument();
+
+    // There should be a pivot table
+    CPPUNIT_ASSERT(rDoc.HasPivotTable());
+
+    // DP collection is not lost after export and has one entry
+    ScDPCollection* pDPColl = rDoc.GetDPCollection();
+    CPPUNIT_ASSERT(pDPColl);
+    CPPUNIT_ASSERT_EQUAL(size_t(1), pDPColl->GetCount());
+}
+
+void ScExportTest::testXltxExport()
+{
+    // Create new document
+    ScDocShell* pShell = new ScDocShell(
+        SfxModelFlags::EMBEDDED_OBJECT |
+        SfxModelFlags::DISABLE_EMBEDDED_SCRIPTS |
+        SfxModelFlags::DISABLE_DOCUMENT_RECOVERY);
+    pShell->DoInitNew();
+
+    // Export as template and check content type
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *pShell, m_xSFactory, "[Content_Types].xml", FORMAT_XLTX);
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/ContentType:Types/ContentType:Override[@PartName='/xl/workbook.xml']",
+        "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml");
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScExportTest);

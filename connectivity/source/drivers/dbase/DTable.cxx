@@ -346,10 +346,10 @@ void ODbaseTable::fillColumns()
                 aTypeName = "NUMERIC";
             eType = DataType::DECIMAL;
 
-            // for numeric fields two characters more are written, than the precision of the column description predescribes,
+            // for numeric fields two characters more are written, then the precision of the column description predescribes,
             // to keep room for the possible sign and the comma. This has to be considered...
             nPrecision = SvDbaseConverter::ConvertPrecisionToOdbc(nPrecision,aDBFColumn.db_dez);
-            // This is not true for older versions ....
+            // This is not true for older versions...
             break;
         case 'L':
             eType = DataType::BIT;
@@ -558,7 +558,7 @@ void ODbaseTable::ReadMemoHeader()
             (*m_pMemoStream).ReadUInt16( m_aMemoHeader.db_size );
             if (m_aMemoHeader.db_size > 1 && m_aMemoHeader.db_size != 512)  // 1 is also for dBase 3
                 m_aMemoHeader.db_typ  = MemodBaseIV;
-            else if (m_aMemoHeader.db_size > 1 && m_aMemoHeader.db_size == 512)
+            else if (m_aMemoHeader.db_size == 512)
             {
                 // There are files using size specification, though they are dBase-files
                 char sHeader[4];
@@ -1252,7 +1252,7 @@ bool ODbaseTable::CreateFile(const INetURLObject& aFile, bool& bCreateMemo)
                     break;
                 case DataType::LONGVARBINARY:
                     bBinary = true;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case DataType::LONGVARCHAR:
                     cTyp = 'M';
                     break;
@@ -1730,7 +1730,7 @@ bool ODbaseTable::UpdateBuffer(OValueRefVector& rRow, const OValueRefRow& pOrgRo
             case DataType::DOUBLE:
             case DataType::TIMESTAMP:
                 bSetZero = true;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case DataType::LONGVARBINARY:
             case DataType::DATE:
             case DataType::BIT:

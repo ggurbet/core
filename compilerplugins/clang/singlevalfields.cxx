@@ -96,7 +96,7 @@ public:
         else
         {
             for (const MyFieldAssignmentInfo & s : assignedSet)
-                if (compiler.getSourceManager().isInMainFile(compat::getBeginLoc(s.fieldDecl)))
+                if (s.fieldDecl && compiler.getSourceManager().isInMainFile(compat::getBeginLoc(s.fieldDecl)))
                     report(
                         DiagnosticsEngine::Warning,
                         "assign %0",
@@ -110,24 +110,50 @@ public:
     bool shouldVisitImplicitCode() const { return true; }
 
     bool VisitFieldDecl( const FieldDecl* );
+    bool VisitVarDecl( const VarDecl* );
     bool VisitMemberExpr( const MemberExpr* );
+    bool VisitDeclRefExpr( const DeclRefExpr* );
     bool VisitCXXConstructorDecl( const CXXConstructorDecl* );
 //    bool VisitUnaryExprOrTypeTraitExpr( const UnaryExprOrTypeTraitExpr* );
 private:
-    void niceName(const FieldDecl*, MyFieldInfo&);
+    void niceName(const DeclaratorDecl*, MyFieldInfo&);
+    void walkPotentialAssign( const DeclaratorDecl* fieldOrVarDecl, const Stmt* stmt );
     std::string getExprValue(const Expr*);
     const FunctionDecl* get_top_FunctionDecl_from_Stmt(const Stmt&);
     void checkCallExpr(const Stmt* child, const CallExpr* callExpr, std::string& assignValue, bool& bPotentiallyAssignedTo);
 };
 
-void SingleValFields::niceName(const FieldDecl* fieldDecl, MyFieldInfo& aInfo)
+void SingleValFields::niceName(const DeclaratorDecl* fieldOrVarDecl, MyFieldInfo& aInfo)
 {
+    const VarDecl* varDecl = dyn_cast<VarDecl>(fieldOrVarDecl);
+    const FieldDecl* fieldDecl = dyn_cast<FieldDecl>(fieldOrVarDecl);
     aInfo.fieldDecl = fieldDecl;
-    aInfo.parentClass = fieldDecl->getParent()->getQualifiedNameAsString();
-    aInfo.fieldName = fieldDecl->getNameAsString();
-    aInfo.fieldType = fieldDecl->getType().getAsString();
+    if (fieldDecl)
+        aInfo.parentClass = fieldDecl->getParent()->getQualifiedNameAsString();
+    else
+    {
+        if (auto parentRecordDecl = dyn_cast<CXXRecordDecl>(varDecl->getDeclContext()))
+            aInfo.parentClass = parentRecordDecl->getQualifiedNameAsString();
+        else if (auto parentMethodDecl = dyn_cast<CXXMethodDecl>(varDecl->getDeclContext()))
+            aInfo.parentClass = parentMethodDecl->getQualifiedNameAsString();
+        else if (auto parentFunctionDecl = dyn_cast<FunctionDecl>(varDecl->getDeclContext()))
+            aInfo.parentClass = parentFunctionDecl->getQualifiedNameAsString();
+        else if (isa<TranslationUnitDecl>(varDecl->getDeclContext()))
+            aInfo.parentClass = handler.getMainFileName();
+        else if (auto parentNamespaceDecl = dyn_cast<NamespaceDecl>(varDecl->getDeclContext()))
+            aInfo.parentClass = parentNamespaceDecl->getQualifiedNameAsString();
+        else if (isa<LinkageSpecDecl>(varDecl->getDeclContext()))
+            aInfo.parentClass = "extern"; // what to do here?
+        else
+        {
+            std::cout << "what is this? " << varDecl->getDeclContext()->getDeclKindName() << std::endl;
+            exit(1);
+        }
+    }
+    aInfo.fieldName = fieldOrVarDecl->getNameAsString();
+    aInfo.fieldType = fieldOrVarDecl->getType().getAsString();
 
-    SourceLocation expansionLoc = compiler.getSourceManager().getExpansionLoc( fieldDecl->getLocation() );
+    SourceLocation expansionLoc = compiler.getSourceManager().getExpansionLoc( fieldOrVarDecl->getLocation() );
     StringRef name = compiler.getSourceManager().getFilename(expansionLoc);
     aInfo.sourceLocation = std::string(name.substr(strlen(SRCDIR)+1)) + ":" + std::to_string(compiler.getSourceManager().getSpellingLineNumber(expansionLoc));
     loplugin::normalizeDotDotInFilePath(aInfo.sourceLocation);
@@ -135,16 +161,56 @@ void SingleValFields::niceName(const FieldDecl* fieldDecl, MyFieldInfo& aInfo)
 
 bool SingleValFields::VisitFieldDecl( const FieldDecl* fieldDecl )
 {
-    fieldDecl = fieldDecl->getCanonicalDecl();
-    const FieldDecl* canonicalDecl = fieldDecl;
+    auto canonicalDecl = fieldDecl->getCanonicalDecl();
 
-    if( ignoreLocation( fieldDecl )
-        || isInUnoIncludeFile( compiler.getSourceManager().getSpellingLoc(fieldDecl->getLocation())) )
+    if( ignoreLocation( canonicalDecl )
+        || isInUnoIncludeFile( compiler.getSourceManager().getSpellingLoc(canonicalDecl->getLocation())) )
         return true;
 
     MyFieldInfo aInfo;
     niceName(canonicalDecl, aInfo);
     definitionSet.insert(aInfo);
+
+    if (fieldDecl->getInClassInitializer())
+    {
+        MyFieldAssignmentInfo aInfo;
+        niceName(canonicalDecl, aInfo);
+        aInfo.value = getExprValue(fieldDecl->getInClassInitializer());
+        assignedSet.insert(aInfo);
+    }
+
+    return true;
+}
+
+bool SingleValFields::VisitVarDecl( const VarDecl* varDecl )
+{
+    if (isa<ParmVarDecl>(varDecl))
+        return true;
+    if (varDecl->getType().isConstQualified())
+        return true;
+    if (!(varDecl->isStaticLocal() || varDecl->isStaticDataMember() || varDecl->hasGlobalStorage()))
+        return true;
+
+    auto canonicalDecl = varDecl->getCanonicalDecl();
+    if (!canonicalDecl->getLocation().isValid())
+        return true;
+
+    if( ignoreLocation( canonicalDecl )
+        || isInUnoIncludeFile( compiler.getSourceManager().getSpellingLoc(canonicalDecl->getLocation())) )
+        return true;
+
+    MyFieldInfo aInfo;
+    niceName(canonicalDecl, aInfo);
+    definitionSet.insert(aInfo);
+
+    if (varDecl->getInit())
+    {
+        MyFieldAssignmentInfo aInfo;
+        niceName(canonicalDecl, aInfo);
+        aInfo.value = getExprValue(varDecl->getInit());
+        assignedSet.insert(aInfo);
+    }
+
     return true;
 }
 
@@ -181,25 +247,45 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
 {
     const ValueDecl* decl = memberExpr->getMemberDecl();
     const FieldDecl* fieldDecl = dyn_cast<FieldDecl>(decl);
-    if (!fieldDecl) {
+    if (!fieldDecl)
         return true;
-    }
-
     if (ignoreLocation(memberExpr))
         return true;
+    walkPotentialAssign(fieldDecl, memberExpr);
+    return true;
+}
 
+bool SingleValFields::VisitDeclRefExpr( const DeclRefExpr* declRefExpr )
+{
+    const VarDecl* varDecl = dyn_cast_or_null<VarDecl>(declRefExpr->getDecl());
+    if (!varDecl)
+        return true;
+    if (isa<ParmVarDecl>(varDecl))
+        return true;
+    if (varDecl->getType().isConstQualified())
+        return true;
+    if (!(varDecl->isStaticLocal() || varDecl->isStaticDataMember() || varDecl->hasGlobalStorage()))
+        return true;
+    if (ignoreLocation(declRefExpr))
+        return true;
+    walkPotentialAssign(varDecl, declRefExpr);
+    return true;
+}
+
+void SingleValFields::walkPotentialAssign( const DeclaratorDecl* fieldOrVarDecl, const Stmt* memberExpr )
+{
     const FunctionDecl* parentFunction = getParentFunctionDecl(memberExpr);
     if (parentFunction)
     {
         auto methodDecl = dyn_cast<CXXMethodDecl>(parentFunction);
         if (methodDecl && (methodDecl->isCopyAssignmentOperator() || methodDecl->isMoveAssignmentOperator()))
-           return true;
+           return;
         if (methodDecl && methodDecl->getIdentifier()
             && (methodDecl->getName().startswith("Clone") || methodDecl->getName().startswith("clone")))
-           return true;
+           return;
         auto cxxConstructorDecl = dyn_cast<CXXConstructorDecl>(parentFunction);
         if (cxxConstructorDecl && cxxConstructorDecl->isCopyOrMoveConstructor())
-           return true;
+           return;
     }
 
     // walk up the tree until we find something interesting
@@ -236,7 +322,7 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
         }
 
         if (!parent) {
-            return true;
+            return;
         }
         if (isa<CastExpr>(parent) || isa<MemberExpr>(parent) || isa<ParenExpr>(parent) || isa<ParenListExpr>(parent)
              || isa<ExprWithCleanups>(parent))
@@ -317,17 +403,18 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
                 || isa<MaterializeTemporaryExpr>(parent)  //???
                 || isa<InitListExpr>(parent)
                 || isa<CXXUnresolvedConstructExpr>(parent)
+                || isa<LambdaExpr>(parent)
+                || isa<PackExpansionExpr>(parent)
+                || isa<CXXPseudoDestructorExpr>(parent)
                 )
         {
             break;
         }
-#if CLANG_VERSION >= 40000
-        else if ( isa<ArrayInitLoopExpr>(parent) )
+        else if ( isa<ArrayInitLoopExpr>(parent) || isa<GCCAsmStmt>(parent) || isa<VAArgExpr>(parent))
         {
             bPotentiallyAssignedTo = true;
             break;
         }
-#endif
         else {
             bPotentiallyAssignedTo = true;
             bDump = true;
@@ -346,12 +433,10 @@ bool SingleValFields::VisitMemberExpr( const MemberExpr* memberExpr )
     if (bPotentiallyAssignedTo)
     {
         MyFieldAssignmentInfo aInfo;
-        niceName(fieldDecl, aInfo);
+        niceName(fieldOrVarDecl, aInfo);
         aInfo.value = assignValue;
         assignedSet.insert(aInfo);
     }
-
-    return true;
 }
 
 void SingleValFields::checkCallExpr(const Stmt* child, const CallExpr* callExpr, std::string& assignValue, bool& bPotentiallyAssignedTo)
@@ -435,7 +520,11 @@ std::string SingleValFields::getExprValue(const Expr* arg)
         return "?";
     // for stuff like: OUString foo = "xxx";
     if (auto stringLiteral = dyn_cast<clang::StringLiteral>(arg))
-        return stringLiteral->getString();
+    {
+        if (stringLiteral->getCharByteWidth() == 1)
+            return stringLiteral->getString();
+        return "?";
+    }
     // ParenListExpr containing a CXXNullPtrLiteralExpr and has a NULL type pointer
     if (auto parenListExpr = dyn_cast<ParenListExpr>(arg))
     {
@@ -448,10 +537,12 @@ std::string SingleValFields::getExprValue(const Expr* arg)
         if (constructExpr->getNumArgs() >= 1
             && isa<clang::StringLiteral>(constructExpr->getArg(0)))
         {
-            return dyn_cast<clang::StringLiteral>(constructExpr->getArg(0))->getString();
+            auto stringLiteral = dyn_cast<clang::StringLiteral>(constructExpr->getArg(0));
+            if (stringLiteral->getCharByteWidth() == 1)
+                return stringLiteral->getString();
+            return "?";
         }
     }
-#if CLANG_VERSION >= 50000
     if (arg->getType()->isFloatingType())
     {
         APFloat x1(0.0f);
@@ -463,9 +554,8 @@ std::string SingleValFields::getExprValue(const Expr* arg)
             return os.str();
         }
     }
-#endif
     APSInt x1;
-    if (arg->EvaluateAsInt(x1, compiler.getASTContext()))
+    if (compat::EvaluateAsInt(arg, x1, compiler.getASTContext()))
         return x1.toString(10);
     if (isa<CXXNullPtrLiteralExpr>(arg))
         return "0";

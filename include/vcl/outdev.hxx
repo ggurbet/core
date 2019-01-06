@@ -31,7 +31,6 @@
 #include <vcl/devicecoordinate.hxx>
 #include <vcl/dllapi.h>
 #include <vcl/font.hxx>
-#include <vcl/glyphitem.hxx>
 #include <vcl/region.hxx>
 #include <vcl/mapmod.hxx>
 #include <vcl/wall.hxx>
@@ -55,7 +54,6 @@
 
 struct ImplOutDevData;
 class LogicalFontInstance;
-class OutDevState;
 struct SystemGraphicsData;
 struct SystemFontData;
 struct SystemTextLayoutData;
@@ -68,7 +66,6 @@ class SalGraphics;
 class Gradient;
 class Hatch;
 class AllSettings;
-class Bitmap;
 class BitmapReadAccess;
 class BitmapEx;
 class Image;
@@ -86,35 +83,26 @@ class SalLayout;
 class ImplLayoutArgs;
 class VirtualDevice;
 struct SalTwoRect;
-class VirtualDevice;
 class Printer;
-class FontSelectPattern;
 class VCLXGraphics;
 class OutDevStateStack;
-struct BitmapSystemData;
+class SalLayoutGlyphs;
 
 namespace vcl
 {
-    class PDFWriterImpl;
     class ExtOutDevData;
     class ITextLayout;
     struct FontCapabilities;
     class TextLayoutCache;
     class Window;
-    class FontInfo;
     namespace font {
         struct Feature;
     }
 }
 
-namespace com { namespace sun { namespace star { namespace rendering {
-    class XCanvas;
-}}}}
-
 namespace basegfx {
     class B2DHomMatrix;
     class B2DPolygon;
-    class B2DPolyPolygon;
     class B2IVector;
     typedef B2IVector B2ISize;
 }
@@ -139,15 +127,13 @@ enum class SalLayoutFlags
     DisableKerning          = 0x0010,
     KerningAsian            = 0x0020,
     Vertical                = 0x0040,
-    EnableLigatures         = 0x0200,
-    SubstituteDigits        = 0x0400,
     KashidaJustification    = 0x0800,
     ForFallback             = 0x2000,
     GlyphItemsOnly          = 0x4000,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<SalLayoutFlags> : is_typed_flags<SalLayoutFlags, 0x6e77> {};
+    template<> struct typed_flags<SalLayoutFlags> : is_typed_flags<SalLayoutFlags, 0x6877> {};
 }
 
 typedef std::vector< tools::Rectangle > MetricVector;
@@ -225,27 +211,20 @@ enum class DrawModeFlags : sal_uInt32
     GrayBitmap             = 0x00000100,
     GrayGradient           = 0x00000200,
     NoFill                 = 0x00000400,
-    NoBitmap               = 0x00000800,
-    NoGradient             = 0x00001000,
-    GhostedLine            = 0x00002000,
-    GhostedFill            = 0x00004000,
-    GhostedText            = 0x00008000,
-    GhostedBitmap          = 0x00010000,
-    GhostedGradient        = 0x00020000,
-    WhiteLine              = 0x00100000,
-    WhiteFill              = 0x00200000,
-    WhiteText              = 0x00400000,
-    WhiteBitmap            = 0x00800000,
-    WhiteGradient          = 0x01000000,
-    SettingsLine           = 0x02000000,
-    SettingsFill           = 0x04000000,
-    SettingsText           = 0x08000000,
-    SettingsGradient       = 0x10000000,
-    NoTransparency         = 0x80000000,
+    WhiteLine              = 0x00000800,
+    WhiteFill              = 0x00001000,
+    WhiteText              = 0x00002000,
+    WhiteBitmap            = 0x00004000,
+    WhiteGradient          = 0x00008000,
+    SettingsLine           = 0x00010000,
+    SettingsFill           = 0x00020000,
+    SettingsText           = 0x00040000,
+    SettingsGradient       = 0x00080000,
+    NoTransparency         = 0x00100000,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<DrawModeFlags> : is_typed_flags<DrawModeFlags, 0x9ff3ffff> {};
+    template<> struct typed_flags<DrawModeFlags> : is_typed_flags<DrawModeFlags, 0x1fffff> {};
 }
 
 // Antialiasing
@@ -288,13 +267,12 @@ namespace o3tl
 enum class InvertFlags
 {
     NONE                    = 0x0000,
-    Highlight               = 0x0001,
-    N50                     = 0x0002,
-    TrackFrame              = 0x0004
+    N50                     = 0x0001,
+    TrackFrame              = 0x0002
 };
 namespace o3tl
 {
-    template<> struct typed_flags<InvertFlags> : is_typed_flags<InvertFlags, 0x0007> {};
+    template<> struct typed_flags<InvertFlags> : is_typed_flags<InvertFlags, 0x0003> {};
 }
 
 enum OutDevType { OUTDEV_WINDOW, OUTDEV_PRINTER, OUTDEV_VIRDEV, OUTDEV_PDF };

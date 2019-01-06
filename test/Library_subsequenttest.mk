@@ -10,6 +10,7 @@
 $(eval $(call gb_Library_Library,subsequenttest))
 
 $(eval $(call gb_Library_set_include,subsequenttest,\
+	-I$(SRCDIR)/test/inc \
     $$(INCLUDE) \
 ))
 
@@ -46,10 +47,13 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/container/xenumeration \
 	test/source/container/xenumerationaccess \
 	test/source/container/xindexaccess \
+	test/source/container/xnameaccess \
 	test/source/container/xnamecontainer \
 	test/source/container/xnamed \
 	test/source/container/xnamereplace \
 	test/source/drawing/captionshape \
+	test/source/document/xlinktargetsupplier \
+	test/source/lang/xserviceinfo \
 	test/source/sheet/cellarealink \
 	test/source/sheet/cellproperties \
 	test/source/sheet/databaseimportdescriptor \
@@ -153,13 +157,16 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/table/xcellcursor \
 	test/source/table/xcolumnrowrange \
 	test/source/table/xtablechartssupplier \
+	test/source/table/xtablerows \
 	test/source/text/xtext \
 	test/source/text/xtextcontent \
 	test/source/text/xtextfield \
 	test/source/util/xindent \
 	test/source/util/xmergeable \
+	test/source/util/xrefreshable \
 	test/source/util/xreplaceable \
 	test/source/util/xsearchable \
+	test/source/view/xcontrolaccess \
 ))
 
 # vim: set noet sw=4 ts=4:

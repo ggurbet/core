@@ -241,7 +241,7 @@ void TextSearch::setOptions2( const SearchOptions2& rOptions )
 
         default:
             SAL_WARN("i18npool","TextSearch::setOptions2 - default what?");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SearchAlgorithms2::ABSOLUTE:
             fnForward = &TextSearch::NSrchFrwrd;
             fnBackward = &TextSearch::NSrchBkwrd;
@@ -264,7 +264,7 @@ void TextSearch::setOptions( const SearchOptions& rOptions )
             break;
         default:
             SAL_WARN("i18npool","TextSearch::setOptions - default what?");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SearchAlgorithms_ABSOLUTE:
             nAlgorithmType2 = SearchAlgorithms2::ABSOLUTE;
             break;
@@ -1128,7 +1128,7 @@ SearchResult TextSearch::WildcardSrchFrwrd( const OUString& searchStr, sal_Int32
 
     // Forward nStartPos inclusive, nEndPos exclusive, but allow for empty
     // string match with [0,0).
-    if (nStartPos < 0 || nEndPos > nStringLen || nEndPos < nStartPos || nStartPos > nStringLen ||
+    if (nStartPos < 0 || nEndPos > nStringLen || nEndPos < nStartPos ||
             (nStartPos == nStringLen && (nStringLen != 0 || nStartPos != nEndPos)))
         return aRes;
 
@@ -1300,7 +1300,7 @@ SearchResult TextSearch::WildcardSrchBkwrd( const OUString& searchStr, sal_Int32
 
     // Backward nStartPos exclusive, nEndPos inclusive, but allow for empty
     // string match with (0,0].
-    if (nStartPos > nStringLen || nEndPos < 0 || nStartPos < nEndPos || nEndPos > nStringLen ||
+    if (nStartPos > nStringLen || nEndPos < 0 || nStartPos < nEndPos ||
             (nEndPos == nStringLen && (nStringLen != 0 || nStartPos != nEndPos)))
         return aRes;
 

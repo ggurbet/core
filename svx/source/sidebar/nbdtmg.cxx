@@ -35,6 +35,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/settings.hxx>
 
+#include <i18nlangtag/languagetag.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/pathoptions.hxx>
@@ -67,17 +68,16 @@ namespace {
 
 const vcl::Font& lcl_GetDefaultBulletFont()
 {
-    static bool bInit = false;
-    static vcl::Font aDefBulletFont("OpenSymbol", "", Size(0, 14));
-    if(!bInit)
+    static vcl::Font aDefBulletFont = [&]()
     {
-        aDefBulletFont.SetCharSet( RTL_TEXTENCODING_SYMBOL );
-        aDefBulletFont.SetFamily( FAMILY_DONTKNOW );
-        aDefBulletFont.SetPitch( PITCH_DONTKNOW );
-        aDefBulletFont.SetWeight( WEIGHT_DONTKNOW );
-        aDefBulletFont.SetTransparent( true );
-        bInit = true;
-    }
+        static vcl::Font tmp("OpenSymbol", "", Size(0, 14));
+        tmp.SetCharSet( RTL_TEXTENCODING_SYMBOL );
+        tmp.SetFamily( FAMILY_DONTKNOW );
+        tmp.SetPitch( PITCH_DONTKNOW );
+        tmp.SetWeight( WEIGHT_DONTKNOW );
+        tmp.SetTransparent( true );
+        return tmp;
+    }();
     return aDefBulletFont;
 }
 
@@ -229,8 +229,7 @@ void NBOTypeMgrBase::ImplStore(const OUString& filename)
         xOStm->WriteUInt32( nVersion );
         for(sal_Int32 nItem = 0; nItem < DEFAULT_NUM_VALUSET_COUNT; nItem++ ) {
             if (IsCustomized(nItem)) {
-                SvxNumRule aDefNumRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::CONTINUOUS | SvxNumRuleFlags::BULLET_COLOR |
-                    SvxNumRuleFlags::CHAR_TEXT_DISTANCE,
+                SvxNumRule aDefNumRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::CONTINUOUS | SvxNumRuleFlags::BULLET_COLOR,
                     10, false,
                     SvxNumRuleType::NUMBERING, SvxNumberFormat::LABEL_ALIGNMENT);
                 xOStm->WriteInt32( nItem );
@@ -594,8 +593,7 @@ void OutlineTypeMgr::Init()
     {
         aOutlineAccess = xDefNum->getDefaultOutlineNumberings( aLocale );
 
-        SvxNumRule aDefNumRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::CONTINUOUS | SvxNumRuleFlags::BULLET_COLOR |
-            SvxNumRuleFlags::CHAR_TEXT_DISTANCE,
+        SvxNumRule aDefNumRule( SvxNumRuleFlags::BULLET_REL_SIZE | SvxNumRuleFlags::CONTINUOUS | SvxNumRuleFlags::BULLET_COLOR,
             10, false,
             SvxNumRuleType::NUMBERING, SvxNumberFormat::LABEL_ALIGNMENT);
 

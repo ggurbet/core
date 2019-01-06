@@ -22,15 +22,12 @@
 
 #include <vcl/dllapi.h>
 #include <vcl/treelistentries.hxx>
-#include <vcl/viewdataentry.hxx>
 
 #include <tools/solar.h>
 #include <tools/link.hxx>
 #include <tools/contnr.hxx>
 
-#include <limits.h>
 #include <memory>
-#include <vector>
 
 enum class SvListAction
 {
@@ -45,12 +42,12 @@ enum class SvListAction
     RESORTING        = 9,
     RESORTED         = 10,
     CLEARED          = 11,
-    REVERSING        = 12,
     REVERSED         = 13
 };
 
 class SvTreeListEntry;
 class SvListView;
+class SvViewDataEntry;
 
 enum SvSortMode { SortAscending, SortDescending, SortNone };
 
@@ -65,18 +62,14 @@ struct SvSortData
 
 class VCL_DLLPUBLIC SvTreeList final
 {
-    typedef std::vector<SvListView*> ListViewsType;
-
     friend class        SvListView;
 
-    ListViewsType       aViewList;
+    SvListView&         mrOwnerListView;
     sal_uLong           nEntryCount;
 
     Link<SvTreeListEntry*, SvTreeListEntry*>  aCloneLink;
     Link<const SvSortData&, sal_Int32>        aCompareLink;
     SvSortMode          eSortMode;
-
-    sal_uInt16          nRefCount;
 
     bool                bAbsPositionsValid;
 
@@ -100,11 +93,7 @@ class VCL_DLLPUBLIC SvTreeList final
     SvTreeListEntry*        PrevSelected( const SvListView*,SvTreeListEntry* pEntry ) const;
     SvTreeListEntry*        LastSelected( const SvListView*) const;
 
-    static bool         Select( SvListView*,SvTreeListEntry* pEntry, bool bSelect );
     sal_uLong           GetChildSelectionCount( const SvListView*,SvTreeListEntry* pParent ) const;
-
-    static void         Expand( SvListView*,SvTreeListEntry* pParent );
-    static void         Collapse( SvListView*,SvTreeListEntry* pParent );
 
     VCL_DLLPRIVATE void SetAbsolutePositions();
 
@@ -134,11 +123,9 @@ class VCL_DLLPUBLIC SvTreeList final
 
 public:
 
-                        SvTreeList();
+                        SvTreeList() = delete;
+                        SvTreeList(SvListView&);
                         ~SvTreeList();
-
-    void                InsertView( SvListView* );
-    void                RemoveView( SvListView const * );
 
     void                Broadcast(
                             SvListAction nActionId,
@@ -213,9 +200,6 @@ public:
 
     SvTreeListEntry*    CloneEntry( SvTreeListEntry* pSource ) const; // Calls the Clone Link
 
-    sal_uInt16          GetRefCount() const { return nRefCount; }
-    void                SetRefCount( sal_uInt16 nRef ) { nRefCount = nRef; }
-
     void                SetSortMode( SvSortMode eMode ) { eSortMode = eMode; }
     SvSortMode          GetSortMode() const { return eSortMode; }
     sal_Int32           Compare(const SvTreeListEntry* pLeft, const SvTreeListEntry* pRight) const;
@@ -232,22 +216,17 @@ class VCL_DLLPUBLIC SvListView
     std::unique_ptr<Impl> m_pImpl;
 
 protected:
-    SvTreeList* pModel;
+    std::unique_ptr<SvTreeList> pModel;
 
-    void                ExpandListEntry( SvTreeListEntry* pParent )
-    { SvTreeList::Expand(this,pParent); }
-
-    void                CollapseListEntry( SvTreeListEntry* pParent )
-    { SvTreeList::Collapse(this,pParent); }
-
-    bool                SelectListEntry( SvTreeListEntry* pEntry, bool bSelect )
-    { return SvTreeList::Select(this,pEntry,bSelect); }
+    void                ExpandListEntry( SvTreeListEntry* pParent );
+    void                CollapseListEntry( SvTreeListEntry* pParent );
+    bool                SelectListEntry( SvTreeListEntry* pEntry, bool bSelect );
 
 public:
                         SvListView();   // Sets the Model to 0
+    void                dispose();
     virtual             ~SvListView();
     void                Clear();
-    virtual void        SetModel( SvTreeList* );
     virtual void        ModelNotification(
                             SvListAction nActionId,
                             SvTreeListEntry* pEntry1,
@@ -317,7 +296,6 @@ public:
     SvViewDataEntry*         GetViewData( SvTreeListEntry* pEntry );
     bool                HasViewData() const;
 
-    virtual std::unique_ptr<SvViewDataEntry> CreateViewData( SvTreeListEntry* pEntry );
     virtual void        InitViewData( SvViewDataEntry*, SvTreeListEntry* pEntry );
 
     virtual void        ModelHasCleared();

@@ -20,6 +20,7 @@
 #include <svsys.h>
 
 #include "gdiimpl.hxx"
+#include "scoped_gdi.hxx"
 
 #include <string.h>
 #include <rtl/strbuf.hxx>
@@ -61,40 +62,9 @@
 #define SAL_POLYPOLYCOUNT_STACKBUF          8
 #define SAL_POLYPOLYPOINTS_STACKBUF         64
 
-#define DITHER_PAL_DELTA                51
-#define DITHER_MAX_SYSCOLOR             16
-#define DMAP( _def_nVal, _def_nThres )  ((pDitherDiff[_def_nVal]>(_def_nThres))?pDitherHigh[_def_nVal]:pDitherLow[_def_nVal])
-
 #define SAL_POLY_STACKBUF       32
 
 namespace {
-
-// #100127# draw an array of points which might also contain bezier control points
-void ImplRenderPath( HDC hdc, sal_uLong nPoints, const SalPoint* pPtAry, const PolyFlags* pFlgAry )
-{
-    if( nPoints )
-    {
-        // TODO: profile whether the following options are faster:
-        // a) look ahead and draw consecutive bezier or line segments by PolyBezierTo/PolyLineTo resp.
-        // b) convert our flag array to window's and use PolyDraw
-
-        MoveToEx( hdc, pPtAry->mnX, pPtAry->mnY, nullptr );
-        ++pPtAry; ++pFlgAry;
-
-        for( sal_uLong i=1; i<nPoints; ++i, ++pPtAry, ++pFlgAry )
-        {
-            if( *pFlgAry != PolyFlags::Control )
-            {
-                LineTo( hdc, pPtAry->mnX, pPtAry->mnY );
-            }
-            else if( nPoints - i > 2 )
-            {
-                PolyBezierTo( hdc, reinterpret_cast<const POINT*>(pPtAry), 3 );
-                i += 2; pPtAry += 2; pFlgAry += 2;
-            }
-        }
-    }
-}
 
 // #100127# Fill point and flag memory from array of points which
 // might also contain bezier control points for the PolyDraw() GDI method
@@ -167,56 +137,6 @@ void ImplPreparePolyDraw( bool                      bCloseFigures,
     }
 }
 
-
-static PALETTEENTRY aImplSalSysPalEntryAry[ DITHER_MAX_SYSCOLOR ] =
-{
-{    0,    0,    0, 0 },
-{    0,    0, 0x80, 0 },
-{    0, 0x80,    0, 0 },
-{    0, 0x80, 0x80, 0 },
-{ 0x80,    0,    0, 0 },
-{ 0x80,    0, 0x80, 0 },
-{ 0x80, 0x80,    0, 0 },
-{ 0x80, 0x80, 0x80, 0 },
-{ 0xC0, 0xC0, 0xC0, 0 },
-{    0,    0, 0xFF, 0 },
-{    0, 0xFF,    0, 0 },
-{    0, 0xFF, 0xFF, 0 },
-{ 0xFF,    0,    0, 0 },
-{ 0xFF,    0, 0xFF, 0 },
-{ 0xFF, 0xFF,    0, 0 },
-{ 0xFF, 0xFF, 0xFF, 0 }
-};
-
-static PALETTEENTRY aImplExtraColor1 =
-{
-    0, 184, 255, 0
-};
-
-static BYTE aOrdDither8Bit[8][8] =
-{
-   {  0, 38,  9, 48,  2, 40, 12, 50 },
-   { 25, 12, 35, 22, 28, 15, 37, 24 },
-   {  6, 44,  3, 41,  8, 47,  5, 44 },
-   { 32, 19, 28, 16, 34, 21, 31, 18 },
-   {  1, 40, 11, 49,  0, 39, 10, 48 },
-   { 27, 14, 36, 24, 26, 13, 36, 23 },
-   {  8, 46,  4, 43,  7, 45,  4, 42 },
-   { 33, 20, 30, 17, 32, 20, 29, 16 }
-};
-
-static BYTE aOrdDither16Bit[8][8] =
-{
-   { 0, 6, 1, 7, 0, 6, 1, 7 },
-   { 4, 2, 5, 3, 4, 2, 5, 3 },
-   { 1, 7, 0, 6, 1, 7, 0, 6 },
-   { 5, 3, 4, 2, 5, 3, 4, 2 },
-   { 0, 6, 1, 7, 0, 6, 1, 7 },
-   { 4, 2, 5, 3, 4, 2, 5, 3 },
-   { 1, 7, 0, 6, 1, 7, 0, 6 },
-   { 5, 3, 4, 2, 5, 3, 4, 2 }
-};
-
 Color ImplGetROPColor( SalROPColor nROPColor )
 {
     Color nColor;
@@ -227,33 +147,63 @@ Color ImplGetROPColor( SalROPColor nROPColor )
     return nColor;
 }
 
-int ImplIsPaletteEntry( BYTE nRed, BYTE nGreen, BYTE nBlue )
+bool IsDitherColor(BYTE nRed, BYTE nGreen, BYTE nBlue)
 {
-    // dither color?
-    if ( !(nRed % DITHER_PAL_DELTA) && !(nGreen % DITHER_PAL_DELTA) && !(nBlue % DITHER_PAL_DELTA) )
-        return TRUE;
+    constexpr sal_uInt8 DITHER_PAL_DELTA = 51;
 
-    PALETTEENTRY* pPalEntry = aImplSalSysPalEntryAry;
-
-    // standard palette color?
-    for ( sal_uInt16 i = 0; i < DITHER_MAX_SYSCOLOR; i++, pPalEntry++ )
-    {
-        if( pPalEntry->peRed == nRed && pPalEntry->peGreen == nGreen && pPalEntry->peBlue == nBlue )
-            return TRUE;
-    }
-
-    // extra color?
-    if ( aImplExtraColor1.peRed == nRed &&
-         aImplExtraColor1.peGreen == nGreen &&
-         aImplExtraColor1.peBlue == nBlue )
-    {
-        return TRUE;
-    }
-
-    return FALSE;
+    return !(nRed % DITHER_PAL_DELTA) &&
+           !(nGreen % DITHER_PAL_DELTA) &&
+           !(nBlue % DITHER_PAL_DELTA);
 }
 
+bool IsPaletteColor(BYTE nRed, BYTE nGreen, BYTE nBlue)
+{
+    static const PALETTEENTRY aImplSalSysPalEntryAry[] =
+    {
+    {    0,    0,    0, 0 },
+    {    0,    0, 0x80, 0 },
+    {    0, 0x80,    0, 0 },
+    {    0, 0x80, 0x80, 0 },
+    { 0x80,    0,    0, 0 },
+    { 0x80,    0, 0x80, 0 },
+    { 0x80, 0x80,    0, 0 },
+    { 0x80, 0x80, 0x80, 0 },
+    { 0xC0, 0xC0, 0xC0, 0 },
+    {    0,    0, 0xFF, 0 },
+    {    0, 0xFF,    0, 0 },
+    {    0, 0xFF, 0xFF, 0 },
+    { 0xFF,    0,    0, 0 },
+    { 0xFF,    0, 0xFF, 0 },
+    { 0xFF, 0xFF,    0, 0 },
+    { 0xFF, 0xFF, 0xFF, 0 }
+    };
+
+    for (const auto& rPalEntry : aImplSalSysPalEntryAry)
+    {
+        if(rPalEntry.peRed == nRed &&
+           rPalEntry.peGreen == nGreen &&
+           rPalEntry.peBlue == nBlue)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
+
+bool IsExtraColor(BYTE nRed, BYTE nGreen, BYTE nBlue)
+{
+    return (nRed == 0) && (nGreen == 184) && (nBlue == 255);
+}
+
+bool ImplIsPaletteEntry(BYTE nRed, BYTE nGreen, BYTE nBlue)
+{
+    return IsDitherColor(nRed, nGreen, nBlue) ||
+           IsPaletteColor(nRed, nGreen, nBlue) ||
+           IsExtraColor(nRed, nGreen, nBlue);
+}
+
+} // namespace
 
 WinSalGraphicsImpl::WinSalGraphicsImpl(WinSalGraphics& rParent):
     mrParent(rParent),
@@ -280,7 +230,6 @@ WinSalGraphicsImpl::~WinSalGraphicsImpl()
         if ( !mbStockBrush )
             DeleteBrush( mhBrush );
     }
-
 }
 
 void WinSalGraphicsImpl::Init()
@@ -335,46 +284,47 @@ void WinSalGraphicsImpl::copyBits( const SalTwoRect& rPosAry, SalGraphics* pSrcG
     }
 }
 
-static void ImplCalcOutSideRgn( const RECT& rSrcRect,
+namespace
+{
+
+void MakeInvisibleArea(const RECT& rSrcRect,
+                       int nLeft, int nTop, int nRight, int nBottom,
+                       HRGN& rhInvalidateRgn)
+{
+    if (!rhInvalidateRgn)
+    {
+        rhInvalidateRgn = CreateRectRgnIndirect(&rSrcRect);
+    }
+
+    HRGN hTempRgn = CreateRectRgn(nLeft, nTop, nRight, nBottom);
+    CombineRgn(rhInvalidateRgn, rhInvalidateRgn, hTempRgn, RGN_DIFF);
+    DeleteRegion(hTempRgn);
+}
+
+void ImplCalcOutSideRgn( const RECT& rSrcRect,
                          int nLeft, int nTop, int nRight, int nBottom,
                          HRGN& rhInvalidateRgn )
 {
-    HRGN hTempRgn;
-
     // calculate area outside the visible region
-    if ( rSrcRect.left < nLeft )
+    if (rSrcRect.left < nLeft)
     {
-        if ( !rhInvalidateRgn )
-            rhInvalidateRgn = CreateRectRgnIndirect( &rSrcRect );
-        hTempRgn = CreateRectRgn( -31999, 0, nLeft, 31999 );
-        CombineRgn( rhInvalidateRgn, rhInvalidateRgn, hTempRgn, RGN_DIFF );
-        DeleteRegion( hTempRgn );
+        MakeInvisibleArea(rSrcRect, -31999, 0, nLeft, 31999, rhInvalidateRgn);
     }
-    if ( rSrcRect.top < nTop )
+    if (rSrcRect.top < nTop)
     {
-        if ( !rhInvalidateRgn )
-            rhInvalidateRgn = CreateRectRgnIndirect( &rSrcRect );
-        hTempRgn = CreateRectRgn( 0, -31999, 31999, nTop );
-        CombineRgn( rhInvalidateRgn, rhInvalidateRgn, hTempRgn, RGN_DIFF );
-        DeleteRegion( hTempRgn );
+        MakeInvisibleArea(rSrcRect, 0, -31999, 31999, nTop, rhInvalidateRgn);
     }
-    if ( rSrcRect.right > nRight )
+    if (rSrcRect.right > nRight)
     {
-        if ( !rhInvalidateRgn )
-            rhInvalidateRgn = CreateRectRgnIndirect( &rSrcRect );
-        hTempRgn = CreateRectRgn( nRight, 0, 31999, 31999 );
-        CombineRgn( rhInvalidateRgn, rhInvalidateRgn, hTempRgn, RGN_DIFF );
-        DeleteRegion( hTempRgn );
+        MakeInvisibleArea(rSrcRect, nRight, 0, 31999, 31999, rhInvalidateRgn);
     }
-    if ( rSrcRect.bottom > nBottom )
+    if (rSrcRect.bottom > nBottom)
     {
-        if ( !rhInvalidateRgn )
-            rhInvalidateRgn = CreateRectRgnIndirect( &rSrcRect );
-        hTempRgn = CreateRectRgn( 0, nBottom, 31999, 31999 );
-        CombineRgn( rhInvalidateRgn, rhInvalidateRgn, hTempRgn, RGN_DIFF );
-        DeleteRegion( hTempRgn );
+        MakeInvisibleArea(rSrcRect, 0, nBottom, 31999, 31999, rhInvalidateRgn);
     }
 }
+
+} // namespace
 
 void WinSalGraphicsImpl::copyArea( long nDestX, long nDestY,
                             long nSrcX, long nSrcY,
@@ -673,7 +623,7 @@ void ImplDrawBitmap( HDC hDC, const SalTwoRect& rPosAry, const WinSalBitmap& rSa
     }
 }
 
-}
+} // namespace
 
 void WinSalGraphicsImpl::drawBitmap(const SalTwoRect& rPosAry, const SalBitmap& rSalBitmap)
 {
@@ -691,7 +641,7 @@ void WinSalGraphicsImpl::drawBitmap(const SalTwoRect& rPosAry, const SalBitmap& 
     }
 
     // try to draw using GdiPlus directly
-    if(bTryDirectPaint && tryDrawBitmapGdiPlus(rPosAry, rSalBitmap))
+    if(bTryDirectPaint && TryDrawBitmapGDIPlus(rPosAry, rSalBitmap))
     {
         return;
     }
@@ -816,9 +766,9 @@ bool WinSalGraphicsImpl::drawAlphaRect( long nX, long nY, long nWidth,
     return bRet;
 }
 
-void WinSalGraphicsImpl::drawMask( const SalTwoRect& rPosAry,
-                            const SalBitmap& rSSalBitmap,
-                            Color nMaskColor )
+void WinSalGraphicsImpl::drawMask(const SalTwoRect& rPosAry,
+                                  const SalBitmap& rSSalBitmap,
+                                  Color nMaskColor)
 {
     SAL_WARN_IF( mrParent.isPrinter(), "vcl", "No transparency print possible!" );
 
@@ -827,12 +777,12 @@ void WinSalGraphicsImpl::drawMask( const SalTwoRect& rPosAry,
     const WinSalBitmap& rSalBitmap = static_cast<const WinSalBitmap&>(rSSalBitmap);
 
     SalTwoRect  aPosAry = rPosAry;
-    const BYTE  cRed = nMaskColor.GetRed();
-    const BYTE  cGreen = nMaskColor.GetGreen();
-    const BYTE  cBlue = nMaskColor.GetBlue();
-    HDC         hDC = mrParent.getHDC();
-    HBRUSH      hMaskBrush = CreateSolidBrush( RGB( cRed, cGreen, cBlue ) );
-    HBRUSH      hOldBrush = SelectBrush( hDC, hMaskBrush );
+    const HDC hDC = mrParent.getHDC();
+
+    ScopedHBRUSH hMaskBrush(CreateSolidBrush(RGB(nMaskColor.GetRed(),
+                                                 nMaskColor.GetGreen(),
+                                                 nMaskColor.GetBlue())));
+    HBRUSH  hOldBrush = SelectBrush(hDC, hMaskBrush.get());
 
     // WIN/WNT seems to have a minor problem mapping the correct color of the
     // mask to the palette if we draw the DIB directly ==> draw DDB
@@ -846,8 +796,7 @@ void WinSalGraphicsImpl::drawMask( const SalTwoRect& rPosAry,
     else
         ImplDrawBitmap( hDC, aPosAry, rSalBitmap, false, 0x00B8074AUL );
 
-    SelectBrush( hDC, hOldBrush );
-    DeleteBrush( hMaskBrush );
+    SelectBrush(hDC, hOldBrush);
 }
 
 std::shared_ptr<SalBitmap> WinSalGraphicsImpl::getBitmap( long nX, long nY, long nDX, long nDY )
@@ -897,6 +846,24 @@ Color WinSalGraphicsImpl::getPixel( long nX, long nY )
                               GetBValue( aWinCol ) );
 }
 
+namespace
+{
+
+HBRUSH Get50PercentBrush()
+{
+    SalData* pSalData = GetSalData();
+    if ( !pSalData->mh50Brush )
+    {
+        if ( !pSalData->mh50Bmp )
+            pSalData->mh50Bmp = ImplLoadSalBitmap( SAL_RESID_BITMAP_50 );
+        pSalData->mh50Brush = CreatePatternBrush( pSalData->mh50Bmp );
+    }
+
+    return pSalData->mh50Brush;
+}
+
+} // namespace
+
 void WinSalGraphicsImpl::invert( long nX, long nY, long nWidth, long nHeight, SalInvert nFlags )
 {
     if ( nFlags & SalInvert::TrackFrame )
@@ -915,16 +882,8 @@ void WinSalGraphicsImpl::invert( long nX, long nY, long nWidth, long nHeight, Sa
     }
     else if ( nFlags & SalInvert::N50 )
     {
-        SalData* pSalData = GetSalData();
-        if ( !pSalData->mh50Brush )
-        {
-            if ( !pSalData->mh50Bmp )
-                pSalData->mh50Bmp = ImplLoadSalBitmap( SAL_RESID_BITMAP_50 );
-            pSalData->mh50Brush = CreatePatternBrush( pSalData->mh50Bmp );
-        }
-
         COLORREF nOldTextColor = ::SetTextColor( mrParent.getHDC(), 0 );
-        HBRUSH hOldBrush = SelectBrush( mrParent.getHDC(), pSalData->mh50Brush );
+        HBRUSH hOldBrush = SelectBrush( mrParent.getHDC(), Get50PercentBrush() );
         PatBlt( mrParent.getHDC(), nX, nY, nWidth, nHeight, PATINVERT );
         ::SetTextColor( mrParent.getHDC(), nOldTextColor );
         SelectBrush( mrParent.getHDC(), hOldBrush );
@@ -955,17 +914,7 @@ void WinSalGraphicsImpl::invert( sal_uInt32 nPoints, const SalPoint* pPtAry, Sal
     {
 
         if ( nSalFlags & SalInvert::N50 )
-        {
-            SalData* pSalData = GetSalData();
-            if ( !pSalData->mh50Brush )
-            {
-                if ( !pSalData->mh50Bmp )
-                    pSalData->mh50Bmp = ImplLoadSalBitmap( SAL_RESID_BITMAP_50 );
-                pSalData->mh50Brush = CreatePatternBrush( pSalData->mh50Bmp );
-            }
-
-            hBrush = pSalData->mh50Brush;
-        }
+            hBrush = Get50PercentBrush();
         else
             hBrush = GetStockBrush( BLACK_BRUSH );
 
@@ -1344,207 +1293,264 @@ bool WinSalGraphicsImpl::setClipRegion( const vcl::Region& i_rClip )
 
 void WinSalGraphicsImpl::SetLineColor()
 {
-    // create and select new pen
-    HPEN hNewPen = GetStockPen( NULL_PEN );
-    HPEN hOldPen = SelectPen( mrParent.getHDC(), hNewPen );
-
-    // destroy or save old pen
-    if ( mhPen )
-    {
-        if ( !mbStockPen )
-            DeletePen( mhPen );
-    }
-    else
-        mrParent.mhDefPen = hOldPen;
+    ResetPen(GetStockPen(NULL_PEN));
 
     // set new data
-    mhPen       = hNewPen;
     mbPen       = FALSE;
     mbStockPen  = TRUE;
 }
 
-void WinSalGraphicsImpl::SetLineColor( Color nColor )
+void WinSalGraphicsImpl::SetLineColor(Color nColor)
 {
-    maLineColor = nColor;
-    COLORREF    nPenColor = PALETTERGB( nColor.GetRed(),
-                                        nColor.GetGreen(),
-                                        nColor.GetBlue() );
-    HPEN        hNewPen = nullptr;
-    bool        bStockPen = FALSE;
+    COLORREF nPenColor = PALETTERGB(nColor.GetRed(),
+                                    nColor.GetGreen(),
+                                    nColor.GetBlue());
+    bool bStockPen = false;
 
-    // search for stock pen (only screen, because printer have problems,
-    // when we use stock objects)
-    if ( !mrParent.isPrinter() )
-    {
-        SalData* pSalData = GetSalData();
-        for ( sal_uInt16 i = 0; i < pSalData->mnStockPenCount; i++ )
-        {
-            if ( nPenColor == pSalData->maStockPenColorAry[i] )
-            {
-                hNewPen = pSalData->mhStockPenAry[i];
-                bStockPen = TRUE;
-                break;
-            }
-        }
-    }
-
-    // create new pen
-    if ( !hNewPen )
-    {
-        if ( !mrParent.isPrinter() )
-        {
-            if ( GetSalData()->mhDitherPal && ImplIsSysColorEntry( nColor ) )
-                nPenColor = PALRGB_TO_RGB( nPenColor );
-        }
-
-        hNewPen = CreatePen( PS_SOLID, mrParent.mnPenWidth, nPenColor );
-        bStockPen = FALSE;
-    }
-
-    // select new pen
-    HPEN hOldPen = SelectPen( mrParent.getHDC(), hNewPen );
-
-    // destroy or save old pen
-    if ( mhPen )
-    {
-        if ( !mbStockPen )
-            DeletePen( mhPen );
-    }
+    HPEN hNewPen = SearchStockPen(nPenColor);
+    if (hNewPen)
+        bStockPen = true;
     else
-        mrParent.mhDefPen = hOldPen;
+        hNewPen = MakePen(nColor);
+
+    ResetPen(hNewPen);
 
     // set new data
     mnPenColor  = nPenColor;
-    mhPen       = hNewPen;
+    maLineColor = nColor;
     mbPen       = TRUE;
     mbStockPen  = bStockPen;
 }
 
-void WinSalGraphicsImpl::SetFillColor()
+HPEN WinSalGraphicsImpl::SearchStockPen(COLORREF nPenColor)
 {
-    // create and select new brush
-    HBRUSH hNewBrush = GetStockBrush( NULL_BRUSH );
-    HBRUSH hOldBrush = SelectBrush( mrParent.getHDC(), hNewBrush );
-
-    // destroy or save old brush
-    if ( mhBrush )
+    // Only screen, because printer has problems, when we use stock objects.
+    if (!mrParent.isPrinter())
     {
-        if ( !mbStockBrush )
-            DeleteBrush( mhBrush );
+        const SalData* pSalData = GetSalData();
+
+        for (sal_uInt16 i = 0; i < pSalData->mnStockPenCount; i++)
+        {
+            if (nPenColor == pSalData->maStockPenColorAry[i])
+                return pSalData->mhStockPenAry[i];
+        }
+    }
+
+    return nullptr;
+}
+
+HPEN WinSalGraphicsImpl::MakePen(Color nColor)
+{
+    COLORREF nPenColor = PALETTERGB(nColor.GetRed(),
+                                    nColor.GetGreen(),
+                                    nColor.GetBlue());
+
+    if (!mrParent.isPrinter())
+    {
+        if (GetSalData()->mhDitherPal && ImplIsSysColorEntry(nColor))
+        {
+            nPenColor = PALRGB_TO_RGB(nPenColor);
+        }
+    }
+
+    return CreatePen(PS_SOLID, mrParent.mnPenWidth, nPenColor);
+}
+
+void WinSalGraphicsImpl::ResetPen(HPEN hNewPen)
+{
+    HPEN hOldPen = SelectPen(mrParent.getHDC(), hNewPen);
+
+    if (mhPen)
+    {
+        if (!mbStockPen)
+        {
+            DeletePen(mhPen);
+        }
     }
     else
-        mrParent.mhDefBrush = hOldBrush;
+    {
+        mrParent.mhDefPen = hOldPen;
+    }
+
+    mhPen = hNewPen;
+}
+
+void WinSalGraphicsImpl::SetFillColor()
+{
+    ResetBrush(GetStockBrush(NULL_BRUSH));
 
     // set new data
-    mhBrush     = hNewBrush;
     mbBrush     = FALSE;
     mbStockBrush = TRUE;
 }
 
-void WinSalGraphicsImpl::SetFillColor( Color nColor )
+void WinSalGraphicsImpl::SetFillColor(Color nColor)
 {
-    maFillColor = nColor;
-    SalData*    pSalData    = GetSalData();
-    BYTE        nRed        = nColor.GetRed();
-    BYTE        nGreen      = nColor.GetGreen();
-    BYTE        nBlue       = nColor.GetBlue();
-    COLORREF    nBrushColor = PALETTERGB( nRed, nGreen, nBlue );
-    HBRUSH      hNewBrush   = nullptr;
-    bool        bStockBrush = FALSE;
+    COLORREF nBrushColor = PALETTERGB(nColor.GetRed(),
+                                      nColor.GetGreen(),
+                                      nColor.GetBlue());
+    bool bStockBrush = false;
 
-    // search for stock brush (only screen, because printer have problems,
-    // when we use stock objects)
-    if ( !mrParent.isPrinter() )
-    {
-        for ( sal_uInt16 i = 0; i < pSalData->mnStockBrushCount; i++ )
-        {
-            if ( nBrushColor == pSalData->maStockBrushColorAry[ i ] )
-            {
-                hNewBrush = pSalData->mhStockBrushAry[i];
-                bStockBrush = TRUE;
-                break;
-            }
-        }
-    }
-
-    // create new brush
-    if ( !hNewBrush )
-    {
-        if ( mrParent.isPrinter() || !pSalData->mhDitherDIB )
-            hNewBrush = CreateSolidBrush( nBrushColor );
-        else
-        {
-            if ( 24 == reinterpret_cast<BITMAPINFOHEADER*>(pSalData->mpDitherDIB)->biBitCount )
-            {
-                BYTE* pTmp = pSalData->mpDitherDIBData;
-                long* pDitherDiff = pSalData->mpDitherDiff;
-                BYTE* pDitherLow = pSalData->mpDitherLow;
-                BYTE* pDitherHigh = pSalData->mpDitherHigh;
-
-                for( long nY = 0L; nY < 8L; nY++ )
-                {
-                    for( long nX = 0L; nX < 8L; nX++ )
-                    {
-                        const long nThres = aOrdDither16Bit[ nY ][ nX ];
-                        *pTmp++ = DMAP( nBlue, nThres );
-                        *pTmp++ = DMAP( nGreen, nThres );
-                        *pTmp++ = DMAP( nRed, nThres );
-                    }
-                }
-
-                hNewBrush = CreateDIBPatternBrush( pSalData->mhDitherDIB, DIB_RGB_COLORS );
-            }
-            else if ( ImplIsSysColorEntry( nColor ) )
-            {
-                nBrushColor = PALRGB_TO_RGB( nBrushColor );
-                hNewBrush = CreateSolidBrush( nBrushColor );
-            }
-            else if ( ImplIsPaletteEntry( nRed, nGreen, nBlue ) )
-                hNewBrush = CreateSolidBrush( nBrushColor );
-            else
-            {
-                BYTE* pTmp = pSalData->mpDitherDIBData;
-                long* pDitherDiff = pSalData->mpDitherDiff;
-                BYTE* pDitherLow = pSalData->mpDitherLow;
-                BYTE* pDitherHigh = pSalData->mpDitherHigh;
-
-                for ( long nY = 0L; nY < 8L; nY++ )
-                {
-                    for ( long nX = 0L; nX < 8L; nX++ )
-                    {
-                        const long nThres = aOrdDither8Bit[ nY ][ nX ];
-                        *pTmp = DMAP( nRed, nThres ) + DMAP( nGreen, nThres ) * 6 + DMAP( nBlue, nThres ) * 36;
-                        pTmp++;
-                    }
-                }
-
-                hNewBrush = CreateDIBPatternBrush( pSalData->mhDitherDIB, DIB_PAL_COLORS );
-            }
-        }
-
-        bStockBrush = FALSE;
-    }
-
-    // select new brush
-    HBRUSH hOldBrush = SelectBrush( mrParent.getHDC(), hNewBrush );
-
-    // destroy or save old brush
-    if ( mhBrush )
-    {
-        if ( !mbStockBrush )
-            DeleteBrush( mhBrush );
-    }
+    HBRUSH hNewBrush = SearchStockBrush(nBrushColor);
+    if (hNewBrush)
+        bStockBrush = true;
     else
-        mrParent.mhDefBrush = hOldBrush;
+        hNewBrush = MakeBrush(nColor);
+
+    ResetBrush(hNewBrush);
 
     // set new data
     mnBrushColor = nBrushColor;
-    mhBrush     = hNewBrush;
+    maFillColor = nColor;
     mbBrush     = TRUE;
     mbStockBrush = bStockBrush;
 }
 
-void WinSalGraphicsImpl::SetXORMode( bool bSet)
+HBRUSH WinSalGraphicsImpl::SearchStockBrush(COLORREF nBrushColor)
+{
+    // Only screen, because printer has problems, when we use stock objects.
+    if (!mrParent.isPrinter())
+    {
+        const SalData* pSalData = GetSalData();
+
+        for (sal_uInt16 i = 0; i < pSalData->mnStockBrushCount; i++)
+        {
+            if (nBrushColor == pSalData->maStockBrushColorAry[i])
+                return pSalData->mhStockBrushAry[i];
+        }
+    }
+
+    return nullptr;
+}
+
+namespace
+{
+
+BYTE GetDitherMappingValue(BYTE nVal, BYTE nThres, const SalData* pSalData)
+{
+    return (pSalData->mpDitherDiff[nVal] > nThres) ?
+        pSalData->mpDitherHigh[nVal] : pSalData->mpDitherLow[nVal];
+}
+
+HBRUSH Make16BitDIBPatternBrush(Color nColor)
+{
+    const SalData* pSalData = GetSalData();
+
+    const BYTE nRed   = nColor.GetRed();
+    const BYTE nGreen = nColor.GetGreen();
+    const BYTE nBlue  = nColor.GetBlue();
+
+    static const BYTE aOrdDither16Bit[8][8] =
+    {
+       { 0, 6, 1, 7, 0, 6, 1, 7 },
+       { 4, 2, 5, 3, 4, 2, 5, 3 },
+       { 1, 7, 0, 6, 1, 7, 0, 6 },
+       { 5, 3, 4, 2, 5, 3, 4, 2 },
+       { 0, 6, 1, 7, 0, 6, 1, 7 },
+       { 4, 2, 5, 3, 4, 2, 5, 3 },
+       { 1, 7, 0, 6, 1, 7, 0, 6 },
+       { 5, 3, 4, 2, 5, 3, 4, 2 }
+    };
+
+    BYTE* pTmp = pSalData->mpDitherDIBData;
+
+    for(int nY = 0; nY < 8; ++nY)
+    {
+        for(int nX = 0; nX < 8; ++nX)
+        {
+            const BYTE nThres = aOrdDither16Bit[nY][nX];
+            *pTmp++ = GetDitherMappingValue(nBlue, nThres, pSalData);
+            *pTmp++ = GetDitherMappingValue(nGreen, nThres, pSalData);
+            *pTmp++ = GetDitherMappingValue(nRed, nThres, pSalData);
+        }
+    }
+
+    return CreateDIBPatternBrush(pSalData->mhDitherDIB, DIB_RGB_COLORS);
+}
+
+HBRUSH Make8BitDIBPatternBrush(Color nColor)
+{
+    const SalData* pSalData = GetSalData();
+
+    const BYTE nRed   = nColor.GetRed();
+    const BYTE nGreen = nColor.GetGreen();
+    const BYTE nBlue  = nColor.GetBlue();
+
+    static const BYTE aOrdDither8Bit[8][8] =
+    {
+       {  0, 38,  9, 48,  2, 40, 12, 50 },
+       { 25, 12, 35, 22, 28, 15, 37, 24 },
+       {  6, 44,  3, 41,  8, 47,  5, 44 },
+       { 32, 19, 28, 16, 34, 21, 31, 18 },
+       {  1, 40, 11, 49,  0, 39, 10, 48 },
+       { 27, 14, 36, 24, 26, 13, 36, 23 },
+       {  8, 46,  4, 43,  7, 45,  4, 42 },
+       { 33, 20, 30, 17, 32, 20, 29, 16 }
+    };
+
+    BYTE* pTmp = pSalData->mpDitherDIBData;
+
+    for (int nY = 0; nY < 8; ++nY)
+    {
+        for (int nX = 0; nX < 8; ++nX)
+        {
+            const BYTE nThres = aOrdDither8Bit[nY][nX];
+            *pTmp = GetDitherMappingValue(nRed, nThres, pSalData) +
+                    GetDitherMappingValue(nGreen, nThres, pSalData) * 6 +
+                    GetDitherMappingValue(nBlue, nThres, pSalData) * 36;
+            pTmp++;
+        }
+    }
+
+    return CreateDIBPatternBrush(pSalData->mhDitherDIB, DIB_PAL_COLORS);
+}
+
+} // namespace
+
+HBRUSH WinSalGraphicsImpl::MakeBrush(Color nColor)
+{
+    const SalData* pSalData = GetSalData();
+
+    const BYTE        nRed        = nColor.GetRed();
+    const BYTE        nGreen      = nColor.GetGreen();
+    const BYTE        nBlue       = nColor.GetBlue();
+    const COLORREF    nBrushColor = PALETTERGB(nRed, nGreen, nBlue);
+
+    if (mrParent.isPrinter() || !pSalData->mhDitherDIB)
+        return CreateSolidBrush(nBrushColor);
+
+    if (24 == reinterpret_cast<BITMAPINFOHEADER*>(pSalData->mpDitherDIB)->biBitCount)
+        return Make16BitDIBPatternBrush(nColor);
+
+    if (ImplIsSysColorEntry(nColor))
+        return CreateSolidBrush(PALRGB_TO_RGB(nBrushColor));
+
+    if (ImplIsPaletteEntry(nRed, nGreen, nBlue))
+        return CreateSolidBrush(nBrushColor);
+
+    return Make8BitDIBPatternBrush(nColor);
+}
+
+void WinSalGraphicsImpl::ResetBrush(HBRUSH hNewBrush)
+{
+    HBRUSH hOldBrush = SelectBrush(mrParent.getHDC(), hNewBrush);
+
+    if (mhBrush)
+    {
+        if (!mbStockBrush)
+        {
+            DeleteBrush(mhBrush);
+        }
+    }
+    else
+    {
+        mrParent.mhDefBrush = hOldBrush;
+    }
+
+    mhBrush = hNewBrush;
+}
+
+void WinSalGraphicsImpl::SetXORMode( bool bSet, bool )
 {
     mbXORMode = bSet;
     ::SetROP2( mrParent.getHDC(), bSet ? R2_XORPEN : R2_COPYPEN );
@@ -1560,23 +1566,25 @@ void WinSalGraphicsImpl::SetROPFillColor( SalROPColor nROPColor )
     SetFillColor( ImplGetROPColor( nROPColor ) );
 }
 
-void WinSalGraphicsImpl::drawPixelImpl( long nX, long nY, COLORREF crColor )
+void WinSalGraphicsImpl::DrawPixelImpl( long nX, long nY, COLORREF crColor )
 {
-    if ( mbXORMode )
+    const HDC hDC = mrParent.getHDC();
+
+    if (!mbXORMode)
     {
-        HBRUSH hBrush = CreateSolidBrush( crColor );
-        HBRUSH hOldBrush = SelectBrush( mrParent.getHDC(), hBrush );
-        PatBlt( mrParent.getHDC(), static_cast<int>(nX), static_cast<int>(nY), int(1), int(1), PATINVERT );
-        SelectBrush( mrParent.getHDC(), hOldBrush );
-        DeleteBrush( hBrush );
+        SetPixel(hDC, static_cast<int>(nX), static_cast<int>(nY), crColor);
+        return;
     }
-    else
-        SetPixel( mrParent.getHDC(), static_cast<int>(nX), static_cast<int>(nY), crColor );
+
+    ScopedHBRUSH hBrush(CreateSolidBrush(crColor));
+    HBRUSH hOldBrush = SelectBrush(hDC, hBrush.get());
+    PatBlt(hDC, static_cast<int>(nX), static_cast<int>(nY), int(1), int(1), PATINVERT);
+    SelectBrush(hDC, hOldBrush);
 }
 
 void WinSalGraphicsImpl::drawPixel( long nX, long nY )
 {
-    drawPixelImpl( nX, nY, mnPenColor );
+    DrawPixelImpl( nX, nY, mnPenColor );
 }
 
 void WinSalGraphicsImpl::drawPixel( long nX, long nY, Color nColor )
@@ -1590,7 +1598,7 @@ void WinSalGraphicsImpl::drawPixel( long nX, long nY, Color nColor )
          ImplIsSysColorEntry( nColor ) )
         nCol = PALRGB_TO_RGB( nCol );
 
-    drawPixelImpl( nX, nY, nCol );
+    DrawPixelImpl( nX, nY, nCol );
 }
 
 void WinSalGraphicsImpl::drawLine( long nX1, long nY1, long nX2, long nY2 )
@@ -1601,7 +1609,7 @@ void WinSalGraphicsImpl::drawLine( long nX1, long nY1, long nX2, long nY2 )
 
     // LineTo doesn't draw the last pixel
     if ( !mrParent.isPrinter() )
-        drawPixelImpl( nX2, nY2, mnPenColor );
+        DrawPixelImpl( nX2, nY2, mnPenColor );
 }
 
 void WinSalGraphicsImpl::drawRect( long nX, long nY, long nWidth, long nHeight )
@@ -1640,7 +1648,7 @@ void WinSalGraphicsImpl::drawPolyLine( sal_uInt32 nPoints, const SalPoint* pPtAr
 
     // Polyline seems to uses LineTo, which doesn't paint the last pixel (see 87eb8f8ee)
     if ( !mrParent.isPrinter() )
-        drawPixelImpl( pWinPtAry[nPoints-1].x, pWinPtAry[nPoints-1].y, mnPenColor );
+        DrawPixelImpl( pWinPtAry[nPoints-1].x, pWinPtAry[nPoints-1].y, mnPenColor );
 }
 
 void WinSalGraphicsImpl::drawPolygon( sal_uInt32 nPoints, const SalPoint* pPtAry )
@@ -1723,7 +1731,36 @@ bool WinSalGraphicsImpl::drawPolyLineBezier( sal_uInt32 nPoints, const SalPoint*
 {
     static_assert( sizeof( POINT ) == sizeof( SalPoint ), "must be the same size" );
 
-    ImplRenderPath( mrParent.getHDC(), nPoints, pPtAry, pFlgAry );
+    // #100127# draw an array of points which might also contain bezier control points
+    if (!nPoints)
+        return true;
+
+    const HDC hdc = mrParent.getHDC();
+
+    // TODO: profile whether the following options are faster:
+    // a) look ahead and draw consecutive bezier or line segments by PolyBezierTo/PolyLineTo resp.
+    // b) convert our flag array to window's and use PolyDraw
+    MoveToEx(hdc, pPtAry->mnX, pPtAry->mnY, nullptr);
+    ++pPtAry;
+    ++pFlgAry;
+
+    for(sal_uInt32 i = 1; i < nPoints; ++i)
+    {
+        if(*pFlgAry != PolyFlags::Control)
+        {
+            LineTo(hdc, pPtAry->mnX, pPtAry->mnY);
+        }
+        else if(nPoints - i > 2)
+        {
+            PolyBezierTo(hdc, reinterpret_cast<const POINT*>(pPtAry), 3);
+            i += 2;
+            pPtAry += 2;
+            pFlgAry += 2;
+        }
+
+        ++pPtAry;
+        ++pFlgAry;
+    }
 
     return true;
 }
@@ -2376,7 +2413,7 @@ static void setInterpolationMode(
     }
 }
 
-bool WinSalGraphicsImpl::tryDrawBitmapGdiPlus(const SalTwoRect& rTR, const SalBitmap& rSrcBitmap)
+bool WinSalGraphicsImpl::TryDrawBitmapGDIPlus(const SalTwoRect& rTR, const SalBitmap& rSrcBitmap)
 {
     if(rTR.mnSrcWidth && rTR.mnSrcHeight && rTR.mnDestWidth && rTR.mnDestHeight)
     {

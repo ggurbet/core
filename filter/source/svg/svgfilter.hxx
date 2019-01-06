@@ -30,6 +30,7 @@
 #include <com/sun/star/lang/XComponent.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <com/sun/star/xml/sax/XWriter.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
 
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
@@ -57,6 +58,7 @@ using namespace ::com::sun::star::document;
 using namespace ::com::sun::star::io;
 using namespace ::com::sun::star::lang;
 using namespace ::com::sun::star::uno;
+using namespace ::com::sun::star;
 using namespace ::com::sun::star::xml::sax;
 
 #define SVG_EXPORT_ALLPAGES ((sal_Int32)-1)
@@ -192,31 +194,41 @@ public:
 
 private:
 
+    /// Generally use members
+
     Reference< XComponentContext >      mxContext;
     SvXMLElementExport*                 mpSVGDoc;
     SVGExport*                          mpSVGExport;
     SVGFontExport*                      mpSVGFontExport;
     SVGActionWriter*                    mpSVGWriter;
-    SdrPage*                            mpDefaultSdrPage;
-    bool                            mbPresentation;
-    bool                            mbSinglePage;
+    bool                                mbSinglePage;
     sal_Int32                           mnVisiblePage;
+    ObjectMap*                          mpObjects;
+    Reference< XComponent >             mxSrcDoc;
+    Reference< XComponent >             mxDstDoc;
+    // #i124608# explicit ShapeSelection for export when export of the selection is wanted
+    Reference< css::drawing::XShapes >  maShapeSelection;
+    bool                                mbExportShapeSelection;
+    Sequence< PropertyValue >           maFilterData;
+    Reference< css::drawing::XDrawPage > mxDefaultPage;
+    std::vector< Reference< css::drawing::XDrawPage > > mSelectedPages;
+
+    bool                                mbWriterFilter;
+    bool                                mbCalcFilter;
+    bool                                mbImpressFilter;
+
+
+    /// Impress / draw only members
+
+    SdrPage*                            mpDefaultSdrPage;
+    bool                                mbPresentation;
     PagePropertySet                     mVisiblePagePropSet;
-    OUString                     msClipPathId;
+    OUString                            msClipPathId;
     UCharSetMapMap                      mTextFieldCharSets;
     Reference< XInterface >             mCreateOjectsCurrentMasterPage;
     UOStringMap                         mTextShapeIdListMap;
     MetaBitmapActionSet                 mEmbeddedBitmapActionSet;
     ObjectMap                           mEmbeddedBitmapActionMap;
-    ObjectMap*                          mpObjects;
-    Reference< XComponent >             mxSrcDoc;
-    Reference< XComponent >             mxDstDoc;
-    Reference< css::drawing::XDrawPage > mxDefaultPage;
-    Sequence< PropertyValue >           maFilterData;
-    // #i124608# explicit ShapeSelection for export when export of the selection is wanted
-    Reference< css::drawing::XShapes >  maShapeSelection;
-    bool                                mbExportShapeSelection;
-    std::vector< Reference< css::drawing::XDrawPage > > mSelectedPages;
     std::vector< Reference< css::drawing::XDrawPage > > mMasterPageTargets;
 
     Link<EditFieldInfo*,void>           maOldFieldHdl;
@@ -224,6 +236,10 @@ private:
 
     /// @throws css::uno::RuntimeException
     bool                            implExport( const Sequence< PropertyValue >& rDescriptor );
+    bool                            implExportImpressOrDraw( const Reference< XOutputStream >& rxOStm );
+    bool                            implExportWriterOrCalc( const Reference< XOutputStream >& rxOStm );
+    bool                            implExportWriterTextGraphic( const Reference< view::XSelectionSupplier >& xSelectionSupplier );
+
     static Reference< XWriter >     implCreateExportDocumentHandler( const Reference< XOutputStream >& rxOStm );
 
     void                            implGetPagePropSet( const Reference< css::drawing::XDrawPage > & rxPage );
@@ -235,6 +251,10 @@ private:
     void                            implGenerateScript();
 
     bool                            implExportDocument();
+    void                            implExportDocumentHeaderImpressOrDraw(sal_Int32 nDocX, sal_Int32 nDocY,
+                                                                          sal_Int32 nDocWidth, sal_Int32 nDocHeight);
+    void                            implExportDocumentHeaderWriterOrCalc(sal_Int32 nDocX, sal_Int32 nDocY,
+                                                                         sal_Int32 nDocWidth, sal_Int32 nDocHeight);
     void                            implExportAnimations();
 
     bool                            implExportMasterPages( const std::vector< Reference< css::drawing::XDrawPage > >& rxPages,
@@ -265,6 +285,9 @@ private:
                                                                 const Reference< XPropertySet > & rxPropSet,
                                                                 const Reference< XPropertySetInfo > & rxPropSetInfo );
     DECL_LINK( CalcFieldHdl, EditFieldInfo*, void );
+
+    bool filterImpressOrDraw( const Sequence< PropertyValue >& rDescriptor );
+    bool filterWriterOrCalc( const Sequence< PropertyValue >& rDescriptor );
 
 protected:
 

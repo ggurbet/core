@@ -245,7 +245,7 @@ static OUString CreateMD5FromString( const OUString& aMsg )
     if ( handle )
     {
         const sal_uInt8* pData = reinterpret_cast<const sal_uInt8*>(aMsg.getStr());
-        sal_uInt32       nSize = ( aMsg.getLength() * sizeof( sal_Unicode ));
+        sal_uInt32       nSize = aMsg.getLength() * sizeof( sal_Unicode );
         sal_uInt32       nMD5KeyLen = rtl_digest_queryLength( handle );
         std::unique_ptr<sal_uInt8[]> pMD5KeyBuffer(new sal_uInt8[ nMD5KeyLen ]);
 
@@ -980,6 +980,8 @@ bool IpcThread::process(OString const & arguments, bool * waitProcessed) {
             aCmdLineArgs->getCwdUrl());
         m_handler->cProcessed.reset();
         pRequest->pcProcessed = &m_handler->cProcessed;
+        m_handler->mbSuccess = false;
+        pRequest->mpbSuccess = &m_handler->mbSuccess;
 
         // Print requests are not dependent on the --invisible cmdline argument as they are
         // loaded with the "hidden" flag! So they are always checked.
@@ -1178,17 +1180,24 @@ void PipeIpcThread::execute()
 
             // we don't need the mutex any longer...
             aGuard.clear();
+            bool bSuccess = true;
             // wait for processing to finish
             if (waitProcessed)
+            {
                 m_handler->cProcessed.wait();
-            // processing finished, inform the requesting end:
-            SAL_INFO("desktop.app", "writing <" << PROCESSING_DONE << ">");
-            n = aStreamPipe.write(
-                PROCESSING_DONE, SAL_N_ELEMENTS(PROCESSING_DONE));
+                bSuccess = m_handler->mbSuccess;
+            }
+            if (bSuccess)
+            {
+                // processing finished, inform the requesting end:
+                SAL_INFO("desktop.app", "writing <" << PROCESSING_DONE << ">");
+                n = aStreamPipe.write(PROCESSING_DONE, SAL_N_ELEMENTS(PROCESSING_DONE));
                 // incl. terminating NUL
-            if (n != SAL_N_ELEMENTS(PROCESSING_DONE)) {
-                SAL_WARN("desktop.app", "short write: " << n);
-                continue;
+                if (n != SAL_N_ELEMENTS(PROCESSING_DONE))
+                {
+                    SAL_WARN("desktop.app", "short write: " << n);
+                    continue;
+                }
             }
         }
         else
@@ -1343,13 +1352,15 @@ bool RequestHandler::ExecuteCmdLineRequests(
             pGlobal->mpDispatchWatcher);
 
         // copy for execute
-        std::vector<DispatchWatcher::DispatchRequest> aTempList( aDispatchList );
-        aDispatchList.clear();
+        std::vector<DispatchWatcher::DispatchRequest> aTempList;
+        aTempList.swap( aDispatchList );
 
         aGuard.clear();
 
         // Execute dispatch requests
         bShutdown = dispatchWatcher->executeDispatchRequests( aTempList, noTerminate);
+        if (aRequest.mpbSuccess)
+            *aRequest.mpbSuccess = true; // signal that we have actually succeeded
     }
 
     return bShutdown;

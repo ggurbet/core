@@ -27,7 +27,7 @@
 #include <vcl/vclptr.hxx>
 #include <vcl/seleng.hxx>
 #include <tools/debug.hxx>
-#include <svtaccessiblefactory.hxx>
+#include <vcl/svtaccessiblefactory.hxx>
 
 #include <limits.h>
 
@@ -54,13 +54,12 @@ enum class IconChoiceFlags {
     SelectingRect                = 0x0002,
     DownCtrl                     = 0x0004,
     DownDeselect                 = 0x0008,
-    StartEditTimerInMouseUp      = 0x0010,
-    EntryListPosValid            = 0x0020,
-    ClearingSelection            = 0x0040,
-    Arranging                    = 0x0080
+    EntryListPosValid            = 0x0010,
+    ClearingSelection            = 0x0020,
+    Arranging                    = 0x0040
 };
 namespace o3tl {
-    template<> struct typed_flags<IconChoiceFlags> : is_typed_flags<IconChoiceFlags, 0x00ff> {};
+    template<> struct typed_flags<IconChoiceFlags> : is_typed_flags<IconChoiceFlags, 0x007f> {};
 }
 
 // unit = pixels
@@ -98,45 +97,6 @@ struct LocalFocus
 };
 
 
-// Entry-List
-
-class EntryList_Impl
-{
-private:
-    std::vector< SvxIconChoiceCtrlEntry* > maIconChoiceCtrlEntryList;
-    SvxIconChoiceCtrl_Impl*         _pOwner;
-
-public:
-                            explicit EntryList_Impl( SvxIconChoiceCtrl_Impl* );
-                            ~EntryList_Impl();
-
-    void                    clear();
-
-    size_t                  size()
-                            {
-                                return maIconChoiceCtrlEntryList.size();
-                            }
-    size_t                  size() const
-                            {
-                                return maIconChoiceCtrlEntryList.size();
-                            }
-
-    SvxIconChoiceCtrlEntry* operator[]( size_t nPos )
-                            {
-                                return  ( nPos < maIconChoiceCtrlEntryList.size() )
-                                        ? maIconChoiceCtrlEntryList[ nPos ]
-                                        : nullptr;
-                            }
-    SvxIconChoiceCtrlEntry* operator[]( size_t nPos ) const
-                            {
-                                return  ( nPos < maIconChoiceCtrlEntryList.size() )
-                                        ? maIconChoiceCtrlEntryList[ nPos ]
-                                        : nullptr;
-                            }
-    void                    insert( size_t nPos, SvxIconChoiceCtrlEntry* pEntry );
-};
-
-
 // Implementation-class of IconChoiceCtrl
 
 
@@ -146,11 +106,10 @@ typedef std::vector<SvxIconChoiceCtrlEntry*> SvxIconChoiceCtrlEntryPtrVec;
 class SvxIconChoiceCtrl_Impl
 {
     friend class IcnCursor_Impl;
-    friend class EntryList_Impl;
     friend class IcnGridMap_Impl;
 
     bool                    bChooseWithCursor;
-    EntryList_Impl          aEntries;
+    std::vector< std::unique_ptr<SvxIconChoiceCtrlEntry> > maEntries;
     VclPtr<ScrollBar>       aVerSBar;
     VclPtr<ScrollBar>       aHorSBar;
     VclPtr<ScrollBarBox>    aScrBarBox;
@@ -178,7 +137,7 @@ class SvxIconChoiceCtrl_Impl
     ImplSVEvent *           nUserEventAdjustScrBars;
     SvxIconChoiceCtrlEntry* pCurHighlightFrame;
     bool                    bHighlightFramePressed;
-    SvxIconChoiceCtrlEntry* pHead;                      // top left entry
+    SvxIconChoiceCtrlEntry* pHead = nullptr;            // top left entry
     SvxIconChoiceCtrlEntry* pCursor;
     SvxIconChoiceCtrlEntry* pHdlEntry;
     VclPtr<VirtualDevice>   pDDDev;
@@ -187,9 +146,8 @@ class SvxIconChoiceCtrl_Impl
     VclPtr<VirtualDevice>   pEntryPaintDev;
     SvxIconChoiceCtrlEntry* pAnchor;                    // for selection
     LocalFocus              aFocus;                             // Data for focusrect
-    ::svt::AccessibleFactoryAccess aAccFactory;
+    ::vcl::AccessibleFactoryAccess aAccFactory;
 
-    SvxIconChoiceCtrlEntry* pCurEditedEntry;
     SvxIconChoiceCtrlTextMode eTextMode;
     SelectionMode           eSelectionMode;
     sal_Int32               nSelectionCount;
@@ -304,7 +262,7 @@ public:
     void                Clear( bool bInCtor );
     void                SetStyle( WinBits nWinStyle );
     WinBits             GetStyle() const { return nWinBits; }
-    void                InsertEntry( SvxIconChoiceCtrlEntry*, size_t nPos );
+    void                InsertEntry( std::unique_ptr<SvxIconChoiceCtrlEntry>, size_t nPos );
     void                CreateAutoMnemonics( MnemonicGenerator* _pGenerator );
     void                FontModified();
     void                SelectAll();
@@ -359,7 +317,6 @@ public:
     tools::Rectangle           CalcTextRect(
                             SvxIconChoiceCtrlEntry*,
                             const Point* pPos = nullptr,
-                            bool bForInplaceEdit = false,
                             const OUString* pStr = nullptr
                         );
 
@@ -382,8 +339,8 @@ public:
                         }
     static bool         IsBoundingRectValid( const tools::Rectangle& rRect ) { return ( rRect.Right() != LONG_MAX ); }
 
-    void                PaintEmphasis(const tools::Rectangle& rRect1, bool bSelected,
-                                      bool bDropTarget, bool bCursored, vcl::RenderContext& rRenderContext );
+    static void         PaintEmphasis(const tools::Rectangle& rRect1, bool bSelected,
+                                      vcl::RenderContext& rRenderContext );
 
     void                PaintItem(const tools::Rectangle& rRect, IcnViewFieldType eItem, SvxIconChoiceCtrlEntry* pEntry,
                             sal_uInt16 nPaintFlags, vcl::RenderContext& rRenderContext);
@@ -423,15 +380,14 @@ public:
                             SvxIconChoiceCtrlEntry* pEntry
                         );
 #endif
-    bool                IsEntryEditing() const { return (pCurEditedEntry!=nullptr); }
-    size_t              GetEntryCount() const { return aEntries.size(); }
+    size_t              GetEntryCount() const { return maEntries.size(); }
     SvxIconChoiceCtrlEntry* GetEntry( size_t nPos )
                             {
-                                return aEntries[ nPos ];
+                                return maEntries[ nPos ].get();
                             }
     SvxIconChoiceCtrlEntry* GetEntry( size_t nPos ) const
                             {
-                                return aEntries[ nPos ];
+                                return maEntries[ nPos ].get();
                             }
     SvxIconChoiceCtrlEntry* GetFirstSelectedEntry() const;
     void                SetSelectionMode( SelectionMode eMode ) { eSelectionMode=eMode; }
@@ -456,7 +412,7 @@ public:
 
     void                CallEventListeners( VclEventId nEvent, void* pData );
 
-    ::svt::IAccessibleFactory& GetAccessibleFactory()
+    ::vcl::IAccessibleFactory& GetAccessibleFactory()
     {
         return aAccFactory.getFactory();
     }

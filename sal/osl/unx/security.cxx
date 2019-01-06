@@ -72,7 +72,7 @@ static bool sysconf_SC_GETPW_R_SIZE_MAX(std::size_t * value) {
     *value = static_cast<std::size_t>(m);
     return true;
 #else
-    /* some platforms like Mac OS X 1.3 do not define _SC_GETPW_R_SIZE_MAX: */
+    /* some platforms like macOS 1.3 do not define _SC_GETPW_R_SIZE_MAX: */
     return false;
 #endif
 }
@@ -132,7 +132,7 @@ oslSecurity SAL_CALL osl_getCurrentSecurity()
             if (found != nullptr) {
                 return p;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             deleteSecurityImpl(p);
             return nullptr;

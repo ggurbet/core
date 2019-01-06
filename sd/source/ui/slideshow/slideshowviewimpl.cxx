@@ -33,6 +33,7 @@
 #include <cppcanvas/basegfxfactory.hxx>
 
 #include <toolkit/helper/vclunohelper.hxx>
+#include <comphelper/processfactory.hxx>
 
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::uno::WeakReference;
@@ -77,7 +78,7 @@ void SlideShowViewListeners::notify( const lang::EventObject& _rEvent )
     ViewListenerVector::iterator aIter( maListeners.begin() );
     while( aIter != maListeners.end() )
     {
-        Reference< util::XModifyListener > xListener( (*aIter) );
+        Reference< util::XModifyListener > xListener( *aIter );
         if( xListener.is() )
         {
             xListener->modified( _rEvent );
@@ -94,10 +95,9 @@ void SlideShowViewListeners::disposing( const lang::EventObject& _rEventSource )
 {
     ::osl::MutexGuard aGuard( mrMutex );
 
-    ViewListenerVector::iterator aIter( maListeners.begin() );
-    while( aIter != maListeners.end() )
+    for( const auto& rxListener : maListeners )
     {
-        Reference< util::XModifyListener > xListener( (*aIter++) );
+        Reference< util::XModifyListener > xListener( rxListener );
         if( xListener.is() )
             xListener->disposing( _rEventSource );
     }

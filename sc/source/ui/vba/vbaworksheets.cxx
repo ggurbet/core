@@ -39,6 +39,7 @@
 #include <ooo/vba/excel/XApplication.hpp>
 #include <tabvwsh.hxx>
 
+#include "excelvbahelper.hxx"
 #include "vbaglobals.hxx"
 #include "vbaworksheet.hxx"
 #include "vbaworkbook.hxx"
@@ -463,12 +464,10 @@ ScVbaWorksheets::getServiceImplName()
 css::uno::Sequence<OUString>
 ScVbaWorksheets::getServiceNames()
 {
-    static uno::Sequence< OUString > sNames;
-    if ( sNames.getLength() == 0 )
+    static uno::Sequence< OUString > const sNames
     {
-        sNames.realloc( 1 );
-        sNames[0] = "ooo.vba.excel.Worksheets";
-    }
+        "ooo.vba.excel.Worksheets"
+    };
     return sNames;
 }
 

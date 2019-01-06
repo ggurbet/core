@@ -215,8 +215,7 @@ namespace sfx2
         m_aToolbox->Clear();
 
         // Get the closer bitmap and set it as right most button.
-        BitmapEx aBitmapEx(SFX_BMP_CLOSE_DOC);
-        m_aToolbox->InsertItem(1, Image(aBitmapEx));
+        m_aToolbox->InsertItem(1, Image(StockImage::Yes, SFX_BMP_CLOSE_DOC));
         m_aToolbox->SetQuickHelpText(1, SfxResId(STR_CLOSE_PANE));
         m_aToolbox->ShowItem( 1 );
     }
@@ -262,7 +261,7 @@ namespace sfx2
             case DataChangedEventType::SETTINGS:
                 if ( !( i_rDataChangedEvent.GetFlags() & AllSettingsFlags::STYLE ) )
                     break;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case DataChangedEventType::FONTS:
             case DataChangedEventType::FONTSUBSTITUTION:
             {

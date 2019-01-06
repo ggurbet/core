@@ -35,6 +35,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <svtools/langhelp.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 #include <com/sun/star/system/SystemShellExecuteFlags.hpp>
 #include <com/sun/star/system/SystemShellExecute.hpp>
@@ -257,8 +258,7 @@ OUString AboutDialog::GetBuildId()
 
     if (!sBuildId.isEmpty())
     {
-        sal_Int32 nIndex = 0;
-        return sBuildId.getToken( 0, '-', nIndex );
+        return sBuildId.getToken( 0, '-' );
     }
 
     OSL_ENSURE( !sBuildId.isEmpty(), "No BUILDID in bootstrap file" );

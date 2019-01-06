@@ -120,6 +120,30 @@ DECLARE_OOXMLEXPORT_TEST(testTdf63561_clearTabs2, "tdf63561_clearTabs2.docx")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(4), getProperty< uno::Sequence<style::TabStop> >(getParagraph(4), "ParaTabStops").getLength());
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf121456_tabsOffset, "tdf121456_tabsOffset.odt")
+{
+    for (int i=2; i<8; i++)
+    {
+        uno::Sequence< style::TabStop > stops = getProperty< uno::Sequence<style::TabStop> >(getParagraph( i ), "ParaTabStops");
+        CPPUNIT_ASSERT_EQUAL( sal_Int32(1), stops.getLength());
+        CPPUNIT_ASSERT_EQUAL( css::style::TabAlign_RIGHT, stops[ 0 ].Alignment );
+        CPPUNIT_ASSERT_EQUAL( sal_Int32(17000), stops[ 0 ].Position );
+    }
+}
+
+// tdf#121561: make sure w:sdt/w:sdtContent around TOC is written during ODT->DOCX conversion
+DECLARE_OOXMLEXPORT_TEST(testTdf121561_tocTitle, "tdf121456_tabsOffset.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport();
+    if (!pXmlDoc)
+        return;
+
+    assertXPathContent(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtContent/w:p/w:r/w:t", "Inhaltsverzeichnis");
+    assertXPathContent(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtContent/w:p/w:r/w:instrText", " TOC \\f \\o \"1-9\" \\h");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:docPartObj/w:docPartGallery", "val", "Table of Contents");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:docPartObj/w:docPartUnique", 1);
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf106174_rtlParaAlign, "tdf106174_rtlParaAlign.docx")
 {
     CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_CENTER), getProperty<sal_Int16>(getParagraph(1), "ParaAdjust"));
@@ -177,6 +201,23 @@ DECLARE_OOXMLEXPORT_TEST(testTdf112694, "tdf112694.docx")
     // Header was on when header for file was for explicit first pages only
     // (marked via <w:titlePg>).
     CPPUNIT_ASSERT(!getProperty<bool>(aPageStyle, "HeaderIsOn"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf113849_evenAndOddHeaders, "tdf113849_evenAndOddHeaders.odt")
+{
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Header2 text", OUString("L. J. Kendall"), parseDump("/root/page[2]/header/txt"));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Footer2 text", OUString("*"), parseDump("/root/page[2]/footer/txt"));
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Header3 text", OUString("Shadow Hunt"), parseDump("/root/page[3]/header/txt"));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Footer3 text", OUString("*"), parseDump("/root/page[3]/footer/txt"));
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Header4 text", OUString("L. J. Kendall"), parseDump("/root/page[4]/header/txt"));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Footer4 text", OUString("*"), parseDump("/root/page[4]/footer/txt"));
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Footer5 text", OUString(""), parseDump("/root/page[5]/footer/txt"));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Footer6 text", OUString(""), parseDump("/root/page[6]/footer/txt"));
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Number of pages", 6, getPages() );
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf118361_RTLfootnoteSeparator, "tdf118361_RTLfootnoteSeparator.docx")
@@ -421,6 +462,17 @@ DECLARE_OOXMLEXPORT_TEST(testTdf113258_noBeforeAutospacing, "tdf113258_noBeforeA
                          getProperty<sal_Int32>(xShape->getStart(), "ParaTopMargin"));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf120511_eatenSection, "tdf120511_eatenSection.docx")
+{
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    sal_Int32 nHeight = getXPath(pXmlDoc, "/root/page[1]/infos/prtBounds", "height").toInt32();
+    sal_Int32 nWidth  = getXPath(pXmlDoc, "/root/page[1]/infos/prtBounds", "width").toInt32();
+    CPPUNIT_ASSERT_MESSAGE( "Page1 is portrait", nWidth < nHeight );
+    nHeight = getXPath(pXmlDoc, "/root/page[2]/infos/prtBounds", "height").toInt32();
+    nWidth  = getXPath(pXmlDoc, "/root/page[2]/infos/prtBounds", "width").toInt32();
+    CPPUNIT_ASSERT_MESSAGE( "Page2 is landscape", nWidth > nHeight );
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf104354, "tdf104354.docx")
 {
     uno::Reference<text::XTextRange> xShape(getShape(1), uno::UNO_QUERY);
@@ -441,6 +493,15 @@ DECLARE_OOXMLEXPORT_TEST(testTdf104354_firstParaInSection, "tdf104354_firstParaI
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494),
                          getProperty<sal_Int32>(getParagraphOfText(1, xText), "ParaTopMargin"));
     CPPUNIT_ASSERT_EQUAL(1, getPages());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testPageBreak_after, "pageBreak_after.odt")
+{
+    // The problem was that the page breakAfter put the empty page BEFORE the table
+    xmlDocPtr pDump = parseLayoutDump();
+    assertXPath(pDump, "/root/page[1]/body/tab", 1);
+    // There should be two pages actually - a blank page after a page break.
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Did you fix?? Table should be on page one of two", 1, getPages());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf107035, "tdf107035.docx")
@@ -736,6 +797,20 @@ DECLARE_OOXMLEXPORT_TEST(testChart_BorderLine_Style, "Chart_BorderLine_Style.doc
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[3]/c:spPr/a:ln/a:prstDash", "val", "dash");
 }
 
+DECLARE_OOXMLEXPORT_TEST(testChart_Plot_BorderLine_Style, "Chart_Plot_BorderLine_Style.docx")
+{
+    /* DOCX containing Chart wall (plot area) and Chart Page with BorderLine Style as Dash Type
+     * should get preserved inside an XML tag <a:prstDash> with value "dash", "sysDot, "lgDot", etc.
+     */
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart1.xml");
+    if (!pXmlDoc)
+        return;
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:spPr/a:ln/a:prstDash", "val", "lgDashDot");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:spPr/a:ln/a:prstDash", "val", "sysDash");
+
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTrackChangesDeletedEmptyParagraph, "testTrackChangesDeletedEmptyParagraph.docx")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
@@ -813,6 +888,21 @@ DECLARE_OOXMLEXPORT_TEST(testTdf58944RepeatingTableHeader, "tdf58944-repeating-t
                          parseDump("/root/page[2]/body/tab/row[1]/cell[1]/txt/text()"));
     CPPUNIT_ASSERT_EQUAL(OUString("Test2"),
                          parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf121597TrackedDeletionOfMultipleParagraphs, "tdf121597.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    // check paragraphs with removed paragraph mark
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:pPr/w:rPr/w:del");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:pPr/w:rPr/w:del");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[4]/w:pPr/w:rPr/w:del");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[5]/w:pPr/w:rPr/w:del");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[7]/w:pPr/w:rPr/w:del");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[10]/w:pPr/w:rPr/w:del");
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

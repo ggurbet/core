@@ -23,8 +23,6 @@
 #include <PropertyHelper.hxx>
 #include <CommonConverters.hxx>
 #include <editeng/memberids.h>
-#include <svx/xflclit.hxx>
-#include <svx/xlnclit.hxx>
 #include <svx/xflbmtit.hxx>
 #include <svx/xflbstit.hxx>
 #include <svx/xbtmpit.hxx>
@@ -34,13 +32,10 @@
 #include <svx/xflgrit.hxx>
 #include <svx/xfltrit.hxx>
 #include <svx/xlntrit.hxx>
-#include <editeng/eeitem.hxx>
-#include <svl/eitem.hxx>
 #include <svx/xgrscit.hxx>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/chart2/FillBitmap.hpp>
-#include <com/sun/star/awt/Gradient.hpp>
+#include <com/sun/star/drawing/BitmapMode.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <tools/diagnose_ex.h>
@@ -297,7 +292,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
 
             // translate model name to UI-name for predefined entries, so
             // that the correct entry is chosen in the list of UI-names
-            XLineDashItem* pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
+            std::unique_ptr<XLineDashItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
             if(pItemToPut)
                  rOutItemSet.Put( *pItemToPut );
@@ -323,7 +318,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
 
                 // translate model name to UI-name for predefined entries, so
                 // that the correct entry is chosen in the list of UI-names
-                XFillGradientItem* pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
+                std::unique_ptr<XFillGradientItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
                 if(pItemToPut)
                     rOutItemSet.Put( *pItemToPut );
@@ -349,7 +344,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
 
                 // translate model name to UI-name for predefined entries, so
                 // that the correct entry is chosen in the list of UI-names
-                XFillHatchItem* pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
+                std::unique_ptr<XFillHatchItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
                 if(pItemToPut)
                     rOutItemSet.Put( *pItemToPut );
@@ -370,7 +365,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
 
                 // translate model name to UI-name for predefined entries, so
                 // that the correct entry is chosen in the list of UI-names
-                XFillBitmapItem* pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
+                std::unique_ptr<XFillBitmapItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
                 if(pItemToPut)
                     rOutItemSet.Put( *pItemToPut );

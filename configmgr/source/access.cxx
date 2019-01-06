@@ -665,7 +665,7 @@ void Access::setName(OUString const & aName)
                     }
                 }
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case Node::KIND_LOCALIZED_PROPERTY:
             // renaming a property could only work for an extension property,
             // but a localized property is never an extension property
@@ -1381,7 +1381,7 @@ rtl::Reference< ChildAccess > Access::getChild(OUString const & name) {
             ("access best-matching localized property value via \"*<locale>\""
              " with empty <locale>; falling back to defaults"));
         if (!locale.isEmpty()) {
-            // Find best match using an adaption of RFC 4647 lookup matching
+            // Find best match using an adaptation of RFC 4647 lookup matching
             // rules, removing "-" or "_" delimited segments from the end:
             for (;;) {
                 rtl::Reference< ChildAccess > child(getChild(locale));

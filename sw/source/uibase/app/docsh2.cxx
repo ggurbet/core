@@ -444,7 +444,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 aSet.Put( *static_cast<const SfxBoolItem*>(pOpenSmartTagOptionsItem) );
 
             SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-            VclPtr<SfxAbstractTabDialog> pDlg = pFact->CreateAutoCorrTabDialog(&GetView()->GetViewFrame()->GetWindow(), &aSet);
+            VclPtr<SfxAbstractTabDialog> pDlg = pFact->CreateAutoCorrTabDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), &aSet);
             pDlg->Execute();
             pDlg.disposeAndClear();
 
@@ -729,7 +729,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         aTempFile.EnableKillingFile();
                         pSrcView->SaveContent(aTempFile.GetURL());
                         bDone = true;
-                        SvxMacro aMac(aEmptyOUStr, aEmptyOUStr, STARBASIC);
+                        SvxMacro aMac(OUString(), OUString(), STARBASIC);
                         SfxEventConfiguration::ConfigureEvent(GlobalEventConfig::GetEventName( GlobalEventId::OPENDOC ), aMac, this);
                         SfxEventConfiguration::ConfigureEvent(GlobalEventConfig::GetEventName( GlobalEventId::PREPARECLOSEDOC ), aMac, this);
                         SfxEventConfiguration::ConfigureEvent(GlobalEventConfig::GetEventName( GlobalEventId::ACTIVATEDOC ),     aMac, this);
@@ -783,7 +783,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 {
                     WriterRef xWrt;
                     // mba: looks as if relative URLs don't make sense here
-                    ::GetRTFWriter( aEmptyOUStr, OUString(), xWrt );
+                    ::GetRTFWriter(OUString(), OUString(), xWrt);
                     SvMemoryStream *pStrm = new SvMemoryStream();
                     pStrm->SetBufferSize( 16348 );
                     SwWriter aWrt( *pStrm, *pSmryDoc );
@@ -801,7 +801,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         // Transfer ownership of stream to a lockbytes object
                         SvLockBytes aLockBytes( pStrm, true );
                         SvLockBytesStat aStat;
-                        if ( aLockBytes.Stat( &aStat, SVSTATFLAG_DEFAULT ) == ERRCODE_NONE )
+                        if ( aLockBytes.Stat( &aStat ) == ERRCODE_NONE )
                         {
                             sal_uInt32 nLen = aStat.nSize;
                             std::size_t nRead = 0;
@@ -866,7 +866,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         // Transfer ownership of stream to a lockbytes object
                         SvLockBytes aLockBytes( pStrm, true );
                         SvLockBytesStat aStat;
-                        if ( aLockBytes.Stat( &aStat, SVSTATFLAG_DEFAULT ) == ERRCODE_NONE )
+                        if ( aLockBytes.Stat( &aStat ) == ERRCODE_NONE )
                         {
                             sal_uInt32 nLen = aStat.nSize;
                             std::size_t nRead = 0;
@@ -1032,15 +1032,12 @@ void SwDocShell::Execute(SfxRequest& rReq)
 
                         bool    bOutline[MAXLEVEL] = {false};
                         const SwOutlineNodes& rOutlNds = m_xDoc->GetNodes().GetOutLineNds();
-                        if( !rOutlNds.empty() )
+                        for( size_t n = 0; n < rOutlNds.size(); ++n )
                         {
-                            for( size_t n = 0; n < rOutlNds.size(); ++n )
+                            const int nLevel = rOutlNds[n]->GetTextNode()->GetAttrOutlineLevel();
+                            if( nLevel > 0 && ! bOutline[nLevel-1] )
                             {
-                                const int nLevel = rOutlNds[n]->GetTextNode()->GetAttrOutlineLevel();
-                                if( nLevel > 0 && ! bOutline[nLevel-1] )
-                                {
-                                    bOutline[nLevel-1] = true;
-                                }
+                                bOutline[nLevel-1] = true;
                             }
                         }
 
@@ -1145,7 +1142,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         if( bDone )
                         {
                             SfxStringItem aName( SID_FILE_NAME, aFileName );
-                            SfxStringItem aReferer( SID_REFERER, aEmptyOUStr );
+                            SfxStringItem aReferer(SID_REFERER, OUString());
                             SfxViewShell* pViewShell = SfxViewShell::GetFirst();
                             while(pViewShell)
                             {

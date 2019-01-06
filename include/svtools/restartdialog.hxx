@@ -23,43 +23,48 @@ namespace com { namespace sun { namespace star { namespace uno {
 namespace svtools {
 
 enum RestartReason {
+    // "For the selected Java runtime environment to work properly,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_JAVA,
-        // "For the selected Java runtime environment to work properly,
-        // %PRODUCTNAME must be restarted."
+    // For the modified default print job format to take effect,
+    // %PRODUCTNAME must be restarted:
     RESTART_REASON_PDF_AS_STANDARD_JOB_FORMAT,
-        // For the modified default print job format to take effect,
-        // %PRODUCTNAME must be restarted.
+    // "For the bibliography to work properly,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_BIBLIOGRAPHY_INSTALL,
-        // "For the bibliography to work properly,
-        // %PRODUCTNAME must be restarted."
+    // "For the mail merge to work properly,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_MAILMERGE_INSTALL,
-        // "For the mail merge to work properly,
-        // %PRODUCTNAME must be restarted."
+    // "For the updated language settings to take effect,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_LANGUAGE_CHANGE,
-        // "For the updated language settings to take effect,
-        // %PRODUCTNAME must be restarted."
+    // "For the added path to take effect,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_ADDING_PATH,
-        // "For the added path to take effect,
-        // %PRODUCTNAME must be restarted."
+    // "For the assigned java parameters to take effect,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_ASSIGNING_JAVAPARAMETERS,
-        // "For the assigned java parameters to take effect,
-        // %PRODUCTNAME must be restarted."
+    // "For the assigned folders and archives to take effect,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_ASSIGNING_FOLDERS,
-        // "For the assigned folders and archives to take effect,
-        // %PRODUCTNAME must be restarted."
+    // "For the modified experimental features to take effect,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_EXP_FEATURES,
-        // "For the modified experimental features to take effect,
-        // %PRODUCTNAME must be restarted."
+    // "For the extension to work properly,
+    // %PRODUCTNAME must be restarted.":
     RESTART_REASON_EXTENSION_INSTALL,
-        // "For the extension to work properly,
-        // %PRODUCTNAME must be restarted."
+    // For the OpenGL changes to take effect,
+    // %PRODUCTNAME must be restarted:
     RESTART_REASON_OPENGL,
-        // No particular reason
+    // For the OpenCL changes to take effect,
+    // %PRODUCTNAME must be restarted:
+    RESTART_REASON_OPENCL,
+    // No particular reason:
     RESTART_REASON_NONE
 };
 
-// Must be called with the solar mutex locked:
-SVT_DLLPUBLIC void executeRestartDialog(
+// Must be called with the solar mutex locked; returns if restart was initiated:
+SVT_DLLPUBLIC bool executeRestartDialog(
     css::uno::Reference< css::uno::XComponentContext > const & context,
     weld::Window* parent, RestartReason reason);
 

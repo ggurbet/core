@@ -21,8 +21,8 @@
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/util/XURLTransformer.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
-#include <vcl/lstbox.hxx>
 #include <vcl/edit.hxx>
 #include <tools/debug.hxx>
 #include "bibbeam.hxx"

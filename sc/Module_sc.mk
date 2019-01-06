@@ -98,7 +98,6 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	JunitTest_sc_unoapi_2 \
 	JunitTest_sc_unoapi_3 \
 	JunitTest_sc_unoapi_4 \
-	JunitTest_sc_unoapi_5 \
 	JunitTest_sc_unoapi_6 \
 	JunitTest_sc_unoapi_7 \
 	CppunitTest_sc_anchor_test \
@@ -109,8 +108,11 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_arealinksobj \
 	CppunitTest_sc_autoformatobj \
 	CppunitTest_sc_cellcursorobj \
+	CppunitTest_sc_cellfieldsobj \
 	CppunitTest_sc_cellformatsenumeration \
+	CppunitTest_sc_cellformatsobj \
 	CppunitTest_sc_cellobj \
+	CppunitTest_sc_cellsobj \
 	CppunitTest_sc_cellrangeobj \
 	CppunitTest_sc_cellrangesobj \
 	CppunitTest_sc_cellsenumeration \
@@ -133,11 +135,13 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_filterdescriptorbaseobj \
 	CppunitTest_sc_functiondescriptionobj \
 	CppunitTest_sc_functionlistobj \
+	CppunitTest_sc_headerfieldsobj \
 	CppunitTest_sc_headerfootercontentobj \
 	CppunitTest_sc_indexenumeration_cellannotationsenumeration \
 	CppunitTest_sc_indexenumeration_cellarealinksenumeration \
 	CppunitTest_sc_indexenumeration_databaserangesenumeration \
 	CppunitTest_sc_indexenumeration_datapilotfieldsenumeration \
+	CppunitTest_sc_indexenumeration_datapilotitemsenumeration \
 	CppunitTest_sc_indexenumeration_datapilottablesenumeration \
 	CppunitTest_sc_indexenumeration_ddelinksenumeration \
 	CppunitTest_sc_indexenumeration_functiondescriptionenumeration \
@@ -148,9 +152,11 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_indexenumeration_sheetlinksenumeration \
 	CppunitTest_sc_indexenumeration_spreadsheetsenumeration \
 	CppunitTest_sc_indexenumeration_spreadsheetviewpanesenumeration \
+	CppunitTest_sc_indexenumeration_subtotalfieldsenumeration \
 	CppunitTest_sc_indexenumeration_tableautoformatenumeration \
-	CppunitTest_sc_indexenumeration_tableconditionalentryenumeration \
+	CppunitTest_sc_indexenumeration_tablechartsenumeration \
 	CppunitTest_sc_indexenumeration_tablecolumnsenumeration \
+	CppunitTest_sc_indexenumeration_tableconditionalentryenumeration \
 	CppunitTest_sc_indexenumeration_tablerowsenumeration \
 	CppunitTest_sc_indexenumeration_textfieldenumeration \
 	CppunitTest_sc_importdescriptorbaseobj \
@@ -176,11 +182,13 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_subtotalfieldobj \
 	CppunitTest_sc_tableconditionalentryobj \
 	CppunitTest_sc_tableconditionalformatobj \
+	CppunitTest_sc_tablerowsobj \
 	CppunitTest_sc_tablesheetobj \
 	CppunitTest_sc_tablesheetsobj \
 	CppunitTest_sc_tablevalidationobj \
 	CppunitTest_sc_tabviewobj \
 	CppunitTest_sc_uniquecellformatsenumeration \
+	CppunitTest_sc_uniquecellformatsobj \
 	CppunitTest_sc_viewpaneobj \
 ))
 
@@ -222,6 +230,9 @@ $(eval $(call gb_Module_add_uicheck_targets,sc,\
 	UITest_signatureLine \
 	UITest_inputLine \
 	UITest_hideShowSheet \
+	UITest_calc_tests7 \
+	UITest_sort \
+	UITest_chart \
 ))
 endif
 

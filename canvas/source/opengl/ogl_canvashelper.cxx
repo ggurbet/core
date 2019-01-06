@@ -709,7 +709,7 @@ namespace oglcanvas
                 {
                     const Size aSize = pVDev->GetFontMetric( aFont ).GetFontSize();
                     const double fDividend( rFontMatrix.m10 + rFontMatrix.m11 );
-                    double fStretch = (rFontMatrix.m00 + rFontMatrix.m01);
+                    double fStretch = rFontMatrix.m00 + rFontMatrix.m01;
 
                     if( !::basegfx::fTools::equalZero( fDividend) )
                         fStretch /= fDividend;
@@ -875,7 +875,6 @@ namespace oglcanvas
                 o_action.meDstBlendMode=GL_ZERO;
                 break;
             case rendering::CompositeOperation::UNDER:
-                // FALLTHROUGH intended - but correct?!
             case rendering::CompositeOperation::DESTINATION:
                 o_action.meSrcBlendMode=GL_ZERO;
                 o_action.meDstBlendMode=GL_ONE;

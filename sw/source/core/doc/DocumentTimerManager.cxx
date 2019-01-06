@@ -34,22 +34,39 @@
 #include <docfld.hxx>
 #include <fldbas.hxx>
 #include <vcl/scheduler.hxx>
+#include <comphelper/lok.hxx>
+#include <editsh.hxx>
 
 namespace sw
 {
-
-DocumentTimerManager::DocumentTimerManager( SwDoc& i_rSwdoc ) : m_rDoc( i_rSwdoc ),
-                                                                m_nIdleBlockCount( 0 ),
-                                                                m_bStartOnUnblock( false ),
-                                                                m_aDocIdle( i_rSwdoc )
+DocumentTimerManager::DocumentTimerManager(SwDoc& i_rSwdoc)
+    : m_rDoc(i_rSwdoc)
+    , m_nIdleBlockCount(0)
+    , m_bStartOnUnblock(false)
+    , m_aDocIdle(i_rSwdoc)
+    , m_aFireIdleJobsTimer("sw::DocumentTimerManager m_aFireIdleJobsTimer")
+    , m_bWaitForLokInit(true)
 {
     m_aDocIdle.SetPriority(TaskPriority::LOWEST);
-    m_aDocIdle.SetInvokeHandler(LINK( this, DocumentTimerManager, DoIdleJobs));
+    m_aDocIdle.SetInvokeHandler(LINK(this, DocumentTimerManager, DoIdleJobs));
     m_aDocIdle.SetDebugName("sw::DocumentTimerManager m_aDocIdle");
+
+    m_aFireIdleJobsTimer.SetInvokeHandler(LINK(this, DocumentTimerManager, FireIdleJobsTimeout));
+    m_aFireIdleJobsTimer.SetTimeout(1000); // Enough time for LOK to render the first tiles.
 }
 
 void DocumentTimerManager::StartIdling()
 {
+    if (m_bWaitForLokInit && comphelper::LibreOfficeKit::isActive())
+    {
+        // Start the idle jobs only after a certain delay.
+        m_bWaitForLokInit = false;
+        StopIdling();
+        m_aFireIdleJobsTimer.Start();
+        return;
+    }
+
+    m_bWaitForLokInit = false;
     m_bStartOnUnblock = true;
     if (0 == m_nIdleBlockCount)
     {
@@ -86,6 +103,12 @@ void DocumentTimerManager::UnblockIdling()
     }
 }
 
+IMPL_LINK(DocumentTimerManager, FireIdleJobsTimeout, Timer*, , void)
+{
+    // Now we can run the idle jobs, assuming we finished LOK initialization.
+    StartIdling();
+}
+
 DocumentTimerManager::IdleJob DocumentTimerManager::GetNextIdleJob() const
 {
     SwRootFrame* pTmpRoot = m_rDoc.getIDocumentLayoutAccess().GetCurrentLayout();
@@ -108,10 +131,14 @@ DocumentTimerManager::IdleJob DocumentTimerManager::GetNextIdleJob() const
                 return IdleJob::Grammar;
         }
 
-        for ( auto pLayout : m_rDoc.GetAllLayouts() )
+        // If we're dragging re-layout doesn't occur so avoid a busy loop.
+        if (!pShell->HasDrawViewDrag())
         {
-            if( pLayout->IsIdleFormat() )
-                return IdleJob::Layout;
+            for ( auto pLayout : m_rDoc.GetAllLayouts() )
+            {
+                if( pLayout->IsIdleFormat() )
+                    return IdleJob::Layout;
+            }
         }
 
         SwFieldUpdateFlags nFieldUpdFlag = m_rDoc.GetDocumentSettingManager().getFieldUpdateFlags(true);
@@ -132,9 +159,7 @@ DocumentTimerManager::IdleJob DocumentTimerManager::GetNextIdleJob() const
 IMPL_LINK_NOARG( DocumentTimerManager, DoIdleJobs, Timer*, void )
 {
 #ifdef TIMELOG
-    static ::rtl::Logfile* pModLogFile = 0;
-    if( !pModLogFile )
-        pModLogFile = new ::rtl::Logfile( "First DoIdleJobs" );
+    static ::rtl::Logfile* pModLogFile = new ::rtl::Logfile( "First DoIdleJobs" );
 #endif
     BlockIdling();
     StopIdling();
@@ -174,6 +199,9 @@ IMPL_LINK_NOARG( DocumentTimerManager, DoIdleJobs, Timer*, void )
         m_rDoc.getIDocumentFieldsAccess().UpdateExpFields( nullptr, false );  // Updates ExpressionFields
         m_rDoc.getIDocumentFieldsAccess().UpdateTableFields(nullptr);  // Tables
         m_rDoc.getIDocumentFieldsAccess().UpdateRefFields();  // References
+
+        // Validate and update the paragraph signatures.
+        m_rDoc.GetEditShell()->ValidateAllParagraphSignatures(true);
 
         pTmpRoot->EndAllAction();
 

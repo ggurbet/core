@@ -53,7 +53,6 @@ enum ScFormulaVectorState
 {
     FormulaVectorDisabled,
     FormulaVectorDisabledNotInSubSet,
-    FormulaVectorDisabledNotInSoftwareSubset,
     FormulaVectorDisabledByOpCode,
     FormulaVectorDisabledByStackVariable,
 
@@ -120,7 +119,6 @@ enum AreaOverlapType
 
 enum class ListenerGroupType
 {
-    Single,
     Group,
     Both
 };

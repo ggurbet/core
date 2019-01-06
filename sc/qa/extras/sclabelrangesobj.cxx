@@ -8,17 +8,22 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/container/xelementaccess.hxx>
 #include <test/container/xenumerationaccess.hxx>
+#include <test/container/xindexaccess.hxx>
 #include <test/sheet/xlabelranges.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
+#include <com/sun/star/sheet/XLabelRange.hpp>
 #include <com/sun/star/sheet/XLabelRanges.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/table/CellRangeAddress.hpp>
+#include <com/sun/star/uno/XInterface.hpp>
 
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/XInterface.hpp>
+
+#include <cppu/unotype.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -27,7 +32,9 @@ using namespace com::sun::star;
 namespace sc_apitest
 {
 class ScLabelRangesObj : public CalcUnoApiTest,
+                         public apitest::XElementAccess,
                          public apitest::XEnumerationAccess,
+                         public apitest::XIndexAccess,
                          public apitest::XLabelRanges
 {
 public:
@@ -39,8 +46,16 @@ public:
 
     CPPUNIT_TEST_SUITE(ScLabelRangesObj);
 
+    // XElementAccess
+    CPPUNIT_TEST(testGetElementType);
+    CPPUNIT_TEST(testHasElements);
+
     // XEnumerationAccess
     CPPUNIT_TEST(testCreateEnumeration);
+
+    // XIndexAccess
+    CPPUNIT_TEST(testGetByIndex);
+    CPPUNIT_TEST(testGetCount);
 
     // XLabelRanges
     CPPUNIT_TEST(testAddNew);
@@ -54,6 +69,8 @@ private:
 
 ScLabelRangesObj::ScLabelRangesObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XElementAccess(cppu::UnoType<sheet::XLabelRange>::get())
+    , XIndexAccess(1)
 {
 }
 
@@ -87,7 +104,7 @@ void ScLabelRangesObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScLabelRangesObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

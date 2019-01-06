@@ -120,8 +120,11 @@ public:
     void testChartTitlePropertiesColorFillPPTX();
     void testChartTitlePropertiesGradientFillPPTX();
     void testChartTitlePropertiesBitmapFillPPTX();
+    void testxAxisLabelsRotation();
     void testTdf116163();
     void testTdf119029();
+    void testTdf108022();
+    void testTdf121744();
 
     CPPUNIT_TEST_SUITE(Chart2ExportTest);
     CPPUNIT_TEST(testErrorBarXLSX);
@@ -204,8 +207,11 @@ public:
     CPPUNIT_TEST(testChartTitlePropertiesColorFillPPTX);
     CPPUNIT_TEST(testChartTitlePropertiesGradientFillPPTX);
     CPPUNIT_TEST(testChartTitlePropertiesBitmapFillPPTX);
+    CPPUNIT_TEST(testxAxisLabelsRotation);
     CPPUNIT_TEST(testTdf116163);
     CPPUNIT_TEST(testTdf119029);
+    CPPUNIT_TEST(testTdf108022);
+    CPPUNIT_TEST(testTdf121744);
     CPPUNIT_TEST_SUITE_END();
 
 protected:
@@ -1856,7 +1862,7 @@ void Chart2ExportTest::testCustomDataLabelMultipleSeries()
     CPPUNIT_ASSERT_EQUAL(OUString("Bars"), aFields[2]->getString());
 
     // Second series
-    xDataSeries = uno::Reference<chart2::XDataSeries>(getDataSeriesFromDoc(xChartDoc, 0, 1));
+    xDataSeries = getDataSeriesFromDoc(xChartDoc, 0, 1);
     CPPUNIT_ASSERT(xDataSeries.is());
 
     xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
@@ -1916,6 +1922,16 @@ void Chart2ExportTest::testChartTitlePropertiesBitmapFillPPTX()
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:title/c:spPr/a:ln/a:noFill", 1);
 }
 
+void Chart2ExportTest::testxAxisLabelsRotation()
+{
+    load ("/chart2/qa/extras/data/xlsx/", "xAxisLabelsRotation.xlsx");
+    xmlDocPtr pXmlDoc1 = parseExport("xl/charts/chart","Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc1);
+
+    // Chart1 xAxis labels should be 45 degree
+    assertXPath(pXmlDoc1, "/c:chartSpace/c:chart/c:plotArea/c:catAx/c:txPr/a:bodyPr", "rot", "2700000");
+}
+
 void Chart2ExportTest::testTdf116163()
 {
     load("/chart2/qa/extras/data/pptx/", "tdf116163.pptx");
@@ -1935,6 +1951,31 @@ void Chart2ExportTest::testTdf119029()
     assertXPath(pXmlDoc,
                 "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser/c:dLbls/c:txPr/a:bodyPr", "rot",
                 "-5400000");
+}
+
+void Chart2ExportTest::testTdf108022()
+{
+    load("/chart2/qa/extras/data/odt/", "tdf108022.odt");
+    reload("Office Open XML Text");
+
+    // assert we really have two charts
+    Reference<chart2::XChartDocument> xChartDoc1(getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc1.is());
+    Reference<chart2::XChartDocument> xChartDoc2(getChartDocFromWriter(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xChartDoc2.is());
+}
+
+void Chart2ExportTest::testTdf121744()
+{
+    load("/chart2/qa/extras/data/docx/", "tdf121744.docx");
+    xmlDocPtr pXmlDoc = parseExport("word/charts/chart","Office Open XML Text");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    OUString XValueId = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:axId[1]", "val");
+    OUString YValueId = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:axId[2]", "val");
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart/c:axId[1]", "val", XValueId );
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart/c:axId[2]", "val", YValueId );
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(Chart2ExportTest);

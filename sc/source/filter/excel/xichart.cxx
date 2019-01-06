@@ -85,13 +85,10 @@
 
 #include <document.hxx>
 #include <drwlayer.hxx>
-#include <rangeutl.hxx>
 #include <tokenarray.hxx>
-#include <token.hxx>
 #include <compiler.hxx>
 #include <reftokenhelper.hxx>
 #include <chartlis.hxx>
-#include <fprogressbar.hxx>
 #include <xltracer.hxx>
 #include <xltools.hxx>
 #include <xistream.hxx>
@@ -1778,7 +1775,8 @@ XclImpChSeries::XclImpChSeries( const XclImpChRoot& rRoot, sal_uInt16 nSeriesIdx
     XclImpChRoot( rRoot ),
     mnGroupIdx( EXC_CHSERGROUP_NONE ),
     mnSeriesIdx( nSeriesIdx ),
-    mnParentIdx( EXC_CHSERIES_INVALID )
+    mnParentIdx( EXC_CHSERIES_INVALID ),
+    mbLabelDeleted( false )
 {
 }
 
@@ -1816,6 +1814,9 @@ void XclImpChSeries::ReadSubRecord( XclImpStream& rStrm )
         break;
         case EXC_ID_CHSERERRORBAR:
             ReadChSerErrorBar( rStrm );
+        break;
+        case EXC_ID_CHLEGENDEXCEPTION:
+            ReadChLegendException( rStrm );
         break;
     }
 }
@@ -2054,6 +2055,9 @@ Reference< XDataSeries > XclImpChSeries::CreateDataSeries() const
         if( mxSeriesFmt )
             mxSeriesFmt->Convert( aSeriesProp, rTypeInfo );
 
+        if (mbLabelDeleted)
+            aSeriesProp.SetProperty(EXC_CHPROP_SHOWLEGENDENTRY, false);
+
         // trend lines
         ConvertTrendLines( xDataSeries );
 
@@ -2183,6 +2187,13 @@ Reference< XPropertySet > XclImpChSeries::CreateErrorBar( sal_uInt8 nPosBarId, s
         return Reference<XPropertySet>();
 
     return XclImpChSerErrorBar::CreateErrorBar(itrPosBar->second.get(), itrNegBar->second.get());
+}
+
+void XclImpChSeries::ReadChLegendException(XclImpStream& rStrm)
+{
+    rStrm.Ignore(2);
+    sal_uInt16 nFlags = rStrm.ReaduInt16();
+    mbLabelDeleted = (nFlags & EXC_CHLEGENDEXCEPTION_DELETED);
 }
 
 // Chart type groups ==========================================================

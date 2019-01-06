@@ -23,6 +23,7 @@
 #include <com/sun/star/frame/Desktop.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/sequence.hxx>
+#include <rtl/ref.hxx>
 
 #include "vbawindow.hxx"
 #include "vbaglobals.hxx"
@@ -227,12 +228,10 @@ ScVbaWindows::getServiceImplName()
 css::uno::Sequence<OUString>
 ScVbaWindows::getServiceNames()
 {
-    static uno::Sequence< OUString > sNames;
-    if ( sNames.getLength() == 0 )
+    static uno::Sequence< OUString > const sNames
     {
-        sNames.realloc( 1 );
-        sNames[0] = "ooo.vba.excel.Windows";
-    }
+        "ooo.vba.excel.Windows"
+    };
     return sNames;
 }
 

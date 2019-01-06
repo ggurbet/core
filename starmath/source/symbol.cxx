@@ -124,9 +124,8 @@ SmSym *SmSymbolManager::GetSymbolByName(const OUString& rSymbolName)
 const SymbolPtrVec_t SmSymbolManager::GetSymbols() const
 {
     SymbolPtrVec_t aRes;
-    SymbolMap_t::const_iterator aIt( m_aSymbols.begin() );
-    for ( ; aIt != m_aSymbols.end(); ++aIt)
-        aRes.push_back( &aIt->second );
+    for (const auto& rEntry : m_aSymbols)
+        aRes.push_back( &rEntry.second );
 //    OSL_ENSURE( sSymbols.size() == m_aSymbols.size(), "number of symbols mismatch " );
     return aRes;
 }
@@ -148,7 +147,7 @@ bool SmSymbolManager::AddOrReplaceSymbol( const SmSym &rSymbol, bool bForceChang
             m_aSymbols[ aSymbolName ] = rSymbol;
             bAdded = true;
         }
-        else if (pFound && !bForceChange && bSymbolConflict)
+        else if (bSymbolConflict)
         {
             // TODO: to solve this a document owned symbol manager would be required ...
                 SAL_WARN("starmath", "symbol conflict, different symbol with same name found!");
@@ -182,9 +181,8 @@ void SmSymbolManager::RemoveSymbol( const OUString & rSymbolName )
 std::set< OUString > SmSymbolManager::GetSymbolSetNames() const
 {
     std::set< OUString >  aRes;
-    SymbolMap_t::const_iterator aIt( m_aSymbols.begin() );
-    for ( ; aIt != m_aSymbols.end(); ++aIt )
-        aRes.insert( aIt->second.GetSymbolSetName() );
+    for (const auto& rEntry : m_aSymbols)
+        aRes.insert( rEntry.second.GetSymbolSetName() );
     return aRes;
 }
 
@@ -194,11 +192,10 @@ const SymbolPtrVec_t SmSymbolManager::GetSymbolSet( const OUString& rSymbolSetNa
     SymbolPtrVec_t aRes;
     if (!rSymbolSetName.isEmpty())
     {
-        SymbolMap_t::const_iterator aIt( m_aSymbols.begin() );
-        for ( ; aIt != m_aSymbols.end(); ++aIt )
+        for (const auto& rEntry : m_aSymbols)
         {
-            if (aIt->second.GetSymbolSetName() == rSymbolSetName)
-                aRes.push_back( &aIt->second );
+            if (rEntry.second.GetSymbolSetName() == rSymbolSetName)
+                aRes.push_back( &rEntry.second );
         }
     }
     return aRes;

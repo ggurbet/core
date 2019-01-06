@@ -8,7 +8,11 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/container/xnamed.hxx>
 #include <test/sheet/xddelink.hxx>
+#include <test/util/xrefreshable.hxx>
+
+#include <sfx2/app.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
@@ -29,7 +33,10 @@ using namespace com::sun::star;
 
 namespace sc_apitest
 {
-class ScDDELinkObj : public CalcUnoApiTest, public apitest::XDDELink
+class ScDDELinkObj : public CalcUnoApiTest,
+                     public apitest::XDDELink,
+                     public apitest::XNamed,
+                     public apitest::XRefreshable
 {
 public:
     ScDDELinkObj();
@@ -45,6 +52,13 @@ public:
     CPPUNIT_TEST(testGetItem);
     CPPUNIT_TEST(testGetTopic);
 
+    // XNamed
+    CPPUNIT_TEST(testGetName);
+    CPPUNIT_TEST(testSetNameThrowsException);
+
+    // XRefreshable
+    CPPUNIT_TEST(testRefreshListener);
+
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -53,6 +67,9 @@ private:
 
 ScDDELinkObj::ScDDELinkObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XNamed("soffice|"
+             + m_directories.getURLFromSrc("/sc/qa/unoapi/testdocuments/ScDDELinksObj.ods")
+             + "!Sheet1.A1")
 {
 }
 
@@ -64,10 +81,13 @@ uno::Reference<uno::XInterface> ScDDELinkObj::init()
     uno::Reference<container::XIndexAccess> xIA(xSheets, UNO_QUERY_THROW);
     uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), UNO_QUERY_THROW);
 
-    xSheet->getCellByPosition(5, 5)->setFormula(
-        "=DDE(\"soffice\";\"ScDDELinksObj.ods\";\"Sheet.A1\"");
-    xSheet->getCellByPosition(1, 4)->setFormula(
-        "=DDE(\"soffice\";\"ScDDELinksObj.ods\";\"Sheet.A1\"");
+    const OUString testdoc
+        = m_directories.getURLFromSrc("/sc/qa/unoapi/testdocuments/ScDDELinksObj.ods");
+
+    xSheet->getCellByPosition(5, 5)->setFormula("=DDE(\"soffice\";\"" + testdoc
+                                                + "\";\"Sheet1.A1\")");
+    xSheet->getCellByPosition(1, 4)->setFormula("=DDE(\"soffice\";\"" + testdoc
+                                                + "\";\"Sheet1.A1\")");
 
     uno::Reference<beans::XPropertySet> xPropSet(xDoc, UNO_QUERY_THROW);
     uno::Any aDDELinks = xPropSet->getPropertyValue("DDELinks");
@@ -79,6 +99,7 @@ uno::Reference<uno::XInterface> ScDDELinkObj::init()
 
 void ScDDELinkObj::setUp()
 {
+    Application::SetAppName("soffice"); // Enable DDE
     CalcUnoApiTest::setUp();
     // create a calc document
     mxComponent = loadFromDesktop("private:factory/scalc");

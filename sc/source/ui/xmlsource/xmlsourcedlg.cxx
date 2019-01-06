@@ -22,6 +22,7 @@
 #include <vcl/treelistentry.hxx>
 #include <vcl/viewdataentry.hxx>
 #include <sfx2/objsh.hxx>
+#include <comphelper/processfactory.hxx>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/ui/dialogs/FilePicker.hpp>
@@ -90,9 +91,9 @@ ScXMLSourceDlg::ScXMLSourceDlg(
 
     mpActiveEdit = mpRefEdit;
 
-    maXMLParam.maImgElementDefault = Image(BitmapEx(RID_BMP_ELEMENT_DEFAULT));
-    maXMLParam.maImgElementRepeat = Image(BitmapEx(RID_BMP_ELEMENT_REPEAT));
-    maXMLParam.maImgAttribute = Image(BitmapEx(RID_BMP_ELEMENT_ATTRIBUTE));
+    maXMLParam.maImgElementDefault = Image(StockImage::Yes, RID_BMP_ELEMENT_DEFAULT);
+    maXMLParam.maImgElementRepeat = Image(StockImage::Yes, RID_BMP_ELEMENT_REPEAT);
+    maXMLParam.maImgAttribute = Image(StockImage::Yes, RID_BMP_ELEMENT_ATTRIBUTE);
 
     Link<Button*,void> aBtnHdl = LINK(this, ScXMLSourceDlg, BtnPressedHdl);
     mpBtnSelectSource->SetClickHdl(aBtnHdl);
@@ -557,10 +558,9 @@ void ScXMLSourceDlg::OkPressed()
 
     // Convert single cell links.
     {
-        std::set<const SvTreeListEntry*>::const_iterator it = maCellLinks.begin(), itEnd = maCellLinks.end();
-        for (; it != itEnd; ++it)
+        for (const SvTreeListEntry* pCellLink : maCellLinks)
         {
-            const SvTreeListEntry& rEntry = **it;
+            const SvTreeListEntry& rEntry = *pCellLink;
             OUString aPath = getXPath(*mpLbTree, rEntry, aParam.maNamespaces);
             const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(rEntry);
 
@@ -572,10 +572,9 @@ void ScXMLSourceDlg::OkPressed()
     // Convert range links. For now, an element with range link takes all its
     // child elements as its fields.
     {
-        std::set<const SvTreeListEntry*>::const_iterator it = maRangeLinks.begin(), itEnd = maRangeLinks.end();
-        for (; it != itEnd; ++it)
+        for (const SvTreeListEntry* pRangeLink : maRangeLinks)
         {
-            const SvTreeListEntry& rEntry = **it;
+            const SvTreeListEntry& rEntry = *pRangeLink;
             const ScOrcusXMLTreeParam::EntryData* pUserData = ScOrcusXMLTreeParam::getUserData(rEntry);
 
             ScOrcusImportXMLParam::RangeLink aRangeLink;

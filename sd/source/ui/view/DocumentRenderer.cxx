@@ -38,6 +38,7 @@
 #include <SlideSorterViewShell.hxx>
 #include <DrawDocShell.hxx>
 
+#include <tools/multisel.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
@@ -183,14 +184,14 @@ namespace {
 
         bool IsPrintFrontPage() const
         {
-            sal_Int32 nInclude = static_cast<sal_Int32>(mrProperties.getIntValue( "PrintProspectInclude", 0 ));
-            return nInclude == 0 || nInclude == 1;
+            sal_Int32 nInclude = static_cast<sal_Int32>(mrProperties.getIntValue( "PrintContent", 0 ));
+            return nInclude != 2;
         }
 
         bool IsPrintBackPage() const
         {
-            sal_Int32 nInclude = static_cast<sal_Int32>(mrProperties.getIntValue( "PrintProspectInclude", 0 ));
-            return nInclude == 0 || nInclude == 2;
+            sal_Int32 nInclude = static_cast<sal_Int32>(mrProperties.getIntValue( "PrintContent", 0 ));
+            return nInclude != 3;
         }
 
         bool IsPaperBin() const
@@ -200,7 +201,7 @@ namespace {
 
         bool IsPrintMarkedOnly() const
         {
-            return GetBoolValue("PrintContent", sal_Int32(2));
+            return GetBoolValue("PrintContent", sal_Int32(4));
         }
 
         OUString GetPrinterSelection (sal_Int32 nPageCount, sal_Int32 nCurrentPageIndex) const
@@ -208,7 +209,7 @@ namespace {
             sal_Int32 nContent = static_cast<sal_Int32>(mrProperties.getIntValue( "PrintContent", 0 ));
             OUString sFullRange = "1-" + OUString::number(nPageCount);
 
-            if (nContent == 0) // all pages/slides
+            if (nContent == 0 || nContent == 2 || nContent == 3 ) // all pages/slides || even pages/slides || odd pages/slides
             {
                 return sFullRange;
             }
@@ -219,7 +220,7 @@ namespace {
                 return sValue.isEmpty() ? sFullRange : sValue;
             }
 
-            if (nContent == 2 && // selection
+            if (nContent == 4 && // selection
                 nCurrentPageIndex >= 0)
             {
                 return OUString::number(nCurrentPageIndex + 1);
@@ -387,13 +388,6 @@ namespace {
             uno::Sequence< OUString > aHelpIds, aWidgetIds;
             if( mbImpress )
             {
-                vcl::PrinterOptionsHelper::UIControlOptions aPrintOpt;
-                aPrintOpt.maGroupHint = "JobPage" ;
-                AddDialogControl( vcl::PrinterOptionsHelper::setSubgroupControlOpt("extraimpressprintoptions",
-                                    SdResId(STR_IMPRESS_PRINT_UI_PRINT_GROUP),
-                                    "",
-                                    aPrintOpt ));
-
                 aHelpIds.realloc( 1 );
                 aHelpIds[0] = ".HelpID:vcl:PrintDialog:PageContentType:ListBox" ;
                 AddDialogControl( vcl::PrinterOptionsHelper::setChoiceListControlOpt(
@@ -573,21 +567,10 @@ namespace {
             aPrintRangeOpt.mbInternalOnly = true;
             aPrintRangeOpt.maGroupHint = "PrintRange" ;
             AddDialogControl( vcl::PrinterOptionsHelper::setSubgroupControlOpt("printrange",
-                                SdResId(STR_IMPRESS_PRINT_UI_PAGE_RANGE),
+                                mbImpress ? SdResId(STR_IMPRESS_PRINT_UI_SLIDE_RANGE) : SdResId(STR_IMPRESS_PRINT_UI_PAGE_RANGE),
                                 "",
                                 aPrintRangeOpt )
                              );
-
-            // create a choice for the content to create
-            OUString aPrintRangeName( "PrintContent" );
-            aHelpIds.realloc( 3 );
-            aHelpIds[0] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:0" ;
-            aHelpIds[1] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:1" ;
-            aHelpIds[2] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:2" ;
-            aWidgetIds.realloc( 3 );
-            aWidgetIds[0] = "printallpages";
-            aWidgetIds[1] = "printpages";
-            aWidgetIds[2] = "printselection";
 
             // check if there is a selection of slides
             OUString aPageRange(OUString::number(mnCurPage + 1));
@@ -611,18 +594,19 @@ namespace {
                             aBuf.append(',');
                         aBuf.append(OUString::number(pPage->GetPageNum() / 2 + 1));
                     }
-                    aPageRange = aBuf.getStr();
                     nPrintRange = 1;
                 }
             }
 
-            AddDialogControl( vcl::PrinterOptionsHelper::setChoiceRadiosControlOpt(aWidgetIds, "",
-                                aHelpIds,
-                                aPrintRangeName,
-                                mbImpress ? CreateChoice(STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE)) :
-                                            CreateChoice(STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE)),
-                                nPrintRange )
-                            );
+            OUString aPrintRangeName( "PrintContent" );
+            aHelpIds.realloc( 1 );
+            aHelpIds[0] = ".HelpID:vcl:PrintDialog:PageContentType:ListBox";
+            AddDialogControl( vcl::PrinterOptionsHelper::setChoiceListControlOpt( "printpagesbox", OUString(),
+                                aHelpIds, aPrintRangeName,
+                                mbImpress ? CreateChoice( STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE ) ) :
+                                            CreateChoice( STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE ) ),
+                                nPrintRange ) );
+
             // create a an Edit dependent on "Pages" selected
             vcl::PrinterOptionsHelper::UIControlOptions aPageRangeOpt( aPrintRangeName, 1, true );
             AddDialogControl(vcl::PrinterOptionsHelper::setEditControlOpt("pagerange", "",
@@ -978,7 +962,7 @@ namespace {
                 if (*iPageIndex >= rDocument.GetSdPageCount(PageKind::Standard))
                     continue;
 
-                SdrPageObj* pPageObj = (*aPageObjIter++);
+                SdrPageObj* pPageObj = *aPageObjIter++;
                 pPageObj->SetReferencedPage(rDocument.GetSdPage(*iPageIndex, PageKind::Standard));
             }
 
@@ -1525,7 +1509,7 @@ private:
 
             if( bDrawLines && (iter != aAreas.end())  )
             {
-                ::tools::Rectangle aRect( (*iter++) );
+                ::tools::Rectangle aRect( *iter++ );
 
                 basegfx::B2DPolygon aPoly;
                 aPoly.insert(0, basegfx::B2DPoint( aRect.Left(), aRect.Top() ) );
@@ -1716,7 +1700,9 @@ private:
                 }
             }
 
-            maPrinterPages.push_back(
+            if ( CheckForFrontBackPages( nIndex ) )
+            {
+                maPrinterPages.push_back(
                 std::shared_ptr<PrinterPage>(
                     new OutlinerPrinterPage(
                         pOutliner->CreateParaObject(),
@@ -1726,6 +1712,7 @@ private:
                         rInfo.mnDrawMode,
                         rInfo.meOrientation,
                         rInfo.mpPrinter->GetPaperBin())));
+            }
         }
 
         pOutliner->SetRefMapMode(aSavedMapMode);
@@ -1830,7 +1817,8 @@ private:
 
             // Create a printer page when we have found one page for each
             // placeholder or when this is the last (and special) loop.
-            if (!aPageIndices.empty() && (aPageIndices.size() == nShapeCount || bLastLoop))
+            if ( !aPageIndices.empty() && CheckForFrontBackPages( nPageIndex )
+                && (aPageIndices.size() == nShapeCount || bLastLoop) )
             {
                 maPrinterPages.push_back(
                     std::shared_ptr<PrinterPage>(
@@ -2051,9 +2039,7 @@ private:
              nIndex < nCount;
              ++nIndex)
         {
-            const bool bIsIndexOdd (nIndex & 1);
-            if ((!bIsIndexOdd && mpOptions->IsPrintFrontPage())
-                || (bIsIndexOdd && mpOptions->IsPrintBackPage()))
+            if ( CheckForFrontBackPages( nIndex ) )
             {
                 const std::pair<sal_uInt16, sal_uInt16> aPair (aPairVector[nIndex]);
                 Point aSecondOffset (aOffset);
@@ -2094,7 +2080,9 @@ private:
         else
             nPaperBin = rInfo.mpPrinter->GetPaperBin();
 
-        maPrinterPages.push_back(
+        if ( CheckForFrontBackPages( nPageIndex ) )
+        {
+            maPrinterPages.push_back(
             std::shared_ptr<PrinterPage>(
                 new TiledPrinterPage(
                     sal::static_int_cast<sal_uInt16>(nPageIndex),
@@ -2105,6 +2093,7 @@ private:
                     rInfo.mnDrawMode,
                     rInfo.meOrientation,
                     nPaperBin)));
+        }
     }
 
     /** Print one standard slide or notes page on one to many printer
@@ -2135,7 +2124,7 @@ private:
         const bool bScalePage (mpOptions->IsPaperSize());
         const bool bCutPage (mpOptions->IsCutPage());
         MapMode aMap (rInfo.maMap);
-        if (bScalePage || bCutPage)
+        if ( (bScalePage || bCutPage) && CheckForFrontBackPages( nPageIndex ) )
         {
             // Handle 1 and 2.
 
@@ -2176,23 +2165,38 @@ private:
                      -aPageOrigin.X()<nPageWidth;
                      aPageOrigin.AdjustX(-rInfo.maPrintSize.Width()))
                 {
-                    aMap.SetOrigin(aPageOrigin);
-                    maPrinterPages.push_back(
-                        std::shared_ptr<PrinterPage>(
-                            new RegularPrinterPage(
-                                sal::static_int_cast<sal_uInt16>(nPageIndex),
-                                ePageKind,
-                                aMap,
-                                rInfo.mbPrintMarkedOnly,
-                                rInfo.msPageString,
-                                aPageOffset,
-                                rInfo.mnDrawMode,
-                                rInfo.meOrientation,
-                                nPaperBin)));
+                    if ( CheckForFrontBackPages( nPageIndex ) )
+                    {
+                        aMap.SetOrigin(aPageOrigin);
+                        maPrinterPages.push_back(
+                            std::shared_ptr<PrinterPage>(
+                                new RegularPrinterPage(
+                                    sal::static_int_cast<sal_uInt16>(nPageIndex),
+                                    ePageKind,
+                                    aMap,
+                                    rInfo.mbPrintMarkedOnly,
+                                    rInfo.msPageString,
+                                    aPageOffset,
+                                    rInfo.mnDrawMode,
+                                    rInfo.meOrientation,
+                                    nPaperBin)));
+                    }
                 }
             }
         }
     }
+
+bool CheckForFrontBackPages( sal_Int32 nPage )
+{
+    const bool bIsIndexOdd(nPage & 1);
+    if ((!bIsIndexOdd && mpOptions->IsPrintFrontPage())
+        || (bIsIndexOdd && mpOptions->IsPrintBackPage()))
+    {
+        return true;
+    }
+    else
+        return false;
+}
 };
 
 //===== DocumentRenderer ======================================================

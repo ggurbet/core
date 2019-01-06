@@ -22,6 +22,7 @@
 #include <sfx2/infobar.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/classificationhelper.hxx>
+#include <sfx2/notebookbar/SfxNotebookBar.hxx>
 #include <com/sun/star/document/MacroExecMode.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/DispatchRecorder.hpp>
@@ -546,7 +547,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
             rReq.AppendItem( SfxBoolItem( SID_FORCERELOAD, true) );
             rReq.AppendItem( SfxBoolItem( SID_SILENT, true ));
 
-            SAL_FALLTHROUGH; //TODO ???
+            [[fallthrough]]; //TODO ???
         }
 
         case SID_RELOAD:
@@ -614,13 +615,13 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                     pView = GetNext( *pView, xOldObj );
                 }
 
-                DELETEZ( xOldObj->Get_Impl()->pReloadTimer );
+                xOldObj->Get_Impl()->pReloadTimer.reset();
 
-                SfxItemSet* pNewSet = nullptr;
+                std::unique_ptr<SfxItemSet> pNewSet;
                 std::shared_ptr<const SfxFilter> pFilter = pMedium->GetFilter();
                 if( pURLItem )
                 {
-                    pNewSet = new SfxAllItemSet( pApp->GetPool() );
+                    pNewSet.reset(new SfxAllItemSet( pApp->GetPool() ));
                     pNewSet->Put( *pURLItem );
 
                     // Filter Detection
@@ -637,7 +638,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                 }
                 else
                 {
-                    pNewSet = new SfxAllItemSet( *pMedium->GetItemSet() );
+                    pNewSet.reset(new SfxAllItemSet( *pMedium->GetItemSet() ));
                     pNewSet->ClearItem( SID_VIEW_ID );
                     pNewSet->ClearItem( SID_STREAM );
                     pNewSet->ClearItem( SID_INPUTSTREAM );
@@ -657,7 +658,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
 
                 // If a salvaged file is present, do not enclose the OrigURL
                 // again, since the Template is invalid after reload.
-                const SfxStringItem* pSalvageItem = SfxItemSet::GetItem<SfxStringItem>(pNewSet, SID_DOC_SALVAGE, false);
+                const SfxStringItem* pSalvageItem = SfxItemSet::GetItem<SfxStringItem>(pNewSet.get(), SID_DOC_SALVAGE, false);
                 if( pSalvageItem )
                 {
                     pNewSet->ClearItem( SID_DOC_SALVAGE );
@@ -680,9 +681,9 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                 if ( pSilentItem && pSilentItem->GetValue() )
                     pNewSet->Put( SfxBoolItem( SID_SILENT, true ) );
 
-                const SfxUnoAnyItem* pInteractionItem = SfxItemSet::GetItem<SfxUnoAnyItem>(pNewSet, SID_INTERACTIONHANDLER, false);
-                const SfxUInt16Item* pMacroExecItem = SfxItemSet::GetItem<SfxUInt16Item>(pNewSet, SID_MACROEXECMODE, false);
-                const SfxUInt16Item* pDocTemplateItem = SfxItemSet::GetItem<SfxUInt16Item>(pNewSet, SID_UPDATEDOCMODE, false);
+                const SfxUnoAnyItem* pInteractionItem = SfxItemSet::GetItem<SfxUnoAnyItem>(pNewSet.get(), SID_INTERACTIONHANDLER, false);
+                const SfxUInt16Item* pMacroExecItem = SfxItemSet::GetItem<SfxUInt16Item>(pNewSet.get(), SID_MACROEXECMODE, false);
+                const SfxUInt16Item* pDocTemplateItem = SfxItemSet::GetItem<SfxUInt16Item>(pNewSet.get(), SID_UPDATEDOCMODE, false);
 
                 if (!pInteractionItem)
                 {
@@ -734,7 +735,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                     xNewObj = nullptr;
                 }
 
-                DELETEZ( pNewSet );
+                pNewSet.reset();
 
                 if( !xNewObj.Is() )
                 {
@@ -1217,14 +1218,14 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                 rBind.Invalidate( SID_EDITDOC );
 
                 // inform about the community involvement
-                const sal_Int64 nLastShown = officecfg::Setup::Product::LastTimeGetInvolvedShown::get();
+                const sal_Int64 nLastGetInvolvedShown = officecfg::Setup::Product::LastTimeGetInvolvedShown::get();
                 const sal_Int64 nNow = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
                 const sal_Int64 nPeriodSec(60 * 60 * 24 * 180); // 180 days in seconds
                 bool bUpdateLastTimeGetInvolvedShown = false;
 
-                if (nLastShown == 0)
+                if (nLastGetInvolvedShown == 0)
                     bUpdateLastTimeGetInvolvedShown = true;
-                else if (nPeriodSec < nNow && nLastShown < nNow - nPeriodSec)
+                else if (nPeriodSec < nNow && nLastGetInvolvedShown < (nNow + nPeriodSec/2) - nPeriodSec) // 90d alternating with donation
                 {
                     bUpdateLastTimeGetInvolvedShown = true;
 
@@ -1242,6 +1243,33 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                 {
                     std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
                     officecfg::Setup::Product::LastTimeGetInvolvedShown::set(nNow, batch);
+                    batch->commit();
+                }
+
+                // inform about donations
+                const sal_Int64 nLastDonateShown = officecfg::Setup::Product::LastTimeDonateShown::get();
+                bool bUpdateLastTimeDonateShown = false;
+
+                if (nLastDonateShown == 0)
+                    bUpdateLastTimeDonateShown = true;
+                else if (nPeriodSec < nNow && nLastDonateShown < nNow - nPeriodSec) // 90d alternating with getinvolved
+                {
+                    bUpdateLastTimeDonateShown = true;
+
+                    VclPtr<SfxInfoBarWindow> pInfoBar = AppendInfoBar("getdonate", SfxResId(STR_GET_DONATE_TEXT), InfoBarType::Info);
+
+                    VclPtrInstance<PushButton> xGetDonateButton(&GetWindow());
+                    xGetDonateButton->SetText(SfxResId(STR_GET_DONATE_BUTTON));
+                    xGetDonateButton->SetSizePixel(xGetDonateButton->GetOptimalSize());
+                    xGetDonateButton->SetClickHdl(LINK(this, SfxViewFrame, GetDonateHandler));
+                    pInfoBar->addButton(xGetDonateButton);
+                }
+
+                if (bUpdateLastTimeDonateShown
+                    && !officecfg::Setup::Product::LastTimeDonateShown::isReadOnly())
+                {
+                    std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
+                    officecfg::Setup::Product::LastTimeDonateShown::set(nNow, batch);
                     batch->commit();
                 }
 
@@ -1371,6 +1399,11 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
 IMPL_LINK_NOARG(SfxViewFrame, GetInvolvedHandler, Button*, void)
 {
     GetDispatcher()->Execute(SID_GETINVOLVED);
+}
+
+IMPL_LINK_NOARG(SfxViewFrame, GetDonateHandler, Button*, void)
+{
+    GetDispatcher()->Execute(SID_DONATION);
 }
 
 IMPL_LINK(SfxViewFrame, SwitchReadOnlyHandler, Button*, pButton, void)
@@ -2763,6 +2796,11 @@ void SfxViewFrame::MiscExec_Impl( SfxRequest& rReq )
                     bool bNewFullScreenMode = pItem ? pItem->GetValue() : !pWork->IsFullScreenMode();
                     if ( bNewFullScreenMode != pWork->IsFullScreenMode() )
                     {
+                        if ( bNewFullScreenMode )
+                            sfx2::SfxNotebookBar::LockNotebookBar();
+                        else
+                            sfx2::SfxNotebookBar::UnlockNotebookBar();
+
                         Reference< css::beans::XPropertySet > xLMPropSet( xLayoutManager, UNO_QUERY );
                         if ( xLMPropSet.is() )
                         {

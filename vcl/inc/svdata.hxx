@@ -24,6 +24,7 @@
 
 #include <tools/fldunit.hxx>
 #include <unotools/options.hxx>
+#include <vcl/bitmapex.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <vcl/task.hxx>
@@ -154,6 +155,7 @@ struct ImplSVAppData
     bool                    mbAppQuit = false;              // is Application::Quit() called
     bool                    mbSettingsInit = false;         // true: Settings are initialized
     DialogCancelMode meDialogCancel = DialogCancelMode::Off; // true: All Dialog::Execute() calls will be terminated immediately with return false
+    bool mbRenderToBitmaps = false; // set via svp / headless plugin
 
     /** Controls whether showing any IME status window is toggled on or off.
 
@@ -189,7 +191,7 @@ struct ImplSVGDIData
     OpenGLContext*          mpLastContext = nullptr;        // Last OpenGLContext
     VclPtr<Printer>         mpFirstPrinter;                 // First Printer
     VclPtr<Printer>         mpLastPrinter;                  // Last Printer
-    ImplPrnQueueList*       mpPrinterQueueList = nullptr;   // List of all printer queue
+    std::unique_ptr<ImplPrnQueueList> mpPrinterQueueList;   // List of all printer queue
     std::shared_ptr<PhysicalFontCollection> mxScreenFontList; // Screen-Font-List
     std::shared_ptr<ImplFontCache> mxScreenFontCache;       // Screen-Font-Cache
     ImplDirectFontSubstitution* mpDirectFontSubst = nullptr; // Font-Substitutions defined in Tools->Options->Fonts

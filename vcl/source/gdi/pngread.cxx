@@ -124,8 +124,8 @@ private:
     sal_uInt8           mnCompressionType;
     sal_uInt8           mnFilterType;
     sal_uInt8           mnInterlaceType;
-    BitmapColor         mcTranspColor;  // transparency mask's transparency "color"
-    BitmapColor         mcOpaqueColor;  // transparency mask's opaque "color"
+    const BitmapColor   mcTranspColor;  // transparency mask's transparency "color"
+    const BitmapColor   mcOpaqueColor;  // transparency mask's opaque "color"
     bool                mbTransparent : 1;  // graphic includes an tRNS Chunk or an alpha Channel
     bool                mbAlphaChannel : 1; // is true for ColorType 4 and 6
     bool                mbRGBTriple : 1;
@@ -204,6 +204,8 @@ PNGReaderImpl::PNGReaderImpl( SvStream& rPNGStream )
     mnCompressionType( 0 ),
     mnFilterType    ( 0 ),
     mnInterlaceType ( 0 ),
+    mcTranspColor   ( BitmapColor( 0xFF )),
+    mcOpaqueColor   ( BitmapColor( 0x00 )),
     mbTransparent( false ),
     mbAlphaChannel( false ),
     mbRGBTriple( false ),
@@ -501,7 +503,7 @@ bool PNGReaderImpl::ImplReadHeader( const Size& rPreviewSizeHint )
                     break;
                 case 16 :
                     mnTargetDepth = 8;  // we have to reduce the bitmap
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case 1 :
                 case 4 :
                 case 8 :
@@ -556,7 +558,7 @@ bool PNGReaderImpl::ImplReadHeader( const Size& rPreviewSizeHint )
             {
                 case 16 :
                     mnTargetDepth = 8;  // we have to reduce the bitmap
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case 8 :
                     mbGrayScale = true;
                     break;
@@ -800,8 +802,6 @@ bool PNGReaderImpl::ImplReadTransparent()
         mbTransparent = (mpMaskAcc != nullptr);
         if( !mbTransparent )
             return false;
-        mcOpaqueColor = BitmapColor( 0x00 );
-        mcTranspColor = BitmapColor( 0xFF );
         mpMaskAcc->Erase( Color(0,0,0) );
     }
 
@@ -814,7 +814,7 @@ void PNGReaderImpl::ImplGetGamma()
         return;
 
     sal_uInt32  nGammaValue = ImplReadsal_uInt32();
-    double      fGamma = ( ( VIEWING_GAMMA / DISPLAY_GAMMA ) * ( static_cast<double>(nGammaValue) / 100000 ) );
+    double      fGamma = ( VIEWING_GAMMA / DISPLAY_GAMMA ) * ( static_cast<double>(nGammaValue) / 100000 );
     double      fInvGamma = ( fGamma <= 0.0 || fGamma > 10.0 ) ? 1.0 : ( 1.0 / fGamma );
 
     if ( fInvGamma != 1.0 )
@@ -883,7 +883,7 @@ void PNGReaderImpl::ImplGetBackground()
 //                2 and 6 (RGB)       the return value is always the 8 bit color component
 sal_uInt8 PNGReaderImpl::ImplScaleColor()
 {
-    sal_uInt32 nMask = ( ( 1 << mnPngDepth ) - 1 );
+    sal_uInt32 nMask = ( 1 << mnPngDepth ) - 1;
     sal_uInt16 nCol = ( *maDataIter++ << 8 );
 
     nCol += *maDataIter++ & static_cast<sal_uInt16>(nMask);

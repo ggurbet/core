@@ -40,15 +40,11 @@ enum class SvxIconViewFlags
     POS_LOCKED     = 0x0001,
     SELECTED       = 0x0002,
     FOCUSED        = 0x0004,
-    CURSORED       = 0x0010, // Border around image
-    POS_MOVED      = 0x0020, // Moved by Drag and Drop, but not logged
-    DROP_TARGET    = 0x0040, // Set in QueryDrop
-    BLOCK_EMPHASIS = 0x0080, // Do not paint Emphasis
-    PRED_SET       = 0x0400, // Predecessor moved
+    POS_MOVED      = 0x0008, // Moved by Drag and Drop, but not logged
 };
 namespace o3tl
 {
-    template<> struct typed_flags<SvxIconViewFlags> : is_typed_flags<SvxIconViewFlags, 0x04f7> {};
+    template<> struct typed_flags<SvxIconViewFlags> : is_typed_flags<SvxIconViewFlags, 0x000f> {};
 }
 
 enum class SvxIconChoiceCtrlTextMode
@@ -92,7 +88,7 @@ class SvxIconChoiceCtrlEntry
     sal_uInt16                      nX,nY;      // for keyboard control
     SvxIconViewFlags                nFlags;
 
-    void                    ClearFlags( SvxIconViewFlags nMask ) { nFlags &= (~nMask); }
+    void                    ClearFlags( SvxIconViewFlags nMask ) { nFlags &= ~nMask; }
     void                    SetFlags( SvxIconViewFlags nMask ) { nFlags |= nMask; }
     void                    AssignFlags( SvxIconViewFlags _nFlags ) { nFlags = _nFlags; }
 
@@ -129,9 +125,6 @@ public:
     SvxIconViewFlags        GetFlags() const { return nFlags; }
     bool                    IsSelected() const { return bool(nFlags & SvxIconViewFlags::SELECTED); }
     bool                    IsFocused() const { return bool(nFlags & SvxIconViewFlags::FOCUSED); }
-    bool                    IsCursored() const { return bool(nFlags & SvxIconViewFlags::CURSORED); }
-    bool                    IsDropTarget() const { return bool(nFlags & SvxIconViewFlags::DROP_TARGET); }
-    bool                    IsBlockingEmphasis() const { return bool(nFlags & SvxIconViewFlags::BLOCK_EMPHASIS); }
     bool                    IsPosLocked() const { return bool(nFlags & SvxIconViewFlags::POS_LOCKED); }
 };
 
@@ -274,7 +267,6 @@ public:
     void                    SetEntryTextMode( SvxIconChoiceCtrlTextMode eMode, SvxIconChoiceCtrlEntry* pEntry );
 #endif
 
-    Point               GetPixelPos( const Point& rPosLogic ) const;
     void                SetSelectionMode( SelectionMode eMode );
 
     tools::Rectangle           GetBoundingBox( SvxIconChoiceCtrlEntry* pEntry ) const;

@@ -13,9 +13,7 @@ $(eval $(call gb_UnpackedTarball_set_tarball,graphite,$(GRAPHITE_TARBALL)))
 
 $(eval $(call gb_UnpackedTarball_set_patchlevel,graphite,0))
 
-$(eval $(call gb_UnpackedTarball_add_patches,graphite,\
-	external/graphite/graphite2.issue1115.patch.1 \
-    external/graphite/graphite2.win64.patch.1 \
+$(eval $(call gb_UnpackedTarball_add_patches,graphite, \
     external/graphite/ubsan.patch \
 ))
 

@@ -20,10 +20,10 @@
 #include <res_ErrorBar.hxx>
 #include <bitmaps.hlst>
 #include <RangeSelectionHelper.hxx>
-#include <TabPageNotifiable.hxx>
 #include <helpids.h>
 #include <chartview/ChartSfxItemIds.hxx>
 #include <com/sun/star/chart2/XChartDocument.hpp>
+#include <vcl/dialog.hxx>
 
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
@@ -551,7 +551,7 @@ void ErrorBarResources::Reset(const SfxItemSet& rInAttrs)
             case SvxChartIndicate::NONE :
                 // no longer used, use both as default
                 m_eIndicate = SvxChartIndicate::Both;
-                SAL_FALLTHROUGH; // to BOTH
+                [[fallthrough]]; // to BOTH
             case SvxChartIndicate::Both :
                 m_xRbBoth->set_active(true); break;
             case SvxChartIndicate::Up :

@@ -42,6 +42,7 @@
 #include <vcl/idle.hxx>
 #include <vcl/svmain.hxx>
 #include <vcl/opengl/OpenGLContext.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <osx/saldata.hxx>
 #include <osx/salinst.h>
@@ -515,10 +516,7 @@ bool AquaSalInstance::DoYield(bool bWait, bool bHandleAllCurrentEvents)
         {
             SolarMutexReleaser aReleaser;
 
-SAL_WNODEPRECATED_DECLARATIONS_PUSH
-    // 'NSAnyEventMask' is deprecated: first deprecated in macOS 10.12
-            pEvent = [NSApp nextEventMatchingMask: NSAnyEventMask
-SAL_WNODEPRECATED_DECLARATIONS_POP
+            pEvent = [NSApp nextEventMatchingMask: NSEventMaskAny
                             untilDate: nil
                             inMode: NSDefaultRunLoopMode
                             dequeue: YES];
@@ -549,10 +547,7 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
         {
             SolarMutexReleaser aReleaser;
 
-SAL_WNODEPRECATED_DECLARATIONS_PUSH
-    // 'NSAnyEventMask' is deprecated: first deprecated in macOS 10.12
-            pEvent = [NSApp nextEventMatchingMask: NSAnyEventMask
-SAL_WNODEPRECATED_DECLARATIONS_POP
+            pEvent = [NSApp nextEventMatchingMask: NSEventMaskAny
                             untilDate: [NSDate distantFuture]
                             inMode: NSDefaultRunLoopMode
                             dequeue: YES];
@@ -949,9 +944,7 @@ NSImage* CreateNSImage( const Image& rImage )
     {
         [pImage lockFocusFlipped:YES];
         NSGraphicsContext* pContext = [NSGraphicsContext currentContext];
-SAL_WNODEPRECATED_DECLARATIONS_PUSH // 'graphicsPort' is deprecated: first deprecated in macOS 10.14
-        CGContextRef rCGContext = static_cast<CGContextRef>([pContext graphicsPort]);
-SAL_WNODEPRECATED_DECLARATIONS_POP
+        CGContextRef rCGContext = [pContext CGContext];
 
         const CGRect aDstRect = { {0, 0}, { static_cast<CGFloat>(aSize.Width()), static_cast<CGFloat>(aSize.Height()) } };
         CGContextDrawImage( rCGContext, aDstRect, xImage );

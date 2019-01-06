@@ -18,16 +18,15 @@
  */
 
 #include <PositionAndSizeHelper.hxx>
-#include <ChartModelHelper.hxx>
 #include <ControllerLockGuard.hxx>
 #include <com/sun/star/chart2/LegendPosition.hpp>
 #include <com/sun/star/chart/ChartLegendExpansion.hpp>
 #include <com/sun/star/chart2/RelativePosition.hpp>
 #include <com/sun/star/chart2/RelativeSize.hpp>
-#include <chartview/ExplicitValueProvider.hxx>
 
 #include <tools/gen.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/awt/Rectangle.hpp>
 
 namespace chart
 {
@@ -69,7 +68,7 @@ bool PositionAndSizeHelper::moveObject( ObjectType eObjectType
     }
     else if(eObjectType==OBJECTTYPE_LEGEND)
     {
-        xObjectProp->setPropertyValue( "AnchorPosition", uno::Any(LegendPosition(LegendPosition_CUSTOM)));
+        xObjectProp->setPropertyValue( "AnchorPosition", uno::Any(LegendPosition_CUSTOM));
         xObjectProp->setPropertyValue( "Expansion", uno::Any(css::chart::ChartLegendExpansion_CUSTOM));
         chart2::RelativePosition aRelativePosition;
         chart2::RelativeSize aRelativeSize;

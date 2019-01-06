@@ -41,11 +41,9 @@
 #include <sal/log.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/debug.hxx>
+#include <tools/stream.hxx>
 #include <svl/urihelper.hxx>
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/lstbox.hxx>
 #include <vcl/svapp.hxx>
 #include <comphelper/classids.hxx>
 #include <sfx2/filedlghelper.hxx>
@@ -100,10 +98,7 @@ IMPL_LINK_NOARG(SvInsertOleDlg, BrowseHdl, weld::Button&, void)
     // add filter
     try
     {
-        xFilePicker->appendFilter(
-             OUString(),
-             "*.*"
-             );
+        xFilePicker->appendFilter(CuiResId(RID_SVXSTR_FILTER_ALL), "*.*");
     }
     catch( const IllegalArgumentException& )
     {

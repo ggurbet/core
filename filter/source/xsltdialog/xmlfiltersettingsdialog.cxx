@@ -17,18 +17,20 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
+#include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/util/XFlushable.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
-#include <unotools/resmgr.hxx>
 #include <tools/urlobj.hxx>
-#include <svtools/headbar.hxx>
-#include <unotools/streamwrap.hxx>
+#include <vcl/headbar.hxx>
 #include <unotools/pathoptions.hxx>
+#include <unotools/resmgr.hxx>
+#include <unotools/streamwrap.hxx>
 #include <osl/file.hxx>
 #include <o3tl/enumrange.hxx>
 #include <vcl/builderfactory.hxx>
@@ -36,6 +38,7 @@
 #include <vcl/weld.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <vcl/treelistentry.hxx>
+#include <tools/stream.hxx>
 
 #include <rtl/uri.hxx>
 
@@ -69,7 +72,6 @@ XMLFilterSettingsDialog::XMLFilterSettingsDialog(vcl::Window* pParent,
     Dialog::InitFlag eFlag)
     : ModelessDialog(pParent, "XMLFilterSettingsDialog", "filter/ui/xmlfiltersettings.ui", eFlag)
     , mxContext( rxContext )
-    , m_bIsClosable(true)
     , m_sTemplatePath("$(user)/template/")
     , m_sDocTypePrefix("doctype:")
 {
@@ -131,9 +133,36 @@ void XMLFilterSettingsDialog::dispose()
     ModelessDialog::dispose();
 }
 
+void XMLFilterSettingsDialog::incBusy()
+{
+    // lock any toplevel windows from being closed until busy is over
+    // ensure any dialogs are reset before entering
+    vcl::Window *xTopWin = Application::GetFirstTopLevelWindow();
+    while (xTopWin)
+    {
+        if (xTopWin != this)
+            xTopWin->IncModalCount();
+        xTopWin = Application::GetNextTopLevelWindow(xTopWin);
+    }
+}
+
+void XMLFilterSettingsDialog::decBusy()
+{
+    // unlock any toplevel windows from being closed until busy is over
+    // ensure any dialogs are reset before entering
+    vcl::Window *xTopWin = Application::GetFirstTopLevelWindow();
+    while (xTopWin)
+    {
+        if (xTopWin != this)
+            xTopWin->DecModalCount();
+        xTopWin = Application::GetNextTopLevelWindow(xTopWin);
+    }
+}
+
 IMPL_LINK(XMLFilterSettingsDialog, ClickHdl_Impl, Button *, pButton, void )
 {
-    m_bIsClosable = false;
+    // tdf#122171 block closing libreoffice until the following dialog is dismissed
+    incBusy();
 
     if (m_pPBNew == pButton)
     {
@@ -164,7 +193,7 @@ IMPL_LINK(XMLFilterSettingsDialog, ClickHdl_Impl, Button *, pButton, void )
         Close();
     }
 
-    m_bIsClosable = true;
+    decBusy();
 }
 
 IMPL_LINK_NOARG(XMLFilterSettingsDialog, SelectionChangedHdl_Impl, SvTreeListBox*, void)
@@ -178,15 +207,13 @@ IMPL_LINK_NOARG(XMLFilterSettingsDialog, DoubleClickHdl_Impl, SvTreeListBox*, bo
     return false;
 }
 
-short XMLFilterSettingsDialog::Execute()
+void XMLFilterSettingsDialog::UpdateWindow()
 {
     m_pCtrlFilterList->GrabFocus();
     disposeFilterList();
     m_pFilterListBox->Clear();
     initFilterList();
     updateStates();
-
-    return ModelessDialog::Execute();
 }
 
 void XMLFilterSettingsDialog::updateStates()
@@ -856,7 +883,7 @@ void XMLFilterSettingsDialog::onDelete()
 
 void XMLFilterSettingsDialog::onSave()
 {
-    XMLFilterVector aFilters;
+    std::vector<filter_info_impl*> aFilters;
 
     int nFilters = 0;
 
@@ -912,7 +939,7 @@ void XMLFilterSettingsDialog::onSave()
 
 void XMLFilterSettingsDialog::onOpen()
 {
-    XMLFilterVector aFilters;
+    std::vector< std::unique_ptr<filter_info_impl> > aFilters;
 
     // Open Fileopen-Dialog
        ::sfx2::FileDialogHelper aDlg(
@@ -933,15 +960,15 @@ void XMLFilterSettingsDialog::onOpen()
         aJarHelper.openPackage( aURL, aFilters );
 
         int nFilters = 0;
-        for (auto const& filter : aFilters)
+        for (auto& filter : aFilters)
         {
-            if( insertOrEdit(filter) )
+            if( insertOrEdit(filter.get()) )
             {
                 aFilterName = filter->maFilterName;
                 nFilters++;
             }
 
-            delete filter;
+            filter.reset();
         }
 
         disposeFilterList();
@@ -1186,74 +1213,64 @@ application_info_impl::application_info_impl( const sal_Char * pDocumentService,
 {
 }
 
-std::vector< application_info_impl* >& getApplicationInfos()
+std::vector< application_info_impl > const & getApplicationInfos()
 {
-    static std::vector< application_info_impl* > aInfos;
-
-    if( aInfos.empty() )
+    static std::vector< application_info_impl > const aInfos
     {
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.text.TextDocument",
+        {   "com.sun.star.text.TextDocument",
             STR_APPL_NAME_WRITER,
             "com.sun.star.comp.Writer.XMLImporter",
-            "com.sun.star.comp.Writer.XMLExporter" ) );
+            "com.sun.star.comp.Writer.XMLExporter" },
 
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.sheet.SpreadsheetDocument",
+        {   "com.sun.star.sheet.SpreadsheetDocument",
             STR_APPL_NAME_CALC,
             "com.sun.star.comp.Calc.XMLImporter",
-            "com.sun.star.comp.Calc.XMLExporter" ) );
+            "com.sun.star.comp.Calc.XMLExporter" },
 
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.presentation.PresentationDocument",
+        {  "com.sun.star.presentation.PresentationDocument",
             STR_APPL_NAME_IMPRESS,
             "com.sun.star.comp.Impress.XMLImporter",
-            "com.sun.star.comp.Impress.XMLExporter" ) );
+            "com.sun.star.comp.Impress.XMLExporter" },
 
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.drawing.DrawingDocument",
+        {   "com.sun.star.drawing.DrawingDocument",
             STR_APPL_NAME_DRAW,
             "com.sun.star.comp.Draw.XMLImporter",
-            "com.sun.star.comp.Draw.XMLExporter" ) );
+            "com.sun.star.comp.Draw.XMLExporter" },
 
         // --- oasis file formats...
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.text.TextDocument",
+        {   "com.sun.star.text.TextDocument",
             STR_APPL_NAME_OASIS_WRITER,
             "com.sun.star.comp.Writer.XMLOasisImporter",
-            "com.sun.star.comp.Writer.XMLOasisExporter" ) );
+            "com.sun.star.comp.Writer.XMLOasisExporter" },
 
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.sheet.SpreadsheetDocument",
+        {   "com.sun.star.sheet.SpreadsheetDocument",
             STR_APPL_NAME_OASIS_CALC,
             "com.sun.star.comp.Calc.XMLOasisImporter",
-            "com.sun.star.comp.Calc.XMLOasisExporter" ) );
+            "com.sun.star.comp.Calc.XMLOasisExporter" },
 
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.presentation.PresentationDocument",
+        {   "com.sun.star.presentation.PresentationDocument",
             STR_APPL_NAME_OASIS_IMPRESS,
             "com.sun.star.comp.Impress.XMLOasisImporter",
-            "com.sun.star.comp.Impress.XMLOasisExporter" ) );
+            "com.sun.star.comp.Impress.XMLOasisExporter" },
 
-        aInfos.push_back( new application_info_impl(
-            "com.sun.star.drawing.DrawingDocument",
+        {  "com.sun.star.drawing.DrawingDocument",
             STR_APPL_NAME_OASIS_DRAW,
             "com.sun.star.comp.Draw.XMLOasisImporter",
-            "com.sun.star.comp.Draw.XMLOasisExporter" ) );
-    }
+            "com.sun.star.comp.Draw.XMLOasisExporter" },
+    };
 
     return aInfos;
 }
 
 const application_info_impl* getApplicationInfo( const OUString& rServiceName )
 {
-    std::vector< application_info_impl* >& rInfos = getApplicationInfos();
+    std::vector< application_info_impl > const & rInfos = getApplicationInfos();
     for (auto const& info : rInfos)
     {
-        if( rServiceName == info->maXMLExporter ||
-            rServiceName == info->maXMLImporter)
+        if( rServiceName == info.maXMLExporter ||
+            rServiceName == info.maXMLImporter)
         {
-            return info;
+            return &info;
         }
     }
     return nullptr;
@@ -1377,10 +1394,8 @@ XMLFilterListBox::XMLFilterListBox(Window* pParent, SvxPathControl* pPathControl
 
     long nTabSize = aBoxSize.Width() / 2;
 
-    m_pHeaderBar->InsertItem( ITEMID_NAME, aStr1, nTabSize,
-                            HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
-    m_pHeaderBar->InsertItem( ITEMID_TYPE, aStr2, nTabSize,
-                            HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER );
+    m_pHeaderBar->InsertItem( ITEMID_NAME, aStr1, nTabSize, HeaderBarItemBits::LEFT );
+    m_pHeaderBar->InsertItem( ITEMID_TYPE, aStr2, nTabSize, HeaderBarItemBits::LEFT );
 
     static long nTabs[] = {0, nTabSize };
 

@@ -152,6 +152,7 @@ public:
     bool                                                        mbLastPage;
     bool                                                        mbReversePageOrder;
     bool                                                        mbPapersizeFromSetup;
+    bool                                                        mbPapersizeFromUser;
     bool                                                        mbPrinterModified;
     css::view::PrintableState                                   meJobState;
 
@@ -163,6 +164,8 @@ public:
 
     // set by user through printer properties subdialog of printer settings dialog
     Size                                                        maDefaultPageSize;
+    // set by user through print dialog
+    Size                                                        maUserPageSize;
     // set by user through printer properties subdialog of printer settings dialog
     sal_Int32                                                   mnDefaultPaperBin;
     // Set by user through printer properties subdialog of print dialog.
@@ -187,6 +190,7 @@ public:
         mbLastPage( false ),
         mbReversePageOrder( false ),
         mbPapersizeFromSetup( false ),
+        mbPapersizeFromUser( false ),
         mbPrinterModified( false ),
         meJobState( css::view::PrintableState_JOB_STARTED ),
         mpProgress( nullptr ),
@@ -197,6 +201,8 @@ public:
 
     const Size& getRealPaperSize( const Size& i_rPageSize, bool bNoNUP ) const
     {
+        if ( mbPapersizeFromUser )
+            return maUserPageSize;
         if( mbPapersizeFromSetup )
             return maDefaultPageSize;
         if( maMultiPage.nRows * maMultiPage.nColumns > 1 && ! bNoNUP )
@@ -495,7 +501,7 @@ bool Printer::PreparePrintJob(std::shared_ptr<PrinterController> xController,
             else if( aDlg->isSingleJobs() )
             {
                 xController->setValue( "PrintCollateAsSingleJobs",
-                                       css::uno::makeAny( true ) );
+                                        css::uno::makeAny( true ) );
             }
         }
         catch (const std::bad_alloc&)
@@ -783,6 +789,7 @@ void PrinterController::setPrinter( const VclPtr<Printer>& i_rPrinter )
     mpImplData->mxPrinter->Push();
     mpImplData->mxPrinter->SetMapMode(MapMode(MapUnit::Map100thMM));
     mpImplData->maDefaultPageSize = mpImplData->mxPrinter->GetPaperSize();
+    mpImplData->mbPapersizeFromUser = false;
     mpImplData->mxPrinter->Pop();
     mpImplData->mnFixedPaperBin = -1;
 }
@@ -808,6 +815,7 @@ void PrinterController::setupPrinter( weld::Window* i_pParent )
 
         // get current data
         Size aPaperSize(xPrinter->GetPaperSize());
+        Orientation eOrientation = xPrinter->GetOrientation();
         sal_uInt16 nPaperBin = xPrinter->GetPaperBin();
 
         // reset paper size back to last configured size, not
@@ -855,6 +863,7 @@ void PrinterController::setupPrinter( weld::Window* i_pParent )
         else
         {
             //restore to whatever it was before we entered this method
+            xPrinter->SetOrientation( eOrientation );
             if (aPaperSize != aNewPaperSize)
                 xPrinter->SetPaperSizeUser(aPaperSize, !mpImplData->isFixedPageSize());
         }
@@ -1353,20 +1362,41 @@ void PrinterController::setReversePrint( bool i_bReverse )
     mpImplData->mbReversePageOrder = i_bReverse;
 }
 
-bool PrinterController::getReversePrint() const
-{
-    return mpImplData->mbReversePageOrder;
-}
-
 void PrinterController::setPapersizeFromSetup( bool i_bPapersizeFromSetup )
 {
     mpImplData->mbPapersizeFromSetup = i_bPapersizeFromSetup;
     mpImplData->mxPrinter->SetPrinterSettingsPreferred( i_bPapersizeFromSetup );
+    if ( i_bPapersizeFromSetup )
+        mpImplData->mbPapersizeFromUser = !i_bPapersizeFromSetup;
 }
 
 bool PrinterController::getPapersizeFromSetup() const
 {
     return mpImplData->mbPapersizeFromSetup;
+}
+
+Size& PrinterController::getPaperSizeSetup() const
+{
+    return mpImplData->maDefaultPageSize;
+}
+
+void PrinterController::setPaperSizeFromUser( Size i_aUserSize )
+{
+    mpImplData->mbPapersizeFromUser = true;
+    mpImplData->mbPapersizeFromSetup = false;
+    mpImplData->mxPrinter->SetPrinterSettingsPreferred( false );
+
+    mpImplData->maUserPageSize = i_aUserSize;
+}
+
+Size& PrinterController::getPaperSizeFromUser() const
+{
+    return mpImplData->maUserPageSize;
+}
+
+bool PrinterController::isPaperSizeFromUser() const
+{
+    return mpImplData->mbPapersizeFromUser;
 }
 
 void PrinterController::setPrinterModified( bool i_bPrinterModified )

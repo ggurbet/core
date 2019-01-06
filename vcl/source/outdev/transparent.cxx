@@ -20,6 +20,7 @@
 #include <cassert>
 
 #include <sal/types.h>
+#include <tools/helpers.hxx>
 
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <memory>
@@ -82,7 +83,7 @@ Color OutputDevice::ImplDrawModeToColor( const Color& rColor ) const
     DrawModeFlags nDrawMode = GetDrawMode();
 
     if( nDrawMode & ( DrawModeFlags::BlackLine | DrawModeFlags::WhiteLine |
-                      DrawModeFlags::GrayLine | DrawModeFlags::GhostedLine |
+                      DrawModeFlags::GrayLine |
                       DrawModeFlags::SettingsLine ) )
     {
         if( !ImplIsColorTransparent( aColor ) )
@@ -103,13 +104,6 @@ Color OutputDevice::ImplDrawModeToColor( const Color& rColor ) const
             else if( nDrawMode & DrawModeFlags::SettingsLine )
             {
                 aColor = GetSettings().GetStyleSettings().GetFontColor();
-            }
-
-            if( nDrawMode & DrawModeFlags::GhostedLine )
-            {
-                aColor = Color( ( aColor.GetRed() >> 1 ) | 0x80,
-                                ( aColor.GetGreen() >> 1 ) | 0x80,
-                                ( aColor.GetBlue() >> 1 ) | 0x80);
             }
         }
     }

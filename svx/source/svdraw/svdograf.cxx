@@ -370,7 +370,7 @@ GraphicAttr SdrGrafObj::GetGraphicAttr( SdrGrafObjTransformsAttrs nTransformFlag
     {
         const bool      bMirror = bool( nTransformFlags & SdrGrafObjTransformsAttrs::MIRROR );
         const bool      bRotate = bool( nTransformFlags & SdrGrafObjTransformsAttrs::ROTATE ) &&
-            ( aGeo.nRotationAngle && aGeo.nRotationAngle != 18000 ) && ( GraphicType::NONE != eType );
+            (aGeo.nRotationAngle && aGeo.nRotationAngle != 18000);
 
         // Need cropping info earlier
         const_cast<SdrGrafObj*>(this)->ImpSetAttrToGrafInfo();
@@ -880,7 +880,7 @@ GDIMetaFile SdrGrafObj::GetMetaFile(GraphicType &rGraphicType) const
     }
     else if (GraphicType::GdiMetafile == rGraphicType)
     {
-        return GetTransformedGraphic(SdrGrafObjTransformsAttrs::COLOR|SdrGrafObjTransformsAttrs::MIRROR).GetGDIMetaFile();
+        return GetTransformedGraphic(SdrGrafObjTransformsAttrs::MIRROR).GetGDIMetaFile();
     }
     return GDIMetaFile();
 }

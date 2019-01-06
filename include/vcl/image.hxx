@@ -22,18 +22,14 @@
 
 #include <vcl/dllapi.h>
 #include <tools/gen.hxx>
-#include <tools/solar.h>
 #include <vcl/bitmapex.hxx>
 #include <vcl/outdev.hxx>
 
-#include <com/sun/star/uno/Reference.hxx>
-
 #include <memory>
-#include <vector>
 
 struct ImplImage;
-struct ImplImageList;
 namespace com { namespace sun { namespace star { namespace graphic { class XGraphic;} } } }
+namespace com { namespace sun { namespace star { namespace uno { template <class interface_type> class Reference; } } } }
 
 namespace vcl
 {
@@ -49,6 +45,8 @@ namespace vcl
 
 #define IMAGELIST_IMAGE_NOTFOUND    (sal_uInt16(0xFFFF))
 
+enum class StockImage { Yes };
+
 class SAL_WARN_UNUSED VCL_DLLPUBLIC Image
 {
     friend class ::OutputDevice;
@@ -58,6 +56,7 @@ public:
                     explicit Image( const BitmapEx& rBitmapEx );
                     explicit Image( const css::uno::Reference< css::graphic::XGraphic >& rxGraphic );
                     explicit Image( const OUString &rPNGFileUrl );
+                    explicit Image( StockImage, const OUString &rPNGFilePath );
 
     Size            GetSizePixel() const;
 

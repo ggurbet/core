@@ -62,8 +62,11 @@
 #include <unotools/useroptions.hxx>
 #include <unotools/saveopt.hxx>
 #include <svtools/asynclink.hxx>
+#include <svtools/DocumentToGraphicRenderer.hxx>
+#include <vcl/gdimtf.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/documentconstants.hxx>
+#include <comphelper/propertyvalue.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <tools/link.hxx>
 
@@ -99,6 +102,13 @@
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
+#include <com/sun/star/text/XPageCursor.hpp>
+#include <com/sun/star/text/XTextViewCursorSupplier.hpp>
+
+#include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
+#include <com/sun/star/drawing/XDrawPageSupplier.hpp>
+#include <com/sun/star/frame/XDesktop2.hpp>
+#include <com/sun/star/frame/Desktop.hpp>
 
 #include <guisaveas.hxx>
 #include <saveastemplatedlg.hxx>
@@ -106,6 +116,8 @@
 #include <cppuhelper/implbase.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/streamwrap.hxx>
+
+#include <svx/unoshape.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -425,9 +437,9 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             if ( !IsOwnStorageFormat( *GetMedium() ) )
                 return;
 
-            ScopedVclPtrInstance< SfxVersionDialog > pDlg( pFrame, IsSaveVersionOnClose() );
-            pDlg->Execute();
-            SetSaveVersionOnClose( pDlg->IsSaveVersionOnClose() );
+            SfxVersionDialog aDlg(rReq.GetFrameWeld(), pFrame, IsSaveVersionOnClose());
+            aDlg.run();
+            SetSaveVersionOnClose(aDlg.IsSaveVersionOnClose());
             rReq.Done();
             return;
         }
@@ -520,11 +532,78 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             return;
         }
 
+        case SID_REDACTDOC:
+        {
+            css::uno::Reference<css::frame::XModel> xModel = GetModel();
+            if(!xModel.is())
+                return;
+
+            uno::Reference<text::XTextViewCursorSupplier> xTextViewCursorSupplier(
+                        xModel->getCurrentController(), uno::UNO_QUERY);
+            if(!xTextViewCursorSupplier.is())
+                return;
+
+            uno::Reference<text::XPageCursor> xCursor(xTextViewCursorSupplier->getViewCursor(),
+                                                      uno::UNO_QUERY);
+            if(!xCursor.is())
+                return;
+
+            uno::Reference< lang::XComponent > xSourceDoc( xModel );
+            DocumentToGraphicRenderer aRenderer(xSourceDoc, /*bSelectionOnly=*/false);
+
+            // Only take the first page for now
+            sal_Int16 nPage = 1;
+
+            ::Size aDocumentSizePixel = aRenderer.getDocumentSizeInPixels(nPage);
+            ::Point aLogicPos;
+            ::Size aLogic = aRenderer.getDocumentSizeIn100mm(nPage, &aLogicPos);
+            // FIXME: This is a temporary hack. Need to figure out a proper way to derive this scale factor.
+            ::Size aTargetSize(aDocumentSizePixel.Width() * 1.23, aDocumentSizePixel.Height() * 1.23);
+
+            Graphic aGraphic = aRenderer.renderToGraphic(nPage, aDocumentSizePixel, aTargetSize, COL_TRANSPARENT,
+                                                         /*bExtOutDevData=*/true);
+            auto& rGDIMetaFile = const_cast<GDIMetaFile&>(aGraphic.GetGDIMetaFile());
+
+            // Set preferred map unit and size on the metafile, so the Shape size
+            // will be correct in MM.
+            MapMode aMapMode;
+            aMapMode.SetMapUnit(MapUnit::Map100thMM);
+            aMapMode.SetOrigin(::Point(-aLogicPos.getX(), -aLogicPos.getY()));
+            rGDIMetaFile.SetPrefMapMode(aMapMode);
+            rGDIMetaFile.SetPrefSize(aLogic);
+
+            // Create an empty Draw component.
+            uno::Reference<frame::XDesktop2> xDesktop = css::frame::Desktop::create(comphelper::getProcessComponentContext());
+            uno::Reference<frame::XComponentLoader> xComponentLoader(xDesktop, uno::UNO_QUERY);
+            uno::Reference<lang::XComponent> xComponent = xComponentLoader->loadComponentFromURL("private:factory/sdraw", "_default", 0, {});
+
+            // Access the draw pages
+            uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(xComponent, uno::UNO_QUERY);
+            uno::Reference<drawing::XDrawPages> xDrawPages = xDrawPagesSupplier->getDrawPages();
+            uno::Reference< drawing::XDrawPage > xPage( xDrawPages->getByIndex( 0 ), uno::UNO_QUERY_THROW );
+
+            uno::Reference<graphic::XGraphic> xGraph = aGraphic.GetXGraphic();
+
+            // Create and insert the shape
+            uno::Reference<css::lang::XMultiServiceFactory> xFactory(xComponent, uno::UNO_QUERY);
+            uno::Reference<drawing::XShape> xShape(
+                    xFactory->createInstance("com.sun.star.drawing.GraphicObjectShape"), uno::UNO_QUERY);
+            uno::Reference<beans::XPropertySet> xShapeProperySet(xShape, uno::UNO_QUERY);
+            xShapeProperySet->setPropertyValue("Graphic", uno::Any( xGraph ));
+
+            // Set size and position
+            xShape->setSize(awt::Size(rGDIMetaFile.GetPrefSize().Width(),rGDIMetaFile.GetPrefSize().Height()) );
+
+            xPage->add(xShape);
+
+            return;
+        }
+
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         case SID_EXPORTDOCASPDF:
         case SID_DIRECTEXPORTDOCASPDF:
             bIsPDFExport = true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SID_EXPORTDOCASEPUB:
         case SID_DIRECTEXPORTDOCASEPUB:
         case SID_EXPORTDOC:
@@ -962,16 +1041,11 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
                 break;
 
             case SID_DOCINFO:
-                if ( pImpl->eFlags & SfxObjectShellFlags::NODOCINFO )
-                    rSet.DisableItem( nWhich );
                 break;
 
             case SID_CLOSEDOC:
             {
-                if ( GetFlags() & SfxObjectShellFlags::DONTCLOSE )
-                    rSet.DisableItem(nWhich);
-                else
-                    rSet.Put(SfxStringItem(nWhich, SfxResId(STR_CLOSEDOC)));
+                rSet.Put(SfxStringItem(nWhich, SfxResId(STR_CLOSEDOC)));
                 break;
             }
 
@@ -1007,6 +1081,7 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
             case SID_DIRECTEXPORTDOCASPDF:
             case SID_EXPORTDOCASEPUB:
             case SID_DIRECTEXPORTDOCASEPUB:
+            case SID_REDACTDOC:
             {
                 break;
             }
@@ -1067,6 +1142,10 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
                     case SignatureState::OK:
                         sMessage = SfxResId(STR_SIGNATURE_OK);
                         aInfoBarType = InfoBarType::Info;
+                        break;
+                    case SignatureState::NOTVALIDATED_PARTIAL_OK:
+                        sMessage = SfxResId(STR_SIGNATURE_NOTVALIDATED_PARTIAL_OK);
+                        aInfoBarType = InfoBarType::Warning;
                         break;
                     //FIXME SignatureState::Unknown, own message?
                     default:
@@ -1285,7 +1364,9 @@ SignatureState SfxObjectShell::ImplCheckSignaturesInformation( const uno::Sequen
         }
     }
 
-    if ( nResult == SignatureState::OK && !bCertValid )
+    if (nResult == SignatureState::OK && !bCertValid && !bCompleteSignature)
+        nResult = SignatureState::NOTVALIDATED_PARTIAL_OK;
+    else if (nResult == SignatureState::OK && !bCertValid)
         nResult = SignatureState::NOTVALIDATED;
     else if ( nResult == SignatureState::OK && bCertValid && !bCompleteSignature)
         nResult = SignatureState::PARTIAL_OK;
@@ -1647,7 +1728,6 @@ bool SfxObjectShell::SignDocumentContentUsingCertificate(const Reference<XCertif
 
     // we have to store to the original document, the original medium should be closed for this time
     bool bResult = ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium);
-    printf("ConnectTmpStorage_Impl %d\n", bResult);
 
     if (!bResult)
         return false;

@@ -24,47 +24,42 @@
 #include <sal/types.h>
 
 #include <cassert>
-#include <stdexcept>
 #include <vector>
 
 #include <comphelper/solarmutex.hxx>
 #include <osl/mutex.hxx>
 #include <rtl/ustring.hxx>
-#include <osl/thread.hxx>
+#include <osl/thread.h>
 #include <tools/gen.hxx>
 #include <tools/link.hxx>
 #include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <vcl/inputtypes.hxx>
 #include <vcl/exceptiontypes.hxx>
-#include <vcl/keycod.hxx>
 #include <vcl/vclevent.hxx>
-#include <vcl/metric.hxx>
-#include <unotools/localedatawrapper.hxx>
+#include <vcl/vclenum.hxx>
+#include <i18nlangtag/lang.h>
 #include <o3tl/typed_flags_set.hxx>
 #include <com/sun/star/uno/Reference.h>
-#include <com/sun/star/connection/XConnection.hpp>
 
 
 class BitmapEx;
 namespace weld
 {
     class Builder;
-    class Container;
     class MessageDialog;
     class Widget;
     class Window;
 }
+class LocaleDataWrapper;
 class AllSettings;
 class DataChangedEvent;
 class Accelerator;
 class Help;
 class OutputDevice;
 namespace vcl { class Window; }
+namespace vcl { class KeyCode; }
 class WorkWindow;
-class MenuBar;
-class UnoWrapperBase;
-class Reflection;
 class NotifyEvent;
 class KeyEvent;
 class MouseEvent;
@@ -1024,7 +1019,7 @@ public:
 
     /** @name Accelerators and Mnemonics
 
-     Accelerators allow a user to hold down Ctrl+key (or CMD+key on OS X)
+     Accelerators allow a user to hold down Ctrl+key (or CMD+key on macOS)
      combination to gain quick access to functionality.
 
      Mnemonics are underline letters in things like menus and dialog boxes
@@ -1128,9 +1123,13 @@ public:
 
     /** Sets the dialog cancel mode for headless environments.
 
+     This should be private, but XFrameImpl needs to access it and current
+     baseline gcc doesn't support forward definition of anonymous classes.
+     You probably should use EnableHeadlessMode instead.
+
      @param     mode            DialogCancel mode value
 
-     @see GetDialogCancelMode, IsDialogCancelEnabled
+     @see GetDialogCancelMode, IsDialogCancelEnabled, EnableHeadlessMode
     */
     static void                 SetDialogCancelMode( DialogCancelMode mode );
 
@@ -1213,19 +1212,19 @@ public:
 
     /** Enable Console Only mode
 
-     Used to disable Mac specific app init that requires an app bundle.
+     Convenience function to enable headless and bitmap rendering.
     */
     static void                 EnableConsoleOnly();
 
-    /** Determines if console only mode is enabled.
+    /** Enable software-only bitmap rendering
+     */
+    static void                 EnableBitmapRendering();
 
-     Used to see if Mac specific app init has been disabled.
+    /** Determines if bitmap rendering is enabled
 
-     @returns True if console only mode is on, false if not.
-
-     @see EnableConsoleOnly
-    */
-    static bool                 IsConsoleOnly();
+      @return True if bitmap rendering is enabled.
+     */
+    static bool                 IsBitmapRendering();
 
     ///@}
 

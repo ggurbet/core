@@ -395,12 +395,6 @@ void Window::dispose()
     // hide window in order to trigger the Paint-Handling
     Hide();
 
-    // announce the window is to be destroyed
-    {
-        NotifyEvent aNEvt( MouseNotifyEvent::DESTROY, this );
-        CompatNotify( aNEvt );
-    }
-
     // EndExtTextInputMode
     if ( pSVData->maWinData.mpExtTextInputWin == this )
     {
@@ -874,7 +868,7 @@ bool Window::AcquireGraphics() const
 
     if ( mpGraphics )
     {
-        mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp) );
+        mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp), RasterOp::Invert == meRasterOp );
         mpGraphics->setAntiAliasB2DDraw(bool(mnAntialiasing & AntialiasingFlags::EnableB2dDraw));
     }
 
@@ -1002,7 +996,7 @@ void Window::ImplInit( vcl::Window* pParent, WinBits nStyle, SystemParentData* p
         {
             nFrameStyle = SalFrameStyleFlags::FLOAT;
             if( nStyle & WB_OWNERDRAWDECORATION )
-                nFrameStyle |= (SalFrameStyleFlags::OWNERDRAWDECORATION | SalFrameStyleFlags::NOSHADOW);
+                nFrameStyle |= SalFrameStyleFlags::OWNERDRAWDECORATION | SalFrameStyleFlags::NOSHADOW;
         }
         else if( mpWindowImpl->mbFloatWin )
             nFrameStyle |= SalFrameStyleFlags::TOOLWINDOW;
@@ -1165,9 +1159,6 @@ void Window::ImplInit( vcl::Window* pParent, WinBits nStyle, SystemParentData* p
     // calculate app font res (except for the Intro Window or the default window)
     if ( mpWindowImpl->mbFrame && !pSVData->maGDIData.mnAppFontX && ! (nStyle & (WB_INTROWIN|WB_DEFAULTWIN)) )
         ImplInitAppFontData( this );
-
-    if ( GetAccessibleParentWindow()  && GetParent() != Application::GetDefDialogParent() )
-        GetAccessibleParentWindow()->CallEventListeners( VclEventId::WindowChildCreated, this );
 }
 
 void Window::ImplInitAppFontData( vcl::Window const * pWindow )
@@ -1188,7 +1179,7 @@ void Window::ImplInitAppFontData( vcl::Window const * pWindow )
     pSVData->maGDIData.mnAppFontY = nTextHeight * 10;
 
 #ifdef MACOSX
-    // FIXME: this is currently only on OS X, check with other
+    // FIXME: this is currently only on macOS, check with other
     // platforms
     if( pSVData->maNWFData.mbNoFocusRects )
     {
@@ -1957,7 +1948,6 @@ void Window::SetExtendedStyle( WindowExtendedStyle nExtendedStyle )
             pWindow->ImplGetFrame()->SetExtendedFrameStyle( nExt );
         }
         mpWindowImpl->mnExtendedStyle = nExtendedStyle;
-        CompatStateChanged( StateChangedType::ExtendedStyle );
     }
 }
 
@@ -2232,7 +2222,7 @@ void Window::Show(bool bVisible, ShowFlags nFlags)
                     aBounds.AdjustBottom(workaround_border );
                     aInvRegion = aBounds;
                 }
-                if ( !mpWindowImpl->mbNoParentUpdate && !(nFlags & ShowFlags::NoParentUpdate) )
+                if ( !mpWindowImpl->mbNoParentUpdate )
                 {
                     if ( !aInvRegion.IsEmpty() )
                         ImplInvalidateParentFrameRegion( aInvRegion );
@@ -2534,9 +2524,9 @@ void Window::EnableInput( bool bEnable, bool bChild )
         ImplGenerateMouseMove();
 
     // #104827# notify parent
-    if ( bNotify )
+    if ( bNotify && bEnable )
     {
-        NotifyEvent aNEvt( bEnable ? MouseNotifyEvent::INPUTENABLE : MouseNotifyEvent::INPUTDISABLE, this );
+        NotifyEvent aNEvt( MouseNotifyEvent::INPUTENABLE, this );
         CompatNotify( aNEvt );
     }
 }
@@ -3167,10 +3157,7 @@ LOKWindowsMap& GetLOKWindowsMap()
     assert(comphelper::LibreOfficeKit::isActive());
 
     // Map to remember the LOKWindowId <-> Window binding.
-    static std::unique_ptr<LOKWindowsMap> s_pLOKWindowsMap;
-
-    if (!s_pLOKWindowsMap)
-        s_pLOKWindowsMap.reset(new LOKWindowsMap);
+    static std::unique_ptr<LOKWindowsMap> s_pLOKWindowsMap(new LOKWindowsMap);
 
     return *s_pLOKWindowsMap;
 }

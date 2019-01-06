@@ -24,6 +24,7 @@
 #include <PhysicalFontCollection.hxx>
 #include <svdata.hxx>
 #include <vcl/ITiledRenderable.hxx>
+#include <vcl/virdev.hxx>
 #include <sal/log.hxx>
 
 using namespace ::com::sun::star::uno;
@@ -68,7 +69,7 @@ bool VirtualDevice::AcquireGraphics() const
 
     if ( mpGraphics )
     {
-        mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp) );
+        mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp), RasterOp::Invert == meRasterOp );
         mpGraphics->setAntiAliasB2DDraw(bool(mnAntialiasing & AntialiasingFlags::EnableB2dDraw));
     }
 

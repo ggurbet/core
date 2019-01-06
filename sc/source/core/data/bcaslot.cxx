@@ -157,6 +157,7 @@ bool ScBroadcastAreaSlot::StartListeningArea(
 {
     bool bNewArea = false;
     OSL_ENSURE(pListener, "StartListeningArea: pListener Null");
+    assert(!pDoc->IsDelayedFormulaGrouping()); // otherwise the group size might be incorrect
     if (CheckHardRecalcStateCondition() == ScDocument::HardRecalcState::ETERNAL)
         return false;
     if ( !rpArea )
@@ -517,10 +518,6 @@ void ScBroadcastAreaSlot::GetAllListeners(
         const ScRange& rAreaRange = pArea->GetRange();
         switch (eGroup)
         {
-            case sc::ListenerGroupType::Single:
-                if (pArea->IsGroupListening())
-                    continue;
-            break;
             case sc::ListenerGroupType::Group:
                 if (!pArea->IsGroupListening())
                     continue;

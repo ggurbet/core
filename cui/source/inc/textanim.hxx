@@ -19,11 +19,9 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_TEXTANIM_HXX
 #define INCLUDED_CUI_SOURCE_INC_TEXTANIM_HXX
 
-#include <vcl/field.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svx/svdattr.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/lstbox.hxx>
+#include <vcl/weld.hxx>
 
 class SdrView;
 

@@ -215,7 +215,7 @@ void OutputDevice::ImplDrawWaveTextLine( long nBaseX, long nBaseY,
     if ( (eTextLine == LINESTYLE_SMALLWAVE) && (nLineHeight > 3) )
         nLineHeight = 3;
 
-    long nLineWidth = (mnDPIX / 300);
+    long nLineWidth = mnDPIX / 300;
     if ( !nLineWidth )
         nLineWidth = 1;
 
@@ -815,7 +815,7 @@ void OutputDevice::SetTextLineColor( const Color& rColor )
     Color aColor( rColor );
 
     if ( mnDrawMode & ( DrawModeFlags::BlackText | DrawModeFlags::WhiteText |
-                        DrawModeFlags::GrayText | DrawModeFlags::GhostedText |
+                        DrawModeFlags::GrayText |
                         DrawModeFlags::SettingsText ) )
     {
         if ( mnDrawMode & DrawModeFlags::BlackText )
@@ -834,14 +834,6 @@ void OutputDevice::SetTextLineColor( const Color& rColor )
         else if ( mnDrawMode & DrawModeFlags::SettingsText )
         {
             aColor = GetSettings().GetStyleSettings().GetFontColor();
-        }
-
-        if( (mnDrawMode & DrawModeFlags::GhostedText) &&
-            (aColor != COL_TRANSPARENT) )
-        {
-            aColor = Color( (aColor.GetRed() >> 1) | 0x80,
-                            (aColor.GetGreen() >> 1) | 0x80,
-                            (aColor.GetBlue() >> 1) | 0x80 );
         }
     }
 
@@ -872,7 +864,7 @@ void OutputDevice::SetOverlineColor( const Color& rColor )
     Color aColor( rColor );
 
     if ( mnDrawMode & ( DrawModeFlags::BlackText | DrawModeFlags::WhiteText |
-                        DrawModeFlags::GrayText | DrawModeFlags::GhostedText |
+                        DrawModeFlags::GrayText |
                         DrawModeFlags::SettingsText ) )
     {
         if ( mnDrawMode & DrawModeFlags::BlackText )
@@ -891,14 +883,6 @@ void OutputDevice::SetOverlineColor( const Color& rColor )
         else if ( mnDrawMode & DrawModeFlags::SettingsText )
         {
             aColor = GetSettings().GetStyleSettings().GetFontColor();
-        }
-
-        if( (mnDrawMode & DrawModeFlags::GhostedText) &&
-            (aColor != COL_TRANSPARENT) )
-        {
-            aColor = Color( (aColor.GetRed() >> 1) | 0x80,
-                            (aColor.GetGreen() >> 1) | 0x80,
-                            (aColor.GetBlue() >> 1) | 0x80 );
         }
     }
 

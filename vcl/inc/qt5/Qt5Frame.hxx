@@ -79,6 +79,7 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
 
     bool m_bDefaultSize;
     bool m_bDefaultPos;
+    bool m_bFullScreen;
 
     void Center();
     Size CalcDefaultSize();
@@ -108,6 +109,7 @@ private Q_SLOTS:
 
 Q_SIGNALS:
     void setVisibleSignal(bool);
+    void tooltipRequest(const OUString& rTooltip);
 
 public:
     Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nSalFrameStyle, bool bUseCairo);
@@ -157,6 +159,7 @@ public:
     virtual void SetPointer(PointerStyle ePointerStyle) override;
     virtual void CaptureMouse(bool bMouse) override;
     virtual void SetPointerPos(long nX, long nY) override;
+    virtual bool ShowTooltip(const OUString& rText, const tools::Rectangle& rHelpArea) override;
     using SalFrame::Flush;
     virtual void Flush() override;
     virtual void SetInputContext(SalInputContext* pContext) override;

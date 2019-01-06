@@ -23,12 +23,14 @@
 #include <memory>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
+#include <vcl/metric.hxx>
 #include <vcl/graphictools.hxx>
 #include <vcl/BitmapTools.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/canvastools.hxx>
 #include <vcl/svapp.hxx>
 #include <tools/fract.hxx>
+#include <tools/stream.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/tencinfo.h>
 #include <sal/log.hxx>

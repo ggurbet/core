@@ -35,6 +35,7 @@
 #include <sfx2/shell.hxx>
 #include <sfx2/viewfac.hxx>
 #include <tools/gen.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/IDialogRenderable.hxx>
 #include <vcl/errcode.hxx>
 #include <vcl/jobset.hxx>
@@ -98,12 +99,11 @@ enum class SfxViewShellFlags
 {
     NONE              = 0x0000,
     HAS_PRINTOPTIONS  = 0x0010, /* Options-Button and Options-Dialog in PrintDialog */
-    NO_SHOW           = 0x0040, /* Window of the ViewShell shall not be showed automatically */
     NO_NEWWINDOW      = 0x0100, /* Allow N View */
 };
 namespace o3tl
 {
-    template<> struct typed_flags<SfxViewShellFlags> : is_typed_flags<SfxViewShellFlags, 0x0150> {};
+    template<> struct typed_flags<SfxViewShellFlags> : is_typed_flags<SfxViewShellFlags, 0x0110> {};
 }
 
 /*  [Description]
@@ -305,7 +305,6 @@ public:
     SAL_DLLPRIVATE void ResetAllClients_Impl( SfxInPlaceClient const *pIP );
 
     SAL_DLLPRIVATE void SetPrinter_Impl( VclPtr<SfxPrinter>& pNewPrinter );
-    SAL_DLLPRIVATE bool IsShowView_Impl() const;
 
     SAL_DLLPRIVATE bool HandleNotifyEvent_Impl( NotifyEvent const & rEvent );
     SAL_DLLPRIVATE bool HasKeyListeners_Impl();

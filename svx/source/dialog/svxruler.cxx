@@ -800,12 +800,11 @@ void SvxRuler::UpdateColumns()
                     mxRulerImpl->aProtectItem.IsPosProtected();
 
         if( !bProtectColumns )
+        {
             nStyleFlags |= RulerBorderStyle::Moveable;
-
-        if( mxColumnItem->IsTable() )
-            nStyleFlags |= RulerBorderStyle::Table;
-        else if ( !bProtectColumns )
-            nStyleFlags |= RulerBorderStyle::Sizeable;
+            if( !mxColumnItem->IsTable() )
+              nStyleFlags |= RulerBorderStyle::Sizeable;
+        }
 
         sal_uInt16 nBorders = mxColumnItem->Count();
 
@@ -1797,7 +1796,7 @@ ADD_DEBUG_TEXT("lLastLMargin: ", OUString::number(mxRulerImpl->lLastLMargin))
                 {
                 default: ;//prevent warning
                     OSL_FAIL("svx::SvxRuler::DragBorders(), unknown drag type!" );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case RulerType::Border:
                     if(mxRulerImpl->bIsTableRows)
                     {

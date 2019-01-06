@@ -67,6 +67,7 @@ void Qt5DragSource::startDrag(
     if (m_pFrame)
     {
         Qt5Widget* qw = static_cast<Qt5Widget*>(m_pFrame->GetQWidget());
+        m_ActiveDragSource = this;
         qw->startDrag();
     }
     else
@@ -86,17 +87,18 @@ void Qt5DragSource::dragFailed()
     }
 }
 
-void Qt5DragSource::fire_dragEnd()
+void Qt5DragSource::fire_dragEnd(sal_Int8 nAction)
 {
     if (m_xListener.is())
     {
         datatransfer::dnd::DragSourceDropEvent aEv;
-        aEv.DropAction = datatransfer::dnd::DNDConstants::ACTION_MOVE;
+        aEv.DropAction = nAction;
         aEv.DropSuccess = true; // FIXME: what if drop didn't work out?
         auto xListener = m_xListener;
         m_xListener.clear();
         xListener->dragDropEnd(aEv);
     }
+    m_ActiveDragSource = nullptr;
 }
 
 OUString SAL_CALL Qt5DragSource::getImplementationName()
@@ -167,6 +169,9 @@ void Qt5DropTarget::initialize(const Sequence<Any>& rArguments)
         throw RuntimeException("DropTarget::initialize: missing SalFrame",
                                static_cast<OWeakObject*>(this));
     }
+
+    mnDragAction = datatransfer::dnd::DNDConstants::ACTION_NONE;
+    mnDropAction = datatransfer::dnd::DNDConstants::ACTION_NONE;
 
     m_pFrame = reinterpret_cast<Qt5Frame*>(nFrame);
     m_pFrame->registerDropTarget(this);
@@ -240,11 +245,30 @@ void Qt5DropTarget::fire_drop(const css::datatransfer::dnd::DropTargetDropEvent&
     }
 }
 
-void Qt5DropTarget::acceptDrag(sal_Int8 /*dragOperation*/) { return; }
-void Qt5DropTarget::rejectDrag() { return; }
+void Qt5DropTarget::acceptDrag(sal_Int8 dragOperation)
+{
+    mnDragAction = dragOperation;
+    return;
+}
 
-void Qt5DropTarget::acceptDrop(sal_Int8 /*dropOperation*/) { return; }
-void Qt5DropTarget::rejectDrop() { return; }
+void Qt5DropTarget::rejectDrag()
+{
+    mnDragAction = 0;
+    return;
+}
+
+void Qt5DropTarget::acceptDrop(sal_Int8 dropOperation)
+{
+    mnDropAction = dropOperation;
+    return;
+}
+
+void Qt5DropTarget::rejectDrop()
+{
+    mnDropAction = 0;
+    return;
+}
+
 void Qt5DropTarget::dropComplete(sal_Bool /*success*/) { return; }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

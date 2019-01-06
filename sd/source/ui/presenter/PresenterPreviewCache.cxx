@@ -20,6 +20,7 @@
 #include "PresenterPreviewCache.hxx"
 #include <facreg.hxx>
 
+#include <cache/SlsPageCache.hxx>
 #include <cache/SlsCacheContext.hxx>
 #include <tools/IdleDetection.hxx>
 #include <vcl/bitmapex.hxx>
@@ -234,13 +235,9 @@ void PresenterPreviewCache::PresenterCacheContext::AddPreviewCreationNotifyListe
 void PresenterPreviewCache::PresenterCacheContext::RemovePreviewCreationNotifyListener (
     const Reference<drawing::XSlidePreviewCacheListener>& rxListener)
 {
-    ListenerContainer::iterator iListener;
-    for (iListener=maListeners.begin(); iListener!=maListeners.end(); ++iListener)
-        if (*iListener == rxListener)
-        {
-            maListeners.erase(iListener);
-            return;
-        }
+    auto iListener = std::find(maListeners.begin(), maListeners.end(), rxListener);
+    if (iListener != maListeners.end())
+        maListeners.erase(iListener);
 }
 
 //----- CacheContext ----------------------------------------------------------
@@ -341,16 +338,15 @@ void PresenterPreviewCache::PresenterCacheContext::CallListeners (
     const sal_Int32 nIndex)
 {
     ListenerContainer aListeners (maListeners);
-    ListenerContainer::const_iterator iListener;
-    for (iListener=aListeners.begin(); iListener!=aListeners.end(); ++iListener)
+    for (const auto& rxListener : aListeners)
     {
         try
         {
-            (*iListener)->notifyPreviewCreation(nIndex);
+            rxListener->notifyPreviewCreation(nIndex);
         }
         catch (lang::DisposedException&)
         {
-            RemovePreviewCreationNotifyListener(*iListener);
+            RemovePreviewCreationNotifyListener(rxListener);
         }
     }
 }

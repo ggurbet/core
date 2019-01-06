@@ -24,12 +24,11 @@
 #include <vcl/fixed.hxx>
 #include <vcl/button.hxx>
 #include <vcl/edit.hxx>
-#include <vcl/lstbox.hxx>
 #include <vcl/idle.hxx>
 #include <vcl/fixedhyper.hxx>
 
 #include <svtools/svmedit.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 
 /********************** SvUpdateLinksDialog ******************************
 *************************************************************************/

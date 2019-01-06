@@ -282,7 +282,7 @@ void View::DoPaste (::sd::Window* pWindow)
             if( pObj && pPage && pPage->GetPresObjKind(pObj) == PRESOBJ_TITLE )
             {
                 // remove all hard linebreaks from the title
-                if( pOutliner && pOutliner->GetParagraphCount() > 1 )
+                if (pOutliner->GetParagraphCount() > 1)
                 {
                     bool bOldUpdateMode = pOutliner->GetUpdateMode();
 
@@ -305,7 +305,7 @@ void View::DoPaste (::sd::Window* pWindow)
 
             if( !mrDoc.IsChanged() )
             {
-                if( pOutliner && pOutliner->IsModified() )
+                if (pOutliner->IsModified())
                     mrDoc.SetChanged();
             }
         }
@@ -502,7 +502,8 @@ sal_Int8 View::AcceptDrop( const AcceptDropEvent& rEvt, DropTargetHelper& rTarge
                 bool        bXFillExchange = rTargetHelper.IsDropFormatSupported( SotClipboardFormatId::XFA );
 
                 // check handle insert
-                if( !nRet && ( (bXFillExchange && ( SdrDragMode::Gradient == GetDragMode() )) || ( SdrDragMode::Transparence == GetDragMode() ) ) )
+                if ((bXFillExchange && (SdrDragMode::Gradient == GetDragMode()))
+                    || (SdrDragMode::Transparence == GetDragMode()))
                 {
                     const SdrHdlList& rHdlList = GetHdlList();
 
@@ -654,7 +655,9 @@ sal_Int8 View::ExecuteDrop( const ExecuteDropEvent& rEvt,
                 aPos = pTargetWindow->PixelToLogic( rEvt.maPosPixel );
 
             // handle insert?
-            if( (!nRet && ( SdrDragMode::Gradient == GetDragMode() )) || (( SdrDragMode::Transparence == GetDragMode() ) && aDataHelper.HasFormat( SotClipboardFormatId::XFA )) )
+            if ((SdrDragMode::Gradient == GetDragMode())
+                || ((SdrDragMode::Transparence == GetDragMode())
+                    && aDataHelper.HasFormat(SotClipboardFormatId::XFA)))
             {
                 const SdrHdlList& rHdlList = GetHdlList();
 
@@ -856,10 +859,9 @@ bool View::GetExchangeList (std::vector<OUString> &rExchangeList,
     bool bListIdentical = true; ///< Bookmark list and exchange list are identical
     bool bNameOK = true;        ///< name is unique
 
-    std::vector<OUString>::const_iterator pIter;
-    for ( pIter = rBookmarkList.begin(); bNameOK && pIter != rBookmarkList.end(); ++pIter )
+    for ( const auto& rBookmark : rBookmarkList )
     {
-        OUString aNewName = *pIter;
+        OUString aNewName = rBookmark;
 
         if( nType == 0  || nType == 2 )
             bNameOK = mpDocSh->CheckPageName(mpViewSh->GetFrameWeld(), aNewName);
@@ -889,9 +891,12 @@ bool View::GetExchangeList (std::vector<OUString> &rExchangeList,
             }
         }
 
-        bListIdentical = *pIter == aNewName;
+        bListIdentical = rBookmark == aNewName;
 
         rExchangeList.push_back(aNewName);
+
+        if (!bNameOK)
+            break;
     }
 
     // Exchange list is identical to bookmark list

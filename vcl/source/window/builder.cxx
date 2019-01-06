@@ -18,6 +18,7 @@
 #include <osl/module.hxx>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
+#include <unotools/localedatawrapper.hxx>
 #include <unotools/resmgr.hxx>
 #include <vcl/builder.hxx>
 #include <vcl/builderfactory.hxx>
@@ -28,6 +29,7 @@
 #include <vcl/fmtfield.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/fixedhyper.hxx>
+#include <vcl/headbar.hxx>
 #include <vcl/IPrioritable.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/lstbox.hxx>
@@ -36,11 +38,11 @@
 #include <vcl/prgsbar.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/svtabbx.hxx>
 #include <vcl/tabctrl.hxx>
 #include <vcl/tabpage.hxx>
 #include <vcl/throbber.hxx>
 #include <vcl/toolbox.hxx>
-#include <vcl/treelistbox.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/vclmedit.hxx>
 #include <vcl/settings.hxx>
@@ -518,7 +520,7 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
         vcl::Window* pTarget = get<vcl::Window>(elem.m_sID);
         ListBox *pListBoxTarget = dynamic_cast<ListBox*>(pTarget);
         ComboBox *pComboBoxTarget = dynamic_cast<ComboBox*>(pTarget);
-        SvTreeListBox *pTreeBoxTarget = dynamic_cast<SvTreeListBox*>(pTarget);
+        SvTabListBox *pTreeBoxTarget = dynamic_cast<SvTabListBox*>(pTarget);
         // pStore may be empty
         const ListStore *pStore = get_model_by_name(elem.m_sValue.toUtf8());
         SAL_WARN_IF(!pListBoxTarget && !pComboBoxTarget && !pTreeBoxTarget, "vcl", "missing elements of combobox");
@@ -675,8 +677,8 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
                 SAL_WARN_IF(eType != SymbolType::IMAGE, "vcl.layout", "unimplemented symbol type for radiobuttons");
             if (eType == SymbolType::IMAGE)
             {
-                BitmapEx aBitmap(mapStockToImageResource(rImageInfo.m_sStock));
-                Image const aImage(aBitmap);
+                Image const aImage(StockImage::Yes,
+                                   mapStockToImageResource(rImageInfo.m_sStock));
                 if (!elem.m_bRadio)
                     pTargetButton->SetModeImage(aImage);
                 else
@@ -720,8 +722,8 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
         if (eType != SymbolType::IMAGE)
             continue;
 
-        BitmapEx aBitmap(mapStockToImageResource(rImageInfo.m_sStock));
-        const Image aImage(aBitmap);
+        Image const aImage(StockImage::Yes,
+                           mapStockToImageResource(rImageInfo.m_sStock));
         pImage->SetImage(aImage);
     }
 
@@ -1110,6 +1112,42 @@ namespace
         return sTooltipText;
     }
 
+    float extractAlignment(VclBuilder::stringmap &rMap)
+    {
+        float f = 0.0;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("alignment"));
+        if (aFind != rMap.end())
+        {
+            f = aFind->second.toFloat();
+            rMap.erase(aFind);
+        }
+        return f;
+    }
+
+    OUString extractTitle(VclBuilder::stringmap &rMap)
+    {
+        OUString sTitle;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("title"));
+        if (aFind != rMap.end())
+        {
+            sTitle = aFind->second;
+            rMap.erase(aFind);
+        }
+        return sTitle;
+    }
+
+    bool extractHeadersVisible(VclBuilder::stringmap &rMap)
+    {
+        bool bHeadersVisible = true;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("headers-visible"));
+        if (aFind != rMap.end())
+        {
+            bHeadersVisible = toBool(aFind->second);
+            rMap.erase(aFind);
+        }
+        return bHeadersVisible;
+    }
+
     void setupFromActionName(Button *pButton, VclBuilder::stringmap &rMap, const css::uno::Reference<css::frame::XFrame>& rFrame)
     {
         if (!rFrame.is())
@@ -1163,9 +1201,6 @@ namespace
                 xWindow = VclPtr<PushButton>::Create(pParent, nBits);
                 xWindow->SetText(getStockText(sType));
             }
-            PushButton* pPushButton = dynamic_cast<PushButton*>(xWindow.get());
-            if (pPushButton)
-                pPushButton->setStock(true);
         }
 
         if (!xWindow)
@@ -1871,34 +1906,88 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkTreeView")
     {
+        //window we want to apply the packing props for this GtkTreeView to
+        VclPtr<vcl::Window> xWindowForPackingProps;
         //To-Do
-        //a) make SvTreeListBox the default target for GtkTreeView
+        //a) make SvHeaderTabListBox/SvTabListBox the default target for GtkTreeView
         //b) remove the non-drop down mode of ListBox and convert
-        //   everything over to SvTreeListBox
-        //c) remove the users of makeSvTreeListBox
+        //   everything over to SvHeaderTabListBox/SvTabListBox
+        //c) remove the users of makeSvTabListBox and makeSvTreeListBox
         extractModel(id, rMap);
-        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_SIMPLEMODE;
+        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK;
         if (m_bLegacy)
         {
             OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
             if (!sBorder.isEmpty())
                 nWinStyle |= WB_BORDER;
         }
-        //ListBox/SvTreeListBox manages its own scrolling,
+        //ListBox/SvHeaderTabListBox manages its own scrolling,
         vcl::Window *pRealParent = prepareWidgetOwnScrolling(pParent, nWinStyle);
         if (pRealParent != pParent)
             nWinStyle |= WB_BORDER;
         if (m_bLegacy)
-            xWindow = VclPtr<ListBox>::Create(pRealParent, nWinStyle);
+        {
+            xWindow = VclPtr<ListBox>::Create(pRealParent, nWinStyle | WB_SIMPLEMODE);
+            xWindowForPackingProps = xWindow;
+        }
         else
         {
-            VclPtrInstance<SvTreeListBox> xBox(pRealParent, nWinStyle | WB_HASBUTTONS | WB_HASBUTTONSATROOT);
-            xBox->SetNoAutoCurEntry(true);
-            xBox->SetHighlightRange(); // select over the whole width
+            VclPtr<SvTabListBox> xBox;
+            bool bHeadersVisible = extractHeadersVisible(rMap);
+            if (bHeadersVisible)
+            {
+                VclPtr<VclVBox> xContainer = VclPtr<VclVBox>::Create(pRealParent);
+                OString containerid(id + "-container");
+                xContainer->SetHelpId(m_sHelpRoot + containerid);
+                m_aChildren.emplace_back(containerid, xContainer, true);
+
+                VclPtrInstance<HeaderBar> xHeader(xContainer, WB_BUTTONSTYLE | WB_BORDER | WB_TABSTOP | WB_3DLOOK);
+                xHeader->set_width_request(0); // let the headerbar width not affect the size requistion
+                OString headerid(id + "-header");
+                xHeader->SetHelpId(m_sHelpRoot + headerid);
+                m_aChildren.emplace_back(headerid, xHeader, true);
+
+                VclPtr<SvHeaderTabListBox> xHeaderBox = VclPtr<SvHeaderTabListBox>::Create(xContainer, nWinStyle);
+                xHeaderBox->InitHeaderBar(xHeader);
+                xContainer->set_expand(true);
+                xHeader->Show();
+                xContainer->Show();
+                xBox = xHeaderBox;
+                xWindowForPackingProps = xContainer;
+            }
+            else
+            {
+                xBox = VclPtr<SvTabListBox>::Create(pRealParent, nWinStyle);
+                xWindowForPackingProps = xBox;
+            }
             xWindow = xBox;
+            xBox->SetNoAutoCurEntry(true);
+            xBox->SetQuickSearch(true);
+            xBox->SetHighlightRange(); // select over the whole width
         }
         if (pRealParent != pParent)
-            cleanupWidgetOwnScrolling(pParent, xWindow, rMap);
+            cleanupWidgetOwnScrolling(pParent, xWindowForPackingProps, rMap);
+    }
+    else if (name == "GtkTreeViewColumn")
+    {
+        if (!m_bLegacy)
+        {
+            SvHeaderTabListBox* pTreeView = dynamic_cast<SvHeaderTabListBox*>(pParent);
+            if (HeaderBar* pHeaderBar = pTreeView ? pTreeView->GetHeaderBar() : nullptr)
+            {
+                OUString sTitle(extractTitle(rMap));
+                HeaderBarItemBits nBits = HeaderBarItemBits::LEFTIMAGE | HeaderBarItemBits::CLICKABLE;
+                float fAlign = extractAlignment(rMap);
+                if (fAlign == 0.0)
+                    nBits |= HeaderBarItemBits::LEFT;
+                else if (fAlign == 1.0)
+                    nBits |= HeaderBarItemBits::RIGHT;
+                else if (fAlign == 0.5)
+                    nBits |= HeaderBarItemBits::CENTER;
+                auto nItemId = pHeaderBar->GetItemCount() + 1;
+                pHeaderBar->InsertItem(nItemId, sTitle, 100, nBits);
+            }
+        }
     }
     else if (name == "GtkLabel")
     {
@@ -2032,9 +2121,9 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                     //TODO: ImplToolItems::size_type -> sal_uInt16!
                 pToolBox->InsertItem(nItemId, extractLabel(rMap), nBits);
                 pToolBox->SetItemCommand(nItemId, aCommand);
-                pToolBox->SetHelpId(nItemId, m_sHelpRoot + id);
             }
 
+            pToolBox->SetHelpId(nItemId, m_sHelpRoot + id);
             OUString sTooltip(extractTooltipText(rMap));
             if (!sTooltip.isEmpty())
                 pToolBox->SetQuickHelpText(nItemId, sTooltip);
@@ -2470,7 +2559,7 @@ VclPtr<vcl::Window> VclBuilder::insertObject(vcl::Window *pParent, const OString
             pCurrentChild->set_font_attribute(rKey, rValue);
         }
 
-        m_pParserState->m_aAtkInfo[VclPtr<vcl::Window>(pCurrentChild)] = rAtk;
+        m_pParserState->m_aAtkInfo[pCurrentChild] = rAtk;
     }
 
     rProps.clear();
@@ -2707,16 +2796,22 @@ void VclBuilder::handleChild(vcl::Window *pParent, xmlreader::XmlReader &reader)
                             }
                         }
 
+                        bool bIsButtonBox = dynamic_cast<VclButtonBox*>(pCurrentChild) != nullptr;
+
                         //To-Do make reorder a virtual in Window, move this foo
                         //there and see above
                         std::vector<vcl::Window*> aChilds;
                         for (vcl::Window* pChild = pCurrentChild->GetWindow(GetWindowType::FirstChild); pChild;
                             pChild = pChild->GetWindow(GetWindowType::Next))
                         {
+                            if (bIsButtonBox)
+                            {
+                                if (PushButton* pPushButton = dynamic_cast<PushButton*>(pChild))
+                                    pPushButton->setAction(true);
+                            }
+
                             aChilds.push_back(pChild);
                         }
-
-                        bool bIsButtonBox = dynamic_cast<VclButtonBox*>(pCurrentChild) != nullptr;
 
                         //sort child order within parent so that tabbing
                         //between controls goes in a visually sensible sequence
@@ -4081,7 +4176,7 @@ void VclBuilder::mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt1
         rTarget.SelectEntryPos(nActiveId);
 }
 
-void VclBuilder::mungeModel(SvTreeListBox &rTarget, const ListStore &rStore, sal_uInt16 nActiveId)
+void VclBuilder::mungeModel(SvTabListBox& rTarget, const ListStore &rStore, sal_uInt16 nActiveId)
 {
     for (auto const& entry : rStore.m_aEntries)
     {

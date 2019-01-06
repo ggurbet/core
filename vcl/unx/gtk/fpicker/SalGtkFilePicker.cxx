@@ -1233,7 +1233,7 @@ uno::Any SalGtkFilePicker::HandleGetListValue(GtkComboBox *pWidget, sal_Int16 nC
                             &iter, 0, &item, -1);
                         aItemList[i] = OUString(item, strlen(item), RTL_TEXTENCODING_UTF8);
                         g_free(item);
-                        gtk_tree_model_iter_next(pTree, &iter);
+                        (void)gtk_tree_model_iter_next(pTree, &iter);
                     }
                 }
                 aAny <<= aItemList;
@@ -1923,7 +1923,7 @@ void SalGtkFilePicker::SetFilters()
     if( GTK_FILE_CHOOSER_ACTION_SAVE == gtk_file_chooser_get_action( GTK_FILE_CHOOSER( m_pDialog ) ) )
     {
         std::set<OUString> aAllFormats;
-        if( m_pFilterVector && !m_pFilterVector->empty() )
+        if( m_pFilterVector )
         {
             for (auto & filter : *m_pFilterVector)
             {
@@ -1954,7 +1954,7 @@ void SalGtkFilePicker::SetFilters()
         }
     }
 
-    if( m_pFilterVector && !m_pFilterVector->empty() )
+    if( m_pFilterVector )
     {
         for (auto & filter : *m_pFilterVector)
         {

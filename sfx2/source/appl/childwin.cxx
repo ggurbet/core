@@ -201,10 +201,10 @@ SfxChildWindow::~SfxChildWindow()
 }
 
 
-SfxChildWindow* SfxChildWindow::CreateChildWindow( sal_uInt16 nId,
+std::unique_ptr<SfxChildWindow> SfxChildWindow::CreateChildWindow( sal_uInt16 nId,
         vcl::Window *pParent, SfxBindings* pBindings, SfxChildWinInfo const & rInfo)
 {
-    SfxChildWindow *pChild=nullptr;
+    std::unique_ptr<SfxChildWindow> pChild;
     SfxChildWinFactory* pFact=nullptr;
     SystemWindowFlags nOldMode = Application::GetSystemWindowMode();
 
@@ -275,7 +275,7 @@ SfxChildWindow* SfxChildWindow::CreateChildWindow( sal_uInt16 nId,
 
     if (pChild && (!pChild->pWindow && !pChild->xController))
     {
-        DELETEZ(pChild);
+        pChild.reset();
         SAL_INFO("sfx.appl", "ChildWindow has no Window!");
     }
 
@@ -330,7 +330,7 @@ SfxChildWinInfo SfxChildWindow::GetInfo() const
         aInfo.aSize = pDialog->get_size();
         WindowStateMask nMask = WindowStateMask::Pos | WindowStateMask::State;
         if (pDialog->get_resizable())
-            nMask |= (WindowStateMask::Width | WindowStateMask::Height);
+            nMask |= WindowStateMask::Width | WindowStateMask::Height;
         aInfo.aWinState = pDialog->get_window_state(nMask);
     }
     else if (pWindow)
@@ -341,7 +341,7 @@ SfxChildWinInfo SfxChildWindow::GetInfo() const
         {
             WindowStateMask nMask = WindowStateMask::Pos | WindowStateMask::State;
             if ( pWindow->GetStyle() & WB_SIZEABLE )
-                nMask |= ( WindowStateMask::Width | WindowStateMask::Height );
+                nMask |= WindowStateMask::Width | WindowStateMask::Height;
             aInfo.aWinState = static_cast<SystemWindow*>(pWindow.get())->GetWindowState( nMask );
         }
         else if (DockingWindow* pDockingWindow = dynamic_cast<DockingWindow*>(pWindow.get()))
@@ -433,7 +433,7 @@ void SfxChildWindow::InitializeChildWinFactory_Impl(sal_uInt16 nId, SfxChildWinI
 
 void SfxChildWindow::CreateContext( sal_uInt16 nContextId, SfxBindings& rBindings )
 {
-    SfxChildWindowContext *pCon = nullptr;
+    std::unique_ptr<SfxChildWindowContext> pCon;
     SfxChildWinFactory* pFact=nullptr;
     SfxApplication *pApp = SfxGetpApp();
     SfxDispatcher *pDisp = rBindings.GetDispatcher_Impl();
@@ -508,7 +508,7 @@ void SfxChildWindow::CreateContext( sal_uInt16 nContextId, SfxBindings& rBinding
         return;
     }
 
-    pContext.reset(pCon);
+    pContext = std::move(pCon);
     pContext->GetWindow()->SetSizePixel( pWindow->GetOutputSizePixel() );
     pContext->GetWindow()->Show();
 }
@@ -636,7 +636,7 @@ void SfxChildWindow::Show( ShowFlags nFlags )
         if (!xController->getDialog()->get_visible())
         {
             weld::DialogController::runAsync(xController,
-                [=](sal_Int32 /*nResult*/){ xController->Close(); });
+                [this](sal_Int32 /*nResult*/){ xController->Close(); });
         }
     }
     else
@@ -720,14 +720,14 @@ void SfxChildWindow::SetFrame( const css::uno::Reference< css::frame::XFrame > &
     }
 }
 
-void SfxChildWindowContext::RegisterChildWindowContext(SfxModule* pMod, sal_uInt16 nId, SfxChildWinContextFactory* pFact)
+void SfxChildWindowContext::RegisterChildWindowContext(SfxModule* pMod, sal_uInt16 nId, std::unique_ptr<SfxChildWinContextFactory> pFact)
 {
-    SfxGetpApp()->RegisterChildWindowContext_Impl( pMod, nId, pFact );
+    SfxGetpApp()->RegisterChildWindowContext_Impl( pMod, nId, std::move(pFact) );
 }
 
-void SfxChildWindow::RegisterChildWindow(SfxModule* pMod, SfxChildWinFactory* pFact)
+void SfxChildWindow::RegisterChildWindow(SfxModule* pMod, std::unique_ptr<SfxChildWinFactory> pFact)
 {
-    SfxGetpApp()->RegisterChildWindow_Impl( pMod, pFact );
+    SfxGetpApp()->RegisterChildWindow_Impl( pMod, std::move(pFact) );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

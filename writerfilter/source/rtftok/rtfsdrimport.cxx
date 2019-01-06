@@ -331,7 +331,7 @@ int RTFSdrImport::initShape(uno::Reference<drawing::XShape>& o_xShape,
                     o_xPropSet->setPropertyValue(i.Name, i.Value);
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             createShape("com.sun.star.drawing.CustomShape", o_xShape, o_xPropSet);
             o_rIsCustomShape = true;
@@ -1035,8 +1035,7 @@ void RTFSdrImport::resolve(RTFShape& rShape, bool bClose, ShapeOrPict const shap
             xPropertySet->setPropertyValue("VertOrientRelation",
                                            uno::makeAny(rShape.nVertOrientRelation));
         if (rShape.nWrap != text::WrapTextMode::WrapTextMode_MAKE_FIXED_SIZE)
-            xPropertySet->setPropertyValue("Surround",
-                                           uno::makeAny(text::WrapTextMode(rShape.nWrap)));
+            xPropertySet->setPropertyValue("Surround", uno::makeAny(rShape.nWrap));
         oox::ModelObjectHelper aModelObjectHelper(m_rImport.getModelFactory());
         if (aFillModel.moType.has())
         {

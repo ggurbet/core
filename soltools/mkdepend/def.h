@@ -71,24 +71,10 @@ in this Software without prior written authorization from the X Consortium.
 
 /* the following must match the directives table in main.c */
 #define IF      0
-#define IFDEF       1
-#define IFNDEF      2
-#define ELSE        3
-#define ENDIF       4
-#define DEFINE      5
-#define UNDEF       6
-#define INCLUDE     7
-#define LINE        8
-#define PRAGMA      9
 #define ERROR           10
-#define IDENT           11
-#define SCCS            12
 #define ELIF            13
-#define EJECT           14
 #define IFFALSE         15     /* pseudo value --- never matched */
 #define ELIFFALSE       16     /* pseudo value --- never matched */
-#define INCLUDEDOT      17     /* pseudo value --- never matched */
-#define IFGUESSFALSE    18     /* pseudo value --- never matched */
 #define ELIFGUESSFALSE  19     /* pseudo value --- never matched */
 
 #ifdef DEBUG
@@ -130,8 +116,6 @@ struct  inclist {
     boolean     i_notified;    /* whether we have revealed includes */
     boolean     i_marked;      /* whether it's in the makefile */
     boolean     i_searched;    /* whether we have read this */
-    boolean     i_included_sym; /* whether #include SYMBOL was found */
-                    /* Can't use i_list if TRUE */
 };
 
 struct filepointer {

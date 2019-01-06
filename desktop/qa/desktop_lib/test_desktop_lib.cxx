@@ -31,6 +31,7 @@
 #include <comphelper/dispatchcommand.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <osl/conditn.hxx>
+#include <osl/thread.hxx>
 #include <svl/srchitem.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <unotools/tempfile.hxx>
@@ -59,6 +60,8 @@ public:
     m_nTrackChanges(0)
     {
     }
+
+    void readFileIntoByteVector(OUString const & sFilename, std::vector<sal_uInt8> & rByteVector);
 
     virtual void setUp() override
     {
@@ -120,7 +123,10 @@ public:
     void testExtractParameter();
     void testGetSignatureState_NonSigned();
     void testGetSignatureState_Signed();
-    void testInsertCertificate();
+    void testInsertCertificate_DER_ODT();
+    void testInsertCertificate_PEM_ODT();
+    void testInsertCertificate_PEM_DOCX();
+    void testSignDocument_PEM_PDF();
     void testABI();
 
     CPPUNIT_TEST_SUITE(DesktopLOKTest);
@@ -166,7 +172,10 @@ public:
     CPPUNIT_TEST(testExtractParameter);
     CPPUNIT_TEST(testGetSignatureState_Signed);
     CPPUNIT_TEST(testGetSignatureState_NonSigned);
-    CPPUNIT_TEST(testInsertCertificate);
+    CPPUNIT_TEST(testInsertCertificate_DER_ODT);
+    CPPUNIT_TEST(testInsertCertificate_PEM_ODT);
+    CPPUNIT_TEST(testInsertCertificate_PEM_DOCX);
+    CPPUNIT_TEST(testSignDocument_PEM_PDF);
     CPPUNIT_TEST(testABI);
     CPPUNIT_TEST_SUITE_END();
 
@@ -1048,7 +1057,7 @@ namespace {
         for (const auto& aItemPair: aRoot)
         {
             // This is an array, so no key
-            CPPUNIT_ASSERT_EQUAL(std::string(aItemPair.first), std::string(""));
+            CPPUNIT_ASSERT_EQUAL(aItemPair.first, std::string(""));
 
             boost::property_tree::ptree aItemValue = aItemPair.second;
             boost::optional<boost::property_tree::ptree&> aText = aItemValue.get_child_optional("text");
@@ -1143,7 +1152,7 @@ void DesktopLOKTest::testContextMenuCalc()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("true"));
     }
 
     // Copy is enabled
@@ -1153,7 +1162,7 @@ void DesktopLOKTest::testContextMenuCalc()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("true"));
     }
 
     // Paste is enabled
@@ -1163,7 +1172,7 @@ void DesktopLOKTest::testContextMenuCalc()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("true"));
     }
 
     // Remove hyperlink is disabled
@@ -1173,7 +1182,7 @@ void DesktopLOKTest::testContextMenuCalc()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // open hyperlink is disabled
@@ -1183,7 +1192,7 @@ void DesktopLOKTest::testContextMenuCalc()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // checkbutton tests
@@ -1203,21 +1212,21 @@ void DesktopLOKTest::testContextMenuCalc()
         // these are radio buttons
         boost::optional<boost::property_tree::ptree&> aChecktypeToPage = aMenuItemToPage.get().get_child_optional("checktype");
         CPPUNIT_ASSERT(aChecktypeToPage);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecktypeToPage.get().data()), std::string("radio"));
+        CPPUNIT_ASSERT_EQUAL(aChecktypeToPage.get().data(), std::string("radio"));
 
         boost::optional<boost::property_tree::ptree&> aChecktypeToCell = aMenuItemToCell.get().get_child_optional("checktype");
         CPPUNIT_ASSERT(aChecktypeToCell);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecktypeToCell.get().data()), std::string("radio"));
+        CPPUNIT_ASSERT_EQUAL(aChecktypeToCell.get().data(), std::string("radio"));
 
         // ToPage is checked
         boost::optional<boost::property_tree::ptree&> aCheckedToPage = aMenuItemToPage.get().get_child_optional("checked");
         CPPUNIT_ASSERT(aCheckedToPage);
-        CPPUNIT_ASSERT_EQUAL(std::string(aCheckedToPage.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aCheckedToPage.get().data(), std::string("true"));
 
         // ToCell is unchecked
         boost::optional<boost::property_tree::ptree&> aCheckedToCell = aMenuItemToCell.get().get_child_optional("checked");
         CPPUNIT_ASSERT(aCheckedToCell);
-        CPPUNIT_ASSERT_EQUAL(std::string(aCheckedToCell.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aCheckedToCell.get().data(), std::string("false"));
     }
 
     comphelper::LibreOfficeKit::setActive(false);
@@ -1254,7 +1263,7 @@ void DesktopLOKTest::testContextMenuWriter()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // Copy is disabled
@@ -1264,7 +1273,7 @@ void DesktopLOKTest::testContextMenuWriter()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // Paste is enabled
@@ -1274,7 +1283,7 @@ void DesktopLOKTest::testContextMenuWriter()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("true"));
     }
 
     comphelper::LibreOfficeKit::setActive(false);
@@ -1312,7 +1321,7 @@ void DesktopLOKTest::testContextMenuImpress()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // Copy is disabled
@@ -1322,7 +1331,7 @@ void DesktopLOKTest::testContextMenuImpress()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // Paste is enabled
@@ -1332,7 +1341,7 @@ void DesktopLOKTest::testContextMenuImpress()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("true"));
     }
 
     // SaveBackground is disabled
@@ -1342,7 +1351,7 @@ void DesktopLOKTest::testContextMenuImpress()
 
         boost::optional<boost::property_tree::ptree&> aEnabled = aMenuItem.get().get_child_optional("enabled");
         CPPUNIT_ASSERT(aEnabled);
-        CPPUNIT_ASSERT_EQUAL(std::string(aEnabled.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("false"));
     }
 
     // checkbutton tests
@@ -1352,11 +1361,11 @@ void DesktopLOKTest::testContextMenuImpress()
 
         boost::optional<boost::property_tree::ptree&> aChecktype = aMenuItem.get().get_child_optional("checktype");
         CPPUNIT_ASSERT(aChecktype);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecktype.get().data()), std::string("checkmark"));
+        CPPUNIT_ASSERT_EQUAL(aChecktype.get().data(), std::string("checkmark"));
 
         boost::optional<boost::property_tree::ptree&> aChecked = aMenuItem.get().get_child_optional("checked");
         CPPUNIT_ASSERT(aChecked);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecked.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aChecked.get().data(), std::string("false"));
     }
 
     // Checkbutton tests inside SnapLines submenu
@@ -1379,30 +1388,30 @@ void DesktopLOKTest::testContextMenuImpress()
         // these are checkmarks
         boost::optional<boost::property_tree::ptree&> aChecktypeHelpVis = aMenuItemHelpVis.get().get_child_optional("checktype");
         CPPUNIT_ASSERT(aChecktypeHelpVis);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecktypeHelpVis.get().data()), std::string("checkmark"));
+        CPPUNIT_ASSERT_EQUAL(aChecktypeHelpVis.get().data(), std::string("checkmark"));
 
         boost::optional<boost::property_tree::ptree&> aChecktypeHelpUse = aMenuItemHelpUse.get().get_child_optional("checktype");
         CPPUNIT_ASSERT(aChecktypeHelpUse);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecktypeHelpUse.get().data()), std::string("checkmark"));
+        CPPUNIT_ASSERT_EQUAL(aChecktypeHelpUse.get().data(), std::string("checkmark"));
 
         boost::optional<boost::property_tree::ptree&> aChecktypeHelpFront = aMenuItemHelpFront.get().get_child_optional("checktype");
         CPPUNIT_ASSERT(aChecktypeHelpFront);
-        CPPUNIT_ASSERT_EQUAL(std::string(aChecktypeHelpFront.get().data()), std::string("checkmark"));
+        CPPUNIT_ASSERT_EQUAL(aChecktypeHelpFront.get().data(), std::string("checkmark"));
 
         // HelplineVisible is unchecked
         boost::optional<boost::property_tree::ptree&> aCheckedHelpVis = aMenuItemHelpVis.get().get_child_optional("checked");
         CPPUNIT_ASSERT(aCheckedHelpVis);
-        CPPUNIT_ASSERT_EQUAL(std::string(aCheckedHelpVis.get().data()), std::string("false"));
+        CPPUNIT_ASSERT_EQUAL(aCheckedHelpVis.get().data(), std::string("false"));
 
         // HelplineUse is checked
         boost::optional<boost::property_tree::ptree&> aCheckedHelpUse = aMenuItemHelpUse.get().get_child_optional("checked");
         CPPUNIT_ASSERT(aCheckedHelpUse);
-        CPPUNIT_ASSERT_EQUAL(std::string(aCheckedHelpUse.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aCheckedHelpUse.get().data(), std::string("true"));
 
         // HelplineFront is checked
         boost::optional<boost::property_tree::ptree&> aCheckedHelpFront = aMenuItemHelpFront.get().get_child_optional("checked");
         CPPUNIT_ASSERT(aCheckedHelpFront);
-        CPPUNIT_ASSERT_EQUAL(std::string(aCheckedHelpFront.get().data()), std::string("true"));
+        CPPUNIT_ASSERT_EQUAL(aCheckedHelpFront.get().data(), std::string("true"));
     }
 
     comphelper::LibreOfficeKit::setActive(false);
@@ -2248,6 +2257,16 @@ void DesktopLOKTest::testExtractParameter()
     comphelper::LibreOfficeKit::setActive(false);
 }
 
+void DesktopLOKTest::readFileIntoByteVector(OUString const & sFilename, std::vector<unsigned char> & rByteVector)
+{
+    rByteVector.clear();
+    OUString aURL;
+    createFileURL(sFilename, aURL);
+    SvFileStream aStream(aURL, StreamMode::READ);
+    rByteVector.resize(aStream.remainingSize());
+    aStream.ReadBytes(rByteVector.data(), aStream.remainingSize());
+}
+
 void DesktopLOKTest::testGetSignatureState_Signed()
 {
     comphelper::LibreOfficeKit::setActive();
@@ -2257,28 +2276,16 @@ void DesktopLOKTest::testGetSignatureState_Signed()
     int nState = pDocument->m_pDocumentClass->getSignatureState(pDocument);
     CPPUNIT_ASSERT_EQUAL(int(4), nState);
 
+    std::vector<unsigned char> aCertificate;
     {
-        OUString aCertificateURL;
-        createFileURL("rootCA.der", aCertificateURL);
-        SvFileStream aCertificateStream(aCertificateURL, StreamMode::READ);
-        std::vector<unsigned char> aCertificate;
-        aCertificate.resize(aCertificateStream.remainingSize());
-        aCertificateStream.ReadBytes(aCertificate.data(), aCertificateStream.remainingSize());
-
+        readFileIntoByteVector("rootCA.der", aCertificate);
         bool bResult = pDocument->m_pDocumentClass->addCertificate(
                             pDocument, aCertificate.data(), int(aCertificate.size()));
         CPPUNIT_ASSERT(bResult);
     }
 
     {
-        OUString aCertificateURL;
-        createFileURL("intermediateRootCA.der", aCertificateURL);
-        SvFileStream aCertificateStream(aCertificateURL, StreamMode::READ);
-        std::vector<unsigned char> aCertificate;
-        aCertificate.resize(aCertificateStream.remainingSize());
-        aCertificateStream.ReadBytes(aCertificate.data(), aCertificateStream.remainingSize());
-
-
+        readFileIntoByteVector("intermediateRootCA.der", aCertificate);
         bool bResult = pDocument->m_pDocumentClass->addCertificate(
                             pDocument, aCertificate.data(), int(aCertificate.size()));
         CPPUNIT_ASSERT(bResult);
@@ -2301,7 +2308,7 @@ void DesktopLOKTest::testGetSignatureState_NonSigned()
     comphelper::LibreOfficeKit::setActive(false);
 }
 
-void DesktopLOKTest::testInsertCertificate()
+void DesktopLOKTest::testInsertCertificate_DER_ODT()
 {
     comphelper::LibreOfficeKit::setActive();
 
@@ -2320,13 +2327,11 @@ void DesktopLOKTest::testInsertCertificate()
     pDocument->m_pDocumentClass->initializeForRendering(pDocument, "{}");
     Scheduler::ProcessEventsToIdle();
 
+    std::vector<unsigned char> aCertificate;
+    std::vector<unsigned char> aPrivateKey;
+
     {
-        OUString aCertificateURL;
-        createFileURL("rootCA.der", aCertificateURL);
-        SvFileStream aCertificateStream(aCertificateURL, StreamMode::READ);
-        std::vector<unsigned char> aCertificate;
-        aCertificate.resize(aCertificateStream.remainingSize());
-        aCertificateStream.ReadBytes(aCertificate.data(), aCertificateStream.remainingSize());
+        readFileIntoByteVector("rootCA.der", aCertificate);
 
         bool bResult = pDocument->m_pDocumentClass->addCertificate(
                             pDocument, aCertificate.data(), int(aCertificate.size()));
@@ -2334,13 +2339,7 @@ void DesktopLOKTest::testInsertCertificate()
     }
 
     {
-        OUString aCertificateURL;
-        createFileURL("intermediateRootCA.der", aCertificateURL);
-        SvFileStream aCertificateStream(aCertificateURL, StreamMode::READ);
-        std::vector<unsigned char> aCertificate;
-        aCertificate.resize(aCertificateStream.remainingSize());
-        aCertificateStream.ReadBytes(aCertificate.data(), aCertificateStream.remainingSize());
-
+        readFileIntoByteVector("intermediateRootCA.der", aCertificate);
 
         bool bResult = pDocument->m_pDocumentClass->addCertificate(
                             pDocument, aCertificate.data(), int(aCertificate.size()));
@@ -2348,20 +2347,8 @@ void DesktopLOKTest::testInsertCertificate()
     }
 
     {
-        OUString aCertificateURL;
-        createFileURL("certificate.der", aCertificateURL);
-        SvFileStream aCertificateStream(aCertificateURL, StreamMode::READ);
-        std::vector<unsigned char> aCertificate;
-        aCertificate.resize(aCertificateStream.remainingSize());
-        aCertificateStream.ReadBytes(aCertificate.data(), aCertificateStream.remainingSize());
-
-
-        OUString aPrivateKeyURL;
-        createFileURL("certificatePrivateKey.der", aPrivateKeyURL);
-        SvFileStream aPrivateKeyStream(aPrivateKeyURL, StreamMode::READ);
-        std::vector<unsigned char> aPrivateKey;
-        aPrivateKey.resize(aPrivateKeyStream.remainingSize());
-        aPrivateKeyStream.ReadBytes(aPrivateKey.data(), aPrivateKeyStream.remainingSize());
+        readFileIntoByteVector("certificate.der", aCertificate);
+        readFileIntoByteVector("certificatePrivateKey.der", aPrivateKey);
 
         bool bResult = pDocument->m_pDocumentClass->insertCertificate(pDocument,
                             aCertificate.data(), int(aCertificate.size()),
@@ -2369,10 +2356,203 @@ void DesktopLOKTest::testInsertCertificate()
         CPPUNIT_ASSERT(bResult);
     }
 
+    int nState = pDocument->m_pDocumentClass->getSignatureState(pDocument);
+    CPPUNIT_ASSERT_EQUAL(int(1), nState);
+
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
+
+void DesktopLOKTest::testInsertCertificate_PEM_ODT()
+{
+    comphelper::LibreOfficeKit::setActive();
+
+    // Load the document, save it into a temp file and load that file again
+    LibLODocument_Impl* pDocument = loadDoc("blank_text.odt");
+    utl::TempFile aTempFile;
+    aTempFile.EnableKillingFile();
+    CPPUNIT_ASSERT(pDocument->pClass->saveAs(pDocument, aTempFile.GetURL().toUtf8().getStr(), "odt", nullptr));
+    closeDoc();
+
+    mxComponent = loadFromDesktop(aTempFile.GetURL(), "com.sun.star.text.TextDocument");
+    pDocument = new LibLODocument_Impl(mxComponent);
+
+    Scheduler::ProcessEventsToIdle();
+    CPPUNIT_ASSERT(mxComponent.is());
+    pDocument->m_pDocumentClass->initializeForRendering(pDocument, "{}");
+    Scheduler::ProcessEventsToIdle();
+
+    std::vector<unsigned char> aCertificate;
+    std::vector<unsigned char> aPrivateKey;
+
+    {
+        readFileIntoByteVector("test-cert-chain-1.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-chain-2.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-chain-3.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-signing.pem", aCertificate);
+        readFileIntoByteVector("test-PK-signing.pem", aPrivateKey);
+
+        bool bResult = pDocument->m_pDocumentClass->insertCertificate(pDocument,
+                            aCertificate.data(), int(aCertificate.size()),
+                            aPrivateKey.data(), int(aPrivateKey.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    int nState = pDocument->m_pDocumentClass->getSignatureState(pDocument);
+    CPPUNIT_ASSERT_EQUAL(int(1), nState);
+
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
+void DesktopLOKTest::testInsertCertificate_PEM_DOCX()
+{
+    comphelper::LibreOfficeKit::setActive();
+
+    // Load the document, save it into a temp file and load that file again
+    LibLODocument_Impl* pDocument = loadDoc("blank_text.docx");
+    utl::TempFile aTempFile;
+    aTempFile.EnableKillingFile();
+    CPPUNIT_ASSERT(pDocument->pClass->saveAs(pDocument, aTempFile.GetURL().toUtf8().getStr(), "docx", nullptr));
+    closeDoc();
+
+    mxComponent = loadFromDesktop(aTempFile.GetURL(), "com.sun.star.text.TextDocument");
+    pDocument = new LibLODocument_Impl(mxComponent);
+
+    Scheduler::ProcessEventsToIdle();
+    CPPUNIT_ASSERT(mxComponent.is());
+    pDocument->m_pDocumentClass->initializeForRendering(pDocument, "{}");
+    Scheduler::ProcessEventsToIdle();
+
+    std::vector<unsigned char> aCertificate;
+    std::vector<unsigned char> aPrivateKey;
+
+    {
+        readFileIntoByteVector("test-cert-chain-1.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-chain-2.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-chain-3.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-signing.pem", aCertificate);
+        readFileIntoByteVector("test-PK-signing.pem", aPrivateKey);
+
+        bool bResult = pDocument->m_pDocumentClass->insertCertificate(pDocument,
+                            aCertificate.data(), int(aCertificate.size()),
+                            aPrivateKey.data(), int(aPrivateKey.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    int nState = pDocument->m_pDocumentClass->getSignatureState(pDocument);
+    CPPUNIT_ASSERT_EQUAL(int(5), nState);
+
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
+void DesktopLOKTest::testSignDocument_PEM_PDF()
+{
+    comphelper::LibreOfficeKit::setActive();
+
+    // Load the document, save it into a temp file and load that file again
+    LibLODocument_Impl* pDocument = loadDoc("blank_text.odt");
+    utl::TempFile aTempFile;
+    aTempFile.EnableKillingFile();
+
+    Scheduler::ProcessEventsToIdle();
+    CPPUNIT_ASSERT(mxComponent.is());
+    pDocument->m_pDocumentClass->initializeForRendering(pDocument, "{}");
+    Scheduler::ProcessEventsToIdle();
+
+    std::vector<unsigned char> aCertificate;
+    std::vector<unsigned char> aPrivateKey;
+
+    {
+        readFileIntoByteVector("test-cert-chain-1.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-chain-2.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    {
+        readFileIntoByteVector("test-cert-chain-3.pem", aCertificate);
+
+        bool bResult = pDocument->m_pDocumentClass->addCertificate(
+                            pDocument, aCertificate.data(), int(aCertificate.size()));
+        CPPUNIT_ASSERT(bResult);
+    }
+
+    CPPUNIT_ASSERT(pDocument->pClass->saveAs(pDocument, aTempFile.GetURL().toUtf8().getStr(), "pdf", nullptr));
+
+    closeDoc();
+
+    Scheduler::ProcessEventsToIdle();
+
+    readFileIntoByteVector("test-cert-signing.pem", aCertificate);
+    readFileIntoByteVector("test-PK-signing.pem", aPrivateKey);
+
+    LibLibreOffice_Impl aOffice;
+    bool bResult = aOffice.m_pOfficeClass->signDocument(&aOffice, aTempFile.GetURL().toUtf8().getStr(),
+                                         aCertificate.data(), int(aCertificate.size()),
+                                         aPrivateKey.data(), int(aPrivateKey.size()));
+
+    CPPUNIT_ASSERT(bResult);
+
     comphelper::LibreOfficeKit::setActive(false);
 }
 
 namespace {
+
+constexpr size_t classOffset(int i)
+{
+    return sizeof(static_cast<struct _LibreOfficeKitClass*>(nullptr)->nSize) + i * sizeof(void*);
+}
 
 constexpr size_t documentClassOffset(int i)
 {
@@ -2384,6 +2564,19 @@ constexpr size_t documentClassOffset(int i)
 void DesktopLOKTest::testABI()
 {
     // STABLE ABI, NEVER CHANGE (unless there's a very good reason, agreed by ESC, etc.)
+    CPPUNIT_ASSERT_EQUAL(classOffset(0), offsetof(struct _LibreOfficeKitClass, destroy));
+    CPPUNIT_ASSERT_EQUAL(classOffset(1), offsetof(struct _LibreOfficeKitClass, documentLoad));
+    CPPUNIT_ASSERT_EQUAL(classOffset(2), offsetof(struct _LibreOfficeKitClass, getError));
+    CPPUNIT_ASSERT_EQUAL(classOffset(3), offsetof(struct _LibreOfficeKitClass, documentLoadWithOptions));
+    CPPUNIT_ASSERT_EQUAL(classOffset(4), offsetof(struct _LibreOfficeKitClass, freeError));
+    CPPUNIT_ASSERT_EQUAL(classOffset(5), offsetof(struct _LibreOfficeKitClass, registerCallback));
+    CPPUNIT_ASSERT_EQUAL(classOffset(6), offsetof(struct _LibreOfficeKitClass, getFilterTypes));
+    CPPUNIT_ASSERT_EQUAL(classOffset(7), offsetof(struct _LibreOfficeKitClass, setOptionalFeatures));
+    CPPUNIT_ASSERT_EQUAL(classOffset(8), offsetof(struct _LibreOfficeKitClass, setDocumentPassword));
+    CPPUNIT_ASSERT_EQUAL(classOffset(9), offsetof(struct _LibreOfficeKitClass, getVersionInfo));
+    CPPUNIT_ASSERT_EQUAL(classOffset(10), offsetof(struct _LibreOfficeKitClass, runMacro));
+    CPPUNIT_ASSERT_EQUAL(classOffset(11), offsetof(struct _LibreOfficeKitClass, signDocument));
+
     CPPUNIT_ASSERT_EQUAL(documentClassOffset(0), offsetof(struct _LibreOfficeKitDocumentClass, destroy));
     CPPUNIT_ASSERT_EQUAL(documentClassOffset(1), offsetof(struct _LibreOfficeKitDocumentClass, saveAs));
 
@@ -2435,9 +2628,10 @@ void DesktopLOKTest::testABI()
     CPPUNIT_ASSERT_EQUAL(documentClassOffset(43), offsetof(struct _LibreOfficeKitDocumentClass, insertCertificate));
     CPPUNIT_ASSERT_EQUAL(documentClassOffset(44), offsetof(struct _LibreOfficeKitDocumentClass, addCertificate));
     CPPUNIT_ASSERT_EQUAL(documentClassOffset(45), offsetof(struct _LibreOfficeKitDocumentClass, getSignatureState));
+    CPPUNIT_ASSERT_EQUAL(documentClassOffset(46), offsetof(struct _LibreOfficeKitDocumentClass, renderShapeSelection));
     // Extending is fine, update this, and add new assert for the offsetof the
     // new method
-    CPPUNIT_ASSERT_EQUAL(documentClassOffset(46), sizeof(struct _LibreOfficeKitDocumentClass));
+    CPPUNIT_ASSERT_EQUAL(documentClassOffset(47), sizeof(struct _LibreOfficeKitDocumentClass));
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(DesktopLOKTest);

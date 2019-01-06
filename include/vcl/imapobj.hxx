@@ -25,7 +25,6 @@
 #include <rtl/strbuf.hxx>
 
 class Point;
-namespace tools { class Rectangle; }
 class SvStream;
 
 #define IMAP_OBJ_RECTANGLE  (sal_uInt16(0x0001))
@@ -74,8 +73,6 @@ protected:
     void AppendNCSAURL(OStringBuffer&rBuf) const;
 
 public:
-
-    static rtl_TextEncoding nActualTextEncoding;
 
                         IMapObject();
                         IMapObject( const OUString& rURL,

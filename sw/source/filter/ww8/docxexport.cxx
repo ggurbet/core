@@ -251,12 +251,24 @@ void DocxExport::WriteHeadersFooters( sal_uInt8 nHeadFootFlags,
         const SwFrameFormat& rFormat, const SwFrameFormat& rLeftFormat, const SwFrameFormat& rFirstPageFormat, sal_uInt8 nBreakCode )
 {
     m_nHeadersFootersInSection = 1;
+
+    // document setting indicating the requirement of EVEN and ODD for both headers and footers
+    if ( nHeadFootFlags & ( nsHdFtFlags::WW8_FOOTER_EVEN | nsHdFtFlags::WW8_HEADER_EVEN ))
+        m_aSettings.evenAndOddHeaders = true;
+
     // Turn ON flag for 'Writing Headers \ Footers'
     m_pAttrOutput->SetWritingHeaderFooter( true );
 
     // headers
     if ( nHeadFootFlags & nsHdFtFlags::WW8_HEADER_EVEN )
         WriteHeaderFooter( &rLeftFormat, true, "even" );
+    else if ( m_aSettings.evenAndOddHeaders )
+    {
+        if ( nHeadFootFlags & nsHdFtFlags::WW8_HEADER_ODD )
+            WriteHeaderFooter( &rFormat, true, "even" );
+        else if ( m_bHasHdr && nBreakCode == 2 )
+            WriteHeaderFooter( nullptr, true, "even" );
+    }
 
     if ( nHeadFootFlags & nsHdFtFlags::WW8_HEADER_ODD )
         WriteHeaderFooter( &rFormat, true, "default" );
@@ -274,6 +286,13 @@ void DocxExport::WriteHeadersFooters( sal_uInt8 nHeadFootFlags,
     // footers
     if ( nHeadFootFlags & nsHdFtFlags::WW8_FOOTER_EVEN )
         WriteHeaderFooter( &rLeftFormat, false, "even" );
+    else if ( m_aSettings.evenAndOddHeaders )
+    {
+        if ( nHeadFootFlags & nsHdFtFlags::WW8_FOOTER_ODD )
+           WriteHeaderFooter( &rFormat, false, "even" );
+        else if ( m_bHasFtr && nBreakCode == 2 )
+            WriteHeaderFooter( nullptr, false, "even");
+    }
 
     if ( nHeadFootFlags & nsHdFtFlags::WW8_FOOTER_ODD )
         WriteHeaderFooter( &rFormat, false, "default" );
@@ -287,14 +306,8 @@ void DocxExport::WriteHeadersFooters( sal_uInt8 nHeadFootFlags,
             && m_bHasFtr && nBreakCode == 2 ) // 2: nexPage
         WriteHeaderFooter( nullptr, false, "default");
 
-    if ( nHeadFootFlags & ( nsHdFtFlags::WW8_FOOTER_EVEN | nsHdFtFlags::WW8_HEADER_EVEN ))
-        m_aSettings.evenAndOddHeaders = true;
-
     // Turn OFF flag for 'Writing Headers \ Footers'
     m_pAttrOutput->SetWritingHeaderFooter( false );
-#if OSL_DEBUG_LEVEL > 1
-    fprintf( stderr, "DocxExport::WriteHeadersFooters() - nBreakCode introduced, but ignored\n" );
-#endif
 }
 
 void DocxExport::OutputField( const SwField* pField, ww::eField eFieldType, const OUString& rFieldCmd, FieldFlags nMode )
@@ -534,8 +547,7 @@ ErrCode DocxExport::ExportDocument_Impl()
     WriteVBA();
 
     m_aLinkedTextboxesHelper.clear();   //final cleanup
-    delete m_pStyles;
-    m_pStyles = nullptr;
+    m_pStyles.reset();
     m_pSections.reset();
 
     return ERRCODE_NONE;
@@ -578,8 +590,7 @@ void DocxExport::OutputEndNode( const SwEndNode& rEndNode )
             else
                 nRstLnNum = 0;
 
-            AttrOutput().SectionBreak( msword::PageBreak, m_pSections->CurrentSectionInfo( ) );
-            m_pSections->AppendSection( m_pCurrentPageDesc, pParentFormat, nRstLnNum );
+            AppendSection( m_pCurrentPageDesc, pParentFormat, nRstLnNum );
         }
         else
         {
@@ -639,7 +650,7 @@ void DocxExport::PrepareNewPageDesc( const SfxItemSet* pSet,
 
 void DocxExport::InitStyles()
 {
-    m_pStyles = new MSWordStyles( *this, /*bListStyles =*/ true );
+    m_pStyles.reset(new MSWordStyles( *this, /*bListStyles =*/ true ));
 
     // setup word/styles.xml and the relations + content type
     m_pFilter->addRelation( m_pDocumentFS->getOutputStream(),
@@ -1546,7 +1557,8 @@ void DocxExport::SetFS( ::sax_fastparser::FSHelperPtr const & pFS )
     mpFS = pFS;
 }
 
-DocxExport::DocxExport( DocxExportFilter *pFilter, SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM *pOriginalPam, bool bDocm )
+DocxExport::DocxExport(DocxExportFilter* pFilter, SwDoc* pDocument, SwPaM* pCurrentPam,
+                       SwPaM* pOriginalPam, bool bDocm, bool bTemplate)
     : MSWordExportBase( pDocument, pCurrentPam, pOriginalPam ),
       m_pFilter( pFilter ),
       m_nHeaders( 0 ),
@@ -1554,7 +1566,8 @@ DocxExport::DocxExport( DocxExportFilter *pFilter, SwDoc *pDocument, SwPaM *pCur
       m_nOLEObjects( 0 ),
       m_nActiveXControls( 0 ),
       m_nHeadersFootersInSection(0),
-      m_bDocm(bDocm)
+      m_bDocm(bDocm),
+      m_bTemplate(bTemplate)
 {
     // Write the document properties
     WriteProperties( );
@@ -1563,10 +1576,32 @@ DocxExport::DocxExport( DocxExportFilter *pFilter, SwDoc *pDocument, SwPaM *pCur
     m_pFilter->addRelation( oox::getRelationship(Relationship::OFFICEDOCUMENT),
             "word/document.xml" );
 
-    // DOCM needs a different media type for the document.xml stream.
-    OUString aMediaType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+    // Set media type depending of document type
+    OUString aMediaType;
     if (m_bDocm)
-        aMediaType = "application/vnd.ms-word.document.macroEnabled.main+xml";
+    {
+        if (m_bTemplate)
+        {
+            aMediaType = "application/vnd.ms-word.template.macroEnabledTemplate.main+xml";
+        }
+        else
+        {
+            aMediaType = "application/vnd.ms-word.document.macroEnabled.main+xml";
+        }
+    }
+    else
+    {
+        if (m_bTemplate)
+        {
+            aMediaType = "application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml";
+        }
+        else
+        {
+            aMediaType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+        }
+    }
+
+
     // the actual document
     m_pDocumentFS = m_pFilter->openFragmentStreamWithSerializer( "word/document.xml", aMediaType );
 

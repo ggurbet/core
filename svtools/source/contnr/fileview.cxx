@@ -26,14 +26,14 @@
 #include <svtools/fileview.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/imagemgr.hxx>
-#include <svtools/headbar.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/headbar.hxx>
+#include <vcl/svtabbx.hxx>
 #include <svtools/strings.hrc>
 #include <bitmaps.hlst>
 #include <vcl/viewdataentry.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include "contentenumeration.hxx"
-#include <svtools/AccessibleBrowseBoxObjType.hxx>
+#include <vcl/AccessibleBrowseBoxObjType.hxx>
 #include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/task/InteractionHandler.hpp>
@@ -72,7 +72,9 @@
 #include <salhelper/timer.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/dialog.hxx>
 #include <unotools/collatorwrapper.hxx>
+#include <unotools/localedatawrapper.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <unotools/intlwrapper.hxx>
 #include <unotools/syslocale.hxx>
@@ -107,12 +109,11 @@ enum class FileViewFlags
     ONLYFOLDER         = 0x01,
     MULTISELECTION     = 0x02,
     SHOW_TYPE          = 0x04,
-    SHOW_ONLYTITLE     = 0x10,
     SHOW_NONE          = 0x20,
 };
 namespace o3tl
 {
-    template<> struct typed_flags<FileViewFlags> : is_typed_flags<FileViewFlags, 0x1f> {};
+    template<> struct typed_flags<FileViewFlags> : is_typed_flags<FileViewFlags, 0x27> {};
 }
 
 namespace
@@ -187,7 +188,7 @@ private:
 
 protected:
     virtual bool     DoubleClickHdl() override;
-    virtual OUString GetAccessibleObjectDescription( ::svt::AccessibleBrowseBoxObjType _eType, sal_Int32 _nPos = -1 ) const override;
+    virtual OUString GetAccessibleObjectDescription( ::vcl::AccessibleBrowseBoxObjType _eType, sal_Int32 _nPos = -1 ) const override;
 
 public:
     ViewTabListBox_Impl( vcl::Window* pParentWin, SvtFileView_Impl* pParent, FileViewFlags nFlags );
@@ -390,28 +391,19 @@ ViewTabListBox_Impl::ViewTabListBox_Impl( vcl::Window* pParentWin,
     mpHeaderBar = VclPtr<HeaderBar>::Create( pParentWin, WB_BUTTONSTYLE | WB_BOTTOMBORDER );
     mpHeaderBar->SetPosSizePixel( Point( 0, 0 ), mpHeaderBar->CalcWindowSizePixel() );
 
-    HeaderBarItemBits nBits = ( HeaderBarItemBits::LEFT | HeaderBarItemBits::VCENTER | HeaderBarItemBits::CLICKABLE );
-    if (nFlags & FileViewFlags::SHOW_ONLYTITLE)
-    {
-        long aTabPositions[] = { 20, 600 };
-        SetTabs(SAL_N_ELEMENTS(aTabPositions), aTabPositions, MapUnit::MapPixel);
+    HeaderBarItemBits nBits = HeaderBarItemBits::LEFT | HeaderBarItemBits::CLICKABLE;
 
-        mpHeaderBar->InsertItem(COLUMN_TITLE, SvtResId(STR_SVT_FILEVIEW_COLUMN_TITLE), 600, nBits | HeaderBarItemBits::UPARROW);
-    }
-    else
-    {
-        long aTabPositions[] = { 20, 180, 320, 400, 600 };
-        SetTabs(SAL_N_ELEMENTS(aTabPositions), aTabPositions, MapUnit::MapPixel);
-        SetTabJustify(2, AdjustRight); // column "Size"
+    long aTabPositions[] = { 20, 180, 320, 400, 600 };
+    SetTabs(SAL_N_ELEMENTS(aTabPositions), aTabPositions, MapUnit::MapPixel);
+    SetTabJustify(2, SvTabJustify::AdjustRight); // column "Size"
 
-        mpHeaderBar->InsertItem(COLUMN_TITLE, SvtResId(STR_SVT_FILEVIEW_COLUMN_TITLE), 180, nBits | HeaderBarItemBits::UPARROW);
-        if (nFlags & FileViewFlags::SHOW_TYPE)
-        {
-            mpHeaderBar->InsertItem(COLUMN_TYPE, SvtResId(STR_SVT_FILEVIEW_COLUMN_TYPE), 140, nBits);
-        }
-        mpHeaderBar->InsertItem(COLUMN_SIZE, SvtResId(STR_SVT_FILEVIEW_COLUMN_SIZE), 80, nBits);
-        mpHeaderBar->InsertItem(COLUMN_DATE, SvtResId(STR_SVT_FILEVIEW_COLUMN_DATE), 500, nBits);
+    mpHeaderBar->InsertItem(COLUMN_TITLE, SvtResId(STR_SVT_FILEVIEW_COLUMN_TITLE), 180, nBits | HeaderBarItemBits::UPARROW);
+    if (nFlags & FileViewFlags::SHOW_TYPE)
+    {
+        mpHeaderBar->InsertItem(COLUMN_TYPE, SvtResId(STR_SVT_FILEVIEW_COLUMN_TYPE), 140, nBits);
     }
+    mpHeaderBar->InsertItem(COLUMN_SIZE, SvtResId(STR_SVT_FILEVIEW_COLUMN_SIZE), 80, nBits);
+    mpHeaderBar->InsertItem(COLUMN_DATE, SvtResId(STR_SVT_FILEVIEW_COLUMN_DATE), 500, nBits);
 
     Size aHeadSize = mpHeaderBar->GetSizePixel();
     SetPosSizePixel( Point( 0, aHeadSize.Height() ),
@@ -797,10 +789,10 @@ bool ViewTabListBox_Impl::DoubleClickHdl()
         // who knows ...)
 }
 
-OUString ViewTabListBox_Impl::GetAccessibleObjectDescription( ::svt::AccessibleBrowseBoxObjType _eType, sal_Int32 _nPos ) const
+OUString ViewTabListBox_Impl::GetAccessibleObjectDescription( ::vcl::AccessibleBrowseBoxObjType _eType, sal_Int32 _nPos ) const
 {
     OUString sRet = SvHeaderTabListBox::GetAccessibleObjectDescription( _eType, _nPos );
-    if ( ::svt::BBTYPE_TABLECELL == _eType )
+    if ( ::vcl::BBTYPE_TABLECELL == _eType )
     {
         sal_Int32 nRow = -1;
         const sal_uInt16 nColumnCount = GetColumnCount();
@@ -1053,7 +1045,7 @@ FileViewResult SvtFileView::Initialize(
 
     case eStillRunning:
         OSL_ENSURE( pAsyncDescriptor, "SvtFileView::Initialize: we told it to read synchronously!" );
-        SAL_FALLTHROUGH;
+        [[fallthrough]];
     case eSuccess:
         return eResult;
     }
@@ -1303,7 +1295,7 @@ SvtFileView_Impl::SvtFileView_Impl( SvtFileView* pAntiImpl, Reference < XCommand
     ,mnSuspendSelectCallback    ( 0 )
     ,mbIsFirstResort            ( true )
     ,aIntlWrapper               ( Application::GetSettings().GetLanguageTag() )
-    ,maFolderImage              (BitmapEx(RID_BMP_FOLDER))
+    ,maFolderImage              (StockImage::Yes, RID_BMP_FOLDER)
     ,mxCmdEnv ( xEnv )
 
 {
@@ -1474,32 +1466,16 @@ void SvtFileView_Impl::FilterFolderContent_Impl( const OUString &rFilter )
 
 
     // do the filtering
-    auto aContentLoop = maContent.begin();
-    OUString sCompareString;
-    do
-    {
-        if ( (*aContentLoop)->mbIsFolder )
-            ++aContentLoop;
-        else
-        {
+    maContent.erase(std::remove_if(maContent.begin(), maContent.end(),
+        [&aFilters](const std::unique_ptr<SortingData_Impl>& rxContent) {
+            if (rxContent->mbIsFolder)
+                return false;
             // normalize the content title (we always match case-insensitive)
             // 91872 - 11.09.2001 - frank.schoenheit@sun.com
-            sCompareString = (*aContentLoop)->GetFileName(); // filter works on file name, not on title!
-            bool bDelete;
-
-            bDelete = ::std::none_of( aFilters.begin(), aFilters.end(),
-                                      FilterMatch( sCompareString ) );
-
-            if( bDelete )
-            {
-                // none of the filters did match
-                aContentLoop = maContent.erase(aContentLoop);
-            }
-            else
-                ++aContentLoop;
-        }
-    }
-    while ( aContentLoop != maContent.end() );
+            OUString sCompareString = rxContent->GetFileName(); // filter works on file name, not on title!
+            return std::none_of(aFilters.begin(), aFilters.end(), FilterMatch(sCompareString));
+        }),
+        maContent.end());
 }
 
 

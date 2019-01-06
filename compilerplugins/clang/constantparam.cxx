@@ -135,7 +135,7 @@ void ConstantParam::addToCallSet(const FunctionDecl* functionDecl, int paramInde
     }
     aInfo.nameAndParams += functionDecl->getNameAsString() + "(";
     bool bFirst = true;
-    for (const ParmVarDecl *pParmVarDecl : compat::parameters(*functionDecl)) {
+    for (const ParmVarDecl *pParmVarDecl : functionDecl->parameters()) {
         if (bFirst)
             bFirst = false;
         else
@@ -170,7 +170,7 @@ std::string ConstantParam::getCallValue(const Expr* arg)
         return "unknown1";
     }
     APSInt x1;
-    if (arg->EvaluateAsInt(x1, compiler.getASTContext()))
+    if (compat::EvaluateAsInt(arg, x1, compiler.getASTContext()))
     {
         return x1.toString(10);
     }

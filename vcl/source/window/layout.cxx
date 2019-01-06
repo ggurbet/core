@@ -21,6 +21,7 @@
 #include <boost/multi_array.hpp>
 #include <officecfg/Office/Common.hxx>
 #include <vcl/abstdlg.hxx>
+#include <vcl/vclmedit.hxx>
 #include <sal/log.hxx>
 
 #include <svdata.hxx>
@@ -779,7 +780,7 @@ void VclButtonBox::setAllocation(const Size &rAllocation)
             break;
         default:
             SAL_WARN("vcl.layout", "todo unimplemented layout style");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case VclButtonBoxStyle::Default:
         case VclButtonBoxStyle::End:
             if (!aReq.m_aMainGroupDimensions.empty())
@@ -1841,18 +1842,7 @@ IMPL_LINK_NOARG(VclScrolledWindow, ScrollBarHdl, ScrollBar*, void)
     if (!pChild)
         return;
 
-    Point aWinPos;
-
-    if (m_pHScroll->IsVisible())
-    {
-        aWinPos.setX( -m_pHScroll->GetThumbPos() );
-    }
-
-    if (m_pVScroll->IsVisible())
-    {
-        aWinPos.setY( -m_pVScroll->GetThumbPos() );
-    }
-
+    Point aWinPos(-m_pHScroll->GetThumbPos(), -m_pVScroll->GetThumbPos());
     pChild->SetPosPixel(aWinPos);
 }
 
@@ -1896,19 +1886,16 @@ void VclScrolledWindow::InitScrollBars(const Size &rRequest)
 
     Size aOutSize(getVisibleChildSize());
 
-    if (m_pVScroll->IsVisible())
-    {
-        m_pVScroll->SetRangeMax(rRequest.Height());
-        m_pVScroll->SetVisibleSize(aOutSize.Height());
-        m_pVScroll->SetPageSize(16);
-    }
+    m_pVScroll->SetRangeMax(rRequest.Height());
+    m_pVScroll->SetVisibleSize(aOutSize.Height());
+    m_pVScroll->SetPageSize(16);
 
-    if (m_pHScroll->IsVisible())
-    {
-        m_pHScroll->SetRangeMax(rRequest.Width());
-        m_pHScroll->SetVisibleSize(aOutSize.Width());
-        m_pHScroll->SetPageSize(16);
-    }
+    m_pHScroll->SetRangeMax(rRequest.Width());
+    m_pHScroll->SetVisibleSize(aOutSize.Width());
+    m_pHScroll->SetPageSize(16);
+
+    m_pVScroll->Scroll();
+    m_pHScroll->Scroll();
 }
 
 void VclScrolledWindow::setAllocation(const Size &rAllocation)
@@ -2231,7 +2218,7 @@ void MessageDialog::create_message_area()
         assert(pButtonBox);
 
         VclPtr<PushButton> pBtn;
-        short nDefaultResponse = RET_CANCEL;
+        short nDefaultResponse = get_default_response();
         switch (m_eButtonsType)
         {
             case VclButtonsType::NONE:
@@ -2481,6 +2468,7 @@ void MessageDialog::set_secondary_text(const OUString &rSecondaryString)
 
 void MessageDialog::StateChanged(StateChangedType nType)
 {
+    Dialog::StateChanged(nType);
     if (nType == StateChangedType::InitShow)
     {
         // MessageBox should be at least as wide as to see the title
@@ -2488,9 +2476,11 @@ void MessageDialog::StateChanged(StateChangedType nType)
         // Extra-Width for Close button
         nTitleWidth += mpWindowImpl->mnTopBorder;
         if (get_preferred_size().Width() < nTitleWidth)
+        {
             set_width_request(nTitleWidth);
+            DoInitialLayout();
+        }
     }
-    Dialog::StateChanged(nType);
 }
 
 VclVPaned::VclVPaned(vcl::Window *pParent)

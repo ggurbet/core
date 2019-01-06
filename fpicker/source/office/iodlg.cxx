@@ -39,7 +39,7 @@
 #include <unotools/viewoptions.hxx>
 #include <svtools/fileview.hxx>
 #include <svtools/sfxecode.hxx>
-#include <svtools/svtabbx.hxx>
+#include <vcl/svtabbx.hxx>
 #include <vcl/treelistentry.hxx>
 
 #include <fpicker/strings.hrc>
@@ -2468,7 +2468,7 @@ void SvtFileDialog::AddControls_Impl( )
         _pPrevWin->SetOutputSizePixel(Size(200, 300));
         _pPrevWin->Show();
 
-        _pPrevBmp = VclPtr<FixedBitmap>::Create( _pPrevWin, WinBits( WB_BORDER ) );
+        _pPrevBmp = VclPtr<FixedBitmap>::Create( _pPrevWin, WB_BORDER );
         _pPrevBmp->SetBackground( Wallpaper( COL_WHITE ) );
         _pPrevBmp->SetSizePixel(_pPrevWin->GetSizePixel());
         _pPrevBmp->Show();
@@ -2751,7 +2751,7 @@ IMPL_LINK_NOARG( SvtFileDialog, Split_Hdl, Splitter*, void )
 
 Image SvtFileDialog::GetButtonImage(const OUString& rButtonId)
 {
-    return Image(BitmapEx(rButtonId));
+    return Image(StockImage::Yes, rButtonId);
 }
 
 QueryFolderNameDialog::QueryFolderNameDialog(weld::Window* _pParent,

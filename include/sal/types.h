@@ -292,7 +292,7 @@ typedef void *                   sal_Handle;
     Compilers that support a construct of this nature will emit a compile
     time warning on unchecked return value.
 */
-#if defined __cplusplus && HAVE_CPP_ATTRIBUTE_NODISCARD
+#if defined LIBO_INTERNAL_ONLY && defined __cplusplus
 #define SAL_WARN_UNUSED_RESULT [[nodiscard]]
 #elif (defined __GNUC__ \
      && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1))) \
@@ -407,18 +407,6 @@ namespace css = ::com::sun::star;
 #define SAL_OVERRIDE override
 #else
 #define SAL_OVERRIDE
-#endif
-
-#if defined LIBO_INTERNAL_ONLY
-#if HAVE_CPP_ATTRIBUTE_FALLTHROUGH
-#define SAL_FALLTHROUGH [[fallthrough]]
-#elif defined __clang__
-    /* before Clang 3.9, according to
-       <https://en.cppreference.com/w/cpp/compiler_support#C.2B.2B17_features> */
-#define SAL_FALLTHROUGH [[clang::fallthrough]]
-#else
-#define SAL_FALLTHROUGH
-#endif
 #endif
 
 #endif /* __cplusplus */
@@ -678,24 +666,10 @@ template< typename T1, typename T2 > inline T1 static_int_cast(T2 n) {
 #define __has_attribute(x) 0
 #endif
 
-#if defined LIBO_INTERNAL_ONLY && ((defined __GNUC__ && __GNUC__ > 4) || (defined __clang__ && __has_attribute(returns_nonnull)))
+#if defined LIBO_INTERNAL_ONLY && ((defined __GNUC__ && !defined __clang__) || (defined __clang__ && __has_attribute(returns_nonnull)))
 #define SAL_RETURNS_NONNULL  __attribute__((returns_nonnull))
 #else
 #define SAL_RETURNS_NONNULL
-#endif
-/// @endcond
-
-/// @cond INTERNAL
-/** Inline variables, where supported.
-
-    @since LibreOffice 6.2
-*/
-#if defined LIBO_INTERNAL_ONLY
-#if HAVE_CPP_INLINE_VARIABLES
-#define SAL_INLINE_VARIABLE inline
-#else
-#define SAL_INLINE_VARIABLE
-#endif
 #endif
 /// @endcond
 

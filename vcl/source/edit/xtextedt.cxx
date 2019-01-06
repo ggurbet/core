@@ -18,6 +18,7 @@
  */
 
 #include <i18nutil/searchopt.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/xtextedt.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -27,7 +28,9 @@
 
 using namespace ::com::sun::star;
 
-ExtTextEngine::ExtTextEngine() : maGroupChars(OUString("(){}[]"))
+static const std::wstring gaGroupChars = L"(){}[]";
+
+ExtTextEngine::ExtTextEngine()
 {
 }
 
@@ -43,14 +46,14 @@ TextSelection ExtTextEngine::MatchGroup( const TextPaM& rCursor ) const
     const sal_uInt32 nParas = GetParagraphCount();
     if ( ( nPara < nParas ) && ( nPos < GetTextLen( nPara ) ) )
     {
-        sal_Int32 nMatchIndex = maGroupChars.indexOf( GetText( rCursor.GetPara() )[ nPos ] );
-        if ( nMatchIndex != -1 )
+        size_t nMatchIndex = gaGroupChars.find( GetText( rCursor.GetPara() )[ nPos ] );
+        if ( nMatchIndex != std::wstring::npos )
         {
             if ( ( nMatchIndex % 2 ) == 0 )
             {
                 // search forwards
-                sal_Unicode nSC = maGroupChars[ nMatchIndex ];
-                sal_Unicode nEC = maGroupChars[ nMatchIndex+1 ];
+                sal_Unicode nSC = gaGroupChars[ nMatchIndex ];
+                sal_Unicode nEC = gaGroupChars[ nMatchIndex+1 ];
 
                 sal_Int32 nCur = nPos+1;
                 sal_uInt16 nLevel = 1;
@@ -85,8 +88,8 @@ TextSelection ExtTextEngine::MatchGroup( const TextPaM& rCursor ) const
             else
             {
                 // search backwards
-                sal_Unicode nEC = maGroupChars[ nMatchIndex ];
-                sal_Unicode nSC = maGroupChars[ nMatchIndex-1 ];
+                sal_Unicode nEC = gaGroupChars[ nMatchIndex ];
+                sal_Unicode nSC = gaGroupChars[ nMatchIndex-1 ];
 
                 sal_Int32 nCur = rCursor.GetIndex()-1;
                 sal_uInt16 nLevel = 1;

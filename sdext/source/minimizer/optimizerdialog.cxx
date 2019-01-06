@@ -22,14 +22,18 @@
 #include "impoptimizer.hxx"
 #include "fileopendialog.hxx"
 #include <com/sun/star/frame/XStorable.hpp>
+#include <com/sun/star/frame/XTitle.hpp>
 #include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <com/sun/star/ucb/XSimpleFileAccess.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/util/XCloseBroadcaster.hpp>
+#include <com/sun/star/util/XModifiable.hpp>
 #include <sal/macros.h>
 #include <osl/time.h>
 #include <vcl/errinf.hxx>
+#include <vcl/weld.hxx>
+#include <vcl/layout.hxx>
 #include <svtools/sfxecode.hxx>
 #include <svtools/ehdl.hxx>
 #include <tools/urlobj.hxx>
@@ -497,28 +501,40 @@ void ActionListener::actionPerformed( const ActionEvent& rEvent )
             mrOptimizerDialog.getControlProperty( "RadioButton1Pg4", "State" ) >>= nInt16;
             if ( nInt16 )
             {
+                // Duplicate presentation before applying changes
                 OUString aSaveAsURL;
                 FileOpenDialog aFileOpenDialog( mrOptimizerDialog.GetComponentContext() );
 
                 // generating default file name
+                OUString aName;
                 Reference< XStorable > xStorable( mrOptimizerDialog.mxController->getModel(), UNO_QUERY );
                 if ( xStorable.is() && xStorable->hasLocation() )
                 {
                     INetURLObject aURLObj( xStorable->getLocation() );
-                    if ( !aURLObj.hasFinalSlash() ) {
+                    if ( !aURLObj.hasFinalSlash() )
+                    {
                         // tdf#105382 uri-decode file name
                         aURLObj.removeExtension(INetURLObject::LAST_SEGMENT, false);
-                        auto aName( aURLObj.getName( INetURLObject::LAST_SEGMENT,
-                                                     false,
-                                                     INetURLObject::DecodeMechanism::WithCharset ) );
-                        // Add "(minimized)"
-                        aName += " ";
-                        aName += mrOptimizerDialog.getString(STR_FILENAME_SUFFIX);
-                        aFileOpenDialog.setDefaultName( aName );
+                        aName = aURLObj.getName(INetURLObject::LAST_SEGMENT, false,
+                                                INetURLObject::DecodeMechanism::WithCharset);
                     }
                 }
-                 bool bDialogExecuted = aFileOpenDialog.execute() == dialogs::ExecutableDialogResults::OK;
-                if ( bDialogExecuted )
+                else
+                {
+                    // If no filename, try to use model title ("Untitled 1" or something like this)
+                    Reference<XTitle> xTitle(
+                        mrOptimizerDialog.GetFrame()->getController()->getModel(), UNO_QUERY);
+                    aName = xTitle->getTitle();
+                }
+
+                if (!aName.isEmpty())
+                {
+                    aName += " ";
+                    aName += mrOptimizerDialog.getString(STR_FILENAME_SUFFIX);
+                    aFileOpenDialog.setDefaultName(aName);
+                }
+
+                if (aFileOpenDialog.execute() == dialogs::ExecutableDialogResults::OK)
                 {
                     aSaveAsURL = aFileOpenDialog.getURL();
                     mrOptimizerDialog.SetConfigProperty( TK_SaveAsURL, Any( aSaveAsURL ) );
@@ -536,6 +552,30 @@ void ActionListener::actionPerformed( const ActionEvent& rEvent )
                     mrOptimizerDialog.mxReschedule->reschedule();
                     for ( sal_uInt32 i = osl_getGlobalTimer(); ( i + 500 ) > ( osl_getGlobalTimer() ); )
                     mrOptimizerDialog.mxReschedule->reschedule();
+                }
+            }
+            else
+            {
+                // Apply changes to current presentation
+                Reference<XModifiable> xModifiable(mrOptimizerDialog.mxController->getModel(),
+                                                   UNO_QUERY_THROW );
+                if ( xModifiable->isModified() )
+                {
+                    SolarMutexGuard aSolarGuard;
+                    std::unique_ptr<weld::MessageDialog> popupDlg(Application::CreateMessageDialog(
+                        nullptr, VclMessageType::Question, VclButtonsType::YesNo,
+                        mrOptimizerDialog.getString(STR_WARN_UNSAVED_PRESENTATION)));
+                    if (popupDlg->run() != RET_YES)
+                    {
+                        // Selected not "yes" ("no" or dialog was cancelled) so return to previous step
+                        mrOptimizerDialog.setControlProperty("btnNavBack", "Enabled",
+                                                                  Any(true));
+                        mrOptimizerDialog.setControlProperty("btnNavNext", "Enabled", Any(false));
+                        mrOptimizerDialog.setControlProperty("btnNavFinish", "Enabled", Any(true));
+                        mrOptimizerDialog.setControlProperty("btnNavCancel", "Enabled", Any(true));
+                        mrOptimizerDialog.EnablePage(ITEM_ID_SUMMARY);
+                        return;
+                    }
                 }
             }
             if ( bSuccessfullyExecuted )

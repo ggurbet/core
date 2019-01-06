@@ -40,25 +40,22 @@ const char cDataSourceHistory[] = "DataSourceHistory";
 
 Sequence<OUString> const & BibConfig::GetPropertyNames()
 {
-    static Sequence<OUString> aNames;
-    if(!aNames.getLength())
+    static Sequence<OUString> aNames =
     {
-        aNames.realloc(8);
-        OUString* pNames = aNames.getArray();
-        pNames[0] = "CurrentDataSource/DataSourceName";
-        pNames[1] = "CurrentDataSource/Command";
-        pNames[2] = "CurrentDataSource/CommandType";
-        pNames[3] = "BeamerHeight";
-        pNames[4] = "ViewHeight";
-        pNames[5] = "QueryText";
-        pNames[6] = "QueryField";
-        pNames[7] = "ShowColumnAssignmentWarning";
-    }
+        "CurrentDataSource/DataSourceName",
+        "CurrentDataSource/Command",
+        "CurrentDataSource/CommandType",
+        "BeamerHeight",
+        "ViewHeight",
+        "QueryText",
+        "QueryField",
+        "ShowColumnAssignmentWarning"
+    };
     return aNames;
 }
 
 BibConfig::BibConfig()
-    : ConfigItem("Office.DataAccess/Bibliography", ConfigItemMode::DelayedUpdate)
+    : ConfigItem("Office.DataAccess/Bibliography", ConfigItemMode::NONE)
     , nTblOrQuery(0)
     , nBeamerSize(0)
     , nViewSize(0)

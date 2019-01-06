@@ -27,6 +27,7 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/uno/Any.hxx>
 
+#include <comphelper/lok.hxx>
 #include <undo/undomanager.hxx>
 #include <vcl/waitobj.hxx>
 #include <svl/aeitem.hxx>
@@ -226,6 +227,9 @@ void DrawViewShell::FuPermanent(SfxRequest& rReq)
         rBind.Invalidate(nOldSId);
         rBind.Update(nOldSId);
     }
+
+    // for LibreOfficeKit - choosing a shape should construct it directly
+    bool bCreateDirectly = false;
 
     switch ( nSId )
     {
@@ -521,6 +525,8 @@ void DrawViewShell::FuPermanent(SfxRequest& rReq)
             SetCurrentFunction( FuConstructCustomShape::Create( this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq, bPermanent ) );
             rReq.Done();
 
+            bCreateDirectly = comphelper::LibreOfficeKit::isActive();
+
             if ( nSId != SID_DRAW_CS_ID )
             {
                 SfxBindings& rBind = GetViewFrame()->GetBindings();
@@ -598,7 +604,7 @@ void DrawViewShell::FuPermanent(SfxRequest& rReq)
     }
 
     // with qualifier construct directly
-    if(HasCurrentFunction() && (rReq.GetModifier() & KEY_MOD1))
+    if(HasCurrentFunction() && ((rReq.GetModifier() & KEY_MOD1) || bCreateDirectly))
     {
         // get SdOptions
         SdOptions* pOptions = SD_MOD()->GetSdOptions(GetDoc()->GetDocumentType());
@@ -607,6 +613,12 @@ void DrawViewShell::FuPermanent(SfxRequest& rReq)
 
         // calc position and size
         ::tools::Rectangle aVisArea = GetActiveWindow()->PixelToLogic(::tools::Rectangle(Point(0,0), GetActiveWindow()->GetOutputSizePixel()));
+        if (comphelper::LibreOfficeKit::isActive())
+        {
+            // aVisArea is nonsensical in the LOK case, use the slide size
+            aVisArea = ::tools::Rectangle(Point(), getCurrentPage()->GetSize());
+        }
+
         Point aPagePos = aVisArea.Center();
         aPagePos.AdjustX( -sal_Int32(nDefaultObjectSizeWidth / 2) );
         aPagePos.AdjustY( -sal_Int32(nDefaultObjectSizeHeight / 2) );
@@ -993,7 +1005,7 @@ void DrawViewShell::FuSupport(SfxRequest& rReq)
 
             // AutoLayouts have to be ready.
             GetDoc()->StopWorkStartupDelay();
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
 
         case SID_DRAWINGMODE:
         case SID_SLIDE_SORTER_MODE:

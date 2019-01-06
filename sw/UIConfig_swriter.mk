@@ -198,7 +198,6 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/swriter,\
 	sw/uiconfig/swriter/ui/queryredlinedialog \
 	sw/uiconfig/swriter/ui/queryrotateintostandarddialog \
 	sw/uiconfig/swriter/ui/querysavelabeldialog \
-	sw/uiconfig/swriter/ui/queryshowchangesdialog \
 	sw/uiconfig/swriter/ui/mailmerge \
 	sw/uiconfig/swriter/ui/managechangessidebar \
 	sw/uiconfig/swriter/ui/mmaddressblockpage \
@@ -278,6 +277,8 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/swriter,\
 	sw/uiconfig/swriter/ui/textgridpage \
 	sw/uiconfig/swriter/ui/titlepage \
 	sw/uiconfig/swriter/ui/tokenwidget \
+	sw/uiconfig/swriter/ui/toxentrywidget \
+	sw/uiconfig/swriter/ui/toxbuttonwidget \
 	sw/uiconfig/swriter/ui/viewoptionspage \
 	sw/uiconfig/swriter/ui/warndatasourcedialog \
 	sw/uiconfig/swriter/ui/warnemaildialog \

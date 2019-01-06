@@ -19,6 +19,7 @@
 
 #include <svtools/DocumentToGraphicRenderer.hxx>
 
+#include <vcl/gdimtf.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/outdev.hxx>
@@ -114,7 +115,8 @@ uno::Any DocumentToGraphicRenderer::getSelection() const
     return aSelection;
 }
 
-Size DocumentToGraphicRenderer::getDocumentSizeIn100mm(sal_Int32 nCurrentPage)
+Size DocumentToGraphicRenderer::getDocumentSizeIn100mm(sal_Int32 nCurrentPage,
+                                                       Point* pDocumentPosition)
 {
     Reference< awt::XDevice > xDevice(mxToolkit->createScreenCompatibleDevice( 32, 32 ) );
 
@@ -133,6 +135,7 @@ Size DocumentToGraphicRenderer::getDocumentSizeIn100mm(sal_Int32 nCurrentPage)
     renderProperties[3].Value <<= true;
 
     awt::Size aSize;
+    awt::Point aPos;
 
     sal_Int32 nPages = mxRenderable->getRendererCount( selection, renderProperties );
     if (nPages >= nCurrentPage)
@@ -144,7 +147,16 @@ Size DocumentToGraphicRenderer::getDocumentSizeIn100mm(sal_Int32 nCurrentPage)
             {
                 aResult[ nProperty ].Value >>= aSize;
             }
+            else if (aResult[nProperty].Name == "PagePos")
+            {
+                aResult[nProperty].Value >>= aPos;
+            }
         }
+    }
+
+    if (pDocumentPosition)
+    {
+        *pDocumentPosition = Point(aPos.X, aPos.Y);
     }
 
     return Size( aSize.Width, aSize.Height );

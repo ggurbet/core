@@ -236,7 +236,7 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
     bool bClipRegion = pTarget->IsClipRegion();
     vcl::Region aOldRegion = pTarget->GetClipRegion();
 
-    tools::PolyPolygon* pPolyPoly = nullptr;
+    std::unique_ptr<tools::PolyPolygon> pPolyPoly;
 
     if ( !pRegion )
     {
@@ -260,7 +260,7 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
     }
     else
     {
-        pPolyPoly = new tools::PolyPolygon;
+        pPolyPoly.reset(new tools::PolyPolygon);
     }
 
     DBG_ASSERT( !pEditEngine->IsIdleFormatterActive(), "DrawSelectionXOR: Not formatted!" );
@@ -339,7 +339,7 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
                 Range aLineXPosStartEnd = pEditEngine->GetLineXPosStartEnd(pTmpPortion, &rLine);
                 aTopLeft.setX( aLineXPosStartEnd.Min() );
                 aBottomRight.setX( aLineXPosStartEnd.Max() );
-                ImplDrawHighlightRect( pTarget, aTopLeft, aBottomRight, pPolyPoly );
+                ImplDrawHighlightRect( pTarget, aTopLeft, aBottomRight, pPolyPoly.get() );
             }
             else
             {
@@ -360,7 +360,7 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
                     Point aPt1( std::min( nX1, nX2 ), aTopLeft.Y() );
                     Point aPt2( std::max( nX1, nX2 ), aBottomRight.Y() );
 
-                    ImplDrawHighlightRect( pTarget, aPt1, aPt2, pPolyPoly );
+                    ImplDrawHighlightRect( pTarget, aPt1, aPt2, pPolyPoly.get() );
 
                     nTmpStartIndex = nTmpEndIndex;
                 }
@@ -464,7 +464,7 @@ void ImpEditView::DrawSelectionXOR( EditSelection aTmpSel, vcl::Region* pRegion,
             pOutWin->Pop();
         }
 
-        delete pPolyPoly;
+        pPolyPoly.reset();
     }
     else
     {
@@ -645,10 +645,7 @@ void ImpEditView::SetOutputArea( const tools::Rectangle& rRect )
     if ( aOutArea.Bottom() < aOutArea.Top() )
         aOutArea.SetBottom( aOutArea.Top() );
 
-    if ( DoBigScroll() )
-        SetScrollDiffX( static_cast<sal_uInt16>(aOutArea.GetWidth()) * 3 / 10 );
-    else
-        SetScrollDiffX( static_cast<sal_uInt16>(aOutArea.GetWidth()) * 2 / 10 );
+    SetScrollDiffX( static_cast<sal_uInt16>(aOutArea.GetWidth()) * 2 / 10 );
 }
 
 void ImpEditView::InvalidateAtWindow(const tools::Rectangle& rRect)
@@ -995,31 +992,6 @@ void ImpEditView::ShowCursor( bool bGotoCursor, bool bForceVisCursor )
             long nDiffX = !IsVertical() ? nDocDiffX : (IsTopToBottom() ? -nDocDiffY : nDocDiffY);
             long nDiffY = !IsVertical() ? nDocDiffY : (IsTopToBottom() ? nDocDiffX : -nDocDiffX);
 
-            // Negative: Back to the top or left edge
-            if ( ( std::abs( nDiffY ) > pEditEngine->GetOnePixelInRef() ) && DoBigScroll() )
-            {
-                long nH = aOutArea.GetHeight() / 4;
-                if ( ( nH > aEditCursor.GetHeight() ) && ( std::abs( nDiffY ) < nH ) )
-                {
-                    if ( nDiffY < 0 )
-                        nDiffY -= nH;
-                    else
-                        nDiffY += nH;
-                }
-            }
-
-            if ( ( std::abs( nDiffX ) > pEditEngine->GetOnePixelInRef() ) && DoBigScroll() )
-            {
-                long nW = aOutArea.GetWidth() / 4;
-                if ( std::abs( nDiffX ) < nW )
-                {
-                    if ( nDiffY < 0 )
-                        nDiffY -= nW;
-                    else
-                        nDiffY += nW;
-                }
-            }
-
             if ( nDiffX )
                 pEditEngine->GetInternalEditStatus().GetStatusWord() = pEditEngine->GetInternalEditStatus().GetStatusWord() | EditStatusFlags::HSCROLL;
             if ( nDiffY )
@@ -1330,14 +1302,6 @@ bool ImpEditView::PostKeyEvent( const KeyEvent& rKeyEvent, vcl::Window const * p
 
 bool ImpEditView::MouseButtonUp( const MouseEvent& rMouseEvent )
 {
-    if ( pEditEngine->GetInternalEditStatus().NotifyCursorMovements() )
-    {
-        if ( pEditEngine->GetInternalEditStatus().GetPrevParagraph() != pEditEngine->GetEditDoc().GetPos( GetEditSelection().Max().GetNode() ) )
-        {
-            pEditEngine->GetInternalEditStatus().GetStatusWord() = pEditEngine->GetInternalEditStatus().GetStatusWord() | EditStatusFlags::CRSRLEFTPARA;
-            pEditEngine->pImpEditEngine->CallStatusHdl();
-        }
-    }
     nTravelXPos = TRAVEL_X_DONTKNOW;
     nCursorBidiLevel = CURSOR_BIDILEVEL_DONTKNOW;
     nExtraCursorFlags = GetCursorFlags::NONE;
@@ -1366,8 +1330,6 @@ void ImpEditView::ReleaseMouse()
 bool ImpEditView::MouseButtonDown( const MouseEvent& rMouseEvent )
 {
     pEditEngine->CheckIdleFormatter();  // If fast typing and mouse button downs
-    if ( pEditEngine->GetInternalEditStatus().NotifyCursorMovements() )
-        pEditEngine->GetInternalEditStatus().GetPrevParagraph() = pEditEngine->GetEditDoc().GetPos( GetEditSelection().Max().GetNode() );
     nTravelXPos         = TRAVEL_X_DONTKNOW;
     nExtraCursorFlags   = GetCursorFlags::NONE;
     nCursorBidiLevel    = CURSOR_BIDILEVEL_DONTKNOW;

@@ -24,10 +24,10 @@
 #include <vcl/ctrl.hxx>
 #include <vcl/vclptr.hxx>
 #include <tools/multisel.hxx>
-#include <svtools/headbar.hxx>
+#include <vcl/headbar.hxx>
 #include <vcl/transfer.hxx>
-#include <svtools/AccessibleBrowseBoxObjType.hxx>
-#include <svtools/accessibletableprovider.hxx>
+#include <vcl/AccessibleBrowseBoxObjType.hxx>
+#include <vcl/accessibletableprovider.hxx>
 #include <vector>
 #include <stack>
 
@@ -42,11 +42,14 @@ class BrowserHeader;
 
 namespace svt {
     class BrowseBoxImpl;
-    class IAccessibleFactory;
 }
 
 namespace utl {
     class AccessibleStateSetHelper;
+}
+
+namespace vcl {
+    class IAccessibleFactory;
 }
 
 #define BROWSER_INVALIDID           SAL_MAX_UINT16
@@ -66,7 +69,6 @@ enum class BrowserMode
     HIDECURSOR           = 0x000200,
 
     NO_HSCROLL           = 0x000400,
-    NO_SCROLLBACK        = 0x000800,
 
     AUTO_VSCROLL         = 0x001000,
     AUTO_HSCROLL         = 0x002000,
@@ -77,21 +79,15 @@ enum class BrowserMode
 
     HEADERBAR_NEW        = 0x040000,
     AUTOSIZE_LASTCOL     = 0x080000,
-    OWN_DATACHANGED      = 0x100000,
 
     CURSOR_WO_FOCUS      = 0x200000,
     // Allows a cursor which is shown even if the control does not have the focus. This does not affect other
     // situations which require to temporarily hide the cursor (such as scrolling).
 
-    SMART_HIDECURSOR     = 0x400000,
-    // is an enhanced version of BrowserMode::HIDECURSOR.
-    // When set, BrowserMode::HIDECURSOR is overruled, and the cursor is hidden as long as no selection exists,
-    // but shown otherwise. This does not affect other situations which require to temporarily hide the
-    // cursor (such as scrolling).
 };
 namespace o3tl
 {
-    template<> struct typed_flags<BrowserMode> : is_typed_flags<BrowserMode, 0x7cff3f> {};
+    template<> struct typed_flags<BrowserMode> : is_typed_flags<BrowserMode, 0x2cf73f> {};
 }
 
 #define BROWSER_NONE                      0
@@ -186,7 +182,7 @@ class SVT_DLLPUBLIC BrowseBox
         :public Control
         ,public DragSourceHelper
         ,public DropTargetHelper
-        ,public svt::IAccessibleTableProvider
+        ,public vcl::IAccessibleTableProvider
 {
     friend class BrowserDataWin;
     friend class ::svt::BrowseBoxImpl;
@@ -290,7 +286,6 @@ private:
     SVT_DLLPRIVATE void            ColumnInserted( sal_uInt16 nPos );
 
     DECL_DLLPRIVATE_LINK(    ScrollHdl, ScrollBar*, void );
-    DECL_DLLPRIVATE_LINK(    EndScrollHdl, ScrollBar*, void );
     DECL_DLLPRIVATE_LINK(    StartDragHdl, HeaderBar*, void );
 
     SVT_DLLPRIVATE long            GetFrozenWidth() const;
@@ -300,7 +295,7 @@ private:
     bool            GoToColumnId( sal_uInt16 nColId, bool bMakeVisible, bool bRowColMove = false);
     void            SelectColumnPos( sal_uInt16 nCol, bool _bSelect, bool bMakeVisible);
 
-    void            ImplPaintData(OutputDevice& _rOut, const tools::Rectangle& _rRect, bool _bForeignDevice, bool _bDrawSelections);
+    void            ImplPaintData(OutputDevice& _rOut, const tools::Rectangle& _rRect, bool _bForeignDevice);
 
     bool            PaintCursorIfHiddenOnce() const { return !m_bFocusOnlyCursor && !HasFocus(); }
 
@@ -309,7 +304,7 @@ private:
 
 protected:
     /// retrieves the XAccessible implementation associated with the BrowseBox instance
-    ::svt::IAccessibleFactory&   getAccessibleFactory();
+    ::vcl::IAccessibleFactory&   getAccessibleFactory();
 
 protected:
     sal_uInt16          ColCount() const;
@@ -706,7 +701,7 @@ public:
         @return
             The name of the specified object.
     */
-    virtual OUString GetAccessibleObjectName( ::svt::AccessibleBrowseBoxObjType eObjType,sal_Int32 _nPosition = -1) const override;
+    virtual OUString GetAccessibleObjectName( ::vcl::AccessibleBrowseBoxObjType eObjType,sal_Int32 _nPosition = -1) const override;
 
     /** return the description of the specified object.
         @param  eObjType
@@ -716,7 +711,7 @@ public:
         @return
             The description of the specified object.
     */
-    virtual OUString GetAccessibleObjectDescription( ::svt::AccessibleBrowseBoxObjType eObjType,sal_Int32 _nPosition = -1) const override;
+    virtual OUString GetAccessibleObjectDescription( ::vcl::AccessibleBrowseBoxObjType eObjType,sal_Int32 _nPosition = -1) const override;
 
     /** @return  The header text of the specified row. */
     virtual OUString GetRowDescription( sal_Int32 nRow ) const override;
@@ -728,7 +723,7 @@ public:
         the accessible object), depending on the specified object type. */
     virtual void FillAccessibleStateSet(
             ::utl::AccessibleStateSetHelper& rStateSet,
-            ::svt::AccessibleBrowseBoxObjType eObjType ) const override;
+            ::vcl::AccessibleBrowseBoxObjType eObjType ) const override;
 
     /** Fills the StateSet with all states for one cell (except DEFUNC and SHOWING, done by
         the accessible object). */

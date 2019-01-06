@@ -21,24 +21,22 @@
 #define INCLUDED_VCL_PRINT_HXX
 
 #include <rtl/ustring.hxx>
+#include <i18nutil/paper.hxx>
 
 #include <vcl/errcode.hxx>
-#include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <vcl/outdev.hxx>
 #include <vcl/prntypes.hxx>
 #include <vcl/jobset.hxx>
-#include <vcl/gdimtf.hxx>
-#include <tools/multisel.hxx>
 
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/view/PrintableState.hpp>
 
 #include <memory>
-#include <set>
 #include <unordered_map>
 
+class GDIMetaFile;
 class SalInfoPrinter;
 struct SalPrinterQueueInfo;
 class SalPrinter;
@@ -47,7 +45,6 @@ enum class SalPrinterError;
 
 namespace vcl {
     class PrinterController;
-    class PrintDialog;
     class Window;
 }
 
@@ -305,6 +302,7 @@ public:
     bool                        SetOrientation( Orientation eOrient );
     Orientation                 GetOrientation() const;
     void                        SetDuplexMode( DuplexMode );
+    DuplexMode                  GetDuplexMode() const;
 
     bool                        SetPaperBin( sal_uInt16 nPaperBin );
     sal_uInt16                  GetPaperBin() const;
@@ -313,9 +311,6 @@ public:
     bool                        SetPaperSizeUser( const Size& rSize, bool bMatchNearest );
     Paper                       GetPaper() const;
     static OUString             GetPaperName( Paper ePaper );
-
-    /** @return A UI string for the current paper; an empty string for PAPER_USER */
-    OUString                    GetPaperName() const;
 
     /** @return Number of available paper formats */
     int                         GetPaperInfoCount() const;
@@ -330,6 +325,7 @@ public:
 
     const Size&                 GetPaperSizePixel() const { return maPaperSize; }
     Size                        GetPaperSize() const { return PixelToLogic( maPaperSize ); }
+    Size                        GetPaperSize( int nPaper );
     const Point&                GetPageOffsetPixel() const { return maPageOffset; }
     Point                       GetPageOffset() const { return PixelToLogic( maPageOffset ); }
 
@@ -542,9 +538,12 @@ public:
                                         getMultipage() const;
                       void              setLastPage( bool i_bLastPage );
     VCL_DLLPRIVATE    void              setReversePrint( bool i_bReverse );
-    VCL_DLLPRIVATE    bool              getReversePrint() const;
     VCL_DLLPRIVATE    void              setPapersizeFromSetup( bool i_bPapersizeFromSetup );
     VCL_DLLPRIVATE    bool              getPapersizeFromSetup() const;
+    VCL_DLLPRIVATE    Size&             getPaperSizeSetup() const;
+    VCL_DLLPRIVATE    void              setPaperSizeFromUser( Size i_aUserSize );
+    VCL_DLLPRIVATE    Size&             getPaperSizeFromUser() const;
+    VCL_DLLPRIVATE    bool              isPaperSizeFromUser() const;
                       void              setPrinterModified( bool i_bPapersizeFromSetup );
                       bool              getPrinterModified() const;
     VCL_DLLPRIVATE    void              pushPropertiesToPrinter();

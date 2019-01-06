@@ -24,25 +24,23 @@
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <svl/macitem.hxx>
-#include <vcl/lstbox.hxx>
+#include <vcl/weld.hxx>
 #include <com/sun/star/frame/XFrame.hpp>
 #include <memory>
 
 class SfxMacroTabPage_;
-class SvTabListBox;
-class SvTreeListBox;
 class SfxMacroTabPage_Impl;
 
 class SfxMacroTabPage final : public SfxTabPage
 {
     SvxMacroTableDtor           aTbl;
-    DECL_LINK( SelectEvent_Impl, SvTreeListBox*, void );
-    DECL_LINK( SelectGroup_Impl, SvTreeListBox*, void );
-    DECL_LINK( SelectMacro_Impl, SvTreeListBox*, void );
+    DECL_LINK(SelectEvent_Impl, weld::TreeView&, void);
+    DECL_LINK(SelectGroup_Impl, weld::TreeView&, void);
+    DECL_LINK(SelectMacro_Impl, weld::TreeView&, void);
 
-    DECL_LINK( AssignDeleteHdl_Impl, SvTreeListBox*, bool );
-    DECL_LINK( AssignDeleteClickHdl_Impl, Button *, void );
-    void                        AssignDeleteHdl(Control const *);
+    DECL_LINK(AssignDeleteHdl_Impl, weld::TreeView&, void);
+    DECL_LINK(AssignDeleteClickHdl_Impl, weld::Button&, void);
+    void AssignDeleteHdl(const weld::Widget*);
     DECL_LINK( TimeOut_Impl, Timer*, void );
 
     std::unique_ptr<SfxMacroTabPage_Impl>       mpImpl;
@@ -53,7 +51,7 @@ class SfxMacroTabPage final : public SfxTabPage
 
 public:
     SfxMacroTabPage(
-        vcl::Window* pParent,
+        TabPageParent pParent,
         const css::uno::Reference< css::frame::XFrame >& rxDocumentFrame,
         const SfxItemSet& rSet
     );
@@ -79,13 +77,16 @@ public:
     static VclPtr<SfxTabPage> Create( TabPageParent pParent, const SfxItemSet* rAttrSet );
 };
 
-class SfxMacroAssignDlg : public SfxSingleTabDialog
+class SfxMacroAssignDlg : public SfxSingleTabDialogController
 {
 public:
-    SfxMacroAssignDlg(
-        vcl::Window* pParent,
-        const css::uno::Reference< css::frame::XFrame >& rxDocumentFrame,
-        const SfxItemSet& rSet );
+    SfxMacroAssignDlg(weld::Window* pParent,
+                      const css::uno::Reference< css::frame::XFrame >& rxDocumentFrame,
+                      const SfxItemSet& rSet);
+    SfxMacroTabPage* GetTabPage()
+    {
+        return static_cast<SfxMacroTabPage*>(m_xSfxPage.get());
+    }
 };
 
 #endif

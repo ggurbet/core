@@ -61,6 +61,7 @@
 #include <svtools/calendar.hxx>
 #include <vcl/fmtfield.hxx>
 #include <svl/numuno.hxx>
+#include <svl/zforlist.hxx>
 #include <svtools/svmedit.hxx>
 #include <svx/dialmgr.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -2889,7 +2890,7 @@ bool DbFilterField::commitControl()
             OUString aErrorMsg;
             Reference< XNumberFormatter >  xNumberFormatter(m_rColumn.GetParent().getNumberFormatter());
 
-            std::shared_ptr< OSQLParseNode > pParseNode = predicateTree(aErrorMsg, aNewText,xNumberFormatter, m_rColumn.GetField());
+            std::unique_ptr< OSQLParseNode > pParseNode = predicateTree(aErrorMsg, aNewText,xNumberFormatter, m_rColumn.GetField());
             if (pParseNode != nullptr)
             {
                 OUString aPreparedText;

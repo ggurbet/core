@@ -20,9 +20,6 @@
 #include <TextDirectionListBox.hxx>
 #include <ResId.hxx>
 #include <strings.hrc>
-#include <svl/languageoptions.hxx>
-#include <vcl/window.hxx>
-#include <vcl/builderfactory.hxx>
 
 namespace chart
 {
@@ -33,11 +30,6 @@ TextDirectionListBox::TextDirectionListBox(std::unique_ptr<weld::ComboBox> pCont
     append(SvxFrameDirection::Horizontal_LR_TB, SchResId(STR_TEXT_DIRECTION_LTR));
     append(SvxFrameDirection::Horizontal_RL_TB, SchResId(STR_TEXT_DIRECTION_RTL));
     append(SvxFrameDirection::Environment, SchResId(STR_TEXT_DIRECTION_SUPER));
-
-    if (!SvtLanguageOptions().IsCTLFontEnabled())
-    {
-        hide();
-    }
 }
 
 } //namespace chart

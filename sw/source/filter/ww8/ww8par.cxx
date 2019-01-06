@@ -1494,7 +1494,7 @@ const SfxPoolItem* SwWW8FltControlStack::GetFormatAttr(const SwPosition& rPos,
             {
                 const sal_Int32 nPos = rPos.nContent.GetIndex();
                 m_xScratchSet.reset(new SfxItemSet(pDoc->GetAttrPool(), {{nWhich, nWhich}}));
-                if (pNd->GetTextNode()->GetAttr(*m_xScratchSet, nPos, nPos))
+                if (pNd->GetTextNode()->GetParaAttr(*m_xScratchSet, nPos, nPos))
                     pItem = m_xScratchSet->GetItem(nWhich);
             }
 
@@ -2179,7 +2179,12 @@ void SwWW8ImplReader::Read_HdFtTextAsHackedFrame(WW8_CP nStart, WW8_CP nLen,
     m_pPaM->GetPoint()->nNode = pSttIdx->GetIndex() + 1;
     m_pPaM->GetPoint()->nContent.Assign(m_pPaM->GetContentNode(), 0);
 
-    SwFlyFrameFormat *pFrame = m_rDoc.MakeFlySection(RndStdIds::FLY_AT_PARA, m_pPaM->GetPoint());
+    // tdf#122425: Explicitly remove borders and spacing
+    SfxItemSet aFlySet(m_rDoc.GetAttrPool(), svl::Items<RES_FRMATR_BEGIN, RES_FRMATR_END - 1>{});
+    Reader::ResetFrameFormatAttrs(aFlySet);
+
+    SwFlyFrameFormat* pFrame
+        = m_rDoc.MakeFlySection(RndStdIds::FLY_AT_PARA, m_pPaM->GetPoint(), &aFlySet);
 
     SwFormatAnchor aAnch( pFrame->GetAnchor() );
     aAnch.SetType( RndStdIds::FLY_AT_PARA );
@@ -6319,12 +6324,8 @@ ErrCode WW8Reader::Read(SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, cons
             rBaseURL, bNew, m_bSkipImages, *rPaM.GetPoint()));
         if (bNew)
         {
-            // Remove Frame and offsets from Frame Template
-            Reader::ResetFrameFormats( rDoc );
-
             rPaM.GetBound().nContent.Assign(nullptr, 0);
             rPaM.GetBound(false).nContent.Assign(nullptr, 0);
-
         }
         try
         {

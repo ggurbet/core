@@ -381,23 +381,17 @@ static void ImplInitPrnQueueList()
 {
     ImplSVData* pSVData = ImplGetSVData();
 
-    pSVData->maGDIData.mpPrinterQueueList = new ImplPrnQueueList;
+    pSVData->maGDIData.mpPrinterQueueList.reset(new ImplPrnQueueList);
 
     static const char* pEnv = getenv( "SAL_DISABLE_PRINTERLIST" );
     if( !pEnv || !*pEnv )
-        pSVData->mpDefInst->GetPrinterQueueInfo( pSVData->maGDIData.mpPrinterQueueList );
+        pSVData->mpDefInst->GetPrinterQueueInfo( pSVData->maGDIData.mpPrinterQueueList.get() );
 }
 
 void ImplDeletePrnQueueList()
 {
     ImplSVData*         pSVData = ImplGetSVData();
-    ImplPrnQueueList*   pPrnList = pSVData->maGDIData.mpPrinterQueueList;
-
-    if ( pPrnList )
-    {
-        delete pPrnList;
-        pSVData->maGDIData.mpPrinterQueueList = nullptr;
-    }
+    pSVData->maGDIData.mpPrinterQueueList.reset();
 }
 
 const std::vector<OUString>& Printer::GetPrinterQueues()
@@ -544,7 +538,7 @@ bool Printer::AcquireGraphics() const
 
     if ( mpGraphics )
     {
-        mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp) );
+        mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp), RasterOp::Invert == meRasterOp );
         mpGraphics->setAntiAliasB2DDraw(bool(mnAntialiasing & AntialiasingFlags::EnableB2dDraw));
     }
 
@@ -781,7 +775,7 @@ SalPrinterQueueInfo* Printer::ImplGetQueueInfo( const OUString& rPrinterName,
     if ( !pSVData->maGDIData.mpPrinterQueueList )
         ImplInitPrnQueueList();
 
-    ImplPrnQueueList* pPrnList = pSVData->maGDIData.mpPrinterQueueList;
+    ImplPrnQueueList* pPrnList = pSVData->maGDIData.mpPrinterQueueList.get();
     if ( pPrnList && !pPrnList->m_aQueueInfos.empty() )
     {
         // first search for the printer name directly
@@ -1432,14 +1426,18 @@ OUString Printer::GetPaperName( Paper ePaper )
     {
         static const int PaperIndex[] =
         {
-            PAPER_A0, PAPER_A1, PAPER_A2, PAPER_A3, PAPER_A4, PAPER_A5,
-            PAPER_B4_ISO, PAPER_B5_ISO, PAPER_LETTER, PAPER_LEGAL, PAPER_TABLOID,
-            PAPER_USER, PAPER_B6_ISO, PAPER_ENV_C4, PAPER_ENV_C5, PAPER_ENV_C6, PAPER_ENV_C65,
-            PAPER_ENV_DL, PAPER_SLIDE_DIA, PAPER_C, PAPER_D, PAPER_E,
-            PAPER_EXECUTIVE, PAPER_FANFOLD_LEGAL_DE, PAPER_ENV_MONARCH, PAPER_ENV_PERSONAL,
-            PAPER_ENV_9, PAPER_ENV_10, PAPER_ENV_11, PAPER_ENV_12, PAPER_KAI16,
-            PAPER_KAI32, PAPER_KAI32BIG, PAPER_B4_JIS, PAPER_B5_JIS, PAPER_B6_JIS,
-            PAPER_POSTCARD_JP
+            PAPER_A0, PAPER_A1, PAPER_A2, PAPER_A3, PAPER_A4, PAPER_A5, PAPER_B4_ISO, PAPER_B5_ISO,
+            PAPER_LETTER, PAPER_LEGAL, PAPER_TABLOID, PAPER_USER, PAPER_B6_ISO, PAPER_ENV_C4, PAPER_ENV_C5,
+            PAPER_ENV_C6, PAPER_ENV_C65, PAPER_ENV_DL, PAPER_SLIDE_DIA, PAPER_SCREEN_4_3, PAPER_C, PAPER_D,
+            PAPER_E, PAPER_EXECUTIVE, PAPER_FANFOLD_LEGAL_DE, PAPER_ENV_MONARCH, PAPER_ENV_PERSONAL, PAPER_ENV_9,
+            PAPER_ENV_10, PAPER_ENV_11, PAPER_ENV_12, PAPER_KAI16, PAPER_KAI32, PAPER_KAI32BIG, PAPER_B4_JIS,
+            PAPER_B5_JIS, PAPER_B6_JIS, PAPER_LEDGER, PAPER_STATEMENT, PAPER_QUARTO, PAPER_10x14, PAPER_ENV_14,
+            PAPER_ENV_C3, PAPER_ENV_ITALY, PAPER_FANFOLD_US, PAPER_FANFOLD_DE, PAPER_POSTCARD_JP, PAPER_9x11,
+            PAPER_10x11, PAPER_15x11, PAPER_ENV_INVITE, PAPER_A_PLUS, PAPER_B_PLUS, PAPER_LETTER_PLUS, PAPER_A4_PLUS,
+            PAPER_DOUBLEPOSTCARD_JP, PAPER_A6, PAPER_12x11, PAPER_A7, PAPER_A8, PAPER_A9, PAPER_A10, PAPER_B0_ISO,
+            PAPER_B1_ISO, PAPER_B2_ISO, PAPER_B3_ISO, PAPER_B7_ISO, PAPER_B8_ISO, PAPER_B9_ISO, PAPER_B10_ISO,
+            PAPER_ENV_C2, PAPER_ENV_C7, PAPER_ENV_C8, PAPER_ARCHA, PAPER_ARCHB, PAPER_ARCHC, PAPER_ARCHD,
+            PAPER_ARCHE, PAPER_SCREEN_16_9, PAPER_SCREEN_16_10, PAPER_16K_195x270, PAPER_16K_197x273
         };
         assert(SAL_N_ELEMENTS(PaperIndex) == SAL_N_ELEMENTS(RID_STR_PAPERNAMES) && "localized paper name count wrong");
         for (size_t i = 0; i < SAL_N_ELEMENTS(PaperIndex); ++i)
@@ -1448,15 +1446,6 @@ OUString Printer::GetPaperName( Paper ePaper )
 
     std::unordered_map<int,OUString>::const_iterator it = pSVData->maPaperNames.find( static_cast<int>(ePaper) );
     return (it != pSVData->maPaperNames.end()) ? it->second : OUString();
-}
-
-OUString Printer::GetPaperName() const
-{
-    Size  aPageSize = PixelToLogic( GetPaperSizePixel(), MapMode(MapUnit::Map100thMM));
-    Paper ePaper    = ImplGetPaperFormat( aPageSize.Width(), aPageSize.Height() );
-    if( ePaper == PAPER_USER )
-        ePaper = ImplGetPaperFormat( aPageSize.Height(), aPageSize.Width() );
-    return (ePaper != PAPER_USER) ? GetPaperName( ePaper ) : OUString();
 }
 
 const PaperInfo& Printer::GetPaperInfo( int nPaper ) const
@@ -1468,6 +1457,12 @@ const PaperInfo& Printer::GetPaperInfo( int nPaper ) const
     if( mpInfoPrinter->m_aPaperFormats.empty() || nPaper < 0 || nPaper >= int(mpInfoPrinter->m_aPaperFormats.size()) )
         return ImplGetEmptyPaper();
     return mpInfoPrinter->m_aPaperFormats[nPaper];
+}
+
+Size Printer::GetPaperSize( int nPaper )
+{
+    PaperInfo aInfo = GetPaperInfo( nPaper );
+    return PixelToLogic( Size( aInfo.getWidth(), aInfo.getHeight() ) );
 }
 
 void Printer::SetDuplexMode( DuplexMode eDuplex )
@@ -1499,6 +1494,11 @@ void Printer::SetDuplexMode( DuplexMode eDuplex )
             ImplUpdateFontList();
         }
     }
+}
+
+DuplexMode Printer::GetDuplexMode() const
+{
+    return maJobSetup.ImplGetConstData().GetDuplexMode();
 }
 
 Paper Printer::GetPaper() const
@@ -1618,12 +1618,12 @@ void Printer::ImplEndPage()
 void Printer::updatePrinters()
 {
     ImplSVData*         pSVData = ImplGetSVData();
-    ImplPrnQueueList*   pPrnList = pSVData->maGDIData.mpPrinterQueueList;
+    ImplPrnQueueList*   pPrnList = pSVData->maGDIData.mpPrinterQueueList.get();
 
     if ( pPrnList )
     {
-        ImplPrnQueueList* pNewList = new ImplPrnQueueList;
-        pSVData->mpDefInst->GetPrinterQueueInfo( pNewList );
+        std::unique_ptr<ImplPrnQueueList> pNewList(new ImplPrnQueueList);
+        pSVData->mpDefInst->GetPrinterQueueInfo( pNewList.get() );
 
         bool bChanged = pPrnList->m_aQueueInfos.size() != pNewList->m_aQueueInfos.size();
         for( decltype(pPrnList->m_aQueueInfos)::size_type i = 0; ! bChanged && i < pPrnList->m_aQueueInfos.size(); i++ )
@@ -1639,7 +1639,7 @@ void Printer::updatePrinters()
         if( bChanged )
         {
             ImplDeletePrnQueueList();
-            pSVData->maGDIData.mpPrinterQueueList = pNewList;
+            pSVData->maGDIData.mpPrinterQueueList = std::move(pNewList);
 
             Application* pApp = GetpApp();
             if( pApp )
@@ -1649,8 +1649,6 @@ void Printer::updatePrinters()
                 Application::NotifyAllWindows( aDCEvt );
             }
         }
-        else
-            delete pNewList;
     }
 }
 

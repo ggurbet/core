@@ -91,7 +91,7 @@ void SwAccessibleCell::GetStates( ::utl::AccessibleStateSetHelper& rStateSet )
     if( IsSelected() )
     {
         rStateSet.AddState( AccessibleStateType::SELECTED );
-        assert(m_bIsSelected && "bSelected out of sync");
+        SAL_WARN_IF(!m_bIsSelected, "sw.a11y", "bSelected out of sync");
         ::rtl::Reference < SwAccessibleContext > xThis( this );
         GetMap()->SetCursorContext( xThis );
     }
@@ -425,10 +425,10 @@ sal_Int32 SAL_CALL SwAccessibleCell::getBackground()
         uno::Reference<XAccessible> xAccDoc = getAccessibleParent();
         if (xAccDoc.is())
         {
-            uno::Reference<XAccessibleComponent> xCompoentDoc(xAccDoc, uno::UNO_QUERY);
-            if (xCompoentDoc.is())
+            uno::Reference<XAccessibleComponent> xComponentDoc(xAccDoc, uno::UNO_QUERY);
+            if (xComponentDoc.is())
             {
-                crBack = Color(xCompoentDoc->getBackground());
+                crBack = Color(xComponentDoc->getBackground());
             }
         }
     }

@@ -10,6 +10,7 @@
 #include "vbamenubar.hxx"
 #include <cppuhelper/implbase.hxx>
 #include <ooo/vba/excel/XlSheetType.hpp>
+#include <ooo/vba/XCommandBars.hpp>
 
 using namespace com::sun::star;
 using namespace ooo::vba;
@@ -103,12 +104,10 @@ ScVbaMenuBars::getServiceImplName()
 uno::Sequence<OUString>
 ScVbaMenuBars::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.MenuBars";
-    }
+        "ooo.vba.excel.MenuBars"
+    };
     return aServiceNames;
 }
 

@@ -114,7 +114,7 @@ const SwRect& SwFEShell::GetAnyCurRect( CurRectType eType, const Point* pPt,
     switch ( eType )
     {
         case CurRectType::PagePrt: bFrame = false;
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
         case CurRectType::Page :    pFrame = pFrame->FindPageFrame();
                                     break;
 
@@ -129,7 +129,7 @@ const SwRect& SwFEShell::GetAnyCurRect( CurRectType eType, const Point* pPt,
 
         case CurRectType::FlyEmbeddedPrt:
                                     bFrame = false;
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
         case CurRectType::FlyEmbedded:
         {
                                     const SwFrame *pFlyFrame = xObj.is() ? FindFlyFrame(xObj) : nullptr;
@@ -145,7 +145,7 @@ const SwRect& SwFEShell::GetAnyCurRect( CurRectType eType, const Point* pPt,
                                     else {
                                         OSL_FAIL( "Missing Table" );
                                     }
-                                    SAL_FALLTHROUGH;
+                                    [[fallthrough]];
         case CurRectType::SectionPrt:
         case CurRectType::Section:
                                     if( pFrame->IsInSct() )
@@ -351,7 +351,8 @@ static void lcl_SetAPageOffset( sal_uInt16 nOffset, SwPageFrame* pPage, SwFEShel
         pThis->GetDoc()->SetAttr( aDesc, *pFrame->FindTabFrame()->GetFormat() );
     else
     {
-        pThis->GetDoc()->getIDocumentContentOperations().InsertPoolItem( *pThis->GetCursor(), aDesc );
+        pThis->GetDoc()->getIDocumentContentOperations().InsertPoolItem(
+            *pThis->GetCursor(), aDesc, SetAttrMode::DEFAULT, pThis->GetLayout());
     }
 
     pThis->EndAllAction();
@@ -652,7 +653,6 @@ sal_uInt16 SwFEShell::GetCurColNum_( const SwFrame *pFrame,
                     {
                         pPara->pFrameFormat = static_cast<const SwLayoutFrame*>(pFrame)->GetFormat();
                         pPara->pPrtRect = &pFrame->getFramePrintArea();
-                        pPara->pFrameRect = &pFrame->getFrameArea();
                         break;
                     }
                     pFrame = pFrame->GetUpper();
@@ -661,7 +661,6 @@ sal_uInt16 SwFEShell::GetCurColNum_( const SwFrame *pFrame,
                 {
                     pPara->pFrameFormat = nullptr;
                     pPara->pPrtRect = nullptr;
-                    pPara->pFrameRect = nullptr;
                 }
             }
             break;
@@ -787,7 +786,7 @@ void SwFEShell::CalcBoundRect( SwRect& _orRect,
             {
                 case text::RelOrientation::PAGE_RIGHT:
                 case text::RelOrientation::FRAME_RIGHT: aPos.AdjustY(pFrame->getFramePrintArea().Height() );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case text::RelOrientation::PRINT_AREA:
                 case text::RelOrientation::PAGE_PRINT_AREA: aPos.AdjustY(pFrame->getFramePrintArea().Top() ); break;
                 default: break;
@@ -799,7 +798,7 @@ void SwFEShell::CalcBoundRect( SwRect& _orRect,
             {
                 case text::RelOrientation::PRINT_AREA:
                 case text::RelOrientation::PAGE_PRINT_AREA: aPos.AdjustX(pFrame->getFramePrintArea().Width() );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case text::RelOrientation::PAGE_RIGHT:
                 case text::RelOrientation::FRAME_RIGHT: aPos.AdjustX(pFrame->getFramePrintArea().Left() ); break;
                 default: aPos.AdjustX(pFrame->getFrameArea().Width() );
@@ -811,7 +810,7 @@ void SwFEShell::CalcBoundRect( SwRect& _orRect,
             {
                 case text::RelOrientation::PRINT_AREA:
                 case text::RelOrientation::PAGE_PRINT_AREA: aPos.AdjustX(pFrame->getFramePrintArea().Width() );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case text::RelOrientation::PAGE_LEFT:
                 case text::RelOrientation::FRAME_LEFT: aPos.AdjustX(pFrame->getFramePrintArea().Left() -
                                                pFrame->getFrameArea().Width() ); break;
@@ -824,7 +823,7 @@ void SwFEShell::CalcBoundRect( SwRect& _orRect,
             {
                 case text::RelOrientation::PAGE_RIGHT:
                 case text::RelOrientation::FRAME_RIGHT:   aPos.AdjustX(pFrame->getFramePrintArea().Width() );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 case text::RelOrientation::PRINT_AREA:
                 case text::RelOrientation::PAGE_PRINT_AREA: aPos.AdjustX(pFrame->getFramePrintArea().Left() ); break;
                 default:break;

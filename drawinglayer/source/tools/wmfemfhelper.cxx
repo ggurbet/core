@@ -46,8 +46,11 @@
 #include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 #include <tools/fract.hxx>
+#include <tools/stream.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/hatch.hxx>
+#include <vcl/outdev.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <emfplushelper.hxx>
 #include <numeric>
 
@@ -1063,12 +1066,11 @@ namespace wmfemfhelper
         const vcl::Font& rFont = rProperty.getFont();
         basegfx::B2DVector aFontScaling;
 
-        rFontAttribute = drawinglayer::attribute::FontAttribute(
-            drawinglayer::primitive2d::getFontAttributeFromVclFont(
-                aFontScaling,
-                rFont,
-                bool(rProperty.getLayoutMode() & ComplexTextLayoutFlags::BiDiRtl),
-                bool(rProperty.getLayoutMode() & ComplexTextLayoutFlags::BiDiStrong)));
+        rFontAttribute = drawinglayer::primitive2d::getFontAttributeFromVclFont(
+                            aFontScaling,
+                            rFont,
+                            bool(rProperty.getLayoutMode() & ComplexTextLayoutFlags::BiDiRtl),
+                            bool(rProperty.getLayoutMode() & ComplexTextLayoutFlags::BiDiStrong));
 
         // add FontScaling
         rTextTransform.scale(aFontScaling.getX(), aFontScaling.getY());

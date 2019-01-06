@@ -25,6 +25,7 @@
 #include <svtools/colorcfg.hxx>
 #include <vcl/salgtype.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <tools/multisel.hxx>
 #include <tools/fract.hxx>
@@ -632,8 +633,6 @@ void BrowseBox::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle
 
 void BrowseBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, DrawFlags nFlags )
 {
-    bool bDrawSelection = !(nFlags & DrawFlags::NoSelection);
-
     // we need pixel coordinates
     Size aRealSize = pDev->LogicToPixel(rSize);
     Point aRealPos = pDev->LogicToPixel(rPos);
@@ -744,7 +743,7 @@ void BrowseBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, 
     pDev->SetClipRegion( pDev->PixelToLogic( aRegion ) );
 
     // do we have to paint the background
-    bool bBackground = !(nFlags & DrawFlags::NoBackground) && pDataWin->IsControlBackground();
+    bool bBackground = pDataWin->IsControlBackground();
     if ( bBackground )
     {
         tools::Rectangle aRect( aRealPos, aRealSize );
@@ -752,7 +751,7 @@ void BrowseBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, 
         pDev->DrawRect( aRect );
     }
 
-    ImplPaintData( *pDev, tools::Rectangle( aRealPos, aRealSize ), true, bDrawSelection );
+    ImplPaintData( *pDev, tools::Rectangle( aRealPos, aRealSize ), true );
 
     // restore the column widths/data row height
     nDataRowHeight = nOriginalHeight;
@@ -772,7 +771,7 @@ void BrowseBox::Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, 
 }
 
 
-void BrowseBox::ImplPaintData(OutputDevice& _rOut, const tools::Rectangle& _rRect, bool _bForeignDevice, bool _bDrawSelections)
+void BrowseBox::ImplPaintData(OutputDevice& _rOut, const tools::Rectangle& _rRect, bool _bForeignDevice)
 {
     Point aOverallAreaPos = _bForeignDevice ? _rRect.TopLeft() : Point(0,0);
     Size aOverallAreaSize = _bForeignDevice ? _rRect.GetSize() : pDataWin->GetOutputSizePixel();
@@ -829,8 +828,7 @@ void BrowseBox::ImplPaintData(OutputDevice& _rOut, const tools::Rectangle& _rRec
         tools::Rectangle aRowRect( Point( _rRect.TopLeft().X(), aPos.Y() ),
                 Size( _rRect.GetSize().Width(), nDataRowHeigt ) );
 
-        bool bRowSelected   =   _bDrawSelections
-                            &&  !bHideSelect
+        bool bRowSelected   =   !bHideSelect
                             &&  IsRowSelected( nRow );
         if ( bRowSelected )
         {
@@ -866,8 +864,7 @@ void BrowseBox::ImplPaintData(OutputDevice& _rOut, const tools::Rectangle& _rRec
             }
 
             // prepare Column-AutoHighlight
-            bool bColAutoHighlight  =   _bDrawSelections
-                                    &&  bColumnCursor
+            bool bColAutoHighlight  =   bColumnCursor
                                     &&  IsColumnSelected( pCol->GetId() );
             if ( bColAutoHighlight )
             {
@@ -1028,7 +1025,7 @@ void BrowseBox::PaintData( vcl::Window const & rWin, vcl::RenderContext& rRender
         Resize();
     // MI: who was that? Window::Update();
 
-    ImplPaintData(rRenderContext, rRect, false, true);
+    ImplPaintData(rRenderContext, rRect, false);
 }
 
 void BrowseBox::UpdateScrollbars()
@@ -1272,31 +1269,13 @@ sal_uInt16 BrowseBox::FrozenColCount() const
 
 IMPL_LINK(BrowseBox, ScrollHdl, ScrollBar*, pBar, void)
 {
-
     if ( pBar->GetDelta() == 0 )
         return;
-
-    if ( pBar->GetDelta() < 0 && pDataWin->bNoScrollBack )
-    {
-        UpdateScrollbars();
-        return;
-    }
 
     if ( pBar == aHScroll.get() )
         ScrollColumns( aHScroll->GetDelta() );
     if ( pBar == pVScroll )
         ScrollRows( pVScroll->GetDelta() );
-}
-
-
-IMPL_LINK_NOARG(BrowseBox, EndScrollHdl, ScrollBar*, void)
-{
-
-    if ( pDataWin->bNoScrollBack )
-    {
-        EndScroll();
-        return;
-    }
 }
 
 
@@ -1661,7 +1640,7 @@ bool BrowseBox::ProcessKey( const KeyEvent& rEvt )
             case KEY_TAB:
                 if ( !bColumnCursor )
                     break;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case KEY_RIGHT:         nId = BROWSER_CURSORRIGHT; break;
             case KEY_LEFT:          nId = BROWSER_CURSORLEFT; break;
             case KEY_SPACE:         nId = BROWSER_SELECT; break;
@@ -1796,7 +1775,7 @@ void BrowseBox::Dispatch( sal_uInt16 nId )
                 nNewId != HandleColumnId && GoToColumnId( nNewId );
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case BROWSER_CURSORENDOFFILE:
             GoToRow( nRowCount - 1, false );
             break;
@@ -1836,7 +1815,7 @@ void BrowseBox::Dispatch( sal_uInt16 nId )
                 }
                 break;
             }
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case BROWSER_CURSORTOPOFFILE:
             GoToRow( 0, false );
             break;

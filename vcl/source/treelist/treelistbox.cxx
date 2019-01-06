@@ -24,12 +24,14 @@
 */
 
 #include <vcl/treelistbox.hxx>
+#include <vcl/accessiblefactory.hxx>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <vcl/svapp.hxx>
 #include <vcl/accel.hxx>
 #include <vcl/i18nhelp.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/uitest/uiobject.hxx>
 #include <sot/formats.hxx>
 #include <unotools/accessiblestatesethelper.hxx>
@@ -346,17 +348,14 @@ SvTreeListBox::SvTreeListBox(vcl::Window* pParent, WinBits nWinStyle) :
     nImpFlags = SvTreeListBoxFlags::NONE;
     pTargetEntry = nullptr;
     nDragDropMode = DragDropMode::NONE;
-    SvTreeList* pTempModel = new SvTreeList;
-    pTempModel->SetRefCount( 0 );
-    SetBaseModel(pTempModel);
     pModel->SetCloneLink( LINK(this, SvTreeListBox, CloneHdl_Impl ));
-    pModel->InsertView( this );
     pHdlEntry = nullptr;
     eSelMode = SelectionMode::Single;
     nDragDropMode = DragDropMode::NONE;
     SetType(WindowType::TREELISTBOX);
 
     InitTreeView();
+    pImpl->SetModel( pModel.get() );
 
     SetSublistOpenWithLeftRight();
 }
@@ -809,11 +808,6 @@ const SvViewDataItem* SvTreeListBox::GetViewDataItem(const SvTreeListEntry* pEnt
     return &pEntryData->GetItem(nItemPos);
 }
 
-std::unique_ptr<SvViewDataEntry> SvTreeListBox::CreateViewData( SvTreeListEntry* )
-{
-    return o3tl::make_unique<SvViewDataEntry>();
-}
-
 void SvTreeListBox::InitViewData( SvViewDataEntry* pData, SvTreeListEntry* pEntry )
 {
     SvTreeListEntry* pInhEntry = pEntry;
@@ -852,12 +846,12 @@ void SvTreeListBox::EnableSelectionAsDropTarget( bool bEnable )
         }
         else
         {
-            pSelEntry->nEntryFlags &= (~SvTLEntryFlags::DISABLE_DROP);
+            pSelEntry->nEntryFlags &= ~SvTLEntryFlags::DISABLE_DROP;
             nRefDepth = pModel->GetDepth( pSelEntry );
             pTemp = Next( pSelEntry );
             while( pTemp && pModel->GetDepth( pTemp ) > nRefDepth )
             {
-                pTemp->nEntryFlags &= (~SvTLEntryFlags::DISABLE_DROP);
+                pTemp->nEntryFlags &= ~SvTLEntryFlags::DISABLE_DROP;
                 pTemp = Next( pTemp );
             }
         }
@@ -898,7 +892,7 @@ IMPL_LINK_NOARG(SvTreeListBox, TextEditEndedHdl_Impl, SvInplaceEdit2&, void)
     // that we don't call the selection handler in the GetFocus of the listbox
     // with the old entry text.
     pEdCtrl->Hide();
-    nImpFlags &= (~SvTreeListBoxFlags::IN_EDT);
+    nImpFlags &= ~SvTreeListBoxFlags::IN_EDT;
     GrabFocus();
 }
 
@@ -906,14 +900,14 @@ void SvTreeListBox::CancelTextEditing()
 {
     if ( pEdCtrl )
         pEdCtrl->StopEditing( true );
-    nImpFlags &= (~SvTreeListBoxFlags::IN_EDT);
+    nImpFlags &= ~SvTreeListBoxFlags::IN_EDT;
 }
 
 void SvTreeListBox::EndEditing( bool bCancel )
 {
     if( pEdCtrl )
         pEdCtrl->StopEditing( bCancel );
-    nImpFlags &= (~SvTreeListBoxFlags::IN_EDT);
+    nImpFlags &= ~SvTreeListBoxFlags::IN_EDT;
 }
 
 
@@ -1352,16 +1346,7 @@ void SvTreeListBox::dispose()
 
         pEdCtrl.reset();
 
-        if( pModel )
-        {
-            pModel->RemoveView( this );
-            if ( pModel->GetRefCount() == 0 )
-            {
-                pModel->Clear();
-                delete pModel;
-                pModel = nullptr;
-            }
-        }
+        SvListView::dispose();
 
         SvTreeListBox::RemoveBoxFromDDList_Impl( *this );
 
@@ -1380,25 +1365,6 @@ void SvTreeListBox::dispose()
 void SvTreeListBox::SetNoAutoCurEntry( bool b )
 {
     pImpl->SetNoAutoCurEntry( b );
-}
-
-void SvTreeListBox::SetModel( SvTreeList* pNewModel )
-{
-    pImpl->SetModel( pNewModel );
-    SetBaseModel(pNewModel);
-}
-
-void SvTreeListBox::SetBaseModel( SvTreeList* pNewModel )
-{
-    // does the CleanUp
-    SvListView::SetModel( pNewModel );
-    pModel->SetCloneLink( LINK(this, SvTreeListBox, CloneHdl_Impl ));
-    SvTreeListEntry* pEntry = First();
-    while( pEntry )
-    {
-        ModelHasInserted( pEntry );
-        pEntry = Next( pEntry );
-    }
 }
 
 void SvTreeListBox::SetSublistOpenWithReturn()
@@ -1456,8 +1422,7 @@ void SvTreeListBox::Resize()
 #define TABFLAGS_CONTEXTBMP (SvLBoxTabFlags::DYNAMIC | SvLBoxTabFlags::ADJUST_CENTER)
 
 #define TABFLAGS_CHECKBTN (SvLBoxTabFlags::DYNAMIC |        \
-                           SvLBoxTabFlags::ADJUST_CENTER |  \
-                           SvLBoxTabFlags::PUSHABLE)
+                           SvLBoxTabFlags::ADJUST_CENTER)
 
 #define TAB_STARTPOS    2
 
@@ -1466,7 +1431,7 @@ void SvTreeListBox::SetTabs()
 {
     if( IsEditingActive() )
         EndEditing( true );
-    nTreeFlags &= (~SvTreeFlags::RECALCTABS);
+    nTreeFlags &= ~SvTreeFlags::RECALCTABS;
     nFocusWidth = -1;
     const WinBits nStyle( GetStyle() );
     bool bHasButtons = (nStyle & WB_HASBUTTONS)!=0;
@@ -1633,7 +1598,7 @@ SvTreeListEntry* SvTreeListBox::InsertEntry(
     aPrevInsertedExpBmp = rDefExpBmp;
     aPrevInsertedColBmp = rDefColBmp;
 
-    nTreeFlags &= (~SvTreeFlags::MANINS);
+    nTreeFlags &= ~SvTreeFlags::MANINS;
 
     return pEntry;
 }
@@ -1662,7 +1627,7 @@ SvTreeListEntry* SvTreeListBox::InsertEntry( const OUString& rText,
     aPrevInsertedExpBmp = aExpEntryBmp;
     aPrevInsertedColBmp = aCollEntryBmp;
 
-    nTreeFlags &= (~SvTreeFlags::MANINS);
+    nTreeFlags &= ~SvTreeFlags::MANINS;
 
     return pEntry;
 }
@@ -1894,7 +1859,7 @@ void SvTreeListBox::EnableCheckButton( SvLBoxButtonData* pData )
 {
     DBG_ASSERT(!GetEntryCount(),"EnableCheckButton: Entry count != 0");
     if( !pData )
-        nTreeFlags &= (~SvTreeFlags::CHKBTN);
+        nTreeFlags &= ~SvTreeFlags::CHKBTN;
     else
     {
         SetCheckButtonData( pData );
@@ -2656,7 +2621,6 @@ void SvTreeListBox::PaintEntry1(SvTreeListEntry& rEntry, long nLine, vcl::Render
     Color aBackupColor = rRenderContext.GetFillColor();
 
     bool bCurFontIsSel = false;
-    bool bInUse = rEntry.HasInUseEmphasis();
     // if a ClipRegion was set from outside, we don't have to reset it
     const WinBits nWindowStyle = GetStyle();
     const bool bHideSelection = (nWindowStyle & WB_HIDESELECTION) !=0 && !HasFocus();
@@ -2711,37 +2675,29 @@ void SvTreeListBox::PaintEntry1(SvTreeListEntry& rEntry, long nLine, vcl::Render
         Wallpaper aWallpaper = rRenderContext.GetBackground();
 
         bool bSelTab = bool(nFlags & SvLBoxTabFlags::SHOW_SELECTION);
-        SvLBoxItemType nItemType = rItem.GetType();
 
         if (pViewDataEntry->IsHighlighted() && bSelTab)
         {
             Color aNewWallColor = rSettings.GetHighlightColor();
-            if (!bInUse || nItemType != SvLBoxItemType::ContextBmp)
+            // if the face color is bright then the deactivate color is also bright
+            // -> so you can't see any deactivate selection
+            if (bHideSelection && !rSettings.GetFaceColor().IsBright()
+               && aWallpaper.GetColor().IsBright() != rSettings.GetDeactiveColor().IsBright())
             {
-                // if the face color is bright then the deactive color is also bright
-                // -> so you can't see any deactive selection
-                if (bHideSelection && !rSettings.GetFaceColor().IsBright()
-                   && aWallpaper.GetColor().IsBright() != rSettings.GetDeactiveColor().IsBright())
-                {
-                    aNewWallColor = rSettings.GetDeactiveColor();
-                }
-                // set font color to highlight
-                if (!bCurFontIsSel)
-                {
-                    rRenderContext.SetTextColor(aHighlightTextColor);
-                    rRenderContext.SetFont(aHighlightFont);
-                    bCurFontIsSel = true;
-                }
+                aNewWallColor = rSettings.GetDeactiveColor();
+            }
+            // set font color to highlight
+            if (!bCurFontIsSel)
+            {
+                rRenderContext.SetTextColor(aHighlightTextColor);
+                rRenderContext.SetFont(aHighlightFont);
+                bCurFontIsSel = true;
             }
             aWallpaper.SetColor(aNewWallColor);
         }
         else  // no selection
         {
-            if (bInUse && nItemType == SvLBoxItemType::ContextBmp)
-            {
-                aWallpaper.SetColor(rSettings.GetFieldColor());
-            }
-            else if (bCurFontIsSel || rEntry.GetTextColor())
+            if (bCurFontIsSel || rEntry.GetTextColor())
             {
                 bCurFontIsSel = false;
                 if (const auto* pCustomTextColor = rEntry.GetTextColor())
@@ -3586,12 +3542,23 @@ void SvTreeListBox::EnableContextMenuHandling()
     pImpl->bContextMenuHandling = true;
 }
 
-void SvTreeListBox::EnableList( bool _bEnable )
+css::uno::Reference< XAccessible > SvTreeListBox::CreateAccessible()
 {
-    // call base class method
-    Window::Enable(_bEnable);
-    // then invalidate
-    Invalidate(tools::Rectangle(Point(), GetSizePixel()));
+    vcl::Window* pParent = GetAccessibleParentWindow();
+    DBG_ASSERT( pParent, "SvTreeListBox::CreateAccessible - accessible parent not found" );
+
+    css::uno::Reference< XAccessible > xAccessible;
+    if ( pParent )
+    {
+        css::uno::Reference< XAccessible > xAccParent = pParent->GetAccessible();
+        if ( xAccParent.is() )
+        {
+            // need to be done here to get the vclxwindow later on in the accessible
+            css::uno::Reference< css::awt::XWindowPeer > xTemp(GetComponentInterface());
+            xAccessible = pImpl->m_aFactoryAccess.getFactory().createAccessibleTreeListBox( *this, xAccParent );
+        }
+    }
+    return xAccessible;
 }
 
 void SvTreeListBox::FillAccessibleEntryStateSet( SvTreeListEntry* pEntry, ::utl::AccessibleStateSetHelper& rStateSet ) const
@@ -3666,6 +3633,14 @@ bool SvTreeListBox::set_property(const OString &rKey, const OUString &rValue)
         if (toBool(rValue))
             nStyle |= (WB_HASBUTTONS | WB_HASBUTTONSATROOT);
         SetStyle(nStyle);
+    }
+    else if (rKey == "rules-hint")
+    {
+        SetAlternatingRowColors(toBool(rValue));
+    }
+    else if (rKey == "enable-search")
+    {
+        SetQuickSearch(toBool(rValue));
     }
     else
         return Control::set_property(rKey, rValue);

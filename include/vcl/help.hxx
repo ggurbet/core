@@ -21,7 +21,6 @@
 #define INCLUDED_VCL_HELP_HXX
 
 #include <rtl/ustring.hxx>
-#include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <o3tl/typed_flags_set.hxx>
 
@@ -41,8 +40,6 @@ enum class QuickHelpFlags
     Bottom            = 0x0020,
     NoAutoPos         = Left | Center | Right | Top | VCenter | Bottom,
     CtrlText          = 0x0040,
-/// no delay when opening the quick help. Applies to ShowBalloon and ShowQuickHelp
-    NoDelay           = 0x0080,
 /// force balloon-style in ShowPopover and ShowQuickHelp
     TipStyleBalloon   = 0x0100,
     NoEvadePointer    = 0x0200,
@@ -50,7 +47,7 @@ enum class QuickHelpFlags
 };
 namespace o3tl
 {
-    template<> struct typed_flags<QuickHelpFlags> : is_typed_flags<QuickHelpFlags, 0x7ff> {};
+    template<> struct typed_flags<QuickHelpFlags> : is_typed_flags<QuickHelpFlags, 0x77f> {};
 }
 
 #define OOO_HELP_INDEX          ".help:index"
@@ -69,7 +66,8 @@ public:
     virtual bool        Start(const OUString& rHelpId, const vcl::Window* pWindow);
     virtual bool        Start(const OUString& rHelpId, weld::Widget* pWidget);
     virtual void        SearchKeyword( const OUString& rKeyWord );
-    virtual OUString    GetHelpText( const OUString& aHelpURL, const vcl::Window* pWindow );
+    virtual OUString    GetHelpText(const OUString& aHelpURL, const vcl::Window* pWindow);
+    virtual OUString    GetHelpText(const OUString& aHelpURL, const weld::Widget* pWidget);
 
     static void         EnableContextHelp();
     static void         DisableContextHelp();

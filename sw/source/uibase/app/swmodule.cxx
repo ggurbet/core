@@ -25,6 +25,8 @@
 #include <vcl/graph.hxx>
 #include <svtools/ehdl.hxx>
 #include <unotools/resmgr.hxx>
+#include <unotools/useroptions.hxx>
+#include <svl/ctloptions.hxx>
 #include <svx/ParaLineSpacingPopup.hxx>
 #include <svx/TextCharacterSpacingPopup.hxx>
 #include <svx/TextUnderlinePopup.hxx>
@@ -140,6 +142,8 @@ bool     g_bNoInterrupt     = false;
 #include <unomid.h>
 
 #include "swdllimpl.hxx"
+#include <dbconfig.hxx>
+#include <navicfg.hxx>
 
 using namespace com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -148,21 +152,6 @@ SwModule::SwModule( SfxObjectFactory* pWebFact,
                     SfxObjectFactory* pFact,
                     SfxObjectFactory* pGlobalFact )
     : SfxModule("sw", {pWebFact, pFact, pGlobalFact}),
-    m_pModuleConfig(nullptr),
-    m_pUsrPref(nullptr),
-    m_pWebUsrPref(nullptr),
-    m_pPrintOptions(nullptr),
-    m_pWebPrintOptions(nullptr),
-    m_pChapterNumRules(nullptr),
-    m_pStdFontConfig(nullptr),
-    m_pNavigationConfig(nullptr),
-    m_pToolbarConfig(nullptr),
-    m_pWebToolbarConfig(nullptr),
-    m_pDBConfig(nullptr),
-    m_pColorConfig(nullptr),
-    m_pAccessibilityOptions(nullptr),
-    m_pCTLOptions(nullptr),
-    m_pUserOptions(nullptr),
     m_pAttrPool(nullptr),
     m_pView(nullptr),
     m_bAuthorInitialised(false),
@@ -177,13 +166,13 @@ SwModule::SwModule( SfxObjectFactory* pWebFact,
                                      ErrCodeArea::Sw,
                                      GetResLocale() ) );
 
-    m_pModuleConfig = new SwModuleOptions;
+    m_pModuleConfig.reset(new SwModuleOptions);
 
     // We need them anyways
-    m_pToolbarConfig = new SwToolbarConfigItem( false );
-    m_pWebToolbarConfig = new SwToolbarConfigItem( true );
+    m_pToolbarConfig.reset(new SwToolbarConfigItem( false ));
+    m_pWebToolbarConfig.reset(new SwToolbarConfigItem( true ));
 
-    m_pStdFontConfig = new SwStdFontConfig;
+    m_pStdFontConfig.reset(new SwStdFontConfig);
 
     StartListening( *SfxGetpApp() );
 
@@ -407,32 +396,32 @@ std::unique_ptr<SfxStyleFamilies> SwModule::CreateStyleFamilies()
 
     pStyleFamilies->emplace_back(SfxStyleFamilyItem(SfxStyleFamily::Para,
                                                     SwResId(STR_PARAGRAPHSTYLEFAMILY),
-                                                    Image(BitmapEx(BMP_STYLES_FAMILY_PARA)),
+                                                    Image(StockImage::Yes, BMP_STYLES_FAMILY_PARA),
                                                     RID_PARAGRAPHSTYLEFAMILY, GetResLocale()));
 
     pStyleFamilies->emplace_back(SfxStyleFamilyItem(SfxStyleFamily::Char,
                                                     SwResId(STR_CHARACTERSTYLEFAMILY),
-                                                    Image(BitmapEx(BMP_STYLES_FAMILY_CHAR)),
+                                                    Image(StockImage::Yes, BMP_STYLES_FAMILY_CHAR),
                                                     RID_CHARACTERSTYLEFAMILY, GetResLocale()));
 
     pStyleFamilies->emplace_back(SfxStyleFamilyItem(SfxStyleFamily::Frame,
                                                     SwResId(STR_FRAMESTYLEFAMILY),
-                                                    Image(BitmapEx(BMP_STYLES_FAMILY_FRAME)),
+                                                    Image(StockImage::Yes, BMP_STYLES_FAMILY_FRAME),
                                                     RID_FRAMESTYLEFAMILY, GetResLocale()));
 
     pStyleFamilies->emplace_back(SfxStyleFamilyItem(SfxStyleFamily::Page,
                                                     SwResId(STR_PAGESTYLEFAMILY),
-                                                    Image(BitmapEx(BMP_STYLES_FAMILY_PAGE)),
+                                                    Image(StockImage::Yes, BMP_STYLES_FAMILY_PAGE),
                                                     RID_PAGESTYLEFAMILY, GetResLocale()));
 
     pStyleFamilies->emplace_back(SfxStyleFamilyItem(SfxStyleFamily::Pseudo,
                                                     SwResId(STR_LISTSTYLEFAMILY),
-                                                    Image(BitmapEx(BMP_STYLES_FAMILY_LIST)),
+                                                    Image(StockImage::Yes, BMP_STYLES_FAMILY_LIST),
                                                     RID_LISTSTYLEFAMILY, GetResLocale()));
 
     pStyleFamilies->emplace_back(SfxStyleFamilyItem(SfxStyleFamily::Table,
                                                     SwResId(STR_TABLESTYLEFAMILY),
-                                                    Image(BitmapEx(BMP_STYLES_FAMILY_TABLE)),
+                                                    Image(StockImage::Yes, BMP_STYLES_FAMILY_TABLE),
                                                     RID_TABLESTYLEFAMILY, GetResLocale()));
 
     return pStyleFamilies;

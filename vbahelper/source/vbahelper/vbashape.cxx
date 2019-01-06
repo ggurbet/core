@@ -29,6 +29,7 @@
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <ooo/vba/office/MsoShapeType.hpp>
 #include <ooo/vba/office/MsoAutoShapeType.hpp>
 #include <ooo/vba/word/WdRelativeHorizontalPosition.hpp>
@@ -749,12 +750,10 @@ ScVbaShape::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaShape::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.msform.Shape";
-    }
+        "ooo.vba.msform.Shape"
+    };
     return aServiceNames;
 }
 

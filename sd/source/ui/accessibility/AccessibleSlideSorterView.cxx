@@ -253,8 +253,7 @@ sal_Int32 SAL_CALL AccessibleSlideSorterView::getAccessibleIndexInParent()
 sal_Int16 SAL_CALL AccessibleSlideSorterView::getAccessibleRole()
 {
     ThrowIfDisposed();
-    static sal_Int16 nRole = AccessibleRole::DOCUMENT;
-    return nRole;
+    return AccessibleRole::DOCUMENT;
 }
 
 OUString SAL_CALL AccessibleSlideSorterView::getAccessibleDescription()
@@ -693,20 +692,18 @@ void AccessibleSlideSorterView::Implementation::UpdateChildren()
 
 void AccessibleSlideSorterView::Implementation::Clear()
 {
-    PageObjectList::iterator iPageObject;
-    PageObjectList::iterator iEnd = maPageObjects.end();
-    for (iPageObject=maPageObjects.begin(); iPageObject!=iEnd; ++iPageObject)
-        if (*iPageObject != nullptr)
+    for (auto& rxPageObject : maPageObjects)
+        if (rxPageObject != nullptr)
         {
             mrAccessibleSlideSorter.FireAccessibleEvent(
                 AccessibleEventId::CHILD,
-                Any(Reference<XAccessible>(iPageObject->get())),
+                Any(Reference<XAccessible>(rxPageObject.get())),
                 Any());
 
-            Reference<XComponent> xComponent (Reference<XWeak>(iPageObject->get()), UNO_QUERY);
+            Reference<XComponent> xComponent (Reference<XWeak>(rxPageObject.get()), UNO_QUERY);
             if (xComponent.is())
                 xComponent->dispose();
-            *iPageObject = nullptr;
+            rxPageObject = nullptr;
         }
     maPageObjects.clear();
 }

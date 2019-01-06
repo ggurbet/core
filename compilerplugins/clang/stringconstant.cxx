@@ -163,9 +163,22 @@ private:
         CallExpr const * expr, unsigned arg, FunctionDecl const * callee,
         bool explicitFunctionalCastNotation);
 
+    void handleOStringCtor(
+        CallExpr const * expr, unsigned arg, FunctionDecl const * callee,
+        bool explicitFunctionalCastNotation);
+
     void handleOUStringCtor(
         Expr const * expr, Expr const * argExpr, FunctionDecl const * callee,
         bool explicitFunctionalCastNotation);
+
+    void handleOStringCtor(
+        Expr const * expr, Expr const * argExpr, FunctionDecl const * callee,
+        bool explicitFunctionalCastNotation);
+
+    enum class StringKind { Unicode, Char };
+    void handleStringCtor(
+        Expr const * expr, Expr const * argExpr, FunctionDecl const * callee,
+        bool explicitFunctionalCastNotation, StringKind stringKind);
 
     void handleFunArgOstring(
         CallExpr const * expr, unsigned arg, FunctionDecl const * callee);
@@ -266,6 +279,16 @@ bool StringConstant::VisitCallExpr(CallExpr const * expr) {
                   || hasOverloads(fdecl, expr->getNumArgs())))
             {
                 handleOUStringCtor(expr, i, fdecl, true);
+            }
+        }
+        if (loplugin::TypeCheck(t).NotSubstTemplateTypeParmType()
+            .LvalueReference().Const().NotSubstTemplateTypeParmType()
+            .Class("OString").Namespace("rtl").GlobalNamespace())
+        {
+            if (!(isLhsOfAssignment(fdecl, i)
+                  || hasOverloads(fdecl, expr->getNumArgs())))
+            {
+                handleOStringCtor(expr, i, fdecl, true);
             }
         }
     }
@@ -848,7 +871,7 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
                     return true;
                 }
                 APSInt res;
-                if (!expr->getArg(1)->EvaluateAsInt(
+                if (!compat::EvaluateAsInt(expr->getArg(1),
                         res, compiler.getASTContext()))
                 {
                     return true;
@@ -863,14 +886,14 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
                     return true;
                 }
                 APSInt enc;
-                if (!expr->getArg(2)->EvaluateAsInt(
+                if (!compat::EvaluateAsInt(expr->getArg(2),
                         enc, compiler.getASTContext()))
                 {
                     return true;
                 }
                 auto const encIsAscii = enc == 11; // RTL_TEXTENCODING_ASCII_US
                 auto const encIsUtf8 = enc == 76; // RTL_TEXTENCODING_UTF8
-                if (!expr->getArg(3)->EvaluateAsInt(
+                if (!compat::EvaluateAsInt(expr->getArg(3),
                         res, compiler.getASTContext())
                     || res != 0x333) // OSTRING_TO_OUSTRING_CVTFLAGS
                 {
@@ -1166,6 +1189,19 @@ bool StringConstant::VisitCXXConstructExpr(CXXConstructExpr const * expr) {
                 }
             }
         }
+        if (loplugin::TypeCheck(t).NotSubstTemplateTypeParmType()
+            .LvalueReference().Const().NotSubstTemplateTypeParmType()
+            .Class("OString").Namespace("rtl").GlobalNamespace())
+        {
+            auto argExpr = expr->getArg(i);
+            if (argExpr && i <= consDecl->getNumParams())
+            {
+                if (!hasOverloads(consDecl, expr->getNumArgs()))
+                {
+                    handleOStringCtor(expr, argExpr, consDecl, true);
+                }
+            }
+        }
     }
 
     return true;
@@ -1438,7 +1474,7 @@ bool StringConstant::isStringConstant(
 
 bool StringConstant::isZero(Expr const * expr) {
     APSInt res;
-    return expr->EvaluateAsInt(res, compiler.getASTContext()) && res == 0;
+    return compat::EvaluateAsInt(expr, res, compiler.getASTContext()) && res == 0;
 }
 
 void StringConstant::reportChange(
@@ -1729,7 +1765,7 @@ void StringConstant::handleCharLen(
         return;
     }
     APSInt res;
-    if (expr->getArg(arg2)->EvaluateAsInt(res, compiler.getASTContext())) {
+    if (compat::EvaluateAsInt(expr->getArg(arg2), res, compiler.getASTContext())) {
         if (res != n) {
             return;
         }
@@ -1754,7 +1790,7 @@ void StringConstant::handleCharLen(
                   &cont2, &emb2, &trm2)
               && n2 == n && cont2 == cont && emb2 == emb && trm2 == trm
                   //TODO: same strings
-              && subs->getIdx()->EvaluateAsInt(res, compiler.getASTContext())
+              && compat::EvaluateAsInt(subs->getIdx(), res, compiler.getASTContext())
               && res == 0))
         {
             return;
@@ -1785,9 +1821,30 @@ void StringConstant::handleOUStringCtor(
     handleOUStringCtor(expr, expr->getArg(arg), callee, explicitFunctionalCastNotation);
 }
 
+void StringConstant::handleOStringCtor(
+    CallExpr const * expr, unsigned arg, FunctionDecl const * callee,
+    bool explicitFunctionalCastNotation)
+{
+    handleOStringCtor(expr, expr->getArg(arg), callee, explicitFunctionalCastNotation);
+}
+
 void StringConstant::handleOUStringCtor(
     Expr const * expr, Expr const * argExpr, FunctionDecl const * callee,
     bool explicitFunctionalCastNotation)
+{
+    handleStringCtor(expr, argExpr, callee, explicitFunctionalCastNotation, StringKind::Unicode);
+}
+
+void StringConstant::handleOStringCtor(
+    Expr const * expr, Expr const * argExpr, FunctionDecl const * callee,
+    bool explicitFunctionalCastNotation)
+{
+    handleStringCtor(expr, argExpr, callee, explicitFunctionalCastNotation, StringKind::Char);
+}
+
+void StringConstant::handleStringCtor(
+    Expr const * expr, Expr const * argExpr, FunctionDecl const * callee,
+    bool explicitFunctionalCastNotation, StringKind stringKind)
 {
     auto e0 = argExpr->IgnoreParenImpCasts();
     auto e1 = dyn_cast<CXXFunctionalCastExpr>(e0);
@@ -1808,7 +1865,7 @@ void StringConstant::handleOUStringCtor(
         return;
     }
     if (!loplugin::DeclCheck(e3->getConstructor()).MemberFunction()
-        .Class("OUString").Namespace("rtl").GlobalNamespace())
+        .Class(stringKind == StringKind::Unicode ? "OUString" : "OString").Namespace("rtl").GlobalNamespace())
     {
         return;
     }
@@ -1825,7 +1882,7 @@ void StringConstant::handleOUStringCtor(
         && e3->getConstructor()->getNumParams() == 1
         && (loplugin::TypeCheck(
                 e3->getConstructor()->getParamDecl(0)->getType())
-            .Typedef("sal_Unicode").GlobalNamespace()))
+            .Typedef(stringKind == StringKind::Unicode ? "sal_Unicode" : "char").GlobalNamespace()))
     {
         // It may not be easy to rewrite OUString(c), esp. given there is no
         // OUString ctor taking an OUStringLiteral1 arg, so don't warn there:
@@ -1981,7 +2038,7 @@ void StringConstant::handleFunArgOstring(
                         &cont, &emb, &trm))
                 {
                     APSInt res;
-                    if (cexpr->getArg(1)->EvaluateAsInt(
+                    if (compat::EvaluateAsInt(cexpr->getArg(1),
                             res, compiler.getASTContext()))
                     {
                         if (res == n && !emb && trm) {

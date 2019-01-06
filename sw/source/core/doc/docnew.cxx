@@ -252,6 +252,7 @@ SwDoc::SwDoc()
     mpLineNumberInfo( new SwLineNumberInfo ),
     mpFootnoteIdxs( new SwFootnoteIdxs ),
     mpDocShell( nullptr ),
+    mpNumberFormatter( nullptr ),
     mpNumRuleTable( new SwNumRuleTable ),
     mpExtInputRing( nullptr ),
     mpGrammarContact(createGrammarContact()),
@@ -579,7 +580,7 @@ SwDoc::~SwDoc()
 
     disposeXForms(); // #i113606#, dispose the XForms objects
 
-    mpNumberFormatter.reset();
+    delete mpNumberFormatter.load(); mpNumberFormatter= nullptr;
     mpFootnoteInfo.reset();
     mpEndNoteInfo.reset();
     mpLineNumberInfo.reset();
@@ -736,7 +737,7 @@ void SwDoc::ClearDoc()
 
     GetDocumentFieldsManager().ClearFieldTypes();
 
-    mpNumberFormatter.reset();
+    delete mpNumberFormatter.load(); mpNumberFormatter= nullptr;
 
     getIDocumentStylePoolAccess().GetPageDescFromPool( RES_POOLPAGE_STANDARD );
     pFirstNd->ChgFormatColl( getIDocumentStylePoolAccess().GetTextCollFromPool( RES_POOLCOLL_STANDARD ));
@@ -1237,7 +1238,7 @@ else
                 // frames, otherwise the drawing layer gets confused.
                 if ( pTargetShell )
                     pTargetShell->SttEndDoc( false );
-                aDelIdx -= (iDelNodes - 1);
+                aDelIdx -= iDelNodes - 1;
 #ifdef DBG_UTIL
     SAL_INFO( "sw.docappend", "iDelNodes: " << iDelNodes
                               << "  Idx: " << aDelIdx.GetNode().GetIndex()

@@ -30,6 +30,7 @@
 
 #include <tools/debug.hxx>
 #include <tools/time.hxx>
+#include <tools/stream.hxx>
 
 #include <i18nlangtag/mslangid.hxx>
 
@@ -812,19 +813,17 @@ ImplSVEvent * Application::PostKeyEvent( VclEventId nEvent, vcl::Window *pWin, K
 
     if( pWin && pKeyEvent )
     {
-        ImplPostEventData* pPostEventData = new ImplPostEventData( nEvent, pWin, *pKeyEvent );
+        std::unique_ptr<ImplPostEventData> pPostEventData(new ImplPostEventData( nEvent, pWin, *pKeyEvent ));
 
         nEventId = PostUserEvent(
                        LINK( nullptr, Application, PostEventHandler ),
-                       pPostEventData );
+                       pPostEventData.get() );
 
         if( nEventId )
         {
             pPostEventData->mnEventId = nEventId;
-            ImplGetSVData()->maAppData.maPostedEventList.emplace_back( pWin, pPostEventData );
+            ImplGetSVData()->maAppData.maPostedEventList.emplace_back( pWin, pPostEventData.release() );
         }
-        else
-            delete pPostEventData;
     }
 
     return nEventId;
@@ -845,19 +844,17 @@ ImplSVEvent * Application::PostMouseEvent( VclEventId nEvent, vcl::Window *pWin,
         const MouseEvent aTransformedEvent( aTransformedPos, pMouseEvent->GetClicks(), pMouseEvent->GetMode(),
                                             pMouseEvent->GetButtons(), pMouseEvent->GetModifier() );
 
-        ImplPostEventData* pPostEventData = new ImplPostEventData( nEvent, pWin, aTransformedEvent );
+        std::unique_ptr<ImplPostEventData> pPostEventData(new ImplPostEventData( nEvent, pWin, aTransformedEvent ));
 
         nEventId = PostUserEvent(
                        LINK( nullptr, Application, PostEventHandler ),
-                       pPostEventData );
+                       pPostEventData.get() );
 
         if( nEventId )
         {
             pPostEventData->mnEventId = nEventId;
-            ImplGetSVData()->maAppData.maPostedEventList.emplace_back( pWin, pPostEventData );
+            ImplGetSVData()->maAppData.maPostedEventList.emplace_back( pWin, pPostEventData.release() );
         }
-        else
-            delete pPostEventData;
     }
 
     return nEventId;
@@ -1437,8 +1434,11 @@ const LocaleDataWrapper& Application::GetAppLocaleDataWrapper()
 
 void Application::EnableHeadlessMode( bool dialogsAreFatal )
 {
-    SetDialogCancelMode(
-        dialogsAreFatal ? DialogCancelMode::Fatal : DialogCancelMode::Silent );
+    DialogCancelMode eNewMode = dialogsAreFatal ? DialogCancelMode::Fatal : DialogCancelMode::Silent;
+    DialogCancelMode eOldMode = GetDialogCancelMode();
+    assert(eOldMode == DialogCancelMode::Off || GetDialogCancelMode() == eNewMode);
+    if (eOldMode != eNewMode)
+        SetDialogCancelMode( eNewMode );
 }
 
 bool Application::IsHeadlessModeEnabled()
@@ -1446,17 +1446,20 @@ bool Application::IsHeadlessModeEnabled()
     return IsDialogCancelEnabled() || comphelper::LibreOfficeKit::isActive();
 }
 
-static bool bConsoleOnly = false;
-
-bool Application::IsConsoleOnly()
+void Application::EnableBitmapRendering()
 {
-    return bConsoleOnly;
+    ImplGetSVData()->maAppData.mbRenderToBitmaps = true;
+}
+
+bool Application::IsBitmapRendering()
+{
+    return ImplGetSVData()->maAppData.mbRenderToBitmaps;
 }
 
 void Application::EnableConsoleOnly()
 {
     EnableHeadlessMode(true);
-    bConsoleOnly = true;
+    EnableBitmapRendering();
 }
 
 static bool bEventTestingMode = false;
@@ -1526,7 +1529,7 @@ const OUString& Application::GetDesktopEnvironment()
 {
     if (IsHeadlessModeEnabled())
     {
-        static OUString aNone("none");
+        static const OUString aNone("none");
         return aNone;
     }
     else

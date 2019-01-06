@@ -26,6 +26,7 @@
 #include <osl/diagnose.h>
 #include <com/sun/star/sdbc/XDatabaseMetaData.hpp>
 #include <vcl/svapp.hxx>
+#include <vcl/commandevent.hxx>
 
 using namespace dbaui;
 using namespace ::com::sun::star::sdbc;
@@ -261,7 +262,7 @@ sal_Int8 OTableWindowListBox::AcceptDrop( const AcceptDropEvent& _rEvt )
             }
 
             // automatically select right entry when dragging
-            if ((FirstSelected() != pEntry) || (FirstSelected() && NextSelected(FirstSelected())))
+            if ((FirstSelected() != pEntry) || NextSelected(FirstSelected()))
                 SelectAll(false);
             Select(pEntry);
 

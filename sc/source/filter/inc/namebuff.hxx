@@ -76,14 +76,12 @@ private:
     {
         StringHashEntry const aStrHashEntry;
         ScComplexRefData    aScComplexRefDataRel;
-        OUString const      aScAbsName;
         sal_uInt16          nAbsInd;        // == 0 -> no Abs-Name yet!
         sal_uInt16          nRelInd;
         bool                bSingleRef;
-                            Entry( const OUString& rName, const OUString& rScName, const ScComplexRefData& rCRD )
+                            Entry( const OUString& rName, const ScComplexRefData& rCRD )
                                 : aStrHashEntry( rName )
                                 , aScComplexRefDataRel( rCRD )
-                                , aScAbsName( rScName + "_ABS" )
                                 , nAbsInd(0)
                                 , nRelInd(0)
                                 , bSingleRef(false)
@@ -91,14 +89,13 @@ private:
                             }
     };
 
-    LOTUS_ROOT*        m_pLotRoot;
     std::unique_ptr<ScTokenArray>
                        pScTokenArray;
     sal_uInt16         nIntCount;
     std::vector<Entry> maEntries;
 
 public:
-    RangeNameBufferWK3(LOTUS_ROOT* pLotRoot);
+    RangeNameBufferWK3();
     ~RangeNameBufferWK3();
     void                    Add( const OUString& rName, const ScComplexRefData& rCRD );
     inline void             Add( const OUString& rName, const ScRange& aScRange );

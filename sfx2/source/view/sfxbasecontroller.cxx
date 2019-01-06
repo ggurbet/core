@@ -107,62 +107,40 @@ using ::com::sun::star::frame::XTitle;
 using ::com::sun::star::ui::XSidebarProvider;
 
 
-struct GroupIDToCommandGroup
-{
-    SfxGroupId const  nGroupID;
-    sal_Int16 const   nCommandGroup;
-};
-
-static bool                 bGroupIDMapInitialized = false;
-static const GroupIDToCommandGroup    GroupIDCommandGroupMap[] =
-{
-    { SfxGroupId::Intern        ,   frame::CommandGroup::INTERNAL       },
-    { SfxGroupId::Application   ,   frame::CommandGroup::APPLICATION    },
-    { SfxGroupId::Document      ,   frame::CommandGroup::DOCUMENT       },
-    { SfxGroupId::View          ,   frame::CommandGroup::VIEW           },
-    { SfxGroupId::Edit          ,   frame::CommandGroup::EDIT           },
-    { SfxGroupId::Macro         ,   frame::CommandGroup::MACRO          },
-    { SfxGroupId::Options       ,   frame::CommandGroup::OPTIONS        },
-    { SfxGroupId::Math          ,   frame::CommandGroup::MATH           },
-    { SfxGroupId::Navigator     ,   frame::CommandGroup::NAVIGATOR      },
-    { SfxGroupId::Insert        ,   frame::CommandGroup::INSERT         },
-    { SfxGroupId::Format        ,   frame::CommandGroup::FORMAT         },
-    { SfxGroupId::Template      ,   frame::CommandGroup::TEMPLATE       },
-    { SfxGroupId::Text          ,   frame::CommandGroup::TEXT           },
-    { SfxGroupId::Frame         ,   frame::CommandGroup::FRAME          },
-    { SfxGroupId::Graphic       ,   frame::CommandGroup::GRAPHIC        },
-    { SfxGroupId::Table         ,   frame::CommandGroup::TABLE          },
-    { SfxGroupId::Enumeration   ,   frame::CommandGroup::ENUMERATION    },
-    { SfxGroupId::Data          ,   frame::CommandGroup::DATA           },
-    { SfxGroupId::Special       ,   frame::CommandGroup::SPECIAL        },
-    { SfxGroupId::Image         ,   frame::CommandGroup::IMAGE          },
-    { SfxGroupId::Chart         ,   frame::CommandGroup::CHART          },
-    { SfxGroupId::Explorer      ,   frame::CommandGroup::EXPLORER       },
-    { SfxGroupId::Connector     ,   frame::CommandGroup::CONNECTOR      },
-    { SfxGroupId::Modify        ,   frame::CommandGroup::MODIFY         },
-    { SfxGroupId::Drawing       ,   frame::CommandGroup::DRAWING        },
-    { SfxGroupId::Controls      ,   frame::CommandGroup::CONTROLS       },
-    { SfxGroupId::NONE,   0                                             }
-};
-
 typedef std::unordered_map< SfxGroupId, sal_Int16 > GroupHashMap;
 
 sal_Int16 MapGroupIDToCommandGroup( SfxGroupId nGroupID )
 {
-    static GroupHashMap s_aHashMap;
-
-    if ( !bGroupIDMapInitialized )
+    static GroupHashMap s_aHashMap
     {
-        sal_Int32 i = 0;
-        while ( GroupIDCommandGroupMap[i].nGroupID != SfxGroupId::NONE )
-        {
-            s_aHashMap.emplace(
-                GroupIDCommandGroupMap[i].nGroupID,
-                GroupIDCommandGroupMap[i].nCommandGroup );
-            ++i;
-        }
-        bGroupIDMapInitialized = true;
-    }
+        { SfxGroupId::Intern        ,   frame::CommandGroup::INTERNAL       },
+        { SfxGroupId::Application   ,   frame::CommandGroup::APPLICATION    },
+        { SfxGroupId::Document      ,   frame::CommandGroup::DOCUMENT       },
+        { SfxGroupId::View          ,   frame::CommandGroup::VIEW           },
+        { SfxGroupId::Edit          ,   frame::CommandGroup::EDIT           },
+        { SfxGroupId::Macro         ,   frame::CommandGroup::MACRO          },
+        { SfxGroupId::Options       ,   frame::CommandGroup::OPTIONS        },
+        { SfxGroupId::Math          ,   frame::CommandGroup::MATH           },
+        { SfxGroupId::Navigator     ,   frame::CommandGroup::NAVIGATOR      },
+        { SfxGroupId::Insert        ,   frame::CommandGroup::INSERT         },
+        { SfxGroupId::Format        ,   frame::CommandGroup::FORMAT         },
+        { SfxGroupId::Template      ,   frame::CommandGroup::TEMPLATE       },
+        { SfxGroupId::Text          ,   frame::CommandGroup::TEXT           },
+        { SfxGroupId::Frame         ,   frame::CommandGroup::FRAME          },
+        { SfxGroupId::Graphic       ,   frame::CommandGroup::GRAPHIC        },
+        { SfxGroupId::Table         ,   frame::CommandGroup::TABLE          },
+        { SfxGroupId::Enumeration   ,   frame::CommandGroup::ENUMERATION    },
+        { SfxGroupId::Data          ,   frame::CommandGroup::DATA           },
+        { SfxGroupId::Special       ,   frame::CommandGroup::SPECIAL        },
+        { SfxGroupId::Image         ,   frame::CommandGroup::IMAGE          },
+        { SfxGroupId::Chart         ,   frame::CommandGroup::CHART          },
+        { SfxGroupId::Explorer      ,   frame::CommandGroup::EXPLORER       },
+        { SfxGroupId::Connector     ,   frame::CommandGroup::CONNECTOR      },
+        { SfxGroupId::Modify        ,   frame::CommandGroup::MODIFY         },
+        { SfxGroupId::Drawing       ,   frame::CommandGroup::DRAWING        },
+        { SfxGroupId::Controls      ,   frame::CommandGroup::CONTROLS       },
+    };
+
 
     GroupHashMap::const_iterator pIter = s_aHashMap.find( nGroupID );
     if ( pIter != s_aHashMap.end() )
@@ -1236,7 +1214,7 @@ void SfxBaseController::ConnectSfxFrame_Impl( const ConnectSfxFrame i_eConnect )
         }
 
         vcl::Window* pEditWin = m_pData->m_pViewShell->GetWindow();
-        if ( pEditWin && m_pData->m_pViewShell->IsShowView_Impl() )
+        if ( pEditWin )
             pEditWin->Show();
 
         if ( SfxViewFrame::Current() == pViewFrame )

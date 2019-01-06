@@ -58,19 +58,18 @@ struct SvListView::Impl
 };
 
 
-SvTreeList::SvTreeList() :
+SvTreeList::SvTreeList(SvListView& listView) :
+    mrOwnerListView(listView),
     mbEnableInvalidate(true)
 {
     nEntryCount = 0;
     bAbsPositionsValid = false;
-    nRefCount = 1;
     pRootItem.reset(new SvTreeListEntry);
     eSortMode = SortNone;
 }
 
 SvTreeList::~SvTreeList()
 {
-    Clear();
 }
 
 void SvTreeList::Broadcast(
@@ -78,33 +77,10 @@ void SvTreeList::Broadcast(
     SvTreeListEntry* pEntry1,
     SvTreeListEntry* pEntry2,
     sal_uLong nPos
-) {
-    for (auto const& view : aViewList)
-    {
-        if(view)
-            view->ModelNotification(nActionId, pEntry1, pEntry2, nPos);
-    }
-}
-
-void SvTreeList::InsertView( SvListView* pView )
+)
 {
-    if (std::find(aViewList.begin(), aViewList.end(), pView) != aViewList.end())
-        return;
-
-    aViewList.push_back( pView );
-    nRefCount++;
+    mrOwnerListView.ModelNotification(nActionId, pEntry1, pEntry2, nPos);
 }
-
-void SvTreeList::RemoveView( SvListView const * pView )
-{
-    auto viewFound = std::find(aViewList.begin(), aViewList.end(), pView);
-    if (viewFound != aViewList.end())
-    {
-        aViewList.erase( viewFound );
-        --nRefCount;
-    }
-}
-
 
 // an entry is visible if all parents are expanded
 bool SvTreeList::IsEntryVisible( const SvListView* pView, SvTreeListEntry* pEntry ) const
@@ -893,48 +869,48 @@ void SvTreeList::SetAbsolutePositions()
     bAbsPositionsValid = true;
 }
 
-void SvTreeList::Expand( SvListView* pView, SvTreeListEntry* pEntry )
+void SvListView::ExpandListEntry( SvTreeListEntry* pEntry )
 {
-    DBG_ASSERT(pEntry&&pView,"Expand:View/Entry?");
-    if ( pView->IsExpanded(pEntry) )
+    DBG_ASSERT(pEntry,"Expand:View/Entry?");
+    if ( IsExpanded(pEntry) )
         return;
 
     DBG_ASSERT(!pEntry->m_Children.empty(), "SvTreeList::Expand: We expected to have child entries.");
 
-    SvViewDataEntry* pViewData = pView->GetViewData(pEntry);
+    SvViewDataEntry* pViewData = GetViewData(pEntry);
     pViewData->SetExpanded(true);
     SvTreeListEntry* pParent = pEntry->pParent;
     // if parent is visible, invalidate status data
-    if ( pView->IsExpanded( pParent ) )
+    if ( IsExpanded( pParent ) )
     {
-        pView->m_pImpl->m_bVisPositionsValid = false;
-        pView->m_pImpl->m_nVisibleCount = 0;
+        m_pImpl->m_bVisPositionsValid = false;
+        m_pImpl->m_nVisibleCount = 0;
     }
 }
 
-void SvTreeList::Collapse( SvListView* pView, SvTreeListEntry* pEntry )
+void SvListView::CollapseListEntry( SvTreeListEntry* pEntry )
 {
-    DBG_ASSERT(pView&&pEntry,"Collapse:View/Entry?");
-    if ( !pView->IsExpanded(pEntry) )
+    DBG_ASSERT(pEntry,"Collapse:View/Entry?");
+    if ( !IsExpanded(pEntry) )
         return;
 
     DBG_ASSERT(!pEntry->m_Children.empty(), "SvTreeList::Collapse: We expected to have child entries.");
 
-    SvViewDataEntry* pViewData = pView->GetViewData( pEntry );
+    SvViewDataEntry* pViewData = GetViewData( pEntry );
     pViewData->SetExpanded(false);
 
     SvTreeListEntry* pParent = pEntry->pParent;
-    if ( pView->IsExpanded(pParent) )
+    if ( IsExpanded(pParent) )
     {
-        pView->m_pImpl->m_nVisibleCount = 0;
-        pView->m_pImpl->m_bVisPositionsValid = false;
+        m_pImpl->m_nVisibleCount = 0;
+        m_pImpl->m_bVisPositionsValid = false;
     }
 }
 
-bool SvTreeList::Select( SvListView* pView, SvTreeListEntry* pEntry, bool bSelect )
+bool SvListView::SelectListEntry( SvTreeListEntry* pEntry, bool bSelect )
 {
-    DBG_ASSERT(pView&&pEntry,"Select:View/Entry?");
-    SvViewDataEntry* pViewData = pView->GetViewData( pEntry );
+    DBG_ASSERT(pEntry,"Select:View/Entry?");
+    SvViewDataEntry* pViewData = GetViewData( pEntry );
     if ( bSelect )
     {
         if ( pViewData->IsSelected() || !pViewData->IsSelectable() )
@@ -942,7 +918,7 @@ bool SvTreeList::Select( SvListView* pView, SvTreeListEntry* pEntry, bool bSelec
         else
         {
             pViewData->SetSelected(true);
-            pView->m_pImpl->m_nSelectionCount++;
+            m_pImpl->m_nSelectionCount++;
         }
     }
     else
@@ -952,7 +928,7 @@ bool SvTreeList::Select( SvListView* pView, SvTreeListEntry* pEntry, bool bSelec
         else
         {
             pViewData->SetSelected(false);
-            pView->m_pImpl->m_nSelectionCount--;
+            m_pImpl->m_nSelectionCount--;
         }
     }
     return true;
@@ -1098,8 +1074,14 @@ std::pair<SvTreeListEntries::iterator, SvTreeListEntries::iterator>
 
 SvListView::SvListView()
     : m_pImpl(new Impl(*this))
-    , pModel(nullptr)
 {
+    pModel.reset(new SvTreeList(*this));
+    m_pImpl->InitTable();
+}
+
+void SvListView::dispose()
+{
+    pModel.reset();
 }
 
 SvListView::~SvListView()
@@ -1140,17 +1122,11 @@ void SvListView::Impl::InitTable()
     pEntry = m_rThis.pModel->First();
     while( pEntry )
     {
-        pViewData = m_rThis.CreateViewData( pEntry );
-        DBG_ASSERT(pViewData,"InitTable:No ViewData");
+        pViewData = o3tl::make_unique<SvViewDataEntry>();
         m_rThis.InitViewData( pViewData.get(), pEntry );
         m_DataTable.insert(std::make_pair(pEntry, std::move(pViewData)));
         pEntry = m_rThis.pModel->Next( pEntry );
     }
-}
-
-std::unique_ptr<SvViewDataEntry> SvListView::CreateViewData( SvTreeListEntry* )
-{
-    return o3tl::make_unique<SvViewDataEntry>();
 }
 
 void SvListView::Clear()
@@ -1168,25 +1144,6 @@ void SvListView::Clear()
         m_pImpl->m_DataTable.insert(std::make_pair(pEntry, std::move(pViewData)));
     }
 }
-
-void SvListView::SetModel( SvTreeList* pNewModel )
-{
-    bool bBroadcastCleared = false;
-    if ( pModel )
-    {
-        pModel->RemoveView( this );
-        bBroadcastCleared = true;
-        ModelNotification( SvListAction::CLEARING,nullptr,nullptr,0 );
-        if ( pModel->GetRefCount() == 0 )
-            delete pModel;
-    }
-    pModel = pNewModel;
-    m_pImpl->InitTable();
-    pNewModel->InsertView( this );
-    if( bBroadcastCleared )
-        ModelNotification( SvListAction::CLEARED,nullptr,nullptr,0 );
-}
-
 
 void SvListView::ModelHasCleared()
 {
@@ -1248,7 +1205,7 @@ void SvListView::Impl::ActionMoved()
 void SvListView::Impl::ActionInserted( SvTreeListEntry* pEntry )
 {
     DBG_ASSERT(pEntry,"Insert:No Entry");
-    std::unique_ptr<SvViewDataEntry> pData(m_rThis.CreateViewData( pEntry ));
+    std::unique_ptr<SvViewDataEntry> pData(new SvViewDataEntry());
     m_rThis.InitViewData( pData.get(), pEntry );
     std::pair<SvDataTable::iterator, bool> aSuccess =
         m_DataTable.insert(std::make_pair(pEntry, std::move(pData)));
@@ -1273,8 +1230,7 @@ void SvListView::Impl::ActionInsertedTree( SvTreeListEntry* pEntry )
     while( pCurEntry )
     {
         DBG_ASSERT(m_DataTable.find(pCurEntry) != m_DataTable.end(),"Entry already in Table");
-        std::unique_ptr<SvViewDataEntry> pViewData(m_rThis.CreateViewData(pCurEntry));
-        DBG_ASSERT(pViewData,"No ViewData");
+        std::unique_ptr<SvViewDataEntry> pViewData(new SvViewDataEntry());
         m_rThis.InitViewData( pViewData.get(), pEntry );
         m_DataTable.insert(std::make_pair(pCurEntry, std::move(pViewData)));
         pCurEntry = m_rThis.pModel->Next( pCurEntry );
@@ -1377,8 +1333,6 @@ void SvListView::ModelNotification( SvListAction nActionId, SvTreeListEntry* pEn
             m_pImpl->m_bVisPositionsValid = false;
             break;
         case SvListAction::RESORTING:
-            break;
-        case SvListAction::REVERSING:
             break;
         case SvListAction::REVERSED:
             m_pImpl->m_bVisPositionsValid = false;
@@ -1495,7 +1449,6 @@ void SvTreeList::ResortChildren( SvTreeListEntry* pParent )
 
 void SvTreeList::Reverse()
 {
-    Broadcast(SvListAction::REVERSING);
     bAbsPositionsValid = false;
     ReverseChildren(pRootItem.get());
     Broadcast(SvListAction::REVERSED);

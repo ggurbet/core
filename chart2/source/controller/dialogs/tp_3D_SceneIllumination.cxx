@@ -23,10 +23,8 @@
 #include <ControllerLockGuard.hxx>
 
 #include <svx/colorbox.hxx>
-#include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
-#include <rtl/math.hxx>
 #include <svtools/colrdlg.hxx>
 #include <svx/svx3ditems.hxx>
 #include <svx/svddef.hxx>
@@ -43,7 +41,7 @@ LightButton::LightButton( vcl::Window* pParent)
             : ImageButton( pParent)
             , m_bLightOn(false)
 {
-    SetModeImage(Image(BitmapEx(RID_SVXBMP_LAMP_OFF)));
+    SetModeImage(Image(StockImage::Yes, RID_SVXBMP_LAMP_OFF));
 }
 
 VCL_BUILDER_FACTORY(LightButton)
@@ -55,11 +53,11 @@ void LightButton::switchLightOn(bool bOn)
     m_bLightOn = bOn;
     if(m_bLightOn)
     {
-        SetModeImage(Image(BitmapEx(RID_SVXBMP_LAMP_ON)));
+        SetModeImage(Image(StockImage::Yes, RID_SVXBMP_LAMP_ON));
     }
     else
     {
-        SetModeImage(Image(BitmapEx(RID_SVXBMP_LAMP_OFF)));
+        SetModeImage(Image(StockImage::Yes, RID_SVXBMP_LAMP_OFF));
     }
 }
 
@@ -98,9 +96,9 @@ void LightSourceInfo::initButtonFromSource()
 {
     if(!pButton)
         return;
-    pButton->SetModeImage(Image(BitmapEx(
+    pButton->SetModeImage(Image(StockImage::Yes,
         aLightSource.bIsEnabled ? OUString(RID_SVXBMP_LAMP_ON) : OUString(RID_SVXBMP_LAMP_OFF)
-    ) ) );
+    ) );
 }
 
 namespace

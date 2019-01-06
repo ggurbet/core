@@ -21,16 +21,17 @@
 #define INCLUDED_VCL_GRAPHICFILTER_HXX
 
 #include <tools/gen.hxx>
-#include <tools/urlobj.hxx>
 #include <vcl/dllapi.h>
-#include <vcl/field.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/errcode.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
-#include <com/sun/star/uno/Sequence.h>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <memory>
+
+namespace com { namespace sun { namespace star { namespace beans { struct PropertyValue; } } } }
+namespace com { namespace sun { namespace star { namespace uno { template <class E> class Sequence; } } } }
+
+class INetURLObject;
 
 class FilterConfigCache;
 class SvStream;
@@ -55,7 +56,6 @@ enum class GraphicFilterImportFlags
     SetLogsizeForJpeg      = 0x001,
     DontSetLogsizeForJpeg  = 0x002,
     ForPreview             = 0x004,
-    AllowPartialStreamRead = 0x010,
     /// Only create a bitmap, do not read pixel data.
     OnlyCreateBitmap       = 0x020,
     /// Read pixel data into an existing bitmap.
@@ -63,7 +63,7 @@ enum class GraphicFilterImportFlags
 };
 namespace o3tl
 {
-    template<> struct typed_flags<GraphicFilterImportFlags> : is_typed_flags<GraphicFilterImportFlags, 0x0077> {};
+    template<> struct typed_flags<GraphicFilterImportFlags> : is_typed_flags<GraphicFilterImportFlags, 0x0067> {};
 }
 
 #define IMP_BMP                 "SVBMP"

@@ -14,6 +14,12 @@
 #include <com/sun/star/text/XAutoTextGroup.hpp>
 #include <com/sun/star/rdf/URI.hpp>
 #include <com/sun/star/rdf/URIs.hpp>
+#include <com/sun/star/awt/XDevice.hpp>
+#include <com/sun/star/awt/XToolkit.hpp>
+#include <comphelper/propertyvalue.hxx>
+#include <toolkit/helper/vclunohelper.hxx>
+#include <wrtsh.hxx>
+#include <ndtxt.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -318,6 +324,143 @@ DECLARE_UNOAPI_TEST(testXURI)
     CPPUNIT_ASSERT_THROW_MESSAGE("We expect an exception on invalid URI",
                                  rdf::URI::createNS(xContext, OUString(), OUString()),
                                  lang::IllegalArgumentException);
+}
+
+DECLARE_UNOAPI_TEST(testSetPagePrintSettings)
+{
+    // Create an empty new document with a single char
+    loadURL("private:factory/swriter", nullptr);
+
+    uno::Reference<text::XTextDocument> xTextDocument(mxComponent, uno::UNO_QUERY);
+    uno::Reference<text::XSimpleText> xBodyText(xTextDocument->getText(), uno::UNO_QUERY);
+    xBodyText->insertString(xBodyText->getStart(), "x", false);
+
+    uno::Reference<text::XPagePrintable> xPagePrintable(mxComponent, uno::UNO_QUERY);
+
+    // set some stuff, try to get it back
+    uno::Sequence<beans::PropertyValue> aProps(2);
+    aProps[0].Name = "PageColumns";
+    aProps[0].Value <<= sal_Int16(2);
+    aProps[1].Name = "IsLandscape";
+    aProps[1].Value <<= true;
+
+    xPagePrintable->setPagePrintSettings(aProps);
+    const comphelper::SequenceAsHashMap aMap(xPagePrintable->getPagePrintSettings());
+
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(2), aMap.getValue("PageColumns").get<short>());
+    CPPUNIT_ASSERT_EQUAL(true, aMap.getValue("IsLandscape").get<bool>());
+}
+
+DECLARE_UNOAPI_TEST_FILE(testSelectionInTableEnum, "selection-in-table-enum.odt")
+{
+    // Select the A1 cell's text.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    CPPUNIT_ASSERT(pWrtShell);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->EndPara(/*bSelect=*/true);
+    CPPUNIT_ASSERT_EQUAL(OUString("A1"),
+                         pWrtShell->GetCursor()->GetNode().GetTextNode()->GetText());
+
+    // Access the selection.
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xModel.is());
+    uno::Reference<container::XIndexAccess> xSelections(xModel->getCurrentSelection(),
+                                                        uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xSelections.is());
+    uno::Reference<text::XTextRange> xSelection(xSelections->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xSelection.is());
+
+    // Enumerate paragraphs in the selection.
+    uno::Reference<container::XEnumerationAccess> xCursor(
+        xSelection->getText()->createTextCursorByRange(xSelection), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xCursor.is());
+    uno::Reference<container::XEnumeration> xEnum = xCursor->createEnumeration();
+    xEnum->nextElement();
+    // Without the accompanying fix in place, this test would have failed: i.e.
+    // the enumeration contained a second paragraph, even if the cell has only
+    // one paragraph.
+    CPPUNIT_ASSERT(!xEnum->hasMoreElements());
+}
+
+DECLARE_UNOAPI_TEST_FILE(testSelectionInTableEnumEnd, "selection-in-table-enum.odt")
+{
+    // Select from "Before" till the table end.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    CPPUNIT_ASSERT(pWrtShell);
+    pWrtShell->Down(/*bSelect=*/true);
+
+    // Access the selection.
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xModel.is());
+    uno::Reference<container::XIndexAccess> xSelections(xModel->getCurrentSelection(),
+                                                        uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xSelections.is());
+    uno::Reference<text::XTextRange> xSelection(xSelections->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xSelection.is());
+    OUString aExpectedSelection
+        = "Before" SAL_NEWLINE_STRING "A1" SAL_NEWLINE_STRING "B1" SAL_NEWLINE_STRING
+          "C2" SAL_NEWLINE_STRING "A2" SAL_NEWLINE_STRING "B2" SAL_NEWLINE_STRING
+          "C2" SAL_NEWLINE_STRING;
+    CPPUNIT_ASSERT_EQUAL(aExpectedSelection, xSelection->getString());
+
+    // Enumerate paragraphs in the selection.
+    uno::Reference<container::XEnumerationAccess> xCursor(
+        xSelection->getText()->createTextCursorByRange(xSelection), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xCursor.is());
+    uno::Reference<container::XEnumeration> xEnum = xCursor->createEnumeration();
+    // Before.
+    xEnum->nextElement();
+    // Table.
+    xEnum->nextElement();
+    // Without the accompanying fix in place, this test would have failed: i.e.
+    // the enumeration contained the paragraph after the table, but no part of
+    // that paragraph was part of the selection.
+    CPPUNIT_ASSERT(!xEnum->hasMoreElements());
+}
+
+DECLARE_UNOAPI_TEST_FILE(testRenderablePagePosition, "renderable-page-position.odt")
+{
+    // Make sure that the document has 2 pages.
+    uno::Reference<view::XRenderable> xRenderable(mxComponent, uno::UNO_QUERY);
+    CPPUNIT_ASSERT(mxComponent.is());
+
+    uno::Any aSelection = uno::makeAny(mxComponent);
+
+    uno::Reference<awt::XToolkit> xToolkit = VCLUnoHelper::CreateToolkit();
+    uno::Reference<awt::XDevice> xDevice(xToolkit->createScreenCompatibleDevice(32, 32));
+
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
+    uno::Reference<frame::XController> xController = xModel->getCurrentController();
+
+    beans::PropertyValues aRenderOptions = {
+        comphelper::makePropertyValue("IsPrinter", true),
+        comphelper::makePropertyValue("RenderDevice", xDevice),
+        comphelper::makePropertyValue("View", xController),
+        comphelper::makePropertyValue("RenderToGraphic", true),
+    };
+
+    sal_Int32 nPages = xRenderable->getRendererCount(aSelection, aRenderOptions);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), nPages);
+
+    // Make sure that the first page has some offset.
+    comphelper::SequenceAsHashMap aRenderer1(
+        xRenderable->getRenderer(0, aSelection, aRenderOptions));
+    // Without the accompanying fix in place, this test would have failed: i.e.
+    // there was no PagePos key in this map.
+    awt::Point aPosition1 = aRenderer1["PagePos"].get<awt::Point>();
+    CPPUNIT_ASSERT_GREATER(static_cast<sal_Int32>(0), aPosition1.X);
+    CPPUNIT_ASSERT_GREATER(static_cast<sal_Int32>(0), aPosition1.Y);
+
+    // Make sure that the second page is below the first one.
+    comphelper::SequenceAsHashMap aRenderer2(
+        xRenderable->getRenderer(1, aSelection, aRenderOptions));
+    awt::Point aPosition2 = aRenderer2["PagePos"].get<awt::Point>();
+    CPPUNIT_ASSERT_GREATER(static_cast<sal_Int32>(0), aPosition2.X);
+    CPPUNIT_ASSERT_GREATER(aPosition1.Y, aPosition2.Y);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

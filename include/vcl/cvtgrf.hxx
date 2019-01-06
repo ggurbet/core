@@ -23,9 +23,9 @@
 #include <vcl/dllapi.h>
 #include <tools/link.hxx>
 #include <vcl/salctype.hxx>
+#include <vcl/errcode.hxx>
 
 
-struct  ConvertData;
 class   Graphic;
 
 class VCL_DLLPUBLIC GraphicConverter

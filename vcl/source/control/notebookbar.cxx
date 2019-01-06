@@ -13,7 +13,9 @@
 #include <vcl/taskpanelist.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/implbase.hxx>
+#include <comphelper/processfactory.hxx>
 #include <vcl/vclevent.hxx>
+#include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/ui/ContextChangeEventMultiplexer.hpp>
 /**
  * split from the main class since it needs different ref-counting mana
@@ -147,7 +149,7 @@ void NotebookBar::SetSystemWindow(SystemWindow* pSystemWindow)
 
 void SAL_CALL NotebookBarContextChangeEventListener::notifyContextChangeEvent(const css::ui::ContextChangeEventObject& rEvent)
 {
-    if (mpParent && !mpParent->m_pContextContainers.empty())
+    if (mpParent)
     {
         for (NotebookbarContextControl* pControl : mpParent->m_pContextContainers)
             pControl->SetContext(vcl::EnumContext::GetContextEnum(rEvent.ContextName));

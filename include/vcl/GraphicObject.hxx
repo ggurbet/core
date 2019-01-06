@@ -25,28 +25,7 @@
 #include <vcl/dllapi.h>
 #include <o3tl/typed_flags_set.hxx>
 
-#include <com/sun/star/graphic/XGraphic.hpp>
-
-#include <unordered_set>
-
-enum class GraphicManagerDrawFlags
-{
-    CACHED                  = 0x01,
-    SMOOTHSCALE             = 0x02,
-    USE_DRAWMODE_SETTINGS   = 0x04,
-    STANDARD                = (CACHED|SMOOTHSCALE),
-};
-namespace o3tl
-{
-    template<> struct typed_flags<GraphicManagerDrawFlags> : is_typed_flags<GraphicManagerDrawFlags, 0x07> {};
-}
-
-// AutoSwap defines
-
-#define GRFMGR_AUTOSWAPSTREAM_LINK nullptr
-#define GRFMGR_AUTOSWAPSTREAM_LOADED reinterpret_cast<SvStream*>(sal_IntPtr(-3))
-#define GRFMGR_AUTOSWAPSTREAM_TEMP   reinterpret_cast<SvStream*>(sal_IntPtr(-2))
-#define GRFMGR_AUTOSWAPSTREAM_NONE   reinterpret_cast<SvStream*>(sal_IntPtr(-1))
+namespace com { namespace sun { namespace star { namespace graphic { class XGraphic; } } } }
 
 // Adjustment defines
 enum class GraphicAdjustmentFlags
@@ -72,9 +51,6 @@ enum class GraphicDrawMode
     Watermark = 3
 };
 
-class GraphicManager;
-class SvStream;
-class GraphicCache;
 class VirtualDevice;
 struct GrfSimpleCacheObj;
 struct ImplTileInfo;
@@ -227,8 +203,7 @@ private:
                                 int nNumTilesX,
                                 int nNumTilesY,
                                 const Size& rTileSizePixel,
-                                const GraphicAttr* pAttr,
-                                GraphicManagerDrawFlags nFlags
+                                const GraphicAttr* pAttr
                             );
 
     /// internally called by ImplRenderTempTile()
@@ -242,7 +217,6 @@ private:
                                 int nRemainderTilesY,
                                 const Size& rTileSizePixel,
                                 const GraphicAttr* pAttr,
-                                GraphicManagerDrawFlags nFlags,
                                 ImplTileInfo& rTileInfo
                             );
 
@@ -252,7 +226,6 @@ private:
                                 const Size& rSizePixel,
                                 const Size& rOffset,
                                 const GraphicAttr* pAttr,
-                                GraphicManagerDrawFlags nFlags,
                                 int nTileCacheSize1D
                             );
 
@@ -262,8 +235,7 @@ private:
                                 int nNumTilesX,
                                 int nNumTilesY,
                                 const Size& rTileSize,
-                                const GraphicAttr* pAttr,
-                                GraphicManagerDrawFlags nFlags
+                                const GraphicAttr* pAttr
                             );
 
     void VCL_DLLPRIVATE     ImplTransformBitmap(
@@ -343,8 +315,7 @@ public:
                                 OutputDevice* pOut,
                                 const Point& rPt,
                                 const Size& rSz,
-                                const GraphicAttr* pAttr = nullptr,
-                                GraphicManagerDrawFlags nFlags = GraphicManagerDrawFlags::STANDARD
+                                const GraphicAttr* pAttr = nullptr
                             );
 
     /** Draw the graphic repeatedly into the given output rectangle
@@ -380,7 +351,6 @@ public:
                                 const tools::Rectangle& rArea,
                                 const Size& rSize,
                                 const Size& rOffset,
-                                GraphicManagerDrawFlags nFlags = GraphicManagerDrawFlags::STANDARD,
                                 int nTileCacheSize1D=128
                             );
 

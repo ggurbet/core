@@ -3078,7 +3078,7 @@ void RTL_Impl_HasInterfaces( SbxArray& rPar )
         }
     }
 
-    // Every thing works; then return TRUE
+    // Everything works; then return TRUE
     refVar->PutBool( true );
 }
 
@@ -3656,15 +3656,6 @@ void SbUnoService::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
     }
 }
 
-
-static SbUnoServiceCtor* pFirstCtor = nullptr;
-
-void clearUnoServiceCtors()
-{
-    SbUnoServiceCtor* pCtor = pFirstCtor;
-    if( pCtor )
-        pCtor->SbxValue::Clear();
-}
 
 SbUnoServiceCtor::SbUnoServiceCtor( const OUString& aName_, Reference< XServiceConstructorDescription > const & xServiceCtorDesc )
     : SbxMethod( aName_, SbxOBJECT )

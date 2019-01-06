@@ -436,7 +436,6 @@ void MSWordExportBase::OutputSectionBreaks( const SfxItemSet *pSet, const SwNode
                 Converting a page break to section break would cause serious issues while importing
                 the RT files with different first page being set.
             */
-            bNewPageDesc = false;
 
             /*
              * If Table cell is open and page header types are different
@@ -1711,25 +1710,25 @@ WW8_WrPlcField* WW8Export::CurrentFieldPlc() const
     switch (m_nTextTyp)
     {
         case TXT_MAINTEXT:
-            pFieldP = m_pFieldMain;
+            pFieldP = m_pFieldMain.get();
             break;
         case TXT_HDFT:
-            pFieldP = m_pFieldHdFt;
+            pFieldP = m_pFieldHdFt.get();
             break;
         case TXT_FTN:
-            pFieldP = m_pFieldFootnote;
+            pFieldP = m_pFieldFootnote.get();
             break;
         case TXT_EDN:
-            pFieldP = m_pFieldEdn;
+            pFieldP = m_pFieldEdn.get();
             break;
         case TXT_ATN:
-            pFieldP = m_pFieldAtn;
+            pFieldP = m_pFieldAtn.get();
             break;
         case TXT_TXTBOX:
-            pFieldP = m_pFieldTextBxs;
+            pFieldP = m_pFieldTextBxs.get();
             break;
         case TXT_HFTXTBOX:
-            pFieldP = m_pFieldHFTextBxs;
+            pFieldP = m_pFieldHFTextBxs.get();
             break;
         default:
             OSL_ENSURE( false, "what type of SubDoc is that?" );
@@ -2579,7 +2578,7 @@ void AttributeOutputBase::GetNumberPara( OUString& rStr, const SwField& rField )
         default:
             OSL_ENSURE(rField.GetFormat() == SVX_NUM_ARABIC,
                 "Unknown numbering type exported as default of Arabic");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SVX_NUM_ARABIC:
             rStr += "\\* ARABIC ";
             break;
@@ -3413,11 +3412,17 @@ void WW8Export::WriteFootnoteBegin( const SwFormatFootnote& rFootnote, ww::bytes
                                                   RES_CHRATR_FONT>{} );
 
             pCFormat = pInfo->GetCharFormat( *m_pDoc );
-            aSet.Set( pCFormat->GetAttrSet() );
 
-            pTextFootnote->GetTextNode().GetAttr( aSet, pTextFootnote->GetStart(),
-                                            (pTextFootnote->GetStart()) + 1 );
-            m_pAttrOutput->OutputItem( aSet.Get( RES_CHRATR_FONT ) );
+            pTextFootnote->GetTextNode().GetParaAttr(aSet,
+                pTextFootnote->GetStart(), pTextFootnote->GetStart() + 1, true);
+            if (aSet.Count())
+            {
+                m_pAttrOutput->OutputItem( aSet.Get( RES_CHRATR_FONT ) );
+            }
+            else
+            {
+                m_pAttrOutput->OutputItem( pCFormat->GetAttrSet().Get(RES_CHRATR_FONT) );
+            }
             pO = pOld;
         }
         m_pChpPlc->AppendFkpEntry( Strm().Tell(), aOutArr.size(),
@@ -3815,7 +3820,7 @@ void AttributeOutputBase::FormatBreak( const SvxFormatBreakItem& rBreak )
 
             case SvxBreak::ColumnBefore:                       // ColumnBreak
                 bBefore = true;
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case SvxBreak::ColumnAfter:
             case SvxBreak::ColumnBoth:
                 if ( GetExport().Sections().CurrentNumberOfColumns( *GetExport().m_pDoc ) > 1 || GetExport().SupportsOneColumnBreak() )
@@ -3833,9 +3838,13 @@ void AttributeOutputBase::FormatBreak( const SvxFormatBreakItem& rBreak )
                 {
                     if (!GetExport().m_bBreakBefore)
                         PageBreakBefore(true);
-                    break;
                 }
-                SAL_FALLTHROUGH;
+                else
+                {
+                    bBefore = true;
+                    nC = msword::PageBreak;
+                }
+                break;
             case SvxBreak::PageAfter:
             case SvxBreak::PageBoth:
                 nC = msword::PageBreak;
@@ -3852,12 +3861,11 @@ void AttributeOutputBase::FormatBreak( const SvxFormatBreakItem& rBreak )
                 break;
         }
 
-        if ( (( bBefore != GetExport().m_bBreakBefore ) && ( nC == msword::PageBreak)) ||
-             (( bBefore == GetExport().m_bBreakBefore ) && ( nC == msword::ColumnBreak)) )
+        if ( ( bBefore == GetExport().m_bBreakBefore ) && nC )
         {
             // #i76300#
             bool bFollowPageDescWritten = false;
-            if ( bCheckForFollowPageDesc && !bBefore )
+            if ( bCheckForFollowPageDesc )
             {
                 bFollowPageDescWritten =
                     GetExport().OutputFollowPageDesc( GetExport().GetCurItemSet(),
@@ -3878,7 +3886,7 @@ void WW8AttributeOutput::SectionBreak( sal_uInt8 nC, const WW8_SepInfo* /*pSecti
 
 sal_uInt32 AttributeOutputBase::GridCharacterPitch( const SwTextGridItem& rGrid ) const
 {
-    MSWordStyles * pStyles = GetExport().m_pStyles;
+    MSWordStyles * pStyles = GetExport().m_pStyles.get();
     const SwFormat * pSwFormat = pStyles->GetSwFormat(0);
 
     sal_uInt32 nPageCharSize = 0;
@@ -3916,7 +3924,7 @@ void WW8AttributeOutput::FormatTextGrid( const SwTextGridItem& rGrid )
         {
             default:
                 OSL_FAIL("Unknown grid type");
-                SAL_FALLTHROUGH;
+                [[fallthrough]];
             case GRID_NONE:
                 nGridType = 0;
                 break;
@@ -4195,19 +4203,16 @@ void WW8AttributeOutput::FormatBackground( const SvxBrushItem& rBrush )
     if ( !m_rWW8Export.m_bOutPageDescs )
     {
         WW8_SHD aSHD;
-
         WW8Export::TransBrush( rBrush.GetColor(), aSHD );
-        // sprmPShd
+
         m_rWW8Export.InsUInt16( NS_sprm::sprmPShd80 );
         m_rWW8Export.InsUInt16( aSHD.GetValue() );
 
-        // Quite a few unknowns, some might be transparency or something
-        // of that nature...
-        m_rWW8Export.InsUInt16( 0xC64D );
-        m_rWW8Export.pO->push_back( 10 );
-        m_rWW8Export.InsUInt32( 0xFF000000 );
-        m_rWW8Export.InsUInt32( SuitableBGColor( rBrush.GetColor() ) );
-        m_rWW8Export.InsUInt16( 0x0000 );
+        m_rWW8Export.InsUInt16( NS_sprm::sprmPShd );
+        m_rWW8Export.pO->push_back( 10 ); //size of operand: MUST be 10
+        m_rWW8Export.InsUInt32( 0xFF000000 ); //cvFore: Foreground BGR = cvAuto
+        m_rWW8Export.InsUInt32( SuitableBGColor( rBrush.GetColor() ) ); //cvBack
+        m_rWW8Export.InsUInt16( 0x0000 ); //iPat: specifies the pattern used for shading = clear/100% background
     }
 }
 
@@ -4808,7 +4813,7 @@ void WW8AttributeOutput::FormatFrameDirection( const SvxFrameDirectionItem& rDir
         default:
             //Can't get an unknown type here
             OSL_FAIL("Unknown frame direction");
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case SvxFrameDirection::Horizontal_LR_TB:
             nTextFlow = 0;
             break;
@@ -5505,37 +5510,12 @@ const SwRedlineData* AttributeOutputBase::GetParagraphMarkerRedline( const SwTex
         if ( pRedl->GetRedlineData().GetType() != aRedlineType )
             continue;
 
-        const SwPosition* pCheckedEnd = pRedl->End();
-        const SwPosition* pCheckedStt = pRedl->Start();
-        sal_uLong uStartNodeIndex = pCheckedStt->nNode.GetIndex();
-        sal_uLong uStartCharIndex = pCheckedStt->nContent.GetIndex();
-        sal_uLong uEndNodeIndex   = pCheckedEnd->nNode.GetIndex();
-        sal_uLong uEndCharIndex   = pCheckedEnd->nContent.GetIndex();
+        sal_uLong uStartNodeIndex = pRedl->Start()->nNode.GetIndex();
+        sal_uLong uEndNodeIndex   = pRedl->End()->nNode.GetIndex();
         sal_uLong uNodeIndex = rNode.GetIndex();
 
         if( uStartNodeIndex <= uNodeIndex && uNodeIndex < uEndNodeIndex )
-        {
-            // Maybe add here a check that also the start & end of the redline is the entire paragraph
-            if ( ( uStartNodeIndex < uEndNodeIndex ) &&
-                 // check start:
-                 // 1. start in the same node
-                 (( uStartNodeIndex == uNodeIndex &&
-                    uStartCharIndex == static_cast<sal_uLong>(rNode.Len()) ) ||
-                 // 2. or in a previous node
-                    uStartNodeIndex < uNodeIndex
-                 ) &&
-                 // check end:
-                 // 1. end in the same node
-                 (( uEndNodeIndex == (uNodeIndex + 1) &&
-                    uEndCharIndex == 0) ||
-                 // 2. or end in after that
-                    uEndNodeIndex > (uNodeIndex + 1)
-                 )
-               )
-            {
-                return &( pRedl->GetRedlineData() );
-            }
-        }
+            return &( pRedl->GetRedlineData() );
     }
     return nullptr;
 }

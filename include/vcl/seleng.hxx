@@ -23,9 +23,9 @@
 #include <vcl/dllapi.h>
 #include <vcl/timer.hxx>
 #include <vcl/event.hxx>
+#include <vcl/vclenum.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
-namespace vcl { class Window; }
 class CommandEvent;
 
 // Timerticks
@@ -33,9 +33,6 @@ class CommandEvent;
 #define SELENG_AUTOREPEAT_INTERVAL  50
 #define SELENG_AUTOREPEAT_INTERVAL_MIN 25
 #define SELENG_AUTOREPEAT_INTERVAL_MAX 300
-
-enum class SelectionMode { NONE, Single, Range, Multiple };
-
 
 class VCL_DLLPUBLIC FunctionSet
 {
@@ -175,7 +172,7 @@ inline void SelectionEngine::SetAddMode( bool bNewMode )
     if ( bNewMode )
         nFlags |= SelectionEngineFlags::IN_ADD;
     else
-        nFlags &= (~SelectionEngineFlags::IN_ADD);
+        nFlags &= ~SelectionEngineFlags::IN_ADD;
 }
 
 inline void SelectionEngine::EnableDrag( bool bOn )
@@ -183,7 +180,7 @@ inline void SelectionEngine::EnableDrag( bool bOn )
     if ( bOn )
         nFlags |= SelectionEngineFlags::DRG_ENAB;
     else
-        nFlags &= (~SelectionEngineFlags::DRG_ENAB);
+        nFlags &= ~SelectionEngineFlags::DRG_ENAB;
 }
 
 inline void SelectionEngine::AddAlways( bool bOn )
@@ -191,7 +188,7 @@ inline void SelectionEngine::AddAlways( bool bOn )
     if( bOn )
         nFlags |= SelectionEngineFlags::ADD_ALW;
     else
-        nFlags &= (~SelectionEngineFlags::ADD_ALW);
+        nFlags &= ~SelectionEngineFlags::ADD_ALW;
 }
 
 inline bool SelectionEngine::IsAlwaysAdding() const
@@ -223,7 +220,7 @@ inline void SelectionEngine::SetAnchor( bool bAnchor )
     if ( bAnchor )
         nFlags |= SelectionEngineFlags::HAS_ANCH;
     else
-        nFlags &= (~SelectionEngineFlags::HAS_ANCH);
+        nFlags &= ~SelectionEngineFlags::HAS_ANCH;
 }
 
 #endif // INCLUDED_VCL_SELENG_HXX

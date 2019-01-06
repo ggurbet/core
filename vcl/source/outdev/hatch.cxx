@@ -20,6 +20,8 @@
 #include <cassert>
 
 #include <tools/line.hxx>
+#include <tools/stream.hxx>
+#include <tools/helpers.hxx>
 
 #include <vcl/hatch.hxx>
 #include <vcl/metaact.hxx>
@@ -56,7 +58,7 @@ void OutputDevice::DrawHatch( const tools::PolyPolygon& rPolyPoly, const Hatch& 
     Hatch aHatch( rHatch );
 
     if ( mnDrawMode & ( DrawModeFlags::BlackLine | DrawModeFlags::WhiteLine |
-                        DrawModeFlags::GrayLine | DrawModeFlags::GhostedLine |
+                        DrawModeFlags::GrayLine |
                         DrawModeFlags::SettingsLine ) )
     {
         Color aColor( rHatch.GetColor() );
@@ -73,13 +75,6 @@ void OutputDevice::DrawHatch( const tools::PolyPolygon& rPolyPoly, const Hatch& 
         else if( mnDrawMode & DrawModeFlags::SettingsLine )
         {
             aColor = GetSettings().GetStyleSettings().GetFontColor();
-        }
-
-        if ( mnDrawMode & DrawModeFlags::GhostedLine )
-        {
-            aColor = Color( ( aColor.GetRed() >> 1 ) | 0x80,
-                            ( aColor.GetGreen() >> 1 ) | 0x80,
-                            ( aColor.GetBlue() >> 1 ) | 0x80);
         }
 
         aHatch.SetColor( aColor );

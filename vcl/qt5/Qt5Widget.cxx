@@ -24,7 +24,8 @@
 #include <Qt5Graphics.hxx>
 #include <Qt5Tools.hxx>
 
-#include <QtCore/QtGlobal>
+#include <QtCore/QMimeData>
+#include <QtGui/QDrag>
 #include <QtGui/QFocusEvent>
 #include <QtGui/QImage>
 #include <QtGui/QKeyEvent>
@@ -34,11 +35,13 @@
 #include <QtGui/QResizeEvent>
 #include <QtGui/QShowEvent>
 #include <QtGui/QWheelEvent>
-#include <QtWidgets/QtWidgets>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QToolTip>
+#include <QtWidgets/QWidget>
 
 #include <cairo.h>
 #include <headless/svpgdi.hxx>
+#include <vcl/commandevent.hxx>
 
 void Qt5Widget::paintEvent(QPaintEvent* pEvent)
 {
@@ -187,8 +190,9 @@ void Qt5Widget::wheelEvent(QWheelEvent* pEvent)
 
 void Qt5Widget::startDrag()
 {
+    // internal drag source
     QMimeData* mimeData = new QMimeData;
-    mimeData->setData("application/x-libreoffice-dnditem", nullptr);
+    mimeData->setData(m_InternalMimeType, nullptr);
 
     QDrag* drag = new QDrag(this);
     drag->setMimeData(mimeData);
@@ -197,15 +201,14 @@ void Qt5Widget::startDrag()
 
 void Qt5Widget::dragEnterEvent(QDragEnterEvent* event)
 {
-    SAL_WARN("vcl.qt5", "dragenterevent");
-    if (event->source() == this)
+    if (event->mimeData()->hasFormat(m_InternalMimeType))
         event->accept();
+    // else FIXME: external drag source
 }
 
 void Qt5Widget::dragMoveEvent(QDragMoveEvent* event)
 {
     QPoint point = event->pos();
-    SAL_WARN("vcl.qt5", "dragmoveevent");
 
     m_pFrame->draggingStarted(point.x(), point.y());
     QWidget::dragMoveEvent(event);
@@ -214,7 +217,6 @@ void Qt5Widget::dragMoveEvent(QDragMoveEvent* event)
 void Qt5Widget::dropEvent(QDropEvent* event)
 {
     QPoint point = event->pos();
-    SAL_WARN("vcl.qt5", "dropevent");
 
     m_pFrame->dropping(point.x(), point.y());
     QWidget::dropEvent(event);
@@ -411,6 +413,12 @@ void Qt5Widget::focusOutEvent(QFocusEvent*)
     m_pFrame->CallCallback(SalEvent::LoseFocus, nullptr);
 }
 
+void Qt5Widget::showTooltip(const OUString& rTooltip)
+{
+    QPoint pt = QCursor::pos();
+    QToolTip::showText(pt, toQString(rTooltip));
+}
+
 Qt5Widget::Qt5Widget(Qt5Frame& rFrame, Qt::WindowFlags f)
     : QWidget(Q_NULLPTR, f)
     , m_pFrame(&rFrame)
@@ -419,6 +427,52 @@ Qt5Widget::Qt5Widget(Qt5Frame& rFrame, Qt::WindowFlags f)
     setMouseTracking(true);
     setAcceptDrops(true);
     setFocusPolicy(Qt::StrongFocus);
+}
+
+void Qt5Widget::inputMethodEvent(QInputMethodEvent* pEvent)
+{
+    SolarMutexGuard aGuard;
+    SalExtTextInputEvent aInputEvent;
+    aInputEvent.mpTextAttr = nullptr;
+    aInputEvent.mnCursorFlags = 0;
+
+    if (!pEvent->commitString().isEmpty())
+    {
+        vcl::DeletionListener aDel(m_pFrame);
+        aInputEvent.maText = toOUString(pEvent->commitString());
+        aInputEvent.mnCursorPos = aInputEvent.maText.getLength();
+        m_pFrame->CallCallback(SalEvent::ExtTextInput, &aInputEvent);
+        pEvent->accept();
+        if (!aDel.isDeleted())
+            m_pFrame->CallCallback(SalEvent::EndExtTextInput, nullptr);
+    }
+    else
+    {
+        aInputEvent.maText = toOUString(pEvent->preeditString());
+        aInputEvent.mnCursorPos = 0;
+        sal_Int32 nLength = aInputEvent.maText.getLength();
+        std::vector<ExtTextInputAttr> aTextAttrs(nLength, ExtTextInputAttr::Underline);
+        if (nLength)
+            aInputEvent.mpTextAttr = &aTextAttrs[0];
+        m_pFrame->CallCallback(SalEvent::ExtTextInput, &aInputEvent);
+        pEvent->accept();
+    }
+}
+
+QVariant Qt5Widget::inputMethodQuery(Qt::InputMethodQuery property) const
+{
+    switch (property)
+    {
+        case Qt::ImCursorRectangle:
+        {
+            SalExtTextInputPosEvent aPosEvent;
+            m_pFrame->CallCallback(SalEvent::ExtTextInputPos, &aPosEvent);
+            return QVariant(
+                QRect(aPosEvent.mnX, aPosEvent.mnY, aPosEvent.mnWidth, aPosEvent.mnHeight));
+        }
+        default:
+            return QWidget::inputMethodQuery(property);
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

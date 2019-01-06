@@ -472,7 +472,7 @@ void OpenGLSalGraphicsImpl::SetFillColor( Color nColor )
 }
 
 // enable/disable XOR drawing
-void OpenGLSalGraphicsImpl::SetXORMode( bool bSet )
+void OpenGLSalGraphicsImpl::SetXORMode( bool bSet, bool )
 {
     if (mbXORMode != bSet)
     {
@@ -899,11 +899,8 @@ void OpenGLSalGraphicsImpl::DrawPolyPolygon( const basegfx::B2DPolyPolygon& rPol
     basegfx::B2DTrapezoidVector aB2DTrapVector;
     basegfx::utils::trapezoidSubdivide( aB2DTrapVector, aSimplePolyPolygon );
     // draw tessellation result
-    if( !aB2DTrapVector.empty())
-    {
-        for(basegfx::B2DTrapezoid & i : aB2DTrapVector)
-            DrawTrapezoid( i, blockAA );
-    }
+    for(basegfx::B2DTrapezoid & i : aB2DTrapVector)
+        DrawTrapezoid( i, blockAA );
 }
 
 void OpenGLSalGraphicsImpl::DrawRegionBand( const RegionBand& rRegion )
@@ -2029,7 +2026,7 @@ bool OpenGLSalGraphicsImpl::drawAlphaRect(
                 sal_uInt8 nTransparency )
 {
     VCL_GL_INFO("::drawAlphaRect (" << nX << ", " << nY << ") [" << nWidth << ", " << nHeight << "]");
-    mpRenderList->addDrawRectangle(nX, nY, nWidth, nHeight, double(nTransparency / 100.0), mnLineColor, mnFillColor);
+    mpRenderList->addDrawRectangle(nX, nY, nWidth, nHeight, nTransparency / 100.0, mnLineColor, mnFillColor);
     PostBatchDraw();
     return true;
 }

@@ -1675,7 +1675,6 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
     ErrCode                        nStatus;
     GfxLinkType                    eLinkType = GfxLinkType::NONE;
     const bool                     bLinkSet = rGraphic.IsGfxLink();
-    std::unique_ptr<FilterConfigItem> pFilterConfigItem;
 
     Size                aPreviewSizeHint( 0, 0 );
     bool                bAllowPartialStreamRead = false;
@@ -1706,10 +1705,6 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
             else if ( (*pFilterData)[ i ].Name == "AllowPartialStreamRead" )
             {
                 (*pFilterData)[ i ].Value >>= bAllowPartialStreamRead;
-                if ( bAllowPartialStreamRead )
-                    nImportFlags |= GraphicFilterImportFlags::AllowPartialStreamRead;
-                else
-                    nImportFlags &=~GraphicFilterImportFlags::AllowPartialStreamRead;
             }
             else if ( (*pFilterData)[ i ].Name == "CreateNativeLink" )
             {
@@ -2018,11 +2013,12 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
                 nStatus = ERRCODE_GRFILTER_FILTERERROR;
             else
             {
+                std::unique_ptr<FilterConfigItem> pFilterConfigItem;
                 OUString aShortName;
                 if( nFormat != GRFILTER_FORMAT_DONTKNOW )
                 {
                     aShortName = GetImportFormatShortName( nFormat ).toAsciiUpperCase();
-                    if ( ( !pFilterConfigItem ) && aShortName == "PCD" )
+                    if (aShortName == "PCD")
                     {
                         OUString aFilterConfigPath( "Office.Common/Filter/Graphic/Import/PCD" );
                         pFilterConfigItem = o3tl::make_unique<FilterConfigItem>( aFilterConfigPath );
@@ -2497,7 +2493,6 @@ IMPL_LINK( GraphicFilter, FilterCallback, ConvertData&, rData, bool )
         case ConvertDataFormat::WMF: aShortName = WMF_SHORTNAME; break;
         case ConvertDataFormat::EMF: aShortName = EMF_SHORTNAME; break;
         case ConvertDataFormat::SVG: aShortName = SVG_SHORTNAME; break;
-        case ConvertDataFormat::PDF: aShortName = PDF_SHORTNAME; break;
 
         default:
         break;

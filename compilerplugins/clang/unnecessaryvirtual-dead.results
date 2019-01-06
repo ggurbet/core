@@ -8,6 +8,8 @@ include/canvas/base/graphicdevicebase.hxx:302
     void canvas::GraphicDeviceBase::removePropertyChangeListener(const class rtl::OUString &,const class com::sun::star::uno::Reference<class com::sun::star::beans::XPropertyChangeListener> &,)
 include/canvas/base/graphicdevicebase.hxx:315
     void canvas::GraphicDeviceBase::removeVetoableChangeListener(const class rtl::OUString &,const class com::sun::star::uno::Reference<class com::sun::star::beans::XVetoableChangeListener> &,)
+sc/source/core/opencl/formulagroupcl.cxx:1059
+    void sc::opencl::DynamicKernelSlidingArgument::GenSlidingWindowFunction(class std::__cxx11::basic_stringstream<char> &,)
 slideshow/source/engine/animationfactory.cxx:443
     void slideshow::internal::(anonymous namespace)::GenericAnimation::prefetch(const class std::shared_ptr<class slideshow::internal::AnimatableShape> &,const class std::shared_ptr<class slideshow::internal::ShapeAttributeLayer> &,)
 vcl/inc/salframe.hxx:135
@@ -16,13 +18,15 @@ vcl/inc/salmenu.hxx:80
     void SalMenu::RemoveMenuBarButton(unsigned short,)
 vcl/inc/salobj.hxx:48
     void SalObject::Enable(_Bool,)
+vcl/inc/unx/saldata.hxx:68
+    void X11SalData::initNWF()
 vcl/inc/unx/saldata.hxx:69
     void X11SalData::deInitNWF()
-writerfilter/source/ooxml/OOXMLFactory.hxx:71
-    void writerfilter::ooxml::OOXMLFactory_ns::startAction(class writerfilter::ooxml::OOXMLFastContextHandler *,)
 writerfilter/source/ooxml/OOXMLFactory.hxx:72
-    void writerfilter::ooxml::OOXMLFactory_ns::charactersAction(class writerfilter::ooxml::OOXMLFastContextHandler *,const class rtl::OUString &,)
+    void writerfilter::ooxml::OOXMLFactory_ns::startAction(class writerfilter::ooxml::OOXMLFastContextHandler *,)
 writerfilter/source/ooxml/OOXMLFactory.hxx:73
-    void writerfilter::ooxml::OOXMLFactory_ns::endAction(class writerfilter::ooxml::OOXMLFastContextHandler *,)
+    void writerfilter::ooxml::OOXMLFactory_ns::charactersAction(class writerfilter::ooxml::OOXMLFastContextHandler *,const class rtl::OUString &,)
 writerfilter/source/ooxml/OOXMLFactory.hxx:74
+    void writerfilter::ooxml::OOXMLFactory_ns::endAction(class writerfilter::ooxml::OOXMLFastContextHandler *,)
+writerfilter/source/ooxml/OOXMLFactory.hxx:75
     void writerfilter::ooxml::OOXMLFactory_ns::attributeAction(class writerfilter::ooxml::OOXMLFastContextHandler *,int,const class tools::SvRef<class writerfilter::ooxml::OOXMLValue> &,)

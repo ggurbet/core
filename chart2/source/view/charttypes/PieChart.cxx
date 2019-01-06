@@ -24,7 +24,6 @@
 #include <ShapeFactory.hxx>
 #include <PolarLabelPositionHelper.hxx>
 #include <CommonConverters.hxx>
-#include <ViewDefines.hxx>
 #include <ObjectIdentifier.hxx>
 
 #include <com/sun/star/chart/DataLabelPlacement.hpp>
@@ -1484,7 +1483,7 @@ bool PieChart::performLabelBestFitInnerPlacement(ShapeParam& rShapeParam, PieLab
     // passing through a b.b. vertex is less than half width of the pie slice;
     // when the nearest edge e crosses a Cartesian axis it is sufficient
     // to test only the vertices belonging to e, else we need to test
-    // the 2 vertices that aren’t either N or F . Note that if a b.b. edge
+    // the 2 vertices that aren't either N or F. Note that if a b.b. edge
     // crosses a Cartesian axis then it is the nearest edge to C
 
     // check the angle between CP and CM
@@ -1575,7 +1574,18 @@ void PieChart::performLabelBestFit(ShapeParam& rShapeParam, PieLabelInfo const &
 
     if( !performLabelBestFitInnerPlacement(rShapeParam, rPieLabelInfo) )
     {
-        // TODO
+        // If it does not fit inside, let's put it outside
+        PolarLabelPositionHelper aPolarPosHelper(m_pPosHelper.get(),m_nDimension,m_xLogicTarget,m_pShapeFactory);
+        auto eAlignment = LABEL_ALIGN_CENTER;
+        awt::Point aScreenPosition2D(
+        aPolarPosHelper.getLabelScreenPositionAndAlignmentForUnitCircleValues(eAlignment, css::chart::DataLabelPlacement::OUTSIDE
+        , rShapeParam.mfUnitCircleStartAngleDegree, rShapeParam.mfUnitCircleWidthAngleDegree
+        , rShapeParam.mfUnitCircleInnerRadius, rShapeParam.mfUnitCircleOuterRadius, rShapeParam.mfLogicZ+0.5, 0 ));
+        basegfx::B2IVector aTranslationVector = rPieLabelInfo.aFirstPosition - rPieLabelInfo.aOrigin;
+        aTranslationVector.setLength(150);
+        aScreenPosition2D.X += aTranslationVector.getX();
+        aScreenPosition2D.Y += aTranslationVector.getY();
+        rPieLabelInfo.xLabelGroupShape->setPosition(aScreenPosition2D);
     }
 }
 

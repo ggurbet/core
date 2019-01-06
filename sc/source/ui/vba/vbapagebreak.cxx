@@ -20,6 +20,9 @@
 #include "vbarange.hxx"
 #include <basic/sberrors.hxx>
 #include <ooo/vba/excel/XlPageBreak.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/table/XCellRange.hpp>
+
 using namespace ::com::sun::star;
 using namespace ::ooo::vba;
 
@@ -98,12 +101,10 @@ ScVbaHPageBreak::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaHPageBreak::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.HPageBreak";
-    }
+        "ooo.vba.excel.HPageBreak"
+    };
     return aServiceNames;
 }
 
@@ -131,12 +132,10 @@ ScVbaVPageBreak::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaVPageBreak::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.VPageBreak";
-    }
+        "ooo.vba.excel.VPageBreak"
+    };
     return aServiceNames;
 }
 

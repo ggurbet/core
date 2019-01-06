@@ -1371,7 +1371,7 @@ void SwScriptInfo::InitScriptInfo(const SwTextNode& rNode,
                 // Check that ScriptChangeInfos are in increasing order of
                 // position and that we don't have "empty" changes.
                 sal_uInt8 nLastTyp = i18n::ScriptType::WEAK;
-                sal_Int32 nLastPos = 0;
+                TextFrameIndex nLastPos = TextFrameIndex(0);
                 for (const auto& rScriptChange : m_ScriptChanges)
                 {
                     SAL_WARN_IF( nLastTyp == rScriptChange.type ||
@@ -1476,7 +1476,7 @@ sal_uInt8 SwScriptInfo::DirType(const TextFrameIndex nPos) const
 
 TextFrameIndex SwScriptInfo::NextHiddenChg(TextFrameIndex const nPos) const
 {
-    for (auto const it : m_HiddenChg)
+    for (auto const& it : m_HiddenChg)
     {
         if (nPos < it)
         {
@@ -1510,7 +1510,7 @@ sal_Int32 SwScriptInfo::MaskHiddenRanges( const SwTextNode& rNode, OUStringBuffe
 
         while ( nHiddenStart < nHiddenEnd && nHiddenStart < nEnd )
         {
-            if ( nHiddenStart >= nStt && nHiddenStart < nEnd )
+            if (nHiddenStart >= nStt)
             {
                 rText[nHiddenStart] = cChar;
                 ++nNumOfHiddenChars;
@@ -1605,7 +1605,7 @@ bool SwScriptInfo::GetBoundsOfHiddenRange( const SwTextNode& rNode, sal_Int32 nP
 
             if ( nHiddenStart > nPos )
                 break;
-            if ( nHiddenStart <= nPos && nPos < nHiddenEnd )
+            if (nPos < nHiddenEnd)
             {
                 rnStartPos = nHiddenStart;
                 rnEndPos   = std::min<sal_Int32>(nHiddenEnd,
@@ -1644,7 +1644,7 @@ bool SwScriptInfo::GetBoundsOfHiddenRange(TextFrameIndex nPos,
 
         if ( nHiddenStart > nPos )
             break;
-        if ( nHiddenStart <= nPos && nPos < nHiddenEnd )
+        if (nPos < nHiddenEnd)
         {
             rnStartPos = nHiddenStart;
             rnEndPos   = nHiddenEnd;

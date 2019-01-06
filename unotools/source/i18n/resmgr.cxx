@@ -21,7 +21,7 @@
 // workdir/UnpackedTarball/boost/boost/locale/format.hpp using "std::auto_ptr<data> d;", but must
 // come very early here in case <memory> is already (indirectly) included earlier:
 #include <config_libcxx.h>
-#if HAVE_LIBCXX && __cplusplus >= 201703L
+#if HAVE_LIBCXX
 #define _LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR
 #elif defined _MSC_VER && __cplusplus >= 201703L
 #define _HAS_AUTO_PTR_ETC 1
@@ -40,6 +40,7 @@
 #   include <libintl.h>
 #endif
 
+#include <comphelper/lok.hxx>
 #include <tools/debug.hxx>
 #include <tools/stream.hxx>
 #include <unotools/resmgr.hxx>
@@ -218,7 +219,16 @@ namespace Translate
 
         //otherwise translate it
         const std::string ret = boost::locale::pgettext(sContext.getStr(), pId, loc);
-        return ExpandVariables(createFromUtf8(ret.data(), ret.size()));
+        OUString result(ExpandVariables(createFromUtf8(ret.data(), ret.size())));
+
+        if (comphelper::LibreOfficeKit::isActive())
+        {
+            // If it is de-CH, change sharp s to double s.
+            if (std::use_facet<boost::locale::info>(loc).country() == "CH" &&
+                std::use_facet<boost::locale::info>(loc).language() == "de")
+                result = result.replaceAll(OUString::fromUtf8("\xC3\x9F"), "ss");
+        }
+        return result;
     }
 
     OUString nget(const char* pContextAndIds, int n, const std::locale &loc)
@@ -243,7 +253,15 @@ namespace Translate
 
         //otherwise translate it
         const std::string ret = boost::locale::npgettext(aContextIdId[0].getStr(), aContextIdId[1].getStr(), aContextIdId[2].getStr(), n, loc);
-        return ExpandVariables(createFromUtf8(ret.data(), ret.size()));
+        OUString result(ExpandVariables(createFromUtf8(ret.data(), ret.size())));
+
+        if (comphelper::LibreOfficeKit::isActive())
+        {
+            if (std::use_facet<boost::locale::info>(loc).country() == "CH" &&
+                std::use_facet<boost::locale::info>(loc).language() == "de")
+                result = result.replaceAll(OUString::fromUtf8("\xC3\x9F"), "ss");
+        }
+        return result;
     }
 
     static ResHookProc pImplResHookProc = nullptr;

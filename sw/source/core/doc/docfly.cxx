@@ -459,14 +459,14 @@ lcl_SetFlyFrameAttr(SwDoc & rDoc,
         case RES_CNTNT:
         case RES_FOOTER:
             OSL_FAIL( "Unknown Fly attribute." );
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case RES_CHAIN:
             rSet.ClearItem( nWhich );
             break;
         case RES_ANCHOR:
             if( DONTMAKEFRMS != nMakeFrames )
                 break;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         default:
             if( !IsInvalidItem( aIter.GetCurItem() ) && ( SfxItemState::SET !=
                 rFlyFormat.GetAttrSet().GetItemState( nWhich, true, &pItem ) ||
@@ -498,7 +498,7 @@ void SwDoc::CheckForUniqueItemForLineFillNameOrIndex(SfxItemSet& rSet)
     {
         if (IsInvalidItem(pItem))
             continue;
-        const SfxPoolItem* pResult = nullptr;
+        std::unique_ptr<SfxPoolItem> pResult;
 
         switch(pItem->Which())
         {
@@ -542,7 +542,6 @@ void SwDoc::CheckForUniqueItemForLineFillNameOrIndex(SfxItemSet& rSet)
         if(pResult)
         {
             rSet.Put(*pResult);
-            delete pResult;
         }
     }
 }
@@ -841,7 +840,7 @@ bool SwDoc::ChgAnchor( const SdrMarkList& _rMrkList,
                     }
 
                     aNewAnch.SetType( RndStdIds::FLY_AT_PAGE );
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 }
             case RndStdIds::FLY_AT_PAGE:
                 {

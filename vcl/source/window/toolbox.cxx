@@ -2491,36 +2491,27 @@ static void ImplDrawDropdownArrow(vcl::RenderContext& rRenderContext, const tool
 
     float fScaleFactor = rRenderContext.GetDPIScaleFactor();
 
-    if( !bRotate )
-    {
-        long width = 5 * fScaleFactor;
-        long height = 3 * fScaleFactor;
+    tools::Polygon aPoly(4);
 
-        long x = rDropDownRect.Left() + (rDropDownRect.getWidth() - width)/2;
-        long y = rDropDownRect.Top() + (rDropDownRect.getHeight() - height)/2;
-        while( width >= 1)
-        {
-            rRenderContext.DrawRect( tools::Rectangle( x, y, x+width-1, y ) );
-            y++;
-            x++;
-            width -= 2;
-        }
-    }
-    else
-    {
-        long width = 3 * fScaleFactor;
-        long height = 5 * fScaleFactor;
+    long width = 7 * fScaleFactor;
+    long height = 4 * fScaleFactor;
 
-        long x = rDropDownRect.Left() + (rDropDownRect.getWidth() - width)/2;
-        long y = rDropDownRect.Top() + (rDropDownRect.getHeight() - height)/2;
-        while( height >= 1)
-        {
-            rRenderContext.DrawRect( tools::Rectangle( x, y, x, y+height-1 ) );
-            y++;
-            x++;
-            height -= 2;
-        }
-    }
+    long x = rDropDownRect.Left() + (rDropDownRect.getWidth() - width)/2;
+    long y = rDropDownRect.Top() + (rDropDownRect.getHeight() - height)/2;
+
+    long halfwidth = (width+1)>>1;
+    aPoly.SetPoint(Point(x, y), 0);
+    aPoly.SetPoint(Point(x + halfwidth, y + height), 1);
+    aPoly.SetPoint(Point(x + halfwidth*2, y), 2);
+    aPoly.SetPoint(Point(x, y), 3);
+
+    if (bRotate) // TESTME: harder ...
+        aPoly.Rotate(Point(x,y+height/2),2700);
+
+    auto aaflags = rRenderContext.GetAntialiasing();
+    rRenderContext.SetAntialiasing(AntialiasingFlags::EnableB2dDraw);
+    rRenderContext.DrawPolygon( aPoly );
+    rRenderContext.SetAntialiasing(aaflags);
 
     if( bFillColor )
         rRenderContext.SetFillColor(aOldFillColor);
@@ -3801,6 +3792,17 @@ void ToolBox::Resize()
     }
 }
 
+namespace
+{
+    bool DispatchableCommand(const OUString& rName)
+    {
+        return rName.startsWith(".uno")  ||
+               rName.startsWith("slot:")  ||
+               rName.startsWith("macro:")  ||
+               rName.startsWith("vnd.sun.star.script");
+    }
+}
+
 const OUString& ToolBox::ImplGetHelpText( sal_uInt16 nItemId ) const
 {
     ImplToolItem* pItem = ImplGetItem( nItemId );
@@ -3812,7 +3814,7 @@ const OUString& ToolBox::ImplGetHelpText( sal_uInt16 nItemId ) const
         Help* pHelp = Application::GetHelp();
         if ( pHelp )
         {
-            if ( pItem->maCommandStr.getLength() )
+            if (DispatchableCommand(pItem->maCommandStr))
                 pItem->maHelpText = pHelp->GetHelpText( pItem->maCommandStr, this );
             if ( pItem->maHelpText.isEmpty() && !pItem->maHelpId.isEmpty() )
                 pItem->maHelpText = pHelp->GetHelpText( OStringToOUString( pItem->maHelpId, RTL_TEXTENCODING_UTF8 ), this );
@@ -3872,25 +3874,6 @@ void ToolBox::RequestHelp( const HelpEvent& rHEvt )
             else
                 Help::ShowQuickHelp( this, aTempRect, aStr, rHelpStr, QuickHelpFlags::CtrlText );
             return;
-        }
-        else if ( rHEvt.GetMode() & HelpEventMode::EXTENDED )
-        {
-            OUString aCommand = GetItemCommand( nItemId );
-            OString  aHelpId( GetHelpId( nItemId ) );
-
-            if ( !aCommand.isEmpty() || !aHelpId.isEmpty() )
-            {
-                // If help is available then trigger it
-                Help* pHelp = Application::GetHelp();
-                if ( pHelp )
-                {
-                    if ( !aCommand.isEmpty() )
-                        pHelp->Start( aCommand, this );
-                    else if ( !aHelpId.isEmpty() )
-                        pHelp->Start( OStringToOUString( aHelpId, RTL_TEXTENCODING_UTF8 ), this );
-                }
-                return;
-            }
         }
     }
 

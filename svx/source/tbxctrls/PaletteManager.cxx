@@ -34,6 +34,9 @@
 #include <set>
 #include <cppu/unotype.hxx>
 #include <officecfg/Office/Common.hxx>
+#include <com/sun/star/frame/XDispatchProvider.hpp>
+#include <com/sun/star/frame/XDispatch.hpp>
+#include <com/sun/star/frame/Desktop.hpp>
 
 #include <palettes.hxx>
 
@@ -137,13 +140,13 @@ void PaletteManager::ReloadColorSet(SvxColorValueSet &rColorSet)
     }
     else if( mnCurrentPalette == mnNumOfPalettes - 1 )
     {
+        rColorSet.Clear();
         // Add doc colors to palette
         SfxObjectShell* pDocSh = SfxObjectShell::Current();
         if (pDocSh)
         {
             std::set<Color> aColors = pDocSh->GetDocColors();
             mnColorCount = aColors.size();
-            rColorSet.Clear();
             rColorSet.addEntriesForColorSet(aColors, SvxResId( RID_SVXSTR_DOC_COLOR_PREFIX ) + " " );
         }
     }
@@ -354,7 +357,7 @@ void PaletteManager::PopupColorPicker(weld::Window* pParent, const OUString& aCo
     if (aColorDlg.Execute(pParent) == RET_OK)
     {
         Color aLastColor = aColorDlg.GetColor();
-        OUString sColorName = ("#" + aLastColor.AsRGBHexString().toAsciiUpperCase());
+        OUString sColorName = "#" + aLastColor.AsRGBHexString().toAsciiUpperCase();
         NamedColor aNamedColor = std::make_pair(aLastColor, sColorName);
         if (mpBtnUpdater)
             mpBtnUpdater->Update(aNamedColor);

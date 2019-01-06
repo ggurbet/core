@@ -35,7 +35,6 @@
 #include <charatr.hxx>
 #include <editeng/acorrcfg.hxx>
 #include <unotools/streamwrap.hxx>
-#include <test/mtfxmldump.hxx>
 #include <unocrsr.hxx>
 #include <unocrsrhelper.hxx>
 #include <unotbl.hxx>
@@ -94,6 +93,7 @@
 #include <o3tl/deleter.hxx>
 #include <o3tl/make_unique.hxx>
 #include <osl/file.hxx>
+#include <osl/thread.hxx>
 #include <paratr.hxx>
 #include <drawfont.hxx>
 #include <txtfrm.hxx>
@@ -262,6 +262,10 @@ public:
     void testTdf96943();
     void testTdf96536();
     void testTdf96479();
+    void testBookmarkCollapsed();
+    void testRemoveBookmarkText();
+    void testRemoveBookmarkTextAndAddNew();
+    void testRemoveBookmarkTextAndAddNewAfterReload();
     void testTdf96961();
     void testTdf88453();
     void testTdf88453Table();
@@ -461,6 +465,10 @@ public:
     CPPUNIT_TEST(testTdf96943);
     CPPUNIT_TEST(testTdf96536);
     CPPUNIT_TEST(testTdf96479);
+    CPPUNIT_TEST(testBookmarkCollapsed);
+    CPPUNIT_TEST(testRemoveBookmarkText);
+    CPPUNIT_TEST(testRemoveBookmarkTextAndAddNew);
+    CPPUNIT_TEST(testRemoveBookmarkTextAndAddNewAfterReload);
     CPPUNIT_TEST(testTdf96961);
     CPPUNIT_TEST(testTdf88453);
     CPPUNIT_TEST(testTdf88453Table);
@@ -1525,8 +1533,11 @@ void SwUiWriterTest::testTdf83260()
     SwAutoCorrect corr(*SvxAutoCorrCfg::Get().GetAutoCorrect());
 
     // enabled but not shown
+    CPPUNIT_ASSERT(pWrtShell->GetLayout()->IsHideRedlines());
+#if 0
     CPPUNIT_ASSERT(IDocumentRedlineAccess::IsHideChanges(
             pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
+#endif
     CPPUNIT_ASSERT(IDocumentRedlineAccess::IsRedlineOn(
             pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
     CPPUNIT_ASSERT(!pDoc->getIDocumentRedlineAccess().GetRedlineTable().empty());
@@ -1692,7 +1703,7 @@ void SwUiWriterTest::testFdo87448()
     ReadGraphic(aStream, aGraphic);
     const GDIMetaFile& rMetaFile = aGraphic.GetGDIMetaFile();
     MetafileXmlDump dumper;
-    xmlDocPtr pXmlDoc = dumper.dumpAndParse(rMetaFile);
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, rMetaFile);
 
     // The first polyline in the document has a number of points to draw arcs,
     // the last one jumps back to the start, so we call "end" the last but one.
@@ -2402,7 +2413,7 @@ void SwUiWriterTest::testTdf72788()
     rIDCO.InsertPoolItem(*pCursor, aWeightItem);
     SfxItemSet aSet( pDoc->GetAttrPool(), svl::Items<RES_CHRATR_WEIGHT, RES_CHRATR_WEIGHT>{});
     //Add selected text's attributes to aSet
-    pCursor->GetNode().GetTextNode()->GetAttr(aSet, 5, 12);
+    pCursor->GetNode().GetTextNode()->GetParaAttr(aSet, 5, 12);
     SfxPoolItem const * pPoolItem = aSet.GetItem(RES_CHRATR_WEIGHT);
     //Check that bold is active on the selection and it's in aSet
     CPPUNIT_ASSERT_EQUAL(true, (*pPoolItem == aWeightItem));
@@ -2422,7 +2433,8 @@ void SwUiWriterTest::testTdf72788()
     pTextNode->RstTextAttr(aSt, nEnd - aSt.GetIndex());
     //In case of Regression RstTextAttr() call will result to infinite recursion
     //Check that bold is removed in first paragraph
-    pTextNode->GetAttr(aSet, 5, 12);
+    aSet.ClearItem();
+    pTextNode->GetParaAttr(aSet, 5, 12);
     SfxPoolItem const * pPoolItem2 = aSet.GetItem(RES_CHRATR_WEIGHT);
     CPPUNIT_ASSERT_EQUAL(true, (*pPoolItem2 != aWeightItem));
 }
@@ -3660,7 +3672,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
     SfxPoolItem const* pItem;
     SfxItemSet query(pDoc->GetAttrPool(), svl::Items<RES_CHRATR_HIDDEN, RES_CHRATR_HIDDEN>{});
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 1, 4);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 1, 4);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::SET, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     CPPUNIT_ASSERT(static_cast<SvxCharHiddenItem const*>(pItem)->GetValue());
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3671,7 +3683,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(0, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(1), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 0, 1);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 0, 1);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
     rUndoManager.Undo();
@@ -3680,10 +3692,10 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
     CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 0, 1);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 0, 1);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 1, 4);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 1, 4);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::SET, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     CPPUNIT_ASSERT(static_cast<SvxCharHiddenItem const*>(pItem)->GetValue());
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3691,7 +3703,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(0, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(1), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 0, 1);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 0, 1);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
     rUndoManager.Undo();
@@ -3700,10 +3712,10 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
     CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 0, 1);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 0, 1);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 1, 4);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 1, 4);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::SET, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     CPPUNIT_ASSERT(static_cast<SvxCharHiddenItem const*>(pItem)->GetValue());
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3714,7 +3726,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(0, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(1), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 4, 5);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 4, 5);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
     rUndoManager.Undo();
@@ -3723,10 +3735,10 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
     CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 4, 5);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 4, 5);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 1, 4);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 1, 4);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::SET, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     CPPUNIT_ASSERT(static_cast<SvxCharHiddenItem const*>(pItem)->GetValue());
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3734,7 +3746,7 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT(pShell->GetCursor()->GetNode().GetTextNode()->GetTextAttrForCharAt(0, RES_TXTATR_FLYCNT));
     CPPUNIT_ASSERT_EQUAL(size_t(1), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pShell->GetCursor()->GetNode().GetTextNode()->Len());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 4, 5);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 4, 5);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
     rUndoManager.Undo();
@@ -3743,10 +3755,10 @@ void SwUiWriterTest::testUndoDelAsCharTdf107512()
     CPPUNIT_ASSERT_EQUAL(size_t(2), pDoc->GetFlyCount(FLYCNTTYPE_GRF));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(5), pShell->GetCursor()->GetNode().GetTextNode()->Len());
     CPPUNIT_ASSERT_EQUAL(OUString(OUStringLiteral1(CH_TXTATR_BREAKWORD) + u"foo" + OUStringLiteral1(CH_TXTATR_BREAKWORD)), pShell->GetCursor()->GetNode().GetTextNode()->GetText());
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 4, 5);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 4, 5);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::DEFAULT, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     query.ClearItem(RES_CHRATR_HIDDEN);
-    pShell->GetCursor()->GetNode().GetTextNode()->GetAttr(query, 1, 4);
+    pShell->GetCursor()->GetNode().GetTextNode()->GetParaAttr(query, 1, 4);
     CPPUNIT_ASSERT_EQUAL(SfxItemState::SET, query.GetItemState(RES_CHRATR_HIDDEN, false, &pItem));
     CPPUNIT_ASSERT(static_cast<SvxCharHiddenItem const*>(pItem)->GetValue());
     query.ClearItem(RES_CHRATR_HIDDEN);
@@ -3774,7 +3786,7 @@ void SwUiWriterTest::testUndoCharAttribute()
     rIDCO.InsertPoolItem(*pCursor, aWeightItem);
     SfxItemSet aSet( pDoc->GetAttrPool(), svl::Items<RES_CHRATR_WEIGHT, RES_CHRATR_WEIGHT>{});
     // Adds selected text's attributes to aSet
-    pCursor->GetNode().GetTextNode()->GetAttr(aSet, 10, 19);
+    pCursor->GetNode().GetTextNode()->GetParaAttr(aSet, 10, 19);
     SfxPoolItem const * pPoolItem = aSet.GetItem(RES_CHRATR_WEIGHT);
     // Check that bold is active on the selection; checks if it's in aSet
     CPPUNIT_ASSERT_EQUAL(true, (*pPoolItem == aWeightItem));
@@ -3782,7 +3794,7 @@ void SwUiWriterTest::testUndoCharAttribute()
     rUndoManager.Undo();
     // Check that bold is no longer active
     aSet.ClearItem(RES_CHRATR_WEIGHT);
-    pCursor->GetNode().GetTextNode()->GetAttr(aSet, 10, 19);
+    pCursor->GetNode().GetTextNode()->GetParaAttr(aSet, 10, 19);
     pPoolItem = aSet.GetItem(RES_CHRATR_WEIGHT);
     CPPUNIT_ASSERT_EQUAL(false, (*pPoolItem == aWeightItem));
 }
@@ -4177,7 +4189,7 @@ void SwUiWriterTest::testTdf87922()
     SwNodeIndex aNodeIndex(pDoc->GetNodes().GetEndOfContent(), -1);
     const OUString& rText = aNodeIndex.GetNode().GetTextNode()->GetText();
     sal_Int32 nLength = rText.getLength();
-    SwDrawTextInfo aDrawTextInfo(pWrtShell, *pWrtShell->GetOut(), pScriptInfo, rText, 0, nLength);
+    SwDrawTextInfo aDrawTextInfo(pWrtShell, *pWrtShell->GetOut(), pScriptInfo, rText, TextFrameIndex(0), TextFrameIndex(nLength));
     // Root -> page -> body -> text.
     SwTextFrame* pTextFrame = static_cast<SwTextFrame*>(pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower());
     aDrawTextInfo.SetFrame(pTextFrame);
@@ -4221,17 +4233,17 @@ class PortionHandler : public SwPortionHandler
         mPortionItems.clear();
     }
 
-    virtual void Text(sal_Int32 nLength, sal_uInt16 nType,
+    virtual void Text(TextFrameIndex nLength, sal_uInt16 nType,
                       sal_Int32 /*nHeight*/, sal_Int32 /*nWidth*/) override
     {
-        mPortionItems.emplace_back("text", nLength, nType);
+        mPortionItems.emplace_back("text", sal_Int32(nLength), nType);
     }
 
-    virtual void Special(sal_Int32 nLength, const OUString & /*rText*/,
+    virtual void Special(TextFrameIndex nLength, const OUString & /*rText*/,
                          sal_uInt16 nType, sal_Int32 /*nHeight*/,
                          sal_Int32 /*nWidth*/, const SwFont* /*pFont*/) override
     {
-        mPortionItems.emplace_back("special", nLength, nType);
+        mPortionItems.emplace_back("special", sal_Int32(nLength), nType);
     }
 
     virtual void LineBreak(sal_Int32 /*nWidth*/) override
@@ -4239,9 +4251,9 @@ class PortionHandler : public SwPortionHandler
         mPortionItems.emplace_back("line_break", 0, 0);
     }
 
-    virtual void Skip(sal_Int32 nLength) override
+    virtual void Skip(TextFrameIndex nLength) override
     {
-        mPortionItems.emplace_back("skip", nLength, 0);
+        mPortionItems.emplace_back("skip", sal_Int32(nLength), 0);
     }
 
     virtual void Finish() override
@@ -4562,7 +4574,7 @@ void SwUiWriterTest::testTdf96479()
         CPPUNIT_ASSERT(!xCursorNew->isCollapsed());
         xCursorNew->getText()->insertTextContent(xCursorNew, xTextField, true);
         xBookmarkNew = uno::Reference<text::XTextContent>(xBookmarksSupplier->getBookmarks()->getByName("replacement"), uno::UNO_QUERY);
-        xCursorNew = uno::Reference<text::XTextCursor>(xBookmarkNew->getAnchor()->getText()->createTextCursorByRange(xBookmarkNew->getAnchor()));
+        xCursorNew = xBookmarkNew->getAnchor()->getText()->createTextCursorByRange(xBookmarkNew->getAnchor());
         CPPUNIT_ASSERT(!xCursorNew->isCollapsed());
 
         // Can't check the actual content of the text node via UNO
@@ -4601,6 +4613,302 @@ void SwUiWriterTest::testTdf96479()
         CPPUNIT_ASSERT(mark->IsExpanded());
         SwPaM pam(mark->GetMarkStart(), mark->GetMarkEnd());
         CPPUNIT_ASSERT_EQUAL(emptyInputTextField, pam.GetText());
+    }
+}
+
+// If you resave original document the bookmark will be changed from
+//
+//  <text:p text:style-name="Standard">
+//      <text:bookmark-start text:name="test"/>
+//      <text:bookmark-end text:name="test"/>
+//      def
+//  </text:p>
+//
+// to
+//
+//  <text:p text:style-name="Standard">
+//      <text:bookmark text:name="test"/>
+//      def
+//  </text:p>
+//
+void SwUiWriterTest::testBookmarkCollapsed()
+{
+    // load document
+    SwDoc* pDoc = createDoc("collapsed_bookmark.odt");
+    CPPUNIT_ASSERT(pDoc);
+
+    // save original document
+    utl::TempFile aTempFile;
+    save("writer8", aTempFile);
+
+    // load only content.xml from the resaved document
+    if (xmlDocPtr pXmlDoc = parseExportInternal(aTempFile.GetURL(), "content.xml"))
+    {
+        const OString aPath("/office:document-content/office:body/office:text/text:p");
+
+        const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
+        const int pos2 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
+        const int pos3 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
+
+        CPPUNIT_ASSERT_EQUAL(0, pos1); // found, and it is first
+        CPPUNIT_ASSERT_EQUAL(2, pos2); // not found
+        CPPUNIT_ASSERT_EQUAL(2, pos3); // not found
+    }
+}
+
+// 1. Open a new writer document
+// 2. Enter the text "abcdef"
+// 3. Select "abc"
+// 4. Insert a bookmark on "abc" using Insert->Bookmark. Name the bookmark "test".
+// 5. Open the navigator (F5)
+//    Select the bookmark "test" using the navigator.
+// 6. Hit Del, thus deleting "abc" (The bookmark "test" is still there).
+// 7. Save the document:
+//      <text:p text:style-name="Standard">
+//          <text:bookmark-start text:name="test"/>
+//          <text:bookmark-end text:name="test"/>
+//          def
+//      </text:p>
+//
+void SwUiWriterTest::testRemoveBookmarkText()
+{
+    // create document
+    {
+        // create a text document with "abcdef"
+        SwDoc* pDoc = createDoc();
+        SwXTextDocument *pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+        CPPUNIT_ASSERT(pTextDoc);
+
+        {
+            SwNodeIndex aIdx(pDoc->GetNodes().GetEndOfContent(), -1);
+            SwPaM aPaM(aIdx);
+            pDoc->getIDocumentContentOperations().InsertString(aPaM, "abcdef");
+        }
+
+        // mark "abc" with "testBookmark" bookmark
+        {
+            SwNodeIndex aIdx(pDoc->GetNodes().GetEndOfContent(), -1);
+            SwPaM aPaM(aIdx);
+
+            lcl_selectCharacters(aPaM, 0, 3);
+            IDocumentMarkAccess &rIDMA = *pDoc->getIDocumentMarkAccess();
+            sw::mark::IMark *pMark =
+                rIDMA.makeMark(aPaM, "testBookmark",
+                    IDocumentMarkAccess::MarkType::BOOKMARK,
+                    ::sw::mark::InsertMode::New);
+
+            // verify
+            CPPUNIT_ASSERT(pMark->IsExpanded());
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(1), rIDMA.getBookmarksCount());
+        }
+
+        // remove text marked with bookmark
+        {
+            SwNodeIndex aIdx(pDoc->GetNodes().GetEndOfContent(), -1);
+            SwPaM aPaM(aIdx);
+
+            lcl_selectCharacters(aPaM, 0, 3);
+            pDoc->getIDocumentContentOperations().DeleteRange(aPaM);
+
+            // verify: bookmark is still exist
+            IDocumentMarkAccess &rIDMA = *pDoc->getIDocumentMarkAccess();
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(1), rIDMA.getBookmarksCount());
+        }
+    }
+
+    // save document
+    utl::TempFile aTempFile;
+    save("writer8", aTempFile);
+
+    // load only content.xml from the resaved document
+    if (xmlDocPtr pXmlDoc = parseExportInternal(aTempFile.GetURL(), "content.xml"))
+    {
+        const OString aPath("/office:document-content/office:body/office:text/text:p");
+
+        const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
+        const int pos2 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
+        const int pos3 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
+
+        CPPUNIT_ASSERT_EQUAL(3, pos1); // not found
+        CPPUNIT_ASSERT_EQUAL(0, pos2); // found, and it is first
+        CPPUNIT_ASSERT_EQUAL(1, pos3); // found, and it is second
+    }
+}
+
+// 1. Open a new writer document
+// 2. Enter the text "abcdef"
+// 3. Select "abc"
+// 4. Insert a bookmark on "abc" using Insert->Bookmark. Name the bookmark "test".
+// 5. Open the navigator (F5)
+//    Select the bookmark "test" using the navigator.
+// 6. Hit Del, thus deleting "abc" (The bookmark "test" is still there).
+// 7. Call our macro
+//
+//      Sub Main
+//          bookmark = ThisComponent.getBookmarks().getByName("test")
+//          bookmark.getAnchor().setString("abc")
+//      End Sub
+//
+//    The text "abc" gets inserted inside the bookmark "test", and the document now contains the string "abcdef".
+// 7. Save the document:
+//      <text:p text:style-name="Standard">
+//          <text:bookmark-start text:name="test"/>
+//          abc
+//          <text:bookmark-end text:name="test"/>
+//          def
+//      </text:p>
+//
+void SwUiWriterTest::testRemoveBookmarkTextAndAddNew()
+{
+    // create document
+    {
+        // create a text document with "abcdef"
+        SwDoc* pDoc = createDoc();
+        SwXTextDocument *pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+        CPPUNIT_ASSERT(pTextDoc);
+
+        {
+            SwNodeIndex aIdx(pDoc->GetNodes().GetEndOfContent(), -1);
+            SwPaM aPaM(aIdx);
+            pDoc->getIDocumentContentOperations().InsertString(aPaM, "abcdef");
+        }
+
+        // mark "abc" with "testBookmark" bookmark
+        {
+            SwNodeIndex aIdx(pDoc->GetNodes().GetEndOfContent(), -1);
+            SwPaM aPaM(aIdx);
+
+            lcl_selectCharacters(aPaM, 0, 3);
+            IDocumentMarkAccess &rIDMA = *pDoc->getIDocumentMarkAccess();
+            sw::mark::IMark *pMark =
+                rIDMA.makeMark(aPaM, "testBookmark",
+                    IDocumentMarkAccess::MarkType::BOOKMARK,
+                    ::sw::mark::InsertMode::New);
+
+            // verify
+            CPPUNIT_ASSERT(pMark->IsExpanded());
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(1), rIDMA.getBookmarksCount());
+        }
+
+        // remove text marked with bookmark
+        {
+            SwNodeIndex aIdx(pDoc->GetNodes().GetEndOfContent(), -1);
+            SwPaM aPaM(aIdx);
+
+            lcl_selectCharacters(aPaM, 0, 3);
+            pDoc->getIDocumentContentOperations().DeleteRange(aPaM);
+
+            // verify: bookmark is still exist
+            IDocumentMarkAccess &rIDMA = *pDoc->getIDocumentMarkAccess();
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(1), rIDMA.getBookmarksCount());
+        }
+
+        // write "abc" to area marked with "testBookmark" bookmark
+        {
+            // Get helper objects
+            uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
+            uno::Reference<css::lang::XMultiServiceFactory> xFactory(mxComponent, uno::UNO_QUERY);
+
+            // Create cursor from bookmark
+            uno::Reference<text::XTextContent> xTextContent(xBookmarksSupplier->getBookmarks()->getByName("testBookmark"), uno::UNO_QUERY);
+            uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
+            CPPUNIT_ASSERT_EQUAL(OUString(""), xRange->getString());
+
+            // write "abc"
+            xRange->setString("abc");
+
+            // verify: bookmark is still exist
+            IDocumentMarkAccess &rIDMA = *pDoc->getIDocumentMarkAccess();
+            CPPUNIT_ASSERT_EQUAL(sal_Int32(1), rIDMA.getBookmarksCount());
+        }
+    }
+
+    // save document
+    utl::TempFile aTempFile;
+    save("writer8", aTempFile);
+
+    // load only content.xml from the resaved document
+    if (xmlDocPtr pXmlDoc = parseExportInternal(aTempFile.GetURL(), "content.xml"))
+    {
+        const OString aPath("/office:document-content/office:body/office:text/text:p");
+
+        const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
+        const int pos2 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
+        const int pos3 = getXPathPosition(pXmlDoc, aPath, "text");
+        const int pos4 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
+
+        CPPUNIT_ASSERT_EQUAL(4, pos1); // not found
+        CPPUNIT_ASSERT_EQUAL(0, pos2);
+        CPPUNIT_ASSERT_EQUAL(1, pos3);
+        CPPUNIT_ASSERT_EQUAL(2, pos4);
+    }
+}
+
+// 1. Load document:
+//  <text:p text:style-name="Standard">
+//      <text:bookmark-start text:name="test"/>
+//      <text:bookmark-end text:name="test"/>
+//      def
+//  </text:p>
+//
+// 2. Call our macro
+//
+//      Sub Main
+//          bookmark = ThisComponent.getBookmarks().getByName("test")
+//          bookmark.getAnchor().setString("abc")
+//      End Sub
+//
+//    The text "abc" gets inserted inside the bookmark "test", and the document now contains the string "abcdef".
+// 3. Save the document:
+//      <text:p text:style-name="Standard">
+//          <text:bookmark text:name="test"/>
+//          abcdef
+//      </text:p>
+//
+void SwUiWriterTest::testRemoveBookmarkTextAndAddNewAfterReload()
+{
+    // load document
+    SwDoc* pDoc = createDoc("collapsed_bookmark.odt");
+    CPPUNIT_ASSERT(pDoc);
+
+    // write "abc" to area marked with "testBookmark" bookmark
+    {
+        // Get helper objects
+        uno::Reference<text::XBookmarksSupplier> xBookmarksSupplier(mxComponent, uno::UNO_QUERY);
+        uno::Reference<css::lang::XMultiServiceFactory> xFactory(mxComponent, uno::UNO_QUERY);
+
+        // Create cursor from bookmark
+        uno::Reference<text::XTextContent> xTextContent(xBookmarksSupplier->getBookmarks()->getByName("test"), uno::UNO_QUERY);
+        uno::Reference<text::XTextRange> xRange(xTextContent->getAnchor(), uno::UNO_QUERY);
+        CPPUNIT_ASSERT_EQUAL(OUString(""), xRange->getString());
+
+        // write "abc"
+        xRange->setString("abc");
+
+        // verify: bookmark is still exist
+        IDocumentMarkAccess &rIDMA = *pDoc->getIDocumentMarkAccess();
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(1), rIDMA.getBookmarksCount());
+    }
+
+    // save original document
+    utl::TempFile aTempFile;
+    save("writer8", aTempFile);
+
+    // load only content.xml from the resaved document
+    if (xmlDocPtr pXmlDoc = parseExportInternal(aTempFile.GetURL(), "content.xml"))
+    {
+        const OString aPath("/office:document-content/office:body/office:text/text:p");
+
+        const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
+        const int pos2 = getXPathPosition(pXmlDoc, aPath, "text");
+
+        const int pos3 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
+        const int pos4 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
+
+        CPPUNIT_ASSERT_EQUAL(0, pos1);
+        CPPUNIT_ASSERT_EQUAL(1, pos2);
+        CPPUNIT_ASSERT_EQUAL(2, pos3); // not found
+        CPPUNIT_ASSERT_EQUAL(2, pos4); // not found
     }
 }
 

@@ -53,6 +53,7 @@
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
 #include <com/sun/star/form/XFormsSupplier.hpp>
+#include <ooo/vba/excel/XApplication.hpp>
 #include <ooo/vba/excel/XlEnableSelection.hpp>
 #include <ooo/vba/excel/XlSheetVisibility.hpp>
 #include <ooo/vba/excel/XWorkbook.hpp>
@@ -76,6 +77,7 @@
 #include <drwlayer.hxx>
 #include <tabprotection.hxx>
 #include <scextopt.hxx>
+#include "excelvbahelper.hxx"
 #include "service.hxx"
 #include "vbaoutline.hxx"
 #include "vbarange.hxx"
@@ -1022,12 +1024,10 @@ ScVbaWorksheet::getEnableCalculation(  )
 uno::Sequence< OUString >
 ScVbaWorksheet::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.Worksheet";
-    }
+        "ooo.vba.excel.Worksheet"
+    };
     return aServiceNames;
 }
 

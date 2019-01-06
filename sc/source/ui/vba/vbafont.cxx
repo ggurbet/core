@@ -31,6 +31,7 @@
 #include <svl/itemset.hxx>
 #include "excelvbahelper.hxx"
 #include "vbafont.hxx"
+#include "vbapalette.hxx"
 #include <scitems.hxx>
 #include <cellsuno.hxx>
 
@@ -327,12 +328,10 @@ ScVbaFont::getServiceImplName()
 uno::Sequence< OUString >
 ScVbaFont::getServiceNames()
 {
-    static uno::Sequence< OUString > aServiceNames;
-    if ( aServiceNames.getLength() == 0 )
+    static uno::Sequence< OUString > const aServiceNames
     {
-        aServiceNames.realloc( 1 );
-        aServiceNames[ 0 ] = "ooo.vba.excel.Font";
-    }
+        "ooo.vba.excel.Font"
+    };
     return aServiceNames;
 }
 

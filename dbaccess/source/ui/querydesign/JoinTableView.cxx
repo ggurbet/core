@@ -34,6 +34,7 @@
 #include "QuerySizeTabWinUndoAct.hxx"
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/commandevent.hxx>
 #include <TableWindowData.hxx>
 #include <JAccess.hxx>
 #include <com/sun/star/accessibility/XAccessible.hpp>
@@ -353,7 +354,7 @@ void OJoinTableView::RemoveTabWin( OTableWindow* pTabWin )
     auto aIter = m_vTableConnection.rbegin();
     while(aIter != m_vTableConnection.rend() && bRemove)
     {
-        VclPtr<OTableConnection>& rTabConn = (*aIter);
+        VclPtr<OTableConnection>& rTabConn = *aIter;
         if (
              (pData == rTabConn->GetData()->getReferencingTable()) ||
              (pData == rTabConn->GetData()->getReferencedTable())

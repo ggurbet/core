@@ -21,11 +21,12 @@
 #define INCLUDED_STARMATH_SOURCE_MATHMLIMPORT_HXX
 
 #include <xmloff/xmlimp.hxx>
+#include <vcl/errcode.hxx>
 
-#include <node.hxx>
 #include <deque>
 #include <memory>
 
+class SmNode;
 class SfxMedium;
 namespace com { namespace sun { namespace star {
     namespace beans {
@@ -180,7 +181,7 @@ public:
     SmNodeStack & GetNodeStack()    { return aNodeStack; }
 
     bool GetSuccess()              { return bSuccess; }
-    SAL_WARN_UNUSED_RESULT const OUString& GetText() { return aText; }
+    [[nodiscard]] const OUString& GetText() { return aText; }
     void SetText(const OUString &rStr) { aText = rStr; }
 
     virtual void SetViewSettings(const css::uno::Sequence<css::beans::PropertyValue>& aViewProps) override;

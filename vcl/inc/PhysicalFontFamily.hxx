@@ -21,6 +21,7 @@
 #define INCLUDED_VCL_INC_PHYSICALFONTFAMILY_HXX
 
 #include <vcl/dllapi.h>
+#include <vcl/outdev.hxx>
 
 #include <set>
 
@@ -28,6 +29,7 @@
 
 #include "PhysicalFontFace.hxx"
 
+class ImplDeviceFontList;
 class PhysicalFontFace;
 class PhysicalFontCollection;
 

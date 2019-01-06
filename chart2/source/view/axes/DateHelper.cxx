@@ -18,7 +18,6 @@
  */
 
 #include <DateHelper.hxx>
-#include "DateScaling.hxx"
 #include <rtl/math.hxx>
 #include <com/sun/star/chart/TimeUnit.hpp>
 
@@ -69,6 +68,9 @@ bool DateHelper::IsLessThanOneYearAway( const Date& rD1, const Date& rD2 )
 
 double DateHelper::RasterizeDateValue( double fValue, const Date& rNullDate, long TimeResolution )
 {
+    if (rtl::math::isNan(fValue))
+        return fValue;
+
     Date aDate(rNullDate); aDate.AddDays(::rtl::math::approxFloor(fValue));
     switch(TimeResolution)
     {

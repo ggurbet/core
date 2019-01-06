@@ -49,8 +49,8 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <svl/urihelper.hxx>
-#include <svtools/svtabbx.hxx>
-#include <svtools/headbar.hxx>
+#include <vcl/svtabbx.hxx>
+#include <vcl/headbar.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/button.hxx>
 #include <vcl/fixed.hxx>
@@ -681,7 +681,7 @@ void BibDataManager::InsertFields(const Reference< XFormComponent > & _rxGrid)
                 case DataType::CHAR:
                 case DataType::CLOB:
                     bFormattedIsNumeric = false;
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 default:
                     sCurrentModelType = "FormattedField";
                     bIsFormatted = true;

@@ -23,7 +23,6 @@
 #include <svl/sharedstringpool.hxx>
 #include <editeng/editobj.hxx>
 #include <tools/urlobj.hxx>
-#include <scitems.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
 #include <document.hxx>
@@ -35,7 +34,6 @@
 #include <xistring.hxx>
 #include <xistyle.hxx>
 #include <excform.hxx>
-#include <stringutil.hxx>
 #include <scmatrix.hxx>
 #include <documentimport.hxx>
 #include <o3tl/make_unique.hxx>
@@ -407,7 +405,7 @@ void XclImpHFConverter::ParseString( const OUString& rHFString )
                 {
                     case '\"':
                         --pChar;
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case ',':
                         eState = xlPSFontStyle;
                     break;
@@ -685,7 +683,7 @@ void XclImpUrlHelper::DecodeUrl(
                             lclAppendUrlChar( rUrl, cCurrDrive );
                             rUrl += ":";
                         }
-                        SAL_FALLTHROUGH;
+                        [[fallthrough]];
                     case EXC_URL_SUBDIR:
                         if( bEncoded )
                             rUrl += "\\";

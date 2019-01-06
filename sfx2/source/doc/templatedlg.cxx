@@ -171,7 +171,7 @@ SfxTemplateManagerDlg::SfxTemplateManagerDlg(vcl::Window *parent)
     mpActionMenu = VclPtr<PopupMenu>::Create();
     mpActionMenu->InsertItem(MNI_ACTION_NEW_FOLDER,
         SfxResId(STR_CATEGORY_NEW),
-        Image(BitmapEx(BMP_ACTION_REFRESH)));
+        Image(StockImage::Yes, BMP_ACTION_REFRESH));
     mpActionMenu->InsertItem(MNI_ACTION_RENAME_FOLDER,
         SfxResId(STR_CATEGORY_RENAME));
     mpActionMenu->InsertItem(MNI_ACTION_DELETE_FOLDER,
@@ -179,7 +179,7 @@ SfxTemplateManagerDlg::SfxTemplateManagerDlg(vcl::Window *parent)
     mpActionMenu->InsertSeparator();
     mpActionMenu->InsertItem(MNI_ACTION_REFRESH,
         SfxResId(STR_ACTION_REFRESH),
-        Image(BitmapEx(BMP_ACTION_REFRESH)));
+        Image(StockImage::Yes, BMP_ACTION_REFRESH));
     mpActionMenu->InsertItem(MNI_ACTION_DEFAULT,SfxResId(STR_ACTION_DEFAULT));
     mpActionMenu->SetSelectHdl(LINK(this,SfxTemplateManagerDlg,MenuSelectHdl));
 
@@ -344,11 +344,8 @@ void SfxTemplateManagerDlg::fillFolderComboBox()
 {
     std::vector<OUString> aFolderNames = mpLocalView->getFolderNames();
 
-    if (!aFolderNames.empty())
-    {
-        for (size_t i = 0, n = aFolderNames.size(); i < n; ++i)
-            mpCBFolder->InsertEntry(aFolderNames[i], i+1);
-    }
+    for (size_t i = 0, n = aFolderNames.size(); i < n; ++i)
+        mpCBFolder->InsertEntry(aFolderNames[i], i+1);
     mpCBFolder->SelectEntryPos(0);
     mpActionMenu->HideItem(MNI_ACTION_RENAME_FOLDER);
 }
@@ -1377,11 +1374,8 @@ IMPL_LINK_NOARG(SfxTemplateCategoryDialog, SelectCategoryHdl, weld::TreeView&, v
 
 void SfxTemplateCategoryDialog::SetCategoryLBEntries(std::vector<OUString> aFolderNames)
 {
-    if (!aFolderNames.empty())
-    {
-        for (size_t i = 0, n = aFolderNames.size(); i < n; ++i)
-            mxLBCategory->append_text(aFolderNames[i]);
-    }
+    for (size_t i = 0, n = aFolderNames.size(); i < n; ++i)
+        mxLBCategory->append_text(aFolderNames[i]);
     mxLBCategory->select(0);
 }
 

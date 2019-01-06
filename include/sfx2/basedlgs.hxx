@@ -134,7 +134,7 @@ protected:
     virtual ~SfxModelessDialogController() override;
 
 public:
-    virtual void            FillInfo(SfxChildWinInfo&) const;
+    void                    FillInfo(SfxChildWinInfo&) const;
     virtual void            Activate() {}
     void                    Initialize (SfxChildWinInfo const * pInfo);
     void                    Close();
@@ -227,7 +227,6 @@ private:
 class SFX2_DLLPUBLIC SfxSingleTabDialogController : public SfxDialogController
 {
 private:
-    VclPtr<SfxTabPage>          m_xSfxPage;
     std::unique_ptr<SfxItemSet> m_xOutputSet;
     const SfxItemSet* m_pInputSet;
 
@@ -236,7 +235,7 @@ public:
         const OUString& rUIXMLDescription = OUString("sfx/ui/singletabdialog.ui"),
         const OString& rID = OString("SingleTabDialog"));
 
-    virtual weld::Container* get_content_area() { return m_xContainer.get(); }
+    weld::Container* get_content_area() { return m_xContainer.get(); }
 
     virtual             ~SfxSingleTabDialogController() override;
 
@@ -247,6 +246,7 @@ public:
     const SfxItemSet*   GetInputItemSet() const { return m_pInputSet; }
 
 protected:
+    VclPtr<SfxTabPage> m_xSfxPage;
     std::unique_ptr<weld::Container> m_xContainer;
     std::unique_ptr<weld::Button> m_xOKBtn;
     std::unique_ptr<weld::Button> m_xHelpBtn;

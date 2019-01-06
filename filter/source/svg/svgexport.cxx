@@ -31,6 +31,8 @@
 #include <com/sun/star/text/textfield/Type.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/drawing/ShapeCollection.hpp>
 
 #include <rtl/bootstrap.hxx>
 #include <svtools/miscopt.hxx>
@@ -51,6 +53,7 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/animationexport.hxx>
+#include <svx/svdograf.hxx>
 
 #include <memory>
 
@@ -504,12 +507,10 @@ bool EqualityBitmap::operator()( const ObjectRepresentation& rObjRep1,
 
 bool SVGFilter::implExport( const Sequence< PropertyValue >& rDescriptor )
 {
-    Reference< XComponentContext >        xContext( ::comphelper::getProcessComponentContext() ) ;
     Reference< XOutputStream >            xOStm;
     std::unique_ptr<SvStream>             pOStm;
     sal_Int32                             nLength = rDescriptor.getLength();
     const PropertyValue*                  pValue = rDescriptor.getConstArray();
-    bool                                  bRet = false;
 
     maFilterData.realloc( 0 );
 
@@ -533,11 +534,22 @@ bool SVGFilter::implExport( const Sequence< PropertyValue >& rDescriptor )
         }
     }
 
-    if( xOStm.is() )
+    if(mbWriterFilter || mbCalcFilter)
+       return implExportWriterOrCalc(xOStm);
+
+    return implExportImpressOrDraw(xOStm);
+}
+
+bool SVGFilter::implExportImpressOrDraw( const Reference< XOutputStream >& rxOStm)
+{
+    Reference< XComponentContext >        xContext( ::comphelper::getProcessComponentContext() ) ;
+    bool                                  bRet = false;
+
+    if( rxOStm.is() )
     {
         if( !mSelectedPages.empty() && !mMasterPageTargets.empty() )
         {
-            Reference< XDocumentHandler > xDocHandler( implCreateExportDocumentHandler( xOStm ), UNO_QUERY );
+            Reference< XDocumentHandler > xDocHandler( implCreateExportDocumentHandler( rxOStm ), UNO_QUERY );
 
             if( xDocHandler.is() )
             {
@@ -616,8 +628,91 @@ bool SVGFilter::implExport( const Sequence< PropertyValue >& rDescriptor )
             }
         }
     }
-
     return bRet;
+}
+
+
+bool SVGFilter::implExportWriterOrCalc( const Reference< XOutputStream >& rxOStm )
+{
+    Reference< XComponentContext >        xContext( ::comphelper::getProcessComponentContext() ) ;
+    bool                                  bRet = false;
+
+    if( rxOStm.is() )
+    {
+        Reference< XDocumentHandler > xDocHandler( implCreateExportDocumentHandler( rxOStm ), UNO_QUERY );
+
+        if( xDocHandler.is() )
+        {
+            mpObjects = new ObjectMap;
+
+            // mpSVGExport = new SVGExport( xDocHandler );
+            mpSVGExport = new SVGExport( xContext, xDocHandler, maFilterData );
+
+            // xSVGExport is set up only to manage the life-time of the object pointed by mpSVGExport,
+            // and in order to prevent that it is destroyed when passed to AnimationExporter.
+            Reference< XInterface > xSVGExport = static_cast< css::document::XFilter* >( mpSVGExport );
+
+            try
+            {
+                mxDefaultPage = mSelectedPages[0];
+                bRet = implExportDocument();
+            }
+            catch( ... )
+            {
+                delete mpSVGDoc;
+                mpSVGDoc = nullptr;
+                OSL_FAIL( "Exception caught" );
+            }
+
+            delete mpSVGWriter;
+            mpSVGWriter = nullptr;
+            mpSVGExport = nullptr; // pointed object is released by xSVGExport dtor at the end of this scope
+            delete mpSVGFontExport;
+            mpSVGFontExport = nullptr;
+            delete mpObjects;
+            mpObjects = nullptr;
+        }
+    }
+    return bRet;
+}
+
+bool SVGFilter::implExportWriterTextGraphic( const Reference< view::XSelectionSupplier >& xSelectionSupplier )
+{
+    Any selection = xSelectionSupplier->getSelection();
+    uno::Reference<lang::XServiceInfo> xSelection;
+    selection >>= xSelection;
+    if (xSelection.is() && xSelection->supportsService("com.sun.star.text.TextGraphicObject"))
+    {
+        uno::Reference<beans::XPropertySet> xPropertySet(xSelection, uno::UNO_QUERY);
+        uno::Reference<graphic::XGraphic> xGraphic;
+        xPropertySet->getPropertyValue("Graphic") >>= xGraphic;
+
+        if (!xGraphic.is())
+            return false;
+
+        const Graphic aGraphic(xGraphic);
+
+        // Calculate size from Graphic
+        Point aPos( OutputDevice::LogicToLogic(aGraphic.GetPrefMapMode().GetOrigin(), aGraphic.GetPrefMapMode(), MapMode(MapUnit::Map100thMM)) );
+        Size  aSize( OutputDevice::LogicToLogic(aGraphic.GetPrefSize(), aGraphic.GetPrefMapMode(), MapMode(MapUnit::Map100thMM)) );
+
+        assert(mSelectedPages.size() == 1);
+        SvxDrawPage* pSvxDrawPage(SvxDrawPage::getImplementation(mSelectedPages[0]));
+        if(pSvxDrawPage == nullptr || pSvxDrawPage->GetSdrPage() == nullptr)
+            return false;
+
+        SdrGrafObj* pGraphicObj = new SdrGrafObj(pSvxDrawPage->GetSdrPage()->getSdrModelFromSdrPage(), aGraphic, tools::Rectangle( aPos, aSize ));
+        uno::Reference< drawing::XShape > xShape = GetXShapeForSdrObject(pGraphicObj);
+        uno::Reference< XPropertySet > xShapePropSet(xShape, uno::UNO_QUERY);
+        css::awt::Rectangle aBoundRect (aPos.X(), aPos.Y(), aSize.Width(), aSize.Height());
+        xShapePropSet->setPropertyValue("BoundRect", uno::Any(aBoundRect));
+        xShapePropSet->setPropertyValue("Graphic", uno::Any(xGraphic));
+
+        maShapeSelection = drawing::ShapeCollection::create(comphelper::getProcessComponentContext());
+        maShapeSelection->add(xShape);
+    }
+
+    return true;
 }
 
 
@@ -639,6 +734,11 @@ bool SVGFilter::implLookForFirstVisiblePage()
 {
     sal_Int32 nCurPage = 0, nLastPage = mSelectedPages.size() - 1;
 
+    if(!mbPresentation || mbSinglePage)
+    {
+        mnVisiblePage = nCurPage;
+    }
+
     while( ( nCurPage <= nLastPage ) && ( -1 == mnVisiblePage ) )
     {
         const Reference< css::drawing::XDrawPage > & xDrawPage = mSelectedPages[nCurPage];
@@ -651,8 +751,7 @@ bool SVGFilter::implLookForFirstVisiblePage()
             {
                 bool bVisible = false;
 
-                if( !mbPresentation || mbSinglePage ||
-                    ( ( xPropSet->getPropertyValue( "Visible" ) >>= bVisible ) && bVisible ) )
+                if( ( xPropSet->getPropertyValue( "Visible" ) >>= bVisible ) && bVisible )
                 {
                     mnVisiblePage = nCurPage;
                 }
@@ -667,17 +766,15 @@ bool SVGFilter::implLookForFirstVisiblePage()
 
 bool SVGFilter::implExportDocument()
 {
-    OUString         aAttr;
     sal_Int32        nDocX = 0, nDocY = 0; // #i124608#
     sal_Int32        nDocWidth = 0, nDocHeight = 0;
-    bool         bRet = false;
+    bool             bRet = false;
     sal_Int32        nLastPage = mSelectedPages.size() - 1;
 
     mbSinglePage = (nLastPage == 0);
     mnVisiblePage = -1;
 
     const Reference< XPropertySet >             xDefaultPagePropertySet( mxDefaultPage, UNO_QUERY );
-    const Reference< XExtendedDocumentHandler > xExtDocHandler( mpSVGExport->GetDocHandler(), UNO_QUERY );
 
     // #i124608#
     mbExportShapeSelection = mbSinglePage && maShapeSelection.is() && maShapeSelection->getCount();
@@ -693,33 +790,18 @@ bool SVGFilter::implExportDocument()
         // #i124608# create BoundRange and set nDocX, nDocY, nDocWidth and nDocHeight
         basegfx::B2DRange aShapeRange;
 
-        uno::Reference< XPrimitiveFactory2D > xPrimitiveFactory = PrimitiveFactory2D::create( mxContext );
-
-        // use XPrimitiveFactory2D and go the way over getting the primitives; this
-        // will give better precision (doubles) and be based on the true object
-        // geometry. If needed aViewInformation may be expanded to carry a view
-        // resolution for which to prepare the geometry.
-        if(xPrimitiveFactory.is())
+        for(sal_Int32 a(0); a < maShapeSelection->getCount(); a++)
         {
             Reference< css::drawing::XShape > xShapeCandidate;
-            const Sequence< PropertyValue > aViewInformation;
-            const Sequence< PropertyValue > aParams;
-
-            for(sal_Int32 a(0); a < maShapeSelection->getCount(); a++)
+            if((maShapeSelection->getByIndex(a) >>= xShapeCandidate) && xShapeCandidate.is())
             {
-                if((maShapeSelection->getByIndex(a) >>= xShapeCandidate) && xShapeCandidate.is())
+                Reference< XPropertySet > xShapePropSet( xShapeCandidate, UNO_QUERY );
+                css::awt::Rectangle aBoundRect;
+                if( xShapePropSet.is() && ( xShapePropSet->getPropertyValue( "BoundRect" ) >>= aBoundRect ))
                 {
-                    const Sequence< Reference< XPrimitive2D > > aPrimitiveSequence(
-                        xPrimitiveFactory->createPrimitivesFromXShape( xShapeCandidate, aParams ));
-                    const sal_Int32 nCount(aPrimitiveSequence.getLength());
-
-                    for(sal_Int32 nIndex = 0; nIndex < nCount; nIndex++)
-                    {
-                        const RealRectangle2D aRect(aPrimitiveSequence[nIndex]->getRange(aViewInformation));
-
-                        aShapeRange.expand(basegfx::B2DTuple(aRect.X1, aRect.Y1));
-                        aShapeRange.expand(basegfx::B2DTuple(aRect.X2, aRect.Y2));
-                    }
+                    aShapeRange.expand(basegfx::B2DTuple(aBoundRect.X, aBoundRect.Y));
+                    aShapeRange.expand(basegfx::B2DTuple(aBoundRect.X + aBoundRect.Width,
+                                                         aBoundRect.Y + aBoundRect.Height));
                 }
             }
         }
@@ -733,95 +815,15 @@ bool SVGFilter::implExportDocument()
         }
     }
 
-    if( xExtDocHandler.is() && !mpSVGExport->IsUseTinyProfile() )
-    {
-        xExtDocHandler->unknown( SVG_DTD_STRING );
-    }
-
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "version", "1.2" );
-
-    if( mpSVGExport->IsUseTinyProfile() )
-         mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "baseProfile", "tiny" );
-
-    // The following if block means that the slide size is not adapted
-    // to the size of the browser window, moreover the slide is top left aligned
-    // instead of centered:
-    if( !mbPresentation )
-    {
-        aAttr = OUString::number( nDocWidth * 0.01 ) + "mm";
-        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", aAttr );
-
-        aAttr = OUString::number( nDocHeight * 0.01 ) + "mm";
-        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", aAttr );
-    }
-
-    // #i124608# set viewBox explicitly to the exported content
-    if (mbExportShapeSelection)
-    {
-        aAttr = OUString::number(nDocX) + " " + OUString::number(nDocY) + " ";
-    }
+    if(mbWriterFilter || mbCalcFilter)
+        implExportDocumentHeaderWriterOrCalc(nDocX, nDocY, nDocWidth, nDocHeight);
     else
-    {
-        aAttr = "0 0 ";
-    }
+        implExportDocumentHeaderImpressOrDraw(nDocX, nDocY, nDocWidth, nDocHeight);
 
-    aAttr += OUString::number(nDocWidth) + " " + OUString::number(nDocHeight);
-
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "viewBox", aAttr );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "preserveAspectRatio", "xMidYMid" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "fill-rule", "evenodd" );
-
-    // standard line width is based on 1 pixel on a 90 DPI device (0.28222mmm)
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "stroke-width", OUString::number( 28.222 ) );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "stroke-linejoin", "round" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns", constSvgNamespace );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:ooo", "http://xml.openoffice.org/svg/export" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:xlink", "http://www.w3.org/1999/xlink" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:presentation", "http://sun.com/xmlns/staroffice/presentation" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:smil", "http://www.w3.org/2001/SMIL20/" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:anim", "urn:oasis:names:tc:opendocument:xmlns:animation:1.0" );
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xml:space", "preserve" );
-
-    mpSVGDoc = new SvXMLElementExport( *mpSVGExport, XML_NAMESPACE_NONE, "svg", true, true );
-
-    // Create a ClipPath element that will be used for cutting bitmaps and other elements that could exceed the page margins.
-    {
-        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "ClipPathGroup" );
-        SvXMLElementExport aDefsElem( *mpSVGExport, XML_NAMESPACE_NONE, "defs", true, true );
-        {
-            msClipPathId = "presentation_clip_path";
-            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", msClipPathId );
-            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "clipPathUnits", "userSpaceOnUse" );
-            SvXMLElementExport aClipPathElem( *mpSVGExport, XML_NAMESPACE_NONE, "clipPath", true, true );
-            {
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "x", OUString::number( nDocX ) );
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "y", OUString::number( nDocY ) );
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", OUString::number( nDocWidth ) );
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", OUString::number( nDocHeight ) );
-                SvXMLElementExport aRectElem( *mpSVGExport, XML_NAMESPACE_NONE, "rect", true, true );
-            }
-        }
-        // Create a ClipPath element applied to the leaving slide in order
-        // to avoid that slide borders are visible during transition
-        {
-            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", "presentation_clip_path_shrink" );
-            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "clipPathUnits", "userSpaceOnUse" );
-            SvXMLElementExport aClipPathElem( *mpSVGExport, XML_NAMESPACE_NONE, "clipPath", true, true );
-            {
-                sal_Int32 nDocWidthExt = nDocWidth / 500;
-                sal_Int32 nDocHeightExt = nDocHeight / 500;
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "x", OUString::number( nDocX + nDocWidthExt / 2 ) );
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "y", OUString::number( nDocY + nDocHeightExt / 2) );
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", OUString::number( nDocWidth - nDocWidthExt ) );
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", OUString::number( nDocHeight - nDocHeightExt ) );
-                SvXMLElementExport aRectElem( *mpSVGExport, XML_NAMESPACE_NONE, "rect", true, true );
-            }
-        }
-    }
 
     if( implLookForFirstVisiblePage() )  // OK! We found at least one visible page.
     {
-        if( mbPresentation )
+        if( mbPresentation && !mbExportShapeSelection )
         {
             implGenerateMetaData();
             implExportAnimations();
@@ -875,10 +877,134 @@ bool SVGFilter::implExportDocument()
     return bRet;
 }
 
+void SVGFilter::implExportDocumentHeaderImpressOrDraw(sal_Int32 nDocX, sal_Int32 nDocY,
+                                                    sal_Int32 nDocWidth, sal_Int32 nDocHeight)
+{
+    const Reference< XExtendedDocumentHandler > xExtDocHandler( mpSVGExport->GetDocHandler(), UNO_QUERY );
+    if( xExtDocHandler.is() && !mpSVGExport->IsUseTinyProfile() )
+    {
+        xExtDocHandler->unknown( SVG_DTD_STRING );
+    }
+
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "version", "1.2" );
+
+    if( mpSVGExport->IsUseTinyProfile() )
+         mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "baseProfile", "tiny" );
+
+    // The following if block means that the slide size is not adapted
+    // to the size of the browser window, moreover the slide is top left aligned
+    // instead of centered:
+    OUString aAttr;
+    if( !mbPresentation )
+    {
+        aAttr = OUString::number( nDocWidth * 0.01 ) + "mm";
+        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", aAttr );
+
+        aAttr = OUString::number( nDocHeight * 0.01 ) + "mm";
+        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", aAttr );
+    }
+
+    // #i124608# set viewBox explicitly to the exported content
+    if (mbExportShapeSelection)
+    {
+        aAttr = OUString::number(nDocX) + " " + OUString::number(nDocY) + " ";
+    }
+    else
+    {
+        aAttr = "0 0 ";
+    }
+
+    aAttr += OUString::number(nDocWidth) + " " + OUString::number(nDocHeight);
+
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "viewBox", aAttr );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "preserveAspectRatio", "xMidYMid" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "fill-rule", "evenodd" );
+
+    // standard line width is based on 1 pixel on a 90 DPI device (0.28222mmm)
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "stroke-width", OUString::number( 28.222 ) );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "stroke-linejoin", "round" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns", constSvgNamespace );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:ooo", "http://xml.openoffice.org/svg/export" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:xlink", "http://www.w3.org/1999/xlink" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:presentation", "http://sun.com/xmlns/staroffice/presentation" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:smil", "http://www.w3.org/2001/SMIL20/" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:anim", "urn:oasis:names:tc:opendocument:xmlns:animation:1.0" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xml:space", "preserve" );
+
+    mpSVGDoc = new SvXMLElementExport( *mpSVGExport, XML_NAMESPACE_NONE, "svg", true, true );
+
+    // Create a ClipPath element that will be used for cutting bitmaps and other elements that could exceed the page margins.
+    if(!mbExportShapeSelection)
+    {
+        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "ClipPathGroup" );
+        SvXMLElementExport aDefsElem( *mpSVGExport, XML_NAMESPACE_NONE, "defs", true, true );
+        {
+            msClipPathId = "presentation_clip_path";
+            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", msClipPathId );
+            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "clipPathUnits", "userSpaceOnUse" );
+            SvXMLElementExport aClipPathElem( *mpSVGExport, XML_NAMESPACE_NONE, "clipPath", true, true );
+            {
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "x", OUString::number( nDocX ) );
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "y", OUString::number( nDocY ) );
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", OUString::number( nDocWidth ) );
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", OUString::number( nDocHeight ) );
+                SvXMLElementExport aRectElem( *mpSVGExport, XML_NAMESPACE_NONE, "rect", true, true );
+            }
+        }
+        // Create a ClipPath element applied to the leaving slide in order
+        // to avoid that slide borders are visible during transition
+        {
+            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", "presentation_clip_path_shrink" );
+            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "clipPathUnits", "userSpaceOnUse" );
+            SvXMLElementExport aClipPathElem( *mpSVGExport, XML_NAMESPACE_NONE, "clipPath", true, true );
+            {
+                sal_Int32 nDocWidthExt = nDocWidth / 500;
+                sal_Int32 nDocHeightExt = nDocHeight / 500;
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "x", OUString::number( nDocX + nDocWidthExt / 2 ) );
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "y", OUString::number( nDocY + nDocHeightExt / 2) );
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", OUString::number( nDocWidth - nDocWidthExt ) );
+                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", OUString::number( nDocHeight - nDocHeightExt ) );
+                SvXMLElementExport aRectElem( *mpSVGExport, XML_NAMESPACE_NONE, "rect", true, true );
+            }
+        }
+    }
+}
+
+void SVGFilter::implExportDocumentHeaderWriterOrCalc(sal_Int32 nDocX, sal_Int32 nDocY,
+                                               sal_Int32 nDocWidth, sal_Int32 nDocHeight)
+{
+    OUString aAttr;
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "version", "1.2" );
+
+    aAttr = OUString::number( nDocWidth * 0.01 ) + "mm";
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "width", aAttr );
+
+    aAttr = OUString::number( nDocHeight * 0.01 ) + "mm";
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "height", aAttr );
+
+    aAttr = OUString::number(nDocX) + " " + OUString::number(nDocY) + " ";
+    aAttr += OUString::number(nDocWidth) + " " + OUString::number(nDocHeight);
+
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "viewBox", aAttr );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "preserveAspectRatio", "xMidYMid" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "fill-rule", "evenodd" );
+
+    // standard line width is based on 1 pixel on a 90 DPI device (0.28222mmm)
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "stroke-width", OUString::number( 28.222 ) );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "stroke-linejoin", "round" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns", constSvgNamespace );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:ooo", "http://xml.openoffice.org/svg/export" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:xlink", "http://www.w3.org/1999/xlink" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:office", "urn:oasis:names:tc:opendocument:xmlns:office:1.0" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xmlns:smil", "urn:oasis:names:tc:opendocument:xmlns:smil-compatible:1.0" );
+    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xml:space", "preserve" );
+
+    mpSVGDoc = new SvXMLElementExport( *mpSVGExport, XML_NAMESPACE_NONE, "svg", true, true );
+}
 
 /// Append aField to aFieldSet if it is not already present in the set and create the field id sFieldId
 template< typename TextFieldType >
-static OUString implGenerateFieldId( std::vector< TextField* > & aFieldSet,
+static OUString implGenerateFieldId( std::vector< std::unique_ptr<TextField> > & aFieldSet,
                               const TextFieldType & aField,
                               const OUString & sOOOElemField,
                               const Reference< css::drawing::XDrawPage >& xMasterPage )
@@ -897,7 +1023,7 @@ static OUString implGenerateFieldId( std::vector< TextField* > & aFieldSet,
     OUString sFieldId(sOOOElemField + "_");
     if( !bFound )
     {
-        aFieldSet.push_back( new TextFieldType( aField ) );
+        aFieldSet.emplace_back( new TextFieldType( aField ) );
     }
     aFieldSet[i]->insertMasterPage( xMasterPage );
     sFieldId += OUString::number( i );
@@ -968,7 +1094,7 @@ void SVGFilter::implGenerateMetaData()
             SvXMLElementExport    aExp( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
             const OUString                aId( NSPREFIX "meta_slide" );
             const OUString                aElemTextFieldId( aOOOElemTextField );
-            std::vector< TextField* >     aFieldSet;
+            std::vector< std::unique_ptr<TextField> >     aFieldSet;
 
             // dummy slide - used as leaving slide for transition on the first slide
             if( mbPresentation )
@@ -1109,7 +1235,7 @@ void SVGFilter::implGenerateMetaData()
                 }
                 if( mpSVGExport->IsEmbedFonts() && mpSVGExport->IsUsePositionedCharacters() )
                 {
-                    for(TextField* i : aFieldSet)
+                    for(std::unique_ptr<TextField>& i : aFieldSet)
                     {
                         i->growCharSet( mTextFieldCharSets );
                     }
@@ -1117,10 +1243,7 @@ void SVGFilter::implGenerateMetaData()
             }
 
             // text fields are used only for generating meta info so we don't need them anymore
-            for(TextField* i : aFieldSet)
-            {
-               delete i;
-            }
+            aFieldSet.clear();
         }
     }
 }
@@ -1188,6 +1311,9 @@ void SVGFilter::implExportAnimations()
 
 void SVGFilter::implExportTextShapeIndex()
 {
+    if(mbExportShapeSelection)
+        return;
+
     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "TextShapeIndex" );
     SvXMLElementExport aDefsContainerElem( *mpSVGExport, XML_NAMESPACE_NONE, "defs", true, true );
 
@@ -1262,6 +1388,9 @@ void SVGFilter::implEmbedBulletGlyph( sal_Unicode cBullet, const OUString & sPat
  */
 void SVGFilter::implExportTextEmbeddedBitmaps()
 {
+    if (mEmbeddedBitmapActionSet.empty())
+        return;
+
     mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "TextEmbeddedBitmaps" );
     SvXMLElementExport aDefsContainerElem( *mpSVGExport, XML_NAMESPACE_NONE, "defs", true, true );
 
@@ -1462,7 +1591,7 @@ void SVGFilter::implExportDrawPages( const std::vector< Reference< css::drawing:
                 "SVGFilter::implExportDrawPages: nFirstPage > nLastPage" );
 
     // dummy slide - used as leaving slide for transition on the first slide
-    if( mbPresentation )
+    if( mbPresentation && !mbExportShapeSelection)
     {
         mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "DummySlide" );
         SvXMLElementExport aDummySlideElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
@@ -1483,66 +1612,77 @@ void SVGFilter::implExportDrawPages( const std::vector< Reference< css::drawing:
         }
     }
 
-    // We wrap all slide in a group element with class name "SlideGroup".
-    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "SlideGroup" );
-    SvXMLElementExport aExp( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
-
-    for( sal_Int32 i = nFirstPage; i <= nLastPage; ++i )
+    if(!mbExportShapeSelection)
     {
-        Reference< css::drawing::XShapes > xShapes;
+        // We wrap all slide in a group element with class name "SlideGroup".
+        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "SlideGroup" );
+        SvXMLElementExport aExp( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
 
-        if (mbExportShapeSelection)
+        for( sal_Int32 i = nFirstPage; i <= nLastPage; ++i )
         {
-            // #i124608# export a given object selection
-            xShapes = maShapeSelection;
-        }
-        else
-        {
-            xShapes.set( rxPages[i], UNO_QUERY );
-        }
+            Reference< css::drawing::XShapes > xShapes;
 
-        if( xShapes.is() )
-        {
-            // Insert the <g> open tag related to the svg element for
-            // handling a slide visibility.
-            // In case the exported slides are more than one the initial
-            // visibility of each slide is set to 'hidden'.
-            if( mbPresentation )
+            if (mbExportShapeSelection)
             {
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "visibility", "hidden" );
+                // #i124608# export a given object selection
+                xShapes = maShapeSelection;
             }
-            SvXMLElementExport aGElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
-
-
+            else
             {
-                // Insert a further inner the <g> open tag for handling elements
-                // inserted before or after a slide: that is used for some
-                // when switching from the last to the first slide.
-                const OUString & sPageId = implGetValidIDFromInterface( rxPages[i] );
-                OUString sContainerId = "container-";
-                sContainerId += sPageId;
-                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sContainerId );
-                SvXMLElementExport aContainerExp( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
+                xShapes.set( rxPages[i], UNO_QUERY );
+            }
+
+            if( xShapes.is() )
+            {
+                // Insert the <g> open tag related to the svg element for
+                // handling a slide visibility.
+                // In case the exported slides are more than one the initial
+                // visibility of each slide is set to 'hidden'.
+                if( mbPresentation )
+                {
+                    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "visibility", "hidden" );
+                }
+                SvXMLElementExport aGElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
+
 
                 {
-                    // add id attribute
-                    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sPageId );
+                    // Insert a further inner the <g> open tag for handling elements
+                    // inserted before or after a slide: that is used for some
+                    // when switching from the last to the first slide.
+                    const OUString & sPageId = implGetValidIDFromInterface( rxPages[i] );
+                    OUString sContainerId = "container-";
+                    sContainerId += sPageId;
+                    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sContainerId );
+                    SvXMLElementExport aContainerExp( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
 
-                    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "Slide" );
+                    {
+                        // add id attribute
+                        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", sPageId );
 
-                    // Adding a clip path to each exported slide , so in case
-                    // bitmaps or other elements exceed the slide margins, they are
-                    // trimmed, even when they are shown inside a thumbnail view.
-                    OUString sClipPathAttrValue = "url(#" + msClipPathId + ")";
-                    mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "clip-path", sClipPathAttrValue );
+                        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "Slide" );
 
-                    SvXMLElementExport aSlideElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
+                        // Adding a clip path to each exported slide , so in case
+                        // bitmaps or other elements exceed the slide margins, they are
+                        // trimmed, even when they are shown inside a thumbnail view.
+                        OUString sClipPathAttrValue = "url(#" + msClipPathId + ")";
+                        mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "clip-path", sClipPathAttrValue );
 
-                    implExportPage( sPageId, rxPages[i], xShapes, false /* is not a master page */ );
-                }
-            } // append the </g> closing tag related to inserted elements
-        } // append the </g> closing tag related to the svg element handling the slide visibility
+                        SvXMLElementExport aSlideElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
+
+                        implExportPage( sPageId, rxPages[i], xShapes, false /* is not a master page */ );
+                    }
+                } // append the </g> closing tag related to inserted elements
+            } // append the </g> closing tag related to the svg element handling the slide visibility
+        }
     }
+    else
+    {
+        assert(maShapeSelection.is());
+        assert(rxPages.size() == 1);
+
+        const OUString & sPageId = implGetValidIDFromInterface( rxPages[0] );
+        implExportPage( sPageId, rxPages[0], maShapeSelection, false /* is not a master page */ );
+     }
 }
 
 
@@ -1938,7 +2078,23 @@ bool SVGFilter::implCreateObjectsFromShape( const Reference< css::drawing::XDraw
 
         if( pObj )
         {
-            const Graphic aGraphic(SdrExchangeView::GetObjGraphic(*pObj));
+            Graphic aGraphic(SdrExchangeView::GetObjGraphic(*pObj));
+
+            // Writer graphic shapes are handled differently
+            if( mbWriterFilter && aGraphic.GetType() == GraphicType::NONE )
+            {
+                if (rxShape->getShapeType() == "com.sun.star.drawing.GraphicObjectShape")
+                {
+                    uno::Reference<beans::XPropertySet> xPropertySet(rxShape, uno::UNO_QUERY);
+                    uno::Reference<graphic::XGraphic> xGraphic;
+                    xPropertySet->getPropertyValue("Graphic") >>= xGraphic;
+
+                    if (!xGraphic.is())
+                        return false;
+
+                    aGraphic = Graphic(xGraphic);
+                }
+            }
 
             if( aGraphic.GetType() != GraphicType::NONE )
             {
@@ -2228,7 +2384,7 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                                     aDate.SetDay( i );
                                     sDate.append( SvxDateField::GetFormatted( aDate, eDateFormat, *pNumberFormatter, eLang ) );
                                 }
-                                SAL_FALLTHROUGH; // We need months too!
+                                [[fallthrough]]; // We need months too!
                             case SvxDateFormat::C:       // 13.Feb 1996
                             case SvxDateFormat::D:       // 13.February 1996
                                 for( sal_uInt16 i = 1; i <= 12; ++i ) // we get all months in a year

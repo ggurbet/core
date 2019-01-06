@@ -26,8 +26,10 @@
 
 namespace com { namespace sun { namespace star { namespace linguistic2 { class XHyphenatedWord; } } } }
 
+namespace sw { namespace mark { class IMark; } }
 class SwCharRange;
 class SwTextNode;
+class SwTextAttrEnd;
 class SwTextFormatter;
 class SwTextFormatInfo;
 class SwParaPortion;
@@ -107,6 +109,9 @@ SwPosition GetParaPropsPos(SwRootFrame const& rLayout, SwPosition const& rPos);
 std::pair<SwTextNode *, SwTextNode *>
 GetFirstAndLastNode(SwRootFrame const& rLayout, SwNodeIndex const& rPos);
 
+SwTextNode const& GetAttrMerged(SfxItemSet & rFormatSet,
+        SwTextNode const& rNode, SwRootFrame const* pLayout);
+
 void GotoPrevLayoutTextFrame(SwNodeIndex & rIndex, SwRootFrame const* pLayout);
 void GotoNextLayoutTextFrame(SwNodeIndex & rIndex, SwRootFrame const* pLayout);
 
@@ -132,6 +137,10 @@ OUString GetExpandTextMerged(SwRootFrame const* pLayout,
         SwTextNode const& rNode, bool bWithNumber,
         bool bWithSpacesForLevel, ExpandMode i_mode);
 
+bool IsMarkHidden(SwRootFrame const& rLayout, ::sw::mark::IMark const& rMark);
+bool IsMarkHintHidden(SwRootFrame const& rLayout,
+        SwTextNode const& rNode, SwTextAttrEnd const& rHint);
+
 } // namespace sw
 
 /// Represents the visualization of a paragraph. Typical upper is an
@@ -150,7 +159,7 @@ class SW_DLLPUBLIC SwTextFrame: public SwContentFrame
     /// will still be set; GetFormatted() is the function that forces
     /// recreation of the SwLineLayout by Format() if necessary.
     static SwCache *s_pTextCache;
-    static long nMinPrtLine;    // This Line must not be underrun when printing
+    static constexpr long nMinPrtLine = 0;    // This Line must not be underrun when printing
                                 // Hack for table cells stretching multiple pages
 
     sal_uLong  mnAllLines        :24; // Line count for the Paint (including nThisLines)
@@ -431,6 +440,7 @@ public:
     /// Returns the text portion we want to edit (for inline see underneath)
     const OUString& GetText() const;
     SwTextNode const* GetTextNodeForParaProps() const;
+    SwTextNode const* GetTextNodeForFirstText() const;
     SwTextNode      * GetTextNodeFirst()
         { return const_cast<SwTextNode*>(const_cast<SwTextFrame const*>(this)->GetTextNodeFirst()); };
     SwTextNode const* GetTextNodeFirst() const;
@@ -578,8 +588,6 @@ public:
 
     /// Respect the Follows
     inline bool IsInside(TextFrameIndex nPos) const;
-
-    const SwBodyFrame   *FindBodyFrame()   const;
 
     /// DropCaps and selections
     bool GetDropRect( SwRect &rRect ) const
@@ -753,6 +761,7 @@ public:
 
     bool IsSymbolAt(TextFrameIndex) const;
     OUString GetCurWord(SwPosition const&) const;
+    sal_uInt16 GetScalingOfSelectedText(TextFrameIndex nStt, TextFrameIndex nEnd);
 
     virtual void dumpAsXmlAttributes(xmlTextWriterPtr writer) const override;
 };

@@ -44,6 +44,7 @@
 #include <o3tl/make_unique.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 namespace emfplushelper
 {
@@ -1056,8 +1057,7 @@ namespace emfplushelper
                         ::basegfx::B2DPoint mappedCenter(Map(dx + dw / 2, dy + dh / 2));
                         ::basegfx::B2DSize mappedSize(MapSize(dw / 2, dh / 2));
                         ::basegfx::B2DPolyPolygon polyPolygon(
-                            ::basegfx::B2DPolygon(
-                                ::basegfx::utils::createPolygonFromEllipse(mappedCenter, mappedSize.getX(), mappedSize.getY())));
+                                ::basegfx::utils::createPolygonFromEllipse(mappedCenter, mappedSize.getX(), mappedSize.getY()));
 
                         if (type == EmfPlusRecordTypeFillEllipse)
                             EMFPPlusFillPolygon(polyPolygon, flags & 0x8000, brushIndexOrColor);
@@ -1663,13 +1663,12 @@ namespace emfplushelper
                         ::basegfx::B2DSize mappedSize(MapSize(dw, dh));
 
                         ::basegfx::B2DPolyPolygon polyPolygon(
-                            ::basegfx::B2DPolygon(
                                 ::basegfx::utils::createPolygonFromRect(
                                     ::basegfx::B2DRectangle(
                                         mappedPoint.getX(),
                                         mappedPoint.getY(),
                                         mappedPoint.getX() + mappedSize.getX(),
-                                        mappedPoint.getY() + mappedSize.getY()))));
+                                        mappedPoint.getY() + mappedSize.getY())));
 
                         HandleNewClipRegion(combineClip(mrPropertyHolders.Current().getClipPolyPolygon(), combineMode, polyPolygon), mrTargetHolders, mrPropertyHolders);
                         break;
@@ -1800,10 +1799,9 @@ namespace emfplushelper
 
                                 // generate the DX-Array
                                 aDXArray.clear();
-                                double mappedPosX = Map(charsPosX[pos], charsPosY[pos]).getX();
-                                for (size_t i = 0; i < aLength-1; i++)
+                                for (size_t i = 0; i < aLength - 1; i++)
                                 {
-                                    aDXArray.push_back(Map(charsPosX[pos + i + 1], charsPosY[pos + i + 1]).getX() - mappedPosX);
+                                    aDXArray.push_back(charsPosX[pos + i + 1] - charsPosX[pos]);
                                 }
                                 // last entry
                                 aDXArray.push_back(0);

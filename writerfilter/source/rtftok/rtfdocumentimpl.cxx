@@ -16,6 +16,7 @@
 #include <com/sun/star/text/WrapTextMode.hpp>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <o3tl/clamp.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/streamwrap.hxx>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
@@ -43,6 +44,7 @@
 #include "rtfreferenceproperties.hxx"
 #include "rtfskipdestination.hxx"
 #include "rtftokenizer.hxx"
+#include "rtflookahead.hxx"
 
 using namespace com::sun::star;
 
@@ -257,6 +259,7 @@ RTFDocumentImpl::RTFDocumentImpl(uno::Reference<uno::XComponentContext> const& x
     , m_aDefaultState(this)
     , m_bSkipUnknown(false)
     , m_bFirstRun(true)
+    , m_bFirstRunException(false)
     , m_bNeedPap(true)
     , m_bNeedCr(false)
     , m_bNeedCrOrig(false)
@@ -297,6 +300,8 @@ RTFDocumentImpl::RTFDocumentImpl(uno::Reference<uno::XComponentContext> const& x
     , m_hasRFooter(false)
     , m_hasFFooter(false)
     , m_bAfterCellBeforeRow(false)
+    , m_nCellsInRow(0)
+    , m_nActualCellInRow(0)
 {
     OSL_ASSERT(xInputStream.is());
     m_pInStream = utl::UcbStreamHelper::CreateStream(xInputStream, true);
@@ -376,7 +381,7 @@ void RTFDocumentImpl::checkFirstRun()
         outputSettingsTable();
         // start initial paragraph
         m_bFirstRun = false;
-        assert(!m_bNeedSect);
+        assert(!m_bNeedSect || m_bFirstRunException);
         setNeedSect(true); // first call that succeeds
 
         // set the requested default font, if there are none
@@ -396,8 +401,18 @@ void RTFDocumentImpl::setNeedPar(bool bNeedPar) { m_bNeedPar = bNeedPar; }
 
 void RTFDocumentImpl::setNeedSect(bool bNeedSect)
 {
+    if (!m_bNeedSect && bNeedSect && m_bFirstRun)
+    {
+        RTFLookahead aLookahead(Strm(), m_pTokenizer->getGroupStart());
+        if (aLookahead.hasTable() && aLookahead.hasColumns())
+        {
+            m_bFirstRunException = true;
+        }
+    }
+
     // ignore setting before checkFirstRun - every keyword calls setNeedSect!
-    if (!m_bNeedSect && bNeedSect && !m_bFirstRun)
+    // except the case of a table in a multicolumn section
+    if (!m_bNeedSect && bNeedSect && (!m_bFirstRun || m_bFirstRunException))
     {
         if (!m_pSuperstream) // no sections in header/footer!
         {
@@ -1465,6 +1480,12 @@ void RTFDocumentImpl::text(OUString& rString)
 
     RTFBuffer_t* pCurrentBuffer = m_aStates.top().pCurrentBuffer;
 
+    if (m_nActualCellInRow > 0)
+    {
+        m_nActualCellInRow = 0;
+        m_nCellsInRow = 0;
+    }
+
     if (!pCurrentBuffer && m_aStates.top().eDestination != Destination::FOOTNOTE)
         Mapper().startCharacterGroup();
     else if (pCurrentBuffer)
@@ -1606,6 +1627,7 @@ void RTFDocumentImpl::replayBuffer(RTFBuffer_t& rBuffer, RTFSprms* const pSprms,
         }
         else if (std::get<0>(aTuple) == BUFFER_CELLEND)
         {
+            m_nActualCellInRow++;
             assert(pSprms && pAttributes);
             auto pValue = new RTFValue(1);
             pSprms->set(NS_ooxml::LN_tblCell, pValue);
@@ -1624,9 +1646,15 @@ void RTFDocumentImpl::replayBuffer(RTFBuffer_t& rBuffer, RTFSprms* const pSprms,
         }
         else if (std::get<0>(aTuple) == BUFFER_UTEXT)
         {
-            OUString const aString(std::get<1>(aTuple)->getString());
-            Mapper().utext(reinterpret_cast<sal_uInt8 const*>(aString.getStr()),
-                           aString.getLength());
+            // ignore text outside the cell content in table rows
+            // except in the case of nested tables
+            if (m_nActualCellInRow == 0 || m_nActualCellInRow < m_nCellsInRow
+                || m_nCellsInRow == -1)
+            {
+                OUString const aString(std::get<1>(aTuple)->getString());
+                Mapper().utext(reinterpret_cast<sal_uInt8 const*>(aString.getStr()),
+                               aString.getLength());
+            }
         }
         else if (std::get<0>(aTuple) == BUFFER_ENDRUN)
             Mapper().endCharacterGroup();

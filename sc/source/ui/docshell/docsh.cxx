@@ -186,7 +186,7 @@ void ScDocShell::InitInterface_Impl()
 }
 
 //  GlobalName of the current version:
-SFX_IMPL_OBJECTFACTORY( ScDocShell, SvGlobalName(SO3_SC_CLASSID), SfxObjectShellFlags::STD_NORMAL, "scalc" )
+SFX_IMPL_OBJECTFACTORY( ScDocShell, SvGlobalName(SO3_SC_CLASSID), "scalc" )
 
 
 void ScDocShell::FillClass( SvGlobalName* pClassName,
@@ -578,28 +578,6 @@ bool ScDocShell::SaveXML( SfxMedium* pSaveMedium, const css::uno::Reference< css
     m_aDocument.EnableIdle(true);
 
     return bRet;
-}
-
-bool ScDocShell::SaveCurrentChart( SfxMedium& rMedium )
-{
-    try
-    {
-
-        uno::Reference< lang::XComponent > xCurrentComponent = frame::Desktop::create( comphelper::getProcessComponentContext() )->getCurrentComponent();
-
-        uno::Reference< frame::XStorable2 > xStorable( xCurrentComponent, uno::UNO_QUERY_THROW );
-
-        uno::Reference< frame::XModel > xChartDoc ( xCurrentComponent, uno::UNO_QUERY_THROW );
-
-        ScXMLChartExportWrapper aExport( xChartDoc, rMedium );
-        aExport.Export();
-        return true;
-    }
-    catch(...)
-    {
-        SAL_WARN("sc", "exception thrown while saving chart. Bug!!!");
-        return false;
-    }
 }
 
 bool ScDocShell::Load( SfxMedium& rMedium )
@@ -1031,7 +1009,7 @@ void ScDocShell::Notify( SfxBroadcaster&, const SfxHint& rHint )
                             SetError(ERRCODE_IO_ABORT); // this error code will produce no error message, but will break the further saving process
                         }
                     }
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 }
             case SfxEventHintId::SaveToDoc:
                 // #i108978# If no event is sent before saving, there will also be no "...DONE" event,
@@ -1045,7 +1023,7 @@ void ScDocShell::Notify( SfxBroadcaster&, const SfxHint& rHint )
                 {
                     // new positions are used after "save" and "save as", but not "save to"
                     UseSheetSaveEntries();      // use positions from saved file for next saving
-                    SAL_FALLTHROUGH;
+                    [[fallthrough]];
                 }
             case SfxEventHintId::SaveToDocDone:
                 // only reset the flag, don't use the new positions
@@ -1846,21 +1824,10 @@ bool ScDocShell::SaveAs( SfxMedium& rMedium )
 
     PrepareSaveGuard aPrepareGuard( *this);
 
-    OUString aFltName = rMedium.GetFilter()->GetFilterName();
-    bool bChartExport = aFltName.indexOf("chart8") != -1;
-
     //  wait cursor is handled with progress bar
-    bool bRet = false;
-    if(!bChartExport)
-    {
-        bRet = SfxObjectShell::SaveAs( rMedium );
-        if (bRet)
-            bRet = SaveXML( &rMedium, nullptr );
-    }
-    else
-    {
-        bRet = SaveCurrentChart( rMedium );
-    }
+    bool bRet = SfxObjectShell::SaveAs( rMedium );
+    if (bRet)
+        bRet = SaveXML( &rMedium, nullptr );
 
     return bRet;
 }

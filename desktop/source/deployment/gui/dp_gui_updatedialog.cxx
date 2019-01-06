@@ -94,6 +94,7 @@
 #include <vcl/fixed.hxx>
 #include <vcl/image.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/vclmedit.hxx>
 
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -587,7 +588,7 @@ UpdateDialog::CheckListBox::CheckListBox( vcl::Window* pParent, UpdateDialog & d
     m_enableUpdate( DpResId( RID_DLG_UPDATE_ENABLE ) ),
     m_dialog(dialog)
 {
-    SetNormalStaticImage(Image(BitmapEx(RID_DLG_UPDATE_NORMALALERT)));
+    SetNormalStaticImage(Image(StockImage::Yes, RID_DLG_UPDATE_NORMALALERT));
 }
 
 sal_uInt16 UpdateDialog::CheckListBox::getItemCount() const {

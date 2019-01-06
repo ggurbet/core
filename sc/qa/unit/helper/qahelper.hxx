@@ -10,8 +10,6 @@
 #ifndef INCLUDED_SC_QA_UNIT_HELPER_QAHELPER_HXX
 #define INCLUDED_SC_QA_UNIT_HELPER_QAHELPER_HXX
 
-#include <scdllapi.h>
-#include "debughelper.hxx"
 #include <docsh.hxx>
 #include <address.hxx>
 
@@ -20,13 +18,7 @@
 #include <test/bootstrapfixture.hxx>
 #include <comphelper/documentconstants.hxx>
 
-#include <osl/detail/android-bootstrap.h>
-
-#include <unotools/tempfile.hxx>
 #include <comphelper/fileformat.h>
-#include <sfx2/docfilt.hxx>
-#include <sfx2/docfile.hxx>
-#include <svl/stritem.hxx>
 #include <formula/grammar.hxx>
 
 #include <string>
@@ -35,6 +27,8 @@
 #include <sal/types.h>
 
 #include <memory>
+
+namespace utl { class TempFile; }
 
 #if defined(SCQAHELPER_DLLIMPLEMENTATION)
 #define SCQAHELPER_DLLPUBLIC  SAL_DLLPUBLIC_EXPORT
@@ -53,6 +47,7 @@
 #define XLSB_XML_FORMAT_TYPE (SfxFilterFlags::IMPORT |                          SfxFilterFlags::ALIEN | SfxFilterFlags::STARONEFILTER | SfxFilterFlags::PREFERED)
 #define FODS_FORMAT_TYPE     (SfxFilterFlags::IMPORT | SfxFilterFlags::EXPORT | SfxFilterFlags::OWN | SfxFilterFlags::STARONEFILTER )
 #define GNUMERIC_FORMAT_TYPE (SfxFilterFlags::IMPORT | SfxFilterFlags::ALIEN | SfxFilterFlags::PREFERED )
+#define XLTX_FORMAT_TYPE     (SfxFilterFlags::IMPORT | SfxFilterFlags::EXPORT | SfxFilterFlags::TEMPLATE |SfxFilterFlags::ALIEN | SfxFilterFlags::STARONEFILTER | SfxFilterFlags::PREFERED)
 
 #define FORMAT_ODS      0
 #define FORMAT_XLS      1
@@ -66,6 +61,7 @@
 #define FORMAT_XLSB     9
 #define FORMAT_FODS     10
 #define FORMAT_GNUMERIC 11
+#define FORMAT_XLTX     12
 
 enum class StringType { PureString, StringValue };
 

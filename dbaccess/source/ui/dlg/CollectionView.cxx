@@ -82,8 +82,8 @@ OCollectionView::OCollectionView( vcl::Window * pParent
     m_pName->SetText(_sDefaultName);
     m_pName->GrabFocus();
 
-    m_pUp->SetModeImage(Image(BitmapEx(BMP_NAVIGATION_BTN_UP_SC)));
-    m_pNewFolder->SetModeImage(Image(BitmapEx(BMP_NAVIGATION_CREATEFOLDER_SC)));
+    m_pUp->SetModeImage(Image(StockImage::Yes, BMP_NAVIGATION_BTN_UP_SC));
+    m_pNewFolder->SetModeImage(Image(StockImage::Yes, BMP_NAVIGATION_CREATEFOLDER_SC));
 
     m_pView->SetDoubleClickHdl( LINK( this, OCollectionView, Dbl_Click_FileView ) );
     m_pView->EnableAutoResize();
@@ -241,8 +241,7 @@ IMPL_LINK_NOARG(OCollectionView, Dbl_Click_FileView, SvTreeListBox*, bool)
         if ( xNameAccess.is() )
         {
             OUString sSubFolder = m_pView->GetCurrentURL();
-            sal_Int32 nIndex = sSubFolder.lastIndexOf('/') + 1;
-            sSubFolder = sSubFolder.getToken(0,'/',nIndex);
+            sSubFolder = sSubFolder.copy(sSubFolder.lastIndexOf('/') + 1);
             if ( !sSubFolder.isEmpty() )
             {
                 Reference< XContent> xContent;

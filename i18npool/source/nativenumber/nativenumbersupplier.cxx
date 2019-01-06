@@ -837,7 +837,7 @@ sal_Bool SAL_CALL NativeNumberSupplierService::isValidNatNum( const Locale& rLoc
         case NativeNumberMode::NATNUM2:     // Char, Upper
             if (langnum == 4) // Hebrew numbering
                 return true;
-            SAL_FALLTHROUGH;
+            [[fallthrough]];
         case NativeNumberMode::NATNUM4:     // Text, Lower, Long
         case NativeNumberMode::NATNUM5:     // Text, Upper, Long
         case NativeNumberMode::NATNUM6:     // Text, FullWidth
@@ -1082,9 +1082,9 @@ OUString getHebrewNativeNumberString(const OUString& aNumberString, bool useGere
 // See UTN 41 for implementation information
 // http://www.unicode.org/notes/tn41/
 
-static sal_Unicode cyrillicThousandsMark = 0x0482;
-static sal_Unicode cyrillicTitlo = 0x0483;
-static sal_Unicode cyrillicTen = 0x0456;
+static const sal_Unicode cyrillicThousandsMark = 0x0482;
+static const sal_Unicode cyrillicTitlo = 0x0483;
+static const sal_Unicode cyrillicTen = 0x0456;
 
 struct CyrillicNumberChar {
     sal_Unicode code;

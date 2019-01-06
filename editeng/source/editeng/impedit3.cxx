@@ -462,8 +462,6 @@ void ImpEditEngine::FormatDoc()
         }
     }
 
-    if ( aStatus.DoRestoreFont() )
-        GetRefDevice()->SetFont( aOldFont );
     bIsFormatting = false;
     bFormatted = true;
 
@@ -1545,7 +1543,7 @@ bool ImpEditEngine::CreateLines( sal_Int32 nPara, sal_uInt32 nStartPosY )
         if ( pParaPortion->IsSimpleInvalid() )
         {
             // Change through simple Text changes...
-            // Do mot cancel formatting since Portions possibly have to be split
+            // Do not cancel formatting since Portions possibly have to be split
             // again! If at some point cancelable, then validate the following
             // line! But if applicable, mark as valid, so there is less output...
             if ( pLine->GetEnd() < nInvalidStart )
@@ -3337,8 +3335,6 @@ void ImpEditEngine::Paint( OutputDevice* pOutDev, tools::Rectangle aClipRect, Po
                                     vcl::Font _aOldFont( GetRefDevice()->GetFont() );
                                     aTmpFont.SetPhysFont( GetRefDevice() );
                                     aTmpFont.QuickGetTextSize( GetRefDevice(), aText, nTextStart, nTextLen, pTmpDXArray.get() );
-                                    if ( aStatus.DoRestoreFont() )
-                                        GetRefDevice()->SetFont( _aOldFont );
 
                                     // add a meta file comment if we record to a metafile
                                     if( bMetafileValid )
@@ -3367,8 +3363,6 @@ void ImpEditEngine::Paint( OutputDevice* pOutDev, tools::Rectangle aClipRect, Po
                                     vcl::Font _aOldFont( GetRefDevice()->GetFont() );
                                     aTmpFont.SetPhysFont( GetRefDevice() );
                                     aTmpFont.QuickGetTextSize( GetRefDevice(), aText, 0, aText.getLength(), pTmpDXArray.get() );
-                                    if ( aStatus.DoRestoreFont() )
-                                        GetRefDevice()->SetFont( _aOldFont );
                                 }
 
                                 long nTxtWidth = rTextPortion.GetSize().Width();
@@ -3823,8 +3817,6 @@ void ImpEditEngine::Paint( OutputDevice* pOutDev, tools::Rectangle aClipRect, Po
         if (IsVertical() && !IsTopToBottom() && ( aStartPos.X() > aClipRect.Right() ) )
             break;
     }
-    if ( aStatus.DoRestoreFont() )
-        pOutDev->SetFont( aOldFont );
 }
 
 void ImpEditEngine::Paint( ImpEditView* pView, const tools::Rectangle& rRect, OutputDevice* pTargetDevice )
@@ -3964,8 +3956,6 @@ void ImpEditEngine::ShowParagraph( sal_Int32 nParagraph, bool bShow )
                 {
                     vcl::Font aOldFont( GetRefDevice()->GetFont() );
                     CreateLines( nParagraph, 0 );   // 0: No TextRanger
-                    if ( aStatus.DoRestoreFont() )
-                        GetRefDevice()->SetFont( aOldFont );
                 }
                 else
                 {
@@ -4184,13 +4174,13 @@ EditPaM ImpEditEngine::InsertParagraph( sal_Int32 nPara )
     return ImpInsertParaBreak( aPaM );
 }
 
-EditSelection* ImpEditEngine::SelectParagraph( sal_Int32 nPara )
+std::unique_ptr<EditSelection> ImpEditEngine::SelectParagraph( sal_Int32 nPara )
 {
-    EditSelection* pSel = nullptr;
+    std::unique_ptr<EditSelection> pSel;
     ContentNode* pNode = GetEditDoc().GetObject( nPara );
     SAL_WARN_IF( !pNode, "editeng", "Paragraph does not exist: SelectParagraph" );
     if ( pNode )
-        pSel = new EditSelection( EditPaM( pNode, 0 ), EditPaM( pNode, pNode->Len() ) );
+        pSel.reset(new EditSelection( EditPaM( pNode, 0 ), EditPaM( pNode, pNode->Len() ) ));
 
     return pSel;
 }
